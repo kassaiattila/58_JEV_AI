@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "recipes",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "changelog": [
+   {
+    "version": "1.7.0",
+    "date": "2026-09-30",
+    "note": "075 (owner's decision of 2026-09-30): the per-item OpenAI budget 0.10 -> 0.15 USD, because the reservation is a real upper bound since 075 and a typical invoice's G path reserves about 0.106 USD; the actual cost does not change"
+   },
    {
     "version": "1.6.0",
     "date": "2026-09-30",
@@ -43,7 +48,7 @@
  "recipes": [
   {
    "id": "invoice-extraction",
-   "version": 4,
+   "version": 5,
    "title": "Számlák adatainak kinyerése",
    "description": "A munkacsomag PDF-számláiból a típuscsomag mezőinek kinyerése, kódos ellenőrzéssel; ami bizonytalan, teendő lesz.",
    "steps": [
@@ -100,11 +105,11 @@
     },
     "G": {
      "jev": "0.05",
-     "openai": "0.10"
+     "openai": "0.15"
     },
     "auto": {
      "jev": "0.05",
-     "openai": "0.10"
+     "openai": "0.15"
     }
    },
    "max_attempts": 2,
@@ -120,7 +125,7 @@
   },
   {
    "id": "document-processing",
-   "version": 3,
+   "version": 4,
    "title": "Iratok felismerése és adatkinyerése",
    "description": "A munkacsomag iratainak típusfelismerése (durva kategória, majd részletes típus), utána a felismert típus mezőinek kinyerése kódos ellenőrzéssel; ami bizonytalan vagy nem dönthető el, teendő lesz.",
    "steps": [
@@ -170,15 +175,15 @@
    "max_item_usd": {
     "S": {
      "jev": "0.07",
-     "openai": "0.10"
+     "openai": "0.15"
     },
     "G": {
      "jev": "0.07",
-     "openai": "0.10"
+     "openai": "0.15"
     },
     "auto": {
      "jev": "0.07",
-     "openai": "0.10"
+     "openai": "0.15"
     }
    },
    "max_attempts": 2,
@@ -194,7 +199,7 @@
   },
   {
    "id": "email-intent",
-   "version": 3,
+   "version": 4,
    "title": "Levelek szándékának felismerése",
    "description": "A postafiókból letöltött levelek szándékának felismerése (pl. számla érkezett, kérdés, egyéb); a PDF-csatolmányok a levél csomagjában iratként futnak: típusfelismerés, majd a felismert típus adatainak kinyerése. Ami bizonytalan, teendő lesz.",
    "steps": [
@@ -287,15 +292,15 @@
     "document": {
      "S": {
       "jev": "0.07",
-      "openai": "0.10"
+      "openai": "0.15"
      },
      "G": {
       "jev": "0.07",
-      "openai": "0.10"
+      "openai": "0.15"
      },
      "auto": {
       "jev": "0.07",
-      "openai": "0.10"
+      "openai": "0.15"
      }
     }
    },
