@@ -56,6 +56,7 @@ The local service attaches instructions for the browser to every response, inclu
 ## 4. Input: documents, folders, size
 
 - **Input limits** apply at every entry point (UI, command line, worker): text extraction stops a document larger than 100 MB or longer than 300 pages with a named error. A page larger than 40 megapixels is rendered at a lower resolution, text recognition does not run on it, and the item gets a to-do.
+- **Isolated PDF reading** (since 2026-09-30). The third-party PDF parsers run in a separate helper process, not in the worker or the local service themselves, with a time limit per request and a memory limit (on Windows enforced by the operating system). If a PDF makes a parser hang, crash or use too much memory, only the helper stops: text extraction stops the item with a named error, the page images for text recognition give a to-do, a page image for review is refused, and the next document gets a new helper. A document over a limit is not retried, because a retry would hit the same limit.
 - **Folders.** Since 2026-09-28, by the owner's decision, any existing local folder or file may be given. The folder restriction can be switched back on with a setting; then only locations under the configured root folders are accepted. The service resolves the path, following links, and accepts only an existing folder or file.
 - **Watched folder.** The worker only reads it; new documents become a work package, but no paid run starts on its own.
 - **Fixed input.** If a file changes after it was added, the run does not process it and reports an error instead.
@@ -131,7 +132,7 @@ The repository is private and has a single maintainer. Report security issues di
 
 ## Technical details
 
-**Local service** (`jav/api.py`, settings: `configs/service.json` 1.6.0):
+**Local service** (`jav/api.py`, settings: `configs/service.json` 1.8.0):
 
 | Protection | Code | Setting | Test |
 |---|---|---|---|
@@ -152,6 +153,7 @@ The repository is private and has a single maintainer. Report security issues di
 | Protection | Code | Setting | Test |
 |---|---|---|---|
 | input limits | `jav/pdf.py` (`check_document_size`, `DocumentTooLarge`, `InputLimits`, `fit_scale`), `jav/page_image.py`, `jav/ocr.py` (`PageTooLarge`) | `input_limits`: 100 MB, 300 pages, 40 megapixels | `tests/test_input_limits_067.py` |
+| isolated PDF reading | `jav/isolated_pdf.py` (`Reader`, `run`, `PdfReaderLimit`, `PdfReaderError`, `_windows_job`: job object with `ProcessMemoryLimit`, kill on close, no error dialog); callers `jav/pdf.py` `read_pdf`, `jav/ocr.py` `render_pages` (`PdfRenderLimit`), `page_sizes`, `jav/page_image.py`; no retry: `jav/runtime/worker.py` | `pdf_reader`: `isolated`, `read_timeout_s`, `render_timeout_s`, `page_image_timeout_s`, `memory_mb`, `startup_timeout_s` | `tests/test_isolated_pdf_077.py`, `tests/test_runtime_worker.py::test_a_document_over_a_reader_limit_fails_without_retry` |
 | fixed input | `jav/runtime/worker.py` (`source_changed`), readiness check in `jav/work.py` | – | `tests/test_runtime_worker.py::test_changed_source_is_refused`, `tests/test_work.py::test_readiness_detects_changed_and_missing_source` |
 | cost reservation, call log | `jav/runtime/calls.py` (`estimate_max_cost` upper bound with `TOKEN_OVERHEAD`, `invoke`, `_reserve` in a `BEGIN IMMEDIATE` transaction, `BudgetExceeded`, `UncertainAttempt`, `actual_exceeds_reserved` stop); `configs/models.json` `openai.sdk_max_retries = 0` | `configs/recipes.json` `max_item_usd` | `tests/test_runtime_calls.py`, `tests/test_runtime_worker.py::test_budget_exhaustion_becomes_review_not_crash` |
 | unpriced model | `jav/config.py` `openai_price()`, `UnpricedModelError`; callers: `jav/extract_llm.py`, `jav/email_tasks.py` | `configs/models.json` `openai.usd_per_mtok` | `tests/test_runtime_adapters.py::test_unpriced_model_is_refused_under_a_budget` |

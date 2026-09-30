@@ -24,6 +24,7 @@ import csv
 import hashlib
 import io
 import json
+import logging
 import os
 import shutil
 import statistics
@@ -40,6 +41,8 @@ from jav import cfg, pdf as pdfmod
 from jav.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, OLD_DATA_ROOT, PROJECT_ROOT
 from jav.models import LineLayout
 from jav.pdf import PdfText, build_layout, text_layer_ok
+
+log = logging.getLogger("jav.ocr")
 
 _CFG = cfg.load("ocr")
 CONFIG_HASH = cfg.config_hash("ocr")  # the whole file's identity (call log, quality signals)
@@ -97,6 +100,11 @@ class AzureBlocked(OcrUnavailableError):
 class PageTooLarge(OcrUnavailableError):
     """067: a page image at the recognition resolution would exceed the `input_limits.max_page_megapixels` limit of
     `configs/service.json`; the process raises a to-do (`ocr:unavailable:PageTooLarge`) and no page image is made."""
+
+
+class PdfRenderLimit(OcrUnavailableError):
+    """077: rendering the page images went over the isolated PDF reader's time or memory limit (`jav/isolated_pdf.py`,
+    `pdf_reader` in `configs/service.json`); the process raises a to-do (`ocr:unavailable:PdfRenderLimit`)."""
 
 
 # --- engines -----------------------------------------------------------------------------------
@@ -295,49 +303,35 @@ def _run_tesseract(png: Path, out_base: Path, *, psm: int | None = None, eng: st
 
 def render_pages(path: str | Path, out_dir: Path, *, dpi: int = DPI, max_pages: int | None = None) -> list[Path]:
     """PDF -> page images (PNG) with pypdfium2 (no poppler). Greyscale by default, `dpi` resolution; at most
-    `max_pages` pages."""
-    import pypdfium2 as pdfium
-
-    from jav.page_image import PDFIUM_LOCK  # 063: PDFium is not thread-safe
+    `max_pages` pages. 077: rendered in the isolated PDF reader (`jav/isolated_pdf.py`); over its time or memory limit
+    `PdfRenderLimit` (a to-do, like `PageTooLarge`)."""
+    from jav import isolated_pdf
 
     max_pages = max_pages or int(_CFG["max_pages"])
     max_mp = pdfmod.input_limits().max_page_megapixels
-    out: list[Path] = []
-    with PDFIUM_LOCK:
-        doc = pdfium.PdfDocument(str(path))
-        try:
-            for i in range(min(len(doc), max_pages)):  # all page sizes first: if one is too large, make no image at all
-                w, h = doc[i].get_size()
-                if pdfmod.fit_scale(w, h, scale=dpi / 72.0, max_megapixels=max_mp) < dpi / 72.0:
-                    raise PageTooLarge(f"page {i + 1} ({w:.0f} x {h:.0f} pt) is over {max_mp:g} MP at {dpi} dpi")
-            for i in range(min(len(doc), max_pages)):
-                page = doc[i]
-                bitmap = page.render(scale=dpi / 72.0, grayscale=bool(_CFG.get("grayscale", True)))
-                img = bitmap.to_pil()
-                p = out_dir / f"p-{i + 1}.png"
-                img.save(p)
-                out.append(p)
-                page.close()
-        finally:
-            doc.close()
-    return out
+    try:
+        result = isolated_pdf.run(isolated_pdf.render_pages, kind="render", path=str(path), out_dir=str(out_dir), dpi=dpi,
+                                  max_pages=max_pages, grayscale=bool(_CFG.get("grayscale", True)), max_megapixels=max_mp)
+    except isolated_pdf.PdfReaderLimit as exc:
+        raise PdfRenderLimit(str(exc)) from exc
+    if "too_large" in result:
+        page, w, h = result["too_large"]
+        raise PageTooLarge(f"page {page} ({w:.0f} x {h:.0f} pt) is over {max_mp:g} MP at {dpi} dpi")
+    return [Path(p) for p in result["pages"]]
 
 
 def page_sizes(path: str | Path) -> list[tuple[float, float]]:
-    """Page sizes in points (pypdfium2), for normalising the word layer; the same reference for every OCR engine."""
-    import pypdfium2 as pdfium
+    """Page sizes in points (pypdfium2), for normalising the word layer; the same reference for every OCR engine.
+    Unreadable PDF (e.g. an image file, corrupt, or over the isolated reader's limits): [] — no word layer, the OCR
+    result still stands."""
+    from jav import isolated_pdf
 
-    from jav.page_image import PDFIUM_LOCK  # 063: PDFium is not thread-safe
-
-    with PDFIUM_LOCK:
-        try:
-            doc = pdfium.PdfDocument(str(path))
-        except pdfium.PdfiumError:
-            return []  # unreadable PDF (e.g. image file, corrupt): no word layer, the OCR result still stands
-        try:
-            return [tuple(float(v) for v in doc[i].get_size()) for i in range(len(doc))]
-        finally:
-            doc.close()
+    try:
+        sizes = isolated_pdf.run(isolated_pdf.page_sizes, kind="read", path=str(path))
+    except (isolated_pdf.PdfReaderLimit, isolated_pdf.PdfReaderError) as exc:
+        log.warning("no page sizes for %s: %s", Path(path).name, exc)
+        return []
+    return [tuple(s) for s in sizes] if sizes else []
 
 
 # --- TSV -> word boxes (in points) ---------------------------------------------------------------

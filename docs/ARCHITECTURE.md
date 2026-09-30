@@ -120,6 +120,13 @@ data: a manual labelling list (`*_manual_sample.md`) → our own golden set (`go
    old sidecar (paid). The call goes through the call log (`azure_recognise`): in a worker run the page count is
    reserved from the run's Azure budget (recipe switch `azure_ocr`), a blocked escalation leaves the local text and, for a
    budget or uncertainty block, a to-do (`ocr:escalation_blocked:*`). Heavy dependencies may only go behind a sidecar.
+5. **Isolated PDF reading**: `jav/isolated_pdf.py` + `configs/service.json` `pdf_reader` — the third-party PDF parsers
+   (pdfplumber for the text layer, PDFium for the OCR page images, the page sizes and the review page images) run in one
+   long-lived helper process per calling process (worker, local service), one request at a time, with a time limit per
+   request and a memory limit (on Windows a job object). Our own processing (words → lines and cells) stays in the
+   calling process. Over a limit the helper is stopped and replaced; text extraction fails the item with a named error
+   (`PdfReaderLimit`, no retry), the OCR page images give a to-do (`ocr:unavailable:PdfRenderLimit`), and a review page
+   image is answered with 422. `isolated: false` runs the same functions in-process.
 
 ## 4. Tuning and changes — the procedure
 
@@ -368,7 +375,8 @@ row): a PDF attachment runs in its email's package with the email recipe, not in
 **Plain-language summary.** The system is deliberately strict in several places. It checks tax numbers against
 recognised formats and the check digit, it does not claim false certainty for a field with no candidates, a damaged
 glyph does not turn into a negative amount, and a document without a type pack gets a to-do. The
-input limit stops documents that are too large. On the code side the data guard protects what goes to GitHub, on the
+input limit stops documents that are too large, and the PDF parsers run in a separate helper process with a time and
+memory limit, so a broken PDF cannot hang the worker or the service. On the code side the data guard protects what goes to GitHub, on the
 browser side the security headers protect the UI, and the running version is visible. The full security picture:
 [security notes](SECURITY.md).
 
@@ -379,6 +387,7 @@ browser side the security headers protect the UI, and the running version is vis
 | Lost glyph | `jav/pdf.py` `fix_lost_glyphs` | a damaged currency sign does not produce a hyphen (a negative amount) | `tests/test_lost_glyph_069.py` |
 | Document without a type pack | `jav/flow_detect.py` | a recognised type that has no pack gets a to-do | `tests/test_no_type_pack_069.py` |
 | Input limit | `configs/service.json` `input_limits`, `jav/pdf.py`, `jav/ocr.py`, `jav/page_image.py` | file size, page count, page-image pixels; above them a named error or a to-do | `tests/test_input_limits_067.py` |
+| Isolated PDF reading | `jav/isolated_pdf.py`, `configs/service.json` `pdf_reader` | a PDF that hangs a parser or exhausts memory stops only the helper process: a named error, a to-do or a 422, and the next document gets a new helper; a document over a limit is not retried | `tests/test_isolated_pdf_077.py`, `tests/test_runtime_worker.py` |
 | Data guard | `jav/data_guard.py`, `scripts/githooks/`, `configs/data_guard.json` | before a commit and a push: real-looking data, keys, internal working documents, documents and binary files stop it; a push is also refused when it would carry a commit listed as forbidden in the configuration | `tests/test_data_guard_071.py` |
 | Security headers | `jav/api.py` `_SecurityHeaders` | see the table in section 7 | `tests/test_security_headers_071.py` |
 | Version | `jav/version.py` | see the table in section 7 | `tests/test_version_071.py` |

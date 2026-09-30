@@ -221,12 +221,14 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     effective = {**machine, **corr["fields"]}
     pack = typepack.get(dp["doc_type"]) if dp else None
     lists = {f: {"columns": list_columns(pack, f, machine.get(f))} for f, k in pack.fields.items() if k == "list"} if pack else {}
-    from jav import page_image
+    from jav import isolated_pdf, page_image
 
     src = Path(item["source_path"])
     try:
         n_pages = page_image.page_count(src) if src.is_file() else None
-    except (OSError, RuntimeError):  # damaged PDF (pypdfium: RuntimeError): use the word layer's page count
+    except (OSError, RuntimeError, isolated_pdf.PdfReaderError, isolated_pdf.PdfReaderLimit):
+        # a damaged PDF (in-process pypdfium: RuntimeError) or one over the isolated reader's limits (077): the word
+        # layer's page count is used
         n_pages = None
     return {"run_id": run_id, "item_id": item_id, "kind": "document", "page_count": n_pages, "extraction": dp, "correction": corr,
             "effective": effective, "lists": lists,

@@ -23,12 +23,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import pdfplumber
+from jav.models import CellLayout, LineLayout
 
 # pdfminer warns on every line for broken font descriptors ("Could not get FontBBox") - noise, the text is still fine
+# (the in-process mode; the isolated reader sets the same in its helper)
 logging.getLogger("pdfminer").setLevel(logging.ERROR)
-
-from jav.models import CellLayout, LineLayout
 
 MIN_TEXT_CHARS = 40
 MIN_ALNUM_RATIO = 0.3
@@ -221,23 +220,26 @@ def text_layer_ok(text: str) -> bool:
 
 
 def read_pdf(path: str | Path) -> PdfText:
+    """The text layer with lines and cells. 077: pdfplumber runs in the isolated PDF reader (`jav/isolated_pdf.py`,
+    time and memory limit: `PdfReaderLimit`; a parser error: `PdfReaderError`); the words are cleaned and laid out
+    here."""
+    from jav import isolated_pdf
+
     path = Path(path)
     check_document_size(path)
-    pages: list[list[dict]] = []
-    sizes: list[tuple[float, float]] = []
-    with pdfplumber.open(str(path)) as pdf:
-        page_count = len(pdf.pages)
-        max_pages = input_limits().max_document_pages
-        if page_count > max_pages:
-            raise DocumentTooLarge(f"{path.name}: {page_count} pages is over the {max_pages} page input limit "
-                                   "(configs/service.json)")
-        for page in pdf.pages:
-            sizes.append((float(page.width), float(page.height)))
-            words = page.extract_words(x_tolerance=X_TOLERANCE, y_tolerance=Y_TOLERANCE, keep_blank_chars=False)
-            pages.append([
-                {**w, "text": normalize_dashes(fix_lost_glyphs(_fix_latex_accents(_CID_RE.sub("", w["text"]).replace(" ", " ")))).strip()}
-                for w in words
-            ])
+    max_pages = input_limits().max_document_pages
+    page_count, sizes, raw_pages = isolated_pdf.run(isolated_pdf.extract_words, kind="read", path=str(path),
+                                                    max_pages=max_pages, x_tolerance=X_TOLERANCE, y_tolerance=Y_TOLERANCE)
+    if raw_pages is None:
+        raise DocumentTooLarge(f"{path.name}: {page_count} pages is over the {max_pages} page input limit "
+                               "(configs/service.json)")
+    pages: list[list[dict]] = [
+        [
+            {**w, "text": normalize_dashes(fix_lost_glyphs(_fix_latex_accents(_CID_RE.sub("", w["text"]).replace(" ", " ")))).strip()}
+            for w in words
+        ]
+        for words in raw_pages
+    ]
     layout = build_layout(pages)
     lines = [ln.text for ln in layout]
     text = "\n".join(lines)
