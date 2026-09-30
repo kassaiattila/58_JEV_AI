@@ -23,7 +23,7 @@ Input protection (040 K1, findings F01–F03 of 038):
   connection) instead of holding a thread open.
 
 Start:    python -m jav.cli email-ingest-server [--port 8931] [--run]
-Bridge:   powershell -File C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\scripts\\outlook_bridge.ps1 -Accounts <smtp> -SinceDays 30
+Bridge:   powershell -File <legacy-root>\\scripts\\outlook_bridge.ps1 -Accounts <smtp> -SinceDays 30
               -MaxItems 50 -AllEmails -ManualRun -NoArchive -WorkflowId email-intent -WorkflowVersion 1 [-ApiToken <key>]
 """
 
