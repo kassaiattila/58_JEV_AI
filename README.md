@@ -70,7 +70,7 @@ python -m jav.cli store | admin | configs | flows --check | docs   # adattár, v
 python -m jav.cli recipes | wp-create <mappa> | wp-assign <wp> invoice-extraction | wp-show <wp>   # munkacsomag és recept
 python -m jav.cli run-start <wp> [--mode shadow|apply] | worker --once | run-show <run> | run-cancel <run> | run-approve <run> --actor <név>
 cd ui; npm ci; npm run build; cd ..                               # a felület buildje (egyszer, és ui/src változás után)
-.\scripts\dev.ps1 start | status | stop                          # felület + szolgáltatás: http://127.0.0.1:8930/ (API: /api/docs) + feldolgozó
+.\scripts\dev.ps1 start | status | stop                          # felület + szolgáltatás: http://127.0.0.1:8930/ (végpontlista: /api/openapi.json) + feldolgozó
 python -m jav.cli serve | worker-status | worker-stop              # ugyanez külön-külön
 burr                                                               # Burr-tracker: http://localhost:7241
 ```

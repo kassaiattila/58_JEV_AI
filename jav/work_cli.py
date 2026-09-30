@@ -10,7 +10,7 @@
   run-cancel <run> | run-approve <run> --actor A
   worker [--once] [--max-jobs N]           feldolgozó: a munkasor tételeit futtatja (egyszerre egy példány, zárral)
   worker-status | worker-stop              fut-e feldolgozó; szabályos leállítás kérése (a folyamatban lévő tétel után)
-  serve [--port P]                         helyi szolgáltatás (040 K2, csak 127.0.0.1; leírás: /api/docs)
+  serve [--port P]                         helyi szolgáltatás (040 K2, csak 127.0.0.1; végpontlista: /api/openapi.json)
   calls-uncertain | calls-resolve <id> [--cost USD] --note N   bizonytalan kimenetű fizetős hívások; kézi rendezés (066 Á30)
 
 A parancsok a felülettel azonos üzleti műveleteket hívják; a szabályok (verzióütközés, készenlét, jóváhagyás) a

@@ -440,7 +440,7 @@ def test_page_image_is_png_and_hash_protected(env):
     wp = _ready_wp(c, env["folder"])
     item = wp["items"][0]
     r = c.get(f"/api/workpackages/{wp['id']}/items/{item['item_id']}/pages/1.png?dpi=72")
-    assert r.status_code == 200 and r.content.startswith(b"\x89PNG") and "immutable" in r.headers["cache-control"]
+    assert r.status_code == 200 and r.content.startswith(b"\x89PNG") and r.headers["cache-control"] == "no-store"  # 071
     assert c.get(f"/api/workpackages/{wp['id']}/items/{item['item_id']}/pages/2.png").status_code == 422
     assert c.get(f"/api/workpackages/{wp['id']}/items/{item['item_id']}/pages/1.png?dpi=999").status_code == 422
     Path(item["source_path"]).write_bytes(b"%PDF-1.4 kicserelve")

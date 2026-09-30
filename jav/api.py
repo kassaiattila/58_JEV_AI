@@ -124,6 +124,57 @@ def _origin(value: str) -> str:
     return f"{u.scheme}://{u.hostname}:{port}" if u.scheme and u.hostname else ""
 
 
+# 071 S-fejlécek (070 terv 2.1, audit A07): böngészős védőfejlécek minden válaszon, a meglévő védelmek mögötti második
+# réteg. A felület csak a saját fájljait töltheti be; a Vite a kis betűkészlet-fájlokat a stíluslapba ágyazza (`data:`),
+# a favikon `data:`, a letöltés `blob:`. Az `/api/` válaszait (irat-adat, oldalkép, forrásirat, letöltés) a böngésző
+# nem tárolhatja. A forrásirat új lapon, a böngésző beépített PDF-nézőjében nyílik: ott csak a beágyazás tiltott.
+UI_CSP = "; ".join((
+    "default-src 'self'", "script-src 'self'", "style-src 'self'", "img-src 'self' data: blob:", "font-src 'self' data:",
+    "connect-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
+))
+API_CSP = "default-src 'none'; frame-ancestors 'none'"
+DOCUMENT_CSP = "frame-ancestors 'none'"
+_COMMON_HEADERS: tuple[tuple[bytes, bytes], ...] = (
+    (b"x-frame-options", b"DENY"),
+    (b"x-content-type-options", b"nosniff"),
+    (b"referrer-policy", b"no-referrer"),
+    (b"cross-origin-opener-policy", b"same-origin"),
+    (b"cross-origin-resource-policy", b"same-origin"),
+)
+_SET_HERE = {k for k, _ in _COMMON_HEADERS} | {b"content-security-policy"}
+
+
+class _SecurityHeaders:
+    """Tiszta ASGI-köztes réteg, a legkülső: a védőfejlécek a hibás és az elutasított kérés válaszára is rákerülnek."""
+
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        is_api = scope["path"] == "/api" or scope["path"].startswith("/api/")
+
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                drop = _SET_HERE | ({b"cache-control"} if is_api else set())
+                headers = [(k, v) for k, v in message.get("headers", []) if k.lower() not in drop]
+                ctype = next((v for k, v in headers if k.lower() == b"content-type"), b"")
+                if not is_api:
+                    csp = UI_CSP
+                elif ctype.startswith(b"application/pdf"):
+                    csp = DOCUMENT_CSP
+                else:
+                    csp = API_CSP
+                headers += [*_COMMON_HEADERS, (b"content-security-policy", csp.encode("ascii"))]
+                if is_api:
+                    headers.append((b"cache-control", b"no-store"))
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
+
+
 class _Guard:
     """Tiszta ASGI-köztes réteg: Host, Origin, tartalomtípus és törzsméret, még az útválasztás előtt."""
 
@@ -348,8 +399,10 @@ def actor_unless_first_users(x_actor: Annotated[str | None, Header(max_length=25
 def create_app(*, store_path: Path | None = None) -> FastAPI:
     """`store_path`: futáshelyi adattár (tesztekhez); nélküle az alapértelmezett `store/jav.sqlite`."""
     s = settings()
+    # 071 döntés (2026-09-30): a kattintható végpontlista (/api/docs) külső tárhelyről töltene programkódot a helyi címre,
+    # ezért ki van kapcsolva; a gépi végpontlista (/api/openapi.json) marad
     app = FastAPI(title="JAV helyi szolgáltatás", version=API_VERSION, default_response_class=JavJSONResponse,
-                  docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
+                  docs_url=None, openapi_url="/api/openapi.json", redoc_url=None)
 
     if store_path is not None:
         @app.middleware("http")
@@ -516,12 +569,12 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.get(r + "/workpackages/{wp_id}/items/{item_id}/pages/{page}.png")
     def item_page(wp_id: WpId, item_id: ItemId, page: Annotated[int, PathParam(ge=1, le=500)],
                   dpi: Annotated[int, Query(ge=72, le=200)] = 144) -> Response:
-        """Egy oldal képe (045 K3b) — a keretek erre kerülnek. A tartalom a hash-hez kötött, ezért gyorsítótárazható."""
+        """Egy oldal képe (045 K3b) — a keretek erre kerülnek. 071: irat-tartalom, ezért a böngésző nem tárolja
+        (`no-store`, a védőfejléc-réteg teszi rá; korábban egy napig a lemezes gyorsítótárban maradt)."""
         from jav import page_image
 
         png = page_image.render(_item_file(wp_id, item_id), page, dpi=dpi)
-        return Response(png, media_type="image/png",
-                        headers={"Cache-Control": "private, max-age=86400, immutable", "X-Content-Type-Options": "nosniff"})
+        return Response(png, media_type="image/png")
 
     @app.get(r + "/workpackages/{wp_id}/items/{item_id}/source")
     def item_source(wp_id: WpId, item_id: ItemId) -> FileResponse:
@@ -782,6 +835,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     # utoljára hozzáadva = legkülső réteg: a kérés még az útválasztás és az adattár előtt ellenőrződik
     app.add_middleware(_Guard, allowed_hosts=set(s["allowed_hosts"]) & LOOPBACK, max_body=int(s["max_body_bytes"]),
                        dev_origins=set(s.get("dev_origins", [])))
+    app.add_middleware(_SecurityHeaders)  # 071: még a _Guard elutasító válaszára is
     return app
 
 
