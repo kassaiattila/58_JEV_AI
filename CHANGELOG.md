@@ -6,9 +6,11 @@ Releases in brief, newest first. The detailed release notes and measurement evid
 
 ## Plain-language summary
 
-This list shows what each release brought. `v1.0.0` was the first version the owner marked as stable: work packages, recipes, review on the document's page image, results and approval. The `v1.0.1`–`v1.0.4` fix rounds corrected problems found in real trials and reviews; the most important of them was the tax-number check. `v1.0.5` is a security round: no personal data can reach GitHub, the browser does not store document data, and you can see which code is running.
+This list shows what each release brought. `v1.0.0` was the first version the owner marked as stable: work packages, recipes, review on the document's page image, results and approval. The `v1.0.1`–`v1.0.4` fix rounds corrected problems found in real trials and reviews; the most important of them was the tax-number check. `v1.0.5` is a security round: no personal data can reach GitHub, the browser does not store document data, and you can see which code is running. `v1.1.0` is a second security round after a repeated audit: paid calls, Azure recognition included, stay within a real, reserved upper bound, the documents shown for review are verified, and the repository's documentation is in English.
 
-## Unreleased
+## v1.1.0 — 2026-09-30
+
+Second security round after a repeated audit, and the repository in English; free, apart from one JEV test call.
 
 - **UI fixes (2026-09-30):**
   - To-dos raised by task proposals are shown as a readable sentence instead of a raw code.
