@@ -1,0 +1,36 @@
+{
+ "meta": {
+  "name": "verify_csapatmenedzser_utasitas",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_csapatmenedzser_utasitas",
+ "document": "Instruction issued to a sports team manager by an organising body",
+ "glossary": "Document type: Instruction issued to a sports team manager by an organising body. Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "document_title": "the document title as printed on the document",
+  "issuing_body": "the issuing body as printed on the document",
+  "recipient": "the recipient as printed on the document",
+  "date": "the date as printed on the document",
+  "subject": "the subject as printed on the document"
+ },
+ "incomplete_fields": [
+  "issuing_body",
+  "recipient"
+ ],
+ "wrong_kind_fields": []
+}

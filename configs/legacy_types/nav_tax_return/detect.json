@@ -1,0 +1,7 @@
+{
+  "required_any": ["bevall", "kata"],
+  "supporting": ["[0-9]{2}szja", "nyomtatvány", "adóév", "2353"],
+  "excluders": ["igazol", "értesít", "ertesit", "nyugta", "befogad"],
+  "prior": 1.0,
+  "embedding_profile": "NAV adóbevallás nyomtatvány: a Nemzeti Adó- és Vámhivatalhoz benyújtott többoldalas bevallási űrlap — személyi jövedelemadó bevallás (21SZJA, 2253, 2353), KATA bevallás vagy nyilatkozat (17KATA, 18KATA), 53-as típusú bevallás (1753, 2153). Jellemző kifejezések: bevallás, adóbevallás, adóév, nyomtatvány-kód, főlap, azonosítás blokk, adózó neve, bevallási időszak, fizetendő adó, megállapított adó, bevétel. Tipikus mezők: nyomtatvány azonosítója (évszám + SZJA/KATA), adóév, adózó neve, bevallott jövedelem- és adósorok, benyújtás módja."
+}

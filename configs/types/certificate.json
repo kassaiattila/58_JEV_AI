@@ -1,0 +1,85 @@
+{
+ "meta": {
+  "name": "type:certificate",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   }
+  ],
+  "source": {
+   "path": "10_AIFLOW_V4/flows/doc-extract-bare/types/certificate",
+   "via": "configs/legacy_types/certificate",
+   "sha256": {
+    "schema.json": "ceddd8e34ebbea6c4a7ca2888a6d5e1d54db8c2f325a4544880a227dea2e9048",
+    "prompt.md": "24eb616fa76a0463de0a2ab91c70529874951c346e48cbd8ab2569927b318726",
+    "rules.json": "c75fa4870e2bfacb5068c0099cbb5bfeaf3937e874628cebc179c59f2d34d0c2",
+    "detect.json": "109d3eceb0b37282fea7e9dce9bc0cfd4c1c7acdae590f011b93615b1805b6c3",
+    "meta.json": "f175e5ea3c856eb8e14a3224042d8e3a0b5141dc952e600ebf8b55221fda1570",
+    "fixtures/synth_certificate.json": "a8efb38ddf865e9df11cc16bc2ce73b1571ce054cb97532cb91f22e3f49806ac"
+   }
+  }
+ },
+ "document": "Certificate or attestation issued to a person (training, qualification, membership), not a tax authority document",
+ "golden_type_key": "certificate",
+ "candidate_profile": "intl",
+ "arms": [
+  "G"
+ ],
+ "parent": "certificate",
+ "auto_detect": true,
+ "detect": {
+  "required_any": [
+   "tanúsítvány",
+   "tanusitvany",
+   "oklevél",
+   "oklevel",
+   "diploma",
+   "elismer",
+   "certificate of",
+   "képzés",
+   "kepzes",
+   "vizsga",
+   "bizonyítvány",
+   "bizonyitvany"
+  ],
+  "supporting": [],
+  "excluders": [
+   "kárbejelentő",
+   "személyi igazolvány"
+  ]
+ },
+ "prompt_file": "certificate_prompt.md",
+ "schema_file": "certificate_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_certificate",
+ "fields": {
+  "document_title": "text",
+  "holder_name": "name",
+  "issuer": "name",
+  "issue_date": "date",
+  "certificate_type": "text",
+  "valid_until": "date",
+  "registration_number": "text"
+ },
+ "list_fields": {},
+ "enums": {},
+ "scored_fields": [
+  "document_title",
+  "holder_name",
+  "issuer",
+  "issue_date",
+  "certificate_type",
+  "valid_until",
+  "registration_number"
+ ],
+ "informational_fields": [],
+ "required": [
+  "document_title",
+  "holder_name"
+ ],
+ "validators": [],
+ "legacy_transforms": []
+}

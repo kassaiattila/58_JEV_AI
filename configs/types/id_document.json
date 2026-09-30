@@ -1,0 +1,89 @@
+{
+ "meta": {
+  "name": "type:id_document",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   }
+  ],
+  "source": {
+   "path": "10_AIFLOW_V4/flows/doc-extract-bare/types/id_document",
+   "via": "configs/legacy_types/id_document",
+   "sha256": {
+    "schema.json": "6960ee5fa9522957ed11b9604aafcc375a11ebad548cae0ced08ae989e830dc0",
+    "prompt.md": "2c4cee23820caed2ebd58ceea0928b33d74d0e55c7e4ca6c00d63056219f131f",
+    "rules.json": "8ecb1b5d471f312bf24b588e5bb838e39082fd3f7b8680fa89ee656b838ae484",
+    "detect.json": "4be897297fefdaf43cb355d9336b7fd660cd0c796291f64244d510dbfc41cc69",
+    "meta.json": "cd05deb87874fd43db52beae63f123fa2f1be4578e318a809f6cb3fe36861711",
+    "fixtures/synth_id_document.json": "645aafd06574099d39a75379fa5ed1ba9c939b07e73dfeaf95a47eaa1b7254a7"
+   }
+  }
+ },
+ "document": "Personal identity document (ID card, social security card, passport, address card)",
+ "golden_type_key": "id_document",
+ "candidate_profile": "intl",
+ "arms": [
+  "G"
+ ],
+ "parent": "other",
+ "auto_detect": true,
+ "detect": {
+  "required_any": [
+   "személyi",
+   "szemelyi",
+   "személyazonosító",
+   "szemelyazonosito",
+   "útlevél",
+   "utlevel",
+   "vezetői engedély",
+   "vezetoi",
+   "okmány",
+   "okmany",
+   "lakcímkártya",
+   "lakcimkartya",
+   "lakcím",
+   "lakcim",
+   "igazolvány",
+   "igazolvany",
+   "taj",
+   "kombinalt",
+   "adóazonosító",
+   "adoazonosito",
+   "passport",
+   "identity"
+  ],
+  "supporting": [
+   "érvényes"
+  ],
+  "excluders": []
+ },
+ "prompt_file": "id_document_prompt.md",
+ "schema_file": "id_document_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_id_document",
+ "fields": {
+  "document_kind": "text",
+  "holder_name": "name",
+  "document_number": "text",
+  "valid_until": "date",
+  "birth_date": "date"
+ },
+ "list_fields": {},
+ "enums": {},
+ "scored_fields": [
+  "document_kind",
+  "holder_name",
+  "document_number",
+  "valid_until",
+  "birth_date"
+ ],
+ "informational_fields": [],
+ "required": [
+  "document_kind"
+ ],
+ "validators": [],
+ "legacy_transforms": []
+}

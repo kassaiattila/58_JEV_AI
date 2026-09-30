@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "document_title": { "type": ["string", "null"], "description": "A bevallas cime/megnevezese, ahogy a folapon szerepel" },
+    "form_code":      { "type": ["string", "null"], "description": "Nyomtatvany-kod, pl. 17KATA, 21SZJA, 2153, 2353" },
+    "tax_year":       { "type": ["string", "null"], "description": "Adoev, YYYY (pl. 2021)" },
+    "taxpayer_name":  { "type": ["string", "null"], "description": "Adozo neve" },
+    "tax_id":         { "type": ["string", "null"], "description": "Adoazonosito jel (10 szamjegy) VAGY adoszam, ahogy a folapon szerepel" },
+    "issue_date":     { "type": ["string", "null"], "description": "Beadas/postara adas/keltezes datuma, ISO 8601 YYYY-MM-DD" },
+    "authority":      { "type": ["string", "null"], "description": "Cimzett hatosag (pl. Nemzeti Ado- es Vamhivatal)" },
+    "total_tax":      { "type": ["string", "null"], "description": "A bevallas fo ado-vegosszege (fizetendo/visszaigenyelt) — plain decimal STRING (D4); null ha nincs egyertelmu vegosszeg" }
+  },
+  "required": ["document_title", "form_code", "tax_year", "taxpayer_name", "tax_id", "issue_date", "authority", "total_tax"]
+}

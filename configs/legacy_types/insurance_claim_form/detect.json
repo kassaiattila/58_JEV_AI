@@ -1,0 +1,7 @@
+{
+  "required_any": ["kárbejelentő", "karbejelento", "igénybejelent", "igenybejelent", "nyomtatvány", "nyomtatvany", "meghatalmaz"],
+  "supporting": ["biztosít", "kötvény", "káresemény", "pénztár"],
+  "excluders": ["szótár", "fogalomtár"],
+  "prior": 1.0,
+  "embedding_profile": "Biztosítási vagy pénztári űrlap, nyomtatvány: kárbejelentő adatlap, igénybejelentő nyomtatvány, azonosítási formanyomtatvány vagy meghatalmazás biztosítóhoz, önkéntes nyugdíjpénztárhoz vagy egészségpénztárhoz. Gyakran ÜRES, kitölthető sablon pontozott vonalakkal és rubrikákkal. Jellemző kifejezések: kárbejelentés, igénybejelentés, káresemény leírása, kötvényszám, biztosított, szerződő, pénztártag, átlépési nyilatkozat, meghatalmazás. Tipikus mezők: űrlap címe és nyomtatványkódja, biztosító vagy pénztár neve, bejelentő adatai, káresemény dátuma, aláírás."
+}

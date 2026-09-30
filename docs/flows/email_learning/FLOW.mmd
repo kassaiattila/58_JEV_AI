@@ -1,0 +1,20 @@
+flowchart TD
+  subgraph ph_baseline["baseline"]
+    baseline["baseline (jev)"]
+  end
+  subgraph ph_scan["scan"]
+    scan["scan (jev)"]
+  end
+  subgraph ph_classify["classify"]
+    classify["classify (jev)"]
+  end
+  subgraph ph_collect["collect"]
+    collect["collect (store)"]
+  end
+  subgraph ph_terminal["terminal"]
+    done["done (terminal)"]
+  end
+  baseline --> scan
+  scan --> classify
+  classify --> collect
+  collect --> done

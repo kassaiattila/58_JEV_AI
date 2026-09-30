@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "document_title":      { "type": ["string", "null"], "description": "Az okirat cime/megnevezese, ahogy a dokumentumon szerepel (pl. Diploma, Erkolcsi bizonyitvany, Certificate of Completion)" },
+    "holder_name":         { "type": ["string", "null"], "description": "Akinek az okiratot kiallitottak (nev)" },
+    "issuer":              { "type": ["string", "null"], "description": "Kiallito intezmeny/szervezet neve" },
+    "issue_date":          { "type": ["string", "null"], "description": "Kiallitas datuma, ISO 8601 YYYY-MM-DD" },
+    "certificate_type":    { "type": ["string", "null"], "description": "Tipus-besorolas: diploma | bizonyitvany | tanusitvany | igazolas | nyelvvizsga | erkolcsi_bizonyitvany | egyeb" },
+    "valid_until":         { "type": ["string", "null"], "description": "Ervenyesseg vege, ISO 8601 YYYY-MM-DD, ha szerepel; kulonben null" },
+    "registration_number": { "type": ["string", "null"], "description": "Okirat-/torzslap-/anyakonyvi szam, ha szerepel" }
+  },
+  "required": ["document_title", "holder_name", "issuer", "issue_date", "certificate_type", "valid_until", "registration_number"]
+}

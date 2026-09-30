@@ -1,0 +1,9 @@
+{
+  "required": [],
+  "fields": {
+    "meeting_date": { "format": "date" }
+  },
+  "money_fields": [],
+  "transforms": [],
+  "named": []
+}

@@ -1,0 +1,42 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "supplier_name":    { "type": ["string", "null"], "description": "Kiallito (szallito) neve — kimeno szamlan mindig a BestixCom Kft / BestIxCom Kft" },
+    "supplier_tax_id":  { "type": ["string", "null"], "description": "Kiallito HU adoszama (BestixCom: 12345678-2-42), formatum ########-#-##" },
+    "buyer_name":       { "type": ["string", "null"], "description": "Vevo (customer) neve" },
+    "buyer_tax_id":     { "type": ["string", "null"], "description": "Vevo adoszama / VAT registration No., ha szerepel" },
+    "buyer_address":    { "type": ["string", "null"], "description": "Vevo cime, ahogy a szamlan szerepel" },
+    "invoice_number":   { "type": ["string", "null"], "description": "Szamla sorszama (pl. BD012, BESE0018)" },
+    "issue_date":       { "type": ["string", "null"], "description": "Kiallitas datuma, ISO 8601 YYYY-MM-DD" },
+    "fulfillment_date": { "type": ["string", "null"], "description": "Teljesites/delivery datuma, ISO 8601 YYYY-MM-DD" },
+    "due_date":         { "type": ["string", "null"], "description": "Fizetesi hatarido, ISO 8601 YYYY-MM-DD" },
+    "currency":         { "type": ["string", "null"], "description": "A szamla fo penzneme, ISO 4217 (USD, EUR, HUF)" },
+    "net_total":        { "type": ["string", "null"], "description": "Netto vegosszeg a fo penznemben — plain decimal STRING, dot separator (D4)" },
+    "vat_total":        { "type": ["string", "null"], "description": "AFA osszege STRING-kent (AAM/0% eseten \"0\" lehet)" },
+    "gross_total":      { "type": ["string", "null"], "description": "Brutto vegosszeg a fo penznemben — plain decimal STRING" },
+    "payment_iban":     { "type": ["string", "null"], "description": "Fizetesi IBAN/bankszamlaszam, ahogy a szamlan szerepel" },
+    "line_items": {
+      "type": "array",
+      "description": "Tetelsorok",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description":  { "type": ["string", "null"] },
+          "quantity":     { "type": ["number", "null"] },
+          "unit_price":   { "type": ["string", "null"], "description": "plain decimal STRING" },
+          "net_amount":   { "type": ["string", "null"], "description": "plain decimal STRING" },
+          "vat_rate":     { "type": ["string", "null"], "description": "pl. 27%, 5%, AAM, 0%" },
+          "gross_amount": { "type": ["string", "null"], "description": "plain decimal STRING" }
+        },
+        "required": ["description", "quantity", "unit_price", "net_amount", "vat_rate", "gross_amount"]
+      }
+    }
+  },
+  "required": [
+    "supplier_name", "supplier_tax_id", "buyer_name", "buyer_tax_id", "buyer_address",
+    "invoice_number", "issue_date", "fulfillment_date", "due_date",
+    "currency", "net_total", "vat_total", "gross_total", "payment_iban", "line_items"
+  ]
+}

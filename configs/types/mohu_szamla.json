@@ -1,0 +1,103 @@
+{
+ "meta": {
+  "name": "type:mohu_szamla",
+  "version": "1.2.0",
+  "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-09-28",
+    "note": "053 T3.0/T3.2: számlatételek - line_items tételes lista a GPT-séma tétel-mezőivel (a prompt és a séma változatlan, a kinyerés költsége nem nő); tétel-ellenőrzések kódban: line_items_total (tételösszeg = végösszeg); a soronkénti számtan kimarad, mert a MOHU-tétel egységára más jelentésű (052 felmérés)"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.2: parent + a régi detect.json kulcsszavai a részletes típus kiválasztásához (forrás: 10_AIFLOW_V4/flows/doc-extract-bare/types/mohu_szamla/detect.json, sha256 ca8ed7ab38b2fcef); a kinyerés változatlan"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "tipus-csomag (BACKLOG 1, kozmu-kor): MOHU / NHKV kommunalis hulladek szamla - a Dijbeszedo-kotegbol szegmentalt hulladek-blokk - extends utility_bill_hu; gyermek-mezok a regi schema.json sorrendjeben (service_description: text cimkes jelolt; elszamolasi idoszak: date); vat_consistency (regi rules.json); nincs meres-alapu mezo; prompt es sema verbatim (a regi prompt magyarul)"
+   }
+  ],
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/mohu_szamla (config version 1.0.1, 2026-09-07; prompt sha256 5e6c6c39effa9ece, schema 7bec122dce5320bc)"
+ },
+ "extends": "utility_bill_hu",
+ "document": "Hungarian municipal WASTE management invoice (kommunális hulladék, hulladékgazdálkodási közszolgáltatás) of MOHU MOL Hulladékgazdálkodási Zrt. / NHKV, segmented from a Díjbeszedő Holding statement bundle; OCR text of a scanned PDF (Lnn = line number); Díjbeszedő may appear in the header as the collector, but the SUPPLIER is MOHU / NHKV",
+ "golden_type_key": "mohu_szamla",
+ "parent": "utility_bill_hu",
+ "detect": {
+  "required_any": [
+   "hulladék",
+   "hulladek",
+   "\\bMOHU\\b",
+   "\\bNHKV\\b",
+   "kommunális hulladék",
+   "hulladékgazdálkodás",
+   "hulladekgazdalkodas"
+  ],
+  "supporting": [
+   "MOHU MOL Hulladékgazdálkodási",
+   "Nemzeti Hulladékgazdálkodási",
+   "edényzet",
+   "ürítés",
+   "közszolgáltatás",
+   "hulladékszállítás",
+   "elszámolási időszak",
+   "alapdíj"
+  ],
+  "excluders": [
+   "Terhelési összesítő",
+   "ivóvíz",
+   "vízmérő",
+   "szennyvíz",
+   "csatornadíj",
+   "vízdíj",
+   "áramdíj",
+   "\\bkWh\\b",
+   "villamos energia",
+   "földgáz",
+   "gázdíj",
+   "távhő",
+   "hődíj"
+  ]
+ },
+ "prompt_file": "mohu_szamla_prompt.md",
+ "schema_file": "mohu_szamla_schema.json",
+ "fields": {
+  "service_description": "text",
+  "billing_period_start": "date",
+  "billing_period_end": "date",
+  "line_items": "list"
+ },
+ "scored_fields": [
+  "service_description",
+  "billing_period_start",
+  "billing_period_end"
+ ],
+ "validators": [
+  {
+   "check": "vat_consistency"
+  },
+  {
+   "check": "line_items_total"
+  }
+ ],
+ "text_labels": {
+  "service_description": [
+   "a\\s*szolg[áa]ltat[áa]s\\s*megnevez[ée]se",
+   "szolg[áa]ltat[áa]s\\s*megnevez[ée]se"
+  ]
+ },
+ "list_fields": {
+  "line_items": {
+   "description": "text",
+   "period": "text",
+   "quantity": "number",
+   "unit": "text",
+   "unit_price": "money",
+   "net_amount": "money",
+   "vat_rate": "text",
+   "gross_amount": "money"
+  }
+ }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "synth_nav_certificate",
+  "datapoints": {
+    "document_title": "Szintetikus igazolás a kifizetett járulékokról",
+    "tax_year": "2025",
+    "taxpayer_name": "Szintetikus Adózó",
+    "tax_id": "0000000000",
+    "employer_name": "Szintetikus Munkáltató Zrt.",
+    "income_total": null,
+    "period": "2025. január - 2025. december",
+    "issue_date": "2026-01-31",
+    "authority": "Nemzeti Adó- és Vámhivatal"
+  },
+  "expected_valid": true,
+  "expected_flags": [],
+  "_source": "SYNTHETIC fixture (no PII) — tracked for the fresh-clone offline gate. Required document_title + taxpayer_name present; tax_year matches ^[0-9]{4}$; issue_date is a valid ISO date; placeholder 10-digit tax_id, no named validator runs for this type."
+}

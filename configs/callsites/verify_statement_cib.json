@@ -1,0 +1,40 @@
+{
+ "meta": {
+  "name": "verify_statement_cib",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_statement_cib",
+ "document": "CIB Bank account or credit card statement with balances and a transaction list, Hungarian",
+ "glossary": "Document type: CIB Bank account or credit card statement with balances and a transaction list, Hungarian. Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "statement_type": "the statement type as printed on the document",
+  "account_no": "the account no as printed on the document",
+  "account_iban": "the account iban as printed on the document",
+  "period_start": "the period start as printed on the document (ISO YYYY-MM-DD)",
+  "period_end": "the period end as printed on the document (ISO YYYY-MM-DD)",
+  "currency": "the currency as printed on the document",
+  "opening_balance": "the opening balance as printed on the document (plain decimal STRING, dot separator, may be negative (D4))",
+  "closing_balance": "the closing balance as printed on the document (plain decimal STRING)",
+  "total_debit": "the total debit as printed on the document (POSITIVE magnitude as STRING)",
+  "total_credit": "the total credit as printed on the document (POSITIVE magnitude as STRING)"
+ },
+ "incomplete_fields": [],
+ "wrong_kind_fields": [
+  "account_iban"
+ ]
+}

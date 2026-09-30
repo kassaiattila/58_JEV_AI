@@ -1,0 +1,33 @@
+# TypeSafe (JAV) Python SDK - Jev ítéletek (nyers SDK: dinamikus jelöltlistákhoz)
+typesafe-sdk
+
+# .env betöltése
+python-dotenv
+
+# Generatív kivonatolás (G-kar): Pydantic AI + OpenAI; a typesafe extra későbbi kísérletekhez
+pydantic-ai-slim[openai,typesafe]
+
+# Állapotgép + lokális tracker UI (a [start] extra streamlit/pandas-t húzna, nem kell)
+apache-burr[tracking-client,tracking-server]
+
+# Golden eval keret
+pydantic-evals
+
+# PDF szövegréteg
+pdfplumber
+
+# Offline tesztek
+pytest
+# Véletlenszerű bemenetes (tulajdonság-alapú) tesztek és lefedettség-mérés (067)
+hypothesis
+pytest-cov
+
+# A `burr` tracker-UI CLI importálja, de a tracking extrák nem húzzák be
+loguru
+
+# Helyi szolgáltatás a felülethez (040 K2); a Burr tracking-server extrája is behúzza, itt közvetlen függőség
+fastapi
+uvicorn
+
+# Riportok: XLSX-export (054 K4, döntés 2026-09-28; a régi projekt tabular.py-ja is ezt használta)
+openpyxl

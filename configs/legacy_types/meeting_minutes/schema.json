@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "organization_name": { "type": ["string", "null"], "description": "A szervezet/egyesulet neve, amelynek ulese a dokumentum targya (pl. Epitok Hockey Club)" },
+    "document_kind":     { "type": ["string", "null"], "enum": ["jegyzokonyv", "meghivo", "jelenleti_iv", "egyeb", null], "description": "A dokumentum fajtaja a csaladon belul: jegyzokonyv / kozgyulesi meghivo / jelenleti iv" },
+    "meeting_type":      { "type": ["string", "null"], "enum": ["kozgyules", "elnoksegi", "egyeb", null], "description": "Az ules tipusa" },
+    "meeting_date":      { "type": ["string", "null"], "description": "Az ules (vagy meghivoban a tervezett ules) datuma, ISO YYYY-MM-DD" },
+    "location":          { "type": ["string", "null"], "description": "Az ules helyszine, ahogy a dokumentumon szerepel" },
+    "attendee_count":    { "type": ["number", "null"], "description": "Jelenlevok szama, ha a szoveg megallapitja (pl. '14 tag van jelen')" },
+    "attendees":         { "type": "array", "items": { "type": "string" }, "description": "Nev szerint azonosithato jelenlevok/alairok (jelenleti iven a nevsor); ures tomb, ha nem olvashato" },
+    "chair_name":        { "type": ["string", "null"], "description": "Levezeto elnok neve" },
+    "minutes_keeper":    { "type": ["string", "null"], "description": "Jegyzokonyvvezeto neve" },
+    "agenda_items":      { "type": "array", "items": { "type": "string" }, "description": "Napirendi pontok sorrendben" },
+    "resolutions": {
+      "type": "array",
+      "description": "Hatarozatok (jegyzokonyvben); meghivon/jelenleti iven ures tomb",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "number":       { "type": ["string", "null"], "description": "Hatarozat szama, pl. 1/2024" },
+          "summary":      { "type": ["string", "null"], "description": "A hatarozat tartalmanak rovid kivonata" },
+          "votes_for":    { "type": ["number", "null"] },
+          "votes_against":{ "type": ["number", "null"] },
+          "abstentions":  { "type": ["number", "null"] }
+        },
+        "required": ["number", "summary", "votes_for", "votes_against", "abstentions"]
+      }
+    }
+  },
+  "required": [
+    "organization_name", "document_kind", "meeting_type", "meeting_date", "location",
+    "attendee_count", "attendees", "chair_name", "minutes_keeper", "agenda_items", "resolutions"
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "required_any": ["erste bank", "gibahuhb", "\\b116[0-9]{5}-[0-9]{8}-[0-9]{8}\\b"],
+  "supporting": ["bankszámlakivonat", "nyitó egyenleg", "záró egyenleg", "erste", "telebank"],
+  "excluders": ["cib bank", "cib24"],
+  "prior": 1.0,
+  "embedding_profile": "Erste bankszámlakivonat: az ERSTE BANK HUNGARY ZRT. által kiállított időszaki bankszámlakivonat a számla forgalmáról. Jellemző kifejezések: Bankszámlakivonat, ERSTE BANK HUNGARY, GIBAHUHB SWIFT-kód, Erste Lakossági - Mikrovállalati TeleBank, kivonat száma (pl. E 2023/6), időszak, devizanem, nyitó egyenleg, záró egyenleg, összes terhelés, összes jóváírás, kártya használat tételek elfogadóval és árfolyammal, pénzügyi tranzakciós illeték. Tipikus mezők: bankszámlaszám 116-os kezdetű 8-8-8 formátumban, IBAN (HU.. 1160 ....), ügyfélazonosító, könyvelés dátuma és értéknap, tranzakció megnevezése, összeg előjellel, egyenleg oszlop."
+}

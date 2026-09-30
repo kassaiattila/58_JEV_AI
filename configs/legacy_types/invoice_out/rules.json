@@ -1,0 +1,17 @@
+{
+  "required": ["invoice_number", "gross_total"],
+  "fields": {
+    "issue_date": { "format": "date" },
+    "fulfillment_date": { "format": "date" },
+    "due_date": { "format": "date" },
+    "currency": { "regex": "^[A-Z]{3}$" }
+  },
+  "money_fields": ["net_total", "vat_total", "gross_total"],
+  "transforms": [],
+  "named": [
+    { "check": "vat_consistency" },
+    { "check": "date_order" },
+    { "check": "hu_tax_id", "field": "buyer_tax_id", "optional": true },
+    { "check": "iban_check", "field": "payment_iban", "optional": true }
+  ]
+}

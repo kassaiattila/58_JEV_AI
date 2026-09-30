@@ -1,0 +1,42 @@
+{
+  "name": "synth_statement",
+  "datapoints": {
+    "statement_type": "bank_account",
+    "account_no": "11773078-00021377",
+    "account_iban": "HU78111100001234567800000000",
+    "period_start": "2026-05-01",
+    "period_end": "2026-05-31",
+    "currency": "HUF",
+    "opening_balance": "200000.00",
+    "closing_balance": "235000.00",
+    "total_debit": "15000.00",
+    "total_credit": "50000.00",
+    "transactions": [
+      {
+        "booking_date": "2026-05-08",
+        "value_date": "2026-05-08",
+        "direction": "credit",
+        "amount": "50000.00",
+        "running_balance": "250000.00",
+        "description": "Szintetikus átutalás jóváírás",
+        "counterparty_name": "Synthetic Escrow Inc",
+        "counterparty_account": null,
+        "memo": null
+      },
+      {
+        "booking_date": "2026-05-22",
+        "value_date": "2026-05-22",
+        "direction": "debit",
+        "amount": "15000.00",
+        "running_balance": "235000.00",
+        "description": "Szintetikus kártyahasználat",
+        "counterparty_name": null,
+        "counterparty_account": null,
+        "memo": null
+      }
+    ]
+  },
+  "expected_valid": true,
+  "expected_flags": [],
+  "_source": "SYNTHETIC fixture (no PII) — tracked for the fresh-clone offline gate. Balance continuity holds: opening 200000 +50000 -15000 = 235000 closing; running balances match each step; totals (debit 15000, credit 50000) reconcile; account_iban is a mod-97-valid synthetic HU IBAN."
+}

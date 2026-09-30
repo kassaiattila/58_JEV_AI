@@ -1,0 +1,90 @@
+{
+ "meta": {
+  "name": "verify_utility",
+  "version": "1.0.1",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "G-kar ellenorzo hivasi hely a magyar kozmu-szamlakhoz (BACKLOG 1 kozmu-kor): a Noul-kerdesek (nouls) a verify.json-bol oroklodnek (inherits), itt a hat tipus-csomag unio-mezoinek leirasai (field_specs a regi schema.json description mezoibol angolra irva; minden csomag csak a sajat mezoit ellenorzi), a csonkulas- es masfajta-szam-ellenorzott mezok listaja; a kerdes-azonosito verify_utility; az elso G-kar golden utan: glossary_in_state (a glosszar egyszer a state-ben, nem ~90 Noul instrukciojaban - max_tokens_exceeded a 4 oldalas villany / gaz szamlakon)"
+   },
+   {
+    "version": "1.0.1",
+    "date": "2026-09-21",
+    "note": "request_char_budget 110000 (keres-meret keret, mint a select_utility-ben): a 9 oldalas Dijbeszedo-koteg teljes szovegevel az ellenorzo keres max_tokens_exceeded hibat adott (2/10 eset mindket OCR-szoveggel); tullepesnel a source_lines csak az evidencia-sorok +-1, vegso esetben elmarad; token-hibanal egyszeri ujraprobalas szukebb kerettel (jav/jev_budget.py) - handoff 015"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_utility",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "document": "Hungarian residential utility bill (electricity / gas / water / sewage / waste invoice, or a Díjbeszedő payment-aggregator statement), OCR text of a scanned PDF; OCR noise is possible (accents, a letter for a digit)",
+ "field_specs": {
+  "supplier_name": "name of the SUPPLIER, the company that issues the bill (Szolgáltató neve: MVM Next, Fővárosi Vízművek, Fővárosi Csatornázási Művek, MOHU, or Díjbeszedő Holding on its own statement) - not the grid operator, not the collector",
+  "supplier_tax_id": "the supplier's Hungarian tax number, ########-#-##, as printed in the supplier's header block",
+  "supplier_address": "seat address of the supplier (Címe in the header), as printed",
+  "supplier_bank_account": "the supplier's bank account number exactly as printed (never constructed into an IBAN)",
+  "customer_name": "name of the CUSTOMER (Felhasználó / Vevő (fizető) / Számlatulajdonos), the private person who consumes and pays, as printed",
+  "customer_id": "customer id (Felhasználó azonosító száma / Vevő (fizető) azonosító / Fizetőazonosító), exactly as printed",
+  "customer_address": "billing address of the customer (Felhasználó címe / Vevő (fizető) címe), as printed",
+  "customer_code": "customer code (Számlatulajdonos ügyfélkódja / Ügyfélkód), exactly as printed",
+  "consumption_address": "consumption address (Felhasználási hely címe), as printed",
+  "invoice_number": "the bill's own document number (Számla sorszáma; on a statement: Terhelési összesítő száma) - not a customer id, contract account, payment identifier, metering point id or meter serial",
+  "issue_date": "issue date (Számla kelte / Terhelési összesítő kelte), ISO format",
+  "fulfillment_date": "fulfillment date (Teljesítés kelte / időpontja), ISO format",
+  "due_date": "payment due date (Fizetési határidő / Számla esedékessége), ISO format; may be absent on an interim bill",
+  "payment_method": "payment method as printed after 'Fizetési mód' (Postai számlabefizetési megbízás, Csoportos beszedési megbízás, Átutalás, elektronikus)",
+  "currency": "ISO 4217 code of the bill's currency (Ft = HUF)",
+  "net_total": "bill-level net total (Nettó számlaérték összesen / the Összesen row's Nettó), decimal string",
+  "vat_total": "bill-level VAT total (ÁFA összege), decimal string",
+  "gross_total": "bill-level gross total (Bruttó számlaérték összesen; Fizetendő on a statement), decimal string",
+  "amount_due": "amount due (Fizetendő összeg összesen), decimal string; usually equals the gross total",
+  "distribution_licensee": "name of the distribution licensee / grid operator (Elosztói engedélyes / Földgázelosztó: ELMŰ Hálózati Kft., MVM Főgáz Földgázhálózati Kft.), a different company from the supplier",
+  "service_provider": "name of the actual utility provider listed on the Díjbeszedő statement (Szolgáltató column), not the collector",
+  "collector_id": "the collector's creditor id (Díjbeszedő Holding 'Jogosult azonosítója', e.g. A10805246T001)",
+  "payment_reference": "payment reference (Fizetőazonosító) on the Díjbeszedő statement, exactly as printed",
+  "metering_point_id": "metering point id (Mérési pont azonosító, POD, HU000...), exactly as printed",
+  "meter_serial": "meter serial number (mérő / gázmérő / vízmérő gyári száma), exactly as printed",
+  "tariff": "tariff (Árszabás), as printed (e.g. ESZ \"A1\" Lakosság, Lakossági)",
+  "billing_period_start": "start of the billing period (Elszámolási / Elszámolt időszak), ISO format",
+  "billing_period_end": "end of the billing period (Elszámolási / Elszámolt időszak), ISO format",
+  "meter_reading_start": "opening meter reading (Induló mérőállás), plain number string",
+  "meter_reading_end": "closing meter reading (Záró mérőállás), plain number string",
+  "consumption_kwh": "total electricity consumption in kWh (Fogyasztás összesen), plain decimal string",
+  "consumption_m3": "consumption in m3 (gas: fogyasztás / mérőállás-különbség; water / sewage: Elszámolt mennyiség), plain decimal string",
+  "consumption_mj": "billed heat quantity in MJ (Elszámolt hőmennyiség), plain decimal string",
+  "heating_value": "heating value in MJ/m3 (Fűtőérték), plain decimal string",
+  "correction_factor": "correction factor (Korrekciós tényező), plain decimal string",
+  "reading_method": "reading-method code (Leolvasás módja, LM): Leol / Becs / Dikt / EII",
+  "service_description": "name of the service (A szolgáltatás megnevezése, e.g. Hulladékgazdálkodási közszolgáltatás), as printed"
+ },
+ "incomplete_fields": [
+  "supplier_name",
+  "customer_name",
+  "distribution_licensee",
+  "service_provider",
+  "supplier_address",
+  "customer_address",
+  "consumption_address",
+  "invoice_number",
+  "supplier_bank_account",
+  "metering_point_id",
+  "tariff",
+  "service_description"
+ ],
+ "wrong_kind_fields": [
+  "supplier_tax_id",
+  "invoice_number",
+  "supplier_bank_account",
+  "customer_id",
+  "customer_code",
+  "metering_point_id",
+  "meter_serial",
+  "consumption_kwh",
+  "consumption_m3",
+  "consumption_mj",
+  "meter_reading_start",
+  "meter_reading_end"
+ ]
+}

@@ -1,0 +1,7 @@
+{
+  "required_any": ["kivonat"],
+  "supporting": ["cib bank", "cib", "nyitó egyenleg", "záró egyenleg", "bankszámlakivonat"],
+  "excluders": ["díjkimutatás", "díjról", "erste bank", "gibahuhb"],
+  "prior": 1.0,
+  "embedding_profile": "CIB bankszámlakivonat: a CIB Bank által kiállított időszaki számlakivonat a bankszámla forgalmáról. Jellemző kifejezések: bankszámlakivonat, számlakivonat, CIB Bank, nyitó egyenleg, záró egyenleg, könyvelt tételek, terhelés, jóváírás, értéknap, könyvelési nap, átutalás, számlavezetési díj tételsor, számlatulajdonos. Tipikus mezők: számlaszám (GIRO vagy IBAN), a kivonat sorszáma és időszaka, tételsorok dátummal, megnevezéssel és összeggel, nyitó és záró egyenleg, forgalom összesen."
+}

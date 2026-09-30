@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "document_title":   { "type": ["string", "null"], "description": "A nyugta/ertesites cime (pl. Elfogado nyugta, Ertesites sikeres fizetesrol)" },
+    "subject":          { "type": ["string", "null"], "description": "Targy/mire vonatkozik (pl. 2353 bevallas beadasa, bankkartyas befizetes)" },
+    "reference_number": { "type": ["string", "null"], "description": "Iktatoszam / KR erkeztetesi szam / tranzakcio-azonosito, ha szerepel" },
+    "taxpayer_name":    { "type": ["string", "null"], "description": "Adozo/ugyfel neve" },
+    "tax_id":           { "type": ["string", "null"], "description": "Adoazonosito jel vagy adoszam, ha szerepel" },
+    "issue_date":       { "type": ["string", "null"], "description": "Az ertesites/nyugta datuma, ISO 8601 YYYY-MM-DD" },
+    "authority":        { "type": ["string", "null"], "description": "Kiallito hatosag (pl. Nemzeti Ado- es Vamhivatal)" },
+    "amount":           { "type": ["string", "null"], "description": "Penzosszeg, ha az ertesites fizetesrol szol — plain decimal STRING (D4); kulonben null" }
+  },
+  "required": ["document_title", "subject", "reference_number", "taxpayer_name", "tax_id", "issue_date", "authority", "amount"]
+}

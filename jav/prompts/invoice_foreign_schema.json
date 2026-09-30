@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "supplier_name":    { "type": ["string", "null"], "description": "Kulfoldi kiallito (szallito/eladó) neve, ahogy a szamlan szerepel" },
+    "supplier_tax_id":  { "type": ["string", "null"], "description": "Kiallito KULFOLDI adoazonositoja (pl. TR VKN/TCKN, PL NIP, EU VAT no.) — NEM magyar ########-#-## formatum" },
+    "supplier_address": { "type": ["string", "null"], "description": "Kiallito cime, ahogy a szamlan szerepel" },
+    "supplier_country": { "type": ["string", "null"], "description": "Kiallito orszaga ISO 3166-1 alpha-2 kodkent (TR, PL, DE, ...), a cim/adoszam alapjan" },
+    "buyer_name":       { "type": ["string", "null"], "description": "Vevo neve (tipikusan magyar jogalany: ceg vagy egyesulet)" },
+    "buyer_tax_id":     { "type": ["string", "null"], "description": "Vevo adoszama, ahogy a szamlan szerepel (lehet magyar formatum vagy VKN-mezoben irt valtozat)" },
+    "buyer_address":    { "type": ["string", "null"], "description": "Vevo cime, ahogy a szamlan szerepel" },
+    "invoice_number":   { "type": ["string", "null"], "description": "Szamla/bizonylat sorszama (Fatura No, Document/Ticket No, Invoice No)" },
+    "issue_date":       { "type": ["string", "null"], "description": "Kiallitas datuma, ISO 8601 YYYY-MM-DD" },
+    "due_date":         { "type": ["string", "null"], "description": "Fizetesi hatarido, ISO 8601 YYYY-MM-DD (e-jegyen/keszpenzes szamlan gyakran nincs)" },
+    "currency":         { "type": ["string", "null"], "description": "A szamla fo penzneme, ISO 4217 (TRY, EUR, USD, PLN, ...) — a torok TL = TRY" },
+    "net_total":        { "type": ["string", "null"], "description": "Netto vegosszeg a fo penznemben — plain decimal STRING, dot separator (D4)" },
+    "vat_total":        { "type": ["string", "null"], "description": "AFA/KDV/VAT osszege STRING-kent; tobb adonem eseten a fo AFA-sor" },
+    "gross_total":      { "type": ["string", "null"], "description": "Fizetendo brutto vegosszeg (minden adoval) — plain decimal STRING" },
+    "payment_iban":     { "type": ["string", "null"], "description": "Fizetesi IBAN/bankszamlaszam, ahogy a szamlan szerepel (nem-HU prefix tipikus)" },
+    "line_items": {
+      "type": "array",
+      "description": "Tetelsorok",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description":  { "type": ["string", "null"] },
+          "quantity":     { "type": ["number", "null"] },
+          "unit_price":   { "type": ["string", "null"], "description": "plain decimal STRING" },
+          "net_amount":   { "type": ["string", "null"], "description": "plain decimal STRING" },
+          "vat_rate":     { "type": ["string", "null"], "description": "pl. %10, 0%, exempt" },
+          "gross_amount": { "type": ["string", "null"], "description": "plain decimal STRING" }
+        },
+        "required": ["description", "quantity", "unit_price", "net_amount", "vat_rate", "gross_amount"]
+      }
+    }
+  },
+  "required": [
+    "supplier_name", "supplier_tax_id", "supplier_address", "supplier_country",
+    "buyer_name", "buyer_tax_id", "buyer_address",
+    "invoice_number", "issue_date", "due_date",
+    "currency", "net_total", "vat_total", "gross_total", "payment_iban", "line_items"
+  ]
+}

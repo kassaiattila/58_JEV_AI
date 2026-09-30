@@ -1,0 +1,141 @@
+{
+ "meta": {
+  "name": "type:foldgaz_szamla",
+  "version": "1.2.0",
+  "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-09-28",
+    "note": "053 T3.0/T3.2: számlatételek - line_items tételes lista a GPT-séma tétel-mezőivel (a prompt és a séma változatlan, a kinyerés költsége nem nő); tétel-ellenőrzések kódban: line_items_total (tételösszeg = végösszeg) és line_items_arithmetic (soronként mennyiség × egységár ≈ nettó, nettó × (1 + ÁFA-kulcs) ≈ bruttó)"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.2: parent + a régi detect.json kulcsszavai a részletes típus kiválasztásához (forrás: 10_AIFLOW_V4/flows/doc-extract-bare/types/foldgaz_szamla/detect.json, sha256 c5ce6669b227b0df); a kinyerés változatlan"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "tipus-csomag (BACKLOG 1, kozmu-kor): magyar foldgaz elszamolo / reszszamla (MVM Next / MVM Fogaz) a regi projektbol - extends utility_bill_hu; gyermek-mezok a regi schema.json sorrendjeben (consumption_m3 / consumption_mj / heating_value / correction_factor: number); vat_consistency (regi rules.json); nem pontozott: metering_point_id, meter_serial; prompt es sema verbatim; a regi golden 1 reszszamlajan nincs hatarido es fizetendo (a hianyzo kulcs nem pontozott)"
+   }
+  ],
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/foldgaz_szamla (config version 1.0.1, 2026-09-07; prompt sha256 fbe1e5aef0e8a5cb, schema 617e606e5377cc08; regi mert scan micro 0.9437 = 134/142)"
+ },
+ "extends": "utility_bill_hu",
+ "document": "Hungarian NATURAL GAS invoice (földgáz elszámoló számla or részszámla) issued by an energy retailer such as MVM Next Energiakereskedelmi Zrt.; OCR text of a scanned PDF (Lnn = line number); the gas grid operator (Földgázelosztó, e.g. MVM Főgáz Földgázhálózati Kft.) is a different company from the supplier; a részszámla (interim bill) often has no meter reading",
+ "golden_type_key": "foldgaz_szamla",
+ "parent": "utility_bill_hu",
+ "detect": {
+  "required_any": [
+   "földgáz",
+   "foldgaz",
+   "gázdíj",
+   "gazdij",
+   "gázmérő",
+   "gazmero",
+   "földgázelosztás"
+  ],
+  "supporting": [
+   "MJ",
+   "fűtőérték",
+   "korrekciós tényező",
+   "mérési pont",
+   "elszámolási időszak",
+   "rendszerhasználati díj",
+   "MVM Főgáz",
+   "földgáz egyetemes szolgáltatás",
+   "gáznap",
+   "árszabás"
+  ],
+  "excluders": [
+   "villamos energia",
+   "áramdíj",
+   "aramdij",
+   "\\bkWh\\b",
+   "villamosenergia-elosztás",
+   "ivóvíz",
+   "vízmérő",
+   "szennyvíz",
+   "Díjbeszedő",
+   "mellékvízmérő",
+   "távhő",
+   "hődíj",
+   "\\bGJ\\b"
+  ]
+ },
+ "prompt_file": "foldgaz_szamla_prompt.md",
+ "schema_file": "foldgaz_szamla_schema.json",
+ "fields": {
+  "distribution_licensee": "name",
+  "metering_point_id": "text",
+  "meter_serial": "text",
+  "tariff": "text",
+  "billing_period_start": "date",
+  "billing_period_end": "date",
+  "meter_reading_start": "number",
+  "meter_reading_end": "number",
+  "consumption_m3": "number",
+  "consumption_mj": "number",
+  "heating_value": "number",
+  "correction_factor": "number",
+  "reading_method": "text",
+  "line_items": "list"
+ },
+ "scored_fields": [
+  "distribution_licensee",
+  "tariff",
+  "billing_period_start",
+  "billing_period_end",
+  "consumption_m3",
+  "consumption_mj",
+  "heating_value",
+  "correction_factor",
+  "reading_method",
+  "metering_point_id",
+  "meter_serial",
+  "meter_reading_start",
+  "meter_reading_end"
+ ],
+ "informational_fields": [
+  "metering_point_id",
+  "meter_serial",
+  "meter_reading_start",
+  "meter_reading_end"
+ ],
+ "validators": [
+  {
+   "check": "vat_consistency"
+  },
+  {
+   "check": "line_items_total"
+  },
+  {
+   "check": "line_items_arithmetic"
+  }
+ ],
+ "text_labels": {
+  "tariff": [
+   "[áa]rszab[áa]s"
+  ],
+  "metering_point_id": [
+   "m[ée]r[ée]si\\s*pont\\s*azonos[íi]t[óo](?:ja)?"
+  ],
+  "meter_serial": [
+   "g[áa]zm[ée]r[őo]\\s*gy[áa]rt[áa]si\\s*sz[áa]ma",
+   "m[ée]r[őo]\\s*gy[áa]rt[áa]si\\s*sz[áa]ma",
+   "gy[áa]ri\\s*sz[áa]ma?"
+  ]
+ },
+ "list_fields": {
+  "line_items": {
+   "description": "text",
+   "period": "text",
+   "quantity": "number",
+   "unit": "text",
+   "unit_price": "money",
+   "net_amount": "money",
+   "vat_rate": "text",
+   "gross_amount": "money"
+  }
+ }
+}

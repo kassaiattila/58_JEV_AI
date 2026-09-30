@@ -1,0 +1,15 @@
+{
+  "name": "synth_certificate",
+  "datapoints": {
+    "document_title": "Szintetikus tanúsítvány a tanfolyam elvégzéséről",
+    "holder_name": "Szintetikus Tulajdonos",
+    "issuer": "Szintetikus Oktatási Intézet",
+    "issue_date": "2026-01-15",
+    "certificate_type": "tanusitvany",
+    "valid_until": null,
+    "registration_number": "SYNTH-CERT-001"
+  },
+  "expected_valid": true,
+  "expected_flags": [],
+  "_source": "SYNTHETIC fixture (no PII) — tracked for the fresh-clone offline gate. Required document_title + holder_name present; issue_date is a valid ISO date."
+}

@@ -1,0 +1,163 @@
+{
+  "meta": {
+    "name": "grounding",
+    "version": "1.0.0",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-09-28",
+        "note": "045 K3b: a forráshely-keresés címkeszótára (a V4 sidecar/app/grounding/context.py _SCALAR portja, ékezet nélküli, kisbetűs alakban). Ha egy érték több helyen szerepel, a mező címkéje a sor elején vagy közvetlenül fölötte dönt; ha nincs egyértelmű címke, nincs keret. Az általános címkék (pl. „Adószám”) csoportként mindkét fél mezőjét igazolják (label_groups)."
+      }
+    ]
+  },
+  "label_same_line_max_gap": 0.75,
+  "label_above_max_gap": 0.065,
+  "multi_line_kinds": [
+    "name",
+    "address",
+    "text"
+  ],
+  "labels": {
+    "supplier_name": [
+      "elado",
+      "szallito",
+      "kiallito",
+      "szolgaltato",
+      "supplier",
+      "seller",
+      "vendor"
+    ],
+    "buyer_name": [
+      "vevo",
+      "megrendelo",
+      "vasarlo",
+      "buyer",
+      "customer",
+      "bill to"
+    ],
+    "supplier_tax_id": [
+      "elado adoszama",
+      "szallito adoszama",
+      "supplier tax number",
+      "supplier vat number"
+    ],
+    "buyer_tax_id": [
+      "vevo adoszama",
+      "vevo adoszam",
+      "buyer tax number",
+      "buyer vat number"
+    ],
+    "issue_date": [
+      "szamla kelte",
+      "kiallitas kelte",
+      "kiallitas datuma",
+      "kelt",
+      "issue date",
+      "invoice date"
+    ],
+    "fulfillment_date": [
+      "teljesites datuma",
+      "teljesites ideje",
+      "teljesites",
+      "fulfillment date",
+      "delivery date"
+    ],
+    "due_date": [
+      "fizetesi hatarido",
+      "esedekesseg",
+      "due date",
+      "payment due"
+    ],
+    "net_total": [
+      "netto osszeg",
+      "netto vegosszeg",
+      "netto ertek",
+      "szamla netto erteke",
+      "net total",
+      "total net",
+      "netto",
+      "net"
+    ],
+    "vat_total": [
+      "afa osszege",
+      "afa osszeg",
+      "afa tartalom",
+      "vat total",
+      "total vat",
+      "ado osszege"
+    ],
+    "gross_total": [
+      "brutto osszeg",
+      "brutto vegosszeg",
+      "brutto ertek",
+      "szamla brutto vegosszege",
+      "gross total",
+      "total gross",
+      "brutto",
+      "gross"
+    ],
+    "amount_due": [
+      "fizetendo osszeg",
+      "fizetendo",
+      "amount due",
+      "balance due",
+      "total payable"
+    ],
+    "invoice_number": [
+      "szamlaszam",
+      "szamla sorszama",
+      "szamla szama",
+      "sorszam",
+      "invoice number",
+      "invoice no"
+    ],
+    "payment_iban": [
+      "bankszamlaszam",
+      "bankszamlaszama",
+      "bankszamla szama",
+      "bankszamla",
+      "penzforgalmi szamlaszam",
+      "iban",
+      "bank account",
+      "bank account number"
+    ],
+    "payment_method": [
+      "fizetesi mod",
+      "fizetes modja",
+      "payment method"
+    ],
+    "order_number": [
+      "rendelesszam",
+      "megrendeles szama",
+      "order number",
+      "order no"
+    ],
+    "currency": [
+      "penznem",
+      "deviza",
+      "currency"
+    ],
+    "_tax_id": [
+      "adoszam",
+      "kozossegi adoszam",
+      "tax number",
+      "vat number",
+      "vat id",
+      "tax id"
+    ],
+    "_party": [
+      "nev",
+      "name"
+    ]
+  },
+  "label_groups": {
+    "_tax_id": [
+      "supplier_tax_id",
+      "buyer_tax_id"
+    ],
+    "_party": [
+      "supplier_name",
+      "buyer_name"
+    ]
+  }
+}

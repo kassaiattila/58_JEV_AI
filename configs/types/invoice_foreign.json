@@ -1,0 +1,149 @@
+{
+ "meta": {
+  "name": "type:invoice_foreign",
+  "version": "1.2.0",
+  "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-09-29",
+    "note": "069 (066 Á05, döntés 2026-09-29): adószám-ellenőrzés mindkét félre (tax_id, optional): felismert alak (jav/taxid.py), különben teendő; eddig a külföldi számlán nem volt adószám-ellenőrzés. A kinyerés változatlan"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.2: parent + a régi detect.json kulcsszavai a részletes típus kiválasztásához (forrás: 10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_foreign/detect.json, sha256 dbb231004da3e1e5); a kinyerés változatlan"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "tipus-csomag (BACKLOG 1, regi tipusok atemelese): a kulfoldi szamla a regi projektbol - mezolista a regi schema.json sorrendjeben (16 mezo, supplier_country uj fajta: country), kotelezo mezok es validatorok a regi rules.json-bol verbatim (required: invoice_number, gross_total; named: date_order, iban_check optional; fields: currency ^[A-Z]{3}$, supplier_country ^[A-Z]{2}$), pontozas a regi _compare_contract szerint (payment_iban es a cimek nem pontozottak); magas tetu mezok: a policy alap-keszlete a semaban letezo mezokre szukitve (amount_due nincs a semaban); prompt es sema verbatim; S-kar hivasi hely select_foreign, G-kar verify_foreign; jelolt-profil intl"
+   },
+   {
+    "version": "1.0.1",
+    "date": "2026-09-20",
+    "note": "date_order optional: hianyzo hatarido nem hiba (a regi golden 1 esete - Upwork receipt - due_date nelkul; a regi rules.json csak a formatumot koveteli); az elso S-kar golden utan"
+   }
+  ],
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_foreign (config version 1.0.4, 2026-09-07; prompt sha256 c3909b5bbda10415, schema ca799fad055206a7, rules 30a004c255ec4d9c)"
+ },
+ "document": "Foreign (non-Hungarian) supplier invoice or invoice-like billing document; the buyer is typically a Hungarian company",
+ "golden_type_key": "invoice_foreign",
+ "parent": "invoice_foreign",
+ "detect": {
+  "required_any": [
+   "fatura",
+   "faktura",
+   "e-?bilet|elektronik bilet",
+   "rechnung",
+   "facture",
+   "\\binvoice\\b",
+   "\\breceipt\\b"
+  ],
+  "supporting": [
+   "\\btry\\b|\\btl\\b|\\bpln\\b|\\beur\\b|\\busd\\b",
+   "vergi|kdv|nip\\b",
+   "vkn|tckn",
+   "\\b(tr|pl|de|at|nl)[0-9]{2}[0-9a-z]{10,28}\\b",
+   "tax payer|tax id",
+   "reverse charge",
+   "alza\\.cz|alza a\\.s|alza\\.hu",
+   "canva",
+   "fastspring",
+   "upwork",
+   "grammarly"
+  ],
+  "excluders": [
+   "(bd|bese)[0-9]{3}",
+   "ad[oó]sz[aá]m:? ?[0-9]{8}-[0-9]-[0-9]{2}",
+   "fizet[eé]si hat[aá]rid",
+   "ki[aá]ll[ií]t[aá]s d[aá]tuma"
+  ]
+ },
+ "candidate_profile": "intl",
+ "prompt_file": "invoice_foreign_prompt.md",
+ "schema_file": "invoice_foreign_schema.json",
+ "select_callsite": "select_foreign",
+ "verify_callsite": "verify_foreign",
+ "fields": {
+  "supplier_name": "name",
+  "supplier_tax_id": "tax_id",
+  "supplier_address": "address",
+  "supplier_country": "country",
+  "buyer_name": "name",
+  "buyer_tax_id": "tax_id",
+  "buyer_address": "address",
+  "invoice_number": "invoice_number",
+  "issue_date": "date",
+  "due_date": "date",
+  "currency": "currency",
+  "net_total": "money",
+  "vat_total": "money",
+  "gross_total": "money",
+  "payment_iban": "iban"
+ },
+ "scored_fields": [
+  "supplier_name",
+  "supplier_tax_id",
+  "supplier_country",
+  "buyer_name",
+  "buyer_tax_id",
+  "invoice_number",
+  "issue_date",
+  "due_date",
+  "currency",
+  "net_total",
+  "vat_total",
+  "gross_total",
+  "payment_iban",
+  "supplier_address",
+  "buyer_address"
+ ],
+ "informational_fields": [
+  "payment_iban",
+  "supplier_address",
+  "buyer_address"
+ ],
+ "required": [
+  "invoice_number",
+  "gross_total"
+ ],
+ "high_stakes": [
+  "due_date",
+  "gross_total",
+  "payment_iban",
+  "supplier_tax_id"
+ ],
+ "validators": [
+  {
+   "check": "date_order",
+   "optional": true
+  },
+  {
+   "check": "tax_id",
+   "field": "supplier_tax_id",
+   "optional": true
+  },
+  {
+   "check": "tax_id",
+   "field": "buyer_tax_id",
+   "optional": true
+  },
+  {
+   "check": "iban_check",
+   "field": "payment_iban",
+   "optional": true
+  },
+  {
+   "check": "format",
+   "field": "currency",
+   "regex": "^[A-Z]{3}$",
+   "optional": true
+  },
+  {
+   "check": "format",
+   "field": "supplier_country",
+   "regex": "^[A-Z]{2}$",
+   "optional": true
+  }
+ ]
+}

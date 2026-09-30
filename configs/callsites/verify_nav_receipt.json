@@ -1,0 +1,41 @@
+{
+ "meta": {
+  "name": "verify_nav_receipt",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_nav_receipt",
+ "document": "Hungarian tax authority (NAV) receipt, acknowledgement or notification (e.g. filing accepted, card payment confirmed)",
+ "glossary": "Document type: Hungarian tax authority (NAV) receipt, acknowledgement or notification (e.g. filing accepted, card payment confirmed). Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "document_title": "the document title as printed on the document (A nyugta/ertesites cime (pl. Elfogado nyugta, Ertesites sikeres fizetesrol))",
+  "subject": "the subject as printed on the document (Targy/mire vonatkozik (pl. 2353 bevallas beadasa, bankkartyas befizetes))",
+  "reference_number": "the reference number as printed on the document (Iktatoszam / KR erkeztetesi szam / tranzakcio-azonosito, ha szerepel)",
+  "taxpayer_name": "the taxpayer name as printed on the document (Adozo/ugyfel neve)",
+  "tax_id": "the tax id as printed on the document (Adoazonosito jel vagy adoszam, ha szerepel)",
+  "issue_date": "the issue date as printed on the document (Az ertesites/nyugta datuma, ISO 8601 YYYY-MM-DD)",
+  "authority": "the authority as printed on the document (Kiallito hatosag (pl. Nemzeti Ado- es Vamhivatal))",
+  "amount": "the amount as printed on the document"
+ },
+ "incomplete_fields": [
+  "taxpayer_name",
+  "authority"
+ ],
+ "wrong_kind_fields": [
+  "tax_id"
+ ]
+}

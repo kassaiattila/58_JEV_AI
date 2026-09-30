@@ -1,0 +1,154 @@
+{
+ "meta": {
+  "name": "type:invoice_hu",
+  "version": "1.3.0",
+  "changelog": [
+   {
+    "version": "1.3.0",
+    "date": "2026-09-29",
+    "note": "069 (066 Á05, döntés 2026-09-29): adószám-ellenőrzés tax_id néven mindkét félre (a vevőé új): felismert alak (jav/taxid.py), különben teendő; eddig minden nem 11 jegyű érték „külföldiként” átment. A kinyerés változatlan"
+   },
+   {
+    "version": "1.2.0",
+    "date": "2026-09-28",
+    "note": "053 T3.0/T3.2: számlatételek - line_items tételes lista a GPT-séma tétel-mezőivel (a prompt és a séma változatlan, a kinyerés költsége nem nő); tétel-ellenőrzések kódban: line_items_total (tételösszeg = végösszeg) és line_items_arithmetic (soronként mennyiség × egységár ≈ nettó, nettó × (1 + ÁFA-kulcs) ≈ bruttó)"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.2: parent + a régi detect.json kulcsszavai a részletes típus kiválasztásához (forrás: 10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_hu/detect.json, sha256 d6f72f9ef0f7da28); a kinyerés változatlan"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "tipus-csomag (BACKLOG 1, regi tipusok atemelese): a magyar szamla eddig Python-konstansban elo tipus-adatai egy JSON-ban - mezolista fajtakkal (HEADER_FIELDS), pontozott / informativ mezok (SCORED_FIELDS), kotelezo + magas tetu mezok (policy.json v1.4.0 invoice blokkjabol atkoltoztetve, ertek valtozatlan), validator-lista (a regi rules.json named listaja), jelolt-profil, prompt + sema fajl, hivasi helyek; a viselkedes valtozatlan"
+   }
+  ],
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_hu (config version 1.1.4, 2026-09-07) - prompt es sema verbatim (jav/prompts/), rules.json named lista verbatim"
+ },
+ "document": "Hungarian supplier invoice",
+ "golden_type_key": "invoice_hu",
+ "parent": "invoice_hu",
+ "detect": {
+  "required_any": [
+   "szamla",
+   "számla",
+   "invoice",
+   "receipt",
+   "sorszám",
+   "sorszam"
+  ],
+  "supporting": [
+   "fizetési határidő",
+   "áfa",
+   "vevő",
+   "fizetendő"
+  ],
+  "excluders": [
+   "(bd|bese)[0-9]{3}",
+   "(?:\\binc\\b|\\bllc\\b|\\bltd\\b|\\blimited(?=[\"',./)]|$)|\\bgmbh\\b|\\bsarl\\b|\\bpty\\b|\\bs\\.a\\.|\\bb\\.v\\.|\\bs\\.r\\.l\\.|\\bs\\.r\\.o|\\bs\\.l\\.)",
+   "(?:\\beu ?[0-9]{9}\\b|\\bnl ?[0-9]{9} ?b ?[0-9]{2}\\b|\\bie ?[0-9]{7} ?[a-w]{1,2}\\b|\\b(?:de|at|fr|gb|it|pl|cz|sk|es|pt|se|fi|dk|ro|bg|hr|si|lt|lv|ee|lu|mt|cy|be|gr) ?[0-9]{8,12}\\b)",
+   "\\b(?:openai|chatgpt|upwork|nordvpn|dashlane|coursera|grammarly|runpod|fastspring|spotify|github)\\b"
+  ]
+ },
+ "candidate_profile": "hu",
+ "prompt_file": "invoice_hu_prompt.md",
+ "schema_file": "invoice_hu_schema.json",
+ "select_callsite": "select",
+ "verify_callsite": "verify",
+ "fields": {
+  "supplier_name": "name",
+  "supplier_tax_id": "tax_id",
+  "buyer_name": "name",
+  "buyer_tax_id": "tax_id",
+  "invoice_number": "invoice_number",
+  "issue_date": "date",
+  "fulfillment_date": "date",
+  "due_date": "date",
+  "currency": "currency",
+  "net_total": "money",
+  "vat_total": "money",
+  "gross_total": "money",
+  "payment_iban": "iban",
+  "line_items": "list",
+  "supplier_address": "address",
+  "buyer_address": "address",
+  "payment_method": "text",
+  "order_number": "text",
+  "amount_due": "money"
+ },
+ "scored_fields": [
+  "supplier_name",
+  "supplier_tax_id",
+  "buyer_name",
+  "buyer_tax_id",
+  "invoice_number",
+  "issue_date",
+  "fulfillment_date",
+  "due_date",
+  "currency",
+  "net_total",
+  "vat_total",
+  "gross_total",
+  "payment_iban"
+ ],
+ "informational_fields": [
+  "payment_iban"
+ ],
+ "required": [
+  "buyer_name",
+  "gross_total",
+  "invoice_number",
+  "supplier_name"
+ ],
+ "high_stakes": [
+  "amount_due",
+  "due_date",
+  "gross_total",
+  "payment_iban",
+  "supplier_tax_id"
+ ],
+ "validators": [
+  {
+   "check": "vat_consistency"
+  },
+  {
+   "check": "date_order"
+  },
+  {
+   "check": "tax_id",
+   "field": "supplier_tax_id",
+   "optional": true
+  },
+  {
+   "check": "tax_id",
+   "field": "buyer_tax_id",
+   "optional": true
+  },
+  {
+   "check": "iban_check",
+   "field": "payment_iban",
+   "optional": true
+  },
+  {
+   "check": "line_items_total"
+  },
+  {
+   "check": "line_items_arithmetic"
+  }
+ ],
+ "list_fields": {
+  "line_items": {
+   "description": "text",
+   "quantity": "number",
+   "unit_price": "money",
+   "net_amount": "money",
+   "vat_rate": "text",
+   "gross_amount": "money",
+   "unit": "text",
+   "product_code": "text",
+   "vat_amount": "money",
+   "note": "text"
+  }
+ }
+}

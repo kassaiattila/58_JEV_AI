@@ -1,0 +1,83 @@
+{
+ "meta": {
+  "name": "type:terkep_adat",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   }
+  ],
+  "source": {
+   "path": "10_AIFLOW_V4/flows/doc-extract-bare/types/terkep_adat",
+   "via": "configs/legacy_types/terkep_adat",
+   "sha256": {
+    "schema.json": "498cad2dea37d518246ee6b33e16d4eed2304bc1aac6ea6ea74cddf083c53ee2",
+    "prompt.md": "3f2dbeb145c95e839e5d0f580860b356de5fd3ceacfd249f8fc3cf732346215c",
+    "rules.json": "c055d2a2855ac32fde69d9e30d071919ce8459b0afccdf459c2c2812338ec16b",
+    "detect.json": "3631776396c476c8ddf8ce0fd983abea5315e8c5963931950d5a209abe9c38c1",
+    "meta.json": "21eea797d4c5a51f93a87cc04e1b214ad4b011b1d2d00570f56d5da589be9f59"
+   }
+  }
+ },
+ "document": "Map extract or map data sheet listing notable locations",
+ "golden_type_key": "terkep_adat",
+ "candidate_profile": "intl",
+ "arms": [
+  "G"
+ ],
+ "parent": "other",
+ "auto_detect": false,
+ "detect": {
+  "required_any": [
+   "openstreetmap",
+   "térkép adat",
+   "terkep adat",
+   "leaflet"
+  ],
+  "supporting": [
+   "közreműködői",
+   "kozremukodoi",
+   "hegy",
+   "domb",
+   "magasság",
+   "magassag",
+   "\\bkm\\b"
+  ],
+  "excluders": [
+   "számla",
+   "szamla",
+   "invoice",
+   "bankszámla",
+   "egyenlegközlő",
+   "tanúsítvány",
+   "tanusitvany",
+   "oklevél",
+   "diploma"
+  ]
+ },
+ "prompt_file": "terkep_adat_prompt.md",
+ "schema_file": "terkep_adat_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_terkep_adat",
+ "fields": {
+  "map_source": "text",
+  "area_name": "text",
+  "notable_locations": "list"
+ },
+ "list_fields": {
+  "notable_locations": {
+   "name": "text",
+   "elevation_m": "number"
+  }
+ },
+ "enums": {},
+ "scored_fields": [
+  "map_source"
+ ],
+ "informational_fields": [],
+ "required": [],
+ "validators": [],
+ "legacy_transforms": []
+}

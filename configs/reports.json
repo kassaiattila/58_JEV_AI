@@ -1,0 +1,30 @@
+{
+ "meta": {
+  "name": "reports",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "054 K4 (döntések 2026-09-28): közmű-költség idősor - bontás fogyasztási hely + közmű szerint, havi rács, napos arányosítás; a közös vízösszesítő (Díjbeszedő-fedőlap) csak tájékoztató, mert a részszámlái külön iratként is bejönnek (kettős számolás)"
+   }
+  ]
+ },
+ "utility_cost": {
+  "utilities": {
+   "villamos_energia_szamla": {"label": "Villamos energia", "consumption_field": "consumption_kwh", "unit": "kWh"},
+   "foldgaz_szamla": {"label": "Földgáz", "consumption_field": "consumption_m3", "unit": "m3"},
+   "vizmuvek_szamla": {"label": "Ivóvíz", "consumption_field": "consumption_m3", "unit": "m3"},
+   "csatorna_szamla": {"label": "Csatorna", "consumption_field": "consumption_m3", "unit": "m3"},
+   "mohu_szamla": {"label": "Hulladék", "consumption_field": null, "unit": null},
+   "viz_szamla": {"label": "Díjbeszedő-összesítő (víz, csatorna, hulladék)", "consumption_field": "consumption_m3", "unit": "m3", "summary_only": true}
+  },
+  "amount_fields": ["gross_total", "amount_due"],
+  "address_fields": ["consumption_address", "customer_address", "customer_id"],
+  "period_fields": ["billing_period_start", "billing_period_end"]
+ },
+ "export": {
+  "csv_delimiter": ";",
+  "formula_prefixes": ["=", "+", "-", "@", "\t", "\r"]
+ }
+}

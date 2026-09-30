@@ -1,0 +1,7 @@
+{
+  "required_any": ["tanúsítvány", "tanusitvany", "oklevél", "oklevel", "diploma", "elismer", "certificate of", "képzés", "kepzes", "vizsga", "bizonyítvány", "bizonyitvany"],
+  "supporting": [],
+  "excluders": ["kárbejelentő", "személyi igazolvány"],
+  "prior": 1.0,
+  "embedding_profile": "Tanúsítvány, oklevél, diploma vagy bizonyítvány: képzés, tanfolyam, nyelvvizsga vagy hatósági vizsga sikeres elvégzését elismerő dokumentum, gyakran szkennelt kép zajos OCR-szöveggel. Jellemző kifejezések: tanúsítvány, oklevél, diploma, bizonyítvány, certificate of completion, sikeresen elvégezte, tanfolyamot végzett, vizsgáztató bizottság, alapvizsga, minősítéssel vizsgát tett, részt vett, hatósági erkölcsi bizonyítvány, bűnügyi nyilvántartás, büntetlen előélet, törzslapszám, okiratszám, elismerés, díj, közönségszavazat, értékelőlap szempontokkal. Tipikus tartalom: a résztvevő vagy vizsgázó neve (esetenként születési adatokkal), a képzést tartó intézmény vagy cég (egyetem, akadémia, intézet, hatóság), a tanfolyam címe és időtartama, kiállítás dátuma, aláírások."
+}

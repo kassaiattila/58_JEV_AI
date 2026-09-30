@@ -1,0 +1,13 @@
+{
+  "name": "synth_id_document",
+  "datapoints": {
+    "document_kind": "szemelyi_igazolvany",
+    "holder_name": "Szintetikus Tulajdonos",
+    "document_number": null,
+    "valid_until": "2030-12-31",
+    "birth_date": "1990-01-01"
+  },
+  "expected_valid": true,
+  "expected_flags": [],
+  "_source": "SYNTHETIC fixture (no PII) — tracked for the fresh-clone offline gate. Required document_kind present; valid_until and birth_date are valid ISO dates. No real document number."
+}

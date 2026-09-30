@@ -1,0 +1,28 @@
+{
+  "_doc": "On-disk git SoR for doc-extract type 'terkep_adat' (scaffolded from a taxonomy candidate, W8/L6). NEXT: fill schema.json + prompt.md, then `flowdev eval doc-extract-bare --type terkep_adat`, record the real config_hash (config.load_type(...).config_hash) + bump config_version, git commit, restart (the W8/L2 configcache syncs bare.doc_types; detect routes to it from disk).",
+  "type_key": "terkep_adat",
+  "config_version": "1.0.1",
+  "provenance": {
+    "from_candidate": "terkep_adat",
+    "sample_ids": [
+      "857",
+      "870",
+      "881",
+      "1199",
+      "1201"
+    ]
+  },
+  "changelog": [
+    {
+      "version": "1.0.1",
+      "date": "2026-09-07",
+      "change": "Migrate GPT calls to gpt-5.4-mini with explicit none reasoning at the sidecar transport boundary. Existing prompts, schemas, rules and temperatures retained; legacy max_tokens maps to max_completion_tokens. Historical quality floors unchanged.",
+      "config_hash": "__PENDING__"
+    },
+    {
+      "version": "1.0.0",
+      "config_hash": "__PENDING__",
+      "note": "scaffolded from taxonomy candidate (W8/L6)."
+    }
+  ]
+}

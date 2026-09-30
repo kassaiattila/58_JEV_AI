@@ -1,0 +1,137 @@
+{
+ "meta": {
+  "name": "type:villamos_energia_szamla",
+  "version": "1.2.0",
+  "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-09-28",
+    "note": "053 T3.0/T3.2: számlatételek - line_items tételes lista a GPT-séma tétel-mezőivel (a prompt és a séma változatlan, a kinyerés költsége nem nő); tétel-ellenőrzések kódban: line_items_total (tételösszeg = végösszeg) és line_items_arithmetic (soronként mennyiség × egységár ≈ nettó, nettó × (1 + ÁFA-kulcs) ≈ bruttó)"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.2: parent + a régi detect.json kulcsszavai a részletes típus kiválasztásához (forrás: 10_AIFLOW_V4/flows/doc-extract-bare/types/villamos_energia_szamla/detect.json, sha256 4c8348b119ce90c2); a kinyerés változatlan"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "tipus-csomag (BACKLOG 1, kozmu-kor): magyar villamos energia elszamolo szamla (MVM Next / ELMU) a regi projektbol - extends utility_bill_hu; a gyermek-mezok a regi schema.json sorrendjeben (distribution_licensee: name; metering_point_id / meter_serial / tariff / reading_method: text; meroallasok es fogyasztas: number); required + consumption_kwh, vat_consistency (regi rules.json); nem pontozott: metering_point_id, meter_serial; prompt es sema verbatim; tariff cimkes szoveg-jelolt (Arszabas), reading_method zart Choice (Leol / Becs / Dikt / EII) a select_utility hivasi helyen"
+   }
+  ],
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/villamos_energia_szamla (config version 1.0.1, 2026-09-07; prompt sha256 80ce141017c52228, schema 2ef510cbe207824a; regi mert scan micro 0.9684 = 184/190 gpt-4o + tesseract)"
+ },
+ "extends": "utility_bill_hu",
+ "document": "Hungarian ELECTRICITY settlement invoice (villamos energia elszámoló számla) issued by an energy retailer such as MVM Next Energiakereskedelmi Zrt.; OCR text of a scanned PDF (Lnn = line number); the grid operator (Elosztói engedélyes, e.g. ELMŰ Hálózati Kft.) is a different company from the supplier",
+ "golden_type_key": "villamos_energia_szamla",
+ "parent": "utility_bill_hu",
+ "detect": {
+  "required_any": [
+   "villamos energia",
+   "áramdíj",
+   "aramdij",
+   "villamosenergia",
+   "mérőállás",
+   "meroallas",
+   "felhasználási hely",
+   "kWh"
+  ],
+  "supporting": [
+   "elszámoló számla",
+   "mérési pont",
+   "elszámolási időszak",
+   "energiadíj",
+   "rendszerhasználati díj",
+   "elosztói",
+   "fogyasztásmérő",
+   "MVM Next",
+   "ELMŰ",
+   "árszabás"
+  ],
+  "excluders": [
+   "földgáz",
+   "gázmérő",
+   "gáznap",
+   "\\bm3\\b",
+   "gnm",
+   "ivóvíz",
+   "vízmérő",
+   "szennyvíz",
+   "csatorna",
+   "távhő",
+   "hődíj",
+   "GJ"
+  ]
+ },
+ "prompt_file": "villamos_energia_szamla_prompt.md",
+ "schema_file": "villamos_energia_szamla_schema.json",
+ "fields": {
+  "distribution_licensee": "name",
+  "metering_point_id": "text",
+  "meter_serial": "text",
+  "tariff": "text",
+  "billing_period_start": "date",
+  "billing_period_end": "date",
+  "meter_reading_start": "number",
+  "meter_reading_end": "number",
+  "consumption_kwh": "number",
+  "reading_method": "text",
+  "line_items": "list"
+ },
+ "scored_fields": [
+  "distribution_licensee",
+  "tariff",
+  "billing_period_start",
+  "billing_period_end",
+  "consumption_kwh",
+  "reading_method",
+  "metering_point_id",
+  "meter_serial",
+  "meter_reading_start",
+  "meter_reading_end"
+ ],
+ "informational_fields": [
+  "metering_point_id",
+  "meter_serial",
+  "meter_reading_start",
+  "meter_reading_end"
+ ],
+ "required": [
+  "consumption_kwh"
+ ],
+ "validators": [
+  {
+   "check": "vat_consistency"
+  },
+  {
+   "check": "line_items_total"
+  },
+  {
+   "check": "line_items_arithmetic"
+  }
+ ],
+ "text_labels": {
+  "tariff": [
+   "[áa]rszab[áa]s"
+  ],
+  "metering_point_id": [
+   "m[ée]r[ée]si\\s*pont\\s*azonos[íi]t[óo](?:ja)?"
+  ],
+  "meter_serial": [
+   "m[ée]r[őo]\\s*gy[áa]rt[áa]si\\s*sz[áa]ma",
+   "gy[áa]ri\\s*sz[áa]ma?"
+  ]
+ },
+ "list_fields": {
+  "line_items": {
+   "description": "text",
+   "period": "text",
+   "quantity": "number",
+   "unit": "text",
+   "unit_price": "money",
+   "net_amount": "money",
+   "vat_rate": "text",
+   "gross_amount": "money"
+  }
+ }
+}

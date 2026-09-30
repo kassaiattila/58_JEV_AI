@@ -1,0 +1,82 @@
+{
+ "meta": {
+  "name": "type:nav_receipt",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   }
+  ],
+  "source": {
+   "path": "10_AIFLOW_V4/flows/doc-extract-bare/types/nav_receipt",
+   "via": "configs/legacy_types/nav_receipt",
+   "sha256": {
+    "schema.json": "102faec5857354310f25d2810182e7eb94489862723e91a77e6122135badd355",
+    "prompt.md": "27d0cf705dd05c24a98a327adb7f0ad08f9e43ea58495fd5e86c5b62d8820b26",
+    "rules.json": "d8eee50734af4f2a57552850428684f245d723b284e4bf332df07434cd12bce0",
+    "detect.json": "bc0adc9fdf80d521d11a6d57154f34a82c404f71a25ace3fd44bda3479726fdc",
+    "meta.json": "fb60eb0a4a6c9c0545920647113aa35dc90bb399983613b8a137888c1ec2ead5",
+    "fixtures/synth_nav_receipt.json": "01a11841fedc004c45d6c63897140f5e279fdc7c5d34cf97eb7fd563068f765d"
+   }
+  }
+ },
+ "document": "Hungarian tax authority (NAV) receipt, acknowledgement or notification (e.g. filing accepted, card payment confirmed)",
+ "golden_type_key": "nav_receipt",
+ "candidate_profile": "intl",
+ "arms": [
+  "G"
+ ],
+ "parent": "receipt",
+ "auto_detect": true,
+ "detect": {
+  "required_any": [
+   "nyugta",
+   "visszaigazolás",
+   "befogad",
+   "vpos",
+   "értesít",
+   "ertesit"
+  ],
+  "supporting": [
+   "érkeztetési szám",
+   "hivatkozási szám",
+   "reference_number"
+  ],
+  "excluders": []
+ },
+ "prompt_file": "nav_receipt_prompt.md",
+ "schema_file": "nav_receipt_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_nav_receipt",
+ "fields": {
+  "document_title": "text",
+  "subject": "text",
+  "reference_number": "text",
+  "taxpayer_name": "name",
+  "tax_id": "tax_id",
+  "issue_date": "date",
+  "authority": "name",
+  "amount": "money"
+ },
+ "list_fields": {},
+ "enums": {},
+ "scored_fields": [
+  "document_title",
+  "subject",
+  "reference_number",
+  "taxpayer_name",
+  "tax_id",
+  "issue_date",
+  "authority",
+  "amount"
+ ],
+ "informational_fields": [],
+ "required": [
+  "document_title",
+  "taxpayer_name"
+ ],
+ "validators": [],
+ "legacy_transforms": []
+}

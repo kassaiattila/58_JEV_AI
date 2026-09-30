@@ -1,0 +1,62 @@
+{
+ "meta": {
+  "name": "models",
+  "version": "1.2.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "modell-adminisztráció kiszervezése a jav/config.py konstansaiból: azonosítók, árak, timeout, cache-verzió"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-20",
+    "note": "Jev keret-kör 1 (BACKLOG 1): cache_version 2 (a konkrét modellverzió a cache-kulcsban, egyszeri érvénytelenítés), alias_ttl_hours, explicit retry (typesafe_sdk.RetryPolicy mezői)"
+   },
+   {
+    "version": "1.2.0",
+    "date": "2026-09-20",
+    "note": "tipus-csomagok: Burr tracker-projekt az invoice_foreign csomagnak (jav_invoice_foreign) es alapertelmezes (invoice -> jav_invoice) a tovabbi csomagoknak"
+   }
+  ]
+ },
+ "jev": {
+  "model": "jev-latest",
+  "note": "jev-latest = jev-1.13.0 (2026-09); a models.list() csak aliasokat ad, a konkrét verzió a válasz model mezője - az adapter szondával oldja fel (runs/cache/_model_versions.json); korlátok: docs.typesafe.ai/model-jaggedness/jev-1.13.md",
+  "timeout_s": 90.0,
+  "usd_per_mtok_input": 0.042,
+  "usd_per_mtok_output": 0.0,
+  "cache_version": 2,
+  "alias_ttl_hours": 24,
+  "retry": {
+   "max_retries": 3,
+   "backoff_initial": 0.5,
+   "backoff_max": 8.0,
+   "backoff_jitter": 0.25,
+   "timeout": 240.0,
+   "_note": "typesafe_sdk.RetryPolicy mezői; a http_statuses alapból 408/429/5xx; timeout = teljes keret egy SDK-hívásra (nagyobb, mint a timeout_s kérés-limit)"
+  }
+ },
+ "openai": {
+  "model": "gpt-5.4-mini",
+  "note": "G-kar generatív kivonat (Pydantic AI); a régi sidecar-beállítás: reasoning none, temperature 0",
+  "reasoning_effort": "none",
+  "temperature": 0.0,
+  "retries": 2,
+  "usd_per_mtok": {
+   "gpt-5.4-mini": [
+    0.75,
+    4.5
+   ]
+  }
+ },
+ "burr": {
+  "tracker_projects": {
+   "invoice_hu": "jav_invoice_hu",
+   "doc_detect": "jav_doc_detect",
+   "email_intent": "jav_email_intent",
+   "invoice_foreign": "jav_invoice_foreign",
+   "invoice": "jav_invoice"
+  }
+ }
+}

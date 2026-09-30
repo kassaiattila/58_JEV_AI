@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\nav_receipt",
+  "files": {
+    "schema.json": "102faec5857354310f25d2810182e7eb94489862723e91a77e6122135badd355",
+    "prompt.md": "27d0cf705dd05c24a98a327adb7f0ad08f9e43ea58495fd5e86c5b62d8820b26",
+    "rules.json": "d8eee50734af4f2a57552850428684f245d723b284e4bf332df07434cd12bce0",
+    "detect.json": "bc0adc9fdf80d521d11a6d57154f34a82c404f71a25ace3fd44bda3479726fdc",
+    "meta.json": "fb60eb0a4a6c9c0545920647113aa35dc90bb399983613b8a137888c1ec2ead5",
+    "fixtures/synth_nav_receipt.json": "01a11841fedc004c45d6c63897140f5e279fdc7c5d34cf97eb7fd563068f765d"
+  },
+  "legacy_catalog_active": true,
+  "status": "explicit_type_candidate_processing",
+  "automatic_routing_enabled": false
+}

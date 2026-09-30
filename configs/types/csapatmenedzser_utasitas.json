@@ -1,0 +1,77 @@
+{
+ "meta": {
+  "name": "type:csapatmenedzser_utasitas",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   }
+  ],
+  "source": {
+   "path": "10_AIFLOW_V4/flows/doc-extract-bare/types/csapatmenedzser_utasitas",
+   "via": "configs/legacy_types/csapatmenedzser_utasitas",
+   "sha256": {
+    "schema.json": "d62778de1ee3a6d584074787189960cfa7d268c1a279bc796f1f4e5bfd287774",
+    "prompt.md": "51919cabf7366383fad39df11c0097fb5833e767fbb6dac0e5f5e0a22bd3e09a",
+    "rules.json": "b5bc28441a8dc0b71c83f2e20eafc3ed1e72581da688494aa9704b993d1c412e",
+    "detect.json": "7c7e714f9273ba94ec879b54fd3d0c44a46aa8bc46130a893a95804ef4feb277",
+    "meta.json": "721a9410497543771d4e2c7894b67317101118a272a762e46f469542d5826589"
+   }
+  }
+ },
+ "document": "Instruction issued to a sports team manager by an organising body",
+ "golden_type_key": "csapatmenedzser_utasitas",
+ "candidate_profile": "intl",
+ "arms": [
+  "G"
+ ],
+ "parent": "other",
+ "auto_detect": false,
+ "detect": {
+  "required_any": [
+   "team manager",
+   "csapatmenedzser",
+   "competitions letter"
+  ],
+  "supporting": [
+   "eurohockey",
+   "national association",
+   "club tournament",
+   "whom to ask",
+   "körlevél",
+   "útmutató",
+   "member national association"
+  ],
+  "excluders": [
+   "invoice",
+   "számlaszám|számla sorszáma",
+   "bankszámlakivonat",
+   "tanúsítvány",
+   "diploma"
+  ]
+ },
+ "prompt_file": "csapatmenedzser_utasitas_prompt.md",
+ "schema_file": "csapatmenedzser_utasitas_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_csapatmenedzser_utasitas",
+ "fields": {
+  "document_title": "text",
+  "issuing_body": "name",
+  "recipient": "name",
+  "date": "date",
+  "subject": "text"
+ },
+ "list_fields": {},
+ "enums": {},
+ "scored_fields": [
+  "issuing_body",
+  "recipient",
+  "date"
+ ],
+ "informational_fields": [],
+ "required": [],
+ "validators": [],
+ "legacy_transforms": []
+}

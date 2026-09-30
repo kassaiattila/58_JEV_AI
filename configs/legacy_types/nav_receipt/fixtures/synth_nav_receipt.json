@@ -1,0 +1,16 @@
+{
+  "name": "synth_nav_receipt",
+  "datapoints": {
+    "document_title": "Szintetikus elfogadó nyugta",
+    "subject": "Szintetikus bevallás beadása",
+    "reference_number": "SYNTH-KR-0000000000000000000",
+    "taxpayer_name": "Szintetikus Adózó",
+    "tax_id": "0000000000",
+    "issue_date": "2026-03-22",
+    "authority": "Nemzeti Adó- és Vámhivatal",
+    "amount": null
+  },
+  "expected_valid": true,
+  "expected_flags": [],
+  "_source": "SYNTHETIC fixture (no PII) — tracked for the fresh-clone offline gate. Required document_title + taxpayer_name present; issue_date is a valid ISO date; no named validator runs for this type."
+}

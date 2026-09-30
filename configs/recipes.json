@@ -1,0 +1,253 @@
+{
+ "meta": {
+  "name": "recipes",
+  "version": "1.5.0",
+  "changelog": [
+   {
+    "version": "1.5.0",
+    "date": "2026-09-28",
+    "note": "058 K5.2 (döntés 2026-09-28: automatikus lánc): a levél-szándék recept 2. változata több tétel-fajtát kezel (flows): a levélen a szándék-felismerés, a levél PDF-csatolmányán (a csomagban a levélre mutató irat) a teljes irat-feldolgozás; tételkeret fajtánként (max_item_usd_by_kind: levél JEV 0,05; csatolmány JEV 0,07 + OpenAI 0,10 USD). 058 K5.3: új paraméter `tasks` (off / propose, alapból off - aktiválás felhasználói döntéssel): feladatjavaslat a levélen; bekapcsolva levelenként +0,006 USD OpenAI keret (param_item_usd)"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-27",
+    "note": "040 K3: jev_cache paraméter (reuse = korábbi JEV-válasz újrahasználható; live = gyorsítótár olvasása nélkül, minden hívás a hívásnaplón és a kereten át). Az élő próbához kell; a recept 2-es verziója."
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-27",
+    "note": "040 K1: a folyamatrecept-katalógus (a V4 flows/business-workflows.json szerkezete); első recept a számla-kivonatolás (040/3 döntés)"
+   },
+   {
+    "version": "1.2.0",
+    "date": "2026-09-28",
+    "note": "047 T1.3: új recept document-processing - felismerés (durva + részletes típus), majd a részletes típus csomagjával kinyerés; a kar a kért, ha a csomag támogatja (a régi típusokból átalakított csomagok csak G); tételkeret mindkét karnál JEV 0,07 + OpenAI 0,10 USD, mert a G-kar a csomag miatt S kérésnél is előfordulhat"
+   },
+   {
+    "version": "1.3.0",
+    "date": "2026-09-28",
+    "note": "048 T2: új recept email-intent - levél-szándék (a régi 11 szándék) a postafiókból letöltött leveleken; a PDF-csatolmányokon iratfelismerés; tétel = a levél message.json-ja; tételkeret JEV 0,05 USD (szándék + csatolmányok felismerése)"
+   },
+   {
+    "version": "1.4.0",
+    "date": "2026-09-28",
+    "note": "053 T3.1 (döntés 2026-09-28: A út): a kar alapértéke auto = az irattípus csomagjának ajánlott útja (közmű: G, mert a fejadatot és a tételeket egy GPT-hívás adja; magyar számla: S); a kifejezett S / G kérés megmarad; az auto kar tételkerete a G-karé"
+   }
+  ]
+ },
+ "recipes": [
+  {
+   "id": "invoice-extraction",
+   "version": 3,
+   "title": "Számlák adatainak kinyerése",
+   "description": "A munkacsomag PDF-számláiból a típuscsomag mezőinek kinyerése, kódos ellenőrzéssel; ami bizonytalan, teendő lesz.",
+   "steps": [
+    "Beolvasás (szükség esetén OCR)",
+    "Jelöltkeresés és JEV-választás (S) vagy GPT-kivonat és JEV-ellenőrzés (G)",
+    "Kódos ellenőrzés",
+    "Teendők és eredmény"
+   ],
+   "requirements": [
+    "Legalább egy PDF-irat a munkacsomagban",
+    "A kiválasztott típuscsomag létezik",
+    "Keret a használt szolgáltatókra"
+   ],
+   "result": "Iratonként mezőnkénti adat forrással, ellenőrzési eredménnyel és okonkénti teendőkkel.",
+   "manual_action": "A teendők rendezése, majd éles módban a futás jóváhagyása.",
+   "flow": "invoice",
+   "input_kinds": [
+    "document"
+   ],
+   "file_suffixes": [
+    ".pdf"
+   ],
+   "params": {
+    "arm": {
+     "allowed": [
+      "auto",
+      "S",
+      "G"
+     ],
+     "default": "auto"
+    },
+    "doc_type": {
+     "allowed_from": "typepacks",
+     "default": "invoice_hu"
+    },
+    "jev_cache": {
+     "allowed": [
+      "reuse",
+      "live"
+     ],
+     "default": "reuse"
+    }
+   },
+   "max_item_usd": {
+    "S": {
+     "jev": "0.05"
+    },
+    "G": {
+     "jev": "0.05",
+     "openai": "0.10"
+    },
+    "auto": {
+     "jev": "0.05",
+     "openai": "0.10"
+    }
+   },
+   "max_attempts": 2
+  },
+  {
+   "id": "document-processing",
+   "version": 2,
+   "title": "Iratok felismerése és adatkinyerése",
+   "description": "A munkacsomag iratainak típusfelismerése (durva kategória, majd részletes típus), utána a felismert típus mezőinek kinyerése kódos ellenőrzéssel; ami bizonytalan vagy nem dönthető el, teendő lesz.",
+   "steps": [
+    "Beolvasás (szükség esetén OCR)",
+    "Típusfelismerés: durva kategória (JEV), részletes típus (régi kulcsszavak, szükség esetén JEV)",
+    "Adatkinyerés a felismert típus csomagjával (S vagy G)",
+    "Kódos ellenőrzés",
+    "Teendők és eredmény"
+   ],
+   "requirements": [
+    "Legalább egy PDF-irat a munkacsomagban",
+    "Keret a használt szolgáltatókra"
+   ],
+   "result": "Iratonként a felismert típus, mezőnkénti adat forrással, ellenőrzési eredménnyel és okonkénti teendőkkel.",
+   "manual_action": "A teendők rendezése (a nem eldönthető típus is teendő), majd éles módban a futás jóváhagyása.",
+   "flow": "document",
+   "input_kinds": [
+    "document"
+   ],
+   "file_suffixes": [
+    ".pdf"
+   ],
+   "params": {
+    "arm": {
+     "allowed": [
+      "auto",
+      "S",
+      "G"
+     ],
+     "default": "auto"
+    },
+    "jev_cache": {
+     "allowed": [
+      "reuse",
+      "live"
+     ],
+     "default": "reuse"
+    }
+   },
+   "max_item_usd": {
+    "S": {
+     "jev": "0.07",
+     "openai": "0.10"
+    },
+    "G": {
+     "jev": "0.07",
+     "openai": "0.10"
+    },
+    "auto": {
+     "jev": "0.07",
+     "openai": "0.10"
+    }
+   },
+   "max_attempts": 2
+  },
+  {
+   "id": "email-intent",
+   "version": 2,
+   "title": "Levelek szándékának felismerése",
+   "description": "A postafiókból letöltött levelek szándékának felismerése (pl. számla érkezett, kérdés, egyéb); a PDF-csatolmányok a levél csomagjában iratként futnak: típusfelismerés, majd a felismert típus adatainak kinyerése. Ami bizonytalan, teendő lesz.",
+   "steps": [
+    "A levél és a csatolmányok beolvasása",
+    "Csatolmányok típusfelismerése (JEV)",
+    "Szándék-felismerés (JEV)",
+    "Továbbirányítás kódban",
+    "A PDF-csatolmányok adatkinyerése a felismert típus csomagjával (S vagy G)",
+    "Teendők és eredmény"
+   ],
+   "requirements": [
+    "Legalább egy levél a munkacsomagban (postafiók-letöltésből)",
+    "Keret a JEV-re, PDF-csatolmánynál az OpenAI-ra is"
+   ],
+   "result": "Levelenként a felismert szándék valószínűséggel, a javasolt következő lépés és a csatolmányok típusa; a PDF-csatolmányokon mezőnkénti adat forrással, a levélre visszavezetve.",
+   "manual_action": "A bizonytalan szándékú levelek és a csatolmányok teendőinek rendezése, majd éles módban a futás jóváhagyása.",
+   "flow": "email",
+   "flows": {
+    "email": "email",
+    "document": "document"
+   },
+   "input_kinds": [
+    "email",
+    "document"
+   ],
+   "file_suffixes": [
+    ".json",
+    ".pdf"
+   ],
+   "params": {
+    "arm": {
+     "allowed": [
+      "auto",
+      "S",
+      "G"
+     ],
+     "default": "auto"
+    },
+    "jev_cache": {
+     "allowed": [
+      "reuse",
+      "live"
+     ],
+     "default": "reuse"
+    },
+    "tasks": {
+     "allowed": [
+      "off",
+      "propose"
+     ],
+     "default": "off"
+    }
+   },
+   "max_item_usd": {
+    "*": {
+     "jev": "0.05"
+    }
+   },
+   "param_item_usd": [
+    {
+     "param": "tasks",
+     "value": "propose",
+     "kind": "email",
+     "usd": {
+      "openai": "0.006"
+     }
+    }
+   ],
+   "max_item_usd_by_kind": {
+    "email": {
+     "*": {
+      "jev": "0.05"
+     }
+    },
+    "document": {
+     "S": {
+      "jev": "0.07",
+      "openai": "0.10"
+     },
+     "G": {
+      "jev": "0.07",
+      "openai": "0.10"
+     },
+     "auto": {
+      "jev": "0.07",
+      "openai": "0.10"
+     }
+    }
+   },
+   "max_attempts": 2
+  }
+ ]
+}

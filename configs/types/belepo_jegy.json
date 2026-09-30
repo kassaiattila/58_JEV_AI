@@ -1,0 +1,89 @@
+{
+ "meta": {
+  "name": "type:belepo_jegy",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   }
+  ],
+  "source": {
+   "path": "10_AIFLOW_V4/flows/doc-extract-bare/types/belepo_jegy",
+   "via": "configs/legacy_types/belepo_jegy",
+   "sha256": {
+    "schema.json": "8df5e62d393d0e1d49d2f25660e2a0a5d453d13a8bca17e16a8de59c690aca28",
+    "prompt.md": "3a11135a8db3a439ce2f80508c0a466aa5630af92a4ee720273f57c5fc17f8bc",
+    "rules.json": "32562eb51051398521527034b134c325565cadeef5d78fcb3f43b35c002fd560",
+    "detect.json": "35a6f2559485477cac592e83605f0c9945cac180ba84a399f0c4bd50de7f1ea0",
+    "meta.json": "3fa0984d26e23bc72e0098bc5ae3b0a78302c3591fef8dbd0123b141b1084b25"
+   }
+  }
+ },
+ "document": "Event admission ticket (e.g. a stadium or concert ticket), Hungarian or English",
+ "golden_type_key": "belepo_jegy",
+ "candidate_profile": "intl",
+ "arms": [
+  "G"
+ ],
+ "parent": "ticket",
+ "auto_detect": true,
+ "detect": {
+  "required_any": [
+   "jegy azonosít",
+   "belépőjegy",
+   "jogosít belépésre",
+   "szektor/sector",
+   "kapu/gate"
+  ],
+  "supporting": [
+   "szurkolói kártya",
+   "kártyaszám",
+   "szék/seat",
+   "sor/row",
+   "kapucsoport",
+   "stadion",
+   "szektor"
+  ],
+  "excluders": [
+   "számlaszám|számla sorszáma",
+   "bankszámlakivonat",
+   "tanúsítvány|oklevél|bizonyítvány"
+  ]
+ },
+ "prompt_file": "belepo_jegy_prompt.md",
+ "schema_file": "belepo_jegy_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_belepo_jegy",
+ "fields": {
+  "ticket_id": "text",
+  "holder_name": "name",
+  "event_name": "text",
+  "event_datetime": "text",
+  "venue": "text",
+  "birth_place": "text",
+  "birth_date": "date",
+  "card_number": "text",
+  "gate": "text",
+  "sector": "text",
+  "row": "text",
+  "seat": "text"
+ },
+ "list_fields": {},
+ "enums": {},
+ "scored_fields": [
+  "ticket_id",
+  "event_name",
+  "event_datetime",
+  "venue",
+  "gate",
+  "sector",
+  "row",
+  "seat"
+ ],
+ "informational_fields": [],
+ "required": [],
+ "validators": [],
+ "legacy_transforms": []
+}

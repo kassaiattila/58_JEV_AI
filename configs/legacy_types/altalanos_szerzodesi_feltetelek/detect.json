@@ -1,0 +1,26 @@
+{
+  "_doc": "Detect anchors — Python-re patterns run over lowercased, whitespace-normalized text. required_any is OR (any hit passes); supporting corroborates (+0.25 each); excluders steer away from invoices/statements/certificates (-0.5 each). FIRST DRAFT seeded from the taxonomy candidate + a real ROBOT WORLD/Alza ÁSZF sample — tune before trusting.",
+  "embedding_profile": "Webáruház jogi dokumentuma: Általános Szerződési Feltételek (ÁSZF), amely szabályozza a vásárlás menetét és a felek — az Eladó és a Vevő/Fogyasztó — jogait és kötelezettségeit a webáruházon keresztül kötött adásvételi szerződésekben. Jellemzően hosszú, többoldalas, sorszámozott jogi próza (pl. \"1/35\" oldaljelöléssel), római vagy arab számozású fejezetekkel: Bevezető, A Webáruház használata, Regisztráció, Megrendelés és a szerződés létrejötte, Fizetési és szállítási feltételek, Elállási jog, Jótállás és szavatosság, Panaszkezelés, Adatvédelem. Jellemző kifejezések: általános szerződési feltételek, ászf, eladó, vevő, fogyasztó, adásvételi szerződés, webáruház, megrendelés, elállási jog, fizetési feltételek, szállítás, jótállás, szavatosság, panaszkezelés, terms and conditions. Az Eladó azonosító adatai a bevezetőben: cégnév (pl. ROBOT WORLD s.r.o.), székhely, cégjegyzékszám. Kevés strukturált mező, túlnyomórészt szabad jogi szöveg.",
+  "required_any": [
+    "általános szerződési feltételek",
+    "\\bászf\\b",
+    "terms (and|&) conditions"
+  ],
+  "supporting": [
+    "eladó és (a )?vevő",
+    "adásvételi szerződés",
+    "webáruház|webshop|web[- ]?áruház",
+    "elállási jog|elállás",
+    "fogyasztó",
+    "regisztráció",
+    "jótállás|szavatosság",
+    "panaszkezelés",
+    "cégjegyzékszám|székhely"
+  ],
+  "excluders": [
+    "számla sorszáma|számlaszám",
+    "bankszámlakivonat|nyitó egyenleg",
+    "tanúsítvány|oklevél|bizonyítvány"
+  ],
+  "prior": 1.0
+}

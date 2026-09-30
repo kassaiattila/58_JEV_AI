@@ -1,0 +1,8 @@
+{
+  "_doc": "Detect anchors for 'terkep_adat' — Python-re patterns run over lowercased normalized text. FIRST DRAFT: derived from the real sample (OpenStreetMap/Leaflet map screenshot with garbled OCR); tune before trusting.",
+  "embedding_profile": "Térképi adatokat tartalmazó dokumentum (például OpenStreetMap-export vagy térkép-képernyőkép), helyszínekkel és magassági adatokkal. Jellemzően egy térkép kép erősen zajos, tördelt OCR-szövege, kevés kinyerhető strukturált adattal. Jellemző tartalmi jelölők: 'Térkép adatok © OpenStreetMap és közreműködői' attribúció, Leaflet térképrenderelő, egy település vagy terület neve (pl. Pilisvörösvár), nevezett földrajzi helyszínek magassággal méterben (pl. Hárs-hegy 329 m, Kutya-hegy 559 m), méretarány-skála kilométerben (0 1 2 3 4 5 ... km). Nem tartalmaz számlát, banki kivonatot vagy tanúsítványt.",
+  "required_any": ["openstreetmap", "térkép adat", "terkep adat", "leaflet"],
+  "supporting": ["közreműködői", "kozremukodoi", "hegy", "domb", "magasság", "magassag", "\\bkm\\b"],
+  "excluders": ["számla", "szamla", "invoice", "bankszámla", "egyenlegközlő", "tanúsítvány", "tanusitvany", "oklevél", "diploma"],
+  "prior": 1.0
+}

@@ -1,0 +1,38 @@
+{
+ "meta": {
+  "name": "verify_insurance_claim_form",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_insurance_claim_form",
+ "document": "Insurance claim or notification form (possibly blank), Hungarian",
+ "glossary": "Document type: Insurance claim or notification form (possibly blank), Hungarian. Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "form_title": "the form title as printed on the document (A nyomtatvany cime (pl. Gepjarmu-karbejelentesi adatlap, Igenybejelento nyomtatvany, Meghatalmazas))",
+  "insurer": "the insurer as printed on the document (Biztosito / penztar neve, ha szerepel (pl. Allianz, Alfa Onkentes Nyugdijpenztar))",
+  "form_code": "the form code as printed on the document (Nyomtatvany-kod, ha szerepel (pl. AHE-52646, NYP-0076v11))",
+  "claim_type": "the claim type as printed on the document (Kar/igeny tipusa, ha azonosithato (pl. gepjarmu-kar, szemelyserules, aszaly/jegveres, atlepes, azonositas, meghatalmazas))",
+  "policy_number": "the policy number as printed on the document (Szerzodes-/kotvenyszam, ha KITOLTOTT erteke van; ures rubrika eseten null)",
+  "claimant_name": "the claimant name as printed on the document (Bejelento/igenylo neve, ha KITOLTOTT; ures nyomtatvanyon null)",
+  "is_blank_form": "the is blank form as printed on the document (true, ha a nyomtatvany NINCS kitoltve (ures, kitoltheto forma); false, ha kitoltott adatokat tartalmaz)"
+ },
+ "incomplete_fields": [
+  "insurer",
+  "claimant_name"
+ ],
+ "wrong_kind_fields": []
+}

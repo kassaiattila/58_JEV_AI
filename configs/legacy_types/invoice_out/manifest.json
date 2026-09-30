@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\invoice_out",
+  "files": {
+    "schema.json": "d3998b43df53181dac8f4337c464296ab242fb02fd3a7a511fed4cd7d507e885",
+    "prompt.md": "fd6117316075094a502d3f5f295bcce4f45586a2698b96632b7cebf0deaf4926",
+    "rules.json": "8ba07b53b4ba5dea5a3a18c7a6bf7fd78c8bc4ee1a32c4578351b177dbaf3dc2",
+    "detect.json": "05db60065132966bef9aa42cd9db9dcf3d48960dacfb7d3c5a9237e9db3c94b7",
+    "meta.json": "5edc6dec5576b3e317565b76b8002b0cfb7a8e85a89114fbb1ac3a78fb4ff38d",
+    "fixtures/synth_invoice_out.json": "ebcaa1626b1f17dece165ce65897d0f83f43def4c7bd7f660fc930853d543882"
+  },
+  "legacy_catalog_active": true,
+  "status": "explicit_type_candidate_processing",
+  "automatic_routing_enabled": false
+}

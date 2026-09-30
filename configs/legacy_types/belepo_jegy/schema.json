@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ticket_id":      { "type": ["string", "null"], "description": "A jegy egyedi azonositoja, ahogy a jegyen szerepel (pl. Jegy azonosito: 4087040)" },
+    "holder_name":    { "type": ["string", "null"], "description": "A jegy tulajdonosanak / nezo neve (Nev)" },
+    "event_name":     { "type": ["string", "null"], "description": "Az esemeny / merkozes megnevezese, ahogy a jegyen szerepel (pl. FTC - Panathinaikos FC)" },
+    "event_datetime": { "type": ["string", "null"], "description": "Az esemeny idopontja, ISO 8601 YYYY-MM-DDTHH:MM (a magyar '2026.01.22 21:00' formatumot normalizald)" },
+    "venue":          { "type": ["string", "null"], "description": "A helyszin / letesitmeny neve (pl. FERENCVAROS STADION)" },
+    "birth_place":    { "type": ["string", "null"], "description": "A nezo szuletesi helye (Szuletesi hely) — szemelyes adat" },
+    "birth_date":     { "type": ["string", "null"], "description": "A nezo szuletesi ideje, ISO 8601 YYYY-MM-DD (Szuletesi ido) — szemelyes adat" },
+    "card_number":    { "type": ["string", "null"], "description": "Szurkoloi kartya szama (Kartyaszam), ha szerepel — szemelyes adat" },
+    "gate":           { "type": ["string", "null"], "description": "Belepesi kapu / kapucsoport megjelolese (Kapu/Gate)" },
+    "sector":         { "type": ["string", "null"], "description": "Szektor megjelolese (Szektor/Sector, pl. D3 szektor)" },
+    "row":            { "type": ["string", "null"], "description": "Sor a szektoron belul (Sor/Row), ahogy a jegyen nyomtatva van" },
+    "seat":           { "type": ["string", "null"], "description": "Szek / uloholy szama (Szek/Seat), ahogy a jegyen nyomtatva van" }
+  },
+  "required": [
+    "ticket_id", "holder_name", "event_name", "event_datetime", "venue",
+    "birth_place", "birth_date", "card_number", "gate", "sector", "row", "seat"
+  ]
+}

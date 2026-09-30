@@ -1,0 +1,41 @@
+{
+ "meta": {
+  "name": "verify_nav_tax_return",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_nav_tax_return",
+ "document": "Hungarian tax return form or its summary (NAV form code, tax year, total tax)",
+ "glossary": "Document type: Hungarian tax return form or its summary (NAV form code, tax year, total tax). Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "document_title": "the document title as printed on the document (A bevallas cime/megnevezese, ahogy a folapon szerepel)",
+  "form_code": "the form code as printed on the document (Nyomtatvany-kod, pl. 17KATA, 21SZJA, 2153, 2353)",
+  "tax_year": "the tax year as printed on the document (Adoev, YYYY (pl. 2021))",
+  "taxpayer_name": "the taxpayer name as printed on the document (Adozo neve)",
+  "tax_id": "the tax id as printed on the document (Adoazonosito jel (10 szamjegy) VAGY adoszam, ahogy a folapon szerepel)",
+  "issue_date": "the issue date as printed on the document (Beadas/postara adas/keltezes datuma, ISO 8601 YYYY-MM-DD)",
+  "authority": "the authority as printed on the document (Cimzett hatosag (pl. Nemzeti Ado- es Vamhivatal))",
+  "total_tax": "the total tax as printed on the document"
+ },
+ "incomplete_fields": [
+  "taxpayer_name",
+  "authority"
+ ],
+ "wrong_kind_fields": [
+  "tax_id"
+ ]
+}

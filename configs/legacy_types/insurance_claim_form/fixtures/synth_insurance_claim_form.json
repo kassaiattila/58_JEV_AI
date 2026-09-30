@@ -1,0 +1,15 @@
+{
+  "name": "synth_insurance_claim_form",
+  "datapoints": {
+    "form_title": "Szintetikus gépjármű-kárbejelentési adatlap",
+    "insurer": null,
+    "form_code": "SYNTH-0001",
+    "claim_type": "gepjarmu-kar",
+    "policy_number": null,
+    "claimant_name": null,
+    "is_blank_form": true
+  },
+  "expected_valid": true,
+  "expected_flags": [],
+  "_source": "SYNTHETIC fixture (no PII) — tracked for the fresh-clone offline gate. Required form_title present; is_blank_form is a boolean (true = empty fillable form, so claimant/policy null)."
+}

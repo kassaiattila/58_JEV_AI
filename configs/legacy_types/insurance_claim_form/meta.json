@@ -1,0 +1,24 @@
+{
+  "type_key": "insurance_claim_form",
+  "version": "1.0.2",
+  "changelog": [
+    {
+      "version": "1.0.2",
+      "date": "2026-09-07",
+      "change": "Migrate GPT calls to gpt-5.4-mini with explicit none reasoning at the sidecar transport boundary. Existing prompts, schemas, rules and temperatures retained; legacy max_tokens maps to max_completion_tokens. Historical quality floors unchanged.",
+      "config_hash": "9f0702a2cd0d9867d2f52534a34743c3e0b5e113a7b2561583c6fe30b193c8b5"
+    },
+    {
+      "version": "1.0.1",
+      "date": "2026-07-02",
+      "change": "W1/L7 snapshot pin: model gpt-4o -> gpt-4o-2024-08-06 (pure freeze - the dated snapshot the alias served on 2026-07-02; verified via response body.model). No prompt/schema/rules change.",
+      "config_hash": "2db4f8153fd5c626bf3523f7f6348eea277b69674736d5dd8d82183b8fa984e6"
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-06-24",
+      "change": "Versioning baseline — current shipped config captured; no behavioral change.",
+      "config_hash": "8ae8aef35769a60267cc7d1b63f285b1da8f3a09eb6c7d58521800a8e58ca409"
+    }
+  ]
+}

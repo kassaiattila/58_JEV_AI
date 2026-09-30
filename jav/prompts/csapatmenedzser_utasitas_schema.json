@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "document_title": { "type": ["string", "null"], "description": "A levél/körlevél címe vagy fő tárgysora, ahogy a dokumentumon szerepel (pl. 'EuroHockey Club Tournaments (Men & Women) 2027', 'Explanation for Team Managers whom to ask questions')" },
+    "issuing_body":   { "type": ["string", "null"], "description": "A kibocsátó sportszövetség/szervezet neve (pl. EuroHockey, MOB, szakszövetség)" },
+    "recipient":      { "type": ["string", "null"], "description": "A címzett(ek), ahogy a levél megszólítja őket (pl. 'Member National Associations', 'Team Managers')" },
+    "date":           { "type": ["string", "null"], "description": "A levél kelte, ISO 8601 YYYY-MM-DD; ha csak szöveges dátum szerepel (pl. '17th June 2026'), normalizáld" },
+    "subject":        { "type": ["string", "null"], "description": "A körlevél tárgya / miről szól — a verseny, torna vagy teendő rövid megnevezése, ha elkülönül a címtől" }
+  },
+  "required": ["document_title", "issuing_body", "recipient", "date", "subject"]
+}

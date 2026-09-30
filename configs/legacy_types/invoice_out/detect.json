@@ -1,0 +1,7 @@
+{
+  "required_any": ["(bd|bese)[0-9]{3}"],
+  "supporting": ["bestixcom"],
+  "excluders": [],
+  "prior": 1.0,
+  "embedding_profile": "Kimenő számla: a BestixCom Kft (BestIxCom) magyar IT-tanácsadó cég által KIÁLLÍTOTT számla, ahol a BestixCom az eladó/szállító, a vevő pedig egy ügyfél cég. Legbiztosabb jegye a BD vagy BESE kezdetű számla-sorszám (pl. BD123, BESE045). Gyakran angol nyelvű: Issuer, Customer, Invoice No., VAT. Jellemző kifejezések: számla sorszáma BD/BESE előtaggal, BestixCom Kft mint kiállító, IT consulting szolgáltatás, devizás (USD/EUR) összegek HUF áfa-átszámítási blokkal. Tipikus mezők: vevő neve és adószáma, szolgáltatás megnevezése, nettó/bruttó összeg, fizetési határidő, IBAN."
+}

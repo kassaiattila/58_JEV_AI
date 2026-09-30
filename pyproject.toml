@@ -1,0 +1,24 @@
+# A projekt eszközbeállításai (040, K0). A függőségek forrása továbbra is a requirements.txt / requirements.lock
+# (telepítés: docs/guides/SETUP.md); ez a fájl nem teszi a csomagot telepíthetővé, csak a QA-eszközöket állítja be.
+
+[project]
+name = "jav"
+version = "0.40.0"
+description = "Többnyelvű dokumentum- és e-mail-feldolgozó AI-flow-keretrendszer (Burr + Pydantic AI + JEV)"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = ["runs", "store", "inbox", "tools", ".venv"]
+
+[tool.ruff.lint]
+# A 038-as audit szabálykészlete: szintaxis, importok, definiálatlan nevek, tömörített utasítások.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.jav.lint]
+# Racsni: az összes Ruff-jelzés nem nőhet e fölé; javítás után csökkentsd (preflight ellenőrzi).
+max_findings = 186

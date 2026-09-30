@@ -1,0 +1,8 @@
+{
+  "_doc": "Detect anchors for the 'meghivo' (event invitation) type — FIRST DRAFT seeded from the taxonomy candidate + a real sample (Magyar Curling Szövetség szezonzáró díjátadó gála meghívó); tune before trusting. Anchors are Python-re patterns run over lowercased text (accents preserved). Excluders separate it from the közgyűlési meghívó/jegyzőkönyv (meeting_minutes family) and the invoice/statement collisions.",
+  "embedding_profile": "Eseményre invitáló meghívó (rendezvény-meghívó): egy gálára, díjátadóra, ünnepségre, konferenciára vagy más rendezvényre való részvételre hív. Jellemző kifejezések: meghívó, szeretettel/tisztelettel meghívjuk, esemény, rendezvény, gála, díjátadó, szezonzáró, ünnepség, program, regisztráció, regisztrálok az eseményre, részvétel. Tipikus mezők: a szervező neve (pl. Magyar Curling Szövetség), az esemény neve (pl. 2026. évi szezonzáró díjátadó gála), időpont dátummal és órával (pl. május 27., 17:30-22:00), helyszín és postai cím (pl. Rubin Wellness & Conference Hotel, 1118 Budapest, Dayka Gábor u. 3.), terem (pl. Sirály terem), valamint a regisztráció/részvétel módja. NEM közgyűlési jegyzőkönyv vagy közgyűlési meghívó (az a meeting_minutes család), nem számla és nem bankszámlakivonat.",
+  "required_any": ["meghívó", "meghívjuk|meghívja|szeretettel meghív|tisztelettel meghív"],
+  "supporting": ["esemény|rendezvény", "regisztrá", "gála|díjátadó", "helyszín", "időpont", "részvétel", "program"],
+  "excluders": ["közgyűlés", "jegyzőkönyv", "számlaszám|számla sorszáma", "bankszámlakivonat"],
+  "prior": 1.0
+}

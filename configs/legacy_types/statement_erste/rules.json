@@ -1,0 +1,15 @@
+{
+  "required": ["statement_type", "period_start", "period_end", "opening_balance", "closing_balance", "transactions"],
+  "fields": {
+    "period_start": { "format": "date" },
+    "period_end": { "format": "date" }
+  },
+  "money_fields": ["opening_balance", "closing_balance", "total_debit", "total_credit"],
+  "transforms": ["derive_direction_from_running_balance"],
+  "named": [
+    { "check": "running_balance_check" },
+    { "check": "closing_balance_check" },
+    { "check": "totals_consistency" },
+    { "check": "period_dates" }
+  ]
+}

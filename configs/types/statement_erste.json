@@ -1,0 +1,129 @@
+{
+ "meta": {
+  "name": "type:statement_erste",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   }
+  ],
+  "source": {
+   "path": "10_AIFLOW_V4/flows/doc-extract-bare/types/statement_erste",
+   "via": "configs/legacy_types/statement_erste",
+   "sha256": {
+    "schema.json": "6a129e732d2e633f4ea16302ec8c53275cc46a0189cb5eb6e6f536d6214fdfe3",
+    "prompt.md": "fb6d1ada9a2b5a220fec83b2c9effb7d87fbd42f8c09bde9cba1756a19946008",
+    "rules.json": "53ed62bd230b425a420f932370f4692408f2d331c7828ac229b70ea641c09a00",
+    "detect.json": "f7642663147a4c3fcdac839bb1bb26cc2cdd84e79eb8ed10d37d06dd9ebc98b8",
+    "meta.json": "4059207dd756b8a895193eb091f4a31aaa7c268f5cf306f3e01260eb949b1921",
+    "fixtures/synth_statement.json": "959f9c72b8423fd71bc4229bc9654605e57fcf2b0c41ccbc4c89ae685fdd41cd"
+   }
+  }
+ },
+ "document": "Erste Bank account or credit card statement with balances and a transaction list, Hungarian",
+ "golden_type_key": "statement_erste",
+ "candidate_profile": "intl",
+ "arms": [
+  "G"
+ ],
+ "parent": "bank_statement",
+ "auto_detect": true,
+ "detect": {
+  "required_any": [
+   "erste bank",
+   "gibahuhb",
+   "\\b116[0-9]{5}-[0-9]{8}-[0-9]{8}\\b"
+  ],
+  "supporting": [
+   "bankszámlakivonat",
+   "nyitó egyenleg",
+   "záró egyenleg",
+   "erste",
+   "telebank"
+  ],
+  "excluders": [
+   "cib bank",
+   "cib24"
+  ]
+ },
+ "prompt_file": "statement_erste_prompt.md",
+ "schema_file": "statement_erste_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_statement_erste",
+ "fields": {
+  "statement_type": "text",
+  "account_no": "text",
+  "account_iban": "iban",
+  "period_start": "date",
+  "period_end": "date",
+  "currency": "currency",
+  "opening_balance": "money",
+  "closing_balance": "money",
+  "total_debit": "money",
+  "total_credit": "money",
+  "transactions": "list"
+ },
+ "list_fields": {
+  "transactions": {
+   "booking_date": "date",
+   "value_date": "date",
+   "direction": "text",
+   "amount": "money",
+   "running_balance": "money",
+   "description": "text",
+   "counterparty_name": "name",
+   "counterparty_account": "text",
+   "memo": "text"
+  }
+ },
+ "enums": {
+  "statement_type": [
+   "bank_account",
+   "credit_card"
+  ],
+  "transactions[].direction": [
+   "debit",
+   "credit"
+  ]
+ },
+ "scored_fields": [
+  "statement_type",
+  "account_no",
+  "account_iban",
+  "period_start",
+  "period_end",
+  "currency",
+  "opening_balance",
+  "closing_balance",
+  "total_debit",
+  "total_credit"
+ ],
+ "informational_fields": [],
+ "required": [
+  "statement_type",
+  "period_start",
+  "period_end",
+  "opening_balance",
+  "closing_balance",
+  "transactions"
+ ],
+ "validators": [
+  {
+   "check": "running_balance_check"
+  },
+  {
+   "check": "closing_balance_check"
+  },
+  {
+   "check": "totals_consistency"
+  },
+  {
+   "check": "period_dates"
+  }
+ ],
+ "legacy_transforms": [
+  "derive_direction_from_running_balance"
+ ]
+}

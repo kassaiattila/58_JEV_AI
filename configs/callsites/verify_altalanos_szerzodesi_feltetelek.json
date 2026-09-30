@@ -1,0 +1,37 @@
+{
+ "meta": {
+  "name": "verify_altalanos_szerzodesi_feltetelek",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_altalanos_szerzodesi_feltetelek",
+ "document": "Hungarian general terms and conditions (ÁSZF) of a seller or service provider",
+ "glossary": "Document type: Hungarian general terms and conditions (ÁSZF) of a seller or service provider. Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "document_title": "the document title as printed on the document (A dokumentum cime/megnevezese, ahogy a lapon szerepel (pl. Altalanos Szerzodesi Feltetelek, ASZF, Terms and Conditions))",
+  "seller_name": "the seller name as printed on the document",
+  "seller_address": "the seller address as printed on the document (Az Elado szekhelye/cime, ha szerepel)",
+  "seller_registration_number": "the seller registration number as printed on the document (Az Elado cegjegyzekszama/nyilvantartasi szama (cegjegyzekszam, ICO, registration no.), ha szerepel)",
+  "effective_date": "the effective date as printed on the document (Az ASZF hatalybalepesenek/kiadasanak/utolso modositasanak datuma, ISO 8601 YYYY-MM-DD, ha szerepel)",
+  "page_count": "the page count as printed on the document (A dokumentum osszes oldalszama, ha lathato (pl. \"1/35\" oldaljeloles -> 35))"
+ },
+ "incomplete_fields": [
+  "seller_name",
+  "seller_address"
+ ],
+ "wrong_kind_fields": []
+}

@@ -1,0 +1,35 @@
+{
+ "meta": {
+  "name": "verify_id_document",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_id_document",
+ "document": "Personal identity document (ID card, social security card, passport, address card)",
+ "glossary": "Document type: Personal identity document (ID card, social security card, passport, address card). Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "document_kind": "the document kind as printed on the document (Okmany fajtaja: szemelyi_igazolvany | jogositvany | taj_kartya | lakcimkartya | adokartya | utlevel | kombinalt | egyeb)",
+  "holder_name": "the holder name as printed on the document (Az okmany tulajdonosanak neve)",
+  "document_number": "the document number as printed on the document (Okmany-azonosito szam (szemelyi szam NEM!), ha olvashato)",
+  "valid_until": "the valid until as printed on the document (Ervenyesseg vege, ISO 8601 YYYY-MM-DD, ha szerepel)",
+  "birth_date": "the birth date as printed on the document (Szuletesi datum, ISO 8601 YYYY-MM-DD, ha szerepel)"
+ },
+ "incomplete_fields": [
+  "holder_name"
+ ],
+ "wrong_kind_fields": []
+}

@@ -1,0 +1,31 @@
+{
+ "meta": {
+  "name": "email_tasks",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "058 K5.3 (döntés 2026-09-28): a régi 10_AIFLOW_V4/flows/email-actions-bare feladatjavaslata (prompt v1.3.0 szó szerint, akció-szótár, kódos bizonyíték-kapu) a levél-folyamat lépéseként; a javaslatot csak ember fogadja el. Eltérés a régitől: a bizonyíték csak a levél tárgya és szövege lehet (a csatolmány adatai ugyanabban a futásban külön tételként készülnek); az archiválandó levelek kimaradnak (költség)"
+   }
+  ]
+ },
+ "prompt_file": "email_tasks_prompt.md",
+ "actions": {
+  "review_invoice": "Számla / fizetési kérés átnézése",
+  "review_payment": "Fizetés igazolásának átnézése",
+  "reply": "Válasz egy kifejezett kérésre",
+  "provide_document": "Kért adat vagy irat megküldése",
+  "review_contract": "Szerződés / feltételek átnézése",
+  "clarify": "Ellentmondás vagy hiányzó adat tisztázása",
+  "review_information": "Kért tájékoztatás átnézése"
+ },
+ "skip_route_prefixes": ["archive"],
+ "evidence": {
+  "max_refs": 16,
+  "max_quote_chars": 2000,
+  "allowed_fields": ["subject", "body"]
+ },
+ "max_body_chars": 20000,
+ "max_output_tokens": 1500
+}

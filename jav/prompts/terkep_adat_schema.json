@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "map_source":  { "type": ["string", "null"], "description": "A terkepi adatok forrasa/attribucioja, ahogy a dokumentumon szerepel (pl. OpenStreetMap es kozremukodoi)" },
+    "area_name":   { "type": ["string", "null"], "description": "A megjelenitett terulet vagy telepules neve (pl. Pilisvorosvar), ha olvashato" },
+    "notable_locations": {
+      "type": "array",
+      "description": "Nevezett foldrajzi helyszinek (hegyek, dombok) neve es magassaga; ures tomb, ha nem olvashato",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name":        { "type": ["string", "null"], "description": "A helyszin neve, pl. Hars-hegy" },
+          "elevation_m": { "type": ["number", "null"], "description": "Magassag meterben, ha a terkepen szerepel (pl. 329)" }
+        },
+        "required": ["name", "elevation_m"]
+      }
+    }
+  },
+  "required": ["map_source", "area_name", "notable_locations"]
+}

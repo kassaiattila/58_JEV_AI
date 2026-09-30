@@ -1,0 +1,42 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "meter_serial":          { "type": ["string", "null"], "description": "(Fo)vizmero gyari szama" },
+    "tariff":                { "type": ["string", "null"], "description": "Arszabas, ha szerepel" },
+    "billing_period_start":  { "type": ["string", "null"], "description": "Elszamolasi idoszak kezdete, ISO 8601 YYYY-MM-DD" },
+    "billing_period_end":    { "type": ["string", "null"], "description": "Elszamolasi idoszak vege, ISO 8601 YYYY-MM-DD" },
+    "meter_reading_start":   { "type": ["string", "null"], "description": "Indulo merooallas m3 (a fovizmeron), plain STRING" },
+    "meter_reading_end":     { "type": ["string", "null"], "description": "Zaro merooallas m3 (a fovizmeron), plain STRING" },
+    "consumption_m3":        { "type": ["string", "null"], "description": "Elszamolt ivoviz-mennyiseg m3-ben osszesen, plain decimal STRING" },
+    "reading_method":        { "type": ["string", "null"], "description": "Leolvasas / fogyasztas-megallapitas modja: Leol / Becs / Dikt" },
+    "line_items": {
+      "type": "array",
+      "description": "Teteles dijsorok — ivoviz-fogyasztas, szennyvizelvezetes/csatorna, locsolasi mellekmero, alapdij, ugyviteli dij",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description":  { "type": ["string", "null"], "description": "Tetel megnevezese, pl. Vizmeron mert ivovizfogyasztas, Szennyvizelvezetes, Locsolasi mellekmero" },
+          "meter_serial": { "type": ["string", "null"], "description": "A tetelhez tartozo vizmero gyari szama, ha soronkent szerepel" },
+          "period":       { "type": ["string", "null"], "description": "Fogyasztasi idoszak, ha a soron szerepel" },
+          "quantity":     { "type": ["number", "null"], "description": "Elszamolt mennyiseg" },
+          "unit":         { "type": ["string", "null"], "description": "Mertekegyseg, pl. m3, db, ho" },
+          "unit_price":   { "type": ["string", "null"], "description": "Netto egysegar plain decimal STRING" },
+          "net_amount":   { "type": ["string", "null"], "description": "Netto ertek plain decimal STRING" },
+          "vat_rate":     { "type": ["string", "null"], "description": "AFA kulcs, pl. 27%, 5%" },
+          "gross_amount": { "type": ["string", "null"], "description": "Brutto ertek plain decimal STRING" }
+        },
+        "required": ["description", "meter_serial", "period", "quantity", "unit", "unit_price", "net_amount", "vat_rate", "gross_amount"]
+      }
+    }
+  },
+  "required": [
+    "supplier_name", "supplier_tax_id", "supplier_address", "supplier_bank_account",
+    "customer_name", "customer_id", "customer_address", "customer_code", "consumption_address",
+    "invoice_number", "issue_date", "fulfillment_date", "due_date", "payment_method",
+    "currency", "net_total", "vat_total", "gross_total", "amount_due",
+    "meter_serial", "tariff", "billing_period_start", "billing_period_end",
+    "meter_reading_start", "meter_reading_end", "consumption_m3", "reading_method", "line_items"
+  ]
+}

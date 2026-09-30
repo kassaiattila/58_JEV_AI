@@ -1,0 +1,32 @@
+{
+  "name": "synth_invoice_out",
+  "datapoints": {
+    "supplier_name": "BestIxCom Kft.",
+    "supplier_tax_id": "12121216-2-42",
+    "buyer_name": "Synthetic Buyer B.V.",
+    "buyer_tax_id": "90909094-2-42",
+    "buyer_address": "Netherlands",
+    "invoice_number": "SYNTH-OUT-001",
+    "issue_date": "2026-03-05",
+    "fulfillment_date": "2026-02-28",
+    "due_date": "2026-04-04",
+    "currency": "EUR",
+    "net_total": "500.00",
+    "vat_total": "0.00",
+    "gross_total": "500.00",
+    "payment_iban": "HU78111100001234567800000000",
+    "line_items": [
+      {
+        "description": "Synthetic outbound service",
+        "quantity": 1,
+        "unit_price": "500.00",
+        "net_amount": "500.00",
+        "vat_rate": "0%",
+        "gross_amount": "500.00"
+      }
+    ]
+  },
+  "expected_valid": true,
+  "expected_flags": [],
+  "_source": "SYNTHETIC fixture (no PII) — tracked for the fresh-clone offline gate. buyer_tax_id 90909094-2-42 has a valid HU checkdigit; net+vat==gross (500+0=500); payment_iban is a mod-97-valid synthetic HU IBAN; date_order ok."
+}

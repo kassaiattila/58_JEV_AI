@@ -1,0 +1,3 @@
+{
+  "non_scored_fields": ["location_address", "venue_room", "registration_info"]
+}

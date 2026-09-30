@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\csapatmenedzser_utasitas",
+  "files": {
+    "schema.json": "d62778de1ee3a6d584074787189960cfa7d268c1a279bc796f1f4e5bfd287774",
+    "prompt.md": "51919cabf7366383fad39df11c0097fb5833e767fbb6dac0e5f5e0a22bd3e09a",
+    "rules.json": "b5bc28441a8dc0b71c83f2e20eafc3ed1e72581da688494aa9704b993d1c412e",
+    "detect.json": "7c7e714f9273ba94ec879b54fd3d0c44a46aa8bc46130a893a95804ef4feb277",
+    "meta.json": "721a9410497543771d4e2c7894b67317101118a272a762e46f469542d5826589"
+  },
+  "legacy_catalog_active": false,
+  "status": "explicit_type_candidate_processing",
+  "automatic_routing_enabled": false
+}

@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "document_kind":   { "type": ["string", "null"], "description": "Okmany fajtaja: szemelyi_igazolvany | jogositvany | taj_kartya | lakcimkartya | adokartya | utlevel | kombinalt | egyeb" },
+    "holder_name":     { "type": ["string", "null"], "description": "Az okmany tulajdonosanak neve" },
+    "document_number": { "type": ["string", "null"], "description": "Okmany-azonosito szam (szemelyi szam NEM!), ha olvashato" },
+    "valid_until":     { "type": ["string", "null"], "description": "Ervenyesseg vege, ISO 8601 YYYY-MM-DD, ha szerepel" },
+    "birth_date":      { "type": ["string", "null"], "description": "Szuletesi datum, ISO 8601 YYYY-MM-DD, ha szerepel" }
+  },
+  "required": ["document_kind", "holder_name", "document_number", "valid_until", "birth_date"]
+}

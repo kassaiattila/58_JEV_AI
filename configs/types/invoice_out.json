@@ -1,0 +1,141 @@
+{
+ "meta": {
+  "name": "type:invoice_out",
+  "version": "1.2.0",
+  "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-09-29",
+    "note": "069 (066 Á05, döntés 2026-09-29): adószám-ellenőrzés tax_id néven mindkét félre (a kiállítóé új): felismert alak (jav/taxid.py), különben teendő. A kinyerés változatlan"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "053 T3.2: tétel-ellenőrzések kódban (line_items_total, line_items_arithmetic); a tételes lista már deklarált"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   }
+  ],
+  "source": {
+   "path": "10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_out",
+   "via": "configs/legacy_types/invoice_out",
+   "sha256": {
+    "schema.json": "d3998b43df53181dac8f4337c464296ab242fb02fd3a7a511fed4cd7d507e885",
+    "prompt.md": "fd6117316075094a502d3f5f295bcce4f45586a2698b96632b7cebf0deaf4926",
+    "rules.json": "8ba07b53b4ba5dea5a3a18c7a6bf7fd78c8bc4ee1a32c4578351b177dbaf3dc2",
+    "detect.json": "05db60065132966bef9aa42cd9db9dcf3d48960dacfb7d3c5a9237e9db3c94b7",
+    "meta.json": "5edc6dec5576b3e317565b76b8002b0cfb7a8e85a89114fbb1ac3a78fb4ff38d",
+    "fixtures/synth_invoice_out.json": "ebcaa1626b1f17dece165ce65897d0f83f43def4c7bd7f660fc930853d543882"
+   }
+  }
+ },
+ "document": "Outgoing (issued) Hungarian invoice, where our company is the SUPPLIER",
+ "golden_type_key": "invoice_out",
+ "candidate_profile": "intl",
+ "arms": [
+  "G"
+ ],
+ "parent": "invoice_hu",
+ "auto_detect": true,
+ "detect": {
+  "required_any": [
+   "(bd|bese)[0-9]{3}"
+  ],
+  "supporting": [
+   "bestixcom"
+  ],
+  "excluders": []
+ },
+ "prompt_file": "invoice_out_prompt.md",
+ "schema_file": "invoice_out_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_invoice_out",
+ "fields": {
+  "supplier_name": "name",
+  "supplier_tax_id": "tax_id",
+  "buyer_name": "name",
+  "buyer_tax_id": "tax_id",
+  "buyer_address": "address",
+  "invoice_number": "invoice_number",
+  "issue_date": "date",
+  "fulfillment_date": "date",
+  "due_date": "date",
+  "currency": "currency",
+  "net_total": "money",
+  "vat_total": "money",
+  "gross_total": "money",
+  "payment_iban": "iban",
+  "line_items": "list"
+ },
+ "list_fields": {
+  "line_items": {
+   "description": "text",
+   "quantity": "number",
+   "unit_price": "money",
+   "net_amount": "money",
+   "vat_rate": "text",
+   "gross_amount": "money"
+  }
+ },
+ "enums": {},
+ "scored_fields": [
+  "supplier_name",
+  "supplier_tax_id",
+  "buyer_name",
+  "buyer_tax_id",
+  "buyer_address",
+  "invoice_number",
+  "issue_date",
+  "fulfillment_date",
+  "due_date",
+  "currency",
+  "net_total",
+  "vat_total",
+  "gross_total",
+  "payment_iban"
+ ],
+ "informational_fields": [],
+ "required": [
+  "invoice_number",
+  "gross_total"
+ ],
+ "validators": [
+  {
+   "check": "vat_consistency"
+  },
+  {
+   "check": "date_order"
+  },
+  {
+   "check": "tax_id",
+   "field": "supplier_tax_id",
+   "optional": true
+  },
+  {
+   "check": "tax_id",
+   "field": "buyer_tax_id",
+   "optional": true
+  },
+  {
+   "check": "iban_check",
+   "field": "payment_iban",
+   "optional": true
+  },
+  {
+   "check": "format",
+   "field": "currency",
+   "regex": "^[A-Z]{3}$",
+   "optional": true
+  },
+  {
+   "check": "line_items_total"
+  },
+  {
+   "check": "line_items_arithmetic"
+  }
+ ],
+ "legacy_transforms": []
+}

@@ -1,0 +1,35 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "service_description":   { "type": ["string", "null"], "description": "A hulladekgazdalkodasi szolgaltatas megnevezese, pl. Kommunalis hulladek gyujtese es kezelese" },
+    "billing_period_start":  { "type": ["string", "null"], "description": "Elszamolasi / szolgaltatasi idoszak kezdete, ISO 8601 YYYY-MM-DD" },
+    "billing_period_end":    { "type": ["string", "null"], "description": "Elszamolasi / szolgaltatasi idoszak vege, ISO 8601 YYYY-MM-DD" },
+    "line_items": {
+      "type": "array",
+      "description": "Teteles dijsorok — kommunalis hulladek gyujtese/kezelese, edenyzet-alapdij, ugyviteli dij",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description":  { "type": ["string", "null"], "description": "Tetel megnevezese, pl. Kommunalis hulladek, Edenyzet alapdij" },
+          "period":       { "type": ["string", "null"], "description": "Elszamolasi idoszak, ha a soron szerepel" },
+          "quantity":     { "type": ["number", "null"], "description": "Elszamolt mennyiseg (pl. urites-szam, edeny-szam), ha szerepel" },
+          "unit":         { "type": ["string", "null"], "description": "Mertekegyseg, pl. db, ho, liter" },
+          "unit_price":   { "type": ["string", "null"], "description": "Netto egysegar plain decimal STRING" },
+          "net_amount":   { "type": ["string", "null"], "description": "Netto ertek plain decimal STRING" },
+          "vat_rate":     { "type": ["string", "null"], "description": "AFA kulcs, pl. 27%" },
+          "gross_amount": { "type": ["string", "null"], "description": "Brutto ertek plain decimal STRING" }
+        },
+        "required": ["description", "period", "quantity", "unit", "unit_price", "net_amount", "vat_rate", "gross_amount"]
+      }
+    }
+  },
+  "required": [
+    "supplier_name", "supplier_tax_id", "supplier_address", "supplier_bank_account",
+    "customer_name", "customer_id", "customer_address", "customer_code", "consumption_address",
+    "invoice_number", "issue_date", "fulfillment_date", "due_date", "payment_method",
+    "currency", "net_total", "vat_total", "gross_total", "amount_due",
+    "service_description", "billing_period_start", "billing_period_end", "line_items"
+  ]
+}

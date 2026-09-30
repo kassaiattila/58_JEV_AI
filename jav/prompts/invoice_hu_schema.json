@@ -1,0 +1,272 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "supplier_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Elado / szallito neve",
+      "title": "Kiállító neve"
+    },
+    "supplier_tax_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Elado HU adoszama, formatum ########-#-##",
+      "title": "Kiállító adószáma"
+    },
+    "buyer_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Vevo neve",
+      "title": "Vevő neve"
+    },
+    "buyer_tax_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Vevo adoszama, ha szerepel",
+      "title": "Vevő adószáma"
+    },
+    "invoice_number": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Szamla sorszama",
+      "title": "Számlaszám"
+    },
+    "issue_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Kiallitas datuma, ISO 8601 YYYY-MM-DD",
+      "title": "Kiállítás dátuma"
+    },
+    "fulfillment_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Teljesites datuma, ISO 8601 YYYY-MM-DD",
+      "title": "Teljesítés dátuma"
+    },
+    "due_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Fizetesi hatarido, ISO 8601 YYYY-MM-DD",
+      "title": "Fizetési határidő"
+    },
+    "currency": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "ISO 4217, pl. HUF, EUR",
+      "title": "Pénznem"
+    },
+    "net_total": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Netto vegosszeg — plain decimal STRING, dot separator (D4)",
+      "title": "Nettó összeg"
+    },
+    "vat_total": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "AFA osszege STRING-kent (AAM eseten \"0\" lehet)",
+      "title": "Áfa összege"
+    },
+    "gross_total": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Brutto vegosszeg — plain decimal STRING",
+      "title": "Bruttó összeg"
+    },
+    "payment_iban": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "A kiállító vagy a számlán megnevezett fizetési kedvezményezett nyomtatott bankszámlaszáma, nem a vevőé. Belföldi 16/24 számjegy egybefüggően vagy szóközzel/kötőjellel tagolva, illetve IBAN; stringként, teljesen, a nyomtatott alakban. A fejléc/lábléc címkéje alatti sorból is olvasd ki. Hiányzó, olvashatatlan vagy nem egyértelműen kiválasztható számla esetén null; IBAN-t ne képezz.",
+      "title": "Bankszámlaszám / IBAN"
+    },
+    "line_items": {
+      "type": "array",
+      "description": "Tetelsorok",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "title": "Megnevezés"
+          },
+          "quantity": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "title": "Mennyiség"
+          },
+          "unit_price": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "plain decimal STRING",
+            "title": "Nettó egységár"
+          },
+          "net_amount": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "plain decimal STRING",
+            "title": "Nettó érték"
+          },
+          "vat_rate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "pl. 27%, 5%, AAM",
+            "title": "Áfakulcs"
+          },
+          "gross_amount": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "plain decimal STRING",
+            "title": "Bruttó érték"
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "title": "Mértékegység",
+            "description": "A tétel nyomtatott mértékegysége, például db, óra, hónap, fő vagy alkalom. Ha nem szerepel, null."
+          },
+          "product_code": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "title": "Termék- / besorolási kód",
+            "description": "A tétel mellett olvasható cikkszám vagy besorolási kód (például TESZOR/SZJ/VTSZ), a jelöléssel együtt, ha nyomtatva szerepel. Nem a tétel sorszáma."
+          },
+          "vat_amount": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "title": "Áfa összege",
+            "description": "A tételsorban kifejezetten nyomtatott áfaösszeg, plain decimal STRING. Üres cellából vagy 0%/AAM/MAA kulcsból ne számítsd ki; hiányában null."
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "title": "Tétel megjegyzése",
+            "description": "A tételhez rendelt külön megjegyzés, például helyszín, időpontok vagy személy neve. A következő tételt és a számla általános láblécét ne fűzd hozzá."
+          }
+        },
+        "required": [
+          "description",
+          "quantity",
+          "unit_price",
+          "net_amount",
+          "vat_rate",
+          "gross_amount",
+          "unit",
+          "product_code",
+          "vat_amount",
+          "note"
+        ]
+      },
+      "title": "Tételek"
+    },
+    "supplier_address": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "title": "Kiállító címe",
+      "description": "A kiállító számlán olvasható címe; hiányzó címrészt más iratból vagy ismert partneradatból ne egészíts ki."
+    },
+    "buyer_address": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "title": "Vevő címe",
+      "description": "A vevő számlán olvasható címe; hiányzó házszámot vagy más címrészt ne találj ki."
+    },
+    "payment_method": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "title": "Fizetési mód",
+      "description": "A számlán feltüntetett fizetési mód, például átutalás vagy készpénz. Bankszámlaszám jelenlétéből ne következtesd ki."
+    },
+    "order_number": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "title": "Rendelésszám",
+      "description": "Kifejezetten rendelésszámként vagy megrendelés azonosítójaként feltüntetett érték. Nem a számlaszám és nem a vevő törzsszáma."
+    },
+    "amount_due": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "title": "Fizetendő összeg",
+      "description": "Kifejezetten fizetendő vagy még fennálló összegként jelölt érték, plain decimal STRING. Puszta Összesen/Mindösszesen/bruttó összeg alapján ne másold ide a gross_total értékét; ilyenkor null."
+    }
+  },
+  "required": [
+    "supplier_name",
+    "supplier_tax_id",
+    "buyer_name",
+    "buyer_tax_id",
+    "invoice_number",
+    "issue_date",
+    "fulfillment_date",
+    "due_date",
+    "currency",
+    "net_total",
+    "vat_total",
+    "gross_total",
+    "payment_iban",
+    "line_items",
+    "supplier_address",
+    "buyer_address",
+    "payment_method",
+    "order_number",
+    "amount_due"
+  ]
+}

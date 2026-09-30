@@ -1,0 +1,126 @@
+{
+ "meta": {
+  "name": "policy",
+  "version": "1.9.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "kiszervezés a Python-konstansokból (ROADMAP §1 konfig mint adat); tartalom változatlan"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-20",
+    "note": "Jev keret-kor 1 (BACKLOG 2): nevesitett sav-keszletek (bands) hivasi helyenkent (band_for), Noul no/uncertain/yes, Choice auto/uncertain/human masodik-opcio ressel; a regi kuszobok (human_max_conf, auto_min_conf_high_stakes, review_flag_p, detect.low_confidence, intent_human_max_conf) a savokba koltoztek, ertek valtozatlan; uj: email.jev_unavailable_route"
+   },
+   {
+    "version": "1.2.0",
+    "date": "2026-09-20",
+    "note": "parent_min_prob a default savban (0.85): bizonytalan tipus mellett a szulo-csalad (registry parent) akkor hasznalhato cimkekent, ha az osszesitett valoszinusege eleri; a route nem valtozik, a szulo a review-payloadba es a jsonl-be kerul"
+   },
+   {
+    "version": "1.3.0",
+    "date": "2026-09-20",
+    "note": "band_for invoice.pick.presence (default sav): a jelenlet-Noul ketoldali savja; valasztott ertek + no-sav / none + yes-sav = review-ok"
+   },
+   {
+    "version": "1.4.0",
+    "date": "2026-09-20",
+    "note": "M3 jelek: email.signal_review (mely Noul-jel igen-savja review-ok: prompt_injection), email.signal_routes (prompt_injection -> human:suspicious, minden mas utvonal ele), band_for email.urgency (default; a Score confidence savja az eval-riportban); a multiple_requests csak merheto jel"
+   },
+   {
+    "version": "1.5.0",
+    "date": "2026-09-20",
+    "note": "tipus-csomagok (BACKLOG 1): az invoice.required es invoice.high_stakes listak a configs/types/<tipus>.json csomagokba koltoztek (ertek valtozatlan az invoice_hu-nal); a policy csak a tipus-fuggetlen savokat es az e-mail utvonalakat tartalmazza"
+   },
+   {
+    "version": "1.6.0",
+    "date": "2026-09-20",
+    "note": "OCR-lanc (BACKLOG 7): ocr blokk - az OCR atlagos szo-bizalma (0-1) es a gyenge szavak aranya ez alatt / folott review-ok (ocr:low_confidence, ocr:low_conf_words); a regi sidecar graded-gate max_low_conf_ratio 0.3-jabol, az elso kozmu-OCR-ek alapjan (mean 0.75-0.85, low 0.12-0.20) lazitva"
+   },
+   {
+    "version": "1.7.0",
+    "date": "2026-09-20",
+    "note": "OCR-eszkalacio (a felhasznalo dontese, handoff 013 §8): escalate_min_mean_conf 0.9 / escalate_max_low_conf_ratio 0.1 - a helyi tesseract-szoveg ez alatt / folott a fizetos Azure DI-re eszkalal (configs/ocr.json escalation); a 49 kozmu-etalon tesseract-jelei 0,81-0,92 / 6-19 %, tehat a tobbseg eszkalal - a kuszob adat, a merés utan finomithato"
+   },
+   {
+    "version": "1.8.0",
+    "date": "2026-09-21",
+    "note": "ocr.escalate_min_mean_conf 0.90 -> 0.93 (a felhasznalo dontese, handoff 015): a 49 kozmu-etalon ujramerese szerint a 0,903-0,920 tesseract-bizalmu 16 szamla 20 mezot veszit a 702-bol az Azure-szoveghez kepest (S 95,6 -> 98,4 %); ezen a korpuszon igy minden szkennelt kozmu-szamla eszkalal (49/49), a kuszob csak jobb szkenneken szamit"
+   },
+   {
+    "version": "1.9.0",
+    "date": "2026-09-28",
+    "note": "047 T1.2: detect_detail.anchor_margin 0.75 - a régi horgony-pontszám (kötelező 1 + támogató 0,25 - kizáró 0,5, 0-2) előnye, amely mellett a kód JEV nélkül dönt a részletes típusról; band_for detect.detail_type = default. Hangolva a régi felismerési etalonon (102 irat, első 1500 karakter): 78 kód-döntés, 0 eltérés a régi címkétől, 24 JEV-hez (tanító példán mért, runs/20260928_t1/)"
+   }
+  ]
+ },
+ "none_label": "none",
+ "ocr": {
+  "min_mean_conf": 0.6,
+  "max_low_conf_ratio": 0.35,
+  "escalate_min_mean_conf": 0.93,
+  "escalate_max_low_conf_ratio": 0.1
+ },
+ "bands": {
+  "default": {
+   "noul_no_max": 0.3,
+   "noul_yes_min": 0.7,
+   "choice_human_max_conf": 0.6,
+   "choice_second_min_gap": 0.2,
+   "uncertain_review": false,
+   "parent_min_prob": 0.85
+  },
+  "high_stakes": {
+   "choice_human_max_conf": 0.85
+  },
+  "verify_flag": {}
+ },
+ "band_for": {
+  "invoice.pick": "default",
+  "invoice.pick.high_stakes": "high_stakes",
+  "invoice.verify": "verify_flag",
+  "detect.doc_type": "default",
+  "detect.issuer_is_hungarian": "default",
+  "email.intent": "default",
+  "email.signal": "default",
+  "invoice.pick.presence": "default",
+  "email.urgency": "default",
+  "detect.detail_type": "default"
+ },
+ "email": {
+  "m2_types": [
+   "invoice_foreign",
+   "invoice_hu",
+   "receipt",
+   "utility_bill_hu"
+  ],
+  "intent_route": {
+   "szamlakuldes": "human:fetch_document",
+   "fizetesi_visszaigazolas": "archive:payment_proof",
+   "business_correspondence": "human:inbox",
+   "esemeny_tajekoztatas": "archive:calendar",
+   "sportesemeny_tamogatas": "archive:calendar",
+   "megrendeles_statusz_ertesites": "archive:order_status",
+   "system_notification": "archive",
+   "newsletter_marketing": "archive",
+   "job_posting": "archive",
+   "social_network_notification": "archive",
+   "other": "human:inbox"
+  },
+  "low_conf_route": "human:low_confidence",
+  "needs_ocr_route": "m2:needs_ocr",
+  "detect_route": "m1:detect",
+  "default_route": "human:inbox",
+  "jev_unavailable_route": "human:jev_unavailable",
+  "signal_review": [
+   "prompt_injection"
+  ],
+  "signal_routes": {
+   "prompt_injection": "human:suspicious"
+  }
+ },
+ "detect_detail": {
+  "anchor_margin": 0.75
+ }
+}

@@ -1,0 +1,30 @@
+{
+ "meta": {
+  "name": "verify_terkep_adat",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_terkep_adat",
+ "document": "Map extract or map data sheet listing notable locations",
+ "glossary": "Document type: Map extract or map data sheet listing notable locations. Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "map_source": "the map source as printed on the document (A terkepi adatok forrasa/attribucioja, ahogy a dokumentumon szerepel (pl. OpenStreetMap es kozremukodoi))",
+  "area_name": "the area name as printed on the document (A megjelenitett terulet vagy telepules neve (pl. Pilisvorosvar), ha olvashato)"
+ },
+ "incomplete_fields": [],
+ "wrong_kind_fields": []
+}

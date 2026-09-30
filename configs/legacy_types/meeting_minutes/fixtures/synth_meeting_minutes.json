@@ -1,0 +1,39 @@
+{
+  "name": "synth_meeting_minutes",
+  "datapoints": {
+    "organization_name": "Szintetikus Sportegyesület",
+    "document_kind": "jegyzokonyv",
+    "meeting_type": "kozgyules",
+    "meeting_date": "2026-04-26",
+    "location": "1111 Szintetikusváros, Példa utca 1.",
+    "attendee_count": 12,
+    "attendees": [],
+    "chair_name": "Szintetikus Elnök",
+    "minutes_keeper": "Szintetikus Jegyző",
+    "agenda_items": [
+      "Az elnökség beszámolójának elfogadása",
+      "A számvizsgáló jelentésének megtárgyalása",
+      "Éves tagdíj meghatározása",
+      "Egyebek"
+    ],
+    "resolutions": [
+      {
+        "number": "1/2026",
+        "summary": "A Közgyűlés elfogadja az elnökség beszámolóját.",
+        "votes_for": 12,
+        "votes_against": 0,
+        "abstentions": 0
+      },
+      {
+        "number": "2/2026",
+        "summary": "A Közgyűlés meghatározza a 2026. évi tagdíjat.",
+        "votes_for": 11,
+        "votes_against": 1,
+        "abstentions": 0
+      }
+    ]
+  },
+  "expected_valid": true,
+  "expected_flags": [],
+  "_source": "SYNTHETIC fixture (no PII) — tracked for the fresh-clone offline gate. meeting_minutes has no required fields and no named validators; document_kind/meeting_type are enum-valid, meeting_date is a valid ISO date."
+}

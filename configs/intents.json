@@ -1,0 +1,168 @@
+{
+ "meta": {
+  "name": "intents",
+  "version": "2.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "kiszervezés a Python-konstansokból (ROADMAP §1 konfig mint adat); tartalom változatlan; a régi 11 osztály verbatim kulcsokkal, 2. körös határszabályok"
+   },
+   {
+    "version": "2.0.0",
+    "date": "2026-09-20",
+    "note": "regiszter-séma v2: description -> what + not_for (a NOT-szabályok külön mezőben, testvér-szándékokra mutatva), few_shot -> examples (verbatim, változatlan), parent (payment_documents, automated_notices, broadcast, human_correspondence, community_events, other); egy általános bővítés: a szolgáltató saját ügyfeleinek szóló csomag-/terv-ajánlata newsletter_marketing (in-sample: live_22)"
+   }
+  ]
+ },
+ "other_key": "other",
+ "parents": {
+  "payment_documents": "Payable documents and payment proofs.",
+  "automated_notices": "Automated platform, service, order and social notices.",
+  "broadcast": "Mass mailings: newsletters, marketing, job alerts.",
+  "human_correspondence": "Person-to-person work threads.",
+  "community_events": "School, community and sports events.",
+  "other": "Unclassified messages."
+ },
+ "intents": [
+  {
+   "key": "szamlakuldes",
+   "display_name": "Számlaküldés",
+   "parent": "payment_documents",
+   "what": "The sender DELIVERS an INVOICE or a PAYMENT REQUEST (számla, e-számla, díjbekérő, faktura, proforma) FOR PAYMENT - the payable document itself is the subject of the message, whether a person or an automated system delivers it. The PURPOSE decides, not the attached document type. Includes an attached e-invoice that states it is already settled / needs no payment, when the invoice itself is the subject of the message (the accounting document is being delivered). Includes a PERSON forwarding (Fw:) an invoice with a short note so it gets paid or booked.",
+   "not_for": "A bare 'your invoice has arrived, click to view' notification without the document (system_notification). A payment reminder. A message whose subject is another document (certificate, medical or official sheet) with an invoice merely attached alongside (system_notification). Proof of a payment that already happened (fizetesi_visszaigazolas).",
+   "examples": [
+    "Számlája érkezett",
+    "Új számla: 2026/00123",
+    "Díjbekérő - előfizetés"
+   ],
+   "document_bearing": true
+  },
+  {
+   "key": "fizetesi_visszaigazolas",
+   "display_name": "Fizetési visszaigazolás",
+   "parent": "payment_documents",
+   "what": "Confirmation of a payment or refund that has ALREADY HAPPENED: receipt, acknowledgement, 'Receipt for your payment', 'Sikeres fizetés', 'Payment confirmation', credit note (jóváírás), refund. Proof AFTER the money moved, typically automated.",
+   "not_for": "An invoice still waiting to be paid (szamlakuldes). An open 'check your payment status' notice (system_notification). A parcel or order status update (megrendeles_statusz_ertesites).",
+   "examples": [
+    "Sikeres fizetés",
+    "Receipt for your payment",
+    "Your refund has been processed"
+   ],
+   "document_bearing": true
+  },
+  {
+   "key": "esemeny_tajekoztatas",
+   "display_name": "Esemény tájékoztatás",
+   "parent": "community_events",
+   "what": "Information about a CONCRETE school / educational / community EVENT: the date, venue, programme or preparation details of a specific occasion (parents' meeting, lecture, competition, trip, community programme), a non-business notice to parents, students or community members. Includes a social occasion of a club or federation: gala, banquet, awards ceremony, season-closing party (even from a sports organisation).",
+   "not_for": "A message without a concrete event - this is not a catch-all. Playing in, supporting or organising the SPORTS competition itself (sportesemeny_tamogatas). Mass promotion, discount, coupon or newsletter (newsletter_marketing).",
+   "examples": [
+    "SzendvicsSzerda",
+    "Szülői értekezlet – időpont és napirend",
+    "Osztálykirándulás tudnivalók"
+   ],
+   "document_bearing": false
+  },
+  {
+   "key": "megrendeles_statusz_ertesites",
+   "display_name": "Megrendelés státusz értesítés",
+   "parent": "automated_notices",
+   "what": "Notification about the status change of a CUSTOMER ORDER: the message carries an order id and a status step such as 'Csomag elküldve' (parcel sent), 'Csomagolás alatt' (being packed), delivered, ready for pickup. Includes the order confirmation itself (with an order id).",
+   "not_for": "A general system or service signal without a concrete purchase order (system_notification). The invoice for the order delivered for payment (szamlakuldes). Proof of the payment itself (fizetesi_visszaigazolas).",
+   "examples": [
+    "Rendelésed feladtuk",
+    "Csomagod úton van",
+    "Rendelés visszaigazolás #12345"
+   ],
+   "document_bearing": false
+  },
+  {
+   "key": "sportesemeny_tamogatas",
+   "display_name": "Sportesemény támogatás",
+   "parent": "community_events",
+   "what": "Messages about the SPORTING activity itself - taking part in or supporting a competition, match or tournament: encouragement and cheering, intention to play, team line-up and travel logistics, match sheets, competition calendars, sports-day announcements.",
+   "not_for": "A club's or federation's administrative correspondence between people: general-meeting minutes, budget, official letters (business_correspondence). An invitation to a social occasion such as a gala, banquet or awards ceremony (esemeny_tajekoztatas).",
+   "examples": [
+    "Verseny naptár",
+    "FW: FINAL4 - Mödling - MÉRKŐZÉSEK ADATLAPJA",
+    "II. Magyar Curling Napja és további események"
+   ],
+   "document_bearing": false
+  },
+  {
+   "key": "newsletter_marketing",
+   "display_name": "Hírlevél / Marketing",
+   "parent": "broadcast",
+   "what": "Mass newsletter, advertising or marketing message, promotion, coupon or offer - a broadcast bulletin or advertisement, not a personalised transaction. Signals: 'hírlevél' (e.g. Júniusi hírlevél, Zwack Export NEWS, CIB befektetési hírlevél), discount / sale, referral programme, news digest, a periodic editorial issue or weekly review of a platform, shop or magazine ('View this issue', 'szemle', 'heti összefoglaló'), a provider's promotional offer of a new plan or package to its customers; often with an unsubscribe link. The sender is a brand or publication, not a person.",
+   "not_for": "A platform's automated notice about the recipient's OWN account, service state or a system event (system_notification). An advertised open position (job_posting). A personalised order or payment message (megrendeles_statusz_ertesites / fizetesi_visszaigazolas).",
+   "examples": [
+    "Júniusi hírlevél",
+    "Zwack Export NEWS",
+    "Spórolj és nyerd vissza vásárlásod árát!"
+   ],
+   "document_bearing": false
+  },
+  {
+   "key": "system_notification",
+   "display_name": "Rendszerértesítés",
+   "parent": "automated_notices",
+   "what": "Automated system or service notification with no personal sender: CI / build result (e.g. GitHub 'Run failed'), service incident or status (statuspage.io), platform product notice (Atlassian / Jira), account or service state (domain renewal, balance), terms-of-service or privacy-policy change notices. Includes automated, no-action-needed DOCUMENT delivery for information: insurance policy (kötvény) or its lifecycle notice, bank statement delivery, official or authority notice, re-sent or corrected certificate, a medical or vaccination certificate / treatment sheet - also when an invoice is attached ALONGSIDE it as a secondary item, because the certificate is the subject.",
+   "not_for": "A concrete purchase order's parcel status (megrendeles_statusz_ertesites). A message whose subject IS the invoice or e-invoice, even one already paid (szamlakuldes). Proof of a completed payment (fizetesi_visszaigazolas). A periodic editorial issue / digest or a promotional offer of a platform, shop or magazine (newsletter_marketing). A social network's connection / activity notice (social_network_notification).",
+   "examples": [
+    "[kassaiattila/Pliro] Run failed: nightly eval",
+    "Claude Incident - Elevated errors on Opus 4.8",
+    "Your organization now has Goals, Projects, and more"
+   ],
+   "document_bearing": false
+  },
+  {
+   "key": "job_posting",
+   "display_name": "Állásajánlat",
+   "parent": "broadcast",
+   "what": "Job offer / recruiting notice: 'X is hiring …', 'N new job offer(s) matching your criteria', 'Senior Project Manager: … hired roles', a job advertisement or a job-portal / LinkedIn job alert - an ADVERTISED open position.",
+   "not_for": "One's own work correspondence (business_correspondence). A social network's connection or activity notice without a job (social_network_notification). A general newsletter (newsletter_marketing).",
+   "examples": [
+    "MOL Magyarország is hiring a Senior IT Project Manager",
+    "2 new job offer(s) matching your criteria: project manager",
+    "Senior Project Manager: MOL Group and bp hired roles"
+   ],
+   "document_bearing": false
+  },
+  {
+   "key": "business_correspondence",
+   "display_name": "Üzleti levelezés",
+   "parent": "human_correspondence",
+   "what": "Genuine business / project correspondence between PEOPLE: aligning project plans, reference letter, meeting follow-up, technical or business coordination (e.g. NPRA technical assistance, Cyprus SIS follow-up, reporting database) - a concrete work thread, often with Re: / Fw: in the subject. Includes procurement / tender / request-for-quote threads; a real person sending a contract for review or signature, sending a report, arranging a project or meeting, or forwarding an insurance / travel matter for action - even when a document is attached; a club's or federation's administrative correspondence (minutes, budget, official letters).",
+   "not_for": "An automated system notice (system_notification). A newsletter (newsletter_marketing). An advertised job (job_posting). A forwarded invoice with only a short delivery note (szamlakuldes). The details of a concrete community event (esemeny_tajekoztatas).",
+   "examples": [
+    "RE: Updated programme plan for NPRA technical assistance",
+    "Fw: ERM app for CY SIS",
+    "Optimization of the Reporting Database for Returns"
+   ],
+   "document_bearing": false
+  },
+  {
+   "key": "social_network_notification",
+   "display_name": "Közösségi hálózat értesítés",
+   "parent": "automated_notices",
+   "what": "AUTOMATED notification of a social / professional network (e.g. LinkedIn): connection suggestion ('Attila, add X'), accepted connection ('X accepted your request'), search appearances ('You appeared in N searches this week'), weekly activity report. Platform-generated noise.",
+   "not_for": "A personal message from a person (business_correspondence). A job offer or job alert (job_posting). A platform's service / account notice outside the social feed (system_notification).",
+   "examples": [
+    "Attila, add Gábor Kovács",
+    "You appeared in 14 searches this week",
+    "Weekly activity report for Kassai"
+   ],
+   "document_bearing": false
+  },
+  {
+   "key": "other",
+   "display_name": "Egyéb",
+   "parent": "other",
+   "what": "Anything else that fits none of the intents above (photos, calendar items, personal chatter, unclear or empty messages).",
+   "not_for": "Anything that fits a listed intent even loosely.",
+   "examples": [],
+   "document_bearing": false
+  }
+ ]
+}

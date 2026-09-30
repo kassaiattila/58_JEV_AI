@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "organizer":         { "type": ["string", "null"], "description": "A szervezo/meghivo fel neve, aki a rendezvenyt tartja (pl. Magyar Curling Szovetseg)" },
+    "event_name":        { "type": ["string", "null"], "description": "Az esemeny sajat neve/cime, ahogy a dokumentumon szerepel (pl. 2026. evi szezonzaro dijatado gala)" },
+    "event_datetime":    { "type": ["string", "null"], "description": "Az esemeny idopontja ISO YYYY-MM-DD formatumban, orat csatolva ha szerepel (pl. 2026-05-27 17:30); magyar datumot normalizalj, null ha nincs" },
+    "location_address":  { "type": ["string", "null"], "description": "A helyszin es postai cim, ahogy nyomtatva all (pl. Rubin Wellness & Conference Hotel, 1118 Budapest, Dayka Gabor u. 3.)" },
+    "venue_room":        { "type": ["string", "null"], "description": "A helyszinen beluli konkret terem/helyseg neve, ha megnevezik (pl. Siraly terem); kulonben null" },
+    "registration_info": { "type": ["string", "null"], "description": "A regisztracio/reszvetel modja ahogy szerepel: link, e-mail, telefonszam, hatarido vagy gombfelirat (pl. Regisztralok az esemenyre); kulonben null" }
+  },
+  "required": ["organizer", "event_name", "event_datetime", "location_address", "venue_room", "registration_info"]
+}

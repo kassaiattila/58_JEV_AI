@@ -1,0 +1,35 @@
+{
+  "_doc": "On-disk git SoR for doc-extract type 'altalanos_szerzodesi_feltetelek' (scaffolded from a taxonomy candidate, W8/L6). NEXT: fill schema.json + prompt.md, then `flowdev eval doc-extract-bare --type altalanos_szerzodesi_feltetelek`, record the real config_hash (config.load_type(...).config_hash) + bump config_version, git commit, restart (the W8/L2 configcache syncs bare.doc_types; detect routes to it from disk).",
+  "type_key": "altalanos_szerzodesi_feltetelek",
+  "config_version": "1.0.1",
+  "provenance": {
+    "from_candidate": "altalanos_szerzodesi_feltetelek",
+    "sample_ids": [
+      "849",
+      "914",
+      "915",
+      "888",
+      "1166",
+      "1180",
+      "1185",
+      "1190",
+      "1188",
+      "1172",
+      "1186",
+      "1184"
+    ]
+  },
+  "changelog": [
+    {
+      "version": "1.0.1",
+      "date": "2026-09-07",
+      "change": "Migrate GPT calls to gpt-5.4-mini with explicit none reasoning at the sidecar transport boundary. Existing prompts, schemas, rules and temperatures retained; legacy max_tokens maps to max_completion_tokens. Historical quality floors unchanged.",
+      "config_hash": "39813a7a303b2cdcfe925d0da8e501d81721d3f8642ab2640fe6f0a5e708380d"
+    },
+    {
+      "version": "1.0.0",
+      "config_hash": "d217a961a906cb3611d3fd32aa458024d0269c640a16b24fb8ebcb4763bdf62d",
+      "note": "provisional-activate 2026-07-05 to seed the golden (re_extract retype of the 12-doc candidate cluster + bootstrap); honest floor set after eval (belepo_jegy pattern). First-draft schema/prompt/detect."
+    }
+  ]
+}

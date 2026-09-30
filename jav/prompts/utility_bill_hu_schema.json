@@ -1,0 +1,31 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "supplier_name":        { "type": ["string", "null"], "description": "Szolgaltato (kibocsato) neve, pl. MVM Next Energiakereskedelmi Zrt." },
+    "supplier_tax_id":      { "type": ["string", "null"], "description": "Szolgaltato HU adoszama, formatum ########-#-##" },
+    "supplier_address":     { "type": ["string", "null"], "description": "Szolgaltato szekhelyenek cime" },
+    "supplier_bank_account":{ "type": ["string", "null"], "description": "Szolgaltato bankszamlaszama, pontosan ahogy nyomtatva" },
+    "customer_name":        { "type": ["string", "null"], "description": "Vevo / felhasznalo (szamlatulajdonos) neve" },
+    "customer_id":          { "type": ["string", "null"], "description": "Vevo (fizeto) azonosito szama" },
+    "customer_address":     { "type": ["string", "null"], "description": "Vevo / felhasznalo szamlazasi cime" },
+    "customer_code":        { "type": ["string", "null"], "description": "Szamlatulajdonos ugyfelkodja, pontosan ahogy nyomtatva" },
+    "consumption_address":  { "type": ["string", "null"], "description": "Felhasznalasi hely (fogyasztasi hely) cime" },
+    "invoice_number":       { "type": ["string", "null"], "description": "Szamla sorszama" },
+    "issue_date":           { "type": ["string", "null"], "description": "Szamla kelte, ISO 8601 YYYY-MM-DD" },
+    "fulfillment_date":     { "type": ["string", "null"], "description": "Teljesites kelte, ISO 8601 YYYY-MM-DD" },
+    "due_date":             { "type": ["string", "null"], "description": "Szamla esedekessege (fizetesi hatarido), ISO 8601 YYYY-MM-DD" },
+    "payment_method":       { "type": ["string", "null"], "description": "Fizetesi mod, pl. Postai szamlabefizetesi megbizas, csoportos beszedes, atutalas" },
+    "currency":             { "type": ["string", "null"], "description": "ISO 4217, HU kozuzemi szamla eseten jellemzoen HUF" },
+    "net_total":            { "type": ["string", "null"], "description": "Netto szamlaertek osszesen — plain decimal STRING, dot separator (D4)" },
+    "vat_total":            { "type": ["string", "null"], "description": "AFA osszege osszesen — plain decimal STRING" },
+    "gross_total":          { "type": ["string", "null"], "description": "Brutto szamlaertek osszesen — plain decimal STRING" },
+    "amount_due":           { "type": ["string", "null"], "description": "Fizetendo osszeg osszesen — plain decimal STRING" }
+  },
+  "required": [
+    "supplier_name", "supplier_tax_id", "supplier_address", "supplier_bank_account",
+    "customer_name", "customer_id", "customer_address", "customer_code", "consumption_address",
+    "invoice_number", "issue_date", "fulfillment_date", "due_date", "payment_method",
+    "currency", "net_total", "vat_total", "gross_total", "amount_due"
+  ]
+}

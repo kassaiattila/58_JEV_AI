@@ -1,0 +1,246 @@
+{
+ "meta": {
+  "name": "select_utility",
+  "version": "1.0.1",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "S-kar hivasi hely a magyar kozmu-szamlakhoz (BACKLOG 1 kozmu-kor, OCR-szoveg): EGY kerdeskeszlet a hat tipus-csomag (villamos_energia / foldgaz / viz / mohu / vizmuvek / csatorna) unio-mezoire - minden csomag csak a sajat mezoit kerdezi; a mezo-instrukciok a regi promptok mezo-utmutatasabol atirva Choice-kerdesse; uj: mennyiseg-mezok (number fajta) a szam-jeloltek kozul, cimkes szoveg-mezok (text:<mezo> jeloltek), zart Choice: fizetesi mod, leolvasas modja, penznem; negy keres: parties / header / money / meter; a mennyiseg-mezok (number) jelolt-fajtaja quantity (a mertekegyseges / mero-cimkes sorok szamai), az opcio-kontextus 170 karakterre vagva (option_context_max) - a Jev keres token-korlatja (max_tokens_exceeded a 88 penz-jelolt x 4 kerdes + teljes OCR-state mellett); az elso S-kar golden utan (tanito peldakon): request_char_budget 150000 (a 9 oldalas kotegeknel max_tokens_exceeded), a gaz m3 (zarojelben az MJ utan), a hatarido = teljesites azonos datum, az ugyfelnev cimkes alakja, a koteg-fedolap kibocsatoja / szama, a leolvasas-kod a mero-sorban; request_char_budget 110000 (a 9 oldalas kotegeknel a 150000 meg 62 k token = tullepes: a magyar szoveg ~2,5 karakter / token)"
+   },
+   {
+    "version": "1.0.1",
+    "date": "2026-09-29",
+    "note": "066 Á13: anonimizálás - a bankszámla-, ügyfélkód-, mérősor- és keresztnév-példák kitalált értékekre cserélve (a kérdések jelentése változatlan; új gyorsítótár-kulcs, S-kar etalon kell)"
+   }
+  ]
+ },
+ "document": "Hungarian residential utility bill (electricity, gas, water, sewage, waste, or a Díjbeszedő payment-aggregator statement), OCR text of a scanned PDF, selected lines (Lnn = line number). OCR noise is possible: accents may be missing or wrong (Gyorgy / György), a letter may replace a digit.",
+ "glossary": "Hungarian utility-bill glossary. SUPPLIER (szolgáltató neve / kibocsátó) = the company that ISSUES the bill: an energy retailer such as MVM Next Energiakereskedelmi Zrt., Fővárosi Vízművek Zrt. (drinking water), Fővárosi Csatornázási Művek Zrt. / FCSM (sewage), MOHU MOL Hulladékgazdálkodási Zrt. / NHKV (waste), or Díjbeszedő Holding Zrt. on its own 'Terhelési összesítő' statement. Díjbeszedő Holding is only the payment COLLECTOR (beszedő, jogosult) when it appears in the header of a water / sewage / waste invoice - then it is NOT the supplier. DISTRIBUTION LICENSEE (elosztói engedélyes / földgázelosztó) = the grid operator, a DIFFERENT company from the supplier: ELMŰ Hálózati Kft., MVM Főgáz Földgázhálózati Kft. CUSTOMER (felhasználó / vevő (fizető) / számlatulajdonos / fogyasztó) = the private person who consumes and pays; 'felhasználó neve', 'vevő (fizető) neve', 'fogyasztó neve' are the customer's name. Ids: adószám = tax number (########-#-##); bankszámlaszám = bank account; felhasználó azonosító száma / vevő (fizető) azonosító / fizetőazonosító = customer id; ügyfélkód = customer code; jogosult azonosítója = the collector's creditor id (A10805246T001); mérési pont azonosító (POD) = metering point id; mérő gyári száma = meter serial. Dates: számla kelte / terhelési összesítő kelte = ISSUE date; teljesítés kelte / teljesítés időpontja = FULFILLMENT date; fizetési határidő / számla esedékessége = DUE date; elszámolási időszak / elszámolt időszak (from-to) = BILLING PERIOD. Amounts (Ft = HUF): nettó számlaérték összesen = NET total; áfa összege / ÁFA = VAT total; bruttó számlaérték összesen = GROSS total; fizetendő összeg (összesen) = AMOUNT DUE (on a statement: Fizetendő = the grand total). Meter data (számlarészletező): induló / záró mérőállás = meter readings; fogyasztás összesen (kWh) / elszámolt mennyiség (m3) / elszámolt hőmennyiség (MJ) = consumption; fűtőérték (MJ/m3) = heating value; korrekciós tényező = correction factor; árszabás = tariff; leolvasás módja (LM): Leol = read by the distributor, Becs = estimated, Dikt = reported by the customer, EII / Ell = distributor check. Fizetési mód = payment method: postai számlabefizetési megbízás (postal cheque), csoportos beszedési megbízás (direct debit), átutalás (bank transfer), elektronikus (electronic, on Díjbeszedő documents). A 'részszámla' is an interim bill (often no meter reading); an 'elszámoló számla' is a settlement bill.",
+ "none_description": "None of the listed values is the {what}, or the {what} is not printed on this bill.",
+ "option_context_max": 170,
+ "field_kind": {
+  "supplier_name": "name",
+  "customer_name": "name",
+  "distribution_licensee": "name",
+  "service_provider": "name",
+  "supplier_tax_id": "tax_id",
+  "supplier_address": "address",
+  "customer_address": "address",
+  "consumption_address": "address",
+  "supplier_bank_account": "iban",
+  "invoice_number": "invoice_number",
+  "issue_date": "date",
+  "fulfillment_date": "date",
+  "due_date": "date",
+  "billing_period_start": "date",
+  "billing_period_end": "date",
+  "net_total": "money",
+  "vat_total": "money",
+  "gross_total": "money",
+  "amount_due": "money",
+  "consumption_kwh": "quantity",
+  "consumption_m3": "quantity",
+  "consumption_mj": "quantity",
+  "heating_value": "quantity",
+  "correction_factor": "quantity",
+  "meter_reading_start": "quantity",
+  "meter_reading_end": "quantity",
+  "customer_id": "text:customer_id",
+  "customer_code": "text:customer_code",
+  "tariff": "text:tariff",
+  "metering_point_id": "text:metering_point_id",
+  "meter_serial": "text:meter_serial",
+  "collector_id": "text:collector_id",
+  "payment_reference": "text:payment_reference",
+  "service_description": "text:service_description"
+ },
+ "instructions": {
+  "supplier_name": "Which option is the full printed name of the SUPPLIER, the company that issues this bill (labelled 'Szolgáltató neve' in the header, or the issuer named in the title / footer: MVM Next Energiakereskedelmi Zrt., Fővárosi Vízművek Zrt., Fővárosi Csatornázási Művek Zrt., MOHU MOL Hulladékgazdálkodási Zrt., Díjbeszedő Holding Zrt. on its own Terhelési összesítő)? Do not choose the grid operator (Elosztói engedélyes / Földgázelosztó), the customer, or Díjbeszedő when it is only the collector named in the payment-information text. Prefer the option printed after 'Szolgáltató neve', complete with its legal form (Zrt. / Kft. / Zártkörűen Működő Részvénytársaság). Choose 'none' only if no option is the supplier's name. If the document description says it is a Díjbeszedő 'Terhelési összesítő' payment-aggregator STATEMENT, the supplier is Díjbeszedő Holding Zrt. itself (the statement's issuer), not MOHU / Vízművek / Csatornázási Művek, which are only listed as service providers on it.",
+  "customer_name": "Which option is the CUSTOMER's name as printed after 'Felhasználó neve', 'Vevő (fizető) neve', 'Számlatulajdonos neve' or 'Fogyasztó neve' - the private person who consumes and pays? The same person may be printed in several forms (with or without 'Dr.', upper case, accents lost by OCR). Choose the form printed right after the 'Felhasználó neve' label if that line is shown; if the address block prints a title (Dr.) that the labelled line omits, the labelled form wins. Do not choose the supplier, the grid operator or the collector. Choose 'none' if no option is the customer's name.",
+  "distribution_licensee": "Which option is the name of the DISTRIBUTION LICENSEE / grid operator (Elosztói engedélyes for electricity, e.g. ELMŰ Hálózati Kft.; Földgázelosztó for gas, e.g. MVM Főgáz Földgázhálózati Kft.)? It is a DIFFERENT company from the supplier (MVM Next). Choose 'none' if no grid operator is printed.",
+  "service_provider": "Which option is the name of the actual utility SERVICE PROVIDER whose bills the Díjbeszedő statement collects (Fővárosi Vízművek Zrt., Fővárosi Csatornázási Művek Zrt., MOHU Zrt.), as listed in the 'Szolgáltató' column of the statement's summary table? If several providers are listed, choose the first one printed. Do not choose Díjbeszedő Holding (the collector) or the customer. Choose 'none' if none is printed.",
+  "supplier_tax_id": "Which value is the tax number (Adószám, ########-#-##) of the SUPPLIER, printed in the supplier's header block near 'Szolgáltató neve' / 'Adószáma'? Do not choose the customer's tax number (usually empty on a residential bill), the bank account or a customer id. Choose 'none' if the supplier's tax number is not printed.",
+  "supplier_address": "Which option is the postal address of the SUPPLIER (issuer), printed after 'Címe' in the supplier's header block (seat address)? Not a customer-service office address, not the customer's address. Choose 'none' if not listed.",
+  "customer_address": "Which option is the CUSTOMER's billing address (Felhasználó címe / Vevő (fizető) címe / Fogyasztó címe)? Prefer the most complete option (postal code, city, street). Do not choose the consumption address if it is printed separately, nor the supplier's address. Choose 'none' if not listed.",
+  "consumption_address": "Which option is the CONSUMPTION address (Felhasználási hely címe / fogyasztási hely), where the electricity / gas / water is used? It may equal the customer's address. Choose 'none' if not listed.",
+  "supplier_bank_account": "Which option is the SUPPLIER's bank account number (Bankszámlaszáma in the header, e.g. 12345671-12345678-00000000), printed for paying this bill? Not the customer id, not the Díjbeszedő account in the payment-information text unless the bill is a Díjbeszedő statement. Choose 'none' if not printed.",
+  "invoice_number": "Which option is the bill's own document number (Számla sorszáma; on a Díjbeszedő statement: Terhelési összesítő száma)? It is not a customer id (Felhasználó azonosító száma), not a contract account (Szerződéses folyószámla), not a payment identifier (Megbízóazonosító / befizetőazonosító, a long digit string on the postal cheque), not a metering point id, not a meter serial, not a tax number and not a date. On an MVM bill it is a 12-digit number printed after 'Számla sorszáma'; on Fővárosi Vízművek it looks like FVV/12345678; on MOHU like MH12345678. Choose 'none' if not among the options. If the document description says it is a Díjbeszedő 'Terhelési összesítő' STATEMENT, the number is the 'Terhelési összesítő száma' (a 9-digit number printed under that label on the cover page), never a sub-invoice number of a listed provider (FVV/..., MH...).",
+  "issue_date": "Each option is a date (ISO form) with the source line it was printed on. Which one is the ISSUE date of the bill (Számla kelte; on a Díjbeszedő statement: Terhelési összesítő kelte)? Decide by the label printed next to or above the date; the label may be on the previous line. Not the fulfillment date, not the due date, not the billing period. Choose 'none' if the issue date is not among the options.",
+  "fulfillment_date": "Each option is a date (ISO form) with the source line. Which one is the FULFILLMENT date (Teljesítés kelte / Teljesítés időpontja)? Decide by the label; it often equals the due date - the same date is then the correct answer for both questions. Choose 'none' if no fulfillment date is printed (a Díjbeszedő statement has none).",
+  "due_date": "Each option is a date (ISO form) with the source line. Which one is the payment DUE date (Fizetési határidő / Számla esedékessége)? Decide by the label printed next to, above or below the date. The due date often equals the fulfillment date (Teljesítés időpontja) - the same date is then the correct answer for both questions. Not the issue date, not the billing period end. Choose 'none' only if no due-date label with a date is printed (an interim gas bill may print only 'F.h.' or nothing).",
+  "billing_period_start": "Each option is a date (ISO form) with the source line. Which one is the START of the billing period (Elszámolási időszak / Elszámolt időszak, the first date of the 'YYYY.MM.DD-YYYY.MM.DD' range in the header or the meter table)? Not a line-item period of a single charge row if a header period is printed. Choose 'none' if no billing period is printed.",
+  "billing_period_end": "Each option is a date (ISO form) with the source line. Which one is the END of the billing period (the second date of the 'Elszámolási időszak' range)? Not the due date, not a line-item period. Choose 'none' if no billing period is printed.",
+  "net_total": "Each option is an amount (normalized, HUF) with the source lines where it was printed. Which one is the bill-level NET total (Nettó számlaérték összesen; in the ÁFA összesítő table the 'Nettó' of the 'Számla összesen' / 'Összesen' row)? Not a single line-item net amount, not a subtotal of one charge group (Energiadíj összesen, Rendszerhasználati díjak összesen), not the gross total. Choose 'none' if no bill-level net total is printed (a Díjbeszedő statement prints none).",
+  "vat_total": "Each option is an amount (normalized, HUF) with the source lines. Which one is the bill-level VAT total (ÁFA összege; in the ÁFA összesítő table the 'ÁFA' of the 'Számla összesen' / 'Összesen' row)? Not the VAT of a single row or charge group. Choose 'none' if no VAT total is printed.",
+  "gross_total": "Each option is an amount (normalized, HUF) with the source lines. Which one is the bill-level GROSS total (Bruttó számlaérték összesen; on a statement the 'Fizetendő' grand total)? Not a group subtotal, not a single row. It usually equals the amount due. Choose 'none' if not among the options.",
+  "amount_due": "Each option is an amount (normalized, HUF) with the source lines. Which one is the AMOUNT DUE (Fizetendő összeg / Fizetendő összeg összesen / on a statement: Fizetendő)? It usually equals the gross total; the postal cheque prints the same amount as ***54732***. Not a previous balance, not a savings figure (megtakarítás), not a 'would have been' amount (fizetési kötelezettség terhelte volna). Choose 'none' if not printed (an interim gas bill may lack it).",
+  "consumption_kwh": "Each option is a number (normalized) with the source lines. Which one is the total electricity CONSUMPTION in kWh for the billing period (Fogyasztás összesen ... kWh; the 'Fogyasztás (kWh)' / 'Mennyiség (kWh)' cell of the meter table)? Not a meter reading (induló / záró mérőállás), not a single tariff-row quantity when a total is printed, not an estimated next-bill quantity. Choose 'none' if no consumption is printed.",
+  "consumption_m3": "Each option is a number (normalized) with the source lines. Which one is the consumption in m3? On an MVM GAS bill it is printed in parentheses right after the MJ quantity - 'Elszámolt mennyiség: 4 994 MJ (143,00 m3)' - or in the 'Fogyasztás (m3)' column of the meter table; on a water / sewage bill it is 'Elszámolt mennyiség: 33 m3'. Not a meter reading (Induló / Záró / utolsó elszámolt mérőállás, e.g. 18 341), not the MJ quantity, not a single sub-row when a total is printed. Choose 'none' if no m3 consumption is printed (an estimated interim gas bill may print none).",
+  "consumption_mj": "Each option is a number (normalized) with the source lines. Which one is the billed heat quantity in MJ (Elszámolt hőmennyiség, the MJ figure gas is billed on)? Not m3, not the heating value. Choose 'none' if not printed.",
+  "heating_value": "Each option is a number (normalized) with the source lines. Which one is the HEATING VALUE in MJ/m3 (Fűtőérték, typically about 34)? Choose 'none' if not printed.",
+  "correction_factor": "Each option is a number (normalized) with the source lines. Which one is the CORRECTION FACTOR (Korrekciós tényező, close to 1, e.g. 0.9851)? Choose 'none' if not printed.",
+  "meter_reading_start": "Each option is a number (normalized) with the source lines. Which one is the OPENING meter reading (Induló mérőállás) of the meter table? Not the closing reading, not the consumption. Choose 'none' if not printed.",
+  "meter_reading_end": "Each option is a number (normalized) with the source lines. Which one is the CLOSING meter reading (Záró mérőállás)? Not the opening reading, not the consumption. Choose 'none' if not printed.",
+  "customer_id": "Which option is the CUSTOMER ID printed after 'Felhasználó azonosító száma' / 'Vevő (fizető) azonosító' / 'Fizetőazonosító' (digits, or a code like 15/021601/14)? Not the contract account, not the invoice number, not the customer code. Choose 'none' if not printed.",
+  "customer_code": "Which option is the CUSTOMER CODE printed after 'Számlatulajdonos ügyfélkódja' / 'Ügyfélkód' (e.g. 00123456-00012345-00000001)? Choose 'none' if not printed.",
+  "tariff": "Which option is the TARIFF (Árszabás) exactly as printed after the 'Árszabás' label (e.g. ESZ \"A1\" Lakosság, Lakossági, lakossági, hatósági)? Choose 'none' if not printed.",
+  "metering_point_id": "Which option is the METERING POINT ID (Mérési pont azonosító, POD, a long HU000... code) exactly as printed? Choose 'none' if not printed.",
+  "meter_serial": "Which option is the METER SERIAL number (Mérő / gázmérő / vízmérő gyári száma)? Choose 'none' if not printed.",
+  "collector_id": "Which option is the collector's creditor id (Díjbeszedő Holding 'Jogosult azonosítója', e.g. A10805246T001)? Choose 'none' if not printed.",
+  "payment_reference": "Which option is the payment reference (Fizetőazonosító) printed on the Díjbeszedő statement? Choose 'none' if not printed.",
+  "service_description": "Which option is the name of the SERVICE (A szolgáltatás megnevezése, e.g. Hulladékgazdálkodási közszolgáltatás, Víziközmű-szolgáltatás) as printed after the label (often on the next line)? Choose 'none' if not printed."
+ },
+ "extra_questions": {
+  "currency": {
+   "request": "utility_money",
+   "instructions": "Which currency are the bill's totals printed in? Hungarian utility bills print Ft (forint) = HUF. Choose 'none' only if no currency is printed anywhere.",
+   "criteria": {
+    "HUF": "Hungarian forint; printed as Ft, HUF or forint",
+    "EUR": "euro; printed as EUR or €",
+    "none": "no currency is printed on the bill"
+   }
+  },
+  "payment_method": {
+   "request": "utility_header",
+   "instructions": "Which payment method is EXPLICITLY printed after 'Fizetési mód' (or on the cover of a Díjbeszedő statement)? Decide only from the printed value next to the label, not from the payment-information text that lists all possible ways to pay. Choose 'none' if no payment method is printed.",
+   "criteria": {
+    "Postai számlabefizetési megbízás": "postal cheque (Postai számlabefizetési megbízás, sárga csekk) - printed on MVM electricity / gas bills paid by cheque",
+    "Csoportos beszedési megbízás": "direct debit (Csoportos beszedési megbízás, csoportos beszedés)",
+    "Átutalás": "bank transfer (Átutalás, banki átutalás, utalás)",
+    "elektronikus": "electronic (elektronikus) - printed on Díjbeszedő-collected water / sewage / waste invoices and statements",
+    "Készpénzátutalási megbízás": "cash transfer order (Készpénzátutalási megbízás)",
+    "Bankkártya": "card payment (bankkártya, kártya)",
+    "none": "no payment method is explicitly printed after 'Fizetési mód'"
+   }
+  },
+  "reading_method": {
+   "request": "utility_meter",
+   "instructions": "Which reading-method code (Leolvasás módja, LM) is printed INSIDE the meter data row of the SZÁMLARÉSZLETEZŐ - the row that lists the meter serial, the billing period, the opening and closing readings and the consumption (e.g. '9900000001 2025.08.01-2025.08.31 12.345 13.227 Leol 882 1 882' - here the code is Leol)? The code word stands between the closing reading and the consumption. A legend line that explains all codes ('Leolvasás módja (LM): Leol leolvasás ...; Becs becsült; ...') does NOT count. Choose 'none' if no code is printed in a meter data row (interim bills without a reading, waste bills, Díjbeszedő statements).",
+   "criteria": {
+    "Leol": "Leol - read by the distribution licensee (leolvasás)",
+    "Becs": "Becs - estimated reading (becsült)",
+    "Dikt": "Dikt - reading reported by the customer (diktált)",
+    "EII": "EII / Ell - distributor check (elosztói ellenőrzés)",
+    "none": "no reading-method code is printed for this bill"
+   }
+  }
+ },
+ "requests": {
+  "utility_parties": {
+   "fields": [
+    "supplier_name",
+    "customer_name",
+    "distribution_licensee",
+    "service_provider",
+    "supplier_tax_id",
+    "supplier_address",
+    "customer_address",
+    "consumption_address",
+    "supplier_bank_account"
+   ],
+   "kinds": [
+    "name",
+    "tax_id",
+    "address",
+    "iban"
+   ],
+   "extra_lines": {
+    "top_fraction": 0.3
+   }
+  },
+  "utility_header": {
+   "fields": [
+    "invoice_number",
+    "issue_date",
+    "fulfillment_date",
+    "due_date",
+    "billing_period_start",
+    "billing_period_end",
+    "customer_id",
+    "customer_code",
+    "collector_id",
+    "payment_reference"
+   ],
+   "kinds": [
+    "date",
+    "invoice_number",
+    "text:customer_id",
+    "text:customer_code",
+    "text:collector_id",
+    "text:payment_reference"
+   ]
+  },
+  "utility_money": {
+   "fields": [
+    "net_total",
+    "vat_total",
+    "gross_total",
+    "amount_due"
+   ],
+   "kinds": [
+    "money"
+   ]
+  },
+  "utility_meter": {
+   "fields": [
+    "consumption_kwh",
+    "consumption_m3",
+    "consumption_mj",
+    "heating_value",
+    "correction_factor",
+    "meter_reading_start",
+    "meter_reading_end",
+    "tariff",
+    "metering_point_id",
+    "meter_serial",
+    "service_description"
+   ],
+   "kinds": [
+    "quantity",
+    "text:tariff",
+    "text:metering_point_id",
+    "text:meter_serial",
+    "text:service_description"
+   ]
+  }
+ },
+ "presence_template": "Is the {what} printed anywhere in the lines shown (Lnn = line number)? Answer yes only if the value itself is visible in the shown lines; a label without a value, a legend that explains possible values, or a value that belongs to another party or another bill does not count.",
+ "presence_what": {
+  "supplier_name": "name of the SUPPLIER, the company that issues this bill (Szolgáltató neve)",
+  "customer_name": "name of the CUSTOMER (Felhasználó neve / Vevő (fizető) neve / Fogyasztó neve)",
+  "distribution_licensee": "name of the distribution licensee / grid operator (Elosztói engedélyes / Földgázelosztó), a different company from the supplier",
+  "service_provider": "name of the actual utility provider listed on the Díjbeszedő statement (Szolgáltató column)",
+  "supplier_tax_id": "tax number (Adószám) of the SUPPLIER",
+  "supplier_address": "seat address of the SUPPLIER (Címe in the header)",
+  "customer_address": "billing address of the CUSTOMER (Felhasználó címe / Vevő (fizető) címe)",
+  "consumption_address": "consumption address (Felhasználási hely címe)",
+  "supplier_bank_account": "bank account number of the SUPPLIER (Bankszámlaszáma in the header)",
+  "invoice_number": "bill number (Számla sorszáma / Terhelési összesítő száma) - not a customer id or payment identifier",
+  "issue_date": "ISSUE date (Számla kelte / Terhelési összesítő kelte)",
+  "fulfillment_date": "FULFILLMENT date (Teljesítés kelte / időpontja)",
+  "due_date": "payment DUE date (Fizetési határidő / Számla esedékessége)",
+  "billing_period_start": "START date of the billing period (Elszámolási / Elszámolt időszak)",
+  "billing_period_end": "END date of the billing period (Elszámolási / Elszámolt időszak)",
+  "net_total": "bill-level NET total (Nettó számlaérték összesen / the Összesen row's Nettó)",
+  "vat_total": "bill-level VAT total (ÁFA összege / the Összesen row's ÁFA)",
+  "gross_total": "bill-level GROSS total (Bruttó számlaérték összesen / Fizetendő on a statement)",
+  "amount_due": "AMOUNT DUE (Fizetendő összeg)",
+  "consumption_kwh": "total electricity consumption in kWh (Fogyasztás összesen)",
+  "consumption_m3": "consumption in m3 (fogyasztás / elszámolt mennyiség m3)",
+  "consumption_mj": "billed heat quantity in MJ (Elszámolt hőmennyiség)",
+  "heating_value": "heating value in MJ/m3 (Fűtőérték)",
+  "correction_factor": "correction factor (Korrekciós tényező)",
+  "meter_reading_start": "opening meter reading (Induló mérőállás)",
+  "meter_reading_end": "closing meter reading (Záró mérőállás)",
+  "customer_id": "customer id (Felhasználó azonosító száma / Vevő (fizető) azonosító / Fizetőazonosító)",
+  "customer_code": "customer code (Számlatulajdonos ügyfélkódja / Ügyfélkód)",
+  "tariff": "tariff (Árszabás) value",
+  "metering_point_id": "metering point id (Mérési pont azonosító, POD)",
+  "meter_serial": "meter serial number (gyári száma)",
+  "collector_id": "collector's creditor id (Jogosult azonosítója)",
+  "payment_reference": "payment reference (Fizetőazonosító)",
+  "service_description": "name of the service (A szolgáltatás megnevezése)"
+ },
+ "request_char_budget": 110000
+}

@@ -1,0 +1,146 @@
+{
+ "meta": {
+  "name": "type:viz_szamla",
+  "version": "1.3.0",
+  "changelog": [
+   {
+    "version": "1.3.0",
+    "date": "2026-09-28",
+    "note": "053 (döntés 2026-09-28): a vat_consistency (nettó + ÁFA = bruttó) csak jelzés (review: false) - az összesítő fedőlapján nincs nettó és ÁFA, ezért a T3.4 mérésen mind a 6 iraton teendőt nyitott; a tételösszeg-ellenőrzés továbbra is teendőt nyit"
+   },
+   {
+    "version": "1.2.0",
+    "date": "2026-09-28",
+    "note": "053 T3.0/T3.2: számlatételek - line_items tételes lista a GPT-séma tétel-mezőivel (a prompt és a séma változatlan, a kinyerés költsége nem nő); tétel-ellenőrzések kódban: line_items_total (tételösszeg = végösszeg) és line_items_arithmetic (soronként mennyiség × egységár ≈ nettó, nettó × (1 + ÁFA-kulcs) ≈ bruttó); a soronkénti számtan itt csak jelzés (review: false, döntés 2026-09-28): egy visszatérő, időarányos havidíj-tétel egységára nem a mennyiségre vonatkozik, a 10 tárolt eredmény mindegyikén jelezne"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.2: parent + a régi detect.json kulcsszavai a részletes típus kiválasztásához (forrás: 10_AIFLOW_V4/flows/doc-extract-bare/types/viz_szamla/detect.json, sha256 7f3e0b378188ec21); a kinyerés változatlan"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "tipus-csomag (BACKLOG 1, kozmu-kor): Dijbeszedo Holding 'Terhelesi osszesito' - fizetes-osszesito koteg-fedolap (a regi projekt neve viz_szamla) - extends utility_bill_hu; gyermek-mezok a regi schema.json sorrendjeben (service_provider: name; collector_id / payment_reference / meter_serial / tariff / reading_method: text; consumption_m3 es meroallasok: number); vat_consistency (regi rules.json); nem pontozott: meter_serial, payment_reference, collector_id; a regi golden a FEDOLAP szintjet pontozza (9 mezo: kibocsato, ugyfel, osszesito szama, keltek, fizetesi mod, penznem, fizetendo = brutto); prompt es sema verbatim"
+   }
+  ],
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/viz_szamla (config version 1.0.1, 2026-09-07; prompt sha256 89207a1eb6ea5e2e, schema b7a978c77abed368; regi mert 0.9556 wrapper-szint)"
+ },
+ "extends": "utility_bill_hu",
+ "document": "Hungarian Díjbeszedő Holding 'Terhelési összesítő' - a payment-aggregator statement (DKONTÓ.SZÁMLA) that collects several utilities' bills (water, sewage, waste) on ONE cover statement; OCR text of a scanned PDF (Lnn = line number); the statement-level identity and grand total are on the cover page, each utility's own sub-invoice is a line item",
+ "golden_type_key": "viz_szamla",
+ "parent": "utility_bill_hu",
+ "detect": {
+  "required_any": [
+   "díjbeszedő",
+   "dijbeszedo",
+   "ivóvíz",
+   "ivoviz",
+   "vízmérő",
+   "vizmero",
+   "mellékvízmérő",
+   "szennyvízelvezetés",
+   "víziközmű"
+  ],
+  "supporting": [
+   "Fővárosi Vízművek",
+   "Fővárosi Csatornázási",
+   "locsolási mellékmérő",
+   "fizetőazonosító",
+   "Díjnet",
+   "jogosult azonosító",
+   "elszámolt mennyiség",
+   "m3",
+   "csatorna"
+  ],
+  "excluders": [
+   "villamos energia",
+   "áramdíj",
+   "\\bkWh\\b",
+   "földgáz",
+   "gázdíj",
+   "gázmérő",
+   "fűtőérték",
+   "távhő",
+   "hődíj",
+   "\\bGJ\\b"
+  ]
+ },
+ "prompt_file": "viz_szamla_prompt.md",
+ "schema_file": "viz_szamla_schema.json",
+ "fields": {
+  "service_provider": "name",
+  "collector_id": "text",
+  "payment_reference": "text",
+  "meter_serial": "text",
+  "tariff": "text",
+  "billing_period_start": "date",
+  "billing_period_end": "date",
+  "meter_reading_start": "number",
+  "meter_reading_end": "number",
+  "consumption_m3": "number",
+  "reading_method": "text",
+  "line_items": "list"
+ },
+ "scored_fields": [
+  "service_provider",
+  "tariff",
+  "billing_period_start",
+  "billing_period_end",
+  "consumption_m3",
+  "reading_method",
+  "meter_serial",
+  "payment_reference",
+  "collector_id",
+  "meter_reading_start",
+  "meter_reading_end"
+ ],
+ "informational_fields": [
+  "meter_serial",
+  "payment_reference",
+  "collector_id",
+  "meter_reading_start",
+  "meter_reading_end"
+ ],
+ "validators": [
+  {
+   "check": "vat_consistency",
+   "review": false
+  },
+  {
+   "check": "line_items_total"
+  },
+  {
+   "check": "line_items_arithmetic",
+   "review": false
+  }
+ ],
+ "text_labels": {
+  "tariff": [
+   "[áa]rszab[áa]s"
+  ],
+  "collector_id": [
+   "jogosult\\s*azonos[íi]t[óo](?:ja)?"
+  ],
+  "payment_reference": [
+   "fizet[őo]\\s*azonos[íi]t[óo](?:ja)?"
+  ],
+  "meter_serial": [
+   "v[íi]zm[ée]r[őo]\\s*gy[áa]ri\\s*sz[áa]ma?",
+   "gy[áa]ri\\s*sz[áa]ma?"
+  ]
+ },
+ "list_fields": {
+  "line_items": {
+   "description": "text",
+   "meter_serial": "text",
+   "period": "text",
+   "quantity": "number",
+   "unit": "text",
+   "unit_price": "money",
+   "net_amount": "money",
+   "vat_rate": "text",
+   "gross_amount": "money"
+  }
+ }
+}

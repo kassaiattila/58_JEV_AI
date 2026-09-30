@@ -1,0 +1,7 @@
+{
+  "required": ["form_title", "is_blank_form"],
+  "fields": {},
+  "money_fields": [],
+  "transforms": [],
+  "named": []
+}

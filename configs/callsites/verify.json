@@ -1,0 +1,89 @@
+{
+ "meta": {
+  "name": "verify",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "kiszervezés a Python-konstansokból (ROADMAP §1 konfig mint adat); tartalom változatlan; a {value} helyőrző a repr-t kapja (mint eddig)"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-20",
+    "note": "BACKLOG 1: strukturált Noul-instrukció (sde_cascade minta) - a kód egy objektumot ad át: field_spec {name, meaning}, extracted_field (nyers érték, nem repr), printed_on (evidencia-sorok), question; a sablon-mondat helyett minden Noul csak a `question` szöveget adja; a glosszár a `glossary` kulcsban; a kérdés-szövegek tartalma változatlan, csak az objektum-kulcsokra hivatkoznak"
+   }
+  ]
+ },
+ "field_specs": {
+  "supplier_name": "name of the SUPPLIER, the party that issues the invoice (szállító / eladó / kibocsátó / kiállító)",
+  "supplier_tax_id": "Hungarian tax number (adószám) of the supplier / issuer",
+  "buyer_name": "name of the BUYER, the party that receives the invoice (vevő / megrendelő)",
+  "buyer_tax_id": "Hungarian tax number (adószám) of the buyer",
+  "invoice_number": "the invoice's own serial number (sorszám / számlaszám), not a tax number, order number or bank account",
+  "issue_date": "issue date (kelt / kiállítás dátuma / keltezés), ISO format",
+  "fulfillment_date": "fulfillment date (teljesítés dátuma / időpontja), ISO format",
+  "due_date": "payment due date (fizetési határidő), ISO format",
+  "currency": "ISO 4217 currency of the totals (Ft / forint = HUF)",
+  "net_total": "invoice-level net total (nettó összesen), before VAT",
+  "vat_total": "invoice-level VAT total (áfa összesen); 0 for AAM / tax-exempt invoices",
+  "gross_total": "invoice-level gross total (bruttó összesen / mindösszesen), including VAT",
+  "payment_iban": "the supplier's bank account / IBAN printed for paying this invoice, as printed",
+  "supplier_address": "postal address of the supplier, as printed",
+  "buyer_address": "postal address of the buyer, as printed",
+  "payment_method": "payment method only if explicitly printed (fizetési mód)",
+  "order_number": "an explicitly labelled order / purchase-order reference (rendelésszám), not the invoice number",
+  "amount_due": "amount explicitly labelled payable (fizetendő); a plain 'Összesen' total does not count"
+ },
+ "incomplete_fields": [
+  "supplier_name",
+  "buyer_name",
+  "supplier_address",
+  "buyer_address",
+  "invoice_number",
+  "payment_iban"
+ ],
+ "wrong_kind_fields": [
+  "supplier_tax_id",
+  "buyer_tax_id",
+  "invoice_number",
+  "payment_iban"
+ ],
+ "nouls": {
+  "absence_wrong": {
+   "question": "The extraction left the field described in `field_spec` EMPTY (`extracted_field` is null). Look at `source_lines`: does the invoice print a value that should have been extracted for this field?",
+   "true": "the invoice prints a value for this field, so leaving it empty is wrong",
+   "false": "the invoice does not print such a value, so empty is correct"
+  },
+  "off_target": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Is this value actually a DIFFERENT field's value on this invoice (for example the buyer's tax number placed into supplier_tax_id, a line-item amount or the gross total placed into net_total, the fulfillment date placed into issue_date, a bank account placed into invoice_number)?",
+   "true": "the value belongs to another field; it is wrongly placed here",
+   "false": "the value is the correct value for this field"
+  },
+  "wrong_kind": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Look at what the invoice prints around it. Is this value actually a DIFFERENT KIND of number that merely looks similar - for example a phone number (telefon, tel., +36 / 06 prefix, 11 digits without an adószám label), a registration number (nyilvántartási szám, cégjegyzékszám), a customer or contract id, an EU VAT id where a domestic one is expected, or a page / line number - rather than what `field_spec` describes?",
+   "true": "the value is a different kind of number, not this field's value",
+   "false": "the value is indeed this field's value (a tax number / invoice number / bank account as specified)"
+  },
+  "incomplete": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Is the extracted value a truncated or partial form of what is printed (missing legal form such as Kft. / Bt. / E.V., a missing second name line, a missing street or postal code, missing trailing characters, or a bank account / IBAN missing its last digit group, e.g. when the IBAN wraps onto the next line)?",
+   "true": "the printed value is longer or more complete than the extracted value",
+   "false": "the extracted value is the complete printed value (formatting differences do not count)"
+  },
+  "parties_swapped": {
+   "question": "Look at `extraction.supplier_name`, `extraction.supplier_tax_id`, `extraction.buyer_name`, `extraction.buyer_tax_id` and the `source_lines`. Are the supplier (issuer) and the buyer (recipient) SWAPPED, i.e. does the extraction put the issuing party under buyer_* and the receiving party under supplier_*?",
+   "true": "the parties are swapped",
+   "false": "the supplier is the issuer and the buyer is the recipient, as printed"
+  },
+  "line_items_missing_rows": {
+   "question": "Compare `extraction.line_items` with the goods/service rows printed on the invoice in `source_lines`. Does the invoice print at least one goods/service row that is ABSENT from extraction.line_items?",
+   "true": "at least one printed goods/service row is missing from the extraction",
+   "false": "every printed goods/service row is present in the extraction"
+  },
+  "line_items_extra_rows": {
+   "question": "Compare `extraction.line_items` with the goods/service rows printed on the invoice in `source_lines`. Does extraction.line_items contain a row that is NOT a goods/service row printed on the invoice (for example a totals row, a duplicated row from a repeated page, or a note)?",
+   "true": "the extraction contains a row that is not a printed goods/service row",
+   "false": "every extracted row corresponds to a printed goods/service row"
+  }
+ }
+}

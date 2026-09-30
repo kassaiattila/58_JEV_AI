@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\nav_certificate",
+  "files": {
+    "schema.json": "e9e4344320e4bb409870b9271bd34184b747c3b48a802ecb1f23f4002952ec66",
+    "prompt.md": "b94c335f13016887cefaa1f0feb7b3a5fdb5a1a1f01d230506fe71eb3bc59004",
+    "rules.json": "2b14d3edcc6e98932d8ba8a91d5ecb2d6c2e9a2d5aa8d4266670c159ade69238",
+    "detect.json": "749e27a14879708c00b6e93a4dea591951e96d977f457b7c317614766e6b1f6c",
+    "meta.json": "40e2c33ca05f3138f28bcf8ca13b8573f29d6c68be79942a46cf9cc04d2aa4d9",
+    "fixtures/synth_nav_certificate.json": "377fdc3ffaef44e362dfca05c0f2b9ca4e43ddfb57b509e64994a3f5eac049fd"
+  },
+  "legacy_catalog_active": true,
+  "status": "explicit_type_candidate_processing",
+  "automatic_routing_enabled": false
+}

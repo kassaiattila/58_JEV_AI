@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "distribution_licensee": { "type": ["string", "null"], "description": "Elosztoi engedelyes neve, pl. ELMU Halozati Kft" },
+    "metering_point_id":     { "type": ["string", "null"], "description": "Meresi pont azonosito (POD), pl. HU000... — pontosan ahogy nyomtatva" },
+    "meter_serial":          { "type": ["string", "null"], "description": "Mero (fogyasztasmero) gyari szama" },
+    "tariff":                { "type": ["string", "null"], "description": "Arszabas / tarifa, pl. ESZ \"A1\" Lakossag" },
+    "billing_period_start":  { "type": ["string", "null"], "description": "Elszamolasi idoszak kezdete, ISO 8601 YYYY-MM-DD" },
+    "billing_period_end":    { "type": ["string", "null"], "description": "Elszamolasi idoszak vege, ISO 8601 YYYY-MM-DD" },
+    "meter_reading_start":   { "type": ["string", "null"], "description": "Indulo merooallas (szam), plain STRING" },
+    "meter_reading_end":     { "type": ["string", "null"], "description": "Zaro merooallas (szam), plain STRING" },
+    "consumption_kwh":       { "type": ["string", "null"], "description": "Fogyasztas osszesen kWh-ban, plain decimal STRING" },
+    "reading_method":        { "type": ["string", "null"], "description": "Leolvasas modja: Leol / Becs / Dikt / EII" },
+    "line_items": {
+      "type": "array",
+      "description": "Szamlareszletezo teteles dijsorai (energiadij + rendszerhasznalati dijak)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description":  { "type": ["string", "null"], "description": "Tetel megnevezese, pl. ESZ Lakossagi A1 lakossagi piaci ar, Elosztoi forgalmi dij" },
+          "period":       { "type": ["string", "null"], "description": "Fogyasztasi idoszak, ha a soron szerepel" },
+          "quantity":     { "type": ["number", "null"], "description": "Mennyiseg" },
+          "unit":         { "type": ["string", "null"], "description": "Mertekegyseg, pl. kWh, ho" },
+          "unit_price":   { "type": ["string", "null"], "description": "Netto egysegar plain decimal STRING (pl. Ft/kWh ertek)" },
+          "net_amount":   { "type": ["string", "null"], "description": "Netto ertek plain decimal STRING" },
+          "vat_rate":     { "type": ["string", "null"], "description": "AFA kulcs, pl. 27%" },
+          "gross_amount": { "type": ["string", "null"], "description": "Brutto ertek plain decimal STRING" }
+        },
+        "required": ["description", "period", "quantity", "unit", "unit_price", "net_amount", "vat_rate", "gross_amount"]
+      }
+    }
+  },
+  "required": [
+    "supplier_name", "supplier_tax_id", "supplier_address", "supplier_bank_account",
+    "customer_name", "customer_id", "customer_address", "customer_code", "consumption_address",
+    "invoice_number", "issue_date", "fulfillment_date", "due_date", "payment_method",
+    "currency", "net_total", "vat_total", "gross_total", "amount_due",
+    "distribution_licensee", "metering_point_id", "meter_serial", "tariff",
+    "billing_period_start", "billing_period_end", "meter_reading_start", "meter_reading_end",
+    "consumption_kwh", "reading_method", "line_items"
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "meta": {"name": "jev_patterns_probe", "version": "1.0.0", "date": "2026-09-21", "scope": "Mesterséges képességpróba; a küszöbök nem üzemi policy"},
+  "structure": {
+    "join_question": "Does line {current} continue a description or sentence left unfinished at the end of line {previous}, so that both belong to ONE content block? A new purchased item, a column heading, a subtotal, a total or a separate note starts its own block even if adjacent.",
+    "join_criteria": {"true": "A hard line wrap split one description or sentence across these two lines", "false": "These are separate items, headings, totals, notes or independent sentences"},
+    "join_after_dangling": 0.2,
+    "join_after_terminal": 0.5,
+    "block_question": "What is the role of block {block} in this invoice-like text?",
+    "block_types": {"header": "Title or table column labels, without a purchased item", "item": "One purchased product or service, including its description, quantities and prices if printed", "total": "Summary amount, subtotal, tax total or amount due for the document, not an individual item", "note": "Additional terms, payment instructions, exclusions or explanatory notes, not a purchased item", "other": "None of these, or the text does not permit a decision"},
+    "cases": [
+      {"id":"hu_wrap", "lines":["Megnevezés", "Éves támogatás a", "bérszámfejtő modulhoz", "Összesen: 10000 Ft"], "groups":[[0],[1,2],[3]], "kinds":["header","item","total"]},
+      {"id":"en_wrap", "lines":["Description", "Annual maintenance for the", "payroll software package", "Total: EUR 100.00"], "groups":[[0],[1,2],[3]], "kinds":["header","item","total"]},
+      {"id":"separate_items", "lines":["Termék | Mennyiség | Egységár", "USB billentyűzet | 2 db | 5000 Ft", "Vezeték nélküli egér | 1 db | 3000 Ft", "Összesen: 13000 Ft"], "groups":[[0],[1],[2],[3]], "kinds":["header","item","item","total"]},
+      {"id":"blank_boundary", "lines":["Printer cartridge | 1 pc | EUR 50", "", "Installation service | 1 hour | EUR 20", "", "Total: EUR 70"], "groups":[[0],[2],[4]], "kinds":["item","item","total"]},
+      {"id":"wrapped_note", "lines":["Laptop | 1 db | 200000 Ft", "", "Megjegyzés: a csomag", "nem tartalmaz telepítést."], "groups":[[0],[2,3]], "kinds":["item","note"]},
+      {"id":"de_wrap", "lines":["Beschreibung", "Jährliche Wartung der", "Buchhaltungssoftware", "Gesamtbetrag: 100 EUR"], "groups":[[0],[1,2],[3]], "kinds":["header","item","total"]}
+    ]
+  },
+  "pair": {
+    "question": "For this synthetic ONE invoice to ONE full payment comparison, how strongly does the payment identify this invoice? Use code_facts for exact amounts, currencies and reference equality; do not calculate. Identical amount and party alone do not identify a particular invoice if its reference is missing. Do not assume a partial or grouped payment.",
+    "levels": ["Different: incompatible parties or facts identify a different invoice", "Uncertain: compatible amount and party, but missing or ambiguous reference leaves more than one plausible invoice", "Same: matching invoice reference and compatible party and code facts identify the same invoice"],
+    "party_question": "Do invoice.party and payment.party refer to the same business, allowing ordinary abbreviations and omitted legal suffixes?",
+    "cases": [
+      {"id":"exact_hu", "invoice":{"amount":"10000", "currency":"HUF", "reference":"SYN-101", "party":"Minta Alfa Kft."}, "payment":{"amount":"10000.00", "currency":"HUF", "reference":"SYN-101", "party":"Minta Alfa Kft."}, "expected":"same"},
+      {"id":"abbreviated_en", "invoice":{"amount":"200", "currency":"EUR", "reference":"SYN-102", "party":"Example Orchard Limited"}, "payment":{"amount":"200.00", "currency":"EUR", "reference":"SYN-102", "party":"Example Orchard Ltd"}, "expected":"same"},
+      {"id":"amount_conflict", "invoice":{"amount":"200", "currency":"EUR", "reference":"SYN-103", "party":"Example Orchard"}, "payment":{"amount":"199", "currency":"EUR", "reference":"SYN-103", "party":"Example Orchard"}, "expected":"different"},
+      {"id":"currency_conflict", "invoice":{"amount":"200", "currency":"EUR", "party":"Example Orchard"}, "payment":{"amount":"200", "currency":"USD", "party":"Example Orchard"}, "expected":"different"},
+      {"id":"missing_reference", "invoice":{"amount":"200", "currency":"EUR", "reference":"SYN-105", "party":"Example Orchard"}, "payment":{"amount":"200", "currency":"EUR", "party":"Example Orchard"}, "expected":"uncertain"},
+      {"id":"different_party", "invoice":{"amount":"200", "currency":"EUR", "reference":"SYN-106", "party":"Example Orchard Software Ltd"}, "payment":{"amount":"200", "currency":"EUR", "reference":"SYN-106", "party":"Fictional Ocean Shipping Inc"}, "expected":"different"}
+    ]
+  },
+  "hierarchy": {
+    "beam_width": 2,
+    "question": "Classify the purchased item or service described by the text into the best matching category. Classify what is purchased, not equipment merely mentioned. If it fits none of the offered categories, choose other.",
+    "other": "None of these categories applies, or insufficient information to decide",
+    "tree": {
+      "goods": {"description":"Purchased physical goods; not repair services", "children":{"printer":"A purchased printer device", "paper":"Office printing paper"}},
+      "services": {"description":"Purchased work performed by someone, not goods", "children":{"repair":"Repair or maintenance of existing equipment", "training":"A course, instruction or professional training"}},
+      "subscriptions": {"description":"Recurring right to use software or hosting", "children":{"software":"Subscription to use a software application", "hosting":"Web server or website hosting service"}}
+    },
+    "cases": [
+      {"id":"hu_printer", "text":"Új lézernyomtató vásárlása, 1 darab készülék.", "expected":"printer"},
+      {"id":"hu_repair", "text":"A meglévő nyomtató javítási munkadíja; új készüléket nem vásároltunk.", "expected":"repair"},
+      {"id":"en_training", "text":"Instructor-led accounting course for three employees.", "expected":"training"},
+      {"id":"de_software", "text":"Monatliches Abonnement zur Nutzung der Buchhaltungssoftware.", "expected":"software"},
+      {"id":"en_hosting", "text":"Annual hosting of the company website on a web server.", "expected":"hosting"},
+      {"id":"unknown", "text":"Purchase of fresh apples and pears for the kitchen.", "expected":"other"}
+    ]
+  }
+}

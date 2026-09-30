@@ -1,0 +1,52 @@
+{
+  "meta": {
+    "name": "recipe_help",
+    "version": "1.0.0",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-09-29",
+        "note": "063 (döntés 2026-09-29): a receptek magyarázata a csomag Recept-kártyáján és a Beállítások › Receptek oldalon. Külön fájl, nem a recept része: a recept ujjlenyomata (a hozzárendelés és a futás pillanatképe) így nem változik. A költségkeret számát a felület a recept adataiból számolja, itt nincs szám."
+      }
+    ]
+  },
+  "recipes": {
+    "invoice-extraction": {
+      "when": "Ha a csomagban egyféle, ismert típusú irat van (például csak magyar számlák vagy csak villamosenergia-számlák). A típust te adod meg, a rendszer külön nem ismeri fel."
+    },
+    "document-processing": {
+      "when": "Ha a csomagban vegyes vagy ismeretlen típusú iratok vannak. A rendszer iratonként felismeri a típust, és a felismert típus mezőit keresi; a nem eldönthető típus teendő lesz."
+    },
+    "email-intent": {
+      "when": "A postafiókból letöltött levelekhez. Levelenként felismeri, mi a levél célja (például számla érkezett, fizetési visszaigazolás, hírlevél), a PDF-csatolmányokból adatot is kinyer, és kérésre feladatjavaslatot tesz."
+    }
+  },
+  "params": {
+    "arm": {
+      "help": "Hogyan olvassa ki a rendszer az adatokat az iratból. Bármelyik út után kódos ellenőrzés jön (például az adószám ellenőrzőszáma, az összegek egyezése); ami bizonytalan, teendő lesz.",
+      "options": {
+        "auto": "Az irattípus ajánlott útja: közműszámlán a G, mert a tételsorokat is az adja; magyar számlán az S. Mindennapi munkához ez ajánlott.",
+        "S": "A kód kigyűjti a lehetséges értékeket (számlaszám-, dátum- és összegjelölteket), a JEV mezőnként választ közülük. Csak JEV-hívás, ezért olcsóbb; tételsorokat nem olvas. Egyes irattípusok csak a G utat ismerik.",
+        "G": "A GPT kiolvassa az adatokat, a tételsorokat is, a JEV pedig mezőnként ellenőrzi, nem hibás-e. JEV- és OpenAI-hívás is, ezért drágább."
+      }
+    },
+    "doc_type": {
+      "help": "Melyik irattípus mezőit keresse a rendszer (például magyar számla, külföldi számla, villamosenergia-számla). A csomag minden iratán ez a típus fut; vegyes csomaghoz az „Iratok felismerése és adatkinyerése” recept való.",
+      "options": {}
+    },
+    "jev_cache": {
+      "help": "Mi történjen, ha ugyanazt a kérdést korábban már feltettük a JEV-nek.",
+      "options": {
+        "reuse": "A korábbi válasz ingyen és azonnal újra felhasználható; ugyanarra a kérdésre ugyanazt adja. Mindennapi munkához ez ajánlott.",
+        "live": "Minden kérdés élő, fizetős hívás, a korábbi válasz nem számít. Méréshez kell (például annak vizsgálatára, hogy ismétléskor is ugyanaz-e a válasz); a költség a tételenkénti keretig nőhet."
+      }
+    },
+    "tasks": {
+      "help": "Tegyen-e a rendszer feladatjavaslatot a levelekből: mi a teendő, ki a felelős, mi a határidő.",
+      "options": {
+        "off": "Nincs feladatjavaslat. A levél szándékának felismerése és a csatolmányok feldolgozása így is megtörténik. Ez az alapbeállítás.",
+        "propose": "A GPT levelenként javaslatot tesz. A kód ellenőrzi, hogy a javaslat minden idézete szó szerint szerepel-e a levélben; elfogadni csak ember tud. Archiválandó levélen nem fut. Levelenként többlet OpenAI-költséggel jár."
+      }
+    }
+  }
+}

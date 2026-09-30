@@ -1,0 +1,10 @@
+{
+  "required": ["document_kind"],
+  "fields": {
+    "valid_until": { "format": "date" },
+    "birth_date": { "format": "date" }
+  },
+  "money_fields": [],
+  "transforms": [],
+  "named": []
+}

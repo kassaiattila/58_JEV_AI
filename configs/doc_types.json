@@ -1,0 +1,464 @@
+{
+ "meta": {
+  "name": "doc_types",
+  "version": "2.0.1",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "kiszervezés a Python-konstansokból (ROADMAP §1 konfig mint adat); tartalom változatlan; Upwork-policy 2026-09-20 a két számla-leírásban"
+   },
+   {
+    "version": "2.0.0",
+    "date": "2026-09-20",
+    "note": "regiszter-séma v2 (BACKLOG regiszter-séma): description -> what + not_for + examples + parent (családok: invoice_like, contract_like, bank_like, official_like, other); a Choice-kritérium strukturált objektum; a leírások tartalma változatlan, a not_for a testvér-típusokra mutat"
+   },
+   {
+    "version": "2.0.1",
+    "date": "2026-09-29",
+    "note": "066 Á13: anonimizálás - egy valódi adószám a példában kitalált, ellenőrzőszám-helyes értékre cserélve (a kritérium jelentése változatlan; új gyorsítótár-kulcs, felismerési etalon kell)"
+   }
+  ]
+ },
+ "unknown_key": "unknown",
+ "unknown_parent": "other",
+ "unknown": {
+  "what": "The document cannot be read (garbled or empty text) or does not fit any listed type even loosely.",
+  "not_for": "A readable document that fits 'other' or any listed type (other).",
+  "examples": [
+   "Garbled font / empty text layer",
+   "Scanned image with no usable text"
+  ]
+ },
+ "parents": {
+  "invoice_like": "Documents that demand or confirm a payment: invoices, utility bills, receipts, payment reminders.",
+  "contract_like": "Agreements and the confirmations of their performance.",
+  "bank_like": "Bank and card account statements.",
+  "official_like": "Certificates, attestations and tax authority forms.",
+  "other": "Tickets, unclassified or unreadable documents."
+ },
+ "types": [
+  {
+   "key": "invoice_hu",
+   "parent": "invoice_like",
+   "what": "Supplier invoice (számla) ISSUED BY A HUNGARIAN business or private entrepreneur: the issuer has a Hungarian tax number (adószám ########-#-##), Hungarian labels (számla sorszáma, teljesítés, fizetési határidő, áfa), HUF amounts, often a Számlázz.hu / NAV Online Számlázó / Billzone footer. The ISSUER's nationality decides, not the language of the text.",
+   "not_for": "A foreign issuer billing a Hungarian buyer, even in Hungarian (invoice_foreign). A Hungarian freelancer billing THROUGH A FOREIGN PLATFORM (Upwork etc.) in English / USD with no Hungarian tax number (invoice_foreign - policy 2026-09-20: the FORM decides). Hungarian utility bills for electricity, gas, water, waste (utility_bill_hu). A receipt or payment confirmation without VAT breakdown (receipt). A dunning letter about unpaid invoices (payment_reminder).",
+   "examples": [
+    "Számla sorszáma: INF-2022-3, Adószám: 21357912-1-13, Fizetési határidő",
+    "Számlázz.hu / NAV Online Számlázó footer, Bruttó összesen ... Ft",
+    "Egyéni vállalkozó (kisadózó) számlája, AAM áfa"
+   ],
+   "required_any": [
+    "számla",
+    "szamla",
+    "\\binvoice\\b",
+    "sorszám",
+    "sorszam"
+   ],
+   "supporting": [
+    "fizetési határidő",
+    "\\báfa\\b",
+    "vevő",
+    "fizetendő",
+    "teljesítés",
+    "adószám:? ?\\d{8}-\\d-\\d{2}"
+   ],
+   "excluders": [
+    "(bd|bese)\\d{3}",
+    "\\b(inc|llc|ltd|limited|gmbh|sarl|pty|s\\.a\\.|b\\.v\\.|s\\.r\\.l\\.|s\\.r\\.o|s\\.l\\.)\\b",
+    "\\b(eu|nl|ie|de|at|fr|gb|it|pl|cz|sk|es|pt|se|fi|dk|ro|bg|hr|si|lt|lv|ee|lu|mt|cy|be|gr) ?\\d{8,12}\\b",
+    "\\b(openai|chatgpt|upwork|microsoft ireland|google ireland|amazon|canva|grammarly|fastspring|alza)\\b"
+   ],
+   "flows": [
+    "invoice_hu"
+   ]
+  },
+  {
+   "key": "invoice_foreign",
+   "parent": "invoice_like",
+   "what": "Invoice or receipt ISSUED BY A NON-HUNGARIAN business: EU VAT id like IE8256796U / DE123456789, foreign legal form (Ltd, GmbH, Inc, s.r.o.), EUR / USD / PLN / TRY amounts, 'reverse charge', English / German / Polish / Turkish labels (invoice, Rechnung, faktura, fatura). Includes foreign online services (Upwork, Microsoft, Google, OpenAI, Canva, Alza) billing a Hungarian buyer even when the text is Hungarian, and invoices of Hungarian freelancers issued through Upwork in English / USD without a Hungarian tax number (policy 2026-09-20: the form decides, not the issuer's nationality).",
+   "not_for": "An invoice whose issuer has a Hungarian tax number ########-#-## and Hungarian labels (invoice_hu). A bank or card statement listing many transactions (bank_statement). A payment confirmation or order confirmation that is not an invoice (receipt). An event or travel ticket (ticket).",
+   "examples": [
+    "Invoice, VAT ID IE8256796U, reverse charge, EUR",
+    "Rechnung Nr., USt-IdNr. DE..., Betrag",
+    "Upwork invoice in USD for a Hungarian freelancer"
+   ],
+   "required_any": [
+    "\\binvoice\\b",
+    "\\breceipt\\b",
+    "rechnung",
+    "faktura",
+    "fatura",
+    "facture",
+    "e-?bilet"
+   ],
+   "supporting": [
+    "\\b(eur|usd|pln|try|gbp|chf)\\b",
+    "reverse charge",
+    "vat (id|number|reg)",
+    "tax (id|payer)",
+    "\\b(ie|de|at|nl|pl|cz|sk|gb|fr|it|es|lu)\\s?[0-9a-z]{8,12}\\b",
+    "upwork|microsoft|google|openai|canva|alza|grammarly|fastspring"
+   ],
+   "excluders": [
+    "adószám:? ?\\d{8}-\\d-\\d{2}",
+    "fizetési határid",
+    "kiállítás dátuma",
+    "számlázz\\.hu"
+   ],
+   "flows": [
+    "invoice_foreign"
+   ]
+  },
+  {
+   "key": "utility_bill_hu",
+   "parent": "invoice_like",
+   "what": "Hungarian utility bill (közüzemi számla): electricity (villamos energia, kWh, MVM Next, ELMŰ), gas (földgáz, m3, MJ), water / sewage (víz, csatorna, Vízművek, FCSM), waste (MOHU, hulladék), district heating, or a Díjbeszedő 'Terhelési összesítő' aggregator statement. Has meter readings, consumption, billing period, customer id (felhasználó azonosító) and a payable amount. It IS an invoice, but of the utility kind.",
+   "not_for": "An ordinary supplier invoice for goods or services without meter readings or consumption (invoice_hu). A reminder about an unpaid utility bill (payment_reminder). A bank statement (bank_statement).",
+   "examples": [
+    "MVM Next elszámoló számla, mérőállás, kWh, felhasználási hely",
+    "Fővárosi Vízművek részszámla, m3, elszámolási időszak",
+    "Díjbeszedő Terhelési összesítő"
+   ],
+   "required_any": [
+    "villamos ?energia",
+    "áramdíj",
+    "mérőállás",
+    "felhasználási hely",
+    "\\bkwh\\b",
+    "földgáz",
+    "gázmérő",
+    "ivóvíz",
+    "vízmér",
+    "szennyvíz",
+    "csatornadíj",
+    "\\bmohu\\b",
+    "hulladék",
+    "távhő",
+    "terhelési összesítő",
+    "díjbeszedő",
+    "elszámoló számla",
+    "részszámla"
+   ],
+   "supporting": [
+    "elszámolási időszak",
+    "fogyasztás",
+    "felhasználó azonosító",
+    "mérési pont",
+    "rendszerhasználati díj",
+    "mvm next",
+    "elmű",
+    "fővárosi vízművek",
+    "fcsm"
+   ],
+   "excluders": [
+    "számlázz\\.hu",
+    "billzone",
+    "onlineszamla\\.nav\\.gov\\.hu"
+   ],
+   "flows": [
+    "utility_bill_hu"
+   ]
+  },
+  {
+   "key": "receipt",
+   "parent": "invoice_like",
+   "what": "A receipt or confirmation that is NOT a full invoice: nyugta, pénztári nyugta, card / vPOS payment confirmation, NAV Online Számla befogadás visszaigazolás, order confirmation with a payment. Typically no buyer tax number and no VAT breakdown per item.",
+   "not_for": "A full invoice with invoice number, issuer tax number and VAT breakdown (invoice_hu / invoice_foreign). A bank statement with many transactions (bank_statement). A certificate or official confirmation without a payment (certificate).",
+   "examples": [
+    "Nyugta, tranzakció azonosító, bankkártya",
+    "NAV Online Számla - befogadás visszaigazolás, érkeztetési szám",
+    "Payment confirmation / order confirmation with the amount paid"
+   ],
+   "required_any": [
+    "nyugta",
+    "visszaigazol",
+    "befogad",
+    "vpos",
+    "fizetés (sikeres|megerősít)",
+    "payment confirmation",
+    "order confirmation"
+   ],
+   "supporting": [
+    "érkeztetési szám",
+    "hivatkozási szám",
+    "tranzakció",
+    "kártya",
+    "bankkártya"
+   ],
+   "excluders": [
+    "számla sorszáma",
+    "fizetési határidő"
+   ],
+   "flows": []
+  },
+  {
+   "key": "bank_statement",
+   "parent": "bank_like",
+   "what": "Bank account statement (bankszámlakivonat / számlakivonat / account statement): opening and closing balance (nyitó / záró egyenleg), a list of transactions with dates, counterparties and amounts, bank branding (CIB, Erste, OTP, K&H, Raiffeisen, Revolut, Wise).",
+   "not_for": "A single payment confirmation or receipt (receipt). An invoice from the bank for its fees (invoice_hu / invoice_foreign). A tax authority account statement, adófolyószámla (tax_return).",
+   "examples": [
+    "CIB Bank számlakivonat, nyitó egyenleg, záró egyenleg, tranzakciók",
+    "Erste account statement, booking date, counterparty, amount",
+    "Revolut / Wise statement"
+   ],
+   "required_any": [
+    "bankszámlakivonat",
+    "számlakivonat",
+    "account statement",
+    "nyitó egyenleg",
+    "záró egyenleg",
+    "opening balance",
+    "closing balance"
+   ],
+   "supporting": [
+    "tranzakció",
+    "terhelés",
+    "jóváírás",
+    "könyvelés dátuma",
+    "értéknap",
+    "\\bcib\\b|erste|\\botp\\b|k&h|raiffeisen|revolut|wise"
+   ],
+   "excluders": [
+    "számla sorszáma",
+    "fizetési határidő"
+   ],
+   "flows": []
+  },
+  {
+   "key": "contract",
+   "parent": "contract_like",
+   "what": "Contract or terms: szerződés, megállapodás, általános szerződési feltételek (ÁSZF), terms and conditions, megbízási / vállalkozási / bérleti szerződés, an offer accepted as a contract (ajánlat + elfogadás). Long prose with numbered clauses, parties, signatures; no invoice totals.",
+   "not_for": "A performance / completion certificate that references a contract but confirms delivered work for a period (performance_certificate). An offer or quote not yet accepted (other). An invoice referencing a contract number (invoice_hu / invoice_foreign).",
+   "examples": [
+    "Megbízási szerződés, felek, számozott pontok, aláírás",
+    "Általános Szerződési Feltételek (ÁSZF)",
+    "Terms and Conditions: this Agreement is made between"
+   ],
+   "required_any": [
+    "szerződés",
+    "megállapodás",
+    "általános szerződési feltételek",
+    "\\bászf\\b",
+    "terms (and|&) conditions",
+    "agreement"
+   ],
+   "supporting": [
+    "felek",
+    "megbízó",
+    "megbízott",
+    "vállalkozó",
+    "aláírás",
+    "hatály",
+    "elállás",
+    "kötbér",
+    "felmondás"
+   ],
+   "excluders": [
+    "számla sorszáma|számlaszám",
+    "bankszámlakivonat|nyitó egyenleg",
+    "tanúsítvány|oklevél|bizonyítvány"
+   ],
+   "flows": []
+  },
+  {
+   "key": "ticket",
+   "parent": "other",
+   "what": "Entry ticket or pass (belépőjegy, jegy azonosító, szektor / gate / sor / szék, stadium, event ticket, e-bilet for an event or travel), including season passes and QR / barcode tickets.",
+   "not_for": "The invoice or receipt for buying a ticket (invoice_foreign / receipt). An event invitation or programme without an admission ticket (other).",
+   "examples": [
+    "Belépőjegy, szektor, sor, szék, QR-kód",
+    "E-bilet, gate, seat, barcode",
+    "Season pass / bérlet with a ticket id"
+   ],
+   "required_any": [
+    "jegy azonosít",
+    "belépőjegy",
+    "jogosít belépésre",
+    "szektor",
+    "kapu/gate|\\bgate\\b",
+    "e-?ticket",
+    "boarding pass"
+   ],
+   "supporting": [
+    "szurkolói kártya",
+    "kártyaszám",
+    "szék|seat",
+    "sor|row",
+    "stadion",
+    "előadás",
+    "rendezvény"
+   ],
+   "excluders": [
+    "számlaszám|számla sorszáma",
+    "bankszámlakivonat"
+   ],
+   "flows": []
+  },
+  {
+   "key": "certificate",
+   "parent": "official_like",
+   "what": "Certificate, attestation or official confirmation: tanúsítvány, igazolás, oklevél, bizonyítvány, NAV adóigazolás / köztartozásmentes igazolás, cégkivonat, registration certificate. Issued by an authority or institution about a person or company; no amounts to pay.",
+   "not_for": "A performance certificate confirming delivered work for invoicing (performance_certificate). A tax return form or tax authority decision with field codes (tax_return). A payment receipt (receipt).",
+   "examples": [
+    "NAV adóigazolás / köztartozásmentes igazolás",
+    "Cégkivonat, tanúsítvány, oklevél",
+    "Registration certificate issued by an authority"
+   ],
+   "required_any": [
+    "tanúsítvány",
+    "igazolás",
+    "oklevél",
+    "bizonyítvány",
+    "certificate",
+    "cégkivonat",
+    "adóigazolás"
+   ],
+   "supporting": [
+    "igazolja, hogy",
+    "kiállította",
+    "érvényes",
+    "nyilvántartás",
+    "hatóság"
+   ],
+   "excluders": [
+    "számla sorszáma",
+    "fizetési határidő"
+   ],
+   "flows": []
+  },
+  {
+   "key": "tax_return",
+   "parent": "official_like",
+   "what": "Tax return or tax authority form / decision: adóbevallás, NAV bevallás (pl. 2265, 2508, ÁNYK), adófolyószámla, határozat, felszólítás from NAV; official form layout with field codes.",
+   "not_for": "A tax certificate or attestation issued about a company (certificate). A supplier invoice mentioning VAT (invoice_hu). A dunning letter from a supplier, not from the tax authority (payment_reminder).",
+   "examples": [
+    "NAV 2265 bevallás, ÁNYK nyomtatvány, mezőkódok",
+    "Adófolyószámla kivonat",
+    "NAV határozat, felszólítás"
+   ],
+   "required_any": [
+    "bevallás",
+    "adóbevallás",
+    "nemzeti adó- és vámhivatal",
+    "\\bnav\\b.*(határozat|felszólítás|bevallás)",
+    "adófolyószámla",
+    "ányk"
+   ],
+   "supporting": [
+    "adónem",
+    "bevallási időszak",
+    "adózó",
+    "adóazonosító",
+    "kitöltési útmutató"
+   ],
+   "excluders": [
+    "számla sorszáma",
+    "fizetési határidő"
+   ],
+   "flows": []
+  },
+  {
+   "key": "performance_certificate",
+   "parent": "contract_like",
+   "what": "Performance / completion certificate (teljesítésigazolás, teljesítés-igazolás, TIG, időráfordítás alapú teljesítés igazolása, munkalap, timesheet accepted by the customer): the CUSTOMER confirms that the supplier performed the contracted work for a period, usually referencing a framework contract (keretszerződés) and listing hours / days / deliverables, signed by both parties. It precedes the invoice.",
+   "not_for": "The invoice itself - it has an invoice number and VAT breakdown (invoice_hu / invoice_foreign). The contract or framework agreement being referenced (contract). An official certificate issued by an authority (certificate).",
+   "examples": [
+    "Teljesítésigazolás, keretszerződés száma, időszak, munkanapok",
+    "TIG - időráfordítás alapú teljesítés igazolása",
+    "Timesheet approved by the customer, signed by both parties"
+   ],
+   "required_any": [
+    "teljesítés-?igazolás",
+    "teljesítés igazolása",
+    "\\btig\\b",
+    "időráfordítás",
+    "munkalap",
+    "timesheet",
+    "igazolom, hogy"
+   ],
+   "supporting": [
+    "keretszerződés",
+    "megbízási",
+    "elvégzett",
+    "óra\\b|munkanap|embernap",
+    "aláír",
+    "igazolja"
+   ],
+   "excluders": [
+    "számla sorszáma|számlaszám",
+    "áfa összesen|bruttó összesen"
+   ],
+   "flows": []
+  },
+  {
+   "key": "payment_reminder",
+   "parent": "invoice_like",
+   "what": "Payment reminder or dunning letter (fizetési felszólítás, fizetési emlékeztető, tartozás, hátralék, késedelmi kamat, 'lejárt számla') referring to one or more unpaid invoices; not the invoice itself.",
+   "not_for": "The invoice being reminded about (invoice_hu / invoice_foreign / utility_bill_hu). A tax authority demand (tax_return). A statement of an account balance without a demand (bank_statement).",
+   "examples": [
+    "Fizetési felszólítás, lejárt számla, késedelmi kamat",
+    "Fizetési emlékeztető, tartozás, hátralék",
+    "Payment reminder: overdue invoice"
+   ],
+   "required_any": [
+    "fizetési felszólítás",
+    "fizetési emlékeztető",
+    "felszólít",
+    "hátralék",
+    "tartozás",
+    "lejárt (számla|tartozás)",
+    "payment reminder",
+    "overdue"
+   ],
+   "supporting": [
+    "késedelmi kamat",
+    "befizetés hiányában",
+    "egyenlegközlő",
+    "kérjük.*rendez"
+   ],
+   "excluders": [],
+   "flows": []
+  },
+  {
+   "key": "other",
+   "parent": "other",
+   "what": "A readable business document that is none of the listed types: letter, offer / quote (ajánlat, árajánlat), delivery note (szállítólevél), meeting minutes, map data, presentation, form, marketing material, ID document.",
+   "not_for": "Anything that fits a listed type even loosely. Unreadable or garbled text (unknown).",
+   "examples": [
+    "Árajánlat / ajánlat not yet accepted",
+    "Szállítólevél, jegyzőkönyv, meghívó",
+    "Presentation, form, ID document"
+   ],
+   "required_any": [],
+   "supporting": [],
+   "excluders": [],
+   "flows": []
+  }
+ ],
+ "old_type_map": {
+  "invoice_hu": "invoice_hu",
+  "invoice_foreign": "invoice_foreign",
+  "invoice_out": "invoice_hu",
+  "villamos_energia_szamla": "utility_bill_hu",
+  "foldgaz_szamla": "utility_bill_hu",
+  "viz_szamla": "utility_bill_hu",
+  "csatorna_szamla": "utility_bill_hu",
+  "mohu_szamla": "utility_bill_hu",
+  "vizmuvek_szamla": "utility_bill_hu",
+  "nav_receipt": "receipt",
+  "statement_cib": "bank_statement",
+  "statement_erste": "bank_statement",
+  "altalanos_szerzodesi_feltetelek": "contract",
+  "belepo_jegy": "ticket",
+  "certificate": "certificate",
+  "nav_certificate": "certificate",
+  "nav_tax_return": "tax_return",
+  "meghivo": "other",
+  "meeting_minutes": "other",
+  "terkep_adat": "other",
+  "id_document": "other",
+  "insurance_claim_form": "other",
+  "csapatmenedzser_utasitas": "other"
+ }
+}

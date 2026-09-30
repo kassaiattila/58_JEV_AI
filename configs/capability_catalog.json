@@ -1,0 +1,66 @@
+{
+  "meta": {
+    "name": "capability_catalog",
+    "version": "1.0.0",
+    "changelog": [{"version":"1.0.0","date":"2026-09-22","note":"Unified deterministic capability discovery and coverage checks"}]
+  },
+  "purpose": "Deterministic discovery and coverage checks; not a semantic recognition guarantee",
+  "document_registry": "configs/doc_types.json",
+  "intent_registry": "configs/intents.json",
+  "expected_document_keys": [
+    "altalanos_szerzodesi_feltetelek",
+    "belepo_jegy",
+    "certificate",
+    "csapatmenedzser_utasitas",
+    "csatorna_szamla",
+    "foldgaz_szamla",
+    "id_document",
+    "insurance_claim_form",
+    "invoice_foreign",
+    "invoice_hu",
+    "invoice_out",
+    "meeting_minutes",
+    "meghivo",
+    "mohu_szamla",
+    "nav_certificate",
+    "nav_receipt",
+    "nav_tax_return",
+    "statement_cib",
+    "statement_erste",
+    "terkep_adat",
+    "villamos_energia_szamla",
+    "viz_szamla",
+    "vizmuvek_szamla"
+  ],
+  "expected_active_intent_keys": [
+    "business_correspondence",
+    "esemeny_tajekoztatas",
+    "fizetesi_visszaigazolas",
+    "job_posting",
+    "megrendeles_statusz_ertesites",
+    "newsletter_marketing",
+    "other",
+    "social_network_notification",
+    "sportesemeny_tamogatas",
+    "system_notification",
+    "szamlakuldes"
+  ],
+  "legacy_pending_document_keys": [
+    "csapatmenedzser_utasitas",
+    "meghivo",
+    "terkep_adat"
+  ],
+  "retired_intent_keys": [
+    "invoice",
+    "receipt",
+    "bank_statement",
+    "contract",
+    "iskolai_tajekoztato"
+  ],
+  "processing_sources": {
+    "core": "configs/types",
+    "legacy": "configs/legacy_types"
+  },
+  "recognition_semantics": "Regex anchors are features, not proof; broad categories do not uniquely select every detailed pack",
+  "datapoint_path_semantics": "JSON property path; * denotes any array element, not an actual record index"
+}

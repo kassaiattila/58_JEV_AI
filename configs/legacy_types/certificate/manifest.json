@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\certificate",
+  "files": {
+    "schema.json": "ceddd8e34ebbea6c4a7ca2888a6d5e1d54db8c2f325a4544880a227dea2e9048",
+    "prompt.md": "24eb616fa76a0463de0a2ab91c70529874951c346e48cbd8ab2569927b318726",
+    "rules.json": "c75fa4870e2bfacb5068c0099cbb5bfeaf3937e874628cebc179c59f2d34d0c2",
+    "detect.json": "109d3eceb0b37282fea7e9dce9bc0cfd4c1c7acdae590f011b93615b1805b6c3",
+    "meta.json": "f175e5ea3c856eb8e14a3224042d8e3a0b5141dc952e600ebf8b55221fda1570",
+    "fixtures/synth_certificate.json": "a8efb38ddf865e9df11cc16bc2ce73b1571ce054cb97532cb91f22e3f49806ac"
+  },
+  "legacy_catalog_active": true,
+  "status": "explicit_type_candidate_processing",
+  "automatic_routing_enabled": false
+}

@@ -1,0 +1,63 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|compact|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scripts/hooks/handoff_guard.py session-start",
+            "timeout": 20,
+            "statusMessage": "handoff-guard: legfrissebb handoff betöltése"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "agent",
+            "if": "Write(docs/handoffs/*)",
+            "model": "claude-fable-5-1",
+            "timeout": 400,
+            "statusMessage": "handoff-review: a handoff ellenőrzése a CLAUDE.md szabályai és a valós állapot szerint",
+            "prompt": "Te a 58_JAV_AI projekt handoff-ellenőrzője vagy. Egy handoff-fájl most íródott: a tool-hívás JSON-ja: $ARGUMENTS (tool_input.file_path a fájl). Ha a fájl a docs/handoffs/TEMPLATE.md (a sablon), válaszolj azonnal ok=true-val, ellenőrzés nélkül. Egyébként olvasd el a fájlt, a docs/handoffs/TEMPLATE.md sablont (ez a kötelező szerkezet), a CLAUDE.md-t (főleg §2 handoff-fegyelem és §3 újrahasznosítás), a docs/ROADMAP.md és README.md elejét, és az eggyel kisebb sorszámú handoffot a docs/handoffs/ alatt. Ellenőrizd: (1) a fájl neve NNN-ÉÉÉÉ-HH-NN-handoff.md és NNN a legmagasabb sorszám a mappában, a korábbi handoffokat nem módosítja; (2) megvan: LAIKUS ÖSSZEFOGLALÓ a fájl elején (cél / mit csináltunk / mit jelent az eredmény / döntés-kérdés, a docs/GLOSSARY.md fogalomtár nyelvén, kód-azonosító és definiálatlan szakszó nélkül — CLAUDE.md §8; ha hiányzik vagy szakszavakkal van tele, ok=false); kötelező olvasmány-lista, amely hivatkozza a docs/STATE.md-t (generált állapot), a docs/BACKLOG.md-t, a docs/DECISIONS.md-t, a docs/ROADMAP.md-t, a README.md-t és az előző handoffot; a session-indítás a `preflight` parancsot nevezi; a készült elemek táblázatban (az állapot-számokat NEM kézzel másolja, hanem a STATE.md-re hivatkozik); a felhasználó döntései dátummal; mérések nyers-futás hivatkozással (runs/*.jsonl) vagy kimondva, hogy nem volt mérés; nyitott kérdések; javasolt sorrend; csapdák; (3) VALÓSÁG-ELLENŐRZÉS: minden említett fájl-útvonal létezik (Glob/Read), a CLI-parancsok szerepelnek a jav/cli.py-ban, a tesztszám egyezik a `.venv/Scripts/python.exe -m pytest tests/ -q` eredményével (futtasd), a számok nem mondanak ellent a README-nek; (4) az újrahasznosítási döntések (megvolt / portoltam / új, mert…) ki vannak mondva, ha kód épült; (5) a handoffban rögzített felhasználói döntések szerepelnek a docs/DECISIONS.md-ben is, és a docs/BACKLOG.md státuszai tükrözik a session eredményét (kész tétel a Kész táblában). Stílus-ügyekbe ne köss bele. Ha nincs tárgyi hiba és a kötelező részek megvannak: ok=true, rövid indoklással. Ha van: ok=false, és a reason legyen egy számozott, konkrét, legfeljebb 8 tételes javítási lista magyarul (mit, hol, mire) — ezt a szerző modell kapja vissza, és javítania kell, mielőtt továbbmegy."
+          },
+          {
+            "type": "agent",
+            "if": "Edit(docs/handoffs/*)",
+            "model": "claude-fable-5-1",
+            "timeout": 400,
+            "statusMessage": "handoff-review: a handoff ellenőrzése a CLAUDE.md szabályai és a valós állapot szerint",
+            "prompt": "Te a 58_JAV_AI projekt handoff-ellenőrzője vagy. Egy handoff-fájl most módosult: a tool-hívás JSON-ja: $ARGUMENTS (tool_input.file_path a fájl). Ha a fájl a docs/handoffs/TEMPLATE.md (a sablon), válaszolj azonnal ok=true-val, ellenőrzés nélkül. Egyébként olvasd el a fájlt, a docs/handoffs/TEMPLATE.md sablont (ez a kötelező szerkezet), a CLAUDE.md-t (főleg §2 handoff-fegyelem és §3 újrahasznosítás), a docs/ROADMAP.md és README.md elejét, és az eggyel kisebb sorszámú handoffot a docs/handoffs/ alatt. Ellenőrizd: (1) a fájl neve NNN-ÉÉÉÉ-HH-NN-handoff.md és NNN a legmagasabb sorszám a mappában — ha egy KORÁBBI sorszámú handoffot módosítottak, az szabálysértés (ok=false); (2) megvan: LAIKUS ÖSSZEFOGLALÓ a fájl elején (cél / mit csináltunk / mit jelent az eredmény / döntés-kérdés, a docs/GLOSSARY.md fogalomtár nyelvén, kód-azonosító és definiálatlan szakszó nélkül — CLAUDE.md §8; ha hiányzik vagy szakszavakkal van tele, ok=false); kötelező olvasmány-lista, amely hivatkozza a docs/STATE.md-t (generált állapot), a docs/BACKLOG.md-t, a docs/DECISIONS.md-t, a docs/ROADMAP.md-t, a README.md-t és az előző handoffot; a session-indítás a `preflight` parancsot nevezi; a készült elemek táblázatban (az állapot-számokat NEM kézzel másolja, hanem a STATE.md-re hivatkozik); a felhasználó döntései dátummal; mérések nyers-futás hivatkozással (runs/*.jsonl) vagy kimondva, hogy nem volt mérés; nyitott kérdések; javasolt sorrend; csapdák; (3) VALÓSÁG-ELLENŐRZÉS: minden említett fájl-útvonal létezik (Glob/Read), a CLI-parancsok szerepelnek a jav/cli.py-ban, a tesztszám egyezik a `.venv/Scripts/python.exe -m pytest tests/ -q` eredményével (futtasd), a számok nem mondanak ellent a README-nek; (4) az újrahasznosítási döntések ki vannak mondva, ha kód épült. Stílus-ügyekbe ne köss bele. Ha nincs tárgyi hiba és a kötelező részek megvannak: ok=true, rövid indoklással. Ha van: ok=false, és a reason legyen egy számozott, konkrét, legfeljebb 8 tételes javítási lista magyarul (mit, hol, mire) — ezt a szerző modell kapja vissza, és javítania kell, mielőtt továbbmegy."
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "auto|manual",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scripts/hooks/handoff_guard.py pre-compact",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python scripts/hooks/handoff_guard.py stop",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

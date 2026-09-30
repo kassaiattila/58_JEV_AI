@@ -1,0 +1,16 @@
+flowchart TD
+  subgraph ph_propose["propose"]
+    generate["generate (llm)"]
+  end
+  subgraph ph_check["check"]
+    verify["verify (jev)"]
+  end
+  subgraph ph_persist["persist"]
+    save["save (store)"]
+  end
+  subgraph ph_terminal["terminal"]
+    done["done (terminal)"]
+  end
+  generate --> verify
+  verify --> save
+  save --> done

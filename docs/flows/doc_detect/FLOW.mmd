@@ -1,0 +1,21 @@
+flowchart TD
+  subgraph ph_load["load"]
+    load_pdf["load_pdf (det)"]
+    ocr_pdf["ocr_pdf (det)"]
+  end
+  subgraph ph_classify["classify"]
+    detect["detect (jev)"]
+  end
+  subgraph ph_persist["persist"]
+    save["save (store)"]
+  end
+  subgraph ph_terminal["terminal"]
+    done["done (terminal)"]
+    needs_ocr["needs_ocr (terminal)"]
+  end
+  load_pdf -->|nincs szövegréteg| ocr_pdf
+  load_pdf --> detect
+  ocr_pdf -->|nincs OCR / nincs szöveg| needs_ocr
+  ocr_pdf -->|OCR-szöveg| detect
+  detect --> save
+  save --> done

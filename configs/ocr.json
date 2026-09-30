@@ -1,0 +1,50 @@
+{
+ "meta": {
+  "name": "ocr",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "OCR-lanc (BACKLOG 7, B5): szoveg nelkuli PDF -> oldalkep (pypdfium2, 300 dpi, szurke) -> tesseract szo-dobozok (TSV) -> ugyanaz a sor- es cella-epito, mint a szovegreteges PDF-nel (jav/pdf.py). Motor: nativ tesseract (a gepen telepitett 5.4, a magyar + angol nyelvcsomag a regi sidecar Docker-kepebol, tools/tessdata), tartalek: a regi sidecar-kep (aiflow-v4-sidecar) docker run-nal, ha nincs nativ. A regi sidecar beallitasai: hun+eng, 200 dpi -> itt 300 dpi (a szamlareszletezo apro szamai miatt), psm 3 (automatikus oldalfelbontas). Lemez-gyorsitotar runs/ocr/ (doc sha256 + konfig-hash + tesseract-verzio a kulcsban)."
+   }
+  ]
+ },
+ "engine": "auto",
+ "escalation": {
+  "engine": "azure_di",
+  "enabled": true,
+  "note": "a felhasznalo dontese (2026-09-20, handoff 013 §8): tesseract alapbol, Azure DI csak gyenge OCR-nel - a kuszobok (atlagos szo-bizalom / gyenge szavak aranya) a policy.json ocr.escalate_* mezoiben; a gyenge helyi OCR helyett az Azure-szoveg megy tovabb, mindketto a gyorsitotarban marad"
+ },
+ "dpi": 300,
+ "grayscale": true,
+ "max_pages": 12,
+ "cache_dir": "runs/ocr",
+ "tesseract": {
+  "lang": "hun+eng",
+  "psm": 3,
+  "oem": 3,
+  "timeout_s": 180,
+  "tessdata_dir": "tools/tessdata",
+  "exe_candidates": [
+   "tesseract",
+   "%LOCALAPPDATA%/Programs/Tesseract-OCR/tesseract.exe",
+   "C:/Program Files/Tesseract-OCR/tesseract.exe"
+  ]
+ },
+ "docker": {
+  "image": "aiflow-v4-sidecar",
+  "note": "a regi 10_AIFLOW_V4 sidecar kepe (tesseract-ocr-hun + poppler); a gepen ~30x lassabb a nativnal (a VM sok kontenerrel osztozik), ezert csak tartalek"
+ },
+ "azure_di": {
+  "sidecar_url": "http://127.0.0.1:8800",
+  "data_root": "C:/00_DEV_LOCAL/10_AIFLOW_V4/data",
+  "container_root": "/data",
+  "timeout_s": 240,
+  "note": "Azure Document Intelligence (prebuilt-read) a regi sidecar /parse vegpontjan at (chain: azure_di), a szo-geometria a sidecar evidence-fajljabol (data/output/_ocr_evidence/<run>/<sha>.json, polygon inch-ben). FIZETOS es oldal-keretes (a sidecar tally 1000 oldal) - soha nem 'auto': csak engine = azure_di vagy JAV_OCR_ENGINE=azure_di; a PDF-nek a data_root alatt kell lennie (a kontener /data mountja)"
+ },
+ "quality": {
+  "low_conf_word": 60,
+  "note": "tesseract szo-bizalom (0-100) ez alatt = gyenge szo; a min_mean_conf / max_low_conf_ratio kuszobok a policy.json ocr blokkjaban (review-ok)"
+ }
+}

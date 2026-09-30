@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\meghivo",
+  "files": {
+    "schema.json": "8b89def4e6f719a5710087fe4002d18e5b42b1373d2f7824536d7d8b5901be4b",
+    "prompt.md": "dfa330db485dccc5f50d99b847ccf5fecaf902812f3f490fe0a0fb4e4ef59387",
+    "rules.json": "312ed992d088f84a2fb2df695eaf77bb83023343bb285896171f5886b6e18b39",
+    "detect.json": "d2ea837a5ca5ae616585fa40e3eed2d7967613d7f0fd7a9b15de85b3e65dadee",
+    "meta.json": "7b87f96fc32d0d8346ada97f5e6c1705da55087a9f120dcd97932d63d13ae7d5"
+  },
+  "legacy_catalog_active": false,
+  "status": "explicit_type_candidate_processing",
+  "automatic_routing_enabled": false
+}

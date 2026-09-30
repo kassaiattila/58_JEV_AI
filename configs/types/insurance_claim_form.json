@@ -1,0 +1,85 @@
+{
+ "meta": {
+  "name": "type:insurance_claim_form",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   }
+  ],
+  "source": {
+   "path": "10_AIFLOW_V4/flows/doc-extract-bare/types/insurance_claim_form",
+   "via": "configs/legacy_types/insurance_claim_form",
+   "sha256": {
+    "schema.json": "0654422130e950bef5251168ca63f08bbe456705ad8b493a756c8ffdf5392418",
+    "prompt.md": "3c3951c3b10dc78ad8f01c3fc347c35e01993272692982306c9def06c91f4165",
+    "rules.json": "ad61edabf88d839f0452e2aeb20e9893f5ebe6484c4cc0fb33f78afff067df24",
+    "detect.json": "b87d3b05295f9193c88b0d8efe7020d151748f651154302b84b69e6e22d0f1be",
+    "meta.json": "f6ede543c7b404fd08002353f26da67e2dc6d3edb152196d21bf14afae726738",
+    "fixtures/synth_insurance_claim_form.json": "29171535a18a7dd6be8db3d62cb21a2fd8b3f539f6809b696517a41ae9a212bc"
+   }
+  }
+ },
+ "document": "Insurance claim or notification form (possibly blank), Hungarian",
+ "golden_type_key": "insurance_claim_form",
+ "candidate_profile": "intl",
+ "arms": [
+  "G"
+ ],
+ "parent": "other",
+ "auto_detect": true,
+ "detect": {
+  "required_any": [
+   "kárbejelentő",
+   "karbejelento",
+   "igénybejelent",
+   "igenybejelent",
+   "nyomtatvány",
+   "nyomtatvany",
+   "meghatalmaz"
+  ],
+  "supporting": [
+   "biztosít",
+   "kötvény",
+   "káresemény",
+   "pénztár"
+  ],
+  "excluders": [
+   "szótár",
+   "fogalomtár"
+  ]
+ },
+ "prompt_file": "insurance_claim_form_prompt.md",
+ "schema_file": "insurance_claim_form_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_insurance_claim_form",
+ "fields": {
+  "form_title": "text",
+  "insurer": "name",
+  "form_code": "text",
+  "claim_type": "text",
+  "policy_number": "text",
+  "claimant_name": "name",
+  "is_blank_form": "boolean"
+ },
+ "list_fields": {},
+ "enums": {},
+ "scored_fields": [
+  "form_title",
+  "insurer",
+  "form_code",
+  "claim_type",
+  "policy_number",
+  "claimant_name",
+  "is_blank_form"
+ ],
+ "informational_fields": [],
+ "required": [
+  "form_title",
+  "is_blank_form"
+ ],
+ "validators": [],
+ "legacy_transforms": []
+}

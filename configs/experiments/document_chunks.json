@@ -1,0 +1,5 @@
+{
+  "version": "1.0.0",
+  "chunk_policy": {"max_chars": 8000, "overlap_chars": 512, "max_chunks": 64},
+  "proposal_context_instructions": "For a repeated quote, provide context_quote: a longer verbatim contiguous source passage containing exactly one occurrence of quote and occurring exactly once in the supplied source. It must identify the intended entity or section. Character offsets alone do not resolve repetition. If no unique literal context exists, leave the point unresolved. All offsets refer to the supplied source chunk."
+}

@@ -1,0 +1,38 @@
+{
+ "meta": {
+  "name": "verify_certificate",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_certificate",
+ "document": "Certificate or attestation issued to a person (training, qualification, membership), not a tax authority document",
+ "glossary": "Document type: Certificate or attestation issued to a person (training, qualification, membership), not a tax authority document. Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "document_title": "the document title as printed on the document (Az okirat cime/megnevezese, ahogy a dokumentumon szerepel (pl. Diploma, Erkolcsi bizonyitvany, Certificate of Completion))",
+  "holder_name": "the holder name as printed on the document (Akinek az okiratot kiallitottak (nev))",
+  "issuer": "the issuer as printed on the document (Kiallito intezmeny/szervezet neve)",
+  "issue_date": "the issue date as printed on the document (Kiallitas datuma, ISO 8601 YYYY-MM-DD)",
+  "certificate_type": "the certificate type as printed on the document (Tipus-besorolas: diploma | bizonyitvany | tanusitvany | igazolas | nyelvvizsga | erkolcsi_bizonyitvany | egyeb)",
+  "valid_until": "the valid until as printed on the document (Ervenyesseg vege, ISO 8601 YYYY-MM-DD, ha szerepel; kulonben null)",
+  "registration_number": "the registration number as printed on the document (Okirat-/torzslap-/anyakonyvi szam, ha szerepel)"
+ },
+ "incomplete_fields": [
+  "holder_name",
+  "issuer"
+ ],
+ "wrong_kind_fields": []
+}

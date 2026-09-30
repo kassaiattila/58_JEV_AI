@@ -1,0 +1,66 @@
+# Titkok - SOHA ne kerüljön verziókövetésbe
+.env
+.env.*
+!.env.example
+
+# Virtuális környezet
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.hypothesis/
+
+# Eval nyers futások, cache, OCR-gyorsítótár (PII, nagy)
+runs/
+
+# Tartós adattár (PII)
+store/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+
+# Beérkezett levelek és csatolmányok (PII)
+inbox/
+
+# Helyi OCR-nyelvcsomagok (nagy bináris; beszerzés: docs/guides/SETUP.md)
+tools/tessdata/
+tools/tessdata_best/
+
+# Claude Code helyi beállítás (gépenkénti)
+.claude/settings.local.json
+
+# Frontend (később)
+node_modules/
+ui/dist/
+
+# Operációs rendszer
+Thumbs.db
+desktop.ini
+
+# Generált, minden preflightnál változó állapotoldal (python -m jav.cli preflight / admin --write)
+docs/STATE.md
+
+# Belső munkaanyag (070, döntés 2026-09-29): helyben marad, a GitHubra nem kerül, a napi mentés viszi.
+# A minták egy helye: jav/doc_scope.py (tests/test_doc_scope_070.py ellenőrzi az egyezést).
+docs/handoffs/
+docs/plans/
+docs/reports/
+docs/callsites/
+docs/BACKLOG.md
+docs/DECISIONS.md
+docs/ROADMAP.md
+docs/INDEX.md
+docs/CONTINUE_PROMPT_*.md
+docs/*_????-??-??.md
+
+# Felület (040 K3): függőségek és build
+ui/node_modules/
+ui/dist/
+.playwright-mcp/

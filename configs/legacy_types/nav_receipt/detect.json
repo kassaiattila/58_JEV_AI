@@ -1,0 +1,7 @@
+{
+  "required_any": ["nyugta", "visszaigazolás", "befogad", "vpos", "értesít", "ertesit"],
+  "supporting": ["érkeztetési szám", "hivatkozási szám", "reference_number"],
+  "excluders": [],
+  "prior": 1.0,
+  "embedding_profile": "Hatósági (jellemzően NAV) nyugta, visszaigazolás vagy értesítés: elektronikusan beküldött bevallás befogadásáról szóló elfogadó nyugta, KR érkeztetési visszaigazolás, véglegesítési vagy hibaértesítés, sikeres bankkártyás (VPOS) befizetés visszaigazolása. Jellemző kifejezések: nyugta, elfogadó nyugta, befogadta, visszaigazolás, értesítés, érkeztetési szám, iktatószám, hivatkozási szám, tranzakcióazonosító, ügyfélkapu, beküldés időpontja. Tipikus mezők: dokumentum címe, az ügy tárgya (melyik bevallás vagy befizetés), érkeztetési szám, adózó neve, hatóság (Nemzeti Adó- és Vámhivatal)."
+}

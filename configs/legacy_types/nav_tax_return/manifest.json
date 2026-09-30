@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\nav_tax_return",
+  "files": {
+    "schema.json": "9684b2aeed11090675f2402bf9f8b7adfe62122269e345e30f3707fb9c9e567b",
+    "prompt.md": "961031e3a724d8c6f0a1ec3df9935ed62420cf1d047b97273de28a90d5d6984a",
+    "rules.json": "55b8ca74fb2c7a22008408dfa9d5f0425618f59926c0374bb09c1b68693451a0",
+    "detect.json": "940b51dcae4deb1978f77ffaa34da9c0ca55b23751f56c999e06f0c38180a2d0",
+    "meta.json": "0234b822a109bd6bdf5aebf93b83247894ed6b2d5643c42bf47c8ca060c9bb0c",
+    "fixtures/synth_nav_tax_return.json": "a068c9baf8972019afeba4185ea0e1a435c1fb99a48f3fb80a037c480508716f"
+  },
+  "legacy_catalog_active": true,
+  "status": "explicit_type_candidate_processing",
+  "automatic_routing_enabled": false
+}

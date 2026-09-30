@@ -1,0 +1,8 @@
+{
+  "_doc": "Detect anchors — string patterns are Python-re run over lowercased normalized text. Derived from the operator's real EuroHockey circular sample; tune before trusting.",
+  "embedding_profile": "Sportszövetségi útmutató vagy körlevél csapatmenedzserek részére: egy nemzetközi vagy hazai sportszövetség (pl. EuroHockey) által a tagszövetségeknek (Member National Associations) és a csapatmenedzsereknek küldött tájékoztató levél a versenyekkel és klubtornákkal kapcsolatos teendőkről, határidőkről és a kérdés-irányításról (kinek tehetők fel a kérdések). Jellemző kifejezések: team managers, competitions letter, explanation for team managers, whom to ask questions, national association, eurohockey, club tournaments (men & women), körlevél, útmutató, csapatmenedzser. Tipikus tartalom: a kibocsátó szövetség neve, a címzett (tagszövetségek / csapatmenedzserek), a levél dátuma, a torna/verseny megnevezése és éve, valamint a teendők és a kapcsolattartási/eszkalációs lánc (National Association → szövetség).",
+  "required_any": ["team manager", "csapatmenedzser", "competitions letter"],
+  "supporting": ["eurohockey", "national association", "club tournament", "whom to ask", "körlevél", "útmutató", "member national association"],
+  "excluders": ["invoice", "számlaszám|számla sorszáma", "bankszámlakivonat", "tanúsítvány", "diploma"],
+  "prior": 1.0
+}

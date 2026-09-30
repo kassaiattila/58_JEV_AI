@@ -1,0 +1,112 @@
+{
+ "meta": {
+  "name": "type:meeting_minutes",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   }
+  ],
+  "source": {
+   "path": "10_AIFLOW_V4/flows/doc-extract-bare/types/meeting_minutes",
+   "via": "configs/legacy_types/meeting_minutes",
+   "sha256": {
+    "schema.json": "5e63eee355d9f2c938d8bd7d5023ca8efdbcd8ab325d81a57081f3bfa1720136",
+    "prompt.md": "742e7f3e097bdc5a528eba7dc69c86aff7db972d7fa5a4aabba317264548ae6e",
+    "rules.json": "cb24aa4b91bb7cde3a1012e5dacb6c63b8beddb8ee0f1b69f723ab46c7f3448e",
+    "detect.json": "16f58db6ac793455230dea356045c8b560750233d0683f31ba28dbd0fc81177d",
+    "meta.json": "c5be72b38c13d4985d2397eaa32e5cb2f16723c90d1f8d0f0e48fdb63b62151a",
+    "fixtures/synth_meeting_minutes.json": "280091c57d6303e94fd07eff3a1a008ae5936c1b3b0b35264a4a434db75ebf1d"
+   }
+  }
+ },
+ "document": "Minutes of a meeting (general assembly, board meeting) with attendees, agenda and resolutions, Hungarian",
+ "golden_type_key": "meeting_minutes",
+ "candidate_profile": "intl",
+ "arms": [
+  "G"
+ ],
+ "parent": "other",
+ "auto_detect": true,
+ "detect": {
+  "required_any": [
+   "jegyzőkönyv",
+   "jelenléti ív",
+   "közgyűlési meghívó|meghívó"
+  ],
+  "supporting": [
+   "közgyűlés",
+   "napirend",
+   "határozat",
+   "levezető elnök",
+   "egyesület|club|klub"
+  ],
+  "excluders": [
+   "számla sorszáma|számlaszám",
+   "bankszámlakivonat"
+  ]
+ },
+ "prompt_file": "meeting_minutes_prompt.md",
+ "schema_file": "meeting_minutes_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_meeting_minutes",
+ "fields": {
+  "organization_name": "name",
+  "document_kind": "text",
+  "meeting_type": "text",
+  "meeting_date": "date",
+  "location": "text",
+  "attendee_count": "number",
+  "attendees": "list",
+  "chair_name": "name",
+  "minutes_keeper": "text",
+  "agenda_items": "list",
+  "resolutions": "list"
+ },
+ "list_fields": {
+  "attendees": {
+   "*": "text"
+  },
+  "agenda_items": {
+   "*": "text"
+  },
+  "resolutions": {
+   "number": "text",
+   "summary": "text",
+   "votes_for": "number",
+   "votes_against": "number",
+   "abstentions": "number"
+  }
+ },
+ "enums": {
+  "document_kind": [
+   "jegyzokonyv",
+   "meghivo",
+   "jelenleti_iv",
+   "egyeb",
+   null
+  ],
+  "meeting_type": [
+   "kozgyules",
+   "elnoksegi",
+   "egyeb",
+   null
+  ]
+ },
+ "scored_fields": [
+  "organization_name",
+  "document_kind",
+  "meeting_type",
+  "meeting_date",
+  "location",
+  "attendee_count",
+  "chair_name",
+  "minutes_keeper"
+ ],
+ "informational_fields": [],
+ "required": [],
+ "validators": [],
+ "legacy_transforms": []
+}

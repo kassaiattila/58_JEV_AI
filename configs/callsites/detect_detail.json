@@ -1,0 +1,19 @@
+{
+ "meta": {
+  "name": "detect_detail",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.2: részletes típus a durva kategórián belül, csak ha a régi kulcsszavak után is több típus marad; a jelöltek a típuscsomagok (parent), a leírásuk a csomag `document` mezője; mindig van `none`"
+   }
+  ]
+ },
+ "request_id": "detect_detail",
+ "head_lines": 40,
+ "max_line_chars": 160,
+ "instructions": "The document has already been classified into a broad category. Decide which DETAILED document type it is, using the first lines of its text (Lnn = line number; the text is verbatim, usually Hungarian). Choose the option whose description matches the issuer and the purpose of the document. Choose 'none' if no option fits or the lines do not allow a decision.",
+ "none_description": "none of the listed detailed types fits this document, or the shown lines are not enough to decide",
+ "anchor_head_chars": 1500
+}

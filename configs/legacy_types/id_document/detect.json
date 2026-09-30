@@ -1,0 +1,7 @@
+{
+  "required_any": ["személyi", "szemelyi", "személyazonosító", "szemelyazonosito", "útlevél", "utlevel", "vezetői engedély", "vezetoi", "okmány", "okmany", "lakcímkártya", "lakcimkartya", "lakcím", "lakcim", "igazolvány", "igazolvany", "taj", "kombinalt", "adóazonosító", "adoazonosito", "passport", "identity"],
+  "supporting": ["érvényes"],
+  "excluders": [],
+  "prior": 1.0,
+  "embedding_profile": "Személyazonosító okmány szkennelt képe: személyi igazolvány, útlevél, vezetői engedély (jogosítvány), lakcímkártya, TAJ-kártya vagy adókártya — esetenként több kártya egy oldalon (kombinált szken). Jellemző kifejezések: MAGYARORSZÁG, személyazonosító igazolvány, okmányazonosító, érvényességi idő, állampolgárság, születési hely és idő, anyja neve, lakcím, kiállító hatóság, Belügyminisztérium, passport, identity card, driving licence. A kinyert szöveg gyakran nagyon rövid, zajos OCR a kártya számozott mezőcímkéivel: 4(a), 4(b), 4(c). Tipikus mezők: a tulajdonos neve, okmányszám, születési dátum, érvényesség lejárata, aláírás és fénykép."
+}

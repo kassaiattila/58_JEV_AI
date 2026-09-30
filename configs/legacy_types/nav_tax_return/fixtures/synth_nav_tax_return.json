@@ -1,0 +1,16 @@
+{
+  "name": "synth_nav_tax_return",
+  "datapoints": {
+    "document_title": "Szintetikus személyijövedelemadó-bevallás",
+    "form_code": "21SZJA",
+    "tax_year": "2021",
+    "taxpayer_name": "Szintetikus Adózó",
+    "tax_id": "0000000000",
+    "issue_date": "2022-05-20",
+    "authority": "Nemzeti Adó- és Vámhivatal",
+    "total_tax": null
+  },
+  "expected_valid": true,
+  "expected_flags": [],
+  "_source": "SYNTHETIC fixture (no PII) — tracked for the fresh-clone offline gate. Required document_title + taxpayer_name present; tax_year matches ^[0-9]{4}$; issue_date is a valid ISO date; no named validator runs for this type."
+}

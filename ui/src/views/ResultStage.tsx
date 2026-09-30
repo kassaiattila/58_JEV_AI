@@ -1,0 +1,119 @@
+// Eredmény szakasz (057, a Riportok és az Adatok helyett): alapból a csomag legutóbbi futása; futásválasztó csak akkor,
+// ha a csomagnak több futása van, és csak a csomag futásai közül. Nézetváltó: Iratok · Adatpontok · Tételsorok ·
+// Közmű-költség, a közös táblázattal és letöltés-panellel. Itt van az éles futás jóváhagyása (kiadás, döntés 2026-09-28).
+import { useState } from "react";
+import { api, ApiError, getActor, type WorkpackageView } from "../api";
+import { DataTable } from "../components/DataTable";
+import { DatasetPicker, runOption } from "../components/DatasetPicker";
+import { useRunView } from "../hooks";
+import { t, useLocale } from "../i18n";
+import { nextFlowText, tmap, when } from "../labels";
+import { go, type ResultTable } from "../route";
+import { UtilityPanel } from "./UtilityReport";
+import { Icon } from "../components/Icon";
+import { ConfirmButton } from "../components/ConfirmButton";
+
+const TABLES: { key: ResultTable; dataset: string }[] = [
+  { key: "emails", dataset: "emails" },
+  { key: "tasks", dataset: "email_tasks" },
+  { key: "documents", dataset: "documents" },
+  { key: "datapoints", dataset: "datapoints" },
+  { key: "line_items", dataset: "line_items" },
+  { key: "utility", dataset: "utility_cost" },
+];
+// a nézetek felirata olvasáskor fordul (tmap)
+const TABLE_LABEL = tmap({ emails: "Levelek", tasks: "Feladatok", documents: "Iratok", datapoints: "Adatpontok", line_items: "Tételsorok", utility: "Közmű-költség" }) as Record<ResultTable, string>;
+
+/** Az alapfül (062): levélcsomagnál a Levelek, különben az Adatpontok, ennek híján az első elérhető nézet. */
+export function defaultResultTable(available: ResultTable[]): ResultTable {
+  if (available.includes("emails")) return "emails";
+  if (available.includes("datapoints")) return "datapoints";
+  return available[0] ?? "datapoints";
+}
+
+export function ResultStage({ view, table, runId, onChanged }: {
+  view: WorkpackageView; table?: ResultTable; runId?: string; onChanged: () => void;
+}) {
+  useLocale();
+  const wp = view.workpackage;
+  const chosen = runId ?? view.last_run?.run_id ?? null;
+  const run = useRunView(chosen);
+  // 058: csak az adatot tartalmazó nézetek (pl. közmű-költség csak közmű-számlánál); a szolgáltatás mondja meg
+  const available = run.data?.tables ? TABLES.filter((x) => run.data!.tables!.includes(x.key)) : TABLES;
+  const current: ResultTable = table && available.some((x) => x.key === table) ? table : defaultResultTable(available.map((x) => x.key));
+  const nav = (next: { table?: ResultTable; runId?: string }) =>
+    go({ view: "workpackages", wpId: wp.id, stage: "result", table: next.table ?? current, runId: next.runId ?? runId });
+
+  if (!chosen) {
+    return <div className="empty">{t("Még nincs eredmény: előbb futtasd a csomagot a")} <a href={`#/workpackages/${wp.id}/process`}>{t("Feldolgozás")}</a> {t("szakaszban.")}</div>;
+  }
+  const spec = TABLES.find((x) => x.key === current) ?? TABLES[1];
+  return (
+    <div className="stage-stack">
+      <div className="result-bar">
+        {view.runs > 1 ? (
+          <DatasetPicker dataset="runs" scope={{ workpackage_id: wp.id }} label={t("Futás")} value={chosen} valueCol="run_id"
+            toOption={runOption} onChange={(v) => nav({ runId: v })} />
+        ) : null}
+        <div className="segmented-tabs" role="tablist" aria-label={t("Eredmény nézetei")}>
+          {available.map((x) => (
+            <button key={x.key} type="button" role="tab" aria-selected={x.key === current} className="seg" onClick={() => nav({ table: x.key })}>{TABLE_LABEL[x.key]}</button>
+          ))}
+        </div>
+        <span className="dt-spacer" />
+        <a className="secondary dl-btn small-btn" href={api.exportUrl(chosen, "xlsx")} download><Icon name="download" />{t("Teljes Excel-csomag")}</a>
+      </div>
+      <Approval runId={chosen} onChanged={onChanged} />
+      {run.data && !available.length ? <p className="notice">{t("Ennek a futásnak nincs irat-eredménye (például csak leveleket dolgozott fel).")}</p> : null}
+      {current === "utility" ? <UtilityPanel runId={chosen} wpId={wp.id} /> : null}
+      {available.length ? <DataTable key={`${spec.dataset}:${chosen}`} dataset={spec.dataset} scope={{ run_id: chosen }} label={TABLE_LABEL[spec.key]} selectable
+        storageId={`result-${spec.dataset}`}
+        // a javasolt következő lépés a választott nyelven (a szolgáltatás a kódot adja; a keresés a magyar feliraton megy)
+        cell={spec.key === "emails" ? (col, row) => (col.key === "next_flow" ? nextFlowText(row.next_flow as string | null) : undefined) : undefined}
+        downloadExtras={<a className="small" href={api.exportUrl(chosen, "xlsx")} download>{t("A futás teljes Excel-csomagja (minden tábla és a közmű-költség)")}</a>} /> : null}
+    </div>
+  );
+}
+
+/** A futás kiadása: az éles futást ember hagyja jóvá, lezárult futáson, nyitott teendő nélkül. */
+function Approval({ runId, onChanged }: { runId: string; onChanged: () => void }) {
+  useLocale();
+  const run = useRunView(runId);
+  const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (!run.data) return null;
+  const r = run.data.run;
+  const open = Object.values(run.data.open_reasons).reduce((n, x) => n + x.length, 0);
+
+  async function approve() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      await api.approve(runId);
+      setMsg({ error: false, text: t("Jóváhagyva: az eredmény kiadható.") });
+      run.reload();
+      onChanged();
+    } catch (e) {
+      const err = e as ApiError;
+      setMsg({ error: true, text: err.status === 422 && !getActor() ? t("A jóváhagyáshoz válaszd ki a neved a fejlécben.") : err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (r.mode === "shadow") {
+    return <p className="notice">{t("Próbafutás eredménye ({{when}}): megtekinthető és letölthető, de nem adható ki. Kiadáshoz éles futás kell a Feldolgozás szakaszban.", { when: when(r.created_at) })}</p>;
+  }
+  if (r.approval) return <p className="notice ok-box">{t("Kiadva: jóváhagyta {{who}}, {{when}}.", { who: r.approved_by, when: when(r.approved_at) })}</p>;
+  return (
+    <div className="notice approval-box">
+      <span>
+        {r.status === "done" ? t("Az éles futás lezárult, nyitott teendő nélkül: jóváhagyható.")
+          : open ? t("Még {{n}} nyitott teendő van; jóváhagyás előtt rendezd őket az Ellenőrzés szakaszban.", { n: open })
+            : t("Az éles futás még nem zárult le.")}
+      </span>
+      <ConfirmButton className="primary" disabled={busy || r.status !== "done"} onConfirm={() => void approve()}>{t("Jóváhagyás és kiadás")}</ConfirmButton>
+      {msg ? <span role="status" className={msg.error ? "error-text" : ""}>{msg.text}</span> : null}
+    </div>
+  );
+}

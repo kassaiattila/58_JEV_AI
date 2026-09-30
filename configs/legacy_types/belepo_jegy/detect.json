@@ -1,0 +1,26 @@
+{
+  "_doc": "Detect anchors for 'belepo_jegy' — FIRST DRAFT, human-tune before trusting. required_any/supporting/excluders are Python-re patterns run over lowercased normalized text (accents preserved).",
+  "embedding_profile": "Sporteseményre (labdarúgó- vagy egyéb mérkőzésre) belépésre jogosító belépőjegy, amely tartalmazza a néző személyes adatait és a belépés feltételeit. Jellemző kifejezések: jegy azonosító, belépőjegy, jogosít belépésre, szurkolói kártya, kártyaszám, kapu/gate, szektor/sector, sor/row, szék/seat, stadion, kapucsoport, gate, sector, seat. Tipikus mezők: a jegy egyedi azonosítója, a néző neve és születési adatai (születési hely, születési idő), az esemény/mérkőzés megnevezése (pl. FTC - Panathinaikos FC), időpontja és helyszíne (pl. Ferencváros Stadion), valamint az ülőhely megjelölése (kapu, szektor, sor, szék). Gyakran szerepel a 'kizárólag szurkolói kártyával együtt jogosít belépésre' belépési feltétel is.",
+  "required_any": [
+    "jegy azonosít",
+    "belépőjegy",
+    "jogosít belépésre",
+    "szektor/sector",
+    "kapu/gate"
+  ],
+  "supporting": [
+    "szurkolói kártya",
+    "kártyaszám",
+    "szék/seat",
+    "sor/row",
+    "kapucsoport",
+    "stadion",
+    "szektor"
+  ],
+  "excluders": [
+    "számlaszám|számla sorszáma",
+    "bankszámlakivonat",
+    "tanúsítvány|oklevél|bizonyítvány"
+  ],
+  "prior": 1.0
+}

@@ -1,0 +1,43 @@
+{
+ "meta": {
+  "name": "detect",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "kiszervezés a Python-konstansokból (ROADMAP §1 konfig mint adat); tartalom változatlan"
+   }
+  ]
+ },
+ "state": {
+  "head_lines": 40,
+  "tail_lines": 8,
+  "max_line_chars": 160
+ },
+ "questions": {
+  "doc_type": {
+   "kind": "choice",
+   "instructions": "Classify this business document into exactly one registered type. The document may be Hungarian, English, German or another language - do NOT assume it is Hungarian. Decide from the content, the layout cues (`head_lines`, `tail_lines`), the code-side `features` and the `anchor_hits` (keyword pattern counts per type; they are hints, not verdicts). For invoices the ISSUER's nationality decides: a non-Hungarian issuer billing a Hungarian buyer is invoice_foreign even if the text is Hungarian; Hungarian utility bills (electricity, gas, water, waste) are utility_bill_hu, not invoice_hu. Use 'unknown' only if the text is unreadable or fits nothing.",
+   "criteria": "registry:doc_types"
+  },
+  "issuer_is_hungarian": {
+   "kind": "noul",
+   "instructions": "Is the ISSUER of this document (the party that created / sent it: supplier, bank, authority, utility) a Hungarian entity? Signs: Hungarian tax number ########-#-##, Hungarian address, Hungarian legal form (Kft., Bt., Zrt., e.v.), HU IBAN. A Hungarian BUYER / addressee does not make the issuer Hungarian.",
+   "criteria": {
+    "true": "the issuer is a Hungarian entity",
+    "false": "the issuer is foreign or cannot be determined"
+   }
+  },
+  "language": {
+   "kind": "choice",
+   "instructions": "Which language is the document's main text written in?",
+   "criteria": {
+    "hu": "the document's main text is Hungarian",
+    "en": "the document's main text is English",
+    "de": "the document's main text is German",
+    "other": "another language or mixed with no dominant language"
+   }
+  }
+ }
+}

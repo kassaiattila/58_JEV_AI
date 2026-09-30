@@ -1,0 +1,37 @@
+{
+ "meta": {
+  "name": "verify_meghivo",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_meghivo",
+ "document": "Invitation to an event or meeting",
+ "glossary": "Document type: Invitation to an event or meeting. Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "organizer": "the organizer as printed on the document (A szervezo/meghivo fel neve, aki a rendezvenyt tartja (pl. Magyar Curling Szovetseg))",
+  "event_name": "the event name as printed on the document (Az esemeny sajat neve/cime, ahogy a dokumentumon szerepel (pl. 2026. evi szezonzaro dijatado gala))",
+  "event_datetime": "the event datetime as printed on the document (Az esemeny idopontja ISO YYYY-MM-DD formatumban, orat csatolva ha szerepel (pl. 2026-05-27 17:30); magyar datumot normalizalj, null ha nincs)",
+  "location_address": "the location address as printed on the document (A helyszin es postai cim, ahogy nyomtatva all (pl. Rubin Wellness & Conference Hotel, 1118 Budapest, Dayka Gabor u. 3.))",
+  "venue_room": "the venue room as printed on the document (A helyszinen beluli konkret terem/helyseg neve, ha megnevezik (pl. Siraly terem); kulonben null)",
+  "registration_info": "the registration info as printed on the document (A regisztracio/reszvetel modja ahogy szerepel: link, e-mail, telefonszam, hatarido vagy gombfelirat (pl. Regisztralok az esemenyre); kulonben null)"
+ },
+ "incomplete_fields": [
+  "organizer",
+  "location_address"
+ ],
+ "wrong_kind_fields": []
+}

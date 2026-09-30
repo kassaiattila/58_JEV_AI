@@ -1,0 +1,79 @@
+{
+ "meta": {
+  "name": "type:altalanos_szerzodesi_feltetelek",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   }
+  ],
+  "source": {
+   "path": "10_AIFLOW_V4/flows/doc-extract-bare/types/altalanos_szerzodesi_feltetelek",
+   "via": "configs/legacy_types/altalanos_szerzodesi_feltetelek",
+   "sha256": {
+    "schema.json": "cafd88eb94c32a93265110d5b5b3c36c40a4ec3b50bf7378c25046637dbc7676",
+    "prompt.md": "2498b974fa2e875601a5ac2bd55e4c5ca957c881cc938ef35fbde129bfd62a44",
+    "rules.json": "88efa75f03320da653581a618e6f65af16058daf61c127c13041be2f49bf5d08",
+    "detect.json": "cc207b3b16dc79c9286e56f29dcebc5c14a7a94d51a9c5f9ca1f0bf87876189b",
+    "meta.json": "4b999fdba8ed443cf700fc18566e580192d9c8331d1e7ad4cee8040fa14d5c2e"
+   }
+  }
+ },
+ "document": "Hungarian general terms and conditions (ÁSZF) of a seller or service provider",
+ "golden_type_key": "altalanos_szerzodesi_feltetelek",
+ "candidate_profile": "intl",
+ "arms": [
+  "G"
+ ],
+ "parent": "contract",
+ "auto_detect": true,
+ "detect": {
+  "required_any": [
+   "általános szerződési feltételek",
+   "\\bászf\\b",
+   "terms (and|&) conditions"
+  ],
+  "supporting": [
+   "eladó és (a )?vevő",
+   "adásvételi szerződés",
+   "webáruház|webshop|web[- ]?áruház",
+   "elállási jog|elállás",
+   "fogyasztó",
+   "regisztráció",
+   "jótállás|szavatosság",
+   "panaszkezelés",
+   "cégjegyzékszám|székhely"
+  ],
+  "excluders": [
+   "számla sorszáma|számlaszám",
+   "bankszámlakivonat|nyitó egyenleg",
+   "tanúsítvány|oklevél|bizonyítvány"
+  ]
+ },
+ "prompt_file": "altalanos_szerzodesi_feltetelek_prompt.md",
+ "schema_file": "altalanos_szerzodesi_feltetelek_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_altalanos_szerzodesi_feltetelek",
+ "fields": {
+  "document_title": "text",
+  "seller_name": "name",
+  "seller_address": "address",
+  "seller_registration_number": "text",
+  "effective_date": "date",
+  "page_count": "number"
+ },
+ "list_fields": {},
+ "enums": {},
+ "scored_fields": [
+  "document_title",
+  "seller_name",
+  "effective_date",
+  "page_count"
+ ],
+ "informational_fields": [],
+ "required": [],
+ "validators": [],
+ "legacy_transforms": []
+}

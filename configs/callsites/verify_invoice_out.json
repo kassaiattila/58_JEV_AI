@@ -1,0 +1,51 @@
+{
+ "meta": {
+  "name": "verify_invoice_out",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_invoice_out",
+ "document": "Outgoing (issued) Hungarian invoice, where our company is the SUPPLIER",
+ "glossary": "Document type: Outgoing (issued) Hungarian invoice, where our company is the SUPPLIER. Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "supplier_name": "the supplier name as printed on the document",
+  "supplier_tax_id": "the supplier tax id as printed on the document (Kiallito HU adoszama (BestixCom: 12345678-2-42), formatum ########-#-##)",
+  "buyer_name": "the buyer name as printed on the document (Vevo (customer) neve)",
+  "buyer_tax_id": "the buyer tax id as printed on the document (Vevo adoszama / VAT registration No., ha szerepel)",
+  "buyer_address": "the buyer address as printed on the document (Vevo cime, ahogy a szamlan szerepel)",
+  "invoice_number": "the invoice number as printed on the document (Szamla sorszama (pl. BD012, BESE0018))",
+  "issue_date": "the issue date as printed on the document (Kiallitas datuma, ISO 8601 YYYY-MM-DD)",
+  "fulfillment_date": "the fulfillment date as printed on the document (Teljesites/delivery datuma, ISO 8601 YYYY-MM-DD)",
+  "due_date": "the due date as printed on the document (Fizetesi hatarido, ISO 8601 YYYY-MM-DD)",
+  "currency": "the currency as printed on the document (A szamla fo penzneme, ISO 4217 (USD, EUR, HUF))",
+  "net_total": "the net total as printed on the document",
+  "vat_total": "the vat total as printed on the document (AFA osszege STRING-kent (AAM/0% eseten \"0\" lehet))",
+  "gross_total": "the gross total as printed on the document",
+  "payment_iban": "the payment iban as printed on the document (Fizetesi IBAN/bankszamlaszam, ahogy a szamlan szerepel)"
+ },
+ "incomplete_fields": [
+  "supplier_name",
+  "buyer_name",
+  "buyer_address"
+ ],
+ "wrong_kind_fields": [
+  "supplier_tax_id",
+  "buyer_tax_id",
+  "invoice_number",
+  "payment_iban"
+ ]
+}

@@ -1,0 +1,56 @@
+{
+ "meta": {
+  "name": "datasets",
+  "version": "1.4.0",
+  "changelog": [
+   {
+    "version": "1.4.0",
+    "date": "2026-09-29",
+    "note": "062 (döntés 2026-09-29): a tevékenységnapló új művelete: az elfogadott feladat kézi elvégzése (activity_action.task_done)"
+   },
+   {
+    "version": "1.3.0",
+    "date": "2026-09-28",
+    "note": "061 (döntés 2026-09-28, aktív felhasználó + kiosztás): a tevékenységnapló műveleteinek feliratai (activity_action)"
+   },
+   {
+    "version": "1.2.0",
+    "date": "2026-09-28",
+    "note": "058 K5.1: a Levelek eredménytábla feliratai - a javasolt következő lépések (next_flow) és hogy a levél szövegéből mennyit látott a szándék-felismerés (body_status); K5.3: a feladatjavaslat döntése (task_decision)"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "058 (döntés 2026-09-28): a munkacsomag elrejthető - wp_status felirat (aktív / elrejtve) az elrejtettekkel együtt kért listához"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "056 U1 (döntések 2026-09-28): egységes adatnézet - az adatkészletek felsorolt oszlopainak magyar feliratai (a keresés és a rendezés a feliratra is megy), a gyorsítótár mérete és a letöltés felső határa"
+   }
+  ]
+ },
+ "labels": {
+  "run_status": {"queued": "Sorban áll", "running": "Fut", "needs_review": "Teendő vár", "done": "Kész", "failed": "Hibás", "cancelled": "Leállítva"},
+  "item_status": {"done": "Lefutott", "failed": "Hibás", "cancelled": "Leállítva", "needs_review": "Teendő", "needs_ocr": "OCR kell"},
+  "final_status": {"done": "Lezárva, teendő nélkül", "needs_review": "Teendő", "needs_ocr": "OCR kell", "jev_unavailable": "JEV nem volt elérhető"},
+  "mode": {"shadow": "Próba", "apply": "Éles"},
+  "approval": {"approved": "Jóváhagyva"},
+  "wp_status": {"open": "Aktív", "archived": "Elrejtve"},
+  "kind": {"document": "Irat", "email": "Levél"},
+  "source_kind": {"folder": "mappa", "mailbox": "postafiók", "manual": "kézi válogatás", "watch": "figyelt mappa"},
+  "pull_status": {"queued": "Sorban áll", "running": "Fut", "ok": "Kész", "error": "Hibás"},
+  "provenance": {"located": "pontos", "approximate": "közelítő", "ambiguous": "több helyen", "context_rejected": "más mező mellett", "not_found": "nem található", "no_value": "nincs érték", "no_layer": "nincs szóréteg", "error": "hiba", "list": "lista"},
+  "utility_status": {"ok": "rendben", "missing": "hiányzik", "partial": "részleges", "overlap": "átfedés", "settlement": "elszámolás", "no_period": "nem vetíthető: nincs számlázási időszak", "no_amount": "nem vetíthető: nincs összeg", "duplicate": "ismétlődő számla (egyszer számít)"},
+  "yes": {"igen": "igen"},
+  "next_flow": {"human:inbox": "Kézi feldolgozás", "human:fetch_document": "Kézi: a számla feldolgozása", "human:low_confidence": "Kézi ellenőrzés: bizonytalan szándék", "human:jev_unavailable": "Kézi ellenőrzés: a JEV nem volt elérhető", "human:suspicious": "Kézi ellenőrzés: gyanús tartalom", "m1:detect": "Csatolmány: típusfelismerés", "m2:needs_ocr": "Csatolmány: szövegfelismerés kell", "archive": "Archiválás", "archive:payment_proof": "Archiválás (fizetési igazolás)", "archive:calendar": "Archiválás (naptár)", "archive:order_status": "Archiválás (rendelés állapota)"},
+  "body_status": {"full": "teljesen látta", "shortened": "csak az elejét látta", "capped": "letöltéskor elvágódhatott"},
+  "task_decision": {"accepted": "elfogadva", "rejected": "elvetve"},
+  "activity_action": {"archive": "csomag elrejtése", "restore": "csomag visszahozása", "rename": "csomag átnevezése",
+   "delete": "csomag törlése", "owner": "felelős beállítása", "recipe": "recept hozzárendelése", "run_start": "futás indítása",
+   "run_approve": "futás jóváhagyása", "correction": "javítás", "reason_resolve": "teendő lezárása",
+   "task_decision": "feladatjavaslat döntése", "task_done": "feladat elvégezve", "mailbox_pull": "postafiók-letöltés"}
+ },
+ "cache_entries": 24,
+ "export_max_rows": 100000
+}

@@ -1,0 +1,32 @@
+{
+  "_doc": "On-disk git SoR for doc-extract type 'csapatmenedzser_utasitas' (scaffolded from a taxonomy candidate, W8/L6). NEXT: fill schema.json + prompt.md, then `flowdev eval doc-extract-bare --type csapatmenedzser_utasitas`, record the real config_hash (config.load_type(...).config_hash) + bump config_version, git commit, restart (the W8/L2 configcache syncs bare.doc_types; detect routes to it from disk).",
+  "type_key": "csapatmenedzser_utasitas",
+  "config_version": "1.0.1",
+  "provenance": {
+    "from_candidate": "csapatmenedzser_utasitas",
+    "sample_ids": [
+      "1059",
+      "1084",
+      "1085",
+      "936",
+      "940",
+      "941",
+      "1057",
+      "1082",
+      "1083"
+    ]
+  },
+  "changelog": [
+    {
+      "version": "1.0.1",
+      "date": "2026-09-07",
+      "change": "Migrate GPT calls to gpt-5.4-mini with explicit none reasoning at the sidecar transport boundary. Existing prompts, schemas, rules and temperatures retained; legacy max_tokens maps to max_completion_tokens. Historical quality floors unchanged.",
+      "config_hash": "__PENDING__"
+    },
+    {
+      "version": "1.0.0",
+      "config_hash": "__PENDING__",
+      "note": "scaffolded from taxonomy candidate (W8/L6)."
+    }
+  ]
+}

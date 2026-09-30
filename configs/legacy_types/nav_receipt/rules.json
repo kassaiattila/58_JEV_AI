@@ -1,0 +1,9 @@
+{
+  "required": ["document_title", "taxpayer_name"],
+  "fields": {
+    "issue_date": { "format": "date" }
+  },
+  "money_fields": ["amount"],
+  "transforms": [],
+  "named": []
+}

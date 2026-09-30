@@ -1,0 +1,7 @@
+{
+  "required_any": ["jegyzőkönyv", "jelenléti ív", "közgyűlési meghívó|meghívó"],
+  "supporting": ["közgyűlés", "napirend", "határozat", "levezető elnök", "egyesület|club|klub"],
+  "excluders": ["számla sorszáma|számlaszám", "bankszámlakivonat"],
+  "prior": 1.0,
+  "embedding_profile": "Közgyűlési dokumentum (egyesületi ülés-dokumentumcsalád): szkennelt jegyzőkönyv, közgyűlési meghívó vagy jelenléti ív egy sportegyesület/egyesület üléséről. Jellemző kifejezések: jegyzőkönyv, közgyűlés, tisztújító közgyűlés, megismételt közgyűlés, napirendi pontok, határozat (pl. 1/2024. sz. Határozat), levezető elnök, jegyzőkönyvvezető, jegyzőkönyv-hitelesítő, határozatképes, jelenléti ív, meghívó, tagok, szavazás igen-nem-tartózkodás. Tipikus mezők: szervezet neve, ülés dátuma és helyszíne, jelenlévők száma vagy névsora, napirendi pontok listája, határozatok száma, tartalma és szavazati aránya, aláírások."
+}

@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "form_title":    { "type": ["string", "null"], "description": "A nyomtatvany cime (pl. Gepjarmu-karbejelentesi adatlap, Igenybejelento nyomtatvany, Meghatalmazas)" },
+    "insurer":       { "type": ["string", "null"], "description": "Biztosito / penztar neve, ha szerepel (pl. Allianz, Alfa Onkentes Nyugdijpenztar)" },
+    "form_code":     { "type": ["string", "null"], "description": "Nyomtatvany-kod, ha szerepel (pl. AHE-52646, NYP-0076v11)" },
+    "claim_type":    { "type": ["string", "null"], "description": "Kar/igeny tipusa, ha azonosithato (pl. gepjarmu-kar, szemelyserules, aszaly/jegveres, atlepes, azonositas, meghatalmazas)" },
+    "policy_number": { "type": ["string", "null"], "description": "Szerzodes-/kotvenyszam, ha KITOLTOTT erteke van; ures rubrika eseten null" },
+    "claimant_name": { "type": ["string", "null"], "description": "Bejelento/igenylo neve, ha KITOLTOTT; ures nyomtatvanyon null" },
+    "is_blank_form": { "type": "boolean", "description": "true, ha a nyomtatvany NINCS kitoltve (ures, kitoltheto forma); false, ha kitoltott adatokat tartalmaz" }
+  },
+  "required": ["form_title", "insurer", "form_code", "claim_type", "policy_number", "claimant_name", "is_blank_form"]
+}

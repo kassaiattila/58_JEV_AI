@@ -1,0 +1,92 @@
+{
+ "meta": {
+  "name": "type:_base/utility_bill_hu",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "053 T3.1 (döntés 2026-09-28: A út): default_arm G - a közmű-számlák a recept automatikus karával a GPT-úton futnak, mert a fejadatot és a tételeket egy hívás adja (a G-kar fejadat-egyezése a 015-ös mérésen 98,7 %); a kifejezett S kérés továbbra is fut"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "alap-csomag (BACKLOG 1, kozmu-kor): a regi _shared/utility_bill_hu bazis - 19 kozos mezo a regi schema.json sorrendjeben fajtakkal (customer_id / customer_code / payment_method: text), kotelezo mezok es validatorok a regi rules.json-bol (required: invoice_number, amount_due; date_order; hu_tax_id optional; currency ^[A-Z]{3}$) - a date_order optional, mert a regi golden reszszamlain nincs hatarido; nem pontozott: supplier_bank_account, customer_code, customer_id (rules non_scored_fields) + supplier_address (a regi scorer ADDRESS_FIELDS alapja); magas tetu mezok a policy alap-keszlete; jelolt-profil utility (OCR-turo magyar), hivasi helyek select_utility / verify_utility; text_labels a cimkes szoveg-mezokhoz. Onmagaban nem futtathato (nincs prompt), a gyermek-csomagok extends-szel hivatkozzak"
+   }
+  ],
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/_shared/utility_bill_hu (schema sha256 6cba0433890a5af6, rules verbatim)"
+ },
+ "document": "Hungarian residential utility bill (electricity / gas / water / sewage / waste), OCR text of a scanned PDF (Lnn = line number); the issuer is a Hungarian utility or a payment collector, the customer a private person",
+ "candidate_profile": "utility",
+ "default_arm": "G",
+ "schema_file": "utility_bill_hu_schema.json",
+ "select_callsite": "select_utility",
+ "verify_callsite": "verify_utility",
+ "fields": {
+  "supplier_name": "name",
+  "supplier_tax_id": "tax_id",
+  "supplier_address": "address",
+  "supplier_bank_account": "iban",
+  "customer_name": "name",
+  "customer_id": "text",
+  "customer_address": "address",
+  "customer_code": "text",
+  "consumption_address": "address",
+  "invoice_number": "invoice_number",
+  "issue_date": "date",
+  "fulfillment_date": "date",
+  "due_date": "date",
+  "payment_method": "text",
+  "currency": "currency",
+  "net_total": "money",
+  "vat_total": "money",
+  "gross_total": "money",
+  "amount_due": "money"
+ },
+ "scored_fields": [
+  "supplier_name",
+  "supplier_tax_id",
+  "customer_name",
+  "invoice_number",
+  "issue_date",
+  "fulfillment_date",
+  "due_date",
+  "payment_method",
+  "currency",
+  "net_total",
+  "vat_total",
+  "gross_total",
+  "amount_due",
+  "customer_address",
+  "consumption_address",
+  "supplier_address",
+  "supplier_bank_account",
+  "customer_id",
+  "customer_code"
+ ],
+ "informational_fields": [
+  "supplier_address",
+  "supplier_bank_account",
+  "customer_id",
+  "customer_code"
+ ],
+ "required": [
+  "invoice_number",
+  "amount_due"
+ ],
+ "high_stakes": [
+  "amount_due",
+  "due_date",
+  "gross_total",
+  "supplier_tax_id"
+ ],
+ "validators": [
+  {"check": "date_order", "optional": true},
+  {"check": "hu_tax_id", "field": "supplier_tax_id", "optional": true},
+  {"check": "format", "field": "currency", "regex": "^[A-Z]{3}$", "optional": true}
+ ],
+ "text_labels": {
+  "customer_id": ["felhaszn[áa]l[óo]\\s*azonos[íi]t[óo]\\s*sz[áa]ma", "vev[őo]\\s*\\(fizet[őo]\\)\\s*azonos[íi]t[óo]", "felhaszn[áa]l[óo]\\s*azonos[íi]t[óo]", "fizet[őo]\\s*azonos[íi]t[óo]", "vev[őo]\\s*azonos[íi]t[óo]"],
+  "customer_code": ["sz[áa]mlatulajdonos\\s*[üu]gyf[ée]lk[óo]dja", "[üu]gyf[ée]lk[óo]d(?:ja)?"]
+ }
+}

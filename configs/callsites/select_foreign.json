@@ -1,0 +1,175 @@
+{
+ "meta": {
+  "name": "select_foreign",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "S-kar hivasi hely a kulfoldi szamlahoz (BACKLOG 1, tipus-csomag invoice_foreign): a select.json mintajara, a mezo-instrukciok a regi invoice_foreign/prompt.md mezo-utmutatasabol atirva Choice-kerdesse; uj kerdes: supplier_country (Choice ISO-kodok kozul, a parties keresben), a penznem-kerdes a szamlazasi penznemre (az adobevallasi HUF-atvaltas informativ); nincs payment_method / amount_due / fulfillment_date (a regi semaban sincs)"
+   }
+  ]
+ },
+ "document": "Foreign (non-Hungarian) supplier invoice, selected lines (Lnn = line number). The document language may be English, Hungarian (a localized invoice of a foreign issuer), German, Polish or Turkish.",
+ "glossary": "Foreign invoice glossary. Document names: Invoice / Fatura (TR) / Faktura (PL) / Rechnung (DE) / Számla (HU-localized). SUPPLIER = the party that ISSUES the invoice: From / Issuer / Seller / Sold by / Remit to (payment collector, only the supplier if it is also the issuer) / the legal footer block with the company name and tax id / Kiállító. BUYER = the party that RECEIVES the invoice: Bill to / Billed to / Customer / Client / Sayın / Vevő / Számlafizető (bill payer). Tax ids: VAT ID / VAT number / Tax ID / EIN (US) / VKN, TCKN (TR) / NIP (PL) / USt-IdNr (DE) / Áfaazonosító, Adószám (HU-localized invoices label the FOREIGN issuer's VAT id 'Adószám' too); an EU VAT number starts with a two-letter country code (IE8256796U, DE123456789, HU28994028 = a Hungarian party). Dates: Date / Invoice date / Fatura Tarihi / Rechnungsdatum / Számla dátuma = ISSUE date; Due date / Payment due / Vade / Fällig / Határidő = DUE date; a service period (Elszámolási időszak, 12/19/2022 - 12/25/2022) is neither. Amounts: Subtotal / Net / Mal Hizmet Tutarı / KDV Matrahı / Terhelések összesen (áfa nélkül) = NET total; VAT / KDV / MwSt / Áfa = VAT total; Total / Total amount / Total due / Amount due / Ödenecek Tutar / Gesamtbetrag / Végösszeg / Összeg = GROSS total (the final payable amount). 'Reverse charge' / 'VAT Reverse Charged' / 'Fordított áfa' means the VAT total is 0. Currencies: $ = USD unless another code is printed, € = EUR, £ = GBP, TL = TRY, zł = PLN. A tax-reporting conversion into another currency (e.g. 'Total charges ... 44 032,16 HUF' on an invoice billed in EUR) is informational, not a second total.",
+ "none_description": "None of the listed values is the {what}, or the {what} is not printed on this invoice.",
+ "field_kind": {
+  "supplier_tax_id": "tax_id",
+  "buyer_tax_id": "tax_id",
+  "supplier_name": "name",
+  "buyer_name": "name",
+  "supplier_address": "address",
+  "buyer_address": "address",
+  "issue_date": "date",
+  "due_date": "date",
+  "invoice_number": "invoice_number",
+  "net_total": "money",
+  "vat_total": "money",
+  "gross_total": "money",
+  "payment_iban": "iban"
+ },
+ "instructions": {
+  "supplier_tax_id": "Which value is the tax / VAT identification number of the SUPPLIER, the party that ISSUES this invoice (From / issuer / the legal footer block; labelled VAT ID, Tax ID, VKN, NIP, USt-IdNr, or Adószám on a Hungarian-localized invoice of a foreign issuer)? Foreign ids come in local formats (EU VAT number such as IE8256796U or DE123456789, Turkish VKN / TCKN, Polish NIP, US EIN). Do not choose the BUYER's id: a HU-prefixed VAT number (e.g. HU28994028) or a Hungarian ########-#-## number in the Bill to / Vevő block belongs to the Hungarian buyer. Choose 'none' if the supplier prints no tax id (freelancer or marketplace invoices often do not).",
+  "buyer_tax_id": "Which value is the tax / VAT identification number of the BUYER, the party that RECEIVES this invoice (Bill to / Customer / Vevő / Számlafizető block; labelled VAT ID, Tax ID, Áfaazonosító, Adószám)? The buyer is typically a Hungarian company, so its id is usually HU-prefixed (HU28994028) or in the Hungarian ########-#-## format. Do not choose the supplier's (issuer's) id. Choose 'none' if the buyer's tax id is not printed.",
+  "supplier_name": "Which option is the full printed name of the SUPPLIER, the party that ISSUES this invoice (labelled From / Issuer / Seller / Sold by, or printed in the legal footer block next to the issuer's address and tax id)? The supplier may be a company (Ltd, Inc., GmbH, Pty Ltd, a.s., Zrt.) or a private person / freelancer printed as a plain personal name; a marketplace named only under 'Remit to' or 'Invoice created via' is the payment collector, not the supplier, unless it is also the party named as From / issuer. Do not choose the buyer (Bill to / Vevő). Prefer the complete legal name with its legal form. Choose 'none' only if no option is the supplier's name.",
+  "buyer_name": "Which option is the full printed name of the BUYER, the party that RECEIVES this invoice (labelled Bill to / Billed to / Customer / Client / Sayın / Vevő / Számlafizető)? The buyer is typically a Hungarian company (Kft., Zrt., Bt.) or association. Do not choose the supplier (From / issuer). Prefer the option with the legal form. Choose 'none' if no option is the buyer's name.",
+  "supplier_address": "Which option is the postal address printed for the SUPPLIER (issuer), in its block near the supplier's name (From / issuer block or the legal footer)? Prefer the most complete option (street, city, postal code). Do not choose the buyer's address. Choose 'none' if not listed.",
+  "buyer_address": "Which option is the postal address printed for the BUYER (Bill to / Customer / Vevő block), near the buyer's name? Prefer the most complete option. Do not choose the supplier's address. Choose 'none' if not listed.",
+  "issue_date": "Each option is a date (ISO form) together with the source line it was printed on. Which one is the ISSUE date of the invoice (Date, Invoice date, Fatura Tarihi, Rechnungsdatum, Számla dátuma)? Several dates may share one value; decide by the label printed next to or above the date. A service / billing period (e.g. 12/19/2022 - 12/25/2022, Elszámolási időszak) is not the issue date. Choose 'none' if the issue date is not among the options.",
+  "due_date": "Each option is a date (ISO form) together with the source line it was printed on. Which one is the payment DUE date (Due date, Payment due, Vade, Fällig am, Határidő, Fizetési határidő)? Several dates may share one value; decide by the label printed next to or above the date. A service / billing period end is not the due date. Choose 'none' if no due date is printed (e-tickets and card-charged invoices often have none).",
+  "invoice_number": "Which option is the invoice's own document number (Invoice No / Invoice # / Fatura No / Belge No / Bilet No / Rechnungsnummer / Faktura nr / Document No / Számla száma)? It is not an order or purchase-order number (Order No, Rendelésszám, a long UUID), not a customer, contract or account id, not a tax / VAT id, not a postal code, and not a date. Choose 'none' if the invoice number is not among the options.",
+  "net_total": "Each option is an amount (normalized) together with the source lines where it was printed. Which one is the invoice-level NET total in the invoice's BILLING currency (Subtotal, Net amount, Mal Hizmet Tutarı, KDV Matrahı, Terhelések összesen (áfa nélkül), Részösszegek / Terhelések for the whole invoice), i.e. the sum before VAT for the whole invoice? Not a single line-item amount, not the gross total when a separate net line is printed, and not a tax-reporting conversion into another currency. Choose 'none' if the invoice prints no explicit invoice-level net / subtotal line (reverse-charge invoices often print only a total).",
+  "vat_total": "Each option is an amount (normalized) together with the source lines where it was printed. Which one is the invoice-level VAT total (VAT, KDV, MwSt, Áfa, Áfa összesen) in the billing currency? For reverse-charge, 0 % or tax-exempt invoices the VAT total is 0 and '0' is then the correct choice (the option printed as 'reverse charge' stands for a VAT of 0). Choose 'none' only if no VAT total is printed and no reverse-charge note appears.",
+  "gross_total": "Each option is an amount (normalized) together with the source lines where it was printed. Which one is the invoice-level GROSS total in the invoice's BILLING currency (Total, Total amount, Total due, Amount due, Ödenecek Tutar, Vergiler Dahil Toplam Tutar, Gesamtbetrag, Végösszeg, Összeg), i.e. the final payable amount including all taxes for the whole invoice? Not a single line-item amount, and not a tax-reporting conversion of the total into another currency (e.g. a HUF equivalent printed on an EUR invoice). Choose 'none' if the gross total is not among the options.",
+  "payment_iban": "Which option is the bank account or IBAN printed for paying this invoice, i.e. the SUPPLIER's (or the explicitly named payment beneficiary's) account? A foreign IBAN (non-HU prefix) or a domestic account with bank code / SWIFT is typical. If several DIFFERENT accounts are printed and the invoice does not explicitly designate one, choose 'none'. Do not choose the buyer's account or a customer / reference number. Choose 'none' if no account is printed (card-charged and marketplace invoices usually print none)."
+ },
+ "extra_questions": {
+  "currency": {
+   "request": "foreign_money",
+   "instructions": "Which currency are the invoice's own totals BILLED in? Decide from the currency printed next to the header total, the line-item amounts and the Total / Total due line. A symbol alone: $ = USD (unless A$, C$ or another code is printed), € = EUR, £ = GBP, TL = TRY, zł = PLN. A tax-reporting conversion of the total into another currency (e.g. 'Total charges ... HUF' at the bottom of an invoice billed in EUR) is informational and is NOT the billing currency. Do not infer the currency from the language or the issuer's country; choose 'none' if no currency is printed.",
+   "criteria": {
+    "EUR": "euro; printed as EUR or €",
+    "USD": "US dollar; printed as USD, US$ or a plain $",
+    "GBP": "British pound; printed as GBP or £",
+    "TRY": "Turkish lira; printed as TRY, TL or ₺",
+    "PLN": "Polish zloty; printed as PLN or zł",
+    "CZK": "Czech koruna; printed as CZK or Kč",
+    "CHF": "Swiss franc; printed as CHF",
+    "AUD": "Australian dollar; printed as AUD or A$",
+    "HUF": "Hungarian forint; printed as HUF, Ft or forint - only if the invoice is actually billed in forint, not when HUF appears only as a tax-reporting conversion",
+    "none": "no currency is printed on the invoice"
+   }
+  },
+  "supplier_country": {
+   "request": "foreign_parties",
+   "instructions": "In which country is the SUPPLIER (the issuer of this invoice) established? Decide from the SUPPLIER's own address (city, state / ZIP, country line), the country prefix of its VAT number (IE..., DE..., PL...), its legal form (Ltd = often IE / GB, Inc. / LLC = US, GmbH = DE / AT, Pty Ltd = AU, a.s. / s.r.o. = CZ / SK, Şti = TR) and the document language. Do NOT use the BUYER's country: the buyer (Bill to / Vevő) is usually in Hungary, and a Hungarian VAT number (HU...) in the buyer block says nothing about the supplier. Choose 'none' if the supplier's country cannot be read from the document.",
+   "criteria": {
+    "IE": "Ireland (Dublin; IE-prefixed VAT number such as IE8256796U; e.g. Microsoft Ireland Operations Ltd)",
+    "US": "United States (US state abbreviation + ZIP code such as San Francisco, CA 94107; USA; Inc. / LLC; EIN)",
+    "GB": "United Kingdom (London; GB-prefixed VAT number; Ltd / plc; postcodes like SW1A 1AA)",
+    "DE": "Germany (Deutschland; GmbH / AG; DE-prefixed VAT number; Rechnung)",
+    "AT": "Austria (Österreich; GmbH; ATU-prefixed VAT number)",
+    "NL": "Netherlands (Nederland; B.V. / N.V.; NL-prefixed VAT number)",
+    "BE": "Belgium (Belgique / België; BE-prefixed VAT number)",
+    "LU": "Luxembourg (LU-prefixed VAT number; S.à r.l. / S.A.)",
+    "FR": "France (SAS / SARL; FR-prefixed VAT number; Facture)",
+    "IT": "Italy (S.p.A. / S.r.l.; IT-prefixed VAT number; Fattura)",
+    "ES": "Spain (S.L. / S.A.; ES-prefixed VAT number; Factura)",
+    "PT": "Portugal (Lda; PT-prefixed VAT number)",
+    "PL": "Poland (Polska; Sp. z o.o. / S.A.; NIP; PL-prefixed VAT number; Faktura; PLN)",
+    "CZ": "Czechia (Česká republika; a.s. / s.r.o.; CZ-prefixed VAT number; Praha; CZK; e.g. Alza.cz a.s.)",
+    "SK": "Slovakia (Slovensko; s.r.o. / a.s.; SK-prefixed VAT number)",
+    "RO": "Romania (S.R.L.; RO-prefixed VAT number)",
+    "HR": "Croatia (d.o.o.; HR-prefixed VAT number)",
+    "SI": "Slovenia (d.o.o.; SI-prefixed VAT number)",
+    "BG": "Bulgaria (BG-prefixed VAT number)",
+    "GR": "Greece (EL-prefixed VAT number)",
+    "CY": "Cyprus (CY-prefixed VAT number; Ltd)",
+    "MT": "Malta (MT-prefixed VAT number)",
+    "SE": "Sweden (AB; SE-prefixed VAT number)",
+    "DK": "Denmark (A/S / ApS; DK-prefixed VAT number)",
+    "FI": "Finland (Oy; FI-prefixed VAT number)",
+    "NO": "Norway (AS; NO-prefixed organisation number)",
+    "EE": "Estonia (OÜ; EE-prefixed VAT number)",
+    "LV": "Latvia (SIA; LV-prefixed VAT number)",
+    "LT": "Lithuania (UAB; LT-prefixed VAT number)",
+    "CH": "Switzerland (AG / GmbH / SA; CHE-prefixed VAT number; CHF)",
+    "TR": "Türkiye (Turkey; Şti / A.Ş.; VKN / TCKN; Vergi Dairesi; Fatura; TL / TRY)",
+    "UA": "Ukraine",
+    "RS": "Serbia (d.o.o.)",
+    "IL": "Israel (Ltd)",
+    "AE": "United Arab Emirates (Dubai; FZ-LLC; TRN)",
+    "EG": "Egypt (Cairo; Egyptian postal codes such as 11865)",
+    "IN": "India (Pvt Ltd; GSTIN)",
+    "CN": "China",
+    "JP": "Japan (K.K.)",
+    "SG": "Singapore (Pte Ltd)",
+    "AU": "Australia (Pty Ltd; ABN; e.g. Canva Pty Ltd)",
+    "CA": "Canada (Inc. / Ltd; Canadian province + postal code)",
+    "BR": "Brazil (Ltda; CNPJ)",
+    "HU": "Hungary - only if the ISSUER itself is Hungarian (Kft. / Zrt. with a Hungarian ########-#-## tax number); a Hungarian BUYER does not make the supplier Hungarian",
+    "none": "the supplier's country cannot be read from the document"
+   }
+  }
+ },
+ "requests": {
+  "foreign_parties": {
+   "fields": [
+    "supplier_tax_id",
+    "buyer_tax_id",
+    "supplier_name",
+    "buyer_name",
+    "supplier_address",
+    "buyer_address"
+   ],
+   "kinds": [
+    "tax_id",
+    "name",
+    "address"
+   ],
+   "extra_lines": {
+    "top_fraction": 0.45,
+    "bottom_lines": 6
+   }
+  },
+  "foreign_header": {
+   "fields": [
+    "issue_date",
+    "due_date",
+    "invoice_number"
+   ],
+   "kinds": [
+    "date",
+    "invoice_number"
+   ]
+  },
+  "foreign_money": {
+   "fields": [
+    "net_total",
+    "vat_total",
+    "gross_total",
+    "payment_iban"
+   ],
+   "kinds": [
+    "money",
+    "iban"
+   ]
+  }
+ },
+ "presence_template": "Is the {what} printed anywhere in the lines shown (Lnn = line number)? Answer yes only if the value itself is visible in the shown lines; a label without a value, or a value that belongs to the other party, does not count.",
+ "presence_what": {
+  "supplier_tax_id": "tax / VAT identification number of the SUPPLIER, the party that issues this invoice (not the Hungarian buyer's HU-prefixed VAT number)",
+  "buyer_tax_id": "tax / VAT identification number of the BUYER, the party that receives this invoice (Bill to / Vevő block; typically HU-prefixed or ########-#-##)",
+  "supplier_name": "name of the SUPPLIER (issuer: From / Seller / legal footer block)",
+  "buyer_name": "name of the BUYER (Bill to / Customer / Vevő / Számlafizető)",
+  "supplier_address": "postal address of the SUPPLIER (issuer)",
+  "buyer_address": "postal address of the BUYER (Bill to / Vevő)",
+  "issue_date": "ISSUE date of the invoice (Date, Invoice date, Számla dátuma) - not a service period",
+  "due_date": "payment DUE date (Due date, Határidő) - not a service period end",
+  "invoice_number": "invoice number (Invoice No / #, Fatura No, Rechnungsnummer, Számla száma) - not an order number or a UUID",
+  "net_total": "explicit invoice-level NET / subtotal amount for the whole invoice in the billing currency (a single line-item amount or the total alone does NOT count)",
+  "vat_total": "invoice-level VAT amount (a printed 0,00 / 0.00 VAT line or an explicit reverse-charge note counts)",
+  "gross_total": "invoice-level GROSS / payable total (Total, Total due, Végösszeg) in the billing currency",
+  "payment_iban": "supplier's bank account or IBAN printed for paying this invoice"
+ }
+}

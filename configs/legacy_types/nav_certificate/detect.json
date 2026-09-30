@@ -1,0 +1,7 @@
+{
+  "required_any": ["igazolás", "igazolas", "m30", "kimutatás", "kimutatas", "earnings", "verification", "jövedelem"],
+  "supporting": ["jövedelemigazolás", "adóigazolás", "keresetkimutatás", "income"],
+  "excluders": ["bevallás benyújt", "nyugta", "adóazonosító", "adoazonosito"],
+  "prior": 1.0,
+  "embedding_profile": "Jövedelem-, adó- vagy járulékigazolás, kimutatás: munkáltató, kifizető, nyugdíjpénztár, kamara vagy intézmény által egy magánszemélyről kiállított igazoló dokumentum. Például M30-as munkáltatói összesítő igazolás (24M30, 25M30), járulékigazolás, keresetkimutatás, kamarai hozzájárulás igazolása, earnings statement, income verification. Jellemző kifejezések: IGAZOLÁS mint dokumentumcím, a kifizetett egyéni járulék alapot képező kifizetésekről, kamarai hozzájárulás megfizetéséről, igazolom hogy, iktatószám, jövedelemigazolás, adóigazolás, levont adóelőleg, járulékalap, adóév, igazolt időszak. Tipikus felépítés: a kiállító cég vagy kamara fejléce (név, cím, adószám, szervezeti egység), a magánszemély neve és adóazonosítója, az igazolt időszak (év vagy január–december), jövedelem- és levonás-összegek soronként."
+}

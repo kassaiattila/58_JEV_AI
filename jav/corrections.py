@@ -1,0 +1,312 @@
+"""Mezőjavítás egy futás tételén (040 K2): az ember által javított érték verzióval, csendes felülírás nélkül.
+
+A javítás a futás eredményéhez tartozik (futás + tétel), nem írja át a gép által kinyert adatot: az eredeti a
+`datapoints` sorban marad, a javítás külön verziósorozat. A mentés `expected_revision`-t kér; ha közben más mentett,
+`work.RevisionConflict` (felületen 409, a munkapéldány a kliensnél megmarad). Jóváhagyott futás javítása tilos.
+
+Ellenőrzés mentéskor: csak a tétel típuscsomagjának mezője javítható; pénzmező `Decimal`-ként, dátummező ISO-dátumként
+értelmezhető legyen (a szám- és formátumellenőrzés kódban történik, CLAUDE.md §4).
+
+Tételes lista (048 T1-lista): a `list` fajtájú mező javítása a teljes lista (sorok törlése, hozzáadása is), cellánként a
+tétel-mező fajtája és felsorolt értékei szerint ellenőrizve. A csomag ellenőrzései (pl. a kivonat futó egyenlege) a
+tétel eredményében a javított adaton is lefutnak (`checks`), kódból, fizetős hívás nélkül.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from datetime import date, datetime, timezone
+from decimal import Decimal, InvalidOperation
+from typing import Any
+
+from jav import grounding, source_layer, store, typepack, validators, work
+
+store.register_schema("corrections", """
+CREATE TABLE IF NOT EXISTS run_item_corrections (
+    run_id      TEXT NOT NULL,
+    item_id     TEXT NOT NULL,
+    revision    INTEGER NOT NULL,
+    fields      TEXT NOT NULL,                 -- JSON: mező -> javított érték (a teljes javításhalmaz, nem különbség)
+    actor       TEXT NOT NULL,
+    note        TEXT,
+    created_at  TEXT NOT NULL,
+    PRIMARY KEY (run_id, item_id, revision)
+);
+""")
+
+
+def _migrate(conn) -> None:
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(run_item_corrections)")}
+    if cols and "sources" not in cols:  # 045: mező -> a képen kijelölt szavak azonosítói
+        conn.execute("ALTER TABLE run_item_corrections ADD COLUMN sources TEXT")
+
+
+store.register_migration("corrections", _migrate)
+
+
+def datapoints_row(run_id: str, item_id: str) -> dict[str, Any] | None:
+    with store.connect() as c:
+        item = c.execute("SELECT flow_run_id FROM run_items WHERE run_id=? AND item_id=?", (run_id, item_id)).fetchone()
+        if item is None or item["flow_run_id"] is None:
+            return None
+        row = c.execute("SELECT * FROM datapoints WHERE run_id=? AND doc_id=?", (item["flow_run_id"], item_id)).fetchone()
+    if row is None:
+        return None
+    out = dict(row)
+    for k in ("datapoints", "field_conf", "validation", "review_reasons", "evidence", "provenance"):
+        out[k] = json.loads(out[k]) if out[k] is not None else None
+    return out
+
+
+def current(run_id: str, item_id: str) -> dict[str, Any]:
+    """A legutóbbi javítás (verzió 0 = még nincs javítás)."""
+    with store.connect() as c:
+        row = c.execute("SELECT * FROM run_item_corrections WHERE run_id=? AND item_id=? ORDER BY revision DESC LIMIT 1",
+                        (run_id, item_id)).fetchone()
+    if row is None:
+        return {"run_id": run_id, "item_id": item_id, "revision": 0, "fields": {}, "sources": {}, "actor": None, "note": None,
+                "created_at": None}
+    return {**dict(row), "fields": json.loads(row["fields"]), "sources": json.loads(row["sources"] or "{}")}
+
+
+def layer_for(dp: dict[str, Any] | None) -> source_layer.SourceLayer | None:
+    return source_layer.load(dp["source_layer_id"]) if dp and dp.get("source_layer_id") else None
+
+
+def effective_provenance(dp: dict[str, Any] | None, corr: dict[str, Any],
+                         layer: source_layer.SourceLayer | None) -> dict[str, dict[str, Any]]:
+    """Mezőnként az érvényes forráshely: kézi kijelölés > a javított érték keresése > a gépi forráshely.
+
+    A javított mező régi (gépi) kerete nem látszhat bizonyítékként (a V4 „elavult keret” szabálya): ha a javított
+    értéket nem találjuk meg egyértelműen, a mező keret nélkül marad, a gépi hely csak alternatívaként."""
+    machine = dict((dp or {}).get("provenance") or {})
+    if not dp:
+        return {}
+    pack = typepack.get(dp["doc_type"])
+    out = dict(machine)
+    labels = grounding.Labels(layer) if layer is not None else None
+    for field, value in corr["fields"].items():
+        before = machine.get(field, {})
+        if pack.kind(field) == "list":  # 053: a javított lista sorainak helye újra keresve
+            rows = grounding.locate_rows(layer, value if isinstance(value, list) else [], dict(pack.list_fields.get(field, {})))
+            out[field] = {"status": "list", "method": "rows", "alternatives": [], "rows": rows, "corrected": True}
+            continue
+        if field in corr.get("sources", {}):
+            try:
+                entry = grounding.manual(layer, corr["sources"][field])
+            except ValueError:
+                entry = {"status": "not_found", "method": "manual"}
+        else:
+            entry = grounding.locate_value(layer, pack.kind(field), value, field=field, labels=labels)
+            if entry["status"] != "located" and before.get("status") in ("located", "approximate"):
+                entry.setdefault("alternatives", [])
+                entry["alternatives"] = [{"value": None, "p": None, "machine": True,
+                                          **{k: before[k] for k in ("page", "bbox", "boxes", "word_ids", "quote")}}] + entry["alternatives"]
+        out[field] = {"alternatives": [], **entry, "corrected": True, "confidence": before.get("confidence")}
+    return out
+
+
+def _check_value(pack: typepack.TypePack, field: str, value: Any) -> None:
+    if pack.kind(field) == "list":
+        _check_list(pack, field, value)
+        return
+    if isinstance(value, (list, dict)):
+        raise ValueError(f"{field}: a single value is expected, not a list")
+    _check_cell(field, pack.kind(field), value)
+
+
+def _check_cell(path: str, kind: str, value: Any, allowed: tuple[Any, ...] | None = None) -> None:
+    if value is None:
+        return
+    if not isinstance(value, (str, int)) or isinstance(value, bool):
+        raise ValueError(f"{path}: the value must be text, an integer or null")
+    if kind in ("money", "number"):
+        try:
+            Decimal(str(value))
+        except InvalidOperation as exc:
+            raise ValueError(f"{path}: not a number: {value!r}") from exc
+    elif kind == "date":
+        try:
+            date.fromisoformat(str(value))
+        except ValueError as exc:
+            raise ValueError(f"{path}: not an ISO date (YYYY-MM-DD): {value!r}") from exc
+    if allowed is not None and value not in allowed:
+        raise ValueError(f"{path}: {value!r} is not one of {list(allowed)}")
+
+
+def list_columns(pack: typepack.TypePack, field: str, machine_rows: Any = None) -> list[dict[str, Any]]:
+    """Egy tételes lista oszlopai: a csomag tétel-leírása, majd a gépi sorokban előforduló további tétel-mezők
+    (szövegként, ahogy a kinyerés is kezeli őket). Egyszerű listánál (`{"*": fajta}`) egyetlen `*` oszlop."""
+    kinds = pack.list_fields.get(field, {"*": "text"})
+    names = list(kinds)
+    if "*" not in kinds:
+        for row in machine_rows if isinstance(machine_rows, list) else []:
+            names += [k for k in (row if isinstance(row, dict) else {}) if k not in names and k != "extra"]
+    out = []
+    for name in names:
+        options = pack.enums.get(f"{field}[]" if name == "*" else f"{field}[].{name}")
+        out.append({"name": name, "kind": kinds.get(name, "text"), **({"options": list(options)} if options else {})})
+    return out
+
+
+def _check_list(pack: typepack.TypePack, field: str, rows: Any, machine_rows: Any = None) -> None:
+    if not isinstance(rows, list):
+        raise ValueError(f"{field}: a list of rows is expected")
+    cols = {c["name"]: c for c in list_columns(pack, field, machine_rows)}
+    simple = "*" in cols
+    for i, row in enumerate(rows):
+        path = f"{field}[{i + 1}]"
+        if simple:
+            _check_cell(path, cols["*"]["kind"], row, tuple(cols["*"].get("options", ())) or None)
+            continue
+        if not isinstance(row, dict):
+            raise ValueError(f"{path}: a row must be an object of columns")
+        unknown = sorted(set(row) - set(cols))
+        if unknown:
+            raise ValueError(f"{path}: not columns of {field}: {unknown}")
+        for name, value in row.items():
+            _check_cell(f"{path}.{name}", cols[name]["kind"], value, tuple(cols[name].get("options", ())) or None)
+
+
+_LINE = re.compile(r"\bline (\d+)\b")
+
+
+def effective_checks(pack: typepack.TypePack, effective: dict[str, Any]) -> list[dict[str, Any]]:
+    """A csomag ellenőrzései a javított (érvényes) adaton. A sorra mutató eredmény (`line N`, akár több) a tételes listához
+    kötve `rows`-ként is megjelenik, ha a csomagnak egy listája van (a kivonat- és a tétel-szabályok így jelölik a hibás sort)."""
+    from jav.models import record_from_llm
+
+    rec, _ = record_from_llm(effective, pack.fields, list_fields=pack.list_fields,
+                             enums={k: list(v) for k, v in pack.enums.items()})
+    lists = [f for f, k in pack.fields.items() if k == "list"]
+    out = []
+    for r in validators.run_checks(rec, pack.validators):
+        entry: dict[str, Any] = r.model_dump()
+        rows = sorted({int(n) for n in _LINE.findall(r.detail or "")})  # 053: a tétel-ellenőrzés több hibás sort is nevezhet
+        if rows and not r.ok and len(lists) == 1:
+            entry["rows"] = {lists[0]: rows}
+        out.append(entry)
+    return out
+
+
+def item_result(run_id: str, item_id: str) -> dict[str, Any]:
+    """Egy tétel eredménye: a gépi adat, a javítás és a kettő összefésülése (a javítás az erősebb)."""
+    run = work.get_run(run_id)
+    item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
+    if item is None:
+        raise KeyError(item_id)
+    if item.get("kind") == "email":  # 048 T2: levél-tétel — nincs kinyert adat és oldalkép, a levél és a szándék látszik
+        from jav import mailbox
+
+        reasons = work.item_reasons(run_id, item_id, item)
+        corr = current(run_id, item_id)
+        # 058 K5.2: a levél csatolmányai, amelyek a futásban iratként futottak (a felület ezekre hivatkozik)
+        attachment_items = [{"item_id": i["item_id"], "filename": Path(i["source_path"]).name}
+                            for i in run["input"]["items"] if i.get("parent_item_id") == item_id]
+        return {"run_id": run_id, "item_id": item_id, "kind": "email", "extraction": None, "correction": corr,
+                "effective": {}, "lists": {}, "checks": [], "provenance": {}, "source": None,
+                "attachment_items": attachment_items,
+                "email": mailbox.email_item_view(item, work.flow_run_id(run_id, item_id), corr["fields"].get("intent")),
+                "open_reasons": reasons["run"], "earlier_open_reasons": reasons["earlier"]}
+    dp = datapoints_row(run_id, item_id)
+    corr = current(run_id, item_id)
+    machine = (dp or {}).get("datapoints") or {}
+    layer = layer_for(dp)
+    source = {"layer_id": layer.layer_id, "text_source": layer.text_source, "pages": [p.model_dump() for p in layer.pages]} if layer else None
+    effective = {**machine, **corr["fields"]}
+    pack = typepack.get(dp["doc_type"]) if dp else None
+    lists = {f: {"columns": list_columns(pack, f, machine.get(f))} for f, k in pack.fields.items() if k == "list"} if pack else {}
+    from jav import page_image
+
+    src = Path(item["source_path"])
+    try:
+        n_pages = page_image.page_count(src) if src.is_file() else None
+    except (OSError, RuntimeError):  # sérült PDF (a pypdfium hibája RuntimeError): a néző a szóréteg oldalszámára esik vissza
+        n_pages = None
+    return {"run_id": run_id, "item_id": item_id, "kind": "document", "page_count": n_pages, "extraction": dp, "correction": corr,
+            "effective": effective, "lists": lists,
+            "checks": effective_checks(pack, effective) if pack and pack.validators else [],
+            "provenance": effective_provenance(dp, corr, layer), "source": source,
+            "open_reasons": work.item_reasons(run_id, item_id)["run"],
+            "earlier_open_reasons": work.item_reasons(run_id, item_id)["earlier"]}
+
+
+def _insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected_revision: int, actor: str, note: str | None,
+                     sources: dict[str, list[int]] | None) -> None:
+    with store.connect() as c:
+        c.commit()
+        c.execute("BEGIN IMMEDIATE")
+        cur = c.execute("SELECT MAX(revision) m FROM run_item_corrections WHERE run_id=? AND item_id=?",
+                        (run_id, item_id)).fetchone()["m"] or 0
+        if cur != expected_revision:
+            raise work.RevisionConflict(f"correction of {item_id[:12]} is at revision {cur}, not {expected_revision}")
+        c.execute("INSERT INTO run_item_corrections(run_id, item_id, revision, fields, actor, note, created_at, sources)"
+                  " VALUES (?,?,?,?,?,?,?,?)",
+                  (run_id, item_id, cur + 1, json.dumps(fields, ensure_ascii=False, sort_keys=True), actor, note,
+                   datetime.now(timezone.utc).isoformat(timespec="seconds"), json.dumps(sources, sort_keys=True) if sources else None))
+
+
+EMAIL_FIELDS = ("intent",)  # 058 K5.1: a levélen a szándék javítható (a levél maga forrás, nem kinyert adat)
+
+
+def _save_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], expected_revision: int, actor: str,
+                note: str | None, sources: dict[str, list[int]]) -> dict[str, Any]:
+    """A levél szándékának kézi javítása (verziózva, mint az irat mezői). A javított szándék eldönti a futás saját
+    szándék-teendőit (bizonytalan / nem felismert szándék): ezek a döntéssel lezárulnak; más okú teendő (pl. gyanús
+    tartalom) nyitva marad."""
+    from jav import intents
+
+    unknown = sorted(set(fields) - set(EMAIL_FIELDS))
+    if unknown:
+        raise ValueError(f"only {', '.join(EMAIL_FIELDS)} can be corrected on an email: {unknown}")
+    if sources:
+        raise ValueError("source selection is not supported for emails")
+    key = fields.get("intent")
+    if key is not None and key not in intents.BY_KEY:
+        raise ValueError(f"unknown intent: {key}")
+    item_id = item["item_id"]
+    _insert_revision(run_id, item_id, fields, expected_revision, actor, note, None)
+    if key is not None:
+        for r in work.item_reasons(run_id, item_id, item)["run"]:
+            if r["reason"].startswith("intent:"):
+                work.resolve_reason(r["id"], actor=actor, resolution={"intent": key}, note="a szándék kézzel javítva")
+    return current(run_id, item_id)
+
+
+def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision: int, actor: str,
+         note: str | None = None, sources: dict[str, list[int]] | None = None) -> dict[str, Any]:
+    """Új javításverzió mentése. `fields` a teljes javításhalmaz (ami kimarad, az a gépi értékre áll vissza).
+    `sources`: mezőnként a képen kijelölt szavak (045); csak javított mezőhöz, és csak a tétel szórétegének szavai."""
+    sources = dict(sources or {})
+    run = work.get_run(run_id)
+    if run["approval"]:
+        raise work.RevisionConflict(f"run {run_id} is approved; corrections are frozen")
+    item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
+    if item is not None and item.get("kind") == "email":
+        return _save_email(run_id, item, fields=fields, expected_revision=expected_revision, actor=actor, note=note, sources=sources)
+    dp = datapoints_row(run_id, item_id)
+    if dp is None:
+        raise work.NotReady(f"item {item_id[:12]} has no extraction result in run {run_id}")
+    pack = typepack.get(dp["doc_type"])
+    unknown = sorted(set(fields) - set(pack.record_fields))
+    if unknown:
+        raise ValueError(f"not fields of {pack.key}: {unknown}")
+    for name, value in fields.items():
+        if pack.kind(name) == "list":
+            _check_list(pack, name, value, (dp.get("datapoints") or {}).get(name))
+        else:
+            _check_value(pack, name, value)
+    listed = sorted(f for f in sources if pack.kind(f) == "list")
+    if listed:
+        raise ValueError(f"source selection is not supported for lists: {listed}")
+    stray = sorted(set(sources) - set(fields))
+    if stray:
+        raise ValueError(f"source selection for fields without a corrected value: {stray}")
+    if sources:
+        layer = layer_for(dp)
+        for ids in sources.values():
+            grounding.manual(layer, list(ids))  # ismeretlen szó vagy hiányzó réteg: ValueError
+    _insert_revision(run_id, item_id, fields, expected_revision, actor, note, sources)
+    return current(run_id, item_id)

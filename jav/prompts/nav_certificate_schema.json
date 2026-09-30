@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "document_title": { "type": ["string", "null"], "description": "Az igazolas/kimutatas cime (pl. 24M30 osszesitett igazolas, Igazolas a kifizetett jarulekokrol)" },
+    "tax_year":       { "type": ["string", "null"], "description": "Az igazolas adoeve/targyeve, YYYY" },
+    "taxpayer_name":  { "type": ["string", "null"], "description": "A magánszemely neve, akirol az igazolas szol" },
+    "tax_id":         { "type": ["string", "null"], "description": "A maganszemely adoazonosito jele (10 szamjegy), ha szerepel" },
+    "employer_name":  { "type": ["string", "null"], "description": "A kiallito munkaltato/kifizeto/szerv neve (pl. Allianz Hungaria Zrt., The World Bank)" },
+    "income_total":   { "type": ["string", "null"], "description": "A fo jovedelem/kifizetes-osszeg — plain decimal STRING (D4); null ha nincs egyertelmu vegosszeg" },
+    "period":         { "type": ["string", "null"], "description": "Az igazolas idoszaka, ahogy a dokumentumon szerepel (pl. 2025. januar - 2025. december)" },
+    "issue_date":     { "type": ["string", "null"], "description": "Kiallitas datuma, ISO 8601 YYYY-MM-DD" },
+    "authority":      { "type": ["string", "null"], "description": "Hatosag/intezmeny, amelyhez az igazolas kapcsolodik (pl. NAV), ha szerepel" }
+  },
+  "required": ["document_title", "tax_year", "taxpayer_name", "tax_id", "employer_name", "income_total", "period", "issue_date", "authority"]
+}

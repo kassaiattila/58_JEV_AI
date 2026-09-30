@@ -1,0 +1,10 @@
+{
+  "required": ["document_title", "taxpayer_name"],
+  "fields": {
+    "issue_date": { "format": "date" },
+    "tax_year": { "regex": "^[0-9]{4}$" }
+  },
+  "money_fields": ["total_tax"],
+  "transforms": [],
+  "named": []
+}

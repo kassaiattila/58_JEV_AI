@@ -1,0 +1,17 @@
+{
+  "version":"1.0.0",
+  "authority":"predeclared assistant synthetic controls, not human gold",
+  "cases":[
+    {"id":"control-invoice","intent":"szamlakuldes","subject":"Számla kézbesítése","body":"Csatolva küldjük az SZ-801 számlát. Kérjük a 12000 Ft átutalását szeptember 30-ig.","attachments":["SZ-801.pdf"]},
+    {"id":"control-paid","intent":"fizetesi_visszaigazolas","subject":"Payment completed","body":"Your payment of EUR 20 has been successfully received. This receipt confirms the completed transaction.","attachments":[]},
+    {"id":"control-school","intent":"esemeny_tajekoztatas","subject":"Szülői értekezlet","body":"Kedves Szülők! Az iskola szülői értekezlete október 2-án 17 órakor lesz a 4. teremben. Napirend: osztálykirándulás.","attachments":[]},
+    {"id":"control-order","intent":"megrendeles_statusz_ertesites","subject":"Order P-712 shipped","body":"Your order P-712 has been packed and shipped. Delivery is expected tomorrow.","attachments":[]},
+    {"id":"control-sport","intent":"sportesemeny_tamogatas","subject":"Csapat részvétele a tornán","body":"Kérjük jelezzétek a curlingcsapat részvételét az októberi tornán és a csapat támogatására felajánlott összeget.","attachments":[]},
+    {"id":"control-marketing","intent":"newsletter_marketing","subject":"Heti ajánlat: 30% kedvezmény","body":"Webáruházunk heti hírlevele: csak ezen a héten 30% kedvezmény minden székre! Vásároljon most. Leiratkozás a hírlevélről.","attachments":[]},
+    {"id":"control-system","intent":"system_notification","subject":"Build failed","body":"Automated CI notification. The scheduled build failed on branch main. No order or payment is involved.","attachments":[]},
+    {"id":"control-job","intent":"job_posting","subject":"New job matching your profile","body":"A company is hiring a Senior Project Manager. Apply to this open position through our job portal.","attachments":[]},
+    {"id":"control-business","intent":"business_correspondence","subject":"Projektterv egyeztetése","body":"Szia! Átnéztem a tegnapi projekttervet. Kérlek módosítsd a bevezetés ütemezését, és beszéljük át pénteken a nyitott technikai kérdéseket. Üdv, Péter","attachments":[]},
+    {"id":"control-social","intent":"social_network_notification","subject":"LinkedIn weekly activity","body":"Automated notification: You appeared in 17 searches this week. Three people accepted your connection requests.","attachments":[]},
+    {"id":"control-other","intent":"other","subject":"Boldog születésnapot!","body":"Nagyon boldog születésnapot kívánok, sok szeretettel a családtól!","attachments":[]}
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "statement_type":  { "type": "string", "enum": ["bank_account", "credit_card"] },
+    "account_no":      { "type": ["string", "null"] },
+    "account_iban":    { "type": ["string", "null"] },
+    "period_start":    { "type": ["string", "null"], "description": "ISO YYYY-MM-DD" },
+    "period_end":      { "type": ["string", "null"], "description": "ISO YYYY-MM-DD" },
+    "currency":        { "type": ["string", "null"] },
+    "opening_balance": { "type": ["string", "null"], "description": "plain decimal STRING, dot separator, may be negative (D4)" },
+    "closing_balance": { "type": ["string", "null"], "description": "plain decimal STRING" },
+    "total_debit":     { "type": ["string", "null"], "description": "POSITIVE magnitude as STRING" },
+    "total_credit":    { "type": ["string", "null"], "description": "POSITIVE magnitude as STRING" },
+    "transactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "booking_date":         { "type": ["string", "null"] },
+          "value_date":           { "type": ["string", "null"] },
+          "direction":            { "type": "string", "enum": ["debit", "credit"] },
+          "amount":               { "type": ["string", "null"], "description": "POSITIVE magnitude as plain decimal STRING" },
+          "running_balance":      { "type": ["string", "null"], "description": "EGYENLEG column as STRING; credit card -> null" },
+          "description":          { "type": ["string", "null"] },
+          "counterparty_name":    { "type": ["string", "null"] },
+          "counterparty_account": { "type": ["string", "null"] },
+          "memo":                 { "type": ["string", "null"] }
+        },
+        "required": ["booking_date", "value_date", "direction", "amount", "running_balance", "description", "counterparty_name", "counterparty_account", "memo"]
+      }
+    }
+  },
+  "required": ["statement_type", "account_no", "account_iban", "period_start", "period_end", "currency", "opening_balance", "closing_balance", "total_debit", "total_credit", "transactions"]
+}

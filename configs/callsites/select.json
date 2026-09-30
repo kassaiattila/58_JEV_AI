@@ -1,0 +1,144 @@
+{
+ "meta": {
+  "name": "select",
+  "version": "1.1.2",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "kiszervezés a Python-konstansokból (ROADMAP §1 konfig mint adat); tartalom változatlan"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-20",
+    "note": "jelenlet-Noul minden Choice-mezo melle ugyanabban a kotegelt keresben (presence_template + presence_what); a Choice-kerdesek valtozatlanok"
+   },
+   {
+    "version": "1.1.1",
+    "date": "2026-09-20",
+    "note": "presence_what.payment_iban: nem csak IBAN, hanem magyar bankszamlaszam is (16/24 szamjegy, 8-as csoportok) - a jelolt-kereso es a golden is igy erti a mezot; az 1.1.0-s kerdes 9/12 esetben 'absent_but_chosen' hamis riasztast adott"
+   },
+   {
+    "version": "1.1.2",
+    "date": "2026-09-20",
+    "note": "presence_what.amount_due a Choice-instrukcioval azonos szemantikara: csak az EXPLICIT fizetendo cimke szamit, a sima osszesen nem (1.1.1-ben 6/12 esetben none + present_p 0.94: a ket kerdes mast ertett 'fizetendo' alatt)"
+   }
+  ]
+ },
+ "glossary": "Hungarian invoice glossary: szállító / eladó / kibocsátó / kiállító = SUPPLIER (the party that issues the invoice); vevő / megrendelő = BUYER (the party that receives it); adószám = tax number; sorszám / számla sorszáma = invoice number; 'Számlaszám' is ambiguous: followed by a short alphanumeric code (e.g. E0006, INF-2022-3) it is the invoice number, followed by a 16/24-digit number or printed next to a bank name / IBAN / SWIFT it is the bank account number; bankszámlaszám = bank account number; kelt / kiállítás dátuma / keltezés = ISSUE date; teljesítés (dátuma / időpontja) = FULFILLMENT date; fizetési határidő / esedékesség = DUE date; nettó = net; áfa = VAT; bruttó = gross; összesen / mindösszesen = total; fizetendő = amount payable; IBAN = international bank account number (a Hungarian IBAN is HU + 26 digits and may wrap onto the next line); fizetési mód = payment method; átutalás = bank transfer; készpénz = cash.",
+ "none_description": "None of the listed values is the {what}, or the {what} is not printed on this invoice.",
+ "field_kind": {
+  "supplier_tax_id": "tax_id",
+  "buyer_tax_id": "tax_id",
+  "supplier_name": "name",
+  "buyer_name": "name",
+  "supplier_address": "address",
+  "buyer_address": "address",
+  "issue_date": "date",
+  "fulfillment_date": "date",
+  "due_date": "date",
+  "invoice_number": "invoice_number",
+  "net_total": "money",
+  "vat_total": "money",
+  "gross_total": "money",
+  "amount_due": "money",
+  "payment_iban": "iban"
+ },
+ "instructions": {
+  "supplier_tax_id": "Which value is the Hungarian tax number (adószám) of the SUPPLIER, the party that ISSUES this invoice (labelled szállító / eladó / kibocsátó / kiállító, usually in the top block next to the supplier's name and address)? Do not choose the buyer's (vevő / megrendelő) tax number. Choose 'none' if the supplier's tax number is not among the options.",
+  "buyer_tax_id": "Which value is the Hungarian tax number (adószám) of the BUYER, the party that RECEIVES this invoice (labelled vevő / megrendelő, next to the buyer's name and address)? Do not choose the supplier's (issuer's) tax number. Choose 'none' if the buyer's tax number is not among the options.",
+  "supplier_name": "Which option is the full printed name of the SUPPLIER, the party that ISSUES this invoice (labelled szállító / eladó / kibocsátó / kiállító; its name, address and tax number form one block)? Prefer the option that includes the legal form (Kft., Bt., Zrt., E.V., e.v.) or the complete multi-line name if printed. The supplier may also be a private individual printed as a plain personal name without any legal form (e.g. 'Kovács Péter'); that is still the supplier's name. Choose 'none' only if no option is the supplier's name.",
+  "buyer_name": "Which option is the full printed name of the BUYER, the party that RECEIVES this invoice (labelled vevő / megrendelő; its name, address and tax number form one block)? Prefer the option that includes the legal form or the complete multi-line name if printed. Choose 'none' if no option is the buyer's name.",
+  "supplier_address": "Which option is the postal address printed for the SUPPLIER (issuer), in its block near the supplier's name? Prefer the most complete option (postal code, city, street). Choose 'none' if not listed.",
+  "buyer_address": "Which option is the postal address printed for the BUYER (vevő / megrendelő), in its block near the buyer's name? Prefer the most complete option (postal code, city, street). Choose 'none' if not listed.",
+  "issue_date": "Each option is a date (ISO form) together with the source line it was printed on. Which one is the ISSUE date of the invoice (kelt, keltezés, kiállítás dátuma, számla kelte)? Several dates may share one value; decide by the label printed next to or above the date. Choose 'none' if the issue date is not among the options.",
+  "fulfillment_date": "Each option is a date (ISO form) together with the source line it was printed on. Which one is the FULFILLMENT date (teljesítés, teljesítés dátuma, teljesítés időpontja, teljesítés kelte)? Several dates may share one value; decide by the label printed next to or above the date. Choose 'none' if the fulfillment date is not among the options.",
+  "due_date": "Each option is a date (ISO form) together with the source line it was printed on. Which one is the payment DUE date (fizetési határidő, fizetési hat., esedékesség)? Several dates may share one value; decide by the label printed next to or above the date. Choose 'none' if the due date is not among the options.",
+  "invoice_number": "Which option is the invoice's own serial number (számla sorszáma, sorszám, számlaszám, bizonylatszám)? It is not a tax number, not a date, not an order number (rendelésszám), not a customer or registration id, and not a bank account. Choose 'none' if the invoice number is not among the options.",
+  "net_total": "Each option is an amount (normalized) together with the source lines where it was printed. Which one is the invoice-level NET total (nettó összesen, nettó végösszeg, adóalap összesen, számla nettó értéke), i.e. the sum before VAT for the whole invoice, not a single line-item amount and not the gross total? Choose 'none' if the net total is not among the options.",
+  "vat_total": "Each option is an amount (normalized) together with the source lines where it was printed. Which one is the invoice-level VAT total (áfa összesen, áfa értéke, áfa összege, áthárított áfa)? For AAM / tax-exempt invoices the printed VAT total is 0 and '0' is then the correct choice. Choose 'none' only if no VAT total is printed.",
+  "gross_total": "Each option is an amount (normalized) together with the source lines where it was printed. Which one is the invoice-level GROSS total (bruttó összesen, bruttó végösszeg, mindösszesen, összesen, számla bruttó végösszege), i.e. the total including VAT for the whole invoice, not a single line-item amount? Choose 'none' if the gross total is not among the options.",
+  "amount_due": "Each option is an amount (normalized) together with the source lines where it was printed. Which one is the amount EXPLICITLY labelled as payable (fizetendő, fizetendő összeg, fizetendő végösszeg)? A plain 'Összesen' or 'Mindösszesen' total does NOT count as payable. Choose 'none' unless a payable label is printed.",
+  "payment_iban": "Which option is the bank account printed for paying this invoice, i.e. the SUPPLIER's (beneficiary's) account (labelled bankszámlaszám, bankszámla, számlaszám followed by a 16/24-digit number, or IBAN)? A single printed account is the payment account even without a 'transfer' label. If two DIFFERENT accounts are printed and the invoice does not explicitly designate one for this payment, choose 'none'. Do not choose the buyer's account."
+ },
+ "extra_questions": {
+  "currency": {
+   "instructions": "Which currency are the invoice totals printed in? 'Ft' and 'forint' explicitly mean HUF. Do not infer a currency from the language or the issuer's country; choose 'none' if none is printed.",
+   "criteria": {
+    "HUF": "Hungarian forint; printed as Ft, forint or HUF",
+    "EUR": "euro; printed as EUR or €",
+    "USD": "US dollar; printed as USD or $",
+    "none": "no currency is printed on the invoice"
+   }
+  },
+  "payment_method": {
+   "instructions": "Which payment method is EXPLICITLY printed (fizetési mód, fizetés módja)? The presence of a bank account number alone does not mean transfer; choose 'none' in that case.",
+   "criteria": {
+    "átutalás": "bank transfer (átutalás, banki átutalás, utalás)",
+    "készpénz": "cash (készpénz)",
+    "bankkártya": "card payment (bankkártya, kártya)",
+    "none": "no payment method is explicitly printed"
+   }
+  }
+ },
+ "requests": {
+  "parties": {
+   "fields": [
+    "supplier_tax_id",
+    "buyer_tax_id",
+    "supplier_name",
+    "buyer_name",
+    "supplier_address",
+    "buyer_address"
+   ],
+   "kinds": [
+    "tax_id",
+    "name",
+    "address"
+   ]
+  },
+  "header": {
+   "fields": [
+    "issue_date",
+    "fulfillment_date",
+    "due_date",
+    "invoice_number"
+   ],
+   "kinds": [
+    "date",
+    "invoice_number"
+   ]
+  },
+  "money": {
+   "fields": [
+    "net_total",
+    "vat_total",
+    "gross_total",
+    "amount_due",
+    "payment_iban"
+   ],
+   "kinds": [
+    "money",
+    "iban"
+   ]
+  }
+ },
+ "presence_template": "Is the {what} printed anywhere in the lines shown (Lnn = line number)? Answer yes only if the value itself is visible in the shown lines; a label without a value, or a value that belongs to the other party, does not count.",
+ "presence_what": {
+  "supplier_tax_id": "Hungarian tax number (adószám) of the SUPPLIER, the party that issues this invoice",
+  "buyer_tax_id": "Hungarian tax number (adószám) of the BUYER, the party that receives this invoice",
+  "supplier_name": "name of the SUPPLIER (issuer: szállító / eladó / kibocsátó)",
+  "buyer_name": "name of the BUYER (vevő / megrendelő)",
+  "supplier_address": "postal address of the SUPPLIER (issuer)",
+  "buyer_address": "postal address of the BUYER (vevő / megrendelő)",
+  "issue_date": "ISSUE date of the invoice (kelt, keltezés, kiállítás dátuma)",
+  "fulfillment_date": "FULFILLMENT date (teljesítés dátuma / időpontja)",
+  "due_date": "DUE date (fizetési határidő, esedékesség)",
+  "invoice_number": "invoice number (sorszám / számla sorszáma)",
+  "net_total": "NET total of the whole invoice (nettó összesen)",
+  "vat_total": "VAT total of the whole invoice (áfa összesen)",
+  "gross_total": "GROSS total of the whole invoice (bruttó összesen / mindösszesen)",
+  "amount_due": "amount EXPLICITLY labelled as payable (fizetendő, fizetendő összeg, fizetendő végösszeg) - a plain összesen / mindösszesen / bruttó total does NOT count",
+  "payment_iban": "supplier's bank account number for payment: an IBAN (HU + 26 digits) OR a Hungarian domestic account number (16 or 24 digits in groups of 8, e.g. 11773078-00021377); it may wrap onto the next line"
+ }
+}

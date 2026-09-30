@@ -1,0 +1,12 @@
+{
+  "meta": {"name": "pydantic_jev_probe", "version": "1.0.0", "date": "2026-09-21"},
+  "sources": {"language": "callsite:detect", "requires_action": "callsite:email_intent", "urgency": "callsite:email_intent"},
+  "cases": [
+    {"id": "hu_info", "text": "Tájékoztató levél. A tegnapi befizetését rögzítettük. Nincs további teendője. Köszönjük!", "expected": {"language": "hu", "requires_action": false, "urgency": 0}},
+    {"id": "hu_critical", "text": "Utolsó felszólítás! Azonnal, még ma fizesse be a lejárt számlát, különben holnap felfüggesztjük a szolgáltatást.", "expected": {"language": "hu", "requires_action": true, "urgency": 3}},
+    {"id": "en_info", "text": "Payment confirmation: your payment was received yesterday. This is for your records only. No action is required.", "expected": {"language": "en", "requires_action": false, "urgency": 0}},
+    {"id": "en_critical", "text": "Final notice: pay the overdue invoice immediately, today, or your service will be suspended tomorrow.", "expected": {"language": "en", "requires_action": true, "urgency": 3}},
+    {"id": "de_info", "text": "Zahlungsbestätigung: Ihre Zahlung ist gestern eingegangen. Diese Nachricht dient nur Ihrer Information. Sie müssen nichts unternehmen.", "expected": {"language": "de", "requires_action": false, "urgency": 0}},
+    {"id": "en_routine", "text": "Please reply with the number of seats you would like for next year's planning workshop. There is no rush; next month is fine.", "expected": {"language": "en", "requires_action": true, "urgency": 1}}
+  ]
+}

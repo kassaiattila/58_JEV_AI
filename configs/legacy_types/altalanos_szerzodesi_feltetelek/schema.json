@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "document_title":             { "type": ["string", "null"], "description": "A dokumentum cime/megnevezese, ahogy a lapon szerepel (pl. Altalanos Szerzodesi Feltetelek, ASZF, Terms and Conditions)" },
+    "seller_name":                { "type": ["string", "null"], "description": "Az Elado / webaruhaz-uzemelteto (Szolgaltato) neve — az a ceg, akihez az ASZF tartozik (pl. ROBOT WORLD s.r.o.), NEM a Vevo" },
+    "seller_address":             { "type": ["string", "null"], "description": "Az Elado szekhelye/cime, ha szerepel" },
+    "seller_registration_number": { "type": ["string", "null"], "description": "Az Elado cegjegyzekszama/nyilvantartasi szama (cegjegyzekszam, ICO, registration no.), ha szerepel" },
+    "effective_date":             { "type": ["string", "null"], "description": "Az ASZF hatalybalepesenek/kiadasanak/utolso modositasanak datuma, ISO 8601 YYYY-MM-DD, ha szerepel" },
+    "page_count":                 { "type": ["integer", "null"], "description": "A dokumentum osszes oldalszama, ha lathato (pl. \"1/35\" oldaljeloles -> 35)" }
+  },
+  "required": ["document_title", "seller_name", "seller_address", "seller_registration_number", "effective_date", "page_count"]
+}

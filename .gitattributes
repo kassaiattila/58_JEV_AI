@@ -1,0 +1,5 @@
+# Egységes sorvég: LF (a meglévő fájlok is így vannak).
+* text=auto eol=lf
+*.png binary
+*.pdf binary
+*.sqlite binary

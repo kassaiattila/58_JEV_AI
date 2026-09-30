@@ -1,0 +1,28 @@
+flowchart TD
+  subgraph ph_load["load"]
+    load_message["load_message (det)"]
+  end
+  subgraph ph_attachments["attachments"]
+    classify_attachments["classify_attachments (flow)"]
+  end
+  subgraph ph_classify["classify"]
+    intent["intent (jev)"]
+  end
+  subgraph ph_route["route"]
+    route["route (det)"]
+  end
+  subgraph ph_tasks["tasks"]
+    tasks["tasks (llm)"]
+  end
+  subgraph ph_persist["persist"]
+    save["save (store)"]
+  end
+  subgraph ph_terminal["terminal"]
+    done["done (terminal)"]
+  end
+  load_message --> classify_attachments
+  classify_attachments --> intent
+  intent --> route
+  route --> tasks
+  tasks --> save
+  save --> done

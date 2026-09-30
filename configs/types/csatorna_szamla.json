@@ -1,0 +1,128 @@
+{
+ "meta": {
+  "name": "type:csatorna_szamla",
+  "version": "1.2.0",
+  "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-09-28",
+    "note": "053 T3.0/T3.2: számlatételek - line_items tételes lista a GPT-séma tétel-mezőivel (a prompt és a séma változatlan, a kinyerés költsége nem nő); tétel-ellenőrzések kódban: line_items_total (tételösszeg = végösszeg) és line_items_arithmetic (soronként mennyiség × egységár ≈ nettó, nettó × (1 + ÁFA-kulcs) ≈ bruttó)"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.2: parent + a régi detect.json kulcsszavai a részletes típus kiválasztásához (forrás: 10_AIFLOW_V4/flows/doc-extract-bare/types/csatorna_szamla/detect.json, sha256 199361d0977ae14d); a kinyerés változatlan"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-20",
+    "note": "tipus-csomag (BACKLOG 1, kozmu-kor): Fovarosi Csatornazasi Muvek szennyviz (csatorna) szamla - a Dijbeszedo-kotegbol szegmentalt onallo csatorna-szamla - extends utility_bill_hu; gyermek-mezok a regi schema.json sorrendjeben; vat_consistency; nem pontozott (regi rules.json): meter_serial, customer_address, consumption_address; prompt es sema verbatim (a regi prompt magyarul)"
+   }
+  ],
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/csatorna_szamla (config version 1.0.1, 2026-09-07; prompt sha256 2fb3821a91d880b1, schema cd544bacc82de994)"
+ },
+ "extends": "utility_bill_hu",
+ "document": "Hungarian SEWAGE (csatorna, szennyvízelvezetés) invoice of Fővárosi Csatornázási Művek Zrt. (FCSM), segmented from a Díjbeszedő Holding statement bundle (one invoice number, one total; separate from the Fővárosi Vízművek water invoice); OCR text of a scanned PDF (Lnn = line number); Díjbeszedő may appear as the collector, but the SUPPLIER is FCSM; the sewage volume derives from the water consumption",
+ "golden_type_key": "csatorna_szamla",
+ "parent": "utility_bill_hu",
+ "detect": {
+  "required_any": [
+   "szennyvíz",
+   "szennyviz",
+   "csatornadíj",
+   "csatornadij",
+   "szennyvízelvezetés",
+   "Csatornázási Művek",
+   "Csatornázási"
+  ],
+  "supporting": [
+   "Fővárosi Csatornázási Művek",
+   "víziközmű",
+   "viziközmu",
+   "elszámolási időszak",
+   "szennyvízmennyiség",
+   "alapdíj"
+  ],
+  "excluders": [
+   "Terhelési összesítő",
+   "áramdíj",
+   "aramdij",
+   "\\bkWh\\b",
+   "villamos energia",
+   "földgáz",
+   "foldgaz",
+   "gázdíj",
+   "gazdij",
+   "távhő",
+   "hődíj",
+   "hulladék",
+   "hulladek",
+   "\\bMOHU\\b",
+   "\\bNHKV\\b"
+  ]
+ },
+ "prompt_file": "csatorna_szamla_prompt.md",
+ "schema_file": "csatorna_szamla_schema.json",
+ "fields": {
+  "meter_serial": "text",
+  "tariff": "text",
+  "billing_period_start": "date",
+  "billing_period_end": "date",
+  "meter_reading_start": "number",
+  "meter_reading_end": "number",
+  "consumption_m3": "number",
+  "reading_method": "text",
+  "line_items": "list"
+ },
+ "scored_fields": [
+  "tariff",
+  "billing_period_start",
+  "billing_period_end",
+  "consumption_m3",
+  "reading_method",
+  "meter_serial",
+  "meter_reading_start",
+  "meter_reading_end"
+ ],
+ "informational_fields": [
+  "meter_serial",
+  "customer_address",
+  "consumption_address",
+  "meter_reading_start",
+  "meter_reading_end"
+ ],
+ "validators": [
+  {
+   "check": "vat_consistency"
+  },
+  {
+   "check": "line_items_total"
+  },
+  {
+   "check": "line_items_arithmetic"
+  }
+ ],
+ "text_labels": {
+  "tariff": [
+   "[áa]rszab[áa]s"
+  ],
+  "meter_serial": [
+   "v[íi]zm[ée]r[őo]\\s*gy[áa]ri\\s*sz[áa]ma?",
+   "m[ée]r[őo]\\s*gy[áa]ri\\s*sz[áa]ma?",
+   "gy[áa]ri\\s*sz[áa]ma?"
+  ]
+ },
+ "list_fields": {
+  "line_items": {
+   "description": "text",
+   "meter_serial": "text",
+   "period": "text",
+   "quantity": "number",
+   "unit": "text",
+   "unit_price": "money",
+   "net_amount": "money",
+   "vat_rate": "text",
+   "gross_amount": "money"
+  }
+ }
+}

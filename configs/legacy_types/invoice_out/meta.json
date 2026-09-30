@@ -1,0 +1,24 @@
+{
+  "type_key": "invoice_out",
+  "version": "1.0.2",
+  "changelog": [
+    {
+      "version": "1.0.2",
+      "date": "2026-09-07",
+      "change": "Migrate GPT calls to gpt-5.4-mini with explicit none reasoning at the sidecar transport boundary. Existing prompts, schemas, rules and temperatures retained; legacy max_tokens maps to max_completion_tokens. Historical quality floors unchanged.",
+      "config_hash": "f1d6cd46727f7fdf16bd9f0c9f3e2b40b6b8391bce2f050b750c4c6ca799cf0e"
+    },
+    {
+      "version": "1.0.1",
+      "date": "2026-07-02",
+      "change": "W1/L7 snapshot pin: model gpt-4o -> gpt-4o-2024-08-06 (pure freeze - the dated snapshot the alias served on 2026-07-02; verified via response body.model). No prompt/schema/rules change.",
+      "config_hash": "59ee5d800ff9b6e05383f567c36d3f1a3e632491133e46895517943a528cef36"
+    },
+    {
+      "version": "1.0.0",
+      "date": "2026-06-24",
+      "change": "Versioning baseline — current shipped config captured; no behavioral change.",
+      "config_hash": "bdb48ba3c3ef418ac476bb8183331cf725cffaf47c685114d970888ae6340d09"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+ "meta": {
+  "name": "verify_belepo_jegy",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_belepo_jegy",
+ "document": "Event admission ticket (e.g. a stadium or concert ticket), Hungarian or English",
+ "glossary": "Document type: Event admission ticket (e.g. a stadium or concert ticket), Hungarian or English. Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "ticket_id": "the ticket id as printed on the document (A jegy egyedi azonositoja, ahogy a jegyen szerepel (pl. Jegy azonosito: 4087040))",
+  "holder_name": "the holder name as printed on the document (A jegy tulajdonosanak / nezo neve (Nev))",
+  "event_name": "the event name as printed on the document (Az esemeny / merkozes megnevezese, ahogy a jegyen szerepel (pl. FTC - Panathinaikos FC))",
+  "event_datetime": "the event datetime as printed on the document (Az esemeny idopontja, ISO 8601 YYYY-MM-DDTHH:MM (a magyar '2026.01.22 21:00' formatumot normalizald))",
+  "venue": "the venue as printed on the document (A helyszin / letesitmeny neve (pl. FERENCVAROS STADION))",
+  "birth_place": "the birth place as printed on the document",
+  "birth_date": "the birth date as printed on the document",
+  "card_number": "the card number as printed on the document",
+  "gate": "the gate as printed on the document (Belepesi kapu / kapucsoport megjelolese (Kapu/Gate))",
+  "sector": "the sector as printed on the document (Szektor megjelolese (Szektor/Sector, pl. D3 szektor))",
+  "row": "the row as printed on the document (Sor a szektoron belul (Sor/Row), ahogy a jegyen nyomtatva van)",
+  "seat": "the seat as printed on the document (Szek / uloholy szama (Szek/Seat), ahogy a jegyen nyomtatva van)"
+ },
+ "incomplete_fields": [
+  "holder_name"
+ ],
+ "wrong_kind_fields": []
+}

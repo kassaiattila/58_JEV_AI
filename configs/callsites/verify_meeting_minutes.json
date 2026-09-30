@@ -1,0 +1,39 @@
+{
+ "meta": {
+  "name": "verify_meeting_minutes",
+  "version": "1.1.0",
+  "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-28",
+    "note": "047 T1.5: request_char_budget 110000 (mint a közmű-hívási helyen): a hosszú iratoknál (általános szerződési feltételek) a teljes szöveg-state max_tokens_exceeded hibát adott"
+   },
+   {
+    "version": "1.0.0",
+    "date": "2026-09-28",
+    "note": "047 T1.1: G-kar ellenőrző hívási hely a régi típusból átalakítva; a Noul-kérdések a verify.json-ból öröklődnek"
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_meeting_minutes",
+ "document": "Minutes of a meeting (general assembly, board meeting) with attendees, agenda and resolutions, Hungarian",
+ "glossary": "Document type: Minutes of a meeting (general assembly, board meeting) with attendees, agenda and resolutions, Hungarian. Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "organization_name": "the organization name as printed on the document (A szervezet/egyesulet neve, amelynek ulese a dokumentum targya (pl. Epitok Hockey Club))",
+  "document_kind": "the document kind as printed on the document (A dokumentum fajtaja a csaladon belul: jegyzokonyv / kozgyulesi meghivo / jelenleti iv)",
+  "meeting_type": "the meeting type as printed on the document (Az ules tipusa)",
+  "meeting_date": "the meeting date as printed on the document (Az ules (vagy meghivoban a tervezett ules) datuma, ISO YYYY-MM-DD)",
+  "location": "the location as printed on the document (Az ules helyszine, ahogy a dokumentumon szerepel)",
+  "attendee_count": "the attendee count as printed on the document (Jelenlevok szama, ha a szoveg megallapitja (pl. '14 tag van jelen'))",
+  "chair_name": "the chair name as printed on the document (Levezeto elnok neve)",
+  "minutes_keeper": "the minutes keeper as printed on the document (Jegyzokonyvvezeto neve)"
+ },
+ "incomplete_fields": [
+  "organization_name",
+  "chair_name"
+ ],
+ "wrong_kind_fields": []
+}

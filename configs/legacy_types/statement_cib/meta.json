@@ -1,0 +1,12 @@
+{
+  "type_key": "statement_cib",
+  "version": "1.0.0",
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-06-24",
+      "change": "Versioning baseline — current shipped config captured; no behavioral change.",
+      "config_hash": "cddaaea073661369fd3de8e7ed9f5debbdace139e80c05421773ba9ec5598040"
+    }
+  ]
+}
