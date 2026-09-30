@@ -4,7 +4,9 @@ intent).
 
 Synthetic emails, a fake Outlook script and a fake JEV, no paid calls."""
 
+from datetime import datetime
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -168,6 +170,27 @@ def test_attachment_detection_inside_the_email_flow_stays_in_the_run(env, monkey
     assert reason_runs and all(r.startswith(f"{run_id}:") for r in reason_runs), reason_runs
 
 
+def test_the_email_flow_reads_the_attachment_from_its_source_instance(env):  # noqa: F811
+    """The email's own attachment detection reads the copy kept when the attachment was added (its source instance), the
+    same bytes its document item is processed from; a later change to the original file does not reach it. An
+    attachment without an item (none was added) is read from its path, as before."""
+    res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge([_mail_with_pdf(env), MAILS[1]]), inbox_root=env["inbox"])
+    wp_id = res["workpackage"]
+    wp = work.get(wp_id)
+    doc = next(i for i in wp["items"] if i["kind"] == "document")
+    original = Path(doc["source_path"])
+    original.write_bytes(original.read_bytes().replace(b"MINTA", b"ALTER"))  # changed after it was added
+    work.assign_recipe(wp_id, "email-intent", params={"arm": "S"}, expected_revision=1, actor="t")
+    ready = work.readiness(wp_id)
+    assert ready["ready"] and {w["code"] for w in ready["warnings"]} == {"original_changed"}
+    run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
+    info = worker.run_worker(once=True)
+    assert info["results"] == {"done": 3}, info
+    result = store.email_result(work.flow_run_id(run_id, doc["parent_item_id"]))
+    pdf = next(a for a in result["attachments"] if a["filename"] == "szamla.pdf")
+    assert pdf["doc_id"] == doc["sha256"] and pdf["status"] == "done"  # the kept copy, not the changed original
+
+
 def test_attachments_can_be_added_to_an_older_mail_package(env):  # noqa: F811
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge([_mail_with_pdf(env)]), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
@@ -241,7 +264,7 @@ def test_task_proposals_go_through_the_gate_and_only_a_human_accepts_them(env, m
     assert d["decision"] == "accepted" and d["done_by"] == "teszt.elek" and d["done_at"]
     row = datasets.rows("email_tasks", {"run_id": run_id})[1][0]
     assert row["done_by"] == "teszt.elek" and row["done_at"] == d["done_at"]
-    day = d["done_at"][:10]
+    day = datetime.fromisoformat(d["done_at"]).astimezone().date().isoformat()  # the local day (UTC differs after midnight)
     acts = c.post("/api/datasets/activity/query", json={"scope": {"actor": "teszt.elek", "day": day}}).json()["rows"]
     assert "task_done" in {a["action"] for a in acts}
     undone = c.post(done_url, json={"done": False}, headers=HUMAN).json()["email"]["tasks"]["tasks"][0]["decision"]

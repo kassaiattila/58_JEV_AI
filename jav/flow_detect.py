@@ -259,8 +259,10 @@ def build_app(source_path: str, *, tracker: bool = False, use_cache: bool = True
     return b.build()
 
 
-def run_detect(source_path: str, *, tracker: bool = False, use_cache: bool = True, run_id: str | None = None) -> DetectState:
-    """`run_id` (065): when called from another process, logs and records to-dos under that process's identifier."""
-    app = build_app(source_path, tracker=tracker, use_cache=use_cache, run_id=run_id)
+def run_detect(source_path: str, *, tracker: bool = False, use_cache: bool = True, run_id: str | None = None,
+               read_path: str | None = None) -> DetectState:
+    """`run_id` (065): when called from another process, logs and records to-dos under that process's identifier.
+    `read_path`: the bytes are read from here (a source instance); the file name and the stored path stay `source_path`."""
+    app = build_app(source_path, tracker=tracker, use_cache=use_cache, run_id=run_id, read_path=read_path)
     _, _, state = app.run(halt_after=TERMINALS)
     return state.data
