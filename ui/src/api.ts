@@ -204,6 +204,9 @@ export interface ItemResult {
   provenance: Record<string, Provenance>;
   lists?: Record<string, { columns: ListColumn[] }>; checks?: Check[];
   source: { layer_id: string; text_source: string | null; pages: SourcePage[] } | null;
+  /** Whether the document is shown from the copy kept when it was added (its source instance), and the state of the
+   *  original file since then. */
+  source_file?: { copy: boolean; original: "same" | "changed" | "missing" };
 }
 
 // --- 056 U1: datasets (unified list query and download) -------------------------------------------------------

@@ -621,7 +621,8 @@ Route = Literal["auto", "human", "ocr"]
 
 class FlowState(BaseModel):
     # input
-    source_path: str
+    source_path: str  # the original path: file name, year hint and the stored path come from it
+    read_path: str | None = None  # where the bytes are read from (the source instance); None: `source_path`
     case_id: str
     arm: Arm
     run_no: int = 1

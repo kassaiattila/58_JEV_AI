@@ -30,7 +30,8 @@ LOW_CONFIDENCE = policy.DETECT_LOW_CONFIDENCE  # policy.json bands (detect.doc_t
 
 
 class DetectState(BaseModel):
-    source_path: str
+    source_path: str  # the original path: file name (part of the request), year hint and the stored path
+    read_path: str | None = None  # where the bytes are read from (the source instance); None: `source_path`
     run_id: str = ""
     use_cache: bool = True
     doc_id: str = ""
@@ -68,25 +69,28 @@ def _year_hint(path: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-@action.pydantic(reads=["source_path"], writes=["text", "lines", "layout", "page_count", "has_text_layer", "text_source", "doc_id", "year"])
+@action.pydantic(reads=["source_path", "read_path"],
+                 writes=["text", "lines", "layout", "page_count", "has_text_layer", "text_source", "doc_id", "year"])
 def load_pdf(state: DetectState) -> DetectState:
     from jav.pdf import read_pdf
 
-    pdf = read_pdf(state.source_path)
+    pdf = read_pdf(state.read_path or state.source_path)
     state.text, state.lines, state.layout = pdf.text, pdf.lines, pdf.layout
     state.page_count, state.has_text_layer, state.text_source = pdf.page_count, pdf.has_text_layer, pdf.text_source
-    state.doc_id = _sha256(state.source_path)
+    state.doc_id = _sha256(state.read_path or state.source_path)
     state.year = _year_hint(state.source_path)
     return state
 
 
-@action.pydantic(reads=["source_path", "page_count", "review_reasons"], writes=["text", "lines", "layout", "text_source", "ocr_conf", "ocr_low_conf_ratio", "review_reasons"])
+@action.pydantic(reads=["source_path", "read_path", "doc_id", "page_count", "review_reasons"],
+                 writes=["text", "lines", "layout", "text_source", "ocr_conf", "ocr_low_conf_ratio", "review_reasons"])
 def ocr_pdf(state: DetectState) -> DetectState:
     """PDF without text: OCR (jav/ocr.py, cached) onto the same layout; no engine / no text -> `needs_ocr`."""
-    from jav.ocr import OcrUnavailableError, escalation_review_reasons, ocr_with_escalation
+    from jav.ocr import OcrUnavailableError, azure_alias, escalation_review_reasons, ocr_with_escalation
 
     try:
-        pdf, _escalated = ocr_with_escalation(state.source_path, page_count=state.page_count)
+        with azure_alias(state.source_path if state.read_path else None, state.doc_id):
+            pdf, _escalated = ocr_with_escalation(state.read_path or state.source_path, page_count=state.page_count)
     except OcrUnavailableError as exc:
         state.review_reasons = state.review_reasons + [f"ocr:unavailable:{type(exc).__name__}"]
         return state
@@ -232,11 +236,12 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
 
 
 def build_app(source_path: str, *, tracker: bool = False, use_cache: bool = True, run_id: str | None = None,
-              persister=None) -> Application:
+              persister=None, read_path: str | None = None) -> Application:
     """`persister` (040 K1): durable state persistence, resuming under the same `run_id`; without it, the earlier
-    behaviour."""
+    behaviour. `read_path`: the document's bytes are read from here (its source instance); everything else uses
+    `source_path`."""
     run_id = run_id or f"detect-{Path(source_path).stem[:24]}-{uuid.uuid4().hex[:8]}"
-    initial = DetectState(source_path=source_path, run_id=run_id, use_cache=use_cache)
+    initial = DetectState(source_path=source_path, read_path=read_path, run_id=run_id, use_cache=use_cache)
     b = (
         ApplicationBuilder()
         .with_typing(PydanticTypingSystem(DetectState))

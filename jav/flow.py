@@ -61,27 +61,27 @@ def _year_hint(path: str) -> int | None:
 # --- actions ---------------------------------------------------------------------------
 
 
-@action.pydantic(reads=["source_path"], writes=["text", "lines", "page_count", "has_text_layer", "layout", "doc_id", "text_source",
-                                                "source_layer_id"])
+@action.pydantic(reads=["source_path", "read_path"], writes=["text", "lines", "page_count", "has_text_layer", "layout", "doc_id",
+                                                             "text_source", "source_layer_id"])
 def load_pdf(state: FlowState) -> FlowState:
     from jav import source_layer
     from jav.pdf import read_pdf
 
-    pdf = read_pdf(state.source_path)
+    pdf = read_pdf(state.read_path or state.source_path)
     state.text = pdf.text
     state.lines = pdf.lines
     state.layout = pdf.layout
     state.page_count = pdf.page_count
     state.has_text_layer = pdf.has_text_layer
     state.text_source = pdf.text_source
-    state.doc_id = _sha256(state.source_path)
+    state.doc_id = _sha256(state.read_path or state.source_path)
     if pdf.has_text_layer:  # for a PDF without text the OCR step saves the layer
         state.source_layer_id = source_layer.save_from_pdftext(state.doc_id, pdf)
     return state
 
 
 @action.pydantic(
-    reads=["source_path", "page_count", "doc_id", "needs_review", "review_reasons"],
+    reads=["source_path", "read_path", "page_count", "doc_id", "needs_review", "review_reasons"],
     writes=["text", "lines", "layout", "text_source", "ocr_conf", "ocr_low_conf_ratio", "ocr_engine", "ocr_escalated", "needs_review", "review_reasons",
             "source_layer_id"],
 )
@@ -89,10 +89,11 @@ def ocr_pdf(state: FlowState) -> FlowState:
     """PDF without text: OCR (jav/ocr.py, with a disk cache) -> the same layout (lines, cells) as for a text layer.
     The OCR quality signals go into the state raw; weak OCR raises reviews per the policy's `ocr` thresholds. No
     engine / no usable text: `text_source` stays None -> `needs_ocr` terminal (the flow does not crash)."""
-    from jav.ocr import OcrUnavailableError, escalation_review_reasons, ocr_with_escalation
+    from jav.ocr import OcrUnavailableError, azure_alias, escalation_review_reasons, ocr_with_escalation
 
     try:
-        pdf, escalated = ocr_with_escalation(state.source_path, page_count=state.page_count)
+        with azure_alias(state.source_path if state.read_path else None, state.doc_id):
+            pdf, escalated = ocr_with_escalation(state.read_path or state.source_path, page_count=state.page_count)
     except OcrUnavailableError as exc:
         policy.require_review(state, f"ocr:unavailable:{type(exc).__name__}")
         return state
@@ -397,15 +398,17 @@ def new_run_id(case_id: str, arm: str, run_no: int) -> str:
 
 def build_app(
     source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, doc_type: str = DEFAULT_KEY,
-    *, run_id: str | None = None, persister=None,
+    *, run_id: str | None = None, persister=None, read_path: str | None = None,
 ) -> Application:
     """`persister` (040 K1, supplied by the worker): durable state persistence after every step; with the same `run_id`
-    the run resumes at the next step. Without it, the earlier behaviour: a new identifier, no persistence."""
+    the run resumes at the next step. Without it, the earlier behaviour: a new identifier, no persistence.
+    `read_path`: the document's bytes are read from here (its source instance); everything else uses `source_path`."""
     pack = get_pack(doc_type)  # unknown type pack -> error right here, not in the middle of the graph
     if arm not in pack.arms:
         raise ValueError(f"a(z) {doc_type} típus-csomag csak ezekkel a karokkal fut: {', '.join(pack.arms)} (kért: {arm})")
     run_id = run_id or new_run_id(case_id, arm, run_no)
-    initial = FlowState(source_path=source_path, case_id=case_id, arm=arm, run_no=run_no, run_id=run_id, use_cache=use_cache, doc_type=doc_type)
+    initial = FlowState(source_path=source_path, read_path=read_path, case_id=case_id, arm=arm, run_no=run_no, run_id=run_id,
+                        use_cache=use_cache, doc_type=doc_type)
     builder = (
         ApplicationBuilder()
         .with_typing(PydanticTypingSystem(FlowState))

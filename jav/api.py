@@ -598,12 +598,13 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         was added — no other file can be read out through this route. 075 (repeated security audit, S03): the file is
         read once and hashed in full on every request, and exactly the verified bytes are served or rendered, so a file
         changed in place (even with the same size and modification time) or swapped after the check cannot be served.
-        Before 075 a fingerprint memoised by size + modification time was trusted here (058)."""
+        Before 075 a fingerprint memoised by size + modification time was trusted here (058). An item with a source
+        instance is served from the instance, so a later change to the original does not hide the document; the returned
+        path is the original one (its suffix decides the media type)."""
         item = next((i for i in work.get(wp_id)["items"] if i["item_id"] == item_id), None)
         if item is None:
             raise KeyError(item_id)
-        p = Path(item["source_path"])
-        return p, work.read_verified(p, item["sha256"], max_bytes=_max_source_bytes())
+        return Path(item["source_path"]), work.read_verified(work.source_file(item), item["sha256"], max_bytes=_max_source_bytes())
 
     @app.get(r + "/workpackages/{wp_id}/items/{item_id}/pages/{page}.png")
     def item_page(wp_id: WpId, item_id: ItemId, page: Annotated[int, PathParam(ge=1, le=500)],

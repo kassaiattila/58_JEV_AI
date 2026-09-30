@@ -88,7 +88,7 @@ The start-up check is green on a fresh clone too, once the hooks are installed (
 
 ## 6. Backup, restore and logs
 
-**Plain-language summary:** the database (work packages, runs, corrections and decisions) can be backed up with one command, even while the local service is running. The backup also checks that the database is intact. It can run by itself every day at a set time (12:00 by default), and a verified copy can also go to a second location, such as a network drive; both places keep the last 14 backups. The daily backup also takes the internal working documents (handoffs, plans, reports, the backlog, the decisions log), because git does not track them. The state of the last backup is shown on the Settings › System page. Errors of the local service and the worker go to permanent log files, so the cause of a stop can be found later.
+**Plain-language summary:** the database (work packages, runs, corrections and decisions) can be backed up with one command, even while the local service is running. The backup also checks that the database is intact. It can run by itself every day at a set time (12:00 by default), and a verified copy can also go to a second location, such as a network drive; both places keep the last 14 backups. The daily backup also takes the internal working documents (handoffs, plans, reports, the backlog, the decisions log), because git does not track them, and the copies the system keeps of the documents added to work packages, each only once. The state of the last backup is shown on the Settings › System page. Errors of the local service and the worker go to permanent log files, so the cause of a stop can be found later.
 
 **Backup:**
 
@@ -99,7 +99,7 @@ python -m jav.cli backup --with-docs     # also the internal working documents, 
 python -m jav.cli backup --out D:\Backup --keep 30
 ```
 
-The command uses SQLite's own backup procedure (a plain file copy of a live database can be corrupt) and runs the integrity check on the copy. A backup contains personal data: handle it like the `store\` folder.
+The command uses SQLite's own backup procedure (a plain file copy of a live database can be corrupt) and runs the integrity check on the copy. The source instances (the unchanging copies of the documents added to work packages, `store\sources\`) go into one shared `sources\` folder beside the timestamped backups, locally and in the second location: each is copied once, checked against the content hash in its name, and never pruned; a damaged one is not copied and is named in the manifest. A backup contains personal data: handle it like the `store\` folder.
 
 **Daily backup:** the settings are in the `backup` section of `configs\service.json`: the time, the retention, `copy_to` and `with_docs` (the internal working documents too). The second location (for example a folder on a network drive) is machine-specific, so it is set in `.env` as `JAV_BACKUP_COPY_TO` (see `.env.example`); `copy_to` in the tracked config stays empty. Without either, the backup stays local; if the location is not reachable, `backup --scheduled` exits with code 2 to report that the copy failed.
 
@@ -126,7 +126,8 @@ python -m jav.cli burr-prune --no-vacuum
 1. `.\scripts\dev.ps1 stop` (stops the local service and the worker);
 2. set the current `store\jav.sqlite` aside, for example as `store\jav.sqlite.broken`; rename the `jav.sqlite-wal` and `jav.sqlite-shm` files next to it as well;
 3. copy the `jav.sqlite` file of the chosen backup back into `store\`;
-4. `.\scripts\dev.ps1 start`.
+4. copy the contents of the backup root's `sources\` folder into `store\sources\` (files already there can be kept: a file's name is its content hash);
+5. `.\scripts\dev.ps1 start`.
 
 A restore loses the runs, corrections and decisions made after the backup. The downloaded emails (`inbox\`) and the source documents are not in the database, so the backup does not affect them.
 

@@ -68,13 +68,14 @@ def test_readiness_reports_blockers(isolated):
 
 
 def test_readiness_detects_changed_and_missing_source(isolated):
+    # the items are read from their source instances: a damaged or missing instance blocks (a changed original is
+    # only a warning; the rule for items without an instance: tests/test_source_instances_079.py)
     wp = _ready_wp(isolated)
     assert work.readiness(wp["id"])["ready"]
-    src = Path(wp["items"][0]["source_path"])
-    src.write_bytes(b"%PDF megvaltozott")
-    Path(wp["items"][1]["source_path"]).unlink()
-    codes = {b["code"] for b in work.readiness(wp["id"])["blockers"]}
-    assert codes == {"source_changed", "source_missing"}
+    work.source_file(wp["items"][0]).write_bytes(b"%PDF megvaltozott")
+    work.source_file(wp["items"][1]).unlink()
+    codes = [b["code"] for b in work.readiness(wp["id"])["blockers"]]
+    assert codes == ["instance_damaged", "instance_damaged"]
 
 
 def test_readiness_budget_estimate(isolated):
@@ -149,7 +150,7 @@ def test_start_run_refuses_stale_input_or_assignment(isolated):
         work.start_run(wp["id"], mode="shadow", expected_assignment_revision=0, input_hash=r["input_hash"], actor="t")
     with pytest.raises(work.RevisionConflict):
         work.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash="régi", actor="t")
-    Path(wp["items"][0]["source_path"]).write_bytes(b"%PDF mas")
+    work.source_file(wp["items"][0]).write_bytes(b"%PDF mas")  # the copy that would be processed
     with pytest.raises(work.NotReady):
         work.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")
 
@@ -279,11 +280,12 @@ def test_readiness_reuses_fingerprint_until_size_or_mtime_changes(isolated, monk
     assert work.readiness(wp["id"])["ready"]
     first = len(calls_)
     assert work.readiness(wp["id"])["ready"] and len(calls_) == first  # unchanged file: no rehashing
-    src = Path(wp["items"][0]["source_path"])
+    src = work.source_file(wp["items"][0])  # the source instance is what is processed
+    content = src.read_bytes()
     src.write_bytes(b"%PDF-1.4 mas tartalom, mas meret")
     codes = {b["code"] for b in work.readiness(wp["id"])["blockers"]}
-    assert codes == {"source_changed"} and calls_[-1] == src.name
-    src.write_bytes(b"%PDF-1.4 minta 0")  # back to the original
+    assert codes == {"instance_damaged"} and calls_[-1] == src.name
+    src.write_bytes(content)  # back to the original
     r = work.readiness(wp["id"])
     before = len(calls_)
     work.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")

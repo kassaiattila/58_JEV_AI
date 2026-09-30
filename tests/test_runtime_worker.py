@@ -108,12 +108,14 @@ def test_cancel_stops_at_step_boundary(env):
 
 
 def test_changed_source_is_refused(env):
+    # the file processed is the item's source instance; its change is refused (a change to the original is not:
+    # tests/test_source_instances_079.py)
     run_id = _start(env["wp"]["id"])
-    Path(env["wp"]["items"][0]["source_path"]).write_bytes(b"%PDF megvaltozott")
+    work.source_file(env["wp"]["items"][0]).write_bytes(b"%PDF megvaltozott")
     info = worker.run_worker(once=True)
     assert info["results"] == {"dead": 1, "done": 1}
     failed = [i for i in work.get_run(run_id)["items"] if i["status"] == "failed"]
-    assert len(failed) == 1 and failed[0]["error"].startswith("source_changed")
+    assert len(failed) == 1 and failed[0]["error"].startswith("instance_damaged")
     assert work.get_run(run_id)["status"] == "failed"
 
 
@@ -144,7 +146,7 @@ def test_item_view_survives_an_unreadable_source(env, monkeypatch, breakage):
     worker.run_worker(once=True)
     item = work.get_run(run_id)["input"]["items"][0]
     if breakage == "corrupt_file":
-        Path(item["source_path"]).write_bytes(b"%PDF-1.4\nnot a PDF body at all\n%%EOF")
+        work.source_file(item).write_bytes(b"%PDF-1.4\nnot a PDF body at all\n%%EOF")
     else:
         def over_limit(path):
             raise isolated_pdf.PdfReaderLimit("the PDF reader gave no answer within 30 s", reason="timeout")

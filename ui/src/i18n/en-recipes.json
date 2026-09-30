@@ -67,5 +67,8 @@
  "{{version}}. változat": "version {{version}}",
  "Gyenge minőségű szkennelt iratnál használhatja-e a rendszer a pontosabb, fizetős Azure-felismerést a helyi szövegfelismerés helyett.": "Whether the system may use the more accurate, paid Azure recognition instead of the local text recognition for a poorly scanned document.",
  "Ha a helyi felismerés gyenge, a rendszer az Azure-felismerést használja, iratonként a recept Azure-keretén belül. Minden hívás a hívásnaplóba kerül; ha a futás Azure-kerete elfogy, a helyi szöveg megy tovább, és az irat teendőt kap. Ez az alapbeállítás.": "If the local recognition is weak, the system uses Azure recognition, within the recipe's Azure budget per document. Every call goes into the call log; if the run's Azure budget runs out, the local text goes on and the document gets a to-do. This is the default.",
- "Csak helyi felismerés, gyenge szkennelésnél is. Nincs Azure-költség; a gyenge felismerésű irat a szokásos felismerési teendőket kapja.": "Local recognition only, even for a weak scan. No Azure cost; a weakly recognised document gets the usual recognition to-dos."
+ "Csak helyi felismerés, gyenge szkennelésnél is. Nincs Azure-költség; a gyenge felismerésű irat a szokásos felismerési teendőket kapja.": "Local recognition only, even for a weak scan. No Azure cost; a weakly recognised document gets the usual recognition to-dos.",
+ "A felvételkori példány hiányzik vagy sérült: {{name}}": "The copy kept when it was added is missing or damaged: {{name}}",
+ "Az eredeti fájl a felvétel óta megváltozott; a felvételkori példány kerül feldolgozásra: {{name}}": "The original file has changed since it was added; the copy kept then is processed: {{name}}",
+ "Az eredeti fájl a felvétel óta eltűnt; a felvételkori példány kerül feldolgozásra: {{name}}": "The original file has disappeared since it was added; the copy kept then is processed: {{name}}"
 }

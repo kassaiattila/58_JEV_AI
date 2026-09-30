@@ -2,7 +2,8 @@
 content hash is the one recorded when the item was added.
 
 Before 075 the service trusted a fingerprint memoised by file size + modification time, so a file changed in place with
-the same size and a restored timestamp was served under the original item. Synthetic PDFs only.
+the same size and a restored timestamp was served under the original item. Since source instances, the file served is
+the item's instance (the copy kept when it was added), so the same guarantee is checked on it. Synthetic PDFs only.
 """
 
 from __future__ import annotations
@@ -24,10 +25,11 @@ def served(tmp_path):
     with store.use_store(db):
         wp = work.create_from_files([source], name="Synthetic identity test")
         item = work.get(wp["id"])["items"][0]
-        work.fingerprint(source)  # the memoised fingerprint the old check trusted
+        served_file = work.source_file(item)
+        work.fingerprint(served_file)  # the memoised fingerprint the old check trusted
         client = TestClient(api.create_app(store_path=db), base_url="http://127.0.0.1:8930")
         base = f"/api/workpackages/{wp['id']}/items/{item['item_id']}"
-        yield source, client, base
+        yield served_file, client, base
 
 
 def _swap_in_place(source):

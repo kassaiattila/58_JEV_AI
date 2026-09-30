@@ -48,6 +48,15 @@ class SourceChanged(RuntimeError):
     """The item's source has changed or disappeared since the start; content that differs from the frozen input is not
     processed."""
 
+    code = "source_changed"
+
+
+class InstanceDamaged(SourceChanged):
+    """The copy kept when the document was added (its source instance) is missing or no longer matches its
+    fingerprint."""
+
+    code = "instance_damaged"
+
 
 # 064: of a finished item's saved flow states only the last one is kept (otherwise the store grows by ~0.7 MB per item)
 PRUNE_FINISHED_STATE = True
@@ -115,23 +124,26 @@ def _stages(recipe: dict[str, Any], params: dict[str, Any]) -> list[tuple[str, d
     return [(recipe["flow"], dict(params))]
 
 
-def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app_id: str, persister):
+def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app_id: str, persister,
+           read_path: str | None = None):
+    """`read_path`: where a document's bytes are read from (its source instance); the file name, the year hint and
+    the stored path stay those of `source_path`, the original."""
     mod = _flow_module(recipe["flow"])
     if recipe["flow"] == "invoice":
         # `jev_cache=live`: skip reading the JEV cache so every call goes through the log and the budget (live test)
         app = mod.build_app(source_path, app_id, params["arm"], tracker=False, doc_type=params["doc_type"], run_id=app_id,
-                            persister=persister, use_cache=params.get("jev_cache", "reuse") != "live")
+                            persister=persister, use_cache=params.get("jev_cache", "reuse") != "live", read_path=read_path)
     elif recipe["flow"] == "email":  # 048 T2: the item is the email's `message.json`; the flow reads its folder
         app = mod.build_app(source_dir=str(Path(source_path).parent), tracker=False, run_id=app_id, persister=persister,
                             use_cache=params.get("jev_cache", "reuse") != "live", propose_tasks=params.get("tasks") == "propose")
     else:
         app = mod.build_app(source_path, tracker=False, run_id=app_id, persister=persister,
-                            use_cache=params.get("jev_cache", "reuse") != "live")
+                            use_cache=params.get("jev_cache", "reuse") != "live", read_path=read_path)
     return app, mod.TERMINALS
 
 
 def _run_stage(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app_id: str, persister, *, run_id: str,
-               job_id: int, after_step: Callable[[str], None] | None):
+               job_id: int, after_step: Callable[[str], None] | None, read_path: str | None = None):
     """Runs one stage with persistence: a stage that already reached a terminal state does not run again (resume after
     a crash). The saved state is looked up under the flow's own partition (066 Á08: the email flow saves under
     `email_intent`, but the lookup used the recipe name `email`, so a finished email ran again and the job died)."""
@@ -139,7 +151,7 @@ def _run_stage(recipe: dict[str, Any], params: dict[str, Any], source_path: str,
     saved = persister.load(mod.PARTITION, app_id)
     if saved and saved["position"] in mod.TERMINALS:
         return saved["state"]
-    app, terminals = _build(recipe, params, source_path, app_id, persister)
+    app, terminals = _build(recipe, params, source_path, app_id, persister, read_path)
     state = None
     with calls.use_run(budget_scope=run_id):
         for action, _result, state in app.iterate(halt_after=terminals):
@@ -166,9 +178,15 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
     item = next(i for i in run["input"]["items"] if i["item_id"] == item_id)
     app_id = work.flow_run_id(run_id, item_id)
     try:
-        src = Path(item["source_path"])
+        # an item with a source instance is read from it (a change to the original does not matter); without one, from
+        # the original, which must still be the content that was added
+        src = work.source_file(item)
+        name = Path(item["source_path"]).name
         if not src.exists() or _sha256_file(src) != item["sha256"]:
-            raise SourceChanged(f"{src.name} differs from the frozen input")
+            if item.get("instance"):
+                raise InstanceDamaged(f"the copy of {name} kept when it was added is missing or damaged")
+            raise SourceChanged(f"{name} differs from the frozen input")
+        read_path = str(src) if item.get("instance") else None
         persister = StatePersister(str(persister_path()))
         persister.initialize()
         try:
@@ -183,7 +201,7 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                         final = "needs_review"
                         break
                 state = _run_stage({**run["recipe"], "flow": flow_name}, params, item["source_path"], stage_id, persister,
-                                   run_id=run_id, job_id=job.id, after_step=after_step)
+                                   run_id=run_id, job_id=job.id, after_step=after_step, read_path=read_path)
                 final = state.get("final_status")
         finally:
             persister.cleanup()
@@ -191,8 +209,8 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
         work.record_item_result(run_id, item_id, status="cancelled", flow_run_id=app_id)
         result = queue.finish_cancelled(job.id)
     except SourceChanged as exc:
-        work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=f"source_changed: {applog.redact(str(exc))}")
-        result = queue.fail(job.id, f"source_changed: {applog.redact(str(exc))}", max_attempts=1, backoff_s=0)
+        work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=f"{exc.code}: {applog.redact(str(exc))}")
+        result = queue.fail(job.id, f"{exc.code}: {applog.redact(str(exc))}", max_attempts=1, backoff_s=0)
     except (pdf.DocumentTooLarge, isolated_pdf.PdfReaderLimit) as exc:
         # 077: a retry would hit the same limit (a timeout would hold the worker for as long again): final at once
         log.warning("item %s of %s is over a document limit: %s", item_id, run_id, exc)
