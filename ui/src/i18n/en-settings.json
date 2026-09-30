@@ -156,5 +156,13 @@
   "A legutóbbi csomag-ellenőrzés nem teljes ({{when}}): {{error}}": "The last dependency audit is incomplete ({{when}}): {{error}}",
   "A legutóbbi csomag-ellenőrzés {{days}} napnál régebbi ({{when}}).": "The last dependency audit is more than {{days}} days old ({{when}}).",
   "Nincs ismert sebezhetőség: {{py}} Python- és {{ui}} felület-csomag ({{when}}).": "No known vulnerabilities: {{py}} Python and {{ui}} UI packages ({{when}}).",
-  "A külső programcsomagok ismert sebezhetőségeit a napi mentés hetente ellenőrzi; kézzel:": "The daily backup checks the third-party packages for known vulnerabilities once a week; to run it by hand:"
+  "A külső programcsomagok ismert sebezhetőségeit a napi mentés hetente ellenőrzi; kézzel:": "The daily backup checks the third-party packages for known vulnerabilities once a week; to run it by hand:",
+  "Bizonytalan kimenetű hívások": "Calls with an uncertain outcome",
+  "{{n}} fizetős hívásnál nem tudni, lefutott-e; amíg nincs lezárva, a futás kerete a legnagyobb költséggel számol vele, és a lépés nem ismétlődik.": "For {{n}} paid call(s) it is not known whether they went through; until they are settled, the run's budget counts them at their maximum cost, and the step is not repeated.",
+  "Nincs lezáratlan, bizonytalan kimenetű hívás.": "No paid call with an uncertain outcome is waiting to be settled.",
+  "{{provider}}, {{step}} lépés, futás: {{run}}, {{when}}; lefoglalva legfeljebb {{max}} USD": "{{provider}}, step {{step}}, run {{run}}, {{when}}; at most {{max}} USD reserved",
+  "Tényleges költség (USD, üresen: ismeretlen)": "Actual cost (USD; leave empty if unknown)",
+  "Megjegyzés (például mit mutatott a szolgáltató felülete)": "Note (for example what the provider's console showed)",
+  "Lezárás": "Settle",
+  "A költség nem szám (például 0.012).": "The cost is not a number (for example 0.012)."
 }

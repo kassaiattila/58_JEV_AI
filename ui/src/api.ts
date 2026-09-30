@@ -72,6 +72,12 @@ export interface DepsAuditInfo {
   } | null;
   max_age_days: number;
 }
+/** 076: a paid call with an uncertain outcome, awaiting manual settlement (`jav/runtime/calls.py` `uncertain_list`). */
+export interface UncertainCall {
+  id: number; run_id: string; step_id: string; attempt: number; provider: string; model_requested: string | null;
+  budget_scope: string | null; max_cost_usd: string; created_at: string; status: string;
+}
+
 export interface BackupInfo {
   status: BackupRun | null;
   config: { schedule?: string; keep?: number; copy_to?: string | null; with_burr?: boolean; with_docs?: boolean; max_age_hours?: number };
@@ -398,6 +404,9 @@ export const api = {
   health: () => request<Health>("GET", "/health"),
   backupStatus: () => request<BackupInfo>("GET", "/system/backup"),
   depsAudit: () => request<DepsAuditInfo>("GET", "/system/deps-audit"),
+  uncertainCalls: () => request<{ calls: UncertainCall[] }>("GET", "/system/uncertain-calls"),
+  resolveUncertainCall: (id: number, body: { cost_usd: string | null; note: string }) =>
+    request<{ ok: boolean }>("POST", `/system/uncertain-calls/${id}/resolve`, body),
   backupNow: () => request<BackupRun & { dir: string; copy: BackupRun["copy"] }>("POST", "/system/backup", {}),
   mailbox: () => request<{ schedules: MailboxSchedule[]; pulls: MailboxPull[]; bridge_available: boolean; accounts?: string[];
     defaults: { interval_min: number; lookback_days: number } }>("GET", "/mailbox"),
