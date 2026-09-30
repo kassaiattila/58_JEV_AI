@@ -13,7 +13,7 @@
 ### Állandó felhasználói keretek (részletek és dátumok: `docs/DECISIONS.md`, ne nyisd újra)
 
 - OpenAI és JEV egyaránt használható a már engedélyezett dokumentum- és e-mail-mintákon. Általános szolgáltatói engedélyt ne kérj újra.
-- Összkeret: **9 USD OpenAI + 9 USD JEV** (az eredeti 5 + 5, 2026-09-28-án +4 + 4). A maradék az aktuális elszámolási fájlban van (hivatkozás a legfrissebb átadóban). Új méréshez előre rendelj részkeretet ezen belül; régi kereteket ne vonj össze és ne emelj meg hallgatólagosan.
+- Összkeret: a felhasználó által jóváhagyott OpenAI- és JEV-keret, külön-külön. Az összeg és az emelései csak a döntésnaplóban vannak (belső: `DECISIONS.md`, 2026-09-28-i keretemelés; 2026-09-30-i döntés: a GitHubra nem kerül). A maradék az aktuális elszámolási fájlban van (hivatkozás a legfrissebb átadóban). Új méréshez előre rendelj részkeretet ezen belül; régi kereteket ne vonj össze és ne emelj meg hallgatólagosan.
 - Kézi címkézés elhalasztva, nem előfeltétel. Modell-egyetértést ne nevezz pontosságnak.
 - Vállalati és termékesítési feladatok (SSO/RBAC, tenant, HA, árazás) most nem prioritások.
 - Üzemi küszöb, policy vagy folyamat aktiválása csak felhasználói döntéssel történhet.

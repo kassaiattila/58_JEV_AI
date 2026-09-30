@@ -1,5 +1,7 @@
 # Jev-feltérképezés — mit tud a modell, mit használunk, mit vegyünk át (2026-09-20)
 
+**Átnézve 2026-09-30 (071):** a táblázat két „ma” megállapítása (alias a gyorsítótár-kulcsban, SDK-napló) javítva; a teljes frissítés (a mai hívásihely-leltár, a megszűnt README-szakaszokra mutató hivatkozások) a teendőlistán van.
+
 **Friss olvasási pont, 2026-09-21:** JEV-képességek a saját fejlesztési tapasztalatokkal összevetve (belső: `JEV_CAPABILITY_INTEGRATION_2026-09-21.md`), valós összehasonlító mérés (belső: `STACK_TRIAL_RESULTS_2026-09-21.md`).
 Az alábbi rés-elemzés történeti kiindulás; a később elkészült adapter-, sáv-, regiszter- és kérdésfejlesztések a §4 dátumozott bejegyzéseiben szerepelnek. A sorösszefűzés, párosítás és hierarchia már kapott kis képességpróbát, de teljes integrációjuk nincs kész.
 Pontosítás: a bemenet **és a kérdések** tokenjei költséget jelentenek; a kötegelés nem korlátlanul ingyenes. A gyorsítótáras visszajátszás nem élő determinizmusmérés. Az aktuális modellkorlátokat a fenti új értékelés élő hivatalos forrásokra hivatkozva rögzíti.
@@ -21,9 +23,9 @@ handoff és a ROADMAP rögzíti.
 | rate limit | 250k token/s, 1200 kérés/perc, **dinamikusan változik**; 429/529 → backoff | bejárásoknál 4–8 párhuzamos worker, explicit `RetryPolicy` |
 | bemenet | csak szöveg (string / JSON / tömb) | OCR/kép a sidecar dolga (B5) |
 | nyelv | angol az elsődleges; más nyelv „alacsonyabb pontosság, mérd magad" | a magyar/német verbatim state működését CSAK a saját golden bizonyítja, verziónként újra |
-| alias | `jev-latest` mozog verzióváltáskor; a válasz `model` mezője a konkrét verzió | a ledgerbe a válasz-modell megy (már így van); a **cache-kulcsba ma az alias megy** → javítandó |
+| alias | `jev-latest` mozog verzióváltáskor; a válasz `model` mezője a konkrét verzió | a ledgerbe a válasz-modell megy; 006 óta a cache-kulcsba is a feloldott konkrét verzió kerül (a feloldás érvényessége: `configs/models.json` `alias_ttl_hours`) |
 | testreszabás | nincs finomhangolás; state + instrukció + kritérium + kód-kompozíció | a „konfig mint adat" elvünk pontosan a doksi ajánlása |
-| napló | `TYPESAFE_LOG_LEVEL=debug` kitakarás nélkül írja a body-t | PII: tiltani a `.env`-ben / adapterben |
+| napló | `TYPESAFE_LOG_LEVEL=debug` kitakarás nélkül írja a body-t | PII: a `jav/config.py` `guard_sdk_logging()` WARNING-ra állítja, kivéve `JAV_ALLOW_SDK_DEBUG=1` |
 | SDK 0.7.0 (2026-09-18) | Pydantic-alapú, `response_model`, `RetryPolicy`, `AsyncTypeSafeClient` | a lockolt verziónk 0.7.0 — friss |
 
 **Jaggedness (a modell ismert gyengéi, doksi szerint):** szó szerint olvas; nem számol, nem hasonlít dátumot; indirekció

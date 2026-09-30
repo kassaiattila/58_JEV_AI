@@ -34,7 +34,9 @@ Eddig ugyanaz az állapot öt helyen is le volt írva (a Claude-utasításokban,
 | Architektúra | kódtári | `docs/ARCHITECTURE.md` | Ami ténylegesen működik; a terv külön jelölve | Tervezett elem késznek feltüntetve | Szerkezeti változásnál |
 | Terv | belső | `docs/plans/NNN/PLAN.md` | Egy fejlesztési kör célja, szakaszai, kész-kritériumai | Nyers futásadat | Terv elfogadásakor és szakaszváltáskor (állapot sor) |
 | Jelentés | belső | `docs/reports/ÉÉÉÉ-HH-NN-<téma>.md` | Mérés, audit, értékelés következtetése; kiadási jegyzet | Utólag javított eredmény | Egyszer, lezáráskor |
-| Útmutató | kódtári | `docs/guides/<TÉMA>.md` | Hogyan csináljunk valamit (telepítés, fejlesztés, új típus) | Állapot és mérési számok | Ha az eljárás változik |
+| Útmutató | kódtári | `docs/guides/<TÉMA>.md` | Hogyan csináljunk valamit (telepítés, fejlesztés, a felület használata: `USER_GUIDE.md`, a beállítófájlok: `CONFIGS.md`) | Állapot és mérési számok | Ha az eljárás, a felület vagy egy beállítófájl szerepe változik; új beállítófájlnál a `CONFIGS.md` is (teszt figyeli) |
+| Biztonsági leírás (071) | kódtári | `docs/SECURITY.md` | Mi védi a rendszert és az adatot, hol van személyes adat, mi van még nyitva | Kulcs, személyes adat, belső bizonyíték linkje | Ha védelem jön vagy változik |
+| Változáslista (071) | kódtári | `CHANGELOG.md` | A kiadások röviden, nyilvánosan is érthetően | Mérési részletek (azok a belső kiadási jegyzetbe kerülnek) | Minden kiadáskor |
 | Átadó | belső | `docs/handoffs/NNN-ÉÉÉÉ-HH-NN-handoff.md` | Session-lezárás: mi készült, döntések, következő lépés, commit | Önálló prioritási lista, kézzel másolt állapotszám | Session végén és szakasz lezárásakor |
 
 **Megszűnő fajta:** a `docs/CONTINUE_PROMPT_NNN.md` fájlok. A folytatás módját az átadó utolsó szakasza adja meg. A meglévő fájlok történeti anyagként megmaradnak.

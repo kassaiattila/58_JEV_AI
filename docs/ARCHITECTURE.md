@@ -1,8 +1,8 @@
 # Architektúra — a folyamat végponttól végpontig és a négy sík
 
-**Dátum:** 2026-09-27 (fejléc) · **Állapot:** a ténylegesen működő szerkezet leírása. A tervezett célszerkezet: 040 terv (belső: `plans/040/PLAN.md`) 3–6. pontja (munkacsomag, futtatás, teendő, riport; hat garancia). A dátumozott bekezdések a saját körük megállapításai. A 038-as garanciahatárokat a K1 (2026-09-27) rendezte a feldolgozón át futó útra; a régi parancssori mérési utak viselkedése változatlan (6. pont).
+**Dátum:** 2026-09-27 (fejléc), átnézve 2026-09-30 (071, a leírások teljessége) · **Állapot:** a ténylegesen működő szerkezet leírása. A tervezett célszerkezet: 040 terv (belső: `plans/040/PLAN.md`) 3–6. pontja (munkacsomag, futtatás, teendő, riport; hat garancia). A dátumozott bekezdések a saját körük megállapításai. A 038-as garanciahatárokat a K1 (2026-09-27) rendezte a feldolgozón át futó útra; a régi parancssori mérési utak viselkedése változatlan (6. pont).
 
-**039, 2026-09-22 — tervezett rendezés:** célarchitektúra és migráció (belső: `plans/039/PLAN.md`). A `jav/` csomag megmarad, felelősség szerinti alcsoportokkal; közös runtime/provider/storage, iratos/levelezési/review/kimeneti modulok, vékony CLI/API és új UI. A régi DB/facade nem válik az új keret runtime-függőségévé. Ezek tervezett elemek, **a mai kód nem költözött át**. A helyi HTML-koncepció nem implementált React/API-integráció.
+**039, 2026-09-22 — tervezett rendezés:** célarchitektúra és migráció (belső: `plans/039/PLAN.md`). A `jav/` csomag megmarad, felelősség szerinti alcsoportokkal; közös runtime/provider/storage, iratos/levelezési/review/kimeneti modulok, vékony CLI/API és új UI. A régi DB/facade nem válik az új keret runtime-függőségévé. Ezek tervezett elemek voltak. Azóta (040–071) elkészült a futtatási réteg, a helyi szolgáltatás és a React-felület (6–8. pont); a `jav/` alcsoportokra bontása csak részben (`jav/runtime/`, `jav/adapters/`) történt meg.
 
 **038, 2026-09-22 — a mai garanciák határa:** az alap `flow`, `flow_detect`, `flow_email` új UUID-s Burr-alkalmazása és trackerje nem azonos a kísérleti futtatók tartós folytatásával. A normál `extract_llm` hibás hívása nincs egységesen naplózva; a `TrialBudget` előzetes hívásszámot foglal, dollárban a már könyvelt költségnél áll le, nem a következő kérés maximális költségét foglalja. További reprodukált rések: intake-útvonal/bemenet/dedup, többokú review lezárás, részleges OCR lefedettségjelzése. A helyi OCR gyengeség esetén konfigurált Azure DI-eszkalációt is használhat, tehát az adatút nem csak OpenAI/JEV. Teljes értékelés és tervezett közösítés (belső: `FRAMEWORK_ASSESSMENT_2026-09-22.md`). Ebben a felmérésben runtime/config nem változott.
 
@@ -28,16 +28,17 @@
 
 **Célbővítés, 2026-09-21:** ismert típusnál verziózott feldolgozási recept, ismeretlennél általános adatpont-javaslat és forrásellenőrzés. A részletes terv (belső: `DOCUMENT_LEARNING_2026-09-21.md`) megkülönbözteti a célállapotot és a már elkészült, kísérleti JEV-forráskeresőt; az alábbi meglévő gráfok még nem valósítják meg ezt a teljes utat.
 
-Kézzel írt leírás (2026-09-20). A generált részek: a gráfok `docs/flows/<flow>/FLOW.md`, a Jev-hívási helyek
-katalógusa `docs/callsites/`, az állapot-pillanatkép `docs/STATE.md` (`python -m jav.cli admin --write`). Terv és
-cél: `docs/ROADMAP.md`; mért eredmények: `README.md`; szabályok: `CLAUDE.md`; teendők: `docs/BACKLOG.md`; döntések:
-`docs/DECISIONS.md`; a Jev-lehetőségek: `docs/JEV_PLAYBOOK.md`.
+Kézzel írt leírás (2026-09-20 óta bővítve). A generált részek: a gráfok `docs/flows/<flow>/FLOW.md` (kódtári), a
+Jev-hívási helyek katalógusa és az állapot-pillanatkép (helyi, generált: `python -m jav.cli docs`, `admin --write`).
+Terv és cél: az útiterv (belső: `ROADMAP.md`); mért eredmények: a jelentések (belső: `reports/`); szabályok:
+`CLAUDE.md`; teendők és döntések: a teendőlista és a döntésnapló (belső: `BACKLOG.md`, `DECISIONS.md`); a
+Jev-lehetőségek: `docs/JEV_PLAYBOOK.md`; a biztonság: `docs/SECURITY.md`; a beállítófájlok: `docs/guides/CONFIGS.md`.
 
 **Mi ez (2026-09-20-i cél):** egy általános, többnyelvű dokumentum- és e-mail-feldolgozó **AI-flow-keretrendszer**
 (Burr + Pydantic + sidecar + Jev), amelyben a flow-k példányok, a keret-réteg (adapter, regiszter-séma, hívási
 hely-séma, policy-séma, eval, store, kontrakt, bemenet-illesztők) közös. Az alábbi folyamat a három referencia-flow-t
 mutatja (M1 kategorizálás, M2 magyar számla két karral, M3 e-mail szándék); egy új flow ugyanezekre a síkokra ül rá
-(`docs/ROADMAP.md` §10).
+(belső: `ROADMAP.md` §10).
 
 ## 1. A folyamat egy levéltől a döntésig
 
@@ -75,11 +76,11 @@ adatból kézi címkéző lista (`*_manual_sample.md`) → saját golden (`golde
 
 | sík | mi | hol | vezérlés |
 |---|---|---|---|
-| **Flow** (Burr) | három gráf, `@action.pydantic` tipizált állapot, `run_id` = app_id, lokális tracker | `jav/flow.py`, `flow_detect.py`, `flow_email.py`; `CONTRACT` mindhárom végén | `python -m jav.cli flows` lint + FLOW.md; tracker UI `burr` |
-| **Döntés** (Jev + gpt) | négy Jev-hívási hely (detect, email_intent, select, verify) és egy generatív lépés (extract_llm); az adapter (`jav/adapters/jev.py`) a konkrét modellverziót teszi a cache-kulcsba, RetryPolicy-val hív, SDK-hibát `JevUnavailableError`-ként ad tovább | kérdéskészlet `configs/callsites/*.json`, regiszterek `configs/doc_types.json`, `intents.json`; kód: `jav/detect.py`, `intent.py`, `jev_select.py`, `jev_verify.py`, `extract_llm.py` | `configs` (verzió, hash), `docs/callsites/` katalógus, sávok és útvonalak `configs/policy.json` (`bands` / `band_for`, `jav/policy.py`) |
-| **Adat** (SQLite) | documents · datapoints · emails · review_queue · ledger · golden_labels | `store/jav.sqlite`, `jav/store.py` (additív migráció) | `store` statisztika; a ledger minden AI-hívást `config_hash`-sel és hiba esetén `error`-ral rögzít |
+| **Flow** (Burr) | öt gráf: a három referencia-flow és a két tanulási ág; `@action.pydantic` tipizált állapot, `run_id` = app_id, lokális tracker | `jav/flow.py`, `flow_detect.py`, `flow_email.py`, `flow_learning.py`, `flow_email_learning.py`; `CONTRACT` mindegyik végén | `python -m jav.cli flows` lint + FLOW.md; tracker UI `burr` |
+| **Döntés** (Jev + gpt) | a Jev-hívási helyek családjai: detect és detect_detail, email_intent, select (magyar, külföldi, közmű), verify (típusonként) — fájlonként a `configs/callsites/` alatt; két generatív lépés: a G-kar kivonatolója (extract_llm) és a levelek feladatjavaslata (`configs/email_tasks.json`); az adapter (`jav/adapters/jev.py`) a konkrét modellverziót teszi a cache-kulcsba, RetryPolicy-val hív, SDK-hibát `JevUnavailableError`-ként ad tovább | kérdéskészlet `configs/callsites/*.json`, regiszterek `configs/doc_types.json`, `intents.json`; kód: `jav/detect.py`, `intent.py`, `jev_select.py`, `jev_verify.py`, `extract_llm.py` | `configs` (verzió, hash), `docs/callsites/` katalógus, sávok és útvonalak `configs/policy.json` (`bands` / `band_for`, `jav/policy.py`) |
+| **Adat** (SQLite) | documents · datapoints · emails · review_queue · ledger · golden_labels; 040 óta a munkacsomagok, futások, munkasor, teendő-okok, hívásnapló, levél-eredmények, postafiók- és figyeltmappa-táblák (teljes lista: `python -m jav.cli store`); a folyamatállapot külön tárban (`store/burr_state.sqlite`) | `store/jav.sqlite`, `jav/store.py` (additív migráció) | `store` statisztika; a ledger minden AI-hívást `config_hash`-sel és hiba esetén `error`-ral rögzít |
 | **Mérés** (eval) | flow-független ítélet-lista a nyers futásokból: pontosság és sáv kérdésenként, kalibráció (ECE), top-prob vs. conf, policy-újraértékelés hívás nélkül, determinizmus | `jav/eval_report.py` (bemenet `runs/*.jsonl`), a flow-specifikus futtatók `jav/evals*.py` | `eval-report` → `runs/<idő>_eval_report.md`; golden / determinism parancsok flow-nként |
-| **Adminisztráció** | konfig-verziók és hash-ek, modellek és árak, lint, golden-eredmények, review-sor; session-szabályok és hookok | `jav/cfg.py`, `configs/models.json`, `jav/admin.py`, `CLAUDE.md`, `.claude/settings.json`, `scripts/hooks/` | `admin` egy képernyőn; hookok: handoff-betöltés, compact-figyelmeztetés, Stop-blokk, handoff-review (Fable) |
+| **Adminisztráció** | konfig-verziók és hash-ek, modellek és árak, lint, golden-eredmények, review-sor; session-szabályok és hookok | `jav/cfg.py`, `configs/models.json`, `jav/admin.py`, `CLAUDE.md`, `.claude/settings.json`, `scripts/hooks/` | `admin` egy képernyőn; hookok: handoff-betöltés, compact-figyelmeztetés, Stop-emlékeztető (2026-09-27 óta nem blokkol), handoff-review (Fable) |
 
 ## 3. Hol dől el mi — a döntési hierarchia a gyakorlatban
 
@@ -106,7 +107,7 @@ adatból kézi címkéző lista (`*_manual_sample.md`) → saját golden (`golde
 | változtatás | hol | mi követi |
 |---|---|---|
 | típus- vagy szándék-leírás (`what`), határ (`not_for`), példa (`examples`), család (`parent`) | `configs/doc_types.json` / `intents.json` (séma v2), `meta.version` léptetés + changelog | `detect-golden` / `email-golden` (új hash → élő hívások), `detect-determinism` / `email-determinism`; `eval-report` (szülő-címke szakasz); `docs` regenerálás |
-| Jev-instrukció, Noul-kérdés | `configs/callsites/<hely>.json` | ugyanaz; a `docs/callsites/<hely>.md` mutatja a verziónkénti statisztikát |
+| Jev-instrukció, Noul-kérdés | `configs/callsites/<hely>.json` | ugyanaz; a helyi, generált hívásihely-katalógus mutatja a verziónkénti statisztikát |
 | sáv, küszöb, útvonal | `configs/policy.json` (`bands`, `band_for`, útvonalak) | nem kell újrafuttatni: `eval-report` a nyers futásokból (`runs/*.jsonl`) mutatja, hány eset váltana sávot |
 | modell, ár, timeout, retry, cache-verzió, alias-TTL | `configs/models.json` | a `cache_version` léptetése minden cache-kulcsot érvénytelenít; a modellverzió-váltás (szonda) magától új kulcsot ad |
 | gráf-lépés | flow-modul + `CONTRACT` | `flows` lint + FLOW.md |
@@ -121,9 +122,10 @@ igényel egy szondát naponta (API-kulcs kell; offline a fájlban lévő felold�
 ## 5. Amit a Claude-nak tudnia kell a hatékony fejlesztéshez
 
 - Session-protokoll és handoff: `CLAUDE.md` §2; a hookok kényszerítik (SessionStart / PreCompact / Stop / handoff-review).
-  Session-indítás: `python -m jav.cli preflight` (pytest + lint + konfigok + handoff-frissesség + `docs/STATE.md`), majd
-  a teljes handoff (a hook betölti), `docs/BACKLOG.md`, `docs/DECISIONS.md`. Az állapot-számokat sehova ne másold kézzel:
-  a generált `STATE.md`-re hivatkozz. Handoff a `docs/handoffs/TEMPLATE.md` szerint.
+  Session-indítás: `python -m jav.cli preflight` (pytest + lint + konfigok + handoff-frissesség + adatőr + a helyi
+  állapotoldal), majd a teljes handoff (a hook betölti), a teendőlista és a döntésnapló (belső: `BACKLOG.md`,
+  `DECISIONS.md`). Az állapot-számokat sehova ne másold kézzel: a generált állapotoldalra hivatkozz. Handoff a sablon
+  szerint (belső: `handoffs/TEMPLATE.md`).
 - Jev-kérdés tervezése: `docs/JEV_PLAYBOOK.md` (a doksi tényei, rés-elemzés hívási helyenként, checklist).
 - Új Jev-kérdés: konfig-JSON + `build_questions` (regiszter-hivatkozás `registry:<név>`), a `docs.typesafe.ai` cookbook, teszt
   a `tests/test_cfg.py` mintájára, golden-futás előtte-utána.
@@ -158,7 +160,7 @@ flowchart LR
 | Feldolgozó | `jav/runtime/worker.py` | stabil azonosító + Burr-állapotmentés (`burr_state.sqlite` az adattár mellett); folytatás a következő lépéstől; leállítás lépéshatáron; megváltozott forrás elutasítva | `tests/test_runtime_worker.py`, `tests/test_work_cli.py` |
 | Teendők | `jav/store.py` `review_reasons` | okonkénti felvétel és zárás felvevő lépés szerint; emberi döntés szerzővel | `tests/test_review_reasons.py` |
 | Részleges OCR | `jav/policy.py` `ocr_coverage_reasons` | kihagyott oldal = mindig teendő | `tests/test_ocr_coverage.py` |
-| Levélfogadó | `jav/ingest_server.py`, `jav/emails.py` | gyökéren belüli útvonalak, méret- és szerkezetkorlát, opcionális kulcs, tartalomhash-es ismétlésvédelem | `tests/test_ingest_security.py` |
+| Levélfogadó | `jav/ingest_server.py`, `jav/emails.py` | gyökéren belüli útvonalak, méret- és szerkezetkorlát, kötelező kulcs (066 óta; nélküle induláskor egyszeri kulcsot ír ki), böngészőből érkező kérés elutasítva, tartalomhash-es ismétlésvédelem | `tests/test_ingest_security.py` |
 | Üzemi védőháló (063) | `jav/runtime/worker.py`, `jav/runtime/queue.py`, `jav/mailbox.py`, `jav/app_settings.py`, `jav/work.py` | a feldolgozó hurok váratlan hibán nem áll le (a feladat lezárul, a hiba naplózva); az árva feladat legfeljebb 3-szor indul újra, utána halott, a leállás alatt kért leállítás induláskor lezárul; a félbemaradt futásindítás ismétléskor pótlódik, és addig nem „kész”; a megszakadt levélletöltés megérkezett levelei csomagba kerülnek; a figyelt mappa a fájlt csak sikeres felvétel után jelöli látottnak, egy mappát egyszerre egy folyamat néz át; a PDFium-hívások zár alatt futnak | `tests/test_stability_063.py` |
 | Napló, mentés (063) | `jav/runtime/applog.py`, `jav/backup.py` | állandó, forgó napló (`runs/logs/`); adattár-mentés futás közben is, sértetlenség-ellenőrzéssel (`python -m jav.cli backup`) | `tests/test_stability_063.py` |
 | Napi mentés, tár-ritkítás (064) | `jav/backup.py`, `jav/runtime/persistence.py`, `jav/runtime/worker.py`, `scripts/backup-task.ps1`, `configs/service.json` `backup` | napi ütemezett mentés, ellenőrzött másolat a második helyre, állapotfájl és felületi figyelmeztetés; a lezárt tétel folyamat-állapotaiból csak az utolsó marad (a Burr `load` is csak azt olvassa); `burr-prune` a régi tár egyszeri ritkítására és tömörítésére | `tests/test_ops_064.py`, `ui/src/ops064.test.tsx` |
@@ -224,7 +226,7 @@ megjeleníti és továbbítja. A javítás a forrásirat mellett történik, és
 | Teendők | `ui/src/views/ReviewWorkspace.tsx`, `ui/src/review/FieldPanel.tsx` (045 óta; a korábbi javító-szerkesztő kivezetve) | tételsor, forrás-PDF, saját és korábbi teendők, okonkénti rendezés, mezőjavítás | a munkapéldány hálózati hibánál és ütközésnél is megmarad |
 | Futtatás | `ui/src/views/Runs.tsx` | lista, részletnézet futás közbeni frissítéssel, keret-sáv, munkasor, hívásnapló kibontva, leállítás, jóváhagyás | – |
 
-**Technika.** React 19, Vite 8, TypeScript 5.9, tesztek: Vitest 4 + Testing Library (jsdom). Összesen 108 npm-csomag,
+**Technika.** React 19, Vite 8, TypeScript 5.9, tesztek: Vitest 4 + Testing Library (jsdom). Összesen 137 npm-csomag (2026-09-30),
 nincs komponenskönyvtár. A betű (Geist) helyi csomagból jön, internet nem kell hozzá. A build a `ui/dist/`-be kerül
 (git-ignorált), és a szolgáltatás a gyökéren adja ki. A belépő HTML-t a böngésző mindig újrakéri. Fejlesztéshez az
 `npm run dev` (5173-as port) az `/api` hívásokat a szolgáltatáshoz továbbítja. A preflight lefuttatja a felület
@@ -341,3 +343,22 @@ flowchart LR
 Korlát: a letöltés a feldolgozó szálában fut (percekig is), közben irat-tétel nem halad. A szándék kézi javítása és a
 csatolmányok feldolgozása 058 óta megvan (K5.1–K5.2, 10. pont): a PDF-csatolmány a levél csomagjában, a levél-recepttel fut,
 nem külön irat-munkacsomagban.
+
+## 12. Adat-ellenőrzések, korlátok és védelmek (066–071, 2026-09-29/30)
+
+**Laikus összefoglaló.** A 066-os átvizsgálás és a független audit után a rendszer több helyen szigorúbb lett. Az
+adószámot felismert alakkal és ellenőrzőszámmal nézi, a jelölt nélküli mezőre nem ad hamis bizonyosságot, a sérült
+betűjelből nem lesz negatív összeg, és a típuscsomag nélküli irat teendőt kap. A túl nagy iratot a bemeneti korlát
+állítja meg. A kód felől az adatőr védi a GitHubot, a böngésző felől a védőfejlécek a felületet; a futó verzió
+látható. A részletes biztonsági kép: [biztonsági leírás](SECURITY.md).
+
+| elem | fájl | garancia | teszt |
+|---|---|---|---|
+| Adószám (069) | `jav/taxid.py`, `jav/validators.py` `tax_id` | felismert alak (magyar, közösségi, uniós és néhány nem uniós); a címkét levágja; a magyarnál ellenőrzőszám, áfakód, megyekód; ami nem ismerhető fel, teendő | `tests/test_taxid_069.py`, `tests/test_properties_067.py` |
+| Jelölt nélküli mező (069) | `jav/jev_select.py` | „nincs becslés” jelzés és jelenlét-kérdés; üres mezőre nincs 100% | `tests/test_no_candidate_field_069.py` |
+| Elveszett betűjel (069) | `jav/pdf.py` `fix_lost_glyphs` | a sérült pénznemjel nem ad kötőjelet (negatív összeget) | `tests/test_lost_glyph_069.py` |
+| Típuscsomag nélküli irat (069) | `jav/flow_detect.py` | a felismert, de csomag nélküli típus teendőt kap | `tests/test_no_type_pack_069.py` |
+| Bemeneti korlát (067) | `configs/service.json` `input_limits`, `jav/pdf.py`, `jav/ocr.py`, `jav/page_image.py` | fájlméret, oldalszám, oldalkép-képpont; fölötte nevesített hiba vagy teendő | `tests/test_input_limits_067.py` |
+| Adatőr (071) | `jav/data_guard.py`, `scripts/githooks/`, `configs/data_guard.json` | commit és feltöltés előtt: valódi alakú adat, kulcs, belső munkaanyag, irat és bináris fájl megállít; a régi történet nem tölthető fel | `tests/test_data_guard_071.py` |
+| Védőfejlécek (071) | `jav/api.py` `_SecurityHeaders` | lásd a 7. pont táblázatát | `tests/test_security_headers_071.py` |
+| Verzió (071) | `jav/version.py` | lásd a 7. pont táblázatát | `tests/test_version_071.py` |
