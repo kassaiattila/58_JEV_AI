@@ -27,7 +27,7 @@ from typing import Any, Callable
 from burr.integrations.serde import pydantic as burr_pydantic
 
 from jav import app_settings, mailbox, store, work
-from jav.runtime import calls, lock, persistence, queue
+from jav.runtime import applog, calls, lock, persistence, queue
 from jav.runtime.persistence import ClosingSQLitePersister
 
 log = logging.getLogger("jav.worker")
@@ -35,6 +35,12 @@ log = logging.getLogger("jav.worker")
 burr_pydantic.set_allowlist(["jav"])  # only the project's own models when state is loaded back
 
 BACKOFF_S = 30.0
+
+
+def error_text(exc: BaseException, *, limit: int | None = None) -> str:
+    """The stored form of an item or job error: type and message, with secrets masked (075, S04)."""
+    text = applog.redact(f"{type(exc).__name__}: {exc}")
+    return text if limit is None else text[:limit]
 
 
 class SourceChanged(RuntimeError):
@@ -184,12 +190,12 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
         work.record_item_result(run_id, item_id, status="cancelled", flow_run_id=app_id)
         result = queue.finish_cancelled(job.id)
     except SourceChanged as exc:
-        work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=f"source_changed: {exc}")
-        result = queue.fail(job.id, f"source_changed: {exc}", max_attempts=1, backoff_s=0)
+        work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=f"source_changed: {applog.redact(str(exc))}")
+        result = queue.fail(job.id, f"source_changed: {applog.redact(str(exc))}", max_attempts=1, backoff_s=0)
     except Exception as exc:  # noqa: BLE001 - every other error is item-level; the queue's attempt limit decides
         log.exception("item %s of %s failed", item_id, run_id)  # 063: full traceback to the log (item: 300 chars)
-        work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=f"{type(exc).__name__}: {exc}"[:300])
-        result = queue.fail(job.id, f"{type(exc).__name__}: {exc}", max_attempts=int(run["recipe"].get("max_attempts", 2)),
+        work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=error_text(exc, limit=300))
+        result = queue.fail(job.id, error_text(exc), max_attempts=int(run["recipe"].get("max_attempts", 2)),
                             backoff_s=BACKOFF_S)
     else:
         work.record_item_result(run_id, item_id, status="done", final_status=final, flow_run_id=app_id)
@@ -241,7 +247,7 @@ def _settle_abandoned(job: queue.Job, status: str, error: str) -> None:
 
 def _fail_unexpected(job: queue.Job, exc: Exception) -> str:
     """063: the worker loop's safety net — an unexpected error closes the job (no retry), and the loop carries on."""
-    error = f"unexpected: {type(exc).__name__}: {exc}"
+    error = f"unexpected: {error_text(exc)}"
     result = queue.fail(job.id, error, max_attempts=1, backoff_s=0)
     try:
         _settle_abandoned(job, "failed", error)

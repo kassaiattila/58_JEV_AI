@@ -64,6 +64,14 @@ export interface Health {
   ok: boolean; api_version: string; service_config: string;
   version: string; commit: string | null; dirty: boolean | null; started_at: string;
 }
+/** 075: the last dependency audit (`runs/deps-audit.json`), as `jav/deps_audit.py` `status()` returns it. */
+export interface DepsAuditInfo {
+  status: {
+    checked_at: string; age_days: number; stale: boolean; finding_count: number; errors: string[];
+    python?: { packages?: number }; npm?: { packages?: number };
+  } | null;
+  max_age_days: number;
+}
 export interface BackupInfo {
   status: BackupRun | null;
   config: { schedule?: string; keep?: number; copy_to?: string | null; with_burr?: boolean; with_docs?: boolean; max_age_hours?: number };
@@ -389,6 +397,7 @@ export const api = {
   /** 071: a futó szolgáltatás verziója és az induláskor rögzített commit. */
   health: () => request<Health>("GET", "/health"),
   backupStatus: () => request<BackupInfo>("GET", "/system/backup"),
+  depsAudit: () => request<DepsAuditInfo>("GET", "/system/deps-audit"),
   backupNow: () => request<BackupRun & { dir: string; copy: BackupRun["copy"] }>("POST", "/system/backup", {}),
   mailbox: () => request<{ schedules: MailboxSchedule[]; pulls: MailboxPull[]; bridge_available: boolean; accounts?: string[];
     defaults: { interval_min: number; lookback_days: number } }>("GET", "/mailbox"),

@@ -12,6 +12,7 @@ import { RecipesPanel } from "./RecipeInfo";
 import { RunList } from "./Runs";
 import { AppearancePanel } from "./settings/AppearancePanel";
 import { BackupPanel } from "./settings/BackupPanel";
+import { DepsAuditPanel } from "./settings/DepsAuditPanel";
 import { FoldersPanel } from "./settings/FoldersPanel";
 import { LanguagePanel } from "./settings/LanguagePanel";
 import { UsersPanel } from "./settings/UsersPanel";
@@ -93,6 +94,7 @@ function SystemPanel() {
         {msg ? <p role="status" className="notice">{msg}</p> : null}
       </section>
       <BackupPanel />
+      <DepsAuditPanel />
       <section aria-label={t("Minden futás")}>
         <h3>{t("Minden futás")}</h3>
         <RunList />

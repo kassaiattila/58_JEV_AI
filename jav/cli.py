@@ -213,6 +213,21 @@ def cmd_store(args: argparse.Namespace) -> int:
     return 0
 
 
+def _refresh_deps_audit() -> None:
+    """075: the daily backup also renews the dependency audit once it is a week old; a failure never fails the backup."""
+    import logging
+
+    from jav import deps_audit
+
+    try:
+        fresh = deps_audit.refresh_if_stale()
+    except Exception:  # noqa: BLE001 - the audit is a side task of the backup; logged with its traceback
+        logging.getLogger("jav.backup").exception("dependency audit failed")
+        return
+    if fresh is not None:
+        logging.getLogger("jav.backup").info("dependency audit: %s", deps_audit.verdict(deps_audit.status())[1])
+
+
 def cmd_backup(args: argparse.Namespace) -> int:
     from jav import backup
     from jav.runtime import applog
@@ -220,6 +235,7 @@ def cmd_backup(args: argparse.Namespace) -> int:
     if args.scheduled:  # 064: the daily scheduled backup, per the `backup` section of configs/service.json
         applog.setup("backup")
         m = backup.scheduled()
+        _refresh_deps_audit()
     else:
         m = backup.backup(out_root=Path(args.out) if args.out else None, with_burr=args.with_burr, keep=args.keep,
                           copy_to=Path(args.copy_to) if args.copy_to else None, with_docs=args.with_docs)
@@ -414,6 +430,21 @@ def cmd_lang_guard(args: argparse.Namespace) -> int:
     return 1 if over else 0
 
 
+def cmd_deps_audit(args: argparse.Namespace) -> int:
+    """075: known vulnerabilities in the pinned Python and UI packages (free; needs network); see jav/deps_audit.py."""
+    from jav import deps_audit
+
+    if not args.show:
+        deps_audit.run()
+    current = deps_audit.status()
+    for f in [f for part in ("python", "npm") for f in ((current or {}).get(part) or {}).get("findings") or []]:
+        print(f"{f['ecosystem']}: {f['package']} {f['version']} - {f['advisory']}"
+              + (f" [{f['severity']}]" if f.get("severity") else "") + (f" (fix: {f['fix']})" if f.get("fix") else ""))
+    ok, line = deps_audit.verdict(current)
+    print(f"dependency audit: {line}")
+    return 0 if ok and current is not None and not current["errors"] else 1
+
+
 def cmd_hooks_install(args: argparse.Namespace) -> int:
     from jav import data_guard
     from jav.config import PROJECT_ROOT
@@ -573,6 +604,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="raise one file to its current count (document vocabulary, test data); repeatable")
     p.add_argument("--same-code", metavar="REV", help="list .py files whose code differs from REV beyond comments and docstrings")
     p.set_defaults(fn=cmd_lang_guard)
+
+    p = sub.add_parser("deps-audit", help="075: known vulnerabilities in the pinned Python and UI packages (pip-audit, npm audit; needs network)")
+    p.add_argument("--show", action="store_true", help="only show the last result (runs/deps-audit.json), without a new audit")
+    p.set_defaults(fn=cmd_deps_audit)
 
     p = sub.add_parser("hooks-install", help="071 adatőr: a verziózott git-horgok bekapcsolása (core.hooksPath = scripts/githooks)")
     p.set_defaults(fn=cmd_hooks_install)

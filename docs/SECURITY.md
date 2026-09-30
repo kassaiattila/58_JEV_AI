@@ -96,7 +96,7 @@ The system encrypts nothing. Disk encryption (BitLocker) is a machine setting, a
 | Store | extracted data from documents and emails, the documents' word layer, corrections, to-dos, runs, the call log | indefinitely |
 | Flow-state store | the full processing state of each item, including the text that was read | for finished items, only the last save (thinning) |
 | Runs folder | raw runs; the JEV cache (with the requests, so excerpts of document and email text); the OCR cache (recognised text) | indefinitely |
-| Service log | errors with stack traces, which may include file names and paths; for some operations, the requester's name | rotates every 5 MB; 5 old copies are kept |
+| Service log | errors with stack traces, which may include file names and paths; for some operations, the requester's name. Keys, tokens and passwords from the environment and the local key file are masked (since 2026-09-30) | rotates every 5 MB; 5 old copies are kept |
 | Incoming email folder | the text and header data of downloaded emails, and their attachments | indefinitely |
 | Source documents | stay where they are; the system does not copy them, it only refers to them by content hash | not managed by the system |
 | Store backup | the store and the internal working documents, locally and on the network storage; unencrypted | the latest 14 in both places |
@@ -112,7 +112,7 @@ The backup is not a full recovery: it does not include the source documents, the
 - **Exceptions.** Made-up sample values are on a versioned exception list. A few of the owner's own old values are tolerated known values: they are listed only as fingerprints, and they pass only in the file where they are now. Replacing most of them is part of section 9 (injection hardening, data inventory).
 - The hooks must be enabled once per clone; the start-up check reports an error if they are not. Bypassing them is forbidden ([development guide, section 1](guides/DEVELOPMENT.md)).
 - **Internal working documents** (handoffs, plans, reports, the backlog, the decisions log) are not in git. They stay local, and the daily backup copies them.
-- **Third-party packages.** The list of Python packages is pinned. Known vulnerabilities are checked by hand (Python and UI) before a release and after a package update; this is not part of the start-up check and is not scheduled. GitHub's vulnerability alerts have been on since 2026-09-30, without automatic fix pull requests.
+- **Third-party packages.** The Python and UI packages are pinned. Since 2026-09-30 the known-vulnerability check (Python and UI) runs with the daily backup once a week, or by hand with `python -m jav.cli deps-audit`; its date and result are on the Settings › System page, and the start-up check fails on a known vulnerability. GitHub's vulnerability alerts have been on since 2026-09-30, without automatic fix pull requests.
 - **Which code is running.** The service shows the release version and the commit it was started from in its health response and on the **Settings › System** (*Beállítások › Rendszer*) page, and flags it if the running code had uncommitted changes.
 
 ## 9. Open items
@@ -123,7 +123,6 @@ The backup is not a full recovery: it does not include the source documents, the
 - **Recovery** (`S-helyreállítás`): a test of whether the working system can be restored from the backup in a separate location, with written steps and a measured time.
 - **Authentication** (`S-hitelesítés`): real login (password or Windows authentication) and permissions instead of choosing a name; mandatory before network or multi-user use.
 - **Folder restriction:** switch it back on before anyone else can reach the service.
-- **Dependencies** (`S-függőségek`): the package vulnerability check should run regularly, with a dated, visible result.
 - **Last writer wins** (`Q-utolsó-író`): version checking when settings and work-package data are saved, because today the last save wins; needed before multi-user use.
 
 ## 10. Reporting a vulnerability
@@ -183,4 +182,4 @@ The repository is private and has a single maintainer. Report security issues di
 - Documents: `python -m jav.experiments.document_injection_probe --live`, `configs/experiments/document_injection.json` 1.0.0; models: `gpt-5.4-mini-2026-03-17`, `jev-1.13.0`; raw run: `runs/20260929_163752_067_injection/` (`rows.jsonl`, `summary.md`, `accounting.json`). The S path's JEV request is narrowed to ±1 line around the candidates, so it sees the sentence below the heading only partly; the G path gets the full text. Offline parts: `tests/test_document_injection_probe.py`.
 - Emails: `python -m jav.cli email-injection-probe` (`jav/evals_email.py` `INJECTIONS`: `clean`, `en_override_top`, `hu_override_top`, `hu_reroute_top`, `en_override_end`); raw run: `runs/20260920_153227_email_injection_probe.jsonl`; the call site's configuration has not changed since (`configs/callsites/email_intent.json` 1.1.0).
 
-**Manual checks** ([development guide, section 6](guides/DEVELOPMENT.md)): `uvx pip-audit -r requirements.lock --no-deps`; `cd ui; npm audit`. GitHub's vulnerability alerts are the repository's Dependabot alerts (on since 2026-09-30); automatic fix pull requests are not enabled.
+**Dependency audit** ([development guide, section 6](guides/DEVELOPMENT.md)): `python -m jav.cli deps-audit` (`jav/deps_audit.py`: `pip-audit -r requirements.lock --no-deps` and `npm audit --json` in `ui/`; result in `runs/deps-audit.json`; refreshed by `backup --scheduled` when older than 7 days; `GET /api/system/deps-audit`). GitHub's vulnerability alerts are the repository's Dependabot alerts (on since 2026-09-30); automatic fix pull requests are not enabled.

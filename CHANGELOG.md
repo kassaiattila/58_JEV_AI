@@ -15,6 +15,10 @@ This list shows what each release brought. `v1.0.0` was the first version the ow
   - Known Outlook errors are now shown in the UI language in the download log and in the schedules' "Last" column as well, not only in the preview; other errors are shown unchanged.
   - The Recipes settings page has an English label.
   - Deleting a mailbox schedule, removing an item from a package and removing a user now ask for a second click to confirm, as approving and stopping already did.
+- **Security fixes after the repeated audit (2026-09-30):**
+  - The JEV SDK is upgraded to 0.7.2, which validates the API key early and keeps it out of logged exceptions.
+  - The service and worker logs, and the error text stored for a failed item, mask every key, token and password from the environment, including in the exception chain.
+  - A dependency audit checks the pinned Python and UI packages for known vulnerabilities once a week, with the daily backup, or by hand (`python -m jav.cli deps-audit`). The System page shows its date and result, and the start-up check fails on a known vulnerability.
 - **English repository:** the repository's documentation, code comments and commit messages are switching to English. Hungarian document vocabulary (the wording on Hungarian invoices that the code and the models match against) stays as it is.
 
 ## v1.0.5 — 2026-09-30

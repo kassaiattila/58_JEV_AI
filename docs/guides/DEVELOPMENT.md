@@ -66,11 +66,10 @@ Only at the end of a session and when a stage closes (the owner's decision of 20
 
 ## 6. Security and quality checks (067)
 
-These are not part of the start-up check. Run them before a release, after updating dependencies, or when a sensitive area has changed. None of them costs money.
+Run them before a release, after updating dependencies, or when a sensitive area has changed. None of them costs money. The start-up check runs none of them; it only reads the dependency audit's last result (it fails on a known vulnerability and notes an audit older than a week). The daily backup renews that result once a week, and the System page shows it.
 
 ```powershell
-uvx pip-audit -r requirements.lock --no-deps          # known vulnerabilities in the pinned Python packages (needs network)
-cd ui; npm audit; cd ..                               # the same for the UI packages
+python -m jav.cli deps-audit                          # known vulnerabilities in the pinned Python and UI packages (needs network; since 075)
 pytest tests/ --cov=jav --cov-report=term-missing     # test coverage: which lines no test executes
 $env:JAV_HYPOTHESIS_EXAMPLES = "3000"; pytest tests/test_properties_067.py   # property-based tests with a deeper search
 ```
