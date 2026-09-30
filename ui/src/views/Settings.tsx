@@ -19,7 +19,9 @@ import { VersionPanel } from "./settings/VersionPanel";
 import { ConfirmButton } from "../components/ConfirmButton";
 
 // a feliratok magyar forrásként állnak itt; a fordítás a kirajzoláskor történik (`t()`)
-const SECTIONS: { key: SettingsSection; label: string; hint: string }[] = [
+// 073: exported so a test can check that every label and hint has an English translation (the i18n checker only
+// sees literal t("...") arguments, and "Receptek" slipped through)
+export const SETTINGS_SECTIONS: { key: SettingsSection; label: string; hint: string }[] = [
   { key: "mailboxes", label: "Postafiókok", hint: "Outlook-fiókok, ütemezett letöltés, letöltési napló" },
   { key: "folders", label: "Munkamappák", hint: "Figyelt mappák: az új iratokból magától lesz munkacsomag" },
   { key: "recipes", label: "Receptek", hint: "Mit csinálnak a receptek, mit jelentenek a beállításaik, mennyibe kerülnek" },
@@ -31,13 +33,13 @@ const SECTIONS: { key: SettingsSection; label: string; hint: string }[] = [
 
 export function Settings({ section }: { section: SettingsSection }) {
   useLocale();
-  const current = SECTIONS.find((s) => s.key === section) ?? SECTIONS[0];
+  const current = SETTINGS_SECTIONS.find((s) => s.key === section) ?? SETTINGS_SECTIONS[0];
   return (
     <>
       <PageHeader title={t("Beállítások")} summary={t(current.hint)} />
       <div className="settings-layout">
         <nav className="settings-nav" aria-label={t("Beállítások")}>
-          {SECTIONS.map((s) => (
+          {SETTINGS_SECTIONS.map((s) => (
             <a key={s.key} href={`#/settings/${s.key}`} aria-current={s.key === current.key ? "page" : undefined}>{t(s.label)}</a>
           ))}
         </nav>

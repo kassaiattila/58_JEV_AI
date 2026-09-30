@@ -6,8 +6,10 @@ import { t } from "../i18n";
 
 export const CONFIRM_WINDOW_MS = 5000;
 
-export function ConfirmButton({ onConfirm, children, className, disabled }: {
-  onConfirm: () => void; children: ReactNode; className?: string; disabled?: boolean;
+// 073: also used for the other one-click deletions (mail schedule, package item, user). `ariaLabel` names an
+// icon-like button; while armed it is dropped so screen readers announce the confirmation text instead.
+export function ConfirmButton({ onConfirm, children, className, disabled, ariaLabel }: {
+  onConfirm: () => void; children: ReactNode; className?: string; disabled?: boolean; ariaLabel?: string;
 }) {
   const [armed, setArmed] = useState(false);
   useEffect(() => {
@@ -16,7 +18,7 @@ export function ConfirmButton({ onConfirm, children, className, disabled }: {
     return () => window.clearTimeout(timer);
   }, [armed]);
   return (
-    <button type="button" className={className} disabled={disabled} aria-live="polite"
+    <button type="button" className={className} disabled={disabled} aria-live="polite" aria-label={armed ? undefined : ariaLabel}
       onClick={() => {
         if (!armed) { setArmed(true); return; }
         setArmed(false);

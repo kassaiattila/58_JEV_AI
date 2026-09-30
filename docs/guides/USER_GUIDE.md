@@ -206,12 +206,12 @@ A billentyűk kisbetűvel (Shift nélkül) és a beviteli dobozon kívül műkö
 - **Balra a levél** áll: tárgy, „Feladó”, „Címzett”, „Érkezett”, „Csatolmány” és a szöveg. A linkek nem kattinthatók, helyettük „link: gépnév” látszik, a teljes cím az egér alatt olvasható. Jelzés figyelmeztet, ha a szándék-felismerés csak a levél elejét látta, vagy ha a szöveg már a letöltéskor elvágódhatott.
 - **Jobbra** a teendők állnak „Rendezve” gombbal, a **„Felismert szándék”** a modell becslésével, vagy a „Kézzel javítva (a gép szerint: …)” / „Kézzel megerősítve” jelzéssel.
 - **„Szándék javítása”:** válaszd ki a helyes szándékot. Ha a mostani szándékkal egyezik, a gomb „Megerősítés”, különben „Javítás mentése”. Mentéskor a levél bizonytalan szándék miatti teendője lezárul, és a **„Javasolt következő lépés”** (például „Kézi feldolgozás”, „Archiválás”, „Adatkinyerés a csatolmányból (…)”) a javított szándékból számolódik újra.
-- **„Feladatjavaslatok (elfogadni csak ember tud)”:** csak akkor, ha a receptben a feladatjavaslat be van kapcsolva. Javaslatonként látszik a cím, az akció, a „Határidő” és a „Felelős” (csak ha a levélben szó szerint szerepel), valamint a „Bizonyíték” idézetei. Gombok: **„Elfogadás”**, **„Elvetés”**, az elfogadott javaslaton **„Elvégezve”** (a neveddel és az időponttal) és **„Elvégzés visszavonása”**. Az azonos javaslatok össze vannak vonva („N azonos javaslat összevonva”). A bizonyíték-ellenőrzésen kiesett javaslatok lenyitható listában látszanak, azzal együtt, hogy melyik részük nem igazolható. Archiválandó levélen (hírlevél, értesítés) nem kérünk javaslatot. Ha egy levél minden javaslatáról döntöttél, a javaslatokhoz tartozó teendő magától lezárul (ennek a teendőnek jelenleg nincs magyar felirata, rövid gépi kóddal látszik).
+- **„Feladatjavaslatok (elfogadni csak ember tud)”:** csak akkor, ha a receptben a feladatjavaslat be van kapcsolva. Javaslatonként látszik a cím, az akció, a „Határidő” és a „Felelős” (csak ha a levélben szó szerint szerepel), valamint a „Bizonyíték” idézetei. Gombok: **„Elfogadás”**, **„Elvetés”**, az elfogadott javaslaton **„Elvégezve”** (a neveddel és az időponttal) és **„Elvégzés visszavonása”**. Az azonos javaslatok össze vannak vonva („N azonos javaslat összevonva”). A bizonyíték-ellenőrzésen kiesett javaslatok lenyitható listában látszanak, azzal együtt, hogy melyik részük nem igazolható. Archiválandó levélen (hírlevél, értesítés) nem kérünk javaslatot. Ha egy levél minden javaslatáról döntöttél, a javaslatokhoz tartozó teendő („N feladatjavaslat vár döntésre”) magától lezárul. Ha a javaslat nem készült el, „A feladatjavaslat nem sikerült (…)” teendő látszik.
 - **„Csatolmányok felismerése”** és **„A csatolmányok adatai”:** a PDF-csatolmány a csomagban külön iratként fut. A „…: az adatkinyerés eredménye →” hivatkozás a csatolmány ellenőrző nézetére visz.
 
 ### 7.9 Iratok kezelése
 
-Futás után a munkafelület alatt lenyitható az **„Iratok kezelése: megnyitás, letöltés, eltávolítás”** rész, futás előtt ez az Ellenőrzés egyetlen tartalma. Soronként: **„Megnyitás”** (új lapon), **„Letöltés”**, **„Eltávolítás”**. Az eltávolítás megerősítés nélkül kiveszi a tételt a csomag listájából, a fájl a helyén marad, a korábbi futások bemenete nem változik.
+Futás után a munkafelület alatt lenyitható az **„Iratok kezelése: megnyitás, letöltés, eltávolítás”** rész, futás előtt ez az Ellenőrzés egyetlen tartalma. Soronként: **„Megnyitás”** (új lapon), **„Letöltés”**, **„Eltávolítás”**. Az eltávolítás két kattintást kér („Biztosan? Kattints újra”), és kiveszi a tételt a csomag listájából, a fájl a helyén marad, a korábbi futások bemenete nem változik.
 
 ## 8. Eredmény
 
@@ -242,8 +242,8 @@ A postafiók-letöltés a gépen futó Outlookból hozza be a leveleket.
 
 - **Mit olvassunk:** „Postafiók címe” (több is, vesszővel, pontosan úgy, ahogy az Outlookban szerepel; a „Korábban használt” címek egy kattintással hozzáadhatók vagy kivehetők), „Mappa” (vesszővel), „almappákkal”, az időszak („Az utolsó napok” a „Napok száma” mezővel, vagy „Dátumtól dátumig”), és „Legfeljebb ennyi levél (0 = nincs korlát)”.
 - **„Hány levél? (ingyenes)”:** előnézet arról, hány levél esik az időszakba, ebből mennyi új, és mennyi volt már beolvasva (ezeket kihagyja).
-- **Ütemezés** (csak „az utolsó napok” időszakkal): gyakoriság (15 percenként, félóránként, óránként, 4 óránként, naponta), majd „Ütemezés mentése”. Az **„Ütemezések”** táblában a gyakoriság módosítható, az ütemezés ki- és bekapcsolható vagy törölhető. Az ütemezés csak akkor fut, ha a feldolgozó fut, és az Outlook nyitva van.
-- **„Letöltések”:** minden letöltés állapota, az új levelek száma, a létrejött munkacsomag és az esetleges hiba.
+- **Ütemezés** (csak „az utolsó napok” időszakkal): gyakoriság (15 percenként, félóránként, óránként, 4 óránként, naponta), majd „Ütemezés mentése”. Az **„Ütemezések”** táblában a gyakoriság módosítható, az ütemezés ki- és bekapcsolható vagy törölhető (a „Törlés” két kattintást kér). A „Legutóbb” oszlop az utolsó letöltés eredményét vagy hibáját mutatja. Az ütemezés csak akkor fut, ha a feldolgozó fut, és az Outlook nyitva van.
+- **„Letöltések”:** minden letöltés állapota, az új levelek száma, a létrejött munkacsomag és az esetleges hiba. Az Outlook ismert hibái (például „Az Outlook nem fut ezen a gépen…”) itt és a „Legutóbb” oszlopban is a felület nyelvén látszanak.
 - A letöltést a feldolgozó végzi, közben az iratok feldolgozása vár. Az új levelekből munkacsomag lesz, de fizetős futás nem indul magától.
 
 ### 10.2 Munkamappák
@@ -256,7 +256,7 @@ Minden recept teljes leírása: mire való, mikor válaszd, mi kell hozzá, a l�
 
 ### 10.4 Felhasználók
 
-A „Ki dolgozik?” választéka. Az „Új név” mezővel és a „Felvétel” gombbal vehetsz fel új nevet, a „Törlés” gombbal törölhetsz. Mindkettő azonnal mentődik. A név betűt, számot, szóközt, pontot, @ jelet és kötőjelet tartalmazhat, legfeljebb 64 karakter hosszan. Ha a lista nem üres, módosítani csak a listán szereplő névvel lehet, és a csomag felelőse is innen választható.
+A „Ki dolgozik?” választéka. Az „Új név” mezővel és a „Felvétel” gombbal vehetsz fel új nevet, a „Törlés” gombbal törölhetsz (két kattintással: „Biztosan? Kattints újra”). Mindkettő azonnal mentődik. A név betűt, számot, szóközt, pontot, @ jelet és kötőjelet tartalmazhat, legfeljebb 64 karakter hosszan. Ha a lista nem üres, módosítani csak a listán szereplő névvel lehet, és a csomag felelőse is innen választható.
 
 ### 10.5 Megjelenés
 

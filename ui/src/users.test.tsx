@@ -68,6 +68,7 @@ describe("Felhasználók listája (061)", () => {
     expect(save).toHaveBeenLastCalledWith(["Minta Anna", "Teszt Elek"]);
     expect(await screen.findByText("Teszt Elek felvéve és mentve.")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Minta Anna törlése a listából" }));
+    await user.click(screen.getByRole("button", { name: "Biztosan? Kattints újra" })); // 073: two-click confirmation
     expect(save).toHaveBeenLastCalledWith(["Teszt Elek"]);
     expect(screen.queryByRole("button", { name: "Mentés" })).toBeNull();
     expect(within(screen.getByRole("region", { name: "Felhasználók" })).queryByText("Mentetlen módosítás van.")).toBeNull();

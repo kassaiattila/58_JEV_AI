@@ -2,6 +2,7 @@
 // letöltés, eltávolítás a csomagból; a futás előtt ez az Ellenőrzés egyetlen tartalma.
 import { useState } from "react";
 import { api, ApiError, type Workpackage } from "../api";
+import { ConfirmButton } from "../components/ConfirmButton";
 import { DataTable } from "../components/DataTable";
 import { t, useLocale } from "../i18n";
 
@@ -31,7 +32,7 @@ export function DocumentsPanel({ wp, onChanged }: { wp: Workpackage; onChanged: 
           <>
             <a className="small" href={api.sourceUrl(wp.id, String(row.item_id))} target="_blank" rel="noreferrer">{t("Megnyitás")}</a>
             <a className="small" href={api.sourceUrl(wp.id, String(row.item_id))} download>{t("Letöltés")}</a>
-            <button type="button" className="quiet small-btn" onClick={() => void remove(String(row.item_id))}>{t("Eltávolítás")}</button>
+            <ConfirmButton className="quiet small-btn" onConfirm={() => void remove(String(row.item_id))}>{t("Eltávolítás")}</ConfirmButton>
           </>
         )} />
     </section>

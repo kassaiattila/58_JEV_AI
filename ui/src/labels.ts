@@ -150,6 +150,9 @@ export function reasonText(code: string): string {
     case "detect_detail:second_option": return t("A részletes típusnál a második lehetőség is közel van: {{type}}", { type: docTypeLabel(p[2]) });
     case "intent:low_conf": return t("Bizonytalan levél-szándék: {{intent}} ({{p}})", { intent: intentLabel(p[2]), p: v });
     case "intent:no_result": return t("A levél szándékát nem sikerült felismerni");
+    // 073: task proposals from an e-mail (jav/flow_email.py); until now these showed the raw code
+    case "tasks:proposed": return t("{{n}} feladatjavaslat vár döntésre", { n: p[2] ?? "" });
+    case "tasks:failed": return t("A feladatjavaslat nem sikerült ({{why}})", { why: p[2] ?? "" });
   }
   if (p[0] === "validator") return checkText(p[1] ?? "", p.slice(2).join(":") || null);
   if (p[0] === "jev_unavailable") return t("A JEV nem volt elérhető ({{why}}); ellenőrizd kézzel", { why: p.slice(1).join(":") });
