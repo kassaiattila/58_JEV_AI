@@ -6,7 +6,33 @@ Releases in brief, newest first. Release rules: [development guide §1](docs/gui
 
 ## Plain-language summary
 
-This list shows what each release brought. `v1.0.0` was the first stable version: work packages, recipes, review on the document's page image, results and approval. The `v1.0.1`–`v1.0.4` fix rounds corrected problems found in daily use and in reviews; the most important of them was the tax-number check. `v1.0.5` is a security round: no personal data can reach GitHub, the browser does not store document data, and you can see which code is running. `v1.1.0` is a second security round after a repeated audit: paid calls, Azure recognition included, stay within a real, reserved upper bound, the documents shown for review are verified, and the repository's documentation is in English.
+This list shows what each release brought. `v1.0.0` was the first stable version: work packages, recipes, review on the document's page image, results and approval. The `v1.0.1`–`v1.0.4` fix rounds corrected problems found in daily use and in reviews; the most important of them was the tax-number check. `v1.0.5` is a security round: no personal data can reach GitHub, the browser does not store document data, and you can see which code is running. `v1.1.0` is a second security round after a repeated audit: paid calls, Azure recognition included, stay within a real, reserved upper bound, the documents shown for review are verified, and the repository's documentation is in English. `v1.1.1` cleans the public documents of internal information, keeps machine-specific values out of the repository, and settles uncertain paid calls in the UI.
+
+## v1.1.1 — 2026-09-30
+
+Fix round: public documents without internal information, fixes from the repeated audit's acceptance conditions, and
+settling uncertain paid calls in the UI.
+
+- **Public documents (2026-09-30):** every document in the repository now describes the system, not the development
+  process: no references to internal working documents, no internal round or stage codes, no figures from real use,
+  no details of the machine it was developed on. The README's capability table is rewritten by area, and a test keeps
+  the documents this way.
+- **No machine-specific values in tracked files (2026-09-30):**
+  - the second location of the daily backup comes from `JAV_BACKUP_COPY_TO` in `.env` (see `.env.example`);
+  - the legacy project defaults to the `10_AIFLOW_V4` folder next to the repository (`JAV_LEGACY_ROOT` overrides it);
+  - the OCR cache key covers only the settings that can change the recognised text, so moving a folder or editing a
+    note no longer makes every scanned document go through OCR again; `python -m jav.cli ocr-rekey --from-rev <rev>`
+    moves an existing cache to the new key once, and refuses if the older settings read differently.
+- **Cut candidate lists (2026-09-30):** when a field had more candidates than could be offered to JEV (above 250, or
+  trimmed to fit the request size) and JEV answered "none", the document gets a to-do, because the right value may have
+  been among the skipped ones. The found and sent candidate counts are recorded.
+- **Email receiver time limits (2026-09-30):** every read waits at most 30 seconds and the whole message must arrive
+  within 60 seconds, so a slow client cannot hold a connection open.
+- **Uncertain paid calls on the System page (2026-09-30):** a paid call interrupted mid-way keeps its maximum cost
+  reserved and blocks its step until a person settles it. The System page lists these calls and settles one with the
+  actual cost (or none) and a note, as `calls-resolve` does on the command line.
+- **Smaller fixes:** the state snapshot skips a golden run in which every case failed and names it, instead of showing
+  "no cases"; the invented bank account numbers of the injection probe pass the domestic check digits too.
 
 ## v1.1.0 — 2026-09-30
 
