@@ -378,6 +378,39 @@ def cmd_data_guard(args: argparse.Namespace) -> int:
     return 1 if data_guard.blocking(found) else 0
 
 
+def cmd_lang_guard(args: argparse.Namespace) -> int:
+    """073 language guard: no tracked file may gain Hungarian lines; see jav/lang_guard.py."""
+    from jav import lang_guard
+    from jav.config import PROJECT_ROOT
+
+    if args.same_code:
+        changed = lang_guard.changed_python_code(PROJECT_ROOT, args.same_code)
+        for rel in changed:
+            print(f"code changed: {rel}")
+        print(f"{len(changed)} Python file(s) differ from {args.same_code} beyond comments and docstrings")
+        return 1 if changed else 0
+    guard = lang_guard.load_guard(PROJECT_ROOT)
+    counts = lang_guard.scan(PROJECT_ROOT, guard)
+    if args.init:
+        if guard.baseline:
+            print("the baseline is not empty; use --update (lower) or --accept PATH (raise one file)")
+            return 1
+        lang_guard.write_baseline(PROJECT_ROOT, counts)
+        guard = lang_guard.load_guard(PROJECT_ROOT)
+        print(f"baseline initialised: {sum(counts.values())} Hungarian lines in {len(counts)} files")
+    elif args.update or args.accept:
+        new = lang_guard.lowered_baseline(counts, guard, tuple(args.accept))
+        lang_guard.write_baseline(PROJECT_ROOT, new)
+        print(f"baseline: {sum(guard.baseline.values())} -> {sum(new.values())} Hungarian lines in {len(new)} files"
+              + (f"; accepted: {', '.join(args.accept)}" if args.accept else ""))
+        guard = lang_guard.load_guard(PROJECT_ROOT)
+    over = lang_guard.excess(counts, guard)
+    for e in over:
+        print(f"{e.path}: {e.lines} Hungarian lines (allowed {e.limit})")
+    print(f"language guard: {sum(counts.values())} Hungarian lines in {len(counts)} files, {len(over)} file(s) over the baseline")
+    return 1 if over else 0
+
+
 def cmd_hooks_install(args: argparse.Namespace) -> int:
     from jav import data_guard
     from jav.config import PROJECT_ROOT
@@ -529,6 +562,14 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("data-guard", help="071 adatőr: a verziókövetett fájlok átnézése (személyes adat, kulcs, belső anyag)")
     p.add_argument("--all", action="store_true", help="a tűrt ismert értékek helyét is kiírja (maszkolva)")
     p.set_defaults(fn=cmd_data_guard)
+
+    p = sub.add_parser("lang-guard", help="073 language guard: tracked files may not gain Hungarian lines (baseline: configs/lang_guard.json)")
+    p.add_argument("--init", action="store_true", help="take the current counts as the first baseline (only when it is empty)")
+    p.add_argument("--update", action="store_true", help="lower the baseline to the current counts after a conversion step")
+    p.add_argument("--accept", action="append", default=[], metavar="PATH",
+                   help="raise one file to its current count (document vocabulary, test data); repeatable")
+    p.add_argument("--same-code", metavar="REV", help="list .py files whose code differs from REV beyond comments and docstrings")
+    p.set_defaults(fn=cmd_lang_guard)
 
     p = sub.add_parser("hooks-install", help="071 adatőr: a verziózott git-horgok bekapcsolása (core.hooksPath = scripts/githooks)")
     p.set_defaults(fn=cmd_hooks_install)

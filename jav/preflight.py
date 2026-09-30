@@ -101,6 +101,22 @@ def data_guard_status() -> tuple[bool, str]:
     return installed and not stop, "; ".join(parts)
 
 
+def lang_guard_status() -> tuple[bool, str]:
+    """073 language guard: no tracked file has more Hungarian lines than its baseline (configs/lang_guard.json)."""
+    from jav import lang_guard
+
+    try:
+        guard = lang_guard.load_guard(PROJECT_ROOT)
+        counts = lang_guard.scan(PROJECT_ROOT, guard)
+    except lang_guard.LangGuardError as e:
+        return True, f"cannot check ({e})"
+    over = lang_guard.excess(counts, guard)
+    msg = f"{sum(counts.values())} Hungarian lines in {len(counts)} files (baseline {sum(guard.baseline.values())})"
+    if over:
+        msg += f"; over the baseline: {', '.join(e.path for e in over[:5])}{' …' if len(over) > 5 else ''} (python -m jav.cli lang-guard)"
+    return not over, msg
+
+
 def preflight(*, skip_pytest: bool = False) -> int:
     t0 = time.perf_counter()
     results: list[tuple[str, bool, str]] = []
@@ -125,6 +141,9 @@ def preflight(*, skip_pytest: bool = False) -> int:
 
     ok, msg = data_guard_status()
     results.append(("adatőr", ok, msg))
+
+    ok, msg = lang_guard_status()
+    results.append(("language guard", ok, msg))
 
     found = devstate.ruff_findings()
     ok, msg = devstate.lint_verdict(found[0] if found else None, devstate.lint_limit())
