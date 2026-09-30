@@ -230,6 +230,7 @@ const ATTACHMENT_STATUS: Record<string, string> = tmap({
   unsupported: "nem olvasható (kép vagy más formátum)",
   name_only: "csak a neve ismert",
   needs_ocr: "szövegfelismerés kell",
+  unreadable: "a PDF nem olvasható (sérült vagy túl nagy)",
 });
 
 const URL_RE = /<?(https?:\/\/[^\s<>"]+)>?/g;

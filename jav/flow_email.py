@@ -4,7 +4,7 @@
 - `classify_attachments`: M1 detect runs on every PDF present as a file (its own Burr graph, under the email's run_id:
   `<run_id>-doc_detect`, 065); the result (doc_id, doc_type, conf) goes onto the attachment and into the `documents`
   table (with a source_email reference). An attachment known by name only (legacy golden set) -> `name_only`; image ->
-  `unsupported` (OCR = extension B5).
+  `unsupported` (OCR = extension B5); a PDF the reader cannot read -> `unreadable` + an email to-do (078).
 - `intent`: one JEV request (Choice + 4 Nouls) through the adapter (cache + ledger).
 - `route`: `policy.email_next_flow` - code decides from the intent, the confidence and the attachment types.
 - `save`: `emails` table (the latest per email) and `email_results` (the run's own row, with the part of the email text
@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from burr.core import ApplicationBuilder, action
@@ -24,6 +25,8 @@ from pydantic import BaseModel, Field
 from jav import policy, store
 from jav.emails import DOC_EXTS, EmailMessage, body_coverage, load_message_dir
 from jav.intent import IntentResult
+
+log = logging.getLogger("jav.flow_email")
 
 TERMINALS = ["done"]
 PARTITION = "email_intent"  # partition of the durable state persistence (066 Á08: the worker looks up the saved state with it)
@@ -39,7 +42,7 @@ class EmailState(BaseModel):
     result: IntentResult | None = None
     next_flow: str = ""
     uncertain: bool = False
-    review_reasons: list[str] = Field(default_factory=list)  # additive; today: jev_unavailable:<reason>
+    review_reasons: list[str] = Field(default_factory=list)  # additive: jev_unavailable:<reason>, attachment:unreadable:<why>, ...
     final_status: str | None = None
     propose_tasks: bool = False  # 058 K5.3: whether the recipe asks for task proposals (off by default: GPT cost)
     tasks: dict | None = None  # the proposal after the gate: {status, tasks, rejected} (None = not requested)
@@ -54,8 +57,14 @@ def load_message(state: EmailState) -> EmailState:
     return state
 
 
-@action.pydantic(reads=["message", "run_id", "use_cache", "detect_attachments"], writes=["message"])
+@action.pydantic(reads=["message", "run_id", "use_cache", "detect_attachments", "review_reasons"], writes=["message", "review_reasons"])
 def classify_attachments(state: EmailState) -> EmailState:
+    """078: an attachment the PDF reader cannot read (corrupt, over the reader's time or memory limit, over an input
+    limit) is marked `unreadable` and gives the email an `attachment:unreadable:<why>` to-do; the other attachments and
+    the intent still run. Until 078 the error failed the whole email item. Any other error still fails it."""
+    from jav.isolated_pdf import PdfReaderError, PdfReaderLimit
+    from jav.pdf import DocumentTooLarge
+
     msg = state.message
     assert msg is not None
     for att in msg.attachments:
@@ -74,7 +83,15 @@ def classify_attachments(state: EmailState) -> EmailState:
         from jav.flow_detect import run_detect
 
         # 065: under the email's run ID, otherwise the attachment's to-do and cost would fall outside the run
-        st = run_detect(att.path, use_cache=state.use_cache, run_id=f"{state.run_id}-doc_detect")
+        try:
+            st = run_detect(att.path, use_cache=state.use_cache, run_id=f"{state.run_id}-doc_detect")
+        except (PdfReaderError, PdfReaderLimit, DocumentTooLarge) as exc:
+            why = exc.reason if isinstance(exc, PdfReaderLimit) else type(exc).__name__
+            log.warning("email %s: a PDF attachment is unreadable: %s", msg.message_id, why)  # no file name in the log
+            att.status = "unreadable"
+            if f"attachment:unreadable:{why}" not in state.review_reasons:
+                state.review_reasons = state.review_reasons + [f"attachment:unreadable:{why}"]
+            continue
         att.doc_id, att.status = st.doc_id, st.final_status
         if st.result is not None:
             att.doc_type, att.type_conf, att.issuer_hu = st.result.doc_type, st.result.confidence, st.result.issuer_hu
@@ -211,7 +228,7 @@ CONTRACT = {  # the graph declaration: FLOW.md + Mermaid + lint come from it (ja
               ("tasks", "save"), ("save", "done")],
     "step_meta": {
         "load_message": {"kind": "det", "note": "inbox/<mailbox>/<msgid>/message.json + fájlok, vagy kész EmailMessage (golden)"},
-        "classify_attachments": {"kind": "flow", "note": "minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only"},
+        "classify_attachments": {"kind": "flow", "note": "minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only; olvashatatlan PDF -> unreadable + teendő (attachment:unreadable), a levél tovább fut"},
         "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben"},
         "route": {"kind": "det", "note": "policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés"},
         "tasks": {"kind": "llm", "note": "feladatjavaslat (GPT, a régi email-actions v1.3.0 utasítása) + kódos bizonyíték-kapu; csak ha a recept kéri, archiválandó levélen nem; javaslat -> teendő (ember fogadja el)"},

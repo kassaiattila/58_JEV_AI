@@ -26,6 +26,9 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   names** view in the Result section with a ZIP download and writing to an output folder (a new
   subfolder each time, nothing overwritten), the output folder in Settings › Work folders (never overlapping a watched
   folder), a manifest (`jegyzek.csv`) and `python -m jav.cli run-names`. Rules: `configs/naming.json`.
+- **Unreadable email attachments (2026-09-30):** a corrupt or over-limit PDF attachment no longer fails the whole
+  email: the attachment is marked as unreadable, the email gets a to-do (`attachment:unreadable`), and the intent is
+  still recognised. Any other error still fails the item.
 
 ## v1.1.1 — 2026-09-30
 

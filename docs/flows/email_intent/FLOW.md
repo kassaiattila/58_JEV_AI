@@ -9,7 +9,7 @@
 - **load_message** _(det)_ — inbox/<mailbox>/<msgid>/message.json + fájlok, vagy kész EmailMessage (golden)
 
 ### attachments
-- **classify_attachments** _(flow)_ — minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only
+- **classify_attachments** _(flow)_ — minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only; olvashatatlan PDF -> unreadable + teendő (attachment:unreadable), a levél tovább fut
 
 ### classify
 - **intent** _(jev)_ — egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben

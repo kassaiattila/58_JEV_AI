@@ -155,6 +155,8 @@ export function reasonText(code: string): string {
     case "ocr:escalation_blocked": return p[2] === "uncertain_attempt"
       ? t("Gyenge helyi felismerés; egy korábbi Azure-hívás kimenete bizonytalan, ezért nem ismételtük meg")
       : t("Gyenge helyi felismerés; az Azure-felismerés a futás kerete miatt elmaradt");
+    // 078: a PDF attachment the reader could not read; the email's intent was still recognised
+    case "attachment:unreadable": return t("Egy PDF-csatolmány nem olvasható (sérült, túl nagy, vagy túllépte az olvasási időt vagy memóriát); a levél szándéka ettől még elkészült");
     case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");
     case "parties:same_name": return t("A szállító és a vevő neve azonos");
     case "detect:low_conf": return t("Bizonytalan típusfelismerés: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
