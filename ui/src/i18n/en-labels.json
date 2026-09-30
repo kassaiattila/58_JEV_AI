@@ -83,5 +83,9 @@
  "Üzleti levelezés": "Business correspondence",
  "óránként": "hourly",
  "Az IBAN-ban lévő belföldi számlaszám ellenőrző számjegye hibás": "The check digit of the domestic account number inside the IBAN is wrong",
- "A belföldi bankszámlaszám ellenőrző számjegye hibás": "The check digit of the domestic bank account number is wrong"
+ "A belföldi bankszámlaszám ellenőrző számjegye hibás": "The check digit of the domestic bank account number is wrong",
+ "Azure-felismerés": "Azure recognition",
+ "gyenge szkennelésnél": "for weak scans",
+ "Gyenge helyi felismerés; egy korábbi Azure-hívás kimenete bizonytalan, ezért nem ismételtük meg": "Weak local recognition; an earlier Azure call has an uncertain outcome, so it was not repeated",
+ "Gyenge helyi felismerés; az Azure-felismerés a futás kerete miatt elmaradt": "Weak local recognition; Azure recognition was skipped because of the run's budget"
 }

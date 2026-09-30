@@ -127,7 +127,9 @@ currently postponed.
    (`jav/pdf.py: build_layout`). A separate graph step (`ocr_pdf`) in the M1 and M2 graphs, a disk cache in `runs/ocr/`,
    raw quality signals in the state, thresholds in the `ocr` block of `policy.json`. The rest of the old sidecar (torch, the matcher)
    has not been ported; Azure DI is not reimplemented here either: when local OCR is weak, `ocr_with_escalation` reaches it through the
-   old sidecar (paid). Heavy dependencies may only go behind a sidecar.
+   old sidecar (paid). Since 075 the call goes through the call log (`azure_recognise`): in a worker run the page count is
+   reserved from the run's Azure budget (recipe switch `azure_ocr`), a blocked escalation leaves the local text and, for a
+   budget or uncertainty block, a to-do (`ocr:escalation_blocked:*`). Heavy dependencies may only go behind a sidecar.
 
 ## 4. Tuning and changes — the procedure
 

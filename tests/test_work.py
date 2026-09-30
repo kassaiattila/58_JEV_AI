@@ -55,7 +55,7 @@ def test_assignment_validates_params_and_revision(isolated):
     with pytest.raises(ValueError):
         work.assign_recipe(wp["id"], "invoice-extraction", params={"doc_type": "nincs_ilyen"}, expected_revision=0, actor="t")
     a = work.assign_recipe(wp["id"], "invoice-extraction", params={}, expected_revision=0, actor="t", note="első")
-    assert a["revision"] == 1 and a["params"] == {"arm": "auto", "doc_type": "invoice_hu", "jev_cache": "reuse"}  # 053: the document type's recommended path
+    assert a["revision"] == 1 and a["params"] == {"arm": "auto", "doc_type": "invoice_hu", "jev_cache": "reuse", "azure_ocr": "on"}  # 053: the document type's recommended path; 075: Azure switch on
     with pytest.raises(work.RevisionConflict):
         work.assign_recipe(wp["id"], "invoice-extraction", params={}, expected_revision=0, actor="t")
     assert [h["note"] for h in work.assignment_history(wp["id"])] == ["első"]
@@ -80,7 +80,7 @@ def test_readiness_detects_changed_and_missing_source(isolated):
 def test_readiness_budget_estimate(isolated):
     wp = _ready_wp(isolated, n=3)
     r = work.readiness(wp["id"])
-    assert r["budget"] == {"jev": Decimal("0.15")}  # 3 items × 0.05 USD on the recipe's S path
+    assert r["budget"] == {"jev": Decimal("0.15"), "azure_di": Decimal("0.06")}  # 3 items × 0.05 USD on the S path; 075: × 0.02 USD Azure
 
 
 def test_budget_follows_the_actual_path(isolated):
@@ -95,14 +95,15 @@ def test_budget_follows_the_actual_path(isolated):
         rev += 1
         return work.readiness(wp["id"])["budget"]
 
-    assert assign("invoice-extraction", {"arm": "auto", "doc_type": "invoice_hu"}) == {"jev": Decimal("0.10")}  # S path
+    assert assign("invoice-extraction", {"arm": "auto", "doc_type": "invoice_hu"}) == {"jev": Decimal("0.10"), "azure_di": Decimal("0.04")}  # S path
+    assert "azure_di" not in assign("invoice-extraction", {"arm": "auto", "doc_type": "invoice_hu", "azure_ocr": "off"})  # 075: switch off
     assert assign("invoice-extraction", {"arm": "auto", "doc_type": "mohu_szamla"})["openai"] == Decimal("0.20")  # G path
     assert assign("document-processing", {"arm": "auto"})["openai"] == Decimal("0.20")  # the type is not known yet
     first, second = work.get(wp["id"])["items"]
     store.upsert_document(doc_id=first["sha256"], source_path=first["source_path"], detail_type="invoice_hu")
     store.upsert_document(doc_id=second["sha256"], source_path=second["source_path"], detail_type="mohu_szamla")
     budget = work.readiness(wp["id"])["budget"]
-    assert budget == {"jev": Decimal("0.14"), "openai": Decimal("0.10")}  # only the utility invoice's path calls OpenAI
+    assert budget == {"jev": Decimal("0.14"), "openai": Decimal("0.10"), "azure_di": Decimal("0.04")}  # only the utility invoice's path calls OpenAI
     # 066 Á07: a requested S path runs as G on a G-only type, so the G path's budget line is needed (previously it
     # reserved without OpenAI)
     assert assign("invoice-extraction", {"arm": "S", "doc_type": "certificate"})["openai"] == Decimal("0.20")
@@ -158,7 +159,7 @@ def test_later_assignment_change_does_not_touch_started_run(isolated):
     r = work.readiness(wp["id"])
     run = work.start_run(wp["id"], mode="apply", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")
     work.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "G"}, expected_revision=1, actor="t")
-    assert work.get_run(run["run_id"])["params"] == {"arm": "S", "doc_type": "invoice_hu", "jev_cache": "reuse"}
+    assert work.get_run(run["run_id"])["params"] == {"arm": "S", "doc_type": "invoice_hu", "jev_cache": "reuse", "azure_ocr": "on"}
 
 
 def test_run_status_rollup_and_approval_rules(isolated):

@@ -29,12 +29,13 @@ import subprocess
 import sys
 import tempfile
 import time
+from decimal import ROUND_CEILING, Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from jav import cfg, pdf as pdfmod
-from jav.config import PROJECT_ROOT
+from jav.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, PROJECT_ROOT
 from jav.models import LineLayout
 from jav.pdf import PdfText, build_layout, text_layer_ok
 
@@ -49,6 +50,16 @@ _TSV_LEVEL_WORD = "5"
 
 class OcrUnavailableError(RuntimeError):
     """No runnable OCR engine (neither native tesseract nor the Docker image)."""
+
+
+class AzureBlocked(OcrUnavailableError):
+    """075: the Azure call was not made in a worker run. `reason`: `off` (the run has no Azure budget: the recipe switch
+    is off), `budget_exceeded` (the page reservation does not fit the run's Azure budget) or `uncertain_attempt` (an
+    earlier attempt for this document has an unknown outcome; it is not repeated automatically)."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(f"azure_di: {reason}")
+        self.reason = reason
 
 
 class PageTooLarge(OcrUnavailableError):
@@ -145,6 +156,63 @@ def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[
         raise OcrUnavailableError(f"azure_di: nem futott le (provider={result.get('provider_used')}, chain={result.get('fallback_chain')})")
     evidence = _json.loads((data_root / result["evidence_ref"]["path"]).read_text(encoding="utf-8"))
     return azure_evidence_words(evidence)
+
+
+AZURE_PROVIDER = "azure_di"
+_ESCALATION_TODO = {"budget_exceeded", "uncertain_attempt"}
+
+
+def azure_recognise(path: Path) -> tuple[list[list[dict[str, Any]]], list[float], dict[str, Any]]:
+    """075 (repeated security audit, S01): Azure DI through the shared call log. In a worker run
+    (`jav.runtime.calls.current()`) the document's page count is reserved at the Azure price from the run's Azure budget
+    before the sidecar is called; without an Azure budget, with too little of it, or after an attempt with an unknown
+    outcome, the network is never reached (`AzureBlocked`). A repeated item gets the saved answer, not a second paid
+    call. Every physical call also gets a ledger row, on the command-line path too."""
+    from jav import store
+    from jav.runtime import calls
+
+    ctx = calls.current()
+    ledger_run = (ctx.budget_scope if ctx else None) or "jav-ocr"
+
+    def physical() -> calls.Outcome:
+        t0 = time.perf_counter()
+        try:
+            pages, confs, meta = azure_words(path)
+        except OcrUnavailableError as exc:
+            store.ledger_add(run_id=ledger_run, step="ocr_azure", provider=AZURE_PROVIDER, model=AZURE_DI_MODEL,
+                             input_tokens=None, output_tokens=None, cost_usd=None, seconds=round(time.perf_counter() - t0, 3),
+                             config_hash=CONFIG_HASH, error=type(exc).__name__)
+            raise
+        cost = AZURE_USD_PER_PAGE * len(pages)
+        model = meta.get("model_id") or AZURE_DI_MODEL
+        store.ledger_add(run_id=ledger_run, step="ocr_azure", provider=AZURE_PROVIDER, model=model, input_tokens=None,
+                         output_tokens=None, cost_usd=float(cost), seconds=round(time.perf_counter() - t0, 3), config_hash=CONFIG_HASH)
+        return calls.Outcome(response={"pages": pages, "confs": confs, "meta": meta}, model=model, cost_usd=cost)
+
+    if ctx is None:  # the command-line / measurement path: no run budget (as for JEV and OpenAI there), but ledgered
+        out = physical().response
+        return out["pages"], out["confs"], out["meta"]
+    if ctx.budget_scope is not None and not calls.has_budget(ctx.budget_scope, AZURE_PROVIDER):
+        raise AzureBlocked("off")
+    n_pages = len(page_sizes(path)) or pdfmod.input_limits().max_pages
+    max_cost = (AZURE_USD_PER_PAGE * n_pages).quantize(Decimal("0.000001"), rounding=ROUND_CEILING)
+    sha = _sha256(path)
+    try:
+        result = calls.invoke(run_id=ctx.budget_scope or "jav-ocr", step_id=f"{AZURE_PROVIDER}:ocr:{sha[:16]}", provider=AZURE_PROVIDER,
+                              model=AZURE_DI_MODEL, max_cost_usd=max_cost, budget_scope=ctx.budget_scope, request_hash=sha, fn=physical)
+    except calls.BudgetExceeded as exc:
+        raise AzureBlocked("budget_exceeded") from exc
+    except calls.UncertainAttempt as exc:
+        raise AzureBlocked("uncertain_attempt") from exc
+    out = result.response
+    return out["pages"], out["confs"], out["meta"]
+
+
+def escalation_review_reasons(signals: dict[str, Any] | None) -> list[str]:
+    """075: a to-do when weak local text went on because the Azure escalation was blocked by the budget or by an
+    uncertain earlier attempt; not when the recipe switch is off (the user chose local recognition)."""
+    reason = (signals or {}).get("escalation_blocked")
+    return [f"ocr:escalation_blocked:{reason}"] if reason in _ESCALATION_TODO else []
 
 
 def azure_evidence_words(evidence: dict[str, Any]) -> tuple[list[list[dict[str, Any]]], list[float], dict[str, Any]]:
@@ -320,7 +388,7 @@ def ocr_pdf(
     t0 = time.perf_counter()
     extra: dict[str, Any] = {}
     if eng == "azure_di":
-        pages, all_conf, extra = azure_words(path)
+        pages, all_conf, extra = azure_recognise(path)
         n_pages = len(pages)
     else:
         with tempfile.TemporaryDirectory(prefix="jav_ocr_") as tmp:
@@ -388,6 +456,9 @@ def ocr_with_escalation(path: str | Path, *, page_count: int | None = None, use_
         return first, False
     try:
         second = ocr_pdf(path, page_count=page_count, use_cache=use_cache, engine_name=ESCALATION["engine"])
+    except AzureBlocked as exc:  # 075: kept in the signals; the flow raises a to-do for a budget or uncertainty block
+        first.ocr["escalation_blocked"] = exc.reason
+        return first, False
     except OcrUnavailableError:
         return first, False
     if second.ocr and (second.ocr.get("mean_conf") or 0) >= (first.ocr.get("mean_conf") or 0):

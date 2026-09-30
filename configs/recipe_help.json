@@ -1,12 +1,17 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "changelog": [
       {
         "version": "1.0.0",
         "date": "2026-09-29",
         "note": "063 (döntés 2026-09-29): a receptek magyarázata a csomag Recept-kártyáján és a Beállítások › Receptek oldalon. Külön fájl, nem a recept része: a recept ujjlenyomata (a hozzárendelés és a futás pillanatképe) így nem változik. A költségkeret számát a felület a recept adataiból számolja, itt nincs szám."
+      },
+      {
+        "version": "1.1.0",
+        "date": "2026-09-30",
+        "note": "075: the azure_ocr switch (Azure recognition of weak scans, within the recipe's Azure budget)"
       }
     ]
   },
@@ -46,6 +51,13 @@
       "options": {
         "off": "Nincs feladatjavaslat. A levél szándékának felismerése és a csatolmányok feldolgozása így is megtörténik. Ez az alapbeállítás.",
         "propose": "A GPT levelenként javaslatot tesz. A kód ellenőrzi, hogy a javaslat minden idézete szó szerint szerepel-e a levélben; elfogadni csak ember tud. Archiválandó levélen nem fut. Levelenként többlet OpenAI-költséggel jár."
+      }
+    },
+    "azure_ocr": {
+      "help": "Gyenge minőségű szkennelt iratnál használhatja-e a rendszer a pontosabb, fizetős Azure-felismerést a helyi szövegfelismerés helyett.",
+      "options": {
+        "on": "Ha a helyi felismerés gyenge, a rendszer az Azure-felismerést használja, iratonként a recept Azure-keretén belül. Minden hívás a hívásnaplóba kerül; ha a futás Azure-kerete elfogy, a helyi szöveg megy tovább, és az irat teendőt kap. Ez az alapbeállítás.",
+        "off": "Csak helyi felismerés, gyenge szkennelésnél is. Nincs Azure-költség; a gyenge felismerésű irat a szokásos felismerési teendőket kapja."
       }
     }
   }

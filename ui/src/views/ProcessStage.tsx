@@ -136,6 +136,8 @@ const PARAM_VALUE: Record<string, string> = tmap({
   "jev_cache:live": "Mindig élő hívás",
   "tasks:off": "Nincs feladatjavaslat",
   "tasks:propose": "Feladatjavaslat a levelekből (GPT; archiválandó levélen nem; elfogadni csak ember tud)",
+  "azure_ocr:on": "Gyenge helyi felismerésnél Azure-felismerés (fizetős, a recept Azure-keretén belül)",
+  "azure_ocr:off": "Csak helyi felismerés",
 });
 /** Paraméter-érték felirata; irattípusnál a típus neve. */
 export const paramValue = (k: string, v: string) => PARAM_VALUE[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);

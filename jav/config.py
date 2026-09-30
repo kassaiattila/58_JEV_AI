@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -78,6 +79,9 @@ OPENAI_SETTINGS: dict = {"reasoning_effort": _MODELS["openai"].get("reasoning_ef
                          # count; 0 = none (the work queue repeats a failed item instead)
                          "sdk_max_retries": int(_MODELS["openai"].get("sdk_max_retries", 0))}
 TRACKER_PROJECTS: dict[str, str] = dict(_MODELS.get("burr", {}).get("tracker_projects", {}))
+# 075: Azure DI (through the legacy sidecar) is priced per page for the reservation and the call log
+AZURE_DI_MODEL: str = _MODELS.get("azure_di", {}).get("model", "prebuilt-read")
+AZURE_USD_PER_PAGE: Decimal = Decimal(str(_MODELS.get("azure_di", {}).get("usd_per_page", "0.0015")))
 
 # override=False: a real environment variable that is already set wins over the .env
 # (CI / production supplies the key there, not from a file).

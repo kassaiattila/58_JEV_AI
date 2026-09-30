@@ -171,6 +171,12 @@ def _committed(c, scope: str, provider: str | None = None) -> Decimal:
     return total
 
 
+def has_budget(scope: str, provider: str) -> bool:
+    """075: whether the run has a budget for this provider at all (e.g. no Azure budget = the recipe switch is off)."""
+    with store.connect() as c:
+        return c.execute("SELECT 1 FROM budgets WHERE scope=? AND provider=?", (scope, provider)).fetchone() is not None
+
+
 def budget_usage(scope: str) -> dict[str, Any]:
     with store.connect() as c:
         limits = {r["provider"]: Decimal(r["limit_usd"]) for r in c.execute("SELECT provider, limit_usd FROM budgets WHERE scope=?", (scope,))}

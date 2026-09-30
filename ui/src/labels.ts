@@ -143,6 +143,10 @@ export function reasonText(code: string): string {
     case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
     case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });
     case "ocr:low_conf_words": return t("Sok bizonytalan szó a felismerésben ({{p}})", { p: num(p[2]) });
+    // 075: the Azure escalation of a weak scan did not run (jav/ocr.py escalation_review_reasons)
+    case "ocr:escalation_blocked": return p[2] === "uncertain_attempt"
+      ? t("Gyenge helyi felismerés; egy korábbi Azure-hívás kimenete bizonytalan, ezért nem ismételtük meg")
+      : t("Gyenge helyi felismerés; az Azure-felismerés a futás kerete miatt elmaradt");
     case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");
     case "parties:same_name": return t("A szállító és a vevő neve azonos");
     case "detect:low_conf": return t("Bizonytalan típusfelismerés: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
@@ -242,7 +246,7 @@ const INTENT: Record<string, string> = tmap(Object.fromEntries(intentRegistry.in
 export const intentLabel = (key: string | null | undefined): string => (key ? INTENT[key] ?? key : "");
 
 /** Recept-paraméterek felirata (058): rövid, kódnév nélküli érték; a hosszú magyarázat a recept szerkesztésében van. */
-export const PARAM_LABEL: Record<string, string> = tmap({ arm: "Út", doc_type: "Irattípus", jev_cache: "JEV-válaszok", tasks: "Feladatjavaslat" });
+export const PARAM_LABEL: Record<string, string> = tmap({ arm: "Út", doc_type: "Irattípus", jev_cache: "JEV-válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés" });
 const PARAM_SHORT: Record<string, string> = tmap({
   "arm:auto": "automatikus (az irattípus ajánlása)",
   "arm:S": "kód + JEV",
@@ -251,6 +255,8 @@ const PARAM_SHORT: Record<string, string> = tmap({
   "jev_cache:live": "mindig élő hívás",
   "tasks:off": "kikapcsolva",
   "tasks:propose": "bekapcsolva (GPT)",
+  "azure_ocr:on": "gyenge szkennelésnél",
+  "azure_ocr:off": "kikapcsolva",
 });
 export const paramShort = (k: string, v: string): string => PARAM_SHORT[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);
 export const paramsText = (params: Record<string, string>): string =>
@@ -263,7 +269,8 @@ export function itemBudget(r: Recipe, params: Record<string, string>, kind?: str
   const per = table[params.arm ?? "*"] ?? table["*"] ?? {};
   const out: Record<string, number> = Object.fromEntries(Object.entries(per).map(([p, v]) => [p, Number(v)]));
   for (const extra of r.param_item_usd ?? []) {
-    if (params[extra.param] === extra.value && (extra.kind === undefined || extra.kind === kind)) {
+    // 075: a parameter missing from an older assignment counts with the recipe's default (as on the service)
+    if ((params[extra.param] ?? r.params[extra.param]?.default) === extra.value && (extra.kind === undefined || extra.kind === kind)) {
       for (const [p, v] of Object.entries(extra.usd)) out[p] = (out[p] ?? 0) + Number(v);
     }
   }

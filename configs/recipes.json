@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "recipes",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "changelog": [
+   {
+    "version": "1.6.0",
+    "date": "2026-09-30",
+    "note": "075 (repeated security audit, S01; Azure recipe switch): azure_ocr param (on / off, default on) on every recipe; on = 0.02 USD Azure DI budget per document (about 13 pages at the list price), so a weak scan can escalate to Azure within the run's budget and call log"
+   },
    {
     "version": "1.5.0",
     "date": "2026-09-28",
@@ -38,7 +43,7 @@
  "recipes": [
   {
    "id": "invoice-extraction",
-   "version": 3,
+   "version": 4,
    "title": "Számlák adatainak kinyerése",
    "description": "A munkacsomag PDF-számláiból a típuscsomag mezőinek kinyerése, kódos ellenőrzéssel; ami bizonytalan, teendő lesz.",
    "steps": [
@@ -80,6 +85,13 @@
       "live"
      ],
      "default": "reuse"
+    },
+    "azure_ocr": {
+     "allowed": [
+      "on",
+      "off"
+     ],
+     "default": "on"
     }
    },
    "max_item_usd": {
@@ -95,11 +107,20 @@
      "openai": "0.10"
     }
    },
-   "max_attempts": 2
+   "max_attempts": 2,
+   "param_item_usd": [
+    {
+     "param": "azure_ocr",
+     "value": "on",
+     "usd": {
+      "azure_di": "0.02"
+     }
+    }
+   ]
   },
   {
    "id": "document-processing",
-   "version": 2,
+   "version": 3,
    "title": "Iratok felismerése és adatkinyerése",
    "description": "A munkacsomag iratainak típusfelismerése (durva kategória, majd részletes típus), utána a felismert típus mezőinek kinyerése kódos ellenőrzéssel; ami bizonytalan vagy nem dönthető el, teendő lesz.",
    "steps": [
@@ -137,6 +158,13 @@
       "live"
      ],
      "default": "reuse"
+    },
+    "azure_ocr": {
+     "allowed": [
+      "on",
+      "off"
+     ],
+     "default": "on"
     }
    },
    "max_item_usd": {
@@ -153,11 +181,20 @@
      "openai": "0.10"
     }
    },
-   "max_attempts": 2
+   "max_attempts": 2,
+   "param_item_usd": [
+    {
+     "param": "azure_ocr",
+     "value": "on",
+     "usd": {
+      "azure_di": "0.02"
+     }
+    }
+   ]
   },
   {
    "id": "email-intent",
-   "version": 2,
+   "version": 3,
    "title": "Levelek szándékának felismerése",
    "description": "A postafiókból letöltött levelek szándékának felismerése (pl. számla érkezett, kérdés, egyéb); a PDF-csatolmányok a levél csomagjában iratként futnak: típusfelismerés, majd a felismert típus adatainak kinyerése. Ami bizonytalan, teendő lesz.",
    "steps": [
@@ -209,6 +246,13 @@
       "propose"
      ],
      "default": "off"
+    },
+    "azure_ocr": {
+     "allowed": [
+      "on",
+      "off"
+     ],
+     "default": "on"
     }
    },
    "max_item_usd": {
@@ -224,6 +268,14 @@
      "usd": {
       "openai": "0.006"
      }
+    },
+    {
+     "param": "azure_ocr",
+     "value": "on",
+     "usd": {
+      "azure_di": "0.02"
+     },
+     "kind": "document"
     }
    ],
    "max_item_usd_by_kind": {
