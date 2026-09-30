@@ -1,4 +1,4 @@
-"""Okonkénti teendőkezelés (040 K1, F04): egy ok rendezése nem zár le és nem ír felül más okot."""
+"""Per-reason to-do handling (040 K1, F04): settling one reason neither closes nor overwrites another."""
 
 import json
 from pathlib import Path
@@ -21,7 +21,7 @@ def _item(subject_id: str) -> dict:
 
 
 def test_prefix_close_keeps_unrelated_reason_open(isolated):
-    """A 038-as F04 szonda: intent-ok lezárása nem zárhatja le a biztonsági okot."""
+    """The 038 F04 probe: closing the intent reasons must not close the security reason."""
     store.review_enqueue(subject_kind="email", subject_id="mixed", run_id="one", reasons=["intent:low_conf", "security:unreviewed"])
     closed = store.review_close(subject_kind="email", subject_id="mixed", reason_prefix="intent:")
     item = _item("mixed")
@@ -39,7 +39,7 @@ def test_item_closes_only_when_last_reason_closes(isolated):
 
 
 def test_other_producer_does_not_overwrite_reasons(isolated):
-    """A típusfelismerés és a számlakivonat ugyanarra az iratra ír: egyik sem törli a másik okát."""
+    """Type detection and invoice extraction (M2) write to the same document: neither deletes the other's reason."""
     store.review_enqueue(subject_kind="document", subject_id="d", run_id="r1", reasons=["detect:low_conf:invoice_hu:0.55"],
                          producer="detect")
     store.review_enqueue(subject_kind="document", subject_id="d", run_id="r2", reasons=["S_G_disagree:gross_total"],
@@ -76,7 +76,7 @@ def test_human_resolution_is_per_reason_and_attributed(isolated):
     assert row["status"] == "resolved" and row["actor"] == "ugyintezo" and row["closed_at"]
     assert json.loads(row["resolution"]) == {"field": "gross_total", "value": "100"}
     with pytest.raises(ValueError):
-        store.review_resolve(first["id"], actor="x")  # már lezárt ok nem zárható újra
+        store.review_resolve(first["id"], actor="x")  # a reason already closed cannot be closed again
 
 
 def test_duplicate_reason_is_not_added_twice(isolated):
@@ -86,7 +86,7 @@ def test_duplicate_reason_is_not_added_twice(isolated):
 
 
 def test_legacy_open_rows_are_migrated_to_reasons(tmp_path):
-    """Meglévő adattár: a régi, csak JSON-os nyitott tétel okai sorokká válnak."""
+    """Existing store: the reasons of an old, JSON-only open entry become rows."""
     import sqlite3
     db = tmp_path / "old.sqlite"
     with store.use_store(db):
@@ -103,8 +103,8 @@ def test_legacy_open_rows_are_migrated_to_reasons(tmp_path):
 
 
 def test_reason_raised_again_by_a_new_run_belongs_to_the_new_run(tmp_path):
-    """045: ha egy új futás ugyanazt az okot veti fel, amely egy korábbi futásból még nyitva van, az ok az új futásé lesz
-    (különben az új futás tévesen teendő nélkülinek látszana és jóváhagyható lenne)."""
+    """045: if a new run raises the same reason that is still open from an earlier run, the reason belongs to the new
+    run (otherwise the new run would wrongly look free of to-dos and could be approved)."""
     from jav import store
     with store.use_store(tmp_path / "r.sqlite"):
         store.review_enqueue(subject_kind="document", subject_id="d", run_id="regi:1", reasons=["pick:low_conf:x:0.5"], producer="m2:S")

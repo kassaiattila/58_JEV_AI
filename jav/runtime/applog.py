@@ -1,10 +1,11 @@
-"""Üzemi napló (063): a helyi szolgáltatás és a feldolgozó állandó, forgó naplófájlja a `runs/logs/` alatt.
+"""Operations log (063): a permanent, rotating log file of the local service and the worker under `runs/logs/`.
 
-Eddig a hibák nyoma csak a `scripts/dev.ps1` átirányított kimenetében volt, amely minden indításkor kiürült, a
-feldolgozó feladatonként semmit nem írt, a 404 / 422 válaszra fordított belső hiba pedig nyom nélkül maradt. Most:
-- `setup(név)`: a gyökér-naplózó a `runs/logs/<név>.log` fájlba ír (5 MB-onként forgatva, 5 régi példány marad);
-- `uvicorn_config(név)`: ugyanez a szolgáltatás (uvicorn) saját naplózóinak, hogy az 500-as hiba hibanyoma is ide kerüljön.
-A napló nem kerül gitbe (`runs/`); személyes adatot nem naplózunk szándékosan (fájlnév és azonosító igen).
+Until now the only trace of errors was the redirected output of `scripts/dev.ps1`, which was emptied at every start,
+the worker wrote nothing per task, and an internal error turned into a 404 / 422 response left no trace at all. Now:
+- `setup(name)`: the root logger writes to `runs/logs/<name>.log` (rotated every 5 MB, 5 old copies kept);
+- `uvicorn_config(name)`: the same for the service's (uvicorn's) own loggers, so the traceback of a 500 lands here
+  too.
+The log does not go into git (`runs/`); we deliberately do not log personal data (file names and ids we do).
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ def log_path(name: str) -> Path:
 
 
 def setup(name: str, *, level: int = logging.INFO) -> Path:
-    """A folyamat gyökér-naplózója a `runs/logs/<név>.log` fájlba is írjon (egyszer; ismételt hívás nem duplikál)."""
+    """The process's root logger also writes to `runs/logs/<name>.log` (once; a repeated call does not duplicate)."""
     path = log_path(name)
     path.parent.mkdir(parents=True, exist_ok=True)
     root = logging.getLogger()
@@ -36,13 +37,14 @@ def setup(name: str, *, level: int = logging.INFO) -> Path:
         handler.setFormatter(logging.Formatter(FORMAT))
         root.addHandler(handler)
     root.setLevel(level)
-    for noisy in ("httpx", "httpx2", "httpcore"):  # a hívásonkénti HTTP-sor duplikátuma (a typesafe_sdk sora a kérés-azonosítóval marad)
+    for noisy in ("httpx", "httpx2", "httpcore"):  # per-call HTTP noise; the typesafe_sdk line keeps the request id
         logging.getLogger(noisy).setLevel(logging.WARNING)
     return path
 
 
 def uvicorn_config(name: str) -> dict[str, Any]:
-    """Az uvicorn naplózási beállítása: a saját kimenete marad, és minden (a `jav.*` naplózók is) a forgó fájlba kerül."""
+    """The uvicorn logging config: its own output stays, and everything (the `jav.*` loggers too) goes to the rotating
+    file."""
     from uvicorn.config import LOGGING_CONFIG
 
     path = log_path(name)

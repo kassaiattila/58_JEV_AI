@@ -1,4 +1,4 @@
-"""A szolgáltatói adapterek a hívásnaplón és a kereten át (040 K1): JEV és GPT-kivonat, hamis klienssel, hívás nélkül."""
+"""Provider adapters through the call log and the budget (040 K1): JEV and GPT extract, with a fake client, no calls."""
 
 from decimal import Decimal
 from pathlib import Path
@@ -46,7 +46,7 @@ def test_jev_call_in_run_context_is_journaled_with_cost(isolated):
     calls.set_budget("wp", "jev", Decimal("1"))
     with calls.use_run(budget_scope="wp"):
         r = jev.ask("t", {"x": 1}, QS, run_id="run-1", use_cache=False)
-        again = jev.ask("t", {"x": 1}, QS, run_id="run-1", use_cache=False)  # ugyanaz a lépés: mentett válasz
+        again = jev.ask("t", {"x": 1}, QS, run_id="run-1", use_cache=False)  # the same step: saved response
     assert r.response.choices["pick"].choice == "a" and again.response.choices["pick"].choice == "a"
     assert client.calls == 1
     row = calls.journal("run-1")[0]
@@ -55,8 +55,8 @@ def test_jev_call_in_run_context_is_journaled_with_cost(isolated):
 
 
 def test_replayed_jev_step_is_not_booked_as_a_second_paid_call(isolated):
-    """066 Á16: a mentett válasz újrajátszása (leállás utáni folytatás) nem új költés: a régi hívásnaplóba nulla
-    költséggel, újrafelhasználtként kerül, hogy a két napló összege ne kétszerezze a költést."""
+    """066 Á16: replaying a saved response (resuming after a stop) is not new spending: it goes into the old call log
+    (the ledger) with zero cost, marked as reused, so that the sum of the two logs does not double the spending."""
     jev = JevAdapter(client=FakeClient(), cache_dir=isolated / "cache", model="jev-1.13.0")
     calls.set_budget("wp", "jev", Decimal("1"))
     with calls.use_run(budget_scope="wp"):
@@ -104,7 +104,7 @@ class _FailingAgent:
 
 
 def test_gpt_failure_is_ledgered_outside_run_context(isolated):
-    """F05: a normál GPT-kivonat sikertelen hívása is a költségnaplóba kerül (ismeretlen költséggel, nem nullával)."""
+    """F05: a failed call of the normal GPT extract is also recorded in the ledger (with unknown cost, not zero)."""
     from jav import extract_llm
     with extract_llm.use_agent_factory(lambda pack: _FailingAgent()), pytest.raises(TimeoutError):
         extract_llm.extract("szöveg", run_id="g1")
@@ -128,8 +128,9 @@ class _MustNotRun:
 
 
 def test_unpriced_model_is_refused_under_a_budget(isolated, monkeypatch):
-    """066 Á38: ha a konfigurált modellnek nincs ára, a keretfoglalás nullát látna, és a keret nem fogná meg a költést.
-    Feldolgozói futásban ezért nevesített hibával áll meg (a folyamat `llm:failed:UnpricedModelError` teendőt ad)."""
+    """066 Á38: if the configured model has no price, the budget reservation would see zero and the budget would not
+    stop the spending. In a worker run it therefore stops with a named error (the flow raises an
+    `llm:failed:UnpricedModelError` to-do)."""
     from jav import email_tasks, extract_llm
     from jav.config import UnpricedModelError
 

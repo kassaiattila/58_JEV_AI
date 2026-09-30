@@ -1,4 +1,4 @@
-"""Azonos döntési kimenetre szűkített GPT-kontroll; korábbi JEV-válaszok új hívás nélkül."""
+"""GPT control narrowed to the same decision output; earlier JEV answers reused without new calls."""
 import argparse
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict

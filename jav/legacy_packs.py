@@ -1,4 +1,4 @@
-"""A régi részletes sémák önálló, típusos portja; nincs automatikus kategóriaaktiválás."""
+"""A standalone, typed port of the legacy detailed schemas; no automatic category activation."""
 from __future__ import annotations
 
 import hashlib
@@ -30,10 +30,10 @@ def load(key):
 
 
 def schema_model(name, schema):
-    """A portolt séma szűk, ellenőrzött nyelvtana: required/enum/nullable/list/object.
+    """The narrow, checked grammar of the ported schema: required/enum/nullable/list/object.
 
-    Az invoice TypePack fordítója szándékosan minden mezőt opcionálissá tesz;
-    itt az eredeti required és enum feltételeket is meg kell őrizni.
+    The invoice TypePack compiler deliberately makes every field optional;
+    here the original required and enum constraints must be preserved as well.
     """
     def annotation(prop, path):
         allowed = {'type','description','enum','properties','items','required','additionalProperties','title'}

@@ -1,4 +1,4 @@
-"""030: elkülönített, engedélyhez kötött hosszúdokumentum-próba; nincs OCR."""
+"""030: isolated, approval-gated long-document trial; no OCR."""
 from __future__ import annotations
 
 import argparse
@@ -38,7 +38,7 @@ def sha(path):
 
 
 class TrialBudget:
-    """Egy munkás, minden fizikai hívás előtt foglal; bizonytalan hívást nem ismétel."""
+    """A single worker that reserves before every physical call; it never repeats a call with an uncertain outcome."""
     def __init__(self, root, limits=None):
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
@@ -91,7 +91,7 @@ def prepare():
         raise RuntimeError('trial already prepared')
     sample_hash = sha(OLD/'sample.json')
     approval = read(OLD/'openai_approval.json')
-    # Régi jóváhagyás szöveghash-t használt, nem Windows-sorvég szerinti fájlhash-t.
+    # The earlier approval used a text hash, not a file hash that depends on Windows line endings.
     assert digest((OLD/'sample.json').read_text(encoding='utf-8')) == approval['sample_sha256']
     cases = {c['case_id']: c for c in read(OLD/'frozen_inputs.json')}
     source_sample = {c['case_id']: c for c in read(OLD/'sample.json')['cases']}

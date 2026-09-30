@@ -1,17 +1,20 @@
-"""Feladatjavaslat a levélből (058 K5.3): a régi `10_AIFLOW_V4/flows/email-actions-bare` üzleti része.
+"""Task proposal from an email (058 K5.3): the business part of the legacy `10_AIFLOW_V4/flows/email-actions-bare`.
 
-- **Javaslat (GPT, Pydantic AI):** levelenként legfeljebb néhány konkrét emberi teendő a régi akció-szótárból, a régi
-  v1.3.0-s utasítás szó szerint (`jav/prompts/email_tasks_prompt.md`). Minden teendőhöz bizonyíték: JSON-mutató a
-  bemenetbe + szó szerinti idézet. A szándék-felismerés eredménye csak tévedhető jelzés (`intent_proposals`).
-- **Kapu (kód):** a régi `flow.py` `gate_result` / `_message_evidence` / `_field_claim` és a `shadowanalysis.evidence`
-  szabályai. A bizonyíték idézete a mutatott helyen szó szerint áll, és csak a levél tárgya vagy szövege lehet; a
-  határidő csak szó szerint szereplő ÉÉÉÉ-HH-NN; a felelős csak szó szerint szereplő név / cím; ismeretlen akció, üres cím
-  vagy bármely hibás bizonyíték: a teendő egészében kiesik, okkóddal. A bizonyíték az eredetet igazolja, nem a helyességet.
-- **Ember dönt:** az elfogadott javaslat is csak javaslat (`approval="proposed"`); elfogadni vagy elvetni ember tudja.
+- **Proposal (GPT, Pydantic AI):** at most a few concrete human to-dos per email from the legacy action vocabulary, with
+  the legacy v1.3.0 instruction verbatim (`jav/prompts/email_tasks_prompt.md`). Every to-do needs evidence: a JSON
+  pointer into the input + a verbatim quote. The intent-recognition result is only a fallible hint (`intent_proposals`).
+- **Gate (code):** the rules of the legacy `flow.py` `gate_result` / `_message_evidence` / `_field_claim` and of
+  `shadowanalysis.evidence`. The evidence quote appears verbatim at the location pointed to, which can only be the
+  email's subject or body; the deadline can only be a YYYY-MM-DD that appears verbatim; the assignee only a name /
+  address that appears verbatim; an unknown action, an empty title or any faulty evidence drops the whole to-do, with a
+  reason code. The evidence proves the origin, not the correctness.
+- **A human decides:** even an accepted proposal is only a proposal (`approval="proposed"`); only a human can accept or
+  dismiss it.
 
-Eltérés a régitől: a csatolmány adatai nem bizonyítékok (ugyanabban a futásban külön tételként készülnek), ezért a
-bemenetben a csatolmány csak névvel és felismert típussal szerepel; az archiválandó levelek kimaradnak (`configs/email_tasks.json`),
-és 066 Á28 óta a beszúrt utasításra gyanús, valamint a szándék-eredmény nélküli levelek is.
+Difference from the legacy flow: attachment data are not evidence (they are produced as separate items in the same run),
+so in the input an attachment appears only with its name and recognised type; emails to be archived are skipped
+(`configs/email_tasks.json`), and since 066 Á28 so are emails suspected of an injected instruction and emails without
+an intent result.
 """
 
 from __future__ import annotations
@@ -40,14 +43,14 @@ os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
 CFG = cfg.load("email_tasks")
 PROMPT_FILE = CFG["prompt_file"]
-# 067 (066 Á18): a beállítás mellett az utasításfájl tartalma is az azonosítóban
+# 067 (066 Á18): besides the settings, the content of the instruction file is also part of the identifier
 CONFIG_HASH = cfg.combine(cfg.config_hash("email_tasks"), cfg.file_digest(PROMPTS_DIR / PROMPT_FILE))
 ACTIONS = tuple(CFG["actions"])
 Action = Literal["review_invoice", "review_payment", "reply", "provide_document", "review_contract", "clarify", "review_information"]
 assert set(ACTIONS) == set(Action.__args__), "az akció-szótár és a kimeneti séma eltér"
 
 
-# --- a GPT kimenete (a régi config/email_tasks/schema.json szerkezete) --------------------------------------------
+# --- GPT output (the structure of the legacy config/email_tasks/schema.json) --------------------------------------
 
 
 class Evidence(BaseModel):
@@ -78,11 +81,11 @@ class TaskOutput(BaseModel):
     messages: list[MessageTasks]
 
 
-# --- bemenet -----------------------------------------------------------------------------------------------------
+# --- input -------------------------------------------------------------------------------------------------------
 
 
 def snapshot(*, message_id: str, subject: str, body: str, body_status: str, attachments: list[dict[str, Any]]) -> dict[str, Any]:
-    """A javaslat bemenete: egy levél, az eredeti tárgy és szöveg (a bizonyíték csak ezekből jöhet)."""
+    """The proposal input: one email with its original subject and body (evidence can come only from these)."""
     completeness = "partial" if body_status == "capped" else "complete"
     return {"schema_version": 1, "messages": [{
         "message_id": message_id, "subject": subject or "", "body": (body or "")[: CFG["max_body_chars"]],
@@ -92,7 +95,7 @@ def snapshot(*, message_id: str, subject: str, body: str, body_status: str, atta
 
 
 def request_payload(snap: dict[str, Any], intent_hint: dict[str, Any] | None) -> dict[str, Any]:
-    """A felhasználói üzenet: a pillanatkép, a forrás-címjegyzék (a régi recept 1.1 szerint) és a szándék-jelzés."""
+    """The user message: the snapshot, the source catalogue (as in legacy recipe 1.1) and the intent hint."""
     msg = snap["messages"][0]
     catalog = {"records": [{"record_id": msg["message_id"], "record_pointer": "/messages/0",
                             "field_pointers": {f: f"/messages/0/{f}" for f in CFG["evidence"]["allowed_fields"]}}]}
@@ -100,11 +103,11 @@ def request_payload(snap: dict[str, Any], intent_hint: dict[str, Any] | None) ->
     return {"input_snapshot": snap, "source_catalog": catalog, "intent_proposals": hints}
 
 
-# --- kapu (a régi gate szabályai) ------------------------------------------------------------------------------------
+# --- gate (the rules of the legacy gate) -----------------------------------------------------------------------------
 
 
 def _resolve(doc: Any, pointer: str) -> Any:
-    """RFC 6901 JSON-mutató feloldása; nem létező cím: KeyError."""
+    """Resolves an RFC 6901 JSON pointer; a non-existent location raises KeyError."""
     if pointer == "":
         return doc
     if not pointer.startswith("/"):
@@ -124,8 +127,8 @@ def _resolve(doc: Any, pointer: str) -> Any:
 
 
 def evidence(snap: dict[str, Any], refs: list[dict[str, Any]] | None, index: int = 0) -> tuple[list[dict[str, str]], list[str]]:
-    """A bizonyítékok ellenőrzése (a régi `shadowanalysis.evidence` + `_message_evidence`): legalább egy, legfeljebb
-    `max_refs`; mindegyik ennek a levélnek a tárgyára vagy szövegére mutat, és az idézet ott szó szerint áll."""
+    """Checks the evidence (legacy `shadowanalysis.evidence` + `_message_evidence`): at least one, at most
+    `max_refs`; each points to this email's subject or body, and the quote appears there verbatim."""
     ev = CFG["evidence"]
     prefix = f"/messages/{index}/"
     if not refs or len(refs) > ev["max_refs"]:
@@ -160,8 +163,8 @@ def evidence(snap: dict[str, Any], refs: list[dict[str, Any]] | None, index: int
 
 
 def _field_claim(snap: dict[str, Any], value: Any, refs: list[dict[str, Any]], *, is_date: bool = False) -> tuple[Any, list[str]]:
-    """Határidő / felelős: null csak üres bizonyítékkal; nem null csak ha az érték a saját idézetében szó szerint áll
-    (dátumnál kanonikus ÉÉÉÉ-HH-NN is kell)."""
+    """Deadline / assignee: null only with empty evidence; non-null only if the value appears verbatim in its own quote
+    (a date must also be canonical YYYY-MM-DD)."""
     if value is None:
         return None, ([] if not refs else ["evidence_without_field_value"])
     accepted, issues = evidence(snap, refs)
@@ -176,12 +179,13 @@ def _field_claim(snap: dict[str, Any], value: Any, refs: list[dict[str, Any]], *
     return (value if not issues else None), sorted(set(issues))
 
 
-_QUOTE_SHOWN_CHARS = 500  # a kiesett javaslat idézetéből ennyi marad meg megjelenítésre
+_QUOTE_SHOWN_CHARS = 500  # this much of a dropped proposal's quote is kept for display
 
 
 def _rejected(snap: dict[str, Any], n: int, task: dict[str, Any], parts: dict[str, list[str]]) -> dict[str, Any]:
-    """062: a kiesett javaslat tartalma is megmarad (cím, határidő, felelős, idézetek egyenként ellenőrizve), és hogy
-    melyik része bukott el — így utólag megítélhető, jogos volt-e a kiejtés. A `details` a régi, összevont okkódlista."""
+    """062: the content of a dropped proposal is kept too (title, deadline, assignee, quotes checked one by one), along
+    with which part failed — so it can be judged afterwards whether dropping it was justified. `details` is the old,
+    merged list of reason codes."""
     quotes = []
     for part, key in (("evidence", "evidence"), ("due_date", "due_date_evidence"), ("assignee", "assignee_evidence")):
         for ref in task.get(key) or []:
@@ -201,9 +205,10 @@ def _norm_title(title: str) -> str:
 
 
 def _merge_duplicates(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """062: egy levélen belül ugyanaz a teendő egyszer. Azonos, ha az akció, a határidő és a felelős egyezik, és a cím
-    (kis-nagybetű, szóköz és záró írásjel nélkül) vagy az idézetek halmaza azonos. Az első marad, a bizonyítékok
-    uniója (legfeljebb `max_refs`), `merged` = hány azonos javaslat olvadt bele."""
+    """062: within one email the same to-do appears once. Two are the same if the action, deadline and assignee match
+    and either the title (ignoring case, whitespace and trailing punctuation) or the set of quotes is identical. The
+    first one stays, with the union of the evidence (at most `max_refs`); `merged` = how many identical proposals
+    were merged into it."""
     out: list[dict[str, Any]] = []
     for task in tasks:
         quotes = {e["quote"] for e in task["evidence"]}
@@ -220,8 +225,8 @@ def _merge_duplicates(tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def gate(snap: dict[str, Any], output: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """(elfogadott javaslatok, kiesett javaslatok okkal). A hibás javaslat egészében kiesik; a mező nem nullázódik.
-    Az egy levélen belüli azonos javaslatok összevonódnak (062)."""
+    """(accepted proposals, dropped proposals with reasons). A faulty proposal is dropped as a whole; the field is not
+    nulled. Identical proposals within one email are merged (062)."""
     message_id = snap["messages"][0]["message_id"]
     rows = [m for m in output.get("messages") or [] if m.get("message_id") == message_id]
     if len(rows) != 1 or len(output.get("messages") or []) != 1:
@@ -245,7 +250,7 @@ def gate(snap: dict[str, Any], output: dict[str, Any]) -> tuple[list[dict[str, A
     return _merge_duplicates(accepted), rejected
 
 
-# --- GPT-hívás (a hívásnaplón és a kereten át, mint a G-kar kivonata) -------------------------------------------------
+# --- GPT call (through the call log and the budget, like the G-path extraction) --------------------------------------
 
 
 @lru_cache(maxsize=1)
@@ -287,14 +292,14 @@ def _physical(agent, prompt: str, *, run_id: str, limited: bool) -> calls.Outcom
 
 
 def extract(snap: dict[str, Any], *, intent_hint: dict[str, Any] | None, run_id: str) -> dict[str, Any]:
-    """A GPT nyers javaslata (a kapu előtt). Feldolgozói futásban előzetes keretfoglalással és a hívásnaplóval;
-    ismétlésnél a mentett válasz (nincs második fizetős kérés)."""
+    """The raw GPT proposal (before the gate). In a worker run with an up-front budget reservation and the call log;
+    on a repeat the saved response is returned (no second paid request)."""
     prompt = json.dumps(request_payload(snap, intent_hint), ensure_ascii=False, sort_keys=True)
     agent = get_agent()
     ctx = calls.current()
     if ctx is None:
         return _physical(agent, prompt, run_id=run_id, limited=False).response
-    price = openai_price(OPENAI_MODEL)  # 066 Á38: ár nélkül nincs keret alatti hívás (a foglalás nulla lenne)
+    price = openai_price(OPENAI_MODEL)  # 066 Á38: no budgeted call without a price (the reservation would be zero)
     max_cost = calls.estimate_max_cost(
         input_chars=len(prompt) + len(load_prompt(CFG["prompt_file"])), max_output_tokens=CFG["max_output_tokens"],
         usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), physical_attempts=1 + int(OPENAI_SETTINGS["retries"]))
@@ -306,8 +311,9 @@ def extract(snap: dict[str, Any], *, intent_hint: dict[str, Any] | None, run_id:
 
 
 def skip_reason(next_flow: str | None, *, signals: dict[str, float] | None = None, has_intent: bool = True) -> str | None:
-    """A javaslat kimarad-e a levélen (kódban): archiválandó levélnél (`configs/email_tasks.json`), 066 Á28: a jel-vezérelt
-    gyanús útnál (a beszúrt utasítás jelének igen-sávja, policy `email.signal_routes`) és szándék-eredmény nélkül."""
+    """Whether the proposal is skipped for the email (decided in code): for an email to be archived
+    (`configs/email_tasks.json`), and, since 066 Á28, on the signal-driven suspicious route (the yes band of the
+    injected-instruction signal, policy `email.signal_routes`) and without an intent result."""
     if next_flow and any(next_flow == p or next_flow.startswith(p + ":") for p in CFG["skip_route_prefixes"]):
         return "archived_route"
     from jav.policy import email_signal_route
@@ -321,7 +327,7 @@ def skip_reason(next_flow: str | None, *, signals: dict[str, float] | None = Non
 
 def propose(*, message_id: str, subject: str, body: str, body_status: str, attachments: list[dict[str, Any]],
             intent_hint: dict[str, Any] | None, run_id: str) -> dict[str, Any]:
-    """Javaslat + kapu: `{"status": "proposed", "tasks": [...], "rejected": [...]}` (a kiesettek okkal)."""
+    """Proposal + gate: `{"status": "proposed", "tasks": [...], "rejected": [...]}` (dropped ones with reasons)."""
     snap = snapshot(message_id=message_id, subject=subject, body=body, body_status=body_status, attachments=attachments)
     raw = extract(snap, intent_hint=intent_hint, run_id=run_id)
     tasks, rejected = gate(snap, raw)

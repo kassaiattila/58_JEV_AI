@@ -1,10 +1,10 @@
-"""Jev keret-kör 1 / adapter (BACKLOG 1) - offline, hamis klienssel.
+"""JEV framework round 1 / adapter (BACKLOG 1) - offline, with a fake client.
 
-- az alias (`jev-latest`) konkrét modellverzióra oldódik egy apró szondával, a verzió a cache-kulcsban;
-- a feloldás fájlban marad (`runs/cache/_model_versions.json`), TTL-lel, offline is használható;
-- RetryPolicy a `configs/models.json`-ból;
-- SDK-kivétel -> ledger-sor (`error` oszlop) + `JevUnavailableError`, a flow nem dől el (review-latch);
-- `TYPESAFE_LOG_LEVEL=debug` védelem (PII a naplóban).
+- the alias (`jev-latest`) resolves to a concrete model version via a tiny probe; the version goes into the cache key;
+- the resolution is kept in a file (`runs/cache/_model_versions.json`) with a TTL, and is usable offline too;
+- RetryPolicy from `configs/models.json`;
+- SDK exception -> ledger row (`error` column) + `JevUnavailableError`; the flow does not crash (review latch);
+- `TYPESAFE_LOG_LEVEL=debug` guard (PII in the log).
 """
 
 from __future__ import annotations
@@ -59,19 +59,19 @@ def test_alias_resolves_to_concrete_version_in_cache_key(isolated: Path):
     r = jev.ask("t", STATE, QS, run_id="run-1")
 
     assert jev.resolved_model == "jev-9.9.9"
-    assert r.cache_key == request_hash("jev-9.9.9", STATE, QS)  # a konkrét verzió a kulcsban, nem az alias
-    assert client.calls == 2  # szonda + a valódi hívás
-    assert client.seen_models == ["jev-latest", "jev-latest"]  # a kérésben az alias marad (azt kéri a felhasználó)
+    assert r.cache_key == request_hash("jev-9.9.9", STATE, QS)  # the concrete version in the key, not the alias
+    assert client.calls == 2  # probe + the real call
+    assert client.seen_models == ["jev-latest", "jev-latest"]  # the request keeps the alias (what the user asks for)
     assert r.call.model == "jev-9.9.9"
 
     versions = json.loads((isolated / "cache" / MODEL_VERSIONS_FILE).read_text(encoding="utf-8"))
     assert versions["jev-latest"]["model"] == "jev-9.9.9" and versions["jev-latest"]["resolved_at"]
 
-    # a szonda is a ledgerben van (step=model_probe), költséggel
+    # the probe is in the ledger too (step=model_probe), with its cost
     rows = store.ledger_for_run("run-1")
     assert [r_["step"] for r_ in rows] == ["model_probe", "t"]
 
-    # második adapter ugyanazzal a cache-mappával: a fájlból olvas, nem szondáz újra
+    # a second adapter with the same cache folder: reads from the file, does not probe again
     client2 = FakeClient("jev-9.9.9")
     jev2 = JevAdapter(client=client2, cache_dir=isolated / "cache", model="jev-latest")
     r2 = jev2.ask("t", STATE, QS, run_id="run-2")
@@ -91,18 +91,18 @@ def test_stale_resolution_is_refreshed_and_offline_falls_back(isolated: Path):
     cache.mkdir()
     (cache / MODEL_VERSIONS_FILE).write_text(json.dumps({"jev-latest": {"model": "jev-1.0.0", "resolved_at": "2000-01-01T00:00:00+00:00"}}), encoding="utf-8")
 
-    # lejárt TTL + elérhető API: friss szonda, a fájl frissül
+    # expired TTL + API reachable: fresh probe, the file is updated
     client = FakeClient("jev-2.0.0")
     jev = JevAdapter(client=client, cache_dir=cache, model="jev-latest")
     assert jev.resolved_model == "jev-2.0.0" and client.calls == 1
     assert json.loads((cache / MODEL_VERSIONS_FILE).read_text(encoding="utf-8"))["jev-latest"]["model"] == "jev-2.0.0"
 
-    # lejárt TTL, de az API nem elérhető: a régi feloldás marad (cache-találatok offline is működnek)
+    # expired TTL but API unreachable: the old resolution stays (cache hits work offline too)
     (cache / MODEL_VERSIONS_FILE).write_text(json.dumps({"jev-latest": {"model": "jev-1.0.0", "resolved_at": "2000-01-01T00:00:00+00:00"}}), encoding="utf-8")
     jev_off = JevAdapter(client=FakeClient(fail=TypeSafeAPIConnectionError("down")), cache_dir=cache, model="jev-latest")
     assert jev_off.resolved_model == "jev-1.0.0"
 
-    # nincs fájl és nincs API: nem oldható fel -> JevUnavailableError
+    # no file and no API: cannot be resolved -> JevUnavailableError
     (cache / MODEL_VERSIONS_FILE).unlink()
     jev_none = JevAdapter(client=FakeClient(fail=TypeSafeAPIConnectionError("down")), cache_dir=cache, model="jev-latest")
     with pytest.raises(JevUnavailableError) as ei:
@@ -112,12 +112,12 @@ def test_stale_resolution_is_refreshed_and_offline_falls_back(isolated: Path):
 
 def test_retry_policy_comes_from_models_json():
     raw = json.loads(config.MODELS_CONFIG.read_text(encoding="utf-8"))["jev"]
-    assert raw["cache_version"] == 2  # a modellverzió a kulcsban: egyszeri érvénytelenítés a verzió-lépéssel együtt
+    assert raw["cache_version"] == 2  # model version in the key: a one-off invalidation together with the version bump
     assert config.JEV_CACHE_VERSION == 2
     rp = config.build_retry_policy()
     assert isinstance(rp, RetryPolicy)
     assert rp.max_retries == raw["retry"]["max_retries"] and rp.backoff_max == raw["retry"]["backoff_max"]
-    assert rp.timeout == raw["retry"]["timeout"] and rp.timeout > config.JEV_TIMEOUT_S  # a keret nagyobb, mint egy kérés időkorlátja
+    assert rp.timeout == raw["retry"]["timeout"] and rp.timeout > config.JEV_TIMEOUT_S  # overall > per-request timeout
     assert 429 in rp.http_statuses and 503 in rp.http_statuses
 
 
@@ -141,7 +141,7 @@ def test_sdk_error_is_ledgered_and_raised_as_unavailable(isolated: Path):
 
 def test_unexpected_exception_is_not_swallowed(isolated: Path):
     jev = JevAdapter(client=FakeClient(fail=KeyError("bug")), cache_dir=isolated / "cache", model="jev-1.13.0")
-    with pytest.raises(KeyError):  # programhiba nem "unavailable"
+    with pytest.raises(KeyError):  # a programming error is not "unavailable"
         jev.ask("t", STATE, QS, run_id="run-y")
 
 
@@ -151,7 +151,7 @@ def test_sdk_log_level_guard(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("JAV_ALLOW_SDK_DEBUG", raising=False)
     logger.setLevel(logging.DEBUG)
     assert config.guard_sdk_logging() is True
-    assert logger.level == logging.WARNING  # a body PII-t tartalmaz: debug csak kifejezett engedéllyel
+    assert logger.level == logging.WARNING  # the body contains PII: debug only with explicit permission
 
     monkeypatch.setenv("JAV_ALLOW_SDK_DEBUG", "1")
     logger.setLevel(logging.DEBUG)
@@ -163,7 +163,7 @@ def test_sdk_log_level_guard(monkeypatch: pytest.MonkeyPatch):
     assert config.guard_sdk_logging() is False
 
 
-# --- a flow-k nem dőlnek el ------------------------------------------------------------------------
+# --- the flows do not crash ------------------------------------------------------------------------
 
 
 def _failing_adapter(tmp: Path) -> JevAdapter:
@@ -210,13 +210,14 @@ def test_invoice_steps_survive_jev_outage(isolated: Path, monkeypatch: pytest.Mo
     monkeypatch.setattr(jev_mod, "get_adapter", lambda: _failing_adapter(isolated))
     s = flow.jev_select(FlowState(source_path="x.pdf", case_id="c", arm="S", candidates={"supplier_name": []}))
     assert s.picks == {} and s.needs_review and s.review_reasons[0].startswith("jev_unavailable:")
-    g = flow.jev_verify(FlowState(source_path="x.pdf", case_id="c", arm="G", llm_output=InvoiceLLM(supplier_name="X").model_dump()))  # a kivonat szótár (típus-csomagok)
+    g = flow.jev_verify(FlowState(source_path="x.pdf", case_id="c", arm="G", llm_output=InvoiceLLM(supplier_name="X").model_dump()))  # extraction is a dict (type packs)
     assert g.verdicts is None and g.needs_review and g.review_reasons[0].startswith("jev_unavailable:")
 
 
 def test_alias_switch_within_the_ttl_keys_the_answer_by_the_answering_version(isolated: Path):
-    """066 Á17: a feloldás TTL-je alatt a szolgáltató az álnevet új verzióra állítja. A válasz ne a régi verzió kulcsa alá
-    kerüljön (különben egy későbbi „ugyanaz a modell” gyorsítótár-találat más verzió válasza lenne), és a feloldás frissüljön."""
+    """066 Á17: within the resolution's TTL the provider points the alias at a new version. The answer must not be
+    stored under the old version's key (otherwise a later "same model" cache hit would return another version's answer),
+    and the resolution must be refreshed."""
     client = FakeClient("jev-9.9.9")
     jev = JevAdapter(client=client, cache_dir=isolated / "cache", model="jev-latest")
     jev.ask("t", STATE, QS, run_id="r1")
@@ -234,15 +235,15 @@ def test_alias_switch_within_the_ttl_keys_the_answer_by_the_answering_version(is
     row = store.ledger_for_run("r2")[-1]
     assert row["model"] == "jev-10.0.0" and row["cache_key"] == r.cache_key
 
-    # egy új adapter a frissített feloldással a mentett választ találja, élő hívás nélkül
+    # a new adapter with the refreshed resolution finds the saved answer, without a live call
     client2 = FakeClient("jev-10.0.0")
     r2 = JevAdapter(client=client2, cache_dir=isolated / "cache", model="jev-latest").ask("t", other, QS, run_id="r3")
     assert r2.cached and client2.calls == 0
 
 
 def test_a_damaged_cache_file_is_a_miss_and_is_rewritten_atomically(isolated: Path):
-    """066 Á37: egy félbeszakadt írásból maradt, olvashatatlan gyorsítótár-fájl ne állítsa meg a folyamatot: kihagyjuk,
-    élőben kérdezünk, és az új válasz ideiglenes fájlon át, cserével kerül a helyére."""
+    """066 Á37: an unreadable cache file left behind by an interrupted write must not stop the flow: it is skipped, we
+    ask live, and the new answer takes its place through a temporary file and a swap."""
     client = FakeClient("jev-9.9.9")
     jev = JevAdapter(client=client, cache_dir=isolated / "cache", model="jev-9.9.9")
     key = request_hash("jev-9.9.9", STATE, QS)

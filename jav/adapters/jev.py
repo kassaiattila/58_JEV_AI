@@ -1,22 +1,24 @@
-"""Jev-adapter: egyetlen belépési pont a System One hívásokhoz.
+"""JEV adapter: the single entry point for System One calls.
 
-Amit ad a nyers SDK fölé:
-- **kérés-hash cache** (`runs/cache/<sha256>.json`): ugyanaz a (konkrét modellverzió, state, kérdések) → ugyanaz a
-  válasz, nulla költséggel. Ettől az újraértékelés és a golden-újrafuttatás ingyenes; a determinizmus-mérés viszont
-  `use_cache=False`-szal és `no_cache_write()` alatt fut, hogy a valódi futásról-futásra ingadozást mérje.
-- **modellverzió a kulcsban**: a `configs/models.json` aliast ad (`jev-latest`), a `models.list()` viszont csak
-  aliasokat sorol, ezért az alias egy apró szondával (egy Noul, ~100 token) oldódik konkrét verzióra (a válasz
-  `model` mezője, pl. `jev-1.13.0`). A feloldás `runs/cache/_model_versions.json`-ban marad TTL-lel: offline is
-  működnek a cache-találatok, modell-frissítéskor pedig a kulcs magától vált (a régi cache-fájlok nem sérülnek).
-  A kérés az aliasszal megy; ha az élő válasz más verziót jelez, mint a feloldás (az alias a TTL alatt átállt), a válasz
-  a válaszoló verzió kulcsa alá kerül, és a feloldás frissül (066 Á17).
-- **ledger**: minden hívás (cache-találat, szonda és hiba is) sorba kerül a SQLite `ledger` táblába: run_id, lépés,
-  modell, tokenek, USD, idő, cache-találat, `error`.
-- **hiba-kezelés**: SDK-kivétel (429/5xx a RetryPolicy után, időtúllépés, kapcsolat) → ledger-sor `error`-ral +
-  `JevUnavailableError`; a flow-k ezt review-okká alakítják (`jev_unavailable:<ok>`), nem dőlnek el. Programhiba
-  (nem SDK-kivétel) továbbra is felfut.
-- **token-költség**: a modell-oldal árlistája szerint (`config.JEV_USD_PER_MTOK`), csak input token fizetős.
-- **config_hash**: a hívási hely konfig-verziója (`jav/cfg.py`) a ledger-sorban, hogy a mérés visszavezethető legyen.
+What it adds on top of the raw SDK:
+- **request-hash cache** (`runs/cache/<sha256>.json`): the same (concrete model version, state, questions) → the same
+  answer at zero cost. This makes re-evaluation and golden re-runs free; the determinism measurement, however, runs
+  with `use_cache=False` and under `no_cache_write()` so that it measures the real run-to-run variation.
+- **model version in the key**: `configs/models.json` gives an alias (`jev-latest`), but `models.list()` lists only
+  aliases, so the alias is resolved to a concrete version with a tiny probe (one Noul, ~100 tokens; the answer's
+  `model` field, e.g. `jev-1.13.0`). The resolution is kept in `runs/cache/_model_versions.json` with a TTL: cache
+  hits work offline too, and on a model update the key switches by itself (old cache files are left intact).
+  The request is sent with the alias; if the live answer reports a different version from the resolution (the alias
+  moved on within the TTL), the answer is stored under the answering version's key and the resolution is refreshed
+  (066 Á17).
+- **ledger**: every call (cache hits, probes and errors included) gets a row in the SQLite `ledger` table: run_id,
+  step, model, tokens, USD, time, cache hit, `error`.
+- **error handling**: an SDK exception (429/5xx after the RetryPolicy, timeout, connection) → a ledger row with
+  `error` + `JevUnavailableError`; the flows turn it into reviews (`jev_unavailable:<reason>`) and do not crash.
+  A programming error (not an SDK exception) still propagates.
+- **token cost**: according to the model's price list (`config.JEV_USD_PER_MTOK`); only input tokens are billed.
+- **config_hash**: the call site's config version (`jav/cfg.py`) in the ledger row, so that a measurement can be
+  traced back.
 """
 
 from __future__ import annotations
@@ -43,16 +45,16 @@ from jav.config import CACHE_DIR, JEV_ALIAS_TTL_H, JEV_CACHE_VERSION, JEV_MODEL,
 from jav.models import JevCall
 
 Question = Choice | Noul | Score
-CACHE_VERSION = JEV_CACHE_VERSION  # configs/models.json - léptetése minden cache-kulcsot érvénytelenít
-MODEL_VERSIONS_FILE = "_model_versions.json"  # a cache-mappában: alias -> {model, resolved_at}
+CACHE_VERSION = JEV_CACHE_VERSION  # configs/models.json - bumping it invalidates every cache key
+MODEL_VERSIONS_FILE = "_model_versions.json"  # in the cache folder: alias -> {model, resolved_at}
 _CONCRETE_MODEL = re.compile(r"^jev-\d+\.\d+\.\d+$")
-# A szonda: a legkisebb érvényes kérés; csak a válasz `model` mezője kell belőle.
+# The probe: the smallest valid request; only the answer's `model` field is needed from it.
 _PROBE_STATE = {"text": "probe"}
 _PROBE_QUESTIONS: dict[str, Question] = {"probe": Noul(instructions="Is the text exactly the word 'probe'?")}
 
 
 class JevUnavailableError(RuntimeError):
-    """A Jev-hívás az SDK újrapróbálkozásai után sem sikerült; a `reason` a ledger `error` oszlopának rövid alakja."""
+    """The JEV call failed even after the SDK's retries; `reason` is the short form of the ledger's `error` column."""
 
     def __init__(self, reason: str, *, retry_after_ms: float | None = None) -> None:
         super().__init__(reason)
@@ -61,7 +63,7 @@ class JevUnavailableError(RuntimeError):
 
 
 class InvalidJevResponse(RuntimeError):
-    """Szerkezetileg dekódolható, de hiányos vagy a kérdésnek nem megfelelő válasz."""
+    """An answer that decodes structurally but is incomplete or does not fit the question."""
 
 
 def validate_response(response: SystemOneResponse, questions: dict[str, Question]) -> None:
@@ -79,11 +81,11 @@ def validate_response(response: SystemOneResponse, questions: dict[str, Question
 
 
 def _error_slugs(exc: BaseException) -> tuple[str, str, float | None]:
-    """(rövid ok a review-okhoz, ledger-alak, retry_after_ms) egy SDK-kivételből."""
+    """(short reason for the reviews, ledger form, retry_after_ms) from an SDK exception."""
     name = type(exc).__name__
     status = getattr(exc, "status", None)
     reason = f"{name}:{status}" if status is not None else name
-    body = getattr(exc, "body", None)  # a szerver hiba-típusa (pl. max_tokens_exceeded) a ledgerbe és a review-okba is
+    body = getattr(exc, "body", None)  # server error type (e.g. max_tokens_exceeded) for the ledger and the reviews
     error_type = (body.get("detail") or {}).get("error_type") if isinstance(body, dict) and isinstance(body.get("detail"), dict) else None
     if error_type:
         reason += f":{error_type}"
@@ -111,7 +113,7 @@ def request_hash(model: str, state: object, questions: dict[str, Question]) -> s
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-# 066 Á16: a `_live` jelzése az `ask()`-nak, hogy a hívásnapló a lépés mentett válaszát adta (nem új költés)
+# 066 Á16: `_live` signals to `ask()` that the call log returned the step's saved answer (no new spending)
 _REPLAYED: ContextVar[bool] = ContextVar("jev_replayed", default=False)
 
 
@@ -120,9 +122,9 @@ class JevAdapter:
         self._client = client
         self.cache_dir = cache_dir
         self.model = model
-        self._resolved: dict[str, str] = {}  # alias -> konkrét verzió (folyamaton belül egyszer)
-        # Élő hívás után a válasz alapból a cache-be kerül (referencia-frissítés). A determinizmus-mérés
-        # `no_cache_write()` alatt fut: olvasás nélkül ÉS írás nélkül, hogy a referencia-válasz ne változzon.
+        self._resolved: dict[str, str] = {}  # alias -> concrete version (once per process)
+        # After a live call the answer goes into the cache by default (reference refresh). The determinism
+        # measurement runs under `no_cache_write()`: no reading AND no writing, so the reference answer stays unchanged.
         self.write_cache = True
 
     @property
@@ -136,7 +138,7 @@ class JevAdapter:
 
     @contextmanager
     def no_cache_write(self):
-        """Az élő válaszok a blokkon belül nem íródnak a cache-be (determinizmus-mérés)."""
+        """Live answers inside the block are not written to the cache (determinism measurement)."""
         previous = self.write_cache
         self.write_cache = False
         try:
@@ -144,11 +146,11 @@ class JevAdapter:
         finally:
             self.write_cache = previous
 
-    # --- modellverzió-feloldás ---------------------------------------------------------------------
+    # --- model version resolution ------------------------------------------------------------------
 
     @property
     def resolved_model(self) -> str:
-        """Az adapter modelljének konkrét verziója (alias esetén szonda / fájl)."""
+        """The concrete version of the adapter's model (for an alias: probe / file)."""
         return self.resolve_model(self.model)
 
     def _versions_path(self) -> Path:
@@ -182,7 +184,7 @@ class JevAdapter:
         try:
             response, _ = self._live("model_probe", _PROBE_STATE, _PROBE_QUESTIONS, model=model, run_id=run_id, config_hash=None)
         except JevUnavailableError:
-            if entry:  # lejárt, de van mit használni: offline cache-találatok működnek, a ledger `model` mezője mutatja az igazságot
+            if entry:  # expired but usable: offline cache hits keep working; the ledger's `model` field shows the truth
                 print(f"[jev] figyelem: '{model}' feloldása nem frissíthető, a {entry['resolved_at'][:10]}-i '{entry['model']}' marad", file=sys.stderr)
                 self._resolved[model] = entry["model"]
                 return entry["model"]
@@ -190,7 +192,7 @@ class JevAdapter:
         return self._remember(model, response.model or model)
 
     def _remember(self, alias: str, concrete: str) -> str:
-        """Az álnév feloldásának rögzítése (folyamaton belül és a fájlban, friss időbélyeggel)."""
+        """Record the alias resolution (in the process and in the file, with a fresh timestamp)."""
         versions = self._read_versions()
         versions[alias] = {"model": concrete, "resolved_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -198,24 +200,25 @@ class JevAdapter:
         self._resolved[alias] = concrete
         return concrete
 
-    # --- hívás -----------------------------------------------------------------------------------
+    # --- call ------------------------------------------------------------------------------------
 
     @staticmethod
     def _read_cached(path: Path) -> SystemOneResponse | None:
-        """A mentett válasz, vagy None, ha nincs, vagy olvashatatlan (066 Á37: egy félbeszakadt írás maradéka nem állítja
-        meg a folyamatot; élő kérdés lesz belőle, és a helyére új, ép fájl kerül). JSON-módú beolvasás (az SDK saját
-        dekódolási útja): a Score-válasz szint-kulcsai a fájlban stringek ("0"), a modell egész számot vár."""
+        """The saved answer, or None if it is missing or unreadable (066 Á37: the remains of an interrupted write do not
+        stop the process; it becomes a live question, and a new, intact file takes its place). Read in JSON mode
+        (the SDK's own decoding path): the Score answer's level keys are strings ("0") in the file, the model expects
+        integers."""
         try:
             return SystemOneResponse.model_validate_json(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return None
-        except (OSError, ValueError) as exc:  # a pydantic ValidationError is ValueError
+        except (OSError, ValueError) as exc:  # pydantic's ValidationError is a ValueError too
             print(f"[jev] figyelem: olvashatatlan gyorsítótár-fájl, élő kérdés lesz belőle: {path.name} ({type(exc).__name__})",
                   file=sys.stderr)
             return None
 
     def _write_cached(self, path: Path, response: SystemOneResponse) -> None:
-        """Atomi írás (066 Á37): ideiglenes fájlba, majd cserével, így olvasó sosem lát félkész fájlt."""
+        """Atomic write (066 Á37): to a temporary file, then a replace, so a reader never sees a half-written file."""
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         tmp = path.with_suffix(f".{os.getpid()}.tmp")
         tmp.write_text(json.dumps(response.model_dump(mode="json"), ensure_ascii=False), encoding="utf-8")
@@ -225,11 +228,11 @@ class JevAdapter:
     def _live(
         self, request_id: str, state: object, questions: dict[str, Question], *, model: str, run_id: str, config_hash: str | None
     ) -> tuple[SystemOneResponse, float]:
-        """Fizikai hívás. Feldolgozói futásban (`jav.runtime.calls.current()`) a hívásnaplón és a kereten át (040 K1):
-        túllépés és bizonytalan korábbi kísérlet `JevUnavailableError` lesz, így a folyamat review-okkal fut tovább.
-        Ha a hívásnapló a lépés mentett válaszát adta (újrajátszás), azt a `_REPLAYED` jelzi a hívó `ask()`-nak (066 Á16);
-        a visszatérési alak a felülíró kísérleti és teszt-adapterek miatt marad (válasz, másodperc)."""
-        from jav.runtime import calls  # késleltetett: a runtime a store-ra épül, az adapter a legalsó réteg
+        """Physical call. In a worker run (`jav.runtime.calls.current()`) it goes through the call log and the budget
+        (040 K1): an overrun or an uncertain earlier attempt becomes `JevUnavailableError`, so the process continues
+        with reviews. If the call log returned the step's saved answer (replay), `_REPLAYED` tells the calling `ask()`
+        (066 Á16); the return shape (answer, seconds) stays because experimental and test adapters override it."""
+        from jav.runtime import calls  # deferred: the runtime builds on the store, the adapter is the lowest layer
 
         ctx = calls.current()
         if ctx is None:
@@ -237,7 +240,7 @@ class JevAdapter:
         body = json.dumps({"state": state, "questions": {k: q.model_dump(mode="json") for k, q in questions.items()}},
                           ensure_ascii=False, default=str, sort_keys=True)
         key = request_hash(model, state, questions)
-        attempts = 1 + int(JEV_RETRY.get("max_retries", 0))  # az SDK saját újrapróbálásai is fizikai kérések
+        attempts = 1 + int(JEV_RETRY.get("max_retries", 0))  # the SDK's own retries are physical requests too
         max_cost = calls.estimate_max_cost(input_chars=len(body), max_output_tokens=0,
                                            usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)), physical_attempts=attempts)
         seconds_box: list[float] = []
@@ -264,14 +267,14 @@ class JevAdapter:
     def _sdk_live(
         self, request_id: str, state: object, questions: dict[str, Question], *, model: str, run_id: str, config_hash: str | None
     ) -> tuple[SystemOneResponse, float]:
-        """Élő SDK-hívás. SDK-kivétel -> ledger-sor `error`-ral + JevUnavailableError (a hívó dönt, mi legyen)."""
+        """Live SDK call. SDK exception -> ledger row with `error` + JevUnavailableError (the caller decides)."""
         t0 = time.perf_counter()
         try:
             response = self.client.system_one(state=state, questions=questions, model=model)
             validate_response(response, questions)
         except (TypeSafeError, ValidationError, InvalidJevResponse) as exc:
             if isinstance(exc, ValidationError) and exc.title != "SystemOneResponse":
-                raise  # Bemeneti / programozási hibát nem nevezünk szolgáltatáshibának.
+                raise  # An input / programming error is not reported as a service failure.
             seconds = round(time.perf_counter() - t0, 3)
             reason, ledger_error, retry_after = _error_slugs(exc)
             store.ledger_add(
@@ -280,7 +283,7 @@ class JevAdapter:
             )
             raise JevUnavailableError(reason, retry_after_ms=retry_after) from exc
         seconds = round(time.perf_counter() - t0, 3)
-        if request_id == "model_probe":  # a szonda költsége is a ledgerben, hogy ne legyen láthatatlan hívás
+        if request_id == "model_probe":  # the probe's cost goes to the ledger too, so no call is invisible
             usage = getattr(response, "usage", None)
             in_tok = getattr(usage, "input_tokens", None)
             store.ledger_add(
@@ -317,14 +320,14 @@ class JevAdapter:
             token = _REPLAYED.set(False)
             try:
                 response, seconds = self._live(request_id, state, questions, model=model, run_id=run_id, config_hash=config_hash)
-                cached = _REPLAYED.get()  # 066 Á16: a mentett válasz újrajátszása nem új költés (a hívásnapló már elszámolta)
+                cached = _REPLAYED.get()  # 066 Á16: a replayed answer is no new spending (already booked)
             finally:
                 _REPLAYED.reset(token)
             answered = getattr(response, "model", None)
             if answered and answered != concrete:
-                # 066 Á17: a kérés az álnévvel megy, a szolgáltató közben (a feloldás TTL-je alatt) új verzióra állíthatta.
-                # A válasz a válaszoló verzió kulcsa alá kerül, és a feloldás frissül, hogy a gyorsítótár-találat mindig
-                # ugyanannak a verziónak a válasza legyen, amelyiket a kulcs mond.
+                # 066 Á17: the request goes with the alias; the provider may have moved it to a new version meanwhile
+                # (within the resolution's TTL). The answer is stored under the answering version's key and the
+                # resolution is refreshed, so a cache hit is always an answer from the version the key names.
                 concrete = self._remember(model, answered) if not _CONCRETE_MODEL.match(model) else answered
                 key = request_hash(concrete, state, questions)
                 path = self._cache_path(key)
@@ -364,7 +367,7 @@ _scoped_adapter: ContextVar[JevAdapter | None] = ContextVar("jev_scoped_adapter"
 
 
 class CacheOnlyAdapter(JevAdapter):
-    """Csak a kérés-hash cache-ből válaszol; cache-hiánynál hiba, sosem hív szolgáltatót (visszajátszás, offline futás)."""
+    """Answers only from the request-hash cache; a miss is an error, it never calls a provider (replay, offline run)."""
 
     def _live(self, *args, **kwargs):
         raise RuntimeError("cache_only_miss; baseline cannot call a provider")
@@ -372,7 +375,7 @@ class CacheOnlyAdapter(JevAdapter):
 
 @contextmanager
 def use_adapter(adapter):
-    """Futáshoz kötött adapter; a párhuzamos kontextusok alapértelmezését nem cseréli le."""
+    """Run-scoped adapter; it does not replace the default of parallel contexts."""
     token = _scoped_adapter.set(adapter)
     try:
         yield adapter
@@ -389,5 +392,5 @@ def get_adapter() -> JevAdapter:
     return _scoped_adapter.get() or _default_adapter()
 
 
-# Korábbi tesztek / CLI cache-törlési felületének megőrzése.
+# Keeps the cache-clearing interface that earlier tests / the CLI use.
 get_adapter.cache_clear = _default_adapter.cache_clear

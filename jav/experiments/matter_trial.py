@@ -1,4 +1,4 @@
-"""035: régi ügykapcsolat-fixture + új kontroll, GPT / natív Pydantic JEV / közös szűrés."""
+"""035: legacy matter-link fixtures + new controls, GPT / native Pydantic JEV / joint filter."""
 from __future__ import annotations
 
 import argparse
@@ -25,7 +25,7 @@ def prepare(root):
         if not case['id'].startswith('synthetic/'):
             raise ValueError('only synthetic legacy inputs are authorized for this allocation')
         if case['id'] == 'synthetic/invoice_order_po':
-            continue  # Az első változat válaszvesztése után nem ismételjük a bizonytalan hívást.
+            continue  # After the first version lost its response, we do not repeat the uncertain call.
         packet, = case['input']['judge_cases']
         cases.append({'id': case['id'].replace('/', '-'), 'packet': packet,
                       'expected': case['expected'].split(':')[1], 'split': 'legacy_regression'})
@@ -75,7 +75,7 @@ def prepare(root):
 
 
 def generate_gpt(agent, text, *, config, run_id, config_hash):
-    """A nyers választ a felhasználási adatok feldolgozása ELŐTT megőrizzük."""
+    """The raw response is kept BEFORE the usage data is processed."""
     from pydantic_ai.usage import UsageLimits
     from jav.config import OPENAI_USD_PER_MTOK
     started = time.perf_counter()

@@ -1,1 +1,1 @@
-"""Elkülönített képességpróbák; nem kapcsolják át az üzemi flow-kat."""
+"""Isolated capability trials; they never switch over the production flows."""

@@ -1,4 +1,4 @@
-"""032: új állításvizsgálat külön dokumentumos/e-mailes kerettel, lezárt körök nélkül."""
+"""032: new claim assessment with separate document/email budgets, without closed rounds."""
 from __future__ import annotations
 
 import argparse
@@ -173,7 +173,7 @@ def run(root, domain, split):
 
 
 def report(root):
-    """Elvárás-egyezés, nem emberi pontosság; a nyers független válaszokból."""
+    """Agreement with the expectation, not human-verified accuracy; from the raw independent answers."""
     import sqlite3
     from contextlib import closing
     cases,config = validate(root, require_approval=False)

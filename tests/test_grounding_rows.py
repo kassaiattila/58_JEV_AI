@@ -1,12 +1,13 @@
-"""Forráshely-keretek (053, döntés 2026-09-28): a több helyen szereplő érték a legvalószínűbb helyen kap keretet, a
-pénznem a „Ft” feliratra is illeszkedik, és a tételes lista sorainak helye a képen. Mesterséges szóréteg, AI-hívás nélkül."""
+"""Source location boxes (053, decision of 2026-09-28): a value that appears in several places gets its box at the most
+likely place, the currency also matches the printed "Ft", and the rows of the itemised list get their place on the
+image. Synthetic word layer, no AI call."""
 
 from jav import grounding
 from jav.reground import reground_provenance
 from tests.test_grounding import layer_of
 
 
-# --- több helyen szereplő érték -----------------------------------------------------------------------
+# --- value appearing in several places ----------------------------------------------------------------
 
 
 def test_repeated_value_without_label_gets_the_first_place_and_the_rest_as_alternatives():
@@ -17,7 +18,7 @@ def test_repeated_value_without_label_gets_the_first_place_and_the_rest_as_alter
     ])
     r = grounding.locate_value(layer, "invoice_number", "800087654321", field="invoice_number")
     assert r["status"] == "located" and r["multiple"] == 3
-    assert r["quote"] == "800087654321" and r["bbox"][1] < 0.1  # az első (legfelső) előfordulás
+    assert r["quote"] == "800087654321" and r["bbox"][1] < 0.1  # the first (topmost) occurrence
     assert len(r["alternatives"]) == 2
 
 
@@ -29,7 +30,7 @@ def test_repeated_value_prefers_the_place_next_to_its_own_label():
     ])
     r = grounding.locate_value(layer, "money", "12700", field="gross_total")
     assert r["status"] == "located" and r["label"] is True and r["quote"] == "12 700"
-    assert r["bbox"][1] > 0.07  # a második sor, a címke mellett
+    assert r["bbox"][1] > 0.07  # the second line, next to the label
 
 
 def test_value_only_next_to_other_fields_labels_still_gets_no_frame():
@@ -45,7 +46,7 @@ def test_currency_matches_the_printed_forint_sign():
     assert grounding.locate_value(eur, "currency", "EUR", field="currency")["status"] == "located"
 
 
-# --- tételsorok ------------------------------------------------------------------------------------------
+# --- line items ------------------------------------------------------------------------------------------
 
 KINDS = {"description": "text", "quantity": "number", "unit_price": "money", "net_amount": "money", "gross_amount": "money"}
 
@@ -55,7 +56,7 @@ def _table():
         [("Tetelek", 20)],
         [("Alapdij", 20), ("1", 200), ("261", 260), ("261", 320), ("331", 380)],
         [("Energiadij", 20), ("38", 200), ("172,40", 260), ("6", 320), ("551", 332), ("8", 380), ("320", 392)],
-        [("Rendszerhasznalat", 20), ("1", 200), ("261", 260), ("261", 320), ("331", 380)],  # ugyanazok az összegek
+        [("Rendszerhasznalat", 20), ("1", 200), ("261", 260), ("261", 320), ("331", 380)],  # the same amounts
         [("Osszesen:", 20), ("7", 320), ("073", 332)],
     ])
 
@@ -69,7 +70,7 @@ def test_rows_are_located_by_their_amounts_in_document_order():
     out = grounding.locate_rows(_table(), rows, KINDS)
     assert [r["status"] for r in out] == ["located", "located", "located"]
     tops = [r["bbox"][1] for r in out]
-    assert tops == sorted(tops) and len(set(tops)) == 3  # az ismétlődő összegű sor a következő sorra kerül
+    assert tops == sorted(tops) and len(set(tops)) == 3  # the row with repeated amounts lands on the next line
     assert out[1]["quote"].startswith("Energiadij")
 
 
@@ -84,7 +85,7 @@ def test_ground_lists_wraps_rows_per_list_field():
     assert out["line_items"]["status"] == "list" and out["line_items"]["rows"][0]["status"] == "located"
 
 
-# --- meglévő futás forráshelyének újraszámolása ------------------------------------------------------------
+# --- recomputing the source locations of an existing run ---------------------------------------------------
 
 
 def test_reground_keeps_exact_picks_and_recomputes_searches_and_rows():
@@ -97,6 +98,6 @@ def test_reground_keeps_exact_picks_and_recomputes_searches_and_rows():
     values = {"net_total": "261", "gross_total": "7073",
               "line_items": [{"description": "Alapdij", "net_amount": "261", "gross_amount": "331"}]}
     new = reground_provenance(layer, old, fields=fields, values=values, list_kinds={"line_items": KINDS})
-    assert new["gross_total"] == old["gross_total"]  # a kiválasztott jelölt pontos helye marad
+    assert new["gross_total"] == old["gross_total"]  # the chosen candidate's exact location stays
     assert new["net_total"]["status"] == "located" and new["net_total"]["confidence"] == 0.8
     assert new["line_items"]["rows"][0]["status"] == "located"

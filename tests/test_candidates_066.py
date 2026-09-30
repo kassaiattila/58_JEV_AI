@@ -1,8 +1,9 @@
-"""066 átvizsgálás (Á03): a 065-ös számlaszám-címkék mellékhatásai, mesterséges sorokon.
+"""066 audit (Á03): side effects of the 065 invoice-number labels, on synthetic lines.
 
-A 065-ös új címkék (rendelésszám, tranzakció-azonosító, jóváíró számla) szóhatár nélkül a reklámsorra is illeszkedtek
-(„Order now…”), a környező sorokból összegeket vettek fel számlaszám-jelöltnek, és a számlaszám-jelölt maszkolása egy
-rövid számot a nagyobb összegek belsejében is kitakart: a végösszeg kiesett a pénzjelöltek közül. Minden szám kitalált."""
+Without a word boundary, the new labels of 065 (order number, transaction id, credit note) also matched the advert line
+("Order now…"), picked up amounts from the surrounding lines as invoice-number candidates, and masking the
+invoice-number candidate also hid a short number inside larger amounts: the grand total dropped out of the money
+candidates. Every number is made up."""
 
 from tests.test_candidates_065 import _labels, _lines
 

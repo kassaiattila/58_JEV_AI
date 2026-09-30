@@ -1,4 +1,5 @@
-"""A csomag „következő lépése” (057): egy helyen számolva, a lista és a csomag fejléce is ezt mutatja. Mesterséges adat."""
+"""The package's "next step" (057): computed in one place, shown by both the list and the package header. Synthetic
+data."""
 
 from jav.work_views import next_step
 from tests import test_api
@@ -29,7 +30,7 @@ def test_rules_in_order():
 
 
 def test_list_row_counts_work_without_item_list():
-    row = {"items": 3, "recipe_id": "invoice-extraction"}  # a lista sora: darabszám, nem tétellista
+    row = {"items": 3, "recipe_id": "invoice-extraction"}  # a list row: a count, not an item list
     assert next_step(row, None)["code"] == "start"
 
 
@@ -53,11 +54,11 @@ def test_rerun_starts_a_new_run_once(env):
     first = _start(c, wp["id"]).json()["run_id"]
     ready = c.get(f"/api/workpackages/{wp['id']}/workflow/readiness").json()
     body = {"mode": "apply", "expected_revision": ready["assignment_revision"], "input_hash": ready["input_hash"]}
-    assert c.post(f"/api/workpackages/{wp['id']}/workflow/start", headers=HUMAN, json=body).json()["run_id"] == first  # azonos: a meglévő
+    assert c.post(f"/api/workpackages/{wp['id']}/workflow/start", headers=HUMAN, json=body).json()["run_id"] == first  # identical: the existing one
     busy = c.post(f"/api/workpackages/{wp['id']}/workflow/start", headers=HUMAN, json={**body, "rerun_of": first})
     assert busy.status_code == 422 and "still active" in busy.json()["message"]
     worker.run_worker(once=True)
     again = c.post(f"/api/workpackages/{wp['id']}/workflow/start", headers=HUMAN, json={**body, "rerun_of": first})
     assert again.status_code == 201 and again.json()["run_id"] != first
     twice = c.post(f"/api/workpackages/{wp['id']}/workflow/start", headers=HUMAN, json={**body, "rerun_of": first})
-    assert twice.status_code == 200 and twice.json()["run_id"] == again.json()["run_id"]  # dupla kattintás: egy futás
+    assert twice.status_code == 200 and twice.json()["run_id"] == again.json()["run_id"]  # double click: one run

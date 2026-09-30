@@ -1,14 +1,15 @@
-"""E-mail bemeneti modell (M3): üzenet + csatolmányok, törzs-tisztítás, betöltők.
+"""Email input model (M3): message + attachments, body cleaning, loaders.
 
-Két forrás, egy modell:
-- **inbox-mappa** (a régi `email-intake-bare` fájl-modellje): `inbox/<mailbox>/<message_id>/message.json` + a
-  csatolmány-fájlok ugyanabban a mappában. Ezt írja a `scripts/outlook_pull.ps1` (asztali Outlook, csak olvas).
-- **régi intent-golden** (`10_AIFLOW_V4/data/golden/email-intake-bare/intent-golden-s21.json`): 96 valós levél,
-  600 karakteres törzs-előnézettel és csatolmány-fájlnevekkel (fájl nélkül). PII: a régi projektben marad,
-  csak hivatkozzuk.
+Two sources, one model:
+- **inbox folder** (the file model of the legacy `email-intake-bare`): `inbox/<mailbox>/<message_id>/message.json` +
+  the attachment files in the same folder. It is written by the local receiver `jav/ingest_server.py` for the legacy
+  `outlook_bridge.ps1` (desktop Outlook, read-only).
+- **legacy intent golden set** (`10_AIFLOW_V4/data/golden/email-intake-bare/intent-golden-s21.json`): 96 real emails,
+  with a 600-character body preview and attachment file names (no files). PII: it stays in the legacy project,
+  we only reference it.
 
-A törzs-tisztítás kód (1. szint): idézett/továbbított levélfej levágása, csupasz URL-sorok, üres sorok
-összevonása. A Jev a TISZTÍTOTT törzset látja magyar verbatim.
+Body cleaning is code (level 1): cutting off the quoted/forwarded header, bare URL lines, collapsing empty lines.
+JEV sees the CLEANED body verbatim (Hungarian as is).
 """
 
 from __future__ import annotations
@@ -26,9 +27,9 @@ from jav.config import BRIDGE_DATA_ROOT, OLD_DATA_ROOT
 OLD_INTENT_GOLDEN = OLD_DATA_ROOT / "golden" / "email-intake-bare" / "intent-golden-s21.json"
 DOC_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff"}
 MAX_BODY_CHARS = 4000
-BRIDGE_BODY_LIMIT = 20_000  # a régi Outlook-szkript ennyi karakterig küldi a levél szövegét (jav/ingest_server.py)
+BRIDGE_BODY_LIMIT = 20_000  # the legacy Outlook script sends the email text up to this many characters (jav/ingest_server.py)
 
-# idézett / továbbított levél kezdete: innentől NEM a küldő saját szövege
+# start of a quoted / forwarded email: from here on it is NOT the sender's own text
 _QUOTE_HEAD = re.compile(
     r"^\s*("
     r"-{2,}\s*(Original Message|Eredeti üzenet|Forwarded message|Továbbított üzenet)\s*-{2,}"
@@ -40,16 +41,16 @@ _QUOTE_HEAD = re.compile(
 )
 _URL_ONLY = re.compile(r"^\s*<?https?://\S+>?\s*$", re.IGNORECASE)
 _INLINE_URL = re.compile(r"<https?://[^>\s]+>")
-# hírlevél pre-header töltelék és láthatatlan formázó karakterek (U+034F, U+200B-D, U+FEFF, U+00AD, U+2060, NBSP-sor)
+# newsletter pre-header filler and invisible formatting characters (U+034F, U+200B-D, U+FEFF, U+00AD, U+2060, NBSP run)
 _INVISIBLE = re.compile(r"[͏​‌‍⁠﻿­]")
 _SIG_START = re.compile(r"^\s*(--\s*$|Üdvözlettel|Tisztelettel|Best regards|Kind regards|Mit freundlichen Grüßen)", re.IGNORECASE)
 
 
 class Attachment(BaseModel):
     filename: str
-    path: str | None = None  # None: csak a fájlnév ismert (régi golden)
+    path: str | None = None  # None: only the file name is known (legacy golden set)
     doc_id: str | None = None
-    doc_type: str | None = None  # M1 eredménye, ha lefutott
+    doc_type: str | None = None  # the M1 result, if it has run
     type_conf: float | None = None
     issuer_hu: float | None = None
     status: str | None = None  # detect final_status: done / needs_ocr / name_only / unsupported
@@ -66,7 +67,7 @@ class EmailMessage(BaseModel):
     sender_name: str | None = None
     subject: str = ""
     received_at: str | None = None
-    body: str = ""  # nyers törzs (plain text)
+    body: str = ""  # raw body (plain text)
     attachments: list[Attachment] = Field(default_factory=list)
 
 
@@ -79,7 +80,7 @@ class GoldenEmail:
 
 
 def _has_quoted_part(text: str) -> bool:
-    """Van-e a saját szöveg után idézett / továbbított előzmény (a `clean_body` ettől a sortól vág)."""
+    """Whether a quoted / forwarded history follows the own text (`clean_body` cuts from that line)."""
     seen_content = False
     for ln in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
         if _URL_ONLY.match(ln):
@@ -92,11 +93,11 @@ def _has_quoted_part(text: str) -> bool:
 
 
 def body_coverage(msg: EmailMessage) -> dict[str, Any]:
-    """058 K5.1: a levél szövegéből mennyit látott a szándék-felismerés — kódban, a kérdés építésével azonos szabályokkal.
+    """058 K5.1: how much of the email text intent recognition saw — in code, with the same rules as the question.
 
-    `status`: `full` = a levél saját szövege teljesen; `shortened` = csak az eleje (sor- vagy hosszkorlát miatt);
-    `capped` = már a letöltéskor elvágódhatott (a régi szkript korlátja). Az idézett előzmény kihagyása nem rövidítés,
-    külön jelölve (`quoted_removed`)."""
+    `status`: `full` = all of the email's own text; `shortened` = only the beginning (line or length limit);
+    `capped` = it may already have been cut off at download (the legacy script's limit). Dropping the quoted history is
+    not shortening; it is flagged separately (`quoted_removed`)."""
     from jav.intent import MAX_BODY_LINES, MAX_LINE_CHARS
 
     own = [ln for ln in clean_body(msg.body, max_chars=10**9).split("\n") if ln.strip()]
@@ -108,10 +109,10 @@ def body_coverage(msg: EmailMessage) -> dict[str, Any]:
 
 
 def clean_body(text: str, *, max_chars: int = MAX_BODY_CHARS) -> str:
-    """Az idézett/továbbított rész és a csupasz URL-sorok nélkül; whitespace normalizálva, hossz-korláttal.
+    """Without the quoted/forwarded part and bare URL lines; whitespace normalised, with a length limit.
 
-    A levágás csak akkor történik, ha az idézet-fej NEM az első értelmes sor (egy 'FW:' levélnek gyakran csak a
-    továbbított része van - azt meg kell tartani, különben üres marad a törzs).
+    The cut happens only if the quote header is NOT the first meaningful line (an 'FW:' email often has only the
+    forwarded part - that must be kept, otherwise the body stays empty).
     """
     text = _INVISIBLE.sub("", text.replace("\r\n", "\n").replace("\r", "\n").replace("\t", " "))
     lines = [_INLINE_URL.sub("", ln).rstrip() for ln in text.split("\n")]
@@ -125,7 +126,7 @@ def clean_body(text: str, *, max_chars: int = MAX_BODY_CHARS) -> str:
         if ln.strip():
             seen_content = True
         out.append(ln.strip())
-    # üres sorok összevonása
+    # collapse empty lines
     collapsed: list[str] = []
     for ln in out:
         if ln or (collapsed and collapsed[-1]):
@@ -140,13 +141,13 @@ def sender_domain(sender: str | None) -> str | None:
     return sender.rsplit("@", 1)[1].strip("<> ").lower()
 
 
-# --- betöltők ------------------------------------------------------------------------------
+# --- loaders -------------------------------------------------------------------------------
 
 
 def _allowed_attachment(path: Path, folder: Path) -> bool:
-    """Csatolmány csak a levél saját mappájából, a bridge saját `data/` gyökeréből (048 T2) vagy a régi projekt `data/`
-    gyökeréből olvasható (040 K1, F01):
-    abszolút vagy `..`-os útvonal a feloldás után sem mutathat ezeken kívülre."""
+    """An attachment may only be read from the email's own folder, the bridge's own `data/` root (048 T2) or the legacy
+    project's `data/` root (040 K1, F01):
+    an absolute or `..` path must not point outside these even after resolution."""
     try:
         resolved = path.resolve()
     except (OSError, ValueError):
@@ -155,17 +156,17 @@ def _allowed_attachment(path: Path, folder: Path) -> bool:
     return resolved.is_file() and any(resolved.is_relative_to(r) for r in roots)
 
 
-# a levél mappájának saját nyilvántartó fájljai — nem csatolmányok (048: a fogadó `receipt.json`-ja és a korábbi verziók)
+# the email folder's own bookkeeping files — not attachments (048: the receiver's `receipt.json` and earlier versions)
 _BOOKKEEPING = re.compile(r"^(message(\.v\d+)?|receipt)\.json(\.tmp)?$")
 
 
 def is_bookkeeping_file(name: str) -> bool:
-    """A levél mappájának saját nyilvántartó fájlja (a fogadó írja), nem csatolmány (048)."""
+    """A bookkeeping file of the email folder (written by the receiver), not an attachment (048)."""
     return bool(_BOOKKEEPING.match(name))
 
 
 def load_message_dir(folder: str | Path) -> EmailMessage:
-    """`<folder>/message.json` + a mappa dokumentum-fájljai csatolmányként (a JSON listája elsőbbséget kap)."""
+    """`<folder>/message.json` + the folder's document files as attachments (the JSON's list takes precedence)."""
     folder = Path(folder)
     meta = json.loads((folder / "message.json").read_text(encoding="utf-8"))
     listed = meta.get("attachments") or []
@@ -192,13 +193,13 @@ def load_message_dir(folder: str | Path) -> EmailMessage:
 
 
 def iter_inbox(root: str | Path) -> list[Path]:
-    """`inbox/<mailbox>/<message_id>/` mappák, amelyekben van message.json."""
+    """The `inbox/<mailbox>/<message_id>/` folders that contain a message.json."""
     root = Path(root)
     return sorted(p.parent for p in root.glob("*/*/message.json"))
 
 
 def load_old_golden(path: Path = OLD_INTENT_GOLDEN) -> list[GoldenEmail]:
-    """A régi 96 esetes intent-golden a mi modellünkre képezve. A csatolmányoknak csak a neve van."""
+    """The legacy 96-case intent golden set mapped onto our model. The attachments have names only."""
     if not path.exists():
         return []
     data = json.loads(path.read_text(encoding="utf-8"))

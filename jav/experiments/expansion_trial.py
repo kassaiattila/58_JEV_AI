@@ -1,4 +1,4 @@
-"""036: új levelek intentjei és részletes legacy típusok, elkülönített kerettel."""
+"""036: intents of new emails and detailed legacy types, with a separate budget."""
 from __future__ import annotations
 import argparse
 import json

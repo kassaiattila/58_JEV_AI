@@ -1,4 +1,4 @@
-"""Képességpróbák: bizonyító sorok és kódos korlátok, hálózat nélkül."""
+"""Capability probes: evidence lines and code-side limits, without network."""
 from types import SimpleNamespace
 
 from jav.experiments.jev_patterns import stitch_and_classify, assess_pair, classify_hierarchy
@@ -6,7 +6,7 @@ from jav.experiments.jev_patterns import stitch_and_classify, assess_pair, class
 
 def test_protected_boundary_cannot_be_overridden_by_model():
     def ask(step, state, questions):
-        # Szándékosan túlbuzgó modell: minden szomszédot összefűzne.
+        # A deliberately overeager model: it would join every neighbour.
         return SimpleNamespace(nouls={"L001": SimpleNamespace(noul=1), "L002": SimpleNamespace(noul=1)},
                                choices={key: SimpleNamespace(choice="item") for key in questions})
     config = {"join_question":"Join {previous} and {current}?", "join_criteria":{},

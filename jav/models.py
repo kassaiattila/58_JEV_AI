@@ -1,13 +1,15 @@
-"""Pydantic modellek és normalizálók - a flow összes fix be-/kimeneti struktúrája.
+"""Pydantic models and normalisers: every fixed input/output structure of the flow.
 
-Két réteg:
-- `InvoiceLLM` / `LineItemLLM`: a régi invoice_hu/schema.json 1:1 tükre (nullable stringek, pénz decimális
-  STRING ponttal, dátum ISO string). Ezt adja a generatív modell, és ezt hasonlítjuk a golden JSON-hoz.
-- `InvoiceHU` / `LineItem`: normalizált réteg (`Decimal`, `date`), amit validátor, policy és eval fogyaszt.
-  A konverzió (`llm_to_invoice`) az egyetlen hely, ahol parse-hiba review-okká válik kivétel helyett.
+Two layers:
+- `InvoiceLLM` / `LineItemLLM`: a 1:1 mirror of the legacy invoice_hu/schema.json (nullable strings, money as a
+  decimal STRING with a dot, date as an ISO string). The generative model returns this, and it is what we compare
+  with the golden JSON.
+- `InvoiceHU` / `LineItem`: the normalised layer (`Decimal`, `date`) consumed by validators, policy and evals.
+  The conversion (`llm_to_invoice`) is the only place where a parse error becomes review reasons instead of an
+  exception.
 
-A Jev nyers kimenete (`FieldPick.probabilities`, `JevVerdicts.flags`) változatlanul tárolódik; a küszöbök
-kizárólag a `policy` modulban élnek.
+JEV's raw output (`FieldPick.probabilities`, `JevVerdicts.flags`) is stored unchanged; the thresholds live only in
+the `policy` module.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 # --------------------------------------------------------------------------------------
-# Mezőlisták
+# Field lists
 # --------------------------------------------------------------------------------------
 
 HEADER_FIELDS: tuple[str, ...] = (
@@ -48,7 +50,7 @@ MONEY_FIELDS: tuple[str, ...] = ("net_total", "vat_total", "gross_total", "amoun
 DATE_FIELDS: tuple[str, ...] = ("issue_date", "fulfillment_date", "due_date")
 TAX_ID_FIELDS: tuple[str, ...] = ("supplier_tax_id", "buyer_tax_id")
 
-# A golden `expected/*.json` datapoints-ában szereplő 13 fejléc-mező (a régi pontozási szerződés).
+# The 13 header fields in the datapoints of the golden `expected/*.json` (the legacy scoring contract).
 SCORED_FIELDS: tuple[str, ...] = (
     "supplier_name",
     "supplier_tax_id",
@@ -62,13 +64,14 @@ SCORED_FIELDS: tuple[str, ...] = (
     "net_total",
     "vat_total",
     "gross_total",
-    "payment_iban",  # a régi szerződésben NEM pontozott, csak informatív - az eval külön kezeli
+    "payment_iban",  # NOT scored in the legacy contract, informative only; the eval handles it separately
 )
 
-CandidateKind = Literal["tax_id", "date", "money", "iban", "invoice_number", "name", "address", "text"]  # text: címkés szöveg-mező (típus-csomag text_labels)
+# text: a labelled text field (the type pack's text_labels)
+CandidateKind = Literal["tax_id", "date", "money", "iban", "invoice_number", "name", "address", "text"]
 
 # --------------------------------------------------------------------------------------
-# Normalizálók (kód birtokolja a formátumot - Jev soha)
+# Normalisers (code owns the format, never JEV)
 # --------------------------------------------------------------------------------------
 
 _CURRENCY_TOKENS = re.compile(r"(?i)\b(?:ft|huf|eur|usd|forint)\b\.?|[€$]")
@@ -78,22 +81,23 @@ _GROUPED_DOTS = re.compile(r"^-?\d{1,3}(?:\.\d{3})+$")
 
 
 class MoneyParse(BaseModel):
-    """Egy pénzösszeg-sztring feloldása. `ambiguous`: a pont tizedes VAGY ezres is lehet (pl. "12.34")."""
+    """Resolves a money string. `ambiguous`: the dot may be a decimal OR a thousands separator (e.g. "12.34")."""
 
     value: Decimal | None
     ambiguous: bool = False
 
 
-_GROUPED_COMMAS = re.compile(r"^-?\d{1,3}(?:,\d{3})+$")  # "1,600" / "1,234,567" - angol ezres vesszők (intl)
-_DECIMAL_DOT_HINT = re.compile(r"[$€£]\s*-?\d|\d\s*(?:USD|EUR|GBP|AUD|CAD|CHF)\b", re.IGNORECASE)  # "$42.50" / "42.50 USD": a pont tizedes
+_GROUPED_COMMAS = re.compile(r"^-?\d{1,3}(?:,\d{3})+$")  # "1,600" / "1,234,567": English thousands commas (intl)
+# "$42.50" / "42.50 USD": the dot is a decimal point
+_DECIMAL_DOT_HINT = re.compile(r"[$€£]\s*-?\d|\d\s*(?:USD|EUR|GBP|AUD|CAD|CHF)\b", re.IGNORECASE)
 
 
 def parse_money(raw: str | None, *, intl: bool = False) -> MoneyParse:
-    """Magyar konvenció: vessző = tizedes, pont/szóköz = ezres. Angol "12,345.67" is felismerve.
+    """Hungarian convention: comma = decimal, dot/space = thousands. English "12,345.67" is recognised too.
 
-    Nem számol és nem kerekít; csak a jelölést oldja fel. Bizonytalan esetben `ambiguous=True`.
-    `intl=True` (nemzetközi jelölt-profil): a vessző + pontosan 3 jegy ezres ("1,600" = 1600, nem 1,6), és a
-    pénznem-szimbólummal / -kóddal jelölt pontos tizedes ("$42.50", "42.50 USD") nem bizonytalan.
+    Neither computes nor rounds; it only resolves the notation. When unsure, `ambiguous=True`.
+    `intl=True` (international candidate profile): a comma + exactly 3 digits is a thousands separator ("1,600" = 1600,
+    not 1.6), and a decimal dot marked by a currency symbol / code ("$42.50", "42.50 USD") is not ambiguous.
     """
     if raw is None:
         return MoneyParse(value=None)
@@ -108,21 +112,22 @@ def parse_money(raw: str | None, *, intl: bool = False) -> MoneyParse:
     ambiguous = False
     has_dot, has_comma = "." in s, "," in s
     if has_dot and has_comma:
-        # Az utolsó elválasztó a tizedes: "12.345,67" (HU) vagy "12,345.67" (EN).
+        # The last separator is the decimal one: "12.345,67" (HU) or "12,345.67" (EN).
         if s.rfind(",") > s.rfind("."):
             s = s.replace(".", "").replace(",", ".")
         else:
             s = s.replace(",", "")
     elif has_comma:
         if s.count(",") > 1 or (intl and _GROUPED_COMMAS.match(s)):
-            s = s.replace(",", "")  # "1,234,567" - ezres vesszők; intl: "1,600" is
+            s = s.replace(",", "")  # "1,234,567": thousands commas; intl: "1,600" too
         else:
             s = s.replace(",", ".")
     elif has_dot:
         if _GROUPED_DOTS.match(s) and not dot_is_decimal:
-            s = s.replace(".", "")  # "12.345" / "1.234.567" - HU ezres pontok
+            s = s.replace(".", "")  # "12.345" / "1.234.567": HU thousands dots
         elif s.count(".") == 1:
-            ambiguous = not dot_is_decimal  # "12.34": angol tizedes vagy hibás ezres - kódban nem eldönthető (intl: a $ / USD eldönti)
+            # "12.34": English decimal or malformed thousands, undecidable in code (intl: the $ / USD decides)
+            ambiguous = not dot_is_decimal
         else:
             return MoneyParse(value=None)
     try:
@@ -136,7 +141,7 @@ def normalize_money(raw: str | None) -> Decimal | None:
 
 
 def money_label(value: Decimal) -> str:
-    """Kanonikus, összehasonlítható sztring: "127000", "20619.05" (felesleges nullák nélkül)."""
+    """Canonical, comparable string: "127000", "20619.05" (without superfluous zeros)."""
     text = format(value.normalize(), "f")
     return text if text != "-0" else "0"
 
@@ -160,8 +165,8 @@ _MONTH_ALT = "|".join(sorted(_HU_MONTHS, key=len, reverse=True))
 DATE_NUMERIC_RE = re.compile(r"(?<!\d)(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})\.?(?!\d)")
 DATE_TEXT_RE = re.compile(rf"(?<!\d)(\d{{4}})\.?\s+({_MONTH_ALT})\.?\s+(\d{{1,2}})\.?(?!\d)", re.IGNORECASE)
 
-# Nemzetközi dátum-alakok (intl jelölt-profil). Konvenció: pont / kötőjel elválasztó = nap-először (07.03.2025 = márc. 7.,
-# kontinentális); perjel = hónap-először (12/19/2022, US). Angol hónapnevek mindkét sorrendben.
+# International date forms (intl candidate profile). Convention: a dot / hyphen separator = day first (07.03.2025 =
+# 7 March, continental); a slash = month first (12/19/2022, US). English month names in both orders.
 _EN_MONTHS = {
     "january": 1, "jan": 1, "february": 2, "feb": 2, "march": 3, "mar": 3, "april": 4, "apr": 4, "may": 5,
     "june": 6, "jun": 6, "july": 7, "jul": 7, "august": 8, "aug": 8, "september": 9, "sept": 9, "sep": 9,
@@ -170,8 +175,8 @@ _EN_MONTHS = {
 _EN_MONTH_ALT = "|".join(sorted(_EN_MONTHS, key=len, reverse=True))
 DATE_EN_MDY_RE = re.compile(rf"\b({_EN_MONTH_ALT})\.?\s+(\d{{1,2}})(?:st|nd|rd|th)?,?\s+(\d{{4}})\b", re.IGNORECASE)  # Dec 25, 2022
 DATE_EN_DMY_RE = re.compile(rf"(?<!\d)(\d{{1,2}})(?:st|nd|rd|th)?\.?\s+({_EN_MONTH_ALT})\.?,?\s+(\d{{4}})\b", re.IGNORECASE)  # 25 Dec 2022
-DATE_DMY_RE = re.compile(r"(?<!\d)(\d{1,2})\s*[.\-]\s*(\d{1,2})\s*[.\-]\s*(\d{4})(?!\d)")  # 07.03.2025 / 07-03-2025 (nap-először)
-DATE_MDY_SLASH_RE = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(\d{4})(?!\d)")  # 12/19/2022 (US, hónap-először)
+DATE_DMY_RE = re.compile(r"(?<!\d)(\d{1,2})\s*[.\-]\s*(\d{1,2})\s*[.\-]\s*(\d{4})(?!\d)")  # 07.03.2025 / 07-03-2025 (day first)
+DATE_MDY_SLASH_RE = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(\d{4})(?!\d)")  # 12/19/2022 (US, month first)
 INTL_DATE_RES: tuple[re.Pattern[str], ...] = (DATE_EN_MDY_RE, DATE_EN_DMY_RE, DATE_DMY_RE, DATE_MDY_SLASH_RE)
 
 
@@ -186,8 +191,8 @@ def _intl_date(m: re.Match[str], rx: re.Pattern[str]) -> tuple[int, int, int]:
 
 
 def normalize_date(raw: str | None, *, intl: bool = False) -> date | None:
-    """`2022.02.10.`, `2022. 02. 10.`, `2022-02-10`, `2022/02/10`, `2022. február 10.` -> date. Kétjegyű év: nem.
-    `intl=True`: emellett `Dec 25, 2022`, `25 Dec 2022`, `07.03.2025` (nap-először), `12/19/2022` (hónap-először)."""
+    """`2022.02.10.`, `2022. 02. 10.`, `2022-02-10`, `2022/02/10`, `2022. február 10.` -> date. Two-digit year: no.
+    `intl=True`: also `Dec 25, 2022`, `25 Dec 2022`, `07.03.2025` (day first), `12/19/2022` (month first)."""
     if raw is None:
         return None
     s = str(raw).replace(" ", " ").strip()
@@ -219,16 +224,16 @@ _DIGITS = re.compile(r"\D")
 
 
 def normalize_tax_id(raw: str | None) -> str | None:
-    """Magyar adószám -> `########-#-##`; felismert uniós / nem uniós alak -> tömör írásmód („IE 8256796 U” ->
-    „IE8256796U”); 069: a címke és a felesleges előtag levágva („HU VAT HU12345678” -> „HU12345678”, `jav/taxid.py`).
-    Ami nem ismerhető fel, trimmelve marad (az ellenőrzés teendőt ad rá)."""
+    """Hungarian tax number -> `########-#-##`; a recognised EU / non-EU form -> compact spelling ("IE 8256796 U" ->
+    "IE8256796U"); 069: the label and the superfluous prefix are cut off ("HU VAT HU12345678" -> "HU12345678",
+    `jav/taxid.py`). Anything unrecognised stays trimmed (the check raises a to-do for it)."""
     from jav.taxid import clean
 
     return clean(raw)
 
 
 def normalize_iban(raw: str | None) -> str | None:
-    """Nyomtatott forma megtartva (csoportosítás is); csak trim + NBSP."""
+    """Keeps the printed form (grouping included); only trim + NBSP."""
     if raw is None:
         return None
     s = str(raw).replace(" ", " ").strip()
@@ -243,7 +248,7 @@ def normalize_text(raw: str | None) -> str | None:
 
 
 # --------------------------------------------------------------------------------------
-# LLM-réteg: a régi schema.json 1:1 tükre
+# LLM layer: a 1:1 mirror of the legacy schema.json
 # --------------------------------------------------------------------------------------
 
 
@@ -263,7 +268,7 @@ class LineItemLLM(BaseModel):
 
 
 class InvoiceLLM(BaseModel):
-    """Magyar szállítói számla kivonata. Minden mező nullable; pénz decimális string ponttal; dátum ISO."""
+    """Hungarian supplier invoice extract. Every field nullable; money = decimal string with a dot; date = ISO."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -289,7 +294,7 @@ class InvoiceLLM(BaseModel):
 
 
 # --------------------------------------------------------------------------------------
-# Normalizált réteg
+# Normalised layer
 # --------------------------------------------------------------------------------------
 
 
@@ -304,12 +309,13 @@ class LineItem(BaseModel):
     product_code: str | None = None
     vat_amount: Decimal | None = None
     note: str | None = None
-    extra: dict[str, object] = Field(default_factory=dict)  # más típus-csomag tételsor-mezői (pl. period, meter_serial), normalizálva
+    # line-item fields of other type packs (e.g. period, meter_serial), normalised
+    extra: dict[str, object] = Field(default_factory=dict)
 
 
 class InvoiceHU(BaseModel):
-    """Normalizált számla-rekord - a típus-csomagok közös rekordja (a név a magyar számlától örökölt; a külföldi számla
-    ugyanezt használja `supplier_country`-val, a további típusok pack-mezői az `extra` szótárba kerülnek)."""
+    """Normalised invoice record, shared by the type packs (the name is inherited from the Hungarian invoice; the
+    foreign invoice uses it too, with `supplier_country`, and the pack fields of further types go into `extra`)."""
 
     supplier_name: str | None = None
     supplier_tax_id: str | None = None
@@ -329,16 +335,16 @@ class InvoiceHU(BaseModel):
     payment_method: str | None = None
     order_number: str | None = None
     amount_due: Decimal | None = None
-    supplier_country: str | None = None  # invoice_foreign: ISO 3166-1 alpha-2 (a régi séma mezője)
-    extra: dict[str, object] = Field(default_factory=dict)  # a típus-csomag további fejléc-mezői (kód-oldali normalizálással)
+    supplier_country: str | None = None  # invoice_foreign: ISO 3166-1 alpha-2 (a legacy schema field)
+    extra: dict[str, object] = Field(default_factory=dict)  # the type pack's other header fields (normalised in code)
     line_items: list[LineItem] = Field(default_factory=list)
 
     def get_field(self, name: str) -> object:
         return getattr(self, name) if name in type(self).model_fields and name != "extra" else self.extra.get(name)
 
     def to_datapoints(self, fields: tuple[str, ...] | None = None) -> dict[str, object]:
-        """A golden `datapoints` formátuma (stringek), összehasonlításhoz és riporthoz. `fields`: a típus-csomag
-        fejléc-mezői (alap: a magyar számla mezőlistája)."""
+        """The golden `datapoints` format (strings), for comparison and reports. `fields`: the type pack's header
+        fields (default: the Hungarian invoice field list)."""
         out: dict[str, object] = {}
         for name in fields or HEADER_FIELDS:
             out[name] = _plain(self.get_field(name))
@@ -361,11 +367,11 @@ class InvoiceHU(BaseModel):
         return out
 
 
-InvoiceRecord = InvoiceHU  # típus-független név ugyanarra a rekordra
+InvoiceRecord = InvoiceHU  # type-neutral name for the same record
 
 
 def _plain(value: object) -> object:
-    """A `datapoints` formátuma: pénz címke-stringként, dátum ISO-ként, listák és tételek rekurzívan (047)."""
+    """The `datapoints` format: money as a label string, dates as ISO, lists and items recursively (047)."""
     if isinstance(value, Decimal):
         return money_label(value)
     if isinstance(value, date):
@@ -378,9 +384,9 @@ def _plain(value: object) -> object:
 
 
 def parse_money_contract(raw: str | None) -> Decimal | None:
-    """Az LLM-réteg szerződése: sima decimális string PONT tizedessel, elválasztók nélkül ("1234.56").
+    """The LLM layer's contract: a plain decimal string with a DOT as the decimal point, no separators ("1234.56").
 
-    Itt a pont mindig tizedes (a HU forrás-parserrel ellentétben), mert a prompt ezt írja elő.
+    Here the dot is always the decimal point (unlike the HU source parser), because the prompt prescribes it.
     """
     if raw is None:
         return None
@@ -416,7 +422,7 @@ _LINE_ITEM_TEXT = ("description", "vat_rate", "unit", "product_code", "note")
 
 
 def normalize_value(kind: str, raw: object, field: str, reasons: list[str]) -> object:
-    """Egy mező normalizálása a típus-csomag FAJTÁJA szerint (a kód birtokolja a formátumot). Parse-hiba -> review-ok."""
+    """Normalises one field by its KIND in the type pack (code owns the format). Parse error -> review reasons."""
     if raw is None:
         return None
     if kind == "money":
@@ -439,7 +445,8 @@ def normalize_value(kind: str, raw: object, field: str, reasons: list[str]) -> o
         reasons.append(f"{field}:unparseable:{raw!r}")
         return None
     if kind == "number":
-        # mennyiség (kWh, m3, MJ, mérőállás): a generatív kivonat pont-tizedest ígér, de OCR-szövegről magyar alakot is ad ("143,00", "1 866")
+        # quantity (kWh, m3, MJ, meter reading): the generative extract promises a decimal dot, but from OCR text it
+        # also returns the Hungarian form ("143,00", "1 866")
         value = parse_money(str(raw)).value
         if value is None:
             reasons.append(f"{field}:unparseable:{raw!r}")
@@ -454,8 +461,8 @@ def _check_enum(path: str, value: object, enums: dict[str, list[Any]], reasons: 
 
 
 def _list_value(field: str, raw: object, item_kinds: dict[str, str], enums: dict[str, list[Any]], reasons: list[str]) -> list[Any]:
-    """047: tételes lista a csomag `list_fields` leírása szerint. `{"*": fajta}` = egyszerű értékek listája; különben
-    objektumok, a tétel-mezők fajtája szerint normalizálva (ismeretlen tétel-mező: szövegként)."""
+    """047: an itemised list as described by the pack's `list_fields`. `{"*": kind}` = a list of plain values;
+    otherwise objects, normalised by the kind of each item field (unknown item field: as text)."""
     out: list[Any] = []
     for i, item in enumerate(raw if isinstance(raw, list) else []):
         path = f"{field}[{i}]"
@@ -476,10 +483,10 @@ def _list_value(field: str, raw: object, item_kinds: dict[str, str], enums: dict
 
 def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fields: dict[str, dict[str, str]] | None = None,
                     enums: dict[str, list[Any]] | None = None) -> tuple[InvoiceHU, list[str]]:
-    """Generatív kivonat (szótár, a típus-csomag sémája szerint) -> normalizált rekord a csomag mező-fajtái alapján.
-    A rekord ismert attribútumai közvetlenül, a csomag további mezői az `extra`-ba. Parse-hiba nem kivétel, hanem review-ok.
-    047: `list` fajtájú mező a `list_fields` tétel-leírásával; felsorolt érték (`enums`, kulcs: `mező` vagy
-    `mező[].tétel-mező`) megsértése review-ok, nem hiba."""
+    """Generative extract (a dict following the type pack's schema) -> normalised record by the pack's field kinds.
+    Known attributes of the record are set directly, further pack fields go into `extra`. A parse error is not an
+    exception but review reasons. 047: a `list` field uses the item description in `list_fields`; a violated
+    enumerated value (`enums`, key: `field` or `field[].item_field`) gives review reasons, not an error."""
     list_fields, enums = list_fields or {}, enums or {}
     reasons: list[str] = []
     items: list[LineItem] = []
@@ -499,7 +506,7 @@ def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fie
     own = set(InvoiceHU.model_fields) - {"extra", "line_items"}
     for field, kind in fields.items():
         if kind == "list" and field == "line_items":
-            continue  # a számla-tételsor a rekord saját `line_items` útján (fent), nem kétszer
+            continue  # the invoice line items take the record's own `line_items` path (above), not twice
         if kind == "list":
             extra_fields[field] = _list_value(field, data.get(field), list_fields.get(field, {"*": "text"}), enums, reasons)
             continue
@@ -513,14 +520,14 @@ def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fie
 
 
 def llm_to_invoice(llm: InvoiceLLM) -> tuple[InvoiceHU, list[str]]:
-    """LLM-réteg -> normalizált réteg (magyar számla). Parse-hiba nem kivétel, hanem review-ok."""
+    """LLM layer -> normalised layer (Hungarian invoice). A parse error is not an exception but review reasons."""
     from jav.typepack import get
 
     return record_from_llm(llm.model_dump(), get("invoice_hu").fields)
 
 
 # --------------------------------------------------------------------------------------
-# PDF elrendezés (szó-szintű rekonstrukció: sorok és oszlop-cellák)
+# PDF layout (word-level reconstruction: lines and column cells)
 # --------------------------------------------------------------------------------------
 
 
@@ -531,37 +538,37 @@ class CellLayout(BaseModel):
 
 
 class LineLayout(BaseModel):
-    no: int  # 1-alapú, dokumentum-szintű
+    no: int  # 1-based, document-wide
     page: int
-    text: str  # cellák 3 szóközzel összefűzve - ez megy a Jev state-be
+    text: str  # cells joined with 3 spaces; this goes into the JEV state
     cells: list[CellLayout] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------------------
-# Jelöltek és Jev-eredmények (S-kar)
+# Candidates and JEV results (S path)
 # --------------------------------------------------------------------------------------
 
 
 class Candidate(BaseModel):
     kind: CandidateKind
-    label: str  # normalizált érték - ez a Choice-opció kulcsa (dedup-kulcs is)
-    raw: str  # szó szerinti span, ahogy nyomtatva
-    line_no: int  # 1-alapú sorindex az első előfordulásra
-    context: str  # "L07: '<előző sor>' | '<saját sor>'" - a címke gyakran a fölötti sorban van
-    ambiguous: bool = False  # csak money: a pont tizedes/ezres nem eldönthető
+    label: str  # normalised value: the Choice option key (also the dedup key)
+    raw: str  # verbatim span, as printed
+    line_no: int  # 1-based line index of the first occurrence
+    context: str  # "L07: '<previous line>' | '<own line>'": the label is often on the line above
+    ambiguous: bool = False  # money only: the dot as decimal or thousands is undecidable
     occurrences: int = 1
 
 
 class FieldPick(BaseModel):
     field: str
-    label: str | None  # None = Jev "none"-t választott, vagy nem volt jelölt
+    label: str | None  # None = JEV chose "none", or there was no candidate
     raw: str | None = None
-    confidence: float | None  # 069 (Á11): None = nem volt jelölt, nincs Choice-ítélet (eddig 1,0)
-    probabilities: dict[str, float] = Field(default_factory=dict)  # nyers, változatlan
+    confidence: float | None  # 069 (Á11): None = no candidate, no Choice verdict (formerly 1.0)
+    probabilities: dict[str, float] = Field(default_factory=dict)  # raw, unchanged
     n_options: int
     request_id: str
-    present_p: float | None = None  # jelenlét-Noul P(a mező szerepel a dokumentumon) - nyers; küszöb a policy-ban
-    line_no: int | None = None  # a választott jelölt sora (kódból, a Candidate-ből) - forrás-hivatkozás a review-hoz
+    present_p: float | None = None  # presence Noul P(the field is on the document), raw; threshold in the policy
+    line_no: int | None = None  # line of the chosen candidate (from code, the Candidate): source reference for review
 
 
 class JevCall(BaseModel):
@@ -577,14 +584,14 @@ class JevCall(BaseModel):
 
 
 # --------------------------------------------------------------------------------------
-# Jev-ellenőrzés (G-kar)
+# JEV verification (G path)
 # --------------------------------------------------------------------------------------
 
 
 class JevVerdicts(BaseModel):
-    flags: dict[str, dict[str, float]] = Field(default_factory=dict)  # mező -> {flag: P(igen)}
+    flags: dict[str, dict[str, float]] = Field(default_factory=dict)  # field -> {flag: P(yes)}
     doc_flags: dict[str, float] = Field(default_factory=dict)  # {"parties_swapped": p, ...}
-    unsupported: list[str] = Field(default_factory=list)  # érték van, evidencia nincs (kód döntötte)
+    unsupported: list[str] = Field(default_factory=list)  # value present, no evidence (decided by code)
     model: str | None = None
 
 
@@ -593,11 +600,12 @@ class CheckResult(BaseModel):
     ok: bool
     code: str
     detail: str | None = None
-    advisory: bool = False  # 053: csak jelzés - a bukás a felületen látszik, de önmagában nem nyit teendőt (csomag: `"review": false`)
+    # 053: notice only: a failure shows in the interface but opens no to-do on its own (pack: `"review": false`)
+    advisory: bool = False
 
 
 # --------------------------------------------------------------------------------------
-# Burr állapot
+# Burr state
 # --------------------------------------------------------------------------------------
 
 Arm = Literal["S", "G"]
@@ -605,35 +613,35 @@ Route = Literal["auto", "human", "ocr"]
 
 
 class FlowState(BaseModel):
-    # bemenet
+    # input
     source_path: str
     case_id: str
     arm: Arm
     run_no: int = 1
-    run_id: str = ""  # a gerinc: ledger, datapoints, review_queue mind erre hivatkozik
-    doc_id: str = ""  # sha256 a fájl tartalmáról
+    run_id: str = ""  # the backbone: ledger, datapoints and review_queue all refer to it
+    doc_id: str = ""  # sha256 of the file content
     doc_type: str = "invoice_hu"
-    use_cache: bool = True  # determinizmus-mérésnél False
+    use_cache: bool = True  # False when measuring determinism
     # pdf
     text: str = ""
     lines: list[str] = Field(default_factory=list)
     layout: list[LineLayout] = Field(default_factory=list)
     page_count: int = 0
     has_text_layer: bool = False
-    text_source: str | None = None  # "pdf" (szövegréteg) | "ocr" (jav/ocr.py) | None (nincs használható szöveg -> needs_ocr)
-    ocr_conf: float | None = None  # OCR átlagos szó-bizalom (0-1), nyersen; küszöb a policy.json `ocr` blokkjában
-    ocr_low_conf_ratio: float | None = None  # gyenge (< 60) szavak aránya
-    ocr_engine: str | None = None  # native / docker / azure_di (a szöveg forrása, ha OCR)
-    ocr_escalated: bool = False  # a gyenge helyi OCR helyett a pontosabb, fizetős motor szövege ment tovább (policy ocr.escalate_*)
-    source_layer_id: str | None = None  # 045: a szóréteg (jav/source_layer.py) hivatkozása; a szavak az adattárban vannak
-    provenance: dict[str, Any] = Field(default_factory=dict)  # 045: mezőnkénti forráshely (jav/grounding.py), a mentés tárolja
-    # S-kar
+    text_source: str | None = None  # "pdf" (text layer) | "ocr" (jav/ocr.py) | None (no usable text -> needs_ocr)
+    ocr_conf: float | None = None  # OCR mean word confidence (0-1), raw; threshold in the `ocr` block of policy.json
+    ocr_low_conf_ratio: float | None = None  # share of weak (< 60) words
+    ocr_engine: str | None = None  # native / docker / azure_di (the text's source, if OCR)
+    ocr_escalated: bool = False  # the more accurate paid engine's text replaced weak local OCR (policy ocr.escalate_*)
+    source_layer_id: str | None = None  # 045: word layer reference (jav/source_layer.py); the words live in the store
+    provenance: dict[str, Any] = Field(default_factory=dict)  # 045: per-field source location (jav/grounding.py), saved
+    # S path
     candidates: dict[str, list[Candidate]] = Field(default_factory=dict)
     picks: dict[str, FieldPick] = Field(default_factory=dict)
-    # G-kar - a kivonat szótárként (a típus-csomag sémája szerinti kulcsokkal; a magyar számlánál az InvoiceLLM dump-ja)
+    # G path: the extract as a dict (keys per the type pack's schema; for the Hungarian invoice, the InvoiceLLM dump)
     llm_output: dict[str, Any] | None = None
     verdicts: JevVerdicts | None = None
-    # közös
+    # shared
     invoice: InvoiceHU | None = None
     validation: list[CheckResult] = Field(default_factory=list)
     needs_review: bool = False

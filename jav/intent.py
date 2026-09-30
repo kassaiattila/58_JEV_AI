@@ -1,12 +1,15 @@
-"""M3 - e-mail szándék-azonosítás Jevvel: egy kérés, egy Choice + Noul-ok. Kérdéskészlet: `configs/callsites/email_intent.json`.
+"""M3 - email intent recognition with JEV: one request, one Choice + Nouls + a Score.
+Question set: `configs/callsites/email_intent.json`.
 
-- Choice `intent` a regisztrált szándékok fölött (`jav/intents.py` <- `configs/intents.json`, a küldő CÉLJA a tengely);
-- Noul `requires_action`, `mentions_deadline`, `attachment_is_the_subject`, `tone_urgent` - routing- és
-  review-jelek, nyers valószínűségként a state-be; küszöb csak a `policy.py`-ban.
+- Choice `intent` over the registered intents (`jav/intents.py` <- `configs/intents.json`; the axis is the sender's
+  GOAL);
+- Noul `requires_action`, `mentions_deadline`, `attachment_is_the_subject`, `multiple_requests`, `prompt_injection` and
+  Score `urgency` (v1.1.0, replacing the former `tone_urgent` Noul) - routing and review signals, put into the state
+  as raw probabilities; thresholds live only in `policy.py`.
 
-State: tárgy, feladó (+ domain), kód-oldali feature-ök (automata feladó, Re:/Fw:, összeg / határidő / leiratkozás /
-rendelésazonosító minták, számla- és fizetés-szavak), a csatolmányok neve + M1-típusa (ha lefutott), és a
-TISZTÍTOTT törzs első sorai magyar/angol verbatim. A feature-ök jelek, a döntés a Jevé.
+State: subject, sender (+ domain), code-side features (automated sender, Re:/Fw:, amount / deadline / unsubscribe /
+order-ID patterns, invoice and payment words), the attachments' names + M1 types (if M1 has run), and the first lines
+of the CLEANED body, verbatim in Hungarian/English. The features are signals; the decision belongs to JEV.
 """
 
 from __future__ import annotations
@@ -41,22 +44,23 @@ _PAID_WORDS = re.compile(r"(?i)sikeres fizetés|payment (received|confirmation|s
 
 
 class ScoreSignal(BaseModel):
-    """Egy Score-jel nyersen: a legvalószínűbb szint, a várható érték (súlyozott átlag), a koncentráltság és a szint-eloszlás."""
+    """One Score signal, raw: the most likely level, the expected value (weighted mean), the concentration and the
+    level distribution."""
 
-    level: int  # argmax szint (0-tól)
-    score: float  # a Jev `score` mezője: valószínűség-súlyozott átlag a szintek fölött
+    level: int  # argmax level (from 0)
+    score: float  # JEV's `score` field: probability-weighted mean over the levels
     confidence: float
-    probabilities: dict[str, float] = Field(default_factory=dict)  # szint (str) -> P
+    probabilities: dict[str, float] = Field(default_factory=dict)  # level (str) -> P
 
 
 class IntentResult(BaseModel):
     intent: str
     confidence: float
     probabilities: dict[str, float] = Field(default_factory=dict)
-    signals: dict[str, float] = Field(default_factory=dict)  # Noul P(igen) kulcsonként
-    scores: dict[str, ScoreSignal] = Field(default_factory=dict)  # Score-jelek kulcsonként (v1.1.0: urgency)
-    parent: str | None = None  # a legvalószínűbb szándék családja (regiszter v2), kódban összegezve
-    parent_prob: float = 0.0  # a család összesített valószínűsége - szülő-címke alacsony confidence-nél (policy dönt)
+    signals: dict[str, float] = Field(default_factory=dict)  # Noul P(yes) per key
+    scores: dict[str, ScoreSignal] = Field(default_factory=dict)  # Score signals per key (v1.1.0: urgency)
+    parent: str | None = None  # family of the most likely intent (registry v2), aggregated in code
+    parent_prob: float = 0.0  # total probability of the family - parent label at low confidence (the policy decides)
     body_clean: str = ""
     call: JevCall
 
@@ -106,7 +110,7 @@ def build_state(msg: EmailMessage) -> dict:
 
 
 def build_questions(config: dict | None = None) -> dict[str, Choice | Noul]:
-    """A JSON kérdéskészlet -> SDK-objektumok; a `registry:intents` kritérium a regiszterből jön."""
+    """JSON question set -> SDK objects; the `registry:intents` criterion comes from the registry."""
     out: dict[str, Choice | Noul] = {}
     for key, q in (config or _CFG)["questions"].items():
         crit = q["criteria"]
@@ -115,7 +119,7 @@ def build_questions(config: dict | None = None) -> dict[str, Choice | Noul]:
         if q["kind"] == "choice":
             out[key] = Choice(instructions=q["instructions"], criteria=crit)
         elif q["kind"] == "score":
-            out[key] = Score(instructions=q["instructions"], criteria=list(crit))  # rendezett szint-leírások, 0-tól
+            out[key] = Score(instructions=q["instructions"], criteria=list(crit))  # ordered level descriptions, from 0
         else:
             out[key] = Noul(instructions=q["instructions"], criteria=crit)
     return out
@@ -123,7 +127,7 @@ def build_questions(config: dict | None = None) -> dict[str, Choice | Noul]:
 
 def _score_signal(answer: object) -> ScoreSignal:
     probs = {str(k): round(float(v), 4) for k, v in dict(answer.probabilities).items()}
-    level = max(probs, key=lambda k: (probs[k], -int(k)))  # a legvalószínűbb szint; döntetlennél az alacsonyabb
+    level = max(probs, key=lambda k: (probs[k], -int(k)))  # the most likely level; on a tie, the lower one
     return ScoreSignal(level=int(level), score=round(float(answer.score), 4), confidence=round(float(answer.confidence), 4), probabilities=probs)
 
 
@@ -134,7 +138,7 @@ def classify(jev: JevAdapter, msg: EmailMessage, *, run_id: str = "adhoc", use_c
 
 
 def decode_result(r, call, state: dict) -> IntentResult:
-    """Közös dekódolás az üzemi és az elkülönített forrásos M3-úthoz."""
+    """Shared decoding for the production M3 path and the separate source-backed one."""
     ch = r.choices["intent"]
     return IntentResult(
         intent=ch.choice if ch.choice else OTHER,

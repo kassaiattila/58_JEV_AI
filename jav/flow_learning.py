@@ -1,4 +1,4 @@
-"""Kísérleti általános kivonatolás: javaslat → JEV → tartós eredmény."""
+"""Experimental general extraction: proposal → JEV → durable result."""
 from burr.core import ApplicationBuilder, action
 
 from jav import store
@@ -48,5 +48,5 @@ def builder(service=None):
 
 
 def build_app():
-    """Mellékhatásmentes gráfpéldány a kontrakt ellenőrzéséhez."""
+    """Side-effect-free graph instance for the contract check."""
     return builder().with_state(run_id='lint').with_entrypoint('generate').build()

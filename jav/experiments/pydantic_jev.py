@@ -1,8 +1,8 @@
-"""Kis Pydantic AI–JEV próba a meglévő adapterrel, változatlan üzemi flow-k mellett.
+"""Small Pydantic AI–JEV trial using the existing adapter, with the production flows unchanged.
 
-A Pydantic AI saját TypeSafeModel-je végzi a kérdésfordítást és a válasz tipizálását.
-A Provider illesztése csak a hálózati határt köti a meglévő cache/ledger/retry adapterre.
-Szándékosan szekvenciális kísérlet, nem általános aszinkron kliens.
+Pydantic AI's own TypeSafeModel does the question compilation and the typing of the response.
+The Provider binding only connects the network boundary to the existing cache/ledger/retry adapter.
+A deliberately sequential experiment, not a general asynchronous client.
 """
 from __future__ import annotations
 
@@ -26,10 +26,10 @@ def _text(value: Any) -> str:
 
 
 def output_model(questions: dict[str, Question]) -> type[BaseModel]:
-    """A kísérlet sík kérdéskészlete -> típusos séma, jelentés-leírásokkal.
+    """The experiment's flat question set -> a typed schema, with meaning descriptions.
 
-    A Noul criteria a leírásba kerül, mert a natív fordító nem ad külön criteria-t.
-    Ez szemantikailag összehasonlítható, de NEM byte-azonos kérdés; a próba ezt méri.
+    The Noul criteria go into the description, because the native compiler does not emit separate criteria.
+    This is a semantically comparable but NOT byte-identical question; the trial measures exactly that.
     """
     fields = {}
     for name, question in questions.items():
@@ -66,7 +66,7 @@ class AdapterClient:
     requests: list[dict[str, Any]] = field(default_factory=list)
 
     async def system_one(self, state, questions, *, model, **kwargs):
-        # A beállítások csendes elvesztése helyett egyértelműen elutasítjuk őket.
+        # Reject the settings explicitly rather than silently dropping them.
         if any(value is not None for value in kwargs.values()):
             raise ValueError("A próba időkorlátját és retry-ját a projekt adaptere kezeli; extra beállítás nem támogatott")
         if self.requests:
@@ -109,7 +109,7 @@ def run_typed(text: str, questions: dict[str, Question], *, adapter: JevAdapter,
 
 
 def main() -> None:
-    """Reprodukálható kis élő próba; csak mesterséges szövegek, külön cache."""
+    """Reproducible small live trial; synthetic texts only, separate cache."""
     import argparse
     import hashlib
     import importlib.metadata
@@ -167,7 +167,7 @@ def main() -> None:
     import time
     for case in config["cases"]:
         for repeat in range(args.repeat):
-            # Minden mért ismétlés élő; csak az első hoz létre külön próba-cache-t.
+            # Every measured repetition is live; only the first one creates a separate trial cache.
             from contextlib import nullcontext
             with adapter.no_cache_write() if repeat else nullcontext():
                 t0 = time.perf_counter()

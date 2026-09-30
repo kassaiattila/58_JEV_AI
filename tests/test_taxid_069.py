@@ -1,8 +1,9 @@
-"""069 (066 Á05, Á27, döntés 2026-09-29): adószám — felismert alak, különben teendő; a címke és az előtag levágása.
+"""069 (066 Á05, Á27, decision of 2026-09-29): tax number — a recognised form, otherwise a to-do; the label and the
+prefix are stripped.
 
-A felmérés (a helyi adattár kinyert eredményei, csak alak): magyar adószám, magyar közösségi adószám, ír (egyszer „IE 1234567 X”
-szóközökkel nyomtatva), uniós egyablakos (EU + 9 jegy), svéd, holland; a G-út négyszer „HU VAT HU…” alakot adott.
-Minden érték kitalált; a magyar példák ellenőrzőszáma helyes."""
+The survey (the extracted results in the local store, forms only): Hungarian tax number, Hungarian EU VAT number, Irish
+(once printed with spaces, "IE 1234567 X"), EU one-stop shop (EU + 9 digits), Swedish, Dutch; the G path gave the form
+"HU VAT HU…" four times. Every value is invented; the Hungarian examples have a correct check digit."""
 
 import pytest
 
@@ -16,10 +17,10 @@ from jav.validators import run_all, tax_id
     ("12121216-2-42", "taxid.ok"),
     ("12121216242", "taxid.ok"),
     ("12121215-2-42", "taxid.checkdigit"),
-    ("HU12121216", "taxid.ok"),  # magyar közösségi adószám: ugyanaz az ellenőrzőszám
+    ("HU12121216", "taxid.ok"),  # Hungarian EU VAT number: the same check digit
     ("HU12121215", "taxid.checkdigit"),
     ("IE8256796U", "taxid.foreign"),
-    ("EU372000041", "taxid.foreign"),  # uniós egyablakos nyilvántartás
+    ("EU372000041", "taxid.foreign"),  # EU one-stop-shop registration
     ("SE123456789001", "taxid.foreign"),
     ("NL123456789B01", "taxid.foreign"),
     ("DE123456789", "taxid.foreign"),
@@ -27,13 +28,13 @@ from jav.validators import run_all, tax_id
     ("CHE123456789", "taxid.foreign"),
     ("GB123456789", "taxid.foreign"),
     ("NO123456789MVA", "taxid.foreign"),
-    ("12-3456789", "taxid.foreign"),  # amerikai EIN
-    ("+36 1 234 5678", "taxid.unrecognized"),  # telefonszám
+    ("12-3456789", "taxid.foreign"),  # US EIN
+    ("+36 1 234 5678", "taxid.unrecognized"),  # phone number
     ("06-30-123-4567", "taxid.unrecognized"),
-    ("NO12345678", "taxid.unrecognized"),  # a norvég szám 9 jegyű
+    ("NO12345678", "taxid.unrecognized"),  # the Norwegian number has 9 digits
     ("DE12345678", "taxid.unrecognized"),
     ("12345", "taxid.unrecognized"),
-    ("ABN 12 345 678 901, GST AB123456789", "taxid.unrecognized"),  # két azonosító egy mezőben
+    ("ABN 12 345 678 901, GST AB123456789", "taxid.unrecognized"),  # two identifiers in one field
     ("", "taxid.missing"),
 ])
 def test_tax_id_check(value, code):
@@ -52,7 +53,7 @@ def test_tax_id_check(value, code):
     ("CHE-123.456.789 MWST", "CHE123456789"),
     ("Tax ID 12-3456789", "12-3456789"),
     ("IE8256796U", "IE8256796U"),
-    ("+36 1 234 5678", "+36 1 234 5678"),  # nem adószám: változatlan (az ellenőrzés teendőt ad)
+    ("+36 1 234 5678", "+36 1 234 5678"),  # not a tax number: unchanged (the check gives a to-do)
     ("", None),
     (None, None),
 ])
@@ -81,13 +82,13 @@ def _tax_labels(*rows: str) -> list[str]:
 
 
 def test_irish_vat_printed_with_spaces_is_one_candidate_with_its_letter():
-    # a valódi Microsoft-számlákon „IE 8256796 U”; a jelöltkereső eddig „IE 8256796”-ot adott (a betű levágva)
+    # on the real Microsoft invoices "IE 8256796 U"; the candidate finder used to give "IE 8256796" (letter cut off)
     assert _tax_labels("Adószám IE 8256796 U") == ["IE8256796U"]
 
 
 def test_invoice_no_is_not_a_norwegian_vat_number():
     assert _tax_labels("INVOICE NO 123456789", "Date: Jan 5, 2026") == []
-    assert _tax_labels("Org.nr NO 123 456 789 MVA") == ["NO123456789"]  # a norvég alak az MVA utótaggal
+    assert _tax_labels("Org.nr NO 123 456 789 MVA") == ["NO123456789"]  # the Norwegian form with the MVA suffix
 
 
 def test_german_article_ein_is_not_a_tax_label():
@@ -96,7 +97,7 @@ def test_german_article_ein_is_not_a_tax_label():
 
 
 def test_label_line_token_must_be_in_the_label_cell_or_the_next_one():
-    # a címkés sor távoli cellájában álló szám (telefon) nem adószám-jelölt
+    # a number (phone) in a distant cell of the labelled line is not a tax-number candidate
     assert _tax_labels("VAT ID   DE123456789   Phone   0612345678") == ["DE123456789"]
     assert _tax_labels("Tax ID   1234567890") == ["1234567890"]
 

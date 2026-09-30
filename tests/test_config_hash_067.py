@@ -1,9 +1,9 @@
-"""066 Á18: a futáshoz rögzített konfiguráció-azonosító (`config_hash`) minden olyan beállítást fedjen, amely az
-eredményt befolyásolja, és a generált dokumentáció ugyanazt az azonosítót mutassa, amelyet a kód a hívásnaplóba ír.
+"""066 Á18: the configuration identifier pinned for a run (`config_hash`) must cover every setting that affects the
+result, and the generated documentation must show the same identifier that the code writes into the call log.
 
-A rések a 066-os jelentés szerint: a G-kar kivonatoló utasítás- és sémafájlja; az alap magyar számla típuscsomagja
-a hívási helyek azonosítójából kimaradt; a részletes típus kérdésénél a csomagleírások; a feladatjavaslat utasítása; a
-szabályfájl (policy) azonosítója egy mentett eredménynél sem tárolódott.
+The gaps according to the 066 report: the G path extractor's prompt and schema files; the base Hungarian invoice type
+pack was left out of the call sites' identifier; the pack descriptions in the detailed-type question; the task
+proposal prompt; the identifier of the rules file (policy) was not stored with any saved result.
 """
 
 from __future__ import annotations

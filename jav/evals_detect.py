@@ -1,4 +1,4 @@
-"""M1 eval: detect-golden a régi típus-címkézett manifestekből + korpusz-bejárás riporttal + kézi ellenőrző minta."""
+"""M1 eval: detect golden set from the legacy type-labelled manifests + corpus walk with report + manual sample."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jav.policy import DETECT_LOW_CONFIDENCE  # 066 Á38: a küszöb a policyból
+from jav.policy import DETECT_LOW_CONFIDENCE  # 066 Á38: the threshold comes from the policy
 from jav import store
 from jav.config import GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
 from jav.doc_types import DOC_TYPE_KEYS, OLD_TYPE_MAP
@@ -24,12 +24,13 @@ TRIAGE_MANIFEST = OLD_PROJECT_ROOT / "flows" / "doc-triage-bare" / "golden" / "m
 class DetectCase:
     case_id: str
     path: Path
-    expected: str  # a mi taxonómiánk szerint
+    expected: str  # in our taxonomy
     old_type: str
 
 
 def load_detect_cases() -> list[DetectCase]:
-    """Unió: doc-triage golden (60, típus-címke) + doc-extract golden (típus = type_key). Dedup útvonal szerint."""
+    """Union: doc-triage golden set (60, type label) + doc-extract golden set (type = type_key). Deduplicated by
+    path."""
     seen: dict[Path, DetectCase] = {}
     for manifest, label_key in ((TRIAGE_MANIFEST, "expected"), (GOLDEN_MANIFEST, "type_key")):
         if not manifest.exists():
@@ -71,8 +72,8 @@ def detect_golden(use_cache: bool = True) -> list[dict[str, Any]]:
 
 
 def detect_determinism(n: int = 3, limit: int | None = None) -> None:
-    """n ismételt, cache NÉLKÜLI futás a detect-goldenen (`no_cache_write()` alatt, a referencia-cache érintetlen):
-    típus-flipek esetenként, confidence-szórás. A sorok az eval-riport determinizmus-szakaszába illenek."""
+    """n repeated runs WITHOUT cache on the detect golden set (under `no_cache_write()`, the reference cache is
+    untouched): type flips per case, confidence spread. The rows fit the determinism section of the eval report."""
     from jav.adapters.jev import get_adapter
     from jav.flow_detect import run_detect
 
@@ -135,7 +136,7 @@ def print_detect_report(rows: list[dict[str, Any]]) -> None:
             print(f"  - {r['case_id']}: várt {r['expected']}, kapott {r['got']} ({r['confidence']:.2f}) top3={r['top3']}")
 
 
-# --- korpusz-bejárás --------------------------------------------------------------------------
+# --- corpus walk -------------------------------------------------------------------------------
 
 
 def iter_pdfs(root: Path) -> list[Path]:
@@ -152,7 +153,7 @@ def detect_corpus(root: Path, *, limit: int | None = None, force: bool = False, 
 
     pdfs = iter_pdfs(root)
     if redo_unknown:
-        # a Jev 'unknown'-jai (tipikusan törött szövegréteg): újra a szigorított has_text_layer teszttel
+        # JEV's 'unknown' results (typically a broken text layer): again with the stricter has_text_layer test
         with store.connect() as c:
             redo = {r["source_path"] for r in c.execute("SELECT source_path FROM documents WHERE doc_type = 'unknown' OR type_conf < ?", (DETECT_LOW_CONFIDENCE,))}
         todo = [p for p in pdfs if str(p) in redo]
@@ -169,7 +170,7 @@ def detect_corpus(root: Path, *, limit: int | None = None, force: bool = False, 
             st = run_detect(str(p), use_cache=use_cache)
             tag = st.result.doc_type if st.result else st.final_status
             conf = f"{st.result.confidence:.2f}" if st.result else "-"
-        except Exception as exc:  # noqa: BLE001 - egy hibás PDF ne állítsa le a bejárást
+        except Exception as exc:  # noqa: BLE001 - one faulty PDF must not stop the walk
             errors.append(f"{p.name}: {type(exc).__name__}: {exc}")
             tag, conf = "ERROR", "-"
         if i % 25 == 0 or i == len(todo):
@@ -205,7 +206,7 @@ def print_corpus_report(root: Path) -> None:
 
 
 def write_manual_sample(root: Path, n: int = 40, seed: int = 1) -> Path:
-    """Kézi ellenőrző lista Markdownban: rétegzett véletlen minta (típusonként arányosan, min. 2)."""
+    """Manual check list in Markdown: stratified random sample (proportional per type, at least 2)."""
     from jav.pdf import read_document
 
     with store.connect() as c:

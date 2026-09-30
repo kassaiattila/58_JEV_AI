@@ -1,4 +1,4 @@
-"""Az átadó-őr hook (scripts/hooks/handoff_guard.py) nem blokkoló Stop-viselkedése (040, 4. döntés)."""
+"""The non-blocking Stop behaviour of the handoff-guard hook (scripts/hooks/handoff_guard.py) (040, decision 4)."""
 
 import importlib.util
 from pathlib import Path
@@ -32,7 +32,8 @@ def test_git_line_handles_missing_git_and_unknown_count():
 
 
 def test_commits_are_counted_from_the_time_the_handoff_was_written(tmp_path, monkeypatch):
-    """070: az átadó belső munkaanyag, nincs commitban; a számolás az átadó fájl írási idejétől indul."""
+    """070: the handoff is an internal working document, not in any commit; counting starts from the handoff file's
+    write time."""
     handoff = tmp_path / "070-2026-09-30-handoff.md"
     handoff.write_text("x", encoding="utf-8")
     calls = []
@@ -46,7 +47,7 @@ def test_commits_are_counted_from_the_time_the_handoff_was_written(tmp_path, mon
     assert g == {"branch": "main", "head": "abc1234", "dirty": 1, "commits_since_handoff": 3}
     rev_list = next(a for a in calls if a[0] == "rev-list")
     assert rev_list[1] == "--count" and rev_list[2].startswith("--since=") and rev_list[3] == "HEAD"
-    assert not [a for a in calls if a[0] == "log"]  # az átadó git-története nem számít
+    assert not [a for a in calls if a[0] == "log"]  # the handoff's git history does not matter
 
 
 def test_stop_event_never_blocks(monkeypatch, capsys):

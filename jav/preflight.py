@@ -1,8 +1,10 @@
-"""Session-indító ellenőrzés egy parancsban (`python -m jav.cli preflight`), API-hívás nélkül.
+"""Session-start check in one command (`python -m jav.cli preflight`), without API calls.
 
-Lépések: pytest (alfolyamat) → a felület típusellenőrzése és tesztjei (`ui/`, ha telepítve van) → Burr-kontrakt lint → konfig-verziók + hash → handoff-frissesség (docs/handoffs/,
-040 óta csak jelzés) → git-állapot → Ruff-racsni (`pyproject.toml` `max_findings`) → `docs/STATE.md` újragenerálása (a vezérlő képernyő fájlba). Kilépési kód 0 = minden zöld. A session-protokoll
-(CLAUDE.md §2) ezt kéri elsőként; a handoff csak hivatkozza a STATE.md-t, nem másolja.
+Steps: pytest (subprocess) → type check and tests of the UI (`ui/`, if installed) → Burr contract lint → config
+versions + hash → handoff freshness (docs/handoffs/, only a notice since 040) → git state → data guard (071) →
+language guard (073) → Ruff ratchet (`pyproject.toml` `max_findings`) → regeneration of `docs/STATE.md` (the control
+screen, written to a file). Exit code 0 = everything green. The session protocol (CLAUDE.md §2) asks for this first;
+the handoff only references STATE.md, it does not copy it.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ _NUM = re.compile(r"^(\d{3})-\d{4}-\d{2}-\d{2}-handoff\.md$")
 
 
 def run_pytest() -> tuple[bool, str]:
-    """`pytest tests/ -q` alfolyamatban; visszaadja az összegző sort."""
+    """`pytest tests/ -q` in a subprocess; returns the summary line."""
     r = subprocess.run(
         [sys.executable, "-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider"],
         cwd=PROJECT_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace",
@@ -36,8 +38,8 @@ def run_pytest() -> tuple[bool, str]:
 
 
 def run_ui_checks() -> tuple[bool, str] | None:
-    """A felület (040 K3): `tsc --noEmit` + `vitest run` + (057) fordítás-teljesség (`scripts/check-i18n.mjs` és
-    `--audit`). Ha a Node-függőségek nincsenek telepítve, kihagyjuk (None)."""
+    """The UI (040 K3): `tsc --noEmit` + `vitest run` + (057) translation completeness (`scripts/check-i18n.mjs` and
+    `--audit`). Skipped (None) if the Node dependencies are not installed."""
     npx = shutil.which("npx")
     if npx is None or not (UI_DIR / "node_modules").is_dir():
         return None
@@ -74,17 +76,18 @@ def newest_watched_mtime() -> float:
 
 def handoff_status() -> tuple[bool, str]:
     handoff, num = latest_handoff()
-    if handoff is None:  # 070: az átadó belső munkaanyag, friss klónban nincs meg - jelzés, nem hiba
+    if handoff is None:  # 070: the handoff is an internal document, absent in a fresh clone - a notice, not an error
         return True, "nincs helyi átadó a docs/handoffs/ alatt (belső munkaanyag; friss klón?)"
     minutes = (newest_watched_mtime() - handoff.stat().st_mtime) / 60
     rel = handoff.relative_to(PROJECT_ROOT).as_posix()
-    if minutes > 60:  # 040/4 döntés: átadó csak session végén / szakaszzáráskor kell, ezért ez jelzés, nem hiba
+    if minutes > 60:  # decision 040/4: a handoff is due only at session end / stage close, so a notice, not an error
         return True, f"{rel} - a kód {minutes:.0f} perccel frissebb; session végén írd meg a {num + 1:03d}-at"
     return True, f"{rel} (friss; következő sorszám: {num + 1:03d})"
 
 
 def data_guard_status() -> tuple[bool, str]:
-    """071 S-adatőr: a verziózott horgok be vannak-e kapcsolva, és a verziókövetett fájlokban van-e megállító találat."""
+    """071 S-adatőr: whether the versioned hooks are enabled, and whether the tracked files contain a blocking
+    finding."""
     from jav import data_guard
 
     try:

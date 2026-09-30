@@ -1,18 +1,20 @@
-"""Tartós munkasor SQLite-ban (040 K1). Minta: a régi AIFLOW V4 `orchestrator/framework/jobq.py` (viselkedési port).
+"""Durable job queue in SQLite (040 K1). Model: legacy AIFLOW V4 `orchestrator/framework/jobq.py` (behavioural port).
 
-Megtartott invariánsok a V4-ből:
-- A feladatsor maga a tartós befogadási bizonylat: a `dedup_key` UNIQUE az atomi duplikátumvédelem; ismételt
-  felvétel a MEGLÉVŐ feladatot adja vissza (`deduped=True`), a payload nem cserélődik ki.
-- Foglalás egy rövid `BEGIN IMMEDIATE` tranzakcióban, utána a munka zár nélkül fut.
-- A próbálkozásszám túléli az újraindítást; a határ után `dead`. A visszaengedés (`release`) nem éget próbálkozást.
-- Az árva foglalások visszaállítása CSAK induláskor (`recover_orphans`): egy feldolgozó van, ezért induláskor minden
-  `claimed` sor bizonyítottan halott. Több feldolgozóhoz előbb bérlet/életjel kellene (a V4-ben sincs).
-- 063: az árva feladat próbálkozásszáma is korlátos (`ORPHAN_MAX_ATTEMPTS`; a V4 `sweep_orphans(max_attempts)` és az
-  induláskori leállítás-befejezés viselkedése, amelyet a K1-es átvétel kihagyott), különben egy feldolgozót „megölő” feladat
-  minden újraindításkor újra az első lenne; a leállás közben kért leállítás induláskor lezárul; a foglalás a kevesebbszer
-  próbált feladatot veszi előre (a gyanús feladat a friss munka mögé kerül).
-- Végállapot (done / dead / cancelled) nem változik vissza.
-Nem jött át: PostgreSQL-zárak, OCR-előd-lánc, intake-batch szünet, forrás-epilógus (a V4 infrastruktúrájához kötöttek).
+Invariants kept from V4:
+- The job table itself is the durable receipt of acceptance: `dedup_key` UNIQUE is the atomic duplicate guard; a
+  repeated enqueue returns the EXISTING job (`deduped=True`), and the payload is not replaced.
+- Claiming happens in a short `BEGIN IMMEDIATE` transaction; the work then runs without a lock.
+- The attempt count survives a restart; beyond the limit the job is `dead`. Releasing (`release`) does not burn an
+  attempt.
+- Orphaned claims are reset ONLY at start-up (`recover_orphans`): there is one worker, so at start-up every `claimed`
+  row is provably dead. Several workers would first need a lease/heartbeat (V4 has none either).
+- 063: the attempt count of an orphaned job is bounded too (`ORPHAN_MAX_ATTEMPTS`; the behaviour of V4's
+  `sweep_orphans(max_attempts)` and of its start-up cancellation completion, which the K1 port had left out); otherwise
+  a job that "kills" the worker would come first again on every restart; a cancellation requested while the worker was
+  down is completed at start-up; claiming prefers jobs with fewer attempts (a suspicious job goes behind fresh work).
+- A terminal state (done / dead / cancelled) never changes back.
+Not ported: PostgreSQL locks, the OCR predecessor chain, the intake-batch pause, the source epilogue (all tied to V4's
+infrastructure).
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from typing import Any
 from jav import store
 
 TERMINAL = ("done", "dead", "cancelled")
-ORPHAN_MAX_ATTEMPTS = 3  # 063: ennyi félbemaradt próbálkozás után a feladat halott (nem ismétlődik végtelenül)
+ORPHAN_MAX_ATTEMPTS = 3  # 063: after this many interrupted attempts the job is dead (it does not repeat forever)
 
 store.register_schema("runtime.queue", """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -51,7 +53,7 @@ CREATE TABLE IF NOT EXISTS queue_control (id INTEGER PRIMARY KEY CHECK (id = 1),
 
 
 class JobCancelled(Exception):
-    """A kezelő leállítást kért; biztonságos lépéshatáron dobjuk, nem feldolgozási hiba."""
+    """The operator requested cancellation; raised at a safe step boundary, not a processing error."""
 
 
 @dataclass(frozen=True)
@@ -79,7 +81,7 @@ def _job(row, deduped: bool = False) -> Job:
 
 
 def _begin(c) -> None:
-    c.commit()  # a connect séma-inicializálását lezárjuk a saját írási tranzakció előtt
+    c.commit()  # commit the schema initialisation done by connect before our own write transaction
     c.execute("BEGIN IMMEDIATE")
 
 
@@ -104,7 +106,7 @@ def get(job_id: int) -> Job | None:
 
 
 def claim(worker: str, kinds: tuple[str, ...] | None = None) -> Job | None:
-    """A legrégebbi elérhető feladat lefoglalása; szüneteltetett sornál None."""
+    """Claims the available job with the fewest attempts, oldest first; None when the queue is paused."""
     with store.connect() as c:
         _begin(c)
         paused = c.execute("SELECT paused FROM queue_control WHERE id=1").fetchone()
@@ -121,7 +123,7 @@ def claim(worker: str, kinds: tuple[str, ...] | None = None) -> Job | None:
 
 
 def _transition(job_id: int, sql: str, params: tuple, result: str) -> str:
-    """Közös átmenet: végállapotú feladat nem változik, a meglévő végállapotot adja vissza."""
+    """Shared transition: a job in a terminal state does not change, and its existing terminal state is returned."""
     with store.connect() as c:
         _begin(c)
         row = c.execute("SELECT status FROM jobs WHERE id=?", (job_id,)).fetchone()
@@ -139,9 +141,9 @@ def complete(job_id: int) -> str:
 
 
 def fail(job_id: int, error: str, *, max_attempts: int, backoff_s: float) -> str:
-    """Hiba: próbálkozás +1; a határ alatt lineáris várakozással vissza a sorba, a határon `dead`."""
+    """Failure: attempts +1; below the limit back to the queue with a linear delay, at the limit `dead`."""
     with store.connect() as c:
-        _begin(c)  # olvasás és írás egy tranzakcióban
+        _begin(c)  # read and write in one transaction
         row = c.execute("SELECT status, attempts FROM jobs WHERE id=?", (job_id,)).fetchone()
         if row is None:
             raise KeyError(job_id)
@@ -156,13 +158,14 @@ def fail(job_id: int, error: str, *, max_attempts: int, backoff_s: float) -> str
 
 
 def release(job_id: int, *, delay_s: float) -> str:
-    """Vissza a sorba próbálkozás elhasználása nélkül (pl. elfogyott keret, átmeneti korlát)."""
+    """Back to the queue without using up an attempt (e.g. exhausted budget, temporary limit)."""
     return _transition(job_id, "UPDATE jobs SET status='queued', claimed_by=NULL, claimed_at=NULL, available_at=? WHERE id=?",
                        (_ts(delay_s), job_id), "queued")
 
 
 def cancel(job_id: int) -> str:
-    """Sorban álló feladat azonnal leáll; futónál leállítási kérés (a feldolgozó a következő lépéshatáron áll meg)."""
+    """A queued job is cancelled at once; a running one gets a cancellation request (the worker stops at the next
+    step boundary)."""
     with store.connect() as c:
         row = c.execute("SELECT status FROM jobs WHERE id=?", (job_id,)).fetchone()
     if row["status"] == "queued":
@@ -174,7 +177,7 @@ def cancel(job_id: int) -> str:
 
 
 def check_cancellation(job_id: int) -> None:
-    """A futó lépések hívják biztonságos határon; kért leállításnál `JobCancelled`."""
+    """Called by running steps at a safe boundary; raises `JobCancelled` when cancellation was requested."""
     with store.connect() as c:
         row = c.execute("SELECT status, cancel_requested_at FROM jobs WHERE id=?", (job_id,)).fetchone()
     if row and (row["cancel_requested_at"] or row["status"] == "cancelled"):
@@ -188,15 +191,16 @@ def finish_cancelled(job_id: int) -> str:
 
 @dataclass(frozen=True)
 class OrphanRecovery:
-    """Az induláskori árva-kezelés eredménye: a visszaengedettek száma, a halottá és a leállítottá vált feladatok."""
+    """Result of the start-up orphan handling: the number requeued, and the jobs that became dead or cancelled."""
     requeued: int
     dead: list[Job]
     cancelled: list[Job]
 
 
 def recover_orphans(*, max_attempts: int = ORPHAN_MAX_ATTEMPTS) -> OrphanRecovery:
-    """CSAK a feldolgozó indulásakor: minden `claimed` sor halott futás. Vissza a sorba, próbálkozás +1; a korlátnál
-    `dead` (063); ha közben leállítást kértek, `cancelled` (063: különben a foglalás kihagyná, és örökre sorban állna)."""
+    """ONLY at worker start-up: every `claimed` row is a dead run. Back to the queue, attempts +1; at the limit `dead`
+    (063); if cancellation was requested meanwhile, `cancelled` (063: otherwise claiming would skip it and it would stay
+    queued forever)."""
     now = _ts()
     requeued, dead_ids, cancelled_ids = 0, [], []
     with store.connect() as c:
@@ -220,7 +224,7 @@ def recover_orphans(*, max_attempts: int = ORPHAN_MAX_ATTEMPTS) -> OrphanRecover
 
 
 def active_run_ids() -> list[str]:
-    """064: azok a futások, amelyeknek van még sorban álló vagy foglalt feladata (a tár ritkítása ezeket kihagyja)."""
+    """064: the runs that still have a queued or claimed job (store pruning skips these)."""
     with store.connect() as c:
         return [r["run_id"] for r in c.execute(
             "SELECT DISTINCT run_id FROM jobs WHERE status IN ('queued', 'claimed') AND run_id IS NOT NULL ORDER BY run_id")]

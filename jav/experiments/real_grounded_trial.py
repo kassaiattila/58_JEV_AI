@@ -1,4 +1,4 @@
-"""A jóváhagyott valós minta Burr-visszajátszása és új JEV-képességmérése."""
+"""Burr replay of the approved real sample and a new measurement of JEV capabilities on it."""
 from __future__ import annotations
 
 import argparse
@@ -12,7 +12,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from jav import store
-from jav.adapters.jev import CacheOnlyAdapter, JevAdapter  # noqa: F401 (CacheOnlyAdapter: újraexport a régi driverekhez)
+from jav.adapters.jev import CacheOnlyAdapter, JevAdapter  # noqa: F401 (CacheOnlyAdapter: re-export for older drivers)
 from jav.config import PROJECT_ROOT
 from jav.models import LineLayout
 from jav.experiments.stack_trial import DirectAdapter, TypedAdapter, run_trial
@@ -27,7 +27,7 @@ OUT = PROJECT_ROOT/"runs/20260921_real_grounded"
 
 
 def reserve_call(path: Path, *, already_used: int, maximum: int) -> int:
-    """Hívás ELŐTT tartós foglalás; hibánál/megszakításnál sem adjuk vissza."""
+    """Durable reservation BEFORE the call; it is not released on error or interruption either."""
     with sqlite3.connect(path) as db:
         db.execute("CREATE TABLE IF NOT EXISTS reservations (id INTEGER PRIMARY KEY)")
         db.execute("BEGIN IMMEDIATE")
@@ -58,7 +58,7 @@ def code_hashes():
             if p.suffix in (".py",".json")}
 
 
-# CacheOnlyAdapter: 2026-09-27 óta a jav/adapters/jev.py-ban (040, K0); az import fent, ugyanaz az osztály.
+# CacheOnlyAdapter: in jav/adapters/jev.py since 2026-09-27 (040, K0); imported above, the same class.
 
 
 class BoundedAdapter(JevAdapter):
@@ -73,7 +73,7 @@ class BoundedAdapter(JevAdapter):
 
 
 def partition_layout(rows: list[LineLayout]) -> list[list[LineLayout]]:
-    """Oldalanként, a meglévő próba 80 sor / 16000 karakter keretében; nincs vágás."""
+    """Page by page, within the existing trial's limit of 80 lines / 16000 characters; no line is split."""
     chunks = []
     current = []
     size = 0
@@ -180,7 +180,7 @@ def live(*,replay=False):
     for name,key in (("frozen_inputs.json","inputs_hash"),("frozen_labels.json","labels_hash")):
         if hashlib.sha256((OUT/name).read_bytes()).hexdigest() != manifest[key]:
             raise RuntimeError("frozen evidence changed")
-    # A minta és minden eredeti fájl ugyanaz maradjon a hálózati hívás előtt is.
+    # The sample and every original file must still be unchanged right before the network call.
     if hashlib.sha256((DATA/"sample.json").read_bytes()).hexdigest() != manifest["sample_hash"]:
         raise RuntimeError("approved sample changed")
     for case in read(DATA/"sample.json")["cases"]:

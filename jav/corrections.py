@@ -1,15 +1,16 @@
-"""Mezőjavítás egy futás tételén (040 K2): az ember által javított érték verzióval, csendes felülírás nélkül.
+"""Field correction on a run item (040 K2): the value corrected by a person, versioned, never silently overwritten.
 
-A javítás a futás eredményéhez tartozik (futás + tétel), nem írja át a gép által kinyert adatot: az eredeti a
-`datapoints` sorban marad, a javítás külön verziósorozat. A mentés `expected_revision`-t kér; ha közben más mentett,
-`work.RevisionConflict` (felületen 409, a munkapéldány a kliensnél megmarad). Jóváhagyott futás javítása tilos.
+A correction belongs to the run's result (run + item) and does not rewrite the machine-extracted data: the original
+stays in the `datapoints` row, and the correction is a separate version series. Saving requires `expected_revision`;
+if someone else saved in the meantime, `work.RevisionConflict` is raised (409 in the UI, where the client keeps its
+working copy). Correcting an approved run is forbidden.
 
-Ellenőrzés mentéskor: csak a tétel típuscsomagjának mezője javítható; pénzmező `Decimal`-ként, dátummező ISO-dátumként
-értelmezhető legyen (a szám- és formátumellenőrzés kódban történik, CLAUDE.md §4).
+Validation on save: only fields of the item's type pack can be corrected; a money field must parse as a `Decimal`, a
+date field as an ISO date (number and format checks happen in code, CLAUDE.md §4).
 
-Tételes lista (048 T1-lista): a `list` fajtájú mező javítása a teljes lista (sorok törlése, hozzáadása is), cellánként a
-tétel-mező fajtája és felsorolt értékei szerint ellenőrizve. A csomag ellenőrzései (pl. a kivonat futó egyenlege) a
-tétel eredményében a javított adaton is lefutnak (`checks`), kódból, fizetős hívás nélkül.
+Itemised list (048 T1-lista): correcting a `list` field replaces the whole list (deleting and adding rows too), each
+cell validated by the kind and enumerated values of its line-item field. The pack's checks (e.g. the running balance
+of a statement) also run on the corrected data in the item result (`checks`), in code, without any paid call.
 """
 
 from __future__ import annotations
@@ -39,7 +40,7 @@ CREATE TABLE IF NOT EXISTS run_item_corrections (
 
 def _migrate(conn) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(run_item_corrections)")}
-    if cols and "sources" not in cols:  # 045: mező -> a képen kijelölt szavak azonosítói
+    if cols and "sources" not in cols:  # 045: field -> ids of the words selected on the image
         conn.execute("ALTER TABLE run_item_corrections ADD COLUMN sources TEXT")
 
 
@@ -61,7 +62,7 @@ def datapoints_row(run_id: str, item_id: str) -> dict[str, Any] | None:
 
 
 def current(run_id: str, item_id: str) -> dict[str, Any]:
-    """A legutóbbi javítás (verzió 0 = még nincs javítás)."""
+    """The latest correction (version 0 = no correction yet)."""
     with store.connect() as c:
         row = c.execute("SELECT * FROM run_item_corrections WHERE run_id=? AND item_id=? ORDER BY revision DESC LIMIT 1",
                         (run_id, item_id)).fetchone()
@@ -77,10 +78,11 @@ def layer_for(dp: dict[str, Any] | None) -> source_layer.SourceLayer | None:
 
 def effective_provenance(dp: dict[str, Any] | None, corr: dict[str, Any],
                          layer: source_layer.SourceLayer | None) -> dict[str, dict[str, Any]]:
-    """Mezőnként az érvényes forráshely: kézi kijelölés > a javított érték keresése > a gépi forráshely.
+    """The valid source location per field: manual selection > a search for the corrected value > the machine location.
 
-    A javított mező régi (gépi) kerete nem látszhat bizonyítékként (a V4 „elavult keret” szabálya): ha a javított
-    értéket nem találjuk meg egyértelműen, a mező keret nélkül marad, a gépi hely csak alternatívaként."""
+    The old (machine) box of a corrected field must not show as evidence (the V4 "stale box" rule): if the corrected
+    value cannot be found unambiguously, the field stays without a box and the machine location is offered only as an
+    alternative."""
     machine = dict((dp or {}).get("provenance") or {})
     if not dp:
         return {}
@@ -89,7 +91,7 @@ def effective_provenance(dp: dict[str, Any] | None, corr: dict[str, Any],
     labels = grounding.Labels(layer) if layer is not None else None
     for field, value in corr["fields"].items():
         before = machine.get(field, {})
-        if pack.kind(field) == "list":  # 053: a javított lista sorainak helye újra keresve
+        if pack.kind(field) == "list":  # 053: the rows of the corrected list are located again
             rows = grounding.locate_rows(layer, value if isinstance(value, list) else [], dict(pack.list_fields.get(field, {})))
             out[field] = {"status": "list", "method": "rows", "alternatives": [], "rows": rows, "corrected": True}
             continue
@@ -137,8 +139,8 @@ def _check_cell(path: str, kind: str, value: Any, allowed: tuple[Any, ...] | Non
 
 
 def list_columns(pack: typepack.TypePack, field: str, machine_rows: Any = None) -> list[dict[str, Any]]:
-    """Egy tételes lista oszlopai: a csomag tétel-leírása, majd a gépi sorokban előforduló további tétel-mezők
-    (szövegként, ahogy a kinyerés is kezeli őket). Egyszerű listánál (`{"*": fajta}`) egyetlen `*` oszlop."""
+    """The columns of an itemised list: the pack's line-item description, then any further line-item fields found in the
+    machine rows (as text, the way extraction handles them). A simple list (`{"*": kind}`) has a single `*` column."""
     kinds = pack.list_fields.get(field, {"*": "text"})
     names = list(kinds)
     if "*" not in kinds:
@@ -174,8 +176,9 @@ _LINE = re.compile(r"\bline (\d+)\b")
 
 
 def effective_checks(pack: typepack.TypePack, effective: dict[str, Any]) -> list[dict[str, Any]]:
-    """A csomag ellenőrzései a javított (érvényes) adaton. A sorra mutató eredmény (`line N`, akár több) a tételes listához
-    kötve `rows`-ként is megjelenik, ha a csomagnak egy listája van (a kivonat- és a tétel-szabályok így jelölik a hibás sort)."""
+    """The pack's checks on the corrected (effective) data. A result pointing at rows (`line N`, possibly several) is
+    also attached to the itemised list as `rows` if the pack has exactly one list (this is how the statement and
+    line-item rules mark the faulty row)."""
     from jav.models import record_from_llm
 
     rec, _ = record_from_llm(effective, pack.fields, list_fields=pack.list_fields,
@@ -184,7 +187,7 @@ def effective_checks(pack: typepack.TypePack, effective: dict[str, Any]) -> list
     out = []
     for r in validators.run_checks(rec, pack.validators):
         entry: dict[str, Any] = r.model_dump()
-        rows = sorted({int(n) for n in _LINE.findall(r.detail or "")})  # 053: a tétel-ellenőrzés több hibás sort is nevezhet
+        rows = sorted({int(n) for n in _LINE.findall(r.detail or "")})  # 053: a line check may name several rows
         if rows and not r.ok and len(lists) == 1:
             entry["rows"] = {lists[0]: rows}
         out.append(entry)
@@ -192,17 +195,17 @@ def effective_checks(pack: typepack.TypePack, effective: dict[str, Any]) -> list
 
 
 def item_result(run_id: str, item_id: str) -> dict[str, Any]:
-    """Egy tétel eredménye: a gépi adat, a javítás és a kettő összefésülése (a javítás az erősebb)."""
+    """The result of one item: the machine data, the correction and the two merged (the correction wins)."""
     run = work.get_run(run_id)
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
     if item is None:
         raise KeyError(item_id)
-    if item.get("kind") == "email":  # 048 T2: levél-tétel — nincs kinyert adat és oldalkép, a levél és a szándék látszik
+    if item.get("kind") == "email":  # 048 T2: email item: no extraction or page image; shows the email and intent
         from jav import mailbox
 
         reasons = work.item_reasons(run_id, item_id, item)
         corr = current(run_id, item_id)
-        # 058 K5.2: a levél csatolmányai, amelyek a futásban iratként futottak (a felület ezekre hivatkozik)
+        # 058 K5.2: the email's attachments that ran as documents in the run (the UI refers to them)
         attachment_items = [{"item_id": i["item_id"], "filename": Path(i["source_path"]).name}
                             for i in run["input"]["items"] if i.get("parent_item_id") == item_id]
         return {"run_id": run_id, "item_id": item_id, "kind": "email", "extraction": None, "correction": corr,
@@ -223,7 +226,7 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     src = Path(item["source_path"])
     try:
         n_pages = page_image.page_count(src) if src.is_file() else None
-    except (OSError, RuntimeError):  # sérült PDF (a pypdfium hibája RuntimeError): a néző a szóréteg oldalszámára esik vissza
+    except (OSError, RuntimeError):  # damaged PDF (pypdfium: RuntimeError): use the word layer's page count
         n_pages = None
     return {"run_id": run_id, "item_id": item_id, "kind": "document", "page_count": n_pages, "extraction": dp, "correction": corr,
             "effective": effective, "lists": lists,
@@ -248,14 +251,14 @@ def _insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected
                    datetime.now(timezone.utc).isoformat(timespec="seconds"), json.dumps(sources, sort_keys=True) if sources else None))
 
 
-EMAIL_FIELDS = ("intent",)  # 058 K5.1: a levélen a szándék javítható (a levél maga forrás, nem kinyert adat)
+EMAIL_FIELDS = ("intent",)  # 058 K5.1: an email's intent is correctable (the email is the source, not extracted)
 
 
 def _save_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], expected_revision: int, actor: str,
                 note: str | None, sources: dict[str, list[int]]) -> dict[str, Any]:
-    """A levél szándékának kézi javítása (verziózva, mint az irat mezői). A javított szándék eldönti a futás saját
-    szándék-teendőit (bizonytalan / nem felismert szándék): ezek a döntéssel lezárulnak; más okú teendő (pl. gyanús
-    tartalom) nyitva marad."""
+    """Manual correction of an email's intent (versioned, like a document's fields). The corrected intent settles the
+    run's own intent to-dos (uncertain / unrecognised intent): the decision closes them; a to-do with another reason
+    (e.g. suspicious content) stays open."""
     from jav import intents
 
     unknown = sorted(set(fields) - set(EMAIL_FIELDS))
@@ -277,8 +280,9 @@ def _save_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], ex
 
 def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision: int, actor: str,
          note: str | None = None, sources: dict[str, list[int]] | None = None) -> dict[str, Any]:
-    """Új javításverzió mentése. `fields` a teljes javításhalmaz (ami kimarad, az a gépi értékre áll vissza).
-    `sources`: mezőnként a képen kijelölt szavak (045); csak javított mezőhöz, és csak a tétel szórétegének szavai."""
+    """Saves a new correction version. `fields` is the complete correction set (anything left out reverts to the machine
+    value). `sources`: the words selected on the image per field (045); only for corrected fields, and only words of the
+    item's word layer."""
     sources = dict(sources or {})
     run = work.get_run(run_id)
     if run["approval"]:
@@ -307,6 +311,6 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     if sources:
         layer = layer_for(dp)
         for ids in sources.values():
-            grounding.manual(layer, list(ids))  # ismeretlen szó vagy hiányzó réteg: ValueError
+            grounding.manual(layer, list(ids))  # unknown word or missing layer: ValueError
     _insert_revision(run_id, item_id, fields, expected_revision, actor, note, sources)
     return current(run_id, item_id)

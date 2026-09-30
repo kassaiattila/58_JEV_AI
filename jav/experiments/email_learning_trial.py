@@ -1,4 +1,4 @@
-"""031: külön, befagyasztott e-mailminta és saját JEV-elszámolás."""
+"""031: a separate, frozen email sample with its own JEV accounting."""
 from pathlib import Path
 import json
 import hashlib
@@ -12,8 +12,9 @@ ROOT = PROJECT_ROOT/'runs/20260921_email_learning'
 
 
 def mailboxes():
-    """070: a két jóváhagyott postafiók címe saját adat, ezért nincs a kódban. A lezárt futás jóváhagyása a helyi
-    `runs/20260921_email_learning/approval.json`-ban van; újrafuttatáshoz `JAV_TRIAL_031_MAILBOXES="<céges>,<gmail>"`."""
+    """070: the addresses of the two approved mailboxes are personal data, so they are not in the code. The approval of
+    the closed run is in the local `runs/20260921_email_learning/approval.json`; to rerun, set
+    `JAV_TRIAL_031_MAILBOXES="<company>,<gmail>"`."""
     parts=[x.strip() for x in os.environ.get('JAV_TRIAL_031_MAILBOXES','').split(',') if x.strip()]
     if len(parts)!=2:
         raise SystemExit('JAV_TRIAL_031_MAILBOXES: két postafiók-cím kell (céges, gmail)')
@@ -37,7 +38,7 @@ def sha(text):
 def prepare():
     work_box,gmail_box=mailboxes()
     work=list((PROJECT_ROOT/'inbox'/work_box.replace('@','_')).glob('*/message.json'))
-    # Előre rögzített, címke nélküli célzott rétegezés; nem reprezentatív eloszlás.
+    # Pre-registered, unlabelled targeted stratification; not a representative distribution.
     work.sort(key=lambda p:(-len(read(p).get('attachments',[])), -len(read(p).get('body','')), p.parent.name))
     gmail=sorted((ROOT/'inbox'/gmail_box.replace('@','_')).glob('*/message.json'))
     assert len(gmail)==20

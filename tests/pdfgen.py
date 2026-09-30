@@ -1,4 +1,4 @@
-"""Mesterséges, szövegréteges PDF a tesztekhez (külső csomag nélkül). Csak ASCII szöveg, Helvetica betűvel."""
+"""Synthetic PDF with a text layer for the tests (no external package). ASCII text only, in Helvetica."""
 
 from pathlib import Path
 

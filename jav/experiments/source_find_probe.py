@@ -1,4 +1,4 @@
-"""JEV-forráskeresés élő, szintetikus próbája; külön eredmény és költségnapló."""
+"""Live, synthetic probe of JEV source finding; separate result and cost log."""
 from __future__ import annotations
 
 import argparse

@@ -1,12 +1,13 @@
-"""M1 - dokumentum-kategorizálás Jevvel: egy kérés, három ítélet. A kérdéskészlet a `configs/callsites/detect.json`-ból.
+"""M1 - document categorisation with JEV: one request, three judgements. The question set comes from
+`configs/callsites/detect.json`.
 
-- Choice `doc_type` a regisztrált típusok fölött (+ `unknown`), confidence = a régi logprob-margin helyett;
-- Noul `issuer_is_hungarian` (a régi szabály: a KIÁLLÍTÓ honossága dönt invoice_hu / invoice_foreign közt);
-- Choice `language` (hu / en / de / other) - olcsó, hasznos routing-jel.
+- Choice `doc_type` over the registered types (+ `unknown`), confidence replaces the legacy logprob margin;
+- Noul `issuer_is_hungarian` (the legacy rule: the ISSUER's nationality decides between invoice_hu / invoice_foreign);
+- Choice `language` (hu / en / de / other) - a cheap, useful routing signal.
 
-State: fájlnév, oldalszám, az első ~40 és utolsó ~8 sor (fejléc + lábléc: Számlázz.hu, NAV Online Számlázó,
-bank-brand), kód-oldali feature-ök (magyar adószám / EU-áfaszám jelenléte, pénznemek, IBAN, dátum-/összeg-szám)
-és a régi detect.json anchor-találatok típusonként. Az anchorok feature-ök, a döntés a Jevé.
+State: file name, page count, the first ~40 and last ~8 lines (header + footer: Számlázz.hu, NAV Online Számlázó,
+bank brand), code-side features (presence of a Hungarian tax number / EU VAT number, currencies, IBAN, date/amount
+counts) and the legacy detect.json anchor hits per type. The anchors are features; the decision is JEV's.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from jav.pdf import PdfText
 from jav.registry import parent_summary
 
 _CFG = cfg.load("callsite:detect")
-CONFIG_HASH = cfg.config_hash("callsite:detect", "doc_types")  # a kérdések + a regiszter együtt
+CONFIG_HASH = cfg.config_hash("callsite:detect", "doc_types")  # the questions + the registry together
 HEAD_LINES: int = _CFG["state"]["head_lines"]
 TAIL_LINES: int = _CFG["state"]["tail_lines"]
 MAX_LINE_CHARS: int = _CFG["state"]["max_line_chars"]
@@ -51,8 +52,8 @@ class DetectResult(BaseModel):
     language: str
     language_conf: float
     anchor_hits: dict[str, dict[str, int]] = Field(default_factory=dict)
-    parent: str | None = None  # a legvalószínűbb típus családja (regiszter v2), kódban összegezve
-    parent_prob: float = 0.0  # a család összesített valószínűsége - szülő-címke alacsony confidence-nél (policy dönt)
+    parent: str | None = None  # family of the most probable type (registry v2), summed in code
+    parent_prob: float = 0.0  # summed probability of the family - parent label at low confidence (policy decides)
     call: JevCall
 
     @model_validator(mode="after")
@@ -91,7 +92,7 @@ def build_state(pdf: PdfText, path: str | Path) -> dict:
 
 
 def build_questions() -> dict[str, Choice | Noul]:
-    """A JSON kérdéskészlet -> SDK-objektumok; a `registry:doc_types` kritérium a regiszterből jön."""
+    """The JSON question set -> SDK objects; the `registry:doc_types` criterion comes from the registry."""
     out: dict[str, Choice | Noul] = {}
     for key, q in _CFG["questions"].items():
         crit = q["criteria"]

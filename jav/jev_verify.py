@@ -1,15 +1,16 @@
-"""G-kar, 2. lépés: a generatív kivonat mezőnkénti ellenőrzése Jev Noul-okkal (SDE-cascade minta).
+"""G path, step 2: per-field verification of the generative extract with JEV Nouls (SDE cascade pattern).
 
-Munkamegosztás:
-- A hallucináció-ellenőrzés KÓDBAN történik (`find_evidence`): egy érték, amelynek nincs forrás-sora, `unsupported`.
-  Nem kérünk Jevtől fuzzy string-illesztést.
-- Jev azt ítéli meg, amihez szemantikai megértés kell: rossz mezőhöz rendelt érték (`off_target`), csonka érték
-  (`incomplete`), tévesen üresen hagyott mező (`absence_wrong`), felcserélt felek, hiányzó/többlet tételsorok.
-- Minden Noul EGY kérésben megy (fan-out); a nyers P(igen) értékek változatlanul kerülnek a `JevVerdicts`-be.
+Division of labour:
+- The hallucination check happens IN CODE (`find_evidence`): a value with no source line is `unsupported`.
+  We do not ask JEV for fuzzy string matching.
+- JEV judges what needs semantic understanding: a value assigned to the wrong field (`off_target`), a truncated
+  value (`incomplete`), a field wrongly left empty (`absence_wrong`), swapped parties, missing/extra line items.
+- All Nouls go in ONE request (fan-out); the raw P(yes) values go into `JevVerdicts` unchanged.
 
-Hívási-hely objektum (`VerifySite`): a típus-csomag `verify_callsite`-ja (`verify.json` a magyar, `verify_foreign.json` a
-külföldi számlához; az utóbbi `inherits` kulccsal örökli a Noul-kérdéseket, csak a mező-leírásai sajátok). A modul-szintű
-nevek (FIELD_SPECS, build_questions, verify, ...) a magyar számla hívási helyére mutatnak (kompatibilitás).
+Call site object (`VerifySite`): the type pack's `verify_callsite` (`verify.json` for the Hungarian invoice,
+`verify_foreign.json` for the foreign one; the latter inherits the Noul questions via the `inherits` key, only its field
+descriptions are its own). The module-level names (FIELD_SPECS, build_questions, verify, ...) point to the Hungarian
+invoice's call site (compatibility).
 """
 
 from __future__ import annotations
@@ -41,7 +42,8 @@ from jav.models import (
 )
 from jav.typepack import TypePack, get as get_pack
 
-# Országkód -> a dokumentumon nyomtatható nevek / jelek (a `country` fajta evidenciája: a kód nem a kódot, a jeleit keresi)
+# Country code -> names / signs that can be printed on the document (evidence for the `country` kind: the code
+# searches for these signs, not for the code itself)
 COUNTRY_HINTS: dict[str, tuple[str, ...]] = {
     "IE": ("ireland", "írország", "irland", "dublin", "ie8"), "US": ("usa", "united states", "u.s.a", " ca ", " ny ", " tx ", " wa "),
     "GB": ("united kingdom", "england", "london", "egyesült királyság"), "DE": ("germany", "deutschland", "németország", "gmbh"),
@@ -70,20 +72,20 @@ _OCR_CONFUSIONS = str.maketrans({"l": "1", "i": "1", "|": "1", "o": "0"})
 
 
 def _ocr_fold(folded: str) -> str:
-    """A már összehajtott (kisbetűs) szöveg OCR-tévesztés-független alakja: l / i / | -> 1, o -> 0."""
+    """The OCR-confusion-insensitive form of already folded (lower-case) text: l / i / | -> 1, o -> 0."""
     return folded.translate(_OCR_CONFUSIONS)
 
 
 def _fold(s: str) -> str:
-    """Kis/nagybetű-, whitespace- és írásjel-független ("1141, Budapest" == "1141 Budapest,")."""
+    """Insensitive to case, whitespace and punctuation ("1141, Budapest" == "1141 Budapest,")."""
     return " ".join(_PUNCT.sub(" ", s).split()).casefold()
 
 
-CANDIDATE_KIND = {"name": "name", "address": "address", "iban": "iban"}  # mező-fajta -> jelölt-fajta (többsoros értékekhez)
+CANDIDATE_KIND = {"name": "name", "address": "address", "iban": "iban"}  # field kind -> candidate kind (multi-line)
 
 
 def _candidate_hits(kind: str, value: str, cands: dict[str, list[Candidate]] | None) -> list[str]:
-    """Többsoros / sortörött értékek: a jelöltkeresők már oszlop-tudatosan összefűzték őket."""
+    """Multi-line / line-broken values: the candidate finders have already joined them in a column-aware way."""
     ckind = CANDIDATE_KIND.get(kind)
     if not cands or not ckind:
         return []
@@ -97,20 +99,20 @@ def _candidate_hits(kind: str, value: str, cands: dict[str, list[Candidate]] | N
 def find_evidence(
     field: str, value: str, lines: list[LineLayout], cands: dict[str, list[Candidate]] | None = None, kind: str | None = None, *, intl: bool = False
 ) -> list[str]:
-    """Determinisztikus, toleráns illesztés: mely sorokon szerepel a kivonatolt érték. A `kind` a típus-csomag mező-fajtája
-    (alap: a magyar számla mezőiből következtetve)."""
+    """Deterministic, tolerant matching: on which lines the extracted value appears. `kind` is the type pack's field
+    kind (default: inferred from the Hungarian invoice's fields)."""
     if kind is None:
         kind = get_pack("invoice_hu").kind(field)
     hits: list[str] = _candidate_hits(kind, value, cands)
     if hits:
         return hits[:4]
-    if kind in ("money", "number"):  # mennyiség (kWh, m3): ugyanaz a szám-illesztés, mint a pénzé
+    if kind in ("money", "number"):  # quantity (kWh, m3): the same number matching as for money
         targets: set[str] = set()
         try:
             targets.add(money_label(Decimal(value)))
         except (InvalidOperation, ValueError):
             pass
-        raw = parse_money(value, intl=intl).value  # 054: a nyers „1.153” úgy, ahogy a rekord is érti (magyar ezres pont)
+        raw = parse_money(value, intl=intl).value  # 054: raw "1.153" as the record reads it (Hungarian thousands dot)
         if raw is not None:
             targets.add(money_label(raw))
         if not targets:
@@ -118,15 +120,15 @@ def find_evidence(
         target = next(iter(targets)) if len(targets) == 1 else None
         prof = profile_of("intl" if intl else "hu")
         digits = re.sub(r"\D", "", value)
-        exact: list[str] = []  # 054: a számjegyek is egyeznek („1,0000” ↔ „1.0000”, nem az „1.” sorszám) - ezek előre
+        exact: list[str] = []  # 054: the digits match too ("1,0000" ↔ "1.0000", not the ordinal "1.") - these go first
         for ln in lines:
-            # ugyanaz a tokenizálás, mint a jelöltkeresőben (cellahatáron nem folyik át)
+            # the same tokenisation as in the candidate finder (does not run across cell boundaries)
             for m in prof.money_re.finditer(ln.text):
                 parsed = parse_money(m.group(1), intl=intl)
                 if parsed.value is not None and money_label(parsed.value) in targets:
                     (exact if re.sub(r"\D", "", m.group(1)) == digits else hits).append(f"L{ln.no:02d}: {ln.text}")
                     break
-        if len(digits) >= 2:  # a pénz-tokenizáló a „1.0000”-t ezres pontnak veszi; a számjegy-pontos token is bizonyíték
+        if len(digits) >= 2:  # the money tokeniser takes "1.0000" as thousands dot; a digit-exact token is evidence too
             for ln in lines:
                 row = f"L{ln.no:02d}: {ln.text}"
                 if row not in exact and any(re.sub(r"\D", "", t) == digits for t in re.findall(r"\d(?:[\d.,]*\d)?", ln.text)):
@@ -149,14 +151,14 @@ def find_evidence(
         for ln in lines:
             if target in _digits(ln.text) and (len(target) >= 6 or value.casefold() in ln.text.casefold()):
                 hits.append(f"L{ln.no:02d}: {ln.text}")
-        if not hits and re.search(r"[A-Z]", value):  # betűs azonosító (IE8256796U): a teljes token, kis/nagybetű-független
+        if not hits and re.search(r"[A-Z]", value):  # ID with letters (e.g. Irish VAT): whole token, case-insensitive
             hits = [f"L{ln.no:02d}: {ln.text}" for ln in lines if value.replace(" ", "").casefold() in ln.text.replace(" ", "").casefold()]
     elif kind == "currency":
         rx = CURRENCY_EVIDENCE_RE.get(value.upper())
         if rx:
             hits = [f"L{ln.no:02d}: {ln.text}" for ln in lines if re.search(rx, ln.text)]
     elif kind == "country":
-        # következtetett mező: a bizonyíték az ország neve / jele a dokumentumon (bármely nyelven), vagy az adószám-előtag
+        # inferred field: evidence is the country's name / sign on the document (any language) or the tax number prefix
         code = value.upper()
         needles = tuple(h for h in COUNTRY_HINTS.get(code, ())) + (f" {code.lower()} ",)
         for ln in lines:
@@ -172,7 +174,7 @@ def find_evidence(
             if target in folded:
                 hits.append(f"L{ln.no:02d}: {ln.text}")
         if not hits:
-            # többsoros érték (pl. két sorba tört cégnév): egymás utáni sorpárok/hármasok
+            # multi-line value (e.g. a company name broken over two lines): consecutive line pairs/triples
             for i in range(len(joined)):
                 for span in (2, 3):
                     chunk = " ".join(f for _, f in joined[i : i + span])
@@ -182,11 +184,11 @@ def find_evidence(
                 if hits:
                     break
         if not hits:
-            # 054: OCR-tévesztések (kis L / nagy I / függőleges vonal az 1-es helyett, O a 0 helyett) - mindkét oldalon
+            # 054: OCR confusions (lower-case L / capital I / vertical bar for 1, O for 0) - on both sides
             ocr_target = _ocr_fold(target)
             hits = [f"L{ln.no:02d}: {ln.text}" for ln, folded in joined if ocr_target in _ocr_fold(folded)]
         if not hits and kind == "address":
-            # cím: vesszős / többsoros tördelés - a részek külön sorokon; elfogadva, ha a részek legalább fele megvan valahol
+            # address: comma-separated / multi-line, parts on separate lines; accepted if at least half of them occur
             parts = [_fold(p) for p in re.split(r"[,;]", value) if len(_fold(p)) >= 4]
             found = [p for p in parts if any(p in folded for _, folded in joined)]
             if parts and len(found) * 2 >= len(parts):
@@ -199,7 +201,7 @@ def _as_dict(llm: BaseModel | dict[str, Any]) -> dict[str, Any]:
 
 
 class VerifySite:
-    """Egy típus-csomag G-kar ellenőrző hívási helye: mező-leírások + Noul-kérdések (örökölhetők), `config_hash`."""
+    """A type pack's G path verification call site: field descriptions + Noul questions (inheritable), `config_hash`."""
 
     def __init__(self, pack: TypePack) -> None:
         from jav.jev_select import site_for as select_site_for
@@ -207,7 +209,7 @@ class VerifySite:
         self.pack = pack
         self.callsite = pack.verify_callsite
         data = dict(cfg.load(f"callsite:{self.callsite}"))
-        # a glosszár a select-hívási helyből jön; S-kar nélküli csomagnál (047) a saját hívási helyéből
+        # the glossary comes from the select call site; for a pack without an S path (047), from its own call site
         names = [f"callsite:{self.callsite}"] + ([f"callsite:{pack.select_callsite}"] if pack.select_callsite else [])
         parent = data.get("inherits")
         if parent:
@@ -215,7 +217,7 @@ class VerifySite:
             data = {**{k: v for k, v in base.items() if k != "meta"}, **data}
             names.append(f"callsite:{parent}")
         self.hash_names = tuple(names)
-        # 067 (066 Á18): a csomag azonosítója (típus-JSON + utasítás + séma) az alapcsomagnál is benne van
+        # 067 (066 Á18): the pack's identity (type JSON + instruction + schema) is included for the default pack too
         self.config_hash = cfg.combine(cfg.config_hash(*names), pack.config_hash)
         self.request_id: str = data.get("request_id", "verify")
         self.document: str = data.get("document", "Hungarian supplier invoice")
@@ -225,14 +227,16 @@ class VerifySite:
         self.wrong_kind_fields = tuple(data["wrong_kind_fields"])
         self.nouls: dict[str, dict[str, str]] = data["nouls"]
         self.intl = pack.candidate_profile != "hu"
-        # a glosszár egyszer, a state-ben (nem minden Noul instrukciójában): sok mezős csomagnál (közmű: ~30 mező × 3 kérdés) a
-        # kérés különben túllépi a Jev token-korlátját (max_tokens_exceeded); a magyar / külföldi számlánál változatlan (false)
+        # the glossary once, in the state (not in every Noul's instruction): for a pack with many fields (utility: ~30
+        # fields × 3 questions) the request would otherwise exceed JEV's token limit (max_tokens_exceeded); unchanged
+        # (false) for the Hungarian / foreign invoice
         self.glossary_in_state: bool = bool(data.get("glossary_in_state", False))
-        self.request_char_budget: int | None = data.get("request_char_budget")  # kérés-méret keret (karakter), None = nincs
+        self.request_char_budget: int | None = data.get("request_char_budget")  # request size budget (chars) or None
 
     def _noul(self, name: str, **data: object) -> Noul:
-        """Strukturált Noul-instrukció (sde_cascade minta, v1.1.0): egy objektum, amelyben a kérdés szövege (`question`)
-        mellett a kód által épített adat áll (`field_spec`, `extracted_field`, `printed_on`), nem egy f-stringbe ragasztva."""
+        """Structured Noul instruction (sde_cascade pattern, v1.1.0): an object holding the question text (`question`)
+        next to the data built by the code (`field_spec`, `extracted_field`, `printed_on`), not glued into an
+        f-string."""
         t = self.nouls[name]
         glossary = {"glossary": "see state.glossary"} if self.glossary_in_state else {"glossary": self.glossary}
         instructions = {**glossary, **data, "question": t["question"]}
@@ -248,10 +252,11 @@ class VerifySite:
     def _fit_budget(
         self, state: dict[str, Any], questions: dict[str, Noul], lines: list[LineLayout], evidence: dict[str, list[str]], budget: int | None
     ) -> dict[str, Any]:
-        """Kérés-méret keret az ellenőrző kérésre (hívási hely `request_char_budget`, karakter; `jav/jev_budget.py`): a teljes
-        dokumentum sorai csak kontextus - a Noul-ok a `printed_on` evidencia-sorokból ítélnek. Túllépésnél (1) a
-        `source_lines` csak az evidencia-sorok ± 1 (a 9 oldalas Díjbeszedő-köteg: max_tokens_exceeded a teljes szöveggel),
-        (2) ha az sem fér, a `source_lines` elmarad. A kérdések nem változnak."""
+        """Request size budget for the verification request (call site `request_char_budget`, characters;
+        `jav/jev_budget.py`): the whole document's lines are only context - the Nouls judge from the `printed_on`
+        evidence lines. When over budget, (1) `source_lines` keeps only the evidence lines ± 1 (the 9-page Díjbeszedő
+        bundle: max_tokens_exceeded with the full text), (2) if that does not fit either, `source_lines` is dropped.
+        The questions do not change."""
         if budget is None:
             budget = self.request_char_budget
         if budget is None or self._size(state, questions) <= budget:
@@ -264,7 +269,7 @@ class VerifySite:
         return {k: v for k, v in state.items() if k != "source_lines"}
 
     def build_questions(self, llm: BaseModel | dict[str, Any], evidence: dict[str, list[str]]) -> dict[str, Noul]:
-        """Mezőnkénti Noul-ok: `field_spec` + `extracted_field` (nyers érték) + `printed_on` (evidencia-sorok) + `question`."""
+        """Per-field Nouls: `field_spec` + `extracted_field` (raw) + `printed_on` (evidence lines) + `question`."""
         d = _as_dict(llm)
         q: dict[str, Noul] = {}
         for field in self.pack.header_fields:
@@ -273,7 +278,7 @@ class VerifySite:
                 q[f"{field}__absence_wrong"] = self._noul("absence_wrong", field_spec=self._field_spec(field), extracted_field=None)
                 continue
             if not evidence.get(field):
-                continue  # nincs evidencia -> `unsupported`, kód döntötte, Jevet nem kérdezzük
+                continue  # no evidence -> `unsupported`, decided by code, JEV is not asked
             data = {"field_spec": self._field_spec(field), "extracted_field": value, "printed_on": list(evidence[field])}
             q[f"{field}__off_target"] = self._noul("off_target", **data)
             if field in self.wrong_kind_fields:
@@ -336,7 +341,7 @@ def site_for(pack_key: str) -> VerifySite:
     return VerifySite(get_pack(pack_key))
 
 
-# --- kompatibilis modul-szintű nevek: a magyar számla hívási helye ----------------------------------------------
+# --- compatible module-level names: the Hungarian invoice's call site -------------------------------------------
 
 _DEFAULT = site_for("invoice_hu")
 CONFIG_HASH = _DEFAULT.config_hash
@@ -353,7 +358,7 @@ def build_questions(llm: BaseModel | dict[str, Any], evidence: dict[str, list[st
 def verify(
     jev: JevAdapter, lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, run_id: str = "adhoc", use_cache: bool = True, pack: TypePack | None = None
 ) -> tuple[JevVerdicts, JevCall]:
-    """State: `{"document", "source_lines": ["Lnn: <sor>", ...], "extraction": <a kivonat szótárként>, "evidence": {mező: [sorok]}}`
-    - a teljes dokumentum, mert az ellenőrző kérdések bármely mezőre hivatkozhatnak."""
+    """State: `{"document", "source_lines": ["Lnn: <line>", ...], "extraction": <the extract as a dict>,
+    "evidence": {field: [lines]}}` - the whole document, because the verification questions may refer to any field."""
     site = _DEFAULT if pack is None else site_for(pack.key)
     return site.verify(jev, lines, llm, run_id=run_id, use_cache=use_cache)

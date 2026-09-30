@@ -1,4 +1,4 @@
-"""M3 e-mail szándék - offline: szándék-regiszter, törzs-tisztítás, state-építés, next_flow policy, régi golden betöltés."""
+"""M3 email intent - offline: intent registry, body cleaning, state building, next_flow policy, legacy golden set."""
 
 import json
 
@@ -12,7 +12,7 @@ def test_registry_consistent():
     assert OTHER in INTENT_KEYS and len(INTENT_KEYS) == 11
     crit = choice_criteria()
     assert set(crit) == set(INTENT_KEYS)
-    assert all(len(v["what"]) > 40 and v["not_for"] for v in crit.values())  # v2: strukturált kritérium
+    assert all(len(v["what"]) > 40 and v["not_for"] for v in crit.values())  # v2: structured criterion
     assert DOCUMENT_BEARING == {"szamlakuldes", "fizetesi_visszaigazolas"}
     assert BY_KEY["szamlakuldes"].display_name == "Számlaküldés"
 
@@ -29,7 +29,7 @@ def test_clean_body_cuts_quoted_reply_and_urls():
 def test_clean_body_strips_newsletter_preheader_padding():
     raw = "És egy meghívó vasárnapra.\r\n͏ ‌     ͏ ‌     ͏ ‌\r\nTartalom."
     body = clean_body(raw)
-    assert body == "És egy meghívó vasárnapra.\n\nTartalom."  # a töltelék-sor üres sorrá válik, a bekezdés-határ megmarad
+    assert body == "És egy meghívó vasárnapra.\n\nTartalom."  # padding line -> empty line; the paragraph break stays
 
 
 def test_clean_body_keeps_forwarded_content_when_body_starts_with_header():
@@ -51,7 +51,7 @@ def test_build_state_features_and_questions():
     assert st["body_lines"][0].startswith("L01: ")
     qs = build_questions()
     assert set(qs) == {"intent", *NOUL_KEYS, "urgency"}
-    json.dumps(st, ensure_ascii=False)  # a state JSON-szerializálható (cache-kulcs)
+    json.dumps(st, ensure_ascii=False)  # the state is JSON-serialisable (cache key)
 
 
 def test_sender_domain():
@@ -85,7 +85,7 @@ def test_load_message_dir(tmp_path):
 def test_ingest_server_maps_bridge_payload(tmp_path):
     from jav.ingest_server import host_path, short_hash, write_message
 
-    assert short_hash("x") == "9dd4e461268c8034"  # md5("x")[:16] - a bridge Get-ShortHash-ével azonos
+    assert short_hash("x") == "9dd4e461268c8034"  # md5("x")[:16] - identical to the bridge's Get-ShortHash
     assert len(short_hash("y")) == 16 and short_hash("x") != short_hash("y")
     assert host_path("/tmp/other") is None and host_path("/data/does/not/exist.pdf") is None
     payload = {
@@ -99,9 +99,9 @@ def test_ingest_server_maps_bridge_payload(tmp_path):
     assert not existed and folder == tmp_path / "a_example.hu" / short_hash("ENTRYID-1")
     rec = json.loads((folder / "message.json").read_text(encoding="utf-8"))
     assert rec["sender"] == "noreply@billingo.hu" and rec["sender_name"] == "Billingo" and rec["body"].startswith("Önnek")
-    assert rec["attachments"][0]["filename"] == "szamla.pdf" and rec["attachments"][0]["path"] is None  # a host-fájl nincs meg
+    assert rec["attachments"][0]["filename"] == "szamla.pdf" and rec["attachments"][0]["path"] is None  # no host file
     _, existed2 = write_message(payload, tmp_path)
-    assert existed2  # ismételt POST -> deduped
+    assert existed2  # repeated POST -> deduped
     msg = load_message_dir(folder)
     assert msg.message_id == short_hash("ENTRYID-1") and msg.mailbox == "a@example.hu" and msg.attachments[0].path is None
 

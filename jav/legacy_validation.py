@@ -133,7 +133,7 @@ def signed_minor(tx, decimals=2):
     return -mag if direction == "debit" else mag
 
 
-TOL_MINOR = 1  # bank-statement tolerance: one rounding fillér, never a transcription error
+TOL_MINOR = 1  # bank-statement tolerance: one minor unit of rounding, never a transcription error
 HU_TAXID_WEIGHTS = [9, 7, 3, 1, 9, 7, 3]
 
 

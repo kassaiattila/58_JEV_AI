@@ -1,6 +1,7 @@
-"""069 (döntés 2026-09-29): ha az irat olyan kategóriába esik, amelyhez nincs részletes típuscsomag (fizetési felszólítás,
-teljesítésigazolás, ismeretlen irat), teendő keletkezik: ehhez a típushoz nincs adatkinyerés. Eddig a tétel teendő nélkül
-állt meg, így az éles futás jóváhagyható volt (066: „részletes típus nélküli irat”). Mesterséges irat, hamis JEV."""
+"""069 (decision of 2026-09-29): if a document falls into a category without a detailed type pack (payment reminder,
+certificate of completion, unknown document), a to-do is raised: there is no data extraction for this type. Until now
+the item stopped without a to-do, so the live run could be approved (066: "document without a detailed type").
+Synthetic document, fake JEV."""
 
 from pathlib import Path
 
@@ -29,7 +30,7 @@ def test_category_without_type_pack_opens_a_task(tmp_path):
 
 
 class ReminderClient:
-    """A típusfelismerés fizetési felszólítást mond (magas bizonyossággal); más kérdésre az első opció."""
+    """Type detection says payment reminder (with high confidence); for any other question, the first option."""
 
     def system_one(self, *, state, questions, model):
         answers = {}

@@ -1,8 +1,9 @@
-"""G-kar, 1. lépés: generatív kivonatolás Pydantic AI-jal (OpenAI gpt-5.4-mini), a régi prompt szó szerint.
+"""G path, step 1: generative extraction with Pydantic AI (OpenAI gpt-5.4-mini), using the legacy prompt verbatim.
 
-A kimenet a típus-csomag sémája szerinti szótár: a magyar számlánál az `InvoiceLLM` (a régi schema.json 1:1 tükre),
-más típusnál a csomag `schema_file`-jából generált Pydantic-modell (`typepack.TypePack.llm_model`). A régi flow a
-PDF-et/képet is elküldte a modellnek; itt csak a szövegréteg megy - a régi golden floorral ezért nem 1:1 összevethető.
+The output is a dict following the type pack's schema: for the Hungarian invoice it is `InvoiceLLM` (a 1:1 mirror of the
+legacy schema.json), for other types the Pydantic model generated from the pack's `schema_file`
+(`typepack.TypePack.llm_model`). The legacy flow also sent the PDF/image to the model; here only the text layer goes -
+so it is not directly comparable with the legacy golden floor.
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ _agent_factory = ContextVar('extraction_agent_factory', default=None)
 
 @contextmanager
 def use_agent_factory(factory):
-    """Körre korlátozott modellfüggőség; a szokásos kliens és cache változatlan."""
+    """A model dependency limited to one round; the usual client and cache are unchanged."""
     token = _agent_factory.set(factory)
     try:
         yield
@@ -49,17 +50,18 @@ def use_agent_factory(factory):
 def get_agent(pack_key: str = DEFAULT_KEY) -> Agent[None, BaseModel]:
     pack = get_pack(pack_key)
     model = OpenAIChatModel(OPENAI_MODEL, provider=OpenAIProvider(api_key=get_openai_key()))
-    # A régi sidecar-beállítás: reasoning none, temperature 0 (a nem-determinizmust mérjük, nem harcolunk vele)
+    # The legacy sidecar setting: reasoning none, temperature 0 (we measure non-determinism, we do not fight it)
     settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"], temperature=OPENAI_SETTINGS["temperature"])
     return Agent(model, output_type=pack.llm_model(), instructions=load_prompt(pack.prompt_file), model_settings=settings, retries=OPENAI_SETTINGS["retries"])
 
 
-# Feldolgozói futásban (040 K1) a kimenet és a fizikai kérések száma ténylegesen korlátozott, így a foglalt maximum garancia.
+# In a worker run (040 K1) the output and the number of physical requests are actually limited, so the reserved
+# maximum is a guarantee.
 RUN_MAX_OUTPUT_TOKENS = 4000
 
 
 def _price_for(actual_model: str | None) -> tuple[float, float] | None:
-    """Ár csak akkor, ha a válasz modellje a konfigurált modell (vagy annak dátumos változata); különben ismeretlen."""
+    """A price only if the response's model is the configured model (or its dated variant); otherwise unknown."""
     price = OPENAI_USD_PER_MTOK.get(OPENAI_MODEL)
     if price is None or actual_model is None or not re.fullmatch(re.escape(OPENAI_MODEL) + r"(-\d{4}-\d{2}-\d{2})?", actual_model):
         return None
@@ -67,7 +69,7 @@ def _price_for(actual_model: str | None) -> tuple[float, float] | None:
 
 
 def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool) -> calls.Outcome:
-    """Egy `run_sync` (a Pydantic AI validációs újrapróbálásai is benne). Hiba is a ledgerbe kerül (F05)."""
+    """One `run_sync` (including Pydantic AI's validation retries). Errors go into the ledger too (F05)."""
     t0 = time.perf_counter()
     kwargs: dict[str, Any] = {}
     if limited:
@@ -80,7 +82,7 @@ def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool)
                          output_tokens=None, cost_usd=None, seconds=round(time.perf_counter() - t0, 3),
                          config_hash=pack.config_hash, error=type(exc).__name__)
         raise
-    usage = result.usage() if callable(result.usage) else result.usage  # pydantic-ai: metódus volt, újabb verzióban property
+    usage = result.usage() if callable(result.usage) else result.usage  # pydantic-ai: it was a method, newer versions have a property
     in_tok, out_tok = usage.input_tokens or 0, usage.output_tokens or 0
     actual = getattr(getattr(result, "response", None), "model_name", None) or OPENAI_MODEL
     price = _price_for(actual)
@@ -101,10 +103,11 @@ def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool)
 
 
 def extract(text: str, *, run_id: str = "adhoc", pack: TypePack | None = None) -> dict[str, Any]:
-    """A kivonat szótárként (a csomag sémájának kulcsaival); a hívás a ledgerbe kerül (token, költség, idő, hiba is).
+    """The extract as a dict (with the keys of the pack's schema); the call goes into the ledger (tokens, cost, time,
+    errors too).
 
-    Feldolgozói futásban a hívásnaplón és a kereten át megy: előzetes foglalás a legrosszabb esetre, ismétlésnél a
-    mentett válasz, bizonytalan korábbi kísérletnél nincs automatikus új fizetős kérés.
+    In a worker run it goes through the call log and the budget: an up-front reservation for the worst case, the saved
+    answer on a repeat, and no automatic new paid request after an earlier attempt with an uncertain outcome.
     """
     pack = pack or get_pack(DEFAULT_KEY)
     factory = _agent_factory.get()
@@ -113,7 +116,7 @@ def extract(text: str, *, run_id: str = "adhoc", pack: TypePack | None = None) -
     ctx = calls.current()
     if ctx is None:
         return _physical(agent, prompt, run_id=run_id, pack=pack, limited=False).response
-    price = openai_price(OPENAI_MODEL)  # 066 Á38: ár nélkül nincs keret alatti hívás (a foglalás nulla lenne)
+    price = openai_price(OPENAI_MODEL)  # 066 Á38: no budgeted call without a price (the reservation would be zero)
     max_cost = calls.estimate_max_cost(
         input_chars=len(prompt) + len(load_prompt(pack.prompt_file)), max_output_tokens=RUN_MAX_OUTPUT_TOKENS,
         usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), physical_attempts=1 + int(OPENAI_SETTINGS["retries"]))

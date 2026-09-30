@@ -1,9 +1,9 @@
-"""064: napi mentés második helyre és a folyamatállapot-tár ritkítása (döntés 2026-09-29).
+"""064: the daily backup to a second location and the pruning of the flow-state store (decision of 2026-09-29).
 
-A ritkítás után minden folyamatnak csak az utolsó mentett állapota marad; a feldolgozó visszaolvasáskor is csak ezt
-használja (Burr `load`: a legnagyobb sorszámú sor), ezért a folytatás változatlan. A mentés a helyi másolat után a
-második helyre (NAS) is másol; ha az nem sikerül, a helyi mentés érvényes marad, a hiba az állapotfájlban látszik.
-Mesterséges adat, hamis JEV, fizetős hívás nélkül.
+After pruning, only the last saved state of each flow remains; the worker also uses only that one when reading back
+(Burr `load`: the row with the highest sequence number), so resuming is unchanged. After the local copy, the backup
+also copies to the second location (NAS); if that fails, the local backup stays valid and the error shows in the
+status file. Synthetic data, fake JEV, no paid calls.
 """
 
 import json
@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from jav import api, backup, store, work
 from jav.runtime import lock, persistence, worker
-from tests.test_stability_063 import _start, wp_env  # noqa: F401 - a közös csomag-előkészítő
+from tests.test_stability_063 import _start, wp_env  # noqa: F401 - the shared package fixture
 
 
 def _persister(path: Path) -> worker.StatePersister:
@@ -35,7 +35,7 @@ def _rows(path: Path) -> dict[str, list[int]]:
     return out
 
 
-# --- a folyamatállapot-tár ritkítása ---------------------------------------------------------------------------------
+# --- pruning the flow-state store ------------------------------------------------------------------------------------
 
 
 def test_prune_keeps_only_the_last_state_and_loading_is_unchanged(tmp_path):
@@ -70,7 +70,7 @@ def test_worker_prunes_the_state_of_finished_items(wp_env):  # noqa: F811
     _start(wp_env["wp"]["id"])
     worker.run_worker(once=True)
     rows = _rows(worker.persister_path())
-    assert len(rows) == 2 and all(len(seqs) == 1 for seqs in rows.values())  # tételenként csak az utolsó állapot
+    assert len(rows) == 2 and all(len(seqs) == 1 for seqs in rows.values())  # only the last state per item
 
 
 def test_vacuum_shrinks_the_file_and_waits_for_a_stopped_worker(tmp_path, monkeypatch):
@@ -95,12 +95,12 @@ def test_cli_prune_refuses_to_compact_while_the_worker_runs(wp_env, capsys):  # 
     with lock.single_instance(worker.lock_path()):
         code = cli.main(["burr-prune"])
     out = capsys.readouterr().out
-    assert code == 0 and "2 köztes állapotsor törölve" in out  # ritkít futó feldolgozó mellett is
-    assert "feldolgozó fut" in out  # de tömöríteni csak leállított feldolgozóval
+    assert code == 0 and "2 köztes állapotsor törölve" in out  # prunes even while the worker runs
+    assert "feldolgozó fut" in out  # but compacts only with the worker stopped
     assert _rows(worker.persister_path()) == {"run-k:eeeeeeeeeeeeeeee": [2]}
 
 
-# --- mentés a második helyre, állapotfájl --------------------------------------------------------------------------
+# --- backup to the second location, status file --------------------------------------------------------------------
 
 
 @pytest.fixture()
@@ -144,7 +144,7 @@ def test_scheduled_backup_follows_the_configuration(db, monkeypatch):
     seen = {}
     monkeypatch.setattr(backup, "backup", lambda **kw: seen.update(kw) or {"ok": True, "copy": None, "files": [], "dir": "x"})
     backup.scheduled(config={"keep": 14, "copy_to": str(db / "nas"), "with_burr": False})
-    assert seen == {"keep": 14, "copy_to": db / "nas", "with_burr": False, "with_docs": False}  # 070: with_docs alapból ki
+    assert seen == {"keep": 14, "copy_to": db / "nas", "with_burr": False, "with_docs": False}  # 070: off by default
 
 
 def test_service_shows_backup_status_and_can_back_up_now(db, monkeypatch):
@@ -152,7 +152,7 @@ def test_service_shows_backup_status_and_can_back_up_now(db, monkeypatch):
     monkeypatch.setattr(backup, "scheduled", lambda **kw: backup.backup(out_root=local, keep=14))
     monkeypatch.setattr(backup, "default_root", lambda: local)
     c = TestClient(api.create_app(store_path=db / "s.sqlite"), base_url="http://127.0.0.1:8930")
-    assert c.get("/api/system/backup").json()["status"] is None  # még nem volt mentés
+    assert c.get("/api/system/backup").json()["status"] is None  # no backup yet
     r = c.post("/api/system/backup", headers={"X-Actor": "teszt.elek"}, json={})
     assert r.status_code == 200 and r.json()["ok"]
     body = c.get("/api/system/backup").json()
@@ -160,7 +160,7 @@ def test_service_shows_backup_status_and_can_back_up_now(db, monkeypatch):
     assert json.loads((local / "backup-status.json").read_text(encoding="utf-8"))["ok"]
 
 
-# --- 066 Á09, Á29: sérült mentés után nincs ritkítás és másolás; a kézi mentés a napi megőrzést követi -------------------
+# --- 066 Á09, Á29: no pruning or copying after a damaged backup; a manual backup follows the daily retention ----------
 
 
 def _old_backup(root: Path, name: str, ok: bool = True) -> Path:

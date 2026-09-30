@@ -1,6 +1,6 @@
-"""Füstteszt: a venv, a kulcs és a TypeSafe API élő hívása egyben.
+"""Smoke test: the venv, the key and a live call to the TypeSafe API in one go.
 
-Futtatás:  .venv/Scripts/python.exe smoke_test.py
+Run:  .venv/Scripts/python.exe smoke_test.py
 """
 
 from __future__ import annotations

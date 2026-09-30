@@ -1,14 +1,15 @@
-"""Típus-csomagok (BACKLOG 1, régi típusok átemelése) - offline.
+"""Type packs (BACKLOG 1, carrying over the legacy types) - offline.
 
-- a két csomag betölt, a magyar számláé bitre a korábbi konstansokat adja (mezőlista, pontozott mezők, kötelező / magas tétű
-  mezők, validátorok), a külföldié a régi schema.json / rules.json tartalmát;
-- a G-kar kimeneti modellje a régi sémából generálódik (extra tilos, supplier_country benne);
-- a normalizálás a fajták szerint (country / currency nagybetű, pénz Decimal, dátum ISO), az ismeretlen mező az `extra`-ba;
-- jelölt-profilok: az `intl` megtalálja az EU-s adószámot, az angol dátumot, a $-os összeget, a jogi formáig vágott nevet, a
-  fordított adózás 0 áfáját; a `hu` profil egy magyar mintán változatlan;
-- hívási helyek: a select_foreign kérdései épülnek (supplier_country Choice a parties kérésben, pénznem-kritériumok), a
-  verify_foreign örökli a Noul-kérdéseket; a validátor-lista pack-vezérelt; a policy a csomag kötelező mezőit nézi;
-- golden-összehasonlító fajta szerint; eval-riport flow-címke a sorból; admin típusonként.
+- both packs load; the Hungarian invoice's yields the earlier constants bit for bit (field list, scored fields,
+  required / high-stakes fields, validators), the foreign one the content of the legacy schema.json / rules.json;
+- the G path's output model is generated from the legacy schema (extra forbidden, supplier_country included);
+- normalisation by kind (country / currency upper-case, money Decimal, date ISO), unknown fields go into `extra`;
+- candidate profiles: `intl` finds the EU tax number, the English date, the $ amount, the name cut at the legal form,
+  the 0 VAT of reverse charge; the `hu` profile is unchanged on a Hungarian sample;
+- call sites: the select_foreign questions are built (supplier_country Choice in the parties request, currency
+  criteria), verify_foreign inherits the Noul questions; the validator list is pack-driven; the policy looks at the
+  pack's required fields;
+- golden-set comparison by kind; eval report flow label from the row; admin per type.
 """
 
 from __future__ import annotations
@@ -47,7 +48,7 @@ def _foreign_lines() -> list[LineLayout]:
     ]
 
 
-# --- csomagok -------------------------------------------------------------------------------
+# --- packs ----------------------------------------------------------------------------------
 
 
 def test_packs_load_and_hu_pack_equals_legacy_constants():
@@ -56,18 +57,18 @@ def test_packs_load_and_hu_pack_equals_legacy_constants():
     assert set(hu.required) == {"buyer_name", "gross_total", "invoice_number", "supplier_name"} == set(policy.REQUIRED)
     assert set(hu.high_stakes) == {"amount_due", "due_date", "gross_total", "payment_iban", "supplier_tax_id"} == set(policy.HIGH_STAKES)
     assert [v["check"] for v in hu.validators] == ["vat_consistency", "date_order", "tax_id", "tax_id", "iban_check",
-                                                   "line_items_total", "line_items_arithmetic"]  # 053 T3.2 tételek; 069 mindkét fél adószáma
+                                                   "line_items_total", "line_items_arithmetic"]  # 053 T3.2 line items; 069 both parties' tax numbers
     assert hu.candidate_profile == "hu" and hu.is_default and hu.llm_model().__name__ == "InvoiceLLM"
     fo = typepack.get("invoice_foreign")
     assert fo.candidate_profile == "intl" and fo.select_callsite == "select_foreign" and fo.verify_callsite == "verify_foreign"
-    assert fo.header_fields == tuple(fo.schema()["properties"]) [:-1] or "line_items" not in fo.header_fields  # a séma sorrendje
-    assert set(fo.required) == {"invoice_number", "gross_total"}  # a régi rules.json
-    assert set(fo.informational_fields) == {"payment_iban", "supplier_address", "buyer_address"}  # a régi _compare_contract
+    assert fo.header_fields == tuple(fo.schema()["properties"]) [:-1] or "line_items" not in fo.header_fields  # the schema's order
+    assert set(fo.required) == {"invoice_number", "gross_total"}  # the legacy rules.json
+    assert set(fo.informational_fields) == {"payment_iban", "supplier_address", "buyer_address"}  # the legacy _compare_contract
     assert fo.kind("supplier_country") == "country" and "supplier_country" in fo.strict_scored
-    assert "amount_due" not in fo.fields and "fulfillment_date" not in fo.fields  # a régi sémában sincs
+    assert "amount_due" not in fo.fields and "fulfillment_date" not in fo.fields  # not in the legacy schema either
     assert set(typepack.keys()) >= {"invoice_hu", "invoice_foreign"}
     assert "type:invoice_foreign" in cfg.all_names() and cfg.version("type:invoice_foreign") >= "1.0.1"
-    assert any(v.get("optional") for v in fo.validators if v["check"] == "date_order")  # 1.0.1: hiányzó határidő nem hiba
+    assert any(v.get("optional") for v in fo.validators if v["check"] == "date_order")  # 1.0.1: a missing due date is not an error
 
 
 def test_foreign_llm_model_is_generated_from_old_schema():
@@ -76,7 +77,7 @@ def test_foreign_llm_model_is_generated_from_old_schema():
     inst = model(supplier_country="IE", gross_total="108.38", line_items=[{"description": "x", "quantity": 1, "unit_price": "1", "net_amount": "1", "vat_rate": "0%", "gross_amount": "1"}])
     assert inst.supplier_country == "IE" and inst.line_items[0].quantity == 1
     with pytest.raises(Exception):
-        model(amount_due="1")  # nincs a régi sémában -> extra tilos
+        model(amount_due="1")  # not in the legacy schema -> extra forbidden
     with pytest.raises(Exception):
         model(line_items=[{"description": "x", "note": "nem a sémában"}])
 
@@ -92,17 +93,17 @@ def test_record_from_llm_normalizes_by_kind_and_keeps_unknown_fields_in_extra():
     assert dp["consumption_kwh"] == "1153" and dp["supplier_name"] == "MVM"
 
 
-# --- jelölt-profilok -----------------------------------------------------------------------------
+# --- candidate profiles --------------------------------------------------------------------------
 
 
 def test_intl_profile_finds_foreign_values():
     c = find_all(_foreign_lines(), "intl")
     labels = {k: [x.label for x in v] for k, v in c.items()}
     assert "IE8256796U" in labels["tax_id"] and "HU28994028" in labels["tax_id"]
-    assert {"2022-12-25", "2022-12-26", "2022-12-19"} <= set(labels["date"])  # angol hónapnév + US perjeles alak
+    assert {"2022-12-25", "2022-12-26", "2022-12-19"} <= set(labels["date"])  # English month name + US slash form
     money = {x.label: x for x in c["money"]}
-    assert "1642.5" in money and money["1642.5"].ambiguous is False  # $1,642.50: ezres vessző + tizedes pont
-    assert "0" in money and money["0"].raw == "reverse charge"  # kód-szabály: fordított adózás = 0 áfa
+    assert "1642.5" in money and money["1642.5"].ambiguous is False  # $1,642.50: thousands comma + decimal point
+    assert "0" in money and money["0"].raw == "reverse charge"  # code rule: reverse charge = 0 VAT
     assert "Microsoft Ireland Operations Ltd" in labels["name"] and "Omar Samplefreelancer" in labels["name"] and "BestIxCom Kft." in labels["name"]
     assert "T500000001" in labels["invoice_number"]
     assert any(a.startswith("One Microsoft Place") for a in labels["address"]) and "Giza, 12345, Egypt" in labels["address"]
@@ -113,12 +114,12 @@ def test_hu_profile_is_default_and_unchanged():
     lines = [_line(1, ("Fizetési határidő: 2022.02.10.", 30)), _line(2, ("Bruttó összesen", 30), ("12,34", 300)), _line(3, ("Összeg: 1,600", 30))]
     default = {k: [(x.label, x.ambiguous) for x in v] for k, v in find_all(lines).items()}
     hu = {k: [(x.label, x.ambiguous) for x in v] for k, v in find_all(lines, "hu").items()}
-    assert default == hu and ("1.6", False) in hu["money"]  # HU: "1,600" = 1,6 (vessző tizedes) - a hu profil nem változott
+    assert default == hu and ("1.6", False) in hu["money"]  # HU: "1,600" = 1.6 (decimal comma) - the hu profile is unchanged
     intl = {x.label for x in find_all(lines, "intl")["money"]}
-    assert "1600" in intl  # intl: "1,600" ezres vessző
+    assert "1600" in intl  # intl: "1,600" thousands comma
 
 
-# --- hívási helyek ------------------------------------------------------------------------------
+# --- call sites ---------------------------------------------------------------------------------
 
 
 def test_select_foreign_site_builds_country_and_currency_questions():
@@ -132,7 +133,7 @@ def test_select_foreign_site_builds_country_and_currency_questions():
     assert {"EUR", "USD", "TRY", "PLN", "none"} <= set(site.build_extra("currency").criteria)
     assert isinstance(site.build_presence("supplier_tax_id"), Noul)
     assert site.config_hash != site_for("invoice_hu").config_hash
-    # 067 (066 Á18): a magyar hívási hely azonosítójában is benne van a csomag (korábban csak a hívási hely volt)
+    # 067 (066 Á18): the Hungarian call site's identifier includes the pack too (earlier it was the call site only)
     assert site_for("invoice_hu").config_hash == cfg.combine(cfg.config_hash("callsite:select"), typepack.get("invoice_hu").config_hash)
 
 
@@ -163,11 +164,11 @@ def test_verify_foreign_inherits_nouls_and_has_own_field_specs():
     llm = {"supplier_name": "Microsoft Ireland Operations Ltd", "supplier_country": "IE", "gross_total": "108.38", "supplier_tax_id": "IE8256796U"}
     lines = _foreign_lines()
     ev = {f: find_evidence(f, str(v), lines, None, kind=site.pack.kind(f), intl=True) for f, v in llm.items()}
-    assert ev["supplier_country"] and ev["supplier_tax_id"] and ev["supplier_name"]  # ország-jel (Írország / IE-előtag), betűs adószám, név
+    assert ev["supplier_country"] and ev["supplier_tax_id"] and ev["supplier_name"]  # country signal (Írország / IE prefix), tax number with letters, name
     q = site.build_questions(llm, ev)
     assert "supplier_country__off_target" in q and "supplier_tax_id__wrong_kind" in q and "parties_swapped" in q
     assert q["supplier_country__off_target"].instructions["field_spec"]["meaning"] == site.field_specs["supplier_country"]
-    assert "issue_date__absence_wrong" in q and "amount_due__absence_wrong" not in q  # csak a csomag mezői
+    assert "issue_date__absence_wrong" in q and "amount_due__absence_wrong" not in q  # only the pack's fields
 
 
 def test_validators_are_pack_driven():
@@ -176,20 +177,20 @@ def test_validators_are_pack_driven():
     fo = typepack.get("invoice_foreign")
     inv = InvoiceHU(currency="EUR", supplier_country="IE", issue_date=date(2022, 11, 2), due_date=date(2022, 12, 2), gross_total=Decimal("108.38"))
     codes = {c.name: c.code for c in run_all(inv, fo.validators)}
-    assert codes == {"date_order": "dates.ok", "format:currency": "format.ok", "format:supplier_country": "format.ok"}  # nincs áfa-egyenlet (fordított adózás), nincs IBAN
+    assert codes == {"date_order": "dates.ok", "format:currency": "format.ok", "format:supplier_country": "format.ok"}  # no VAT equation (reverse charge), no IBAN
     inv.supplier_country = "Ireland"
     assert {c.code for c in run_all(inv, fo.validators)} >= {"format.mismatch"}
     hu_codes = [c.name for c in run_all(InvoiceHU(currency="HUF", net_total=Decimal(1), vat_total=Decimal(0), gross_total=Decimal(1), issue_date=date(2022, 1, 1), due_date=date(2022, 1, 2)))]
-    # a régi lista változatlan (opcionális adószám / IBAN kimarad, ha üres); 053: tétel nélkül a tétel-ellenőrzés sem hiba
+    # the legacy list is unchanged (optional tax number / IBAN skipped when empty); 053: no line items, no item error
     assert hu_codes == ["vat_consistency", "date_order", "line_items_total", "line_items_arithmetic"]
 
 
 def test_policy_uses_pack_required_and_high_stakes():
     st = FlowState(source_path="x.pdf", case_id="c", arm="S", doc_type="invoice_foreign")
     st.picks = {
-        "buyer_name": FieldPick(field="buyer_name", label=None, confidence=0.99, n_options=2, request_id="foreign_parties"),  # a külföldinél NEM kötelező
+        "buyer_name": FieldPick(field="buyer_name", label=None, confidence=0.99, n_options=2, request_id="foreign_parties"),  # NOT required for the foreign one
         "gross_total": FieldPick(field="gross_total", label=None, confidence=0.99, n_options=2, request_id="foreign_money"),
-        "due_date": FieldPick(field="due_date", label="2022-12-02", confidence=0.7, n_options=2, request_id="foreign_header"),  # magas tétű: 0,85 alatt review
+        "due_date": FieldPick(field="due_date", label="2022-12-02", confidence=0.7, n_options=2, request_id="foreign_header"),  # high stakes: review below 0.85
     }
     policy.apply_pick_policy(st)
     assert "pick:none:gross_total" in st.review_reasons and "pick:none:buyer_name" not in st.review_reasons
@@ -212,9 +213,9 @@ def test_eval_report_and_admin_use_flow_label_and_doc_type(tmp_path):
     row = {"case_id": "f1", "doc_type": "invoice_foreign", "flow_label": "invoice_foreign_S", "route": "auto", "scores": {"gross_total": True},
            "picks": {"gross_total": {"label": "108.38", "confidence": 0.95, "n_options": 3, "top3": {"108.38": 0.95, "0": 0.05}, "present_p": 0.9, "line_no": 6}}}
     js = _from_invoice_S(row)
-    assert {j.flow for j in js} == {"invoice_foreign_S"} and js[0].callsite == "invoice.pick.high_stakes"  # gross_total a külföldinél is magas tétű
+    assert {j.flow for j in js} == {"invoice_foreign_S"} and js[0].callsite == "invoice.pick.high_stakes"  # gross_total is high-stakes for the foreign one too
     legacy = _from_invoice_S({**row, "doc_type": None, "flow_label": None})
-    assert {j.flow for j in legacy} == {"invoice_S"}  # régi fájl (nincs címke) = magyar számla
+    assert {j.flow for j in legacy} == {"invoice_S"}  # old file (no label) = Hungarian invoice
 
 
 def test_flow_contract_is_type_independent_and_tracker_per_type():
@@ -222,7 +223,7 @@ def test_flow_contract_is_type_independent_and_tracker_per_type():
 
     assert flow.CONTRACT["name"] == "invoice" and "invoice_foreign" in flow.CONTRACT["doc_note"]
     assert flow.tracker_project("invoice_hu") == "jav_invoice_hu" and flow.tracker_project("invoice_foreign") == "jav_invoice_foreign"
-    assert flow.tracker_project("utility_bill_hu") == "jav_invoice"  # ismeretlen csomag-név: alapértelmezett projekt
+    assert flow.tracker_project("utility_bill_hu") == "jav_invoice"  # unknown pack name: default project
     app = flow.build_app("x.pdf", "c", "S", tracker=False, doc_type="invoice_foreign")
     assert app.state.data.doc_type == "invoice_foreign"
     with pytest.raises(FileNotFoundError):

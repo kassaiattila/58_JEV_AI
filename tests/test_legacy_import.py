@@ -1,4 +1,4 @@
-"""047 T1.4: a régi projekt exportjainak behozatala összevetésre (mesterséges CSV; a régi adatbázist nem olvassuk)."""
+"""047 T1.4: importing the legacy project's exports for comparison (synthetic CSV; the legacy database is not read)."""
 
 import json
 from pathlib import Path
@@ -28,8 +28,8 @@ def test_rows_are_joined_by_legacy_id_and_unflattened(tmp_path):
     a = by["a" * 64]
     assert a.doc_type == "invoice_hu" and a.is_valid is True and a.needs_review is False
     assert a.datapoints["invoice_number"] == "MINTA-1" and a.datapoints["gross_total"] == "12700"
-    assert a.datapoints["line_items"] == [{"description": "Tétel A", "net_amount": "10000"}]  # üres 2. tétel elhagyva
-    assert "invoice_number" not in by["b" * 64].datapoints  # üres cella nem adat
+    assert a.datapoints["line_items"] == [{"description": "Tétel A", "net_amount": "10000"}]  # empty 2nd item dropped
+    assert "invoice_number" not in by["b" * 64].datapoints  # an empty cell is not data
 
 
 def test_import_is_idempotent_and_marked_legacy(tmp_path):

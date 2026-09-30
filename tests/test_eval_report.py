@@ -1,8 +1,8 @@
-"""Jev keret-kör 1 / közös eval-modul (BACKLOG 3) - offline, szintetikus runs/*.jsonl sorokon.
+"""JEV framework round 1 / shared eval module (BACKLOG 3) - offline, on synthetic runs/*.jsonl rows.
 
-Flow-független bemenet: a négy golden-formátum (invoice S/G, detect, email) + determinizmus-fájlok -> egységes
-ítélet-lista (`Judgment`), ebből: kérdésenkénti pontosság és sáv-eloszlás, kalibrációs görbe (bin-enként P vs.
-találat, ECE), top-prob vs. confidence, policy-sáv újraértékelés hívás nélkül, determinizmus-szórás.
+Flow-independent input: the four golden formats (invoice S/G, detect, email) + determinism files -> a uniform verdict
+list (`Judgment`), and from it: per-question accuracy and band distribution, calibration curve (P vs. hits per bin,
+ECE), top prob vs. confidence, policy band re-evaluation without calls, determinism spread.
 """
 
 from __future__ import annotations
@@ -82,28 +82,29 @@ def test_judgments_cover_every_question(runs: dict[str, Path]):
     assert next(j for j in js if j.question == "gross_total" and j.case_id == "c1").callsite == "invoice.pick.high_stakes"
 
     jg = er.judgments_from_file(runs["G"])
-    assert {j.kind for j in jg} == {"noul"} and len(jg) == 5  # 4 mező-flag + 1 doc_flag
+    assert {j.kind for j in jg} == {"noul"} and len(jg) == 5  # 4 field flags + 1 doc_flag
     off = next(j for j in jg if j.question == "off_target" and j.field == "gross_total")
-    assert off.p == 0.80 and off.expected == "yes" and off.label == "yes" and off.correct is True  # a mező rossz, a flag jelzett
+    assert off.p == 0.80 and off.expected == "yes" and off.label == "yes" and off.correct is True  # field bad, flag set
     inc = next(j for j in jg if j.question == "incomplete" and j.field == "supplier_name")
-    assert inc.expected == "no" and inc.label == "yes" and inc.correct is False  # p 0.5 -> "yes" címke, de a mező jó
-    assert next(j for j in jg if j.field == "supplier_address").expected is None  # nem pontozott mező: nincs igazság
+    assert inc.expected == "no" and inc.label == "yes" and inc.correct is False  # p 0.5 -> "yes", but the field is fine
+    assert next(j for j in jg if j.field == "supplier_address").expected is None  # unscored field: no ground truth
     assert next(j for j in jg if j.question == "parties_swapped").field is None
 
     jd = er.judgments_from_file(runs["detect"])
-    assert len(jd) == 6  # doc_type Choice + issuer_hu Noul esetenként
+    assert len(jd) == 6  # doc_type Choice + issuer_hu Noul per case
     d2 = next(j for j in jd if j.case_id == "d2" and j.kind == "choice")
     assert d2.correct is False and d2.callsite == "detect.doc_type" and d2.second_prob == 0.45
 
     je = er.judgments_from_file(runs["email"])
-    assert len(je) == 6  # intent + 2 signal esetenként
+    assert len(je) == 6  # intent + 2 signals per case
     assert next(j for j in je if j.case_id == "e2" and j.kind == "choice").route_recorded == "human:inbox"
     assert {j.callsite for j in je if j.kind == "noul"} == {"email.signal"}
 
 
 def test_bands_and_per_question_summary(runs: dict[str, Path]):
     js = er.judgments_from_file(runs["S"]) + er.judgments_from_file(runs["G"])
-    assert er.band_of(next(j for j in js if j.case_id == "c1" and j.question == "invoice_number")) == "uncertain"  # rés 0.10 < 0.20
+    # gap 0.10 < 0.20
+    assert er.band_of(next(j for j in js if j.case_id == "c1" and j.question == "invoice_number")) == "uncertain"
     assert er.band_of(next(j for j in js if j.case_id == "c2" and j.question == "gross_total")) == "human"
     assert er.band_of(next(j for j in js if j.case_id == "c1" and j.question == "supplier_name" and j.kind == "choice")) == "auto"
     assert er.band_of(next(j for j in js if j.kind == "noul" and j.question == "incomplete" and j.field == "supplier_name")) == "uncertain"
@@ -112,7 +113,7 @@ def test_bands_and_per_question_summary(runs: dict[str, Path]):
     gt = next(r for r in rows if r["flow"] == "invoice_S" and r["question"] == "gross_total")
     assert gt["n"] == 2 and gt["correct"] == 1 and gt["bands"] == {"auto": 1, "human": 1} and gt["acc_by_band"] == {"auto": 1.0, "human": 0.0}
     inc = next(r for r in rows if r["flow"] == "invoice_G" and r["question"] == "incomplete")
-    assert inc["n"] == 2 and inc["n_scored"] == 1  # supplier_address flag igazság nélkül
+    assert inc["n"] == 2 and inc["n_scored"] == 1  # supplier_address flag without ground truth
 
 
 def test_calibration_bins_and_ece():
@@ -132,12 +133,14 @@ def test_policy_reeval_counts_cases_that_would_change(runs: dict[str, Path]):
     js = er.judgments_from_file(runs["S"]) + er.judgments_from_file(runs["detect"]) + er.judgments_from_file(runs["email"])
     pe = er.policy_reeval(js)
     s = next(r for r in pe if r["flow"] == "invoice_S")
-    assert s["cases"] == 2 and s["cases_human"] == 1 and s["cases_uncertain_only"] == 1  # c1: invoice_number rés 0.10 -> ha uncertain_review, review lenne
-    assert s["uncertain_only_accuracy"] == 0.0  # c1 invoice_number pontatlan: a sáv jelzése helyes
+    # c1: invoice_number gap 0.10 -> with uncertain_review it would be a review
+    assert s["cases"] == 2 and s["cases_human"] == 1 and s["cases_uncertain_only"] == 1
+    assert s["uncertain_only_accuracy"] == 0.0  # c1 invoice_number is wrong: the band's warning is right
     d = next(r for r in pe if r["flow"] == "doc_detect")
-    assert d["cases"] == 3 and d["cases_human"] == 1 and d["cases_uncertain_only"] == 1  # d3 human (0.55), d2 uncertain (rés 0.10)
+    # d3 human (0.55), d2 uncertain (gap 0.10)
+    assert d["cases"] == 3 and d["cases_human"] == 1 and d["cases_uncertain_only"] == 1
     e = next(r for r in pe if r["flow"] == "email_intent")
-    assert e["cases_uncertain_only"] == 0  # e2: rés 0.20, nem < 0.20
+    assert e["cases_uncertain_only"] == 0  # e2: gap 0.20, not < 0.20
 
 
 def test_determinism_summary(runs: dict[str, Path]):
@@ -154,7 +157,7 @@ def test_markdown_report_has_every_section(runs: dict[str, Path]):
     for h in ("## Források", "## Kérdésenként", "## Kalibráció", "## top-prob vs. confidence", "## Policy-sáv újraértékelés", "## Determinizmus"):
         assert h in md, h
     assert "invoice_S" in md and "email_intent" in md and "ECE" in md
-    assert "uncertain_review" in md  # a döntéshez szükséges kapcsoló neve szerepel
+    assert "uncertain_review" in md  # the name of the switch needed for the decision is present
 
 
 def test_default_inputs_pick_latest_per_pattern(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):

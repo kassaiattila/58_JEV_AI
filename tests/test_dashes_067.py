@@ -1,7 +1,8 @@
-"""066 Á33: a nem ASCII kötőjelek (U+2010–2012 kötőjel-változatok, U+2212 mínuszjel, U+FE63, U+FF0D) nem voltak
-egységesítve, így egy így nyomtatott adószám, bankszámla- vagy számlaszám nem lett jelölt, egy negatív összeg pedig nem
-negatív. 067 mérés: a helyi adattár 284 iratában ezek szón belül 0-szor fordulnak elő (a mostani eredmények nem változnak);
-a hosszú gondolatjelet (en dash, 13 szón belüli előfordulás, időszak és óra is) szándékosan nem cseréljük."""
+"""066 Á33: non-ASCII dashes (the U+2010–2012 hyphen variants, U+2212 minus sign, U+FE63, U+FF0D) were not
+normalised, so a tax number, bank account or invoice number printed with them did not become a candidate, and a
+negative amount was not negative. 067 measurement: in the 284 documents of the local store they occur 0 times inside a
+word (the current results do not change); the en dash (13 occurrences inside a word, periods and times too) is
+deliberately kept."""
 
 from jav.candidates import find_all
 from jav.models import CellLayout, LineLayout

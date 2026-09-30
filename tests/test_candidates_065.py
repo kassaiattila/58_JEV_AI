@@ -1,6 +1,8 @@
-"""065: a közös próba (68 valódi bejövő számla) jelöltkereső-hiányai, általános szabályként, mesterséges sorokon.
+"""065: the candidate finder's gaps found in the joint trial (68 real incoming invoices), as general rules, on synthetic
+lines.
 
-A valódi iratok nem kerülnek a tesztbe; az azonosítók kitaláltak, csak az alakjuk követi a próbán látott mintát."""
+The real documents do not go into the test; the identifiers are made up, only their shape follows the pattern seen in
+the trial."""
 
 from jav.candidates import find_all
 from jav.models import CellLayout, LineLayout
@@ -20,10 +22,10 @@ def _labels(layout: list[LineLayout], kind: str, profile: str) -> list[str]:
 
 
 def test_lost_glyph_between_letters_or_digits_is_a_hyphen():
-    # a PDF betűkészlete a kötőjelet NUL-ként adja ki (Stripe-számlák): a számlaszám két darabra esett
+    # the PDF's font emits the hyphen as NUL (Stripe invoices): the invoice number fell into two pieces
     assert fix_lost_glyphs("AB12CD34\x000008") == "AB12CD34-0008"
     assert fix_lost_glyphs("91000\x004477") == "91000-4477"
-    # szóhatáron (elveszett betű vagy „+” jel a szám előtt) nem találgatunk
+    # at a word boundary (a lost letter, or a "+" sign before the number) we do not guess
     assert fix_lost_glyphs("Minta\x00") == "Minta\x00" and fix_lost_glyphs("\x001") == "\x001"
 
 
@@ -31,7 +33,7 @@ def test_title_line_followed_by_a_single_identifier_is_an_invoice_number_candida
     layout = _lines("Elektronikus számla", "mintaklub-2026-15", "ELADÓ   VEVŐ", "Minta Kft.   Vevő Kft.",
                     "SZÁMLA KELTE : 2026. 01. 05.   FIZETÉSI HATÁRIDŐ: 2026. 01. 05.")
     assert "mintaklub-2026-15" in _labels(layout, "invoice_number", "hu")
-    # a cím utáni több szavas sor (név, cím) nem számlaszám-jelölt
+    # a multi-word line after the title (name, address) is not an invoice-number candidate
     layout = _lines("Számla", "Minta Kft. 1111 Budapest", "Eladó adatai", "Sorszám: MINTA-001")
     assert _labels(layout, "invoice_number", "hu") == ["MINTA-001"]
 
@@ -47,7 +49,7 @@ def test_intl_order_transaction_credit_note_and_billing_number_labels():
 def test_account_number_pattern_does_not_split_a_hyphenated_identifier():
     layout = _lines("Invoice number: 6300000000000001-4", "Bankszámla: 1234567812345678")
     assert "6300000000000001-4" in _labels(layout, "invoice_number", "intl")
-    assert _labels(layout, "iban", "intl") == ["1234567812345678"]  # az önálló 16 jegyű számlaszám marad jelölt
+    assert _labels(layout, "iban", "intl") == ["1234567812345678"]  # the lone 16-digit account number stays a candidate
 
 
 def test_eu_oss_and_dutch_vat_ids_are_tax_id_candidates():

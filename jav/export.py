@@ -1,18 +1,20 @@
-"""Futás-eredmény exportja (054 K4): CSV / XLSX / JSON a kiválasztott futás érvényes adatából.
+"""Run result export (054 K4): CSV / XLSX / JSON from the effective data of the selected run.
 
-Forrás: a futás tételeinek gépi adata és az emberi javítás összefésülve (`corrections`), a mezők érvényes forráshelyével
-(oldal, forrásszöveg), a javítás tényével és a nyitott teendőkkel — így minden szám a forrásáig visszakereshető.
+Source: the machine data of the run's items merged with the human corrections (`corrections`), with each field's
+effective source location (page, source text), whether it was corrected, and the open to-dos, so every number can be
+traced back to its source.
 
-Táblák:
-- `documents`: iratonként egy sor, a típus mezőivel (széles);
-- `datapoints`: iratonként × mezőnként egy sor: érték, oldal, forrásszöveg, hely állapota, javítva, teendő a mezőn;
-- `line_items`: a tételes listák sorai, soronként az oldal.
-Az XLSX ezeken felül típusonként külön lapot és a közmű-költség riportot (`jav/report_utility.py`) is tartalmazza.
+Tables:
+- `documents`: one row per document, with the type's fields (wide);
+- `datapoints`: one row per document × field: value, page, source text, location status, corrected, to-do on the field;
+- `line_items`: the rows of the itemised lists, with the page of each row.
+On top of these, the XLSX has a separate sheet per type and the utility cost report (`jav/report_utility.py`).
 
-Újrahasznosítás: a régi projekt `orchestrator/framework/tabular.py` segédjei (lapnév-tisztítás, fejléc-formázás,
-BOM + CRLF CSV) és a `ui/src/utils/csv.ts` képlet-védelme portolva; a régi adatbázis-betöltő nem (SQLite-ból olvasunk).
-Képlet-védelem: a `=`, `+`, `-`, `@`, TAB, CR kezdetű szöveg elé `'` kerül a CSV-ben (a szám nem szöveg, az marad); az
-XLSX-ben minden szöveg szövegként íródik, sosem képletként.
+Reuse: the legacy project's `orchestrator/framework/tabular.py` helpers (sheet-name cleaning, header formatting,
+BOM + CRLF CSV) and the formula guard of `ui/src/utils/csv.ts` are ported; the old database loader is not (we read
+from SQLite).
+Formula guard: in the CSV, text starting with `=`, `+`, `-`, `@`, TAB or CR gets a leading `'` (a number is not text
+and stays as it is); in the XLSX every text is written as text, never as a formula.
 """
 
 from __future__ import annotations
@@ -31,13 +33,13 @@ NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
 SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
 
 
-# --- a futás rekordjai ---------------------------------------------------------------------------------------
+# --- the run's records ---------------------------------------------------------------------------------------
 
 
 def run_records(run_id: str) -> list[dict[str, Any]]:
-    """A futás iratainak érvényes adata forráshellyel. Levél-tétel kimarad (nincs kinyert adata); a levél csatolmányánál
-    a levél tárgya a `source_email` (058 K5.2: a csatolmány eredete)."""
-    with store.session():  # 061: egy kapcsolat az összes tétel lekérdezéseire
+    """Effective data of the run's documents with source locations. Email items are skipped (they have no extracted
+    data); for an email attachment, `source_email` is the email's subject (058 K5.2: the attachment's origin)."""
+    with store.session():  # 061: one connection for the queries of all items
         return _run_records(run_id)
 
 
@@ -74,7 +76,7 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
 
 
 def _email_subjects(items: list[dict[str, Any]]) -> dict[str, str]:
-    """A csatolmányok szülő-leveleinek tárgya (csak ha van csatolmány a futásban)."""
+    """Subjects of the attachments' parent emails (only if the run has attachments)."""
     parents = {i.get("parent_item_id") for i in items if i.get("parent_item_id")}
     out = {}
     for i in items:
@@ -87,9 +89,10 @@ def _email_subjects(items: list[dict[str, Any]]) -> dict[str, str]:
 
 
 def email_records(run_id: str) -> list[dict[str, Any]]:
-    """058 K5.1: a futás levél-tételei — a levél adatai, a felismert szándék a kézi javítással, a javasolt következő lépés
-    (a javított szándékból kódban számolva), a csatolmányok felismerése, és hogy a levél szövegéből mennyit látott a
-    felismerés. A régi futásnál, amelynek nincs saját eredménysora, a levél legutóbbi eredménye (`from_this_run=False`)."""
+    """058 K5.1: the run's email items: the email's data, the recognised intent with the manual correction, the
+    suggested next step (computed in code from the corrected intent), the recognition of the attachments, and how much
+    of the email text the recognition saw. For an old run without its own result row, the email's latest result
+    (`from_this_run=False`)."""
     from jav import emails, mailbox
 
     out = []
@@ -121,7 +124,7 @@ def email_records(run_id: str) -> list[dict[str, Any]]:
 
 
 def task_rows(mails: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """058 K5.3: a feladatjavaslatok soronként (a levéllel, a bizonyítékkal és az emberi döntéssel)."""
+    """058 K5.3: the task proposals, one per row (with the email, the evidence and the human decision)."""
     out = []
     for m in mails:
         for t in (m.get("tasks") or {}).get("tasks") or []:
@@ -130,7 +133,7 @@ def task_rows(mails: list[dict[str, Any]]) -> list[dict[str, Any]]:
                         "due_date": t.get("due_date"), "assignee_hint": t.get("assignee_hint"),
                         "evidence": " | ".join(e["quote"] for e in t.get("evidence") or []),
                         "decision": d.get("decision"), "decided_by": d.get("actor"), "decided_at": d.get("decided_at"),
-                        "done_by": d.get("done_by"), "done_at": d.get("done_at")})  # 062: kézi „elvégezve"
+                        "done_by": d.get("done_by"), "done_at": d.get("done_at")})  # 062: manual "done" mark
     return out
 
 
@@ -139,7 +142,7 @@ EMAIL_HEAD = ["Tárgy", "Feladó", "Érkezett", "Postafiók", "Szándék", "Gép
 
 
 def emails_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[Any]]]:
-    """A levelek táblája magyar feliratokkal (szándék, következő lépés, a szöveg látott része, csatolmány-típus)."""
+    """The email table with Hungarian captions (intent, next step, the part of the text seen, attachment type)."""
     from jav import mailbox
 
     flows = mailbox.next_flow_labels()
@@ -158,7 +161,7 @@ def _field_reason(reasons: list[str], field: str) -> bool:
     return any(len(r.split(":")) > 2 and r.split(":")[2] == field for r in reasons)
 
 
-# --- táblák ----------------------------------------------------------------------------------------------------
+# --- tables ----------------------------------------------------------------------------------------------------
 
 DOC_HEAD = ["Irat", "Tétel-azonosító", "Típus", "Út", "Állapot", "Nyitott teendők", "Forrás-levél"]
 
@@ -169,7 +172,7 @@ def _doc_row(r: dict[str, Any]) -> list[Any]:
 
 
 def documents_table(records: list[dict[str, Any]], doc_type: str | None = None) -> tuple[list[str], list[list[Any]]]:
-    """Iratonként egy sor; a mezők a típusok mezőinek uniója (első előfordulás sorrendjében)."""
+    """One row per document; the fields are the union of the types' fields (in order of first appearance)."""
     recs = [r for r in records if doc_type is None or r["doc_type"] == doc_type]
     fields: list[str] = []
     for r in recs:
@@ -218,12 +221,12 @@ def _safe_text(v: Any) -> str:
     s = str(v)
     prefixes = tuple(cfg.load("reports")["export"]["formula_prefixes"])
     if s.startswith(prefixes) and not NUMBER.match(s):
-        return "'" + s  # képlet-befecskendezés ellen (OWASP CSV injection; a régi csv.ts szabálya)
+        return "'" + s  # guards against formula injection (OWASP CSV injection; the rule of the legacy csv.ts)
     return s
 
 
 def csv_bytes(head: list[str], rows: list[list[Any]]) -> bytes:
-    """UTF-8 BOM-mal, `;` elválasztóval, CRLF sorvéggel: a magyar Excel így oszlopokra bontva nyitja."""
+    """With a UTF-8 BOM, `;` as separator and CRLF line endings: Hungarian Excel then opens it split into columns."""
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=cfg.load("reports")["export"]["csv_delimiter"], lineterminator="\r\n")
     w.writerow(head)
@@ -266,7 +269,7 @@ def _write_sheet(ws, head: list[str], rows: list[list[Any]], kinds: list[str | N
     for row in ws.iter_rows(min_row=2):
         for c in row:
             if isinstance(c.value, str):
-                c.data_type = "s"  # szöveg sosem képlet
+                c.data_type = "s"  # text is never a formula
             elif isinstance(c.value, Decimal):
                 c.number_format = "#,##0.00"
     for c in ws[1]:
@@ -323,11 +326,11 @@ def xlsx_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> byte
     wb.remove(wb.active)
     used: set[str] = set()
     mails = email_records(run_id)
-    if mails:  # 058 K5.1: a levél-tételek saját lapon
+    if mails:  # 058 K5.1: the email items on their own sheet
         head, rows = emails_table(mails)
         _write_sheet(wb.create_sheet(_safe_sheet("Levelek", used)), head, rows)
         tasks = task_rows(mails)
-        if tasks:  # 058 K5.3: a feladatjavaslatok külön lapon, a döntéssel
+        if tasks:  # 058 K5.3: the task proposals on a separate sheet, with the decision
             actions = cfg.load("email_tasks")["actions"]
             decisions = {"accepted": "elfogadva", "rejected": "elvetve"}
             _write_sheet(wb.create_sheet(_safe_sheet("Feladatok", used)),
@@ -336,7 +339,7 @@ def xlsx_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> byte
                          [[t["subject"], actions.get(t["action"], t["action"]), t["title"], t["due_date"], t["assignee_hint"], t["evidence"],
                            decisions.get(t["decision"] or "", "vár döntésre"), t["decided_by"], t["done_at"], t["done_by"], t["item_id"]]
                           for t in tasks])
-        if not records:  # csak levél: nincs üres irat-lap
+        if not records:  # emails only: no empty document sheet
             buf = io.BytesIO()
             wb.save(buf)
             return buf.getvalue()
@@ -377,10 +380,10 @@ def json_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> byte
 
 
 def render(run_id: str, fmt: str, table: str = "documents") -> tuple[bytes, str, str, int]:
-    """(tartalom, médiatípus, fájlnév, sorok száma) — a szolgáltatás letöltés-végpontja ezt adja vissza."""
+    """(content, media type, file name, row count): what the service's download endpoint returns."""
     from jav import datasets
 
-    records = datasets.run_records(run_id)  # 056: közös gyorsítótár a táblákkal és a közmű-riporttal
+    records = datasets.run_records(run_id)  # 056: cache shared with the tables and the utility report
     if fmt == "csv":
         head, rows = TABLES[table](records)
         return csv_bytes(head, rows), "text/csv; charset=utf-8", f"{run_id}-{table}.csv", len(rows)

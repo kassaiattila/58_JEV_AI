@@ -1,14 +1,15 @@
-"""A kódtári és a belső dokumentáció határa (070, a felhasználó döntése 2026-09-29).
+"""The boundary between codebase and internal documentation (070, the owner's decision of 2026-09-29).
 
-A **belső munkaanyag** a fejlesztés menetének helyi dokumentuma: átadók, tervek, jelentések, a régi dátumozott
-gyökérjelentések, a folytatási utasítások, a teendőlista, a döntésnapló, az útiterv, a belső belépő oldal, és a helyi
-hívásnaplóból generált hívásihely-katalógus. A git nem követi (`.gitignore`), a GitHubra nem kerül, a napi mentés
-viszi (`jav/backup.py`). Az útvonalak nem változtak: a régi átadók hivatkozásai és a horgok ugyanide mutatnak.
+**Internal working material** is the local record of how development proceeds: handoffs, plans, reports, the old
+dated root reports, the continuation instructions, the backlog, the decisions log, the roadmap, the internal landing
+page, and the call-site catalogue generated from the local call log. Git does not track it (`.gitignore`), it never
+goes to GitHub, and the daily backup carries it (`jav/backup.py`). The paths have not changed: links in the old
+handoffs and the hooks point to the same places.
 
-A **kódtári dokumentum** minden más, verziókövetett leírás (README, architektúra, fogalomtár, útmutatók, generált
-folyamatleírások). Kódtári dokumentum belső fájlra nem hivatkozhat linkkel (`tests/test_doc_links.py`).
+A **codebase document** is every other, version-controlled description (README, architecture, glossary, guides,
+generated flow descriptions). A codebase document may not link to an internal file (`tests/test_doc_links.py`).
 
-Egy hely: a minták itt vannak, a `.gitignore` ezekkel egyezik (teszt), és a mentés is innen olvas.
+One place: the patterns live here, `.gitignore` matches them (tested), and the backup reads them from here too.
 """
 
 from __future__ import annotations
@@ -18,7 +19,8 @@ from pathlib import Path, PurePosixPath
 
 from jav.config import PROJECT_ROOT
 
-# `/`-re végződő minta: a mappa teljes tartalma; más minta: egy fájl a megadott mélységben (a `*` nem lép át mappát).
+# A pattern ending in `/` means the whole content of the folder; any other pattern means one file at the given depth
+# (`*` does not cross folders).
 INTERNAL_DOC_PATTERNS: tuple[str, ...] = (
     "docs/handoffs/",
     "docs/plans/",
@@ -34,7 +36,7 @@ INTERNAL_DOC_PATTERNS: tuple[str, ...] = (
 
 
 def is_internal(rel_path: str | PurePosixPath) -> bool:
-    """A projektgyökérhez viszonyított útvonal belső munkaanyag-e."""
+    """Whether a path relative to the project root is internal working material."""
     parts = PurePosixPath(str(rel_path).replace("\\", "/")).parts
     for pattern in INTERNAL_DOC_PATTERNS:
         pat = PurePosixPath(pattern.rstrip("/")).parts
@@ -48,7 +50,7 @@ def is_internal(rel_path: str | PurePosixPath) -> bool:
 
 
 def internal_doc_files(root: Path = PROJECT_ROOT) -> list[Path]:
-    """A munkafán lévő belső dokumentumfájlok, rendezve (friss klónon üres)."""
+    """The internal document files in the working tree, sorted (empty in a fresh clone)."""
     docs = root / "docs"
     if not docs.is_dir():
         return []

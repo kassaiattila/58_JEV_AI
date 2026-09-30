@@ -1,4 +1,4 @@
-"""Valós PDF-ek és valódi gráfok, mesterséges hálózat: csak működési bizonyíték."""
+"""Real PDFs and real graphs over a synthetic network: evidence that it runs, nothing more."""
 import json
 from datetime import datetime
 

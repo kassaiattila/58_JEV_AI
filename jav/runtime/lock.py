@@ -1,9 +1,9 @@
-"""Egypéldányos zár (040 K2): egyszerre egy feldolgozó futhat egy adattáron.
+"""Single-instance lock (040 K2): only one worker may run on a store at a time.
 
-A munkasor árvakezelése (`queue.recover_orphans`) induláskor minden foglalást visszaenged; ha közben egy másik
-feldolgozó dolgozik, az a fizetős hívás megismétléséhez vezetne. Ezért a feldolgozó indulás előtt kizárólagos
-operációsrendszer-zárat vesz az adattár melletti zárfájlon. A zár a folyamat halálakor magától feloldódik, így
-összeomlás után nincs „beragadt” zár.
+The work queue's orphan handling (`queue.recover_orphans`) releases every claim at startup; if another worker were
+busy meanwhile, that would lead to a paid call being repeated. So before starting, the worker takes an exclusive
+operating-system lock on a lock file next to the store. The lock is released by itself when the process dies, so
+there is no "stuck" lock after a crash.
 """
 
 from __future__ import annotations
@@ -15,12 +15,12 @@ from typing import IO, Iterator
 
 if os.name == "nt":
     import msvcrt
-else:  # pragma: no cover - a fejlesztői gép Windows
+else:  # pragma: no cover - the development machine runs Windows
     import fcntl
 
 
 class AlreadyRunning(RuntimeError):
-    """Egy másik feldolgozó már tartja a zárat."""
+    """Another worker already holds the lock."""
 
 
 def _try_lock(f: IO[bytes]) -> bool:
@@ -45,7 +45,7 @@ def _unlock(f: IO[bytes]) -> None:
 
 @contextmanager
 def single_instance(path: Path) -> Iterator[None]:
-    """Kizárólagos zár a folyamat élettartamára; foglalt zárnál `AlreadyRunning`."""
+    """Exclusive lock for the lifetime of the process; `AlreadyRunning` if the lock is taken."""
     path.parent.mkdir(parents=True, exist_ok=True)
     f = open(path, "a+b")
     try:
@@ -65,8 +65,8 @@ def single_instance(path: Path) -> Iterator[None]:
 
 @contextmanager
 def try_exclusive(path: Path) -> Iterator[bool]:
-    """063: nem blokkoló kizárólagos zár folyamatok között (pl. egy munkamappa átnézése): True, ha megkaptuk; False,
-    ha más tartja. A zár a blokk végén, vagy a folyamat halálakor oldódik fel."""
+    """063: non-blocking exclusive lock across processes (e.g. scanning a work folder): True if we got it, False if
+    someone else holds it. The lock is released at the end of the block or when the process dies."""
     path.parent.mkdir(parents=True, exist_ok=True)
     f = open(path, "a+b")
     try:
@@ -81,7 +81,7 @@ def try_exclusive(path: Path) -> Iterator[bool]:
 
 
 def is_held(path: Path) -> bool:
-    """Tartja-e most valaki a zárat (a próbazár azonnal fel is oldódik)."""
+    """Whether anyone holds the lock right now (the probe lock is released at once)."""
     if not path.exists():
         return False
     with open(path, "a+b") as f:

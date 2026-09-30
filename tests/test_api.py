@@ -1,7 +1,7 @@
-"""Helyi szolgáltatás (040 K2): életút, egyezés a parancssorral, bemeneti és eredet-védelem.
+"""Local service (040 K2): lifecycle, agreement with the command line, input and origin protection.
 
-Mesterséges PDF-ek, hamis JEV-kliens, fizetős hívás nélkül. A feldolgozó a teszt szálában fut (mint a valóságban
-külön folyamatban): a szolgáltatás csak sorba tesz, és az adattárból olvas.
+Synthetic PDFs, a fake JEV client, no paid calls. The worker runs in the test thread (in reality it is a separate
+process): the service only enqueues and reads from the store.
 """
 
 import json
@@ -46,10 +46,10 @@ def _ready_wp(c: TestClient, folder: Path) -> dict:
 
 
 def test_new_workpackage_owner_is_its_creator(env):
-    """065 döntés: az új csomag felelőse a létrehozó (később átírható)."""
+    """065 decision: a new package's owner is its creator (can be changed later)."""
     wp = _ready_wp(env["client"], env["folder"])
     assert wp["owner"] == "teszt.elek"
-    assert work.create_from_folder(env["folder"], name="parancssorból")["owner"] is None  # név nélkül nincs felelős
+    assert work.create_from_folder(env["folder"], name="parancssorból")["owner"] is None  # no actor, no owner
 
 
 def _start(c: TestClient, wp_id: str, mode: str = "apply"):
@@ -63,7 +63,7 @@ def _cli_json(capsys, *argv):
     return json.loads(capsys.readouterr().out)
 
 
-# --- életút ---------------------------------------------------------------------------------------------
+# --- lifecycle ------------------------------------------------------------------------------------------
 
 
 def test_full_lifecycle_over_http(env):
@@ -73,7 +73,7 @@ def test_full_lifecycle_over_http(env):
     assert len(wp["items"]) == 2
     first = _start(c, wp["id"])
     assert first.status_code == 201 and first.json()["deduped"] is False
-    again = _start(c, wp["id"])  # ugyanaz a kérés: ugyanaz a futás, nem indul második
+    again = _start(c, wp["id"])  # the same request: the same run, no second one starts
     assert again.status_code == 200 and again.json()["run_id"] == first.json()["run_id"]
     run_id = first.json()["run_id"]
     assert c.get(f"/api/runs/{run_id}").json()["run"]["status"] == "queued"
@@ -83,13 +83,13 @@ def test_full_lifecycle_over_http(env):
     view = c.get(f"/api/runs/{run_id}").json()
     assert view["run"]["status"] in ("done", "needs_review")
     assert {i["status"] for i in view["run"]["items"]} == {"done"}
-    assert isinstance(view["budget"]["committed_usd"], str)  # pénz szövegként, nem lebegőpontosan
+    assert isinstance(view["budget"]["committed_usd"], str)  # money as text, not as floating point
     assert c.get(f"/api/runs/{run_id}/journal").json()["calls"], "a futás hívásnaplója a keret szerint összegyűlik"
     assert [r["run_id"] for r in c.get(f"/api/workpackages/{wp['id']}/runs").json()["runs"]] == [run_id]
     listed = c.get("/api/workpackages").json()["workpackages"]
     assert listed[0]["id"] == wp["id"] and listed[0]["last_run_id"] == run_id
 
-    # teendők okonként zárva, emberi szerzővel; utána jóváhagyható
+    # to-dos closed reason by reason, with a human author; after that the run can be approved
     for reason in (r for item in c.get(f"/api/workpackages/{wp['id']}/reviews").json()["items"] for r in item["open_reasons"]):
         res = c.post(f"/api/review-reasons/{reason['id']}/resolve", json={"note": "ellenőrizve"}, headers=HUMAN)
         assert res.status_code == 200, res.text
@@ -100,11 +100,11 @@ def test_full_lifecycle_over_http(env):
 
 
 def test_state_survives_client_and_service_restart(env):
-    """A böngésző vagy a szolgáltatás bezárása nem állítja le a futást: az állapot az adattárban van."""
+    """Closing the browser or the service does not stop the run: the state is in the store."""
     wp = _ready_wp(env["client"], env["folder"])
     run_id = _start(env["client"], wp["id"]).json()["run_id"]
     env["client"].close()
-    worker.run_worker(once=True)  # közben csak a feldolgozó dolgozik
+    worker.run_worker(once=True)  # meanwhile only the worker works
     fresh = TestClient(api.create_app(store_path=env["db"]), base_url=BASE)
     view = fresh.get(f"/api/runs/{run_id}").json()
     assert view["run"]["status"] in ("done", "needs_review") and len(view["run"]["items"]) == 2
@@ -123,7 +123,7 @@ def test_cli_and_service_give_the_same_answer(env, capsys):
     assert c.get("/api/worker").json() == _cli_json(capsys, "worker-status")
 
 
-# --- verzió és ütközés ----------------------------------------------------------------------------------
+# --- version and conflict -------------------------------------------------------------------------------
 
 
 def test_stale_workflow_save_is_refused(env):
@@ -171,7 +171,7 @@ def test_correction_is_versioned_and_conflict_is_refused(env):
     body = ok.json()
     assert body["correction"]["revision"] == 1 and body["correction"]["actor"] == "teszt.elek"
     assert body["effective"]["invoice_number"] == "JAVITOTT-1"
-    assert body["extraction"]["datapoints"]["invoice_number"] != "JAVITOTT-1"  # a gépi adat megmarad
+    assert body["extraction"]["datapoints"]["invoice_number"] != "JAVITOTT-1"  # the machine data is kept
 
     stale = c.post(f"/api/runs/{run_id}/items/{item_id}/correction", headers=HUMAN,
                    json={"fields": {"invoice_number": "MASIK"}, "expected_revision": 0})
@@ -182,7 +182,7 @@ def test_correction_is_versioned_and_conflict_is_refused(env):
         r = c.post(f"/api/runs/{run_id}/items/{item_id}/correction", headers=HUMAN, json={"fields": bad, "expected_revision": 1})
         assert r.status_code == 422, bad
     no_author = c.post(f"/api/runs/{run_id}/items/{item_id}/correction", json={"fields": {}, "expected_revision": 1})
-    assert no_author.status_code == 422  # emberi döntés szerző nélkül nem menthető
+    assert no_author.status_code == 422  # a human decision cannot be saved without an author
 
     results = c.get(f"/api/runs/{run_id}/results").json()["items"]
     assert len(results) == 2 and any(r["correction"]["revision"] == 1 for r in results)
@@ -194,14 +194,14 @@ def test_approval_needs_apply_mode_and_no_open_reason(env):
     shadow = _start(c, wp["id"], mode="shadow").json()["run_id"]
     worker.run_worker(once=True)
     assert c.post(f"/api/runs/{shadow}/approve", json={}, headers=HUMAN).status_code == 422
-    assert c.post(f"/api/runs/{shadow}/approve", json={}).status_code == 422  # szerző nélkül sem
+    assert c.post(f"/api/runs/{shadow}/approve", json={}).status_code == 422  # nor without an author
 
 
 def test_cancel_queued_run(env):
     c = env["client"]
     wp = _ready_wp(c, env["folder"])
     run_id = _start(c, wp["id"]).json()["run_id"]
-    assert c.post(f"/api/runs/{run_id}/cancel", json={}).status_code == 422  # 066 Á35: szerző nélkül nem
+    assert c.post(f"/api/runs/{run_id}/cancel", json={}).status_code == 422  # 066 Á35: not without an author
     r = c.post(f"/api/runs/{run_id}/cancel", json={}, headers=HUMAN)
     assert r.status_code == 200 and r.json()["status"] == "cancelled"
     assert worker.run_worker(once=True)["processed"] == 0
@@ -210,19 +210,19 @@ def test_cancel_queued_run(env):
     assert any(e["action"] == "run_cancel" and e["actor"] == "teszt.elek" and run_id in (e["detail"] or "") for e in events)
 
 
-# --- bemenet és eredet -----------------------------------------------------------------------------------
+# --- input and origin ------------------------------------------------------------------------------------
 
 
 def test_foreign_host_and_origin_are_refused(env):
     c = env["client"]
     assert c.get("/api/health", headers={"Host": "tamado.example"}).status_code == 403
     assert c.get("/api/health", headers={"Origin": "https://tamado.example"}).status_code == 403
-    assert c.get("/api/health", headers={"Origin": "http://localhost:5173"}).status_code == 200  # a fejlesztői felület
+    assert c.get("/api/health", headers={"Origin": "http://localhost:5173"}).status_code == 200  # the development UI
 
 
 def test_origin_must_match_the_service_or_the_dev_ui_exactly(env):
-    """066 Á34: eddig bármely helyi porton futó oldal (egy másik helyi alkalmazás) eredetként elfogadott volt; most csak a
-    szolgáltatás saját címe (ugyanaz a gép és port) és a beállított fejlesztői felület címe."""
+    """066 Á34: until now any page on a local port (another local application) was accepted as origin; now only the
+    service's own address (same host and port) and the address of the configured development UI."""
     c = env["client"]
     own = BASE.rstrip("/")
     assert c.get("/api/health", headers={"Origin": own}).status_code == 200
@@ -239,7 +239,7 @@ def test_body_must_be_json_and_bounded(env):
     huge = json.dumps({"folder": "x" * 300_000}).encode()
     assert c.post("/api/workpackages", content=huge, headers={"Content-Type": "application/json"}).status_code == 413
 
-    def chunks():  # darabolt küldés, Content-Length nélkül
+    def chunks():  # chunked upload, without Content-Length
         for _ in range(40):
             yield b" " * 10_000
     r = c.post("/api/workpackages", content=chunks(), headers={"Content-Type": "application/json"})
@@ -260,7 +260,7 @@ def test_schema_rejects_unknown_fields_and_bad_ids(env):
 
 
 def restrict_paths(monkeypatch) -> None:
-    """A mappakorlát bekapcsolva (061 óta alapból ki: a felhasználó döntése szerint bármely létező mappa megadható)."""
+    """Switches the folder restriction on (off by default since 061: the owner allowed any existing folder)."""
     monkeypatch.setattr(api, "settings", lambda: {**cfg.load("service"), "restrict_paths": True})
 
 
@@ -281,7 +281,7 @@ def test_folder_outside_allowed_roots_is_refused(env, tmp_path, monkeypatch):
 
 
 def test_any_existing_folder_is_accepted_without_restriction(env, tmp_path):
-    """061 döntés: korlát nélkül bármely létező mappa és fájl megadható; nem létező útvonal és rossz fajta továbbra sem."""
+    """061 decision: unrestricted, any existing folder or file is accepted; a missing path or wrong kind is not."""
     c = env["client"]
     assert cfg.load("service")["restrict_paths"] is False
     outside = tmp_path / "kivul"
@@ -297,7 +297,7 @@ def test_any_existing_folder_is_accepted_without_restriction(env, tmp_path):
     assert c.get("/api/settings/folders").json()["roots"] == []
 
 
-# --- feldolgozó: egy példány, szabályos leállítás -------------------------------------------------------
+# --- worker: single instance, orderly stop --------------------------------------------------------------
 
 
 def test_only_one_worker_at_a_time(env):
@@ -318,14 +318,14 @@ def test_worker_stops_after_current_item_on_request(env, monkeypatch):
 
     def process_then_ask_stop(job, **kw):
         res = real(job, **kw)
-        assert c.post("/api/worker/stop", json={}).status_code == 422  # 066 Á35: szerző nélkül nem
+        assert c.post("/api/worker/stop", json={}).status_code == 422  # 066 Á35: not without an author
         assert c.post("/api/worker/stop", json={}, headers=HUMAN).json()["stop_requested"] is True
         return res
 
     monkeypatch.setattr(worker, "process", process_then_ask_stop)
     info = worker.run_worker(once=True)
     assert info["stopped"] is True and info["processed"] == 1
-    assert c.get(f"/api/runs/{run_id}").json()["run"]["jobs"].get("queued") == 1  # a maradék a sorban vár
+    assert c.get(f"/api/runs/{run_id}").json()["run"]["jobs"].get("queued") == 1  # the rest waits in the queue
     monkeypatch.setattr(worker, "process", real)
     assert worker.run_worker(once=True)["processed"] == 1
 
@@ -335,7 +335,7 @@ def test_serve_refuses_non_loopback_host():
         api.serve(host="0.0.0.0")
 
 
-# --- 040 K3 előfeltételek: csomag megadott fájlokból, élő JEV-hívás kapcsoló ------------------------------
+# --- 040 K3 prerequisites: package from given files, live JEV call switch ---------------------------------
 
 
 def test_workpackage_from_files_in_several_folders(env):
@@ -348,7 +348,7 @@ def test_workpackage_from_files_in_several_folders(env):
     assert r.status_code == 201, r.text
     wp = r.json()["workpackage"]
     assert wp["source_kind"] == "manual" and len(wp["items"]) == 2
-    assert c.post("/api/workpackages", headers=HUMAN, json={"paths": paths}).status_code == 422  # név nélkül
+    assert c.post("/api/workpackages", headers=HUMAN, json={"paths": paths}).status_code == 422  # without a name
     assert c.post("/api/workpackages", headers=HUMAN, json={"paths": paths, "folder": str(other), "name": "x"}).status_code == 422
     assert c.post("/api/workpackages", headers=HUMAN, json={"name": "x"}).status_code == 422
 
@@ -360,25 +360,27 @@ def test_live_jev_param_bypasses_cache_and_goes_through_journal(env):
     worker.run_worker(once=True)
     first = len(c.get(f"/api/runs/{run1}/journal").json()["calls"])
     assert first > 0
-    # ugyanaz a csomag újra, gyorsítótárral: a válaszok a gyorsítótárból jönnek, a naplóba nem kerül fizetős hívás
+    # the same package again, with the cache: the answers come from the cache, no paid call enters the log
     r = c.post(f"/api/workpackages/{wp['id']}/workflow", headers=HUMAN, json={"recipe_id": "invoice-extraction", "params": {"arm": "S"},
                                                                 "expected_revision": 1, "note": "újra"})
     assert r.status_code == 200
     run2 = _start(c, wp["id"], mode="shadow").json()["run_id"]
     worker.run_worker(once=True)
     assert c.get(f"/api/runs/{run2}/journal").json()["calls"] == []
-    # élő kapcsolóval minden hívás újra a naplón és a kereten át megy
+    # with the live switch every call goes through the log and the budget again
     r = c.post(f"/api/workpackages/{wp['id']}/workflow", headers=HUMAN, json={"recipe_id": "invoice-extraction",
                                                                 "params": {"arm": "S", "jev_cache": "live"},
                                                                 "expected_revision": 2})
     assert r.status_code == 200
     run3 = _start(c, wp["id"], mode="shadow").json()["run_id"]
     worker.run_worker(once=True)
-    assert len(c.get(f"/api/runs/{run3}/journal").json()["calls"]) >= first  # az első futásban tételek között is lehetett találat
+    # in the first run, items could also hit the cache from each other
+    assert len(c.get(f"/api/runs/{run3}/journal").json()["calls"]) >= first
 
 
 def test_earlier_open_reasons_do_not_block_a_new_run(env):
-    """A K3 élő próba lelete: régi mérési futás nyitott oka ugyanazon az iraton ne tegye a futást „teendő vár” állapotba."""
+    """Finding of the K3 live trial: an old measurement run's open reason on the same document must not put the new
+    run into the "waiting for to-dos" state."""
     c = env["client"]
     wp = _ready_wp(c, env["folder"])
     item_id = wp["items"][0]["item_id"]
@@ -393,12 +395,12 @@ def test_earlier_open_reasons_do_not_block_a_new_run(env):
             assert c.post(f"/api/review-reasons/{r['id']}/resolve", json={}, headers=HUMAN).status_code == 200
     approved = c.post(f"/api/runs/{run_id}/approve", json={}, headers=HUMAN)
     assert approved.status_code == 200, approved.text
-    # a régi ok az iraton nyitva marad és látszik a Teendők között
+    # the old reason stays open on the document and shows among the To-dos
     docs = c.get(f"/api/workpackages/{wp['id']}/reviews").json()["items"]
     assert any(r["reason"] == "pick:low_conf:x:0.5" for d in docs for r in d["open_reasons"])
 
 
-# --- 040 K3: forrásirat a javítás mellé, ékezetes szerző ------------------------------------------------
+# --- 040 K3: source document next to the correction, accented author ------------------------------------
 
 
 def test_item_source_is_served_only_for_unchanged_items(env):
@@ -432,7 +434,7 @@ def test_unknown_api_path_is_json_404(env):
     assert r.status_code == 404 and r.json()["error"] == "not_found"
 
 
-# --- 045 K3b: oldalkép ------------------------------------------------------------------------------------
+# --- 045 K3b: page image ----------------------------------------------------------------------------------
 
 
 def test_page_image_is_png_and_hash_protected(env):
@@ -447,7 +449,7 @@ def test_page_image_is_png_and_hash_protected(env):
     assert c.get(f"/api/workpackages/{wp['id']}/items/{item['item_id']}/pages/1.png").status_code == 409
 
 
-# --- 045 K3b: forráshely, szóréteg, kijelölés a képen -------------------------------------------------------
+# --- 045 K3b: source location, word layer, selection on the image -------------------------------------------
 
 
 def test_item_result_has_provenance_and_words_for_selection(env):
@@ -485,7 +487,8 @@ def test_correction_with_selection_on_the_image(env):
     assert bad_ids.status_code == 422
     stray = c.post(url, headers=HUMAN, json={"fields": {}, "expected_revision": 1, "sources": {"supplier_name": seller}})
     assert stray.status_code == 422
-    # beírt (nem kijelölt) javítás: a szolgáltatás a képen keresi meg; nem találja → a mező keret nélkül, a régi hely alternatíva
+    # a typed (not selected) correction: the service looks for it on the image; not found → the field has no box,
+    # and the old location becomes an alternative
     typed = c.post(url, headers=HUMAN, json={"fields": {"supplier_tax_id": "NINCS-A-KEPEN"}, "expected_revision": 1})
     assert typed.status_code == 200, typed.text
     p = typed.json()["provenance"]["supplier_tax_id"]
@@ -504,13 +507,13 @@ def test_settings_and_normalize_selected_text(env):
     assert c.post("/api/normalize", json={"doc_type": "invoice_hu", "field": "nincs", "text": "x"}).status_code == 422
 
 
-# --- 058: csomag elrejtése, átnevezése, törlése ------------------------------------------------------------
+# --- 058: hiding, renaming and deleting a package ----------------------------------------------------------
 
 
 def test_archive_rename_restore_and_delete_over_http(env):
     c = env["client"]
     wp = _ready_wp(c, env["folder"])
-    assert c.post(f"/api/workpackages/{wp['id']}/archive", json={}).status_code == 422  # szerző nélkül nem
+    assert c.post(f"/api/workpackages/{wp['id']}/archive", json={}).status_code == 422  # not without an author
     assert c.post(f"/api/workpackages/{wp['id']}/archive", json={}, headers=HUMAN).status_code == 200
     assert [w["id"] for w in c.get("/api/workpackages").json()["workpackages"]] == []
     listed = c.post("/api/datasets/workpackages/query", json={"scope": {"include_archived": "1"}, "query": {}}).json()
@@ -521,14 +524,15 @@ def test_archive_rename_restore_and_delete_over_http(env):
     assert c.post(f"/api/workpackages/{wp['id']}/restore", json={}, headers=HUMAN).status_code == 200
     assert [w["id"] for w in c.get("/api/workpackages").json()["workpackages"]] == [wp["id"]]
     _start(c, wp["id"], mode="shadow")
-    assert c.post(f"/api/workpackages/{wp['id']}/delete", json={}, headers=HUMAN).status_code == 409  # futása van: csak elrejthető
+    # it has a run: it can only be hidden
+    assert c.post(f"/api/workpackages/{wp['id']}/delete", json={}, headers=HUMAN).status_code == 409
     empty = c.post("/api/workpackages", headers=HUMAN, json={"paths": [str(env["folder"] / "szamla_1.pdf")], "name": "Egy irat"}).json()["workpackage"]
     assert c.post(f"/api/workpackages/{empty['id']}/delete", json={}, headers=HUMAN).status_code == 200
     assert c.get(f"/api/workpackages/{empty['id']}").status_code == 404
 
 
 def test_resolving_reason_over_http_refreshes_run_status(env):
-    # 058: az utolsó saját teendő lezárása után a futás „kész”, nem marad „teendő vár”
+    # 058: once the run's last own to-do is closed, the run is "done" and does not stay "waiting for to-dos"
     c = env["client"]
     wp = _ready_wp(c, env["folder"])
     run_id = _start(c, wp["id"], mode="shadow").json()["run_id"]

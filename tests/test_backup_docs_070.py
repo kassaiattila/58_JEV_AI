@@ -1,7 +1,9 @@
-"""070 D-mentés (döntés 2026-09-30): a belső munkaanyag verziókövetés nélkül helyben él, ezért a napi mentés viszi.
+"""070 D-mentés (decision of 2026-09-30): the internal working documents live locally without version control, so the
+daily backup carries them.
 
-A belső dokumentumok egy tömörített fájlba kerülnek a mentés mappájában (`internal-docs.zip`, projektgyökérhez
-viszonyított nevekkel); a fájl ellenőrzött, és a második helyre (NAS) készült másolat tartalomhash-e is lefedi.
+The internal documents go into one compressed file in the backup folder (`internal-docs.zip`, with names relative to
+the project root); the file is verified, and the content hash of the copy made to the second location (NAS) covers it
+too.
 """
 
 import zipfile

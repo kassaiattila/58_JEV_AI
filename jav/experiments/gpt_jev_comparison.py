@@ -1,7 +1,7 @@
-"""Új páros mérés: régi GPT-prompt szöveges portja és ugyanaz a kivonat JEV-vel.
+"""New paired measurement: a text port of the legacy GPT prompt and the same extract with JEV.
 
-Nem a régi teljes sidecar/vision folyamat újrafuttatása. Valódi meglévő Burr G-gráf,
-GPT utáni megállással és mentésből folytatással; a lezárt mérések csak bemenetek.
+Not a rerun of the legacy full sidecar/vision process. The real, existing Burr G graph, stopping after GPT and
+resuming from the saved state; the closed measurements are only inputs.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ LIMITS = {'openai': (24, 1.0), 'jev': (48, .25)}
 
 
 def without_jev(state):
-    """Azonos GPT-adatok és kódos ellenőrzések; JEV-ítélet nélkül külön alapág."""
+    """The same GPT data and code checks; a separate baseline arm without the JEV verdict."""
     from jav.validators import run_all
     baseline = state.model_copy(deep=True)
     pack = get_pack(state.doc_type)

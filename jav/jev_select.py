@@ -1,16 +1,16 @@
-"""S-kar: Jev választ a kód által talált jelöltek közül (Choice), a kód normalizál. Kérdéskészlet: a típus-csomag
-`select_callsite`-ja (`configs/callsites/select.json` a magyar, `select_foreign.json` a külföldi számlához).
+"""S path: JEV chooses from the candidates found by code (Choice), and code normalises. Question set: the type pack's
+`select_callsite` (`configs/callsites/select.json` for the Hungarian, `select_foreign.json` for the foreign invoice).
 
-Kötegelt kérések számlánként (a hívási-hely `requests` blokkja: `parties`, `header`, `money`), családonként fókuszált
-state-tel: a Jev-nek csak azok a sorok mennek, ahol az adott család jelöltjei vannak (± 1 sor), mert az irreleváns
-kontextus elterel. Egy kérésen belül a kérdések függetlenek és párhuzamosan futnak.
+Batched requests per invoice (the call site's `requests` block: `parties`, `header`, `money`), each with a state focused
+on its family: JEV gets only the lines that hold the family's candidates (± 1 line), because irrelevant context
+distracts it. Within one request the questions are independent and run in parallel.
 
-Nyelv: az instrukciók és a kritérium-leírások angolul (a JSON-ban), a state és a Choice-opció kulcsai szó
-szerinti/normalizált forrásérték (a kiválasztott értéket kód másolja).
+Language: the instructions and criterion descriptions are in English (in the JSON); the state and the Choice option
+keys are the verbatim/normalised source value (code copies the chosen value).
 
-Hívási-hely objektum (`SelectSite`): egy típus-csomaghoz tartozó kérdéskészlet + a hozzá tartozó `config_hash`. A
-modul-szintű nevek (GLOSSARY, INSTRUCTIONS, build_choice, select_fields, picks_to_invoice, ...) a magyar számla
-hívási helyére mutatnak (kompatibilitás); más típusnál `site_for(pack)`.
+Call-site object (`SelectSite`): the question set of one type pack + its `config_hash`. The module-level names
+(GLOSSARY, INSTRUCTIONS, build_choice, select_fields, picks_to_invoice, ...) point to the Hungarian invoice call site
+(compatibility); for other types use `site_for(pack)`.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from jav.models import Candidate, FieldPick, InvoiceHU, JevCall, LineLayout, nor
 from jav.policy import NONE_LABEL, presence_probe_fields
 from jav.typepack import CANDIDATE_KIND_OF, TypePack, get as get_pack
 
-PRESENCE_SUFFIX = "__present"  # a jelenlét-Noul kérdés-azonosítója: <mező>__present
+PRESENCE_SUFFIX = "__present"  # question id of the presence Noul: <field>__present
 _DEFAULT_DOCUMENT = "Hungarian supplier invoice, selected lines (Lnn = line number)"
 
 
@@ -39,13 +39,13 @@ def _what(field: str) -> str:
 
 
 class SelectSite:
-    """Egy típus-csomag S-kar hívási helye: a kérdéskészlet a JSON-ból, a `config_hash` a hívási hely + a csomag hash-e."""
+    """S-path call site of a type pack: question set from the JSON; `config_hash` = call site + pack hash."""
 
     def __init__(self, pack: TypePack) -> None:
         self.pack = pack
         self.callsite = pack.select_callsite
         cfg_data = cfg.load(f"callsite:{self.callsite}")
-        # 067 (066 Á18): a csomag azonosítója (típus-JSON + utasítás + séma) az alapcsomagnál is benne van
+        # 067 (066 Á18): the pack's identity (type JSON + instruction + schema) is included for the default pack too
         self.config_hash = cfg.combine(cfg.config_hash(f"callsite:{self.callsite}"), pack.config_hash)
         self.glossary: str = cfg_data["glossary"]
         self.none_desc: str = cfg_data["none_description"]
@@ -55,19 +55,21 @@ class SelectSite:
         self.presence_template: str = cfg_data["presence_template"]
         self.presence_what: dict[str, str] = dict(cfg_data["presence_what"])
         self.extra: dict[str, dict[str, Any]] = dict(cfg_data["extra_questions"])
-        # az opció-leírás kontextusának felső hossza (karakter): sok jelöltű, OCR-szövegű kérésnél a token-korlát miatt (None = teljes)
+        # maximum length (chars) of the option description's context: for requests with many candidates and OCR text,
+        # because of the token limit (None = full)
         self.option_context_max: int | None = cfg_data.get("option_context_max")
-        self.request_char_budget: int | None = cfg_data.get("request_char_budget")  # kérés-méret keret (karakter), None = nincs
+        # request size budget (chars), None = no budget
+        self.request_char_budget: int | None = cfg_data.get("request_char_budget")
         self.requests: dict[str, dict[str, Any]] = {rid: dict(r) for rid, r in cfg_data["requests"].items()}
         self.request_order: tuple[str, ...] = tuple(self.requests)
-        # melyik kérésbe tartozik egy extra kérdés (alap: a money kérés - a select.json v1.1.2-ben nincs `request` kulcs)
+        # the request an extra question belongs to (default: the money request; select.json v1.1.2 has no `request` key)
         money_rid = next((rid for rid in self.requests if rid.endswith("money")), self.request_order[-1])
         self.extra_request: dict[str, str] = {key: q.get("request", money_rid) for key, q in self.extra.items()}
-        # extra kérdés, amely egy csomag-mezőt tölt (currency, payment_method, reading_method...): csak akkor kérdezzük, ha a mező a csomagban van;
-        # a `field: false` jelölésű extra kérdés (nem mező, csak jel) mindig megy
+        # an extra question that fills a pack field (currency, payment_method, reading_method...) is asked only if the
+        # field is in the pack; an extra question marked `field: false` (not a field, only a signal) always goes
         self.extra_fields_known: set[str] = {key for key, q in self.extra.items() if q.get("field", True)}
 
-    # --- kérdés-építők -------------------------------------------------------------------
+    # --- question builders ---------------------------------------------------------------
 
     def build_choice(self, field: str, cands: list[Candidate]) -> Choice:
         criteria: dict[str, str | None] = {}
@@ -81,23 +83,24 @@ class SelectSite:
         return Choice(instructions=f"{self.glossary}\n\n{self.instructions[field]}", criteria=criteria)
 
     def build_presence(self, field: str) -> Noul:
-        """Jelenlét-Noul a mező Choice-a mellé: „szerepel-e egyáltalán” - hogy a modell ne válasszon magabiztosan rosszat,
-        ha a mező nincs is a dokumentumon (doksi: function_calling / semantic_find minta). Ugyanabban a kérésben fut."""
+        """Presence Noul next to the field's Choice ("is it on the document at all"), so that the model does not
+        confidently pick a wrong value when the field is not on the document (docs: function_calling / semantic_find
+        pattern). Runs in the same request."""
         return Noul(instructions=f"{self.glossary}\n\n{self.presence_template.format(what=self.presence_what[field])}")
 
     def build_extra(self, key: str) -> Choice:
         q = self.extra[key]
         return Choice(instructions=f"{self.glossary}\n\n{q['instructions']}", criteria=dict(q["criteria"]))
 
-    # --- kérések ------------------------------------------------------------------------
+    # --- requests -----------------------------------------------------------------------
 
     def _lines_for(self, request_id: str, lines: list[LineLayout], cands: dict[str, list[Candidate]]) -> set[int]:
         r = self.requests[request_id]
         idx = candidate_lines(lines, cands, list(r["kinds"]), margin=1)
         extra_lines = r.get("extra_lines")
-        base = request_id.split("_")[-1]  # parties / header / money (a foreign_ előtag nélkül)
+        base = request_id.split("_")[-1]  # parties / header / money (without the foreign_ prefix)
         if extra_lines is None and base == "parties":
-            extra_lines = {"top_fraction": 0.45}  # a select.json v1.1.2 viselkedése: a felső 45 % (a felek blokkja)
+            extra_lines = {"top_fraction": 0.45}  # select.json v1.1.2 behaviour: the top 45% (the parties block)
         if extra_lines:
             if extra_lines.get("top_fraction"):
                 idx |= set(range(0, max(1, int(len(lines) * float(extra_lines["top_fraction"])))))
@@ -127,13 +130,14 @@ class SelectSite:
         fields: list[str],
         budget: int | None = None,
     ) -> tuple[dict[str, Any], dict[str, Choice | Noul]]:
-        """Kérés-méret keret (hívási hely `request_char_budget`, karakter; `budget` felülírja - az egyszeri újrapróbálás szűkebb
-        kerete, `jav/jev_budget.py`): a Jev kérés token-korlátja (max_tokens_exceeded) ellen. Túllépésnél fokozatosan: (1) a
-        state csak a kérdezett mezők jelölt-sorai (margó nélkül, felső blokk nélkül), (2) az opció-kontextus rövidebb (80
-        karakter), (3) az opciók száma kérdésenként csökkentve: az összesítő-sorok jelöltjei elöl, utána DOKUMENTUM-SORRENDBEN
-        (a jelölt-vödör sorrendje nem az: a jogi formás nevek megelőzik a felső blokk magánszemély-nevét, és a 9 oldalas
-        kötegnél a 40-es sapka épp az ügyfél nevét vágta le - handoff 015). A csökkentés a nyers futásban látszik
-        (`JevCall.state_chars`), a kérdések és a `none` opció nem változnak."""
+        """Request size budget (call site `request_char_budget`, in chars; `budget` overrides it with the tighter budget
+        of the single retry, `jav/jev_budget.py`) against JEV's request token limit (max_tokens_exceeded). When it is
+        exceeded, step by step: (1) the state holds only the candidate lines of the asked fields (no margin, no top
+        block), (2) the option context is shorter (80 chars), (3) the number of options per question is cut: candidates
+        on total lines first, then in DOCUMENT ORDER (the candidate bucket's order is not that: names with a legal form
+        come before the private person's name in the top block, and on the 9-page batch the cap of 40 cut off exactly
+        the customer's name - handoff 015). The reduction shows in the raw run (`JevCall.state_chars`); the questions
+        and the `none` option do not change."""
         if budget is None:
             budget = self.request_char_budget
         if budget is None or self._size(state, questions) <= budget:
@@ -179,7 +183,8 @@ class SelectSite:
         run_id: str,
         use_cache: bool,
     ) -> None:
-        fields = [f for f in self.requests[request_id]["fields"] if f in self.pack.fields]  # egy hívási hely több csomagot szolgálhat (közmű-kör): csak a csomag mezői
+        # one call site can serve several packs (utility round): only this pack's fields
+        fields = [f for f in self.requests[request_id]["fields"] if f in self.pack.fields]
         questions: dict[str, Choice | Noul] = {}
         probe = presence_probe_fields(self.pack)
         no_cands: list[str] = []
@@ -199,12 +204,14 @@ class SelectSite:
                 questions[key] = self.build_extra(key)
         if not questions:
             return
-        # 069 (Á11): jelölt nélküli mező jelenlét-kérdése, de csak az amúgy is elmenő kérésben (új hívás nem kell). A JEV
-        # a kérés sorait látja; ha a mező sora nincs köztük, a „nincs” válasz nem nyit teendőt (a korábbi viselkedés).
+        # 069 (Á11): presence question for a field without candidates, but only in a request that goes out anyway (no
+        # new call needed). JEV sees the request's lines; if the field's line is not among them, a "not present" answer
+        # opens no to-do (the earlier behaviour).
         for field in no_cands:
             questions[field + PRESENCE_SUFFIX] = self.build_presence(field)
 
-        # közös hívási hely több csomaghoz (extends): a csomag saját dokumentum-leírása a hívási helyé mögé kerül (a többi csomagnál változatlan)
+        # a call site shared by several packs (extends): the pack's own document description goes after the call
+        # site's (unchanged for the other packs)
         document = f"{self.document} {self.pack.document}" if self.pack.extends else self.document
         full_state = {"document": document, "lines": _state_lines(lines, idx)}
         full_questions = questions
@@ -212,7 +219,7 @@ class SelectSite:
         def fit(budget: int | None) -> tuple[dict[str, Any], dict[str, Choice | Noul]]:
             return self._fit_budget(request_id, full_state, full_questions, lines, cands, fields, budget=budget)
 
-        # token-hibánál egyszer újra, szűkebb kerettel (jav/jev_budget.py); a ténylegesen elküldött kérdéskészletet olvassuk ki
+        # on a token error, retry once with a tighter budget (jav/jev_budget.py); read back the questions actually sent
         result, _, questions = ask_within_budget(
             jev, request_id, fit, self.request_char_budget, self._size, run_id=run_id, use_cache=use_cache, config_hash=self.config_hash
         )
@@ -220,7 +227,7 @@ class SelectSite:
         calls.append(result.call)
         for qid, q in questions.items():
             if not isinstance(q, Choice):
-                continue  # a jelenlét-Noulokat a mezőjük alatt olvassuk ki
+                continue  # the presence Nouls are read under their field
             ans = response.choices[qid]
             label = None if ans.choice == NONE_LABEL else ans.choice
             raw = None
@@ -257,17 +264,17 @@ class SelectSite:
             self._select_request(jev, request_id, lines, cands, picks, calls, run_id=run_id, use_cache=use_cache)
         return picks, calls
 
-    # --- normalizálás -----------------------------------------------------------------------
+    # --- normalisation ----------------------------------------------------------------------
 
     def picks_to_invoice(self, picks: dict[str, FieldPick], cands: dict[str, list[Candidate]]) -> tuple[InvoiceHU, list[str]]:
-        """Label -> típusos érték a csomag mező-fajtái szerint. `none` -> None. Kód-oldali konzisztencia-okok (nem Jev)."""
+        """Label -> typed value by the pack's field kinds. `none` -> None. Consistency reasons from code (not JEV)."""
         reasons: list[str] = []
         values: dict[str, Any] = {}
         extra: dict[str, Any] = {}
         own = set(InvoiceHU.model_fields) - {"extra", "line_items"}
         for field, kind in self.pack.fields.items():
             if kind == "list":
-                continue  # 053: tételes listát az S-kar nem olvas (a tétel a G-kar útja)
+                continue  # 053: the S path does not read itemised lists (line items go the G path)
             p = picks.get(field)
             label = p.label if p else None
             value: Any = label
@@ -279,7 +286,7 @@ class SelectSite:
             elif label is not None and kind == "date":
                 value = normalize_date(label)
             elif label is not None and kind == "number":
-                value = Decimal(label)  # a szám-kereső normalizált címkéje (mennyiség: kWh, m3, MJ)
+                value = Decimal(label)  # the number finder's normalised label (quantity: kWh, m3, MJ)
             elif label is not None and kind in ("currency", "country"):
                 value = label.upper()
             if field in own:
@@ -304,8 +311,9 @@ def _state_lines(lines: list[LineLayout], idx: set[int]) -> list[str]:
 
 
 def effective_conf(pick: FieldPick) -> float | None:
-    """A mező tényleges confidence-e = a Choice és a jelenlét-ítélet gyengébbike: választott érték mellett P(szerepel),
-    `none` mellett P(nem szerepel). Jelenlét-ítélet nélkül a Choice confidence; jelölt nélkül (nincs Choice) None."""
+    """The field's effective confidence = the weaker of the Choice and the presence verdict: P(present) for a chosen
+    value, P(not present) for `none`. Without a presence verdict, the Choice confidence; without candidates (no Choice),
+    None."""
     if pick.confidence is None:
         return None
     if pick.present_p is None:
@@ -315,18 +323,19 @@ def effective_conf(pick: FieldPick) -> float | None:
 
 
 def record_conf(picks: dict[str, FieldPick]) -> float | None:
-    """Rekord-confidence = a leggyengébb Jev-ítélet a mezők közt (a jelölt nélküli mezők nem ítéletek)."""
+    """Record confidence = the weakest JEV verdict among the fields (fields without candidates are not verdicts)."""
     vals = [c for c in (effective_conf(p) for p in picks.values() if p.n_options > 0) if c is not None]
     return min(vals) if vals else None
 
 
 def field_confidence(picks: dict[str, FieldPick]) -> dict[str, float | None]:
-    """069 (Á11): a tárolt és a felületen látszó mező-bizonyosság: a tényleges (a jelenlét-ítélettel együtt számolt)
-    bizonyosság; jelölt nélküli mezőnél None („nincs becslés”, eddig 1,0 = „Magabiztos”)."""
+    """069 (Á11): the field confidence that is stored and shown in the interface: the effective confidence (computed
+    together with the presence verdict); None for a field without candidates ("no estimate"; formerly 1.0 =
+    "Confident")."""
     return {f: effective_conf(p) for f, p in picks.items()}
 
 
-# --- kompatibilis modul-szintű nevek: a magyar számla hívási helye ----------------------------------------------
+# --- compatible module-level names: the Hungarian invoice call site ---------------------------------------------
 
 _DEFAULT = site_for("invoice_hu")
 CONFIG_HASH = _DEFAULT.config_hash
@@ -353,8 +362,9 @@ def build_presence(field: str) -> Noul:
 
 
 def _select_request(*args: Any, **kwargs: Any) -> None:
-    """State: `{"document": <a csomag dokumentum-leírása>, "lines": ["Lnn: <sor>", ...]}` - a kérés családjának jelölt-sorai
-    (± 1), a felek kérésénél a dokumentum felső 45 %-a (és a csomag szerint az alsó sorok), a pénz-kérésnél a fizetési-mód sorok."""
+    """State: `{"document": <the pack's document description>, "lines": ["Lnn: <line>", ...]}`: the candidate lines of
+    the request's family (± 1); for the parties request also the top 45% of the document (and the bottom lines if the
+    pack says so), for the money request the payment-method lines."""
     return _DEFAULT._select_request(*args, **kwargs)
 
 

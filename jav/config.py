@@ -1,9 +1,9 @@
-"""Konfiguráció: .env betöltés, kulcsfeloldás, útvonalak, előkonfigurált kliensek.
+"""Configuration: .env loading, key resolution, paths, preconfigured clients.
 
-A TypeSafe SDK alapértelmezésben a TYPESAFE_API_KEY env-változót olvassa, ebben a
-projektben viszont a kulcs TypeSafeJAV_API_KEY néven van a .env-ben. Ezért a kulcsot
-itt oldjuk fel, és explicit api_key paraméterként adjuk át a kliensnek - így nincs
-rejtett függés attól, melyik változónév van éppen beállítva.
+By default the TypeSafe SDK reads the TYPESAFE_API_KEY environment variable, but in
+this project the key is in the .env under the name TypeSafeJAV_API_KEY. So the key is
+resolved here and passed to the client as an explicit api_key parameter - this way
+there is no hidden dependency on which variable name happens to be set.
 """
 
 from __future__ import annotations
@@ -21,50 +21,51 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ENV_FILE = PROJECT_ROOT / ".env"
 PROMPTS_DIR = PROJECT_ROOT / "jav" / "prompts"
 RUNS_DIR = PROJECT_ROOT / "runs"
-CACHE_DIR = RUNS_DIR / "cache"  # Jev kérés-hash cache
-STORE_PATH = PROJECT_ROOT / "store" / "jav.sqlite"  # tartós adattár (git-ignorált, PII)
+CACHE_DIR = RUNS_DIR / "cache"  # JEV request-hash cache
+STORE_PATH = PROJECT_ROOT / "store" / "jav.sqlite"  # durable store (git-ignored, PII)
 
-# A golden készlet és a minta-PDF-ek a régi projektben maradnak, csak hivatkozzuk őket.
-# Helye a JAV_LEGACY_ROOT környezeti változóból (vagy a .env-ből) jön; alapérték a fejlesztői gép útvonala (040, K0).
+# The golden set and the sample PDFs stay in the legacy project; we only reference them.
+# Location: the JAV_LEGACY_ROOT environment variable (or the .env); default: the dev machine's path (040, K0).
 load_dotenv(ENV_FILE, override=False)
 LEGACY_ROOT_ENV = "JAV_LEGACY_ROOT"
 DEFAULT_OLD_PROJECT_ROOT = Path(r"C:\00_DEV_LOCAL\10_AIFLOW_V4")
 OLD_PROJECT_ROOT = Path(os.environ.get(LEGACY_ROOT_ENV) or DEFAULT_OLD_PROJECT_ROOT)
 OLD_DATA_ROOT = OLD_PROJECT_ROOT / "data"
-# 048 T2: a régi Outlook-szkript (változatlanul hívva) és a projektgyökér, amelyet neki adunk: így a csatolmányok és a
-# „már beolvasva” lista a saját, git-ignorált bejövő mappánkba kerül, nem a (csak olvasható) régi projektbe.
+# 048 T2: the legacy Outlook script (called unchanged) and the project root we give it: this way the attachments and the
+# "already read" list land in our own git-ignored inbox folder, not in the (read-only) legacy project.
 OUTLOOK_BRIDGE_SCRIPT = OLD_PROJECT_ROOT / "scripts" / "outlook_bridge.ps1"
 BRIDGE_ROOT = PROJECT_ROOT / "inbox" / ".bridge"
 BRIDGE_DATA_ROOT = BRIDGE_ROOT / "data"
 GOLDEN_MANIFEST = OLD_PROJECT_ROOT / "flows" / "doc-extract-bare" / "golden" / "manifest.json"
 GOLDEN_EXPECTED_DIR = OLD_DATA_ROOT / "golden" / "doc-extract-bare"
 
-# Elsőként a projekt saját neve, utána az SDK alapértelmezett változója.
+# The project's own name first, then the SDK's default variable.
 API_KEY_ENV_VARS = ("TypeSafeJAV_API_KEY", "TYPESAFE_API_KEY")
 OPENAI_KEY_ENV_VAR = "OPENAI_API_KEY"
 
-# Modell-adminisztráció: configs/models.json (konfig mint adat; közvetlen json-olvasás, mert a jav.cfg ezt a modult importálja).
+# Model administration: configs/models.json (config as data; read with json directly, as jav.cfg imports this module).
 MODELS_CONFIG = PROJECT_ROOT / "configs" / "models.json"
 _MODELS = json.loads(MODELS_CONFIG.read_text(encoding="utf-8"))
 MODELS_VERSION: str = _MODELS["meta"]["version"]
 JEV_MODEL: str = _MODELS["jev"]["model"]
 OPENAI_MODEL: str = _MODELS["openai"]["model"]
-JEV_TIMEOUT_S: float = float(_MODELS["jev"]["timeout_s"])  # az SDK alap 10 s-a kevés egy 20-40 kérdéses fan-outhoz
+JEV_TIMEOUT_S: float = float(_MODELS["jev"]["timeout_s"])  # SDK default 10 s is too short for 20-40 question fan-outs
 JEV_CACHE_VERSION: int = int(_MODELS["jev"].get("cache_version", 1))
-JEV_ALIAS_TTL_H: float = float(_MODELS["jev"].get("alias_ttl_hours", 24))  # az alias -> konkrét verzió feloldás érvényessége
-JEV_RETRY: dict = dict(_MODELS["jev"].get("retry", {}))  # typesafe_sdk.RetryPolicy mezői (adat, nem konstans)
-SDK_LOG_LEVEL_ENV = "TYPESAFE_LOG_LEVEL"  # az SDK debug-szinten a kérés-body-t (PII) is naplózza
-SDK_DEBUG_ALLOW_ENV = "JAV_ALLOW_SDK_DEBUG"  # =1: a debug-napló kifejezetten engedélyezve (hibakeresés, PII-mentes adaton)
-# Árlista (adat): docs.typesafe.ai/models - Jev: input token fizetős, output ingyenes; OpenAI: (input, output) USD / 1M token.
+JEV_ALIAS_TTL_H: float = float(_MODELS["jev"].get("alias_ttl_hours", 24))  # how long an alias resolution stays valid
+JEV_RETRY: dict = dict(_MODELS["jev"].get("retry", {}))  # typesafe_sdk.RetryPolicy fields (data, not a constant)
+SDK_LOG_LEVEL_ENV = "TYPESAFE_LOG_LEVEL"  # at debug level the SDK logs the request body (PII) too
+SDK_DEBUG_ALLOW_ENV = "JAV_ALLOW_SDK_DEBUG"  # =1: debug log explicitly allowed (debugging, on PII-free data)
+# Price list (data): docs.typesafe.ai/models - JEV: input tokens are billed, output is free;
+# OpenAI: (input, output) USD / 1M tokens.
 JEV_USD_PER_MTOK: float = float(_MODELS["jev"]["usd_per_mtok_input"])
 OPENAI_USD_PER_MTOK: dict[str, tuple[float, float]] = {k: (float(v[0]), float(v[1])) for k, v in _MODELS["openai"]["usd_per_mtok"].items()}
 class UnpricedModelError(RuntimeError):
-    """067 (066 Á38): a modellnek nincs ára a `configs/models.json` `openai.usd_per_mtok` listáján. Keret alatt nem hívjuk,
-    mert a költségfoglalás nullának látná, és a keret nem fogná meg a költést."""
+    """067 (066 Á38): the model has no price in the `configs/models.json` `openai.usd_per_mtok` list. It is not called
+    under a budget, because the cost reservation would see zero and the budget would not catch the spending."""
 
 
 def openai_price(model: str) -> tuple[float, float]:
-    """(input, output) USD / 1M token; ár nélküli modellnél `UnpricedModelError`."""
+    """(input, output) USD / 1M tokens; `UnpricedModelError` for a model without a price."""
     try:
         return OPENAI_USD_PER_MTOK[model]
     except KeyError:
@@ -75,13 +76,13 @@ OPENAI_SETTINGS: dict = {"reasoning_effort": _MODELS["openai"].get("reasoning_ef
                          "retries": int(_MODELS["openai"].get("retries", 2))}
 TRACKER_PROJECTS: dict[str, str] = dict(_MODELS.get("burr", {}).get("tracker_projects", {}))
 
-# override=False: a már beállított valódi környezeti változó erősebb a .env-nél
-# (CI / production ott adja meg a kulcsot, nem fájlból).
+# override=False: a real environment variable that is already set wins over the .env
+# (CI / production supplies the key there, not from a file).
 load_dotenv(ENV_FILE, override=False)
 
 
 class MissingAPIKeyError(RuntimeError):
-    """Egy szükséges API kulcs nincs beállítva."""
+    """A required API key is not set."""
 
 
 def _env_hint() -> str:
@@ -89,10 +90,10 @@ def _env_hint() -> str:
 
 
 def get_api_key() -> str:
-    """Visszaadja a TypeSafe API kulcsot, vagy beszédes hibát dob.
+    """Returns the TypeSafe API key, or raises a descriptive error.
 
-    Windows alatt a környezeti változók nevei amúgy is kis-nagybetű függetlenek,
-    de a keresést explicit tesszük, hogy Linux/macOS alatt is ugyanígy működjön.
+    On Windows environment variable names are case-insensitive anyway, but the
+    lookup is made explicit so that it works the same way on Linux/macOS.
     """
     for name in API_KEY_ENV_VARS:
         value = os.environ.get(name)
@@ -103,7 +104,7 @@ def get_api_key() -> str:
 
 
 def get_openai_key() -> str:
-    """Visszaadja az OpenAI kulcsot (G-kar), vagy beszédes hibát dob."""
+    """Returns the OpenAI key (G path), or raises a descriptive error."""
     value = os.environ.get(OPENAI_KEY_ENV_VAR)
     if value and value.strip():
         return value.strip()
@@ -111,14 +112,15 @@ def get_openai_key() -> str:
 
 
 def build_retry_policy() -> RetryPolicy:
-    """Explicit RetryPolicy a `configs/models.json` `jev.retry` blokkjából (429/5xx/időtúllépés/kapcsolat újrapróbálva,
-    a `timeout` az egy SDK-hívásra jutó teljes keret; a `Retry-After` fejlécet tiszteli). Hiányzó mező = SDK-alap."""
-    return RetryPolicy(**{k: v for k, v in JEV_RETRY.items() if not k.startswith("_")})  # `_note` = megjegyzés a JSON-ban
+    """Explicit RetryPolicy from the `jev.retry` block of `configs/models.json` (429/5xx/timeout/connection are retried,
+    `timeout` is the total allowance for one SDK call; the `Retry-After` header is honoured). Missing field = SDK
+    default."""
+    return RetryPolicy(**{k: v for k, v in JEV_RETRY.items() if not k.startswith("_")})  # `_note` = a note in the JSON
 
 
 def guard_sdk_logging() -> bool:
-    """`TYPESAFE_LOG_LEVEL=debug|info` a kérés-body-t (a dokumentum szövegét, PII) is naplózza. Ezt csak kifejezett
-    engedéllyel (`JAV_ALLOW_SDK_DEBUG=1`) hagyjuk; különben WARNING-ra emeljük. Igaz, ha beavatkozott."""
+    """`TYPESAFE_LOG_LEVEL=debug|info` also logs the request body (the document text, PII). This is allowed only with
+    explicit permission (`JAV_ALLOW_SDK_DEBUG=1`); otherwise the level is raised to WARNING. True if it intervened."""
     level = (os.environ.get(SDK_LOG_LEVEL_ENV) or "").strip().lower()
     if level not in ("debug", "info") or os.environ.get(SDK_DEBUG_ALLOW_ENV, "").strip() == "1":
         return False
@@ -128,9 +130,9 @@ def guard_sdk_logging() -> bool:
 
 
 def make_client(**kwargs: object) -> TypeSafeClient:
-    """Szinkron TypeSafe kliens a projekt kulcsával, a models.json RetryPolicy-jával és napló-védelemmel.
+    """Synchronous TypeSafe client with the project key, the models.json RetryPolicy and log protection.
 
-    Használat context managerként:
+    Use it as a context manager:
         with make_client() as client:
             client.system_one(...)
     """
@@ -142,7 +144,7 @@ def make_client(**kwargs: object) -> TypeSafeClient:
 
 
 def make_async_client(**kwargs: object) -> AsyncTypeSafeClient:
-    """Aszinkron TypeSafe kliens a projekt kulcsával."""
+    """Asynchronous TypeSafe client with the project key."""
     guard_sdk_logging()
     kwargs.setdefault("api_key", get_api_key())
     kwargs.setdefault("timeout", JEV_TIMEOUT_S)
@@ -151,7 +153,7 @@ def make_async_client(**kwargs: object) -> AsyncTypeSafeClient:
 
 
 def load_prompt(name: str = "invoice_hu_prompt.md") -> str:
-    """A verbatim átemelt prompt, a fejléc-kommentet (HTML comment) levágva."""
+    """The verbatim ported prompt, with the header comment (HTML comment) cut off."""
     text = (PROMPTS_DIR / name).read_text(encoding="utf-8")
     if text.startswith("<!--"):
         end = text.find("-->")

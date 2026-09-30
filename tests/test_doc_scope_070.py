@@ -1,4 +1,4 @@
-"""070 (döntés 2026-09-29): a belső munkaanyag helyben marad, a git nem követi; a határ egy helyen (`jav/doc_scope.py`)."""
+"""070 (decision of 2026-09-29): internal working documents stay local, untracked; one boundary (`jav/doc_scope.py`)."""
 
 from pathlib import Path
 

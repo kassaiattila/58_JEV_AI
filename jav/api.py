@@ -1,18 +1,18 @@
-"""Helyi szolgáltatás (040 K2): a felület és a parancssor közös kapuja a kerethez.
+"""Local service (040 K2): the shared gateway of the UI and the command line to the framework.
 
-Csak a saját gépről érhető el: loopback címre köt, és minden kérésnél ellenőrzi a `Host` fejlécet (DNS-átkötés ellen)
-és a böngésző `Origin` fejlécét (idegen weboldal ne indíthasson műveletet). Író kérés csak JSON-törzzsel jöhet
-(egyszerű űrlap-hamisítás ellen), a törzs mérete korlátos, a bemenet szerkezetét Pydantic-séma ellenőrzi
-(ismeretlen mező = elutasítás). A határok a `configs/service.json`-ban vannak.
+Reachable only from the local machine: it binds to a loopback address and on every request checks the `Host` header
+(against DNS rebinding) and the browser's `Origin` header (so that a foreign website cannot trigger an operation). A
+writing request must carry a JSON body (against simple form forgery), the body size is limited, and a Pydantic schema
+checks the input's structure (unknown field = rejection). The limits are in `configs/service.json`.
 
-A végpontok nevei a V4 `businessWorkflowApi.ts` hívásait követik (`workflow`, `readiness`, `start`, `runs`). Az üzleti
-szabályok a `jav.work`-ben és a `jav.corrections`-ben vannak; itt csak fordítás HTTP-re:
+The endpoint names follow the calls of V4's `businessWorkflowApi.ts` (`workflow`, `readiness`, `start`, `runs`). The
+business rules live in `jav.work` and `jav.corrections`; this module only translates them to HTTP:
 
-  404 ismeretlen azonosító · 409 verzióütközés / nem indítható / nem jóváhagyható · 413 túl nagy törzs ·
-  415 nem JSON · 422 hibás bemenet · 403 idegen eredet vagy nem engedélyezett mappa
+  404 unknown id · 409 revision conflict / cannot be started / cannot be approved · 413 body too large ·
+  415 not JSON · 422 invalid input · 403 foreign origin or folder not allowed
 
-A hosszú feldolgozás nem itt fut: a futás a munkasorba kerül, és a különálló feldolgozó (`python -m jav.cli worker`)
-viszi végig, így a böngésző vagy a szolgáltatás bezárása nem állítja le.
+Long processing does not run here: the run goes into the work queue and the separate worker
+(`python -m jav.cli worker`) carries it through, so closing the browser or the service does not stop it.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ from jav.runtime import worker
 from jav.tablequery import Query as TableQuery
 
 API_VERSION = "1"
-UI_DIST = PROJECT_ROOT / "ui" / "dist"  # a felület buildje (040 K3); ha megvan, a szolgáltatás a gyökéren kiszolgálja
+UI_DIST = PROJECT_ROOT / "ui" / "dist"  # the UI build (040 K3); if present, the service serves it at the root
 LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 log = logging.getLogger("jav.api")
 
@@ -49,21 +49,21 @@ def settings() -> dict[str, Any]:
 
 
 class UnknownUser(PermissionError):
-    """061: a névlista nem üres, és a megadott szerző nincs rajta."""
+    """061: the user list is not empty and the given actor is not on it."""
 
 
 class ForbiddenPath(PermissionError):
-    """A kért mappa vagy fájl nem az engedélyezett gyökérmappák alatt van."""
+    """The requested folder or file is not under the allowed root folders."""
 
 
 def paths_restricted() -> bool:
-    """061 döntés: alapból nincs mappakorlát (bármely létező helyi mappa / fájl megadható); `restrict_paths: true` esetén
-    csak az engedélyezett gyökerek alatt."""
+    """061 decision: by default (`configs/service.json`) there is no folder restriction (any existing local folder /
+    file may be given); with `restrict_paths: true`, or if the key is missing, only under the allowed roots."""
     return bool(settings().get("restrict_paths", True))
 
 
 def allowed_roots() -> list[Path]:
-    """Az engedélyezett gyökerek; korlát nélkül üres lista (a felület ekkor nem sorol fel helyeket)."""
+    """The allowed roots; an empty list when unrestricted (the UI then lists no locations)."""
     s = settings()
     if not paths_restricted():
         return []
@@ -76,7 +76,8 @@ def allowed_roots() -> list[Path]:
 
 
 def checked_path(raw: str, *, want_dir: bool) -> Path:
-    """Az útvonal feloldva (hivatkozások követésével) létező mappa / fájl; korláttal az engedélyezett gyökerek egyike alatt."""
+    """The path, resolved (following links), is an existing folder / file; when restricted, under one of the allowed
+    roots."""
     try:
         p = Path(raw).resolve(strict=True)
     except (OSError, RuntimeError) as exc:
@@ -90,12 +91,12 @@ def checked_path(raw: str, *, want_dir: bool) -> Path:
     return p
 
 
-# --- válasz és hibák -----------------------------------------------------------------------------------
+# --- responses and errors ------------------------------------------------------------------------------
 
 
 class _UiFiles(StaticFiles):
-    """A felület fájljai; a belépő HTML-t a böngésző mindig újrakéri (új build azonnal látszik), a hash-nevű
-    fájlok gyorsítótárazhatók."""
+    """The UI files; the browser always re-requests the entry HTML (a new build shows up at once), while the
+    hash-named files may be cached."""
 
     def file_response(self, full_path, stat_result, scope, status_code=200):
         response = super().file_response(full_path, stat_result, scope, status_code)
@@ -105,7 +106,7 @@ class _UiFiles(StaticFiles):
 
 
 class JavJSONResponse(JSONResponse):
-    """A parancssorral azonos JSON-alak (`work_views.jsonable`): a pénz `Decimal` szövegként, nem lebegőpontosan."""
+    """The same JSON shape as the command line (`work_views.jsonable`): money as `Decimal` text, not floating point."""
 
     def render(self, content: Any) -> bytes:
         return json.dumps(content, ensure_ascii=False, default=str, separators=(",", ":")).encode("utf-8")
@@ -116,7 +117,7 @@ def _error(status: int, code: str, message: str, **extra: Any) -> JavJSONRespons
 
 
 def _origin(value: str) -> str:
-    """Összevethető eredet: `séma://gép:port` kisbetűvel, alapértelmezett porttal kiegészítve; értelmezhetetlen = üres."""
+    """Comparable origin: `scheme://host:port` in lower case, with the default port filled in; unparsable = empty."""
     try:
         u = urlsplit(value.strip())
         port = u.port or {"http": 80, "https": 443}.get(u.scheme)
@@ -125,10 +126,11 @@ def _origin(value: str) -> str:
     return f"{u.scheme}://{u.hostname}:{port}" if u.scheme and u.hostname else ""
 
 
-# 071 S-fejlécek (070 terv 2.1, audit A07): böngészős védőfejlécek minden válaszon, a meglévő védelmek mögötti második
-# réteg. A felület csak a saját fájljait töltheti be; a Vite a kis betűkészlet-fájlokat a stíluslapba ágyazza (`data:`),
-# a favikon `data:`, a letöltés `blob:`. Az `/api/` válaszait (irat-adat, oldalkép, forrásirat, letöltés) a böngésző
-# nem tárolhatja. A forrásirat új lapon, a böngésző beépített PDF-nézőjében nyílik: ott csak a beágyazás tiltott.
+# 071 S-fejlécek (070 plan 2.1, audit A07): browser security headers on every response, a second layer behind the
+# existing protections. The UI may load only its own files; Vite inlines the small font files into the stylesheet
+# (`data:`), the favicon is `data:`, downloads are `blob:`. The browser must not store `/api/` responses (document data,
+# page image, source document, download). The source document opens in a new tab, in the browser's built-in PDF viewer:
+# there only embedding is forbidden.
 UI_CSP = "; ".join((
     "default-src 'self'", "script-src 'self'", "style-src 'self'", "img-src 'self' data: blob:", "font-src 'self' data:",
     "connect-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'none'",
@@ -146,7 +148,8 @@ _SET_HERE = {k for k, _ in _COMMON_HEADERS} | {b"content-security-policy"}
 
 
 class _SecurityHeaders:
-    """Tiszta ASGI-köztes réteg, a legkülső: a védőfejlécek a hibás és az elutasított kérés válaszára is rákerülnek."""
+    """Pure ASGI middleware, the outermost: the security headers are added to the responses of failed and rejected
+    requests too."""
 
     def __init__(self, app) -> None:
         self.app = app
@@ -177,7 +180,7 @@ class _SecurityHeaders:
 
 
 class _Guard:
-    """Tiszta ASGI-köztes réteg: Host, Origin, tartalomtípus és törzsméret, még az útválasztás előtt."""
+    """Pure ASGI middleware: Host, Origin, content type and body size, checked before routing."""
 
     def __init__(self, app, *, allowed_hosts: set[str], max_body: int, dev_origins: set[str] = frozenset()) -> None:
         self.app = app
@@ -193,7 +196,7 @@ class _Guard:
         if host not in self.allowed_hosts:
             return await _error(403, "forbidden_host", "requests are accepted only for the local host")(scope, receive, send)
         origin = headers.get("origin")
-        # 066 Á34: pontos egyezés (séma, gép, port): a saját cím, vagy a beállított fejlesztői felület; más helyi port nem
+        # 066 Á34: exact match (scheme, host, port): our own address or the configured dev UI; no other local port
         if origin is not None and _origin(origin) not in self.dev_origins | {_origin("http://" + headers.get("host", ""))}:
             return await _error(403, "forbidden_origin", "requests from other sites are refused")(scope, receive, send)
         if scope["method"] in ("POST", "PUT", "PATCH", "DELETE"):
@@ -203,7 +206,7 @@ class _Guard:
             length = headers.get("content-length")
             if length is not None and (not length.isdigit() or int(length) > self.max_body):
                 return await _error(413, "too_large", f"the request body is limited to {self.max_body} bytes")(scope, receive, send)
-        # A törzs előre, korláttal beolvasva (darabolt küldésnél sincs Content-Length); utána visszajátszva.
+        # The body is read up front, with a limit (chunked transfer has no Content-Length either), then replayed.
         chunks: list[bytes] = []
         size = 0
         more = True
@@ -229,7 +232,7 @@ class _Guard:
         await self.app(scope, replay, send)
 
 
-# --- bemeneti sémák -------------------------------------------------------------------------------------
+# --- input schemas --------------------------------------------------------------------------------------
 
 WpId = Annotated[str, PathParam(pattern=r"^wp-[0-9a-f]{12}$")]
 RunId = Annotated[str, PathParam(pattern=r"^run-[0-9a-f]{12}$")]
@@ -243,7 +246,8 @@ class _In(BaseModel):
 
 
 class CreateWorkpackage(_In):
-    """Pontosan az egyik: `folder` (a mappa PDF-jei) vagy `paths` (megadott fájlok, több mappából is; ekkor `name` kell)."""
+    """Exactly one of: `folder` (the folder's PDFs) or `paths` (given files, possibly from several folders; then `name`
+    is required)."""
     folder: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
     paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(min_length=1, max_length=500)] | None = None
     name: Annotated[str, Field(min_length=1, max_length=200)] | None = None
@@ -269,7 +273,7 @@ class StartRun(_In):
     mode: Literal["shadow", "apply"] = "shadow"
     expected_revision: Annotated[int, Field(ge=0)]
     input_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{16}$")]
-    rerun_of: Annotated[str, Field(pattern=r"^run-[0-9a-f]{12}$")] | None = None  # 057: újrafuttatás
+    rerun_of: Annotated[str, Field(pattern=r"^run-[0-9a-f]{12}$")] | None = None  # 057: rerun
 
 
 class Empty(_In):
@@ -290,7 +294,7 @@ class RenameWorkpackage(_In):
 
 
 class SetOwner(_In):
-    """061: a csomag felelőse (a névlista egy neve); None: nincs felelős."""
+    """061: the package's owner (a name from the user list); None: no owner."""
     owner: Annotated[str, Field(min_length=1, max_length=64)] | None
 
 
@@ -306,7 +310,7 @@ _ScopeMap = Annotated[dict[Annotated[str, Field(max_length=64)], Annotated[str, 
 
 
 class DatasetQuery(_In):
-    """056 U1: egységes lista-kérés (hatókör + keresés, szűrők, rendezés, lapozás)."""
+    """056 U1: uniform list request (scope + search, filters, sorting, paging)."""
     scope: _ScopeMap = Field(default_factory=dict)
     query: TableQuery = Field(default_factory=TableQuery)
 
@@ -322,12 +326,12 @@ _Row = Annotated[dict[Annotated[str, Field(max_length=64)], _Cell], Field(max_le
 
 
 class SaveCorrection(_In):
-    # 048: tételes lista = sorok listája (tétel-mező -> érték) vagy egyszerű értékek listája; a fajta szerinti ellenőrzés
-    # a `jav.corrections`-ben (a sorok tartalmát ott vetjük össze a csomag tétel-leírásával)
+    # 048: an itemised list = a list of rows (item field -> value) or a list of plain values; the kind-based check is in
+    # `jav.corrections` (that is where the rows' content is compared with the pack's item description)
     fields: dict[Annotated[str, Field(max_length=64)], _Cell | Annotated[list[_Row | _Cell], Field(max_length=2000)]] = Field(max_length=100)
     expected_revision: Annotated[int, Field(ge=0)]
     note: Text | None = None
-    # 045: mezőnként a képen kijelölt szavak azonosítói (a tétel szórétegéből)
+    # 045: per field, the ids of the words selected on the image (from the item's word layer)
     sources: dict[Annotated[str, Field(max_length=64)], Annotated[list[Annotated[int, Field(ge=0)]], Field(min_length=1, max_length=200)]] | None = Field(
         default=None, max_length=100)
 
@@ -357,11 +361,12 @@ class ResolveReason(_In):
     note: Text | None = None
 
 
-_ACTOR_RE = app_settings.ACTOR_RE  # 066 Á25: közös szabály a névlistával
+_ACTOR_RE = app_settings.ACTOR_RE  # 066 Á25: the same rule as the user list
 
 
 def _decode_actor(raw: str) -> str:
-    """A szerző neve URL-kódolva jön (a HTTP-fejléc nem hordoz tetszőleges ékezetet, pl. „ő”); dekódolva ellenőrizzük."""
+    """The actor's name arrives URL-encoded (an HTTP header cannot carry arbitrary accented letters, e.g. "ő"); it is
+    checked after decoding."""
     name = unquote(raw).strip()
     if not _ACTOR_RE.match(name):
         raise HTTPException(status_code=422, detail="X-Actor: 1-64 letters, digits, space, dot, @ or hyphen")
@@ -369,16 +374,17 @@ def _decode_actor(raw: str) -> str:
 
 
 def attachment_header(filename: str) -> str:
-    """Letöltési fejléc bármilyen fájlnévre (066 Á22): ASCII-tartalék (ékezet nélkül, a nem biztonságos jel `_`) és a
-    pontos név UTF-8-ban (RFC 5987). A fejléc Latin-1-es, ezért az ékezetes név eddig hibát (422) adott."""
+    """Download header for any file name (066 Á22): an ASCII fallback (accents stripped, unsafe characters as `_`) and
+    the exact name in UTF-8 (RFC 5987). The header is Latin-1, so an accented name used to cause an error (422)."""
     ascii_name = unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
     ascii_name = re.sub(r"[^A-Za-z0-9._-]+", "_", ascii_name) or "export"
     return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename, safe='')}"
 
 
 def human_actor(x_actor: Annotated[str, Header(max_length=256)]) -> str:
-    """Emberi döntésnél (jóváhagyás, javítás, teendő zárása, futás indítása, recept, csomag módosítása) a szerző
-    kötelező: `X-Actor` fejléc. 061: ha a névlista nem üres, a névnek rajta kell lennie (a lista alakjában rögzítjük)."""
+    """For a human decision (approval, correction, closing a to-do, starting a run, recipe, changing a package) the
+    actor is mandatory: the `X-Actor` header. 061: if the user list is not empty, the name must be on it (it is
+    recorded in the list's spelling)."""
     name = app_settings.canonical_user(_decode_actor(x_actor))
     if name is None:
         raise UnknownUser("the actor is not in the user list (Settings > Users)")
@@ -386,7 +392,8 @@ def human_actor(x_actor: Annotated[str, Header(max_length=256)]) -> str:
 
 
 def actor_unless_first_users(x_actor: Annotated[str | None, Header(max_length=256)] = None) -> str | None:
-    """066 Á35: a névlista írásához szerző kell, a listán szereplő; az első kitöltés (üres lista) szerző nélkül is mehet."""
+    """066 Á35: writing the user list requires an actor who is on the list; the first fill-in (empty list) may be done
+    without an actor."""
     if not app_settings.users():
         return app_settings.canonical_user(_decode_actor(x_actor)) if x_actor else None
     if x_actor is None:
@@ -394,14 +401,14 @@ def actor_unless_first_users(x_actor: Annotated[str | None, Header(max_length=25
     return human_actor(x_actor)
 
 
-# --- alkalmazás -----------------------------------------------------------------------------------------
+# --- application ----------------------------------------------------------------------------------------
 
 
 def create_app(*, store_path: Path | None = None) -> FastAPI:
-    """`store_path`: futáshelyi adattár (tesztekhez); nélküle az alapértelmezett `store/jav.sqlite`."""
+    """`store_path`: a store for this app instance (for tests); without it, the default `store/jav.sqlite`."""
     s = settings()
-    # 071 döntés (2026-09-30): a kattintható végpontlista (/api/docs) külső tárhelyről töltene programkódot a helyi címre,
-    # ezért ki van kapcsolva; a gépi végpontlista (/api/openapi.json) marad
+    # 071 decision (2026-09-30): the clickable endpoint list (/api/docs) would load program code from an external host
+    # onto the local address, so it is switched off; the machine-readable endpoint list (/api/openapi.json) stays
     app = FastAPI(title="JAV helyi szolgáltatás", version=API_VERSION, default_response_class=JavJSONResponse,
                   docs_url=None, openapi_url="/api/openapi.json", redoc_url=None)
 
@@ -411,8 +418,8 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
             with store.use_store(store_path):
                 return await call_next(request)
 
-    # 063: a 404 / 422 válaszra fordított hiba a naplóba is bekerül a hibanyommal — egy belső hiba (pl. hiányzó kulcs
-    # egy szótárban) különben „ismeretlen azonosítónak” látszana, nyom nélkül
+    # 063: an error translated into a 404 / 422 response is also logged with its traceback — otherwise an internal error
+    # (e.g. a missing key in a dict) would look like an "unknown id", leaving no trace
     @app.exception_handler(KeyError)
     async def not_found(request: Request, exc: KeyError):
         log.warning("404 %s %s: %r", request.method, request.url.path, exc, exc_info=exc)
@@ -445,7 +452,8 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.exception_handler(OSError)
     async def unreadable(request: Request, exc: OSError):
-        # 063: pl. egy mappa zárolt vagy közben eltűnt fájlja — érthető válasz 500 helyett, a hibanyom a naplóban
+        # 063: e.g. a locked file in a folder, or one that vanished meanwhile — a clear response instead of 500, the
+        # traceback goes to the log
         log.warning("OSError %s %s: %s", request.method, request.url.path, exc, exc_info=exc)
         name = Path(exc.filename).name if getattr(exc, "filename", None) else ""
         return _error(422, "unreadable", f"A fájl nem olvasható{': ' + name if name else ''} ({type(exc).__name__}).")
@@ -454,13 +462,13 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.get(r + "/settings")
     def ui_settings() -> dict[str, Any]:
-        """A felület megjelenítési beállításai (045): bizonyosság-sávok."""
+        """The UI's display settings (045): confidence bands."""
         return {"confidence_bands": settings().get("confidence_bands", {"confident": 0.9, "check": 0.5})}
 
     @app.post(r + "/normalize")
     def normalize(body: NormalizeValue) -> dict[str, Any]:
-        """Kijelölt szöveg → a mező fajtája szerinti érték (045: kijelölés a képen). A formátumot kód dönti el, nem a
-        böngésző; értelmezhetetlen szövegnél `ok=false` és az ok, a felület ekkor nem ajánlja fel a mentést."""
+        """Selected text → a value according to the field's kind (045: selection on the image). Code decides the format,
+        not the browser; for unparsable text, `ok=false` plus the reason, and the UI then does not offer saving."""
         from jav import typepack
         from jav.models import normalize_value
 
@@ -469,13 +477,13 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
             raise ValueError(f"not a field of {pack.key}: {body.field}")
         reasons: list[str] = []
         text = body.text.strip()
-        if pack.kind(body.field) == "money":  # a kijelölésben természetes a pénznem-jel („1 071 880 Ft”, „650 000,-”)
+        if pack.kind(body.field) == "money":  # a currency sign is natural in a selection ("1 071 880 Ft", "650 000,-")
             text = re.sub(r"(?i)\s*(?:ft\.?|huf|eur|usd|€|\$|,-)\s*$", "", re.sub(r"(?i)^\s*(?:huf|eur|usd|€|\$)\s*", "", text))
         value = normalize_value(pack.kind(body.field), text, body.field, reasons)
         return work_views.jsonable({"ok": value is not None and not reasons, "value": value, "reasons": reasons,
                                     "kind": pack.kind(body.field)})
 
-    # 071 S-verzió: a verzió és a commit az induláskor rögzül — ez a folyamatban ténylegesen futó kód
+    # 071 S-verzió: the version and the commit are fixed at start-up — this is the code actually running in the process
     running = {"version": version.VERSION, **version.commit_info(),
                "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
 
@@ -483,11 +491,11 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def health() -> dict[str, Any]:
         return {"ok": True, "api_version": API_VERSION, "service_config": cfg.version("service"), **running}
 
-    # --- receptek és munkacsomagok ---
+    # --- recipes and work packages ---
 
     @app.get(r + "/recipes")
     def recipes() -> dict[str, Any]:
-        return {"recipes": work_views.recipe_catalog(), "help": work_views.recipe_help()}  # 063: a receptek magyarázata
+        return {"recipes": work_views.recipe_catalog(), "help": work_views.recipe_help()}  # 063: recipe explanations
 
     @app.get(r + "/workpackages")
     def workpackages(include_archived: bool = False) -> dict[str, Any]:
@@ -497,7 +505,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def create_workpackage(body: CreateWorkpackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         if (body.folder is None) == (body.paths is None):
             raise ValueError("give exactly one of folder or paths")
-        if body.folder is not None:  # 065: a létrehozó a felelős
+        if body.folder is not None:  # 065: the creator is the owner
             wp = work.create_from_folder(checked_path(body.folder, want_dir=True), name=body.name, owner=who)
         else:
             if not body.name:
@@ -509,7 +517,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def workpackage(wp_id: WpId) -> dict[str, Any]:
         return work_views.workpackage_view(wp_id)
 
-    # 058: elrejtés (a futások és az eredmények megmaradnak), visszahozás, átnevezés; törlés csak futás nélküli csomagon
+    # 058: hiding (runs and results are kept), restoring, renaming; deletion only for a package without runs
 
     @app.post(r + "/workpackages/{wp_id}/archive")
     def archive_workpackage(wp_id: WpId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
@@ -528,7 +536,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.post(r + "/workpackages/{wp_id}/owner")
     def set_owner(wp_id: WpId, body: SetOwner, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """061: a csomag felelőse; csak a névlista egy neve (üres listánál bármely név)."""
+        """061: the package's owner; only a name from the user list (any name when the list is empty)."""
         owner = None
         if body.owner is not None:
             owner = app_settings.canonical_user(body.owner)
@@ -537,7 +545,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         work.set_owner(wp_id, owner, actor=who)
         return work_views.workpackage_view(wp_id)
 
-    @app.post(r + "/workpackages/{wp_id}/delete")  # a többi törléshez hasonlóan JSON-törzses POST
+    @app.post(r + "/workpackages/{wp_id}/delete")  # a POST with a JSON body, like the other deletions
     def delete_workpackage(wp_id: WpId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         work.delete_workpackage(wp_id, actor=who)
         return {"deleted": wp_id}
@@ -550,7 +558,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.post(r + "/workpackages/{wp_id}/attachments")
     def add_attachments(wp_id: WpId, body: Revision, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """058 K5.2: a levelek PDF-csatolmányai iratként a csomagba, a levélre mutatva."""
+        """058 K5.2: the emails' PDF attachments go into the package as documents, pointing back to the email."""
         mailbox.add_attachments(wp_id, expected_revision=body.expected_revision)
         return work_views.workpackage_view(wp_id)
 
@@ -560,9 +568,9 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         return work_views.workpackage_view(wp_id)
 
     def _item_file(wp_id: str, item_id: str) -> Path:
-        """A csomag élő tételének forrásfájlja, csak ha a tartalma azonos a felvételkorival — más fájl ezen az úton
-        nem olvasható ki. Az ujjlenyomat méret + módosítási idő szerint megjegyzett (058): oldalképenként nem hasheljük
-        újra a teljes iratot."""
+        """The source file of a live item in the package, only if its content is the same as when it was added — no
+        other file can be read out through this route. The fingerprint is memoised by size + modification time (058):
+        the whole document is not re-hashed for every page image."""
         item = next((i for i in work.get(wp_id)["items"] if i["item_id"] == item_id), None)
         if item is None:
             raise KeyError(item_id)
@@ -574,8 +582,8 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.get(r + "/workpackages/{wp_id}/items/{item_id}/pages/{page}.png")
     def item_page(wp_id: WpId, item_id: ItemId, page: Annotated[int, PathParam(ge=1, le=500)],
                   dpi: Annotated[int, Query(ge=72, le=200)] = 144) -> Response:
-        """Egy oldal képe (045 K3b) — a keretek erre kerülnek. 071: irat-tartalom, ezért a böngésző nem tárolja
-        (`no-store`, a védőfejléc-réteg teszi rá; korábban egy napig a lemezes gyorsítótárban maradt)."""
+        """The image of one page (045 K3b) — the boxes are drawn on it. 071: document content, so the browser does not
+        store it (`no-store`, added by the security-header layer; previously it stayed in the disk cache for a day)."""
         from jav import page_image
 
         png = page_image.render(_item_file(wp_id, item_id), page, dpi=dpi)
@@ -583,7 +591,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.get(r + "/workpackages/{wp_id}/items/{item_id}/source")
     def item_source(wp_id: WpId, item_id: ItemId) -> FileResponse:
-        """A tétel forrásirata (böngészőben megjelenítve vagy letöltve)."""
+        """The item's source document (shown in the browser or downloaded)."""
         p = _item_file(wp_id, item_id)
         return FileResponse(p, media_type="application/pdf" if p.suffix.lower() == ".pdf" else "application/octet-stream",
                             headers={"Content-Disposition": "inline", "Cache-Control": "no-store",
@@ -593,7 +601,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def reviews(wp_id: WpId) -> dict[str, Any]:
         return work_views.workpackage_reviews(wp_id)
 
-    # --- folyamat (recept) és készenlét ---
+    # --- workflow (recipe) and readiness ---
 
     @app.get(r + "/workpackages/{wp_id}/workflow")
     def workflow(wp_id: WpId) -> dict[str, Any]:
@@ -620,7 +628,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def wp_runs(wp_id: WpId) -> dict[str, Any]:
         return {"runs": work_views.run_list(wp_id)}
 
-    # --- futtatás ---
+    # --- runs ---
 
     @app.get(r + "/runs")
     def all_runs(limit: Annotated[int, Query(ge=1, le=200)] = 50) -> dict[str, Any]:
@@ -646,27 +654,27 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.get(r + "/runs/{run_id}/results")
     def results(run_id: RunId) -> dict[str, Any]:
-        """A futás eredménye tételenként (gépi adat, javítás, összefésült érték) — a riportok alapja (K4)."""
+        """The run's result per item (machine data, correction, merged value) — the basis of the reports (K4)."""
         items = work.get_run(run_id)["input"]["items"]
         return work_views.jsonable({"run_id": run_id, "items": [corrections.item_result(run_id, i["item_id"]) for i in items]})
 
     @app.get(r + "/datasets")
     def dataset_catalog() -> dict[str, Any]:
-        """056 U1: a lekérdezhető adatkészletek (lista és eredménytábla) nevei és hatókörei."""
+        """056 U1: names and scopes of the queryable datasets (lists and result tables)."""
         from jav import datasets
 
         return {"datasets": datasets.catalog()}
 
     @app.post(r + "/datasets/{name}/query")
     def dataset_query(name: DatasetName, body: DatasetQuery) -> dict[str, Any]:
-        """056 U1: egy lap az adatkészletből; a szűrés, a rendezés és a lapozás itt, a szolgáltatásban fut."""
+        """056 U1: one page of the dataset; filtering, sorting and paging run here, in the service."""
         from jav import datasets
 
         return datasets.query(name, body.scope, body.query)
 
     @app.post(r + "/datasets/{name}/export")
     def dataset_export(name: DatasetName, body: DatasetExport) -> Response:
-        """056 U1: letöltés az adatkészletből (minden / szűrt / kijelölt sor, választott oszlopok)."""
+        """056 U1: download from the dataset (all / filtered / selected rows, chosen columns)."""
         from jav import datasets
 
         data, media, fname, n = datasets.export_file(name, body.scope, body.query, body.rows, body.format, body.columns)
@@ -675,12 +683,13 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                                                          "X-Content-Type-Options": "nosniff"})
 
     @app.get(r + "/runs/{run_id}/export")
-    def run_export(run_id: RunId, format: Literal["csv", "xlsx", "json"] = "xlsx",  # noqa: A002 - a régi végpont paramétere
+    def run_export(run_id: RunId, format: Literal["csv", "xlsx", "json"] = "xlsx",  # noqa: A002 - legacy endpoint parameter
                    table: Literal["documents", "datapoints", "line_items"] = "documents") -> Response:
-        """054 K4: a futás érvényes adata letöltésre (a régi V4 export-végpont mintájára: attachment + sorszám-fejléc)."""
+        """054 K4: the run's valid data for download (modelled on the legacy V4 export endpoint: attachment + row-count
+        header)."""
         from jav import export
 
-        work.get_run(run_id)  # ismeretlen futás: 404
+        work.get_run(run_id)  # unknown run: 404
         data, media, name, rows = export.render(run_id, format, table)
         return Response(data, media_type=media, headers={"Content-Disposition": attachment_header(name),
                                                          "X-Export-Rows": str(rows), "Cache-Control": "no-store",
@@ -688,7 +697,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.get(r + "/runs/{run_id}/reports/utility-cost")
     def utility_cost(run_id: RunId) -> dict[str, Any]:
-        """054 K4: közmű-költség idősor (fogyasztási hely + közmű, havi rács, forrásokkal)."""
+        """054 K4: utility-cost time series (consumption point + utility, monthly grid, with sources)."""
         from jav import datasets, report_utility
 
         work.get_run(run_id)
@@ -700,8 +709,8 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.get(r + "/runs/{run_id}/items/{item_id}/words")
     def item_words(run_id: RunId, item_id: ItemId) -> dict[str, Any]:
-        """A tétel szórétege (045): oldalak és szavak 0–1 keretekkel — a képen való kijelöléshez."""
-        corrections.item_result(run_id, item_id)  # ismeretlen futás/tétel → 404
+        """The item's word layer (045): pages and words with 0–1 boxes — for selecting on the image."""
+        corrections.item_result(run_id, item_id)  # unknown run/item → 404
         layer = corrections.layer_for(corrections.datapoints_row(run_id, item_id))
         if layer is None:
             raise KeyError(f"no source layer for {item_id[:12]}")
@@ -712,7 +721,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/runs/{run_id}/items/{item_id}/correction")
     def save_correction(run_id: RunId, item_id: ItemId, body: SaveCorrection,
                         who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        corrections.item_result(run_id, item_id)  # ismeretlen tétel → 404
+        corrections.item_result(run_id, item_id)  # unknown item → 404
         corrections.save(run_id, item_id, fields=dict(body.fields), expected_revision=body.expected_revision,
                          actor=who, note=body.note, sources=dict(body.sources) if body.sources else None)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
@@ -720,25 +729,25 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/runs/{run_id}/items/{item_id}/tasks/{index}/decision")
     def task_decision(run_id: RunId, item_id: ItemId, index: Annotated[int, PathParam(ge=0, le=100)], body: TaskDecision,
                       who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """058 K5.3: a feladatjavaslatot csak ember fogadja el vagy veti el."""
+        """058 K5.3: only a human accepts or rejects a task proposal."""
         mailbox.decide_task(run_id, item_id, index, decision=body.decision, actor=who, note=body.note)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/tasks/{index}/done")
     def task_done(run_id: RunId, item_id: ItemId, index: Annotated[int, PathParam(ge=0, le=100)], body: TaskDone,
                   who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """062: az elfogadott feladat kézzel elvégezve (vagy vissza)."""
+        """062: mark an accepted task as done by hand (or undo that)."""
         mailbox.mark_task_done(run_id, item_id, index, done=body.done, actor=who)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
-    # --- teendők ---
+    # --- to-dos ---
 
     @app.post(r + "/review-reasons/{reason_id}/resolve")
     def resolve_reason(reason_id: Annotated[int, PathParam(ge=1)], body: ResolveReason,
                        who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         return work.resolve_reason(reason_id, actor=who, resolution=body.resolution, note=body.note)
 
-    # --- feldolgozó ---
+    # --- worker ---
 
     @app.get(r + "/worker")
     def worker_status() -> dict[str, Any]:
@@ -746,11 +755,11 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.post(r + "/worker/stop")
     def worker_stop(body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        log.info("worker stop requested by %s", who)  # 066 Á35: ki kérte (üzemi napló)
+        log.info("worker stop requested by %s", who)  # 066 Á35: who asked (operational log)
         worker.request_stop()
         return work_views.worker_status()
 
-    # --- adattár-mentés (064): a legutóbbi mentés állapota és a mentés most ---
+    # --- store backup (064): status of the latest backup, and backup now ---
 
     @app.get(r + "/system/backup")
     def backup_status() -> dict[str, Any]:
@@ -760,11 +769,12 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.post(r + "/system/backup")
     def backup_now(body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """Mentés most, a napi mentés beállításával (helyben és a második helyre). A hiba az állapotban is látszik."""
+        """Back up now, with the daily backup's settings (locally and to the second location). A failure also shows in
+        the status."""
         log.info("backup requested by %s", who)
         return work_views.jsonable(backup.scheduled())
 
-    # --- beállítások (057): felhasználók, figyelt munkamappák ---
+    # --- settings (057): users, watched work folders ---
 
     @app.get(r + "/settings/users")
     def settings_users() -> dict[str, Any]:
@@ -782,17 +792,17 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.put(r + "/settings/folders")
     def settings_save_folders(body: SaveFolders, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """A teljes lista cseréje; minden útvonal az engedélyezett gyökerek alatt létező mappa kell legyen."""
+        """Replaces the whole list; every path must be an existing folder (under the allowed roots when restricted)."""
         saved = app_settings.save_folders(body.folders, check_dir=lambda raw: checked_path(raw, want_dir=True))
         return work_views.jsonable({"folders": saved, "roots": [str(p) for p in allowed_roots()]})
 
     @app.post(r + "/settings/folders/{folder_id}/scan")
     def settings_scan_folder(folder_id: Annotated[str, PathParam(pattern=r"^wf-[0-9a-f]{10}$")], body: Empty,
                              who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """Átnézés most (nem vár az ütemezésre)."""
+        """Scan now (without waiting for the schedule)."""
         return work_views.jsonable(app_settings.scan(folder_id, actor=who))
 
-    # --- postafiók (048 T2): előnézet, letöltés (a feldolgozó futtatja), ütemezés ---
+    # --- mailbox (048 T2): preview, download (run by the worker), schedule ---
 
     @app.get(r + "/mailbox")
     def mailbox_overview() -> dict[str, Any]:
@@ -805,7 +815,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.post(r + "/mailbox/count")
     def mailbox_count(body: mailbox.MailboxRequest) -> dict[str, Any]:
-        """Ingyenes darabszám-előnézet (a régi szkript `-CountOnly` ága); az Outlooknak futnia kell."""
+        """Free count preview (the legacy script's `-CountOnly` branch); Outlook must be running."""
         return work_views.jsonable(mailbox.count(body))
 
     @app.post(r + "/mailbox/pulls", status_code=202)
@@ -825,7 +835,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                                 who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         return work_views.jsonable(mailbox.update_schedule(schedule_id, enabled=body.enabled, interval_min=body.interval_min))
 
-    @app.post(r + "/mailbox/schedules/{schedule_id}/delete")  # a többi törléshez hasonlóan JSON-törzses POST
+    @app.post(r + "/mailbox/schedules/{schedule_id}/delete")  # a POST with a JSON body, like the other deletions
     def mailbox_schedule_delete(schedule_id: ScheduleId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         mailbox.delete_schedule(schedule_id)
         return {"deleted": schedule_id}
@@ -834,18 +844,18 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def unknown_api(rest: str):
         return _error(404, "not_found", "unknown endpoint")
 
-    if UI_DIST.is_dir():  # a felület: ugyanazon a címen, így nincs külön szerver és nincs kereszt-eredetű hívás
+    if UI_DIST.is_dir():  # the UI: on the same address, so there is no separate server and no cross-origin call
         app.mount("/", _UiFiles(directory=UI_DIST, html=True), name="ui")
 
-    # utoljára hozzáadva = legkülső réteg: a kérés még az útválasztás és az adattár előtt ellenőrződik
+    # added last = outermost layer: the request is checked before routing and before the store
     app.add_middleware(_Guard, allowed_hosts=set(s["allowed_hosts"]) & LOOPBACK, max_body=int(s["max_body_bytes"]),
                        dev_origins=set(s.get("dev_origins", [])))
-    app.add_middleware(_SecurityHeaders)  # 071: még a _Guard elutasító válaszára is
+    app.add_middleware(_SecurityHeaders)  # 071: even on the _Guard's rejection responses
     return app
 
 
 def serve(*, host: str | None = None, port: int | None = None) -> None:
-    """A szolgáltatás indítása (uvicorn). Csak loopback címre köt; más címet elutasít."""
+    """Start the service (uvicorn). It binds only to a loopback address and refuses any other address."""
     import uvicorn
 
     s = settings()
@@ -854,6 +864,6 @@ def serve(*, host: str | None = None, port: int | None = None) -> None:
         raise ValueError(f"the local service binds only to a loopback address, not {host!r}")
     from jav.runtime import applog
 
-    # 063: a szolgáltatás naplója állandó, forgó fájlba is kerül (runs/logs/api.log), az 500-as hibák hibanyomával
+    # 063: the service log also goes to a persistent rotating file (runs/logs/api.log), with tracebacks for 500 errors
     uvicorn.run(create_app(), host=host, port=port or int(s["port"]), log_level="info", access_log=False,
                 log_config=applog.uvicorn_config("api"))

@@ -1,4 +1,4 @@
-"""Elkülönített JEV-mintapróbák; saját tesztadat, nincs üzemi route-módosítás."""
+"""Isolated JEV pattern probes; own test data, no change to production routing."""
 from __future__ import annotations
 
 import re
@@ -10,10 +10,10 @@ Ask = Callable[[str, object, dict], SystemOneResponse]
 
 def stitch_and_classify(lines: list[str], config: dict, ask: Ask, *,
                         blocked_before: dict[int, list[str]] | None = None) -> dict:
-    """Szomszédos sorok kérdése -> forrásból másolt blokkok -> blokkfajta.
+    """Question on adjacent lines -> blocks copied from the source -> block kind.
 
-    A cookbook írásjel-függő sávja kísérleti adat, nem üzemi policy.
-    Üres soron nincs kérdés és nincs összefűzés; minden blokk hordozza a sorait.
+    The cookbook's punctuation-dependent band is experimental data, not production policy.
+    An empty line gets no question and no joining; every block carries its lines.
     """
     if len(lines) > 80 or sum(map(len, lines)) > 16000:
         raise ValueError("A kis próba legfeljebb 80 sort / 16000 karaktert kezel")
@@ -52,9 +52,9 @@ def stitch_and_classify(lines: list[str], config: dict, ask: Ask, *,
 
 
 def assess_pair(invoice: dict, payment: dict, config: dict, ask: Ask) -> dict:
-    """Egy teljes összegű, egy-számla/egy-utalás jelöltpár szintetikus próbája.
+    """Synthetic probe of one full-amount, one-invoice/one-transfer candidate pair.
 
-    Részfizetés, gyűjtőutalás, díjlevonás nem ennek a kísérletnek a tárgya.
+    Partial payment, bulk transfer and fee deduction are out of scope for this experiment.
     """
     from decimal import Decimal, InvalidOperation
     try:
@@ -81,10 +81,10 @@ def assess_pair(invoice: dict, payment: dict, config: dict, ask: Ask) -> dict:
 
 
 def classify_hierarchy(text: str, config: dict, ask: Ask) -> dict:
-    """Kétszintű próba: K család megtartása, a következő kérdések egy kötegben.
+    """Two-level probe: keep K families, the follow-up questions in one batch.
 
-    A geometriai átlag rangsorolási jel, nem kalibrált dokumentum-helyesség.
-    Az ismeretlen opciót a nyertes kiválasztásakor sem dobjuk el.
+    The geometric mean is a ranking signal, not a calibrated document correctness.
+    The unknown option is not dropped even when the winner is selected.
     """
     tree = config["tree"]
     criteria = {key: {"description": node["description"], "children": node["children"]}

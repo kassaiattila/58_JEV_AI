@@ -1,7 +1,8 @@
-"""A dokumentumok relatív hivatkozásai élnek (040, K0; docs/guides/DOCUMENTATION.md).
+"""The documents' relative links resolve (040, K0; docs/guides/DOCUMENTATION.md).
 
-070 (döntés 2026-09-29): a kódtári dokumentum belső munkaanyagra nem hivatkozhat linkkel, mert az a tárban nincs meg
-(`jav/doc_scope.py`). A belső belépő dokumentumok hivatkozásai csak helyben ellenőrizhetők; friss klónon kimaradnak.
+070 (decision of 2026-09-29): a codebase document must not link to an internal working document, because that is not
+in the repository (`jav/doc_scope.py`). The links of the internal entry documents can only be checked locally; on a
+fresh clone they are skipped.
 """
 
 import re
@@ -23,7 +24,7 @@ _LINK = re.compile(r"\]\(([^)#:\s]+)(?:#[^)]*)?\)")
 
 
 def _links(path: Path) -> list[str]:
-    # helyi bizonyíték (runs/) és generált állapotoldal: friss klónon nincs meg, a létezésük nem ellenőrizhető
+    # local evidence (runs/) and the generated state page: absent on a fresh clone, so existence cannot be checked
     return [m for m in _LINK.findall(path.read_text(encoding="utf-8")) if "runs/" not in m and not m.endswith("STATE.md")]
 
 

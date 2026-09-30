@@ -1,4 +1,5 @@
-"""Levélfogadó bemenetvédelme (040 K1; a 038-as F01, F02, F03). Mesterséges adatok, élő hívás és valódi levél nélkül."""
+"""Input protection of the email receiver (040 K1; findings F01, F02, F03 of 038). Synthetic data, no live call, no
+real email."""
 
 import http.client
 import json
@@ -17,7 +18,7 @@ def _payload(**over):
     return base
 
 
-# --- F01: útvonalak ------------------------------------------------------------------------------
+# --- F01: paths ----------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("account", ["C:/Windows/Temp/x", "/etc/passwd", "..\\..\\kint", "../kint", "\\\\server\\share\\x", ""])
@@ -57,14 +58,14 @@ def test_message_loader_refuses_external_attachment_paths(tmp_path, monkeypatch)
     assert [a.path is not None for a in msg.attachments] == [False, False, True]
 
 
-# --- F03: ismétlés ---------------------------------------------------------------------------------
+# --- F03: repeats ----------------------------------------------------------------------------------
 
 
 def test_identical_repeat_is_not_rewritten(tmp_path):
     root = tmp_path / "inbox"
     first = ingest_server.ingest_message(_payload(), root)
     stamp = (first["folder"] / "message.json").stat().st_mtime_ns
-    again = ingest_server.ingest_message(_payload(batch_id="masik-batch"), root)  # csak a batch különbözik
+    again = ingest_server.ingest_message(_payload(batch_id="masik-batch"), root)  # only the batch differs
     assert first["status"] == "new" and again["status"] == "duplicate" and again["version"] == 1
     assert (first["folder"] / "message.json").stat().st_mtime_ns == stamp
 
@@ -79,7 +80,7 @@ def test_changed_content_becomes_explicit_new_version(tmp_path):
     assert json.loads((folder / "message.json").read_text(encoding="utf-8"))["body"] == "MÁS törzs"
 
 
-# --- HTTP: F02 + F03 a szerveren át ----------------------------------------------------------------
+# --- HTTP: F02 + F03 through the server ------------------------------------------------------------
 
 
 @pytest.fixture()
@@ -117,7 +118,7 @@ def test_unauthorized_request_refused(server):
 def test_oversized_request_refused_without_reading(server):
     try:
         status, _ = _post(server["port"], b"{}", {"Content-Length": str(ingest_server.MAX_BODY_BYTES + 1)})
-    except ConnectionResetError:  # a szerver olvasás nélkül zár: Windows-on a kliens visszaállítást is láthat
+    except ConnectionResetError:  # the server closes without reading: on Windows the client may see a reset
         status = 413
     assert status == 413 and not server["root"].exists() and server["runs"] == []
 
@@ -136,7 +137,7 @@ def test_negative_length_refused(server):
     c = http.client.HTTPConnection("127.0.0.1", server["port"], timeout=5)
     c.putrequest("POST", "/ingest/email")
     c.putheader("Authorization", "Bearer titkos")
-    c.putheader("Content-Type", "application/json")  # 066: a JSON-típus nélküli kérést böngészősként már előbb elutasítja
+    c.putheader("Content-Type", "application/json")  # 066: without the JSON type it is refused earlier as browser-like
     c.putheader("Content-Length", "-5")
     c.endheaders()
     assert c.getresponse().status == 400
@@ -168,7 +169,7 @@ def test_concurrent_identical_posts_run_once(server):
     assert sum(not r["deduped"] for _, r in results) == 1
 
 
-# --- 066 Á14: csak kulccsal, böngészőből nem ---------------------------------------------------------------------
+# --- 066 Á14: key only, never from a browser ---------------------------------------------------------------------
 
 
 def test_server_without_a_configured_key_generates_one_and_refuses_keyless_requests(tmp_path, monkeypatch):
@@ -190,9 +191,9 @@ def test_server_without_a_configured_key_generates_one_and_refuses_keyless_reque
 
 
 @pytest.mark.parametrize("headers", [
-    {"Origin": "https://pelda.example"},                 # böngészőből küldött kérés
-    {"Content-Type": "text/plain"},                       # „egyszerű” böngészős kérés előzetes egyeztetés nélkül
-    {"Host": "tamado.example:8901"},                      # DNS-újrakötés: idegen gépnév
+    {"Origin": "https://pelda.example"},                 # request sent from a browser
+    {"Content-Type": "text/plain"},                       # "simple" browser request without a preflight
+    {"Host": "tamado.example:8901"},                      # DNS rebinding: foreign host name
 ])
 def test_browser_style_requests_are_refused_before_write(server, headers):
     status, _ = _post(server["port"], json.dumps(_payload()).encode(), headers)
@@ -200,7 +201,8 @@ def test_browser_style_requests_are_refused_before_write(server, headers):
 
 
 def test_bodyless_seal_from_the_old_bridge_is_accepted(server):
-    """A régi híd a köteg lezárását törzs és típusfejléc nélkül küldi (PowerShell `Invoke-RestMethod -Method Post`)."""
+    """The legacy bridge sends the batch seal without a body or content-type header (PowerShell
+    `Invoke-RestMethod -Method Post`)."""
     c = http.client.HTTPConnection("127.0.0.1", server["port"], timeout=5)
     c.request("POST", "/api/intake-batches/jav-1/seal", headers={"Authorization": "Bearer titkos", "X-Actor": "outlook-bridge",
                                                                   "Content-Length": "0"})
@@ -209,7 +211,7 @@ def test_bodyless_seal_from_the_old_bridge_is_accepted(server):
     assert r.status == 200
 
 
-# --- 067: a lefedettség-mérés szerint teszt nélküli védelmi ágak ----------------------------------------------------
+# --- 067: protective branches without a test, per the coverage run --------------------------------------------------
 
 
 def _raw_post(port, path, headers):
@@ -224,7 +226,7 @@ def _raw_post(port, path, headers):
 
 
 def test_request_without_length_is_refused(server):
-    # hossz nélküli (pl. darabolt) törzset nem olvasunk: a méretkorlát csak megadott hosszal ellenőrizhető
+    # a body without a length (e.g. chunked) is not read: the size limit can only be checked against a given length
     headers = {"Authorization": "Bearer titkos", "Content-Type": "application/json"}
     assert _raw_post(server["port"], "/ingest/email", headers) == 411
     assert _raw_post(server["port"], "/ingest/email", {**headers, "Transfer-Encoding": "chunked"}) == 411
@@ -260,7 +262,7 @@ def test_unknown_paths_are_not_found(server):
 
 
 def test_folder_guard_holds_even_if_the_mailbox_name_is_not_sanitized(tmp_path, monkeypatch):
-    # második védvonal: ha a postafiók-név tisztítása hibázna, a kiszámolt mappa akkor sem kerülhet a beérkezési mappán kívülre
+    # second line of defence: even if the mailbox-name sanitising failed, the computed folder stays inside the inbox
     root = tmp_path / "inbox"
     monkeypatch.setattr(ingest_server, "safe_mailbox_dir", lambda _name: "../../kint")
     with pytest.raises(ingest_server.BadPayload):

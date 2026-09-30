@@ -1,15 +1,15 @@
-"""Feldolgozó (040 K1): a munkasor `run_item` feladatait futtatja, folytatható Burr-állapottal és kerettel.
+"""Worker (040 K1): runs the job queue's `run_item` jobs, with resumable Burr state and a budget.
 
-Egy feldolgozó fut egyszerre (a munkasor árvafoglalás-kezelése erre épül; 040 K2 óta zár őrzi). Indításkor:
-`queue.recover_orphans()` (félbemaradt foglalások vissza a sorba) és `calls.recover_uncertain()` (lezáratlan fizetős
-kísérletek bizonytalanná válnak, nem hívódnak újra automatikusan).
+One worker runs at a time (the queue's orphaned-claim handling relies on this; guarded by a lock since 040 K2). At
+start-up: `queue.recover_orphans()` (interrupted claims go back to the queue) and `calls.recover_uncertain()` (unsettled
+paid attempts become uncertain and are not retried automatically).
 
-Egy tétel feldolgozása:
-1. a rögzített bemenet ellenőrzése: a forrás tartalomhash-e egyezik-e (különben `source_changed`, nincs újrapróbálás);
-2. a recept folyamata (`flow`) ugyanazzal az azonosítóval (`<run_id>:<item_id[:16]>`) és tartós állapotmentővel épül,
-   így újraindítás után a következő lépéstől folytatódik;
-3. minden lépés után leállítási kérés ellenőrzése (`queue.check_cancellation`);
-4. a szolgáltatói hívások a futás keretén belül (`calls.use_run(budget_scope=run_id)`).
+Processing one item:
+1. check the frozen input: whether the source's content hash matches (otherwise `source_changed`, no retry);
+2. the recipe's flow (`flow`) is built with the same identifier (`<run_id>:<item_id[:16]>`) and a durable state
+   persister, so after a restart it resumes from the next step;
+3. after every step, check for a cancellation request (`queue.check_cancellation`);
+4. provider calls stay within the run's budget (`calls.use_run(budget_scope=run_id)`).
 """
 
 from __future__ import annotations
@@ -32,16 +32,17 @@ from jav.runtime.persistence import ClosingSQLitePersister
 
 log = logging.getLogger("jav.worker")
 
-burr_pydantic.set_allowlist(["jav"])  # állapot-visszatöltéskor csak a projekt saját modelljei
+burr_pydantic.set_allowlist(["jav"])  # only the project's own models when state is loaded back
 
 BACKOFF_S = 30.0
 
 
 class SourceChanged(RuntimeError):
-    """A tétel forrása az indítás óta megváltozott vagy eltűnt; a rögzített bemenettől eltérő tartalmat nem dolgozunk fel."""
+    """The item's source has changed or disappeared since the start; content that differs from the frozen input is not
+    processed."""
 
 
-# 064: a lezárt tétel mentett folyamat-állapotaiból csak az utolsó marad (a tár különben tételenként ~0,7 MB-tal nő)
+# 064: of a finished item's saved flow states only the last one is kept (otherwise the store grows by ~0.7 MB per item)
 PRUNE_FINISHED_STATE = True
 
 
@@ -50,8 +51,8 @@ def persister_path() -> Path:
 
 
 def _json_default(value: Any) -> Any:
-    """A Burr pydantic-szerializálója Python-módban dumpol (date, Decimal marad); ezeket JSON-alakra hozzuk.
-    Visszatöltéskor a típusos mezők (pl. `date`, `Decimal`) a pydantic-validációval visszaalakulnak."""
+    """Burr's pydantic serialiser dumps in Python mode (date and Decimal stay as they are); we convert these to JSON
+    form. When loaded back, the typed fields (e.g. `date`, `Decimal`) are restored by pydantic validation."""
     if isinstance(value, (date, datetime)):
         return value.isoformat()
     if isinstance(value, Decimal):
@@ -64,7 +65,7 @@ def _json_default(value: Any) -> Any:
 
 
 class StatePersister(ClosingSQLitePersister):
-    """A Burr SQLite-állapotmentője JSON-biztos értékkezeléssel (dátum, pénz) és biztonságos lezárással."""
+    """Burr's SQLite state persister with JSON-safe value handling (dates, money) and safe closing."""
 
     def save(self, partition_key, app_id, sequence_id, position, state, status, **kwargs):
         partition_key = partition_key if partition_key is not None else ClosingSQLitePersister.PARTITION_KEY_DEFAULT
@@ -84,23 +85,25 @@ def _sha256_file(path: Path) -> str:
 
 
 def _flow_module(name: str):
-    from jav import flow, flow_detect, flow_email  # késleltetett import: a folyamatok nehéz függőségeket húznak
+    from jav import flow, flow_detect, flow_email  # deferred import: the flows pull in heavy dependencies
     return {"invoice": flow, "doc_detect": flow_detect, "email": flow_email}[name]
 
 
 def arm_for(doc_type: str, preferred: str) -> str:
-    """A típus tényleges útja (a szabály a `typepack.resolve_arm`-ban; 065: a keretfoglalás is ezt használja)."""
+    """The effective path (arm) for the type (the rule is in `typepack.resolve_arm`; 065: the budget reservation uses it
+    too)."""
     from jav import typepack
 
     return typepack.resolve_arm(doc_type, preferred)
 
 
 def _stages(recipe: dict[str, Any], params: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
-    """A recept lépcsői: (folyamat, paraméterek). Az `document` recept (047 T1.3) két lépcső: felismerés, majd a
-    felismert részletes típus kinyerése; a második lépcső paramétereit az első eredménye adja (`_next_params`)."""
+    """The recipe's stages: (flow, parameters). The `document` recipe (047 T1.3) has two stages: detection, then
+    extraction of the detected detailed type; the second stage's parameters come from the first one's result
+    (`_next_params`)."""
     if recipe["flow"] == "document":
         return [("doc_detect", {}), ("invoice", dict(params))]
-    if recipe["flow"] == "invoice" and "doc_type" in params:  # a kar a típus csomagja szerint (automatikus vagy nem támogatott kérés)
+    if recipe["flow"] == "invoice" and "doc_type" in params:  # path from the type pack (auto or unsupported request)
         return [("invoice", {**params, "arm": arm_for(params["doc_type"], params.get("arm", "auto"))})]
     return [(recipe["flow"], dict(params))]
 
@@ -108,10 +111,10 @@ def _stages(recipe: dict[str, Any], params: dict[str, Any]) -> list[tuple[str, d
 def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app_id: str, persister):
     mod = _flow_module(recipe["flow"])
     if recipe["flow"] == "invoice":
-        # `jev_cache=live`: a JEV-gyorsítótár olvasása nélkül, hogy minden hívás a naplón és a kereten át menjen (élő próba)
+        # `jev_cache=live`: skip reading the JEV cache so every call goes through the log and the budget (live test)
         app = mod.build_app(source_path, app_id, params["arm"], tracker=False, doc_type=params["doc_type"], run_id=app_id,
                             persister=persister, use_cache=params.get("jev_cache", "reuse") != "live")
-    elif recipe["flow"] == "email":  # 048 T2: a tétel a levél `message.json`-ja, a folyamat a mappáját olvassa
+    elif recipe["flow"] == "email":  # 048 T2: the item is the email's `message.json`; the flow reads its folder
         app = mod.build_app(source_dir=str(Path(source_path).parent), tracker=False, run_id=app_id, persister=persister,
                             use_cache=params.get("jev_cache", "reuse") != "live", propose_tasks=params.get("tasks") == "propose")
     else:
@@ -122,9 +125,9 @@ def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app
 
 def _run_stage(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app_id: str, persister, *, run_id: str,
                job_id: int, after_step: Callable[[str], None] | None):
-    """Egy lépcső futtatása mentéssel: a már végállapotba jutott lépcső nem fut újra (összeomlás utáni folytatás).
-    A mentett állapotot a folyamat saját partíciója alatt keressük (066 Á08: a levélfolyamat `email_intent` alatt ment,
-    a keresés eddig a recept `email` nevével történt, ezért a lezárt levél újrafutott, és a feladat elhalt)."""
+    """Runs one stage with persistence: a stage that already reached a terminal state does not run again (resume after
+    a crash). The saved state is looked up under the flow's own partition (066 Á08: the email flow saves under
+    `email_intent`, but the lookup used the recipe name `email`, so a finished email ran again and the job died)."""
     mod = _flow_module(recipe["flow"])
     saved = persister.load(mod.PARTITION, app_id)
     if saved and saved["position"] in mod.TERMINALS:
@@ -140,8 +143,8 @@ def _run_stage(recipe: dict[str, Any], params: dict[str, Any], source_path: str,
 
 
 def _next_params(params: dict[str, Any], detect_state) -> dict[str, Any] | None:
-    """A felismerés után: a részletes típus csomagja és a kar (a kért, ha a csomag támogatja). Nincs részletes típus
-    vagy az irat szöveg nélküli → None."""
+    """After detection: the detailed type's pack and the path (the requested one if the pack supports it). No detailed
+    type, or a document without text → None."""
     detail = detect_state.get("detail")
     key = (detail.get("key") if isinstance(detail, dict) else getattr(detail, "key", None)) if detail else None
     if not key or detect_state.get("final_status") != "done":
@@ -150,7 +153,7 @@ def _next_params(params: dict[str, Any], detect_state) -> dict[str, Any] | None:
 
 
 def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) -> str:
-    """Egy lefoglalt feladat; visszaadja a feladat végállapotát. `after_step`: teszthorog (hibainjektálás)."""
+    """Processes one claimed job and returns its resulting state. `after_step`: test hook (fault injection)."""
     run_id, item_id = job.payload["run_id"], job.payload["item_id"]
     run = work.get_run(run_id)
     item = next(i for i in run["input"]["items"] if i["item_id"] == item_id)
@@ -162,14 +165,14 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
         persister = StatePersister(str(persister_path()))
         persister.initialize()
         try:
-            # 058 K5.2: a több tétel-fajtát kezelő recept (levél + csatolmány) fajtánként választ folyamatot
+            # 058 K5.2: a recipe handling several item kinds (email + attachment) chooses the flow per kind
             stages = _stages({**run["recipe"], "flow": work.flow_for(run["recipe"], item.get("kind"))}, run["params"])
             final, state = None, None
             for n, (flow_name, params) in enumerate(stages):
                 stage_id = app_id if n == len(stages) - 1 else f"{app_id}-{flow_name}"
                 if n > 0:
                     params = _next_params(params, state)
-                    if params is None:  # a részletes típus nyitva maradt: nincs mit kinyerni, a teendő a felismerésé
+                    if params is None:  # detailed type left open: nothing to extract, the to-do belongs to detection
                         final = "needs_review"
                         break
                 state = _run_stage({**run["recipe"], "flow": flow_name}, params, item["source_path"], stage_id, persister,
@@ -183,8 +186,8 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
     except SourceChanged as exc:
         work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=f"source_changed: {exc}")
         result = queue.fail(job.id, f"source_changed: {exc}", max_attempts=1, backoff_s=0)
-    except Exception as exc:  # noqa: BLE001 - minden más hiba tételszintű; a munkasor próbálkozáskerete dönt
-        log.exception("item %s of %s failed", item_id, run_id)  # 063: a teljes hibanyom a naplóban (a tételen 300 karakter)
+    except Exception as exc:  # noqa: BLE001 - every other error is item-level; the queue's attempt limit decides
+        log.exception("item %s of %s failed", item_id, run_id)  # 063: full traceback to the log (item: 300 chars)
         work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=f"{type(exc).__name__}: {exc}"[:300])
         result = queue.fail(job.id, f"{type(exc).__name__}: {exc}", max_attempts=int(run["recipe"].get("max_attempts", 2)),
                             backoff_s=BACKOFF_S)
@@ -198,23 +201,23 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
 
 
 def _prune_state(app_id: str) -> None:
-    """064: a lezárt tétel folyamat-állapotaiból csak az utolsó marad (visszaolvasni csak azt kell). A ritkítás hibája
-    nem érinti a tétel eredményét; naplózva."""
+    """064: of a finished item's flow states only the last one is kept (that is the only one ever read back). A pruning
+    error does not affect the item's result; it is logged."""
     try:
         persistence.prune_to_last(persister_path(), app_id=app_id)
-    except Exception:  # noqa: BLE001 - a tár ritkítása nem lehet a feldolgozás akadálya
+    except Exception:  # noqa: BLE001 - store pruning must never block processing
         log.exception("could not prune the saved state of %s", app_id)
 
 
 def process_pull(job: queue.Job) -> str:
-    """Ütemezett postafiók-letöltés (048 T2): az eredmény / hiba az ütemezésen látszik, a feladat mindig lezárul."""
+    """Scheduled mailbox download (048 T2): the result / error shows on the schedule; the job is always completed."""
     mailbox.run_pull_job(job.payload)
     return queue.complete(job.id)
 
 
 def startup() -> dict[str, int]:
-    """Indulás: a félbemaradt foglalások rendezése és a lezáratlan fizetős hívások jelölése. A halottá vagy leállítottá
-    vált tétel eredménye a futáson is látszik (063: különben a futás tétele eredmény nélkül maradna)."""
+    """Start-up: settles interrupted claims and marks unsettled paid calls. The result of an item that became dead or
+    cancelled shows on the run too (063: otherwise the run's item would be left without a result)."""
     rec = queue.recover_orphans()
     for job in [*rec.dead, *rec.cancelled]:
         status = "failed" if job in rec.dead else "cancelled"
@@ -225,7 +228,7 @@ def startup() -> dict[str, int]:
 
 
 def _settle_abandoned(job: queue.Job, status: str, error: str) -> None:
-    """A feladat gazdájának lezárása, ha a feladat rendes feldolgozás nélkül ért véget: a futás tételéé vagy a letöltésé."""
+    """Settles the job's owner when the job ended without normal processing: the run's item or the download."""
     if job.kind == work.JOB_KIND:
         run_id, item_id = job.payload["run_id"], job.payload["item_id"]
         work.record_item_result(run_id, item_id, status=status, flow_run_id=work.flow_run_id(run_id, item_id), error=error[:300])
@@ -237,12 +240,12 @@ def _settle_abandoned(job: queue.Job, status: str, error: str) -> None:
 
 
 def _fail_unexpected(job: queue.Job, exc: Exception) -> str:
-    """063: a feldolgozó hurok védőhálója — a váratlan hiba a feladatot lezárja (nem ismétlődik), a hurok fut tovább."""
+    """063: the worker loop's safety net — an unexpected error closes the job (no retry), and the loop carries on."""
     error = f"unexpected: {type(exc).__name__}: {exc}"
     result = queue.fail(job.id, error, max_attempts=1, backoff_s=0)
     try:
         _settle_abandoned(job, "failed", error)
-    except Exception:  # noqa: BLE001 - a lezárás hibája sem állíthatja le a feldolgozót; naplózva
+    except Exception:  # noqa: BLE001 - a settling error must not stop the worker either; logged
         log.exception("could not settle job %s after an unexpected error", job.id)
     return result
 
@@ -256,22 +259,22 @@ def stop_path() -> Path:
 
 
 def request_stop() -> None:
-    """Szabályos leállítás kérése: a feldolgozó a folyamatban lévő tétel után kilép (040 K2, indító/leállító szkript)."""
+    """Requests an orderly stop: the worker exits after the item in progress (040 K2, start/stop script)."""
     stop_path().parent.mkdir(parents=True, exist_ok=True)
     stop_path().write_text("stop", encoding="utf-8")
 
 
 def status() -> dict[str, Any]:
-    """Fut-e feldolgozó (a zár foglalt), kért-e valaki leállítást, és mennyi feladat vár."""
+    """Whether a worker is running (the lock is held), whether a stop was requested, and the job counts by state."""
     return {"running": lock.is_held(lock_path()), "stop_requested": stop_path().exists(), "jobs": queue.counts()}
 
 
 def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int | None = None,
                name: str | None = None) -> dict[str, Any]:
-    """Feldolgozó hurok. `once=True`: a sor kiürüléséig fut, utána kilép (parancssori és tesztcélra).
+    """Worker loop. `once=True`: runs until the queue is empty, then exits (for the CLI and tests).
 
-    Egyszerre egy példány futhat (`lock.single_instance`; foglalt zárnál `lock.AlreadyRunning`). Leállítási kérésnél
-    (`request_stop`) a folyamatban lévő tétel befejezése után kilép; a kérés indításkor törlődik."""
+    Only one instance may run at a time (`lock.single_instance`; `lock.AlreadyRunning` if the lock is held). On a stop
+    request (`request_stop`) it exits after finishing the item in progress; the request is cleared at start-up."""
     worker = name or f"{socket.gethostname()}:{int(time.time())}"
     with lock.single_instance(lock_path()):
         stop_path().unlink(missing_ok=True)
@@ -282,17 +285,17 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
                 stop_path().unlink(missing_ok=True)
                 info["stopped"] = True
                 break
-            # 048 T2: az esedékes postafiók-ütemezésekhez letöltési feladat; 057: az esedékes figyelt munkamappák átnézése.
-            # 063: egy ütemező hibája nem állítja le a feldolgozót (a hiba naplózva, a következő körben újra próbálja).
+            # 048 T2: a download job for each due mailbox schedule; 057: scan the watched work folders that are due.
+            # 063: a scheduler error does not stop the worker (the error is logged and retried in the next round).
             for name, tick in (("mailbox.tick", mailbox.tick), ("folders.tick", app_settings.tick)):
                 try:
                     tick()
-                except Exception:  # noqa: BLE001 - üzemi védőháló, naplózva
+                except Exception:  # noqa: BLE001 - operational safety net, logged
                     log.exception("%s failed", name)
                     info["errors"] += 1
             try:
                 job = queue.claim(worker, kinds=(work.JOB_KIND, mailbox.PULL_JOB_KIND))
-            except Exception:  # noqa: BLE001 - pl. tartósan zárolt adattár: várakozás, utána újra
+            except Exception:  # noqa: BLE001 - e.g. a store locked for long: wait, then try again
                 log.exception("claim failed")
                 info["errors"] += 1
                 if once:
@@ -306,7 +309,7 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
                 continue
             try:
                 res = process_pull(job) if job.kind == mailbox.PULL_JOB_KIND else process(job)
-            except Exception as exc:  # noqa: BLE001 - üzemi védőháló: a feladat lezárul, a hurok fut tovább
+            except Exception as exc:  # noqa: BLE001 - operational safety net: the job is closed, the loop carries on
                 log.exception("job %s (%s) failed unexpectedly", job.id, job.kind)
                 info["errors"] += 1
                 res = _fail_unexpected(job, exc)

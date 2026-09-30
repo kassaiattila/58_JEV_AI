@@ -1,8 +1,8 @@
-"""A parancssor és a helyi szolgáltatás közös nézetei (040 K2): ugyanarra a kérésre ugyanaz az adat.
+"""Shared views of the command line and the local service (040 K2): the same request gets the same data.
 
-Réteg: felület/CLI → **ez** (alkalmazási művelet: olvasó összeállítások) → `jav.work`, `jav.corrections`,
-`jav.runtime` (üzleti szabályok). Itt nincs szabály, csak összeállítás és JSON-alak: a pénz `Decimal`-ként szövegként
-megy ki (nem lebegőpontosan), a dátum ISO-szövegként.
+Layer: UI/CLI → **this** (application operation: read-only assemblies) → `jav.work`, `jav.corrections`,
+`jav.runtime` (business rules). There are no rules here, only assembly and JSON shape: money goes out as a `Decimal`
+rendered as text (not as a float), dates as ISO text.
 """
 
 from __future__ import annotations
@@ -16,12 +16,13 @@ from jav.runtime import calls, worker
 
 
 def jsonable(value: Any) -> Any:
-    """Közös JSON-alak mindkét felületnek: `Decimal` és dátum szövegként, ékezet megtartva."""
+    """Shared JSON shape for both interfaces: `Decimal` and dates as text, accents preserved."""
     return json.loads(json.dumps(value, ensure_ascii=False, default=str))
 
 
 def recipe_catalog() -> list[dict[str, Any]]:
-    """A receptek a felületnek: a típuscsomagból vett választék (`allowed_from`) kibontva `allowed` listává."""
+    """The recipes for the UI: the choices taken from the type packs (`allowed_from`) expanded into an `allowed`
+    list."""
     out = []
     for r in work.recipes():
         params = {k: ({**spec, "allowed": sorted(typepack.keys())} if spec.get("allowed_from") == "typepacks" else spec)
@@ -31,14 +32,16 @@ def recipe_catalog() -> list[dict[str, Any]]:
 
 
 def recipe_help() -> dict[str, Any]:
-    """063: a receptek magyarázata a felületnek (`configs/recipe_help.json`): receptenként mikor való, beállításonként
-    és választható értékenként mit jelent. Külön a recepttől, hogy a recept ujjlenyomata ne változzon."""
+    """063: the recipe explanations for the UI (`configs/recipe_help.json`): per recipe, when it is suitable; per
+    setting and selectable value, what it means. Kept apart from the recipe so that the recipe's fingerprint does not
+    change."""
     data = cfg.load("recipe_help")
     return jsonable({"recipes": data["recipes"], "params": data["params"]})
 
 
 def item_titles(items: list[dict[str, Any]]) -> dict[str, str]:
-    """Olvasható tételcím a felületnek (048 T2): levélnél a tárgy és a feladó (a fájlnév mindig `message.json`)."""
+    """Readable item title for the UI (048 T2): for an email, the subject and the sender (the file name is always
+    `message.json`)."""
     out, subjects = {}, {}
     for i in items:
         if i.get("kind") != "email":
@@ -49,7 +52,7 @@ def item_titles(items: list[dict[str, Any]]) -> dict[str, str]:
             continue
         subjects[i["item_id"]] = (m.get("subject") or "(tárgy nélkül)")[:100]
         out[i["item_id"]] = f"{subjects[i['item_id']]} — {m.get('sender_name') or m.get('sender') or '?'}"
-    for i in items:  # 058 K5.2: a csatolmány eredete a nevében (melyik levélből jött)
+    for i in items:  # 058 K5.2: the attachment's origin in its name (which email it came from)
         if i.get("parent_item_id") in subjects:
             out[i["item_id"]] = f"{Path(i['source_path']).name} (a levél csatolmánya: {subjects[i['parent_item_id']]})"
     return out
@@ -59,11 +62,12 @@ ACTIVE = ("queued", "running")
 
 
 def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool | None = None) -> dict[str, Any]:
-    """A csomag következő lépése (057, a V4 `sessionAction.ts` mintájára): egy helyen számolva, ezt mutatja a lista
-    oszlopa és a csomag fejlécének gombja is. `stage`: a csomag szakasza (process / review / result), ahová a lépés visz.
-    A `ready` csak futás nélküli csomagnál kell (a készenlét-vizsgálat drága: a fájlok ujjlenyomatát számolja)."""
+    """The package's next step (057, after the V4 `sessionAction.ts` pattern): computed in one place, shown both by the
+    list column and by the button in the package header. `stage`: the package stage (process / review / result) the
+    step leads to. `ready` is needed only for a package without runs (the readiness check is expensive: it computes the
+    files' fingerprints)."""
     def step(code: str, label: str, stage: str, **params: Any) -> dict[str, Any]:
-        # a felület a kódból és a paraméterekből fordít (057 nyelvváltás); a `label` a magyar felirat
+        # the UI translates from the code and the parameters (057 language switch); `label` is the Hungarian caption
         return {"code": code, "label": label, "stage": stage, "params": params}
 
     items = wp["items"] if isinstance(wp.get("items"), list) else None
@@ -94,7 +98,7 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
     ready = work.readiness(wp_id)
     runs = work.run_rows(wp_id)
     extra = {}
-    if wp["source_kind"] == "mailbox":  # 058 K5.2: a 058 előtti levélcsomagba a PDF-csatolmányok utólag felvehetők
+    if wp["source_kind"] == "mailbox":  # 058 K5.2: PDF attachments can be added later to a pre-058 email package
         from jav import mailbox
 
         extra["attachments_missing"] = len(mailbox.missing_attachments(wp))
@@ -104,16 +108,16 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
 
 
 def workpackage_list(*, include_archived: bool = False) -> list[dict[str, Any]]:
-    """Lista: név, forrás, tételszám, recept, utolsó futás és a tételek nyitott teendő-okainak száma."""
-    with store.session():  # 061: egy kapcsolat a csomagonkénti lekérdezésekre
+    """List: name, source, item count, recipe, last run and the number of the items' open to-do reasons."""
+    with store.session():  # 061: one connection for the per-package queries
         return _workpackage_list(include_archived=include_archived)
 
 
 def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
     rows = work.list_workpackages(include_archived=include_archived)
     packages = {r["id"]: work.get(r["id"]) for r in rows}
-    # az iratokon nyitott összes teendő (korábbi futásokéval együtt) — tájékoztató; a lista a legutóbbi futásét mutatja;
-    # egy lekérdezéssel az összes csomag összes tételére (061: tételenkénti kapcsolódás helyett)
+    # all to-dos open on the documents (including earlier runs') — for information; the list shows the latest run's;
+    # one query for all items of all packages (061: instead of a connection per item)
     open_by_subject = store.review_open_reasons_many(
         [work.review_subject(i) for wp in packages.values() for i in wp["items"]])
     for r in rows:
@@ -124,13 +128,13 @@ def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
         r["open_reasons"] = last["open_reasons"] if last else 0
         r["last_status"] = last["status"] if last else None
         r["last_activity"] = (last["finished_at"] or last["created_at"]) if last else r["created_at"]
-        # futás nélkül nem vizsgáljuk a készenlétet (drága); a lépés ekkor „indítás” vagy „recept”
+        # without a run we do not check readiness (expensive); the step is then "start" or "recipe"
         r["next"] = next_step(wp, last)
     return jsonable(rows)
 
 
 def workpackage_reviews(wp_id: str) -> dict[str, Any]:
-    """A csomag tételeinek nyitott teendő-okai tételenként (a felület Teendők füle)."""
+    """The open to-do reasons of the package's items, per item (the UI's To-dos tab)."""
     wp = work.get(wp_id)
     open_by_subject = store.review_open_reasons_many([work.review_subject(i) for i in wp["items"]])
     items = [{"item_id": i["item_id"], "source_path": i["source_path"],
@@ -140,20 +144,21 @@ def workpackage_reviews(wp_id: str) -> dict[str, Any]:
 
 
 def assignment_view(wp_id: str) -> dict[str, Any]:
-    work.get(wp_id)  # ismeretlen csomagnál KeyError
+    work.get(wp_id)  # KeyError for an unknown package
     return jsonable({"workpackage_id": wp_id, "assignment": work.current_assignment(wp_id),
                      "history": work.assignment_history(wp_id)})
 
 
 def result_tables(run_id: str) -> list[str]:
-    """A futás eredményének értelmes nézetei (058): üres nézet nem jelenik meg a felületen. Iratok és adatpontok, ha
-    van kinyert irat; tételsorok, ha van tételes lista; közmű-költség, ha van közmű-számla."""
+    """The meaningful views of the run's result (058): an empty view does not appear in the UI. Documents and data
+    points if there is an extracted document; line items if there is an itemised list; utility cost if there is a
+    utility bill."""
     from jav import datasets, report_utility
 
     records = datasets.run_records(run_id)
     items = work.get_run(run_id)["input"]["items"]
     out = ["emails"] if any(i.get("kind") == "email" for i in items) else []  # 058 K5.1
-    if out:  # 058 K5.3: feladatjavaslat-nézet, ha a futás kért javaslatot
+    if out:  # 058 K5.3: task-proposal view if the run asked for proposals
         from jav import export
 
         if export.task_rows(export.email_records(run_id)):
@@ -167,8 +172,8 @@ def result_tables(run_id: str) -> list[str]:
 
 
 def run_view(run_id: str) -> dict[str, Any]:
-    """Egy futás: tételek, munkasor, keret; a tételek saját nyitott teendő-okai (`open_reasons`) és az iratokon
-    nyitva maradt korábbi okok (`earlier_open_reasons`, csak tájékoztató, a jóváhagyást nem akadályozza)."""
+    """One run: items, queue, budget; the items' own open to-do reasons (`open_reasons`) and the earlier reasons left
+    open on the documents (`earlier_open_reasons`, for information only, they do not block approval)."""
     run = work.get_run(run_id)
     split = work.items_reasons(run_id, run["input"]["items"])
     return jsonable({"run": run, "budget": calls.budget_usage(run_id), "titles": item_titles(run["input"]["items"]),
@@ -187,7 +192,7 @@ def run_list(wp_id: str | None = None, *, limit: int = 50) -> list[dict[str, Any
 
 
 def run_journal(run_id: str) -> dict[str, Any]:
-    """A futás hívásnaplója (fizikai modellhívások, költség) — a felületen csak kibontva látszik."""
+    """The run's call log (physical model calls, cost) — in the UI it is visible only when expanded."""
     work.get_run(run_id)
     return jsonable({"run_id": run_id, "calls": calls.scope_journal(run_id), "budget": calls.budget_usage(run_id)})
 

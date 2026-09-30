@@ -1,4 +1,4 @@
-"""047 T1.0: a csomagformátum tételes listákkal, igen/nem mezővel és felsorolt értékekkel (mesterséges adat)."""
+"""047 T1.0: the pack format with line-item lists, a yes/no field and enumerated values (synthetic data)."""
 
 from datetime import date
 from decimal import Decimal

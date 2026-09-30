@@ -1,4 +1,4 @@
-"""Függési irány (CLAUDE.md §4): a futtató kód nem importál kísérleti kódot (040, K0)."""
+"""Dependency direction (CLAUDE.md §4): runtime code does not import experimental code (040, K0)."""
 
 import ast
 from pathlib import Path
@@ -9,7 +9,7 @@ JAV = Path(__file__).resolve().parents[1] / "jav"
 def _imports(path: Path) -> set[str]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     names: set[str] = set()
-    for node in ast.walk(tree):  # függvényen belüli (késleltetett) importokat is nézzük
+    for node in ast.walk(tree):  # imports inside functions (deferred) are checked too
         if isinstance(node, ast.Import):
             names |= {a.name for a in node.names}
         elif isinstance(node, ast.ImportFrom) and node.module:

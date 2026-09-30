@@ -1,4 +1,4 @@
-"""Páros GPT/JEV-próba: a valódi Burr-gráf G-karja, külön modellfüggőséggel."""
+"""Paired GPT/JEV trial: the G path of the real Burr graph, with a separate model dependency."""
 import pytest
 
 

@@ -1,4 +1,4 @@
-"""A valódi flow-k a közös próba-futtatón: azonos bemenet, tartós folytatás."""
+"""The real flows on the shared trial runner: identical input, durable resume."""
 import json
 import os
 import subprocess
@@ -47,7 +47,7 @@ def test_existing_detection_uses_typed_adapter_and_isolated_store(tmp_path):
         assert store.ledger_for_run("typed")[0]["step"] == "detect"
     assert get_adapter() is original
     assert len(client.requests) == 1
-    # A mindkét ágon használt kanonikus JSON-szöveg nem kap újabb idézőjel-réteget.
+    # The canonical JSON text used on both branches gets no extra layer of quoting.
     assert json.loads(client.requests[0][0])["filename"] == "example.pdf"
 
 
@@ -65,7 +65,7 @@ def test_real_burr_flow_resumes_after_model_and_saves_only_once(tmp_path, monkey
     resumed = run_trial("detect", str(source), tmp_path, "same-run", adapter)
     again = run_trial("detect", str(source), tmp_path, "same-run", adapter)
     assert resumed.final_status == again.final_status == "done"
-    assert len(client.requests) == 1  # A már mentett AI-lépés nem fut újra.
+    assert len(client.requests) == 1  # An AI step that is already saved does not run again.
     with store.use_store(tmp_path / "business.sqlite"):
         assert store.stats()["documents"] == 1
         assert len(store.ledger_for_run("same-run")) == 1
@@ -202,14 +202,14 @@ def _crash_worker(directory, point):
         marker = directory / "crashed"
         if current == point and not marker.exists():
             marker.write_text(current)
-            os._exit(79)  # Valódi folyamatleállás, nincs finally / cleanup.
+            os._exit(79)  # A real process kill, no finally / cleanup.
 
     class Client(DetectClient):
         def system_one(self, **kwargs):
             counter = directory / "calls.json"
             counter.write_text(str(int(counter.read_text())+1 if counter.exists() else 1))
             response = super().system_one(**kwargs)
-            fault("after_wire")  # Külső válasz után, helyi cache / ledger előtt.
+            fault("after_wire")  # After the external answer, before the local cache / ledger.
             return response
 
     adapter = DirectAdapter(JevAdapter(client=Client(), cache_dir=directory / "cache", model="jev-1.13.0"))

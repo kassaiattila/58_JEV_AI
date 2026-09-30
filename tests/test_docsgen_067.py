@@ -1,5 +1,5 @@
-"""066 Á45: a generált hívásihely-dokumentáció a 24 beállított hívási helyből csak a 8 kézzel leírtat mutatta, és az
-állapot-pillanatkép az üres etalonfájlt „0/0 = 0.0%”-ként írta ki (mintha minden eset rossz lenne)."""
+"""066 Á45: of the 24 configured call sites, the generated call-site documentation showed only the 8 described by
+hand, and the state snapshot printed the empty golden file as "0/0 = 0.0%" (as if every case were wrong)."""
 
 from __future__ import annotations
 

@@ -1,21 +1,23 @@
-"""Parancssor: `python -m jav.cli <parancs>`.
+"""Command line: `python -m jav.cli <command>`.
 
-  candidates <pdf>            jelöltek fajtánként (API nélkül)
-  recall                      jelölt-recall a golden készleten (API nélkül) - az S-kar plafonja
-  run <pdf> --arm S|G         egy számla végigfuttatása a Burr-gráfon
-  golden --arm S|G            golden eval egy karra
-  determinism --arm S --n 5   ismételt futások, mezőnkénti egyezés (cache nélkül)
-  store                       adattár statisztika
-  detect <pdf> | detect-golden | detect-determinism --n 3 | detect-corpus <mappa> | detect-sample <mappa>   M1 kategorizálás
-  email <mappa> | email-inbox <root> | email-golden | email-determinism --n 3   M3 e-mail szándék
-  email-ingest-server [--port 8901] [--run]   fogadó a régi 10_AIFLOW_V4 outlook_bridge.ps1-hez
-  eval-report [fájlok]        közös eval-riport a runs/*.jsonl-ből ($0): sávok, kalibráció, policy-újraértékelés, determinizmus
-  configs                     configs/*.json verziók + config_hash (konfig mint adat)
-  flows [--check]             Burr-kontraktok lintje + FLOW.md generálás (docs/flows/)
-  docs                        generált doksik: callsite-katalógus + flow-kontraktok
-  admin [--write]             vezérlő képernyő: konfigok, modellek, lint, store, golden, review; --write -> docs/STATE.md
-  preflight [--skip-pytest]   session-indító ellenőrzés: pytest + lint + konfigok + handoff-frissesség + STATE.md
-  recipes | wp-* | run-* | worker   munkacsomag → futtatás (040 K1; részletek: jav/work_cli.py)
+  candidates <pdf>            candidates by kind (no API)
+  recall                      candidate recall on the golden set (no API) - the ceiling of the S path
+  run <pdf> --arm S|G         runs one invoice through the Burr graph
+  golden --arm S|G            golden eval for one path
+  determinism --arm S --n 5   repeated runs, per-field agreement (no cache)
+  store                       store statistics
+  detect <pdf> | detect-golden | detect-determinism --n 3 | detect-corpus <folder> | detect-sample <folder>
+                              M1 categorisation
+  email <folder> | email-inbox <root> | email-golden | email-determinism --n 3   M3 email intent
+  email-ingest-server [--port 8901] [--run]   receiver for the legacy 10_AIFLOW_V4 outlook_bridge.ps1
+  eval-report [files]         shared eval report from runs/*.jsonl ($0): bands, calibration, policy re-evaluation,
+                              determinism
+  configs                     configs/*.json versions + config_hash (config as data)
+  flows [--check]             Burr contract lint + FLOW.md generation (docs/flows/)
+  docs                        generated docs: call-site catalogue + flow contracts
+  admin [--write]             control screen: configs, models, lint, store, golden, review; --write -> docs/STATE.md
+  preflight [--skip-pytest]   session-start check: pytest + lint + configs + handoff freshness + STATE.md
+  recipes | wp-* | run-* | worker   work package → run (040 K1; details: jav/work_cli.py)
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ import json
 import sys
 from pathlib import Path
 
-import jav  # noqa: F401  - UTF-8 kimenet beállítása
+import jav  # noqa: F401  - sets up UTF-8 output
 
 
 def cmd_candidates(args: argparse.Namespace) -> int:
@@ -36,7 +38,7 @@ def cmd_candidates(args: argparse.Namespace) -> int:
 
     pack = get_pack(args.type)
     profile = pack.candidate_profile
-    pdf = read_document(args.pdf)  # szövegréteg, vagy OCR (gyorsítótárból)
+    pdf = read_document(args.pdf)  # text layer, or OCR (from the cache)
     print(f"{pdf.path}: {pdf.page_count} oldal, {len(pdf.lines)} sor, szövegréteg={pdf.has_text_layer}, szöveg-forrás={pdf.text_source}, jelölt-profil={profile}")
     if args.lines:
         for ln in pdf.layout:
@@ -61,7 +63,8 @@ def cmd_recall(args: argparse.Namespace) -> int:
 
 
 def cmd_ocr(args: argparse.Namespace) -> int:
-    """OCR egy PDF-en (vagy a motor állapota): szöveg-forrás, minőségjelek, sorok. Diagnózishoz: mit lát a flow egy szkennelt számlán."""
+    """OCR on one PDF (or the engine status): text source, quality signals, lines. For diagnosis: what the flow sees
+    on a scanned invoice."""
     from jav import ocr
 
     if not args.pdf:
@@ -88,7 +91,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     if state.picks:
         print("\n--- picks")
         for f, p in state.picks.items():
-            conf = "-" if p.confidence is None else f"{p.confidence:.2f}"  # 069: jelölt nélkül nincs ítélet
+            conf = "-" if p.confidence is None else f"{p.confidence:.2f}"  # 069: no verdict without a candidate
             present = "" if p.present_p is None else f" present={p.present_p:.2f}"
             print(f"  {f:18} {str(p.label)!r:40} conf={conf} n={p.n_options}{present} [{p.request_id}]")
     if state.verdicts:
@@ -214,7 +217,7 @@ def cmd_backup(args: argparse.Namespace) -> int:
     from jav import backup
     from jav.runtime import applog
 
-    if args.scheduled:  # 064: a napi ütemezett mentés a configs/service.json `backup` szakasza szerint
+    if args.scheduled:  # 064: the daily scheduled backup, per the `backup` section of configs/service.json
         applog.setup("backup")
         m = backup.scheduled()
     else:
@@ -317,7 +320,7 @@ def cmd_email_sample(args: argparse.Namespace) -> int:
 
 
 def cmd_flows(args: argparse.Namespace) -> int:
-    """Burr-kontraktok: lint (kontrakt <-> élő gráf <-> forrás) + FLOW.md / FLOW.mmd generálás a docs/flows/ alá."""
+    """Burr contracts: lint (contract <-> live graph <-> source) + FLOW.md / FLOW.mmd generation under docs/flows/."""
     from jav import contract, flow, flow_detect, flow_email, flow_learning, flow_email_learning
 
     targets = [
@@ -340,7 +343,7 @@ def cmd_flows(args: argparse.Namespace) -> int:
 
 
 def cmd_docs(args: argparse.Namespace) -> int:
-    """Generált doksik: docs/flows (kontraktok) + docs/callsites (Jev-hívási helyek)."""
+    """Generated docs: docs/flows (contracts) + docs/callsites (JEV call sites)."""
     from jav import docsgen
 
     for p in docsgen.write_callsite_docs():
@@ -371,7 +374,7 @@ def cmd_data_guard(args: argparse.Namespace) -> int:
 
     found = data_guard.scan_tracked(PROJECT_ROOT, data_guard.load_guard(PROJECT_ROOT))
     print(data_guard.report(found, "a kiadás") or "adatőr: a verziókövetett fájlokban nincs találat")
-    if args.all:  # a tűrt ismert értékek helye is (maszkolva)
+    if args.all:  # the locations of the tolerated known values too (masked)
         for f in found:
             if f.known:
                 print(f.describe())

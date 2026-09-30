@@ -1,8 +1,8 @@
-"""Tartós adattár: SQLite (`store/jav.sqlite`, git-ignorált - PII-s adat).
+"""Durable store: SQLite (`store/jav.sqlite`, git-ignored - contains PII).
 
-Táblák (ROADMAP §2): documents, datapoints, emails, review_queue, ledger, golden_labels.
-Séma-verzió a `meta` táblában; bővítés csak additív (új oszlop / tábla), soha nem destruktív migráció.
-Egyszerű függvény-API, nincs ORM: minden író függvény egy tranzakció.
+Core tables (ROADMAP §2): documents, datapoints, emails, review_queue, ledger, golden_labels.
+Schema version in the `meta` table; extensions are additive only (new column / table), never a destructive migration.
+Simple function API, no ORM: every writer function is one transaction.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ _scoped_path: ContextVar[Path | None] = ContextVar("jav_scoped_store", default=N
 
 @contextmanager
 def use_store(path: Path):
-    """Futáshelyi adattár, globális átállítás nélkül."""
+    """Run-local store, without switching the global one."""
     token = _scoped_path.set(path)
     try:
         yield
@@ -185,13 +185,13 @@ _EXTRA_MIGRATIONS: dict[str, Any] = {}
 
 
 def register_migration(name: str, fn: Any) -> None:
-    """Modul-saját additív migráció (pl. új oszlop egy `register_schema`-val létrehozott táblán); minden kapcsolódáskor fut,
-    ezért idempotensnek kell lennie."""
+    """A module's own additive migration (e.g. a new column on a table created with `register_schema`); it can run on
+    any connection (see `_initialized`), so it must be idempotent."""
     _EXTRA_MIGRATIONS[name] = fn
 
 
 def register_schema(name: str, ddl: str) -> None:
-    """Egy modul saját táblái (pl. jav.runtime.queue); minden kapcsolódáskor idempotensen lefut (CREATE ... IF NOT EXISTS)."""
+    """A module's own tables (e.g. jav.runtime.queue); runs idempotently when connecting (CREATE ... IF NOT EXISTS)."""
     _EXTRA_SCHEMAS[name] = ddl
 
 
@@ -204,18 +204,19 @@ def _json(v: Any) -> str:
 
 
 def current_path() -> Path:
-    """Az éppen használt adattár fájlja (futáshelyi vagy alapértelmezett); mellé kerülnek a futtatási állapotfájlok."""
+    """The file of the store currently in use (run-local or default); the runtime state files are placed next to it."""
     return _scoped_path.get() or STORE_PATH
 
 
 def active_path() -> Path:
-    """A most használt adattár útvonala (gyorsítótár-kulcshoz: két adattár sora ne keveredjen)."""
+    """Path of the store currently in use (for cache keys, so that rows of two stores do not mix)."""
     return _scoped_path.get() or STORE_PATH
 
 
-# Adattáranként az utolsó szerkezet-ellenőrzés kulcsa: (SQLite `schema_version`, a regisztrált modul-sémák és -migrációk
-# nevei). Ha egyik sem változott, a kapcsolódás nem futtatja újra a sémát és a migrációkat (061: előtte minden kapcsolódás
-# ~7 ms volt, a munkacsomag-lista egy lekérése ~3 s). Külső sémaváltozás (pl. tábla eldobása) és új fájl is új kulcs.
+# Per store, the key of the last structure check: (SQLite `schema_version`, the names of the registered module schemas
+# and migrations). If neither has changed, connecting does not re-run the schema and the migrations (061: before this,
+# every connection took ~7 ms and one fetch of the work package list ~3 s). An external schema change (e.g. a dropped
+# table) and a new file also give a new key.
 _initialized: dict[str, tuple[int, tuple[str, ...]]] = {}
 
 
@@ -224,7 +225,7 @@ def _registry_key() -> tuple[str, ...]:
 
 
 def _initialize(conn: sqlite3.Connection) -> None:
-    """Séma + additív migrációk; idempotens."""
+    """Schema + additive migrations; idempotent."""
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(_SCHEMA)
     for ddl in _EXTRA_SCHEMAS.values():
@@ -232,8 +233,8 @@ def _initialize(conn: sqlite3.Connection) -> None:
     try:
         _run_migrations(conn)
     except sqlite3.OperationalError as exc:
-        # 063: a szolgáltatás és a feldolgozó egyszerre indulhat egy frissítés után; ha a másik közben felvette ugyanazt
-        # az oszlopot, a második kör már nem talál teendőt (a migrációk a meglévő oszlopot kihagyják)
+        # 063: the service and the worker may start at the same time after an update; if the other one has added the
+        # same column meanwhile, the second round finds nothing left to do (the migrations skip existing columns)
         if "duplicate column name" not in str(exc):
             raise
         conn.rollback()
@@ -253,10 +254,10 @@ _shared: ContextVar[tuple[str, sqlite3.Connection] | None] = ContextVar("jav_sha
 
 @contextmanager
 def session() -> Iterator[None]:
-    """Egy kapcsolat a blokk összes `connect()` hívására ugyanazon az adattáron (061: a listanézetek és az eredmény-
-    összeállítás elemenként nyitott-zárt kapcsolatai helyett; egy nyitás-zárás ~3 ms). A belső `connect()` blokkok
-    ugyanúgy véglegesítenek (commit), hibánál visszavonnak (rollback), mint önálló kapcsolatnál. Egymásba ágyazva a
-    külső kapcsolat marad; szálak között nem osztható (a kapcsolat a nyitó szálé)."""
+    """One connection for all `connect()` calls in the block on the same store (061: instead of the per-element
+    open/close connections of the list views and the result assembly; one open-close costs ~3 ms). The inner
+    `connect()` blocks commit, and roll back on error, just as with a standalone connection. When nested, the outer
+    connection is kept; it cannot be shared between threads (the connection belongs to the thread that opened it)."""
     if _shared.get() is not None:
         yield
         return
@@ -271,7 +272,7 @@ def session() -> Iterator[None]:
 
 @contextmanager
 def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
-    # híváskor oldjuk fel, hogy tesztben átirányítható legyen (monkeypatch jav.store.STORE_PATH)
+    # resolved at call time so that tests can redirect it (monkeypatch jav.store.STORE_PATH)
     path = path or _scoped_path.get() or STORE_PATH
     shared = _shared.get()
     if shared is not None and shared[0] == str(path):
@@ -298,7 +299,7 @@ def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
-    """Additív oszlop-migrációk meglévő adattáron (a CREATE TABLE IF NOT EXISTS nem bővít)."""
+    """Additive column migrations on an existing store (CREATE TABLE IF NOT EXISTS does not add columns)."""
     cols = {r[1] for r in conn.execute("PRAGMA table_info(ledger)")}
     if "config_hash" not in cols:
         conn.execute("ALTER TABLE ledger ADD COLUMN config_hash TEXT")
@@ -309,22 +310,22 @@ def _migrate(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE datapoints ADD COLUMN record_conf REAL")
     if "evidence" not in dcols:
         conn.execute("ALTER TABLE datapoints ADD COLUMN evidence TEXT")
-    if "provenance" not in dcols:  # 045: mezőnkénti forráshely (oldal, keretek, alternatívák)
+    if "provenance" not in dcols:  # 045: per-field source location (page, boxes, alternatives)
         conn.execute("ALTER TABLE datapoints ADD COLUMN provenance TEXT")
-    if "source_layer_id" not in dcols:  # 045: melyik szórétegre vonatkoznak a keretek
+    if "source_layer_id" not in dcols:  # 045: which word layer the boxes refer to
         conn.execute("ALTER TABLE datapoints ADD COLUMN source_layer_id TEXT")
     tcols = {r[1] for r in conn.execute("PRAGMA table_info(email_task_decisions)")}
-    for col in ("done_by", "done_at"):  # 062: kézi „elvégezve” az elfogadott feladaton
+    for col in ("done_by", "done_at"):  # 062: manual "done" mark on an accepted task
         if tcols and col not in tcols:
             conn.execute(f"ALTER TABLE email_task_decisions ADD COLUMN {col} TEXT")
     ecols = {r[1] for r in conn.execute("PRAGMA table_info(email_results)")}
-    if ecols and "tasks" not in ecols:  # 058 K5.3: a feladatjavaslat a levél-eredmény mellett
+    if ecols and "tasks" not in ecols:  # 058 K5.3: the task proposal next to the email result
         conn.execute("ALTER TABLE email_results ADD COLUMN tasks TEXT")
     doc_cols = {r[1] for r in conn.execute("PRAGMA table_info(documents)")}
-    for col, typ in (("detail_type", "TEXT"), ("detail_conf", "REAL"), ("detail_method", "TEXT")):  # 047 T1.2: részletes típus
+    for col, typ in (("detail_type", "TEXT"), ("detail_conf", "REAL"), ("detail_method", "TEXT")):  # 047 T1.2: detailed type
         if col not in doc_cols:
             conn.execute(f"ALTER TABLE documents ADD COLUMN {col} {typ}")
-    # Régi (okonkénti sor nélküli) review-tételek okainak átvétele; a lezárt tétel okai a tétel státuszát kapják.
+    # Take over the reasons of old review items (no per-reason rows); a closed item's reasons get the item's status.
     legacy = conn.execute(
         "SELECT q.id, q.reasons, q.status, q.run_id, q.created_at, q.decided_at FROM review_queue q"
         " WHERE q.reasons NOT IN ('', '[]') AND NOT EXISTS (SELECT 1 FROM review_reasons r WHERE r.review_id = q.id)"
@@ -338,14 +339,14 @@ def _migrate(conn: sqlite3.Connection) -> None:
             )
 
 
-# --- írók ---------------------------------------------------------------------------------
+# --- writers ------------------------------------------------------------------------------
 
 
 def save_artifact(kind: str, artifact_id: str, payload: dict) -> None:
-    """Változatlan futás-/értékelési bizonylat; azonos ismétlés megengedett, felülírás nem."""
+    """Immutable run/evaluation record; an identical repeat is allowed, overwriting is not."""
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, allow_nan=False)
     with connect() as c:
-        c.commit()  # A connect séma-meta inicializálását lezárjuk a saját tranzakció előtt.
+        c.commit()  # Commit the schema/meta initialisation done by connect before our own transaction.
         c.execute("BEGIN IMMEDIATE")
         previous = c.execute("SELECT payload FROM artifacts WHERE kind=? AND artifact_id=?", (kind, artifact_id)).fetchone()
         if previous:
@@ -415,7 +416,7 @@ def upsert_document(
             "  page_count=COALESCE(excluded.page_count, documents.page_count),"
             "  year=COALESCE(excluded.year, documents.year),"
             "  last_run_id=COALESCE(excluded.last_run_id, documents.last_run_id),"
-            # 047: a részletes típus egy újabb döntése (módszerrel) felülírja a korábbit, akkor is, ha most nyitva maradt
+            # 047: a newer detailed-type decision (with a method) overrides the earlier one, even if it is open now
             "  detail_type=CASE WHEN excluded.detail_method IS NOT NULL THEN excluded.detail_type ELSE documents.detail_type END,"
             "  detail_conf=CASE WHEN excluded.detail_method IS NOT NULL THEN excluded.detail_conf ELSE documents.detail_conf END,"
             "  detail_method=COALESCE(excluded.detail_method, documents.detail_method)",
@@ -456,7 +457,8 @@ def insert_datapoints(
     provenance: dict[str, Any] | None = None,
     source_layer_id: str | None = None,
 ) -> None:
-    """`record_conf`: a rekord leggyengébb Jev-ítélete (S-kar); `evidence`: mezőnként sor-szám + jelenlét-P (review-hoz)."""
+    """`record_conf`: the record's weakest JEV judgement (S path); `evidence`: per field, line number + presence P (for
+    review)."""
     with connect() as c:
         c.execute(
             "INSERT OR REPLACE INTO datapoints(run_id, doc_id, doc_type, arm, datapoints, field_conf, validation, route, review_reasons, final_status, config_hash, record_conf, evidence, provenance, source_layer_id, created_at)"
@@ -469,7 +471,8 @@ def insert_datapoints(
 def upsert_email_result(*, run_id: str, message_id: str, intent: str | None, intent_conf: float | None,
                         signals: dict[str, Any] | None, next_flow: str | None, attachments: list[dict[str, Any]],
                         body: dict[str, Any] | None, tasks: dict[str, Any] | None = None) -> None:
-    """058 K5.1: a levél-eredmény a futás saját soraként (ismételt futás nem írja felül a korábbit); K5.3: a feladatjavaslat."""
+    """058 K5.1: the email result as the run's own row (a repeated run does not overwrite the earlier one); K5.3: the
+    task proposal."""
     with connect() as c:
         c.execute("INSERT INTO email_results(run_id, message_id, intent, intent_conf, signals, next_flow, attachments, body, tasks, created_at)"
                   " VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(run_id) DO UPDATE SET message_id=excluded.message_id,"
@@ -486,13 +489,13 @@ def email_task_decide(run_id: str, index: int, *, decision: str, actor: str, not
         c.execute("INSERT INTO email_task_decisions(run_id, task_index, decision, actor, note, decided_at) VALUES (?,?,?,?,?,?)"
                   " ON CONFLICT(run_id, task_index) DO UPDATE SET decision=excluded.decision, actor=excluded.actor,"
                   " note=excluded.note, decided_at=excluded.decided_at,"
-                  # 062: az elvetés az elvégzést is törli (elvégezve csak elfogadott feladat lehet)
+                  # 062: rejecting also clears the done mark (only an accepted task can be done)
                   " done_by=CASE WHEN excluded.decision='accepted' THEN done_by END,"
                   " done_at=CASE WHEN excluded.decision='accepted' THEN done_at END", (run_id, index, decision, actor, note, _now()))
 
 
 def email_task_done(run_id: str, index: int, *, actor: str, done: bool) -> bool:
-    """062: az elfogadott feladat elvégezve (vagy vissza); False, ha a feladat nincs elfogadva."""
+    """062: marks an accepted task as done (or undoes it); False if the task is not accepted."""
     with connect() as c:
         cur = c.execute("UPDATE email_task_decisions SET done_by=?, done_at=? WHERE run_id=? AND task_index=? AND decision='accepted'",
                         (actor if done else None, _now() if done else None, run_id, index))
@@ -505,7 +508,7 @@ def email_task_decisions(run_id: str) -> dict[int, dict[str, Any]]:
 
 
 def email_result(run_id: str) -> dict[str, Any] | None:
-    """Egy folyamat-futás levél-eredménye (None, ha a futás még nem mentette, vagy 058 előtti)."""
+    """The email result of one flow run (None if the run has not saved it yet, or it predates 058)."""
     with connect() as c:
         row = c.execute("SELECT * FROM email_results WHERE run_id=?", (run_id,)).fetchone()
     if row is None:
@@ -531,7 +534,7 @@ def upsert_email(
     next_flow: str | None,
     run_id: str | None,
 ) -> None:
-    """M3: egy levél egy sor; újrafuttatásnál felülírjuk (a run_id mutatja, melyik futásból)."""
+    """M3: one row per email; overwritten on a re-run (run_id shows which run it came from)."""
     with connect() as c:
         c.execute(
             "INSERT INTO emails(message_id, mailbox, sender, subject, received_at, body_excerpt, attachments, intent, intent_conf,"
@@ -547,8 +550,8 @@ def upsert_email(
 
 
 def _sync_review_item(c: sqlite3.Connection, review_id: int, closing_status: str = "superseded") -> None:
-    """A tétel oklistája = a nyitott okai (066: két futás ugyanazon oka egyszer szerepel); ha nincs több nyitott ok, a
-    tétel is lezárul."""
+    """The item's reason list = its open reasons (066: the same reason from two runs appears once); when no open reason
+    is left, the item is closed too."""
     open_reasons = list(dict.fromkeys(r["reason"] for r in c.execute(
         "SELECT reason FROM review_reasons WHERE review_id=? AND status='open' ORDER BY id", (review_id,))))
     if open_reasons:
@@ -558,15 +561,17 @@ def _sync_review_item(c: sqlite3.Connection, review_id: int, closing_status: str
                   (closing_status, _now(), review_id))
 
 
-# 066 Á06 (döntés 2026-09-29): a még jóvá nem hagyott éles futás okai rögzítettek: másik futás nem veszi át és nem zárja le
-# őket, így a korábbi éles futás nem hagyható jóvá ellenőrzés nélkül. A futásokat a munkaréteg ismeri (`jav/work.py`), ezért
-# az ellenőrzést ő regisztrálja: `(kapcsolat, futás-azonosító) -> rögzített-e`. Nélküle (régi hívók) nincs rögzítés.
+# 066 Á06 (decision of 2026-09-29): the reasons of a live run that is not yet approved are pinned: another run neither
+# takes them over nor closes them, so the earlier live run cannot be approved without review. Runs are known to the work
+# layer (`jav/work.py`), so it registers the check: `(connection, run ID) -> pinned?`. Without it (old callers) nothing
+# is pinned.
 _pinned_run_check: Callable[[sqlite3.Connection, str], bool] | None = None
 
 
 def begin_immediate(c: sqlite3.Connection) -> None:
-    """Írási zár a blokk elején, még az első olvasás előtt (066 Á32): az olvasás–döntés–írás így két párhuzamos hívás
-    között sem keveredik. Az addigi, még nem véglegesített munkát előbb lezárja (mint a `connect()` blokk vége)."""
+    """Write lock at the start of the block, before the first read (066 Á32): this way read–decide–write does not
+    interleave even between two parallel calls. Any work not yet committed is committed first (like the end of a
+    `connect()` block)."""
     if c.in_transaction:
         c.commit()
     c.execute("BEGIN IMMEDIATE")
@@ -578,12 +583,13 @@ def set_pinned_run_check(fn: Callable[[sqlite3.Connection, str], bool] | None) -
 
 
 def _run_of(flow_run_id: str | None) -> str:
-    """A futás azonosítója egy tétel-folyamat azonosítójából (`<futás>:<tétel>[-lépcső]` → `<futás>`)."""
+    """The run ID from an item flow ID (`<run>:<item>[-stage]` → `<run>`)."""
     return (flow_run_id or "").split(":", 1)[0]
 
 
 def _pinned_for(c: sqlite3.Connection, reason_run_id: str | None, acting_run_id: str | None) -> bool:
-    """Az ok egy MÁSIK, rögzített futásé: a most dolgozó futás (vagy ismeretlen szereplő) nem veheti át, nem zárhatja le."""
+    """The reason belongs to ANOTHER, pinned run: the run acting now (or an unknown actor) may neither take it over nor
+    close it."""
     if _pinned_run_check is None or not reason_run_id:
         return False
     if acting_run_id and _run_of(reason_run_id) == _run_of(acting_run_id):
@@ -600,12 +606,12 @@ def review_enqueue(
     payload: dict[str, Any] | None = None,
     producer: str | None = None,
 ) -> int:
-    """Egy alanyhoz egy nyitott tétel, okonként külön sorral.
+    """One open item per subject, with a separate row per reason.
 
-    Az új okok hozzáadódnak (duplikátum nélkül); más lépés okai érintetlenek maradnak. Ha `producer` meg van adva,
-    ugyanannak a lépésnek az új listában már nem szereplő nyitott okai `superseded`-dé válnak (újrafuttatás).
-    `producer=None` tisztán additív (a régi hívók viselkedése, mínusz a felülírás). 066 Á06: egy másik, még jóvá nem
-    hagyott éles futás okát ez a futás nem veszi át és nem írja felül; ugyanarra az okra saját sort kap.
+    New reasons are added (without duplicates); other steps' reasons are left untouched. If `producer` is given, the
+    same step's open reasons that are missing from the new list become `superseded` (re-run). `producer=None` is purely
+    additive (the old callers' behaviour, minus the overwrite). 066 Á06: this run neither takes over nor overwrites a
+    reason of another live run that is not yet approved; it gets its own row for the same reason.
     """
     who = producer or "legacy"
     with connect() as c:
@@ -639,7 +645,8 @@ def review_enqueue(
                 present[r["reason"]] = r["id"]
         for reason in wanted:
             if reason in present:
-                # 045: az újra felvetett nyitott ok a legutóbbi felvevő futásé (a futás saját teendői ebből számolódnak)
+                # 045: a re-raised open reason belongs to the latest run that raised it
+                # (the run's own to-dos are counted from this)
                 c.execute("UPDATE review_reasons SET run_id=?, producer=? WHERE id=?", (run_id, who, present[reason]))
             else:
                 c.execute("INSERT INTO review_reasons(review_id, reason, producer, run_id, status, created_at) VALUES (?,?,?,?,'open',?)",
@@ -657,9 +664,10 @@ def review_close(
     producer: str | None = None,
     run_id: str | None = None,
 ) -> int:
-    """Nyitott okok lezárása egy alanyon: az `reason_prefix`-szel kezdődő és/vagy a `producer` által felvett okok
-    (szűrő nélkül mind). Más okok nyitva maradnak; a tétel csak az utolsó nyitott okkal zárul. Visszaadja a lezárt okok számát.
-    066 Á06: `run_id` a lezárást végző futás; egy másik, még jóvá nem hagyott éles futás okát nem zárja le."""
+    """Closes open reasons on a subject: those starting with `reason_prefix` and/or raised by `producer` (all of them
+    without a filter). Other reasons stay open; the item closes only with its last open reason. Returns the number of
+    reasons closed. 066 Á06: `run_id` is the run doing the closing; it does not close a reason of another live run that
+    is not yet approved."""
     with connect() as c:
         begin_immediate(c)
         items = [r["id"] for r in c.execute(
@@ -679,7 +687,8 @@ def review_close(
 
 
 def review_resolve(reason_id: int, *, actor: str, resolution: dict[str, Any] | None = None, note: str | None = None) -> None:
-    """Emberi döntés egyetlen okra: szerző, tartalom, megjegyzés. Már lezárt ok nem zárható újra (ValueError)."""
+    """Human decision on a single reason: author, content, note. A reason already closed cannot be closed again
+    (ValueError)."""
     with connect() as c:
         begin_immediate(c)
         row = c.execute("SELECT review_id, status FROM review_reasons WHERE id=?", (reason_id,)).fetchone()
@@ -691,7 +700,7 @@ def review_resolve(reason_id: int, *, actor: str, resolution: dict[str, Any] | N
 
 
 def review_open_reasons(subject_kind: str, subject_id: str) -> list[dict[str, Any]]:
-    """Egy alany nyitott okai (id, reason, producer, run_id), felvételi sorrendben."""
+    """A subject's open reasons (id, reason, producer, run_id), in the order they were raised."""
     with connect() as c:
         return [dict(r) for r in c.execute(
             "SELECT r.id, r.reason, r.producer, r.run_id FROM review_reasons r JOIN review_queue q ON q.id = r.review_id"
@@ -699,8 +708,9 @@ def review_open_reasons(subject_kind: str, subject_id: str) -> list[dict[str, An
 
 
 def review_open_reasons_many(subjects: list[tuple[str, str]]) -> dict[tuple[str, str], list[dict[str, Any]]]:
-    """Több alany nyitott okai egy kapcsolattal (061: a listanézetek alanyonkénti lekérdezése helyett); minden kért alany
-    szerepel a kimenetben, ok nélkül üres listával. Az okok sorrendje alanyonként ugyanaz, mint a `review_open_reasons`-é."""
+    """Open reasons of several subjects over one connection (061: instead of the list views' per-subject queries); every
+    requested subject appears in the output, with an empty list if it has no reason. Per subject the reasons are in the
+    same order as in `review_open_reasons`."""
     wanted = list(dict.fromkeys(subjects))
     out: dict[tuple[str, str], list[dict[str, Any]]] = {s: [] for s in wanted}
     if not wanted:
@@ -708,7 +718,7 @@ def review_open_reasons_many(subjects: list[tuple[str, str]]) -> dict[tuple[str,
     with connect() as c:
         for kind in {k for k, _ in wanted}:
             ids = [i for k, i in wanted if k == kind]
-            for start in range(0, len(ids), 500):  # az SQLite paraméterkorlátja alatt
+            for start in range(0, len(ids), 500):  # below SQLite's parameter limit
                 chunk = ids[start:start + 500]
                 for r in c.execute(
                     "SELECT q.subject_id, r.id, r.reason, r.producer, r.run_id FROM review_reasons r"
@@ -720,7 +730,7 @@ def review_open_reasons_many(subjects: list[tuple[str, str]]) -> dict[tuple[str,
     return out
 
 
-# --- olvasók ------------------------------------------------------------------------------
+# --- readers ------------------------------------------------------------------------------
 
 
 def stats() -> dict[str, Any]:

@@ -1,5 +1,5 @@
-"""Adapter-réteg: a flow-k innen hívnak AI-t, soha nem közvetlenül SDK-t.
+"""Adapter layer: flows call AI through here, never through an SDK directly.
 
-- `jev.JevAdapter.ask()`  - Jev (typesafe-sdk) kérés-hash cache-sel és ledgerrel
-- `llm`                    - Pydantic AI (OpenAI) ugyanazzal a ledger-fegyelemmel
+- `jev.JevAdapter.ask()`  - JEV (typesafe-sdk) with a request-hash cache and the ledger
+- `llm`                    - Pydantic AI (OpenAI) under the same ledger discipline
 """

@@ -1,4 +1,4 @@
-"""Saját mesterséges folyó szöveg → Pydantic AI → JEV → tartós Burr; 4+12 híváskorlát."""
+"""Self-authored synthetic running text → Pydantic AI → JEV → durable Burr; 4+12 call limit."""
 from __future__ import annotations
 
 import argparse
@@ -93,7 +93,7 @@ def live():
             run_id=f"{case['id']}-{repeat}"
             kwargs=dict(text=case['text'],directory=OUT,run_id=run_id,adapter=adapter,model=model,config=config)
             started=time.perf_counter()
-            # Valódi Burr-szünet a generálás után, majd ugyanannak a futásnak folytatása.
+            # A real Burr pause after generation, then the continuation of the same run.
             paused=run_learning(**kwargs,halt_after=['generate'])
             final=run_learning(**kwargs)
             elapsed=time.perf_counter()-started
@@ -103,7 +103,7 @@ def live():
             with store.connect(OUT/'business.sqlite') as db:
                 after=db.execute('SELECT count(*) FROM ledger').fetchone()[0]
             assert final==restored and before==after
-            # Egy szándékosan elrontott érték: az idézet és a szerep változatlan.
+            # One deliberately corrupted value: the quote and the role are unchanged.
             batch=ProposalBatch.model_validate(paused['proposals'])
             control_result=None
             if batch.points:

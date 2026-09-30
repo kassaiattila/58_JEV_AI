@@ -1,4 +1,4 @@
-"""Egységes lista-lekérdezés (056 U1): keresés, oszlopszűrők, magyar rendezés, lapozás. Mesterséges adat."""
+"""Unified list query (056 U1): search, column filters, Hungarian sorting, paging. Synthetic data."""
 
 import pytest
 
@@ -26,7 +26,7 @@ def _keys(q: Query) -> list[str]:
 def test_default_query_returns_all_rows_with_counts_and_facets():
     res = run_query(COLS, ROWS, Query())
     assert res["total"] == 5 and res["matched"] == 5 and len(res["rows"]) == 5
-    assert res["facets"]["status"] == ["done", "failed", "needs_review"]  # felsorolt oszlop értékei a szűrőhöz
+    assert res["facets"]["status"] == ["done", "failed", "needs_review"]  # the enum column's values for the filter
     assert [c["key"] for c in res["columns"]] == ["name", "amount", "status", "day"]
 
 
@@ -38,7 +38,7 @@ def test_search_is_case_and_accent_insensitive():
 def test_hungarian_sort_orders_accented_letters_after_base_and_nulls_last():
     assert _keys(Query(sort=[{"col": "name"}])) == ["2", "3", "5", "1", "4"]  # alma, Álom, Ózd, Őz, számla
     by_amount = _keys(Query(sort=[{"col": "amount", "desc": True}]))
-    assert by_amount == ["1", "5", "4", "2", "3"]  # 1200 > 1153 > 80 > -5, üres a végén csökkenőben is
+    assert by_amount == ["1", "5", "4", "2", "3"]  # 1200 > 1153 > 80 > -5, empty last even when descending
     assert _keys(Query(sort=[{"col": "day"}]))[-1] == "3"
 
 

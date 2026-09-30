@@ -1,7 +1,7 @@
-"""Veszteségmentes szövegrészek, a meglévő PDF/OCR-sorok oldaladataival.
+"""Lossless text chunks, carrying the page data of the existing PDF/OCR lines.
 
-Csak forrásfelosztás: egy rész bejárása nem bizonyít teljes adatkinyerést.
-A forráskereső átfedő ablakainak elve, hosszú sorok explicit darabolásával.
+Source splitting only: walking through a chunk does not prove complete data extraction.
+Follows the overlapping-window principle of the source finder, with explicit splitting of long lines.
 """
 from __future__ import annotations
 
@@ -52,10 +52,10 @@ class DocumentPlan(BaseModel):
 
 
 def plan_document(text: str, policy: ChunkPolicy, *, layout: list[LineLayout] | None = None) -> DocumentPlan:
-    """A terv a teljes szöveget fedi; a részkeret túllépésekor nincs részleges terv.
+    """The plan covers the whole text; when the chunk limit is exceeded there is no partial plan.
 
-    Oldalszámot kizárólag az azonos szövegre ellenőrzött soradatból veszünk át.
-    A section_id technikai részazonosító, nem felismert üzleti dokumentumhatár.
+    Page numbers are taken only from line data verified against the same text.
+    section_id is a technical sub-identifier, not a recognised business document boundary.
     """
     policy = ChunkPolicy.model_validate(policy.model_dump())
     if not text.strip():

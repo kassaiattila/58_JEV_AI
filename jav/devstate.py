@@ -1,8 +1,8 @@
-"""Fejlesztési állapot a preflighthoz és a STATE.md-hez: git-állapot és Ruff-jelzésszám (040, K0). API-hívás nincs.
+"""Development state for the preflight and STATE.md: git state and Ruff finding count (040, K0). No API calls.
 
-A Ruff-ellenőrzés „racsni”: az összes jelzés száma nem nőhet a `pyproject.toml` `[tool.jav.lint] max_findings`
-értéke fölé; javítás után az értéket lejjebb kell venni. A régi kód jelzéseit érintett modulonként javítjuk, nem tömegesen.
-(A hook-szkript saját, csak standard könyvtáras git-segédet használ, mert a venv nélkül is fut.)
+The Ruff check is a ratchet: the total number of findings may not rise above `max_findings` in `[tool.jav.lint]` of
+`pyproject.toml`; after a fix the value must be lowered. Findings in old code are fixed module by module as touched, not
+in bulk. (The hook script has its own stdlib-only git helper, because it runs without the venv.)
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ class GitState:
 
 
 def git_state() -> GitState | None:
-    """None, ha nincs git vagy nem repó."""
+    """None if git is missing or this is not a repository."""
     head = _run(["git", "rev-parse", "--short", "HEAD"])
     if head is None or head.returncode != 0:
         return None
@@ -66,7 +66,7 @@ def ruff_executable() -> str | None:
 
 
 def ruff_findings() -> tuple[int, dict[str, int]] | None:
-    """(összes jelzés, szabályonként) a pyproject beállításával; None, ha a Ruff nem érhető el vagy hibázott."""
+    """(total findings, per rule) with the pyproject settings; None if Ruff is unavailable or failed."""
     exe = ruff_executable()
     if exe is None:
         return None
@@ -81,7 +81,7 @@ def ruff_findings() -> tuple[int, dict[str, int]] | None:
 
 
 def lint_verdict(count: int | None, limit: int | None) -> tuple[bool, str]:
-    """A racsni ítélete. Hiányzó Ruff vagy határ nem hiba, csak jelzés."""
+    """The ratchet's verdict. A missing Ruff or limit is not an error, only a notice."""
     if count is None:
         return True, "Ruff nem érhető el (telepítés: uv tool install ruff) - kihagyva"
     if limit is None:

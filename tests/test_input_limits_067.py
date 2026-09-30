@@ -1,8 +1,9 @@
-"""067: bemeneti korlátok — az irat fájlmérete és oldalszáma, az oldalkép képpontszáma (066 Á38).
+"""067: input limits — the document's file size and page count, the page image's pixel count (066 Á38).
 
-Egy óriási oldalméretű vagy több ezer oldalas PDF ne fogyassza el a gép memóriáját: a szövegkinyerés nevesített hibával
-áll meg (a tétel hibás lesz, a futás nem hagyható jóvá), a felismerés teendőt ad, az ellenőrző oldalkép kisebb
-felbontással készül. A korlátok a `configs/service.json` `input_limits` szakaszában vannak. Minden PDF generált, üres.
+A PDF with a huge page size or thousands of pages must not exhaust the machine's memory: text extraction stops with a
+named error (the item fails, the run cannot be approved), recognition gives a to-do, and the page image for checking is
+rendered at a lower resolution. The limits are in the `input_limits` section of `configs/service.json`. Every PDF is
+generated and blank.
 """
 
 from __future__ import annotations
@@ -52,7 +53,7 @@ def test_document_within_the_limits_is_read(tmp_path, tight):
 
 def test_file_over_the_size_limit_is_refused_before_parsing(tmp_path, monkeypatch):
     big = tmp_path / "nagy.pdf"
-    big.write_bytes(b"%PDF-1.4\n" + b"0" * 2_000_000)  # nem is érvényes PDF: meg sem nyitjuk
+    big.write_bytes(b"%PDF-1.4\n" + b"0" * 2_000_000)  # not even a valid PDF: we do not even open it
     monkeypatch.setattr(pdf, "input_limits", lambda: InputLimits(max_document_mb=1.0, max_document_pages=300,
                                                                  max_page_megapixels=40.0))
     with pytest.raises(DocumentTooLarge, match="MB"):
@@ -60,14 +61,14 @@ def test_file_over_the_size_limit_is_refused_before_parsing(tmp_path, monkeypatc
 
 
 def test_oversized_page_image_is_scaled_into_the_pixel_budget(tmp_path, tight):
-    path = _blank_pdf(tmp_path / "plakat.pdf", size_pt=1000.0)  # 144 dpi-n 2000 × 2000 = 4 MP
+    path = _blank_pdf(tmp_path / "plakat.pdf", size_pt=1000.0)  # at 144 dpi 2000 × 2000 = 4 MP
     img = Image.open(io.BytesIO(page_image.render(path, 1, dpi=144)))
     assert img.width * img.height <= 1_000_000
-    assert abs(img.width - img.height) <= 1  # az arány megmarad (a keretek százalékosan kerülnek rá)
+    assert abs(img.width - img.height) <= 1  # the aspect ratio is kept (the boxes are placed on it as percentages)
 
 
 def test_normal_page_image_keeps_the_requested_resolution(tmp_path, tight):
-    path = _blank_pdf(tmp_path / "a4.pdf", size_pt=300.0)  # 144 dpi-n 600 × 600
+    path = _blank_pdf(tmp_path / "a4.pdf", size_pt=300.0)  # at 144 dpi 600 × 600
     img = Image.open(io.BytesIO(page_image.render(path, 1, dpi=144)))
     assert (img.width, img.height) == (600, 600)
 
@@ -76,7 +77,7 @@ def test_ocr_refuses_a_page_over_the_pixel_budget(tmp_path, tight):
     path = _blank_pdf(tmp_path / "plakat.pdf", size_pt=1000.0)
     with pytest.raises(ocr.PageTooLarge) as exc:
         ocr.render_pages(path, tmp_path)
-    assert isinstance(exc.value, ocr.OcrUnavailableError)  # a folyamat teendőt ad („ocr:unavailable:PageTooLarge”)
+    assert isinstance(exc.value, ocr.OcrUnavailableError)  # the process gives a to-do ("ocr:unavailable:PageTooLarge")
     assert not list(tmp_path.glob("p-*.png"))
 
 

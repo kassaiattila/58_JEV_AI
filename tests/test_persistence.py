@@ -1,8 +1,9 @@
-"""062 (Q-szál): a lezárt Burr-állapotmentő más szálon is csendben takarítható el (mesterséges adat, AI-hívás nélkül).
+"""062 (Q-szál): a closed Burr state persister can also be cleaned up quietly on another thread (synthetic data, no AI
+calls).
 
-A Burr `SQLitePersister.__del__` a `cleanup()` után is újra lezárná a kapcsolatot; ha a szemétgyűjtés egy másik szálon
-fut (pl. a helyi szolgáltatás tesztkliensének szálán), az SQLite ezt hibának jelzi. A teljes tesztsorban ez a tanulási
-futtatók után a következő teszt figyelmeztetéseként jelent meg."""
+Burr's `SQLitePersister.__del__` would close the connection again even after `cleanup()`; if garbage collection runs on
+another thread (e.g. the thread of the local service's test client), SQLite reports this as an error. In the full test
+suite this showed up as a warning on the next test after the learning runners."""
 
 import sys
 import threading
@@ -31,7 +32,7 @@ def _collect_on_other_thread(cls, tmp_path) -> list:
 
 def test_plain_burr_persister_complains_when_collected_on_another_thread(tmp_path):
     seen = _collect_on_other_thread(SQLitePersister, tmp_path)
-    assert seen and "same thread" in str(seen[0].exc_value)  # a hiba forrása (ha a Burr javítja, ez a teszt jelez)
+    assert seen and "same thread" in str(seen[0].exc_value)  # the error's source (if Burr fixes it, this test flags it)
 
 
 def test_closing_persister_is_collected_silently_on_another_thread(tmp_path):

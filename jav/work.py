@@ -1,16 +1,16 @@
-"""Munkacsomag → recept → futás (040 K1): a keret üzleti rekordjai és szabályai, felülettől függetlenül.
+"""Work package → recipe → run (040 K1): the framework's business records and rules, independent of the UI.
 
-Fogalmak (docs/GLOSSARY.md): a **munkacsomag** egy forrásból érkezett iratok csoportja, verziózott tartalommal; a
-**recept** a `configs/recipes.json` verziózott leírása; a **futtatás** egy recept a munkacsomag RÖGZÍTETT bemenetén
-(tételenként tartalomhash), próba (`shadow`) vagy éles (`apply`) módban. A V4 mintái: `businessWorkflowApi.ts`
-(hozzárendelés `expected_revision`-nel, készenlét akadályokkal/figyelmeztetésekkel, idempotens indítás, jóváhagyás).
+Terms (docs/GLOSSARY.md): a **work package** is a group of documents from one source, with versioned content; a
+**recipe** is a versioned description in `configs/recipes.json`; a **run** is a recipe on the work package's PINNED
+input (a content hash per item), in trial (`shadow`) or live (`apply`) mode. The V4 patterns: `businessWorkflowApi.ts`
+(assignment with `expected_revision`, readiness with blockers/warnings, idempotent start, approval).
 
-Szabályok:
-- Minden módosítás `expected_revision`-t kér; eltérésnél `RevisionConflict` (nincs csendes felülírás).
-- A futás a hozzárendelés és a bemenet pillanatképét tárolja; későbbi módosítás nem hat rá.
-- Azonos csomag + hozzárendelés-verzió + bemenet + mód ismételt indítása a meglévő futást adja (`deduped`).
-- Jóváhagyás csak éles módban, minden tétel lezárulta és nyitott teendő nélkül.
-- A futás keretét a recept tételenkénti maximuma × tételszám adja (`jav.runtime.calls`, scope = run_id).
+Rules:
+- Every change requires `expected_revision`; on a mismatch, `RevisionConflict` (no silent overwrite).
+- The run stores a snapshot of the assignment and the input; later changes do not affect it.
+- Starting the same package + assignment revision + input + mode again returns the existing run (`deduped`).
+- Approval only in live mode, once every item has finished and with no open to-do.
+- The run's budget is the recipe's per-item maximum × the item count (`jav.runtime.calls`, scope = run_id).
 """
 
 from __future__ import annotations
@@ -118,10 +118,10 @@ CREATE TABLE IF NOT EXISTS run_items (
 
 def _migrate(conn) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(workpackage_items)")}
-    if cols and "parent_item_id" not in cols:  # 058 K5.2: a csatolmány a levelére mutat
+    if cols and "parent_item_id" not in cols:  # 058 K5.2: the attachment points to its email
         conn.execute("ALTER TABLE workpackage_items ADD COLUMN parent_item_id TEXT")
     wcols = {r[1] for r in conn.execute("PRAGMA table_info(workpackages)")}
-    if wcols and "owner" not in wcols:  # 061: a csomag felelőse (a névlista egy neve)
+    if wcols and "owner" not in wcols:  # 061: the person responsible for the package (a name from the name list)
         conn.execute("ALTER TABLE workpackages ADD COLUMN owner TEXT")
 
 
@@ -129,7 +129,8 @@ store.register_migration("work", _migrate)
 
 
 class RevisionConflict(RuntimeError):
-    """A kérés egy korábbi verzióra épült; a hívó töltse újra az állapotot (felületen: 409, a munkapéldány megmarad)."""
+    """The request was based on an earlier revision; the caller should reload the state (in the UI: 409, the working
+    copy is kept)."""
 
 
 class NotReady(RuntimeError):
@@ -143,8 +144,9 @@ def _now() -> str:
 
 
 def _pinned_run(c: sqlite3.Connection, run_id: str) -> bool:
-    """066 Á06 (döntés 2026-09-29): a még jóvá nem hagyott, meg nem szakított éles futás teendő-okai rögzítettek (másik
-    futás nem veszi át, nem zárja le őket); a próbafutás okát továbbra is a legutóbbi futás viszi."""
+    """066 Á06 (decision of 2026-09-29): the to-do reasons of a live run that is not yet approved and not cancelled are
+    pinned (another run does not take them over or close them); a trial run's reason is still carried by the latest
+    run."""
     row = c.execute("SELECT 1 FROM runs WHERE run_id=? AND mode='apply' AND approval IS NULL AND status<>'cancelled'",
                     (run_id,)).fetchone()
     return row is not None
@@ -162,8 +164,9 @@ def sha256_file(path: Path) -> str:
 
 
 def fingerprint(path: Path, *, verify: bool = False) -> str:
-    """A fájl tartalomhash-e. `verify=False`: ha a méret és a módosítási idő a legutóbbi számoláskor ugyanez volt, a
-    megjegyzett érték (058: a csomag megnyitása gyors marad sok irattal is); `verify=True`: mindig teljes számolás."""
+    """The file's content hash. `verify=False`: if the size and modification time were the same at the last
+    computation, the remembered value (058: opening a package stays fast even with many documents); `verify=True`:
+    always a full computation."""
     st = path.stat()
     key = str(path.resolve())
     if not verify:
@@ -184,7 +187,7 @@ def _canon(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
 
 
-# --- receptek ---------------------------------------------------------------------------------------
+# --- recipes ----------------------------------------------------------------------------------------
 
 
 def recipes() -> list[dict[str, Any]]:
@@ -216,11 +219,12 @@ def _validated_params(r: dict[str, Any], params: dict[str, Any]) -> dict[str, An
     return out
 
 
-# --- munkacsomag -------------------------------------------------------------------------------------
+# --- work package ------------------------------------------------------------------------------------
 
 
 def create_workpackage(*, name: str, source_kind: str, source_ref: str | None, owner: str | None = None) -> dict[str, Any]:
-    """`owner` (065 döntés): az új csomag felelőse a létrehozó; név nélküli (gépi) létrehozásnál nincs felelős."""
+    """`owner` (decision 065): the creator is responsible for the new package; a nameless (automated) creation has no
+    owner."""
     if not name.strip():
         raise ValueError("name required")
     wp_id = f"wp-{uuid.uuid4().hex[:12]}"
@@ -245,12 +249,13 @@ def _begin(c) -> None:
 
 
 def packaged_sources(paths: list[Path]) -> set[Path]:
-    """063: a megadott fájlok közül azok, amelyek már valaha felkerültek egy munkacsomagra (az eltávolított tétel is
-    számít). A levélletöltés ezzel ismeri fel a letöltött, de csomagba nem került levelet (pl. megszakadt letöltés)."""
+    """063: those of the given files that were ever added to a work package (a removed item counts too). The email
+    download uses this to recognise a downloaded email that never made it into a package (e.g. an interrupted
+    download)."""
     want = {str(Path(p).resolve()): Path(p) for p in paths}
     keys, found = list(want), set()
     with store.connect() as c:
-        for n in range(0, len(keys), 500):  # az SQLite paraméterkorlátja alatt
+        for n in range(0, len(keys), 500):  # below SQLite's parameter limit
             chunk = keys[n:n + 500]
             found |= {r["source_path"] for r in c.execute(
                 f"SELECT DISTINCT source_path FROM workpackage_items WHERE source_path IN ({','.join('?' * len(chunk))})", chunk)}
@@ -258,15 +263,16 @@ def packaged_sources(paths: list[Path]) -> set[Path]:
 
 
 def add_documents(wp_id: str, paths: list[Path], *, expected_revision: int) -> dict[str, Any]:
-    """Iratok felvétele egy verziólépésben. Azonos tartalmú irat egyszer szerepel; a tartalomhash a felvételkor rögzül."""
+    """Adds documents in one revision step. A document with identical content appears once; the content hash is pinned
+    when it is added."""
     return add_items(wp_id, paths, kind="document", expected_revision=expected_revision)
 
 
 def add_items(wp_id: str, paths: list[Path], *, kind: str, expected_revision: int,
               parents: dict[Path, str] | None = None) -> dict[str, Any]:
-    """Tételek felvétele egy verziólépésben (`document`: irat-fájl; `email`: a levél `message.json`-ja, 048 T2).
-    A tétel azonosítója a fájl tartalomhash-e; azonos tartalom egyszer szerepel. `parents` (058 K5.2): fájlonként a
-    szülő tétel azonosítója — a levél csatolmánya így a levélre mutat (a csatolmány eredete)."""
+    """Adds items in one revision step (`document`: a document file; `email`: the email's `message.json`, 048 T2).
+    The item's identifier is the file's content hash; identical content appears once. `parents` (058 K5.2): the parent
+    item's identifier per file — so an email attachment points to its email (the attachment's origin)."""
     if kind not in ("document", "email"):
         raise ValueError(f"unknown item kind: {kind}")
     parents = {Path(k).resolve(): v for k, v in (parents or {}).items()}
@@ -302,19 +308,20 @@ def remove_item(wp_id: str, item_id: str, *, expected_revision: int) -> dict[str
 
 def create_from_folder(folder: Path, *, name: str | None = None, suffixes: tuple[str, ...] = (".pdf",),
                        owner: str | None = None) -> dict[str, Any]:
-    """Munkacsomag egy mappa közvetlen tartalmából (almappák nélkül), név szerinti sorrendben."""
+    """Work package from the direct contents of a folder (without subfolders), in name order."""
     folder = Path(folder)
     if not folder.is_dir():
         raise ValueError(f"folder does not exist: {folder}")
     root = folder.resolve(strict=True)
     files = sorted(p for p in root.iterdir() if p.is_file() and p.suffix.lower() in suffixes
-                   and p.resolve().parent == root)  # a mappán kívülre mutató hivatkozás nem kerül be
+                   and p.resolve().parent == root)  # a link pointing outside the folder is left out
     wp = create_workpackage(name=name or root.name, source_kind="folder", source_ref=str(root), owner=owner)
     return _fill_new(wp, lambda: add_documents(wp["id"], files, expected_revision=0)) if files else wp
 
 
 def create_from_files(paths: list[Path], *, name: str, owner: str | None = None) -> dict[str, Any]:
-    """Munkacsomag megadott fájlokból (több mappából is), egy verziólépésben (040 K3: élő próba, felületi kiválasztás)."""
+    """Work package from the given files (possibly from several folders), in one revision step (040 K3: live trial,
+    selection in the UI)."""
     if not paths:
         raise ValueError("at least one file is required")
     wp = create_workpackage(name=name, source_kind="manual", source_ref=None, owner=owner)
@@ -322,7 +329,8 @@ def create_from_files(paths: list[Path], *, name: str, owner: str | None = None)
 
 
 def _fill_new(wp: dict[str, Any], fill: Callable[[], dict[str, Any]]) -> dict[str, Any]:
-    """063: az új csomag feltöltése; ha a felvétel nem sikerül (pl. zárolt fájl), az üres csomag nem marad a listában."""
+    """063: fills the new package; if adding fails (e.g. a locked file), the empty package does not stay in the
+    list."""
     try:
         return fill()
     except Exception:
@@ -340,7 +348,7 @@ def get(wp_id: str) -> dict[str, Any]:
         items = [dict(r) for r in c.execute(
             "SELECT item_id, kind, source_path, sha256, added_revision, parent_item_id FROM workpackage_items"
             " WHERE workpackage_id=? AND removed_revision IS NULL ORDER BY source_path", (wp_id,))]
-    for i in items:  # 058 K5.2: csak a csatolmánynak van szülője (a régi tételek alakja változatlan)
+    for i in items:  # 058 K5.2: only an attachment has a parent (the shape of old items is unchanged)
         parent = i.pop("parent_item_id")
         if parent:
             i["parent_item_id"] = parent
@@ -348,7 +356,7 @@ def get(wp_id: str) -> dict[str, Any]:
 
 
 def list_workpackages(*, include_archived: bool = False) -> list[dict[str, Any]]:
-    """A munkacsomagok listája; az elrejtett (archivált) csomag csak kérésre (058)."""
+    """The list of work packages; a hidden (archived) package only on request (058)."""
     where = "" if include_archived else " WHERE w.status <> 'archived'"
     with store.connect() as c:
         rows = c.execute(
@@ -359,8 +367,8 @@ def list_workpackages(*, include_archived: bool = False) -> list[dict[str, Any]]
     return [dict(r) for r in rows]
 
 
-# --- elrejtés, átnevezés, törlés (058) ---------------------------------------------------------------
-# A név és az elrejtés nem része a futás bemenetének, ezért nem léptet verziót (a futások és a készenlét változatlan).
+# --- hiding, renaming, deleting (058) ----------------------------------------------------------------
+# The name and the hiding are not part of the run's input, so they do not bump the revision (runs and readiness stay).
 
 
 def _event(c, wp_id: str, action: str, actor: str, detail: dict[str, Any] | None = None) -> None:
@@ -381,12 +389,14 @@ def _set_wp(wp_id: str, action: str, actor: str, **fields: Any) -> dict[str, Any
 
 
 def set_owner(wp_id: str, owner: str | None, *, actor: str) -> dict[str, Any]:
-    """061: a csomag felelőse (None: nincs). Nem része a futás bemenetének, ezért nem léptet verziót; naplózva."""
+    """061: the person responsible for the package (None: nobody). Not part of the run's input, so it does not bump
+    the revision; logged."""
     return _set_wp(wp_id, "owner", actor, owner=owner)
 
 
 def archive_workpackage(wp_id: str, *, actor: str) -> dict[str, Any]:
-    """Elrejtés a listából: a futások, a hívásnapló és az eredmények megmaradnak; a csomag közvetlenül megnyitható."""
+    """Hides the package from the list: the runs, the call log and the results are kept; the package can still be
+    opened directly."""
     return _set_wp(wp_id, "archive", actor, status="archived")
 
 
@@ -407,8 +417,8 @@ def workpackage_events(wp_id: str) -> list[dict[str, Any]]:
 
 
 def delete_workpackage(wp_id: str, *, actor: str) -> None:
-    """Végleges törlés csak futás nélküli csomagon (a futással rendelkező csak elrejthető, mert a hívásnapló és az
-    eredmények rá hivatkoznak). A tételek forrásfájljai a helyükön maradnak."""
+    """Permanent deletion only for a package without runs (one with runs can only be hidden, because the call log and
+    the results refer to it). The items' source files stay where they are."""
     with store.connect() as c:
         _begin(c)
         row = c.execute("SELECT name, source_kind, source_ref FROM workpackages WHERE id=?", (wp_id,)).fetchone()
@@ -424,7 +434,7 @@ def delete_workpackage(wp_id: str, *, actor: str) -> None:
         _event(c, wp_id, "delete", actor, {**dict(row), "items": items})
 
 
-# --- recept-hozzárendelés ------------------------------------------------------------------------------
+# --- recipe assignment ---------------------------------------------------------------------------------
 
 
 def current_assignment(wp_id: str) -> dict[str, Any] | None:
@@ -441,7 +451,7 @@ def assignment_history(wp_id: str) -> list[dict[str, Any]]:
 
 def assign_recipe(wp_id: str, recipe_id: str, *, params: dict[str, Any], expected_revision: int, actor: str,
                   note: str | None = None) -> dict[str, Any]:
-    """A hozzárendelés saját verziót kap (a V4 `expected_revision` mintája); a korábbiak előzményként maradnak."""
+    """The assignment gets its own revision (the V4 `expected_revision` pattern); earlier ones stay as history."""
     r = recipe(recipe_id)
     clean = _validated_params(r, params)
     with store.connect() as c:
@@ -456,7 +466,7 @@ def assign_recipe(wp_id: str, recipe_id: str, *, params: dict[str, Any], expecte
     return current_assignment(wp_id)
 
 
-# --- készenlét ---------------------------------------------------------------------------------------
+# --- readiness ---------------------------------------------------------------------------------------
 
 
 def _input_snapshot(wp: dict[str, Any]) -> dict[str, Any]:
@@ -466,18 +476,19 @@ def _input_snapshot(wp: dict[str, Any]) -> dict[str, Any]:
 
 
 def _snapshot_hash(snapshot: dict[str, Any]) -> str:
-    """A befagyasztott bemenet azonosítója (a készenlét `input_hash`-e)."""
+    """The identifier of the frozen input (the `input_hash` of readiness)."""
     return hashlib.sha256(_canon(snapshot).encode("utf-8")).hexdigest()[:16]
 
 
 def item_budget(r: dict[str, Any], params: dict[str, Any], kind: str | None = None, arm: str | None = None) -> dict[str, Decimal]:
-    """Egy tétel keretmaximuma. A több tétel-fajtát kezelő recept (058 K5.2) fajtánként ad keretet
-    (`max_item_usd_by_kind`); karnélküli részen a `*` sor érvényes. `arm` (066 Á07): a tétel előre ismert tényleges
-    kara; nélküle a kért kar sora (a kért S-kar egy csak G-karos típuson G-n fut, ehhez a G sora kell)."""
+    """The budget maximum of one item. A recipe handling several item kinds (058 K5.2) gives a budget per kind
+    (`max_item_usd_by_kind`); where there is no path, the `*` row applies. `arm` (066 Á07): the item's actual path,
+    known in advance; without it, the row of the requested path (a requested S path runs on G for a G-only type, which
+    needs the G row)."""
     table = (r.get("max_item_usd_by_kind") or {}).get(kind or "") or r["max_item_usd"]
     per = table.get(arm or params.get("arm", "*"), table.get(params.get("arm", "*"), table.get("*", {})))
     out = {provider: Decimal(v) for provider, v in per.items()}
-    for extra in r.get("param_item_usd") or []:  # 058 K5.3: paraméterhez kötött többlet (pl. feladatjavaslat a levélen)
+    for extra in r.get("param_item_usd") or []:  # 058 K5.3: parameter-bound extra (e.g. task proposal on the email)
         if params.get(extra["param"]) == extra["value"] and extra.get("kind") in (None, kind):
             for provider, v in extra["usd"].items():
                 out[provider] = out.get(provider, Decimal(0)) + Decimal(v)
@@ -485,12 +496,13 @@ def item_budget(r: dict[str, Any], params: dict[str, Any], kind: str | None = No
 
 
 def run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]]) -> dict[str, Decimal]:
-    """A futás keretmaximuma: a tételek keretének összege (tétel-fajtánként, 058 K5.2).
+    """The run's budget maximum: the sum of the items' budgets (per item kind, 058 K5.2).
 
-    065 döntés: a foglalás a tényleges út szerint. Ahol a tétel útja előre ismert és S (jelöltkereső + JEV), ott nincs
-    OpenAI-foglalás: a számla-recepten a megadott típusból, az irat-feldolgozáson a korábban már felismert részletes
-    típusból. Az ismeretlen típusú iratnál a legrosszabb eset marad. Ha az út mégis G lesz (például más típust ismer fel),
-    a GPT-hívás a keret miatt nem indul, és a tétel teendőt kap (`llm:failed:BudgetExceeded`)."""
+    Decision 065: the reservation follows the actual path. Where the item's path is known in advance and is S
+    (candidate finder + JEV), there is no OpenAI reservation: on the invoice recipe from the given type, in document
+    processing from the detailed type already detected earlier. For a document of unknown type the worst case stays.
+    If the path still turns out to be G (e.g. a different type is detected), the GPT call does not start because of
+    the budget, and the item gets a to-do (`llm:failed:BudgetExceeded`)."""
     from jav import typepack
 
     packs, known = set(typepack.keys()), _known_detail_types(items)
@@ -506,7 +518,7 @@ def run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, 
 
 
 def _known_detail_types(items: list[dict[str, Any]]) -> dict[str, str]:
-    """A már felismert iratok részletes típusa (tartalomhash → típus), a `documents` táblából (065)."""
+    """The detailed type of documents already detected (content hash → type), from the `documents` table (065)."""
     ids = [i["sha256"] for i in items if i.get("kind") == "document" and i.get("sha256")]
     out: dict[str, str] = {}
     with store.connect() as c:
@@ -518,7 +530,7 @@ def _known_detail_types(items: list[dict[str, Any]]) -> dict[str, str]:
 
 
 def _item_arm(r: dict[str, Any], params: dict[str, Any], item: dict[str, Any], known: dict[str, str], packs: set[str]) -> str | None:
-    """A tétel előre ismert útja (S / G), vagy None, ha a típus a futás előtt nem ismert (065)."""
+    """The item's path known in advance (S / G), or None if the type is not known before the run (065)."""
     from jav import typepack
 
     flow = flow_for(r, item.get("kind"))
@@ -527,13 +539,14 @@ def _item_arm(r: dict[str, Any], params: dict[str, Any], item: dict[str, Any], k
 
 
 def flow_for(r: dict[str, Any], kind: str | None) -> str:
-    """A tétel folyamata: a több tétel-fajtát kezelő recept fajtánként választ (`flows`), különben a recept folyamata."""
+    """The item's flow: a recipe handling several item kinds chooses per kind (`flows`), otherwise the recipe's
+    flow."""
     return (r.get("flows") or {}).get(kind or "", r["flow"])
 
 
 def readiness(wp_id: str, *, verify: bool = False) -> dict[str, Any]:
-    """Futtatás előtti vizsgálat: akadályok (nem indítható) és figyelmeztetések, a rögzítendő bemenet hash-ével.
-    `verify=True` (indításkor): a forrásfájlok teljes újraellenőrzése, a megjegyzett ujjlenyomat nélkül."""
+    """Pre-run check: blockers (cannot start) and warnings, with the hash of the input to be pinned.
+    `verify=True` (at start): full re-check of the source files, without the remembered fingerprint."""
     wp = get(wp_id)
     blockers: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
@@ -561,16 +574,16 @@ def readiness(wp_id: str, *, verify: bool = False) -> dict[str, Any]:
             "input_hash": _snapshot_hash(snapshot)}
 
 
-# --- futtatás ----------------------------------------------------------------------------------------
+# --- runs --------------------------------------------------------------------------------------------
 
 
 def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input_hash: str, actor: str,
               rerun_of: str | None = None) -> dict[str, Any]:
-    """Idempotens indítás rögzített bemenettel: tételenként egy munkasor-feladat, futásszintű költségkerettel.
+    """Idempotent start with a pinned input: one queue job per item, with a run-level cost budget.
 
-    Újrafuttatás (057): azonos bemenetre és receptre az indítás a meglévő futást adja; a `rerun_of` (a megismételt
-    futás) új futást kér. Ugyanarra a `rerun_of`-ra ismételt kérés is csak egy új futást ad (dupla kattintás ellen);
-    futó futás nem ismételhető."""
+    Rerun (057): for the same input and recipe, starting returns the existing run; `rerun_of` (the run being repeated)
+    asks for a new run. A repeated request with the same `rerun_of` still yields only one new run (against double
+    clicks); an active run cannot be rerun."""
     if mode not in ("shadow", "apply"):
         raise ValueError("mode must be shadow or apply")
     if rerun_of is not None:
@@ -589,8 +602,8 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
     run_id = f"run-{uuid.uuid4().hex[:12]}"
     with store.connect() as c:
         _begin(c)
-        # 066 Á19: a befagyasztott bemenet az írási zár alatt olvasva (közben más nem írhat), és pontosan az, amit a
-        # készenlét-ellenőrzés látott; egy közbeni szerkesztés ütközés, nem ellenőrizetlen bemenetű futás
+        # 066 Á19: the frozen input is read under the write lock (nobody else can write meanwhile), and it is exactly
+        # what the readiness check saw; an edit in between is a conflict, not a run with an unchecked input
         wp = get(wp_id)
         a = wp["assignment"]
         snapshot = _input_snapshot(wp)
@@ -605,7 +618,7 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
                       (run_id, wp_id, dedup, mode, a["revision"], r["id"], r["version"], recipe_hash(r), _canon(r), _canon(a["params"]),
                        _canon(snapshot), input_hash, actor, _now()))
     if existing:
-        # 063: ha az előző indítás a futás sora után megszakadt, az ismételt indítás pótolja a keretet és a feladatokat
+        # 063: if the previous start broke off after the run row, the repeated start fills in the budget and the jobs
         _ensure_run_work(existing["run_id"], json.loads(existing["input"])["items"], ready["budget"], replace_budget=False)
         return {"run_id": existing["run_id"], "deduped": True}
     _ensure_run_work(run_id, snapshot["items"], ready["budget"], replace_budget=True)
@@ -613,8 +626,8 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
 
 
 def _ensure_run_work(run_id: str, items: list[dict[str, Any]], budget: dict[str, Decimal], *, replace_budget: bool) -> None:
-    """A futás kerete és tételenként egy munkasor-feladat. Idempotens: a feladat a `dedup_key`-en egyszer jön létre,
-    a meglévő keret pótláskor nem változik (063)."""
+    """The run's budget and one queue job per item. Idempotent: the job is created once per `dedup_key`, and an
+    existing budget does not change when filling in (063)."""
     for provider, amount in budget.items():
         (calls.set_budget if replace_budget else calls.ensure_budget)(run_id, provider, amount)
     for item in items:
@@ -637,8 +650,8 @@ def get_run(run_id: str) -> dict[str, Any]:
 
 
 def run_rows(wp_id: str | None = None) -> list[dict[str, Any]]:
-    """Futások lista-sorként, egy lekérdezéssel, levágás nélkül (056 U1 adatkészlet): csomagnév, tételszám, a lefutott
-    tételek és a futás saját nyitott teendő-okai (a tétel folyamat-azonosítója `<futás>:` kezdetű)."""
+    """Runs as list rows, in one query, without truncation (056 U1 dataset): package name, item count, the finished
+    items and the run's own open to-do reasons (the item's flow identifier starts with `<run>:`)."""
     sql = ("SELECT r.run_id, r.workpackage_id, w.name AS workpackage_name, r.recipe_id, r.recipe_version, r.mode, r.status,"
            " r.approval, r.approved_by, r.actor, r.created_at, r.finished_at,"
            " json_array_length(r.input, '$.items') AS items,"
@@ -650,7 +663,7 @@ def run_rows(wp_id: str | None = None) -> list[dict[str, Any]]:
         sql, args = sql + " WHERE r.workpackage_id=?", (wp_id,)
     with store.connect() as c:
         rows = [dict(r) for r in c.execute(sql + " ORDER BY r.created_at DESC, r.rowid DESC", args)]
-    for r in rows:  # 058: a frissítés nélkül lezárt teendők után tárolt „teendő vár” valójában kész (a munkasor már üres)
+    for r in rows:  # 058: a stored "needs review" after to-dos closed without a refresh is really done (queue empty)
         if r["status"] == "needs_review" and not r["open_reasons"]:
             r["status"] = "done"
     return rows
@@ -672,37 +685,39 @@ def record_item_result(run_id: str, item_id: str, *, status: str, final_status: 
 
 
 def flow_run_id(run_id: str, item_id: str) -> str:
-    """A tétel folyamat-azonosítója (a feldolgozó ezzel építi a Burr-alkalmazást; a teendők ezt kapják `run_id`-ként)."""
+    """The item's flow identifier (the worker builds the Burr application with it; the to-dos get it as `run_id`)."""
     return f"{run_id}:{item_id[:16]}"
 
 
 def review_subject(item: dict[str, Any]) -> tuple[str, str]:
-    """A tétel teendőinek alanya: iratnál a tartalomhash; levélnél az üzenet-azonosító (= a levél mappájának neve,
-    ezt írja a fogadó és ezt használja a levél-folyamat, 048 T2)."""
+    """The subject of the item's to-dos: for a document, the content hash; for an email, the message identifier (= the
+    name of the email's folder, written by the receiver and used by the email flow, 048 T2)."""
     if item.get("kind") == "email":
         return "email", Path(item["source_path"]).parent.name
     return "document", item["item_id"]
 
 
 def is_own_reason(reason: dict[str, Any], own: str) -> bool:
-    """A teendő-ok a tétel ebben a futásban felvett oka-e: a tétel folyamat-azonosítója alatt, vagy egy lépcsőjéé
-    (`<azonosító>-<lépcső>`, pl. az irat-feldolgozás felismerése: `-doc_detect`; 066 Á02: eddig „korábbinak” számított)."""
+    """Whether the to-do reason was raised for the item in this run: under the item's flow identifier, or under one of
+    its stages (`<identifier>-<stage>`, e.g. detection in document processing: `-doc_detect`; 066 Á02: until then it
+    counted as "earlier")."""
     rid = reason.get("run_id") or ""
     return rid == own or rid.startswith(own + "-")
 
 
 def item_reasons(run_id: str, item_id: str, item: dict[str, Any] | None = None) -> dict[str, list[dict[str, Any]]]:
-    """Egy tétel nyitott teendő-okai kettéválasztva: ebben a futásban keletkezett (`run`) és korábbi (`earlier`).
+    """An item's open to-do reasons split in two: raised in this run (`run`) and earlier (`earlier`).
 
-    A korábbi okok (régi mérési vagy korábbi futások ugyanazon az iraton) az iraton nyitva maradnak és látszanak, de nem
-    ennek a futásnak az eredményéről szólnak, ezért a futás állapotát és jóváhagyását nem befolyásolják (040 K3 élő próba)."""
+    The earlier reasons (from old measurements or earlier runs on the same document) stay open on the document and are
+    shown, but they are not about this run's result, so they do not affect the run's status or approval (040 K3 live
+    trial)."""
     if item is None:
         item = next((i for i in get_run(run_id)["input"]["items"] if i["item_id"] == item_id), {"item_id": item_id})
     return items_reasons(run_id, [{**item, "item_id": item_id}])[item_id]
 
 
 def items_reasons(run_id: str, items: list[dict[str, Any]]) -> dict[str, dict[str, list[dict[str, Any]]]]:
-    """Az `item_reasons` több tételre, egy adattár-lekérdezéssel (061: a listanézetek tételenkénti lekérdezése helyett)."""
+    """`item_reasons` for several items, with one store query (061: instead of the list views' per-item queries)."""
     by_subject = store.review_open_reasons_many([review_subject(i) for i in items])
     out: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for i in items:
@@ -715,16 +730,16 @@ def items_reasons(run_id: str, items: list[dict[str, Any]]) -> dict[str, dict[st
 
 
 def open_reasons_for_run(run_id: str) -> int:
-    """A futás SAJÁT nyitott teendő-okai (a tételek folyamat-azonosítójával felvett okok)."""
+    """The run's OWN open to-do reasons (the reasons raised under the items' flow identifiers)."""
     run = get_run(run_id)
     return sum(len(s["run"]) for s in items_reasons(run_id, run["input"]["items"]).values())
 
 
 def refresh_run_status(run_id: str) -> str:
-    """A futás állapota a munkasorból és a teendőkből: fut → hibás / teendő vár / kész."""
+    """The run's status from the queue and the to-dos: running → failed / needs review / done."""
     run = get_run(run_id)
     jobs = run["jobs"]
-    # 063: a feladat nélküli tétel (félbemaradt indítás) is függőben van — a futás addig nem lehet „kész”
+    # 063: an item without a job (an interrupted start) is pending too — until then the run cannot be "done"
     missing = max(0, len(run["input"]["items"]) - sum(jobs.values()))
     pending = jobs.get("queued", 0) + jobs.get("claimed", 0) + missing
     if run["status"] == "cancelled":
@@ -738,15 +753,16 @@ def refresh_run_status(run_id: str) -> str:
     else:
         status = "needs_review" if open_reasons_for_run(run_id) else "done"
     with store.connect() as c:
-        # 066 Á32: a számolás és az írás között megszakított futás megszakított marad (a feltétel az írásban, nem előtte)
+        # 066 Á32: a run cancelled between computing and writing stays cancelled (condition in the write, not before)
         c.execute("UPDATE runs SET status=?, finished_at=CASE WHEN ? IN ('queued','running') THEN NULL ELSE COALESCE(finished_at, ?) END"
                   " WHERE run_id=? AND (status <> 'cancelled' OR ? = 'cancelled')", (status, status, _now(), run_id, status))
         return c.execute("SELECT status FROM runs WHERE run_id=?", (run_id,)).fetchone()["status"]
 
 
 def resolve_reason(reason_id: int, *, actor: str, resolution: dict[str, Any] | None, note: str | None) -> dict[str, Any]:
-    """Egy teendő-ok emberi lezárása, utána a gazda-futás állapotának frissítése (058: az utolsó ok lezárása után a
-    futás „kész”, a lista jelvénye nem marad „teendő vár”). A korábbi mérésből származó ok gazdája nem futás."""
+    """Human resolution of one to-do reason, then a refresh of the owning run's status (058: after the last reason is
+    closed the run is "done", and the list badge does not stay at "needs review"). A reason from an earlier
+    measurement is not owned by a run."""
     with store.connect() as c:
         row = c.execute("SELECT status, run_id FROM review_reasons WHERE id=?", (reason_id,)).fetchone()
     if row is None:
@@ -764,8 +780,8 @@ def resolve_reason(reason_id: int, *, actor: str, resolution: dict[str, Any] | N
 
 
 def cancel_run(run_id: str, *, actor: str | None = None) -> dict[str, int]:
-    """Sorban álló tételek azonnal leállnak, a futó a következő lépéshatáron. 066 Á35: a szerző (ha van) a csomag
-    eseménynaplójába kerül."""
+    """Queued items stop at once, an active one at the next step boundary. 066 Á35: the actor (if any) goes into the
+    package's event log."""
     with store.connect() as c:
         ids = [r["id"] for r in c.execute("SELECT id FROM jobs WHERE run_id=? AND status IN ('queued','claimed')", (run_id,))]
         if actor is not None:
@@ -783,7 +799,7 @@ def cancel_run(run_id: str, *, actor: str | None = None) -> dict[str, int]:
 
 
 def approve_run(run_id: str, *, actor: str) -> dict[str, Any]:
-    """Éles futás jóváhagyása: csak lezárt tételekkel és nyitott teendő nélkül; ki és mikor hagyta jóvá, rögzül."""
+    """Approval of a live run: only with finished items and no open to-do; who approved it and when is recorded."""
     run = get_run(run_id)
     if run["mode"] != "apply":
         raise ValueError("only apply runs can be approved")
@@ -791,7 +807,7 @@ def approve_run(run_id: str, *, actor: str) -> dict[str, Any]:
     if status != "done":
         raise NotReady(f"run is {status}; approval needs a finished run without open review reasons")
     done = {i["item_id"] for i in get_run(run_id)["items"] if i["status"] == "done"}
-    if any(i["item_id"] not in done for i in run["input"]["items"]):  # 063: minden bemeneti tételnek lefutott eredménye van
+    if any(i["item_id"] not in done for i in run["input"]["items"]):  # 063: every input item has a finished result
         raise NotReady("run has input items without a finished result")
     with store.connect() as c:
         c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=? WHERE run_id=? AND approval IS NULL",

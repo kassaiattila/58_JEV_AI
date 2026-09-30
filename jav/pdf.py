@@ -1,16 +1,17 @@
-"""PDF szövegréteg beolvasása (pdfplumber) és a közös sor- / cella-építő, amit az OCR (`jav/ocr.py`) is használ.
+"""Reading the PDF text layer (pdfplumber) and the shared line / cell builder that OCR (`jav/ocr.py`) uses too.
 
-Szöveg nélküli PDF -> `has_text_layer=False`; az OCR-t nem itt, hanem a flow külön lépésében (`ocr_pdf`) hívjuk, hogy
-a kontraktban látszódjon és a döntés (megy-e OCR-re) adat legyen. `read_document()` a kettő együtt (evalokhoz, CLI-hez).
+A PDF without text -> `has_text_layer=False`; OCR is not called here but in a separate flow step (`ocr_pdf`), so
+that it shows in the contract and the decision (whether to go to OCR) is data. `read_document()` does both
+(for evals and the CLI).
 
-Miért szó-szintű rekonstrukció és nem `extract_text(layout=True)`:
-- a Számlázz.hu-s PDF-eknél a layout-mód összeragasztja a szavakat ("BestIxComKft.", "Fizetésimód:"),
-  az `extract_words(x_tolerance=1.5)` viszont helyesen bontja;
-- a kétoszlopos (eladó | vevő) fejléceknél a sorokat cellákra kell bontani (nagy vízszintes rés = oszlophatár),
-  hogy a többsoros nevek oszloponként, függőlegesen összefűzhetők legyenek.
+Why word-level reconstruction and not `extract_text(layout=True)`:
+- in Számlázz.hu PDFs the layout mode glues words together ("BestIxComKft.", "Fizetésimód:"),
+  whereas `extract_words(x_tolerance=1.5)` splits them correctly;
+- in two-column (seller | buyer) headers the lines must be split into cells (a wide horizontal gap = column
+  boundary), so that multi-line names can be joined vertically, column by column.
 
-Ugyanez a sor- és cella-építés fut az OCR szó-dobozain (pontra átváltva), így a jelöltkeresők és a Jev-state
-formája forrástól független.
+The same line and cell building runs on the OCR word boxes (converted to points), so the shape seen by the
+candidate finders and the JEV state does not depend on the source.
 """
 
 from __future__ import annotations
@@ -24,26 +25,26 @@ from typing import Any
 
 import pdfplumber
 
-# pdfminer hibás font-leíróknál soronként warningol ("Could not get FontBBox") - zaj, a szöveg attól még jó
+# pdfminer warns on every line for broken font descriptors ("Could not get FontBBox") - noise, the text is still fine
 logging.getLogger("pdfminer").setLevel(logging.ERROR)
 
 from jav.models import CellLayout, LineLayout
 
 MIN_TEXT_CHARS = 40
 MIN_ALNUM_RATIO = 0.3
-# Törött font-leképezésű PDF-ek (csak ékezetes betűk jönnek át: "á á ó / é á / ő") ne számítsanak szövegesnek:
-# kell legalább ennyi "valódi" szó (≥3 karakter, többségében latin betű/számjegy).
+# PDFs with a broken font mapping (only accented letters come through: "á á ó / é á / ő") must not count as text:
+# at least this many "real" words are needed (≥3 characters, mostly Latin letters/digits).
 MIN_REAL_WORDS = 12
 _REAL_WORD = re.compile(r"^[A-Za-z0-9ÁÉÍÓÖŐÚÜŰáéíóöőúüű.,:/-]{3,}$")
-X_TOLERANCE = 1.5  # szóhatár (pt) - a layout-mód alapértéke (3) ragaszt
-Y_TOLERANCE = 3.0  # egy sorba tartozó szavak `top` eltérése (pt)
-COLUMN_GAP_CHARS = 2.5  # ennyi medián-karakterszélességnél nagyobb rés = oszlophatár
+X_TOLERANCE = 1.5  # word boundary (pt) - the layout mode's default (3) glues words together
+Y_TOLERANCE = 3.0  # `top` difference of words belonging to one line (pt)
+COLUMN_GAP_CHARS = 2.5  # a gap wider than this many median character widths = column boundary
 COLUMN_GAP_MIN_PT = 10.0
 
 
 class DocumentTooLarge(ValueError):
-    """067: az irat a `configs/service.json` `input_limits` korlátja fölött van (fájlméret vagy oldalszám); a tétel
-    nevesített hibával áll meg, a futás nem hagyható jóvá."""
+    """067: the document exceeds the `input_limits` of `configs/service.json` (file size or page count); the item stops
+    with a named error, and the run cannot be approved."""
 
 
 @dataclass(frozen=True)
@@ -54,21 +55,22 @@ class InputLimits:
 
 
 def input_limits() -> InputLimits:
-    """A bemeneti korlátok (067) a `configs/service.json` `input_limits` szakaszából."""
+    """The input limits (067) from the `input_limits` section of `configs/service.json`."""
     from jav import cfg
 
     return InputLimits(**cfg.load("service")["input_limits"])
 
 
 def fit_scale(width_pt: float, height_pt: float, *, scale: float, max_megapixels: float) -> float:
-    """A kért nagyítás, ha az oldalkép belefér a képpont-keretbe; különben akkora, hogy éppen beleférjen (csak kicsinyít)."""
+    """The requested scale if the page image fits the pixel budget; otherwise the scale at which it just fits
+    (only shrinks)."""
     pixels = width_pt * scale * height_pt * scale
     budget = max_megapixels * 1_000_000
     return scale if pixels <= budget else scale * (budget / pixels) ** 0.5 * 0.999
 
 
 def check_document_size(path: Path) -> None:
-    """A fájlméret-korlát megnyitás előtt (a túl nagy fájlt a PDF-olvasó meg sem kapja)."""
+    """The file size limit, checked before opening (the PDF reader never receives a file that is too large)."""
     limit = input_limits().max_document_mb
     size_mb = path.stat().st_size / 1_000_000
     if size_mb > limit:
@@ -83,16 +85,17 @@ class PdfText:
     layout: list[LineLayout] = field(default_factory=list)
     page_count: int = 0
     has_text_layer: bool = False
-    text_source: str | None = None  # "pdf" (szövegréteg) | "ocr" | None (nincs használható szöveg)
-    ocr: dict[str, Any] | None = None  # OCR-minőségjelek (jav/ocr.py: mean_conf, low_conf_ratio, words, engine, cached)
-    # 045: a szókeretek (oldalanként `{text, x0, x1, top, bottom, line_no}` pontban) és az oldalméretek (szélesség, magasság
-    # pontban) — ebből készül a szóréteg (jav/source_layer.py). A sorok (`layout`) ettől függetlenek és változatlanok.
+    text_source: str | None = None  # "pdf" (text layer) | "ocr" | None (no usable text)
+    ocr: dict[str, Any] | None = None  # OCR quality (jav/ocr.py: mean_conf, low_conf_ratio, words, engine, cached)
+    # 045: the word boxes (per page `{text, x0, x1, top, bottom, line_no}` in points) and the page sizes (width,
+    # height in points) — the word layer is built from these (jav/source_layer.py). The lines (`layout`) are
+    # independent of them and unchanged.
     words: list[list[dict[str, Any]]] = field(default_factory=list)
     page_sizes: list[tuple[float, float]] = field(default_factory=list)
 
 
-# LaTeX/T1-fontos PDF-ek a szövegrétegben külön glifként adják az ékezetet ("Bal´azs", "Vev˝o", "U¨gyvitel").
-# Az ékezet többnyire a betű ELŐTT áll, ritkábban utána ("sza´ml´at") - mindkettőt visszaillesztjük.
+# PDFs with LaTeX/T1 fonts give the accent as a separate glyph in the text layer ("Bal´azs", "Vev˝o", "U¨gyvitel").
+# The accent usually stands BEFORE the letter, less often after it ("sza´ml´at") - both are reattached.
 _ACCENT_MAP = {
     "´": {"a": "á", "e": "é", "i": "í", "ı": "í", "o": "ó", "u": "ú", "A": "Á", "E": "É", "I": "Í", "O": "Ó", "U": "Ú"},
     "˝": {"o": "ő", "u": "ű", "O": "Ő", "U": "Ű"},
@@ -101,21 +104,24 @@ _ACCENT_MAP = {
 _ACCENT_BEFORE = re.compile(r"([´˝¨])([A-Za-zı])")
 _ACCENT_AFTER = re.compile(r"([A-Za-zı])([´˝¨])")
 _CID_RE = re.compile(r"\(cid:\d+\)")
-# 065: a betűkészletből hiányzó jel NUL-ként jön ki; két betű / szám között ez a próba iratain mindig kötőjel volt
-# (Stripe-számlák: „AB12CD34-0009” → „AB12CD34\x000009”, kötőjeles irányítószám). Máshol (szó végén: elveszett betű,
-# szám előtt: „+” jel) nem találgatunk. Egy karakter egy karakterre: a szó helye és hossza nem változik.
+# 065: a glyph missing from the font comes out as NUL; between two letters / digits it was always a hyphen in the
+# trial's documents (Stripe invoices: "AB12CD34-0009" → "AB12CD34\x000009", hyphenated postcode). Elsewhere (at the
+# end of a word: a lost letter; before a digit: a "+" sign) we do not guess. One character for one character: the
+# word's position and length do not change.
 _LOST_GLYPH_RE = re.compile(r"(?<=[^\W_])\x00(?=[^\W_])")
-# 069 (066 Á10, döntés 2026-09-29): csak számot tartalmazó, azonosító-alakú szóban. Pénznemkód után és összeg-alakú
-# folytatás előtt nem („USD\x0049.00”: a kötőjel negatív összeget adna), csupa betűs szóban sem (elveszett betűpár a
-# névben). A helyi 988 iratban a pótlás két szám között 163-szor, betű és szám között 61-szer állt; két betű között és
-# pénznem–összeg helyzetben 0-szor.
+# 069 (066 Á10, decision of 2026-09-29): only in an identifier-shaped word that contains digits. Not after a currency
+# code and before an amount-shaped continuation ("USD\x0049.00": the hyphen would give a negative amount), and not in
+# an all-letter word (a lost letter pair in a name). In the 988 local documents the replacement stood between two
+# digits 163 times and between a letter and a digit 61 times; between two letters and in the currency–amount position
+# 0 times.
 _CURRENCY_BEFORE_RE = re.compile(r"(?<![A-Za-z])(?:USD|EUR|GBP|HUF|CHF|TRY|PLN|CZK|AUD|CAD|SEK|NOK|DKK|RON|JPY)$")
 _AMOUNT_AFTER_RE = re.compile(r"\d{1,3}(?:[.,]\d{3})*[.,]\d{2}(?!\w)|\d+[.,]\d{2}(?!\w)")
 
 
-# 066 Á33: egyértelmű kötőjel-változatok (U+2010–2012, U+2212 mínuszjel, U+FE63, U+FF0D) -> "-" (egy karakter egy
-# karakterre, a hely nem változik). A hosszú gondolatjel (U+2013, U+2014) marad: időszakot és gondolatjelet is jelöl
-# (067 mérés: a helyi adattárban szón belül 13-szor, időszakként és óraként is; az egyértelmű változatok 0-szor).
+# 066 Á33: unambiguous hyphen variants (U+2010–2012, U+2212 minus sign, U+FE63, U+FF0D) -> "-" (one character for one
+# character, the position does not change). The en and em dashes (U+2013, U+2014) stay: they mark both periods and
+# dashes (067 measurement: inside a word 13 times in the local store, also as periods and times; the unambiguous
+# variants 0 times).
 _DASHES = str.maketrans({ch: "-" for ch in "\u2010\u2011\u2012\u2212\ufe63\uff0d"})
 
 
@@ -178,13 +184,13 @@ def _split_cells(line_words: list[dict], gap_pt: float) -> list[CellLayout]:
 
 
 def build_layout(pages: list[list[dict]], *, y_tol: float | None = None) -> list[LineLayout]:
-    """Szó-dobozokból (`text`, `x0`, `x1`, `top`, pontban) sorok és oszlop-cellák, dokumentum-szintű sorszámozással.
+    """Lines and column cells from word boxes (`text`, `x0`, `x1`, `top`, in points), numbered across the document.
 
-    Mellékhatás (045): minden szó-szótár megkapja a `line_no` kulcsot (melyik sorba került), hogy a szóréteg a sorokhoz
-    köthető legyen. A visszaadott elrendezés ettől nem változik.
+    Side effect (045): every word dict gets a `line_no` key (the line it went into), so the word layer can be tied to
+    the lines. The returned layout does not change because of this.
 
-    Közös a szövegréteges PDF-nél (pdfplumber szavak) és az OCR-nél (tesseract szó-dobozok pontra váltva). `y_tol`
-    alapból a szövegréteg 3 pt-ja; az OCR a szavak medián-magasságából ad nagyobbat (ferde szkennelés)."""
+    Shared by text-layer PDFs (pdfplumber words) and OCR (tesseract word boxes converted to points). `y_tol` defaults to
+    the text layer's 3 pt; OCR passes a larger one derived from the median word height (skewed scans)."""
     layout: list[LineLayout] = []
     for page_no, words in enumerate(pages, 1):
         words = [w for w in words if w["text"]]
@@ -202,7 +208,8 @@ def build_layout(pages: list[list[dict]], *, y_tol: float | None = None) -> list
 
 
 def text_layer_ok(text: str) -> bool:
-    """Van-e használható szöveg: elég karakter, elég alfanumerikus arány és elég valódi szó (törött font kiszűrése)."""
+    """Whether there is usable text: enough characters, enough alphanumeric ratio and enough real words (filters out
+    broken fonts)."""
     stripped = text.strip()
     alnum = sum(ch.isalnum() for ch in stripped)
     words = [w for w in stripped.split() if _REAL_WORD.match(w) and sum(ch.isascii() and ch.isalnum() for ch in w) >= 2]
@@ -242,8 +249,8 @@ def read_pdf(path: str | Path) -> PdfText:
 
 
 def read_document(path: str | Path, *, ocr: bool = True) -> PdfText:
-    """Szövegréteg, és ha nincs, OCR (a lemez-gyorsítótárból, ha már volt). Az evalok és a CLI belépési pontja; a flow-k
-    ugyanezt két lépésben teszik (`load_pdf` -> `ocr_pdf`), hogy a kontraktban látszódjon."""
+    """Text layer, and if there is none, OCR (from the disk cache if it has run before). The entry point of the evals
+    and the CLI; the flows do the same in two steps (`load_pdf` -> `ocr_pdf`) so that it shows in the contract."""
     pdf = read_pdf(path)
     if pdf.has_text_layer or not ocr:
         return pdf

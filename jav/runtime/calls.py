@@ -1,19 +1,20 @@
-"""Egységes hívásnapló és előzetes költségfoglalás (040 K1; a 038-as értékelés F05 és F06 hibájára).
+"""Unified call log and upfront cost reservation (040 K1; for findings F05 and F06 of the 038 review).
 
-Minden fizikai szolgáltatói hívás (OpenAI, JEV, később OCR) előtt tartós `reserved` bejegyzés készül a maximális
-költséggel, és ha van keret (`budget_scope`), a foglalás CSAK akkor jön létre, ha a lekötött összeg + a maximum
-belefér. A foglalás és az ellenőrzés egy `BEGIN IMMEDIATE` tranzakció, ezért egyidejű kérésnél is helyes.
+Before every physical provider call (OpenAI, JEV, later OCR) a durable `reserved` entry is made with the maximum cost,
+and if there is a budget (`budget_scope`) the reservation is created ONLY if the committed amount + the maximum fits.
+Reservation and check run in one `BEGIN IMMEDIATE` transaction, so they stay correct under concurrent requests.
 
-Állapotok és a keretbe számított összeg:
-- `reserved`   : a hívás folyamatban vagy a folyamat összeomlott → a maximum lekötve; ugyanazt a lépést NEM hívjuk újra
-                 automatikusan (`UncertainAttempt`); induláskor `recover_uncertain()` jelöli `uncertain`-nek.
-- `uncertain`  : mint a `reserved`; kézi rendezés: `resolve_uncertain(id, cost_usd)`.
-- `succeeded`  : ismert költségnél a tényleges összeg, ismeretlennél a maximum marad lekötve. A válasz bizonylatként
-                 mentve; a lépés ismétlése a mentett választ adja (`replayed=True`), új hívás nélkül.
-- `failed`     : a hiba típusa naplózva; a költség ismeretlen, ezért a maximum lekötve marad (nem nulla, nem szabadul fel).
-                 Ugyanaz a lépés új kísérletszámmal újrapróbálható (a hívó dönt, pl. a munkasor próbálkozáskerete).
-Pénz: `Decimal`, szövegként tárolva. A régi `ledger` táblát a meglévő adapterek továbbra is írják; ez a napló a
-foglalás és a folytathatóság forrása.
+States and the amount counted against the budget:
+- `reserved`   : the call is in progress or the process crashed → the maximum is committed; the same step is NOT called
+                 again automatically (`UncertainAttempt`); at startup `recover_uncertain()` marks it `uncertain`.
+- `uncertain`  : like `reserved`; manual resolution: `resolve_uncertain(id, cost_usd)`.
+- `succeeded`  : the actual amount if the cost is known, otherwise the maximum stays committed. The response is saved as
+                 a receipt; repeating the step returns the saved response (`replayed=True`) without a new call.
+- `failed`     : the error type is logged; the cost is unknown, so the maximum stays committed (not zero, not released).
+                 The same step can be retried with a new attempt number (the caller decides, e.g. the work queue's
+                 retry allowance).
+Money: `Decimal`, stored as text. The existing adapters still write the old `ledger` table; this log is the source of
+truth for reservations and resumability.
 """
 
 from __future__ import annotations
@@ -67,16 +68,16 @@ RESPONSE_KIND = "invocation_response"
 
 
 class BudgetExceeded(RuntimeError):
-    """A maximális költség nem fér bele a keretbe; a hálózatot el sem értük."""
+    """The maximum cost does not fit into the budget; the network was never reached."""
 
 
 class UncertainAttempt(RuntimeError):
-    """A lépésnek van lezáratlan (összeomlott vagy bizonytalan kimenetű) kísérlete; automatikus új hívás tilos."""
+    """The step has an unfinished attempt (crashed or with an uncertain outcome); an automatic new call is forbidden."""
 
 
 @dataclass(frozen=True)
 class Outcome:
-    """A fizikai hívás eredménye, amit a hívó függvény ad vissza."""
+    """The result of the physical call, as returned by the call function (`fn`)."""
     response: Any
     model: str | None = None
     input_tokens: int | None = None
@@ -97,7 +98,7 @@ def _now() -> str:
 
 @dataclass(frozen=True)
 class RunContext:
-    """A feldolgozó állítja be egy futás tételére: ekkor a szolgáltatói adapterek a naplón és a kereten át hívnak."""
+    """Set by the worker for an item of a run: the provider adapters then call through the call log and the budget."""
     budget_scope: str | None
 
 
@@ -114,13 +115,13 @@ def use_run(*, budget_scope: str | None):
 
 
 def current() -> RunContext | None:
-    """None: régi parancssori / mérési út, napló és keret nélkül (a korábbi viselkedés)."""
+    """None: the legacy command-line / measurement path, without call log or budget (the earlier behaviour)."""
     return _context.get()
 
 
 def estimate_max_cost(*, input_chars: int, max_output_tokens: int, usd_per_mtok: tuple[Decimal, Decimal],
                       physical_attempts: int, chars_per_token: int = 2) -> Decimal:
-    """Felső becslés: minden lehetséges fizikai kísérlet (SDK- és validációs újrapróbálás) teljes áron."""
+    """Upper estimate: every possible physical attempt (SDK and validation retries) at full price."""
     in_tok = math.ceil(input_chars / chars_per_token)
     per_call = (Decimal(in_tok) * usd_per_mtok[0] + Decimal(max_output_tokens) * usd_per_mtok[1]) / Decimal(1_000_000)
     return (per_call * physical_attempts).quantize(Decimal("0.000001"))
@@ -133,7 +134,7 @@ def set_budget(scope: str, provider: str, limit_usd: Decimal) -> None:
 
 
 def ensure_budget(scope: str, provider: str, limit_usd: Decimal) -> None:
-    """063: keret felvétele csak akkor, ha még nincs (a félbemaradt futásindítás pótlásához; a meglévő keret marad)."""
+    """063: adds a budget only if there is none yet (to complete a half-finished run start; an existing one stays)."""
     with store.connect() as c:
         c.execute("INSERT INTO budgets(scope, provider, limit_usd, created_at) VALUES (?,?,?,?) ON CONFLICT(scope, provider) DO NOTHING",
                   (scope, provider, str(limit_usd), _now()))
@@ -157,7 +158,7 @@ def budget_usage(scope: str) -> dict[str, Any]:
 
 def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max_cost_usd: Decimal,
              budget_scope: str | None, request_hash: str | None) -> tuple[int | None, Any]:
-    """Foglalás egy tranzakcióban. Visszaad: (új invocation id, None) vagy (None, mentett válasz) ismétlésnél."""
+    """Reserves in one transaction. Returns (new invocation id, None), or on a repeat (None, (id, saved response))."""
     with store.connect() as c:
         c.commit()
         c.execute("BEGIN IMMEDIATE")
@@ -187,7 +188,7 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
 
 def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_cost_usd: Decimal,
            fn: Callable[[], Outcome], budget_scope: str | None = None, request_hash: str | None = None) -> Result:
-    """Egy fizikai hívás a naplón és a kereten át. Sikeres lépés ismétlése a mentett választ adja új hívás nélkül."""
+    """One physical call through the call log and the budget. Repeating a successful step returns the saved response."""
     inv_id, replay = _reserve(run_id=run_id, step_id=step_id, provider=provider, model=model, max_cost_usd=max_cost_usd,
                               budget_scope=budget_scope, request_hash=request_hash)
     if inv_id is None:
@@ -198,7 +199,7 @@ def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_c
         with store.connect() as c:
             c.execute("UPDATE invocations SET status='failed', error=?, finished_at=? WHERE id=?", (type(exc).__name__, _now(), inv_id))
         raise
-    # 066 Á30: a költség és a tokenek is a mentett válasz mellé, hogy egy leállás után a helyreállítás pontosan lezárhassa
+    # 066 Á30: cost and tokens are saved with the response too, so that recovery after a shutdown can close it exactly
     store.save_artifact(RESPONSE_KIND, str(inv_id), {"response": out.response, "model": out.model, "input_tokens": out.input_tokens,
                                                      "output_tokens": out.output_tokens,
                                                      "cost_usd": None if out.cost_usd is None else str(out.cost_usd)})
@@ -211,10 +212,10 @@ def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_c
 
 
 def recover_uncertain() -> int:
-    """A feldolgozó indulásakor: a lezáratlan foglalások bizonytalanná válnak (a maximum lekötve marad). 066 Á30: ha a
-    válasz már el van mentve (a leállás a mentés és a „sikeres” jelölés között történt), a hívás sikeres lesz a mentett
-    költséggel (ennek híján ismeretlen költséggel, a maximum lekötve), így a lépés ismétlése a mentett választ adja.
-    Visszaadja a bizonytalanná vált foglalások számát."""
+    """At worker startup: unfinished reservations become uncertain (the maximum stays committed). 066 Á30: if the
+    response is already saved (the shutdown came between saving it and marking the call "succeeded"), the call becomes
+    succeeded with the saved cost (failing that, with an unknown cost and the maximum committed), so repeating the step
+    returns the saved response. Returns the number of reservations that became uncertain."""
     with store.connect() as c:
         c.commit()
         c.execute("BEGIN IMMEDIATE")
@@ -230,8 +231,8 @@ def recover_uncertain() -> int:
 
 
 def resolve_uncertain(invocation_id: int, *, cost_usd: Decimal | None, note: str) -> None:
-    """Kézi rendezés (pl. a szolgáltatói felületen ellenőrizve): a kísérlet `failed` lesz, ismert költséggel vagy
-    továbbra is lekötött maximummal; utána a lépés új kísérlettel futtatható."""
+    """Manual resolution (e.g. after checking the provider's console): the attempt becomes `failed`, with a known cost
+    or with the maximum still committed; afterwards the step can run with a new attempt."""
     with store.connect() as c:
         row = c.execute("SELECT status FROM invocations WHERE id=?", (invocation_id,)).fetchone()
         if row is None or row["status"] not in ("reserved", "uncertain"):
@@ -242,7 +243,7 @@ def resolve_uncertain(invocation_id: int, *, cost_usd: Decimal | None, note: str
 
 
 def uncertain_list() -> list[dict[str, Any]]:
-    """A kézi rendezésre váró, bizonytalan kimenetű hívások (066 Á30: a `resolve_uncertain` parancssori előzménye)."""
+    """Calls with an uncertain outcome awaiting manual resolution (066 Á30: CLI listing before `resolve_uncertain`)."""
     with store.connect() as c:
         return [dict(r) for r in c.execute(
             "SELECT id, run_id, step_id, attempt, provider, model_requested, budget_scope, max_cost_usd, created_at, status"
@@ -255,6 +256,6 @@ def journal(run_id: str) -> list[dict[str, Any]]:
 
 
 def scope_journal(scope: str) -> list[dict[str, Any]]:
-    """Egy keret (futás) összes hívása, tételektől függetlenül: a futás költségnézetéhez (040 K2)."""
+    """All calls of one budget (run), regardless of items: for the run's cost view (040 K2)."""
     with store.connect() as c:
         return [dict(r) for r in c.execute("SELECT * FROM invocations WHERE budget_scope=? ORDER BY id", (scope,))]

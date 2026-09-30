@@ -1,12 +1,14 @@
-"""Golden eval: esetek betöltése a régi manifestből, összehasonlítók, jelölt-recall, golden- és determinizmus-futás.
+"""Golden eval: loading cases from the legacy manifest, comparators, candidate recall, golden and determinism runs.
 
-Pontozási szerződés (régi manifest `_compare_contract`): pénz Decimal-egyenlőség; nevek kis/nagybetű-független,
-whitespace-összevont, záró írásjel-toleráns; adószám szóköz nélkül (kötőjel marad); dátum ISO; null==null találat.
-`payment_iban` (és a külföldi számlánál a címek) a régi szerződésben NEM pontozott - informatív oszlopként külön riportáljuk.
+Scoring contract (legacy manifest `_compare_contract`): money by Decimal equality; names case-insensitive,
+whitespace-collapsed, tolerant of trailing punctuation; tax number without spaces (hyphens stay); date ISO; null==null
+is a hit. `payment_iban` (and, for foreign invoices, the addresses) is NOT scored in the legacy contract - we report it
+separately as an informational column.
 
-Típus-független: a mérendő típus-csomag (`jav/typepack.py`) adja a mezőlistát, a fajtákat (összehasonlító), a
-pontozott / informatív mezőket és a golden `type_key`-t; a nyers futás sorai hordozzák a `doc_type`-ot és a
-`flow_label`-t (`invoice_S` a magyar, `invoice_foreign_S` a külföldi számla), ebből olvas az eval-riport és az admin.
+Type-independent: the type pack under measurement (`jav/typepack.py`) supplies the field list, the kinds (comparator),
+the scored / informational fields and the golden `type_key`; the raw run rows carry the `doc_type` and the
+`flow_label` (`invoice_S` for the Hungarian, `invoice_foreign_S` for the foreign invoice), which the eval report and
+the admin read.
 """
 
 from __future__ import annotations
@@ -29,7 +31,7 @@ from jav.typepack import CANDIDATE_KIND_OF, DEFAULT_KEY, TypePack, get as get_pa
 _HU = get_pack(DEFAULT_KEY)
 INFORMATIONAL_FIELDS = _HU.informational_fields
 STRICT_SCORED = _HU.strict_scored
-FIELD_KIND = {f: CANDIDATE_KIND_OF[k] for f, k in _HU.fields.items() if k in CANDIDATE_KIND_OF}  # örökölt név (mező -> jelölt-fajta, hu)
+FIELD_KIND = {f: CANDIDATE_KIND_OF[k] for f, k in _HU.fields.items() if k in CANDIDATE_KIND_OF}  # legacy name (field -> candidate kind, hu)
 
 
 @dataclass
@@ -42,7 +44,7 @@ class GoldenCase:
 
 
 def load_cases(type_key: str = DEFAULT_KEY) -> list[GoldenCase]:
-    """A régi manifest esetei egy típusra (a csomag `golden_type_key`-e szerint)."""
+    """The legacy manifest's cases for one type (by the pack's `golden_type_key`)."""
     pack = get_pack(type_key)
     manifest = json.loads(GOLDEN_MANIFEST.read_text(encoding="utf-8"))
     cases: list[GoldenCase] = []
@@ -62,9 +64,10 @@ def _flow_label(type_key: str, arm: str) -> str:
 
 
 def _run_name(type_key: str, base: str) -> str:
-    """Fájlnév-minta: a magyar számla a korábbi `golden_S` / `determinism_S_n5`, más típus `<típus>_golden_S` (az eval-riport
-    fájlnév-mintája a végződésre illeszkedik, a flow-t a sorok `flow_label`-je mondja). Kényszerített OCR-motor
-    (`JAV_OCR_ENGINE`) esetén a motor neve a fájlnév elejére kerül (`azure_di_<típus>_golden_S`), hogy a mérések ne keveredjenek."""
+    """File-name pattern: the Hungarian invoice keeps the earlier `golden_S` / `determinism_S_n5`, other types use
+    `<type>_golden_S` (the eval report's file-name pattern matches on the suffix; the rows' `flow_label` says the flow).
+    With a forced OCR engine (`JAV_OCR_ENGINE`) the engine name is prefixed to the file name
+    (`azure_di_<type>_golden_S`) so that measurements do not get mixed up."""
     import os
 
     from jav.ocr import ENGINE_ENV
@@ -74,7 +77,7 @@ def _run_name(type_key: str, base: str) -> str:
     return f"{forced}_{name}" if forced else name
 
 
-# --- összehasonlítók -------------------------------------------------------------------
+# --- comparators -----------------------------------------------------------------------
 
 _TRAILING_PUNCT = re.compile(r"[\s.,;:]+$")
 
@@ -91,10 +94,11 @@ def _norm_money(v: Any) -> str | None:
 
 
 def _hu_bban(v: Any) -> str:
-    """Ugyanaz a magyar bankszámla IBAN / 24 jegyű / 16 jegyű alakban: a 24 jegyű BBAN-ra hozzuk (16 jegy + 8 nulla)."""
+    """The same Hungarian bank account as IBAN / 24 digits / 16 digits: normalise to the 24-digit BBAN (16 digits + 8
+    zeros)."""
     s = str(v).replace(" ", "").replace(" ", "").replace("-", "").upper()
     if s.startswith("HU"):
-        return s[4:]  # HU + 2 ellenőrző jegy után a BBAN
+        return s[4:]  # the BBAN follows HU + 2 check digits
     digits = re.sub(r"\D", "", s)
     return digits + "0" * 8 if len(digits) == 16 else digits
 
@@ -105,7 +109,7 @@ def _norm_date(v: Any) -> str:
 
 
 def field_equal(field: str, got: Any, expected: Any, kind: str | None = None) -> bool:
-    """A mező FAJTÁJA szerinti összehasonlítás (a régi szerződés); `kind` nélkül a magyar számla csomagjából."""
+    """Comparison by the field's KIND (the legacy contract); without `kind`, taken from the Hungarian invoice pack."""
     if got is None or expected is None:
         return got is None and expected is None
     kind = kind or _HU.kind(field)
@@ -131,13 +135,14 @@ _PUNCT_ALL = re.compile(r"[^\w\s]", re.UNICODE)
 
 
 def _fold_ocr(v: Any) -> str:
-    """OCR-tűrő alak: ékezet nélkül, kisbetűvel, írásjel nélkül, whitespace összevonva ("SZÉCHENYI ÚT 101." == "szechenyi ut 101")."""
+    """OCR-tolerant form: accents stripped, lower case, no punctuation, whitespace collapsed
+    ("SZÉCHENYI ÚT 101." == "szechenyi ut 101")."""
     return " ".join(_PUNCT_ALL.sub(" ", str(v).translate(_ACCENT_FOLD)).split()).casefold()
 
 
 def field_equal_lenient(field: str, got: Any, expected: Any, kind: str | None = None) -> bool:
-    """A szigorú egyezés VAGY - szöveges fajtánál (név, cím, szöveg) - OCR-tűrő egyezés (ékezet, kis/nagybetű, írásjel nélkül).
-    Az OCR-szövegű típusoknál a második, tájékoztató pontszám: mennyi a hiba, ami csak az OCR ékezet-zaja."""
+    """Strict equality OR - for text kinds (name, address, text) - OCR-tolerant equality (ignoring accents, case and
+    punctuation). The second, informational score for OCR-text types: how much of the error is only OCR accent noise."""
     if field_equal(field, got, expected, kind):
         return True
     if got is None or expected is None:
@@ -146,7 +151,7 @@ def field_equal_lenient(field: str, got: Any, expected: Any, kind: str | None = 
     return kind in ("name", "address", "text") and _fold_ocr(got) == _fold_ocr(expected)
 
 
-# --- jelölt-recall (offline, API nélkül) ------------------------------------------------
+# --- candidate recall (offline, no API) ------------------------------------------------
 
 
 def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True, type_key: str = DEFAULT_KEY) -> dict[str, tuple[int, int]]:
@@ -160,7 +165,7 @@ def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True
     misses: list[str] = []
     counts: dict[str, list[int]] = defaultdict(list)
     for case in cases:
-        pdf = read_document(case.pdf)  # szövegréteg, vagy OCR (gyorsítótárból)
+        pdf = read_document(case.pdf)  # text layer, or OCR (from the cache)
         if pdf.text_source is None:
             misses.append(f"{case.case_id}: nincs szöveg (szövegréteg és OCR sem)")
             continue
@@ -174,12 +179,12 @@ def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True
                 continue
             kind = pack.kind(field)
             if kind == "country" or (kind == "text" and field not in pack.text_labels):
-                continue  # zárt Choice-lista (ország, fizetési mód, leolvasás módja), nem jelöltből - a recall itt nem értelmezett
+                continue  # closed Choice list (country, payment method, reading method), not from candidates - recall is undefined here
             totals[field] += 1
             if kind == "currency":
                 ok = str(expected).upper() in currencies
             elif kind == "text":
-                ok = field_in_candidates(field, expected, cands.get(f"text:{field}", []), kind)  # címkés szöveg-jelöltek
+                ok = field_in_candidates(field, expected, cands.get(f"text:{field}", []), kind)  # labelled text candidates
             else:
                 ok = field_in_candidates(field, expected, cands.get(CANDIDATE_KIND_OF[kind], []), kind)
             if ok:
@@ -205,12 +210,12 @@ def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True
     return result
 
 
-# --- golden futás és determinizmus -----------------------------------------------------
+# --- golden run and determinism --------------------------------------------------------
 
 
 def _score_state(state: FlowState, expected: dict[str, Any], pack: TypePack) -> dict[str, bool | None]:
-    """A régi szerződés: a goldenben HIÁNYZÓ kulcs nem pontozott (None), az explicit null azt jelenti, hogy üresnek kell lennie
-    (pl. a `real_ms` régi eset nem tartalmaz supplier_country kulcsot)."""
+    """The legacy contract: a key MISSING from the golden set is not scored (None); an explicit null means the field
+    must be empty (e.g. the legacy `real_ms` case has no supplier_country key)."""
     got = state.invoice.to_datapoints(pack.record_fields) if state.invoice else {}
     return {f: (field_equal(f, got.get(f), expected.get(f), pack.kind(f)) if state.invoice and f in expected else None) for f in pack.scored_fields}
 
@@ -247,12 +252,12 @@ def _state_row(case: GoldenCase, state: FlowState, run_no: int, seconds: float, 
         "review_reasons": state.review_reasons,
         "datapoints": state.invoice.to_datapoints(pack.record_fields) if state.invoice else None,
         "scores": _score_state(state, case.expected, pack),
-        "scores_lenient": _score_state_lenient(state, case.expected, pack),  # OCR-tűrő (ékezet-független) második pontszám
+        "scores_lenient": _score_state_lenient(state, case.expected, pack),  # OCR-tolerant (accent-insensitive) second score
         "text_source": state.text_source,
         "ocr_conf": state.ocr_conf,
         "ocr_engine": state.ocr_engine,
         "ocr_escalated": state.ocr_escalated,
-        "expected_present": {f: case.expected.get(f) is not None for f in pack.scored_fields if f in case.expected},  # a jelenlét-Noul igazsága
+        "expected_present": {f: case.expected.get(f) is not None for f in pack.scored_fields if f in case.expected},  # ground truth for the presence Noul
         "record_conf": record_conf(state.picks) if state.arm == "S" else None,
         "picks": picks,
         "verdicts": verdicts,
@@ -299,7 +304,7 @@ def print_golden_report(rows: list[dict[str, Any]], arm: str, pack: TypePack | N
             continue
         acc = sum(vals) / len(vals)
         if arm == "S":
-            confs = [c for r in scored if f in r["picks"] and (c := r["picks"][f]["confidence"]) is not None]  # 069: jelölt nélkül None
+            confs = [c for r in scored if f in r["picks"] and (c := r["picks"][f]["confidence"]) is not None]  # 069: None without candidates
             extra = f"{statistics.mean(confs):.2f}" if confs else "-"
         else:
             flags = [max(r["verdicts"]["flags"].get(f, {"_": 0.0}).values()) for r in scored if r["verdicts"]]
@@ -334,8 +339,8 @@ def determinism(
     pack = get_pack(type_key)
     cases = cases or load_cases(type_key)
     rows: list[dict[str, Any]] = []
-    # cache nélkül (olvasás ÉS írás nélkül): a valódi futásról-futásra ingadozást mérjük, és a golden
-    # referencia-válaszai a cache-ben érintetlenek maradnak (handoff 004 §4 csapda)
+    # without the cache (no reads AND no writes): we measure the real run-to-run variation, and the golden
+    # reference answers in the cache stay untouched (handoff 004 §4 pitfall)
     with get_adapter().no_cache_write():
         for case in cases:
             for run_no in range(1, n + 1):
@@ -356,7 +361,7 @@ def print_determinism_report(rows: list[dict[str, Any]], arm: str, n: int, pack:
         by_case[r["case_id"]].append(r)
     print(f"\n### Determinizmus - {pack.key} {arm}-kar, n={n}, {len(by_case)} eset\n")
     print("| mező | egyezés | flip-esetek | conf átlag | conf szórás |\n|---|---|---|---|---|")
-    # a pontozott mezők után a nem-pontozottak is (informatív): az LLM-drift gyakran ott jelentkezik
+    # after the scored fields, the unscored ones too (informational): LLM drift often shows up there
     for f in pack.scored_fields + tuple(x for x in pack.header_fields if x not in pack.scored_fields):
         agree: list[float] = []
         flips: list[str] = []
@@ -386,7 +391,7 @@ def print_determinism_report(rows: list[dict[str, Any]], arm: str, n: int, pack:
             else f"| {f} | {statistics.mean(agree):.1%} | {len(flips)} | - | - |"
         )
     if arm == "G":
-        # Jev-flagek stabilitása az LLM-érték-változástól függetlenül
+        # stability of the JEV flags, independent of changes in the LLM values
         flag_std: list[float] = []
         for runs in by_case.values():
             keys = set()
@@ -404,7 +409,7 @@ def print_determinism_report(rows: list[dict[str, Any]], arm: str, n: int, pack:
     print(f"**Route-flip esetek:** {len(route_flips)}" + (f" ({', '.join(route_flips)})" if route_flips else ""))
 
 
-# --- Jev-ellenőrző szonda (G-kar Jev-fele, OpenAI nélkül) ---------------------------------
+# --- JEV verifier probe (the JEV half of the G path, without OpenAI) ----------------------
 
 
 PROBE_TARGET = {
@@ -415,7 +420,7 @@ PROBE_TARGET = {
     "invoice_number_emptied": "absence_wrong:invoice_number",
     "tax_id_is_phone": "wrong_kind:supplier_tax_id",
 }
-# Magyar telefonszám a számlán (+36 / 0036 / 06, körzet, 6-7 jegy) - a régi csapda: telefonszám adószámként
+# Hungarian phone number on an invoice (+36 / 0036 / 06, area code, 6-7 digits) - the old pitfall: phone as tax number
 PHONE_RE = re.compile(r"(?:\+36|0036|06)[\s\-/.]?\d{1,2}[\s\-/.]?\d{3}[\s\-]?\d{3,4}\b")
 
 
@@ -427,11 +432,11 @@ def _nonzero(v: Any) -> bool:
 
 
 def perturb_extraction(dp: dict[str, Any], lines: list[Any]) -> dict[str, dict[str, Any]]:
-    """A golden elvárt fejléc-kivonat és szándékosan elrontott változatai (a szonda bemenete).
+    """The golden expected header extract and deliberately broken variants of it (the probe's input).
 
-    Variánsok: tökéletes; felcserélt felek; csonka szállítónév; kiürített számlaszám; nettó := bruttó (csak ha van
-    áfa és nettó); telefonszám a szállítói adószám helyén (csak ha a számla nyomtat telefonszámot - a régi projekt tipikus
-    gpt-hibája, README).
+    Variants: perfect; parties swapped; truncated supplier name; emptied invoice number; net := gross (only if there is
+    VAT and a net amount); a phone number in place of the supplier tax number (only if the invoice prints a phone number
+    - the legacy project's typical GPT error, README).
     """
     swapped = dict(dp)
     swapped["supplier_name"], swapped["buyer_name"] = dp.get("buyer_name"), dp.get("supplier_name")
@@ -453,7 +458,8 @@ def perturb_extraction(dp: dict[str, Any], lines: list[Any]) -> dict[str, dict[s
 
 
 def probe_summary(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Variánsonként: n, átlag / min / max a várt flag P-jére, kétoldali sáv-darabszám (policy `invoice.verify`), fals pozitív."""
+    """Per variant: n, mean / min / max of the expected flag's P, two-sided band counts (policy `invoice.verify`), false
+    positives."""
     from jav.policy import noul_band
 
     by: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -476,11 +482,11 @@ def probe_summary(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
 
 
 def verifier_probe(cases: list[GoldenCase] | None = None, use_cache: bool = True, type_key: str = DEFAULT_KEY) -> list[dict[str, Any]]:
-    """A Jev-ellenőrzőt a golden ELVÁRT kivonatra (tökéletes) és szándékosan elrontott változataira futtatja.
+    """Runs the JEV verifier on the golden EXPECTED extract (perfect) and on deliberately broken variants of it.
 
-    Ez a G-kar Jev-felének kalibrációs tesztje: tökéletes kivonatnál a flageknek alacsonynak, az injektált
-    hibáknál a megfelelő flagnek magasnak kell lennie. OpenAI-hívás nincs. A nyers sorok `runs/*_verifier_probe.jsonl`-be
-    kerülnek (variáns, várt flag, P, sáv, minden flag), az összegzés a kétoldali sávokat is mutatja.
+    This is the calibration test of the G path's JEV half: for the perfect extract the flags must be low, for the
+    injected errors the matching flag must be high. No OpenAI call. The raw rows go to `runs/*_verifier_probe.jsonl`
+    (variant, expected flag, P, band, all flags); the summary also shows the two-sided bands.
     """
     from jav.adapters.jev import get_adapter
     from jav.jev_verify import site_for
@@ -505,9 +511,10 @@ def verifier_probe(cases: list[GoldenCase] | None = None, use_cache: bool = True
             hot += [f"{fl}:{p:.2f}" for fl, p in verdicts.doc_flags.items() if p >= REVIEW_FLAG_P]
             false_positive = False
             if variant == "perfect":
-                # Csak a golden által lefedett, ÚTVONALAT befolyásoló mezőkön mérünk fals pozitívot (pontozott vagy magas tétű):
-                # a golden-ben nem szereplő mezők / tételsorok `absence_wrong` / line_items flagje és a csak informatív mezők
-                # (cím: a régi szerződés nem pontozza, a policy sem küldi kézi sorba) jogos Jev-ítélet, nem hiba.
+                # False positives are measured only on fields covered by the golden set that affect the ROUTE
+                # (scored or high-stakes): the `absence_wrong` / line_items flag of fields / line items absent from
+                # the golden set and the purely informational fields (address: the legacy contract does not score it,
+                # nor does the policy send it to manual review) are legitimate JEV judgements, not errors.
                 routed = {f for f in header if f in pack.strict_scored or f in pack.high_stakes}
                 covered = [p for f, d in verdicts.flags.items() if f in routed for p in d.values()]
                 covered.append(verdicts.doc_flags.get("parties_swapped", 0.0))
@@ -531,7 +538,7 @@ def verifier_probe(cases: list[GoldenCase] | None = None, use_cache: bool = True
                 "flags": verdicts.flags,
                 "doc_flags": verdicts.doc_flags,
                 "unsupported": verdicts.unsupported,
-                "perfect_fields": sorted(f for f in header if f in pack.strict_scored or f in pack.high_stakes),  # ezeken mérünk fals pozitívot (eval-report igazság)
+                "perfect_fields": sorted(f for f in header if f in pack.strict_scored or f in pack.high_stakes),  # false positives are measured on these (eval-report ground truth)
                 "model": verdicts.model,
                 "cached": call.cached,
                 "seconds": round(seconds, 3),

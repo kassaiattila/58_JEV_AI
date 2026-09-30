@@ -1,13 +1,15 @@
-"""M3 Burr-flow: `load_message → classify_attachments → intent → route → tasks → save → done`.
+"""M3 Burr flow: `load_message → classify_attachments → intent → route → tasks → save → done`.
 
-- `load_message`: inbox-mappából (`message.json` + fájlok) VAGY kész `EmailMessage`-ből (golden).
-- `classify_attachments`: minden fájlként meglévő PDF-en lefut az M1 detect (saját Burr-gráf, a levél run_id-je alatt: `<run_id>-doc_detect`, 065), az
-  eredmény (doc_id, doc_type, conf) a csatolmányra kerül és a `documents` táblába (source_email hivatkozással).
-  Csak névvel ismert csatolmány (régi golden) -> `name_only`; kép -> `unsupported` (OCR = B5 bővítés).
-- `intent`: egy Jev-kérés (Choice + 4 Noul) az adapteren át (cache + ledger).
-- `route`: `policy.email_next_flow` - kód dönt az intentből, confidence-ből és a csatolmány-típusokból.
-- `save`: `emails` tábla (levelenként a legutóbbi) és `email_results` (a futás saját sora, a levél szövegéből látott
-  résszel, 058 K5.1); bizonytalan intent -> review_queue (okonként, additív), biztos -> a saját korábbi okai zárulnak.
+- `load_message`: from an inbox folder (`message.json` + files) OR from a ready `EmailMessage` (golden set).
+- `classify_attachments`: M1 detect runs on every PDF present as a file (its own Burr graph, under the email's run_id:
+  `<run_id>-doc_detect`, 065); the result (doc_id, doc_type, conf) goes onto the attachment and into the `documents`
+  table (with a source_email reference). An attachment known by name only (legacy golden set) -> `name_only`; image ->
+  `unsupported` (OCR = extension B5).
+- `intent`: one JEV request (Choice + 4 Nouls) through the adapter (cache + ledger).
+- `route`: `policy.email_next_flow` - code decides from the intent, the confidence and the attachment types.
+- `save`: `emails` table (the latest per email) and `email_results` (the run's own row, with the part of the email text
+  that was seen, 058 K5.1); uncertain intent -> review_queue (per reason, additive), certain -> its own earlier reasons
+  are closed.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ from jav.emails import DOC_EXTS, EmailMessage, body_coverage, load_message_dir
 from jav.intent import IntentResult
 
 TERMINALS = ["done"]
-PARTITION = "email_intent"  # a tartós állapotmentés partíciója (066 Á08: a feldolgozó ezzel keresi a mentett állapotot)
+PARTITION = "email_intent"  # partition of the durable state persistence (066 Á08: the worker looks up the saved state with it)
 TRACKER_PROJECT = "jav_email_intent"
 
 
@@ -37,10 +39,10 @@ class EmailState(BaseModel):
     result: IntentResult | None = None
     next_flow: str = ""
     uncertain: bool = False
-    review_reasons: list[str] = Field(default_factory=list)  # additív; ma: jev_unavailable:<ok>
+    review_reasons: list[str] = Field(default_factory=list)  # additive; today: jev_unavailable:<reason>
     final_status: str | None = None
-    propose_tasks: bool = False  # 058 K5.3: a recept kéri-e a feladatjavaslatot (alapból nem: GPT-költség)
-    tasks: dict | None = None  # a javaslat a kapu után: {status, tasks, rejected} (None = nem kértük)
+    propose_tasks: bool = False  # 058 K5.3: whether the recipe asks for task proposals (off by default: GPT cost)
+    tasks: dict | None = None  # the proposal after the gate: {status, tasks, rejected} (None = not requested)
 
 
 @action.pydantic(reads=["source_dir", "message"], writes=["message"])
@@ -64,14 +66,14 @@ def classify_attachments(state: EmailState) -> EmailState:
             att.status = "unsupported"
             continue
         if att.ext != ".pdf":
-            att.status = "unsupported"  # kép: OCR nélkül nem olvasható (B5)
+            att.status = "unsupported"  # image: unreadable without OCR (B5)
             continue
         if not state.detect_attachments:
             att.status = "skipped"
             continue
         from jav.flow_detect import run_detect
 
-        # 065: a levél futásazonosítója alatt, különben a csatolmány teendője és költsége a futáson kívülre kerül
+        # 065: under the email's run ID, otherwise the attachment's to-do and cost would fall outside the run
         st = run_detect(att.path, use_cache=state.use_cache, run_id=f"{state.run_id}-doc_detect")
         att.doc_id, att.status = st.doc_id, st.final_status
         if st.result is not None:
@@ -88,13 +90,14 @@ def intent(state: EmailState) -> EmailState:
     assert state.message is not None
     try:
         state.result = classify(get_adapter(), state.message, run_id=state.run_id, use_cache=state.use_cache)
-    except JevUnavailableError as exc:  # a Jev nem elérhető (ledgerben): szándék nélkül, kézi sorba; a flow nem dől el
+    except JevUnavailableError as exc:  # JEV unavailable (in the ledger): no intent, to the manual queue; the flow does not fail
         state.result = None
         state.uncertain = True
         state.review_reasons = state.review_reasons + [f"jev_unavailable:{exc.reason}"]
         return state
     state.uncertain = policy.choice_needs_review(state.result.confidence, state.result.probabilities, "email.intent")
-    # M3 jelek (v1.1.0): a beszúrt utasítás igen-sávja review-ok (additív, a policy dönti el, mely jel)
+    # M3 signals (v1.1.0): the yes band of an injected instruction is a review reason (additive, the policy decides
+    # which signal)
     state.review_reasons = state.review_reasons + [r for r in policy.email_signal_reasons(state.result.signals) if r not in state.review_reasons]
     return state
 
@@ -113,9 +116,9 @@ def route(state: EmailState) -> EmailState:
 
 @action.pydantic(reads=["message", "result", "next_flow", "run_id", "propose_tasks", "review_reasons"], writes=["tasks", "review_reasons"])
 def tasks(state: EmailState) -> EmailState:
-    """058 K5.3: feladatjavaslat (GPT, a régi email-actions utasítása) + kódos bizonyíték-kapu. Csak ha a recept kéri, és a
-    levél nem archiválandó (kód dönt). Hiba nem dönti el a folyamatot: teendő lesz belőle. Javaslat esetén teendő, mert a
-    javaslatot csak ember fogadja el."""
+    """058 K5.3: task proposal (GPT, the legacy email-actions instruction) + code evidence gate. Only if the recipe asks
+    for it and the email is not one to archive (code decides). An error does not fail the process: it becomes a to-do. A
+    proposal also becomes a to-do, because only a person accepts a proposal."""
     if not state.propose_tasks:
         return state
     from jav import email_tasks
@@ -135,7 +138,7 @@ def tasks(state: EmailState) -> EmailState:
         raw = email_tasks.extract(snap, intent_hint=hint, run_id=state.run_id)
     except JobCancelled:
         raise
-    except Exception as exc:  # noqa: BLE001 - OpenAI / keret / séma hiba: teendő, a szándék-eredmény megmarad
+    except Exception as exc:  # noqa: BLE001 - OpenAI / budget / schema error: a to-do, the intent result is kept
         state.tasks = {"status": "error", "error": type(exc).__name__, "tasks": [], "rejected": []}
         state.review_reasons = state.review_reasons + [f"tasks:failed:{type(exc).__name__}"]
         return state
@@ -155,11 +158,12 @@ def save(state: EmailState) -> EmailState:
         body_excerpt=(r.body_clean if r else msg.body)[:600],
         attachments=[a.model_dump(exclude={"path"}) for a in msg.attachments],
         intent=r.intent if r else None, intent_conf=r.confidence if r else None,
-        # a `signals` JSON: Noul-jelek + `scores` (Score-jelek: szint, várható érték, conf, eloszlás) egy oszlopban
+        # the `signals` JSON: Noul signals + `scores` (Score signals: level, expected value, conf, distribution) in one
+        # column
         signals=({**r.signals, "scores": {k: s.model_dump() for k, s in r.scores.items()}} if r else None),
         next_flow=state.next_flow, run_id=state.run_id,
     )
-    # 058 K5.1: a futás saját eredménysora (az `emails` sor levelenként a legutóbbi marad); a levél szövegéből látott rész
+    # 058 K5.1: the run's own result row (the `emails` row stays the latest per email); the part of the email text seen
     store.upsert_email_result(
         run_id=state.run_id, message_id=msg.message_id, intent=r.intent if r else None, intent_conf=r.confidence if r else None,
         signals=({**r.signals, "scores": {k: s.model_dump() for k, s in r.scores.items()}} if r else None),
@@ -179,7 +183,7 @@ def save(state: EmailState) -> EmailState:
         )
     else:
         store.review_close(subject_kind="email", subject_id=msg.message_id, producer="email_intent", run_id=state.run_id)
-    # 048 T2: a feldolgozó a tétel állapotát ebből veszi; bizonytalan szándék = teendő
+    # 048 T2: the worker takes the item's status from this; an uncertain intent = a to-do
     state.final_status = "jev_unavailable" if r is None else ("needs_review" if state.uncertain or state.review_reasons else "done")
     return state
 
@@ -198,7 +202,7 @@ TRANSITIONS = [
     ("save", "done"),
 ]
 
-CONTRACT = {  # a gráf deklarációja: FLOW.md + Mermaid + lint ebből (jav/contract.py, `python -m jav.cli flows`)
+CONTRACT = {  # the graph declaration: FLOW.md + Mermaid + lint come from it (jav/contract.py, `python -m jav.cli flows`)
     "name": "email_intent",
     "phases": ["load", "attachments", "classify", "route", "tasks", "persist", "terminal"],
     "steps": [("load_message", "load"), ("classify_attachments", "attachments"), ("intent", "classify"), ("route", "route"),
@@ -230,7 +234,8 @@ def build_app(
     persister=None,
     propose_tasks: bool = False,
 ) -> Application:
-    """`run_id` + `persister` (048 T2): a feldolgozóból futtatva tartós állapotmentés, ugyanazzal az azonosítóval folytatás."""
+    """`run_id` + `persister` (048 T2): when run from the worker, durable state persistence and resumption under the
+    same ID."""
     stem = (message.message_id if message else source_dir or "email").replace(":", "-").replace("\\", "/").rstrip("/").rsplit("/", 1)[-1][:32]
     run_id = run_id or f"email-{stem}-{uuid.uuid4().hex[:8]}"
     initial = EmailState(source_dir=source_dir, message=message, run_id=run_id, use_cache=use_cache, detect_attachments=detect_attachments,

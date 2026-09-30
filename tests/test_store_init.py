@@ -1,7 +1,8 @@
-"""061: az adattár szerkezet-ellenőrzése (séma + migrációk) kapcsolódásonként csak akkor fut, ha szükséges.
+"""061: the store's structure check (schema + migrations) runs on connect only when needed.
 
-Előtte minden kapcsolódás lefuttatta a teljes sémát és a migrációkat; a munkacsomag-lista egy lekérése 380 kapcsolódással
-~3 s volt. Most a séma-verzió (SQLite `schema_version`) és a regisztrált modul-sémák alapján dől el, kell-e újra futnia.
+Before, every connection ran the whole schema and the migrations; one fetch of the work-package list took ~3 s with 380
+connections. Now the schema version (SQLite `schema_version`) and the registered module schemas decide whether it has
+to run again.
 """
 
 from __future__ import annotations
@@ -71,11 +72,11 @@ def test_session_reuses_one_connection_and_keeps_write_semantics(tmp_path):
                     raise RuntimeError("boom")
             except RuntimeError:
                 pass
-            # a véglegesített írás egy független kapcsolatból is látszik, a hibás blokké nem
+            # the committed write is visible from an independent connection too, the failed block's is not
             with sqlite3.connect(db) as other:
                 keys = {r[0] for r in other.execute("SELECT key FROM meta")}
             assert "k1" in keys and "k2" not in keys
-        with store.connect() as c:  # a blokk után ismét önálló kapcsolat
+        with store.connect() as c:  # after the block, a standalone connection again
             assert c.execute("SELECT value FROM meta WHERE key='k1'").fetchone()[0] == "v1"
 
 

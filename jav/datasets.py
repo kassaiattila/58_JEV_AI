@@ -1,16 +1,17 @@
-"""Adatkészletek (056 U1): a felület minden listája és eredménytáblája egy megnevezett, oszlopleírással ellátott
-sorhalmaz, amelyet a szolgáltatás egységes lekérdezéssel (`jav/tablequery.py`) ad.
+"""Datasets (056 U1): every list and result table of the UI is a named set of rows with a column description, which
+the service delivers through one uniform query (`jav/tablequery.py`).
 
-Egy adatkészlet: név, felirat, kötelező hatókör (pl. `run_id`), sor-előállító és — ha drága — ujjlenyomat. A felület
-csak az oszlopleírásból rajzol, ezért új kimenethez nem kell felületi kód (döntés 2026-09-28: általános adatnézegető,
-nem kimenetenkénti egyedi felület).
+A dataset has a name, a label, a mandatory scope (e.g. `run_id`), a row builder and — if it is expensive — a
+fingerprint. The UI draws only from the column description, so a new output needs no UI code (decision of
+2026-09-28: a generic data viewer, not a custom UI per output).
 
-Gyorsítótár: a futás eredménytábláinak előállítása drága (a javított mezők forráshelyét újraszámolja; 49 iratnál kb.
-10 s), a lapozás és a szűrés viszont minden lépésnél új kérés. Ezért a sorok a futás adatának ujjlenyomatáig
-(javítások, teendők, tételállapot) megmaradnak; javítás vagy teendő-zárás után a következő kérés újraszámol.
+Cache: building a run's result tables is expensive (it recomputes the source locations of corrected fields; about 10 s
+for 49 documents), while paging and filtering send a new request at every step. So the rows are kept until the
+fingerprint of the run's data (corrections, to-dos, item status) changes; after a correction or a closed to-do, the
+next request recomputes them.
 
-Oszlop-`extra` a felületnek: `link` = hivatkozás-cél (`run`, `workpackage`, `reviews`, `review`, `item`); a hivatkozás
-a sor `_wp`, `_run`, `_stage` és `item_id` mezőjéből épül (`next`: a csomag következő lépésének szakasza).
+Column `extra` for the UI: `link` = link target (`run`, `workpackage`, `reviews`, `review`, `item`); the link is built
+from the row's `_wp`, `_run`, `_stage` and `item_id` fields (`next`: the stage of the package's next step).
 """
 
 from __future__ import annotations
@@ -32,22 +33,22 @@ Rows = tuple[list[Column], list[dict[str, Any]]]
 
 
 class UnknownDataset(KeyError):
-    """Nincs ilyen nevű adatkészlet."""
+    """No dataset with this name."""
 
 
 class MissingScope(ValueError):
-    """Az adatkészlethez hatókör (pl. futás-azonosító) kell."""
+    """The dataset needs a scope (e.g. a run id)."""
 
 
 @dataclass(frozen=True)
 class Dataset:
     name: str
     label: str
-    scope: tuple[str, ...]                         # kötelező hatókör-kulcsok
+    scope: tuple[str, ...]                         # mandatory scope keys
     build: Callable[[dict[str, str]], Rows]
-    fingerprint: Callable[[dict[str, str]], str] | None = None  # None: nincs gyorsítótár (olcsó lista)
+    fingerprint: Callable[[dict[str, str]], str] | None = None  # None: no cache (cheap list)
     optional_scope: tuple[str, ...] = ()
-    natural_sort: tuple[tuple[str, bool], ...] = ()  # 062: (oszlop, csökkenő) — kért rendezés nélkül ebben a sorrendben jönnek a sorok
+    natural_sort: tuple[tuple[str, bool], ...] = ()  # 062: (column, descending): row order when no sort is requested
 
     def spec(self) -> dict[str, Any]:
         return {"name": self.name, "label": self.label, "scope": list(self.scope), "optional_scope": list(self.optional_scope),
@@ -61,11 +62,11 @@ def _labels(name: str) -> dict[str, str]:
         return cfg.load("field_labels")["doc_types"]
     if name == "recipe":
         return {r["id"]: r["title"] for r in work.recipes()}
-    if name == "intent":  # 058 K5.1: a levél-szándékok neve a regiszterből
+    if name == "intent":  # 058 K5.1: the names of the email intents, from the registry
         from jav import intents
 
         return {k: v.display_name for k, v in intents.BY_KEY.items()}
-    if name == "task_action":  # 058 K5.3: a feladat-akciók magyar neve
+    if name == "task_action":  # 058 K5.3: the Hungarian names of the task actions
         return dict(cfg.load("email_tasks")["actions"])
     if name == "next_flow":
         from jav import mailbox
@@ -86,13 +87,14 @@ def _col(key: str, label: str, kind: str = "text", *, labels: str | None = None,
     return Column(key, label, kind, hidden=hidden, labels=_labels(labels) if labels else None, extra=extra)  # type: ignore[arg-type]
 
 
-# --- ujjlenyomat -----------------------------------------------------------------------------------------------
+# --- fingerprint -----------------------------------------------------------------------------------------------
 
 
 def _run_fingerprint(scope: dict[str, str]) -> str:
-    """A futás eredményét érintő változások: javítás, a futás alanyainak teendői (a korábbi futásból jöttek is, a
-    „korábbi” jelölés miatt), feladatjavaslat-döntés, tétel-eredmény, futás-állapot. 062: a teendők a futás alanyaira
-    szűkítve — addig bármely futás teendő-változása minden futás tárolt eredményét érvénytelenítette."""
+    """Changes that affect the run's result: corrections, the to-dos of the run's subjects (including those from an
+    earlier run, because of the "earlier" marker), task proposal decisions, item results, the run status. 062: the
+    to-dos are narrowed to the run's subjects — until then, a to-do change in any run invalidated every run's stored
+    result."""
     run_id = scope["run_id"]
     with store.connect() as c:
         row = c.execute("SELECT status, approval, input FROM runs WHERE run_id=?", (run_id,)).fetchone()
@@ -103,13 +105,13 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
         subjects = [work.review_subject(i) for i in json.loads(row["input"])["items"]]
         for kind in sorted({k for k, _ in subjects}):
             ids = sorted({i for k, i in subjects if k == kind})
-            for start in range(0, len(ids), 500):  # az SQLite paraméterkorlátja alatt
+            for start in range(0, len(ids), 500):  # stays under the SQLite parameter limit
                 chunk = ids[start:start + 500]
                 rsn += c.execute(
                     "SELECT COUNT(*), SUM(r.status='open'), MAX(r.id), MAX(r.closed_at) FROM review_reasons r"
                     f" JOIN review_queue q ON q.id = r.review_id WHERE q.subject_kind=? AND q.subject_id IN ({','.join('?' * len(chunk))})",
                     (kind, *chunk)).fetchone()
-        # a levél folyamat-azonosítója `<futás>:<tétel>`; tartomány-feltétel, hogy a kulcs indexe használható legyen
+        # an email's flow id is `<run>:<item>`; a range condition, so that the key index can be used
         dec = c.execute("SELECT COUNT(*), GROUP_CONCAT(k) FROM (SELECT run_id || '#' || task_index || '=' || decision || '@' || decided_at AS k"
                         " FROM email_task_decisions WHERE run_id >= ? AND run_id < ? ORDER BY k)", (run_id + ":", run_id + ";")).fetchone()
         items = c.execute("SELECT COUNT(*), MAX(updated_at) FROM run_items WHERE run_id=?", (run_id,)).fetchone()
@@ -123,13 +125,13 @@ def _calls_fingerprint(scope: dict[str, str]) -> str:
     return "|".join(str(x) for x in row)
 
 
-# --- sor-előállítók --------------------------------------------------------------------------------------------
+# --- row builders ----------------------------------------------------------------------------------------------
 
 
 def _runs(scope: dict[str, str]) -> Rows:
     wp_id = scope.get("workpackage_id")
     if wp_id:
-        work.get(wp_id)  # ismeretlen csomag: 404
+        work.get(wp_id)  # unknown package: 404
     cols = [
         _col("created_at", "Indítva", "datetime", link="run"),
         _col("workpackage_name", "Munkacsomag", link="workpackage"),
@@ -145,27 +147,27 @@ def _runs(scope: dict[str, str]) -> Rows:
         _col("finished_at", "Befejeződött", "datetime", hidden=True),
         _col("run_id", "Futás-azonosító", "id", hidden=True, link="run"),
     ]
-    titles = _labels("recipe")  # 058: a recept címe (a felület fordítja), nem a kódneve
+    titles = _labels("recipe")  # 058: the recipe's title (translated by the UI), not its code name
     rows = [{**r, "_key": r["run_id"], "_run": r["run_id"], "_wp": r["workpackage_id"],
              "recipe": titles.get(r["recipe_id"], r["recipe_id"])} for r in work.run_rows(wp_id)]
     return cols, rows
 
 
 def _workpackages(scope: dict[str, str]) -> Rows:
-    archived = scope.get("include_archived") == "1"  # 058: az elrejtett csomagok csak kérésre
+    archived = scope.get("include_archived") == "1"  # 058: hidden packages only on request
     cols = [
         _col("name", "Név", link="workpackage"),
         *([_col("status", "Csomag", "enum", labels="wp_status", badge=True)] if archived else []),
         _col("next_label", "Következő lépés", link="next"),
         _col("last_status", "Utolsó futás", "enum", labels="run_status", badge=True),
-        _col("items", "Tétel", "number"),  # 058: irat vagy levél
+        _col("items", "Tétel", "number"),  # 058: document or email
         _col("open_reasons", "Nyitott teendő", "number", link="reviews", alert=True),
         _col("open_reasons_all", "Nyitott teendő a korábbi futásokkal", "number", hidden=True),
         _col("source_kind", "Forrás", "enum", labels="source_kind"),
         _col("recipe_id", "Recept", "enum", labels="recipe"),
         _col("owner", "Felelős"),  # 061
         _col("last_activity", "Utolsó tevékenység", "datetime"),
-        _col("created_at", "Létrehozva", "datetime"),  # 062: látható, mert ez a lista alapsorrendje
+        _col("created_at", "Létrehozva", "datetime"),  # 062: visible, because this is the list's default order
         _col("source_ref", "Forrás helye", hidden=True),
         _col("next_code", "Lépés kódja", "enum", hidden=True),
         _col("id", "Azonosító", "id", hidden=True),
@@ -175,14 +177,14 @@ def _workpackages(scope: dict[str, str]) -> Rows:
             for r in work_views.workpackage_list(include_archived=archived)]
     for r in rows:
         r.pop("next", None)
-    if scope.get("owner"):  # 061: „Saját csomagjaim” — a felelős neve kis-nagybetűtől függetlenül
+    if scope.get("owner"):  # 061: "Saját csomagjaim" (My packages) — the owner's name, case-insensitive
         who = " ".join(scope["owner"].split()).casefold()
         rows = [r for r in rows if (r.get("owner") or "").casefold() == who]
     return cols, rows
 
 
 def _activity(scope: dict[str, str]) -> Rows:
-    """061: a személy napi műveletei („Mai munkám”); a nap üresen a mai (helyi) nap."""
+    """061: a person's actions of the day ("Mai munkám", My work today); an empty day means today (local time)."""
     from jav import activity
 
     cols = [
@@ -192,7 +194,7 @@ def _activity(scope: dict[str, str]) -> Rows:
         _col("detail", "Részlet"),
         _col("run_id", "Futás", "id", link="run"),
     ]
-    titles = _labels("recipe")  # 062: a recept címe (a felület fordítja), nem a kódneve
+    titles = _labels("recipe")  # 062: the recipe's title (translated by the UI), not its code name
     rows = [{**e, "detail": titles.get(e["detail"], e["detail"]) if e["action"] == "recipe" else e["detail"],
              "_key": f"{e['at']}|{e['action']}|{n}", "_wp": e["workpackage_id"], "_run": e["run_id"]}
             for n, e in enumerate(activity.entries(scope["actor"], scope.get("day") or None))]
@@ -251,8 +253,8 @@ def _run_items(scope: dict[str, str]) -> Rows:
 
 
 def _emails(scope: dict[str, str]) -> Rows:
-    """058 K5.1: a futás levelei — szándék (a kézi javítással), javasolt következő lépés, csatolmányok, és hogy a levél
-    szövegéből mennyit látott a felismerés."""
+    """058 K5.1: the run's emails — intent (with the manual correction), suggested next step, attachments, and how much
+    of the email's text the recognition saw."""
     from jav import export
 
     run = work.get_run(scope["run_id"])
@@ -292,7 +294,7 @@ def _emails(scope: dict[str, str]) -> Rows:
 
 
 def _email_tasks(scope: dict[str, str]) -> Rows:
-    """058 K5.3: a feladatjavaslatok soronként, a bizonyítékkal és az emberi döntéssel (elfogadni csak ember tud)."""
+    """058 K5.3: the task proposals, one per row, with the evidence and the human decision (only a person accepts)."""
     from jav import export
 
     run = work.get_run(scope["run_id"])
@@ -306,7 +308,7 @@ def _email_tasks(scope: dict[str, str]) -> Rows:
         _col("decision", "Döntés", "enum", labels="task_decision"),
         _col("decided_by", "Döntött", hidden=True),
         _col("decided_at", "Döntés ideje", "datetime", hidden=True),
-        _col("done_at", "Elvégezve", "datetime"),  # 062: kézi „elvégezve” az elfogadott feladaton
+        _col("done_at", "Elvégezve", "datetime"),  # 062: manual "done" on an accepted task
         _col("done_by", "Elvégezte", hidden=True),
         _col("item_id", "Tétel-azonosító", "id", hidden=True),
     ]
@@ -315,10 +317,10 @@ def _email_tasks(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
-# az export táblái (jav/export.py) oszlopkulccsal: a fejléc sorrendje szerint
+# the export tables (jav/export.py) by column key, in header order
 _DOC_KEYS = [("file", "Irat", "text"), ("item_id", "Tétel-azonosító", "id"), ("doc_type", "Típus", "enum"), ("arm", "Út", "enum"),
              ("final_status", "Állapot", "enum"), ("open_reasons", "Nyitott teendők", "text"),
-             ("source_email", "Forrás-levél", "text")]  # 058 K5.2: a levél csatolmányánál a levél tárgya
+             ("source_email", "Forrás-levél", "text")]  # 058 K5.2: for an email attachment, the email's subject
 _DP_KEYS = _DOC_KEYS[:3] + [("field", "Mező", "enum"), ("value", "Érték", "text"), ("page", "Oldal", "number"),
                             ("quote", "Forrásszöveg", "text"), ("place", "Hely", "enum"), ("corrected", "Javítva", "enum"),
                             ("field_reason", "Teendő a mezőn", "enum")]
@@ -328,7 +330,7 @@ _LABELS = {"final_status": "final_status", "place": "provenance", "field": "fiel
 
 
 def _fixed(keys: list[tuple[str, str, str]]) -> list[Column]:
-    """Az export rögzített oszlopai; az irat neve a tétel ellenőrző nézetére hivatkozik."""
+    """The fixed columns of the export; the document's name links to the item's review view."""
     return [_col(k, label, kind, hidden=k in _HIDDEN, labels=_LABELS.get(k), **({"link": "review"} if k == "file" else {}))
             for k, label, kind in keys]
 
@@ -347,8 +349,8 @@ def _records(scope: dict[str, str]) -> tuple[dict[str, Any], list[dict[str, Any]
 
 
 def run_records(run_id: str) -> list[dict[str, Any]]:
-    """A futás érvényes adata (`export.run_records`) gyorsítótárból: az összes eredménytábla, a közmű-riport és a teljes
-    export ugyanazt a — drága — számítást használja, és csak a futás adatának változása után számol újra."""
+    """The run's effective data (`export.run_records`) from the cache: all result tables, the utility report and the
+    full export use the same — expensive — computation, and recompute only after the run's data changes."""
     from jav import export
 
     scope = {"run_id": run_id}
@@ -379,7 +381,7 @@ def _documents(scope: dict[str, str]) -> Rows:
             kinds.setdefault(f, k)
     fields = head[len(export.DOC_HEAD):]
     cols = _fixed(_DOC_KEYS) + [_col(f"f:{f}", _field_label(f), _field_kind(kinds.get(f)), field=f) for f in fields]
-    if not any(r.get("source_email") for r in records):  # csak levélcsomagban van értelme: máskor rejtett
+    if not any(r.get("source_email") for r in records):  # only meaningful in an email package: hidden otherwise
         cols = [replace(c, hidden=True) if c.key == "source_email" else c for c in cols]
     return cols, _zip_rows([c.key for c in cols], rows, run, lambda d: d["item_id"])
 
@@ -439,7 +441,7 @@ def _utility_report(scope: dict[str, str]) -> tuple[dict[str, Any], dict[str, An
 
 
 def _utility_cost(scope: dict[str, str]) -> Rows:
-    """A közmű-költség havi rácsa hosszú formában: fogyasztási hely × közmű × hónap soronként (Excelben kimutatható)."""
+    """The monthly utility-cost grid in long form: consumption point × utility × month per row (pivotable in Excel)."""
     run, rep = _utility_report(scope)
     cols = [
         _col("address", "Fogyasztási hely"),
@@ -466,7 +468,7 @@ def _utility_cost(scope: dict[str, str]) -> Rows:
 
 
 def _utility_sources(scope: dict[str, str]) -> Rows:
-    """A közmű-költség minden cellájának forrásszámlái (a riport „Közmű-források” lapja): cella → irat, oldal, összeg."""
+    """Source invoices of each utility-cost cell (the report's "Közmű-források" sheet): cell → document, page, sum."""
     run, rep = _utility_report(scope)
     cols = [
         _col("address", "Fogyasztási hely"),
@@ -543,7 +545,7 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
 ]}
 
 
-# --- gyorsítótár és lekérdezés ---------------------------------------------------------------------------------
+# --- cache and query -------------------------------------------------------------------------------------------
 
 _cache: OrderedDict[tuple, tuple[str, Any]] = OrderedDict()
 _lock = threading.Lock()
@@ -564,12 +566,12 @@ def _scope_of(ds: Dataset, scope: dict[str, str] | None) -> dict[str, str]:
 
 
 def rows(name: str, scope: dict[str, str] | None = None) -> Rows:
-    """Az adatkészlet oszlopai és összes sora (a hatókörre), gyorsítótárból, ha az ujjlenyomat nem változott."""
+    """The dataset's columns and all rows (for the scope), from the cache if the fingerprint has not changed."""
     ds = get(name)
     sc = _scope_of(ds, scope)
     key = (str(store.active_path()), name, tuple(sorted(sc.items())))
     if ds.fingerprint is None:
-        with store.session():  # 061: egy kapcsolat a sorok összes lekérdezésére
+        with store.session():  # 061: one connection for all queries of the rows
             return ds.build(sc)
     fp = ds.fingerprint(sc)
     with _lock:
@@ -597,7 +599,7 @@ def query(name: str, scope: dict[str, str] | None, q: Query) -> dict[str, Any]:
     return work_views.jsonable({"dataset": ds.spec(), **run_query(cols, all_rows, q)})
 
 
-# --- letöltés ---------------------------------------------------------------------------------------------------
+# --- download ---------------------------------------------------------------------------------------------------
 
 MEDIA = {"csv": "text/csv; charset=utf-8", "json": "application/json",
          "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
@@ -605,8 +607,8 @@ MEDIA = {"csv": "text/csv; charset=utf-8", "json": "application/json",
 
 def export_rows(name: str, scope: dict[str, str] | None, q: Query, rows_mode: str,
                 columns: list[str] | None = None) -> tuple[list[Column], list[dict[str, Any]]]:
-    """A letöltendő oszlopok és sorok. `rows_mode`: `all` (minden sor, a rendezés marad), `filtered` (a keresés és a
-    szűrők szerint), `selected` (csak a kijelölt `keys`). A lapozás a letöltésre nem vonatkozik."""
+    """The columns and rows to download. `rows_mode`: `all` (every row, the sort order is kept), `filtered` (by the
+    search and the filters), `selected` (only the selected `keys`). Paging does not apply to downloads."""
     cols, all_rows = rows(name, scope)
     if rows_mode == "all":
         q = Query(sort=q.sort)
@@ -639,8 +641,9 @@ def _stamp() -> str:
 
 def export_file(name: str, scope: dict[str, str] | None, q: Query, rows_mode: str, fmt: str,
                 columns: list[str] | None = None) -> tuple[bytes, str, str, int]:
-    """(tartalom, médiatípus, fájlnév, sorok száma). A CSV és az Excel a megjelenő feliratot írja (a felsorolt kód
-    helyett), a JSON a nyers értéket az oszlopleírással. A képlet-védelem és a magyar CSV-formátum a `jav/export.py`-é."""
+    """(content, media type, file name, row count). CSV and Excel write the displayed label (instead of the enumerated
+    code), JSON the raw value with the column description. Formula protection and the Hungarian CSV format belong to
+    `jav/export.py`."""
     import io
     import json
 

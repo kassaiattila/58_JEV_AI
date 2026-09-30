@@ -1,24 +1,29 @@
-"""Adatőr (070 terv 2.1 S-adatőr, 071): commit és feltöltés előtti személyesadat- és kulcsőr.
+"""Data guard (070 plan 2.1 S-adatőr, 071): a personal-data and key guard before commit and push.
 
-A GitHubra csak kód és kódtári leírás kerülhet; személyes adat, kulcs, valódi irat és belső munkaanyag nem. Az adatőr a
-gitbe kerülő **új sorokat** nézi (commitnál a `git diff --cached`, feltöltésnél a feltöltendő commitok változásai), és
-megállítja a műveletet, ha valódi alakú adatot talál. A meglévő sorokat nem nézi újra, ezért egy régi, tűrt érték
-nem akaszt meg egy független commitot; a teljes fát a `scan` (és a teszt) nézi át.
+Only code and codebase documentation may reach GitHub; personal data, keys, real documents and internal working
+documents may not. The data guard looks at the **new lines** going into git (on commit, `git diff --cached`; on push,
+the changes of the commits to be pushed) and stops the operation if it finds data of a real shape. It does not
+re-check existing lines, so an old, tolerated value does not block an unrelated commit; the whole tree is checked by
+`scan` (and the test).
 
-- **Valódi alak** = átmegy az ellenőrzésen: a magyar adószám és közösségi adószám ellenőrzőszáma (`jav/taxid.py`), az
-  IBAN mod-97-e, a hazai bankszámlaszám két ellenőrzőszáma. A hibás ellenőrzőszámú érték nem lehet valódi, ezért nem
-  állít meg. A külföldi adószám, az e-mail-cím és a telefonszám nem ellenőrizhető így: ezekre kivétellista van.
-- **Kivétel** (`configs/data_guard.json` `allow`): kitalált vagy nyilvános céges érték, olvashatóan.
-- **Tűrt saját adat** (`known`): a 069-es döntés szerint a következő utasítás-módosításig maradó valódi érték, csak
-  sha256-tal és csak a megnevezett fájlokban; máshol megállít.
-- **Tiltott kifejezés** (`deny`): a saját cég neve, a felhasználónév és hasonló; a szórészletek sha256-ával egyeztetve,
-  hogy a lista maga ne hordozza őket.
-- **Kulcs:** ismert kulcs-alakok, és a helyi `.env` titkos értékei szó szerint (a kiírásban csak a változó neve).
-- **Útvonal:** belső munkaanyag (`jav/doc_scope.py`), `.env`, a helyi adatmappák, irat- és képfájlok, bináris fájl.
-- **Feltöltésnél** a régi, személyes adatot és belső munkaanyagot hordozó történet is tiltott (a 069 / 070 archív ágak).
+- **Real shape** = passes the check: the check digit of the Hungarian tax number and the EU VAT number
+  (`jav/taxid.py`), the IBAN's mod-97, the two check digits of a domestic bank account number. A value with a wrong
+  check digit cannot be real, so it does not stop anything. Foreign tax numbers, email addresses and phone numbers
+  cannot be checked this way: they have an allow list.
+- **Exception** (`configs/data_guard.json` `allow`): a fictitious or public company value, in readable form.
+- **Tolerated own data** (`known`): a real value that stays until the next prompt change, per the 069 decision; only
+  as sha256 and only in the named files; anywhere else it stops the operation.
+- **Denied term** (`deny`): the owner's company name, the user name and the like; matched by the sha256 of word
+  fragments, so that the list itself does not carry them.
+- **Key:** known key shapes, and the secret values of the local `.env` verbatim (the output shows only the variable
+  name).
+- **Path:** internal working documents (`jav/doc_scope.py`), `.env`, the local data folders, document and image
+  files, binary files.
+- **On push**, the old history carrying personal data and internal working documents is also forbidden (the 069 / 070
+  archive branches).
 
-Belépési pont a horgoknak: `python -m jav.data_guard pre-commit | pre-push <remote> [url] | scan | install`.
-A horgok: `scripts/githooks/` (`core.hooksPath`; telepítés: `python -m jav.cli hooks-install`).
+Entry point for the hooks: `python -m jav.data_guard pre-commit | pre-push <remote> [url] | scan | install`.
+The hooks: `scripts/githooks/` (`core.hooksPath`; installation: `python -m jav.cli hooks-install`).
 """
 
 from __future__ import annotations
@@ -66,16 +71,16 @@ _HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 
 class DataGuardError(RuntimeError):
-    """A git-parancs nem futott le (nem git-tár, hiányzó commit)."""
+    """The git command did not run (not a git repository, missing commit)."""
 
 
 @dataclass(frozen=True)
 class Finding:
     path: str
-    line: int  # 0: a fájl vagy a feltöltött ág egésze
+    line: int  # 0: the whole file or the whole pushed branch
     kind: str
-    shown: str  # maszkolt érték vagy magyarázat; a valódi érték soha
-    known: bool = False  # tűrt saját adat a megnevezett fájlban: jelzés, nem állít meg
+    shown: str  # masked value or explanation; never the real value
+    known: bool = False  # tolerated own data in the named file: a notice, it does not stop the operation
 
     def describe(self) -> str:
         where = f"{self.path}:{self.line}" if self.line else self.path
@@ -87,11 +92,11 @@ def blocking(findings: Iterable[Finding]) -> list[Finding]:
     return [f for f in findings if not f.known]
 
 
-# --- normalizálás és ellenőrzés ------------------------------------------------------------------------------------
+# --- normalisation and checking ------------------------------------------------------------------------------------
 
 
 def normalize(kind: str, value: str) -> str:
-    """Egységes alak a kivétellistához és az ujjlenyomathoz."""
+    """Uniform form for the allow list and the fingerprint."""
     v = value.strip()
     if kind in ("hu_tax_id", "eu_vat"):
         t = taxid.recognize(v)
@@ -112,18 +117,18 @@ def normalize(kind: str, value: str) -> str:
 
 
 def value_hash(kind: str, value: str) -> str:
-    """A tűrt érték ujjlenyomata (a `known` lista eleme)."""
+    """The fingerprint of a tolerated value (an entry of the `known` list)."""
     return hashlib.sha256(normalize(kind, value).encode("utf-8")).hexdigest()
 
 
 def deny_entry(term: str, why: str = "") -> dict[str, Any]:
-    """A `deny` lista eleme egy kifejezésre: kisbetűs alakjának sha256-a és hossza (a szórészlet-kereséshez)."""
+    """A `deny` list entry for a term: the sha256 and length of its lower-case form (for the word-fragment search)."""
     t = term.lower()
     return {"sha256": hashlib.sha256(t.encode("utf-8")).hexdigest(), "len": len(t), "why": why}
 
 
 def _cdv_ok(digits: str) -> bool:
-    """Hazai bankszámlaszám-csoport ellenőrzőszáma: 9-7-3-1 súlyok, az összeg 10-zel osztható."""
+    """Check digit of a domestic bank account number group: weights 9-7-3-1, the sum is divisible by 10."""
     return sum(int(d) * (9, 7, 3, 1)[i % 4] for i, d in enumerate(digits)) % 10 == 0
 
 
@@ -161,18 +166,18 @@ def _mask(kind: str, value: str) -> str:
     return value[:2] + "*" * (len(value) - 4) + value[-2:]
 
 
-# --- beállítás -----------------------------------------------------------------------------------------------------
+# --- configuration -------------------------------------------------------------------------------------------------
 
 
 def load_config() -> dict[str, Any]:
-    """A `configs/data_guard.json` másolata (a hívó módosíthatja, a gyorsítótárat nem rontja el)."""
+    """A copy of `configs/data_guard.json` (the caller may modify it without corrupting the cache)."""
     import copy
 
     return copy.deepcopy(cfg.load("data_guard"))
 
 
 def read_env_secrets(env_file: Path) -> dict[str, str]:
-    """A `.env` titkos értékei (kulcs, token, jelszó; legalább 12 karakter). Hiányzó fájl: üres."""
+    """The secret values of `.env` (key, token, password; at least 12 characters). Missing file: empty."""
     if not env_file.is_file():
         return {}
     out: dict[str, str] = {}
@@ -187,7 +192,7 @@ def read_env_secrets(env_file: Path) -> dict[str, str]:
 
 
 class Guard:
-    """A minták, kivételek és tiltások egy beállításból; a keresés soronként és útvonalanként."""
+    """The patterns, exceptions and denials from one configuration; the search runs per line and per path."""
 
     def __init__(self, conf: dict[str, Any], *, env_secrets: dict[str, str]) -> None:
         self.conf = conf
@@ -205,7 +210,8 @@ class Guard:
         self._token_deny: dict[str, frozenset[str]] = {}
 
     def _deny_in_token(self, token: str) -> frozenset[str]:
-        """A szóban (bárhol, egybeírt alakban is) előforduló tiltott kifejezések ujjlenyomatai; szavanként egyszer számolva."""
+        """The fingerprints of the denied terms occurring in the word (anywhere, also run together); computed once per
+        word."""
         hit = self._token_deny.get(token)
         if hit is None:
             digests = {hashlib.sha256(token[i:i + n].encode("utf-8")).hexdigest()
@@ -213,7 +219,7 @@ class Guard:
             hit = self._token_deny[token] = frozenset(digests & self.deny)
         return hit
 
-    # --- tartalom ---
+    # --- content ---
 
     def _is_known(self, digest: str, path: str) -> bool:
         return any(fnmatchcase(path, p) for p in self.known.get(digest, []))
@@ -253,7 +259,7 @@ class Guard:
                        for d in sorted(hits))
         return out
 
-    # --- útvonal ---
+    # --- path ---
 
     def check_path(self, path: str) -> Finding | None:
         p = PurePosixPath(path.replace("\\", "/"))
@@ -289,7 +295,7 @@ def _git(root: Path, *args: str, check: bool = True) -> subprocess.CompletedProc
 
 
 def added_lines(diff: str) -> Iterator[tuple[str, int, str]]:
-    """Egységes (unified) diff hozzáadott sorai: (útvonal, sorszám az új fájlban, szöveg)."""
+    """The added lines of a unified diff: (path, line number in the new file, text)."""
     path: str | None = None
     lineno = 0
     for raw in diff.splitlines():
@@ -314,7 +320,7 @@ def added_lines(diff: str) -> Iterator[tuple[str, int, str]]:
 
 
 def _numstat_binaries(out: bytes) -> list[str]:
-    """`--numstat -z` kimenetéből a bináris fájlok („-  -  útvonal”)."""
+    """The binary files from the `--numstat -z` output ("-  -  path")."""
     paths = []
     for rec in out.decode("utf-8", "replace").split("\0"):
         parts = rec.split("\t")
@@ -324,7 +330,8 @@ def _numstat_binaries(out: bytes) -> list[str]:
 
 
 def _scan_change(root: Path, guard: Guard, diff_args: list[str]) -> list[Finding]:
-    """Egy változás (a gitbe kerülő fájlok és új soraik) átnézése; a `diff_args` a `git diff`/`diff-tree` hívás."""
+    """Checks one change (the files going into git and their new lines); `diff_args` is the `git diff`/`diff-tree`
+    call."""
     found: list[Finding] = []
     names = _git(root, *diff_args, "--name-only", "-z", "--diff-filter=ACMR").stdout
     for name in filter(None, names.decode("utf-8", "replace").split("\0")):
@@ -342,7 +349,7 @@ def _scan_change(root: Path, guard: Guard, diff_args: list[str]) -> list[Finding
 
 
 def check_staged(root: Path, guard: Guard) -> list[Finding]:
-    """Commit előtt: a commitba kerülő fájlok és új sorok."""
+    """Before a commit: the files and new lines going into the commit."""
     return _scan_change(root, guard, ["diff", "--cached"])
 
 
@@ -358,7 +365,7 @@ def _dedupe(findings: Iterable[Finding]) -> list[Finding]:
 
 
 def check_push(root: Path, guard: Guard, ref_lines: Iterable[str], remote: str = "origin") -> list[Finding]:
-    """Feltöltés előtt (a git `pre-push` bemenete soronként): tiltott történet, majd a még fel nem töltött commitok."""
+    """Before a push (the git `pre-push` input, line by line): forbidden history, then the commits not yet pushed."""
     roots = []
     for ref in guard.conf.get("forbidden_history", []):
         proc = _git(root, "rev-parse", "-q", "--verify", f"{ref}^{{commit}}", check=False)
@@ -382,7 +389,7 @@ def check_push(root: Path, guard: Guard, ref_lines: Iterable[str], remote: str =
 
 
 def scan_tracked(root: Path, guard: Guard) -> list[Finding]:
-    """A teljes verziókövetett fa (a GitHubra kerülő tartalom) átnézése."""
+    """Checks the whole tracked tree (the content that reaches GitHub)."""
     found: list[Finding] = []
     names = _git(root, "ls-files", "-z").stdout.decode("utf-8", "replace").split("\0")
     for name in filter(None, names):
@@ -403,7 +410,7 @@ def scan_tracked(root: Path, guard: Guard) -> list[Finding]:
     return found
 
 
-# --- horgok ---------------------------------------------------------------------------------------------------------
+# --- hooks ----------------------------------------------------------------------------------------------------------
 
 
 def hooks_installed(root: Path = PROJECT_ROOT) -> bool:
@@ -412,7 +419,7 @@ def hooks_installed(root: Path = PROJECT_ROOT) -> bool:
 
 
 def install_hooks(root: Path = PROJECT_ROOT) -> str:
-    """A verziózott horgok bekapcsolása ebben a munkafában (`core.hooksPath`); a `.git/hooks` ezután nem fut."""
+    """Enables the versioned hooks in this working tree (`core.hooksPath`); `.git/hooks` no longer runs after this."""
     _git(root, "config", "core.hooksPath", HOOKS_DIR)
     return f"core.hooksPath = {HOOKS_DIR}: a commit és a feltöltés előtt az adatőr fut"
 

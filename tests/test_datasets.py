@@ -1,4 +1,4 @@
-"""Adatkészletek a szolgáltatáson át (056 U1): egységes lekérdezés, gyorsítótár, letöltés. Mesterséges adat, AI-hívás nélkül."""
+"""Datasets through the service (056 U1): uniform query, cache, download. Synthetic data, no AI calls."""
 
 import csv
 import io
@@ -33,7 +33,7 @@ def test_catalog_lists_every_dataset_with_its_scope(env):
     assert {"runs", "workpackages", "workpackage_items", "run_items", "documents", "datapoints", "line_items", "calls",
             "mailbox_pulls", "utility_cost", "utility_sources"} <= set(by_name)
     assert by_name["datapoints"]["scope"] == ["run_id"] and by_name["runs"]["optional_scope"] == ["workpackage_id"]
-    assert by_name["workpackages"]["natural_sort"] == [{"col": "created_at", "desc": True}]  # 062: a fejlécen jelölve
+    assert by_name["workpackages"]["natural_sort"] == [{"col": "created_at", "desc": True}]  # 062: marked on the header
 
 
 def test_lists_are_queried_on_the_service_without_silent_cut(env):
@@ -42,7 +42,7 @@ def test_lists_are_queried_on_the_service_without_silent_cut(env):
     runs = _q(c, "runs")
     assert runs["total"] == 1 and runs["rows"][0]["run_id"] == run_id and runs["rows"][0]["workpackage_name"] == "Mesterséges számlák"
     status = next(col for col in runs["columns"] if col["key"] == "status")
-    assert status["labels"]["done"] == "Kész"  # a felirat a szolgáltatásból jön: a keresés arra is talál
+    assert status["labels"]["done"] == "Kész"  # the label comes from the service: search matches it too
     assert _q(c, "runs", q="Éles")["matched"] == 1
     assert _q(c, "runs", {"workpackage_id": wp["id"]})["total"] == 1
 
@@ -71,7 +71,7 @@ def test_named_errors(env):
     c = env["client"]
     _wp, run_id = _run(c, env["folder"])
     assert c.post("/api/datasets/nincs/query", json={}).status_code == 404
-    assert c.post("/api/datasets/datapoints/query", json={}).status_code == 422  # hatókör nélkül
+    assert c.post("/api/datasets/datapoints/query", json={}).status_code == 422  # without a scope
     r = c.post("/api/datasets/datapoints/query", json={"scope": {"run_id": run_id}, "query": {"sort": [{"col": "nincs"}]}})
     assert r.status_code == 422 and "unknown column" in r.json()["message"]
     assert c.post("/api/datasets/datapoints/query", json={"scope": {"run_id": "run-nincs"}}).status_code == 404
@@ -93,25 +93,25 @@ def test_cache_is_refreshed_after_a_correction(env):
 
 
 def test_run_fingerprint_follows_only_this_runs_subjects_and_task_decisions(env):
-    """062 (Q-ujjlenyomat): eddig bármely futás teendő-változása minden futás tárolt eredményét érvénytelenítette."""
+    """062 (Q-ujjlenyomat): until then, a to-do change in any run invalidated the stored results of every run."""
     from jav import store
 
     c = env["client"]
     wp, run_id = _run(c, env["folder"])
     fp = datasets._run_fingerprint({"run_id": run_id})
     other = store.review_enqueue(subject_kind="document", subject_id="f" * 64, run_id="run-masik:ffff", reasons=["pick:x"], producer="m2")
-    assert datasets._run_fingerprint({"run_id": run_id}) == fp  # más alany teendője nem érinti
+    assert datasets._run_fingerprint({"run_id": run_id}) == fp  # another subject's to-do does not affect it
     store.review_resolve(store.review_open_reasons("document", "f" * 64)[0]["id"], actor="Minta Anna")
     assert datasets._run_fingerprint({"run_id": run_id}) == fp and other
     own = wp["items"][0]["item_id"]
     store.review_enqueue(subject_kind="document", subject_id=own, run_id="run-korabbi:" + own[:16], reasons=["pick:y"], producer="m2")
     fp2 = datasets._run_fingerprint({"run_id": run_id})
-    assert fp2 != fp  # a futás alanyának (akár korábbi futásból jött) teendője a „korábbi” jelölés miatt számít
+    assert fp2 != fp  # a to-do on the run's subject (even from an earlier run) counts, due to the "earlier" marker
     store.email_task_decide(f"{run_id}:{own[:16]}", 0, decision="accepted", actor="Minta Anna", note=None)
     fp3 = datasets._run_fingerprint({"run_id": run_id})
     assert fp3 != fp2
     store.email_task_decide(f"{run_id}:{own[:16]}", 0, decision="rejected", actor="Minta Anna", note=None)
-    assert datasets._run_fingerprint({"run_id": run_id}) != fp3  # ugyanabban a másodpercben átdöntve is
+    assert datasets._run_fingerprint({"run_id": run_id}) != fp3  # even when re-decided within the same second
 
 
 def test_export_scope_columns_and_formats(env):
@@ -129,7 +129,7 @@ def test_export_scope_columns_and_formats(env):
 
     everything = c.post(url, json={"scope": scope, "query": flt, "rows": "all", "format": "json"})
     body = json.loads(everything.content)
-    assert int(everything.headers["x-export-rows"]) == len(body["rows"]) > 2  # a szűrő a „minden sor” letöltésre nem hat
+    assert int(everything.headers["x-export-rows"]) == len(body["rows"]) > 2  # filter ignored for "all rows" download
 
     keys = [row["_key"] for row in _q(c, "datapoints", scope, limit=3)["rows"]]
     sel = c.post(url, json={"scope": scope, "query": {"keys": keys}, "rows": "selected", "format": "xlsx"})
@@ -166,14 +166,15 @@ def test_utility_cost_long_form_and_sources(env, monkeypatch):
     cost = _q(c, "utility_cost", scope, sort=[{"col": "month"}])
     assert [(r["month"], r["status"], r["amount"]) for r in cost["rows"]] == [
         ("2026-01", "ok", "10000.00"), ("2026-02", "missing", None), ("2026-03", "ok", "12000.00")]
-    assert _q(c, "utility_cost", scope, q="hiányzik")["matched"] == 1  # a keresés az állapot feliratára is talál
+    assert _q(c, "utility_cost", scope, q="hiányzik")["matched"] == 1  # search also matches the status label
     src = _q(c, "utility_sources", scope, filters=[{"col": "month", "op": "eq", "value": "2026-03"}])
     assert [r["file"] for r in src["rows"]] == ["b.pdf"]
 
 
 def test_export_with_accented_scope_value_keeps_the_name(env):
-    """066 Á22: az ékezetes személynév (pl. a tevékenységnapló szerzője) a letöltés fájlnevébe kerül; eddig a fejléc
-    Latin-1 kódolása hibát adott (422). Most ASCII-tartalék + UTF-8 fájlnév (RFC 5987)."""
+    """066 Á22: an accented personal name (e.g. the author in the activity log) goes into the download's file name;
+    until then the header's Latin-1 encoding raised an error (422). Now an ASCII fallback + UTF-8 file name
+    (RFC 5987)."""
     r = env["client"].post("/api/datasets/activity/export", json={"scope": {"actor": "Kőműves Ödön"}, "format": "csv", "rows": "all"})
     assert r.status_code == 200, r.text
     cd = r.headers["content-disposition"]

@@ -1,4 +1,4 @@
-"""Forrásellenőrzött állítások és védett sorhatárok a PDF/OCR-elrendezésből (a 040-ben a kísérletekből a futtató kódba emelve)."""
+"""Source-checked claims and protected line boundaries from PDF/OCR layout (promoted from experiments in 040)."""
 from __future__ import annotations
 
 import re
@@ -20,7 +20,7 @@ class GroundedClaim(BaseModel):
 
 
 def verify_claim(text: str, claim: GroundedClaim, config: dict, ask) -> dict:
-    """Szövegazonosság és pontos idézet ellenőrzése az AI-hívás előtt."""
+    """Checks text identity and the exact quote before the AI call."""
     result = {"claim": claim.model_dump(), "status": "source_mismatch", "response": None}
     if hashlib.sha256(text.encode("utf-8")).hexdigest() != claim.source_sha256:
         return result
@@ -44,10 +44,10 @@ def verify_claim(text: str, claim: GroundedClaim, config: dict, ask) -> dict:
 
 
 def protected_boundaries(rows: list[LineLayout], config: dict) -> dict[int, list[str]]:
-    """0-alapú sorindex -> a sor ELŐTTI tiltás okai; nem tanult táblázatfelismerő.
+    """0-based line index -> reasons for blocking the boundary BEFORE the line; not a learned table detector.
 
-    A minták a típus/módszer konfigurációjából jönnek. A választható balcellás
-    kivétel csak megengedi a JEV-vizsgálatot, nem ír elő sorösszevonást.
+    The patterns come from the type/method configuration. The optional left-cell
+    exception only allows the JEV check; it does not mandate merging the lines.
     """
     if any(row.no < 1 or row.page < 1 for row in rows) or any(
         b.no <= a.no or b.page < a.page for a, b in zip(rows, rows[1:])

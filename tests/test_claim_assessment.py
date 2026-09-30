@@ -118,7 +118,7 @@ def test_bad_sources_fail_before_any_provider_call(tmp_path, mutation):
     elif mutation == 'budget': config['max_evidence_chars'] = 1
     elif mutation == 'position': case['evidence'][0]['start'] = 2
     else: case['sources'][0]['status'] = 'unread'
-    # None kliens: bármely véletlen szolgáltató-hozzáférés külön hibát okozna.
+    # None client: any accidental provider access would raise a different error.
     with pytest.raises(ValueError):
         run_assessment(case=case, directory=tmp_path/'run', run_id='invalid', model=None, adapter=None, config=config)
     assert not (tmp_path/'run').exists()

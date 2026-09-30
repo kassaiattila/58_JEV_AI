@@ -1,4 +1,4 @@
-"""Opt-in M3: alapmérés → forrásbejárás → szándék → tanulójelölt."""
+"""Opt-in M3: baseline measurement → source scan → intent → learning candidate."""
 from burr.core import ApplicationBuilder, action
 from jav import store
 

@@ -1,12 +1,12 @@
-"""Determinisztikus üzleti ellenőrzések a normalizált `InvoiceHU`-n.
+"""Deterministic business checks on the normalised `InvoiceHU`.
 
-Szemantikai port a 10_AIFLOW_V4 `sidecar/app/validate/service.py` (137-285. sor) validátoraiból.
-A régi kód a n8n-es JS validátorral volt byte-paritásban (float-trükkök, V8 Date.parse); ez itt nem
-követelmény - Decimal-lal és `date`-tel dolgozunk. Kódok (`totals.ok`, `taxid.checkdigit`, ...) megtartva.
+Semantic port of the validators in 10_AIFLOW_V4 `sidecar/app/validate/service.py` (lines 137-285).
+The legacy code was byte-for-byte on par with the n8n JS validator (float tricks, V8 Date.parse); that is not
+a requirement here - we work with Decimal and `date`. The codes (`totals.ok`, `taxid.checkdigit`, ...) are kept.
 
-Melyik ellenőrzés fut: a típus-csomag `validators` listája (a régi `rules.json` `named` listája + a `fields`
-formátum-szabályai adatként): `{"check": <név>, "field": <mező>, "optional": true, "regex": ...}`. Az `optional`
-ellenőrzés kimarad, ha a mező üres. A magyar számla listája a korábbi `run_all` viselkedését adja változatlanul.
+Which checks run: the type pack's `validators` list (the legacy `rules.json` `named` list + the format rules of
+`fields`, as data): `{"check": <name>, "field": <field>, "optional": true, "regex": ...}`. An `optional`
+check is skipped if the field is empty. The Hungarian invoice's list gives the earlier `run_all` behaviour unchanged.
 """
 
 from __future__ import annotations
@@ -19,14 +19,14 @@ from jav import taxid
 from jav.models import CheckResult, InvoiceHU
 
 HU_TAXID_WEIGHTS = taxid.HU_WEIGHTS
-# szóköz, TAB, NBSP, kötőjel - nyomtatott/PDF bankadatokban rutinszerű
+# space, TAB, NBSP, hyphen - routine in printed/PDF bank details
 _IBAN_STRIP = re.compile("[ \t -]")
 _IBAN_SHAPE = re.compile(r"^[A-Z]{2}[0-9]{2}[A-Z0-9]+$")
 _DIGITS_FULL = re.compile(r"^[0-9]+$")
 
 
 def vat_consistency(inv: InvoiceHU) -> CheckResult:
-    """|nettó + áfa - bruttó| <= tűrés. HUF: egész forint, tűrés 1; egyébként 2 tizedes, tűrés 0.02."""
+    """|net + VAT - gross| <= tolerance. HUF: whole forints, tolerance 1; otherwise 2 decimals, tolerance 0.02."""
     if inv.net_total is None or inv.vat_total is None or inv.gross_total is None:
         return CheckResult(
             name="vat_consistency",
@@ -48,7 +48,8 @@ def vat_consistency(inv: InvoiceHU) -> CheckResult:
 
 
 def date_order(inv: InvoiceHU, optional: bool = False) -> CheckResult:
-    """`optional=True` (a csomag `validators` listájában): hiányzó határidő nem hiba - e-jegyen / kártyás számlán gyakran nincs."""
+    """`optional=True` (in the pack's `validators` list): a missing due date is no error - e-tickets / card invoices
+    often have none."""
     if optional and inv.issue_date is not None and inv.due_date is None:
         return CheckResult(name="date_order", ok=True, code="dates.no_due")
     if inv.issue_date is None or inv.due_date is None:
@@ -64,10 +65,11 @@ def date_order(inv: InvoiceHU, optional: bool = False) -> CheckResult:
 
 
 def tax_id(value: str | None, name: str = "tax_id") -> CheckResult:
-    """069 (066 Á05, döntés 2026-09-29): felismert alak, különben teendő. Magyar adószám és magyar közösségi adószám:
-    ellenőrzőszám (súlyozott), a belföldinél áfakód 1-5 és megyekód 02-20 / 22-44 / 51; uniós és néhány gyakori nem uniós
-    alak: formátum (`jav/taxid.py`). A címkével írt értéket előbb tisztítja; ami így sem ismerhető fel (telefonszám,
-    két azonosító egy mezőben), az `taxid.unrecognized`. Eddig minden nem 11 jegyű érték „külföldiként” átment."""
+    """069 (066 Á05, decision of 2026-09-29): a recognised form, otherwise a to-do. Hungarian tax number and Hungarian
+    EU VAT number: check digit (weighted), for the domestic one also VAT code 1-5 and county code 02-20 / 22-44 / 51; EU
+    and a few common non-EU forms: format (`jav/taxid.py`). A value written with its label is cleaned first; whatever is
+    still not recognisable (a phone number, two identifiers in one field) is `taxid.unrecognized`. Before this, every
+    value that was not 11 digits passed as "foreign"."""
     if not value:
         return CheckResult(name=name, ok=False, code="taxid.missing")
     t = taxid.recognize(taxid.clean(str(value)))
@@ -80,12 +82,12 @@ def tax_id(value: str | None, name: str = "tax_id") -> CheckResult:
 
 
 def hu_tax_id(value: str | None, name: str = "hu_tax_id") -> CheckResult:
-    """A régi név (típuscsomagok, jelöltkereső): 069 óta ugyanaz, mint a `tax_id`."""
+    """The legacy name (type packs, candidate finder): since 069 the same as `tax_id`."""
     return tax_id(value, name=name)
 
 
 def iban_check(value: str | None, name: str = "iban_check") -> CheckResult:
-    """ISO 13616 mod-97; HU IBAN pontosan 28 karakter; 16/24 számjegy = hazai számlaszám (ok)."""
+    """ISO 13616 mod-97; a HU IBAN is exactly 28 characters; 16/24 digits = domestic account number (ok)."""
     if not value:
         return CheckResult(name=name, ok=False, code="account.missing")
     s = _IBAN_STRIP.sub("", str(value)).upper()
@@ -106,7 +108,8 @@ def iban_check(value: str | None, name: str = "iban_check") -> CheckResult:
 
 
 def format_check(value: object, regex: str, name: str = "format") -> CheckResult:
-    """A régi rules.json `fields.<mező>.regex` szabálya: az érték (stringként) illeszkedik-e (pl. pénznem `^[A-Z]{3}$`)."""
+    """The legacy rules.json `fields.<field>.regex` rule: whether the value (as a string) matches (e.g. currency
+    `^[A-Z]{3}$`)."""
     if value is None:
         return CheckResult(name=name, ok=False, code="format.missing")
     s = str(value)
@@ -116,7 +119,7 @@ def format_check(value: object, regex: str, name: str = "format") -> CheckResult
 
 
 def _tolerance(inv: InvoiceHU, n: int) -> Decimal:
-    """Összeg-tűrés: HUF-nál 2 Ft vagy tételenként fél forint (soronkénti kerekítés), egyébként 0,02 / tételenként 0,005."""
+    """Sum tolerance: for HUF, 2 Ft or half a forint per item (per-line rounding), otherwise 0.02 / 0.005 per item."""
     if (inv.currency or "HUF").upper() == "HUF":
         return max(Decimal("2"), Decimal("0.5") * n)
     return max(Decimal("0.02"), Decimal("0.005") * n)
@@ -127,9 +130,10 @@ def _rows(lines: list[int]) -> str:
 
 
 def line_items_total(inv: InvoiceHU) -> CheckResult:
-    """053 T3.2: a tételek összege = a fej végösszege (nettó és bruttó külön). Elég, ha az egyik oldal teljes és egyezik
-    (a hosszú víz-listákon a soronkénti nettó gyakran hiányzik, a bruttó teljes). Tétel nélkül nem hiba (a kód + JEV út
-    nem olvas tételt). A hibás / hiányos sor 1-től számozva a `detail`-ben (`line N`), a felület így jelöli."""
+    """053 T3.2: the sum of the items = the header's total (net and gross separately). It is enough if one side is
+    complete and matches (on the long water lists the per-line net is often missing, the gross is complete). No items is
+    no error (the code + JEV path does not read items). The wrong / incomplete line is numbered from 1 in `detail`
+    (`line N`), which is how the UI marks it."""
     items = inv.line_items
     if not items:
         return CheckResult(name="line_items_total", ok=True, code="lines.none")
@@ -158,7 +162,7 @@ _RATE = re.compile(r"^\s*(\d+(?:[.,]\d+)?)\s*%?\s*$")
 
 
 def _vat_fraction(rate: str | None) -> Decimal | None:
-    """ÁFA-kulcs szövegből: „27%”, „27”, „5,0” -> 0,27 / 0,05; „0,27” -> 0,27. Nem szám (AHK, TAM, mentes): None."""
+    """VAT rate from text: "27%", "27", "5,0" -> 0.27 / 0.05; "0,27" -> 0.27. Not a number (AHK, TAM, mentes): None."""
     m = _RATE.match(rate or "")
     if not m:
         return None
@@ -167,8 +171,9 @@ def _vat_fraction(rate: str | None) -> Decimal | None:
 
 
 def line_items_arithmetic(inv: InvoiceHU) -> CheckResult:
-    """053 T3.2: soronként mennyiség × egységár ≈ nettó, és nettó × (1 + ÁFA-kulcs) ≈ bruttó; tűrés max(1 egység, 1 %).
-    Csak a kitöltött értékek közt; ahol az egységár más jelentésű (MOHU), a csomag nem kéri ezt az ellenőrzést."""
+    """053 T3.2: per line, quantity × unit price ≈ net, and net × (1 + VAT rate) ≈ gross; tolerance max(1 unit, 1 %).
+    Only among filled-in values; where the unit price means something else (MOHU), the pack does not request this
+    check."""
     bad: list[str] = []
     checked = 0
     for i, li in enumerate(inv.line_items, start=1):
@@ -190,8 +195,8 @@ def line_items_arithmetic(inv: InvoiceHU) -> CheckResult:
 
 
 def _statement_check(name: str):
-    """047: a régi kivonat-szabályok (`jav/legacy_validation.py`, a régi rules.json hű portja) a teljes rekordon: futó
-    egyenleg, záró egyenleg, terhelés/jóváírás összegek, tranzakciók az időszakon belül."""
+    """047: the legacy statement rules (`jav/legacy_validation.py`, a faithful port of the legacy rules.json) on the
+    whole record: running balance, closing balance, debit/credit totals, transactions within the period."""
     def check(inv: InvoiceHU) -> CheckResult:
         from jav import legacy_validation
         from jav.models import _plain
@@ -210,9 +215,9 @@ _FIELD_CHECKS = {"hu_tax_id": hu_tax_id, "tax_id": tax_id, "iban_check": iban_ch
 
 
 def run_checks(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | list[dict[str, Any]]) -> list[CheckResult]:
-    """A típus-csomag `validators` listája szerint: rekord-szintű ellenőrzések mindig; mező-szintűek a mező értékén,
-    `optional: true` mellett kimaradnak, ha a mező üres (a régi `named` lista `optional` szemantikája).
-    053: `"review": false` = csak jelzés (`advisory`): az eredmény látszik, de a teendő-szabály kihagyja."""
+    """According to the type pack's `validators` list: record-level checks always; field-level ones on the field's
+    value, skipped with `optional: true` if the field is empty (the `optional` semantics of the legacy `named` list).
+    053: `"review": false` = signal only (`advisory`): the result is visible, but the to-do rule skips it."""
     results: list[CheckResult] = []
     for spec in validators:
         r = _run_one(inv, spec)
@@ -243,8 +248,9 @@ def _run_one(inv: InvoiceHU, spec: dict[str, Any]) -> CheckResult | None:
 
 
 def run_all(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | None = None) -> list[CheckResult]:
-    """Alap: a magyar számla típus-csomagjának listája (= a régi rules.json `named`: vat_consistency, date_order mindig;
-    adószám / IBAN csak ha van érték). Más típusnál a csomag `validators` listáját add át."""
+    """Default: the list of the Hungarian invoice's type pack (= the legacy rules.json `named`: vat_consistency,
+    date_order always; tax number / IBAN only if there is a value). For another type, pass the pack's `validators`
+    list."""
     if validators is None:
         from jav.typepack import get
 

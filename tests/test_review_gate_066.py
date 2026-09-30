@@ -1,11 +1,11 @@
-"""066 átvizsgálás (Á01, Á02): az éles futás csak akkor hagyható jóvá, ha minden tétele ellenőrzött.
+"""066 review (Á01, Á02): a live run can be approved only if every item has been reviewed.
 
-- Á01: a szöveg nélküli irat (`needs_ocr`) okai eddig csak a folyamat állapotában maradtak, teendő nem lett belőlük,
-  ezért a futás „kész” lett és jóváhagyható volt, pedig semmit nem nyert ki.
-- Á02: az irat-feldolgozás felismerési lépcsője `<tétel>-doc_detect` azonosítóval fut; az okait a futás „korábbinak”
-  látta, így egy nyitva maradt részletes típus sem tartotta vissza a futást.
+- Á01: the reasons of a document without text (`needs_ocr`) used to stay only in the flow state and never became
+  to-dos, so the run became "done" and could be approved although it extracted nothing.
+- Á02: the detection stage of document processing runs under the `<item>-doc_detect` identifier; the run saw its
+  reasons as "earlier", so even a detailed type left open did not hold the run back.
 
-Mesterséges PDF, hamis JEV-kliens, fizetős hívás nélkül.
+Synthetic PDF, fake JEV client, no paid calls.
 """
 
 from pathlib import Path
@@ -20,7 +20,8 @@ from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 
 class Client:
-    """Minden Choice az első opció; a felismert típus (`doc_type`) bizonyossága `type_conf`, a többié 0,97."""
+    """Every Choice picks the first option; the confidence of the detected type (`doc_type`) is `type_conf`, the rest
+    0.97."""
 
     def __init__(self, type_conf: float = 0.97) -> None:
         self.type_conf = type_conf
@@ -102,11 +103,12 @@ def test_reason_of_another_item_with_a_similar_prefix_is_not_the_runs():
     assert not work.is_own_reason({"run_id": None}, own)
 
 
-# --- Á06 (döntés 2026-09-29): a jóvá nem hagyott éles futás oka nem vándorol el ------------------------------------
+# --- Á06 (decision of 2026-09-29): the reason of an unapproved live run does not move away -------------------------
 
 
 def _two_runs(tmp_path: Path, first_mode: str, *, second_client: Client | None = None) -> tuple[str, str, str]:
-    """Ugyanazon az iraton két futás egymás után; az első felismerése bizonytalan (teendő), a másodiké `second_client`."""
+    """Two runs in a row on the same document; the first one's detection is uncertain (to-do), the second uses
+    `second_client`."""
     folder = tmp_path / "be"
     folder.mkdir()
     write_text_pdf(folder / "irat.pdf", INVOICE_LINES)
@@ -151,4 +153,4 @@ def test_trial_run_reason_still_moves_to_the_latest_run(isolated):
     assert not any(r.startswith("detect:low_conf:") for r in _own(trial, item))
     assert any(r.startswith("detect:low_conf:") for r in _own(later, item))
     open_on_doc = [r["reason"] for r in store.review_open_reasons("document", item) if r["reason"].startswith("detect:low_conf:")]
-    assert len(open_on_doc) == 1  # nincs kettőzött teendő
+    assert len(open_on_doc) == 1  # no duplicated to-do

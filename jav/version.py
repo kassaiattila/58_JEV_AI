@@ -1,11 +1,11 @@
-"""Az alkalmazás verziója egy helyen (071 S-verzió, 070 terv 2.1, audit A08 / §1).
+"""The application's version in one place (071 S-verzió, 070 plan 2.1, audit A08 / §1).
 
-- `VERSION`: a `pyproject.toml` `[project] version` mezője, az egyetlen forrás. A felület csomagleírója
-  (`ui/package.json`, `ui/package-lock.json`) és a README „Current stable version” sora a kiadáskor vele együtt lép;
-  a `tests/test_version_071.py` figyeli, hogy egyezzenek. Két kiadás között a verzió a legutóbbi kiadásé, a fejlesztői
-  állapotot a commit azonosítja.
-- `commit_info`: a munkafa commitja (rövid azonosító) és az, hogy van-e commitolatlan változás. A szolgáltatás ezt az
-  induláskor rögzíti, így az egészség-végpont azt a kódot mutatja, amely a folyamatban ténylegesen fut.
+- `VERSION`: the `[project] version` field of `pyproject.toml`, the single source. The UI package descriptor
+  (`ui/package.json`, `ui/package-lock.json`) and the README's "Current stable version" line are bumped with it at
+  release; `tests/test_version_071.py` checks that they match. Between two releases the version is the latest
+  release's, and the development state is identified by the commit.
+- `commit_info`: the working tree's commit (short id) and whether there are uncommitted changes. The service records
+  this at start-up, so the health endpoint shows the code that actually runs in the process.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ VERSION: str = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text(encodin
 
 
 def commit_info(root: Path | None = None) -> dict[str, str | bool | None]:
-    """`{"commit": rövid azonosító, "dirty": commitolatlan változás}`; git nélkül vagy nem git-tárban mindkettő None."""
+    """`{"commit": short id, "dirty": uncommitted changes}`; without git or outside a git repository both are None."""
     cwd = root or PROJECT_ROOT
     try:
         head = subprocess.run(["git", "rev-parse", "--short=7", "HEAD"], cwd=cwd, capture_output=True, text=True,

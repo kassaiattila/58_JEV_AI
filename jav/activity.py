@@ -1,11 +1,11 @@
-"""Felhasználónkénti napi tevékenységnapló („Mai munkám”, 061 döntés: aktív felhasználó + kiosztás).
+"""Per-user daily activity log ("Mai munkám" / My work today; 061 decision: active user + assignment).
 
-Új nyilvántartás nélkül, a meglévő szerzős sorokból: csomag-események (átnevezés, elrejtés, felelős…), recept-
-hozzárendelés, futás indítása és jóváhagyása, mezőjavítás (a levél szándékának javítása is), teendő lezárása,
-feladatjavaslat-döntés, postafiók-letöltés. A régi V4 „Mai munkám” nézetének mintája (ott egy közös audit-táblából).
+No new bookkeeping; built from the existing rows that record an author: package events (rename, hide, owner…), recipe
+assignment, starting and approving a run, field correction (including correcting an email's intent), closing a to-do,
+task-proposal decision, mailbox pull. Modelled on the legacy V4 "Mai munkám" view (which read one shared audit table).
 
-A nap a gép helyi naptári napja; az időbélyegek UTC ISO-alakban vannak tárolva, ezért a nap határait UTC-re váltjuk.
-A név kis-nagybetűtől függetlenül egyezik (a 061 előtti sorok szerzője más írásmóddal is szerepelhet).
+The day is the machine's local calendar day; timestamps are stored as UTC ISO strings, so the day bounds are converted
+to UTC. Names match case-insensitively (rows from before 061 may spell the author differently).
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Any
 
 from jav import store
 
-# (művelet-kód, SQL): minden lekérdezés (at, actor, workpackage_id, run_id, detail) oszlopokat ad, a nap határaival
+# (action code, SQL): every query returns the columns (at, actor, workpackage_id, run_id, detail), bound by the day
 _SOURCES: tuple[tuple[str, str], ...] = (
     ("event", "SELECT created_at at, actor, workpackage_id, NULL run_id, action detail FROM workpackage_events"
               " WHERE created_at >= ? AND created_at < ?"),
@@ -41,7 +41,7 @@ _SOURCES: tuple[tuple[str, str], ...] = (
 
 
 def day_bounds(day: str | None) -> tuple[str, str]:
-    """A helyi naptári nap (ÉÉÉÉ-HH-NN; üresen: ma) határai UTC ISO-alakban."""
+    """Bounds of the local calendar day (YYYY-MM-DD; empty: today) as UTC ISO strings."""
     d = date.fromisoformat(day) if day else datetime.now().astimezone().date()
     local = datetime.now().astimezone().tzinfo
     start = datetime.combine(d, time.min, tzinfo=local).astimezone(timezone.utc)
@@ -50,12 +50,12 @@ def day_bounds(day: str | None) -> tuple[str, str]:
 
 
 def _flow_run(run_id: str | None) -> str | None:
-    """A teendő-ok és a feladatdöntés a tétel folyamat-azonosítóját tárolja (`<futás>:<tétel>`); a futás az eleje."""
+    """To-do reasons and task decisions store the item's flow id (`<run>:<item>`); the run is its first part."""
     return run_id.split(":", 1)[0] if run_id else None
 
 
 def entries(actor: str, day: str | None = None) -> list[dict[str, Any]]:
-    """A személy műveletei a napon, időrendben (a legutóbbi elöl)."""
+    """The person's actions on the day, in time order (most recent first)."""
     lo, hi = day_bounds(day)
     who = " ".join(actor.split()).casefold()
     out: list[dict[str, Any]] = []
@@ -65,7 +65,7 @@ def entries(actor: str, day: str | None = None) -> list[dict[str, Any]]:
         run_wp = {r["run_id"]: r["workpackage_id"] for r in c.execute("SELECT run_id, workpackage_id FROM runs")}
         for code, sql in _SOURCES:
             table = sql.split(" FROM ", 1)[1].split()[0]
-            if table not in tables:  # a modul táblája még nem jött létre (pl. nincs postafiók-letöltés)
+            if table not in tables:  # the module's table does not exist yet (e.g. no mailbox pull so far)
                 continue
             for r in c.execute(sql, (lo, hi)):
                 if not r["actor"] or " ".join(str(r["actor"]).split()).casefold() != who:
@@ -80,7 +80,7 @@ def entries(actor: str, day: str | None = None) -> list[dict[str, Any]]:
 
 
 def _detail(code: str, raw: Any) -> str | None:
-    """Rövid, személyes adat nélküli részlet a művelethez (a mezőértékek és a levelek tartalma nem kerül ide)."""
+    """Short detail for the action without personal data (field values and email content never go here)."""
     if raw is None or code == "event":
         return None
     if code == "mailbox_pull":
@@ -90,5 +90,5 @@ def _detail(code: str, raw: Any) -> str | None:
             return None
         return req.get("mailbox") if isinstance(req, dict) else None
     if code == "correction":
-        return None  # a tétel azonosítója hash, nem beszédes; a futás hivatkozása elég
+        return None  # the item id is a hash and says nothing; the run reference is enough
     return str(raw)

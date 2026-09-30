@@ -1,14 +1,16 @@
-"""K5.3 mérés (058, döntés 2026-09-28: részkeret 0,30 USD OpenAI + 0,10 USD JEV): feladatjavaslat a két valódi
-postafiók 47 levelén.
+"""K5.3 measurement (058, decision of 2026-09-28: sub-budget 0.30 USD OpenAI + 0.10 USD JEV): task proposals on the 47
+emails of the two real mailboxes.
 
-- **A:** a valódi futási út: levél-recept `tasks=propose` (archiválandó levél kihagyva), próba mód, a feldolgozón át, a
-  hívásnaplóval és a futás keretével; a szándék a korábbi JEV-válaszból (`jev_cache=reuse`).
-- **B:** ugyanaz újrafuttatva (ismételhetőség: a GPT-válasznak nincs gyorsítótára).
-- **C:** mind a 47 levél, kihagyás nélkül, közvetlen hívással: a kihagyási szabály nélkül ad-e a GPT teendőt hírlevélre /
-  értesítésre (a régi utasítás „action necessity gate”-je). Kemény plafon: 0,20 USD (a ledgerből, hívás előtt ellenőrizve).
+- **A:** the real run path: email recipe `tasks=propose` (emails to archive skipped), trial mode, through the worker,
+  with the call log and the run's budget; the intent from the earlier JEV answer (`jev_cache=reuse`).
+- **B:** the same run again (repeatability: the GPT answer has no cache).
+- **C:** all 47 emails, without skipping, by direct call: whether, without the skip rule, GPT gives a to-do for a
+  newsletter / notification (the legacy instruction's "action necessity gate"). Hard cap: 0.20 USD (from the ledger,
+  checked before each call).
 
-Nincs etalon: a számok a javaslatok és a kapu viselkedését írják le, nem pontosságot. Kimenet: `runs/20260928_k53/`.
-Futtatás (tiszta munkafán, a feldolgozó leállítva): `python -m jav.experiments.k53_task_proposals`.
+No golden set: the numbers describe the behaviour of the proposals and the gate, not accuracy. Output:
+`runs/20260928_k53/`. Run (on a clean working tree, with the worker stopped):
+`python -m jav.experiments.k53_task_proposals`.
 """
 
 from __future__ import annotations
@@ -27,7 +29,7 @@ from jav.runtime import worker
 
 OUT = PROJECT_ROOT / "runs" / "20260928_k53"
 CAP_C_USD = Decimal("0.20")
-PER_CALL_GUARD_USD = Decimal("0.04")  # egy hívás legrosszabb esete (17 000 karakteres levél, 3 próbálkozás) felülről
+PER_CALL_GUARD_USD = Decimal("0.04")  # upper bound of one call's worst case (17,000-character email, 3 attempts)
 
 
 def _git(*args: str) -> str:
@@ -35,7 +37,7 @@ def _git(*args: str) -> str:
 
 
 def mail_paths() -> list[Path]:
-    """A postafiók-csomagok levelei (message.json), egyszer."""
+    """The emails (message.json) of the mailbox work packages, once each."""
     seen: dict[str, Path] = {}
     for wp in work.list_workpackages(include_archived=True):
         if wp["source_kind"] != "mailbox":
@@ -99,7 +101,7 @@ def run_c(paths: list[Path], stamp: str) -> list[dict[str, Any]]:
             raw = email_tasks.extract(snap, intent_hint=hint, run_id=prefix + msg.message_id[:40])
             tasks, rejected = email_tasks.gate(snap, raw)
             status, err = "proposed", None
-        except Exception as exc:  # noqa: BLE001 - a mérés folytatódik, a hiba rögzítve
+        except Exception as exc:  # noqa: BLE001 - the measurement continues, the error is recorded
             tasks, rejected, status, err = [], [], "error", type(exc).__name__
         out.append({"variant": "C", "run_id": prefix + msg.message_id[:40], "subject": msg.subject, "intent": row["intent"] if row else None,
                     "route": row["next_flow"] if row else None, "status": status, "error": err,
@@ -108,12 +110,13 @@ def run_c(paths: list[Path], stamp: str) -> list[dict[str, Any]]:
     return out
 
 
-OLD_GOLDEN = OLD_PROJECT_ROOT / "flows" / "email-actions-bare" / "golden" / "manifest.json"  # csak olvasva (mesterséges)
+OLD_GOLDEN = OLD_PROJECT_ROOT / "flows" / "email-actions-bare" / "golden" / "manifest.json"  # read-only (synthetic)
 
 
 def run_golden(stamp: str, repeats: int = 2) -> list[dict[str, Any]]:
-    """A régi projekt 7 mesterséges etalon-esete (elvárt teendők: akció, határidő, felelős), `repeats` ismétléssel. A régi
-    bemenet a mi pillanatképünkbe képezve (tárgy, szöveg, csatolmány-típus; a hiányos / ismeretlen szöveg = részleges)."""
+    """The legacy project's 7 synthetic golden cases (expected to-dos: action, due date, assignee), with `repeats`
+    repetitions. The legacy input is mapped onto our snapshot (subject, text, attachment type; incomplete / unknown
+    text = partial)."""
     cases = json.loads(OLD_GOLDEN.read_text(encoding="utf-8"))["cases"]
     out = []
     for rep in range(repeats):

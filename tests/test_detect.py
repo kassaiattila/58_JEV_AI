@@ -1,4 +1,4 @@
-"""M1 detect - offline: típus-regiszter, anchor-feature-ök, state-építés, régi-címke leképezés."""
+"""M1 detect - offline: type registry, anchor features, state building, legacy label mapping."""
 
 from jav.detect import build_questions, build_state
 from jav.doc_types import BY_KEY, DOC_TYPE_KEYS, OLD_TYPE_MAP, UNKNOWN, anchor_hits, choice_criteria
@@ -15,7 +15,8 @@ def test_registry_consistent():
     assert UNKNOWN in DOC_TYPE_KEYS and "invoice_hu" in BY_KEY
     crit = choice_criteria()
     assert set(crit) == set(DOC_TYPE_KEYS)
-    assert all(len(v["what"]) > 40 and v["not_for"] for v in crit.values())  # minden típusnak érdemi leírása és határa van (v2)
+    # every type has a substantive description and boundary (v2)
+    assert all(len(v["what"]) > 40 and v["not_for"] for v in crit.values())
     assert set(OLD_TYPE_MAP.values()) <= set(DOC_TYPE_KEYS)
 
 

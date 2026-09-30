@@ -1,4 +1,4 @@
-"""A régi projekt helye környezeti változóból jön (040, K0)."""
+"""The legacy project's location comes from an environment variable (040, K0)."""
 
 import importlib
 from pathlib import Path

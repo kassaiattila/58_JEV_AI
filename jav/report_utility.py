@@ -1,18 +1,19 @@
-"""Közmű-költség idősor (054 K4): a futás közmű-számláiból fogyasztási hely + közmű szerinti havi rács.
+"""Utility cost time series (054 K4): a monthly grid by point of consumption + utility from the run's utility invoices.
 
-Döntések (2026-09-28, `docs/DECISIONS.md`): a forrás a kiválasztott futás érvényes adata (gépi érték + javítás); a
-számlázási időszak összege és fogyasztása napok arányában oszlik a hónapokra, kerekítés után is pontos összeggel; a
-hónap állapota napra pontosan: `missing` (a sor első és utolsó számlája között egyik számla sem fedi), `partial` (van
-fedetlen napja), `overlap` (van két számlával fedett napja), `ok`. A közös vízösszesítő (`summary_only`) csak tájékoztató:
-a végösszegbe nem számít, mert a részszámlái külön iratként is bejönnek.
+Decisions (2026-09-28, `docs/DECISIONS.md`): the source is the effective data of the selected run (machine value +
+correction); the amount and consumption of a billing period are split across the months in proportion to the days,
+with an exact total even after rounding; a month's status is exact to the day: `missing` (between the series' first
+and last invoice, no invoice covers it), `partial` (it has an uncovered day), `overlap` (it has a day covered by two
+invoices), `ok`. The shared water summary (`summary_only`) is informative only: it does not count towards the grand
+total, because its partial invoices also come in as separate documents.
 
-Két általános szabály (054, a valódi adaton talált esetek): (1) ugyanaz a típus + számlaszám csak egyszer számít (a
-Díjbeszedő-kötegben és önálló iratként is bejövő számla), a többi `duplicates`; (2) az elszámoló számla — amelynek
-időszaka a sor más számláit teljesen magába foglalja — különbözetet számláz: az összege az időszak utolsó hónapjához
-kerül (`settlement`), és a lefedettséget (hiány / átfedés) nem befolyásolja.
+Two general rules (054, from cases found in real data): (1) the same type + invoice number counts only once (an
+invoice that arrives both in the Díjbeszedő batch and as a separate document); the others are `duplicates`; (2) a
+settlement invoice, whose period fully contains other invoices of the series, bills the difference: its amount goes
+to the last month of its period (`settlement`), and it does not affect coverage (missing / overlap).
 
-A számítás kódban történik (CLAUDE.md §4), Decimal-lal; minden cella a forrásszámláit (tétel, fájl, oldal, arány)
-hordozza, így minden szám visszakereshető. A beállítás: `configs/reports.json` `utility_cost`.
+The computation happens in code (CLAUDE.md §4), with Decimal; every cell carries its source invoices (item, file,
+page, share), so every number can be traced back. Settings: `utility_cost` in `configs/reports.json`.
 """
 
 from __future__ import annotations
@@ -44,8 +45,8 @@ def _days(start: date, end: date):
 
 
 def split_by_month(start: date, end: date, amount: Decimal) -> dict[str, Decimal]:
-    """Az összeg napok arányában a hónapokra, két tizedesre kerekítve; a kerekítési maradék az utolsó hónapé, így az
-    összeg pontos marad."""
+    """Splits the amount across the months in proportion to the days, rounded to two decimals; the rounding remainder
+    goes to the last month, so the total stays exact."""
     per: dict[str, int] = defaultdict(int)
     for d in _days(start, end):
         per[_month(d)] += 1
@@ -78,7 +79,7 @@ def _date(v: Any) -> date | None:
 
 
 def _fold(s: str) -> str:
-    """A cím összevethető alakja: kis/nagybetű, írásjel és szóköz nem számít („1111 BUDAPEST Minta utca 11.”)."""
+    """An address's comparable form: case, punctuation and spaces do not matter ("1111 BUDAPEST Minta utca 11.")."""
     return " ".join(re.sub(r"[.,;:]", " ", s).split()).casefold()
 
 
@@ -86,8 +87,8 @@ _DISTRICT = re.compile(r"^(?:[ivxl]+|ker|kerület)$")
 
 
 def _addr_key(s: str) -> str:
-    """A fogyasztási hely kulcsa: mint a `_fold`, és a kerület római száma („XV.”, „XV. ker.”) sem számít, mert a
-    budapesti irányítószám már tartalmazza."""
+    """Key of the point of consumption: like `_fold`, and the district's Roman numeral ("XV.", "XV. ker.") does not
+    matter either, because the Budapest postcode already contains it."""
     return " ".join(t for t in _fold(s).split() if not _DISTRICT.match(t))
 
 
@@ -96,14 +97,14 @@ def _s(d: Decimal | None) -> str | None:
 
 
 def has_utility(records: list[dict[str, Any]]) -> bool:
-    """Van-e a rekordok között közmű-számla (058: az Eredmény csak ekkor kínálja a közmű-költség nézetet)."""
+    """Whether the records include a utility invoice (058: only then does Result offer the utility cost view)."""
     utilities = _conf()["utilities"]
     return any((r.get("doc_type") or "") in utilities for r in records)
 
 
 def build(records: list[dict[str, Any]]) -> dict[str, Any]:
-    """A rekordokból (`export.run_records`) a havi rács. Nem közmű irat kimarad; a közmű-számla, amelynek nincs
-    időszaka vagy összege, az `unplaced` listába kerül okkal (nem becsülünk)."""
+    """The monthly grid from the records (`export.run_records`). Non-utility documents are skipped; a utility invoice
+    without a period or an amount goes to the `unplaced` list with a reason (we do not estimate)."""
     conf = _conf()
     utilities: dict[str, dict[str, Any]] = conf["utilities"]
     start_f, end_f = conf["period_fields"]
@@ -156,7 +157,7 @@ def build(records: list[dict[str, Any]]) -> dict[str, Any]:
     grand = Decimal(0)
     for (addr, utility), bs in sorted(series_bills.items()):
         bs.sort(key=lambda b: (b["start"], b["end"]))
-        for b in bs:  # elszámoló: más számla időszakát teljesen magába foglalja
+        for b in bs:  # settlement: fully contains another invoice's period
             b["settlement"] = any(o is not b and b["start"] <= o["start"] and o["end"] <= b["end"]
                                   and (o["start"], o["end"]) != (b["start"], b["end"]) for o in bs)
         regular = [b for b in bs if not b["settlement"]] or bs

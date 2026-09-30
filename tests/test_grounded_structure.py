@@ -1,4 +1,4 @@
-"""Védett szerkezet és forrásállítás: a publikus működés ellenőrzése."""
+"""Protected structure and source claims: checks of the public behaviour."""
 from jav.models import LineLayout, CellLayout
 from jav.grounded_claims import protected_boundaries
 from types import SimpleNamespace
@@ -14,7 +14,7 @@ def test_claim_semantics_use_context_and_keep_raw_answer(choice, confidence, sta
     claim = GroundedClaim(statement="The payable amount is 100 EUR", source_sha256=hashlib.sha256(text.encode()).hexdigest(),
                           start=12, end=19, quote="100 EUR")
     def ask(step, state, questions):
-        assert state["context"] == text  # A szó szerint helyes idézet önmagában félrevezető.
+        assert state["context"] == text  # A verbatim-correct quote on its own is misleading.
         return SimpleNamespace(choices={"relation":SimpleNamespace(choice=choice,confidence=confidence)},
                                model_dump=lambda **kw: {"choice":choice,"confidence":confidence})
     config = {"max_context_chars":16000,"min_confidence":.8,"question":"Does the source support the claim?",

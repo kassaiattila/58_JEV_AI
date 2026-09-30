@@ -1,11 +1,13 @@
-"""071 S-fejlécek (070 terv 2.1, audit A07): böngészős védőfejlécek a helyi szolgáltatás minden válaszán.
+"""071 S-fejlécek (070 plan 2.1, audit A07): browser protection headers on every response of the local service.
 
-- Minden válasz: beágyazás tiltva (`X-Frame-Options: DENY`, `frame-ancestors 'none'`), tartalomtípus-találgatás
-  tiltva (`nosniff`), hivatkozó cím nem megy tovább, a válasz csak a saját eredetről tölthető be (COOP / CORP).
-- A felület HTML-je: tartalombiztonsági szabály, amely csak a saját fájlokat engedi (a beágyazott betűkészlet és a
-  favikon `data:`, a letöltés `blob:`).
-- Az `/api/` válaszai (irat-adat, oldalkép, forrásirat, letöltés): a böngésző nem tárolhatja őket (`no-store`).
-- 2026-09-30 döntés: a kattintható végpontlista (`/api/docs`) kikapcsolva, a gépi lista (`/api/openapi.json`) marad.
+- Every response: embedding forbidden (`X-Frame-Options: DENY`, `frame-ancestors 'none'`), content-type sniffing
+  forbidden (`nosniff`), no referrer passed on, the response can only be loaded from its own origin (COOP / CORP).
+- The UI's HTML: a content security policy that allows only its own files (the embedded font and the favicon as
+  `data:`, the download as `blob:`).
+- The `/api/` responses (document data, page image, source document, download): the browser must not store them
+  (`no-store`).
+- Decision of 2026-09-30: the clickable endpoint list (`/api/docs`) is switched off, the machine-readable list
+  (`/api/openapi.json`) stays.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from jav import api
-from tests.test_api import BASE, _ready_wp, env  # noqa: F401  (a pytest-fixture is innen jön)
+from tests.test_api import BASE, _ready_wp, env  # noqa: F401  (the pytest fixture comes from here too)
 
 COMMON = {
     "x-frame-options": "DENY",
@@ -56,7 +58,7 @@ def test_ui_html_gets_the_strict_content_security_policy(ui_client):
     assert r.status_code == 200 and "text/html" in r.headers["content-type"]
     _assert_common(r)
     assert _csp(r.headers) == UI_CSP
-    assert r.headers["cache-control"] == "no-cache"  # az új build azonnal látszik (K3)
+    assert r.headers["cache-control"] == "no-cache"  # a new build shows up immediately (K3)
 
 
 def test_hashed_static_asset_keeps_its_cacheability(ui_client):
@@ -88,7 +90,7 @@ def test_unknown_api_path_and_error_carry_the_headers(ui_client):
 
 
 def test_interactive_docs_are_off_machine_list_stays(ui_client):
-    """2026-09-30 döntés: a /api/docs külső tárhelyről töltene programkódot a helyi címre."""
+    """Decision of 2026-09-30: /api/docs would load program code from an external host into the local address."""
     assert ui_client.get("/api/docs").status_code == 404
     r = ui_client.get("/api/openapi.json")
     assert r.status_code == 200 and "/api/health" in r.json()["paths"]
@@ -105,7 +107,8 @@ def test_page_image_and_source_document_are_not_stored(env):  # noqa: F811
     src = c.get(f"/api/workpackages/{wp['id']}/items/{item['item_id']}/source")
     assert src.status_code == 200 and src.headers["cache-control"] == "no-store"
     _assert_common(src)
-    # a forrásirat új lapon nyílik a böngésző beépített PDF-nézőjében: a `default-src` / `object-src` ezt elakaszthatná
+    # the source document opens in a new tab in the browser's built-in PDF viewer: `default-src` / `object-src`
+    # could block that
     assert _csp(src.headers) == {"frame-ancestors": "'none'"}
 
 

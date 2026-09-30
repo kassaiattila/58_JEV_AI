@@ -1,7 +1,7 @@
-"""Feldolgozó végponttól végpontig (040 K1): mesterséges PDF, hamis JEV-kliens, fizetős hívás nélkül.
+"""Worker end to end (040 K1): synthetic PDF, fake JEV client, no paid calls.
 
-Vizsgált garanciák: teljes futás a munkasoron át; összeomlás utáni folytatás a mentett lépéstől, ismételt JEV-hívás
-nélkül; leállítás lépéshatáron; megváltozott forrás elutasítása; kerettúllépés a hálózat előtt.
+Guarantees tested: a full run through the job queue; resuming after a crash from the saved step, without repeating JEV
+calls; cancellation at a step boundary; refusal of a changed source; budget overrun caught before the network.
 """
 
 from decimal import Decimal
@@ -64,11 +64,11 @@ def test_full_run_through_queue(env):
 
 
 def test_crash_mid_flow_resumes_without_repeating_jev(env, monkeypatch):
-    monkeypatch.setattr(worker, "PRUNE_FINISHED_STATE", False)  # 064: a köztes lépések mentése itt a vizsgálat tárgya
+    monkeypatch.setattr(worker, "PRUNE_FINISHED_STATE", False)  # 064: this test is about saving the intermediate steps
     run_id = _start(env["wp"]["id"])
     worker.startup()
 
-    class Crash(BaseException):  # a folyamat halála: a feldolgozó nem kaphatja el rendes hibaként
+    class Crash(BaseException):  # process death: the worker must not catch it as an ordinary error
         pass
 
     def crash_after_select(action_name: str) -> None:
@@ -76,21 +76,21 @@ def test_crash_mid_flow_resumes_without_repeating_jev(env, monkeypatch):
             raise Crash("simulated crash")
 
     job = queue.claim("w1")
-    with pytest.raises(Crash):  # a feldolgozó folyamata „meghal” a JEV-lépés után, lezáratlan foglalással
+    with pytest.raises(Crash):  # the worker process "dies" after the JEV step, with an unsettled claim
         worker.process(job, after_step=crash_after_select)
     calls_before = env["client"].calls
     assert calls_before >= 1
-    assert worker.startup()["orphans_requeued"] == 1  # újraindítás: a félbemaradt foglalás vissza a sorba
+    assert worker.startup()["orphans_requeued"] == 1  # restart: the interrupted claim goes back to the queue
     info = worker.run_worker(once=True)
     assert info["results"].get("done") == 2
     flow_run_id = next(i["flow_run_id"] for i in work.get_run(run_id)["items"] if i["item_id"] == job.payload["item_id"])
-    assert all(j["attempt"] == 1 for j in calls.journal(flow_run_id))  # a már sikeres JEV-lépés nem ismétlődött
+    assert all(j["attempt"] == 1 for j in calls.journal(flow_run_id))  # the successful JEV step was not repeated
     other = next(i["flow_run_id"] for i in work.get_run(run_id)["items"] if i["item_id"] != job.payload["item_id"])
-    assert env["client"].calls - calls_before == len(calls.journal(other))  # az új hívások mind a MÁSIK tételé
+    assert env["client"].calls - calls_before == len(calls.journal(other))  # all new calls belong to the OTHER item
     import sqlite3
     with sqlite3.connect(worker.persister_path()) as db:
         positions = [r[0] for r in db.execute("SELECT position FROM burr_state WHERE app_id=? ORDER BY sequence_id", (flow_run_id,))]
-    assert positions.count("load_pdf") == 1 and positions.count("jev_select") == 1  # a mentett lépéstől folytatódott
+    assert positions.count("load_pdf") == 1 and positions.count("jev_select") == 1  # it resumed from the saved step
 
 
 def test_cancel_stops_at_step_boundary(env):
@@ -118,7 +118,7 @@ def test_changed_source_is_refused(env):
 
 def test_budget_exhaustion_becomes_review_not_crash(env):
     run_id = _start(env["wp"]["id"])
-    calls.set_budget(run_id, "jev", Decimal("0.0000001"))  # a keretet szándékosan szinte nullára vesszük
+    calls.set_budget(run_id, "jev", Decimal("0.0000001"))  # the budget is set to almost zero on purpose
     info = worker.run_worker(once=True)
     assert info["results"] == {"done": 2} and env["client"].calls == 0
     reasons = [r["reason"] for i in work.get_run(run_id)["input"]["items"] for r in store.review_open_reasons("document", i["item_id"])]
@@ -127,8 +127,8 @@ def test_budget_exhaustion_becomes_review_not_crash(env):
 
 
 def test_document_recipe_detects_type_then_extracts_with_its_pack(env):
-    """047 T1.3: az irat-feldolgozás recept előbb felismer (durva + részletes típus), aztán a részletes típus csomagjával
-    nyer ki; a mentett adatpont a felismert típusé."""
+    """047 T1.3: the document-processing recipe first detects (coarse + detailed type), then extracts with the detailed
+    type's pack; the saved data point belongs to the detected type."""
     wp = work.create_from_folder(env["tmp"] / "bejovo", name="Vegyes iratok")
     work.assign_recipe(wp["id"], "document-processing", params={"arm": "S"}, expected_revision=0, actor="t")
     run_id = _start(wp["id"])
@@ -144,4 +144,4 @@ def test_document_recipe_detects_type_then_extracts_with_its_pack(env):
 
 def test_arm_falls_back_to_what_the_pack_supports():
     assert worker.arm_for("invoice_hu", "S") == "S"
-    assert worker.arm_for("statement_cib", "S") == "G"  # a régi típusból átalakított csomag csak G-karral fut
+    assert worker.arm_for("statement_cib", "S") == "G"  # a pack converted from a legacy type runs only on the G path

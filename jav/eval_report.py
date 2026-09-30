@@ -1,15 +1,17 @@
-"""Közös eval-modul (keret-réteg): a flow-k nyers futásaiból (`runs/*.jsonl`) egységes ítélet-lista, abból riport.
+"""Shared eval module (framework layer): a uniform list of judgments from the flows' raw runs (`runs/*.jsonl`), and a
+report built from it.
 
-Flow-független: a bemenet a négy meglévő golden-formátum (invoice S / G, doc_detect, email_intent) és a determinizmus-
-fájlok; a fájlnév-minta mondja meg, melyik flow. Egy **ítélet** (`Judgment`) = egy Jev-kérdés egy esetre: Choice
-(label, confidence, top-prob, második opció) vagy Noul (P(igen)), ha van igazság, akkor `expected` + `correct`.
-Minden szám hívás nélkül, $0-ért készül; a sávok a `configs/policy.json` `bands` készleteiből (`jav/policy.py`).
+Flow-independent: the input is the four golden formats (invoice S / G, doc_detect, email_intent), the verifier and
+injection probes, and the determinism files; the file-name pattern tells which flow. A **judgment** (`Judgment`) = one
+JEV question for one case: Choice (label, confidence, top prob, second option) or Noul (P(yes)); where the truth is
+known, also `expected` + `correct`. Every number is computed without calls, for $0; the bands come from the `bands`
+sets of `configs/policy.json` (`jav/policy.py`).
 
-Szakaszok: kérdésenkénti pontosság és sáv-eloszlás (sávonkénti pontossággal), kalibrációs görbe (bin-enként P vs.
-találat, ECE) top-prob és confidence szerint, top-prob vs. confidence eltérés, policy-sáv újraértékelés (hány eset
-váltana sávot az `uncertain_review` kapcsolóval), determinizmus (kérdésenkénti szórás, flipek).
+Sections: per-question accuracy and band distribution (with per-band accuracy), calibration curve (per bin P vs. hit
+rate, ECE) by top prob and by confidence, top prob vs. confidence gap, policy-band re-evaluation (how many cases would
+change band with the `uncertain_review` switch), determinism (per-question spread, flips).
 
-Új flow bekötése: egy `_from_<flow>(row) -> list[Judgment]` kivonatoló + a fájlnév-minta a `FLOW_PATTERNS`-ben.
+Wiring in a new flow: an extractor `_from_<flow>(row) -> list[Judgment]` + the file-name pattern in `FLOW_PATTERNS`.
 """
 
 from __future__ import annotations
@@ -26,9 +28,9 @@ from typing import Any, Callable, Literal
 from jav import policy
 from jav.config import RUNS_DIR
 
-Kind = Literal["choice", "noul", "score"]  # score: a conf / top_prob a Choice-hoz hasonlóan értelmezve, a címke a szint
+Kind = Literal["choice", "noul", "score"]  # score: conf / top_prob read as for a Choice, the label is the level
 
-# fájlnév-minta -> flow-név (a determinizmus-fájlok ugyanabba a flow-ba tartoznak, több sor esetenként)
+# file-name pattern -> flow name (the determinism files belong to the same flow, several rows per case)
 FLOW_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"_golden_S\.jsonl$|_determinism_S_n\d+\.jsonl$", "invoice_S"),
     (r"_golden_G\.jsonl$|_determinism_G_n\d+\.jsonl$", "invoice_G"),
@@ -47,25 +49,25 @@ CAL_BIN_EDGES: tuple[float, ...] = (0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0)
 class Judgment:
     flow: str
     case_id: str
-    question: str  # mező (S), flag-név (G), kérdés-azonosító (detect / email)
+    question: str  # field (S), flag name (G), question ID (detect / email)
     kind: Kind
-    callsite: str  # policy-sáv hívási hely (configs/policy.json band_for)
+    callsite: str  # policy-band call site (configs/policy.json band_for)
     label: str | None
     expected: str | None
     correct: bool | None
-    confidence: float | None  # Choice confidence (koncentráltság)
-    top_prob: float | None  # a választott opció valószínűsége
-    second_prob: float | None  # a második opció valószínűsége (None, ha nincs)
-    p: float | None  # Noul P(igen)
-    route_recorded: str | None  # a futásban rögzített útvonal (route / next_flow), ha van
+    confidence: float | None  # Choice confidence (concentration)
+    top_prob: float | None  # probability of the chosen option
+    second_prob: float | None  # probability of the second option (None if there is none)
+    p: float | None  # Noul P(yes)
+    route_recorded: str | None  # the route recorded in the run (route / next_flow), if any
     run_no: int = 1
-    field: str | None = None  # G-kar: melyik mezőre vonatkozik a flag
-    parent: str | None = None  # regiszter v2: a legvalószínűbb opció családja (a futás-sorból)
-    parent_prob: float | None = None  # a család összesített valószínűsége
-    parent_correct: bool | None = None  # a várt címke családja == parent (ha van igazság)
+    field: str | None = None  # G path: which field the flag refers to
+    parent: str | None = None  # registry v2: family of the most probable option (from the run row)
+    parent_prob: float | None = None  # combined probability of the family
+    parent_correct: bool | None = None  # family of the expected label == parent (where the truth is known)
 
 
-# --- fájl -> ítéletek ----------------------------------------------------------------------------
+# --- file -> judgments ---------------------------------------------------------------------------
 
 
 def flow_of(path: Path | str) -> str | None:
@@ -95,11 +97,11 @@ def _from_invoice_S(row: dict[str, Any]) -> list[Judgment]:
     out = []
     scores = row.get("scores") or {}
     expected_present = row.get("expected_present") or {}
-    flow = row.get("flow_label") or "invoice_S"  # típus-csomagonként külön flow (invoice_S = magyar, invoice_foreign_S = külföldi számla)
+    flow = row.get("flow_label") or "invoice_S"  # a separate flow per type pack (invoice_S = Hungarian, invoice_foreign_S = foreign invoice)
     high_stakes = policy.high_stakes_for(row.get("doc_type"))
     for field, pick in (row.get("picks") or {}).items():
         top, second = _top2(pick.get("top3"))
-        if pick.get("confidence") is None:  # 069 (Á11): jelölt nélkül nincs Choice-ítélet, csak (esetleg) jelenlét-ítélet
+        if pick.get("confidence") is None:  # 069 (Á11): no candidates means no Choice judgment, only (possibly) a presence judgment
             out.extend(_presence_judgment(row, flow, field, pick, expected_present))
             continue
         out.append(Judgment(
@@ -114,7 +116,7 @@ def _from_invoice_S(row: dict[str, Any]) -> list[Judgment]:
 
 def _presence_judgment(row: dict[str, Any], flow: str, field: str, pick: dict[str, Any],
                        expected_present: dict[str, Any]) -> list[Judgment]:
-    """Jelenlét-Noul (select.json v1.1.0): igazság = a golden várt értéke nem None."""
+    """Presence Noul (select.json v1.1.0): truth = the golden expected value is not None."""
     p = pick.get("present_p")
     if p is None:
         return []
@@ -137,7 +139,7 @@ def _from_invoice_G(row: dict[str, Any]) -> list[Judgment]:
     flow = row.get("flow_label") or "invoice_G"
 
     def noul(question: str, p: float, field: str | None) -> Judgment:
-        # igazság: pontozott mezőnél a flagnek akkor kell jeleznie, ha a mező rossz; a címke p >= 0,5
+        # truth: for a scored field the flag must fire if the field is wrong; the label is p >= 0.5
         expected = None if field is None or field not in scores or scores[field] is None else ("no" if scores[field] else "yes")
         label = "yes" if p >= 0.5 else "no"
         return Judgment(flow=flow, case_id=row["case_id"], question=question, kind="noul", callsite="invoice.verify",
@@ -191,7 +193,7 @@ def _from_email(row: dict[str, Any]) -> list[Judgment]:
         out.append(Judgment(flow="email_intent", case_id=row["case_id"], question=key, kind="noul", callsite="email.signal",
                             label="yes" if p >= 0.5 else "no", expected=None, correct=None, confidence=None, top_prob=None, second_prob=None,
                             p=float(p), route_recorded=None, run_no=int(row.get("run_no", 1))))
-    for key, s in (row.get("scores") or {}).items():  # v1.1.0: Score-jel (urgency) - címke = szint, conf + szint-valószínűségek
+    for key, s in (row.get("scores") or {}).items():  # v1.1.0: Score signal (urgency) - label = level, conf + level probabilities
         top, second = _top2(s.get("probabilities"))
         out.append(Judgment(flow="email_intent", case_id=row["case_id"], question=key, kind="score", callsite=f"email.{key}",
                             label=str(s.get("level")), expected=None, correct=None, confidence=float(s.get("confidence") or 0.0),
@@ -200,8 +202,9 @@ def _from_email(row: dict[str, Any]) -> list[Judgment]:
 
 
 def _from_verify_probe(row: dict[str, Any]) -> list[Judgment]:
-    """Ellenőrző-szonda: ismert igazsággal. Hibás variánsnál a várt flag igazsága `yes`; a tökéletes kivonatnál a golden
-    lefedte mezők minden flagjének igazsága `no` (a szonda `p`-je ott a legmagasabb ilyen flag). A többi flag igazság nélkül."""
+    """Verifier probe: with known truth. For a faulty variant the truth of the expected flag is `yes`; for the perfect
+    extract the truth of every flag of the fields covered by the golden set is `no` (there the probe's `p` is the
+    highest such flag). The other flags have no truth."""
     out: list[Judgment] = []
     variant, target = row["variant"], row["target"]
     t_flag, _, t_field = target.partition(":")
@@ -234,8 +237,9 @@ def _from_verify_probe(row: dict[str, Any]) -> list[Judgment]:
 
 
 def _from_email_injection(row: dict[str, Any]) -> list[Judgment]:
-    """Beszúrt-utasítás szonda: mint az e-mail golden, de a `prompt_injection` Noul igazsága ismert (clean -> no, elrontott -> yes),
-    az eset `<eset>/<variáns>`; az intent igazsága a golden várt szándéka (az elrontott változatnál is - flip = hiba)."""
+    """Injected-instruction probe: like the email golden set, but the truth of the `prompt_injection` Noul is known
+    (clean -> no, tampered -> yes), the case is `<case>/<variant>`; the truth of the intent is the golden expected
+    intent (for the tampered variant too - a flip is an error)."""
     out = _from_email(row)
     variant = row.get("variant", "clean")
     for j in out:
@@ -259,11 +263,12 @@ def judgments_from_file(path: Path | str) -> list[Judgment]:
         raise ValueError(f"ismeretlen futás-fájl (nincs flow-minta): {path}")
     extract = EXTRACTORS[flow]
     out: list[Judgment] = []
-    seen: dict[str, int] = defaultdict(int)  # determinizmus-fájl run_no nélkül (email): esetenként sorszámozunk
+    seen: dict[str, int] = defaultdict(int)  # determinism file without run_no (email): numbered per case
     for row in load_rows(path):
         js = extract(row)
         if js and "run_no" not in row:
-            # az ítélet case_id-ja szerint (a szonda variánsai külön esetek: `<eset>/<variáns>`), nem a nyers sor szerint
+            # by the judgment's case_id (the probe's variants are separate cases: `<case>/<variant>`), not by the raw
+            # row
             key = js[0].case_id
             seen[key] += 1
             for j in js:
@@ -272,7 +277,7 @@ def judgments_from_file(path: Path | str) -> list[Judgment]:
     return out
 
 
-# --- sávok és összesítések ------------------------------------------------------------------------
+# --- bands and summaries -------------------------------------------------------------------------
 
 
 def band_of(j: Judgment) -> str:
@@ -294,7 +299,7 @@ def _first_runs(js: list[Judgment]) -> list[Judgment]:
 
 
 def per_question(js: list[Judgment]) -> list[dict[str, Any]]:
-    """Flow × kérdés: n, pontosság, conf/p átlag és szórás, sáv-eloszlás, sávonkénti pontosság (csak az 1. futás)."""
+    """Flow × question: n, accuracy, conf/p mean and spread, band distribution, per-band accuracy (1st run only)."""
     groups: dict[tuple[str, str, str], list[Judgment]] = defaultdict(list)
     for j in _first_runs(js):
         groups[(j.flow, j.question, j.kind)].append(j)
@@ -319,7 +324,7 @@ def per_question(js: list[Judgment]) -> list[dict[str, Any]]:
 
 
 def calibration(js: list[Judgment], *, key: str = "top_prob") -> dict[str, Any]:
-    """Choice-ítéletek igazsággal: bin-enként átlagos P vs. találati arány, ECE (n-súlyozott |acc - P|)."""
+    """Choice judgments with truth: mean P vs. hit rate per bin, ECE (n-weighted |acc - P|)."""
     items = [j for j in _first_runs(js) if j.kind == "choice" and j.correct is not None and getattr(j, key) is not None]
     bins = []
     n_total = len(items)
@@ -338,7 +343,8 @@ def calibration(js: list[Judgment], *, key: str = "top_prob") -> dict[str, Any]:
 
 
 def top_prob_vs_confidence(js: list[Judgment]) -> list[dict[str, Any]]:
-    """Flow-nként: a confidence és a top-prob átlagos / legnagyobb eltérése, és hány ítéletnél adna más sávot a top-prob."""
+    """Per flow: the mean / largest gap between confidence and top prob, and for how many judgments top prob would give
+    a different band."""
     groups: dict[str, list[Judgment]] = defaultdict(list)
     for j in _first_runs(js):
         if j.kind == "choice" and j.top_prob is not None and j.confidence is not None:
@@ -357,10 +363,11 @@ def top_prob_vs_confidence(js: list[Judgment]) -> list[dict[str, Any]]:
 
 
 def policy_reeval(js: list[Judgment]) -> list[dict[str, Any]]:
-    """Esetenként: van-e `human` ítélet (review most is), és van-e CSAK `uncertain` (review lenne `uncertain_review: true` mellett).
+    """Per case: whether there is a `human` judgment (review already now), and whether there is ONLY `uncertain` (it
+    would be reviewed with `uncertain_review: true`).
 
-    A `uncertain_only` esetek pontossága mondja meg, érdemes-e a kapcsolót bekapcsolni: ha ezek pontatlanok, a sáv
-    jó jelzés; ha pontosak, a kapcsoló csak felesleges kézi munkát adna.
+    The accuracy of the `uncertain_only` cases tells whether the switch is worth turning on: if they are inaccurate, the
+    band is a good signal; if they are accurate, the switch would only add needless manual work.
     """
     by_flow_case: dict[str, dict[str, list[Judgment]]] = defaultdict(lambda: defaultdict(list))
     for j in _first_runs(js):
@@ -387,8 +394,8 @@ def policy_reeval(js: list[Judgment]) -> list[dict[str, Any]]:
 
 
 def parent_fallback_summary(js: list[Judgment]) -> list[dict[str, Any]]:
-    """Szülő-címke (regiszter v2): a nem-auto sávú Choice-ítéletek közül hánynál használható a család
-    (`policy.parent_fallback`), és hánynál egyezik a várt címke családjával."""
+    """Parent label (registry v2): for how many of the non-auto-band Choice judgments the family is usable
+    (`policy.parent_fallback`), and for how many it matches the family of the expected label."""
     groups: dict[str, list[Judgment]] = defaultdict(list)
     for j in _first_runs(js):
         if j.kind == "choice" and j.parent is not None:
@@ -407,10 +414,10 @@ def parent_fallback_summary(js: list[Judgment]) -> list[dict[str, Any]]:
 
 
 def determinism_summary(js: list[Judgment]) -> list[dict[str, Any]]:
-    """Több futás esetenként: kérdésenként a conf / p szórásának átlaga és maximuma, címke-flipek száma."""
+    """Several runs per case: per question the mean and maximum spread of conf / p, and the number of label flips."""
     groups: dict[tuple[str, str], dict[tuple[str, str | None], list[Judgment]]] = defaultdict(lambda: defaultdict(list))
     for j in js:
-        groups[(j.flow, j.question)][(j.case_id, j.field)].append(j)  # G-kar: eset × mező a futás-sorozat egysége
+        groups[(j.flow, j.question)][(j.case_id, j.field)].append(j)  # G path: case × field is the unit of a run series
     rows = []
     for (flow, q), cases in sorted(groups.items()):
         multi = {c: items for c, items in cases.items() if len(items) > 1}
@@ -429,11 +436,11 @@ def determinism_summary(js: list[Judgment]) -> list[dict[str, Any]]:
     return rows
 
 
-# --- riport --------------------------------------------------------------------------------------
+# --- report --------------------------------------------------------------------------------------
 
 
 def default_inputs() -> list[Path]:
-    """Mintánként a legfrissebb runs/*.jsonl."""
+    """The latest runs/*.jsonl per pattern."""
     out = []
     for g in DEFAULT_GLOBS:
         files = sorted(RUNS_DIR.glob(g))

@@ -39,7 +39,7 @@ def test_chunked_runtime_resumes_and_preserves_distinct_repeated_occurrences(tmp
     finished=run_chunked_learning(**kwargs)
     assert finished['coverage']['complete']
     assert finished['completeness']=='not_established'
-    # Ismételt idézet egy részben nem lesz igazolt pusztán a helyi pozíció miatt.
+    # A repeated quote within a part is not verified merely because of its local position.
     assert all(p['evidence'][0]['point']['verification']['status']=='ambiguous_quote'
                for p in finished['points'])
     count=len(calls)

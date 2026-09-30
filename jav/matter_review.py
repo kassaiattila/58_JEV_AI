@@ -1,4 +1,4 @@
-"""Ügykapcsolat-javaslat: tartós Burr-kísérlet, üzemi kapcsolatírás nélkül."""
+"""Matter-link proposal: a durable Burr experiment, without writing operational links."""
 from __future__ import annotations
 
 import sqlite3
@@ -15,7 +15,7 @@ Relation = Literal['none', 'invoice_order', 'invoice_receipt', 'order_receipt',
 
 
 class MatterVerdict(BaseModel):
-    """A régi ügybíró kimeneti szerződésének típusos változata."""
+    """Typed version of the output contract of the legacy matter judge."""
     model_config = ConfigDict(extra='forbid')
     linked: bool
     relation: Relation
@@ -25,7 +25,7 @@ class MatterVerdict(BaseModel):
 
 
 def combine(gpt, jev, *, minimum=.8, maximum_contradiction=.2):
-    """Előre rögzített kísérleti szűrés, nem kalibrált üzemi elfogadás."""
+    """Pre-registered experimental filter, not a calibrated operational acceptance."""
     reasons = []
     if gpt['linked'] != (gpt['relation'] != 'none'):
         reasons.append('gpt_internal_contradiction')
@@ -49,10 +49,10 @@ def combine(gpt, jev, *, minimum=.8, maximum_contradiction=.2):
 
 
 def run_pair(*, directory, run_id, packet, config, gpt, jev, halt_after=None):
-    """Egy munkás; mentett szolgáltatóválasz visszajátszása Burr-folytatáskor.
+    """One worker; a saved provider response is replayed when Burr resumes.
 
-    Megkezdett, de válasz nélkül maradt hívást nem indítunk újra. A hívó configban
-    köti a konkrét modell/prompt azonosságát; a helyi kód hash-e is része a zárnak.
+    A call that was started but left without a response is not restarted. The caller pins the exact
+    model/prompt identity in the config; the hash of the local code is also part of the lock.
     """
     from burr.core import ApplicationBuilder, State, action
     from jav.runtime.persistence import ClosingSQLitePersister

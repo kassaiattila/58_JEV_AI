@@ -1,12 +1,13 @@
-"""Meglévő futások forráshelyének újraszámolása (053): a képen a mezők és a tételsorok kerete, kódból, AI-hívás nélkül.
+"""Recomputes the source locations of existing runs (053): field and line-item boxes on the image, in code, no AI.
 
-Mikor kell: a forráshely-szabály változott (053: a több helyen szereplő érték a legvalószínűbb helyen kap keretet, a
-pénznem a „Ft” feliratra is illeszkedik, a tételes listák sorai is kapnak helyet), és a már lefutott eredményeken is
-látni akarjuk. A kinyert értékek és a teendők nem változnak, csak a `datapoints.provenance` segédadat.
+When it is needed: the source-location rule has changed (053: a value printed in several places gets its box at the
+most likely place, the currency also matches the printed "Ft", and the rows of itemised lists get a location too), and
+we want to see this on results that have already run. The extracted values and the to-dos do not change, only the
+`datapoints.provenance` helper data.
 
-Mi marad: a kiválasztott jelölt pontos helye (`pick`), a közelítő sor (`pick_line`) és a kézi kijelölés (`manual`),
-mert ezek a futás közbeni választásból születtek, és utólag nem számolhatók újra. Minden más mező újra keresve, a
-becsült bizonyosság (`confidence`) megtartva.
+What stays: the exact location of the chosen candidate (`pick`), the approximate line (`pick_line`) and the manual
+selection (`manual`), because these came from choices made during the run and cannot be recomputed afterwards. Every
+other field is searched again, keeping the estimated confidence (`confidence`).
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ KEEP_METHODS = ("pick", "pick_line", "manual")
 
 def reground_provenance(layer: source_layer.SourceLayer | None, old: dict[str, dict[str, Any]], *, fields: dict[str, str],
                         values: dict[str, Any], list_kinds: dict[str, dict[str, str]]) -> dict[str, dict[str, Any]]:
-    """Egy tétel új forráshelye a régi mellől: a futás közbeni választás helye marad, a keresés és a sorok újra."""
+    """An item's new source locations from its old ones: in-run choices keep their place; search and rows are redone."""
     labels = grounding.Labels(layer) if layer is not None else None
     out: dict[str, dict[str, Any]] = {}
     for f, kind in fields.items():
@@ -39,10 +40,10 @@ def reground_provenance(layer: source_layer.SourceLayer | None, old: dict[str, d
 
 
 def reground_run(run_id: str) -> dict[str, int]:
-    """Egy futás minden tételének forráshelye újraszámolva. Visszaad: tételszám, a keretes mezők száma előtte / utána."""
+    """Recomputes the source locations of all items in a run. Returns: item count, boxed fields before / after."""
     run = work.get_run(run_id)
     counts = {"items": 0, "located_before": 0, "located_after": 0, "rows": 0, "rows_located": 0}
-    with store.connect() as c:  # előbb minden sor beolvasva: a szóréteg betöltése saját kapcsolatot nyit (nincs egymásba ágyazás)
+    with store.connect() as c:  # read all rows first: loading the word layer opens its own connection (no nesting)
         rows = [(it, dict(r)) for it in run["items"] if it.get("flow_run_id")
                 for r in [c.execute("SELECT doc_type, datapoints, provenance, source_layer_id FROM datapoints WHERE run_id=? AND doc_id=?",
                                     (it["flow_run_id"], it["item_id"])).fetchone()] if r is not None and r["source_layer_id"]]
