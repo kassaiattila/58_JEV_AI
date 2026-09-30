@@ -24,6 +24,7 @@ import os
 import re
 import unicodedata
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import quote, unquote, urlsplit
@@ -36,7 +37,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from jav import app_settings, backup, cfg, corrections, deps_audit, mailbox, store, version, work, work_views
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
-from jav.runtime import worker
+from jav.runtime import calls, worker
 from jav.tablequery import Query as TableQuery
 
 API_VERSION = "1"
@@ -279,6 +280,13 @@ class StartRun(_In):
 
 class Empty(_In):
     pass
+
+
+class ResolveCall(_In):
+    """076: settling a paid call with an uncertain outcome by hand, as `calls-resolve` does."""
+
+    cost_usd: Decimal | None = Field(default=None, ge=0, le=Decimal("100"))  # None: unknown, the maximum stays committed
+    note: str = Field(min_length=3, max_length=500)
 
 
 class TaskDecision(_In):
@@ -797,6 +805,24 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         the status."""
         log.info("backup requested by %s", who)
         return work_views.jsonable(backup.scheduled())
+
+    # --- paid calls with an uncertain outcome (076): listed and settled by hand, as `calls-uncertain` / `calls-resolve` ---
+
+    @app.get(r + "/system/uncertain-calls")
+    def uncertain_calls() -> dict[str, Any]:
+        return work_views.jsonable({"calls": calls.uncertain_list()})
+
+    @app.post(r + "/system/uncertain-calls/{invocation_id}/resolve")
+    def resolve_uncertain_call(invocation_id: int, body: ResolveCall,
+                               who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """The attempt becomes `failed` with the given cost (or with the maximum still committed when the cost is
+        unknown); the step may then run again. The note records who settled it."""
+        try:
+            calls.resolve_uncertain(invocation_id, cost_usd=body.cost_usd, note=f"{who}: {body.note}")
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        log.info("uncertain call %d settled by %s", invocation_id, who)
+        return {"ok": True}
 
     # --- settings (057): users, watched work folders ---
 

@@ -18,6 +18,7 @@ import { LanguagePanel } from "./settings/LanguagePanel";
 import { UsersPanel } from "./settings/UsersPanel";
 import { VersionPanel } from "./settings/VersionPanel";
 import { ConfirmButton } from "../components/ConfirmButton";
+import { UncertainCallsPanel } from "./settings/UncertainCallsPanel";
 
 // a feliratok magyar forrásként állnak itt; a fordítás a kirajzoláskor történik (`t()`)
 // 073: exported so a test can check that every label and hint has an English translation (the i18n checker only
@@ -95,6 +96,7 @@ function SystemPanel() {
       </section>
       <BackupPanel />
       <DepsAuditPanel />
+      <UncertainCallsPanel />
       <section aria-label={t("Minden futás")}>
         <h3>{t("Minden futás")}</h3>
         <RunList />
