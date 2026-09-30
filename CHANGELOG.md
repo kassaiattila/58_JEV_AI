@@ -1,79 +1,88 @@
-# Változáslista
+# Changelog
 
-A kiadások röviden, a legújabb elöl. A részletes kiadási jegyzetek és mérési bizonylatok belső munkaanyagok, a tárban nincsenek. A kiadás szabályai: [fejlesztési útmutató §1](docs/guides/DEVELOPMENT.md).
+Releases in brief, newest first. The detailed release notes and measurement evidence are internal working documents and are not in the repository. Release rules: [development guide §1](docs/guides/DEVELOPMENT.md).
 
-**A GitHub-történetről:** a tár története 2026-09-30-án egy új kiinduló committal kezdődik; ez a `v1.0.4` utáni kódállapot. A `v1.0.0`–`v1.0.4` címkék a régebbi, csak helyben őrzött történeten vannak. Az új vonalon a `v1.0.5` az első címke.
+**About the GitHub history:** the repository's history starts with a new root commit on 2026-09-30, which holds the code as it stood after `v1.0.4`. The `v1.0.0`–`v1.0.4` tags sit on the older history, which is kept only locally. On the new line, `v1.0.5` is the first tag.
 
-## Laikus összefoglaló
+## Plain-language summary
 
-Ez a lista megmutatja, mit hozott az egyes kiadás. A `v1.0.0` volt az első, a felhasználó által stabilnak jelölt változat: munkacsomagok, receptek, ellenőrzés az irat képén, eredmény és jóváhagyás. A `v1.0.1`–`v1.0.4` javítókörök valódi próbák és átvizsgálások hibáit javították, ezek közül a legfontosabb az adószám-ellenőrzés. A `v1.0.5` biztonsági kör: a GitHubra nem kerülhet személyes adat, a böngésző nem tárolja az irat-adatot, és látszik, melyik kód fut.
+This list shows what each release brought. `v1.0.0` was the first version the owner marked as stable: work packages, recipes, review on the document's page image, results and approval. The `v1.0.1`–`v1.0.4` fix rounds corrected problems found in real trials and reviews; the most important of them was the tax-number check. `v1.0.5` is a security round: no personal data can reach GitHub, the browser does not store document data, and you can see which code is running.
+
+## Unreleased
+
+- **UI fixes (2026-09-30):**
+  - To-dos raised by task proposals are shown as a readable sentence instead of a raw code.
+  - Known Outlook errors are now shown in the UI language in the download log and in the schedules' "Last" column as well, not only in the preview; other errors are shown unchanged.
+  - The Recipes settings page has an English label.
+  - Deleting a mailbox schedule, removing an item from a package and removing a user now ask for a second click to confirm, as approving and stopping already did.
+- **English repository:** the repository's documentation, code comments and commit messages are switching to English. Hungarian document vocabulary (the wording on Hungarian invoices that the code and the models match against) stays as it is.
 
 ## v1.0.5 — 2026-09-30
 
-Biztonsági javítókör, ingyenes, fizetős hívás nélkül.
+Security fix round; free, with no paid calls.
 
-- **A belső munkaanyag nincs a gitben.** Az átadókat, terveket, jelentéseket, a teendőlistát és a döntésnaplót a git nem követi; a napi mentés helyben és a második mentési helyen is viszi őket. A kódtári dokumentum nem linkel rájuk, ezt teszt ellenőrzi.
-- **Adatőr commit és feltöltés előtt.** Megállít, ha a gitbe kerülő sorokban valódi alakú adószám, bankszámlaszám, e-mail-cím, telefonszám vagy kulcs van. Megállít akkor is, ha belső munkaanyag, irat, kép, adattár vagy bináris fájl kerülne a gitbe, és ha a régi történet menne fel. Bekapcsolás klónonként: `python -m jav.cli hooks-install`.
-- **Böngészős védőfejlécek minden válaszon.**
-  - A felület csak a saját fájljait tölti be, és nem ágyazható be más oldalba.
-  - Az irat-adatot (az oldalképet is) a böngésző nem tárolja a lemezén.
-  - A kattintható végpontlista kikapcsolva, mert külső tárhelyről töltene programkódot. A gépi végpontlista marad (`/api/openapi.json`).
-- **Egységes verzió.** A verzió egyetlen forrása a projektleíró. A Rendszer oldal és az egészség-végpont a futó verziót és azt a commitot mutatja, amellyel a szolgáltatás elindult.
-- **Leírások:**
-  - új: [biztonsági leírás](docs/SECURITY.md), [felhasználói kézikönyv](docs/guides/USER_GUIDE.md), [a beállítófájlok leírása](docs/guides/CONFIGS.md) és ez a változáslista;
-  - a README, az architektúra, a telepítés és a fogalomtár átnézve.
+- **Internal working documents are not in git.** Git does not track the handoffs, plans, reports, backlog or decisions log; the daily backup carries them, both locally and to the second backup location. Codebase documents do not link to them, and a test checks this.
+- **Data guard before commit and push.** It stops the commit or push if the lines going into git contain a real-looking tax number, bank account number, email address, phone number or key. It also stops it if an internal working document, a document file, an image, a database or a binary file would go into git, or if the old history would be pushed. Enable it once per clone: `python -m jav.cli hooks-install`.
+- **Browser security headers on every response.**
+  - The UI loads only its own files and cannot be embedded in another page.
+  - The browser does not store document data (page images included) on its disk.
+  - The clickable endpoint list is switched off, because it would load program code from an external host. The machine-readable endpoint list stays (`/api/openapi.json`).
+- **A single version.** The version has one source, the project file. The System page and the health endpoint show the running version and the commit the service was started from.
+- **Documentation:**
+  - new: [security notes](docs/SECURITY.md), [user guide](docs/guides/USER_GUIDE.md), [configuration files guide](docs/guides/CONFIGS.md) and this changelog;
+  - the README, the architecture description, the setup guide and the glossary were reviewed.
 
 ## v1.0.4 — 2026-09-29
 
-A független átvizsgálás négy döntést kérő pontja.
+The four points of the independent review that needed a decision.
 
-- **Adószám-ellenőrzés:**
-  - Az adószámot felismert alakkal ellenőrzi (magyar, közösségi, uniós és néhány gyakori nem uniós), mindkét félre és a külföldi számlára is.
-  - A címkét levágja.
-  - A telefonszám és a hibás ellenőrzőszámú érték teendőt kap.
-- **Jelölt nélküli mező:** „nincs becslés” jelzés és jelenlét-kérdés, 100% helyett.
-- **Elveszett betűjel:** a sérült pénznemjelből nem lesz negatív összeg.
-- **Típuscsomag nélküli irat:** a felismert, de csomag nélküli típus teendőt kap.
+- **Tax-number check:**
+  - Tax numbers are checked against recognised formats (Hungarian domestic, Hungarian EU (community) VAT, other EU and a few common non-EU formats), for both parties and on foreign invoices too.
+  - The label is stripped.
+  - A phone number or a value with a wrong check digit gets a to-do.
+- **Field without candidates:** a "No estimate" flag and a presence question, instead of 100%.
+- **Lost glyph:** a damaged currency sign no longer turns into a negative amount.
+- **Document without a type pack:** a recognised type that has no type pack gets a to-do.
 
 ## v1.0.3 — 2026-09-29
 
-Ellenőrzések és a 066-os átvizsgálás döntés nélküli maradéka.
+Checks, and the remaining points of the 066 review that needed no decision.
 
-- Bemeneti korlát: fájlméret, oldalszám, oldalkép-képpont.
-- A böngésző-eredet pontos egyezéssel: más helyi port nem hívhatja a szolgáltatást.
-- Csomag-sebezhetőség- és lefedettség-ellenőrzés, szabályalapú tesztek.
-- Iratba rejtett utasítás szondája mesterséges számlákon: a beszúrt utasítás nem terelte el az eredményt.
+- Input limits: file size, page count, page-image pixel count.
+- The browser origin must match exactly: other local ports cannot call the service.
+- Dependency-vulnerability and coverage checks, property-based tests.
+- A probe for instructions hidden in documents, on synthetic invoices: the injected instruction did not steer the result.
 
 ## v1.0.2 — 2026-09-29
 
-Mély technikai átvizsgálás javításai.
+Fixes from an in-depth technical review.
 
-- Jóváhagyási rések zárva.
-- A tesztekben maradt valódi adatok kitalált, azonos alakú értékekre cserélve.
-- A levélfogadó csak kulccsal fogad, böngészőből érkező kérést elutasít.
-- A leállításhoz is kell a felhasználó neve.
+- Approval gaps closed.
+- Real data left in the tests replaced with invented values of the same shape.
+- The email receiver accepts requests only with a key and rejects requests that come from a browser.
+- Stopping also requires the user's name.
 
 ## v1.0.1 — 2026-09-29
 
-Közös próba valódi munkán.
+Joint trial on real work.
 
-- A jelöltkereső bővült: elveszett betűjel, cím alatti számlaszám, nyugta-azonosító, jóváíró számla, OSS- és holland adószám.
-- Az új csomag felelőse a létrehozója.
-- A költségfoglalás a tényleges út szerint történik.
-- A postafiók-számláló az új és az időszak leveleit külön mutatja.
-- A levél csatolmány-teendője a futáshoz tartozik.
+- The candidate finder was extended: lost glyph, invoice number below the heading, receipt ID, credit note, OSS and Dutch tax numbers.
+- A new package's owner is its creator.
+- Cost is reserved according to the path actually taken.
+- The mailbox counter shows new emails and emails in the period separately.
+- An email's attachment to-do belongs to the run.
 
 ## v1.0.0 — 2026-09-29
 
-Az első stabil változat.
+The first stable version.
 
-- **Munkacsomagok és receptek:** iratok felismerése és adatkinyerése, számlák adatainak kinyerése, levelek szándékának felismerése. Próba és éles futás, tartós munkasor, költségkeret, jóváhagyás.
-- **Ellenőrzés az irat oldalképén:** bekeretezett mezők, alternatív jelöltek, kijelölés a képen; teendők okonként.
-- **Eredmény:**
-  - közös táblázat keresés, szűrés és rendezés;
-  - letöltés Excelbe, CSV-be, JSON-ba;
-  - közmű-költség riport;
-  - számlatételek.
-- **Postafiók és figyelt mappák:** letöltés a gépen futó Outlookból, ütemezve is; feladatjavaslat a levélből (alapból kikapcsolva, csak ember fogad el).
-- **Felület:** magyar és angol nyelv, világos és sötét téma, receptmagyarázat.
-- **Üzemi alapok:** állandó napló, napi adattár-mentés helyben és a második mentési helyen, a folyamatállapot-tár ritkítása.
+- **Work packages and recipes:** document recognition and data extraction, invoice data extraction, email intent recognition. Trial and live runs, a durable job queue, a cost budget, approval.
+- **Review on the document's page image:** boxed fields, alternative candidates, selection on the image; to-dos by reason.
+- **Result:**
+  - a shared table with search, filtering and sorting;
+  - download to Excel, CSV and JSON;
+  - a utility-cost report;
+  - invoice line items.
+- **Mailbox and watched folders:** download from the Outlook running on the machine, on a schedule too; task proposals from emails (off by default; only a person can accept them).
+- **UI:** Hungarian and English, light and dark themes, recipe explanations.
+- **Operational foundations:** a persistent log, a daily database backup locally and to the second backup location, thinning of the flow-state store.

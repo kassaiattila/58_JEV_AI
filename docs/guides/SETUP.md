@@ -1,126 +1,138 @@
-# Telepítés és helyi környezet
+# Installation and local environment
 
-**Érvényes:** 2026-09-27-től (040), átnézve 2026-09-30 (071). **Platform:** Windows 11, PowerShell 5.1, Python 3.12, [uv](https://docs.astral.sh/uv/) (a Python-környezethez), Node.js 20.19+ (a felülethez), git.
+**Valid from:** 2026-09-27 (040); reviewed 2026-09-30 (071, 073). **Platform:** Windows 11, PowerShell 5.1, Python 3.12, [uv](https://docs.astral.sh/uv/) (for the Python environment), Node.js 20.19+ or 22.12+ (for the user interface), git.
 
-## Laikus összefoglaló
+## Plain-language summary
 
-Ez az útmutató leírja, mi kell ahhoz, hogy a projekt egy gépen elinduljon. A gitben csak a forráskód, a beállítások és a dokumentáció van. A kulcsok, a helyi adatok és a nagy OCR-nyelvcsomagok nincsenek benne, ezeket gépenként kell beszerezni.
+This guide lists what a machine needs to run the project. Git holds only the source code, the settings and the documentation. The keys, the local data and the large OCR language packs are not in it, so each machine has to obtain them separately. A fresh clone runs the user interface, the work packages and the runs; the golden-set measurements also need the legacy project (section 4).
 
-## 1. Python-környezet
+## 1. Python environment
 
 ```powershell
 uv venv --python 3.12 .venv
 uv pip install -r requirements.lock
 .\.venv\Scripts\Activate.ps1
-python -m jav.cli hooks-install      # adatőr: commit és feltöltés előtti ellenőrzés (071), klónonként egyszer
-python -m jav.cli preflight          # teszt + kontraktus + konfig + adatőr + állapot
+python -m jav.cli hooks-install      # data guard: a check before every commit and push (071); once per clone
+python -m jav.cli preflight          # tests (Python + UI) + contract lint + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
 ```
 
-**Adatőr (071).** A `hooks-install` a gitet a verziózott horgokra állítja (`scripts/githooks/`). Ezután minden commit és feltöltés előtt lefut egy ellenőrzés, amely megállítja a műveletet, ha a gitbe kerülő sorokban személyes adat vagy kulcs van. Ilyen például egy valódi alakú adószám, bankszámlaszám, e-mail-cím, telefonszám vagy a `.env` egy kulcsa. Megállítja akkor is, ha belső munkaanyag, irat, kép vagy adattár kerülne a gitbe. Amíg a horgok nincsenek bekapcsolva, az indítási ellenőrzés hibát jelez. A szabályok: [DEVELOPMENT §1](DEVELOPMENT.md).
+**Data guard (071).** `hooks-install` points git at the versioned hooks in `scripts/githooks/` (through `core.hooksPath`). From then on a check runs before every commit and push, and stops the operation if the lines going into git contain personal data or a key: for example a real-looking tax number, bank account number, email address or phone number, or a key from `.env`. It also stops the operation if an internal working document, a document file, an image or a database would go into git. Until the hooks are installed, the start-up check (`preflight`) reports a failure. `python -m jav.cli data-guard` reviews the files already under version control. The rules: [DEVELOPMENT §1](DEVELOPMENT.md).
 
-**Felület (040 K3).** Node.js 20.19 vagy újabb kell hozzá:
+**User interface (040 K3).** It needs Node.js 20.19+ or 22.12+ (the requirement of Vite, the build tool; Node.js 21 is not supported):
 
 ```powershell
-cd ui; npm ci; npm run build; cd ..   # függőségek a package-lock.json szerint, build a ui/dist-be
-.\scripts\dev.ps1 start             # szolgáltatás + feldolgozó; a felület: http://127.0.0.1:8930/
+cd ui; npm ci; npm run build; cd ..   # dependencies as pinned in package-lock.json; type check and build into ui/dist
+.\scripts\dev.ps1 start             # local service + one worker in the background; user interface: http://127.0.0.1:8930/
+.\scripts\dev.ps1 status            # are they running?
+.\scripts\dev.ps1 stop              # stop both; an interrupted run resumes from its saved step
 ```
 
-**Saját mappák a felületen (046, 061).** A felhasználó 2026-09-28-i döntése óta bármely létező helyi mappa vagy fájl megadható a felületen (munkacsomag, munkamappa). A korlát a `configs/service.json` `restrict_paths: true` beállításával visszakapcsolható. Ekkor iratot csak engedélyezett mappából lehet felvenni: a projekt `inbox/` és `data/` mappája, a régi projekt adatai, valamint a `.env`-ben a `JAV_API_ROOTS` változóban felsorolt mappák (több mappa `;`-vel elválasztva, idézőjelben, ha szóköz van benne). Példa: `JAV_API_ROOTS="D:\Számlák\Bejövő"`. A módosítás után `.\scripts\dev.ps1 stop` és `start` kell. A valódi iratok mappája a gépen marad, a gitbe nem kerül.
+**Your own folders in the user interface (046, 061).** Since the owner's decision of 2026-09-28, any existing local folder or file can be given in the user interface (for a work package or a work folder). The restriction can be switched back on with `restrict_paths: true` in `configs/service.json`. Documents can then be added only from allowed folders: the project's `inbox/` and `data/` folders, the legacy project's data, and the folders listed in the `JAV_API_ROOTS` variable in `.env` (separate several folders with `;`, and quote the value if a path contains a space). Example: `JAV_API_ROOTS="D:\Invoices\Incoming"`. After the change, run `.\scripts\dev.ps1 stop` and then `start`. The folder with the real documents stays on the machine and never goes into git.
 
-Fejlesztés közben az `npm run dev` a `http://127.0.0.1:5173/` címen fut, és a kéréseket a szolgáltatáshoz továbbítja.
+During development, `npm run dev` serves the user interface at `http://127.0.0.1:5173/` and forwards the `/api` requests to the local service.
 
-## 2. Kulcsok
+## 2. Keys
 
-Másold a `.env.example`-t `.env` néven, és töltsd ki: `TypeSafeJAV_API_KEY`, `OPENAI_API_KEY`. A `.env` soha nem kerül a gitbe (az adatőr a `.env` titkos értékeit a commitba kerülő sorokban is keresi). Kulcsértéket ne írj ki naplóba vagy dokumentumba.
+Copy `.env.example` to `.env` and fill in:
 
-Nem kötelező környezeti változók (a `.env`-ben vagy a shellben):
+- `TypeSafeJAV_API_KEY`: the JEV key (the SDK's own `TYPESAFE_API_KEY` name is also accepted);
+- `OPENAI_API_KEY`: for the G path (GPT extraction) and the task proposals.
 
-| változó | mire való |
+`.env` never goes into git; the data guard also looks for the secret values from `.env` in the lines being committed. Never write a key value into a log or a document. `python smoke_test.py` checks the environment and the JEV key with one tiny live call (paid, a fraction of a cent); it prints only a masked fragment of the key.
+
+Optional environment variables (in `.env` or in the shell):
+
+| variable | purpose |
 |---|---|
-| `JAV_LEGACY_ROOT` | a régi projekt helye, ha nem az alapértelmezett (4. pont) |
-| `JAV_API_ROOTS` | engedélyezett iratmappák, ha a mappakorlát be van kapcsolva (1. pont) |
-| `JAV_INGEST_TOKEN` | a régi, kézi levélfogadó kulcsa; nélküle induláskor egyszeri kulcsot ír ki |
-| `JAV_OCR_ENGINE` | `azure_di`: a fizetős Azure-felismerés kényszerítése egy parancsra (oldalkeretes) |
-| `JAV_ALLOW_SDK_DEBUG` | `1`: a JEV-könyvtár részletes naplója engedélyezve; személyes adatot is naplóz, csak kitalált adaton |
+| `JAV_LEGACY_ROOT` | the location of the legacy project, if it is not the default (section 4) |
+| `JAV_API_ROOTS` | allowed document folders when the folder restriction is on (section 1) |
+| `JAV_INGEST_TOKEN` | the key of the standalone email receiver (`email-ingest-server`) used on the legacy, manual route; without it (and without `--token`) the receiver prints a one-off key at start-up |
+| `JAV_OCR_ENGINE` | `native`, `docker` or `azure_di` for one command; `azure_di` forces the paid Azure recognition (page-limited). The default comes from `configs/ocr.json` and never picks Azure. |
+| `JAV_ALLOW_SDK_DEBUG` | `1`: allows the JEV library's detailed log; it also logs personal data, so use it only on made-up data |
+| `JAV_HYPOTHESIS_EXAMPLES` | the number of generated examples per property-based test (default 150), for a deeper search |
 
-## 3. OCR (szöveg nélküli PDF-ekhez)
+## 3. OCR (for PDFs without a text layer)
 
-- **Tesseract 5.x** natívan: `%LOCALAPPDATA%\Programs\Tesseract-OCR`. Nem kell a PATH-on lennie, a helyét a `configs/ocr.json` adja meg.
-- **Nyelvcsomagok** (a gitben nincsenek, git-ignorálva): `tools/tessdata/` (eng, hun, osd; ezt használja a projekt) és `tools/tessdata_best/`. Beszerzés: a tesseract-ocr `tessdata_fast` és `tessdata_best` kiadásából, vagy a régi sidecar Docker-képéből, ahonnan az eredeti példány jött. A `python -m jav.cli ocr` parancs PDF nélkül kiírja a motor és a nyelvcsomagok állapotát.
-- A fizetős Azure Document Intelligence eszkaláció a régi projekt sidecar-konténerén át megy. Csak akkor kell, ha a gyenge helyi OCR-t eszkalálni akarjuk.
+- **Tesseract 5.x**, installed natively in `%LOCALAPPDATA%\Programs\Tesseract-OCR`. It does not need to be on the PATH: `configs/ocr.json` lists where to look (the PATH, this folder and `C:\Program Files\Tesseract-OCR`).
+- **Language packs** (not in git; git-ignored): `tools/tessdata/` (eng, hun, osd; the project uses this one) and `tools/tessdata_best/`. Get them from the tesseract-ocr `tessdata_fast` and `tessdata_best` releases, or from the legacy sidecar's Docker image, where the original copy came from. Without a PDF, `python -m jav.cli ocr` prints the state of the engine and the language packs.
+- The paid Azure Document Intelligence escalation goes through the legacy project's sidecar container. It is needed only to escalate weak local OCR.
 
-## 4. Függés a régi projekttől — mi működik egy friss klónban
+## 4. Dependency on the legacy project: what works in a fresh clone
 
-A `jav/config.py` rögzített útvonalon hivatkozza a `C:\00_DEV_LOCAL\10_AIFLOW_V4` projektet: a golden etalonokat, a régi adatkönyvtárat és az Outlook-bridge-et. Ezek csak olvasásra kellenek. A hely a `JAV_LEGACY_ROOT` környezeti változóval (vagy `.env`-sorral) felülírható; alapértéke a fenti útvonal.
+`jav/config.py` refers to the `C:\00_DEV_LOCAL\10_AIFLOW_V4` project by a fixed path: the golden sets, the legacy data folder and the Outlook bridge. They are only read. The location can be overridden with the `JAV_LEGACY_ROOT` environment variable (or a line in `.env`); the default is the path above.
 
-Egy friss GitHub-klónban nincs meg a régi projekt, az etalon és a belső munkaanyag. Ilyenkor:
+A fresh GitHub clone has neither the legacy project, nor the golden sets, nor the internal working documents. In that case:
 
-| működik | a régi projekt kell hozzá |
+| works | needs the legacy project |
 |---|---|
-| a teljes tesztsor (az etalonra épülő tesztek etalon nélkül kimaradnak, ezért a lefedettség kisebb) | `recall`, `golden`, `determinism`, `verifier-probe` (számla-etalon) |
-| a felület, a szolgáltatás és a feldolgozó; munkacsomagok, receptek, próba és éles futás a kulcsokkal | `detect-golden`, `detect-determinism` (felismerési etalon) |
-| helyi OCR (a nyelvcsomagokat külön kell beszerezni, 3. pont) | `email-golden`, `email-determinism`, `email-injection-probe` (levél-etalon) |
-| letöltések, riportok, helyi mentés (a második mentési helyet a saját gépre kell beállítani, 6. pont) | a postafiók-letöltés és a kézi levélfogadó (a régi Outlook-bridge szkript) |
-| az adatőr és az indítási ellenőrzés (a hiányzó átadó csak jelzés) | az Azure-felismerés és a régi Docker-OCR (a régi sidecar), valamint a `legacy-import` |
+| the full test suite (tests that rely on a golden set are skipped without it, so the coverage is smaller) | `recall`, `golden`, `determinism`, `verifier-probe` (invoice golden set) |
+| the user interface, the local service and the worker; work packages, recipes, trial and live runs with the keys | `detect-golden`, `detect-determinism` (detection golden set) |
+| local OCR (the language packs have to be obtained separately, section 3) | `email-golden`, `email-determinism`, `email-injection-probe` (email golden set) |
+| downloads, reports and the local backup (the second backup location has to be set for the machine, section 6) | mailbox download and the standalone email receiver (the legacy Outlook bridge script) |
+| the data guard and the start-up check (a missing handoff is only a note) | Azure recognition and the legacy Docker OCR (the legacy sidecar), and `legacy-import` |
 
-Az indítási ellenőrzés friss klónon is zöld, ha a horgok be vannak kapcsolva (`python -m jav.cli hooks-install`).
+The start-up check is green on a fresh clone too, once the hooks are installed (`python -m jav.cli hooks-install`).
 
-## 5. Helyi, git-ignorált könyvtárak
+## 5. Local, git-ignored folders
 
-| Könyvtár | Tartalom | Törölhető? |
+| Folder | Contents | Can it be deleted? |
 |---|---|---|
-| `runs/` | nyers futások, bizonylatok, modell- és OCR-gyorsítótár | Nem: a lezárt mérések bizonyítéka |
-| `store/` | helyi SQLite-adattár (PII) | Nem |
-| `inbox/` | beérkezett levelek (PII) | Nem |
-| `docs/handoffs/`, `docs/plans/`, `docs/reports/`, a teendőlista, a döntésnapló és a többi belső munkaanyag (lista: `jav/doc_scope.py`) | a fejlesztés menetének helyi dokumentumai (070); friss klónban nincsenek meg | Nem: nincs verziókövetésük, csak a napi mentésben van másodpéldányuk |
-| `tools/tessdata*/` | OCR-nyelvcsomagok | Igen, újra beszerezhető |
-| `.venv/` | Python-környezet | Igen, a lockfile-ból újraépíthető |
+| `runs/` | raw runs, evidence, model and OCR caches, logs | No: it is the evidence of the completed measurements |
+| `store/` | the local SQLite database (personal data) and the backups | No |
+| `inbox/` | downloaded emails (personal data) | No |
+| `docs/handoffs/`, `docs/plans/`, `docs/reports/`, the backlog, the decisions log and the rest of the internal working documents (list: `jav/doc_scope.py`) | the local records of how the development went (070); a fresh clone does not have them | No: they are not under version control; the only second copy is in the daily backup |
+| `docs/STATE.md` | the generated state snapshot | Yes: `preflight` regenerates it |
+| `tools/tessdata*/` | OCR language packs | Yes, they can be downloaded again |
+| `ui/node_modules/`, `ui/dist/` | user-interface dependencies and build | Yes: `npm ci` and `npm run build` recreate them |
+| `.venv/` | the Python environment | Yes, it can be rebuilt from the lockfile |
 
-## 6. Mentés, visszaállítás és napló (063)
+## 6. Backup, restore and logs (063)
 
-**Laikus összefoglaló:** az adattár (a munkacsomagok, futások, javítások és döntések) egy parancsra menthető, a szolgáltatás futása közben is. A mentés az adattár sértetlenségét is ellenőrzi. 2026-09-29 óta naponta 12:00-kor magától is lefut, és egy ellenőrzött másolat a hálózati tárolóra (NAS) is kerül; mindkét helyen a legutóbbi 14 mentés marad. 2026-09-30 óta a napi mentés a belső munkaanyagot (átadók, tervek, jelentések, teendőlista, döntésnapló) is viszi, mert ezeket a git nem követi. A legutóbbi mentés állapota a Beállítások › Rendszer oldalon látszik. A szolgáltatás és a feldolgozó hibái állandó naplófájlba kerülnek, így egy leállás oka utólag is kideríthető.
+**Plain-language summary:** the database (work packages, runs, corrections and decisions) can be backed up with one command, even while the local service is running. The backup also checks that the database is intact. Since 2026-09-29 it runs by itself every day at 12:00, and a verified copy also goes to the network storage (NAS); both places keep the last 14 backups. Since 2026-09-30 the daily backup also takes the internal working documents (handoffs, plans, reports, the backlog, the decisions log), because git does not track them. The state of the last backup is shown on the Settings › System page. Errors of the local service and the worker go to permanent log files, so the cause of a stop can be found later.
 
-**Mentés:**
+**Backup:**
 
 ```powershell
-python -m jav.cli backup                 # store\backups\<időbélyeg>\jav.sqlite + manifest.json; a legutóbbi 14 marad (a napi mentés megőrzése, 066)
-python -m jav.cli backup --with-burr     # a folyamat-állapotok tára is (store\burr_state.sqlite, nagy: több száz MB)
-python -m jav.cli backup --with-docs     # 070: a belső munkaanyag is (internal-docs.zip; a napi mentés ezt alapból teszi)
-python -m jav.cli backup --out D:\Mentes --keep 30
+python -m jav.cli backup                 # store\backups\<timestamp>\jav.sqlite + manifest.json; the last 14 are kept (the daily backup's retention, 066)
+python -m jav.cli backup --with-burr     # also the flow-state store (store\burr_state.sqlite; large, several hundred MB)
+python -m jav.cli backup --with-docs     # 070: also the internal working documents (internal-docs.zip; the daily backup does this by default)
+python -m jav.cli backup --out D:\Backup --keep 30
 ```
 
-A parancs az SQLite saját mentő eljárását használja (a futó adattárról a sima fájlmásolás hibás lehet), és a másolaton lefuttatja a sértetlenség-ellenőrzést. A mentés személyes adatot tartalmaz, ugyanúgy kell kezelni, mint a `store\` mappát.
+The command uses SQLite's own backup procedure (a plain file copy of a live database can be corrupt) and runs the integrity check on the copy. A backup contains personal data: handle it like the `store\` folder.
 
-**Napi mentés (064):** a beállítás a `configs\service.json` `backup` szakaszában van (időpont, megőrzés, a második hely `copy_to` — a szerző gépén egy NAS-mappa —, és 070 óta `with_docs`: a belső munkaanyag is). Más gépen a `copy_to`-t a saját második helyre kell állítani, vagy üresre; különben a `backup --scheduled` 2-es kóddal jelzi, hogy a másolat nem sikerült.
+**Daily backup (064):** the settings are in the `backup` section of `configs\service.json`: the time, the retention, the second location `copy_to` (a NAS folder on the author's machine) and, since 070, `with_docs` (the internal working documents too). On another machine, set `copy_to` to your own second location or leave it empty; otherwise `backup --scheduled` exits with code 2 to report that the copy failed.
 
 ```powershell
-.\scripts\backup-task.ps1 install   # bejegyzés a Windows Feladatütemezőbe (naponta 12:00; kimaradáskor a következő bekapcsoláskor)
-.\scripts\backup-task.ps1 status    # utolsó és következő futás, eredménykód
-.\scripts\backup-task.ps1 run       # azonnali futtatás próbához
-python -m jav.cli backup --scheduled # ugyanez kézzel: helyi mentés + ellenőrzött másolat a NAS-ra
-python -m jav.cli backup --copy-to D:\Mentes   # egyszeri mentés tetszőleges második helyre
+.\scripts\backup-task.ps1 install   # entry in Windows Task Scheduler (daily at 12:00; a missed run starts at the next logon or start-up)
+.\scripts\backup-task.ps1 status    # last and next run, result code
+.\scripts\backup-task.ps1 run       # run it now, for a test
+.\scripts\backup-task.ps1 remove    # delete the scheduled task
+python -m jav.cli backup --scheduled # the same by hand: local backup + verified copy to the NAS
+python -m jav.cli backup --copy-to D:\Backup   # a one-off backup to any second location
 ```
 
-Az eredménykód 0, ha minden rendben; 1, ha a helyi mentés hibás; 2, ha a helyi mentés rendben van, de a másolat nem sikerült (például nem érhető el a NAS). Minden futás eredménye a `store\backups\backup-status.json`-ba kerül; a felület ebből mutatja az állapotot, és figyelmeztet, ha a legutóbbi sikeres mentés 36 óránál régebbi. A feladat a bejelentkezett felhasználó nevében, ablak nélkül fut. Ha a mentett másolat sértetlenség-ellenőrzése hibát jelez (066), a rendszer nem töröl régebbi mentést és nem másol a NAS-ra; a hibás mentés mappája a vizsgálathoz megmarad, és nem számít bele a megőrzésbe.
+The result code is 0 if everything is fine, 1 if the local backup failed, and 2 if the local backup is fine but the copy failed (for example, the NAS is not reachable). The result of every run goes to `store\backups\backup-status.json`; the user interface shows the state from this file and warns if the last successful backup is older than 36 hours. The task runs as the logged-in user, without a window. If the integrity check of a backup fails (066), no older backup is deleted and nothing is copied to the NAS; the folder of the failed backup is kept for inspection and does not count towards the retention.
 
-**Folyamatállapot-tár (064):** a feldolgozó minden lépés után menti a folyamat állapotát (`store\burr_state.sqlite`). Lezárt tételnél ebből csak az utolsó marad, mert a folytatáshoz csak az kell. A régi, ritkítás előtti tár egyszer ritkítható és tömöríthető:
+**Flow-state store (064):** the worker saves the flow state after every step (`store\burr_state.sqlite`). For a finished item only the last state is kept, because only that is needed to resume. An old store from before this thinning can be thinned and compacted once:
 
 ```powershell
-python -m jav.cli burr-prune          # ritkítás (futó feldolgozó mellett is), tömörítés csak leállított feldolgozóval
+python -m jav.cli burr-prune          # thinning (also while the worker runs); compacting only with the worker stopped
 python -m jav.cli burr-prune --no-vacuum
 ```
 
-**Visszaállítás (kézi):**
+**Restore (by hand):**
 
-1. `.\scripts\dev.ps1 stop` (a szolgáltatás és a feldolgozó leáll);
-2. a mostani `store\jav.sqlite` félretétele, például `store\jav.sqlite.hibas` néven; a mellette lévő `jav.sqlite-wal` és `jav.sqlite-shm` fájlt is át kell nevezni;
-3. a kiválasztott mentés `jav.sqlite` fájljának visszamásolása a `store\` alá;
+1. `.\scripts\dev.ps1 stop` (stops the local service and the worker);
+2. set the current `store\jav.sqlite` aside, for example as `store\jav.sqlite.broken`; rename the `jav.sqlite-wal` and `jav.sqlite-shm` files next to it as well;
+3. copy the `jav.sqlite` file of the chosen backup back into `store\`;
 4. `.\scripts\dev.ps1 start`.
 
-A mentés utáni futások, javítások és döntések a visszaállítással elvesznek. A letöltött levelek (`inbox\`) és a forrásiratok nincsenek az adattárban, ezeket a mentés nem érinti.
+A restore loses the runs, corrections and decisions made after the backup. The downloaded emails (`inbox\`) and the source documents are not in the database, so the backup does not affect them.
 
-**A belső munkaanyag visszaállítása (070):** a mentés mappájában lévő `internal-docs.zip` a projektgyökérhez viszonyított neveket tartalmaz (`docs/handoffs/…`). Kibontás a projektgyökérbe, például `Expand-Archive store\backups\<időbélyeg>\internal-docs.zip -DestinationPath . -Force`. Ez felülírja az azonos nevű helyi fájlokat. Egy fájl régebbi változatához előbb egy üres mappába érdemes kibontani.
+**Restoring the internal working documents (070):** the `internal-docs.zip` in the backup folder holds names relative to the project root (`docs/handoffs/…`). Extract it into the project root, for example `Expand-Archive store\backups\<timestamp>\internal-docs.zip -DestinationPath . -Force`. This overwrites local files with the same names. To get an older version of a single file, extract into an empty folder first.
 
-**Napló:**
-- `runs\logs\api.log` a helyi szolgáltatásé, `runs\logs\worker.log` a feldolgozóé. Állandó, 5 MB-onként forgó fájlok, fájlonként 5 régi példánnyal. Ide kerül minden váratlan hiba teljes hibanyoma, a feldolgozó indulása és leállása, valamint a 404, 422 és 500 válaszok oka.
-- A `runs\dev\*.log` az indítószkript átirányított kimenete; az előző indításé `*.prev` néven megmarad.
+**Logs:**
+
+- `runs\logs\api.log` belongs to the local service, `runs\logs\worker.log` to the worker and `runs\logs\backup.log` to the daily backup. They are permanent files that rotate every 5 MB and keep 5 old copies each. They receive the full traceback of every unexpected error, the start and stop of the worker, and the reason for every 404, 422 and 500 response.
+- `runs\dev\*.log` is the redirected output of the start script; the output of the previous start is kept as `*.prev`.

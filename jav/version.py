@@ -1,7 +1,7 @@
 """Az alkalmazás verziója egy helyen (071 S-verzió, 070 terv 2.1, audit A08 / §1).
 
 - `VERSION`: a `pyproject.toml` `[project] version` mezője, az egyetlen forrás. A felület csomagleírója
-  (`ui/package.json`, `ui/package-lock.json`) és a README „Jelenlegi stabil változat” sora a kiadáskor vele együtt lép;
+  (`ui/package.json`, `ui/package-lock.json`) és a README „Current stable version” sora a kiadáskor vele együtt lép;
   a `tests/test_version_071.py` figyeli, hogy egyezzenek. Két kiadás között a verzió a legutóbbi kiadásé, a fejlesztői
   állapotot a commit azonosítja.
 - `commit_info`: a munkafa commitja (rövid azonosító) és az, hogy van-e commitolatlan változás. A szolgáltatás ezt az
