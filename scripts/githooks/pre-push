@@ -1,0 +1,11 @@
+#!/bin/sh
+# 071 S-adatőr (070 terv 2.1): feltöltés előtt
+#   1. a régi történet (baseline-039 ... v1.0.4, és a 669e851 vonala) tiltott: személyes adat és belső munkaanyag van
+#      benne (069, 070 döntés); ez váltja a korábbi, nem verziózott .git/hooks/pre-push-t;
+#   2. a még fel nem töltött commitok új sorai ugyanazon az adatőrön mennek át, mint a commit előtt.
+# Leírás: docs/guides/DEVELOPMENT.md 1.
+root=$(git rev-parse --show-toplevel) || exit 1
+py="$root/.venv/Scripts/python.exe"
+[ -x "$py" ] || py="$root/.venv/bin/python"
+[ -x "$py" ] || py=python
+cd "$root" && exec "$py" -X utf8 -m jav.data_guard pre-push "$@"

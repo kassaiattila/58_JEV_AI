@@ -1,0 +1,9 @@
+#!/bin/sh
+# 071 S-adatőr (070 terv 2.1): a commitba kerülő új sorokban személyes adat, kulcs, belső munkaanyag vagy irat nem
+# lehet. A vizsgálat a jav/data_guard.py-ban van, a kivételek a configs/data_guard.json-ban.
+# Telepítés: python -m jav.cli hooks-install (core.hooksPath). Leírás: docs/guides/DEVELOPMENT.md 1.
+root=$(git rev-parse --show-toplevel) || exit 1
+py="$root/.venv/Scripts/python.exe"
+[ -x "$py" ] || py="$root/.venv/bin/python"
+[ -x "$py" ] || py=python
+cd "$root" && exec "$py" -X utf8 -m jav.data_guard pre-commit

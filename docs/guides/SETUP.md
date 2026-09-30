@@ -12,8 +12,11 @@ Ez az útmutató leírja, mi kell ahhoz, hogy a projekt egy gépen elinduljon. A
 uv venv --python 3.12 .venv
 uv pip install -r requirements.lock
 .\.venv\Scripts\Activate.ps1
-python -m jav.cli preflight          # teszt + kontraktus + konfig + állapot
+python -m jav.cli hooks-install      # adatőr: commit és feltöltés előtti ellenőrzés (071), klónonként egyszer
+python -m jav.cli preflight          # teszt + kontraktus + konfig + adatőr + állapot
 ```
+
+**Adatőr (071).** A `hooks-install` a gitet a verziózott horgokra állítja (`scripts/githooks/`). Ezután minden commit és feltöltés előtt lefut egy ellenőrzés, amely megállítja a műveletet, ha a gitbe kerülő sorokban személyes adat vagy kulcs van. Ilyen például egy valódi alakú adószám, bankszámlaszám, e-mail-cím, telefonszám vagy a `.env` egy kulcsa. Megállítja akkor is, ha belső munkaanyag, irat, kép vagy adattár kerülne a gitbe. Amíg a horgok nincsenek bekapcsolva, az indítási ellenőrzés hibát jelez. A szabályok: [DEVELOPMENT §1](DEVELOPMENT.md).
 
 **Felület (040 K3).** Node.js 20.19 vagy újabb kell hozzá:
 
