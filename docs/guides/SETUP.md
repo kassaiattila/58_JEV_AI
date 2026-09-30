@@ -1,6 +1,6 @@
 # Telepítés és helyi környezet
 
-**Érvényes:** 2026-09-27-től (040). **Platform:** Windows 11, PowerShell 5.1, Python 3.12.
+**Érvényes:** 2026-09-27-től (040), átnézve 2026-09-30 (071). **Platform:** Windows 11, PowerShell 5.1, Python 3.12, [uv](https://docs.astral.sh/uv/) (a Python-környezethez), Node.js 20.19+ (a felülethez), git.
 
 ## Laikus összefoglaló
 
@@ -31,7 +31,17 @@ Fejlesztés közben az `npm run dev` a `http://127.0.0.1:5173/` címen fut, és 
 
 ## 2. Kulcsok
 
-Másold a `.env.example`-t `.env` néven, és töltsd ki: `TypeSafeJAV_API_KEY`, `OPENAI_API_KEY`. A `.env` soha nem kerül a gitbe. Kulcsértéket ne írj ki naplóba vagy dokumentumba.
+Másold a `.env.example`-t `.env` néven, és töltsd ki: `TypeSafeJAV_API_KEY`, `OPENAI_API_KEY`. A `.env` soha nem kerül a gitbe (az adatőr a `.env` titkos értékeit a commitba kerülő sorokban is keresi). Kulcsértéket ne írj ki naplóba vagy dokumentumba.
+
+Nem kötelező környezeti változók (a `.env`-ben vagy a shellben):
+
+| változó | mire való |
+|---|---|
+| `JAV_LEGACY_ROOT` | a régi projekt helye, ha nem az alapértelmezett (4. pont) |
+| `JAV_API_ROOTS` | engedélyezett iratmappák, ha a mappakorlát be van kapcsolva (1. pont) |
+| `JAV_INGEST_TOKEN` | a régi, kézi levélfogadó kulcsa; nélküle induláskor egyszeri kulcsot ír ki |
+| `JAV_OCR_ENGINE` | `azure_di`: a fizetős Azure-felismerés kényszerítése egy parancsra (oldalkeretes) |
+| `JAV_ALLOW_SDK_DEBUG` | `1`: a JEV-könyvtár részletes naplója engedélyezve; személyes adatot is naplóz, csak kitalált adaton |
 
 ## 3. OCR (szöveg nélküli PDF-ekhez)
 
@@ -39,9 +49,21 @@ Másold a `.env.example`-t `.env` néven, és töltsd ki: `TypeSafeJAV_API_KEY`,
 - **Nyelvcsomagok** (a gitben nincsenek, git-ignorálva): `tools/tessdata/` (eng, hun, osd; ezt használja a projekt) és `tools/tessdata_best/`. Beszerzés: a tesseract-ocr `tessdata_fast` és `tessdata_best` kiadásából, vagy a régi sidecar Docker-képéből, ahonnan az eredeti példány jött. A `python -m jav.cli ocr` parancs PDF nélkül kiírja a motor és a nyelvcsomagok állapotát.
 - A fizetős Azure Document Intelligence eszkaláció a régi projekt sidecar-konténerén át megy. Csak akkor kell, ha a gyenge helyi OCR-t eszkalálni akarjuk.
 
-## 4. Függés a régi projekttől
+## 4. Függés a régi projekttől — mi működik egy friss klónban
 
-A `jav/config.py` rögzített útvonalon hivatkozza a `C:\00_DEV_LOCAL\10_AIFLOW_V4` projektet: a golden etalonokat, a régi adatkönyvtárat és az Outlook-bridge-et. Ezek csak olvasásra kellenek a méréshez és a levélfogadáshoz. A napi tesztekhez nem kellenek. A hely a `JAV_LEGACY_ROOT` környezeti változóval (vagy `.env`-sorral) felülírható; alapértéke a fenti útvonal.
+A `jav/config.py` rögzített útvonalon hivatkozza a `C:\00_DEV_LOCAL\10_AIFLOW_V4` projektet: a golden etalonokat, a régi adatkönyvtárat és az Outlook-bridge-et. Ezek csak olvasásra kellenek. A hely a `JAV_LEGACY_ROOT` környezeti változóval (vagy `.env`-sorral) felülírható; alapértéke a fenti útvonal.
+
+Egy friss GitHub-klónban nincs meg a régi projekt, az etalon és a belső munkaanyag. Ilyenkor:
+
+| működik | a régi projekt kell hozzá |
+|---|---|
+| a teljes tesztsor (az etalonra épülő tesztek etalon nélkül kimaradnak, ezért a lefedettség kisebb) | `recall`, `golden`, `determinism`, `verifier-probe` (számla-etalon) |
+| a felület, a szolgáltatás és a feldolgozó; munkacsomagok, receptek, próba és éles futás a kulcsokkal | `detect-golden`, `detect-determinism` (felismerési etalon) |
+| helyi OCR (a nyelvcsomagokat külön kell beszerezni, 3. pont) | `email-golden`, `email-determinism`, `email-injection-probe` (levél-etalon) |
+| letöltések, riportok, helyi mentés (a második mentési helyet a saját gépre kell beállítani, 6. pont) | a postafiók-letöltés és a kézi levélfogadó (a régi Outlook-bridge szkript) |
+| az adatőr és az indítási ellenőrzés (a hiányzó átadó csak jelzés) | az Azure-felismerés és a régi Docker-OCR (a régi sidecar), valamint a `legacy-import` |
+
+Az indítási ellenőrzés friss klónon is zöld, ha a horgok be vannak kapcsolva (`python -m jav.cli hooks-install`).
 
 ## 5. Helyi, git-ignorált könyvtárak
 
@@ -69,7 +91,7 @@ python -m jav.cli backup --out D:\Mentes --keep 30
 
 A parancs az SQLite saját mentő eljárását használja (a futó adattárról a sima fájlmásolás hibás lehet), és a másolaton lefuttatja a sértetlenség-ellenőrzést. A mentés személyes adatot tartalmaz, ugyanúgy kell kezelni, mint a `store\` mappát.
 
-**Napi mentés (064):** a beállítás a `configs\service.json` `backup` szakaszában van (időpont, megőrzés, a második hely: `\\DS918plus\homes\kassaiattila\jav-ai-backup`, és 070 óta `with_docs`: a belső munkaanyag is).
+**Napi mentés (064):** a beállítás a `configs\service.json` `backup` szakaszában van (időpont, megőrzés, a második hely `copy_to` — a szerző gépén egy NAS-mappa —, és 070 óta `with_docs`: a belső munkaanyag is). Más gépen a `copy_to`-t a saját második helyre kell állítani, vagy üresre; különben a `backup --scheduled` 2-es kóddal jelzi, hogy a másolat nem sikerült.
 
 ```powershell
 .\scripts\backup-task.ps1 install   # bejegyzés a Windows Feladatütemezőbe (naponta 12:00; kimaradáskor a következő bekapcsoláskor)

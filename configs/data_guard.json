@@ -1,13 +1,18 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Adatőr (070 terv 2.1 S-adatőr, jav/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
     "changelog": [
       {
         "version": "1.0.0",
         "date": "2026-09-30",
         "note": "071 S-adatőr (070 terv 2.1): első változat; a régi projekt scripts/hooks/pre-commit + scripts/secret_scan.py mintájára, ellenőrzőszám-szűréssel, kulcs-, .env- és tiltottkifejezés-kereséssel, feltöltés előtti történet-tiltással. Az allow/known/deny lista a verziókövetett fa 2026-09-30-i átnézéséből."
+      },
+      {
+        "version": "1.0.1",
+        "date": "2026-09-30",
+        "note": "071 D-teljesség: a telepítési útmutatóból kikerült a NAS-útvonal (általános leírás lett), ezért ott a felhasználónév már nem tűrt; a tűrés csak a szolgáltatás beállításfájljában marad."
       }
     ]
   },
@@ -196,8 +201,7 @@
       "kind": "deny_term",
       "sha256": "7d8572392319585ee6abdd73a06b247daeb79975997cab7bf7e647019f1d0e20",
       "paths": [
-        "configs/service.json",
-        "docs/guides/SETUP.md"
+        "configs/service.json"
       ],
       "until": "S-adatleltár",
       "why": "a NAS-mentés útvonala (a felhasználó saját mappája)"
