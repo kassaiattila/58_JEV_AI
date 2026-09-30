@@ -22,6 +22,7 @@ import logging
 import os
 import re
 import unicodedata
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import quote, unquote, urlsplit
@@ -32,7 +33,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import app_settings, backup, cfg, corrections, mailbox, store, work, work_views
+from jav import app_settings, backup, cfg, corrections, mailbox, store, version, work, work_views
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import worker
 from jav.tablequery import Query as TableQuery
@@ -474,9 +475,13 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         return work_views.jsonable({"ok": value is not None and not reasons, "value": value, "reasons": reasons,
                                     "kind": pack.kind(body.field)})
 
+    # 071 S-verzió: a verzió és a commit az induláskor rögzül — ez a folyamatban ténylegesen futó kód
+    running = {"version": version.VERSION, **version.commit_info(),
+               "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+
     @app.get(r + "/health")
     def health() -> dict[str, Any]:
-        return {"ok": True, "api_version": API_VERSION, "service_config": cfg.version("service")}
+        return {"ok": True, "api_version": API_VERSION, "service_config": cfg.version("service"), **running}
 
     # --- receptek és munkacsomagok ---
 

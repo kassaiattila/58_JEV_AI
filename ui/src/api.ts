@@ -59,6 +59,11 @@ export interface BackupRun {
   files?: { file: string; bytes: number; integrity: string; entries?: number }[];
   copy?: { dir: string; ok: boolean; verified: boolean; error?: string } | null;
 }
+/** 071 S-verzió: `commit` / `dirty` null, ha a szolgáltatás git nélkül indult. */
+export interface Health {
+  ok: boolean; api_version: string; service_config: string;
+  version: string; commit: string | null; dirty: boolean | null; started_at: string;
+}
 export interface BackupInfo {
   status: BackupRun | null;
   config: { schedule?: string; keep?: number; copy_to?: string | null; with_burr?: boolean; with_docs?: boolean; max_age_hours?: number };
@@ -381,6 +386,8 @@ export const api = {
   scanFolder: (id: string) => request<{ status: string; new?: number; settling?: number; workpackage?: string | null; error?: string }>(
     "POST", `/settings/folders/${enc(id)}/scan`, {}),
   workerStop: () => request<Record<string, unknown>>("POST", "/worker/stop", {}),
+  /** 071: a futó szolgáltatás verziója és az induláskor rögzített commit. */
+  health: () => request<Health>("GET", "/health"),
   backupStatus: () => request<BackupInfo>("GET", "/system/backup"),
   backupNow: () => request<BackupRun & { dir: string; copy: BackupRun["copy"] }>("POST", "/system/backup", {}),
   mailbox: () => request<{ schedules: MailboxSchedule[]; pulls: MailboxPull[]; bridge_available: boolean; accounts?: string[];

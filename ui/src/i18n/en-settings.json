@@ -11,7 +11,7 @@
   "Nyelv": "Language",
   "A felület nyelve: magyar vagy angol": "Interface language: Hungarian or English",
   "Rendszer": "System",
-  "A feldolgozó állapota, az adattár mentése, minden futás": "Worker status, database backup, all runs",
+  "A futó verzió, a feldolgozó állapota, az adattár mentése, minden futás": "Running version, worker status, database backup, all runs",
   "Leállítás kérve: a feldolgozó a folyamatban lévő tétel után áll le.": "Stop requested: the worker stops after the item in progress.",
   "A feldolgozót a {{cmd}} indítja; a lap bezárása nem állítja le a futásokat.": "The worker is started by {{cmd}}; closing the page does not stop the runs.",
   "Feldolgozó": "Worker",
@@ -143,5 +143,10 @@
   "Belső dokumentumok": "Internal documents",
   "{{n}} fájl ({{mb}} MB)": "{{n}} files ({{mb}} MB)",
   "nincs a legutóbbi mentésben": "not in the latest backup",
-  "A név csak betűt, számot, szóközt, pontot, @ jelet és kötőjelet tartalmazhat (legfeljebb 64 karakter).": "A name may contain only letters, digits, spaces, dots, @ and hyphens (at most 64 characters)."
+  "A név csak betűt, számot, szóközt, pontot, @ jelet és kötőjelet tartalmazhat (legfeljebb 64 karakter).": "A name may contain only letters, digits, spaces, dots, @ and hyphens (at most 64 characters).",
+  "Verzió": "Version",
+  "v{{version}} · commit {{commit}}": "v{{version}} · commit {{commit}}",
+  "A commit nem ismert (a szolgáltatás git nélkül indult).": "The commit is unknown (the service started without git).",
+  "A futó kód commitolatlan változást tartalmaz.": "The running code contains uncommitted changes.",
+  "A szolgáltatás {{when}} óta fut; új kód az újraindítása után él.": "The service has been running since {{when}}; new code takes effect after a restart."
 }

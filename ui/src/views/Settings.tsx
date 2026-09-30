@@ -15,6 +15,7 @@ import { BackupPanel } from "./settings/BackupPanel";
 import { FoldersPanel } from "./settings/FoldersPanel";
 import { LanguagePanel } from "./settings/LanguagePanel";
 import { UsersPanel } from "./settings/UsersPanel";
+import { VersionPanel } from "./settings/VersionPanel";
 import { ConfirmButton } from "../components/ConfirmButton";
 
 // a feliratok magyar forrásként állnak itt; a fordítás a kirajzoláskor történik (`t()`)
@@ -25,7 +26,7 @@ const SECTIONS: { key: SettingsSection; label: string; hint: string }[] = [
   { key: "users", label: "Felhasználók", hint: "A „Ki dolgozik?” választéka" },
   { key: "appearance", label: "Megjelenés", hint: "Téma és sűrűség" },
   { key: "language", label: "Nyelv", hint: "A felület nyelve: magyar vagy angol" },
-  { key: "system", label: "Rendszer", hint: "A feldolgozó állapota, az adattár mentése, minden futás" },
+  { key: "system", label: "Rendszer", hint: "A futó verzió, a feldolgozó állapota, az adattár mentése, minden futás" },
 ];
 
 export function Settings({ section }: { section: SettingsSection }) {
@@ -72,6 +73,7 @@ function SystemPanel() {
   const [cmdBefore, cmdAfter] = t("A feldolgozót a {{cmd}} indítja; a lap bezárása nem állítja le a futásokat.").split("{{cmd}}");
   return (
     <div className="stage-stack">
+      <VersionPanel />
       <section className="card wide" aria-label={t("Feldolgozó")}>
         <div className="card-head">
           <h3>{t("Feldolgozó")}</h3>
