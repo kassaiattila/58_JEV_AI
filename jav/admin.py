@@ -47,22 +47,40 @@ def _informational(doc_type: str) -> tuple[str, ...]:
         return ()
 
 
+def _failure_reason(rows: list[dict[str, Any]]) -> str:
+    """The most common first review reason of a run in which no case produced data (e.g. a missing API key)."""
+    reasons = Counter((r.get("review_reasons") or ["?"])[0] for r in rows)
+    return reasons.most_common(1)[0][0] if reasons else "?"
+
+
 def last_golden_results() -> list[dict[str, Any]]:
+    """The latest golden result per flow. A run in which every case failed (no case produced data, e.g. it ran without
+    an API key) is not a measurement: the latest run that produced data is shown, and the skipped failed run is named
+    next to it (076), so the report does not look as if there were no measurement at all."""
     out: list[dict[str, Any]] = []
     for arm in ("S", "G"):
         # the latest golden file per type (type pack): the rows' `doc_type` says which pack (old file = invoice_hu)
-        latest_by_type: dict[str, Path] = {}
+        latest_by_type: dict[str, tuple[Path, list[dict[str, Any]]]] = {}
+        failed_newer: dict[str, tuple[Path, str]] = {}
         for p in sorted(RUNS_DIR.glob(f"*_golden_{arm}.jsonl")):
-            first = next((json.loads(ln) for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()), None)
-            if first is not None:
-                latest_by_type[first.get("doc_type", "invoice_hu")] = p
-        for doc_type, p in sorted(latest_by_type.items()):
-            all_rows = _rows(p)
+            rows = _rows(p)
+            if not rows:
+                continue
+            doc_type = rows[0].get("doc_type", "invoice_hu")
+            if any(r.get("datapoints") is not None for r in rows):
+                latest_by_type[doc_type] = (p, rows)
+                failed_newer.pop(doc_type, None)
+            else:
+                failed_newer[doc_type] = (p, _failure_reason(rows))
+                latest_by_type.setdefault(doc_type, (p, rows))
+        for doc_type, (p, all_rows) in sorted(latest_by_type.items()):
             rows = [r for r in all_rows if r.get("datapoints") is not None]
             informational = set(_informational(doc_type))
             vals = [v for r in rows for f, v in r["scores"].items() if v is not None and f not in informational]
+            failed = failed_newer.get(doc_type)
+            skipped = None if failed is None or failed[0] == p else {"file": failed[0].name, "reason": failed[1]}
             out.append({"flow": f"{doc_type} {arm}-kar", "file": p.name, "n": len(rows), "ok": sum(vals), "scored": len(vals),
-                        "review": sum(r.get("route") == "human" for r in rows)})
+                        "review": sum(r.get("route") == "human" for r in rows), "skipped_failed": skipped})
     for flow, pat, exp, got in (("doc_detect", "*_detect_golden.jsonl", "expected", "got"), ("email_intent", "*_email_golden.jsonl", "expected", "got")):
         p = _latest(pat)
         if p:
@@ -110,7 +128,9 @@ def admin_report() -> str:
           "- intent eloszlás: " + (", ".join(f"{r['intent']}×{r['n']}" for r in st.get("intents", [])[:8]) or "-"), ""]
     L += ["## Utolsó golden-eredmény flow-nként (runs/)", "", "| flow | fájl | eset | pontos | review / < 0,6 |", "|---|---|---|---|---|"]
     for g in last_golden_results():
-        L.append(f"| {g['flow']} | {g['file']} | {g['n']} | {score_text(g['ok'], g['scored'])} | {g['review']} |")
+        skipped = g.get("skipped_failed")
+        note = f" (newer failed run skipped: {skipped['file']}, {skipped['reason']})" if skipped else ""
+        L.append(f"| {g['flow']} | {g['file']}{note} | {g['n']} | {score_text(g['ok'], g['scored'])} | {g['review']} |")
     with store.connect() as c:
         rq = [dict(r) for r in c.execute("SELECT subject_kind, reasons FROM review_queue WHERE status='open'")]
     kinds = Counter(r["subject_kind"] for r in rq)
