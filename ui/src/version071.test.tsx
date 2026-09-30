@@ -1,5 +1,5 @@
-// 071 S-verzió (audit A08 / §1): a Rendszer oldalon látszik, melyik kód fut — verzió, commit, és figyelmeztetés, ha a
-// futó kód commitolatlan változást tartalmaz vagy a commit nem ismert.
+// 071 S-verzió (audit A08 / §1): the System page shows which code is running — version, commit, and a warning if the
+// running code contains uncommitted changes or the commit is unknown.
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, type Health } from "./api";

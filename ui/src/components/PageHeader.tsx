@@ -1,4 +1,4 @@
-// Egységes oldalfejléc (057): morzsamenü, cím, egysoros összegzés, a fő művelet jobbra fent — minden oldalon ugyanígy.
+// Unified page header (057): breadcrumbs, title, one-line summary, the main action top right — the same on every page.
 import type { ReactNode } from "react";
 import { t, useLocale } from "../i18n";
 

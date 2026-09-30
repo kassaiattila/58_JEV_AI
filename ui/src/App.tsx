@@ -1,5 +1,6 @@
-// A munkafelület váza (057, döntés 2026-09-28): két fő rész — Munkacsomagok (a napi munka) és Beállítások (postafiókok,
-// munkamappák, felhasználók, megjelenés, nyelv, rendszer). A fejlécben a feldolgozó állapota és a felhasználó neve.
+// The frame of the workspace (057, decision of 2026-09-28): two main parts — Work packages (the daily work) and
+// Settings (mailboxes, work folders, users, appearance, language, system). The header shows the worker's status and
+// the user's name.
 import { useState } from "react";
 import { api, setActor, USERS_EVENT } from "./api";
 import { useActor, useEvent, useHash, useLoad } from "./hooks";
@@ -13,16 +14,17 @@ import { RunDetail } from "./views/Runs";
 import { Settings } from "./views/Settings";
 import { Workpackages } from "./views/Workpackages";
 
-// a felirat magyar forrás, a kirajzoláskor fordítjuk (058: a sáv olyan széles, hogy a felirat elválasztás nélkül kifér)
+// the label is the Hungarian source, translated at render time (058: the rail is wide enough for the label to fit
+// without hyphenation)
 const NAV = [
   { view: "workpackages", href: "#/workpackages", label: "Munkacsomagok", icon: <path d="M4 7h16M4 12h16M4 17h10" /> },
   { view: "settings", href: "#/settings", label: "Beállítások", icon: <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" /> },
 ] as const;
 
 export function App() {
-  useLocale(); // nyelvváltáskor az egész fa újrarajzolódik (a munkapéldány megmarad)
+  useLocale(); // on a language change the whole tree re-renders (the working copy is kept)
   const route = parseRoute(useHash());
-  // a futás oldala és a régi eredmény-címek a Munkacsomagokhoz tartoznak
+  // the run page and the old result addresses belong to Work packages
   const section = route.view === "settings" ? "settings" : "workpackages";
   return (
     <div className="shell">
@@ -70,9 +72,10 @@ function WorkerBadge() {
   );
 }
 
-/** Ki dolgozik? (057, 061 döntés: aktív felhasználó). Ha a Beállítások › Felhasználók listája nem üres, csak abból
- *  választható, és módosítás előtt kötelező (a szolgáltatás a listán nem szereplő nevet elutasítja). Üres listánál
- *  szabadon írható (első beállítás), a lista felvételére hivatkozással. Kiválasztott névnél: „Mai munkám”. */
+/** Who is working? (057, 061 decision: active user). If the Settings › Users list is not empty, the name can only be
+ *  chosen from it, and it is required before making changes (the local service rejects a name not on the list). With an
+ *  empty list it can be typed freely (first setup), with a link to setting up the list. With a selected name:
+ *  „Mai munkám” (My work today). */
 function ActorField() {
   const users = useLoad("users", api.users);
   useEvent(USERS_EVENT, users.reload);

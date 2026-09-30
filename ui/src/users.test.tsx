@@ -1,5 +1,6 @@
-// 061 döntés: aktív felhasználó + kiosztás. A fejlécben a névlistából kötelező választani (a listán nem szereplő tárolt
-// név nem számít kiválasztottnak); a Felhasználók listája azonnal mentődik; „Mai munkám” cím; „Csak a saját csomagjaim”.
+// 061 decision: active user + assignment. In the header a name must be chosen from the name list (a stored name that is
+// not on the list does not count as chosen); the Users list is saved at once; the „Mai munkám” (My work today) title;
+// „Csak a saját csomagjaim” (Only my own packages).
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";

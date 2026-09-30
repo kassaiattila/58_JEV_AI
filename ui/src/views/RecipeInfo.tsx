@@ -1,6 +1,7 @@
-// 063 (döntés 2026-09-29): a receptek magyarázata. A csomag Recept-kártyáján beállításonként áll, mit jelent a választott
-// érték és mennyi a tételenkénti költségkeret; a Beállítások › Receptek oldal a teljes leírást adja (mire való, mi kell
-// hozzá, lépések, eredmény, az ember teendője, a beállítások minden értéke). A szöveg a `configs/recipe_help.json`-ból jön.
+// 063 (decision of 2026-09-29): explanation of the recipes. The work package's Recipe card states, per setting, what
+// the chosen value means and what the budget per item is; the Beállítások › Receptek (Settings › Recipes) page gives
+// the full description (what it is for, what it needs, steps, result, the person's task, every value of the settings).
+// The text comes from `configs/recipe_help.json`.
 import { api, type Recipe, type RecipeHelp } from "../api";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
@@ -8,18 +9,18 @@ import { docTypeLabel, itemBudgetLines, PARAM_LABEL, paramShort } from "../label
 
 const BUDGET_NOTE = "felső határ: ennyit foglal le a rendszer a futás indításakor; a tényleges költség általában kisebb, és a futás oldalán követhető";
 
-/** A recept alapbeállításai (a paraméterek alapértéke). */
+/** The recipe's default settings (the parameters' default values). */
 export const recipeDefaults = (r: Recipe): Record<string, string> =>
   Object.fromEntries(Object.entries(r.params).map(([k, spec]) => [k, spec.default ?? ""]));
 
-/** Egy beállítás választott értékének magyarázata; ha az értékhez nincs (pl. irattípus), a beállításé. */
+/** The explanation of a setting's chosen value; if the value has none (e.g. document type), the setting's own. */
 export function paramExplanation(help: RecipeHelp | undefined, k: string, v: string): string | null {
   const p = help?.params[k];
   const text = p?.options[v] ?? p?.help;
   return text ? t(text) : null;
 }
 
-/** A Recept-kártya magyarázó listája: beállításonként a választott érték és a jelentése, a végén a költségkeret. */
+/** The Recipe card's explanatory list: per setting, the chosen value and its meaning, with the budget at the end. */
 export function RecipeParamList({ recipe, params, help }: { recipe: Recipe; params: Record<string, string>; help?: RecipeHelp }) {
   useLocale();
   const full = { ...recipeDefaults(recipe), ...params };
@@ -45,7 +46,7 @@ export function RecipeParamList({ recipe, params, help }: { recipe: Recipe; para
   );
 }
 
-/** Beállítások › Receptek: minden recept teljes leírása. */
+/** Beállítások › Receptek (Settings › Recipes): the full description of every recipe. */
 export function RecipesPanel() {
   useLocale();
   const recipes = useLoad("recipes", api.recipes);
@@ -87,7 +88,7 @@ function RecipeDetails({ recipe, help }: { recipe: Recipe; help?: RecipeHelp }) 
       <h4>{t("Beállítások")}</h4>
       {Object.entries(recipe.params).map(([k, spec]) => {
         const options = spec.allowed ?? [];
-        // a lehetőségenkénti keret csak ott látszik, ahol a beállítás a költséget is befolyásolja (pl. út, feladatjavaslat)
+        // the budget per option is only shown where the setting also affects the cost (e.g. path, task proposal)
         const costs = options.map((o) => itemBudgetLines(recipe, { ...defaults, [k]: o }).join("; "));
         const costVaries = new Set(costs).size > 1;
         const p = help?.params[k];

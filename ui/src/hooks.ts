@@ -8,8 +8,9 @@ export interface Loaded<T> {
   reload: () => void;
 }
 
-/** Adatbetöltés egy kulcshoz kötve. Kulcsváltáskor az előző kérés eredményét eldobjuk, így egy lassú régi válasz nem
- *  írhatja felül az újonnan kiválasztott csomag adatát (a V4 „kiválasztott csomag identitása” tapasztalata). */
+/** Data loading bound to a key. On a key change the previous request's result is discarded, so a slow old response
+ *  cannot overwrite the data of the newly selected package (the V4 lesson „kiválasztott csomag identitása” (identity of
+ *  the selected package)). */
 export function useLoad<T>(key: string | null, fn: () => Promise<T>, pollMs?: number): Loaded<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
@@ -18,16 +19,18 @@ export function useLoad<T>(key: string | null, fn: () => Promise<T>, pollMs?: nu
   const fnRef = useRef(fn);
   fnRef.current = fn;
   const loadedKey = useRef<string | null>(null);
-  // 063: „nincs ilyen” vagy érvénytelen kérés (4xx) után az automatikus frissítés nem ismétli a kérést; a kézi igen
+  // 063: after a not-found or invalid request (4xx), the automatic refresh does not repeat the request; a manual
+  // refresh does
   const gone = useRef(false);
-  // 066 Á36: függő kérés alatt és rejtett lapon az automatikus frissítés kimarad (lassú szolgáltatásnál nem torlódik)
+  // 066 Á36: while a request is pending and on a hidden tab, the automatic refresh is skipped (requests do not pile up
+  // when the service is slow)
   const inFlight = useRef(false);
 
   useEffect(() => {
     if (key === null) return;
     let alive = true;
     if (loadedKey.current !== key) {
-      setData(null); // másik csomag: a régi adat nem maradhat a képernyőn
+      setData(null); // another package: the old data must not stay on screen
       setError(null);
       gone.current = false;
     }
@@ -69,14 +72,14 @@ export function useLoad<T>(key: string | null, fn: () => Promise<T>, pollMs?: nu
   return { data, error, loading, reload };
 }
 
-/** 061: a „Ki dolgozik?” mostani értéke; változáskor (bármelyik nézetből) frissül. */
+/** 061: the current value of „Ki dolgozik?” (Who is working?); it updates on a change (from any view). */
 export function useActor(): string {
   const [actor, setActorState] = useState(getActor);
   useEvent(ACTOR_EVENT, () => setActorState(getActor()));
   return actor;
 }
 
-/** Feliratkozás egy ablak-szintű eseményre (pl. a névlista változása). */
+/** Subscription to a window-level event (e.g. a change in the name list). */
 export function useEvent(name: string, fn: () => void): void {
   const ref = useRef(fn);
   ref.current = fn;
@@ -97,9 +100,9 @@ export function useHash(): string {
   return hash;
 }
 
-/** Adatkészlet-lap (056 U1). Lapozás, rendezés és szűrés közben az előző lap látszik, amíg az új megjön; más adatkészletre
- *  vagy hatókörre váltva viszont azonnal eltűnik (nem maradhat másik futás adata a képernyőn). A később érkező régi
- *  válasz nem írja felül az újat. */
+/** Dataset page (056 U1). While paging, sorting and filtering, the previous page stays visible until the new one
+ *  arrives; on a switch to another dataset or scope, however, it disappears at once (another run's data must not stay
+ *  on screen). An old response that arrives later does not overwrite the new one. */
 export function useDataset(name: string | null, scope: DsScope, query: DsQuery, pollMs?: number): Loaded<DsPage> {
   const [data, setData] = useState<DsPage | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
@@ -142,7 +145,7 @@ export function useDataset(name: string | null, scope: DsScope, query: DsQuery, 
   return { data, error, loading, reload };
 }
 
-/** Késleltetett érték (gépelés közbeni keresés: nem minden billentyűre megy kérés). */
+/** Debounced value (search while typing: not every keystroke sends a request). */
 export function useDebounced<T>(value: T, ms = 250): T {
   const [v, setV] = useState(value);
   useEffect(() => {
@@ -152,11 +155,12 @@ export function useDebounced<T>(value: T, ms = 250): T {
   return v;
 }
 
-/** Aktív (sorban álló vagy futó) futás állapotai. */
+/** The statuses of an active (queued or running) run. */
 export const ACTIVE_RUN = new Set(["queued", "running"]);
 
-/** 066 Á24: egy futás nézete, amely aktív futás alatt magától frissül (3 s), lezárás után leáll. Az Eredmény szakasz és a
- *  jóváhagyó doboz eddig a futás végén sem frissült; a futás-részletek nézete ugyanezt a mintát használta. */
+/** 066 Á24: a run's view that refreshes by itself while the run is active (3 s) and stops once it has closed. Until now
+ *  the Result section and the approval box did not refresh even at the end of the run; the run details view used this
+ *  same pattern. */
 export function useRunView(runId: string | null) {
   const [poll, setPoll] = useState(true);
   const view = useLoad(runId ? `run:${runId}` : null, () => api.run(runId!), poll ? 3000 : undefined);

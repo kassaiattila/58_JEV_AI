@@ -1,5 +1,6 @@
-// Nyelv (057, döntés 2026-09-28: HU / EN a V4 módján): a felület feliratainak nyelve, nézőnként megjegyezve.
-// A nyelvek neve a saját nyelvükön áll (nem fordítjuk), `lang` attribútummal a felolvasóknak.
+// Language (057, decision of 2026-09-28: HU / EN the V4 way): the language of the interface labels, remembered per
+// viewer. The language names are in their own language (we do not translate them), with a `lang` attribute for screen
+// readers.
 import { useState } from "react";
 import { setLanguage, t, useLocale, type Language } from "../../i18n";
 

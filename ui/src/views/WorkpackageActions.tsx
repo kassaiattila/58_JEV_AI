@@ -1,5 +1,6 @@
-// A csomag kezelése (058): átnevezés, elrejtés a listából / visszahozás, végleges törlés. Az elrejtett csomag futásai és
-// eredményei megmaradnak; végleges törlés csak futás nélküli csomagon lehet, külön megerősítéssel (a szolgáltatás is őrzi).
+// Managing the work package (058): renaming, hiding from the list / restoring, permanent deletion. A hidden work
+// package's runs and results are kept; permanent deletion is only possible on a work package without runs, with a
+// separate confirmation (the local service guards this too).
 import { useRef, useState } from "react";
 import { api, ApiError, type WorkpackageView } from "../api";
 import { Popover } from "../components/Popover";

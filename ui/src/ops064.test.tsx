@@ -1,5 +1,5 @@
-// 064 (döntés 2026-09-29): az adattár-mentés állapota a Rendszer oldalon — rendben, hibás, túl régi, vagy a második
-// helyre nem sikerült másolat; a hiba nem marad csendben. „Mentés most” a napi mentés beállításával.
+// 064 (decision of 2026-09-29): the store backup's status on the System page — OK, failed, too old, or the copy to the
+// second location failed; a failure does not stay silent. „Mentés most” (Back up now) uses the daily backup's settings.
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -44,6 +44,6 @@ describe("064 adattár-mentés", () => {
     await userEvent.click(screen.getByRole("button", { name: "Mentés most" }));
     expect(now).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("Mentés kész: store\\backups\\uj")).toBeTruthy();
-    await waitFor(() => expect(status.mock.calls.length).toBeGreaterThanOrEqual(2)); // az állapot a mentés után újratöltődik
+    await waitFor(() => expect(status.mock.calls.length).toBeGreaterThanOrEqual(2)); // the status reloads after the backup
   });
 });

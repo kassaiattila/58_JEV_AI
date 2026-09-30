@@ -1,5 +1,5 @@
-// 063: gomb-ikonok (a felhasználó kérése: a szerkesztő és kezelő gombok legyenek könnyen észrevehetők). Vonalas SVG a
-// főmenü ikonjainak stílusában; mindig `aria-hidden`, a gomb neve a felirata marad.
+// 063: button icons (the user's request: the editing and management buttons should be easy to spot). Line SVG in the
+// style of the main menu icons; always `aria-hidden`, the button's name stays its label.
 const PATHS = {
   edit: "M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4",
   close: "M6 6l12 12M18 6 6 18",

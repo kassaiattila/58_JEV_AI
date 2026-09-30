@@ -1,4 +1,5 @@
-// 066 Á23: a „Rendezve” gomb hibája eddig csendben elveszett, és a függő kérés alatt a gomb újra megnyomható volt.
+// 066 Á23: until now an error from the „Rendezve” (Resolved) button was lost silently, and the button could be pressed
+// again while the request was pending.
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";

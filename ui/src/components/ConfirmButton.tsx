@@ -1,6 +1,6 @@
-// 066 Á36 (döntés 2026-09-29): a visszavonhatatlan műveletek (kiadás, leállítás) rövid megerősítést kérnek: az első
-// kattintás után a gomb „Biztosan? Kattints újra” feliratra vált, és csak a második kattintás hajt végre, néhány
-// másodpercen belül. Felugró ablak nincs; a billentyűzettel ugyanígy működik.
+// 066 Á36 (decision of 2026-09-29): irreversible actions (release, stop) ask for a short confirmation: after the first
+// click the button's label changes to „Biztosan? Kattints újra” (Are you sure? Click again), and only a second click
+// within a few seconds carries it out. There is no pop-up window; it works the same way with the keyboard.
 import { useEffect, useState, type ReactNode } from "react";
 import { t } from "../i18n";
 

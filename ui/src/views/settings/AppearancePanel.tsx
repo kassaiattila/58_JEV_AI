@@ -1,9 +1,9 @@
-// Megjelenés (057): téma és sűrűség, azonnal érvényes, nézőnként megjegyezve.
+// Appearance (057): theme and density, effective at once, remembered per viewer.
 import { useState } from "react";
 import { getAppearance, setAppearance, type Appearance, type Density, type Theme } from "../../appearance";
 import { t, useLocale } from "../../i18n";
 
-// a feliratok magyar forrásként; a fordítás a kirajzoláskor (`t()`)
+// the labels as Hungarian source; translation at render time (`t()`)
 const THEMES: { value: Theme; label: string; swatch: string }[] = [
   { value: "system", label: "A rendszer szerint", swatch: "linear-gradient(90deg, #f4f4f5 50%, #16161b 50%)" },
   { value: "light", label: "Világos", swatch: "#f4f4f5" },

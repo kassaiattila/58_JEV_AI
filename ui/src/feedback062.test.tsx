@@ -1,5 +1,6 @@
-// 062: a közös átnézés négy kis javítása (döntés 2026-09-29) — a tétellista mostani állapota, a levélcsomag alapfüle és a
-// valószínűség százalékban, a „Mai munkám” részletei feliratként, a lista alapsorrendjének jelzése.
+// 062: four small fixes from the joint walkthrough (decision of 2026-09-29) — the item list's current status, the email
+// package's default tab and the probability as a percentage, the details of „Mai munkám” (My work today) as labels, and
+// marking the list's default order.
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -63,7 +64,7 @@ describe("062 felület-javítások", () => {
     await userEvent.click(screen.getByRole("button", { name: "Elvégzés visszavonása" }));
     expect(done).toHaveBeenLastCalledWith("run-000000000001", "a".repeat(64), 0, false);
     render(<EmailReview data={mail(null)} onChanged={() => {}} />);
-    expect(screen.queryAllByRole("button", { name: "Elvégezve" })).toHaveLength(0); // döntés nélkül nem végezhető el
+    expect(screen.queryAllByRole("button", { name: "Elvégezve" })).toHaveLength(0); // without a decision it cannot be marked done
   });
 
   it("D: rendezés nélkül a szolgáltatás alapsorrendje látszik a fejlécen", async () => {

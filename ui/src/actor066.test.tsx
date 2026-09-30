@@ -1,5 +1,6 @@
-// 066 Á21: az aktív felhasználó („Ki dolgozik?”) a böngésző közös tárolójában van. Ha egy másik lapon átállítják, ennek
-// a lapnak a műveletei már az új névvel mennek; a kijelzés is frissüljön, különben a lap mást mutat, mint amit használ.
+// 066 Á21: the active user („Ki dolgozik?”, Who is working?) lives in the browser's shared storage. If it is changed in
+// another tab, this tab's actions already go out under the new name; the display must update too, otherwise the tab
+// shows something other than what it uses.
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { setActor } from "./api";
@@ -17,7 +18,7 @@ describe("Aktív felhasználó több lapon (066 Á21)", () => {
     render(<Who />);
     expect(screen.getByTestId("who").textContent).toBe("Minta Anna");
     act(() => {
-      localStorage.setItem("jav.actor", "Teszt Elek"); // a másik lap írása
+      localStorage.setItem("jav.actor", "Teszt Elek"); // the other tab's write
       window.dispatchEvent(new StorageEvent("storage", { key: "jav.actor", newValue: "Teszt Elek" }));
     });
     expect(screen.getByTestId("who").textContent).toBe("Teszt Elek");

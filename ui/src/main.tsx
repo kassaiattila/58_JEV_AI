@@ -9,8 +9,8 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { initAppearance } from "./appearance";
 import { initLanguage } from "./i18n";
 
-initAppearance(); // 057: a mentett téma és sűrűség még a kirajzolás előtt
-void initLanguage(); // 057: a mentett nyelv (alap: magyar); angolnál a szótár betöltése után frissít
+initAppearance(); // 057: the saved theme and density, already before rendering
+void initLanguage(); // 057: the saved language (default: Hungarian); for English it updates after the dictionary loads
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

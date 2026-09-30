@@ -1,5 +1,5 @@
-// A csomag iratai (057): nem önálló fül, hanem az Ellenőrzés része (döntés 2026-09-28). Iratonként megnyitás és
-// letöltés, eltávolítás a csomagból; a futás előtt ez az Ellenőrzés egyetlen tartalma.
+// The work package's documents (057): not a separate tab but part of Review (decision of 2026-09-28). Opening and
+// downloading per document, removal from the work package; before a run, this is the only content of Review.
 import { useState } from "react";
 import { api, ApiError, type Workpackage } from "../api";
 import { ConfirmButton } from "../components/ConfirmButton";
@@ -25,7 +25,7 @@ export function DocumentsPanel({ wp, onChanged }: { wp: Workpackage; onChanged: 
       <p className="muted small">{t("Forrás: {{source}} · a csomag {{rev}}. változata", {
         source: wp.source_kind === "folder" || wp.source_kind === "mailbox" ? wp.source_ref : t("kézi válogatás"), rev: wp.revision })}</p>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
-      {/* a csomag változata a kulcsban: eltávolítás után a lista újratöltődik */}
+      {/* the work package's revision is in the key: after a removal the list reloads */}
       <DataTable key={`${wp.id}:${wp.revision}`} dataset="workpackage_items" scope={{ workpackage_id: wp.id }} label={t("A csomag iratai")}
         emptyText={t("A csomag üres.")} storageId="workpackage_items" maxHeight="60vh"
         actions={(row) => (

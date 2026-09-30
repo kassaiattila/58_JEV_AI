@@ -1,25 +1,26 @@
-// Útvonal a címsor # utáni részéből, hogy a kiválasztott csomag vagy futás könyvjelzőzhető és frissítéskor megmaradjon.
-// Szabály (V4-tapasztalat): a címben lévő azonosító az igazság. Ha az a csomag nem létezik, „nem található” jelenik
-// meg, és NEM nyílik meg csendben egy másik (pl. a lista első eleme).
+// The route from the part of the address bar after #, so that the selected package or run can be bookmarked and
+// survives a reload. Rule (V4 lesson): the identifier in the address is the truth. If that package does not exist,
+// „nem található” (not found) is shown, and another one (e.g. the first item of the list) is NOT opened silently.
 //
-// 057 (döntés 2026-09-28): két fő rész — Munkacsomagok és Beállítások. A csomag szakaszai: Feldolgozás (process),
-// Ellenőrzés (review), Eredmény (result). A régi címek (tételek, teendők, folyamat, riportok, adatok, postafiók,
-// futáslista) az új helyükre visznek, így a könyvjelzők nem vesznek el.
+// 057 (decision of 2026-09-28): two main parts — Work packages and Settings. The package's sections: Processing
+// (process), Review (review), Result (result). The old addresses (items, to-dos, workflow, reports, data, mailbox,
+// run list) lead to their new place, so bookmarks are not lost.
 
 export type Stage = "process" | "review" | "result";
 export type SettingsSection = "mailboxes" | "folders" | "recipes" | "users" | "appearance" | "language" | "system";
 export type ResultTable = "emails" | "tasks" | "documents" | "datapoints" | "line_items" | "utility";
 
-/** 061: a futás indítása előtt megerősítő oldal (a Feldolgozás szakaszban) */
+/** 061: a confirmation page before a run is started (in the Processing section) */
 export interface StartRequest { mode: "shadow" | "apply"; rerun: boolean }
 
 export type Route =
   | { view: "workpackages"; wpId?: string; stage?: Stage; itemId?: string; table?: ResultTable; runId?: string; start?: StartRequest }
   | { view: "run"; runId: string }
   | { view: "settings"; section: SettingsSection }
-  /** 061: a kiválasztott személy napi műveletei („Mai munkám”); nap nélkül a mai */
+  /** 061: the selected person's actions on a day („Mai munkám” (My work today)); without a day, today's */
   | { view: "activity"; day?: string }
-  /** régi riport- vagy adat-cím: a futás csomagjának Eredmény szakaszára visz (a csomagot a futásból kell kikeresni) */
+  /** an old report or data address: leads to the Result section of the run's package (the package has to be looked up
+   *  from the run) */
   | { view: "legacy-result"; runId?: string; table?: ResultTable };
 
 export const STAGES: Stage[] = ["process", "review", "result"];
@@ -95,5 +96,5 @@ export function go(r: Route): void {
   window.location.hash = routeHash(r);
 }
 
-/** A csomag egy szakaszának címe (a cellák, gombok hivatkozásaihoz). */
+/** The address of one of the package's sections (for the links of cells and buttons). */
 export const wpHash = (wpId: string, stage?: Stage, itemId?: string) => routeHash({ view: "workpackages", wpId, stage, itemId });

@@ -1,6 +1,6 @@
-// Feliratok: állapotok, teendő-okok, mezők. A kódok a szolgáltatásból jönnek; itt csak megjelenítés.
-// 057: a felirat a választott nyelven (i18n `t()`); a magyar szöveg a kulcs. A címkeszótárak (`tmap`) olvasáskor
-// fordítanak, így a hívó helyeken nem kell változtatni; a komponensek a `useLocale()`-lal frissülnek.
+// Labels: statuses, to-do reasons, fields. The codes come from the service; this is display only.
+// 057: the label is in the chosen language (i18n `t()`); the Hungarian text is the key. The label maps (`tmap`)
+// translate on read, so the call sites need no change; the components update via `useLocale()`.
 
 import fieldLabels from "../../configs/field_labels.json";
 import intentRegistry from "../../configs/intents.json";
@@ -8,7 +8,8 @@ import emailTasks from "../../configs/email_tasks.json";
 import type { Recipe } from "./api";
 import { getLocale, t } from "./i18n";
 
-/** Címkeszótár, amely olvasáskor fordít (`MAP[kód]` → a választott nyelven). Az `Object.entries` a magyar forrást adja. */
+/** A label map that translates on read (`MAP[code]` → in the chosen language). `Object.entries` gives the Hungarian
+ *  source. */
 export function tmap(source: Record<string, string>): Record<string, string> {
   return new Proxy(source, { get: (o, k) => (typeof k === "string" && typeof o[k] === "string" ? t(o[k]) : Reflect.get(o, k)) });
 }
@@ -39,19 +40,20 @@ export const FINAL_STATUS: Record<string, string> = tmap({
 
 export const MODE: Record<string, string> = tmap({ shadow: "Próba", apply: "Éles" });
 
-// 056 U1: a mezők és a listaoszlopok magyar neve a configs/field_labels.json-ban van — ugyanazt olvassa a szolgáltatás,
-// így a szolgáltatás oldali keresés és rendezés is a magyar névre megy. 057: a 23 irattípus neve is itt van.
+// 056 U1: the Hungarian names of the fields and the list columns are in configs/field_labels.json — the service reads
+// the same file, so service-side search and sorting also go by the Hungarian name. 057: the names of the 23 document
+// types are here too.
 export const FIELD: Record<string, string> = tmap(fieldLabels.fields);
 export const DOC_TYPE: Record<string, string> = tmap(fieldLabels.doc_types);
 
 export const fieldLabel = (f: string) => FIELD[f] ?? f;
 export const docTypeLabel = (d: string) => DOC_TYPE[d] ?? d;
 
-/** Tételes lista oszlopa (és a felsorolt értékek: `oszlop=érték`). Ismeretlen névnél maga a név. */
+/** A column of a line list (and the enumerated values: `column=value`). For an unknown name, the name itself. */
 const COLUMN: Record<string, string> = tmap(fieldLabels.columns);
 export const columnLabel = (c: string) => COLUMN[c] ?? c.split("=").pop() ?? c;
 
-/** Levél javasolt következő lépése (a szolgáltatás útvonal-kódja, 048 T2). */
+/** The suggested next step of an email (the service's route code, 048 T2). */
 export function nextFlowText(code: string | null | undefined): string {
   if (!code) return "–";
   const [kind, what] = code.split(":");
@@ -67,7 +69,7 @@ export function nextFlowText(code: string | null | undefined): string {
 }
 
 const INTERVAL_NAMES = tmap({ "15": "15 percenként", "30": "félóránként", "60": "óránként", "240": "4 óránként", "1440": "naponta" });
-/** Gyakoriságok a választott nyelven (függvényként, hogy nyelvváltáskor frissüljön). */
+/** Intervals in the chosen language (as a function, so that they update on a language switch). */
 export const intervals = (): [number, string][] => [15, 30, 60, 240, 1440].map((m) => [m, INTERVAL_NAMES[String(m)]]);
 export const intervalText = (min: number) => intervals().find(([m]) => m === min)?.[1] ?? t("{{min}} percenként", { min });
 
@@ -98,12 +100,13 @@ const CHECK_TEXT: Record<string, string> = tmap({
   "lines.arithmetic_mismatch": "Tételsoron a mennyiség × egységár vagy a nettó + ÁFA nem adja ki a sor összegét",
 });
 
-/** A csomag egy ellenőrzésének eredménye hétköznapi mondatban (a javított, mentett adaton). */
+/** The result of one of the package's checks as an everyday sentence (on the corrected, saved data). */
 export function checkText(code: string, detail?: string | null): string {
   const known = Object.prototype.hasOwnProperty.call(CHECK_TEXT, code);
   const base = known ? CHECK_TEXT[code] : t("Ellenőrzés nem ment át ({{code}})", { code });
   if (code.startsWith("lines.") && detail) {
-    // 053 T3: a tétel-ellenőrzés több sort is nevezhet; a tételösszegnél az eltérés (tételösszeg − végösszeg) oldalanként
+    // 053 T3: a line-item check may name several rows; for the line-item total, the difference (line-item sum −
+    // invoice total) per side
     const rows = [...detail.matchAll(/\bline (\d+)\b/g)].map((m) => m[1]);
     const diffs = [...detail.matchAll(/\b(net|gross): sum-total=([-\d.]+)/g)]
       .map((m) => t(m[1] === "net" ? "nettó: eltérés {{diff}}" : "bruttó: eltérés {{diff}}", { diff: num(m[2]) }));
@@ -112,7 +115,8 @@ export function checkText(code: string, detail?: string | null): string {
   }
   const row = detail?.match(/\bline (\d+)\b(.*)$/);
   if (row) {
-    // a futó egyenlegnél: „expected” = a kivonaton álló egyenleg, „computed” = a nyitó egyenlegből számolt
+    // for the running balance: „expected” = the balance printed on the statement, „computed” = the one computed from
+    // the opening balance
     const m = row[2].match(/expected ([-\d.]+), computed ([-\d.]+)/);
     return m ? t("{{base}}: {{row}}. sor (a kivonaton {{expected}}, számolva {{computed}})", { base, row: row[1], expected: num(m[1]), computed: num(m[2]) })
       : t("{{base}}: {{row}}. sor", { base, row: row[1] });
@@ -120,10 +124,10 @@ export function checkText(code: string, detail?: string | null): string {
   return detail && !known ? `${base}: ${detail}` : base;
 }
 
-/** Tizedesjel a választott nyelv szerint (magyarul vessző). */
+/** The decimal separator according to the chosen language (a comma in Hungarian). */
 const num = (s: string | undefined) => (s === undefined ? "" : getLocale() === "hu-HU" ? s.replace(".", ",") : s);
 
-/** Egy teendő-ok kódja hétköznapi mondatban (ismeretlen kódnál maga a kód). */
+/** A to-do reason code as an everyday sentence (for an unknown code, the code itself). */
 export function reasonText(code: string): string {
   const p = code.split(":");
   const f = p[2] ? fieldLabel(p[2]) : "";
@@ -176,7 +180,8 @@ export function usd(v: string | number | null | undefined): string {
   return Number.isFinite(n) ? `${n.toLocaleString(getLocale(), { minimumFractionDigits: 4, maximumFractionDigits: 6 })} USD` : String(v);
 }
 
-/** Költségkeret (058): két tizedes elég (a keret a recept tételenkénti maximumából jön); 1 centnél kisebb érték pontosan. */
+/** Cost budget (058): two decimals are enough (the budget comes from the recipe's per-item maximum); a value below
+ *  1 cent is shown exactly. */
 export function usdBudget(v: string | number | null | undefined): string {
   const n = Number(v);
   if (v === null || v === undefined || v === "" || !Number.isFinite(n)) return usd(v);
@@ -184,10 +189,11 @@ export function usdBudget(v: string | number | null | undefined): string {
     ? `${n.toLocaleString(getLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD` : usd(v);
 }
 
-/** A szolgáltató neve a felületen (058: a kulcs helyett). */
+/** The provider's name in the interface (058: instead of the key). */
 export const providerName = (p: string): string => ({ jev: "JEV", openai: "OpenAI", azure_di: "Azure DI" } as Record<string, string>)[p] ?? p;
 
-/** Tétel neve: levélnél a tárgy és a feladó (a szolgáltatás `titles`-a), iratnál a fájlnév (048 T2). */
+/** An item's name: for an email, the subject and the sender (the service's `titles`); for a document, the file name
+ *  (048 T2). */
 export const itemName = (i: { item_id: string; source_path: string }, titles?: Record<string, string>) =>
   titles?.[i.item_id] ?? fileName(i.source_path);
 
@@ -199,10 +205,12 @@ export function when(iso: string | null | undefined): string {
 
 export const fileName = (p: string) => p.split(/[\\/]/).pop() ?? p;
 
-/** Kereséshez: kisbetű, ékezet nélkül (a szolgáltatás `tablequery.fold` párja) — „szamla” megtalálja a „Számla”-t. */
+/** For search: lower case, without accents (the counterpart of the service's `tablequery.fold`) — „szamla” finds
+ *  „Számla”. */
 export const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-/** Szám a választott nyelv írásmódjával (magyarul ezres szóköz, tizedesvessző); nem szám változatlan. */
+/** A number in the chosen language's notation (in Hungarian: a space between thousands and a decimal comma); a
+ *  non-number stays unchanged. */
 export function numText(v: unknown, digits = 2): string {
   if (v === null || v === undefined || v === "") return "";
   const n = Number(v);
@@ -215,15 +223,15 @@ const STEP_LABEL = tmap({
   go_live: "Próba rendben: éles futás",
 });
 
-/** A csomag következő lépése a választott nyelven (057): a szolgáltatás kódjából és paramétereiből; ismeretlen kódnál a
- *  szolgáltatás (magyar) felirata. A csomag fejléce és a munkacsomag-lista oszlopa is ezt használja. */
+/** The package's next step in the chosen language (057): from the service's code and parameters; for an unknown code,
+ *  the service's (Hungarian) label. Both the package header and the work package list column use it. */
 export function stepLabel(code: string, params: Record<string, unknown> | undefined, fallback: string): string {
   if (code === "running") return t("Fut: {{done}}/{{total}}", { done: params?.done ?? 0, total: params?.total ?? 0 });
   if (code === "review") return t("Ellenőrzés: {{n}} teendő", { n: params?.n ?? 0 });
   return Object.prototype.hasOwnProperty.call(STEP_LABEL, code) ? STEP_LABEL[code] : fallback;
 }
 
-/** A futtatás előtti akadály / figyelmeztetés a választott nyelven (a szolgáltatás kódjából; a fájlnév paraméter). */
+/** A pre-run blocker / warning in the chosen language (from the service's code; the file name is a parameter). */
 export function blockerText(b: { code: string; message: string }): string {
   const name = b.message.includes(": ") ? b.message.slice(b.message.indexOf(": ") + 2) : "";
   switch (b.code) {
@@ -237,7 +245,8 @@ export function blockerText(b: { code: string; message: string }): string {
   }
 }
 
-/** A csomag tételei szövegesen (058): iratok és levelek külön, hogy a postafiók-csomag ne „irat”-ot mondjon. */
+/** The package's items as text (058): documents and emails separately, so that a mailbox package does not say
+ *  „irat” (document). */
 export function itemCountText(items: { kind: string }[]): string {
   const mails = items.filter((i) => i.kind === "email").length;
   const docs = items.length - mails;
@@ -245,11 +254,12 @@ export function itemCountText(items: { kind: string }[]): string {
   return mails ? t("{{n}} levél", { n: mails }) : t("{{n}} irat", { n: docs });
 }
 
-// 058: a levél-szándék neve a regiszterből (configs/intents.json), a választott nyelven — kódnév nem jelenik meg
+// 058: the email intent's name from the registry (configs/intents.json), in the chosen language — no code name is shown
 const INTENT: Record<string, string> = tmap(Object.fromEntries(intentRegistry.intents.map((i) => [i.key, i.display_name])));
 export const intentLabel = (key: string | null | undefined): string => (key ? INTENT[key] ?? key : "");
 
-/** Recept-paraméterek felirata (058): rövid, kódnév nélküli érték; a hosszú magyarázat a recept szerkesztésében van. */
+/** Labels of the recipe parameters (058): a short value without code names; the long explanation is in the recipe
+ *  editor. */
 export const PARAM_LABEL: Record<string, string> = tmap({ arm: "Út", doc_type: "Irattípus", jev_cache: "JEV-válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés" });
 const PARAM_SHORT: Record<string, string> = tmap({
   "arm:auto": "automatikus (az irattípus ajánlása)",
@@ -266,8 +276,8 @@ export const paramShort = (k: string, v: string): string => PARAM_SHORT[`${k}:${
 export const paramsText = (params: Record<string, string>): string =>
   Object.entries(params).map(([k, v]) => `${PARAM_LABEL[k] ?? k}: ${paramShort(k, v)}`).join(" · ");
 
-/** 063: egy tétel keretmaximuma szolgáltatónként — a szolgáltatás `work.item_budget` számításának tükre (a recept
- *  adataiból, tétel-fajtánként; a beállítástól függő többlettel, pl. feladatjavaslat a levélen). */
+/** 063: an item's budget maximum per provider — a mirror of the service's `work.item_budget` calculation (from the
+ *  recipe's data, per item kind; with the setting-dependent extra, e.g. task proposals on an email). */
 export function itemBudget(r: Recipe, params: Record<string, string>, kind?: string): Record<string, number> {
   const table = (kind && r.max_item_usd_by_kind?.[kind]) || r.max_item_usd;
   const per = table[params.arm ?? "*"] ?? table["*"] ?? {};
@@ -282,7 +292,8 @@ export function itemBudget(r: Recipe, params: Record<string, string>, kind?: str
 }
 
 const KIND_BUDGET: Record<string, string> = tmap({ email: "levelenként", document: "PDF-csatolmányonként" });
-/** A tételenkénti keret soronként (egy sor tétel-fajtánként), pl. „levelenként: JEV legfeljebb 0,05 USD”. */
+/** The per-item budget line by line (one line per item kind), e.g. „levelenként: JEV legfeljebb 0,05 USD” (per email:
+ *  JEV at most 0.05 USD). */
 export function itemBudgetLines(r: Recipe, params: Record<string, string>): string[] {
   const kinds = r.max_item_usd_by_kind ? Object.keys(r.max_item_usd_by_kind) : [undefined];
   return kinds.map((kind) => {
@@ -292,9 +303,9 @@ export function itemBudgetLines(r: Recipe, params: Record<string, string>): stri
   });
 }
 
-/** A választható levél-szándékok a regiszter sorrendjében, a választott nyelven (058 K5.1: a szándék kézi javítása). */
+/** The selectable email intents in registry order, in the chosen language (058 K5.1: correcting the intent by hand). */
 export const intentOptions = (): { value: string; label: string }[] =>
   intentRegistry.intents.map((i) => ({ value: i.key, label: t(i.display_name) }));
 
-/** 058 K5.3: a feladatjavaslat akcióinak neve (configs/email_tasks.json), a választott nyelven. */
+/** 058 K5.3: the names of the task proposal actions (configs/email_tasks.json), in the chosen language. */
 export const TASK_ACTION: Record<string, string> = tmap(emailTasks.actions as Record<string, string>);

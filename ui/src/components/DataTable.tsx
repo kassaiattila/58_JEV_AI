@@ -1,8 +1,8 @@
-// Közös táblázat (056 U1): a felület minden listája ezt használja. A keresést, a szűrést, a rendezést és a lapozást
-// a helyi szolgáltatás végzi (döntés 2026-09-28), itt csak a kérés állapota és a kirajzolás van. A megjelenés nélküli
-// motor (TanStack Table) adja a fejlécet, a rendezés-állapotot, az oszlopláthatóságot és a kijelölést; nagy lapnál a
-// TanStack Virtual csak a látható sorokat rajzolja ki. Az oszlopok láthatósága táblánként megmarad (a régi projekt
-// DataTable.tsx mintája, helyi tárolóban).
+// Shared table (056 U1): every list in the interface uses it. Search, filtering, sorting and paging are done by the
+// local service (decision of 2026-09-28); here there is only the request state and the rendering. The headless
+// engine (TanStack Table) provides the header, the sorting state, column visibility and selection; on a large page
+// TanStack Virtual renders only the visible rows. Column visibility is kept per table (following the legacy project's
+// DataTable.tsx, in local storage).
 import {
   flexRender, getCoreRowModel, useReactTable,
   type ColumnDef, type RowSelectionState, type SortingState, type VisibilityState,
@@ -21,36 +21,36 @@ import { Icon } from "./Icon";
 export interface TableState { q: string; filters: DsFilter[]; sort: DsSort[]; offset: number; limit: number }
 export const EMPTY_STATE: TableState = { q: "", filters: [], sort: [], offset: 0, limit: 100 };
 const PAGE_SIZES = [50, 100, 250, 500];
-const VIRTUAL_MIN = 80; // ennyi sor fölött csak a látható sorok rajzolódnak
+const VIRTUAL_MIN = 80; // above this many rows only the visible rows are rendered
 const ROW_PX = 37;
 
 interface Props {
   dataset: string;
   scope?: DsScope;
   label: string;
-  /** vezérelt állapot (pl. a címsorból); nélküle a táblázat maga tartja */
+  /** controlled state (e.g. from the address bar); without it the table keeps it itself */
   state?: TableState;
   onStateChange?: (s: TableState) => void;
   initial?: Partial<TableState>;
   selectable?: boolean;
   pollMs?: number;
-  /** oszlopláthatóság mentésének kulcsa (alap: az adatkészlet neve) */
+  /** key for saving column visibility (default: the dataset name) */
   storageId?: string;
-  /** a letöltés-panel többlet-választása (pl. a futás teljes Excel-csomagja) */
+  /** extra choice in the download panel (e.g. the run's full Excel bundle) */
   downloadExtras?: ReactNode;
   toolbar?: ReactNode;
   emptyText?: string;
   cell?: (col: DsColumn, row: DsRow) => ReactNode | undefined;
   maxHeight?: string;
   onPage?: (page: DsPage) => void;
-  /** ebben a környezetben alapból rejtett oszlopok (pl. a csomagon belül a csomag neve) */
+  /** columns hidden by default in this context (e.g. the work package name inside the package) */
   defaultHidden?: string[];
-  /** soronkénti műveletek (utolsó oszlop), pl. eltávolítás */
+  /** per-row actions (last column), e.g. removal */
   actions?: (row: DsRow) => ReactNode;
   actionsLabel?: string;
 }
 
-// --- cellák ------------------------------------------------------------------------------------------------------
+// --- cells -------------------------------------------------------------------------------------------------------
 
 export function linkOf(col: DsColumn, row: DsRow): string | null {
   const e = encodeURIComponent;
@@ -69,13 +69,13 @@ export function linkOf(col: DsColumn, row: DsRow): string | null {
 
 export function cellText(col: DsColumn, v: unknown): string {
   if (v === null || v === undefined || v === "") return "";
-  // a felsorolt érték felirata a szolgáltatásból jön (magyar kulcs), itt fordítjuk
+  // the label of an enumerated value comes from the local service (Hungarian key); it is translated here
   if (col.labels && typeof v !== "object") {
     const l = col.labels[String(v)];
     return l === undefined ? String(v) : t(l);
   }
   if (col.kind === "money") return numText(v, 2);
-  if (col.kind === "number" && col.percent) return `${numText(Math.round(Number(v) * 100), 0)} %`; // 062: valószínűség
+  if (col.kind === "number" && col.percent) return `${numText(Math.round(Number(v) * 100), 0)} %`; // 062: probability
   if (col.kind === "number") return numText(v, 6);
   if (col.kind === "datetime") return when(String(v));
   if (col.kind === "bool") return v ? t("igen") : t("nem");
@@ -89,10 +89,10 @@ function Cell({ col, row, custom }: { col: DsColumn; row: DsRow; custom?: Props[
   const raw = row[col.key];
   const text = cellText(col, raw);
   if (!text) return <span className="muted">–</span>;
-  // 058: a figyelmet kérő szám 0 értéke nem hivatkozás és nem kiemelt — nincs mit megnyitni
+  // 058: a value of 0 in an attention count is neither a link nor highlighted — there is nothing to open
   if (col.alert && Number(raw) === 0) return <span className="muted">{text}</span>;
   const href = linkOf(col, row);
-  // 057: állapot jelvényként, a 0-nál több figyelmet kérő szám kiemelve (az oszlopleírás mondja meg, melyik ilyen)
+  // 057: status as a badge, an attention count above 0 highlighted (the column description says which column is one)
   const body = col.badge ? <span className={`status s-${String(raw)}`}>{text}</span>
     : col.alert && Number(raw) > 0 ? <span className="count-alert">{text}</span>
       : col.kind === "id" ? <span className="mono small">{text}</span> : text;
@@ -101,8 +101,9 @@ function Cell({ col, row, custom }: { col: DsColumn; row: DsRow; custom?: Props[
 
 const NUMERIC = new Set(["number", "money"]);
 
-/** 058: a rendezhetőség jele minden oszlopfejlécen — halvány kettős nyíl, rendezett oszlopon a kiemelt irány (és a szint,
- *  ha több oszlop szerint rendez). A felolvasó az `aria-sort`-ot kapja, a jel csak látványelem. */
+/** 058: the sortability mark on every column header — a faint double arrow; on a sorted column the highlighted
+ *  direction (and the level, when sorting by several columns). Screen readers get `aria-sort`; the mark is purely
+ *  visual. */
 function SortMark({ dir, level }: { dir: false | "asc" | "desc"; level: number | null }) {
   return (
     <span className={dir ? "sort-mark on" : "sort-mark"} aria-hidden="true" data-dir={dir || "none"}>
@@ -115,7 +116,7 @@ function SortMark({ dir, level }: { dir: false | "asc" | "desc"; level: number |
   );
 }
 
-// --- szűrők ------------------------------------------------------------------------------------------------------
+// --- filters -----------------------------------------------------------------------------------------------------
 
 const OP_TEXT: Record<string, string> = tmap({ contains: "tartalmazza", eq: "=", neq: "≠", gte: "≥", lte: "≤", empty: "üres", notempty: "nem üres" });
 
@@ -217,7 +218,7 @@ function ColumnFilter({ col, facets, current, onApply }: {
   );
 }
 
-// --- oszlopválasztó ---------------------------------------------------------------------------------------------
+// --- column picker ----------------------------------------------------------------------------------------------
 
 function ColumnMenu({ columns, visible, onChange, onReset }: {
   columns: DsColumn[]; visible: (c: DsColumn) => boolean; onChange: (key: string, on: boolean) => void; onReset: () => void;
@@ -248,7 +249,7 @@ function ColumnMenu({ columns, visible, onChange, onReset }: {
   );
 }
 
-// --- oszlopláthatóság mentése -------------------------------------------------------------------------------------
+// --- saving column visibility -------------------------------------------------------------------------------------
 
 function loadVisibility(id: string): VisibilityState {
   try {
@@ -262,11 +263,11 @@ function saveVisibility(id: string, v: VisibilityState): void {
   try {
     localStorage.setItem(`jav.table.${id}.cols`, JSON.stringify(v));
   } catch {
-    /* privát ablakban nincs tárolás: a beállítás csak a munkamenetig él */
+    /* no storage in a private window: the setting only lasts for the session */
   }
 }
 
-// --- a táblázat ---------------------------------------------------------------------------------------------------
+// --- the table ----------------------------------------------------------------------------------------------------
 
 export function DataTable(p: Props) {
   const lang = useLocale();
@@ -289,7 +290,7 @@ export function DataTable(p: Props) {
   const data = page.data;
   useEffect(() => { if (data) p.onPage?.(data); }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // más adatkészlet vagy hatókör: a kijelölés nem vihető át
+  // a different dataset or scope: the selection cannot be carried over
   const ident = JSON.stringify([p.dataset, scope]);
   const [selection, setSelection] = useState<RowSelectionState>({});
   useEffect(() => setSelection({}), [ident]);
@@ -412,7 +413,7 @@ export function DataTable(p: Props) {
                   {hg.headers.map((h) => {
                     const c = h.column.columnDef.meta as DsColumn | undefined;
                     const sorted = h.column.getIsSorted();
-                    // 062: kért rendezés nélkül a szolgáltatás alapsorrendje látszik (pl. a legújabb csomag elöl)
+                    // 062: without a requested sort, the service's default order shows (e.g. newest package first)
                     const nat = !state.sort.length ? natural.find((n) => n.col === c?.key) : undefined;
                     const dir = sorted || (nat ? (nat.desc ? "desc" : "asc") : false);
                     const idx = h.column.getSortIndex();

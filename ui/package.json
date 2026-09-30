@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.1.1",
   "type": "module",
-  "description": "JAV munkafelület (040 K3): Munkacsomagok / Futtatás / Riportok a helyi szolgáltatás (jav/api.py) fölött.",
+  "description": "JAV workspace: work packages, runs and reports on top of the local service (jav/api.py).",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

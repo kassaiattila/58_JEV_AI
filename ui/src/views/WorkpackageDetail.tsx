@@ -1,6 +1,7 @@
-// Egy munkacsomag (057): fejléc a következő lépés gombjával, alatta a munka szakaszai — Feldolgozás · Ellenőrzés ·
-// Eredmény —, mindegyik a saját állapotával (a régi V4 szakasz-füleinek mintájára). Cím nélkül a csomag a következő
-// lépés szakaszánál nyílik meg; a lépést a szolgáltatás számolja egy helyen (a lista oszlopa is ezt mutatja).
+// One work package (057): a header with the next-step button, and below it the stages of the work — Feldolgozás ·
+// Ellenőrzés · Eredmény (Processing · Review · Result) —, each with its own status (modelled on the old V4 stage tabs).
+// Without an address the work package opens at the next step's stage; the step is computed in one place by the local
+// service (the list column shows the same).
 import { useEffect, useState, type ReactNode } from "react";
 import { api, ApiError, USERS_EVENT, type WorkpackageView } from "../api";
 import { PageHeader } from "../components/PageHeader";
@@ -30,12 +31,13 @@ export function stageStatus(view: WorkpackageView): Record<Stage, string> {
   };
 }
 
-/** A következő lépés felirata a választott nyelven (a közös `stepLabel` a szolgáltatás kódjából és paramétereiből). */
+/** The next step's label in the chosen language (the shared `stepLabel`, from the local service's code and
+ *  parameters). */
 export function nextStepText(view: WorkpackageView): string {
   return stepLabel(view.next.code, view.next.params, view.next.label);
 }
 
-/** 061: a csomag felelőse a névlistából (a „Saját csomagjaim” szűrő ez alapján). */
+/** 061: the work package's owner, from the list of names (the „Saját csomagjaim” (My work packages) filter uses it). */
 function OwnerPicker({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
   useLocale();
   const users = useLoad("users", api.users);
@@ -68,11 +70,11 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   const [poll, setPoll] = useState(false);
   const wp = useLoad(`wp:${wpId}`, () => api.workpackage(wpId), poll ? 4000 : undefined);
   const lastStatus = wp.data?.last_run?.status;
-  useEffect(() => setPoll(lastStatus ? ACTIVE.has(lastStatus) : false), [lastStatus]); // csak futás közben frissül magától
+  useEffect(() => setPoll(lastStatus ? ACTIVE.has(lastStatus) : false), [lastStatus]); // auto-refreshes only during a run
   const recipes = useLoad("recipes", api.recipes);
 
   if (wp.error?.status === 404 || wp.error?.status === 422) {
-    // A címben kért csomag nincs meg: ezt mondjuk ki, nem nyitunk meg helyette másikat.
+    // The work package requested in the address does not exist: we say so, and do not open another one instead.
     return (
       <PageHeader crumbs={[{ label: t("Munkacsomagok"), href: "#/workpackages" }]} title={t("A munkacsomag nem található")}
         summary={<><span className="mono">{wpId}</span>: {t("nincs ilyen azonosítójú munkacsomag (vagy törölték). Válassz a listából.")}</>} />
@@ -92,7 +94,7 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
       {last ? ` · ${t("utolsó futás: {{mode}}, {{when}}", { mode: MODE[last.mode].toLowerCase(), when: when(last.created_at) })}` : ` · ${t("még nem futott")}`}
     </>
   );
-  // a következő lépés gombja; ha éppen annak a szakasznak az oldalán vagyunk, nem kell
+  // the next-step button; not needed if we are already on that stage's page
   const nextButton = next.stage !== stage || route.stage === undefined ? (
     <button type="button" className="primary" onClick={() => go({ view: "workpackages", wpId, stage: next.stage })}>{nextStepText(view)} →</button>
   ) : <span className="next-hint">{t("Következő lépés: {{step}}", { step: nextStepText(view) })}</span>;

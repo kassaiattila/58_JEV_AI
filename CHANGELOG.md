@@ -16,6 +16,9 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   with a named error and without a retry, the OCR page images give a to-do, and a review page image is refused; the
   next document gets a new helper. A document over an input limit is no longer retried either. Settings:
   `configs/service.json` `pdf_reader`.
+- **UI code comments in English (2026-09-30):** every comment in the UI sources (TypeScript, CSS, the i18n checker)
+  and the UI package description are now in British English; a machine comparison confirms that no code changed.
+  The UI's own texts are unchanged.
 
 ## v1.1.1 — 2026-09-30
 

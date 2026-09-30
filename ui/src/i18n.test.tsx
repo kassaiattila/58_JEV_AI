@@ -1,5 +1,6 @@
-// 057: nyelvváltás (HU / EN, a régi V4 módján) — a feliratok helyben frissülnek, a beírt érték megmarad, a választás
-// megmarad, hiányzó fordításnál a magyar felirat látszik, a helyőrző a paraméterrel töltődik.
+// 057: language switching (HU / EN, the way the old V4 did it) — the labels update in place, the typed value is kept,
+// the choice is remembered, a missing translation shows the Hungarian label, and the placeholder is filled with the
+// parameter.
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
@@ -27,7 +28,7 @@ describe("nyelvváltás", () => {
     await userEvent.type(screen.getByLabelText("Számlaszám"), "MINTA-7");
     await userEvent.click(screen.getByRole("button", { name: "EN" }));
     const input = await screen.findByLabelText("Invoice number") as HTMLInputElement;
-    expect(input.value).toBe("MINTA-7"); // a munkapéldány nem veszett el
+    expect(input.value).toBe("MINTA-7"); // the working copy was not lost
     expect(screen.getByRole("button", { name: "EN" }).getAttribute("aria-pressed")).toBe("true");
     expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("en");
     expect(document.documentElement.lang).toBe("en");

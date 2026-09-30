@@ -1,5 +1,5 @@
-// Megjelenés (057): téma (világos / sötét / a rendszer szerint) és sűrűség (tágas / tömör). Nézőnként, a böngészőben
-// tárolva (a régi V4 is így kezelte); tárolás híján (privát ablak) az alapérték él.
+// Appearance (057): theme (light / dark / following the system) and density (comfortable / compact). Per viewer,
+// stored in the browser (the legacy V4 handled it the same way); without storage (private window) the default applies.
 export type Theme = "light" | "dark" | "system";
 export type Density = "comfortable" | "compact";
 export interface Appearance { theme: Theme; density: Density }
@@ -30,12 +30,13 @@ export function setAppearance(a: Appearance): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(a));
   } catch {
-    /* privát ablakban nincs tárolás: a beállítás csak a munkamenetig él */
+    /* no storage in a private window: the setting lasts only for the session */
   }
   applyAppearance(a);
 }
 
-/** Induláskor: alkalmazza a mentett beállítást, és „rendszer” témánál követi a rendszer váltását. */
+/** At start-up: applies the saved setting and, with the „rendszer” (system) theme, follows the system when it
+ *  switches. */
 export function initAppearance(): void {
   applyAppearance();
   if (typeof window.matchMedia === "function") {
