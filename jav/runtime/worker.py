@@ -100,6 +100,20 @@ def _sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def _attachment_reads(items: list[dict[str, Any]], email_item_id: str) -> dict[str, str]:
+    """The email's attachments that are items of the run with an intact source instance: resolved original path ->
+    instance. A damaged instance is left out (its own document item fails with `instance_damaged`)."""
+    from jav import source_instances
+
+    out = {}
+    for i in items:
+        if i.get("parent_item_id") == email_item_id and i.get("instance"):
+            instance = work.source_file(i)
+            if source_instances.intact(instance, i["sha256"]):
+                out[str(Path(i["source_path"]).resolve())] = str(instance)
+    return out
+
+
 def _flow_module(name: str):
     from jav import flow, flow_detect, flow_email  # deferred import: the flows pull in heavy dependencies
     return {"invoice": flow, "doc_detect": flow_detect, "email": flow_email}[name]
@@ -125,9 +139,10 @@ def _stages(recipe: dict[str, Any], params: dict[str, Any]) -> list[tuple[str, d
 
 
 def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app_id: str, persister,
-           read_path: str | None = None):
+           read_path: str | None = None, attachment_reads: dict[str, str] | None = None):
     """`read_path`: where a document's bytes are read from (its source instance); the file name, the year hint and
-    the stored path stay those of `source_path`, the original."""
+    the stored path stay those of `source_path`, the original. `attachment_reads`: for an email, the source instances
+    of its attachments that are items of the package."""
     mod = _flow_module(recipe["flow"])
     if recipe["flow"] == "invoice":
         # `jev_cache=live`: skip reading the JEV cache so every call goes through the log and the budget (live test)
@@ -135,7 +150,8 @@ def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app
                             persister=persister, use_cache=params.get("jev_cache", "reuse") != "live", read_path=read_path)
     elif recipe["flow"] == "email":  # 048 T2: the item is the email's `message.json`; the flow reads its folder
         app = mod.build_app(source_dir=str(Path(source_path).parent), tracker=False, run_id=app_id, persister=persister,
-                            use_cache=params.get("jev_cache", "reuse") != "live", propose_tasks=params.get("tasks") == "propose")
+                            use_cache=params.get("jev_cache", "reuse") != "live", propose_tasks=params.get("tasks") == "propose",
+                            attachment_reads=attachment_reads)
     else:
         app = mod.build_app(source_path, tracker=False, run_id=app_id, persister=persister,
                             use_cache=params.get("jev_cache", "reuse") != "live", read_path=read_path)
@@ -143,7 +159,8 @@ def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app
 
 
 def _run_stage(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app_id: str, persister, *, run_id: str,
-               job_id: int, after_step: Callable[[str], None] | None, read_path: str | None = None):
+               job_id: int, after_step: Callable[[str], None] | None, read_path: str | None = None,
+               attachment_reads: dict[str, str] | None = None):
     """Runs one stage with persistence: a stage that already reached a terminal state does not run again (resume after
     a crash). The saved state is looked up under the flow's own partition (066 Á08: the email flow saves under
     `email_intent`, but the lookup used the recipe name `email`, so a finished email ran again and the job died)."""
@@ -151,7 +168,7 @@ def _run_stage(recipe: dict[str, Any], params: dict[str, Any], source_path: str,
     saved = persister.load(mod.PARTITION, app_id)
     if saved and saved["position"] in mod.TERMINALS:
         return saved["state"]
-    app, terminals = _build(recipe, params, source_path, app_id, persister, read_path)
+    app, terminals = _build(recipe, params, source_path, app_id, persister, read_path, attachment_reads)
     state = None
     with calls.use_run(budget_scope=run_id):
         for action, _result, state in app.iterate(halt_after=terminals):
@@ -187,6 +204,7 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                 raise InstanceDamaged(f"the copy of {name} kept when it was added is missing or damaged")
             raise SourceChanged(f"{name} differs from the frozen input")
         read_path = str(src) if item.get("instance") else None
+        attachment_reads = _attachment_reads(run["input"]["items"], item_id) if item.get("kind") == "email" else None
         persister = StatePersister(str(persister_path()))
         persister.initialize()
         try:
@@ -201,7 +219,8 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                         final = "needs_review"
                         break
                 state = _run_stage({**run["recipe"], "flow": flow_name}, params, item["source_path"], stage_id, persister,
-                                   run_id=run_id, job_id=job.id, after_step=after_step, read_path=read_path)
+                                   run_id=run_id, job_id=job.id, after_step=after_step, read_path=read_path,
+                                   attachment_reads=attachment_reads)
                 final = state.get("final_status")
         finally:
             persister.cleanup()

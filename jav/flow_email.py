@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from pathlib import Path
 
 from burr.core import ApplicationBuilder, action
 from burr.core.application import Application
@@ -46,6 +47,9 @@ class EmailState(BaseModel):
     final_status: str | None = None
     propose_tasks: bool = False  # 058 K5.3: whether the recipe asks for task proposals (off by default: GPT cost)
     tasks: dict | None = None  # the proposal after the gate: {status, tasks, rejected} (None = not requested)
+    # an attachment's resolved path -> its verified source instance (the worker supplies it for the attachments that are
+    # items of the package); such an attachment is read from the instance, any other from its path
+    attachment_reads: dict[str, str] = Field(default_factory=dict)
 
 
 @action.pydantic(reads=["source_dir", "message"], writes=["message"])
@@ -57,11 +61,14 @@ def load_message(state: EmailState) -> EmailState:
     return state
 
 
-@action.pydantic(reads=["message", "run_id", "use_cache", "detect_attachments", "review_reasons"], writes=["message", "review_reasons"])
+@action.pydantic(reads=["message", "run_id", "use_cache", "detect_attachments", "review_reasons", "attachment_reads"],
+                 writes=["message", "review_reasons"])
 def classify_attachments(state: EmailState) -> EmailState:
     """078: an attachment the PDF reader cannot read (corrupt, over the reader's time or memory limit, over an input
     limit) is marked `unreadable` and gives the email an `attachment:unreadable:<why>` to-do; the other attachments and
-    the intent still run. Until 078 the error failed the whole email item. Any other error still fails it."""
+    the intent still run. Until 078 the error failed the whole email item. Any other error still fails it.
+    An attachment that is an item of the package is read from its source instance (`attachment_reads`), the same bytes
+    its document item is processed from."""
     from jav.isolated_pdf import PdfReaderError, PdfReaderLimit
     from jav.pdf import DocumentTooLarge
 
@@ -84,7 +91,8 @@ def classify_attachments(state: EmailState) -> EmailState:
 
         # 065: under the email's run ID, otherwise the attachment's to-do and cost would fall outside the run
         try:
-            st = run_detect(att.path, use_cache=state.use_cache, run_id=f"{state.run_id}-doc_detect")
+            st = run_detect(att.path, use_cache=state.use_cache, run_id=f"{state.run_id}-doc_detect",
+                            read_path=state.attachment_reads.get(str(Path(att.path).resolve())))
         except (PdfReaderError, PdfReaderLimit, DocumentTooLarge) as exc:
             why = exc.reason if isinstance(exc, PdfReaderLimit) else type(exc).__name__
             log.warning("email %s: a PDF attachment is unreadable: %s", msg.message_id, why)  # no file name in the log
@@ -250,13 +258,14 @@ def build_app(
     run_id: str | None = None,
     persister=None,
     propose_tasks: bool = False,
+    attachment_reads: dict[str, str] | None = None,
 ) -> Application:
     """`run_id` + `persister` (048 T2): when run from the worker, durable state persistence and resumption under the
-    same ID."""
+    same ID. `attachment_reads`: the source instances to read the package's attachment items from."""
     stem = (message.message_id if message else source_dir or "email").replace(":", "-").replace("\\", "/").rstrip("/").rsplit("/", 1)[-1][:32]
     run_id = run_id or f"email-{stem}-{uuid.uuid4().hex[:8]}"
     initial = EmailState(source_dir=source_dir, message=message, run_id=run_id, use_cache=use_cache, detect_attachments=detect_attachments,
-                         propose_tasks=propose_tasks)
+                         propose_tasks=propose_tasks, attachment_reads=attachment_reads or {})
     b = (
         ApplicationBuilder()
         .with_typing(PydanticTypingSystem(EmailState))

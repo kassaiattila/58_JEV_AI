@@ -16,6 +16,7 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   original file is later edited, moved or deleted; a changed or missing original is a warning instead of a blocker,
   and the review view says so. The copies go into the daily backup once each, locally and in the second location.
   Documents added before this change keep working from their original file. The model requests do not change.
+  The email flow's own recognition of a PDF attachment reads the same kept copy as the attachment's document item.
 
 ## v1.1.2 — 2026-09-30
 
