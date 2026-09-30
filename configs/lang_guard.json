@@ -336,6 +336,7 @@
     "ui/src/components/Picker.tsx": 11,
     "ui/src/components/Popover.tsx": 4,
     "ui/src/confirm066.test.tsx": 11,
+    "ui/src/cutlist076.test.ts": 2,
     "ui/src/datatable.test.tsx": 55,
     "ui/src/deps075.test.tsx": 3,
     "ui/src/errorboundary066.test.tsx": 7,

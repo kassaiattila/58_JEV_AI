@@ -1,4 +1,4 @@
-"""A cut candidate list is counted, and "none" on a cut list is its own to-do (076, Q-jelölt-levágás).
+"""A cut candidate list is counted, and "none" on a cut list is its own to-do (076).
 
 The repeated audit's acceptance condition: the candidates of a field are counted (found / sent / skipped), and when the
 list JEV saw was cut (the cap of 250 options, or the request size budget) and JEV answered "none", the right value may
