@@ -54,7 +54,10 @@ def test_converted_pack_agrees_with_legacy_fixture_verdict(fixture):
     case = json.loads(fixture.read_text(encoding="utf-8"))
     pack = typepack.get(fixture.parent.parent.name)
     rec, reasons = pack.normalize(case["datapoints"])
-    assert all(r.ok for r in run_all(rec, pack.validators)) is case["expected_valid"] and reasons == []
+    # 075: the domestic bank account check digits are checked now; the legacy rules did not, so a legacy synthetic
+    # document whose only failure is that check keeps its legacy "valid" verdict (the fixture is a verbatim copy)
+    failed = {r.code for r in run_all(rec, pack.validators) if not r.ok} - {"account.hu_checksum", "iban.hu_account_checksum"}
+    assert (not failed) is case["expected_valid"] and reasons == []
     dp = rec.to_datapoints(pack.record_fields)
     assert [k for k, v in case["datapoints"].items() if v not in (None, [], "") and dp.get(k) in (None, [], "")] == []
 

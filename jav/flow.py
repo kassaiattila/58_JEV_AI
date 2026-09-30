@@ -89,7 +89,7 @@ def ocr_pdf(state: FlowState) -> FlowState:
     """PDF without text: OCR (jav/ocr.py, with a disk cache) -> the same layout (lines, cells) as for a text layer.
     The OCR quality signals go into the state raw; weak OCR raises reviews per the policy's `ocr` thresholds. No
     engine / no usable text: `text_source` stays None -> `needs_ocr` terminal (the flow does not crash)."""
-    from jav.ocr import OcrUnavailableError, ocr_with_escalation
+    from jav.ocr import OcrUnavailableError, escalation_review_reasons, ocr_with_escalation
 
     try:
         pdf, escalated = ocr_with_escalation(state.source_path, page_count=state.page_count)
@@ -110,6 +110,7 @@ def ocr_pdf(state: FlowState) -> FlowState:
         policy.require_review(state, "ocr:no_text")
     policy.require_review(state, *policy.ocr_review_reasons(state.ocr_conf, state.ocr_low_conf_ratio))
     policy.require_review(state, *policy.ocr_coverage_reasons(state.page_count, signals.get("pages_ocr")))
+    policy.require_review(state, *escalation_review_reasons(signals))  # 075: Azure blocked by the budget
     return state
 
 

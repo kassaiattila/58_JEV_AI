@@ -58,10 +58,20 @@ def hu_tax_ids(draw) -> str:
     return "".join(map(str, base)) + str(check) + str(vat) + f"{county:02d}"
 
 
+def hu_account(digits: list[int]) -> str:
+    """A domestic account number from 22 (or 14) free digits: the check digit is appended to the first 7 digits and to
+    the rest, giving 24 (or 16) digits (weights 9-7-3-1 repeating, the weighted sum divisible by 10)."""
+    def with_check(part: list[int]) -> list[int]:
+        total = sum(d * (9, 7, 3, 1)[i % 4] for i, d in enumerate(part))
+        return [*part, -total % 10]  # the check digit's weight is 1 in both groups
+    return "".join(map(str, with_check(digits[:7]) + with_check(digits[7:])))
+
+
 @st.composite
 def hu_ibans(draw) -> str:
-    """A valid, made-up Hungarian IBAN (28 characters, with a mod-97 check number), without spaces."""
-    bban = "".join(map(str, draw(st.lists(st.integers(0, 9), min_size=24, max_size=24))))
+    """A valid, made-up Hungarian IBAN (28 characters, with a mod-97 check number), without spaces. 075: its inner
+    account number carries the two domestic check digits, as every real Hungarian account does."""
+    bban = hu_account(draw(st.lists(st.integers(0, 9), min_size=22, max_size=22)))
     check = 98 - int(bban + "173000") % 97  # H=17, U=30, "00" in its place: ISO 13616 mod-97
     return f"HU{check:02d}{bban}"
 

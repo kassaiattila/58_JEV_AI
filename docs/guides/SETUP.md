@@ -55,7 +55,7 @@ Optional environment variables (in `.env` or in the shell):
 
 - **Tesseract 5.x**, installed natively in `%LOCALAPPDATA%\Programs\Tesseract-OCR`. It does not need to be on the PATH: `configs/ocr.json` lists where to look (the PATH, this folder and `C:\Program Files\Tesseract-OCR`).
 - **Language packs** (not in git; git-ignored): `tools/tessdata/` (eng, hun, osd; the project uses this one) and `tools/tessdata_best/`. Get them from the tesseract-ocr `tessdata_fast` and `tessdata_best` releases, or from the legacy sidecar's Docker image, where the original copy came from. Without a PDF, `python -m jav.cli ocr` prints the state of the engine and the language packs.
-- The paid Azure Document Intelligence escalation goes through the legacy project's sidecar container. It is needed only to escalate weak local OCR.
+- The paid Azure Document Intelligence escalation goes through the legacy project's sidecar container. It is needed only to escalate weak local OCR. In a run it is used only within the run's Azure budget (the recipe's Azure recognition switch), and every call is in the call log.
 
 ## 4. Dependency on the legacy project: what works in a fresh clone
 

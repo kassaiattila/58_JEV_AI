@@ -193,5 +193,7 @@
   "Út": "Path",
   "Üres csomag": "Empty work package",
   "A friss költségkeret nem kérhető le: {{message}}": "The current cost limit could not be loaded: {{message}}",
-  "A költségkeret frissítése…": "Refreshing the cost limit…"
+  "A költségkeret frissítése…": "Refreshing the cost limit…",
+  "Gyenge helyi felismerésnél Azure-felismerés (fizetős, a recept Azure-keretén belül)": "Azure recognition for weak local recognition (paid, within the recipe's Azure budget)",
+  "Csak helyi felismerés": "Local recognition only"
 }

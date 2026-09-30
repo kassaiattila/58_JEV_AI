@@ -127,11 +127,6 @@ def deny_entry(term: str, why: str = "") -> dict[str, Any]:
     return {"sha256": hashlib.sha256(t.encode("utf-8")).hexdigest(), "len": len(t), "why": why}
 
 
-def _cdv_ok(digits: str) -> bool:
-    """Check digit of a domestic bank account number group: weights 9-7-3-1, the sum is divisible by 10."""
-    return sum(int(d) * (9, 7, 3, 1)[i % 4] for i, d in enumerate(digits)) % 10 == 0
-
-
 def _real_hu_tax(value: str) -> bool:
     t = taxid.recognize(value)
     return t is not None and t.country == "HU" and taxid.hu_check(t)[0]
@@ -147,8 +142,7 @@ def _real_iban(value: str) -> bool:
 
 
 def _real_account(value: str) -> bool:
-    d = re.sub(r"\D", "", value)
-    return len(d) in (16, 24) and _cdv_ok(d[:8]) and _cdv_ok(d[8:])
+    return validators.hu_account_check_digits_ok(re.sub(r"\D", "", value))  # 075: one rule with the validator
 
 
 _REAL = {"hu_tax_id": _real_hu_tax, "eu_vat": _real_eu_vat, "iban": _real_iban, "bank_account": _real_account}
@@ -331,7 +325,9 @@ def _numstat_binaries(out: bytes) -> list[str]:
 
 def _scan_change(root: Path, guard: Guard, diff_args: list[str]) -> list[Finding]:
     """Checks one change (the files going into git and their new lines); `diff_args` is the `git diff`/`diff-tree`
-    call."""
+    call. 075 (repeated security audit, S05): without rename detection, so a renamed or copied file shows as a new
+    file and its whole content is checked under the new path (a pure rename used to have no added line)."""
+    diff_args = [*diff_args, "--no-renames"]
     found: list[Finding] = []
     names = _git(root, *diff_args, "--name-only", "-z", "--diff-filter=ACMR").stdout
     for name in filter(None, names.decode("utf-8", "replace").split("\0")):

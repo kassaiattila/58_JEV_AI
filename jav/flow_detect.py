@@ -83,7 +83,7 @@ def load_pdf(state: DetectState) -> DetectState:
 @action.pydantic(reads=["source_path", "page_count", "review_reasons"], writes=["text", "lines", "layout", "text_source", "ocr_conf", "ocr_low_conf_ratio", "review_reasons"])
 def ocr_pdf(state: DetectState) -> DetectState:
     """PDF without text: OCR (jav/ocr.py, cached) onto the same layout; no engine / no text -> `needs_ocr`."""
-    from jav.ocr import OcrUnavailableError, ocr_with_escalation
+    from jav.ocr import OcrUnavailableError, escalation_review_reasons, ocr_with_escalation
 
     try:
         pdf, _escalated = ocr_with_escalation(state.source_path, page_count=state.page_count)
@@ -96,7 +96,8 @@ def ocr_pdf(state: DetectState) -> DetectState:
     if pdf.text_source is None:
         state.review_reasons = state.review_reasons + ["ocr:no_text"]
     state.review_reasons = state.review_reasons + [
-        r for r in policy.ocr_coverage_reasons(state.page_count, signals.get("pages_ocr")) if r not in state.review_reasons]
+        r for r in [*policy.ocr_coverage_reasons(state.page_count, signals.get("pages_ocr")), *escalation_review_reasons(signals)]
+        if r not in state.review_reasons]
     return state
 
 

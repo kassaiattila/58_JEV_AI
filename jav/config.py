@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -73,8 +74,14 @@ def openai_price(model: str) -> tuple[float, float]:
 
 
 OPENAI_SETTINGS: dict = {"reasoning_effort": _MODELS["openai"].get("reasoning_effort", "none"), "temperature": float(_MODELS["openai"].get("temperature", 0.0)),
-                         "retries": int(_MODELS["openai"].get("retries", 2))}
+                         "retries": int(_MODELS["openai"].get("retries", 2)),
+                         # 075 (S02): the OpenAI client's own transport retries are paid requests the reservation must
+                         # count; 0 = none (the work queue repeats a failed item instead)
+                         "sdk_max_retries": int(_MODELS["openai"].get("sdk_max_retries", 0))}
 TRACKER_PROJECTS: dict[str, str] = dict(_MODELS.get("burr", {}).get("tracker_projects", {}))
+# 075: Azure DI (through the legacy sidecar) is priced per page for the reservation and the call log
+AZURE_DI_MODEL: str = _MODELS.get("azure_di", {}).get("model", "prebuilt-read")
+AZURE_USD_PER_PAGE: Decimal = Decimal(str(_MODELS.get("azure_di", {}).get("usd_per_page", "0.0015")))
 
 # override=False: a real environment variable that is already set wins over the .env
 # (CI / production supplies the key there, not from a file).
@@ -127,6 +134,17 @@ def guard_sdk_logging() -> bool:
     logging.getLogger("typesafe_sdk").setLevel(logging.WARNING)
     print(f"[jav] {SDK_LOG_LEVEL_ENV}={level} figyelmen kívül hagyva (PII a naplóban); engedélyezés: {SDK_DEBUG_ALLOW_ENV}=1", file=sys.stderr)
     return True
+
+
+def openai_chat_model():
+    """The Pydantic AI chat model of the configured OpenAI model, with the client's own retries set explicitly
+    (`sdk_max_retries` in configs/models.json, 075), so that every physical request is one the reservation counted."""
+    from openai import AsyncOpenAI
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+
+    client = AsyncOpenAI(api_key=get_openai_key(), max_retries=OPENAI_SETTINGS["sdk_max_retries"])
+    return OpenAIChatModel(OPENAI_MODEL, provider=OpenAIProvider(openai_client=client))
 
 
 def make_client(**kwargs: object) -> TypeSafeClient:

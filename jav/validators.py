@@ -86,8 +86,21 @@ def hu_tax_id(value: str | None, name: str = "hu_tax_id") -> CheckResult:
     return tax_id(value, name=name)
 
 
+_GIRO_WEIGHTS = (9, 7, 3, 1)
+
+
+def hu_account_check_digits_ok(digits: str) -> bool:
+    """075 (repeated security audit, F01): the two check digits of a Hungarian domestic account number (16 or 24
+    digits; the giro rule of the central bank). The first 8 digits and the rest each end in a check digit: with the
+    weights 9-7-3-1 repeating, the weighted sum of each part is divisible by 10. The data guard uses the same rule."""
+    if len(digits) not in (16, 24) or not digits.isdigit():
+        return False
+    return all(sum(int(d) * _GIRO_WEIGHTS[i % 4] for i, d in enumerate(part)) % 10 == 0 for part in (digits[:8], digits[8:]))
+
+
 def iban_check(value: str | None, name: str = "iban_check") -> CheckResult:
-    """ISO 13616 mod-97; a HU IBAN is exactly 28 characters; 16/24 digits = domestic account number (ok)."""
+    """ISO 13616 mod-97; a HU IBAN is exactly 28 characters and its inner account number must pass the domestic check
+    digits too; 16/24 digits = a domestic account number, valid only with both check digits right (075)."""
     if not value:
         return CheckResult(name=name, ok=False, code="account.missing")
     s = _IBAN_STRIP.sub("", str(value)).upper()
@@ -99,10 +112,14 @@ def iban_check(value: str | None, name: str = "iban_check") -> CheckResult:
         remainder = 0
         for i in range(0, len(expanded), 7):
             remainder = int(str(remainder) + expanded[i : i + 7]) % 97
-        if remainder == 1:
-            return CheckResult(name=name, ok=True, code="iban.ok")
-        return CheckResult(name=name, ok=False, code="iban.checksum")
+        if remainder != 1:
+            return CheckResult(name=name, ok=False, code="iban.checksum")
+        if s.startswith("HU") and not hu_account_check_digits_ok(s[4:]):
+            return CheckResult(name=name, ok=False, code="iban.hu_account_checksum")
+        return CheckResult(name=name, ok=True, code="iban.ok")
     if _DIGITS_FULL.match(s) and len(s) in (16, 24):
+        if not hu_account_check_digits_ok(s):
+            return CheckResult(name=name, ok=False, code="account.hu_checksum")
         return CheckResult(name=name, ok=True, code="account.hu_domestic")
     return CheckResult(name=name, ok=False, code="account.format", detail=s[:40])
 

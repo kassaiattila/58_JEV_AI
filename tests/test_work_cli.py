@@ -68,7 +68,7 @@ def test_cli_wp_create_from_files(tmp_path: Path, capsys):
         assert cli.main(["wp-create"]) == 2
         capsys.readouterr()
         a_ = _run(capsys, "wp-assign", wp["id"], "invoice-extraction", "--jev-cache", "live")
-        assert a_["params"] == {"arm": "auto", "doc_type": "invoice_hu", "jev_cache": "live"}  # 053: type's recommended path
+        assert a_["params"] == {"arm": "auto", "doc_type": "invoice_hu", "jev_cache": "live", "azure_ocr": "on"}  # 053: type's recommended path
 
 
 def test_uncertain_calls_can_be_listed_and_resolved_from_the_cli(tmp_path: Path, capsys):

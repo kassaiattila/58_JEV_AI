@@ -110,6 +110,7 @@ The settings (the meaning of the chosen value is always shown on the card):
 - **Path** (*Út*): how the system reads the data. ‘automatic’ (*automatikus*) follows the recommended path for the document type and is the recommended choice for everyday work. With ‘code + JEV’ (*kód + JEV*), the S path, code collects the possible values and JEV chooses among them; it is cheaper but does not read line items. With ‘GPT + JEV’, the G path, GPT reads the data including the line items and JEV checks each field; it costs more.
 - **Document type** (*Irattípus*) (first recipe only): which type's fields the system looks for. The same type runs on every document in the package.
 - **JEV answers** (*JEV-válaszok*): with ‘earlier answer may be reused’ (*korábbi válasz újrahasználható*), the earlier answer to the same question comes back free and instantly; this is recommended for everyday work. ‘always a live call’ (*mindig élő hívás*) is for measurements, and the cost can grow up to the budget.
+- **Azure recognition** (*Azure-felismerés*): ‘for weak scans’ (*gyenge szkennelésnél*) by default. If the local text recognition of a scanned document is weak, the system uses the more accurate, paid Azure recognition within the recipe's Azure budget per document; every call is in the call log. If the run's Azure budget runs out, the local text goes on and the document gets the to-do ‘Weak local recognition; Azure recognition was skipped because of the run's budget’ (*Gyenge helyi felismerés; az Azure-felismerés a futás kerete miatt elmaradt*). With ‘off’ (*kikapcsolva*) only the local recognition runs.
 - **Task proposal** (*Feladatjavaslat*) (email recipe only): ‘off’ (*kikapcsolva*) by default. When it is switched on, GPT makes a proposal for each email, which adds a cost per email.
 - **Cost budget** (*Költségkeret*): the maximum amount per item and per provider that the system reserves when the run starts. It is an upper limit; the actual cost is usually lower.
 
@@ -135,7 +136,7 @@ The three buttons do not start anything straight away; they take you to a summar
 
 - **Header:** the mode and time, the state (‘Queued’ (*Sorban áll*), ‘Running’ (*Fut*), ‘To-dos pending’ (*Teendő vár*), ‘Done’ (*Kész*), ‘Failed’ (*Hibás*) or ‘Stopped’ (*Leállítva*)), the recipe with its settings, and who started the run.
 - **Items:** for each item, its run state, the result and the number of to-dos. Clicking a to-do opens Review.
-- **Cost** (*Költség*): for each provider, the committed amount compared with the budget. The committed amount is the cost of the completed calls plus a worst-case estimate for the calls not yet settled.
+- **Cost** (*Költség*): for each provider, the committed amount compared with the budget. The committed amount is the cost of the completed calls plus the reserved upper bound of the calls not yet settled.
 - **Job queue** (*Munkasor*): how many jobs are queued, running, done, failed (given up) or stopped.
 - **Call log (raw model calls)** (*Hívásnapló (nyers modellhívások)*): an expandable list of the paid calls. It is empty if every answer came from the cache.
 - **Stop** (*Leállítás*) (only while the run is in progress): needs two clicks (‘Sure? Click again’ (*Biztosan? Kattints újra*)). Queued items stop at once; the item in progress stops after its next step.

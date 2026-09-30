@@ -489,7 +489,9 @@ def item_budget(r: dict[str, Any], params: dict[str, Any], kind: str | None = No
     per = table.get(arm or params.get("arm", "*"), table.get(params.get("arm", "*"), table.get("*", {})))
     out = {provider: Decimal(v) for provider, v in per.items()}
     for extra in r.get("param_item_usd") or []:  # 058 K5.3: parameter-bound extra (e.g. task proposal on the email)
-        if params.get(extra["param"]) == extra["value"] and extra.get("kind") in (None, kind):
+        # 075: a parameter missing from an older assignment counts with the recipe's default (e.g. the Azure switch)
+        value = params.get(extra["param"], (r.get("params", {}).get(extra["param"]) or {}).get("default"))
+        if value == extra["value"] and extra.get("kind") in (None, kind):
             for provider, v in extra["usd"].items():
                 out[provider] = out.get(provider, Decimal(0)) + Decimal(v)
     return out

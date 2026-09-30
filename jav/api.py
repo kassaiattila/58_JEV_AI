@@ -17,6 +17,7 @@ Long processing does not run here: the run goes into the work queue and the sepa
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -29,7 +30,7 @@ from urllib.parse import quote, unquote, urlsplit
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi import Path as PathParam
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -404,6 +405,13 @@ def actor_unless_first_users(x_actor: Annotated[str | None, Header(max_length=25
 # --- application ----------------------------------------------------------------------------------------
 
 
+def _max_source_bytes() -> int:
+    """075: a source larger than the input limit is never read into memory (it could not have been added anyway)."""
+    from jav import pdf
+
+    return int(pdf.input_limits().max_document_mb * 1_000_000)
+
+
 def create_app(*, store_path: Path | None = None) -> FastAPI:
     """`store_path`: a store for this app instance (for tests); without it, the default `store/jav.sqlite`."""
     s = settings()
@@ -567,17 +575,26 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         work.remove_item(wp_id, item_id, expected_revision=body.expected_revision)
         return work_views.workpackage_view(wp_id)
 
-    def _item_file(wp_id: str, item_id: str) -> Path:
-        """The source file of a live item in the package, only if its content is the same as when it was added — no
-        other file can be read out through this route. The fingerprint is memoised by size + modification time (058):
-        the whole document is not re-hashed for every page image."""
+    def _item_source(wp_id: str, item_id: str) -> tuple[Path, bytes]:
+        """The source file of a live item in the package and its bytes, only if their content is the same as when it
+        was added — no other file can be read out through this route. 075 (repeated security audit, S03): the file is
+        read once and hashed in full on every request, and exactly the verified bytes are served or rendered, so a file
+        changed in place (even with the same size and modification time) or swapped after the check cannot be served.
+        Before 075 a fingerprint memoised by size + modification time was trusted here (058)."""
         item = next((i for i in work.get(wp_id)["items"] if i["item_id"] == item_id), None)
         if item is None:
             raise KeyError(item_id)
         p = Path(item["source_path"])
-        if not p.is_file() or work.fingerprint(p) != item["sha256"]:
-            raise work.RevisionConflict("the source file changed or disappeared since it was added")
-        return p
+        conflict = work.RevisionConflict("the source file changed or disappeared since it was added")
+        try:
+            if not p.is_file() or p.stat().st_size > _max_source_bytes():
+                raise conflict
+            data = p.read_bytes()
+        except OSError as exc:
+            raise conflict from exc
+        if hashlib.sha256(data).hexdigest() != item["sha256"]:
+            raise conflict
+        return p, data
 
     @app.get(r + "/workpackages/{wp_id}/items/{item_id}/pages/{page}.png")
     def item_page(wp_id: WpId, item_id: ItemId, page: Annotated[int, PathParam(ge=1, le=500)],
@@ -586,16 +603,16 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         store it (`no-store`, added by the security-header layer; previously it stayed in the disk cache for a day)."""
         from jav import page_image
 
-        png = page_image.render(_item_file(wp_id, item_id), page, dpi=dpi)
+        path, data = _item_source(wp_id, item_id)
+        png = page_image.render(path, page, dpi=dpi, data=data)
         return Response(png, media_type="image/png")
 
     @app.get(r + "/workpackages/{wp_id}/items/{item_id}/source")
-    def item_source(wp_id: WpId, item_id: ItemId) -> FileResponse:
-        """The item's source document (shown in the browser or downloaded)."""
-        p = _item_file(wp_id, item_id)
-        return FileResponse(p, media_type="application/pdf" if p.suffix.lower() == ".pdf" else "application/octet-stream",
-                            headers={"Content-Disposition": "inline", "Cache-Control": "no-store",
-                                     "X-Content-Type-Options": "nosniff"})
+    def item_source(wp_id: WpId, item_id: ItemId) -> Response:
+        """The item's source document (shown in the browser or downloaded): the verified bytes (075)."""
+        p, data = _item_source(wp_id, item_id)
+        return Response(data, media_type="application/pdf" if p.suffix.lower() == ".pdf" else "application/octet-stream",
+                        headers={"Content-Disposition": "inline", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
     @app.get(r + "/workpackages/{wp_id}/reviews")
     def reviews(wp_id: WpId) -> dict[str, Any]:

@@ -35,16 +35,17 @@ def page_count(path: Path) -> int:
             doc.close()
 
 
-def render(path: Path, page: int, *, dpi: int = 144) -> bytes:
-    """The 1-based page `page` as PNG."""
+def render(path: Path, page: int, *, dpi: int = 144, data: bytes | None = None) -> bytes:
+    """The 1-based page `page` as PNG. `data` (075): the already verified bytes of `path`; the file is then not read
+    again, so the image shows exactly the content that was checked."""
     if path.suffix.lower() in IMAGE_TYPES:
         if page != 1:
             raise BadPage(f"an image has only page 1, not {page}")
-        return path.read_bytes()
+        return data if data is not None else path.read_bytes()
     import pypdfium2 as pdfium
 
     with PDFIUM_LOCK:
-        doc = pdfium.PdfDocument(str(path))
+        doc = pdfium.PdfDocument(data if data is not None else str(path))
         try:
             if not 1 <= page <= len(doc):
                 raise BadPage(f"page {page} is out of range 1..{len(doc)}")

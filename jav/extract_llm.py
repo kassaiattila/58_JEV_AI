@@ -9,6 +9,7 @@ so it is not directly comparable with the legacy golden floor.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import time
@@ -20,13 +21,12 @@ from typing import Any
 
 from pydantic import BaseModel
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIChatModel, OpenAIChatModelSettings
-from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from jav import store
 from jav.runtime import calls
-from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, OPENAI_USD_PER_MTOK, get_openai_key, load_prompt, openai_price
+from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, OPENAI_USD_PER_MTOK, load_prompt, openai_chat_model, openai_price
 from jav.typepack import DEFAULT_KEY, TypePack, get as get_pack
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
@@ -49,7 +49,7 @@ def use_agent_factory(factory):
 @lru_cache(maxsize=None)
 def get_agent(pack_key: str = DEFAULT_KEY) -> Agent[None, BaseModel]:
     pack = get_pack(pack_key)
-    model = OpenAIChatModel(OPENAI_MODEL, provider=OpenAIProvider(api_key=get_openai_key()))
+    model = openai_chat_model()
     # The legacy sidecar setting: reasoning none, temperature 0 (we measure non-determinism, we do not fight it)
     settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"], temperature=OPENAI_SETTINGS["temperature"])
     return Agent(model, output_type=pack.llm_model(), instructions=load_prompt(pack.prompt_file), model_settings=settings, retries=OPENAI_SETTINGS["retries"])
@@ -117,9 +117,11 @@ def extract(text: str, *, run_id: str = "adhoc", pack: TypePack | None = None) -
     if ctx is None:
         return _physical(agent, prompt, run_id=run_id, pack=pack, limited=False).response
     price = openai_price(OPENAI_MODEL)  # 066 Á38: no budgeted call without a price (the reservation would be zero)
+    schema = json.dumps(pack.llm_model().model_json_schema(), ensure_ascii=False)  # sent as the output tool's schema
     max_cost = calls.estimate_max_cost(
-        input_chars=len(prompt) + len(load_prompt(pack.prompt_file)), max_output_tokens=RUN_MAX_OUTPUT_TOKENS,
-        usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), physical_attempts=1 + int(OPENAI_SETTINGS["retries"]))
+        input_bytes=calls.utf8_bytes(prompt, load_prompt(pack.prompt_file), schema), max_output_tokens=RUN_MAX_OUTPUT_TOKENS,
+        usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), rounds=1 + int(OPENAI_SETTINGS["retries"]),
+        repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))
     digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     result = calls.invoke(run_id=run_id, step_id=f"openai:extract_llm:{pack.key}:{digest[:16]}", provider="openai",
                           model=OPENAI_MODEL, max_cost_usd=max_cost, budget_scope=ctx.budget_scope, request_hash=digest,

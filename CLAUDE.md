@@ -78,7 +78,7 @@ python -m jav.cli deps-audit [--show]                       # 075 known vulnerab
 python -m jav.capability_catalog                  # deterministic inventory of types and intents
 ```
 
-`JAV_OCR_ENGINE=azure_di <command>`: Azure DI through the legacy sidecar. **Paid**, page-limited, never chosen by `auto`, but OCR escalation (`configs/ocr.json`) calls it automatically on weak local OCR when the legacy sidecar is running. Live Outlook download: from the UI (Settings › Mailboxes) or with the legacy bridge unchanged; the exact command is in the README's email section. Keys live in `.env` (`TypeSafeJAV_API_KEY`, `OPENAI_API_KEY`; optional variables: `.env.example`); never print a value.
+`JAV_OCR_ENGINE=azure_di <command>`: Azure DI through the legacy sidecar. **Paid**, page-limited, never chosen by `auto`, but OCR escalation (`configs/ocr.json`) calls it automatically on weak local OCR when the legacy sidecar is running; since 075 only within the run's Azure budget (recipe switch `azure_ocr`, 0.02 USD per document by default) and through the call log (`jav/ocr.py` `azure_recognise`). Live Outlook download: from the UI (Settings › Mailboxes) or with the legacy bridge unchanged; the exact command is in the README's email section. Keys live in `.env` (`TypeSafeJAV_API_KEY`, `OPENAI_API_KEY`; optional variables: `.env.example`); never print a value.
 
 ## 6. Architecture (details: `docs/ARCHITECTURE.md`)
 

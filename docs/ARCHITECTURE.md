@@ -127,7 +127,9 @@ currently postponed.
    (`jav/pdf.py: build_layout`). A separate graph step (`ocr_pdf`) in the M1 and M2 graphs, a disk cache in `runs/ocr/`,
    raw quality signals in the state, thresholds in the `ocr` block of `policy.json`. The rest of the old sidecar (torch, the matcher)
    has not been ported; Azure DI is not reimplemented here either: when local OCR is weak, `ocr_with_escalation` reaches it through the
-   old sidecar (paid). Heavy dependencies may only go behind a sidecar.
+   old sidecar (paid). Since 075 the call goes through the call log (`azure_recognise`): in a worker run the page count is
+   reserved from the run's Azure budget (recipe switch `azure_ocr`), a blocked escalation leaves the local text and, for a
+   budget or uncertainty block, a to-do (`ocr:escalation_blocked:*`). Heavy dependencies may only go behind a sidecar.
 
 ## 4. Tuning and changes — the procedure
 
@@ -184,7 +186,7 @@ flowchart LR
 |---|---|---|---|
 | Work package, recipe, run | `jav/work.py`, `configs/recipes.json` | version conflict → `RevisionConflict`; readiness blockers; fixed input; idempotent start; approval only in live mode and with no open to-dos | `tests/test_work.py` |
 | Job queue | `jav/runtime/queue.py` | dedup key, claiming, attempts + back-off → `dead`, release, stop, handling of orphaned claims at start-up (modelled on the V4 `jobq.py`) | `tests/test_runtime_queue.py` |
-| Call log, budget | `jav/runtime/calls.py` | reservation before the network call; failed calls are logged too; an unknown cost stays reserved; an uncertain attempt is not repeated; a successful step is replayed | `tests/test_runtime_calls.py`, `tests/test_runtime_adapters.py` |
+| Call log, budget | `jav/runtime/calls.py` | reservation of an upper bound before the network call (075: UTF-8 bytes + a fixed overhead per request, growing conversation retries, transport retries; a call above its reservation stops the run's further calls with that provider); failed calls are logged too; an unknown cost stays reserved; an uncertain attempt is not repeated; a successful step is replayed | `tests/test_runtime_calls.py`, `tests/test_runtime_adapters.py` |
 | Worker | `jav/runtime/worker.py` | stable identifier + Burr state persistence (`burr_state.sqlite` next to the store); resumption from the next step; stop at a step boundary; a changed source is rejected | `tests/test_runtime_worker.py`, `tests/test_work_cli.py` |
 | To-dos | `jav/store.py` `review_reasons` | each reason is opened and closed by the step that raised it; human decisions carry an author | `tests/test_review_reasons.py` |
 | Partial OCR | `jav/policy.py` `ocr_coverage_reasons` | a skipped page is always a to-do | `tests/test_ocr_coverage.py` |
