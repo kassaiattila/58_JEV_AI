@@ -2,7 +2,7 @@
 
 A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition (M1), invoice data extraction (M2) and email intent (M3) — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.1.1`** (2026-09-30). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.1.2`** (2026-09-30). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
@@ -26,6 +26,7 @@ The system reads invoices, other documents and emails. It recognises what type e
 | | **Users and assignment**: "Who is working?", a package owner, "Only my work packages" and "My work today" | Works; choosing a name is not a login |
 | Results | **Reports and export**: Excel, CSV and JSON exports of documents, data points (with page and source text) and line items; a monthly utility-cost grid by point of consumption, showing missing, partial and overlapping months | Works |
 | | **Unified data view**: one shared table for every list and result (search, per-column filters and sorting, paging, column picker, selection) and one download panel | Works |
+| | **Content-based file names**: copies of a run's documents under uniform names built from their data (date, type, partner, identifier; per-type rules), as a ZIP or into an output folder, with a manifest; the originals never change, and copies with an uncertain name go to a separate review subfolder | Works; new |
 | Operations | **Local service** shared by the UI and the command line; it listens on the local machine only and validates every input | Works |
 | | **Operations**: a verified daily backup with an optional second location, persistent logs, thinning of the flow-state store and a weekly dependency audit; the System page shows the running version, the worker, the backup and the audit | Works |
 | | **Repository safeguards**: a data guard before every commit and push, so that personal data, keys, internal working documents and document files cannot get into git | Works |
