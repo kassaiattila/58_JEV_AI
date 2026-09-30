@@ -233,6 +233,7 @@ def _state_row(case: GoldenCase, state: FlowState, run_no: int, seconds: float, 
             "label": p.label,
             "confidence": p.confidence,
             "n_options": p.n_options,
+            "n_candidates": p.n_candidates,  # 076: more than n_options = the list sent to JEV was cut
             "top3": dict(sorted(p.probabilities.items(), key=lambda kv: -kv[1])[:3]),
             "present_p": p.present_p,
             "line_no": p.line_no,

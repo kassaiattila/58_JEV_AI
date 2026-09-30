@@ -211,6 +211,9 @@ def apply_pick_policy(state: FlowState) -> None:
             continue
         if pick.label is None and field in required:
             require_review(state, f"pick:none:{field}")
+        if pick.label is None and pick.truncated:
+            # 076 (candidate-list cut): JEV saw only part of the candidates; the right one may have been cut off
+            require_review(state, f"pick:none_on_cut_list:{field}:{pick.n_options}/{pick.n_candidates}")
         if pick.present_p is not None:  # presence Noul vs Choice: a contradiction is a review reason (uncertain is not)
             nb = noul_band(pick.present_p, "invoice.pick.presence")
             if pick.label is not None and nb == "no":

@@ -60,6 +60,7 @@
  "Nem minden oldal lett felismerve ({{pages}})": "Not all pages were recognised ({{pages}})",
  "Nincs jelölt: {{field}}": "No candidate: {{field}}",
  "Nincs érték: {{field}}": "No value: {{field}}",
+ "Nincs érték, pedig a jelöltlista le volt vágva: {{field}} ({{found}} jelöltből {{sent}} ment a modellnek)": "No value, but the candidate list was cut: {{field}} ({{sent}} of {{found}} candidates went to the model)",
  "Rendszerértesítés": "System notification",
  "Sok bizonytalan szó a felismerésben ({{p}})": "Many uncertain words in the recognition ({{p}})",
  "Sportesemény támogatás": "Sports event sponsorship",
