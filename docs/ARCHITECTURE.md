@@ -192,6 +192,7 @@ flowchart LR
 | Réteg | Fájl | Garancia | Teszt |
 |---|---|---|---|
 | Kapu | `jav/api.py`, `configs/service.json` | csak loopback cím; `Host`- és `Origin`-ellenőrzés; író kérés csak JSON; törzsméret-korlát darabolt küldésnél is; Pydantic-séma ismeretlen mező elutasításával; azonosító-minták; mappa és fájl: létező útvonal (hivatkozás feloldva), 061 óta bárhol — a `restrict_paths: true` beállítással csak engedélyezett gyökér alatt | `tests/test_api.py` |
+| Böngészős védőfejlécek (071) | `jav/api.py` (`_SecurityHeaders`, a legkülső réteg) | minden válaszon, a kapu elutasító válaszán is: beágyazás tiltva (`X-Frame-Options: DENY`, `frame-ancestors 'none'`), `nosniff`, `Referrer-Policy: no-referrer`, COOP/CORP `same-origin`; a felület HTML-jén tartalombiztonsági szabály csak saját forrással (`data:` a beágyazott betűkészletnek és a favikonnak, `blob:` a letöltésnek); az `/api/` válaszai `no-store` (az oldalkép is), zárt szabállyal; a forrás-PDF-en csak a beágyazás tiltott (a böngésző PDF-nézője miatt) | `tests/test_security_headers_071.py` |
 | Közös nézetek | `jav/work_views.py` | a parancssor `--json` kimenete és a szolgáltatás válasza ugyanaz; pénz szövegként, nem lebegőpontosan | `tests/test_api.py::test_cli_and_service_give_the_same_answer` |
 | Mezőjavítás | `jav/corrections.py` | verzió + 409 ütközésnél; csak a típuscsomag mezője; pénz és dátum kódban ellenőrizve; jóváhagyott futásnál tilos; a gépi adat megmarad | `tests/test_api.py::test_correction_is_versioned_and_conflict_is_refused` |
 | Feldolgozó-zár, leállítás | `jav/runtime/lock.py`, `jav/runtime/worker.py` | operációsrendszer-zár (összeomláskor magától feloldódik); leállítási kérés a folyamatban lévő tétel után | `tests/test_api.py` |
@@ -199,7 +200,7 @@ flowchart LR
 
 **Hibakódok:** 404 ismeretlen azonosító · 409 verzióütközés, nem indítható vagy nem jóváhagyható · 413 túl nagy törzs ·
 415 nem JSON · 422 hibás bemenet vagy hiányzó szerző · 403 idegen gép, idegen eredet vagy tiltott mappa. Emberi döntéshez
-(jóváhagyás, javítás, teendő zárása) az `X-Actor` fejléc kötelező. A végpontok listája futó szolgáltatásnál: `/api/docs`.
+(jóváhagyás, javítás, teendő zárása) az `X-Actor` fejléc kötelező. A végpontok gépi listája futó szolgáltatásnál: `/api/openapi.json` (a kattintható `/api/docs` 071 óta ki van kapcsolva, mert külső tárhelyről töltene programkódot).
 
 **Határok.** Nincs bejelentkezés és jogosultság (egyfelhasználós helyi eszköz, 040/7.). A V4 végpontneveit követjük
 (`workflow`, `readiness`, `start`, `runs`), a munkacsomag neve `workpackages` a V4 `intake-batches` helyett. A riport-
