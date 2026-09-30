@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Adatőr (070 terv 2.1 S-adatőr, jav/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
     "changelog": [
       {
@@ -13,6 +13,11 @@
         "version": "1.0.1",
         "date": "2026-09-30",
         "note": "071 D-teljesség: a telepítési útmutatóból kikerült a NAS-útvonal (általános leírás lett), ezért ott a felhasználónév már nem tűrt; a tűrés csak a szolgáltatás beállításfájljában marad."
+      },
+      {
+        "version": "1.0.2",
+        "date": "2026-09-30",
+        "note": "076: the invented IBANs of the injection probe replaced by values that also pass the domestic check digits (configs/experiments/document_injection.json 1.1.0)."
       }
     ]
   },
@@ -121,13 +126,13 @@
       "SE123456789001"
     ],
     "iban": [
-      "HU18 0143 0132 5642 1867 8499 5714",
-      "HU33 3946 8165 3072 8781 5055 4299",
+      "HU88 9963 5873 0162 1314 9181 0034",
+      "HU65 5763 4061 3447 7315 4358 0066",
       "HU42 1177 3016 1111 1018 0000 0000",
       "HU50 1000 0001 2000 0002 0000 0000",
       "HU78111100001234567800000000",
-      "HU80 4294 9447 8799 4877 4692 7463",
-      "HU80 8653 8293 8184 1956 7393 0063",
+      "HU28 2999 0285 1990 9218 8666 1204",
+      "HU59 7729 9679 8620 9763 7956 2891",
       "HU82 1210 0028 4681 3574 0000 0000"
     ],
     "bank_account": [
