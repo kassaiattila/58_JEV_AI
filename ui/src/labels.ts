@@ -90,6 +90,8 @@ const CHECK_TEXT: Record<string, string> = tmap({
   "taxid.vatcode": "Az adószám áfakódja érvénytelen",
   "taxid.county": "Az adószám megyekódja érvénytelen",
   "iban.checksum": "A bankszámlaszám ellenőrző összege hibás",
+  "iban.hu_account_checksum": "Az IBAN-ban lévő belföldi számlaszám ellenőrző számjegye hibás",
+  "account.hu_checksum": "A belföldi bankszámlaszám ellenőrző számjegye hibás",
   "format.mismatch": "Formátum nem megfelelő",
   "lines.total_mismatch": "A tételek összege nem egyezik a számla végösszegével",
   "lines.incomplete": "Tételsoron hiányzik az összeg, ezért a tételösszeg nem ellenőrizhető",
