@@ -2,7 +2,7 @@
 
 Burr (folyamatvezérlés) + Pydantic AI (GPT) + JEV/TypeSafe (típusos ítéletek), helyi SQLite-tal, Windows-on.
 
-**Jelenlegi stabil változat: `v1.0.4`** (2026-09-29, a 066-os átvizsgálás négy döntést kérő pontja: jelölt nélküli mező, elveszett betűjel, típuscsomag nélküli irat, adószám). A következő munka egy biztonsági javítókör (`v1.0.5`). A kód 2026-09-29 óta a GitHubon is megvan, privát tárban; a régi történet csak helyben van ([fejlesztési útmutató §1](docs/guides/DEVELOPMENT.md)).
+**Jelenlegi stabil változat: `v1.0.5`** (2026-09-30, biztonsági javítókör: adatőr, böngészős védőfejlécek, egységes verzió, új leírások; [változáslista](CHANGELOG.md)). A kód 2026-09-29 óta a GitHubon is megvan, privát tárban; a GitHub-történet 2026-09-30-án egy új kiinduló committal kezdődik, a régebbi történet csak helyben van ([fejlesztési útmutató §1](docs/guides/DEVELOPMENT.md)).
 
 A kiadási jegyzetek, mérési jelentések, tervek, átadók, a teendőlista és a döntésnapló **belső munkaanyag**: csak a fejlesztő gépén vannak, a tárban nincsenek. Ahol ez a leírás rájuk utal, „(belső: …)” jelölés áll a helyi útvonalukkal (a `docs/` mappán belül).
 
