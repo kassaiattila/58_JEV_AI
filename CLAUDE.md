@@ -74,6 +74,7 @@ python -m jav.cli ocr [<pdf>] [--force] [--psm N] [--limit N]   # without a PDF:
 python -m jav.cli store | eval-report [runs/*.jsonl] [--out f] | admin [--write] | configs | flows [--check] | docs
 python -m jav.cli backup [--with-docs] [--with-burr] [--copy-to <dir>] | burr-prune [--no-vacuum]   # store backup (daily: --scheduled) | thin out the Burr state store
 python -m jav.cli hooks-install | data-guard [--all]        # 071 data guard: enable the git hooks (once per clone) | scan the tracked tree
+python -m jav.cli deps-audit [--show]                       # 075 known vulnerabilities in the pinned packages (weekly with the daily backup)
 python -m jav.capability_catalog                  # deterministic inventory of types and intents
 ```
 

@@ -149,5 +149,12 @@
   "v{{version}} · commit {{commit}}": "v{{version}} · commit {{commit}}",
   "A commit nem ismert (a szolgáltatás git nélkül indult).": "The commit is unknown (the service started without git).",
   "A futó kód commitolatlan változást tartalmaz.": "The running code contains uncommitted changes.",
-  "A szolgáltatás {{when}} óta fut; új kód az újraindítása után él.": "The service has been running since {{when}}; new code takes effect after a restart."
+  "A szolgáltatás {{when}} óta fut; új kód az újraindítása után él.": "The service has been running since {{when}}; new code takes effect after a restart.",
+  "Csomag-ellenőrzés": "Dependency audit",
+  "A csomag-ellenőrzés még nem futott.": "The dependency audit has not run yet.",
+  "{{n}} ismert sebezhetőség a csomagokban ({{when}}).": "{{n}} known vulnerabilities in the packages ({{when}}).",
+  "A legutóbbi csomag-ellenőrzés nem teljes ({{when}}): {{error}}": "The last dependency audit is incomplete ({{when}}): {{error}}",
+  "A legutóbbi csomag-ellenőrzés {{days}} napnál régebbi ({{when}}).": "The last dependency audit is more than {{days}} days old ({{when}}).",
+  "Nincs ismert sebezhetőség: {{py}} Python- és {{ui}} felület-csomag ({{when}}).": "No known vulnerabilities: {{py}} Python and {{ui}} UI packages ({{when}}).",
+  "A külső programcsomagok ismert sebezhetőségeit a napi mentés hetente ellenőrzi; kézzel:": "The daily backup checks the third-party packages for known vulnerabilities once a week; to run it by hand:"
 }

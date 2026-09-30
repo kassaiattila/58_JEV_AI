@@ -33,7 +33,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import app_settings, backup, cfg, corrections, mailbox, store, version, work, work_views
+from jav import app_settings, backup, cfg, corrections, deps_audit, mailbox, store, version, work, work_views
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import worker
 from jav.tablequery import Query as TableQuery
@@ -758,6 +758,12 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         log.info("worker stop requested by %s", who)  # 066 Á35: who asked (operational log)
         worker.request_stop()
         return work_views.worker_status()
+
+    # --- dependency audit (075): the last result; the audit itself runs from the CLI or the daily backup ---
+
+    @app.get(r + "/system/deps-audit")
+    def deps_audit_status() -> dict[str, Any]:
+        return work_views.jsonable({"status": deps_audit.status(), "max_age_days": deps_audit.MAX_AGE_DAYS})
 
     # --- store backup (064): status of the latest backup, and backup now ---
 

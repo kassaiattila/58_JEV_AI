@@ -2,7 +2,7 @@
 
 Steps: pytest (subprocess) → type check and tests of the UI (`ui/`, if installed) → Burr contract lint → config
 versions + hash → handoff freshness (docs/handoffs/, only a notice since 040) → git state → data guard (071) →
-language guard (073) → Ruff ratchet (`pyproject.toml` `max_findings`) → regeneration of `docs/STATE.md` (the control
+language guard (073) → dependency audit age and findings (075) → Ruff ratchet (`pyproject.toml` `max_findings`) → regeneration of `docs/STATE.md` (the control
 screen, written to a file). Exit code 0 = everything green. The session protocol (CLAUDE.md §2) asks for this first;
 the handoff only references STATE.md, it does not copy it.
 """
@@ -147,6 +147,11 @@ def preflight(*, skip_pytest: bool = False) -> int:
 
     ok, msg = lang_guard_status()
     results.append(("language guard", ok, msg))
+
+    from jav import deps_audit
+
+    ok, msg = deps_audit.verdict(deps_audit.status())
+    results.append(("dependency audit", ok, msg))
 
     found = devstate.ruff_findings()
     ok, msg = devstate.lint_verdict(found[0] if found else None, devstate.lint_limit())
