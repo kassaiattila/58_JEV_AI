@@ -191,7 +191,8 @@ class SelectSite:
         for field in fields:
             items = cands.get(self.field_kind[field], [])
             if not items:
-                picks[field] = FieldPick(field=field, label=None, confidence=None, n_options=0, request_id=request_id)
+                picks[field] = FieldPick(field=field, label=None, confidence=None, n_options=0, request_id=request_id,
+                                         n_candidates=0)
                 if field in probe:
                     no_cands.append(field)
                 continue
@@ -239,6 +240,8 @@ class SelectSite:
             elif label is not None:
                 raw = label
             presence = response.nouls.get(qid + PRESENCE_SUFFIX) if qid + PRESENCE_SUFFIX in questions else None
+            # 076: distinct labels, as the options are (the Choice is keyed by label)
+            n_found = len({c.label for c in cands.get(self.field_kind[qid], [])}) if qid in self.field_kind else None
             picks[qid] = FieldPick(
                 field=qid,
                 label=label,
@@ -249,6 +252,7 @@ class SelectSite:
                 request_id=request_id,
                 present_p=None if presence is None else round(float(presence.noul), 4),
                 line_no=line_no,
+                n_candidates=n_found,
             )
         for field in no_cands:
             presence = response.nouls.get(field + PRESENCE_SUFFIX) if field + PRESENCE_SUFFIX in questions else None

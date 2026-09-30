@@ -569,6 +569,13 @@ class FieldPick(BaseModel):
     request_id: str
     present_p: float | None = None  # presence Noul P(the field is on the document), raw; threshold in the policy
     line_no: int | None = None  # line of the chosen candidate (from code, the Candidate): source reference for review
+    # 076: the distinct candidates code found for the field; more than `n_options` means the list sent to JEV was cut
+    # (the cap of 250, or the request size budget), and `n_candidates - n_options` were skipped. None: not recorded
+    n_candidates: int | None = None
+
+    @property
+    def truncated(self) -> bool:
+        return self.n_candidates is not None and self.n_candidates > self.n_options
 
 
 class JevCall(BaseModel):

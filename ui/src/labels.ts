@@ -136,6 +136,10 @@ export function reasonText(code: string): string {
     case "pick:no_candidates": return t("Nincs jelölt: {{field}}", { field: f });
     case "pick:present_no_candidates": return t("Az iraton van, de a kód nem talált hozzá jelöltet: {{field}} ({{p}})", { field: f, p: v });
     case "pick:none": return t("Nincs érték: {{field}}", { field: f });
+    case "pick:none_on_cut_list": {
+      const [sent, found] = (p[3] ?? "").split("/");
+      return t("Nincs érték, pedig a jelöltlista le volt vágva: {{field}} ({{found}} jelöltből {{sent}} ment a modellnek)", { field: f, sent, found });
+    }
     case "jev:unsupported": return t("A modell nem támasztja alá: {{field}}", { field: f });
     case "llm:required_missing": return t("Kötelező mező hiányzik: {{field}}", { field: f });
     case "money:separator_ambiguous": return t("Kétértelmű tizedesjel: {{field}}", { field: f });
