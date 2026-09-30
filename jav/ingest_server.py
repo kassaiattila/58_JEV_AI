@@ -18,6 +18,9 @@ Input protection (040 K1, findings F01–F03 of 038):
 - F03: mailbox + message id + content hash: an unchanged repeat is not overwritten and starts no new run (the original
   receipt is returned); changed content is an explicit new version (`message.v<n>.json` keeps the old one).
   An in-process lock guards against concurrent repeats.
+- Read time limits (076): every socket read waits at most `READ_TIMEOUT_S`, and the whole body must arrive within
+  `BODY_DEADLINE_S`; a client that sends slowly or not at all gets 408 (or, while still sending its headers, a closed
+  connection) instead of holding a thread open.
 
 Start:    python -m jav.cli email-ingest-server [--port 8931] [--run]
 Bridge:   powershell -File C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\scripts\\outlook_bridge.ps1 -Accounts <smtp> -SinceDays 30
@@ -33,6 +36,7 @@ import os
 import re
 import secrets
 import threading
+import time
 import uuid
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -45,6 +49,9 @@ INBOX_ROOT = PROJECT_ROOT / "inbox"
 WORKFLOW_HASH = "jav-m3-email-intent"
 TOKEN_ENV = "JAV_INGEST_TOKEN"
 MAX_BODY_BYTES = 2 * 1024 * 1024
+READ_TIMEOUT_S = 30.0  # per socket read (headers and body); the bridge sends each message in one go on 127.0.0.1
+BODY_DEADLINE_S = 60.0  # the whole body; 2 MB on the local machine takes milliseconds
+_READ_CHUNK = 64 * 1024
 MAX_TEXT = 200_000
 MAX_LIST = 200
 MAX_ATTACHMENTS = 100
@@ -256,11 +263,30 @@ class _Handler(BaseHTTPRequestHandler):
             raise _HttpError(400, "negative Content-Length")
         if n > MAX_BODY_BYTES:
             raise _HttpError(413, f"body exceeds {MAX_BODY_BYTES} bytes")
-        raw = self.rfile.read(n) if n else b""
+        raw = self._read_body(n)
         try:
             return json.loads(raw.decode("utf-8")) if raw else {}
         except (ValueError, UnicodeDecodeError) as exc:
             raise _HttpError(400, f"bad json: {exc}") from None
+
+    def _read_body(self, n: int) -> bytes:
+        """Reads `n` bytes in chunks; each read is bounded by the socket timeout (`READ_TIMEOUT_S`) and the whole body by
+        `BODY_DEADLINE_S` (076), so a client trickling a byte at a time cannot keep the connection open."""
+        deadline = time.monotonic() + BODY_DEADLINE_S
+        parts: list[bytes] = []
+        got = 0
+        try:
+            while got < n:
+                if time.monotonic() > deadline:
+                    raise _HttpError(408, "request body not received in time")
+                chunk = self.rfile.read1(min(_READ_CHUNK, n - got))
+                if not chunk:
+                    raise _HttpError(400, "incomplete body")
+                parts.append(chunk)
+                got += len(chunk)
+        except TimeoutError:
+            raise _HttpError(408, "request body not received in time") from None
+        return b"".join(parts)
 
     def log_message(self, fmt: str, *args: Any) -> None:  # quieter default log
         return
@@ -279,8 +305,8 @@ class _Handler(BaseHTTPRequestHandler):
             try:  # drain a bounded body so that the client gets a proper response (not a connection reset)
                 n = int(self.headers.get("Content-Length") or 0)
                 if 0 < n <= MAX_BODY_BYTES:
-                    self.rfile.read(n)
-            except (ValueError, OSError):
+                    self._read_body(n)  # under the same time limits as an accepted body (076)
+            except (_HttpError, ValueError, OSError):
                 pass
             self.close_connection = True
             self._json(refused[0], {"error": refused[1]})
@@ -347,8 +373,11 @@ def make_server(port: int = 8901, *, run_flow: bool = False, inbox_root: Path = 
     message. 066 Á14 (decision of 2026-09-29): the receiver works only with a key; if neither the caller nor the
     environment provides one, it gets a one-off random key (`serve` prints it for the bridge's `-ApiToken` switch)."""
     key = token or os.environ.get(TOKEN_ENV) or secrets.token_urlsafe(24)
+    # `timeout`: the socket timeout of every read on the connection, headers included (StreamRequestHandler); a
+    # timed-out request line or header closes the connection (076)
     handler = type("Handler", (_Handler,), {"run_flow": run_flow, "inbox_root": Path(inbox_root), "token": key,
-                                            "on_ingest": staticmethod(on_ingest) if on_ingest else None})
+                                            "on_ingest": staticmethod(on_ingest) if on_ingest else None,
+                                            "timeout": READ_TIMEOUT_S})
     return ThreadingHTTPServer(("127.0.0.1", port), handler)
 
 
