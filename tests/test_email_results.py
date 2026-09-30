@@ -133,7 +133,7 @@ def test_pdf_attachment_becomes_a_linked_document_and_runs_with_the_email_recipe
     assert mail["kind"] == "email" and "parent_item_id" not in mail
     ready = work.readiness(wp["id"])
     assert ready["ready"], ready["blockers"]
-    assert ready["budget"] == {"jev": Decimal("0.17"), "openai": Decimal("0.10")}  # 2 emails × 0.05 + 1 attachment
+    assert ready["budget"] == {"jev": Decimal("0.17"), "openai": Decimal("0.10"), "azure_di": Decimal("0.02")}  # 2 emails × 0.05 + 1 attachment; 075: Azure for the attachment
     work.assign_recipe(wp["id"], "email-intent", params={"arm": "S"}, expected_revision=1, actor="t")
     ready = work.readiness(wp["id"])
     run_id = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
