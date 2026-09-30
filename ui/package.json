@@ -1,7 +1,7 @@
 {
   "name": "jav-ui",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.4",
   "type": "module",
   "description": "JAV munkafelület (040 K3): Munkacsomagok / Futtatás / Riportok a helyi szolgáltatás (jav/api.py) fölött.",
   "scripts": {
