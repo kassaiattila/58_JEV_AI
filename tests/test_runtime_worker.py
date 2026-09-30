@@ -1,7 +1,8 @@
 """Worker end to end (040 K1): synthetic PDF, fake JEV client, no paid calls.
 
 Guarantees tested: a full run through the job queue; resuming after a crash from the saved step, without repeating JEV
-calls; cancellation at a step boundary; refusal of a changed source; budget overrun caught before the network.
+calls; cancellation at a step boundary; refusal of a changed source; a document over a reader limit failing without a
+retry; budget overrun caught before the network.
 """
 
 from decimal import Decimal
@@ -10,7 +11,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import store, work
+from jav import corrections, isolated_pdf, page_image, pdf, store, work
 from jav.adapters import jev as jev_mod
 from jav.runtime import calls, queue, worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
@@ -114,6 +115,43 @@ def test_changed_source_is_refused(env):
     failed = [i for i in work.get_run(run_id)["items"] if i["status"] == "failed"]
     assert len(failed) == 1 and failed[0]["error"].startswith("source_changed")
     assert work.get_run(run_id)["status"] == "failed"
+
+
+@pytest.mark.parametrize("error", [
+    isolated_pdf.PdfReaderLimit("the PDF reader gave no answer within 60 s", reason="timeout"),
+    pdf.DocumentTooLarge("szamla.pdf: 400 pages is over the 300 page input limit"),
+], ids=["reader_limit", "too_large"])
+def test_a_document_over_a_reader_limit_fails_without_retry(env, monkeypatch, error):
+    """077: a retry would hit the same limit (and a timeout would hold the worker for as long again), so the item fails
+    at once, with the named error."""
+    def over_limit(path):
+        raise error
+
+    monkeypatch.setattr(pdf, "read_pdf", over_limit)
+    run_id = _start(env["wp"]["id"])
+    info = worker.run_worker(once=True)
+    assert info["results"] == {"dead": 2}
+    items = work.get_run(run_id)["items"]
+    assert {i["status"] for i in items} == {"failed"}
+    assert all(i["error"].startswith(type(error).__name__ + ":") for i in items)
+
+
+@pytest.mark.parametrize("breakage", ["corrupt_file", "reader_limit"])
+def test_item_view_survives_an_unreadable_source(env, monkeypatch, breakage):
+    """077: a source the PDF reader cannot read (a parser error, or over its limits) leaves the page count empty in the
+    item view (the word layer's count is used), instead of failing the whole view."""
+    run_id = _start(env["wp"]["id"])
+    worker.run_worker(once=True)
+    item = work.get_run(run_id)["input"]["items"][0]
+    if breakage == "corrupt_file":
+        Path(item["source_path"]).write_bytes(b"%PDF-1.4\nnot a PDF body at all\n%%EOF")
+    else:
+        def over_limit(path):
+            raise isolated_pdf.PdfReaderLimit("the PDF reader gave no answer within 30 s", reason="timeout")
+
+        monkeypatch.setattr(page_image, "page_count", over_limit)
+    view = corrections.item_result(run_id, item["item_id"])
+    assert view["page_count"] is None and view["kind"] == "document"
 
 
 def test_budget_exhaustion_becomes_review_not_crash(env):

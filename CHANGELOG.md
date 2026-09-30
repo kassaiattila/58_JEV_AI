@@ -8,6 +8,15 @@ Releases in brief, newest first. Release rules: [development guide §1](docs/gui
 
 This list shows what each release brought. `v1.0.0` was the first stable version: work packages, recipes, review on the document's page image, results and approval. The `v1.0.1`–`v1.0.4` fix rounds corrected problems found in daily use and in reviews; the most important of them was the tax-number check. `v1.0.5` is a security round: no personal data can reach GitHub, the browser does not store document data, and you can see which code is running. `v1.1.0` is a second security round after a repeated audit: paid calls, Azure recognition included, stay within a real, reserved upper bound, the documents shown for review are verified, and the repository's documentation is in English. `v1.1.1` cleans the public documents of internal information, keeps machine-specific values out of the repository, and settles uncertain paid calls in the UI.
 
+## Unreleased
+
+- **Isolated PDF reading (2026-09-30):** the PDF parsers (the text layer, the page images for OCR, the page sizes and
+  the page images for review) run in a separate helper process with a time limit per request and a memory limit, so
+  a broken or hostile PDF cannot hang the worker or the local service. Over a limit, text extraction stops the item
+  with a named error and without a retry, the OCR page images give a to-do, and a review page image is refused; the
+  next document gets a new helper. A document over an input limit is no longer retried either. Settings:
+  `configs/service.json` `pdf_reader`.
+
 ## v1.1.1 — 2026-09-30
 
 Fix round: public documents without internal information, fixes from the repeated audit's acceptance conditions, and

@@ -5,7 +5,8 @@ start-up: `queue.recover_orphans()` (interrupted claims go back to the queue) an
 paid attempts become uncertain and are not retried automatically).
 
 Processing one item:
-1. check the frozen input: whether the source's content hash matches (otherwise `source_changed`, no retry);
+1. check the frozen input: whether the source's content hash matches (otherwise `source_changed`, no retry); a document
+   over an input or PDF-reader limit (`DocumentTooLarge`, `PdfReaderLimit`, 077) fails without a retry too;
 2. the recipe's flow (`flow`) is built with the same identifier (`<run_id>:<item_id[:16]>`) and a durable state
    persister, so after a restart it resumes from the next step;
 3. after every step, check for a cancellation request (`queue.check_cancellation`);
@@ -26,7 +27,7 @@ from typing import Any, Callable
 
 from burr.integrations.serde import pydantic as burr_pydantic
 
-from jav import app_settings, mailbox, store, work
+from jav import app_settings, isolated_pdf, mailbox, pdf, store, work
 from jav.runtime import applog, calls, lock, persistence, queue
 from jav.runtime.persistence import ClosingSQLitePersister
 
@@ -192,6 +193,11 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
     except SourceChanged as exc:
         work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=f"source_changed: {applog.redact(str(exc))}")
         result = queue.fail(job.id, f"source_changed: {applog.redact(str(exc))}", max_attempts=1, backoff_s=0)
+    except (pdf.DocumentTooLarge, isolated_pdf.PdfReaderLimit) as exc:
+        # 077: a retry would hit the same limit (a timeout would hold the worker for as long again): final at once
+        log.warning("item %s of %s is over a document limit: %s", item_id, run_id, exc)
+        work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=error_text(exc, limit=300))
+        result = queue.fail(job.id, error_text(exc), max_attempts=1, backoff_s=0)
     except Exception as exc:  # noqa: BLE001 - every other error is item-level; the queue's attempt limit decides
         log.exception("item %s of %s failed", item_id, run_id)  # 063: full traceback to the log (item: 300 chars)
         work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=error_text(exc, limit=300))

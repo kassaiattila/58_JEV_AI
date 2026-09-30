@@ -21,4 +21,4 @@ select = ["E4", "E7", "E9", "F"]
 
 [tool.jav.lint]
 # Racsni: az összes Ruff-jelzés nem nőhet e fölé; javítás után csökkentsd (preflight ellenőrzi).
-max_findings = 186
+max_findings = 185
