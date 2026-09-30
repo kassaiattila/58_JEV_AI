@@ -4,6 +4,7 @@ intent).
 
 Synthetic emails, a fake Outlook script and a fake JEV, no paid calls."""
 
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -263,7 +264,7 @@ def test_task_proposals_go_through_the_gate_and_only_a_human_accepts_them(env, m
     assert d["decision"] == "accepted" and d["done_by"] == "teszt.elek" and d["done_at"]
     row = datasets.rows("email_tasks", {"run_id": run_id})[1][0]
     assert row["done_by"] == "teszt.elek" and row["done_at"] == d["done_at"]
-    day = d["done_at"][:10]
+    day = datetime.fromisoformat(d["done_at"]).astimezone().date().isoformat()  # the local day (UTC differs after midnight)
     acts = c.post("/api/datasets/activity/query", json={"scope": {"actor": "teszt.elek", "day": day}}).json()["rows"]
     assert "task_done" in {a["action"] for a in acts}
     undone = c.post(done_url, json={"done": False}, headers=HUMAN).json()["email"]["tasks"]["tasks"][0]["decision"]
