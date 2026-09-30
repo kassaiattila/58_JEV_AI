@@ -1,6 +1,6 @@
-// Húzható elválasztó a kép és a mezők között (a V4 ResizableSplit mintája): 35–75 %, az arány megmarad a böngészőben.
-// Billentyűzettel is állítható (az elválasztón ←/→). 048: a tételes lista fülén külön arány él (alapból szélesebb panel),
-// hogy a mezők megszokott aránya ne változzon.
+// Draggable divider between the image and the fields (modelled on V4's ResizableSplit): 35–75 %, the ratio is kept in
+// the browser. It can also be adjusted with the keyboard (←/→ on the divider). 048: the line-item list tab has its own
+// ratio (a wider panel by default), so that the familiar ratio for the fields does not change.
 import { useRef, useState, type ReactNode } from "react";
 import { t, useLocale } from "../i18n";
 
@@ -25,7 +25,7 @@ export function Split({ left, right, variant = "fields" }: { left: ReactNode; ri
   const KEY = VARIANTS[variant].key;
   const box = useRef<HTMLDivElement | null>(null);
   const save = (v: number) => {
-    try { localStorage.setItem(KEY, String(v)); } catch { /* privát ablakban nem tárolható; csak a munkamenetig él */ }
+    try { localStorage.setItem(KEY, String(v)); } catch { /* private window: no storage; lasts for the session only */ }
   };
 
   function onPointerDown(e: React.PointerEvent) {

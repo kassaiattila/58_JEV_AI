@@ -1,6 +1,7 @@
-// Eredmény szakasz (057, a Riportok és az Adatok helyett): alapból a csomag legutóbbi futása; futásválasztó csak akkor,
-// ha a csomagnak több futása van, és csak a csomag futásai közül. Nézetváltó: Iratok · Adatpontok · Tételsorok ·
-// Közmű-költség, a közös táblázattal és letöltés-panellel. Itt van az éles futás jóváhagyása (kiadás, döntés 2026-09-28).
+// Result section (057, replacing Riportok (Reports) and Adatok (Data)): by default the work package's latest run; a run
+// picker only if the work package has more than one run, and only from the work package's own runs. View switcher:
+// Iratok · Adatpontok · Tételsorok · Közmű-költség (Documents · Data points · Line items · Utility cost), with the
+// shared table and download panel. The live run's approval is here (release, decision of 2026-09-28).
 import { useState } from "react";
 import { api, ApiError, getActor, type WorkpackageView } from "../api";
 import { DataTable } from "../components/DataTable";
@@ -21,10 +22,11 @@ const TABLES: { key: ResultTable; dataset: string }[] = [
   { key: "line_items", dataset: "line_items" },
   { key: "utility", dataset: "utility_cost" },
 ];
-// a nézetek felirata olvasáskor fordul (tmap)
+// the views' labels are translated when read (tmap)
 const TABLE_LABEL = tmap({ emails: "Levelek", tasks: "Feladatok", documents: "Iratok", datapoints: "Adatpontok", line_items: "Tételsorok", utility: "Közmű-költség" }) as Record<ResultTable, string>;
 
-/** Az alapfül (062): levélcsomagnál a Levelek, különben az Adatpontok, ennek híján az első elérhető nézet. */
+/** The default tab (062): Levelek (Emails) for an email work package, otherwise Adatpontok (Data points), failing
+ *  that the first available view. */
 export function defaultResultTable(available: ResultTable[]): ResultTable {
   if (available.includes("emails")) return "emails";
   if (available.includes("datapoints")) return "datapoints";
@@ -38,7 +40,7 @@ export function ResultStage({ view, table, runId, onChanged }: {
   const wp = view.workpackage;
   const chosen = runId ?? view.last_run?.run_id ?? null;
   const run = useRunView(chosen);
-  // 058: csak az adatot tartalmazó nézetek (pl. közmű-költség csak közmű-számlánál); a szolgáltatás mondja meg
+  // 058: only the views that contain data (e.g. utility cost only for utility invoices); the local service says which
   const available = run.data?.tables ? TABLES.filter((x) => run.data!.tables!.includes(x.key)) : TABLES;
   const current: ResultTable = table && available.some((x) => x.key === table) ? table : defaultResultTable(available.map((x) => x.key));
   const nav = (next: { table?: ResultTable; runId?: string }) =>
@@ -68,14 +70,14 @@ export function ResultStage({ view, table, runId, onChanged }: {
       {current === "utility" ? <UtilityPanel runId={chosen} wpId={wp.id} /> : null}
       {available.length ? <DataTable key={`${spec.dataset}:${chosen}`} dataset={spec.dataset} scope={{ run_id: chosen }} label={TABLE_LABEL[spec.key]} selectable
         storageId={`result-${spec.dataset}`}
-        // a javasolt következő lépés a választott nyelven (a szolgáltatás a kódot adja; a keresés a magyar feliraton megy)
+        // proposed next step in the chosen language (the local service gives the code; search uses the Hungarian label)
         cell={spec.key === "emails" ? (col, row) => (col.key === "next_flow" ? nextFlowText(row.next_flow as string | null) : undefined) : undefined}
         downloadExtras={<a className="small" href={api.exportUrl(chosen, "xlsx")} download>{t("A futás teljes Excel-csomagja (minden tábla és a közmű-költség)")}</a>} /> : null}
     </div>
   );
 }
 
-/** A futás kiadása: az éles futást ember hagyja jóvá, lezárult futáson, nyitott teendő nélkül. */
+/** Releasing the run: a person approves the live run, once it has finished, with no open to-dos. */
 function Approval({ runId, onChanged }: { runId: string; onChanged: () => void }) {
   useLocale();
   const run = useRunView(runId);

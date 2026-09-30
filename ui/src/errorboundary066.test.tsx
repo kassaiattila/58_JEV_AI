@@ -1,4 +1,4 @@
-// 066 Á36: egy nézet váratlan hibája nem tesz üres oldalt; üzenet és újratöltés-gomb jelenik meg.
+// 066 Á36: an unexpected error in a view does not leave an empty page; a message and a reload button appear.
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ErrorBoundary } from "./components/ErrorBoundary";

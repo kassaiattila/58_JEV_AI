@@ -1,4 +1,5 @@
-/* JAV munkafelület — a 039-es koncepció (docs/plans/039/ui-concept.html) színei és arányai. Egy kiemelőszín, sok levegő. */
+/* JAV workspace — the colours and proportions of the original UI concept (039).
+   One accent colour, plenty of air. */
 :root {
   --canvas: #f4f4f5; --paper: #fff; --ink: #27272f; --muted: #62626c; --line: #dedee3;
   --accent: #a33f53; --accent-ink: #fff; --tint: #f7edf0; --tint-line: #e2c9d0;
@@ -23,14 +24,14 @@ a { color: var(--accent); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
-/* gombok */
+/* buttons */
 button { cursor: pointer; border-radius: 6px; transition: background-color .12s, transform .12s; }
 button:disabled { cursor: default; opacity: .5; }
 button:active:not(:disabled) { transform: translateY(1px); }
 .primary { background: var(--accent); border: 1px solid var(--accent); color: var(--accent-ink); padding: 9px 16px; font-weight: 600; }
 .primary:hover:not(:disabled) { background: #8e3547; }
-/* 063 (döntés 2026-09-29): a másodlagos gomb a kiemelőszín keretét és feliratát kapja halvány színes alapon, hogy
-   könnyen észrevehető legyen; a fő gomb teli színű marad, így a sorrend továbbra is látszik */
+/* 063 (decision of 2026-09-29): the secondary button gets the accent colour's border and label on a pale tinted
+   background, so that it is easy to spot; the primary button stays solid, so the order is still visible */
 .primary, .secondary, .danger, .quiet { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .secondary { background: var(--tint); border: 1px solid var(--accent); color: var(--accent); padding: 8px 13px; font-weight: 600; text-decoration: none; }
 .secondary:hover:not(:disabled) { background: var(--tint-line); }
@@ -40,20 +41,20 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .small-btn { padding: 5px 11px; font-size: 12.5px; flex: none; }
 .ico { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .small-btn .ico { width: 14px; height: 14px; }
-/* semleges gombok: lapozó és nyelvválasztó (sok egymás mellett, nem műveletek) */
+/* neutral buttons: pager and language switch (many side by side, not actions) */
 .pager .secondary, .lang-switch .secondary { background: var(--paper); border-color: #c4c4cc; color: var(--ink); font-weight: 500; }
 .pager .secondary:hover:not(:disabled), .lang-switch .secondary:hover:not(:disabled) { background: var(--chip); }
 .lang-switch .secondary[aria-pressed="true"] { border-color: var(--ink); font-weight: 700; }
 .button-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
-/* keret */
+/* frame */
 .skip { position: absolute; left: 100px; top: -100px; background: var(--paper); padding: 10px; z-index: 5; }
 .skip:focus { top: 8px; }
 .shell { display: grid; grid-template-columns: 112px minmax(0, 1fr); min-height: 100%; }
 .rail { background: var(--rail); color: #d5d5dc; padding: 22px 6px; display: flex; flex-direction: column; align-items: center; gap: 28px; position: sticky; top: 0; height: 100vh; }
 .brand { font-weight: 700; letter-spacing: 1px; color: #fff; display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid #61616c; border-radius: 14px; }
 .rail nav { display: grid; gap: 10px; width: 100%; }
-/* 058: a „Munkacsomagok” egy sorban fér ki (elválasztás nélkül); az angol felirat a szóköznél törik */
+/* 058: „Munkacsomagok” (Work packages) fits on one line (without hyphenation); the English label breaks at the space */
 .nav { color: inherit; text-decoration: none; padding: 11px 4px; overflow-wrap: normal; hyphens: manual; display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; border-radius: 8px; text-align: center; }
 .nav svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .nav[aria-current="page"] { background: #45414b; color: #fff; box-shadow: inset 3px 0 #d98b9c; }
@@ -68,7 +69,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .warn-pill { background: var(--warn-tint); color: var(--warn); border-color: #eedcb8; }
 .error-pill { background: var(--tint); color: var(--error); border-color: var(--tint-line); }
 
-/* fejléc, fülek */
+/* heading, tabs */
 .heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding: 16px 0 12px; flex-wrap: wrap; }
 .heading p { margin-top: 5px; }
 .heading-block { padding: 22px 0; display: grid; gap: 8px; }
@@ -79,7 +80,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); }
 .tab:hover { color: var(--accent); border-bottom-color: var(--tint-line); }
 
-/* táblázat, kártya, üzenet */
+/* table, card, message */
 .table { width: 100%; border-collapse: collapse; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .table th, .table td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
 .table th { font-size: 11px; color: var(--muted); font-weight: 500; background: var(--soft); }
@@ -110,12 +111,12 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .kv dd { margin: 0; }
 .steps { padding-left: 18px; font-size: 13px; color: var(--muted); margin: 10px 0 16px; }
 
-/* Folyamat fül */
+/* Flow tab */
 .flow-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 36px; max-width: 1100px; }
 .flow-layout section { max-width: 560px; }
 .profile { border-left: 1px solid var(--line); padding-left: 26px; }
 
-/* Teendők munkafelület */
+/* To-dos workspace */
 .review-bar { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; font-size: 13px; }
 .review-bar select { border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; background: var(--paper); }
 .workspace { display: grid; grid-template-columns: 220px minmax(320px, 1fr) 340px; gap: 18px; align-items: start; }
@@ -124,7 +125,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .work-item { width: 100%; padding: 9px 10px; text-align: left; border: 1px solid transparent; background: transparent; border-radius: 8px; display: block; }
 .work-item:hover { background: var(--paper); }
 .work-item[aria-pressed="true"] { background: var(--paper); border-color: var(--tint-line); box-shadow: inset 3px 0 var(--accent); }
-/* 058: a hosszú fájlnév legfeljebb két sor (a teljes név súgóban), hogy több tétel férjen a listába */
+/* 058: a long file name takes at most two lines (the full name is in the tooltip), so more items fit in the list */
 .work-title { font-weight: 600; font-size: 13px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .work-item small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
 .tag { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; margin: 8px 8px 0 0; color: #80384a; }
@@ -132,7 +133,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .quiet-tag { color: var(--muted); }
 .source-frame { border: 1px solid var(--line); border-radius: var(--radius); background: #eaeaec; overflow: hidden; min-width: 0; }
 .panel-head { padding: 10px 14px; background: var(--paper); border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; font-size: 12px; }
-/* a munkafelület elfér a képernyőn (1366×768 is): a mezők görgetődnek, a mentés gomb mindig látszik */
+/* the workspace fits on the screen (1366×768 too): the fields scroll, the save button is always visible */
 .pdf { display: block; width: 100%; height: calc(100vh - 380px); min-height: 360px; border: 0; background: var(--paper); }
 .editor { min-width: 0; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
   display: flex; flex-direction: column; height: calc(100vh - 336px); min-height: 400px; }
@@ -156,7 +157,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .save-state { font-size: 12px; color: var(--muted); min-height: 18px; }
 .save-state.error { color: var(--error); }
 
-/* Futás részletei */
+/* Run details */
 .run-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 30px; align-items: start; }
 .budget { margin-bottom: 12px; }
 .budget-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
@@ -169,7 +170,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
-/* === Forráshoz kötött ellenőrzés (045 K3b) === */
+/* === Source-linked review (045 K3b) === */
 .kbd-help { margin-left: auto; }
 .kbd { font-family: var(--mono); font-size: 10px; opacity: .75; margin-left: 6px; }
 .review-grid { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -231,7 +232,7 @@ body.dragging { cursor: col-resize; user-select: none; }
 .alts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .panel .actions { padding: 10px 12px; flex: none; }
 
-/* 048: tételes listák a panelen (fülek, táblázat szerkeszthető cellákkal, ellenőrzések) */
+/* 048: line lists on the panel (tabs, table with editable cells, checks) */
 .panel .checks .issue { background: var(--warn-tint); color: var(--warn); border-bottom-color: #f0e2c6; align-items: center; }
 .panel-tabs { margin: 0; padding: 0 8px; flex: none; overflow-x: auto; overflow-y: hidden; }
 .panel-tabs .tab { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 10px; white-space: nowrap; }
@@ -252,7 +253,7 @@ body.dragging { cursor: col-resize; user-select: none; }
 .list-table tr.row-active td { background: #0057ff12; }
 .list-table tr.row-active td:first-child { box-shadow: inset 3px 0 var(--accent); font-weight: 600; }
 
-/* 048 T2: postafiók-űrlap és levél-tétel */
+/* 048 T2: mailbox form and email item */
 .form-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
 .form-row .block { flex: 1 1 160px; }
 .check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding-bottom: 8px; }
@@ -268,7 +269,7 @@ body.dragging { cursor: col-resize; user-select: none; }
 .mt-s { margin-top: 6px; }
 .viewer-stack { display: flex; flex-direction: column; min-height: 0; height: 100%; } .viewer-stack > .viewer { flex: 1; min-height: 0; }
 
-/* 054 K4: riportok */
+/* 054 K4: reports */
 .report-bar { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
 .dl-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; border-radius: var(--radius); }
 .card.wide { max-width: none; }
@@ -279,7 +280,7 @@ body.dragging { cursor: col-resize; user-select: none; }
 .summary-row td { color: var(--muted); font-style: italic; }
 .cell-sources { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
 
-/* 056 U1: egységes választó, felugró réteg, közös táblázat, letöltés-panel */
+/* 056 U1: unified picker, popover layer, shared table, download panel */
 .popover { position: fixed; z-index: 50; min-width: 240px; max-width: min(460px, 92vw); overflow: auto; background: var(--paper);
   border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 28px #1b1b2426; padding: 10px; display: grid; gap: 8px; align-content: start; }
 .picker { display: grid; gap: 4px; min-width: 0; }
@@ -300,7 +301,8 @@ body.dragging { cursor: col-resize; user-select: none; }
 .picker-opt { display: grid; gap: 1px; padding: 7px 9px; border-radius: 5px; cursor: pointer; }
 .picker-opt.active { background: var(--tint); }
 .picker-opt[aria-selected="true"] { font-weight: 600; }
-/* a pipa a felirat elé, egy sorba; CSS-escape-pel, hogy a fájl kódolása ne ronthassa el (061: „ásm” volt a helyén) */
+/* the tick goes before the label, on one line; as a CSS escape so that the file encoding cannot corrupt it
+   (061: „ásm” stood in its place) */
 .picker-opt[aria-selected="true"] > span:first-child::before { content: "\2713\00a0"; color: var(--accent); }
 .picker-opt[aria-disabled="true"] { opacity: .5; cursor: default; }
 .picker-group { padding: 8px 9px 3px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
@@ -320,7 +322,7 @@ body.dragging { cursor: col-resize; user-select: none; }
 .chip button { border: 0; background: none; padding: 0 6px; font-size: 14px; line-height: 1; color: var(--muted); }
 .chip button:hover { color: var(--ink); }
 .dt-scroll { overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
-.dt-table { border: 0; border-radius: 0; overflow: visible; } /* a .table rejtett kilógása a rögzített fejlécet elrontaná */
+.dt-table { border: 0; border-radius: 0; overflow: visible; } /* .table's hidden overflow would break sticky headers */
 .dt-table th { position: sticky; top: 0; z-index: 2; white-space: nowrap; padding: 6px 10px; }
 .dt-table td { padding: 8px 10px; height: 37px; }
 .dt-table tr.row-selected td { background: #0057ff0d; }
@@ -328,7 +330,7 @@ body.dragging { cursor: col-resize; user-select: none; }
 .th-in { display: inline-flex; align-items: center; gap: 2px; }
 .th-sort { background: none; border: 0; padding: 2px 4px; font: inherit; color: inherit; display: inline-flex; gap: 4px; align-items: center; border-radius: 4px; }
 .th-sort:hover { background: var(--chip); color: var(--ink); }
-/* 058: a rendezhetőség mindig látszik (halvány kettős nyíl), a rendezett oszlop iránya kiemelve */
+/* 058: sortability is always visible (faint double arrow); the direction of the sorted column is highlighted */
 .sort-mark { display: inline-flex; align-items: center; gap: 1px; color: var(--muted); opacity: .4; transition: opacity .12s; }
 .sort-mark svg { width: 9px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .th-sort:hover .sort-mark, .th-sort:focus-visible .sort-mark { opacity: .85; }
@@ -367,7 +369,7 @@ th.num .th-in { flex-direction: row-reverse; }
 .list-table .picker-trigger:hover { border-color: var(--line); }
 .dt-actions { display: inline-flex; gap: 6px; justify-content: flex-end; width: 100%; }
 
-/* 057: egységes oldalfejléc, csomag-szakaszok, beállítások */
+/* 057: unified page header, work package stages, settings */
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; padding: 18px 0 14px; flex-wrap: wrap; }
 .page-head-main { display: grid; gap: 4px; min-width: 0; }
 .page-head .crumb { margin: 0 !important; }
@@ -394,7 +396,7 @@ th.num .th-in { flex-direction: row-reverse; }
 .run-summary { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .wide-bar { flex: 1 1 100%; }
 .recipe-form { display: grid; gap: 10px; max-width: 720px; border-top: 1px solid var(--line-soft); padding-top: 12px; }
-/* 063: a receptek magyarázata (Recept-kártya, Beállítások › Receptek) */
+/* 063: the explanation of the recipes (recipe card, Settings › Recipes) */
 .param-help { display: grid; gap: 0; margin: 0; max-width: 900px; border: 1px solid var(--line-soft); border-radius: 8px; overflow: hidden; }
 .param-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; padding: 9px 12px; border-bottom: 1px solid var(--line-soft); }
 .param-row:last-child { border-bottom: 0; }
@@ -428,20 +430,20 @@ th.num .th-in { flex-direction: row-reverse; }
 .approval-box { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--warn-tint); color: var(--warn); }
 .settings-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 24px; align-items: start; }
 .settings-nav { display: grid; gap: 2px; position: sticky; top: 12px; }
-/* 063: a menüpontok nagyobbak, rámutatáskor színes sávval kiemelődnek */
+/* 063: the menu items are larger and are highlighted with a coloured bar on hover */
 .settings-nav a { padding: 10px 14px; border-radius: 6px; text-decoration: none; color: var(--ink); font-size: 14px; font-weight: 500; transition: background-color .12s, box-shadow .12s; }
 .settings-nav a:hover { background: var(--tint); color: var(--accent); box-shadow: inset 3px 0 var(--tint-line); }
 .settings-nav a[aria-current="page"] { background: var(--tint); color: var(--accent); font-weight: 600; box-shadow: inset 3px 0 var(--accent); }
 .settings-body { display: grid; gap: 14px; min-width: 0; }
 .settings-body > h2 { margin: 0; }
 @media (max-width: 800px) { .settings-layout { grid-template-columns: 1fr; } .stage-tabs { grid-template-columns: 1fr; } .stage-tab { border-right: 0; border-bottom: 1px solid var(--line); } }
-/* táblázat: a szűrő-ikon csak rámutatáskor vagy aktív szűrőnél; állapotjelvény; kiemelt teendőszám */
+/* table: the filter icon only on hover or when a filter is active; status badge; highlighted to-do count */
 .th-filter { opacity: 0; }
 th:hover .th-filter, .th-filter:focus-visible, .th-filter[aria-expanded="true"] { opacity: .6; }
 .th-filter.on { opacity: 1; }
 .count-alert { display: inline-block; min-width: 22px; padding: 0 7px; border-radius: 999px; background: var(--warn-tint); color: var(--warn); font-weight: 600; text-align: center; }
 
-/* 057: megjelenés — sötét téma (a Beállítások › Megjelenés, vagy a rendszer beállítása) és sűrűség */
+/* 057: appearance — dark theme (from Settings › Appearance, or the system setting) and density */
 :root[data-theme="dark"] {
   --canvas: #16161b; --paper: #1f1f26; --ink: #e8e8ee; --muted: #a1a1ad; --line: #34343e; --rail: #0f0f13;
   --accent: #d9788c; --accent-ink: #1a1015; --tint: #3a2229; --tint-line: #5b3440;
@@ -466,14 +468,14 @@ th:hover .th-filter, .th-filter:focus-visible, .th-filter[aria-expanded="true"] 
 .actor .picker { flex-direction: row; display: flex; align-items: center; gap: 8px; }
 .actor .picker-label { font-size: 13px; color: var(--ink); }
 .actor .picker-trigger { min-width: 200px; }
-/* 061: a névlista nem üres, de nincs kiválasztott név — módosítás előtt kötelező */
+/* 061: the name list is not empty, but no name is selected — required before making changes */
 .actor .needs-actor .picker-trigger { border-color: var(--warn); box-shadow: 0 0 0 2px var(--warn-tint); }
 .owner-picker { display: flex; flex-direction: column; gap: 2px; }
 .owner-picker .picker { flex-direction: row; display: flex; align-items: center; gap: 6px; }
 .owner-picker .picker-label { font-size: 12px; color: var(--muted); }
 .owner-picker .picker-trigger { min-width: 150px; }
 
-/* 058: a csomag kezelése (átnevezés, elrejtés, törlés) */
+/* 058: managing the work package (rename, hide, delete) */
 .menu-list { display: grid; gap: 2px; min-width: 260px; }
 .menu-item { background: none; border: 0; border-radius: 5px; padding: 9px 11px; text-align: left; display: flex; align-items: center; gap: 8px; font-weight: 500; }
 .menu-item:hover:not(:disabled) { background: var(--tint); color: var(--accent); box-shadow: inset 3px 0 var(--accent); }
@@ -481,16 +483,16 @@ th:hover .th-filter, .th-filter:focus-visible, .th-filter[aria-expanded="true"] 
 .danger-text { color: var(--error); }
 .danger { background: var(--error); border: 1px solid var(--error); color: #fff; padding: 9px 16px; font-weight: 600; }
 .danger:hover:not(:disabled) { filter: brightness(.92); }
-/* 058: rövidített link a levél szövegében (nem kattintható, a teljes cím súgóban) */
+/* 058: shortened link in the email text (not clickable; the full address is in the tooltip) */
 .mail-link { display: inline-block; padding: 0 6px; margin: 0 1px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; white-space: nowrap; }
-/* 058: a három futás-gomb rövid magyarázata */
+/* 058: a short explanation of the three run buttons */
 .run-help { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 10px 0 4px; color: var(--muted); }
 .run-help dt { font-weight: 600; color: var(--ink); }
 .run-help dd { margin: 0; }
-/* 058: a korábban használt postafiókok választója */
+/* 058: picker for the mailboxes used before */
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: -4px 0 4px; }
 button.chip { cursor: pointer; padding: 3px 10px; border-radius: 999px; }
 button.chip[aria-pressed="true"] { background: var(--paper); border-color: var(--accent); color: var(--accent); }
-/* 058 K5.3: feladatjavaslatok a levél nézetében */
+/* 058 K5.3: task proposals in the email view */
 .task-list { display: grid; gap: 8px; margin-top: 6px; }
 .task-item { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; display: grid; gap: 3px; }

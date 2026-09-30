@@ -1,6 +1,6 @@
-// 066 Á36: hibahatár. Egy nézet váratlan hibája eddig a teljes felületet üres fehér oldallá tette; most érthető üzenet és
-// újratöltés-gomb jelenik meg. A mentetlen mezőjavítások a lap tárolójában megmaradnak (066 Á20), az újratöltés után
-// visszajönnek.
+// 066 Á36: error boundary. Until now an unexpected error in one view turned the whole interface into a blank white
+// page; now a clear message and a reload button appear. Unsaved field corrections are kept in the page's storage
+// (066 Á20) and come back after the reload.
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { t } from "../i18n";
 
@@ -12,7 +12,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("felületi hiba", error, info.componentStack); // i18n-ignore (fejlesztői napló)
+    console.error("felületi hiba", error, info.componentStack); // i18n-ignore (developer log)
   }
 
   render() {

@@ -18,8 +18,8 @@ function WorkpackageList() {
   useLocale();
   const [creating, setCreating] = useState(false);
   const [count, setCount] = useState<number | null>(null);
-  const [archived, setArchived] = useState(false); // 058: az elrejtett csomagok csak kérésre látszanak
-  const [mine, setMine] = useState(false); // 061: csak azok, amelyeknek a „Ki dolgozik?” személy a felelőse
+  const [archived, setArchived] = useState(false); // 058: hidden work packages are only shown on request
+  const [mine, setMine] = useState(false); // 061: only those whose owner is the „Ki dolgozik?” (Who is working?) person
   const actor = useActor();
   const scope = { ...(archived ? { include_archived: "1" } : {}), ...(mine && actor ? { owner: actor } : {}) };
   return (
@@ -37,7 +37,7 @@ function WorkpackageList() {
           <label className="check small"><input type="checkbox" checked={archived} onChange={(e) => setArchived(e.target.checked)} /> {t("Elrejtett csomagok is")}</label>
         </>}
         cell={(col, row) => (col.key === "next_label" ? (
-          // a következő lépés a választott nyelven (a szolgáltatás kódjából), a szakaszra mutató hivatkozással
+          // the next step in the chosen language (from the local service's code), with a link to the stage
           <a href={linkOf(col, row) ?? "#/workpackages"}>{stepLabel(String(row.next_code), row._next_params as Record<string, unknown>, String(row.next_label))}</a>
         ) : undefined)}
         emptyText={t("Még nincs munkacsomag. Az „Új munkacsomag” gombbal mappából, fájlokból vagy postafiókból hozhatsz létre.")} />

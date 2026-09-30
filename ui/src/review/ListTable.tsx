@@ -1,6 +1,6 @@
-// Tételes lista (048 T1-lista): a kivonat-tranzakciók, határozatok, tételsorok táblázata szerkeszthető cellákkal,
-// sor hozzáadásával és törlésével. A javítás tárgya a teljes lista (a szolgáltatás cellánként ellenőrzi a fajtát);
-// a munkapéldány a drafts.ts tárban él, a mezőjavítással együtt mentődik.
+// Line-item list (048 T1-lista): a table of statement transactions, resolutions and line items with editable cells,
+// and with adding and deleting rows. The correction covers the whole list (the local service checks the kind per cell);
+// the draft lives in the drafts.ts store and is saved together with the field correction.
 import { Picker } from "../components/Picker";
 import { useEffect, useRef } from "react";
 import type { Cell, CorrectionValue, ListColumn } from "../api";
@@ -11,7 +11,7 @@ import { Icon } from "../components/Icon";
 
 const NUMERIC = new Set(["money", "number"]);
 
-/** Gépi / javított lista → szerkeszthető sorok (cellánként szöveg; egyszerű listánál a `*` oszlop). */
+/** Machine / corrected list → editable rows (text per cell; for a simple list, the `*` column). */
 export function toRows(value: unknown, columns: ListColumn[]): ListRow[] {
   const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
   if (!Array.isArray(value)) return [];
@@ -19,7 +19,7 @@ export function toRows(value: unknown, columns: ListColumn[]): ListRow[] {
   return value.map((row) => Object.fromEntries(columns.map((c) => [c.name, str((row as Record<string, unknown> | null)?.[c.name])])));
 }
 
-/** Szerkesztett sorok → mentendő lista: üres cella = nincs érték; a teljesen üres sor kimarad. */
+/** Edited rows → the list to save: an empty cell = no value; a completely empty row is left out. */
 export function fromRows(rows: ListRow[], columns: ListColumn[]): CorrectionValue {
   const cell = (v: string | undefined): Cell => (v === undefined || v.trim() === "" ? null : v.trim());
   const filled = rows.filter((r) => columns.some((c) => cell(r[c.name]) !== null));
@@ -31,10 +31,10 @@ interface Props {
   field: string;
   columns: ListColumn[];
   rows: ListRow[];
-  badRows: number[]; // 1-től számozva (az ellenőrzések így jelölik)
+  badRows: number[]; // numbered from 1 (this is how the checks mark them)
   focusRow: { row: number; seq: number } | null;
-  activeRow?: number | null; // 053: a képen kiválasztott sor (1-től), kiemelve és a látható részbe görgetve
-  onRowPick?: (row: number) => void; // 053: a sorra kattintva / a cellába lépve a kép a sor helyére ugrik
+  activeRow?: number | null; // 053: the row selected on the image (from 1), highlighted and scrolled into view
+  onRowPick?: (row: number) => void; // 053: clicking the row / entering a cell jumps the image to the row's position
   edited: boolean;
   corrected: boolean;
   readOnly: boolean;

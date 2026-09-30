@@ -1,6 +1,7 @@
-// Közös letöltés-panel (056 U1): minden táblázat és riport ugyanígy tölt le. Választható a formátum, a terjedelem
-// (minden sor / a szűrt sorok / a kijelölt sorok) és az oszlopok; a sorok száma letöltés előtt látszik. A fájlt a
-// szolgáltatás állítja elő (képlet-védelem, magyar CSV), a fájlnév egységes: adatkészlet, hatókör, terjedelem, időpont.
+// Shared download panel (056 U1): every table and report downloads the same way. The format, the row scope (all
+// rows / the filtered rows / the selected rows) and the columns can be chosen; the number of rows is shown before
+// downloading. The local service produces the file (formula protection, Hungarian CSV); the file name is uniform:
+// dataset, scope, row scope, timestamp.
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getLocale, t, useLocale } from "../i18n";
 import { api, ApiError, type DsColumn, type DsQuery, type DsScope, type ExportFormat, type ExportRows } from "../api";
@@ -13,7 +14,7 @@ const FORMATS: { value: ExportFormat; label: string }[] = [
   { value: "csv", label: "CSV" },
   { value: "json", label: "JSON" },
 ];
-// a tipp olvasáskor fordít (a magyar szöveg a kulcs)
+// the hint is translated when read (the Hungarian text is the key)
 const FORMAT_HINT: Record<string, string> = tmap({
   xlsx: "egy munkalap, számok számként, szűrhető fejléc",
   csv: "pontosvesszővel tagolva, a magyar Excel oszlopokra bontja",
@@ -44,7 +45,7 @@ export function DownloadPanel(p: Props) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
 
-  // a legszűkebb értelmes terjedelem az alap: kijelölés > szűrés > minden
+  // the narrowest sensible scope is the default: selection > filter > all
   useEffect(() => {
     if (!open) return;
     setRows(p.selectedKeys.length ? "selected" : p.filtered ? "filtered" : "all");

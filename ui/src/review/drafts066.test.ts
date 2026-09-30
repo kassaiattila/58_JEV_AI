@@ -1,5 +1,6 @@
-// 066 Á20: a mentetlen mezőjavítás (munkapéldány) eddig csak a memóriában élt, és újratöltéskor figyelmeztetés nélkül
-// elveszett. Most a lap tárolójában is megvan (újratöltés után visszajön), és mentetlen javításnál a böngésző figyelmeztet.
+// 066 Á20: until now an unsaved field correction (working copy) lived only in memory, and was lost without a warning on
+// reload. Now it is also kept in the tab's storage (it comes back after a reload), and with an unsaved correction the
+// browser warns.
 import { afterEach, describe, expect, it } from "vitest";
 import { draftKey, getDraft, hydrateDrafts, resetDrafts, setField } from "./drafts";
 

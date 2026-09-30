@@ -1,10 +1,11 @@
-// Fordítás-teljesség ellenőrzése (057, a régi V4 `ui/scripts/check-i18n.mjs` mintájára, egyszerűsítve).
-// Kötelező angol fordítás:
-//  - a felület minden `t("…")` hívásának szöveg-literálja (TypeScript-elemzéssel, nem regexszel);
-//  - a szolgáltatás felől jövő feliratok: az adatkészletek oszlopnevei (`jav/datasets.py` `_col(...)`), a felsorolt
-//    feliratok (`configs/datasets.json` labels) és a mező- / oszlopnevek (`configs/field_labels.json`).
-// Hibát ad: hiányzó kulcs, üres fordítás, eltérő helyőrző ({{név}}), ugyanaz a kulcs két fájlban eltérően.
-// Futtatás: `npm run i18n:check`; `--self-test`: a hibaágak ellenőrzése.
+// Translation completeness check (057, modelled on the legacy V4 `ui/scripts/check-i18n.mjs`, simplified).
+// An English translation is required for:
+//  - the string literal of every `t("…")` call in the interface (by TypeScript parsing, not by regex);
+//  - the labels coming from the service: the dataset column names (`jav/datasets.py` `_col(...)`), the enumerated
+//    labels (`configs/datasets.json` labels) and the field / column names (`configs/field_labels.json`).
+// Errors: a missing key, an empty translation, a differing placeholder ({{name}}), the same key translated differently
+// in two files.
+// Run: `npm run i18n:check`; `--self-test`: checks the error branches.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -47,10 +48,10 @@ export function uiKeys(files) {
       if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "t" && n.arguments.length) {
         const a = n.arguments[0];
         if (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a)) keys.add(a.text);
-        // t(feltétel ? "a" : "b"): mindkét ág kötelező
+        // t(condition ? "a" : "b"): both branches are required
         if (ts.isConditionalExpression(a)) for (const b of [a.whenTrue, a.whenFalse]) if (ts.isStringLiteral(b)) keys.add(b.text);
       }
-      // tmap({...}): a címkeszótár minden szöveg-értéke kötelező (olvasáskor fordít)
+      // tmap({...}): every string value of the label map is required (it translates on read)
       if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "tmap" && n.arguments.length
           && ts.isObjectLiteralExpression(n.arguments[0])) {
         for (const pr of n.arguments[0].properties) if (ts.isPropertyAssignment(pr) && ts.isStringLiteral(pr.initializer)) keys.add(pr.initializer.text);
@@ -70,19 +71,19 @@ export function serverKeys() {
   for (const group of Object.values(ds.labels)) for (const v of Object.values(group)) keys.add(v);
   const fl = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "field_labels.json"), "utf8"));
   for (const section of ["fields", "columns", "doc_types"]) for (const v of Object.values(fl[section] ?? {})) keys.add(v);
-  // 058: a levél-szándékok neve (a teendő-szövegben és a levél nézetében) a felületen fordítva jelenik meg
+  // 058: the names of the email intents (in the to-do text and in the email view) appear translated in the interface
   const it = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "intents.json"), "utf8"));
   for (const i of it.intents ?? []) if (i.display_name) keys.add(i.display_name);
-  // 058 K5.3: a feladat-akciók neve
+  // 058 K5.3: the names of the task actions
   const et = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "email_tasks.json"), "utf8"));
   for (const v of Object.values(et.actions ?? {})) keys.add(v);
-  // a receptek termékszövege (cím, leírás, lépések) a felületen fordítva jelenik meg
+  // the recipes' product text (title, description, steps) appears translated in the interface
   const rc = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "recipes.json"), "utf8"));
   for (const r of Array.isArray(rc.recipes) ? rc.recipes : Object.values(rc.recipes ?? {})) {
-    // 063: a Receptek oldal a feltételeket, az eredményt és az ember teendőjét is mutatja
+    // 063: the Recipes page also shows the requirements, the result and what the person has to do
     for (const v of [r.title, r.description, ...(r.steps ?? []), ...(r.requirements ?? []), r.result, r.manual_action]) if (v) keys.add(v);
   }
-  // 063: a receptek magyarázata (mikor való, a beállítások és értékeik jelentése)
+  // 063: the recipe explanations (when a recipe fits, what the settings and their values mean)
   const rh = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "recipe_help.json"), "utf8"));
   for (const r of Object.values(rh.recipes ?? {})) if (r.when) keys.add(r.when);
   for (const p of Object.values(rh.params ?? {})) {
@@ -92,9 +93,10 @@ export function serverKeys() {
   return keys;
 }
 
-/** Kiegészítő átnézés (--audit): minden ékezetes (magyarnak látszó) szöveg-literál és JSX-szöveg, amelyhez nincs angol
- *  fordítás — így a konstansban álló és csak futáskor fordított feliratok hiánya is kiderül. Kivétel: import-útvonal,
- *  a `// i18n-ignore` megjegyzésű sor (pl. keresési minta, magyar formátumpélda). */
+/** Supplementary review (--audit): every accented (Hungarian-looking) string literal and JSX text that has no English
+ *  translation — so missing translations also come to light for labels that sit in a constant and are only translated
+ *  at run time. Exceptions: an import path, a line with the `// i18n-ignore` comment (e.g. a search pattern, a Hungarian
+ *  format example). */
 export function audit(files, known) {
   const hu = /[áéíóöőúüűÁÉÍÓÖŐÚÜŰ]/;
   const out = [];
@@ -129,7 +131,7 @@ function dictionaries() {
 
 const direct = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (!direct) {
-  // modulként betöltve (pl. kulcslistához): nem fut ellenőrzés
+  // loaded as a module (e.g. for the key list): no check runs
 } else if (process.argv.includes("--self-test")) {
   assert.deepEqual(validate(["Szia {{név}}"], [["ok", { "Szia {{név}}": "Hi {{név}}" }]]), []);
   assert.ok(validate(["Szia"], [["hiány", {}]]).some((e) => e.includes("hiányzó")));

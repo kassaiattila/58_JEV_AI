@@ -1,6 +1,6 @@
-// Mai munkám (061 döntés: aktív felhasználó + kiosztás): a „Ki dolgozik?” személy napi műveletei — recept, futás
-// indítása és jóváhagyása, javítás, teendő lezárása, feladatjavaslat-döntés, csomag-események, postafiók-letöltés.
-// A régi V4 „Mai munkám” nézetének mintája; a nap választható (alapból a mai).
+// Mai munkám (My work today; 061 decision: active user + assignment): the daily actions of the „Ki dolgozik?” (Who is
+// working?) person — recipe, starting and approving a run, correction, closing a to-do, task proposal decision, work
+// package events, mailbox download. Modelled on the old V4 „Mai munkám” view; the day can be chosen (today by default).
 import { DataTable } from "../components/DataTable";
 import { PageHeader } from "../components/PageHeader";
 import { useActor } from "../hooks";
@@ -8,14 +8,15 @@ import { t, useLocale } from "../i18n";
 import { MODE, reasonText } from "../labels";
 import { go } from "../route";
 
-/** A helyi naptári nap ÉÉÉÉ-HH-NN alakban. */
+/** The local calendar day in YYYY-MM-DD form. */
 export function localDay(d = new Date()): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-/** A művelet részlete feliratként (062): a teendő oka hétköznapi mondatban, a döntés és a mód magyarul; a recept címét
- *  a szolgáltatás adja (a felület fordítja). A többi (pl. postafiók címe) változatlan. */
+/** The action's detail as a label (062): the to-do's reason as an everyday sentence, the decision and the mode in
+ *  Hungarian; the recipe title comes from the local service (the UI translates it). The rest (e.g. a mailbox address)
+ *  is unchanged. */
 export function activityDetail(action: string, detail: string | null | undefined): string {
   if (!detail) return "";
   switch (action) {

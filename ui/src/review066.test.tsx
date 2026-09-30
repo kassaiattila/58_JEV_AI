@@ -1,4 +1,4 @@
-// 066 átvizsgálás: a felületet érintő javítások (letöltés fájlneve, a megerősítő oldal friss kerete).
+// 066 review: the fixes affecting the UI (the download's file name, the fresh budget on the confirmation page).
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";

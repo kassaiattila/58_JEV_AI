@@ -1,6 +1,7 @@
-// 066 Á23: a teendő „Rendezve” gombja. Eddig a hiba csendben elveszett (try/finally, catch nélkül), és a függő kérés alatt
-// a gomb újra megnyomható volt. Most egyszerre egy kérés megy, hiba esetén üzenet látszik, és a lista (siker vagy hiba
-// után is) frissül, mert a hiba oka lehet, hogy közben más rendezte.
+// 066 Á23: the to-do's „Rendezve” (Resolved) button. Until now an error was silently lost (try/finally, without a
+// catch), and the button could be pressed again while the request was pending. Now only one request goes at a time, an
+// error shows a message, and the list is refreshed (after success or error alike), because the cause of the error may
+// be that someone else resolved it in the meantime.
 import { useRef, useState } from "react";
 import { api, ApiError, type Reason } from "../api";
 import { t } from "../i18n";
@@ -8,7 +9,7 @@ import { t } from "../i18n";
 export function useResolve(onDone: () => void) {
   const [pending, setPending] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const busy = useRef(false); // szinkron zár: két gyors kattintás közt a React állapota még nem frissült
+  const busy = useRef(false); // synchronous lock: between two quick clicks React's state has not yet updated
 
   async function resolve(r: Reason): Promise<void> {
     if (busy.current) return;

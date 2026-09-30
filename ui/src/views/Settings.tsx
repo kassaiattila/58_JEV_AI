@@ -1,5 +1,6 @@
-// Beállítások (057, döntés 2026-09-28): a ritkán változó dolgok egy helyen — postafiókok, munkamappák, felhasználók,
-// megjelenés, nyelv és a rendszer (feldolgozó, minden futás); 063: a receptek leírása. Balra az alpontok, jobbra a tartalom.
+// Settings (057, decision of 2026-09-28): the things that rarely change, in one place — mailboxes, work folders, users,
+// appearance, language and the system (worker, all runs); 063: the description of the recipes. Sub-items on the left,
+// content on the right.
 import { useState } from "react";
 import { api, ApiError } from "../api";
 import { Icon } from "../components/Icon";
@@ -20,7 +21,7 @@ import { VersionPanel } from "./settings/VersionPanel";
 import { ConfirmButton } from "../components/ConfirmButton";
 import { UncertainCallsPanel } from "./settings/UncertainCallsPanel";
 
-// a feliratok magyar forrásként állnak itt; a fordítás a kirajzoláskor történik (`t()`)
+// the labels stand here as Hungarian source; translation happens at render time (`t()`)
 // 073: exported so a test can check that every label and hint has an English translation (the i18n checker only
 // sees literal t("...") arguments, and "Receptek" slipped through)
 export const SETTINGS_SECTIONS: { key: SettingsSection; label: string; hint: string }[] = [

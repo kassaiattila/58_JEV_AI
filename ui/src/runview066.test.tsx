@@ -1,5 +1,5 @@
-// 066 Á24: az Eredmény szakasz és a jóváhagyó doboz a futás végén sem frissült. A közös futás-nézet aktív futás alatt
-// magától frissít, a lezárás után leáll (nem kérdez tovább).
+// 066 Á24: the Result section and the approval box did not update even at the end of the run. The shared run view
+// refreshes by itself while a run is active, and stops once it is closed (it asks no further).
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, type RunView } from "./api";

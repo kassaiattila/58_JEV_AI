@@ -1,10 +1,10 @@
-// Oldalkép-néző kerettel (045 K3b). A V4 GroundedSource viselkedése saját kóddal, két újdonsággal:
-//  - a kiválasztott mező többi jelöltje szaggatott, kattintható keretként látszik (valószínűséggel);
-//  - kijelölő módban szavakra kattintva vagy téglalapot húzva lehet szöveget választani a mezőhöz.
-// 053 (döntés 2026-09-28): minden megtalált mező kerete halványan, a bizonyosság színével látszik, a kiválasztott erősen
-// kiemelve (a V4-ben csak az aktív látszott). Szabályok a V4-ből: a keret az oldalkép betöltése után jelenik meg (nincs keret
-// a régi oldalon); a mező oldalára automatikusan lapoz és a keretet a látható részbe görgeti; kattintás a képen a pont
-// alatti mezők között lépked.
+// Page image viewer with boxes (045 K3b). V4's GroundedSource behaviour in our own code, with two new features:
+//  - the selected field's other candidates are shown as dashed, clickable boxes (with their probability);
+//  - in selection mode, text can be chosen for the field by clicking words or dragging a rectangle.
+// 053 (decision of 2026-09-28): every located field's box is shown faintly, in its confidence colour, with the selected
+// one strongly highlighted (in V4 only the active one was shown). Rules from V4: the box appears after the page image
+// has loaded (no box on the old page); it turns to the field's page automatically and scrolls the box into view; a
+// click on the image steps through the fields under the point.
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Alternative, Provenance, SourcePage, SourceWord } from "../api";
 import { t, useLocale } from "../i18n";
@@ -17,7 +17,7 @@ export const BAND_COLOR: Record<string, string> = {
 interface Props {
   pageUrl: (page: number) => string;
   pages: SourcePage[];
-  pageCount?: number | null; // 048: az irat tényleges oldalszáma (szóréteg nélkül / az OCR oldalkorlátja fölött is lapozható)
+  pageCount?: number | null; // 048: the document's real page count (pageable with no word layer / past the OCR page limit too)
   prov: Record<string, Provenance>;
   activeField: string | null;
   focusRequest: number;
@@ -48,7 +48,7 @@ export function PageViewer(props: Props) {
   const src = pageUrl(page);
   const ready = loadedSrc === src && !failed;
 
-  // a kiválasztott mező oldalára lapozás (új kijelölésnél akkor is, ha kézzel máshová lapoztunk)
+  // turn to the selected field's page (on a new selection, even if we have paged elsewhere by hand)
   useEffect(() => {
     if (frameBoxes(active).length && active?.page && active.page !== page) setPage(active.page);
     // eslint-disable-next-line react-hooks/exhaustive-deps

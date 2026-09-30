@@ -1,6 +1,6 @@
-// Postafiók (048 T2): mit olvassunk (postafiók, mappa, időszak) → ingyenes darabszám-előnézet → letöltés most, vagy
-// ütemezés. Minden letöltést a feldolgozó futtat; az eredmény a letöltési naplóban látszik, az új levelekből
-// munkacsomag lesz a levél-szándék recepttel. Fizetős feldolgozás nem indul magától (2026-09-28 döntés).
+// Mailbox (048 T2): what to read (mailbox, folder, period) → free count preview → download now, or schedule.
+// Every download is run by the worker; the result shows in the download log, and the new emails become a work
+// package with the email intent recipe. No paid processing starts by itself (decision of 2026-09-28).
 import { useState } from "react";
 import { api, ApiError, getActor, NO_ACTOR, type MailboxCount, type MailboxPull, type MailboxRequest } from "../api";
 import { ConfirmButton } from "../components/ConfirmButton";
@@ -44,14 +44,14 @@ export function splitAccounts(value: string): string[] {
   return value.split(",").map((a) => a.trim()).filter(Boolean);
 }
 
-/** 065: a „Korábban használt” cím hozzáadása a listához, vagy kivétele, ha már benne van. */
+/** 065: adds a „Korábban használt” (Previously used) address to the list, or removes it if it is already there. */
 export function toggleAccount(value: string, account: string): string {
   const list = splitAccounts(value);
   return (list.includes(account) ? list.filter((a) => a !== account) : [...list, account]).join(", ");
 }
 
-/** 057: két helyen él. `pull`: az Új munkacsomag „postafiókból” forrása (darabszám-előnézet, letöltés most);
- *  `settings`: a Beállítások › Postafiókok (ütemezés mentése, az ütemezések és a letöltési napló). */
+/** 057: used in two places. `pull`: the „postafiókból” (from a mailbox) source of New work package (count preview,
+ *  download now); `settings`: Settings › Mailboxes (saving a schedule, the schedules and the download log). */
 export function Mailbox({ variant = "settings" }: { variant?: "pull" | "settings" }) {
   useLocale();
   const data = useLoad("mailbox", api.mailbox, variant === "settings" ? 5000 : undefined);
@@ -109,11 +109,11 @@ export function Mailbox({ variant = "settings" }: { variant?: "pull" | "settings
           <input value={account} onChange={(e) => { setAccount(e.target.value); setPreview(null); }} placeholder="nev@ceg.hu" required />
         </label>
         {d?.accounts?.length ? (
-          // 058: a korábban használt címek egy kattintással (nem kell újra begépelni)
+          // 058: the previously used addresses with a single click (no need to type them again)
           <div className="chip-row" role="group" aria-label={t("Korábban használt postafiókok")}>
             <span className="muted small">{t("Korábban használt:")}</span>
             {d.accounts.map((a) => (
-              // 065: hozzáad / kivesz (több cím is megadható), nem cseréli le a mezőt
+              // 065: adds / removes (several addresses may be given), does not replace the field
               <button key={a} type="button" className="chip" aria-pressed={splitAccounts(account).includes(a)}
                 onClick={() => { setAccount(toggleAccount(account, a)); setPreview(null); }}>{a}</button>
             ))}
@@ -156,7 +156,8 @@ export function Mailbox({ variant = "settings" }: { variant?: "pull" | "settings
         </div>
         {preview ? (
           <p className="notice" role="status">
-            {/* 065: az új levelek száma külön; korábban az új levelek számát írta ki az időszak összes leveleként */}
+            {/* 065: the number of new emails separately; it used to print the number of new emails as all the emails in
+                the period */}
             {preview.already_read
               ? t("{{total}} levél esik az időszakba: {{n}} új, {{read}} már be volt olvasva (azokat kihagyja).",
                 { total: preview.in_period, n: preview.eligible, read: preview.already_read })

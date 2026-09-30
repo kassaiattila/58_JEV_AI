@@ -1,6 +1,6 @@
-// 063 (döntés 2026-09-29): a receptek magyarázata — a Recept-kártyán beállításonként a választott érték jelentése és a
-// tételenkénti költségkeret; a Beállítások › Receptek oldalon a teljes leírás. A keret számítása a szolgáltatás
-// `work.item_budget` tükre (a próba-receptek mesterségesek).
+// 063 (decision of 2026-09-29): explaining the recipes — on the Recipe card, for each setting, the meaning of the
+// chosen value and the per-item cost budget; on the Settings › Recipes page, the full description. The budget
+// calculation mirrors the service's `work.item_budget` (the test recipes are artificial).
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, type Recipe, type RecipeHelp } from "./api";
@@ -45,7 +45,7 @@ describe("063 a receptek magyarázata", () => {
   it("a kártyán a választott érték jelentése látszik, érték-szöveg híján a beállításé, és a keret", () => {
     render(<RecipeParamList recipe={INVOICE} params={{ arm: "S", jev_cache: "live" }} help={HELP} />);
     expect(screen.getByText(/A kód kigyűjti a lehetséges értékeket/)).toBeTruthy();
-    expect(screen.getByText(/Mi történjen, ha ugyanazt a kérdést/)).toBeTruthy(); // a „mindig élő” értékhez nincs szöveg a próbában
+    expect(screen.getByText(/Mi történjen, ha ugyanazt a kérdést/)).toBeTruthy(); // the test has no text for the „mindig élő” (always live) value
     expect(screen.getByText("tételenként: JEV legfeljebb 0,05 USD")).toBeTruthy();
   });
 
@@ -56,8 +56,8 @@ describe("063 a receptek magyarázata", () => {
     expect(screen.getByText(/Ha a csomagban egyféle, ismert típusú irat van/)).toBeTruthy();
     expect(screen.getByText("Legalább egy PDF-irat a munkacsomagban")).toBeTruthy();
     expect(screen.getByText("Beolvasás (szükség esetén OCR)")).toBeTruthy();
-    expect(screen.getAllByText("alapbeállítás").length).toBe(2); // az út és a JEV-válaszok alapértéke
-    // az út a költséget is befolyásolja, ezért lehetőségenként látszik a keret; a JEV-válaszoknál nem
+    expect(screen.getAllByText("alapbeállítás").length).toBe(2); // the default of the path and of the JEV answers
+    // the path affects the cost too, so the budget is shown for each option; for the JEV answers it is not
     expect(screen.getByText("Költségkeret: tételenként: JEV legfeljebb 0,05 USD")).toBeTruthy();
     expect(screen.getAllByText(/^Költségkeret: /).length).toBe(3);
   });

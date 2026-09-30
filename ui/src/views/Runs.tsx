@@ -11,7 +11,8 @@ import { ConfirmButton } from "../components/ConfirmButton";
 
 const ACTIVE = new Set(["queued", "running"]);
 
-/** Minden futás (a Beállítások › Rendszer része, 057): figyelés, a lap bezárása nem állítja le őket. */
+/** All runs (part of Beállítások › Rendszer (Settings › System), 057): monitoring; closing the tab does not stop
+ *  them. */
 export function RunList() {
   useLocale();
   return <DataTable dataset="runs" label={t("Futások")} pollMs={5000} emptyText={t("Még nem volt futás.")} storageId="all-runs" />;
@@ -19,7 +20,7 @@ export function RunList() {
 
 export function RunDetail({ runId }: { runId: string }) {
   useLocale();
-  const view = useRunView(runId); // csak futás közben frissít automatikusan
+  const view = useRunView(runId); // refreshes automatically only while the run is in progress
   const wp = useLoad(view.data ? `wp:${view.data.run.workpackage_id}` : null, () => api.workpackage(view.data!.run.workpackage_id));
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);

@@ -1,4 +1,4 @@
-// 066 Á36 (döntés 2026-09-29): a kiadás és a leállítás második kattintásra hajt végre.
+// 066 Á36 (decision of 2026-09-29): releasing and stopping are carried out on the second click.
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";

@@ -1,6 +1,7 @@
-// Mezőpanel (045 K3b): teendők, mezők bizonyosság-sávval és forrásjelzéssel, a kiválasztott mező forrása és
-// alternatívái, kijelölés a képen → érték, mentés verzióval. A munkapéldány a drafts.ts tárban él (tételváltáskor megmarad).
-// 048: a tételes listák külön füleken (ListTable), és a csomag ellenőrzései a mentett javított adaton.
+// Field panel (045 K3b): to-dos, fields with a confidence band and a source marker, the selected field's source and
+// alternatives, selection on the image → value, saving with a revision. The draft lives in the drafts.ts store (it
+// survives switching items).
+// 048: the line-item lists on separate tabs (ListTable), and the pack's checks on the saved, corrected data.
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError, getActor, NO_ACTOR, type Alternative, type CorrectionValue, type ItemResult, type Provenance, type Reason } from "../api";
 import { Icon } from "../components/Icon";
@@ -22,9 +23,9 @@ export const UNLOCATED: Record<string, string> = tmap({
   error: "A forráshely számítása nem sikerült; az értéket a képen ellenőrizd.",
 });
 
-/** A mentendő teljes javításhalmaz: a korábbi javítások + a munkapéldány eltérései a gépi értéktől (üres = nincs érték).
- *  A források (kijelölt szavak) csak a javításban maradó mezőkhöz mennek. Tételes lista: a teljes lista; ha a gépivel
- *  azonos, kimarad (visszaáll a gépi értékre). */
+/** The full set of corrections to save: the earlier corrections + the draft's differences from the machine value
+ *  (empty = no value). The sources (selected words) only go with the fields that remain in the correction. Line-item
+ *  list: the whole list; if it equals the machine one, it is left out (reverts to the machine value). */
 export function buildSave(machine: Record<string, unknown>, previous: ItemResult["correction"], draft: Draft | undefined,
   lists: ItemResult["lists"] = {}) {
   const fields: Record<string, CorrectionValue> = {};
@@ -63,12 +64,12 @@ interface Props {
   onChooseAlternative: (field: string, alt: Alternative) => void;
   readOnly: boolean;
   hasWords: boolean;
-  tab?: string; // "fields" vagy egy tételes lista neve
-  onRowPick?: (field: string, row: number) => void; // 053: tételsor kiválasztása (a kép a sor helyére ugrik)
+  tab?: string; // "fields" or the name of a line-item list
+  onRowPick?: (field: string, row: number) => void; // 053: picking a line item (the image jumps to the row's position)
   onTab?: (tab: string) => void;
 }
 
-/** 053: a `lista[n]` kulcsú kiválasztás sorszáma, ha az adott listáé. */
+/** 053: the row number of a selection keyed `list[n]`, if it belongs to the given list. */
 export function rowOf(key: string | null, list: string): number | null {
   const m = key?.match(/^(.+)\[(\d+)\]$/);
   return m && m[1] === list ? Number(m[2]) : null;
@@ -94,18 +95,18 @@ export function FieldPanel(p: Props) {
 
   useEffect(() => { activeRow.current?.scrollIntoView?.({ block: "nearest" }); }, [activeField]);
 
-  // Ctrl+Enter: mentés (beviteli mezőben is), a V4 gyorsbillentyűje
+  // Ctrl+Enter: save (inside an input box too), V4's keyboard shortcut
   const saveRef = useRef<() => void>(() => {});
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
-      // 066 Á23: a lenyomva tartott billentyű ismétlése nem indít újabb mentést
+      // 066 Á23: the auto-repeat of a held-down key does not start another save
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); if (!e.repeat) saveRef.current(); }
     };
     window.addEventListener("keydown", on);
     return () => window.removeEventListener("keydown", on);
   }, []);
 
-  // kijelölt szöveg → a mező fajtája szerinti érték (a szolgáltatás normalizálja)
+  // selected text → a value matching the field's kind (the local service normalises it)
   useEffect(() => {
     if (!activeField || !selection.text || !result.extraction) { setNorm(null); return; }
     let alive = true;
@@ -125,7 +126,7 @@ export function FieldPanel(p: Props) {
     p.onClearSelection();
   }
 
-  const saving = useRef(false); // 066 Á23: szinkron zár; a Ctrl+Enter a gomb tiltását megkerülte, és kétszer mentett
+  const saving = useRef(false); // 066 Á23: synchronous lock; Ctrl+Enter bypassed the disabled button and saved twice
   async function save() {
     if (!dirty || conflict || readOnly || saving.current) return;
     if (!getActor()) {

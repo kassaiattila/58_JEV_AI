@@ -1,5 +1,6 @@
-// Gyors nyelvváltó a fejlécben (057): HU / EN, a Beállítások › Nyelv párja. A rövid név a saját nyelvén áll
-// (`lang` attribútummal a felolvasóknak); váltás közben a gombok tiltva, sikertelen betöltésnél hibaszöveg.
+// Quick language switch in the header (057): HU / EN, the counterpart of Settings › Language. The short name is in
+// its own language (with a `lang` attribute for screen readers); the buttons are disabled while switching, and a
+// failed load shows an error text.
 import { useState } from "react";
 import { setLanguage, t, useLocale, type Language } from "../i18n";
 

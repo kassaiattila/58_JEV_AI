@@ -1,6 +1,6 @@
-// Feldolgozás szakasz (057): futtatás (próba, éles, újrafuttatás) felül, alatta a recept (összefoglaló, kinyitva
-// szerkeszthető) és a csomag futásai. A futás részletei (haladás, költség, hívásnapló) a futás oldalán. A futtató
-// gombok nem indítanak: a megerősítő oldalra visznek (061 döntés, `StartConfirm`).
+// Processing section (057): running (trial, live, rerun) at the top, below it the recipe (a summary, editable when
+// expanded) and the package's runs. The run's details (progress, cost, call log) are on the run's page. The run
+// buttons do not start anything: they lead to the confirmation page (061 decision, `StartConfirm`).
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError, type Recipe, type WorkpackageView } from "../api";
 import { DataTable } from "../components/DataTable";
@@ -20,7 +20,7 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const active = last ? ACTIVE.has(last.status) : false;
-  // 058: egyetlen kiemelt gomb — az, amelyiket a csomag következő lépése kér (a lista és a fejléc is ezt mutatja)
+  // 058: a single highlighted button — the one the package's next step asks for (the list and the header show it too)
   const primary = { start: "shadow", go_live: "apply", rerun: "rerun" }[view.next.code as string] ?? null;
   const btn = (which: string) => (primary === which ? "primary" : "secondary");
   const recipes = useLoad("recipes", api.recipes);
@@ -39,7 +39,7 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
   }
 
   async function refreshAssignment() {
-    // a recept mostani változatára: a meglévő beállítások maradnak, az új paraméter az alapértéket kapja
+    // to the recipe's current version: the existing settings stay, a new parameter gets its default value
     const a = wp.assignment;
     const r = recipes.data?.recipes.find((x) => x.id === a?.recipe_id);
     if (!a || !r) return;
@@ -48,7 +48,7 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
     try {
       const params: Record<string, string> = {};
       for (const [k, spec] of Object.entries(r.params)) params[k] = a.params[k] ?? spec.default ?? "";
-      // a megjegyzés adat (a hozzárendelés naplójában), nem felirat
+      // the note is data (in the assignment's log), not a label
       await api.saveWorkflow(wp.id, { recipe_id: r.id, params, expected_revision: a.revision, note: "frissítés a recept mostani változatára" }); // i18n-ignore
       setMsg({ error: false, text: t("A hozzárendelés a recept mostani változatára frissült.") });
     } catch (e) {
@@ -59,7 +59,7 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
     }
   }
 
-  // 061: a gomb a megerősítő oldalra visz; az indítás ott történik
+  // 061: the button leads to the confirmation page; the start happens there
   const start = (mode: "shadow" | "apply", rerun = false) => go({ view: "workpackages", wpId: wp.id, stage: "process", start: { mode, rerun } });
 
   return (
@@ -82,7 +82,8 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
           </div>
         ) : <p className="muted">{t("Ezen a csomagon még nem futott recept.")}</p>}
         {view.attachments_missing ? (
-          // 058 K5.2: a 058 előtti levélcsomagban a PDF-csatolmányok még nem tételek; felvéve a levél-recept kinyeri az adatukat
+          // 058 K5.2: in an email package from before 058 the PDF attachments are not items yet; once added, the email
+          // recipe extracts their data
           <p className="notice">{t("A levelek {{n}} PDF-csatolmánya még nincs a csomagban. Felvéve a következő futás a csatolmányok adatait is kinyeri.", { n: view.attachments_missing })}
             {" "}<button type="button" className="secondary small-btn" disabled={busy || active} onClick={() => void addAttachments()}><Icon name="plus" />{t("Csatolmányok felvétele")}</button></p>
         ) : null}
@@ -139,7 +140,7 @@ const PARAM_VALUE: Record<string, string> = tmap({
   "azure_ocr:on": "Gyenge helyi felismerésnél Azure-felismerés (fizetős, a recept Azure-keretén belül)",
   "azure_ocr:off": "Csak helyi felismerés",
 });
-/** Paraméter-érték felirata; irattípusnál a típus neve. */
+/** Label of a parameter value; for a document type, the type's name. */
 export const paramValue = (k: string, v: string) => PARAM_VALUE[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);
 
 function RecipeCard({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
@@ -198,10 +199,11 @@ function RecipeCard({ view, onChanged }: { view: WorkpackageView; onChanged: () 
         <>
           <p>
             <strong>{currentRecipe ? t(currentRecipe.title) : current.recipe_id}</strong>
-            {/* 065: a recept változata (mint a megerősítő oldalon); a hozzárendelés belső sorszáma nem „változat” */}
+            {/* 065: the recipe's version (as on the confirmation page); the assignment's internal sequence number
+                is not a „változat” (version) */}
             <span className="muted small"> ({t("{{version}}. változat", { version: current.recipe_version })}) — {t("hozzárendelte: {{actor}}, {{when}}", { actor: current.actor, when: when(current.created_at) })}</span>
           </p>
-          {/* 063: beállításonként a jelentés és a tételenkénti költségkeret, alatta a recept teljes leírása */}
+          {/* 063: each setting's meaning and the per-item cost budget, below them the recipe's full description */}
           {currentRecipe && !open ? (
             <>
               {whenText(currentRecipe) ? <p className="muted">{whenText(currentRecipe)}</p> : null}

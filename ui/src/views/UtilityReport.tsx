@@ -1,12 +1,13 @@
-// Közmű-költség (054 K4, 057-ben az Eredmény szakaszba költözött): a futás közmű-számláinak havi rácsa fogyasztási hely
-// és közmű szerint, a közös vízösszesítő csak tájékoztató. Minden cella a forrásszámláira visszavezethető (kattintásra).
+// Utility cost (054 K4, moved into the Result section in 057): a monthly grid of the run's utility invoices by
+// consumption point and utility; the shared water summary is for information only. Every cell can be traced back to
+// its source invoices (on click).
 import { useState } from "react";
 import { api, type UtilityCell, type UtilityReport } from "../api";
 import { useLoad } from "../hooks";
 import { getLocale, t, useLocale } from "../i18n";
 import { tmap } from "../labels";
 
-// a rendben lévő cellának (ok) nincs felirata
+// a cell that is in order (ok) has no label
 const STATUS: Record<string, string> = tmap({ missing: "hiányzik", overlap: "átfedés", partial: "részleges" });
 const REASON: Record<string, string> = tmap({ no_period: "nincs számlázási időszak", no_amount: "nincs összeg" });
 const statusText = (s: string) => STATUS[s] ?? "";
@@ -14,7 +15,7 @@ const statusText = (s: string) => STATUS[s] ?? "";
 export const huf = (v: string | null | undefined) =>
   v === null || v === undefined ? "" : Number(v).toLocaleString(getLocale(), { maximumFractionDigits: 2 });
 
-/** A közmű-költség havi rácsa egy futásra, cellánként a forrásszámlákkal (az Eredmény szakasz része, 057). */
+/** The monthly utility cost grid for one run, with the source invoices per cell (part of the Result section, 057). */
 export function UtilityPanel({ runId, wpId }: { runId: string; wpId: string }) {
   useLocale();
   const rep = useLoad(`utility:${runId}`, () => api.utilityCost(runId));

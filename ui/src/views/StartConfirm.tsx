@@ -1,6 +1,7 @@
-// Futás indításának megerősítése (061 döntés: a próbafutás, az éles futás és az újrafuttatás gombja nem indít, hanem
-// erre az oldalra visz). Összegzi, mi indul: mód, csomag, recept a beállításaival, tételszám, legnagyobb költség
-// szolgáltatónként, és hogy a korábbi AI-válasz újrahasználható-e. Indítani csak innen lehet; a Mégse visszavisz.
+// Confirmation of starting a run (061 decision: the trial run, live run and rerun buttons do not start anything, but
+// lead to this page). It summarises what will start: mode, work package, recipe with its settings, number of items,
+// highest cost per provider, and whether the earlier AI response can be reused. A run can only be started from here;
+// Mégse (Cancel) goes back.
 import { useState } from "react";
 import { api, ApiError, type WorkpackageView } from "../api";
 import { useLoad } from "../hooks";
@@ -16,8 +17,9 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
 }) {
   useLocale();
   const { workpackage: wp, last_run: last } = view;
-  // 066 Á12: a keret, a tételszám és a bemenet ujjlenyomata friss lekérésből; a csomag nézete egyszer töltődik be, és a
-  // szolgáltatás újraindítása vagy egy közbenső változás után elavult keretet mutatna. Addig az indítás tiltva.
+  // 066 Á12: the budget, the item count and the input fingerprint come from a fresh request; the work package view is
+  // loaded once, and after a restart of the local service or a change in between it would show a stale budget. Until
+  // then, starting is disabled.
   const fresh = useLoad(`readiness:${wp.id}`, () => api.readiness(wp.id));
   const readiness = fresh.data ?? view.readiness;
   const recipes = useLoad("recipes", api.recipes);
@@ -25,7 +27,7 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
   const [msg, setMsg] = useState<string | null>(null);
   const assignment = wp.assignment;
   const recipe = recipes.data?.recipes.find((r) => r.id === assignment?.recipe_id);
-  // újrafuttatás: a legutóbbi futás módja és bemenete
+  // rerun: the mode and input of the latest run
   const effectiveMode = rerun && last ? last.mode : mode;
   const items = rerun && last ? last.items : readiness.counts.items;
   const active = last ? ACTIVE.has(last.status) : false;

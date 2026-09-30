@@ -14,26 +14,26 @@ import { Split } from "../review/Split";
 
 const DEFAULT_BANDS: Bands = { confident: 0.9, check: 0.5 };
 
-/** A tétel állapota a listában (062): a mostani teendők szerint, nem a futás pillanata szerint — a futáskor teendős
- *  tétel „rendezve”, ha a saját teendőit azóta lezárták. */
+/** The item's status in the list (062): based on the current to-dos, not on the moment of the run — an item that had
+ *  to-dos at run time is „rendezve” (resolved) once its own to-dos have been closed since. */
 export function queueStatus(res: Pick<RunItem, "status" | "final_status"> | undefined, openOwn: number): string {
   if (!res) return t("még nem futott");
   if (res.status !== "done") return ITEM_STATUS[res.status] ?? res.status;
   if (res.final_status === "done") return t("lezárva");
   return openOwn > 0 ? t("teendő") : t("rendezve");
 }
-// 048: a legutóbb nézett fül (mezők / tételes lista) a következő tételen is megmarad, ha ott is van ilyen lista
+// 048: the tab viewed last (fields / line list) stays on the next item too, if that item has such a list as well
 let lastTab = "fields";
 
-/** Teendők: balra a tételek, középen az oldalkép a mezők kereteivel, jobbra a teendők és a mezők (045 K3b).
- *  Egy futás eredményén dolgozunk (alapból a legutóbbi); a javítás ehhez a futáshoz tartozik. */
+/** To-dos: the items on the left, the page image with the field frames in the middle, the to-dos and the fields on
+ *  the right (045 K3b). We work on the result of one run (the latest by default); a correction belongs to that run. */
 export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: string }) {
   useLocale();
   const latest = useDataset("runs", { workpackage_id: wp.id }, { limit: 1 });
   const [runId, setRunId] = useState<string | null>(null);
   const chosen = runId ?? latest.data?.rows[0]?._key ?? null;
   const view = useLoad(chosen ? `run:${chosen}` : null, () => api.run(chosen!));
-  // 056 U1: a tétellista több száz tételnél is kezelhető: név szerinti szűrés, csak a teendősök
+  // 056 U1: the item list stays manageable even with several hundred items: filtering by name, only those with to-dos
   const [queueQ, setQueueQ] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
 
@@ -138,14 +138,14 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev }
   const fields = useMemo(() => {
     const machine = data?.extraction?.datapoints ?? {};
     const order = Object.keys(FIELD);
-    // csak egyszerű értékű mezők (a tételsorok és más összetett mezők nem ide tartoznak)
+    // only fields with a simple value (line items and other compound fields do not belong here)
     const scalar = Object.keys(machine).filter((f) => machine[f] === null || typeof machine[f] !== "object");
     const base = scalar.sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
     const reasonFields = new Set((data?.open_reasons ?? []).map((r) => r.reason.split(":")[2]).filter(Boolean));
     return orderFields(base, reasonFields, band);
   }, [data, band]);
 
-  // első megnyitáskor a legfontosabb mező (teendő > gyenge becslés > első)
+  // on first opening, the most important field (to-do > weak estimate > first)
   useEffect(() => {
     if (data && active === null && fields.length) setActive(fields[0]);
   }, [data, fields, active]);
@@ -155,7 +155,7 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev }
     setFocusRequest((n) => n + 1);
   }, []);
 
-  // gyorsbillentyűk (beviteli mezőn kívül; az Esc kilép a mezőből)
+  // keyboard shortcuts (outside input fields; Esc leaves the field)
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
@@ -167,7 +167,7 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev }
         return;
       }
       if (typing || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-      if (onList && e.key !== "n" && e.key !== "p") return; // a tételes lista fülén csak a tételváltás él
+      if (onList && e.key !== "n" && e.key !== "p") return; // on the line list tab only item switching works
       const i = active ? fields.indexOf(active) : -1;
       if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); if (fields.length) activate(fields[Math.min(fields.length - 1, i + 1)]); }
       else if (e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); if (fields.length) activate(fields[Math.max(0, i - 1)]); }
@@ -185,7 +185,7 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev }
   if (data.kind === "email" && data.email) return <EmailReview data={data} wpId={wpId} onChanged={() => { res.reload(); onChanged(); }} />;
 
   const machine = data.extraction?.datapoints ?? {};
-  // 053: a lista fülén a kép a sorok helyét mutatja (`lista[n]` kulccsal), a mezők fülén a mezőkét
+  // 053: on the list tab the image shows where the rows are (with the key `lista[n]`), on the fields tab the fields
   const viewerProv: Record<string, Provenance> = onList
     ? Object.fromEntries((data.provenance[tab]?.rows ?? []).map((r, i) => [`${tab}[${i + 1}]`, r]))
     : Object.fromEntries(Object.entries(data.provenance).filter(([, v]) => v.status !== "list"));

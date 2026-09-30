@@ -1,26 +1,27 @@
-// Munkapéldányok (045 K3b, a V4 documentDrafts.ts mintája): a mentetlen javítás tételenként, a munkameneten belül.
-// Tételváltáskor és visszalépéskor megmarad; sikeres mentés vagy „Elvetés” törli. Az alap (a mentett javítás
-// verziója) is benne van: ha közben a szerveren újabb verzió lett, a felület ütközést jelez, és nem ment rá vakon.
-// 048: a tételes lista munkapéldánya a teljes lista (sorok, cellánként szöveg; egyszerű listánál a `*` oszlop).
+// Drafts (045 K3b, modelled on V4's documentDrafts.ts): the unsaved correction per item, within the session.
+// It survives switching items and going back; a successful save or „Elvetés” (Discard) clears it. The base (the
+// revision of the saved correction) is stored too: if a newer revision has appeared on the server in the meantime,
+// the UI reports a conflict and does not blindly save over it.
+// 048: the draft of a line-item list is the whole list (rows, text per cell; for a simple list, the `*` column).
 import { useSyncExternalStore } from "react";
 
 export interface Draft {
   baseRevision: number;
-  values: Record<string, string>; // mező -> beírt / kiválasztott érték
-  sources: Record<string, number[]>; // mező -> a képen kijelölt szavak
-  lists?: Record<string, ListRow[]>; // tételes lista -> a szerkesztett sorok (a teljes lista)
+  values: Record<string, string>; // field -> typed / chosen value
+  sources: Record<string, number[]>; // field -> the words selected on the image
+  lists?: Record<string, ListRow[]>; // line-item list -> the edited rows (the whole list)
 }
 
 export type ListRow = Record<string, string>;
 
-/** Van-e mentetlen módosítás a munkapéldányban (mező vagy tételes lista). */
+/** Whether the draft has an unsaved change (a field or a line-item list). */
 export const isDirty = (d: Draft | undefined) => Boolean(d && (Object.keys(d.values).length || Object.keys(d.lists ?? {}).length));
 
 const store = new Map<string, Draft>();
 const listeners = new Set<() => void>();
 
-// 066 Á20: a munkapéldány a lap saját tárolójában (sessionStorage) is megvan, így egy újratöltést túlél; a lap bezárása
-// vagy újratöltése előtt mentetlen javításnál a böngésző figyelmeztet. Más lap nem látja (a tároló laponkénti).
+// 066 Á20: the draft is also kept in the tab's own storage (sessionStorage), so it survives a reload; before the tab is
+// closed or reloaded with an unsaved correction, the browser warns. Other tabs cannot see it (the storage is per tab).
 const STORAGE_KEY = "jav.drafts";
 
 function persist(): void {
@@ -28,11 +29,11 @@ function persist(): void {
     if (store.size) sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...store]));
     else sessionStorage.removeItem(STORAGE_KEY);
   } catch {
-    /* privát ablakban a tárolás tilos lehet; a munkapéldány ekkor csak a memóriában él */
+    /* storage may be forbidden in a private window; the draft then lives only in memory */
   }
 }
 
-/** A tárolt munkapéldányok betöltése (induláskor; sérült adatnál üres tár). */
+/** Loads the stored drafts (at start-up; with corrupt data, the store is left empty). */
 export function hydrateDrafts(): void {
   store.clear();
   try {
@@ -45,7 +46,7 @@ export function hydrateDrafts(): void {
   listeners.forEach((l) => l());
 }
 
-/** Van-e bármelyik tételen mentetlen javítás. */
+/** Whether any item has an unsaved correction. */
 export const anyDirty = () => [...store.values()].some(isDirty);
 
 const emit = () => {
@@ -58,7 +59,7 @@ if (typeof window !== "undefined") {
   window.addEventListener("beforeunload", (e) => {
     if (!anyDirty()) return;
     e.preventDefault();
-    e.returnValue = ""; // a régebbi böngészők ettől kérdeznek rá
+    e.returnValue = ""; // older browsers only ask for confirmation because of this
   });
 }
 
@@ -98,7 +99,7 @@ export function revertField(key: string, field: string): void {
   emit();
 }
 
-/** Ütközés után: a munkapéldány az új szerververzióra épül (a beírt értékek maradnak). */
+/** After a conflict: the draft is rebased on the new server revision (the typed values stay). */
 export function rebaseDraft(key: string, baseRevision: number): void {
   const d = store.get(key);
   if (!d) return;
@@ -121,7 +122,7 @@ export function useDraft(key: string): Draft | undefined {
   );
 }
 
-/** Tesztekhez: a tár ürítése. */
+/** For tests: empties the store. */
 export function resetDrafts(): void {
   store.clear();
   emit();

@@ -1,8 +1,8 @@
-// Munkamappák (057, a régi V4 „Figyelt mappák” működése szerint): mappánként név, útvonal, aktív, almappák, csomagolás
-// (egy közös csomag / napi csomagok), recept, átnézési gyakoriság. Piszkozat → mentés vagy elvetés; mentetlen
-// módosításnál a lap elhagyása és a belső hivatkozás megerősítést kér (a V4 mintája). Az útvonal bármely létező mappa
-// lehet (061 döntés; a korlát a szolgáltatás beállításában visszakapcsolható); a feldolgozó időközönként átnézi a
-// mappát, fizetős futás nem indul magától.
+// Work folders (057, following how the legacy V4 „Figyelt mappák” (Watched folders) work): per folder a name, path,
+// active flag, subfolders, packaging (one shared package / daily packages), recipe and check interval. Draft → save or
+// discard; with unsaved changes, leaving the page or following an internal link asks for confirmation (the V4 pattern).
+// The path can be any existing folder (061 decision; the restriction can be switched back on in the local service's
+// settings); the worker checks the folder at intervals, and no paid run starts on its own.
 import { useEffect, useState } from "react";
 import { api, ApiError, getActor, NO_ACTOR, type WatchedFolder } from "../../api";
 import { Picker } from "../../components/Picker";
@@ -24,7 +24,7 @@ export function FoldersPanel() {
   const baseline = data.data?.folders ?? [];
   const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
 
-  // mentetlen módosítás: a lap elhagyása és a belső hivatkozás megerősítést kér
+  // unsaved changes: leaving the page or following an internal link asks for confirmation
   useEffect(() => {
     if (!dirty) return;
     const unload = (e: BeforeUnloadEvent) => { e.preventDefault(); };
@@ -117,7 +117,7 @@ export function FoldersPanel() {
       </div>
       <p className="muted small" role="status">{dirty ? t("Mentetlen módosítás van.") : ""}</p>
       {msg ? <p className={msg.error ? "notice error" : "notice"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}
-      {/* 061: alapból nincs mappakorlát; a helyek listája csak bekapcsolt korlátnál látszik */}
+      {/* 061: by default there is no folder restriction; the list of locations only shows when it is switched on */}
       {data.data?.roots.length ? <p className="muted small">{t("Engedélyezett helyek: {{roots}}", { roots: data.data.roots.join(" · ") })}</p> : null}
     </section>
   );

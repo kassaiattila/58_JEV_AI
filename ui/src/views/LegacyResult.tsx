@@ -1,5 +1,6 @@
-// Régi riport- és adat-címek (054–056) átirányítása (057): a futás csomagjának Eredmény szakaszára, a futással és a
-// táblával együtt. A címsor cseréje nem hoz új előzmény-bejegyzést (a Vissza gomb nem ide ugrik vissza).
+// Redirect of the old report and data addresses (054–056) (057): to the Result section of the run's work package, with
+// the run and the table. Replacing the address does not add a new history entry (the Back button does not jump back
+// here).
 import { useEffect } from "react";
 import { api } from "../api";
 import { useLoad } from "../hooks";

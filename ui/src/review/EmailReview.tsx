@@ -1,5 +1,6 @@
-// Levél-tétel ellenőrzése (048 T2): balra a levél (fejléc, csatolmányok, szöveg), jobbra a felismert szándék, a javasolt
-// következő lépés és a teendők. Kinyert mező és oldalkép itt nincs; a csatolmányok iratként külön dolgozhatók fel.
+// Review of an email item (048 T2): the email on the left (header, attachments, body), the recognised intent, the
+// proposed next step and the to-dos on the right. There are no extracted fields or page images here; the attachments
+// can be processed separately as documents.
 import { useEffect, useState } from "react";
 import { api, ApiError, type ItemResult, type RejectedTask } from "../api";
 import { Icon } from "../components/Icon";
@@ -64,7 +65,7 @@ export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onCha
             </div>
           ) : null}
           {data.attachment_items?.length ? (
-            // 058 K5.2: a csatolmány iratként futott ebben a futásban: az adatkinyerés eredménye a saját nézetében
+            // 058 K5.2: the attachment ran as a document in this run: the extraction result is in its own view
             <div className="pad-s">
               <div className="muted small">{t("A csatolmányok adatai")}</div>
               <ul className="plain small">
@@ -80,8 +81,9 @@ export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onCha
   );
 }
 
-/** 058 K5.1: a szándék kézi javítása. A javítás verziózott (mint az irat mezői); a mentés a futás saját szándék-teendőit
- *  lezárja, a továbbirányítás a javított szándékból számolódik. Jóváhagyott futáson nem javítható. */
+/** 058 K5.1: manual correction of the intent. The correction is versioned (like a document's fields); saving closes the
+ *  run's own intent to-dos, and the routing is computed from the corrected intent. It cannot be corrected on an
+ *  approved run. */
 function IntentEditor({ data, onChanged }: { data: ItemResult; onChanged: () => void }) {
   useLocale();
   const current = data.email?.result?.intent ?? null;
@@ -114,8 +116,9 @@ function IntentEditor({ data, onChanged }: { data: ItemResult; onChanged: () => 
   );
 }
 
-/** 058 K5.3: a feladatjavaslatok (a kódos bizonyíték-kapu után). A javaslat csak javaslat: elfogadni vagy elvetni ember
- *  tudja; ha mindegyikről döntött, a levél „javaslat vár döntésre” teendője lezárul. */
+/** 058 K5.3: the task proposals (after the evidence gate in code). A proposal is only a proposal: only a person can
+ *  accept or reject it; once they have decided on all of them, the email's „javaslat vár döntésre” (proposal awaiting
+ *  a decision) to-do is closed. */
 function TasksPanel({ data, onChanged }: { data: ItemResult; onChanged: () => void }) {
   useLocale();
   const [busy, setBusy] = useState<number | null>(null);
@@ -175,7 +178,8 @@ function TasksPanel({ data, onChanged }: { data: ItemResult; onChanged: () => vo
   );
 }
 
-/** 062: a kiesett javaslatok tartalma és az elbukott részük, hogy megítélhető legyen, jogos volt-e a kiejtés. */
+/** 062: the content of the dropped proposals and the parts that failed, so that one can judge whether dropping them
+ *  was justified. */
 function RejectedTasks({ rejected }: { rejected: RejectedTask[] }) {
   useLocale();
   const partLabel: Record<string, string> = {
@@ -207,7 +211,8 @@ function RejectedTasks({ rejected }: { rejected: RejectedTask[] }) {
   );
 }
 
-/** 058 K5.1: a levél szövegéből mennyit látott a szándék-felismerés (a levél vége csak jelölve hiányozhat). */
+/** 058 K5.1: how much of the email body the intent recognition saw (the end of the email may only be missing if this
+ *  is flagged). */
 function BodyCoverage({ c }: { c?: NonNullable<ItemResult["email"]>["body_coverage"] }) {
   useLocale();
   if (!c) return null;
@@ -220,7 +225,7 @@ function BodyCoverage({ c }: { c?: NonNullable<ItemResult["email"]>["body_covera
   return c.quoted_removed ? <p className="muted small">{t("A szándék-felismerés a levél teljes saját szövegét látta; az idézett korábbi levelet nem.")}</p> : null;
 }
 
-// 058: a csatolmány feldolgozásának állapota hétköznapi szóval (a szolgáltatás kódja helyett)
+// 058: the processing status of the attachment in everyday words (instead of the local service's code)
 const ATTACHMENT_STATUS: Record<string, string> = tmap({
   unsupported: "nem olvasható (kép vagy más formátum)",
   name_only: "csak a neve ismert",
@@ -229,7 +234,7 @@ const ATTACHMENT_STATUS: Record<string, string> = tmap({
 
 const URL_RE = /<?(https?:\/\/[^\s<>"]+)>?/g;
 
-/** A levél szövege darabokra: sima szöveg és link (a link helyén a gép neve látszik). */
+/** Splits the email body into pieces: plain text and links (the host name is shown in place of the link). */
 export function splitLinks(text: string): ({ text: string } | { url: string; host: string })[] {
   const out: ({ text: string } | { url: string; host: string })[] = [];
   let last = 0;
@@ -239,7 +244,7 @@ export function splitLinks(text: string): ({ text: string } | { url: string; hos
     try {
       host = new URL(m[1]).host;
     } catch {
-      /* hibás link: a teljes szöveg marad */
+      /* malformed link: the full text stays */
     }
     out.push({ url: m[1], host });
     last = m.index! + m[0].length;
@@ -248,8 +253,8 @@ export function splitLinks(text: string): ({ text: string } | { url: string; hos
   return out;
 }
 
-/** 058: a hosszú követő-linkek helyett rövid jelölés (a gép neve, a teljes cím súgóban). A link szándékosan nem
- *  kattintható: idegen levél linkjét a felület nem nyitja meg. */
+/** 058: a short marker instead of long tracking links (the host name, with the full address in the tooltip). The link
+ *  is deliberately not clickable: the UI does not open links from an outside email. */
 function MailText({ text }: { text: string }) {
   useLocale();
   return (

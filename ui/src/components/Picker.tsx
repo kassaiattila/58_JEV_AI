@@ -1,7 +1,7 @@
-// Egységes választó (056 U1): a felület minden legördülő listája helyett. Mindig kereshető (döntés 2026-09-28, a
-// 2–3 elemes listákon is). Billentyűzettel: nyitás ↓ / Enter / gépelés, léptetés ↑ ↓, választás Enter, bezárás Esc.
-// Nagy listánál (pl. futások) a keresést a szolgáltatás végzi: ilyenkor a hívó `onSearch`-csel kapja a beírt szöveget,
-// és már a szűrt `options`-t adja vissza.
+// Unified picker (056 U1): replaces every drop-down list in the interface. Always searchable (decision of 2026-09-28,
+// even on 2–3-item lists). Keyboard: open with ↓ / Enter / typing, move with ↑ ↓, choose with Enter, close with Esc.
+// For a large list (e.g. runs) the local service does the search: then the caller receives the typed text via
+// `onSearch` and passes back the already filtered `options`.
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { t, useLocale } from "../i18n";
 import { fold } from "../labels";
@@ -20,11 +20,11 @@ interface Props {
   hideLabel?: boolean;
   compact?: boolean;
   disabled?: boolean;
-  /** a kiválasztott elem felirata, ha az épp nincs a (szűrt) listában */
+  /** the label of the selected item, when it is not in the (filtered) list at the moment */
   selectedLabel?: string;
   emptyText?: string;
   className?: string;
-  more?: number; // ennyivel több találat van, mint amennyi látszik (szolgáltatás oldali keresésnél)
+  more?: number; // how many more matches there are than are shown (with search in the local service)
 }
 
 export function Picker(p: Props) {

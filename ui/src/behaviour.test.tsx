@@ -1,8 +1,9 @@
-// A felület viselkedési garanciái (040 K3 + 045 K3b), a V4-ből átvett tapasztalatokkal:
-//  - a munkapéldány hálózati hibánál és ütközésnél is megmarad, tételváltáskor is; ütközésnél nincs vak mentés;
-//  - eltűnt csomag helyett nem nyílik meg másik; lassú régi válasz nem írja felül az új kiválasztást;
-//  - a képen: pont alatti mezők körbeléptetése, téglalapos szókijelölés, bizonyosság-sávok, mentendő források;
-//  - tételes lista (048): külön fül, cellaszerkesztés, sor törlése, a hibás sor kiemelése, a teljes lista mentése.
+// The UI's behavioural guarantees (040 K3 + 045 K3b), with lessons taken over from V4:
+//  - the working copy survives a network error and a conflict, and an item switch too; no blind save on a conflict;
+//  - a vanished package is not replaced by opening another; a slow old response does not overwrite the new selection;
+//  - on the image: cycling through the fields under a point, word selection by rectangle, confidence bands,
+//    sources to save;
+//  - line list (048): a separate tab, cell editing, row deletion, the faulty row highlighted, saving the whole list.
 import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
@@ -78,7 +79,7 @@ describe("javítás mentése (munkapéldány)", () => {
     await userEvent.click(screen.getByRole("button", { name: /Javítás mentése/ }));
     expect(await screen.findByText(/Nem sikerült menteni.*megmaradtak/)).toBeTruthy();
     expect((screen.getByLabelText("Számlaszám") as HTMLInputElement).value).toBe("MINTA-1/A");
-    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true }); // Ctrl+Enter is ment
+    fireEvent.keyDown(window, { key: "Enter", ctrlKey: true }); // Ctrl+Enter saves too
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
     expect(spy.mock.calls[1][2]).toEqual({ fields: { invoice_number: "MINTA-1/A" }, expected_revision: 0 });
     expect(await screen.findByText("Mentve.")).toBeTruthy();
@@ -89,7 +90,7 @@ describe("javítás mentése (munkapéldány)", () => {
     setField(key, 0, "invoice_number", "X-2");
     const spy = vi.spyOn(api, "saveCorrection");
     const { unmount } = render(panel(result()));
-    unmount(); // másik tételre léptünk
+    unmount(); // we moved to another item
     const newer = result({ correction: { ...result().correction, revision: 1, fields: { payment_iban: "HU99" }, actor: "más" } });
     render(panel(newer));
     expect((screen.getByLabelText("Számlaszám") as HTMLInputElement).value).toBe("X-2");
@@ -105,7 +106,7 @@ describe("javítás mentése (munkapéldány)", () => {
     const out = buildSave({ a: "1", b: "2", c: "3" }, prev, { baseRevision: 0, values: { a: "10", c: "" }, sources: { a: [1, 2] } });
     expect(out).toEqual({ fields: { a: "10", b: "20", c: null }, sources: { a: [1, 2], b: [4] } });
     const back = buildSave({ b: "2" }, { ...prev, fields: { b: "20" }, sources: {} }, { baseRevision: 0, values: { b: "2" }, sources: {} });
-    expect(back).toEqual({ fields: {}, sources: {} }); // visszaállítva a gépi értékre
+    expect(back).toEqual({ fields: {}, sources: {} }); // reverted to the machine value
   });
 });
 
@@ -144,7 +145,7 @@ describe("a képen", () => {
   it("bizonyosság-sávok (a V4 határai) és mezősorrend (teendő, gyenge becslés, alap)", () => {
     const bands = { confident: 0.9, check: 0.5 };
     expect([0.95, 0.9, 0.6, 0.2, null].map((c) => bandOf(c, bands))).toEqual(["confident", "confident", "check", "likely_wrong", "unknown"]);
-    expect(bandOf(0.99, bands, true)).toBe("check"); // javított mező: a becslés a gépi értékre vonatkozott
+    expect(bandOf(0.99, bands, true)).toBe("check"); // corrected field: the estimate referred to the machine value
     const band = (f: string) => (f === "c" ? "likely_wrong" : "confident");
     expect(orderFields(["a", "b", "c", "d"], new Set(["d"]), band)).toEqual(["d", "c", "a", "b"]);
   });
@@ -155,7 +156,7 @@ describe("kiválasztott csomag identitása", () => {
     const r = parseRoute("#/workpackages/wp-000000000009/review/" + "b".repeat(64));
     expect(r).toEqual({ view: "workpackages", wpId: "wp-000000000009", stage: "review", itemId: "b".repeat(64) });
     expect(routeHash(r)).toBe("#/workpackages/wp-000000000009/review/" + "b".repeat(64));
-    // ismeretlen szakasz: a csomag a következő lépésénél nyílik (stage nélkül), nem egy másik csomag
+    // unknown section: the package opens at its next step (without a stage), not another package
     expect(parseRoute("#/workpackages/wp-1/ismeretlen")).toEqual({ view: "workpackages", wpId: "wp-1", stage: undefined });
     expect(parseRoute("")).toEqual({ view: "workpackages" });
   });
@@ -177,11 +178,11 @@ describe("teendő-szövegek", () => {
     expect(reasonText("pick:low_conf:payment_iban:0.58")).toBe("Bizonytalan érték: Bankszámlaszám (valószínűség 0,58)");
     expect(reasonText("ocr:partial_pages:12/13")).toBe("Nem minden oldal lett felismerve (12/13)");
     expect(reasonText("valami:uj")).toBe("valami:uj");
-    // 065: a felismerés tág kategóriája is magyar névvel (eddig „other” látszott)
+    // 065: the broad category of the detection also has a Hungarian name (until now „other” was shown)
     expect(reasonText("detect:detail_open:other")).toBe("A részletes típus nem dönthető el (kategória: Egyéb irat); válaszd ki kézzel");
     expect(reasonText("validator:balance.discontinuity")).toBe("A futó egyenleg megszakad");
     expect(reasonText("validator:taxid.unrecognized")).toBe("Az adószám alakja nem ismerhető fel"); // 069
-    // 069: a jelölt nélküli, de az iraton lévő mező és a típuscsomag nélküli irat teendője
+    // 069: the to-do for a field that is on the document but has no candidate, and for a document without a type pack
     expect(reasonText("pick:present_no_candidates:payment_iban:0.93")).toBe("Az iraton van, de a kód nem talált hozzá jelöltet: Bankszámlaszám (0,93)");
     expect(reasonText("detect:no_type_pack:payment_reminder")).toMatch(/^Ehhez az irattípushoz nincs adatkinyerés \(.+\); nézd meg kézzel$/);
   });
@@ -233,16 +234,16 @@ describe("tételes lista (048)", () => {
     expect(same.fields).toEqual({});
     const changed = buildSave({ transactions: TXS }, prev, { baseRevision: 0, values: {}, sources: {}, lists: {
       transactions: [{ direction: "debit", amount: "50", memo: " " }, { direction: "", amount: "", memo: "" }] } }, lists);
-    expect(changed.fields).toEqual({ transactions: [{ direction: "debit", amount: "50", memo: null }] }); // az üres sor kimarad
+    expect(changed.fields).toEqual({ transactions: [{ direction: "debit", amount: "50", memo: null }] }); // the empty row is left out
     const kept = buildSave({ transactions: TXS }, { ...prev, fields: { transactions: [TXS[0]] } }, undefined, lists);
-    expect(kept.fields).toEqual({ transactions: [TXS[0]] }); // a korábbi listajavítás megmarad
+    expect(kept.fields).toEqual({ transactions: [TXS[0]] }); // the earlier list correction is kept
   });
 
   it("külön fülön látszik, a hibás sor kiemelve, cella javítható, sor törölhető, a teljes lista mentődik", async () => {
     const spy = vi.spyOn(api, "saveCorrection").mockResolvedValue(statement());
     render(listPanel(statement()));
     expect(screen.getByText(/futó egyenleg megszakad: 2\. sor/)).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "2. sor" })); // az ellenőrzés a hibás sorra visz
+    await userEvent.click(screen.getByRole("button", { name: "2. sor" })); // the check leads to the faulty row
     expect(screen.getByRole("tab", { name: /Tranzakciók \(2\)/ }).getAttribute("aria-selected")).toBe("true");
     const amount = screen.getByLabelText("2. sor: Összeg") as HTMLInputElement;
     expect(amount.closest("tr")?.className).toBe("row-bad");
@@ -271,18 +272,18 @@ describe("tételes lista (048)", () => {
 
 describe("postafiók és levél-tétel (048 T2)", () => {
   it("a postafiók útvonala és a letöltés összefoglalója", () => {
-    expect(parseRoute("#/mailbox")).toEqual({ view: "settings", section: "mailboxes" }); // 057: a régi cím a Beállításokba visz
+    expect(parseRoute("#/mailbox")).toEqual({ view: "settings", section: "mailboxes" }); // 057: the old address leads to Settings
     expect(routeHash({ view: "settings", section: "mailboxes" })).toBe("#/settings/mailboxes");
     expect(pullSummary({ status: "ok", result: { new: 3, changed: 1, duplicate: 2, workpackage: "wp-1" } })).toBe("4 új levél (1 megváltozott) · 2 már megvolt");
     // 073: the known script error is shown in the UI language here too (until 072 the raw English text)
     expect(pullSummary({ status: "error", result: { error: "Outlook must already be running." } })).toBe("Az Outlook nem fut ezen a gépen. Indítsd el, és próbáld újra.");
     expect(bridgeErrorText("Outlook must already be running in the current interactive session.")).toBe("Az Outlook nem fut ezen a gépen. Indítsd el, és próbáld újra.");
-    // 065: a „Korábban használt” cím hozzáad / kivesz, nem cserél
+    // 065: a „Korábban használt” (Previously used) address adds / removes, it does not replace
     expect(toggleAccount("a@x.hu", "b@y.hu")).toBe("a@x.hu, b@y.hu");
     expect(toggleAccount("a@x.hu, b@y.hu", "a@x.hu")).toBe("b@y.hu");
     expect(toggleAccount("", "a@x.hu")).toBe("a@x.hu");
     expect(nextFlowText("human:fetch_document")).toBe("Kézi: a számla feldolgozása");
-    expect(nextFlowText("m2:invoice_hu")).toBe("Adatkinyerés a csatolmányból (Magyar számla)"); // 058: a típus neve
+    expect(nextFlowText("m2:invoice_hu")).toBe("Adatkinyerés a csatolmányból (Magyar számla)"); // 058: the type's name
     expect(itemName({ item_id: "x", source_path: "C:\\inbox\\a\\message.json" }, { x: "Számla — Kft." })).toBe("Számla — Kft.");
   });
 
@@ -300,9 +301,9 @@ describe("postafiók és levél-tétel (048 T2)", () => {
     };
     render(<EmailReview data={mail} onChanged={onChanged} />);
     expect(screen.getByText("Szeptemberi számla")).toBeTruthy();
-    expect(document.querySelector(".intent")?.textContent).toBe("Számlaküldés"); // a javító választó is ezt mutatja
+    expect(document.querySelector(".intent")?.textContent).toBe("Számlaküldés"); // the correcting picker shows this too
     expect(screen.getByText("Kézi ellenőrzés: bizonytalan szándék")).toBeTruthy();
-    expect(screen.getByText("Bizonytalan levél-szándék: Számlaküldés (0,61)")).toBeTruthy(); // 058: a szándék neve, nem a kódja
+    expect(screen.getByText("Bizonytalan levél-szándék: Számlaküldés (0,61)")).toBeTruthy(); // 058: the intent's name, not its code
     await userEvent.click(screen.getByRole("button", { name: "Rendezve" }));
     expect(spy).toHaveBeenCalledWith(7);
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
@@ -412,7 +413,7 @@ describe("keretek a képen és tételsorok helye (053)", () => {
       activeField="supplier_name" focusRequest={0} colorOf={() => "#008A2E"} labelOf={(f) => f} onPickField={() => {}}
       onChooseAlternative={() => {}} selectMode={false} words={null} selected={[]} onSelect={() => {}} />);
     fireEvent.load(screen.getByAltText("Az irat 1. oldala"));
-    expect(container.querySelectorAll(".field-box.all").length).toBe(1); // a nem kiválasztott, megtalált mező
+    expect(container.querySelectorAll(".field-box.all").length).toBe(1); // the found field that is not selected
     expect(container.querySelectorAll(".field-box.active").length).toBe(1);
     expect(rowOf("line_items[3]", "line_items")).toBe(3);
     expect(rowOf("line_items[3]", "transactions")).toBeNull();
@@ -459,7 +460,7 @@ describe("riportok (054 K4)", () => {
     const onCell = vi.fn();
     render(<UtilityTable rep={rep} onCell={onCell} />);
     expect(screen.getByRole("button", { name: /2026-02: hiányzik/ }).closest("td")?.className).toContain("cell-missing");
-    expect(screen.getByRole("button", { name: /2026-03/ }).textContent).toContain("*"); // elszámoló számla
+    expect(screen.getByRole("button", { name: /2026-03/ }).textContent).toContain("*"); // settlement invoice
     expect(screen.getByText(/m2\.pdf = m1\.pdf/)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: /2026-01/ }));
     expect(onCell.mock.calls[0][1]).toBe("2026-01");

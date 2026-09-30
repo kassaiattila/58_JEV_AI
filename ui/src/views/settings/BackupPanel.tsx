@@ -1,6 +1,7 @@
-// 064 (döntés 2026-09-29): az adattár-mentés állapota a Beállítások › Rendszer oldalon — a legutóbbi mentés ideje és
-// eredménye, a második helyre (NAS) készült másolat, figyelmeztetés, ha a legutóbbi sikeres mentés túl régi, és mentés
-// most. A napi mentést a Windows Feladatütemező indítja (scripts\backup-task.ps1); a hiba itt nem marad csendben.
+// 064 (decision of 2026-09-29): the status of the store backup on the Settings › System page — the time and result of
+// the latest backup, the copy made to the second location (NAS), a warning if the latest successful backup is too old,
+// and „Mentés most” (Back up now). The daily backup is started by Windows Task Scheduler (scripts\backup-task.ps1);
+// a failure does not stay silent here.
 import { useState } from "react";
 import { api, ApiError, type BackupInfo } from "../../api";
 import { Icon } from "../../components/Icon";
@@ -8,7 +9,7 @@ import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { when } from "../../labels";
 
-/** A mentés állapota egy mondatban és a figyelmeztetés szintje (a megjelenítés és a teszt közös logikája). */
+/** The backup status in one sentence and the warning level (logic shared by the display and the test). */
 export function backupState(info: BackupInfo, now: Date = new Date()): { level: "ok" | "warn" | "error"; text: string } {
   const s = info.status;
   if (!s) return { level: "warn", text: t("Még nem készült mentés.") };
@@ -20,7 +21,8 @@ export function backupState(info: BackupInfo, now: Date = new Date()): { level: 
   return { level: "ok", text: t("Legutóbbi mentés: {{when}}", { when: when(s.created_at) }) };
 }
 
-/** 070: a belső munkaanyag (átadók, tervek, jelentések…) a mentésben — nincs gitben, ezért a mentés az egyetlen másodpéldány. */
+/** 070: the internal working documents (handoffs, plans, reports…) in the backup — they are not in git, so the backup
+ *  is the only second copy. */
 export function docsLine(info: BackupInfo): string {
   const docs = info.status?.files?.find((f) => f.file === "internal-docs.zip");
   if (docs) return t("{{n}} fájl ({{mb}} MB)", { n: docs.entries ?? 0, mb: (docs.bytes / 1e6).toFixed(1) });

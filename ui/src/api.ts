@@ -1,5 +1,6 @@
-// A helyi szolgáltatás (jav/api.py) kliense. Minden hívás ugyanazon a címen megy (/api), így nincs kereszt-eredet.
-// Hiba esetén ApiError: a szolgáltatás hibakódja (not_found, revision_conflict, not_ready, invalid ...) és üzenete.
+// Client of the local service (jav/api.py). Every call goes to the same address (/api), so there is no cross-origin
+// request. On error, ApiError: the service's error code (not_found, revision_conflict, not_ready, invalid ...) and its
+// message.
 import { t } from "./i18n";
 
 export class ApiError extends Error {
@@ -23,13 +24,13 @@ export interface Assignment {
 export interface Workpackage {
   id: string; name: string; source_kind: string; source_ref: string | null; revision: number; status: string;
   created_at: string; updated_at: string; items: Item[]; assignment: Assignment | null;
-  owner?: string | null; // 061: a csomag felelőse
+  owner?: string | null; // 061: the package's owner
 }
 export interface WorkpackageRow {
   id: string; name: string; source_kind: string; source_ref: string | null; revision: number; created_at: string;
   items: number; recipe_id: string | null; last_run_id: string | null; open_reasons: number;
 }
-/** 057: a csomag következő lépése (a szolgáltatás egy helyen számolja; a lista és a fejléc gombja is ezt mutatja). */
+/** 057: the package's next step (the service computes it in one place; both the list and the header button show it). */
 export interface NextStep { code: string; label: string; stage: "process" | "review" | "result"; params?: Record<string, number> }
 export interface RunRow {
   run_id: string; workpackage_id: string; workpackage_name: string; recipe_id: string; recipe_version: number; mode: "shadow" | "apply";
@@ -38,7 +39,7 @@ export interface RunRow {
 }
 export interface WorkpackageView {
   workpackage: Workpackage; readiness: Readiness; titles?: Record<string, string>; next: NextStep; last_run: RunRow | null; runs: number;
-  attachments_missing?: number; // 058 K5.2: levélcsomagban a még fel nem vett PDF-csatolmányok száma
+  attachments_missing?: number; // 058 K5.2: in an email package, the number of PDF attachments not yet added
 }
 export interface Readiness {
   workpackage_id: string; ready: boolean; blockers: Blocker[]; warnings: Blocker[]; counts: { items: number };
@@ -48,18 +49,18 @@ export interface RecipeParam { allowed?: string[]; allowed_from?: string; defaul
 export interface Recipe {
   id: string; version: number; title: string; description: string; steps: string[]; requirements: string[];
   result: string; manual_action: string; params: Record<string, RecipeParam>; max_item_usd: Record<string, Record<string, string>>;
-  // 058 K5.2–K5.3: tételkeret tétel-fajtánként (levél / csatolmány) és a beállítástól függő többlet (feladatjavaslat)
+  // 058 K5.2–K5.3: per-item budget by item kind (email / attachment) and the setting-dependent extra (task proposal)
   max_item_usd_by_kind?: Record<string, Record<string, Record<string, string>>>;
   param_item_usd?: { param: string; value: string; kind?: string; usd: Record<string, string> }[];
 }
-/** 064: az adattár-mentés állapota (store/backups/backup-status.json) és a napi mentés beállítása. */
+/** 064: the status of the store backup (store/backups/backup-status.json) and the settings of the daily backup. */
 export interface BackupRun {
   created_at: string; ok: boolean; error?: string; dir?: string;
-  /** 070: a belső munkaanyag tömörített fájlja (`internal-docs.zip`) az `entries` darabszámmal */
+  /** 070: the compressed file of the internal working documents (`internal-docs.zip`) with the `entries` count */
   files?: { file: string; bytes: number; integrity: string; entries?: number }[];
   copy?: { dir: string; ok: boolean; verified: boolean; error?: string } | null;
 }
-/** 071 S-verzió: `commit` / `dirty` null, ha a szolgáltatás git nélkül indult. */
+/** 071 S-verzió: `commit` / `dirty` are null if the service was started without git. */
 export interface Health {
   ok: boolean; api_version: string; service_config: string;
   version: string; commit: string | null; dirty: boolean | null; started_at: string;
@@ -82,7 +83,7 @@ export interface BackupInfo {
   status: BackupRun | null;
   config: { schedule?: string; keep?: number; copy_to?: string | null; with_burr?: boolean; with_docs?: boolean; max_age_hours?: number };
 }
-/** 063: a receptek magyarázata (`configs/recipe_help.json`): mikor való a recept, mit jelent a beállítás és az értéke. */
+/** 063: the recipe explanations (`configs/recipe_help.json`): when a recipe fits, what a setting and its value mean. */
 export interface RecipeHelp {
   recipes: Record<string, { when: string }>;
   params: Record<string, { help: string; options: Record<string, string> }>;
@@ -97,15 +98,15 @@ export interface Run {
   approval: string | null; approved_by: string | null; approved_at: string | null; actor: string; created_at: string;
   finished_at: string | null; input: { workpackage_id: string; workpackage_revision: number; items: Item[] };
   items: RunItem[]; jobs: Record<string, number>;
-  recipe?: { title?: string }; // a futás recept-pillanatképe (a címe a felületen)
+  recipe?: { title?: string }; // the run's recipe snapshot (its title is shown in the interface)
 }
 export interface Budget {
   scope: string; committed_usd: string; providers: Record<string, { limit_usd: string; committed_usd: string }>;
 }
 export interface RunView {
   run: Run; budget: Budget; open_reasons: Record<string, Reason[]>; earlier_open_reasons: Record<string, Reason[]>;
-  titles?: Record<string, string>; // 048 T2: levél-tétel olvasható címe
-  tables?: string[]; // 058: az eredmény adatot tartalmazó nézetei (üres nézet nem jelenik meg)
+  titles?: Record<string, string>; // 048 T2: the readable title of an email item
+  tables?: string[]; // 058: the result's views that contain data (an empty view is not shown)
 }
 export interface UtilitySource {
   item_id: string; file: string; amount: string; page: number | null; field: string; corrected: boolean; open_reasons: number;
@@ -129,11 +130,11 @@ export interface Correction {
   run_id: string; item_id: string; revision: number; fields: Record<string, CorrectionValue>;
   sources: Record<string, number[]>; actor: string | null; note: string | null; created_at: string | null;
 }
-/** Javított érték: egyszerű mező, vagy tételes lista (sorok tétel-mezőkkel / egyszerű értékek) — 048. */
+/** Corrected value: a simple field, or a line list (rows with line-item fields / simple values) — 048. */
 export type Cell = string | number | null;
 export type CorrectionValue = Cell | (Record<string, Cell> | Cell)[];
 export interface ListColumn { name: string; kind: string; options?: string[] }
-/** A csomag egy ellenőrzése a javított (mentett) adaton; `rows`: a hibás sor(ok) 1-től számozva, listánként. */
+/** One of the package's checks on the corrected (saved) data; `rows`: the failing row(s), numbered from 1, per list. */
 export interface Check { name: string; ok: boolean; code: string; detail?: string | null; rows?: Record<string, number[]>; advisory?: boolean }
 export type Box = [number, number, number, number];
 export interface Region { page: number; bbox: Box; boxes: Box[]; word_ids: number[]; quote: string }
@@ -142,8 +143,8 @@ export type ProvStatus = "located" | "approximate" | "ambiguous" | "context_reje
 export interface Provenance extends Partial<Region> {
   status: ProvStatus; method: "pick" | "pick_line" | "search" | "manual" | "rows" | null; alternatives: Alternative[];
   confidence?: number | null; corrected?: boolean; present_p?: number | null; label?: boolean;
-  multiple?: number | null; // 053: ennyi helyen szerepel az érték (a keret a legvalószínűbbön)
-  rows?: Provenance[]; // 053: tételes lista — soronként a sor helye a képen
+  multiple?: number | null; // 053: the number of places the value appears in (the box is on the most likely one)
+  rows?: Provenance[]; // 053: line list — for each row, the row's location on the image
 }
 export interface SourcePage { page: number; width_pt: number; height_pt: number }
 export interface SourceWord { id: number; page: number; line_no: number | null; text: string; x0: number; y0: number; x1: number; y1: number }
@@ -152,17 +153,17 @@ export interface Extraction {
   validation: { name: string; ok: boolean; code: string; detail?: string }[]; final_status: string;
   review_reasons: string[];
 }
-/** Levél-tétel (048 T2): a levél és a szándék-felismerés eredménye. */
+/** Email item (048 T2): the email and the result of intent recognition. */
 export interface EmailItem {
   subject: string; sender: string | null; sender_name: string | null; to: string[]; received_at: string | null; mailbox: string | null;
   body: string; attachments: string[];
-  /** 058 K5.1: a levél szövegéből mennyit látott a szándék-felismerés (kódban számolva). */
+  /** 058 K5.1: how much of the email text intent recognition saw (computed in code). */
   body_coverage?: { status: "full" | "shortened" | "capped"; chars: number; own_chars: number; seen_chars: number; seen_lines: number;
     quoted_removed: boolean };
   result: { intent: string | null; intent_label: string | null; confidence: number | null; next_flow: string | null;
     attachments: { filename: string; doc_type?: string | null; status?: string | null }[]; from_this_run: boolean;
     signals: Record<string, number>; corrected?: boolean; machine_intent?: string | null } | null;
-  /** 058 K5.3: feladatjavaslat a kapu után, az emberi döntéssel (null = a futás nem kért javaslatot). */
+  /** 058 K5.3: task proposals after the gate, with the human decision (null = the run did not ask for proposals). */
   tasks?: { status: "proposed" | "skipped" | "error"; reason?: string | null; error?: string | null; tasks: EmailTask[];
     rejected: RejectedTask[] } | null;
 }
@@ -170,10 +171,11 @@ export interface EmailTask {
   index: number; action: string; title: string; due_date: string | null; assignee_hint: string | null;
   evidence: { pointer: string; quote: string }[];
   decision: { decision: "accepted" | "rejected"; actor: string; decided_at: string; done_by?: string | null; done_at?: string | null } | null;
-  /** 062: hány azonos javaslat olvadt bele (egy levélen belül). */
+  /** 062: how many identical proposals were merged into it (within one email). */
   merged?: number;
 }
-/** A kódos bizonyíték-ellenőrzésen kiesett javaslat; 062 óta a tartalmával és az elbukott részével (a korábbi futásoknál csak az ok). */
+/** A proposal dropped by the evidence check in code; since 062 with its content and the part that failed (for earlier
+ *  runs, only the reason). */
 export interface RejectedTask {
   code: string; index?: number; action?: string; details?: string[];
   title?: string | null; due_date?: string | null; assignee_hint?: string | null;
@@ -184,7 +186,7 @@ export interface MailboxRequest {
   accounts: string[]; folders?: string[]; subfolders?: boolean; since_days?: number | null;
   received_from?: string | null; received_to?: string | null; max_items?: number;
 }
-// 065: `eligible` = a letöltendő (új) levelek, `in_period` = az időszak összes levele
+// 065: `eligible` = the (new) emails to download, `in_period` = all emails of the period
 export interface MailboxCount { label: string; eligible: number; in_period: number; already_read: number; scanned: number; window: { from: string | null; to: string | null } }
 export interface MailboxPull {
   id: string; schedule_id: string | null; request: MailboxRequest; label: string; actor: string; status: "queued" | "running" | "ok" | "error";
@@ -197,20 +199,20 @@ export interface MailboxSchedule {
 }
 export interface ItemResult {
   run_id: string; item_id: string; kind?: "document" | "email"; email?: EmailItem; page_count?: number | null; extraction: Extraction | null; correction: Correction;
-  attachment_items?: { item_id: string; filename: string }[]; // 058 K5.2: a levél iratként futott csatolmányai
+  attachment_items?: { item_id: string; filename: string }[]; // 058 K5.2: the email's attachments that ran as documents
   effective: Record<string, unknown>; open_reasons: Reason[]; earlier_open_reasons: Reason[];
   provenance: Record<string, Provenance>;
   lists?: Record<string, { columns: ListColumn[] }>; checks?: Check[];
   source: { layer_id: string; text_source: string | null; pages: SourcePage[] } | null;
 }
 
-// --- 056 U1: adatkészletek (egységes lista-lekérdezés és letöltés) ---------------------------------------------
+// --- 056 U1: datasets (unified list query and download) -------------------------------------------------------
 export type ColKind = "text" | "number" | "money" | "date" | "datetime" | "enum" | "bool" | "id";
 export type LinkKind = "run" | "workpackage" | "next" | "reviews" | "review" | "item";
 export interface DsColumn {
   key: string; label: string; kind: ColKind; hidden: boolean; labels: Record<string, string> | null; link?: LinkKind; field?: string;
-  badge?: boolean; alert?: boolean; // 057: állapotjelvény; 0-nál több érték kiemelve
-  percent?: boolean; // 062: 0–1 közötti valószínűség, százalékban kiírva
+  badge?: boolean; alert?: boolean; // 057: status badge; a value above 0 is highlighted
+  percent?: boolean; // 062: a probability between 0 and 1, shown as a percentage
 }
 export type FilterOp = "contains" | "eq" | "neq" | "in" | "gte" | "lte" | "empty" | "notempty";
 export interface DsFilter { col: string; op: FilterOp; value?: string | string[] | null }
@@ -219,7 +221,7 @@ export interface DsQuery { q?: string; filters?: DsFilter[]; sort?: DsSort[]; of
 export type DsRow = Record<string, unknown> & { _key: string; _run?: string | null; _wp?: string | null };
 export interface DatasetSpec {
   name: string; label: string; scope: string[]; optional_scope: string[];
-  /** 062: a szolgáltatás alapsorrendje (kért rendezés nélkül ebben a sorrendben jönnek a sorok). */
+  /** 062: the service's default order (when no sort is requested, the rows come in this order). */
   natural_sort?: DsSort[];
 }
 export interface DsPage {
@@ -231,16 +233,18 @@ export type ExportFormat = "xlsx" | "csv" | "json";
 export type ExportRows = "all" | "filtered" | "selected";
 export interface DsExport { format: ExportFormat; rows: ExportRows; columns?: string[] | null; query: DsQuery }
 
-/** A letöltés fájlneve a fejlécből: a pontos (UTF-8, RFC 5987) név, ennek híján az ASCII-tartalék (066: ékezetes név). */
+/** The download's file name from the header: the exact (UTF-8, RFC 5987) name, failing that the ASCII fallback
+ *  (066: accented name). */
 export function filenameFromDisposition(disp: string): string {
   const exact = /filename\*=UTF-8''([^;]+)/i.exec(disp)?.[1];
   if (exact) {
-    try { return decodeURIComponent(exact); } catch { /* hibás kódolás: a tartalék név */ }
+    try { return decodeURIComponent(exact); } catch { /* invalid encoding: the fallback name */ }
   }
   return /filename="([^"]+)"/.exec(disp)?.[1] ?? "letoltes";
 }
 
-/** Letöltés lekéréssel → fájl (a régi projekt `downloadExport` mintája): POST-os kérés és a szerző-fejléc is működik. */
+/** Download by request → file (the legacy project's `downloadExport` pattern): the request can be a POST with a body,
+ *  and it could carry the author header too (the export endpoints do not ask for one, so it is not sent). */
 async function downloadPost(path: string, body: unknown): Promise<{ filename: string; rows: number }> {
   let res: Response;
   try {
@@ -250,7 +254,7 @@ async function downloadPost(path: string, body: unknown): Promise<{ filename: st
   }
   if (!res.ok) {
     let d: { error?: string; message?: string } = {};
-    try { d = await res.json(); } catch { /* nem JSON hibaválasz */ }
+    try { d = await res.json(); } catch { /* the error response is not JSON */ }
     throw new ApiError(res.status, d.error ?? "error", d.message ?? `HTTP ${res.status}`);
   }
   const filename = filenameFromDisposition(res.headers.get("Content-Disposition") ?? "");
@@ -267,7 +271,7 @@ async function downloadPost(path: string, body: unknown): Promise<{ filename: st
   return { filename, rows };
 }
 
-/** 057: figyelt munkamappa (a régi V4 „Figyelt mappák” mintájára). */
+/** 057: watched work folder (modelled on the legacy V4 „Figyelt mappák” (Watched folders)). */
 export interface WatchedFolder {
   id?: string | null; name: string; path: string; enabled: boolean; recursive: boolean; batch_mode: "folder" | "daily";
   recipe_id: string | null; params: Record<string, string>; interval_min: number;
@@ -276,8 +280,8 @@ export interface WatchedFolder {
 }
 
 const ACTOR_KEY = "jav.actor";
-/** Emberi döntésnél (javítás, jóváhagyás, teendő zárása) a szolgáltatás megköveteli a szerző nevét. A magyar szöveg a
- *  fordítási kulcs: megjelenítéskor `t(NO_ACTOR)`. */
+/** For a human decision (correction, approval, closing a to-do) the service requires the author's name. The Hungarian
+ *  text is the translation key: displayed as `t(NO_ACTOR)`. */
 export const NO_ACTOR = "add meg a neved fent a „Ki dolgozik?” mezőben (a javítás és a jóváhagyás szerzőhöz kötött)";
 
 export function getActor(): string {
@@ -288,16 +292,17 @@ export function getActor(): string {
   }
 }
 
-/** 061: a „Ki dolgozik?” és a névlista változásáról a nézetek eseményből értesülnek (`useActor`, `useEvent`). */
+/** 061: the views learn of changes to „Ki dolgozik?” (Who is working?) and to the name list from an event
+ *  (`useActor`, `useEvent`). */
 export const ACTOR_EVENT = "jav-actor";
 export const USERS_EVENT = "jav-users";
-/** 061: a szolgáltatás elutasította a nevet, mert nincs a Felhasználók listáján. Megjelenítéskor `t(UNKNOWN_ACTOR)`. */
+/** 061: the service rejected the name because it is not on the Users list. Displayed as `t(UNKNOWN_ACTOR)`. */
 export const UNKNOWN_ACTOR = "a „Ki dolgozik?” mezőben válaszd ki a neved a Felhasználók listájából";
 
-let memoryActor = ""; // ha a böngésző nem enged tárolást (privát ablak), a név a munkamenetig él
+let memoryActor = ""; // if the browser does not allow storage (private window), the name lasts for the session
 
-// 066 Á21: a név a lapok közös tárolójában van, a kérés mindig az ottanit küldi. Ha egy másik lapon átállítják, ennek a
-// lapnak a kijelzése is frissül, így a lap azt a nevet mutatja, amelyikkel a műveletei mennek.
+// 066 Á21: the name is in the storage shared by the tabs, and a request always sends the name stored there. If it is
+// changed in another tab, this tab's display updates too, so the tab shows the name its actions are sent with.
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
     if (e.key === ACTOR_KEY || e.key === null) window.dispatchEvent(new Event(ACTOR_EVENT));
@@ -309,7 +314,7 @@ export function setActor(name: string): void {
   try {
     localStorage.setItem(ACTOR_KEY, memoryActor);
   } catch {
-    /* privát ablakban a tárolás tilos lehet; a név ekkor csak a munkamenetig él */
+    /* storage may be forbidden in a private window; the name then lasts only for the session */
   }
   window.dispatchEvent(new Event(ACTOR_EVENT));
 }
@@ -317,7 +322,7 @@ export function setActor(name: string): void {
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
   const actor = getActor();
-  if (actor) headers["X-Actor"] = encodeURIComponent(actor); // a szolgáltatás dekódolja (ékezet a fejlécben)
+  if (actor) headers["X-Actor"] = encodeURIComponent(actor); // the service decodes it (accents in the header)
   if (body !== undefined) headers["Content-Type"] = "application/json";
   let res: Response;
   try {
@@ -352,14 +357,14 @@ export const api = {
     request<{ workpackage: Workpackage; readiness: Readiness }>("POST", "/workpackages", { folder, ...(name ? { name } : {}) }),
   createFromFiles: (paths: string[], name: string) =>
     request<{ workpackage: Workpackage; readiness: Readiness }>("POST", "/workpackages", { paths, name }),
-  // 058: elrejtés (a futások és az eredmények megmaradnak), visszahozás, átnevezés; törlés csak futás nélküli csomagon
   decideTask: (runId: string, itemId: string, index: number, decision: "accepted" | "rejected") =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/decision`, { decision }),
-  /** 062: az elfogadott feladat kézzel elvégezve (vagy vissza). */
+  /** 062: the accepted task marked as done by hand (or unmarked). */
   markTaskDone: (runId: string, itemId: string, index: number, done: boolean) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/done`, { done }),
   addAttachments: (id: string, expected_revision: number) =>
     request<WorkpackageView>("POST", `/workpackages/${enc(id)}/attachments`, { expected_revision }),
+  // 058: hiding (the runs and the results are kept), restoring, renaming; deletion only for a package without runs
   archiveWorkpackage: (id: string) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/archive`, {}),
   restoreWorkpackage: (id: string) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/restore`, {}),
   renameWorkpackage: (id: string, name: string) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/rename`, { name }),
@@ -400,7 +405,7 @@ export const api = {
   scanFolder: (id: string) => request<{ status: string; new?: number; settling?: number; workpackage?: string | null; error?: string }>(
     "POST", `/settings/folders/${enc(id)}/scan`, {}),
   workerStop: () => request<Record<string, unknown>>("POST", "/worker/stop", {}),
-  /** 071: a futó szolgáltatás verziója és az induláskor rögzített commit. */
+  /** 071: the running service's version and the commit recorded at start-up. */
   health: () => request<Health>("GET", "/health"),
   backupStatus: () => request<BackupInfo>("GET", "/system/backup"),
   depsAudit: () => request<DepsAuditInfo>("GET", "/system/deps-audit"),

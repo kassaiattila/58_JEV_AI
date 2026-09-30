@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
-// Az angol szótár: az összes `en-*.json` egy objektumban (területenként külön fájl, hogy párhuzamosan bővíthető legyen).
-// Csak angolra váltáskor töltődik be (`setLanguage("en")` dinamikus importja).
+// The English dictionary: every `en-*.json` in one object (a separate file per area, so that they can be extended in
+// parallel). Loaded only when switching to English (the dynamic import in `setLanguage("en")`).
 import type { Messages } from "./index";
 
 const parts = import.meta.glob<Messages>("./en-*.json", { eager: true, import: "default" });

@@ -1,5 +1,5 @@
-// 056 U1: az egységes adatnézet viselkedése — kereshető választó, közös táblázat (a kérés a szolgáltatásnak megy:
-// keresés, szűrő, rendezés, lapozás), letöltés-panel (terjedelem, oszlopok), adatnézegető útvonala.
+// 056 U1: behaviour of the unified data view — searchable picker, shared table (the request goes to the service:
+// search, filter, sorting, paging), download panel (scope, columns), the data viewer's route.
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -87,7 +87,7 @@ describe("közös táblázat", () => {
     await userEvent.click(screen.getByRole("button", { name: "Szűrés" }));
     await waitFor(() => expect(spy).toHaveBeenLastCalledWith("datapoints", expect.anything(),
       expect.objectContaining({ filters: [{ col: "field", op: "in", value: ["gross_total"] }], offset: 0 })));
-    expect(screen.getByText("Mező: Bruttó összeg")).toBeTruthy(); // aktív szűrő a feliratával
+    expect(screen.getByText("Mező: Bruttó összeg")).toBeTruthy(); // active filter with its label
 
     await userEvent.click(screen.getByRole("button", { name: "Következő lap" }));
     await waitFor(() => expect(spy).toHaveBeenLastCalledWith("datapoints", expect.anything(), expect.objectContaining({ offset: 100 })));
@@ -101,7 +101,7 @@ describe("közös táblázat", () => {
     const { container } = render(<DataTable dataset="datapoints" scope={{ run_id: "run-1" }} label="Adatpontok" />);
     await screen.findByText("a.pdf");
     const marks = () => [...container.querySelectorAll(".sort-mark")].map((m) => m.getAttribute("data-dir"));
-    expect(marks()).toEqual(["none", "none", "none"]); // minden látható oszlop rendezhető, egyik sincs rendezve
+    expect(marks()).toEqual(["none", "none", "none"]); // every visible column is sortable, none is sorted
     const head = screen.getByRole("button", { name: /^Mező/ });
     expect(head.getAttribute("title")).toContain("növekvő sorrend");
     await userEvent.click(head);
@@ -165,8 +165,8 @@ describe("útvonalak (057)", () => {
     expect(h).toBe("#/workpackages/wp-1/result/line_items?run=run-000000000001");
     expect(parseRoute(h)).toEqual({ view: "workpackages", wpId: "wp-1", stage: "result", table: "line_items", runId: "run-000000000001" });
     expect(parseRoute("#/workpackages/wp-1")).toEqual({ view: "workpackages", wpId: "wp-1", stage: undefined });
-    expect(parseRoute("#/workpackages/wp-1/items")).toMatchObject({ stage: "review" }); // régi Tételek fül
-    expect(parseRoute("#/workpackages/wp-1/workflow")).toMatchObject({ stage: "process" }); // régi Folyamat fül
+    expect(parseRoute("#/workpackages/wp-1/items")).toMatchObject({ stage: "review" }); // old Tételek (Items) tab
+    expect(parseRoute("#/workpackages/wp-1/workflow")).toMatchObject({ stage: "process" }); // old Folyamat (Workflow) tab
     expect(parseRoute("#/data/datapoints?run_id=run-1")).toEqual({ view: "legacy-result", runId: "run-1", table: "datapoints" });
     expect(parseRoute("#/runs")).toEqual({ view: "settings", section: "system" });
     expect(parseRoute("#/runs/run-1")).toEqual({ view: "run", runId: "run-1" });

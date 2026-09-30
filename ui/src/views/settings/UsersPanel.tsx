@@ -1,14 +1,15 @@
-// Felhasználók (057, 061): a „Ki dolgozik?” választéka. Ha a lista nem üres, módosítani csak a listán szereplő névvel
-// lehet; a név a javítás, a jóváhagyás, a futás indítása szerzője, és a csomag felelőse is innen választható. Csak a
-// helyi adattárban. 061: a felvétel és a törlés azonnal mentődik (előtte külön „Mentés” kellett, és elmaradt).
+// Users (057, 061): the choices of „Ki dolgozik?” (Who is working?). If the list is not empty, changes can only be made
+// under a name on the list; the name is the author of a correction, an approval or a run start, and the work package
+// owner is also chosen from here. Kept only in the local store. 061: adding and deleting are saved at once (before,
+// a separate „Mentés” (Save) was needed, and it got skipped).
 import { useEffect, useState } from "react";
 import { api, ApiError, USERS_EVENT } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 
-// 066 Á25: ugyanaz a szabály, mint a szolgáltatásé (jav/app_settings.py ACTOR_RE): a névnek a szerző-fejlécben is
-// használhatónak kell lennie, különben a felvett névvel semmit nem lehetne tenni.
+// 066 Á25: the same rule as the local service's (jav/app_settings.py ACTOR_RE): the name must also be usable in the
+// author header, otherwise nothing could be done under the added name.
 export const ACTOR_NAME = /^[\p{L}\p{N}_.@ -]{1,64}$/u;
 
 export function UsersPanel() {
@@ -28,7 +29,7 @@ export function UsersPanel() {
       setDraft(res.users);
       setMsg({ error: false, text });
       data.reload();
-      window.dispatchEvent(new Event(USERS_EVENT)); // a fejléc és a felelős-választó frissül
+      window.dispatchEvent(new Event(USERS_EVENT)); // the header and the owner picker refresh
       return true;
     } catch (e) {
       setMsg({ error: true, text: (e as ApiError).message });

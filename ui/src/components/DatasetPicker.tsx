@@ -1,6 +1,6 @@
-// Választó adatkészletből (056 U1): a lista a szolgáltatásból jön, a keresést is a szolgáltatás végzi (döntés
-// 2026-09-28), így több száz futás közül is gépeléssel lehet választani. A kiválasztott elem felirata akkor is látszik,
-// ha épp nincs a találatok között (a `valueCol` oszlopra szűrve kérjük le).
+// Picker backed by a dataset (056 U1): the list comes from the local service, which also does the search (decision of
+// 2026-09-28), so even among hundreds of runs you can choose by typing. The label of the selected item is shown even
+// when it is not among the matches at the moment (we fetch it filtered on the `valueCol` column).
 import { useEffect, useState } from "react";
 import { api, type DsRow, type DsScope, type DsSort } from "../api";
 import { useDebounced } from "../hooks";
@@ -25,11 +25,11 @@ interface Props {
 export function DatasetPicker(p: Props) {
   const [q, setQ] = useState("");
   const debounced = useDebounced(q, 200);
-  useLocale(); // a választó elemei a kirajzoláskor készülnek, így nyelvváltáskor frissülnek
+  useLocale(); // the picker's options are built at render time, so they refresh on a language change
   const [rows, setRows] = useState<DsRow[]>([]);
   const [more, setMore] = useState(0);
   const [loading, setLoading] = useState(false);
-  // a kiválasztott elem sora (vagy csak az értéke, ha nem található)
+  // the selected item's row (or only its value, if it cannot be found)
   const [selected, setSelected] = useState<{ value: string; row: DsRow | null } | null>(null);
   const scopeKey = JSON.stringify(p.scope ?? {});
 
@@ -67,7 +67,7 @@ export function DatasetPicker(p: Props) {
   );
 }
 
-/** A futás választó-eleme: indítás ideje, csomag, mód — a részletben recept és állapot. */
+/** A run's picker option: start time, work package, mode — the recipe and status go in the details. */
 export function runOption(r: DsRow): PickerOption {
   const d = new Date(String(r.created_at));
   const at = Number.isNaN(d.getTime()) ? String(r.created_at) : d.toLocaleString(getLocale(), { dateStyle: "short", timeStyle: "short" });

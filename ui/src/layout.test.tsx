@@ -1,5 +1,5 @@
-// 057: a felület új szerkezete — a csomag a következő lépés szakaszánál nyílik, a szakaszok a saját állapotukkal,
-// a fejléc gombja a szolgáltatás által számolt következő lépés.
+// 057: the UI's new structure — the package opens at the section of its next step, the sections show their own
+// status, and the header button is the next step computed by the service.
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -38,7 +38,7 @@ describe("munkacsomag szakaszai", () => {
     expect(selected?.textContent).toContain("Feldolgozás");
     expect(within(tabs).getByRole("tab", { name: /Feldolgozás.*indítható/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Próbafutás indítása/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Újrafuttatás…" }).hasAttribute("disabled")).toBe(true); // nincs mit megismételni
+    expect(screen.getByRole("button", { name: "Újrafuttatás…" }).hasAttribute("disabled")).toBe(true); // there is nothing to repeat
   });
 
   it("a szakaszok állapota a legutóbbi futásból", () => {
@@ -60,7 +60,7 @@ describe("a csomag kezelése (058)", () => {
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [] });
     vi.spyOn(api, "datasetQuery").mockResolvedValue(EMPTY);
     const { unmount } = render(<WorkpackageDetail wpId="wp-1" route={{ view: "workpackages", wpId: "wp-1" }} />);
-    expect((await screen.findAllByText(/^2 levél/)).length).toBe(2); // fejléc + az Ellenőrzés szakasz állapota
+    expect((await screen.findAllByText(/^2 levél/)).length).toBe(2); // header + the status of the Review section
     unmount();
     vi.spyOn(api, "workpackage").mockResolvedValue(view({ workpackage: { ...view().workpackage, items: [mail, doc] } }));
     render(<WorkpackageDetail wpId="wp-1" route={{ view: "workpackages", wpId: "wp-1" }} />);
@@ -77,7 +77,7 @@ describe("a csomag kezelése (058)", () => {
     render(<WorkpackageDetail wpId="wp-1" route={{ view: "workpackages", wpId: "wp-1" }} />);
     await user.click(await screen.findByRole("button", { name: "Csomag kezelése" }));
     await user.click(screen.getByRole("button", { name: "Végleges törlés…" }));
-    expect(del).not.toHaveBeenCalled(); // előbb megerősítés
+    expect(del).not.toHaveBeenCalled(); // confirmation first
     await user.click(screen.getByRole("button", { name: "Végleges törlés" }));
     expect(del).toHaveBeenCalledWith("wp-1");
     await user.click(screen.getByRole("button", { name: "Csomag kezelése" }));

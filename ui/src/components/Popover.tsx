@@ -1,6 +1,7 @@
-// Kis felugró réteg egy gomb alatt (056 U1): a választó, az oszlopszűrő, az oszlopválasztó és a letöltés-panel közös
-// alapja. A lap legfelső rétegébe kerül (a görgetett táblázat nem vágja le), a nyitó gombhoz igazodik, görgetéskor és
-// átméretezéskor követi. Kívül kattintásra és Esc-re bezárul, a fókusz ilyenkor visszakerül a nyitó gombra.
+// Small popover layer under a button (056 U1): the shared base of the picker, the column filter, the column picker and
+// the download panel. It goes into the page's top layer (a scrolled table does not clip it), aligns to the button that
+// opens it, and follows it on scrolling and resizing. It closes on an outside click and on Esc, and focus then returns
+// to the button that opened it.
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
@@ -34,7 +35,7 @@ export function Popover({ open, onClose, anchor, children, label, className, rol
       left = Math.max(MARGIN, Math.min(left, window.innerWidth - w - MARGIN));
       const below = window.innerHeight - a.bottom - GAP - MARGIN;
       const above = a.top - GAP - MARGIN;
-      const flip = h > below && above > below; // alul nincs hely, felül több van: felfelé nyílik
+      const flip = h > below && above > below; // no room below, more above: it opens upwards
       const maxHeight = Math.max(160, flip ? above : below);
       const top = flip ? Math.max(MARGIN, a.top - GAP - Math.min(h, maxHeight)) : a.bottom + GAP;
       setPos({ top, left, maxHeight });
