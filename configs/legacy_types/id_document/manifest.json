@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\id_document",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/id_document",
   "files": {
     "schema.json": "6960ee5fa9522957ed11b9604aafcc375a11ebad548cae0ced08ae989e830dc0",
     "prompt.md": "2c4cee23820caed2ebd58ceea0928b33d74d0e55c7e4ca6c00d63056219f131f",

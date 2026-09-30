@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\nav_tax_return",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/nav_tax_return",
   "files": {
     "schema.json": "9684b2aeed11090675f2402bf9f8b7adfe62122269e345e30f3707fb9c9e567b",
     "prompt.md": "961031e3a724d8c6f0a1ec3df9935ed62420cf1d047b97273de28a90d5d6984a",

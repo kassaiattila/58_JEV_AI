@@ -788,6 +788,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def backup_status() -> dict[str, Any]:
         c = settings().get("backup", {})
         conf = {k: c.get(k) for k in ("schedule", "keep", "copy_to", "with_burr", "with_docs", "max_age_hours")}
+        conf["copy_to"] = backup.configured_copy_to()  # 076: the config or the local environment
         return work_views.jsonable({"status": backup.status(backup.default_root()), "config": conf})
 
     @app.post(r + "/system/backup")

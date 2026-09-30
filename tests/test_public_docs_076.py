@@ -30,7 +30,9 @@ FORBIDDEN = {
     "round number": re.compile(r"(?<![\w.,/-])0[2-9]\d(?![\w.,/-]|[.,]\d)"),
     "stage code": re.compile(r"(?<![\w-])(?:K[0-5](?:\.\d)?|T[1-3](?:\.\d)?|U1|H-0\d\d|R-0\d\d)(?![\w-])"),
     # the owner's infrastructure and real use
-    "local machine path": re.compile(r"\b[A-Za-z]:[\\/]00_DEV", re.I),
+    # a path into someone's user folder or the development root, or a network share (plain examples such as
+    # `D:\Backup` stay allowed)
+    "local machine path": re.compile(r"\b[A-Za-z]:[\\/](?:Users|00_DEV)\b|\\\\[\w.-]+\\[\w$.-]+", re.I),
     "backup location": re.compile(r"\bNAS\b"),
     "count of real items": re.compile(r"\b(?:\d+|two|three|four|five|six|seven|eight|nine|ten)\s+real\b", re.I),
 }
@@ -68,7 +70,8 @@ def test_public_doc_has_no_internal_information(doc):
         "Mailbox (048 T2): download from Outlook",
         "since 075 a recipe switch",
         "the second opinion (H-065)",
-        r"powershell -File C:\00_DEV_LOCAL\10_AIFLOW_V4\scripts\x.ps1",
+        r"powershell -File C:\Users\someone\legacy\scripts\x.ps1",
+        r"a copy to \\server\share\backup",
         "a daily backup, locally and on the NAS",
         "tried on two real mailboxes",
         "Of the 47 real emails",
@@ -87,6 +90,7 @@ def test_patterns_catch_internal_information(line):
         "M1, M2 and M3 are the reference flows; the S path and the G path",
         "Real documents never go into git; tests use synthetic data",
         "HTTP 409 on a version conflict; 300 pages, 40 megapixels",
+        r"C:/Program Files/Tesseract-OCR/tesseract.exe; `<legacy-root>\scripts`; backup --out D:\Backup",
     ],
 )
 def test_patterns_leave_ordinary_text_alone(line):

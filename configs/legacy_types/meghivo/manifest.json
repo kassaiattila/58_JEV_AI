@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\meghivo",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/meghivo",
   "files": {
     "schema.json": "8b89def4e6f719a5710087fe4002d18e5b42b1373d2f7824536d7d8b5901be4b",
     "prompt.md": "dfa330db485dccc5f50d99b847ccf5fecaf902812f3f490fe0a0fb4e4ef59387",

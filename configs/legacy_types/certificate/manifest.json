@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\certificate",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/certificate",
   "files": {
     "schema.json": "ceddd8e34ebbea6c4a7ca2888a6d5e1d54db8c2f325a4544880a227dea2e9048",
     "prompt.md": "24eb616fa76a0463de0a2ab91c70529874951c346e48cbd8ab2569927b318726",

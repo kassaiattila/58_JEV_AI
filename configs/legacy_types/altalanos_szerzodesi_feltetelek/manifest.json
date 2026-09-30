@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\altalanos_szerzodesi_feltetelek",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/altalanos_szerzodesi_feltetelek",
   "files": {
     "schema.json": "cafd88eb94c32a93265110d5b5b3c36c40a4ec3b50bf7378c25046637dbc7676",
     "prompt.md": "2498b974fa2e875601a5ac2bd55e4c5ca957c881cc938ef35fbde129bfd62a44",

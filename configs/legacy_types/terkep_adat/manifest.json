@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\terkep_adat",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/terkep_adat",
   "files": {
     "schema.json": "498cad2dea37d518246ee6b33e16d4eed2304bc1aac6ea6ea74cddf083c53ee2",
     "prompt.md": "3f2dbeb145c95e839e5d0f580860b356de5fd3ceacfd249f8fc3cf732346215c",

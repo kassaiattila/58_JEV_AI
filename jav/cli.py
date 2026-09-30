@@ -81,6 +81,28 @@ def cmd_ocr(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ocr_rekey(args: argparse.Namespace) -> int:
+    """076: a one-off move of the OCR cache to the current key (`jav/ocr.py` `rekey_cache`); refuses if the older
+    config differs in a setting that changes the recognised text."""
+    import subprocess
+
+    from jav import ocr
+    from jav.config import PROJECT_ROOT
+
+    shown = subprocess.run(["git", "show", f"{args.from_rev}:configs/ocr.json"], capture_output=True, text=True,
+                           encoding="utf-8", cwd=PROJECT_ROOT, check=False)
+    if shown.returncode != 0:
+        print(f"no configs/ocr.json at {args.from_rev}: {shown.stderr.strip()}")
+        return 2
+    try:
+        moved = ocr.rekey_cache(json.loads(shown.stdout))
+    except ValueError as exc:
+        print(f"refused: {exc}")
+        return 1
+    print(f"OCR cache: {moved} file(s) moved to the key {ocr.CACHE_HASH}")
+    return 0
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     from jav.flow import run_one
 
@@ -682,6 +704,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--psm", type=int, default=None, help="tesseract oldalfelbontási mód (alap: configs/ocr.json)")
     p.add_argument("--limit", type=int, default=0, help="csak az első N sor")
     p.set_defaults(fn=cmd_ocr)
+
+    p = sub.add_parser("ocr-rekey", help="076: move the OCR cache written under an older configs/ocr.json to the current "
+                                         "key, if the older file's output settings are the same (no new OCR)")
+    p.add_argument("--from-rev", required=True, help="git revision holding the older configs/ocr.json (e.g. v1.1.0)")
+    p.set_defaults(fn=cmd_ocr_rekey)
 
     args = ap.parse_args(argv)
     return args.fn(args)

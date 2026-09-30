@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\nav_receipt",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/nav_receipt",
   "files": {
     "schema.json": "102faec5857354310f25d2810182e7eb94489862723e91a77e6122135badd355",
     "prompt.md": "27d0cf705dd05c24a98a327adb7f0ad08f9e43ea58495fd5e86c5b62d8820b26",

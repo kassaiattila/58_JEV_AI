@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\meeting_minutes",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/meeting_minutes",
   "files": {
     "schema.json": "5e63eee355d9f2c938d8bd7d5023ca8efdbcd8ab325d81a57081f3bfa1720136",
     "prompt.md": "742e7f3e097bdc5a528eba7dc69c86aff7db972d7fa5a4aabba317264548ae6e",

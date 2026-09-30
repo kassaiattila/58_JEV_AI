@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\nav_certificate",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/nav_certificate",
   "files": {
     "schema.json": "e9e4344320e4bb409870b9271bd34184b747c3b48a802ecb1f23f4002952ec66",
     "prompt.md": "b94c335f13016887cefaa1f0feb7b3a5fdb5a1a1f01d230506fe71eb3bc59004",

@@ -26,10 +26,11 @@ CACHE_DIR = RUNS_DIR / "cache"  # JEV request-hash cache
 STORE_PATH = PROJECT_ROOT / "store" / "jav.sqlite"  # durable store (git-ignored, PII)
 
 # The golden set and the sample PDFs stay in the legacy project; we only reference them.
-# Location: the JAV_LEGACY_ROOT environment variable (or the .env); default: the dev machine's path (040, K0).
+# Location: the JAV_LEGACY_ROOT environment variable (or the .env); default: the `10_AIFLOW_V4` folder next to this
+# repository (076: no machine path in the code).
 load_dotenv(ENV_FILE, override=False)
 LEGACY_ROOT_ENV = "JAV_LEGACY_ROOT"
-DEFAULT_OLD_PROJECT_ROOT = Path(r"C:\00_DEV_LOCAL\10_AIFLOW_V4")
+DEFAULT_OLD_PROJECT_ROOT = PROJECT_ROOT.parent / "10_AIFLOW_V4"
 OLD_PROJECT_ROOT = Path(os.environ.get(LEGACY_ROOT_ENV) or DEFAULT_OLD_PROJECT_ROOT)
 OLD_DATA_ROOT = OLD_PROJECT_ROOT / "data"
 # 048 T2: the legacy Outlook script (called unchanged) and the project root we give it: this way the attachments and the

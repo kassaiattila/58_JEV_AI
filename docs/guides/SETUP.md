@@ -101,7 +101,7 @@ python -m jav.cli backup --out D:\Backup --keep 30
 
 The command uses SQLite's own backup procedure (a plain file copy of a live database can be corrupt) and runs the integrity check on the copy. A backup contains personal data: handle it like the `store\` folder.
 
-**Daily backup:** the settings are in the `backup` section of `configs\service.json`: the time, the retention, the second location `copy_to` (for example a folder on a network drive) and `with_docs` (the internal working documents too). On a new machine, set `copy_to` to your own second location or leave it empty; if the location is not reachable, `backup --scheduled` exits with code 2 to report that the copy failed.
+**Daily backup:** the settings are in the `backup` section of `configs\service.json`: the time, the retention, `copy_to` and `with_docs` (the internal working documents too). The second location (for example a folder on a network drive) is machine-specific, so it is set in `.env` as `JAV_BACKUP_COPY_TO` (see `.env.example`); `copy_to` in the tracked config stays empty. Without either, the backup stays local; if the location is not reachable, `backup --scheduled` exits with code 2 to report that the copy failed.
 
 ```powershell
 .\scripts\backup-task.ps1 install   # entry in Windows Task Scheduler (daily at 12:00; a missed run starts at the next logon or start-up)

@@ -12,8 +12,10 @@ otherwise the legacy sidecar image via `docker run` (the same command in the con
 because the Docker VM is shared with many other containers) - if neither exists, `OcrUnavailableError` (the flow goes
 to the `needs_ocr` terminal and does not crash).
 
-Disk cache `runs/ocr/<doc sha256>_<config hash>_<tesseract version>.json` (PII, like the JEV cache): a second golden run
-needs no OCR, and the determinism measurement does not repeat the OCR (OCR is deterministic; we measure JEV).
+Disk cache `runs/ocr/<doc sha256>_<output-settings hash>_<tesseract version>.json` (PII, like the JEV cache): a second
+golden run needs no OCR, and the determinism measurement does not repeat the OCR (OCR is deterministic; we measure JEV).
+Since 076 the key covers only the settings that can change the recognised text (`output_settings`), not where things
+are on the machine, time limits or notes.
 """
 
 from __future__ import annotations
@@ -35,12 +37,42 @@ from pathlib import Path
 from typing import Any
 
 from jav import cfg, pdf as pdfmod
-from jav.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, PROJECT_ROOT
+from jav.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, OLD_DATA_ROOT, PROJECT_ROOT
 from jav.models import LineLayout
 from jav.pdf import PdfText, build_layout, text_layer_ok
 
 _CFG = cfg.load("ocr")
-CONFIG_HASH = cfg.config_hash("ocr")
+CONFIG_HASH = cfg.config_hash("ocr")  # the whole file's identity (call log, quality signals)
+
+# 076: settings that do not change what the OCR reads - where things are on this machine, time limits, the escalation
+# rule (the engine that ran is in the key anyway), notes and the version record. `None` drops the whole section.
+_NOT_OUTPUT: dict[str, tuple[str, ...] | None] = {
+    "meta": None,
+    "cache_dir": None,
+    "escalation": None,
+    "tesseract": ("timeout_s", "exe_candidates"),
+    "azure_di": ("sidecar_url", "data_root", "container_root", "timeout_s"),
+}
+
+
+def output_settings(conf: dict[str, Any]) -> dict[str, Any]:
+    """The part of an OCR config that can change the recognised text (076): the input of the cache key."""
+    out: dict[str, Any] = {}
+    for key, value in conf.items():
+        drop = _NOT_OUTPUT.get(key, ())
+        if key == "note" or drop is None:
+            continue
+        if isinstance(value, dict):
+            value = {k: v for k, v in value.items() if k not in drop and k != "note"}
+        out[key] = value
+    return out
+
+
+def output_hash(conf: dict[str, Any]) -> str:
+    return hashlib.sha256(cfg.canonical(output_settings(conf)).encode("utf-8")).hexdigest()[: cfg.HASH_LEN]
+
+
+CACHE_HASH = output_hash(_CFG)
 _TESS = _CFG["tesseract"]
 DPI: int = int(_CFG["dpi"])
 CACHE_DIR = PROJECT_ROOT / _CFG["cache_dir"]
@@ -139,7 +171,8 @@ def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[
     import urllib.request
 
     az = _CFG["azure_di"]
-    data_root = Path(az["data_root"])
+    # 076: the sidecar's `/data` mount is the legacy project's data folder (`JAV_LEGACY_ROOT`), not a path in the config
+    data_root = Path(az["data_root"]) if az.get("data_root") else OLD_DATA_ROOT
     try:
         rel = path.resolve().relative_to(data_root.resolve())
     except ValueError as exc:
@@ -352,7 +385,28 @@ def _sha256(path: Path) -> str:
 
 def cache_key(path: Path, eng: str) -> str:
     ver = engine_version(eng).replace(" ", "_").replace("/", "_")[:40]
-    return f"{_sha256(path)}_{CONFIG_HASH}_{ver}"
+    return f"{_sha256(path)}_{CACHE_HASH}_{ver}"
+
+
+def rekey_cache(old_conf: dict[str, Any], cache_dir: Path | None = None) -> int:
+    """076: a one-off move of the cache files written under an older config's key (up to `ocr.json` 1.0.0 the key held
+    the whole file's hash) to the current key. Allowed only when the older config's output settings equal the current
+    ones: then the cached text is exactly what a new OCR would read, and nothing is read or paid for again. An existing
+    file under the new key is never overwritten; a second run moves nothing. Returns the number of files moved."""
+    if output_settings(old_conf) != output_settings(_CFG):
+        raise ValueError("the older OCR config differs in a setting that changes the recognised text; its cache is not reused")
+    cache_dir = CACHE_DIR if cache_dir is None else cache_dir
+    whole = hashlib.sha256(("ocr" + cfg.canonical(old_conf)).encode("utf-8")).hexdigest()[: cfg.HASH_LEN]  # = cfg.config_hash
+    moved = 0
+    for old_key in (whole, output_hash(old_conf)):
+        if old_key == CACHE_HASH:
+            continue
+        for f in sorted(cache_dir.glob(f"*_{old_key}_*.json")):
+            target = f.with_name(f.name.replace(f"_{old_key}_", f"_{CACHE_HASH}_", 1))
+            if not target.exists():
+                f.rename(target)
+                moved += 1
+    return moved
 
 
 def _to_pdftext(path: Path, data: dict[str, Any], *, cached: bool) -> PdfText:

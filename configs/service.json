@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "service",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "changelog": [
       {
         "version": "1.0.0",
@@ -21,7 +21,7 @@
       {
         "version": "1.3.0",
         "date": "2026-09-29",
-        "note": "064 döntés (a felhasználó): napi adattár-mentés 12:00-kor (Windows Feladatütemező, scripts/backup-task.ps1), helyben és a NAS-on (\\\\DS918plus\\homes\\kassaiattila\\jav-ai-backup), mindkét helyen a legutóbbi 14 mentés marad. A folyamatállapot-tár alapból nem kerül a mentésbe (with_burr: false). A felület figyelmeztet, ha a legutóbbi sikeres mentés max_age_hours óránál régebbi."
+        "note": "064 döntés (a felhasználó): napi adattár-mentés 12:00-kor (Windows Feladatütemező, scripts/backup-task.ps1), helyben és egy második helyen, mindkét helyen a legutóbbi 14 mentés marad. A folyamatállapot-tár alapból nem kerül a mentésbe (with_burr: false). A felület figyelmeztet, ha a legutóbbi sikeres mentés max_age_hours óránál régebbi."
       },
       {
         "version": "1.4.0",
@@ -37,6 +37,11 @@
         "version": "1.6.0",
         "date": "2026-09-30",
         "note": "070 D-mentés (a felhasználó döntése): a belső munkaanyag (átadók, tervek, jelentések, teendőlista, döntésnapló; jav/doc_scope.py) 2026-09-29 óta nincs gitben, ezért a napi mentés ezt is viszi (with_docs: true), egy tömörített fájlban, helyben és a második helyen is."
+      },
+      {
+        "version": "1.7.0",
+        "date": "2026-09-30",
+        "note": "076: backup.copy_to is null in the tracked file; a machine's second backup location comes from the JAV_BACKUP_COPY_TO environment variable (.env), so no local path goes to GitHub."
       }
     ]
   },
@@ -61,7 +66,7 @@
   "backup": {
     "schedule": "12:00",
     "keep": 14,
-    "copy_to": "\\\\DS918plus\\homes\\kassaiattila\\jav-ai-backup",
+    "copy_to": null,
     "with_burr": false,
     "with_docs": true,
     "max_age_hours": 36
