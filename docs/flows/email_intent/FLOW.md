@@ -18,10 +18,10 @@
 - **route** _(det)_ — policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés
 
 ### tasks
-- **tasks** _(llm)_ — 058 K5.3: feladatjavaslat (GPT, a régi email-actions v1.3.0 utasítása) + kódos bizonyíték-kapu; csak ha a recept kéri, archiválandó levélen nem; javaslat -> teendő (ember fogadja el)
+- **tasks** _(llm)_ — feladatjavaslat (GPT, a régi email-actions v1.3.0 utasítása) + kódos bizonyíték-kapu; csak ha a recept kéri, archiválandó levélen nem; javaslat -> teendő (ember fogadja el)
 
 ### persist
-- **save** _(store)_ — emails + email_results (a futás sora, K5.3: a javaslat is); bizonytalan intent / javaslat -> review_queue (additív), különben a korábbi tétel zárul
+- **save** _(store)_ — emails + email_results (a futás sora, a feladatjavaslat is); bizonytalan intent / javaslat -> review_queue (additív), különben a korábbi tétel zárul
 
 ### terminal
 - **done** _(terminal)_ — szándék + next_flow mentve

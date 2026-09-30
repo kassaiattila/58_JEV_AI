@@ -1,7 +1,6 @@
 """The legacy project's location comes from an environment variable (040, K0)."""
 
 import importlib
-from pathlib import Path
 
 
 def _reload_config(monkeypatch, value):
@@ -25,4 +24,4 @@ def test_legacy_root_from_env(monkeypatch, tmp_path):
 def test_legacy_root_default(monkeypatch):
     monkeypatch.setattr("dotenv.load_dotenv", lambda *a, **k: False)
     cfg = _reload_config(monkeypatch, None)
-    assert cfg.OLD_PROJECT_ROOT == Path(r"C:\00_DEV_LOCAL\10_AIFLOW_V4")
+    assert cfg.OLD_PROJECT_ROOT == cfg.PROJECT_ROOT.parent / "10_AIFLOW_V4"  # 076: the sibling folder

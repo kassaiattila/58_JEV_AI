@@ -6,12 +6,12 @@
 ## Fázisok és lépések
 
 ### load
-- **load_pdf** _(det)_ — pdfplumber szó-szintű rekonstrukció, sha256 doc_id; szövegréteg-teszt; a szóréteg (szókeretek, 045) mentése
-- **ocr_pdf** _(det)_ — szöveg nélküli PDF: oldalkép (pypdfium2) + tesseract szó-dobozok (natív / régi sidecar-kép) -> ugyanaz a sor- és cella-építés; a szóréteg mentése (045); lemez-gyorsítótár runs/ocr/; minőségjelek nyersen, gyenge OCR review-ok (policy ocr)
+- **load_pdf** _(det)_ — pdfplumber szó-szintű rekonstrukció, sha256 doc_id; szövegréteg-teszt; a szóréteg (szókeretek) mentése
+- **ocr_pdf** _(det)_ — szöveg nélküli PDF: oldalkép (pypdfium2) + tesseract szó-dobozok (natív / régi sidecar-kép) -> ugyanaz a sor- és cella-építés; a szóréteg mentése; lemez-gyorsítótár runs/ocr/; minőségjelek nyersen, gyenge OCR review-ok (policy ocr)
 
 ### extract
 - **find_candidates** _(det)_ — S-kar: determinisztikus, sorrendezett, maszkoló jelöltkeresők a csomag jelölt-profiljával (hu / intl): iban -> tax_id -> date -> invoice_number -> money; nevek/címek cellákon
-- **jev_select** _(jev)_ — S-kar: kötegelt Choice-kérések (parties / header / money) a csomag select-hívási helyéről, fókuszált state, none mindig opció, jelenlét-Noul mezőnként (069: jelölt nélkül is, a vizsgált nem kötelező mezőkre, csak meglévő kérésben)
+- **jev_select** _(jev)_ — S-kar: kötegelt Choice-kérések (parties / header / money) a csomag select-hívási helyéről, fókuszált state, none mindig opció, jelenlét-Noul mezőnként (jelölt nélkül is, a vizsgált nem kötelező mezőkre, csak meglévő kérésben)
 - **extract_llm** _(llm)_ — G-kar: gpt kivonat a csomag régi promptjával + sémájával (Pydantic AI), az egyetlen generatív lépés
 - **jev_verify** _(jev)_ — G-kar: evidencia-illesztés kódban (unsupported), majd Noul fan-out egy kérésben (off_target, wrong_kind, incomplete, absence_wrong, parties_swapped, tételsorok) a csomag verify-hívási helyéről
 
@@ -24,13 +24,13 @@
 - **decide_route** _(det)_ — policy.decide: küszöbök (configs/policy.json), a csomag kötelező / magas tétű mezői, additív review-latch -> auto | human
 
 ### persist
-- **ground** _(det)_ — 045: mezőnkénti forráshely a szórétegen (S: a kiválasztott jelölt sora + a többi jelölt; G: kódos keresés címkével, configs/grounding.json); hiba esetén forráshely nélkül tovább
+- **ground** _(det)_ — mezőnkénti forráshely a szórétegen (S: a kiválasztott jelölt sora + a többi jelölt; G: kódos keresés címkével, configs/grounding.json); hiba esetén forráshely nélkül tovább
 - **save** _(store)_ — documents + datapoints (mezőnkénti confidence, a hívási hely config_hash-e) + review_queue
 
 ### terminal
 - **done** _(terminal)_ — auto - elfogadva
 - **needs_review** _(terminal)_ — human - review-sorban, okokkal
-- **needs_ocr** _(terminal)_ — szöveg nélküli PDF, és az OCR sem adott használható szöveget (vagy nincs OCR-motor): documents has_text=0; 066: teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja
+- **needs_ocr** _(terminal)_ — szöveg nélküli PDF, és az OCR sem adott használható szöveget (vagy nincs OCR-motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja
 
 Terminális lépések: done, needs_review, needs_ocr
 

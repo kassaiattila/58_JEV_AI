@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\csapatmenedzser_utasitas",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/csapatmenedzser_utasitas",
   "files": {
     "schema.json": "d62778de1ee3a6d584074787189960cfa7d268c1a279bc796f1f4e5bfd287774",
     "prompt.md": "51919cabf7366383fad39df11c0097fb5833e767fbb6dac0e5f5e0a22bd3e09a",

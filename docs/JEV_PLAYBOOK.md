@@ -1,6 +1,6 @@
 # JEV playbook: model facts, call sites and question design
 
-**Valid from:** 2026-09-20 · **Fully refreshed:** 2026-09-30 (073), against the code and the live pages of docs.typesafe.ai · **Model:** `jev-1.13.0` (behind the `jev-latest` alias)
+**Valid from:** 2026-09-20 · **Fully refreshed:** 2026-09-30, against the code and the live pages of docs.typesafe.ai · **Model:** `jev-1.13.0` (behind the `jev-latest` alias)
 
 ## Plain-language summary
 
@@ -20,8 +20,8 @@ JEV is the TypeSafe model that answers narrow, typed questions about a document 
 | alias | `jev-latest` and `jev-preview` both point to `jev-1.13.0`; an alias moves when a new release ships; the response's `model` field reports the version that answered | The cache key and the ledger use the concrete version (section 2). |
 | model list | `GET /v1/models` lists only the aliases; versioned IDs such as `jev-1.13.0` are accepted anyway | The adapter resolves the alias with a small probe request (section 2). |
 | customisation | no fine-tuning; answers are shaped through the state, the instructions, the criteria and code composition | This matches our "configuration as data" rule: questions live in JSON files. |
-| SDK logging | `TYPESAFE_LOG_LEVEL=debug` logs the request body unredacted | `guard_sdk_logging()` in `jav/config.py` lowers the SDK log to WARNING unless `JAV_ALLOW_SDK_DEBUG=1` is set. Since 075 the service and worker logs, and the stored item errors, mask every key, token and password from the environment and `.env` (`jav/runtime/applog.py`), the exception chain included. |
-| SDK version | locked at `typesafe-sdk==0.7.2` (`requirements.lock`, since 2026-09-30): Pydantic-based, provides `TypeSafeClient`, `AsyncTypeSafeClient`, `RetryPolicy` and `response_model`. 0.7.1 (2026-09-21) validates the API key early and keeps the key value out of logged exceptions; 0.7.2 (2026-09-26) only adds the optional `http2` extra ([changelog](https://docs.typesafe.ai/sdk/python/changelog)). | An upgrade is a lockfile change followed by a golden run from the cache (the 0.7.2 upgrade, 2026-09-30: every golden set unchanged; the only live request was the model-version check, 0.00001 USD). `tests/test_secret_redaction_075.py` checks that a key does not reach an exception, a log file or a stored error. |
+| SDK logging | `TYPESAFE_LOG_LEVEL=debug` logs the request body unredacted | `guard_sdk_logging()` in `jav/config.py` lowers the SDK log to WARNING unless `JAV_ALLOW_SDK_DEBUG=1` is set. Since v1.1.0 the service and worker logs, and the stored item errors, mask every key, token and password from the environment and `.env` (`jav/runtime/applog.py`), the exception chain included. |
+| SDK version | locked at `typesafe-sdk==0.7.2` (`requirements.lock`, since 2026-09-30): Pydantic-based, provides `TypeSafeClient`, `AsyncTypeSafeClient`, `RetryPolicy` and `response_model`. 0.7.1 (2026-09-21) validates the API key early and keeps the key value out of logged exceptions; 0.7.2 (2026-09-26) only adds the optional `http2` extra ([changelog](https://docs.typesafe.ai/sdk/python/changelog)). | An upgrade is a lockfile change followed by a golden run from the cache. `tests/test_secret_redaction_075.py` checks that a key does not reach an exception, a log file or a stored error. |
 
 **Known weak spots** ([Jev 1.13 jaggedness](https://docs.typesafe.ai/model-jaggedness/jev-1.13)): the model reads literally; it does not count or do arithmetic; it does not compare dates; indirection and double negation hurt it; a large state full of irrelevant detail lowers accuracy ("context rot"); adversarial content can shift the answer; contradictory instructions and criteria confuse it; it has **no structural invariants** (a Noul is not a yes/no Choice, P(yes) and P(no) from two separate Nouls need not add up to 1, and a Noul threshold cannot be reused for a Choice); it does not generate text. Our answer to each: compute, filter and compare in code, and split the decision into atomic questions.
 
@@ -54,7 +54,7 @@ The server limit is in tokens (section 1), but counting tokens needs the model, 
 
 ## 4. Call sites
 
-A call site is a point in a flow where we ask JEV (see the [glossary](GLOSSARY.md)). Each one has a JSON file in `configs/callsites/` that holds everything the model sees: the English instructions and glossary, the option descriptions, the Noul questions, the presence template, the state limits and the request-size budget. Any text change in that file gives a new cache key, so the next golden run and every new run make live, paid calls. The file's `config_hash` (combined with the registry or the type pack) goes into every ledger row. `python -m jav.cli docs` generates a catalogue of the call sites with ledger statistics into `docs/callsites/` (local, not in the repository). The file format is described in [the configuration files guide](guides/CONFIGS.md).
+A call site is a point in a flow where we ask JEV (see the [glossary](GLOSSARY.md)). Each one has a JSON file in `configs/callsites/` that holds everything the model sees: the English instructions and glossary, the option descriptions, the Noul questions, the presence template, the state limits and the request-size budget. Any text change in that file gives a new cache key, so the next golden run and every new run make live, paid calls. The file's `config_hash` (combined with the registry or the type pack) goes into every ledger row. `python -m jav.cli docs` generates a local catalogue of the call sites with ledger statistics; it is not in the repository. The file format is described in [the configuration files guide](guides/CONFIGS.md).
 
 There are 24 call sites: 3 for selection, 18 for verification, 2 for detection and 1 for email intent.
 
@@ -89,7 +89,7 @@ The Noul questions are defined once in `verify.json`; the other verification cal
 | `verify` (1.1.0) | `invoice_hu` | defines the Noul questions |
 | `verify_foreign` (1.0.0) | `invoice_foreign` | inherits the Nouls; own field descriptions |
 | `verify_utility` (1.0.1) | the six utility packs | inherits; `request_char_budget` 110,000; glossary in the state |
-| 15 × `verify_<type>` (1.1.0, 047) | one type pack each, converted from the legacy project; these packs have only a G path | inherits; `request_char_budget` 110,000; glossary in the state |
+| 15 × `verify_<type>` (1.1.0) | one type pack each, converted from the legacy project; these packs have only a G path | inherits; `request_char_budget` 110,000; glossary in the state |
 
 The 15 type-specific call sites: `verify_altalanos_szerzodesi_feltetelek` (general terms and conditions), `verify_belepo_jegy` (admission ticket), `verify_certificate`, `verify_csapatmenedzser_utasitas` (team manager instruction), `verify_id_document`, `verify_insurance_claim_form`, `verify_invoice_out` (outgoing invoice), `verify_meeting_minutes`, `verify_meghivo` (invitation), `verify_nav_certificate`, `verify_nav_receipt`, `verify_nav_tax_return` (NAV is the Hungarian tax authority), `verify_statement_cib`, `verify_statement_erste` (bank statements), `verify_terkep_adat` (map data).
 
@@ -178,16 +178,14 @@ The first version of this playbook (2026-09-20) compared the docs' recommendatio
 | 3 | evaluation | per-question accuracy and bands, calibration curve (bin by bin: probability against hit rate), top probability against `confidence`, policy re-evaluation, determinism | done (`jav/eval_report.py`, `eval-report`). A version-independent entropy-based confidence is still open (section 8). |
 | 4 | registry schema | `what / not_for / examples / parent`; the Choice criteria are built from it | done (`jav/registry.py`) |
 | 5 | S path | presence Noul for every optional field; record confidence = minimum; line id of the evidence stored with the data point | done |
-| 6 | G path | structured Noul instruction; two-sided band for the flags | done (`verify` 1.1.0). On the verifier probe (deliberately corrupted values): 2 corruptions moved from the uncertain band into the yes band, so they are now caught, with 0 false alarms. |
-| 7 | email signals | `urgency` Score instead of a yes/no, `multiple_requests` Noul, `prompt_injection` Noul | done (`email_intent` 1.1.0). Intent golden set 96/96 with 0 flips; an instruction planted at the top of an email was caught 24/24, but one placed in the part that the body cleaner removes was invisible: the guard question sees only what the decision sees. An injection check on documents before the G path is still open (see the [security notes](SECURITY.md)). |
+| 6 | G path | structured Noul instruction; two-sided band for the flags | done (`verify` 1.1.0); checked with the verifier probe (deliberately corrupted values) |
+| 7 | email signals | `urgency` Score instead of a yes/no, `multiple_requests` Noul, `prompt_injection` Noul | done (`email_intent` 1.1.0). The guard question sees only what the intent decision sees, so an instruction in the part of the email that the body cleaner removes is invisible to it. An injection check on documents before the G path is still open (see the [security notes](SECURITY.md)). |
 | 8 | method | this checklist, in `CLAUDE.md` and in section 6 | done |
 | 9 | extensions | B1 line stitching and block types (autoformat cookbook), B2 ML gate with CatBoost (autoresearch cookbook), B3 matching and deduplication (entity-alignment and re-ranking cookbooks), B4 hierarchy (hierarchical-classification cookbook) | plans only; re-read the cookbook when the work starts |
 
-The measurement evidence for items 1–7 is in handoffs 006–011 and their raw runs (local, not in the repository).
-
 ## 8. What the docs leave open
 
-- **Accuracy on non-English text.** The docs give no number. Ours was 100% on 12 + 49 + 96 golden cases (invoice selection, document detection, email intent) on 2026-09-20: a small sample, and the questions were refined on the same cases.
+- **Accuracy on non-English text.** The docs give no number. Only our own golden sets (invoice selection, document detection, email intent) measure it: they are small samples, and the questions were refined on the same cases.
 - **The confidence formula** is not published; the docs promise a separate cookbook. Noul answers carry no `confidence`. The formula on an older migration page (1 − normalised entropy) can be computed from `probabilities` as a version-independent measure, but the evaluation report does not compute it yet.
 - **Rate limits and the version behind `jev-latest`** can change without notice. The model recorded in the ledger is the ground truth.
 - **Characters per token** vary with the text source, so the request-size budget is an estimate with one retry (section 3).
@@ -195,7 +193,6 @@ The measurement evidence for items 1–7 is in handoffs 006–011 and their raw 
 ## Technical details
 
 - Official docs (read in full 2026-09-17 to 2026-09-20; the facts in section 1 re-checked 2026-09-30): the index is `https://docs.typesafe.ai/llms.txt`; every page is also available as Markdown at `https://docs.typesafe.ai/<path>.md`. Pages used here: `models`, `primitives/choice`, `primitives/score`, `api`, `confidence`, `model-jaggedness/jev-1.13`, `sdk/python/changelog`.
-- Background reports (local, not in the repository): `JEV_CAPABILITY_INTEGRATION_2026-09-21.md` (JEV capabilities against our own development experience) and `STACK_TRIAL_RESULTS_2026-09-21.md` (a comparative measurement).
 - Code: `jav/adapters/jev.py` (entry point), `jav/jev_budget.py` (request-size budget), `jav/jev_select.py` (S path), `jav/jev_verify.py` (G path), `jav/detect.py`, `jav/detect_detail.py`, `jav/intent.py`, `jav/policy.py`, `jav/registry.py`, `jav/candidates.py` (`MAX_OPTIONS`), `jav/config.py` (`make_client`, `build_retry_policy`, `guard_sdk_logging`).
 - Settings: `configs/models.json` (1.2.0), `configs/policy.json` (1.9.0), `configs/callsites/*.json`, `configs/doc_types.json`, `configs/intents.json`, `configs/types/*.json`.
 - Related documents: [architecture](ARCHITECTURE.md), [configuration files](guides/CONFIGS.md), [glossary](GLOSSARY.md).

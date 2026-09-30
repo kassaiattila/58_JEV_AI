@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\invoice_out",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/invoice_out",
   "files": {
     "schema.json": "d3998b43df53181dac8f4337c464296ab242fb02fd3a7a511fed4cd7d507e885",
     "prompt.md": "fd6117316075094a502d3f5f295bcce4f45586a2698b96632b7cebf0deaf4926",

@@ -27,6 +27,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
 import shutil
 import sqlite3
@@ -86,10 +87,20 @@ def configured_keep() -> int:
     return int(cfg.load("service").get("backup", {}).get("keep", KEEP))
 
 
+COPY_TO_ENV = "JAV_BACKUP_COPY_TO"
+
+
+def configured_copy_to() -> str | None:
+    """The second backup location: `configs/service.json` → `backup.copy_to`, or, since 076, the `JAV_BACKUP_COPY_TO`
+    environment variable (`.env`), so that a machine-specific path stays out of the tracked config."""
+    return cfg.load("service").get("backup", {}).get("copy_to") or os.environ.get(COPY_TO_ENV) or None
+
+
 def scheduled(*, config: dict[str, Any] | None = None) -> dict[str, Any]:
-    """The daily scheduled backup, as configured (`configs/service.json` → `backup`)."""
+    """The daily scheduled backup, as configured (`configs/service.json` → `backup`, the second location also from the
+    environment). An explicit `config` is used as given, without the environment."""
     c = config if config is not None else cfg.load("service").get("backup", {})
-    copy_to = c.get("copy_to")
+    copy_to = c.get("copy_to") if config is not None else configured_copy_to()
     return backup(keep=int(c.get("keep", KEEP)), copy_to=Path(copy_to) if copy_to else None, with_burr=bool(c.get("with_burr")),
                   with_docs=bool(c.get("with_docs")))
 

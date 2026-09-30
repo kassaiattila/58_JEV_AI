@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\belepo_jegy",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/belepo_jegy",
   "files": {
     "schema.json": "8df5e62d393d0e1d49d2f25660e2a0a5d453d13a8bca17e16a8de59c690aca28",
     "prompt.md": "3a11135a8db3a439ce2f80508c0a466aa5630af92a4ee720273f57c5fc17f8bc",

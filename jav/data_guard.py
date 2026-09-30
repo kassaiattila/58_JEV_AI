@@ -11,16 +11,15 @@ re-check existing lines, so an old, tolerated value does not block an unrelated 
   check digit cannot be real, so it does not stop anything. Foreign tax numbers, email addresses and phone numbers
   cannot be checked this way: they have an allow list.
 - **Exception** (`configs/data_guard.json` `allow`): a fictitious or public company value, in readable form.
-- **Tolerated own data** (`known`): a real value that stays until the next prompt change, per the 069 decision; only
-  as sha256 and only in the named files; anywhere else it stops the operation.
+- **Tolerated known value** (`known`): a value accepted for the time being; only as sha256 and only in the named
+  files; anywhere else it stops the operation.
 - **Denied term** (`deny`): the owner's company name, the user name and the like; matched by the sha256 of word
   fragments, so that the list itself does not carry them.
 - **Key:** known key shapes, and the secret values of the local `.env` verbatim (the output shows only the variable
   name).
 - **Path:** internal working documents (`jav/doc_scope.py`), `.env`, the local data folders, document and image
   files, binary files.
-- **On push**, the old history carrying personal data and internal working documents is also forbidden (the 069 / 070
-  archive branches).
+- **On push**, a branch or tag built on a history listed under `forbidden_history` is also refused.
 
 Entry point for the hooks: `python -m jav.data_guard pre-commit | pre-push <remote> [url] | scan | install`.
 The hooks: `scripts/githooks/` (`core.hooksPath`; installation: `python -m jav.cli hooks-install`).
@@ -375,7 +374,7 @@ def check_push(root: Path, guard: Guard, ref_lines: Iterable[str], remote: str =
         local_ref, local_sha, _remote_ref, remote_sha = parts
         if any(_git(root, "merge-base", "--is-ancestor", r, local_sha, check=False).returncode == 0 for r in roots):
             found.append(Finding(local_ref, 0, "forbidden_history",
-                                 "a régi (069 / 070 előtti) történetre épül: személyes adat, belső munkaanyag"))
+                                 "built on a history listed under forbidden_history in configs/data_guard.json"))
             continue
         revs = [local_sha, "--not", f"--remotes={remote}"] + ([] if remote_sha == ZERO_SHA else [remote_sha])
         commits = _git(root, "rev-list", *revs).stdout.decode().split()
@@ -433,12 +432,12 @@ def report(findings: list[Finding], action: str) -> str:
         if kinds & _PATH_KINDS:
             lines.append("Fájl: vedd ki a commitból: `git restore --staged <fájl>` (a belső munkaanyag helyben marad).")
         if "forbidden_history" in kinds:
-            lines.append("Történet: ez az ág vagy címke a régi történetre épül, nem tölthető fel.")
+            lines.append("History: this branch or tag is built on a forbidden history; it cannot be pushed.")
         lines.append("Leírás: docs/guides/DEVELOPMENT.md §1. A horog megkerülése (--no-verify) tilos.")
     tolerated = [f for f in findings if f.known]
     if tolerated:
         lines.append(f"adatőr: {len(tolerated)} tűrt ismert érték "
-                     "(configs/data_guard.json `known`: a 069-es döntés szerint maradó saját adat)")
+                     "(configs/data_guard.json `known`)")
     return "\n".join(lines)
 
 

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\insurance_claim_form",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/insurance_claim_form",
   "files": {
     "schema.json": "0654422130e950bef5251168ca63f08bbe456705ad8b493a756c8ffdf5392418",
     "prompt.md": "3c3951c3b10dc78ad8f01c3fc347c35e01993272692982306c9def06c91f4165",

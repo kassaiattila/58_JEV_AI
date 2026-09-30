@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "source": "C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\flows\\doc-extract-bare\\types\\statement_cib",
+  "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/statement_cib",
   "files": {
     "schema.json": "6a129e732d2e633f4ea16302ec8c53275cc46a0189cb5eb6e6f536d6214fdfe3",
     "prompt.md": "b80bb9e486d77e3349011f92c2e774aa6c8baface8d1d04461e479f8ce94c23b",
