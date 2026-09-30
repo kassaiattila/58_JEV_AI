@@ -312,6 +312,13 @@ def test_the_output_folder_gets_a_new_subfolder_each_time_and_nothing_is_overwri
     assert (target / READY).is_file()  # the first copy set is untouched
     assert c.post(f"/api/runs/{run_id}/named-copies", json={}).status_code == 422  # a person must be named
 
+    deep = out / ("m" * max(1, 200 - len(str(out.resolve())) - 1))  # a 200-character folder: the names would not fit into 250
+    deep.mkdir(parents=True)
+    assert c.put("/api/settings/output-folder", headers=HUMAN, json={"path": str(deep)}).status_code == 200
+    too_long = c.post(f"/api/runs/{run_id}/named-copies", headers=HUMAN, json={})
+    assert too_long.status_code == 422 and "too long" in too_long.json()["message"]
+    assert list(deep.iterdir()) == []  # no empty subfolder is left behind
+
     assert c.put("/api/settings/output-folder", headers=HUMAN, json={"path": ""}).json()["path"] is None
 
 
