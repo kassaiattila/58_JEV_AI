@@ -241,8 +241,8 @@ class JevAdapter:
                           ensure_ascii=False, default=str, sort_keys=True)
         key = request_hash(model, state, questions)
         attempts = 1 + int(JEV_RETRY.get("max_retries", 0))  # the SDK's own retries are physical requests too
-        max_cost = calls.estimate_max_cost(input_chars=len(body), max_output_tokens=0,
-                                           usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)), physical_attempts=attempts)
+        max_cost = calls.estimate_max_cost(input_bytes=calls.utf8_bytes(body), max_output_tokens=0,
+                                           usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)), repeats=attempts)
         seconds_box: list[float] = []
 
         def physical() -> calls.Outcome:

@@ -31,12 +31,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 from pydantic_ai import Agent
-from pydantic_ai.models.openai import OpenAIChatModel, OpenAIChatModelSettings
-from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from jav import cfg, store
-from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, OPENAI_USD_PER_MTOK, PROMPTS_DIR, get_openai_key, load_prompt, openai_price
+from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, OPENAI_USD_PER_MTOK, PROMPTS_DIR, load_prompt, openai_chat_model, openai_price
 from jav.runtime import calls
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
@@ -255,7 +254,7 @@ def gate(snap: dict[str, Any], output: dict[str, Any]) -> tuple[list[dict[str, A
 
 @lru_cache(maxsize=1)
 def get_agent() -> Agent[None, TaskOutput]:
-    model = OpenAIChatModel(OPENAI_MODEL, provider=OpenAIProvider(api_key=get_openai_key()))
+    model = openai_chat_model()
     settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"], temperature=OPENAI_SETTINGS["temperature"])
     return Agent(model, output_type=TaskOutput, instructions=load_prompt(CFG["prompt_file"]), model_settings=settings,
                  retries=OPENAI_SETTINGS["retries"])
@@ -300,9 +299,11 @@ def extract(snap: dict[str, Any], *, intent_hint: dict[str, Any] | None, run_id:
     if ctx is None:
         return _physical(agent, prompt, run_id=run_id, limited=False).response
     price = openai_price(OPENAI_MODEL)  # 066 Á38: no budgeted call without a price (the reservation would be zero)
+    schema = json.dumps(TaskOutput.model_json_schema(), ensure_ascii=False)  # sent as the output tool's schema
     max_cost = calls.estimate_max_cost(
-        input_chars=len(prompt) + len(load_prompt(CFG["prompt_file"])), max_output_tokens=CFG["max_output_tokens"],
-        usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), physical_attempts=1 + int(OPENAI_SETTINGS["retries"]))
+        input_bytes=calls.utf8_bytes(prompt, load_prompt(CFG["prompt_file"]), schema), max_output_tokens=CFG["max_output_tokens"],
+        usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), rounds=1 + int(OPENAI_SETTINGS["retries"]),
+        repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))
     digest = hashlib.sha256((CONFIG_HASH + prompt).encode("utf-8")).hexdigest()
     result = calls.invoke(run_id=run_id, step_id=f"openai:email_tasks:{digest[:16]}", provider="openai", model=OPENAI_MODEL,
                           max_cost_usd=max_cost, budget_scope=ctx.budget_scope, request_hash=digest,

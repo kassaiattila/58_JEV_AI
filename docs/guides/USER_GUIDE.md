@@ -135,7 +135,7 @@ The three buttons do not start anything straight away; they take you to a summar
 
 - **Header:** the mode and time, the state (‘Queued’ (*Sorban áll*), ‘Running’ (*Fut*), ‘To-dos pending’ (*Teendő vár*), ‘Done’ (*Kész*), ‘Failed’ (*Hibás*) or ‘Stopped’ (*Leállítva*)), the recipe with its settings, and who started the run.
 - **Items:** for each item, its run state, the result and the number of to-dos. Clicking a to-do opens Review.
-- **Cost** (*Költség*): for each provider, the committed amount compared with the budget. The committed amount is the cost of the completed calls plus a worst-case estimate for the calls not yet settled.
+- **Cost** (*Költség*): for each provider, the committed amount compared with the budget. The committed amount is the cost of the completed calls plus the reserved upper bound of the calls not yet settled.
 - **Job queue** (*Munkasor*): how many jobs are queued, running, done, failed (given up) or stopped.
 - **Call log (raw model calls)** (*Hívásnapló (nyers modellhívások)*): an expandable list of the paid calls. It is empty if every answer came from the cache.
 - **Stop** (*Leállítás*) (only while the run is in progress): needs two clicks (‘Sure? Click again’ (*Biztosan? Kattints újra*)). Queued items stop at once; the item in progress stops after its next step.

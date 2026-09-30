@@ -20,15 +20,17 @@ truth for reservations and resumability.
 from __future__ import annotations
 
 import json
-import math
+import logging
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import ROUND_CEILING, Decimal
 from typing import Any, Callable
 
 from jav import store
+
+log = logging.getLogger("jav.calls")
 
 store.register_schema("runtime.calls", """
 CREATE TABLE IF NOT EXISTS invocations (
@@ -119,12 +121,32 @@ def current() -> RunContext | None:
     return _context.get()
 
 
-def estimate_max_cost(*, input_chars: int, max_output_tokens: int, usd_per_mtok: tuple[Decimal, Decimal],
-                      physical_attempts: int, chars_per_token: int = 2) -> Decimal:
-    """Upper estimate: every possible physical attempt (SDK and validation retries) at full price."""
-    in_tok = math.ceil(input_chars / chars_per_token)
-    per_call = (Decimal(in_tok) * usd_per_mtok[0] + Decimal(max_output_tokens) * usd_per_mtok[1]) / Decimal(1_000_000)
-    return (per_call * physical_attempts).quantize(Decimal("0.000001"))
+TOKEN_OVERHEAD = 1024
+"""Tokens added to every physical request on top of its UTF-8 bytes: message framing and the provider's own wrapping.
+Measured in the call log (2026-09-30): the smallest JEV request (the model probe) was 282 tokens; over 1385 JEV and 126
+OpenAI calls the input tokens were at most 0.60 and 0.90 of the request's characters."""
+
+OVERRUN_NOTE = "actual_exceeds_reserved"
+
+
+def utf8_bytes(*texts: str) -> int:
+    return sum(len(t.encode("utf-8")) for t in texts)
+
+
+def estimate_max_cost(*, input_bytes: int, max_output_tokens: int, usd_per_mtok: tuple[Decimal, Decimal],
+                      rounds: int = 1, repeats: int = 1) -> Decimal:
+    """Upper bound of one step's cost (075, finding S02 of the repeated security audit; before 075: 2 characters per
+    token, which was not a bound). A byte-level BPE token covers at least one UTF-8 byte, so one request has at most
+    `input_bytes + TOKEN_OVERHEAD` input tokens (`input_bytes`: everything sent, instructions and output schema too).
+    `rounds`: conversation rounds (Pydantic AI's validation retries); round k also carries the k earlier answers and
+    the retry prompts quoting them, so it adds k * (2 * max_output_tokens + TOKEN_OVERHEAD) input tokens. `repeats`:
+    identical transport attempts per round (an SDK's own retries), each at full price. Rounded up to 0.000001 USD."""
+    price_in, price_out = usd_per_mtok
+    total = Decimal(0)
+    for k in range(rounds):
+        in_tok = input_bytes + TOKEN_OVERHEAD + k * (2 * max_output_tokens + TOKEN_OVERHEAD)
+        total += Decimal(in_tok) * price_in + Decimal(max_output_tokens) * price_out
+    return (total * repeats / Decimal(1_000_000)).quantize(Decimal("0.000001"), rounding=ROUND_CEILING)
 
 
 def set_budget(scope: str, provider: str, limit_usd: Decimal) -> None:
@@ -175,6 +197,9 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
             lim = c.execute("SELECT limit_usd FROM budgets WHERE scope=? AND provider=?", (budget_scope, provider)).fetchone()
             if lim is None:
                 raise BudgetExceeded(f"no budget for provider {provider!r} in scope {budget_scope!r}")
+            if c.execute("SELECT 1 FROM invocations WHERE budget_scope=? AND provider=? AND note=?",
+                         (budget_scope, provider, OVERRUN_NOTE)).fetchone():
+                raise BudgetExceeded(f"{budget_scope}/{provider}: an earlier call exceeded its reservation; no further calls")
             committed = _committed(c, budget_scope, provider)
             if committed + max_cost_usd > Decimal(lim["limit_usd"]):
                 raise BudgetExceeded(f"{budget_scope}/{provider}: committed {committed} + max {max_cost_usd} > limit {lim['limit_usd']}")
@@ -203,11 +228,16 @@ def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_c
     store.save_artifact(RESPONSE_KIND, str(inv_id), {"response": out.response, "model": out.model, "input_tokens": out.input_tokens,
                                                      "output_tokens": out.output_tokens,
                                                      "cost_usd": None if out.cost_usd is None else str(out.cost_usd)})
+    # 075 (S02): the bound failed if the actual cost is above it; the answer is kept (the money is spent), but the run
+    # may not reserve with this provider again (`_reserve`), because its other reservations may be too low as well
+    overrun = out.cost_usd is not None and out.cost_usd > max_cost_usd
     with store.connect() as c:
         c.execute("UPDATE invocations SET status='succeeded', model_actual=?, input_tokens=?, output_tokens=?, cost_usd=?, cost_known=?,"
-                  " finished_at=? WHERE id=?",
+                  " note=COALESCE(?, note), finished_at=? WHERE id=?",
                   (out.model, out.input_tokens, out.output_tokens, None if out.cost_usd is None else str(out.cost_usd),
-                   int(out.cost_usd is not None), _now(), inv_id))
+                   int(out.cost_usd is not None), OVERRUN_NOTE if overrun else None, _now(), inv_id))
+    if overrun:
+        log.warning("call %s/%s cost %s, above its reserved maximum %s", run_id, step_id, out.cost_usd, max_cost_usd)
     return Result(response=out.response, invocation_id=inv_id, replayed=False)
 
 

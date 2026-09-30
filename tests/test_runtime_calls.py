@@ -110,10 +110,11 @@ def test_budget_is_per_provider(isolated):
 
 
 def test_estimate_counts_every_physical_attempt():
-    est = calls.estimate_max_cost(input_chars=3000, max_output_tokens=1000, usd_per_mtok=(Decimal("0.75"), Decimal("4.5")),
-                                  physical_attempts=3)
-    # 2 chars/token upper estimate (Hungarian text tokenises poorly): (1500 * 0.75 + 1000 * 4.5) / 1e6 * 3
-    assert est == Decimal("0.016875")
+    price = (Decimal("0.75"), Decimal("4.5"))
+    one = calls.estimate_max_cost(input_bytes=3000, max_output_tokens=1000, usd_per_mtok=price)
+    # 075: at most one token per UTF-8 byte plus the fixed overhead: (4024 * 0.75 + 1000 * 4.5) / 1e6
+    assert one == Decimal("0.007518")
+    assert calls.estimate_max_cost(input_bytes=3000, max_output_tokens=1000, usd_per_mtok=price, repeats=3) == 3 * one
 
 
 def test_saved_response_left_reserved_by_a_crash_is_recovered_as_succeeded(isolated, monkeypatch):
