@@ -3,6 +3,7 @@
 // munkacsomag lesz a levél-szándék recepttel. Fizetős feldolgozás nem indul magától (2026-09-28 döntés).
 import { useState } from "react";
 import { api, ApiError, getActor, NO_ACTOR, type MailboxCount, type MailboxPull, type MailboxRequest } from "../api";
+import { ConfirmButton } from "../components/ConfirmButton";
 import { DataTable } from "../components/DataTable";
 import { Picker } from "../components/Picker";
 import { useLoad } from "../hooks";
@@ -11,7 +12,7 @@ import { intervals, intervalText, when } from "../labels";
 
 export function pullSummary(p: Pick<MailboxPull, "status" | "result">): string {
   const r = p.result;
-  if (p.status === "error") return r?.error ?? t("Hiba");
+  if (p.status === "error") return r?.error ? pullErrorText(r.error) : t("Hiba");
   if (!r) return "–";
   const parts = [t("{{n}} új levél", { n: (r.new ?? 0) + (r.changed ?? 0) })];
   if (r.changed) parts[0] += ` ${t("({{n}} megváltozott)", { n: r.changed })}`;
@@ -19,13 +20,24 @@ export function pullSummary(p: Pick<MailboxPull, "status" | "result">): string {
   return parts.join(" · ");
 }
 
-/** A régi szkript gyakori hibái a felület nyelvén; ismeretlennél az eredeti szöveg. */
-export function bridgeErrorText(message: string): string {
+/** Known errors of the legacy Outlook script in the UI language; `undefined` for anything else. */
+function knownBridgeError(message: string): string | undefined {
   if (/must match exactly one Outlook account/.test(message)) {
     return t("Ez a cím egyetlen Outlook-fiókkal sem egyezik ezen a gépen. Ellenőrizd a címet (pontosan úgy, ahogy az Outlookban szerepel).");
   }
   if (/Outlook must already be running/.test(message)) return t("Az Outlook nem fut ezen a gépen. Indítsd el, és próbáld újra.");
-  return t("Az Outlook-olvasás nem sikerült: {{message}}", { message });
+  return undefined;
+}
+
+/** Error of the preview request (mailbox_unavailable): a known script error, otherwise the original text with context. */
+export function bridgeErrorText(message: string): string {
+  return knownBridgeError(message) ?? t("Az Outlook-olvasás nem sikerült: {{message}}", { message });
+}
+
+/** 073: error of a finished download (download log, schedule "last run"): a known script error in the UI language,
+ *  anything else unchanged (it may come from the worker, not from Outlook). */
+export function pullErrorText(message: string): string {
+  return knownBridgeError(message) ?? message;
 }
 
 export function splitAccounts(value: string): string[] {
@@ -188,7 +200,7 @@ export function Mailbox({ variant = "settings" }: { variant?: "pull" | "settings
                 <td className="right">
                   <button type="button" className="secondary small-btn" onClick={() => void api.updateSchedule(s.id, { enabled: !s.enabled }).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>
                     {s.enabled ? t("Kikapcsolás") : t("Bekapcsolás")}</button>{" "}
-                  <button type="button" className="quiet small-btn" onClick={() => void api.deleteSchedule(s.id).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>{t("Törlés")}</button>
+                  <ConfirmButton className="quiet small-btn" onConfirm={() => void api.deleteSchedule(s.id).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))}>{t("Törlés")}</ConfirmButton>
                 </td>
               </tr>
             ))}
@@ -200,7 +212,8 @@ export function Mailbox({ variant = "settings" }: { variant?: "pull" | "settings
       <h2 className="mt">{t("Letöltések")}</h2>
       <DataTable dataset="mailbox_pulls" label={t("Postafiók-letöltések")} pollMs={5000} emptyText={t("Még nem volt letöltés.")}
         cell={(col, row) => (col.key === "workpackage" && row.workpackage
-          ? <a href={`#/workpackages/${encodeURIComponent(String(row.workpackage))}`}>{t("munkacsomag")}</a> : undefined)} />
+          ? <a href={`#/workpackages/${encodeURIComponent(String(row.workpackage))}`}>{t("munkacsomag")}</a>
+          : col.key === "error" && row.error ? pullErrorText(String(row.error)) : undefined)} />
         </>
       ) : null}
     </>

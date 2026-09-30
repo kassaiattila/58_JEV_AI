@@ -1,7 +1,9 @@
 {
+ "{{n}} feladatjavaslat vár döntésre": "{{n}} task proposal(s) awaiting a decision",
  "15 percenként": "every 15 minutes",
  "4 óránként": "every 4 hours",
  "A GPT-kivonat nem sikerült ({{why}})": "GPT extraction failed ({{why}})",
+ "A feladatjavaslat nem sikerült ({{why}})": "Task proposal failed ({{why}})",
  "A JEV nem volt elérhető ({{why}}); ellenőrizd kézzel": "JEV was unavailable ({{why}}); check manually",
  "A bankszámlaszám ellenőrző összege hibás": "The bank account number checksum is wrong",
  "A dátumok nem értelmezhetők": "The dates cannot be parsed",

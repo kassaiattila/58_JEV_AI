@@ -274,7 +274,8 @@ describe("postafiók és levél-tétel (048 T2)", () => {
     expect(parseRoute("#/mailbox")).toEqual({ view: "settings", section: "mailboxes" }); // 057: a régi cím a Beállításokba visz
     expect(routeHash({ view: "settings", section: "mailboxes" })).toBe("#/settings/mailboxes");
     expect(pullSummary({ status: "ok", result: { new: 3, changed: 1, duplicate: 2, workpackage: "wp-1" } })).toBe("4 új levél (1 megváltozott) · 2 már megvolt");
-    expect(pullSummary({ status: "error", result: { error: "Outlook must already be running." } })).toBe("Outlook must already be running.");
+    // 073: the known script error is shown in the UI language here too (until 072 the raw English text)
+    expect(pullSummary({ status: "error", result: { error: "Outlook must already be running." } })).toBe("Az Outlook nem fut ezen a gépen. Indítsd el, és próbáld újra.");
     expect(bridgeErrorText("Outlook must already be running in the current interactive session.")).toBe("Az Outlook nem fut ezen a gépen. Indítsd el, és próbáld újra.");
     // 065: a „Korábban használt” cím hozzáad / kivesz, nem cserél
     expect(toggleAccount("a@x.hu", "b@y.hu")).toBe("a@x.hu, b@y.hu");

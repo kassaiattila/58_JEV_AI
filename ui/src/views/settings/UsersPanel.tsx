@@ -3,6 +3,7 @@
 // helyi adattárban. 061: a felvétel és a törlés azonnal mentődik (előtte külön „Mentés” kellett, és elmaradt).
 import { useEffect, useState } from "react";
 import { api, ApiError, USERS_EVENT } from "../../api";
+import { ConfirmButton } from "../../components/ConfirmButton";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 
@@ -45,8 +46,8 @@ export function UsersPanel() {
         {draft.map((u) => (
           <li key={u}>
             <span>{u}</span>
-            <button type="button" className="quiet small-btn" disabled={busy} aria-label={t("{{name}} törlése a listából", { name: u })}
-              onClick={() => void save(draft.filter((x) => x !== u), t("{{name}} törölve a listából.", { name: u }))}>{t("Törlés")}</button>
+            <ConfirmButton className="quiet small-btn" disabled={busy} ariaLabel={t("{{name}} törlése a listából", { name: u })}
+              onConfirm={() => void save(draft.filter((x) => x !== u), t("{{name}} törölve a listából.", { name: u }))}>{t("Törlés")}</ConfirmButton>
           </li>
         ))}
         {data.data && draft.length === 0 ? <li className="muted">{t("Még nincs név a listában; addig a fejlécben szabadon írható.")}</li> : null}
