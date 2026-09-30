@@ -1,124 +1,124 @@
-# 58_JAV_AI — AI-flow keretrendszer dokumentumokra és e-mailekre
+# 58_JAV_AI — an AI-flow framework for documents and email
 
-Burr (folyamatvezérlés) + Pydantic AI (GPT) + JEV/TypeSafe (típusos ítéletek), helyi SQLite-tal, Windows-on.
+A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition (M1), invoice data extraction (M2) and email intent (M3) — are the reference flows against which the framework's quality is measured.
 
-**Jelenlegi stabil változat: `v1.0.5`** (2026-09-30, biztonsági javítókör: adatőr, böngészős védőfejlécek, egységes verzió, új leírások; [változáslista](CHANGELOG.md)). A kód 2026-09-29 óta a GitHubon is megvan, privát tárban; a GitHub-történet 2026-09-30-án egy új kiinduló committal kezdődik, a régebbi történet csak helyben van ([fejlesztési útmutató §1](docs/guides/DEVELOPMENT.md)).
+**Current stable version: `v1.0.5`** (2026-09-30; a security fix round: data guard, browser security headers, a single version source, new documentation — see the [changelog](CHANGELOG.md)). The code has been on GitHub, in a private repository, since 2026-09-29. The GitHub history starts with a new root commit on 2026-09-30; the earlier history is kept only locally ([development guide §1](docs/guides/DEVELOPMENT.md)).
 
-A kiadási jegyzetek, mérési jelentések, tervek, átadók, a teendőlista és a döntésnapló **belső munkaanyag**: csak a fejlesztő gépén vannak, a tárban nincsenek. Ahol ez a leírás rájuk utal, „(belső: …)” jelölés áll a helyi útvonalukkal (a `docs/` mappán belül).
+Release notes, measurement reports, plans, handoffs, the backlog and the decisions log are **internal working documents**: they live only on the developer's machine and are not in the repository. Where this README refers to one, it is marked "(internal: …)" with its local path under `docs/`.
 
-## Laikus összefoglaló
+## Plain-language summary
 
-A rendszer beolvassa a számlákat, egyéb iratokat és leveleket. Felismeri a típusukat, kinyeri az adataikat és ellenőrzi őket; ami bizonytalan, az emberi ellenőrzésre kerül, nem fogadjuk el csendben. Az iratokból munkacsomag készíthető, amelyen egy recept (verziózott feldolgozási leírás) a háttérben, tartós munkasoron fut: költségkerettel, leállás utáni folytatással és okonkénti teendőkkel. Böngészős felületen (`http://127.0.0.1:8930/`), parancssorból és a helyi szolgáltatáson át is használható. A korábbi mérések részletes története a README-történetben olvasható (belső).
+The system reads invoices, other documents and emails. It recognises what type each one is, extracts its data and checks it; anything uncertain goes to a person for review instead of being accepted silently. Documents can be grouped into a work package. A recipe (a versioned description of the processing) then runs on the package in the background through a durable job queue, with a cost budget, resumption after a stop and to-dos grouped by reason. You can use it in the browser (`http://127.0.0.1:8930/`), from the command line, or through the local service. The detailed history of earlier measurements is in the README history (internal).
 
-## Mit tud most
+## What it can do now
 
-| Képesség | Állapot | Részletek |
+| Capability | Status | Details |
 |---|---|---|
-| **Iratkategorizálás** (M1): 12 tág típus + ismeretlen, nyelv, kibocsátó | Működik, mérve a régi etalonon | történet: M1 (belső: `reports/2026-09-27-readme-tortenet.md`) |
-| **Számla-adatkinyerés** (M2), két úton: kód talál jelöltet + JEV választ (S), vagy GPT kivonat + JEV ellenőrzés (G) | Működik: magyar, külföldi és hat közműszámla-csomag | történet (belső: `reports/2026-09-27-readme-tortenet.md`) |
-| **E-mail szándék** (M3): a régi 11 szándék, csatolmányok típusa, következő lépés | Működik; valós pontosság kézi etalon nélkül nem igazolt | bővítés (belső: `EXPANSION_2026-09-22.md`) |
-| **OCR** szöveg nélküli PDF-hez: helyi tesseract, gyenge eredménynél fizetős Azure-eszkaláció | Működik; a kihagyott oldalak teendőként jelennek meg | értékelés, F07 (belső: `FRAMEWORK_ASSESSMENT_2026-09-22.md`) |
-| **Egységes típusok** (047 T1): mind a 23 régi típus teljes csomag; a felismerés a részletes típust is kiválasztja; irat-feldolgozás recept; a régi eredmények összevetésre behozhatók | Működik; a régi felismerési etalonon a részletes típus 97-ből 95-ször egyezik; a tételes listák (pl. kivonat-tranzakciók) a felületen külön fülön javíthatók, a kivonat-szabályok a javított adaton újrafutnak (048) | T1 jelentés (belső: `reports/2026-09-28-t1-tipusegyesites.md`), [architektúra 10.](docs/ARCHITECTURE.md#10-egységes-dokumentumtípusok-047-t1-2026-09-28) |
-| **Tanulási ágak:** forráshoz kötött adatpontjelöltek, csomagtervezetek | Kísérleti | dokumentumtanulás (belső: `DOCUMENT_LEARNING_2026-09-21.md`) |
-| **Munkacsomag → futás** (040 K1): csomag mappából, recept, készenlét-ellenőrzés, idempotens indítás rögzített bemenettel, háttér-feldolgozó, próba/éles mód, jóváhagyás | Működik parancssorból; első recept a számla-kivonatolás | [architektúra 6.](docs/ARCHITECTURE.md#6-futtatási-réteg-munkacsomag--futás--feldolgozó-040-k1-2026-09-27) |
-| **Megbízható futtatás** (040 K1): hívásnapló és előzetes költségfoglalás, folytatás a mentett lépéstől, okonkénti teendők, részleges OCR jelzése, védett levélfogadó | Működik a feldolgozón át futó úton | [hibaszondák](docs/ARCHITECTURE.md#6-futtatási-réteg-munkacsomag--futás--feldolgozó-040-k1-2026-09-27) |
-| **Helyi szolgáltatás** (040 K2): a teljes életút böngésző nélkül is hívható; csak saját gépről, ellenőrzött bemenettel; verziózott mezőjavítás; egypéldányos, szabályosan leállítható feldolgozó | Működik; a felület (K3) erre épül | [architektúra 7.](docs/ARCHITECTURE.md#7-helyi-szolgáltatás-040-k2-2026-09-27) |
-| **Munkafelület** (040 K3, 045 K3b): munkacsomagok tételekkel; teendők az irat oldalképén bekeretezett mezőkkel, alternatív jelöltekkel, kijelöléssel a képen; recept és indítás; a futás követése, költsége és jóváhagyása (057 óta a csomag szakaszaiban, lásd lent) | Első változat; élő próba 5 valódi számlán; a gyorsítótáras újrafuttatásban 82 mezőből 77 pontos keret + 1 közelítő (046; előtte 71) | [architektúra 8.](docs/ARCHITECTURE.md#8-munkafelület-040-k3-2026-09-27), élő próba (belső: `reports/2026-09-27-k3-elo-proba.md`) |
-| **Postafiók** (048 T2): a gépen futó Outlookból letöltés postafiókkal és időszakkal, ingyenes darabszám-előnézettel, egyszer vagy ütemezve (alap: óránként); az új levelekből munkacsomag a levél-szándék recepttel, a fizetős futást ember indítja | Működik; két valódi postafiókon kipróbálva 2026-09-28 (45 + 2 levél, próba mód), lásd a 051-es átadót | [architektúra 11.](docs/ARCHITECTURE.md#11-postafiók-olvasás-és-ütemezés-048-t2-2026-09-28) |
-| **Számlatételek** (053 T3): a magyar és a közmű-számlák tételsorai tételes listaként, tételösszeg- és soronkénti ellenőrzéssel; a közmű-számlák alapból a GPT-úton | Működik; a 49 közmű-iraton a tételösszeg 44-szer kiadja a végösszeget | T3.4 mérés (belső: `reports/2026-09-28-t3-szamlatetelek-meres.md`) |
-| **Keretek a képen** (054): minden megtalált mező kerete színezve; a több helyen szereplő érték a legvalószínűbb helyen; a tételsorok helye, sorra kattintva ugrás | Működik; a T3.4 csomagon a mezők 79 %-a, a tételsorok 88 %-a kap helyet | 054-es átadó (belső: `handoffs/054-2026-09-28-handoff.md`) |
-| **Riportok** (054 K4): futás-export Excelbe, CSV-be, JSON-ba (iratok, adatpontok oldallal és forrásszöveggel, tételsorok); közmű-költség havonta fogyasztási hely és közmű szerint, hiányzó / részleges / átfedő hónapokkal, cellánként a forrásszámlákkal | Működik; a T3.4 csomagon 6 idősor, 4 ismétlődő számla kiszűrve | [architektúra 10.](docs/ARCHITECTURE.md#10-egységes-dokumentumtípusok-047-t1-2026-09-28) |
-| **Egységes adatnézet** (056 U1): minden lista és eredménytábla közös táblázatban (keresés, oszloponkénti szűrés és rendezés, lapozás, oszlopválasztó, kijelölés); a futás-eredmény táblái (057 óta a csomag Eredmény szakaszában); minden legördülő helyett kereshető választó; közös letöltés-panel (Excel / CSV / JSON; minden, szűrt vagy kijelölt sor; oszlopok) | Működik; a T3.4 futás 1336 adatpontja lapozva, szűrve; a futás adata az első kérés után gyorsítótárból jön (10 s helyett 0,1 s) | 056 terv (belső: `plans/056/PLAN.md`), [architektúra 10.](docs/ARCHITECTURE.md#10-egységes-dokumentumtípusok-047-t1-2026-09-28) |
-| **Új felület-szerkezet** (057): két fő rész, Munkacsomagok és Beállítások. A csomag szakaszai: Feldolgozás (próba- / éles futás, újrafuttatás), Ellenőrzés (teendők, iratok letöltése), Eredmény (táblák, közmű-költség, letöltés, jóváhagyás); a fejléc gombja a következő lépés. Beállítások: postafiókok, munkamappák (figyelt mappák), felhasználók, megjelenés (világos / sötét), nyelv (magyar / angol), rendszer | Működik; böngészőben ellenőrizve mindkét nyelven és sötét témában | 057 terv (belső: `plans/057/PLAN.md`) |
-| **Felület-javítások** (058): csomag elrejtése, átnevezése, üres csomag törlése; az állapotjelvény a teendők lezárása után frissül; kódnevek helyett magyar nevek (recept, levél-szándék, út); rövidített linkek a levélben; egy kiemelt futás-gomb magyarázattal; a korábban használt postafiókok választhatók; az Eredmény csak az adatot tartalmazó nézeteket kínálja; minden táblázat-fejlécen látszik a rendezés; minden mezőnek van magyar neve; a nagy csomag gyorsabban nyílik | Működik; böngészőben ellenőrizve; a 96 iratos csomag megnyitása 3,0 s helyett 0,6 s | 058-as átadó (belső: `handoffs/058-2026-09-28-handoff.md`) |
-| **Levelek mint második recept** (058 K5.1–K5.2): a levél-eredmény futásonként megmarad; az Eredmény „Levelek” nézete és a teljes Excel-csomag Levelek lapja (szándék, javasolt következő lépés, csatolmányok, a levél szövegéből látott rész); a szándék kézzel javítható, a következő lépés ebből számolódik; a levél PDF-csatolmányai a csomagban iratként futnak ugyanazzal a recepttel (adatkinyerés is), a levélre visszavezetve | Működik; mesterséges levelekkel tesztelve, a valódi 45 levélen a Levelek nézet ellenőrizve (fizetős hívás nélkül) | 059-es átadó (belső: `handoffs/059-2026-09-28-handoff.md`) |
-| **Feladatjavaslat a levélből** (058 K5.3): a régi projekt utasításával a GPT levelenként konkrét teendőt javasol (akció, határidő, felelős), szó szerinti idézettel; kódos kapu ejti ki a nem igazolt javaslatot; archiválandó levélen nem kérünk; elfogadni csak ember tud (levél nézet, Feladatok nézet, Excel Feladatok lap). A levél-receptben alapból kikapcsolva | Mérve: a 47 valódi levélen 4 javaslatot kért levél, 0 teendő, két futásban azonos; kihagyás nélkül 38 hírlevélből 1 kapott hamis teendőt; a régi 7 mesterséges etalon-esetén 14/14 egyezés; 0,21 USD | mérés (belső: `reports/2026-09-28-k5-feladatjavaslat-meres.md`) |
-| **Receptmagyarázat és karakteres kezelőelemek** (063): a csomag Recept-kártyáján beállításonként a választott érték jelentése és a tételenkénti költségkeret; Beállítások › Receptek oldal a teljes leírással (mire való, mikor válaszd, mi kell hozzá, lépések, eredmény, az ember teendője); a gombok kiemelőszínű kerettel és ikonnal, a menüpontok nagyobbak | Működik; böngészőben ellenőrizve mindkét nyelven, világos és sötét témában | kiadási jegyzet (belső: `reports/2026-09-29-v1.0.0-kiadas.md`) |
-| **Üzemi alapok** (063, 064): a feldolgozó hibás feladaton nem áll le, a félbemaradt munka korlátosan indul újra, a megszakadt letöltés levelei és a figyelt mappa fájljai nem vesznek el; állandó napló (`runs/logs/`); napi adattár-mentés 12:00-kor helyben és a NAS-on (14 marad; 070 óta a belső munkaanyaggal együtt), állapota a Rendszer oldalon; a folyamatállapot-tár lezárt tételenként ritkul | Működik; 16 + 10 üzemi teszt, mentés és NAS-másolat a valódi adattáron ellenőrizve, élő végpróba 0,001 USD | [SETUP 6.](docs/guides/SETUP.md), kiadási jegyzet (belső: `reports/2026-09-29-v1.0.0-kiadas.md`) |
-| **Felhasználók és kiosztás** (061, 062): kötelező névválasztás („Ki dolgozik?”), a csomag felelőse, „Csak a saját csomagjaim”, „Mai munkám”; a futás indítása megerősítő oldalon; az elfogadott feladat kézzel „elvégezve” jelölhető | Működik; a név választás, nem azonosítás (nincs bejelentkezés) | [felhasználói kézikönyv](docs/guides/USER_GUIDE.md) |
-| **Adat-ellenőrzések** (067, 069 `v1.0.4`): az adószám felismert alakkal és ellenőrzőszámmal, mindkét félre és a külföldi számlára is (a címkét levágja; a telefonszám és a hibás ellenőrzőszámú érték teendőt kap); a jelölt nélküli mező „nincs becslés” jelzést és jelenlét-kérdést kap; az elveszett betűjel nem ad negatív összeget; a típuscsomag nélküli irat teendőt kap; bemeneti korlát (100 MB, 300 oldal, 40 megapixel oldalanként) | Működik; a független audit négy ellenpéldáján visszamérve | [architektúra](docs/ARCHITECTURE.md) |
-| **Biztonsági javítókör** (071, `v1.0.5`): adatőr commit és feltöltés előtt (személyes adat, kulcs, belső munkaanyag, irat nem kerülhet a gitbe; a régi történet nem tölthető fel); böngészős védőfejlécek minden válaszon, az irat-adatot a böngésző nem tárolja; a Rendszer oldal és az egészség-végpont a futó verziót és commitot mutatja | Működik; 52 új program-teszt és 3 felületi teszt; böngészőben 18 nézet 0 szabálysértéssel | [biztonsági leírás](docs/SECURITY.md) |
-| **Mérés:** etalon-futás, determinizmus, közös kiértékelő riport, költségnapló | Működik | parancsok lent |
+| **Document type recognition** (M1): 12 broad types plus unknown, language, issuer | Works; measured on the old golden set | history: M1 (internal: `reports/2026-09-27-readme-tortenet.md`) |
+| **Invoice data extraction** (M2), on two paths: code finds candidates and JEV chooses (S path), or GPT extracts and JEV verifies (G path) | Works for Hungarian and foreign invoices and six utility-bill type packs | history (internal: `reports/2026-09-27-readme-tortenet.md`) |
+| **Email intent** (M3): the legacy project's 11 intents, attachment types, next step | Works; real-world accuracy is not proven without a hand-labelled golden set | expansion (internal: `EXPANSION_2026-09-22.md`) |
+| **OCR** for PDFs without a text layer: local Tesseract, with paid escalation to Azure when the result is weak | Works; skipped pages show up as to-dos | assessment, F07 (internal: `FRAMEWORK_ASSESSMENT_2026-09-22.md`) |
+| **Unified document types** (047 T1): all 23 old types are full type packs; recognition also picks the detailed type; a document-processing recipe; old results can be imported for comparison | Works; on the old recognition golden set the detailed type matches in 95 of 97 cases; line lists (e.g. bank statement transactions) can be corrected on a separate tab in the UI, and the statement rules re-run on the corrected data (048) | T1 report (internal: `reports/2026-09-28-t1-tipusegyesites.md`), [architecture §10](docs/ARCHITECTURE.md#10-unified-document-types-047-t1-2026-09-28) |
+| **Learning branches:** source-anchored data-point candidates, draft type packs | Experimental | document learning (internal: `DOCUMENT_LEARNING_2026-09-21.md`) |
+| **Work package → run** (040 K1): package from a folder, recipe, readiness check, idempotent start with a fixed input, background worker, trial/live mode, approval | Works from the command line; the first recipe was invoice extraction | [architecture §6](docs/ARCHITECTURE.md#6-execution-layer-work-package--run--worker-040-k1-2026-09-27) |
+| **Reliable execution** (040 K1): call log and up-front cost reservation, resumption from the saved step, to-dos by reason, flagging of partial OCR, a protected email receiver | Works on the path that runs through the worker | [failure probes](docs/ARCHITECTURE.md#6-execution-layer-work-package--run--worker-040-k1-2026-09-27) |
+| **Local service** (040 K2): the whole lifecycle can be driven without a browser; own machine only, with validated input; versioned field corrections; a single worker instance that can be stopped cleanly | Works; the UI (K3) is built on it | [architecture §7](docs/ARCHITECTURE.md#7-local-service-040-k2-2026-09-27) |
+| **Workspace** (040 K3, 045 K3b): work packages with their items; to-dos on the document's page image with boxed fields, alternative candidates and selection on the image; choosing a recipe and starting a run; following a run, its cost and its approval (since 057 in the package's stages, see below) | First version; live trial on 5 real invoices; in the cached rerun 77 of 82 fields got an exact box and 1 an approximate one (046; 71 before) | [architecture §8](docs/ARCHITECTURE.md#8-user-interface-040-k3-2026-09-27), live trial (internal: `reports/2026-09-27-k3-elo-proba.md`) |
+| **Mailbox** (048 T2): download from the Outlook running on the machine, by mailbox and period, with a free message-count preview, once or on a schedule (default: hourly); new emails become a work package with the email-intent recipe; a person starts the paid run | Works; tried on two real mailboxes on 2026-09-28 (45 + 2 emails, trial mode), see handoff 051 (internal) | [architecture §11](docs/ARCHITECTURE.md#11-mailbox-reading-and-scheduling-048-t2-2026-09-28) |
+| **Invoice line items** (053 T3): the line items of Hungarian and utility invoices as a line list, with a line-total check and per-line checks; utility invoices use the G path by default | Works; on the 49 utility documents the line items add up to the invoice total in 44 cases | T3.4 measurement (internal: `reports/2026-09-28-t3-szamlatetelek-meres.md`) |
+| **Boxes on the page image** (054): every field found gets a coloured box; a value that appears in several places is placed where it is most likely; line items are located too, and clicking a line jumps to it | Works; on the T3.4 package 79% of fields and 88% of line items get a position | handoff 054 (internal: `handoffs/054-2026-09-28-handoff.md`) |
+| **Reports** (054 K4): run export to Excel, CSV and JSON (documents; data points with page and source text; line items); monthly utility cost by point of consumption and utility, showing missing, partial and overlapping months, with the source invoices behind each cell | Works; on the T3.4 package 6 time series, 4 duplicate invoices filtered out | [architecture §10](docs/ARCHITECTURE.md#10-unified-document-types-047-t1-2026-09-28) |
+| **Unified data view** (056 U1): every list and result table uses one shared table (search, per-column filtering and sorting, paging, column picker, selection); the run's result tables (since 057 in the package's Result stage); a searchable picker instead of every drop-down; a shared download panel (Excel / CSV / JSON; all, filtered or selected rows; columns) | Works; the 1,336 data points of the T3.4 run paged and filtered; after the first request a run's data comes from a cache (0.1 s instead of 10 s) | 056 plan (internal: `plans/056/PLAN.md`), [architecture §10](docs/ARCHITECTURE.md#10-unified-document-types-047-t1-2026-09-28) |
+| **New UI structure** (057): two main areas, Work packages and Settings. A package has three stages: Processing (trial / live run, rerun), Review (to-dos, document downloads) and Result (tables, utility cost, download, approval); the button in the header is always the next step. Settings: mailboxes, work folders (watched folders), users, appearance (light / dark), language (Hungarian / English), system; since 063 also recipes | Works; checked in the browser in both languages and in the dark theme | 057 plan (internal: `plans/057/PLAN.md`) |
+| **UI fixes** (058): hiding and renaming a package, and deleting one that never had a run; the status badge updates once the to-dos are closed; readable Hungarian names instead of code names (recipe, email intent, path); shortened links in emails; one highlighted run button with an explanation; previously used mailboxes can be picked; Result offers only the views that contain data; every table header shows its sorting; every field has a Hungarian name; large packages open faster | Works; checked in the browser; the 96-document package opens in 0.6 s instead of 3.0 s | handoff 058 (internal: `handoffs/058-2026-09-28-handoff.md`) |
+| **Emails as a second recipe** (058 K5.1–K5.2): the email result is kept for each run; the Result stage's "Emails" view and the Emails sheet of the full Excel workbook (intent, suggested next step, attachments, the part of the email text that was read); the intent can be corrected by hand and the next step is recalculated from it; the email's PDF attachments run in the package as documents with the same recipe (including data extraction), traced back to the email | Works; tested with synthetic emails; the Emails view checked on the 45 real emails (without paid calls) | handoff 059 (internal: `handoffs/059-2026-09-28-handoff.md`) |
+| **Task proposals from emails** (058 K5.3): using the legacy project's prompt, GPT proposes a concrete task for each email (action, deadline, assignee) with a verbatim quote; a code gate drops any proposal the quote does not support; no proposal is requested for emails that are to be archived; only a person can accept a proposal (email view, Tasks view, Excel Tasks sheet). Off by default in the email recipe | Measured: of the 47 real emails, a proposal was requested for 4 and no task was proposed for any of them, identically in two runs; without the skip rule, 1 of 38 newsletters got false tasks; on the legacy project's 7 synthetic golden cases, 14/14 agreement; USD 0.21 | measurement (internal: `reports/2026-09-28-k5-feladatjavaslat-meres.md`) |
+| **Recipe explanations and bolder controls** (063): on the package's Recipe card, the meaning of the chosen value for each setting and the cost budget per item; a Settings › Recipes page with the full description (what it is for, when to choose it, what it needs, steps, result, what the person has to do); buttons with an accent-coloured border and an icon, larger menu items | Works; checked in the browser in both languages, in light and dark themes | release note (internal: `reports/2026-09-29-v1.0.0-kiadas.md`) |
+| **Operational foundations** (063, 064): the worker does not stop on a failing job; interrupted work is restarted a limited number of times; emails from an interrupted download and files in a watched folder are not lost; a persistent log (`runs/logs/`); a daily database backup at 12:00, locally and on the NAS (14 are kept; since 070 together with the internal working documents), with its status on the System page; the flow-state store is thinned for each closed item | Works; 16 + 10 operational tests; backup and NAS copy checked on the real database; live end-to-end check for USD 0.001 | [SETUP §6](docs/guides/SETUP.md), release note (internal: `reports/2026-09-29-v1.0.0-kiadas.md`) |
+| **Users and assignment** (061, 062): choosing a name is mandatory ("Who is working?"); each package has an owner; "Only my work packages" and "My work today"; a run is started from a confirmation page; an accepted task can be marked "done" by hand | Works; choosing a name is not authentication (there is no login) | [user guide](docs/guides/USER_GUIDE.md) |
+| **Data checks** (067, 069 `v1.0.4`): tax numbers are checked by recognised format and check digit, for both parties and on foreign invoices too (the label is stripped; a phone number or a value with a wrong check digit gets a to-do); a field without candidates gets a "No estimate" flag and a presence question; a lost glyph no longer produces a negative amount; a document without a type pack gets a to-do; input limits (100 MB, 300 pages, 40 megapixels per page) | Works; re-measured on the four counterexamples from the independent audit | [architecture](docs/ARCHITECTURE.md) |
+| **Security fix round** (071, `v1.0.5`): a data guard before every commit and push (personal data, keys, internal working documents and document files cannot get into git; the old history cannot be pushed); browser security headers on every response, and the browser does not store document data; the System page and the health endpoint show the running version and commit | Works; 52 new program tests and 3 UI tests; 18 views checked in the browser with 0 policy violations | [security notes](docs/SECURITY.md) |
+| **Measurement:** golden-set runs, determinism, a shared evaluation report, a cost ledger | Works | commands below |
 
-**Ismert korlátok:**
-- A költségnapló és a keret csak a feldolgozón át futó úton él. A régi mérési parancsok a lezárt mérések összevethetősége miatt a korábbi módon hívnak.
-- Egyszerre egy feldolgozó futhat (zár őrzi).
-- A helyi szolgáltatásban nincs bejelentkezés: egyfelhasználós, saját gépes eszköz.
-- A postafiók-letöltéshez futnia kell az Outlooknak; letöltés közben a feldolgozó irat-tételt nem dolgoz fel. A levél kép-csatolmányai (pl. aláírás-logó) nem kerülnek feldolgozásra.
-- A 2026-09-28 előtti futásokhoz nincs keret, újrafuttatás után van (a régi OCR-eredmények szóadata pótlódik); a meglévő futás kerete a `reground` paranccsal újraszámolható.
-- A közmű-költség riport csak a bruttó összeget bontja; a riport egy futásból készül (több futás összevonása még nincs).
-- Néhány kezelő művelet (törlés, elrejtés, átnevezés, név- és mappalista) verzióellenőrzés nélkül fut; a mentés nincs titkosítva; a személyes adatnak még nincs megőrzési ideje. A nyitott biztonsági tételek: [biztonsági leírás](docs/SECURITY.md).
-- Valós pontosságot független kézi etalon nélkül nem állítunk.
+**Known limitations:**
+- The call log and the budget apply only on the path that runs through the worker. The old measurement commands still call the models the earlier way, so that closed measurements stay comparable.
+- Only one worker can run at a time (a lock enforces this).
+- The local service has no login: it is a single-user tool for your own machine.
+- Mailbox download needs Outlook to be running; while a download is in progress, the worker does not process document items. Image attachments of emails (e.g. signature logos) are not processed.
+- Runs from before 2026-09-28 have no boxes; they get them after a rerun (the word layer of old OCR results is filled in). The boxes of an existing run can be recalculated with the `reground` command.
+- The utility-cost report breaks down only the gross amount, and it is built from a single run (merging several runs is not supported yet).
+- A few management operations (delete, hide, rename, the name and folder lists) run without a version check; the backup is not encrypted; personal data has no retention period yet. Open security items: [security notes](docs/SECURITY.md).
+- We do not claim real-world accuracy without an independent hand-labelled golden set.
 
-## Indítás
+## Getting started
 
 ```powershell
-uv venv --python 3.12 .venv; uv pip install -r requirements.lock   # részletek, OCR, kulcsok: docs/guides/SETUP.md
+uv venv --python 3.12 .venv; uv pip install -r requirements.lock   # details, OCR, keys: docs/guides/SETUP.md
 .\.venv\Scripts\Activate.ps1
-python -m jav.cli hooks-install        # adatőr: commit és feltöltés előtti ellenőrzés (klónonként egyszer)
-python -m jav.cli preflight            # teszt + kontraktus + konfig + git + adatőr + Ruff + állapotoldal
-python smoke_test.py                   # kulcsok + egy élő JEV-hívás
+python -m jav.cli hooks-install        # data guard: checks before commit and push (once per clone)
+python -m jav.cli preflight            # tests (Python + UI) + contract lint + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
+python smoke_test.py                   # keys + one live JEV call
 ```
 
-Egy friss klónban a régi projekt (`10_AIFLOW_V4`) és az etalon nélkül a felület, a munkacsomagok és a futások működnek; az etalon-mérésekhez és a régi levél-bridge-hez a régi projekt kell. Részletek: [telepítés, friss klón](docs/guides/SETUP.md).
+In a fresh clone, without the legacy project (`10_AIFLOW_V4`) and its golden set, the UI, work packages and runs all work; the golden-set measurements and the legacy Outlook bridge need the legacy project. Details: [setup, fresh clone](docs/guides/SETUP.md).
 
-## Fő parancsok
+## Main commands
 
 ```powershell
-python -m jav.cli run <pdf> --arm S|G [--type invoice_foreign]      # egy számla a folyamaton, mentés az adattárba
-python -m jav.cli golden --arm S|G [--type <csomag>] [--no-cache]  # etalon-futás (runs/*_golden_*.jsonl; a régi projekt etalonja kell)
-python -m jav.cli determinism --arm S --n 5                        # ismételt futás gyorsítótár nélkül (régi projekt)
-python -m jav.cli detect <pdf> | detect-golden | detect-corpus <mappa>   # a detect-golden a régi projektből
-python -m jav.cli email <inbox/<mailbox>/<msgid>> | email-golden | email-inbox inbox/   # az email-golden a régi projektből
-python -m jav.cli ocr [<pdf>]                                      # PDF nélkül: az OCR-motor állapota
-python -m jav.cli eval-report [runs/*.jsonl]                       # közös kiértékelő riport a nyers futásokból, hívás nélkül
-python -m jav.cli store | admin | configs | flows --check | docs   # adattár, vezérlőképernyő, konfigverziók, kontraktus, generált leírások
-python -m jav.cli recipes | wp-create <mappa> | wp-assign <wp> invoice-extraction | wp-show <wp>   # munkacsomag és recept
-python -m jav.cli run-start <wp> [--mode shadow|apply] | worker --once | run-show <run> | run-cancel <run> | run-approve <run> --actor <név>
-cd ui; npm ci; npm run build; cd ..                               # a felület buildje (egyszer, és ui/src változás után)
-.\scripts\dev.ps1 start | status | stop                          # felület + szolgáltatás: http://127.0.0.1:8930/ (végpontlista: /api/openapi.json) + feldolgozó
-python -m jav.cli serve | worker-status | worker-stop              # ugyanez külön-külön
-python -m jav.cli backup [--with-docs] | burr-prune                # adattár-mentés (a napi mentés beállítása: configs/service.json); a folyamatállapot-tár ritkítása
-python -m jav.cli hooks-install | data-guard [--all]               # az adatőr bekapcsolása; a verziókövetett fa átnézése
-python -m jav.cli calls-uncertain | calls-resolve <id> --note N    # bizonytalan kimenetű fizetős hívás kézi rendezése
-burr                                                               # Burr-tracker: http://localhost:7241
+python -m jav.cli run <pdf> --arm S|G [--type invoice_foreign]      # one invoice through the flow, saved to the store
+python -m jav.cli golden --arm S|G [--type <pack>] [--no-cache]    # golden-set run (runs/*_golden_*.jsonl; needs the legacy project's golden set)
+python -m jav.cli determinism --arm S --n 5                        # repeated runs without the cache (legacy project)
+python -m jav.cli detect <pdf> | detect-golden | detect-corpus <folder>   # detect-golden needs the legacy project
+python -m jav.cli email <inbox/<mailbox>/<msgid>> | email-golden | email-inbox inbox/   # email-golden needs the legacy project
+python -m jav.cli ocr [<pdf>]                                      # without a PDF: the OCR engine's status
+python -m jav.cli eval-report [runs/*.jsonl]                       # shared evaluation report from the raw runs, no model calls
+python -m jav.cli store | admin | configs | flows --check | docs   # store, admin screen, config versions, contract lint, generated docs
+python -m jav.cli recipes | wp-create <folder> | wp-assign <wp> invoice-extraction | wp-show <wp>   # work packages and recipes
+python -m jav.cli run-start <wp> [--mode shadow|apply] | worker --once | run-show <run> | run-cancel <run> | run-approve <run> --actor <name>   # shadow = trial run, apply = live run
+cd ui; npm ci; npm run build; cd ..                               # build the UI (once, and after every ui/src change)
+.\scripts\dev.ps1 start | status | stop                          # UI + service: http://127.0.0.1:8930/ (endpoint list: /api/openapi.json) + worker
+python -m jav.cli serve | worker-status | worker-stop              # the same, one piece at a time
+python -m jav.cli backup [--with-docs] | burr-prune                # store backup (daily backup settings: configs/service.json); thin the flow-state store
+python -m jav.cli hooks-install | data-guard [--all]               # enable the data guard; scan the version-controlled tree
+python -m jav.cli calls-uncertain | calls-resolve <id> --note N    # settle a paid call with an uncertain outcome by hand
+burr                                                               # Burr tracker: http://localhost:7241
 ```
 
-Teljes lista: `python -m jav.cli --help`, illetve a [CLAUDE.md](CLAUDE.md) 5. pontja.
+Full list: `python -m jav.cli --help`, or section 5 of [CLAUDE.md](CLAUDE.md).
 
-**Élő levélfogadás:** ajánlott a felület Postafiók nézete (048). A régi, kézi út (a régi projekt Outlook-bridge-ével, változatlanul; ez a régi projekt `data/` mappájába ír): előbb `python -m jav.cli email-ingest-server --port 8931 --run [--token <kulcs>]`, majd külön ablakban a bridge `-ApiToken <kulcs>` kapcsolóval. A fogadó 066 óta csak kulccsal fogad: `--token` (vagy a `JAV_INGEST_TOKEN` környezeti változó) nélkül indításkor egyszeri kulcsot ír ki; böngészőből érkező kérést elutasít.
+**Live email intake:** the recommended route is the UI's Mailbox view (048). The older manual route uses the legacy project's Outlook bridge unchanged (it writes into the legacy project's `data/` folder): first start `python -m jav.cli email-ingest-server --port 8931 --run [--token <key>]`, then run the bridge in a separate window with the `-ApiToken <key>` switch. Since 066 the receiver accepts requests only with a key: without `--token` (or the `JAV_INGEST_TOKEN` environment variable) it prints a one-off key at start-up. It rejects requests that come from a browser.
 
 ```powershell
-powershell -File C:\00_DEV_LOCAL\10_AIFLOW_V4\scripts\outlook_bridge.ps1 -RepoRoot C:\00_DEV_LOCAL\10_AIFLOW_V4 -OrchUrl http://127.0.0.1:8931/ingest/email -Accounts <smtp> -PeriodMode recent -SinceDays 30 -MaxItems 50 -AllEmails -ManualRun -NoArchive -WorkflowId email-intent -WorkflowVersion 1 -ApiToken <kulcs> [-Force]
+powershell -File C:\00_DEV_LOCAL\10_AIFLOW_V4\scripts\outlook_bridge.ps1 -RepoRoot C:\00_DEV_LOCAL\10_AIFLOW_V4 -OrchUrl http://127.0.0.1:8931/ingest/email -Accounts <smtp> -PeriodMode recent -SinceDays 30 -MaxItems 50 -AllEmails -ManualRun -NoArchive -WorkflowId email-intent -WorkflowVersion 1 -ApiToken <key> [-Force]
 ```
 
-## Szerkezet
+## Repository layout
 
-| Hely | Tartalom |
+| Path | Contents |
 |---|---|
-| `jav/` | Python-csomag: folyamatok (`flow*.py`), jelöltkeresés, JEV/GPT-illesztés (`adapters/`), validátorok, adattár, OCR, kiértékelés, parancssor |
-| `jav/experiments/`, `configs/experiments/` | lezárt és futó kísérletek; a futtató kód nem importálja őket |
-| `configs/` | konfig mint adat: típus- és szándékregiszter, típuscsomagok, hívási helyek, küszöbök, modellek, OCR, a szolgáltatás határai és a mentés, receptek, adatkészletek, riportok, az adatőr ([leírás](docs/guides/CONFIGS.md)) |
-| `ui/` | a böngészős munkafelület (React; build: `ui/dist/`, a szolgáltatás a gyökéren kiszolgálja) |
-| `tests/` | offline tesztek (mesterséges adatokkal) |
-| `scripts/` | a szolgáltatás indítója (`dev.ps1`), a napi mentés feladata, a Claude-horgok (`hooks/`), a git-horgok (`githooks/`, adatőr), egyszeri kísérleti szkriptek |
-| `docs/` | kódtári dokumentáció (lásd lent); a belső munkaanyag ugyanitt, de a git nem követi |
-| `runs/`, `store/`, `inbox/` | helyi futások, adattár, levelek — nincsenek gitben (PII) |
+| `jav/` | the Python package: flows (`flow*.py`), candidate search, JEV/GPT adapters (`adapters/`), validators, store, OCR, evaluation, command line |
+| `jav/experiments/`, `configs/experiments/` | closed and ongoing experiments; runtime code does not import them |
+| `configs/` | configuration as data: type and intent registries, type packs, call sites, thresholds, models, OCR, the service's limits and backup, recipes, datasets, reports, the data guard ([guide](docs/guides/CONFIGS.md)) |
+| `ui/` | the browser workspace (React; build: `ui/dist/`, which the service serves at the root) |
+| `tests/` | offline tests (with synthetic data) |
+| `scripts/` | the service launcher (`dev.ps1`), the daily backup task, the Claude hooks (`hooks/`), the git hooks (`githooks/`, data guard), one-off experimental scripts |
+| `docs/` | codebase documentation (see below); the internal working documents live here too, but git does not track them |
+| `runs/`, `store/`, `inbox/` | local runs, the store, emails — not in git (PII) |
 
-## Dokumentáció
+## Documentation
 
-A tárban lévő (kódtári) dokumentumok:
+Documents in the repository:
 
-- [Felhasználói kézikönyv](docs/guides/USER_GUIDE.md): a munkafelület használata
-- [Architektúra](docs/ARCHITECTURE.md) · [Biztonsági leírás](docs/SECURITY.md) · [Fogalomtár](docs/GLOSSARY.md) · [JEV-kézikönyv](docs/JEV_PLAYBOOK.md)
-- [Dokumentációs szabvány](docs/guides/DOCUMENTATION.md) · [Fejlesztési munkamenet](docs/guides/DEVELOPMENT.md) · [Telepítés](docs/guides/SETUP.md) · [A beállítófájlok](docs/guides/CONFIGS.md)
-- [Változáslista](CHANGELOG.md): a kiadások röviden
-- Generált folyamatleírások: [docs/flows/](docs/flows/) (`python -m jav.cli flows`)
-- [Claude-utasítások](CLAUDE.md): állandó munkaszabályok a fejlesztő modellnek
-- TypeSafe/JEV hivatalos dokumentáció: [docs.typesafe.ai](https://docs.typesafe.ai/llms.txt)
+- [User guide](docs/guides/USER_GUIDE.md): how to use the workspace
+- [Architecture](docs/ARCHITECTURE.md) · [Security notes](docs/SECURITY.md) · [Glossary](docs/GLOSSARY.md) · [JEV playbook](docs/JEV_PLAYBOOK.md)
+- [Documentation standard](docs/guides/DOCUMENTATION.md) · [Development workflow](docs/guides/DEVELOPMENT.md) · [Setup](docs/guides/SETUP.md) · [Configuration files](docs/guides/CONFIGS.md)
+- [Changelog](CHANGELOG.md): the releases in brief
+- Generated flow descriptions: [docs/flows/](docs/flows/) (`python -m jav.cli flows`)
+- [Claude instructions](CLAUDE.md): standing working rules for the development model
+- Official TypeSafe/JEV documentation: [docs.typesafe.ai](https://docs.typesafe.ai/llms.txt)
 
-Helyben, a git nélkül (belső munkaanyag, [dokumentációs szabvány](docs/guides/DOCUMENTATION.md)):
-- a belső belépő oldal (`docs/INDEX.md`): aktuális terv, jelentések jegyzéke;
-- a teendőlista, a döntésnapló és az útiterv;
-- a tervek, jelentések és átadók;
-- a generált oldalak: az állapotoldal (`docs/STATE.md`) és a hívásihely-katalógus (`docs/callsites/`, `python -m jav.cli docs`).
+Local only, outside git (internal working documents; see the [documentation standard](docs/guides/DOCUMENTATION.md)):
+- the internal entry page (`docs/INDEX.md`): the current plan and an index of reports;
+- the backlog, the decisions log and the roadmap;
+- plans, reports and handoffs;
+- generated pages: the state snapshot (`docs/STATE.md`) and the call-site catalogue (`docs/callsites/`, `python -m jav.cli docs`).

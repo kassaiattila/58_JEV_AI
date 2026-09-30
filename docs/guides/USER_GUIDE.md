@@ -1,336 +1,336 @@
-# Felhasználói kézikönyv
+# User guide
 
-**Érvényes:** 2026-09-30-tól (071, v1.0.5). **Kinek szól:** a felület felhasználójának.
+**Valid from:** 2026-09-30 (071, v1.0.5). **Audience:** people who use the interface.
 
-## Laikus összefoglaló
+## Plain-language summary
 
-A felület a böngészőben fut, és a saját gépen működő helyi szolgáltatáshoz kapcsolódik. Bejelentkezés nincs: minden változtatás a fejléc „Ki dolgozik?” mezőjében kiválasztott névhez kötődik. A munka egysége a munkacsomag, vagyis egy mappa iratai, megadott fájlok vagy egy postafiók levelei. A csomagon három lépésben dolgozol: a **Feldolgozás** szakaszban kiválasztod a receptet és elindítod a futást, az **Ellenőrzés** szakaszban az irat képe mellett rendezed a teendőket és javítod a hibás adatot, az **Eredmény** szakaszban letöltöd a táblákat és jóváhagyod az éles futást. Fizetős AI-hívást mindig ember indít, megerősítés után, előre látható költségkerettel.
+The interface runs in your browser and connects to a local service running on your own computer. There is no login: every change is recorded under the name chosen in the **Who is working?** (*Ki dolgozik?*) field in the header. The unit of work is the work package: the documents in a folder, a list of files you specify, or the emails from a mailbox. You work on a package in three stages: in **Processing** (*Feldolgozás*) you choose a recipe and start a run; in **Review** (*Ellenőrzés*) you resolve the to-dos and correct wrong data next to an image of the document; in **Result** (*Eredmény*) you download the tables and approve the live run. A paid AI call is always started by a person, after confirmation, with the cost budget shown in advance.
 
-## 1. Néhány fogalom előre
+## 1. A few terms first
 
-A teljes szótár a [fogalomtárban](../GLOSSARY.md) van. A kézikönyvhöz ennyi elég:
+The interface starts in Hungarian; the **HU / EN** buttons in the header switch it to English (section 2.2). This guide quotes the English labels, and on first mention gives the Hungarian label in italics, for example **Who is working?** (*Ki dolgozik?*). The full vocabulary is in the [glossary](../GLOSSARY.md). For this guide, these terms are enough:
 
-| Fogalom | Jelentés |
+| Term | Meaning |
 |---|---|
-| Munkacsomag | Együtt kezelt iratok vagy levelek egy forrásból. Egy recept tartozik hozzá, és több futása lehet. |
-| Recept | A feldolgozás leírása: milyen lépésekben, milyen beállításokkal és legfeljebb mekkora költséggel dolgozza fel a rendszer a csomag tételeit. |
-| Futás | Egy recept elindítása a csomagon. Lehet **próba** (megtekinthető és letölthető, de nem adható ki) vagy **éles** (jóváhagyás után érvényes). |
-| Teendő | Egy tételen emberi ellenőrzést kérő ok, például „Bizonytalan érték: Bruttó összeg (valószínűség 0,58)”. Okonként kell lezárni. |
-| Feldolgozó | A háttérben futó program, amely a futások tételeit egyenként elvégzi. Ha nem fut, a futások várakoznak. |
-| Helyi szolgáltatás | A program, amely a felületet kiszolgálja, és csak erről a gépről fogad kérést. |
-| JEV és GPT | A két fizetős AI-szolgáltatás. A JEV zárt kérdésekre ad valószínűséget (melyik érték a helyes, igaz-e egy állítás), a GPT (az OpenAI szöveggeneráló modellje) szövegből olvas ki adatot. |
+| Work package (*munkacsomag*) | Documents or emails from one source, handled together. It has one recipe and can have several runs. |
+| Recipe (*recept*) | A description of the processing: in which steps, with which settings and at most at what cost the system processes the package's items. |
+| Run (*futás*) | Starting a recipe on the package. It is either a **trial run** (it can be viewed and downloaded but not released) or a **live run** (valid once approved). |
+| To-do (*teendő*) | A reason on an item that needs a person to check it, for example ‘Uncertain value: Gross amount (probability 0.58)’ (*Bizonytalan érték: Bruttó összeg (valószínűség 0,58)*). Each reason is resolved separately. |
+| Worker (*feldolgozó*) | The background program that processes the items of runs one by one. If it is not running, runs wait. |
+| Local service (*helyi szolgáltatás*) | The program that serves the interface and accepts requests only from this computer. |
+| JEV and GPT | The two paid AI services. JEV gives probabilities for closed questions (which value is the right one, whether a statement is true); GPT (OpenAI's text-generation model) reads data out of text. |
 
-## 2. Indítás és a képernyő részei
+## 2. Starting up and the parts of the screen
 
-1. A helyi szolgáltatást és a feldolgozót az indítószkript indítja el a háttérben (a pontos parancs a Technikai részletekben van). Elég egyszer elindítani: a böngésző vagy a lap bezárása nem állítja le, és a futó munkát sem szakítja meg.
-2. Nyisd meg a böngészőben a http://127.0.0.1:8930/ címet. A cím csak ezen a gépen működik.
-3. A bal oldali sávban két fő rész van: **Munkacsomagok** (a napi munka) és **Beállítások**.
-4. A fejléc bal oldalán a feldolgozó jelvénye áll: „Feldolgozó fut” vagy „Feldolgozó nem fut”, és ha munka várakozik, „N tétel vár”. A piros „A helyi szolgáltatás nem érhető el” jelvény azt jelenti, hogy a szolgáltatás leállt (lásd a 11. pontot). Mellette a **HU / EN** nyelvváltó van.
-5. A fejléc jobb oldalán a **„Ki dolgozik?”** mező áll.
+1. The start script launches the local service and the worker in the background (the exact command is in the Technical details). You only need to start it once: closing the browser or the tab does not stop it, and does not interrupt work in progress either.
+2. Open http://127.0.0.1:8930/ in your browser. The address works only on this computer.
+3. The sidebar on the left has two main parts: **Work packages** (*Munkacsomagok*) for daily work, and **Settings** (*Beállítások*).
+4. On the left of the header is the worker badge: ‘Worker running’ (*Feldolgozó fut*) or ‘Worker not running’ (*Feldolgozó nem fut*), followed by ‘N items waiting’ (*N tétel vár*) when work is queued. A red ‘The local service is not reachable’ (*A helyi szolgáltatás nem érhető el*) badge means the service has stopped (see section 11). Next to it are the **HU / EN** language buttons.
+5. On the right of the header is the **Who is working?** field.
 
-### 2.1 „Ki dolgozik?”
+### 2.1 Who is working?
 
-- Minden módosító művelet a kiválasztott név alatt rögzül: csomag létrehozása és kezelése, recept, futás indítása és leállítása, javítás, teendő lezárása, jóváhagyás, feladatjavaslat-döntés, postafiók-letöltés, „Mentés most”. Így utólag is látszik, ki mit csinált. Név nélkül a szolgáltatás ezeket elutasítja („add meg a neved fent a „Ki dolgozik?” mezőben…”).
-- Ha a Beállítások › Felhasználók lista nem üres, a mező választóként működik („Válaszd ki a neved”). Amíg nincs név kiválasztva, „Módosítás előtt válaszd ki a neved.” látszik. Csak a listán szereplő név fogadható el.
-- Ha a lista üres, a név szabadon beírható. A „Mentés” gomb után „Megjegyezve” jelenik meg; a „Felhasználók felvétele” hivatkozás a névlistához visz.
-- A név ebben a böngészőben megmarad, és minden nyitott lapra érvényes. Ha az egyik lapon átállítod, a többi lap is az új nevet mutatja.
-- A név nem jogosultság és nincs mögötte jelszó: bárki bármelyik nevet kiválaszthatja.
-- Kiválasztott névnél a mező mellett megjelenik a **„Mai munkám”** hivatkozás (9. pont).
+- Every action that changes something is recorded under the selected name: creating and managing a package, recipes, starting and stopping a run, corrections, resolving to-dos, approval, task-proposal decisions, mailbox downloads and **Back up now** (*Mentés most*). This way you can always see later who did what. Without a name, the service rejects these actions (‘enter your name in the “Who is working?” field at the top…’ (*add meg a neved fent a „Ki dolgozik?” mezőben…*)).
+- If the list under Settings › Users (*Felhasználók*) is not empty, the field works as a picker (‘Choose your name’ (*Válaszd ki a neved*)). Until a name is selected, ‘Select your name before making changes.’ (*Módosítás előtt válaszd ki a neved.*) is shown. Only a name on the list is accepted.
+- If the list is empty, you can type any name. After **Save** (*Mentés*), ‘Remembered’ (*Megjegyezve*) appears; the **Add users** (*Felhasználók felvétele*) link takes you to the name list.
+- The name is remembered in this browser and applies to every open tab. If you change it in one tab, the other tabs show the new name too.
+- The name is not a permission and has no password behind it: anyone can choose any name.
+- Once a name is selected, a **My work today** (*Mai munkám*) link appears next to the field (section 9).
 
-### 2.2 Nyelv
+### 2.2 Language
 
-A **HU / EN** gomb csak a feliratokat váltja. Az iratok adatai, a nevek és a fájlnevek nem változnak, a mentetlen javítás megmarad. A választás ebben a böngészőben megmarad. Ugyanez a Beállítások › Nyelv oldalon is beállítható.
+The **HU / EN** buttons switch only the interface labels. Document data, names and file names do not change, and unsaved corrections are kept. The choice is remembered in this browser. You can set the same on the Settings › Language (*Nyelv*) page.
 
-## 3. A munkacsomagok listája
+## 3. The work package list
 
-A **Munkacsomagok** oldal felül az **„Új munkacsomag”** gombbal indul, alatta a csomagok táblázata. Alapból a legújabb csomag áll elöl. Az oszlopok: „Név”, „Következő lépés”, „Utolsó futás”, „Tétel”, „Nyitott teendő”, „Forrás”, „Recept”, „Felelős”, „Utolsó tevékenység”, „Létrehozva”. A „Következő lépés” (például „Próbafutás indítása”, „Ellenőrzés: 3 teendő”, „Jóváhagyás”) a csomag megfelelő szakaszára visz. A „Nyitott teendő” a legutóbbi futás teendőit számolja, és az Ellenőrzésre visz. A lista magától frissül.
+The **Work packages** page starts with the **New work package** (*Új munkacsomag*) button, with the table of packages below it. By default the newest package comes first. The columns are: ‘Name’ (*Név*), ‘Next step’ (*Következő lépés*), ‘Last run’ (*Utolsó futás*), ‘Item’ (*Tétel*), ‘Open to-dos’ (*Nyitott teendő*), ‘Source’ (*Forrás*), ‘Recipe’ (*Recept*), ‘Assignee’ (*Felelős*), ‘Last activity’ (*Utolsó tevékenység*) and ‘Created’ (*Létrehozva*). ‘Next step’ (for example ‘Start trial run’ (*Próbafutás indítása*), ‘Review: 3 to-dos’ (*Ellenőrzés: 3 teendő*) or ‘Approval’ (*Jóváhagyás*)) takes you to the matching stage of the package. ‘Open to-dos’ counts the to-dos of the latest run and takes you to Review. The list refreshes itself.
 
-A táblázat minden listában ugyanígy működik:
+Tables work the same way in every list:
 
-- **Keresés:** a „Keresés az összes oszlopban…” mező nem különbözteti meg a kis- és nagybetűt, és az ékezetet sem („szamla” megtalálja a „Számla” szót).
-- **Rendezés:** kattints az oszlopfejlécre (növekvő, csökkenő, kikapcsolva). Shift + kattintással további rendezési szint adható hozzá.
-- **Szűrés:** az oszlopfejléc tölcsér jelén. Szövegnél „Tartalmazza”, számnál és dátumnál „Legalább” / „Legfeljebb”, felsorolt értéknél jelölőnégyzetek vannak, és mindenhol választható a „mind / csak üres / csak kitöltött”. Az aktív szűrők címkeként látszanak a táblázat fölött, és a × jellel egyenként, a „Minden szűrő törlése” gombbal együtt törölhetők.
-- **„Csak a saját csomagjaim”:** csak azok a csomagok látszanak, amelyeknek te vagy a felelőse. Ehhez előbb nevet kell választani.
-- **„Elrejtett csomagok is”:** az elrejtett csomagok is látszanak, egy „Csomag” oszloppal az állapotukról.
-- **„Oszlopok (x/y)”:** itt kapcsolhatók be a rejtett oszlopok, például a „Nyitott teendő a korábbi futásokkal” vagy a „Forrás helye”. Az „Alaphelyzet” visszaállítja az eredeti oszlopokat. A választás táblánként megmarad ebben a böngészőben.
-- **Lapozás:** alul „1–100 / N sor”, a laponkénti sorok száma (50, 100, 250, 500) és a lapozó gombok.
+- **Search:** the ‘Search all columns…’ (*Keresés az összes oszlopban…*) field ignores both letter case and accents (‘szamla’ finds ‘Számla’, Hungarian for ‘invoice’).
+- **Sorting:** click a column header (ascending, descending, off). Shift + click adds a further sort level.
+- **Filtering:** use the funnel icon in the column header. Text columns offer ‘Contains’ (*Tartalmazza*), number and date columns ‘At least’ (*Legalább*) / ‘At most’ (*Legfeljebb*), and columns with a fixed set of values offer checkboxes; everywhere you can also choose ‘all / empty only / filled only’ (*mind / csak üres / csak kitöltött*). Active filters appear as tags above the table. Remove them one by one with ×, or all at once with **Clear all filters** (*Minden szűrő törlése*).
+- **Only my work packages** (*Csak a saját csomagjaim*): shows only the packages you are the owner of. You need to choose a name first.
+- **Hidden packages too** (*Elrejtett csomagok is*): also shows hidden packages, with a ‘Package’ (*Csomag*) column showing their state.
+- **Columns (x/y)** (*Oszlopok (x/y)*): turn on hidden columns here, for example ‘Open to-dos incl. earlier runs’ (*Nyitott teendő a korábbi futásokkal*) or ‘Source location’ (*Forrás helye*). **Reset** (*Alaphelyzet*) restores the original columns. The choice is remembered per table in this browser.
+- **Paging:** at the bottom you find ‘1–100 of N rows’ (*1–100 / N sor*), the number of rows per page (50, 100, 250, 500) and the page buttons.
 
-### 3.1 Letöltés
+### 3.1 Download
 
-Minden táblázat jobb felső sarkában van **„Letöltés”** gomb. A panelen választható:
+Every table has a **Download** (*Letöltés*) button in its top-right corner. The panel lets you choose:
 
-- **Formátum:** Excel (egy munkalap, a számok számként), CSV (pontosvesszővel tagolva, a magyar Excel oszlopokra bontja) vagy JSON (gépi feldolgozáshoz).
-- **Sorok:** „Minden sor”, „A szűrt sorok” vagy „A kijelölt sorok”. Kijelölni csak a soronkénti jelölőnégyzettel rendelkező táblákban lehet (például az Eredmény tábláiban). Alapból a legszűkebb terjedelem van kiválasztva: kijelölés, ennek híján szűrés, végül minden sor.
-- **Oszlopok:** csak a látható oszlopok, vagy minden oszlop a rejtettekkel együtt.
+- **Format:** Excel (one worksheet, numbers stored as numbers), CSV (semicolon-separated, so Hungarian Excel splits it into columns) or JSON (for machine processing).
+- **Rows:** ‘All rows’ (*Minden sor*), ‘Filtered rows’ (*A szűrt sorok*) or ‘Selected rows’ (*A kijelölt sorok*). You can only select rows in tables that have a checkbox on each row (for example the tables in Result). By default the narrowest scope is chosen: the selection; failing that, the filter; otherwise all rows.
+- **Columns:** only the visible columns, or all columns including the hidden ones.
 
-Letöltés előtt látszik a sorok és oszlopok száma, a sorrend a táblázatéval azonos. A fájl a böngésző letöltései közé kerül. A képletnek látszó szöveg a fájlban sem válik képletté.
+Before you download, the panel shows the number of rows and columns; the row order matches the table. The file goes to your browser's downloads. Text that looks like a formula does not turn into a formula in the file.
 
-## 4. Új munkacsomag
+## 4. New work package
 
-Az **„Új munkacsomag”** gomb három forrást kínál:
+The **New work package** button offers three sources:
 
-- **„Egy mappa PDF-jei”:** add meg a „Mappa teljes útvonala” mezőt. A csomagba a mappa közvetlen PDF-jei kerülnek, almappák nélkül, név szerinti sorrendben. A „Név” elhagyható, ilyenkor a mappa neve lesz.
-- **„Megadott fájlok”:** a „Fájlok teljes útvonala, soronként egy” mezőbe több mappából is írhatsz fájlt. Itt a név kötelező.
-- **„Postafiókból”:** a postafiók-űrlap (10.1 pont), a **„Letöltés most: új munkacsomag”** gombbal. A letöltést a feldolgozó végzi, az új levelekből a levél-recepttel rendelkező csomag lesz, amely a listában jelenik meg.
+- **PDFs in a folder** (*Egy mappa PDF-jei*): fill in ‘Full folder path’ (*Mappa teljes útvonala*). The package gets the PDFs that sit directly in the folder, without subfolders, in name order. ‘Name’ is optional; if you leave it empty, the folder name is used.
+- **Specific files** (*Megadott fájlok*): in ‘Full file paths, one per line’ (*Fájlok teljes útvonala, soronként egy*) you can list files from several folders. Here the name is required.
+- **From a mailbox** (*Postafiókból*): the mailbox form (section 10.1), with the **Download now: new work package** (*Letöltés most: új munkacsomag*) button. The worker does the download; the new emails become a package with the email recipe, which appears in the list.
 
-A „Létrehozás” után a csomag Feldolgozás szakasza nyílik meg, a létrehozó lesz a csomag felelőse. A fájlok a helyükön maradnak, a csomag csak hivatkozik rájuk. Meglévő csomagba a felületről nem lehet új iratot tenni: új iratokhoz új csomag kell (a munkamappa a saját csomagját magától is bővítheti).
+After **Create** (*Létrehozás*), the package's Processing stage opens, and the person who created it becomes the package's owner. The files stay where they are; the package only refers to them. You cannot add new documents to an existing package from the interface: new documents need a new package (a work folder can extend its own package by itself).
 
-## 5. A munkacsomag oldala
+## 5. The work package page
 
-A fejlécben a csomag neve és egy összegzés áll (hány irat vagy levél, melyik recept, mikor volt az utolsó futás). Mellette:
+The header shows the package name and a summary (how many documents or emails, which recipe, when the last run was). Next to it:
 
-- **„Felelős”:** a csomaghoz rendelt személy a Felhasználók listájából, vagy „nincs felelős”. Ez nem jogosultság, más is dolgozhat a csomagon; a „Csak a saját csomagjaim” szűrő ez alapján dolgozik.
-- **A következő lépés gombja**, például „Próbafutás indítása →”. Ha éppen annak a szakasznak az oldalán vagy, csak a „Következő lépés: …” felirat látszik.
-- **„Csomag kezelése”** (5.1 pont).
+- **Assignee:** the package's owner (the person from the Users list assigned to it), or ‘no owner’ (*nincs felelős*). This is not a permission; other people can work on the package too. The **Only my work packages** filter is based on it.
+- **The next-step button**, for example ‘Start trial run →’. If you are already on that stage's page, only the label ‘Next step: …’ (*Következő lépés: …*) is shown.
+- **Manage package** (*Csomag kezelése*) (section 5.1).
 
-Alatta a három szakasz füle áll, mindegyik a saját állapotával: **1 Feldolgozás** (például „indítható”, „nincs recept”, vagy az utolsó futás módja, állapota és haladása), **2 Ellenőrzés** („N teendő” vagy „nincs teendő”), **3 Eredmény** („még nincs”, „próba-eredmény”, „jóváhagyásra vár”, „kiadva”). A csomag alapból annál a szakasznál nyílik meg, ahol a következő lépés van. A böngésző címsorában álló cím könyvjelzőzhető: ugyanarra a csomagra és szakaszra visz vissza.
+Below this are the tabs of the three stages, each showing its own state: **1 Processing** (for example ‘ready to start’ (*indítható*), ‘no recipe’ (*nincs recept*), or the last run's mode, state and progress), **2 Review** (‘To-dos: N’ (*N teendő*) or ‘no to-dos’ (*nincs teendő*)), **3 Result** (‘none yet’ (*még nincs*), ‘trial result’ (*próba-eredmény*), ‘awaiting approval’ (*jóváhagyásra vár*), ‘released’ (*kiadva*)). By default a package opens at the stage where its next step is. You can bookmark the address in the browser's address bar: it takes you back to the same package and stage.
 
-A lehetséges következő lépések: „Üres csomag”, „Recept kiválasztása”, „Próbafutás indítása”, „Nem indítható”, „Fut: 3/10”, „Hibás vagy leállított futás: újrafuttatás”, „Ellenőrzés: N teendő”, „Próba rendben: éles futás”, „Jóváhagyás”, „Kiadva: eredmény letöltése”.
+The possible next steps are: ‘Empty work package’ (*Üres csomag*), ‘Choose a recipe’ (*Recept kiválasztása*), ‘Start trial run’, ‘Cannot start’ (*Nem indítható*), ‘Running: 3/10’ (*Fut: 3/10*), ‘Failed or stopped run: rerun’ (*Hibás vagy leállított futás: újrafuttatás*), ‘Review: N to-dos’, ‘Trial OK: live run’ (*Próba rendben: éles futás*), ‘Approval’ and ‘Released: download result’ (*Kiadva: eredmény letöltése*).
 
-### 5.1 Csomag kezelése
+### 5.1 Manage package
 
-- **„Átnevezés”:** új név megadása, majd „Mentés”.
-- **„Elrejtés a listából”** / **„Visszahozás a listába”:** az elrejtett csomag futásai és eredményei megmaradnak, a csomag közvetlenül megnyitható, és az „Elrejtett csomagok is” jelölővel újra látszik a listában. A figyelt mappa elrejtett csomagba nem tesz új iratot, hanem új csomagot kezd.
-- **„Végleges törlés…”:** csak olyan csomagon lehet, amelyen még nem volt futás. Megerősítést kér („Biztosan törlöd a csomagot?”). A csomag és a tétellistája törlődik, a fájlok a helyükön maradnak. A törlés nem vonható vissza, a ténye naplóban marad. Futással rendelkező csomag csak elrejthető.
+- **Rename** (*Átnevezés*): enter a new name, then click **Save**.
+- **Hide from the list** (*Elrejtés a listából*) / **Show in the list again** (*Visszahozás a listába*): a hidden package keeps its runs and results, can still be opened directly, and reappears in the list when you tick **Hidden packages too**. A watched folder does not add new documents to a hidden package; it starts a new package instead.
+- **Delete permanently…** (*Végleges törlés…*): only possible on a package that has never had a run. It asks for confirmation (‘Delete this package permanently?’ (*Biztosan törlöd a csomagot?*)). The package and its item list are deleted; the files stay where they are. Deletion cannot be undone, and a record of it stays in the log. A package that has runs can only be hidden.
 
-## 6. Feldolgozás
+## 6. Processing
 
-### 6.1 A recept kiválasztása
+### 6.1 Choosing the recipe
 
-A **„Recept”** kártyán választod ki, mit csináljon a rendszer a csomaggal. Három recept van:
+On the **Recipe** card you choose what the system should do with the package. There are three recipes:
 
-| Recept | Mikor válaszd | Mit ad |
+| Recipe | When to choose it | What you get |
 |---|---|---|
-| „Számlák adatainak kinyerése” | Ha a csomagban egyféle, ismert típusú irat van (például csak magyar számlák). A típust te adod meg. | Iratonként mezőnkénti adat a forrásával, kódos ellenőrzéssel; ami bizonytalan, teendő lesz. |
-| „Iratok felismerése és adatkinyerése” | Ha az iratok vegyesek vagy ismeretlen típusúak. | Iratonként a felismert típus, majd annak mezői. A nem eldönthető típus is teendő lesz. |
-| „Levelek szándékának felismerése” | Postafiókból letöltött levelekhez. | Levelenként a felismert szándék (a levél célja, például számla érkezett) és a javasolt következő lépés; a PDF-csatolmányokból adat is; kérésre feladatjavaslat. |
+| ‘Invoice data extraction’ (*Számlák adatainak kinyerése*) | The package holds one known kind of document (for example only Hungarian invoices). You set the type. | Field-by-field data for each document with its source, checked in code; anything uncertain becomes a to-do. |
+| ‘Document recognition and data extraction’ (*Iratok felismerése és adatkinyerése*) | The documents are mixed or of unknown type. | For each document, the recognised type and then that type's fields. A type that cannot be decided also becomes a to-do. |
+| ‘Email intent recognition’ (*Levelek szándékának felismerése*) | Emails downloaded from a mailbox. | For each email, the recognised intent (the purpose of the email, for example that an invoice has arrived) and the suggested next step; data from the PDF attachments too; task proposals on request. |
 
-A beállítások (a választott érték jelentése a kártyán mindig olvasható):
+The settings (the meaning of the chosen value is always shown on the card):
 
-- **„Út”:** hogyan olvassa ki a rendszer az adatot. Az „automatikus” az irattípus ajánlott útját követi, a mindennapi munkához ez ajánlott. A „kód + JEV” (S-út) esetén a kód gyűjti ki a lehetséges értékeket, és a JEV választ közülük; olcsóbb, de tételsorokat nem olvas. A „GPT + JEV” (G-út) esetén a GPT olvassa ki az adatot a tételsorokkal együtt, a JEV mezőnként ellenőrzi; drágább.
-- **„Irattípus”** (csak az első receptnél): melyik típus mezőit keresse a rendszer. A csomag minden iratán ugyanez fut.
-- **„JEV-válaszok”:** a „korábbi válasz újrahasználható” esetén ugyanarra a kérdésre a korábbi válasz ingyen és azonnal jön, a mindennapi munkához ez ajánlott. A „mindig élő hívás” méréshez való, és a költség a keretig nőhet.
-- **„Feladatjavaslat”** (csak a levél-receptnél): alapból „kikapcsolva”. Bekapcsolva a GPT levelenként javaslatot tesz, ami levelenként többletköltséggel jár.
-- **„Költségkeret”:** tételenként és szolgáltatónként a legnagyobb összeg, amelyet a rendszer a futás indításakor lefoglal. Ez felső határ, a tényleges költség általában kisebb.
+- **Path** (*Út*): how the system reads the data. ‘automatic’ (*automatikus*) follows the recommended path for the document type and is the recommended choice for everyday work. With ‘code + JEV’ (*kód + JEV*), the S path, code collects the possible values and JEV chooses among them; it is cheaper but does not read line items. With ‘GPT + JEV’, the G path, GPT reads the data including the line items and JEV checks each field; it costs more.
+- **Document type** (*Irattípus*) (first recipe only): which type's fields the system looks for. The same type runs on every document in the package.
+- **JEV answers** (*JEV-válaszok*): with ‘earlier answer may be reused’ (*korábbi válasz újrahasználható*), the earlier answer to the same question comes back free and instantly; this is recommended for everyday work. ‘always a live call’ (*mindig élő hívás*) is for measurements, and the cost can grow up to the budget.
+- **Task proposal** (*Feladatjavaslat*) (email recipe only): ‘off’ (*kikapcsolva*) by default. When it is switched on, GPT makes a proposal for each email, which adds a cost per email.
+- **Cost budget** (*Költségkeret*): the maximum amount per item and per provider that the system reserves when the run starts. It is an upper limit; the actual cost is usually lower.
 
-A kártyán sorban: „Recept” választó, leírás, „Mikor válaszd”, a lépések, a beállítások, „Megjegyzés (elhagyható)”, végül a **„Recept hozzárendelése”** gomb (meglévő receptnél „Módosítás”, majd **„Recept mentése”**). Minden mentés új változat, a korábbi futások a saját receptjüket őrzik. Ha közben más is módosította a receptet, az üzenet szól, a beállításaid megmaradnak, csak mentsd újra. Ha maga a recept változott a hozzárendelés óta, figyelmeztetés jelenik meg a **„Frissítés a recept mostani változatára”** gombbal. A receptek teljes leírása a Beállítások › Receptek oldalon van.
+On the card, in order: the ‘Recipe’ picker, the description, ‘When to choose it’ (*Mikor válaszd*), the steps, the settings, ‘Note (optional)’ (*Megjegyzés (elhagyható)*), and finally the **Assign recipe** (*Recept hozzárendelése*) button (for a recipe that is already assigned: **Edit** (*Módosítás*), then **Save recipe** (*Recept mentése*)). Every save creates a new version; earlier runs keep their own recipe. If someone else changed the recipe in the meantime, a message tells you so; your settings are kept, so just save again. If the recipe itself has changed since it was assigned, a warning appears with an **Update to the current recipe version** (*Frissítés a recept mostani változatára*) button. The full description of the recipes is on the Settings › Recipes (*Receptek*) page.
 
-### 6.2 Készenlét
+### 6.2 Readiness
 
-A **„Futtatás”** kártya indítás előtt megmutatja, mi akadályozza a futást. Ilyen akadály: „A munkacsomagban nincs tétel.”, „Nincs hozzárendelt recept.”, „A recept nem kezeli: …”, „Hiányzó forrás: …”, „A forrás tartalma a felvétel óta változott: …”. Akadály esetén az indító gombok tiltva vannak. Alattuk áll a csomag teljes költségkerete: „Költségkeret: JEV legfeljebb …, OpenAI legfeljebb …”.
+Before you start, the **Run** (*Futtatás*) card shows anything that blocks the run. Blockers include: ‘The work package has no items.’ (*A munkacsomagban nincs tétel.*), ‘No recipe assigned.’ (*Nincs hozzárendelt recept.*), ‘Not handled by the recipe: …’ (*A recept nem kezeli: …*), ‘Missing source: …’ (*Hiányzó forrás: …*) and ‘The source content changed since it was added: …’ (*A forrás tartalma a felvétel óta változott: …*). While there is a blocker, the start buttons are disabled. Below the buttons is the package's total budget: ‘Budget: JEV up to …, OpenAI up to …’ (*Költségkeret: JEV legfeljebb …, OpenAI legfeljebb …*).
 
-### 6.3 Próbafutás, éles futás, újrafuttatás
+### 6.3 Trial run, live run, rerun
 
-- **„Próbafutás…”:** a feldolgozás teljesen lefut, ugyanazokkal a fizetős hívásokkal, de az eredmény csak megtekinthető és letölthető, nem adható ki. Új recept vagy új irattípus kipróbálására való.
-- **„Éles futás…”:** az eredményt ember hagyja jóvá az Eredmény szakaszban, akkor, ha minden tétel lefutott és nincs nyitott teendő. Ez az érvényes eredmény.
-- **„Újrafuttatás…”:** a legutóbbi futás megismétlése ugyanabban a módban, ugyanazzal a bemenettel, új futásként. Hiba, leállítás vagy a recept frissítése után hasznos.
+- **Trial run…** (*Próbafutás…*): processing runs in full, with the same paid calls, but the result can only be viewed and downloaded, not released. Use it to try out a new recipe or a new document type.
+- **Live run…** (*Éles futás…*): a person approves the result in the Result stage, once every item has finished and no to-dos are open. This is the valid result.
+- **Rerun…** (*Újrafuttatás…*): repeats the latest run in the same mode, with the same input, as a new run. Useful after an error, a stop or a recipe update.
 
-A kiemelt gomb mindig az, amelyet a csomag következő lépése kér. Egy csomagon egyszerre egy futás mehet.
+The highlighted button is always the one the package's next step calls for. Only one run at a time can be in progress on a package.
 
-### 6.4 A megerősítő oldal
+### 6.4 The confirmation page
 
-A három gomb nem indít azonnal, hanem egy összegző oldalra visz: „Munkacsomag”, „Tételek”, „Recept” a beállításaival és „Legnagyobb költség” szolgáltatónként, a „fizetős hívásokkal jár…” vagy „nem jár fizetős hívással” megjegyzéssel. A rendszer ilyenkor frissen lekéri a keretet („A költségkeret frissítése…”), addig az indítás tiltva van. Indítani a **„Próbafutás indítása”**, **„Éles futás indítása”** vagy **„Újrafuttatás indítása”** gombbal lehet, a „Mégse” visszavisz. Ha közben a csomag vagy a recept változott, ezt jelzi („…Frissítettük, nézd át és indítsd újra.”). Indítás után a futás oldala nyílik meg.
+The three buttons do not start anything straight away; they take you to a summary page showing ‘Work package’ (*Munkacsomag*), ‘Items’ (*Tételek*), ‘Recipe’ with its settings, and ‘Maximum cost’ (*Legnagyobb költség*) per provider, with the note ‘involves paid calls…’ (*fizetős hívásokkal jár…*) or ‘involves no paid calls’ (*nem jár fizetős hívással*). At this point the system fetches the budget afresh (‘Refreshing the cost limit…’ (*A költségkeret frissítése…*)), and starting is disabled until it has done so. You start with **Start trial run**, **Start live run** (*Éles futás indítása*) or **Start rerun** (*Újrafuttatás indítása*); **Cancel** (*Mégse*) takes you back. If the package or the recipe changed in the meantime, the page tells you (‘…It has been refreshed; review it and start again.’ (*…Frissítettük, nézd át és indítsd újra.*)). Once started, the run page opens.
 
-### 6.5 A futás oldala
+### 6.5 The run page
 
-- **Fejléc:** mód és időpont, állapot („Sorban áll”, „Fut”, „Teendő vár”, „Kész”, „Hibás”, „Leállítva”), a recept a beállításaival, és hogy ki indította.
-- **„Tételek”:** tételenként a futás állapota, az eredmény és a teendők száma. A teendőre kattintva az Ellenőrzés nyílik meg.
-- **„Költség”:** szolgáltatónként a lekötött összeg a kerethez képest. A lekötött összeg a lefutott hívások költsége, plusz a még le nem zárt hívások legrosszabb becslése.
-- **„Munkasor”:** hány feladat áll sorban, fut, kész, hibás (feladva) vagy leállított.
-- **„Hívásnapló (nyers modellhívások)”:** lenyitható lista a fizetős hívásokról. Üres, ha minden válasz a gyorsítótárból jött.
-- **„Leállítás”** (csak futás közben): két kattintást kér („Biztosan? Kattints újra”). A sorban álló tételek azonnal, a futó tétel a következő lépése után áll le.
-- **„Eredmény”** vagy éles futásnál **„Eredmény és jóváhagyás”**: a csomag Eredmény szakaszára visz.
+- **Header:** the mode and time, the state (‘Queued’ (*Sorban áll*), ‘Running’ (*Fut*), ‘To-dos pending’ (*Teendő vár*), ‘Done’ (*Kész*), ‘Failed’ (*Hibás*) or ‘Stopped’ (*Leállítva*)), the recipe with its settings, and who started the run.
+- **Items:** for each item, its run state, the result and the number of to-dos. Clicking a to-do opens Review.
+- **Cost** (*Költség*): for each provider, the committed amount compared with the budget. The committed amount is the cost of the completed calls plus a worst-case estimate for the calls not yet settled.
+- **Job queue** (*Munkasor*): how many jobs are queued, running, done, failed (given up) or stopped.
+- **Call log (raw model calls)** (*Hívásnapló (nyers modellhívások)*): an expandable list of the paid calls. It is empty if every answer came from the cache.
+- **Stop** (*Leállítás*) (only while the run is in progress): needs two clicks (‘Sure? Click again’ (*Biztosan? Kattints újra*)). Queued items stop at once; the item in progress stops after its next step.
+- **Result**, or for a live run **Result and approval** (*Eredmény és jóváhagyás*): takes you to the package's Result stage.
 
-A Feldolgozás szakaszban futás közben haladásjelző látszik, alatta „A csomag futásai” táblázat mutatja a csomag összes futását.
+While a run is in progress, the Processing stage shows a progress bar, and below it the ‘Runs of the work package’ (*A csomag futásai*) table lists every run of the package.
 
-## 7. Ellenőrzés
+## 7. Review
 
-Futás előtt az Ellenőrzés szakasz csak a csomag iratait mutatja (7.9 pont). Futás után itt a munkafelület nyílik meg.
+Before a run, the Review stage only shows the package's documents (section 7.9). After a run, the workspace opens here.
 
-### 7.1 A munkafelület
+### 7.1 The workspace
 
-- **Felül:** a futásválasztó (alapból a legutóbbi futás, gépeléssel kereshető), a nyitott teendők száma, „A futás részletei” hivatkozás és a billentyű-súgó.
-- **Balra a tétellista:** kereső („Keresés N tétel között…”) és „csak teendős” jelölő. Tételenként a név (levélnél a tárgy), az állapot („teendő”, „rendezve”, „lezárva”, „még nem futott”, „Hibás”…), valamint az „N teendő”, „N korábbi teendő” és „mentetlen” jel. A munkafelület az első teendős tétellel nyílik meg.
-- **Középen** az irat oldalképe, **jobbra** a teendők és a mezők. A kettő közti elválasztó húzható (billentyűzettel a ← / → gombbal), az arány megmarad.
+- **At the top:** the run picker (the latest run by default; you can type to search), the number of open to-dos, the ‘Run details’ (*A futás részletei*) link and the keyboard help.
+- **On the left, the item list:** a search box (‘Search N items…’ (*Keresés N tétel között…*)) and a ‘to-dos only’ (*csak teendős*) checkbox. For each item you see the name (for an email, the subject), its state (‘to-do’ (*teendő*), ‘resolved’ (*rendezve*), ‘closed’ (*lezárva*), ‘not run yet’ (*még nem futott*), ‘Failed’…), and the ‘To-dos: N’, ‘N earlier to-dos’ (*N korábbi teendő*) and ‘unsaved’ (*mentetlen*) markers. The workspace opens at the first item that has a to-do.
+- **In the middle** is the page image of the document, and **on the right** are the to-dos and the fields. You can drag the divider between them (or use ← / → on the keyboard); the ratio is remembered.
 
-### 7.2 Teendők
+### 7.2 To-dos
 
-- A jobb panel tetején a futás nyitott teendői állnak, okonként egy mondattal (például „Bizonytalan érték: Bruttó összeg (valószínűség 0,58)”, „Az adószám ellenőrző számjegye hibás”). Az ok szövegére kattintva a hozzá tartozó mező lesz kiválasztva.
-- A **„Rendezve”** gomb azt az egy okot zárja le, a neveddel. A többi ok nyitva marad. **A mezőjavítás mentése a teendőt nem zárja le**, azt külön kell rendezni (kivétel a levél szándékának javítása, 7.8 pont).
-- **„Korábbi teendők az iraton (N) — ezt a futást nem akadályozzák”:** egy régebbi futásból nyitva maradt okok. Rendezhetők, de ennek a futásnak a jóváhagyását nem akadályozzák.
-- **Ellenőrzések a mentett adaton:** kódban írt szabályok (például hogy a tételek összege kiadja-e a végösszeget), amelyek a mentett javítás után fizetős hívás nélkül újra lefutnak. A hibás sorhoz „N. sor” gomb visz. A „csak jelzés, nem teendő” megjegyzésű ellenőrzés nem nyit teendőt.
+- At the top of the right-hand panel are the run's open to-dos, one sentence per reason (for example ‘Uncertain value: Gross amount (probability 0.58)’ or ‘The tax ID check digit is wrong’ (*Az adószám ellenőrző számjegye hibás*)). Clicking the text of a reason selects the field it belongs to.
+- The **Resolved** (*Rendezve*) button closes that one reason, under your name. The other reasons stay open. **Saving a field correction does not close the to-do**; you have to resolve it separately (the exception is correcting an email's intent, section 7.8).
+- **Earlier to-dos on the document (N) — they do not block this run** (*Korábbi teendők az iraton (N) — ezt a futást nem akadályozzák*): reasons left open from an older run. You can resolve them, but they do not block the approval of this run.
+- **Checks on the saved data** (*Ellenőrzések a mentett adaton*): rules written in code (for example, whether the line items add up to the total) that run again, without paid calls, after you save a correction. A ‘Row N’ (*N. sor*) button takes you to the failing row. A check marked ‘advisory only, not a to-do’ (*csak jelzés, nem teendő*) does not open a to-do.
 
-### 7.3 Mezők, színek, keretek
+### 7.3 Fields, colours, boxes
 
-- Mezőnként látszik a név, a „mentetlen” vagy „javítva” jel, a modell becslése százalékban, és egy forrásjel. A becslés színe a bizonyosság-sáv: zöld „Magabiztos”, kék „Ellenőrzendő”, piros „Valószínűleg hibás”. A „–” azt jelenti, hogy nincs becslés. A javított mező mindig kék, mert a becslés a gépi értékre vonatkozott. A szín csak megjelenítés, nem döntés, és nem bizonyítja, hogy az érték helyes.
-- Forrásjel: ◉ a pontos hely megvan, ◎ csak közelítő hely van, ○ nincs hely. Ha az egeret a jel fölé viszed, magyarázat jelenik meg.
-- Elöl a teendős mezők állnak, utánuk a „Valószínűleg hibás” mezők, végül a többi.
-- A kiválasztott mező alatt látszik a „Forrásszöveg” az oldalszámmal, szükség esetén az, hogy az érték több helyen is szerepel, a javított mezőnél a „Gépi érték”, a „Más jelöltek” gombjai, és mentetlen módosításnál a „Visszaállítás”.
-- **A képen** minden megtalált mező halvány keretet kap a sávja színével, a kiválasztott mező erőset. A kép a kiválasztott mező oldalára lapoz, és a keretet a látható részbe görgeti. A szaggatott keret közelítő hely (az a sor, ahonnan a gép választott), a lila keret kézzel kijelölt hely. A képre kattintva kiválasztódik a pont alatti mező, ismételt kattintással a következő átfedő mező. A képsávon lapozás („‹ ›”) és nagyítás („−”, százalék = alaphelyzet, „+”) van.
-- Ha az iratnak nincs szórétege (egy korábbi futás vagy egy régi OCR-eredmény miatt), a mezők nem keretezhetők. Ezt a felület ki is írja; a keretekhez futtasd újra a receptet.
+- For each field you see its name, an ‘unsaved’ or ‘corrected’ (*javítva*) marker, the model's estimate as a percentage, and a source marker. The colour of the estimate is its confidence band: green ‘Confident’ (*Magabiztos*), blue ‘To check’ (*Ellenőrzendő*), red ‘Likely wrong’ (*Valószínűleg hibás*). A ‘–’ means there is no estimate. A corrected field is always blue, because the estimate applied to the machine value. The colour is only a display aid, not a decision, and it does not prove that the value is correct.
+- Source marker: ◉ the exact location is known, ◎ only an approximate location is known, ○ no location. Hover over the marker for an explanation.
+- Fields with to-dos come first, then the ‘Likely wrong’ fields, then the rest.
+- Below the selected field you see the ‘Source text:’ (*Forrásszöveg:*) with the page number; where relevant, a note that the value appears in several places; for a corrected field, the ‘Machine value:’ (*Gépi érték:*); the ‘Other candidates:’ (*Más jelöltek:*) buttons; and, for an unsaved change, **Revert** (*Visszaállítás*).
+- **On the image**, every field that was found gets a faint box in the colour of its band, and the selected field a strong one. The image turns to the page of the selected field and scrolls the box into view. A dashed box is an approximate location (the line the machine picked from); a purple box is a location selected by hand. Clicking the image selects the field under the pointer; clicking again selects the next overlapping field. The image bar has page buttons (‘‹ ›’) and zoom buttons (‘−’, the percentage to reset, ‘+’).
+- If the document has no word layer (because of an earlier run or an old OCR result), the fields cannot be boxed. The interface tells you so; to get the boxes, run the recipe again.
 
-### 7.4 Javítás
+### 7.4 Correcting values
 
-Háromféleképpen javíthatsz:
+You can correct a value in three ways:
 
-1. **Beírás** a mező dobozába. Ha kitörlöd az értéket, az „nincs érték” javításként mentődik.
-2. **Más jelölt választása:** a kiválasztott mező többi jelöltje szaggatott keretben, címkével („72%”, „gépi érték”, „lehetséges hely”) látszik a képen, és gombként a panelen is. Egy kattintással ez lesz a mező értéke, mentetlen javításként.
-3. **„Kijelölés a képen”** (vagy az s billentyű): előbb válaszd ki a mezőt, aztán kattints a szavakra (ismételt kattintás kiveszi a szót), vagy húzz téglalapot. A rendszer a kijelölt szöveget a mező fajtája szerint értelmezi (dátum, összeg, adószám…), és megmutatja az eredményt („→ Mező: érték”). A **„Beírás a mezőbe”** gomb átviszi az értéket. Ha a szöveg nem értelmezhető, ezt jelzi („Ez a szöveg nem értelmezhető … értékként. Jelölj ki mást.”). A kijelölt hely a javítással együtt mentődik.
+1. **Type** into the field's box. If you delete the value, it is saved as a ‘no value’ (*nincs érték*) correction.
+2. **Choose another candidate:** the selected field's other candidates appear on the image in dashed boxes with a tag (‘72%’, ‘machine value’ (*gépi érték*), ‘possible location’ (*lehetséges hely*)), and as buttons in the panel. One click makes a candidate the field's value, as an unsaved correction.
+3. **Select on image** (*Kijelölés a képen*) (or press s): first choose the field, then click the words (clicking a word again removes it), or drag a rectangle. The system interprets the selected text according to the kind of field (date, amount, tax ID…) and shows the result (‘→ Field: value’). The **Enter into field** (*Beírás a mezőbe*) button transfers the value. If the text cannot be interpreted, the interface says so (‘This text cannot be interpreted as a “…” value. Select something else.’ (*Ez a szöveg nem értelmezhető „…” értékként. Jelölj ki mást.*)). The selected location is saved together with the correction.
 
-### 7.5 Tételes listák
+### 7.5 Line lists
 
-Ha az iratnak van tételes listája (például számlatételek vagy kivonat-tranzakciók), a panel tetején fülek jelennek meg: „Mezők” és a lista neve a sorok számával; a „ •” jel mentetlen módosítást jelez. A lista cellái szerkeszthetők (a dátum alakja ÉÉÉÉ-HH-NN), a „Sor hozzáadása” gombbal új sor vehető fel, a × jellel sor törölhető, „A lista visszaállítása” pedig elveti a lista módosításait. A sorra kattintva a kép a sor helyére ugrik. Az ellenőrzésen elbukott sor piros. A javítás a teljes listára vonatkozik, a gépi lista változatlanul megmarad mellette.
+If the document has a line list (for example invoice line items or statement transactions), tabs appear at the top of the panel: ‘Fields’ (*Mezők*) and the name of the list with its number of rows; a ‘ •’ marker shows unsaved changes. The cells of the list can be edited (dates in YYYY-MM-DD form), **Add row** (*Sor hozzáadása*) adds a new row, × deletes a row, and **Revert list** (*A lista visszaállítása*) discards your changes to the list. Clicking a row makes the image jump to where that row is. A row that failed a check is shown in red. The correction applies to the whole list; the machine list is kept unchanged alongside it.
 
-### 7.6 Mentés és ütközés
+### 7.6 Saving and conflicts
 
-- A **„Javítás mentése”** gomb (vagy Ctrl+Enter) új javításverziót ment, a gépi érték megmarad mellette. Alul „Javítás verziója: N” látszik. Mentéshez név kell.
-- A mentetlen javítás (munkapéldány) megmarad, ha másik tételre lépsz, vagy ha a lapot újratöltöd. A lap bezárása előtt a böngésző figyelmeztet. Egy másik böngészőlap nem látja. A „Minden módosítás elvetése” gomb eldobja a munkapéldányt.
-- **Ütközés:** ha közben valaki más is mentett ugyanarra a tételre, a mentés nem írja felül csendben az ő javítását. Ilyenkor „Közben más is mentett erre a tételre…” üzenet és piros doboz jelenik meg („A tételre közben újabb javítás került (verzió N). A munkapéldányod megmaradt.”). Az **„Alkalmazás az új verzióra”** a te módosításaidat az új verzióra teszi át; nézd át, majd mentsd újra. A **„Munkapéldány elvetése”** az új verziót hagyja meg.
-- Jóváhagyott futáson a javítás le van zárva („A jóváhagyott futás javítása le van zárva.”).
+- The **Save correction** (*Javítás mentése*) button (or Ctrl+Enter) saves a new correction version; the machine value is kept alongside it. ‘Correction version: N’ (*Javítás verziója: N*) is shown at the bottom. You need a name to save.
+- An unsaved correction (the working copy) is kept if you move to another item or reload the page. The browser warns you before you close the tab. Another browser tab cannot see it. **Discard all changes** (*Minden módosítás elvetése*) throws the working copy away.
+- **Conflict:** if someone else saved to the same item in the meantime, your save does not silently overwrite their correction. Instead you see the message ‘Someone else saved this item in the meantime…’ (*Közben más is mentett erre a tételre…*) and a red box (‘A newer correction was saved for this item in the meantime (version N). Your working copy has been kept.’ (*A tételre közben újabb javítás került (verzió N). A munkapéldányod megmaradt.*)). **Apply to the new version** (*Alkalmazás az új verzióra*) moves your changes onto the new version; check them, then save again. **Discard working copy** (*Munkapéldány elvetése*) keeps the new version.
+- Corrections on an approved run are locked (‘Corrections to an approved run are locked.’ (*A jóváhagyott futás javítása le van zárva.*)).
 
-### 7.7 Gyorsbillentyűk
+### 7.7 Keyboard shortcuts
 
-A billentyűk kisbetűvel (Shift nélkül) és a beviteli dobozon kívül működnek. A Ctrl+Enter és az Esc a dobozban is él.
+The keys work in lower case (without Shift) and outside input boxes. Ctrl+Enter and Esc also work inside a box.
 
-| Billentyű | Mit csinál |
+| Key | What it does |
 |---|---|
-| ↓ / ↑ (vagy j / k) | következő / előző mező |
-| n / p | következő / előző tétel (a tételes lista fülén csak ez él) |
-| s | kijelölés a képen be / ki (ha az iratnak van szórétege) |
-| Enter | a kiválasztott mező dobozába lép |
-| Esc | kilép a dobozból; kijelölésnél előbb a kijelölést törli, aztán a kijelölő módot kapcsolja ki |
-| Ctrl+Enter | javítás mentése |
+| ↓ / ↑ (or j / k) | next / previous field |
+| n / p | next / previous item (the only keys that work on a line-list tab) |
+| s | turns selecting on the image on / off (if the document has a word layer) |
+| Enter | moves into the selected field's box |
+| Esc | leaves the box; while selecting, it first clears the selection, then turns selection mode off |
+| Ctrl+Enter | saves the correction |
 
-### 7.8 Levelek ellenőrzése
+### 7.8 Reviewing emails
 
-- **Balra a levél** áll: tárgy, „Feladó”, „Címzett”, „Érkezett”, „Csatolmány” és a szöveg. A linkek nem kattinthatók, helyettük „link: gépnév” látszik, a teljes cím az egér alatt olvasható. Jelzés figyelmeztet, ha a szándék-felismerés csak a levél elejét látta, vagy ha a szöveg már a letöltéskor elvágódhatott.
-- **Jobbra** a teendők állnak „Rendezve” gombbal, a **„Felismert szándék”** a modell becslésével, vagy a „Kézzel javítva (a gép szerint: …)” / „Kézzel megerősítve” jelzéssel.
-- **„Szándék javítása”:** válaszd ki a helyes szándékot. Ha a mostani szándékkal egyezik, a gomb „Megerősítés”, különben „Javítás mentése”. Mentéskor a levél bizonytalan szándék miatti teendője lezárul, és a **„Javasolt következő lépés”** (például „Kézi feldolgozás”, „Archiválás”, „Adatkinyerés a csatolmányból (…)”) a javított szándékból számolódik újra.
-- **„Feladatjavaslatok (elfogadni csak ember tud)”:** csak akkor, ha a receptben a feladatjavaslat be van kapcsolva. Javaslatonként látszik a cím, az akció, a „Határidő” és a „Felelős” (csak ha a levélben szó szerint szerepel), valamint a „Bizonyíték” idézetei. Gombok: **„Elfogadás”**, **„Elvetés”**, az elfogadott javaslaton **„Elvégezve”** (a neveddel és az időponttal) és **„Elvégzés visszavonása”**. Az azonos javaslatok össze vannak vonva („N azonos javaslat összevonva”). A bizonyíték-ellenőrzésen kiesett javaslatok lenyitható listában látszanak, azzal együtt, hogy melyik részük nem igazolható. Archiválandó levélen (hírlevél, értesítés) nem kérünk javaslatot. Ha egy levél minden javaslatáról döntöttél, a javaslatokhoz tartozó teendő („N feladatjavaslat vár döntésre”) magától lezárul. Ha a javaslat nem készült el, „A feladatjavaslat nem sikerült (…)” teendő látszik.
-- **„Csatolmányok felismerése”** és **„A csatolmányok adatai”:** a PDF-csatolmány a csomagban külön iratként fut. A „…: az adatkinyerés eredménye →” hivatkozás a csatolmány ellenőrző nézetére visz.
+- **On the left is the email:** the subject, ‘From’ (*Feladó*), ‘To’ (*Címzett*), ‘Received’ (*Érkezett*), ‘Attachment’ (*Csatolmány*) and the text. Links cannot be clicked; instead, ‘link:’ and the host name are shown, and the full address appears when you hover over it. A notice warns you if intent recognition saw only the beginning of the email, or if the text may already have been cut off when it was downloaded.
+- **On the right** are the to-dos with a **Resolved** button, and the **Detected intent** (*Felismert szándék*) with the model's estimate, or the marker ‘Corrected by hand (the machine said: …)’ (*Kézzel javítva (a gép szerint: …)*) / ‘Confirmed by hand’ (*Kézzel megerősítve*).
+- **Correct the intent** (*Szándék javítása*): choose the correct intent. If it matches the current intent, the button reads **Confirm** (*Megerősítés*); otherwise it reads **Save correction**. When you save, the email's to-do for an uncertain intent is closed, and the **Suggested next step** (*Javasolt következő lépés*) (for example ‘Manual processing’ (*Kézi feldolgozás*), ‘Archive’ (*Archiválás*) or ‘Data extraction from the attachment (…)’ (*Adatkinyerés a csatolmányból (…)*)) is recalculated from the corrected intent.
+- **Task proposals (only a person can accept them)** (*Feladatjavaslatok (elfogadni csak ember tud)*): shown only if task proposals are switched on in the recipe. For each proposal you see the title, the action, the ‘Deadline’ (*Határidő*) and the ‘Assignee’ (only if the email states them word for word), and the quotes under ‘Evidence’ (*Bizonyíték*). Buttons: **Accept** (*Elfogadás*), **Reject** (*Elvetés*), and on an accepted proposal **Done** (*Elvégezve*) (recorded with your name and the time) and **Undo done** (*Elvégzés visszavonása*). Identical proposals are merged (‘N identical proposals merged’ (*N azonos javaslat összevonva*)). Proposals that failed the evidence check are listed in an expandable section, together with the parts that cannot be verified. No proposals are requested for emails to be archived (newsletters, notifications). Once you have decided on every proposal of an email, the to-do for its proposals (‘N task proposal(s) awaiting a decision’ (*N feladatjavaslat vár döntésre*)) closes by itself. If no proposal could be made, a ‘Task proposal failed (…)’ (*A feladatjavaslat nem sikerült (…)*) to-do is shown.
+- **Attachment detection** (*Csatolmányok felismerése*) and **Attachment data** (*A csatolmányok adatai*): a PDF attachment runs as a separate document in the package. The ‘…: extraction result →’ (*…: az adatkinyerés eredménye →*) link takes you to the attachment's review view.
 
-### 7.9 Iratok kezelése
+### 7.9 Managing documents
 
-Futás után a munkafelület alatt lenyitható az **„Iratok kezelése: megnyitás, letöltés, eltávolítás”** rész, futás előtt ez az Ellenőrzés egyetlen tartalma. Soronként: **„Megnyitás”** (új lapon), **„Letöltés”**, **„Eltávolítás”**. Az eltávolítás két kattintást kér („Biztosan? Kattints újra”), és kiveszi a tételt a csomag listájából, a fájl a helyén marad, a korábbi futások bemenete nem változik.
+After a run, the expandable **Manage documents: open, download, remove** (*Iratok kezelése: megnyitás, letöltés, eltávolítás*) section sits below the workspace; before a run, it is the only content of Review. Each row has **Open** (*Megnyitás*) (in a new tab), **Download** and **Remove** (*Eltávolítás*). Removing needs two clicks (‘Sure? Click again’). It takes the item off the package's list; the file stays where it is, and the input of earlier runs does not change.
 
-## 8. Eredmény
+## 8. Result
 
-- Alapból a legutóbbi futás eredménye látszik. Ha a csomagnak több futása van, futásválasztó jelenik meg.
-- A nézetek (csak azok, amelyekhez van adat): **„Levelek”**, **„Feladatok”**, **„Iratok”**, **„Adatpontok”**, **„Tételsorok”**, **„Közmű-költség”**. Levélcsomagnál a Levelek, egyébként az Adatpontok nyílik meg.
-  - „Iratok”: iratonként egy sor (típus, út, állapot, nyitott teendők, levél-csatolmánynál a forrás-levél tárgya) és mezőnként egy oszlop.
-  - „Adatpontok”: mezőnként egy sor (érték, oldal, forrásszöveg, hely, javítva-e, teendő a mezőn).
-  - „Tételsorok”: a tételes listák sorai.
-  - Mindenhol az érvényes adat látszik, vagyis a gépi érték az emberi javítással. Az irat nevére kattintva az Ellenőrzés nyílik meg.
-- A táblák sorai jelölőnégyzettel kijelölhetők, és a kijelölt sorok külön is letölthetők (3.1 pont). A **„Teljes Excel-csomag”** gomb a futás összes tábláját (a közmű-költséggel együtt) egy többlapos Excel-fájlba teszi.
-- **„Közmű-költség”:** a közmű-számlák bruttó összege fogyasztási hely és közmű szerint, havonta. A többhónapos számla a napok arányában oszlik meg. A cellában az összeg, vagy „hiányzik” (egyik számla sem fedi a hónapot), „részleges” (a hónap egy része fedetlen), „átfedés” (két számla is fedi) áll. A * jel elszámoló számlát jelöl. A tájékoztató sorok nem számítanak bele az összesenbe. Egy cellára kattintva megjelennek a forrásszámlái, „megnyitás” hivatkozással. Az ismétlődő számlát a riport egyszer számolja, és ezt ki is írja.
-- **Jóváhagyás:**
-  - Próbafutásnál a felület kiírja, hogy az eredmény nem adható ki; ehhez éles futás kell.
-  - Éles futásnál a **„Jóváhagyás és kiadás”** gomb csak akkor aktív, ha a futás lezárult, és nincs nyitott teendő; addig a felület kiírja, hány teendő van még. A gomb két kattintást kér.
-  - Jóváhagyás után „Kiadva: jóváhagyta …, …” látszik. A futás mezőjavításai, szándék-javításai és feladatjavaslat-döntései ezzel lezárulnak; az elfogadott feladat „elvégezve” jelölése továbbra is lehetséges. A jóváhagyás a felületről nem vonható vissza. A letöltés utána is elérhető.
+- By default you see the result of the latest run. If the package has several runs, a run picker appears.
+- The views (only those that have data): **Emails** (*Levelek*), **Tasks** (*Feladatok*), **Documents** (*Iratok*), **Data points** (*Adatpontok*), **Line items** (*Tételsorok*) and **Utility cost** (*Közmű-költség*). An email package opens on Emails, any other package on Data points.
+  - ‘Documents’: one row per document (type, path, state, open to-dos and, for an email attachment, the subject of the email it came from) and one column per field.
+  - ‘Data points’: one row per field (value, page, source text, location, whether it was corrected, and any to-do on the field).
+  - ‘Line items’: the rows of the line lists.
+  - Everywhere you see the valid data, that is, the machine value with any human correction applied. Clicking a document's name opens Review.
+- Table rows can be selected with their checkboxes, and the selected rows can be downloaded on their own (section 3.1). The **Full Excel package** (*Teljes Excel-csomag*) button puts all of the run's tables (including the utility cost) into one Excel file with several sheets.
+- **Utility cost:** the gross amount of utility invoices per point of consumption and utility, month by month. An invoice that covers several months is split in proportion to the days. A cell shows the amount, or ‘missing’ (*hiányzik*: no invoice covers the month), ‘partial’ (*részleges*: part of the month is not covered) or ‘overlap’ (*átfedés*: two invoices cover it). An * marks a settlement invoice. Informational rows do not count towards the total. Clicking a cell shows its source invoices, each with an ‘open’ (*megnyitás*) link. The report counts a duplicated invoice only once, and says so.
+- **Approval:**
+  - For a trial run, the interface states that the result cannot be released; that needs a live run.
+  - For a live run, the **Approve and release** (*Jóváhagyás és kiadás*) button is active only once the run has finished and no to-dos are open; until then the interface tells you how many to-dos remain. The button needs two clicks.
+  - After approval, ‘Released: approved by …, …’ (*Kiadva: jóváhagyta …, …*) is shown. Approval locks the run's field corrections, intent corrections and task-proposal decisions; you can still mark an accepted task as ‘done’ (*elvégezve*). Approval cannot be undone from the interface. Downloads remain available afterwards.
 
-## 9. Mai munkám
+## 9. My work today
 
-A fejléc **„Mai munkám”** hivatkozása a kiválasztott személy napi műveleteit mutatja: recept, futás indítása és jóváhagyása, javítás, teendő lezárása, feladatjavaslat-döntés, csomag-módosítás, postafiók-letöltés. A „Nap” mezőben korábbi nap is választható. A táblázat oszlopai: „Időpont”, „Művelet”, „Munkacsomag”, „Részlet”, „Futás”.
+The **My work today** link in the header shows the selected person's actions for the day: recipes, starting and approving runs, corrections, resolving to-dos, task-proposal decisions, package changes and mailbox downloads. In the ‘Day’ (*Nap*) field you can also pick an earlier day. The table columns are ‘Time’ (*Időpont*), ‘Action’ (*Művelet*), ‘Work package’, ‘Detail’ (*Részlet*) and ‘Run’ (*Futás*).
 
-## 10. Beállítások
+## 10. Settings
 
-A Beállítások bal oldali menüjében hét pont van.
+The left-hand menu of Settings has seven items: Mailboxes (*Postafiókok*), Work folders (*Munkamappák*), Recipes, Users, Appearance (*Megjelenés*), Language and System (*Rendszer*).
 
-### 10.1 Postafiókok
+### 10.1 Mailboxes
 
-A postafiók-letöltés a gépen futó Outlookból hozza be a leveleket.
+Mailbox download brings in emails from the Outlook running on this computer.
 
-- **Mit olvassunk:** „Postafiók címe” (több is, vesszővel, pontosan úgy, ahogy az Outlookban szerepel; a „Korábban használt” címek egy kattintással hozzáadhatók vagy kivehetők), „Mappa” (vesszővel), „almappákkal”, az időszak („Az utolsó napok” a „Napok száma” mezővel, vagy „Dátumtól dátumig”), és „Legfeljebb ennyi levél (0 = nincs korlát)”.
-- **„Hány levél? (ingyenes)”:** előnézet arról, hány levél esik az időszakba, ebből mennyi új, és mennyi volt már beolvasva (ezeket kihagyja).
-- **Ütemezés** (csak „az utolsó napok” időszakkal): gyakoriság (15 percenként, félóránként, óránként, 4 óránként, naponta), majd „Ütemezés mentése”. Az **„Ütemezések”** táblában a gyakoriság módosítható, az ütemezés ki- és bekapcsolható vagy törölhető (a „Törlés” két kattintást kér). A „Legutóbb” oszlop az utolsó letöltés eredményét vagy hibáját mutatja. Az ütemezés csak akkor fut, ha a feldolgozó fut, és az Outlook nyitva van.
-- **„Letöltések”:** minden letöltés állapota, az új levelek száma, a létrejött munkacsomag és az esetleges hiba. Az Outlook ismert hibái (például „Az Outlook nem fut ezen a gépen…”) itt és a „Legutóbb” oszlopban is a felület nyelvén látszanak.
-- A letöltést a feldolgozó végzi, közben az iratok feldolgozása vár. Az új levelekből munkacsomag lesz, de fizetős futás nem indul magától.
+- **What to read** (*Mit olvassunk*): ‘Mailbox address’ (*Postafiók címe*) (you can enter several, comma-separated, exactly as they appear in Outlook; addresses under ‘Previously used:’ (*Korábban használt:*) can be added or removed with one click), ‘Folder’ (*Mappa*) (comma-separated), ‘with subfolders’ (*almappákkal*), the period (‘The last days’ (*Az utolsó napok*) with the ‘Number of days’ (*Napok száma*) field, or ‘Date range’ (*Dátumtól dátumig*)), and ‘At most this many emails (0 = no limit)’ (*Legfeljebb ennyi levél (0 = nincs korlát)*).
+- **How many emails? (free)** (*Hány levél? (ingyenes)*): a preview of how many emails fall in the period, how many of them are new, and how many were already read in (these are skipped).
+- **Schedule** (only with the ‘last days’ period): choose a frequency (every 15 minutes, every 30 minutes, hourly, every 4 hours, daily), then **Save schedule** (*Ütemezés mentése*). In the **Schedules** (*Ütemezések*) table you can change the frequency, turn a schedule off and on, or delete it (**Delete** (*Törlés*) needs two clicks). The ‘Last’ (*Legutóbb*) column shows the result or error of the last download. A schedule only runs while the worker is running and Outlook is open.
+- **Downloads** (*Letöltések*): the state of every download, the number of new emails, the work package created and any error. Known Outlook errors (for example ‘Outlook is not running on this computer…’ (*Az Outlook nem fut ezen a gépen…*)) are shown in the interface language, both here and in the ‘Last’ column.
+- The worker does the download, and document processing waits in the meantime. The new emails become a work package, but no paid run starts on its own.
 
-### 10.2 Munkamappák
+### 10.2 Work folders
 
-A munkamappa (figyelt mappa) olyan mappa, amelyet a feldolgozó a megadott gyakorisággal átnéz, és az új PDF-ekből munkacsomagot készít, vagy a meglévőt bővíti. Mappánként megadható: „Név”, „Mappa teljes útvonala”, „Aktív”, „Almappák is”, a csomagolás („Egy közös csomag” vagy „Napi csomagok”), a „Recept” (vagy „Nincs (a csomagon kell kiválasztani)”) és az „Átnézés” gyakorisága. A **„Munkamappa hozzáadása”**, az „Eltávolítás”, a „Módosítások elvetése” és a **„Mentés”** gomb kezeli a listát. Mentetlen módosításnál az oldal elhagyása megerősítést kér. Mentett mappán az **„Átnézés most”** azonnal átnéz; a még íródó fájl a következő átnézésre marad. A forrásmappához a rendszer csak olvasásra nyúl, és fizetős futás nem indul magától.
+A work folder (a watched folder) is a folder that the worker checks at the frequency you set; it turns new PDFs into a work package or adds them to the existing one. For each folder you can set: ‘Name’, ‘Full folder path’, ‘Active’ (*Aktív*), ‘Include subfolders’ (*Almappák is*), the packaging (‘One shared package’ (*Egy közös csomag*) or ‘Daily packages’ (*Napi csomagok*)), the ‘Recipe’ (or ‘None (choose it on the package)’ (*Nincs (a csomagon kell kiválasztani)*)) and how often to ‘Check’ (*Átnézés*). The **Add work folder** (*Munkamappa hozzáadása*), **Remove**, **Discard changes** (*Módosítások elvetése*) and **Save** buttons manage the list. If there are unsaved changes, leaving the page asks for confirmation. On a saved folder, **Check now** (*Átnézés most*) checks it immediately; a file that is still being written is left for the next check. The system only reads the source folder, and no paid run starts on its own.
 
-### 10.3 Receptek
+### 10.3 Recipes
 
-Minden recept teljes leírása: mire való, mikor válaszd, mi kell hozzá, a lépések, az eredmény, az ember teendője, a költségkeret alapbeállítással, és minden beállítás minden lehetséges értéke a jelentésével. Itt nem lehet módosítani, ez csak olvasható leírás.
+The full description of every recipe: what it is for, when to choose it, what it needs, its steps, its result, what the person has to do, its default cost budget, and every possible value of every setting with its meaning. Nothing can be changed here; this is a read-only description.
 
-### 10.4 Felhasználók
+### 10.4 Users
 
-A „Ki dolgozik?” választéka. Az „Új név” mezővel és a „Felvétel” gombbal vehetsz fel új nevet, a „Törlés” gombbal törölhetsz (két kattintással: „Biztosan? Kattints újra”). Mindkettő azonnal mentődik. A név betűt, számot, szóközt, pontot, @ jelet és kötőjelet tartalmazhat, legfeljebb 64 karakter hosszan. Ha a lista nem üres, módosítani csak a listán szereplő névvel lehet, és a csomag felelőse is innen választható.
+The names offered by **Who is working?**. Add a new name with the ‘New name’ (*Új név*) field and the **Add** (*Felvétel*) button; delete one with **Delete** (two clicks: ‘Sure? Click again’). Both are saved immediately. A name may contain letters, digits, spaces, dots, @ and hyphens, up to 64 characters. If the list is not empty, changes can only be made with a name on the list, and the package owner is also chosen from it.
 
-### 10.5 Megjelenés
+### 10.5 Appearance
 
-„Téma”: „A rendszer szerint”, „Világos” vagy „Sötét”. „Sűrűség”: „Tágas” vagy „Tömör”. Azonnal érvényes, és ebben a böngészőben megmarad.
+‘Theme’ (*Téma*): ‘Follow the system’ (*A rendszer szerint*), ‘Light’ (*Világos*) or ‘Dark’ (*Sötét*). ‘Density’ (*Sűrűség*): ‘Comfortable’ (*Tágas*) or ‘Compact’ (*Tömör*). Changes apply immediately and are remembered in this browser.
 
-### 10.6 Nyelv
+### 10.6 Language
 
-„Magyar” vagy „English”, ugyanaz, mint a fejléc HU / EN gombja (2.2 pont).
+‘Magyar’ or ‘English’ (each language name is shown in its own language); this is the same as the HU / EN buttons in the header (section 2.2).
 
-### 10.7 Rendszer
+### 10.7 System
 
-- **„Verzió”:** a futó kiadási verzió és a commit (a kód egy rögzített, azonosítóval ellátott állapota a verziókezelőben), valamint az, hogy mióta fut a szolgáltatás. Új kód csak a szolgáltatás újraindítása után lép életbe. „A futó kód commitolatlan változást tartalmaz.”: a futó kódban olyan módosítás is van, amely még nincs rögzítve, tehát nem pontosan egy kiadott állapot fut. „A commit nem ismert…”: a szolgáltatás verziókezelő nélkül indult.
-- **„Feldolgozó”:** „Fut” vagy „Nem fut”, és a munkasor számai (sorban, folyamatban, kész, leállítva, feladva). A **„Leállítás”** két kattintást kér, és a feldolgozó a folyamatban lévő tétel után áll le. Újraindítani csak az indítószkripttel lehet.
-- **„Adattár-mentés”:** az adattár (csomagok, futások, javítások, döntések) ellenőrzött másolata. Naponta a beállított időpontban magától lefut, és egy másolat egy második helyre (például hálózati tárolóra) is kerül. A panel állapota „Rendben”, „Figyelem” vagy „Hiba”, alatta a helyi mentés és a másolat helye. A „Belső dokumentumok” sor a fejlesztés helyi jegyzeteinek mentését mutatja, a napi munkához nincs köze. A **„Mentés most”** azonnal ment. Ha a legutóbbi sikeres mentés régebbi a beállított óraszámnál (alapból 36 óra), figyelmeztetés jelenik meg.
-- **„Minden futás”:** az összes csomag összes futása egy táblában.
+- **Version** (*Verzió*): the running release version and commit (a fixed, identified state of the code in version control), and how long the service has been running. New code only takes effect after the service is restarted. ‘The running code contains uncommitted changes.’ (*A futó kód commitolatlan változást tartalmaz.*): the running code includes changes that have not been committed yet, so it is not exactly a released state. ‘The commit is unknown…’ (*A commit nem ismert…*): the service was started without version control.
+- **Worker** (*Feldolgozó*): ‘Running’ or ‘Not running’ (*Nem fut*), and the job-queue counts (queued, in progress, done, stopped, given up). **Stop** needs two clicks, and the worker stops after the item in progress. It can only be restarted with the start script.
+- **Database backup** (*Adattár-mentés*): a verified copy of the database (packages, runs, corrections, decisions). It runs automatically every day at the configured time, and a copy also goes to a second location (for example a network drive). The panel's state is ‘OK’ (*Rendben*), ‘Attention’ (*Figyelem*) or ‘Error’ (*Hiba*), with the location of the local backup and of the copy below it. The ‘Internal documents’ (*Belső dokumentumok*) row shows the backup of the developer's local notes and has nothing to do with daily work. **Back up now** backs up immediately. If the last successful backup is older than the configured number of hours (36 by default), a warning appears.
+- **All runs** (*Minden futás*): every run of every package in one table.
 
-## 11. Hibaelhárítás
+## 11. Troubleshooting
 
-| Mit látsz | Mit jelent | Mit tegyél |
+| What you see | What it means | What to do |
 |---|---|---|
-| A böngésző nem tudja megnyitni a címet, vagy a fejlécben piros „A helyi szolgáltatás nem érhető el” áll; műveletnél „A helyi szolgáltatás nem érhető el. Fut a …?” | A helyi szolgáltatás nem fut. | Indítsd el az indítószkripttel. Ha újra leáll, az üzemi napló utolsó sorai mutatják az okát (Technikai részletek). |
-| „Feldolgozó nem fut”, a futások „Sorban áll” állapotban maradnak, a postafiók és a munkamappa nem frissül | A feldolgozó leállt, vagy leállították. | Futtasd újra az indítószkriptet: csak a hiányzó részt indítja el. |
-| Mentéskor „Közben más is mentett erre a tételre…”, vagy piros doboz: „A tételre közben újabb javítás került (verzió N)” | Valaki más közben új javítást mentett ugyanarra a tételre. | „Alkalmazás az új verzióra”, átnézés, újra mentés; vagy „Munkapéldány elvetése”. A munkád nem veszett el. |
-| Receptnél, indításnál vagy eltávolításnál „…közben változott. Frissítettük…” | A csomag vagy a recept közben módosult. | Nézd át a frissített állapotot, és ismételd meg a műveletet. |
-| „add meg a neved fent a „Ki dolgozik?” mezőben…” vagy „…válaszd ki a neved a Felhasználók listájából” | Nincs kiválasztott név, vagy a név nincs a listán. | Válassz nevet a fejlécben; ha hiányzik, vedd fel a Beállítások › Felhasználók oldalon. |
-| Postafiók-előnézetnél „Az Outlook nem fut ezen a gépen. Indítsd el, és próbáld újra.”; a „Letöltések” táblában a hiba angolul is megjelenhet („Outlook must already be running…”) | A letöltés a gépen futó Outlookból olvas. | Indítsd el az Outlookot, és próbáld újra. |
-| „Ez a cím egyetlen Outlook-fiókkal sem egyezik ezen a gépen.” | A megadott cím nem egyezik egyetlen Outlook-fiókkal sem. | Írd be a címet pontosan úgy, ahogy az Outlookban szerepel. |
-| „A régi Outlook-szkript nem található a régi projektben; a letöltés nem működik.” | Hiányzik a letöltést végző régi szkript. | Szólj a gép gazdájának; a telepítést a [telepítési útmutató](SETUP.md) írja le. |
-| „A legutóbbi sikeres mentés N órája készült; a napi mentés valószínűleg nem fut.” | A napi automatikus mentés nem futott le. | „Mentés most”, és szólj a gép gazdájának, hogy ellenőrizze az ütemezett feladatot. |
-| „A helyi mentés rendben…, de a másolat a második helyre nem sikerült: …” | A második hely (például a hálózati tároló) nem volt elérhető. | Ellenőrizd a hálózati kapcsolatot, majd „Mentés most”. |
-| Teendő: „A JEV nem volt elérhető (…); ellenőrizd kézzel”, levélnél „Kézi ellenőrzés: a JEV nem volt elérhető” | A JEV nem válaszolt, vagy a tétel költségkerete elfogyott. A futás ettől nem állt le, csak ezt a tételt küldte kézi ellenőrzésre. A zárójelben rövid angol ok áll (Technikai részletek). | Ellenőrizd a mezőket a képen, javítsd, és „Rendezve”; vagy később „Újrafuttatás…” (ez új fizetős hívásokkal jár). |
-| Akadály: „Hiányzó forrás: …” vagy „A forrás tartalma a felvétel óta változott: …” | A fájlt a felvétel óta áthelyezték, törölték vagy módosították. | Tedd vissza az eredeti fájlt; vagy vedd ki a csomagból (7.9 pont), és a módosított fájlból készíts új csomagot. |
-| „Ehhez az irathoz nincs szóréteg…” | Az iratnak ebből a futásából hiányzik a szavak helye. | Futtasd újra a receptet. |
-| „Ez a mappa nincs az engedélyezett helyek között…” | A mappakorlát be van kapcsolva a szolgáltatás beállításában (alapból ki van kapcsolva). | Válassz engedélyezett mappát, vagy kérd a korlát módosítását (Technikai részletek). |
-| „Váratlan hiba a felületen” | Egy nézet hibára futott. | „Újratöltés”. A mentetlen javítások megmaradnak. |
+| The browser cannot open the address, or the header shows the red ‘The local service is not reachable’; when you try an action, ‘The local service is not reachable. Is scripts\dev.ps1 start running?’ (*A helyi szolgáltatás nem érhető el. Fut a scripts\dev.ps1 start?*) | The local service is not running. | Start it with the start script. If it stops again, the last lines of the service log show why (Technical details). |
+| ‘Worker not running’, runs stay ‘Queued’, and the mailbox and work folders are not updated | The worker has stopped or was stopped. | Run the start script again: it starts only the missing part. |
+| When saving, ‘Someone else saved this item in the meantime…’, or a red box: ‘A newer correction was saved for this item in the meantime (version N)’ | Someone else saved a new correction to the same item in the meantime. | **Apply to the new version**, check, and save again; or **Discard working copy**. Your work has not been lost. |
+| On a recipe, a start or a removal: ‘…changed in the meantime. … has been refreshed…’ (*…közben változott. Frissítettük…*) | The package or the recipe was changed in the meantime. | Check the refreshed state and repeat the action. |
+| ‘enter your name in the “Who is working?” field at the top…’ or ‘…select your name from the Users list in the “Who is working?” field’ (*…a „Ki dolgozik?” mezőben válaszd ki a neved a Felhasználók listájából*) | No name is selected, or the name is not on the list. | Choose a name in the header; if yours is missing, add it on the Settings › Users page. |
+| On the mailbox preview, in the ‘Downloads’ table or in the ‘Last’ column: ‘Outlook is not running on this computer. Start it and try again.’ (*Az Outlook nem fut ezen a gépen. Indítsd el, és próbáld újra.*) | The download reads from the Outlook running on this computer. | Start Outlook and try again. |
+| ‘This address does not match any Outlook account on this computer.’ (*Ez a cím egyetlen Outlook-fiókkal sem egyezik ezen a gépen.*) | The address you entered does not match any Outlook account. | Enter the address exactly as it appears in Outlook. |
+| ‘The legacy Outlook script was not found in the old project; downloading does not work.’ (*A régi Outlook-szkript nem található a régi projektben; a letöltés nem működik.*) | The legacy script that does the download is missing. | Tell the owner of the computer; installation is described in the [setup guide](SETUP.md). |
+| ‘The last successful backup was made N hours ago; the daily backup is probably not running.’ (*A legutóbbi sikeres mentés N órája készült; a napi mentés valószínűleg nem fut.*) | The daily automatic backup did not run. | Click **Back up now**, and ask the owner of the computer to check the scheduled task. |
+| ‘The local backup is fine (…), but the copy to the second location failed: …’ (*A helyi mentés rendben…, de a másolat a második helyre nem sikerült: …*) | The second location (for example the network drive) was not reachable. | Check the network connection, then click **Back up now**. |
+| To-do: ‘JEV was unavailable (…); check manually’ (*A JEV nem volt elérhető (…); ellenőrizd kézzel*), or for an email ‘Manual review: JEV was unavailable’ (*Kézi ellenőrzés: a JEV nem volt elérhető*) | JEV did not answer, or the item's budget ran out. The run did not stop because of this; it only sent this item for manual review. The brackets contain a short reason code (Technical details). | Check the fields on the image, correct them and click **Resolved**; or use **Rerun…** later (this involves new paid calls). |
+| Blocker: ‘Missing source: …’ or ‘The source content changed since it was added: …’ | The file has been moved, deleted or modified since it was added. | Put the original file back; or remove it from the package (section 7.9) and create a new package from the modified file. |
+| ‘This document has no word layer…’ (*Ehhez az irathoz nincs szóréteg…*) | This run of the document lacks the word positions. | Run the recipe again. |
+| ‘This folder is not among the allowed locations…’ (*Ez a mappa nincs az engedélyezett helyek között…*) | The folder restriction is switched on in the service settings (it is off by default). | Choose an allowed folder, or ask for the restriction to be changed (Technical details). |
+| ‘Unexpected error in the interface’ (*Váratlan hiba a felületen*) | A view ran into an error. | Click **Reload** (*Újratöltés*). Unsaved corrections are kept. |
 
-## 12. Mit nem csinál a felület
+## 12. What the interface does not do
 
-- Nincs bejelentkezés és jelszó. A „Ki dolgozik?” név csak a szerzőt rögzíti, nem jogosultság.
-- Csak erről a gépről érhető el, más gépről vagy idegen weboldalról érkező kérést a szolgáltatás elutasít.
-- Fizetős futást nem indít magától, a munkamappa és a postafiók-ütemezés sem.
-- A forrásfájlokat nem módosítja és nem törli. A csomag törlése és a tétel eltávolítása csak a listából veszi ki őket.
-- A levelekben lévő linkeket nem nyitja meg.
-- A modell becslése és két modell egyetértése nem bizonyítja, hogy az érték helyes: a felület ezért kér emberi ellenőrzést.
-- A mentésből való visszaállítás, a bizonytalan kimenetű fizetős hívás rendezése és a feldolgozó újraindítása nem a felületen történik (Technikai részletek).
+- There is no login and no password. The **Who is working?** name only records the author; it is not a permission.
+- It can only be reached from this computer; the service rejects requests from other computers and from other websites.
+- It never starts a paid run on its own, and neither do work folders or mailbox schedules.
+- It does not modify or delete source files. Deleting a package or removing an item only takes the files off the list.
+- It does not open links in emails.
+- The model's estimate, and agreement between two models, do not prove that a value is correct: that is why the interface asks for a human check.
+- Restoring from a backup, settling a paid call with an uncertain outcome and restarting the worker are not done in the interface (Technical details).
 
-## Technikai részletek
+## Technical details
 
-**Indítás és leállítás** (a projekt gyökeréből, PowerShellben; telepítés: [SETUP](SETUP.md)):
+**Starting and stopping** (from the project root, in PowerShell; installation: [SETUP](SETUP.md)):
 
 ```powershell
-.\scripts\dev.ps1 start    # helyi szolgáltatás (127.0.0.1:8930) + egy feldolgozó a háttérben; a már futó részt nem indítja újra
-.\scripts\dev.ps1 status   # fut-e a szolgáltatás és a feldolgozó, mennyi feladat vár
-.\scripts\dev.ps1 stop     # a feldolgozó a folyamatban lévő tétel után lép ki, a szolgáltatás azonnal leáll
+.\scripts\dev.ps1 start    # local service (127.0.0.1:8930) + one worker in the background; parts already running are not restarted
+.\scripts\dev.ps1 status   # whether the service and the worker are running, and how many jobs are waiting
+.\scripts\dev.ps1 stop     # the worker exits after the item in progress; the service stops immediately
 ```
 
-- **Cím:** `http://127.0.0.1:8930/`. A felület a `/api/...` végpontokat hívja. A `/api/health` adja a Verzió kártya adatait (verzió, commit, commitolatlan változás, indulás ideje). A kattintható végpontlista (`/api/docs`) ki van kapcsolva. A biztonsági beállításokat a [biztonsági leírás](../SECURITY.md) tartalmazza.
-- **Üzemi napló:** `runs\logs\api.log` és `runs\logs\worker.log`; az indítószkript kimenete: `runs\dev\*.log`.
-- **Parancssori párok:** `python -m jav.cli worker-status`, `worker-stop`, `backup`; bizonytalan kimenetű fizetős hívás: `calls-uncertain`, `calls-resolve <id> [--cost USD] --note N`. A mentésből való visszaállítás kézi, leállított szolgáltatás mellett: [SETUP 6.](SETUP.md). A napi mentést a Windows Feladatütemező indítja (`scripts\backup-task.ps1`).
-- **A JEV-teendő zárójeles oka:** `budget_exceeded` (a tétel költségkerete elfogyott), `uncertain_attempt` (egy korábbi fizetős kísérlet kimenete ismeretlen, kézzel kell rendezni), egyéb érték: a szolgáltatás hibája vagy időtúllépése.
-- **Beállításfájlok** (részletek: [beállításfájlok útmutatója](CONFIGS.md)):
-  - receptek: `configs/recipes.json`; a magyarázó szövegeik: `configs/recipe_help.json`;
-  - bizonyosság-sávok (`confidence_bands`, alapból 0,9 és 0,5), mentés (`backup`: időpont, megtartott darabszám, `max_age_hours`), mappakorlát (`restrict_paths`, `JAV_API_ROOTS`): `configs/service.json`;
-  - mezők és irattípusok magyar neve: `configs/field_labels.json`; levél-szándékok: `configs/intents.json`; feladatjavaslat-akciók: `configs/email_tasks.json`.
-- **A böngészőben tárolt adatok** (nézőnként, nem kerülnek az adattárba): név `jav.actor`, nyelv `jav.ui-language`, megjelenés `jav.appearance`, oszlopláthatóság `jav.table.<tábla>.cols`, a kép és a panel aránya `jav.review.split` (a tételes lista fülén `jav.review.split.list`); a munkapéldány laponként: `jav.drafts` (sessionStorage).
-- **Forráskód:** a felület `ui/src/` (nézetek: `views/`, ellenőrzés: `review/`, feliratok: `labels.ts`, angol fordítás: `i18n/en-*.json`); a szolgáltatás `jav/api.py`, a táblák oszlopai `jav/datasets.py`, a következő lépés `jav/work_views.py`. Felépítés: [ARCHITECTURE 8.](../ARCHITECTURE.md#8-munkafelület-040-k3-2026-09-27).
-- **Fő feliratok angolul** (EN nézet):
+- **Address:** `http://127.0.0.1:8930/`. The interface calls the `/api/...` endpoints. `/api/health` supplies the data for the Version card (version, commit, uncommitted changes, start time). The clickable endpoint list (`/api/docs`) is switched off. The security settings are described in the [security notes](../SECURITY.md).
+- **Service logs:** `runs\logs\api.log` and `runs\logs\worker.log`; the start script's output: `runs\dev\*.log`.
+- **Command-line equivalents:** `python -m jav.cli worker-status`, `worker-stop`, `backup`; for a paid call with an uncertain outcome: `calls-uncertain`, `calls-resolve <id> [--cost USD] --note N`. Restoring from a backup is done by hand, with the service stopped: [SETUP 6.](SETUP.md). The daily backup is started by Windows Task Scheduler (`scripts\backup-task.ps1`).
+- **The bracketed reason of a JEV to-do:** `budget_exceeded` (the item's budget ran out), `uncertain_attempt` (the outcome of an earlier paid attempt is unknown and has to be settled by hand); any other value is an error or a timeout of the service.
+- **Configuration files** (details: [configuration files guide](CONFIGS.md)):
+  - recipes: `configs/recipes.json`; their explanatory texts: `configs/recipe_help.json`;
+  - confidence bands (`confidence_bands`, 0.9 and 0.5 by default), backup (`backup`: time, number of copies kept, `max_age_hours`) and folder restriction (`restrict_paths`, `JAV_API_ROOTS`): `configs/service.json`;
+  - Hungarian names of fields and document types: `configs/field_labels.json`; email intents: `configs/intents.json`; task-proposal actions: `configs/email_tasks.json`.
+- **Data stored in the browser** (per viewer, not stored in the database): name `jav.actor`, language `jav.ui-language`, appearance `jav.appearance`, column visibility `jav.table.<table>.cols`, the image/panel ratio `jav.review.split` (on the line-list tab `jav.review.split.list`); the working copy, per tab: `jav.drafts` (sessionStorage).
+- **Source code:** the interface is in `ui/src/` (views: `views/`, review: `review/`, labels: `labels.ts`, English translation: `i18n/en-*.json`); the service is `jav/api.py`, the table columns are in `jav/datasets.py`, the next step in `jav/work_views.py`. Structure: [ARCHITECTURE 8.](../ARCHITECTURE.md#8-user-interface-040-k3-2026-09-27).
+- **Main labels in Hungarian** (the interface's default language):
 
-| Magyar | English |
+| English | Hungarian |
 |---|---|
-| Munkacsomagok · Beállítások | Work packages · Settings |
-| Ki dolgozik? · Mai munkám | Who is working? · My work today |
-| Új munkacsomag · Csomag kezelése | New work package · Manage package |
-| Feldolgozás · Ellenőrzés · Eredmény | Processing · Review · Result |
-| Próbafutás · Éles futás · Újrafuttatás | Trial run · Live run · Rerun |
-| Rendezve · Javítás mentése · Kijelölés a képen | Resolved · Save correction · Select on image |
-| Jóváhagyás és kiadás · Mentés most | Approve and release · Back up now |
+| Work packages · Settings | Munkacsomagok · Beállítások |
+| Who is working? · My work today | Ki dolgozik? · Mai munkám |
+| New work package · Manage package | Új munkacsomag · Csomag kezelése |
+| Processing · Review · Result | Feldolgozás · Ellenőrzés · Eredmény |
+| Trial run · Live run · Rerun | Próbafutás · Éles futás · Újrafuttatás |
+| Resolved · Save correction · Select on image | Rendezve · Javítás mentése · Kijelölés a képen |
+| Approve and release · Back up now | Jóváhagyás és kiadás · Mentés most |

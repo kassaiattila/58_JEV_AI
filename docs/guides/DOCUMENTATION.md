@@ -1,49 +1,58 @@
-# Dokumentációs szabvány
+# Documentation standard
 
-**Érvényes:** 2026-09-27-től (040). **Kinek szól:** a fejlesztést végző modellnek és a felhasználónak. A régi dokumentumok a helyükön maradnak; ez a szabvány az új és a módosított dokumentumokra kötelező.
+**In force:** since 2026-09-27 (040); language rules since 2026-09-30 (073). **Audience:** the model doing the development work, and the project owner. Older documents stay where they are; this standard applies to every new or changed document.
 
-## Laikus összefoglaló
+## Plain-language summary
 
-Eddig ugyanaz az állapot öt helyen is le volt írva (a Claude-utasításokban, a README-ben, a teendőlistán, az átadóban, a belépő oldalon), és ezek időnként eltértek egymástól. Mostantól minden információfajtának egyetlen helye van. A többi hely csak hivatkozik rá. Az aktuális és a történeti anyag külön van, a gépi úton generált oldalakat kézzel nem írjuk.
+The same status used to be written down in five places (the Claude instructions, the README, the backlog, the handoff and the entry page), and the copies drifted apart. Now every kind of information has exactly one home, and every other place links to it. Current and historical material are kept apart, and generated pages are never written by hand.
 
-2026-09-29 óta (070, a felhasználó döntése) a dokumentumok két körbe tartoznak. A **kódtári dokumentum** a kóddal együtt kerül a gitbe és a GitHubra: mit tud a rendszer, hogyan épül fel, hogyan kell telepíteni és fejleszteni. A **belső munkaanyag** (átadók, tervek, jelentések, teendőlista, döntésnapló, útiterv) csak a fejlesztő gépén van. A git nem követi, a napi mentés viszi.
+Since 2026-09-29 (070, the owner's decision) documents fall into two groups. **Codebase documents** go into git and to GitHub together with the code: what the system can do, how it is built, how to install and develop it. **Internal working documents** (handoffs, plans, reports, backlog, decisions log, roadmap) exist only on the development machine: git does not track them, and the daily backup copies them.
 
-## 1. Alapszabályok
+Since 2026-09-30 (073, the owner's decision) **everything that reaches GitHub is written in native-level English**: codebase documents, code, comments, commit and tag messages. Internal working documents stay in Hungarian.
 
-1. **Egy információ, egy hely.** Ha ugyanazt két helyen kellene leírni, az egyik hivatkozás legyen.
-2. **Az aktuális és a történeti anyag külön van.** Az aktuális állapot a belépő oldal, a teendőlista és a legfrissebb átadó. A mérési jelentések és a régi átadók dátumozott történeti anyagok, utólag nem írjuk át őket.
-3. **Generált oldalt kézzel nem szerkesztünk.** Ilyen az állapotoldal, a folyamatábrák és a hívási helyek katalógusa. A generáló parancsot futtatjuk. Az állapotoldal és a hívási helyek katalógusa a helyi adattárból készül, ezért helyi (070). A folyamatábrák kódtáriak.
-4. **Szám csak bizonyítékkal.** Minden mért szám mellett ott van a nyers futás vagy bizonylat helye. A dokumentum nem ígér többet, mint amit a mérés igazol.
-5. **Nyelv és forma:** a CLAUDE.md 8. pontja kötelező. Laikus összefoglaló van elöl, a fogalomtár szavait használjuk, kód-azonosító csak a technikai részben szerepelhet.
-6. **A kódtári dokumentum és a kód együtt kerül a gitbe**, ugyanabban a commitban, ha ugyanarról a változásról szól. A belső munkaanyag nem kerül commitba (070).
-7. **Kódtári dokumentum belső munkaanyagra nem linkel** (070), mert a tárban nincs meg. Ha utalni kell rá, a formája: „szöveg (belső: `reports/…`)”, a `docs/` mappán belüli útvonallal. A belső munkaanyag szabadon hivatkozhat a kódtári dokumentumra. A hivatkozás-teszt (`tests/test_doc_links.py`) ezt ellenőrzi. A belső útvonalak egyetlen listája a `jav/doc_scope.py`; a `.gitignore` ezzel egyezik (`tests/test_doc_scope_070.py`), és a napi mentés is innen olvas. Az útvonalak 2026-09-29 óta nem változtak.
+## 1. Ground rules
 
-## 2. Dokumentumfajták
+1. **One piece of information, one place.** If something would have to be written in two places, one of them becomes a link.
+2. **Current and historical material are separate.** The current state lives in the entry page, the backlog and the latest handoff. Measurement reports and old handoffs are dated historical records and are never rewritten afterwards.
+3. **Generated pages are never edited by hand.** These are the state snapshot, the flow diagrams and the call-site catalogue; run the generating command instead. The state snapshot and the call-site catalogue are built from the local store, so they are local (070). The flow descriptions are codebase documents.
+4. **Numbers only with evidence.** Every measured number comes with the location of its raw run or receipt. A document never promises more than the measurement shows.
+5. **Language and form (073):**
+   - Codebase documents use native-level **British English** (recognise, colour, cancelled), consistent with the English UI translation and its en-GB number and date formats. Terms come from the [glossary](../GLOSSARY.md); a new term goes into the glossary before it is used.
+   - Every codebase document starts with a **Plain-language summary** (3–5 sentences). Code identifiers belong in the technical parts, not in the prose.
+   - UI elements are named by their English UI label, with the Hungarian label in parentheses on first mention, because the UI shows Hungarian by default: **Approve and release** (*Jóváhagyás és kiadás*).
+   - Hungarian text printed on documents (for example *számla sorszáma*, invoice number) is document vocabulary: it is quoted in Hungarian with an English gloss.
+   - Internal working documents and everything addressed to the owner are in Hungarian and follow CLAUDE.md §8 (plain language, fixed structure).
+6. **A codebase document goes into git together with the code**, in the same commit, when both describe the same change. Internal working documents are never committed (070).
+7. **Codebase documents never link to internal working documents** (070), because those do not exist in the repository. If a reference is needed, write it as "text (internal: `reports/…`)", with the path inside `docs/`. Internal documents may link to codebase documents freely. The link test (`tests/test_doc_links.py`) enforces this. The single list of internal paths is `jav/doc_scope.py`; `.gitignore` matches it (`tests/test_doc_scope_070.py`), and the daily backup reads it too. The paths have not changed since 2026-09-29.
 
-| Dokumentum | Kör (070) | Hely | Mire való | Mi NEM kerül bele | Mikor frissül |
+## 2. Document types
+
+| Document | Group (070) | Location | Purpose | Does NOT contain | Updated when |
 |---|---|---|---|---|---|
-| Claude-utasítások | kódtári | `CLAUDE.md` | Állandó munkaszabályok, parancsok, szerkezet, csapdák a modellnek | Session-állapot, dátumozott haladás, mérési számok | Ha munkaszabály változik |
-| README | kódtári | `README.md` | Mi ez, hogyan indul, mit tud **most**, hová tovább; a kódtári dokumentumok jegyzéke | Mérési történet (az a jelentésekbe kerül) | Ha képesség vagy indítás változik |
-| Belépő | belső | `docs/INDEX.md` | Aktuális terv, olvasási útvonalak, a belső anyag (tervek, jelentések, történeti anyagok) jegyzéke | Második teendőlista | Új terv, jelentés vagy útmutató esetén |
-| Állapot (generált) | helyi, generált | `docs/STATE.md` | Konfigverziók, kontraktusok, adattár, git-állapot; **nincs gitben** (minden futásnál változik) | Kézi szöveg | `preflight` / Stop-hook |
-| Hívási helyek (generált) | helyi, generált | `docs/callsites/` | A JEV-hívási helyek kérdései, küszöbei és a helyi hívásnapló statisztikája | Kézi szöveg | `python -m jav.cli docs` |
-| Folyamatleírás (generált) | kódtári | `docs/flows/<flow>/FLOW.md` | A gráf-kontraktusból generált lépések és ábra | Kézi szöveg | `python -m jav.cli flows` |
-| Teendőlista | belső | `docs/BACKLOG.md` | Az egyetlen prioritási sor, státusszal és tervazonosítóval | Indoklások hosszan (azok a tervbe kerülnek) | Minden lezárt feladatnál |
-| Döntésnapló | belső | `docs/DECISIONS.md` | A felhasználó döntései dátummal, csak bővül | Mérnöki javaslat döntésként | Minden felhasználói döntésnél |
-| Fogalomtár | kódtári | `docs/GLOSSARY.md` | Minden szakszó 1–3 mondatban, példával | Szinonimák halmozása | Új fogalom **előtt** |
-| Architektúra | kódtári | `docs/ARCHITECTURE.md` | Ami ténylegesen működik; a terv külön jelölve | Tervezett elem késznek feltüntetve | Szerkezeti változásnál |
-| Terv | belső | `docs/plans/NNN/PLAN.md` | Egy fejlesztési kör célja, szakaszai, kész-kritériumai | Nyers futásadat | Terv elfogadásakor és szakaszváltáskor (állapot sor) |
-| Jelentés | belső | `docs/reports/ÉÉÉÉ-HH-NN-<téma>.md` | Mérés, audit, értékelés következtetése; kiadási jegyzet | Utólag javított eredmény | Egyszer, lezáráskor |
-| Útmutató | kódtári | `docs/guides/<TÉMA>.md` | Hogyan csináljunk valamit (telepítés, fejlesztés, a felület használata: `USER_GUIDE.md`, a beállítófájlok: `CONFIGS.md`) | Állapot és mérési számok | Ha az eljárás, a felület vagy egy beállítófájl szerepe változik; új beállítófájlnál a `CONFIGS.md` is (teszt figyeli) |
-| Biztonsági leírás (071) | kódtári | `docs/SECURITY.md` | Mi védi a rendszert és az adatot, hol van személyes adat, mi van még nyitva | Kulcs, személyes adat, belső bizonyíték linkje | Ha védelem jön vagy változik |
-| Változáslista (071) | kódtári | `CHANGELOG.md` | A kiadások röviden, nyilvánosan is érthetően | Mérési részletek (azok a belső kiadási jegyzetbe kerülnek) | Minden kiadáskor |
-| Átadó | belső | `docs/handoffs/NNN-ÉÉÉÉ-HH-NN-handoff.md` | Session-lezárás: mi készült, döntések, következő lépés, commit | Önálló prioritási lista, kézzel másolt állapotszám | Session végén és szakasz lezárásakor |
+| Claude instructions | codebase | `CLAUDE.md` | Standing working rules, commands, structure and pitfalls for the model | Session state, dated progress, measured numbers | A working rule changes |
+| README | codebase | `README.md` | What this is, how to start it, what it can do **now**, where to go next; the list of codebase documents | Measurement history (that goes into reports) | A capability or the start-up changes |
+| Entry page | internal | `docs/INDEX.md` | Current plan, reading paths, list of internal material (plans, reports, historical documents) | A second backlog | A new plan, report or guide appears |
+| State snapshot (generated) | local, generated | `docs/STATE.md` | Config versions, contracts, store, git state; **not in git** (it changes on every run) | Hand-written text | `preflight` / Stop hook |
+| Call sites (generated) | local, generated | `docs/callsites/` | Questions and thresholds of the JEV call sites and the local call-log statistics | Hand-written text | `python -m jav.cli docs` |
+| Flow description (generated) | codebase | `docs/flows/<flow>/FLOW.md` | Steps and diagram generated from the graph contract | Hand-written text | `python -m jav.cli flows` |
+| Backlog | internal | `docs/BACKLOG.md` | The single priority list, with status and plan IDs | Long justifications (those go into the plan) | Every finished task |
+| Decisions log | internal | `docs/DECISIONS.md` | The owner's decisions with dates; append-only | Engineering proposals presented as decisions | Every owner decision |
+| Glossary | codebase | `docs/GLOSSARY.md` | Every technical term in 1–3 sentences with an example, plus its Hungarian equivalent | Piles of synonyms | **Before** a new term is used |
+| Architecture | codebase | `docs/ARCHITECTURE.md` | What actually works; planned parts clearly marked | Planned elements shown as finished | A structural change |
+| Plan | internal | `docs/plans/NNN/PLAN.md` | Goal, stages and done criteria of a development round | Raw run data | When accepted and at each stage change (status line) |
+| Report | internal | `docs/reports/YYYY-MM-DD-<topic>.md` | Conclusions of a measurement, audit or evaluation; release notes | Results corrected after the fact | Once, when closed |
+| Guide | codebase | `docs/guides/<TOPIC>.md` | How to do something (installation, development, using the UI: `USER_GUIDE.md`, the config files: `CONFIGS.md`) | Status and measured numbers | The procedure, the UI or the role of a config file changes; a new config file also updates `CONFIGS.md` (a test checks it) |
+| Security notes (071) | codebase | `docs/SECURITY.md` | What protects the system and the data, where personal data lives, what is still open | Keys, personal data, links to internal evidence | A protection is added or changed |
+| Changelog (071) | codebase | `CHANGELOG.md` | Releases in brief, understandable for the public | Measurement details (those go into the internal release notes) | Every release |
+| Handoff | internal | `docs/handoffs/NNN-YYYY-MM-DD-handoff.md` | Session close: what was done, decisions, next step, commit | An independent priority list, status numbers copied by hand | End of session and end of a stage |
 
-**Megszűnő fajta:** a `docs/CONTINUE_PROMPT_NNN.md` fájlok. A folytatás módját az átadó utolsó szakasza adja meg. A meglévő fájlok történeti anyagként megmaradnak.
+**Retired type:** the `docs/CONTINUE_PROMPT_NNN.md` files. The last section of the handoff says how to continue. Existing files remain as historical material.
 
-**Régi gyökérjelentések:** a `docs/*_2026-09-2x.md` fájlok nem költöznek, mert sok helyről hivatkoznak rájuk. A belépő oldal a „Történeti jelentések” alatt sorolja fel őket. Új jelentés már csak a `docs/reports/` alá kerül.
+**Old root-level reports:** the `docs/*_2026-09-2x.md` files do not move, because many places link to them. The entry page lists them under its historical reports heading. New reports go under `docs/reports/` only.
 
-## 3. Kötelező fejléc tervben és jelentésben
+## 3. Required header of plans and reports
+
+Plans and reports are internal working documents, so their header is in Hungarian:
 
 ```markdown
 # <Cím>
@@ -54,20 +63,20 @@ Eddig ugyanaz az állapot öt helyen is le volt írva (a Claude-utasításokban,
 3–5 mondat: cél · mit csináltunk · mit jelent · mi a döntés.
 ```
 
-Jelentésben ezután jön a **Bizonyíték** sor (nyers futás, bizonylat, commit), és az **Érvényességi határ**: mit nem állít a jelentés.
+In a report this is followed by an evidence line (raw run, receipt, commit) and a validity limit: what the report does not claim.
 
-## 4. Életciklus
+## 4. Life cycle
 
-- **Elavulás:** a régi dokumentum első sora alá egy mondat kerül: „Elavult: 2026-…, utódja: [link]”. A dokumentumot nem töröljük és tartalmilag nem írjuk át.
-- **Áthelyezés** csak linkellenőrzéssel történhet. A régi helyen marad egy egysoros hivatkozó fájl, ha oda sok link mutat.
-- **Terv állapota:** az `Állapot` mezőt a szakaszváltáskor frissítjük. A haladás részletei a teendőlistába kerülnek, nem a tervbe.
-- **Átadó:** a korábbiakat soha nem módosítjuk. Az átadó a commit hash-ét is megnevezi, amelyre vonatkozik.
+- **Superseded:** one sentence goes under the first line of the old document: "Superseded: 2026-…, successor: [link]" (in an internal document, in Hungarian). The document is neither deleted nor rewritten.
+- **Moving** a document requires a link check. If many links point to the old location, a one-line pointer file stays there.
+- **Plan status:** the status field is updated at each stage change. Progress details go into the backlog, not into the plan.
+- **Handoff:** earlier handoffs are never modified. A handoff names the commit hash it refers to.
 
-## 5. Session végi ellenőrzőlista
+## 5. End-of-session checklist
 
-1. Változott képesség? → README „mit tud most” szakasz.
-2. Lezárt feladat? → teendőlista státusza.
-3. Felhasználói döntés? → döntésnapló, átadó, memória.
-4. Új szakszó? → fogalomtár.
-5. Mérés? → jelentés a `docs/reports/` alá, benne a nyers futás helye.
-6. `python -m jav.cli preflight` zöld → commit (csak kódtári fájlok) → átadó a commit hash-ével (az átadó helyben marad, nem commitoljuk).
+1. Did a capability change? → the README's "what it can do now" section.
+2. Was a task finished? → its backlog status.
+3. Did the owner decide something? → decisions log, handoff, memory.
+4. A new technical term? → glossary.
+5. A measurement? → a report under `docs/reports/`, with the location of the raw run.
+6. `python -m jav.cli preflight` is green → commit (codebase files only) → handoff with the commit hash (the handoff stays local and is not committed).

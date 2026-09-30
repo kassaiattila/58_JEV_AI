@@ -1,364 +1,400 @@
-# Architektúra — a folyamat végponttól végpontig és a négy sík
+# Architecture — the end-to-end process and the five planes
 
-**Dátum:** 2026-09-27 (fejléc), átnézve 2026-09-30 (071, a leírások teljessége) · **Állapot:** a ténylegesen működő szerkezet leírása. A tervezett célszerkezet: 040 terv (belső: `plans/040/PLAN.md`) 3–6. pontja (munkacsomag, futtatás, teendő, riport; hat garancia). A dátumozott bekezdések a saját körük megállapításai. A 038-as garanciahatárokat a K1 (2026-09-27) rendezte a feldolgozón át futó útra; a régi parancssori mérési utak viselkedése változatlan (6. pont).
+**Date:** 2026-09-27 (header), reviewed 2026-09-30 (071, documentation completeness; 073, English version) · **Status:** describes the structure that actually works. The planned target structure is in sections 3–6 of the 040 plan (`plans/040/PLAN.md`, local, not in the repository): work package, run, to-do, report; six guarantees. Each dated paragraph records the findings of its own round. K1 (2026-09-27) settled the 038 guarantee boundaries for the path that runs through the worker; the old command-line measurement paths behave as before (section 6).
 
-**039, 2026-09-22 — tervezett rendezés:** célarchitektúra és migráció (belső: `plans/039/PLAN.md`). A `jav/` csomag megmarad, felelősség szerinti alcsoportokkal; közös runtime/provider/storage, iratos/levelezési/review/kimeneti modulok, vékony CLI/API és új UI. A régi DB/facade nem válik az új keret runtime-függőségévé. Ezek tervezett elemek voltak. Azóta (040–071) elkészült a futtatási réteg, a helyi szolgáltatás és a React-felület (6–8. pont); a `jav/` alcsoportokra bontása csak részben (`jav/runtime/`, `jav/adapters/`) történt meg.
+**039, 2026-09-22 — planned restructuring:** target architecture and migration (`plans/039/PLAN.md`, local, not in the repository). The `jav/` package stays, with sub-packages by responsibility: shared runtime/provider/storage; document, email, review and output modules; a thin CLI/API and a new UI. The old DB/facade does not become a runtime dependency of the new framework. These were planned elements. Since then (040–071) the execution layer, the local service and the React UI have been built (sections 6–8); `jav/` has been split into sub-packages only in part (`jav/runtime/`, `jav/adapters/`).
 
-**038, 2026-09-22 — a mai garanciák határa:** az alap `flow`, `flow_detect`, `flow_email` új UUID-s Burr-alkalmazása és trackerje nem azonos a kísérleti futtatók tartós folytatásával. A normál `extract_llm` hibás hívása nincs egységesen naplózva; a `TrialBudget` előzetes hívásszámot foglal, dollárban a már könyvelt költségnél áll le, nem a következő kérés maximális költségét foglalja. További reprodukált rések: intake-útvonal/bemenet/dedup, többokú review lezárás, részleges OCR lefedettségjelzése. A helyi OCR gyengeség esetén konfigurált Azure DI-eszkalációt is használhat, tehát az adatút nem csak OpenAI/JEV. Teljes értékelés és tervezett közösítés (belső: `FRAMEWORK_ASSESSMENT_2026-09-22.md`). Ebben a felmérésben runtime/config nem változott.
+**038, 2026-09-22 — the limits of today's guarantees:** the fresh-UUID Burr applications and trackers of the basic `flow`, `flow_detect` and `flow_email` are not the same as the durable resumption of the experimental runners. A failed call of the normal `extract_llm` is not logged consistently; `TrialBudget` reserves an up-front call count and stops in dollars at the cost already booked, instead of reserving the maximum cost of the next request. Further reproduced gaps: intake path/input/dedup, closing reviews with several reasons, and the coverage signal for partial OCR. When local OCR is weak, a configured Azure DI escalation can also be used, so the data path is not only OpenAI/JEV. Full assessment and planned consolidation: `FRAMEWORK_ASSESSMENT_2026-09-22.md` (local, not in the repository). No runtime or config changed in this assessment.
 
-**037, 2026-09-22:** `configs/capability_catalog.json` kapcsolja össze a típus- és intentregisztert, a nyolc számlacsomagot és 15 legacy csomagot. `jav/capability_catalog.py` a meglévő betöltőket használva determinisztikus, hívásmentes katalógust készít, effektív sémával, beágyazott mezőútvonalakkal, felismerési leírással, státusszal és forráshashekkel. A csomag megléte nem automatikus routing-bizonylat. Az új konfiguráció a szokásos `cfg` verzió-/hash-jelentésben is megjelenik. Részletek (belső: `CAPABILITY_CATALOG_2026-09-22.md`).
+**037, 2026-09-22:** `configs/capability_catalog.json` links the type and intent registries, the eight invoice packs and 15 legacy packs. `jav/capability_catalog.py` builds a deterministic catalogue without any calls, using the existing loaders, with the effective schema, nested field paths, the recognition description, status and source hashes. The existence of a pack is not automatic evidence for routing. The new config also appears in the usual `cfg` version/hash report. Details: `CAPABILITY_CATALOG_2026-09-22.md` (local, not in the repository).
 
-**036, 2026-09-22:** `jav/legacy_packs.py` hash-ellenőrzött régi csomagok szigorú Pydantic-sémáit állítja elő; `jav/legacy_validation.py` a régi validátor változatlan portja. `jav/legacy_runtime.py` a meglévő `flow_learning` gráf szolgáltatása (GPT-kivonat → kódos validálás + JEV mezőtámogatás → mentés), saját SQLite/Burr-állapottal és válasznaplóval. `jav/provider_generation.py` a típusos GPT-kimenetet a használati adatok feldolgozása előtt menti. Az öt regisztrált kontraktus változatlan, a 15 új csomag még explicit típusválasztású kísérlet. A külön `expansion_trial` e-mailpróbája tartós válaszbizonylatot használ, nem e-mailes Burr-gráfot. Eredmények és technikai határok (belső: `EXPANSION_2026-09-22.md`).
+**036, 2026-09-22:** `jav/legacy_packs.py` produces strict Pydantic schemas for the hash-checked legacy packs; `jav/legacy_validation.py` is an unchanged port of the old validator. `jav/legacy_runtime.py` is a service on top of the existing `flow_learning` graph (GPT extract → code validation + JEV field support → save), with its own SQLite/Burr state and response log. `jav/provider_generation.py` saves the typed GPT output before the usage data is processed. The five registered contracts are unchanged; the 15 new packs are still an experiment with explicit type selection. The separate `expansion_trial` email trial uses a durable response record, not an email Burr graph. Results and technical limits: `EXPANSION_2026-09-22.md` (local, not in the repository).
 
-**Kiegészítés, handoff 035:** `jav/matter_review.py` elkülönített Burr-kísérlet: GPT-döntés → független natív Pydantic AI/JEV-döntés → kódos összevetés. Saját SQLite-munkászár, immutable identitás, hívás előtti jelző és mentett válasz; félbemaradt hívást nem ismétel, végállapotot provider-függőség nélkül olvas vissza. Kizárólag jelölteket ad, nem ír üzemi ügykapcsolatot. A regisztrált kontraktusok száma továbbra is öt; a kereső és az emberi döntési felület portja nyitott. A minimális GPT-kontroll korábbi JEV-válaszokat használ, azoknak nem tulajdonít új hívást vagy költséget. Mért eredmény és hiányok (belső: `LEGACY_CAPABILITIES_AND_JEV_2026-09-22.md`).
+**Addendum, handoff 035:** `jav/matter_review.py` is an isolated Burr experiment: GPT decision → independent native Pydantic AI/JEV decision → comparison in code. It has its own SQLite work lock, an immutable identity, a pre-call marker and a saved response; it does not repeat an interrupted call, and reads back the final state without depending on a provider. It only produces candidates and writes no production case link. The number of registered contracts is still five; porting the search and the human decision UI is still open. The minimal GPT control reuses earlier JEV responses and does not attribute a new call or cost to them. Measured result and gaps: `LEGACY_CAPABILITIES_AND_JEV_2026-09-22.md` (local, not in the repository).
 
-**Kiegészítés, handoff 034:** a kísérleti `stack_trial.run_trial` a meglévő számlagráf G-karját is futtatja, külön generátorazonossággal és körre korlátozott `extract_llm.use_agent_factory` függőséggel. A `gpt_jev_comparison` a GPT után megáll, rögzíti a JEV nélküli alapváltozatot, majd ugyanonnan folytatja az eredeti ellenőrző ágat. Ez nem új gráf. A `claim_assessment.review_proposal` külön opcionális szerep-/állapottámogatási jeleket is őriz, az összesített válasz mellett; az 1.1.0 kísérleti kérdéskészlet külön konfigurációban van. Mért képesség és korlát (belső: `STACK_COMPARISON_2026-09-22.md`).
+**Addendum, handoff 034:** the experimental `stack_trial.run_trial` also runs the G path of the existing invoice graph, with a separate generator identity and an `extract_llm.use_agent_factory` dependency limited to the round. `gpt_jev_comparison` stops after GPT, records the baseline without JEV, then continues from the same point along the original verification branch. This is not a new graph. `claim_assessment.review_proposal` also keeps separate optional role/state support signals alongside the aggregated answer; the 1.1.0 experimental question set is in a separate config. Measured capability and limits: `STACK_COMPARISON_2026-09-22.md` (local, not in the repository).
 
-**Kiegészítés, handoff 032:** a `jav/claim_assessment.py` külön hívható állításvizsgálatot ad dokumentumos és e-mailes forrásokhoz: pontos forráscsomag → OpenAI értelmezés → önálló JEV szerep/állapot → JEV-javaslatellenőrzés → változatlan jelöltbizonylat. A saját válasznapló és SQLite-foglalás a meglévő tanulási futtató mintájára készül; ez önálló fájlos kísérlet, nem hatodik Burr-gráf. Minden eredmény `candidate_only`, `correctness=not_established`, kézi ellenőrzést igényel. Az állításazonosító nem üzleti entitásfeloldás. Próbamenet (belső: `CLAIM_ASSESSMENT_PLAN_2026-09-21.md`).
+**Addendum, handoff 032:** `jav/claim_assessment.py` provides a separately callable claim assessment for document and email sources: exact source bundle → OpenAI interpretation → standalone JEV role/state → JEV proposal check → unchanged candidate record. Its own response log and SQLite reservation follow the pattern of the existing learning runner; it is a standalone file-based experiment, not a sixth Burr graph. Every result is `candidate_only`, `correctness=not_established`, and needs manual review. The claim identifier is not business entity resolution. Trial: `CLAIM_ASSESSMENT_PLAN_2026-09-21.md` (local, not in the repository).
 
-**Irányadó eszközhasználat, 2026-09-21, módosított handoff 031:** az OpenAI és a JEV egyaránt engedélyezett, e-mailes feladatokhoz is. A keret mindkettő képességeire építhet, feladatonként mért munkamegosztással. Az alábbi meglévő gráfok leírása nem korlátozza az OpenAI-t kizárólag kivonatgenerálásra vagy a JEV-et minden értelmező döntés egyedüli eszközére. Forrásellenőrzés, külön elszámolás és kézi aktiválás megmarad; friss engedély (belső: `handoffs/031-2026-09-21-handoff.md`).
+**Guidance on tool use, 2026-09-21, amended in handoff 031:** OpenAI and JEV are both permitted, for email tasks as well. The framework can build on the capabilities of both, with a division of labour measured per task. The description of the existing graphs below neither restricts OpenAI to generating extracts nor makes JEV the only tool for every interpretive decision. Source checking, separate accounting and manual activation remain; the latest permission: `handoffs/031-2026-09-21-handoff.md` (local, not in the repository).
 
-**Kiegészítés, handoff 031:** ötödik, opt-in `email_learning` Burr-gráf (`jav/flow_email_learning.py`): alapválasz → forrásbejárás → forrásos intent → jelöltmentés. A `jav/source_evidence.py` a közös veszteségmentes darabolóból eredeti helyekkel ad automatikus forrásjelölteket; külön kezeli a bejárást és a kiválasztást. A teljes részbejáráson mért injekciójel nem veszhet el a végső részletválasztásnál. Saját válasznapló és folytatás: `jav/email_learning_runtime.py`; kézi nézet/címke/export: `jav/email_review.py`. A jelöltet nem aktiváljuk és nem nevezzük etalonnak. Az üzemi M3 és küszöbök változatlanok; mérés (belső: `EMAIL_LEARNING_2026-09-21.md`), [kontrakt](flows/email_learning/FLOW.md).
+**Addendum, handoff 031:** a fifth, opt-in `email_learning` Burr graph (`jav/flow_email_learning.py`): baseline answer → source scan → source-based intent → candidate save. `jav/source_evidence.py` produces automatic source candidates with their original positions from the shared lossless chunker; it handles scanning and selection separately. An injection signal measured over the full chunk scan must not be lost in the final excerpt selection. Its own response log and resumption: `jav/email_learning_runtime.py`; manual view/label/export: `jav/email_review.py`. Candidates are not activated and are not called a golden set. Production M3 and its thresholds are unchanged; measurement: `EMAIL_LEARNING_2026-09-21.md` (local, not in the repository), [contract](flows/email_learning/FLOW.md).
 
-**Kiegészítés, handoff 030:** a kísérleti `jav/evidence_learning.py` ugyanazon `document_learning` Burr-gráf elé illeszt legfeljebb 8000 karakteres, eredeti forráshelyekre visszavezethető részletcsomagot. A forrásrészek kijelölése explicit, nem automatikus keresés; a marker/átugrott rész nem forrásidézet. Az általános ellenőrző opcionális mezőformátum-kaput és alapból kikapcsolt, egyedi pontos környezetbővítést kapott. A helyi bizonylat, a kiválasztott környezetre érvényes támogatás és a nem megállapított dokumentumhelyesség külön marad. Élő próba és korlátok (belső: `LONG_DOCUMENT_TRIAL_2026-09-21.md`). Üzemi gráf, küszöb és típuskészlet nem változott.
+**Addendum, handoff 030:** the experimental `jav/evidence_learning.py` puts an excerpt bundle of at most 8000 characters, traceable to the original source positions, in front of the same `document_learning` Burr graph. Source excerpts are chosen explicitly, not by automatic search; a marker or a skipped part is not a source quotation. The general verifier gained an optional field-format gate and a unique exact-context expansion that is off by default. The local record, the support valid for the selected context and the unestablished correctness of the document are kept separate. Live trial and limits: `LONG_DOCUMENT_TRIAL_2026-09-21.md` (local, not in the repository). No production graph, threshold or type set changed.
 
-**Kiegészítés, handoff 027:** a három meglévő üzleti gráf mellett új, kísérleti `document_learning` gráf fut (`jav/flow_learning.py`, `jav/learning_runtime.py`): explicit generáló modell vagy importált javaslat → JEV → változatlan bizonylat. JSON-állapotot, tartós SQLite Burr-mentést, saját külsőválasz-naplót és munkakönyvtárankénti kizáró foglalást használ. A három régi gráf nem változott; a teljes típusfelismerési/beérkeztetési útba ez még nincs bekötve. [Kontrakt](flows/document_learning/FLOW.md), mérés és korlátok (belső: `LEARNING_FLOW_TRIAL_2026-09-21.md`).
+**Addendum, handoff 027:** alongside the three existing business graphs, a new experimental `document_learning` graph runs (`jav/flow_learning.py`, `jav/learning_runtime.py`): explicit generating model or imported proposal → JEV → unchanged record. It uses JSON state, durable SQLite Burr persistence, its own external-response log and an exclusive reservation per working directory. The three old graphs did not change; the new graph is not yet wired into the full type-recognition/intake path. [Contract](flows/document_learning/FLOW.md), measurement and limits: `LEARNING_FLOW_TRIAL_2026-09-21.md` (local, not in the repository).
 
-**Felhasználói pontosítás, 2026-09-21, handoff 022:** az eredeti fő cél az általános AI-flow-keretrendszer és a JEV–Pydantic AI–Burr összeállítás hatékonyságának, megbízhatóságának mérése. A tanítható dokumentumfeldolgozás kiegészítő cél; a két irány együtt halad. A közös forrás- és szerkezetellenőrző képességek mindkettőt szolgálják.
+**Owner's clarification, 2026-09-21, handoff 022:** the original main goal is to measure the efficiency and reliability of a general AI-flow framework and of the JEV–Pydantic AI–Burr combination. Teachable document processing is a complementary goal; the two directions advance together. The shared source- and structure-checking capabilities serve both.
 
-**Célbővítés, 2026-09-21:** ismert típusnál verziózott feldolgozási recept, ismeretlennél általános adatpont-javaslat és forrásellenőrzés. A részletes terv (belső: `DOCUMENT_LEARNING_2026-09-21.md`) megkülönbözteti a célállapotot és a már elkészült, kísérleti JEV-forráskeresőt; az alábbi meglévő gráfok még nem valósítják meg ezt a teljes utat.
+**Goal extension, 2026-09-21:** for a known type, a versioned processing recipe; for an unknown one, general data-point proposals and source checking. The detailed plan (`DOCUMENT_LEARNING_2026-09-21.md`, local, not in the repository) separates the target state from the experimental JEV source finder that already exists; the existing graphs below do not yet implement this full path.
 
-Kézzel írt leírás (2026-09-20 óta bővítve). A generált részek: a gráfok `docs/flows/<flow>/FLOW.md` (kódtári), a
-Jev-hívási helyek katalógusa és az állapot-pillanatkép (helyi, generált: `python -m jav.cli docs`, `admin --write`).
-Terv és cél: az útiterv (belső: `ROADMAP.md`); mért eredmények: a jelentések (belső: `reports/`); szabályok:
-`CLAUDE.md`; teendők és döntések: a teendőlista és a döntésnapló (belső: `BACKLOG.md`, `DECISIONS.md`); a
-Jev-lehetőségek: `docs/JEV_PLAYBOOK.md`; a biztonság: `docs/SECURITY.md`; a beállítófájlok: `docs/guides/CONFIGS.md`.
+A hand-written description (extended since 2026-09-20). The generated parts: the graphs' `docs/flows/<flow>/FLOW.md` (in the repository), and the JEV call-site catalogue and the state snapshot (local, generated: `python -m jav.cli docs`, `admin --write`).
+Plan and goals: the roadmap (`ROADMAP.md`, local, not in the repository); measured results: the reports (`reports/`, local, not in the repository); rules:
+`CLAUDE.md`; to-dos and decisions: the backlog and the decisions log (`BACKLOG.md`, `DECISIONS.md`, local, not in the repository);
+JEV capabilities: `docs/JEV_PLAYBOOK.md`; security: `docs/SECURITY.md`; config files: `docs/guides/CONFIGS.md`.
 
-**Mi ez (2026-09-20-i cél):** egy általános, többnyelvű dokumentum- és e-mail-feldolgozó **AI-flow-keretrendszer**
-(Burr + Pydantic + sidecar + Jev), amelyben a flow-k példányok, a keret-réteg (adapter, regiszter-séma, hívási
-hely-séma, policy-séma, eval, store, kontrakt, bemenet-illesztők) közös. Az alábbi folyamat a három referencia-flow-t
-mutatja (M1 kategorizálás, M2 magyar számla két karral, M3 e-mail szándék); egy új flow ugyanezekre a síkokra ül rá
-(belső: `ROADMAP.md` §10).
+**What this is (goal as of 2026-09-20):** a general, multilingual document- and email-processing **AI-flow framework**
+(Burr + Pydantic + sidecar + JEV) in which the flows are instances and the framework layer (adapter, registry schema,
+call-site schema, policy schema, eval, store, contract, input adapters) is shared. The process below shows the three
+reference flows (M1 document type recognition, M2 Hungarian invoice with two paths, M3 email intent); a new flow sits on the same
+planes (`ROADMAP.md` §10, local, not in the repository).
 
-## 1. A folyamat egy levéltől a döntésig
+## 1. The process from an email to a decision
 
 ```
-asztali Outlook ──(régi 10_AIFLOW_V4/scripts/outlook_bridge.ps1, csak olvas)──► POST /ingest/email
-      │                                                                              │
-      │ csatolmány-fájlok a régi data/inbox/email/<acct>/<eid>/ alá                   ▼
-      │                                                            jav/ingest_server.py (a bridge protokollja)
-      │                                                                              │ message.json
-      ▼                                                                              ▼
- inbox/<mailbox>/<msgid>/  ─────────────────────────────►  M3 email_intent gráf (jav/flow_email.py)
-                                                              load_message → classify_attachments → intent → route → save
-                                                                                   │                    │        │
-                                                     PDF-enként az M1 gráf ◄───────┘                    │        └─► store.emails + review_queue
-                                                     (jav/flow_detect.py)                               │
-                                                     load_pdf → detect → save                           ▼
-                                                              │  Jev: doc_type + issuer_hu + language   policy.email_next_flow (kód)
-                                                              ▼                                          │
-                                                        store.documents                                  ▼
-                                                                                    m2:<típus> · m1:detect · human:* · archive*
- mappa-korpusz (913 PDF) ──► detect-corpus ──► M1 gráf dokumentumonként ──► store.documents (típus × év riport)
+ Settings → Mailboxes: download now, or a schedule (section 11)
+        │
+        ▼
+ worker: jav/mailbox.py fetch (starts the temporary receiver below)
+        │
+        ▼
+ scripts/mail_bridge_call.ps1
+        │
+        ▼
+ old 10_AIFLOW_V4/scripts/outlook_bridge.ps1 (unchanged; reads desktop Outlook, read-only; -RepoRoot inbox/.bridge)
+        │
+        ├─► attachment files: inbox/.bridge/data/inbox/email/<acct>/<eid>/
+        │
+        │ POST /ingest/email
+        ▼
+ jav/ingest_server.py: temporary receiver on a free port, one-time key (the bridge protocol)
+        │
+        ▼
+ inbox/<mailbox>/<msgid>/message.json (points to the attachment files)
+        │
+        ▼
+ work package with the email-intent recipe (a person starts the paid run; the worker runs it)
+        │
+        ▼
+ M3 email_intent graph (jav/flow_email.py)
+ load_message → classify_attachments → intent → route → tasks → save
+                         │                        │              │
+                         │                        │              └─► store.emails + email_results + review_queue
+                         │                        ▼
+                         │            policy.email_next_flow (code) ──► m2:<type> · m1:detect · human:* · archive*
+                         ▼
+ M1 graph for each PDF (jav/flow_detect.py)
+ load_pdf [→ ocr_pdf] → detect → save ──► store.documents
+                        JEV: doc_type + issuer_hu + language (+ the detailed type since 047)
 
- store.documents[invoice_hu | invoice_foreign] ──► M2 invoice gráf (jav/flow.py; a típus-csomag configs/types/<típus>.json adja a mezőket, kérdéseket, promptot, validátorokat), két kar egy gráfban:
-     S: find_candidates (kód) → jev_select (Jev Choice, 3 kötegelt kérés) → normalize_picks
-     G: extract_llm (gpt, Pydantic AI) → jev_verify (kód-evidencia + Jev Noul fan-out) → normalize_llm
-     mindkettő → validate (kód) → decide_route (policy) → save → done | needs_review
+ folder corpus (913 PDFs) ──► detect-corpus ──► M1 graph per document ──► store.documents (type × year report)
+
+ store.documents (a type with a type pack; since 047 the detailed type) ──► M2 invoice graph (jav/flow.py; the type pack
+ configs/types/<type>.json supplies the fields, questions, prompt and validators), two paths in one graph:
+     load_pdf [→ ocr_pdf], then
+     S: find_candidates (code) → jev_select (JEV Choice, 3 batched requests) → normalize_picks
+     G: extract_llm (gpt, Pydantic AI) → jev_verify (code evidence + JEV Noul fan-out) → normalize_llm
+     both → validate (code) → decide_route (policy) → ground (code, 045) → save → done | needs_review
 ```
 
-A **golden-hurok** minden flow-nál ugyanaz: golden-készlet (régi projektből hivatkozva, PII marad ott) → futás
-cache-sel (a kérés-hash miatt $0) → riport (`runs/*.jsonl` + Markdown) → eltérés-elemzés a nyers futásból →
-általános szabály (konfig-változás verzió-lépéssel) → újrafuttatás → determinizmus-mérés cache nélkül. Az élő
-adatból kézi címkéző lista (`*_manual_sample.md`) → saját golden (`golden_labels`).
+Since 058 (K5.2) each PDF attachment is also an item of the email's work package and gets the full document processing
+(M1 + M2, section 10). The email input can still be driven by hand: an old bridge started without `-RepoRoot` posts to
+`python -m jav.cli email-ingest-server` and keeps its attachments under the legacy project's `data/inbox/email/<acct>/<eid>/`;
+the receiver resolves both attachment roots (`jav/ingest_server.py` `host_path`), and `email-inbox inbox/` then runs M3.
 
-## 2. A négy sík
+The **golden loop** is the same for every flow: golden set (referenced from the legacy project; the PII stays there) → run
+with the cache ($0 thanks to the request hash) → report (`runs/*.jsonl` + Markdown) → discrepancy analysis from the raw
+run → general rule (config change with a version bump) → rerun → determinism measurement without the cache. From live
+data: a manual labelling list (`*_manual_sample.md`) → our own golden set (`golden_labels`); manual labelling is
+currently postponed.
 
-| sík | mi | hol | vezérlés |
+## 2. The five planes
+
+| Plane | What | Where | Control |
 |---|---|---|---|
-| **Flow** (Burr) | öt gráf: a három referencia-flow és a két tanulási ág; `@action.pydantic` tipizált állapot, `run_id` = app_id, lokális tracker | `jav/flow.py`, `flow_detect.py`, `flow_email.py`, `flow_learning.py`, `flow_email_learning.py`; `CONTRACT` mindegyik végén | `python -m jav.cli flows` lint + FLOW.md; tracker UI `burr` |
-| **Döntés** (Jev + gpt) | a Jev-hívási helyek családjai: detect és detect_detail, email_intent, select (magyar, külföldi, közmű), verify (típusonként) — fájlonként a `configs/callsites/` alatt; két generatív lépés: a G-kar kivonatolója (extract_llm) és a levelek feladatjavaslata (`configs/email_tasks.json`); az adapter (`jav/adapters/jev.py`) a konkrét modellverziót teszi a cache-kulcsba, RetryPolicy-val hív, SDK-hibát `JevUnavailableError`-ként ad tovább | kérdéskészlet `configs/callsites/*.json`, regiszterek `configs/doc_types.json`, `intents.json`; kód: `jav/detect.py`, `intent.py`, `jev_select.py`, `jev_verify.py`, `extract_llm.py` | `configs` (verzió, hash), `docs/callsites/` katalógus, sávok és útvonalak `configs/policy.json` (`bands` / `band_for`, `jav/policy.py`) |
-| **Adat** (SQLite) | documents · datapoints · emails · review_queue · ledger · golden_labels; 040 óta a munkacsomagok, futások, munkasor, teendő-okok, hívásnapló, levél-eredmények, postafiók- és figyeltmappa-táblák (teljes lista: `python -m jav.cli store`); a folyamatállapot külön tárban (`store/burr_state.sqlite`) | `store/jav.sqlite`, `jav/store.py` (additív migráció) | `store` statisztika; a ledger minden AI-hívást `config_hash`-sel és hiba esetén `error`-ral rögzít |
-| **Mérés** (eval) | flow-független ítélet-lista a nyers futásokból: pontosság és sáv kérdésenként, kalibráció (ECE), top-prob vs. conf, policy-újraértékelés hívás nélkül, determinizmus | `jav/eval_report.py` (bemenet `runs/*.jsonl`), a flow-specifikus futtatók `jav/evals*.py` | `eval-report` → `runs/<idő>_eval_report.md`; golden / determinism parancsok flow-nként |
-| **Adminisztráció** | konfig-verziók és hash-ek, modellek és árak, lint, golden-eredmények, review-sor; session-szabályok és hookok | `jav/cfg.py`, `configs/models.json`, `jav/admin.py`, `CLAUDE.md`, `.claude/settings.json`, `scripts/hooks/` | `admin` egy képernyőn; hookok: handoff-betöltés, compact-figyelmeztetés, Stop-emlékeztető (2026-09-27 óta nem blokkol), handoff-review (Fable) |
+| **Flow** (Burr) | five graphs: the three reference flows and the two learning branches; `@action.pydantic` typed state, `run_id` = app_id, local tracker | `jav/flow.py`, `flow_detect.py`, `flow_email.py`, `flow_learning.py`, `flow_email_learning.py`; a `CONTRACT` at the end of each | `python -m jav.cli flows` lint + FLOW.md; tracker UI `burr` |
+| **Decision** (JEV + GPT) | the families of JEV call sites: detect and detect_detail, email_intent, select (Hungarian, foreign, utility), verify (per type) — one file each under `configs/callsites/`; two generative steps: the G path's extractor (extract_llm) and the email task proposals (`configs/email_tasks.json`); the adapter (`jav/adapters/jev.py`) puts the concrete model version into the cache key, calls with a RetryPolicy and passes SDK errors on as `JevUnavailableError` | question sets `configs/callsites/*.json`, registries `configs/doc_types.json`, `intents.json`; code: `jav/detect.py`, `intent.py`, `jev_select.py`, `jev_verify.py`, `extract_llm.py` | `configs` (version, hash), the `docs/callsites/` catalogue (local, generated, not in the repository), bands and routes in `configs/policy.json` (`bands` / `band_for`, `jav/policy.py`) |
+| **Data** (SQLite) | documents · datapoints · emails · review_queue · ledger · golden_labels; since 040 also the tables for work packages, runs, the job queue, to-do reasons, the call log, email results, mailboxes and watched folders (full list: the `CREATE TABLE` statements in `jav/store.py`, `jav/work.py`, `jav/runtime/queue.py`, `jav/runtime/calls.py`, `jav/mailbox.py`, `jav/app_settings.py`, `jav/corrections.py`, `jav/source_layer.py` and `jav/legacy_import.py`); the process state lives in a separate store (`store/burr_state.sqlite`) | `store/jav.sqlite`, `jav/store.py` (additive migration) | `store` statistics (row counts of the core tables); the ledger records every AI call with its `config_hash` and, on failure, an `error` |
+| **Measurement** (eval) | flow-independent list of judgements from the raw runs: accuracy and band per question, calibration (ECE), top-prob vs. conf, policy re-evaluation without calls, determinism | `jav/eval_report.py` (input `runs/*.jsonl`), the flow-specific runners `jav/evals*.py` | `eval-report` → `runs/<time>_eval_report.md`; golden / determinism commands per flow |
+| **Administration** | config versions and hashes, models and prices, lint, golden results, review queue; session rules and hooks | `jav/cfg.py`, `configs/models.json`, `jav/admin.py`, `CLAUDE.md`, `.claude/settings.json`, `scripts/hooks/` | `admin` on one screen; hooks: handoff loading, compact warning, Stop reminder (non-blocking since 2026-09-27), handoff review (Fable) |
 
-## 3. Hol dől el mi — a döntési hierarchia a gyakorlatban
+## 3. Where each decision is made — the decision hierarchy in practice
 
-1. **Kód** (determinisztikus, tesztelt): jelöltkeresők, validátorok, törzs-tisztítás, anchor-feature-ök, evidencia-illesztés,
-   `next_flow`, review-latch. Ez a mechanizmus.
-2. **Jev** (ítélet véges opciók fölött): választási, jelenlét- és ellenőrző lépések egyik eszköze. Egy hívási hely = egy JSON konfig
-   + egy `build_state` + egy `build_questions` + egy `jev.ask(...)` az adapteren. Nyers valószínűség a state-ben,
-   küszöb csak a `policy.json`-ban: nevesített sáv-készlet hívási helyenként (`band_for`), Noul no / uncertain / yes,
-   Choice auto / uncertain / human (conf-küszöb + második-opció rés); az `uncertain` sáv csak `uncertain_review: true`
-   mellett review-ok. A kérés-hash cache miatt ugyanaz a (konkrét modellverzió, state, kérdések) → ugyanaz a válasz
-   $0-ért; az alias (`jev-latest`) szondával oldódik fel (`runs/cache/_model_versions.json`, 24 h TTL). Ha a Jev az
-   SDK újrapróbálkozásai után sem válaszol, az adapter ledgerel (`error`) és `JevUnavailableError`-t ad; a flow-k ezt
-   `jev_unavailable:<ok>` review-okká alakítják (M1/M3 `final_status = jev_unavailable`), nem dőlnek el.
-3. **OpenAI, Pydantic AI-illesztéssel**: a meglévő G-kar és a dokumentumtanulási ág strukturált javaslatokat készít, majd forrásellenőrzést alkalmaz. További értelmező, besoroló és ellenőrző szerepek is engedélyezettek; az új munkamegosztást célzott mérés alapján kell beépíteni. A Burr-állapotok sima Pydantic modellek, nem Pydantic AI.
-4. **OCR-lánc (2026-09-20, B5 első fele)**: `jav/ocr.py` + `configs/ocr.json` — szöveg nélküli PDF → oldalkép (pypdfium2,
-   300 dpi) → tesseract szó-dobozok (natív tesseract a gépen, a magyar + angol nyelvcsomag a régi sidecar Docker-képéből
-   `tools/tessdata`; tartalék: a régi sidecar-kép `docker run`-nal) → ugyanaz a sor- / cella-építő, mint a szövegrétegnél
-   (`jav/pdf.py: build_layout`). Külön gráf-lépés (`ocr_pdf`) az M1 és M2 gráfban, lemez-gyorsítótár `runs/ocr/`,
-   minőségjelek nyersen a state-ben, küszöbök a `policy.json` `ocr` blokkjában. A régi sidecar többi része (torch, matcher,
-   Azure DI) továbbra sincs itt; nehéz függőség csak sidecar mögé kerülhet.
+1. **Code** (deterministic, tested): candidate finders, validators, body cleaning, anchor features, evidence matching,
+   `next_flow`, the review latch. This is the mechanism.
+2. **JEV** (judgement over a finite set of options): one of the tools for selection, presence and verification steps. One call site = one JSON config
+   + one `build_state` + one `build_questions` + one `jev.ask(...)` through the adapter. Raw probability goes into the state,
+   thresholds only into `policy.json`: a named band set per call site (`band_for`), Noul no / uncertain / yes,
+   Choice auto / uncertain / human (confidence threshold + gap to the second option); the `uncertain` band triggers review only
+   with `uncertain_review: true`. Because of the request-hash cache, the same (concrete model version, state, questions) gives the same answer
+   for $0; the alias (`jev-latest`) is resolved with a probe (`runs/cache/_model_versions.json`, 24 h TTL). If JEV still
+   does not answer after the SDK retries, the adapter writes a ledger entry (`error`) and raises `JevUnavailableError`; the flows turn this
+   into a `jev_unavailable:<reason>` review (M1/M3 `final_status = jev_unavailable`) instead of crashing.
+3. **OpenAI, through Pydantic AI**: the existing G path and the document-learning branch produce structured proposals and then apply source checking. Further interpreting, classifying and verifying roles are also permitted; any new division of labour must be built in on the basis of targeted measurement. The Burr states are plain Pydantic models, not Pydantic AI.
+4. **OCR pipeline (2026-09-20, first half of B5)**: `jav/ocr.py` + `configs/ocr.json` — PDF without text → page image (pypdfium2,
+   300 dpi) → tesseract word boxes (native tesseract on the machine; the Hungarian + English language packs taken from the old sidecar's Docker image
+   into `tools/tessdata`; fallback: the old sidecar image via `docker run`) → the same line/cell builder as for the text layer
+   (`jav/pdf.py: build_layout`). A separate graph step (`ocr_pdf`) in the M1 and M2 graphs, a disk cache in `runs/ocr/`,
+   raw quality signals in the state, thresholds in the `ocr` block of `policy.json`. The rest of the old sidecar (torch, the matcher)
+   has not been ported; Azure DI is not reimplemented here either: when local OCR is weak, `ocr_with_escalation` reaches it through the
+   old sidecar (paid). Heavy dependencies may only go behind a sidecar.
 
-## 4. Hangolás és változtatás — a rend
+## 4. Tuning and changes — the procedure
 
-| változtatás | hol | mi követi |
+| Change | Where | What follows |
 |---|---|---|
-| típus- vagy szándék-leírás (`what`), határ (`not_for`), példa (`examples`), család (`parent`) | `configs/doc_types.json` / `intents.json` (séma v2), `meta.version` léptetés + changelog | `detect-golden` / `email-golden` (új hash → élő hívások), `detect-determinism` / `email-determinism`; `eval-report` (szülő-címke szakasz); `docs` regenerálás |
-| Jev-instrukció, Noul-kérdés | `configs/callsites/<hely>.json` | ugyanaz; a helyi, generált hívásihely-katalógus mutatja a verziónkénti statisztikát |
-| sáv, küszöb, útvonal | `configs/policy.json` (`bands`, `band_for`, útvonalak) | nem kell újrafuttatni: `eval-report` a nyers futásokból (`runs/*.jsonl`) mutatja, hány eset váltana sávot |
-| modell, ár, timeout, retry, cache-verzió, alias-TTL | `configs/models.json` | a `cache_version` léptetése minden cache-kulcsot érvénytelenít; a modellverzió-váltás (szonda) magától új kulcsot ad |
-| gráf-lépés | flow-modul + `CONTRACT` | `flows` lint + FLOW.md |
-| kód (regex, tisztító, validátor) | `jav/*.py` + teszt (TDD) | `pytest`, `recall`, golden |
+| type or intent description (`what`), boundary (`not_for`), example (`examples`), family (`parent`) | `configs/doc_types.json` / `intents.json` (schema v2), bump `meta.version` + changelog | `detect-golden` / `email-golden` (new hash → live calls), `detect-determinism` / `email-determinism`; `eval-report` (parent-label section); regenerate `docs` |
+| JEV instruction, Noul question | `configs/callsites/<callsite>.json` | the same; the local, generated call-site catalogue shows the statistics per version |
+| band, threshold, route | `configs/policy.json` (`bands`, `band_for`, routes) | no rerun needed: `eval-report` shows from the raw runs (`runs/*.jsonl`) how many cases would change band |
+| model, price, timeout, retry, cache version, alias TTL | `configs/models.json` | bumping `cache_version` invalidates every cache key; a model-version change (detected by the probe) produces a new key by itself |
+| graph step | flow module + `CONTRACT` | `flows` lint + FLOW.md |
+| code (regex, cleaner, validator) | `jav/*.py` + test (TDD) | `pytest`, `recall`, golden |
 
-Csapdák: a `use_cache=False` futás **frissíti** a cache-fájlt (referencia-frissítés), kivéve a determinizmus-mérést,
-amely `JevAdapter.no_cache_write()` alatt fut (2026-09-20-tól): olvasás és írás nélkül, a referencia-válasz érintetlen.
-A régi inbox-mappák csak csatolmányt tartalmaznak; a Choice-kritérium bármely változása új cache-kulcs. A cache-kulcsban
-2026-09-20-tól a konkrét modellverzió van (a `cache_version` 2-re lépett vele együtt): egy fully-cached golden-futás is
-igényel egy szondát naponta (API-kulcs kell; offline a fájlban lévő feloldás marad, figyelmeztetéssel).
+Pitfalls: a `use_cache=False` run **updates** the cache file (it refreshes the reference), except for the determinism measurement,
+which runs under `JevAdapter.no_cache_write()` (since 2026-09-20): no reads and no writes, so the reference answer stays untouched.
+The old inbox folders contain attachments only; any change to a Choice criterion means a new cache key. Since 2026-09-20 the cache
+key contains the concrete model version (`cache_version` went to 2 at the same time): even a fully cached golden run
+needs one probe a day (an API key is required; offline, the resolution stored in the file is used, with a warning).
 
-## 5. Amit a Claude-nak tudnia kell a hatékony fejlesztéshez
+## 5. What Claude needs to know to develop efficiently
 
-- Session-protokoll és handoff: `CLAUDE.md` §2; a hookok kényszerítik (SessionStart / PreCompact / Stop / handoff-review).
-  Session-indítás: `python -m jav.cli preflight` (pytest + lint + konfigok + handoff-frissesség + adatőr + a helyi
-  állapotoldal), majd a teljes handoff (a hook betölti), a teendőlista és a döntésnapló (belső: `BACKLOG.md`,
-  `DECISIONS.md`). Az állapot-számokat sehova ne másold kézzel: a generált állapotoldalra hivatkozz. Handoff a sablon
-  szerint (belső: `handoffs/TEMPLATE.md`).
-- Jev-kérdés tervezése: `docs/JEV_PLAYBOOK.md` (a doksi tényei, rés-elemzés hívási helyenként, checklist).
-- Új Jev-kérdés: konfig-JSON + `build_questions` (regiszter-hivatkozás `registry:<név>`), a `docs.typesafe.ai` cookbook, teszt
-  a `tests/test_cfg.py` mintájára, golden-futás előtte-utána.
-- Új flow: modul + `CONTRACT` + `TERMINALS` + `build_app` (tracker-projekt a `models.json`-ban) + lint + golden-futtató az
-  `evals_*.py` mintájára; a flow soha nem importál SDK-t, csak az adaptert.
-- Előbb a régi projektben keress (`CLAUDE.md` §3), és a döntést mondd ki a handoffban.
+- Session protocol and handoff: `CLAUDE.md` §2; the hooks back it up (SessionStart / PreCompact / Stop / handoff review).
+  Session start: `python -m jav.cli preflight` (pytest + UI checks + contract lint + configs + handoff freshness + git
+  state + data guard + language guard + Ruff ratchet + the local state snapshot), then the full handoff (the hook loads it),
+  the backlog and the decisions log (`BACKLOG.md`, `DECISIONS.md`, local, not in the repository). Never copy state numbers
+  anywhere by hand: refer to the generated state snapshot. Handoffs follow the template (`handoffs/TEMPLATE.md`, local, not
+  in the repository).
+- Designing a JEV question: `docs/JEV_PLAYBOOK.md` (facts from the docs, gap analysis per call site, checklist).
+- A new JEV question: config JSON + `build_questions` (registry reference `registry:<name>`), the `docs.typesafe.ai` cookbook, a test
+  modelled on `tests/test_cfg.py`, a golden run before and after.
+- A new flow: module + `CONTRACT` + `TERMINALS` + `build_app` (tracker project in `models.json`) + lint + a golden runner
+  modelled on `evals_*.py`; a flow never imports an SDK, only the adapter.
+- Search the legacy project first (`CLAUDE.md` §3), and state the decision in the handoff.
 
-## 6. Futtatási réteg: munkacsomag → futás → feldolgozó (040 K1, 2026-09-27)
+## 6. Execution layer: work package → run → worker (040 K1, 2026-09-27)
 
-**Laikus összefoglaló.** Az iratok munkacsomagba kerülnek, a csomaghoz recept tartozik, és a futás egy tartós
-munkasoron át, a háttérben megy végig. Minden fizetős hívás előtt bejegyzés és költségfoglalás készül. Leállás után a
-futás a mentett lépéstől folytatódik, a már kifizetett hívás nem ismétlődik. Teendőt okonként lehet rendezni, és az
-éles futást csak nyitott teendő nélkül lehet jóváhagyni.
+**Plain-language summary.** Documents go into a work package, the package gets a recipe, and the run goes through a
+durable job queue in the background. Before every paid call, an entry is written and the cost is reserved. After a stop,
+the run resumes from the saved step, and a call that has already been paid for is not repeated. To-dos can be resolved
+reason by reason, and a live run can only be approved when it has no open to-dos.
 
 ```mermaid
 flowchart LR
-  CLI[parancssor: wp-*, run-*, worker] --> WORK[jav/work.py<br/>munkacsomag, recept, készenlét, futás]
-  WORK --> Q[jav/runtime/queue.py<br/>munkasor]
-  W[jav/runtime/worker.py<br/>feldolgozó] --> Q
-  W --> FLOW[Burr-folyamat<br/>flow / flow_detect + állapotmentő]
-  FLOW --> CALLS[jav/runtime/calls.py<br/>hívásnapló + keret]
+  CLI[command line: wp-*, run-*, worker] --> WORK[jav/work.py<br/>work package, recipe, readiness, run]
+  WORK --> Q[jav/runtime/queue.py<br/>job queue]
+  W[jav/runtime/worker.py<br/>worker] --> Q
+  W --> FLOW[Burr process<br/>flow / flow_detect + state persister]
+  FLOW --> CALLS[jav/runtime/calls.py<br/>call log + budget]
   CALLS --> JEV[adapters/jev.py]
   CALLS --> GPT[extract_llm.py]
-  FLOW --> REV[store: review_reasons<br/>okonkénti teendő]
+  FLOW --> REV[store: review_reasons<br/>to-dos per reason]
 ```
 
-| Réteg | Fájl | Garancia | Teszt |
+| Layer | File | Guarantee | Test |
 |---|---|---|---|
-| Munkacsomag, recept, futás | `jav/work.py`, `configs/recipes.json` | verzióütközés → `RevisionConflict`; készenlét-akadályok; rögzített bemenet; idempotens indítás; jóváhagyás csak éles módban, nyitott teendő nélkül | `tests/test_work.py` |
-| Munkasor | `jav/runtime/queue.py` | dedup-kulcs, foglalás, próbálkozás + várakozás → `dead`, visszaengedés, leállítás, induláskori árvafoglalás-kezelés (a V4 `jobq.py` mintája) | `tests/test_runtime_queue.py` |
-| Hívásnapló, keret | `jav/runtime/calls.py` | foglalás a hálózat előtt; sikertelen hívás is naplózva; ismeretlen költség lekötve; bizonytalan kísérlet nem ismétlődik; sikeres lépés visszajátszása | `tests/test_runtime_calls.py`, `tests/test_runtime_adapters.py` |
-| Feldolgozó | `jav/runtime/worker.py` | stabil azonosító + Burr-állapotmentés (`burr_state.sqlite` az adattár mellett); folytatás a következő lépéstől; leállítás lépéshatáron; megváltozott forrás elutasítva | `tests/test_runtime_worker.py`, `tests/test_work_cli.py` |
-| Teendők | `jav/store.py` `review_reasons` | okonkénti felvétel és zárás felvevő lépés szerint; emberi döntés szerzővel | `tests/test_review_reasons.py` |
-| Részleges OCR | `jav/policy.py` `ocr_coverage_reasons` | kihagyott oldal = mindig teendő | `tests/test_ocr_coverage.py` |
-| Levélfogadó | `jav/ingest_server.py`, `jav/emails.py` | gyökéren belüli útvonalak, méret- és szerkezetkorlát, kötelező kulcs (066 óta; nélküle induláskor egyszeri kulcsot ír ki), böngészőből érkező kérés elutasítva, tartalomhash-es ismétlésvédelem | `tests/test_ingest_security.py` |
-| Üzemi védőháló (063) | `jav/runtime/worker.py`, `jav/runtime/queue.py`, `jav/mailbox.py`, `jav/app_settings.py`, `jav/work.py` | a feldolgozó hurok váratlan hibán nem áll le (a feladat lezárul, a hiba naplózva); az árva feladat legfeljebb 3-szor indul újra, utána halott, a leállás alatt kért leállítás induláskor lezárul; a félbemaradt futásindítás ismétléskor pótlódik, és addig nem „kész”; a megszakadt levélletöltés megérkezett levelei csomagba kerülnek; a figyelt mappa a fájlt csak sikeres felvétel után jelöli látottnak, egy mappát egyszerre egy folyamat néz át; a PDFium-hívások zár alatt futnak | `tests/test_stability_063.py` |
-| Napló, mentés (063) | `jav/runtime/applog.py`, `jav/backup.py` | állandó, forgó napló (`runs/logs/`); adattár-mentés futás közben is, sértetlenség-ellenőrzéssel (`python -m jav.cli backup`) | `tests/test_stability_063.py` |
-| Napi mentés, tár-ritkítás (064) | `jav/backup.py`, `jav/runtime/persistence.py`, `jav/runtime/worker.py`, `scripts/backup-task.ps1`, `configs/service.json` `backup` | napi ütemezett mentés, ellenőrzött másolat a második helyre, állapotfájl és felületi figyelmeztetés; a lezárt tétel folyamat-állapotaiból csak az utolsó marad (a Burr `load` is csak azt olvassa); `burr-prune` a régi tár egyszeri ritkítására és tömörítésére | `tests/test_ops_064.py`, `ui/src/ops064.test.tsx` |
+| Work package, recipe, run | `jav/work.py`, `configs/recipes.json` | version conflict → `RevisionConflict`; readiness blockers; fixed input; idempotent start; approval only in live mode and with no open to-dos | `tests/test_work.py` |
+| Job queue | `jav/runtime/queue.py` | dedup key, claiming, attempts + back-off → `dead`, release, stop, handling of orphaned claims at start-up (modelled on the V4 `jobq.py`) | `tests/test_runtime_queue.py` |
+| Call log, budget | `jav/runtime/calls.py` | reservation before the network call; failed calls are logged too; an unknown cost stays reserved; an uncertain attempt is not repeated; a successful step is replayed | `tests/test_runtime_calls.py`, `tests/test_runtime_adapters.py` |
+| Worker | `jav/runtime/worker.py` | stable identifier + Burr state persistence (`burr_state.sqlite` next to the store); resumption from the next step; stop at a step boundary; a changed source is rejected | `tests/test_runtime_worker.py`, `tests/test_work_cli.py` |
+| To-dos | `jav/store.py` `review_reasons` | each reason is opened and closed by the step that raised it; human decisions carry an author | `tests/test_review_reasons.py` |
+| Partial OCR | `jav/policy.py` `ocr_coverage_reasons` | a skipped page is always a to-do | `tests/test_ocr_coverage.py` |
+| Email receiver | `jav/ingest_server.py`, `jav/emails.py` | paths stay inside the root, size and structure limits, mandatory key (since 066; without one it prints a one-time key at start-up), requests from a browser are rejected, replay protection by content hash | `tests/test_ingest_security.py` |
+| Operational safety net (063) | `jav/runtime/worker.py`, `jav/runtime/queue.py`, `jav/mailbox.py`, `jav/app_settings.py`, `jav/work.py` | the worker loop does not stop on an unexpected error (the job is closed and the error logged); an orphaned job is restarted at most 3 times and then marked dead; a stop requested while the worker was down is completed at start-up; an interrupted run start is completed on retry and is not "done" until then; emails that arrived before a download was interrupted still go into a package; a watched folder marks a file as seen only after it has been added successfully, and only one process scans a folder at a time; PDFium calls run under a lock | `tests/test_stability_063.py` |
+| Log, backup (063) | `jav/runtime/applog.py`, `jav/backup.py` | permanent, rotating log (`runs/logs/`); store backup even while runs are in progress, with an integrity check (`python -m jav.cli backup`) | `tests/test_stability_063.py` |
+| Daily backup, store thinning (064) | `jav/backup.py`, `jav/runtime/persistence.py`, `jav/runtime/worker.py`, `scripts/backup-task.ps1`, `configs/service.json` `backup` | scheduled daily backup, verified copy to a second location, status file and UI warning; of a closed item's process states only the last one is kept (Burr `load` also reads only that one); `burr-prune` for a one-off thinning and compaction of the old store | `tests/test_ops_064.py`, `ui/src/ops064.test.tsx` |
 
-**Határok.** A napló és a keret csak a feldolgozón át futó úton él (`calls.use_run`). A régi parancssori mérések
-(`golden`, `determinism`, `run` …) a korábbi módon hívnak, hogy a lezárt mérések összevethetők maradjanak; ott csak a GPT
-hibanaplózása javult. Egyszerre egy feldolgozó futhat (a K2 óta zár őrzi, lásd 7.). Az e-mailes folyamat 048 óta recept (levél-szándék, 11. pont), a K5 (058) óta a csatolmányokkal együtt. A régi kísérleti
-`TrialBudget` változatlan, mert a lezárt kísérletek arra épülnek. Hibaszondák a javított kódon:
-`runs/20260927_k1_audit/probes.json`.
+**Limits.** The call log and the budget only apply on the path that runs through the worker (`calls.use_run`). The old
+command-line measurements (`golden`, `determinism`, `run` …) make their calls as before, so that closed measurements
+stay comparable; only the GPT error logging improved there. Only one worker can run at a time (guarded by a lock since
+K2, see section 7). The email process has been a recipe since 048 (email intent, section 11), and since K5 (058) it
+includes the attachments. The old experimental `TrialBudget` is unchanged, because the closed experiments rely on it.
+Failure probes on the fixed code: `runs/20260927_k1_audit/probes.json`.
 
-## 7. Helyi szolgáltatás (040 K2, 2026-09-27)
+## 7. Local service (040 K2, 2026-09-27)
 
-**Laikus összefoglaló.** A felület és a parancssor ugyanazt a kaput használja: egy csak a saját gépről elérhető
-szolgáltatást. Ez nem futtat semmit, csak sorba tesz és az adattárból olvas; a feldolgozást a különálló feldolgozó végzi,
-ezért a böngésző vagy a szolgáltatás bezárása nem állítja le a futást. Idegen gépről vagy weboldalról jövő, túl nagy, nem
-JSON-alakú vagy ismeretlen mezőt tartalmazó kérés nem jut el az üzleti műveletig. Irat csak az engedélyezett mappákból
-vehető fel. A mezőjavítás verziózott: elavult alapra épülő mentést elutasít.
+**Plain-language summary.** The user interface and the command line use the same gateway: a service that can only be
+reached from the local machine. It does not run anything itself; it only queues work and reads from the store. The
+separate worker does the processing, so closing the browser or the service does not stop a run. A request that comes
+from another machine or a web page, is too large, is not JSON or contains unknown fields never reaches the business
+operation. Since 061 documents can be added from any existing local folder; a setting can restrict this to permitted
+folders. Field corrections are versioned: a save based on an outdated version is rejected.
 
 ```mermaid
 flowchart LR
-  UI["felület (K3)"] --> API[jav/api.py<br/>helyi szolgáltatás]
-  CLI[parancssor: wp-*, run-*] --> VIEWS
-  API --> VIEWS[jav/work_views.py<br/>közös nézetek]
-  API --> CORR[jav/corrections.py<br/>mezőjavítás]
+  UI["user interface (K3)"] --> API[jav/api.py<br/>local service]
+  CLI[command line: wp-*, run-*] --> VIEWS
+  API --> VIEWS[jav/work_views.py<br/>shared views]
+  API --> CORR[jav/corrections.py<br/>field correction]
   VIEWS --> WORK[jav/work.py]
   CORR --> WORK
-  WORK --> Q[munkasor]
-  W[feldolgozó + zár] --> Q
+  WORK --> Q[job queue]
+  W[worker + lock] --> Q
 ```
 
-| Réteg | Fájl | Garancia | Teszt |
+| Layer | File | Guarantee | Test |
 |---|---|---|---|
-| Kapu | `jav/api.py`, `configs/service.json` | csak loopback cím; `Host`- és `Origin`-ellenőrzés; író kérés csak JSON; törzsméret-korlát darabolt küldésnél is; Pydantic-séma ismeretlen mező elutasításával; azonosító-minták; mappa és fájl: létező útvonal (hivatkozás feloldva), 061 óta bárhol — a `restrict_paths: true` beállítással csak engedélyezett gyökér alatt | `tests/test_api.py` |
-| Böngészős védőfejlécek (071) | `jav/api.py` (`_SecurityHeaders`, a legkülső réteg) | minden válaszon, a kapu elutasító válaszán is: beágyazás tiltva (`X-Frame-Options: DENY`, `frame-ancestors 'none'`), `nosniff`, `Referrer-Policy: no-referrer`, COOP/CORP `same-origin`; a felület HTML-jén tartalombiztonsági szabály csak saját forrással (`data:` a beágyazott betűkészletnek és a favikonnak, `blob:` a letöltésnek); az `/api/` válaszai `no-store` (az oldalkép is), zárt szabállyal; a forrás-PDF-en csak a beágyazás tiltott (a böngésző PDF-nézője miatt) | `tests/test_security_headers_071.py` |
-| Verzió (071) | `jav/version.py`, `pyproject.toml` | egy verzióforrás; a `/api/health` a verziót és az induláskor rögzített commitot adja (`dirty`: commitolatlan változás); a Rendszer oldal kiírja | `tests/test_version_071.py`, `ui/src/version071.test.tsx` |
-| Közös nézetek | `jav/work_views.py` | a parancssor `--json` kimenete és a szolgáltatás válasza ugyanaz; pénz szövegként, nem lebegőpontosan | `tests/test_api.py::test_cli_and_service_give_the_same_answer` |
-| Mezőjavítás | `jav/corrections.py` | verzió + 409 ütközésnél; csak a típuscsomag mezője; pénz és dátum kódban ellenőrizve; jóváhagyott futásnál tilos; a gépi adat megmarad | `tests/test_api.py::test_correction_is_versioned_and_conflict_is_refused` |
-| Feldolgozó-zár, leállítás | `jav/runtime/lock.py`, `jav/runtime/worker.py` | operációsrendszer-zár (összeomláskor magától feloldódik); leállítási kérés a folyamatban lévő tétel után | `tests/test_api.py` |
-| Indítás | `scripts/dev.ps1 start/status/stop` | szolgáltatás + egy feldolgozó a háttérben, napló a `runs/dev/` alatt | kézi próba (2026-09-27) |
+| Gateway | `jav/api.py`, `configs/service.json` | loopback address only; `Host` and `Origin` checks; write requests must be JSON; body size limit, also for chunked transfer; Pydantic schemas that reject unknown fields; identifier patterns; folders and files: an existing path (links resolved), anywhere since 061 — with the `restrict_paths: true` setting, only under a permitted root | `tests/test_api.py` |
+| Browser security headers (071) | `jav/api.py` (`_SecurityHeaders`, the outermost layer) | on every response, including the gateway's rejections: framing forbidden (`X-Frame-Options: DENY`, `frame-ancestors 'none'`), `nosniff`, `Referrer-Policy: no-referrer`, COOP/CORP `same-origin`; on the UI's HTML a content security policy that allows only the app's own origin (`data:` for the embedded font and the favicon, `blob:` for downloads); `/api/` responses are `no-store` (page images included), with a locked-down policy; on the source PDF the policy only forbids framing (because of the browser's PDF viewer) | `tests/test_security_headers_071.py` |
+| Version (071) | `jav/version.py`, `pyproject.toml` | a single version source; `/api/health` returns the version and the commit recorded at start-up (`dirty`: uncommitted changes); the **System** (*Rendszer*) page shows it | `tests/test_version_071.py`, `ui/src/version071.test.tsx` |
+| Shared views | `jav/work_views.py` | the command line's `--json` output and the service's response are identical; money as text, not floating point | `tests/test_api.py::test_cli_and_service_give_the_same_answer` |
+| Field correction | `jav/corrections.py` | version + 409 on conflict; only fields of the type pack; money and dates checked in code; forbidden on an approved run; the machine data is kept | `tests/test_api.py::test_correction_is_versioned_and_conflict_is_refused` |
+| Worker lock, stop | `jav/runtime/lock.py`, `jav/runtime/worker.py` | operating-system lock (released automatically on a crash); a stop request takes effect after the item in progress | `tests/test_api.py` |
+| Start-up | `scripts/dev.ps1 start/status/stop` | service + one worker in the background, logs under `runs/dev/` | manual test (2026-09-27) |
 
-**Hibakódok:** 404 ismeretlen azonosító · 409 verzióütközés, nem indítható vagy nem jóváhagyható · 413 túl nagy törzs ·
-415 nem JSON · 422 hibás bemenet vagy hiányzó szerző · 403 idegen gép, idegen eredet vagy tiltott mappa. Emberi döntéshez
-(jóváhagyás, javítás, teendő zárása) az `X-Actor` fejléc kötelező. A végpontok gépi listája futó szolgáltatásnál: `/api/openapi.json` (a kattintható `/api/docs` 071 óta ki van kapcsolva, mert külső tárhelyről töltene programkódot).
+**Error codes:** 404 unknown identifier · 409 version conflict, cannot be started or cannot be approved · 413 body too large ·
+415 not JSON · 422 invalid input or missing author · 403 another machine, foreign origin or forbidden folder. Human
+operations require the `X-Actor` header: decisions (approval, correction, closing a to-do) and, since 061/066, also creating
+and changing a package, the recipe, and starting or stopping a run or the worker. The machine-readable list of endpoints
+on a running service: `/api/openapi.json` (the clickable `/api/docs` has been switched off since 071 because it would load
+program code from an external host).
 
-**Határok.** Nincs bejelentkezés és jogosultság (egyfelhasználós helyi eszköz, 040/7.). A V4 végpontneveit követjük
-(`workflow`, `readiness`, `start`, `runs`), a munkacsomag neve `workpackages` a V4 `intake-batches` helyett. A riport-
-végpont a futás tételenkénti eredménye (gépi adat, javítás, összefésült érték); az export és a közmű-költség riport a K4-ben
-(054) készült el (10. pont, Riportok sor).
+**Limits.** There is no login and no permission system (a single-user local tool, 040/7). We follow the V4 endpoint names
+(`workflow`, `readiness`, `start`, `runs`); the work package resource is called `workpackages` instead of the V4 `intake-batches`. The report
+endpoint returns the run's per-item result (machine data, correction, merged value); the export and the utility-cost report were built
+in K4 (054) (section 10, Reports row).
 
-## 8. Munkafelület (040 K3, 2026-09-27)
+## 8. User interface (040 K3, 2026-09-27)
 
-**Laikus összefoglaló.** A böngészős felület a helyi szolgáltatás címén nyílik meg (`http://127.0.0.1:8930/`), külön
-szerver nélkül. Első változatának három menüpontja volt (Munkacsomagok, Futtatás, Riportok); 057 óta a főmenü Munkacsomagok +
-Beállítások (10. pont, Felület-szerkezet). A felület
-nem tartalmaz üzleti szabályt. Minden döntést (verzió, készenlét, jóváhagyás) a szolgáltatás hoz, a felület csak
-megjeleníti és továbbítja. A javítás a forrásirat mellett történik, és sikertelen mentésnél nem vész el.
+**Plain-language summary.** The browser UI opens at the local service's address (`http://127.0.0.1:8930/`), with no
+separate server. Its first version had three menu items (**Work packages** (*Munkacsomagok*), **Run** (*Futtatás*),
+Reports (*Riportok*)); since 057 the main menu is **Work packages** + **Settings** (*Beállítások*) (section 10, UI structure row).
+The UI contains no business rules. The service makes every decision (version, readiness, approval); the UI only displays
+and forwards. Corrections are made next to the source document and are not lost when a save fails.
 
-| Rész | Fájl | Mit tud | Viselkedési garancia (teszt) |
+| Part | File | What it does | Behavioural guarantee (test) |
 |---|---|---|---|
-| Keret | `ui/src/App.tsx`, `ui/src/styles.css` | oldalsáv (057 óta két menüpont), feldolgozó-állapot, „Ki dolgozik?” (061: nem üres névlistánál kötelező választás a listából, „Mai munkám” hivatkozás) | `ui/src/users.test.tsx` |
-| Útvonal | `ui/src/route.ts`, `ui/src/hooks.ts` | a kiválasztott csomag, futás és tétel a címben (könyvjelzőzhető) | eltűnt csomag helyett nem nyílik meg másik; régi válasz nem írja felül az újat |
-| Munkacsomagok | `ui/src/views/Workpackages.tsx`, `WorkpackageDetail.tsx` | lista, létrehozás mappából vagy fájlokból, Tételek, Folyamat (recept, készenlét, próba vagy éles indítás) | verzióütközésnél újratöltés, a beállítás megmarad |
-| Teendők | `ui/src/views/ReviewWorkspace.tsx`, `ui/src/review/FieldPanel.tsx` (045 óta; a korábbi javító-szerkesztő kivezetve) | tételsor, forrás-PDF, saját és korábbi teendők, okonkénti rendezés, mezőjavítás | a munkapéldány hálózati hibánál és ütközésnél is megmarad |
-| Futtatás | `ui/src/views/Runs.tsx` | lista, részletnézet futás közbeni frissítéssel, keret-sáv, munkasor, hívásnapló kibontva, leállítás, jóváhagyás | – |
+| App shell | `ui/src/App.tsx`, `ui/src/styles.css` | sidebar (two menu items since 057), worker status, **Who is working?** (*Ki dolgozik?*) (061: with a non-empty name list, choosing from the list is mandatory; a **My work today** (*Mai munkám*) link) | `ui/src/users.test.tsx` |
+| Routing | `ui/src/route.ts`, `ui/src/hooks.ts` | the selected package, run and item are in the URL (bookmarkable) | a package that has disappeared is not replaced by another one; an old response does not overwrite a newer one |
+| Work packages | `ui/src/views/Workpackages.tsx`, `WorkpackageDetail.tsx` | list, creation from a folder or from files, **Items** (*Tételek*), Processing (recipe, readiness, trial or live start) | on a version conflict the view reloads and the settings are kept |
+| To-dos | `ui/src/views/ReviewWorkspace.tsx`, `ui/src/review/FieldPanel.tsx` (since 045; the earlier correction editor has been retired) | item list, source PDF, own and earlier to-dos, resolution per reason, field correction | the working copy survives network errors and conflicts |
+| Run | `ui/src/views/Runs.tsx` | list, detail view with live updates during a run, budget bar, job queue, call log expanded, stop, approval | – |
 
-**Technika.** React 19, Vite 8, TypeScript 5.9, tesztek: Vitest 4 + Testing Library (jsdom). Összesen 137 npm-csomag (2026-09-30),
-nincs komponenskönyvtár. A betű (Geist) helyi csomagból jön, internet nem kell hozzá. A build a `ui/dist/`-be kerül
-(git-ignorált), és a szolgáltatás a gyökéren adja ki. A belépő HTML-t a böngésző mindig újrakéri. Fejlesztéshez az
-`npm run dev` (5173-as port) az `/api` hívásokat a szolgáltatáshoz továbbítja. A preflight lefuttatja a felület
-típusellenőrzését és tesztjeit, ha a `ui/node_modules` telepítve van.
+**Technology.** React 19, Vite 8, TypeScript 5.9; tests: Vitest 4 + Testing Library (jsdom). 137 npm packages in total (2026-09-30),
+no component library. The font (Geist) comes from a local package, so no internet access is needed. The build goes into `ui/dist/`
+(git-ignored), and the service serves it at the root. The browser always re-requests the entry HTML. For development,
+`npm run dev` (port 5173) forwards `/api` calls to the service. Preflight runs the UI's type check and tests if
+`ui/node_modules` is installed.
 
-**Határok.** A „Ki dolgozik?” név nem bejelentkezés (jelszó nincs), hanem aktív felhasználó: 061 óta nem üres névlistánál a szolgáltatás csak a listán szereplő nevet fogadja el emberi műveletnél. A mezők magyar
-neve közös felirat-beállításban van (056 óta); 2026-09-29-én mind a 23 típuscsomag minden mezőjének van magyar neve. A forrás megjelenítését a 9. pont
-(045) írja le; a böngésző PDF-nézője kivezetve.
+**Limits.** The **Who is working?** name is not a login (there is no password) but the active user: since 061, with a non-empty name list, the service accepts only a name on the list for human operations. The Hungarian
+field names are in a shared label configuration (since 056); on 2026-09-29 every field of all 23 type packs had a Hungarian name. Section 9
+(045) describes how the source is displayed; the browser's PDF viewer has been retired.
 
-## 9. Forráshoz kötött ellenőrzés (045 K3b, 2026-09-28)
+## 9. Source-grounded review (045 K3b, 2026-09-28)
 
-**Laikus összefoglaló.** A futás a szöveg beolvasásakor a szavak helyét is elmenti (szóréteg), és minden kinyert mezőhöz
-kiszámolja, hol áll az iraton (forráshely). Az ellenőrző felület az irat oldalképén bekeretezi a kiválasztott mezőt.
-Megmutatja a többi jelöltet is, és a képen kijelölt szavakból is ki lehet tölteni egy mezőt. Mindez kódban történik,
-AI-hívás nélkül. Ha a hely nem egyértelmű, nincs keret, csak magyarázat: inkább nincs keret, mint rossz keret.
+**Plain-language summary.** When a run reads the text, it also saves where each word is (the word layer), and for every
+extracted field it computes where the field is on the document (the source location). The review UI draws a box around
+the selected field on the document's page image. It also shows the other candidates, and a field can be filled from words
+selected on the image. All of this happens in code, without AI calls. If the location is ambiguous, there is no box,
+only an explanation: no box is better than a wrong box.
 
 ```mermaid
 flowchart LR
-  LOAD[load_pdf / ocr_pdf] -->|szókeretek| SL[(source_layers)]
+  LOAD[load_pdf / ocr_pdf] -->|word boxes| SL[(source_layers)]
   DR[decide_route] --> G[ground<br/>jav/grounding.py] --> SAVE[save<br/>datapoints.provenance]
   SL --> G
   SAVE --> API[/api/runs/…/items/…<br/>provenance, source/]
   SL --> W[/…/words/]
-  PDF[forrásirat] --> IMG[/…/pages/n.png/]
+  PDF[source document] --> IMG[/…/pages/n.png/]
   API --> UI[PageViewer + FieldPanel]
   W --> UI
   IMG --> UI
 ```
 
-| Rész | Fájl | Mit tud | Teszt |
+| Part | File | What it does | Test |
 |---|---|---|---|
-| Szóréteg | `jav/source_layer.py`, `jav/pdf.py`, `jav/ocr.py` | a beolvasó szókészletéből (szövegréteg, helyi OCR, Azure) oldal-relatív keretek, tartalom szerinti azonosító; a sorok és a JEV-kérések változatlanok | `tests/test_source_layer.py` |
-| Forráshely | `jav/grounding.py`, `configs/grounding.json` | S-út: a kiválasztott jelölt a saját sorában (a következő sorokra tördelt szövegrészt ugyanabban a hasábban követi, 046) + a többi jelölt valószínűséggel; ha sehol nem található, közelítő keret a választott soron (`approximate`, 046); keresés: fajta szerinti összevetés, címke-környezet (V4 szótár), nagyobb szám része kizárva, hasábos két soros név; több hely → nincs keret, helyek alternatívaként | `tests/test_grounding.py` |
-| Folyamatlépés | `jav/flow.py` `ground` | `decide_route → ground → save`; hiba esetén forráshely nélkül tovább | kontrakt-lint, `test_flow_run_saves_provenance` |
-| Javítás hellyel | `jav/corrections.py` | kijelölt szavak (`sources`) verzióval; érvényes hely: kézi > a javított érték keresése > gépi; a javított mező régi kerete csak alternatíva | `tests/test_api.py` |
-| Végpontok | `jav/api.py`, `jav/page_image.py` | oldalkép (PNG, 72–200 dpi, hash-védett), szóréteg, normalizálás, beállítások | `tests/test_api.py` |
-| Felület | `ui/src/review/` | oldalkép, keret a sáv színével, kattintás a képen, alternatívák, kijelölés (szó, téglalap), munkapéldány-tár, elválasztó, gyorsbillentyűk | `ui/src/behaviour.test.tsx` |
+| Word layer | `jav/source_layer.py`, `jav/pdf.py`, `jav/ocr.py` | page-relative boxes from the reader's set of words (text layer, local OCR, Azure), with a content-based identifier; the lines and the JEV requests are unchanged | `tests/test_source_layer.py` |
+| Source location | `jav/grounding.py`, `configs/grounding.json` | S path: the selected candidate in its own line (text wrapped onto the following lines is followed in the same column, 046) + the other candidates with their probabilities; if it cannot be found anywhere, an approximate box on the chosen line (`approximate`, 046); search: comparison by kind, label context (V4 dictionary), part of a larger number excluded, two-line names in columns; several positions → no box, the positions become alternatives | `tests/test_grounding.py` |
+| Process step | `jav/flow.py` `ground` | `decide_route → ground → save`; on an error the run continues without a source location | contract lint, `test_flow_run_saves_provenance` |
+| Correction with a location | `jav/corrections.py` | selected words (`sources`) with a version; the valid location: manual > search for the corrected value > machine; the old box of a corrected field is only an alternative | `tests/test_api.py` |
+| Endpoints | `jav/api.py`, `jav/page_image.py` | page image (PNG, 72–200 dpi, hash-protected), word layer, normalisation, settings | `tests/test_api.py` |
+| UI | `ui/src/review/` | page image, box in the band's colour, clicking on the image, alternatives, selection (word, rectangle), working-copy store, splitter, keyboard shortcuts | `ui/src/behaviour.test.tsx` |
 
-**Mérés (hívás nélkül).** 21 szövegréteges etalon-irat, csak keresés (a G-út és a kézi javítás útja): 269 értékből 154
-keret, 61 több lehetséges hely, 49 nem található (főleg az etalonban más alakban szereplő címek, országnevek). Az élő
-próba 5 számlája a gyorsítótárból újrafuttatva (S-út, 0 fizetős hívás): 82 kitöltött mezőből 71 keret, 13 alternatíva. 046 után (`run-04fca1b36fbb`, 0 fizetős hívás): 77 pontos keret + 1 közelítő, és az egyetlen ellenőrizendő mező (a két sorba tördelt IBAN) is pontos keretet kap; bizonyíték: `runs/20260928_k3b_grounding/replay_046.json`.
-Bizonyíték: `runs/20260928_k3b_grounding/`.
+**Measurement (no calls).** 21 golden-set documents with a text layer, search only (the method used on the G path and for manual correction): of 269 values, 154
+got a box, 61 had several possible positions and 49 were not found (mainly addresses and country names that appear in a different form in the golden set). The 5 invoices
+of the live trial, rerun from the cache (S path, 0 paid calls): of 82 filled fields, 71 got a box and 13 alternatives. After 046 (`run-04fca1b36fbb`, 0 paid calls): 77 exact boxes + 1 approximate, and the only field to review (the IBAN wrapped onto two lines) also gets an exact box; evidence: `runs/20260928_k3b_grounding/replay_046.json`.
+Evidence: `runs/20260928_k3b_grounding/`.
 
-**Határok.** A régi futásokhoz és a régi OCR-gyorsítótárból olvasott iratokhoz nincs szóréteg (felhasználói döntés:
-a réteg a futás közben készül). A tételsorok helye a képen 053 óta megvan (10. pont, Keretek és tételsor-helyek). A keret helyessége nem pontosság: a
-keret azt mutatja, honnan jön az érték, nem azt, hogy az érték helyes.
+**Limits.** Old runs and documents read from the old OCR cache have no word layer (owner's decision:
+the layer is built during the run). Line-item positions on the image have existed since 053 (section 10, Boxes and line-item positions row). A correct box does not mean accuracy: the
+box shows where the value comes from, not that the value is correct.
 
-## 10. Egységes dokumentumtípusok (047 T1, 2026-09-28)
+## 10. Unified document types (047 T1, 2026-09-28)
 
-**Laikus összefoglaló.** A régi projekt mind a 23 dokumentumtípusa teljes típuscsomag. A felismerés a durva kategória
-után kiválasztja a részletes típust, a kinyerés annak csomagjával fut, a régi eredmények pedig összevetésre
-behozhatók. Mérés: T1 jelentés (belső: `reports/2026-09-28-t1-tipusegyesites.md`).
+**Plain-language summary.** All 23 document types of the legacy project are complete type packs. After the broad category,
+recognition picks the detailed type, extraction runs with that type's pack, and old results can be imported for
+comparison. Measurement: the T1 report (`reports/2026-09-28-t1-tipusegyesites.md`, local, not in the repository).
 
-| elem | fájl | mit csinál |
+| Element | File | What it does |
 |---|---|---|
-| Csomagformátum | `jav/typepack.py`, `jav/models.py` | `list` mező tétel-leírással (`list_fields`), `boolean`, felsorolt értékek (`enums`, megsértése teendő); `arms`, `parent`, `auto_detect`, `detect` (régi kulcsszavak) |
-| Átalakító | `jav/typepack_convert.py` | régi típus-másolat (`configs/legacy_types/`) → csomag + G-kar ellenőrző hívási hely; séma és prompt verbatim, származás a manifest sha256-jaival |
-| Kivonat-szabályok | `jav/validators.py` → `jav/legacy_validation.py` | futó egyenleg, záró egyenleg, összegek, időszak — rekord-ellenőrzésként |
-| Részletes típus | `jav/detect_detail.py`, `configs/callsites/detect_detail.json`, `policy.json detect_detail` | egy jelölt → az; régi horgony-pontszám az irat elején (V4 `anchor_check`), egyértelmű előnynél kód dönt; különben JEV Choice `none`-nal; nyitva maradt típus = teendő |
-| Recept | `configs/recipes.json` `document-processing`, `jav/runtime/worker.py` | lépcsők: felismerés → kinyerés a részletes típus csomagjával; a kar a kért, ha a csomag támogatja |
-| Számlatételek (053 T3) | `configs/types/{invoice_hu,*_szamla}.json`, `jav/validators.py`, `jav/policy.py` | `line_items` tételes lista a GPT-séma tétel-mezőivel; `line_items_total` (tételösszeg = végösszeg, egy teljes oldal elég) és `line_items_arithmetic` (soronkénti számtan, a MOHU-n nincs); `"review": false` = csak jelzés (`CheckResult.advisory`, a teendő-szabály kihagyja); `default_arm` + recept `arm=auto` (közmű: G) |
-| Keretek és tételsor-helyek (053) | `jav/grounding.py` (`locate_value`, `locate_rows`, `ground_lists`), `jav/reground.py`, CLI `reground`, `ui/src/review/PageViewer.tsx` | több helyen szereplő érték: keret a legvalószínűbb helyen (`multiple`, alternatívák); pénznem-jelek („Ft”); táblázat-oszlopok nem olvadnak össze egy számmá; a lista sorai `provenance[lista].rows`; meglévő futás újraszámolása (a futás közbeni választás helye marad); a képen minden keret halványan, a kiválasztott erősen |
-| Riportok (054 K4) | `jav/export.py`, `jav/report_utility.py`, `configs/reports.json`, API `/runs/{id}/export`, `/runs/{id}/reports/utility-cost`, `ui/src/views/UtilityReport.tsx` (057 óta a csomag Eredmény szakaszában) | export a futás érvényes adatából (`run_records`: gépi + javítás, érvényes forráshely, nyitott teendők); CSV `;` + BOM + képlet-védelem, XLSX szöveg sosem képlet; közmű-rács: napos arányosítás Decimal-lal, ismétlődő (típus + számlaszám) és elszámoló számla, vízösszesítő csak tájékoztató; a régi `tabular.py` és `csv.ts` segédjei portolva |
-| Egységes adatnézet (056 U1) | `jav/tablequery.py`, `jav/datasets.py`, `configs/datasets.json`, `configs/field_labels.json`, API `GET /datasets`, `POST /datasets/{name}/query`, `POST /datasets/{name}/export`, `ui/src/components/` (DataTable, Picker, DatasetPicker, DownloadPanel, Popover), `ui/src/views/ResultStage.tsx` (057 óta a külön adatnézegető helyett a csomag Eredmény szakasza) | 11 adatkészlet oszlopleírással; keresés (ékezet nélkül), oszlopszűrők, magyar rendezés (ö/ő, ü/ű külön betű; vegyes szöveges oszlopban a tiszta szám számként), lapozás a szolgáltatásban (döntés 2026-09-28); a futás adata (`datasets.run_records`) ujjlenyomatig gyorsítótárban, közös a táblákkal, a közmű-riporttal és a teljes exporttal; letöltés minden / szűrt / kijelölt sorra, választott oszlopokkal (a `jav/export.py` CSV- és XLSX-írójával); felület: TanStack Table 8 + Virtual (80 sor fölött csak a látható sorok) |
-| Felület-szerkezet (057) | `ui/src/App.tsx`, `ui/src/route.ts`, `ui/src/views/WorkpackageDetail.tsx` (+ `ProcessStage`, `ResultStage`, `DocumentsPanel`), `ui/src/views/Settings.tsx` (+ `settings/`), `jav/work_views.py` `next_step`, `jav/work.py` `start_run(rerun_of=)` | főmenü: Munkacsomagok + Beállítások; csomag-szakaszok process / review / result, a régi címek átirányítva; a következő lépés a szolgáltatásban, kód + paraméter, a felület fordít |
-| Beállítások (057) | `jav/app_settings.py`, API `/settings/users`, `/settings/folders`, `/settings/folders/{id}/scan`, a feldolgozó körében `app_settings.tick()` | felhasználói névlista (helyi adattár); figyelt munkamappák a V4 módján (egy közös / napi csomag, recept, gyakoriság), bármely létező mappa (061; korláttal csak engedélyezett gyökér alatt), csak olvasva, látott fájl (útvonal + méret + mtime) nem hashelődik újra, eltávolított irat nem tér vissza, futás nem indul magától |
-| Felhasználók és kiosztás (061) | `jav/app_settings.py` (`canonical_user`), `jav/api.py` (`human_actor` → `UnknownUser` 403 `unknown_user`; a csomag létrehozása, tételei, a recept és a futás indítása is emberi művelet), `jav/work.py` (`workpackages.owner`, `set_owner`), API `/workpackages/{id}/owner`, `jav/activity.py`, `jav/datasets.py` (`workpackages` `owner` hatókör, `activity`), `ui/src/views/Activity.tsx`, `ui/src/hooks.ts` (`useActor`, `useEvent`) | jelszó nélkül; üres névlistánál bármely név (első beállítás); a név a lista alakjában rögzül; a felelős nem jogosultság; a napló a meglévő szerzős sorokból (csomag-események, recept, futás indítása / jóváhagyása, javítás, teendő-lezárás, feladatdöntés, postafiók-letöltés), a nap a helyi naptári nap |
-| Futásindítás megerősítéssel (061) | `ui/src/views/StartConfirm.tsx`, `ui/src/route.ts` (`#/workpackages/{id}/process/start?mode=…&rerun=1`) | a futtató gombok a megerősítő oldalra visznek; ott összegzés (mód, csomag, recept a beállításaival, tételszám, legnagyobb költség szolgáltatónként) és az egyetlen indítógomb |
-| Csomag kezelése, állapot, ujjlenyomat (058) | `jav/work.py` (`archive_/restore_/rename_/delete_workpackage`, `workpackage_events`, `resolve_reason`, `fingerprint` + `file_fingerprints`), API `/workpackages/{id}/archive|restore|rename|delete`, `jav/work_views.py` `result_tables`, `ui/src/views/WorkpackageActions.tsx` | elrejtés = `workpackages.status='archived'` (a lista `include_archived` hatókörrel kéri); törlés csak futás nélkül, eseménynapló; a teendő lezárása a gazda-futás állapotát frissíti; a készenlét és az oldalkép méret + mtime szerint megjegyzett hash-t használ, az indítás és a feldolgozó teljeset; az Eredmény nézetei a futás adatából (`tables`) |
-| Levelek mint második recept (058 K5.1–K5.2) | `jav/store.py` (`email_results`), `jav/emails.py` (`body_coverage`), `jav/flow_email.py` `save`, `jav/mailbox.py` (`email_result_for`, `effective_email_result`, `add_attachments`), `jav/corrections.py` (`_save_email`), `jav/export.py` (`email_records`, `emails_table`), `jav/datasets.py` (`emails`), `jav/work.py` (`parent_item_id`, `flow_for`, `run_budget`), `configs/recipes.json` email-intent v2 | a levél-eredmény futásonként; a szöveg látott része kódban; a szándék javítása verziózott, a következő lépés a javított szándékból kódban, a szándék-teendő a döntéssel zárul; a PDF-csatolmány a csomag irata a levélre mutatva, a recept tétel-fajtánként választ folyamatot (`flows`) és keretet (`max_item_usd_by_kind`) |
-| Feladatjavaslat (058 K5.3) | `jav/email_tasks.py` (javaslat GPT-vel a hívásnaplón és a kereten át, `gate`), `jav/flow_email.py` `tasks` lépés (route → tasks → save), `configs/email_tasks.json`, `jav/prompts/email_tasks_prompt.md` (a régi v1.3.0 szó szerint), `store.email_results.tasks` + `email_task_decisions`, `jav/mailbox.py` (`task_view`, `decide_task`), API `/runs/{id}/items/{item}/tasks/{n}/decision` és `/tasks/{n}/done` (062: kézi „elvégezve”, `email_task_decisions.done_by` / `done_at`), `jav/datasets.py` `email_tasks` | a recept `tasks` paramétere (alapból off); archiválandó útvonalon nincs hívás (kód); a kapu a régi szabályokkal (szó szerinti idézet csak a tárgyból / szövegből, ÉÉÉÉ-HH-NN határidő, szó szerinti felelős), hibás javaslat okkóddal kiesik, 062 óta a tartalmával, az elbukott részével (`failed_parts`) és idézetenkénti ellenőrzéssel (`quotes`); az egy levélen belüli azonos javaslatok összevonódnak (`merged`); javaslat → teendő, az emberi döntések után lezárul |
-| Nyelv és megjelenés (057) | `ui/src/i18n/` (t, useLocale, en-*.json), `ui/scripts/check-i18n.mjs` (+ `--audit`, a preflight része), `ui/src/appearance.ts` | a V4 i18n-mintája portolva: magyar kulcs, angol szótár csak angolra váltáskor; a szolgáltatás felőli feliratok (adatkészlet-oszlopok, felsorolt értékek, mező-, típus- és receptszövegek) is kötelezők; téma (világos / sötét / rendszer) és sűrűség nézőnként |
-| Régi eredmények | `jav/legacy_import.py`, CLI `legacy-import` / `legacy-compare` | a régi köteg-exportok csak olvasva, sha256 szerint, külön táblában (`legacy_results`); összevetés = egyezés, nem pontosság |
+| Pack format | `jav/typepack.py`, `jav/models.py` | `list` field with an item description (`list_fields`), `boolean`, enumerated values (`enums`; a violation is a to-do); `arms`, `parent`, `auto_detect`, `detect` (old keywords) |
+| Converter | `jav/typepack_convert.py` | old type copy (`configs/legacy_types/`) → pack + G-path verification call site; schema and prompt verbatim, provenance with the manifest's sha256 hashes |
+| Statement rules | `jav/validators.py` → `jav/legacy_validation.py` | running balance, closing balance, totals, period — as record checks |
+| Detailed type | `jav/detect_detail.py`, `configs/callsites/detect_detail.json`, `policy.json detect_detail` | one candidate → that one; the old anchor score at the start of the document (V4 `anchor_check`), code decides when the lead is clear; otherwise JEV Choice with `none`; a type left open = to-do |
+| Recipe | `configs/recipes.json` `document-processing`, `jav/runtime/worker.py` | steps: recognition → extraction with the detailed type's pack; the path is the one requested, if the pack supports it |
+| Invoice line items (053 T3) | `configs/types/{invoice_hu,*_szamla}.json`, `jav/validators.py`, `jav/policy.py` | `line_items` list with the item fields of the GPT schema; `line_items_total` (sum of the items = invoice total; it is enough if one side, net or gross, is complete) and `line_items_arithmetic` (arithmetic per line; not on MOHU invoices); `"review": false` = flag only (`CheckResult.advisory`; the to-do rule skips it); `default_arm` + recipe `arm=auto` (utilities: G) |
+| Boxes and line-item positions (053) | `jav/grounding.py` (`locate_value`, `locate_rows`, `ground_lists`), `jav/reground.py`, CLI `reground`, `ui/src/review/PageViewer.tsx` | a value that appears in several places: box at the most probable position (`multiple`, alternatives); currency signs ("Ft"); table columns are not merged into one number; the list's rows in `provenance[<list>].rows`; recomputing an existing run (the position chosen during the run is kept); on the image every box is drawn faintly and the selected one strongly |
+| Reports (054 K4) | `jav/export.py`, `jav/report_utility.py`, `configs/reports.json`, API `/runs/{id}/export`, `/runs/{id}/reports/utility-cost`, `ui/src/views/UtilityReport.tsx` (since 057 in the package's **Result** (*Eredmény*) stage) | export from the run's valid data (`run_records`: machine + correction, valid source location, open to-dos); CSV with `;` + BOM + formula protection, XLSX text is never a formula; utility grid: daily pro-rating with Decimal, duplicate (type + invoice number) and settlement invoices, the water summary is informational only; the old `tabular.py` and `csv.ts` helpers ported |
+| Unified data view (056 U1) | `jav/tablequery.py`, `jav/datasets.py`, `configs/datasets.json`, `configs/field_labels.json`, API `GET /datasets`, `POST /datasets/{name}/query`, `POST /datasets/{name}/export`, `ui/src/components/` (DataTable, Picker, DatasetPicker, DownloadPanel, Popover), `ui/src/views/ResultStage.tsx` (since 057 the package's Result stage instead of the separate data browser) | 15 datasets (11 at 056) with column descriptions; search (accent-insensitive), column filters, Hungarian collation (ö/ő and ü/ű as separate letters; in a mixed text column, pure numbers sort as numbers), paging in the service (decision 2026-09-28); the run's data (`datasets.run_records`) is cached per fingerprint and shared by the tables, the utility report and the full export; download of all / filtered / selected rows with chosen columns (using the CSV and XLSX writers of `jav/export.py`); UI: TanStack Table 8 + Virtual (above 80 rows only the visible rows are rendered) |
+| UI structure (057) | `ui/src/App.tsx`, `ui/src/route.ts`, `ui/src/views/WorkpackageDetail.tsx` (+ `ProcessStage`, `ResultStage`, `DocumentsPanel`), `ui/src/views/Settings.tsx` (+ `settings/`), `jav/work_views.py` `next_step`, `jav/work.py` `start_run(rerun_of=)` | main menu: Work packages + Settings; package stages process / review / result (**Processing** (*Feldolgozás*) / **Review** (*Ellenőrzés*) / **Result**), old URLs redirected; the next step is computed in the service, as a code + parameters, and the UI translates it |
+| Settings (057) | `jav/app_settings.py`, API `/settings/users`, `/settings/folders`, `/settings/folders/{id}/scan`, `app_settings.tick()` in the worker loop | user name list (local store); watched work folders the V4 way (one shared / daily package, recipe, frequency), any existing folder (061; with the restriction on, only under a permitted root), read-only, a file already seen (path + size + mtime) is not hashed again, a removed document does not come back, no run starts by itself |
+| Users and assignment (061) | `jav/app_settings.py` (`canonical_user`), `jav/api.py` (`human_actor` → `UnknownUser` 403 `unknown_user`; creating a package, its items, the recipe and starting a run are human operations too), `jav/work.py` (`workpackages.owner`, `set_owner`), API `/workpackages/{id}/owner`, `jav/activity.py`, `jav/datasets.py` (`workpackages` `owner` scope, `activity`), `ui/src/views/Activity.tsx`, `ui/src/hooks.ts` (`useActor`, `useEvent`) | no password; with an empty name list any name is accepted (first setup); the name is stored in the spelling used in the list; the **Assignee** (*Felelős*) is not a permission; the activity log is built from the existing rows that carry an author (package events, recipe, run start / approval, correction, closing a to-do, task decision, mailbox download); a day is the local calendar day |
+| Run start with confirmation (061) | `ui/src/views/StartConfirm.tsx`, `ui/src/route.ts` (`#/workpackages/{id}/process/start?mode=…&rerun=1`) | the run buttons lead to the confirmation page; it shows a summary (mode, package, recipe with its settings, number of items, maximum cost per provider) and the only start button |
+| Package management, status, fingerprint (058) | `jav/work.py` (`archive_/restore_/rename_/delete_workpackage`, `workpackage_events`, `resolve_reason`, `fingerprint` + `file_fingerprints`), API `/workpackages/{id}/archive|restore|rename|delete`, `jav/work_views.py` `result_tables`, `ui/src/views/WorkpackageActions.tsx` | hiding = `workpackages.status='archived'` (the list asks for hidden packages with the `include_archived` scope); deletion only when there are no runs, with an event log; closing a to-do updates the state of the run it belongs to; readiness and the page image use a hash remembered by size + mtime, the start and the worker a full one; the Result views come from the run's data (`tables`) |
+| Emails as a second recipe (058 K5.1–K5.2) | `jav/store.py` (`email_results`), `jav/emails.py` (`body_coverage`), `jav/flow_email.py` `save`, `jav/mailbox.py` (`email_result_for`, `effective_email_result`, `add_attachments`), `jav/corrections.py` (`_save_email`), `jav/export.py` (`email_records`, `emails_table`), `jav/datasets.py` (`emails`), `jav/work.py` (`parent_item_id`, `flow_for`, `run_budget`), `configs/recipes.json` email-intent v2 | the email result is stored per run; the share of the text that was seen is computed in code; intent correction is versioned, the next step is derived in code from the corrected intent, and the intent to-do closes with the decision; a PDF attachment becomes a document of the package that points to its email, and the recipe chooses the flow (`flows`) and the budget (`max_item_usd_by_kind`) per item kind |
+| Task proposals (058 K5.3) | `jav/email_tasks.py` (proposals from GPT through the call log and the budget, `gate`), `jav/flow_email.py` `tasks` step (route → tasks → save), `configs/email_tasks.json`, `jav/prompts/email_tasks_prompt.md` (the old v1.3.0 verbatim), `store.email_results.tasks` + `email_task_decisions`, `jav/mailbox.py` (`task_view`, `decide_task`), API `/runs/{id}/items/{item}/tasks/{n}/decision` and `/tasks/{n}/done` (062: manual **Done** (*Elvégezve*), `email_task_decisions.done_by` / `done_at`), `jav/datasets.py` `email_tasks` | the recipe's `tasks` parameter (off by default); no call on the archive route (code); the gate applies the old rules (verbatim quotations only from the subject / body, a YYYY-MM-DD deadline, a verbatim assignee), and an invalid proposal drops out with a reason code — since 062 together with its content, the part that failed (`failed_parts`) and a check per quotation (`quotes`); identical proposals within one email are merged (`merged`); a proposal becomes a to-do that closes after the human decisions |
+| Language and appearance (057) | `ui/src/i18n/` (t, useLocale, en-*.json), `ui/scripts/check-i18n.mjs` (+ `--audit`, part of preflight), `ui/src/appearance.ts` | the V4 i18n pattern ported: Hungarian keys, and the English dictionary is loaded only when switching to English; labels that come from the service (dataset columns, enumerated values, field, type and recipe texts) must be translated too; theme (light / dark / system) and density per viewer |
+| Old results | `jav/legacy_import.py`, CLI `legacy-import` / `legacy-compare` | the old batch exports are only read, by sha256, into a separate table (`legacy_results`); comparison = agreement, not accuracy |
 
-**Tételes listák a felületen (048 T1-lista, 2026-09-28).** A `list` mező javítása a teljes lista, cellánként a
-tétel-mező fajtája és felsorolt értékei szerint ellenőrizve (`jav/corrections.py` `list_columns`, `_check_list`). A tétel
-eredménye (`item_result`) a lista oszlopait (`lists`) és a csomag ellenőrzéseit a javított adaton (`checks`, sorra mutató
-hibánál `rows`) is adja. A felületen a jobb panel fülei: Mezők / listánként egy fül (`ui/src/review/ListTable.tsx`); a
-lista fülén külön kép–panel arány él. A listasorok kerete a képen 053 óta megvan (a Keretek és tételsor-helyek sor). Teszt: `tests/test_list_corrections.py`,
-`ui/src/behaviour.test.tsx` „tételes lista”.
+**Line lists in the UI (048 T1 list, 2026-09-28).** Correcting a `list` field replaces the whole list, and each cell is
+checked against the item field's kind and enumerated values (`jav/corrections.py` `list_columns`, `_check_list`). The item
+result (`item_result`) also returns the list's columns (`lists`) and the pack's checks on the corrected data (`checks`, with `rows` for
+errors that point at rows). In the UI the right panel's tabs are **Fields** (*Mezők*) / one tab per list (`ui/src/review/ListTable.tsx`); a
+list tab keeps its own image-to-panel ratio. List rows have had boxes on the image since 053 (the Boxes and line-item positions row). Tests: `tests/test_list_corrections.py`,
+the line-list block of `ui/src/behaviour.test.tsx`.
 
-A `documents.doc_type` a durva kategória, a `documents.detail_type` a részletes típus; a `datapoints.doc_type` a
-kinyeréshez használt csomag. A régi típus-másolatok forrásként maradnak (hash-ellenőrzés), a külön régi futtató
-(`jav/legacy_runtime.py`) még nem vezettük ki.
+`documents.doc_type` is the broad category and `documents.detail_type` the detailed type; `datapoints.doc_type` is the
+pack used for extraction. The old type copies remain as sources (hash-checked); the separate old runner
+(`jav/legacy_runtime.py`) has not been retired yet.
 
-## 11. Postafiók-olvasás és ütemezés (048 T2, 2026-09-28)
+## 11. Mailbox reading and scheduling (048 T2, 2026-09-28)
 
-**Laikus összefoglaló.** A Postafiók nézetben megadható, melyik postafiók melyik időszakát olvassuk. Előbb ingyenes
-darabszám-előnézet kérhető, utána egyszeri letöltés vagy ütemezés indítható (alap: óránként). A letöltést a feldolgozó
-végzi a régi Outlook-szkripttel. Az új levelekből munkacsomag lesz a levél-szándék recepttel, a fizetős feldolgozást
-ember indítja. Az Outlooknak futnia kell a gépen.
+**Plain-language summary.** In the **Mailboxes** (*Postafiókok*) section of Settings (a separate Mailbox view before 057)
+you choose which mailbox to read and for which period. First you can ask for a free preview of the message count, then
+start a one-off download or a schedule (default: hourly). The worker does the download with the old Outlook script. New
+emails become a work package with the email intent recipe; a person starts the paid processing. Outlook must be running
+on the machine.
 
 ```mermaid
 flowchart LR
-  UI[Postafiók nézet] -->|előnézet| API[jav/api.py /mailbox/count]
-  API --> W[scripts/mail_bridge_call.ps1] --> B[régi outlook_bridge.ps1 -CountOnly]
-  UI -->|letöltés / ütemezés| Q[(munkasor: mail_pull)]
-  T[feldolgozó: tick()] --> Q
+  UI["Settings → Mailboxes"] -->|preview| API[jav/api.py /mailbox/count]
+  API --> W[scripts/mail_bridge_call.ps1] --> B[old outlook_bridge.ps1 -CountOnly]
+  UI -->|download / schedule| Q[(job queue: mail_pull)]
+  T["worker: tick()"] --> Q
   Q --> F[mailbox.fetch]
-  F --> R[ideiglenes fogadó, egyszer használatos kulcs]
-  B2[régi outlook_bridge.ps1] -->|/ingest/email| R
-  R --> I[inbox/&lt;postafiók&gt;/&lt;levél&gt;/message.json]
-  F --> WP[munkacsomag: levél-tételek + email-intent recept]
+  F --> R[temporary receiver, one-time key]
+  B2[old outlook_bridge.ps1] -->|/ingest/email| R
+  R --> I[inbox/&lt;mailbox&gt;/&lt;message&gt;/message.json]
+  F --> WP[work package: email items + email-intent recipe]
 ```
 
-| elem | fájl | mit csinál | teszt |
+| Element | File | What it does | Test |
 |---|---|---|---|
-| Előnézet, letöltés | `jav/mailbox.py` `count`, `fetch` | a régi szkript változatlanul; projektgyökere `inbox/.bridge` (csatolmányok, „már beolvasva” lista), nem a régi projekt; minden levél (`-AllEmails`); az új / megváltozott levelekből munkacsomag | `tests/test_mailbox.py` |
-| Ideiglenes fogadó | `jav/ingest_server.py` `make_server(0, token=…, on_ingest=…)` | szabad port, egyszer használatos kulcs; a meglévő ismétlésvédelem (azonos tartalom = ismétlés) | `tests/test_mailbox.py`, `tests/test_ingest_security.py` |
-| Letöltési napló, ütemezés | `jav/mailbox.py` (`mailbox_pulls`, `mailbox_schedules`), `jav/runtime/worker.py` | minden letöltés munkasor-feladat; a feldolgozó körönként `tick()`; hiba a naplón, nem ismétlődik | `tests/test_mailbox.py` |
-| Levél-tétel | `jav/work.py` `add_items(kind="email")`, `review_subject`; `configs/recipes.json` `email-intent`; `jav/flow_email.py` (`run_id`, állapotmentés) | tétel = a levél `message.json`-ja; a teendők alanya a levél azonosítója | `tests/test_mailbox.py` |
-| Felület | `ui/src/views/Mailbox.tsx`, `ui/src/review/EmailReview.tsx` | űrlap, előnézet, letöltés, ütemezések, napló; a Teendők fülön a levél és a szándék | `ui/src/behaviour.test.tsx` |
+| Preview, download | `jav/mailbox.py` `count`, `fetch` | the old script, unchanged; its project root is `inbox/.bridge` (attachments, "already read" list), not the legacy project; all messages (`-AllEmails`); a work package from the new / changed messages | `tests/test_mailbox.py` |
+| Temporary receiver | `jav/ingest_server.py` `make_server(0, token=…, on_ingest=…)` | free port, one-time key; the existing replay protection (identical content = replay) | `tests/test_mailbox.py`, `tests/test_ingest_security.py` |
+| Download log, schedule | `jav/mailbox.py` (`mailbox_pulls`, `mailbox_schedules`), `jav/runtime/worker.py` | every download is a job-queue task; the worker calls `tick()` on every loop; an error goes to the log and is not retried | `tests/test_mailbox.py` |
+| Email item | `jav/work.py` `add_items(kind="email")`, `review_subject`; `configs/recipes.json` `email-intent`; `jav/flow_email.py` (`run_id`, state persistence) | item = the email's `message.json`; the subject of the to-dos is the email's identifier | `tests/test_mailbox.py` |
+| UI | `ui/src/views/Mailbox.tsx`, `ui/src/review/EmailReview.tsx` | form, preview, download, schedules, log; in the review workspace, the email and its intent | `ui/src/behaviour.test.tsx` |
 
-Korlát: a letöltés a feldolgozó szálában fut (percekig is), közben irat-tétel nem halad. A szándék kézi javítása és a
-csatolmányok feldolgozása 058 óta megvan (K5.1–K5.2, 10. pont): a PDF-csatolmány a levél csomagjában, a levél-recepttel fut,
-nem külön irat-munkacsomagban.
+Limitation: the download runs in the worker's thread (possibly for minutes), and document items make no progress in the
+meantime. Manual intent correction and attachment processing have existed since 058 (K5.1–K5.2, section 10): a PDF
+attachment runs in its email's package with the email recipe, not in a separate document work package.
 
-## 12. Adat-ellenőrzések, korlátok és védelmek (066–071, 2026-09-29/30)
+## 12. Data checks, limits and safeguards (066–071, 2026-09-29/30)
 
-**Laikus összefoglaló.** A 066-os átvizsgálás és a független audit után a rendszer több helyen szigorúbb lett. Az
-adószámot felismert alakkal és ellenőrzőszámmal nézi, a jelölt nélküli mezőre nem ad hamis bizonyosságot, a sérült
-betűjelből nem lesz negatív összeg, és a típuscsomag nélküli irat teendőt kap. A túl nagy iratot a bemeneti korlát
-állítja meg. A kód felől az adatőr védi a GitHubot, a böngésző felől a védőfejlécek a felületet; a futó verzió
-látható. A részletes biztonsági kép: [biztonsági leírás](SECURITY.md).
+**Plain-language summary.** After the 066 review and the independent audit, the system became stricter in several places.
+It checks tax numbers against recognised formats and the check digit, it does not claim false certainty for a field with no
+candidates, a damaged glyph no longer turns into a negative amount, and a document without a type pack gets a to-do. The
+input limit stops documents that are too large. On the code side the data guard protects what goes to GitHub, on the
+browser side the security headers protect the UI, and the running version is visible. The full security picture:
+[security notes](SECURITY.md).
 
-| elem | fájl | garancia | teszt |
+| Element | File | Guarantee | Test |
 |---|---|---|---|
-| Adószám (069) | `jav/taxid.py`, `jav/validators.py` `tax_id` | felismert alak (magyar, közösségi, uniós és néhány nem uniós); a címkét levágja; a magyarnál ellenőrzőszám, áfakód, megyekód; ami nem ismerhető fel, teendő | `tests/test_taxid_069.py`, `tests/test_properties_067.py` |
-| Jelölt nélküli mező (069) | `jav/jev_select.py` | „nincs becslés” jelzés és jelenlét-kérdés; üres mezőre nincs 100% | `tests/test_no_candidate_field_069.py` |
-| Elveszett betűjel (069) | `jav/pdf.py` `fix_lost_glyphs` | a sérült pénznemjel nem ad kötőjelet (negatív összeget) | `tests/test_lost_glyph_069.py` |
-| Típuscsomag nélküli irat (069) | `jav/flow_detect.py` | a felismert, de csomag nélküli típus teendőt kap | `tests/test_no_type_pack_069.py` |
-| Bemeneti korlát (067) | `configs/service.json` `input_limits`, `jav/pdf.py`, `jav/ocr.py`, `jav/page_image.py` | fájlméret, oldalszám, oldalkép-képpont; fölötte nevesített hiba vagy teendő | `tests/test_input_limits_067.py` |
-| Adatőr (071) | `jav/data_guard.py`, `scripts/githooks/`, `configs/data_guard.json` | commit és feltöltés előtt: valódi alakú adat, kulcs, belső munkaanyag, irat és bináris fájl megállít; a régi történet nem tölthető fel | `tests/test_data_guard_071.py` |
-| Védőfejlécek (071) | `jav/api.py` `_SecurityHeaders` | lásd a 7. pont táblázatát | `tests/test_security_headers_071.py` |
-| Verzió (071) | `jav/version.py` | lásd a 7. pont táblázatát | `tests/test_version_071.py` |
+| Tax number (069) | `jav/taxid.py`, `jav/validators.py` `tax_id` | recognised format (Hungarian domestic, Hungarian EU VAT (*közösségi adószám*), other EU and some non-EU); the label is stripped; for Hungarian numbers the check digit, VAT code and county code are checked; anything unrecognisable is a to-do | `tests/test_taxid_069.py`, `tests/test_properties_067.py` |
+| Field without candidates (069) | `jav/jev_select.py` | a "no estimate" flag and a presence question; an empty field never gets 100% | `tests/test_no_candidate_field_069.py` |
+| Lost glyph (069) | `jav/pdf.py` `fix_lost_glyphs` | a damaged currency sign does not produce a hyphen (a negative amount) | `tests/test_lost_glyph_069.py` |
+| Document without a type pack (069) | `jav/flow_detect.py` | a recognised type that has no pack gets a to-do | `tests/test_no_type_pack_069.py` |
+| Input limit (067) | `configs/service.json` `input_limits`, `jav/pdf.py`, `jav/ocr.py`, `jav/page_image.py` | file size, page count, page-image pixels; above them a named error or a to-do | `tests/test_input_limits_067.py` |
+| Data guard (071) | `jav/data_guard.py`, `scripts/githooks/`, `configs/data_guard.json` | before a commit and a push: real-looking data, keys, internal working documents, documents and binary files stop it; the old history cannot be pushed | `tests/test_data_guard_071.py` |
+| Security headers (071) | `jav/api.py` `_SecurityHeaders` | see the table in section 7 | `tests/test_security_headers_071.py` |
+| Version (071) | `jav/version.py` | see the table in section 7 | `tests/test_version_071.py` |

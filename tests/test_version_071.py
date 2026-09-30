@@ -27,7 +27,7 @@ def test_single_version_source_is_consistent():
     lock = json.loads((ROOT / "ui" / "package-lock.json").read_text(encoding="utf-8"))
     assert pkg["version"] == lock["version"] == lock["packages"][""]["version"] == project
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert f"**Jelenlegi stabil változat: `v{project}`**" in readme
+    assert f"**Current stable version: `v{project}`**" in readme  # 073: the README is English
 
 
 def _git(cwd: Path, *args: str) -> str:
