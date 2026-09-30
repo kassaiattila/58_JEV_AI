@@ -273,6 +273,18 @@ def test_install_hooks_sets_hooks_path(repo):
     assert _git(repo, "config", "--get", "core.hooksPath").strip() == data_guard.HOOKS_DIR
 
 
+def test_report_gives_only_the_matching_advice():
+    value = data_guard.Finding("a.py", 1, "hu_tax_id", "13***42")
+    path = data_guard.Finding("docs/BACKLOG.md", 0, "internal_doc", "belső")
+    history = data_guard.Finding("refs/heads/regi", 0, "forbidden_history", "régi")
+    text = data_guard.report([value], "a commit")
+    assert "allow" in text and "restore" not in text and "Történet" not in text
+    text = data_guard.report([path, history], "a feltöltés")
+    assert "allow" not in text and "restore" in text and "Történet" in text
+    known = data_guard.Finding("a.py", 1, "hu_tax_id", "13***42", known=True)
+    assert "megállító" not in data_guard.report([known], "a commit")
+
+
 def test_preflight_flags_missing_hooks_and_blocking_findings(monkeypatch):
     from jav import preflight
 

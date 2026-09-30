@@ -56,6 +56,9 @@ KIND_LABELS = {
     "forbidden_history": "tiltott történet",
 }
 
+_VALUE_KINDS = frozenset({"hu_tax_id", "eu_vat", "iban", "bank_account", "email", "phone", "api_key", "env_secret",
+                          "deny_term"})
+_PATH_KINDS = frozenset({"internal_doc", "blocked_path", "blocked_file", "binary_file"})
 _TOKEN = re.compile(r"\w+")
 _ENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$")
 _ENV_SECRET_NAME = re.compile(r"(?i)key|token|secret|passw|pwd")
@@ -420,12 +423,19 @@ def report(findings: list[Finding], action: str) -> str:
     if stop:
         lines.append(f"adatőr: {len(stop)} megállító találat - {action} nem történt meg")
         lines.extend(f.describe() for f in stop)
-        lines.append("Kitalált érték: vedd fel a configs/data_guard.json `allow` listájára (verziólépéssel). "
-                     "Valódi adat: cseréld kitaláltra. Belső munkaanyag vagy tiltott fájl: "
-                     "`git restore --staged <fájl>`. Leírás: docs/guides/DEVELOPMENT.md §1.")
+        kinds = {f.kind for f in stop}
+        if kinds & _VALUE_KINDS:
+            lines.append("Tartalom: ha kitalált érték, vedd fel a configs/data_guard.json `allow` listájára "
+                         "(verziólépéssel); ha valódi adat vagy kulcs, cseréld kitaláltra.")
+        if kinds & _PATH_KINDS:
+            lines.append("Fájl: vedd ki a commitból: `git restore --staged <fájl>` (a belső munkaanyag helyben marad).")
+        if "forbidden_history" in kinds:
+            lines.append("Történet: ez az ág vagy címke a régi történetre épül, nem tölthető fel.")
+        lines.append("Leírás: docs/guides/DEVELOPMENT.md §1. A horog megkerülése (--no-verify) tilos.")
     tolerated = [f for f in findings if f.known]
     if tolerated:
-        lines.append(f"adatőr: {len(tolerated)} tűrt ismert érték (configs/data_guard.json `known`: a 069-es döntés szerint maradó saját adat)")
+        lines.append(f"adatőr: {len(tolerated)} tűrt ismert érték "
+                     "(configs/data_guard.json `known`: a 069-es döntés szerint maradó saját adat)")
     return "\n".join(lines)
 
 
