@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "naming",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-09-30",
+    "note": "078 free trial on the local runs: the long legal forms of names are shortened (legal_forms), a part over the limit is cut at a word boundary, and the street part drops a leading postcode and town when there is no comma and has one letter case."
+   },
    {
     "version": "1.0.0",
     "date": "2026-09-30",
@@ -22,6 +27,23 @@
   "type": "ISMERETLEN"
  },
  "default_pattern": "{@date}_{@type}_{@original}",
+ "legal_forms": {
+  "Zártkörűen Működő Részvénytársaság": "Zrt",
+  "Zártkörűen Működő Rt": "Zrt",
+  "Nyilvánosan Működő Részvénytársaság": "Nyrt",
+  "Nyilvánosan Működő Rt": "Nyrt",
+  "Korlátolt Felelősségű Társaság": "Kft",
+  "Betéti Társaság": "Bt",
+  "Közkereseti Társaság": "Kkt",
+  "Egyéni Vállalkozó": "ev",
+  "Egyéni Cég": "ec",
+  "Részvénytársaság": "Rt",
+  "Nonprofit Korlátolt Felelősségű Társaság": "Nonprofit Kft",
+  "Limited": "Ltd",
+  "Incorporated": "Inc",
+  "Corporation": "Corp",
+  "Gesellschaft mit beschränkter Haftung": "GmbH"
+ },
  "types": {
   "invoice_hu": {"token": "SZAMLA", "pattern": "{issue_date|fulfillment_date}_{@type}_{supplier_name}_{invoice_number}"},
   "invoice_foreign": {"token": "INVOICE", "pattern": "{issue_date}_{@type}_{supplier_name}_{invoice_number}"},

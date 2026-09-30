@@ -9,9 +9,12 @@ Rules (`configs/naming.json`, one pattern per type; a type without a pattern use
   `{@original}`: the stem of the original file name. `@date` and `@original` are fillers: they never send a copy to
   review;
 - modifiers: `:date` (read a date from a text field), `:last8` (digits only, the last 8: an account number),
-  `:street` (the part of an address after the last comma: street and number);
+  `:street` (the part of an address after the last comma: street and number; without a comma a leading postcode and
+  town are dropped, unless nothing else is left; one letter case, so the same place is written the same way on every
+  provider's bill);
 - the field's kind (type pack) decides the form: a date becomes `YYYY-MM-DD`, anything else ASCII letters, digits and
-  hyphens (no accents: owner decision); `_` only ever separates the parts.
+  hyphens (no accents: owner decision); `_` only ever separates the parts; a name's long legal form is shortened
+  (`legal_forms` in the configuration), and a part over the length limit is cut at a word boundary.
 
 A copy goes to the review folder when its name rests on something uncertain: the item did not finish, the type is
 unknown or uncertain, a name field is empty, or an open to-do concerns a field the name was built from and no person
@@ -51,6 +54,7 @@ _FIELD = re.compile(r"^[a-z_][a-z0-9_]*$")
 _NON_WORD = re.compile(r"[^A-Za-z0-9]+")
 _DATE = re.compile(r"(\d{4})\s*[-./]\s*(\d{1,2})\s*[-./]\s*(\d{1,2})")
 _EXT = re.compile(r"^\.[a-z0-9]{1,8}$")
+_POSTCODE_TOWN = re.compile(r"^\s*\d{4}\s+\S+\s*")  # a Hungarian address without a comma: "<postcode> <TOWN> <STREET> <no>"
 # letters that Unicode decomposition does not reduce to a base letter
 _TRANSLIT = str.maketrans({"ß": "ss", "ø": "o", "Ø": "O", "æ": "ae", "Æ": "AE", "œ": "oe", "Œ": "OE", "đ": "d", "Đ": "D",
                            "ł": "l", "Ł": "L", "þ": "th", "Þ": "Th", "ı": "i"})
@@ -93,6 +97,7 @@ class Rules:
     reason_labels: dict[str, str]
     manifest_columns: dict[str, str]
     status_labels: dict[str, str]
+    legal_forms: tuple[tuple[re.Pattern[str], str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -160,13 +165,16 @@ def parse_rules(raw: dict[str, Any]) -> Rules:
     for scope in raw["reason_scope"].values():
         if scope not in ("*", "@type") and not scope.startswith("kind:"):
             raise NamingConfigError(f"reason_scope: unknown scope {scope!r}")
+    # the long legal forms, longest first, as whole words and ignoring case
+    forms = sorted(raw.get("legal_forms", {}).items(), key=lambda kv: -len(kv[0]))
+    legal_forms = tuple((re.compile(rf"(?<!\w){re.escape(long)}(?!\w)", re.IGNORECASE), short) for long, short in forms)
     return Rules(separator=raw["separator"], review_folder=raw["review_folder"], manifest_file=raw["manifest_file"],
                  part_max_chars=int(raw["part_max_chars"]), stem_max_chars=int(raw["stem_max_chars"]),
                  path_max_chars=int(raw["path_max_chars"]), placeholders=dict(raw["placeholders"]),
                  default=TypeRule(token=None, pattern=raw["default_pattern"], literals=d_lits, parts=d_parts), types=types,
                  unknown_key=cfg.load("doc_types")["unknown_key"], reason_scope=dict(raw["reason_scope"]),
                  reason_labels=dict(raw["reason_labels"]), manifest_columns=dict(raw["manifest_columns"]),
-                 status_labels=dict(raw["status_labels"]))
+                 status_labels=dict(raw["status_labels"]), legal_forms=legal_forms)
 
 
 def rules() -> Rules:
@@ -177,14 +185,19 @@ def rules() -> Rules:
 
 
 def safe_part(value: Any, *, limit: int | None = None) -> str | None:
-    """ASCII letters and digits joined by hyphens (accents folded, everything else a hyphen); None if nothing is left."""
+    """ASCII letters and digits joined by hyphens (accents folded, everything else a hyphen); None if nothing is left.
+    Over `limit` it is cut at the last word boundary (unless that would drop more than half: then inside the word)."""
     if value is None:
         return None
     text = unicodedata.normalize("NFKD", str(value).translate(_TRANSLIT))
     text = "".join(c for c in text if not unicodedata.combining(c))
     text = _NON_WORD.sub("-", text).strip("-")
-    if limit:
-        text = text[:limit].rstrip("-")
+    if limit and len(text) > limit:
+        head = text[:limit]
+        if text[limit] != "-":
+            cut = head.rfind("-")
+            head = head[:cut] if cut >= limit // 2 else head
+        text = head.rstrip("-")
     return text or None
 
 
@@ -198,9 +211,10 @@ def _iso_date(value: Any) -> str | None:
         return None
 
 
-def format_value(value: Any, kind: str | None, modifier: str | None = None, *, limit: int | None = None) -> str | None:
+def format_value(value: Any, kind: str | None, modifier: str | None = None, *, limit: int | None = None,
+                 rules: Rules | None = None) -> str | None:
     """One field's value as a name part, or None when it is empty or unusable (an unreadable date, a too short
-    account number)."""
+    account number, a town without a street). A name (`name` kind) gets its legal form shortened (`legal_forms`)."""
     if value is None or not str(value).strip():
         return None
     if modifier == "date" or (modifier is None and kind == "date"):
@@ -209,8 +223,17 @@ def format_value(value: Any, kind: str | None, modifier: str | None = None, *, l
         digits = re.sub(r"\D", "", str(value))
         return digits[-8:] if len(digits) >= 8 else None
     if modifier == "street":
-        return safe_part(str(value).rsplit(",", 1)[-1], limit=limit)
-    return safe_part(value, limit=limit)
+        # the part after the last comma; without a comma, a leading postcode and town are dropped. One case for every
+        # provider (the same place is written "Minta utca 1" on one bill and "MINTA UTCA 1" on another)
+        text = str(value)
+        part = text.rsplit(",", 1)[-1] if "," in text else _POSTCODE_TOWN.sub("", text)
+        street = safe_part(part, limit=limit) or safe_part(text, limit=limit)  # only a postcode and town: that stays
+        return street[:1].upper() + street[1:].lower() if street else None
+    text = str(value)
+    if kind == "name" and rules is not None:
+        for pattern, short in rules.legal_forms:
+            text = pattern.sub(short, text)
+    return safe_part(text, limit=limit)
 
 
 def _is_date_part(part: Part, kinds: dict[str, str]) -> bool:
@@ -248,7 +271,7 @@ def name_for(doc_type: str | None, values: dict[str, Any], kinds: dict[str, str]
         else:
             text, src = None, None
             for f in part.fields:
-                text = format_value(values.get(f), kinds.get(f), part.modifier, limit=limit)
+                text = format_value(values.get(f), kinds.get(f), part.modifier, limit=limit, rules=rules)
                 if text:
                     src = f
                     break

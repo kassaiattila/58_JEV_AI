@@ -35,9 +35,25 @@ def test_safe_part_folds_accents_and_keeps_only_letters_digits_and_hyphens():
     assert naming.safe_part("  ...  ") is None and naming.safe_part(None) is None
 
 
-def test_safe_part_cuts_at_the_limit_without_a_trailing_hyphen():
-    assert naming.safe_part("Minta Kereskedelmi és Szolgáltató Korlátolt Felelősségű Társaság", limit=20) == "Minta-Kereskedelmi-e"
+def test_safe_part_cuts_at_a_word_boundary_within_the_limit():
+    assert naming.safe_part("Minta Kereskedelmi és Szolgáltató Korlátolt Felelősségű Társaság", limit=20) == "Minta-Kereskedelmi"
     assert naming.safe_part("Minta Kereskedelmi Kft", limit=19) == "Minta-Kereskedelmi"
+    assert naming.safe_part("Mintaszolgaltatokozpont Kft", limit=10) == "Mintaszolg"  # one long word: cut inside it
+
+
+def test_legal_forms_are_shortened_in_names_only():
+    r = _rules()
+    long = "Fővárosi Vízművek Zártkörűen Működő Részvénytársaság"
+    assert naming.format_value(long, "name", rules=r) == "Fovarosi-Vizmuvek-Zrt"
+    assert naming.format_value("Minta KORLÁTOLT FELELŐSSÉGŰ TÁRSASÁG", "name", rules=r) == "Minta-Kft"
+    assert naming.format_value("Example Operations Limited", "name", rules=r) == "Example-Operations-Ltd"
+    assert naming.format_value("Részvénytársaság utca 1.", "address", "street", rules=r) == "Reszvenytarsasag-utca-1"  # not a name
+
+
+def test_a_street_without_a_comma_drops_the_postcode_and_town_and_has_one_case():
+    assert naming.format_value("1155 BUDAPEST SZÉCHENYI ÚT 101", "address", "street") == "Szechenyi-ut-101"
+    assert naming.format_value("1155 Budapest, Széchenyi út 101.", "address", "street") == "Szechenyi-ut-101"
+    assert naming.format_value("Széchenyi út 101", "address", "street") == "Szechenyi-ut-101"
 
 
 def test_dates_become_iso_and_nonsense_is_missing():
@@ -53,6 +69,8 @@ def test_modifiers_last_digits_and_street():
     assert naming.format_value("12", "text", "last8") is None  # too short to identify an account
     assert naming.format_value("1234 Budapest, Minta utca 12.", "address", "street") == "Minta-utca-12"
     assert naming.format_value("Minta utca 12.", "address", "street") == "Minta-utca-12"
+    assert naming.format_value("1234 Budapest", "address", "street") == "1234-budapest"  # no street: the town stays
+    assert naming.format_value("  ", "address", "street") is None
 
 
 # --- whole names ------------------------------------------------------------------------------------------------
