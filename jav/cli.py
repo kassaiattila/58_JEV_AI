@@ -365,6 +365,27 @@ def cmd_preflight(args: argparse.Namespace) -> int:
     return preflight(skip_pytest=args.skip_pytest)
 
 
+def cmd_data_guard(args: argparse.Namespace) -> int:
+    from jav import data_guard
+    from jav.config import PROJECT_ROOT
+
+    found = data_guard.scan_tracked(PROJECT_ROOT, data_guard.load_guard(PROJECT_ROOT))
+    print(data_guard.report(found, "a kiadás") or "adatőr: a verziókövetett fájlokban nincs találat")
+    if args.all:  # a tűrt ismert értékek helye is (maszkolva)
+        for f in found:
+            if f.known:
+                print(f.describe())
+    return 1 if data_guard.blocking(found) else 0
+
+
+def cmd_hooks_install(args: argparse.Namespace) -> int:
+    from jav import data_guard
+    from jav.config import PROJECT_ROOT
+
+    print(data_guard.install_hooks(PROJECT_ROOT))
+    return 0
+
+
 def cmd_configs(args: argparse.Namespace) -> int:
     from jav import cfg
 
@@ -504,6 +525,13 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("preflight", help="session-indító ellenőrzés API nélkül: pytest, kontrakt-lint, konfigok, handoff-frissesség, STATE.md")
     p.add_argument("--skip-pytest", action="store_true")
     p.set_defaults(fn=cmd_preflight)
+
+    p = sub.add_parser("data-guard", help="071 adatőr: a verziókövetett fájlok átnézése (személyes adat, kulcs, belső anyag)")
+    p.add_argument("--all", action="store_true", help="a tűrt ismert értékek helyét is kiírja (maszkolva)")
+    p.set_defaults(fn=cmd_data_guard)
+
+    p = sub.add_parser("hooks-install", help="071 adatőr: a verziózott git-horgok bekapcsolása (core.hooksPath = scripts/githooks)")
+    p.set_defaults(fn=cmd_hooks_install)
 
     p = sub.add_parser("configs", help="konfig mint adat: configs/*.json verziók és config_hash-ek")
     p.set_defaults(fn=cmd_configs)

@@ -83,6 +83,24 @@ def handoff_status() -> tuple[bool, str]:
     return True, f"{rel} (friss; következő sorszám: {num + 1:03d})"
 
 
+def data_guard_status() -> tuple[bool, str]:
+    """071 S-adatőr: a verziózott horgok be vannak-e kapcsolva, és a verziókövetett fájlokban van-e megállító találat."""
+    from jav import data_guard
+
+    try:
+        found = data_guard.scan_tracked(PROJECT_ROOT, data_guard.load_guard(PROJECT_ROOT))
+    except data_guard.DataGuardError as e:
+        return True, f"nem ellenőrizhető ({e})"
+    stop = data_guard.blocking(found)
+    parts = [f"{len(stop)} megállító, {len(found) - len(stop)} tűrt találat a verziókövetett fájlokban"]
+    if stop:
+        parts.append("átnézés: python -m jav.cli data-guard")
+    installed = data_guard.hooks_installed(PROJECT_ROOT)
+    if not installed:
+        parts.insert(0, "a horgok nincsenek bekapcsolva (python -m jav.cli hooks-install)")
+    return installed and not stop, "; ".join(parts)
+
+
 def preflight(*, skip_pytest: bool = False) -> int:
     t0 = time.perf_counter()
     results: list[tuple[str, bool, str]] = []
@@ -104,6 +122,9 @@ def preflight(*, skip_pytest: bool = False) -> int:
 
     g = devstate.git_state()
     results.append(("git", True, g.line() if g else "nem git-repó / git nem érhető el"))
+
+    ok, msg = data_guard_status()
+    results.append(("adatőr", ok, msg))
 
     found = devstate.ruff_findings()
     ok, msg = devstate.lint_verdict(found[0] if found else None, devstate.lint_limit())

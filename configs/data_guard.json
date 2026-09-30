@@ -1,0 +1,235 @@
+{
+  "meta": {
+    "name": "data_guard",
+    "version": "1.0.0",
+    "description": "Adatőr (070 terv 2.1 S-adatőr, jav/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-09-30",
+        "note": "071 S-adatőr (070 terv 2.1): első változat; a régi projekt scripts/hooks/pre-commit + scripts/secret_scan.py mintájára, ellenőrzőszám-szűréssel, kulcs-, .env- és tiltottkifejezés-kereséssel, feltöltés előtti történet-tiltással. Az allow/known/deny lista a verziókövetett fa 2026-09-30-i átnézéséből."
+      }
+    ]
+  },
+  "forbidden_history": [
+    "baseline-039",
+    "669e851cd9ab07673a129452af7d2f0160a8af19"
+  ],
+  "allowed_paths": [
+    ".env.example"
+  ],
+  "blocked_paths": [
+    ".env",
+    ".env.*",
+    "runs/",
+    "store/",
+    "inbox/",
+    "tools/tessdata/"
+  ],
+  "blocked_extensions": [
+    ".pdf",
+    ".eml",
+    ".msg",
+    ".mbox",
+    ".pst",
+    ".sqlite",
+    ".sqlite3",
+    ".db",
+    ".xlsx",
+    ".xls",
+    ".docx",
+    ".doc",
+    ".odt",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".tif",
+    ".tiff",
+    ".heic",
+    ".webp",
+    ".zip",
+    ".7z",
+    ".rar"
+  ],
+  "allowed_binary": [],
+  "patterns": {
+    "hu_tax_id": "(?<![0-9A-Za-z-])(?:HU ?\\d{8}|\\d{8}[- ]\\d[- ]\\d{2})(?![0-9A-Za-z-])",
+    "eu_vat": "(?<![0-9A-Za-z])(?:AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|HR|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK|XI|GB|NO) ?[0-9A-Z]{8,14}(?![0-9A-Za-z])",
+    "iban": "(?<![0-9A-Za-z])[A-Z]{2}\\d{2}(?: ?[0-9A-Z]{4}){2,7}(?: ?[0-9A-Z]{1,4})?(?![0-9A-Za-z])",
+    "bank_account": "(?<![0-9A-Za-z-])\\d{8}[- ]\\d{8}(?:[- ]\\d{8})?(?![0-9A-Za-z-])",
+    "email": "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}",
+    "phone": "(?<![0-9A-Za-z+])(?:\\+36|0036|06)[ /.-]?(?:1|[2-9]\\d)[ /.-]?\\d{3}[ /.-]?\\d{3,4}(?![0-9A-Za-z])"
+  },
+  "api_key_patterns": [
+    "\\bsk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}",
+    "\\bgh[pousr]_[A-Za-z0-9]{36,}",
+    "\\bgithub_pat_[A-Za-z0-9_]{40,}",
+    "\\bAKIA[0-9A-Z]{16}\\b",
+    "\\bAIza[0-9A-Za-z_-]{35}\\b",
+    "\\bxox[abprs]-[A-Za-z0-9-]{10,}",
+    "-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----"
+  ],
+  "email_reserved_tlds": [
+    "test",
+    "example",
+    "invalid",
+    "localhost"
+  ],
+  "email_domains_ok": [
+    "example.com",
+    "example.org",
+    "example.net",
+    "example.hu",
+    "minta.hu",
+    "pelda.hu"
+  ],
+  "allow": {
+    "hu_tax_id": [
+      "12121216-2-42",
+      "12345676-2-41",
+      "13570008-1-13",
+      "16694855-2-42",
+      "17533966-2-43",
+      "21357912-1-13",
+      "24681353-1-43",
+      "26406509-3-42",
+      "26903570-2-44",
+      "28642099-2-42",
+      "32197530-2-44",
+      "38756887-2-41",
+      "53102467-2-26",
+      "63506958-2-41",
+      "90909094-2-42",
+      "93443256-3-43",
+      "HU12121216",
+      "HU13570008"
+    ],
+    "eu_vat": [
+      "ATU12345678",
+      "DE123456789",
+      "GB123456789",
+      "IE8256796U",
+      "NL123456789B01",
+      "NO123456789",
+      "SE123456789001"
+    ],
+    "iban": [
+      "HU18 0143 0132 5642 1867 8499 5714",
+      "HU33 3946 8165 3072 8781 5055 4299",
+      "HU42 1177 3016 1111 1018 0000 0000",
+      "HU50 1000 0001 2000 0002 0000 0000",
+      "HU78111100001234567800000000",
+      "HU80 4294 9447 8799 4877 4692 7463",
+      "HU80 8653 8293 8184 1956 7393 0063",
+      "HU82 1210 0028 4681 3574 0000 0000"
+    ],
+    "bank_account": [
+      "10000001-20000002-00000000",
+      "10000001-30000003",
+      "10000001-30000003-00000000",
+      "10700000-00000000",
+      "11111111-00000000-22222222",
+      "11773078-00021377",
+      "12100028-46813574-00000000"
+    ],
+    "email": [
+      "a@b.hu",
+      "a@x.hu",
+      "b@y.hu",
+      "nev@ceg.hu",
+      "noreply@billingo.hu",
+      "szamla@szolgaltato.hu"
+    ],
+    "phone": [
+      "+36 1 234 5678",
+      "+36 20 000 1234",
+      "06-30-123-4567"
+    ]
+  },
+  "known": [
+    {
+      "kind": "hu_tax_id",
+      "sha256": "bf213562da2804e99c4298ad2713b7a9dde6cb4c4091b9254335244e5200c2e8",
+      "paths": [
+        "configs/callsites/select_foreign.json",
+        "configs/callsites/verify_foreign.json",
+        "tests/test_evidence_learning.py",
+        "tests/test_typepack.py"
+      ],
+      "until": "S-injekció (069-es döntés)",
+      "why": "a saját cég uniós adószáma a hívási beállításokban és két tesztben"
+    },
+    {
+      "kind": "deny_term",
+      "sha256": "202d4544fffca058908bcaafc37e54b26a401fcd9253ca5e2256b1643d9f1a6b",
+      "paths": [
+        "configs/callsites/verify_invoice_out.json",
+        "configs/legacy_types/invoice_out/detect.json",
+        "configs/legacy_types/invoice_out/fixtures/synth_invoice_out.json",
+        "configs/legacy_types/invoice_out/prompt.md",
+        "configs/legacy_types/invoice_out/schema.json",
+        "configs/types/invoice_out.json",
+        "jav/pdf.py",
+        "jav/prompts/invoice_out_prompt.md",
+        "jav/prompts/invoice_out_schema.json",
+        "tests/test_candidates.py",
+        "tests/test_grounding.py",
+        "tests/test_ocr_utility.py",
+        "tests/test_pdf_text_layer.py",
+        "tests/test_typepack.py"
+      ],
+      "until": "S-injekció (069-es döntés)",
+      "why": "a saját cég neve a típuscsomagokban, utasításokban és tesztekben"
+    },
+    {
+      "kind": "deny_term",
+      "sha256": "7d8572392319585ee6abdd73a06b247daeb79975997cab7bf7e647019f1d0e20",
+      "paths": [
+        "configs/intents.json"
+      ],
+      "until": "S-injekció (069-es döntés)",
+      "why": "a felhasználónév a levélszándék-példákban"
+    },
+    {
+      "kind": "deny_term",
+      "sha256": "7d8572392319585ee6abdd73a06b247daeb79975997cab7bf7e647019f1d0e20",
+      "paths": [
+        "configs/service.json",
+        "docs/guides/SETUP.md"
+      ],
+      "until": "S-adatleltár",
+      "why": "a NAS-mentés útvonala (a felhasználó saját mappája)"
+    },
+    {
+      "kind": "deny_term",
+      "sha256": "7d8572392319585ee6abdd73a06b247daeb79975997cab7bf7e647019f1d0e20",
+      "paths": [
+        "docs/guides/DEVELOPMENT.md"
+      ],
+      "until": "állandó",
+      "why": "a GitHub-tár címe (a fiók neve a tár elérhetőségéhez kell)"
+    }
+  ],
+  "allow_why": {
+    "hu_tax_id": "kitalált tesztértékek (a 066-os anonimizálás és a 067-es szonda kitalált számlái); 26903570-2-44 és 32197530-2-44 nyilvános közmű-szolgáltatói adószám",
+    "eu_vat": "sorszámos minták és egy nyilvános külföldi céges példa a hívási beállítások szószedetéből",
+    "iban": "kitalált vagy szintetikus értékek (067-es szonda, régi szintetikus mintairatok, 066 után a tesztekben)",
+    "bank_account": "kitalált vagy szintetikus értékek (régi szintetikus kivonat-minták, tesztek)",
+    "email": "kitalált címek a tesztekben és a felület mintaszövegében; noreply@billingo.hu nyilvános szolgáltatói feladó",
+    "phone": "kitalált telefonszámok a tesztekben"
+  },
+  "deny": [
+    {
+      "sha256": "202d4544fffca058908bcaafc37e54b26a401fcd9253ca5e2256b1643d9f1a6b",
+      "len": 6,
+      "why": "a saját cég neve"
+    },
+    {
+      "sha256": "7d8572392319585ee6abdd73a06b247daeb79975997cab7bf7e647019f1d0e20",
+      "len": 6,
+      "why": "a felhasználó neve és felhasználóneve"
+    }
+  ]
+}
