@@ -8,6 +8,8 @@
   run-start <wp> [--mode shadow|apply]     start a run with the input pinned by the current readiness check (idempotent)
   run-list [<wp>] | run-show <run>         runs; one run's items, work queue, cost and to-dos
   run-cancel <run> | run-approve <run> --actor A
+  run-names <run> [--zip F | --to-output]  content-based names of the run's documents; the copies into a ZIP or the
+                                           output folder (078; the originals are only read)
   worker [--once] [--max-jobs N]           worker: runs the work-queue items (one instance at a time, with a lock)
   worker-status | worker-stop              is a worker running; request a clean stop (after the current item)
   serve [--port P]                         local service (040 K2, 127.0.0.1 only; endpoint list: /api/openapi.json)
@@ -143,6 +145,32 @@ def cmd_run_approve(args):
     return _out(args, run, f"Jóváhagyva: {run['run_id']} ({run['approved_by']})")
 
 
+def cmd_run_names(args):
+    """078: the content-based names of the run's documents; with `--zip` or `--to-output` also the copies."""
+    from jav import app_settings, naming
+    if args.zip and args.to_output:
+        print("Give either --zip or --to-output, not both.")
+        return 2
+    copies = naming.plan(args.run)
+    data: dict[str, Any] = {"copies": [{"path": c.path, "status": c.status, "why": naming.reason_text(c.reasons),
+                                        "original": c.original, "item_id": c.item_id} for c in copies]}
+    lines = [f"  {c.path}  <- {c.original}" + (f"  ({naming.reason_text(c.reasons)})" if c.reasons else "") for c in copies]
+    lines.insert(0, f"{sum(c.status == 'ready' for c in copies)} ready, {sum(c.status == 'review' for c in copies)} to review:")
+    if args.zip:
+        with open(args.zip, "xb") as fh:  # never overwrites an existing file
+            data["written"] = {"zip": str(Path(args.zip).resolve()), **naming.write_zip(args.run, fh)}
+    elif args.to_output:
+        folder = app_settings.output_folder()
+        if not folder:
+            print("No output folder is set (Settings > Work folders in the UI).")
+            return 2
+        data["written"] = naming.write_to_folder(args.run, Path(folder))
+    if "written" in data:
+        w = data["written"]
+        lines.append(f"Written: {w.get('zip') or w.get('path')} ({w['ready']} ready, {w['review']} to review, {w['skipped']} skipped)")
+    return _out(args, data, "\n".join(lines))
+
+
 def cmd_worker(args):
     from jav.runtime import applog, lock, worker
     applog.setup("worker")  # 063: persistent rotating log (runs/logs/worker.log): start, errors with traceback, stop
@@ -231,6 +259,10 @@ def register(sub) -> None:
     p = add("run-approve", cmd_run_approve, "éles futás jóváhagyása (csak nyitott teendő nélkül)")
     p.add_argument("run")
     p.add_argument("--actor", required=True)
+    p = add("run-names", cmd_run_names, "078: content-based names of a run's documents; --zip or --to-output writes the copies")
+    p.add_argument("run")
+    p.add_argument("--zip", help="write the copies and the manifest into this new ZIP file")
+    p.add_argument("--to-output", action="store_true", help="write them into a new subfolder of the output folder")
     p = add("worker", cmd_worker, "feldolgozó: a munkasor tételeinek futtatása")
     p.add_argument("--once", action="store_true", help="a sor kiürüléséig fut, utána kilép")
     p.add_argument("--max-jobs", type=int)

@@ -14,6 +14,9 @@ package or extend the existing one. Differences from the legacy version:
   hashed again;
 - a document removed from the package by hand does not come back; no paid run starts by itself (the recipe is only
   assigned, as for a package arriving from a mailbox, decision 048).
+
+**Output folder** (078): where the content-named copies of a run are written (`jav/naming.py`). It may not overlap a
+watched folder in either direction, so the watcher never takes the copies in again.
 """
 
 from __future__ import annotations
@@ -73,8 +76,18 @@ CREATE TABLE IF NOT EXISTS watched_seen (
     PRIMARY KEY (folder_id, path)
 );
 """)
+# 078: single-valued settings (the output folder of the content-named copies)
+store.register_schema("app_options", """
+CREATE TABLE IF NOT EXISTS app_options (
+    key         TEXT PRIMARY KEY,
+    value       TEXT NOT NULL,
+    actor       TEXT,
+    updated_at  TEXT NOT NULL
+);
+""")
 
 SUFFIXES = (".pdf",)
+OUTPUT_FOLDER_KEY = "output_folder"
 SETTLE_S = 10  # a file modified more recently than this may still be being written: it waits for the next scan
 DEFAULT_INTERVAL_MIN = 15
 
@@ -170,9 +183,12 @@ def save_folders(items: list[WatchedFolder], *, check_dir: Callable[[str], Path]
     if len(items) > 50:
         raise ValueError("at most 50 watched folders")
     known = {f["id"]: f for f in folders()}
+    out = output_folder()
     rows = []
     for f in items:
         p = check_dir(f.path)
+        if out and _overlaps(p, Path(out)):  # 078: the watcher would take the named copies in again
+            raise FolderOverlap(f"a watched folder cannot overlap the output folder of the named copies: {p}")
         recipe_id = f.recipe_id or None
         if recipe_id is not None:
             work.recipe(recipe_id)  # unknown recipe: ValueError → 422
@@ -307,4 +323,60 @@ def tick(now: datetime | None = None) -> list[str]:
     return due
 
 
-__all__ = ["WatchedFolder", "folders", "save_folders", "save_users", "scan", "tick", "users"]
+# --- output folder of the content-named copies (078) --------------------------------------------------------
+
+
+class FolderOverlap(ValueError):
+    """The output folder and a watched folder (or the application's own data folders) overlap."""
+
+
+class NoOutputFolder(ValueError):
+    """Writing the named copies was asked for, but no output folder is set."""
+
+
+def _overlaps(a: Path, b: Path) -> bool:
+    a, b = a.resolve(), b.resolve()
+    return a == b or a.is_relative_to(b) or b.is_relative_to(a)
+
+
+def check_output_folder(p: Path) -> Path:
+    """The output folder may not lie inside a watched folder or contain one (the watcher would take the copies in
+    again as new documents), nor overlap the store or the mailbox folders. Returns the resolved path; `ValueError`
+    otherwise."""
+    from jav.config import PROJECT_ROOT
+
+    p = p.resolve()
+    if not p.is_dir():
+        raise ValueError(f"the output folder does not exist: {p}")
+    for f in folders():
+        if _overlaps(p, Path(f["path"])):
+            raise FolderOverlap(f"the output folder cannot overlap the watched folder {f['name']!r}")
+    for internal in (PROJECT_ROOT / "store", PROJECT_ROOT / "inbox", PROJECT_ROOT / "runs"):
+        if _overlaps(p, internal):
+            raise FolderOverlap("the output folder cannot overlap the application's own data folders (store, inbox, runs)")
+    return p
+
+
+def output_folder() -> str | None:
+    with store.connect() as c:
+        row = c.execute("SELECT value FROM app_options WHERE key=?", (OUTPUT_FOLDER_KEY,)).fetchone()
+    return row["value"] if row else None
+
+
+def save_output_folder(path: str | None, *, check_dir: Callable[[str], Path], actor: str) -> str | None:
+    """Sets (or with an empty value clears) the output folder. `check_dir`: the service's path check (an existing
+    folder, under the allowed roots when they are restricted); then `check_output_folder`."""
+    if not path or not path.strip():
+        with store.connect() as c:
+            c.execute("DELETE FROM app_options WHERE key=?", (OUTPUT_FOLDER_KEY,))
+        return None
+    p = check_output_folder(check_dir(path.strip()))
+    with store.connect() as c:
+        c.execute("INSERT INTO app_options(key, value, actor, updated_at) VALUES (?,?,?,?) ON CONFLICT(key)"
+                  " DO UPDATE SET value=excluded.value, actor=excluded.actor, updated_at=excluded.updated_at",
+                  (OUTPUT_FOLDER_KEY, str(p), actor, _iso(_now())))
+    return str(p)
+
+
+__all__ = ["WatchedFolder", "check_output_folder", "folders", "output_folder", "save_folders", "save_output_folder",
+           "save_users", "scan", "tick", "users"]

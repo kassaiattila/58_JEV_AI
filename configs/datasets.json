@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "changelog": [
+   {
+    "version": "1.5.0",
+    "date": "2026-09-30",
+    "note": "078: labels of the new file-name view of a run (naming_status: ready / review folder)"
+   },
    {
     "version": "1.4.0",
     "date": "2026-09-29",
@@ -32,6 +37,7 @@
  },
  "labels": {
   "run_status": {"queued": "Sorban áll", "running": "Fut", "needs_review": "Teendő vár", "done": "Kész", "failed": "Hibás", "cancelled": "Leállítva"},
+  "naming_status": {"ready": "Kész", "review": "Ellenőrzendő"},
   "item_status": {"done": "Lefutott", "failed": "Hibás", "cancelled": "Leállítva", "needs_review": "Teendő", "needs_ocr": "OCR kell"},
   "final_status": {"done": "Lezárva, teendő nélkül", "needs_review": "Teendő", "needs_ocr": "OCR kell", "jev_unavailable": "JEV nem volt elérhető"},
   "mode": {"shadow": "Próba", "apply": "Éles"},

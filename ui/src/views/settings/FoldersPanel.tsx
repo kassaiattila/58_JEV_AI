@@ -2,7 +2,8 @@
 // active flag, subfolders, packaging (one shared package / daily packages), recipe and check interval. Draft → save or
 // discard; with unsaved changes, leaving the page or following an internal link asks for confirmation (the V4 pattern).
 // The path can be any existing folder (061 decision; the restriction can be switched back on in the local service's
-// settings); the worker checks the folder at intervals, and no paid run starts on its own.
+// settings); the worker checks the folder at intervals, and no paid run starts on its own. 078: below the list, the output
+// folder of the content-named copies.
 import { useEffect, useState } from "react";
 import { api, ApiError, getActor, NO_ACTOR, type WatchedFolder } from "../../api";
 import { Picker } from "../../components/Picker";
@@ -50,7 +51,8 @@ export function FoldersPanel() {
       data.reload();
     } catch (e) {
       const err = e as ApiError;
-      setMsg({ error: true, text: err.code === "forbidden_path" ? t("Egy útvonal az engedélyezett helyeken kívül van (lent látszanak).") : err.message });
+      setMsg({ error: true, text: err.code === "forbidden_path" ? t("Egy útvonal az engedélyezett helyeken kívül van (lent látszanak).")
+        : err.code === "folder_overlap" ? t("Egy munkamappa nem lehet a kimeneti mappán belül, és nem is tartalmazhatja (lent).") : err.message });
     } finally {
       setBusy(false);
     }
@@ -119,6 +121,53 @@ export function FoldersPanel() {
       {msg ? <p className={msg.error ? "notice error" : "notice"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}
       {/* 061: by default there is no folder restriction; the list of locations only shows when it is switched on */}
       {data.data?.roots.length ? <p className="muted small">{t("Engedélyezett helyek: {{roots}}", { roots: data.data.roots.join(" · ") })}</p> : null}
+      <OutputFolderCard />
     </section>
+  );
+}
+
+/** 078: where the content-named copies of a run go (Result › File names). Saved on its own, not with the folder list;
+ *  every write makes a new subfolder there, nothing is overwritten or deleted. */
+export function OutputFolderCard() {
+  useLocale();
+  const data = useLoad("output-folder", api.outputFolder);
+  // null: not edited, the saved value shows; a value typed before the saved one arrives is kept
+  const [draft, setDraft] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const saved = data.data?.path ?? "";
+  const path = draft ?? saved;
+
+  async function save() {
+    if (!getActor()) { setMsg({ error: true, text: t("Nem menthető: {{reason}}.", { reason: t(NO_ACTOR) }) }); return; }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await api.saveOutputFolder(path.trim() || null);
+      setDraft(res.path ?? "");
+      setMsg({ error: false, text: res.path ? t("Mentve.") : t("A kimeneti mappa törölve.") });
+      data.reload();
+    } catch (e) {
+      const err = e as ApiError;
+      setMsg({ error: true, text: err.code === "folder_overlap" ? t("A kimeneti mappa és egy figyelt munkamappa nem lehet egymásban (a figyelő újra felvenné a másolatokat), és a program saját adatmappáiban sem lehet.")
+        : err.code === "forbidden_path" ? t("Egy útvonal az engedélyezett helyeken kívül van (lent látszanak).") : err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <fieldset className="card wide folder-card" aria-label={t("Kimeneti mappa")}>
+      <legend>{t("Kimeneti mappa")}</legend>
+      <p className="muted small">{t("Ide kerülnek az iratok tartalom szerinti nevű másolatai (Eredmény › Fájlnevek). Minden kiírás új almappát kap; a program itt semmit nem ír felül és nem töröl. Nem lehet figyelt munkamappán belül.")}</p>
+      <div className="form-row">
+        <label className="block grow">{t("Mappa teljes útvonala")}<input value={path} maxLength={1024} placeholder={t("(üresen: nincs kimeneti mappa)")} onChange={(e) => setDraft(e.target.value)} /></label>
+      </div>
+      <div className="button-row">
+        <span className="dt-spacer" />
+        <button type="button" className="primary" disabled={busy || path.trim() === saved} onClick={() => void save()}>{busy ? t("Mentés…") : t("Mentés")}</button>
+      </div>
+      {msg ? <p className={msg.error ? "notice error" : "notice"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}
+    </fieldset>
   );
 }

@@ -168,6 +168,8 @@ def result_tables(run_id: str) -> list[str]:
         out.append("line_items")
     if report_utility.has_utility(records):
         out.append("utility")
+    if any(i.get("kind") != "email" for i in items):  # 078: content-based names of the documents (also detection only)
+        out.append("file_names")
     return out
 
 

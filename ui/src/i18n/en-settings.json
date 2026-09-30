@@ -164,5 +164,11 @@
   "Tényleges költség (USD, üresen: ismeretlen)": "Actual cost (USD; leave empty if unknown)",
   "Megjegyzés (például mit mutatott a szolgáltató felülete)": "Note (for example what the provider's console showed)",
   "Lezárás": "Settle",
-  "A költség nem szám (például 0.012).": "The cost is not a number (for example 0.012)."
+  "A költség nem szám (például 0.012).": "The cost is not a number (for example 0.012).",
+  "Kimeneti mappa": "Output folder",
+  "Ide kerülnek az iratok tartalom szerinti nevű másolatai (Eredmény › Fájlnevek). Minden kiírás új almappát kap; a program itt semmit nem ír felül és nem töröl. Nem lehet figyelt munkamappán belül.": "The content-named copies of the documents go here (Result › File names). Every write gets a new subfolder; nothing here is ever overwritten or deleted. It cannot be inside a watched work folder.",
+  "(üresen: nincs kimeneti mappa)": "(empty: no output folder)",
+  "A kimeneti mappa törölve.": "The output folder has been cleared.",
+  "A kimeneti mappa és egy figyelt munkamappa nem lehet egymásban (a figyelő újra felvenné a másolatokat), és a program saját adatmappáiban sem lehet.": "The output folder and a watched work folder cannot be inside one another (the watcher would take the copies in again), nor can it be in the application's own data folders.",
+  "Egy munkamappa nem lehet a kimeneti mappán belül, és nem is tartalmazhatja (lent).": "A work folder cannot be inside the output folder, nor contain it (below)."
 }

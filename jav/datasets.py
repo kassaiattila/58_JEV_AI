@@ -412,6 +412,26 @@ def _line_items(scope: dict[str, str]) -> Rows:
     return cols, _zip_rows([c.key for c in cols], rows, run, lambda d: f"{d['item_id']}:{d['list']}:{d['row']}")
 
 
+def _file_names(scope: dict[str, str]) -> Rows:
+    """078: the content-based name of each document of the run, whether its copy is ready or goes to
+    the review folder, and why (`jav/naming.py`)."""
+    from jav import naming
+
+    run = work.get_run(scope["run_id"])
+    cols = [
+        _col("filename", "Új fájlnév", link="review"),
+        _col("status", "Mappa", "enum", labels="naming_status", badge=True),
+        _col("why", "Miért ellenőrzendő"),
+        _col("original", "Eredeti fájlnév"),
+        _col("doc_type", "Típus", "enum", labels="doc_type"),
+        _col("item_id", "Tétel-azonosító", "id", hidden=True),
+    ]
+    rows = [{"_key": c.item_id, "_wp": run["workpackage_id"], "_run": run["run_id"], "item_id": c.item_id,
+             "filename": c.filename, "status": c.status, "why": naming.reason_text(c.reasons) or None, "original": c.original,
+             "doc_type": c.doc_type} for c in naming.plan(run["run_id"])]
+    return cols, rows
+
+
 def _calls(scope: dict[str, str]) -> Rows:
     work.get_run(scope["run_id"])
     cols = [
@@ -539,6 +559,7 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("line_items", "Tételsorok", ("run_id",), _line_items, _run_fingerprint),
     Dataset("utility_cost", "Közmű-költség havonta", ("run_id",), _utility_cost, _run_fingerprint),
     Dataset("utility_sources", "Közmű-költség forrásai", ("run_id",), _utility_sources, _run_fingerprint),
+    Dataset("file_names", "Fájlnevek", ("run_id",), _file_names, _run_fingerprint),
     Dataset("calls", "Hívásnapló", ("run_id",), _calls, _calls_fingerprint),
     Dataset("mailbox_pulls", "Postafiók-letöltések", (), _mailbox_pulls),
     Dataset("activity", "Tevékenységnapló", ("actor",), _activity, optional_scope=("day",)),

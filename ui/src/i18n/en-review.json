@@ -152,5 +152,7 @@
   "Felelős: {{who}}": "Assignee: {{who}}",
   "Határidő: {{date}}": "Deadline: {{date}}",
   "{{n}} javaslat kiesett a bizonyíték-ellenőrzésen (nem szó szerinti idézet, kitalált határidő vagy felelős).": "{{n}} proposals failed the evidence check (not a verbatim quote, invented deadline or assignee).",
-  "Nem sikerült rendezni: {{reason}}": "Could not resolve: {{reason}}"
+  "Nem sikerült rendezni: {{reason}}": "Could not resolve: {{reason}}",
+  "Egy PDF-csatolmány nem olvasható (sérült, túl nagy, vagy túllépte az olvasási időt vagy memóriát); a levél szándéka ettől még elkészült": "A PDF attachment could not be read (corrupt, too large, or over the reading time or memory); the email's intent was still recognised",
+  "a PDF nem olvasható (sérült vagy túl nagy)": "the PDF cannot be read (corrupt or too large)"
 }

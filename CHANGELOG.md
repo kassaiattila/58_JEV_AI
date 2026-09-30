@@ -19,6 +19,16 @@ This list shows what each release brought. `v1.0.0` was the first stable version
 - **UI code comments in English (2026-09-30):** every comment in the UI sources (TypeScript, CSS, the i18n checker)
   and the UI package description are now in British English; a machine comparison confirms that no code changed.
   The UI's own texts are unchanged.
+- **Content-based file names (2026-09-30):** a run's documents can be copied under uniform names built from their
+  content, date first and without accents (for example `2026-09-12_SZAMLA_Minta-Kft_SZ-2026-001234.pdf`); the
+  originals are never changed. The name comes from the corrected data, with no AI call; a copy whose name rests on an
+  open to-do, an empty field or an unknown type goes into the `ellenorzendo` (to review) subfolder. New: the **File
+  names** view in the Result section with a ZIP download and writing to an output folder (a new
+  subfolder each time, nothing overwritten), the output folder in Settings › Work folders (never overlapping a watched
+  folder), a manifest (`jegyzek.csv`) and `python -m jav.cli run-names`. Rules: `configs/naming.json`.
+- **Unreadable email attachments (2026-09-30):** a corrupt or over-limit PDF attachment no longer fails the whole
+  email: the attachment is marked as unreadable, the email gets a to-do (`attachment:unreadable`), and the intent is
+  still recognised. Any other error still fails the item.
 
 ## v1.1.1 — 2026-09-30
 
