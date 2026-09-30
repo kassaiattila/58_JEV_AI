@@ -10,6 +10,13 @@ This list shows what each release brought. `v1.0.0` was the first stable version
 
 ## Unreleased
 
+- **Source instances:** when a document is added to a work package, the system keeps an unchanging copy of it
+  (`store/sources/`, one copy per content), and processing, the review page image, the source view and the named
+  copies work from that copy. What a person checks is therefore exactly what the result was made from, even if the
+  original file is later edited, moved or deleted; a changed or missing original is a warning instead of a blocker,
+  and the review view says so. The copies go into the daily backup once each, locally and in the second location.
+  Documents added before this change keep working from their original file. The model requests do not change.
+
 ## v1.1.2 — 2026-09-30
 
 Content-based file names, isolated PDF reading and a fix for unreadable email attachments; the UI code comments are in

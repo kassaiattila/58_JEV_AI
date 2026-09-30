@@ -25,7 +25,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, store, typepack
+from jav import cfg, source_instances, store, typepack
 from jav.runtime import calls, queue
 
 JOB_KIND = "run_item"
@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS workpackage_items (
     added_revision   INTEGER NOT NULL,
     removed_revision INTEGER,
     parent_item_id   TEXT,                     -- 058 K5.2: a levél csatolmányánál a levél tétele (a csatolmány eredete)
+    instance    TEXT,                          -- source instance (jav/source_instances.py), relative path; NULL: none
     PRIMARY KEY (workpackage_id, item_id)
 );
 CREATE TABLE IF NOT EXISTS recipe_assignments (
@@ -120,6 +121,8 @@ def _migrate(conn) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(workpackage_items)")}
     if cols and "parent_item_id" not in cols:  # 058 K5.2: the attachment points to its email
         conn.execute("ALTER TABLE workpackage_items ADD COLUMN parent_item_id TEXT")
+    if cols and "instance" not in cols:  # source instance: the unchanging copy made when the item was added
+        conn.execute("ALTER TABLE workpackage_items ADD COLUMN instance TEXT")
     wcols = {r[1] for r in conn.execute("PRAGMA table_info(workpackages)")}
     if wcols and "owner" not in wcols:  # 061: the person responsible for the package (a name from the name list)
         conn.execute("ALTER TABLE workpackages ADD COLUMN owner TEXT")
@@ -185,6 +188,31 @@ def read_verified(path: Path, sha256: str, *, max_bytes: int) -> bytes:
     if hashlib.sha256(data).hexdigest() != sha256:
         raise conflict
     return data
+
+
+def source_file(item: dict[str, Any]) -> Path:
+    """The file an item's bytes are read from: its source instance if it has one, otherwise (an email, or a document
+    added before source instances existed) the original path."""
+    if item.get("instance"):
+        return source_instances.path_of(item["instance"])
+    return Path(item["source_path"])
+
+
+def _instance_ok(item: dict[str, Any], *, verify: bool = False) -> bool:
+    try:
+        return fingerprint(source_file(item), verify=verify) == item["sha256"]
+    except OSError:
+        return False
+
+
+def original_state(item: dict[str, Any], *, verify: bool = False) -> str:
+    """The state of the item's original file compared with what was added: `same`, `changed` or `missing` (missing or
+    unreadable). By default it uses the size + modification time memo (cheap enough for every package view); with
+    `verify=True` (one item's view) the full content hash, so a same-size change with a restored time shows too."""
+    try:
+        return "same" if fingerprint(Path(item["source_path"]), verify=verify) == item["sha256"] else "changed"
+    except OSError:
+        return "missing"
 
 
 def fingerprint(path: Path, *, verify: bool = False) -> str:
@@ -296,24 +324,36 @@ def add_items(wp_id: str, paths: list[Path], *, kind: str, expected_revision: in
               parents: dict[Path, str] | None = None) -> dict[str, Any]:
     """Adds items in one revision step (`document`: a document file; `email`: the email's `message.json`, 048 T2).
     The item's identifier is the file's content hash; identical content appears once. `parents` (058 K5.2): the parent
-    item's identifier per file — so an email attachment points to its email (the attachment's origin)."""
+    item's identifier per file — so an email attachment points to its email (the attachment's origin).
+
+    A document is copied into the source instance store as it is added (`jav/source_instances.py`), and its
+    fingerprint is that of the copied bytes; an email is hashed in place (it is already the system's own copy). If the
+    intake fails, the copies made for it are released again."""
     if kind not in ("document", "email"):
         raise ValueError(f"unknown item kind: {kind}")
     parents = {Path(k).resolve(): v for k, v in (parents or {}).items()}
-    resolved = []
-    for p in paths:
-        p = Path(p).resolve(strict=True)
-        if not p.is_file():
-            raise ValueError(f"not a file: {p}")
-        resolved.append((p, sha256_file(p)))
-    with store.connect() as c:
-        _begin(c)
-        rev = _bump(c, wp_id, expected_revision)
-        for p, digest in resolved:
-            c.execute("INSERT INTO workpackage_items(workpackage_id, item_id, kind, source_path, sha256, added_revision, parent_item_id)"
-                      " VALUES (?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, item_id) DO UPDATE SET removed_revision=NULL,"
-                      " source_path=excluded.source_path, parent_item_id=COALESCE(workpackage_items.parent_item_id, excluded.parent_item_id)",
-                      (wp_id, digest, kind, str(p), digest, rev, parents.get(p)))
+    resolved: list[tuple[Path, str, str | None]] = []
+    try:
+        for p in paths:
+            p = Path(p).resolve(strict=True)
+            if not p.is_file():
+                raise ValueError(f"not a file: {p}")
+            if kind == "document":
+                resolved.append((p, *source_instances.freeze(p)))
+            else:
+                resolved.append((p, sha256_file(p), None))
+        with store.connect() as c:
+            _begin(c)
+            rev = _bump(c, wp_id, expected_revision)
+            for p, digest, instance in resolved:
+                c.execute("INSERT INTO workpackage_items(workpackage_id, item_id, kind, source_path, sha256, added_revision, parent_item_id, instance)"
+                          " VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, item_id) DO UPDATE SET removed_revision=NULL,"
+                          " source_path=excluded.source_path, parent_item_id=COALESCE(workpackage_items.parent_item_id, excluded.parent_item_id),"
+                          " instance=COALESCE(workpackage_items.instance, excluded.instance)",
+                          (wp_id, digest, kind, str(p), digest, rev, parents.get(p), instance))
+    except BaseException:
+        source_instances.release(i for _p, _d, i in resolved if i)
+        raise
     return get(wp_id)
 
 
@@ -370,7 +410,7 @@ def get(wp_id: str) -> dict[str, Any]:
         if row is None:
             raise KeyError(wp_id)
         items = [dict(r) for r in c.execute(
-            "SELECT item_id, kind, source_path, sha256, added_revision, parent_item_id FROM workpackage_items"
+            "SELECT item_id, kind, source_path, sha256, added_revision, parent_item_id, instance FROM workpackage_items"
             " WHERE workpackage_id=? AND removed_revision IS NULL ORDER BY source_path", (wp_id,))]
     for i in items:  # 058 K5.2: only an attachment has a parent (the shape of old items is unchanged)
         parent = i.pop("parent_item_id")
@@ -442,7 +482,8 @@ def workpackage_events(wp_id: str) -> list[dict[str, Any]]:
 
 def delete_workpackage(wp_id: str, *, actor: str) -> None:
     """Permanent deletion only for a package without runs (one with runs can only be hidden, because the call log and
-    the results refer to it). The items' source files stay where they are."""
+    the results refer to it). The items' original files stay where they are; their source instances are released
+    unless another item still refers to them."""
     with store.connect() as c:
         _begin(c)
         row = c.execute("SELECT name, source_kind, source_ref FROM workpackages WHERE id=?", (wp_id,)).fetchone()
@@ -451,11 +492,12 @@ def delete_workpackage(wp_id: str, *, actor: str) -> None:
         if c.execute("SELECT 1 FROM runs WHERE workpackage_id=? LIMIT 1", (wp_id,)).fetchone() is not None:
             raise NotReady("a work package with runs can only be archived",
                            [{"code": "has_runs", "message": "A csomagnak van futása: csak elrejthető."}])
-        items = c.execute("SELECT COUNT(*) n FROM workpackage_items WHERE workpackage_id=?", (wp_id,)).fetchone()["n"]
+        rows = c.execute("SELECT instance FROM workpackage_items WHERE workpackage_id=?", (wp_id,)).fetchall()
         for table in ("workpackage_items", "recipe_assignments"):
             c.execute(f"DELETE FROM {table} WHERE workpackage_id=?", (wp_id,))
         c.execute("DELETE FROM workpackages WHERE id=?", (wp_id,))
-        _event(c, wp_id, "delete", actor, {**dict(row), "items": items})
+        _event(c, wp_id, "delete", actor, {**dict(row), "items": len(rows)})
+    source_instances.release(r["instance"] for r in rows if r["instance"])
 
 
 # --- recipe assignment ---------------------------------------------------------------------------------
@@ -495,7 +537,8 @@ def assign_recipe(wp_id: str, recipe_id: str, *, params: dict[str, Any], expecte
 
 def _input_snapshot(wp: dict[str, Any]) -> dict[str, Any]:
     items = [{"item_id": i["item_id"], "kind": i["kind"], "source_path": i["source_path"], "sha256": i["sha256"],
-              **({"parent_item_id": i["parent_item_id"]} if i.get("parent_item_id") else {})} for i in wp["items"]]
+              **({"parent_item_id": i["parent_item_id"]} if i.get("parent_item_id") else {}),
+              **({"instance": i["instance"]} if i.get("instance") else {})} for i in wp["items"]]
     return {"workpackage_id": wp["id"], "workpackage_revision": wp["revision"], "items": items}
 
 
@@ -572,7 +615,10 @@ def flow_for(r: dict[str, Any], kind: str | None) -> str:
 
 def readiness(wp_id: str, *, verify: bool = False) -> dict[str, Any]:
     """Pre-run check: blockers (cannot start) and warnings, with the hash of the input to be pinned.
-    `verify=True` (at start): full re-check of the source files, without the remembered fingerprint."""
+    `verify=True` (at start): full re-check of the source files, without the remembered fingerprint.
+
+    An item with a source instance is processed from the instance: only a missing or damaged instance blocks, and a
+    changed or missing original is a warning. An item without one follows the original file, as before."""
     wp = get(wp_id)
     blockers: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
@@ -588,7 +634,14 @@ def readiness(wp_id: str, *, verify: bool = False) -> dict[str, Any]:
         p = Path(i["source_path"])
         if r is not None and (i["kind"] not in r["input_kinds"] or p.suffix.lower() not in r.get("file_suffixes", [p.suffix.lower()])):
             blockers.append({"code": "unsupported_item", "message": f"A recept nem kezeli: {p.name}"})
-        if not p.exists():
+        if i.get("instance"):
+            if not _instance_ok(i, verify=verify):
+                blockers.append({"code": "instance_damaged", "message": f"The copy kept when it was added is missing or damaged: {p.name}"})
+            elif (state := original_state(i)) != "same":
+                warnings.append({"code": f"original_{state}", "message": (
+                    f"The original file has {'changed' if state == 'changed' else 'disappeared'} since it was added; "
+                    f"the copy kept then is processed: {p.name}")})
+        elif not p.exists():
             blockers.append({"code": "source_missing", "message": f"Hiányzó forrás: {p.name}"})
         elif fingerprint(p, verify=verify) != i["sha256"]:
             blockers.append({"code": "source_changed", "message": f"A forrás tartalma a felvétel óta változott: {p.name}"})

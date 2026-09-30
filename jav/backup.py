@@ -18,8 +18,13 @@ archive is also written into the backup folder (`internal-docs.zip`, with names 
 archive's check decides the backup's validity just as the store's does; the hash check of the copy in the second
 location covers it too.
 
-Restore (manual, after stopping the service and the worker): copy the saved `jav.sqlite` back under `store/`; details:
-`docs/guides/SETUP.md`, "Backup, restore and logs".
+Source instances (the unchanging copies of the documents added to work packages, `jav/source_instances.py`) go into
+one shared `sources/` folder beside the timestamped backup folders, in the local root and in the second location alike:
+each instance is copied once, checked against its content hash (its file name), and never pruned, because instances
+never change. A damaged instance is not copied and is named in the manifest.
+
+Restore (manual, after stopping the service and the worker): copy the saved `jav.sqlite` back under `store/`, and the
+`sources/` folder back to `store/sources/`; details: `docs/guides/SETUP.md`, "Backup, restore and logs".
 """
 
 from __future__ import annotations
@@ -37,12 +42,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, doc_scope, store
+from jav import cfg, doc_scope, source_instances, store
 from jav.config import PROJECT_ROOT
 
 KEEP = 7
 STATUS_FILE = "backup-status.json"
 DOCS_ARCHIVE = "internal-docs.zip"
+SOURCES_DIR = "sources"
 _STAMP = re.compile(r"^\d{8}-\d{6}(-\d+)?$")
 log = logging.getLogger("jav.backup")
 
@@ -149,6 +155,9 @@ def _local(root: Path, *, with_burr: bool, keep: int, docs_root: Path | None = N
             docs = _archive_docs(docs_root, dest / DOCS_ARCHIVE)
             if docs:
                 files.append(docs)
+        instances = source_instances.files()
+        if instances:
+            files.append(_sync_sources(instances, source_instances.root(), root / SOURCES_DIR))
         manifest = {"created_at": _now(), "dir": str(dest), "files": files, "ok": all(x["integrity"] == "ok" for x in files)}
         (dest / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     except BaseException:
@@ -196,10 +205,56 @@ def _copy(src_dir: Path, target_root: Path, keep: int) -> dict[str, Any]:
         verified = all(_sha256(f) == _sha256(target / f.name) for f in src_dir.iterdir() if f.is_file())
         if not verified:
             raise OSError(f"copy verification failed: {target}")
-        return {"dir": str(target), "ok": True, "verified": True, "removed": _prune(target_root, keep)}
+        local_sources = src_dir.parent / SOURCES_DIR
+        instances = _instance_files(local_sources)
+        sources = _sync_sources(instances, local_sources, target_root / SOURCES_DIR) if instances else None
+        if sources is not None and sources["integrity"] != "ok":
+            raise OSError(sources["integrity"])
+        return {"dir": str(target), "ok": True, "verified": True, "removed": _prune(target_root, keep), "sources": sources}
     except OSError as exc:
         log.warning("backup copy to %s failed: %s", target_root, exc)
         return {"dir": str(target), "ok": False, "verified": False, "error": f"{type(exc).__name__}: {exc}"}
+
+
+def _instance_files(root: Path) -> list[Path]:
+    """The instance files of a `sources/` folder (a half-written `.part` file is not one)."""
+    if not root.is_dir():
+        return []
+    return sorted(p for p in root.glob("??/*") if p.is_file() and not p.name.endswith(".part"))
+
+
+def _sync_sources(instances: list[Path], src_root: Path, dest_root: Path) -> dict[str, Any]:
+    """Copies the source instances not yet in `dest_root` (shared by every backup there, never pruned). A new copy is
+    checked against the content hash in its name before it takes its place; one already there is recognised by its
+    size. A damaged source instance is not copied and is named. A copy failure makes the entry's integrity an error."""
+    added, total, damaged = 0, 0, []
+    try:
+        for f in instances:
+            rel = f.relative_to(src_root)
+            target = dest_root / rel
+            size = f.stat().st_size
+            if target.is_file() and target.stat().st_size == size:
+                total += size
+                continue
+            digest = f.name.split(".", 1)[0]
+            if not source_instances.intact(f, digest):
+                damaged.append(f.name)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            part = target.with_name(target.name + ".part")
+            shutil.copyfile(f, part)
+            if _sha256(part) != digest:
+                part.unlink(missing_ok=True)
+                raise OSError(f"copy verification failed: {target}")
+            os.replace(part, target)
+            added += 1
+            total += size
+        integrity = "ok"
+    except OSError as exc:
+        log.warning("backup of the source instances to %s failed: %s", dest_root, exc)
+        integrity = f"copy failed: {type(exc).__name__}: {exc}"
+    return {"file": SOURCES_DIR, "source": str(src_root), "bytes": total, "entries": len(instances) - len(damaged),
+            "added": added, "damaged": damaged, "integrity": integrity}
 
 
 def _sha256(path: Path) -> str:

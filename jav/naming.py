@@ -371,6 +371,7 @@ class NamedCopy:
     folder: str
     filename: str
     reasons: tuple[str, ...]
+    instance: str | None = None  # the source instance the bytes come from (None: the original file)
 
     @property
     def status(self) -> str:
@@ -435,7 +436,8 @@ def plan(run_id: str, *, path_budget: int | None = None) -> list[NamedCopy]:
         folder = r.review_folder if why else ""
         filename = unique(folder, _fit(name.stem, name.ext, folder, path_budget) + name.ext, used)
         out.append(NamedCopy(item_id=item["item_id"], source_path=item["source_path"], sha256=item["sha256"], original=original,
-                             doc_type=doc_type, folder=folder, filename=filename, reasons=tuple(why)))
+                             doc_type=doc_type, folder=folder, filename=filename, reasons=tuple(why),
+                             instance=item.get("instance")))
     return out
 
 
@@ -454,14 +456,16 @@ def _manifest(rows: list[tuple[NamedCopy, str, str]]) -> bytes:
 
 
 def _materialise(copies: list[NamedCopy], put: Callable[[str, bytes], None], manifest_file: str) -> dict[str, int]:
-    """Copies the verified bytes of each document under its new name, then the manifest. A source that changed since
-    it was added is skipped (listed in the manifest): the copy is always exactly what was processed."""
+    """Copies the verified bytes of each document under its new name, then the manifest. The bytes come from the
+    source instance when there is one; a source without one that changed since it was added is skipped (listed in the
+    manifest): the copy is always exactly what was processed."""
     max_bytes = work.max_source_bytes()
     rows: list[tuple[NamedCopy, str, str]] = []
     counts: Counter[str] = Counter()
     for c in copies:
         try:
-            data = work.read_verified(Path(c.source_path), c.sha256, max_bytes=max_bytes)
+            src = work.source_file({"source_path": c.source_path, "instance": c.instance})
+            data = work.read_verified(src, c.sha256, max_bytes=max_bytes)
         except work.RevisionConflict:
             counts["skipped"] += 1
             rows.append((c, "skipped", reason_text(["source_changed"])))

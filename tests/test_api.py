@@ -410,7 +410,7 @@ def test_item_source_is_served_only_for_unchanged_items(env):
     r = c.get(f"/api/workpackages/{wp['id']}/items/{item['item_id']}/source")
     assert r.status_code == 200 and r.content.startswith(b"%PDF") and r.headers["content-type"] == "application/pdf"
     assert c.get(f"/api/workpackages/{wp['id']}/items/{'b' * 64}/source").status_code == 404
-    Path(item["source_path"]).write_bytes(b"%PDF-1.4 kicserelve")
+    work.source_file(item).write_bytes(b"%PDF-1.4 kicserelve")  # the source instance is what is served
     assert c.get(f"/api/workpackages/{wp['id']}/items/{item['item_id']}/source").status_code == 409
 
 
@@ -445,7 +445,7 @@ def test_page_image_is_png_and_hash_protected(env):
     assert r.status_code == 200 and r.content.startswith(b"\x89PNG") and r.headers["cache-control"] == "no-store"  # 071
     assert c.get(f"/api/workpackages/{wp['id']}/items/{item['item_id']}/pages/2.png").status_code == 422
     assert c.get(f"/api/workpackages/{wp['id']}/items/{item['item_id']}/pages/1.png?dpi=999").status_code == 422
-    Path(item["source_path"]).write_bytes(b"%PDF-1.4 kicserelve")
+    work.source_file(item).write_bytes(b"%PDF-1.4 kicserelve")
     assert c.get(f"/api/workpackages/{wp['id']}/items/{item['item_id']}/pages/1.png").status_code == 409
 
 

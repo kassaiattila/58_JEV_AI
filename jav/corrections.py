@@ -223,7 +223,7 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     lists = {f: {"columns": list_columns(pack, f, machine.get(f))} for f, k in pack.fields.items() if k == "list"} if pack else {}
     from jav import isolated_pdf, page_image
 
-    src = Path(item["source_path"])
+    src = work.source_file(item)  # the source instance if the item has one
     try:
         n_pages = page_image.page_count(src) if src.is_file() else None
     except (OSError, RuntimeError, isolated_pdf.PdfReaderError, isolated_pdf.PdfReaderLimit):
@@ -234,6 +234,8 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
             "effective": effective, "lists": lists,
             "checks": effective_checks(pack, effective) if pack and pack.validators else [],
             "provenance": effective_provenance(dp, corr, layer), "source": source,
+            # whether the document is shown from the copy kept when it was added, and the original file's state since
+            "source_file": {"copy": bool(item.get("instance")), "original": work.original_state(item, verify=True)},
             "open_reasons": work.item_reasons(run_id, item_id)["run"],
             "earlier_open_reasons": work.item_reasons(run_id, item_id)["earlier"]}
 

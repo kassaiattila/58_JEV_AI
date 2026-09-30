@@ -32,6 +32,9 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from decimal import ROUND_CEILING, Decimal
 from functools import lru_cache
 from pathlib import Path
@@ -170,6 +173,38 @@ def engine_version(eng: str) -> str:
 
 # --- Azure Document Intelligence via the legacy sidecar ----------------------------------------------
 
+# The original a source instance was copied from, with the fingerprint recorded when it was added (see `azure_alias`).
+_AZURE_ALIAS: ContextVar[tuple[Path, str] | None] = ContextVar("jav_azure_alias", default=None)
+
+
+@contextmanager
+def azure_alias(original: str | None, sha256: str) -> Iterator[None]:
+    """While a flow reads a document from its source instance (under `store/sources/`, which the sidecar cannot see),
+    the Azure call may use the original instead, exactly as before source instances: only if the original lies under
+    the sidecar's data folder and its content is still the one that was added. `original=None`: no alias."""
+    token = _AZURE_ALIAS.set((Path(original), sha256) if original else None)
+    try:
+        yield
+    finally:
+        _AZURE_ALIAS.reset(token)
+
+
+def _sidecar_relative(path: Path, data_root: Path) -> Path:
+    """The path relative to the sidecar's data folder; a source instance falls back to its unchanged original."""
+    try:
+        return path.resolve().relative_to(data_root.resolve())
+    except ValueError:
+        alias = _AZURE_ALIAS.get()
+        if alias is None:
+            raise
+        original, sha256 = alias
+        rel = original.resolve().relative_to(data_root.resolve())  # ValueError: not under it either
+        from jav import source_instances
+
+        if not source_instances.intact(original, sha256):
+            raise ValueError(f"the original changed since it was added: {original}") from None
+        return rel
+
 
 def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[str, Any]]], list[float], dict[str, Any]]:
     """The legacy sidecar's `/parse` (chain: azure_di) + the word boxes of the evidence file it saves, in points
@@ -182,7 +217,7 @@ def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[
     # 076: the sidecar's `/data` mount is the legacy project's data folder (`JAV_LEGACY_ROOT`), not a path in the config
     data_root = Path(az["data_root"]) if az.get("data_root") else OLD_DATA_ROOT
     try:
-        rel = path.resolve().relative_to(data_root.resolve())
+        rel = _sidecar_relative(path, data_root)
     except ValueError as exc:
         raise OcrUnavailableError(f"azure_di: a PDF nincs a sidecar adat-mappája alatt ({data_root}): {path}") from exc
     container_path = f"{az['container_root']}/{rel.as_posix()}"

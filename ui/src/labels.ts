@@ -243,6 +243,9 @@ export function blockerText(b: { code: string; message: string }): string {
     case "unsupported_item": return t("A recept nem kezeli: {{name}}", { name });
     case "source_missing": return t("Hiányzó forrás: {{name}}", { name });
     case "source_changed": return t("A forrás tartalma a felvétel óta változott: {{name}}", { name });
+    case "instance_damaged": return t("A felvételkori példány hiányzik vagy sérült: {{name}}", { name });
+    case "original_changed": return t("Az eredeti fájl a felvétel óta megváltozott; a felvételkori példány kerül feldolgozásra: {{name}}", { name });
+    case "original_missing": return t("Az eredeti fájl a felvétel óta eltűnt; a felvételkori példány kerül feldolgozásra: {{name}}", { name });
     default: return b.message;
   }
 }

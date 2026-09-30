@@ -12,7 +12,7 @@ import zipfile
 
 import pytest
 
-from jav import cfg, cli, datasets, naming, store, typepack
+from jav import cfg, cli, datasets, naming, store, typepack, work
 from jav.runtime import worker
 from tests import test_api
 from tests.test_api import HUMAN, _cli_json, _ready_wp, _start
@@ -279,9 +279,11 @@ def test_zip_holds_exact_copies_and_a_manifest_and_leaves_the_originals_alone(en
 
 
 def test_a_source_changed_since_it_was_added_is_left_out(env):
+    # the bytes come from the source instance; if even that no longer matches, the copy is left out
     c = env["client"]
-    _wp, run_id = _run(c, env["folder"])
-    (env["folder"] / "szamla_2.pdf").write_bytes(b"%PDF-1.4 megvaltozott")
+    wp, run_id = _run(c, env["folder"])
+    item = next(i for i in wp["items"] if i["source_path"].endswith("szamla_2.pdf"))
+    work.source_file(item).write_bytes(b"%PDF-1.4 megvaltozott")
     z = zipfile.ZipFile(io.BytesIO(c.get(f"/api/runs/{run_id}/named-copies.zip").content))
     assert len([n for n in z.namelist() if n.endswith(".pdf")]) == 1
     rows = list(csv.reader(io.StringIO(z.read("jegyzek.csv").decode("utf-8-sig")), delimiter=";"))

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, type Alternative, type Provenance, type RunItem, type Workpackage } from "../api";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { api, type Alternative, type ItemResult, type Provenance, type RunItem, type Workpackage } from "../api";
 import { DatasetPicker, runOption } from "../components/DatasetPicker";
 import { useDataset, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
@@ -24,6 +24,25 @@ export function queueStatus(res: Pick<RunItem, "status" | "final_status"> | unde
 }
 // 048: the tab viewed last (fields / line list) stays on the next item too, if that item has such a list as well
 let lastTab = "fields";
+
+/** The notice above the page view when the original file changed or disappeared since the document was added: with a
+ *  source instance the document is still shown (the copy the result was made from); without one it cannot be. */
+export function sourceFileNote(sf: ItemResult["source_file"]): string | null {
+  if (!sf || sf.original === "same") return null;
+  if (sf.copy) {
+    return sf.original === "changed"
+      ? t("Az eredeti fájl a felvétel óta megváltozott. Itt a felvételkori példány látható; az eredmény ebből készült.")
+      : t("Az eredeti fájl a felvétel óta eltűnt vagy nem olvasható. Itt a felvételkori példány látható; az eredmény ebből készült.");
+  }
+  return sf.original === "changed"
+    ? t("Az eredeti fájl a felvétel óta megváltozott, ezért nem jeleníthető meg (az irat még azelőtt került a csomagba, hogy a rendszer példányt tett volna el róla).")
+    : t("Az eredeti fájl a felvétel óta eltűnt vagy nem olvasható, ezért nem jeleníthető meg (az irat még azelőtt került a csomagba, hogy a rendszer példányt tett volna el róla).");
+}
+
+function withNote(note: string | null, node: ReactNode): ReactNode {
+  if (!note) return node;
+  return <div className="viewer-stack"><p className="notice small" role="status">{note}</p>{node}</div>;
+}
 
 /** To-dos: the items on the left, the page image with the field frames in the middle, the to-dos and the fields on
  *  the right (045 K3b). We work on the result of one run (the latest by default); a correction belongs to that run. */
@@ -208,7 +227,7 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev }
 
   return (
     <Split variant={onList ? "list" : "fields"}
-      left={data.source ? (
+      left={withNote(sourceFileNote(data.source_file), data.source ? (
         <PageViewer pageUrl={(n) => api.pageUrl(wpId, itemId, n)} pages={pages} pageCount={data.page_count} prov={viewerProv} activeField={active}
           focusRequest={focusRequest} colorOf={colorOf} labelOf={labelOf} onPickField={activate}
           onChooseAlternative={chooseAlternative} selectMode={selectMode} words={words.data?.words ?? null}
@@ -220,7 +239,7 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev }
             focusRequest={0} colorOf={colorOf} labelOf={fieldLabel} onPickField={activate} onChooseAlternative={chooseAlternative}
             selectMode={false} words={null} selected={[]} onSelect={() => {}} />
         </div>
-      )}
+      ))}
       right={
         <FieldPanel result={data} fields={fields} bandOf={band} activeField={active} onActivate={activate}
           selection={{ ids: selected, text: selText }} onClearSelection={() => setSelected([])}
