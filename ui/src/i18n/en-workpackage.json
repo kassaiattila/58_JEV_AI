@@ -195,5 +195,16 @@
   "A friss költségkeret nem kérhető le: {{message}}": "The current cost limit could not be loaded: {{message}}",
   "A költségkeret frissítése…": "Refreshing the cost limit…",
   "Gyenge helyi felismerésnél Azure-felismerés (fizetős, a recept Azure-keretén belül)": "Azure recognition for weak local recognition (paid, within the recipe's Azure budget)",
-  "Csak helyi felismerés": "Local recognition only"
+  "Csak helyi felismerés": "Local recognition only",
+  "Fájlnevek": "File names",
+  "Az iratok másolatai egységes, tartalom szerinti névvel; az eredeti fájlok nem változnak. A bizonytalan nevűek az „ellenorzendo” almappába kerülnek, a jegyzék (jegyzek.csv) mutatja, melyik eredetiből melyik név lett.": "Copies of the documents with uniform, content-based names; the original files do not change. Copies with an uncertain name go to the “ellenorzendo” (to review) subfolder, and the manifest (jegyzek.csv) shows which original became which name.",
+  "Letöltés ZIP-ben": "Download as ZIP",
+  "Kiírás a kimeneti mappába": "Write to the output folder",
+  "Kiírás…": "Writing…",
+  "Kiírva: {{path}} — {{ready}} kész, {{review}} ellenőrzendő, {{skipped}} kimaradt.": "Written: {{path}} — {{ready}} ready, {{review}} to review, {{skipped}} skipped.",
+  "Nincs kimeneti mappa:": "No output folder:",
+  "Nincs kimeneti mappa; add meg a Beállítások › Munkamappák oldalon.": "No output folder; set one under Settings › Work folders.",
+  "Előbb adj meg kimeneti mappát a Beállítások › Munkamappák oldalon.": "First set an output folder under Settings › Work folders.",
+  "Beállítások › Munkamappák": "Settings › Work folders",
+  "A kiíráshoz válaszd ki a neved a fejlécben.": "To write the copies, choose your name in the header."
 }

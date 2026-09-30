@@ -404,6 +404,13 @@ export const api = {
   }),
   scanFolder: (id: string) => request<{ status: string; new?: number; settling?: number; workpackage?: string | null; error?: string }>(
     "POST", `/settings/folders/${enc(id)}/scan`, {}),
+  /** 078: where the content-named copies of a run are written (never inside a watched folder). */
+  outputFolder: () => request<{ path: string | null }>("GET", "/settings/output-folder"),
+  saveOutputFolder: (path: string | null) => request<{ path: string | null }>("PUT", "/settings/output-folder", { path }),
+  /** 078: the run's documents under content-based names, with the manifest, into a new subfolder of the output folder. */
+  writeNamedCopies: (runId: string) =>
+    request<{ path: string; ready: number; review: number; skipped: number }>("POST", `/runs/${enc(runId)}/named-copies`, {}),
+  namedCopiesZipUrl: (runId: string) => `/api/runs/${enc(runId)}/named-copies.zip`,
   workerStop: () => request<Record<string, unknown>>("POST", "/worker/stop", {}),
   /** 071: the running service's version and the commit recorded at start-up. */
   health: () => request<Health>("GET", "/health"),

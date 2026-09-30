@@ -163,6 +163,30 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def max_source_bytes() -> int:
+    """075: a source larger than the input limit is never read into memory (it could not have been added anyway)."""
+    from jav import pdf
+
+    return int(pdf.input_limits().max_document_mb * 1_000_000)
+
+
+def read_verified(path: Path, sha256: str, *, max_bytes: int) -> bytes:
+    """The file's bytes, only if their content hash is still `sha256`: read once and hashed in full, and exactly these
+    verified bytes are used (075, repeated security audit S03: a file changed in place, even with the same size and
+    modification time, or swapped after the check, cannot pass). `RevisionConflict` if the file changed, disappeared or
+    is larger than `max_bytes`. 078: shared by the source view and the content-named copies."""
+    conflict = RevisionConflict("the source file changed or disappeared since it was added")
+    try:
+        if not path.is_file() or path.stat().st_size > max_bytes:
+            raise conflict
+        data = path.read_bytes()
+    except OSError as exc:
+        raise conflict from exc
+    if hashlib.sha256(data).hexdigest() != sha256:
+        raise conflict
+    return data
+
+
 def fingerprint(path: Path, *, verify: bool = False) -> str:
     """The file's content hash. `verify=False`: if the size and modification time were the same at the last
     computation, the remembered value (058: opening a package stays fast even with many documents); `verify=True`:

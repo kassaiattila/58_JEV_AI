@@ -217,13 +217,16 @@ After a run, the expandable **Manage documents: open, download, remove** (*Irato
 ## 8. Result
 
 - By default you see the result of the latest run. If the package has several runs, a run picker appears.
-- The views (only those that have data): **Emails** (*Levelek*), **Tasks** (*Feladatok*), **Documents** (*Iratok*), **Data points** (*Adatpontok*), **Line items** (*Tételsorok*) and **Utility cost** (*Közmű-költség*). An email package opens on Emails, any other package on Data points.
+- The views (only those that have data): **Emails** (*Levelek*), **Tasks** (*Feladatok*), **Documents** (*Iratok*), **Data points** (*Adatpontok*), **Line items** (*Tételsorok*), **Utility cost** (*Közmű-költség*) and **File names** (*Fájlnevek*). An email package opens on Emails, any other package on Data points.
   - ‘Documents’: one row per document (type, path, state, open to-dos and, for an email attachment, the subject of the email it came from) and one column per field.
   - ‘Data points’: one row per field (value, page, source text, location, whether it was corrected, and any to-do on the field).
   - ‘Line items’: the rows of the line lists.
   - Everywhere you see the valid data, that is, the machine value with any human correction applied. Clicking a document's name opens Review.
 - Table rows can be selected with their checkboxes, and the selected rows can be downloaded on their own (section 3.1). The **Full Excel package** (*Teljes Excel-csomag*) button puts all of the run's tables (including the utility cost) into one Excel file with several sheets.
 - **Utility cost:** the gross amount of utility invoices per point of consumption and utility, month by month. An invoice that covers several months is split in proportion to the days. A cell shows the amount, or ‘missing’ (*hiányzik*: no invoice covers the month), ‘partial’ (*részleges*: part of the month is not covered) or ‘overlap’ (*átfedés*: two invoices cover it). An * marks a settlement invoice. Informational rows do not count towards the total. Clicking a cell shows its source invoices, each with an ‘open’ (*megnyitás*) link. The report counts a duplicated invoice only once, and says so.
+- **File names:** copies of the documents under uniform, content-based names, for example `2026-09-12_SZAMLA_Minta-Kft_SZ-2026-001234.pdf` (date first, then the type, the partner and the identifier, without accents). The original files never change; the copies are exact byte-for-byte copies of the processed documents. The table shows each document's ‘New file name’ (*Új fájlnév*), whether it is ready or goes to review (‘Folder’ (*Mappa*)), and ‘Why to review’ (*Miért ellenőrzendő*).
+  - A copy goes into the `ellenorzendo` (to review) subfolder when its name rests on something uncertain: the document did not finish processing, its type is unknown or uncertain, a field of the name is empty, or an open to-do concerns a field of the name. Correcting that field in Review makes the name certain.
+  - **Download as ZIP** (*Letöltés ZIP-ben*) gives the copies and a manifest (`jegyzek.csv`: which original became which name, with its fingerprint). **Write to the output folder** (*Kiírás a kimeneti mappába*) puts the same into a new subfolder of the output folder (section 10.2); nothing there is ever overwritten. A document whose source file changed since it was added is left out and listed in the manifest as ‘skipped’ (*kimaradt*).
 - **Approval:**
   - For a trial run, the interface states that the result cannot be released; that needs a live run.
   - For a live run, the **Approve and release** (*Jóváhagyás és kiadás*) button is active only once the run has finished and no to-dos are open; until then the interface tells you how many to-dos remain. The button needs two clicks.
@@ -250,6 +253,8 @@ Mailbox download brings in emails from the Outlook running on this computer.
 ### 10.2 Work folders
 
 A work folder (a watched folder) is a folder that the worker checks at the frequency you set; it turns new PDFs into a work package or adds them to the existing one. For each folder you can set: ‘Name’, ‘Full folder path’, ‘Active’ (*Aktív*), ‘Include subfolders’ (*Almappák is*), the packaging (‘One shared package’ (*Egy közös csomag*) or ‘Daily packages’ (*Napi csomagok*)), the ‘Recipe’ (or ‘None (choose it on the package)’ (*Nincs (a csomagon kell kiválasztani)*)) and how often to ‘Check’ (*Átnézés*). The **Add work folder** (*Munkamappa hozzáadása*), **Remove**, **Discard changes** (*Módosítások elvetése*) and **Save** buttons manage the list. If there are unsaved changes, leaving the page asks for confirmation. On a saved folder, **Check now** (*Átnézés most*) checks it immediately; a file that is still being written is left for the next check. The system only reads the source folder, and no paid run starts on its own.
+
+Below the list, the **Output folder** (*Kimeneti mappa*) card sets where the content-named copies of a run are written (Result › File names). It is saved on its own with its **Save** button; an empty field clears it. It cannot be inside a watched work folder or contain one (the watcher would take the copies in again), and a work folder cannot be saved inside it either.
 
 ### 10.3 Recipes
 

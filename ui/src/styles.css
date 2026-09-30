@@ -428,6 +428,9 @@ th.num .th-in { flex-direction: row-reverse; }
 .seg:hover:not([aria-selected="true"]) { color: var(--accent); background: var(--tint); }
 .seg[aria-selected="true"] { background: var(--paper); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px #1b1b2418; }
 .approval-box { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--warn-tint); color: var(--warn); }
+/* 078: the content-named copies above the File names table (explanation, then the two actions and the result) */
+.named-copies { display: grid; gap: 8px; }
+.named-copies .button-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .settings-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 24px; align-items: start; }
 .settings-nav { display: grid; gap: 2px; position: sticky; top: 12px; }
 /* 063: the menu items are larger and are highlighted with a coloured bar on hover */

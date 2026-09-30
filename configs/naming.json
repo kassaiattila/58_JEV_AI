@@ -1,0 +1,95 @@
+{
+ "meta": {
+  "name": "naming",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-09-30",
+    "note": "078 (owner decisions of 2026-09-30): content-based names for copies of the processed documents, date first, no accents; a copy whose name rests on an open to-do, a missing field or an unknown type goes to the review folder. Ported from the legacy outputnaming.py / ingest_folder.py rules and generalised per type."
+   }
+  ]
+ },
+ "separator": "_",
+ "review_folder": "ellenorzendo",
+ "manifest_file": "jegyzek.csv",
+ "part_max_chars": 40,
+ "stem_max_chars": 120,
+ "path_max_chars": 250,
+ "placeholders": {
+  "date": "datum-nelkul",
+  "value": "ismeretlen",
+  "type": "ISMERETLEN"
+ },
+ "default_pattern": "{@date}_{@type}_{@original}",
+ "types": {
+  "invoice_hu": {"token": "SZAMLA", "pattern": "{issue_date|fulfillment_date}_{@type}_{supplier_name}_{invoice_number}"},
+  "invoice_foreign": {"token": "INVOICE", "pattern": "{issue_date}_{@type}_{supplier_name}_{invoice_number}"},
+  "invoice_out": {"token": "KIMENO-SZAMLA", "pattern": "{issue_date|fulfillment_date}_{@type}_{buyer_name}_{invoice_number}"},
+  "villamos_energia_szamla": {"token": "VILLANY", "pattern": "{billing_period_start|issue_date}_{@type}_{supplier_name}_{consumption_address:street}"},
+  "foldgaz_szamla": {"token": "GAZ", "pattern": "{billing_period_start|issue_date}_{@type}_{supplier_name}_{consumption_address:street}"},
+  "viz_szamla": {"token": "VIZ", "pattern": "{billing_period_start|issue_date}_{@type}_{supplier_name}_{consumption_address:street}"},
+  "vizmuvek_szamla": {"token": "VIZ", "pattern": "{billing_period_start|issue_date}_{@type}_{supplier_name}_{consumption_address:street}"},
+  "csatorna_szamla": {"token": "CSATORNA", "pattern": "{billing_period_start|issue_date}_{@type}_{supplier_name}_{consumption_address:street}"},
+  "mohu_szamla": {"token": "HULLADEK", "pattern": "{billing_period_start|issue_date}_{@type}_{supplier_name}_{consumption_address:street}"},
+  "statement_cib": {"token": "KIVONAT_CIB", "pattern": "{period_start}_{period_end}_{@type}_{currency}_{account_no|account_iban:last8}"},
+  "statement_erste": {"token": "KIVONAT_ERSTE", "pattern": "{period_start}_{period_end}_{@type}_{currency}_{account_no|account_iban:last8}"},
+  "nav_certificate": {"token": "NAV-IGAZOLAS", "pattern": "{issue_date}_{@type}_{taxpayer_name}_{tax_year}"},
+  "nav_receipt": {"token": "NAV-ELISMERVENY", "pattern": "{issue_date}_{@type}_{taxpayer_name}_{reference_number}"},
+  "nav_tax_return": {"token": "NAV-BEVALLAS", "pattern": "{issue_date}_{@type}_{taxpayer_name}_{form_code}"},
+  "certificate": {"token": "IGAZOLAS", "pattern": "{issue_date}_{@type}_{issuer}_{holder_name}"},
+  "id_document": {"token": "OKMANY", "pattern": "{valid_until}_{@type}_{holder_name}_{document_kind}"},
+  "belepo_jegy": {"token": "BELEPO", "pattern": "{event_datetime:date}_{@type}_{event_name}_{ticket_id}"},
+  "meghivo": {"token": "MEGHIVO", "pattern": "{event_datetime:date}_{@type}_{organizer}_{event_name}"},
+  "meeting_minutes": {"token": "JEGYZOKONYV", "pattern": "{meeting_date}_{@type}_{organization_name}_{meeting_type}"},
+  "csapatmenedzser_utasitas": {"token": "UTASITAS", "pattern": "{date}_{@type}_{issuing_body}_{subject}"},
+  "altalanos_szerzodesi_feltetelek": {"token": "ASZF", "pattern": "{effective_date}_{@type}_{seller_name}_{document_title}"},
+  "insurance_claim_form": {"token": "KARBEJELENTO", "pattern": "{@date}_{@type}_{insurer}_{policy_number|form_code}"},
+  "terkep_adat": {"token": "TERKEP", "pattern": "{@date}_{@type}_{map_source}_{area_name}"},
+  "utility_bill_hu": {"token": "KOZMU"},
+  "receipt": {"token": "NYUGTA"},
+  "bank_statement": {"token": "KIVONAT"},
+  "contract": {"token": "SZERZODES"},
+  "ticket": {"token": "JEGY"},
+  "tax_return": {"token": "BEVALLAS"},
+  "performance_certificate": {"token": "TELJESITESIGAZOLAS"},
+  "payment_reminder": {"token": "FIZETESI-FELSZOLITAS"},
+  "other": {"token": "EGYEB"},
+  "unknown": {"token": "ISMERETLEN"}
+ },
+ "reason_scope": {
+  "detect": "@type",
+  "detect_detail": "@type",
+  "no_invoice": "@type",
+  "validator:dates": "kind:date",
+  "parties": "kind:name",
+  "jev:parties_swapped": "kind:name",
+  "llm:failed": "*",
+  "jev_unavailable": "*",
+  "signal:prompt_injection": "*",
+  "ocr:escalation_blocked": "*"
+ },
+ "reason_labels": {
+  "missing": "hiányzik: {field}",
+  "todo": "nyitott teendő: {field}",
+  "todo_all": "az egész iratra szóló nyitott teendő",
+  "type": "a típus ismeretlen vagy bizonytalan",
+  "not_done": "a tétel feldolgozása nem ért véget",
+  "source_changed": "a forrásfájl megváltozott vagy hiányzik, nem másolható"
+ },
+ "manifest_columns": {
+  "path": "Új fájl",
+  "status": "Állapot",
+  "why": "Miért ellenőrzendő",
+  "original": "Eredeti fájlnév",
+  "source_path": "Eredeti útvonal",
+  "sha256": "Ujjlenyomat (SHA-256)",
+  "doc_type": "Típus",
+  "item_id": "Tétel-azonosító"
+ },
+ "status_labels": {
+  "ready": "kész",
+  "review": "ellenőrzendő",
+  "skipped": "kimaradt"
+ }
+}

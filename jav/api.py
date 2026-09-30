@@ -17,11 +17,11 @@ Long processing does not run here: the run goes into the work queue and the sepa
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
 import re
+import tempfile
 import unicodedata
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -31,7 +31,7 @@ from urllib.parse import quote, unquote, urlsplit
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi import Path as PathParam
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -315,6 +315,10 @@ class SaveFolders(_In):
     folders: Annotated[list[app_settings.WatchedFolder], Field(max_length=50)]
 
 
+class SaveOutputFolder(_In):
+    path: str | None = Field(default=None, max_length=1024)  # empty: no output folder
+
+
 _ScopeMap = Annotated[dict[Annotated[str, Field(max_length=64)], Annotated[str, Field(max_length=200)]], Field(max_length=5)]
 
 
@@ -415,9 +419,7 @@ def actor_unless_first_users(x_actor: Annotated[str | None, Header(max_length=25
 
 def _max_source_bytes() -> int:
     """075: a source larger than the input limit is never read into memory (it could not have been added anyway)."""
-    from jav import pdf
-
-    return int(pdf.input_limits().max_document_mb * 1_000_000)
+    return work.max_source_bytes()
 
 
 def create_app(*, store_path: Path | None = None) -> FastAPI:
@@ -456,6 +458,14 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.exception_handler(ForbiddenPath)
     async def forbidden_path(_request: Request, exc: ForbiddenPath):
         return _error(403, "forbidden_path", str(exc))
+
+    @app.exception_handler(app_settings.FolderOverlap)
+    async def folder_overlap(_request: Request, exc: app_settings.FolderOverlap):
+        return _error(422, "folder_overlap", str(exc))  # 078: the UI names it in the display language
+
+    @app.exception_handler(app_settings.NoOutputFolder)
+    async def no_output_folder(_request: Request, exc: app_settings.NoOutputFolder):
+        return _error(422, "no_output_folder", str(exc))
 
     @app.exception_handler(mailbox.BridgeError)
     async def bridge_failed(_request: Request, exc: mailbox.BridgeError):
@@ -593,16 +603,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         if item is None:
             raise KeyError(item_id)
         p = Path(item["source_path"])
-        conflict = work.RevisionConflict("the source file changed or disappeared since it was added")
-        try:
-            if not p.is_file() or p.stat().st_size > _max_source_bytes():
-                raise conflict
-            data = p.read_bytes()
-        except OSError as exc:
-            raise conflict from exc
-        if hashlib.sha256(data).hexdigest() != item["sha256"]:
-            raise conflict
-        return p, data
+        return p, work.read_verified(p, item["sha256"], max_bytes=_max_source_bytes())
 
     @app.get(r + "/workpackages/{wp_id}/items/{item_id}/pages/{page}.png")
     def item_page(wp_id: WpId, item_id: ItemId, page: Annotated[int, PathParam(ge=1, le=500)],
@@ -719,6 +720,46 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         return Response(data, media_type=media, headers={"Content-Disposition": attachment_header(name),
                                                          "X-Export-Rows": str(rows), "Cache-Control": "no-store",
                                                          "X-Content-Type-Options": "nosniff"})
+
+    @app.get(r + "/runs/{run_id}/named-copies.zip")
+    def named_copies_zip(run_id: RunId) -> StreamingResponse:
+        """078: copies of the run's documents under content-based names, with the manifest (`jav/naming.py`); the
+        originals are only read. Built into a temporary file first (large packages do not sit in memory)."""
+        from jav import naming
+
+        work.get_run(run_id)  # unknown run: 404
+        fh = tempfile.SpooledTemporaryFile(max_size=32 * 1024 * 1024)  # noqa: SIM115 - closed by the stream below
+        try:
+            counts = naming.write_zip(run_id, fh)
+        except BaseException:
+            fh.close()
+            raise
+        fh.seek(0)
+
+        def chunks():
+            try:
+                while data := fh.read(1 << 20):
+                    yield data
+            finally:
+                fh.close()
+
+        return StreamingResponse(chunks(), media_type="application/zip", headers={
+            "Content-Disposition": attachment_header(naming.zip_name(run_id)), "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff", "X-Named-Ready": str(counts["ready"]), "X-Named-Review": str(counts["review"]),
+            "X-Named-Skipped": str(counts["skipped"])})
+
+    @app.post(r + "/runs/{run_id}/named-copies")
+    def named_copies_write(run_id: RunId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """078: writes the named copies and the manifest into a new subfolder of the output folder (Settings)."""
+        from jav import naming
+
+        work.get_run(run_id)
+        folder = app_settings.output_folder()
+        if not folder:
+            raise app_settings.NoOutputFolder("no output folder is set (Settings > Work folders)")
+        res = naming.write_to_folder(run_id, Path(folder))
+        log.info("named copies of %s written by %s", run_id, who)
+        return res
 
     @app.get(r + "/runs/{run_id}/reports/utility-cost")
     def utility_cost(run_id: RunId) -> dict[str, Any]:
@@ -845,6 +886,16 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         """Replaces the whole list; every path must be an existing folder (under the allowed roots when restricted)."""
         saved = app_settings.save_folders(body.folders, check_dir=lambda raw: checked_path(raw, want_dir=True))
         return work_views.jsonable({"folders": saved, "roots": [str(p) for p in allowed_roots()]})
+
+    @app.get(r + "/settings/output-folder")
+    def settings_output_folder() -> dict[str, Any]:
+        """078: where the content-named copies of a run are written."""
+        return {"path": app_settings.output_folder()}
+
+    @app.put(r + "/settings/output-folder")
+    def settings_save_output_folder(body: SaveOutputFolder, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """An existing folder that does not overlap a watched folder (the watcher would take the copies in again)."""
+        return {"path": app_settings.save_output_folder(body.path, check_dir=lambda raw: checked_path(raw, want_dir=True), actor=who)}
 
     @app.post(r + "/settings/folders/{folder_id}/scan")
     def settings_scan_folder(folder_id: Annotated[str, PathParam(pattern=r"^wf-[0-9a-f]{10}$")], body: Empty,

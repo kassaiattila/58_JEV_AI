@@ -8,7 +8,7 @@
 
 export type Stage = "process" | "review" | "result";
 export type SettingsSection = "mailboxes" | "folders" | "recipes" | "users" | "appearance" | "language" | "system";
-export type ResultTable = "emails" | "tasks" | "documents" | "datapoints" | "line_items" | "utility";
+export type ResultTable = "emails" | "tasks" | "documents" | "datapoints" | "line_items" | "utility" | "file_names";
 
 /** 061: a confirmation page before a run is started (in the Processing section) */
 export interface StartRequest { mode: "shadow" | "apply"; rerun: boolean }
@@ -25,7 +25,7 @@ export type Route =
 
 export const STAGES: Stage[] = ["process", "review", "result"];
 export const SECTIONS: SettingsSection[] = ["mailboxes", "folders", "recipes", "users", "appearance", "language", "system"];
-export const RESULT_TABLES: ResultTable[] = ["emails", "tasks", "documents", "datapoints", "line_items", "utility"];
+export const RESULT_TABLES: ResultTable[] = ["emails", "tasks", "documents", "datapoints", "line_items", "utility", "file_names"];
 const OLD_TAB: Record<string, Stage> = { items: "review", reviews: "review", workflow: "process" };
 const OLD_DATASET: Record<string, ResultTable> = {
   documents: "documents", datapoints: "datapoints", line_items: "line_items", utility_cost: "utility", utility_sources: "utility",
