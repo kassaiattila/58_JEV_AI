@@ -20,6 +20,7 @@ This list shows what each release brought. `v1.0.0` was the first version the ow
   - The service and worker logs, and the error text stored for a failed item, mask every key, token and password from the environment, including in the exception chain.
   - A dependency audit checks the pinned Python and UI packages for known vulnerabilities once a week, with the daily backup, or by hand (`python -m jav.cli deps-audit`). The System page shows its date and result, and the start-up check fails on a known vulnerability.
 - **Bank account check (2026-09-30):** a Hungarian domestic account number, and the account inside a Hungarian IBAN, is accepted only when both of its check digits are right; before, any 16 or 24 digits passed. A wrong number now raises a to-do. The data guard uses the same rule. Of 507 bank accounts extracted so far, 506 pass; the golden sets are unchanged.
+- **Data guard and renames (2026-09-30):** before a commit, a renamed or copied file is now checked in full under its new name; before, a pure rename had no new line to check (the push check already caught it).
 - **English repository:** the repository's documentation, code comments and commit messages are switching to English. Hungarian document vocabulary (the wording on Hungarian invoices that the code and the models match against) stays as it is.
 
 ## v1.0.5 — 2026-09-30

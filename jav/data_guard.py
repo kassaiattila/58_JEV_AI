@@ -325,7 +325,9 @@ def _numstat_binaries(out: bytes) -> list[str]:
 
 def _scan_change(root: Path, guard: Guard, diff_args: list[str]) -> list[Finding]:
     """Checks one change (the files going into git and their new lines); `diff_args` is the `git diff`/`diff-tree`
-    call."""
+    call. 075 (repeated security audit, S05): without rename detection, so a renamed or copied file shows as a new
+    file and its whole content is checked under the new path (a pure rename used to have no added line)."""
+    diff_args = [*diff_args, "--no-renames"]
     found: list[Finding] = []
     names = _git(root, *diff_args, "--name-only", "-z", "--diff-filter=ACMR").stdout
     for name in filter(None, names.decode("utf-8", "replace").split("\0")):
