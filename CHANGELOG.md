@@ -1,16 +1,16 @@
 # Changelog
 
-Releases in brief, newest first. The detailed release notes and measurement evidence are internal working documents and are not in the repository. Release rules: [development guide §1](docs/guides/DEVELOPMENT.md).
+Releases in brief, newest first. Release rules: [development guide §1](docs/guides/DEVELOPMENT.md).
 
-**About the GitHub history:** the repository's history starts with a new root commit on 2026-09-30, which holds the code as it stood after `v1.0.4`. The `v1.0.0`–`v1.0.4` tags sit on the older history, which is kept only locally. On the new line, `v1.0.5` is the first tag.
+**Tags:** the repository's first tag is `v1.0.5`; the earlier releases are listed here without a tag.
 
 ## Plain-language summary
 
-This list shows what each release brought. `v1.0.0` was the first version the owner marked as stable: work packages, recipes, review on the document's page image, results and approval. The `v1.0.1`–`v1.0.4` fix rounds corrected problems found in real trials and reviews; the most important of them was the tax-number check. `v1.0.5` is a security round: no personal data can reach GitHub, the browser does not store document data, and you can see which code is running. `v1.1.0` is a second security round after a repeated audit: paid calls, Azure recognition included, stay within a real, reserved upper bound, the documents shown for review are verified, and the repository's documentation is in English.
+This list shows what each release brought. `v1.0.0` was the first stable version: work packages, recipes, review on the document's page image, results and approval. The `v1.0.1`–`v1.0.4` fix rounds corrected problems found in daily use and in reviews; the most important of them was the tax-number check. `v1.0.5` is a security round: no personal data can reach GitHub, the browser does not store document data, and you can see which code is running. `v1.1.0` is a second security round after a repeated audit: paid calls, Azure recognition included, stay within a real, reserved upper bound, the documents shown for review are verified, and the repository's documentation is in English.
 
 ## v1.1.0 — 2026-09-30
 
-Second security round after a repeated audit, and the repository in English; free, apart from one JEV test call.
+Second security round after a repeated audit, and the repository in English.
 
 - **UI fixes (2026-09-30):**
   - To-dos raised by task proposals are shown as a readable sentence instead of a raw code.
@@ -21,19 +21,19 @@ Second security round after a repeated audit, and the repository in English; fre
   - The JEV SDK is upgraded to 0.7.2, which validates the API key early and keeps it out of logged exceptions.
   - The service and worker logs, and the error text stored for a failed item, mask every key, token and password from the environment, including in the exception chain.
   - A dependency audit checks the pinned Python and UI packages for known vulnerabilities once a week, with the daily backup, or by hand (`python -m jav.cli deps-audit`). The System page shows its date and result, and the start-up check fails on a known vulnerability.
-- **Bank account check (2026-09-30):** a Hungarian domestic account number, and the account inside a Hungarian IBAN, is accepted only when both of its check digits are right; before, any 16 or 24 digits passed. A wrong number now raises a to-do. The data guard uses the same rule. Of 507 bank accounts extracted so far, 504 pass, 2 already failed on their length, and 1 newly fails; the golden sets are unchanged.
+- **Bank account check (2026-09-30):** a Hungarian domestic account number, and the account inside a Hungarian IBAN, is accepted only when both of its check digits are right; before, any 16 or 24 digits passed. A wrong number now raises a to-do. The data guard uses the same rule.
 - **Data guard and renames (2026-09-30):** before a commit, a renamed or copied file is now checked in full under its new name; before, a pure rename had no new line to check (the push check already caught it).
 - **Source identity (2026-09-30):** the source document and its page images are served only after a full content check on every request, from exactly the checked bytes. Before, a file changed in place with the same size and date could be shown under the original item.
-- **Cost reservation is a real upper bound (2026-09-30):** before a paid call the system now reserves at most one token per byte of everything it sends (instructions and output schema too), a fixed overhead and every possible retry, rounded up. Before, it assumed two characters per token, which is not a bound. Checked on the 1532 calls logged so far, none exceeded it; reservations are about twice as large, while actual spending does not change. The per-item OpenAI budget of the recipes rises from 0.10 to 0.15 USD accordingly, so a single-document run on the G path still fits. The OpenAI client no longer retries on its own (the work queue repeats a failed item). If a call still costs more than its reservation, the run makes no further call with that provider.
+- **Cost reservation is a real upper bound (2026-09-30):** before a paid call the system now reserves at most one token per byte of everything it sends (instructions and output schema too), a fixed overhead and every possible retry, rounded up. Before, it assumed two characters per token, which is not a bound. Reservations are larger, while actual spending does not change. The per-item OpenAI budget of the recipes rises from 0.10 to 0.15 USD accordingly, so a single-document run on the G path still fits. The OpenAI client no longer retries on its own (the work queue repeats a failed item). If a call still costs more than its reservation, the run makes no further call with that provider.
 - **Azure recognition as a recipe switch (2026-09-30):** Azure recognition of weak scans used to be called outside the run's budget and the call log. Now every recipe has an Azure recognition switch (on by default, 0.02 USD per document, about 13 pages at the list price); the pages are reserved from the run's Azure budget before the call, every call goes into the call log, and if the budget runs out the local text goes on with a to-do. With the switch off, Azure is never called in that run.
 - **English repository:** the repository's documentation, code comments and commit messages are switching to English. Hungarian document vocabulary (the wording on Hungarian invoices that the code and the models match against) stays as it is.
 
 ## v1.0.5 — 2026-09-30
 
-Security fix round; free, with no paid calls.
+Security fix round.
 
-- **Internal working documents are not in git.** Git does not track the handoffs, plans, reports, backlog or decisions log; the daily backup carries them, both locally and to the second backup location. Codebase documents do not link to them, and a test checks this.
-- **Data guard before commit and push.** It stops the commit or push if the lines going into git contain a real-looking tax number, bank account number, email address, phone number or key. It also stops it if an internal working document, a document file, an image, a database or a binary file would go into git, or if the old history would be pushed. Enable it once per clone: `python -m jav.cli hooks-install`.
+- **Internal working documents are not in git.** They stay local, and the daily backup carries them. Codebase documents do not link to them, and a test checks this.
+- **Data guard before commit and push.** It stops the commit or push if the lines going into git contain a real-looking tax number, bank account number, email address, phone number or key. It also stops it if an internal working document, a document file, an image, a database or a binary file would go into git, or if a push would build on a history listed as forbidden in its settings. Enable it once per clone: `python -m jav.cli hooks-install`.
 - **Browser security headers on every response.**
   - The UI loads only its own files and cannot be embedded in another page.
   - The browser does not store document data (page images included) on its disk.
@@ -57,25 +57,25 @@ The four points of the independent review that needed a decision.
 
 ## v1.0.3 — 2026-09-29
 
-Checks, and the remaining points of the 066 review that needed no decision.
+Checks, and the remaining points of the technical review (`v1.0.2`) that needed no decision.
 
 - Input limits: file size, page count, page-image pixel count.
 - The browser origin must match exactly: other local ports cannot call the service.
 - Dependency-vulnerability and coverage checks, property-based tests.
-- A probe for instructions hidden in documents, on synthetic invoices: the injected instruction did not steer the result.
+- A probe for instructions hidden in documents, run on synthetic invoices.
 
 ## v1.0.2 — 2026-09-29
 
 Fixes from an in-depth technical review.
 
 - Approval gaps closed.
-- Real data left in the tests replaced with invented values of the same shape.
+- Test data replaced with invented values of the same shape.
 - The email receiver accepts requests only with a key and rejects requests that come from a browser.
 - Stopping also requires the user's name.
 
 ## v1.0.1 — 2026-09-29
 
-Joint trial on real work.
+Fixes from the first trial in daily use.
 
 - The candidate finder was extended: lost glyph, invoice number below the heading, receipt ID, credit note, OSS and Dutch tax numbers.
 - A new package's owner is its creator.

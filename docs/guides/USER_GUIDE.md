@@ -1,6 +1,6 @@
 # User guide
 
-**Valid from:** 2026-09-30 (071, v1.0.5). **Audience:** people who use the interface.
+**Valid from:** 2026-09-30 (v1.0.5). **Audience:** people who use the interface.
 
 ## Plain-language summary
 
@@ -324,7 +324,7 @@ The names offered by **Who is working?**. Add a new name with the ‘New name’
   - confidence bands (`confidence_bands`, 0.9 and 0.5 by default), backup (`backup`: time, number of copies kept, `max_age_hours`) and folder restriction (`restrict_paths`, `JAV_API_ROOTS`): `configs/service.json`;
   - Hungarian names of fields and document types: `configs/field_labels.json`; email intents: `configs/intents.json`; task-proposal actions: `configs/email_tasks.json`.
 - **Data stored in the browser** (per viewer, not stored in the database): name `jav.actor`, language `jav.ui-language`, appearance `jav.appearance`, column visibility `jav.table.<table>.cols`, the image/panel ratio `jav.review.split` (on the line-list tab `jav.review.split.list`); the working copy, per tab: `jav.drafts` (sessionStorage).
-- **Source code:** the interface is in `ui/src/` (views: `views/`, review: `review/`, labels: `labels.ts`, English translation: `i18n/en-*.json`); the service is `jav/api.py`, the table columns are in `jav/datasets.py`, the next step in `jav/work_views.py`. Structure: [ARCHITECTURE 8.](../ARCHITECTURE.md#8-user-interface-040-k3-2026-09-27).
+- **Source code:** the interface is in `ui/src/` (views: `views/`, review: `review/`, labels: `labels.ts`, English translation: `i18n/en-*.json`); the service is `jav/api.py`, the table columns are in `jav/datasets.py`, the next step in `jav/work_views.py`. Structure: [architecture](../ARCHITECTURE.md), section 8.
 - **Main labels in Hungarian** (the interface's default language):
 
 | English | Hungarian |

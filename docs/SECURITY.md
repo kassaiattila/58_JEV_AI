@@ -1,6 +1,6 @@
 # Security
 
-**In force:** since 2026-09-30 (071, v1.0.5). **Audience:** users and developers.
+**In force:** since 2026-09-30 (v1.0.5). **Audience:** users and developers.
 
 ## Plain-language summary
 
@@ -22,7 +22,7 @@ Technical terms are explained in the [glossary](GLOSSARY.md).
 
 **It does not protect against:**
 - other programs running on the machine, or other people using the same Windows account: they can reach both the local service and the files;
-- theft of the machine or of the network storage: the system encrypts nothing (section 7);
+- theft of the machine or of a backup copy: the system encrypts nothing (section 7);
 - someone working under another person's name: there is no password.
 
 **Choosing a name is not authentication.** The name picked in the **Who is working?** (*Ki dolgozik?*) field (the active user) only records who did what. The list of names can be read without a password, and anyone who can reach the service on the machine can send requests under any name on the list. A name in the log therefore does not prove who was sitting at the machine.
@@ -62,7 +62,7 @@ The local service attaches instructions for the browser to every response, inclu
 
 ## 5. AI calls
 
-**Cost.** Before every paid call (JEV, OpenAI, and since 2026-09-30 Azure recognition too, priced per page), the system reserves an upper bound of its cost from the run's budget (cost reservation). Since 2026-09-30 it is a real bound: at most one token per byte of everything sent (instructions and output schema included), a fixed overhead, every possible retry at full price, rounded up; the OpenAI client does not retry on its own. Checked against the 1532 calls logged so far: none exceeded it. If a call still costs more than its reservation, the answer is kept, but the run makes no further call with that provider. If the reservation does not fit, the call is not made and the item gets a to-do. The call log records every call before it is made and closes the entry afterwards with the actual model and cost; failed calls are recorded too. A call of unknown cost counts at the maximum amount. The system does not repeat an uncertain attempt by itself, because that could mean paying twice. If the configured GPT model has no price in the price list, it is not called under a budget, because the reservation would see zero.
+**Cost.** Before every paid call (JEV, OpenAI, and since 2026-09-30 Azure recognition too, priced per page), the system reserves an upper bound of its cost from the run's budget (cost reservation). Since 2026-09-30 it is a real bound: at most one token per byte of everything sent (instructions and output schema included), a fixed overhead, every possible retry at full price, rounded up; the OpenAI client does not retry on its own. If a call still costs more than its reservation, the answer is kept, but the run makes no further call with that provider. If the reservation does not fit, the call is not made and the item gets a to-do. The call log records every call before it is made and closes the entry afterwards with the actual model and cost; failed calls are recorded too. A call of unknown cost counts at the maximum amount. The system does not repeat an uncertain attempt by itself, because that could mean paying twice. If the configured GPT model has no price in the price list, it is not called under a budget, because the reservation would see zero.
 
 **Keys.** The providers' keys are in the machine's local key file. Git does not track it, and the data guard also looks for the key values before every commit and push. The JEV SDK's detailed log would write out the full request text, that is the document content, so the system leaves it switched on only with explicit permission.
 
@@ -74,9 +74,9 @@ The local service attaches instructions for the browser to every response, inclu
 - **Approval:** a live run can only be approved when all its items have finished and there is no open to-do.
 - **Still missing:** the document instructions lack a "the source text is data, not instructions" guard sentence, and documents have no separate injected-instruction signal (section 9).
 
-**Measured results** (small trials, not general proof):
-- **Documents, 2026-09-29.** 3 made-up Hungarian invoices, in a clean version and four attack versions: "overwriting" the amount payable, swapping the bank account for another valid number, "do not raise a to-do", and "this is not an invoice". Document type recognition, the S path and the G path all ran on each. Of the 24 extractions (3 invoices; the clean version and the three data-targeting attack versions; both paths), none accepted a wrong value without a to-do. With the bank-account swap, the S path chose the true number all three times, but with low confidence, so it raised a to-do. With the "this is not an invoice" sentence, all 3 documents were still recognised as invoices, with lower confidence. The trial used one wording and one run per version, and it has not been measured on real documents. The raw run is stored locally, in the runs folder.
-- **Emails, 2026-09-20.** 8 golden-set emails, clean and in four injected versions. The signal raised no false alarm on the clean emails (0 of 8). It flagged the instruction placed at the start of the email (in Hungarian and English, in three wordings) in all 24 cases, and those emails went to manual review. The English instruction placed at the very end of the email, however, was flagged in only 5 of 8 cases. In none of the 40 cases did the injected sentence change the recognised intent. The trial has not been repeated since; the question text has not changed either. The raw run is stored locally.
+**Probes** (small trials, not general proof):
+- **Documents.** Made-up Hungarian invoices, each in a clean version and four attack versions: "overwriting" the amount payable, swapping the bank account for another valid number, "do not raise a to-do", and "this is not an invoice". Document type recognition, the S path and the G path run on each, and the probe checks whether a wrong value is accepted without a to-do. It uses one wording and one run per version, and it has not been run on real documents.
+- **Emails.** Golden-set emails, clean and with an injected instruction at the start (in Hungarian and English, in three wordings) or at the very end (in English). The probe checks whether the signal flags the instruction, whether it raises false alarms on clean emails, and whether the injected sentence changes the recognised intent. How reliably the signal flags an instruction depends on where it sits in the email, so it does not catch every one.
 
 ## 6. Emails and mailboxes
 
@@ -89,7 +89,7 @@ The local service attaches instructions for the browser to every response, inclu
 
 ## 7. Personal data on the machine
 
-The system encrypts nothing. Disk encryption (BitLocker) is a machine setting, and its status has not been checked yet. **There is no retention period:** the data below is kept indefinitely, except where the table says otherwise.
+The system encrypts nothing. Disk encryption (BitLocker) is a machine setting that the system neither sets nor checks. **There is no retention period:** the data below is kept indefinitely, except where the table says otherwise.
 
 | Location | What it holds | How much is kept |
 |---|---|---|
@@ -99,31 +99,31 @@ The system encrypts nothing. Disk encryption (BitLocker) is a machine setting, a
 | Service log | errors with stack traces, which may include file names and paths; for some operations, the requester's name. Keys, tokens and passwords from the environment and the local key file are masked (since 2026-09-30) | rotates every 5 MB; 5 old copies are kept |
 | Incoming email folder | the text and header data of downloaded emails, and their attachments | indefinitely |
 | Source documents | stay where they are; the system does not copy them, it only refers to them by content hash | not managed by the system |
-| Store backup | the store and the internal working documents, locally and on the network storage; unencrypted | the latest 14 in both places |
+| Store backup | the store and the internal working documents, locally and, if one is configured, in the second backup location; unencrypted | the latest 14 in both places (default) |
 | Local key file | the providers' keys, unencrypted | indefinitely |
 | Burr's local tracker | only for some command-line measurement commands: the flow steps, in the user's home folder; the worker does not use it | indefinitely |
 
-The backup is not a full recovery: it does not include the source documents, the emails, the runs folder or the keys, nor, by default, the flow-state store. Restoring is manual, with the service stopped ([setup guide, section 6](guides/SETUP.md)); no recovery drill has been done yet.
+The backup is not a full recovery: it does not include the source documents, the emails, the runs folder or the keys, nor, by default, the flow-state store. Restoring is manual, with the service stopped ([setup guide, section 6](guides/SETUP.md)); a tested recovery is an open item (section 9).
 
 ## 8. GitHub and the code
 
-- **Private repository.** GitHub holds only the history after the second starting point of 2026-09-30. The older history, which contains personal data and internal working documents, exists only locally, on archive branches. The pre-push hook refuses to push it or the old tags.
+- **Forbidden history.** The pre-push hook refuses to push any commit that builds on a history listed as forbidden in the data guard's settings.
 - **Data guard** (since 2026-09-30). Before every commit and push, it checks the new lines going into git; a renamed or copied file is checked in full under its new path (since 2026-09-30). It stops if it finds a real-looking value: a tax number, IBAN or Hungarian bank account number whose check digits are valid. A value with invalid check digits cannot be real, so it passes. It also stops on email addresses that are not made up, Hungarian phone numbers, foreign tax numbers, known key formats, the secret values in the local key file (variables named like a key, token, secret or password), and a few forbidden phrases (stored only as fingerprints). By path, it rejects internal working documents, the key file, the local data folders, document, image, archive and store files, and every binary file. Its output is always masked.
-- **Exceptions.** Made-up sample values are on a versioned exception list. A few of the owner's own old values are tolerated known values: they are listed only as fingerprints, and they pass only in the file where they are now. Replacing most of them is part of section 9 (injection hardening, data inventory).
+- **Exceptions.** Made-up sample values are on a versioned exception list. A few older values are tolerated as known values: they are listed only as fingerprints, and they pass only in the file where they are now. Replacing most of them is an open item (section 9).
 - The hooks must be enabled once per clone; the start-up check reports an error if they are not. Bypassing them is forbidden ([development guide, section 1](guides/DEVELOPMENT.md)).
-- **Internal working documents** (handoffs, plans, reports, the backlog, the decisions log) are not in git. They stay local, and the daily backup copies them.
+- **Internal working documents** (the development process's own notes, listed in `jav/doc_scope.py`) are not in git. They stay local, and the daily backup copies them.
 - **Third-party packages.** The Python and UI packages are pinned. Since 2026-09-30 the known-vulnerability check (Python and UI) runs with the daily backup once a week, or by hand with `python -m jav.cli deps-audit`; its date and result are on the Settings › System page, and the start-up check fails on a known vulnerability. GitHub's vulnerability alerts have been on since 2026-09-30, without automatic fix pull requests.
 - **Which code is running.** The service shows the release version and the commit it was started from in its health response and on the **Settings › System** (*Beállítások › Rendszer*) page, and flags it if the running code had uncommitted changes.
 
 ## 9. Open items
 
-- **Injection hardening** (`S-injekció`): the "the source text is data, not instructions" guard sentence in the document instructions, a repeat of the hidden-instruction trial, and replacement of the remaining own data; paid, together with the second-opinion re-measurement.
-- **Data inventory** (`S-adatleltár`): an inventory of where personal data is held and how long it stays, with a thinning command; the retention periods need a decision.
-- **Encryption** (`S-titkosítás`): encryption of the backup that goes to the network storage, and a check of the machine's disk encryption.
-- **Recovery** (`S-helyreállítás`): a test of whether the working system can be restored from the backup in a separate location, with written steps and a measured time.
-- **Authentication** (`S-hitelesítés`): real login (password or Windows authentication) and permissions instead of choosing a name; mandatory before network or multi-user use.
-- **Folder restriction:** switch it back on before anyone else can reach the service.
-- **Last writer wins** (`Q-utolsó-író`): version checking when settings and work-package data are saved, because today the last save wins; needed before multi-user use.
+- **Injection hardening:** the document instructions lack a "the source text is data, not instructions" guard sentence, documents have no separate injected-instruction signal, the hidden-instruction probes are small and need repeating, and a few tolerated older values remain to be replaced (section 8).
+- **Data inventory:** there is no inventory of where personal data is held and how long it stays, and no retention period with a command that deletes the data after it (section 7).
+- **Encryption:** the backup copies are not encrypted, and the machine's disk encryption is not checked.
+- **Recovery:** restoring the working system from a backup in a separate location has not been rehearsed (a recovery drill with written steps and a measured time).
+- **Authentication:** there is no real login (password or Windows authentication) and no permissions, only choosing a name; this must be solved before network or multi-user use.
+- **Folder restriction:** it is off by default; switch it back on before anyone else can reach the service.
+- **Last writer wins:** settings and work-package data are saved without version checking, so the last save wins; this must be solved before multi-user use.
 
 ## 10. Reporting a vulnerability
 
@@ -141,7 +141,7 @@ The repository is private and has a single maintainer. Report security issues di
 | JSON only, body size | `_Guard`: `POST/PUT/PATCH/DELETE` only as `application/json` (415); the body is read up front against the limit (413) | `max_body_bytes` = 262144 | `tests/test_api.py::test_body_must_be_json_and_bounded` |
 | structure | `_In` (`extra="forbid"`), `WpId`, `RunId`, `ItemId`, `Text` (2000 characters) | – | `tests/test_api.py::test_schema_rejects_unknown_fields_and_bad_ids` |
 | actor | `human_actor`, `actor_unless_first_users`, `X-Actor` header (URL-encoded), `app_settings.ACTOR_RE`; unknown name: 403 `unknown_user` | **Users** list | `tests/test_users.py`, `tests/test_api.py::test_actor_may_carry_accents_when_url_encoded` |
-| source document | `_item_source()`: the file is read once and its full `sha256` must match the item's on every request (075; before, a fingerprint memoised by size and modification time was trusted), otherwise 409; the source and the page image are made from exactly the verified bytes | – | `tests/test_api.py::test_item_source_is_served_only_for_unchanged_items`, `tests/test_source_identity_075.py` |
+| source document | `_item_source()`: the file is read once and its full `sha256` must match the item's on every request (since v1.1.0; before, a fingerprint memoised by size and modification time was trusted), otherwise 409; the source and the page image are made from exactly the verified bytes | – | `tests/test_api.py::test_item_source_is_served_only_for_unchanged_items`, `tests/test_source_identity_075.py` |
 | folder restriction | `checked_path()` (`resolve(strict=True)`), `allowed_roots()`, 403 `forbidden_path` | `restrict_paths` (false), `allowed_roots`, `allow_legacy_data_root`, `JAV_API_ROOTS` | `tests/test_api.py::test_folder_outside_allowed_roots_is_refused`, `::test_any_existing_folder_is_accepted_without_restriction` |
 | endpoint list | `create_app()`: `docs_url=None`, `redoc_url=None`; `/api/openapi.json` stays | – | `tests/test_security_headers_071.py::test_interactive_docs_are_off_machine_list_stays` |
 | security headers | `_SecurityHeaders` (outermost layer): `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy: same-origin`; CSP: `UI_CSP` (UI), `API_CSP` (`default-src 'none'`), `DOCUMENT_CSP` (PDF: only `frame-ancestors 'none'`); `Cache-Control: no-store` under `/api/` | – | `tests/test_security_headers_071.py` |
@@ -178,8 +178,8 @@ The repository is private and has a single maintainer. Report security issues di
 
 **Data locations** (section 7): store `store/jav.sqlite`; flow-state store `store/burr_state.sqlite`; backups `store/backups/`; raw runs `runs/`; JEV cache `runs/cache/`; OCR cache `runs/ocr/`; service log `runs/logs/` (`jav/runtime/applog.py`: `MAX_BYTES` 5 000 000, `BACKUPS` 5); emails `inbox/`, attachments `inbox/.bridge/data/`; keys `.env`; Burr's tracker `~/.burr` (the library's default; the worker runs with `tracker=False`).
 
-**Measured trials:**
-- Documents: `python -m jav.experiments.document_injection_probe --live`, `configs/experiments/document_injection.json` 1.0.0; models: `gpt-5.4-mini-2026-03-17`, `jev-1.13.0`; raw run: `runs/20260929_163752_067_injection/` (`rows.jsonl`, `summary.md`, `accounting.json`). The S path's JEV request is narrowed to ±1 line around the candidates, so it sees the sentence below the heading only partly; the G path gets the full text. Offline parts: `tests/test_document_injection_probe.py`.
-- Emails: `python -m jav.cli email-injection-probe` (`jav/evals_email.py` `INJECTIONS`: `clean`, `en_override_top`, `hu_override_top`, `hu_reroute_top`, `en_override_end`); raw run: `runs/20260920_153227_email_injection_probe.jsonl`; the call site's configuration has not changed since (`configs/callsites/email_intent.json` 1.1.0).
+**Injection probes** (section 5):
+- Documents: `python -m jav.experiments.document_injection_probe --live`, `configs/experiments/document_injection.json` 1.0.0. The S path's JEV request is narrowed to ±1 line around the candidates, so it sees the sentence below the heading only partly; the G path gets the full text. Offline parts: `tests/test_document_injection_probe.py`.
+- Emails: `python -m jav.cli email-injection-probe` (`jav/evals_email.py` `INJECTIONS`: `clean`, `en_override_top`, `hu_override_top`, `hu_reroute_top`, `en_override_end`); call site: `configs/callsites/email_intent.json` 1.1.0.
 
 **Dependency audit** ([development guide, section 6](guides/DEVELOPMENT.md)): `python -m jav.cli deps-audit` (`jav/deps_audit.py`: `pip-audit -r requirements.lock --no-deps` and `npm audit --json` in `ui/`; result in `runs/deps-audit.json`; refreshed by `backup --scheduled` when older than 7 days; `GET /api/system/deps-audit`). GitHub's vulnerability alerts are the repository's Dependabot alerts (on since 2026-09-30); automatic fix pull requests are not enabled.
