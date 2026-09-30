@@ -1,6 +1,6 @@
-"""066 Á31: a folyamatállapot-tár (Burr) párhuzamos olvasásra állítva és 30 másodperces várakozással nyílik meg, mint a
-fő adattár. Alapbeállítással (5 s, naplófájl-mód) a feldolgozó mentése és a közben futó ritkítás „zárolt adatbázis”
-hibát adhatott."""
+"""066 Á31: the state store (Burr) opens set up for concurrent reading and with a 30-second wait, like the main store.
+With the defaults (5 s, rollback-journal mode) the worker's save and a concurrent thinning could fail with a
+"database is locked" error."""
 
 from __future__ import annotations
 

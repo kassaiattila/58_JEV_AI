@@ -1,4 +1,4 @@
-"""Korlátos K1-próba: helyi címkejelöltek + élő JEV, ugyanazon engedélyezett mintán."""
+"""Bounded K1 trial: local label candidates + live JEV, on the same authorised sample."""
 from __future__ import annotations
 
 import argparse
@@ -17,7 +17,7 @@ PREVIOUS = PROJECT_ROOT / "runs/20260921_grounded_revision"
 
 class TrialAdapter(JevAdapter):
     def _live(self,*args,**kwargs):
-        # A 024-ben megnyitott 200-as keret közös, már 150 foglalást tartalmaz.
+        # The 200-call budget opened in 024 is shared and already holds 150 reservations.
         with store.connect(PREVIOUS/'business.sqlite') as db:
             prior = db.execute("SELECT coalesce(sum(cost_usd),0) FROM ledger WHERE cached=0").fetchone()[0]
         with store.connect() as db:

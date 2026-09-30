@@ -1,4 +1,4 @@
-"""Közös, izolált összehasonlító futtató a meglévő Burr-flow-khoz."""
+"""Shared, isolated comparison runner for the existing Burr flows."""
 from __future__ import annotations
 
 import json
@@ -25,7 +25,7 @@ def trial_services(adapter, store_path: Path):
 
 
 class DirectAdapter:
-    """Azonos kanonikus állapotszöveg mindkét kísérleti úton."""
+    """The same canonical state text on both experimental paths."""
     def __init__(self, base: JevAdapter, *, force_live: bool = False):
         self.base = base
         self.audit = []
@@ -47,7 +47,7 @@ class DirectAdapter:
 
 
 class TypedAdapter(DirectAdapter):
-    """A natív Pydantic AI-fordító eredeti JEV-válasza a változatlan flow-nak."""
+    """Hands the native Pydantic AI translator's original JEV response to the unchanged flow."""
     def ask(self, request_id, state, questions, *, run_id=None, config_hash=None, use_cache=True, model=None):
         if model is not None and model != self.base.model:
             raise ValueError("A próbában csak a rögzített modell használható")
@@ -65,10 +65,10 @@ class TypedAdapter(DirectAdapter):
 def run_trial(flow: str, source_path: str, directory: Path, run_id: str, adapter,
               *, doc_type: str = "invoice_hu", halt_after=None, fault=None,
               arm: str = "S", agent_factory=None, generator_identity: str | None = None):
-    """Meglévő gráf, azonosítóhoz kötött SQLite-állapot, elkülönített üzleti tár.
+    """Existing graph, SQLite state bound to the run identifier, isolated business store.
 
-    Egy munkásos kísérlet: nem elosztott munkasor. A fault tesztben megszakíthatja
-    a folyamatot lépések előtt / a hatás után, de az állapot mentése előtt.
+    A single-worker experiment, not a distributed work queue. In tests `fault` can interrupt
+    the process before a step / after its effect but before the state is saved.
     """
     from burr.core import ApplicationBuilder, State
     from burr.core.persistence import SQLitePersister
@@ -117,8 +117,8 @@ def run_trial(flow: str, source_path: str, directory: Path, run_id: str, adapter
         def save(self, partition_key, app_id, sequence_id, position, state, status, **kwargs):
             if status == "completed" and fault:
                 fault("after_action:" + position)
-            # A Burr alap Pydantic-szerializálója Python-módban dumpol: a date/Decimal
-            # nem JSON. A saját, ismert állapotséma állítja helyre a típusokat betöltéskor.
+            # Burr's default Pydantic serialiser dumps in Python mode: date/Decimal are
+            # not JSON. Our own, known state schema restores the types on load.
             json_state = State(to_jsonable_python(state.get_all()))
             return super().save(partition_key, app_id, sequence_id, position, json_state, status, **kwargs)
 

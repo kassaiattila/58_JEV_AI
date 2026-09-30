@@ -1,4 +1,4 @@
-"""047 T1.1: a régi típus-másolatok teljes csomaggá alakítása (a repóban lévő, hash-ellenőrzött másolatokon; AI-hívás nélkül)."""
+"""047 T1.1: converting the legacy type copies into full packs (on the hash-checked copies in the repo; no AI calls)."""
 
 import json
 
@@ -30,10 +30,10 @@ def test_every_legacy_type_converts_and_loads(key):
     out = convert(key, old_type_map=OLD_MAP)
     pack = out["pack"]
     schema = json.loads(out["schema_src"].read_text(encoding="utf-8"))
-    assert list(pack["fields"]) == list(schema["properties"])  # minden régi mező, a régi sorrendben
+    assert list(pack["fields"]) == list(schema["properties"])  # every legacy field, in the legacy order
     assert pack["parent"] == OLD_MAP[key] and pack["auto_detect"] is (key not in PENDING)
     assert set(out["callsite"]["field_specs"]) == {f for f, k in pack["fields"].items() if k != "list"}
-    loaded = typepack.get(key)  # a repóban lévő (átalakított) csomag betölthető és egyezik az átalakítóval
+    loaded = typepack.get(key)  # the (converted) pack in the repo loads and matches the converter
     assert dict(loaded.fields) == pack["fields"] and loaded.arms == ("G",)
 
 
@@ -47,7 +47,8 @@ def test_statement_keeps_transactions_rules_and_enums():
 
 @pytest.mark.parametrize("fixture", sorted(LEGACY_DIR.glob("*/fixtures/*.json")), ids=lambda p: p.parent.parent.name)
 def test_converted_pack_agrees_with_legacy_fixture_verdict(fixture):
-    """A régi (mesterséges) próbairat várt ítélete = az új csomag normalizálása + szabályai; adat nem vész el."""
+    """The expected verdict of the legacy (synthetic) test document = the new pack's normalisation + rules; no data is
+    lost."""
     from jav.validators import run_all
 
     case = json.loads(fixture.read_text(encoding="utf-8"))

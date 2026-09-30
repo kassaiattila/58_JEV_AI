@@ -1,14 +1,14 @@
-"""Kitalált, szövegréteges PDF teljes magyar ékezetkészlettel (067), szondákhoz és próbákhoz.
+"""Fictitious PDF with a text layer and the full Hungarian accent set (067), for probes and trials.
 
-A tesztek egyszerű PDF-írója (`tests/pdfgen.py`) csak ASCII-t tud, egy oszlopban. Ez a PDF beépített Helvetica betűjét
-használja (betűfájl nélkül) a Windows-kódtáblával, amelyből a magyarban nem használt „õ, û, Õ, Û” helyére a „ő, ű, Ő, Ű”
-kerül (a kódtábla `Differences` kiegészítése), így a szövegréteg-olvasó (pdfminer) a teljes magyar ábécét és a sima
-kötőjelet adja vissza. (A beágyazott TrueType betűs út a PDFium ToUnicode-táblája miatt a kötőjelet lágy elválasztóként
-vagy tipográfiai kötőjelként adta vissza, ami valódi iratban nem fordul elő.)
+The tests' simple PDF writer (`tests/pdfgen.py`) handles only ASCII, in one column. This PDF uses the built-in Helvetica
+font (no font file) with the Windows code page, in which "ő, ű, Ő, Ű" replace "õ, û, Õ, Û", unused in Hungarian (a
+`Differences` supplement to the code page), so the text-layer reader (pdfminer) returns the full Hungarian alphabet and
+the plain hyphen. (The embedded TrueType font route returned the hyphen as a soft hyphen or a typographic dash, because
+of PDFium's ToUnicode table, which does not happen in real documents.)
 
-A sorokat a jelöltkereső sor- és cellaépítője (`jav/pdf.py: build_layout`) ugyanúgy bontja cellákra, mint egy valódi
-számlánál: a három szóközzel elválasztott részek külön oszlopba kerülnek. Valódi iratot nem gyárt, csak a megadott,
-kitalált szöveget írja ki.
+The candidate finder's row and cell builder (`jav/pdf.py: build_layout`) splits the rows into cells exactly as for a
+real invoice: the parts separated by three spaces go into separate columns. It produces no real document; it only
+writes out the given, fictitious text.
 """
 
 from __future__ import annotations
@@ -16,12 +16,12 @@ from __future__ import annotations
 import textwrap
 from pathlib import Path
 
-PAGE_W, PAGE_H = 595, 842  # A4 pontban
+PAGE_W, PAGE_H = 595, 842  # A4 in points
 TOP, LINE_GAP, FONT_SIZE = 800, 16, 10
-COLUMN_X = (50, 230, 330, 420, 500)  # a cellák kezdete; a hatodiktól 90 pontonként
+COLUMN_X = (50, 230, 330, 420, 500)  # cell starts; from the sixth on, every 90 points
 CELL_SEP = "   "
-WRAP_CHARS = 100  # egycellás hosszú sor tördelése: 10 pontos Helveticával ~480 pont, az oldalon belül marad
-# a Windows-kódtábla (WinAnsi) magyarban nem használt helyei a hiányzó magyar betűknek
+WRAP_CHARS = 100  # wrapping of a long single-cell row: ~480 points in 10-point Helvetica, stays within the page
+# slots of the Windows code page (WinAnsi) unused in Hungarian, for the missing Hungarian letters
 _HU_DIFFERENCES = {"ő": (0xF5, "ohungarumlaut"), "ű": (0xFB, "uhungarumlaut"), "Ő": (0xD5, "Ohungarumlaut"),
                    "Ű": (0xDB, "Uhungarumlaut")}
 
@@ -31,7 +31,8 @@ def _column_x(k: int) -> int:
 
 
 def layout_rows(rows: list[str]) -> list[str]:
-    """A kiírt sorok: az egycellás, `WRAP_CHARS`-nál hosszabb sor szóhatáron több sorra törik, a többi változatlan."""
+    """The written rows: a single-cell row longer than `WRAP_CHARS` breaks into several rows at word boundaries; the
+    rest are unchanged."""
     out: list[str] = []
     for row in rows:
         if CELL_SEP not in row and len(row) > WRAP_CHARS:
@@ -42,7 +43,8 @@ def layout_rows(rows: list[str]) -> list[str]:
 
 
 def _encode(text: str) -> bytes:
-    """A cella szövege a kiegészített Windows-kódtáblában, PDF-szövegként escape-elve; más betű `UnicodeEncodeError`."""
+    """The cell text in the supplemented Windows code page, escaped as PDF text; any other letter raises
+    `UnicodeEncodeError`."""
     raw = bytearray()
     for ch in text:
         raw += bytes([_HU_DIFFERENCES[ch][0]]) if ch in _HU_DIFFERENCES else ch.encode("cp1252")
@@ -50,8 +52,8 @@ def _encode(text: str) -> bytes:
 
 
 def write_unicode_pdf(path: Path, rows: list[str]) -> Path:
-    """Egyoldalas PDF a `rows` soraival; a sorban a `CELL_SEP` (három szóköz) oszlophatár. A szondák rövid iratokat írnak:
-    a lap aljáról kifutó sorok nem kerülnek új oldalra."""
+    """Single-page PDF with the rows of `rows`; within a row, `CELL_SEP` (three spaces) is the column boundary. The
+    probes write short documents: rows running off the bottom of the page are not moved to a new page."""
     ops = bytearray()
     y = TOP
     for row in layout_rows(rows):

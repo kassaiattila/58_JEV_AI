@@ -1,15 +1,15 @@
-"""Burr-gráf = kontrakt: fázisok, lépések, élek, lépés-fajta egy adatszerkezetben; ebből generált FLOW.md + Mermaid,
-és lint, ami a deklarált kontraktot az élő Burr-gráffal és a flow forrásával veti össze.
+"""Burr graph = contract: phases, steps, edges and step kind in one data structure; FLOW.md + Mermaid are generated from
+it, and a lint compares the declared contract with the live Burr graph and the flow's source.
 
-Port a régi 10_AIFLOW_V4 keretből (`orchestrator/framework/graph.py` + `lint.py`), a mi szabályainkra szűkítve:
-- minden élő akció deklarált lépés és fordítva; minden deklarált él létezik az élő gráfban és fordítva;
-- lépés-fajták: `det` (kód), `jev` (Jev az adapteren át), `llm` (generatív, Pydantic AI), `store` (SQLite-írás),
-  `flow` (másik gráf hívása), `terminal`; a fajtához illő hívás megjelenik az akció forrásában;
-- a flow-modul nem importál SDK-t közvetlenül (typesafe_sdk / openai / pydantic_ai) - csak az adapter;
-- additív review-latch: a flow forrásában nincs `needs_review = False`;
-- a `jev` / `llm` lépések továbbadják a `run_id`-t (ledger).
+Ported from the legacy 10_AIFLOW_V4 framework (`orchestrator/framework/graph.py` + `lint.py`), narrowed to our rules:
+- every live action is a declared step and vice versa; every declared edge exists in the live graph and vice versa;
+- step kinds: `det` (code), `jev` (JEV through the adapter), `llm` (generative, Pydantic AI), `store` (SQLite write),
+  `flow` (calls another graph), `terminal`; a call matching the kind appears in the action's source;
+- the flow module does not import an SDK directly (typesafe_sdk / openai / pydantic_ai) - only the adapter does;
+- additive review latch: the flow's source contains no `needs_review = False`;
+- the `jev` / `llm` steps pass on the `run_id` (ledger).
 
-Kontrakt-alak (a flow-modulban `CONTRACT` néven):
+Contract shape (named `CONTRACT` in the flow module):
     {"name": "invoice_hu", "phases": [...], "steps": [(step, phase), ...], "edges": [(a, b[, label]), ...],
      "step_meta": {step: {"kind": ..., "note": ...}}, "terminals": [...], "doc_note": "..."}
 """
@@ -26,7 +26,7 @@ from jav.config import PROJECT_ROOT
 
 FLOWS_DOC_DIR = PROJECT_ROOT / "docs" / "flows"
 KINDS = ("det", "jev", "llm", "store", "flow", "terminal")
-_KIND_MARKERS = {  # a fajtához illő hívás nyoma az akció forrásában (bármelyik elég)
+_KIND_MARKERS = {  # trace of a call matching the kind in the action's source (any one is enough)
     "jev": ("get_adapter", "jev", "detect(", "classify(", "select_fields(", "verify("),
     "llm": ("extract_llm", "extract(", "Agent", "openai"),
     "store": ("store.",),
@@ -37,13 +37,13 @@ _UNLATCH = re.compile(r"needs_review\s*=\s*False")
 
 
 def overview_mermaid(contract: dict[str, Any]) -> str:
-    """Fázisonként csoportosított Mermaid (subgraph fázisonként), címkézett élekkel."""
+    """Mermaid grouped by phase (one subgraph per phase), with labelled edges."""
     by_phase: dict[str, list[str]] = {p: [] for p in contract["phases"]}
     for name, ph in contract["steps"]:
         by_phase.setdefault(ph, []).append(name)
     out = ["flowchart TD"]
     for ph in contract["phases"]:
-        out.append(f'  subgraph ph_{ph}["{ph}"]')  # a subgraph-azonosító nem eshet egybe csomópont-névvel
+        out.append(f'  subgraph ph_{ph}["{ph}"]')  # the subgraph id must not clash with a node name
         for name in by_phase.get(ph, []):
             kind = contract.get("step_meta", {}).get(name, {}).get("kind", "")
             out.append(f'    {name}["{name}{f" ({kind})" if kind else ""}"]')
@@ -56,7 +56,7 @@ def overview_mermaid(contract: dict[str, Any]) -> str:
 
 
 def flow_md(contract: dict[str, Any]) -> str:
-    """FLOW.md a kontraktból - ember-olvasható, drift-mentes doksi (ne szerkeszd kézzel, generáld)."""
+    """FLOW.md from the contract - human-readable, drift-free documentation (do not edit by hand, regenerate it)."""
     by_phase: dict[str, list[str]] = {p: [] for p in contract["phases"]}
     meta = contract.get("step_meta", {})
     for name, ph in contract["steps"]:
@@ -101,30 +101,30 @@ def _live_edges(app: Any) -> set[tuple[str, str]]:
 
 
 def lint_flow(contract: dict[str, Any], app: Any, module: ModuleType) -> dict[str, Any]:
-    """Kontrakt <-> élő Burr-gráf <-> forrás. Visszatér: {"checks": [(név, ok, részlet)], "passed": bool}."""
+    """Contract <-> live Burr graph <-> source. Returns: {"checks": [(name, ok, detail)], "passed": bool}."""
     checks: list[tuple[str, bool, str]] = []
     src = inspect.getsource(module)
     declared = [name for name, _ in contract["steps"]]
     declared_set = set(declared)
 
-    # 1. lépések: az élő gráf minden akciója deklarált, és minden deklarált lépés él
+    # 1. steps: every action of the live graph is declared, and every declared step is live
     live = {a.name for a in app.graph.actions}
     checks.append(("kontrakt lefedi az élő gráfot", live == declared_set,
                    f"élő: {len(live)}, deklarált: {len(declared_set)}; hiányzó: {sorted(live - declared_set) or '-'}, felesleges: {sorted(declared_set - live) or '-'}"))
 
-    # 2. élek: deklarált == élő (címke nélkül)
+    # 2. edges: declared == live (without labels)
     decl_edges = {(e[0], e[1]) for e in contract["edges"]}
     live_edges = _live_edges(app)
     checks.append(("élek egyeznek", decl_edges == live_edges,
                    f"hiányzó a kontraktból: {sorted(live_edges - decl_edges) or '-'}; nincs az élő gráfban: {sorted(decl_edges - live_edges) or '-'}"))
 
-    # 3. fázisok: minden lépés létező fázisban van; duplikált lépés nincs
+    # 3. phases: every step is in an existing phase; no step is duplicated
     phases = set(contract["phases"])
     bad_phase = [n for n, ph in contract["steps"] if ph not in phases]
     checks.append(("fázisok érvényesek, lépés egyszer szerepel", not bad_phase and len(declared) == len(declared_set),
                    f"rossz fázis: {bad_phase or '-'}"))
 
-    # 4. lépés-fajták: ismert fajta, és a fajtához illő hívás megjelenik az akció forrásában
+    # 4. step kinds: a known kind, and a call matching the kind appears in the action's source
     meta = contract.get("step_meta", {})
     kind_problems: list[str] = []
     for name in declared:
@@ -141,14 +141,14 @@ def lint_flow(contract: dict[str, Any], app: Any, module: ModuleType) -> dict[st
             kind_problems.append(f"{name}:{kind} run_id nélkül (ledger)")
     checks.append(("lépés-fajták és nyomaik", not kind_problems, ", ".join(kind_problems) or "rendben"))
 
-    # 5. csak adapteren át: a flow-modul nem importál SDK-t
+    # 5. adapter only: the flow module imports no SDK
     direct = [m for m in _FORBIDDEN_IMPORTS if re.search(rf"^\s*(from|import)\s+{m}", src, re.M)]
     checks.append(("adapter-only (nincs közvetlen SDK-import)", not direct, f"közvetlen: {direct or '-'}"))
 
-    # 6. additív review-latch
+    # 6. additive review latch
     checks.append(("additív latch (nincs needs_review = False)", not _UNLATCH.search(src), "require_review() csak False->True"))
 
-    # 7. terminálisok: a kontrakt és a modul TERMINALS listája egyezik, és deklarált lépések
+    # 7. terminals: the contract's and the module's TERMINALS lists match, and they are declared steps
     terms = set(contract.get("terminals", []))
     mod_terms = set(getattr(module, "TERMINALS", []))
     checks.append(("terminálisok egyeznek", terms == mod_terms and terms <= declared_set,

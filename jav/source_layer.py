@@ -1,12 +1,13 @@
-"""Szóréteg (045 K3b): egy irat szavai oldal-relatív (0–1) keretekkel, ahogy a futás beolvasta.
+"""Word layer (045 K3b): the words of a document with page-relative (0–1) boxes, as the run read them.
 
-A futás beolvasó lépései (`load_pdf`, `ocr_pdf`) mentik el ugyanabból a szókészletből, amelyből a sorok (`layout`)
-épültek: szövegréteg, helyi OCR vagy Azure-szöveg. Így a keret pontosan arra a szövegre mutat, amelyet a modell látott,
-és utólag nem kell újra (esetleg fizetősen) olvasni. A réteg tartalom szerint azonosított (`layer_id` = a szavak és
-oldalméretek hash-e), az állapotban csak ez a hivatkozás van.
+The run's reading steps (`load_pdf`, `ocr_pdf`) save it from the same word set the lines (`layout`) were built from:
+text layer, local OCR or Azure text. So a box points at exactly the text the model saw, and nothing has to be read
+again later (possibly for a fee). The layer is identified by its content (`layer_id` = hash of the words and page
+sizes); the state holds only this reference.
 
-Koordináták: `x0, y0, x1, y1` az oldal szélességéhez/magasságához viszonyítva, bal felső sarok az origó (a pdfplumber,
-a tesseract és az Azure is így ad szókeretet pontban). A szó `line_no`-ja a `layout` sorszáma (1-alapú, dokumentum-szintű).
+Coordinates: `x0, y0, x1, y1` relative to the page width/height, with the origin in the top-left corner (pdfplumber,
+tesseract and Azure all give word boxes in points this way). A word's `line_no` is its `layout` line number (1-based,
+document-wide).
 """
 
 from __future__ import annotations
@@ -36,13 +37,13 @@ CREATE INDEX IF NOT EXISTS ix_source_layers_doc ON source_layers(doc_id);
 
 
 class Page(BaseModel):
-    page: int  # 1-alapú
+    page: int  # 1-based
     width_pt: float
     height_pt: float
 
 
 class Word(BaseModel):
-    id: int  # 0-alapú, a rétegen belül olvasási sorrendben (oldal, sor, x)
+    id: int  # 0-based, in reading order within the layer (page, line, x)
     page: int
     line_no: int | None
     text: str
@@ -73,7 +74,7 @@ def _clamp(v: float) -> float:
 
 def build(doc_id: str, pages_words: list[list[dict[str, Any]]], page_sizes: list[tuple[float, float]], *,
           text_source: str | None, engine: str | None) -> SourceLayer | None:
-    """A beolvasó szókészletéből réteg; oldalméret nélkül vagy szavak nélkül nincs réteg (None)."""
+    """A layer from the reader's word set; without page sizes or words there is no layer (None)."""
     if not pages_words or not page_sizes or not any(pages_words):
         return None
     pages = [Page(page=i + 1, width_pt=w, height_pt=h) for i, (w, h) in enumerate(page_sizes)]
@@ -99,7 +100,7 @@ def build(doc_id: str, pages_words: list[list[dict[str, Any]]], page_sizes: list
 
 
 def save(layer: SourceLayer) -> str:
-    """Idempotens mentés (ugyanaz a tartalom ugyanazt az azonosítót kapja)."""
+    """Idempotent save (the same content gets the same id)."""
     with store.connect() as c:
         c.execute("INSERT OR IGNORE INTO source_layers(layer_id, doc_id, text_source, engine, pages, words, created_at)"
                   " VALUES (?,?,?,?,?,?,?)",
@@ -109,9 +110,9 @@ def save(layer: SourceLayer) -> str:
     return layer.layer_id
 
 
-# 061: a réteg tartalom szerint azonosított és soha nem módosul (`INSERT OR IGNORE`), ezért a betöltött réteg
-# megtartható; az eredmény-összeállítás így egy javítás után nem olvassa és nem alakítja át újra az összes irat szavait.
-# A kulcsban az adattár útvonala is benne van (tesztek, futáshelyi adattár). A réteget a hívók csak olvassák.
+# 061: a layer is identified by its content and never changes (`INSERT OR IGNORE`), so a loaded layer can be kept;
+# after a correction, building the result therefore does not read and convert the words of every document again.
+# The key includes the store path too (tests, per-run stores). Callers only read the layer.
 _loaded: OrderedDict[tuple[str, str], SourceLayer] = OrderedDict()
 _loaded_lock = threading.Lock()
 _LOADED_MAX = 256
@@ -138,9 +139,10 @@ def load(layer_id: str) -> SourceLayer | None:
 
 
 def save_from_pdftext(doc_id: str, pdf: Any) -> str | None:
-    """A beolvasó lépések belépési pontja: `PdfText`-ből réteg, mentve; nincs szóadat → None (a folyamat nem áll meg)."""
+    """Entry point of the reading steps: a layer from `PdfText`, saved; no word data → None (the flow does not stop)."""
     ocr_info = getattr(pdf, "ocr", None) or {}
-    # 049: eszkalált szövegnél a szóhelyek a helyi OCR-ből jöhetnek (`words_from`) — a réteg motorja az, ahonnan a szavak valók
+    # 049: for escalated text the word positions may come from the local OCR (`words_from`); the layer's engine is the
+    # one the words come from
     engine = (ocr_info.get("words_from") or ocr_info.get("engine")) if ocr_info else ("pdfplumber" if pdf.text_source == "pdf" else None)
     layer = build(doc_id, pdf.words, pdf.page_sizes, text_source=pdf.text_source, engine=engine)
     return save(layer) if layer is not None else None

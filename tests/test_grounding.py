@@ -1,4 +1,4 @@
-"""Forráshely (045 K3b, B2): mesterséges szórétegen és egy teljes futáson, AI-hívás nélkül."""
+"""Source location (045 K3b, B2): on a synthetic word layer and in one full run, without AI calls."""
 
 import json
 from pathlib import Path
@@ -11,7 +11,7 @@ from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 
 def layer_of(rows: list[list[tuple[str, float]]], *, page_w: float = 600, page_h: float = 800):
-    """Soronként (szó, x0) párok; a szóköz 4 pt, betűszélesség 6 pt, sormagasság 12 pt, sorköz 20 pt."""
+    """(word, x0) pairs per line; space 4 pt, character width 6 pt, line height 12 pt, line pitch 20 pt."""
     words = []
     for n, row in enumerate(rows, 1):
         top = 40 + 20 * (n - 1)
@@ -41,7 +41,7 @@ def test_repeated_value_is_decided_by_its_label():
     gross = grounding.locate_value(layer, "money", "12700", field="gross_total")
     assert gross["status"] == "located" and gross["page"] == 1 and gross["word_ids"] == [6, 7]
     no_field = grounding.locate_value(layer, "money", "12700")
-    # 053 (döntés 2026-09-28): mező nélkül is keret az első helyen, a többi alternatíva
+    # 053 (decision of 2026-09-28): even without a field, the first location gets a box, the rest are alternatives
     assert no_field["status"] == "located" and no_field["multiple"] == 3 and len(no_field["alternatives"]) == 2
 
 
@@ -112,13 +112,13 @@ def test_flow_run_saves_provenance(tmp_path: Path):
     dps = json.loads(row["datapoints"])
     located = {f: p for f, p in prov.items() if p["status"] == "located"}
     assert located, prov
-    for f, p in located.items():  # a keret szövege a kinyert értéket hordozza
+    for f, p in located.items():  # the box text carries the extracted value
         assert p["method"] in ("pick", "search") and 0 <= p["bbox"][0] < p["bbox"][2] <= 1 and p["quote"]
         assert dps.get(f) is not None
 
 
 def test_two_column_name_on_two_lines_is_found():
-    """A szállító és a vevő neve egymás mellett, mindkettő két sorba tördelve (valódi számlaelrendezés)."""
+    """Supplier and buyer names side by side, each wrapped onto two lines (a real invoice layout)."""
     layer = layer_of([
         [("MINTAKER", 30), ("KERESKEDELMI", 90), ("ES", 170), ("BESTIXCOM", 330), ("INFORMATIKAI", 400)],
         [("SZOLGALTATO", 30), ("BETETI", 102), ("TARSASAG", 144), ("TANACSADO", 330), ("KFT.", 390)],
@@ -130,8 +130,8 @@ def test_two_column_name_on_two_lines_is_found():
 
 
 def test_picked_raw_wrapped_to_the_next_line_is_located():
-    """Sortörött nyomtatott szövegrész (NAV-sablon IBAN): az első rész a választott sorban, a maradék alatta, ugyanabban a
-    hasábban, akár egy címke után."""
+    """A printed text span wrapped across lines (NAV template IBAN): the first part on the picked line, the rest below
+    it in the same column, possibly after a label."""
     layer = layer_of([
         [("Szamlaszam:", 20), ("12100028-46813574-00000000", 110)],
         [("HU82", 110), ("1210", 140), ("0028", 170), ("4681", 200), ("3574", 230), ("0000", 260)],
@@ -140,13 +140,13 @@ def test_picked_raw_wrapped_to_the_next_line_is_located():
     words = grounding.locate_raw(layer, 2, "HU82 1210 0028 4681 3574 0000 0000")
     assert [w.text for w in words] == ["HU82", "1210", "0028", "4681", "3574", "0000", "0000"]
     assert [w.line_no for w in words][-1] == 3 and len(grounding.region(words)["boxes"]) == 2
-    far = layer_of([[("HU82", 110), ("1210", 140)], [("0028", 400)]])  # a folytatás más hasábban: nem ugyanaz
+    far = layer_of([[("HU82", 110), ("1210", 140)], [("0028", 400)]])  # continuation in another column: not the same
     assert grounding.locate_raw(far, 1, "HU82 1210 0028") is None
 
 
 def test_unlocatable_pick_gets_an_approximate_frame_on_its_line():
-    """Ha a választott jelölt sem szó szerint, sem kereséssel nem található, a modell által választott sor kap közelítő
-    keretet: az ellenőrizendő mező így sem marad hely nélkül."""
+    """If the picked candidate cannot be found either verbatim or by search, the line picked by the model gets an
+    approximate box: so the field to be reviewed is still not left without a location."""
     layer = layer_of([[("Fizetendo:", 20), ("12", 110), ("7OO", 128)], [("Netto:", 20), ("10", 110), ("000", 128)]])
     pick = SimpleNamespace(label="12700", raw="12 700", line_no=1, probabilities={"12700": 0.55}, present_p=0.9)
     out = grounding.ground_picks(layer, fields={"gross_total": "money"}, values={"gross_total": "12700"},

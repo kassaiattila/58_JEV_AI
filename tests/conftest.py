@@ -1,8 +1,8 @@
-"""Közös tesztbeállítás (065): a tesztek nem írhatnak az üzemi naplóba.
+"""Shared test setup (065): the tests must not write to the operational log.
 
-A `worker` parancs (`jav/work_cli.py`) az üzemi naplót (`runs/logs/worker.log`) kapcsolja a gyökér-naplózóra; a
-tesztsorban ez minden futáskor hamis „worker started / processed=1” sorokat hagyott a valódi naplóban, és a kapcsolás
-után a többi teszt naplója is oda került. A tesztek ideje alatt a naplómappa ideiglenes.
+The `worker` command (`jav/work_cli.py`) attaches the operational log (`runs/logs/worker.log`) to the root logger; in
+the test suite this left false "worker started / processed=1" lines in the real log on every run, and after attaching,
+the other tests' logs went there too. While the tests run, the log folder is temporary.
 """
 
 import pytest

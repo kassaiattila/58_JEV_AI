@@ -1,16 +1,16 @@
-"""047 T1.4: a régi projekt (10_AIFLOW_V4) korábbi eredményeinek behozatala ÖSSZEVETÉSRE.
+"""047 T1.4: importing earlier results of the legacy project (10_AIFLOW_V4) FOR COMPARISON.
 
-A felhasználó döntése (2026-09-28, DECISIONS 046/3): a régi eredmények csak olvasva, az irat ujjlenyomata (sha256 =
-a mi `doc_id`-nk) szerint párosítva, „régi rendszer” jelöléssel jönnek be; nem helyességi bizonyíték, és az új
-eredményt semmi nem írja felül (külön tábla).
+The owner's decision (2026-09-28, DECISIONS 046/3): legacy results are only read, matched by the document's
+fingerprint (sha256 = our `doc_id`) and brought in marked as "legacy system"; they are not evidence of correctness,
+and nothing overwrites the new results (separate table).
 
-Forrás (CLAUDE.md §3: csak fájl, a régi üzemi adatbázist nem olvassuk): a régi köteg-exportok
-`data/output/intake-batches/<köteg>/manifest.csv` (`document_id` → `sha256`, `doc_type`) és
-`osszesitett-adatok.csv` (soronként egy irat, a mezők lapítva: `line_items.1.description`). A
-`doc-extract-bare/<futás>/result.json` fájlokban nincs ujjlenyomat és mezőérték, ezért kimaradnak.
+Source (CLAUDE.md §3: files only, the legacy production database is not read): the legacy batch exports
+`data/output/intake-batches/<batch>/manifest.csv` (`document_id` → `sha256`, `doc_type`) and
+`osszesitett-adatok.csv` (one document per row, fields flattened: `line_items.1.description`). The
+`doc-extract-bare/<run>/result.json` files have no fingerprint and no field values, so they are skipped.
 
-Összevetés (`compare`): iratonként a legutóbbi új futás adatai és a régi adatok, a típuscsomag normalizálásával
-(pénz, dátum, adószám egységes alakban); mezőnként azonos / eltér / csak a régiben / csak az újban.
+Comparison (`compare`): per document, the data of the latest new run against the legacy data, normalised by the type
+pack (money, dates, tax numbers in a uniform form); per field: same / different / only in legacy / only in new.
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ def _bool(v: str | None) -> bool | None:
 
 
 def _unflatten(row: dict[str, str]) -> dict[str, Any]:
-    """`a.1.b` → a[0].b; üres cella nem adat; üres tétel elmarad."""
+    """`a.1.b` → a[0].b; an empty cell is not data; an empty item is dropped."""
     out: dict[str, Any] = {}
     lists: dict[str, dict[int, dict[str, Any]]] = defaultdict(dict)
     for col, val in row.items():
@@ -85,7 +85,8 @@ def _read_csv(path: Path) -> list[dict[str, str]]:
 
 
 def read_batches(root: Path) -> list[LegacyRow]:
-    """A régi köteg-exportok (`<root>/intake-batches/*/`) sorai ujjlenyomattal; jegyzék nélküli sor kimarad."""
+    """Rows of the legacy batch exports (`<root>/intake-batches/*/`) with fingerprints; a row without a manifest entry
+    is skipped."""
     rows: list[LegacyRow] = []
     for batch in sorted((root / "intake-batches").glob("*/")):
         manifest, summary = batch / "manifest.csv", batch / "osszesitett-adatok.csv"
@@ -118,7 +119,7 @@ def import_batches(root: Path) -> dict[str, int]:
 
 
 def _canon(doc_type: str, dp: dict[str, Any]) -> dict[str, Any]:
-    """A típuscsomag normalizálása mindkét oldalra (pénz, dátum, adószám egységes alakban); ismeretlen típus: nyersen."""
+    """Type-pack normalisation on both sides (money, dates, tax numbers in a uniform form); unknown type: raw."""
     from jav import typepack
 
     try:
@@ -130,7 +131,7 @@ def _canon(doc_type: str, dp: dict[str, Any]) -> dict[str, Any]:
 
 
 def compare() -> dict[str, Any]:
-    """Iratonként a legutóbbi új eredmény és a régi eredmény; típus- és mezőszintű egyezés. NEM pontosság."""
+    """Per document, the latest new result against the legacy result; type- and field-level agreement. NOT accuracy."""
     fields: dict[str, dict[str, int]] = defaultdict(lambda: {"same": 0, "different": 0, "only_legacy": 0, "only_new": 0})
     docs = type_agree = 0
     with store.connect() as c:

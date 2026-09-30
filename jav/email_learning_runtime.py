@@ -1,4 +1,4 @@
-"""Tartós e-mailes Burr-próba; saját JEV-válaszok, megszakításkor nincs vak újraküldés."""
+"""Durable Burr trial for emails; it records its own JEV responses and never blindly resends after an interruption."""
 import json
 import sqlite3
 from contextlib import closing

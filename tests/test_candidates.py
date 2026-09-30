@@ -1,4 +1,4 @@
-"""Jelöltkeresők - offline, szintetikus elrendezéseken (nem függ a régi projekt PDF-jeitől)."""
+"""Candidate finders - offline, on synthetic layouts (independent of the legacy project's PDFs)."""
 
 from jav.candidates import find_all, find_currencies
 from jav.models import CellLayout, LineLayout
@@ -14,7 +14,7 @@ def _line(no: int, *cells: tuple[str, float]) -> LineLayout:
 
 
 def _two_column_invoice() -> list[LineLayout]:
-    # NAV Online Számlázó-szerű kétoszlopos fejléc, sortörött IBAN-nal
+    # two-column header in the style of NAV Online Számlázó, with an IBAN wrapped over two lines
     return [
         _line(1, ("e-SZÁMLA", 480)),
         _line(2, ("PRBA-2021-37", 70)),
@@ -45,7 +45,7 @@ def test_two_column_names_are_joined_per_column():
     names = {c.label for c in find_all(_two_column_invoice())["name"]}
     assert "PELDADATA KERESKEDELMI ÉS SZOLGÁLTATÓ BETÉTI TÁRSASÁG" in names
     assert "BESTIXCOM INFORMATIKAI ÉS TANÁCSADÓ KORLÁTOLT FELELŐSSÉGŰ TÁRSASÁG" in names
-    # a cím nem fűződik a névhez
+    # the address is not joined to the name
     assert not any("1119" in n for n in names)
 
 
@@ -53,13 +53,13 @@ def test_wrapped_iban_is_reassembled_and_same_account_deduped():
     ibans = find_all(_two_column_invoice())["iban"]
     labels = [c.label for c in ibans]
     assert "HU50 1000 0001 2000 0002 0000 0000" in labels
-    # a hazai formátumú ugyanaz a számla -> egy jelölt (az elsőként látott alak a label)
+    # the same account in domestic format -> one candidate (the form seen first is the label)
     assert len(ibans) == 1
 
 
 def test_tax_ids_formatted_and_phone_excluded():
     tax = {c.label for c in find_all(_two_column_invoice())["tax_id"]}
-    assert tax == {"24681353-1-43", "28642099-2-42"}  # a 11 jegyű telefonszám ellenőrzőszáma nem stimmel
+    assert tax == {"24681353-1-43", "28642099-2-42"}  # the 11-digit phone number fails the check digit
 
 
 def test_dates_deduped_by_value_with_contexts():
@@ -71,13 +71,13 @@ def test_dates_deduped_by_value_with_contexts():
 def test_invoice_number_from_line_above_label():
     inv = {c.label for c in find_all(_two_column_invoice())["invoice_number"]}
     assert "PRBA-2021-37" in inv
-    assert "10000001-20000002-00000000" not in inv  # bankszámla maszkolva
+    assert "10000001-20000002-00000000" not in inv  # bank account masked
 
 
 def test_money_normalized_and_percent_excluded():
     money = {c.label for c in find_all(_two_column_invoice())["money"]}
     assert {"650000", "0"} <= money
-    assert "24681353" not in money  # adószám maszkolva
+    assert "24681353" not in money  # tax number masked
 
 
 def test_currency_detection():

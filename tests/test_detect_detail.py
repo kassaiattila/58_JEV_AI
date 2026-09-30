@@ -1,4 +1,4 @@
-"""047 T1.2: részletes típus a durva kategórián belül (mesterséges szöveg, hamis JEV; fizetős hívás nincs)."""
+"""047 T1.2: detailed type within the coarse category (synthetic text, fake JEV; no paid calls)."""
 
 from types import SimpleNamespace
 
@@ -19,7 +19,7 @@ class FakeJev:
 def test_candidates_follow_parent_and_skip_pending_types():
     assert set(detect_detail.candidates("bank_statement")) == {"statement_cib", "statement_erste"}
     assert "invoice_out" in detect_detail.candidates("invoice_hu") and "invoice_hu" in detect_detail.candidates("invoice_hu")
-    assert "meghivo" not in detect_detail.candidates("other")  # a régiben is függő típus: csak kézzel
+    assert "meghivo" not in detect_detail.candidates("other")  # pending in the legacy project too: manual only
     assert detect_detail.candidates("payment_reminder") == []
 
 
@@ -54,13 +54,13 @@ def test_jev_none_or_unavailable_leaves_detail_open():
 def test_default_pack_of_the_category_when_no_sibling_qualifies():
     r = detect_detail.resolve("invoice_hu", "Számla sorszám 2026/15, fizetési határidő", jev=FakeJev("none"), run_id="t")
     assert (r.key, r.method) == ("invoice_hu", "anchors")
-    # a kimenő számla jele (BD-sorszám) a magyar számla kizárója is: kis előny → a JEV dönt
+    # the outgoing-invoice marker (BD serial number) also excludes the Hungarian invoice: small lead → JEV decides
     r2 = detect_detail.resolve("invoice_hu", "Számla BD123 Minta Kft.", jev=FakeJev("invoice_out", 0.95), run_id="t")
     assert (r2.key, r2.method) == ("invoice_out", "jev") and r2.scores["invoice_out"] > r2.scores["invoice_hu"]
 
 
 def test_detect_flow_saves_detail_and_opens_task_when_undecided(tmp_path):
-    """A felismerés után a részletes típus a dokumentumhoz mentődik; nyitva maradt típus saját teendő (JEV nélkül)."""
+    """After detection the detailed type is saved to the document; a type left open is a to-do of its own (no JEV)."""
     from jav import store
     from jav.detect import DetectResult
     from jav.flow_detect import DetectState, _resolve_detail, save

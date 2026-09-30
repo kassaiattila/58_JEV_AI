@@ -1,4 +1,4 @@
-"""Helyi teljes forrásnézet, emberi címke és külön kézi jelöltexport. Nincs API-hívás."""
+"""Local full source view, human label and a separate manual candidate export. No API calls."""
 import argparse
 import html
 import json

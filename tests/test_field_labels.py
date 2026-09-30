@@ -1,5 +1,5 @@
-"""Mezőnév-szótár (058): minden típuscsomag minden mezőjének és tételes-lista oszlopának van magyar neve, így a
-felületen és a letöltésekben nem jelenik meg gépi név. Új típus vagy mező felvételekor ez a teszt jelez."""
+"""Field-name dictionary (058): every field and every line-item list column of every type pack has a Hungarian label,
+so no machine name appears in the UI or in the downloads. This test flags a newly added type or field."""
 
 from jav import cfg, typepack
 
@@ -18,7 +18,7 @@ def test_every_list_column_has_a_hungarian_label():
 
 
 def test_labels_are_unique_per_meaning():
-    # két különböző mező ugyanazzal a névvel a táblázatban összetéveszthető lenne
+    # two different fields with the same label would be confusable in the table
     labels = cfg.load("field_labels")["fields"]
     seen: dict[str, str] = {}
     clashes = []

@@ -1,20 +1,22 @@
-"""047 T1.1: régi típus-másolat (`configs/legacy_types/<kulcs>/`) → teljes típuscsomag (`configs/types/<kulcs>.json`).
+"""047 T1.1: legacy type copy (`configs/legacy_types/<key>/`) → full type pack (`configs/types/<key>.json`).
 
-A felhasználó döntése (2026-09-28, `docs/DECISIONS.md` „047”): a 15 csak másolatként meglévő régi típus teljes csomag
-lesz, hogy a felismerés után ugyanazon a folyamaton, felületen és ellenőrzési úton fusson, mint a számlák.
+The owner's decision (2026-09-28, `docs/DECISIONS.md` "047"): the 15 legacy types that exist only as copies become full
+packs, so that after detection they run on the same flow, UI and review path as the invoices.
 
-Mit csinál (determinisztikus, AI-hívás nélkül):
-- a régi `schema.json` és `prompt.md` VERBATIM a `jav/prompts/`-ba (a G-kar kimeneti modellje és utasítása változatlan);
-- mezőnként FAJTA a névből, a JSON-típusból, a leírásból és a régi `rules.json` `money_fields` listájából
-  (`guess_kind`); tételes lista (`list_fields`) és felsorolt értékek (`enums`) a sémából;
-- validátorok a régi `rules.json` `named` listájából és a `fields.<mező>.regex` formátum-szabályokból;
-- a felismeréshez: durva kategória (`parent`, a `configs/doc_types.json` `old_type_map`-jéből) és a régi `detect.json`
-  (kötelező / támogató / kizáró kulcsszavak); `auto_detect=false` a régiben is függő típusoknál;
-- G-kar ellenőrző hívási hely (`configs/callsites/verify_<kulcs>.json`, a `verify` Noul-kérdéseit örökli) angol
-  mező-leírásokkal; S-kar nincs (a jelöltkeresők számla-specifikusak), ezért `arms = ["G"]`;
-- származás: forrás-útvonal, a régi fájlok sha256-ja a manifestből (`meta.source`).
+What it does (deterministic, without AI calls):
+- the legacy `schema.json` and `prompt.md` go VERBATIM into `jav/prompts/` (the G path's output model and prompt are
+  unchanged);
+- a KIND per field from the name, the JSON type, the description and the legacy `rules.json` `money_fields` list
+  (`guess_kind`); itemised lists (`list_fields`) and enumerated values (`enums`) from the schema;
+- validators from the legacy `rules.json` `named` list and the `fields.<field>.regex` format rules;
+- for detection: the coarse category (`parent`, from `old_type_map` in `configs/doc_types.json`) and the legacy
+  `detect.json` (required / supporting / excluding keywords); `auto_detect=false` for types that were dependent in the
+  legacy project too;
+- a G path verification call site (`configs/callsites/verify_<key>.json`, inheriting the Noul questions of `verify`)
+  with English field descriptions; no S path (the candidate finders are invoice-specific), hence `arms = ["G"]`;
+- provenance: source path, the sha256 of the legacy files from the manifest (`meta.source`).
 
-A kimenet kódként ellenőrzött adat: a futtató a csomagot tölti be, nem ezt a modult. Újrafuttatás ugyanazt adja.
+The output is data reviewed like code: the runtime loads the pack, not this module. Rerunning gives the same result.
 """
 
 from __future__ import annotations
@@ -30,10 +32,10 @@ from jav.config import PROJECT_ROOT, PROMPTS_DIR
 LEGACY_DIR = PROJECT_ROOT / "configs" / "legacy_types"
 TYPES_DIR = PROJECT_ROOT / "configs" / "types"
 CALLSITES_DIR = PROJECT_ROOT / "configs" / "callsites"
-REQUEST_CHAR_BUDGET = 110000  # a JEV kérés-korlátja (~62 k token; magyar szöveg ~2,5 karakter / token), mint a közmű-hívási helyen
-PENDING = ("csapatmenedzser_utasitas", "meghivo", "terkep_adat")  # a régiben is függő típusok (DECISIONS 047/3)
+REQUEST_CHAR_BUDGET = 110000  # JEV request limit (~62k tokens; Hungarian text ~2.5 chars/token), as at the utility site
+PENDING = ("csapatmenedzser_utasitas", "meghivo", "terkep_adat")  # were dependent in legacy V4 too (DECISIONS 047/3)
 
-# Angol dokumentum-leírás (JEV-ellenőrzőlista: angol instrukció; a state verbatim magyar szöveg marad).
+# English document description (JEV checklist: English instructions; the state stays verbatim Hungarian text).
 DOCUMENT = {
     "altalanos_szerzodesi_feltetelek": "Hungarian general terms and conditions (ÁSZF) of a seller or service provider",
     "belepo_jegy": "Event admission ticket (e.g. a stadium or concert ticket), Hungarian or English",
@@ -56,8 +58,9 @@ _NAME_WORDS = ("issuer", "authority", "insurer", "organizer", "issuing_body", "r
 
 
 def guess_kind(name: str, prop: dict[str, Any], money: set[str]) -> str:
-    """Mező-fajta a régi sémából. Pénz: a régi `money_fields` vagy a „decimal STRING” leírás; dátum: név szerint
-    (időponttal együtt nem: az `…datetime` szöveg marad); kétes esetben `text` (a normalizálás csak szóközt igazít)."""
+    """Field kind from the legacy schema. Money: the legacy `money_fields` or the "decimal STRING" description; date: by
+    name (not with a time of day: `…datetime` stays text); in doubtful cases `text` (normalisation only adjusts
+    whitespace)."""
     types = prop.get("type", "string")
     types = [t for t in (types if isinstance(types, list) else [types]) if t != "null"]
     t = types[0] if types else "string"
@@ -84,7 +87,7 @@ def guess_kind(name: str, prop: dict[str, Any], money: set[str]) -> str:
         return "date"
     if "address" in name:
         return "address"
-    if name in ("event_name", "area_name"):  # esemény / terület neve: nem személy vagy szervezet
+    if name in ("event_name", "area_name"):  # name of an event / area: not a person or organisation
         return "text"
     if name.endswith("_name") or name in _NAME_WORDS:
         return "name"
@@ -124,7 +127,8 @@ def _field_spec(field: str, prop: dict[str, Any]) -> str:
 
 
 def convert(key: str, *, old_type_map: dict[str, str]) -> dict[str, Any]:
-    """Egy régi típus teljes csomaggá: a csomag-, séma-, prompt- és hívásihely-fájlok tartalma (írás nélkül)."""
+    """One legacy type into a full pack: the contents of the pack, schema, prompt and call-site files (without
+    writing)."""
     src = LEGACY_DIR / key
     schema = json.loads((src / "schema.json").read_text(encoding="utf-8"))
     rules = json.loads((src / "rules.json").read_text(encoding="utf-8"))

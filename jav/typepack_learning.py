@@ -1,4 +1,4 @@
-"""Önálló, offline típuscsomag-tervezet és szerkezeti bizonylat. Nem aktivál."""
+"""Standalone, offline type pack draft and structural record. Activates nothing."""
 from __future__ import annotations
 
 import json
@@ -38,7 +38,7 @@ class TypeDraft(BaseModel):
 
 
 def make_draft(base_key: str, key: str) -> TypeDraft:
-    # Csak a meglévő regiszter kulcsait fogadjuk el; nincs tetszőleges fájlbetöltés.
+    # Only keys of the existing registry are accepted; no arbitrary file loading.
     if base_key not in keys():
         raise ValueError("unknown base type")
     pack = get(base_key)

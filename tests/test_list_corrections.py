@@ -1,7 +1,7 @@
-"""Tételes listák javítása (048 T1-lista): a teljes lista cseréje verzióval, cellánkénti kód-ellenőrzés, és a csomag
-ellenőrzései a javított adaton (pl. a kivonat futó egyenlege).
+"""Correcting itemised lists (048 T1-lista): replacing the whole list under a revision, per-cell code checks, and the
+pack's checks on the corrected data (e.g. the running balance of the statement).
 
-Mesterséges adat: a számla-futás eredményét egy kitalált CIB-kivonatra cseréljük az adattárban (fizetős hívás nélkül).
+Synthetic data: in the store, the invoice run's result is replaced with a made-up CIB statement (no paid calls).
 """
 
 import json
@@ -11,13 +11,13 @@ from jav.runtime import worker
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp, _start
 
-env = test_api.env  # a szolgáltatás-tesztek pytest-fixture-je (mesterséges PDF-ek, hamis JEV)
+env = test_api.env  # the service tests' pytest fixture (synthetic PDFs, fake JEV)
 
 OPENING = "1000.00"
 TXS = [
     {"booking_date": "2026-08-03", "value_date": "2026-08-03", "direction": "credit", "amount": "200", "running_balance": "1200",
      "description": "Jóváírás", "counterparty_name": None, "counterparty_account": None, "memo": None},
-    # hibás kinyerés: 500 a helyes 50 helyett, ezért a futó egyenleg itt megszakad
+    # faulty extraction: 500 instead of the correct 50, so the running balance breaks here
     {"booking_date": "2026-08-04", "value_date": "2026-08-04", "direction": "debit", "amount": "500", "running_balance": "1150",
      "description": "Jutalék", "counterparty_name": None, "counterparty_account": None, "memo": None},
 ]
@@ -61,14 +61,14 @@ def test_list_correction_replaces_the_whole_list_and_rechecks(env):
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["effective"]["transactions"][1]["amount"] == "50"
-    assert body["extraction"]["datapoints"]["transactions"][1]["amount"] == "500"  # a gépi adat megmarad
+    assert body["extraction"]["datapoints"]["transactions"][1]["amount"] == "500"  # the machine data is kept
     assert _check(body, "running_balance_check")["ok"] and _check(body, "closing_balance_check")["ok"]
     assert body["provenance"]["transactions"]["corrected"] is True
 
-    # sor törlése / hozzáadása: a teljes lista a mentés tárgya
+    # deleting / adding rows: the whole list is what gets saved
     r = c.post(url + "/correction", headers=HUMAN, json={"fields": {"transactions": fixed[:1]}, "expected_revision": 1})
     assert r.status_code == 200 and len(r.json()["effective"]["transactions"]) == 1
-    # a lista visszaállítása a gépi értékre: kimarad a javításhalmazból
+    # restoring the list to the machine value: it drops out of the correction set
     r = c.post(url + "/correction", headers=HUMAN, json={"fields": {}, "expected_revision": 2})
     assert r.json()["effective"]["transactions"][1]["amount"] == "500"
 
@@ -76,10 +76,10 @@ def test_list_correction_replaces_the_whole_list_and_rechecks(env):
 def test_list_cells_are_checked_by_kind(env):
     c, url = _statement_item(env)
     bads = [
-        [{**TXS[0], "amount": "sok"}],                 # pénz
-        [{**TXS[0], "booking_date": "2026.08.03"}],    # dátum
-        [{**TXS[0], "direction": "fel"}],              # felsorolt érték
-        [{**TXS[0], "nincs_ilyen": "x"}],              # ismeretlen oszlop
+        [{**TXS[0], "amount": "sok"}],                 # money
+        [{**TXS[0], "booking_date": "2026.08.03"}],    # date
+        [{**TXS[0], "direction": "fel"}],              # enum value
+        [{**TXS[0], "nincs_ilyen": "x"}],              # unknown column
         "nem lista",
         [["nem", "sor"]],
     ]
@@ -102,7 +102,7 @@ def test_simple_list_and_row_list_columns():
         corrections._check_list(minutes, "attendees", [{"name": "Minta Anna"}])
     with pytest.raises(ValueError):
         corrections._check_list(minutes, "resolutions", [{"number": "1/2026", "votes_for": "sok"}])
-    # a gépi sorokban előforduló, a leírásban nem szereplő tétel-mező is oszlop (szövegként)
+    # an item field that occurs in the machine rows but not in the description is a column too (as text)
     out = typepack.get("invoice_out")
     cols = corrections.list_columns(out, "line_items", [{"description": "x", "unit": "db"}])
     assert cols[-1] == {"name": "unit", "kind": "text"}

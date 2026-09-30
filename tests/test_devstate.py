@@ -1,4 +1,4 @@
-"""Fejlesztési állapot: Ruff-racsni és git-sor (040, K0)."""
+"""Development state: Ruff ratchet and git line (040, K0)."""
 
 from jav import devstate
 

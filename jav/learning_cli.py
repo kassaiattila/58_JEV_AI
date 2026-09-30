@@ -1,4 +1,4 @@
-"""Fájlos kísérleti taníthatósági parancsok; nincs automatikus csomagaktiválás."""
+"""File-based experimental learnability commands; no automatic pack activation."""
 from __future__ import annotations
 
 import json
@@ -11,7 +11,7 @@ from jav.typepack_learning import TypeDraft,make_draft,inspect_draft,save_receip
 
 
 def read_source(path):
-    # Karakterpozíciók: a CRLF-et sem normalizálhatja a fájlbeolvasás.
+    # Character positions: reading the file must not normalise even CRLF.
     with Path(path).open(encoding='utf-8',newline='') as stream:
         return stream.read()
 
@@ -102,7 +102,7 @@ def run(args):
         print(f"{args.cmd}: {destination}")
         return 2 if payload.get("status") == "invalid" else 0
     except (ValueError,OSError,RuntimeError,KeyError,TypeError) as exc:
-        # Modellvalidációs hibák tartalmazhatnak bemeneti adatot; csak a fajtájuk kerül konzolra.
+        # Model validation errors may contain input data; only their type goes to the console.
         print(f"{args.cmd}: {type(exc).__name__}; output was not replaced")
         return 2
 

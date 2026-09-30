@@ -1,4 +1,4 @@
-"""A szövegréteg-heurisztika: törött font-leképezésű ("csak ékezetek") PDF ne számítson szövegesnek."""
+"""The text-layer heuristic: a PDF with a broken font mapping ("accents only") must not count as having text."""
 
 from jav import pdf as pdfmod
 

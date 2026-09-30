@@ -1,4 +1,4 @@
-"""A munkacsomag → futtatás parancssori életútja (040 K1), hamis JEV-klienssel, fizetős hívás nélkül."""
+"""Command-line life cycle of work package → run (040 K1), with a fake JEV client and no paid call."""
 
 import json
 from pathlib import Path
@@ -38,7 +38,7 @@ def test_cli_lifecycle(tmp_path: Path, capsys):
 
 
 def test_tests_never_write_the_ops_log():
-    """065: a `worker` parancs az üzemi naplót kapcsolja be; a tesztek alatt ez ideiglenes mappába mutat (conftest)."""
+    """065: the `worker` command switches on the operations log; in tests it points to a temporary folder (conftest)."""
     from jav.config import PROJECT_ROOT
     from jav.runtime import applog
 
@@ -64,16 +64,16 @@ def test_cli_wp_create_from_files(tmp_path: Path, capsys):
     with store.use_store(tmp_path / "w.sqlite"):
         wp = _run(capsys, "wp-create", "--files", str(a / "x.pdf"), str(b / "y.pdf"), "--name", "Válogatás")
         assert len(wp["items"]) == 2 and wp["source_kind"] == "manual"
-        assert cli.main(["wp-create", "--files", str(a / "x.pdf")]) == 2  # név nélkül
+        assert cli.main(["wp-create", "--files", str(a / "x.pdf")]) == 2  # without a name
         assert cli.main(["wp-create"]) == 2
         capsys.readouterr()
         a_ = _run(capsys, "wp-assign", wp["id"], "invoice-extraction", "--jev-cache", "live")
-        assert a_["params"] == {"arm": "auto", "doc_type": "invoice_hu", "jev_cache": "live"}  # 053: az irattípus ajánlott útja
+        assert a_["params"] == {"arm": "auto", "doc_type": "invoice_hu", "jev_cache": "live"}  # 053: type's recommended path
 
 
 def test_uncertain_calls_can_be_listed_and_resolved_from_the_cli(tmp_path: Path, capsys):
-    """066 Á30: a bizonytalan kimenetű hívás kézi rendezésének eddig nem volt hívója; most parancssorból listázható és
-    rendezhető (ismert költséggel, vagy anélkül, a maximum lekötve marad)."""
+    """066 Á30: manual resolution of a call with an uncertain outcome had no caller so far; now it can be listed and
+    resolved from the command line (with a known cost, or without one, when the maximum stays committed)."""
     from decimal import Decimal
 
     from jav.runtime import calls

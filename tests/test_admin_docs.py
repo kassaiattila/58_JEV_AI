@@ -1,4 +1,5 @@
-"""Adminisztrációs sík - offline: models.json a config-ban, callsite-katalógus generálás, admin-riport összeáll."""
+"""Administration plane - offline: models.json feeds the config, call-site catalogue generation, the admin report
+builds."""
 
 from jav import cfg, config, docsgen
 
@@ -15,7 +16,7 @@ def test_models_config_drives_config_module():
 def test_callsite_docs_generate(tmp_path):
     paths = docsgen.write_callsite_docs(tmp_path)
     names = {p.name for p in paths}
-    # 067 (066 Á45): minden beállított hívási hely kap oldalt, a 8 kézzel leírt is köztük van
+    # 067 (066 Á45): every configured call site gets a page, the 8 hand-written ones among them
     assert names == {f"{n}.md" for n in docsgen.all_callsites()} | {"README.md"}
     assert {"detect.md", "email_intent.md", "select.md", "verify.md", "select_foreign.md", "verify_foreign.md", "select_utility.md", "verify_utility.md"} <= names
     md = (tmp_path / "email_intent.md").read_text(encoding="utf-8")
@@ -34,11 +35,11 @@ def test_admin_report_sections():
     rep = admin_report()
     for head in ("## Konfigok", "## Modellek", "## Burr-kontraktok", "## Adattár", "## Utolsó golden", "## Nyitott review-sor"):
         assert head in rep, head
-    assert "invoice: PASS" in rep and "doc_detect: PASS" in rep and "email_intent: PASS" in rep  # a számla-gráf típus-független (típus-csomagok)
+    assert "invoice: PASS" in rep and "doc_detect: PASS" in rep and "email_intent: PASS" in rep  # the invoice graph is type-independent (type packs)
 
 
 def test_write_state_is_generated_snapshot(tmp_path):
-    """docs/STATE.md: generált fejléc + a teljes admin-riport; a handoff ezt hivatkozza."""
+    """docs/STATE.md: generated header + the full admin report; the handoff references it."""
     from jav.admin import write_state
 
     out = write_state(tmp_path / "docs" / "STATE.md")
@@ -63,7 +64,8 @@ def test_preflight_handoff_status_reads_latest(tmp_path, monkeypatch):
 
 
 def test_preflight_without_local_handoffs_is_not_a_failure(tmp_path, monkeypatch):
-    """070: az átadó belső munkaanyag; friss klónban nincs meg, ez jelzés, nem hiba."""
+    """070: the handoff is an internal working document; a fresh clone does not have it, which is a notice, not an
+    error."""
     from jav import preflight
 
     monkeypatch.setattr(preflight, "HANDOFFS", tmp_path / "nincs")

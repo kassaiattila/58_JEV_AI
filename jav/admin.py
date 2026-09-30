@@ -1,7 +1,7 @@
-"""Vezérlő képernyő (`python -m jav.cli admin`): egy helyen minden, ami a keretrendszer állapotát és hangolását mutatja.
+"""Control screen (`python -m jav.cli admin`): everything that shows the framework's state and tuning, in one place.
 
-Blokkok: konfigok (verzió, hash), modellek és árak (`configs/models.json`), Burr-kontraktok lintje, store-statisztika,
-az utolsó golden-eredmény flow-nként (`runs/*.jsonl`), nyitott review-sor. Csak olvas; API-hívás nincs.
+Blocks: configs (version, hash), models and prices (`configs/models.json`), Burr contract lint, store statistics,
+the latest golden result per flow (`runs/*.jsonl`), the open review queue. Read-only; no API calls.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from typing import Any
 from jav import cfg, config, contract, store
 from jav.config import PROJECT_ROOT, RUNS_DIR
 
-STATE_PATH = PROJECT_ROOT / "docs" / "STATE.md"  # generált állapot-pillanatkép; a handoff hivatkozza, nem másolja
+STATE_PATH = PROJECT_ROOT / "docs" / "STATE.md"  # generated state snapshot; the handoff links to it, never copies it
 
 
 def _rows(path: Path) -> list[dict[str, Any]]:
@@ -22,12 +22,12 @@ def _rows(path: Path) -> list[dict[str, Any]]:
 
 
 def score_text(ok: int, scored: int) -> str:
-    """067 (066 Á45): „ok/pontozott = arány”; eset nélkül „nincs eset” (nem 0,0%, ami mindent rossznak mutatna)."""
+    """067 (066 Á45): "ok/scored = ratio"; with no cases "nincs eset" (no cases), not a misleading 0.0%."""
     return f"{ok}/{scored} = {ok / scored:.1%}" if scored else "nincs eset"
 
 
 def _low_conf(flow: str) -> float:
-    """066 Á38: a „kézi ellenőrzésre menne” küszöb a policyból (configs/policy.json), nem beégetve."""
+    """066 Á38: the "would go to manual review" threshold comes from the policy (configs/policy.json), not the code."""
     from jav import policy
 
     return policy.DETECT_LOW_CONFIDENCE if flow == "doc_detect" else policy.INTENT_HUMAN_MAX_CONF
@@ -43,14 +43,14 @@ def _informational(doc_type: str) -> tuple[str, ...]:
         from jav.typepack import get
 
         return get(doc_type).informational_fields
-    except Exception:  # noqa: BLE001 - ismeretlen / törölt csomag: minden pontozott mező számít
+    except Exception:  # noqa: BLE001 - unknown / deleted pack: every scored field counts
         return ()
 
 
 def last_golden_results() -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for arm in ("S", "G"):
-        # típusonként (típus-csomag) a legfrissebb golden-fájl: a sorok `doc_type`-ja mondja, melyik csomag (régi fájl = invoice_hu)
+        # the latest golden file per type (type pack): the rows' `doc_type` says which pack (old file = invoice_hu)
         latest_by_type: dict[str, Path] = {}
         for p in sorted(RUNS_DIR.glob(f"*_golden_{arm}.jsonl")):
             first = next((json.loads(ln) for ln in p.read_text(encoding="utf-8").splitlines() if ln.strip()), None)
@@ -121,10 +121,10 @@ def admin_report() -> str:
 
 
 def write_state(path: Path = STATE_PATH) -> Path:
-    """A vezérlő képernyő fájlba (`docs/STATE.md`): generált, kézzel nem szerkesztett állapot-pillanatkép.
+    """Writes the control screen to a file (`docs/STATE.md`): a generated state snapshot, never edited by hand.
 
-    A `preflight` parancs és a Stop-hook frissíti; a handoff és a BACKLOG erre hivatkozik, így az állapot-leírás
-    nem avul el a kézzel írt szövegben.
+    The `preflight` command and the Stop hook refresh it; the handoff and the BACKLOG refer to it, so the state
+    description does not go stale in hand-written text.
     """
     from datetime import datetime
 
@@ -137,5 +137,5 @@ def write_state(path: Path = STATE_PATH) -> Path:
         "",
     ]
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(("\n".join(head) + admin_report()).encode("utf-8"))  # LF sorvég (040: .gitattributes)
+    path.write_bytes(("\n".join(head) + admin_report()).encode("utf-8"))  # LF line endings (040: .gitattributes)
     return path

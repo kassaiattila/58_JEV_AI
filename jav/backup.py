@@ -1,23 +1,25 @@
-"""Adattár-mentés (063, döntés 2026-09-29: üzemi alapok): az SQLite-adattár konzisztens másolata, futó szolgáltatás és
-feldolgozó mellett is.
+"""Store backup (063, decision of 2026-09-29: operational basics): a consistent copy of the SQLite store, even while
+the service and the worker are running.
 
-A sima fájlmásolás WAL-módú, éppen írt adattárról hibás másolatot adhat, ezért az SQLite saját mentő eljárását
-(`Connection.backup`) használjuk, és a másolaton lefut a sértetlenség-ellenőrzés (`PRAGMA integrity_check`). A mentés a
-`store/backups/<időbélyeg>/` alá kerül (gitben nincs: `store/`), mellette `manifest.json` (méret, ellenőrzés). A
-legutóbbi `keep` mentés marad, a régebbiek törlődnek (csak a saját időbélyeges mappák).
+A plain file copy of a WAL-mode store that is being written can produce a corrupt copy, so we use SQLite's own backup
+procedure (`Connection.backup`), and the integrity check (`PRAGMA integrity_check`) runs on the copy. The backup goes
+under `store/backups/<timestamp>/` (not in git: `store/`), with a `manifest.json` beside it (size, check). The latest
+`keep` backups are kept and older ones are deleted (only our own timestamped folders).
 
-064 (döntés 2026-09-29): napi ütemezett mentés (`scheduled`, a `configs/service.json` `backup` szakasza szerint), a helyi
-mentés után másolat a második helyre (NAS); a másolat tartalomhash-sel ellenőrzött, ott is a legutóbbi `keep` marad. A
-másolás hibája nem érvényteleníti a helyi mentést, de látszik. Minden futás eredménye (a hibás is) a
-`backup-status.json`-ba kerül, ezt mutatja a felület (Beállítások › Rendszer).
+064 (decision of 2026-09-29): a daily scheduled backup (`scheduled`, driven by the `backup` section of
+`configs/service.json`); after the local backup, a copy goes to a second location (NAS); the copy is verified by content
+hash, and there too the latest `keep` backups are kept. A copy failure does not invalidate the local backup, but it is
+visible. The result of every run (failed ones too) is written to `backup-status.json`, which the UI shows
+(Settings › System).
 
-070 D-mentés (döntés 2026-09-30): a belső munkaanyag (`jav/doc_scope.py`: átadók, tervek, jelentések, teendőlista,
-döntésnapló…) 2026-09-29 óta verziókövetés nélkül él helyben, ezért `with_docs` mellett a mentés mappájába egy
-tömörített fájl is kerül (`internal-docs.zip`, a projektgyökérhez viszonyított nevekkel). A tömörített fájl
-ellenőrzése ugyanúgy dönt a mentés érvényességéről, mint az adattáré; a második helyre készült másolat hash-e is lefedi.
+070 D-mentés (decision of 2026-09-30): the internal working documents (`jav/doc_scope.py`: handoffs, plans, reports,
+backlog, decisions log…) have lived locally without version control since 2026-09-29, so with `with_docs` a compressed
+archive is also written into the backup folder (`internal-docs.zip`, with names relative to the project root). The
+archive's check decides the backup's validity just as the store's does; the hash check of the copy in the second
+location covers it too.
 
-Visszaállítás (kézi, a szolgáltatás és a feldolgozó leállítása után): a mentett `jav.sqlite` visszamásolása a
-`store/` alá; részletek: `docs/guides/SETUP.md`, „Mentés, visszaállítás és napló”.
+Restore (manual, after stopping the service and the worker): copy the saved `jav.sqlite` back under `store/`; details:
+`docs/guides/SETUP.md`, "Backup, restore and logs".
 """
 
 from __future__ import annotations
@@ -45,19 +47,20 @@ log = logging.getLogger("jav.backup")
 
 
 def default_root() -> Path:
-    """A helyi mentések gyökere: az adattár mellett, `store/backups`."""
+    """Root of the local backups: next to the store, `store/backups`."""
     return store.current_path().parent / "backups"
 
 
 def backup(*, out_root: Path | None = None, with_burr: bool = False, keep: int | None = None,
            copy_to: Path | None = None, with_docs: bool = False, docs_root: Path | None = None) -> dict[str, Any]:
-    """Az adattár (és kérésre a folyamat-állapotok tára és a belső munkaanyag) mentése, kérésre másolat a második
-    helyre. A leírás (manifest) a mentés mappájában és az állapotfájlban is megmarad; hibánál az állapotfájl a hibát
-    rögzíti.
+    """Back up the store (and, on request, the flow-state store and the internal working documents), with an optional
+    copy to a second location. The manifest is kept both in the backup folder and in the status file; on failure the
+    status file records the error.
 
-    066: `keep` nélkül a napi mentés megőrzése (`configured_keep`; eddig a kézi mentés 7-re ritkított ugyanabban a
-    mappában, ahol a napi 14-et tart). A sértetlenség-ellenőrzésen elbukott mentés után nincs ritkítás és másolás.
-    070: `with_docs` a belső dokumentumokat is menti a `docs_root` (alapból a projektgyökér) alól."""
+    066: without `keep`, the daily backup's retention applies (`configured_keep`; previously a manual backup pruned to 7
+    in the same folder where the daily one keeps 14). After a backup that fails its integrity check there is no pruning
+    and no copying.
+    070: `with_docs` also backs up the internal documents from under `docs_root` (the project root by default)."""
     root = Path(out_root) if out_root else default_root()
     keep = keep if keep is not None else configured_keep()
     try:
@@ -70,7 +73,7 @@ def backup(*, out_root: Path | None = None, with_burr: bool = False, keep: int |
         manifest["copy"] = None
     elif manifest["ok"]:
         manifest["copy"] = _copy(Path(manifest["dir"]), Path(copy_to), keep)
-    else:  # a hibás mentés ne szorítson ki jó mentést a második helyen sem
+    else:  # a failed backup must not push out a good one in the second location either
         manifest["copy"] = {"dir": None, "ok": False, "verified": False, "skipped": True,
                             "error": "skipped: the local backup failed its integrity check"}
     _write_status(root, manifest)
@@ -79,12 +82,12 @@ def backup(*, out_root: Path | None = None, with_burr: bool = False, keep: int |
 
 
 def configured_keep() -> int:
-    """A napi mentés megőrzése (`configs/service.json` → `backup.keep`), ennek híján `KEEP`."""
+    """Retention of the daily backup (`configs/service.json` → `backup.keep`), or `KEEP` if unset."""
     return int(cfg.load("service").get("backup", {}).get("keep", KEEP))
 
 
 def scheduled(*, config: dict[str, Any] | None = None) -> dict[str, Any]:
-    """A napi, ütemezett mentés a beállítás szerint (`configs/service.json` → `backup`)."""
+    """The daily scheduled backup, as configured (`configs/service.json` → `backup`)."""
     c = config if config is not None else cfg.load("service").get("backup", {})
     copy_to = c.get("copy_to")
     return backup(keep=int(c.get("keep", KEEP)), copy_to=Path(copy_to) if copy_to else None, with_burr=bool(c.get("with_burr")),
@@ -92,7 +95,7 @@ def scheduled(*, config: dict[str, Any] | None = None) -> dict[str, Any]:
 
 
 def status(root: Path | None = None) -> dict[str, Any] | None:
-    """A legutóbbi mentés eredménye (az állapotfájlból); még nem volt mentés: None."""
+    """Result of the latest backup (from the status file); None if there has been no backup yet."""
     p = (Path(root) if root else default_root()) / STATUS_FILE
     if not p.is_file():
         return None
@@ -138,19 +141,19 @@ def _local(root: Path, *, with_burr: bool, keep: int, docs_root: Path | None = N
         manifest = {"created_at": _now(), "dir": str(dest), "files": files, "ok": all(x["integrity"] == "ok" for x in files)}
         (dest / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     except BaseException:
-        shutil.rmtree(dest, ignore_errors=True)  # 066: félbemaradt mentés ne maradjon (a megőrzésbe sem számítana bele)
+        shutil.rmtree(dest, ignore_errors=True)  # 066: remove a half-finished backup (it would not count for retention)
         raise
-    manifest["removed"] = _prune(root, keep) if manifest["ok"] else []  # 066: hibás mentés után a jók megmaradnak
+    manifest["removed"] = _prune(root, keep) if manifest["ok"] else []  # 066: no pruning after a failed backup
     return manifest
 
 
 def _integrity(conn: sqlite3.Connection) -> str:
-    """Az SQLite sértetlenség-ellenőrzése a mentett másolaton: `ok`, vagy az első hibasor."""
+    """SQLite's integrity check on the saved copy: `ok`, or the first error line."""
     return conn.execute("PRAGMA integrity_check").fetchone()[0]
 
 
 def _archive_docs(docs_root: Path, target: Path) -> dict[str, Any] | None:
-    """070: a belső dokumentumok egy tömörített fájlba; nincs belső dokumentum (friss klón): None."""
+    """070: the internal documents into one compressed archive; None if there are none (fresh clone)."""
     docs = doc_scope.internal_doc_files(docs_root)
     if not docs:
         log.info("backup: no internal docs under %s", docs_root)
@@ -163,7 +166,7 @@ def _archive_docs(docs_root: Path, target: Path) -> dict[str, Any] | None:
 
 
 def _zip_integrity(path: Path) -> str:
-    """A tömörített fájl ellenőrzése (minden tag CRC-je): `ok`, vagy az első hibás tag."""
+    """Check of the compressed archive (the CRC of every member): `ok`, or the first bad member."""
     try:
         with zipfile.ZipFile(path) as z:
             bad = z.testzip()
@@ -173,8 +176,8 @@ def _zip_integrity(path: Path) -> str:
 
 
 def _copy(src_dir: Path, target_root: Path, keep: int) -> dict[str, Any]:
-    """064: a kész helyi mentés másolata a második helyre (pl. NAS), tartalomhash-sel ellenőrizve; ott is a legutóbbi
-    `keep` marad. Hiba esetén a helyi mentés érvényes marad, a hiba a leírásba kerül."""
+    """064: copy of the finished local backup to the second location (e.g. NAS), verified by content hash; there too
+    the latest `keep` backups are kept. On failure the local backup stays valid and the error goes into the manifest."""
     target = target_root / src_dir.name
     try:
         target_root.mkdir(parents=True, exist_ok=True)
@@ -204,8 +207,8 @@ def _write_status(root: Path, data: dict[str, Any]) -> None:
 
 
 def _prune(root: Path, keep: int) -> list[str]:
-    """A legutóbbi `keep` mentés marad; csak a saját, időbélyeg-nevű mappák törölhetők. A sértetlenség-ellenőrzésen
-    elbukott mentés (066) nem számít bele és nem törlődik (a hiba vizsgálatához megmarad)."""
+    """The latest `keep` backups are kept; only our own timestamp-named folders may be deleted. A backup that failed its
+    integrity check (066) does not count and is not deleted (it is kept for investigating the failure)."""
     dirs = sorted((p for p in root.iterdir() if p.is_dir() and _STAMP.match(p.name) and not _failed(p)), key=lambda p: p.name)
     removed = []
     for old in dirs[:-keep]:
@@ -215,14 +218,14 @@ def _prune(root: Path, keep: int) -> list[str]:
 
 
 def _failed(backup_dir: Path) -> bool:
-    """A mentés leírása szerint a sértetlenség-ellenőrzés hibát jelzett (leírás nélküli régi mappa: nem hibás)."""
+    """The backup's manifest says the integrity check failed (an old folder without a manifest: not failed)."""
     m = backup_dir / "manifest.json"
     if not m.is_file():
         return False
     try:
         return json.loads(m.read_text(encoding="utf-8")).get("ok") is False
     except (OSError, ValueError):
-        return True  # olvashatatlan leírás: nem biztos, hogy jó mentés, ezért nem számít bele
+        return True  # unreadable manifest: not necessarily a good backup, so it does not count
 
 
 __all__ = ["DOCS_ARCHIVE", "KEEP", "backup", "configured_keep", "default_root", "scheduled", "status"]

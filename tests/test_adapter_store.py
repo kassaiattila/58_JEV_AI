@@ -1,4 +1,4 @@
-"""Jev-adapter (kérés-hash cache + ledger) és SQLite adattár - offline, hamis klienssel."""
+"""JEV adapter (request-hash cache + ledger) and the SQLite store - offline, with a fake client."""
 
 from pathlib import Path
 
@@ -10,11 +10,11 @@ from jav.adapters.jev import JevAdapter, request_hash
 
 
 class FakeClient:
-    """Determinisztikus válasz; számolja a hívásokat, hogy a cache-találat mérhető legyen."""
+    """Deterministic response; counts the calls so that cache hits can be measured."""
 
     def __init__(self) -> None:
         self.calls = 0
-        self.noul = 0.2  # a Noul-válasz; a teszt átállítja, hogy a cache-felülírás mérhető legyen
+        self.noul = 0.2  # the Noul answer; the test changes it so that cache overwrites can be measured
 
     def system_one(self, *, state, questions, model):
         self.calls += 1
@@ -44,14 +44,14 @@ def test_request_hash_is_canonical():
 
 def test_cache_hit_costs_nothing_and_is_ledgered(isolated: Path):
     client = FakeClient()
-    jev = JevAdapter(client=client, cache_dir=isolated / "cache", model="jev-1.13.0")  # konkrét verzió: nincs alias-szonda
+    jev = JevAdapter(client=client, cache_dir=isolated / "cache", model="jev-1.13.0")  # concrete version: no alias probe
     qs = {"pick": Choice(instructions="which?", criteria={"a": None, "none": "n"})}
 
     r1 = jev.ask("t", {"lines": ["L01: a"]}, qs, run_id="run-1")
     r2 = jev.ask("t", {"lines": ["L01: a"]}, qs, run_id="run-2")
     r3 = jev.ask("t", {"lines": ["L01: a"]}, qs, run_id="run-3", use_cache=False)
 
-    assert client.calls == 2  # r2 cache-ből
+    assert client.calls == 2  # r2 from the cache
     assert (r1.cached, r2.cached, r3.cached) == (False, True, False)
     assert r1.call.cost_usd > 0 and r2.call.cost_usd == 0
     assert r2.response.choices["pick"].choice == "a"
@@ -63,24 +63,24 @@ def test_cache_hit_costs_nothing_and_is_ledgered(isolated: Path):
 
 
 def test_no_cache_write_context_keeps_reference_answer(isolated: Path):
-    """Determinizmus-futás: `use_cache=False` a `no_cache_write()` alatt nem írja felül a referencia-választ."""
+    """Determinism run: `use_cache=False` inside `no_cache_write()` does not overwrite the reference answer."""
     client = FakeClient()
     jev = JevAdapter(client=client, cache_dir=isolated / "cache", model="jev-1.13.0")
     qs = {"flag": Noul(instructions="is it?")}
     state = {"lines": ["L01: a"]}
 
-    ref = jev.ask("t", state, qs, run_id="ref")  # referencia: noul 0.2 a cache-ben
+    ref = jev.ask("t", state, qs, run_id="ref")  # reference: noul 0.2 in the cache
     client.noul = 0.7
     with jev.no_cache_write():
         live = jev.ask("t", state, qs, run_id="det-1", use_cache=False)
-    again = jev.ask("t", state, qs, run_id="ref-2")  # cache-találat, a referencia marad
+    again = jev.ask("t", state, qs, run_id="ref-2")  # cache hit, the reference stays
 
     assert (ref.cached, live.cached, again.cached) == (False, False, True)
     assert live.response.nouls["flag"].noul == 0.7
     assert again.response.nouls["flag"].noul == 0.2
-    assert jev.write_cache is True  # a kontextus után visszaáll
+    assert jev.write_cache is True  # restored after the context
 
-    # a kontextuson kívül a `use_cache=False` futás továbbra is frissíti a cache-t (referencia-frissítés)
+    # outside the context a `use_cache=False` run still updates the cache (reference refresh)
     client.noul = 0.9
     jev.ask("t", state, qs, run_id="refresh", use_cache=False)
     assert jev.ask("t", state, qs, run_id="ref-3").response.nouls["flag"].noul == 0.9
@@ -88,7 +88,7 @@ def test_no_cache_write_context_keeps_reference_answer(isolated: Path):
 
 def test_store_documents_datapoints_review(isolated: Path):
     store.upsert_document(doc_id="d1", source_path="x.pdf", has_text=True, page_count=1, year=2022, doc_type="invoice_hu", run_id="r1")
-    store.upsert_document(doc_id="d1", source_path="x.pdf", type_conf=0.9)  # additív frissítés
+    store.upsert_document(doc_id="d1", source_path="x.pdf", type_conf=0.9)  # additive update
     store.insert_datapoints(
         run_id="r1", doc_id="d1", doc_type="invoice_hu", arm="S", datapoints={"gross_total": "1"},
         field_conf={"gross_total": 0.99}, validation=[], route="human", review_reasons=["x"], final_status="needs_review",

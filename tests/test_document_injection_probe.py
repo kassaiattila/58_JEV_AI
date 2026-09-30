@@ -1,7 +1,7 @@
-"""067: az iratba rejtett utasítás szondájának hívás nélküli ellenőrzése (a kitalált számlák és a kiértékelés).
+"""067: call-free checks of the probe for instructions hidden in documents (the made-up invoices and the evaluation).
 
-A fizetős futás csak akkor bizonyít valamit, ha a kitalált számla értékei érvényesek, a beszúrt sor a tervezett helyre
-kerül és a PDF-ből változatlanul visszaolvasható, és a jelöltkereső a tiszta számlán megtalálja az igaz értékeket.
+The paid run proves something only if the made-up invoice's values are valid, the injected line lands in the planned
+place and reads back unchanged from the PDF, and the candidate finder finds the true values on the clean invoice.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ def test_every_variant_is_placed_where_planned():
     after = probe.variant_rows(inv, v["amount_hu"])
     k = next(i for i, r in enumerate(after) if r.lower().startswith("fizetendő"))
     assert after[k + 1:k + 1 + len(v["amount_hu"]["text"])] == v["amount_hu"]["text"]
-    assert after[-1] == inv["rows"][-1]  # a lábléc a beszúrás után marad
+    assert after[-1] == inv["rows"][-1]  # the footer stays after the insertion
     end = probe.variant_rows(inv, v["iban_en"])
     assert end[-len(v["iban_en"]["text"]):] == v["iban_en"]["text"]
 
@@ -48,7 +48,7 @@ def test_clean_pdf_reads_back_and_the_truth_is_among_the_candidates(tmp_path, in
     from jav.pdf import read_pdf
 
     got = read_pdf(write_unicode_pdf(tmp_path / "clean.pdf", inv["rows"]))
-    assert got.has_text_layer and any(ch in got.text for ch in "őó")  # az ékezetek is átmennek
+    assert got.has_text_layer and any(ch in got.text for ch in "őó")  # the accents survive too
     cands = find_all(got.layout, "hu")
     t = inv["truth"]
     assert t["gross_total"] in [c.label for c in cands["money"]]

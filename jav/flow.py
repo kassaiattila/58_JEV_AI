@@ -1,20 +1,22 @@
-"""Burr állapotgép: egy számla-típusú dokumentum feldolgozása az S- (select) vagy G- (generate+verify) karon.
+"""Burr state machine: processes one invoice-type document on the S (select) or G (generate+verify) path.
 
-    load_pdf ─┬─ ocr_pdf ─── needs_ocr                       (nincs szövegréteg; OCR nem elérhető / nem adott szöveget)
-              │     ├─────────────────────────────┐          (OCR-szöveg: ugyanoda, mint a szövegréteg)
+    load_pdf ─┬─ ocr_pdf ─── needs_ocr                       (no text layer; OCR unavailable / returned no text)
+              │     ├─────────────────────────────┐          (OCR text: same route as a text layer)
               ├─ find_candidates → jev_select → normalize_picks ─┐        [S]
               └─ extract_llm ─┬─ jev_verify → normalize_llm ─────┤        [G]
-                              └─ decide_route (LLM-hiba)         │
+                              └─ decide_route (LLM error)        │
                                                     validate ←───┘
                                                     decide_route → save ─┬─ done
                                                                          └─ needs_review
 
-Tipizált Pydantic állapot (`FlowState`), `@action.pydantic` akciók. Minden AI-hívás az adapter-rétegen megy
-(`jav.adapters`), a `run_id` a gerinc: ledger, datapoints, review_queue erre hivatkozik. A review-latch additív.
+Typed Pydantic state (`FlowState`), `@action.pydantic` actions. Every AI call goes through the adapter layer
+(`jav.adapters`); the `run_id` is the backbone: the ledger, datapoints and review_queue refer to it. The review latch
+is additive.
 
-A gráf típus-független: a `state.doc_type` típus-csomagja (`jav/typepack.py`, `configs/types/<típus>.json`) adja a
-mezőlistát, a jelölt-profilt, a hívási helyeket, a promptot / sémát, a validátorokat és a kötelező / magas tétű mezőket.
-Ma két csomag fut rajta: `invoice_hu` (magyar számla) és `invoice_foreign` (külföldi számla, 2026-09-20 portolás).
+The graph is type-independent: the type pack of `state.doc_type` (`jav/typepack.py`, `configs/types/<type>.json`)
+supplies the field list, the candidate profile, the call sites, the prompt / schema, the validators and the required /
+high-stakes fields. Every pack in `configs/types/` runs on it, e.g. `invoice_hu` (Hungarian invoice), `invoice_foreign`
+(foreign invoice, ported on 2026-09-20) and the utility-bill packs.
 """
 
 from __future__ import annotations
@@ -35,8 +37,8 @@ from jav.models import FlowState
 from jav.typepack import DEFAULT_KEY, get as get_pack
 
 TERMINALS = ["done", "needs_review", "needs_ocr"]
-PARTITION = "invoice"  # a tartós állapotmentés partíciója (066 Á08: a feldolgozó ezzel keresi a mentett állapotot)
-TRACKER_PROJECT = TRACKER_PROJECTS.get("invoice_hu", "jav_invoice_hu")  # örökölt név; típusonként: `tracker_project(doc_type)`
+PARTITION = "invoice"  # partition of the durable state store (066 Á08: the worker finds the saved state by it)
+TRACKER_PROJECT = TRACKER_PROJECTS.get("invoice_hu", "jav_invoice_hu")  # legacy; per type: `tracker_project(doc_type)`
 
 
 def tracker_project(doc_type: str) -> str:
@@ -56,7 +58,7 @@ def _year_hint(path: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-# --- akciók ----------------------------------------------------------------------------
+# --- actions ---------------------------------------------------------------------------
 
 
 @action.pydantic(reads=["source_path"], writes=["text", "lines", "page_count", "has_text_layer", "layout", "doc_id", "text_source",
@@ -73,7 +75,7 @@ def load_pdf(state: FlowState) -> FlowState:
     state.has_text_layer = pdf.has_text_layer
     state.text_source = pdf.text_source
     state.doc_id = _sha256(state.source_path)
-    if pdf.has_text_layer:  # szöveg nélküli PDF-nél az OCR-lépés menti a réteget
+    if pdf.has_text_layer:  # for a PDF without text the OCR step saves the layer
         state.source_layer_id = source_layer.save_from_pdftext(state.doc_id, pdf)
     return state
 
@@ -84,9 +86,9 @@ def load_pdf(state: FlowState) -> FlowState:
             "source_layer_id"],
 )
 def ocr_pdf(state: FlowState) -> FlowState:
-    """Szöveg nélküli PDF: OCR (jav/ocr.py, lemez-gyorsítótárral) -> ugyanaz az elrendezés (sorok, cellák), mint a szövegrétegnél.
-    Az OCR minőségjelei nyersen a state-be; a gyenge OCR review-ok a policy `ocr` küszöbei szerint. Ha nincs motor / nincs
-    használható szöveg: `text_source` marad None -> `needs_ocr` terminális (a flow nem dől el)."""
+    """PDF without text: OCR (jav/ocr.py, with a disk cache) -> the same layout (lines, cells) as for a text layer.
+    The OCR quality signals go into the state raw; weak OCR raises reviews per the policy's `ocr` thresholds. No
+    engine / no usable text: `text_source` stays None -> `needs_ocr` terminal (the flow does not crash)."""
     from jav.ocr import OcrUnavailableError, ocr_with_escalation
 
     try:
@@ -127,7 +129,7 @@ def jev_select(state: FlowState) -> FlowState:
 
     try:
         picks, calls = select_fields(get_adapter(), state.layout, state.candidates, run_id=state.run_id, use_cache=state.use_cache, pack=get_pack(state.doc_type))
-    except JevUnavailableError as exc:  # a Jev nem elérhető (ledgerben): nincs pick, a rekord kézi sorba megy, a flow nem dől el
+    except JevUnavailableError as exc:  # JEV unavailable (ledgered): no picks, record to manual queue; flow survives
         picks, calls = {}, []
         policy.require_review(state, f"jev_unavailable:{exc.reason}")
     state.picks = picks
@@ -151,7 +153,7 @@ def extract_llm(state: FlowState) -> FlowState:
 
     try:
         state.llm_output = extract(state.text, run_id=state.run_id, pack=get_pack(state.doc_type))
-    except Exception as exc:  # noqa: BLE001 - a hiba review-ok, nem flow-halál
+    except Exception as exc:  # noqa: BLE001 - an error is a review reason, not the end of the flow
         state.llm_output = None
         policy.require_review(state, f"llm:failed:{type(exc).__name__}")
     return state
@@ -164,7 +166,7 @@ def jev_verify(state: FlowState) -> FlowState:
 
     try:
         verdicts, call = verify(get_adapter(), state.layout, state.llm_output or {}, run_id=state.run_id, use_cache=state.use_cache, pack=get_pack(state.doc_type))
-    except JevUnavailableError as exc:  # ellenőrzés nélkül a kivonat nem fogadható el automatikusan
+    except JevUnavailableError as exc:  # without verification the extract cannot be accepted automatically
         state.verdicts = None
         policy.require_review(state, f"jev_unavailable:{exc.reason}")
         return state
@@ -200,9 +202,10 @@ def decide_route(state: FlowState) -> FlowState:
 
 @action.pydantic(reads=["arm", "doc_type", "source_layer_id", "picks", "candidates", "invoice", "verdicts"], writes=["provenance"])
 def ground(state: FlowState) -> FlowState:
-    """045: mezőnkénti forráshely a szórétegen (kód, AI-hívás nélkül). S-út: a kiválasztott jelölt a saját sorában, és a
-    többi jelölt a valószínűségével; G-út: az érték keresése a címke-környezettel. Hiba itt nem állítja meg a folyamatot:
-    a mező forráshely nélkül (`status=error`) megy tovább, az ok a naplóban."""
+    """045: per-field source location on the word layer (code, no AI call). S path: the chosen candidate on its own
+    line, plus the other candidates with their probabilities; G path: the value is searched for with its label context.
+    An error here does not stop the process: the field goes on without a source location (`status=error`), the reason
+    is logged."""
     from jav import grounding, source_layer
 
     pack = get_pack(state.doc_type)
@@ -220,11 +223,11 @@ def ground(state: FlowState) -> FlowState:
             flags = state.verdicts.flags if state.verdicts else {}
             conf = {f: round(1 - max(d.values()), 4) for f, d in flags.items() if d}
             state.provenance = grounding.ground_values(layer, fields=fields, values=values, confidence=conf)
-        if state.invoice is not None and pack.list_fields:  # 053: a tételes listák sorainak helye
+        if state.invoice is not None and pack.list_fields:  # 053: locations of the line-item list rows
             record = state.invoice.to_datapoints(pack.record_fields)
             lists = {f: record.get(f) or [] for f in pack.list_fields}
             state.provenance.update(grounding.ground_lists(layer, lists=lists, kinds={f: dict(v) for f, v in pack.list_fields.items()}))
-    except Exception as exc:  # noqa: BLE001 - a forráshely segédadat; a kinyert eredmény mentése nem múlhat rajta
+    except Exception as exc:  # noqa: BLE001 - source location is auxiliary; saving the result must not depend on it
         logging.getLogger(__name__).warning("grounding failed for %s: %s", state.doc_id[:12], exc)
         state.provenance = {f: {"status": "error", "method": None, "error": f"{type(exc).__name__}"} for f in fields}
     return state
@@ -236,18 +239,18 @@ def ground(state: FlowState) -> FlowState:
     writes=[],
 )
 def save(state: FlowState) -> FlowState:
-    """Tartós mentés: documents + datapoints (+ review_queue, ha emberhez megy). Idempotens run_id-ra."""
+    """Durable save: documents + datapoints (+ review_queue if it goes to a person). Idempotent per run_id."""
     pack = get_pack(state.doc_type)
     store.upsert_document(
         doc_id=state.doc_id,
         source_path=state.source_path,
-        has_text=state.text_source is not None,  # szövegréteg VAGY OCR-szöveg
+        has_text=state.text_source is not None,  # text layer OR OCR text
         page_count=state.page_count,
         year=_year_hint(state.source_path),
-        doc_type=pack.parent or pack.key,  # 047: a documents.doc_type a durva (M1) kategória; a részletes típus a datapoints-ban
+        doc_type=pack.parent or pack.key,  # 047: coarse (M1) category here; the detailed type is in datapoints
         run_id=state.run_id,
     )
-    store.review_close(subject_kind="document", subject_id=state.doc_id, producer=policy.OCR_REVIEW_PRODUCER, run_id=state.run_id)  # 066: most van szöveg
+    store.review_close(subject_kind="document", subject_id=state.doc_id, producer=policy.OCR_REVIEW_PRODUCER, run_id=state.run_id)  # 066: there is text now
     if state.invoice is not None:
         rec_conf = None
         evidence = None
@@ -312,7 +315,7 @@ def needs_ocr(state: FlowState) -> FlowState:
         doc_id=state.doc_id, source_path=state.source_path, has_text=False, page_count=state.page_count,
         year=_year_hint(state.source_path), doc_type=get_pack(state.doc_type).parent or state.doc_type, run_id=state.run_id,
     )
-    # 066 Á01: a szöveg nélküli irat teendő, különben a futás „kész” lenne és jóváhagyható, pedig semmit nem nyert ki
+    # 066 Á01: a document without text is a to-do, else the run would be "done" and approvable with nothing extracted
     store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer=policy.OCR_REVIEW_PRODUCER,
                          reasons=[r for r in state.review_reasons if r.startswith("ocr:")] or ["ocr:no_text"])
     return state
@@ -339,7 +342,7 @@ TRANSITIONS = [
     ("save", "needs_review", default),
 ]
 
-CONTRACT = {  # a gráf deklarációja: FLOW.md + Mermaid + lint ebből (jav/contract.py, `python -m jav.cli flows`)
+CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/contract.py, `python -m jav.cli flows`)
     "name": "invoice",
     "phases": ["load", "extract", "normalize", "decide", "persist", "terminal"],
     "steps": [
@@ -382,8 +385,8 @@ CONTRACT = {  # a gráf deklarációja: FLOW.md + Mermaid + lint ebből (jav/con
 
 
 def datapoint_config_hash(site_hash: str) -> str:
-    """067 (066 Á18): a mentett adatpont azonosítója a hívási helyé (csomaggal, utasítással) és a policy-é együtt:
-    a sávok és a küszöbök is az eredmény részei (teendő, útvonal)."""
+    """067 (066 Á18): a saved data point's config hash combines the call site's (with pack and instruction) and the
+    policy's: the bands and thresholds also shape the result (to-do, route)."""
     return cfg.combine(site_hash, policy.CONFIG_HASH)
 
 
@@ -395,9 +398,9 @@ def build_app(
     source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, doc_type: str = DEFAULT_KEY,
     *, run_id: str | None = None, persister=None,
 ) -> Application:
-    """`persister` (040 K1, a feldolgozó adja): tartós állapotmentés lépésenként, ugyanazzal a `run_id`-vel a következő
-    lépéstől folytatódik. Nélküle a korábbi viselkedés: új azonosító, mentés nélkül."""
-    pack = get_pack(doc_type)  # ismeretlen típus-csomag -> hiba már itt, nem a gráf közepén
+    """`persister` (040 K1, supplied by the worker): durable state persistence after every step; with the same `run_id`
+    the run resumes at the next step. Without it, the earlier behaviour: a new identifier, no persistence."""
+    pack = get_pack(doc_type)  # unknown type pack -> error right here, not in the middle of the graph
     if arm not in pack.arms:
         raise ValueError(f"a(z) {doc_type} típus-csomag csak ezekkel a karokkal fut: {', '.join(pack.arms)} (kért: {arm})")
     run_id = run_id or new_run_id(case_id, arm, run_no)

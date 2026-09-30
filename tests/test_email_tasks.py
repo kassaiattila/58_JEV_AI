@@ -1,5 +1,5 @@
-"""K5.3 (058): a feladatjavaslat kódos kapuja — a régi `email-actions-bare` ellenpéldái (fixtures/synth_evidence_
-counterexamples.json) és szabályai mesterséges levélen, GPT-hívás nélkül."""
+"""K5.3 (058): the code gate of the task proposal - the legacy `email-actions-bare` counterexamples
+(fixtures/synth_evidence_counterexamples.json) and rules on a synthetic email, without a GPT call."""
 
 from jav import email_tasks as et
 
@@ -34,10 +34,10 @@ def test_invented_deadline_and_assignee_drop_the_whole_task():
 
 def test_evidence_must_come_from_this_message_subject_or_body():
     ok, bad = _gate(
-        _task(evidence=[{"pointer": "/messages/1/body", "quote": "számlát"}]),               # másik levél
-        _task(evidence=[{"pointer": "/intent_proposals/0/intent_key", "quote": "szamla"}]),  # a gép korábbi válasza
-        _task(evidence=[{"pointer": "/messages/0/attachments/0/filename", "quote": "szamla.pdf"}]),  # nem tartalom
-        _task(evidence=[{"pointer": "/messages/0/body", "quote": "egyenlítsék ki holnap"}]),  # nincs szó szerint ott
+        _task(evidence=[{"pointer": "/messages/1/body", "quote": "számlát"}]),               # another message
+        _task(evidence=[{"pointer": "/intent_proposals/0/intent_key", "quote": "szamla"}]),  # machine's earlier answer
+        _task(evidence=[{"pointer": "/messages/0/attachments/0/filename", "quote": "szamla.pdf"}]),  # not content
+        _task(evidence=[{"pointer": "/messages/0/body", "quote": "egyenlítsék ki holnap"}]),  # not there verbatim
         _task(evidence=[]),
     )
     assert ok == []
@@ -65,7 +65,8 @@ def test_unknown_or_duplicate_message_rejects_everything():
 
 
 def test_identical_proposals_of_one_message_are_merged_with_evidence_union():
-    """062: a céges postafiókos próbán ugyanaz a kérés a levél saját szövegéből és az idézett előzményéből kétszer jött."""
+    """062: in the company-mailbox trial the same request came twice: from the message's own text and from its quoted
+    history."""
     ok, bad = _gate(_task(),
                     _task(title="  számla átnézése és  kifizetése. ",
                           evidence=[{"pointer": "/messages/0/body", "quote": "egyenlítsék ki"},
@@ -85,8 +86,9 @@ def test_same_evidence_with_other_wording_is_merged_but_other_action_or_deadline
 
 
 def test_rejected_proposal_keeps_its_content_and_names_the_failed_part():
-    """062: a kiesett javaslatnál eddig csak az ok maradt meg, így nem látszott, jogos volt-e a kiejtés. A fő bizonyíték
-    rendben, csak a felelős idézete kitalált: a hiba a felelős részé, nem a teendőé."""
+    """062: for a rejected proposal only the reason used to be kept, so one could not see whether the rejection was
+    fair. The main evidence is fine, only the assignee's quote is invented: the failure belongs to the assignee part,
+    not to the task."""
     ok, bad = _gate(_task(assignee_hint="Anna", assignee_evidence=[{"pointer": "/messages/0/body", "quote": "Kedves Anna!"}]))
     assert ok == [] and len(bad) == 1
     b = bad[0]
@@ -108,8 +110,9 @@ def test_archived_routes_are_skipped_and_payload_has_catalog_and_hint():
 
 
 def test_no_task_proposal_on_a_suspicious_or_unclassified_message():
-    """066 Á28: a feladatjavaslat eddig csak az archiválandó levélen maradt ki; a beszúrt utasításra gyanús levélen (a jel
-    igen-sávja, `human:suspicious` út) és szándék-eredmény nélkül is lefutott."""
+    """066 Á28: the task proposal used to be skipped only for a message to be archived; it also ran on a message
+    suspected of an injected instruction (the signal's yes band, the `human:suspicious` route) and without an intent
+    result."""
     assert et.skip_reason("archive") == "archived_route"
     assert et.skip_reason("human:inbox", signals={"prompt_injection": 0.97}) == "suspicious_signal"
     assert et.skip_reason("m2:invoice_hu", has_intent=False) == "no_intent"

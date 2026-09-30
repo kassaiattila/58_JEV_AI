@@ -1,6 +1,6 @@
-"""066 Á32: a teendő-okok felvétele, lezárása és emberi rendezése olvas, dönt, majd ír; írási zár nélkül két párhuzamos
-hívás (két felhasználó, feldolgozó + felület) ugyanarra az iratra két nyitott tételt hozhatott létre, vagy ugyanazt az
-okot kétszer rendezhette. Most az olvasás már az írási zár alatt történik (`BEGIN IMMEDIATE`)."""
+"""066 Á32: enqueuing, closing and human resolution of to-do reasons read, decide, then write; without a write lock two
+concurrent calls (two users, worker + UI) could create two open items for the same document, or resolve the same
+reason twice. Now the read already happens under the write lock (`BEGIN IMMEDIATE`)."""
 
 from __future__ import annotations
 

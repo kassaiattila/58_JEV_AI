@@ -1,21 +1,21 @@
-"""JAV - TypeSafe System One alapú alkalmazáslogika."""
+"""JAV - application logic built on TypeSafe System One."""
 
 from __future__ import annotations
 
 import sys
 
-# A projekt magyar szöveggel dolgozik, a Windows-konzol viszont cp1252-n indul,
-# ami elrontja az ékezeteket. A kimenetet itt egyszer UTF-8-ra állítjuk, hogy
-# minden belépési pont (script, notebook, teszt) egységesen viselkedjen.
+# The project works with Hungarian text, but the Windows console starts in cp1252,
+# which garbles accented letters. Output is switched to UTF-8 once, here, so that
+# every entry point (script, notebook, test) behaves the same way.
 for _stream in (sys.stdout, sys.stderr):
     _reconfigure = getattr(_stream, "reconfigure", None)
     if _reconfigure is not None:
         try:
             _reconfigure(encoding="utf-8")
-        except (OSError, ValueError):  # átirányított vagy lezárt stream
+        except (OSError, ValueError):  # redirected or closed stream
             pass
 
-from jav.config import (  # noqa: E402  (a stream-beállítás megelőzi az importot)
+from jav.config import (  # noqa: E402  (the stream setup must precede the import)
     API_KEY_ENV_VARS,
     ENV_FILE,
     PROJECT_ROOT,

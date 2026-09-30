@@ -1,13 +1,15 @@
-"""E-mail szándék-regiszter az M3 szándék-azonosításhoz — a tartalom a `configs/intents.json`-ból jön (konfig mint adat).
+"""Email intent registry for M3 intent identification — the content comes from `configs/intents.json` (config as data).
 
-A 11 osztály és a kulcsaik a régi 10_AIFLOW_V4 `flows/registry/intent_types.json` aktív soraiból jönnek VERBATIM
-(magyar kulcsok), hogy a régi 96 esetes, két címkéző által jóváhagyott golden közvetlenül mérhető maradjon. A tengely
-a KÜLDŐ CÉLJA (purpose axis, 2026-07-05-ös régi döntés), nem a csatolt dokumentum típusa.
+The 11 classes and their keys come VERBATIM from the active rows of the legacy 10_AIFLOW_V4
+`flows/registry/intent_types.json` (Hungarian keys), so that the legacy 96-case golden set, approved by two labellers,
+stays directly measurable. The axis is the SENDER'S PURPOSE (purpose axis, legacy decision of 2026-07-05), not the
+type of the attached document.
 
-Séma v2 (2026-09-20): `what` (a szándék tartalma, angolul), `not_for` (a NOT-szabályok, testvér-szándékokra mutatva),
-`examples` (verbatim tárgysorok - csak a goldennel konzisztens példa maradhat: az M3 1. körének 4 hibáját egy
-inkonzisztens példa okozta), `parent` (család). A Choice-kritérium a `{what, not_for, examples}` objektum
-(`jav/registry.py`). A `next_flow` NEM Jev-kérdés: a döntési hierarchia 1. szintje (kód) adja (`policy.py`).
+Schema v2 (2026-09-20): `what` (the content of the intent, in English), `not_for` (the NOT rules, pointing to sibling
+intents), `examples` (verbatim subject lines - only examples consistent with the golden set may stay: the 4 errors of
+M3 round 1 were caused by one inconsistent example), `parent` (family). The Choice criterion is the
+`{what, not_for, examples}` object (`jav/registry.py`). `next_flow` is NOT a JEV question: level 1 of the decision
+hierarchy (code) provides it (`policy.py`).
 """
 
 from __future__ import annotations
@@ -20,25 +22,25 @@ from jav.registry import criterion
 
 _CFG = cfg.load("intents")
 OTHER: str = _CFG["other_key"]
-PARENTS: dict[str, str] = dict(_CFG["parents"])  # család -> leírás
+PARENTS: dict[str, str] = dict(_CFG["parents"])  # family -> description
 
 
 @dataclass(frozen=True)
 class Intent:
     key: str
-    display_name: str  # magyar megjelenítő név (a régi regiszterből)
-    what: str  # angol, a szándék tartalma - a Choice kritérium `what` mezője
-    not_for: str  # a NOT-szabályok (testvér-szándékokra mutatva)
-    examples: tuple[str, ...] = ()  # verbatim tárgysor-példák
+    display_name: str  # Hungarian display name (from the legacy registry)
+    what: str  # English, the content of the intent - the `what` field of the Choice criterion
+    not_for: str  # the NOT rules (pointing to sibling intents)
+    examples: tuple[str, ...] = ()  # verbatim example subject lines
     parent: str = "other"
-    document_bearing: bool = False  # a csatolmány maga a küldemény tárgya (számla, nyugta) -> M2 felé mehet
+    document_bearing: bool = False  # the attachment is what the email is about (invoice, receipt) -> may go to M2
 
     @property
-    def description(self) -> str:  # kompatibilis név (v1: egyetlen leírás)
+    def description(self) -> str:  # compatibility name (v1: a single description)
         return self.what
 
     @property
-    def few_shot(self) -> tuple[str, ...]:  # kompatibilis név (v1)
+    def few_shot(self) -> tuple[str, ...]:  # compatibility name (v1)
         return self.examples
 
     def criterion(self) -> dict[str, Any]:
@@ -57,5 +59,5 @@ CONFIG_HASH = cfg.config_hash("intents")
 
 
 def choice_criteria() -> dict[str, dict[str, Any]]:
-    """A Jev Choice kritériumai: kulcs -> `{what, not_for, examples}`."""
+    """The criteria of the JEV Choice: key -> `{what, not_for, examples}`."""
     return {i.key: i.criterion() for i in INTENTS}

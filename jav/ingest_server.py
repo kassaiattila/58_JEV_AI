@@ -1,26 +1,27 @@
-"""Helyi fogadó a RÉGI `10_AIFLOW_V4/scripts/outlook_bridge.ps1` számára - a bridge változatlanul fut.
+"""Local receiver for the LEGACY `10_AIFLOW_V4/scripts/outlook_bridge.ps1` - the bridge runs unchanged.
 
-A bridge (asztali Outlook COM, csak olvas) a levelet a régi orchestrator `/ingest/email` végpontjára POST-olja,
-a dokumentum-csatolmányokat pedig a régi `data/inbox/email/<acct>/<eid>/` alá menti. Ez a kis stdlib HTTP-szerver
-ugyanazt a három végpontot adja, amit a bridge hív (batch-nyitás, levelenként ingest, seal), és a levelet az M3
-inbox-modellbe írja: `inbox/<mailbox>/<message_id>/message.json` (törzs = `body_preview`, a bridge 20 000 karakterig
-küldi; a csatolmányok a bridge által már lementett host-fájlokra mutatnak). Utána `email-inbox inbox/` futtatja az
-M3 gráfot, vagy `--run` esetén azonnal, szinkron fut.
+The bridge (desktop Outlook COM, read-only) POSTs each message to the legacy orchestrator's `/ingest/email` endpoint and
+saves the document attachments under the legacy `data/inbox/email/<acct>/<eid>/`. This small stdlib HTTP server offers
+the same three endpoints the bridge calls (open batch, ingest per message, seal) and writes the message into the M3
+inbox model: `inbox/<mailbox>/<message_id>/message.json` (body = `body_preview`, which the bridge sends up to 20,000
+characters; the attachments point to the host files the bridge has already saved). Afterwards `email-inbox inbox/` runs
+the M3 graph, or with `--run` it runs immediately and synchronously.
 
-Bemenetvédelem (040 K1, a 038-as F01–F03):
-- F01: a postafiók-mappa neve a szerver képzi (csak `[A-Za-z0-9._-]`), és minden kiszámított útvonal feloldás után a
-  gyökéren belül kell maradjon (`..`, abszolút, UNC, gyökéren kívülre mutató link nem ír/olvas kívül).
-- F02: `Content-Length` kötelező, 0..`MAX_BODY_BYTES`; a törzs JSON-objektum, típusos mezőkkel és elemszám-korláttal;
-  hibánál 400/411/413, fájlírás és folyamatindítás nélkül. `Authorization: Bearer <kulcs>` mindig kötelező (a bridge
-  `-ApiToken` kapcsolója küldi); a kulcs `JAV_INGEST_TOKEN` vagy `--token`, ennek híján indításkor véletlen kulcs, amelyet
-  a fogadó kiír (066 Á14). Böngészőből érkező kérést (eredet-fejléc, nem JSON törzs, idegen gépnév) 403-mal elutasít.
-- F03: postafiók + üzenetazonosító + tartalomhash: változatlan ismétlés nem íródik felül és nem indít új futást (az
-  eredeti bizonylatot adja vissza); megváltozott tartalom explicit új verzió (`message.v<n>.json` megőrzi a régit).
-  Egy folyamaton belüli zár véd az egyidejű ismétlés ellen.
+Input protection (040 K1, findings F01–F03 of 038):
+- F01: the server derives the mailbox folder name (only `[A-Za-z0-9._-]`), and every computed path must stay inside the
+  root after resolution (`..`, absolute, UNC, or a link pointing outside the root never writes/reads outside).
+- F02: `Content-Length` is required, 0..`MAX_BODY_BYTES`; the body is a JSON object with typed fields and item-count
+  limits; on error 400/411/413, with no file written and no process started. `Authorization: Bearer <key>` is always
+  required (sent by the bridge's `-ApiToken` switch); the key is `JAV_INGEST_TOKEN` or `--token`, failing that a random
+  key made at startup, which the receiver prints (066 Á14). A request from a browser (Origin header, non-JSON body,
+  foreign host name) is refused with 403.
+- F03: mailbox + message id + content hash: an unchanged repeat is not overwritten and starts no new run (the original
+  receipt is returned); changed content is an explicit new version (`message.v<n>.json` keeps the old one).
+  An in-process lock guards against concurrent repeats.
 
-Indítás:  python -m jav.cli email-ingest-server [--port 8931] [--run]
+Start:    python -m jav.cli email-ingest-server [--port 8931] [--run]
 Bridge:   powershell -File C:\\00_DEV_LOCAL\\10_AIFLOW_V4\\scripts\\outlook_bridge.ps1 -Accounts <smtp> -SinceDays 30
-              -MaxItems 50 -AllEmails -ManualRun -NoArchive -WorkflowId email-intent -WorkflowVersion 1 [-ApiToken <kulcs>]
+              -MaxItems 50 -AllEmails -ManualRun -NoArchive -WorkflowId email-intent -WorkflowVersion 1 [-ApiToken <key>]
 """
 
 from __future__ import annotations
@@ -55,16 +56,16 @@ _LIST_FIELDS = ("to", "cc")
 
 
 class BadPayload(ValueError):
-    """A kérés szerkezete nem megfelelő; semmi nem íródik, folyamat nem indul."""
+    """The request structure is invalid; nothing is written and no process starts."""
 
 
 def short_hash(entry_id: str, n: int = 16) -> str:
-    """A bridge `Get-ShortHash`-e: md5(UTF-8 EntryID) első 16 hex jegye = a mappa neve."""
+    """The bridge's `Get-ShortHash`: the first 16 hex digits of md5(UTF-8 EntryID) = the folder name."""
     return hashlib.md5(entry_id.encode("utf-8")).hexdigest()[:n]
 
 
 def safe_mailbox_dir(account: str) -> str:
-    """Szerver képezte mappanév a postafiókból: `a@b.hu` -> `a_b.hu`; elválasztó, `..`, meghajtójel nem marad benne."""
+    """Server-derived folder name from the mailbox: `a@b.hu` -> `a_b.hu`; no separator, `..` or drive colon survives."""
     name = _SAFE.sub("_", account.replace("@", "_")).strip("._")[:100]
     return name or "unknown"
 
@@ -77,15 +78,15 @@ def _inside(path: Path, root: Path) -> bool:
 
 
 def _inside_lexical(path: Path, root: Path) -> bool:
-    """Útvonal-szöveg szerinti tartalmazás (`..` feloldva, a fájlrendszer érintése nélkül)."""
+    """Containment by path text (`..` resolved, without touching the file system)."""
     p, r = os.path.normcase(os.path.abspath(path)), os.path.normcase(os.path.abspath(root))
     return os.path.commonpath([p, r]) == r
 
 
 def host_path(container_path: str) -> Path | None:
-    """`/data/inbox/email/<acct>/<eid>/<file>` (konténer-útvonal) -> host-fájl a bridge `data/` gyökere alatt: előbb a
-    saját bridge-gyökér (048 T2, a szolgáltatásból indított letöltés), aztán a régi projekt `data/` mappája (a régi
-    beállítással futó bridge). Csak ha a feloldott útvonal a gyökéren belül van és létezik."""
+    """`/data/inbox/email/<acct>/<eid>/<file>` (container path) -> host file under a bridge `data/` root: first our own
+    bridge root (048 T2, a download started from the local service), then the legacy project's `data/` folder (a bridge
+    running with the legacy settings). Only if the resolved path is inside the root and exists."""
     m = _CONTAINER_DATA.match(container_path.replace("\\", "/"))
     if not m:
         return None
@@ -97,7 +98,7 @@ def host_path(container_path: str) -> Path | None:
 
 
 def validate_payload(payload: Any) -> dict[str, Any]:
-    """Típusos szerkezetellenőrzés a bridge payloadjára (F02); hibánál `BadPayload`."""
+    """Typed structure check of the bridge payload (F02); raises `BadPayload` on error."""
     if not isinstance(payload, dict):
         raise BadPayload("payload must be a JSON object")
     for key in _STR_FIELDS:
@@ -152,15 +153,16 @@ def _write_json(path: Path, value: dict[str, Any]) -> None:
 
 
 def ingest_message(payload: dict[str, Any], inbox_root: Path = INBOX_ROOT) -> dict[str, Any]:
-    """A bridge payload -> `inbox/<postafiók>/<üzenet>/`. Eredmény: mappa, `status` (new | duplicate | changed),
-    verziószám és a korábbi bizonylat (pl. a futás azonosítója) ismétlésnél."""
+    """Bridge payload -> `inbox/<mailbox>/<message>/`. Result: folder, `status` (new | duplicate | changed), version
+    number and the receipt (on a repeat the earlier one, e.g. with the run identifier)."""
     validate_payload(payload)
     entry_id = str(payload.get("message_id") or "")
     msg_id = short_hash(entry_id) if entry_id else uuid.uuid4().hex[:16]
     mailbox = str(payload.get("account") or "unknown")
     folder = Path(inbox_root) / safe_mailbox_dir(mailbox) / msg_id
-    # előbb szöveges ellenőrzés (a még nem létező mappán a `resolve()` Windows-on egyidejű létrehozáskor hibázhat, ami
-    # tévesen „kívülre mutat” választ adott — Q-flaky, 048), a létrehozás után a zár alatt a hivatkozásokat is követve
+    # a textual check first (on a folder that does not exist yet, `resolve()` can fail on Windows during concurrent
+    # creation, which wrongly reported "escapes the root" - Q-flaky, 048); after creation, under the lock, a second
+    # check that also follows links
     if not _inside_lexical(folder, Path(inbox_root)):
         raise BadPayload("computed folder escapes the inbox root")
     record = _record(payload, msg_id, mailbox)
@@ -171,7 +173,7 @@ def ingest_message(payload: dict[str, Any], inbox_root: Path = INBOX_ROOT) -> di
             raise BadPayload("computed folder escapes the inbox root")
         receipt_path = folder / "receipt.json"
         receipt = json.loads(receipt_path.read_text(encoding="utf-8")) if receipt_path.exists() else None
-        if receipt is None and (folder / "message.json").exists():  # 040 előtti mappa: a meglévő tartalom az 1. verzió
+        if receipt is None and (folder / "message.json").exists():  # pre-040 folder: the existing content is version 1
             old = json.loads((folder / "message.json").read_text(encoding="utf-8"))
             receipt = {"version": 1, "content_sha256": _content_hash({k: old.get(k) for k in record}), "run_id": None}
         if receipt is not None and receipt["content_sha256"] == digest:
@@ -187,7 +189,7 @@ def ingest_message(payload: dict[str, Any], inbox_root: Path = INBOX_ROOT) -> di
 
 
 def write_message(payload: dict[str, Any], inbox_root: Path = INBOX_ROOT) -> tuple[Path, bool]:
-    """Régi felület: (mappa, már létezett-e változatlanul)."""
+    """Legacy interface: (folder, whether it already existed unchanged)."""
     res = ingest_message(payload, inbox_root)
     return res["folder"], res["status"] == "duplicate"
 
@@ -213,7 +215,7 @@ class _Handler(BaseHTTPRequestHandler):
     run_flow = False
     inbox_root = INBOX_ROOT
     token: str | None = None
-    on_ingest = None  # 048 T2: a letöltést indító kód gyűjti a tárolt leveleket (staticmethod-ként beállítva)
+    on_ingest = None  # 048 T2: the code that starts the download collects the stored messages (set as a staticmethod)
 
     def _json(self, code: int, body: dict[str, Any]) -> None:
         raw = json.dumps(body, ensure_ascii=False, default=str).encode("utf-8")
@@ -224,15 +226,15 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(raw)
 
     def _authorized(self) -> bool:
-        if not self.token:  # 066 Á14: kulcs nélkül semmi (a `make_server` mindig ad kulcsot)
+        if not self.token:  # 066 Á14: nothing without a key (`make_server` always provides one)
             return False
         got = self.headers.get("Authorization") or ""
         return hmac.compare_digest(got.encode("utf-8"), f"Bearer {self.token}".encode("utf-8"))
 
     def _from_browser(self) -> bool:
-        """066 Á14: böngészőből érkező kérés (eredet-fejléc, nem JSON törzs, vagy idegen gépnév: DNS-újrakötés). A régi
-        híd és a letöltés PowerShellből, JSON-nal, a 127.0.0.1-re küld, eredet-fejléc nélkül; a köteg lezárása törzs és
-        típusfejléc nélkül megy, ezért a típust csak törzzsel érkező kérésnél nézzük."""
+        """066 Á14: a request coming from a browser (Origin header, non-JSON body, or a foreign host name: DNS
+        rebinding). The legacy bridge and the download send from PowerShell, with JSON, to 127.0.0.1, without an Origin
+        header; sealing a batch goes without a body or content-type header, so the type is checked only with a body."""
         if self.headers.get("Origin") is not None:
             return True
         has_body = (self.headers.get("Content-Length") or "0").strip() not in ("", "0") or "Transfer-Encoding" in self.headers
@@ -242,7 +244,7 @@ class _Handler(BaseHTTPRequestHandler):
         return host not in ("127.0.0.1", "localhost", "::1")
 
     def _read(self) -> Any:
-        """Méretkorlátos olvasás; hiba: (kód, üzenet) kivételként."""
+        """Size-limited read; errors are raised as a (code, message) exception."""
         length = self.headers.get("Content-Length")
         if length is None:
             raise _HttpError(411, "Content-Length required")
@@ -260,7 +262,7 @@ class _Handler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeDecodeError) as exc:
             raise _HttpError(400, f"bad json: {exc}") from None
 
-    def log_message(self, fmt: str, *args: Any) -> None:  # csendesebb alap-log
+    def log_message(self, fmt: str, *args: Any) -> None:  # quieter default log
         return
 
     def do_GET(self) -> None:  # noqa: N802
@@ -274,7 +276,7 @@ class _Handler(BaseHTTPRequestHandler):
         refused = (403, "browser requests are not accepted") if self._from_browser() else \
             (401, "unauthorized") if not self._authorized() else None
         if refused:
-            try:  # korlátos méretű törzs eldobása, hogy a kliens rendes választ kapjon (nem kapcsolat-visszaállítást)
+            try:  # drain a bounded body so that the client gets a proper response (not a connection reset)
                 n = int(self.headers.get("Content-Length") or 0)
                 if 0 < n <= MAX_BODY_BYTES:
                     self.rfile.read(n)
@@ -323,7 +325,7 @@ class _Handler(BaseHTTPRequestHandler):
                     record_run(folder, out.get("run_id"))
                     resp.update(out)
                     print(f"[mail] {folder.name}  {subj!r} v{res['version']} -> {out.get('intent')} -> {out.get('next_flow')}")
-                except Exception as exc:  # noqa: BLE001 - a bridge ne kapjon 500-at egy hibás levél miatt
+                except Exception as exc:  # noqa: BLE001 - the bridge must not get a 500 because of one bad message
                     resp["error"] = f"{type(exc).__name__}: {exc}"
                     print(f"[mail] {folder.name}  {subj!r} HIBA: {resp['error']}")
             else:
@@ -341,9 +343,9 @@ class _HttpError(Exception):
 
 def make_server(port: int = 8901, *, run_flow: bool = False, inbox_root: Path = INBOX_ROOT, token: str | None = None,
                 on_ingest=None) -> ThreadingHTTPServer:
-    """`port=0`: szabad port (a tényleges a `server_address`-ben). `on_ingest(res, payload)`: minden tárolt levél után.
-    066 Á14 (döntés 2026-09-29): a fogadó csak kulccsal működik; ha sem a hívó, sem a környezet nem ad kulcsot, egyszeri
-    véletlen kulcsot kap (a `serve` kiírja a híd `-ApiToken` kapcsolójához)."""
+    """`port=0`: a free port (the actual one is in `server_address`). `on_ingest(res, payload)`: after every stored
+    message. 066 Á14 (decision of 2026-09-29): the receiver works only with a key; if neither the caller nor the
+    environment provides one, it gets a one-off random key (`serve` prints it for the bridge's `-ApiToken` switch)."""
     key = token or os.environ.get(TOKEN_ENV) or secrets.token_urlsafe(24)
     handler = type("Handler", (_Handler,), {"run_flow": run_flow, "inbox_root": Path(inbox_root), "token": key,
                                             "on_ingest": staticmethod(on_ingest) if on_ingest else None})

@@ -1,4 +1,4 @@
-"""A forráskereső publikus szerződése, hálózat nélkül."""
+"""The source finder's public contract, without network."""
 from types import SimpleNamespace
 
 import pytest

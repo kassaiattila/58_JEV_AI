@@ -10,7 +10,7 @@ def test_catalog_covers_legacy_types_nested_datapoints_and_active_intents():
     assert sum(d['legacy_catalog_active'] for d in docs.values())==20
     bank=docs['statement_cib']
     assert bank['recognition']['broad_key']=='bank_statement'
-    # 047 T1.1: a régi típus is teljes csomag (csak G-kar), a régi másolat forrásként; az automatikus útvonal a T1.2-ben
+    # 047 T1.1: the legacy type is a full pack too (G path only, legacy copy as source); automatic route in T1.2
     assert bank['processing']['mode']=='typepack' and bank['processing']['arms']==['G'] and bank['processing']['legacy_source']
     assert bank['recognition']['anchors_scope']=='detailed_pack' and bank['recognition']['anchors']['required_any']
     fields={f['path']:f for f in bank['datapoints']}

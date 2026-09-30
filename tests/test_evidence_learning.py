@@ -24,7 +24,7 @@ def test_distant_evidence_preserves_gaps_and_original_quote_positions():
     start=bundle['text'].index('Invoice A')
     assert source_position(bundle,start,len('Invoice A'))==(0,9)
     assert bundle['source_coverage_complete'] is False
-    # A mesterséges elválasztó nem válhat forrásidézetté.
+    # The artificial separator must not become a source quote.
     assert source_position(bundle,0,len(bundle['text'])) is None
     with pytest.raises(ValueError):
         build_bundle(text,[(0,len(text))],source_sha256=digest(text),max_chars=10)
@@ -89,7 +89,7 @@ def test_exact_separate_context_is_expanded_only_within_one_source_part(tmp_path
         assert saved['points'][0]['context_quote']=='Invoice: A'
         changes=store.load_artifact('learning_span_resolution','one')['changes']
         assert any(c['reason']=='expanded_exact_context' for c in changes)
-    # A két külön rész között nincs megengedett helyreállítás.
+    # No repair is allowed across the two separate parts.
     kwargs['run_id']='gap'
     kwargs['config']=kwargs['config']|{'context_ranges':[(0,10),(19,len(text))]}
     assert run_learning(**kwargs)['result']['points'][0]['verification']['status']=='invalid_context'

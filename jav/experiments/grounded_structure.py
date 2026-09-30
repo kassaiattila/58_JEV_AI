@@ -1,7 +1,7 @@
-"""Kompatibilitási visszahivatkozás: a tartalom 2026-09-27 óta a `jav/grounded_claims.py`-ban van (040, K0).
+"""Compatibility back-reference: since 2026-09-27 the content lives in `jav/grounded_claims.py` (040, K0).
 
-A régi kísérleti driverek és a lezárt mérések reprodukciója ezt az útvonalat importálja; új kód a
-`jav.grounded_claims`-t használja. A mérés-kori pontos forrás a `baseline-039` git-címkén érhető el.
+The old experimental drivers and the reproduction of closed measurements import this path; new code uses
+`jav.grounded_claims`. The exact source at measurement time is available at the `baseline-039` git tag.
 """
 from jav.grounded_claims import GroundedClaim, protected_boundaries, verify_claim
 

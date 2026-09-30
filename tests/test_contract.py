@@ -1,4 +1,5 @@
-"""Burr-kontrakt - offline: a három gráf lintje átmegy, a Mermaid / FLOW.md a kontraktból generálódik, a lint hibát fog."""
+"""Burr contract - offline: the three graphs pass lint, Mermaid / FLOW.md are generated from the contract, and lint
+catches errors."""
 
 import copy
 
@@ -23,15 +24,15 @@ def test_all_flows_pass_lint():
 def test_lint_catches_drift():
     module, app = _apps()[1]
     c = copy.deepcopy(module.CONTRACT)
-    c["steps"] = [s for s in c["steps"] if s[0] != "save"]  # egy élő akció nincs deklarálva
+    c["steps"] = [s for s in c["steps"] if s[0] != "save"]  # a live action is not declared
     c["edges"] = [e for e in c["edges"] if "save" not in e[:2]]
     result = contract.lint_flow(c, app, module)
     assert not result["passed"]
     failed = {name for name, ok, _ in result["checks"] if not ok}
     assert "kontrakt lefedi az élő gráfot" in failed and "élek egyeznek" in failed
     c2 = copy.deepcopy(module.CONTRACT)
-    c2["step_meta"]["detect"]["kind"] = "det"  # Jev-lépés kódnak hazudva: a run_id / adapter nyom nem kell, de a fajta-ellenőrzés csak ismert fajtát néz
-    c2["step_meta"]["load_pdf"]["kind"] = "jev"  # kód-lépés Jevnek hazudva: nincs adapter-nyom -> hiba
+    c2["step_meta"]["detect"]["kind"] = "det"  # JEV step disguised as code: no trace needed, but only known kinds pass
+    c2["step_meta"]["load_pdf"]["kind"] = "jev"  # a code step disguised as JEV: no adapter trace -> error
     result2 = contract.lint_flow(c2, app, module)
     assert "lépés-fajták és nyomaik" in {name for name, ok, _ in result2["checks"] if not ok}
 

@@ -95,7 +95,7 @@ def main(output):
         "Inbox JSON attachment path can resolve outside its message directory; no file content sent.",
     )
     handler = object.__new__(ingest_server._Handler)
-    # 040 K1: a szonda a mindenkori határ fölé kér (a 2 MB alatti törzs szándékosan olvasható)
+    # 040 K1: the probe asks for more than the current limit (a body under 2 MB is intentionally readable)
     oversized = getattr(ingest_server, "MAX_BODY_BYTES", 1024 * 1024 - 1) + 1
     handler.headers = {"Content-Length": str(oversized)}
 
@@ -110,7 +110,7 @@ def main(output):
     handler.rfile = reader
     try:
         handler._read()
-    except Exception:  # noqa: BLE001 - a korlátos olvasó elutasít; a szonda az olvasott méretet méri
+    except Exception:  # noqa: BLE001 - the bounded reader refuses; the probe measures the size requested
         pass
     record(
         "http_reader_unbounded_by_policy",
@@ -224,7 +224,7 @@ def main(output):
         budget.usage()["openai"]["usd"] > 1.0,
         "Synthetic ledger only: 0.99 USD allows next call; final 1.19 exceeds stop=1.00. No paid calls.",
     )
-    # 040 K1: az új közös hívásréteg ugyanazon a szintetikus eseten (a régi TrialBudget a régi kísérleteké, változatlan)
+    # 040 K1: the new shared call layer on the same synthetic case (the old TrialBudget stays with the old experiments)
     from decimal import Decimal
     from jav.runtime import calls as runtime_calls
     with store.use_store(ROOT / "budget-probe-v3" / "business.sqlite"):

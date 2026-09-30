@@ -1,9 +1,9 @@
-"""Regiszter-séma v2 (BACKLOG regiszter-séma): `what / not_for / examples / parent` az M1 és M3 regiszterben - offline.
+"""Registry schema v2 (BACKLOG regiszter-séma): `what / not_for / examples / parent` in the M1/M3 registries, offline.
 
-- a Choice-kritérium strukturált JSON-objektum (`what`, `not_for`, `examples`), nem egyetlen mondat;
-- minden típus / szándék egy szülő-családban van (`parents` blokk a JSON-ban), a kód a családot is összegzi a nyers
-  valószínűségekből (szülő-címke alacsony confidence-nél - hívás nélkül);
-- a régi golden-formátum (`description`, `few_shot`) helyett `what` / `examples`, a példák goldennel konzisztensek.
+- the Choice criterion is a structured JSON object (`what`, `not_for`, `examples`), not a single sentence;
+- every type / intent belongs to a parent family (`parents` block in the JSON); the code also sums the family from the
+  raw probabilities (parent label at low confidence - without a call);
+- `what` / `examples` replace the old golden format (`description`, `few_shot`); the examples agree with the golden set.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ def test_doc_types_json_v2_shape():
     assert set(d["parents"]) >= {"invoice_like", "contract_like", "bank_like", "official_like", "other"}
     for t in d["types"]:
         assert {"key", "what", "not_for", "examples", "parent"} <= set(t), t["key"]
-        assert "description" not in t  # egy forrás: a `what`
+        assert "description" not in t  # a single source: `what`
         assert t["parent"] in d["parents"], t["key"]
         assert len(t["what"]) > 40 and len(t["not_for"]) > 10 and isinstance(t["examples"], list) and t["examples"]
     assert d["unknown_parent"] in d["parents"]
@@ -33,7 +33,7 @@ def test_intents_json_v2_shape():
         assert {"key", "display_name", "what", "not_for", "examples", "parent"} <= set(i), i["key"]
         assert "description" not in i and "few_shot" not in i
         assert i["parent"] in d["parents"], i["key"]
-    # a példák goldennel konzisztensek: a korábbi verbatim tárgysorok maradtak
+    # the examples agree with the golden set: the earlier verbatim subject lines stayed
     by = {i["key"]: i for i in d["intents"]}
     assert "Számlája érkezett" in by["szamlakuldes"]["examples"]
     assert by["other"]["examples"] == []
@@ -44,18 +44,18 @@ def test_choice_criteria_are_structured_objects():
     assert set(crit) == set(doc_types.DOC_TYPE_KEYS)
     for key, v in crit.items():
         assert isinstance(v, dict) and set(v) == {"what", "not_for", "examples"}, key
-    assert "Upwork" in crit["invoice_hu"]["not_for"] or "Upwork" in crit["invoice_hu"]["what"]  # a 2026-09-20-as policy megmaradt
-    assert doc_types.BY_KEY["invoice_hu"].description == doc_types.BY_KEY["invoice_hu"].what  # kompatibilis név
+    assert "Upwork" in crit["invoice_hu"]["not_for"] or "Upwork" in crit["invoice_hu"]["what"]  # 2026-09-20 policy kept
+    assert doc_types.BY_KEY["invoice_hu"].description == doc_types.BY_KEY["invoice_hu"].what  # compatible alias
 
     icrit = intents.choice_criteria()
     assert set(icrit) == set(intents.INTENT_KEYS)
     assert isinstance(icrit["szamlakuldes"], dict) and "Számlája érkezett" in icrit["szamlakuldes"]["examples"]
     assert icrit["other"]["examples"] == []
-    assert intents.BY_KEY["szamlakuldes"].few_shot == tuple(icrit["szamlakuldes"]["examples"])  # kompatibilis név
+    assert intents.BY_KEY["szamlakuldes"].few_shot == tuple(icrit["szamlakuldes"]["examples"])  # compatible alias
 
 
 def test_parent_maps_cover_every_key():
-    assert set(doc_types.PARENT_OF) == set(doc_types.DOC_TYPE_KEYS)  # unknown is
+    assert set(doc_types.PARENT_OF) == set(doc_types.DOC_TYPE_KEYS)  # unknown too
     assert doc_types.PARENT_OF["invoice_hu"] == doc_types.PARENT_OF["invoice_foreign"] == "invoice_like"
     assert doc_types.PARENT_OF["utility_bill_hu"] == "invoice_like" and doc_types.PARENT_OF["contract"] == "contract_like"
     assert doc_types.PARENT_OF[doc_types.UNKNOWN] == "other"
@@ -70,7 +70,7 @@ def test_parent_summary_sums_family_probabilities():
     parent, p = parent_summary(probs, doc_types.PARENT_OF)
     assert parent == "invoice_like" and abs(p - 0.85) < 1e-9
     assert parent_summary({}, doc_types.PARENT_OF) == (None, 0.0)
-    # a legvalószínűbb opció családja számít, nem a legnagyobb család
+    # the family of the most likely option counts, not the largest family
     parent2, p2 = parent_summary({"contract": 0.5, "invoice_hu": 0.3, "invoice_foreign": 0.2}, doc_types.PARENT_OF)
     assert parent2 == "contract_like" and abs(p2 - 0.5) < 1e-9
 
@@ -78,10 +78,10 @@ def test_parent_summary_sums_family_probabilities():
 def test_policy_parent_fallback_band():
     b = policy.band("detect.doc_type")
     assert b["parent_min_prob"] == 0.85
-    # bizonytalan típus, biztos család -> a szülő-címke használható
+    # uncertain type, certain family -> the parent label is usable
     assert policy.parent_fallback(0.45, "invoice_like", 0.9, "detect.doc_type") == "invoice_like"
-    assert policy.parent_fallback(0.45, "invoice_like", 0.7, "detect.doc_type") is None  # a család sem biztos
-    assert policy.parent_fallback(0.95, "invoice_like", 0.99, "detect.doc_type") is None  # a típus biztos: nem kell szülő
+    assert policy.parent_fallback(0.45, "invoice_like", 0.7, "detect.doc_type") is None  # family not certain either
+    assert policy.parent_fallback(0.95, "invoice_like", 0.99, "detect.doc_type") is None  # type certain: no parent
 
 
 def test_detect_and_intent_results_carry_parent():
@@ -112,7 +112,7 @@ def test_eval_report_parent_section(tmp_path):
     p.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
     js = er.judgments_from_file(p)
     d1 = next(j for j in js if j.case_id == "d1" and j.kind == "choice")
-    assert d1.parent == "invoice_like" and d1.parent_prob == 0.85 and d1.parent_correct is True  # a várt típus családja egyezik
+    assert d1.parent == "invoice_like" and d1.parent_prob == 0.85 and d1.parent_correct is True  # family matches
     rows_ = er.parent_fallback_summary(js)
     r = next(r for r in rows_ if r["flow"] == "doc_detect")
     assert r["human"] == 1 and r["parent_usable"] == 1 and r["parent_correct"] == 1

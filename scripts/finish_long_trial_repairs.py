@@ -1,4 +1,4 @@
-"""Csak a három újonnan feltárt pontos-környezethibát ellenőrzi újra, nulla GPT-hívás."""
+"""Re-checks only the three newly uncovered exact-context errors, with zero GPT calls."""
 from jav.experiments.long_document_trial import *
 from jav.evidence_learning import build_bundle,run_evidence_learning
 from jav.document_learning import check_proposals
@@ -21,7 +21,7 @@ before=budget.usage()
 assert run_evidence_learning(**kwargs)==result and before==budget.usage()
 write(root/(group['id']+'.json'),{'group_id':group['id'],'generated':result,
     'prior':'repair-v1/'+group['id']+'.json','terminal_replay_exact':True,'new_gpt_calls':0})
-# A valóban elrontott modelljavaslat helyi, típusos ellenőrzése.
+# Local, typed check of the model proposal that really was wrong.
 original=read(OUT/'baseline-v2/receipt-repeated-missing-probes.json')
 bad=next(p['proposal'] for p in original['generated']['points'] if p['proposal']['name']=='vat_amount')
 receipt_source=cases['expanded-005']['text']

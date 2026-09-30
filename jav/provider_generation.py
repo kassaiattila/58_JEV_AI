@@ -1,4 +1,4 @@
-"""Típusos Pydantic AI-hívás teljes válaszmentéssel és szolgáltatói naplóval."""
+"""Typed Pydantic AI call with the full response saved and a provider ledger entry."""
 import json
 import re
 import time

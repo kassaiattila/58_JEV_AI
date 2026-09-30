@@ -1,4 +1,4 @@
-"""Csak olvasó leltár a régi lemezállapotról; nem állít élő DB-aktiválást."""
+"""Read-only inventory of the legacy project's on-disk state; it does not claim live DB activation."""
 from __future__ import annotations
 
 import ast

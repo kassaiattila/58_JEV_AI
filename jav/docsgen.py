@@ -1,9 +1,10 @@
-"""Generált dokumentáció a konfigból és a ledgerből: a Jev-hívási helyek katalógusa (`docs/callsites/<hívási hely>.md`).
+"""Documentation generated from the config and the ledger: the catalogue of JEV call sites (`docs/callsites/<site>.md`).
 
-Ez a „Jev-hurkok” leírás, mindig a `configs/` aktuális tartalmából és a `ledger` tábla tényadataiból: hívási helyenként
-a kérdések (fajta, kulcs, instrukció, kritérium-forrás), a fogyasztó küszöbök (`configs/policy.json`), a state
-összetétele (a kód docstringjéből), és a futási statisztika konfig-verziónként (hívás, cache-arány, költség,
-átlag idő). Futtatás: `python -m jav.cli docs` (a `flows` mellett). Ne szerkeszd kézzel - generáld.
+This is the "JEV loops" description, always from the current content of `configs/` and the facts in the `ledger`
+table: per call site, the questions (kind, key, instruction, criteria source), the consuming thresholds
+(`configs/policy.json`), the make-up of the state (from the code's docstring), and the run statistics per config
+version (calls, cache ratio, cost, average time). Run: `python -m jav.cli docs` (next to `flows`). Do not edit by
+hand - regenerate.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from jav.config import PROJECT_ROOT
 
 CALLSITES_DOC_DIR = PROJECT_ROOT / "docs" / "callsites"
 
-# Hívási hely -> (ledger step-ek, a state-építő modul.függvény, a válaszok fogyasztói, a flow és lépés)
+# Call site -> (ledger steps, the state-building module.function, the consumers of the answers, the flow and step)
 CALLSITES: dict[str, dict[str, Any]] = {
     "detect": {
         "steps": ["detect"], "registry": "doc_types", "flow": "doc_detect / detect", "state_fn": "jav.detect.build_state",
@@ -86,13 +87,13 @@ CALLSITES: dict[str, dict[str, Any]] = {
 
 
 def all_callsites() -> list[str]:
-    """067 (066 Á45): minden beállított hívási hely (configs/callsites/*.json), nem csak a kézzel leírtak."""
+    """067 (066 Á45): every configured call site (configs/callsites/*.json), not only the hand-described ones."""
     return sorted(n.split(":", 1)[1] for n in cfg.all_names() if n.startswith("callsite:"))
 
 
 def spec_for(name: str) -> dict[str, Any]:
-    """A kézi leírás (CALLSITES), vagy a beállításból generált alap-leírás: a ledger-lépések a kérések nevei
-    (`requests`) vagy a `request_id`; a fogyasztók leírása ilyenkor hiányzik."""
+    """The hand-written description (CALLSITES), or a basic description generated from the config: the ledger steps are
+    the request names (`requests`) or the `request_id`; the consumer description is missing in that case."""
     if name in CALLSITES:
         return CALLSITES[name]
     data = cfg.load(f"callsite:{name}")
@@ -102,9 +103,9 @@ def spec_for(name: str) -> dict[str, Any]:
 
 
 def code_hashes(name: str) -> dict[str, str]:
-    """067 (066 Á18): a hívási hely azonosítója(i) pontosan úgy, ahogy a kód a hívásnaplóba írja: a detect és a levél-szándék
-    modulé, az S- és G-kar hívási helyeinél típuscsomagonként (a csomag azonosítója is benne van, ezért egy közös hívási
-    helynek, pl. a közmű-számláknak, csomagonként más az azonosítója)."""
+    """067 (066 Á18): the call site's identifier(s) exactly as the code writes them to the call log: for detect and the
+    email intent, the module's; for the S path and G path call sites, one per type pack (the pack's identifier is part
+    of it, so a shared call site, e.g. the utility bills', has a different identifier per pack)."""
     if name == "detect":
         from jav.detect import CONFIG_HASH
 
@@ -178,12 +179,12 @@ def _q_rows(name: str, data: dict[str, Any]) -> list[str]:
         if "presence_template" in data:
             rows.append(f"| `<mező>__present` (minden Choice-mező mellé, ugyanabban a kérésben) | noul | {data['presence_template'][:140]}… | true / false; `presence_what` mezőnként |")
     elif name.startswith("verify"):
-        nouls = data.get("nouls") or cfg.load(f"callsite:{data['inherits']}")["nouls"]  # verify_foreign: örökölt kérdések
+        nouls = data.get("nouls") or cfg.load(f"callsite:{data['inherits']}")["nouls"]  # verify_foreign inherits them
         if "inherits" in data:
             rows.append(f"| (örökölt) | - | a Noul-kérdések a `configs/callsites/{data['inherits']}.json`-ból; itt csak a mező-leírások (`field_specs`) sajátok | - |")
         for key, q in nouls.items():
             scope = "mezőnként" if key in ("absence_wrong", "off_target", "wrong_kind", "incomplete") else "dokumentum"
-            text = q.get("question") or q.get("instructions", "")  # v1.1.0: strukturált instrukció, a `question` a kérdés szövege
+            text = q.get("question") or q.get("instructions", "")  # v1.1.0: structured, `question` = question text
             rows.append(f"| `{key}` ({scope}) | noul (strukturált: field_spec / extracted_field / printed_on / question) | {text[:140]}… | true / false |")
     return rows
 

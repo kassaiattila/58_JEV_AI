@@ -1,4 +1,4 @@
-"""Párosított szerkezetpróba és forrásállítás-ellenőrzés, mesterséges szövegeken."""
+"""Paired structure probe and source-claim check on synthetic texts."""
 from __future__ import annotations
 
 import argparse
@@ -63,7 +63,7 @@ def main():
                           for i,line in enumerate(case["lines"])]
                 guards = protected_boundaries(layout,config["boundaries"])
                 for repeat in range(args.repeat):
-                    # Az elsőbbségi sorrend váltakozik, hogy ne mindig azonos kar fusson előbb.
+                    # The order of precedence alternates so that the same arm does not always run first.
                     for arm in (("baseline","protected") if repeat%2==0 else ("protected","baseline")):
                         calls.clear()
                         result = stitch_and_classify(case["lines"],settings,ask,blocked_before=guards if arm=="protected" else None)

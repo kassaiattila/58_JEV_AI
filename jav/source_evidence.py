@@ -1,4 +1,4 @@
-"""Közös dokumentum/e-mail forrásválasztó; bejárás != kinyerés != helyesség."""
+"""Shared document/email source selector; scanning != extraction != correctness."""
 from typesafe_sdk import Choice, Noul
 from jav.document_chunks import ChunkPolicy, plan_document
 from jav.document_learning import digest
@@ -37,7 +37,7 @@ def select_evidence(text, query, ask, *, source_limit=16000, window_chars=7000, 
             raise ValueError('invalid source block choice')
         result['decisions'].append(dict(window=i,start=window.start,end=window.end,selected=choice,relevance=relevant,
             prompt_injection=float(response.nouls['prompt_injection'].noul) if guard_instructions else None))
-        # Nyers relevancia nem elfogadási küszöb: az összes nem-none jelölt megmarad.
+        # Raw relevance is not an acceptance threshold: every non-none candidate is kept.
         if choice!='none':
             index=next(j for j,b in enumerate(blocks) if b.id==choice)
             start=window.start+blocks[max(0,index-1)].start
@@ -49,7 +49,7 @@ def select_evidence(text, query, ask, *, source_limit=16000, window_chars=7000, 
 
 
 def candidate_spans(result):
-    """Rendezett összevont tartományok a meglévő run_evidence_learning API számára."""
+    """Sorted, merged ranges for the existing run_evidence_learning API."""
     spans=[]
     for c in sorted(result['candidates'],key=lambda c:c['start']):
         if spans and c['start']<=spans[-1][1]:

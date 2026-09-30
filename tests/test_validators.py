@@ -1,4 +1,4 @@
-"""Validátorok - offline. A golden elvárt datapoint-ok mind át kell menjenek (ha elérhetők)."""
+"""Validators - offline. The golden expected datapoints must all pass (where available)."""
 
 import json
 from datetime import date
@@ -94,7 +94,7 @@ def test_golden_datapoints_pass_core_validators(name, expected):
     results = {r.name: r for r in run_all(inv)}
     assert results["vat_consistency"].code == "totals.ok", results["vat_consistency"]
     assert results["date_order"].code == "dates.ok", results["date_order"]
-    # real_komar szándékosan hibás ellenőrzőszámú (a régi golden is így rögzíti) - ez nem hiba itt
+    # real_komar has a deliberately wrong check digit (the legacy golden set records it so too) - not an error here
     if name != "real_komar":
-        tax = results.get("tax_id:supplier_tax_id")  # 069: tax_id néven
+        tax = results.get("tax_id:supplier_tax_id")  # 069: named tax_id:<field>
         assert tax is None or tax.ok, tax

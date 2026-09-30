@@ -1,4 +1,4 @@
-"""Tartós munkasor (040 K1; a V4 jobq.py mintája SQLite-ra): dedup, foglalás, hiba, visszaengedés, leállítás, árva foglalás."""
+"""Durable work queue (040 K1; V4 jobq.py pattern on SQLite): dedup, claim, failure, release, cancel, orphan claims."""
 
 from pathlib import Path
 
@@ -18,7 +18,7 @@ def test_enqueue_is_idempotent_on_dedup_key(isolated):
     a = queue.enqueue("run_item", run_id="r1", payload={"item": "d1"}, dedup_key="r1:d1")
     b = queue.enqueue("run_item", run_id="r1", payload={"item": "MÁS"}, dedup_key="r1:d1")
     assert a.id == b.id and not a.deduped and b.deduped
-    assert b.payload == {"item": "d1"}  # az első bizonylat marad, nem cserélődik ki
+    assert b.payload == {"item": "d1"}  # the first receipt stays; it is not replaced
 
 
 def test_claim_takes_oldest_available_once(isolated):
@@ -34,7 +34,7 @@ def test_complete_and_terminal_is_sticky(isolated):
     queue.enqueue("run_item", run_id="r1", payload={}, dedup_key="a")
     job = queue.claim("w")
     assert queue.complete(job.id) == "done"
-    assert queue.fail(job.id, "late", max_attempts=3, backoff_s=0) == "done"  # kész feladat nem hibásodik utólag
+    assert queue.fail(job.id, "late", max_attempts=3, backoff_s=0) == "done"  # a finished job does not fail afterwards
 
 
 def test_fail_retries_then_dead(isolated):

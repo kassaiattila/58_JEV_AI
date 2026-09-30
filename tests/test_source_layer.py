@@ -1,5 +1,5 @@
-"""Szóréteg és oldalkép (045 K3b, B1): a beolvasás megőrzi a szókereteket, a réteg normalizált és tartalom szerint
-azonosított, a futás elmenti, az oldalkép a hash-védett forrásból készül. Mesterséges PDF, hívás nélkül."""
+"""Word layer and page image (045 K3b, B1): reading keeps the word boxes, the layer is normalised and content-addressed,
+the run saves it, and the page image is made from the hash-protected source. Synthetic PDF, no calls."""
 
 import json
 from pathlib import Path
@@ -27,7 +27,7 @@ def test_read_pdf_keeps_word_boxes_page_size_and_line_numbers(pdf):
 
 
 def test_layout_is_unchanged_by_word_annotation():
-    """A JEV-kérés a sorokból épül: a 045-ös bővítés nem változtathatja meg (gyorsítótár, lezárt mérések)."""
+    """The JEV request is built from the lines: the 045 extension must not change them (cache, closed measurements)."""
     pages = [[{"text": "Brutto", "x0": 10, "x1": 40, "top": 100, "bottom": 110},
               {"text": "12 700", "x0": 200, "x1": 240, "top": 100.5, "bottom": 110}]]
     first = build_layout(json.loads(json.dumps(pages)))
@@ -54,7 +54,7 @@ def test_layer_is_normalized_ordered_and_content_addressed(pdf):
 def test_layer_save_and_load_roundtrip(pdf, tmp_path):
     with store.use_store(tmp_path / "w.sqlite"):
         layer_id = source_layer.save_from_pdftext("e" * 64, read_pdf(pdf))
-        assert layer_id and source_layer.save_from_pdftext("e" * 64, read_pdf(pdf)) == layer_id  # idempotens
+        assert layer_id and source_layer.save_from_pdftext("e" * 64, read_pdf(pdf)) == layer_id  # idempotent
         back = source_layer.load(layer_id)
         assert back is not None and back.doc_id == "e" * 64 and len(back.words) > 20
         assert source_layer.load("nincs") is None

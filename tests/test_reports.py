@@ -1,7 +1,8 @@
-"""Riportok (054 K4): export (CSV / XLSX / JSON) és közmű-költség idősor. Mesterséges adat, AI-hívás nélkül.
+"""Reports (054 K4): export (CSV / XLSX / JSON) and utility cost time series. Synthetic data, no AI calls.
 
-Döntések 2026-09-28: forrás a kiválasztott futás érvényes adata; bontás fogyasztási hely + közmű; havi rács napos
-arányosítással; a közös vízösszesítő csak tájékoztató (kettős számolás ellen)."""
+Decisions of 2026-09-28: the source is the valid data of the selected run; breakdown by consumption point + utility;
+monthly grid with day-proportional allocation; the shared water summary is informative only (against double
+counting)."""
 
 import csv
 import io
@@ -28,29 +29,29 @@ def _bill(item, doc_type, start, end, amount, *, address="1111 Budapest, Minta u
             "corrected": [], "open_reasons": []}
 
 
-# --- havi szétosztás ---------------------------------------------------------------------------------------
+# --- monthly allocation ------------------------------------------------------------------------------------
 
 
 def test_split_by_month_is_day_proportional_and_exact():
     parts = report_utility.split_by_month(date(2026, 2, 5), date(2026, 3, 4), Decimal("28000"))
     assert list(parts) == ["2026-02", "2026-03"]
-    assert parts["2026-02"] == Decimal("24000.00") and parts["2026-03"] == Decimal("4000.00")  # 24 + 4 nap
+    assert parts["2026-02"] == Decimal("24000.00") and parts["2026-03"] == Decimal("4000.00")  # 24 + 4 days
     odd = report_utility.split_by_month(date(2026, 1, 1), date(2026, 3, 31), Decimal("100"))
-    assert sum(odd.values()) == Decimal("100")  # kerekítés után is pontos összeg
+    assert sum(odd.values()) == Decimal("100")  # exact total even after rounding
 
 
 def test_series_by_address_and_utility_with_missing_and_overlap_months():
     records = [
         _bill("a", "villamos_energia_szamla", "2026-01-01", "2026-01-31", "10000", consumption="300"),
-        _bill("b", "villamos_energia_szamla", "2026-03-01", "2026-03-31", "12000", consumption="350"),  # február hiányzik
-        _bill("c", "villamos_energia_szamla", "2026-03-15", "2026-04-30", "9000"),                     # márciusban átfed
+        _bill("b", "villamos_energia_szamla", "2026-03-01", "2026-03-31", "12000", consumption="350"),  # February missing
+        _bill("c", "villamos_energia_szamla", "2026-03-15", "2026-04-30", "9000"),                     # overlaps in March
         _bill("d", "foldgaz_szamla", "2026-01-01", "2026-01-31", "20000", address="1111 BUDAPEST Minta utca 11."),
         _bill("e", "villamos_energia_szamla", "2026-01-01", "2026-01-31", "5000", address="1011 Budapest, Fő utca 1"),
     ]
     rep = report_utility.build(records)
     assert rep["months"] == ["2026-01", "2026-02", "2026-03", "2026-04"]
     keys = {(s["address"], s["utility"]) for s in rep["series"]}
-    assert len(rep["series"]) == 3 and ("1111 Budapest, Minta utca 11", "Földgáz") in keys  # a cím írásmódja nem bont
+    assert len(rep["series"]) == 3 and ("1111 Budapest, Minta utca 11", "Földgáz") in keys  # address spellings merge
     villany = next(s for s in rep["series"] if s["utility"] == "Villamos energia" and "Minta" in s["address"])
     cells = villany["cells"]
     assert cells["2026-01"]["status"] == "ok" and cells["2026-01"]["amount"] == "10000.00"
@@ -73,7 +74,7 @@ def test_summary_statement_is_shown_but_not_summed():
     rep = report_utility.build(records)
     summary = next(s for s in rep["series"] if s["summary_only"])
     assert summary["total"] == "30000.00"
-    assert rep["grand_total"] == "10000.00"  # csak a részszámla számít
+    assert rep["grand_total"] == "10000.00"  # only the individual bill counts
 
 
 def test_same_invoice_in_two_documents_counts_once():
@@ -89,7 +90,7 @@ def test_same_invoice_in_two_documents_counts_once():
 def test_settlement_bill_is_booked_at_its_end_month_and_does_not_break_coverage():
     records = [_bill(f"p{m}", "foldgaz_szamla", f"2026-0{m}-01", f"2026-0{m}-{28 if m == 2 else 30 if m in (4, 6) else 31}", "1000")
                for m in range(1, 7)]
-    records.append(_bill("yr", "foldgaz_szamla", "2026-01-01", "2026-06-30", "-500"))  # éves elszámolás: különbözet
+    records.append(_bill("yr", "foldgaz_szamla", "2026-01-01", "2026-06-30", "-500"))  # annual settlement: difference
     rep = report_utility.build(records)
     [s] = rep["series"]
     assert all(c["status"] == "ok" for c in s["cells"].values())
@@ -102,7 +103,7 @@ def test_bills_without_period_or_amount_are_listed_not_guessed():
                {"item_id": "z", "file": "z.pdf", "doc_type": "invoice_hu", "fields": {}, "pages": {}, "corrected": [], "open_reasons": []}]
     rep = report_utility.build(records)
     assert rep["series"] == []
-    assert {u["item_id"]: u["reason"] for u in rep["unplaced"]} == {"x": "no_period", "y": "no_amount"}  # a nem közmű irat kimarad
+    assert {u["item_id"]: u["reason"] for u in rep["unplaced"]} == {"x": "no_period", "y": "no_amount"}  # non-utility doc left out
 
 
 # --- export --------------------------------------------------------------------------------------------------
@@ -110,7 +111,7 @@ def test_bills_without_period_or_amount_are_listed_not_guessed():
 
 def test_csv_guards_formulas_but_keeps_numbers():
     data = export.csv_bytes(["a", "b"], [["=HYPERLINK(\"x\")", "-1200.50"], ["@SUM(A1)", "normál"]])
-    assert data.startswith(b"\xef\xbb\xbf")  # BOM: a magyar Excel UTF-8-ként nyitja
+    assert data.startswith(b"\xef\xbb\xbf")  # BOM: Hungarian Excel opens it as UTF-8
     rows = list(csv.reader(io.StringIO(data.decode("utf-8-sig")), delimiter=";"))
     assert rows[1] == ["'=HYPERLINK(\"x\")", "-1200.50"] and rows[2][0] == "'@SUM(A1)"
 
@@ -126,13 +127,13 @@ def test_run_exports_over_the_service(env):
     assert r.status_code == 200 and "attachment" in r.headers["content-disposition"] and r.headers["x-export-rows"]
     rows = list(csv.DictReader(io.StringIO(r.content.decode("utf-8-sig")), delimiter=";"))
     gross = [x for x in rows if x["Mező"] == "gross_total"]
-    assert len(gross) == 2 and all(x["Oldal"] for x in gross)  # minden szám a forrásáig visszakereshető
+    assert len(gross) == 2 and all(x["Oldal"] for x in gross)  # every number can be traced back to its source
 
     r = c.get(base, params={"format": "xlsx"})
     assert r.status_code == 200
     wb = load_workbook(io.BytesIO(r.content))
     assert {"Adatpontok", "Tételsorok", "Közmű-költség"} <= set(wb.sheetnames)
-    for ws in wb.worksheets:  # szöveg soha nem képlet
+    for ws in wb.worksheets:  # text is never a formula
         assert not any(isinstance(c_.value, str) and c_.data_type == "f" for row in ws.iter_rows() for c_ in row)
 
     r = c.get(base, params={"format": "json"})
@@ -140,13 +141,13 @@ def test_run_exports_over_the_service(env):
     assert body["run_id"] == run_id and len(body["documents"]) == 2
 
     r = c.get(f"/api/runs/{run_id}/reports/utility-cost")
-    assert r.status_code == 200 and r.json()["series"] == [] and len(r.json()["unplaced"]) == 0  # nem közmű-iratok
+    assert r.status_code == 200 and r.json()["series"] == [] and len(r.json()["unplaced"]) == 0  # not utility documents
 
     assert c.get(base, params={"format": "exe"}).status_code == 422
 
 
 def test_result_tables_offer_only_views_with_data(env):
-    # 058: magyar számlákon nincs közmű-költség nézet; közmű-számla rekordnál van
+    # 058: no utility cost view for Hungarian invoices; there is one for utility bill records
     c = env["client"]
     wp = _ready_wp(c, env["folder"])
     run_id = _start(c, wp["id"]).json()["run_id"]

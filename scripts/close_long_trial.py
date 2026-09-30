@@ -1,4 +1,4 @@
-"""Helyi lezárás: bizonyíték-egyezés, eredmény- és végső forrásjegyzék. Nincs modellhívás."""
+"""Local closure: evidence match, result and final source manifest. No model calls."""
 import re
 import shutil
 from pathlib import Path

@@ -1,20 +1,21 @@
-"""Munkacsomag- és futtatási parancsok (040 K1): a `jav.work` és a `jav.runtime` vékony parancssori felülete.
+"""Work package and run commands (040 K1): a thin command-line interface over `jav.work` and `jav.runtime`.
 
-  recipes                                  a receptkatalógus
-  wp-create <mappa> [--name N]             munkacsomag egy mappa PDF-jeiből
-  wp-create --files <pdf>... --name N      munkacsomag megadott fájlokból (több mappából is)
-  wp-list | wp-show <wp>                   munkacsomagok; egy csomag tételei, receptje, készenléte
-  wp-assign <wp> <recept> [--arm S|G] [--doc-type T] [--note N]   recept hozzárendelése (a mostani verzióra)
-  run-start <wp> [--mode shadow|apply]     futás indítása a mostani készenlét rögzített bemenetével (idempotens)
-  run-list [<wp>] | run-show <run>         futások; egy futás tételei, munkasora, költsége, teendői
+  recipes                                  the recipe catalogue
+  wp-create <folder> [--name N]            work package from the PDFs in a folder
+  wp-create --files <pdf>... --name N      work package from the given files (possibly from several folders)
+  wp-list | wp-show <wp>                   work packages; one package's items, recipe and readiness
+  wp-assign <wp> <recipe> [--arm S|G] [--doc-type T] [--note N]   assign a recipe (to the current revision)
+  run-start <wp> [--mode shadow|apply]     start a run with the input pinned by the current readiness check (idempotent)
+  run-list [<wp>] | run-show <run>         runs; one run's items, work queue, cost and to-dos
   run-cancel <run> | run-approve <run> --actor A
-  worker [--once] [--max-jobs N]           feldolgozó: a munkasor tételeit futtatja (egyszerre egy példány, zárral)
-  worker-status | worker-stop              fut-e feldolgozó; szabályos leállítás kérése (a folyamatban lévő tétel után)
-  serve [--port P]                         helyi szolgáltatás (040 K2, csak 127.0.0.1; végpontlista: /api/openapi.json)
-  calls-uncertain | calls-resolve <id> [--cost USD] --note N   bizonytalan kimenetű fizetős hívások; kézi rendezés (066 Á30)
+  worker [--once] [--max-jobs N]           worker: runs the work-queue items (one instance at a time, with a lock)
+  worker-status | worker-stop              is a worker running; request a clean stop (after the current item)
+  serve [--port P]                         local service (040 K2, 127.0.0.1 only; endpoint list: /api/openapi.json)
+  calls-uncertain | calls-resolve <id> [--cost USD] --note N   paid calls with an uncertain outcome; manual resolution
+                                                               (066 Á30)
 
-A parancsok a felülettel azonos üzleti műveleteket hívják; a szabályok (verzióütközés, készenlét, jóváhagyás) a
-`jav.work`-ben vannak, nem itt. `--json` gépi kimenetet ad.
+The commands call the same business operations as the UI; the rules (revision conflict, readiness, approval) live in
+`jav.work`, not here. `--json` gives machine-readable output.
 """
 
 from __future__ import annotations
@@ -144,7 +145,7 @@ def cmd_run_approve(args):
 
 def cmd_worker(args):
     from jav.runtime import applog, lock, worker
-    applog.setup("worker")  # 063: állandó, forgó napló (runs/logs/worker.log): indulás, hibák hibanyommal, leállás
+    applog.setup("worker")  # 063: persistent rotating log (runs/logs/worker.log): start, errors with traceback, stop
     try:
         info = worker.run_worker(once=args.once, max_jobs=args.max_jobs)
     except lock.AlreadyRunning:

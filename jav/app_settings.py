@@ -1,16 +1,19 @@
-"""Beállítások (057, döntés 2026-09-28): felhasználói névlista és figyelt munkamappák.
+"""Settings (057, decision of 2026-09-28): the user name list and the watched work folders.
 
-**Felhasználók:** a „Ki dolgozik?” választéka. Csak a helyi adattárban (a név személyes adat, gitbe nem kerül).
+**Users:** the choices of "Ki dolgozik?" (Who is working?). Kept only in the local store (a name is personal data and
+never goes into git).
 
-**Figyelt munkamappák** — a régi V4 „Figyelt mappák” működése szerint (`orchestrator/framework/intakeconfig.py`,
-`scripts/intake_bridge.ps1`, csak olvasva): mappánként név, útvonal, bekapcsolt-e, almappák is, csomagolás
-(`folder` = egy közös csomag, `daily` = napi csomagok), opcionális recept, átnézési gyakoriság. A feldolgozó
-időközönként átnézi a mappát (`tick`), az új iratokból csomag lesz vagy a meglévő csomag bővül. Eltérések a régitől:
-- az útvonal csak az engedélyezett gyökerek alatt lehet (a régi mentéskor nem ellenőrizte);
-- a forrásmappa csak olvasva (nem mozgat, nem töröl), a még íródó fájl kimarad, amíg két átnézés között változik
-  (a régi `watch.py` várakozása); a már látott fájl (útvonal + méret + módosítás ideje) nem hashelődik újra;
-- a csomagból kézzel eltávolított irat nem kerül vissza; fizetős futás nem indul magától (a recept csak hozzárendelődik,
-  mint a postafiókból érkező csomagnál, 048-as döntés).
+**Watched work folders** — modelled on the legacy V4 "Figyelt mappák" (watched folders) behaviour
+(`orchestrator/framework/intakeconfig.py`, `scripts/intake_bridge.ps1`, read only): per folder a name, a path, whether
+it is enabled, whether subfolders are included, the packaging (`folder` = one shared package, `daily` = daily packages),
+an optional recipe and a scan interval. The worker scans the folder periodically (`tick`); new documents become a
+package or extend the existing one. Differences from the legacy version:
+- the path must lie under the allowed roots (the legacy version did not check this on save);
+- the source folder is only read (nothing is moved or deleted); a file still being written is skipped while it changes
+  between two scans (the wait of the legacy `watch.py`); a file already seen (path + size + modification time) is not
+  hashed again;
+- a document removed from the package by hand does not come back; no paid run starts by itself (the recipe is only
+  assigned, as for a package arriving from a mailbox, decision 048).
 """
 
 from __future__ import annotations
@@ -72,7 +75,7 @@ CREATE TABLE IF NOT EXISTS watched_seen (
 """)
 
 SUFFIXES = (".pdf",)
-SETTLE_S = 10  # ennél frissebb módosítású fájl még íródhat: a következő átnézésre marad
+SETTLE_S = 10  # a file modified more recently than this may still be being written: it waits for the next scan
 DEFAULT_INTERVAL_MIN = 15
 
 
@@ -84,7 +87,7 @@ def _iso(t: datetime) -> str:
     return t.astimezone(timezone.utc).isoformat(timespec="seconds")
 
 
-# --- felhasználók -------------------------------------------------------------------------------------------
+# --- users --------------------------------------------------------------------------------------------------
 
 
 def users() -> list[str]:
@@ -93,9 +96,9 @@ def users() -> list[str]:
 
 
 def canonical_user(name: str) -> str | None:
-    """061 (aktív felhasználó): a név a névlistán szereplő alakjában (kis-nagybetűtől és a szóközök számától
-    függetlenül); a listán nem szereplő név None. Üres listánál bármely név elfogadott (első beállítás: a lista még nincs
-    kitöltve, de a szerzőség akkor is kötelező)."""
+    """061 (active user): the name in the form it has on the name list (ignoring case and the number of spaces);
+    a name not on the list gives None. With an empty list any name is accepted (first setup: the list is not filled in
+    yet, but authorship is mandatory even then)."""
     wanted = " ".join(name.split()).casefold()
     listed = users()
     if not listed:
@@ -103,14 +106,14 @@ def canonical_user(name: str) -> str | None:
     return next((u for u in listed if u.casefold() == wanted), None)
 
 
-# A szerző-név szabálya (a helyi szolgáltatás `X-Actor` fejléce és a névlista közös szabálya, 066 Á25): betű (ékezettel
-# is), szám, szóköz, pont, @ és kötőjel, legfeljebb 64 karakter.
+# The author-name rule (shared by the local service's `X-Actor` header and the name list, 066 Á25): letters (accented
+# ones too), digits, space, dot, @ and hyphen, at most 64 characters.
 ACTOR_RE = re.compile(r"^[\w.@ -]{1,64}$")
 
 
 def save_users(names: list[str]) -> list[str]:
-    """A teljes névlista cseréje. Üres és ismétlődő (kis-nagybetűtől függetlenül) név kimarad; 066 Á25: a szerző-szabálynak
-    nem megfelelő név (amellyel utána semmit nem lehetne tenni) hiba, a lista nem változik."""
+    """Replaces the whole name list. Empty and duplicate (case-insensitive) names are dropped; 066 Á25: a name that
+    breaks the author rule (with which nothing could be done afterwards) is an error, and the list does not change."""
     clean: dict[str, str] = {}
     bad: list[str] = []
     for n in names:
@@ -131,11 +134,11 @@ def save_users(names: list[str]) -> list[str]:
     return users()
 
 
-# --- figyelt munkamappák ------------------------------------------------------------------------------------
+# --- watched work folders -----------------------------------------------------------------------------------
 
 
 class WatchedFolder(BaseModel):
-    """Egy figyelt mappa beállítása (a felület ezt küldi és kapja)."""
+    """The settings of one watched folder (what the UI sends and receives)."""
 
     id: str | None = Field(default=None, max_length=40)
     name: str = Field(default="", max_length=160)
@@ -162,8 +165,8 @@ def folders() -> list[dict[str, Any]]:
 
 
 def save_folders(items: list[WatchedFolder], *, check_dir: Callable[[str], Path]) -> list[dict[str, Any]]:
-    """A teljes lista cseréje (a régi V4 PUT-ja szerint). `check_dir`: a szolgáltatás útvonal-ellenőrzése (engedélyezett
-    gyökér alatt, létező mappa) — hibánál semmi nem mentődik. A megmaradó mappa átnézési ideje és eredménye megmarad."""
+    """Replaces the whole list (like the legacy V4 PUT). `check_dir`: the service's path check (under an allowed
+    root, an existing folder) — on error nothing is saved. A folder that stays keeps its scan time and result."""
     if len(items) > 50:
         raise ValueError("at most 50 watched folders")
     known = {f["id"]: f for f in folders()}
@@ -172,7 +175,7 @@ def save_folders(items: list[WatchedFolder], *, check_dir: Callable[[str], Path]
         p = check_dir(f.path)
         recipe_id = f.recipe_id or None
         if recipe_id is not None:
-            work.recipe(recipe_id)  # ismeretlen recept: ValueError → 422
+            work.recipe(recipe_id)  # unknown recipe: ValueError → 422
         fid = f.id if f.id in known else f"wf-{uuid.uuid4().hex[:10]}"
         prev = known.get(fid)
         name = " ".join(f.name.split()) or p.name
@@ -192,8 +195,8 @@ def _bucket(folder: dict[str, Any], now: datetime) -> str:
 
 
 def _package_for(folder: dict[str, Any], bucket: str) -> str | None:
-    """A mappa (vagy a nap) élő csomagja. Az elrejtett vagy törölt csomagba nem kerül új irat (058): ilyenkor új csomag
-    készül; a korábban látott fájlok a látott-listában maradnak, ezért nem kerülnek újra feldolgozásra."""
+    """The live package of the folder (or of the day). No new document goes into a hidden or deleted package (058): a
+    new package is created instead; the files seen earlier stay on the seen list, so they are not processed again."""
     with store.connect() as c:
         row = c.execute("SELECT p.workpackage_id FROM watched_packages p JOIN workpackages w ON w.id = p.workpackage_id"
                         " WHERE p.folder_id=? AND p.bucket=? AND w.status <> 'archived'", (folder["id"], bucket)).fetchone()
@@ -201,9 +204,10 @@ def _package_for(folder: dict[str, Any], bucket: str) -> str | None:
 
 
 def _new_files(folder: dict[str, Any], now: datetime) -> tuple[list[tuple[Path, str, os.stat_result]], int, int]:
-    """(új fájlok tartalomhash-sel és állapottal, a még íródó fájlok száma, az olvashatatlan fájlok száma). A látott fájl
-    nem hashelődik újra. 063: a „látott” jelölés itt nem íródik — csak a sikeres felvétel után (`_mark_seen`), és az
-    olvashatatlan (pl. zárolt) fájl kimarad, nem szakítja meg az átnézést; mindkettő a következő átnézésre marad."""
+    """(new files with content hash and stat, the number of files still being written, the number of unreadable files).
+    A file already seen is not hashed again. 063: the "seen" mark is not written here — only after a successful intake
+    (`_mark_seen`) — and an unreadable (e.g. locked) file is skipped without aborting the scan; both wait for the next
+    scan."""
     root = Path(folder["path"])
     walk = root.rglob("*") if folder["recursive"] else root.iterdir()
     out, settling, unreadable = [], 0, 0
@@ -213,7 +217,7 @@ def _new_files(folder: dict[str, Any], now: datetime) -> tuple[list[tuple[Path, 
         if not p.is_file() or p.suffix.lower() not in SUFFIXES:
             continue
         rp = p.resolve()
-        if not (rp == root or rp.is_relative_to(root)):  # a mappán kívülre mutató hivatkozás nem kerül be
+        if not (rp == root or rp.is_relative_to(root)):  # a link pointing outside the folder is not taken in
             continue
         st = p.stat()
         if now.timestamp() - st.st_mtime < SETTLE_S:
@@ -240,8 +244,9 @@ def _mark_seen(folder_id: str, files: list[tuple[Path, str, os.stat_result]]) ->
 
 
 def scan(folder_id: str, *, now: datetime | None = None, actor: str = "figyelt mappa") -> dict[str, Any]:
-    """Egy mappa átnézése most: az új iratok a mappa (vagy a nap) csomagjába kerülnek. Az eredmény a mappánál is rögzül.
-    063: egy mappát egyszerre egy folyamat néz át (a „most” gomb és az ütemezett átnézés nem hozhat két csomagot)."""
+    """Scans one folder now: new documents go into the package of the folder (or of the day). The result is recorded on
+    the folder too. 063: one folder is scanned by one process at a time (the "now" button and the scheduled scan cannot
+    create two packages)."""
     now = now or _now()
     folder = next((f for f in folders() if f["id"] == folder_id), None)
     if folder is None:
@@ -259,14 +264,14 @@ def _scan(folder: dict[str, Any], now: datetime, actor: str) -> dict[str, Any]:
         wp_id = _package_for(folder, bucket)
         existing = set()
         if wp_id:
-            with store.connect() as c:  # a kézzel eltávolított irat is „ismert”: nem kerül vissza
+            with store.connect() as c:  # a document removed by hand is also "known": it does not come back
                 existing = {r["item_id"] for r in c.execute("SELECT item_id FROM workpackage_items WHERE workpackage_id=?", (wp_id,))}
         fresh = [p for p, digest, _st in files if digest not in existing]
         fresh = list(dict.fromkeys(fresh))
         if fresh:
             if wp_id is None:
                 name = folder["name"] if bucket == "folder" else f"{folder['name']} — {bucket}"
-                # 065: a „most” gombbal átnéző ember a felelős; az ütemezett átnézésnél nincs mentett név, ott üres marad
+                # 065: whoever scans with the "now" button owns the package; a scheduled scan leaves the owner empty
                 wp = work.create_workpackage(name=name, source_kind="watch", source_ref=folder["path"],
                                              owner=None if actor == "figyelt mappa" else actor)
                 wp_id = wp["id"]
@@ -278,13 +283,13 @@ def _scan(folder: dict[str, Any], now: datetime, actor: str) -> dict[str, Any]:
                                        note="figyelt mappa")
             wp = work.get(wp_id)
             work.add_documents(wp_id, fresh, expected_revision=wp["revision"])
-        _mark_seen(folder["id"], files)  # 063: csak a sikeres felvétel után „látott”
+        _mark_seen(folder["id"], files)  # 063: "seen" only after a successful intake
         result = {"new": len(fresh), "settling": settling, "unreadable": unreadable,
                   "workpackage": wp_id if fresh else _package_for(folder, bucket)}
         status = "ok"
     except (OSError, ValueError) as exc:
         result, status = {"error": str(exc)}, "error"
-    except Exception as exc:  # noqa: BLE001 - 063: pl. egyidejű csomag-módosítás; a hiba a mappánál látszik, a fájlok maradnak
+    except Exception as exc:  # noqa: BLE001 - 063: e.g. concurrent package edit; error shown on the folder, files kept
         log.exception("watched folder %s scan failed", folder["id"])
         result, status = {"error": f"{type(exc).__name__}: {exc}"}, "error"
     with store.connect() as c:
@@ -294,7 +299,7 @@ def _scan(folder: dict[str, Any], now: datetime, actor: str) -> dict[str, Any]:
 
 
 def tick(now: datetime | None = None) -> list[str]:
-    """A feldolgozó körönként hívja: az esedékes, bekapcsolt mappák átnézése. Visszaadja az átnézett mappák azonosítóit."""
+    """Called by the worker each round: scans the enabled, due folders and returns their ids."""
     now = now or _now()
     due = [f["id"] for f in folders() if f["enabled"] and (f["next_at"] or "") <= _iso(now)]
     for fid in due:

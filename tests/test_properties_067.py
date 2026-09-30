@@ -1,9 +1,9 @@
-"""067: véletlenszerű (tulajdonság-alapú) bemenetes tesztek a jelöltkeresőre, a pénzösszeg-, dátum- és azonosító-
-olvasókra és a PDF-sorépítőre.
+"""067: randomised-input (property-based) tests for the candidate finder, the amount, date and identifier readers and
+the PDF line builder.
 
-A kézzel írt tesztek egy-egy ismert esetet rögzítenek; ezek a tesztek szabályt: „bármilyen bemenetre igaz, hogy…”.
-A `hypothesis` könyvtár kitalált bemenetek százait próbálja ki, és hiba esetén a legkisebb ellenpéldát adja. Minden
-adat kitalált (generált szám, dátum, azonosító), valódi irat nincs benne.
+Hand-written tests pin down one known case each; these tests pin down a rule: "for any input it holds that…".
+The `hypothesis` library tries hundreds of made-up inputs and, on failure, reports the smallest counterexample. All
+data is made up (generated numbers, dates, identifiers); no real document is involved.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from jav.pdf import build_layout, fix_lost_glyphs, text_layer_ok
 from jav.validators import HU_TAXID_WEIGHTS, hu_tax_id, iban_check
 
 PROFILES = ("hu", "intl", "utility")
-# a tesztsorban 150 próba tesztenként; mélyebb kereséshez: JAV_HYPOTHESIS_EXAMPLES=5000 pytest tests/test_properties_067.py
+# 150 examples per test in the suite; deeper search: JAV_HYPOTHESIS_EXAMPLES=5000 pytest tests/test_properties_067.py
 FAST = settings(max_examples=int(os.environ.get("JAV_HYPOTHESIS_EXAMPLES", "150")), deadline=None,
                 suppress_health_check=[HealthCheck.too_slow])
 
@@ -34,9 +34,9 @@ def _lines(*rows: str) -> list[LineLayout]:
     return out
 
 
-# --- generátorok ------------------------------------------------------------------------------------------------------
+# --- generators -------------------------------------------------------------------------------------------------------
 
-# számla-szerű ábécé: számjegy, latin és magyar betű, elválasztók, pénznemjel, NUL, NBSP, nem ASCII kötőjelek
+# invoice-like alphabet: digits, Latin and Hungarian letters, separators, currency signs, NUL, NBSP, non-ASCII hyphens
 _ALPHABET = st.sampled_from(
     list("0123456789") * 4 + list("abcxyzABCHUXáéőűÁŐ") + list(" .,:-/#%$€£+()") + ["\x00", " ", "‐", "−"]
 )
@@ -50,7 +50,7 @@ _mixed_line = st.lists(st.one_of(_words, _line_text), min_size=1, max_size=6).ma
 
 @st.composite
 def hu_tax_ids(draw) -> str:
-    """Érvényes, kitalált magyar adószám: 7 jegy + ellenőrzőszám + áfakód (1–5) + megyekód."""
+    """A valid, made-up Hungarian tax number: 7 digits + check digit + VAT code (1–5) + county code."""
     base = draw(st.lists(st.integers(0, 9), min_size=7, max_size=7))
     check = (10 - sum(d * w for d, w in zip(base, HU_TAXID_WEIGHTS)) % 10) % 10
     vat = draw(st.integers(1, 5))
@@ -60,9 +60,9 @@ def hu_tax_ids(draw) -> str:
 
 @st.composite
 def hu_ibans(draw) -> str:
-    """Érvényes, kitalált magyar IBAN (28 karakter, mod-97 ellenőrzőszámmal), szóköz nélkül."""
+    """A valid, made-up Hungarian IBAN (28 characters, with a mod-97 check number), without spaces."""
     bban = "".join(map(str, draw(st.lists(st.integers(0, 9), min_size=24, max_size=24))))
-    check = 98 - int(bban + "173000") % 97  # H=17, U=30, „00” a helyén: ISO 13616 mod-97
+    check = 98 - int(bban + "173000") % 97  # H=17, U=30, "00" in its place: ISO 13616 mod-97
     return f"HU{check:02d}{bban}"
 
 
@@ -78,7 +78,7 @@ def _intl_money(d: Decimal) -> str:
     return f"{d:,.2f}"
 
 
-# --- 1. a jelöltkereső semmilyen szövegen nem hibázik, és a kimenete a szerződés szerinti -----------------------------
+# --- 1. the candidate finder fails on no text, and its output follows the contract -----------------------------------
 
 
 @FAST
@@ -101,7 +101,7 @@ def test_candidate_finder_is_total_and_well_formed(rows, profile):
             assert c.raw in lines[c.line_no - 1].text
 
 
-# --- 2. a végösszeg jelölt marad, bármilyen azonosító-, dátum- vagy szövegsor kerül mellé (a 066 Á03 hibaosztálya) ------
+# --- 2. the total stays a candidate whatever identifier, date or text lines surround it (the 066 Á03 error class) -----
 
 _noise = st.lists(st.one_of(
     _words,
@@ -127,7 +127,7 @@ def test_intl_total_survives_unrelated_lines(amount, before, after):
     assert money_label(amount) in labels
 
 
-# --- 3. pénzösszeg-olvasó: a nyomtatott alak visszaadja az értéket ------------------------------------------------------
+# --- 3. amount reader: the printed form gives back the value ----------------------------------------------------------
 
 
 @FAST
@@ -150,7 +150,7 @@ def test_parse_money_never_raises(raw):
         assert money_label(got.value)
 
 
-# --- 4. dátum: a szokásos magyar alakok visszaadják a napot -------------------------------------------------------------
+# --- 4. date: the usual Hungarian forms give back the day -------------------------------------------------------------
 
 
 @FAST
@@ -163,7 +163,7 @@ def test_normalize_date_reads_hungarian_formats(d):
     assert labels == [d.isoformat()]
 
 
-# --- 5. adószám és IBAN: az ellenőrzőszám az érvényeset elfogadja, az egyjegyű hibát elkapja ---------------------------
+# --- 5. tax number and IBAN: the check digit accepts a valid one and catches a single-digit error ---------------------
 
 
 @FAST
@@ -202,7 +202,7 @@ def test_single_digit_error_in_iban_is_caught(iban, pos, delta):
     assert iban_check(wrong).code == "iban.checksum"
 
 
-# --- 6. PDF-sorépítés és szövegjavítás ----------------------------------------------------------------------------------
+# --- 6. PDF line building and text repair -----------------------------------------------------------------------------
 
 
 @FAST
@@ -233,7 +233,7 @@ def test_build_layout_keeps_every_word_once(pages):
     text_layer_ok("\n".join(ln.text for ln in layout))
 
 
-# --- 7. hosszú, ismétlődő sor: a keresés nem lassul el robbanásszerűen ------------------------------------------------
+# --- 7. long, repetitive line: the search does not slow down explosively ---------------------------------------------
 
 
 def test_long_repetitive_lines_stay_fast():

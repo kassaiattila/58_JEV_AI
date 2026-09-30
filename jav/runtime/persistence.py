@@ -1,13 +1,13 @@
-"""A Burr SQLite-állapotmentője biztonságos lezárással (062, Q-szál), és a tár ritkítása (064).
+"""Burr's SQLite state persister with safe closing (062, Q-szál), and thinning of the store (064).
 
-A Burr `SQLitePersister.__del__` a `cleanup()` után is újra lezárja a kapcsolatot. Ha a szemétgyűjtés egy másik szálon
-fut (pl. a helyi szolgáltatás szálán), az SQLite ezt hibának jelzi, akkor is, ha a kapcsolat már zárva van. Minden
-futtató ezt az osztályt használja (a feldolgozó `StatePersister`-e és a tanulási futtatók is).
+Burr's `SQLitePersister.__del__` closes the connection again even after `cleanup()`. If garbage collection runs on
+another thread (e.g. the local service's thread), SQLite reports this as an error even when the connection is already
+closed. Every runner uses this class (the worker's `StatePersister` and the learning runners too).
 
-064 (döntés 2026-09-29): a Burr minden lépés után teljes állapotot ment (egy iratnál a teljes szövegével), így a tár
-folyamatonként ~0,7 MB-tal nő. Visszaolvasni viszont mindig csak a folyamat utolsó mentett állapotát kell (a Burr
-`load` a legnagyobb sorszámú sort adja: folytatás, kétlépcsős recept). A `prune_to_last` ezért minden folyamatból csak
-az utolsó sort tartja meg; a `vacuum` a felszabadult helyet visszaadja a lemeznek (csak leállított feldolgozóval)."""
+064 (decision of 2026-09-29): Burr saves the full state after every step (for a document, with its full text), so the
+store grows by ~0.7 MB per process. Reading back, however, only ever needs the process's last saved state (Burr's
+`load` returns the row with the highest sequence number: resume, two-stage recipe). So `prune_to_last` keeps only the
+last row of every process; `vacuum` returns the freed space to the disk (only with the worker stopped)."""
 
 from __future__ import annotations
 
@@ -21,15 +21,16 @@ from burr.core.persistence import SQLitePersister
 TABLE = "burr_state"
 
 
-BUSY_TIMEOUT_S = 30  # mint a fő adattáré (jav/store.py)
+BUSY_TIMEOUT_S = 30  # same as the main store's (jav/store.py)
 
 
 class ClosingSQLitePersister(SQLitePersister):
-    """`cleanup()` után a `__del__` nem nyúl a kapcsolathoz; lezáratlan példánynál a Burr eredeti viselkedése marad.
+    """After `cleanup()`, `__del__` does not touch the connection; an unclosed instance keeps Burr's original behaviour.
 
-    066 Á31: saját kapcsolat nélkül a tár a fő adattárhoz hasonlóan nyílik meg: párhuzamos olvasás (WAL) és 30 s várakozás
-    zárolt adatbázisnál (a Burr alapja 5 s és naplófájl-mód; a feldolgozó mentése és a közben futó ritkítás ütközhetett).
-    A mentés (`jav/backup.py`) az SQLite saját mentő eljárását használja, ez WAL módban is teljes másolatot ad."""
+    066 Á31: without a connection of its own, the store opens like the main store: concurrent reads (WAL) and a 30 s
+    wait on a locked database (Burr's default is 5 s and journal-file mode; the worker's save and a concurrent thinning
+    could collide). The backup (`jav/backup.py`) uses SQLite's own backup routine, which gives a full copy in WAL mode
+    too."""
 
     def __init__(self, db_path: str, table_name: str = "burr_state", serde_kwargs: dict | None = None,
                  connect_kwargs: dict | None = None, connection: sqlite3.Connection | None = None) -> None:
@@ -49,9 +50,9 @@ class ClosingSQLitePersister(SQLitePersister):
 
 
 def prune_to_last(path: Path, *, app_id: str | None = None, skip_prefixes: tuple[str, ...] = ()) -> dict[str, Any]:
-    """Minden folyamatból csak az utolsó mentett állapot marad. `app_id`: csak ez a folyamat és a lépcsői
-    (`<app_id>-<folyamat>`); `skip_prefixes`: ezekkel kezdődő folyamatok érintetlenek (pl. a még futó futásoké).
-    Egy utasításban fut, így a közben mentő feldolgozó új sorát nem érinti."""
+    """Only the last saved state of every process is kept. `app_id`: only this process and its stages
+    (`<app_id>-<process>`); `skip_prefixes`: processes starting with these are untouched (e.g. those of runs still
+    going). It runs as one statement, so it does not touch a new row that the worker saves meanwhile."""
     path = Path(path)
     if not path.is_file():
         return {"deleted": 0}
@@ -74,8 +75,8 @@ def prune_to_last(path: Path, *, app_id: str | None = None, skip_prefixes: tuple
 
 
 def vacuum(path: Path) -> dict[str, Any]:
-    """A törölt sorok helyének visszaadása a lemeznek (a fájl újraírása). Kizárólagos hozzáférést kér: a feldolgozó
-    ne fusson közben."""
+    """Returns the space of deleted rows to the disk (rewrites the file). Needs exclusive access: the worker must not
+    run meanwhile."""
     path = Path(path)
     before = path.stat().st_size
     with closing(sqlite3.connect(str(path), timeout=30)) as c:

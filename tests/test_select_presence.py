@@ -1,10 +1,12 @@
-"""S-kar jelenlét-Noul (BACKLOG: JEV_PLAYBOOK §4/5) - offline, hamis klienssel.
+"""S path presence Noul (BACKLOG: JEV_PLAYBOOK §4/5) - offline, with a fake client.
 
-- minden mező Choice-a mellé egy `<mező>__present` Noul ugyanabban a kötegelt kérésben („szerepel-e egyáltalán”);
-- a pick hordozza a nyers `present_p`-t és a választott jelölt sor-számát (`line_no`, kódból - nincs plusz kérdés);
-- policy: választott érték + „nincs” jelenlét → review-ok; `none` + „van” jelenlét → review-ok; rekord-conf = a
-  leggyengébb ítélet (min a mezők tényleges confidence-éből);
-- store: `record_conf` + `evidence` a `datapoints` táblába (additív migráció); eval: jelenlét-ítéletek igazsággal.
+- next to each field's Choice, a `<field>__present` Noul in the same batched request ("is it there at all");
+- the pick carries the raw `present_p` and the chosen candidate's line number (`line_no`, from code - no extra
+  question);
+- policy: chosen value + "absent" presence → review reason; `none` + "present" presence → review reason; record conf =
+  the weakest judgement (min of the fields' effective confidences);
+- store: `record_conf` + `evidence` into the `datapoints` table (additive migration); eval: presence judgements with
+  ground truth.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from jav.models import Candidate, CellLayout, FieldPick, FlowState, LineLayout
 
 
 class FakeClient:
-    """Choice: az első jelölt 0,9-cel; Noul: a `nouls` szótár szerint (alap 0,9 = „szerepel”)."""
+    """Choice: the first candidate with 0.9; Noul: per the `nouls` dict (default 0.9 = "present")."""
 
     def __init__(self, nouls: dict[str, float] | None = None, pick_none: set[str] | None = None) -> None:
         self.nouls = nouls or {}
@@ -68,7 +70,7 @@ def test_select_json_has_presence_block():
     d = cfg.load("callsite:select")
     assert d["meta"]["version"] >= "1.1.0"
     assert "{what}" in d["presence_template"]
-    assert set(d["presence_what"]) == set(d["instructions"])  # minden Choice-mező mellé jelenlét-kérdés
+    assert set(d["presence_what"]) == set(d["instructions"])  # a presence question next to every Choice field
     assert set(PRESENCE_WHAT) == set(d["instructions"])
 
 
@@ -79,15 +81,15 @@ def test_presence_noul_is_batched_with_the_choice(isolated: Path):
 
     parties = next(r for r in client.requests if "supplier_tax_id" in r["questions"])
     assert isinstance(parties["questions"]["supplier_tax_id__present"], Noul)
-    assert "supplier_address__present" not in parties["questions"]  # nincs jelölt -> nincs Choice, nincs jelenlét-kérdés
+    assert "supplier_address__present" not in parties["questions"]  # no candidate -> no Choice, no presence question
     q = build_presence("supplier_tax_id")
     assert "SUPPLIER" in q.instructions and "Lnn" in q.instructions
 
     p = picks["supplier_tax_id"]
-    assert p.label == "12345678-1-42" and p.present_p == 0.95 and p.line_no == 2  # sor-ID a jelöltből, kódból
-    assert picks["buyer_tax_id"].present_p == 0.1 and picks["buyer_tax_id"].line_no == 2  # a hamis kliens az elsőt választja
+    assert p.label == "12345678-1-42" and p.present_p == 0.95 and p.line_no == 2  # line ID from the candidate, in code
+    assert picks["buyer_tax_id"].present_p == 0.1 and picks["buyer_tax_id"].line_no == 2  # fake client picks the first
     assert picks["supplier_address"].present_p is None and picks["supplier_address"].line_no is None
-    assert len(calls) == 3  # továbbra is három kötegelt kérés, nincs plusz hívás
+    assert len(calls) == 3  # still three batched requests, no extra call
 
 
 def test_effective_and_record_confidence():
@@ -96,13 +98,13 @@ def test_effective_and_record_confidence():
     none_present = FieldPick(field="c", label=None, confidence=0.8, present_p=0.9, n_options=2, request_id="r")
     none_absent = FieldPick(field="d", label=None, confidence=0.8, present_p=0.05, n_options=2, request_id="r")
     no_presence = FieldPick(field="e", label="x", confidence=0.7, n_options=2, request_id="r")
-    no_cands = FieldPick(field="f", label=None, confidence=None, n_options=0, request_id="r")  # 069: jelölt nélkül nincs ítélet
+    no_cands = FieldPick(field="f", label=None, confidence=None, n_options=0, request_id="r")  # 069: no candidate, no judgement
     assert effective_conf(chosen_ok) == 0.9
-    assert effective_conf(chosen_absent) == 0.2  # választott, de „nincs is” -> a gyengébb ítélet
-    assert effective_conf(none_present) == pytest.approx(0.1)  # none, de „szerepel” -> 1 - 0.9
+    assert effective_conf(chosen_absent) == 0.2  # chosen, but "not there" -> the weaker judgement
+    assert effective_conf(none_present) == pytest.approx(0.1)  # none, but "present" -> 1 - 0.9
     assert effective_conf(none_absent) == 0.8
     assert effective_conf(no_presence) == 0.7
-    assert record_conf({"a": chosen_ok, "b": chosen_absent, "f": no_cands}) == 0.2  # min a Jev-ítéletek közül (a 0 jelöltes nem számít)
+    assert record_conf({"a": chosen_ok, "b": chosen_absent, "f": no_cands}) == 0.2  # min of the JEV judgements, zero-candidate excluded
     assert record_conf({"f": no_cands}) is None
 
 
@@ -110,13 +112,13 @@ def test_presence_policy_reasons():
     st = FlowState(source_path="x.pdf", case_id="c", arm="S", picks={
         "supplier_tax_id": FieldPick(field="supplier_tax_id", label="12345678-1-42", confidence=0.9, present_p=0.2, n_options=2, request_id="r"),
         "invoice_number": FieldPick(field="invoice_number", label=None, confidence=0.9, present_p=0.9, n_options=3, request_id="r"),
-        "due_date": FieldPick(field="due_date", label=None, confidence=0.9, present_p=0.5, n_options=2, request_id="r"),  # bizonytalan sáv: nem ok
+        "due_date": FieldPick(field="due_date", label=None, confidence=0.9, present_p=0.5, n_options=2, request_id="r"),  # uncertain band: no reason
         "gross_total": FieldPick(field="gross_total", label="1000", confidence=0.95, present_p=0.97, n_options=2, request_id="r"),
     })
     policy.apply_pick_policy(st)
     assert "pick:absent_but_chosen:supplier_tax_id:0.20" in st.review_reasons
     assert "pick:present_but_none:invoice_number:0.90" in st.review_reasons
-    assert "pick:none:invoice_number" in st.review_reasons  # kötelező mező none-nal (régi ok is marad)
+    assert "pick:none:invoice_number" in st.review_reasons  # required field with none (the old reason stays too)
     assert not any("due_date" in r or "gross_total" in r for r in st.review_reasons)
     assert policy.band_name("invoice.pick.presence") == "default"
 

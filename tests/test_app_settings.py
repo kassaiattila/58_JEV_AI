@@ -1,4 +1,4 @@
-"""Beállítások (057): felhasználói névlista és figyelt munkamappák. Mesterséges adat, AI-hívás nélkül."""
+"""Settings (057): the user name list and the watched work folders. Synthetic data, no AI calls."""
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -8,7 +8,7 @@ from tests import test_api
 from tests.test_api import HUMAN, INVOICE_LINES, write_text_pdf
 
 env = test_api.env
-LATER = datetime.now(timezone.utc) + timedelta(minutes=5)  # a frissen írt fájl már „nyugodt”
+LATER = datetime.now(timezone.utc) + timedelta(minutes=5)  # a freshly written file has already "settled"
 
 
 def _resolve(raw: str) -> Path:
@@ -34,11 +34,11 @@ def test_folder_must_be_inside_allowed_roots_when_restricted(env, tmp_path, monk
     assert ok.status_code == 200, ok.text
     [f] = ok.json()["folders"]
     assert f["name"] == "bejovo" and f["batch_mode"] == "folder" and f["id"].startswith("wf-")
-    assert c.put("/api/settings/folders", json={"folders": []}).status_code == 422  # szerző nélkül nem menthető
+    assert c.put("/api/settings/folders", json={"folders": []}).status_code == 422  # cannot be saved without an author
 
 
 def test_any_existing_folder_can_be_watched_without_restriction(env, tmp_path):
-    """061 döntés: korlát nélkül a munkamappa bárhol lehet; nem létező mappa továbbra sem menthető."""
+    """Decision 061: a work folder can be anywhere, without restriction; a missing folder still cannot be saved."""
     c = env["client"]
     outside = tmp_path / "kint"
     outside.mkdir()
@@ -59,10 +59,10 @@ def test_scan_creates_one_package_then_extends_it_without_readding_removed(env):
         c = env["client"]
         view = c.get(f"/api/workpackages/{wp_id}").json()
         assert view["workpackage"]["source_kind"] == "watch" and view["workpackage"]["assignment"]["recipe_id"] == "invoice-extraction"
-        assert view["runs"] == 0  # fizetős futás nem indul magától
+        assert view["runs"] == 0  # no paid run starts by itself
 
         again = app_settings.scan(f["id"], now=LATER)
-        assert again["new"] == 0 and again["workpackage"] == wp_id  # a látott fájl nem kerül be újra
+        assert again["new"] == 0 and again["workpackage"] == wp_id  # a file already seen is not taken in again
 
         removed = view["workpackage"]["items"][0]["item_id"]
         c.post(f"/api/workpackages/{wp_id}/items/{removed}/remove", headers=HUMAN, json={"expected_revision": view["workpackage"]["revision"]})
@@ -70,7 +70,7 @@ def test_scan_creates_one_package_then_extends_it_without_readding_removed(env):
         third = app_settings.scan(f["id"], now=LATER)
         assert third["new"] == 1 and third["workpackage"] == wp_id
         items = {i["item_id"] for i in c.get(f"/api/workpackages/{wp_id}").json()["workpackage"]["items"]}
-        assert removed not in items and len(items) == 2  # a kézzel eltávolított nem jött vissza
+        assert removed not in items and len(items) == 2  # the document removed by hand did not come back
 
 
 def test_fresh_file_waits_and_daily_mode_makes_a_package_per_day(env):
@@ -79,7 +79,7 @@ def test_fresh_file_waits_and_daily_mode_makes_a_package_per_day(env):
                                         check_dir=_resolve)
         now = datetime.now(timezone.utc)
         wait = app_settings.scan(f["id"], now=now)
-        assert wait["new"] == 0 and wait["settling"] == 2  # még íródhat: a következő átnézésre marad
+        assert wait["new"] == 0 and wait["settling"] == 2  # may still be being written: it waits for the next scan
         day1 = app_settings.scan(f["id"], now=LATER)
         assert day1["new"] == 2
         write_text_pdf(env["folder"] / "szamla_4.pdf", [line.replace("MINTA-2026-001", "MINTA-2026-004") for line in INVOICE_LINES])
@@ -94,11 +94,11 @@ def test_tick_scans_only_due_enabled_folders(env):
                                           check_dir=_resolve)
         on = next(f for f in saved if f["enabled"])
         assert app_settings.tick(LATER) == [on["id"]]
-        assert app_settings.tick(LATER) == []  # a következő átnézés csak a gyakoriság után esedékes
+        assert app_settings.tick(LATER) == []  # the next scan is due only after the interval
 
 
 def test_new_files_go_to_a_new_package_after_the_old_one_is_archived(env):
-    # 058: elrejtett csomagba nem kerül új irat; a már látott fájlok nem jönnek vissza
+    # 058: no new document goes into a hidden package; files already seen do not come back
     with store.use_store(env["db"]):
         from jav import work
 

@@ -1,6 +1,6 @@
-"""063: a receptek magyarázata (`configs/recipe_help.json`) — minden recepthez, beállításhoz és választható értékhez van
-magyarázó szöveg, a szolgáltatás a receptek mellett adja, és a recept ujjlenyomatát nem érinti (a meglévő csomagokon
-nem jelenik meg „a recept változott” figyelmeztetés)."""
+"""063: the recipe explanations (`configs/recipe_help.json`) — every recipe, setting and selectable value has an
+explanatory text, the service delivers them alongside the recipes, and they do not affect the recipe fingerprint
+(existing packages do not show an "a recept változott" (the recipe changed) warning)."""
 
 from fastapi.testclient import TestClient
 
@@ -19,7 +19,7 @@ def test_every_recipe_param_and_option_is_explained():
 
 
 def test_help_is_separate_from_the_recipe_fingerprint():
-    # a magyarázat nem a recept része: a hozzárendeléskor rögzített ujjlenyomat változatlan marad
+    # the explanation is not part of the recipe: the fingerprint recorded at assignment stays unchanged
     for r in work.recipes():
         assert "help" not in r and "when" not in r
     assert cfg.load("recipe_help")["meta"]["name"] == "recipe_help"

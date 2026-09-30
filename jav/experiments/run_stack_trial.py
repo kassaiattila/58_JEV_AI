@@ -1,4 +1,4 @@
-"""Valós, párosított Burr/JEV SDK–Pydantic AI próba, rögzített helyi címkékkel."""
+"""Real, paired Burr/JEV SDK vs Pydantic AI trial with frozen local labels."""
 from __future__ import annotations
 
 import argparse
@@ -120,7 +120,7 @@ def main():
         return
     if not args.live:
         parser.error("--live or --prepare-ocr required")
-    # A címkék / csoportok a hívások előtt lezárva; utána nincs kérdéshangolás.
+    # Labels / groups are frozen before the calls; no question tuning afterwards.
     groups = {split: {v["group"] for v in labels["cases"].values() if v["split"] == split}
               for split in ("development", "evaluation", "regression")}
     assert not groups["development"] & groups["evaluation"]
@@ -176,7 +176,7 @@ def main():
                         row.update(error=type(exc).__name__, error_message=str(exc)[:400],
                                    correct=None if flow == "detect" and label["doc_type"] is None else False,
                                    automatic=False)
-                        # Hiányzó eredmény minden előre címkézett mezőn hiba.
+                        # A missing result counts as an error on every pre-labelled field.
                         if flow == "invoice":
                             row.update(field_checks={k: False for k in label["invoice"]}, expected_line_count=len(label["line_items"]))
                     row["wall_seconds"] = time.perf_counter()-t0

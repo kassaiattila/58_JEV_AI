@@ -1,6 +1,6 @@
-"""Engedélyezett forrásokból determinisztikus, kiállító szerint elkülönített próbaminta.
+"""Deterministic, issuer-disjoint trial sample from approved sources.
 
-Csak helyi olvasás; a kiválasztás rögzül a modellválaszok megtekintése előtt.
+Local reading only; the selection is fixed before any model answer is seen.
 """
 import hashlib
 import json
@@ -9,8 +9,9 @@ from pathlib import Path
 from jav.config import PROJECT_ROOT
 from jav.pdf import read_pdf
 
-# 066 Á13: a kiválasztás (valódi iratok fájlnevei) és a helyi mappaszerkezet nem kerülhet gitbe; a gitből kizárt
-# `runs/` alatt van: {"root": ..., "roots": {kategória: relatív mappa}, "selection": [[kategória, fájlnév, csoport, rész], ...]}.
+# 066 Á13: the selection (file names of real documents) and the local folder structure must not go into git; it lives
+# under `runs/`, which git excludes: {"root": ..., "roots": {category: relative folder},
+# "selection": [[category, file name, group, split], ...]}.
 LOCAL_SELECTION = PROJECT_ROOT / "runs/20260921_stack_trial/selection_local.json"
 CATEGORIES = ("business", "bank", "household")
 
@@ -22,13 +23,13 @@ def _local() -> dict:
 
 
 def roots() -> dict[str, Path]:
-    """A forrásmappák kategóriánként (a helyi kiválasztás-fájlból)."""
+    """The source folders per category (from the local selection file)."""
     d = _local()
     return {k: Path(d["root"]) / v for k, v in d["roots"].items()}
 
 
 def selection() -> list[tuple[str, str, str, str]]:
-    """A rögzített, kiállító szerint elkülönített minta: (kategória, fájlnév, csoport, fejlesztési / értékelő rész)."""
+    """The fixed, issuer-disjoint sample: (category, file name, group, development / evaluation split)."""
     return [tuple(x) for x in _local()["selection"]]
 
 

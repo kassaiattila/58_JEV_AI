@@ -1,4 +1,4 @@
-"""Egységes hívásnapló és előzetes költségfoglalás (040 K1; a 038-as F05 és F06)."""
+"""Unified call log and advance cost reservation (040 K1; F05 and F06 from 038)."""
 
 from decimal import Decimal
 from pathlib import Path
@@ -39,7 +39,7 @@ def test_repeat_of_succeeded_step_replays_without_second_call(isolated):
 
 
 def test_failed_call_is_journaled_and_keeps_reservation(isolated):
-    """F05: timeout után is van napló; az ismeretlen költség nem nulla, nem szabadít fel keretet."""
+    """F05: a timeout still leaves a log entry; the unknown cost is not zero and frees no budget."""
     calls.set_budget("trial", "openai", Decimal("1.00"))
     def timeout():
         raise TimeoutError("provider timeout")
@@ -61,7 +61,7 @@ def test_failed_step_may_be_retried_as_new_attempt(isolated):
 
 
 def test_budget_blocks_before_network(isolated):
-    """F06: 1,00 USD keretnél 0,99 USD után a 0,20 USD-os maximális kérés már el sem indul."""
+    """F06: with a 1.00 USD budget, after 0.99 USD a request with a 0.20 USD maximum does not even start."""
     calls.set_budget("trial", "openai", Decimal("1.00"))
     calls.invoke(run_id="r1", step_id="a", provider="openai", model="m", max_cost_usd=Decimal("0.99"), fn=_ok("0.99"),
                  budget_scope="trial")
@@ -90,9 +90,9 @@ def test_unknown_cost_on_success_keeps_reservation(isolated):
 
 
 def test_crash_after_reservation_blocks_automatic_second_call(isolated):
-    """Válasz utáni összeomlás: a lefoglalt, lezáratlan kísérlet bizonytalan; nincs automatikus második fizetős kérés."""
+    """Crash after the response: the reserved, unclosed attempt is uncertain; no automatic second paid request."""
     calls._reserve(run_id="r1", step_id="s1", provider="openai", model="m", max_cost_usd=Decimal("0.2"),
-                   budget_scope=None, request_hash=None)  # a folyamat itt „összeomlott”
+                   budget_scope=None, request_hash=None)  # the process "crashed" here
     assert calls.recover_uncertain() == 1
     def must_not_run():
         raise AssertionError("second paid call")
@@ -106,26 +106,26 @@ def test_budget_is_per_provider(isolated):
     calls.set_budget("trial", "jev", Decimal("0.01"))
     with pytest.raises(calls.BudgetExceeded):
         calls.invoke(run_id="r1", step_id="a", provider="openai", model="m", max_cost_usd=Decimal("0.01"), fn=_ok(),
-                     budget_scope="trial")  # a keret csak a JEV-et engedi
+                     budget_scope="trial")  # the budget only allows JEV
 
 
 def test_estimate_counts_every_physical_attempt():
     est = calls.estimate_max_cost(input_chars=3000, max_output_tokens=1000, usd_per_mtok=(Decimal("0.75"), Decimal("4.5")),
                                   physical_attempts=3)
-    # 2 karakter/token felső becslés (a magyar szöveg rosszul tokenizálódik): (1500 * 0,75 + 1000 * 4,5) / 1e6 * 3
+    # 2 chars/token upper estimate (Hungarian text tokenises poorly): (1500 * 0.75 + 1000 * 4.5) / 1e6 * 3
     assert est == Decimal("0.016875")
 
 
 def test_saved_response_left_reserved_by_a_crash_is_recovered_as_succeeded(isolated, monkeypatch):
-    """066 Á30: ha a feldolgozó a válasz mentése és a „sikeres” jelölés között áll le, a hívás eddig bizonytalan lett,
-    pedig a válasz megvan: a lépés nem volt ismételhető, a maximum lekötve maradt. Induláskor most sikeresre rendeződik,
-    a mentett költséggel, és az ismétlés a mentett választ adja."""
+    """066 Á30: if the worker stopped between saving the response and marking it "succeeded", the call used to become
+    uncertain although the response was there: the step could not be repeated and the maximum stayed reserved. On
+    start-up it is now settled as succeeded with the saved cost, and the repeat returns the saved response."""
     real_connect = store.connect
     calls_seen = {"n": 0}
 
     def crash_before_success_update(*a, **k):
         calls_seen["n"] += 1
-        if calls_seen["n"] == 3:  # 1: foglalás, 2: válasz mentése, 3: a „sikeres” jelölés
+        if calls_seen["n"] == 3:  # 1: reservation, 2: saving the response, 3: marking "succeeded"
             raise KeyboardInterrupt("leállás")
         return real_connect(*a, **k)
 

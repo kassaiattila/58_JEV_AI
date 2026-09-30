@@ -1,4 +1,4 @@
-"""A 035 leltár hiányzó sémái és tiszta validátora byte-azonos, egyszeri portja."""
+"""One-off, byte-identical port of the schemas missing per the 035 inventory and of the pure legacy validator."""
 from pathlib import Path
 import json
 from jav.config import PROJECT_ROOT, OLD_PROJECT_ROOT

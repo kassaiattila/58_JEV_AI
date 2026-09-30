@@ -1,7 +1,8 @@
-"""071 S-verzió (070 terv 2.1, audit A08 / §1): egy verzióforrás, és a futó szolgáltatásról megállapítható, melyik kód fut.
+"""071 S-verzió (070 plan 2.1, audit A08 / §1): one version source, and the running service tells which code it runs.
 
-A verzió egyetlen forrása a `pyproject.toml`; a felület csomagleírója és a README stabil-sora ugyanezt mondja (a
-kiadáskor együtt lépnek). A commit a szolgáltatás indításakor rögzül: ez az a kód, amely a folyamatban fut.
+The single source of the version is `pyproject.toml`; the UI package descriptor and the README's stable-version line
+say the same (they are bumped together at release). The commit is fixed when the service starts: that is the code
+running in the process.
 """
 
 from __future__ import annotations
@@ -57,5 +58,5 @@ def test_health_reports_version_and_the_commit_fixed_at_start(tmp_path, monkeypa
     monkeypatch.setattr(version, "commit_info", lambda root=None: {"commit": "megvaltozott", "dirty": True})
     h = c.get("/api/health").json()
     assert h["ok"] is True and h["version"] == version.VERSION
-    assert (h["commit"], h["dirty"]) == ("abc1234", False)  # az indításkori állapot, nem a mostani munkafa
+    assert (h["commit"], h["dirty"]) == ("abc1234", False)  # the state at start-up, not the current working tree
     assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d.*", h["started_at"])

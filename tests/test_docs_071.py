@@ -1,8 +1,8 @@
-"""071 D-teljesség: a kódtári leírások követik a kódot.
+"""071 D-teljesség (documentation completeness): the codebase documents follow the code.
 
-- A beállítófájlok leírása (`docs/guides/CONFIGS.md`) minden `configs/*.json`-t megnevez: új beállítófájl nem maradhat le.
-- A változáslista a mostani verziót is tartalmazza (a kiadáskor a verzióval együtt lép).
-- A README jegyzéke az új kódtári dokumentumokra mutat.
+- The config guide (`docs/guides/CONFIGS.md`) names every `configs/*.json`: a new config file cannot be left out.
+- The changelog contains the current version too (it moves together with the version at release).
+- The README's list points to the new codebase documents.
 """
 
 from __future__ import annotations

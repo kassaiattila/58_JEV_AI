@@ -1,4 +1,4 @@
-"""Hívás nélküli összesítés. Nyers egyezés és szerephez kötött etalon külön."""
+"""Summary without any calls. Raw match and the role-bound golden set are reported separately."""
 import json
 import argparse
 from collections import Counter
@@ -10,7 +10,7 @@ from jav.document_learning import digest
 gold=read(OUT/'gold.json')
 
 def normalized(value):
-    # Csak e rögzített etalon pénzértékeinek összehasonlítása; nem üzemi normalizáló.
+    # Only for comparing the money values of this frozen golden set; not a production normaliser.
     return value.replace(' ','').replace('$','').replace(',','.')
 
 def expected_target(group,target):

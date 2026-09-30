@@ -1,4 +1,4 @@
-"""A valódi Pydantic AI fordítás a közös JEV-kapun át; csak a hálózat hamis."""
+"""The real Pydantic AI translation through the shared JEV gate; only the network is fake."""
 import pytest
 from typesafe_sdk import Choice, Noul, Score, SystemOneResponse
 
@@ -39,8 +39,8 @@ def test_typed_answers_preserve_raw_signals_and_use_existing_cache_and_ledger(tm
     first = run_typed("Please reply.", questions, adapter=adapter, run_id="first", config_hash="trial-v1")
     second = run_typed("Please reply.", questions, adapter=adapter, run_id="second", config_hash="trial-v1")
     assert first.output["language"] == "en"
-    assert first.output["requires_action"] == .37  # Noul nincs bool-ra kerekítve
-    assert first.output["urgency"] == 1  # várható érték kerekítve; a módusz 2!
+    assert first.output["requires_action"] == .37  # the Noul is not rounded to a bool
+    assert first.output["urgency"] == 1  # expected value, rounded; the mode is 2!
     assert first.details["scores"]["urgency"] == 1.45
     assert first.details["probabilities"]["urgency"]["2"] == .50
     assert first.calls[0].response.scores["urgency"].probabilities[2] == .50

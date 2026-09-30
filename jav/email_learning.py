@@ -1,4 +1,4 @@
-"""Forrásos M3-adatkezelés és kifejezetten kézi tanulójelölt-export."""
+"""Source-backed M3 data handling and an explicitly manual export of learning candidates."""
 from __future__ import annotations
 import json
 import re
@@ -33,7 +33,7 @@ def _evidence(source,start,end):
 
 
 def body_anchors(source,limit=1800):
-    """Első értelmes szövegrészek pontos helyei; URL/padding nem fogyasztja el a keretet."""
+    """Exact positions of the first meaningful text spans; URLs/padding do not use up the character limit."""
     text=source['text'];out=[];used=0
     for line in re.finditer(r'[^\r\n]+',text):
         cursor=line.start()
@@ -54,11 +54,11 @@ def build_evidence_state(case, searches, *, max_chars=7500):
     validate_case(case)
     msg=EmailMessage.model_validate(case['message'])
     st=build_state(msg)
-    # A régi, tisztított nézet nem kap rejtett elsőbbséget; explicit eredeti részletek.
+    # The old cleaned view gets no hidden priority; explicit original excerpts instead.
     st['body_lines']=[]
     evidence=[]; omitted=[]; size=0
     body=next(s for s in case['sources'] if s['id']=='body')
-    # A küldő rövid aktuális bevezetése mindig megmarad, idézethatárral együtt.
+    # The sender's short current opening is always kept, together with the quote boundary.
     if body['text']:
         evidence=body_anchors(body,limit=min(1800,max_chars))
         size=sum(len(e['quote']) for e in evidence)
@@ -100,7 +100,7 @@ def build_evidence_state(case, searches, *, max_chars=7500):
 
 
 def group_splits(cases):
-    """Feladó, normalizált szálcím, azonos szöveg/fájl tranzitív csoportjai együtt maradnak."""
+    """Transitive groups by sender, normalised thread subject and identical text/file stay together."""
     groups=[{c['case_id']} for c in cases]; seen={}
     for c in cases:
         m=c['message']; subject=re.sub(r'^(?:(?:re|fw|fwd|aw|wg|vá)\s*:\s*)+','',m['subject'].lower()).strip()

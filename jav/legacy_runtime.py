@@ -1,4 +1,4 @@
-"""A meglévő document_learning Burr-gráf új szolgáltatása: régi séma szerinti kivonat."""
+"""A new service of the existing document_learning Burr graph: extraction according to a legacy schema."""
 from __future__ import annotations
 import json
 import sqlite3

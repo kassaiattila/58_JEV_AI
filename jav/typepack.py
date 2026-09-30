@@ -1,24 +1,24 @@
-"""Típus-csomag (type pack): egy dokumentumtípus adatpont-kinyerésének MINDEN típus-specifikus adata egy JSON-ban
-(`configs/types/<típus>.json`, `cfg.load("type:<típus>")`), a kód pedig típus-független mechanizmus.
+"""Type pack: ALL type-specific data of a document type's data-point extraction in one JSON
+(`configs/types/<type>.json`, `cfg.load("type:<type>")`), while the code is a type-independent mechanism.
 
-Mit tartalmaz a csomag (a régi 10_AIFLOW_V4 `types/<key>/` pack tükre, adatként):
-- `fields`: a fejléc-mezők sorrendben, mindegyikhez a FAJTA (`name`, `tax_id`, `date`, `money`, `iban`, `currency`,
-  `country`, `invoice_number`, `address`, `text`, `number`) - a fajta dönti el a normalizálást, az összehasonlítást
-  (golden), a jelölt-fajtát (S-kar) és az evidencia-illesztést (G-kar);
-- `scored_fields` / `informational_fields` (a régi `_compare_contract` és `rules.json non_scored_fields`),
-  `required` (rules.json), `high_stakes` (policy), `validators` (rules.json `named` + `fields` formátum-szabályok);
-- `prompt_file` + `schema_file` (a régi prompt.md és schema.json verbatim, `jav/prompts/`), ebből épül a G-kar
-  kimeneti modellje (`llm_model()`: a JSON-sémából Pydantic-modell, `extra="forbid"`);
-- `select_callsite` / `verify_callsite`: a Jev-hívási helyek beállításfájljai; `candidate_profile`: a jelöltkeresők
-  regex-készlete (`hu` = a magyar számla eddigi viselkedése bitre azonosan, `intl` = nemzetközi bővítés, `utility` = a
-  magyar közmű-számlák OCR-tűrő készlete);
-- `text_labels` (2026-09-20, közmű-kör): a szabad szöveges mezők (`text` fajta) címkéi a dokumentumon (regex-lista
-  mezőnként) - a címkés szöveg-kereső (`candidates.find_labelled_text`) ebből ad jelölteket, a Jev választ;
-- `extends` (2026-09-20): alap-csomag (`configs/types/_base/<név>.json`, pl. a régi `_shared/utility_bill_hu`), amelynek
-  mezői, listái, validátorai és séma-fájlja a gyermek elé kerülnek (a régi `extends` szemantikája: base + child); az
-  alap-csomag önmagában nem futtatható típus (nincs promptja), a `keys()` nem listázza.
+What the pack contains (a mirror of the legacy 10_AIFLOW_V4 `types/<key>/` pack, as data):
+- `fields`: the header fields in order, each with its KIND (`name`, `tax_id`, `date`, `money`, `iban`, `currency`,
+  `country`, `invoice_number`, `address`, `text`, `number`) - the kind decides normalisation, comparison (golden set),
+  the candidate kind (S path) and evidence matching (G path);
+- `scored_fields` / `informational_fields` (the legacy `_compare_contract` and `rules.json non_scored_fields`),
+  `required` (rules.json), `high_stakes` (policy), `validators` (rules.json `named` + `fields` format rules);
+- `prompt_file` + `schema_file` (the legacy prompt.md and schema.json verbatim, `jav/prompts/`), from which the G path's
+  output model is built (`llm_model()`: a Pydantic model from the JSON schema, `extra="forbid"`);
+- `select_callsite` / `verify_callsite`: the settings files of the JEV call sites; `candidate_profile`: the regex set of
+  the candidate finders (`hu` = the Hungarian invoice's existing behaviour, bit for bit, `intl` = international
+  extension, `utility` = the OCR-tolerant set for Hungarian utility bills);
+- `text_labels` (2026-09-20, utility round): the labels of the free-text fields (`text` kind) on the document (a regex
+  list per field) - the labelled text finder (`candidates.find_labelled_text`) yields candidates from it, JEV chooses;
+- `extends` (2026-09-20): a base pack (`configs/types/_base/<name>.json`, e.g. the legacy `_shared/utility_bill_hu`),
+  whose fields, lists, validators and schema file are placed before the child's (the legacy `extends` semantics:
+  base + child); a base pack is not a runnable type on its own (it has no prompt), and `keys()` does not list it.
 
-Új típus = új JSON (+ prompt, séma, két hívási-hely fájl) - Python-kód nélkül, ha a fajták elegendők.
+New type = new JSON (+ prompt, schema, two call-site files) - without Python code, if the kinds suffice.
 """
 
 from __future__ import annotations
@@ -33,10 +33,10 @@ from jav import cfg
 from jav.config import PROMPTS_DIR
 
 KINDS = ("name", "tax_id", "date", "money", "iban", "currency", "country", "invoice_number", "address", "text", "number",
-         "boolean", "list")  # 047: igen/nem mező; tételes lista (a tétel-mezők fajtája a `list_fields`-ben)
-CANDIDATE_KIND_OF = {  # mező-fajta -> jelölt-fajta (S-kar); ami nincs itt, azt nem jelöltből választjuk (Choice-lista vagy nincs)
+         "boolean", "list")  # 047: yes/no field; itemised list (the kinds of the item fields are in `list_fields`)
+CANDIDATE_KIND_OF = {  # field kind -> candidate kind (S path); others: no candidate pick (Choice list or nothing)
     "name": "name", "tax_id": "tax_id", "date": "date", "money": "money", "iban": "iban", "invoice_number": "invoice_number", "address": "address",
-    "number": "quantity",  # mennyiség (kWh, m3, MJ, mérőállás): a mértékegységes / mérő-címkés sorok számai (candidates.find_quantities)
+    "number": "quantity",  # kWh, m3, MJ, meter reading: numbers of unit/meter-labelled rows (candidates.find_quantities)
 }
 DEFAULT_KEY = "invoice_hu"
 BASE_PREFIX = "_base/"
@@ -52,40 +52,41 @@ class TypePack(BaseModel):
     candidate_profile: str = "hu"
     prompt_file: str
     schema_file: str
-    base_schema_file: str | None = None  # az alap-csomag sémája (a mezők eleje), ha `extends`
+    base_schema_file: str | None = None  # the base pack's schema (the start of the fields), with `extends`
     extends: str | None = None
-    select_callsite: str | None  # None: nincs S-kar (047: a régi típusokból átalakított csomagok, csak G-kar)
+    select_callsite: str | None  # None: no S path (047: packs converted from legacy types, G path only)
     verify_callsite: str
-    arms: tuple[str, ...] = ("S", "G")  # a csomaggal futtatható karok
-    default_arm: str | None = None  # 053 T3: a csomag ajánlott útja, ha a recept automatikus kart kér (közmű: G, mert tételt is ad)
-    parent: str | None = None  # 047: a durva felismerési kategória (configs/doc_types.json), amelyen belül ez a részletes típus
-    auto_detect: bool = True  # 047: a felismerés választhatja-e (a régiben is függő típusok: nem)
-    detect: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # 047: a régi detect.json kulcsszavai (required_any, supporting, excluders)
-    fields: dict[str, str]  # mező -> fajta (sorrend = a séma sorrendje)
+    arms: tuple[str, ...] = ("S", "G")  # the paths runnable with the pack
+    default_arm: str | None = None  # 053 T3: pack's path for an `auto` recipe (utility: G, it also yields line items)
+    parent: str | None = None  # 047: the coarse detection category (configs/doc_types.json) of this detailed type
+    auto_detect: bool = True  # 047: may detection pick it (no for types that were dependent in the legacy project too)
+    detect: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # 047: legacy detect.json keyword lists
+    fields: dict[str, str]  # field -> kind (order = the schema's order)
     scored_fields: tuple[str, ...]
     informational_fields: tuple[str, ...] = ()
     required: tuple[str, ...] = ()
     high_stakes: tuple[str, ...] = ()
     validators: tuple[dict[str, Any], ...] = ()
-    text_labels: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # `text` fajtájú mező -> címke-regexek (jelöltkereső)
-    list_fields: dict[str, dict[str, str]] = Field(default_factory=dict)  # 047: `list` mező -> tétel-mező -> fajta ({"*": fajta}: egyszerű lista)
-    enums: dict[str, tuple[Any, ...]] = Field(default_factory=dict)  # 047: `mező` / `mező[].tétel-mező` -> megengedett értékek
+    text_labels: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # `text`-kind field -> label regexes (finder)
+    list_fields: dict[str, dict[str, str]] = Field(default_factory=dict)  # 047: `list` field -> item field -> kind ({"*": kind}: plain list)
+    enums: dict[str, tuple[Any, ...]] = Field(default_factory=dict)  # 047: `field` / `field[].item` -> allowed values
     config_hash: str
 
-    # --- mezőlisták fajta szerint --------------------------------------------------------
+    # --- field lists by kind ---------------------------------------------------------------
 
     @property
     def header_fields(self) -> tuple[str, ...]:
-        """A skalár (egy értékű) mezők: ezekre van jelölt, ellenőrzés, forráshely és mezőjavítás."""
+        """The scalar (single-valued) fields: these have candidates, verification, source location and field
+        correction."""
         return tuple(f for f, k in self.fields.items() if k != "list")
 
     @property
     def record_fields(self) -> tuple[str, ...]:
-        """Minden mező a séma sorrendjében, a tételes listákkal együtt (a mentett `datapoints` kulcsai)."""
+        """Every field in the schema's order, including the itemised lists (the keys of the saved `datapoints`)."""
         return tuple(self.fields)
 
     def normalize(self, data: dict[str, Any]) -> tuple[Any, list[str]]:
-        """Generatív kivonat -> normalizált rekord a csomag fajtái, tétel-leírásai és felsorolt értékei szerint."""
+        """Generative extract -> normalised record according to the pack's kinds, item descriptions and enumerations."""
         from jav.models import record_from_llm
 
         return record_from_llm(data, self.fields, list_fields=self.list_fields, enums={k: list(v) for k, v in self.enums.items()})
@@ -110,26 +111,29 @@ class TypePack(BaseModel):
 
     @property
     def strict_scored(self) -> tuple[str, ...]:
-        """Pontozott, de nem csak informatív mezők (a régi szerződés: az IBAN és a címek nem számítanak a pontosságba)."""
+        """Scored fields that are not merely informational (the legacy contract: IBAN and addresses do not count towards
+        accuracy)."""
         return tuple(f for f in self.scored_fields if f not in self.informational_fields)
 
     @property
     def is_default(self) -> bool:
         return self.key == DEFAULT_KEY
 
-    # --- séma / prompt ---------------------------------------------------------------------
+    # --- schema / prompt -------------------------------------------------------------------
 
     @property
     def schema_files(self) -> tuple[str, ...]:
         return ((self.base_schema_file,) if self.base_schema_file else ()) + (self.schema_file,)
 
     def schema(self) -> dict[str, Any]:
-        """A régi séma (alap + gyermek összefésülve: a `properties` az alap sorrendjével kezdve, a `required` unió)."""
+        """The legacy schema (base + child merged: `properties` starting in the base's order, `required` as the
+        union)."""
         return _merged_schema(self.schema_files)
 
     def llm_model(self) -> type[BaseModel]:
-        """A G-kar kimeneti modellje. A magyar számlánál a kézzel írt `InvoiceLLM` (a régi séma 1:1 tükre, tesztek
-        hivatkozzák); más típusnál a régi schema.json-ból (alap + gyermek) generált modell (`extra="forbid"`, minden mező nullable)."""
+        """The G path's output model. For the Hungarian invoice, the hand-written `InvoiceLLM` (a 1:1 mirror of the
+        legacy schema, referenced by tests); for other types, a model generated from the legacy schema.json (base +
+        child) (`extra="forbid"`, every field nullable)."""
         if self.is_default:
             from jav.models import InvoiceLLM
 
@@ -200,8 +204,8 @@ def _dedup(*lists: list[Any]) -> tuple[Any, ...]:
 
 @lru_cache(maxsize=None)
 def get(key: str = DEFAULT_KEY) -> TypePack:
-    """A típus-csomag betöltve és ellenőrizve (`FileNotFoundError`, ha nincs ilyen típus-csomag). `extends` esetén az
-    alap-csomag mezői / listái / validátorai / sémája a gyermek elé fésülve; a `config_hash` mindkettőt fedi."""
+    """The type pack, loaded and checked (`FileNotFoundError` if there is no such type pack). With `extends`, the base
+    pack's fields / lists / validators / schema are merged in before the child's; `config_hash` covers both."""
     data = cfg.load(f"type:{key}")
     extends = data.get("extends")
     base: dict[str, Any] = cfg.load(f"type:{BASE_PREFIX}{extends}") if extends else {}
@@ -233,7 +237,7 @@ def get(key: str = DEFAULT_KEY) -> TypePack:
     default_arm = inherit("default_arm")
     if default_arm is not None and default_arm not in arms:
         raise ValueError(f"{key}.default_arm: {default_arm} nem a csomag kara ({', '.join(arms)})")
-    # 067 (066 Á18): az azonosító a típus-JSON(ok) mellett a G-kar utasítás- és sémafájljainak tartalmát is fedi
+    # 067 (066 Á18): the identifier covers the type JSON(s) and the contents of the G path's prompt and schema files
     type_names = [f"type:{key}", *([f"type:{BASE_PREFIX}{extends}"] if extends else [])]
     prompt_files = [data["prompt_file"], *([base["schema_file"]] if base.get("schema_file") else []), data["schema_file"]]
     return TypePack(
@@ -271,14 +275,16 @@ def keys() -> list[str]:
 
 
 def catalog_hash() -> str:
-    """067 (066 Á18): az összes típuscsomag együttes azonosítója (a részletes típus kérdésének opciói a csomagok leírásai)."""
+    """067 (066 Á18): the joint identifier of all type packs (the options of the detailed-type question are the packs'
+    descriptions)."""
     return cfg.combine(*(get(k).config_hash for k in sorted(keys())))
 
 
 def resolve_arm(doc_type: str, preferred: str) -> str:
-    """A típus tényleges útja: a kért kar, ha a csomag támogatja; különben a csomag első kara (047: a régi típusokból
-    átalakított csomagok csak G-karral futnak). `auto` (053 T3): a csomag ajánlott útja (`default_arm`), ennek híján az
-    első kara. A feldolgozó (`runtime/worker.arm_for`) és a futás keretfoglalása (`work.run_budget`, 065) közös szabálya."""
+    """The type's actual path: the requested path if the pack supports it; otherwise the pack's first path (047: packs
+    converted from legacy types run with the G path only). `auto` (053 T3): the pack's recommended path
+    (`default_arm`), failing that its first path. The shared rule of the worker (`runtime/worker.arm_for`) and of the
+    run's budget reservation (`work.run_budget`, 065)."""
     pack = get(doc_type)
     if preferred == "auto":
         return pack.default_arm or pack.arms[0]

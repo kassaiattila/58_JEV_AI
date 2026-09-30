@@ -1,7 +1,9 @@
-"""M1 Burr-flow: `load_pdf → detect → save → done`, szöveg nélküli PDF → `ocr_pdf` (OCR-szöveg ugyanoda) vagy `needs_ocr`.
+"""M1 Burr flow: `load_pdf → detect → save → done`; a PDF without text → `ocr_pdf` (OCR text takes the same route) or
+`needs_ocr`.
 
-Külön, kicsi gráf (nem a számla-flow része): a kategória a `documents` táblába kerül, és később a típus szerinti
-M2-flow onnan indul. A `run_id` itt is a gerinc; a Jev-hívás az adapteren megy (cache + ledger).
+A separate, small graph (not part of the invoice flow): the category goes into the `documents` table, and the
+type-specific M2 flow later starts from there. The `run_id` is the backbone here too; the JEV call goes through the
+adapter (cache + ledger).
 """
 
 from __future__ import annotations
@@ -22,9 +24,9 @@ from jav.detect_detail import DetailResult
 from jav.models import LineLayout
 
 TERMINALS = ["done", "needs_ocr"]
-PARTITION = "doc_detect"  # a tartós állapotmentés partíciója (066 Á08: a feldolgozó ezzel keresi a mentett állapotot)
+PARTITION = "doc_detect"  # partition of the durable state store (066 Á08: the worker finds the saved state by it)
 TRACKER_PROJECT = "jav_doc_detect"
-LOW_CONFIDENCE = policy.DETECT_LOW_CONFIDENCE  # configs/policy.json `bands` (detect.doc_type): ez alatt a típus bizonytalan (review-jelölt), de mentjük
+LOW_CONFIDENCE = policy.DETECT_LOW_CONFIDENCE  # policy.json bands (detect.doc_type): lower = uncertain type but saved
 
 
 class DetectState(BaseModel):
@@ -42,10 +44,10 @@ class DetectState(BaseModel):
     ocr_low_conf_ratio: float | None = None
     year: int | None = None
     result: DetectResult | None = None
-    detail: DetailResult | None = None  # 047 T1.2: részletes típus a durva kategórián belül
+    detail: DetailResult | None = None  # 047 T1.2: detailed type within the coarse category
     detail_reasons: list[str] = Field(default_factory=list)
     uncertain: bool = False
-    review_reasons: list[str] = Field(default_factory=list)  # additív; ma: jev_unavailable:<ok>
+    review_reasons: list[str] = Field(default_factory=list)  # additive; jev_unavailable:<reason> and ocr:* reasons
     final_status: str | None = None
 
 
@@ -59,7 +61,7 @@ def _sha256(path: str) -> str:
 
 def _year_hint(path: str) -> int | None:
     parts = Path(path).parts
-    for part in reversed(parts[:-1]):  # mappa-név (Bejövő/2023/...) elsőbbséget kap
+    for part in reversed(parts[:-1]):  # a folder name (e.g. Bejövő/2023/...) takes precedence
         if re.fullmatch(r"20\d{2}", part):
             return int(part)
     m = re.search(r"(20\d{2})", Path(path).name)
@@ -80,7 +82,7 @@ def load_pdf(state: DetectState) -> DetectState:
 
 @action.pydantic(reads=["source_path", "page_count", "review_reasons"], writes=["text", "lines", "layout", "text_source", "ocr_conf", "ocr_low_conf_ratio", "review_reasons"])
 def ocr_pdf(state: DetectState) -> DetectState:
-    """Szöveg nélküli PDF: OCR (jav/ocr.py, gyorsítótárral) ugyanarra az elrendezésre; nincs motor / szöveg -> `needs_ocr`."""
+    """PDF without text: OCR (jav/ocr.py, cached) onto the same layout; no engine / no text -> `needs_ocr`."""
     from jav.ocr import OcrUnavailableError, ocr_with_escalation
 
     try:
@@ -108,7 +110,7 @@ def detect(state: DetectState) -> DetectState:
     pdf = PdfText(path=state.source_path, text=state.text, lines=state.lines, layout=state.layout, page_count=state.page_count, has_text_layer=True)
     try:
         state.result = _detect(get_adapter(), pdf, state.source_path, run_id=state.run_id, use_cache=state.use_cache)
-    except JevUnavailableError as exc:  # a Jev nem elérhető (ledgerben): típus nélkül, kézi sorba; a bejárás később újrafuttatja
+    except JevUnavailableError as exc:  # JEV unavailable (ledgered): no type, manual queue; a later scan reruns it
         state.result = None
         state.uncertain = True
         state.review_reasons = state.review_reasons + [f"jev_unavailable:{exc.reason}"]
@@ -121,8 +123,8 @@ def detect(state: DetectState) -> DetectState:
 
 
 def _resolve_detail(state: DetectState, jev) -> None:
-    """047 T1.2: a részletes típus (`jav/detect_detail.py`). Nyitva maradt vagy bizonytalan részletes típus teendő a
-    felismerés saját okai mellett; a JEV kiesése itt sem állítja meg a folyamatot."""
+    """047 T1.2: the detailed type (`jav/detect_detail.py`). An open or uncertain detailed type is a to-do alongside
+    the detection's own reasons; a JEV outage does not stop the process here either."""
     from jav.adapters.jev import JevUnavailableError
     from jav.detect_detail import resolve
 
@@ -133,7 +135,7 @@ def _resolve_detail(state: DetectState, jev) -> None:
         d = DetailResult(broad=broad, key=None, method="no_jev")
         state.detail_reasons = [f"jev_unavailable:{exc.reason}"]
     state.detail = d
-    if d.method == "no_candidate":  # 069: a kategóriához nincs típuscsomag (fizetési felszólítás, ismeretlen): nincs kinyerés
+    if d.method == "no_candidate":  # 069: no type pack for the category (payment reminder, unknown): no extraction
         state.detail_reasons = state.detail_reasons + [f"detect:no_type_pack:{broad}"]
         return
     if d.key is None:
@@ -154,8 +156,8 @@ def save(state: DetectState) -> DetectState:
         issuer_hu=r.issuer_hu if r else None, run_id=state.run_id,
         detail_type=d.key if d else None, detail_conf=d.confidence if d else None, detail_method=d.method if d else None,
     )
-    store.review_close(subject_kind="document", subject_id=state.doc_id, producer=policy.OCR_REVIEW_PRODUCER, run_id=state.run_id)  # 066: most van szöveg
-    # 047: a részletes típus saját felvevővel (a durva típus okaitól függetlenül zárul)
+    store.review_close(subject_kind="document", subject_id=state.doc_id, producer=policy.OCR_REVIEW_PRODUCER, run_id=state.run_id)  # 066: there is text now
+    # 047: the detailed type has its own producer (closed independently of the coarse type's reasons)
     if state.detail_reasons:
         store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer="detect_detail",
                              reasons=state.detail_reasons, payload={"detail": d.model_dump() if d else None})
@@ -172,9 +174,10 @@ def save(state: DetectState) -> DetectState:
         store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer="detect",
                              reasons=list(state.review_reasons) or ["detect:no_result"])
     else:
-        # újrafuttatás után már biztos a típus: a detect saját korábbi okai (hiba is) okafogyottak, másoké nyitva marad
+        # after a rerun the type is certain: detect's own earlier reasons (errors too) are obsolete; others' stay open
         store.review_close(subject_kind="document", subject_id=state.doc_id, producer="detect", run_id=state.run_id)
-    # Részleges OCR (F07): a típus lehet biztos, a kihagyott oldalak ettől még teendők; külön felvevő, hogy ne záródjon a detecttel.
+    # Partial OCR (F07): the type may be certain, but the skipped pages are still to-dos; a separate producer so that
+    # closing detect does not close it.
     coverage = [x for x in state.review_reasons if x.startswith("ocr:partial_pages:")]
     if coverage:
         store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer="ocr_coverage", reasons=coverage)
@@ -192,7 +195,7 @@ def done(state: DetectState) -> DetectState:
 @action.pydantic(reads=["doc_id", "source_path", "page_count", "year", "run_id", "review_reasons"], writes=["final_status"])
 def needs_ocr(state: DetectState) -> DetectState:
     store.upsert_document(doc_id=state.doc_id, source_path=state.source_path, has_text=False, page_count=state.page_count, year=state.year, run_id=state.run_id)
-    # 066 Á01: a szöveg nélküli irat teendő (a felvevő közös az M2-vel, szöveg esetén zárul)
+    # 066 Á01: a document without text is a to-do (producer shared with M2; closed once there is text)
     store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer=policy.OCR_REVIEW_PRODUCER,
                          reasons=[r for r in state.review_reasons if r.startswith("ocr:")] or ["ocr:no_text"])
     state.final_status = "needs_ocr"
@@ -208,7 +211,7 @@ TRANSITIONS = [
     ("save", "done"),
 ]
 
-CONTRACT = {  # a gráf deklarációja: FLOW.md + Mermaid + lint ebből (jav/contract.py, `python -m jav.cli flows`)
+CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/contract.py, `python -m jav.cli flows`)
     "name": "doc_detect",
     "phases": ["load", "classify", "persist", "terminal"],
     "steps": [("load_pdf", "load"), ("ocr_pdf", "load"), ("detect", "classify"), ("save", "persist"), ("done", "terminal"), ("needs_ocr", "terminal")],
@@ -229,7 +232,8 @@ CONTRACT = {  # a gráf deklarációja: FLOW.md + Mermaid + lint ebből (jav/con
 
 def build_app(source_path: str, *, tracker: bool = False, use_cache: bool = True, run_id: str | None = None,
               persister=None) -> Application:
-    """`persister` (040 K1): tartós állapotmentés, ugyanazzal a `run_id`-vel folytatás; nélküle a korábbi viselkedés."""
+    """`persister` (040 K1): durable state persistence, resuming under the same `run_id`; without it, the earlier
+    behaviour."""
     run_id = run_id or f"detect-{Path(source_path).stem[:24]}-{uuid.uuid4().hex[:8]}"
     initial = DetectState(source_path=source_path, run_id=run_id, use_cache=use_cache)
     b = (
@@ -250,7 +254,7 @@ def build_app(source_path: str, *, tracker: bool = False, use_cache: bool = True
 
 
 def run_detect(source_path: str, *, tracker: bool = False, use_cache: bool = True, run_id: str | None = None) -> DetectState:
-    """`run_id` (065): egy másik folyamatból hívva annak azonosítója alatt naplóz és vesz fel teendőt."""
+    """`run_id` (065): when called from another process, logs and records to-dos under that process's identifier."""
     app = build_app(source_path, tracker=tracker, use_cache=use_cache, run_id=run_id)
     _, _, state = app.run(halt_after=TERMINALS)
     return state.data

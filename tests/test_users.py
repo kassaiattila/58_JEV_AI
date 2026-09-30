@@ -1,6 +1,6 @@
-"""061 döntés: aktív felhasználó + kiosztás. Jelszó nélkül; a névlista nem üres → emberi művelet csak a listán szereplő
-névvel; a futás indítása és a recept mentése is emberi döntés; a munkacsomagnak felelőse lehet („Saját csomagjaim”);
-felhasználónként napi tevékenységnapló („Mai munkám”). Mesterséges adat, AI-hívás nélkül."""
+"""061 decision: active user + assignment. No passwords; once the user list is not empty → a human action only with a
+name on the list; starting a run and saving a recipe are human decisions too; a work package can have an owner ("Only
+my work packages"); a daily activity log per user ("My work today"). Synthetic data, no AI call."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ def _start(c, wp_id, headers):
 
 def test_canonical_user_is_case_insensitive_and_open_while_list_is_empty(env):
     with store.use_store(env["db"]):
-        assert app_settings.canonical_user("Bárki Béla") == "Bárki Béla"  # üres lista: bármely név (első beállítás)
+        assert app_settings.canonical_user("Bárki Béla") == "Bárki Béla"  # empty list: any name (first setup)
         app_settings.save_users(["Minta Anna", "Teszt Elek"])
         assert app_settings.canonical_user("minta anna") == "Minta Anna"
         assert app_settings.canonical_user("Idegen Ödön") is None
@@ -48,7 +48,7 @@ def test_run_start_and_recipe_save_need_a_person_and_record_the_name(env):
     c = env["client"]
     wp = _ready_wp(c, env["folder"])
     _users(c, "Minta Anna")
-    assert _start(c, wp["id"], {}).status_code == 422  # szerző nélkül nem indítható
+    assert _start(c, wp["id"], {}).status_code == 422  # cannot be started without an actor
     assert _start(c, wp["id"], {"X-Actor": "Idegen"}).status_code == 403
     r = _start(c, wp["id"], ANNA)
     assert r.status_code == 201, r.text
@@ -62,7 +62,7 @@ def test_owner_is_set_listed_filtered_and_logged(env):
     c = env["client"]
     wp = _ready_wp(c, env["folder"])
     other = c.post("/api/workpackages", headers=HUMAN, json={"folder": str(env["folder"]), "name": "Másik"}).json()["workpackage"]
-    assert other["owner"] == unquote(HUMAN["X-Actor"])  # 065 döntés: az új csomag felelőse a létrehozó
+    assert other["owner"] == unquote(HUMAN["X-Actor"])  # 065 decision: the owner of a new package is its creator
     _users(c, "Minta Anna", "Teszt Elek")
     assert c.post(f"/api/workpackages/{wp['id']}/owner", headers=ANNA, json={"owner": "Senki"}).status_code == 422
     r = c.post(f"/api/workpackages/{wp['id']}/owner", headers=ANNA, json={"owner": "minta anna"})
@@ -81,7 +81,7 @@ def test_owner_is_set_listed_filtered_and_logged(env):
 
 def test_today_activity_lists_only_the_persons_own_actions(env):
     c = env["client"]
-    wp = _ready_wp(c, env["folder"])  # a recept hozzárendelése: Teszt Elek (HUMAN)
+    wp = _ready_wp(c, env["folder"])  # recipe assigned by: Teszt Elek (HUMAN)
     _users(c, "Minta Anna", "teszt.elek")
     c.post(f"/api/workpackages/{wp['id']}/owner", headers=ANNA, json={"owner": "Minta Anna"})
     run_id = _start(c, wp["id"], ANNA).json()["run_id"]
@@ -93,13 +93,13 @@ def test_today_activity_lists_only_the_persons_own_actions(env):
     assert start["_run"] == run_id and start["_wp"] == wp["id"] and start["workpackage_name"] == "Mesterséges számlák"
     elek = c.post("/api/datasets/activity/query", json={"scope": {"actor": "teszt.elek", "day": day}}).json()["rows"]
     assert [r["action"] for r in elek] == ["recipe"]
-    assert elek[0]["detail"] == "Számlák adatainak kinyerése"  # 062: a recept címe, nem a kódneve
-    assert c.post("/api/datasets/activity/query", json={"scope": {}}).status_code == 422  # a személy kötelező
+    assert elek[0]["detail"] == "Számlák adatainak kinyerése"  # 062: the recipe's title, not its code name
+    assert c.post("/api/datasets/activity/query", json={"scope": {}}).status_code == 422  # the person is mandatory
 
 
 def test_changing_a_filled_user_list_needs_a_listed_author(env):
-    """066 Á35: a névlista írása eddig szerző nélkül is ment; az első kitöltés (üres lista) szerző nélkül is lehet, utána
-    csak a listán szereplő szerző módosíthatja."""
+    """066 Á35: writing the user list used to work without an actor; the first fill-in (empty list) may still be done
+    without one, after that only an actor on the list may change it."""
     c = env["client"]
     _users(c, "Minta Anna")
     assert c.put("/api/settings/users", json={"users": ["Minta Anna", "Új Név"]}).status_code == 422
@@ -109,8 +109,8 @@ def test_changing_a_filled_user_list_needs_a_listed_author(env):
 
 
 def test_user_list_accepts_only_names_the_actor_header_can_carry(env):
-    """066 Á25: a névlista eddig bármilyen nevet elfogadott, a szerző-fejléc szabálya (betű, szám, szóköz, pont, @, kötőjel)
-    viszont nem: a felvett „O'Brien” nevével utána semmit nem lehetett tenni. Most a mentés is ugyanazt a szabályt nézi."""
+    """066 Á25: the user list used to accept any name, but the actor header's rule (letters, digits, space, dot, @,
+    hyphen) did not: nothing could then be done under the added name "O'Brien". Now saving checks the same rule."""
     c = env["client"]
     bad = c.put("/api/settings/users", json={"users": ["Minta Anna", "O'Brien", "<b>x</b>"]})
     assert bad.status_code == 422 and "O'Brien" in bad.json()["message"]

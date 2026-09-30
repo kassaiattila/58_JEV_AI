@@ -1,4 +1,4 @@
-"""A lezárt ügykapcsolat-próbák helyi, forrásazonosítókat őrző összegzése."""
+"""Local summary of the closed matter-link trials, keeping the source identifiers."""
 import json
 import sqlite3
 import statistics

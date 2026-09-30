@@ -1,14 +1,15 @@
-"""047 T1.2: részletes típus a durva felismerési kategórián belül (pl. bankkivonat → CIB vagy Erste).
+"""047 T1.2: detailed type within the coarse detection category (e.g. bank statement → CIB or Erste).
 
-A felismerés (`jav/detect.py`, M1) 12 durva kategóriát ad; a kinyerés a részletes típus csomagját kéri. A lépés:
-1. jelöltek: a kategória csomagjai (`parent`), a függő típusok nélkül (`auto_detect=false`, DECISIONS 047/3);
-2. egy jelölt → az (`single`), hívás nélkül;
-3. a régi horgony-pontszám (a V4 `sidecar/app/detect_engine/service.py` `anchor_check` portja) az irat ELEJÉN
-   (`anchor_head_chars`; a Díjbeszedő-kötegben a részszámla eleje dönt, nem a köteg többi része): kötelező találat 1,
-   támogatónként +0,25, kizárónként -0,5, 0 és 2 közé szorítva. Ha a legjobb jelöltnek van kötelező találata, és legalább
-   `policy.json detect_detail.anchor_margin` előnye van a másodikhoz képest → az (`anchors`), hívás nélkül;
-4. több lehetséges → JEV Choice a jelöltek közül `none`-nal (`jev`); a nyers valószínűség az eredményben, a küszöb a
-   policyban. JEV nélkül vagy `none` esetén a részletes típus nyitva marad (`key=None`), a döntés emberé.
+Detection (`jav/detect.py`, M1) yields 12 coarse categories; extraction asks for the pack of the detailed type. Steps:
+1. candidates: the category's packs (`parent`), without the dependent types (`auto_detect=false`, DECISIONS 047/3);
+2. one candidate → that one (`single`), without a call;
+3. the legacy anchor score (port of `anchor_check` in V4 `sidecar/app/detect_engine/service.py`) at the START of the
+   document (`anchor_head_chars`; in a Díjbeszedő batch the start of the sub-invoice decides, not the rest of the
+   batch): required hit 1, +0.25 per supporting pattern, -0.5 per excluder, clamped between 0 and 2. If the best
+   candidate has a required hit and leads the second by at least `policy.json detect_detail.anchor_margin` → that one
+   (`anchors`), without a call;
+4. several possible → JEV Choice among the candidates with `none` (`jev`); the raw probability goes into the result,
+   the threshold into the policy. Without JEV or on `none` the detailed type stays open (`key=None`); a human decides.
 """
 
 from __future__ import annotations
@@ -30,11 +31,11 @@ class DetailResult(BaseModel):
     confidence: float | None = None
     probabilities: dict[str, float] = Field(default_factory=dict)
     candidates: list[str] = Field(default_factory=list)
-    scores: dict[str, float] = Field(default_factory=dict)  # a régi horgony-pontszám jelöltenként (0-2)
+    scores: dict[str, float] = Field(default_factory=dict)  # the legacy anchor score per candidate (0-2)
 
 
 def config_hash() -> str:
-    """067 (066 Á18): a hívási hely és az összes típuscsomag (a kérdés opciói a csomagok leírásai) együtt."""
+    """067 (066 Á18): the call site and all type packs together (the question's options are the packs' descriptions)."""
     return cfg.combine(cfg.config_hash("callsite:detect_detail"), typepack.catalog_hash())
 
 
@@ -55,7 +56,8 @@ def _match(pattern: str, text: str) -> bool:
 
 
 def anchor_score(detect: dict[str, tuple[str, ...]], text: str) -> tuple[bool, float]:
-    """(kötelező találat, pontszám) - a régi `anchor_check` szemantikája a kisbetűsített, szóköz-normalizált szövegen."""
+    """(required hit, score) - the semantics of the legacy `anchor_check` on the lower-cased, whitespace-normalised
+    text."""
     norm = _WS.sub(" ", text.lower())
     required = detect.get("required_any", ())
     required_hit = not required or any(_match(p, norm) for p in required)
@@ -88,7 +90,7 @@ def resolve(broad: str, text: str, *, jev: Any, run_id: str, use_cache: bool = T
         return DetailResult(key=top, method="anchors", **base)
     if jev is None:
         return DetailResult(key=None, method="no_jev", **base)
-    from typesafe_sdk import Choice  # a JEV SDK-típus; a hívás a közös adapteren megy (`jev.ask`)
+    from typesafe_sdk import Choice  # the JEV SDK type; the call goes through the shared adapter (`jev.ask`)
 
     criteria = {k: packs[k].document for k in ranked}
     criteria[NONE] = conf["none_description"]

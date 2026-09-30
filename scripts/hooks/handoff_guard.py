@@ -1,17 +1,18 @@
-"""Claude Code hook: a sorszámozott handoff (docs/handoffs/NNN-ÉÉÉÉ-HH-NN-handoff.md) őre. Csak stdlib.
+"""Claude Code hook: guard of the numbered handoff (docs/handoffs/NNN-YYYY-MM-DD-handoff.md). Stdlib only.
 
-Használat (a .claude/settings.json hívja, a projekt gyökeréből):
-  python scripts/hooks/handoff_guard.py session-start   # SessionStart: a legfrissebb handoff a kontextusba (stdout)
-  python scripts/hooks/handoff_guard.py pre-compact     # PreCompact: figyelmeztetés, ha a handoff elavult
-  python scripts/hooks/handoff_guard.py stop            # Stop: nem enged leállni, ha friss kód mellett régi a handoff
+Usage (called by .claude/settings.json, from the project root):
+  python scripts/hooks/handoff_guard.py session-start   # SessionStart: the latest handoff into the context (stdout)
+  python scripts/hooks/handoff_guard.py pre-compact     # PreCompact: warning if the handoff is stale
+  python scripts/hooks/handoff_guard.py stop            # Stop: non-blocking reminder if the handoff is stale
 
-Szabály: a handoff "elavult", ha a jav/, tests/ vagy configs/ alatt van nála STALE_MINUTES perccel frissebb fájl.
-2026-09-27 (040, a felhasználó döntése): a Stop-hook már NEM blokkol óránként. Átadó csak session végén és
-szakaszzáráskor kell; a finom történetet a git viszi. Elavult átadónál a Stop csak emlékeztet (systemMessage):
-hány commit készült a legutóbbi átadó óta, és van-e commitolatlan változás.
-A SessionStart a TELJES legfrissebb handoffot adja a kontextusba (2026-09-20-tól; korábban csak az első 40 sort), és a
-`preflight` parancsot ajánlja. A Stop-hook a `docs/STATE.md` állapot-pillanatképet is frissíti (best-effort, a venv
-Pythonjával), hogy a handoff mindig friss generált állapotra hivatkozhasson.
+Rule: the handoff is "stale" if a file under jav/, tests/ or configs/ (or docs/ROADMAP.md, README.md) is more than
+STALE_MINUTES minutes newer than it.
+2026-09-27 (040, the owner's decision): the Stop hook NO longer blocks every hour. A handoff is needed only at the end
+of a session and when a stage closes; git carries the fine-grained history. With a stale handoff the Stop hook only
+reminds (systemMessage): how many commits were made since the latest handoff, and whether there are uncommitted changes.
+SessionStart puts the FULL latest handoff into the context (since 2026-09-20; earlier only the first 40 lines) and
+recommends the `preflight` command. With a stale handoff the Stop hook also refreshes the `docs/STATE.md` state snapshot
+(best-effort, with the venv's Python), so that the handoff can always refer to a freshly generated state.
 """
 
 from __future__ import annotations
@@ -53,14 +54,14 @@ def newest_code_mtime() -> float:
 
 
 def staleness_minutes(handoff: Path | None) -> float:
-    """Hány perccel frissebb a legfrissebb figyelt fájl a handoffnál (negatív: a handoff a frissebb)."""
+    """How many minutes newer the newest watched file is than the handoff (negative: the handoff is newer)."""
     if handoff is None:
         return float("inf")
     return (newest_code_mtime() - handoff.stat().st_mtime) / 60
 
 
 def git(*args: str) -> str | None:
-    """Egy git-parancs kimenete (strip), vagy None, ha nincs git / nem repó / hiba. Sosem dob."""
+    """The output of a git command (stripped), or None if there is no git / no repository / an error. Never raises."""
     try:
         r = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, encoding="utf-8",
                            errors="replace", timeout=10)
@@ -70,10 +71,10 @@ def git(*args: str) -> str | None:
 
 
 def git_summary(handoff: Path | None) -> dict | None:
-    """Ág, HEAD, commitolatlan fájlok száma, és a legutóbbi átadó megírása óta készült commitok száma.
+    """Branch, HEAD, number of uncommitted files, and the number of commits made since the latest handoff was written.
 
-    070 (döntés 2026-09-29): az átadó belső munkaanyag, nincs commitban, ezért a számolás az átadó fájl írási idejétől
-    indul (a commit ideje szerint)."""
+    070 (decision of 2026-09-29): the handoff is an internal working document and not committed, so the count starts
+    from the handoff file's write time (by commit time)."""
     head = git("rev-parse", "--short", "HEAD")
     if head is None:
         return None
@@ -96,7 +97,7 @@ def format_git_line(g: dict | None) -> str:
 
 
 def stop_message(stale: float, g: dict | None, next_num: int) -> str | None:
-    """Nem blokkoló emlékeztető a Stop-hookhoz, vagy None. Csak elavult átadónál szól."""
+    """Non-blocking reminder for the Stop hook, or None. It speaks up only for a stale handoff."""
     if stale <= STALE_MINUTES:
         return None
     parts = [f"[handoff-guard] {format_git_line(g)}."]
@@ -107,7 +108,7 @@ def stop_message(stale: float, g: dict | None, next_num: int) -> str | None:
 
 
 def refresh_state(timeout_s: float = 15.0) -> str:
-    """`docs/STATE.md` újragenerálása a venv Pythonjával, ha a kód frissebb nála. Sosem dob; rövid státusz-szöveget ad."""
+    """Regenerates `docs/STATE.md` with the venv's Python if the code is newer. Never raises; returns a short status."""
     if not VENV_PY.exists():
         return "STATE.md: a venv hiányzik, nem frissült"
     if STATE.exists() and STATE.stat().st_mtime >= newest_code_mtime():
@@ -121,7 +122,7 @@ def refresh_state(timeout_s: float = 15.0) -> str:
 
 
 def main() -> int:
-    for stream in (sys.stdout, sys.stderr):  # Windows cp1250 csapda: a hook kimenete UTF-8
+    for stream in (sys.stdout, sys.stderr):  # Windows cp1250 trap: the hook's output is UTF-8
         try:
             stream.reconfigure(encoding="utf-8")
         except (AttributeError, ValueError):

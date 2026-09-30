@@ -1,4 +1,4 @@
-"""Nagyobb, előre rögzített dokumentumpróba; az előkészítés kizárólag helyi."""
+"""Larger, pre-frozen document trial; the preparation is strictly local."""
 from __future__ import annotations
 
 import argparse
@@ -34,9 +34,9 @@ def prepare():
     seen=set(previous)
     cases=[]
     inventory=[]
-    # Fájlútvonal szerinti hash-sorrend: év/szolgáltató-nevek szerinti kézi válogatás nélkül.
+    # Hash order by file path: no manual selection by year or supplier names.
     for category,quota in [('business',30),('bank',15),('household',15)]:
-        root=roots()[category]  # 066 Á13: a helyi, gitből kizárt kiválasztás-fájlból
+        root=roots()[category]  # 066 Á13: from the local selection file that git excludes
         paths=sorted(root.rglob('*.pdf'),key=lambda p:digest(str(p.relative_to(root)).casefold()))
         inventory.append({'category':category,'available_pdf_paths':len(paths),'target':quota})
         selected=0
@@ -122,7 +122,7 @@ def freeze():
     cases=read(OUT/'inputs.json')
     from jav.policy import ocr_review_reasons
     for case in cases:
-        # A korai OCR-előkészítés a PDF szövegréteg-jelét használta; az OCR text_source a mérvadó.
+        # The early OCR preparation used the PDF's text-layer signal; the OCR text_source is authoritative.
         case['eligibility']=eligibility(PdfText(path=case['path'],text=case.get('text',''),text_source=case.get('text_source')))
         signals=case.get('ocr') or {}
         case['reading_review_reasons']=ocr_review_reasons(signals.get('mean_conf'),signals.get('low_conf_ratio')) if signals else []

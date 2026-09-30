@@ -1,18 +1,19 @@
-"""Determinisztikus jelöltkeresők az S-karhoz: kód talál, Jev választ.
+"""Deterministic candidate finders for the S path: code finds, JEV chooses.
 
-Elv: a keresők recall-ra hangoltak (inkább több jelölt), a Jev Choice-szal választ közülük, a kód a
-kiválasztott szó szerinti értéket normalizálja. Amit a kereső nem talál meg, azt Jev nem választhatja -
-ezért az offline `candidate_recall` (evals) az S-kar felső korlátja.
+Principle: the finders are tuned for recall (more candidates rather than fewer), JEV picks one of them with a Choice,
+and code normalises the verbatim value that was picked. Whatever a finder misses, JEV cannot choose -
+so the offline `candidate_recall` (evals) is the upper bound of the S path.
 
-Sorrend + maszkolás: az érték-jellegű keresők (`iban -> tax_id -> date -> invoice_number -> money`) a talált
-span-t `#`-ra cserélik a sor munkamásolatában, hogy a későbbi keresők ne találják meg újra (pl. az adószám
-számjegyei ne legyenek pénzösszeg-jelöltek). A név/cím keresők cellákon dolgoznak és nem maszkolnak.
+Order + masking: the value-like finders (`iban -> tax_id -> date -> invoice_number -> money`) replace each matched
+span with `#` in the working copy of the line, so later finders do not find it again (e.g. the digits of a tax
+number must not become money candidates). The name/address finders work on cells and do not mask.
 
-Jelölt-profilok (típus-csomag `candidate_profile`): a `hu` a magyar számla eddigi regex-készlete változatlanul; az
-`intl` a nemzetközi bővítés (EU-s / török / lengyel / amerikai adóazonosítók, angol és kontinentális dátumalakok,
-`$1,600.00` pénzjelölés, külföldi jogi formák, angol fél-címkék, fordított adózás = 0 áfa szintetikus jelölt).
-A profil adat (`PROFILES`), a keresők mechanizmus. A `hu` profil a bevezetésekor bitre azonos volt a korábbival; azóta a
-cím alatti számlaszám (065) és a számlaszám-jelölt maszkolása (066: csak önálló előfordulás) mindkét profilban közös.
+Candidate profiles (type pack `candidate_profile`): `hu` is the original regex set for Hungarian invoices, unchanged;
+`intl` is the international extension (EU / Turkish / Polish / US tax IDs, English and continental date forms,
+`$1,600.00` money notation, foreign legal forms, English party labels, reverse charge = synthetic 0 VAT candidate).
+The profile is data (`PROFILES`), the finders are the mechanism. When introduced, the `hu` profile was bit-identical to
+the previous behaviour; since then the invoice number below the title (065) and the masking of invoice-number
+candidates (066: standalone occurrences only) are shared by both profiles.
 """
 
 from __future__ import annotations
@@ -36,38 +37,41 @@ from jav.models import (
 from jav.taxid import recognize as recognize_tax_id
 from jav.validators import hu_tax_id
 
-MAX_OPTIONS = 250  # 255-ös Choice-limit, mínusz a "none" és tartalék
+MAX_OPTIONS = 250  # the 255-option Choice limit, minus "none" and a margin
 MAX_NAME_FALLBACK = 60
 CONTEXT_MAX_CHARS = 140
 
-# --- reguláris kifejezések --------------------------------------------------------------
+# --- regular expressions ----------------------------------------------------------------
 
 IBAN_RES = (
     re.compile(r"\bHU\d{2}(?:[  ]?\d{4}){6}\b"),
     re.compile(r"(?<!\d)\d{8}[- ]\d{8}[- ]\d{8}(?!\d)"),
     re.compile(r"(?<!\d)\d{8}[- ]\d{8}(?!\d)"),
-    # 065: a tapadó alak önálló token (a kötőjeles azonosító része nem számlaszám: „6300001234567890-4” számlaszám)
+    # 065: the unseparated form must be a standalone token (part of a hyphenated identifier is not a bank account
+    # number: "6300001234567890-4" is an invoice number)
     re.compile(r"(?<![\w-])\d{24}(?![\w-])"),
     re.compile(r"(?<![\w-])\d{16}(?![\w-])"),
 )
-# Külföldi IBAN (nem HU): országkód + 2 ellenőrző jegy + 11-30 alfanumerikus, szóközös csoportokkal is
+# Foreign IBAN (not HU): country code + 2 check digits + 11-30 alphanumerics, also in space-separated groups
 IBAN_INTL_RE = re.compile(r"\b(?!HU)[A-Z]{2}\d{2}(?:[  ]?[A-Z0-9]{4}){2,7}(?:[  ]?[A-Z0-9]{1,4})?\b")
 TAXID_FORMATTED_RE = re.compile(r"(?<!\d)\d{8}-\d-\d{2}(?!\d)")
 TAXID_CONTIGUOUS_RE = re.compile(r"(?<![\d-])\d{11}(?![\d-])")
 TAXID_EU_RE = re.compile(r"\bHU\d{8}\b")
-# EU-s / brit / svájci adószám (nem HU): országkód + 8-12 alfanumerikus; az ír alak (IE + 7 jegy + 1-2 betű) is
-# 065: az uniós OSS-nyilvántartási szám (EU + 9 jegy, pl. amerikai szolgáltatók uniós áfája) és a holland „…B01” végződés is
-_EU_CC = "AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|HR|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK|GB|XI|NO|CH|TR|UA|RS|EU"  # valódi országkód-előtagok (az "ID 512345678" nem adószám)
-# 069 (066 Á27): a norvég szóközös alak az MVA utótaggal; az ír alak különálló záró betűje („IE 8256796 U”) a jelölt része.
-# A találat csak felismert alakként (jav/taxid.py) jelölt, kanonikus írásmóddal; a szóközös „NO …” MVA nélkül nem
-# (az „INVOICE NO 123456789” sorszám, nem norvég adószám).
+# EU / UK / Swiss tax number (not HU): country code + 8-12 alphanumerics; also the Irish form (IE + 7 digits +
+# 1-2 letters)
+# 065: also the EU OSS registration number (EU + 9 digits, e.g. the EU VAT of US providers) and the Dutch "…B01" suffix
+_EU_CC = "AT|BE|BG|CY|CZ|DE|DK|EE|EL|ES|FI|FR|HR|IE|IT|LT|LU|LV|MT|NL|PL|PT|RO|SE|SI|SK|GB|XI|NO|CH|TR|UA|RS|EU"  # real country-code prefixes ("ID 512345678" is not a tax number)
+# 069 (066 Á27): the spaced Norwegian form with the MVA suffix; the separate trailing letter of the Irish form
+# ("IE 8256796 U") is part of the candidate. A match is a candidate only as a recognised form (jav/taxid.py), in its
+# canonical spelling; the spaced "NO …" without MVA is not ("INVOICE NO 123456789" is a serial number, not a Norwegian
+# tax number).
 TAXID_EU_INTL_RE = re.compile(
     rf"\b(?:NO[ ]?\d{{3}}[ ]?\d{{3}}[ ]?\d{{3}}[ ]?MVA"
     rf"|(?:{_EU_CC})[- ]?\d{{7,12}}(?:[A-Z]{{1,2}}\d{{0,2}})?(?: [A-Z]{{1,2}}(?!\w))?"
     rf"|IE\d[A-Z0-9+*]\d{{5}}[A-Z]{{1,2}}|CHE[- ]?\d{{3}}\.?\d{{3}}\.?\d{{3}})\b")
-# 069 (066 Á27): az EIN csak nagybetűvel címke (a német „ein” névelő nem)
+# 069 (066 Á27): EIN is a label only in capitals (the German article "ein" is not)
 TAXID_LABEL_INTL_RE = re.compile(r"(?i)\b(?:vat\s*(?:id|no|number|reg)|tax\s*(?:id|number|no)|(?-i:EIN)|vkn|tckn|nip|ust[-.]?\s?idnr|steuernummer|abn|gstin|vergi\s*no|áfaazonosító|adószám)\b")
-TAXID_LABEL_TOKEN_RE = re.compile(r"(?<![\w-])(?:\d{2}-\d{7}|\d{9,11}|\d{3}[- ]\d{3}[- ]\d{3}[- ]\d{2,3})(?![\w-])")  # EIN 12-3456789, VKN 10 jegy, ABN 11 jegy
+TAXID_LABEL_TOKEN_RE = re.compile(r"(?<![\w-])(?:\d{2}-\d{7}|\d{9,11}|\d{3}[- ]\d{3}[- ]\d{3}[- ]\d{2,3})(?![\w-])")  # EIN 12-3456789, VKN 10 digits, ABN 11 digits
 
 INVOICE_LABEL_RE = re.compile(
     r"(?i)számla\s*sorszám|sorszám|számlaszám|számla\s*száma|bizonylatszám|invoice\s*(?:no|number|#)|számla\s*azonosító"
@@ -75,14 +79,15 @@ INVOICE_LABEL_RE = re.compile(
 INVOICE_LABEL_INTL_RE = re.compile(
     r"(?i)számla\s*sorszám|sorszám|számlaszám|számla\s*száma|bizonylatszám|invoice\s*(?:no|number|#|id)|számla\s*azonosító"
     r"|fatura\s*no|belge\s*no|bilet\s*no|rechnungs?-?(?:nr|nummer)|faktura(?:\s*(?:nr|vat|no))?|document\s*(?:no|number)|receipt\s*(?:no|number|#)|invoice\s*$"
-    # 065: nyugtán a rendelés- / tranzakció-azonosító az irat száma; jóváíró számla; a Microsoft számlázási összesítője
-    # 066 Á03: szóhatárral („Order now…” reklámsor, „recorder Number” nem címke)
+    # 065: on a receipt the order / transaction ID is the document number; credit note; Microsoft's billing summary
+    # 066 Á03: with word boundaries ("Order now…" advertising line, "recorder Number" are not labels)
     r"|\border\s*(?:no|number|id)\b|\border\s*#|\btransaction\s*id\b|\bcredit\s*note\b|számlázási\s*szám"
 )
-# 065: cím-sor („Elektronikus számla”, „Invoice”), alatta egyetlen azonosító (Billingo: a szám címke nélkül áll a cím alatt)
+# 065: title line ("Elektronikus számla", "Invoice") with a single identifier below it (Billingo: the number stands
+# below the title without a label)
 INVOICE_TITLE_RE = re.compile(r"(?i)^\s*(?:elektronikus\s+|e-)?(?:számla|invoice|tax\s+invoice|receipt|credit\s+note)\s*[:：]?\s*$")
 INVOICE_TOKEN_RE = re.compile(r"(?<![\w/\-])[A-Za-z0-9][A-Za-z0-9\-/._]{1,}(?![\w/\-])")
-# 066 Á03: összeg-alakú token (1 250,00 / 45.00 / 1,250.00): nem számlaszám-jelölt, a pénz-kereső dolga
+# 066 Á03: amount-shaped token (1 250,00 / 45.00 / 1,250.00): not an invoice-number candidate, the money finder's job
 AMOUNT_TOKEN_RE = re.compile(r"-?\d{1,3}(?:[,.  ]\d{3})*[.,]\d{2}|-?\d+[.,]\d{2}")
 
 MONEY_RE = re.compile(
@@ -93,7 +98,7 @@ MONEY_RE = re.compile(
     r"|-?\d+)"  # 1000000 / 0
     r"(?![\d.,]\d)"
 )
-# intl: angol ezres vessző + tizedes pont ("1,600.00", "12,345", "$42.50") is egyben
+# intl: also English thousands comma + decimal point ("1,600.00", "12,345", "$42.50") as one match
 MONEY_INTL_RE = re.compile(
     r"(?<![\d.,])"
     r"(-?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?"  # 1,600.00 / 12,345
@@ -156,16 +161,17 @@ ADDRESS_INTL_RE = re.compile(r"(?<!\d)\d{4,6}(?!\d)|\b[A-Z]{2}\s\d{5}\b|\b[A-Z]\
 ADDRESS_STOP_INTL_RE = re.compile(
     r"(?i)vat|tax|invoice|date|total|amount|bill\s+to|from|@|www\.|http|description|áfaazonosító|adószám|számla|határidő|időszak|rendelés"
     r"|^\d{4}\.\s|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}|\d{4}/\d{2}/\d{2}|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}|[$€£]"
-)  # dátum-, időszak-, azonosító-, összeg-jellegű cellák nem címek
+)  # date-, period-, identifier- and amount-like cells are not addresses
 PAYMENT_METHOD_LINE_RE = re.compile(r"(?i)fizetési\s*mód|fizetés\s*módja|átutalás|utalás|készpénz|bankkártya|kártya")
-COLUMN_X_TOLERANCE = 15.0  # pt - ugyanabban az oszlopban lévő cellák x0 eltérése
+COLUMN_X_TOLERANCE = 15.0  # pt - x0 difference of cells in the same column
 
-# --- közmű-profil (OCR-szövegű magyar közmű-számlák: MVM villany / gáz, Díjbeszedő-köteg víz / csatorna / hulladék) -----------
+# --- utility profile (OCR-text Hungarian utility bills: MVM electricity / gas, Díjbeszedő batch water / sewage / waste)
 LEGAL_FORM_UTILITY_RE = re.compile(
     r"(?i)(?:\bkft\b|\bzrt\b|\bbt\b|\bnyrt\b|\bkkt\b|\brészvénytársaság\b|\bkorlátolt felelősségű\b|\btársaság\b|\bművek\b|\bholding\b"
     r"|\begyesület\b|\balapítvány\b|\bintézmény\b|\bönkormányzat\b|\bltd\b|\bgmbh\b)"
 )
-# OCR-tűrő címkék: az ékezetes betűk helyén betű-osztály (az OCR "Elosztéi engedélyes"-t, "Felhasznalo"-t is olvashat)
+# OCR-tolerant labels: a character class in place of accented letters (OCR may also read "Elosztéi engedélyes",
+# "Felhasznalo")
 PARTY_LABEL_UTILITY_RE = re.compile(
     r"(?i)^(?:szolg[áa]ltat[óo] neve|szolg[áa]ltat[óo]|felhaszn[áa]l[óo] neve|felhaszn[áa]l[óo]|vev[őo]\s*\(fizet[őo]\)\s*neve|vev[őo]\s*\(fizet[őo]\)|vev[őo] neve|vev[őo]"
     r"|sz[áa]mlatulajdonos neve|sz[áa]mlatulajdonos|eloszt[óoóée]i enged[ée]lyes|f[öoóé]ldg[áa]zeloszt[óoé]|fizet[őo] neve|megb[íi]z[óo]\s*\(befizet[őo]\)\s*neve"
@@ -184,19 +190,21 @@ LABEL_ONLY_UTILITY_RE = re.compile(
 INVOICE_LABEL_UTILITY_RE = re.compile(
     r"(?i)számla\s*sorszám|sorszám|számlaszám|számla\s*száma|bizonylatszám|számla\s*azonosító|terhelési\s*összesítő\s*(?:száma|sorszáma)|bizonylat\s*sorszáma"
 )
-# OCR: a dátum-elválasztó néha vessző lesz ("2025.08.01-2025,08.31"); a vesszős alakot is elfogadjuk, a normalizálás előtt pontra cseréljük
+# OCR: the date separator sometimes becomes a comma ("2025.08.01-2025,08.31"); the comma form is accepted too and
+# replaced with a dot before normalisation
 DATE_OCR_RE = re.compile(r"(?<!\d)(\d{4})\s*[.\-/,]\s*(\d{1,2})\s*[.\-/,]\s*(\d{1,2})\.?(?!\d)")
-# OCR: az adószám 8 jegyű blokkjába szóköz kerülhet ("2690357 0-2-44", "26903 570-2-44"); a szóköz nélküli alak ellenőrzőszám-teszttel jelölt
+# OCR: a space may slip into the 8-digit block of the tax number ("2690357 0-2-44", "26903 570-2-44"); the form with
+# the spaces removed becomes a candidate if it passes the check-digit test
 TAXID_OCR_RE = re.compile(r"(?<!\d)\d(?:[  ]?\d){7}[- ]\d[- ]\d{2}(?!\d)")
 TAXID_LABEL_HU_RE = re.compile(r"(?i)ad[óoóé]sz[áa]m")
 
 
 @dataclass(frozen=True)
 class Profile:
-    """Egy jelölt-profil regex-készlete (adat; a keresők a mechanizmus)."""
+    """The regex set of one candidate profile (data; the finders are the mechanism)."""
 
     name: str
-    intl: bool  # parse_money / normalize_date nemzetközi alakjai
+    intl: bool  # international forms in parse_money / normalize_date
     legal_form_re: re.Pattern[str]
     party_label_re: re.Pattern[str]
     label_only_re: re.Pattern[str]
@@ -206,15 +214,15 @@ class Profile:
     date_res: tuple[re.Pattern[str], ...] = (DATE_NUMERIC_RE, DATE_TEXT_RE)
     extra_iban_res: tuple[re.Pattern[str], ...] = ()
     extra_taxid_res: tuple[re.Pattern[str], ...] = ()
-    taxid_label_re: re.Pattern[str] | None = None  # címkés sorban a címke utáni azonosító-tokenek is adószám-jelöltek
-    name_cut_after_legal_form: bool = False  # "Microsoft Ireland Operations Ltd, One Microsoft Place, ..." -> a név a jogi formáig
-    reverse_charge_zero: bool = False  # "reverse charge" nyomtatva és nincs 0 összeg -> szintetikus "0" pénz-jelölt (áfa)
+    taxid_label_re: re.Pattern[str] | None = None  # in a labelled line the identifier tokens after the label are tax-number candidates too
+    name_cut_after_legal_form: bool = False  # "Microsoft Ireland Operations Ltd, One Microsoft Place, ..." -> the name ends at the legal form
+    reverse_charge_zero: bool = False  # "reverse charge" printed and no 0 amount -> synthetic "0" money candidate (VAT)
     intl_addresses: bool = False
-    ocr_dates: bool = False  # OCR-tűrés: a dátumban a vessző elválasztót pontnak vesszük
-    address_label_re: re.Pattern[str] | None = None  # cím-címkék ("Felhasználó címe:") levágása a cím-jelöltről; alap: a fél-címkék
-    invoice_lookahead: int = 1  # a számlaszám-címke utáni sorok, ahol az értéket keressük (OCR: a címke és az érték közé sor kerülhet)
-    ocr_taxid: bool = False  # OCR-tűrés: szóközzel tört magyar adószám is jelölt, ha az ellenőrzőszáma stimmel
-    max_money_options: int = MAX_OPTIONS  # a pénz-jelöltek felső korlátja (OCR-szövegű, sok számot tartalmazó közmű-számlán kisebb: a kérés token-korlátja)
+    ocr_dates: bool = False  # OCR tolerance: a comma separator in a date is read as a dot
+    address_label_re: re.Pattern[str] | None = None  # address labels ("Felhasználó címe:") cut from the address candidate; default: the party labels
+    invoice_lookahead: int = 1  # lines after the invoice-number label searched for the value (OCR: a line may fall between label and value)
+    ocr_taxid: bool = False  # OCR tolerance: a Hungarian tax number broken by a space is a candidate too if its check digit is correct
+    max_money_options: int = MAX_OPTIONS  # upper limit of money candidates (smaller on number-heavy OCR-text utility bills: the request token limit)
 
 
 HU = Profile(
@@ -224,7 +232,8 @@ HU = Profile(
 INTL = Profile(
     name="intl", intl=True, legal_form_re=LEGAL_FORM_INTL_RE, party_label_re=PARTY_LABEL_INTL_RE, label_only_re=LABEL_ONLY_INTL_RE,
     invoice_label_re=INVOICE_LABEL_INTL_RE, money_re=MONEY_INTL_RE, currency_tokens=CURRENCY_TOKENS_INTL,
-    # a perjeles US alak és a nap-először alak a HU év-először minta ELŐTT fut: különben a "2022 - 12/25" átnyúlik a tartomány-kötőjelen
+    # the US slash form and the day-first form run BEFORE the HU year-first pattern: otherwise "2022 - 12/25" reaches
+    # across the range hyphen
     date_res=(DATE_TEXT_RE, *INTL_DATE_RES, DATE_NUMERIC_RE), extra_iban_res=(IBAN_INTL_RE,), extra_taxid_res=(TAXID_EU_INTL_RE,),
     taxid_label_re=TAXID_LABEL_INTL_RE, name_cut_after_legal_form=True, reverse_charge_zero=True, intl_addresses=True,
 )
@@ -243,7 +252,7 @@ def profile_of(profile: str | Profile | None) -> Profile:
     return PROFILES[profile or "hu"]
 
 
-# --- segédek ---------------------------------------------------------------------------
+# --- helpers ---------------------------------------------------------------------------
 
 
 def _context(lines: list[LineLayout], idx: int) -> str:
@@ -253,7 +262,7 @@ def _context(lines: list[LineLayout], idx: int) -> str:
 
 
 class _Bucket:
-    """Jelöltek gyűjtése normalizált label szerinti dedup-pal, dokumentum-sorrendben."""
+    """Collects candidates, deduplicated by normalised label, in document order."""
 
     def __init__(self, kind: CandidateKind) -> None:
         self.kind = kind
@@ -285,7 +294,7 @@ def _mask(text: str, start: int, end: int) -> str:
     return text[:start] + "#" * (end - start) + text[end:]
 
 
-# --- keresők ---------------------------------------------------------------------------
+# --- finders ---------------------------------------------------------------------------
 
 
 PARTIAL_HU_IBAN_RE = re.compile(r"^HU\d{2}(?:[  ]\d{4}){1,5}$")
@@ -302,7 +311,7 @@ def find_ibans(lines: list[LineLayout], work: list[str], profile: Profile = HU) 
         seen_digits.setdefault(digits[-16:], label)
         bucket.add(label, label_raw, lines, i)
 
-    # sortörött HU IBAN (NAV Online Számlázó sablon): "HU82 1210 0028 4681 3574 0000" + alatta "0000"
+    # HU IBAN broken across lines (NAV Online Számlázó template): "HU82 1210 0028 4681 3574 0000" + "0000" below it
     for i, ln in enumerate(lines):
         for cell in ln.cells:
             if not PARTIAL_HU_IBAN_RE.match(cell.text):
@@ -327,7 +336,7 @@ def find_ibans(lines: list[LineLayout], work: list[str], profile: Profile = HU) 
         for rx in IBAN_RES + profile.extra_iban_res:
             for m in list(rx.finditer(work[i])):
                 if rx in profile.extra_iban_res and len(re.sub(r"[^A-Z0-9]", "", m.group(0))) < 15:
-                    continue  # túl rövid az IBAN-hoz (pl. egy EU-s adószám alakja)
+                    continue  # too short for an IBAN (e.g. the shape of an EU tax number)
                 add(m.group(0), i)
                 work[i] = _mask(work[i], m.start(), m.end())
     return bucket.items()
@@ -340,17 +349,18 @@ def find_tax_ids(lines: list[LineLayout], work: list[str], profile: Profile = HU
             bucket.add(normalize_tax_id(m.group(0)) or "", m.group(0), lines, i)
             work[i] = _mask(work[i], m.start(), m.end())
         for m in list(TAXID_CONTIGUOUS_RE.finditer(work[i])):
-            # 11 tapadó számjegy csak akkor adószám-jelölt, ha az ellenőrzőszám stimmel (telefonszámok kiszűrése)
+            # 11 contiguous digits are a tax-number candidate only if the check digit is correct (filters out phone
+            # numbers)
             if hu_tax_id(m.group(0)).ok:
                 bucket.add(normalize_tax_id(m.group(0)) or "", m.group(0), lines, i)
                 work[i] = _mask(work[i], m.start(), m.end())
         for m in list(TAXID_EU_RE.finditer(work[i])):
             bucket.add(m.group(0), m.group(0), lines, i)
             work[i] = _mask(work[i], m.start(), m.end())
-        if profile.ocr_taxid and TAXID_LABEL_HU_RE.search(ln.text):  # csak adószám-címkés sorban (a táblázat számoszlopai nem)
+        if profile.ocr_taxid and TAXID_LABEL_HU_RE.search(ln.text):  # only in a line with a tax-number label (not the table's number columns)
             for m in list(TAXID_OCR_RE.finditer(work[i])):
                 compact = re.sub(r"[  ]", "", m.group(0))
-                if hu_tax_id(compact).ok:  # csak érvényes ellenőrzőszámmal: a szóközös alak zajos
+                if hu_tax_id(compact).ok:  # only with a valid check digit: the spaced form is noisy
                     bucket.add(normalize_tax_id(compact) or "", m.group(0), lines, i)
                     work[i] = _mask(work[i], m.start(), m.end())
         for rx in profile.extra_taxid_res:
@@ -362,8 +372,9 @@ def find_tax_ids(lines: list[LineLayout], work: list[str], profile: Profile = HU
                 bucket.add(label, m.group(0)[:length], lines, i)
                 work[i] = _mask(work[i], m.start(), m.start() + length)
         if profile.taxid_label_re:
-            # címkés sor (VAT ID / Tax ID / VKN / EIN ...): az azonosító-tokenek (helyi alakok) is jelöltek, de csak a címke
-            # cellájában és az utána következő cellában (069, 066 Á27: a sor távoli cellájának telefonszáma nem)
+            # labelled line (VAT ID / Tax ID / VKN / EIN ...): the identifier tokens (local forms) are candidates too,
+            # but only in the label's cell and the next cell (069, 066 Á27: a phone number in a distant cell of the line
+            # is not)
             for start, end in _label_spans(ln, profile.taxid_label_re):
                 for m in list(TAXID_LABEL_TOKEN_RE.finditer(work[i], start, end)):
                     bucket.add(m.group(0), m.group(0), lines, i)
@@ -372,9 +383,10 @@ def find_tax_ids(lines: list[LineLayout], work: list[str], profile: Profile = HU
 
 
 def _recognized_prefix(raw: str) -> tuple[str, int] | None:
-    """Az uniós / nemzetközi adószám-találat felismert része (kanonikus alak, hossz a találatban). A záró különálló
-    betűcsoport lehet az ír adószám része („IE 8256796 U”) vagy a következő szó („DE123456789 AG”): előbb egészben,
-    aztán nélküle próbáljuk. A szóközös „NO …” csak MVA utótaggal norvég adószám."""
+    """The recognised part of an EU / international tax-number match (canonical form, length within the match). A
+    separate trailing letter group may be part of an Irish tax number ("IE 8256796 U") or the next word ("DE123456789
+    AG"): it is tried with it first, then without. The spaced "NO …" is a Norwegian tax number only with the MVA
+    suffix."""
     if re.match(r"NO[ -]", raw) and not raw.endswith("MVA"):
         return None
     for length in (len(raw), raw.rfind(" ")):
@@ -386,8 +398,8 @@ def _recognized_prefix(raw: str) -> tuple[str, int] | None:
 
 
 def _label_spans(ln: LineLayout, label_re: re.Pattern[str]) -> list[tuple[int, int]]:
-    """A címke-találatok tartománya a sor szövegében: a címke helyétől a címke cellájának, illetve a következő cellának a
-    végéig. Cellák nélkül (vagy ha a cellák nem rakják ki a sort) a címkétől a sor végéig."""
+    """The spans of the label matches in the line text: from the label to the end of the label's cell, or of the next
+    cell. Without cells (or if the cells do not make up the line) from the label to the end of the line."""
     spans: list[tuple[int, int]] = []
     bounds: list[tuple[int, int]] = []
     pos = 0
@@ -427,23 +439,23 @@ def _invoice_tokens(text: str) -> list[str]:
         tok = m.group(0).strip(":;,.")
         if "#" in tok or not any(ch.isdigit() for ch in tok) or len(tok) < 2:
             continue
-        if re.fullmatch(r"\d{1,2}/\d{1,2}", tok):  # "1/1" oldalszám
+        if re.fullmatch(r"\d{1,2}/\d{1,2}", tok):  # "1/1" page number
             continue
         out.append(tok)
     return out
 
 
 def _id_shaped(tok: str) -> bool:
-    """066 Á03: a cím alatti egyetlen token csak azonosító-alakú lehet: betű vagy elválasztó (-, /) van benne, vagy
-    legalább 5 számjegy; az évszám („2026”) és az összeg („45.00”) nem az."""
+    """066 Á03: the single token below the title must be identifier-shaped: it contains a letter or a separator (-, /),
+    or at least 5 digits; a year ("2026") or an amount ("45.00") is not."""
     if AMOUNT_TOKEN_RE.fullmatch(tok):
         return False
     return any(ch.isalpha() or ch in "-/" for ch in tok) or sum(ch.isdigit() for ch in tok) >= 5
 
 
 def _mask_label_everywhere(work: list[str], label: str) -> None:
-    """A számlaszám-jelölt kitakarása minden sorban, hogy a pénz-kereső ne lássa a számjegyeit; 066 Á03: csak önálló
-    előfordulásként, egy nagyobb szám belsejében („15” a „1 150,00”-ban, a „15 000”-ben) nem."""
+    """Masks the invoice-number candidate in every line so the money finder does not see its digits; 066 Á03: only as a
+    standalone occurrence, not inside a larger number ("15" in "1 150,00" or in "15 000")."""
     rx = re.compile(rf"(?<![\w.,/\-])(?<!\d[  ]){re.escape(label)}(?![\w/\-])(?![.,]\d)(?![  ]\d{{3}}(?!\d))")
     for j, text in enumerate(work):
         for m in list(rx.finditer(text)):
@@ -454,18 +466,20 @@ def find_invoice_numbers(lines: list[LineLayout], work: list[str], profile: Prof
     bucket = _Bucket("invoice_number")
     label_idx = [i for i, ln in enumerate(lines) if profile.invoice_label_re.search(ln.text)]
     for i in label_idx:
-        # címke-sor + szomszédok (a NAV-os sablonon a Sorszám: címke az érték ALATT van); OCR-nél a címke és az érték közé
-        # egy köztes sor kerülhet (Díjbeszedő: "Terhelési összesítő száma" / tájékoztató sor / a szám) -> `invoice_lookahead`
+        # label line + neighbours (on the NAV template the "Sorszám:" label is BELOW the value); with OCR an
+        # intermediate line may fall between label and value (Díjbeszedő: "Terhelési összesítő száma" / info line /
+        # the number) -> `invoice_lookahead`
         for j in (i, i - 1, *range(i + 1, i + 1 + profile.invoice_lookahead)):
             if 0 <= j < len(lines):
                 for tok in _invoice_tokens(work[j]):
                     if j > i + 1 and len(tok) < 5:
-                        continue  # a távolabbi sorból csak azonosító-hosszú token (a rövid számok pénz- / mennyiség-jelöltek, ne maszkoljuk őket)
+                        continue  # from a more distant line only identifier-length tokens (short numbers are money / quantity candidates, do not mask them)
                     if AMOUNT_TOKEN_RE.fullmatch(tok):
-                        continue  # 066 Á03: összeg-alakú token nem számlaszám (a végösszeg a pénz-kereső jelöltje marad)
+                        continue  # 066 Á03: an amount-shaped token is not an invoice number (the total stays a money-finder candidate)
                     bucket.add(tok, tok, lines, j)
     for i, ln in enumerate(lines[:-1]):
-        # 065: a cím alatti sor, ha az egész sor egyetlen azonosító (a több szavas sor név vagy cím, nem számlaszám)
+        # 065: the line below the title, if the whole line is a single identifier (a multi-word line is a name or an
+        # address, not an invoice number)
         if INVOICE_TITLE_RE.match(ln.text):
             below = work[i + 1].strip()
             toks = _invoice_tokens(below)
@@ -484,7 +498,7 @@ def find_money(lines: list[LineLayout], work: list[str], profile: Profile = HU) 
                 continue
             raw = m.group(1)
             if profile.intl:
-                # a pénznem-jel / -kód a szám körül dönti el, hogy a pont tizedes ("$42.50", "42.50 USD")
+                # the currency sign / code around the number decides whether the dot is decimal ("$42.50", "42.50 USD")
                 around = work[i][max(0, m.start() - 3) : m.start()] + raw + work[i][m.end() : m.end() + 5]
                 parsed = parse_money(around if CURRENCY_HINT_RE.search(around) else raw, intl=True)
             else:
@@ -493,36 +507,37 @@ def find_money(lines: list[LineLayout], work: list[str], profile: Profile = HU) 
                 continue
             bucket.add(money_label(parsed.value), raw, lines, i, ambiguous=parsed.ambiguous)
     if profile.reverse_charge_zero and not bucket.has("0"):
-        # kód-szabály: fordított adózás nyomtatva, de 0 összeg nincs -> az áfa 0 (a Jev csak felkínált értéket választhat)
+        # code rule: reverse charge printed but no 0 amount -> VAT is 0 (JEV can only choose an offered value)
         for i, ln in enumerate(lines):
             if REVERSE_CHARGE_RE.search(ln.text):
                 bucket.add("0", "reverse charge", lines, i)
                 break
     items = bucket.items()
     if len(items) > profile.max_money_options:
-        # az összesítő-sorok (összesen / fizetendő / nettó / áfa / bruttó) jelöltjei elsőbbséget kapnak, utána dokumentum-sorrend
+        # candidates of the summary lines (összesen / fizetendő / nettó / áfa / bruttó) come first, then document order
         priority = [c for c in items if TOTAL_LINE_RE.search(lines[c.line_no - 1].text)]
         rest = [c for c in items if c not in priority]
         items = (priority + rest)[: profile.max_money_options]
     return items
 
 
-# Mennyiség-sorok (közmű-számla számlarészletező / mérő-tábla): mértékegység vagy mérő-címke a sorban
+# Quantity lines (utility bill itemisation / meter table): a unit or a meter label in the line
 QUANTITY_LINE_RE = re.compile(
     r"(?i)\bkwh\b|\bm3\b|m³|\bm\?|\bmj\b|mérőállás|mer[őo]all[áa]s|fogyaszt[áa]s|mennyis[ée]g|f[űu]t[őo][ée]rt[ée]k|korrekci|indul[óo]|z[áa]r[óo]|h[őo]mennyis[ée]g|leolvas"
-    r"|szorz[óo]|\b(?:Leol|Becs|Dikt|EII|Ell)\b"  # a mérő-sor a leolvasás-kóddal (LM oszlop) is felismerhető, ha a fejléc OCR-ben tönkrement
+    r"|szorz[óo]|\b(?:Leol|Becs|Dikt|EII|Ell)\b"  # the meter line is also recognised by its reading code (LM column) if OCR garbled the header
 )
 MAX_QUANTITY_OPTIONS = 80
 
 
 def find_quantities(lines: list[LineLayout], profile: Profile = HU) -> list[Candidate]:
-    """Mennyiség-jelöltek (`number` fajta: fogyasztás kWh / m3 / MJ, mérőállások, fűtőérték, korrekciós tényező): a mennyiség-
-    sorok számai, a pénz-jelöltekkel azonos normalizálással (`money_label`), de csak a mértékegységes / mérő-címkés sorokból -
-    így a kérés kicsi marad, és a Jev a mértékegység kontextusával választ."""
+    """Quantity candidates (`number` kind: consumption in kWh / m3 / MJ, meter readings, calorific value, correction
+    factor): the numbers of the quantity lines, normalised like the money candidates (`money_label`), but only from
+    lines with a unit / meter label - so the request stays small and JEV chooses with the unit as context."""
     bucket = _Bucket("money")
     hit = [bool(QUANTITY_LINE_RE.search(ln.text)) for ln in lines]
     for i, ln in enumerate(lines):
-        # a mérő-tábla fejléce (Induló / Záró mérőállás, Fogyasztás) az érték-sor FÖLÖTT van: a szomszéd sor címkéje is számít
+        # the meter table header (Induló / Záró mérőállás, Fogyasztás) is ABOVE the value line: a neighbouring line's
+        # label counts too
         if not (hit[i] or (i > 0 and hit[i - 1]) or (i + 1 < len(lines) and hit[i + 1])):
             continue
         for m in profile.money_re.finditer(ln.text):
@@ -549,22 +564,25 @@ def _clean_name(text: str, profile: Profile = HU) -> str:
     s = NAME_TRAILING_ID_RE.sub("", s)
     s = s.strip(" ,;:")
     if profile.name_cut_after_legal_form:
-        # mondatba ágyazott / zárójeles cégnév ("az MVM Next ... Zrt.", "(MVM Next ... Zrt.)"): a névelő és a zárójel nem a név része
+        # company name embedded in a sentence / in parentheses ("az MVM Next ... Zrt.", "(MVM Next ... Zrt.)"): the
+        # article and the parentheses are not part of the name
         s = _LEADING_ARTICLE_RE.sub("", s)
         s = _PAREN_WRAP_RE.sub(r"\1", s)
     return " ".join(s.split())
 
 
 def _cut_after_legal_form(text: str, profile: Profile) -> str:
-    """"Microsoft Ireland Operations Ltd, One Microsoft Place, ..." -> "Microsoft Ireland Operations Ltd" (a jogi forma utáni
-    vesszős / kötőjeles / zárójeles folytatás cím vagy megjegyzés, nem név)."""
+    """"Microsoft Ireland Operations Ltd, One Microsoft Place, ..." -> "Microsoft Ireland Operations Ltd" (a
+    continuation after the legal form introduced by a comma / hyphen / parenthesis is an address or a remark, not the
+    name)."""
     matches = list(profile.legal_form_re.finditer(text))
     if not matches:
         return text
-    for m in matches:  # "Díjbeszedő Holding Zrt. honlapján": a Holding után még jön a Zrt., a Zrt. után már mondat
-        end = m.end() + (1 if text[m.end() : m.end() + 1] == "." else 0)  # a jogi forma pontja a névhez tartozik ("Zrt.")
+    for m in matches:  # "Díjbeszedő Holding Zrt. honlapján": after Holding comes Zrt., after Zrt. the sentence continues
+        end = m.end() + (1 if text[m.end() : m.end() + 1] == "." else 0)  # the dot of the legal form belongs to the name ("Zrt.")
         rest = text[end:].lstrip(". ")
-        # vessző / kötőjel / zárójel / kisbetűs folytatás (mondatba ágyazott cégnév: "Zrt. honlapján bankkártyával") = nem a név része
+        # comma / hyphen / parenthesis / lower-case continuation (company name inside a sentence: "Zrt. honlapján
+        # bankkártyával") = not part of the name
         if rest.startswith((",", "-", "–", "—", "(")) or (rest[:1].isalpha() and rest[:1].islower()):
             return text[:end]
     if len(text) > 120:
@@ -574,7 +592,8 @@ def _cut_after_legal_form(text: str, profile: Profile) -> str:
 
 
 def _column_cells_below(lines: list[LineLayout], i: int, x0: float, depth: int, max_skip: int = 2) -> list[tuple[int, str]]:
-    """Az i. sor alatti sorok azonos oszlopú cellái (max `depth`), a másik oszlop közbeszúrt sorait átugorva."""
+    """The same-column cells of the lines below line i (at most `depth`), skipping interposed lines of the other
+    column."""
     found: list[tuple[int, str]] = []
     skipped = 0
     j = i
@@ -592,7 +611,7 @@ def _column_cells_below(lines: list[LineLayout], i: int, x0: float, depth: int, 
 
 
 def _column_join(lines: list[LineLayout], i: int, cell_idx: int, depth: int) -> list[tuple[str, int]]:
-    """A cella szövege + az alatta lévő (azonos oszlopú) cellákkal fokozatosan összefűzött változatok."""
+    """The cell text + variants joined step by step with the (same-column) cells below it."""
     base = lines[i].cells[cell_idx]
     texts = [base.text]
     out: list[tuple[str, int]] = [(base.text, i)]
@@ -606,7 +625,8 @@ NAME_STOP_RE = re.compile(r"[:：]|\d{4}[ ,]|\d{8}|adószám|iban|bank|telefon|t
 
 
 def _name_join(lines: list[LineLayout], i: int, cell_idx: int, depth: int) -> list[tuple[str, int]]:
-    """Mint `_column_join`, de megáll, ha a következő cella már cím / címke / azonosító (nem névfolytatás)."""
+    """Like `_column_join`, but stops when the next cell is already an address / label / identifier (not a name
+    continuation)."""
     base = lines[i].cells[cell_idx]
     texts = [base.text]
     out: list[tuple[str, int]] = [(base.text, i)]
@@ -629,9 +649,9 @@ def find_names(lines: list[LineLayout], profile: Profile = HU) -> list[Candidate
                     name = _clean_name(text, profile)
                     if 2 <= len(name) <= 120 and not profile.label_only_re.match(name):
                         bucket.add(name, text, lines, at)
-    # Magánszemély (nincs jogi forma): a felső blokk rövid, betű-domináns cellái (legfeljebb MAX_NAME_FALLBACK darab -
-    # a korlát a tartalék-nevekre vonatkozik, nem a jogi formás nevekkel együtt: egy hosszú tájékoztató szöveg cégnevei ne
-    # szorítsák ki a magánszemély nevét)
+    # Private individual (no legal form): the short, letter-dominated cells of the top block (at most
+    # MAX_NAME_FALLBACK - the limit applies to the fallback names, not together with the names with a legal form: the
+    # company names of a long informational text must not crowd out the private individual's name)
     fallback = 0
     for i, ln in enumerate(lines[: max(12, len(lines) // 2)]):
         for cell in ln.cells:
@@ -644,11 +664,11 @@ def find_names(lines: list[LineLayout], profile: Profile = HU) -> list[Candidate
             if alpha / len(name) < 0.85 or ":" in name:
                 continue
             if profile.intl and (len(name.split()) > 6 or "!" in name):
-                continue  # mondat, nem név
+                continue  # a sentence, not a name
             if DATE_NUMERIC_RE.search(name) or MONEY_RE.fullmatch(name):
                 continue
             if fallback >= MAX_NAME_FALLBACK or (profile.name == "hu" and len(bucket.items()) >= MAX_NAME_FALLBACK):
-                break  # a `hu` profil viselkedése változatlan (a korábbi, összesített korlát)
+                break  # the `hu` profile's behaviour is unchanged (the earlier, combined limit)
             if not bucket.has(name):
                 fallback += 1
             bucket.add(name, cell.text, lines, i)
@@ -668,8 +688,9 @@ def find_addresses(lines: list[LineLayout], profile: Profile = HU) -> list[Candi
                     bucket.add(" ".join(addr.split()), text, lines, at)
     if not profile.intl_addresses:
         return bucket.items()
-    # intl: (1) a jogi forma utáni vesszős folytatás egy sorban ("..., Ltd, One Microsoft Place, ..., Dublin 18, D18 P521, Írország");
-    # (2) postai / irányítószám-alakú cellák + az alattuk lévő 1-2 azonos oszlopú cella, címke-jellegű megállással
+    # intl: (1) the comma continuation after the legal form within one line ("..., Ltd, One Microsoft Place, ...,
+    # Dublin 18, D18 P521, Írország"); (2) postcode-shaped cells + the 1-2 same-column cells below them, stopping at
+    # label-like cells
     for i, ln in enumerate(lines):
         for ci, cell in enumerate(ln.cells):
             m = profile.legal_form_re.search(cell.text)
@@ -699,9 +720,9 @@ _TEXT_STRIP = " :：;,.-–—|"
 
 
 def find_labelled_text(lines: list[LineLayout], field: str, labels: tuple[str, ...] | list[str]) -> list[Candidate]:
-    """Címkés szöveg-mező jelöltjei (típus-csomag `text_labels`): a címke utáni szöveg ugyanabban a cellában, különben a
-    sor következő cellája, különben az azonos oszlopú cella a sor alatt. Általános mechanizmus (tarifa, fizetési mód,
-    szolgáltatás megnevezése, leolvasás módja...); a Jev választ a jelöltek közül, a `none` mindig opció."""
+    """Candidates of a labelled text field (type pack `text_labels`): the text after the label in the same cell,
+    otherwise the next cell of the line, otherwise the same-column cell below the line. A general mechanism (tariff,
+    payment method, service name, reading method...); JEV chooses among the candidates, `none` is always an option."""
     bucket = _Bucket("text")
     regexes = [re.compile(p, re.IGNORECASE) for p in labels]
     for i, ln in enumerate(lines):
@@ -721,20 +742,20 @@ def find_labelled_text(lines: list[LineLayout], field: str, labels: tuple[str, .
                         candidates.append((below.strip(_TEXT_STRIP), j))
                 for text, at in candidates:
                     text = " ".join(text.split())[:TEXT_VALUE_MAX].strip(_TEXT_STRIP)
-                    if len(text) >= 2 and not any(r.match(text) for r in regexes):  # az érték nem kezdődhet a címkével (a belsejében előfordulhat: "közszolgáltatás")
+                    if len(text) >= 2 and not any(r.match(text) for r in regexes):  # the value must not start with the label (it may occur inside it: "közszolgáltatás")
                         bucket.add(text, text, lines, at)
                 break
     return bucket.items()
 
 
-# --- belépési pont ---------------------------------------------------------------------
+# --- entry point -----------------------------------------------------------------------
 
 
 def find_all(
     lines: list[LineLayout], profile: str | Profile | None = None, text_labels: dict[str, tuple[str, ...]] | None = None
 ) -> dict[str, list[Candidate]]:
-    """Minden jelölt-fajta a megadott profil szerint (`hu` alapból = a magyar számla eddigi viselkedése). `text_labels`
-    (típus-csomag): mezőnként címkés szöveg-jelöltek `text:<mező>` kulcs alatt."""
+    """Every candidate kind according to the given profile (`hu` by default = the original Hungarian-invoice behaviour).
+    `text_labels` (type pack): labelled text candidates per field under the key `text:<field>`."""
     prof = profile_of(profile)
     work = [ln.text for ln in lines]
     out: dict[str, list[Candidate]] = {}
@@ -752,7 +773,7 @@ def find_all(
 
 
 def candidate_lines(lines: list[LineLayout], cands: dict[str, list[Candidate]], kinds: list[str], margin: int = 1) -> set[int]:
-    """Azon sorok 0-alapú indexei, ahol a megadott fajtájú jelöltek vannak (± margin)."""
+    """0-based indices of the lines holding candidates of the given kinds (± margin)."""
     idx: set[int] = set()
     by_no = {ln.no: i for i, ln in enumerate(lines)}
     for kind in kinds:
@@ -763,7 +784,7 @@ def candidate_lines(lines: list[LineLayout], cands: dict[str, list[Candidate]], 
             for j in range(base - margin, base + margin + 1):
                 if 0 <= j < len(lines):
                     idx.add(j)
-            # a dedupolt kontextusokból is: "L12:" hivatkozások
+            # also from the deduplicated contexts: "L12:" references
             for m in re.finditer(r"L(\d+):", c.context):
                 base2 = by_no.get(int(m.group(1)))
                 if base2 is not None:

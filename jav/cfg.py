@@ -1,13 +1,14 @@
-"""Konfig mint adat: a `configs/` JSON-fájlok betöltője és a `config_hash` (ROADMAP §1).
+"""Config as data: the loader of the `configs/` JSON files and the `config_hash` (ROADMAP §1).
 
-Fájlok: `configs/doc_types.json`, `configs/intents.json`, `configs/policy.json`, `configs/callsites/<call_site>.json`.
-Minden fájl: `{"meta": {"name", "version", "changelog": [...]}, ...tartalom}`. A `config_hash` a tartalom kanonikus
-JSON-jának sha256-a (a `meta.changelog` nélkül, hogy egy megjegyzés ne változtassa meg), 16 hex jegyre rövidítve.
-A hash a ledgerbe kerül minden Jev-hívásnál (`adapters.jev.ask(config_hash=...)`), így egy mérés visszavezethető a
-konfig-verzióra. Tartalmi változásnál a `meta.version` is lépjen (a `configs` CLI-parancs mutatja a hash-eket).
+Files: `configs/doc_types.json`, `configs/intents.json`, `configs/policy.json`, `configs/callsites/<call_site>.json`.
+Every file: `{"meta": {"name", "version", "changelog": [...]}, ...content}`. The `config_hash` is the sha256 of the
+content's canonical JSON (without `meta.changelog`, so that a note does not change it), shortened to 16 hex digits.
+The hash goes to the ledger with every JEV call (`adapters.jev.ask(config_hash=...)`), so a measurement can be traced
+back to the config version. On a content change `meta.version` must be bumped too (the `configs` CLI command shows
+the hashes).
 
-A Python-modulok (doc_types, intents, policy, detect, intent, jev_select, jev_verify) innen olvasnak; a kód a
-mechanizmus, a JSON a paraméter. Regex-mintákat a JSON stringként tárol, a modul fordítja.
+The Python modules (doc_types, intents, policy, detect, intent, jev_select, jev_verify) read from here; the code is
+the mechanism, the JSON is the parameter. The JSON stores regex patterns as strings; the module compiles them.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ CALLSITE_DIR = CONFIG_DIR / "callsites"
 HASH_LEN = 16
 
 
-TYPES_DIR = CONFIG_DIR / "types"  # típus-csomagok: egy dokumentumtípus adatpont-kinyerésének minden típus-adata (jav/typepack.py)
+TYPES_DIR = CONFIG_DIR / "types"  # type packs: all type data of one document type's extraction (jav/typepack.py)
 
 
 def path_of(name: str) -> Path:
@@ -56,7 +57,7 @@ def canonical(data: dict[str, Any]) -> str:
 
 @lru_cache(maxsize=None)
 def config_hash(*names: str) -> str:
-    """Egy vagy több konfig együttes hash-e (pl. a detect hívási hely + a doc_types regiszter)."""
+    """The joint hash of one or more configs (e.g. the detect call site + the doc_types registry)."""
     h = hashlib.sha256()
     for name in sorted(names):
         h.update(name.encode("utf-8"))
@@ -65,8 +66,9 @@ def config_hash(*names: str) -> str:
 
 
 def combine(*parts: str) -> str:
-    """067 (066 Á18): több hash vagy fájl-ujjlenyomat együttes, rövid azonosítója (sorrendfüggő). Ezzel kerül egy
-    azonosítóba minden, ami egy hívás eredményét befolyásolja: hívási hely, típuscsomag, utasítás- és sémafájl, policy."""
+    """067 (066 Á18): a short joint identifier of several hashes or file fingerprints (order-sensitive). It puts into
+    one identifier everything that affects a call's result: call site, type pack, instruction and schema file,
+    policy."""
     h = hashlib.sha256()
     for part in parts:
         h.update(part.encode("utf-8"))
@@ -76,7 +78,7 @@ def combine(*parts: str) -> str:
 
 @lru_cache(maxsize=None)
 def file_digest(path: Path) -> str:
-    """Egy nem JSON-konfig fájl (utasítás, séma) tartalmának ujjlenyomata."""
+    """The content fingerprint of a non-JSON config file (instruction, schema)."""
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
@@ -92,7 +94,7 @@ def all_names() -> list[str]:
 
 
 def report() -> list[dict[str, str]]:
-    """CLI-riport: név, verzió, hash, utolsó changelog-bejegyzés."""
+    """CLI report: name, version, hash, last changelog entry."""
     rows = []
     for name in all_names():
         d = load(name)
@@ -102,7 +104,7 @@ def report() -> list[dict[str, str]]:
 
 
 def reload() -> None:
-    """Tesztekhez / futás közbeni konfig-módosításhoz: a cache ürítése."""
+    """For tests / config changes at run time: clears the cache."""
     load.cache_clear()
     config_hash.cache_clear()
     file_digest.cache_clear()

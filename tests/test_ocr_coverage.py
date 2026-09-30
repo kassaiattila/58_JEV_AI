@@ -1,4 +1,4 @@
-"""Részleges OCR mindig látható teendő (040 K1, a 038-as F07 szondája). Valódi PDF és modellhívás nélkül."""
+"""Partial OCR is always a visible to-do (040 K1, the F07 probe of 038). No real PDF and no model call."""
 
 from pathlib import Path
 from unittest.mock import patch
@@ -47,7 +47,7 @@ def isolated(tmp_path: Path):
 
 
 def test_detect_save_keeps_coverage_reason_even_when_type_is_certain(isolated):
-    """A biztos típus lezárja a detect saját okait, a kihagyott oldalak teendője viszont nyitva marad."""
+    """A certain type closes detect's own reasons, but the to-do for the skipped pages stays open."""
     from jav.flow_detect import save
     from jav.detect import DetectResult
     result = DetectResult.model_construct(doc_type="invoice_hu", confidence=0.99, issuer_hu=0.9, probabilities={}, language="hu",

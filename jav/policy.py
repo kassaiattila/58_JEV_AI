@@ -1,12 +1,12 @@
-"""Döntési szabályok - a küszöbszámok és útvonalak a `configs/policy.json`-ból (konfig mint adat), a logika itt.
+"""Decision rules - thresholds and routes come from `configs/policy.json` (config as data), the logic is here.
 
-A Jev nyers valószínűségei (`FieldPick.probabilities`, `JevVerdicts.flags`, `IntentResult.signals`) érintetlenül
-maradnak a state-ben; itt csak az értelmezésük történik. Egy küszöb módosítása (a JSON-ban, verzió-lépéssel) nem
-igényel újrafuttatást, ha a kérdések és a bizonyítékok nem változtak (a nyers futások `runs/*.jsonl`-ből
-újraértékelhetők).
+JEV's raw probabilities (`FieldPick.probabilities`, `JevVerdicts.flags`, `IntentResult.signals`) stay untouched in the
+state; only their interpretation happens here. Changing a threshold (in the JSON, with a version bump) needs no re-run
+if the questions and the evidence have not changed (the raw runs can be re-evaluated from `runs/*.jsonl`).
 
-Típus-függő listák (kötelező mezők, magas tétű mezők, pontozott mezők) a típus-csomagból (`configs/types/<típus>.json`,
-`jav/typepack.py`) jönnek a `state.doc_type` szerint; a küszöbök (sávok) típus-függetlenek, itt.
+Type-dependent lists (required fields, high-stakes fields, scored fields) come from the type pack
+(`configs/types/<type>.json`, `jav/typepack.py`) according to `state.doc_type`; the thresholds (bands) are
+type-independent and live here.
 """
 
 from __future__ import annotations
@@ -24,10 +24,10 @@ _EMAIL = _CFG["email"]
 CONFIG_HASH = cfg.config_hash("policy")
 
 NONE_LABEL: str = _CFG["none_label"]
-DETECT_DETAIL: dict[str, Any] = dict(_CFG["detect_detail"])  # 047 T1.2: a részletes típus kód-döntésének küszöbe
+DETECT_DETAIL: dict[str, Any] = dict(_CFG["detect_detail"])  # 047 T1.2: threshold of the detailed-type code decision
 
 # --------------------------------------------------------------------------------------
-# Sávok (policy.json v1.1.0): nevesített készletek hívási helyenként, precedencia a pontozott előtag hossza szerint
+# Bands (policy.json v1.1.0): named sets per call site, precedence by the length of the dotted prefix
 # --------------------------------------------------------------------------------------
 
 BANDS: dict[str, dict[str, Any]] = {name: dict(v) for name, v in _CFG["bands"].items()}
@@ -37,7 +37,7 @@ ChoiceBand = Literal["auto", "uncertain", "human"]
 
 
 def band_name(callsite: str) -> str:
-    """`invoice.pick.high_stakes.gross_total` -> a leghosszabb illeszkedő `band_for` kulcs készlete, különben `default`."""
+    """`invoice.pick.high_stakes.gross_total` -> the set of the longest matching `band_for` key, otherwise `default`."""
     parts = callsite.split(".")
     for n in range(len(parts), 0, -1):
         key = ".".join(parts[:n])
@@ -47,12 +47,12 @@ def band_name(callsite: str) -> str:
 
 
 def band(callsite: str) -> dict[str, Any]:
-    """A hívási hely feloldott sáv-készlete: a nevesített készlet a `default` fölé merge-elve (hiányzó mező öröklődik)."""
+    """The call site's resolved band set: the named set merged over `default` (a missing field is inherited)."""
     return {**BANDS["default"], **BANDS.get(band_name(callsite), {})}
 
 
 def noul_band(p: float, callsite: str) -> NoulBand:
-    """Kétoldali sáv egy Noul P(igen)-re: `no` (< no_max), `uncertain`, `yes` (>= yes_min)."""
+    """Two-sided band for a Noul's P(yes): `no` (< no_max), `uncertain`, `yes` (>= yes_min)."""
     b = band(callsite)
     if p < b["noul_no_max"]:
         return "no"
@@ -62,7 +62,7 @@ def noul_band(p: float, callsite: str) -> NoulBand:
 
 
 def second_option_gap(probabilities: dict[str, float] | None) -> float | None:
-    """A legvalószínűbb és a második opció valószínűségének különbsége; None, ha nincs két opció."""
+    """The probability gap between the most likely and the second option; None if there are not two options."""
     if not probabilities or len(probabilities) < 2:
         return None
     top = sorted(probabilities.values(), reverse=True)
@@ -70,7 +70,7 @@ def second_option_gap(probabilities: dict[str, float] | None) -> float | None:
 
 
 def choice_band(confidence: float, probabilities: dict[str, float] | None, callsite: str) -> ChoiceBand:
-    """Choice-sáv: `human` a conf-küszöb alatt; `uncertain`, ha a második opció túl közel van; különben `auto`."""
+    """Choice band: `human` below the conf threshold; `uncertain` if the second option is too close; else `auto`."""
     b = band(callsite)
     if confidence < b["choice_human_max_conf"]:
         return "human"
@@ -81,13 +81,14 @@ def choice_band(confidence: float, probabilities: dict[str, float] | None, calls
 
 
 def choice_needs_review(confidence: float, probabilities: dict[str, float] | None, callsite: str) -> bool:
-    """`human` mindig; `uncertain` csak ha a készlet `uncertain_review: true`."""
+    """`human` always; `uncertain` only if the set has `uncertain_review: true`."""
     cb = choice_band(confidence, probabilities, callsite)
     return cb == "human" or (cb == "uncertain" and bool(band(callsite)["uncertain_review"]))
 
 
 def choice_review_reason(prefix: str, key: str, confidence: float, probabilities: dict[str, float] | None, callsite: str) -> str | None:
-    """Review-ok szöveg egy Choice-ítéletre, vagy None: `<prefix>:low_conf:<key>:<conf>` | `<prefix>:second_option:<key>:<rés>`."""
+    """Review reason text for a Choice verdict, or None: `<prefix>:low_conf:<key>:<conf>` |
+    `<prefix>:second_option:<key>:<gap>`."""
     cb = choice_band(confidence, probabilities, callsite)
     if cb == "human":
         return f"{prefix}:low_conf:{key}:{confidence:.2f}"
@@ -97,7 +98,8 @@ def choice_review_reason(prefix: str, key: str, confidence: float, probabilities
 
 
 def noul_review_reason(prefix: str, key: str, p: float, callsite: str) -> str | None:
-    """Review-ok szöveg egy Noul-jelre, vagy None: `<prefix>:<key>:<p>` (yes) | `<prefix>:uncertain:<key>:<p>` (ha engedélyezett)."""
+    """Review reason text for a Noul signal, or None: `<prefix>:<key>:<p>` (yes) |
+    `<prefix>:uncertain:<key>:<p>` (if enabled)."""
     nb = noul_band(p, callsite)
     if nb == "yes":
         return f"{prefix}:{key}:{p:.2f}"
@@ -107,22 +109,24 @@ def noul_review_reason(prefix: str, key: str, p: float, callsite: str) -> str | 
 
 
 def parent_fallback(confidence: float, parent: str | None, parent_prob: float, callsite: str, probabilities: dict[str, float] | None = None) -> str | None:
-    """Szülő-címke: ha a típus / szándék bizonytalan (nem `auto` sáv), de a család összesített valószínűsége eléri a
-    `parent_min_prob`-ot, a család neve; különben None. Csak címke a review-hoz és a riporthoz, a route nem változik."""
+    """Parent label: if the type / intent is uncertain (not the `auto` band) but the family's total probability
+    reaches `parent_min_prob`, the family's name; otherwise None. Only a label for the review and the report; the
+    route does not change."""
     if parent is None or choice_band(confidence, probabilities, callsite) == "auto":
         return None
     return parent if parent_prob >= band(callsite)["parent_min_prob"] else None
 
 
-# Örökölt nevek (a flow-k és tesztek hivatkozzák) - a sávokból származnak, nem külön adat
-HUMAN_MAX_CONF: float = band("invoice.pick")["choice_human_max_conf"]  # ez alatt bármely pontozott mező -> human
-AUTO_MIN_CONF_HIGH_STAKES: float = band("invoice.pick.high_stakes")["choice_human_max_conf"]  # magas tétű mezők automatikus elfogadásához
-REVIEW_FLAG_P: float = band("invoice.verify")["noul_yes_min"]  # G-kar: Noul P(igen) egy hiba-flagre, ettől review
-DETECT_LOW_CONFIDENCE: float = band("detect.doc_type")["choice_human_max_conf"]  # M1: ez alatt a típus bizonytalan (review-jelölt), de mentjük
+# Legacy names (referenced by the flows and tests) - derived from the bands, not separate data
+HUMAN_MAX_CONF: float = band("invoice.pick")["choice_human_max_conf"]  # below this, any scored field -> human
+AUTO_MIN_CONF_HIGH_STAKES: float = band("invoice.pick.high_stakes")["choice_human_max_conf"]  # high-stakes auto-accept
+REVIEW_FLAG_P: float = band("invoice.verify")["noul_yes_min"]  # G path: Noul P(yes) for an error flag, review from here
+DETECT_LOW_CONFIDENCE: float = band("detect.doc_type")["choice_human_max_conf"]  # M1: uncertain below it; still saved
 
-# Típus-függő listák: a típus-csomagból (a magyar számláé mint örökölt modul-konstans; más típusnál `high_stakes_for` / `required_for`)
+# Type-dependent lists: from the type pack (the Hungarian invoice's as a legacy module constant; for other types use
+# `high_stakes_for` / `required_for`)
 HIGH_STAKES = frozenset(get_pack(DEFAULT_KEY).high_stakes)
-REQUIRED = frozenset(get_pack(DEFAULT_KEY).required)  # a régi rules.json `required` listája
+REQUIRED = frozenset(get_pack(DEFAULT_KEY).required)  # the legacy rules.json `required` list
 
 
 def high_stakes_for(doc_type: str | None) -> frozenset[str]:
@@ -133,14 +137,15 @@ def required_for(doc_type: str | None) -> frozenset[str]:
     return frozenset(get_pack(doc_type or DEFAULT_KEY).required)
 
 
-OCR: dict[str, float] = {k: float(v) for k, v in _CFG.get("ocr", {}).items()}  # v1.6.0: OCR-minőség küszöbök
+OCR: dict[str, float] = {k: float(v) for k, v in _CFG.get("ocr", {}).items()}  # v1.6.0: OCR quality thresholds
 
 
-OCR_REVIEW_PRODUCER = "ocr"  # 066 Á01: a szöveg nélküli irat teendőjének felvevője (M1 és M2 közös); szöveg esetén zárul
+OCR_REVIEW_PRODUCER = "ocr"  # 066 Á01: producer of the no-text to-do (shared by M1 and M2); closed once there is text
 
 
 def ocr_review_reasons(mean_conf: float | None, low_conf_ratio: float | None) -> list[str]:
-    """OCR-szövegű dokumentum: gyenge átlagos szó-bizalom vagy sok gyenge szó -> review-okok (a nyers jelek a state-ben maradnak)."""
+    """Document with OCR text: weak mean word confidence or many weak words -> review reasons (the raw signals stay in
+    the state)."""
     out: list[str] = []
     if mean_conf is not None and mean_conf < OCR.get("min_mean_conf", 0.0):
         out.append(f"ocr:low_confidence:{mean_conf:.2f}")
@@ -150,23 +155,23 @@ def ocr_review_reasons(mean_conf: float | None, low_conf_ratio: float | None) ->
 
 
 def ocr_coverage_reasons(page_count: int | None, pages_ocr: int | None) -> list[str]:
-    """Részleges OCR (040 K1, F07): ha kevesebb oldal ment át OCR-en, mint amennyi az iratban van, az mindig látható
-    teendő (nem küszöb, hanem tény) — így a kihagyott oldalak adata nem tűnhet teljesnek, és a jóváhagyást is megállítja."""
+    """Partial OCR (040 K1, F07): if fewer pages went through OCR than the document has, that is always a visible to-do
+    (not a threshold but a fact) — so the data of the skipped pages cannot look complete, and it also stops approval."""
     if page_count is None or pages_ocr is None or pages_ocr >= page_count:
         return []
     return [f"ocr:partial_pages:{pages_ocr}/{page_count}"]
 
 
 def ocr_should_escalate(mean_conf: float | None, low_conf_ratio: float | None) -> bool:
-    """Gyenge helyi OCR (a policy `ocr.escalate_*` küszöbei alatt / fölött) -> a pontosabb, fizetős motorra (configs/ocr.json
-    `escalation`) váltunk; a döntés adat, a jelek nyersen a state-ben maradnak."""
+    """Weak local OCR (below / above the policy's `ocr.escalate_*` thresholds) -> switch to the more accurate, paid
+    engine (configs/ocr.json `escalation`); the decision is data, the signals stay raw in the state."""
     if mean_conf is not None and mean_conf < OCR.get("escalate_min_mean_conf", 0.0):
         return True
     return low_conf_ratio is not None and low_conf_ratio > OCR.get("escalate_max_low_conf_ratio", 1.0)
 
 
 def require_review(state: FlowState, *reasons: str) -> None:
-    """Additív latch: `needs_review` csak False -> True irányban változik; az okok deduplikálva gyűlnek."""
+    """Additive latch: `needs_review` only changes False -> True; the reasons accumulate deduplicated."""
     new = [r for r in reasons if r and r not in state.review_reasons]
     if new:
         state.review_reasons.extend(new)
@@ -174,20 +179,22 @@ def require_review(state: FlowState, *reasons: str) -> None:
 
 
 def pick_policy_fields(pack) -> set[str]:
-    """A sávvizsgálat mezői: a pontozott, a kötelező és a magas tétű mezők (066 Á04: a magas tétű, de nem pontozott
-    mező, pl. a magyar számla fizetendő összege, eddig kimaradt)."""
+    """The fields of the band check: the scored, the required and the high-stakes fields (066 Á04: a high-stakes but
+    unscored field, e.g. the Hungarian invoice's amount payable, used to be left out)."""
     return set(pack.scored_fields) | set(pack.required) | set(pack.high_stakes)
 
 
 def presence_probe_fields(pack) -> set[str]:
-    """069 (Á11): jelölt nélkül is jelenlét-kérdést kapó mezők: a sávvizsgálat mezői, kivéve a kötelezőket (nekik jelölt
-    nélkül is teendő jár) és a csak informatív mezőket (bizonytalanságuk nem küld kézi sorba)."""
+    """069 (Á11): fields that get a presence question even without candidates: the band check's fields, except the
+    required ones (they get a to-do without candidates anyway) and the informational-only ones (their uncertainty does
+    not send them to the manual queue)."""
     informational_only = set(pack.informational_fields) - set(pack.high_stakes)
     return pick_policy_fields(pack) - set(pack.required) - informational_only
 
 
 def apply_pick_policy(state: FlowState) -> None:
-    """S-kar: a pickek sávja (conf-küszöb, második-opció rés) és a kötelező mezők alapján review-okok (a csomag listái)."""
+    """S path: review reasons from the picks' band (confidence threshold, second-option gap) and the required fields
+    (the pack's lists)."""
     pack = get_pack(state.doc_type)
     checked, required, high_stakes = pick_policy_fields(pack), set(pack.required), set(pack.high_stakes)
     informational = set(pack.informational_fields)
@@ -195,16 +202,16 @@ def apply_pick_policy(state: FlowState) -> None:
         if field not in checked:
             continue
         if field in informational and field not in high_stakes:
-            continue  # csak informatív mező (pl. cím): a régi szerződés nem pontozza, bizonytalansága nem küld kézi sorba (a magas tétű IBAN igen)
+            continue  # informational only (e.g. address): unscored, no manual queue; a high-stakes IBAN still counts
         if pick.n_options == 0:
             if field in required:
                 require_review(state, f"pick:no_candidates:{field}")
             elif pick.present_p is not None and noul_band(pick.present_p, "invoice.pick.presence") == "yes":
-                require_review(state, f"pick:present_no_candidates:{field}:{pick.present_p:.2f}")  # 069 Á11: a kód nem találta meg
+                require_review(state, f"pick:present_no_candidates:{field}:{pick.present_p:.2f}")  # 069 Á11: none found
             continue
         if pick.label is None and field in required:
             require_review(state, f"pick:none:{field}")
-        if pick.present_p is not None:  # jelenlét-Noul a Choice mellett: ellentmondás = review-ok (kétoldali sáv, uncertain nem ok)
+        if pick.present_p is not None:  # presence Noul vs Choice: a contradiction is a review reason (uncertain is not)
             nb = noul_band(pick.present_p, "invoice.pick.presence")
             if pick.label is not None and nb == "no":
                 require_review(state, f"pick:absent_but_chosen:{field}:{pick.present_p:.2f}")
@@ -218,12 +225,12 @@ def apply_pick_policy(state: FlowState) -> None:
 
 
 def apply_verdict_policy(state: FlowState) -> None:
-    """G-kar: evidencia nélküli értékek és a `yes` sávba eső Jev-flagek review-okok (uncertain csak ha engedélyezett)."""
+    """G path: values without evidence and `yes`-band JEV flags are review reasons (uncertain only if enabled)."""
     v = state.verdicts
     if v is None:
         return
     pack = get_pack(state.doc_type)
-    skip = set(pack.informational_fields) - set(pack.high_stakes)  # csak informatív mezők (cím): a flagjük nem küld kézi sorba
+    skip = set(pack.informational_fields) - set(pack.high_stakes)  # informational only (address): flags not queued
     for field in v.unsupported:
         if field not in skip:
             require_review(state, f"jev:unsupported:{field}")
@@ -246,12 +253,12 @@ def apply_verdict_policy(state: FlowState) -> None:
 
 def apply_validation_policy(state: FlowState) -> None:
     for check in state.validation:
-        if not check.ok and not check.advisory:  # 053: a csak jelző ellenőrzés nem nyit teendőt
+        if not check.ok and not check.advisory:  # 053: an advisory-only check opens no to-do
             require_review(state, f"validator:{check.code}")
 
 
 def decide(state: FlowState) -> str:
-    """'auto' vagy 'human'. A latch már tartalmaz minden okot; itt csak összegzünk."""
+    """'auto' or 'human'. The latch already holds every reason; here we only sum up."""
     if state.arm == "S":
         apply_pick_policy(state)
     else:
@@ -263,21 +270,22 @@ def decide(state: FlowState) -> str:
 
 
 # --------------------------------------------------------------------------------------
-# M3: e-mail szándék -> next_flow (kód dönt; a Jev nyers intent + confidence + Noul-jelek a state-ben maradnak)
+# M3: email intent -> next_flow (code decides; JEV's raw intent + confidence + Noul signals stay in the state)
 # --------------------------------------------------------------------------------------
 
-INTENT_HUMAN_MAX_CONF: float = band("email.intent")["choice_human_max_conf"]  # intent-routing minta: ez alatt kézi sor, bármi is a címke
-M2_TYPES = frozenset(_EMAIL["m2_types"])  # van / lesz M2-flow-ja
-INTENT_ROUTE: dict[str, str] = dict(_EMAIL["intent_route"])  # csatolmány-független alapértelmezés szándékonként
-EMAIL_JEV_UNAVAILABLE_ROUTE: str = _EMAIL["jev_unavailable_route"]  # a Jev nem válaszolt (adapter: JevUnavailableError) -> kézi sor
+INTENT_HUMAN_MAX_CONF: float = band("email.intent")["choice_human_max_conf"]  # below: manual queue, whatever the label
+M2_TYPES = frozenset(_EMAIL["m2_types"])  # has / will have an M2 flow
+INTENT_ROUTE: dict[str, str] = dict(_EMAIL["intent_route"])  # attachment-independent default per intent
+EMAIL_JEV_UNAVAILABLE_ROUTE: str = _EMAIL["jev_unavailable_route"]  # JEV did not answer -> manual queue
 
 
-EMAIL_SIGNAL_REVIEW: tuple[str, ...] = tuple(_EMAIL.get("signal_review", ()))  # mely Noul-jel igen-sávja review-ok
-EMAIL_SIGNAL_ROUTES: dict[str, str] = dict(_EMAIL.get("signal_routes", {}))  # jel igen-sávban -> útvonal (minden más elé)
+EMAIL_SIGNAL_REVIEW: tuple[str, ...] = tuple(_EMAIL.get("signal_review", ()))  # signals whose yes band means review
+EMAIL_SIGNAL_ROUTES: dict[str, str] = dict(_EMAIL.get("signal_routes", {}))  # yes-band signal -> route (overrides all)
 
 
 def email_signal_reasons(signals: dict[str, float] | None) -> list[str]:
-    """M3 Noul-jelek review-okai: `signal:<kulcs>:<p>` az `email.signal` sáv `yes` sávjában (uncertain csak ha engedélyezett)."""
+    """Review reasons of the M3 Noul signals: `signal:<key>:<p>` in the `yes` band of `email.signal` (uncertain only
+    if enabled)."""
     out: list[str] = []
     for key in EMAIL_SIGNAL_REVIEW:
         p = (signals or {}).get(key)
@@ -290,7 +298,8 @@ def email_signal_reasons(signals: dict[str, float] | None) -> list[str]:
 
 
 def email_signal_route(signals: dict[str, float] | None) -> str | None:
-    """Jel-vezérelt útvonal (pl. beszúrt utasítás -> `human:suspicious`), ha a jel az `email.signal` sáv `yes` sávjában van."""
+    """Signal-driven route (e.g. injected instruction -> `human:suspicious`) if the signal is in the `yes` band of
+    `email.signal`."""
     for key, route in EMAIL_SIGNAL_ROUTES.items():
         p = (signals or {}).get(key)
         if p is not None and noul_band(float(p), "email.signal") == "yes":
@@ -301,8 +310,8 @@ def email_signal_route(signals: dict[str, float] | None) -> str | None:
 def email_next_flow(
     intent: str, confidence: float, attachments: list[Attachment], probabilities: dict[str, float] | None = None, signals: dict[str, float] | None = None
 ) -> str:
-    """Determinisztikus útvonal: jel-útvonal (beszúrt utasítás) -> sáv (küszöb + második-opció rés) -> dokumentum-hordozó
-    szándéknál a csatolmány típusa -> alapértelmezés."""
+    """Deterministic route: signal route (injected instruction) -> band (threshold + second-option gap) -> for a
+    document-bearing intent, the attachment's type -> default."""
     signal_route = email_signal_route(signals)
     if signal_route:
         return signal_route

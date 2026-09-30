@@ -1,7 +1,7 @@
-"""Csak helyi, új darabolási diagnózis a korábban kihagyott három hosszú iraton.
+"""Local-only, new chunking diagnostic on the three long documents that were skipped earlier.
 
-Nem ismétli meg a lezárt modellmérést; OCR/cache és korábbi bizonylatok csak olvashatók.
-Futtatás: python -m jav.experiments.long_document_diagnostic --out runs/<új mappa>
+It does not repeat the closed model measurement; the OCR cache and the earlier evidence are read-only.
+Run: python -m jav.experiments.long_document_diagnostic --out runs/<new folder>
 """
 from __future__ import annotations
 
@@ -73,7 +73,7 @@ def diagnose(out: Path):
             raise AssertionError('lost source characters')
         write(out/(case['case_id']+'-chunks.json'),{'plan':plan.model_dump(mode='json'),'proposals':batches})
         write(out/(case['case_id']+'-layout.json'),[row.model_dump(mode='json') for row in layout])
-        # Az exportált olvasat azonos bájtsorozatként újraolvasható a CLI számára.
+        # The exported reading can be read back by the CLI as the identical byte sequence.
         with (out/(case['case_id']+'.txt')).open('x',encoding='utf-8',newline='') as stream:
             stream.write(text)
         rows.append({'case_id':case['case_id'],'source_sha256':digest(text),'source_chars':len(text),

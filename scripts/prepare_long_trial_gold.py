@@ -1,4 +1,4 @@
-"""Modellválaszok előtt, olvasatból rögzített diagnosztikai etalon; PII csak runs alatt."""
+"""A diagnostic golden set recorded from the document reading before any model answers; PII only under runs."""
 from jav.experiments.long_document_trial import OUT, read, write, sha, validate
 from jav.document_chunks import plan_document, ChunkPolicy, load_chunk_config
 from jav.models import LineLayout

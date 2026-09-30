@@ -1,7 +1,7 @@
-"""071 S-adatőr (070 terv 2.1): commit és feltöltés előtti személyesadat- és kulcsőr (`jav/data_guard.py`).
+"""071 S-adatőr (070 plan 2.1): the pre-commit and pre-push guard against personal data and keys (`jav/data_guard.py`).
 
-A fájlban szándékosan nincs valódi alakú érték: az ellenőrzőszámos mintákat a tesztek futás közben számolják ki, az
-e-mail-címeket és kulcsokat darabokból rakják össze. Így a teszt maga is átmegy az adatőrön.
+This file deliberately contains no real-looking value: the tests compute the check-digit samples at run time and
+assemble the email addresses and keys from pieces. This way the test itself passes the data guard.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 AT = "@"
 
 
-# --- kitalált, de valódi alakú értékek (futás közben) -------------------------------------------------------------
+# --- made-up but real-looking values (computed at run time) -------------------------------------------------------
 
 
 def _hu_tax(seed7: str, vat: str = "2", county: str = "42") -> str:
@@ -41,7 +41,7 @@ def _iban(country: str, bban: str) -> str:
 
 
 def _bad_check(value: str) -> str:
-    """Az első számjegy utáni jegy elrontása (ellenőrzőszám hibás lesz)."""
+    """Corrupts the first digit (after any letter prefix), so the check digit no longer matches."""
     i = next(k for k, c in enumerate(value) if c.isdigit())
     return value[:i] + str((int(value[i]) + 1) % 10) + value[i + 1:]
 
@@ -55,7 +55,7 @@ def _kinds(findings):
     return [f.kind for f in findings]
 
 
-# --- tartalmi minták -----------------------------------------------------------------------------------------------
+# --- content patterns ----------------------------------------------------------------------------------------------
 
 
 def test_valid_hu_tax_id_is_flagged_invalid_is_not(guard):
@@ -141,7 +141,7 @@ def test_deny_terms_are_matched_by_hash_only_also_inside_words():
 
 
 def test_known_values_are_tolerated_only_where_they_already_are():
-    """A 069-es döntés szerint maradó saját adat: a megnevezett fájlokban jelzés, máshol megállít."""
+    """Own data kept under the 069 decision: a warning in the named files, a stop anywhere else."""
     good = _hu_tax("9753102")
     conf = data_guard.load_config()
     conf["known"] = [*conf.get("known", []), {"sha256": data_guard.value_hash("hu_tax_id", good),
@@ -169,7 +169,7 @@ def test_masking_hides_the_middle(guard):
     assert good not in shown and shown.startswith(good[:2]) and "*" in shown
 
 
-# --- útvonal-szabályok ---------------------------------------------------------------------------------------------
+# --- path rules ----------------------------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("rel", ["docs/handoffs/071-x.md", "docs/BACKLOG.md", ".env", ".env.local", "store/jav.sqlite",
@@ -185,7 +185,7 @@ def test_allowed_paths(guard, rel):
     assert guard.check_path(rel) is None
 
 
-# --- diff és git ---------------------------------------------------------------------------------------------------
+# --- diff and git --------------------------------------------------------------------------------------------------
 
 
 def test_added_lines_parses_unified_diff():
@@ -245,7 +245,7 @@ def test_pre_push_blocks_forbidden_history_and_scans_new_commits(repo, guard):
     g = data_guard.Guard(conf, env_secrets={})
     found = data_guard.check_push(repo, g, [f"refs/heads/main {head} refs/heads/main {zero}"])
     assert _kinds(found) == ["forbidden_history"]
-    # új kiindulópont: a tiltott vonalra nem épül, a tartalma viszont átnézésre kerül
+    # new starting point: it does not build on the forbidden line, but its content is still scanned
     _git(repo, "checkout", "-q", "--orphan", "uj")
     (repo / "c.txt").write_text(f"tel {_hu_tax('2468135')}\n", encoding="utf-8")
     _git(repo, "add", "c.txt")
@@ -253,15 +253,15 @@ def test_pre_push_blocks_forbidden_history_and_scans_new_commits(repo, guard):
     new = _git(repo, "rev-parse", "HEAD").strip()
     found = data_guard.check_push(repo, g, [f"refs/heads/uj {new} refs/heads/uj {zero}"])
     assert sorted(_kinds(found)) == ["hu_tax_id"]
-    # törlés feltöltése: nincs mit átnézni
+    # pushing a deletion: nothing to scan
     assert data_guard.check_push(repo, g, [f"(delete) {zero} refs/heads/regi {head}"]) == []
 
 
-# --- a valódi tár és a telepítés -----------------------------------------------------------------------------------
+# --- the real repository and the installation ----------------------------------------------------------------------
 
 
 def test_tracked_files_have_no_blocking_findings():
-    """A kész-kritérium (070 terv 5.): a GitHubra kerülő fájlokban a kivétellistán kívül 0 megállító találat."""
+    """The done criterion (070 plan 5.): 0 blocking findings outside the allow list in the files that go to GitHub."""
     found = data_guard.blocking(data_guard.scan_tracked(ROOT, data_guard.load_guard(ROOT)))
     assert [f"{f.path}:{f.line} {f.kind} {f.shown}" for f in found] == []
 

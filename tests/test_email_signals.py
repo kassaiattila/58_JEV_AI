@@ -1,6 +1,8 @@
-"""BACKLOG (M3 jelek, handoff 011): sürgősség Score-ral, „több kérés van-e" Noul, beszúrt utasítás (promptinjekció) Noul.
+"""BACKLOG (M3 signals, handoff 011): urgency as a Score, a "more than one request?" Noul, an injected instruction
+(prompt injection) Noul.
 
-Offline: hamis kliens adja a Jev-választ (Choice + Noulok + Score egy kérésben); a policy és az eval-riport tiszta függvény.
+Offline: a fake client gives the JEV answer (Choice + Nouls + Score in one request); the policy and the eval report
+are pure functions.
 """
 
 from __future__ import annotations
@@ -18,7 +20,8 @@ from jav.intent import NOUL_KEYS, SCORE_KEYS, build_questions, classify
 
 
 class FakeClient:
-    """Choice: `szamlakuldes` 0,9; Noul: a `nouls` szótár szerint (alap 0,1); Score: a `scores` szótár szerint (alap: 2. szint 0,6)."""
+    """Choice: `szamlakuldes` 0.9; Noul: from the `nouls` dict (default 0.1); Score: from the `scores` dict (default:
+    level 2 at 0.6)."""
 
     def __init__(self, nouls: dict[str, float] | None = None, scores: dict[str, dict[int, float]] | None = None) -> None:
         self.nouls = nouls or {}
@@ -42,7 +45,8 @@ class FakeClient:
                                 "legend": {str(i): c for i, c in enumerate(q.criteria)}}
             else:
                 answers[qid] = {"type": "noul", "noul": self.nouls.get(qid, 0.1)}
-        # JSON-módban, mint az SDK a HTTP-válasznál: a Score szint-kulcsai stringként érkeznek, a modell egésszé alakítja
+        # in JSON mode, as the SDK does with the HTTP response: the Score level keys arrive as strings and the model
+        # turns them into ints
         return SystemOneResponse.model_validate_json(json.dumps({"model": "jev-1.13.0", "usage": {"input_tokens": 400, "output_tokens": 5}, "answers": answers}))
 
 
@@ -58,14 +62,15 @@ def _msg() -> EmailMessage:
 
 
 def test_email_intent_config_has_score_and_guard_questions():
-    """v1.1.0: `urgency` Score (3–10 helyzet-leírás, nem fokozat-szó), `multiple_requests` és `prompt_injection` Noul; `tone_urgent` nincs."""
+    """v1.1.0: `urgency` Score (3–10 situation descriptions, not grade words), `multiple_requests` and
+    `prompt_injection` Noul; no `tone_urgent`."""
     data = cfg.load("callsite:email_intent")
     assert tuple(int(x) for x in data["meta"]["version"].split(".")) >= (1, 1, 0)
     q = data["questions"]
     assert "tone_urgent" not in q
     urg = q["urgency"]
     assert urg["kind"] == "score" and 3 <= len(urg["criteria"]) <= 10
-    assert all(isinstance(c, str) and len(c) > 30 for c in urg["criteria"])  # helyzet-leírás, nem „közepes"
+    assert all(isinstance(c, str) and len(c) > 30 for c in urg["criteria"])  # situation text, not "közepes" (medium)
     for key in ("multiple_requests", "prompt_injection"):
         assert q[key]["kind"] == "noul" and set(q[key]["criteria"]) == {"true", "false"}
     assert SCORE_KEYS == ("urgency",)
@@ -85,41 +90,45 @@ def test_classify_fills_signals_and_scores(isolated: Path):
     r = classify(jev, _msg(), run_id="t1", use_cache=False)
     assert r.intent == "szamlakuldes"
     assert r.signals["prompt_injection"] == 0.85 and r.signals["multiple_requests"] == 0.2
-    assert "tone_urgent" not in r.signals and "urgency" not in r.signals  # a Score nem Noul-jel
+    assert "tone_urgent" not in r.signals and "urgency" not in r.signals  # the Score is not a Noul signal
     u = r.scores["urgency"]
     assert u.level == 2 and abs(u.score - 1.85) < 1e-6 and u.confidence == 0.7
     assert u.probabilities == {"0": 0.05, "1": 0.15, "2": 0.7, "3": 0.1}
-    json.dumps(r.scores["urgency"].model_dump())  # jsonl-be írható
+    json.dumps(r.scores["urgency"].model_dump())  # can be written to jsonl
 
 
 def test_adapter_cache_roundtrip_keeps_score_answers(isolated: Path):
-    """A kérés-hash cache Score-válasszal: a fájlban a szint-kulcsok stringek, a visszaolvasás (JSON-mód) egésszé alakítja."""
+    """The request-hash cache with a Score answer: in the file the level keys are strings, and reading back (JSON mode)
+    turns them into ints."""
     fake = FakeClient(scores={"urgency": {0: 0.1, 1: 0.1, 2: 0.2, 3: 0.6}})
     jev = JevAdapter(client=fake, cache_dir=isolated / "cache")
     first = classify(jev, _msg(), run_id="t1", use_cache=True)
     second = classify(jev, _msg(), run_id="t2", use_cache=True)
     assert not first.call.cached and second.call.cached
     assert second.scores["urgency"].level == 3 and second.scores["urgency"].probabilities == first.scores["urgency"].probabilities
-    assert len(fake.requests) == 1 + 1  # 1 alias-szonda (jev-latest -> konkrét verzió) + 1 élő hívás; a második classify cache-találat
+    assert len(fake.requests) == 1 + 1  # 1 alias probe (jev-latest -> version) + 1 live call; 2nd classify: cache hit
 
 
 def test_policy_signal_reasons_and_route():
-    """Beszúrt utasítás az igen-sávban: review-ok + `human:suspicious` útvonal minden más elé; a több-kérés jel csak mérhető, nem review-ok."""
+    """An injected instruction in the yes band: a review reason + the `human:suspicious` route ahead of everything else;
+    the multiple-requests signal is only measured, not a review reason."""
     assert policy.email_signal_reasons({"prompt_injection": 0.9, "multiple_requests": 0.9}) == ["signal:prompt_injection:0.90"]
     assert policy.email_signal_reasons({"prompt_injection": 0.2, "multiple_requests": 0.95}) == []
-    assert policy.email_signal_reasons({"prompt_injection": 0.5}) == []  # bizonytalan sáv: uncertain_review false
+    assert policy.email_signal_reasons({"prompt_injection": 0.5}) == []  # uncertain band: uncertain_review false
     pdf_typed = [Attachment(filename="a.pdf", path="a.pdf", doc_type="invoice_hu", type_conf=0.98, status="done")]
     assert policy.email_next_flow("szamlakuldes", 0.9, pdf_typed, signals={"prompt_injection": 0.9}) == "human:suspicious"
     assert policy.email_next_flow("szamlakuldes", 0.9, pdf_typed, signals={"prompt_injection": 0.2}) == "m2:invoice_hu"
     assert policy.email_next_flow("szamlakuldes", 0.9, pdf_typed, signals=None) == "m2:invoice_hu"
-    assert policy.email_next_flow("szamlakuldes", 0.3, pdf_typed, signals={"prompt_injection": 0.9}) == "human:suspicious"  # az injekció a low_conf elé
+    # the injection comes before low_conf
+    assert policy.email_next_flow("szamlakuldes", 0.3, pdf_typed, signals={"prompt_injection": 0.9}) == "human:suspicious"
     p = cfg.load("policy")
     assert p["email"]["signal_review"] == ["prompt_injection"] and p["email"]["signal_routes"] == {"prompt_injection": "human:suspicious"}
     assert "email.urgency" in p["band_for"]
 
 
 def test_injection_probe_perturbation_is_pure_and_bilingual():
-    """Beszúrt-utasítás szonda: a golden levél törzséhez a végén egy, a feldolgozó rendszernek címzett mondat kerül; az eredeti nem változik."""
+    """Injected-instruction probe: a sentence addressed to the processing system is appended to the end of the golden
+    email's body; the original does not change."""
     from jav.evals_email import INJECTIONS, inject_instruction
 
     msg = _msg()
@@ -153,10 +162,11 @@ def test_eval_report_reads_scores_as_score_judgments(tmp_path: Path):
     assert sc[0].label == "2" and sc[0].confidence == 0.7 and sc[0].top_prob == 0.7 and sc[0].second_prob == 0.15 and sc[0].p is None
     assert band_of(sc[0]) in ("auto", "uncertain", "human")
     pq = {(r["question"], r["kind"]): r for r in per_question(js)}
-    assert pq[("urgency", "score")]["n"] == 1 and pq[("urgency", "score")]["mean"] == 0.7  # csak az 1. futás; conf az érték
+    assert pq[("urgency", "score")]["n"] == 1 and pq[("urgency", "score")]["mean"] == 0.7  # run 1 only; conf = value
     det = {r["question"]: r for r in determinism_summary(js)}
     assert det["urgency"]["flips"] == 1 and det["urgency"]["std_max"] > 0
-    # beszúrt-utasítás szonda: a prompt_injection igazsága a variánsból; az esetek variánsonként külön (nem ismételt futás)
+    # injected-instruction probe: the truth of prompt_injection comes from the variant; the cases are kept per variant
+    # (not a repeated run)
     probe = tmp_path / "20260920_000001_email_injection_probe.jsonl"
     probe.write_text("\n".join(json.dumps({**rows[0], "variant": v, "signals": {"prompt_injection": p}}) for v, p in (("clean", 0.05), ("en_override", 0.9))), encoding="utf-8")
     pj = judgments_from_file(probe)

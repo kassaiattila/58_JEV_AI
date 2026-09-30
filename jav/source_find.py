@@ -1,8 +1,8 @@
-"""Típusfüggetlen JEV-forráskeresés; jelölteket ad, nem üzleti tényeket.
+"""Type-independent JEV source search; it yields candidates, not business facts.
 
-A teljes szöveget átfedő ablakokban bejárja. A Choice relatív rangsora mellé
-jelenlét-Noul és a kiválasztott részlet külön ellenőrzése kell. A nyers válasz
-megmarad; a kísérleti küszöbök kívülről érkeznek. Nincs automatikus adatkinyerés.
+It walks the whole text in overlapping windows. Besides the Choice's relative ranking,
+a presence Noul and a separate check of the selected excerpt are needed. The raw answer
+is kept; the experimental thresholds come from outside. No automatic data extraction.
 """
 from __future__ import annotations
 
@@ -90,18 +90,18 @@ def _windows(lines: list[dict], policy: SearchPolicy) -> list[list[dict]]:
         windows.append(window)
         if len(windows) > policy.max_windows:
             raise ValueError("source exceeds max_windows; no requests were sent")
-        # Egy sor átfedés; egyetlen nagyon hosszú sornál biztos előrelépés.
+        # One line of overlap; guaranteed progress on a single very long line.
         start = end if end == len(lines) else max(start + 1, end - 1)
     return windows
 
 
 def find_source(text: str, query: str, ask: Ask, policy: SearchPolicy,
                 *, prompts: dict | None = None) -> SearchResult:
-    """A kérdéshez ablakonként legfeljebb egy forrásjelölt, eredeti karakterhelyekkel.
+    """At most one source candidate per window for the query, with the original character offsets.
 
-    A candidate csak a forráskeresés eredménye. Az exists/support érték nem
-    dokumentum-helyesség és nem kalibrált automatikus elfogadási valószínűség.
-    A korláttúllépés hívás előtt hibát ad; szolgáltatáshiba részleges eredményt.
+    A candidate is only the result of the source search. The exists/support value is not
+    document correctness and not a calibrated probability for automatic acceptance.
+    Exceeding a limit raises an error before any call; a service error gives a partial result.
     """
     if not query.strip() or len(query) > policy.query_chars:
         raise ValueError("query must be nonempty and within query_chars")
@@ -153,7 +153,7 @@ def find_source(text: str, query: str, ask: Ask, policy: SearchPolicy,
             result.windows_completed += 1
         except JevUnavailableError as exc:
             result.errors.append(dict(window=index, reason=exc.reason))
-            break  # szolgáltatáshiba után nem fogyasztunk további keretet
+            break  # after a service error no further budget is spent
     result.coverage_complete = result.windows_completed == result.windows_total
     result.status = ("incomplete" if not result.coverage_complete else "candidate" if result.candidates
                      else "uncertain" if uncertain else "absent")

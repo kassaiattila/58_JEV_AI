@@ -1,10 +1,10 @@
-"""Jev keret-kör 1 / policy-sávok (BACKLOG 2) - offline.
+"""JEV framework round 1 / policy bands (BACKLOG 2) - offline.
 
-Nevesített sáv-készletek a `configs/policy.json`-ban (`bands`), hívási helyenként hozzárendelve (`band_for`),
-precedencia: a leghosszabb pontozott előtag -> `default`; a készlet a `default` fölé merge-elődik.
-Noul: no / uncertain / yes (kétoldali sáv); Choice: auto / uncertain / human (conf-küszöb + második-opció rés).
-Az `uncertain` sáv csak akkor review-ok, ha a készlet `uncertain_review: true` (alapból false: a sáv mérhető, a
-route nem változik - a döntés a felhasználóé az eval-riport számai alapján).
+Named band sets in `configs/policy.json` (`bands`), assigned per call site (`band_for`), precedence: the longest
+dotted prefix -> `default`; a set is merged over `default`.
+Noul: no / uncertain / yes (two-sided band); Choice: auto / uncertain / human (conf threshold + second-option gap).
+The `uncertain` band is a review reason only if the set has `uncertain_review: true` (false by default: the band is
+measurable, the route does not change - the decision is the owner's, based on the eval report's numbers).
 """
 
 from __future__ import annotations
@@ -26,20 +26,22 @@ def _pick(field: str, conf: float, probs: dict[str, float] | None = None, label:
 
 def test_policy_json_v110_has_bands_and_no_legacy_thresholds():
     p = cfg.load("policy")
-    assert p["meta"]["version"] >= "1.1.0"  # 1.1.0: savok; 1.2.0: parent_min_prob
+    assert p["meta"]["version"] >= "1.1.0"  # 1.1.0: bands; 1.2.0: parent_min_prob
     assert set(p["bands"]) >= {"default", "high_stakes", "verify_flag"}
     d = p["bands"]["default"]
     assert {"noul_no_max", "noul_yes_min", "choice_human_max_conf", "choice_second_min_gap", "uncertain_review"} <= set(d)
     assert d["noul_no_max"] < d["noul_yes_min"] and d["uncertain_review"] is False
-    assert "invoice" not in p  # 1.5.0: a required / high_stakes listák a típus-csomagokban (configs/types/), a policy csak sávok + e-mail
+    # 1.5.0: the required / high_stakes lists are in the type packs (configs/types/); policy = bands + email
+    assert "invoice" not in p
     assert "low_confidence" not in p.get("detect", {}) and "intent_human_max_conf" not in p["email"]
     assert set(p["band_for"]) >= {"invoice.pick", "invoice.pick.high_stakes", "invoice.verify", "detect.doc_type", "email.intent", "email.signal"}
 
 
 def test_band_precedence_longest_prefix_then_default():
     hs = policy.band("invoice.pick.high_stakes")
-    assert hs["choice_human_max_conf"] == 0.85 and hs["noul_yes_min"] == policy.band("default")["noul_yes_min"]  # merge a default fölé
-    assert policy.band("invoice.pick.high_stakes.gross_total")["choice_human_max_conf"] == 0.85  # leghosszabb előtag
+    # merged over default
+    assert hs["choice_human_max_conf"] == 0.85 and hs["noul_yes_min"] == policy.band("default")["noul_yes_min"]
+    assert policy.band("invoice.pick.high_stakes.gross_total")["choice_human_max_conf"] == 0.85  # longest prefix
     assert policy.band("invoice.pick.other") == policy.band("invoice.pick")
     assert policy.band("no.such.callsite") == policy.band("default")
     assert policy.band_name("invoice.pick.high_stakes.x") == "high_stakes" and policy.band_name("zzz") == "default"
@@ -50,17 +52,17 @@ def test_noul_band_is_two_sided():
     assert policy.noul_band(0.29, "invoice.verify") == "no"
     assert policy.noul_band(0.30, "invoice.verify") == "uncertain"
     assert policy.noul_band(0.69, "invoice.verify") == "uncertain"
-    assert policy.noul_band(0.70, "invoice.verify") == "yes"  # a küszöb zárt (>=), a régi `> 0.7` nyitott volt
+    assert policy.noul_band(0.70, "invoice.verify") == "yes"  # the threshold is closed (>=); the old `> 0.7` was open
     assert policy.noul_band(1.0, "email.signal") == "yes"
 
 
 def test_choice_band_conf_then_second_option_gap():
     assert policy.choice_band(0.59, {"a": 0.6, "b": 0.4}, "email.intent") == "human"
-    assert policy.choice_band(0.90, {"a": 0.50, "b": 0.40, "c": 0.10}, "email.intent") == "uncertain"  # rés 0.10 < 0.20
+    assert policy.choice_band(0.90, {"a": 0.50, "b": 0.40, "c": 0.10}, "email.intent") == "uncertain"  # gap 0.10 < 0.20
     assert policy.choice_band(0.90, {"a": 0.90, "b": 0.10}, "email.intent") == "auto"
-    assert policy.choice_band(0.90, None, "email.intent") == "auto"  # rés nem számolható -> csak a conf dönt
-    assert policy.choice_band(0.90, {"a": 0.9}, "email.intent") == "auto"  # egyetlen opció
-    assert policy.choice_band(0.80, {"a": 0.8, "b": 0.2}, "invoice.pick.high_stakes") == "human"  # 0.85 alatt
+    assert policy.choice_band(0.90, None, "email.intent") == "auto"  # gap cannot be computed -> only conf decides
+    assert policy.choice_band(0.90, {"a": 0.9}, "email.intent") == "auto"  # a single option
+    assert policy.choice_band(0.80, {"a": 0.8, "b": 0.2}, "invoice.pick.high_stakes") == "human"  # below 0.85
 
 
 def test_uncertain_band_reviews_only_when_enabled(monkeypatch: pytest.MonkeyPatch):
@@ -79,9 +81,10 @@ def test_apply_pick_policy_reasons_are_backward_compatible():
     st = _state(picks={
         "supplier_name": _pick("supplier_name", 0.99),
         "invoice_number": _pick("invoice_number", 0.55),  # < 0.6 -> low_conf
-        "gross_total": _pick("gross_total", 0.75),  # magas tét, 0.6-0.85 -> high_stakes_conf
-        "due_date": _pick("due_date", 0.90, {"2024-01-01": 0.5, "2024-02-01": 0.45, "none": 0.05}),  # rés 0.05: uncertain, alapból nem review
-        "buyer_name": _pick("buyer_name", 0.9, {"none": 0.9, "X": 0.1}, label=None),  # kötelező mező none-nal
+        "gross_total": _pick("gross_total", 0.75),  # high stakes, 0.6-0.85 -> high_stakes_conf
+        # gap 0.05: uncertain, not a review by default
+        "due_date": _pick("due_date", 0.90, {"2024-01-01": 0.5, "2024-02-01": 0.45, "none": 0.05}),
+        "buyer_name": _pick("buyer_name", 0.9, {"none": 0.9, "X": 0.1}, label=None),  # mandatory field with none
     })
     policy.apply_pick_policy(st)
     assert st.needs_review
@@ -115,8 +118,8 @@ def test_email_next_flow_accepts_probabilities():
 
 
 def test_high_stakes_field_outside_scored_fields_is_still_checked():
-    """066 Á04: a magyar számla `amount_due` mezője magas tétű, de nincs a pontozott mezők között; eddig a sávvizsgálat
-    kihagyta, így egy nagyon bizonytalan fizetendő összeg teendő nélkül elfogadódott."""
+    """066 Á04: the Hungarian invoice's `amount_due` field is high-stakes but not among the scored fields; the band
+    check used to skip it, so a very uncertain amount due was accepted without a to-do."""
     st = _state(doc_type="invoice_hu", picks={"amount_due": _pick("amount_due", 0.20)})
     policy.apply_pick_policy(st)
     assert st.needs_review

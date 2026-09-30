@@ -1,4 +1,4 @@
-"""Típusfüggetlen, forrásos adatpontok: javaslat és ellenőrzés külön állapot."""
+"""Type-independent, source-grounded data points: proposal and verification are separate states."""
 from __future__ import annotations
 
 import hashlib
@@ -54,10 +54,10 @@ class GeneratedPoints(BaseModel):
 
 
 def resolve_literal_spans(text: str, batch: ProposalBatch) -> tuple[ProposalBatch, list[dict]]:
-    """Opt-in javítás: egyetlen szó szerinti idézet hibás modellpozícióját helyreállítja.
+    """Opt-in repair: restores the wrong model position of a single verbatim quote.
 
-    Szöveg, érték és szerep nem változhat; ismétlődő vagy módosított idézetet
-    nem oldunk fel találgatással. Az eredeti javaslat és a változáslista megőrzendő.
+    Text, value and role may not change; a repeated or altered quote is not
+    resolved by guessing. The original proposal and the change list must be kept.
     """
     if digest(text)!=batch.source_sha256:
         raise ValueError('proposal source mismatch')
@@ -75,7 +75,7 @@ def resolve_literal_spans(text: str, batch: ProposalBatch) -> tuple[ProposalBatc
 
 
 def contextual_position(text: str, point: PointProposal) -> tuple[int | None, str | None]:
-    """Egyedi szó szerinti környezet és azon belül egyedi idézet; nincs első-találat döntés."""
+    """A unique verbatim context with a unique quote inside it; never decides by first match."""
     context = point.context_quote
     if context is None:
         first = text.find(point.quote)
@@ -122,7 +122,7 @@ def resolve_context_spans(text: str, batch: ProposalBatch, *, expand_exact_conte
 
 
 def propose(text: str, *, model, config: dict, run_id: str = "adhoc") -> ProposalBatch:
-    """Explicit modellfüggőség; nincs automatikus szolgáltatóválasztás vagy adatküldés."""
+    """Explicit model dependency; no automatic provider choice or data sending."""
     from pydantic_ai import Agent
     from pydantic_ai.usage import UsageLimits
     if not text.strip() or len(text) > config["max_text_chars"]:
@@ -162,7 +162,7 @@ def propose(text: str, *, model, config: dict, run_id: str = "adhoc") -> Proposa
 
 
 def propose_labels(text: str, config: dict) -> ProposalBatch:
-    """Helyi alapmódszer címke: érték sorokra; nem általános szemantikai kivonatoló."""
+    """Local baseline method for "label: value" lines; not a general semantic extractor."""
     if not text.strip() or len(text) > config["max_text_chars"]:
         raise ValueError("source empty or exceeds explicit context limit")
     pattern = re.compile(config["label_pattern"])

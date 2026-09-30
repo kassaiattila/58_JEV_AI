@@ -1,13 +1,14 @@
-"""Adószám-alakok egy helyen (069, 066 Á05 / Á27, döntés 2026-09-29): a jelöltkereső, az ellenőrzés és a normalizálás
-(a G-út kivonata, a kézi javítás, a pontozás) közös táblája.
+"""Tax-number formats in one place (069, 066 Á05 / Á27, decision of 2026-09-29): the shared table of the candidate
+finder, the checks and the normalisation (the G-path extraction, manual correction, scoring).
 
-- `recognize`: felismert alak → ország, fajta, egységes (kanonikus) írásmód; ismeretlen alak → None. Címkét nem tűr.
-- `clean`: a címke és a felesleges előtag levágása („Adószám: …”, „HU VAT HU…”, „VAT ID: IE 8256796 U”); ha a szövegben
-  nem pontosan egy felismert adószám áll, az eredeti szöveg marad (az ellenőrzés teendőt ad rá).
-- `hu_check`: a magyar adószám és a magyar közösségi adószám ellenőrzése (ellenőrzőszám, áfakód, megyekód).
+- `recognize`: recognised format → country, kind, uniform (canonical) spelling; unknown format → None. No label allowed.
+- `clean`: strips the label and any superfluous prefix ("Adószám: …", "HU VAT HU…", "VAT ID: IE 8256796 U"); if the
+  text does not contain exactly one recognised tax number, the original text is kept (the check raises a to-do for it).
+- `hu_check`: checks the Hungarian tax number and the Hungarian EU VAT number (check digit, VAT code, county code).
 
-Az uniós alakok a VIES-formátumok (országkód nélkül, tömörítve); a nem uniósak közül a felmérésben és a régi jelölt-profilban
-látott gyakoriak (brit, norvég, svájci, amerikai EIN). Ellenőrzőszámot csak a magyarnál számolunk (a döntés szerint).
+The EU formats are the VIES formats (without country code, compacted); of the non-EU ones, the common formats seen in
+the survey and in the legacy candidate profile (British, Norwegian, Swiss, US EIN). Check digits are computed only for
+Hungarian numbers (as decided).
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from dataclasses import dataclass
 
 HU_WEIGHTS = (9, 7, 3, 1, 9, 7, 3)
 
-# országkód → a törzs alakja (tömörítve: szóköz, pont, kötőjel nélkül)
+# country code → format of the body (compacted: without spaces, dots and hyphens)
 FORMATS: dict[str, str] = {
     "AT": r"U\d{8}",
     "BE": r"[01]\d{9}",
@@ -47,12 +48,12 @@ FORMATS: dict[str, str] = {
     "SI": r"\d{8}",
     "SK": r"\d{10}",
     "XI": r"\d{9}|\d{12}|GD\d{3}|HA\d{3}",
-    "EU": r"\d{9}",  # uniós egyablakos (OSS) nyilvántartási szám
+    "EU": r"\d{9}",  # EU one-stop-shop (OSS) registration number
     "GB": r"\d{9}|\d{12}|GD\d{3}|HA\d{3}",
     "NO": r"\d{9}(?:MVA)?",
 }
 EU_MEMBERS = frozenset(FORMATS) - {"GB", "NO"}
-_SUFFIX = {"NO": "MVA"}  # a kanonikus alakból elhagyott utótag
+_SUFFIX = {"NO": "MVA"}  # suffix dropped from the canonical form
 
 _HU_DOMESTIC_RE = re.compile(r"\d{8}[\s\-]?\d[\s\-]?\d{2}")
 _EIN_RE = re.compile(r"\d{2}-\d{7}")
@@ -69,13 +70,13 @@ _LABEL_RE = re.compile(
 
 @dataclass(frozen=True)
 class TaxId:
-    country: str  # „HU”, „IE”, „US” …
+    country: str  # "HU", "IE", "US" …
     kind: str  # hu | hu_eu | eu | intl
     canonical: str
 
 
 def recognize(raw: str | None) -> TaxId | None:
-    """Felismert adószám-alak (címke nélkül), vagy None."""
+    """Recognised tax-number format (without a label), or None."""
     if not raw:
         return None
     s = str(raw).strip()
@@ -103,8 +104,8 @@ def recognize(raw: str | None) -> TaxId | None:
 
 
 def clean(raw: str | None) -> str | None:
-    """A kinyert érték tisztítása: felismert alak → kanonikus írásmód; címkével / előtaggal együtt írt, egyetlen
-    felismert adószám → az adószám; minden más → az eredeti szöveg (az ellenőrzés teendőt ad rá)."""
+    """Cleans an extracted value: recognised format → canonical spelling; a single recognised tax number written with a
+    label / prefix → the tax number; anything else → the original text (the check raises a to-do for it)."""
     if raw is None:
         return None
     s = str(raw).strip()
@@ -127,14 +128,14 @@ def clean(raw: str | None) -> str | None:
         return s
     canonical, (lo, hi, country) = next(iter(found.items()))
     rest = tokens[:lo] + tokens[hi:]
-    if all(x.upper() == country for x in rest):  # „HU VAT HU12345678”: a megismételt országkód nem második azonosító
+    if all(x.upper() == country for x in rest):  # "HU VAT HU12345678": the repeated country code is not a second ID
         return canonical
     return s
 
 
 def hu_check(t: TaxId) -> tuple[bool, str, str | None]:
-    """Magyar adószám (8 jegy + ellenőrzőszám + áfakód 1–5 + megyekód 02–20 / 22–44 / 51) vagy magyar közösségi adószám
-    (HU + 8 jegy, ugyanazzal az ellenőrzőszámmal). Visszaad: (rendben, kód, részlet)."""
+    """Hungarian tax number (8 digits, the 8th being the check digit + VAT code 1–5 + county code 02–20 / 22–44 / 51)
+    or Hungarian EU VAT number (HU + 8 digits, with the same check digit). Returns: (ok, code, detail)."""
     d = re.sub(r"\D", "", t.canonical)
     s = sum(int(d[i]) * HU_WEIGHTS[i] for i in range(7))
     check = (10 - (s % 10)) % 10

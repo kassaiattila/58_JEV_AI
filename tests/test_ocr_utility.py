@@ -1,14 +1,17 @@
-"""OCR-lánc + közmű-kör (BACKLOG 7 + 1) - offline, API és tesseract nélkül.
+"""OCR chain + utility round (BACKLOG 7 + 1) - offline, without the API and tesseract.
 
-- OCR: a tesseract TSV szó-dobozai pontra váltva ugyanazzal a sor- / cella-építővel adnak elrendezést, mint a szövegréteg;
-  a gyorsítótár a második hívásnál talál; a minőségjelek nyersek, a policy `ocr` küszöbei adják a review-okot;
-- a két gráf (invoice, doc_detect) tartalmazza az `ocr_pdf` lépést és a kontrakt-lint átmegy (test_contract);
-- típus-csomagok: a hat közmű-csomag az alap-csomagot örökli (mezők, validátorok, séma), a `keys()` az alap-csomagot nem
-  listázza, a G-kar modell az alap + gyermek mezőket tartalmazza;
-- jelöltkeresők: címkés szöveg-jelölt (ugyanabban a cellában / következő cellában / alatta), mennyiség-jelölt a mértékegységes
-  sorokból, OCR-tűrő adószám és dátum, mondatba ágyazott cégnév vágása, a magyar profil viselkedése változatlan;
-- S-kar hívási hely: csak a csomag mezőit kérdezi, a zárt extra kérdés csak a csomag mezőjénél, az opció-kontextus vágva;
-- golden: OCR-tűrő második pontszám; adapter: a szerver hiba-típusa a review-okban.
+- OCR: tesseract TSV word boxes, converted to points, give a layout through the same line / cell builder as the text
+  layer; the cache hits on the second call; the quality signals are raw, and the policy's `ocr` thresholds produce the
+  review reasons;
+- both graphs (invoice, doc_detect) contain the `ocr_pdf` step and the contract lint passes (test_contract);
+- type packs: the six utility packs inherit the base pack (fields, validators, schema), `keys()` does not list the base
+  pack, and the G-path model contains the base + child fields;
+- candidate finders: labelled text candidate (in the same cell / the next cell / below), quantity candidates from lines
+  with units, OCR-tolerant tax number and date, trimming of company names embedded in sentences, the Hungarian profile's
+  behaviour unchanged;
+- S-path call site: asks only for the pack's fields, the closed extra question only for a pack field, the option
+  context trimmed;
+- golden: OCR-tolerant second score; adapter: the server's error type in the review reasons.
 """
 
 from __future__ import annotations
@@ -53,7 +56,7 @@ def test_parse_tsv_converts_pixels_to_points_and_drops_empty_words():
 def test_build_layout_from_ocr_words_groups_lines_and_cells_with_scan_tolerance():
     tsv = _tsv([
         ("Szolgáltató", 200, 1000, 300, 40, 95), ("neve:", 520, 1004, 150, 40, 95), ("MVM", 700, 1002, 120, 40, 95), ("Next", 840, 1001, 120, 40, 95),
-        ("Dr.", 1900, 1010, 80, 40, 90), ("Minta-Kovács", 2000, 1008, 350, 40, 90),  # ugyanaz a sor, másik oszlop (nagy rés)
+        ("Dr.", 1900, 1010, 80, 40, 90), ("Minta-Kovács", 2000, 1008, 350, 40, 90),  # same line, other column (large gap)
         ("Adószáma:", 200, 1080, 250, 40, 95), ("26903570-2-44", 480, 1082, 400, 40, 95),
     ])
     words, _ = ocr.parse_tsv(tsv)
@@ -81,7 +84,7 @@ def test_ocr_pdf_uses_fake_engine_and_disk_cache(tmp_path, monkeypatch):
     assert 0.6 < first.ocr["mean_conf"] < 0.8 and first.ocr["low_conf_ratio"] == pytest.approx(0.5)
     assert "800012345678" in first.text and len(calls) == 1
     second = ocr.ocr_pdf(pdf_file, page_count=1)
-    assert second.ocr["cached"] is True and second.text == first.text and len(calls) == 1  # nem futott újra
+    assert second.ocr["cached"] is True and second.text == first.text and len(calls) == 1  # did not run again
     assert len(list((tmp_path / "ocr_cache").glob("*.json"))) == 1
 
 
@@ -96,7 +99,7 @@ def test_read_document_falls_back_to_ocr_only_without_text_layer(monkeypatch):
     monkeypatch.setattr(ocr, "ocr_pdf", fake_ocr)
     assert pdfmod.read_document("x.pdf").text_source == "ocr" and seen == ["x.pdf"]
     monkeypatch.setattr(pdfmod, "read_pdf", lambda p: pdfmod.PdfText(path=str(p), text="valódi szöveg", has_text_layer=True, text_source="pdf"))
-    assert pdfmod.read_document("y.pdf").text_source == "pdf" and seen == ["x.pdf"]  # szövegréteg mellett nincs OCR
+    assert pdfmod.read_document("y.pdf").text_source == "pdf" and seen == ["x.pdf"]  # no OCR when there is a text layer
 
 
 def test_policy_ocr_review_reasons_thresholds():
@@ -114,7 +117,7 @@ def test_flows_contain_ocr_step():
     assert ("ocr_pdf", "needs_ocr") in {(e[0], e[1]) for e in flow_detect.CONTRACT["edges"]}
 
 
-# --- típus-csomagok ---------------------------------------------------------------------------------
+# --- type packs -------------------------------------------------------------------------------------
 
 
 def test_utility_packs_extend_base():
@@ -148,7 +151,7 @@ def test_candidate_kind_number_is_quantity():
     assert typepack.CANDIDATE_KIND_OF["number"] == "quantity"
 
 
-# --- jelöltkeresők -------------------------------------------------------------------------------------
+# --- candidate finders ---------------------------------------------------------------------------------
 
 
 def test_labelled_text_same_cell_next_cell_and_below():
@@ -161,7 +164,7 @@ def test_labelled_text_same_cell_next_cell_and_below():
     tariff = cand.find_labelled_text(lines, "tariff", ("[áa]rszab[áa]s",))
     assert [c.label for c in tariff] == ['ESZ "A1" Lakosság']
     svc = cand.find_labelled_text(lines, "service_description", ("a\\s*szolg[áa]ltat[áa]s\\s*megnevez[ée]se",))
-    assert [c.label for c in svc] == ["Hulladékgazdálkodási közszolgáltatás"]  # alatta, és a "közszolgáltatás" nem számít címkének
+    assert [c.label for c in svc] == ["Hulladékgazdálkodási közszolgáltatás"]  # below; "közszolgáltatás" is not a label
     pod = cand.find_labelled_text(lines, "metering_point_id", ("m[ée]r[ée]si\\s*pont\\s*azonos[íi]t[óo]",))
     assert [c.label for c in pod] == ["HU000210F11-E600000012345-1000001"]
     assert tariff[0].kind == "text" and svc[0].line_no == 3
@@ -177,11 +180,11 @@ def test_find_all_with_text_labels_and_quantities():
     ]
     out = cand.find_all(lines, "utility", text_labels={"tariff": ("[áa]rszab[áa]s",)})
     q = {c.label for c in out["quantity"]}
-    assert {"882", "12345", "13227"} <= q and "5734" not in q  # csak a mértékegységes / mérő-sorokból (és szomszédaikból)
-    assert {"43096", "21238", "5734", "26972"} <= {c.label for c in out["money"]}  # a táblázat számai megmaradnak pénz-jelöltnek
-    assert [c.label for c in out["tax_id"]] == ["26903570-2-44"]  # OCR-szóköz a címkés sorban
-    assert {"2025-08-01", "2025-08-31"} <= {c.label for c in out["date"]}  # vesszős OCR-dátum
-    assert "ELMŰ Hálózati Kft" in {c.label for c in out["name"]}  # OCR-tűrő fél-címke levágva
+    assert {"882", "12345", "13227"} <= q and "5734" not in q  # only from lines with units / meter lines (and their neighbours)
+    assert {"43096", "21238", "5734", "26972"} <= {c.label for c in out["money"]}  # the table's numbers stay money candidates
+    assert [c.label for c in out["tax_id"]] == ["26903570-2-44"]  # OCR space in the labelled line
+    assert {"2025-08-01", "2025-08-31"} <= {c.label for c in out["date"]}  # OCR date with a comma
+    assert "ELMŰ Hálózati Kft" in {c.label for c in out["name"]}  # OCR-tolerant half label trimmed off
     assert out["text:tariff"] == []
 
 
@@ -194,7 +197,7 @@ def test_utility_names_cut_sentences_and_parentheses_and_keep_person_fallback():
     ] * 20, 1)]
     names = {c.label for c in cand.find_names(lines, cand.UTILITY)}
     assert "MVM Next Energiakereskedelmi Zrt." in names and "Díjbeszedő Holding Zrt." in names
-    assert "MINTA-KOVÁCS ÉVA DR" in names  # a magánszemély-tartalék nem szorul ki a sok cégnév miatt
+    assert "MINTA-KOVÁCS ÉVA DR" in names  # the private-person fallback is not crowded out by the many company names
     assert not any(n.startswith("(") or n.startswith("az ") for n in names)
 
 
@@ -202,8 +205,8 @@ def test_invoice_number_lookahead_two_lines_only_long_tokens():
     lines = [_line(1, ("Terhelési összesítő száma", 20)), _line(2, ("Részletek a hátoldalon", 20)), _line(3, ("600012345   27", 20)), _line(4, ("Számla összesen 21 238", 20))]
     work = [ln.text for ln in lines]
     labels = {c.label for c in cand.find_invoice_numbers(lines, work, cand.UTILITY)}
-    assert "600012345" in labels and "27" not in labels  # két sorral lejjebb csak azonosító-hosszú token
-    assert "21 238" in work[3]  # a hatókörön kívüli rövid tokent nem maszkoltuk
+    assert "600012345" in labels and "27" not in labels  # two lines further down, only identifier-length tokens
+    assert "21 238" in work[3]  # the short token outside the look-ahead range was not masked
 
 
 def test_hu_profile_unchanged_by_utility_additions():
@@ -217,7 +220,7 @@ def test_hu_profile_unchanged_by_utility_additions():
     assert out["quantity"] == [] and cand.HU.max_money_options == cand.MAX_OPTIONS and cand.HU.invoice_lookahead == 1
 
 
-# --- S-kar hívási hely ----------------------------------------------------------------------------------
+# --- S-path call site -----------------------------------------------------------------------------------
 
 
 class FakeJev:
@@ -251,13 +254,13 @@ def test_select_utility_asks_only_pack_fields_and_closed_extras():
     picks, calls = site.select_fields(jev, lines, cands, run_id="t")
     asked = {rid: set(q) for rid, q in jev.requests}
     assert "reading_method" not in asked.get("utility_meter", set()) and "payment_method" in asked["utility_header"] and "currency" in asked["utility_money"]
-    assert "service_description" in asked["utility_meter"] and "consumption_kwh" not in asked.get("utility_meter", set())  # nem a csomag mezője
+    assert "service_description" in asked["utility_meter"] and "consumption_kwh" not in asked.get("utility_meter", set())  # not a pack field
     assert not any(f in picks for f in ("consumption_kwh", "distribution_licensee", "tariff"))
     inv, reasons = site.picks_to_invoice(picks, cands)
     assert inv.extra["service_description"] == "Hulladékgazdálkodási közszolgáltatás" and inv.payment_method == "Postai számlabefizetési megbízás"
     assert inv.amount_due == Decimal("3266") and reasons == []
     desc = site.build_choice("supplier_name", cands["name"]).criteria
-    assert all(len(v) <= 170 + 60 for v in desc.values() if v)  # a kontextus vágva
+    assert all(len(v) <= 170 + 60 for v in desc.values() if v)  # the context is trimmed
 
 
 def test_select_utility_number_field_from_quantity_candidates():
@@ -282,20 +285,21 @@ def test_verify_utility_inherits_and_number_evidence():
 
 
 def test_evidence_reads_the_raw_value_like_the_record_does():
-    # 054: a GPT nyers értéke „1.153” (magyar ezres pont); a rekord 1153-nak veszi, a bizonyíték-keresés is így keresse
+    # 054: GPT's raw value is "1.153" (Hungarian thousands separator); the record reads it as 1153, and the evidence
+    # search must do the same
     from jav.jev_verify import find_evidence
 
     lines = [_line(1, ("Fogyasztás összesen: 1.153 kWh", 20))]
     assert find_evidence("consumption_kwh", "1.153", lines, kind="number")
     assert find_evidence("consumption_kwh", "1153", lines, kind="number")
     assert not find_evidence("consumption_kwh", "1154", lines, kind="number")
-    # a számjegyre is egyező sor előre kerül (a sorszám „1.” nem előzi meg az „1.0000” tényezőt)
+    # the line that also matches digit for digit comes first (the ordinal "1." does not beat the factor "1.0000")
     lines = [_line(1, ("1. sz. eredeti példány", 20)), _line(2, ("Korrekciós tényező 1.0000", 20))]
     assert find_evidence("correction_factor", "1,0000", lines, kind="number")[0].startswith("L02")
 
 
 def test_evidence_tolerates_ocr_confusions_in_text():
-    # 054: az OCR az „A1”-et „Al”-nek olvasta, a GPT a képről helyesen „A1”-et adott
+    # 054: OCR read "A1" as "Al"; GPT correctly gave "A1" from the image
     from jav.jev_verify import find_evidence
 
     lines = [_line(1, ('Árszabás: ESZ "Al" Lakosság', 20))]
@@ -324,7 +328,7 @@ def test_error_slug_includes_server_error_type():
     assert reason == "Err:400:max_tokens_exceeded" and ledger == reason
 
 
-# --- Azure DI motor + eszkaláció (handoff 013 §8) -------------------------------------------------------
+# --- Azure DI engine + escalation (handoff 013 §8) ------------------------------------------------------
 
 
 def test_azure_evidence_words_convert_inches_to_points_and_percent_confidence():
@@ -338,7 +342,7 @@ def test_azure_evidence_words_convert_inches_to_points_and_percent_confidence():
     assert [w["text"] for w in pages[0]] == ["Fizetési", "határidő:", "2025.10.01"] and confs == [99.0, 98.0, 97.0]
     assert pages[0][0]["x0"] == pytest.approx(36.0) and pages[0][0]["top"] == pytest.approx(72.0) and meta["model_id"] == "prebuilt-read"
     layout = pdfmod.build_layout(pages, y_tol=ocr._y_tolerance(pages))
-    assert len(layout) == 1 and layout[0].text.startswith("Fizetési határidő:") and layout[0].text.endswith("2025.10.01")  # egy sor, a nagy rés cellahatár
+    assert len(layout) == 1 and layout[0].text.startswith("Fizetési határidő:") and layout[0].text.endswith("2025.10.01")  # one line, gap = cell boundary
 
 
 def test_engine_selection_never_auto_picks_azure(monkeypatch):
@@ -381,12 +385,13 @@ def test_policy_ocr_should_escalate_thresholds():
     assert not policy.ocr_should_escalate(0.95, 0.05) and not policy.ocr_should_escalate(None, None)
 
 
-# --- kérés-méret keret: a jelölt-vágás dokumentum-sorrendben + újrapróbálás token-hibánál (handoff 015) -------------
+# --- request-size budget: candidate trimming in document order + retry on a token error (handoff 015) ------------
 
 
 def _many_names(n_far: int, wanted_line: int) -> list[Candidate]:
-    """n_far jogi formás név a dokumentum végéről (a jelölt-lista elején, mint a `find_names` vödrében), és egy
-    magánszemély-név a felső blokkból a lista VÉGÉN (a tartalék-nevek a jogi formás nevek után kerülnek a vödörbe)."""
+    """n_far names with a legal form from the end of the document (at the start of the candidate list, as in the
+    `find_names` bucket), and one private person's name from the top block at the END of the list (fallback names go
+    into the bucket after the names with a legal form)."""
     far = [Candidate(kind="name", label=f"Cég {i} Zrt.", raw=f"Cég {i} Zrt.", line_no=150 + i, context=f"L{150 + i}: Cég {i} Zrt.") for i in range(n_far)]
     return far + [Candidate(kind="name", label="MINTA-KOVÁCS ÉVA DR", raw="MINTA-KOVÁCS ÉVA DR", line_no=wanted_line, context=f"L{wanted_line}: ügyfél")]
 
@@ -399,10 +404,10 @@ def test_fit_budget_cap_keeps_document_order_so_top_block_names_survive():
     cands = {"name": _many_names(90, wanted_line=9)}
     questions = {"customer_name": site.build_choice("customer_name", cands["name"])}
     state = {"document": "x", "lines": [ln.model_dump() for ln in lines]}
-    site.request_char_budget = 1  # kényszerített vágás a legszűkebb fokozatig
+    site.request_char_budget = 1  # forced trimming down to the tightest level
     _, trimmed = site._fit_budget("utility_parties", state, questions, lines, cands, ["customer_name"])
     crit = trimmed["customer_name"].criteria
-    assert "MINTA-KOVÁCS ÉVA DR" in crit and len(crit) <= 41  # a felső blokk neve marad a 40-es sapkán belül (dokumentum-sorrend)
+    assert "MINTA-KOVÁCS ÉVA DR" in crit and len(crit) <= 41  # the top block's name stays within the cap of 40 (document order)
 
 
 def test_select_retries_once_with_tighter_budget_on_max_tokens_error():
@@ -425,12 +430,12 @@ def test_select_retries_once_with_tighter_budget_on_max_tokens_error():
     site = site_for("viz_szamla")
     lines = [_line(i, (f"sor {i} Cég {i} Zrt.", 20)) for i in range(1, 260)]
     cands = {"name": _many_names(90, wanted_line=9)}
-    site.request_char_budget = 10_000_000  # az első kérés nem vág, a szerver mégis token-hibát ad
+    site.request_char_budget = 10_000_000  # the first request is not trimmed, yet the server gives a token error
     jev = TokenLimitJev(fail_times=1)
     picks, calls = site.select_fields(jev, lines, cands, run_id="t")
-    assert len(jev.sizes) >= 2 and jev.sizes[1] < jev.sizes[0]  # egyszer újrapróbálta, szűkebb kéréssel
+    assert len(jev.sizes) >= 2 and jev.sizes[1] < jev.sizes[0]  # retried once, with a tighter request
     assert picks["customer_name"].label is not None and len(calls) >= 1
-    # más hiba (vagy második token-hiba) nem próbálkozik tovább: a kivétel a flow-hoz jut (jev_unavailable review-ok)
+    # another error (or a second token error) is not retried: the exception reaches the flow (jev_unavailable reviews)
     with pytest.raises(JevUnavailableError):
         site.select_fields(TokenLimitJev(fail_times=2), lines, cands, run_id="t")
 
@@ -457,24 +462,24 @@ def test_verify_fits_budget_by_keeping_only_evidence_lines_and_retries_once():
     lines[1] = _line(2, ("Szolgáltató neve: MOHU MOL Hulladékgazdálkodási Zrt.", 20), ("Adószáma: 32197530-2-44", 400))
     lines[150] = _line(151, ("Fizetendő összeg   3 266", 20))
     llm = {"supplier_name": "MOHU MOL Hulladékgazdálkodási Zrt.", "supplier_tax_id": "32197530-2-44", "amount_due": "3266"}
-    # keret nélkül: a teljes dokumentum megy
+    # no budget: the whole document is sent
     site.request_char_budget = None
     jev = RecordingJev()
     site.verify(jev, lines, llm, run_id="t")
     assert len(jev.states[0]["source_lines"]) == len(lines)
-    # a teljes szövegnél kisebb keret: csak az evidencia-sorok (± 1) maradnak, a kérdések és a glosszár nem változnak
+    # budget below the full text: only the evidence lines (± 1) remain; the questions and glossary are unchanged
     site.request_char_budget = site._size(jev.states[0], {}) - 1000
     jev = RecordingJev()
     verdicts, _ = site.verify(jev, lines, llm, run_id="t")
     kept = jev.states[0]["source_lines"]
     assert 0 < len(kept) < 12 and any(s.startswith("L02:") for s in kept) and any(s.startswith("L151:") for s in kept)
     assert "glossary" in jev.states[0] and verdicts.flags
-    # ha az evidencia-sorok sem férnek: a sorok elmaradnak, a kérdések (bennük a printed_on evidencia) mennek
+    # if even the evidence lines do not fit: the lines are dropped, the questions (with printed_on evidence) are sent
     site.request_char_budget = 1
     jev = RecordingJev()
     site.verify(jev, lines, llm, run_id="t")
     assert "source_lines" not in jev.states[0] and "glossary" in jev.states[0]
-    # tág keret, de a szerver token-hibát ad: egyszer újrapróbál szűkebb kéréssel
+    # generous budget, but the server gives a token error: one retry with a tighter request
     site.request_char_budget = 10_000_000
     jev = RecordingJev(fail_times=1)
     site.verify(jev, lines, llm, run_id="t")

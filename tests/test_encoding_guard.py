@@ -1,7 +1,7 @@
-"""061: rossz kódolással visszaírt szöveg (UTF-8 bájtok cp1250/cp1252-ként olvasva) ne kerülhessen a forrásba.
+"""061: text written back with the wrong encoding (UTF-8 bytes read as cp1250/cp1252) must not get into the sources.
 
-A választó pipája egyszer „âś“” alakban került a stíluslapba, és a felületen „ásm”-szerű jelként látszott minden
-legördülő listában. A jellemző kettős-kódolású részletek keresése a felület, a konfigok és a Python-kód fájljaiban.
+The selector's tick mark once ended up in the stylesheet as "âś“" and showed up in the UI as an "ásm"-like sign in
+every drop-down list. Searches the UI, config and Python source files for the typical double-encoded fragments.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-# UTF-8 ékezetes betűk / jelek cp1250-ként vagy cp1252-ként dekódolva (pl. „é” → „Ă©”, „ő” → „Ĺ‘”, „✓” → „âś“”, „–” → „â€“”)
+# UTF-8 accented letters / symbols decoded as cp1250 or cp1252 (e.g. "é" → "Ă©", "ő" → "Ĺ‘", "✓" → "âś“", "–" → "â€“")
 BAD = ("Ă©", "Ăˇ", "Ăł", "Ă¶", "ĂĽ", "Ĺ‘", "Ĺ±", "Ă­", "Ăş", "âś", "â€", "Ã©", "Ã¡", "Ã³", "Ã¶", "Ã¼", "Å‘", "Å±")
 GLOBS = ("ui/src/**/*.ts", "ui/src/**/*.tsx", "ui/src/**/*.css", "ui/src/**/*.json", "configs/**/*.json", "jav/**/*.py")
 

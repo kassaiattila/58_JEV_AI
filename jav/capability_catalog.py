@@ -39,7 +39,7 @@ def build_catalog():
     registry=_read(doc_path); intents=_read(intent_path)['intents']
     core=set(typepack.keys()); legacy=set(legacy_packs.keys())
     expected=set(spec['expected_document_keys'])
-    # 047 T1.1: mind a 23 típus teljes csomag; a 15 régi másolat forrásként marad (hash-ellenőrzés), mindegyiknek van csomagja
+    # 047 T1.1: all 23 types are full packs; the 15 legacy copies stay as sources (hash check), each has a pack
     if core != expected or not legacy <= core or set(registry['old_type_map']) != expected:
         raise ValueError('document catalog coverage mismatch')
     intent_keys=[x['key'] for x in intents]

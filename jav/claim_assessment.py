@@ -1,4 +1,4 @@
-"""Kísérleti állításvizsgálat: szerep/állapot külön, a forrás és a helyesség nem azonos."""
+"""Experimental claim assessment: role and status are judged separately; being sourced is not the same as correct."""
 from __future__ import annotations
 
 import json
@@ -113,7 +113,7 @@ def prepare_packet(case, config):
 
 
 def assess_openai(packet, *, model, config, run_id):
-    """A meglévő Pydantic AI-javaslattevő mintája, egy strukturált értelmezésre."""
+    """Modelled on the existing Pydantic AI proposer, for a single structured interpretation."""
     from pydantic_ai import Agent
     from pydantic_ai.usage import UsageLimits
     from jav import store
@@ -182,9 +182,9 @@ def review_proposal(packet, proposal, ask, config):
 
 
 def run_assessment(*, case, directory, run_id, model, adapter, config, fault=None):
-    """Saját változatlan válasznapló, hívás előtti jelző és egyetlen helyi munkás.
+    """Its own immutable response log, a pre-call marker and a single local worker.
 
-    Ez fájlos kísérleti vizsgálat; nem új üzemi Burr-gráf és nem aktiválási kapu.
+    This is a file-based experimental study; it is not a new production Burr graph and not an activation gate.
     """
     import sqlite3
     from contextlib import closing

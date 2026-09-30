@@ -1,4 +1,4 @@
-"""Távoli forrásrészek közös ellenőrzése, eredeti forráshelyekkel; nincs automatikus keresés."""
+"""Joint verification of distant source parts, with their original source positions; no automatic search."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,7 +9,7 @@ from jav import store
 
 
 def build_bundle(text, spans, *, source_sha256, max_chars=8000):
-    """Explicit, rendezett, nem átfedő részletek; nincs csonkolás vagy kitalált oldaladat."""
+    """Explicit, ordered, non-overlapping excerpts; no truncation and no invented page data."""
     if digest(text)!=source_sha256:
         raise ValueError('source hash mismatch')
     if not spans or not 0 < max_chars <= 8000:
@@ -46,10 +46,10 @@ def source_position(bundle, start, length):
 
 def run_evidence_learning(*, text, spans, source_sha256, directory, run_id, adapter, config,
                           model=None, proposals=None, source_char_limit=16000):
-    """Ugyanaz a Burr-gráf; a JEV-támogatás a kiválasztott környezetre vonatkozik.
+    """The same Burr graph; the JEV support applies to the selected context.
 
-    A hívó kötelessége a teljes forrás küldési engedélye és a költségőr.
-    A részletek kiválasztása nem állít teljes dokumentumvizsgálatot.
+    The caller is responsible for permission to send the whole source and for the cost guard.
+    Selecting excerpts does not claim a full examination of the document.
     """
     if len(text)>source_char_limit:
         raise ValueError('document exceeds external source character limit')
@@ -74,7 +74,7 @@ def run_evidence_learning(*, text, spans, source_sha256, directory, run_id, adap
             if at < 0 or source_position(bundle,at,len(context)) is None:
                 located=None
         point['source_start'],point['source_end']=located if located else (None,None)
-        # Marker vagy két rész összeragasztása nem lehet szó szerinti forrás.
+        # A marker, or two parts glued together, cannot be a verbatim source.
         if located is None and point['verification']['status']=='supported':
             point['local_verification']=point['verification']
             point['verification']={'status':'invalid_source_span','response':None}

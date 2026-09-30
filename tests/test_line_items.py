@@ -1,5 +1,5 @@
-"""Számlatételek (053 T3): tételes lista a számla- és közmű-csomagokban, tételszintű kód-ellenőrzések, és a csomag
-ajánlott útja (automatikus kar). Offline, mesterséges adattal; fizetős hívás nincs."""
+"""Invoice line items (053 T3): itemised lists in the invoice and utility packs, item-level code checks, and the
+pack's recommended path (automatic path). Offline, with synthetic data; no paid calls."""
 
 from decimal import Decimal
 
@@ -23,7 +23,7 @@ def _inv(items, **totals) -> InvoiceHU:
                      **{k: Decimal(v) for k, v in totals.items()})
 
 
-# --- tételösszeg -----------------------------------------------------------------------------------
+# --- line-item total -------------------------------------------------------------------------------
 
 
 def test_total_without_items_is_not_a_failure():
@@ -33,7 +33,7 @@ def test_total_without_items_is_not_a_failure():
 
 def test_total_matches_net_and_gross_within_tolerance():
     items = [_li(net_amount="100", gross_amount="127"), _li(net_amount="200", gross_amount="254")]
-    r = line_items_total(_inv(items, net_total="301", gross_total="381"))  # 1 Ft kerekítés belefér
+    r = line_items_total(_inv(items, net_total="301", gross_total="381"))  # a 1 Ft rounding difference is allowed
     assert r.ok and r.code == "lines.total_ok"
 
 
@@ -45,7 +45,7 @@ def test_total_mismatch_names_the_side_and_difference():
 
 
 def test_total_uses_the_complete_side_when_the_other_is_partial():
-    # a hosszú víz-listák mintája: soronkénti nettó hiányos, a bruttó teljes -> a bruttó összeg dönt
+    # the pattern of the long water lists: the per-row net is incomplete, the gross complete -> the gross total decides
     items = [_li(net_amount="100", gross_amount="127"), _li(net_amount=None, gross_amount="254")]
     r = line_items_total(_inv(items, net_total="300", gross_total="381"))
     assert r.ok and r.code == "lines.total_ok"
@@ -69,7 +69,7 @@ def test_total_foreign_currency_tolerance():
     assert not line_items_total(_inv(items, currency="EUR", net_total="30.10")).ok
 
 
-# --- soronkénti számtan ------------------------------------------------------------------------------
+# --- per-row arithmetic ------------------------------------------------------------------------------
 
 
 def test_arithmetic_ok_and_rounding():
@@ -81,8 +81,8 @@ def test_arithmetic_ok_and_rounding():
 def test_arithmetic_marks_every_bad_row():
     items = [
         _li(quantity="2", unit_price="100", net_amount="200"),
-        _li(quantity="3", unit_price="100", net_amount="250"),            # mennyiség × egységár hibás
-        _li(net_amount="1000", vat_rate="27", gross_amount="1500"),       # nettó + ÁFA hibás
+        _li(quantity="3", unit_price="100", net_amount="250"),            # quantity × unit price is wrong
+        _li(net_amount="1000", vat_rate="27", gross_amount="1500"),       # net + VAT is wrong
     ]
     r = line_items_arithmetic(_inv(items))
     assert not r.ok and r.code == "lines.arithmetic_mismatch"
@@ -105,28 +105,28 @@ def test_run_checks_dispatches_line_checks():
     assert names == ["line_items_total", "line_items_arithmetic"]
 
 
-# --- csomagok ------------------------------------------------------------------------------------------
+# --- packs ---------------------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("key", ("invoice_hu", *UTILITY))
 def test_packs_declare_line_items_from_their_schema(key):
     pack = typepack.get(key)
     assert pack.kind("line_items") == "list"
-    assert "line_items" not in pack.header_fields and "line_items" not in pack.scored_fields  # a golden-pontozás változatlan
+    assert "line_items" not in pack.header_fields and "line_items" not in pack.scored_fields  # golden scoring unchanged
     schema_cols = set(pack.schema()["properties"]["line_items"]["items"]["properties"])
     assert set(pack.list_fields["line_items"]) == schema_cols
     assert pack.list_fields["line_items"]["net_amount"] == "money"
     assert pack.list_fields["line_items"]["quantity"] == "number"
     checks = [v["check"] for v in pack.validators]
     assert "line_items_total" in checks
-    assert ("line_items_arithmetic" in checks) == (key != "mohu_szamla")  # MOHU: az egységár más jelentésű
+    assert ("line_items_arithmetic" in checks) == (key != "mohu_szamla")  # MOHU: the unit price means something else
 
 
 def test_utility_packs_prefer_the_gpt_arm_and_invoice_keeps_code_arm():
     for key in UTILITY:
         assert typepack.get(key).default_arm == "G"
         assert worker.arm_for(key, "auto") == "G"
-        assert worker.arm_for(key, "S") == "S"  # a kifejezett kérés erősebb
+        assert worker.arm_for(key, "S") == "S"  # an explicit request wins
     assert worker.arm_for("invoice_hu", "auto") == "S"
     assert worker.arm_for("statement_cib", "auto") == "G"
 
@@ -135,7 +135,7 @@ def test_recipes_default_to_the_recommended_arm_with_budget():
     for rid in ("invoice-extraction", "document-processing"):
         r = work.recipe(rid)
         assert r["params"]["arm"]["default"] == "auto" and "auto" in r["params"]["arm"]["allowed"]
-        assert work.item_budget(r, {"arm": "auto"})["openai"] > 0  # a G-út is belefér
+        assert work.item_budget(r, {"arm": "auto"})["openai"] > 0  # the G path fits too
 
 
 def test_invoice_extraction_stage_resolves_auto_arm():
@@ -144,7 +144,7 @@ def test_invoice_extraction_stage_resolves_auto_arm():
     assert flow == "invoice" and params["arm"] == "G"
 
 
-# --- javított adat: a hibás sorok megjelölése ---------------------------------------------------------
+# --- corrected data: marking the bad rows -------------------------------------------------------------
 
 
 def test_effective_checks_mark_all_bad_rows():
@@ -164,7 +164,7 @@ def test_list_columns_follow_the_schema_order():
     assert cols[:3] == ["description", "meter_serial", "period"]
 
 
-# --- csak jelzés: a bukott ellenőrzés nem nyit teendőt (053, felhasználói döntés 2026-09-28) ------------
+# --- notice only: a failed check opens no to-do (053, owner's decision of 2026-09-28) -------------------
 
 
 def test_advisory_check_is_marked_and_does_not_open_review():
@@ -193,7 +193,7 @@ def test_water_statement_arithmetic_is_advisory_only():
 
 
 def test_water_statement_header_vat_check_is_advisory_only():
-    # 053, döntés 2026-09-28: az összesítő fedőlapján nincs nettó és ÁFA, a nettó + ÁFA = bruttó csak jelzés
+    # 053, decision of 2026-09-28: the summary cover page has no net or VAT, so net + VAT = gross is only a notice
     specs = {v["check"]: v for v in typepack.get("viz_szamla").validators}
     assert specs["vat_consistency"].get("review") is False
     for key in ("vizmuvek_szamla", "csatorna_szamla", "villamos_energia_szamla", "foldgaz_szamla", "mohu_szamla", "invoice_hu"):

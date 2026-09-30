@@ -1,18 +1,19 @@
-"""OCR-lánc (BACKLOG 7, B5): szöveg nélküli PDF -> oldalkép -> tesseract szó-dobozok -> a közös sor- / cella-építő.
+"""OCR chain (BACKLOG 7, B5): PDF without text -> page image -> tesseract word boxes -> the shared line / cell builder.
 
-Újrahasznosítás (CLAUDE.md §3): a régi sidecar (`10_AIFLOW_V4/sidecar/app/providers/tesseract_ocr.py`) mintája - PDF
-oldalképre (ott pdf2image + poppler, itt pypdfium2, ami már a venvben van), tesseract `image_to_data` (itt a CLI TSV-je:
-ugyanaz a táblázat, szó-szintű bizalommal), a szó-bizalom átlaga minőségjelnek. Ami új: a szó-dobozokból ugyanaz a
-sor- és cella-rekonstrukció készül, mint a szövegréteges PDF-nél (`jav/pdf.py: build_layout`), ezért a jelöltkeresők, a
-Jev-state és az ellenőrző kérdések forrástól függetlenül működnek. A magyar + angol nyelvcsomag a régi sidecar
-Docker-képéből jött (`tools/tessdata`, tessdata_fast).
+Reuse (CLAUDE.md §3): follows the legacy sidecar (`10_AIFLOW_V4/sidecar/app/providers/tesseract_ocr.py`) - PDF to page
+image (there pdf2image + poppler, here pypdfium2, already in the venv), tesseract `image_to_data` (here the CLI's TSV:
+the same table, with word-level confidence), the mean word confidence as a quality signal. What is new: the word boxes
+go through the same line and cell reconstruction as a PDF with a text layer (`jav/pdf.py: build_layout`), so the
+candidate finders, the JEV state and the verification questions work regardless of the source. The Hungarian + English
+language packs came from the legacy sidecar's Docker image (`tools/tessdata`, tessdata_fast).
 
-Motor (configs/ocr.json `engine`): `auto` = natív tesseract, ha van (a gépen telepített 5.4; ~7-10 s / oldal), különben
-a régi sidecar-kép `docker run`-nal (ugyanaz a parancs a konténerben; a gépen ~30× lassabb, mert a Docker-VM sok más
-konténerrel osztozik) - ha egyik sincs, `OcrUnavailableError` (a flow `needs_ocr` terminálisba megy, nem dől el).
+Engine (configs/ocr.json `engine`): `auto` = native tesseract if present (5.4 installed on the machine; ~7-10 s / page),
+otherwise the legacy sidecar image via `docker run` (the same command in the container; ~30× slower on this machine,
+because the Docker VM is shared with many other containers) - if neither exists, `OcrUnavailableError` (the flow goes
+to the `needs_ocr` terminal and does not crash).
 
-Lemez-gyorsítótár `runs/ocr/<doc sha256>_<konfig-hash>_<tesseract-verzió>.json` (PII, mint a Jev-cache): a golden-futás
-másodszor OCR nélkül fut, a determinizmus-mérés az OCR-t nem ismétli (az OCR determinisztikus; a Jev-t mérjük).
+Disk cache `runs/ocr/<doc sha256>_<config hash>_<tesseract version>.json` (PII, like the JEV cache): a second golden run
+needs no OCR, and the determinism measurement does not repeat the OCR (OCR is deterministic; we measure JEV).
 """
 
 from __future__ import annotations
@@ -47,15 +48,15 @@ _TSV_LEVEL_WORD = "5"
 
 
 class OcrUnavailableError(RuntimeError):
-    """Nincs futtatható OCR-motor (se natív tesseract, se a Docker-kép)."""
+    """No runnable OCR engine (neither native tesseract nor the Docker image)."""
 
 
 class PageTooLarge(OcrUnavailableError):
-    """067: egy oldal képe a felismerés felbontásán a `configs/service.json` `input_limits.max_page_megapixels` korlátja
-    fölött lenne; a folyamat teendőt ad (`ocr:unavailable:PageTooLarge`), oldalkép nem készül."""
+    """067: a page image at the recognition resolution would exceed the `input_limits.max_page_megapixels` limit of
+    `configs/service.json`; the process raises a to-do (`ocr:unavailable:PageTooLarge`) and no page image is made."""
 
 
-# --- motorok -----------------------------------------------------------------------------------
+# --- engines -----------------------------------------------------------------------------------
 
 
 def _expand(p: str) -> str:
@@ -64,7 +65,7 @@ def _expand(p: str) -> str:
 
 @lru_cache(maxsize=1)
 def native_exe() -> str | None:
-    """A natív tesseract elérési útja a konfig jelöltjei közül (PATH, majd a szokásos Windows-helyek), vagy None."""
+    """Path of the native tesseract from the config's candidates (PATH, then the usual Windows locations), or None."""
     for cand in _TESS["exe_candidates"]:
         cand = _expand(cand)
         found = shutil.which(cand) if os.sep not in cand and "/" not in cand else (cand if Path(cand).exists() else None)
@@ -84,13 +85,13 @@ def docker_available() -> bool:
         return False
 
 
-ENGINE_ENV = "JAV_OCR_ENGINE"  # futás-idejű felülírás (native / docker / azure_di) - méréshez, a konfig marad az alap
+ENGINE_ENV = "JAV_OCR_ENGINE"  # runtime override (native / docker / azure_di) for measurements; config = default
 
 
 @lru_cache(maxsize=None)
 def engine(want: str | None = None) -> str:
-    """`native` | `docker` | `azure_di`, a kért motor (paraméter > env > konfig `engine`: auto / native / docker / azure_di)
-    és az elérhetőség szerint; hiba, ha egyik sem megy. Az `azure_di` FIZETŐS: `auto` sosem választja."""
+    """`native` | `docker` | `azure_di`, by the requested engine (parameter > env > config `engine`: auto / native /
+    docker / azure_di) and by availability; an error if none works. `azure_di` is PAID: `auto` never picks it."""
     want = want or os.environ.get(ENGINE_ENV) or _CFG["engine"]
     if want == "azure_di":
         return "azure_di"
@@ -105,7 +106,7 @@ def engine(want: str | None = None) -> str:
 
 @lru_cache(maxsize=None)
 def engine_version(eng: str) -> str:
-    """A motor verziósora (a gyorsítótár-kulcs része: más bináris / modell más eredményt adhat)."""
+    """The engine's version line (part of the cache key: a different binary / model may give a different result)."""
     if eng == "azure_di":
         return "azure_di prebuilt-read"
     if eng == "native":
@@ -116,12 +117,13 @@ def engine_version(eng: str) -> str:
     return (first[0] if first else "tesseract ?").strip()
 
 
-# --- Azure Document Intelligence a régi sidecar-on át ------------------------------------------------
+# --- Azure Document Intelligence via the legacy sidecar ----------------------------------------------
 
 
 def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[str, Any]]], list[float], dict[str, Any]]:
-    """A régi sidecar `/parse` (chain: azure_di) + az általa mentett evidence-fájl szó-dobozai pontban (inch × 72), a
-    bizalom 0-100 skálán (a tesseracttal egyező jelek). A PDF a sidecar `/data` mountja alatt kell legyen."""
+    """The legacy sidecar's `/parse` (chain: azure_di) + the word boxes of the evidence file it saves, in points
+    (inch × 72), with confidence on a 0-100 scale (the same signals as tesseract). The PDF must be under the sidecar's
+    `/data` mount."""
     import json as _json
     import urllib.request
 
@@ -172,7 +174,8 @@ def _tesseract_args(psm: int | None = None) -> list[str]:
 
 
 def _run_tesseract(png: Path, out_base: Path, *, psm: int | None = None, eng: str = "native") -> str:
-    """Egy oldalkép OCR-je; visszatér a TSV szövegével. Natív: `--tessdata-dir tools/tessdata`; Docker: a képben lévő tessdata."""
+    """OCR of one page image; returns the TSV text. Native: `--tessdata-dir tools/tessdata`; Docker: the tessdata
+    inside the image."""
     timeout = float(_TESS["timeout_s"])
     if eng == "native":
         tessdata = PROJECT_ROOT / _TESS["tessdata_dir"]
@@ -181,19 +184,20 @@ def _run_tesseract(png: Path, out_base: Path, *, psm: int | None = None, eng: st
         work = png.parent
         cmd = ["docker", "run", "--rm", "-v", f"{work}:/work", "--entrypoint", "tesseract", _CFG["docker"]["image"],
                f"/work/{png.name}", f"/work/{out_base.name}", *_tesseract_args(psm)]
-        timeout *= 20  # a VM-ben nagyságrenddel lassabb
+        timeout *= 20  # an order of magnitude slower in the VM
     subprocess.run(cmd, capture_output=True, timeout=timeout, check=True)
     return Path(str(out_base) + ".tsv").read_text(encoding="utf-8")
 
 
-# --- oldalképek -------------------------------------------------------------------------------
+# --- page images ------------------------------------------------------------------------------
 
 
 def render_pages(path: str | Path, out_dir: Path, *, dpi: int = DPI, max_pages: int | None = None) -> list[Path]:
-    """PDF -> oldalképek (PNG) pypdfium2-vel (poppler nélkül). Szürke, `dpi` felbontás; legfeljebb `max_pages` oldal."""
+    """PDF -> page images (PNG) with pypdfium2 (no poppler). Greyscale by default, `dpi` resolution; at most
+    `max_pages` pages."""
     import pypdfium2 as pdfium
 
-    from jav.page_image import PDFIUM_LOCK  # 063: a PDFium nem szálbiztos
+    from jav.page_image import PDFIUM_LOCK  # 063: PDFium is not thread-safe
 
     max_pages = max_pages or int(_CFG["max_pages"])
     max_mp = pdfmod.input_limits().max_page_megapixels
@@ -201,7 +205,7 @@ def render_pages(path: str | Path, out_dir: Path, *, dpi: int = DPI, max_pages: 
     with PDFIUM_LOCK:
         doc = pdfium.PdfDocument(str(path))
         try:
-            for i in range(min(len(doc), max_pages)):  # előbb minden oldal mérete: túl nagy oldalnál egy kép se készüljön
+            for i in range(min(len(doc), max_pages)):  # all page sizes first: if one is too large, make no image at all
                 w, h = doc[i].get_size()
                 if pdfmod.fit_scale(w, h, scale=dpi / 72.0, max_megapixels=max_mp) < dpi / 72.0:
                     raise PageTooLarge(f"page {i + 1} ({w:.0f} x {h:.0f} pt) is over {max_mp:g} MP at {dpi} dpi")
@@ -219,27 +223,28 @@ def render_pages(path: str | Path, out_dir: Path, *, dpi: int = DPI, max_pages: 
 
 
 def page_sizes(path: str | Path) -> list[tuple[float, float]]:
-    """Az oldalak mérete pontban (pypdfium2), a szóréteg normalizálásához; bármely OCR-motornál ugyanaz a vonatkoztatás."""
+    """Page sizes in points (pypdfium2), for normalising the word layer; the same reference for every OCR engine."""
     import pypdfium2 as pdfium
 
-    from jav.page_image import PDFIUM_LOCK  # 063: a PDFium nem szálbiztos
+    from jav.page_image import PDFIUM_LOCK  # 063: PDFium is not thread-safe
 
     with PDFIUM_LOCK:
         try:
             doc = pdfium.PdfDocument(str(path))
         except pdfium.PdfiumError:
-            return []  # nem olvasható PDF (pl. képfájl vagy sérült): szóréteg nem lesz, az OCR-eredmény ettől még érvényes
+            return []  # unreadable PDF (e.g. image file, corrupt): no word layer, the OCR result still stands
         try:
             return [tuple(float(v) for v in doc[i].get_size()) for i in range(len(doc))]
         finally:
             doc.close()
 
 
-# --- TSV -> szó-dobozok (pontban) ----------------------------------------------------------------
+# --- TSV -> word boxes (in points) ---------------------------------------------------------------
 
 
 def parse_tsv(tsv_text: str, *, dpi: int = DPI) -> tuple[list[dict[str, Any]], list[float]]:
-    """A tesseract TSV szó-sorai (`level` 5) -> `{text, x0, x1, top, bottom, conf}` pontban (72 / dpi), és a bizalmak."""
+    """Tesseract TSV word rows (`level` 5) -> `{text, x0, x1, top, bottom, conf}` in points (72 / dpi), plus the
+    confidences."""
     scale = 72.0 / dpi
     words: list[dict[str, Any]] = []
     confs: list[float] = []
@@ -263,10 +268,10 @@ def _y_tolerance(pages: list[list[dict[str, Any]]]) -> float:
     heights = [w["bottom"] - w["top"] for page in pages for w in page if w["bottom"] > w["top"]]
     if not heights:
         return 3.0
-    return max(3.0, 0.45 * statistics.median(heights))  # ferde szkennelés: a sor-küszöb a betűmagasság közel fele
+    return max(3.0, 0.45 * statistics.median(heights))  # skewed scans: line threshold ~ half the letter height
 
 
-# --- gyorsítótár + belépési pont -----------------------------------------------------------------
+# --- cache + entry point -------------------------------------------------------------------------
 
 
 def _sha256(path: Path) -> str:
@@ -288,7 +293,7 @@ def _to_pdftext(path: Path, data: dict[str, Any], *, cached: bool) -> PdfText:
     text = "\n".join(lines)
     ok = text_layer_ok(text)
     signals = {**data["signals"], "cached": cached, "engine": data["engine"], "engine_version": data["engine_version"], "config_hash": CONFIG_HASH}
-    # 045: a régi gyorsítótár-fájlokban nincs szó- és oldalméret-adat; ekkor a szóréteg üres (nincs keret), a sorok ugyanazok
+    # 045: old cache files have no word or page-size data; the word layer is then empty (no boxes), same lines
     return PdfText(path=str(path), text=text, lines=lines, layout=layout, page_count=data["page_count"], has_text_layer=False,
                    text_source="ocr" if ok else None, ocr=signals, words=data.get("words") or [],
                    page_sizes=[tuple(s) for s in data.get("page_sizes") or []])
@@ -297,11 +302,12 @@ def _to_pdftext(path: Path, data: dict[str, Any], *, cached: bool) -> PdfText:
 def ocr_pdf(
     path: str | Path, *, page_count: int | None = None, use_cache: bool = True, psm: int | None = None, engine_name: str | None = None
 ) -> PdfText:
-    """Egy PDF OCR-je: gyorsítótárból, ha van; különben oldalképek + tesseract oldalanként (vagy Azure DI a sidecar-on át) +
-    közös elrendezés-építés. `has_text_layer` marad False (tény), `text_source="ocr"`, ha a felismert szöveg használható;
-    az `ocr` szótár a minőségjelek. A motor a gyorsítótár-kulcs része: motorváltás = új OCR."""
+    """OCR of one PDF: from the cache if present; otherwise page images + tesseract per page (or Azure DI via the
+    sidecar) + the shared layout builder. `has_text_layer` stays False (a fact), `text_source="ocr"` if the recognised
+    text is usable; the `ocr` dict holds the quality signals. The engine is part of the cache key: a new engine means a
+    new OCR."""
     path = Path(path)
-    eng = engine(engine_name)  # OcrUnavailableError, ha nincs motor
+    eng = engine(engine_name)  # OcrUnavailableError if there is no engine
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     key = cache_key(path, eng) + (f"_psm{psm}" if psm is not None and eng != "azure_di" else "")
     cache_file = CACHE_DIR / f"{key}.json"
@@ -344,7 +350,7 @@ def ocr_pdf(
         "path": str(path), "page_count": page_count if page_count is not None else n_pages, "engine": eng,
         "engine_version": engine_version(eng), "config_hash": CONFIG_HASH, "signals": signals,
         "layout": [ln.model_dump() for ln in layout],
-        "words": pages,  # 045: szókeretek pontban, a sorszámmal (build_layout adja) — a szóréteghez
+        "words": pages,  # 045: word boxes in points, with the line number (set by build_layout) - for the word layer
         "page_sizes": page_sizes(path),
     }
     if use_cache:
@@ -353,10 +359,10 @@ def ocr_pdf(
 
 
 def _backfill_words(path: Path, cached: dict[str, Any], cache_file: Path, *, psm: int | None, eng: str) -> dict[str, Any]:
-    """048: a 045 előtti gyorsítótár-bejegyzésben nincs szó- és oldalméret-adat, ezért az ilyen iratnak nem volt szórétege
-    (nincs keret, a felületen nincs lapozás a mezőkhöz). A helyi motor ingyenes és determinisztikus: újrafuttatjuk, és a
-    szóadatot CSAK akkor írjuk a bejegyzésbe, ha az újraolvasott sorok betűre egyeznek a tároltakkal — így a szöveg (és
-    vele a korábbi JEV-kérések gyorsítótár-kulcsa) nem változik. Eltérésnél a bejegyzés változatlan marad."""
+    """048: a pre-045 cache entry has no word or page-size data, so such a document had no word layer (no boxes, no
+    paging to the fields in the UI). The local engine is free and deterministic: we rerun it and write the word data
+    into the entry ONLY if the re-read lines match the stored ones letter for letter - so the text (and with it the
+    cache key of the earlier JEV requests) does not change. On a mismatch the entry stays unchanged."""
     fresh = ocr_pdf(path, page_count=cached.get("page_count"), use_cache=False, psm=psm, engine_name=eng)
     if fresh.lines != [ln["text"] for ln in cached["layout"]]:
         return cached
@@ -369,9 +375,10 @@ ESCALATION: dict[str, Any] = dict(_CFG.get("escalation", {}))
 
 
 def ocr_with_escalation(path: str | Path, *, page_count: int | None = None, use_cache: bool = True) -> tuple[PdfText, bool]:
-    """A flow OCR-lépése: az alap motor (auto / env), és ha az eredmény a policy `ocr.escalate_*` küszöbei szerint gyenge és
-    az eszkaláció be van kapcsolva (configs/ocr.json), a pontosabb, fizetős motor (`azure_di`) szövege megy tovább.
-    Visszatér: (PdfText, eszkalált-e). Ha az eszkaláció nem elérhető (sidecar / mount), a helyi eredmény marad."""
+    """The flow's OCR step: the default engine (auto / env); if the result is weak by the policy's `ocr.escalate_*`
+    thresholds and escalation is enabled (configs/ocr.json), the text of the more accurate, paid engine (`azure_di`)
+    goes on. Returns (PdfText, whether escalated). If escalation is unavailable (sidecar / mount), the local result
+    stays."""
     from jav.policy import ocr_should_escalate
 
     first = ocr_pdf(path, page_count=page_count, use_cache=use_cache)
@@ -386,8 +393,9 @@ def ocr_with_escalation(path: str | Path, *, page_count: int | None = None, use_
     if second.ocr and (second.ocr.get("mean_conf") or 0) >= (first.ocr.get("mean_conf") or 0):
         second.ocr["escalated_from"] = first.ocr.get("engine")
         if not second.words and first.words:
-            # 049: a régi Azure-gyorsítótárban nincs szóadat (újrahívása fizetős). A szöveg az Azure-é marad, a szóréteg
-            # (keretek, lapozás a mezőhöz) a helyi OCR szóhelyeiből épül; ami ott nem található, keret nélkül marad.
+            # 049: the old Azure cache has no word data (calling it again is paid). The text stays Azure's; the word
+            # layer (boxes, paging to the field) is built from the local OCR's word positions; anything not found there
+            # gets no box.
             second.words, second.page_sizes = first.words, first.page_sizes
             second.ocr["words_from"] = first.ocr.get("engine")
         return second, True
@@ -395,7 +403,7 @@ def ocr_with_escalation(path: str | Path, *, page_count: int | None = None, use_
 
 
 def status() -> dict[str, Any]:
-    """Admin / preflight: melyik motor, verzió, nyelvcsomag, gyorsítótár-méret."""
+    """Admin / preflight: which engine, version, language packs, cache size."""
     out: dict[str, Any] = {"config_version": cfg.version("ocr"), "config_hash": CONFIG_HASH, "native_exe": native_exe(), "docker_image": _CFG["docker"]["image"],
                            "azure_sidecar": _CFG["azure_di"]["sidecar_url"], "engine_env": os.environ.get(ENGINE_ENV)}
     try:
@@ -410,7 +418,7 @@ def status() -> dict[str, Any]:
     return out
 
 
-if __name__ == "__main__":  # gyors kézi próba: python -m jav.ocr <pdf>
+if __name__ == "__main__":  # quick manual test: python -m jav.ocr <pdf>
     r = ocr_pdf(sys.argv[1], use_cache=False)
     print(json.dumps(r.ocr, ensure_ascii=False))
     print("\n".join(r.lines[:80]))

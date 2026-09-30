@@ -1,4 +1,4 @@
-"""Tartós Burr-futtató saját válasznaplóval; a kísérleti stack_trial mintájára."""
+"""Durable Burr runner with its own response log; modelled on the experimental stack_trial."""
 from __future__ import annotations
 
 import json
@@ -93,10 +93,10 @@ class LearningService:
 
 def run_learning(*, text: str, directory: Path, run_id: str, adapter, config: dict,
                  model=None, proposals: ProposalBatch | None=None, halt_after=None, fault=None, use_cache=False):
-    """Azonos futás folytatása, változó forrás/konfig/kód/modell esetén elutasítás.
+    """Resumes an identical run; refuses if the source/config/code/model has changed.
 
-    A külső válasz megérkezése és tartós mentése közötti összeomlás nem tehető
-    pontosan-egyszerivé szolgáltatói idempotenciakulcs nélkül: ilyenkor megállunk.
+    A crash between the arrival of an external response and its durable save cannot be
+    made exactly-once without a provider idempotency key: in that case we stop.
     """
     if not run_id or (model is None)==(proposals is None):
         raise ValueError('provide a run ID and exactly one of model or proposals')
@@ -113,7 +113,7 @@ def run_learning(*, text: str, directory: Path, run_id: str, adapter, config: di
         'code_sha256':code_hash()}
     directory=Path(directory)
     directory.mkdir(parents=True,exist_ok=True)
-    # SQLite-foglalás: párhuzamos futtató nem végezhet kétszer ugyanazt a külső hívást.
+    # SQLite reservation: a parallel runner must not make the same external call twice.
     with closing(sqlite3.connect(directory/'worker.sqlite',timeout=0)) as lock:
         lock.execute('BEGIN IMMEDIATE')
         with store.use_store(directory/'business.sqlite'):
@@ -144,11 +144,11 @@ def run_learning(*, text: str, directory: Path, run_id: str, adapter, config: di
 def run_chunked_learning(*, text, directory, run_id, adapter, config, chunk_policy,
                          model=None, proposals=None, layout=None, stop_after_chunks=None,
                          fault=None, use_cache=False, offline=False, source_char_limit=16000):
-    """Dokumentumrészenként a meglévő Burr-folyamat, összesített forráslefedéssel.
+    """The existing Burr process for each document part, with aggregated source coverage.
 
-    A küldési korlát a TELJES dokumentumra vonatkozik, nem a rész méretére.
-    offline esetben kizárólag importált javaslat és CacheOnlyAdapter megengedett.
-    A source_char_limit növelése külön adatküldési engedélyt igényel.
+    The sending limit applies to the WHOLE document, not to the size of a part.
+    Offline, only imported proposals and a CacheOnlyAdapter are allowed.
+    Raising source_char_limit needs a separate approval for sending data.
     """
     from jav.document_chunks import plan_document, load_chunk_config
     from jav.adapters.jev import CacheOnlyAdapter
@@ -184,7 +184,7 @@ def run_chunked_learning(*, text, directory, run_id, adapter, config, chunk_poli
               'jev_model':adapter.model,'use_cache':use_cache,'offline':offline,'source_char_limit':source_char_limit}
     directory=Path(directory)
     directory.mkdir(parents=True,exist_ok=True)
-    # A szülő és a gyermek külön zárolást használ; az egész dokumentum egy munkásé.
+    # Parent and child use separate locks; the whole document belongs to one worker.
     with closing(sqlite3.connect(directory/'document_worker.sqlite',timeout=0)) as lock:
         lock.execute('BEGIN IMMEDIATE')
         with store.use_store(directory/'document.sqlite'):
@@ -213,8 +213,8 @@ def run_chunked_learning(*, text, directory, run_id, adapter, config, chunk_poli
                 start=None if point['start'] is None else point['start']+chunk.start
                 end=None if point['end'] is None else point['end']+chunk.start
                 fact={k:point['proposal'][k] for k in ('name','role','raw_value','unit','entity_id','quote')}
-                # Csak ugyanaz a forráshely ÉS ugyanaz az állítás vonható össze.
-                # Feloldatlan idézet és eltérő szerep/entitás sosem esik ki.
+                # Only the same source location AND the same statement may be merged.
+                # An unresolved quote or a differing role/entity is never dropped.
                 key=canonical_hash({'start':start,'end':end,'fact':fact,
                                     'unresolved':[chunk.id,index] if start is None else None})
                 if key not in grouped:
