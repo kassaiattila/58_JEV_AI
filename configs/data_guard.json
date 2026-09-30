@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Adatőr (070 terv 2.1 S-adatőr, jav/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
     "changelog": [
       {
@@ -18,6 +18,11 @@
         "version": "1.0.2",
         "date": "2026-09-30",
         "note": "076: the invented IBANs of the injection probe replaced by values that also pass the domestic check digits (configs/experiments/document_injection.json 1.1.0)."
+      },
+      {
+        "version": "1.0.3",
+        "date": "2026-09-30",
+        "note": "076: the tolerated user name in configs/service.json removed; the second backup location moved to the local environment (JAV_BACKUP_COPY_TO)."
       }
     ]
   },
@@ -201,15 +206,6 @@
       ],
       "until": "S-injekció (069-es döntés)",
       "why": "a felhasználónév a levélszándék-példákban"
-    },
-    {
-      "kind": "deny_term",
-      "sha256": "7d8572392319585ee6abdd73a06b247daeb79975997cab7bf7e647019f1d0e20",
-      "paths": [
-        "configs/service.json"
-      ],
-      "until": "S-adatleltár",
-      "why": "a NAS-mentés útvonala (a felhasználó saját mappája)"
     },
     {
       "kind": "deny_term",

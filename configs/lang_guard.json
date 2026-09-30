@@ -43,7 +43,7 @@
     "configs/callsites/verify_statement_erste.json": 2,
     "configs/callsites/verify_terkep_adat.json": 2,
     "configs/callsites/verify_utility.json": 35,
-    "configs/data_guard.json": 21,
+    "configs/data_guard.json": 19,
     "configs/datasets.json": 22,
     "configs/doc_types.json": 163,
     "configs/email_tasks.json": 8,
