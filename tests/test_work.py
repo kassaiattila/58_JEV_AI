@@ -97,16 +97,16 @@ def test_budget_follows_the_actual_path(isolated):
 
     assert assign("invoice-extraction", {"arm": "auto", "doc_type": "invoice_hu"}) == {"jev": Decimal("0.10"), "azure_di": Decimal("0.04")}  # S path
     assert "azure_di" not in assign("invoice-extraction", {"arm": "auto", "doc_type": "invoice_hu", "azure_ocr": "off"})  # 075: switch off
-    assert assign("invoice-extraction", {"arm": "auto", "doc_type": "mohu_szamla"})["openai"] == Decimal("0.20")  # G path
-    assert assign("document-processing", {"arm": "auto"})["openai"] == Decimal("0.20")  # the type is not known yet
+    assert assign("invoice-extraction", {"arm": "auto", "doc_type": "mohu_szamla"})["openai"] == Decimal("0.30")  # G path (075: 0.15 per item)
+    assert assign("document-processing", {"arm": "auto"})["openai"] == Decimal("0.30")  # the type is not known yet
     first, second = work.get(wp["id"])["items"]
     store.upsert_document(doc_id=first["sha256"], source_path=first["source_path"], detail_type="invoice_hu")
     store.upsert_document(doc_id=second["sha256"], source_path=second["source_path"], detail_type="mohu_szamla")
     budget = work.readiness(wp["id"])["budget"]
-    assert budget == {"jev": Decimal("0.14"), "openai": Decimal("0.10"), "azure_di": Decimal("0.04")}  # only the utility invoice's path calls OpenAI
+    assert budget == {"jev": Decimal("0.14"), "openai": Decimal("0.15"), "azure_di": Decimal("0.04")}  # only the utility invoice's path calls OpenAI
     # 066 Á07: a requested S path runs as G on a G-only type, so the G path's budget line is needed (previously it
     # reserved without OpenAI)
-    assert assign("invoice-extraction", {"arm": "S", "doc_type": "certificate"})["openai"] == Decimal("0.20")
+    assert assign("invoice-extraction", {"arm": "S", "doc_type": "certificate"})["openai"] == Decimal("0.30")
 
 
 def test_start_run_is_idempotent_and_enqueues_one_job_per_item(isolated):
