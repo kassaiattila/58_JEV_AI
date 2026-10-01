@@ -7,6 +7,7 @@ import { api, ApiError, type Recipe, type RecipeHelp, type RunPlan, type Workpac
 import { DataTable } from "../components/DataTable";
 import { Icon } from "../components/Icon";
 import { Picker } from "../components/Picker";
+import { PackageCosts } from "./PackageCosts";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { itemBudgetLines, MODE, PARAM_LABEL, paramApplies, paramShort, paramsText, planLines, providerName, RUN_STATUS, tmap, usdBudget, when, blockerText } from "../labels";
@@ -129,6 +130,8 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
         <DataTable dataset="runs" scope={{ workpackage_id: wp.id }} label={t("A csomag futásai")} storageId="wp-runs" defaultHidden={["workpackage_name"]} pollMs={active ? 4000 : undefined}
           emptyText={t("Még nem futott.")} initial={{ limit: 50 }} />
       </section>
+
+      <PackageCosts wpId={wp.id} pollMs={active ? 4000 : undefined} />
     </div>
   );
 }

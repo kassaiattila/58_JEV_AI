@@ -147,14 +147,15 @@ The three buttons do not start anything straight away; they take you to a summar
 ### 6.5 The run page
 
 - **Header:** the mode and time, the state (‘Queued’ (*Sorban áll*), ‘Running’ (*Fut*), ‘To-dos pending’ (*Teendő vár*), ‘Done’ (*Kész*), ‘Failed’ (*Hibás*) or ‘Stopped’ (*Leállítva*)), the processing settings, and who started the run.
-- **Items:** for each item, its run state, the result and the number of to-dos. Clicking a to-do opens Review. The **Name:** switch shows the original or the unified names (section 5.2).
-- **Cost** (*Költség*): for each provider, the committed amount compared with the budget. The committed amount is the cost of the completed calls plus the reserved upper bound of the calls not yet settled.
+- **Items:** for each item, its run state, the result and the number of to-dos. Clicking a to-do opens Review. The **Name:** switch shows the original or the unified names (section 5.2). Each item also shows its processing cost: one column per provider and model the run called (for example ‘JEV · jev-1.13.0 (USD)’), and **Total cost (USD)** (*Költség összesen (USD)*). The **Columns** menu adds **From earlier answers (count)** (*Korábbi válaszból (db)*): how many of the item's questions were answered free from an earlier identical answer.
+- **Cost** (*Költség*): for each provider (JEV, OpenAI, Azure DI), the committed amount compared with the budget. The committed amount is the cost of the completed calls plus the reserved upper bound of the calls not yet settled.
+- **Planned and actual** (*Tervezett és tényleges*), below the budget bars: for each provider, what the pre-start overview expected (‘expected’ (*várható*), ‘possible’ (*lehetséges*) or ‘not expected’ (*nem várt*), with the budget), then the paid calls (how many failed), their actual cost, the models, and the questions answered from earlier answers. A call whose cost is not known (for example a failed or interrupted attempt) is not counted as a cost; its reserved amount is shown apart as ‘Reserved, outcome unknown’ (*Lefoglalt, ismeretlen kimenetelű*), because the budget still counts it. If a provider was called although the overview did not count on it, a warning says so. For a run started before this version, only the actual part is shown.
 - **Job queue** (*Munkasor*): how many jobs are queued, running, done, failed (given up) or stopped.
 - **Call log (raw model calls)** (*Hívásnapló (nyers modellhívások)*): an expandable list of the paid calls. It is empty if every answer came from the cache.
 - **Stop** (*Leállítás*) (only while the run is in progress): needs two clicks (‘Sure? Click again’ (*Biztosan? Kattints újra*)). Queued items stop at once; the item in progress stops after its next step.
 - **Result**, or for a live run **Result and approval** (*Eredmény és jóváhagyás*): takes you to the package's Result stage.
 
-While a run is in progress, the Processing stage shows a progress bar, and below it the ‘Runs of the work package’ (*A csomag futásai*) table lists every run of the package.
+While a run is in progress, the Processing stage shows a progress bar, and below it the ‘Runs of the work package’ (*A csomag futásai*) table lists every run of the package, with the actual cost of each run (**Cost (USD)**). Below that, **Cost of the work package** (*A csomag költsége*) adds up every run of the package per provider and model: paid calls, questions answered from earlier answers, and cost, with the total above the table.
 
 ## 7. Review
 

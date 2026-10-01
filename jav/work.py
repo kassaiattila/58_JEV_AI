@@ -126,6 +126,9 @@ def _migrate(conn) -> None:
     wcols = {r[1] for r in conn.execute("PRAGMA table_info(workpackages)")}
     if wcols and "owner" not in wcols:  # 061: the person responsible for the package (a name from the name list)
         conn.execute("ALTER TABLE workpackages ADD COLUMN owner TEXT")
+    rcols = {r[1] for r in conn.execute("PRAGMA table_info(runs)")}
+    if rcols and "plan" not in rcols:  # 082: the pre-start overview (`run_plan`), compared with the actual calls
+        conn.execute("ALTER TABLE runs ADD COLUMN plan TEXT")
 
 
 store.register_migration("work", _migrate)
@@ -815,9 +818,9 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
         existing = c.execute("SELECT run_id, input FROM runs WHERE dedup_key=?", (dedup,)).fetchone()
         if not existing:
             c.execute("INSERT INTO runs(run_id, workpackage_id, dedup_key, mode, assignment_revision, recipe_id, recipe_version, recipe_hash,"
-                      " recipe, params, input, input_hash, status, actor, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'queued',?,?)",
+                      " recipe, params, input, input_hash, status, actor, created_at, plan) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'queued',?,?,?)",
                       (run_id, wp_id, dedup, mode, a["revision"], r["id"], r["version"], recipe_hash(r), _canon(r), _canon(a["params"]),
-                       _canon(snapshot), input_hash, actor, _now()))
+                       _canon(snapshot), input_hash, actor, _now(), _canon(ready["plan"])))
     if existing:
         # 063: if the previous start broke off after the run row, the repeated start fills in the budget and the jobs
         _ensure_run_work(existing["run_id"], json.loads(existing["input"])["items"], ready["budget"], replace_budget=False)
@@ -845,6 +848,7 @@ def get_run(run_id: str) -> dict[str, Any]:
     out = dict(row)
     for k in ("recipe", "params", "input"):
         out[k] = json.loads(out[k])
+    out["plan"] = json.loads(out["plan"]) if out.get("plan") else None  # 082: None for a run started before it was saved
     out["items"] = items
     out["jobs"] = queue.counts(run_id=run_id)
     return out
