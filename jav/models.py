@@ -21,6 +21,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from jav.numbers import Convention, Kind, NumberRead, read_number
+
 # --------------------------------------------------------------------------------------
 # Field lists
 # --------------------------------------------------------------------------------------
@@ -74,66 +76,16 @@ CandidateKind = Literal["tax_id", "date", "money", "iban", "invoice_number", "na
 # Normalisers (code owns the format, never JEV)
 # --------------------------------------------------------------------------------------
 
-_CURRENCY_TOKENS = re.compile(r"(?i)\b(?:ft|huf|eur|usd|forint)\b\.?|[€$]")
-_TRAILING_DASH = re.compile(r"[,.]\s*-\s*$")  # "12 000,-"
-_NON_NUMERIC = re.compile(r"[^\d.,\-]")
-_GROUPED_DOTS = re.compile(r"^-?\d{1,3}(?:\.\d{3})+$")
+MoneyParse = NumberRead  # the earlier name of the reader's result
 
 
-class MoneyParse(BaseModel):
-    """Resolves a money string. `ambiguous`: the dot may be a decimal OR a thousands separator (e.g. "12.34")."""
-
-    value: Decimal | None
-    ambiguous: bool = False
-
-
-_GROUPED_COMMAS = re.compile(r"^-?\d{1,3}(?:,\d{3})+$")  # "1,600" / "1,234,567": English thousands commas (intl)
-# "$42.50" / "42.50 USD": the dot is a decimal point
-_DECIMAL_DOT_HINT = re.compile(r"[$€£]\s*-?\d|\d\s*(?:USD|EUR|GBP|AUD|CAD|CHF)\b", re.IGNORECASE)
-
-
-def parse_money(raw: str | None, *, intl: bool = False) -> MoneyParse:
-    """Hungarian convention: comma = decimal, dot/space = thousands. English "12,345.67" is recognised too.
-
-    Neither computes nor rounds; it only resolves the notation. When unsure, `ambiguous=True`.
-    `intl=True` (international candidate profile): a comma + exactly 3 digits is a thousands separator ("1,600" = 1600,
-    not 1.6), and a decimal dot marked by a currency symbol / code ("$42.50", "42.50 USD") is not ambiguous.
-    """
-    if raw is None:
-        return MoneyParse(value=None)
-    s = str(raw).replace(" ", " ").strip()
-    dot_is_decimal = intl and bool(_DECIMAL_DOT_HINT.search(s))
-    s = _CURRENCY_TOKENS.sub("", s)
-    s = _TRAILING_DASH.sub("", s).strip()
-    s = _NON_NUMERIC.sub("", s.replace(" ", ""))
-    if not s or s in {"-", ".", ","}:
-        return MoneyParse(value=None)
-
-    ambiguous = False
-    has_dot, has_comma = "." in s, "," in s
-    if has_dot and has_comma:
-        # The last separator is the decimal one: "12.345,67" (HU) or "12,345.67" (EN).
-        if s.rfind(",") > s.rfind("."):
-            s = s.replace(".", "").replace(",", ".")
-        else:
-            s = s.replace(",", "")
-    elif has_comma:
-        if s.count(",") > 1 or (intl and _GROUPED_COMMAS.match(s)):
-            s = s.replace(",", "")  # "1,234,567": thousands commas; intl: "1,600" too
-        else:
-            s = s.replace(",", ".")
-    elif has_dot:
-        if _GROUPED_DOTS.match(s) and not dot_is_decimal:
-            s = s.replace(".", "")  # "12.345" / "1.234.567": HU thousands dots
-        elif s.count(".") == 1:
-            # "12.34": English decimal or malformed thousands, undecidable in code (intl: the $ / USD decides)
-            ambiguous = not dot_is_decimal
-        else:
-            return MoneyParse(value=None)
-    try:
-        return MoneyParse(value=Decimal(s), ambiguous=ambiguous)
-    except InvalidOperation:
-        return MoneyParse(value=None)
+def parse_money(raw: str | None, *, intl: bool = False, kind: Kind = "money", convention: Convention | None = None,
+                dot_hint: bool | None = None) -> NumberRead:
+    """A printed amount (or, with `kind="number"`, a quantity) read whole by the shared number reader
+    (`jav/numbers.py`, 081): the Hungarian and the English notations, money never with three decimals, a quantity by the
+    document's notation. Neither computes nor rounds; when unsure, `ambiguous=True`. `intl=True` (international
+    candidate profile): a decimal dot marked by a currency symbol / code ("$42.50", "42.50 USD") is not ambiguous."""
+    return read_number(raw, kind=kind, convention=convention, intl=intl, dot_hint=dot_hint)
 
 
 def normalize_money(raw: str | None) -> Decimal | None:
@@ -383,29 +335,44 @@ def _plain(value: object) -> object:
     return value
 
 
-def parse_money_contract(raw: str | None) -> Decimal | None:
-    """The LLM layer's contract: a plain decimal string with a DOT as the decimal point, no separators ("1234.56").
+Origin = Literal["llm", "printed", "canonical"]
+# the generative contract: a plain decimal with a DOT ("1234.56"); money with two decimals at most, a quantity also with
+# four or more (a correction factor "0.9853"); three decimals are what a copied thousands group looks like ("28.000")
+_CONTRACT_MONEY = re.compile(r"-?\d+(?:\.\d{1,2})?")
+_CONTRACT_NUMBER = re.compile(r"-?\d+(?:\.\d{1,2}|\.\d{4,})?")
 
-    Here the dot is always the decimal point (unlike the HU source parser), because the prompt prescribes it.
-    """
+
+def _number_or_reason(kind: Kind, field: str, raw: object, reasons: list[str], *, origin: Origin = "llm",
+                      convention: Convention | None = None) -> Decimal | None:
+    """One amount or quantity of a record (081, the shared number reader). `origin`:
+    - "llm": a generative value. The contract is a plain decimal with a dot ("1234.56"); a value copied in the
+      document's own notation ("28.000", "28,000.00", "1 234,56") is read whole with the document's notation
+      (`convention`), so "28.000" is 28 000, never 28. A JSON number with three decimals is read the same way;
+    - "printed": text selected on the page image, read like a printed number;
+    - "canonical": a stored value ("28000", "1.153"), taken as it is.
+    An unreadable value, or a reading that could go two ways, gives a review reason."""
     if raw is None:
         return None
-    s = str(raw).strip().replace(" ", "")
-    if not s:
-        return None
-    try:
-        return Decimal(s)
-    except InvalidOperation:
-        return None
-
-
-def _money_or_reason(field: str, raw: str | None, reasons: list[str]) -> Decimal | None:
-    if raw is None:
-        return None
-    value = parse_money_contract(raw)
-    if value is None:
+    if isinstance(raw, bool):
         reasons.append(f"{field}:unparseable:{raw!r}")
-    return value
+        return None
+    if isinstance(raw, int):
+        return Decimal(raw)
+    text = str(raw)
+    s = text if origin == "printed" else text.strip().replace(" ", "")
+    contract = _CONTRACT_MONEY if kind == "money" else _CONTRACT_NUMBER
+    if origin == "canonical" or (origin == "llm" and contract.fullmatch(s)):
+        try:
+            return Decimal(s)
+        except InvalidOperation:
+            reasons.append(f"{field}:unparseable:{text!r}")
+            return None
+    got = read_number(s, kind=kind, convention=convention)
+    if got.value is None:
+        reasons.append(f"{field}:unparseable:{text!r}")
+    elif got.ambiguous:
+        reasons.append(f"money:separator_ambiguous:{field}:{text!r}")
+    return got.value
 
 
 def _date_or_reason(field: str, raw: str | None, reasons: list[str]) -> date | None:
@@ -421,12 +388,17 @@ _LINE_ITEM_MONEY = ("unit_price", "net_amount", "gross_amount", "vat_amount")
 _LINE_ITEM_TEXT = ("description", "vat_rate", "unit", "product_code", "note")
 
 
-def normalize_value(kind: str, raw: object, field: str, reasons: list[str]) -> object:
-    """Normalises one field by its KIND in the type pack (code owns the format). Parse error -> review reasons."""
+def normalize_value(kind: str, raw: object, field: str, reasons: list[str], *, origin: Origin = "llm",
+                    convention: Convention | None = None) -> object:
+    """Normalises one field by its KIND in the type pack (code owns the format). Parse error -> review reasons. An
+    amount or a quantity is read by the shared number reader (`_number_or_reason`: `origin`, the document's
+    `convention`)."""
     if raw is None:
         return None
-    if kind == "money":
-        return _money_or_reason(field, str(raw), reasons)
+    if kind in ("money", "number"):
+        # quantity (kWh, m3, MJ, meter reading): the generative extract promises a decimal dot, but from OCR text it
+        # also returns the Hungarian form ("143,00", "1 866", "1.153")
+        return _number_or_reason(kind, field, raw, reasons, origin=origin, convention=convention)  # type: ignore[arg-type]
     if kind == "date":
         return _date_or_reason(field, str(raw), reasons)
     if kind == "tax_id":
@@ -444,13 +416,6 @@ def normalize_value(kind: str, raw: object, field: str, reasons: list[str]) -> o
             return False
         reasons.append(f"{field}:unparseable:{raw!r}")
         return None
-    if kind == "number":
-        # quantity (kWh, m3, MJ, meter reading): the generative extract promises a decimal dot, but from OCR text it
-        # also returns the Hungarian form ("143,00", "1 866")
-        value = parse_money(str(raw)).value
-        if value is None:
-            reasons.append(f"{field}:unparseable:{raw!r}")
-        return value
     return normalize_text(str(raw))
 
 
@@ -460,21 +425,23 @@ def _check_enum(path: str, value: object, enums: dict[str, list[Any]], reasons: 
         reasons.append(f"{path}:not_in_enum:{value!r}")
 
 
-def _list_value(field: str, raw: object, item_kinds: dict[str, str], enums: dict[str, list[Any]], reasons: list[str]) -> list[Any]:
+def _list_value(field: str, raw: object, item_kinds: dict[str, str], enums: dict[str, list[Any]], reasons: list[str],
+                origin: Origin = "llm", convention: Convention | None = None) -> list[Any]:
     """047: an itemised list as described by the pack's `list_fields`. `{"*": kind}` = a list of plain values;
     otherwise objects, normalised by the kind of each item field (unknown item field: as text)."""
     out: list[Any] = []
     for i, item in enumerate(raw if isinstance(raw, list) else []):
         path = f"{field}[{i}]"
         if "*" in item_kinds:
-            value = normalize_value(item_kinds["*"], item, path, reasons)
+            value = normalize_value(item_kinds["*"], item, path, reasons, origin=origin, convention=convention)
             _check_enum(path, value, enums, reasons, f"{field}[]")
             out.append(value)
             continue
         obj = item if isinstance(item, dict) else {}
         norm: dict[str, Any] = {}
         for sub in (*item_kinds, *(k for k in obj if k not in item_kinds)):
-            value = normalize_value(item_kinds.get(sub, "text"), obj.get(sub), f"{path}.{sub}", reasons)
+            value = normalize_value(item_kinds.get(sub, "text"), obj.get(sub), f"{path}.{sub}", reasons, origin=origin,
+                                    convention=convention)
             _check_enum(f"{path}.{sub}", value, enums, reasons, f"{field}[].{sub}")
             norm[sub] = value
         out.append(norm)
@@ -482,21 +449,24 @@ def _list_value(field: str, raw: object, item_kinds: dict[str, str], enums: dict
 
 
 def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fields: dict[str, dict[str, str]] | None = None,
-                    enums: dict[str, list[Any]] | None = None) -> tuple[InvoiceHU, list[str]]:
+                    enums: dict[str, list[Any]] | None = None, origin: Origin = "llm",
+                    convention: Convention | None = None) -> tuple[InvoiceHU, list[str]]:
     """Generative extract (a dict following the type pack's schema) -> normalised record by the pack's field kinds.
     Known attributes of the record are set directly, further pack fields go into `extra`. A parse error is not an
     exception but review reasons. 047: a `list` field uses the item description in `list_fields`; a violated
-    enumerated value (`enums`, key: `field` or `field[].item_field`) gives review reasons, not an error."""
+    enumerated value (`enums`, key: `field` or `field[].item_field`) gives review reasons, not an error. 081: amounts and
+    quantities are read by the shared number reader: `origin` ("llm" for a generative extract, "canonical" for stored
+    values) and the document's `convention`."""
     list_fields, enums = list_fields or {}, enums or {}
     reasons: list[str] = []
     items: list[LineItem] = []
     for i, raw_li in enumerate(data.get("line_items") or []):
         li = raw_li if isinstance(raw_li, dict) else dict(raw_li)
         p = f"line_items[{i}]"
-        q = li.get("quantity")
         known = {
-            "quantity": Decimal(str(q)) if q is not None else None,
-            **{k: _money_or_reason(f"{p}.{k}", li.get(k), reasons) for k in _LINE_ITEM_MONEY},
+            "quantity": _number_or_reason("number", f"{p}.quantity", li.get("quantity"), reasons, origin=origin, convention=convention),
+            **{k: _number_or_reason("money", f"{p}.{k}", li.get(k), reasons, origin=origin, convention=convention)
+               for k in _LINE_ITEM_MONEY},
             **{k: normalize_text(li.get(k)) for k in _LINE_ITEM_TEXT},
         }
         extra = {k: normalize_text(str(v)) if isinstance(v, str) else v for k, v in li.items() if k not in known}
@@ -508,9 +478,10 @@ def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fie
         if kind == "list" and field == "line_items":
             continue  # the invoice line items take the record's own `line_items` path (above), not twice
         if kind == "list":
-            extra_fields[field] = _list_value(field, data.get(field), list_fields.get(field, {"*": "text"}), enums, reasons)
+            extra_fields[field] = _list_value(field, data.get(field), list_fields.get(field, {"*": "text"}), enums, reasons,
+                                              origin, convention)
             continue
-        value = normalize_value(kind, data.get(field), field, reasons)
+        value = normalize_value(kind, data.get(field), field, reasons, origin=origin, convention=convention)
         _check_enum(field, value, enums, reasons, field)
         if field in own:
             values[field] = value

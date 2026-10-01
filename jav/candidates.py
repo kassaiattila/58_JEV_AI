@@ -34,6 +34,7 @@ from jav.models import (
     normalize_tax_id,
     parse_money,
 )
+from jav.numbers import Convention, document_convention, has_decimal_dot_hint
 from jav.taxid import recognize as recognize_tax_id
 from jav.validators import hu_tax_id
 
@@ -90,23 +91,39 @@ INVOICE_TOKEN_RE = re.compile(r"(?<![\w/\-])[A-Za-z0-9][A-Za-z0-9\-/._]{1,}(?![\
 # 066 Á03: amount-shaped token (1 250,00 / 45.00 / 1,250.00): not an invoice-number candidate, the money finder's job
 AMOUNT_TOKEN_RE = re.compile(r"-?\d{1,3}(?:[,.  ]\d{3})*[.,]\d{2}|-?\d+[.,]\d{2}")
 
+# 081 (number reading): a number is matched whole, never a piece of it. The English thousands group ("28,000",
+# "28,000.00") is matched as one number in the Hungarian profile too (it was cut to "28,00" = 28), and no match may be
+# followed by a further digit of the same number. The reading itself is `jav/numbers.py`.
 MONEY_RE = re.compile(
     r"(?<![\d.,])"
-    r"(-?\d{1,3}(?:[  .]\d{3})+(?:,\d{1,2})?"  # 1 234 567 / 1.234.567 / 400 000,00
+    r"(-?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?"  # 28,000 / 28,000.00 (English notation on a Hungarian document)
+    r"|-?\d{1,3}(?:[  .]\d{3})+(?:,\d{1,2})?"  # 1 234 567 / 1.234.567 / 400 000,00
     r"|-?\d+,\d{1,2}"  # 20619,05
     r"|-?\d+\.\d{1,2}"  # 12.34 (ambiguous)
     r"|-?\d+)"  # 1000000 / 0
-    r"(?![\d.,]\d)"
+    r"(?![\d.,]\d)(?!\d)"
 )
 # intl: also English thousands comma + decimal point ("1,600.00", "12,345", "$42.50") as one match
 MONEY_INTL_RE = re.compile(
     r"(?<![\d.,])"
     r"(-?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?"  # 1,600.00 / 12,345
-    r"|-?\d{1,3}(?:[  .]\d{3})+(?:,\d{1,2})?"  # 1 234 567 / 1.234.567 / 400 000,00
+    r"|-?\d{1,3}(?:[  .]\d{3})+(?:,\d{1,2})?"  # 1 234 567 / 1.234.567 / 400 000,00
     r"|-?\d+,\d{1,2}"  # 20619,05
     r"|-?\d+\.\d{1,2}"  # 12.34
     r"|-?\d+)"  # 1000000 / 0
-    r"(?![\d.,]\d)"
+    r"(?![\d.,]\d)(?!\d)"
+)
+# 081: quantities also take a fraction of three or more digits ("1.0000" correction factor, "0,9853"), which money never
+# has; before 081 "1.0000" was cut to "1.000" and read as a thousand
+QUANTITY_RE = re.compile(
+    r"(?<![\d.,])"
+    r"(-?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?"
+    r"|-?\d{1,3}(?:[  .]\d{3})+(?:,\d{1,2})?"
+    r"|-?\d+[.,]\d{3,6}"  # 1.0000 / 0,9853 / 3,3900
+    r"|-?\d+,\d{1,2}"
+    r"|-?\d+\.\d{1,2}"
+    r"|-?\d+)"
+    r"(?![\d.,]\d)(?!\d)"
 )
 PERCENT_AFTER_RE = re.compile(r"^\s*%")
 TOTAL_LINE_RE = re.compile(r"(?i)összesen|fizetendő|végösszeg|nettó|áfa|bruttó|total|adóalap|számla érték|ellenérték")
@@ -490,7 +507,7 @@ def find_invoice_numbers(lines: list[LineLayout], work: list[str], profile: Prof
     return bucket.items()
 
 
-def find_money(lines: list[LineLayout], work: list[str], profile: Profile = HU) -> list[Candidate]:
+def find_money(lines: list[LineLayout], work: list[str], profile: Profile = HU, convention: Convention | None = None) -> list[Candidate]:
     bucket = _Bucket("money")
     for i, ln in enumerate(lines):
         for m in profile.money_re.finditer(work[i]):
@@ -498,11 +515,14 @@ def find_money(lines: list[LineLayout], work: list[str], profile: Profile = HU) 
                 continue
             raw = m.group(1)
             if profile.intl:
-                # the currency sign / code around the number decides whether the dot is decimal ("$42.50", "42.50 USD")
+                # the currency sign / code around the number decides whether the dot is decimal ("$42.50", "42.50 USD");
+                # 081: only the number itself is read (before, the surrounding text was parsed, and "€11.99 1 db" gave
+                # 11.991 from the neighbouring quantity)
                 around = work[i][max(0, m.start() - 3) : m.start()] + raw + work[i][m.end() : m.end() + 5]
-                parsed = parse_money(around if CURRENCY_HINT_RE.search(around) else raw, intl=True)
+                hint = bool(CURRENCY_HINT_RE.search(around)) and has_decimal_dot_hint(around)
+                parsed = parse_money(raw, intl=True, convention=convention, dot_hint=hint)
             else:
-                parsed = parse_money(raw)
+                parsed = parse_money(raw, convention=convention)
             if parsed.value is None:
                 continue
             bucket.add(money_label(parsed.value), raw, lines, i, ambiguous=parsed.ambiguous)
@@ -529,10 +549,11 @@ QUANTITY_LINE_RE = re.compile(
 MAX_QUANTITY_OPTIONS = 80
 
 
-def find_quantities(lines: list[LineLayout], profile: Profile = HU) -> list[Candidate]:
+def find_quantities(lines: list[LineLayout], profile: Profile = HU, convention: Convention | None = None) -> list[Candidate]:
     """Quantity candidates (`number` kind: consumption in kWh / m3 / MJ, meter readings, calorific value, correction
     factor): the numbers of the quantity lines, normalised like the money candidates (`money_label`), but only from
-    lines with a unit / meter label - so the request stays small and JEV chooses with the unit as context."""
+    lines with a unit / meter label - so the request stays small and JEV chooses with the unit as context. 081: read
+    whole by the shared number reader, with the document's notation (`convention`)."""
     bucket = _Bucket("money")
     hit = [bool(QUANTITY_LINE_RE.search(ln.text)) for ln in lines]
     for i, ln in enumerate(lines):
@@ -540,10 +561,10 @@ def find_quantities(lines: list[LineLayout], profile: Profile = HU) -> list[Cand
         # label counts too
         if not (hit[i] or (i > 0 and hit[i - 1]) or (i + 1 < len(lines) and hit[i + 1])):
             continue
-        for m in profile.money_re.finditer(ln.text):
+        for m in QUANTITY_RE.finditer(ln.text):
             if PERCENT_AFTER_RE.match(ln.text[m.end() :]):
                 continue
-            parsed = parse_money(m.group(1))
+            parsed = parse_money(m.group(1), kind="number", convention=convention)
             if parsed.value is None:
                 continue
             bucket.add(money_label(parsed.value), m.group(1), lines, i, ambiguous=parsed.ambiguous)
@@ -758,15 +779,16 @@ def find_all(
     `text_labels` (type pack): labelled text candidates per field under the key `text:<field>`."""
     prof = profile_of(profile)
     work = [ln.text for ln in lines]
+    convention = document_convention(work)  # 081: the document's own number notation
     out: dict[str, list[Candidate]] = {}
     out["iban"] = find_ibans(lines, work, prof)
     out["tax_id"] = find_tax_ids(lines, work, prof)
     out["date"] = find_dates(lines, work, prof)
     out["invoice_number"] = find_invoice_numbers(lines, work, prof)
-    out["money"] = find_money(lines, work, prof)
+    out["money"] = find_money(lines, work, prof, convention)
     out["name"] = find_names(lines, prof)
     out["address"] = find_addresses(lines, prof)
-    out["quantity"] = find_quantities(lines, prof)
+    out["quantity"] = find_quantities(lines, prof, convention)
     for field, labels in (text_labels or {}).items():
         out[f"text:{field}"] = find_labelled_text(lines, field, labels)
     return out

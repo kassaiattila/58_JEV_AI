@@ -215,6 +215,8 @@ export interface ItemResult {
   effective: Record<string, unknown>; open_reasons: Reason[]; earlier_open_reasons: Reason[];
   provenance: Record<string, Provenance>;
   lists?: Record<string, { columns: ListColumn[] }>; checks?: Check[];
+  /** 081: the field kinds (money, number, date …), so amounts and quantities are edited the Hungarian way. */
+  kinds?: Record<string, string>;
   source: { layer_id: string; text_source: string | null; pages: SourcePage[] } | null;
   /** Whether the document is shown from the copy kept when it was added (its source instance), and the state of the
    *  original file since then. */

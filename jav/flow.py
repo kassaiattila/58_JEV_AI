@@ -139,11 +139,11 @@ def jev_select(state: FlowState) -> FlowState:
     return state
 
 
-@action.pydantic(reads=["picks", "candidates", "doc_type", "needs_review", "review_reasons"], writes=["invoice", "needs_review", "review_reasons"])
+@action.pydantic(reads=["layout", "picks", "candidates", "doc_type", "needs_review", "review_reasons"], writes=["invoice", "needs_review", "review_reasons"])
 def normalize_picks(state: FlowState) -> FlowState:
     from jav.jev_select import picks_to_invoice
 
-    inv, reasons = picks_to_invoice(state.picks, state.candidates, pack=get_pack(state.doc_type))
+    inv, reasons = picks_to_invoice(state.picks, state.candidates, pack=get_pack(state.doc_type), lines=state.layout)
     state.invoice = inv
     policy.require_review(state, *reasons)
     return state
@@ -177,9 +177,13 @@ def jev_verify(state: FlowState) -> FlowState:
     return state
 
 
-@action.pydantic(reads=["llm_output", "doc_type", "needs_review", "review_reasons"], writes=["invoice", "needs_review", "review_reasons"])
+@action.pydantic(reads=["layout", "llm_output", "doc_type", "needs_review", "review_reasons"], writes=["invoice", "needs_review", "review_reasons"])
 def normalize_llm(state: FlowState) -> FlowState:
-    inv, reasons = get_pack(state.doc_type).normalize(state.llm_output or {})
+    from jav.numbers import document_convention
+
+    # 081: a value GPT copied in the document's own notation ("28.000") is read with that notation, never as 28
+    convention = document_convention(ln.text for ln in state.layout or [])
+    inv, reasons = get_pack(state.doc_type).normalize(state.llm_output or {}, convention=convention)
     state.invoice = inv
     policy.require_review(state, *reasons)
     return state

@@ -114,7 +114,9 @@ def test_hu_profile_is_default_and_unchanged():
     lines = [_line(1, ("Fizetési határidő: 2022.02.10.", 30)), _line(2, ("Bruttó összesen", 30), ("12,34", 300)), _line(3, ("Összeg: 1,600", 30))]
     default = {k: [(x.label, x.ambiguous) for x in v] for k, v in find_all(lines).items()}
     hu = {k: [(x.label, x.ambiguous) for x in v] for k, v in find_all(lines, "hu").items()}
-    assert default == hu and ("1.6", False) in hu["money"]  # HU: "1,600" = 1.6 (decimal comma) - the hu profile is unchanged
+    # 081 (owner decision 2026-10-01): money never has three decimals, so "1,600" is 1600 in the hu profile too (it was
+    # read as 1.6 before); the default profile is still the hu one
+    assert default == hu and ("1600", False) in hu["money"] and ("1.6", False) not in hu["money"]
     intl = {x.label for x in find_all(lines, "intl")["money"]}
     assert "1600" in intl  # intl: "1,600" thousands comma
 

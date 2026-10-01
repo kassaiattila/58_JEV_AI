@@ -5,18 +5,19 @@ import { Picker } from "../components/Picker";
 import { useEffect, useRef } from "react";
 import type { Cell, CorrectionValue, ListColumn } from "../api";
 import { t, useLocale } from "../i18n";
-import { columnLabel, fieldLabel } from "../labels";
+import { columnLabel, editNumber, fieldLabel } from "../labels";
 import type { ListRow } from "./drafts";
 import { Icon } from "../components/Icon";
 
 const NUMERIC = new Set(["money", "number"]);
 
-/** Machine / corrected list → editable rows (text per cell; for a simple list, the `*` column). */
+/** Machine / corrected list → editable rows (text per cell; for a simple list, the `*` column). 081: an amount or a
+ *  quantity in the editing form ("35,56"), as the local service reads it back. */
 export function toRows(value: unknown, columns: ListColumn[]): ListRow[] {
-  const str = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+  const str = (v: unknown, kind: string) => (v === null || v === undefined ? "" : NUMERIC.has(kind) ? editNumber(v) : String(v));
   if (!Array.isArray(value)) return [];
-  if (columns.length === 1 && columns[0].name === "*") return value.map((v) => ({ "*": str(v) }));
-  return value.map((row) => Object.fromEntries(columns.map((c) => [c.name, str((row as Record<string, unknown> | null)?.[c.name])])));
+  if (columns.length === 1 && columns[0].name === "*") return value.map((v) => ({ "*": str(v, columns[0].kind) }));
+  return value.map((row) => Object.fromEntries(columns.map((c) => [c.name, str((row as Record<string, unknown> | null)?.[c.name], c.kind)])));
 }
 
 /** Edited rows → the list to save: an empty cell = no value; a completely empty row is left out. */

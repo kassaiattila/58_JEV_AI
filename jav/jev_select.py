@@ -27,6 +27,7 @@ from jav.adapters.jev import JevAdapter
 from jav.candidates import MAX_OPTIONS, TOTAL_LINE_RE as _TOTAL_LINE_RE, candidate_lines, find_currencies, payment_method_lines
 from jav.jev_budget import ask_within_budget
 from jav.models import Candidate, FieldPick, InvoiceHU, JevCall, LineLayout, normalize_date
+from jav.numbers import is_whole_token
 from jav.policy import NONE_LABEL, presence_probe_fields
 from jav.typepack import CANDIDATE_KIND_OF, TypePack, get as get_pack
 
@@ -270,8 +271,13 @@ class SelectSite:
 
     # --- normalisation ----------------------------------------------------------------------
 
-    def picks_to_invoice(self, picks: dict[str, FieldPick], cands: dict[str, list[Candidate]]) -> tuple[InvoiceHU, list[str]]:
-        """Label -> typed value by the pack's field kinds. `none` -> None. Consistency reasons from code (not JEV)."""
+    def picks_to_invoice(self, picks: dict[str, FieldPick], cands: dict[str, list[Candidate]],
+                         lines: list[LineLayout] | None = None) -> tuple[InvoiceHU, list[str]]:
+        """Label -> typed value by the pack's field kinds. `none` -> None. Consistency reasons from code (not JEV).
+        081: an amount or a quantity whose printed number is flagged gets a to-do; with the document's `lines`, so does
+        one whose printed form on its line is only a piece of a longer number (`money:token_cut`, the safety net
+        behind the whole-number matching)."""
+        by_no = {ln.no: ln.text for ln in lines or []}
         reasons: list[str] = []
         values: dict[str, Any] = {}
         extra: dict[str, Any] = {}
@@ -282,15 +288,15 @@ class SelectSite:
             p = picks.get(field)
             label = p.label if p else None
             value: Any = label
-            if label is not None and kind == "money":
-                cand = next((c for c in cands.get("money", []) if c.label == label), None)
+            if label is not None and kind in ("money", "number"):
+                cand = next((c for c in cands.get("money" if kind == "money" else "quantity", []) if c.label == label), None)
                 if cand is not None and cand.ambiguous:
                     reasons.append(f"money:separator_ambiguous:{field}:{cand.raw!r}")
-                value = Decimal(label)
+                if cand is not None and cand.line_no in by_no and not is_whole_token(cand.raw, by_no[cand.line_no]):
+                    reasons.append(f"money:token_cut:{field}:{cand.raw!r}")
+                value = Decimal(label)  # number: the number finder's normalised label (quantity: kWh, m3, MJ)
             elif label is not None and kind == "date":
                 value = normalize_date(label)
-            elif label is not None and kind == "number":
-                value = Decimal(label)  # the number finder's normalised label (quantity: kWh, m3, MJ)
             elif label is not None and kind in ("currency", "country"):
                 value = label.upper()
             if field in own:
@@ -379,9 +385,10 @@ def select_fields(
     return site.select_fields(jev, lines, cands, run_id=run_id, use_cache=use_cache)
 
 
-def picks_to_invoice(picks: dict[str, FieldPick], cands: dict[str, list[Candidate]], pack: TypePack | None = None) -> tuple[InvoiceHU, list[str]]:
+def picks_to_invoice(picks: dict[str, FieldPick], cands: dict[str, list[Candidate]], pack: TypePack | None = None,
+                     lines: list[LineLayout] | None = None) -> tuple[InvoiceHU, list[str]]:
     site = _DEFAULT if pack is None else site_for(pack.key)
-    return site.picks_to_invoice(picks, cands)
+    return site.picks_to_invoice(picks, cands, lines)
 
 
 __all__ = ["GLOSSARY", "PRESENCE_WHAT", "SelectSite", "site_for", "build_choice", "build_presence", "effective_conf", "record_conf", "field_confidence",

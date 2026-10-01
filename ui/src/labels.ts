@@ -147,6 +147,8 @@ export function reasonText(code: string): string {
     case "jev:unsupported": return t("A modell nem támasztja alá: {{field}}", { field: f });
     case "llm:required_missing": return t("Kötelező mező hiányzik: {{field}}", { field: f });
     case "money:separator_ambiguous": return t("Kétértelmű tizedesjel: {{field}}", { field: f });
+    // 081: the S path's safety net: the picked number stands on the page only as a piece of a longer number
+    case "money:token_cut": return t("A kiválasztott érték csak egy része az iraton nyomtatott számnak: {{field}}", { field: f });
     case "ocr:partial_pages": return t("Nem minden oldal lett felismerve ({{pages}})", { pages: p[2] });
     case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
     case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });
@@ -217,6 +219,21 @@ export function numText(v: unknown, digits = 2): string {
   if (v === null || v === undefined || v === "") return "";
   const n = Number(v);
   return Number.isFinite(n) ? n.toLocaleString(getLocale(), { maximumFractionDigits: digits }) : String(v);
+}
+
+/** 081: a stored amount or quantity ("35.56", "28000") in the editing form, the Hungarian way: a decimal comma and no
+ *  grouping ("35,56"). The local service reads what is typed back by the same habit ("28.000" = 28 000). */
+export function editNumber(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "";
+  return String(v).replace(".", ",");
+}
+
+/** 081: the saved amounts and quantities, read back for the save message („Nettó összeg: 28 000”). */
+export function savedNumbers(fields: Record<string, unknown>, kinds: Record<string, string>): string {
+  return Object.entries(fields)
+    .filter(([f, v]) => (kinds[f] === "money" || kinds[f] === "number") && v !== null && v !== undefined && !Array.isArray(v))
+    .map(([f, v]) => `${fieldLabel(f)}: ${numText(v, 6)}`)
+    .join("; ");
 }
 
 const STEP_LABEL = tmap({

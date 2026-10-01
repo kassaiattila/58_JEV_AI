@@ -6,12 +6,14 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError, getActor, NO_ACTOR, type Alternative, type CorrectionValue, type ItemResult, type Provenance, type Reason } from "../api";
 import { Icon } from "../components/Icon";
 import { t, useLocale } from "../i18n";
-import { checkText, fieldLabel, reasonText, tmap } from "../labels";
+import { checkText, editNumber, fieldLabel, reasonText, savedNumbers, tmap } from "../labels";
 import { clearDraft, draftKey, isDirty, rebaseDraft, revertField, setField, setList, useDraft, type Draft } from "./drafts";
 import { useResolve } from "./useResolve";
 import { BAND_LABEL, type Band } from "./geometry";
 import { fromRows, ListTable, toRows } from "./ListTable";
 import { BAND_COLOR } from "./PageViewer";
+
+const NUMERIC_KINDS = new Set(["money", "number"]);
 
 export const UNLOCATED: Record<string, string> = tmap({
   approximate: "Az értéket nem találtuk meg szó szerint; a szaggatott keret azt a sort mutatja, ahonnan a gép választotta. Ellenőrizd a képen, és ha kell, jelöld ki a pontos helyét.",
@@ -25,17 +27,19 @@ export const UNLOCATED: Record<string, string> = tmap({
 
 /** The full set of corrections to save: the earlier corrections + the draft's differences from the machine value
  *  (empty = no value). The sources (selected words) only go with the fields that remain in the correction. Line-item
- *  list: the whole list; if it equals the machine one, it is left out (reverts to the machine value). */
+ *  list: the whole list; if it equals the machine one, it is left out (reverts to the machine value). 081: an amount
+ *  or a quantity equal to the machine value in its editing form ("35,56" for "35.56") is no change. */
 export function buildSave(machine: Record<string, unknown>, previous: ItemResult["correction"], draft: Draft | undefined,
-  lists: ItemResult["lists"] = {}) {
+  lists: ItemResult["lists"] = {}, kinds: Record<string, string> = {}) {
   const fields: Record<string, CorrectionValue> = {};
   const sources: Record<string, number[]> = {};
   for (const [f, v] of Object.entries(previous.fields)) fields[f] = v === null || Array.isArray(v) ? v : String(v);
   for (const [f, ids] of Object.entries(previous.sources ?? {})) sources[f] = ids;
   for (const [f, v] of Object.entries(draft?.values ?? {})) {
     const m = machine[f] === null || machine[f] === undefined ? "" : String(machine[f]);
+    const same = v === m || (NUMERIC_KINDS.has(kinds[f]) && v === editNumber(m));
     delete sources[f];
-    if (v === m && !draft?.sources[f]) delete fields[f];
+    if (same && !draft?.sources[f]) delete fields[f];
     else fields[f] = v.trim() === "" ? null : v;
     if (draft?.sources[f]) sources[f] = draft.sources[f];
   }
@@ -118,11 +122,14 @@ export function FieldPanel(p: Props) {
     return () => { alive = false; window.clearTimeout(timer); };
   }, [activeField, selection.text, result.extraction]);
 
-  const shown = (f: string) => draft?.values[f] ?? (result.effective[f] === null || result.effective[f] === undefined ? "" : String(result.effective[f]));
+  const kinds = result.kinds ?? {};
+  // 081: an amount or a quantity is shown in its editing form ("35,56"), the way the local service reads it back
+  const edit = (f: string, v: unknown) => (v === null || v === undefined ? "" : NUMERIC_KINDS.has(kinds[f]) ? editNumber(v) : String(v));
+  const shown = (f: string) => draft?.values[f] ?? edit(f, result.effective[f]);
 
   function applySelection() {
     if (!activeField || !norm?.ok || norm.value === null) return;
-    setField(key, base, activeField, norm.value, selection.ids);
+    setField(key, base, activeField, edit(activeField, norm.value), selection.ids);
     p.onClearSelection();
   }
 
@@ -136,19 +143,24 @@ export function FieldPanel(p: Props) {
     }
     setState({ kind: "saving" });
     saving.current = true;
-    const body = buildSave(machine, result.correction, draft, lists);
+    const body = buildSave(machine, result.correction, draft, lists, kinds);
     try {
-      await api.saveCorrection(result.run_id, result.item_id, {
+      const saved = await api.saveCorrection(result.run_id, result.item_id, {
         fields: body.fields, expected_revision: base, ...(Object.keys(body.sources).length ? { sources: body.sources } : {}),
       });
       clearDraft(key);
-      setState({ kind: "saved", msg: t("Mentve.") });
+      // 081: the amounts typed now, as the local service read them ("28.000" → 28 000)
+      const typed = Object.fromEntries(Object.keys(draft?.values ?? {}).map((f) => [f, saved.correction.fields[f]]));
+      const numbers = savedNumbers(typed, kinds);
+      setState({ kind: "saved", msg: numbers ? t("Mentve. Rögzített érték: {{values}}", { values: numbers }) : t("Mentve.") });
       p.onSaved();
     } catch (e) {
       const err = e instanceof ApiError ? e : new ApiError(0, "error", String(e));
       setState({ kind: "error", msg: err.status === 409
         ? t("Közben más is mentett erre a tételre. A módosításaid megmaradtak; frissítsd, és mentsd újra.")
-        : t("Nem sikerült menteni: {{reason}}. A módosításaid megmaradtak.", { reason: err.message }) });
+        : err.code === "ambiguous_number"
+          ? t("Nem sikerült menteni: egy szám kétféleképpen is olvasható. Tizedesvesszővel (28,50) vagy tagolás nélkül (28000) írd be. A módosításaid megmaradtak.")
+          : t("Nem sikerült menteni: {{reason}}. A módosításaid megmaradtak.", { reason: err.message }) });
       if (err.status === 409) p.onSaved();
     } finally {
       saving.current = false;
