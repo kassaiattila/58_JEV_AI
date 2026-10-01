@@ -178,8 +178,8 @@ Before a run, the Review stage only shows the package's documents (section 7.9).
 
 ### 7.3 Fields, colours, boxes
 
-- **Filter** above the fields: **To fix** (*Javítandó*) shows the fields with an open to-do in this run, **Uncertain** (*Bizonytalan*) the fields whose estimate is ‘To check’ or ‘Likely wrong’ and that nobody has checked or corrected yet, **All** (*Mind*) every field; each button shows how many fields it has. An item opens on To fix when it has something to fix, otherwise on All; the filter you choose stays for the next item while that item has fields in it. When the last field of the filter is done, the panel says so (for example ‘Nothing is left to fix on this item.’ (*Ezen a tételen nincs több javítandó mező.*)). The ↓ / ↑ keys move between the filtered fields.
-- For each field you see its name, an ‘unsaved’, ‘checked’ (*ellenőrizve*) or ‘corrected’ (*javítva*) marker, the model's estimate as a percentage, and a source marker. The colour of the estimate is its confidence band: green ‘Confident’ (*Magabiztos*), blue ‘To check’ (*Ellenőrzendő*), red ‘Likely wrong’ (*Valószínűleg hibás*). A ‘–’ means there is no estimate. A corrected field is always blue, because the estimate applied to the machine value. The colour is only a display aid, not a decision, and it does not prove that the value is correct.
+- **Filter** above the fields: **To fix** (*Javítandó*) shows the fields with an open to-do in this run, **Uncertain** (*Bizonytalan*) the fields whose estimate is ‘To check’ or ‘Likely wrong’ and that nobody has verified or corrected yet, **All** (*Mind*) every field; each button shows how many fields it has. An item opens on To fix when it has something to fix, otherwise on All; the filter you choose stays for the next item while that item has fields in it. When the last field of the filter is done, the panel says so (for example ‘Nothing is left to fix on this item.’ (*Ezen a tételen nincs több javítandó mező.*)). The ↓ / ↑ keys move between the filtered fields.
+- For each field you see its name, an ‘unsaved’, ‘verified’ (*ellenőrizve*) or ‘corrected’ (*javítva*) marker, the model's estimate as a percentage, and a source marker. The colour of the estimate is its confidence band: green ‘Confident’ (*Magabiztos*), blue ‘To check’ (*Ellenőrzendő*), red ‘Likely wrong’ (*Valószínűleg hibás*). A ‘–’ means there is no estimate. A corrected field is always blue, because the estimate applied to the machine value. The colour is only a display aid, not a decision, and it does not prove that the value is correct.
 - Source marker: ◉ the exact location is known, ◎ only an approximate location is known, ○ no location. Hover over the marker for an explanation.
 - Fields with to-dos come first, then the ‘Likely wrong’ fields, then the rest.
 - Below the selected field you see the ‘Source text:’ (*Forrásszöveg:*) with the page number; where relevant, a note that the value appears in several places; for a corrected field, the ‘Machine value:’ (*Gépi érték:*); and the ‘Other candidates:’ (*Más jelöltek:*) buttons.
@@ -190,7 +190,7 @@ Before a run, the Review stage only shows the package's documents (section 7.9).
 
 Next to each field's value there are two buttons:
 
-- **✓ (correct)** (*helyes*): saves this field's value, the one in the box (the machine value, or the one you typed, chose or selected), records that a person checked it, and closes the field's to-dos in this run, under your name. The field then shows **checked** (*ellenőrizve*) until its value changes. Only this field is saved; your unsaved changes to other fields stay in the working copy. If the box is empty, ✓ records that the document has no value for the field.
+- **✓ (correct)** (*helyes*): saves this field's value, the one in the box (the machine value, or the one you typed, chose or selected), records that a person verified it, and closes the field's to-dos in this run, under your name. The field then shows **verified** (*ellenőrizve*) until its value changes. Only this field is saved; your unsaved changes to other fields stay in the working copy. If the box is empty, ✓ records that the document has no value for the field.
 - **✗ (wrong, fix it)** (*hibás, javítom*): empties the field, puts the cursor in it and turns on selecting on the image, with the hint ‘Select the right value on the image, type it, or pick a candidate…’ (*Jelöld ki a helyes értéket a képen, írd be, vagy válassz jelöltet…*). Bring in the right value in one of the three ways below, then press ✓. Once a field has an unsaved change, **↺ (restore)** (*visszaállítás*) takes the place of ✗ and brings back the original value.
 
 You can correct a value in three ways:
@@ -221,7 +221,7 @@ The keys work in lower case (without Shift) and outside input boxes. Ctrl+Enter 
 | s | turns selecting on the image on / off (if the document has a word layer) |
 | Enter | moves into the selected field's box |
 | Esc | leaves the box; while selecting, it first clears the selection, then turns selection mode off |
-| Ctrl+Enter | saves the correction (every unsaved field; it does not mark them as checked) |
+| Ctrl+Enter | saves the correction (every unsaved field; it does not mark them as verified) |
 
 ### 7.8 Reviewing emails
 
