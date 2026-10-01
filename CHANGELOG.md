@@ -56,6 +56,11 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   buttons sit at the top of the panel. The correction save takes
   `confirm` (the fields verified) and the version records `confirmed` (field → value); each to-do of a document item
   carries `field`. No paid calls; the model requests do not change.
+- **Fix — a value over several lines was unreadable on the image:** each line of the field being checked got its own
+  thick frame with a white ring, drawn over the neighbouring lines, and the other candidates' boxes and tags covered the
+  same text. The value is now highlighted line by line like a see-through marker, inside one thin frame outside the text;
+  a candidate within the value shows only its tag, and tags sit beside their box. A long candidate button in the panel
+  wraps instead of running out of it.
 - **The S path says what it does:** the path once called "JEV only" is now **JEV where possible — cheaper, no line
   items; GPT elsewhere (S)**. Behaviour is unchanged: a document type without a JEV path (fifteen types, for example
   NAV receipts and bank statements) runs on the G path with S chosen too, so that its data is still read. The help,
