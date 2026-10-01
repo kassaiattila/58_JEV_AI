@@ -127,7 +127,9 @@ def test_the_run_items_list_has_a_cost_column_per_model_and_a_total(env):
     _reused(run_id, b, n=2)
     body = c.post("/api/datasets/run_items/query", json={"scope": {"run_id": run_id}, "query": {}}).json()
     cols = {col["key"]: col for col in body["columns"]}
-    assert cols["cost:jev:jev-1.13.0"]["label"] == "JEV · jev-1.13.0 (USD)" and not cols["cost:jev:jev-1.13.0"]["hidden"]
+    # one model per provider: the header names the provider (the model is in the column description and on the run page)
+    assert cols["cost:jev:jev-1.13.0"]["label"] == "JEV (USD)" and cols["cost:jev:jev-1.13.0"]["model"] == "jev-1.13.0"
+    assert not cols["cost:jev:jev-1.13.0"]["hidden"]
     assert "cost:openai:gpt-4.1-mini" in cols and not cols["cost_total"]["hidden"] and cols["cost_reused"]["hidden"]
     assert "cost:jev:jev-latest" not in cols and not cols["cost_held"]["hidden"]  # no column for a model without a known cost
     rows = {r["item_id"]: r for r in body["rows"]}
@@ -137,6 +139,10 @@ def test_the_run_items_list_has_a_cost_column_per_model_and_a_total(env):
     _call(run_id, b, "jev", "jev-1.13.0", cost="0.004000")  # a new call shows at the next request (the cache follows the call log)
     again = c.post("/api/datasets/run_items/query", json={"scope": {"run_id": run_id}, "query": {}}).json()
     assert Decimal(str({r["item_id"]: r for r in again["rows"]}[b]["cost_total"])) == Decimal("0.004")
+    _call(run_id, b, "jev", "jev-1.14.0", cost="0.001000")  # a second JEV model: now each header names its model
+    labels = {col["key"]: col["label"] for col in c.post("/api/datasets/run_items/query", json={"scope": {"run_id": run_id}, "query": {}}).json()["columns"]}
+    assert labels["cost:jev:jev-1.13.0"] == "JEV · jev-1.13.0 (USD)" and labels["cost:jev:jev-1.14.0"] == "JEV · jev-1.14.0 (USD)"
+    assert labels["cost:openai:gpt-4.1-mini"] == "OpenAI (USD)"
 
 
 def test_the_package_lists_show_the_cost_of_each_run_and_of_the_package(env):

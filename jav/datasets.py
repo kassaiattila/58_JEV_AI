@@ -20,7 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -315,8 +315,14 @@ def _cost_cols(spent: costs.RunCosts) -> list[Column]:
     """082: one cost column per provider and model with a successful call in the run (a failed call has no actual model
     and no known cost: its reserved maximum is in the reserved column), the item's total, the answers taken from an
     earlier answer, and the reserved maximum of the calls without a known cost (shown only when there is any)."""
-    per_model = [_col(_cost_key(x), f"{PROVIDER_NAMES.get(x.provider, x.provider)} · {x.model} (USD)", "number")
-                 for x in spent.lines if x.succeeded]
+    shown = [x for x in spent.lines if x.succeeded]
+    models = Counter(x.provider for x in shown)  # the header names the model only where a provider had several
+
+    def label(x: costs.Line) -> str:
+        name = PROVIDER_NAMES.get(x.provider, x.provider)
+        return f"{name} · {x.model} (USD)" if models[x.provider] > 1 else f"{name} (USD)"
+
+    per_model = [_col(_cost_key(x), label(x), "number", model=x.model) for x in shown]
     return [*per_model, _col("cost_total", "Költség összesen (USD)", "number"),
             _col("cost_reused", "Korábbi válaszból (db)", "number", hidden=True),
             _col("cost_held", "Lefoglalt, ismeretlen kimenetelű (USD)", "number", hidden=not spent.held_usd)]
