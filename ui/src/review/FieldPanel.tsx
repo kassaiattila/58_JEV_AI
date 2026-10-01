@@ -2,14 +2,17 @@
 // alternatives, selection on the image → value, saving with a revision. The draft lives in the drafts.ts store (it
 // survives switching items).
 // 048: the line-item lists on separate tabs (ListTable), and the pack's checks on the saved, corrected data.
+// 083 (the owner's trial): a tick (✓) and a cross (✗) right next to each field's value; a field's to-dos are shown at
+// the field, only the document's to-dos stay at the top; a small filter above the fields.
 import { useEffect, useRef, useState } from "react";
-import { api, ApiError, getActor, NO_ACTOR, type Alternative, type CorrectionValue, type ItemResult, type Provenance, type Reason } from "../api";
+import { api, ApiError, getActor, NO_ACTOR, type Alternative, type CorrectionValue, type ItemResult, type Provenance } from "../api";
 import { Icon } from "../components/Icon";
 import { t, useLocale } from "../i18n";
 import { checkText, editNumber, fieldLabel, reasonText, savedNumbers, tmap } from "../labels";
 import { clearDraft, draftKey, isDirty, rebaseDraft, revertField, setField, setList, useDraft, type Draft } from "./drafts";
 import { useResolve } from "./useResolve";
 import { BAND_LABEL, type Band } from "./geometry";
+import { EMPTY_FILTER, FIELD_FILTERS, FILTER_LABEL, isConfirmed, type FieldFilter } from "./fieldFilter";
 import { fromRows, ListTable, toRows } from "./ListTable";
 import { BAND_COLOR } from "./PageViewer";
 
@@ -71,6 +74,14 @@ interface Props {
   tab?: string; // "fields" or the name of a line-item list
   onRowPick?: (field: string, row: number) => void; // 053: picking a line item (the image jumps to the row's position)
   onTab?: (tab: string) => void;
+  /** 083: every simple field of the item (`fields` may be a filtered part of it); defaults to `fields`. */
+  allFields?: string[];
+  /** 083: the cross started fixing the field (the caller activates it, turns on selection on the image, focuses it). */
+  onStartFix?: (field: string) => void;
+  /** 083: the field filter above the fields (shown when given). */
+  filter?: FieldFilter;
+  counts?: Record<FieldFilter, number>;
+  onFilter?: (filter: FieldFilter) => void;
 }
 
 /** 053: the row number of a selection keyed `list[n]`, if it belongs to the given list. */
@@ -155,23 +166,69 @@ export function FieldPanel(p: Props) {
       setState({ kind: "saved", msg: numbers ? t("Mentve. Rögzített érték: {{values}}", { values: numbers }) : t("Mentve.") });
       p.onSaved();
     } catch (e) {
-      const err = e instanceof ApiError ? e : new ApiError(0, "error", String(e));
-      setState({ kind: "error", msg: err.status === 409
-        ? t("Közben más is mentett erre a tételre. A módosításaid megmaradtak; frissítsd, és mentsd újra.")
-        : err.code === "ambiguous_number"
-          ? t("Nem sikerült menteni: egy szám kétféleképpen is olvasható. Tizedesvesszővel (28,50) vagy tagolás nélkül (28000) írd be. A módosításaid megmaradtak.")
-          : t("Nem sikerült menteni: {{reason}}. A módosításaid megmaradtak.", { reason: err.message }) });
-      if (err.status === 409) p.onSaved();
+      reportSaveError(e);
     } finally {
       saving.current = false;
     }
+  }
+
+  function reportSaveError(e: unknown) {
+    const err = e instanceof ApiError ? e : new ApiError(0, "error", String(e));
+    setState({ kind: "error", msg: err.status === 409
+      ? t("Közben más is mentett erre a tételre. A módosításaid megmaradtak; frissítsd, és mentsd újra.")
+      : err.code === "ambiguous_number"
+        ? t("Nem sikerült menteni: egy szám kétféleképpen is olvasható. Tizedesvesszővel (28,50) vagy tagolás nélkül (28000) írd be. A módosításaid megmaradtak.")
+        : t("Nem sikerült menteni: {{reason}}. A módosításaid megmaradtak.", { reason: err.message }) });
+    if (err.status === 409) p.onSaved();
+  }
+
+  /** 083: the tick. Saves this field only (its typed or selected value, if any; empty = the value is not on the
+   *  document), records it as checked by a person, and closes its to-dos in this run. The other fields' unsaved changes
+   *  stay in the working copy, on the new version. */
+  async function confirmField(f: string) {
+    if (conflict || readOnly || saving.current) return;
+    if (!getActor()) {
+      setState({ kind: "error", msg: t("Nem sikerült menteni: {{reason}}. A módosításaid megmaradtak.", { reason: t(NO_ACTOR) }) });
+      document.getElementById("actor")?.focus();
+      return;
+    }
+    setState({ kind: "saving" });
+    saving.current = true;
+    const own: Draft | undefined = draft && f in draft.values
+      ? { baseRevision: draft.baseRevision, values: { [f]: draft.values[f] }, sources: draft.sources[f] ? { [f]: draft.sources[f] } : {} }
+      : undefined;
+    const body = buildSave(machine, result.correction, own, lists, kinds);
+    try {
+      const saved = await api.saveCorrection(result.run_id, result.item_id, {
+        fields: body.fields, expected_revision: base, ...(Object.keys(body.sources).length ? { sources: body.sources } : {}), confirm: [f],
+      });
+      revertField(key, f);
+      rebaseDraft(key, saved.correction.revision);
+      setState({ kind: "saved", msg: t("Mentve: {{field}} ellenőrizve.", { field: fieldLabel(f) }) });
+      p.onSaved();
+    } catch (e) {
+      reportSaveError(e);
+    } finally {
+      saving.current = false;
+    }
+  }
+
+  /** 083: the cross. Empties the field and starts fixing it: the right value comes from the image, from another
+   *  candidate or by typing, and the tick saves it. */
+  function startFix(f: string) {
+    setField(key, base, f, "", null);
+    onActivate(f);
+    p.onStartFix?.(f);
   }
 
   saveRef.current = () => void save();
 
   const { resolve, pending: resolving, error: resolveError } = useResolve(p.onResolved);
 
-  const reasonField = (r: Reason) => r.reason.split(":")[2];
+  // 083: a to-do about one simple field is shown at that field; the others (about the document) stay at the top
+  const simpleFields = new Set(p.allFields ?? fields);
+  const atField = (f: string) => result.open_reasons.filter((r) => r.field === f);
+  const documentReasons = result.open_reasons.filter((r) => !r.field || !simpleFields.has(r.field));
   const prov: Provenance | undefined = activeField ? result.provenance[activeField] : undefined;
   const listRows = (f: string) => draft?.lists?.[f] ?? toRows(result.effective[f], lists[f].columns);
   const goRow = (f: string, row: number) => { p.onTab?.(f); setFocusRow({ row, seq: Date.now() }); };
@@ -179,16 +236,16 @@ export function FieldPanel(p: Props) {
   return (
     <section className="panel" aria-label={t("Teendők és mezők")}>
       {resolveError ? <p className="notice error" role="alert">{resolveError}</p> : null}
-      {result.open_reasons.length ? (
+      {documentReasons.length ? (
         <ul className="issues" aria-label={t("Nyitott teendők ebben a futásban")}>
-          {result.open_reasons.map((r) => (
+          {documentReasons.map((r) => (
             <li key={r.id} className="issue">
-              <button type="button" className="link-btn" onClick={() => reasonField(r) && onActivate(reasonField(r))}>{reasonText(r.reason)}</button>
+              <span>{reasonText(r.reason)}</span>
               <button type="button" className="secondary small-btn" disabled={resolving !== null} onClick={() => void resolve(r)}><Icon name="check" />{t("Rendezve")}</button>
             </li>
           ))}
         </ul>
-      ) : <p className="ok pad-s">{t("Ebben a futásban nincs nyitott teendő ezen a tételen.")}</p>}
+      ) : result.open_reasons.length ? null : <p className="ok pad-s">{t("Ebben a futásban nincs nyitott teendő ezen a tételen.")}</p>}
       {result.earlier_open_reasons.length ? (
         <details className="details">
           <summary>{t("Korábbi teendők az iraton ({{n}}) — ezt a futást nem akadályozzák", { n: result.earlier_open_reasons.length })}</summary>
@@ -235,6 +292,15 @@ export function FieldPanel(p: Props) {
           edited={draft?.lists?.[tab] !== undefined} corrected={Boolean(result.provenance[tab]?.corrected)} readOnly={readOnly}
           onChange={(rows) => setList(key, base, tab, rows)} onRevert={() => revertField(key, tab)} />
       ) : <>
+      {p.filter && p.counts ? (
+        <div className="field-filter" role="group" aria-label={t("Mezők szűrése")}>
+          {FIELD_FILTERS.map((k) => (
+            <button key={k} type="button" className="chip" aria-pressed={p.filter === k} onClick={() => p.onFilter?.(k)}>
+              {FILTER_LABEL[k]} ({p.counts![k]})
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="panel-tools">
         <button type="button" className={selectMode ? "primary small-btn" : "secondary small-btn"} aria-pressed={selectMode}
           disabled={!p.hasWords || readOnly} onClick={p.onToggleSelect}
@@ -265,18 +331,23 @@ export function FieldPanel(p: Props) {
         </div>
       ) : null}
 
+      {!fields.length && p.filter ? <p className="muted small pad-s">{EMPTY_FILTER[p.filter]}</p> : null}
       <ol className="fields" aria-label={t("Mezők")}>
         {fields.map((f) => {
           const pv = result.provenance[f];
           const band = bandOf(f);
           const isActive = f === activeField;
           const edited = draft?.values[f] !== undefined;
+          const label = fieldLabel(f);
+          const todo = atField(f);
           return (
-            <li key={f} ref={isActive ? activeRow : undefined} className={`frow ${isActive ? "active" : ""}`} onClick={() => onActivate(f)}>
+            <li key={f} ref={isActive ? activeRow : undefined} className={`frow ${isActive ? "active" : ""} ${todo.length ? "has-todo" : ""}`} onClick={() => onActivate(f)}>
               <div className="frow-head">
-                <label htmlFor={`fv-${f}`}>{fieldLabel(f)}</label>
+                <label htmlFor={`fv-${f}`}>{label}</label>
                 <span className="chips">
-                  {edited ? <span className="badge">{t("mentetlen")}</span> : pv?.corrected ? <span className="badge">{t("javítva")}</span> : null}
+                  {edited ? <span className="badge">{t("mentetlen")}</span>
+                    : isConfirmed(result, f) ? <span className="badge ok-badge" title={t("Egy ember ellenőrizte ezt az értéket.")}><Icon name="check" />{t("ellenőrizve")}</span>
+                    : pv?.corrected ? <span className="badge">{t("javítva")}</span> : null}
                   <span className="band" style={{ color: BAND_COLOR[band], borderColor: BAND_COLOR[band] }}
                     title={pv?.confidence != null ? t("Modellbecslés: {{p}}%", { p: Math.round(pv.confidence * 100) }) : t("Nincs becslés")}>
                     {pv?.confidence != null ? `${Math.round(pv.confidence * 100)}%` : "–"}
@@ -287,8 +358,35 @@ export function FieldPanel(p: Props) {
                   </span>
                 </span>
               </div>
-              <input id={`fv-${f}`} value={shown(f)} readOnly={readOnly} onFocus={() => onActivate(f)}
-                onChange={(e) => setField(key, base, f, e.target.value, null)} />
+              <div className="frow-value">
+                <input id={`fv-${f}`} value={shown(f)} readOnly={readOnly} onFocus={() => onActivate(f)}
+                  onChange={(e) => setField(key, base, f, e.target.value, null)} />
+                <button type="button" className="verdict verdict-ok" aria-label={t("{{field}}: helyes", { field: label })}
+                  title={t("Helyes: mentés és ellenőrzöttnek jelölés (a mező teendői lezárulnak)")}
+                  disabled={readOnly || conflict || state.kind === "saving"} onClick={(e) => { e.stopPropagation(); void confirmField(f); }}>
+                  <Icon name="check" />
+                </button>
+                {edited ? (
+                  <button type="button" className="verdict" aria-label={t("{{field}}: visszaállítás", { field: label })} title={t("Az eredeti érték visszaállítása")}
+                    disabled={readOnly} onClick={(e) => { e.stopPropagation(); revertField(key, f); }}>
+                    <Icon name="restore" />
+                  </button>
+                ) : (
+                  <button type="button" className="verdict verdict-bad" aria-label={t("{{field}}: hibás, javítom", { field: label })}
+                    title={t("Hibás: a mező kiürül, és a helyes értéket kijelölheted a képen vagy beírhatod")}
+                    disabled={readOnly || conflict} onClick={(e) => { e.stopPropagation(); startFix(f); }}>
+                    <Icon name="close" />
+                  </button>
+                )}
+              </div>
+              {todo.length ? (
+                <ul className="field-issues" aria-label={t("{{field}}: teendők", { field: label })}>
+                  {todo.map((r) => <li key={r.id}>{reasonText(r.reason)}</li>)}
+                </ul>
+              ) : null}
+              {edited && shown(f) === "" ? (
+                <p className="small muted fix-hint">{t("Jelöld ki a helyes értéket a képen, írd be, vagy válassz jelöltet; üresen hagyva a ✓ azt rögzíti, hogy az iraton nincs érték.")}</p>
+              ) : null}
               {isActive ? (
                 <div className="fdetail">
                   {prov?.status === "located" && prov.quote ? <div className="small">{t("Forrásszöveg:")} „{prov.quote}”{prov.page ? ` · ${t("{{n}}. oldal", { n: prov.page })}` : ""}
@@ -306,7 +404,6 @@ export function FieldPanel(p: Props) {
                       ))}
                     </div>
                   ) : null}
-                  {edited ? <button type="button" className="quiet small-btn" onClick={(e) => { e.stopPropagation(); revertField(key, f); }}>{t("Visszaállítás")}</button> : null}
                 </div>
               ) : null}
             </li>

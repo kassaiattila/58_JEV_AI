@@ -13,6 +13,11 @@ form that can be read two ways ("28.5" for money) is refused (`numbers.Ambiguous
 Itemised list (048 T1-lista): correcting a `list` field replaces the whole list (deleting and adding rows too), each
 cell validated by the kind and enumerated values of its line-item field. The pack's checks (e.g. the running balance
 of a statement) also run on the corrected data in the item result (`checks`), in code, without any paid call.
+
+Confirmed fields (083): a save may confirm simple fields (`confirm`): the version records each such field's value as
+checked by a person (`confirmed`: field -> value), and the run's own open to-dos on those fields are resolved. A
+confirmation lasts while the field's value stays the same; a later version that changes the value drops it. Each to-do
+of a document carries the field it is about (`field`, see `reason_field`), so the UI shows it at the field.
 """
 
 from __future__ import annotations
@@ -44,6 +49,8 @@ def _migrate(conn) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(run_item_corrections)")}
     if cols and "sources" not in cols:  # 045: field -> ids of the words selected on the image
         conn.execute("ALTER TABLE run_item_corrections ADD COLUMN sources TEXT")
+    if cols and "confirmed" not in cols:  # 083: field -> the value a person confirmed
+        conn.execute("ALTER TABLE run_item_corrections ADD COLUMN confirmed TEXT")
 
 
 store.register_migration("corrections", _migrate)
@@ -69,9 +76,32 @@ def current(run_id: str, item_id: str) -> dict[str, Any]:
         row = c.execute("SELECT * FROM run_item_corrections WHERE run_id=? AND item_id=? ORDER BY revision DESC LIMIT 1",
                         (run_id, item_id)).fetchone()
     if row is None:
-        return {"run_id": run_id, "item_id": item_id, "revision": 0, "fields": {}, "sources": {}, "actor": None, "note": None,
-                "created_at": None}
-    return {**dict(row), "fields": json.loads(row["fields"]), "sources": json.loads(row["sources"] or "{}")}
+        return {"run_id": run_id, "item_id": item_id, "revision": 0, "fields": {}, "sources": {}, "confirmed": {}, "actor": None,
+                "note": None, "created_at": None}
+    return {**dict(row), "fields": json.loads(row["fields"]), "sources": json.loads(row["sources"] or "{}"),
+            "confirmed": json.loads(row["confirmed"] or "{}")}
+
+
+def reason_field(code: str, fields: set[str]) -> str | None:
+    """083: the simple field a to-do is about, or None when it is about the document (or a line item). The field stands
+    third in most codes (`pick:low_conf:payment_iban:0.53`) and first in a parse error (`meter_reading_start:unparseable`);
+    only a simple field of the item's type pack counts."""
+    parts = code.split(":")
+    for part in (parts[2] if len(parts) > 2 else None, parts[0]):
+        if part in fields:
+            return part
+    return None
+
+
+def _with_fields(reasons: list[dict[str, Any]], fields: set[str]) -> list[dict[str, Any]]:
+    return [{**r, "field": reason_field(r["reason"], fields)} for r in reasons]
+
+
+def _same_value(a: Any, b: Any) -> bool:
+    """Whether a confirmed value still holds: an empty text and a missing value are the same (no value)."""
+    a = None if a == "" else a
+    b = None if b == "" else b
+    return (a is None and b is None) or (a is not None and b is not None and str(a) == str(b))
 
 
 def layer_for(dp: dict[str, Any] | None) -> source_layer.SourceLayer | None:
@@ -272,6 +302,8 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     effective = {**machine, **corr["fields"]}
     pack = typepack.get(dp["doc_type"]) if dp else None
     lists = {f: {"columns": list_columns(pack, f, machine.get(f))} for f, k in pack.fields.items() if k == "list"} if pack else {}
+    simple = {f for f, k in pack.fields.items() if k != "list"} if pack else set()
+    reasons = work.item_reasons(run_id, item_id)
     from jav import isolated_pdf, page_image
 
     src = work.source_file(item)  # the source instance if the item has one
@@ -289,12 +321,12 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
             "provenance": effective_provenance(dp, corr, layer), "source": source,
             # whether the document is shown from the copy kept when it was added, and the original file's state since
             "source_file": {"copy": bool(item.get("instance")), "original": work.original_state(item, verify=True)},
-            "open_reasons": work.item_reasons(run_id, item_id)["run"],
-            "earlier_open_reasons": work.item_reasons(run_id, item_id)["earlier"]}
+            "open_reasons": _with_fields(reasons["run"], simple),
+            "earlier_open_reasons": _with_fields(reasons["earlier"], simple)}
 
 
 def _insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected_revision: int, actor: str, note: str | None,
-                     sources: dict[str, list[int]] | None) -> None:
+                     sources: dict[str, list[int]] | None, confirmed: dict[str, Any] | None = None) -> None:
     with store.connect() as c:
         c.commit()
         c.execute("BEGIN IMMEDIATE")
@@ -302,10 +334,11 @@ def _insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected
                         (run_id, item_id)).fetchone()["m"] or 0
         if cur != expected_revision:
             raise work.RevisionConflict(f"correction of {item_id[:12]} is at revision {cur}, not {expected_revision}")
-        c.execute("INSERT INTO run_item_corrections(run_id, item_id, revision, fields, actor, note, created_at, sources)"
-                  " VALUES (?,?,?,?,?,?,?,?)",
+        c.execute("INSERT INTO run_item_corrections(run_id, item_id, revision, fields, actor, note, created_at, sources, confirmed)"
+                  " VALUES (?,?,?,?,?,?,?,?,?)",
                   (run_id, item_id, cur + 1, json.dumps(fields, ensure_ascii=False, sort_keys=True), actor, note,
-                   datetime.now(timezone.utc).isoformat(timespec="seconds"), json.dumps(sources, sort_keys=True) if sources else None))
+                   datetime.now(timezone.utc).isoformat(timespec="seconds"), json.dumps(sources, sort_keys=True) if sources else None,
+                   json.dumps(confirmed, ensure_ascii=False, sort_keys=True) if confirmed else None))
 
 
 EMAIL_FIELDS = ("intent",)  # 058 K5.1: an email's intent is correctable (the email is the source, not extracted)
@@ -336,16 +369,20 @@ def _save_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], ex
 
 
 def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision: int, actor: str,
-         note: str | None = None, sources: dict[str, list[int]] | None = None) -> dict[str, Any]:
+         note: str | None = None, sources: dict[str, list[int]] | None = None, confirm: list[str] | None = None) -> dict[str, Any]:
     """Saves a new correction version. `fields` is the complete correction set (anything left out reverts to the machine
     value). `sources`: the words selected on the image per field (045); only for corrected fields, and only words of the
-    item's word layer."""
+    item's word layer. `confirm` (083): simple fields a person checked; their values are recorded as confirmed and the
+    run's own open to-dos on them are resolved."""
     sources = dict(sources or {})
+    confirm = list(dict.fromkeys(confirm or []))
     run = work.get_run(run_id)
     if run["approval"]:
         raise work.RevisionConflict(f"run {run_id} is approved; corrections are frozen")
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
     if item is not None and item.get("kind") == "email":
+        if confirm:
+            raise ValueError("fields cannot be confirmed on an email; correct its intent instead")
         return _save_email(run_id, item, fields=fields, expected_revision=expected_revision, actor=actor, note=note, sources=sources)
     dp = datapoints_row(run_id, item_id)
     if dp is None:
@@ -370,5 +407,20 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
         layer = layer_for(dp)
         for ids in sources.values():
             grounding.manual(layer, list(ids))  # unknown word or missing layer: ValueError
-    _insert_revision(run_id, item_id, fields, expected_revision, actor, note, sources)
+    simple = {f for f in pack.record_fields if pack.kind(f) != "list"}
+    odd = sorted(set(confirm) - simple)
+    if odd:
+        raise ValueError(f"only simple fields of {pack.key} can be confirmed: {odd}")
+    effective = {**(dp.get("datapoints") or {}), **fields}
+    # the earlier confirmations whose value did not change stay; the fields confirmed now are added with their value
+    confirmed = {f: v for f, v in current(run_id, item_id)["confirmed"].items() if _same_value(effective.get(f), v)}
+    confirmed.update({f: effective.get(f) for f in confirm})
+    _insert_revision(run_id, item_id, fields, expected_revision, actor, note, sources, confirmed)
+    if confirm:
+        revision = expected_revision + 1
+        for r in work.item_reasons(run_id, item_id, item)["run"]:
+            f = reason_field(r["reason"], simple)
+            if f in confirm:
+                work.resolve_reason(r["id"], actor=actor, note="field checked by hand",
+                                    resolution={"field": f, "verdict": "confirmed", "value": confirmed[f], "revision": revision})
     return current(run_id, item_id)

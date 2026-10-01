@@ -522,3 +522,18 @@ button.chip[aria-pressed="true"] { background: var(--paper); border-color: var(-
 /* 058 K5.3: task proposals in the email view */
 .task-list { display: grid; gap: 8px; margin-top: 6px; }
 .task-item { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; display: grid; gap: 3px; }
+/* 083: the tick and the cross next to each field's value, the field's own to-dos, the field filter */
+.field-filter { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 8px 2px; }
+.frow-value { display: flex; align-items: center; gap: 4px; }
+.frow-value input { flex: 1; min-width: 0; }
+.verdict { flex: none; width: 30px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--muted); cursor: pointer; }
+.verdict:disabled { opacity: .45; cursor: default; }
+.verdict-ok:hover:not(:disabled), .frow.has-todo .verdict-ok { color: var(--ok); border-color: var(--ok); }
+.verdict-ok:hover:not(:disabled) { background: var(--ok-tint); }
+.verdict-bad:hover:not(:disabled) { color: var(--error); border-color: var(--error); background: var(--tint); }
+.field-issues { list-style: none; margin: 4px 0 0; padding: 0; font-size: 12px; color: var(--error); }
+.field-issues li::before { content: "⚠ "; }
+.fix-hint { margin: 4px 0 0; }
+.ok-badge { display: inline-flex; align-items: center; gap: 3px; background: var(--ok-tint); color: var(--ok); }
+.ok-badge .ico { width: 11px; height: 11px; }
