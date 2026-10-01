@@ -23,11 +23,11 @@ import { UncertainCallsPanel } from "./settings/UncertainCallsPanel";
 
 // the labels stand here as Hungarian source; translation happens at render time (`t()`)
 // 073: exported so a test can check that every label and hint has an English translation (the i18n checker only
-// sees literal t("...") arguments, and "Receptek" slipped through)
+// sees literal t("...") arguments, and "Receptek" slipped through; 080: "Receptek" became "Feldolgozás")
 export const SETTINGS_SECTIONS: { key: SettingsSection; label: string; hint: string }[] = [
   { key: "mailboxes", label: "Postafiókok", hint: "Outlook-fiókok, ütemezett letöltés, letöltési napló" },
   { key: "folders", label: "Munkamappák", hint: "Figyelt mappák: az új iratokból magától lesz munkacsomag" },
-  { key: "recipes", label: "Receptek", hint: "Mit csinálnak a receptek, mit jelentenek a beállításaik, mennyibe kerülnek" },
+  { key: "recipes", label: "Feldolgozás", hint: "Hogyan dolgozza fel a rendszer az iratokat és a leveleket, mit jelentenek a beállítások, mennyibe kerülnek" },
   { key: "users", label: "Felhasználók", hint: "A „Ki dolgozik?” választéka" },
   { key: "appearance", label: "Megjelenés", hint: "Téma és sűrűség" },
   { key: "language", label: "Nyelv", hint: "A felület nyelve: magyar vagy angol" },

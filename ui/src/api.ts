@@ -41,13 +41,21 @@ export interface WorkpackageView {
   workpackage: Workpackage; readiness: Readiness; titles?: Record<string, string>; next: NextStep; last_run: RunRow | null; runs: number;
   attachments_missing?: number; // 058 K5.2: in an email package, the number of PDF attachments not yet added
 }
+/** 080: what a run of the package will do (the pre-start overview): documents by their path known in advance (S / G /
+ *  type not known yet), emails, emails with a task proposal, whether Azure may be used and earlier JEV answers reused. */
+export interface RunPlan {
+  documents: number; emails: number; attachments: number; paths: { S: number; G: number; unknown: number };
+  tasks_emails: number; azure: boolean; jev_reuse: boolean;
+}
 export interface Readiness {
   workpackage_id: string; ready: boolean; blockers: Blocker[]; warnings: Blocker[]; counts: { items: number };
   budget: Record<string, string>; assignment_revision: number; input_hash: string;
+  plan?: RunPlan; // 080
+  assignment_default?: boolean; // 080: no saved settings yet; the default ones apply and are saved at start
 }
 export interface RecipeParam { allowed?: string[]; allowed_from?: string; default?: string }
 export interface Recipe {
-  id: string; version: number; title: string; description: string; steps: string[]; requirements: string[];
+  id: string; version: number; status?: "active" | "internal" | "retired"; title: string; description: string; steps: string[]; requirements: string[];
   result: string; manual_action: string; params: Record<string, RecipeParam>; max_item_usd: Record<string, Record<string, string>>;
   // 058 K5.2–K5.3: per-item budget by item kind (email / attachment) and the setting-dependent extra (task proposal)
   max_item_usd_by_kind?: Record<string, Record<string, Record<string, string>>>;
@@ -83,9 +91,13 @@ export interface BackupInfo {
   status: BackupRun | null;
   config: { schedule?: string; keep?: number; copy_to?: string | null; with_burr?: boolean; with_docs?: boolean; max_age_hours?: number };
 }
-/** 063: the recipe explanations (`configs/recipe_help.json`): when a recipe fits, what a setting and its value mean. */
+/** 063: the recipe explanations (`configs/recipe_help.json`): when a recipe fits, what a setting and its value mean;
+ *  080: the general introduction, the item kinds and the comparison of the paths. */
 export interface RecipeHelp {
+  intro?: string;
+  kinds?: Record<string, string>;
   recipes: Record<string, { when: string }>;
+  paths?: { intro: string; measured: string; columns: { S: string; G: string }; rows: { label: string; S: string; G: string }[] };
   params: Record<string, { help: string; options: Record<string, string> }>;
 }
 export interface RunItem {
@@ -353,7 +365,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 const enc = encodeURIComponent;
 
 export const api = {
-  recipes: () => request<{ recipes: Recipe[]; help?: RecipeHelp }>("GET", "/recipes"),
+  // 080: `recipes` holds only the active processing; `titles` every recipe's title (old runs, packages not yet migrated)
+  recipes: () => request<{ recipes: Recipe[]; help?: RecipeHelp; titles?: Record<string, string> }>("GET", "/recipes"),
   workpackages: () => request<{ workpackages: WorkpackageRow[] }>("GET", "/workpackages"),
   workpackage: (id: string) => request<WorkpackageView>("GET", `/workpackages/${enc(id)}`),
   createFromFolder: (folder: string, name?: string) =>

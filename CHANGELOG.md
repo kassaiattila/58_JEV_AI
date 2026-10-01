@@ -17,6 +17,18 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   and the review view says so. The copies go into the daily backup once each, locally and in the second location.
   Documents added before this change keep working from their original file. The model requests do not change.
   The email flow's own recognition of a PDF attachment reads the same kept copy as the attachment's document item.
+- **One processing with processing settings:** there is no recipe to choose any more. One processing handles every
+  item by its kind: a PDF document gets type recognition and then the recognised type's extraction, an email gets
+  intent recognition and its PDF attachments are processed as documents. The type is never given in advance in the
+  interface (the internal recipe with a given type remains for tests and command-line measurement). The package's
+  **Processing settings** card shows the path, Azure recognition, reuse of earlier JEV answers and task proposals with
+  their meaning; a package without saved settings runs with the default ones, saved when the run starts. The path
+  options have descriptive names (‘Automatic (recommended)’, ‘JEV only — no line items, cheaper (S)’, ‘GPT + JEV —
+  with line items (G)’), and Settings › **Processing** (formerly Recipes) compares the two paths with the measured
+  agreement with the golden set and the typical cost per document. Before a run, **What happens when the run starts**
+  lists each service the run may call with its budget and what it is for, and names the services that will not be
+  called. Existing packages and watched folders move onto the processing with `python -m jav.cli processing-migrate
+  --write`, keeping their settings; old runs keep their own recipe. The model requests do not change.
 
 ## v1.1.2 — 2026-09-30
 

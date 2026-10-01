@@ -1,14 +1,15 @@
-// Processing section (057): running (trial, live, rerun) at the top, below it the recipe (a summary, editable when
-// expanded) and the package's runs. The run's details (progress, cost, call log) are on the run's page. The run
-// buttons do not start anything: they lead to the confirmation page (061 decision, `StartConfirm`).
+// Processing section (057): running (trial, live, rerun) at the top, below it the processing settings (a summary,
+// editable when expanded; 080: there is one processing, so nothing to choose, only settings) and the package's runs.
+// The run's details (progress, cost, call log) are on the run's page. The run buttons do not start anything: they lead
+// to the confirmation page (061 decision, `StartConfirm`).
 import { useEffect, useMemo, useState } from "react";
-import { api, ApiError, type Recipe, type WorkpackageView } from "../api";
+import { api, ApiError, type Recipe, type RecipeHelp, type RunPlan, type WorkpackageView } from "../api";
 import { DataTable } from "../components/DataTable";
 import { Icon } from "../components/Icon";
 import { Picker } from "../components/Picker";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { docTypeLabel, itemBudgetLines, MODE, PARAM_LABEL, providerName, RUN_STATUS, tmap, usdBudget, when, blockerText } from "../labels";
+import { itemBudgetLines, MODE, PARAM_LABEL, paramShort, paramsText, planLines, providerName, RUN_STATUS, tmap, usdBudget, when, blockerText } from "../labels";
 import { go } from "../route";
 import { paramExplanation, RecipeParamList, recipeDefaults } from "./RecipeInfo";
 
@@ -39,9 +40,10 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
   }
 
   async function refreshAssignment() {
-    // to the recipe's current version: the existing settings stay, a new parameter gets its default value
+    // to the processing's current version (080: a retired or internal recipe moves onto the active processing): the
+    // existing settings stay, a new setting gets its default value, a given document type is dropped
     const a = wp.assignment;
-    const r = recipes.data?.recipes.find((x) => x.id === a?.recipe_id);
+    const r = recipes.data?.recipes.find((x) => x.id === a?.recipe_id) ?? recipes.data?.recipes[0];
     if (!a || !r) return;
     setBusy(true);
     setMsg(null);
@@ -49,8 +51,8 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
       const params: Record<string, string> = {};
       for (const [k, spec] of Object.entries(r.params)) params[k] = a.params[k] ?? spec.default ?? "";
       // the note is data (in the assignment's log), not a label
-      await api.saveWorkflow(wp.id, { recipe_id: r.id, params, expected_revision: a.revision, note: "frissítés a recept mostani változatára" }); // i18n-ignore
-      setMsg({ error: false, text: t("A hozzárendelés a recept mostani változatára frissült.") });
+      await api.saveWorkflow(wp.id, { recipe_id: r.id, params, expected_revision: a.revision, note: "frissítés a feldolgozás mostani változatára" }); // i18n-ignore
+      setMsg({ error: false, text: t("A beállítások a feldolgozás mostani változatára frissültek.") });
     } catch (e) {
       setMsg({ error: true, text: (e as ApiError).message });
     } finally {
@@ -80,7 +82,7 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
               </div>
             ) : null}
           </div>
-        ) : <p className="muted">{t("Ezen a csomagon még nem futott recept.")}</p>}
+        ) : <p className="muted">{t("Ezen a csomagon még nem futott feldolgozás.")}</p>}
         {view.attachments_missing ? (
           // 058 K5.2: in an email package from before 058 the PDF attachments are not items yet; once added, the email
           // recipe extracts their data
@@ -93,8 +95,8 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
         {readiness.warnings.length ? (
           <ul className="plain">{readiness.warnings.map((w, i) => (
             <li key={i} className="warning">{blockerText(w)}
-              {w.code === "recipe_changed" ? <> <button type="button" className="secondary small-btn" disabled={busy || active || !recipes.data}
-                onClick={() => void refreshAssignment()}><Icon name="rerun" />{t("Frissítés a recept mostani változatára")}</button></> : null}
+              {w.code === "recipe_changed" || w.code === "recipe_retired" ? <> <button type="button" className="secondary small-btn" disabled={busy || active || !recipes.data}
+                onClick={() => void refreshAssignment()}><Icon name="rerun" />{t("Átállítás a mostani feldolgozásra")}</button></> : null}
             </li>))}
           </ul>
         ) : null}
@@ -109,16 +111,18 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
         <dl className="run-help small">
           <dt>{t("Próbafutás")}</dt><dd>{t("az eredmény megtekinthető és letölthető, de nem adható ki")}</dd>
           <dt>{t("Éles futás")}</dt><dd>{t("az eredményt ember hagyja jóvá az Eredmény szakaszban, nyitott teendő nélkül")}</dd>
-          <dt>{t("Újrafuttatás")}</dt><dd>{t("a legutóbbi futás megismétlése ugyanazzal a bemenettel, új futásként (például hiba, leállítás vagy a recept frissítése után)")}</dd>
+          <dt>{t("Újrafuttatás")}</dt><dd>{t("a legutóbbi futás megismétlése ugyanazzal a bemenettel, új futásként (például hiba, leállítás vagy a beállítások módosítása után)")}</dd>
         </dl>
-        <p className="muted small">
-          {t("Költségkeret: {{budget}}.", { budget: Object.entries(readiness.budget)
-            .map(([p, v]) => t("{{provider}} legfeljebb {{amount}}", { provider: providerName(p), amount: usdBudget(v) })).join(", ") || t("nincs") })}
-        </p>
+        {readiness.plan ? <RunPlanList plan={readiness.plan} budget={readiness.budget} /> : (
+          <p className="muted small">
+            {t("Költségkeret: {{budget}}.", { budget: Object.entries(readiness.budget)
+              .map(([p, v]) => t("{{provider}} legfeljebb {{amount}}", { provider: providerName(p), amount: usdBudget(v) })).join(", ") || t("nincs") })}
+          </p>
+        )}
         {msg ? <p role="status" className={msg.error ? "notice error" : "notice"}>{msg.text}</p> : null}
       </section>
 
-      <RecipeCard view={view} onChanged={onChanged} />
+      <SettingsCard view={view} onChanged={onChanged} />
 
       <section aria-label={t("Futások")} className="wide">
         <h2>{t("A csomag futásai")}</h2>
@@ -130,37 +134,54 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
 }
 
 const PARAM_VALUE: Record<string, string> = tmap({
-  "arm:auto": "automatikus: az irattípus ajánlott útja (közmű-számla: G, mert tételt is ad; magyar számla: S)",
-  "arm:S": "S: a kód jelöltet talál, a JEV választ",
-  "arm:G": "G: GPT-kivonat, JEV-ellenőrzés",
   "jev_cache:reuse": "Korábbi válasz újrahasználható",
   "jev_cache:live": "Mindig élő hívás",
   "tasks:off": "Nincs feladatjavaslat",
   "tasks:propose": "Feladatjavaslat a levelekből (GPT; archiválandó levélen nem; elfogadni csak ember tud)",
-  "azure_ocr:on": "Gyenge helyi felismerésnél Azure-felismerés (fizetős, a recept Azure-keretén belül)",
+  "azure_ocr:on": "Gyenge helyi felismerésnél Azure-felismerés (fizetős, a futás Azure-keretén belül)",
   "azure_ocr:off": "Csak helyi felismerés",
 });
-/** Label of a parameter value; for a document type, the type's name. */
-export const paramValue = (k: string, v: string) => PARAM_VALUE[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);
+/** Label of a setting's value in the editor and on the confirmation page; the path by what it does (080, the owner's
+ *  decision of 2026-10-01), a document type by its name. */
+export const paramValue = (k: string, v: string) => PARAM_VALUE[`${k}:${v}`] ?? paramShort(k, v);
 
-function RecipeCard({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
+/** 080 (the pre-start overview of F-külső-kapcsolók): which services a run may call, with the budget maximum and what
+ *  it is for. */
+export function RunPlanList({ plan, budget }: { plan: RunPlan; budget: Record<string, string> }) {
+  useLocale();
+  return (
+    <div className="run-plan">
+      <h3>{t("Mi történik indításkor")}</h3>
+      <ul className="plain small">{planLines(plan, budget).map((line) => <li key={line}>{line}</li>)}</ul>
+      <p className="muted small">{t("A keret felső határ: ennyit foglal le a rendszer az indításkor; a tényleges költség általában kisebb, és a futás oldalán követhető.")}</p>
+    </div>
+  );
+}
+
+/** The settings of the package's processing (080: one processing — the system recognises each document's type — so
+ *  there is nothing to choose, only settings). Without saved settings the default ones apply; starting a run saves
+ *  them. A package still on an older recipe shows that recipe's title and can be moved onto the current processing. */
+function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
   useLocale();
   const wp = view.workpackage;
   const current = wp.assignment;
   const recipes = useLoad("recipes", api.recipes);
-  const [open, setOpen] = useState(!current);
-  const [recipeId, setRecipeId] = useState(current?.recipe_id ?? "");
-  const [params, setParams] = useState<Record<string, string>>(current?.params ?? {});
+  const catalogue = useMemo(() => recipes.data?.recipes ?? [], [recipes.data]);
+  const help: RecipeHelp | undefined = recipes.data?.help;
+  const currentRecipe = catalogue.find((r) => r.id === current?.recipe_id);
+  const [open, setOpen] = useState(false);
+  const [recipeId, setRecipeId] = useState("");
+  const [params, setParams] = useState<Record<string, string>>({});
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
-  const recipe: Recipe | undefined = recipes.data?.recipes.find((r) => r.id === recipeId);
-  const currentRecipe = recipes.data?.recipes.find((r) => r.id === current?.recipe_id);
-  const whenText = (r: Recipe) => { const w = recipes.data?.help?.recipes[r.id]?.when; return w ? t(w) : null; };
+  const recipe: Recipe | undefined = catalogue.find((r) => r.id === recipeId) ?? currentRecipe ?? catalogue[0];
 
   useEffect(() => {
-    if (!recipeId && recipes.data?.recipes.length) setRecipeId(recipes.data.recipes[0].id);
-  }, [recipes.data, recipeId]);
+    // the editor starts from the saved settings; an older recipe's settings carry over where the processing has them
+    if (!open || !recipe) return;
+    setParams(Object.fromEntries(Object.entries(recipe.params).map(([k, spec]) => [k, current?.params[k] ?? spec.default ?? ""])));
+  }, [open, recipe, current?.revision]); // eslint-disable-line react-hooks/exhaustive-deps -- a poll must not reset the edits
 
   const options = useMemo(() => {
     const out: Record<string, string[]> = {};
@@ -176,13 +197,13 @@ function RecipeCard({ view, onChanged }: { view: WorkpackageView; onChanged: () 
       const full: Record<string, string> = {};
       for (const [k, spec] of Object.entries(recipe.params)) full[k] = params[k] ?? spec.default ?? "";
       await api.saveWorkflow(wp.id, { recipe_id: recipe.id, params: full, expected_revision: current?.revision ?? 0, note: note || undefined });
-      setMsg({ error: false, text: t("Recept elmentve.") });
+      setMsg({ error: false, text: t("Beállítások elmentve.") });
       setNote("");
       setOpen(false);
       onChanged();
     } catch (e) {
       const err = e as ApiError;
-      setMsg({ error: true, text: err.status === 409 ? t("Közben más módosította a receptet. Frissítettük; a beállításaid megmaradtak, mentsd újra.") : err.message });
+      setMsg({ error: true, text: err.status === 409 ? t("Közben más módosította a beállításokat. Frissítettük; a választásaid megmaradtak, mentsd újra.") : err.message });
       onChanged();
     } finally {
       setBusy(false);
@@ -190,63 +211,62 @@ function RecipeCard({ view, onChanged }: { view: WorkpackageView; onChanged: () 
   }
 
   return (
-    <section className="card wide" aria-label={t("Recept")}>
+    <section className="card wide" aria-label={t("Feldolgozási beállítások")}>
       <div className="card-head">
-        <h2>{t("Recept")}</h2>
-        {current ? <button type="button" className="secondary" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{open ? <><Icon name="close" />{t("Bezárás")}</> : <><Icon name="edit" />{t("Módosítás")}</>}</button> : null}
+        <h2>{t("Feldolgozási beállítások")}</h2>
+        <button type="button" className="secondary" aria-expanded={open} disabled={!catalogue.length}
+          onClick={() => { setRecipeId(currentRecipe?.id ?? catalogue[0]?.id ?? ""); setOpen((o) => !o); }}>
+          {open ? <><Icon name="close" />{t("Bezárás")}</> : <><Icon name="edit" />{t("Módosítás")}</>}
+        </button>
       </div>
-      {current ? (
-        <>
-          <p>
-            <strong>{currentRecipe ? t(currentRecipe.title) : current.recipe_id}</strong>
-            {/* 065: the recipe's version (as on the confirmation page); the assignment's internal sequence number
-                is not a „változat” (version) */}
-            <span className="muted small"> ({t("{{version}}. változat", { version: current.recipe_version })}) — {t("hozzárendelte: {{actor}}, {{when}}", { actor: current.actor, when: when(current.created_at) })}</span>
-          </p>
-          {/* 063: each setting's meaning and the per-item cost budget, below them the recipe's full description */}
-          {currentRecipe && !open ? (
-            <>
-              {whenText(currentRecipe) ? <p className="muted">{whenText(currentRecipe)}</p> : null}
-              <RecipeParamList recipe={currentRecipe} params={current.params} help={recipes.data?.help} />
-              <p className="small"><a href={`#/settings/recipes`}>{t("A receptek teljes leírása a Beállításokban")} ›</a></p>
-            </>
-          ) : null}
-        </>
-      ) : <p className="muted">{t("Még nincs recept: válaszd ki, mit csináljon a rendszer a csomag irataival.")}</p>}
-      {open ? (
+      {recipes.error ? <p className="notice error">{recipes.error.message}</p> : null}
+      {!open ? (
+        current && currentRecipe ? (
+          <>
+            <p className="muted small">{t("mentette: {{actor}}, {{when}}", { actor: current.actor, when: when(current.created_at) })}</p>
+            {/* 063: each setting's meaning and the per-item cost budget */}
+            <RecipeParamList recipe={currentRecipe} params={current.params} help={help} />
+          </>
+        ) : current ? (
+          <>
+            <p><strong>{t(recipes.data?.titles?.[current.recipe_id] ?? current.recipe_id)}</strong>
+              <span className="muted small"> — {t("mentette: {{actor}}, {{when}}", { actor: current.actor, when: when(current.created_at) })}</span></p>
+            <p className="muted">{paramsText(current.params)}</p>
+            <p className="notice">{t("Ez a csomag egy korábbi feldolgozási változat beállításait őrzi. A Módosítás gombbal a mostani feldolgozásra állíthatod; a beállításai megmaradnak, az előre megadott irattípus elmarad, mert a rendszer felismeri.")}</p>
+          </>
+        ) : catalogue[0] ? (
+          <>
+            <p className="muted">{t("Alapbeállítás: ha nem módosítod, a futás indításakor ez mentődik a csomaghoz.")}</p>
+            <RecipeParamList recipe={catalogue[0]} params={{}} help={help} />
+          </>
+        ) : null
+      ) : recipe ? (
         <div className="recipe-form">
-          {recipes.error ? <p className="notice error">{recipes.error.message}</p> : null}
-          <Picker label={t("Recept")} value={recipeId || null} className="block-picker"
-            options={(recipes.data?.recipes ?? []).map((r) => ({ value: r.id, label: t("{{title}} ({{version}}. változat)", { title: t(r.title), version: r.version }) }))}
-            onChange={(v) => { setRecipeId(v); setParams({}); }} />
-          {recipe ? (
-            <>
-              <p className="muted small">{t(recipe.description)}</p>
-              {whenText(recipe) ? <p className="small"><strong>{t("Mikor válaszd")}:</strong> {whenText(recipe)}</p> : null}
-              <ol className="steps">{recipe.steps.map((s) => <li key={s}>{t(s)}</li>)}</ol>
-              {Object.entries(options).map(([k, opts]) => {
-                const value = params[k] ?? recipe.params[k].default ?? "";
-                const explain = paramExplanation(recipes.data?.help, k, value);
-                return (
-                  <div key={k} className="param-field">
-                    <Picker label={PARAM_LABEL[k] ?? k} className="block-picker" value={value}
-                      options={opts.map((o) => ({ value: o, label: paramValue(k, o) }))}
-                      onChange={(v) => setParams((p) => ({ ...p, [k]: v }))} />
-                    {explain ? <p className="param-note">{explain}</p> : null}
-                  </div>
-                );
-              })}
-              <p className="small"><strong>{t("Költségkeret")}:</strong> {itemBudgetLines(recipe, { ...recipeDefaults(recipe), ...params }).join("; ")}</p>
-              <label className="block">{t("Megjegyzés")} <span className="muted">{t("(elhagyható)")}</span>
-                <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />
-              </label>
-              <button type="button" className="primary" disabled={busy} onClick={() => void save()}>
-                {current ? t("Recept mentése") : t("Recept hozzárendelése")}
-              </button>
-            </>
+          {catalogue.length > 1 ? (
+            <Picker label={t("Feldolgozás")} value={recipe.id} className="block-picker"
+              options={catalogue.map((r) => ({ value: r.id, label: t(r.title) }))}
+              onChange={(v) => setRecipeId(v)} />
           ) : null}
+          {Object.entries(options).map(([k, opts]) => {
+            const value = params[k] ?? recipe.params[k].default ?? "";
+            const explain = paramExplanation(help, k, value);
+            return (
+              <div key={k} className="param-field">
+                <Picker label={PARAM_LABEL[k] ?? k} className="block-picker" value={value}
+                  options={opts.map((o) => ({ value: o, label: paramValue(k, o) }))}
+                  onChange={(v) => setParams((p) => ({ ...p, [k]: v }))} />
+                {explain ? <p className="param-note">{explain}</p> : null}
+              </div>
+            );
+          })}
+          <p className="small"><strong>{t("Költségkeret")}:</strong> {itemBudgetLines(recipe, { ...recipeDefaults(recipe), ...params }).join("; ")}</p>
+          <label className="block">{t("Megjegyzés")} <span className="muted">{t("(elhagyható)")}</span>
+            <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />
+          </label>
+          <button type="button" className="primary" disabled={busy} onClick={() => void save()}>{t("Beállítások mentése")}</button>
         </div>
       ) : null}
+      <p className="small"><a href={`#/settings/recipes`}>{t("Hogyan dolgozik a rendszer, és mit jelentenek a beállítások")} ›</a></p>
       {msg ? <p role="status" className={msg.error ? "notice error" : "notice"}>{msg.text}</p> : null}
     </section>
   );

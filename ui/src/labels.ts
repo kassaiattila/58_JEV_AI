@@ -5,7 +5,7 @@
 import fieldLabels from "../../configs/field_labels.json";
 import intentRegistry from "../../configs/intents.json";
 import emailTasks from "../../configs/email_tasks.json";
-import type { Recipe } from "./api";
+import type { Recipe, RunPlan } from "./api";
 import { getLocale, t } from "./i18n";
 
 /** A label map that translates on read (`MAP[code]` → in the chosen language). `Object.entries` gives the Hungarian
@@ -220,7 +220,7 @@ export function numText(v: unknown, digits = 2): string {
 }
 
 const STEP_LABEL = tmap({
-  empty: "Üres csomag", configure: "Recept kiválasztása", start: "Próbafutás indítása", blocked: "Nem indítható",
+  empty: "Üres csomag", start: "Próbafutás indítása", blocked: "Nem indítható",
   rerun: "Hibás vagy leállított futás: újrafuttatás", done: "Kiadva: eredmény letöltése", approve: "Jóváhagyás",
   go_live: "Próba rendben: éles futás",
 });
@@ -238,9 +238,10 @@ export function blockerText(b: { code: string; message: string }): string {
   const name = b.message.includes(": ") ? b.message.slice(b.message.indexOf(": ") + 2) : "";
   switch (b.code) {
     case "no_items": return t("A munkacsomagban nincs tétel.");
-    case "no_recipe": return t("Nincs hozzárendelt recept.");
-    case "recipe_changed": return t("A recept a hozzárendelés óta változott; új hozzárendelés ajánlott.");
-    case "unsupported_item": return t("A recept nem kezeli: {{name}}", { name });
+    // 080: the processing settings replace the recipe; a package without settings runs with the default ones
+    case "recipe_changed": return t("A feldolgozás a beállítások mentése óta változott; mentsd el újra a beállításokat.");
+    case "recipe_retired": return t("A csomag egy megszűnt feldolgozási változatot használ; állítsd át a mostani feldolgozásra.");
+    case "unsupported_item": return t("A feldolgozás nem kezeli: {{name}}", { name });
     case "source_missing": return t("Hiányzó forrás: {{name}}", { name });
     case "source_changed": return t("A forrás tartalma a felvétel óta változott: {{name}}", { name });
     case "instance_damaged": return t("A felvételkori példány hiányzik vagy sérült: {{name}}", { name });
@@ -263,13 +264,13 @@ export function itemCountText(items: { kind: string }[]): string {
 const INTENT: Record<string, string> = tmap(Object.fromEntries(intentRegistry.intents.map((i) => [i.key, i.display_name])));
 export const intentLabel = (key: string | null | undefined): string => (key ? INTENT[key] ?? key : "");
 
-/** Labels of the recipe parameters (058): a short value without code names; the long explanation is in the recipe
- *  editor. */
+/** Labels of the processing settings (058; 080: the path by what it does, the owner's decision of 2026-10-01): a short
+ *  value without code names; the long explanation is in the settings editor and on Settings › Processing. */
 export const PARAM_LABEL: Record<string, string> = tmap({ arm: "Út", doc_type: "Irattípus", jev_cache: "JEV-válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés" });
 const PARAM_SHORT: Record<string, string> = tmap({
-  "arm:auto": "automatikus (az irattípus ajánlása)",
-  "arm:S": "kód + JEV",
-  "arm:G": "GPT + JEV",
+  "arm:auto": "Automatikus (ajánlott)",
+  "arm:S": "Csak JEV — tételsorok nélkül, olcsóbb (S)",
+  "arm:G": "GPT + JEV — tételsorokkal (G)",
   "jev_cache:reuse": "korábbi válasz újrahasználható",
   "jev_cache:live": "mindig élő hívás",
   "tasks:off": "kikapcsolva",
@@ -296,7 +297,7 @@ export function itemBudget(r: Recipe, params: Record<string, string>, kind?: str
   return out;
 }
 
-const KIND_BUDGET: Record<string, string> = tmap({ email: "levelenként", document: "PDF-csatolmányonként" });
+const KIND_BUDGET: Record<string, string> = tmap({ email: "levelenként", document: "PDF-iratonként" });
 /** The per-item budget line by line (one line per item kind), e.g. „levelenként: JEV legfeljebb 0,05 USD” (per email:
  *  JEV at most 0.05 USD). */
 export function itemBudgetLines(r: Recipe, params: Record<string, string>): string[] {
@@ -306,6 +307,35 @@ export function itemBudgetLines(r: Recipe, params: Record<string, string>): stri
       .map(([p, v]) => t("{{provider}} legfeljebb {{amount}}", { provider: providerName(p), amount: usdBudget(v) })).join(", ") || t("nincs");
     return kind ? `${KIND_BUDGET[kind] ?? kind}: ${amounts}` : t("tételenként: {{amounts}}", { amounts });
   });
+}
+
+/** 080 (the pre-start overview, F-külső-kapcsolók): what a run will do, one line per service — the budget maximum and
+ *  what it is for, from the readiness check's `plan` and `budget`. A service with no budget is said not to be called. */
+export function planLines(plan: RunPlan, budget: Record<string, string>): string[] {
+  const amount = (p: string) => Number(budget[p] ?? 0);
+  const head = (p: string) => t("{{provider}} legfeljebb {{amount}}", { provider: providerName(p), amount: usdBudget(budget[p]) });
+  const join = (parts: (string | false)[]) => parts.filter(Boolean).join("; ");
+  const out: string[] = [];
+  if (plan.documents) out.push(t("Helyi szövegfelismerés: ingyenes, minden iraton."));
+  if (amount("jev") > 0) {
+    out.push(`${head("jev")}: ${join([
+      plan.documents > 0 && t("{{n}} irat típusfelismerése és adatkinyerése", { n: plan.documents }),
+      plan.emails > 0 && t("{{n}} levél szándékfelismerése", { n: plan.emails }),
+      plan.jev_reuse ? t("a korábban már feltett kérdésekért nem kell újra fizetni") : t("minden kérdés élő hívás, a korábbi válaszok nem számítanak"),
+    ])}.`);
+  }
+  if (amount("openai") > 0) {
+    out.push(`${head("openai")}: ${join([
+      plan.paths.G > 0 && t("{{n}} irat a G-úton", { n: plan.paths.G }),
+      plan.paths.unknown > 0 && t("{{n}} még ismeretlen típusú irat, ha a felismert típus a G-utat kéri", { n: plan.paths.unknown }),
+      plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
+    ])}.`);
+  } else if (plan.documents || plan.emails) {
+    out.push(plan.documents ? t("OpenAI: nem hívódik, minden irat az S-úton fut.") : t("OpenAI: nem hívódik."));
+  }
+  if (amount("azure_di") > 0) out.push(`${head("azure_di")}: ${t("csak gyenge minőségű szkennelésnél, a helyi felismerés helyett")}.`);
+  else if (plan.documents) out.push(t("Azure DI: nem hívódik (kikapcsolva)."));
+  return out;
 }
 
 /** The selectable email intents in registry order, in the chosen language (058 K5.1: correcting the intent by hand). */

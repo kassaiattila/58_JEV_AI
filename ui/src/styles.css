@@ -422,6 +422,16 @@ th.num .th-in { flex-direction: row-reverse; }
 .option-list .option-text.muted { color: var(--muted); }
 .option-list .status { justify-self: start; }
 @media (max-width: 800px) { .param-row, .recipe-kv { grid-template-columns: 1fr; gap: 2px; } }
+/* 080: the paths compared (Settings › Processing) and the pre-start overview (run card, confirmation page) */
+.table-scroll { overflow-x: auto; max-width: 100%; }
+.path-compare { width: 100%; max-width: 980px; border-collapse: collapse; font-size: 13.5px; }
+.path-compare th, .path-compare td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line-soft); }
+.path-compare thead th { color: var(--muted); font-weight: 600; }
+.path-compare tbody th { color: var(--muted); font-weight: 600; width: 190px; }
+@media (max-width: 800px) { .path-compare tbody th { width: auto; } .path-compare th, .path-compare td { padding: 6px; } }
+.run-plan { border-top: 1px solid var(--line-soft); margin-top: 10px; padding-top: 8px; }
+.run-plan h3 { font-size: 14px; margin: 0 0 4px; }
+.run-plan ul { display: grid; gap: 3px; }
 .result-bar { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
 .result-bar .picker { width: min(460px, 100%); }
 .segmented-tabs { display: inline-flex; background: var(--chip); border-radius: 8px; padding: 3px; gap: 2px; }
