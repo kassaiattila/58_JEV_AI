@@ -303,6 +303,7 @@ The names offered by **Who is working?**. Add a new name with the ‘New name’
 - **Worker** (*Feldolgozó*): ‘Running’ or ‘Not running’ (*Nem fut*), and the job-queue counts (queued, in progress, done, stopped, given up). **Stop** needs two clicks, and the worker stops after the item in progress. It can only be restarted with the start script.
 - **Database backup** (*Adattár-mentés*): a verified copy of the database (packages, runs, corrections, decisions). It runs automatically every day at the configured time, and a copy also goes to a second location (for example a network drive). The panel's state is ‘OK’ (*Rendben*), ‘Attention’ (*Figyelem*) or ‘Error’ (*Hiba*), with the location of the local backup and of the copy below it. The ‘Internal documents’ (*Belső dokumentumok*) row shows the backup of the developer's local notes and has nothing to do with daily work. **Back up now** backs up immediately. If the last successful backup is older than the configured number of hours (36 by default), a warning appears.
 - **Dependency audit** (*Csomag-ellenőrzés*): when the third-party program packages were last checked for known security flaws, and the result. The daily backup runs the check once a week. ‘Attention’ (*Figyelem*) means the check is missing, older than a week or incomplete; ‘Error’ (*Hiba*) means a known vulnerability was found, which the developer has to fix.
+- **Calls with an uncertain outcome** (*Bizonytalan kimenetű hívások*): paid calls of which it is not known whether the provider carried them out, for example because the answer did not arrive in time after the request was sent. Until one is settled, its run's budget counts it at its maximum cost and the step is not repeated. Settle it with the actual cost from the provider's console (or none) and a note; it needs two clicks.
 - **All runs** (*Minden futás*): every run of every package in one table.
 
 ## 11. Troubleshooting
@@ -312,6 +313,7 @@ The names offered by **Who is working?**. Add a new name with the ‘New name’
 | The browser cannot open the address, or the header shows the red ‘The local service is not reachable’; when you try an action, ‘The local service is not reachable. Is scripts\dev.ps1 start running?’ (*A helyi szolgáltatás nem érhető el. Fut a scripts\dev.ps1 start?*) | The local service is not running. | Start it with the start script. If it stops again, the last lines of the service log show why (Technical details). |
 | ‘Worker not running’, runs stay ‘Queued’, and the mailbox and work folders are not updated | The worker has stopped or was stopped. | Run the start script again: it starts only the missing part. |
 | When saving, ‘Someone else saved this item in the meantime…’, or a red box: ‘A newer correction was saved for this item in the meantime (version N)’ | Someone else saved a new correction to the same item in the meantime. | **Apply to the new version**, check, and save again; or **Discard working copy**. Your work has not been lost. |
+| On approval: ‘The result changed after this page loaded (someone corrected it). Review it again, then approve.’ (*Az eredmény a megtekintés óta változott…*) | A correction was saved after you opened the page, for example in another tab. | Look at the refreshed result, then approve again. |
 | On the settings, a start or a removal: ‘…changed meanwhile. We refreshed…’ (*…közben változott. Frissítettük…*) | The package or its settings were changed in the meantime. | Check the refreshed state and repeat the action. |
 | ‘enter your name in the “Who is working?” field at the top…’ or ‘…select your name from the Users list in the “Who is working?” field’ (*…a „Ki dolgozik?” mezőben válaszd ki a neved a Felhasználók listájából*) | No name is selected, or the name is not on the list. | Choose a name in the header; if yours is missing, add it on the Settings › Users page. |
 | On the mailbox preview, in the ‘Downloads’ table or in the ‘Last’ column: ‘Outlook is not running on this computer. Start it and try again.’ (*Az Outlook nem fut ezen a gépen. Indítsd el, és próbáld újra.*) | The download reads from the Outlook running on this computer. | Start Outlook and try again. |
@@ -340,7 +342,7 @@ The names offered by **Who is working?**. Add a new name with the ‘New name’
 - It does not modify or delete source files. Deleting a package or removing an item only takes the files off the list.
 - It does not open links in emails.
 - The model's estimate, and agreement between two models, do not prove that a value is correct: that is why the interface asks for a human check.
-- Restoring from a backup, settling a paid call with an uncertain outcome and restarting the worker are not done in the interface (Technical details).
+- Restoring from a backup and restarting the worker are not done in the interface (Technical details).
 
 ## Technical details
 

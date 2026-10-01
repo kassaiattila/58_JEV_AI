@@ -2,7 +2,7 @@
 // cost (or none) and the note to the service.
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api, type UncertainCall } from "./api";
+import { api, ApiError, type UncertainCall } from "./api";
 import { UncertainCallsPanel, parseCost } from "./views/settings/UncertainCallsPanel";
 
 afterEach(() => vi.restoreAllMocks());
@@ -24,6 +24,24 @@ describe("076 uncertain calls on the System page", () => {
     vi.spyOn(api, "uncertainCalls").mockResolvedValue({ calls: [] });
     render(<UncertainCallsPanel />);
     expect((await screen.findByRole("status")).textContent).toMatch(/Nincs lezáratlan/);
+  });
+
+  it("does not say there is nothing to settle before the list has loaded (085, re-audit U01)", async () => {
+    let answer: (v: { calls: UncertainCall[] }) => void = () => {};
+    vi.spyOn(api, "uncertainCalls").mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    render(<UncertainCallsPanel />);
+    expect(screen.getByText("Betöltés…")).toBeTruthy();
+    expect(screen.queryByRole("status")).toBeNull();
+    answer({ calls: [] });
+    expect((await screen.findByRole("status")).textContent).toMatch(/Nincs lezáratlan/);
+  });
+
+  it("shows only the error when the list could not be loaded (085, re-audit U01)", async () => {
+    vi.spyOn(api, "uncertainCalls").mockRejectedValue(new ApiError(503, "unavailable", "a szolgáltatás nem érhető el"));
+    render(<UncertainCallsPanel />);
+    expect(await screen.findByText("a szolgáltatás nem érhető el")).toBeTruthy();
+    expect(screen.queryByText(/Nincs lezáratlan/)).toBeNull();
+    expect(screen.queryByText("Betöltés…")).toBeNull();
   });
 
   it("settles a call with the cost and the note after the second click", async () => {

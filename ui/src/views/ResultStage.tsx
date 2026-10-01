@@ -134,12 +134,18 @@ function Approval({ runId, onChanged }: { runId: string; onChanged: () => void }
     setBusy(true);
     setMsg(null);
     try {
-      await api.approve(runId);
+      await api.approve(runId, run.data?.review_version);
       setMsg({ error: false, text: t("Jóváhagyva: az eredmény kiadható.") });
       run.reload();
       onChanged();
     } catch (e) {
       const err = e as ApiError;
+      if (err.status === 409) {
+        // 085: a correction was saved since this page loaded (e.g. in another tab): the new state has to be seen first
+        setMsg({ error: true, text: t("Az eredmény a megtekintés óta változott (valaki javított rajta). Nézd át újra, majd hagyd jóvá.") });
+        run.reload();
+        return;
+      }
       setMsg({ error: true, text: err.status === 422 && !getActor() ? t("A jóváhagyáshoz válaszd ki a neved a fejlécben.") : err.message });
     } finally {
       setBusy(false);
