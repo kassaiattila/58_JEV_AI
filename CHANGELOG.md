@@ -36,6 +36,11 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   queued item). A running item that failed after a stop also went back to the queue, where a stopped job is never
   claimed again. Now a stop cancels the queued jobs and asks the running one to stop in one transaction, and a job that
   fails or is released after a stop request is cancelled, so the run ends as stopped without a manual refresh.
+- **The S path says what it does:** the path once called "JEV only" is now **JEV where possible — cheaper, no line
+  items; GPT elsewhere (S)**. Behaviour is unchanged: a document type without a JEV path (fifteen types, for example
+  NAV receipts and bank statements) runs on the G path with S chosen too, so that its data is still read. The help,
+  the comparison of the paths and the user guide say so, and the pre-start overview names how many documents go to
+  GPT because their type has no JEV path. Config `recipe_help.json` 1.3.0 (help text only; no model request changes).
 
 ## v1.3.0 — 2026-10-01
 

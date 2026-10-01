@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "changelog": [
       {
         "version": "1.0.0",
@@ -12,6 +12,11 @@
         "version": "1.1.0",
         "date": "2026-09-30",
         "note": "075: the azure_ocr switch (Azure recognition of weak scans, within the recipe's Azure budget)"
+      },
+      {
+        "version": "1.3.0",
+        "date": "2026-10-01",
+        "note": "082 (owner's decision of 2026-10-01, F-csak-jev): the S path is not 'JEV only' - a document type without a JEV path runs on the G path with S chosen too, so that its data is still read; the S option, the providers row and the document-types row say so"
       },
       {
         "version": "1.2.0",
@@ -50,7 +55,7 @@
       },
       {
         "label": "Szolgáltatók",
-        "S": "Csak JEV.",
+        "S": "JEV; azokon az irattípusokon, amelyeknek nincs JEV-útja, JEV és OpenAI.",
         "G": "JEV és OpenAI."
       },
       {
@@ -65,7 +70,7 @@
       },
       {
         "label": "Mely irattípusokon",
-        "S": "Csak a nyolc számlatípuson (magyar és külföldi számla, hat közműszámla). A többi irattípus S kérésre is a G-úton fut.",
+        "S": "A nyolc számlatípuson (magyar és külföldi számla, hat közműszámla). A többi irattípusnak nincs JEV-útja, ezeken S választásakor is a G-út fut (GPT + JEV), hogy az adataik kiolvasódjanak.",
         "G": "Minden irattípuson."
       },
       {
@@ -80,7 +85,7 @@
       "help": "Hogyan olvassa ki a rendszer a felismert típusú irat adatait. Bármelyik út után kódos ellenőrzés jön (például az adószám ellenőrzőszáma, az összegek egyezése); ami bizonytalan, teendő lesz.",
       "options": {
         "auto": "Az irattípus ajánlott útja: magyar és külföldi számlán az S, közműszámlán a G (a tételsorok miatt), a többi irattípuson a G, mert azoknak csak G-útja van. Mindennapi munkához ez ajánlott.",
-        "S": "A kód kigyűjti a lehetséges értékeket, a JEV mezőnként választ közülük. Csak JEV-hívás, ezért olcsóbb; tételsorokat nem olvas. Csak a nyolc számlatípuson működik, a többi irattípus ilyenkor is a G-úton fut.",
+        "S": "A kód kigyűjti a lehetséges értékeket, a JEV mezőnként választ közülük. Olcsóbb, tételsorokat nem olvas. A nyolc számlatípuson (magyar és külföldi számla, hat közműszámla) csak JEV-hívás. A többi irattípusnak nincs JEV-útja: ezeken a G-út fut (GPT + JEV), hogy az adataik ilyenkor is kiolvasódjanak, ezért ezekre OpenAI-keret is jut.",
         "G": "A GPT kiolvassa az adatokat, a tételsorokat is, a JEV pedig mezőnként ellenőrzi, nem hibás-e. JEV- és OpenAI-hívás is, ezért drágább."
       }
     },

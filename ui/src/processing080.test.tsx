@@ -54,7 +54,7 @@ describe("080 indítás előtti áttekintés", () => {
 
   it("az út a beszédes nevét kapja, és nincs „recept kiválasztása” lépés", () => {
     expect(paramShort("arm", "auto")).toBe("Automatikus (ajánlott)");
-    expect(paramShort("arm", "S")).toBe("Csak JEV — tételsorok nélkül, olcsóbb (S)");
+    expect(paramShort("arm", "S")).toBe("JEV, ahol lehet — olcsóbb, tételsorok nélkül; máshol GPT (S)");
     expect(paramShort("arm", "G")).toBe("GPT + JEV — tételsorokkal (G)");
     expect(stepLabel("configure", undefined, "configure")).toBe("configure"); // the service no longer sends this step
   });

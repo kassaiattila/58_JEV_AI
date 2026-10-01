@@ -46,6 +46,7 @@ export interface WorkpackageView {
 export interface RunPlan {
   documents: number; emails: number; attachments: number; paths: { S: number; G: number; unknown: number };
   tasks_emails: number; azure: boolean; jev_reuse: boolean;
+  arm?: string; // 082: the chosen path (with S, a document on the G path has a type without a JEV path)
 }
 export interface Readiness {
   workpackage_id: string; ready: boolean; blockers: Blocker[]; warnings: Blocker[]; counts: { items: number };

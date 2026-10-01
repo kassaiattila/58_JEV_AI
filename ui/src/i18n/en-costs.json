@@ -23,5 +23,6 @@
   "AI-szolgáltató": "AI provider",
   "Fizetős hívás": "Paid calls",
   "Ebből sikertelen": "Of which failed",
-  "Korábbi válaszból": "From earlier answers"
+  "Korábbi válaszból": "From earlier answers",
+  "{{n}} irat a G-úton, mert a típusának nincs JEV-útja": "{{n}} documents on the G path, because their type has no JEV path"
 }

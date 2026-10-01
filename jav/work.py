@@ -697,7 +697,8 @@ def run_plan(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, An
     return {"documents": len(docs), "emails": emails,
             "attachments": sum(1 for i, _a in docs if i.get("parent_item_id")), "paths": paths,
             "tasks_emails": emails if value("tasks") == "propose" else 0,
-            "azure": value("azure_ocr") == "on" and bool(docs), "jev_reuse": value("jev_cache") != "live"}
+            "azure": value("azure_ocr") == "on" and bool(docs), "jev_reuse": value("jev_cache") != "live",
+            "arm": value("arm")}  # 082: with S chosen, a document on the G path has a type without a JEV path
 
 
 def _known_detail_types(items: list[dict[str, Any]]) -> dict[str, str]:
