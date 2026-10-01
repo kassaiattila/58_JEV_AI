@@ -211,7 +211,9 @@ def test_invoice_steps_survive_jev_outage(isolated: Path, monkeypatch: pytest.Mo
     s = flow.jev_select(FlowState(source_path="x.pdf", case_id="c", arm="S", candidates={"supplier_name": []}))
     assert s.picks == {} and s.needs_review and s.review_reasons[0].startswith("jev_unavailable:")
     g = flow.jev_verify(FlowState(source_path="x.pdf", case_id="c", arm="G", llm_output=InvoiceLLM(supplier_name="X").model_dump()))  # extraction is a dict (type packs)
-    assert g.verdicts is None and g.needs_review and g.review_reasons[0].startswith("jev_unavailable:")
+    # 085: the code's own source check survives the outage (no layout here, so the value is printed nowhere)
+    assert g.verdicts is not None and g.verdicts.source == "code" and g.verdicts.unsupported == ["supplier_name"]
+    assert g.needs_review and g.review_reasons[0].startswith("jev_unavailable:")
 
 
 def test_alias_switch_within_the_ttl_keys_the_answer_by_the_answering_version(isolated: Path):

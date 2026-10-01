@@ -3,7 +3,8 @@
     load_pdf ─┬─ ocr_pdf ─── needs_ocr                       (no text layer; OCR unavailable / returned no text)
               │     ├─────────────────────────────┐          (OCR text: same route as a text layer)
               ├─ find_candidates → jev_select → normalize_picks ─┐        [S]
-              └─ extract_llm ─┬─ jev_verify → normalize_llm ─────┤        [G]
+              └─ extract_llm ─┬─ jev_verify ──┬─ normalize_llm ──┤        [G]
+                              ├─ code_verify ─┘                  │  (085: G without JEV)
                               └─ decide_route (LLM error)        │
                                                     validate ←───┘
                                                     decide_route → save ─┬─ done
@@ -164,16 +165,27 @@ def extract_llm(state: FlowState) -> FlowState:
 @action.pydantic(reads=["layout", "llm_output", "run_id", "use_cache", "doc_type", "needs_review", "review_reasons"], writes=["verdicts", "jev_calls", "needs_review", "review_reasons"])
 def jev_verify(state: FlowState) -> FlowState:
     from jav.adapters.jev import JevUnavailableError, get_adapter
-    from jav.jev_verify import verify
+    from jav.jev_verify import code_verdicts, verify
 
     try:
         verdicts, call = verify(get_adapter(), state.layout, state.llm_output or {}, run_id=state.run_id, use_cache=state.use_cache, pack=get_pack(state.doc_type))
     except JevUnavailableError as exc:  # without verification the extract cannot be accepted automatically
-        state.verdicts = None
+        # 085: the code's own source check and the required fields still count (before 085 they were dropped too)
+        state.verdicts = code_verdicts(state.layout or [], state.llm_output or {}, pack=get_pack(state.doc_type))
         policy.require_review(state, f"jev_unavailable:{exc.reason}")
         return state
     state.verdicts = verdicts
     state.jev_calls = state.jev_calls + [call]
+    return state
+
+
+@action.pydantic(reads=["layout", "llm_output", "doc_type"], writes=["verdicts"])
+def code_verify(state: FlowState) -> FlowState:
+    """085: the G path without JEV: only the code's own source check (every extracted value must be printed on the
+    document); no JEV question, so the remaining checks are the pack's validators and its required fields."""
+    from jav.jev_verify import code_verdicts
+
+    state.verdicts = code_verdicts(state.layout or [], state.llm_output or {}, pack=get_pack(state.doc_type))
     return state
 
 
@@ -275,7 +287,9 @@ def save(state: FlowState) -> FlowState:
             from jav.jev_verify import site_for as verify_site_for
 
             field_conf = {f: max(d.values()) for f, d in (state.verdicts.flags.items() if state.verdicts else [])}
-            config_hash = verify_site_for(pack.key).config_hash
+            # 085: without a JEV verification the result rests on the pack (extraction, code checks), not on the call site
+            code_only = state.verdicts is not None and state.verdicts.source == "code"
+            config_hash = cfg.combine(pack.config_hash, "code_verify") if code_only else verify_site_for(pack.key).config_hash
         store.insert_datapoints(
             run_id=state.run_id,
             doc_id=state.doc_id,
@@ -341,9 +355,11 @@ TRANSITIONS = [
     ("find_candidates", "jev_select"),
     ("jev_select", "normalize_picks"),
     ("normalize_picks", "validate"),
+    ("extract_llm", "code_verify", expr("llm_output is not None and not jev")),
     ("extract_llm", "jev_verify", expr("llm_output is not None")),
     ("extract_llm", "decide_route", default),
     ("jev_verify", "normalize_llm"),
+    ("code_verify", "normalize_llm"),
     ("normalize_llm", "validate"),
     ("validate", "decide_route"),
     ("decide_route", "ground"),
@@ -357,7 +373,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
     "phases": ["load", "extract", "normalize", "decide", "persist", "terminal"],
     "steps": [
         ("load_pdf", "load"), ("ocr_pdf", "load"),
-        ("find_candidates", "extract"), ("jev_select", "extract"), ("extract_llm", "extract"), ("jev_verify", "extract"),
+        ("find_candidates", "extract"), ("jev_select", "extract"), ("extract_llm", "extract"), ("jev_verify", "extract"), ("code_verify", "extract"),
         ("normalize_picks", "normalize"), ("normalize_llm", "normalize"),
         ("validate", "decide"), ("decide_route", "decide"),
         ("ground", "persist"), ("save", "persist"),
@@ -367,8 +383,9 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
         ("load_pdf", "ocr_pdf", "nincs szövegréteg"), ("load_pdf", "find_candidates", "S-kar"), ("load_pdf", "extract_llm", "G-kar"),
         ("ocr_pdf", "needs_ocr", "nincs OCR / nincs szöveg"), ("ocr_pdf", "find_candidates", "S-kar"), ("ocr_pdf", "extract_llm", "G-kar"),
         ("find_candidates", "jev_select"), ("jev_select", "normalize_picks"), ("normalize_picks", "validate"),
-        ("extract_llm", "jev_verify", "van kivonat"), ("extract_llm", "decide_route", "LLM-hiba"),
-        ("jev_verify", "normalize_llm"), ("normalize_llm", "validate"),
+        ("extract_llm", "code_verify", "extract, without JEV"), ("extract_llm", "jev_verify", "van kivonat"),
+        ("extract_llm", "decide_route", "LLM-hiba"),
+        ("jev_verify", "normalize_llm"), ("code_verify", "normalize_llm"), ("normalize_llm", "validate"),
         ("validate", "decide_route"), ("decide_route", "ground"), ("ground", "save"),
         ("save", "done", "route auto"), ("save", "needs_review", "különben"),
     ],
@@ -379,6 +396,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
         "jev_select": {"kind": "jev", "note": "S-kar: kötegelt Choice-kérések (parties / header / money) a csomag select-hívási helyéről, fókuszált state, none mindig opció, jelenlét-Noul mezőnként (jelölt nélkül is, a vizsgált nem kötelező mezőkre, csak meglévő kérésben)"},
         "extract_llm": {"kind": "llm", "note": "G-kar: gpt kivonat a csomag régi promptjával + sémájával (Pydantic AI), az egyetlen generatív lépés"},
         "jev_verify": {"kind": "jev", "note": "G-kar: evidencia-illesztés kódban (unsupported), majd Noul fan-out egy kérésben (off_target, wrong_kind, incomplete, absence_wrong, parties_swapped, tételsorok) a csomag verify-hívási helyéről"},
+        "code_verify": {"kind": "det", "note": "085: the G path without JEV: the code's own source check only (every extracted value must be printed on the document, otherwise a source:not_found to-do); no JEV question"},
         "normalize_picks": {"kind": "det", "note": "S-kar: label -> típusos érték a csomag mező-fajtái szerint (Decimal, date), kód-oldali konzisztencia-okok"},
         "normalize_llm": {"kind": "det", "note": "G-kar: kivonat-szótár -> normalizált rekord a csomag mező-fajtái szerint"},
         "validate": {"kind": "det", "note": "a csomag validátor-listája (a régi rules.json): áfa-egyenlet, dátumsorrend, adószám-ellenőrzőszám, IBAN mod-97, formátum-regexek"},
@@ -406,22 +424,25 @@ def new_run_id(case_id: str, arm: str, run_no: int) -> str:
 
 def build_app(
     source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, doc_type: str = DEFAULT_KEY,
-    *, run_id: str | None = None, persister=None, read_path: str | None = None,
+    *, run_id: str | None = None, persister=None, read_path: str | None = None, jev: bool = True,
 ) -> Application:
     """`persister` (040 K1, supplied by the worker): durable state persistence after every step; with the same `run_id`
     the run resumes at the next step. Without it, the earlier behaviour: a new identifier, no persistence.
-    `read_path`: the document's bytes are read from here (its source instance); everything else uses `source_path`."""
+    `read_path`: the document's bytes are read from here (its source instance); everything else uses `source_path`.
+    `jev=False` (085): processing without JEV: only the G path, verified by the code alone (`code_verify`)."""
     pack = get_pack(doc_type)  # unknown type pack -> error right here, not in the middle of the graph
     if arm not in pack.arms:
         raise ValueError(f"a(z) {doc_type} típus-csomag csak ezekkel a karokkal fut: {', '.join(pack.arms)} (kért: {arm})")
+    if not jev and arm != "G":
+        raise ValueError(f"without JEV only the G path runs (requested: {arm})")
     run_id = run_id or new_run_id(case_id, arm, run_no)
     initial = FlowState(source_path=source_path, read_path=read_path, case_id=case_id, arm=arm, run_no=run_no, run_id=run_id,
-                        use_cache=use_cache, doc_type=doc_type)
+                        use_cache=use_cache, doc_type=doc_type, jev=jev)
     builder = (
         ApplicationBuilder()
         .with_typing(PydanticTypingSystem(FlowState))
         .with_actions(
-            load_pdf, ocr_pdf, find_candidates, jev_select, normalize_picks, extract_llm, jev_verify, normalize_llm,
+            load_pdf, ocr_pdf, find_candidates, jev_select, normalize_picks, extract_llm, jev_verify, code_verify, normalize_llm,
             validate, decide_route, ground, save, done, needs_review, needs_ocr,
         )
         .with_transitions(*TRANSITIONS)

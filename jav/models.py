@@ -535,6 +535,8 @@ class JevVerdicts(BaseModel):
     doc_flags: dict[str, float] = Field(default_factory=dict)  # {"parties_swapped": p, ...}
     unsupported: list[str] = Field(default_factory=list)  # value present, no evidence (decided by code)
     model: str | None = None
+    # 085: "code" = the code's own source check only (the G path without JEV, or after a JEV outage): no flags
+    source: Literal["jev", "code"] = "jev"
 
 
 class CheckResult(BaseModel):
@@ -565,6 +567,7 @@ class FlowState(BaseModel):
     doc_id: str = ""  # sha256 of the file content
     doc_type: str = "invoice_hu"
     use_cache: bool = True  # False when measuring determinism
+    jev: bool = True  # 085: False = processing without JEV (the G path with the code's own check)
     # pdf
     text: str = ""
     lines: list[str] = Field(default_factory=list)

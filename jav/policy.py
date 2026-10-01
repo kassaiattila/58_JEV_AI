@@ -234,9 +234,11 @@ def apply_verdict_policy(state: FlowState) -> None:
         return
     pack = get_pack(state.doc_type)
     skip = set(pack.informational_fields) - set(pack.high_stakes)  # informational only (address): flags not queued
+    # 085: the code's own check alone names what it found (the JEV path keeps its earlier reason code)
+    unsupported = "source:not_found" if v.source == "code" else "jev:unsupported"
     for field in v.unsupported:
         if field not in skip:
-            require_review(state, f"jev:unsupported:{field}")
+            require_review(state, f"{unsupported}:{field}")
     for field, flags in v.flags.items():
         if field in skip:
             continue

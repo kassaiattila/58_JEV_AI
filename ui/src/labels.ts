@@ -145,6 +145,8 @@ export function reasonText(code: string): string {
       return t("Nincs érték, pedig a jelöltlista le volt vágva: {{field}} ({{found}} jelöltből {{sent}} ment a modellnek)", { field: f, sent, found });
     }
     case "jev:unsupported": return t("A modell nem támasztja alá: {{field}}", { field: f });
+    // 085: processing without JEV: the extracted value is printed nowhere on the document (the code's own check)
+    case "source:not_found": return t("A kinyert érték nem szerepel az iratban: {{field}}", { field: f });
     case "llm:required_missing": return t("Kötelező mező hiányzik: {{field}}", { field: f });
     case "money:separator_ambiguous": return t("Kétértelmű tizedesjel: {{field}}", { field: f });
     // 081: the S path's safety net: the picked number stands on the page only as a piece of a longer number
