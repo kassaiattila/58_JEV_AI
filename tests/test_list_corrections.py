@@ -77,7 +77,8 @@ def test_list_cells_are_checked_by_kind(env):
     c, url = _statement_item(env)
     bads = [
         [{**TXS[0], "amount": "sok"}],                 # money
-        [{**TXS[0], "booking_date": "2026.08.03"}],    # date
+        [{**TXS[0], "booking_date": "tegnap"}],        # date (084: "2026.08.03" is read, text that is no date is not)
+        [{**TXS[0], "booking_date": "03/08/2026"}],    # a date whose day and month can be read two ways
         [{**TXS[0], "direction": "fel"}],              # enum value
         [{**TXS[0], "nincs_ilyen": "x"}],              # unknown column
         "nem lista",

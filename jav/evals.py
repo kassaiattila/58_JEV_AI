@@ -25,8 +25,10 @@ from pathlib import Path
 from typing import Any, Callable
 
 from jav.config import GOLDEN_EXPECTED_DIR, GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
-from jav.models import Candidate, FlowState, money_label, normalize_date, normalize_tax_id
-from jav.typepack import CANDIDATE_KIND_OF, DEFAULT_KEY, TypePack, get as get_pack
+from jav.dates import read_date
+from jav.models import Candidate, FlowState, money_label, normalize_tax_id
+from jav.typepack import CANDIDATE_KIND_OF, DEFAULT_KEY, TypePack
+from jav.typepack import get as get_pack
 
 _HU = get_pack(DEFAULT_KEY)
 INFORMATIONAL_FIELDS = _HU.informational_fields
@@ -104,7 +106,7 @@ def _hu_bban(v: Any) -> str:
 
 
 def _norm_date(v: Any) -> str:
-    d = normalize_date(str(v), intl=True)
+    d = read_date(str(v)).value  # 084: the shared reader; a two-way slash date keeps the month-first reading, as before
     return d.isoformat() if d else str(v).strip()
 
 

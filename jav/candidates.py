@@ -22,15 +22,13 @@ import re
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
+from jav.dates import document_date_order, find_dates_in
 from jav.models import (
     DATE_NUMERIC_RE,
-    DATE_TEXT_RE,
-    INTL_DATE_RES,
     Candidate,
     CandidateKind,
     LineLayout,
     money_label,
-    normalize_date,
     normalize_tax_id,
     parse_money,
 )
@@ -207,9 +205,6 @@ LABEL_ONLY_UTILITY_RE = re.compile(
 INVOICE_LABEL_UTILITY_RE = re.compile(
     r"(?i)számla\s*sorszám|sorszám|számlaszám|számla\s*száma|bizonylatszám|számla\s*azonosító|terhelési\s*összesítő\s*(?:száma|sorszáma)|bizonylat\s*sorszáma"
 )
-# OCR: the date separator sometimes becomes a comma ("2025.08.01-2025,08.31"); the comma form is accepted too and
-# replaced with a dot before normalisation
-DATE_OCR_RE = re.compile(r"(?<!\d)(\d{4})\s*[.\-/,]\s*(\d{1,2})\s*[.\-/,]\s*(\d{1,2})\.?(?!\d)")
 # OCR: a space may slip into the 8-digit block of the tax number ("2690357 0-2-44", "26903 570-2-44"); the form with
 # the spaces removed becomes a candidate if it passes the check-digit test
 TAXID_OCR_RE = re.compile(r"(?<!\d)\d(?:[  ]?\d){7}[- ]\d[- ]\d{2}(?!\d)")
@@ -221,21 +216,21 @@ class Profile:
     """The regex set of one candidate profile (data; the finders are the mechanism)."""
 
     name: str
-    intl: bool  # international forms in parse_money / normalize_date
+    intl: bool  # international forms in parse_money
     legal_form_re: re.Pattern[str]
     party_label_re: re.Pattern[str]
     label_only_re: re.Pattern[str]
     invoice_label_re: re.Pattern[str]
     money_re: re.Pattern[str]
     currency_tokens: dict[str, re.Pattern[str]] = field(default_factory=dict)
-    date_res: tuple[re.Pattern[str], ...] = (DATE_NUMERIC_RE, DATE_TEXT_RE)
     extra_iban_res: tuple[re.Pattern[str], ...] = ()
     extra_taxid_res: tuple[re.Pattern[str], ...] = ()
     taxid_label_re: re.Pattern[str] | None = None  # in a labelled line the identifier tokens after the label are tax-number candidates too
     name_cut_after_legal_form: bool = False  # "Microsoft Ireland Operations Ltd, One Microsoft Place, ..." -> the name ends at the legal form
     reverse_charge_zero: bool = False  # "reverse charge" printed and no 0 amount -> synthetic "0" money candidate (VAT)
     intl_addresses: bool = False
-    ocr_dates: bool = False  # OCR tolerance: a comma separator in a date is read as a dot
+    ocr_dates: bool = False  # OCR tolerance: a comma separator in a year-first date is read as a dot ("2025,08.31")
+    short_dates: bool = False  # 084: all-number dates with a two-digit year ("04.12.22"); elsewhere mostly a code ("1-2-44")
     address_label_re: re.Pattern[str] | None = None  # address labels ("Felhasználó címe:") cut from the address candidate; default: the party labels
     invoice_lookahead: int = 1  # lines after the invoice-number label searched for the value (OCR: a line may fall between label and value)
     ocr_taxid: bool = False  # OCR tolerance: a Hungarian tax number broken by a space is a candidate too if its check digit is correct
@@ -249,15 +244,13 @@ HU = Profile(
 INTL = Profile(
     name="intl", intl=True, legal_form_re=LEGAL_FORM_INTL_RE, party_label_re=PARTY_LABEL_INTL_RE, label_only_re=LABEL_ONLY_INTL_RE,
     invoice_label_re=INVOICE_LABEL_INTL_RE, money_re=MONEY_INTL_RE, currency_tokens=CURRENCY_TOKENS_INTL,
-    # the US slash form and the day-first form run BEFORE the HU year-first pattern: otherwise "2022 - 12/25" reaches
-    # across the range hyphen
-    date_res=(DATE_TEXT_RE, *INTL_DATE_RES, DATE_NUMERIC_RE), extra_iban_res=(IBAN_INTL_RE,), extra_taxid_res=(TAXID_EU_INTL_RE,),
+    extra_iban_res=(IBAN_INTL_RE,), extra_taxid_res=(TAXID_EU_INTL_RE,), short_dates=True,
     taxid_label_re=TAXID_LABEL_INTL_RE, name_cut_after_legal_form=True, reverse_charge_zero=True, intl_addresses=True,
 )
 UTILITY = Profile(
     name="utility", intl=False, legal_form_re=LEGAL_FORM_UTILITY_RE, party_label_re=PARTY_LABEL_UTILITY_RE, label_only_re=LABEL_ONLY_UTILITY_RE,
     invoice_label_re=INVOICE_LABEL_UTILITY_RE, money_re=MONEY_RE, currency_tokens=CURRENCY_TOKENS,
-    date_res=(DATE_OCR_RE, DATE_TEXT_RE), ocr_dates=True, name_cut_after_legal_form=True, address_label_re=ADDRESS_LABEL_UTILITY_RE, invoice_lookahead=2,
+    ocr_dates=True, name_cut_after_legal_form=True, address_label_re=ADDRESS_LABEL_UTILITY_RE, invoice_lookahead=2,
     ocr_taxid=True, max_money_options=100,
 )
 PROFILES: dict[str, Profile] = {"hu": HU, "intl": INTL, "utility": UTILITY}
@@ -437,16 +430,15 @@ def _label_spans(ln: LineLayout, label_re: re.Pattern[str]) -> list[tuple[int, i
 
 
 def find_dates(lines: list[LineLayout], work: list[str], profile: Profile = HU) -> list[Candidate]:
+    """084: every date of every line by the shared date reader (`jav/dates.py`), on every profile, with the document's
+    own day/month order; a date whose day and month can be read two ways is a flagged candidate (picking it gives a
+    to-do). A range like "11/25/2022 - 12/25/2022" stays two dates: the reader never lets one date overlap another."""
+    order = document_date_order(ln.text for ln in lines)
     bucket = _Bucket("date")
-    for i, ln in enumerate(lines):
-        for rx in profile.date_res:
-            for m in list(rx.finditer(work[i])):
-                raw = m.group(0).replace(",", ".") if profile.ocr_dates else m.group(0)
-                value = normalize_date(raw, intl=profile.intl)
-                if value is None:
-                    continue
-                bucket.add(value.isoformat(), m.group(0), lines, i)
-                work[i] = _mask(work[i], m.start(), m.end())
+    for i in range(len(lines)):
+        for h in find_dates_in(work[i], order=order, ocr=profile.ocr_dates, short=profile.short_dates):
+            bucket.add(h.value.isoformat(), h.raw, lines, i, ambiguous=h.ambiguous)
+            work[i] = _mask(work[i], h.start, h.end)
     return bucket.items()
 
 

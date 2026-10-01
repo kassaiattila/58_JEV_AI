@@ -179,7 +179,8 @@ def test_correction_is_versioned_and_conflict_is_refused(env):
     assert stale.status_code == 409
     assert c.get(f"/api/runs/{run_id}/items/{item_id}").json()["effective"]["invoice_number"] == "JAVITOTT-1"
 
-    for bad in ({"nincs_ilyen_mezo": "x"}, {"gross_total": "sok"}, {"issue_date": "2026.09.01"}):
+    # 084: "2026.09.01" is a readable date now; text that is no date, or a two-way one, is still refused
+    for bad in ({"nincs_ilyen_mezo": "x"}, {"gross_total": "sok"}, {"issue_date": "tegnap"}, {"issue_date": "04/09/2026"}):
         r = c.post(f"/api/runs/{run_id}/items/{item_id}/correction", headers=HUMAN, json={"fields": bad, "expected_revision": 1})
         assert r.status_code == 422, bad
     no_author = c.post(f"/api/runs/{run_id}/items/{item_id}/correction", json={"fields": {}, "expected_revision": 1})
