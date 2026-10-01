@@ -986,18 +986,17 @@ def resolve_reason(reason_id: int, *, actor: str, resolution: dict[str, Any] | N
 
 def cancel_run(run_id: str, *, actor: str | None = None) -> dict[str, int]:
     """Queued items stop at once, an active one at the next step boundary. 066 Á35: the actor (if any) goes into the
-    package's event log."""
+    package's event log. 082: the run's jobs are stopped in one step (`queue.cancel_run_jobs`); with an item still
+    running, the run's status is refreshed here too (the worker's own refresh after that item ends it as cancelled)."""
     with store.connect() as c:
-        ids = [r["id"] for r in c.execute("SELECT id FROM jobs WHERE run_id=? AND status IN ('queued','claimed')", (run_id,))]
         if actor is not None:
             wp_row = c.execute("SELECT workpackage_id FROM runs WHERE run_id=?", (run_id,)).fetchone()
             if wp_row is not None:
                 _event(c, wp_row["workpackage_id"], "run_cancel", actor, {"run_id": run_id})
-    out: dict[str, int] = {}
-    for job_id in ids:
-        res = queue.cancel(job_id)
-        out[res] = out.get(res, 0) + 1
-    if not out.get("cancel_requested"):
+    out = queue.cancel_run_jobs(run_id)
+    if out.get("cancel_requested"):
+        refresh_run_status(run_id)
+    else:
         with store.connect() as c:
             c.execute("UPDATE runs SET status='cancelled', finished_at=? WHERE run_id=?", (_now(), run_id))
     return out
