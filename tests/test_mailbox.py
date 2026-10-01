@@ -110,7 +110,7 @@ def test_fetch_creates_a_workpackage_of_fresh_mail_only(env):
     assert (res["new"], res["duplicate"]) == (2, 0) and res["workpackage"]
     wp = work.get(res["workpackage"])
     assert wp["source_kind"] == "mailbox" and {i["kind"] for i in wp["items"]} == {"email"} and len(wp["items"]) == 2
-    assert wp["assignment"]["recipe_id"] == "email-intent" and wp["assignment"]["actor"] == "teszt"
+    assert wp["assignment"]["recipe_id"] == "processing" and wp["assignment"]["actor"] == "teszt"  # 080
     assert all(Path(i["source_path"]).name == "message.json" for i in wp["items"])
 
     again = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=env["inbox"])

@@ -142,6 +142,10 @@ class NotReady(RuntimeError):
         self.blockers = blockers or []
 
 
+class RetiredRecipe(ValueError):
+    """080: the recipe is kept only for old runs and assignments; it cannot be assigned again (in the UI: 422)."""
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -243,7 +247,23 @@ def _canon(value: Any) -> str:
 
 
 def recipes() -> list[dict[str, Any]]:
+    """Every recipe, whatever its status (080): `active` is offered in the UI, `internal` (a given document type
+    without recognition) only on the command line and in tests, `retired` stays readable for old runs and
+    assignments but cannot be assigned again."""
     return list(cfg.load("recipes")["recipes"])
+
+
+def recipe_status(r: dict[str, Any]) -> str:
+    return r.get("status", "active")
+
+
+def active_recipes() -> list[dict[str, Any]]:
+    return [r for r in recipes() if recipe_status(r) == "active"]
+
+
+def default_recipe() -> dict[str, Any]:
+    """080: the processing every package gets unless it says otherwise (the first active recipe)."""
+    return active_recipes()[0]
 
 
 def recipe(recipe_id: str) -> dict[str, Any]:
@@ -251,6 +271,12 @@ def recipe(recipe_id: str) -> dict[str, Any]:
         if r["id"] == recipe_id:
             return r
     raise ValueError(f"unknown recipe {recipe_id!r}")
+
+
+def carried_params(r: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    """080: the settings of an old assignment that the recipe `r` also has (path, JEV reuse, Azure, task proposal),
+    the rest with `r`'s defaults. A given document type is dropped: the processing recognises it."""
+    return _validated_params(r, {k: v for k, v in params.items() if k in r["params"]})
 
 
 def recipe_hash(r: dict[str, Any]) -> str:
@@ -503,9 +529,12 @@ def delete_workpackage(wp_id: str, *, actor: str) -> None:
 # --- recipe assignment ---------------------------------------------------------------------------------
 
 
-def current_assignment(wp_id: str) -> dict[str, Any] | None:
-    with store.connect() as c:
-        row = c.execute("SELECT * FROM recipe_assignments WHERE workpackage_id=? ORDER BY revision DESC LIMIT 1", (wp_id,)).fetchone()
+def current_assignment(wp_id: str, c: sqlite3.Connection | None = None) -> dict[str, Any] | None:
+    """`c`: an open connection (inside a write transaction, so the new row is visible)."""
+    if c is None:
+        with store.connect() as c:
+            return current_assignment(wp_id, c)
+    row = c.execute("SELECT * FROM recipe_assignments WHERE workpackage_id=? ORDER BY revision DESC LIMIT 1", (wp_id,)).fetchone()
     return {**dict(row), "params": json.loads(row["params"])} if row else None
 
 
@@ -517,19 +546,60 @@ def assignment_history(wp_id: str) -> list[dict[str, Any]]:
 
 def assign_recipe(wp_id: str, recipe_id: str, *, params: dict[str, Any], expected_revision: int, actor: str,
                   note: str | None = None) -> dict[str, Any]:
-    """The assignment gets its own revision (the V4 `expected_revision` pattern); earlier ones stay as history."""
+    """The assignment gets its own revision (the V4 `expected_revision` pattern); earlier ones stay as history. A
+    retired recipe (080) cannot be assigned again."""
     r = recipe(recipe_id)
+    if recipe_status(r) == "retired":
+        raise RetiredRecipe(f"recipe {recipe_id!r} is retired; assign {default_recipe()['id']!r} instead")
     clean = _validated_params(r, params)
     with store.connect() as c:
         _begin(c)
         if c.execute("SELECT 1 FROM workpackages WHERE id=?", (wp_id,)).fetchone() is None:
             raise KeyError(wp_id)
-        cur = c.execute("SELECT MAX(revision) m FROM recipe_assignments WHERE workpackage_id=?", (wp_id,)).fetchone()["m"] or 0
-        if cur != expected_revision:
-            raise RevisionConflict(f"assignment of {wp_id} is at revision {cur}, not {expected_revision}")
-        c.execute("INSERT INTO recipe_assignments VALUES (?,?,?,?,?,?,?,?,?)",
-                  (wp_id, cur + 1, recipe_id, r["version"], recipe_hash(r), _canon(clean), actor, note, _now()))
+        _insert_assignment(c, wp_id, r, clean, expected_revision=expected_revision, actor=actor, note=note)
     return current_assignment(wp_id)
+
+
+def _insert_assignment(c, wp_id: str, r: dict[str, Any], params: dict[str, Any], *, expected_revision: int, actor: str,
+                       note: str | None) -> int:
+    cur = c.execute("SELECT MAX(revision) m FROM recipe_assignments WHERE workpackage_id=?", (wp_id,)).fetchone()["m"] or 0
+    if cur != expected_revision:
+        raise RevisionConflict(f"assignment of {wp_id} is at revision {cur}, not {expected_revision}")
+    c.execute("INSERT INTO recipe_assignments VALUES (?,?,?,?,?,?,?,?,?)",
+              (wp_id, cur + 1, r["id"], r["version"], recipe_hash(r), _canon(params), actor, note, _now()))
+    return cur + 1
+
+
+MIGRATION_ACTOR = "rendszer"  # data: the actor of the 080 migration in the assignment history (shown in the UI)
+
+
+def migrate_assignments(*, write: bool) -> list[dict[str, Any]]:
+    """080 (owner's decision of 2026-10-01: automatic migration): every package whose current assignment is not an
+    active recipe moves onto the default processing, keeping its settings (`carried_params`); hidden packages too.
+    Without `write` it only lists what it would do. Repeatable: a package already on the active recipe is left alone.
+    Old runs keep their own recipe snapshot."""
+    target = default_recipe()
+    with store.connect() as c:
+        rows = c.execute("SELECT a.* FROM recipe_assignments a WHERE a.revision = (SELECT MAX(revision) FROM recipe_assignments b"
+                         " WHERE b.workpackage_id = a.workpackage_id) ORDER BY a.workpackage_id").fetchall()
+    out = []
+    for row in rows:
+        old = recipe(row["recipe_id"])
+        if recipe_status(old) == "active":
+            continue
+        params = json.loads(row["params"])
+        new = carried_params(target, params)
+        doc_type = f", típus: {params['doc_type']}" if params.get("doc_type") else ""
+        # data (the assignment history, shown in the UI as written), not a label
+        note = f"080: átállítás az egységes feldolgozásra (előtte: {old['title']}, {old['version']}. változat{doc_type})"
+        out.append({"workpackage_id": row["workpackage_id"], "from": row["recipe_id"], "from_params": params, "params": new,
+                    "revision": row["revision"] + 1, "note": note})
+        if write:
+            with store.connect() as c:
+                _begin(c)
+                _insert_assignment(c, row["workpackage_id"], target, new, expected_revision=row["revision"],
+                                   actor=MIGRATION_ACTOR, note=note)
+    return out
 
 
 # --- readiness ---------------------------------------------------------------------------------------
@@ -572,18 +642,48 @@ def run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, 
     processing from the detailed type already detected earlier. For a document of unknown type the worst case stays.
     If the path still turns out to be G (e.g. a different type is detected), the GPT call does not start because of
     the budget, and the item gets a to-do (`llm:failed:BudgetExceeded`)."""
-    from jav import typepack
+    return _run_budget(r, params, items, _item_arms(r, params, items))
 
-    packs, known = set(typepack.keys()), _known_detail_types(items)
+
+def _run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]],
+                arms: list[str | None]) -> dict[str, Decimal]:
     out: dict[str, Decimal] = {}
-    for i in items:
-        arm = _item_arm(r, params, i, known, packs)
+    for i, arm in zip(items, arms, strict=True):
         per = item_budget(r, params, i.get("kind"), arm=arm)
         if arm == "S":
             per.pop("openai", None)
         for provider, v in per.items():
             out[provider] = out.get(provider, Decimal(0)) + v
     return out
+
+
+def _item_arms(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]]) -> list[str | None]:
+    from jav import typepack
+
+    packs, known = set(typepack.keys()), _known_detail_types(items)
+    return [_item_arm(r, params, i, known, packs) for i in items]
+
+
+def run_plan(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]],
+             arms: list[str | None] | None = None) -> dict[str, Any]:
+    """080 (the pre-start overview of F-külső-kapcsolók): what the run will do, for the UI to explain the budget per
+    provider. Documents (attachments counted separately too) by their path known in advance (S / G / type not known
+    yet), emails, emails that get a task proposal, whether Azure may be used and whether earlier JEV answers are
+    reused. The budget itself is `run_budget`."""
+    arms = _item_arms(r, params, items) if arms is None else arms
+
+    def value(name: str) -> Any:
+        return params.get(name, (r.get("params", {}).get(name) or {}).get("default"))
+
+    docs = [(i, a) for i, a in zip(items, arms, strict=True) if i.get("kind") == "document"]
+    emails = sum(1 for i in items if i.get("kind") == "email")
+    paths = {"S": 0, "G": 0, "unknown": 0}
+    for _i, a in docs:
+        paths[a if a in ("S", "G") else "unknown"] += 1
+    return {"documents": len(docs), "emails": emails,
+            "attachments": sum(1 for i, _a in docs if i.get("parent_item_id")), "paths": paths,
+            "tasks_emails": emails if value("tasks") == "propose" else 0,
+            "azure": value("azure_ocr") == "on" and bool(docs), "jev_reuse": value("jev_cache") != "live"}
 
 
 def _known_detail_types(items: list[dict[str, Any]]) -> dict[str, str]:
@@ -618,22 +718,26 @@ def readiness(wp_id: str, *, verify: bool = False) -> dict[str, Any]:
     `verify=True` (at start): full re-check of the source files, without the remembered fingerprint.
 
     An item with a source instance is processed from the instance: only a missing or damaged instance blocks, and a
-    changed or missing original is a warning. An item without one follows the original file, as before."""
+    changed or missing original is a warning. An item without one follows the original file, as before.
+
+    080: a package without an assignment runs with the default processing and its default settings
+    (`assignment_default`); starting the run saves them (`start_run`)."""
     wp = get(wp_id)
     blockers: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
     a = wp["assignment"]
     if not wp["items"]:
         blockers.append({"code": "no_items", "message": "A munkacsomagban nincs tétel."})
-    if a is None:
-        blockers.append({"code": "no_recipe", "message": "Nincs hozzárendelt recept."})
-    r = recipe(a["recipe_id"]) if a else None
-    if r is not None and recipe_hash(r) != a["recipe_hash"]:
-        warnings.append({"code": "recipe_changed", "message": "A recept a hozzárendelés óta változott; új hozzárendelés ajánlott."})
+    r = recipe(a["recipe_id"]) if a else default_recipe()
+    params = a["params"] if a else _validated_params(r, {})
+    if a is not None and recipe_status(r) == "retired":
+        warnings.append({"code": "recipe_retired", "message": "The package uses a retired processing; switch it to the current processing settings."})
+    elif a is not None and recipe_hash(r) != a["recipe_hash"]:
+        warnings.append({"code": "recipe_changed", "message": "The processing changed since the settings were saved; save them again."})
     for i in wp["items"]:
         p = Path(i["source_path"])
-        if r is not None and (i["kind"] not in r["input_kinds"] or p.suffix.lower() not in r.get("file_suffixes", [p.suffix.lower()])):
-            blockers.append({"code": "unsupported_item", "message": f"A recept nem kezeli: {p.name}"})
+        if i["kind"] not in r["input_kinds"] or p.suffix.lower() not in r.get("file_suffixes", [p.suffix.lower()]):
+            blockers.append({"code": "unsupported_item", "message": f"The processing does not handle: {p.name}"})
         if i.get("instance"):
             if not _instance_ok(i, verify=verify):
                 blockers.append({"code": "instance_damaged", "message": f"The copy kept when it was added is missing or damaged: {p.name}"})
@@ -646,10 +750,11 @@ def readiness(wp_id: str, *, verify: bool = False) -> dict[str, Any]:
         elif fingerprint(p, verify=verify) != i["sha256"]:
             blockers.append({"code": "source_changed", "message": f"A forrás tartalma a felvétel óta változott: {p.name}"})
     snapshot = _input_snapshot(wp)
-    budget = run_budget(r, a["params"], wp["items"]) if r is not None else {}
+    arms = _item_arms(r, params, wp["items"])
     return {"workpackage_id": wp_id, "ready": not blockers, "blockers": blockers, "warnings": warnings,
-            "counts": {"items": len(wp["items"])}, "budget": budget,
-            "assignment_revision": a["revision"] if a else 0,
+            "counts": {"items": len(wp["items"])}, "budget": _run_budget(r, params, wp["items"], arms),
+            "plan": run_plan(r, params, wp["items"], arms),
+            "assignment_revision": a["revision"] if a else 0, "assignment_default": a is None,
             "input_hash": _snapshot_hash(snapshot)}
 
 
@@ -686,8 +791,14 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
         wp = get(wp_id)
         a = wp["assignment"]
         snapshot = _input_snapshot(wp)
-        if a["revision"] != expected_assignment_revision or _snapshot_hash(snapshot) != input_hash:
+        if (a["revision"] if a else 0) != expected_assignment_revision or _snapshot_hash(snapshot) != input_hash:
             raise RevisionConflict("workpackage changed while the run was being started")
+        if a is None:  # 080: the default settings the readiness check used are saved, in the starter's name
+            d = default_recipe()
+            # data (the assignment history, shown in the UI as written), not a label
+            _insert_assignment(c, wp_id, d, _validated_params(d, {}), expected_revision=0, actor=actor,
+                               note="alapbeállítás, a futás indításakor mentve")
+            a = current_assignment(wp_id, c)
         r = recipe(a["recipe_id"])
         dedup = f"{wp_id}:{a['revision']}:{input_hash}:{mode}" + (f":rerun:{rerun_of}" if rerun_of else "")
         existing = c.execute("SELECT run_id, input FROM runs WHERE dedup_key=?", (dedup,)).fetchone()

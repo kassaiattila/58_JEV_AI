@@ -170,7 +170,7 @@ def test_document_recipe_detects_type_then_extracts_with_its_pack(env):
     """047 T1.3: the document-processing recipe first detects (coarse + detailed type), then extracts with the detailed
     type's pack; the saved data point belongs to the detected type."""
     wp = work.create_from_folder(env["tmp"] / "bejovo", name="Vegyes iratok")
-    work.assign_recipe(wp["id"], "document-processing", params={"arm": "S"}, expected_revision=0, actor="t")
+    work.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=0, actor="t")
     run_id = _start(wp["id"])
     info = worker.run_worker(once=True)
     assert info["results"] == {"done": 2}

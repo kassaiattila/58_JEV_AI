@@ -135,7 +135,7 @@ def _runs(scope: dict[str, str]) -> Rows:
     cols = [
         _col("created_at", "Indítva", "datetime", link="run"),
         _col("workpackage_name", "Munkacsomag", link="workpackage"),
-        _col("recipe_id", "Recept", "enum", labels="recipe"),
+        _col("recipe_id", "Feldolgozás", "enum", labels="recipe"),
         _col("mode", "Mód", "enum", labels="mode"),
         _col("status", "Állapot", "enum", labels="run_status", badge=True),
         _col("approval", "Jóváhagyás", "enum", labels="approval"),
@@ -164,7 +164,7 @@ def _workpackages(scope: dict[str, str]) -> Rows:
         _col("open_reasons", "Nyitott teendő", "number", link="reviews", alert=True),
         _col("open_reasons_all", "Nyitott teendő a korábbi futásokkal", "number", hidden=True),
         _col("source_kind", "Forrás", "enum", labels="source_kind"),
-        _col("recipe_id", "Recept", "enum", labels="recipe"),
+        _col("recipe_id", "Feldolgozás", "enum", labels="recipe"),
         _col("owner", "Felelős"),  # 061
         _col("last_activity", "Utolsó tevékenység", "datetime"),
         _col("created_at", "Létrehozva", "datetime"),  # 062: visible, because this is the list's default order

@@ -76,14 +76,14 @@ def test_text_less_document_blocks_approval_with_an_ocr_reason(isolated, monkeyp
 
 def test_text_less_document_in_document_recipe_blocks_approval(isolated, monkeypatch):
     monkeypatch.setattr(ocr, "ocr_with_escalation", _no_ocr)
-    run_id = _run(isolated, recipe="document-processing", params={"arm": "S"}, lines=[], client=Client())
+    run_id = _run(isolated, recipe="processing", params={"arm": "S"}, lines=[], client=Client())
     assert work.refresh_run_status(run_id) == "needs_review"
     with pytest.raises(work.NotReady):
         work.approve_run(run_id, actor="t")
 
 
 def test_detect_stage_reasons_belong_to_the_run(isolated):
-    run_id = _run(isolated, recipe="document-processing", params={"arm": "S"}, lines=INVOICE_LINES, client=Client(type_conf=0.40))
+    run_id = _run(isolated, recipe="processing", params={"arm": "S"}, lines=INVOICE_LINES, client=Client(type_conf=0.40))
     run = work.get_run(run_id)
     split = work.items_reasons(run_id, run["input"]["items"])[run["items"][0]["item_id"]]
     assert any(r["reason"].startswith("detect:low_conf:") for r in split["run"])
@@ -118,7 +118,7 @@ def _two_runs(tmp_path: Path, first_mode: str, *, second_client: Client | None =
         with jev_mod.use_adapter(adapter):
             if not runs:
                 wp = work.create_from_folder(folder, name="Mesterséges irat")
-                work.assign_recipe(wp["id"], "document-processing", params={"arm": "S"}, expected_revision=0, actor="t")
+                work.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=0, actor="t")
             r = work.readiness(wp["id"])
             runs.append(work.start_run(wp["id"], mode=mode, expected_assignment_revision=1, input_hash=r["input_hash"], actor="t",
                                        **({"rerun_of": runs[-1]} if runs else {}))["run_id"])

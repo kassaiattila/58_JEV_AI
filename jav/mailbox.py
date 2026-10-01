@@ -8,7 +8,7 @@ The legacy Outlook script (`OUTLOOK_BRIDGE_SCRIPT`) is called unchanged via the 
   (attachments, "already read" list), not the legacy project.
 
 The new or changed messages become a new work package (one message = one item, its `message.json`) with the
-email-intent recipe assigned; no paid processing starts (decision of 2026-09-28: runs are started by hand). No new
+default processing assigned (080: email intent + attachments); no paid processing starts (decision of 2026-09-28: runs are started by hand). No new
 message, no work package. Outlook must be running on the machine (`-ExistingOutlook`).
 """
 
@@ -34,7 +34,6 @@ from jav.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
 log = logging.getLogger("jav.mailbox")
 
 WRAPPER = PROJECT_ROOT / "scripts" / "mail_bridge_call.ps1"
-EMAIL_RECIPE = "email-intent"
 COUNT_TIMEOUT_S = 180
 FETCH_TIMEOUT_S = 1800
 _ACCOUNT = re.compile(r"^[^@\s,;'\"`$]+@[^@\s,;'\"`$]+\.[^@\s,;'\"`$]+$")
@@ -149,7 +148,7 @@ def count(req: MailboxRequest, *, runner: Runner | None = None) -> dict[str, Any
 
 def fetch(req: MailboxRequest, *, actor: str, runner: Runner | None = None, inbox_root: Path | None = None) -> dict[str, Any]:
     """Download through our own temporary email receiver; new / changed messages become a work package with the
-    email-intent recipe."""
+    default processing (080)."""
     token = secrets.token_urlsafe(24)
     stored: list[dict[str, Any]] = []
     lock = threading.Lock()
@@ -213,7 +212,7 @@ def missing_attachments(wp: dict[str, Any]) -> list[Path]:
 
 def add_attachments(wp_id: str, *, expected_revision: int) -> dict[str, Any]:
     """Adds the messages' PDF attachments to the package as documents, pointing to their message (the attachment's
-    origin). The email recipe runs the full document processing on the attachment (058 K5.2, automatic chain). No new
+    origin). The processing runs the full document processing on the attachment (058 K5.2, automatic chain). No new
     attachment: the package is unchanged."""
     wp = work.get(wp_id)
     mails = [Path(i["source_path"]) for i in wp["items"] if i["kind"] == "email"]
@@ -239,9 +238,9 @@ def _workpackage(req: MailboxRequest, messages: list[Path], *, actor: str) -> di
     wp = work.create_workpackage(name=name, source_kind="mailbox", source_ref=req.label(), owner=owner_of(actor))
     wp = work.add_items(wp["id"], messages, kind="email", expected_revision=0)
     wp = add_attachments(wp["id"], expected_revision=wp["revision"])  # 058 K5.2: plus the PDF attachments
-    r = work.recipe(EMAIL_RECIPE)
+    r = work.default_recipe()  # 080: one processing; on an email, intent + attachments
     params = {k: spec["default"] for k, spec in r["params"].items()}
-    work.assign_recipe(wp["id"], EMAIL_RECIPE, params=params, expected_revision=0, actor=actor,
+    work.assign_recipe(wp["id"], r["id"], params=params, expected_revision=0, actor=actor,
                        note="postafiók-letöltés után automatikusan (a futtatás kézi)")
     return work.get(wp["id"])
 

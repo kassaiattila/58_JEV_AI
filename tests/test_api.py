@@ -114,7 +114,8 @@ def test_cli_and_service_give_the_same_answer(env, capsys):
     c = env["client"]
     wp = _ready_wp(c, env["folder"])
     assert c.get(f"/api/workpackages/{wp['id']}").json() == _cli_json(capsys, "wp-show", wp["id"])
-    assert c.get("/api/recipes").json()["recipes"] == _cli_json(capsys, "recipes")
+    # 080: the command line lists every recipe with its status, the service offers the active ones, in the same shape
+    assert c.get("/api/recipes").json()["recipes"] == [r for r in _cli_json(capsys, "recipes") if r.get("status", "active") == "active"]
     run_id = _start(c, wp["id"]).json()["run_id"]
     worker.run_worker(once=True)
     assert c.get(f"/api/runs/{run_id}").json() == _cli_json(capsys, "run-show", run_id)

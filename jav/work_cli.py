@@ -1,6 +1,7 @@
 """Work package and run commands (040 K1): a thin command-line interface over `jav.work` and `jav.runtime`.
 
-  recipes                                  the recipe catalogue
+  recipes                                  every recipe with its status (080: the UI offers only the active one)
+  processing-migrate [--write]             080: move packages and watched folders onto the default processing
   wp-create <folder> [--name N]            work package from the PDFs in a folder
   wp-create --files <pdf>... --name N      work package from the given files (possibly from several folders)
   wp-list | wp-show <wp>                   work packages; one package's items, recipe and readiness
@@ -39,10 +40,24 @@ def _usd(v: Decimal | str | None) -> str:
 
 
 def cmd_recipes(args):
-    from jav import work_views
-    rows = work_views.recipe_catalog()
-    text = "\n".join(f"- {r['id']} v{r['version']}: {r['title']} — {r['description']}" for r in rows)
+    """080: every recipe with its status (the UI offers only the active one; `internal` is for the command line)."""
+    from jav import work, work_views
+    rows = work_views.recipe_catalog(every_status=True)
+    text = "\n".join(f"- {r['id']} v{r['version']} [{work.recipe_status(r)}]: {r['title']} — {r['description']}" for r in rows)
     return _out(args, rows, text)
+
+
+def cmd_processing_migrate(args):
+    """080: moves every package and watched folder still on an internal or retired recipe onto the default processing,
+    keeping its settings. Without --write it only lists them."""
+    from jav import app_settings, work
+    packages = work.migrate_assignments(write=args.write)
+    folders = app_settings.migrate_folder_recipes(write=args.write)
+    target, verb = work.default_recipe()["id"], "moved" if args.write else "would move"
+    lines = [f"{verb}: {p['workpackage_id']}  {p['from']} {p['from_params']} -> {target} {p['params']}" for p in packages]
+    lines += [f"{verb}: watched folder {f['id']} ({f['name']})  {f['from']} -> {target} {f['params']}" for f in folders]
+    lines.append(f"{len(packages)} package(s), {len(folders)} watched folder(s)" + ("" if args.write else "; run with --write to apply"))
+    return _out(args, {"packages": packages, "folders": folders, "written": args.write}, "\n".join(lines))
 
 
 def cmd_wp_create(args):
@@ -72,7 +87,8 @@ def cmd_wp_show(args):
     wp, ready = view["workpackage"], view["readiness"]
     a = wp["assignment"]
     lines = [f"{wp['id']}  „{wp['name']}”  forrás: {wp['source_kind']} {wp['source_ref'] or ''}  verzió: {wp['revision']}",
-             f"Recept: {a['recipe_id']} v{a['recipe_version']} {a['params']} (hozzárendelés {a['revision']})" if a else "Recept: nincs",
+             f"Recept: {a['recipe_id']} v{a['recipe_version']} {a['params']} (hozzárendelés {a['revision']})" if a
+             else "Processing: the default settings (saved when a run starts)",
              f"Tételek ({len(wp['items'])}):"]
     lines += [f"  - {Path(i['source_path']).name}  {i['item_id'][:12]}" for i in wp["items"]]
     lines.append("Készenlét: " + ("indítható" if ready["ready"] else "NEM indítható"))
@@ -230,7 +246,10 @@ def register(sub) -> None:
         p.set_defaults(fn=fn)
         return p
 
-    add("recipes", cmd_recipes, "a folyamatrecept-katalógus (configs/recipes.json)")
+    add("recipes", cmd_recipes, "every recipe with its status (configs/recipes.json)")
+    p = add("processing-migrate", cmd_processing_migrate,
+            "080: move packages and watched folders off internal or retired recipes onto the default processing")
+    p.add_argument("--write", action="store_true", help="apply the changes (without it: only list them)")
     p = add("wp-create", cmd_wp_create, "munkacsomag egy mappa PDF-jeiből vagy megadott fájlokból")
     p.add_argument("folder", nargs="?")
     p.add_argument("--files", nargs="+")
