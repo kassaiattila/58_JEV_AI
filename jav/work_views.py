@@ -189,13 +189,15 @@ def run_view(run_id: str, *, names: bool = False) -> dict[str, Any]:
     """One run: items, queue, budget; the items' own open to-do reasons (`open_reasons`) and the earlier reasons left
     open on the documents (`earlier_open_reasons`, for information only, they do not block approval). `names` (082):
     also the items' unified names in this run (`jav/naming.py` `run_item_names`) — only on request, because the
-    run's page polls this view while the run is going."""
+    run's page polls this view while the run is going. `review_version` (085): the version of the result shown, which
+    the approval sends back (`work.approve_run`)."""
     run = work.get_run(run_id)
     split = work.items_reasons(run_id, run["input"]["items"])
     titles = item_titles(run["input"]["items"], package_root(work.get(run["workpackage_id"])))
-    from jav import costs
+    from jav import corrections, costs
 
-    extra: dict[str, Any] = {"costs": costs.plan_vs_actual(run_id)}  # 082: planned and actual cost per provider
+    extra: dict[str, Any] = {"costs": costs.plan_vs_actual(run_id),  # 082: planned and actual cost per provider
+                             "review_version": corrections.review_version(run_id)}
     if names:
         from jav import naming
 

@@ -12,7 +12,11 @@ States and the amount counted against the budget:
                  a receipt; repeating the step returns the saved response (`replayed=True`) without a new call.
 - `failed`     : the error type is logged; the cost is unknown, so the maximum stays committed (not zero, not released).
                  The same step can be retried with a new attempt number (the caller decides, e.g. the work queue's
-                 retry allowance).
+                 retry allowance). Only for an error that shows the request was not processed (refused before it was
+                 sent, or answered with an error).
+- an error after the request was sent but before an answer came (a read timeout, a dropped connection; 085, re-audit
+  A04: `outcome_unknown`) makes the call `uncertain` at once: the provider may have done (and billed) the work, so the
+  maximum stays committed and the step is not called again automatically.
 Money: `Decimal`, stored as text. The existing adapters still write the old `ledger` table; this log is the source of
 truth for reservations and resumability.
 """
@@ -128,6 +132,38 @@ OpenAI calls the input tokens were at most 0.60 and 0.90 of the request's charac
 
 OVERRUN_NOTE = "actual_exceeds_reserved"
 
+NOT_SENT = frozenset({"ConnectTimeout", "ConnectError", "PoolTimeout", "ProxyError", "UnsupportedProtocol", "LocalProtocolError",
+                      "InvalidURL", "URLError"})
+"""Errors (by class name, anywhere in the chain) that show the request never reached the provider, or got a definite
+answer (urllib's `URLError` covers a failure while connecting or sending, and its `HTTPError` an error response)."""
+OUTCOME_UNKNOWN = frozenset({"TimeoutError", "TimeoutException", "ReadTimeout", "WriteTimeout", "ReadError", "WriteError",
+                             "RemoteProtocolError", "APITimeoutError", "TypeSafeAPITimeoutError", "KeyboardInterrupt", "SystemExit"})
+"""Errors after the request was handed over and before the answer arrived. Class names, so that the run time imports
+no provider SDK; the SDKs' own wrappers keep the transport error as the cause (httpx / httpx2, openai, typesafe_sdk)."""
+
+
+def _chain(exc: BaseException):
+    """The exception and the ones it was raised from, as Python prints them: the cause, or else the context."""
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        yield cur
+        cur = cur.__cause__ if cur.__cause__ is not None else (None if cur.__suppress_context__ else cur.__context__)
+
+
+def outcome_unknown(exc: BaseException) -> bool:
+    """085 (re-audit A04): whether a failed call may still have been processed by the provider. A sign that the
+    request was not sent wins; otherwise any timeout or broken read/write after sending means unknown. Anything else
+    (a validation error, an error response, a refused budget) is a definite failure."""
+    names = {cls.__name__ for e in _chain(exc) for cls in type(e).__mro__}
+    return not names & NOT_SENT and bool(names & OUTCOME_UNKNOWN)
+
+
+def _error_text(exc: BaseException) -> str:
+    """The class names of the chain (`JevUnavailableError<-TypeSafeAPITimeoutError<-ReadTimeout`), for the log."""
+    return "<-".join(type(e).__name__ for e in _chain(exc))[:200]
+
 
 def utf8_bytes(*texts: str) -> int:
     return sum(len(t.encode("utf-8")) for t in texts)
@@ -227,8 +263,12 @@ def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_c
     try:
         out = fn()
     except BaseException as exc:
+        status = "uncertain" if outcome_unknown(exc) else "failed"  # 085 (A04): sent but unanswered is not failed
+        if status == "uncertain":
+            log.warning("call %s/%s may have been processed (%s); its maximum stays reserved until settled by hand",
+                        run_id, step_id, _error_text(exc))
         with store.connect() as c:
-            c.execute("UPDATE invocations SET status='failed', error=?, finished_at=? WHERE id=?", (type(exc).__name__, _now(), inv_id))
+            c.execute("UPDATE invocations SET status=?, error=?, finished_at=? WHERE id=?", (status, _error_text(exc), _now(), inv_id))
         raise
     # 066 Á30: cost and tokens are saved with the response too, so that recovery after a shutdown can close it exactly
     store.save_artifact(RESPONSE_KIND, str(inv_id), {"response": out.response, "model": out.model, "input_tokens": out.input_tokens,
@@ -251,18 +291,23 @@ def recover_uncertain() -> int:
     """At worker startup: unfinished reservations become uncertain (the maximum stays committed). 066 Á30: if the
     response is already saved (the shutdown came between saving it and marking the call "succeeded"), the call becomes
     succeeded with the saved cost (failing that, with an unknown cost and the maximum committed), so repeating the step
-    returns the saved response. Returns the number of reservations that became uncertain."""
+    returns the saved response. 085 (re-audit A05): a saved cost above the reservation sets the same overrun lock as
+    the normal path. Returns the number of reservations that became uncertain."""
     with store.connect() as c:
         c.commit()
         c.execute("BEGIN IMMEDIATE")
-        for r in c.execute("SELECT i.id, a.payload FROM invocations i JOIN artifacts a ON a.kind=? AND a.artifact_id=CAST(i.id AS TEXT)"
-                           " WHERE i.status IN ('reserved','uncertain')", (RESPONSE_KIND,)).fetchall():
+        for r in c.execute("SELECT i.id, i.max_cost_usd, a.payload FROM invocations i JOIN artifacts a ON a.kind=?"
+                           " AND a.artifact_id=CAST(i.id AS TEXT) WHERE i.status IN ('reserved','uncertain')", (RESPONSE_KIND,)).fetchall():
             saved = json.loads(r["payload"])
             cost = saved.get("cost_usd")
+            overrun = cost is not None and Decimal(cost) > Decimal(r["max_cost_usd"])
+            if overrun:
+                log.warning("recovered call %s cost %s, above its reserved maximum %s", r["id"], cost, r["max_cost_usd"])
             c.execute("UPDATE invocations SET status='succeeded', model_actual=?, input_tokens=?, output_tokens=?, cost_usd=?,"
-                      " cost_known=?, note=COALESCE(note, 'recovered_saved_response'), finished_at=? WHERE id=?",
+                      " cost_known=?, note=CASE WHEN ? THEN ? ELSE COALESCE(note, 'recovered_saved_response') END, finished_at=?"
+                      " WHERE id=?",
                       (saved.get("model"), saved.get("input_tokens"), saved.get("output_tokens"), cost, int(cost is not None),
-                       _now(), r["id"]))
+                       int(overrun), OVERRUN_NOTE, _now(), r["id"]))
         return c.execute("UPDATE invocations SET status='uncertain' WHERE status='reserved'").rowcount
 
 

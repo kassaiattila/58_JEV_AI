@@ -225,20 +225,26 @@ def _instance_files(root: Path) -> list[Path]:
 
 def _sync_sources(instances: list[Path], src_root: Path, dest_root: Path) -> dict[str, Any]:
     """Copies the source instances not yet in `dest_root` (shared by every backup there, never pruned). A new copy is
-    checked against the content hash in its name before it takes its place; one already there is recognised by its
-    size. A damaged source instance is not copied and is named. A copy failure makes the entry's integrity an error."""
-    added, total, damaged = 0, 0, []
+    checked against the content hash in its name before it takes its place. 085 (re-audit A02): a copy already there
+    is checked by its content hash too (not only by its size); a damaged one is replaced from the intact source
+    instance (`repaired`). A damaged source instance is not copied and is named (`damaged`); if the copy in the backup
+    is damaged as well, nothing intact is left there, so the entry's integrity is an error. A copy failure is an error
+    too."""
+    added, total, damaged, repaired, lost = 0, 0, [], [], []
     try:
         for f in instances:
             rel = f.relative_to(src_root)
             target = dest_root / rel
             size = f.stat().st_size
-            if target.is_file() and target.stat().st_size == size:
+            digest = f.name.split(".", 1)[0]
+            present = target.is_file()
+            if present and source_instances.intact(target, digest):
                 total += size
                 continue
-            digest = f.name.split(".", 1)[0]
             if not source_instances.intact(f, digest):
                 damaged.append(f.name)
+                if present:
+                    lost.append(f.name)
                 continue
             target.parent.mkdir(parents=True, exist_ok=True)
             part = target.with_name(target.name + ".part")
@@ -247,14 +253,18 @@ def _sync_sources(instances: list[Path], src_root: Path, dest_root: Path) -> dic
                 part.unlink(missing_ok=True)
                 raise OSError(f"copy verification failed: {target}")
             os.replace(part, target)
-            added += 1
+            if present:
+                repaired.append(f.name)
+                log.warning("backup: the saved copy %s was damaged; replaced from the intact source instance", target)
+            else:
+                added += 1
             total += size
-        integrity = "ok"
+        integrity = f"damaged copy without an intact source: {', '.join(lost)}" if lost else "ok"
     except OSError as exc:
         log.warning("backup of the source instances to %s failed: %s", dest_root, exc)
         integrity = f"copy failed: {type(exc).__name__}: {exc}"
     return {"file": SOURCES_DIR, "source": str(src_root), "bytes": total, "entries": len(instances) - len(damaged),
-            "added": added, "damaged": damaged, "integrity": integrity}
+            "added": added, "repaired": repaired, "damaged": damaged, "integrity": integrity}
 
 
 def _sha256(path: Path) -> str:

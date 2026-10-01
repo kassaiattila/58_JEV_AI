@@ -22,12 +22,18 @@ checked by a person (`confirmed`: field -> value), and the open to-dos on those 
 the run's own ones and those left by earlier runs (the resolution names the run where the field was checked). A
 confirmation lasts while the field's value stays the same; a later version that changes the value drops it. Each to-do
 of a document carries the field it is about (`field`, see `reason_field`), so the UI shows it at the field.
+
+Approval (085, re-audit A01): the writing transaction checks the approval again, so a correction checked before a
+concurrent approval is refused instead of being written after it; and an approval may name the reviewed version of the
+result (`review_version`), so a correction saved meanwhile (in another tab) cannot be approved unseen.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import sqlite3
 from pathlib import Path
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -72,6 +78,19 @@ def datapoints_row(run_id: str, item_id: str) -> dict[str, Any] | None:
     for k in ("datapoints", "field_conf", "validation", "review_reasons", "evidence", "provenance"):
         out[k] = json.loads(out[k]) if out[k] is not None else None
     return out
+
+
+def review_version(run_id: str, c: sqlite3.Connection | None = None) -> str:
+    """085 (re-audit A01): the version of a run's reviewed result, from the latest correction version of each item. The
+    machine result of a finished run does not change, so the corrections (confirmations included) are what can change
+    under a reviewer. `c`: read inside the caller's transaction (the approval)."""
+    query = "SELECT item_id, MAX(revision) r FROM run_item_corrections WHERE run_id=? GROUP BY item_id ORDER BY item_id"
+    if c is None:
+        with store.connect() as own:
+            rows = own.execute(query, (run_id,)).fetchall()
+    else:
+        rows = c.execute(query, (run_id,)).fetchall()
+    return hashlib.sha256(json.dumps([[r["item_id"], r["r"]] for r in rows]).encode("utf-8")).hexdigest()[:16]
 
 
 def current(run_id: str, item_id: str) -> dict[str, Any]:
@@ -338,6 +357,11 @@ def _insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected
     with store.connect() as c:
         c.commit()
         c.execute("BEGIN IMMEDIATE")
+        # 085 (re-audit A01): the approval is checked again in the writing transaction; a correction checked before a
+        # concurrent approval must not be written after it
+        run = c.execute("SELECT approval FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        if run is not None and run["approval"]:
+            raise work.RevisionConflict(f"run {run_id} is approved; corrections are frozen")
         cur = c.execute("SELECT MAX(revision) m FROM run_item_corrections WHERE run_id=? AND item_id=?",
                         (run_id, item_id)).fetchone()["m"] or 0
         if cur != expected_revision:

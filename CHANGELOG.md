@@ -10,6 +10,20 @@ This list shows what each release brought. `v1.0.0` was the first stable version
 
 ## Unreleased
 
+- **Fixes from the second security re-audit:**
+  - **Approval:** a correction can no longer be written after a concurrent approval (the writing transaction checks
+    the approval again), and the approval names the version of the result the approver saw: a correction saved
+    meanwhile, for example in another tab, makes it fail (409) until the new state has been looked at.
+  - **Backup:** a saved source copy is checked by its content hash on every backup, not only by its size; a damaged
+    copy is replaced from the intact source, and if none is left, the backup fails visibly.
+  - **Intake:** a document over the input limit is not copied into the store (the size is checked first and the copy
+    stops at the limit); it is still added, and processing stops it with the named size error.
+  - **Paid calls:** a call that was sent but got no answer (a timeout or a broken connection after sending) is now
+    uncertain instead of failed: its maximum cost stays reserved, it is not repeated automatically, and it appears on
+    the System page to be settled by hand. A restart that closes a call from its saved answer keeps the stop on further
+    calls when that answer cost more than its reservation.
+  - **System page:** the list of uncertain calls shows *Loading…* until it has loaded, and only the error if loading
+    failed, instead of saying there is none.
 - **Dates in every common form:** one date reader (`jav/dates.py`) for every path — the S path's candidates on every
   candidate profile, the value JEV chooses, GPT's values, the JEV check's value search, a selection on the page image
   and a manual correction. It reads year-first dates, month names and abbreviations in Hungarian, English, German,

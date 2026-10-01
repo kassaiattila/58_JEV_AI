@@ -82,7 +82,8 @@ def test_jev_sdk_failure_is_journaled_as_failed(isolated):
     with calls.use_run(budget_scope=None), pytest.raises(JevUnavailableError):
         jev.ask("t", {"x": 1}, QS, run_id="run-1", use_cache=False)
     row = calls.journal("run-1")[0]
-    assert row["status"] == "failed" and row["error"] == "JevUnavailableError" and row["cost_known"] == 0
+    # 085: the error names the chain; an SDK error that is not a timeout is a definite failure
+    assert row["status"] == "failed" and row["error"] == "JevUnavailableError<-TypeSafeError" and row["cost_known"] == 0
 
 
 def test_uncertain_prior_attempt_blocks_jev_call(isolated):
@@ -118,7 +119,8 @@ def test_gpt_failure_in_run_context_keeps_reservation(isolated):
     with calls.use_run(budget_scope="wp"), extract_llm.use_agent_factory(lambda pack: _FailingAgent()), pytest.raises(TimeoutError):
         extract_llm.extract("szöveg", run_id="g2")
     row = calls.journal("g2")[0]
-    assert row["status"] == "failed" and row["provider"] == "openai"
+    # 085 (re-audit A04): a provider timeout may have been processed, so the call is uncertain, not failed
+    assert row["status"] == "uncertain" and row["provider"] == "openai"
     assert calls.budget_usage("wp")["committed_usd"] == Decimal(row["max_cost_usd"]) > 0
 
 

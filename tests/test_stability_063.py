@@ -287,7 +287,7 @@ def test_unreadable_file_gives_a_clear_error_and_no_empty_package(tmp_path, monk
     folder.mkdir(parents=True)
     write_text_pdf(folder / "szamla_1.pdf", INVOICE_LINES)
 
-    def locked(p):
+    def locked(p, **_kw):
         raise PermissionError(13, "a fájlt egy másik folyamat zárolja", str(p))
 
     from jav import source_instances

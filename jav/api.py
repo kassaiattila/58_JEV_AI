@@ -290,6 +290,12 @@ class Empty(_In):
     pass
 
 
+class Approve(_In):
+    """085 (re-audit A01): `review_version` is the run view's `review_version` the approver saw; if a correction changed
+    the result since, 409. Without it (the command line) the current result is approved."""
+    review_version: str | None = Field(default=None, max_length=64)
+
+
 class ResolveCall(_In):
     """076: settling a paid call with an uncertain outcome by hand, as `calls-resolve` does."""
 
@@ -725,8 +731,8 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         return {"run_id": run_id, "jobs": work.cancel_run(run_id, actor=who), "status": work.get_run(run_id)["status"]}
 
     @app.post(r + "/runs/{run_id}/approve")
-    def approve(run_id: RunId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        work.approve_run(run_id, actor=who)
+    def approve(run_id: RunId, body: Approve, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        work.approve_run(run_id, actor=who, review_version=body.review_version)
         return work_views.run_view(run_id)
 
     @app.get(r + "/runs/{run_id}/results")
