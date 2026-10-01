@@ -132,7 +132,9 @@ export interface ProviderCost {
   provider: string; expected: "yes" | "maybe" | "no" | null; limit_usd: string | null; committed_usd: string | null;
   calls: number; failed: number; open: number; usd: string; held_usd: string; reused: number; models: string[]; unexpected: boolean;
 }
-export interface RunCostView { run_id: string; plan_saved: boolean; plan: RunPlan | null; providers: ProviderCost[] }
+/** 083: the run's actual cost over every provider; the reserved amount of the calls without a known cost apart. */
+export interface CostTotal { usd: string; calls: number; failed: number; held_usd: string; reused: number }
+export interface RunCostView { run_id: string; plan_saved: boolean; plan: RunPlan | null; providers: ProviderCost[]; total: CostTotal }
 /** 082: an item's unified name. `state`: ready / review (uncertain, `check` says why) / pending (not processed yet) /
  *  none (an email has no file name of its own). */
 export interface ItemName { unified: string | null; state: "ready" | "review" | "pending" | "none"; check: string | null; run_id: string | null }

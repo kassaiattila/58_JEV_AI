@@ -12,17 +12,14 @@ afterEach(() => vi.restoreAllMocks());
 
 const row = (over: Partial<ProviderCost>): ProviderCost => ({ provider: "jev", expected: "yes", limit_usd: "0.10", committed_usd: "0.002",
   calls: 2, failed: 0, open: 0, usd: "0.002000", held_usd: "0", reused: 12, models: ["jev-1.13.0"], unexpected: false, ...over });
-const view = (providers: ProviderCost[], plan_saved = true): RunCostView => ({ run_id: "run-1", plan_saved, plan: null, providers });
+const view = (providers: ProviderCost[], plan_saved = true): RunCostView => ({ run_id: "run-1", plan_saved, plan: null, providers,
+  total: { usd: "0", calls: 0, failed: 0, held_usd: "0", reused: 0 } });
 
 describe("082 planned and actual", () => {
   it("each provider shows the overview's expectation, the paid calls, the cost and the answers reused from earlier", () => {
-    expect(providerCostLines(row({}))).toEqual([
-      "Terv: várható · keret 0,10 USD",
-      "2 fizetős hívás · 0,0020 USD",
-      "12 kérdés korábbi válaszból (ingyenes)",
-    ]);
+    // 083: the plan moved to „Tervezett és tényleges” and the reused answers to the run's total
+    expect(providerCostLines(row({}))).toEqual(["2 fizetős hívás · 0,0020 USD"]);
     expect(providerCostLines(row({ provider: "azure_di", expected: "maybe", calls: 3, failed: 3, usd: "0", held_usd: "0.0600", reused: 0, models: ["prebuilt-read"] }))).toEqual([
-      "Terv: lehetséges · keret 0,10 USD",
       "3 fizetős hívás (ebből 3 sikertelen) · 0,0000 USD",
       "Lefoglalt, ismeretlen kimenetelű: 0,0600 USD (nem költség, a keret ennyivel számol)",
     ]);
@@ -30,11 +27,12 @@ describe("082 planned and actual", () => {
   });
 
   it("a provider called against the overview is flagged, and an old run says the overview was not saved", () => {
-    render(<PlanVsActual costs={view([row({}), row({ provider: "openai", expected: "no", unexpected: true, models: ["gpt-4.1-mini"], reused: 0 })], false)} />);
+    const { unmount } = render(<PlanVsActual costs={view([row({}), row({ provider: "openai", expected: "no", unexpected: true, models: ["gpt-4.1-mini"], reused: 0 })])} />);
     expect(screen.getByRole("alert").textContent).toBe("Az indítás előtti áttekintés nem számolt ezzel a szolgáltatóval, mégis volt hívás.");
-    expect(screen.getByText("Ennél a futásnál az indítás előtti áttekintés még nem mentődött; csak a tényleges költés látszik.")).toBeTruthy();
     expect(screen.getByText("OpenAI")).toBeTruthy();
-    expect(screen.getByText("gpt-4.1-mini")).toBeTruthy();
+    unmount();
+    render(<PlanVsActual costs={view([row({})], false)} />);
+    expect(screen.getByText("Ennél a futásnál az indítás előtti áttekintés még nem mentődött; csak a tényleges költés látszik.")).toBeTruthy();
   });
 
   it("the budget bars name the providers", () => {

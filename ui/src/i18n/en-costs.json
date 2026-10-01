@@ -2,8 +2,6 @@
   "várható": "expected",
   "lehetséges": "possible",
   "nem várt": "not expected",
-  "Terv: {{expected}} · keret {{budget}}": "Plan: {{expected}} · budget {{budget}}",
-  "Terv: {{expected}} · nincs keret": "Plan: {{expected}} · no budget",
   "{{n}} fizetős hívás (ebből {{failed}} sikertelen) · {{usd}}": "{{n}} paid calls ({{failed}} failed) · {{usd}}",
   "{{n}} fizetős hívás · {{usd}}": "{{n}} paid calls · {{usd}}",
   "{{n}} kérdés korábbi válaszból (ingyenes)": "{{n}} questions answered from earlier answers (free)",
@@ -24,5 +22,9 @@
   "Fizetős hívás": "Paid calls",
   "Ebből sikertelen": "Of which failed",
   "Korábbi válaszból": "From earlier answers",
-  "{{n}} irat a G-úton, mert a típusának nincs JEV-útja": "{{n}} documents on the G path, because their type has no JEV path"
+  "{{n}} irat a G-úton, mert a típusának nincs JEV-útja": "{{n}} documents on the G path, because their type has no JEV path",
+  "A futás költsége": "Cost of the run",
+  "Terv: {{expected}} · tényleges: {{usd}}": "Plan: {{expected}} · actual: {{usd}}",
+  "Terv nélkül · tényleges: {{usd}}": "Not in the plan · actual: {{usd}}",
+  "Keret ({{list}})": "Budget ({{list}})"
 }

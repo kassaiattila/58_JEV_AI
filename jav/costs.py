@@ -218,13 +218,15 @@ def expected_providers(plan: dict[str, Any]) -> dict[str, str]:
 def plan_vs_actual(run_id: str) -> dict[str, Any]:
     """Per provider: what the saved pre-start overview expected, the budget and its committed amount, and the actual
     calls and cost (models included). `unexpected`: the provider was called although the overview did not count on it.
-    A run started before the overview was saved (`plan_saved` false) shows the actual part only."""
+    A run started before the overview was saved (`plan_saved` false) shows the actual part only. `total`: the run's
+    actual cost over every provider (083), with the reserved amount of the calls without a known cost kept apart."""
     run = work.get_run(run_id)
     plan = run.get("plan")
     expected = expected_providers(plan) if plan else {}
     budget = calls.budget_usage(run_id)["providers"]
+    summary = run_total(run_id)
     actual: dict[str, list[Line]] = defaultdict(list)
-    for x in run_total(run_id).lines:
+    for x in summary.lines:
         actual[x.provider].append(x)
     rows = []
     for p in sorted(set(budget) | set(actual), key=lambda p: (PROVIDER_ORDER.index(p) if p in PROVIDER_ORDER else len(PROVIDER_ORDER), p)):
@@ -239,4 +241,6 @@ def plan_vs_actual(run_id: str) -> dict[str, Any]:
                      # a failed call has no actual model, only the requested name (an alias): shown only without a better one
                      "models": [x.model for x in lines if x.succeeded] or [x.model for x in lines if x.calls],
                      "unexpected": exp == "no" and s.calls > 0})
-    return {"run_id": run_id, "plan_saved": plan is not None, "plan": plan, "providers": rows}
+    total = {"usd": summary.usd, "calls": summary.calls, "failed": sum(x.failed for x in summary.lines),
+             "held_usd": summary.held_usd, "reused": summary.reused}
+    return {"run_id": run_id, "plan_saved": plan is not None, "plan": plan, "providers": rows, "total": total}

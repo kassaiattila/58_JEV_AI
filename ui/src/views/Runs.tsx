@@ -4,8 +4,8 @@ import { DataTable } from "../components/DataTable";
 import { nameCell, NameModeSwitch } from "../components/NameCell";
 import { PageHeader } from "../components/PageHeader";
 import { ACTIVE_RUN, useLoad, useRunView } from "../hooks";
-import { t, useLocale } from "../i18n";
-import { MODE, paramsText, providerName, reasonText, tmap, usd, usdBudget, when } from "../labels";
+import { getLocale, t, useLocale } from "../i18n";
+import { MODE, paramsText, providerName, reasonText, tmap, usd, when } from "../labels";
 import { useNameMode } from "../names";
 import { RunStatus } from "./Workpackages";
 import { Icon } from "../components/Icon";
@@ -40,6 +40,8 @@ export function RunDetail({ runId }: { runId: string }) {
 
   const own = view.data.open_reasons;
   const ownTotal = Object.values(own).reduce((n, r) => n + r.length, 0);
+  // 083: a to-do left by a budget stop opens the budget part by itself
+  const budgetBlocked = Object.values(own).some((rs) => rs.some((r) => /BudgetExceeded|budget_exceeded/.test(r.reason)));
   const wpBase = `#/workpackages/${encodeURIComponent(run.workpackage_id)}`;
 
   async function cancel() {
@@ -88,9 +90,7 @@ export function RunDetail({ runId }: { runId: string }) {
             }} />
         </section>
         <aside aria-label={t("Költség és munkasor")}>
-          <h2>{t("Költség")}</h2>
-          <BudgetBars budget={budget} />
-          {view.data.costs ? <PlanVsActual costs={view.data.costs} /> : null}
+          <RunCost costs={view.data.costs} budget={budget} budgetBlocked={budgetBlocked} />
           <h3 className="mt">{t("Munkasor")}</h3>
           <dl className="kv">{Object.entries(run.jobs).map(([k, v]) => [<dt key={`${k}t`}>{JOB[k] ?? k}</dt>, <dd key={`${k}d`}>{v}</dd>])}</dl>
         </aside>
@@ -102,9 +102,16 @@ export function RunDetail({ runId }: { runId: string }) {
 
 const JOB: Record<string, string> = tmap({ queued: "sorban", claimed: "fut", done: "kész", dead: "hibás (feladva)", cancelled: "leállítva" });
 
+/** 083: the providers in the order of the cost list (JEV, OpenAI, Azure DI), not in the budget row's order. */
+const PROVIDER_ORDER = ["jev", "openai", "azure_di"];
+function byProvider<T>(entries: [string, T][]): [string, T][] {
+  const rank = (p: string) => (PROVIDER_ORDER.includes(p) ? PROVIDER_ORDER.indexOf(p) : PROVIDER_ORDER.length);
+  return [...entries].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
+}
+
 export function BudgetBars({ budget }: { budget: RunView["budget"] }) {
   useLocale();
-  const entries = Object.entries(budget.providers);
+  const entries = byProvider(Object.entries(budget.providers));
   if (!entries.length) return <p className="muted small">{t("Nincs keret rögzítve.")}</p>;
   return (
     <>
@@ -126,44 +133,91 @@ export function BudgetBars({ budget }: { budget: RunView["budget"] }) {
 
 const EXPECTED: Record<string, string> = tmap({ yes: "várható", maybe: "lehetséges", no: "nem várt" });
 
-/** 082: the lines of one provider in „Tervezett és tényleges” (Planned and actual). */
+/** 083: the run's cost on its page. The owner found the total hard to read while the budget bars came first, so the
+ *  total comes first, then each provider's actual calls and cost, then the plan against the actual cost; the budget
+ *  bars sit in a closed part that opens by itself when a budget is nearly used up or stopped something. */
+export function RunCost({ costs, budget, budgetBlocked }: { costs: RunCostView | undefined; budget: RunView["budget"]; budgetBlocked: boolean }) {
+  useLocale();
+  const k = budgetSummary(budget, budgetBlocked);
+  return (
+    <section aria-label={t("Költség")}>
+      <h2>{t("Költség")}</h2>
+      {costs ? <>
+        <div className="cost-total"><span>{t("A futás költsége")}</span><strong className="mono">{usd(costs.total.usd)}</strong></div>
+        {costs.providers.length ? (
+          <dl className="kv cost-kv">
+            {costs.providers.map((p) => [
+              <dt key={`${p.provider}t`}>{providerName(p.provider)}</dt>,
+              <dd key={`${p.provider}d`}>
+                {providerCostLines(p).map((line) => <div key={line} className="small">{line}</div>)}
+                {p.models.length ? <div className="muted small mono">{p.models.join(", ")}</div> : null}
+              </dd>,
+            ])}
+          </dl>
+        ) : <p className="muted small">{t("Nem volt fizetős hívás.")}</p>}
+        {costs.total.reused ? <p className="muted small">{t("{{n}} kérdés korábbi válaszból (ingyenes)", { n: costs.total.reused })}</p> : null}
+        <PlanVsActual costs={costs} />
+      </> : null}
+      {k ? (
+        <details className="details budget-box" open={k.open}>
+          <summary>{k.text}</summary>
+          <BudgetBars budget={budget} />
+        </details>
+      ) : null}
+    </section>
+  );
+}
+
+/** 083: the closed budget part's title (each provider's share used) and whether it opens by itself: at 80% use of any
+ *  budget, or when the budget stopped something in the run. Null when the run has no budget. */
+export function budgetSummary(budget: RunView["budget"], blocked: boolean): { text: string; open: boolean } | null {
+  const entries = byProvider(Object.entries(budget.providers));
+  if (!entries.length) return null;
+  const share = (v: { limit_usd: string; committed_usd: string }) => Number(v.committed_usd) / Math.max(Number(v.limit_usd), 1e-9);
+  const pct = new Intl.NumberFormat(getLocale(), { style: "percent", maximumFractionDigits: 0 });
+  const list = entries.map(([p, v]) => `${providerName(p)} ${pct.format(share(v))}`).join(", ");
+  // the small tolerance: 0.32 / 0.40 is 0.7999… in floating point, and exactly 80% must open the part
+  return { text: t("Keret ({{list}})", { list }), open: blocked || entries.some(([, v]) => share(v) >= 0.8 - 1e-9) };
+}
+
+/** 082, 083: the actual lines of one provider under the run's total: the paid calls and their cost, and the reserved
+ *  amount of the calls without a known cost apart (it is not a cost). */
 export function providerCostLines(p: ProviderCost): string[] {
   const out: string[] = [];
-  if (p.expected) {
-    out.push(p.limit_usd !== null
-      ? t("Terv: {{expected}} · keret {{budget}}", { expected: EXPECTED[p.expected], budget: usdBudget(p.limit_usd) })
-      : t("Terv: {{expected}} · nincs keret", { expected: EXPECTED[p.expected] }));
-  }
   if (p.calls) {
     out.push(p.failed
       ? t("{{n}} fizetős hívás (ebből {{failed}} sikertelen) · {{usd}}", { n: p.calls, failed: p.failed, usd: usd(p.usd) })
       : t("{{n}} fizetős hívás · {{usd}}", { n: p.calls, usd: usd(p.usd) }));
-  }
-  if (p.reused) out.push(t("{{n}} kérdés korábbi válaszból (ingyenes)", { n: p.reused }));
+  } else out.push(t("Nem volt fizetős hívás."));
   if (Number(p.held_usd) > 0) out.push(t("Lefoglalt, ismeretlen kimenetelű: {{usd}} (nem költség, a keret ennyivel számol)", { usd: usd(p.held_usd) }));
-  if (!p.calls && !p.reused) out.push(t("Nem volt fizetős hívás."));
   return out;
 }
 
-/** 082: per provider, what the pre-start overview expected and what the run actually called, with the models. */
+/** 083: what the pre-start overview expected of a provider, against the actual cost. */
+export function planLine(p: ProviderCost): string {
+  return p.expected
+    ? t("Terv: {{expected}} · tényleges: {{usd}}", { expected: EXPECTED[p.expected], usd: usd(p.usd) })
+    : t("Terv nélkül · tényleges: {{usd}}", { usd: usd(p.usd) });
+}
+
+/** 082, 083: per provider, what the pre-start overview expected against the actual cost, and a warning when a provider
+ *  was called that the overview did not count on. */
 export function PlanVsActual({ costs }: { costs: RunCostView }) {
   useLocale();
   return (
     <section aria-label={t("Tervezett és tényleges")}>
       <h3 className="mt">{t("Tervezett és tényleges")}</h3>
-      {costs.plan_saved ? null : <p className="muted small">{t("Ennél a futásnál az indítás előtti áttekintés még nem mentődött; csak a tényleges költés látszik.")}</p>}
-      {costs.providers.length ? (
+      {costs.plan_saved ? (
         <dl className="kv cost-kv">
           {costs.providers.map((p) => [
             <dt key={`${p.provider}t`}>{providerName(p.provider)}</dt>,
             <dd key={`${p.provider}d`}>
-              {providerCostLines(p).map((line) => <div key={line} className="small">{line}</div>)}
-              {p.models.length ? <div className="muted small mono">{p.models.join(", ")}</div> : null}
+              <div className="small">{planLine(p)}</div>
               {p.unexpected ? <p className="notice error small" role="alert">{t("Az indítás előtti áttekintés nem számolt ezzel a szolgáltatóval, mégis volt hívás.")}</p> : null}
             </dd>,
           ])}
         </dl>
-      ) : <p className="muted small">{t("Nem volt fizetős hívás.")}</p>}
+      ) : <p className="muted small">{t("Ennél a futásnál az indítás előtti áttekintés még nem mentődött; csak a tényleges költés látszik.")}</p>}
     </section>
   );
 }
