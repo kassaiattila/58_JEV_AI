@@ -4,8 +4,8 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, type Readiness, type Recipe, type RecipeHelp, type RunPlan, type WorkpackageView } from "./api";
-import { paramShort, planLines, stepLabel } from "./labels";
-import { RecipesPanel } from "./views/RecipeInfo";
+import { itemBudgetLines, paramApplies, paramShort, planLines, stepLabel } from "./labels";
+import { RecipeParamList, RecipesPanel } from "./views/RecipeInfo";
 import { StartConfirm } from "./views/StartConfirm";
 
 afterEach(() => vi.restoreAllMocks());
@@ -57,6 +57,19 @@ describe("080 indítás előtti áttekintés", () => {
     expect(paramShort("arm", "S")).toBe("Csak JEV — tételsorok nélkül, olcsóbb (S)");
     expect(paramShort("arm", "G")).toBe("GPT + JEV — tételsorokkal (G)");
     expect(stepLabel("configure", undefined, "configure")).toBe("configure"); // the service no longer sends this step
+  });
+});
+
+describe("080 csak a csomag tételeire ható beállítások", () => {
+  it("iratos csomagon nincs feladatjavaslat és levelenkénti keret; leveles csomagon nincs út és Azure", () => {
+    expect(paramApplies("tasks", ["document"])).toBe(false);
+    expect(paramApplies("arm", ["email"])).toBe(false);
+    expect(paramApplies("jev_cache", ["email"])).toBe(true);
+    expect(paramApplies("tasks", undefined)).toBe(true); // without known kinds everything is shown
+    expect(itemBudgetLines(PROCESSING, { arm: "auto" }, ["document"])).toEqual(["PDF-iratonként: JEV legfeljebb 0,07 USD, OpenAI legfeljebb 0,15 USD"]);
+    render(<RecipeParamList recipe={PROCESSING} params={{}} help={HELP} kinds={["document"]} />);
+    expect(screen.queryByText("Feladatjavaslat")).toBeNull();
+    expect(screen.getByText("Út")).toBeTruthy();
   });
 });
 

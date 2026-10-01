@@ -278,6 +278,11 @@ const PARAM_SHORT: Record<string, string> = tmap({
   "azure_ocr:on": "gyenge szkennelésnél",
   "azure_ocr:off": "kikapcsolva",
 });
+/** 080: the item kind a setting acts on (the path, Azure and the document type on documents, task proposals on
+ *  emails); a setting not listed acts on every item. With the package's item kinds known, a setting that cannot act on
+ *  any of them is not shown. */
+const PARAM_KIND: Record<string, string> = { arm: "document", azure_ocr: "document", doc_type: "document", tasks: "email" };
+export const paramApplies = (k: string, kinds?: string[]): boolean => !kinds?.length || !PARAM_KIND[k] || kinds.includes(PARAM_KIND[k]);
 export const paramShort = (k: string, v: string): string => PARAM_SHORT[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);
 export const paramsText = (params: Record<string, string>): string =>
   Object.entries(params).map(([k, v]) => `${PARAM_LABEL[k] ?? k}: ${paramShort(k, v)}`).join(" · ");
@@ -300,8 +305,10 @@ export function itemBudget(r: Recipe, params: Record<string, string>, kind?: str
 const KIND_BUDGET: Record<string, string> = tmap({ email: "levelenként", document: "PDF-iratonként" });
 /** The per-item budget line by line (one line per item kind), e.g. „levelenként: JEV legfeljebb 0,05 USD” (per email:
  *  JEV at most 0.05 USD). */
-export function itemBudgetLines(r: Recipe, params: Record<string, string>): string[] {
-  const kinds = r.max_item_usd_by_kind ? Object.keys(r.max_item_usd_by_kind) : [undefined];
+export function itemBudgetLines(r: Recipe, params: Record<string, string>, only?: string[]): string[] {
+  // 080: `only` — the package's item kinds; the other kinds' lines are left out
+  const kinds = (r.max_item_usd_by_kind ? Object.keys(r.max_item_usd_by_kind) : [undefined])
+    .filter((kind) => !kind || !only?.length || only.includes(kind));
   return kinds.map((kind) => {
     const amounts = Object.entries(itemBudget(r, params, kind))
       .map(([p, v]) => t("{{provider}} legfeljebb {{amount}}", { provider: providerName(p), amount: usdBudget(v) })).join(", ") || t("nincs");

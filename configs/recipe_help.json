@@ -22,8 +22,8 @@
   },
   "intro": "A rendszer a csomag minden tételét a fajtája szerint dolgozza fel, a típust maga ismeri fel; neked csak a beállításokat kell megadnod. Az alapbeállítás mindennapi munkához való: ha nem módosítod, a futás indításakor ez mentődik el a csomaghoz.",
   "kinds": {
-    "document": "PDF-irat: a rendszer előbb felismeri a típusát (például számla, közműszámla, bankszámlakivonat, igazolás; JEV, iratonként körülbelül 0,0001 USD), majd a felismert típus mezőit nyeri ki a választott úton, és kódban ellenőrzi őket (például az adószám ellenőrzőszámát, az összegek egyezését). Ha a típus nem dönthető el, az irat teendőt kap.",
-    "email": "Levél: a rendszer felismeri, mi a levél célja (például számla érkezett, fizetési visszaigazolás, kérdés, hírlevél; JEV, levelenként körülbelül 0,0001 USD), és kódban javasolja a következő lépést. A PDF-csatolmányok iratként futnak, a levélre visszavezetve; kérésre feladatjavaslat is készül."
+    "document": "A rendszer előbb felismeri az irat típusát (például számla, közműszámla, bankszámlakivonat, igazolás; JEV, iratonként körülbelül 0,0001 USD), majd a felismert típus mezőit nyeri ki a választott úton, és kódban ellenőrzi őket (például az adószám ellenőrzőszámát, az összegek egyezését). Ha a típus nem dönthető el, az irat teendőt kap.",
+    "email": "A rendszer felismeri, mi a levél célja (például számla érkezett, fizetési visszaigazolás, kérdés, hírlevél; JEV, levelenként körülbelül 0,0001 USD), és kódban javasolja a következő lépést. A PDF-csatolmányok iratként futnak, a levélre visszavezetve; kérésre feladatjavaslat is készül."
   },
   "recipes": {
     "processing": {

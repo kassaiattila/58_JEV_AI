@@ -5,7 +5,7 @@
 import { api, type Recipe, type RecipeHelp } from "../api";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { docTypeLabel, itemBudgetLines, PARAM_LABEL, paramShort } from "../labels";
+import { docTypeLabel, itemBudgetLines, PARAM_LABEL, paramApplies, paramShort } from "../labels";
 
 const BUDGET_NOTE = "felső határ: ennyit foglal le a rendszer a futás indításakor; a tényleges költség általában kisebb, és a futás oldalán követhető";
 
@@ -20,13 +20,14 @@ export function paramExplanation(help: RecipeHelp | undefined, k: string, v: str
   return text ? t(text) : null;
 }
 
-/** The Recipe card's explanatory list: per setting, the chosen value and its meaning, with the budget at the end. */
-export function RecipeParamList({ recipe, params, help }: { recipe: Recipe; params: Record<string, string>; help?: RecipeHelp }) {
+/** The settings card's explanatory list: per setting, the chosen value and its meaning, with the budget at the end.
+ *  `kinds` (080): the package's item kinds — a setting or budget line that cannot act on any of them is left out. */
+export function RecipeParamList({ recipe, params, help, kinds }: { recipe: Recipe; params: Record<string, string>; help?: RecipeHelp; kinds?: string[] }) {
   useLocale();
   const full = { ...recipeDefaults(recipe), ...params };
   return (
     <dl className="param-help">
-      {Object.keys(recipe.params).map((k) => {
+      {Object.keys(recipe.params).filter((k) => paramApplies(k, kinds)).map((k) => {
         const text = paramExplanation(help, k, full[k]);
         return (
           <div key={k} className="param-row">
@@ -38,7 +39,7 @@ export function RecipeParamList({ recipe, params, help }: { recipe: Recipe; para
       <div className="param-row">
         <dt>{t("Költségkeret")}</dt>
         <dd>
-          {itemBudgetLines(recipe, full).map((line) => <strong key={line} className="budget-line">{line}</strong>)}
+          {itemBudgetLines(recipe, full, kinds).map((line) => <strong key={line} className="budget-line">{line}</strong>)}
           <span className="param-note">{t(BUDGET_NOTE)}</span>
         </dd>
       </div>
@@ -57,8 +58,8 @@ export function RecipesPanel() {
   return (
     <>
       <p className="page-summary">{help?.intro ? t(help.intro) : null} {t("A beállításokat a csomag Feldolgozás szakaszában lehet módosítani; a módosítás új változatként mentődik, a korábbi futások a saját beállításaikat őrzik.")}</p>
-      {recipes.data.recipes.map((r) => <RecipeDetails key={r.id} recipe={r} help={help} />)}
       {help?.paths ? <PathCompare paths={help.paths} /> : null}
+      {recipes.data.recipes.map((r) => <RecipeDetails key={r.id} recipe={r} help={help} />)}
     </>
   );
 }

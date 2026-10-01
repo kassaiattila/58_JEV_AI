@@ -9,7 +9,7 @@ import { Icon } from "../components/Icon";
 import { Picker } from "../components/Picker";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { itemBudgetLines, MODE, PARAM_LABEL, paramShort, paramsText, planLines, providerName, RUN_STATUS, tmap, usdBudget, when, blockerText } from "../labels";
+import { itemBudgetLines, MODE, PARAM_LABEL, paramApplies, paramShort, paramsText, planLines, providerName, RUN_STATUS, tmap, usdBudget, when, blockerText } from "../labels";
 import { go } from "../route";
 import { paramExplanation, RecipeParamList, recipeDefaults } from "./RecipeInfo";
 
@@ -176,6 +176,8 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const recipe: Recipe | undefined = catalogue.find((r) => r.id === recipeId) ?? currentRecipe ?? catalogue[0];
+  // 080: only the settings that act on the package's items (no task proposal on a package without emails)
+  const kinds = useMemo(() => [...new Set(wp.items.map((i) => i.kind))], [wp.items]);
 
   useEffect(() => {
     // the editor starts from the saved settings; an older recipe's settings carry over where the processing has them
@@ -225,7 +227,7 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
           <>
             <p className="muted small">{t("mentette: {{actor}}, {{when}}", { actor: current.actor, when: when(current.created_at) })}</p>
             {/* 063: each setting's meaning and the per-item cost budget */}
-            <RecipeParamList recipe={currentRecipe} params={current.params} help={help} />
+            <RecipeParamList recipe={currentRecipe} params={current.params} help={help} kinds={kinds} />
           </>
         ) : current ? (
           <>
@@ -237,7 +239,7 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
         ) : catalogue[0] ? (
           <>
             <p className="muted">{t("Alapbeállítás: ha nem módosítod, a futás indításakor ez mentődik a csomaghoz.")}</p>
-            <RecipeParamList recipe={catalogue[0]} params={{}} help={help} />
+            <RecipeParamList recipe={catalogue[0]} params={{}} help={help} kinds={kinds} />
           </>
         ) : null
       ) : recipe ? (
@@ -247,7 +249,7 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
               options={catalogue.map((r) => ({ value: r.id, label: t(r.title) }))}
               onChange={(v) => setRecipeId(v)} />
           ) : null}
-          {Object.entries(options).map(([k, opts]) => {
+          {Object.entries(options).filter(([k]) => paramApplies(k, kinds)).map(([k, opts]) => {
             const value = params[k] ?? recipe.params[k].default ?? "";
             const explain = paramExplanation(help, k, value);
             return (
@@ -259,7 +261,7 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
               </div>
             );
           })}
-          <p className="small"><strong>{t("Költségkeret")}:</strong> {itemBudgetLines(recipe, { ...recipeDefaults(recipe), ...params }).join("; ")}</p>
+          <p className="small"><strong>{t("Költségkeret")}:</strong> {itemBudgetLines(recipe, { ...recipeDefaults(recipe), ...params }, kinds).join("; ")}</p>
           <label className="block">{t("Megjegyzés")} <span className="muted">{t("(elhagyható)")}</span>
             <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />
           </label>
