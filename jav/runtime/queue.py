@@ -141,15 +141,21 @@ def complete(job_id: int) -> str:
 
 
 def fail(job_id: int, error: str, *, max_attempts: int, backoff_s: float) -> str:
-    """Failure: attempts +1; below the limit back to the queue with a linear delay, at the limit `dead`."""
+    """Failure: attempts +1; below the limit back to the queue with a linear delay, at the limit `dead`. 082: a job with
+    a stop request is cancelled instead (back in the queue it would never be claimed again, and its run would never
+    end)."""
     with store.connect() as c:
         _begin(c)  # read and write in one transaction
-        row = c.execute("SELECT status, attempts FROM jobs WHERE id=?", (job_id,)).fetchone()
+        row = c.execute("SELECT status, attempts, cancel_requested_at FROM jobs WHERE id=?", (job_id,)).fetchone()
         if row is None:
             raise KeyError(job_id)
         if row["status"] in TERMINAL:
             return row["status"]
         attempts = row["attempts"] + 1
+        if row["cancel_requested_at"]:
+            c.execute("UPDATE jobs SET attempts=?, error=?, status='cancelled', finished_at=?, claimed_by=NULL WHERE id=?",
+                      (attempts, error[:300], _ts(), job_id))
+            return "cancelled"
         status = "dead" if attempts >= max_attempts else "queued"
         c.execute("UPDATE jobs SET attempts=?, error=?, status=?, finished_at=?, available_at=?, claimed_by=NULL, claimed_at=NULL"
                   " WHERE id=?", (attempts, error[:300], status, _ts() if status == "dead" else None,
@@ -158,7 +164,12 @@ def fail(job_id: int, error: str, *, max_attempts: int, backoff_s: float) -> str
 
 
 def release(job_id: int, *, delay_s: float) -> str:
-    """Back to the queue without using up an attempt (e.g. exhausted budget, temporary limit)."""
+    """Back to the queue without using up an attempt (e.g. exhausted budget, temporary limit). 082: a job with a stop
+    request is cancelled instead (see `fail`)."""
+    with store.connect() as c:
+        row = c.execute("SELECT cancel_requested_at FROM jobs WHERE id=?", (job_id,)).fetchone()
+    if row is not None and row["cancel_requested_at"]:
+        return finish_cancelled(job_id)
     return _transition(job_id, "UPDATE jobs SET status='queued', claimed_by=NULL, claimed_at=NULL, available_at=? WHERE id=?",
                        (_ts(delay_s), job_id), "queued")
 
@@ -174,6 +185,20 @@ def cancel(job_id: int) -> str:
         _transition(job_id, "UPDATE jobs SET cancel_requested_at=? WHERE id=?", (_ts(), job_id), "claimed")
         return "cancel_requested"
     return row["status"]
+
+
+def cancel_run_jobs(run_id: str) -> dict[str, int]:
+    """082: stops a run's jobs in one transaction: the queued ones are cancelled, the running ones get a stop request
+    (the worker stops them at the next step boundary). One step, so a worker that notices the request at once already
+    finds the rest cancelled; one job at a time, the worker could finish the running item and refresh the run in
+    between, or claim the next queued item. Returns the counts (`cancelled`, `cancel_requested`), zeros left out."""
+    with store.connect() as c:
+        _begin(c)
+        now = _ts()
+        cancelled = c.execute("UPDATE jobs SET status='cancelled', finished_at=? WHERE run_id=? AND status='queued'", (now, run_id)).rowcount
+        requested = c.execute("UPDATE jobs SET cancel_requested_at=COALESCE(cancel_requested_at, ?) WHERE run_id=? AND status='claimed'",
+                              (now, run_id)).rowcount
+    return {k: v for k, v in (("cancelled", cancelled), ("cancel_requested", requested)) if v}
 
 
 def check_cancellation(job_id: int) -> None:

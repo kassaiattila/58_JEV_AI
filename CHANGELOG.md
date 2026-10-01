@@ -30,6 +30,12 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   shown apart. Text taken from an earlier Azure recognition is now written to the ledger at 0 USD, so it counts among
   the answers reused from earlier. The budget bars name the providers. Dataset `package_costs`; `GET /api/runs/{id}`
   carries `costs`. No paid calls; the model requests do not change.
+- **Fix — a stopped run could stay "running":** a stop cancelled the queued jobs one by one; if the worker noticed the
+  stop request on the running item at once, it finished that item and refreshed the run while queued jobs were still
+  left, so the run stayed "running" after every job had ended (and in that window the worker could even start the next
+  queued item). A running item that failed after a stop also went back to the queue, where a stopped job is never
+  claimed again. Now a stop cancels the queued jobs and asks the running one to stop in one transaction, and a job that
+  fails or is released after a stop request is cancelled, so the run ends as stopped without a manual refresh.
 
 ## v1.3.0 — 2026-10-01
 
