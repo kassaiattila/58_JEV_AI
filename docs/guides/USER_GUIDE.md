@@ -1,6 +1,6 @@
 # User guide
 
-**Valid from:** 2026-10-01 (v1.2.0). **Audience:** people who use the interface.
+**Valid from:** 2026-10-01 (v1.3.0). **Audience:** people who use the interface.
 
 ## Plain-language summary
 
