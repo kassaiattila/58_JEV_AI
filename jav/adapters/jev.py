@@ -41,7 +41,7 @@ from typesafe_sdk import Choice, Noul, Score, SystemOneResponse, TypeSafeClient,
 from pydantic import ValidationError
 
 from jav import store
-from jav.config import CACHE_DIR, JEV_ALIAS_TTL_H, JEV_CACHE_VERSION, JEV_MODEL, JEV_RETRY, JEV_USD_PER_MTOK, make_client
+from jav.config import CACHE_DIR, JEV_ALIAS_TTL_H, JEV_CACHE_VERSION, JEV_MODEL, JEV_RETRY, JEV_USD_PER_MTOK, MissingAPIKeyError, make_client
 from jav.models import JevCall
 
 Question = Choice | Noul | Score
@@ -129,8 +129,13 @@ class JevAdapter:
 
     @property
     def client(self) -> TypeSafeClient:
+        """085: without a TypeSafe key the adapter is unavailable (`missing_key`), like any other JEV failure, so the
+        flows continue with a to-do instead of failing the item."""
         if self._client is None:
-            self._client = make_client()
+            try:
+                self._client = make_client()
+            except MissingAPIKeyError as exc:
+                raise JevUnavailableError("missing_key") from exc
         return self._client
 
     def _cache_path(self, key: str) -> Path:
@@ -237,6 +242,7 @@ class JevAdapter:
         ctx = calls.current()
         if ctx is None:
             return self._sdk_live(request_id, state, questions, model=model, run_id=run_id, config_hash=config_hash)
+        self.client  # noqa: B018 - 085: a missing key fails here, before anything is reserved (no request can leave)
         body = json.dumps({"state": state, "questions": {k: q.model_dump(mode="json") for k, q in questions.items()}},
                           ensure_ascii=False, default=str, sort_keys=True)
         key = request_hash(model, state, questions)
