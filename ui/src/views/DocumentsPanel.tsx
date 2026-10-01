@@ -4,10 +4,13 @@ import { useState } from "react";
 import { api, ApiError, type Workpackage } from "../api";
 import { ConfirmButton } from "../components/ConfirmButton";
 import { DataTable } from "../components/DataTable";
+import { nameCell, NameModeSwitch } from "../components/NameCell";
 import { t, useLocale } from "../i18n";
+import { useNameMode } from "../names";
 
 export function DocumentsPanel({ wp, onChanged }: { wp: Workpackage; onChanged: () => void }) {
   useLocale();
+  const names = useNameMode();
   const [error, setError] = useState<string | null>(null);
   async function remove(itemId: string) {
     setError(null);
@@ -26,8 +29,8 @@ export function DocumentsPanel({ wp, onChanged }: { wp: Workpackage; onChanged: 
         source: wp.source_kind === "folder" || wp.source_kind === "mailbox" ? wp.source_ref : t("kézi válogatás"), rev: wp.revision })}</p>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
       {/* the work package's revision is in the key: after a removal the list reloads */}
-      <DataTable key={`${wp.id}:${wp.revision}`} dataset="workpackage_items" scope={{ workpackage_id: wp.id }} label={t("A csomag iratai")}
-        emptyText={t("A csomag üres.")} storageId="workpackage_items" maxHeight="60vh"
+      <DataTable key={`${wp.id}:${wp.revision}`} dataset="workpackage_items" scope={{ workpackage_id: wp.id, names }} label={t("A csomag iratai")}
+        emptyText={t("A csomag üres.")} storageId="workpackage_items" maxHeight="60vh" toolbar={<NameModeSwitch />} cell={nameCell}
         actions={(row) => (
           <>
             <a className="small" href={api.sourceUrl(wp.id, String(row.item_id))} target="_blank" rel="noreferrer">{t("Megnyitás")}</a>

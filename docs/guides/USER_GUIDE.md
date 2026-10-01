@@ -95,6 +95,16 @@ The possible next steps are: ‘Empty work package’ (*Üres csomag*), ‘Start
 - **Hide from the list** (*Elrejtés a listából*) / **Show in the list again** (*Visszahozás a listába*): a hidden package keeps its runs and results, can still be opened directly, and reappears in the list when you tick **Hidden packages too**. A watched folder does not add new documents to a hidden package; it starts a new package instead.
 - **Delete permanently…** (*Végleges törlés…*): only possible on a package that has never had a run. It asks for confirmation (‘Delete this package permanently?’ (*Biztosan törlöd a csomagot?*)). The package and its item list are deleted; the files stay where they are. Deletion cannot be undone, and a record of it stays in the log. A package that has runs can only be hidden.
 
+### 5.2 Original or unified names
+
+The package's documents, the items of a run and the item list of Review can show each document under its original file name or under its **unified name** (*egységes név*): the content-based file name of the File names view (section 8), for example `2026-09-12_SZAMLA_Minta-Kft_SZ-2026-001234.pdf`. The **Name:** (*Név:*) switch above each of these lists chooses between **Original** (*Eredeti*) and **Unified** (*Egységes*). The choice applies to every list and is remembered for the person in **Who is working?** in this browser; the default is Unified.
+
+- A document has a unified name only once a run has processed it. Until then its original name is shown, and its tooltip says ‘No unified name yet: the item has not been processed.’ (*Még nincs egységes név: a tétel még nem futott le.*). In the package's list, each document's name comes from the latest run that processed it.
+- A ⚠ mark before a unified name means the name is uncertain: its copy would go into the review folder. Pointing at the mark shows why (for example a missing invoice number). Correcting that field in Review makes the name certain.
+- With a unified name shown, the tooltip gives the original name. Searching, sorting and filtering work on the name that is shown; the search also finds the other name.
+- Emails have no file name of their own and always keep their subject.
+- The **Columns** menu offers **Unified name** (*Egységes név*), **Original name** (*Eredeti név*) and **Unified name status** (*Egységes név állapota*: ‘Done’, ‘To check’ (*Ellenőrzendő*), ‘Not yet’ (*Még nincs*), ‘None (email)’ (*Nincs (levél)*)), so both names can be seen side by side.
+
 ## 6. Processing
 
 ### 6.1 Processing settings
@@ -137,7 +147,7 @@ The three buttons do not start anything straight away; they take you to a summar
 ### 6.5 The run page
 
 - **Header:** the mode and time, the state (‘Queued’ (*Sorban áll*), ‘Running’ (*Fut*), ‘To-dos pending’ (*Teendő vár*), ‘Done’ (*Kész*), ‘Failed’ (*Hibás*) or ‘Stopped’ (*Leállítva*)), the processing settings, and who started the run.
-- **Items:** for each item, its run state, the result and the number of to-dos. Clicking a to-do opens Review.
+- **Items:** for each item, its run state, the result and the number of to-dos. Clicking a to-do opens Review. The **Name:** switch shows the original or the unified names (section 5.2).
 - **Cost** (*Költség*): for each provider, the committed amount compared with the budget. The committed amount is the cost of the completed calls plus the reserved upper bound of the calls not yet settled.
 - **Job queue** (*Munkasor*): how many jobs are queued, running, done, failed (given up) or stopped.
 - **Call log (raw model calls)** (*Hívásnapló (nyers modellhívások)*): an expandable list of the paid calls. It is empty if every answer came from the cache.
@@ -152,7 +162,7 @@ Before a run, the Review stage only shows the package's documents (section 7.9).
 
 ### 7.1 The workspace
 
-- **At the top:** the run picker (the latest run by default; you can type to search), the number of open to-dos, the ‘Run details’ (*A futás részletei*) link and the keyboard help.
+- **At the top:** the run picker (the latest run by default; you can type to search), the number of open to-dos, the ‘Run details’ (*A futás részletei*) link, the **Name:** switch (original or unified names in the item list, section 5.2) and the keyboard help.
 - **On the left, the item list:** a search box (‘Search N items…’ (*Keresés N tétel között…*)) and a ‘to-dos only’ (*csak teendős*) checkbox. For each item you see the name (for an email, the subject), its state (‘to-do’ (*teendő*), ‘resolved’ (*rendezve*), ‘closed’ (*lezárva*), ‘not run yet’ (*még nem futott*), ‘Failed’…), and the ‘To-dos: N’, ‘N earlier to-dos’ (*N korábbi teendő*) and ‘unsaved’ (*mentetlen*) markers. The workspace opens at the first item that has a to-do.
 - **In the middle** is the page image of the document (from the copy kept when it was added; if the original file has changed or disappeared since, a note above the image says so), and **on the right** are the to-dos and the fields. You can drag the divider between them (or use ← / → on the keyboard); the ratio is remembered.
 

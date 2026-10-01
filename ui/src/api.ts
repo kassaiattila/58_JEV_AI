@@ -119,7 +119,11 @@ export interface RunView {
   run: Run; budget: Budget; open_reasons: Record<string, Reason[]>; earlier_open_reasons: Record<string, Reason[]>;
   titles?: Record<string, string>; // 048 T2: the readable title of an email item
   tables?: string[]; // 058: the result's views that contain data (an empty view is not shown)
+  names?: Record<string, ItemName>; // 082: the items' unified names (only when asked for)
 }
+/** 082: an item's unified name. `state`: ready / review (uncertain, `check` says why) / pending (not processed yet) /
+ *  none (an email has no file name of its own). */
+export interface ItemName { unified: string | null; state: "ready" | "review" | "pending" | "none"; check: string | null; run_id: string | null }
 export interface UtilitySource {
   item_id: string; file: string; amount: string; page: number | null; field: string; corrected: boolean; open_reasons: number;
   settlement?: boolean;
@@ -230,6 +234,7 @@ export interface DsColumn {
   key: string; label: string; kind: ColKind; hidden: boolean; labels: Record<string, string> | null; link?: LinkKind; field?: string;
   badge?: boolean; alert?: boolean; // 057: status badge; a value above 0 is highlighted
   percent?: boolean; // 062: a probability between 0 and 1, shown as a percentage
+  names?: "original" | "unified"; // 082: the name column of an item list shows this name
 }
 export type FilterOp = "contains" | "eq" | "neq" | "in" | "gte" | "lte" | "empty" | "notempty";
 export interface DsFilter { col: string; op: FilterOp; value?: string | string[] | null }
@@ -407,7 +412,8 @@ export const api = {
     request<{ run_id: string; deduped: boolean; status: string }>("POST", `/workpackages/${enc(id)}/workflow/start`, body),
   wpRuns: (id: string) => request<{ runs: Run[] }>("GET", `/workpackages/${enc(id)}/runs`),
   runs: () => request<{ runs: Run[] }>("GET", "/runs"),
-  run: (runId: string) => request<RunView>("GET", `/runs/${enc(runId)}`),
+  run: (runId: string, names?: "original" | "unified") =>
+    request<RunView>("GET", `/runs/${enc(runId)}${names === "unified" ? "?names=unified" : ""}`),
   journal: (runId: string) => request<{ calls: Call[]; budget: Budget }>("GET", `/runs/${enc(runId)}/journal`),
   cancel: (runId: string) => request<{ status: string }>("POST", `/runs/${enc(runId)}/cancel`, {}),
   approve: (runId: string) => request<RunView>("POST", `/runs/${enc(runId)}/approve`, {}),

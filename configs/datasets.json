@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "changelog": [
+   {
+    "version": "1.6.0",
+    "date": "2026-10-01",
+    "note": "082: labels of the unified-name state in the item lists (name_state: ready / review / not yet processed / an email without a file name)"
+   },
    {
     "version": "1.5.0",
     "date": "2026-09-30",
@@ -38,6 +43,7 @@
  "labels": {
   "run_status": {"queued": "Sorban áll", "running": "Fut", "needs_review": "Teendő vár", "done": "Kész", "failed": "Hibás", "cancelled": "Leállítva"},
   "naming_status": {"ready": "Kész", "review": "Ellenőrzendő"},
+  "name_state": {"ready": "Kész", "review": "Ellenőrzendő", "pending": "Még nincs", "none": "Nincs (levél)"},
   "item_status": {"done": "Lefutott", "failed": "Hibás", "cancelled": "Leállítva", "needs_review": "Teendő", "needs_ocr": "OCR kell"},
   "final_status": {"done": "Lezárva, teendő nélkül", "needs_review": "Teendő", "needs_ocr": "OCR kell", "jev_unavailable": "JEV nem volt elérhető"},
   "mode": {"shadow": "Próba", "apply": "Éles"},

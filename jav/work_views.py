@@ -8,6 +8,7 @@ rendered as text (not as a float), dates as ISO text.
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -184,16 +185,23 @@ def result_tables(run_id: str) -> list[str]:
     return out
 
 
-def run_view(run_id: str) -> dict[str, Any]:
+def run_view(run_id: str, *, names: bool = False) -> dict[str, Any]:
     """One run: items, queue, budget; the items' own open to-do reasons (`open_reasons`) and the earlier reasons left
-    open on the documents (`earlier_open_reasons`, for information only, they do not block approval)."""
+    open on the documents (`earlier_open_reasons`, for information only, they do not block approval). `names` (082):
+    also the items' unified names in this run (`jav/naming.py` `run_item_names`) — only on request, because the
+    run's page polls this view while the run is going."""
     run = work.get_run(run_id)
     split = work.items_reasons(run_id, run["input"]["items"])
     titles = item_titles(run["input"]["items"], package_root(work.get(run["workpackage_id"])))
+    extra = {}
+    if names:
+        from jav import naming
+
+        extra["names"] = {k: asdict(v) for k, v in naming.run_item_names(run_id).items()}
     return jsonable({"run": run, "budget": calls.budget_usage(run_id), "titles": titles,
                      "tables": result_tables(run_id),
                      "open_reasons": {k: v["run"] for k, v in split.items()},
-                     "earlier_open_reasons": {k: v["earlier"] for k, v in split.items() if v["earlier"]}})
+                     "earlier_open_reasons": {k: v["earlier"] for k, v in split.items() if v["earlier"]}, **extra})
 
 
 def run_list(wp_id: str | None = None, *, limit: int = 50) -> list[dict[str, Any]]:

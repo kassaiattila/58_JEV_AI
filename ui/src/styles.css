@@ -91,6 +91,9 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .block { display: grid; gap: 6px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
 .block input, .block select, .block textarea { font-weight: 400; border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; background: var(--paper); width: 100%; }
 .segmented { border: 0; padding: 0; margin: 0; display: flex; gap: 18px; font-size: 13px; }
+/* 082: the name switch above an item list and the mark on an uncertain unified name */
+.name-switch { gap: 10px; align-items: center; flex-wrap: wrap; }
+.name-warn { color: var(--warn); margin-right: 4px; cursor: help; }
 .empty { padding: 22px 16px; border: 1px dashed #cdcdd4; border-radius: var(--radius); color: var(--muted); background: var(--soft); }
 .notice { padding: 10px 14px; border-radius: 8px; background: var(--chip); margin: 0 0 14px; font-size: 13px; }
 .notice.error { background: var(--tint); color: var(--error); border: 1px solid var(--tint-line); }
