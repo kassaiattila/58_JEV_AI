@@ -191,7 +191,7 @@ describe("teendő-szövegek", () => {
     expect(reasonText("intent:low_conf:newsletter_marketing:0.49")).toBe("Bizonytalan levél-szándék: Hírlevél / Marketing (0,49)");
     expect(intentLabel("ismeretlen_kulcs")).toBe("ismeretlen_kulcs");
     // 080: the path by what it does (the owner's decision of 2026-10-01)
-    expect(paramsText({ arm: "S", jev_cache: "live" })).toBe("Út: Csak JEV — tételsorok nélkül, olcsóbb (S) · JEV-válaszok: mindig élő hívás");
+    expect(paramsText({ arm: "S", jev_cache: "live" })).toBe("Út: JEV, ahol lehet — olcsóbb, tételsorok nélkül; máshol GPT (S) · JEV-válaszok: mindig élő hívás");
   });
 });
 

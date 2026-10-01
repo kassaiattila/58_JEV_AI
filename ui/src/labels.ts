@@ -286,7 +286,7 @@ export const intentLabel = (key: string | null | undefined): string => (key ? IN
 export const PARAM_LABEL: Record<string, string> = tmap({ arm: "Út", doc_type: "Irattípus", jev_cache: "JEV-válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés" });
 const PARAM_SHORT: Record<string, string> = tmap({
   "arm:auto": "Automatikus (ajánlott)",
-  "arm:S": "Csak JEV — tételsorok nélkül, olcsóbb (S)",
+  "arm:S": "JEV, ahol lehet — olcsóbb, tételsorok nélkül; máshol GPT (S)",
   "arm:G": "GPT + JEV — tételsorokkal (G)",
   "jev_cache:reuse": "korábbi válasz újrahasználható",
   "jev_cache:live": "mindig élő hívás",
@@ -350,7 +350,9 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
   }
   if (amount("openai") > 0) {
     out.push(`${head("openai")}: ${join([
-      plan.paths.G > 0 && t("{{n}} irat a G-úton", { n: plan.paths.G }),
+      plan.paths.G > 0 && (plan.arm === "S"  // 082: the S path runs on G where the type has no JEV path
+        ? t("{{n}} irat a G-úton, mert a típusának nincs JEV-útja", { n: plan.paths.G })
+        : t("{{n}} irat a G-úton", { n: plan.paths.G })),
       plan.paths.unknown > 0 && t("{{n}} még ismeretlen típusú irat, ha a felismert típus a G-utat kéri", { n: plan.paths.unknown }),
       plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
     ])}.`);

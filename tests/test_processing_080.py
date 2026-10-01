@@ -97,7 +97,7 @@ def test_plan_counts_kinds_paths_and_reasons(isolated):
     work.assign_recipe(wp["id"], "processing", params={"tasks": "propose", "azure_ocr": "off"}, expected_revision=0, actor="t")
     r = work.readiness(wp["id"])
     assert r["plan"] == {"documents": 3, "emails": 1, "attachments": 0, "paths": {"S": 1, "G": 1, "unknown": 1},
-                         "tasks_emails": 1, "azure": False, "jev_reuse": True}
+                         "tasks_emails": 1, "azure": False, "jev_reuse": True, "arm": "auto"}  # 082: the chosen path
     # OpenAI: the G-path document, the document of unknown type and the task proposal on the email
     assert r["budget"] == {"jev": Decimal("0.26"), "openai": Decimal("0.306")}
 
