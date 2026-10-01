@@ -42,6 +42,10 @@ class Line:
     held_usd: Decimal = Decimal(0)
     reused: int = 0
 
+    @property
+    def succeeded(self) -> int:
+        return self.calls - self.failed - self.open
+
     def merge(self, other: Line) -> None:
         self.calls += other.calls
         self.failed += other.failed
@@ -231,6 +235,8 @@ def plan_vs_actual(run_id: str) -> dict[str, Any]:
                      "limit_usd": budget[p]["limit_usd"] if p in budget else None,
                      "committed_usd": budget[p]["committed_usd"] if p in budget else None,
                      "calls": s.calls, "failed": sum(x.failed for x in lines), "open": sum(x.open for x in lines),
-                     "usd": s.usd, "held_usd": s.held_usd, "reused": s.reused, "models": [x.model for x in lines],
+                     "usd": s.usd, "held_usd": s.held_usd, "reused": s.reused,
+                     # a failed call has no actual model, only the requested name (an alias): shown only without a better one
+                     "models": [x.model for x in lines if x.succeeded] or [x.model for x in lines if x.calls],
                      "unexpected": exp == "no" and s.calls > 0})
     return {"run_id": run_id, "plan_saved": plan is not None, "plan": plan, "providers": rows}

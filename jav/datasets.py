@@ -312,17 +312,18 @@ def _cost_key(line: costs.Line) -> str:
 
 
 def _cost_cols(spent: costs.RunCosts) -> list[Column]:
-    """082: one cost column per provider and model that the run called, the item's total, the answers taken from an
+    """082: one cost column per provider and model with a successful call in the run (a failed call has no actual model
+    and no known cost: its reserved maximum is in the reserved column), the item's total, the answers taken from an
     earlier answer, and the reserved maximum of the calls without a known cost (shown only when there is any)."""
     per_model = [_col(_cost_key(x), f"{PROVIDER_NAMES.get(x.provider, x.provider)} · {x.model} (USD)", "number")
-                 for x in spent.lines if x.calls]
+                 for x in spent.lines if x.succeeded]
     return [*per_model, _col("cost_total", "Költség összesen (USD)", "number"),
             _col("cost_reused", "Korábbi válaszból (db)", "number", hidden=True),
             _col("cost_held", "Lefoglalt, ismeretlen kimenetelű (USD)", "number", hidden=not spent.held_usd)]
 
 
 def _cost_fields(item: costs.Summary) -> dict[str, Any]:
-    return {**{_cost_key(x): x.usd for x in item.lines if x.calls}, "cost_total": item.usd, "cost_reused": item.reused,
+    return {**{_cost_key(x): x.usd for x in item.lines if x.succeeded}, "cost_total": item.usd, "cost_reused": item.reused,
             "cost_held": item.held_usd or None}
 
 
