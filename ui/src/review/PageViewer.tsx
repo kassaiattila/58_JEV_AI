@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Alternative, Provenance, SourcePage, SourceWord } from "../api";
 import { t, useLocale } from "../i18n";
-import { cyclePick, fieldsAtPoint, frameBoxes, inflate, wordAt, wordsInRect } from "./geometry";
+import { cyclePick, fieldsAtPoint, frameBoxes, inflate, insideShare, unionBox, wordAt, wordsInRect } from "./geometry";
 
 export const BAND_COLOR: Record<string, string> = {
   confident: "#008A2E", check: "#0057FF", likely_wrong: "#E00024", unknown: "#5b5b66", manual: "#7a3fb0",
@@ -102,6 +102,7 @@ export function PageViewer(props: Props) {
   }
 
   const activeBoxes = active?.page === page ? frameBoxes(active) : [];
+  const group = activeBoxes.length ? unionBox(activeBoxes) : null;
   const others = Object.entries(prov).filter(([k, p]) => k !== activeField && p.page === page && frameBoxes(p).length);
   const approx = active?.status === "approximate";
   const selectedSet = new Set(selected);
@@ -143,19 +144,30 @@ export function PageViewer(props: Props) {
                 style={{ left: `${r.left}%`, top: `${r.top}%`, width: `${r.width}%`, height: `${r.height}%`, outlineColor: colorOf(k) }} />
             );
           })) : null}
+          {/* 083: the value is highlighted line by line, like a marker, inside one thin common frame drawn outside the
+              text (a frame per line with a white ring covered the neighbouring lines of an address) */}
           {ready && activeField ? activeBoxes.map((b, i) => {
-            const r = inflate(b, 0.004);
+            const r = inflate(b, 0.0015);
             return (
-              <div key={`a${i}`} ref={i === 0 ? activeBox : undefined} className={`field-box active ${approx ? "approx" : ""}`} data-testid={i === 0 ? `box-${activeField}` : undefined}
+              <div key={`m${i}`} className="field-mark"
+                style={{ left: `${r.left}%`, top: `${r.top}%`, width: `${r.width}%`, height: `${r.height}%`, backgroundColor: colorOf(activeField) }} />
+            );
+          }) : null}
+          {ready && activeField && group ? (() => {
+            const r = inflate(group, 0.005);
+            return (
+              <div ref={activeBox} className={`field-box active ${approx ? "approx" : ""}`} data-testid={`box-${activeField}`}
                 title={approx ? t("{{field}} – közelítő hely (a sor, ahonnan a gép választott)", { field: labelOf(activeField) }) : labelOf(activeField)}
                 style={{ left: `${r.left}%`, top: `${r.top}%`, width: `${r.width}%`, height: `${r.height}%`, outlineColor: colorOf(activeField) }} />
             );
-          }) : null}
+          })() : null}
           {ready && activeField ? alternatives.map((a, i) => {
             const r = inflate(a.bbox!, 0.003);
             const label = a.machine ? t("gépi érték") : a.p !== null ? `${Math.round(a.p * 100)}%` : t("lehetséges hely");
+            // 083: a candidate lying within the value would draw its dashed border over the value's text: it keeps only its tag
+            const inside = group !== null && insideShare(a.bbox!, group) > 0.6;
             return (
-              <div key={`alt${i}`} className="alt-box" style={{ left: `${r.left}%`, top: `${r.top}%`, width: `${r.width}%`, height: `${r.height}%` }}>
+              <div key={`alt${i}`} className={`alt-box ${inside ? "alt-inside" : ""}`} style={{ left: `${r.left}%`, top: `${r.top}%`, width: `${r.width}%`, height: `${r.height}%` }}>
                 <button type="button" className="alt-chip" onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => onChooseAlternative(activeField, a)} title={t("Ezt választom: „{{text}}”", { text: a.quote ?? a.value ?? "" })}>
                   {label}

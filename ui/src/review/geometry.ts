@@ -54,6 +54,19 @@ export function cyclePick(hits: string[], current: string | null): string | null
 }
 
 /** The box is slightly larger than the text so that it does not cover the letters. */
+/** 083: the box around all the given boxes (the lines of a value printed over several lines). */
+export function unionBox(boxes: Box[]): Box {
+  return [Math.min(...boxes.map((b) => b[0])), Math.min(...boxes.map((b) => b[1])), Math.max(...boxes.map((b) => b[2])), Math.max(...boxes.map((b) => b[3]))];
+}
+
+/** 083: how much of box `b` lies inside box `outer` (0–1, by area). */
+export function insideShare(b: Box, outer: Box): number {
+  const w = Math.max(0, Math.min(b[2], outer[2]) - Math.max(b[0], outer[0]));
+  const h = Math.max(0, Math.min(b[3], outer[3]) - Math.max(b[1], outer[1]));
+  const area = (b[2] - b[0]) * (b[3] - b[1]);
+  return area > 0 ? (w * h) / area : 0;
+}
+
 export function inflate(b: Box, by: number): { left: number; top: number; width: number; height: number } {
   const x0 = Math.max(0, b[0] - by), y0 = Math.max(0, b[1] - by), x1 = Math.min(1, b[2] + by), y1 = Math.min(1, b[3] + by);
   return { left: x0 * 100, top: y0 * 100, width: (x1 - x0) * 100, height: (y1 - y0) * 100 };

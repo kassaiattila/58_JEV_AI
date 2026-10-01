@@ -200,13 +200,18 @@ body.dragging { cursor: col-resize; user-select: none; }
 .page-img { display: block; width: 100%; background: var(--paper); box-shadow: 0 2px 10px #0000001f; }
 .page-status { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; background: #f4f4f5cc; min-height: 200px; }
 .field-box { position: absolute; pointer-events: none; border-radius: 3px; }
-.field-box.active { outline: 3px solid; outline-offset: 2px; box-shadow: 0 0 0 5px #fff; background: #0057ff0d; z-index: 4; }
-.field-box.active.approx { outline-style: dashed; background: #0057ff08; }
+/* 083: one thin common frame around the whole value, outside the text, and a see-through marker per line (a frame per
+   line with a white ring covered the neighbouring lines of a value printed over several lines) */
+.field-box.active { outline: 2px solid; outline-offset: 3px; z-index: 4; }
+.field-box.active.approx { outline-style: dashed; }
+.field-mark { position: absolute; pointer-events: none; border-radius: 2px; opacity: 0.2; mix-blend-mode: multiply; z-index: 4; }
 .field-box.all { outline: 2px solid; outline-offset: 1px; opacity: 0.55; z-index: 2; }
 .field-box.all.approx { outline-style: dashed; }
-.alt-box { position: absolute; border: 2px dashed #8a8a96; border-radius: 3px; z-index: 3; pointer-events: none; }
-.alt-chip { position: absolute; top: 0; left: 0; transform: translateY(-100%); pointer-events: auto; font-size: 10px; padding: 1px 6px;
-  border: 0; border-radius: 3px 3px 0 0; background: #5b5b66; color: #fff; white-space: nowrap; }
+.alt-box { position: absolute; border: 1.5px dashed #8a8a96; border-radius: 3px; z-index: 3; pointer-events: none; }
+.alt-box.alt-inside { border-color: transparent; }
+/* 083: the tag beside the box, not over the line above it */
+.alt-chip { position: absolute; top: 50%; left: 100%; transform: translate(4px, -50%); pointer-events: auto; font-size: 10px; padding: 1px 6px;
+  border: 0; border-radius: 3px; background: #5b5b66; color: #fff; white-space: nowrap; opacity: 0.9; }
 .alt-chip:hover, .alt-chip:focus-visible { background: var(--accent); }
 .word-sel { position: absolute; background: #7a3fb033; outline: 1px solid #7a3fb0; pointer-events: none; z-index: 5; }
 .drag-rect { position: absolute; border: 1px dashed #7a3fb0; background: #7a3fb014; pointer-events: none; z-index: 6; }
@@ -237,6 +242,8 @@ body.dragging { cursor: col-resize; user-select: none; }
 .src-approx { color: var(--warn); }
 .fdetail { margin-top: 6px; display: grid; gap: 5px; }
 .alts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+/* 083: a long candidate wraps inside the panel instead of running out of it */
+.alts .small-btn { flex: 0 1 auto; max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
 .panel .actions { padding: 10px 12px; flex: none; }
 
 /* 048: line lists on the panel (tabs, table with editable cells, checks) */
