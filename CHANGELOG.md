@@ -36,6 +36,12 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   queued item). A running item that failed after a stop also went back to the queue, where a stopped job is never
   claimed again. Now a stop cancels the queued jobs and asks the running one to stop in one transaction, and a job that
   fails or is released after a stop request is cancelled, so the run ends as stopped without a manual refresh.
+- **The run's total cost first:** the run's page now opens its cost part with **Cost of the run**, the actual cost over
+  every provider, followed by each provider's paid calls, cost and models and the number of questions answered from
+  earlier answers. **Planned and actual** sets each provider's plan against its actual cost. The budget bars moved into
+  a closed **Budget** part whose title gives each provider's share used; it opens by itself when a budget is at least
+  80% used or the budget stopped something in the run. The run view's `costs` carries `total` (cost, paid calls, failed
+  calls, reserved amount, reused answers). No paid calls; the model requests do not change.
 - **The S path says what it does:** the path once called "JEV only" is now **JEV where possible — cheaper, no line
   items; GPT elsewhere (S)**. Behaviour is unchanged: a document type without a JEV path (fifteen types, for example
   NAV receipts and bank statements) runs on the G path with S chosen too, so that its data is still read. The help,

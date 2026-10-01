@@ -162,6 +162,10 @@ button:active:not(:disabled) { transform: translateY(1px); }
 
 /* Run details */
 .run-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 30px; align-items: start; }
+/* 083: the run's total cost first; the budget bars in a closed part under it */
+.cost-total { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 2px 0 10px; }
+.cost-total strong { font-size: 20px; }
+.budget-box { margin-top: 12px; }
 .budget { margin-bottom: 12px; }
 .budget-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
 .bar { height: 8px; background: #e6e6ea; border-radius: 99px; overflow: hidden; }
