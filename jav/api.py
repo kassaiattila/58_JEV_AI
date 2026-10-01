@@ -35,7 +35,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import (app_settings, backup, cfg, corrections, deps_audit, local_picker, mailbox, numbers, store, version,
+from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, local_picker, mailbox, numbers, store, version,
                  work, work_views)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, worker
@@ -480,6 +480,10 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.exception_handler(numbers.AmbiguousNumber)
     async def ambiguous_number(_request: Request, exc: numbers.AmbiguousNumber):
         return _error(422, "ambiguous_number", str(exc))  # 081: the UI asks for the Hungarian form ("28,50")
+
+    @app.exception_handler(dates.AmbiguousDate)
+    async def ambiguous_date(_request: Request, exc: dates.AmbiguousDate):
+        return _error(422, "ambiguous_date", str(exc))  # 084: the UI asks for the year first ("2022-12-04")
 
     @app.exception_handler(local_picker.PickerBusy)
     async def picker_busy(_request: Request, exc: local_picker.PickerBusy):

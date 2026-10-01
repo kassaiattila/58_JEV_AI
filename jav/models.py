@@ -21,6 +21,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from jav.dates import DateOrder, read_date
 from jav.numbers import Convention, Kind, NumberRead, read_number
 
 # --------------------------------------------------------------------------------------
@@ -114,62 +115,18 @@ _HU_MONTHS = {
 }  # fmt: skip
 _MONTH_ALT = "|".join(sorted(_HU_MONTHS, key=len, reverse=True))
 
+# 084: kept unchanged: the type recognition request counts their matches (`detect.build_state`, `features.dates`), so a
+# change would make every recognition a new, paid call. Dates are read by the shared reader (`jav/dates.py`).
 DATE_NUMERIC_RE = re.compile(r"(?<!\d)(\d{4})\s*[.\-/]\s*(\d{1,2})\s*[.\-/]\s*(\d{1,2})\.?(?!\d)")
 DATE_TEXT_RE = re.compile(rf"(?<!\d)(\d{{4}})\.?\s+({_MONTH_ALT})\.?\s+(\d{{1,2}})\.?(?!\d)", re.IGNORECASE)
 
-# International date forms (intl candidate profile). Convention: a dot / hyphen separator = day first (07.03.2025 =
-# 7 March, continental); a slash = month first (12/19/2022, US). English month names in both orders.
-_EN_MONTHS = {
-    "january": 1, "jan": 1, "february": 2, "feb": 2, "march": 3, "mar": 3, "april": 4, "apr": 4, "may": 5,
-    "june": 6, "jun": 6, "july": 7, "jul": 7, "august": 8, "aug": 8, "september": 9, "sept": 9, "sep": 9,
-    "october": 10, "oct": 10, "november": 11, "nov": 11, "december": 12, "dec": 12,
-}  # fmt: skip
-_EN_MONTH_ALT = "|".join(sorted(_EN_MONTHS, key=len, reverse=True))
-DATE_EN_MDY_RE = re.compile(rf"\b({_EN_MONTH_ALT})\.?\s+(\d{{1,2}})(?:st|nd|rd|th)?,?\s+(\d{{4}})\b", re.IGNORECASE)  # Dec 25, 2022
-DATE_EN_DMY_RE = re.compile(rf"(?<!\d)(\d{{1,2}})(?:st|nd|rd|th)?\.?\s+({_EN_MONTH_ALT})\.?,?\s+(\d{{4}})\b", re.IGNORECASE)  # 25 Dec 2022
-DATE_DMY_RE = re.compile(r"(?<!\d)(\d{1,2})\s*[.\-]\s*(\d{1,2})\s*[.\-]\s*(\d{4})(?!\d)")  # 07.03.2025 / 07-03-2025 (day first)
-DATE_MDY_SLASH_RE = re.compile(r"(?<!\d)(\d{1,2})/(\d{1,2})/(\d{4})(?!\d)")  # 12/19/2022 (US, month first)
-INTL_DATE_RES: tuple[re.Pattern[str], ...] = (DATE_EN_MDY_RE, DATE_EN_DMY_RE, DATE_DMY_RE, DATE_MDY_SLASH_RE)
 
-
-def _intl_date(m: re.Match[str], rx: re.Pattern[str]) -> tuple[int, int, int]:
-    if rx is DATE_EN_MDY_RE:
-        return int(m.group(3)), _EN_MONTHS[m.group(1).lower()], int(m.group(2))
-    if rx is DATE_EN_DMY_RE:
-        return int(m.group(3)), _EN_MONTHS[m.group(2).lower()], int(m.group(1))
-    if rx is DATE_DMY_RE:
-        return int(m.group(3)), int(m.group(2)), int(m.group(1))
-    return int(m.group(3)), int(m.group(1)), int(m.group(2))  # MDY slash
-
-
-def normalize_date(raw: str | None, *, intl: bool = False) -> date | None:
-    """`2022.02.10.`, `2022. 02. 10.`, `2022-02-10`, `2022/02/10`, `2022. február 10.` -> date. Two-digit year: no.
-    `intl=True`: also `Dec 25, 2022`, `25 Dec 2022`, `07.03.2025` (day first), `12/19/2022` (month first)."""
-    if raw is None:
-        return None
-    s = str(raw).replace(" ", " ").strip()
-    m = DATE_NUMERIC_RE.search(s)
-    if m:
-        y, mo, d = (int(g) for g in m.groups())
-    else:
-        m = DATE_TEXT_RE.search(s)
-        if m:
-            y, d = int(m.group(1)), int(m.group(3))
-            mo = _HU_MONTHS[m.group(2).lower()]
-        elif intl:
-            for rx in INTL_DATE_RES:
-                m = rx.search(s)
-                if m:
-                    y, mo, d = _intl_date(m, rx)
-                    break
-            else:
-                return None
-        else:
-            return None
-    try:
-        return date(y, mo, d)
-    except ValueError:
-        return None
+def normalize_date(raw: str | None) -> date | None:
+    """084: the shared date reader (`jav/dates.py`), value only: every common form ("2022.02.10.", "2022. február 10.",
+    "04-DEC-22", "Dec 25, 2022", "07.03.2025"...), and None for text that is no date or whose day and month can be read
+    two ways ("04/12/2022", "22.02.10"). A caller that can raise a to-do uses `dates.read_date` instead."""
+    got = read_date(raw)
+    return None if got.ambiguous else got.value
 
 
 _DIGITS = re.compile(r"\D")
@@ -375,13 +332,17 @@ def _number_or_reason(kind: Kind, field: str, raw: object, reasons: list[str], *
     return got.value
 
 
-def _date_or_reason(field: str, raw: str | None, reasons: list[str]) -> date | None:
+def _date_or_reason(field: str, raw: str | None, reasons: list[str], date_order: DateOrder | None = None) -> date | None:
+    """084: the shared date reader with the document's `date_order`; a date whose day and month can be read two ways
+    keeps its reading and gets a to-do (`date:order_ambiguous`), never a silent guess."""
     if raw is None:
         return None
-    value = normalize_date(raw)
-    if value is None:
+    got = read_date(raw, order=date_order)
+    if got.value is None:
         reasons.append(f"{field}:unparseable:{raw!r}")
-    return value
+    elif got.ambiguous:
+        reasons.append(f"date:order_ambiguous:{field}:{raw!r}")
+    return got.value
 
 
 _LINE_ITEM_MONEY = ("unit_price", "net_amount", "gross_amount", "vat_amount")
@@ -389,10 +350,10 @@ _LINE_ITEM_TEXT = ("description", "vat_rate", "unit", "product_code", "note")
 
 
 def normalize_value(kind: str, raw: object, field: str, reasons: list[str], *, origin: Origin = "llm",
-                    convention: Convention | None = None) -> object:
+                    convention: Convention | None = None, date_order: DateOrder | None = None) -> object:
     """Normalises one field by its KIND in the type pack (code owns the format). Parse error -> review reasons. An
     amount or a quantity is read by the shared number reader (`_number_or_reason`: `origin`, the document's
-    `convention`)."""
+    `convention`); 084: a date by the shared date reader with the document's `date_order`."""
     if raw is None:
         return None
     if kind in ("money", "number"):
@@ -400,7 +361,7 @@ def normalize_value(kind: str, raw: object, field: str, reasons: list[str], *, o
         # also returns the Hungarian form ("143,00", "1 866", "1.153")
         return _number_or_reason(kind, field, raw, reasons, origin=origin, convention=convention)  # type: ignore[arg-type]
     if kind == "date":
-        return _date_or_reason(field, str(raw), reasons)
+        return _date_or_reason(field, str(raw), reasons, date_order)
     if kind == "tax_id":
         return normalize_tax_id(str(raw))
     if kind == "iban":
@@ -426,14 +387,16 @@ def _check_enum(path: str, value: object, enums: dict[str, list[Any]], reasons: 
 
 
 def _list_value(field: str, raw: object, item_kinds: dict[str, str], enums: dict[str, list[Any]], reasons: list[str],
-                origin: Origin = "llm", convention: Convention | None = None) -> list[Any]:
+                origin: Origin = "llm", convention: Convention | None = None,
+                date_order: DateOrder | None = None) -> list[Any]:
     """047: an itemised list as described by the pack's `list_fields`. `{"*": kind}` = a list of plain values;
     otherwise objects, normalised by the kind of each item field (unknown item field: as text)."""
     out: list[Any] = []
     for i, item in enumerate(raw if isinstance(raw, list) else []):
         path = f"{field}[{i}]"
         if "*" in item_kinds:
-            value = normalize_value(item_kinds["*"], item, path, reasons, origin=origin, convention=convention)
+            value = normalize_value(item_kinds["*"], item, path, reasons, origin=origin, convention=convention,
+                                    date_order=date_order)
             _check_enum(path, value, enums, reasons, f"{field}[]")
             out.append(value)
             continue
@@ -441,7 +404,7 @@ def _list_value(field: str, raw: object, item_kinds: dict[str, str], enums: dict
         norm: dict[str, Any] = {}
         for sub in (*item_kinds, *(k for k in obj if k not in item_kinds)):
             value = normalize_value(item_kinds.get(sub, "text"), obj.get(sub), f"{path}.{sub}", reasons, origin=origin,
-                                    convention=convention)
+                                    convention=convention, date_order=date_order)
             _check_enum(f"{path}.{sub}", value, enums, reasons, f"{field}[].{sub}")
             norm[sub] = value
         out.append(norm)
@@ -450,13 +413,13 @@ def _list_value(field: str, raw: object, item_kinds: dict[str, str], enums: dict
 
 def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fields: dict[str, dict[str, str]] | None = None,
                     enums: dict[str, list[Any]] | None = None, origin: Origin = "llm",
-                    convention: Convention | None = None) -> tuple[InvoiceHU, list[str]]:
+                    convention: Convention | None = None, date_order: DateOrder | None = None) -> tuple[InvoiceHU, list[str]]:
     """Generative extract (a dict following the type pack's schema) -> normalised record by the pack's field kinds.
     Known attributes of the record are set directly, further pack fields go into `extra`. A parse error is not an
     exception but review reasons. 047: a `list` field uses the item description in `list_fields`; a violated
     enumerated value (`enums`, key: `field` or `field[].item_field`) gives review reasons, not an error. 081: amounts and
     quantities are read by the shared number reader: `origin` ("llm" for a generative extract, "canonical" for stored
-    values) and the document's `convention`."""
+    values) and the document's `convention`; 084: dates by the shared date reader with the document's `date_order`."""
     list_fields, enums = list_fields or {}, enums or {}
     reasons: list[str] = []
     items: list[LineItem] = []
@@ -479,9 +442,10 @@ def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fie
             continue  # the invoice line items take the record's own `line_items` path (above), not twice
         if kind == "list":
             extra_fields[field] = _list_value(field, data.get(field), list_fields.get(field, {"*": "text"}), enums, reasons,
-                                              origin, convention)
+                                              origin, convention, date_order)
             continue
-        value = normalize_value(kind, data.get(field), field, reasons, origin=origin, convention=convention)
+        value = normalize_value(kind, data.get(field), field, reasons, origin=origin, convention=convention,
+                                date_order=date_order)
         _check_enum(field, value, enums, reasons, field)
         if field in own:
             values[field] = value

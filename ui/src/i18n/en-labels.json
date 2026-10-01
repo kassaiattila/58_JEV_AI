@@ -49,6 +49,7 @@
  "Hírlevél / Marketing": "Newsletter / marketing",
  "Kiemelt mező nem elég biztos: {{field}} ({{p}})": "Key field not certain enough: {{field}} ({{p}})",
  "Kétértelmű tizedesjel: {{field}}": "Ambiguous decimal separator: {{field}}",
+ "A nap és a hónap sorrendje kétes: {{field}}": "Uncertain order of day and month: {{field}}",
  "Kézi ellenőrzés: a JEV nem volt elérhető": "Manual review: JEV was unavailable",
  "Kézi ellenőrzés: bizonytalan szándék": "Manual review: uncertain intent",
  "Kézi ellenőrzés: gyanús tartalom": "Manual review: suspicious content",

@@ -27,21 +27,19 @@ from typesafe_sdk import Noul
 from jav import cfg
 from jav.adapters.jev import JevAdapter
 from jav.candidates import QUANTITY_RE, find_all, profile_of
+from jav.dates import find_dates_in, read_date
 from jav.jev_budget import ask_within_budget, line_numbers
-from jav.numbers import Convention, document_convention
 from jav.models import (
     Candidate,
-    DATE_NUMERIC_RE,
-    DATE_TEXT_RE,
-    INTL_DATE_RES,
     JevCall,
     JevVerdicts,
     LineLayout,
     money_label,
-    normalize_date,
     parse_money,
 )
-from jav.typepack import TypePack, get as get_pack
+from jav.numbers import Convention, document_convention
+from jav.typepack import TypePack
+from jav.typepack import get as get_pack
 
 # Country code -> names / signs that can be printed on the document (evidence for the `country` kind: the code
 # searches for these signs, not for the code itself)
@@ -141,12 +139,12 @@ def find_evidence(
         if not hits and target == "0" and intl and any(re.search(r"(?i)reverse\s*charge|fordított\s*áfa", ln.text) for ln in lines):
             hits = [f"L{ln.no:02d}: {ln.text}" for ln in lines if re.search(r"(?i)reverse\s*charge|fordított\s*áfa", ln.text)]
     elif kind == "date":
-        target = normalize_date(value, intl=True)
+        # 084: the shared date reader, every form; either reading of a two-way date is evidence (its to-do comes from code)
+        target = read_date(value).value
         if target is None:
             return hits
-        res = (DATE_NUMERIC_RE, DATE_TEXT_RE) + (INTL_DATE_RES if intl else ())
         for ln in lines:
-            if any(normalize_date(m.group(0), intl=intl) == target for rx in res for m in rx.finditer(ln.text)):
+            if any(target in (h.value, h.alt) for h in find_dates_in(ln.text)):
                 hits.append(f"L{ln.no:02d}: {ln.text}")
     elif kind in ("tax_id", "iban"):
         target = _digits(value)

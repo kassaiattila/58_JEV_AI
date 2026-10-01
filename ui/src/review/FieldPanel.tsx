@@ -11,7 +11,7 @@ import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState }
 import { api, ApiError, getActor, NO_ACTOR, type Alternative, type CorrectionValue, type ItemResult, type Provenance, type Reason } from "../api";
 import { Icon } from "../components/Icon";
 import { t, useLocale } from "../i18n";
-import { checkText, editNumber, fieldLabel, reasonText, savedNumbers, tmap } from "../labels";
+import { checkText, editNumber, fieldLabel, reasonText, savedValues, tmap } from "../labels";
 import { clearDraft, draftKey, isDirty, rebaseDraft, revertField, setField, setList, useDraft, type Draft } from "./drafts";
 import { useResolve } from "./useResolve";
 import { BAND_LABEL, type Band } from "./geometry";
@@ -126,7 +126,7 @@ export function FieldPanel(p: Props) {
   const failed = (result.checks ?? []).filter((c) => !c.ok);
   const machine = result.extraction?.datapoints ?? {};
   const [state, setState] = useState<{ kind: "idle" | "saving" | "saved" | "error"; msg?: string }>({ kind: "idle" });
-  const [norm, setNorm] = useState<{ text: string; value: string | null; ok: boolean } | null>(null);
+  const [norm, setNorm] = useState<{ text: string; value: string | null; ok: boolean; twoWayDate?: boolean } | null>(null);
   const activeRow = useRef<HTMLLIElement | null>(null);
 
   useEffect(() => { activeRow.current?.scrollIntoView?.({ block: "nearest" }); }, [activeField]);
@@ -148,7 +148,8 @@ export function FieldPanel(p: Props) {
     let alive = true;
     const timer = window.setTimeout(() => {
       api.normalize(result.extraction!.doc_type, activeField, selection.text)
-        .then((r) => alive && setNorm({ text: selection.text, value: r.value, ok: r.ok }))
+        .then((r) => alive && setNorm({ text: selection.text, value: r.value, ok: r.ok,
+          twoWayDate: (r.reasons ?? []).some((x) => x.startsWith("date:order_ambiguous")) }))
         .catch(() => alive && setNorm({ text: selection.text, value: null, ok: false }));
     }, 150);
     return () => { alive = false; window.clearTimeout(timer); };
@@ -181,10 +182,10 @@ export function FieldPanel(p: Props) {
         fields: body.fields, expected_revision: base, ...(Object.keys(body.sources).length ? { sources: body.sources } : {}),
       });
       clearDraft(key);
-      // 081: the amounts typed now, as the local service read them ("28.000" → 28 000)
+      // 081: the amounts typed now, as the local service read them ("28.000" → 28 000); 084: the dates too
       const typed = Object.fromEntries(Object.keys(draft?.values ?? {}).map((f) => [f, saved.correction.fields[f]]));
-      const numbers = savedNumbers(typed, kinds);
-      setState({ kind: "saved", msg: numbers ? t("Mentve. Rögzített érték: {{values}}", { values: numbers }) : t("Mentve.") });
+      const values = savedValues(typed, kinds);
+      setState({ kind: "saved", msg: values ? t("Mentve. Rögzített érték: {{values}}", { values }) : t("Mentve.") });
       p.onSaved();
     } catch (e) {
       reportSaveError(e);
@@ -199,6 +200,8 @@ export function FieldPanel(p: Props) {
       ? t("Közben más is mentett erre a tételre. A módosításaid megmaradtak; frissítsd, és mentsd újra.")
       : err.code === "ambiguous_number"
         ? t("Nem sikerült menteni: egy szám kétféleképpen is olvasható. Tizedesvesszővel (28,50) vagy tagolás nélkül (28000) írd be. A módosításaid megmaradtak.")
+        : err.code === "ambiguous_date"
+        ? t("Nem sikerült menteni: egy dátumban a nap és a hónap kétféleképpen is olvasható. Írd be az évvel kezdve (2022-12-04) vagy a hónap nevével (4 Dec 2022). A módosításaid megmaradtak.")
         : t("Nem sikerült menteni: {{reason}}. A módosításaid megmaradtak.", { reason: err.message }) });
     if (err.status === 409) p.onSaved();
   }
@@ -364,7 +367,9 @@ export function FieldPanel(p: Props) {
                   <button type="button" className="primary small-btn" onClick={applySelection}>{t("Beírás a mezőbe")}</button>
                   <button type="button" className="quiet small-btn" onClick={p.onClearSelection}>{t("Mégse")}</button>
                 </div>
-              ) : <div className="error-text small">{t("Ez a szöveg nem értelmezhető „{{field}}” értékként. Jelölj ki mást.", { field: fieldLabel(activeField) })}</div>
+              ) : norm.twoWayDate
+                ? <div className="error-text small">{t("A kijelölt dátumban a nap és a hónap kétféleképpen is olvasható. Gépeld be az évvel kezdve (2022-12-04).")}</div>
+                : <div className="error-text small">{t("Ez a szöveg nem értelmezhető „{{field}}” értékként. Jelölj ki mást.", { field: fieldLabel(activeField) })}</div>
             ) : <div className="muted small">{t("Értelmezés…")}</div>
           ) : <div className="muted small">{t("Válaszd ki, melyik mezőbe kerüljön.")}</div>}
         </div>

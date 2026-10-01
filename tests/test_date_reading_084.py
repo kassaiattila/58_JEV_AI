@@ -20,6 +20,8 @@ from datetime import date
 import pytest
 
 from jav import dates
+from jav.runtime import worker
+from tests.test_api import HUMAN, _ready_wp, _start, env  # noqa: F401 - the shared service fixture (`service` below)
 
 TODAY = date(2026, 10, 1)
 
@@ -214,3 +216,135 @@ def test_manual_input_refuses_text_that_is_not_one_date(raw):
     with pytest.raises(ValueError) as exc:
         dates.read_date_input(raw, today=TODAY)
     assert not isinstance(exc.value, dates.AmbiguousDate)
+
+
+# --- every path reads dates through the shared reader -----------------------------------------------------------------
+
+
+def _lines(*texts: str):
+    from jav.models import CellLayout, LineLayout
+
+    out = []
+    for no, text in enumerate(texts, 1):
+        cells = [CellLayout(text=c, x0=30 + 200 * k, x1=30 + 200 * k + 6 * len(c)) for k, c in enumerate(text.split("   "))]
+        out.append(LineLayout(no=no, page=1, text=text, cells=cells))
+    return out
+
+
+def _date_cands(profile, *texts):
+    from jav.candidates import find_all
+
+    return [(c.label, c.raw, c.ambiguous) for c in find_all(_lines(*texts), profile)["date"]]
+
+
+def test_the_hotel_invoice_date_is_a_candidate():
+    assert _date_cands("intl", "Issued : 04-DEC-22 21:52") == [("2022-12-04", "04-DEC-22", False)]
+
+
+def test_a_day_first_date_is_a_candidate_on_a_hungarian_document_too():
+    assert _date_cands("hu", "Kelt: 04.12.2022") == [("2022-12-04", "04.12.2022", False)]
+
+
+def test_a_slash_date_candidate_follows_the_documents_order_or_is_flagged():
+    assert _date_cands("intl", "Date: 04/12/2022") == [("2022-04-12", "04/12/2022", True)]
+    assert _date_cands("intl", "Date: 04/12/2022", "Due: 25/12/2022") == [
+        ("2022-12-04", "04/12/2022", False), ("2022-12-25", "25/12/2022", False)]
+
+
+def test_the_ocr_profile_still_reads_a_comma_as_a_dot():
+    assert _date_cands("utility", "Számla kelte: 2022,12,04") == [("2022-12-04", "2022,12,04", False)]
+
+
+def test_a_gpt_date_in_any_common_form_is_read_and_an_ambiguous_one_gets_a_to_do():
+    from jav.models import normalize_value
+
+    reasons: list[str] = []
+    assert normalize_value("date", "04-DEC-22", "issue_date", reasons) == date(2022, 12, 4)
+    assert normalize_value("date", "2022-12-04", "due_date", reasons) == date(2022, 12, 4)
+    assert reasons == []
+    assert normalize_value("date", "04/12/2022", "issue_date", reasons) == date(2022, 4, 12)
+    assert reasons == ["date:order_ambiguous:issue_date:'04/12/2022'"]
+    assert normalize_value("date", "04/12/2022", "issue_date", reasons := [], date_order="dmy") == date(2022, 12, 4)
+    assert reasons == []
+    assert normalize_value("date", "not a date", "issue_date", reasons) is None
+    assert reasons == ["issue_date:unparseable:'not a date'"]
+
+
+def test_the_g_path_reads_gpt_dates_with_the_documents_order():
+    from jav import typepack
+
+    inv, reasons = typepack.get("invoice_foreign").normalize({"issue_date": "04/12/2022"}, date_order="dmy")
+    assert inv.issue_date == date(2022, 12, 4)
+    assert not [r for r in reasons if r.startswith("date:")]
+
+
+def test_a_picked_ambiguous_date_gets_a_to_do_on_the_s_path():
+    from jav.jev_select import site_for
+    from jav.models import Candidate, FieldPick
+
+    lines = _lines("Date: 04/12/2022")
+    cand = Candidate(kind="date", label="2022-04-12", raw="04/12/2022", line_no=1, context="L01", ambiguous=True)
+    picks = {"issue_date": FieldPick(field="issue_date", label="2022-04-12", raw="04/12/2022", confidence=0.9, n_options=1,
+                                     request_id="dates")}
+    inv, reasons = site_for("invoice_foreign").picks_to_invoice(picks, {"date": [cand]}, lines)
+    assert inv.issue_date == date(2022, 4, 12)
+    assert "date:order_ambiguous:issue_date:'04/12/2022'" in reasons
+
+
+def test_an_ambiguous_date_candidate_does_not_change_the_jev_option_text():
+    from jav.jev_select import site_for
+    from jav.models import Candidate
+
+    cand = Candidate(kind="date", label="2022-04-12", raw="04/12/2022", line_no=1, context="L01: 'Date: 04/12/2022'",
+                     ambiguous=True)
+    choice = site_for("invoice_foreign").build_choice("issue_date", [cand])
+    assert choice.criteria["2022-04-12"] == "printed as '04/12/2022' at L01: 'Date: 04/12/2022'"
+
+
+def test_the_jev_check_finds_a_date_in_any_form_and_either_reading_of_an_ambiguous_one():
+    from jav.jev_verify import find_evidence
+
+    lines = _lines("Issued : 04-DEC-22 21:52", "Due: 04/12/2022", "Total 1 234.00")
+    assert find_evidence("issue_date", "2022-12-04", lines, kind="date") == [
+        "L01: Issued : 04-DEC-22 21:52", "L02: Due: 04/12/2022"]
+    assert find_evidence("due_date", "2022-04-12", lines, kind="date") == ["L02: Due: 04/12/2022"]
+
+
+def test_normalize_date_gives_only_an_unambiguous_value():
+    from jav.models import normalize_date
+
+    assert normalize_date("04-DEC-22") is not None
+    assert normalize_date("04/12/2022") is None
+    assert normalize_date("22.02.10") is None
+
+
+@pytest.fixture()
+def service(request):
+    """The local service over synthetic invoices (the `env` fixture of the service tests)."""
+    return request.getfixturevalue("env")
+
+
+def test_a_typed_date_in_any_unambiguous_form_is_stored_as_iso(service):
+    c = service["client"]
+    wp = _ready_wp(c, service["folder"])
+    run_id = _start(c, wp["id"]).json()["run_id"]
+    worker.run_worker(once=True)
+    url = f"/api/runs/{run_id}/items/{wp['items'][0]['item_id']}/correction"
+    r = c.post(url, headers=HUMAN, json={"fields": {"issue_date": "04-DEC-22", "due_date": "2022. dec. 18."},
+                                          "expected_revision": 0})
+    assert r.status_code == 200, r.text
+    assert r.json()["correction"]["fields"] == {"issue_date": "2022-12-04", "due_date": "2022-12-18"}
+    bad = c.post(url, headers=HUMAN, json={"fields": {"issue_date": "04/12/2022"}, "expected_revision": 1})
+    assert bad.status_code == 422 and bad.json()["error"] == "ambiguous_date"
+    bad = c.post(url, headers=HUMAN, json={"fields": {"issue_date": "soon"}, "expected_revision": 1})
+    assert bad.status_code == 422
+
+
+def test_a_date_selected_on_the_page_image_is_read(service):
+    c = service["client"]
+    r = c.post("/api/normalize", json={"doc_type": "invoice_foreign", "field": "issue_date", "text": "Issued : 04-DEC-22 21:52"})
+    assert r.status_code == 200, r.text
+    assert (r.json()["ok"], r.json()["value"]) == (True, "2022-12-04")
+    r = c.post("/api/normalize", json={"doc_type": "invoice_foreign", "field": "issue_date", "text": "04/12/2022"})
+    assert r.json()["ok"] is False
+    assert r.json()["reasons"] == ["date:order_ambiguous:issue_date:'04/12/2022'"]

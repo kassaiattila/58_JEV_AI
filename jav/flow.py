@@ -179,11 +179,15 @@ def jev_verify(state: FlowState) -> FlowState:
 
 @action.pydantic(reads=["layout", "llm_output", "doc_type", "needs_review", "review_reasons"], writes=["invoice", "needs_review", "review_reasons"])
 def normalize_llm(state: FlowState) -> FlowState:
+    from jav.dates import document_date_order
     from jav.numbers import document_convention
 
-    # 081: a value GPT copied in the document's own notation ("28.000") is read with that notation, never as 28
-    convention = document_convention(ln.text for ln in state.layout or [])
-    inv, reasons = get_pack(state.doc_type).normalize(state.llm_output or {}, convention=convention)
+    # 081: a value GPT copied in the document's own notation ("28.000") is read with that notation, never as 28; 084: a
+    # date GPT copied as printed ("04/12/2022") follows the document's own day/month order, or gets a to-do
+    texts = [ln.text for ln in state.layout or []]
+    convention = document_convention(texts)
+    inv, reasons = get_pack(state.doc_type).normalize(state.llm_output or {}, convention=convention,
+                                                      date_order=document_date_order(texts))
     state.invoice = inv
     policy.require_review(state, *reasons)
     return state

@@ -24,12 +24,15 @@ from typesafe_sdk import Choice, Noul
 
 from jav import cfg
 from jav.adapters.jev import JevAdapter
-from jav.candidates import MAX_OPTIONS, TOTAL_LINE_RE as _TOTAL_LINE_RE, candidate_lines, find_currencies, payment_method_lines
+from jav.candidates import MAX_OPTIONS, candidate_lines, find_currencies, payment_method_lines
+from jav.candidates import TOTAL_LINE_RE as _TOTAL_LINE_RE
+from jav.dates import read_date
 from jav.jev_budget import ask_within_budget
-from jav.models import Candidate, FieldPick, InvoiceHU, JevCall, LineLayout, normalize_date
+from jav.models import Candidate, FieldPick, InvoiceHU, JevCall, LineLayout
 from jav.numbers import is_whole_token
 from jav.policy import NONE_LABEL, presence_probe_fields
-from jav.typepack import CANDIDATE_KIND_OF, TypePack, get as get_pack
+from jav.typepack import CANDIDATE_KIND_OF, TypePack
+from jav.typepack import get as get_pack
 
 PRESENCE_SUFFIX = "__present"  # question id of the presence Noul: <field>__present
 _DEFAULT_DOCUMENT = "Hungarian supplier invoice, selected lines (Lnn = line number)"
@@ -77,7 +80,7 @@ class SelectSite:
         for c in cands[:MAX_OPTIONS]:
             context = c.context if self.option_context_max is None else c.context[: self.option_context_max]
             desc = f"printed as '{c.raw}' at {context}"
-            if c.ambiguous:
+            if c.ambiguous and c.kind != "date":  # 084: a date's to-do comes from code; the option text stays as it was
                 desc += " (separator ambiguous)"
             criteria[c.label] = desc
         criteria[NONE_LABEL] = self.none_desc.format(what=_what(field))
@@ -296,7 +299,10 @@ class SelectSite:
                     reasons.append(f"money:token_cut:{field}:{cand.raw!r}")
                 value = Decimal(label)  # number: the number finder's normalised label (quantity: kWh, m3, MJ)
             elif label is not None and kind == "date":
-                value = normalize_date(label)
+                value = read_date(label).value  # the candidate's label is the reader's ISO date
+                cand = next((c for c in cands.get("date", []) if c.label == label), None)
+                if cand is not None and cand.ambiguous:  # 084: the day and the month can be read two ways
+                    reasons.append(f"date:order_ambiguous:{field}:{cand.raw!r}")
             elif label is not None and kind in ("currency", "country"):
                 value = label.upper()
             if field in own:

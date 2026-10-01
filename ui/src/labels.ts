@@ -149,6 +149,8 @@ export function reasonText(code: string): string {
     case "money:separator_ambiguous": return t("Kétértelmű tizedesjel: {{field}}", { field: f });
     // 081: the S path's safety net: the picked number stands on the page only as a piece of a longer number
     case "money:token_cut": return t("A kiválasztott érték csak egy része az iraton nyomtatott számnak: {{field}}", { field: f });
+    // 084: the shared date reader: the printed date's day and month can be read two ways ("04/12/2022")
+    case "date:order_ambiguous": return t("A nap és a hónap sorrendje kétes: {{field}}", { field: f });
     case "ocr:partial_pages": return t("Nem minden oldal lett felismerve ({{pages}})", { pages: p[2] });
     case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
     case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });
@@ -228,11 +230,12 @@ export function editNumber(v: unknown): string {
   return String(v).replace(".", ",");
 }
 
-/** 081: the saved amounts and quantities, read back for the save message („Nettó összeg: 28 000”). */
-export function savedNumbers(fields: Record<string, unknown>, kinds: Record<string, string>): string {
+/** 081: the saved amounts and quantities, read back for the save message („Nettó összeg: 28 000”); 084: the saved
+ *  dates too, as the service read them („Kiállítás dátuma: 2022-12-04”). */
+export function savedValues(fields: Record<string, unknown>, kinds: Record<string, string>): string {
   return Object.entries(fields)
-    .filter(([f, v]) => (kinds[f] === "money" || kinds[f] === "number") && v !== null && v !== undefined && !Array.isArray(v))
-    .map(([f, v]) => `${fieldLabel(f)}: ${numText(v, 6)}`)
+    .filter(([f, v]) => ["money", "number", "date"].includes(kinds[f]) && v !== null && v !== undefined && !Array.isArray(v))
+    .map(([f, v]) => `${fieldLabel(f)}: ${kinds[f] === "date" ? String(v) : numText(v, 6)}`)
     .join("; ");
 }
 

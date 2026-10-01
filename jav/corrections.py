@@ -8,7 +8,10 @@ working copy). Correcting an approved run is forbidden.
 Validation on save: only fields of the item's type pack can be corrected; a money field must parse as a `Decimal`, a
 date field as an ISO date (number and format checks happen in code, CLAUDE.md §4). 081: a typed amount or quantity is
 read by the Hungarian habit ("28.000" and "28 000" are 28 000, "28,5" is 28.5) and stored canonically ("28000"); a
-form that can be read two ways ("28.5" for money) is refused (`numbers.AmbiguousNumber`), never guessed.
+form that can be read two ways ("28.5" for money) is refused (`numbers.AmbiguousNumber`), never guessed. 084: a typed
+date is read by the shared date reader in every unambiguous form ("04-DEC-22", "2022. dec. 4.", "04.12.2022") and
+stored as an ISO date; a date whose day and month can be read two ways ("04/12/2022") is refused
+(`dates.AmbiguousDate`).
 
 Itemised list (048 T1-lista): correcting a `list` field replaces the whole list (deleting and adding rows too), each
 cell validated by the kind and enumerated values of its line-item field. The pack's checks (e.g. the running balance
@@ -30,7 +33,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from jav import grounding, numbers, source_layer, store, typepack, validators, work
+from jav import dates, grounding, numbers, source_layer, store, typepack, validators, work
 
 store.register_schema("corrections", """
 CREATE TABLE IF NOT EXISTS run_item_corrections (
@@ -143,15 +146,18 @@ def effective_provenance(dp: dict[str, Any] | None, corr: dict[str, Any],
     return out
 
 
-def _typed_number(kind: str, value: Any, known: set[str]) -> Any:
-    """081: a typed amount or quantity by the Hungarian habit (`numbers.read_input`), as canonical text ("28000"). A value
-    sent back unchanged (the machine value or the previous correction, already canonical) is kept as it is."""
-    if kind not in ("money", "number") or value is None or isinstance(value, bool):
+def _typed_value(kind: str, value: Any, known: set[str]) -> Any:
+    """081: a typed amount or quantity by the Hungarian habit (`numbers.read_input`), as canonical text ("28000"); 084: a
+    typed date by the shared date reader (`dates.read_date_input`), as an ISO date. A value sent back unchanged (the
+    machine value or the previous correction, already canonical) is kept as it is."""
+    if kind not in ("money", "number", "date") or value is None or isinstance(value, bool):
         return value
-    if isinstance(value, int):
+    if isinstance(value, int) and kind != "date":
         return str(value)
-    if not isinstance(value, str) or value in known:
+    if not isinstance(value, str) or value in known or not value.strip():
         return value
+    if kind == "date":
+        return dates.read_date_input(value)
     return numbers.read_input(value, kind=kind)  # type: ignore[arg-type]
 
 
@@ -166,14 +172,15 @@ def _row_cell(rows: Any, i: int, name: str) -> Any:
     return row if name == "*" else row.get(name) if isinstance(row, dict) else None
 
 
-def read_typed_numbers(pack: typepack.TypePack, fields: dict[str, Any], machine: dict[str, Any],
-                       previous: dict[str, Any]) -> dict[str, Any]:
-    """081: every amount and quantity of a correction set (header fields and list cells) read by `_typed_number`."""
+def read_typed_values(pack: typepack.TypePack, fields: dict[str, Any], machine: dict[str, Any],
+                      previous: dict[str, Any]) -> dict[str, Any]:
+    """081: every amount and quantity of a correction set (header fields and list cells) read by `_typed_value`; 084:
+    every date too."""
     out: dict[str, Any] = {}
     for name, value in fields.items():
         kind = pack.kind(name)
         if kind != "list":
-            out[name] = _typed_number(kind, value, _known(machine.get(name), previous.get(name)))
+            out[name] = _typed_value(kind, value, _known(machine.get(name), previous.get(name)))
             continue
         if not isinstance(value, list):
             out[name] = value
@@ -182,9 +189,9 @@ def read_typed_numbers(pack: typepack.TypePack, fields: dict[str, Any], machine:
         rows = []
         for i, row in enumerate(value):
             if "*" in cols:
-                rows.append(_typed_number(cols["*"], row, _known(_row_cell(machine.get(name), i, "*"), _row_cell(previous.get(name), i, "*"))))
+                rows.append(_typed_value(cols["*"], row, _known(_row_cell(machine.get(name), i, "*"), _row_cell(previous.get(name), i, "*"))))
             elif isinstance(row, dict):
-                rows.append({c: _typed_number(cols.get(c, "text"), v, _known(_row_cell(machine.get(name), i, c), _row_cell(previous.get(name), i, c)))
+                rows.append({c: _typed_value(cols.get(c, "text"), v, _known(_row_cell(machine.get(name), i, c), _row_cell(previous.get(name), i, c)))
                              for c, v in row.items()})
             else:
                 rows.append(row)
@@ -392,7 +399,7 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     unknown = sorted(set(fields) - set(pack.record_fields))
     if unknown:
         raise ValueError(f"not fields of {pack.key}: {unknown}")
-    fields = read_typed_numbers(pack, fields, dp.get("datapoints") or {}, current(run_id, item_id)["fields"])
+    fields = read_typed_values(pack, fields, dp.get("datapoints") or {}, current(run_id, item_id)["fields"])
     for name, value in fields.items():
         if pack.kind(name) == "list":
             _check_list(pack, name, value, (dp.get("datapoints") or {}).get(name))

@@ -3,7 +3,7 @@
 // 28 000) and refuses an ambiguous form; the saved value is read back in the message. Artificial data, no service.
 import { describe, expect, it } from "vitest";
 import type { ListColumn } from "./api";
-import { editNumber, reasonText, savedNumbers } from "./labels";
+import { editNumber, reasonText, savedValues } from "./labels";
 import { buildSave } from "./review/FieldPanel";
 import { fromRows, toRows } from "./review/ListTable";
 
@@ -31,7 +31,7 @@ describe("081 number editing", () => {
   });
 
   it("names the saved amounts in the message", () => {
-    const text = savedNumbers({ net_total: "28000", invoice_number: "A-1", gross_total: "35560.5" },
+    const text = savedValues({ net_total: "28000", invoice_number: "A-1", gross_total: "35560.5" },
       { net_total: "money", gross_total: "money", invoice_number: "invoice_number" });
     expect(text.replace(/[  ]/g, " ")).toBe("Nettó összeg: 28 000; Bruttó összeg: 35 560,5");
   });
