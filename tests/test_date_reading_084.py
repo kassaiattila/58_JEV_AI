@@ -270,11 +270,15 @@ def test_a_slash_date_candidate_follows_the_documents_order_or_is_flagged():
         ("2022-12-04", "04/12/2022", False), ("2022-12-25", "25/12/2022", False)]
 
 
-def test_an_all_number_two_digit_year_date_is_a_candidate_only_on_the_international_profile():
-    # on Hungarian and utility documents such text is mostly a code ("1-2-44"), and it could only be a to-do anyway
+def test_an_all_number_two_digit_year_date_is_flagged_only_on_the_international_profile():
+    # on Hungarian and utility documents such text is mostly a code ("1-2-44"): a candidate there only when the
+    # document's own order resolves it, never as a flagged one
     assert _date_cands("utility", "Tarifa: 1-2-44") == []
     assert _date_cands("hu", "Kelt: 04.12.22") == []
     assert _date_cands("intl", "Date: 04.12.22") == [("2022-12-04", "04.12.22", True)]
+    # a foreign hotel invoice recognised as Hungarian: its other date decides the order (day first)
+    assert _date_cands("hu", "Arrival: 23/02/2021", "Date: 10/12/22") == [
+        ("2021-02-23", "23/02/2021", False), ("2022-12-10", "10/12/22", False)]
 
 
 def test_a_us_document_decides_its_slash_dates_by_its_month_first_dates():

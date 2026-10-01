@@ -230,7 +230,8 @@ class Profile:
     reverse_charge_zero: bool = False  # "reverse charge" printed and no 0 amount -> synthetic "0" money candidate (VAT)
     intl_addresses: bool = False
     ocr_dates: bool = False  # OCR tolerance: a comma separator in a year-first date is read as a dot ("2025,08.31")
-    short_dates: bool = False  # 084: all-number dates with a two-digit year ("04.12.22"); elsewhere mostly a code ("1-2-44")
+    short_dates: bool = False  # 084: flagged all-number dates with a two-digit year ("04.12.22"); elsewhere such text is
+    # mostly a code ("1-2-44"), so it is a candidate only when the document's own order resolves it
     address_label_re: re.Pattern[str] | None = None  # address labels ("Felhasználó címe:") cut from the address candidate; default: the party labels
     invoice_lookahead: int = 1  # lines after the invoice-number label searched for the value (OCR: a line may fall between label and value)
     ocr_taxid: bool = False  # OCR tolerance: a Hungarian tax number broken by a space is a candidate too if its check digit is correct
@@ -436,7 +437,9 @@ def find_dates(lines: list[LineLayout], work: list[str], profile: Profile = HU) 
     order = document_date_order(ln.text for ln in lines)
     bucket = _Bucket("date")
     for i in range(len(lines)):
-        for h in find_dates_in(work[i], order=order, ocr=profile.ocr_dates, short=profile.short_dates):
+        for h in find_dates_in(work[i], order=order, ocr=profile.ocr_dates):
+            if h.short and h.ambiguous and not profile.short_dates:
+                continue
             bucket.add(h.value.isoformat(), h.raw, lines, i, ambiguous=h.ambiguous)
             work[i] = _mask(work[i], h.start, h.end)
     return bucket.items()
