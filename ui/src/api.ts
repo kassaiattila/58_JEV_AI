@@ -124,6 +124,7 @@ export interface RunView {
   tables?: string[]; // 058: the result's views that contain data (an empty view is not shown)
   names?: Record<string, ItemName>; // 082: the items' unified names (only when asked for)
   costs?: RunCostView; // 082: planned and actual cost per provider
+  review_version?: string; // 085: the version of the result shown; the approval sends it back
 }
 /** 082: one provider of a run — what the pre-start overview expected (yes / maybe / no; null for an older run), the
  *  budget, the paid calls (failed among them, still open), the known cost, the reserved maximum of the calls without a
@@ -433,7 +434,9 @@ export const api = {
     request<RunView>("GET", `/runs/${enc(runId)}${names === "unified" ? "?names=unified" : ""}`),
   journal: (runId: string) => request<{ calls: Call[]; budget: Budget }>("GET", `/runs/${enc(runId)}/journal`),
   cancel: (runId: string) => request<{ status: string }>("POST", `/runs/${enc(runId)}/cancel`, {}),
-  approve: (runId: string) => request<RunView>("POST", `/runs/${enc(runId)}/approve`, {}),
+  /** 085: `reviewVersion` is the run view's `review_version` the approver saw; a correction saved since gives 409. */
+  approve: (runId: string, reviewVersion?: string) =>
+    request<RunView>("POST", `/runs/${enc(runId)}/approve`, reviewVersion ? { review_version: reviewVersion } : {}),
   item: (runId: string, itemId: string) => request<ItemResult>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}`),
   saveCorrection: (runId: string, itemId: string, body: { fields: Record<string, CorrectionValue>; expected_revision: number; note?: string;
     sources?: Record<string, number[]>; confirm?: string[] }) =>

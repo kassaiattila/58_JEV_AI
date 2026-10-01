@@ -19,6 +19,7 @@
   "A futás tételei": "Items of the run",
   "A hozzárendelés a recept mostani változatára frissült.": "The assignment now uses the current version of the recipe.",
   "A jóváhagyáshoz válaszd ki a neved a fejlécben.": "To approve, select your name in the header.",
+  "Az eredmény a megtekintés óta változott (valaki javított rajta). Nézd át újra, majd hagyd jóvá.": "The result changed after this page loaded (someone corrected it). Review it again, then approve.",
   "A legutóbbi ({{mode}}) futás megismétlése ugyanezzel a bemenettel": "Repeat the latest ({{mode}}) run with the same input",
   "A legutóbbi futás ({{when}}) megismétlése ugyanazzal a bemenettel, új futásként.": "Repeats the latest run ({{when}}) with the same input, as a new run.",
   "A legutóbbi futás részletei": "Details of the latest run",

@@ -368,7 +368,7 @@ def add_items(wp_id: str, paths: list[Path], *, kind: str, expected_revision: in
             if not p.is_file():
                 raise ValueError(f"not a file: {p}")
             if kind == "document":
-                resolved.append((p, *source_instances.freeze(p)))
+                resolved.append(_document_entry(p))
             else:
                 resolved.append((p, sha256_file(p), None))
         with store.connect() as c:
@@ -384,6 +384,20 @@ def add_items(wp_id: str, paths: list[Path], *, kind: str, expected_revision: in
         source_instances.release(i for _p, _d, i in resolved if i)
         raise
     return get(wp_id)
+
+
+def _document_entry(p: Path) -> tuple[Path, str, str | None]:
+    """(path, fingerprint, source instance) of a document being added. 085 (re-audit A03): a document over the input
+    limit is not copied (it could fill the disk before any check); it is added with the fingerprint of the original
+    and no instance, and processing stops it with the named size error. The copy also stops at the limit, should the
+    file grow while it is copied."""
+    limit = max_source_bytes()
+    if p.stat().st_size <= limit:
+        try:
+            return (p, *source_instances.freeze(p, max_bytes=limit))
+        except source_instances.InstanceTooLarge:  # it grew past the limit while it was copied: added without a copy
+            pass
+    return p, sha256_file(p), None
 
 
 def add_document(wp_id: str, path: Path, *, expected_revision: int) -> dict[str, Any]:
@@ -1003,8 +1017,13 @@ def cancel_run(run_id: str, *, actor: str | None = None) -> dict[str, int]:
     return out
 
 
-def approve_run(run_id: str, *, actor: str) -> dict[str, Any]:
-    """Approval of a live run: only with finished items and no open to-do; who approved it and when is recorded."""
+def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -> dict[str, Any]:
+    """Approval of a live run: only with finished items and no open to-do; who approved it and when is recorded.
+    `review_version` (085, re-audit A01): the version of the result the approver saw (`corrections.review_version`);
+    if a correction changed it since, `RevisionConflict`. Checked and recorded in one transaction, so a correction
+    cannot slip between the check and the approval (and none is written after it: `corrections`)."""
+    from jav import corrections
+
     run = get_run(run_id)
     if run["mode"] != "apply":
         raise ValueError("only apply runs can be approved")
@@ -1015,6 +1034,9 @@ def approve_run(run_id: str, *, actor: str) -> dict[str, Any]:
     if any(i["item_id"] not in done for i in run["input"]["items"]):  # 063: every input item has a finished result
         raise NotReady("run has input items without a finished result")
     with store.connect() as c:
+        _begin(c)
+        if review_version is not None and corrections.review_version(run_id, c) != review_version:
+            raise RevisionConflict(f"the result of run {run_id} changed since it was reviewed; review it again")
         c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=? WHERE run_id=? AND approval IS NULL",
                   (actor, _now(), run_id))
     return get_run(run_id)

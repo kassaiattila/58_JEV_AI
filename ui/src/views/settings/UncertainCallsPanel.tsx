@@ -70,11 +70,14 @@ export function UncertainCallsPanel() {
         <h3>{t("Bizonytalan kimenetű hívások")}</h3>
       </div>
       {d.error ? <p className="notice error">{d.error.message}</p> : null}
-      <p role="status" className={calls.length ? "notice" : ""}>
-        {calls.length
-          ? t("{{n}} fizetős hívásnál nem tudni, lefutott-e; amíg nincs lezárva, a futás kerete a legnagyobb költséggel számol vele, és a lépés nem ismétlődik.", { n: calls.length })
-          : t("Nincs lezáratlan, bizonytalan kimenetű hívás.")}
-      </p>
+      {/* 085 (re-audit U01): "none" only for a list actually loaded, not while loading or after a failed request */}
+      {d.data ? (
+        <p role="status" className={calls.length ? "notice" : ""}>
+          {calls.length
+            ? t("{{n}} fizetős hívásnál nem tudni, lefutott-e; amíg nincs lezárva, a futás kerete a legnagyobb költséggel számol vele, és a lépés nem ismétlődik.", { n: calls.length })
+            : t("Nincs lezáratlan, bizonytalan kimenetű hívás.")}
+        </p>
+      ) : !d.error ? <p className="muted">{t("Betöltés…")}</p> : null}
       {calls.length ? <ul className="plain">{calls.map((c) => <CallRow key={c.id} call={c} onDone={d.reload} />)}</ul> : null}
     </section>
   );

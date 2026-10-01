@@ -39,7 +39,8 @@ def test_repeat_of_succeeded_step_replays_without_second_call(isolated):
 
 
 def test_failed_call_is_journaled_and_keeps_reservation(isolated):
-    """F05: a timeout still leaves a log entry; the unknown cost is not zero and frees no budget."""
+    """F05: a timeout still leaves a log entry; the unknown cost is not zero and frees no budget. 085 (re-audit A04):
+    a timeout may come after the provider did the work, so the call is uncertain, not failed."""
     calls.set_budget("trial", "openai", Decimal("1.00"))
     def timeout():
         raise TimeoutError("provider timeout")
@@ -47,8 +48,9 @@ def test_failed_call_is_journaled_and_keeps_reservation(isolated):
         calls.invoke(run_id="r1", step_id="s1", provider="openai", model="m", max_cost_usd=Decimal("0.30"), fn=timeout,
                      budget_scope="trial")
     row = calls.journal("r1")[0]
-    assert row["status"] == "failed" and row["error"] == "TimeoutError" and row["cost_known"] == 0
+    assert row["status"] == "uncertain" and row["error"] == "TimeoutError" and row["cost_known"] == 0
     assert calls.budget_usage("trial")["committed_usd"] == Decimal("0.30")
+    assert [c["id"] for c in calls.uncertain_list()] == [row["id"]]
 
 
 def test_failed_step_may_be_retried_as_new_attempt(isolated):

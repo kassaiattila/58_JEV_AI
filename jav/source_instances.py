@@ -11,6 +11,10 @@ reads the whole message folder.
 
 A stored copy is released when no work package item refers to it any more (deleting a package without runs, or a
 failed intake). Retention beyond that belongs to the data inventory (not decided yet).
+
+A document over the input limit gets no instance (085, re-audit A03): the intake checks the size before copying, and
+the copy itself stops at the limit (a file growing while it is copied), so such a file never fills the disk; its item
+is stopped by the named size error when it is processed, as before.
 """
 
 from __future__ import annotations
@@ -63,18 +67,27 @@ def intact(path: Path, sha256: str) -> bool:
         return False
 
 
-def freeze(path: Path) -> tuple[str, str]:
+class InstanceTooLarge(ValueError):
+    """085 (re-audit A03): the file is larger than the byte limit of the copy; nothing was kept."""
+
+
+def freeze(path: Path, *, max_bytes: int | None = None) -> tuple[str, str]:
     """Copies `path` into the store with one read, hashing the bytes as they are copied; returns (sha256, relative
     path). The fingerprint is that of the copied bytes, so the instance and the recorded fingerprint always agree. An
-    intact instance with the same fingerprint is kept; a damaged one is replaced."""
+    intact instance with the same fingerprint is kept; a damaged one is replaced. `max_bytes` (085): the copy stops
+    with `InstanceTooLarge` as soon as it passes this many bytes, and the partial copy is removed."""
     base = root()
     base.mkdir(parents=True, exist_ok=True)
     fd, tmp_name = tempfile.mkstemp(dir=base, prefix=".incoming-", suffix=".part")
     tmp: Path | None = Path(tmp_name)
     try:
         h = hashlib.sha256()
+        copied = 0
         with os.fdopen(fd, "wb") as out, open(path, "rb") as src:
             for chunk in iter(lambda: src.read(CHUNK), b""):
+                copied += len(chunk)
+                if max_bytes is not None and copied > max_bytes:
+                    raise InstanceTooLarge(f"{Path(path).name}: more than {max_bytes} bytes")
                 h.update(chunk)
                 out.write(chunk)
             out.flush()
