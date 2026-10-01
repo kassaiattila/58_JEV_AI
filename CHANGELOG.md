@@ -8,6 +8,15 @@ Releases in brief, newest first. Release rules: [development guide §1](docs/gui
 
 This list shows what each release brought. `v1.0.0` was the first stable version: work packages, recipes, review on the document's page image, results and approval. The `v1.0.1`–`v1.0.4` fix rounds corrected problems found in daily use and in reviews; the most important of them was the tax-number check. `v1.0.5` is a security round: no personal data can reach GitHub, the browser does not store document data, and you can see which code is running. `v1.1.0` is a second security round after a repeated audit: paid calls, Azure recognition included, stay within a real, reserved upper bound, the documents shown for review are verified, and the repository's documentation is in English. `v1.1.1` cleans the public documents of internal information, keeps machine-specific values out of the repository, and settles uncertain paid calls in the UI. `v1.1.2` adds copies of the processed documents under uniform, content-based names, reads PDFs in an isolated helper process, and no longer lets an unreadable email attachment fail the whole email. `v1.2.0` keeps an unchanging copy of every document added to a work package and works from it, and replaces the choice of recipe with one processing that recognises each item's type itself, with a few processing settings and an overview of the paid services before the start.
 
+## Unreleased
+
+- **Subfolders and folder browsing:** a new package from a folder can take the PDFs of its subfolders too
+  (‘Include subfolders’, off by default, as for watched folders); the output folder of the named copies is then left
+  out, and a document in a subfolder is shown with its path below the folder. Every path field (the package's folder
+  and files, a watched folder, the output folder) has a **Browse…** button that opens the Windows folder or file
+  picker through the local service; several files can be chosen at once, and a path can still be typed. Command line:
+  `wp-create <folder> --recursive`. Settings: `configs/service.json` `picker`. The model requests do not change.
+
 ## v1.2.0 — 2026-10-01
 
 Source instances and one processing with processing settings; the model requests do not change.

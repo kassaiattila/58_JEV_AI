@@ -369,8 +369,14 @@ export const api = {
   recipes: () => request<{ recipes: Recipe[]; help?: RecipeHelp; titles?: Record<string, string> }>("GET", "/recipes"),
   workpackages: () => request<{ workpackages: WorkpackageRow[] }>("GET", "/workpackages"),
   workpackage: (id: string) => request<WorkpackageView>("GET", `/workpackages/${enc(id)}`),
-  createFromFolder: (folder: string, name?: string) =>
-    request<{ workpackage: Workpackage; readiness: Readiness }>("POST", "/workpackages", { folder, ...(name ? { name } : {}) }),
+  /** 081: `recursive` takes the PDFs of the subfolders too (the output folder of the named copies is left out). */
+  createFromFolder: (folder: string, name?: string, recursive = false) =>
+    request<{ workpackage: Workpackage; readiness: Readiness }>("POST", "/workpackages", { folder, ...(name ? { name } : {}), ...(recursive ? { recursive } : {}) }),
+  /** 081: the operating system's own folder / file picker, opened by the local service on this machine. */
+  pickFolder: (title: string, initial?: string) =>
+    request<{ path: string | null }>("POST", "/local/pick-folder", { title, ...(initial ? { initial } : {}) }),
+  pickFiles: (title: string, initial?: string) =>
+    request<{ paths: string[] }>("POST", "/local/pick-files", { title, ...(initial ? { initial } : {}) }),
   createFromFiles: (paths: string[], name: string) =>
     request<{ workpackage: Workpackage; readiness: Readiness }>("POST", "/workpackages", { paths, name }),
   decideTask: (runId: string, itemId: string, index: number, decision: "accepted" | "rejected") =>

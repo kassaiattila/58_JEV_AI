@@ -207,7 +207,7 @@ def _item_name(item: dict[str, Any], titles: dict[str, str]) -> str:
 
 def _workpackage_items(scope: dict[str, str]) -> Rows:
     wp = work.get(scope["workpackage_id"])
-    titles = work_views.item_titles(wp["items"])
+    titles = work_views.item_titles(wp["items"], work_views.package_root(wp))
     cols = [
         _col("name", "Tétel", link="review"),
         _col("kind", "Fajta", "enum", labels="kind"),
@@ -227,7 +227,7 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
 
 def _run_items(scope: dict[str, str]) -> Rows:
     run = work.get_run(scope["run_id"])
-    titles = work_views.item_titles(run["input"]["items"])
+    titles = work_views.item_titles(run["input"]["items"], work_views.package_root(work.get(run["workpackage_id"])))
     results = {r["item_id"]: r for r in run["items"]}
     cols = [
         _col("name", "Tétel", link="review"),

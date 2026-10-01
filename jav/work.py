@@ -19,7 +19,7 @@ import hashlib
 import json
 import sqlite3
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -397,14 +397,25 @@ def remove_item(wp_id: str, item_id: str, *, expected_revision: int) -> dict[str
 
 
 def create_from_folder(folder: Path, *, name: str | None = None, suffixes: tuple[str, ...] = (".pdf",),
-                       owner: str | None = None) -> dict[str, Any]:
-    """Work package from the direct contents of a folder (without subfolders), in name order."""
+                       owner: str | None = None, recursive: bool = False, exclude: Iterable[Path] = ()) -> dict[str, Any]:
+    """Work package from the documents of a folder, in path order: by default its direct contents only; with
+    `recursive` (081) every subfolder too, except the folders in `exclude` (the caller passes the output folder of the
+    named copies, so they do not come back as new documents). A link pointing outside the folder is left out."""
     folder = Path(folder)
     if not folder.is_dir():
         raise ValueError(f"folder does not exist: {folder}")
     root = folder.resolve(strict=True)
-    files = sorted(p for p in root.iterdir() if p.is_file() and p.suffix.lower() in suffixes
-                   and p.resolve().parent == root)  # a link pointing outside the folder is left out
+    skip = [Path(p).resolve() for p in exclude]
+    found = root.rglob("*") if recursive else root.iterdir()
+    files = []
+    for p in found:
+        if not p.is_file() or p.suffix.lower() not in suffixes:
+            continue
+        rp = p.resolve()
+        inside = rp.parent == root if not recursive else rp.is_relative_to(root)
+        if inside and not any(rp.is_relative_to(s) for s in skip):
+            files.append(p)
+    files.sort(key=lambda p: p.relative_to(root).as_posix().lower())
     wp = create_workpackage(name=name or root.name, source_kind="folder", source_ref=str(root), owner=owner)
     return _fill_new(wp, lambda: add_documents(wp["id"], files, expected_revision=0)) if files else wp
 

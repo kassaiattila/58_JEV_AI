@@ -69,8 +69,16 @@ def cmd_wp_create(args):
         print("Fájlokból készülő munkacsomaghoz --name kell.")
         return 2
     wp = (work.create_from_files([Path(f) for f in args.files], name=args.name) if args.files
-          else work.create_from_folder(Path(args.folder), name=args.name))
+          else work.create_from_folder(Path(args.folder), name=args.name, recursive=args.recursive,
+                                       exclude=_output_folder() if args.recursive else []))
     return _out(args, wp, f"Munkacsomag: {wp['id']} „{wp['name']}”, {len(wp['items'])} tétel (verzió {wp['revision']})")
+
+
+def _output_folder() -> list[Path]:
+    """081: with the subfolders, the output folder of the named copies is left out (as in the local service)."""
+    from jav import app_settings
+    out = app_settings.output_folder()
+    return [Path(out)] if out else []
 
 
 def cmd_wp_list(args):
@@ -254,6 +262,7 @@ def register(sub) -> None:
     p.add_argument("folder", nargs="?")
     p.add_argument("--files", nargs="+")
     p.add_argument("--name")
+    p.add_argument("--recursive", action="store_true", help="the PDFs of the subfolders too (081)")
     add("wp-list", cmd_wp_list, "munkacsomagok listája")
     p = add("wp-show", cmd_wp_show, "egy munkacsomag tételei, receptje és készenléte")
     p.add_argument("wp")
