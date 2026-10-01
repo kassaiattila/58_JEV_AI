@@ -26,7 +26,7 @@ def env(tmp_path: Path):
     for n in (1, 2, 3):
         write_text_pdf(folder / f"szamla_{n}.pdf", [line.replace("MINTA-2026-001", f"MINTA-2026-00{n}") for line in INVOICE_LINES])
     with store.use_store(tmp_path / "w.sqlite"), jev_mod.use_adapter(adapter):
-        wp = work.create_from_folder(folder, name="Mesterséges számlák")
+        wp = work.create_from_folder(folder, name="Synthetic invoices")
         work.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "S", "doc_type": "invoice_hu"}, expected_revision=0, actor="t")
         ready = work.readiness(wp["id"])
         run_id = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="t")["run_id"]
