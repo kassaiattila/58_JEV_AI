@@ -10,7 +10,7 @@ import { go } from "../route";
 import { draftKey, getDraft, setField, useDraft } from "../review/drafts";
 import { EmailReview } from "../review/EmailReview";
 import { FieldPanel } from "../review/FieldPanel";
-import { classifyFields, initialFilter, type FieldFilter } from "../review/fieldFilter";
+import { classifyFields, initialFilter, nextAfterConfirm, type FieldFilter } from "../review/fieldFilter";
 import { bandOf, orderFields, selectionText, type Bands } from "../review/geometry";
 import { BAND_COLOR, PageViewer } from "../review/PageViewer";
 import { Split } from "../review/Split";
@@ -77,6 +77,9 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
   const selectedId = itemId ?? firstWithWork?.item_id;
   const selected = items.find((i) => i.item_id === selectedId);
   const index = items.findIndex((i) => i.item_id === selectedId);
+  // 083: the next item with open to-dos in this run, after the current one (then from the start), for the keyboard and
+  // the right panel
+  const nextTodo = [...items.slice(index + 1), ...items.slice(0, Math.max(index, 0))].find((i) => (own[i.item_id] ?? []).length > 0);
   const pick = (id: string) => go({ view: "workpackages", wpId: wp.id, stage: "review", itemId: id });
   const ownTotal = Object.values(own).reduce((n, r) => n + r.length, 0);
   // 082: the unified name when chosen and already known; the original stays searchable and is in the tooltip
@@ -93,7 +96,7 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
         <span className="muted small">{ownTotal ? t("{{n}} nyitott teendő ebben a futásban", { n: ownTotal }) : t("Ebben a futásban nincs nyitott teendő.")}</span>
         <a className="small" href={`#/runs/${run.run_id}`}>{t("A futás részletei")}</a>
         <NameModeSwitch />
-        <span className="muted small kbd-help">{t("↑/↓ mező · N/P tétel · S kijelölés · Ctrl+Enter mentés · Esc")}</span>
+        <span className="muted small kbd-help">{t("Tab / ↓ következő mező · Enter ✓ · Esc vissza · PageDown / PageUp tétel · Ctrl+Enter mentés")}</span>
       </div>
       <div className="review-grid">
         <nav className="queue" aria-label={t("Tételek")}>
@@ -122,8 +125,9 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
         ) : (
           <ItemReview key={`${run.run_id}:${selected.item_id}`} wpId={wp.id} runId={run.run_id} itemId={selected.item_id}
             approved={Boolean(run.approval)} onChanged={view.reload}
-            onNext={() => index < items.length - 1 && pick(items[index + 1].item_id)}
-            onPrev={() => index > 0 && pick(items[index - 1].item_id)} />
+            onNext={index < items.length - 1 ? () => pick(items[index + 1].item_id) : undefined}
+            onPrev={index > 0 ? () => pick(items[index - 1].item_id) : undefined}
+            onNextTodo={nextTodo ? () => pick(nextTodo.item_id) : undefined} />
         )}
       </div>
     </>
@@ -148,13 +152,15 @@ ${tip}` : name}>{warn}{name}</span>
   );
 }
 
-function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev }: {
-  wpId: string; runId: string; itemId: string; approved: boolean; onChanged: () => void; onNext: () => void; onPrev: () => void;
+function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev, onNextTodo }: {
+  wpId: string; runId: string; itemId: string; approved: boolean; onChanged: () => void; onNext?: () => void; onPrev?: () => void;
+  onNextTodo?: () => void;
 }) {
   useLocale();
   const res = useLoad(`item:${runId}:${itemId}`, () => api.item(runId, itemId));
   const settings = useLoad("settings", api.settings);
-  const [selectMode, setSelectMode] = useState(false);
+  // 083 (the owner's decision): selection on the image is always on when the document has a word layer
+  const selectMode = Boolean(res.data?.source);
   const words = useLoad(selectMode ? `words:${runId}:${itemId}` : null, () => api.words(runId, itemId));
   const [active, setActive] = useState<string | null>(null);
   const [focusRequest, setFocusRequest] = useState(0);
@@ -193,55 +199,90 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev }
   const chooseFilter = useCallback((next: FieldFilter) => { lastFilter = next; setFilterState(next); }, []);
   const fields = groups && filter ? groups[filter] : allFields;
 
-  // on first opening, the most important field (to-do > weak estimate > first); 083: when the active field leaves the
-  // filter (it was confirmed), the field that took its place comes next
-  const shownBefore = useRef<string[]>([]);
-  useEffect(() => {
-    if (data && active === null && fields.length) setActive(fields[0]);
-    else if (active && !active.includes("[") && !fields.includes(active) && fields.length) {
-      const i = shownBefore.current.indexOf(active);
-      setActive(fields[Math.min(Math.max(i, 0), fields.length - 1)]);
-    }
-    shownBefore.current = fields;
-  }, [data, fields, active]);
-
   const activate = useCallback((f: string) => {
     setActive(f);
     setFocusRequest((n) => n + 1);
   }, []);
 
-  // 083: the cross: the field is being fixed — it is active, selection on the image is on, the cursor is in it
+  // 083: the keyboard works in the field's box: the cursor goes into it with its text selected (typing replaces it)
+  const focusField = useCallback((f: string) => {
+    activate(f);
+    window.requestAnimationFrame(() => {
+      const el = document.getElementById(`fv-${f}`) as HTMLInputElement | null;
+      el?.focus();
+      el?.select();
+    });
+  }, [activate]);
+
+  // on first opening (once the filter is set), the most important field (to-do > weak estimate > first), with the cursor
+  // in it; 083: after Enter confirmed a field, the next field (or, after the last, the next item with to-dos); when the
+  // active field leaves the filter otherwise (confirmed with the tick), the field that took its place
+  const shownBefore = useRef<string[]>([]);
+  const advance = useRef<{ field: string; before: string[]; revision: number } | null>(null);
+  useEffect(() => {
+    const pending = advance.current;
+    if (pending && data && data.correction.revision >= pending.revision) {
+      advance.current = null;
+      const next = nextAfterConfirm(pending.before, fields, pending.field);
+      if (next) focusField(next);
+      else onNextTodo?.();
+    } else if (data && filter !== null && active === null && fields.length) {
+      focusField(fields[0]);
+    } else if (active && !active.includes("[") && !fields.includes(active) && fields.length && !pending) {
+      const i = shownBefore.current.indexOf(active);
+      setActive(fields[Math.min(Math.max(i, 0), fields.length - 1)]);
+    }
+    shownBefore.current = fields;
+  }, [data, fields, active, filter, focusField, onNextTodo]);
+
+  const navigate = useCallback((delta: 1 | -1) => {
+    const j = (active ? fields.indexOf(active) : -1) + delta;
+    if (j < 0 || j >= fields.length) return false;
+    focusField(fields[j]);
+    return true;
+  }, [active, fields, focusField]);
+
+  const confirmed = useCallback((f: string, viaKeyboard: boolean, revision: number) => {
+    if (viaKeyboard) advance.current = { field: f, before: fields, revision };
+  }, [fields]);
+
+  // 083: the cross: the field is being fixed — it is active, the cursor is in it (selection on the image is always on)
   const startFix = useCallback((f: string) => {
     activate(f);
-    if (data?.source) setSelectMode(true);
     setSelected([]);
     window.requestAnimationFrame(() => document.getElementById(`fv-${f}`)?.focus());
-  }, [activate, data]);
+  }, [activate]);
 
-  // keyboard shortcuts (outside input fields; Esc leaves the field)
+  // keyboard shortcuts. In a field's box the panel handles Tab, the arrows, Enter and Esc (FieldPanel); here: PageDown /
+  // PageUp switch items (in a field's box too, 083), Esc first clears the selection on the image and then leaves the
+  // box, and outside the boxes ↑/↓ (j/k) move between the fields, n/p switch items and Enter goes into the field
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       const typing = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT");
+      const inField = typing && el.id.startsWith("fv-");
+      if ((e.key === "PageDown" || e.key === "PageUp") && (!typing || inField) && !(e.ctrlKey || e.metaKey || e.altKey)) {
+        e.preventDefault();
+        (e.key === "PageDown" ? onNext : onPrev)?.();
+        return;
+      }
       if (e.key === "Escape") {
-        if (typing) (el as HTMLInputElement).blur();
-        else if (selected.length) setSelected([]);
-        else setSelectMode(false);
+        if (selected.length) setSelected([]);
+        else if (typing) (el as HTMLInputElement).blur();
         return;
       }
       if (typing || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
       if (onList && e.key !== "n" && e.key !== "p") return; // on the line list tab only item switching works
       const i = active ? fields.indexOf(active) : -1;
-      if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); if (fields.length) activate(fields[Math.min(fields.length - 1, i + 1)]); }
-      else if (e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); if (fields.length) activate(fields[Math.max(0, i - 1)]); }
-      else if (e.key === "n") onNext();
-      else if (e.key === "p") onPrev();
-      else if (e.key === "s" && data?.source) setSelectMode((v) => !v);
-      else if (e.key === "Enter" && active) document.getElementById(`fv-${active}`)?.focus();
+      if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); if (fields.length) focusField(fields[Math.min(fields.length - 1, i + 1)]); }
+      else if (e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); if (fields.length) focusField(fields[Math.max(0, i - 1)]); }
+      else if (e.key === "n") onNext?.();
+      else if (e.key === "p") onPrev?.();
+      else if (e.key === "Enter" && active) focusField(active);
     };
     window.addEventListener("keydown", on);
     return () => window.removeEventListener("keydown", on);
-  }, [active, fields, activate, onNext, onPrev, selected.length, data, onList]);
+  }, [active, fields, focusField, onNext, onPrev, selected.length, onList]);
 
   if (res.error) return <p className="notice error" role="alert">{res.error.message}</p>;
   if (!data) return <p className="muted pad">{t("Betöltés…")}</p>;
@@ -287,11 +328,12 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev }
       right={
         <FieldPanel result={data} fields={fields} bandOf={band} activeField={active} onActivate={activate}
           selection={{ ids: selected, text: selText }} onClearSelection={() => setSelected([])}
-          selectMode={selectMode} onToggleSelect={() => { setSelectMode((v) => !v); setSelected([]); }}
+          selectMode={selectMode}
           onSaved={() => { res.reload(); onChanged(); }} onResolved={() => { res.reload(); onChanged(); }}
           onChooseAlternative={chooseAlternative} readOnly={approved} hasWords={Boolean(data.source)} tab={tab} onTab={setTab}
           onRowPick={(f, n) => activate(`${f}[${n}]`)} allFields={allFields} onStartFix={startFix}
-          filter={filter ?? undefined} counts={counts ?? undefined} onFilter={chooseFilter} />
+          filter={filter ?? undefined} counts={counts ?? undefined} onFilter={chooseFilter}
+          onNavigate={navigate} onConfirmed={confirmed} onPrevItem={onPrev} onNextItem={onNext} onNextTodo={onNextTodo} />
       }
     />
   );

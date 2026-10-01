@@ -3,9 +3,12 @@
 // survives switching items).
 // 048: the line-item lists on separate tabs (ListTable), and the pack's checks on the saved, corrected data.
 // 083 (the owner's trial): a tick (✓) and a cross (✗) right next to each field's value; a field's to-dos are shown at
-// the field, only the document's to-dos stay at the top; a small filter above the fields.
-import { useEffect, useRef, useState } from "react";
-import { api, ApiError, getActor, NO_ACTOR, type Alternative, type CorrectionValue, type ItemResult, type Provenance } from "../api";
+// the field, only the document's to-dos stay at the top; a small filter above the fields. Second trial: an earlier
+// run's to-do on a field is shown at the field too (the tick closes it), the earlier ones about the whole document sit
+// closed at the bottom; selection on the image is always on; the keyboard (Tab, arrows, Enter, Esc) checks the fields
+// one after the other; buttons for the previous and the next item.
+import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
+import { api, ApiError, getActor, NO_ACTOR, type Alternative, type CorrectionValue, type ItemResult, type Provenance, type Reason } from "../api";
 import { Icon } from "../components/Icon";
 import { t, useLocale } from "../i18n";
 import { checkText, editNumber, fieldLabel, reasonText, savedNumbers, tmap } from "../labels";
@@ -64,8 +67,7 @@ interface Props {
   onActivate: (f: string) => void;
   selection: { ids: number[]; text: string };
   onClearSelection: () => void;
-  selectMode: boolean;
-  onToggleSelect: () => void;
+  selectMode: boolean; // 083: always on when the document has a word layer (the toggle was removed)
   onSaved: () => void;
   onResolved: () => void;
   onChooseAlternative: (field: string, alt: Alternative) => void;
@@ -82,6 +84,25 @@ interface Props {
   filter?: FieldFilter;
   counts?: Record<FieldFilter, number>;
   onFilter?: (filter: FieldFilter) => void;
+  /** 083: the keyboard moves to the next (1) or the previous (-1) field; false at the ends of the list (Tab then leaves
+   *  the list as usual). */
+  onNavigate?: (delta: 1 | -1) => boolean;
+  /** 083: a field was confirmed; with Enter (`viaKeyboard`) the caller moves on to the next field or item. */
+  onConfirmed?: (field: string, viaKeyboard: boolean, revision: number) => void;
+  /** 083: the previous and the next item, and the next item with open to-dos (absent when there is none). */
+  onPrevItem?: () => void;
+  onNextItem?: () => void;
+  onNextTodo?: () => void;
+}
+
+/** 083: the same to-do left by several earlier runs is shown once, with the number of runs (text → count, in order). */
+export function sameText(reasons: Reason[]): [string, number][] {
+  const out = new Map<string, number>();
+  for (const r of reasons) {
+    const text = reasonText(r.reason);
+    out.set(text, (out.get(text) ?? 0) + 1);
+  }
+  return [...out];
 }
 
 /** 053: the row number of a selection keyed `list[n]`, if it belongs to the given list. */
@@ -185,7 +206,7 @@ export function FieldPanel(p: Props) {
   /** 083: the tick. Saves this field only (its typed or selected value, if any; empty = the value is not on the
    *  document), records it as checked by a person, and closes its to-dos in this run. The other fields' unsaved changes
    *  stay in the working copy, on the new version. */
-  async function confirmField(f: string) {
+  async function confirmField(f: string, viaKeyboard = false) {
     if (conflict || readOnly || saving.current) return;
     if (!getActor()) {
       setState({ kind: "error", msg: t("Nem sikerült menteni: {{reason}}. A módosításaid megmaradtak.", { reason: t(NO_ACTOR) }) });
@@ -206,6 +227,7 @@ export function FieldPanel(p: Props) {
       rebaseDraft(key, saved.correction.revision);
       setState({ kind: "saved", msg: t("Mentve: {{field}} ellenőrizve.", { field: fieldLabel(f) }) });
       p.onSaved();
+      p.onConfirmed?.(f, viaKeyboard, saved.correction.revision);
     } catch (e) {
       reportSaveError(e);
     } finally {
@@ -223,18 +245,50 @@ export function FieldPanel(p: Props) {
 
   saveRef.current = () => void save();
 
+  /** 083: the keyboard in a field's box: Tab / ↓ the next field, Shift+Tab / ↑ the previous one, Enter the tick (an
+   *  interpretable selection on the image is written into the box first), Esc brings back the original value. Typing
+   *  replaces the selected value and Delete empties it, as in any box. */
+  function onFieldKey(e: ReactKeyboardEvent<HTMLInputElement>, f: string) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return; // Ctrl+Enter: the save of every unsaved field (above)
+    if (e.key === "Tab" || e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const delta = e.key === "ArrowUp" || (e.key === "Tab" && e.shiftKey) ? -1 : 1;
+      if (p.onNavigate?.(delta)) e.preventDefault();
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (e.repeat || readOnly) return;
+      if (selection.ids.length && norm?.ok && norm.value !== null && norm.text === selection.text) applySelection();
+      else void confirmField(f, true);
+      return;
+    }
+    if (e.key === "Escape" && draft?.values[f] !== undefined) {
+      e.preventDefault();
+      e.stopPropagation(); // the workspace's Esc would leave the box
+      revertField(key, f);
+    }
+  }
+
   const { resolve, pending: resolving, error: resolveError } = useResolve(p.onResolved);
 
   // 083: a to-do about one simple field is shown at that field; the others (about the document) stay at the top
   const simpleFields = new Set(p.allFields ?? fields);
   const atField = (f: string) => result.open_reasons.filter((r) => r.field === f);
   const documentReasons = result.open_reasons.filter((r) => !r.field || !simpleFields.has(r.field));
+  const earlierAt = (f: string) => result.earlier_open_reasons.filter((r) => r.field === f);
+  const earlierDocument = result.earlier_open_reasons.filter((r) => !r.field || !simpleFields.has(r.field));
   const prov: Provenance | undefined = activeField ? result.provenance[activeField] : undefined;
   const listRows = (f: string) => draft?.lists?.[f] ?? toRows(result.effective[f], lists[f].columns);
   const goRow = (f: string, row: number) => { p.onTab?.(f); setFocusRow({ row, seq: Date.now() }); };
 
   return (
     <section className="panel" aria-label={t("Teendők és mezők")}>
+      {p.onPrevItem || p.onNextItem ? (
+        <div className="item-nav" role="group" aria-label={t("Lapozás a tételek között")}>
+          <button type="button" className="quiet small-btn" disabled={!p.onPrevItem} onClick={p.onPrevItem} title="PageUp">← {t("Előző tétel")}</button>
+          <button type="button" className="secondary small-btn" disabled={!p.onNextItem} onClick={p.onNextItem} title="PageDown">{t("Következő tétel")} →</button>
+        </div>
+      ) : null}
       {resolveError ? <p className="notice error" role="alert">{resolveError}</p> : null}
       {documentReasons.length ? (
         <ul className="issues" aria-label={t("Nyitott teendők ebben a futásban")}>
@@ -246,17 +300,6 @@ export function FieldPanel(p: Props) {
           ))}
         </ul>
       ) : result.open_reasons.length ? null : <p className="ok pad-s">{t("Ebben a futásban nincs nyitott teendő ezen a tételen.")}</p>}
-      {result.earlier_open_reasons.length ? (
-        <details className="details">
-          <summary>{t("Korábbi teendők az iraton ({{n}}) — ezt a futást nem akadályozzák", { n: result.earlier_open_reasons.length })}</summary>
-          <ul className="issues">
-            {result.earlier_open_reasons.map((r) => (
-              <li key={r.id} className="issue quiet-issue"><span>{reasonText(r.reason)}</span>
-                <button type="button" className="quiet small-btn" disabled={resolving !== null} onClick={() => void resolve(r)}>{t("Rendezve")}</button></li>
-            ))}
-          </ul>
-        </details>
-      ) : null}
 
       {failed.length ? (
         <ul className="issues checks" aria-label={t("Ellenőrzések a mentett adaton")}>
@@ -302,11 +345,7 @@ export function FieldPanel(p: Props) {
         </div>
       ) : null}
       <div className="panel-tools">
-        <button type="button" className={selectMode ? "primary small-btn" : "secondary small-btn"} aria-pressed={selectMode}
-          disabled={!p.hasWords || readOnly} onClick={p.onToggleSelect}
-          title={p.hasWords ? t("Szavak kijelölése a képen (kattintás vagy téglalap) — S") : t("Ehhez az irathoz nincs szóréteg")}>
-          {selectMode ? t("Kijelölés bekapcsolva") : t("Kijelölés a képen")}
-        </button>
+        {p.hasWords ? <span className="muted small">{t("A képen a szavakra kattintva vagy téglalapot húzva jelölöd ki az értéket.")}</span> : null}
         <span className="legend" aria-label={t("A modellbecslés színei")}>
           {(["confident", "check", "likely_wrong"] as Band[]).map((b) => (
             <span key={b} className="legend-item"><i style={{ borderColor: BAND_COLOR[b] }} />{BAND_LABEL[b]}</span>
@@ -331,7 +370,12 @@ export function FieldPanel(p: Props) {
         </div>
       ) : null}
 
-      {!fields.length && p.filter ? <p className="muted small pad-s">{EMPTY_FILTER[p.filter]}</p> : null}
+      {!fields.length && p.filter ? (
+        <div className="pad-s filter-done">
+          <p className="muted small">{EMPTY_FILTER[p.filter]}</p>
+          {p.onNextTodo ? <button type="button" className="primary small-btn" onClick={p.onNextTodo}>{t("Következő teendős tétel")} →</button> : null}
+        </div>
+      ) : null}
       <ol className="fields" aria-label={t("Mezők")}>
         {fields.map((f) => {
           const pv = result.provenance[f];
@@ -360,7 +404,7 @@ export function FieldPanel(p: Props) {
               </div>
               <div className="frow-value">
                 <input id={`fv-${f}`} value={shown(f)} readOnly={readOnly} onFocus={() => onActivate(f)}
-                  onChange={(e) => setField(key, base, f, e.target.value, null)} />
+                  onChange={(e) => setField(key, base, f, e.target.value, null)} onKeyDown={(e) => onFieldKey(e, f)} />
                 <button type="button" className="verdict verdict-ok" aria-label={t("{{field}}: helyes", { field: label })}
                   title={t("Helyes: mentés és ellenőrzöttnek jelölés (a mező teendői lezárulnak)")}
                   disabled={readOnly || conflict || state.kind === "saving"} onClick={(e) => { e.stopPropagation(); void confirmField(f); }}>
@@ -382,6 +426,13 @@ export function FieldPanel(p: Props) {
               {todo.length ? (
                 <ul className="field-issues" aria-label={t("{{field}}: teendők", { field: label })}>
                   {todo.map((r) => <li key={r.id}>{reasonText(r.reason)}</li>)}
+                </ul>
+              ) : null}
+              {earlierAt(f).length ? (
+                <ul className="field-issues earlier-issues" aria-label={t("{{field}}: korábbi teendők", { field: label })}>
+                  {sameText(earlierAt(f)).map(([text, n]) => (
+                    <li key={text}>{n > 1 ? t("{{n}} korábbi futásból: {{reason}}", { n, reason: text }) : t("korábbi futásból: {{reason}}", { reason: text })}</li>
+                  ))}
                 </ul>
               ) : null}
               {edited && shown(f) === "" ? (
@@ -411,6 +462,18 @@ export function FieldPanel(p: Props) {
         })}
       </ol>
       </>}
+
+      {earlierDocument.length ? (
+        <details className="details earlier-box">
+          <summary>{t("Korábbi, egész iratra szóló teendők ({{n}}) — ezt a futást nem akadályozzák", { n: earlierDocument.length })}</summary>
+          <ul className="issues">
+            {earlierDocument.map((r) => (
+              <li key={r.id} className="issue quiet-issue"><span>{reasonText(r.reason)}</span>
+                <button type="button" className="quiet small-btn" disabled={resolving !== null} onClick={() => void resolve(r)}>{t("Rendezve")}</button></li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
 
       <div className="actions">
         {readOnly ? <p className="muted small">{t("A jóváhagyott futás javítása le van zárva.")}</p> : (

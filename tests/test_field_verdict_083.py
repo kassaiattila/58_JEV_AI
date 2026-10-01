@@ -84,13 +84,18 @@ def test_a_confirmation_lasts_until_the_value_changes(env):
     assert set(second["correction"]["confirmed"]) == {"invoice_number"}
 
 
-def test_an_earlier_runs_to_do_on_the_same_field_stays_open(env):
+def test_an_earlier_runs_to_do_on_the_same_field_is_closed_too_and_other_earlier_ones_stay(env):
+    """The owner's decision (083): a person has now checked the field, so an earlier run's to-do on the same field of
+    the same document is settled too; the resolution names the run where the field was checked."""
     c, run_id, item_id, url = _item(env, ["pick:low_conf:invoice_number:0.52"])
-    store.review_enqueue(subject_kind="document", subject_id=item_id, run_id="golden-083", reasons=["pick:low_conf:invoice_number:0.47"],
-                         producer="old083")
+    store.review_enqueue(subject_kind="document", subject_id=item_id, run_id="golden-083",
+                         reasons=["pick:low_conf:invoice_number:0.47", "pick:low_conf:payment_iban:0.40", "parties:same_name"], producer="old083")
     body = c.post(f"{url}/correction", headers=HUMAN, json={"fields": {}, "expected_revision": 0, "confirm": ["invoice_number"]}).json()
     assert not [r for r in body["open_reasons"] if r["field"] == "invoice_number"]
-    assert [r["reason"] for r in body["earlier_open_reasons"] if r["field"] == "invoice_number"] == ["pick:low_conf:invoice_number:0.47"]
+    assert sorted(r["reason"] for r in body["earlier_open_reasons"]) == ["parties:same_name", "pick:low_conf:payment_iban:0.40"]
+    with store.connect() as conn:
+        closed = conn.execute("SELECT resolution FROM review_reasons WHERE reason='pick:low_conf:invoice_number:0.47'").fetchone()
+    assert f'"run_id": "{run_id}"' in closed["resolution"]
 
 
 def test_only_simple_fields_of_the_pack_can_be_confirmed(env):

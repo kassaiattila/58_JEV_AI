@@ -15,7 +15,8 @@ cell validated by the kind and enumerated values of its line-item field. The pac
 of a statement) also run on the corrected data in the item result (`checks`), in code, without any paid call.
 
 Confirmed fields (083): a save may confirm simple fields (`confirm`): the version records each such field's value as
-checked by a person (`confirmed`: field -> value), and the run's own open to-dos on those fields are resolved. A
+checked by a person (`confirmed`: field -> value), and the open to-dos on those fields of the document are resolved:
+the run's own ones and those left by earlier runs (the resolution names the run where the field was checked). A
 confirmation lasts while the field's value stays the same; a later version that changes the value drops it. Each to-do
 of a document carries the field it is about (`field`, see `reason_field`), so the UI shows it at the field.
 """
@@ -373,7 +374,7 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     """Saves a new correction version. `fields` is the complete correction set (anything left out reverts to the machine
     value). `sources`: the words selected on the image per field (045); only for corrected fields, and only words of the
     item's word layer. `confirm` (083): simple fields a person checked; their values are recorded as confirmed and the
-    run's own open to-dos on them are resolved."""
+    document's open to-dos on them are resolved (this run's and the earlier runs')."""
     sources = dict(sources or {})
     confirm = list(dict.fromkeys(confirm or []))
     run = work.get_run(run_id)
@@ -417,10 +418,13 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     confirmed.update({f: effective.get(f) for f in confirm})
     _insert_revision(run_id, item_id, fields, expected_revision, actor, note, sources, confirmed)
     if confirm:
-        revision = expected_revision + 1
-        for r in work.item_reasons(run_id, item_id, item)["run"]:
+        # the run's own to-dos on the confirmed fields, and (the owner's decision, 083) the earlier runs' to-dos on the same
+        # fields of the same document: a person has now checked the field; the resolution names the run where it was
+        reasons = work.item_reasons(run_id, item_id, item)
+        for r in reasons["run"] + reasons["earlier"]:
             f = reason_field(r["reason"], simple)
             if f in confirm:
                 work.resolve_reason(r["id"], actor=actor, note="field checked by hand",
-                                    resolution={"field": f, "verdict": "confirmed", "value": confirmed[f], "revision": revision})
+                                    resolution={"field": f, "verdict": "confirmed", "value": confirmed[f], "run_id": run_id,
+                                                "revision": expected_revision + 1})
     return current(run_id, item_id)

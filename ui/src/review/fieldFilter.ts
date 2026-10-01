@@ -31,6 +31,16 @@ export function initialFilter(counts: Record<FieldFilter, number>, last: FieldFi
   return counts.fix > 0 ? "fix" : "all";
 }
 
+/** 083: after a field was confirmed with Enter, the field to go on with: the next one when the confirmed field is still
+ *  listed (for example under „Mind”), otherwise the one that took its place; null when nothing comes after it (the
+ *  workspace then goes to the next item with to-dos). */
+export function nextAfterConfirm(before: string[], after: string[], field: string): string | null {
+  const still = after.indexOf(field);
+  if (still >= 0) return after[still + 1] ?? null;
+  const i = before.indexOf(field);
+  return i >= 0 && i < after.length ? after[i] : null;
+}
+
 /** The note when the chosen filter has no field left (for example after the last field to fix was confirmed). */
 export const EMPTY_FILTER: Record<FieldFilter, string> = tmap({
   fix: "Ezen a tételen nincs több javítandó mező.",

@@ -47,7 +47,13 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   top with **Resolved**. ✓ saves that field only, records that a person verified it (the field shows **verified** until
   its value changes) and closes the field's to-dos in the run; with an empty box it records that the document has no
   value. ✗ empties the field, puts the cursor in it and turns on selecting on the image; ↺ brings the original value
-  back. A filter above the fields shows **To fix**, **Uncertain** or **All**, with counts. The correction save takes
+  back. A filter above the fields shows **To fix**, **Uncertain** or **All**, with counts. An earlier run's to-do on a
+  field is shown at the field ("from an earlier run", merged when several runs left the same one) and the field's ✓
+  closes it too; the earlier to-dos about the whole document sit closed at the bottom of the panel. Selecting on the
+  image is always on (the toggle and the s key are gone). Keyboard: the cursor opens in the first field with its value
+  selected; Tab / ↓ and Shift+Tab / ↑ move between the fields, Enter is the tick and goes on (after the last field to
+  the next item with to-dos), Esc brings back the original value, PageDown / PageUp switch items. Previous / next item
+  buttons sit at the top of the panel. The correction save takes
   `confirm` (the fields verified) and the version records `confirmed` (field → value); each to-do of a document item
   carries `field`. No paid calls; the model requests do not change.
 - **The S path says what it does:** the path once called "JEV only" is now **JEV where possible — cheaper, no line

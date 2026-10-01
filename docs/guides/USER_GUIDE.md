@@ -173,17 +173,18 @@ Before a run, the Review stage only shows the package's documents (section 7.9).
 - A to-do about one field is shown **at that field**, in red under its value, one sentence per reason (for example ‘Uncertain value: Gross amount (probability 0.58)’). You settle it with the field's ✓ (section 7.4).
 - At the top of the right-hand panel are only the to-dos about the whole document (for example ‘The supplier and the buyer have the same tax ID’ (*A szállító és a vevő adószáma azonos*) or an uncertain document type). The **Resolved** (*Rendezve*) button closes that one reason, under your name; the other reasons stay open.
 - **Saving with Save correction does not close a to-do**; the field's ✓ does (the exception is correcting an email's intent, section 7.8).
-- **Earlier to-dos on the document (N) — they do not block this run** (*Korábbi teendők az iraton (N) — ezt a futást nem akadályozzák*): reasons left open from an older run. You can resolve them, but they do not block the approval of this run.
+- **Earlier to-dos** are reasons left open on the same document by an older run; they do not block the approval of this run. One about a field is shown at that field, in grey, as ‘from an earlier run: …’ (*korábbi futásból: …*), or ‘from N earlier runs: …’ when several runs left the same one; the field's ✓ closes it too, because a person has now verified the value. The ones about the whole document are at the bottom of the panel, closed: **Earlier to-dos about the whole document (N) — they do not block this run** (*Korábbi, egész iratra szóló teendők (N) — ezt a futást nem akadályozzák*), each with **Resolved**.
 - **Checks on the saved data** (*Ellenőrzések a mentett adaton*): rules written in code (for example, whether the line items add up to the total) that run again, without paid calls, after you save a correction. A ‘Row N’ (*N. sor*) button takes you to the failing row. A check marked ‘advisory only, not a to-do’ (*csak jelzés, nem teendő*) does not open a to-do.
 
 ### 7.3 Fields, colours, boxes
 
-- **Filter** above the fields: **To fix** (*Javítandó*) shows the fields with an open to-do in this run, **Uncertain** (*Bizonytalan*) the fields whose estimate is ‘To check’ or ‘Likely wrong’ and that nobody has verified or corrected yet, **All** (*Mind*) every field; each button shows how many fields it has. An item opens on To fix when it has something to fix, otherwise on All; the filter you choose stays for the next item while that item has fields in it. When the last field of the filter is done, the panel says so (for example ‘Nothing is left to fix on this item.’ (*Ezen a tételen nincs több javítandó mező.*)). The ↓ / ↑ keys move between the filtered fields.
+- **Filter** above the fields: **To fix** (*Javítandó*) shows the fields with an open to-do in this run, **Uncertain** (*Bizonytalan*) the fields whose estimate is ‘To check’ or ‘Likely wrong’ and that nobody has verified or corrected yet, **All** (*Mind*) every field; each button shows how many fields it has. An item opens on To fix when it has something to fix, otherwise on All; the filter you choose stays for the next item while that item has fields in it. When the last field of the filter is done, the panel says so (for example ‘Nothing is left to fix on this item.’ (*Ezen a tételen nincs több javítandó mező.*)), with a **Next item with to-dos** (*Következő teendős tétel*) button. The keys move between the filtered fields (section 7.7).
+- **Previous item / Next item** (*Előző tétel / Következő tétel*) at the top of the panel move through the items without going back to the list on the left.
 - For each field you see its name, an ‘unsaved’, ‘verified’ (*ellenőrizve*) or ‘corrected’ (*javítva*) marker, the model's estimate as a percentage, and a source marker. The colour of the estimate is its confidence band: green ‘Confident’ (*Magabiztos*), blue ‘To check’ (*Ellenőrzendő*), red ‘Likely wrong’ (*Valószínűleg hibás*). A ‘–’ means there is no estimate. A corrected field is always blue, because the estimate applied to the machine value. The colour is only a display aid, not a decision, and it does not prove that the value is correct.
 - Source marker: ◉ the exact location is known, ◎ only an approximate location is known, ○ no location. Hover over the marker for an explanation.
 - Fields with to-dos come first, then the ‘Likely wrong’ fields, then the rest.
 - Below the selected field you see the ‘Source text:’ (*Forrásszöveg:*) with the page number; where relevant, a note that the value appears in several places; for a corrected field, the ‘Machine value:’ (*Gépi érték:*); and the ‘Other candidates:’ (*Más jelöltek:*) buttons.
-- **On the image**, every field that was found gets a faint box in the colour of its band, and the selected field a strong one. The image turns to the page of the selected field and scrolls the box into view. A dashed box is an approximate location (the line the machine picked from); a purple box is a location selected by hand. Clicking the image selects the field under the pointer; clicking again selects the next overlapping field. The image bar has page buttons (‘‹ ›’) and zoom buttons (‘−’, the percentage to reset, ‘+’).
+- **On the image**, the field being checked has a box in the colour of its band, and its other candidates have dashed boxes with a tag. The image turns to the page of the field and scrolls the box into view. A dashed box is an approximate location (the line the machine picked from); a purple box is a location selected by hand. Selecting on the image is always on: clicking the words or dragging a rectangle selects text for the field being checked (section 7.4). The image bar has page buttons (‘‹ ›’) and zoom buttons (‘−’, the percentage to reset, ‘+’).
 - If the document has no word layer (because of an earlier run or an old OCR result), the fields cannot be boxed. The interface tells you so; to get the boxes, run the processing again.
 
 ### 7.4 Checking and correcting values
@@ -191,13 +192,13 @@ Before a run, the Review stage only shows the package's documents (section 7.9).
 Next to each field's value there are two buttons:
 
 - **✓ (correct)** (*helyes*): saves this field's value, the one in the box (the machine value, or the one you typed, chose or selected), records that a person verified it, and closes the field's to-dos in this run, under your name. The field then shows **verified** (*ellenőrizve*) until its value changes. Only this field is saved; your unsaved changes to other fields stay in the working copy. If the box is empty, ✓ records that the document has no value for the field.
-- **✗ (wrong, fix it)** (*hibás, javítom*): empties the field, puts the cursor in it and turns on selecting on the image, with the hint ‘Select the right value on the image, type it, or pick a candidate…’ (*Jelöld ki a helyes értéket a képen, írd be, vagy válassz jelöltet…*). Bring in the right value in one of the three ways below, then press ✓. Once a field has an unsaved change, **↺ (restore)** (*visszaállítás*) takes the place of ✗ and brings back the original value.
+- **✗ (wrong, fix it)** (*hibás, javítom*): empties the field and puts the cursor in it, with the hint ‘Select the right value on the image, type it, or pick a candidate…’ (*Jelöld ki a helyes értéket a képen, írd be, vagy válassz jelöltet…*). Bring in the right value in one of the three ways below, then press ✓. Once a field has an unsaved change, **↺ (restore)** (*visszaállítás*) takes the place of ✗ and brings back the original value.
 
 You can correct a value in three ways:
 
 1. **Type** into the field's box. If you delete the value, it is saved as a ‘no value’ (*nincs érték*) correction. Amounts and quantities are shown and typed the Hungarian way: a comma is the decimal separator, and a space or a dot groups thousands. So `35,56` is 35.56, and `28.000`, `28 000` and `28000` are all 28 000. A form that could be read two ways, such as `28.5` for an amount, is not saved: the interface asks for a decimal comma (`28,50`) or a number without grouping (`28000`). After saving, the message names the value as recorded, for example ‘Saved. Recorded value: Net amount: 28 000’ (*Mentve. Rögzített érték: …*).
 2. **Choose another candidate:** the selected field's other candidates appear on the image in dashed boxes with a tag (‘72%’, ‘machine value’ (*gépi érték*), ‘possible location’ (*lehetséges hely*)), and as buttons in the panel. One click makes a candidate the field's value, as an unsaved correction.
-3. **Select on image** (*Kijelölés a képen*) (or press s): first choose the field, then click the words (clicking a word again removes it), or drag a rectangle. The system interprets the selected text according to the kind of field (date, amount, tax ID…) and shows the result (‘→ Field: value’). The **Enter into field** (*Beírás a mezőbe*) button transfers the value. If the text cannot be interpreted, the interface says so (‘This text cannot be interpreted as a “…” value. Select something else.’ (*Ez a szöveg nem értelmezhető „…” értékként. Jelölj ki mást.*)). The selected location is saved together with the correction.
+3. **Select on the image** (always on when the document has a word layer): with the field being checked, click the words (clicking a word again removes it), or drag a rectangle. The system interprets the selected text according to the kind of field (date, amount, tax ID…) and shows the result (‘→ Field: value’). The **Enter into field** (*Beírás a mezőbe*) button, or Enter in the field's box, transfers the value. If the text cannot be interpreted, the interface says so (‘This text cannot be interpreted as a “…” value. Select something else.’ (*Ez a szöveg nem értelmezhető „…” értékként. Jelölj ki mást.*)). The selected location is saved together with the correction.
 
 ### 7.5 Line lists
 
@@ -212,16 +213,18 @@ If the document has a line list (for example invoice line items or statement tra
 
 ### 7.7 Keyboard shortcuts
 
-The keys work in lower case (without Shift) and outside input boxes. Ctrl+Enter and Esc also work inside a box.
+The review works from the keyboard: when an item opens, the cursor is in its first field (under the filter) with the value selected, so typing replaces it.
 
 | Key | What it does |
 |---|---|
-| ↓ / ↑ (or j / k) | next / previous field |
-| n / p | next / previous item (the only keys that work on a line-list tab) |
-| s | turns selecting on the image on / off (if the document has a word layer) |
-| Enter | moves into the selected field's box |
-| Esc | leaves the box; while selecting, it first clears the selection, then turns selection mode off |
-| Ctrl+Enter | saves the correction (every unsaved field; it does not mark them as verified) |
+| Tab / ↓ | next field (its value selected); after the last field, Tab leaves the list as usual |
+| Shift+Tab / ↑ | previous field |
+| Enter | ✓: saves and verifies the field and goes to the next one; after the last field of the filter, to the next item with to-dos. If text selected on the image can be read as the field's value, the first Enter writes it into the box |
+| typing / Delete | replaces / empties the value (Enter afterwards saves it; an empty value means the document has none) |
+| Esc | brings back the original value of a changed field; otherwise it first clears the selection on the image, then leaves the box |
+| PageDown / PageUp | next / previous item (in a field's box too) |
+| Ctrl+Enter | saves every unsaved field at once (it does not mark them as verified) |
+| outside a box: ↓ / ↑ (or j / k), n / p, Enter | next / previous field, next / previous item (n / p work on a line-list tab too), back into the field's box |
 
 ### 7.8 Reviewing emails
 
