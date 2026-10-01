@@ -99,23 +99,29 @@ _MONTH = "(?:" + "|".join(re.escape(f) for f in sorted(_MONTH_FORMS, key=len, re
 
 _SEP = r"[\s.\-/]*"
 _DAY_END = r"(?:st|nd|rd|th|er)?\.?"
-_PATTERNS: tuple[tuple[Kind, re.Pattern[str]], ...] = (
+Tag = Literal["dmy", "mdy", "short"] | None  # a name form's order (evidence of the document's order); a short date
+_PATTERNS: tuple[tuple[Kind, Tag, re.Pattern[str]], ...] = (
     # 2022.12.04 / 2022-12-04 / 2022. 12. 04. / 2022/12/04 (as the old Hungarian pattern; a time may follow)
-    ("ymd", re.compile(r"(?<!\d)(?P<y>(?:19|20)\d{2})\s*[.\-/]\s*(?P<m>\d{1,2})\s*[.\-/]\s*(?P<d>\d{1,2})\.?(?!\d)")),
+    ("ymd", None, re.compile(r"(?<!\d)(?P<y>(?:19|20)\d{2})\s*[.\-/]\s*(?P<m>\d{1,2})\s*[.\-/]\s*(?P<d>\d{1,2})\.?(?!\d)")),
     # 2022. december 4. / 2022-Dec-04
-    ("name", re.compile(rf"(?<!\d)(?P<y>(?:19|20)\d{{2}})\.?,?{_SEP}(?P<mn>{_MONTH})\.?{_SEP}(?P<d>\d{{1,2}})\.?(?!\d)", re.I)),
-    # 4 December 2022 / 04-DEC-22 / 4. Dezember 2022 / 4 de diciembre de 2022 / 4th of December, 2022 / 04DEC22
-    ("name", re.compile(rf"(?<!\d)(?P<d>\d{{1,2}}){_DAY_END}(?:\s*(?:de|of)\b)?{_SEP}(?P<mn>{_MONTH})\.?"
-                        rf"(?:\s*de\b)?[\s.\-/,]*(?P<y>(?:19|20)\d{{2}}|\d{{2}})(?!\d)(?![.,]\d)", re.I)),
+    ("name", None, re.compile(rf"(?<!\d)(?P<y>(?:19|20)\d{{2}})\.?,?{_SEP}(?P<mn>{_MONTH})\.?{_SEP}(?P<d>\d{{1,2}})\.?(?!\d)",
+                              re.I)),
+    # 4 December 2022 / 4. Dezember 2022 / 4 de diciembre de 2022 / 4th of December, 2022
+    ("name", "dmy", re.compile(rf"(?<!\d)(?P<d>\d{{1,2}}){_DAY_END}(?:\s*(?:de|of)\b)?{_SEP}(?P<mn>{_MONTH})\.?"
+                               rf"(?:\s*de\b)?[\s.\-/,]*(?P<y>(?:19|20)\d{{2}})(?!\d)", re.I)),
+    # 04-DEC-22 / 04 Dec 22 / 04DEC22: a two-digit year only with the same separator twice and no four-digit year after
+    # it ("Mar 28-Mar 31, 2026" is a US range, not 28 March 1931)
+    ("name", "dmy", re.compile(rf"(?<!\d)(?P<d>\d{{1,2}})(?P<s>[\s.\-/]?)(?P<mn>{_MONTH})\.?(?P=s)(?P<y>\d{{2}})(?!\d)"
+                               rf"(?![.,]\d)(?!,?\s*(?:19|20)\d{{2}}(?!\d))", re.I)),
     # December 4, 2022 / Dec. 4th, 2022 / DEC 04 2022 (a four-digit year only: "Dec 4, 22 items" is no date; no slash:
     # "MAG/12/2022" is a document number)
-    ("name", re.compile(rf"(?<![^\W\d_])(?P<mn>{_MONTH})\.?[\s\-]*(?P<d>\d{{1,2}})(?:st|nd|rd|th)?,?[\s\-]*"
-                        rf"(?P<y>(?:19|20)\d{{2}})(?!\d)", re.I)),
+    ("name", "mdy", re.compile(rf"(?<![^\W\d_])(?P<mn>{_MONTH})\.?[\s\-]*(?P<d>\d{{1,2}})(?:st|nd|rd|th)?,?[\s\-]*"
+                               rf"(?P<y>(?:19|20)\d{{2}})(?!\d)", re.I)),
     # 04.12.2022 / 04-12-2022 (as the old day-first pattern) / 04/12/2022 (as the old US pattern)
-    ("dot", re.compile(r"(?<!\d)(?P<a>\d{1,2})\s*(?P<s>[.\-])\s*(?P<b>\d{1,2})\s*[.\-]\s*(?P<y>(?:19|20)\d{2})(?!\d)")),
-    ("slash", re.compile(r"(?<!\d)(?P<a>\d{1,2})/(?P<b>\d{1,2})/(?P<y>(?:19|20)\d{2})(?!\d)")),
+    ("dot", None, re.compile(r"(?<!\d)(?P<a>\d{1,2})\s*(?P<s>[.\-])\s*(?P<b>\d{1,2})\s*[.\-]\s*(?P<y>(?:19|20)\d{2})(?!\d)")),
+    ("slash", None, re.compile(r"(?<!\d)(?P<a>\d{1,2})/(?P<b>\d{1,2})/(?P<y>(?:19|20)\d{2})(?!\d)")),
     # 04.12.22 / 04-12-22 / 04/12/22: a two-digit year only with the same separator twice and nothing number-like around
-    ("dot", re.compile(r"(?<![\d.\-/])(?P<a>\d{1,2})(?P<s>[./-])(?P<b>\d{1,2})(?P=s)(?P<y>\d{2})(?!\d)(?![./-]\d)")),
+    ("dot", "short", re.compile(r"(?<![\d.\-/])(?P<a>\d{1,2})(?P<s>[./-])(?P<b>\d{1,2})(?P=s)(?P<y>\d{2})(?!\d)(?![./-]\d)")),
 )
 _OCR_YMD = re.compile(r"(?<!\d)(?P<y>(?:19|20)\d{2})\s*[.\-/,]\s*(?P<m>\d{1,2})\s*[.\-/,]\s*(?P<d>\d{1,2})\.?(?!\d)")
 _TIME = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b")
@@ -162,24 +168,29 @@ def _numeric(m: re.Match[str], kind: Kind, order: DateOrder | None, today: date)
     return DateHit(start, end, raw, mdy, ambiguous=True, alt=dmy, kind=kind)
 
 
-def _hit(m: re.Match[str], kind: Kind, order: DateOrder | None, today: date) -> DateHit | None:
+def _hit(m: re.Match[str], kind: Kind, tag: Tag, order: DateOrder | None, today: date) -> DateHit | None:
     if kind in ("dot", "slash"):
         return _numeric(m, kind, order, today)
     month = _MONTHS[_fold(m.group("mn"))] if kind == "name" else int(m.group("m"))
     value = _valid(_year(m.group("y"), today), month, int(m.group("d")))
-    return DateHit(m.start(), m.end(), m.group(0), value, kind=kind) if value else None
+    decisive = tag if tag in ("dmy", "mdy") else None  # a month name after or before the day shows the document's order
+    return DateHit(m.start(), m.end(), m.group(0), value, kind=kind, decisive=decisive) if value else None
 
 
-def find_dates_in(text: str | None, *, order: DateOrder | None = None, ocr: bool = False,
+def find_dates_in(text: str | None, *, order: DateOrder | None = None, ocr: bool = False, short: bool = True,
                   today: date | None = None) -> list[DateHit]:
     """Every date of a text, left to right, without overlaps (at the same start the longer form wins). `order`: the
-    document's own order (`document_date_order`); `ocr`: a comma read as a dot in a year-first date."""
+    document's own order (`document_date_order`); `ocr`: a comma read as a dot in a year-first date; `short=False`
+    leaves out the all-number dates with a two-digit year (on Hungarian and utility documents such text is mostly a
+    code, and it could only be a to-do anyway)."""
     if not text:
         return []
     today = today or date.today()
     s = str(text).replace(" ", " ")
-    patterns = (*_PATTERNS, ("ymd", _OCR_YMD)) if ocr else _PATTERNS
-    found = [h for kind, rx in patterns for m in rx.finditer(s) if (h := _hit(m, kind, order, today)) is not None]
+    patterns = [(k, g, rx) for k, g, rx in _PATTERNS if short or g != "short"]
+    if ocr:
+        patterns.append(("ymd", None, _OCR_YMD))
+    found = [h for kind, tag, rx in patterns for m in rx.finditer(s) if (h := _hit(m, kind, tag, order, today)) is not None]
     found.sort(key=lambda h: (h.start, -(h.end - h.start)))
     out: list[DateHit] = []
     for h in found:
@@ -197,11 +208,12 @@ def read_date(raw: object, *, order: DateOrder | None = None, ocr: bool = False,
 
 
 def document_date_order(texts: Iterable[str], *, today: date | None = None) -> DateOrder | None:
-    """The document's own day/month order from its hyphen and slash dates with a four-digit year whose day or month
-    is above 12; none when nothing decides or the evidence contradicts itself (a dot date is day first anyway and is no
-    evidence; a two-digit-year date is none either, as its year may come first)."""
+    """The document's own day/month order: from its hyphen and slash dates with a four-digit year whose day or month is
+    above 12, and from its dates with a month name ("Dec 25, 2022": month first, "25 December 2022": day first). None
+    when nothing decides or the evidence contradicts itself (a dot date is day first anyway and is no evidence; an
+    all-number date with a two-digit year is none either, as its year may come first)."""
     seen = {h.decisive for t in texts for h in find_dates_in(t, today=today)
-            if h.kind in ("dash", "slash") and h.decisive and not h.short}
+            if h.kind in ("dash", "slash", "name") and h.decisive and not h.short}
     return seen.pop() if len(seen) == 1 else None
 
 

@@ -166,6 +166,21 @@ def test_every_date_of_a_line_in_order():
     assert [h.raw for h in hits] == ["01.11.2022", "30.11.2022", "Dec 15, 2022"]
 
 
+@pytest.mark.parametrize("text, expected", [
+    ("Mar 28-Mar 31, 2026", [date(2026, 3, 31)]),  # a US range: "28-Mar 31" is no day-month-year
+    ("Jan 20-Jan 21, 2026", [date(2026, 1, 21)]),
+    ("04-DEC-22 - 18-DEC-22", [date(2022, 12, 4), date(2022, 12, 18)]),
+    ("04 Dec 22", [date(2022, 12, 4)]),
+])
+def test_a_two_digit_year_after_a_month_name_needs_the_same_separator_twice(text, expected):
+    assert [h.value for h in dates.find_dates_in(text, today=TODAY)] == expected
+
+
+def test_all_number_two_digit_year_dates_can_be_left_out():
+    assert dates.find_dates_in("Tarifa 1-2-44", short=False, today=TODAY) == []
+    assert dates.find_dates_in("04-DEC-22", short=False, today=TODAY)[0].value == date(2022, 12, 4)
+
+
 def test_a_flagged_hit_also_carries_the_other_reading():
     hit = dates.find_dates_in("04/12/2022", today=TODAY)[0]
     assert (hit.value, hit.ambiguous, hit.alt) == (date(2022, 4, 12), True, date(2022, 12, 4))
@@ -189,6 +204,10 @@ def test_ocr_tolerance_reads_a_comma_as_a_dot_in_a_year_first_date():
     (["25.12.2022"], None),  # a dot date is day first anyway and is no evidence for a slash date
     (["2022-12-25"], None),
     (["Date: 25/12/22"], None),  # a two-digit year may come first: no evidence
+    (["Invoice date: Dec 25, 2022", "Paid: 04/12/2022"], "mdy"),  # the document writes the month first
+    (["Invoice date: 25 December 2022", "Paid: 04/12/2022"], "dmy"),
+    (["Dec 25, 2022", "25 December 2022"], None),
+    (["Dec 25, 2022", "25/12/2022"], None),  # a month-first name and a day-first number contradict
 ])
 def test_the_document_order_comes_from_its_unambiguous_dates(texts, expected):
     assert dates.document_date_order(texts) == expected
@@ -249,6 +268,18 @@ def test_a_slash_date_candidate_follows_the_documents_order_or_is_flagged():
     assert _date_cands("intl", "Date: 04/12/2022") == [("2022-04-12", "04/12/2022", True)]
     assert _date_cands("intl", "Date: 04/12/2022", "Due: 25/12/2022") == [
         ("2022-12-04", "04/12/2022", False), ("2022-12-25", "25/12/2022", False)]
+
+
+def test_an_all_number_two_digit_year_date_is_a_candidate_only_on_the_international_profile():
+    # on Hungarian and utility documents such text is mostly a code ("1-2-44"), and it could only be a to-do anyway
+    assert _date_cands("utility", "Tarifa: 1-2-44") == []
+    assert _date_cands("hu", "Kelt: 04.12.22") == []
+    assert _date_cands("intl", "Date: 04.12.22") == [("2022-12-04", "04.12.22", True)]
+
+
+def test_a_us_document_decides_its_slash_dates_by_its_month_first_dates():
+    assert _date_cands("intl", "Date: Dec 25, 2022", "Paid: 04/12/2022") == [
+        ("2022-12-25", "Dec 25, 2022", False), ("2022-04-12", "04/12/2022", False)]
 
 
 def test_the_ocr_profile_still_reads_a_comma_as_a_dot():
