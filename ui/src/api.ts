@@ -111,6 +111,7 @@ export interface Run {
   finished_at: string | null; input: { workpackage_id: string; workpackage_revision: number; items: Item[] };
   items: RunItem[]; jobs: Record<string, number>;
   recipe?: { title?: string }; // the run's recipe snapshot (its title is shown in the interface)
+  plan?: RunPlan | null; // 082: the pre-start overview saved at the start (null for an older run)
 }
 export interface Budget {
   scope: string; committed_usd: string; providers: Record<string, { limit_usd: string; committed_usd: string }>;
@@ -120,7 +121,17 @@ export interface RunView {
   titles?: Record<string, string>; // 048 T2: the readable title of an email item
   tables?: string[]; // 058: the result's views that contain data (an empty view is not shown)
   names?: Record<string, ItemName>; // 082: the items' unified names (only when asked for)
+  costs?: RunCostView; // 082: planned and actual cost per provider
 }
+/** 082: one provider of a run — what the pre-start overview expected (yes / maybe / no; null for an older run), the
+ *  budget, the paid calls (failed among them, still open), the known cost, the reserved maximum of the calls without a
+ *  known cost, the answers reused from earlier, the models; `unexpected`: called although the overview did not count
+ *  on it. Amounts are decimal text. */
+export interface ProviderCost {
+  provider: string; expected: "yes" | "maybe" | "no" | null; limit_usd: string | null; committed_usd: string | null;
+  calls: number; failed: number; open: number; usd: string; held_usd: string; reused: number; models: string[]; unexpected: boolean;
+}
+export interface RunCostView { run_id: string; plan_saved: boolean; plan: RunPlan | null; providers: ProviderCost[] }
 /** 082: an item's unified name. `state`: ready / review (uncertain, `check` says why) / pending (not processed yet) /
  *  none (an email has no file name of its own). */
 export interface ItemName { unified: string | null; state: "ready" | "review" | "pending" | "none"; check: string | null; run_id: string | null }

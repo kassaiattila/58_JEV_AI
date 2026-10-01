@@ -20,6 +20,16 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   name** and **Unified name status** can be added as columns. Datasets `workpackage_items` and `run_items` take the
   optional scope `names` (`original` / `unified`), and `GET /api/runs/{id}?names=unified` adds the items' names for the
   review queue. No paid calls; the model requests do not change.
+- **Cost view:** the processing cost per item, run and work package, per provider and model, read from the call log
+  and the ledger (nothing is stored twice). A run's items get one cost column per provider and model it called, a
+  total, and the count of questions answered free from earlier answers; the package's runs table gets each run's cost;
+  the new **Cost of the work package** table adds up every run per provider and model. On the run's page, **Planned
+  and actual** shows per provider what the pre-start overview expected next to the actual calls, cost and models, and
+  warns when a provider was called against the overview (the overview is now saved with the run: `runs.plan`). A call
+  whose cost is not known (a failed or interrupted attempt) is no longer mistaken for a cost: its reserved amount is
+  shown apart. Text taken from an earlier Azure recognition is now written to the ledger at 0 USD, so it counts among
+  the answers reused from earlier. The budget bars name the providers. Dataset `package_costs`; `GET /api/runs/{id}`
+  carries `costs`. No paid calls; the model requests do not change.
 
 ## v1.3.0 — 2026-10-01
 

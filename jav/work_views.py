@@ -193,7 +193,9 @@ def run_view(run_id: str, *, names: bool = False) -> dict[str, Any]:
     run = work.get_run(run_id)
     split = work.items_reasons(run_id, run["input"]["items"])
     titles = item_titles(run["input"]["items"], package_root(work.get(run["workpackage_id"])))
-    extra = {}
+    from jav import costs
+
+    extra: dict[str, Any] = {"costs": costs.plan_vs_actual(run_id)}  # 082: planned and actual cost per provider
     if names:
         from jav import naming
 

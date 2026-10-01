@@ -20,13 +20,13 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, store, work, work_views
+from jav import cfg, costs, store, work, work_views
 from jav.runtime import calls
 from jav.tablequery import Column, Query, run_query, select, shown
 
@@ -69,6 +69,8 @@ def _labels(name: str) -> dict[str, str]:
         return {k: v.display_name for k, v in intents.BY_KEY.items()}
     if name == "task_action":  # 058 K5.3: the Hungarian names of the task actions
         return dict(cfg.load("email_tasks")["actions"])
+    if name == "provider":  # 082: the providers by the names the interface uses
+        return dict(PROVIDER_NAMES)
     if name == "next_flow":
         from jav import mailbox
 
@@ -121,9 +123,16 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
 
 
 def _calls_fingerprint(scope: dict[str, str]) -> str:
+    """082: also a call's settlement (a finished or a resolved uncertain call changes its state and cost)."""
     with store.connect() as c:
-        row = c.execute("SELECT COUNT(*), MAX(id) FROM invocations WHERE budget_scope=?", (scope["run_id"],)).fetchone()
+        row = c.execute("SELECT COUNT(*), MAX(id), MAX(finished_at), SUM(status IN ('reserved','uncertain')) FROM invocations"
+                        " WHERE budget_scope=?", (scope["run_id"],)).fetchone()
     return "|".join(str(x) for x in row)
+
+
+def _run_items_fingerprint(scope: dict[str, str]) -> str:
+    """082: the run items carry their cost, so the call log is part of their fingerprint."""
+    return f"{_run_fingerprint(scope)}#{_calls_fingerprint(scope)}"
 
 
 # --- row builders ----------------------------------------------------------------------------------------------
@@ -144,13 +153,16 @@ def _runs(scope: dict[str, str]) -> Rows:
         _col("items_done", "Lefutott tétel", "number"),
         _col("items", "Tétel", "number"),
         _col("open_reasons", "Nyitott teendő", "number", alert=True),
+        _col("cost_usd", "Költség (USD)", "number"),
         _col("actor", "Indította", hidden=True),
         _col("finished_at", "Befejeződött", "datetime", hidden=True),
         _col("run_id", "Futás-azonosító", "id", hidden=True, link="run"),
     ]
     titles = _labels("recipe")  # 058: the recipe's title (translated by the UI), not its code name
+    runs = work.run_rows(wp_id)
+    spent = costs.run_usd([r["run_id"] for r in runs])  # 082: the known actual cost of each run
     rows = [{**r, "_key": r["run_id"], "_run": r["run_id"], "_wp": r["workpackage_id"],
-             "recipe": titles.get(r["recipe_id"], r["recipe_id"])} for r in work.run_rows(wp_id)]
+             "recipe": titles.get(r["recipe_id"], r["recipe_id"]), "cost_usd": spent[r["run_id"]]} for r in runs]
     return cols, rows
 
 
@@ -277,6 +289,8 @@ def _run_items(scope: dict[str, str]) -> Rows:
         _col("updated_at", "Frissítve", "datetime", hidden=True),
         _col("item_id", "Tétel-azonosító", "id", hidden=True),
     ]
+    spent = costs.run_costs(run["run_id"])
+    cols += _cost_cols(spent)
     rows = []
     splits = work.items_reasons(run["run_id"], run["input"]["items"])
     for i in run["input"]["items"]:
@@ -285,7 +299,58 @@ def _run_items(scope: dict[str, str]) -> Rows:
         rows.append({"_key": i["item_id"], "_wp": run["workpackage_id"], "_run": run["run_id"], "item_id": i["item_id"],
                      **_name_fields(i, titles, names[i["item_id"]], choice), "kind": i.get("kind") or "document", "status": r.get("status"),
                      "final_status": r.get("final_status"), "error": r.get("error"), "updated_at": r.get("updated_at"),
-                     "open_reasons": len(split["run"]), "earlier_reasons": len(split["earlier"])})
+                     "open_reasons": len(split["run"]), "earlier_reasons": len(split["earlier"]),
+                     **_cost_fields(spent.items[i["item_id"]])})
+    return cols, rows
+
+
+PROVIDER_NAMES = {"jev": "JEV", "openai": "OpenAI", "azure_di": "Azure DI"}
+
+
+def _cost_key(line: costs.Line) -> str:
+    return f"cost:{line.provider}:{line.model}"
+
+
+def _cost_cols(spent: costs.RunCosts) -> list[Column]:
+    """082: one cost column per provider and model with a successful call in the run (a failed call has no actual model
+    and no known cost: its reserved maximum is in the reserved column), the item's total, the answers taken from an
+    earlier answer, and the reserved maximum of the calls without a known cost (shown only when there is any)."""
+    shown = [x for x in spent.lines if x.succeeded]
+    models = Counter(x.provider for x in shown)  # the header names the model only where a provider had several
+
+    def label(x: costs.Line) -> str:
+        name = PROVIDER_NAMES.get(x.provider, x.provider)
+        return f"{name} · {x.model} (USD)" if models[x.provider] > 1 else f"{name} (USD)"
+
+    per_model = [_col(_cost_key(x), label(x), "number", model=x.model) for x in shown]
+    return [*per_model, _col("cost_total", "Költség összesen (USD)", "number"),
+            _col("cost_reused", "Korábbi válaszból (db)", "number", hidden=True),
+            _col("cost_held", "Lefoglalt, ismeretlen kimenetelű (USD)", "number", hidden=not spent.held_usd)]
+
+
+def _cost_fields(item: costs.Summary) -> dict[str, Any]:
+    return {**{_cost_key(x): x.usd for x in item.lines if x.succeeded}, "cost_total": item.usd, "cost_reused": item.reused,
+            "cost_held": item.held_usd or None}
+
+
+def _package_costs(scope: dict[str, str]) -> Rows:
+    """082: the package's cost over all its runs, one row per provider and model."""
+    pkg = costs.package_costs(scope["workpackage_id"])
+    cols = [
+        _col("provider", "AI-szolgáltató", "enum", labels="provider"),
+        _col("model", "Modell"),
+        _col("calls", "Fizetős hívás", "number"),
+        _col("failed", "Ebből sikertelen", "number", hidden=not any(x.failed for x in pkg.lines)),
+        _col("reused", "Korábbi válaszból", "number"),
+        _col("usd", "Költség (USD)", "number"),
+        _col("held_usd", "Lefoglalt, ismeretlen kimenetelű (USD)", "number", hidden=not pkg.held_usd),
+        _col("runs", "Futás", "number"),
+    ]
+    used = {(x.provider, x.model): sum(1 for r in pkg.runs if any((y.provider, y.model) == (x.provider, x.model) for y in r.lines))
+            for x in pkg.lines}
+    rows = [{"_key": f"{x.provider}:{x.model}", "_wp": pkg.workpackage_id, "provider": x.provider, "model": x.model,
+             "calls": x.calls, "failed": x.failed, "reused": x.reused, "usd": x.usd, "held_usd": x.held_usd or None,
+             "runs": used[(x.provider, x.model)]} for x in pkg.lines]
     return cols, rows
 
 
@@ -588,7 +653,8 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("workpackages", "Munkacsomagok", (), _workpackages, optional_scope=("include_archived", "owner"),
             natural_sort=(("created_at", True),)),
     Dataset("workpackage_items", "Csomag tételei", ("workpackage_id",), _workpackage_items, optional_scope=("names",)),
-    Dataset("run_items", "Futás tételei", ("run_id",), _run_items, _run_fingerprint, optional_scope=("names",)),
+    Dataset("run_items", "Futás tételei", ("run_id",), _run_items, _run_items_fingerprint, optional_scope=("names",)),
+    Dataset("package_costs", "A csomag költsége", ("workpackage_id",), _package_costs),
     Dataset("emails", "Levelek", ("run_id",), _emails, _run_fingerprint),
     Dataset("email_tasks", "Feladatjavaslatok", ("run_id",), _email_tasks, _run_fingerprint),
     Dataset("documents", "Iratok", ("run_id",), _documents, _run_fingerprint),

@@ -450,6 +450,22 @@ def _to_pdftext(path: Path, data: dict[str, Any], *, cached: bool) -> PdfText:
                    page_sizes=[tuple(s) for s in data.get("page_sizes") or []])
 
 
+def _note_azure_reuse(path: Path, key: str) -> None:
+    """082: in a worker run, text taken from an earlier Azure recognition is a ledger row at 0 USD under the item's
+    flow identifier (`<run>:<fingerprint16>`; a document's identifier is its content fingerprint), so the cost view
+    counts it among the answers reused from earlier, as it does an earlier JEV answer. Outside a run (measurements, the
+    command line) nothing is written."""
+    from jav import store
+    from jav.runtime import calls
+
+    ctx = calls.current()
+    if ctx is None or ctx.budget_scope is None:
+        return
+    store.ledger_add(run_id=f"{ctx.budget_scope}:{_sha256(path)[:16]}", step="ocr_azure", provider=AZURE_PROVIDER,
+                     model=AZURE_DI_MODEL, input_tokens=None, output_tokens=None, cost_usd=0.0, seconds=0.0, cached=True,
+                     cache_key=key, config_hash=CONFIG_HASH)
+
+
 def ocr_pdf(
     path: str | Path, *, page_count: int | None = None, use_cache: bool = True, psm: int | None = None, engine_name: str | None = None
 ) -> PdfText:
@@ -466,6 +482,8 @@ def ocr_pdf(
         cached = json.loads(cache_file.read_text(encoding="utf-8"))
         if not cached.get("words") and eng != "azure_di":
             cached = _backfill_words(path, cached, cache_file, psm=psm, eng=eng)
+        if eng == "azure_di":
+            _note_azure_reuse(path, key)
         return _to_pdftext(path, cached, cached=True)
 
     t0 = time.perf_counter()
