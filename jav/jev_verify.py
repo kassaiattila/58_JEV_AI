@@ -26,8 +26,9 @@ from typesafe_sdk import Noul
 
 from jav import cfg
 from jav.adapters.jev import JevAdapter
-from jav.candidates import find_all, profile_of
+from jav.candidates import QUANTITY_RE, find_all, profile_of
 from jav.jev_budget import ask_within_budget, line_numbers
+from jav.numbers import Convention, document_convention
 from jav.models import (
     Candidate,
     DATE_NUMERIC_RE,
@@ -97,7 +98,8 @@ def _candidate_hits(kind: str, value: str, cands: dict[str, list[Candidate]] | N
 
 
 def find_evidence(
-    field: str, value: str, lines: list[LineLayout], cands: dict[str, list[Candidate]] | None = None, kind: str | None = None, *, intl: bool = False
+    field: str, value: str, lines: list[LineLayout], cands: dict[str, list[Candidate]] | None = None, kind: str | None = None, *, intl: bool = False,
+    convention: Convention | None = None,
 ) -> list[str]:
     """Deterministic, tolerant matching: on which lines the extracted value appears. `kind` is the type pack's field
     kind (default: inferred from the Hungarian invoice's fields)."""
@@ -112,7 +114,8 @@ def find_evidence(
             targets.add(money_label(Decimal(value)))
         except (InvalidOperation, ValueError):
             pass
-        raw = parse_money(value, intl=intl).value  # 054: raw "1.153" as the record reads it (Hungarian thousands dot)
+        # 054: raw "1.153" as the record reads it (Hungarian thousands dot); 081: by the document's notation
+        raw = parse_money(value, intl=intl, kind="number" if kind == "number" else "money", convention=convention).value
         if raw is not None:
             targets.add(money_label(raw))
         if not targets:
@@ -123,8 +126,9 @@ def find_evidence(
         exact: list[str] = []  # 054: the digits match too ("1,0000" ↔ "1.0000", not the ordinal "1.") - these go first
         for ln in lines:
             # the same tokenisation as in the candidate finder (does not run across cell boundaries)
-            for m in prof.money_re.finditer(ln.text):
-                parsed = parse_money(m.group(1), intl=intl)
+            # 081: whole numbers only (a quantity may have more decimals); the same reader as the candidate finder
+            for m in (QUANTITY_RE if kind == "number" else prof.money_re).finditer(ln.text):
+                parsed = parse_money(m.group(1), intl=intl, kind="number" if kind == "number" else "money", convention=convention)
                 if parsed.value is not None and money_label(parsed.value) in targets:
                     (exact if re.sub(r"\D", "", m.group(1)) == digits else hits).append(f"L{ln.no:02d}: {ln.text}")
                     break
@@ -296,11 +300,12 @@ class VerifySite:
         evidence: dict[str, list[str]] = {}
         unsupported: list[str] = []
         cands = find_all(lines, self.pack.candidate_profile, text_labels=self.pack.text_labels)
+        convention = document_convention(ln.text for ln in lines)  # 081: the document's own number notation
         for field in self.pack.header_fields:
             value = d.get(field)
             if value is None:
                 continue
-            hits = find_evidence(field, str(value), lines, cands, kind=self.pack.kind(field), intl=self.intl)
+            hits = find_evidence(field, str(value), lines, cands, kind=self.pack.kind(field), intl=self.intl, convention=convention)
             if hits:
                 evidence[field] = hits
             else:

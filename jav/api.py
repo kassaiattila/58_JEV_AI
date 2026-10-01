@@ -35,8 +35,8 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import (app_settings, backup, cfg, corrections, deps_audit, local_picker, mailbox, store, version, work,
-                 work_views)
+from jav import (app_settings, backup, cfg, corrections, deps_audit, local_picker, mailbox, numbers, store, version,
+                 work, work_views)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, worker
 from jav.tablequery import Query as TableQuery
@@ -475,6 +475,10 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     async def no_output_folder(_request: Request, exc: app_settings.NoOutputFolder):
         return _error(422, "no_output_folder", str(exc))
 
+    @app.exception_handler(numbers.AmbiguousNumber)
+    async def ambiguous_number(_request: Request, exc: numbers.AmbiguousNumber):
+        return _error(422, "ambiguous_number", str(exc))  # 081: the UI asks for the Hungarian form ("28,50")
+
     @app.exception_handler(local_picker.PickerBusy)
     async def picker_busy(_request: Request, exc: local_picker.PickerBusy):
         return _error(409, "picker_busy", str(exc))
@@ -521,7 +525,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         text = body.text.strip()
         if pack.kind(body.field) == "money":  # a currency sign is natural in a selection ("1 071 880 Ft", "650 000,-")
             text = re.sub(r"(?i)\s*(?:ft\.?|huf|eur|usd|€|\$|,-)\s*$", "", re.sub(r"(?i)^\s*(?:huf|eur|usd|€|\$)\s*", "", text))
-        value = normalize_value(pack.kind(body.field), text, body.field, reasons)
+        value = normalize_value(pack.kind(body.field), text, body.field, reasons, origin="printed")
         return work_views.jsonable({"ok": value is not None and not reasons, "value": value, "reasons": reasons,
                                     "kind": pack.kind(body.field)})
 

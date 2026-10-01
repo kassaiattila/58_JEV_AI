@@ -85,11 +85,13 @@ class TypePack(BaseModel):
         """Every field in the schema's order, including the itemised lists (the keys of the saved `datapoints`)."""
         return tuple(self.fields)
 
-    def normalize(self, data: dict[str, Any]) -> tuple[Any, list[str]]:
-        """Generative extract -> normalised record according to the pack's kinds, item descriptions and enumerations."""
+    def normalize(self, data: dict[str, Any], *, convention: str | None = None) -> tuple[Any, list[str]]:
+        """Generative extract -> normalised record according to the pack's kinds, item descriptions and enumerations.
+        081: `convention` is the document's number notation ("comma" / "dot", `jav.numbers.document_convention`)."""
         from jav.models import record_from_llm
 
-        return record_from_llm(data, self.fields, list_fields=self.list_fields, enums={k: list(v) for k, v in self.enums.items()})
+        return record_from_llm(data, self.fields, list_fields=self.list_fields, enums={k: list(v) for k, v in self.enums.items()},
+                               convention=convention)  # type: ignore[arg-type]
 
     def kind(self, field: str) -> str:
         return self.fields.get(field, "text")

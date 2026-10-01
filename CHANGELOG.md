@@ -16,6 +16,16 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   and files, a watched folder, the output folder) has a **Browse…** button that opens the Windows folder or file
   picker through the local service; several files can be chosen at once, and a path can still be typed. Command line:
   `wp-create <folder> --recursive`. Settings: `configs/service.json` `picker`. The model requests do not change.
+- **Safe number reading:** one number reader (`jav/numbers.py`) for every path. An invoice printed in English notation
+  ("28,000.00") was read as net 28 / VAT 7.56 / gross 35.56 on the S path, without a to-do, because the Hungarian
+  candidate pattern cut "28,000" to "28,00" and the three wrong values still added up. Now a number is never cut
+  apart, money never has three decimals ("28.000" and "28,000" are 28 000), a quantity follows the document's own
+  notation and is flagged when that is unknown, and a value GPT copied in the document's notation is read the same
+  way. On foreign invoices a candidate is no longer read together with its neighbouring number ("€11.99 1 pc" gave
+  11.991). A safety check gives a to-do when a picked value is only a piece of a longer printed number. Manual
+  corrections are shown and typed the Hungarian way ("35,56"; "28.000" = 28 000), an ambiguous form is refused, and
+  the saved value is named in the message. The changed candidates change the S path's JEV requests on the documents
+  concerned.
 
 ## v1.2.0 — 2026-10-01
 
