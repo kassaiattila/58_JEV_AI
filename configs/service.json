@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "service",
-    "version": "1.8.0",
+    "version": "1.9.0",
     "changelog": [
       {
         "version": "1.0.0",
@@ -47,6 +47,11 @@
         "version": "1.8.0",
         "date": "2026-09-30",
         "note": "077 (J6): the PDF parsers (text layer, OCR page images, review page images) run in an isolated helper process (jav/isolated_pdf.py) with a time limit per request and a memory limit. Over a limit the text extraction fails the item with a named error, without a retry; the OCR page images give a to-do; the review page image a 422. isolated: false runs them in-process, as before."
+      },
+      {
+        "version": "1.9.0",
+        "date": "2026-10-01",
+        "note": "081 (folder browsing): the Browse buttons open the operating system's own folder or file picker through the local service (jav/local_picker.py), in a separate process, one dialog at a time; a dialog left open longer than picker.timeout_s counts as cancelled."
       }
     ]
   },
@@ -88,6 +93,9 @@
     "page_image_timeout_s": 15,
     "memory_mb": 1024,
     "startup_timeout_s": 60
+  },
+  "picker": {
+    "timeout_s": 600
   },
   "dev_origins": [
     "http://127.0.0.1:5173",

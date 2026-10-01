@@ -479,6 +479,11 @@ th:hover .th-filter, .th-filter:focus-visible, .th-filter[aria-expanded="true"] 
 .user-list li { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line-soft); max-width: 460px; }
 .folder-card legend { font-weight: 600; padding: 0 6px; }
 .form-row .grow { flex: 1 1 360px; }
+/* 081: a path field with its Browse button (the hint and an error wrap under it on a narrow screen) */
+.path-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.path-row .grow { flex: 1 1 320px; }
+.browse { display: inline-flex; gap: 8px; flex-wrap: wrap; align-items: center; padding-bottom: 2px; }
+.browse .notice { margin: 0; }
 .actor .picker { flex-direction: row; display: flex; align-items: center; gap: 8px; }
 .actor .picker-label { font-size: 13px; color: var(--ink); }
 .actor .picker-trigger { min-width: 200px; }

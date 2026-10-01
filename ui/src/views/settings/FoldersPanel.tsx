@@ -3,9 +3,10 @@
 // discard; with unsaved changes, leaving the page or following an internal link asks for confirmation (the V4 pattern).
 // The path can be any existing folder (061 decision; the restriction can be switched back on in the local service's
 // settings); the worker checks the folder at intervals, and no paid run starts on its own. 078: below the list, the output
-// folder of the content-named copies.
+// folder of the content-named copies. 081: every path can be picked with the system's folder picker (Browse…).
 import { useEffect, useState } from "react";
 import { api, ApiError, getActor, NO_ACTOR, type WatchedFolder } from "../../api";
+import { BrowseButton } from "../../components/BrowseButton";
 import { Picker } from "../../components/Picker";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
@@ -82,6 +83,7 @@ export function FoldersPanel() {
           <div className="form-row">
             <label className="block">{t("Név")}<input value={f.name} maxLength={160} placeholder={t("(üresen: a mappa neve)")} onChange={(e) => set(i, { name: e.target.value })} /></label>
             <label className="block grow">{t("Mappa teljes útvonala")}<input value={f.path} maxLength={1024} required onChange={(e) => set(i, { path: e.target.value })} /></label>
+            <BrowseButton kind="folder" initial={f.path} onPick={([p]) => set(i, { path: p })} />
           </div>
           <div className="form-row">
             <label className="check"><input type="checkbox" checked={f.enabled} onChange={(e) => set(i, { enabled: e.target.checked })} /> {t("Aktív")}</label>
@@ -158,6 +160,7 @@ export function OutputFolderCard() {
       <p className="muted small">{t("Ide kerülnek az iratok tartalom szerinti nevű másolatai (Eredmény › Fájlnevek). Minden kiírás új almappát kap; a program itt semmit nem ír felül és nem töröl. Nem lehet figyelt munkamappán belül.")}</p>
       <div className="form-row">
         <label className="block grow">{t("Mappa teljes útvonala")}<input value={path} maxLength={1024} placeholder={t("(üresen: nincs kimeneti mappa)")} onChange={(e) => setDraft(e.target.value)} /></label>
+        <BrowseButton kind="folder" initial={path} onPick={([p]) => setDraft(p)} />
       </div>
       <div className="button-row">
         <span className="dt-spacer" />

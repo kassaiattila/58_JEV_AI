@@ -35,7 +35,8 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import app_settings, backup, cfg, corrections, deps_audit, mailbox, store, version, work, work_views
+from jav import (app_settings, backup, cfg, corrections, deps_audit, local_picker, mailbox, store, version, work,
+                 work_views)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, worker
 from jav.tablequery import Query as TableQuery
@@ -248,11 +249,18 @@ class _In(BaseModel):
 
 
 class CreateWorkpackage(_In):
-    """Exactly one of: `folder` (the folder's PDFs) or `paths` (given files, possibly from several folders; then `name`
-    is required)."""
+    """Exactly one of: `folder` (the folder's PDFs; with `recursive`, 081, those of its subfolders too) or `paths`
+    (given files, possibly from several folders; then `name` is required)."""
     folder: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
     paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(min_length=1, max_length=500)] | None = None
     name: Annotated[str, Field(min_length=1, max_length=200)] | None = None
+    recursive: bool = False
+
+
+class PickRequest(_In):
+    """081: the picker's window title (in the display language) and where it opens (a folder, or a file's folder)."""
+    title: Annotated[str, Field(max_length=200)] | None = None
+    initial: Annotated[str, Field(max_length=1024)] | None = None
 
 
 class AddItems(_In):
@@ -467,6 +475,14 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     async def no_output_folder(_request: Request, exc: app_settings.NoOutputFolder):
         return _error(422, "no_output_folder", str(exc))
 
+    @app.exception_handler(local_picker.PickerBusy)
+    async def picker_busy(_request: Request, exc: local_picker.PickerBusy):
+        return _error(409, "picker_busy", str(exc))
+
+    @app.exception_handler(local_picker.PickerUnavailable)
+    async def picker_unavailable(_request: Request, exc: local_picker.PickerUnavailable):
+        return _error(503, "picker_unavailable", str(exc))
+
     @app.exception_handler(mailbox.BridgeError)
     async def bridge_failed(_request: Request, exc: mailbox.BridgeError):
         return _error(503, "mailbox_unavailable", str(exc))
@@ -535,12 +551,32 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         if (body.folder is None) == (body.paths is None):
             raise ValueError("give exactly one of folder or paths")
         if body.folder is not None:  # 065: the creator is the owner
-            wp = work.create_from_folder(checked_path(body.folder, want_dir=True), name=body.name, owner=who)
+            # 081: with the subfolders, the output folder of the named copies is left out
+            out = app_settings.output_folder() if body.recursive else None
+            wp = work.create_from_folder(checked_path(body.folder, want_dir=True), name=body.name, owner=who,
+                                         recursive=body.recursive, exclude=[Path(out)] if out else [])
         else:
             if not body.name:
                 raise ValueError("name is required when creating from files")
             wp = work.create_from_files([checked_path(p, want_dir=False) for p in body.paths], name=body.name, owner=who)
         return work_views.workpackage_view(wp["id"])
+
+    # 081: the system's own folder and file pickers. The service and the browser run on the same machine, so the dialog
+    # opens on the user's desktop; the chosen path is checked like a typed one.
+
+    @app.post(r + "/local/pick-folder")
+    def pick_folder(body: PickRequest) -> dict[str, Any]:
+        path = local_picker.pick_folder(title=body.title or "Choose a folder", initial=body.initial)
+        if path:
+            checked_path(path, want_dir=True)
+        return {"path": path}
+
+    @app.post(r + "/local/pick-files")
+    def pick_files(body: PickRequest) -> dict[str, Any]:
+        paths = local_picker.pick_files(title=body.title or "Choose files", initial=body.initial)
+        for p in paths:
+            checked_path(p, want_dir=False)
+        return {"paths": paths}
 
     @app.get(r + "/workpackages/{wp_id}")
     def workpackage(wp_id: WpId) -> dict[str, Any]:

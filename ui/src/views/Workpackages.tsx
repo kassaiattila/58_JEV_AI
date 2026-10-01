@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, ApiError } from "../api";
+import { BrowseButton } from "../components/BrowseButton";
 import { DataTable, linkOf } from "../components/DataTable";
 import { PageHeader } from "../components/PageHeader";
 import { useActor } from "../hooks";
@@ -45,22 +46,31 @@ function WorkpackageList() {
   );
 }
 
-function CreateForm({ onDone }: { onDone: (id: string) => void }) {
+// 081: exported for its tests (the subfolder switch and the Browse buttons)
+export function CreateForm({ onDone }: { onDone: (id: string) => void }) {
   useLocale();
   const [mode, setMode] = useState<"folder" | "files" | "mailbox">("folder");
   const [folder, setFolder] = useState("");
+  const [recursive, setRecursive] = useState(false);
   const [files, setFiles] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lines = files.split(/\r?\n/).map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
+
+  // 081: the picked files are added after the lines already there, each path only once
+  function addFiles(picked: string[]) {
+    const seen = new Set(lines.map((s) => s.toLowerCase()));
+    setFiles([...lines, ...picked.filter((p) => !seen.has(p.toLowerCase()))].join("\n"));
+  }
 
   async function submit() {
     setBusy(true);
     setError(null);
     try {
       const res = mode === "folder"
-        ? await api.createFromFolder(folder.trim(), name.trim() || undefined)
-        : await api.createFromFiles(files.split(/\r?\n/).map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean), name.trim());
+        ? await api.createFromFolder(folder.trim(), name.trim() || undefined, recursive)
+        : await api.createFromFiles(lines, name.trim());
       onDone(res.workpackage.id);
     } catch (e) {
       const err = e as ApiError;
@@ -83,13 +93,22 @@ function CreateForm({ onDone }: { onDone: (id: string) => void }) {
       {mode === "mailbox" ? <Mailbox variant="pull" /> : (
         <form className="create" onSubmit={(e) => { e.preventDefault(); void submit(); }} aria-label={t("Mappa vagy fájlok")}>
           {mode === "folder" ? (
-            <label className="block">{t("Mappa teljes útvonala")}
-              <input value={folder} onChange={(e) => setFolder(e.target.value)} placeholder={t("C:\\…\\szamlak\\2026-09")} required />
-            </label>
+            <>
+              <div className="path-row">
+                <label className="block grow">{t("Mappa teljes útvonala")}
+                  <input value={folder} onChange={(e) => setFolder(e.target.value)} placeholder={t("C:\\…\\szamlak\\2026-09")} required />
+                </label>
+                <BrowseButton kind="folder" initial={folder} onPick={([p]) => setFolder(p)} />
+              </div>
+              <label className="check"><input type="checkbox" checked={recursive} onChange={(e) => setRecursive(e.target.checked)} /> {t("Almappák is")}</label>
+            </>
           ) : (
-            <label className="block">{t("Fájlok teljes útvonala, soronként egy")}
-              <textarea value={files} onChange={(e) => setFiles(e.target.value)} rows={4} required />
-            </label>
+            <div className="path-row">
+              <label className="block grow">{t("Fájlok teljes útvonala, soronként egy")}
+                <textarea value={files} onChange={(e) => setFiles(e.target.value)} rows={4} required />
+              </label>
+              <BrowseButton kind="files" initial={lines[lines.length - 1]} onPick={addFiles} />
+            </div>
           )}
           <label className="block">{t("Név")} {mode === "folder" ? <span className="muted">{t("(elhagyható: a mappa neve)")}</span> : null}
             <input value={name} onChange={(e) => setName(e.target.value)} required={mode === "files"} maxLength={200} />

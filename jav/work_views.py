@@ -41,10 +41,21 @@ def recipe_help() -> dict[str, Any]:
     return jsonable({k: data[k] for k in ("intro", "kinds", "recipes", "paths", "params")})
 
 
-def item_titles(items: list[dict[str, Any]]) -> dict[str, str]:
+def package_root(wp: dict[str, Any]) -> str | None:
+    """The folder a package was read from (a folder or a watched folder), for the subfolder titles (081)."""
+    return wp.get("source_ref") if wp.get("source_kind") in ("folder", "watch") else None
+
+
+def item_titles(items: list[dict[str, Any]], root: str | None = None) -> dict[str, str]:
     """Readable item title for the UI (048 T2): for an email, the subject and the sender (the file name is always
-    `message.json`)."""
+    `message.json`). 081: a document in a subfolder of the package's folder (`root`) is titled with its path below
+    that folder, so files with the same name in different subfolders stay apart."""
     out, subjects = {}, {}
+    base = Path(root) if root else None
+    for i in items:
+        p = Path(i["source_path"])
+        if base and i.get("kind") != "email" and not i.get("parent_item_id") and p.parent != base and p.is_relative_to(base):
+            out[i["item_id"]] = p.relative_to(base).as_posix()
     for i in items:
         if i.get("kind") != "email":
             continue
@@ -102,7 +113,7 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
         from jav import mailbox
 
         extra["attachments_missing"] = len(mailbox.missing_attachments(wp))
-    return jsonable({"workpackage": wp, "readiness": ready, "titles": item_titles(wp["items"]), **extra,
+    return jsonable({"workpackage": wp, "readiness": ready, "titles": item_titles(wp["items"], package_root(wp)), **extra,
                      "last_run": runs[0] if runs else None, "runs": len(runs),
                      "next": next_step(wp, runs[0] if runs else None, ready["ready"])})
 
@@ -178,7 +189,8 @@ def run_view(run_id: str) -> dict[str, Any]:
     open on the documents (`earlier_open_reasons`, for information only, they do not block approval)."""
     run = work.get_run(run_id)
     split = work.items_reasons(run_id, run["input"]["items"])
-    return jsonable({"run": run, "budget": calls.budget_usage(run_id), "titles": item_titles(run["input"]["items"]),
+    titles = item_titles(run["input"]["items"], package_root(work.get(run["workpackage_id"])))
+    return jsonable({"run": run, "budget": calls.budget_usage(run_id), "titles": titles,
                      "tables": result_tables(run_id),
                      "open_reasons": {k: v["run"] for k, v in split.items()},
                      "earlier_open_reasons": {k: v["earlier"] for k, v in split.items() if v["earlier"]}})
