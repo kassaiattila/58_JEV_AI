@@ -18,7 +18,8 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   four-digit year is 1900–2099. In an all-number date a number above 12 decides the order of day and month, then the
   document's own dates; a dot date is day first. A slash date, or an all-number date with a two-digit year (it may be
   the Hungarian short form with the year first), that nothing decides becomes the to-do **Uncertain order of day and
-  month** instead of a silent guess (`date:order_ambiguous`; the JEV option text does not change). A typed date is
+  month** instead of a silent guess (on Hungarian and utility documents an all-number two-digit-year date is a
+  candidate only when the document's own dates decide it, as such text there is mostly a code) (`date:order_ambiguous`; the JEV option text does not change). A typed date is
   taken in every unambiguous form and stored as YYYY-MM-DD; an ambiguous one is refused (422 `ambiguous_date`) with a
   hint to type the year first; the save message reads the stored date back. The two Hungarian date patterns of the type
   recognition request stay unchanged, so recognition requests do not change; the S path's date candidates change on the
