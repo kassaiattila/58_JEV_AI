@@ -705,8 +705,9 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         return {"runs": work_views.run_list(None, limit=limit)}
 
     @app.get(r + "/runs/{run_id}")
-    def run(run_id: RunId) -> dict[str, Any]:
-        return work_views.run_view(run_id)
+    def run(run_id: RunId, names: Literal["original", "unified"] = "original") -> dict[str, Any]:
+        """082: `names=unified` adds the items' unified names (the review queue shows them instead of the originals)."""
+        return work_views.run_view(run_id, names=names == "unified")
 
     @app.get(r + "/runs/{run_id}/journal")
     def journal(run_id: RunId) -> dict[str, Any]:

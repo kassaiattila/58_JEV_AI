@@ -441,6 +441,60 @@ def plan(run_id: str, *, path_budget: int | None = None) -> list[NamedCopy]:
     return out
 
 
+# --- unified names in the item lists (082) ------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ItemName:
+    """An item's unified name for the item lists. `state`: `ready`, `review` (the name is uncertain: its copy would go
+    to the review folder, `check` says why), `pending` (the item has not been processed yet, so it has no name) or
+    `none` (an email: it has no file name of its own). `run_id`: the run the name comes from."""
+
+    unified: str | None
+    state: str
+    check: str | None = None
+    run_id: str | None = None
+
+
+PENDING = ItemName(None, "pending")
+NO_NAME = ItemName(None, "none")
+
+
+def _names_of(run_id: str, wanted: set[str] | None = None) -> dict[str, ItemName]:
+    """The names of the run's processed documents (from `plan`, so the same names as the copies'); an item that has
+    not finished in this run is left out."""
+    out = {}
+    for copy in plan(run_id):
+        if (wanted is not None and copy.item_id not in wanted) or any(r.startswith("not_done:") for r in copy.reasons):
+            continue
+        out[copy.item_id] = ItemName(copy.filename, copy.status, reason_text(copy.reasons) or None, run_id)
+    return out
+
+
+def run_item_names(run_id: str) -> dict[str, ItemName]:
+    """Every item of the run with its unified name in this run."""
+    items = work.get_run(run_id)["input"]["items"]
+    named = _names_of(run_id) if any(i.get("kind") != "email" for i in items) else {}
+    return {i["item_id"]: NO_NAME if i.get("kind") == "email" else named.get(i["item_id"], PENDING) for i in items}
+
+
+def package_item_names(wp: dict[str, Any]) -> dict[str, ItemName]:
+    """Every item of the package with its name from the latest run in which it finished. Runs are visited newest
+    first, and a run's names are computed only if it finished an item still without a name."""
+    out = {i["item_id"]: NO_NAME for i in wp["items"] if i.get("kind") == "email"}
+    todo = {i["item_id"] for i in wp["items"]} - set(out)
+    for row in work.run_rows(wp["id"]):
+        if not todo:
+            break
+        finished = {r["item_id"] for r in work.get_run(row["run_id"])["items"] if r["status"] == "done"} & todo
+        if finished:
+            found = _names_of(row["run_id"], finished)
+            out.update(found)
+            todo -= set(found)
+    out.update(dict.fromkeys(todo, PENDING))
+    return out
+
+
 def _manifest(rows: list[tuple[NamedCopy, str, str]]) -> bytes:
     """`jegyzek.csv`: new path, status, why, original name and path, content hash, type, item id (the export's CSV
     rules: BOM, `;`, CRLF, formula guard)."""

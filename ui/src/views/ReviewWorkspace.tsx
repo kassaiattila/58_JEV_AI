@@ -1,9 +1,11 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { api, type Alternative, type ItemResult, type Provenance, type RunItem, type Workpackage } from "../api";
 import { DatasetPicker, runOption } from "../components/DatasetPicker";
+import { NameModeSwitch, NameWarning } from "../components/NameCell";
 import { useDataset, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { FIELD, fieldLabel, fold, ITEM_STATUS, itemName } from "../labels";
+import { useNameMode } from "../names";
 import { go } from "../route";
 import { draftKey, getDraft, setField, useDraft } from "../review/drafts";
 import { EmailReview } from "../review/EmailReview";
@@ -51,7 +53,8 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
   const latest = useDataset("runs", { workpackage_id: wp.id }, { limit: 1 });
   const [runId, setRunId] = useState<string | null>(null);
   const chosen = runId ?? latest.data?.rows[0]?._key ?? null;
-  const view = useLoad(chosen ? `run:${chosen}` : null, () => api.run(chosen!));
+  const names = useNameMode();
+  const view = useLoad(chosen ? `run:${chosen}:${names}` : null, () => api.run(chosen!, names));
   // 056 U1: the item list stays manageable even with several hundred items: filtering by name, only those with to-dos
   const [queueQ, setQueueQ] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
@@ -73,6 +76,11 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
   const index = items.findIndex((i) => i.item_id === selectedId);
   const pick = (id: string) => go({ view: "workpackages", wpId: wp.id, stage: "review", itemId: id });
   const ownTotal = Object.values(own).reduce((n, r) => n + r.length, 0);
+  // 082: the unified name when chosen and already known; the original stays searchable and is in the tooltip
+  const original = (i: (typeof items)[number]) => itemName(i, view.data?.titles);
+  const unified = (i: (typeof items)[number]) => (names === "unified" ? view.data?.names?.[i.item_id] : undefined);
+  const shown = (i: (typeof items)[number]) => unified(i)?.unified ?? original(i);
+  const needle = fold(queueQ.trim());
 
   return (
     <>
@@ -81,6 +89,7 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
           toOption={runOption} onChange={setRunId} />
         <span className="muted small">{ownTotal ? t("{{n}} nyitott teendő ebben a futásban", { n: ownTotal }) : t("Ebben a futásban nincs nyitott teendő.")}</span>
         <a className="small" href={`#/runs/${run.run_id}`}>{t("A futás részletei")}</a>
+        <NameModeSwitch />
         <span className="muted small kbd-help">{t("↑/↓ mező · N/P tétel · S kijelölés · Ctrl+Enter mentés · Esc")}</span>
       </div>
       <div className="review-grid">
@@ -91,12 +100,15 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
             <label className="check small"><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} />{t("csak teendős")}</label>
           </div>
           {items.filter((i) => (!onlyOpen || (own[i.item_id] ?? []).length > 0)
-            && (!queueQ.trim() || fold(itemName(i, view.data?.titles)).includes(fold(queueQ.trim())))).map((i) => {
+            && (!needle || fold(shown(i)).includes(needle) || fold(original(i)).includes(needle))).map((i) => {
             const n = (own[i.item_id] ?? []).length;
             const m = (earlier[i.item_id] ?? []).length;
             const res = run.items.find((x) => x.item_id === i.item_id);
+            const u = unified(i);
             return (
-              <QueueItem key={i.item_id} runId={run.run_id} itemId={i.item_id} name={itemName(i, view.data?.titles)} active={i.item_id === selectedId}
+              <QueueItem key={i.item_id} runId={run.run_id} itemId={i.item_id} name={shown(i)} active={i.item_id === selectedId}
+                tip={u?.unified ? t("Eredeti név: {{name}}", { name: original(i) }) : undefined}
+                warn={u?.state === "review" ? <NameWarning check={u.check} /> : null}
                 status={queueStatus(res, n)}
                 own={n} earlier={m} onClick={() => pick(i.item_id)} />
             );
@@ -115,14 +127,16 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
   );
 }
 
-function QueueItem({ runId, itemId, name, active, status, own, earlier, onClick }: {
-  runId: string; itemId: string; name: string; active: boolean; status: string; own: number; earlier: number; onClick: () => void;
+function QueueItem({ runId, itemId, name, tip, warn, active, status, own, earlier, onClick }: {
+  runId: string; itemId: string; name: string; tip?: string; warn?: ReactNode; active: boolean; status: string; own: number; earlier: number;
+  onClick: () => void;
 }) {
   useLocale();
   const draft = useDraft(draftKey(runId, itemId));
   return (
     <button type="button" className="work-item" aria-pressed={active} onClick={onClick}>
-      <span className="work-title" title={name}>{name}</span>
+      <span className="work-title" title={tip ? `${name}
+${tip}` : name}>{warn}{name}</span>
       <small>{status}</small>
       {own ? <span className="tag">{t("{{n}} teendő", { n: own })}</span> : null}
       {earlier ? <span className="tag quiet-tag" title={t("Korábbi futásból vagy mérésből nyitva maradt teendő ezen a tételen. Ennek a futásnak az állapotát és jóváhagyását nem befolyásolja.")}>{t("{{n}} korábbi teendő", { n: earlier })}</span> : null}

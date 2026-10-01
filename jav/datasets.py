@@ -11,7 +11,8 @@ fingerprint of the run's data (corrections, to-dos, item status) changes; after 
 next request recomputes them.
 
 Column `extra` for the UI: `link` = link target (`run`, `workpackage`, `reviews`, `review`, `item`); the link is built
-from the row's `_wp`, `_run`, `_stage` and `item_id` fields (`next`: the stage of the package's next step).
+from the row's `_wp`, `_run`, `_stage` and `item_id` fields (`next`: the stage of the package's next step). `names`
+(082, on the name column of an item list): which name the column shows (`original` or `unified`, the scope key `names`).
 """
 
 from __future__ import annotations
@@ -205,11 +206,42 @@ def _item_name(item: dict[str, Any], titles: dict[str, str]) -> str:
     return titles.get(item["item_id"]) or Path(item["source_path"]).name
 
 
+NAME_CHOICES = ("original", "unified")
+
+
+def _name_choice(scope: dict[str, str]) -> str:
+    """082: which name the item list shows in its name column — the original (default) or the unified one."""
+    choice = scope.get("names") or "original"
+    if choice not in NAME_CHOICES:
+        raise ValueError(f"unknown name choice: {choice} (allowed: {', '.join(NAME_CHOICES)})")
+    return choice
+
+
+def _name_cols() -> list[Column]:
+    """082: the unified and the original name as columns that can be added, and the state of the unified name."""
+    return [_col("unified_name", "Egységes név", hidden=True, link="review"),
+            _col("original_name", "Eredeti név", hidden=True),
+            _col("name_state", "Egységes név állapota", "enum", labels="name_state", hidden=True)]
+
+
+def _name_fields(item: dict[str, Any], titles: dict[str, str], name: Any, choice: str) -> dict[str, Any]:
+    """The name fields of one row: `name` follows the choice (an item without a unified name keeps its original
+    name), `_name_check` says why a unified name is uncertain (for the UI's warning mark; not a column)."""
+    original = _item_name(item, titles)
+    return {"name": name.unified if choice == "unified" and name.unified else original, "original_name": original,
+            "unified_name": name.unified, "name_state": name.state, "_name_check": name.check}
+
+
 def _workpackage_items(scope: dict[str, str]) -> Rows:
+    from jav import naming
+
+    choice = _name_choice(scope)
     wp = work.get(scope["workpackage_id"])
     titles = work_views.item_titles(wp["items"], work_views.package_root(wp))
+    names = naming.package_item_names(wp)
     cols = [
-        _col("name", "Tétel", link="review"),
+        _col("name", "Tétel", link="review", names=choice),
+        *_name_cols(),
         _col("kind", "Fajta", "enum", labels="kind"),
         _col("open_reasons", "Nyitott teendő", "number", link="review", alert=True),
         _col("added_revision", "Felvéve (verzió)", "number", hidden=True),
@@ -218,7 +250,7 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
         _col("item_id", "Tétel-azonosító", "id", hidden=True),
     ]
     open_by_subject = store.review_open_reasons_many([work.review_subject(i) for i in wp["items"]])
-    rows = [{"_key": i["item_id"], "_wp": wp["id"], "item_id": i["item_id"], "name": _item_name(i, titles),
+    rows = [{"_key": i["item_id"], "_wp": wp["id"], "item_id": i["item_id"], **_name_fields(i, titles, names[i["item_id"]], choice),
              "kind": i.get("kind") or "document", "source_path": i["source_path"], "sha256": i.get("sha256"),
              "added_revision": i.get("added_revision"),
              "open_reasons": len(open_by_subject[work.review_subject(i)])} for i in wp["items"]]
@@ -226,11 +258,16 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
 
 
 def _run_items(scope: dict[str, str]) -> Rows:
+    from jav import naming
+
+    choice = _name_choice(scope)
     run = work.get_run(scope["run_id"])
     titles = work_views.item_titles(run["input"]["items"], work_views.package_root(work.get(run["workpackage_id"])))
     results = {r["item_id"]: r for r in run["items"]}
+    names = naming.run_item_names(run["run_id"])
     cols = [
-        _col("name", "Tétel", link="review"),
+        _col("name", "Tétel", link="review", names=choice),
+        *_name_cols(),
         _col("kind", "Fajta", "enum", labels="kind", hidden=True),
         _col("status", "Futás", "enum", labels="item_status", badge=True),
         _col("final_status", "Eredmény", "enum", labels="final_status"),
@@ -246,7 +283,7 @@ def _run_items(scope: dict[str, str]) -> Rows:
         r = results.get(i["item_id"]) or {}
         split = splits[i["item_id"]]
         rows.append({"_key": i["item_id"], "_wp": run["workpackage_id"], "_run": run["run_id"], "item_id": i["item_id"],
-                     "name": _item_name(i, titles), "kind": i.get("kind") or "document", "status": r.get("status"),
+                     **_name_fields(i, titles, names[i["item_id"]], choice), "kind": i.get("kind") or "document", "status": r.get("status"),
                      "final_status": r.get("final_status"), "error": r.get("error"), "updated_at": r.get("updated_at"),
                      "open_reasons": len(split["run"]), "earlier_reasons": len(split["earlier"])})
     return cols, rows
@@ -550,8 +587,8 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("runs", "Futások", (), _runs, optional_scope=("workpackage_id",)),
     Dataset("workpackages", "Munkacsomagok", (), _workpackages, optional_scope=("include_archived", "owner"),
             natural_sort=(("created_at", True),)),
-    Dataset("workpackage_items", "Csomag tételei", ("workpackage_id",), _workpackage_items),
-    Dataset("run_items", "Futás tételei", ("run_id",), _run_items, _run_fingerprint),
+    Dataset("workpackage_items", "Csomag tételei", ("workpackage_id",), _workpackage_items, optional_scope=("names",)),
+    Dataset("run_items", "Futás tételei", ("run_id",), _run_items, _run_fingerprint, optional_scope=("names",)),
     Dataset("emails", "Levelek", ("run_id",), _emails, _run_fingerprint),
     Dataset("email_tasks", "Feladatjavaslatok", ("run_id",), _email_tasks, _run_fingerprint),
     Dataset("documents", "Iratok", ("run_id",), _documents, _run_fingerprint),

@@ -1,0 +1,16 @@
+{
+  "Név:": "Name:",
+  "Megjelenített név": "Name shown",
+  "Eredeti": "Original",
+  "Egységes": "Unified",
+  "Az egységes név a tartalom alapján képzett fájlnév (dátum, típus, partner, azonosító). A feldolgozás előtt az eredeti név látszik.": "The unified name is the file name built from the content (date, type, partner, identifier). Before processing, the original name is shown.",
+  "Ellenőrzendő név: {{why}}": "Name to check: {{why}}",
+  "Ellenőrzendő név": "Name to check",
+  "Eredeti név: {{name}}": "Original name: {{name}}",
+  "Még nincs egységes név: a tétel még nem futott le.": "No unified name yet: the item has not been processed.",
+  "Egységes név": "Unified name",
+  "Eredeti név": "Original name",
+  "Egységes név állapota": "Unified name status",
+  "Még nincs": "Not yet",
+  "Nincs (levél)": "None (email)"
+}

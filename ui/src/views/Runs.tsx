@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { api, ApiError, type RunView } from "../api";
 import { DataTable } from "../components/DataTable";
+import { nameCell, NameModeSwitch } from "../components/NameCell";
 import { PageHeader } from "../components/PageHeader";
 import { ACTIVE_RUN, useLoad, useRunView } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { MODE, paramsText, reasonText, tmap, usd, when } from "../labels";
+import { useNameMode } from "../names";
 import { RunStatus } from "./Workpackages";
 import { Icon } from "../components/Icon";
 import { ConfirmButton } from "../components/ConfirmButton";
@@ -20,6 +22,7 @@ export function RunList() {
 
 export function RunDetail({ runId }: { runId: string }) {
   useLocale();
+  const names = useNameMode();
   const view = useRunView(runId); // refreshes automatically only while the run is in progress
   const wp = useLoad(view.data ? `wp:${view.data.run.workpackage_id}` : null, () => api.workpackage(view.data!.run.workpackage_id));
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
@@ -72,9 +75,10 @@ export function RunDetail({ runId }: { runId: string }) {
       <div className="run-grid">
         <section aria-label={t("Tételek")}>
           <h2>{t("Tételek")}</h2>
-          <DataTable dataset="run_items" scope={{ run_id: runId }} label={t("A futás tételei")} pollMs={view.data && ACTIVE_RUN.has(view.data.run.status) ? 3000 : undefined}
+          <DataTable dataset="run_items" scope={{ run_id: runId, names }} label={t("A futás tételei")} pollMs={view.data && ACTIVE_RUN.has(view.data.run.status) ? 3000 : undefined}
+            toolbar={<NameModeSwitch />}
             cell={(col, row) => {
-              if (col.key !== "open_reasons") return undefined;
+              if (col.key !== "open_reasons") return nameCell(col, row);
               const reasons = own[String(row.item_id)] ?? [];
               return reasons.length ? (
                 <a href={`${wpBase}/review/${String(row.item_id)}`} title={reasons.map((x) => reasonText(x.reason)).join("\n")}>
