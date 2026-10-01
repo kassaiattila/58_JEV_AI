@@ -10,12 +10,20 @@ A printed date is read whole (never cut out of a longer number) and resolved by 
 - year first (2022.12.04, 2022-12-04, "2022. december 4."): unambiguous;
 - with a month name or abbreviation (Hungarian, English, German, French, Spanish, Italian; any letter case, with or
   without accents, ordinal endings, "4 de diciembre de 2022", "04-DEC-22"): unambiguous;
-- all numbers, day or month first: a number above 12 decides; otherwise a dot means day first (no country writes
-  month.day.year); a hyphen or a slash follows the document's own order (`document_date_order`); without one a hyphen
-  stays day first, as before, and a slash is flagged (`ambiguous`; its value is the month-first reading used before,
-  `alt` the other one);
-- a four-digit year is 1900-2099 ("1500 Dec 4" is an amount, not a date); a two-digit year belongs to this century unless that would be later than next year (then to the previous one);
+- all numbers with a four-digit year, day or month first: a number above 12 decides; otherwise a dot means day first
+  (no country writes month.day.year); a hyphen or a slash follows the document's own order (`document_date_order`);
+  without one a hyphen stays day first, as before, and a slash is flagged (`ambiguous`; its value is the month-first
+  reading used before, `alt` the other one);
+- all numbers with a two-digit year ("04.12.22", "1/15/23") can also be the Hungarian short form with the year first
+  (22.12.04), so only the document's own order resolves them; without one they are flagged;
+- a four-digit year is 1900-2099 ("1500 Dec 4" is an amount, not a date); a two-digit year belongs to this century
+  unless that would be later than next year (then to the previous one);
 - a time, a weekday or a label next to the date does not disturb it.
+
+Survey of the local documents (2026-10-01): month-first slash dates that nothing on the date itself decides occur on
+97 foreign documents, and 129 foreign documents decide the order by their own dates; "04-DEC-22"-like dates occur on
+10, all-number two-digit-year dates on 14. "MAG/12/2022" is a document number, so a month name does not take a slash
+and the Italian "mag" is left out (the full "maggio" stays).
 
 A flagged reading becomes a to-do where it is used; it is never resolved silently. Manual input (`read_date_input`)
 takes every unambiguous form and refuses an ambiguous one.
@@ -63,6 +71,7 @@ class DateHit:
     alt: date | None = None
     kind: Kind = "ymd"
     decisive: DateOrder | None = None  # an all-number date whose day or month is above 12: evidence of the order
+    short: bool = False  # an all-number date with a two-digit year
 
 
 def _fold(text: str) -> str:
@@ -74,7 +83,7 @@ _MONTH_NAMES: dict[int, tuple[str, ...]] = {
     2: ("február", "febr", "feb", "february", "februar", "février", "févr", "febrero", "febbraio"),
     3: ("március", "márc", "march", "mar", "märz", "maerz", "mrz", "mär", "mars", "marzo"),
     4: ("április", "ápr", "apr", "april", "avril", "avr", "abril", "abr", "aprile"),
-    5: ("május", "máj", "may", "mai", "mayo", "maggio", "mag"),
+    5: ("május", "máj", "may", "mai", "mayo", "maggio"),
     6: ("június", "jún", "jun", "june", "juni", "juin", "junio", "giugno", "giu"),
     7: ("július", "júl", "jul", "july", "juli", "juillet", "juil", "julio", "luglio", "lug"),
     8: ("augusztus", "aug", "august", "août", "agosto", "ago"),
@@ -98,8 +107,9 @@ _PATTERNS: tuple[tuple[Kind, re.Pattern[str]], ...] = (
     # 4 December 2022 / 04-DEC-22 / 4. Dezember 2022 / 4 de diciembre de 2022 / 4th of December, 2022 / 04DEC22
     ("name", re.compile(rf"(?<!\d)(?P<d>\d{{1,2}}){_DAY_END}(?:\s*(?:de|of)\b)?{_SEP}(?P<mn>{_MONTH})\.?"
                         rf"(?:\s*de\b)?[\s.\-/,]*(?P<y>(?:19|20)\d{{2}}|\d{{2}})(?!\d)(?![.,]\d)", re.I)),
-    # December 4, 2022 / Dec. 4th, 2022 / DEC 04 2022 (a four-digit year only: "Dec 4, 22 items" is no date)
-    ("name", re.compile(rf"(?<![^\W\d_])(?P<mn>{_MONTH})\.?[\s\-/]*(?P<d>\d{{1,2}})(?:st|nd|rd|th)?,?[\s\-/]*"
+    # December 4, 2022 / Dec. 4th, 2022 / DEC 04 2022 (a four-digit year only: "Dec 4, 22 items" is no date; no slash:
+    # "MAG/12/2022" is a document number)
+    ("name", re.compile(rf"(?<![^\W\d_])(?P<mn>{_MONTH})\.?[\s\-]*(?P<d>\d{{1,2}})(?:st|nd|rd|th)?,?[\s\-]*"
                         rf"(?P<y>(?:19|20)\d{{2}})(?!\d)", re.I)),
     # 04.12.2022 / 04-12-2022 (as the old day-first pattern) / 04/12/2022 (as the old US pattern)
     ("dot", re.compile(r"(?<!\d)(?P<a>\d{1,2})\s*(?P<s>[.\-])\s*(?P<b>\d{1,2})\s*[.\-]\s*(?P<y>(?:19|20)\d{2})(?!\d)")),
@@ -126,19 +136,23 @@ def _valid(y: int, m: int, d: int) -> date | None:
 
 
 def _numeric(m: re.Match[str], kind: Kind, order: DateOrder | None, today: date) -> DateHit | None:
-    a, b, y = int(m.group("a")), int(m.group("b")), _year(m.group("y"), today)
+    a, b, short = int(m.group("a")), int(m.group("b")), len(m.group("y")) == 2
+    y = _year(m.group("y"), today)
     sep = "/" if kind == "slash" else m.group("s")
     kind = {"/": "slash", "-": "dash", ".": "dot"}[sep]  # type: ignore[assignment]
     raw, start, end = m.group(0), m.start(), m.end()
-    if a > 12 and b > 12:
-        return None
-    if a > 12 or b > 12:
-        decisive: DateOrder = "dmy" if a > 12 else "mdy"
-        value = _valid(y, b, a) if decisive == "dmy" else _valid(y, a, b)
-        return DateHit(start, end, raw, value, kind=kind, decisive=decisive) if value else None
     dmy, mdy = _valid(y, b, a), _valid(y, a, b)
-    if dmy is None or mdy is None:
+    if dmy is None and mdy is None:
         return None
+    if short:  # the year may also be the first number (Hungarian short form): only the document's order decides
+        if order is not None:
+            value = dmy if order == "dmy" else mdy
+            return DateHit(start, end, raw, value, kind=kind, short=True) if value else None
+        value, alt = (mdy, dmy) if kind == "slash" else (dmy, mdy)
+        value, alt = (value, alt) if value is not None else (alt, None)
+        return DateHit(start, end, raw, value, ambiguous=True, alt=alt if alt != value else None, kind=kind, short=True)
+    if dmy is None or mdy is None:  # a number above 12 decides
+        return DateHit(start, end, raw, dmy or mdy, kind=kind, decisive="dmy" if dmy else "mdy")  # type: ignore[arg-type]
     if a == b or kind == "dot":
         return DateHit(start, end, raw, dmy, kind=kind)
     if order is not None:
@@ -183,9 +197,11 @@ def read_date(raw: object, *, order: DateOrder | None = None, ocr: bool = False,
 
 
 def document_date_order(texts: Iterable[str], *, today: date | None = None) -> DateOrder | None:
-    """The document's own day/month order from its hyphen and slash dates whose day or month is above 12; none when
-    nothing decides or the evidence contradicts itself (a dot date is day first anyway and is no evidence)."""
-    seen = {h.decisive for t in texts for h in find_dates_in(t, today=today) if h.kind in ("dash", "slash") and h.decisive}
+    """The document's own day/month order from its hyphen and slash dates with a four-digit year whose day or month
+    is above 12; none when nothing decides or the evidence contradicts itself (a dot date is day first anyway and is no
+    evidence; a two-digit-year date is none either, as its year may come first)."""
+    seen = {h.decisive for t in texts for h in find_dates_in(t, today=today)
+            if h.kind in ("dash", "slash") and h.decisive and not h.short}
     return seen.pop() if len(seen) == 1 else None
 
 

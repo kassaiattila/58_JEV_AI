@@ -6,7 +6,8 @@ only YYYY-MM-DD. Every path now reads dates through `jav/dates.py`:
 
 - month names and abbreviations in Hungarian, English, German, French, Spanish and Italian, in any letter case, with
   or without accents, with ordinal endings;
-- a two-digit year by a fixed rule; separators: dot, hyphen, slash, space; a time or a weekday next to the date does
+- a two-digit year by a fixed rule (an all-number one only by the document's order, since the Hungarian short form
+  puts the year first); separators: dot, hyphen, slash, space; a time or a weekday next to the date does
   not disturb it;
 - the order of day and month in an all-numeric date comes from the number above 12, then from the document's other
   dates; a slash date that neither decides is flagged, never guessed.
@@ -57,9 +58,7 @@ def _read(raw, **kw):
     "4 de diciembre de 2022",
     "4 dicembre 2022",
     "04.12.2022",
-    "04.12.22",
     "4-12-2022",
-    "04-12-22",
 ])
 def test_every_common_form_of_one_date(raw):
     assert _read(raw) == (date(2022, 12, 4), False)
@@ -91,7 +90,7 @@ def test_month_names_in_six_languages(raw, expected):
     ("04-DEC-85", date(1985, 12, 4)),  # later than next year: the 20th century (a date of birth on an ID document)
     ("04-DEC-27", date(2027, 12, 4)),  # next year is still this century (a due date)
     ("04-DEC-28", date(1928, 12, 4)),
-    ("01.01.00", date(2000, 1, 1)),
+    ("01-JAN-00", date(2000, 1, 1)),
 ])
 def test_a_two_digit_year_by_a_fixed_rule(raw, expected):
     assert _read(raw) == (expected, False)
@@ -113,6 +112,26 @@ def test_a_slash_date_that_nothing_decides_is_flagged_never_silently_resolved():
     assert _read("04/12/22") == (date(2022, 4, 12), True)
 
 
+@pytest.mark.parametrize("raw, value, alt", [
+    ("04.12.22", date(2022, 12, 4), date(2022, 4, 12)),
+    ("04-12-22", date(2022, 12, 4), date(2022, 4, 12)),
+    ("25.12.22", date(2022, 12, 25), None),  # day first, or the Hungarian short form 2025.12.22
+    ("1/15/23", date(2023, 1, 15), None),
+])
+def test_an_all_number_date_with_a_two_digit_year_is_flagged_without_the_document_order(raw, value, alt):
+    hit = dates.find_dates_in(raw, today=TODAY)[0]
+    assert (hit.value, hit.ambiguous, hit.alt) == (value, True, alt)
+
+
+@pytest.mark.parametrize("raw, order, expected", [
+    ("04.12.22", "dmy", date(2022, 12, 4)),
+    ("04/12/22", "mdy", date(2022, 4, 12)),
+    ("1/15/23", "mdy", date(2023, 1, 15)),
+])
+def test_the_document_order_resolves_a_two_digit_year_date(raw, order, expected):
+    assert _read(raw, order=order) == (expected, False)
+
+
 @pytest.mark.parametrize("order, expected", [("dmy", date(2022, 12, 4)), ("mdy", date(2022, 4, 12))])
 def test_the_document_order_decides_a_slash_or_hyphen_date(order, expected):
     assert _read("04/12/2022", order=order) == (expected, False)
@@ -128,6 +147,7 @@ def test_a_dot_date_is_always_day_first():
     None, "", "abc", "2022", "12.04", "Dec 2022", "31.02.2022", "2022.13.01", "2022.02.30",
     "1.2.3.4", "10.10.10.10", "12.04.20225", "112.04.2022", "123.45", "28.000", "4 marketing 2022",
     "+36 30 123 4567", "06-30-123-4567", "13/13/2022", "1500.12.04", "Total 1500 Dec 4", "04.12.2122",
+    "MAG/12/2022",
 ])
 def test_no_date_is_read_out_of_other_text(raw):
     assert _read(raw) == (None, False)
@@ -166,6 +186,7 @@ def test_ocr_tolerance_reads_a_comma_as_a_dot_in_a_year_first_date():
     (["25/12/2022", "12/25/2022"], None),  # contradictory evidence
     (["25.12.2022"], None),  # a dot date is day first anyway and is no evidence for a slash date
     (["2022-12-25"], None),
+    (["Date: 25/12/22"], None),  # a two-digit year may come first: no evidence
 ])
 def test_the_document_order_comes_from_its_unambiguous_dates(texts, expected):
     assert dates.document_date_order(texts) == expected
@@ -175,16 +196,17 @@ def test_the_document_order_comes_from_its_unambiguous_dates(texts, expected):
 
 
 @pytest.mark.parametrize("raw", [
-    "2022-12-04", "2022.12.04.", "2022. 12. 04.", "04-DEC-22", "4 December 2022", "04.12.2022", "04.12.22",
+    "2022-12-04", "2022.12.04.", "2022. 12. 04.", "04-DEC-22", "4 December 2022", "04.12.2022",
     " 2022.12.04 21:52 ", "2022. december 4.",
 ])
 def test_manual_input_takes_every_unambiguous_form(raw):
     assert dates.read_date_input(raw, today=TODAY) == "2022-12-04"
 
 
-def test_manual_input_refuses_an_ambiguous_slash_date_instead_of_guessing():
+@pytest.mark.parametrize("raw", ["04/12/2022", "04.12.22", "25.12.22"])
+def test_manual_input_refuses_an_ambiguous_date_instead_of_guessing(raw):
     with pytest.raises(dates.AmbiguousDate):
-        dates.read_date_input("04/12/2022", today=TODAY)
+        dates.read_date_input(raw, today=TODAY)
 
 
 @pytest.mark.parametrize("raw", ["abc", "2022.13.01", "2022-12-04 / 2022-12-05", "12.04", "2022-12-04 12345"])
