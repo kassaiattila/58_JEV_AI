@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type Alternative, type ItemResult, type Provenance, type RunItem, type Workpackage } from "../api";
 import { DatasetPicker, runOption } from "../components/DatasetPicker";
 import { NameModeSwitch, NameWarning } from "../components/NameCell";
@@ -10,6 +10,7 @@ import { go } from "../route";
 import { draftKey, getDraft, setField, useDraft } from "../review/drafts";
 import { EmailReview } from "../review/EmailReview";
 import { FieldPanel } from "../review/FieldPanel";
+import { classifyFields, initialFilter, type FieldFilter } from "../review/fieldFilter";
 import { bandOf, orderFields, selectionText, type Bands } from "../review/geometry";
 import { BAND_COLOR, PageViewer } from "../review/PageViewer";
 import { Split } from "../review/Split";
@@ -26,6 +27,8 @@ export function queueStatus(res: Pick<RunItem, "status" | "final_status"> | unde
 }
 // 048: the tab viewed last (fields / line list) stays on the next item too, if that item has such a list as well
 let lastTab = "fields";
+// 083: the field filter chosen last stays on the next item too, while that item has fields in it
+let lastFilter: FieldFilter | null = null;
 
 /** The notice above the page view when the original file changed or disappeared since the document was added: with a
  *  source instance the document is still shown (the copy the result was made from); without one it cannot be. */
@@ -168,25 +171,52 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev }
     return bandOf(p?.confidence, bands, Boolean(p?.corrected) || getDraft(key)?.values[f] !== undefined);
   }, [data, bands, key]);
 
-  const fields = useMemo(() => {
+  const allFields = useMemo(() => {
     const machine = data?.extraction?.datapoints ?? {};
     const order = Object.keys(FIELD);
     // only fields with a simple value (line items and other compound fields do not belong here)
     const scalar = Object.keys(machine).filter((f) => machine[f] === null || typeof machine[f] !== "object");
     const base = scalar.sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
-    const reasonFields = new Set((data?.open_reasons ?? []).map((r) => r.reason.split(":")[2]).filter(Boolean));
+    const reasonFields = new Set((data?.open_reasons ?? []).map((r) => r.field).filter((f): f is string => Boolean(f)));
     return orderFields(base, reasonFields, band);
   }, [data, band]);
 
-  // on first opening, the most important field (to-do > weak estimate > first)
+  // 083: the field filter (Javítandó / Bizonytalan / Mind). The item opens on the filter chosen last while it has
+  // fields here, otherwise on the fields to fix, otherwise on all; after that the choice stays on this item even when
+  // its last field is confirmed (the panel then says that nothing is left).
+  const groups = useMemo(() => (data ? classifyFields(allFields, data, bands) : null), [data, allFields, bands]);
+  const counts = groups ? { fix: groups.fix.length, uncertain: groups.uncertain.length, all: groups.all.length } : null;
+  const [filter, setFilterState] = useState<FieldFilter | null>(null);
+  useEffect(() => {
+    if (counts && filter === null) setFilterState(initialFilter(counts, lastFilter));
+  }, [counts, filter]);
+  const chooseFilter = useCallback((next: FieldFilter) => { lastFilter = next; setFilterState(next); }, []);
+  const fields = groups && filter ? groups[filter] : allFields;
+
+  // on first opening, the most important field (to-do > weak estimate > first); 083: when the active field leaves the
+  // filter (it was confirmed), the field that took its place comes next
+  const shownBefore = useRef<string[]>([]);
   useEffect(() => {
     if (data && active === null && fields.length) setActive(fields[0]);
+    else if (active && !active.includes("[") && !fields.includes(active) && fields.length) {
+      const i = shownBefore.current.indexOf(active);
+      setActive(fields[Math.min(Math.max(i, 0), fields.length - 1)]);
+    }
+    shownBefore.current = fields;
   }, [data, fields, active]);
 
   const activate = useCallback((f: string) => {
     setActive(f);
     setFocusRequest((n) => n + 1);
   }, []);
+
+  // 083: the cross: the field is being fixed — it is active, selection on the image is on, the cursor is in it
+  const startFix = useCallback((f: string) => {
+    activate(f);
+    if (data?.source) setSelectMode(true);
+    setSelected([]);
+    window.requestAnimationFrame(() => document.getElementById(`fv-${f}`)?.focus());
+  }, [activate, data]);
 
   // keyboard shortcuts (outside input fields; Esc leaves the field)
   useEffect(() => {
@@ -260,7 +290,8 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev }
           selectMode={selectMode} onToggleSelect={() => { setSelectMode((v) => !v); setSelected([]); }}
           onSaved={() => { res.reload(); onChanged(); }} onResolved={() => { res.reload(); onChanged(); }}
           onChooseAlternative={chooseAlternative} readOnly={approved} hasWords={Boolean(data.source)} tab={tab} onTab={setTab}
-          onRowPick={(f, n) => activate(`${f}[${n}]`)} />
+          onRowPick={(f, n) => activate(`${f}[${n}]`)} allFields={allFields} onStartFix={startFix}
+          filter={filter ?? undefined} counts={counts ?? undefined} onFilter={chooseFilter} />
       }
     />
   );

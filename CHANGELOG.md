@@ -42,6 +42,14 @@ This list shows what each release brought. `v1.0.0` was the first stable version
   a closed **Budget** part whose title gives each provider's share used; it opens by itself when a budget is at least
   80% used or the budget stopped something in the run. The run view's `costs` carries `total` (cost, paid calls, failed
   calls, reserved amount, reused answers). No paid calls; the model requests do not change.
+- **Tick and cross next to each field in Review:** every simple field has ✓ (correct) and ✗ (wrong, fix it) right
+  next to its value, and a field's to-dos are shown at the field; only the to-dos about the whole document stay at the
+  top with **Resolved**. ✓ saves that field only, records that a person checked it (the field shows **checked** until
+  its value changes) and closes the field's to-dos in the run; with an empty box it records that the document has no
+  value. ✗ empties the field, puts the cursor in it and turns on selecting on the image; ↺ brings the original value
+  back. A filter above the fields shows **To fix**, **Uncertain** or **All**, with counts. The correction save takes
+  `confirm` (the fields checked) and the version records `confirmed` (field → value); each to-do of a document item
+  carries `field`. No paid calls; the model requests do not change.
 - **The S path says what it does:** the path once called "JEV only" is now **JEV where possible — cheaper, no line
   items; GPT elsewhere (S)**. Behaviour is unchanged: a document type without a JEV path (fifteen types, for example
   NAV receipts and bank statements) runs on the G path with S chosen too, so that its data is still read. The help,

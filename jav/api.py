@@ -355,6 +355,8 @@ class SaveCorrection(_In):
     # 045: per field, the ids of the words selected on the image (from the item's word layer)
     sources: dict[Annotated[str, Field(max_length=64)], Annotated[list[Annotated[int, Field(ge=0)]], Field(min_length=1, max_length=200)]] | None = Field(
         default=None, max_length=100)
+    # 083: the simple fields a person checked (the tick next to the field): recorded as confirmed, their to-dos resolved
+    confirm: list[Annotated[str, Field(max_length=64)]] | None = Field(default=None, max_length=100)
 
 
 ScheduleId = Annotated[str, PathParam(pattern=r"^mbx-[0-9a-f]{10}$")]
@@ -834,7 +836,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                         who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         corrections.item_result(run_id, item_id)  # unknown item → 404
         corrections.save(run_id, item_id, fields=dict(body.fields), expected_revision=body.expected_revision,
-                         actor=who, note=body.note, sources=dict(body.sources) if body.sources else None)
+                         actor=who, note=body.note, sources=dict(body.sources) if body.sources else None, confirm=body.confirm)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/tasks/{index}/decision")

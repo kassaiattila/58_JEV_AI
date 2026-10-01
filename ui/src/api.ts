@@ -15,7 +15,8 @@ export class ApiError extends Error {
 }
 
 export interface Blocker { code: string; message: string }
-export interface Reason { id: number; reason: string; producer: string; run_id: string }
+/** 083: `field` is the simple field the to-do is about (null: about the document or a line item). */
+export interface Reason { id: number; reason: string; producer: string; run_id: string; field?: string | null }
 export interface Item { item_id: string; kind: string; source_path: string; sha256: string; added_revision: number; parent_item_id?: string }
 export interface Assignment {
   workpackage_id: string; revision: number; recipe_id: string; recipe_version: number; recipe_hash: string;
@@ -159,6 +160,8 @@ export interface Call {
 export interface Correction {
   run_id: string; item_id: string; revision: number; fields: Record<string, CorrectionValue>;
   sources: Record<string, number[]>; actor: string | null; note: string | null; created_at: string | null;
+  /** 083: the fields a person confirmed, with the value confirmed (it stays while the value does not change). */
+  confirmed?: Record<string, unknown>;
 }
 /** Corrected value: a simple field, or a line list (rows with line-item fields / simple values) — 048. */
 export type Cell = string | number | null;
@@ -433,7 +436,7 @@ export const api = {
   approve: (runId: string) => request<RunView>("POST", `/runs/${enc(runId)}/approve`, {}),
   item: (runId: string, itemId: string) => request<ItemResult>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}`),
   saveCorrection: (runId: string, itemId: string, body: { fields: Record<string, CorrectionValue>; expected_revision: number; note?: string;
-    sources?: Record<string, number[]> }) =>
+    sources?: Record<string, number[]>; confirm?: string[] }) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/correction`, body),
   resolveReason: (reasonId: number, note?: string) =>
     request<{ status: string }>("POST", `/review-reasons/${reasonId}/resolve`, note ? { note } : {}),
