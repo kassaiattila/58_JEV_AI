@@ -1,4 +1,4 @@
-"""The operating system's own folder and file pickers for the local UI (081, F-mappa-tallózás).
+"""The operating system's own folder and file pickers for the local UI (081, folder browsing).
 
 The local service and the browser run on the same machine (the service listens on the loopback address only), so the
 service can open the system's picker and hand the chosen path back to the UI; a path can still be typed instead.

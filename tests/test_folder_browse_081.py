@@ -1,4 +1,4 @@
-"""081 F-mappa-tallózás (the owner's trial of 2026-10-01): a package from a folder can take the subfolders too, and every
+"""081 folder browsing (the owner's trial of 2026-10-01): a package from a folder can take the subfolders too, and every
 path field can be filled from the operating system's own folder or file picker.
 
 Synthetic PDFs, no model calls; the picker's dialog process is replaced by a fake runner.
@@ -82,7 +82,7 @@ def test_create_from_folder_over_http_takes_subfolders_only_when_asked(client, t
     r = client.post("/api/workpackages", headers=HUMAN, json={"folder": str(tree)})
     assert r.status_code == 201, r.text
     assert len(r.json()["workpackage"]["items"]) == 1
-    r = client.post("/api/workpackages", headers=HUMAN, json={"folder": str(tree), "name": "Mind", "recursive": True})
+    r = client.post("/api/workpackages", headers=HUMAN, json={"folder": str(tree), "name": "All", "recursive": True})
     assert r.status_code == 201, r.text
     assert len(r.json()["workpackage"]["items"]) == 3
 
@@ -112,14 +112,14 @@ class _FakeRunner:
 def test_pick_folder_returns_the_chosen_folder_in_windows_form(monkeypatch, tmp_path):
     runner = _FakeRunner([tmp_path.as_posix()])
     monkeypatch.setattr(local_picker, "_run", runner)
-    assert local_picker.pick_folder(title="Mappa", initial=str(tmp_path)) == str(tmp_path)
-    assert runner.requests == [{"kind": "folder", "title": "Mappa", "initial": str(tmp_path)}]
+    assert local_picker.pick_folder(title="Folder", initial=str(tmp_path)) == str(tmp_path)
+    assert runner.requests == [{"kind": "folder", "title": "Folder", "initial": str(tmp_path)}]
 
 
 def test_pick_folder_cancelled_is_none_and_a_missing_start_folder_is_dropped(monkeypatch, tmp_path):
     runner = _FakeRunner([])
     monkeypatch.setattr(local_picker, "_run", runner)
-    assert local_picker.pick_folder(title="Mappa", initial=str(tmp_path / "nincs")) is None
+    assert local_picker.pick_folder(title="Folder", initial=str(tmp_path / "nincs")) is None
     assert runner.requests[0]["initial"] is None
 
 
@@ -127,19 +127,19 @@ def test_pick_files_starts_in_the_folder_of_a_given_file(monkeypatch, tmp_path):
     f = _pdf(tmp_path / "x" / "a.pdf", "MINTA-2026-001")
     runner = _FakeRunner([f.as_posix()])
     monkeypatch.setattr(local_picker, "_run", runner)
-    assert local_picker.pick_files(title="Fájlok", initial=str(f)) == [str(f)]
-    assert runner.requests[0] == {"kind": "files", "title": "Fájlok", "initial": str(f.parent)}
+    assert local_picker.pick_files(title="Files", initial=str(f)) == [str(f)]
+    assert runner.requests[0] == {"kind": "files", "title": "Files", "initial": str(f.parent)}
 
 
 def test_a_dialog_that_cannot_open_is_named(monkeypatch):
     monkeypatch.setattr(local_picker, "_run", _FakeRunner(returncode=1))
     with pytest.raises(local_picker.PickerUnavailable):
-        local_picker.pick_folder(title="Mappa")
+        local_picker.pick_folder(title="Folder")
 
 
 def test_a_dialog_left_open_past_the_time_limit_counts_as_cancelled(monkeypatch):
     monkeypatch.setattr(local_picker, "_run", _FakeRunner(timeout=True))
-    assert local_picker.pick_folder(title="Mappa") is None
+    assert local_picker.pick_folder(title="Folder") is None
 
 
 def test_only_one_dialog_is_open_at_a_time(monkeypatch):
@@ -147,19 +147,19 @@ def test_only_one_dialog_is_open_at_a_time(monkeypatch):
     assert local_picker._LOCK.acquire(blocking=False)
     try:
         with pytest.raises(local_picker.PickerBusy):
-            local_picker.pick_folder(title="Mappa")
+            local_picker.pick_folder(title="Folder")
     finally:
         local_picker._LOCK.release()
 
 
 def test_pick_endpoints_return_the_chosen_paths(client, tree, monkeypatch):
     monkeypatch.setattr(local_picker, "_run", _FakeRunner([tree.as_posix()]))
-    r = client.post("/api/local/pick-folder", json={"title": "Mappa kiválasztása"})
+    r = client.post("/api/local/pick-folder", json={"title": "Choose a folder"})
     assert r.status_code == 200, r.text
     assert r.json() == {"path": str(tree)}
     f = tree / "a.pdf"
     monkeypatch.setattr(local_picker, "_run", _FakeRunner([f.as_posix()]))
-    r = client.post("/api/local/pick-files", json={"title": "Fájlok", "initial": str(tree)})
+    r = client.post("/api/local/pick-files", json={"title": "Files", "initial": str(tree)})
     assert r.status_code == 200, r.text
     assert r.json() == {"paths": [str(f)]}
 
