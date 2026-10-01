@@ -178,5 +178,15 @@
   "Jelöld ki a helyes értéket a képen, írd be, vagy válassz jelöltet; üresen hagyva a ✓ azt rögzíti, hogy az iraton nincs érték.": "Select the right value on the image, type it, or pick a candidate; left empty, ✓ records that the document has no value.",
   "Ezen a tételen nincs több javítandó mező.": "Nothing is left to fix on this item.",
   "Ezen a tételen nincs több bizonytalan, még nem ellenőrzött mező.": "No uncertain, unverified field is left on this item.",
-  "Ennek a tételnek nincs egyszerű mezője.": "This item has no simple fields."
+  "Ennek a tételnek nincs egyszerű mezője.": "This item has no simple fields.",
+  "Tab / ↓ következő mező · Enter ✓ · Esc vissza · PageDown / PageUp tétel · Ctrl+Enter mentés": "Tab / ↓ next field · Enter ✓ · Esc undo · PageDown / PageUp item · Ctrl+Enter save",
+  "A képen a szavakra kattintva vagy téglalapot húzva jelölöd ki az értéket.": "Click the words on the image, or drag a rectangle, to select the value.",
+  "Következő teendős tétel": "Next item with to-dos",
+  "{{field}}: korábbi teendők": "{{field}}: earlier to-dos",
+  "korábbi futásból: {{reason}}": "from an earlier run: {{reason}}",
+  "Korábbi, egész iratra szóló teendők ({{n}}) — ezt a futást nem akadályozzák": "Earlier to-dos about the whole document ({{n}}) — they do not block this run",
+  "Lapozás a tételek között": "Moving between the items",
+  "Előző tétel": "Previous item",
+  "Következő tétel": "Next item",
+  "{{n}} korábbi futásból: {{reason}}": "from {{n}} earlier runs: {{reason}}"
 }

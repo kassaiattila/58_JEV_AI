@@ -41,7 +41,7 @@ function result(over: Partial<ItemResult> = {}): ItemResult {
 function panel(res: ItemResult, over: Partial<Parameters<typeof FieldPanel>[0]> = {}) {
   return (
     <FieldPanel result={res} fields={["payment_iban", "invoice_number", "supplier_name"]} bandOf={() => "check"} activeField="payment_iban"
-      onActivate={() => {}} selection={{ ids: [], text: "" }} onClearSelection={() => {}} selectMode={false} onToggleSelect={() => {}}
+      onActivate={() => {}} selection={{ ids: [], text: "" }} onClearSelection={() => {}} selectMode={false}
       onSaved={() => {}} onResolved={() => {}} onChooseAlternative={() => {}} readOnly={false} hasWords {...over} />
   );
 }

@@ -46,7 +46,7 @@ function result(over: Partial<ItemResult> = {}): ItemResult {
 function panel(res: ItemResult) {
   return (
     <FieldPanel result={res} fields={["invoice_number", "payment_iban"]} bandOf={() => "check"} activeField="invoice_number"
-      onActivate={() => {}} selection={{ ids: [], text: "" }} onClearSelection={() => {}} selectMode={false} onToggleSelect={() => {}}
+      onActivate={() => {}} selection={{ ids: [], text: "" }} onClearSelection={() => {}} selectMode={false}
       onSaved={() => {}} onResolved={() => {}} onChooseAlternative={() => {}} readOnly={false} hasWords />
   );
 }
@@ -217,7 +217,7 @@ describe("tételes lista (048)", () => {
       const [tab, setTab] = useState("fields");
       return (
         <FieldPanel result={res} fields={["opening_balance"]} bandOf={() => "check"} activeField={null} onActivate={() => {}}
-          selection={{ ids: [], text: "" }} onClearSelection={() => {}} selectMode={false} onToggleSelect={() => {}}
+          selection={{ ids: [], text: "" }} onClearSelection={() => {}} selectMode={false}
           onSaved={() => {}} onResolved={() => {}} onChooseAlternative={() => {}} readOnly={false} hasWords tab={tab} onTab={setTab} />
       );
     };

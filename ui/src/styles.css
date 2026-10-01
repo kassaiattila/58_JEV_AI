@@ -537,3 +537,9 @@ button.chip[aria-pressed="true"] { background: var(--paper); border-color: var(-
 .fix-hint { margin: 4px 0 0; }
 .ok-badge { display: inline-flex; align-items: center; gap: 3px; background: var(--ok-tint); color: var(--ok); }
 .ok-badge .ico { width: 11px; height: 11px; }
+/* 083 (second trial): an earlier run's to-do at the field, the earlier document to-dos at the bottom, item navigation */
+.field-issues.earlier-issues { color: var(--muted); }
+.field-issues.earlier-issues li::before { content: "↺ "; }
+.earlier-box { margin: 6px 8px 0; }
+.filter-done { display: grid; gap: 6px; justify-items: start; }
+.item-nav { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--line-soft); }
