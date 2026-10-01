@@ -9,8 +9,9 @@ from jav import api, cfg, work, work_views
 
 def test_every_recipe_param_and_option_is_explained():
     help_ = work_views.recipe_help()
-    for r in work.recipes():
+    for r in work.active_recipes():  # 080: only the offered processing needs a "when" text
         assert help_["recipes"][r["id"]]["when"].strip(), r["id"]
+    for r in work.recipes():
         for name, spec in r["params"].items():
             p = help_["params"][name]
             assert p["help"].strip(), name

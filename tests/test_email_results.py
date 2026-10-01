@@ -136,7 +136,7 @@ def test_pdf_attachment_becomes_a_linked_document_and_runs_with_the_email_recipe
     ready = work.readiness(wp["id"])
     assert ready["ready"], ready["blockers"]
     assert ready["budget"] == {"jev": Decimal("0.17"), "openai": Decimal("0.15"), "azure_di": Decimal("0.02")}  # 2 emails × 0.05 + 1 attachment; 075: Azure for the attachment
-    work.assign_recipe(wp["id"], "email-intent", params={"arm": "S"}, expected_revision=1, actor="t")
+    work.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=1, actor="t")
     ready = work.readiness(wp["id"])
     run_id = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
     info = worker.run_worker(once=True)
@@ -159,7 +159,7 @@ def test_attachment_detection_inside_the_email_flow_stays_in_the_run(env, monkey
     monkeypatch.setattr(policy, "choice_needs_review", lambda *a, **k: True)  # every judgment is uncertain: there should be a to-do
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge([_mail_with_pdf(env), MAILS[1]]), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
-    work.assign_recipe(wp_id, "email-intent", params={"arm": "S"}, expected_revision=1, actor="t")
+    work.assign_recipe(wp_id, "processing", params={"arm": "S"}, expected_revision=1, actor="t")
     ready = work.readiness(wp_id)
     run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
     worker.run_worker(once=True)
@@ -180,7 +180,7 @@ def test_the_email_flow_reads_the_attachment_from_its_source_instance(env):  # n
     doc = next(i for i in wp["items"] if i["kind"] == "document")
     original = Path(doc["source_path"])
     original.write_bytes(original.read_bytes().replace(b"MINTA", b"ALTER"))  # changed after it was added
-    work.assign_recipe(wp_id, "email-intent", params={"arm": "S"}, expected_revision=1, actor="t")
+    work.assign_recipe(wp_id, "processing", params={"arm": "S"}, expected_revision=1, actor="t")
     ready = work.readiness(wp_id)
     assert ready["ready"] and {w["code"] for w in ready["warnings"]} == {"original_changed"}
     run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
@@ -229,7 +229,7 @@ def test_task_proposals_go_through_the_gate_and_only_a_human_accepts_them(env, m
     monkeypatch.setattr(email_tasks, "extract", _fake_tasks)
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
-    work.assign_recipe(wp_id, "email-intent", params={"tasks": "propose"}, expected_revision=1, actor="t")
+    work.assign_recipe(wp_id, "processing", params={"tasks": "propose"}, expected_revision=1, actor="t")
     ready = work.readiness(wp_id)
     assert ready["budget"]["openai"] == Decimal("0.012")  # 2 emails × 0.006 USD (the task-proposal budget)
     run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
@@ -286,7 +286,7 @@ def test_task_proposal_failure_becomes_a_todo_and_archived_mail_is_skipped(env, 
     monkeypatch.setitem(policy.INTENT_ROUTE, "szamlakuldes", "archive")  # the fake JEV sees everything as invoice sending
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
-    work.assign_recipe(wp_id, "email-intent", params={"tasks": "propose"}, expected_revision=1, actor="t")
+    work.assign_recipe(wp_id, "processing", params={"tasks": "propose"}, expected_revision=1, actor="t")
     ready = work.readiness(wp_id)
     run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
     worker.run_worker(once=True)

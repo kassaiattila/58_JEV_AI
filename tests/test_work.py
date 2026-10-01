@@ -64,7 +64,8 @@ def test_assignment_validates_params_and_revision(isolated):
 def test_readiness_reports_blockers(isolated):
     wp = work.create_workpackage(name="üres", source_kind="manual", source_ref=None)
     r = work.readiness(wp["id"])
-    assert not r["ready"] and {b["code"] for b in r["blockers"]} == {"no_items", "no_recipe"}
+    # 080: without an assignment the default processing settings apply, so only the missing items block
+    assert not r["ready"] and {b["code"] for b in r["blockers"]} == {"no_items"}
 
 
 def test_readiness_detects_changed_and_missing_source(isolated):
@@ -99,7 +100,7 @@ def test_budget_follows_the_actual_path(isolated):
     assert assign("invoice-extraction", {"arm": "auto", "doc_type": "invoice_hu"}) == {"jev": Decimal("0.10"), "azure_di": Decimal("0.04")}  # S path
     assert "azure_di" not in assign("invoice-extraction", {"arm": "auto", "doc_type": "invoice_hu", "azure_ocr": "off"})  # 075: switch off
     assert assign("invoice-extraction", {"arm": "auto", "doc_type": "mohu_szamla"})["openai"] == Decimal("0.30")  # G path (075: 0.15 per item)
-    assert assign("document-processing", {"arm": "auto"})["openai"] == Decimal("0.30")  # the type is not known yet
+    assert assign("processing", {"arm": "auto"})["openai"] == Decimal("0.30")  # the type is not known yet
     first, second = work.get(wp["id"])["items"]
     store.upsert_document(doc_id=first["sha256"], source_path=first["source_path"], detail_type="invoice_hu")
     store.upsert_document(doc_id=second["sha256"], source_path=second["source_path"], detail_type="mohu_szamla")

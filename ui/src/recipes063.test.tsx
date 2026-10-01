@@ -39,7 +39,8 @@ describe("063 a receptek magyarázata", () => {
     expect(itemBudget(EMAIL, { arm: "auto", tasks: "off" }, "email")).toEqual({ jev: 0.05 });
     expect(itemBudget(EMAIL, { arm: "auto", tasks: "propose" }, "email")).toEqual({ jev: 0.05, openai: 0.006 });
     expect(itemBudget(EMAIL, { arm: "auto", tasks: "propose" }, "document")).toEqual({ jev: 0.07, openai: 0.1 });
-    expect(itemBudgetLines(EMAIL, { arm: "auto", tasks: "off" })).toEqual(["levelenként: JEV legfeljebb 0,05 USD", "PDF-csatolmányonként: JEV legfeljebb 0,07 USD, OpenAI legfeljebb 0,10 USD"]);
+    // 080: a document item is any PDF of the package (not only an email attachment)
+    expect(itemBudgetLines(EMAIL, { arm: "auto", tasks: "off" })).toEqual(["levelenként: JEV legfeljebb 0,05 USD", "PDF-iratonként: JEV legfeljebb 0,07 USD, OpenAI legfeljebb 0,10 USD"]);
   });
 
   it("a kártyán a választott érték jelentése látszik, érték-szöveg híján a beállításé, és a keret", () => {
@@ -49,11 +50,11 @@ describe("063 a receptek magyarázata", () => {
     expect(screen.getByText("tételenként: JEV legfeljebb 0,05 USD")).toBeTruthy();
   });
 
-  it("a Receptek oldal a teljes leírást adja: mikor való, feltételek, lépések, eredmény, alapbeállítás, lehetőségenkénti keret", async () => {
+  it("a Feldolgozás oldal a teljes leírást adja: feltételek, lépések, eredmény, alapbeállítás, lehetőségenkénti keret", async () => {
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [INVOICE], help: HELP });
     render(<RecipesPanel />);
     expect(await screen.findByRole("region", { name: "Számlák adatainak kinyerése" })).toBeTruthy();
-    expect(screen.getByText(/Ha a csomagban egyféle, ismert típusú irat van/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Hogyan dolgozik a rendszer" })).toBeTruthy(); // 080
     expect(screen.getByText("Legalább egy PDF-irat a munkacsomagban")).toBeTruthy();
     expect(screen.getByText("Beolvasás (szükség esetén OCR)")).toBeTruthy();
     expect(screen.getAllByText("alapbeállítás").length).toBe(2); // the default of the path and of the JEV answers

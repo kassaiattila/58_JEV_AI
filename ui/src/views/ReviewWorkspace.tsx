@@ -59,7 +59,7 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
   if (latest.error) return <p className="notice error" role="alert">{latest.error.message}</p>;
   if (!latest.data) return <p className="muted">{t("Betöltés…")}</p>;
   if (latest.data.total === 0) {
-    return <div className="empty">{t("Ezen a csomagon még nem futott recept, ezért nincs mit ellenőrizni. Indíts futást a")} <a href={`#/workpackages/${wp.id}/process`}>{t("Feldolgozás")}</a> {t("szakaszban.")}</div>;
+    return <div className="empty">{t("Ezen a csomagon még nem futott feldolgozás, ezért nincs mit ellenőrizni. Indíts futást a")} <a href={`#/workpackages/${wp.id}/process`}>{t("Feldolgozás")}</a> {t("szakaszban.")}</div>;
   }
   if (!view.data) return view.error ? <p className="notice error">{view.error.message}</p> : <p className="muted">{t("Betöltés…")}</p>;
 

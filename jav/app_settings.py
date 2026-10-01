@@ -189,13 +189,15 @@ def save_folders(items: list[WatchedFolder], *, check_dir: Callable[[str], Path]
         p = check_dir(f.path)
         if out and _overlaps(p, Path(out)):  # 078: the watcher would take the named copies in again
             raise FolderOverlap(f"a watched folder cannot overlap the output folder of the named copies: {p}")
-        recipe_id = f.recipe_id or None
-        if recipe_id is not None:
-            work.recipe(recipe_id)  # unknown recipe: ValueError → 422
+        recipe_id, params = f.recipe_id or None, f.params
+        if recipe_id is not None and work.recipe_status(work.recipe(recipe_id)) == "retired":  # unknown: ValueError → 422
+            # 080: the UI no longer shows the folder's recipe, so a retired one is moved onto the default processing
+            # (keeping its settings) instead of making the whole list unsavable
+            recipe_id, params = work.default_recipe()["id"], work.carried_params(work.default_recipe(), params)
         fid = f.id if f.id in known else f"wf-{uuid.uuid4().hex[:10]}"
         prev = known.get(fid)
         name = " ".join(f.name.split()) or p.name
-        rows.append((fid, name, str(p), int(f.enabled), int(f.recursive), f.batch_mode, recipe_id, json.dumps(f.params, ensure_ascii=False),
+        rows.append((fid, name, str(p), int(f.enabled), int(f.recursive), f.batch_mode, recipe_id, json.dumps(params, ensure_ascii=False),
                      f.interval_min, (prev or {}).get("next_at") or _iso(_now()), (prev or {}).get("last_at"),
                      (prev or {}).get("last_status"), json.dumps((prev or {}).get("last_result")) if prev and prev.get("last_result") else None,
                      _iso(_now())))
@@ -204,6 +206,23 @@ def save_folders(items: list[WatchedFolder], *, check_dir: Callable[[str], Path]
         c.executemany("INSERT INTO watched_folders(id, name, path, enabled, recursive, batch_mode, recipe_id, params, interval_min,"
                       " next_at, last_at, last_status, last_result, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
     return folders()
+
+
+def migrate_folder_recipes(*, write: bool) -> list[dict[str, Any]]:
+    """080: watched folders set to a retired recipe move onto the default processing, keeping their settings (like
+    `work.migrate_assignments`). Without `write` it only lists them; repeatable."""
+    target = work.default_recipe()
+    out = []
+    for f in folders():
+        if not f["recipe_id"] or work.recipe_status(work.recipe(f["recipe_id"])) != "retired":
+            continue
+        params = work.carried_params(target, f["params"])
+        out.append({"id": f["id"], "name": f["name"], "from": f["recipe_id"], "params": params})
+        if write:
+            with store.connect() as c:
+                c.execute("UPDATE watched_folders SET recipe_id=?, params=?, updated_at=? WHERE id=? AND recipe_id=?",
+                          (target["id"], json.dumps(params, ensure_ascii=False), _iso(_now()), f["id"], f["recipe_id"]))
+    return out
 
 
 def _bucket(folder: dict[str, Any], now: datetime) -> str:
@@ -294,9 +313,13 @@ def _scan(folder: dict[str, Any], now: datetime, actor: str) -> dict[str, Any]:
                 with store.connect() as c:
                     c.execute("INSERT INTO watched_packages(folder_id, bucket, workpackage_id) VALUES (?,?,?) ON CONFLICT(folder_id, bucket)"
                               " DO UPDATE SET workpackage_id=excluded.workpackage_id", (folder["id"], bucket, wp_id))
-                if folder["recipe_id"]:
-                    work.assign_recipe(wp_id, folder["recipe_id"], params=folder["params"], expected_revision=0, actor=actor,
-                                       note="figyelt mappa")
+                if folder["recipe_id"]:  # 080: without one, the package runs with the default processing settings
+                    r = work.recipe(folder["recipe_id"])
+                    if work.recipe_status(r) == "retired":  # not migrated yet (e.g. restored from a backup)
+                        r, params = work.default_recipe(), work.carried_params(work.default_recipe(), folder["params"])
+                    else:
+                        params = folder["params"]
+                    work.assign_recipe(wp_id, r["id"], params=params, expected_revision=0, actor=actor, note="figyelt mappa")
             wp = work.get(wp_id)
             work.add_documents(wp_id, fresh, expected_revision=wp["revision"])
         _mark_seen(folder["id"], files)  # 063: "seen" only after a successful intake

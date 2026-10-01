@@ -521,7 +521,10 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.get(r + "/recipes")
     def recipes() -> dict[str, Any]:
-        return {"recipes": work_views.recipe_catalog(), "help": work_views.recipe_help()}  # 063: recipe explanations
+        # 063: recipe explanations; 080: the titles of every recipe (an old run or a package not yet migrated shows its
+        # recipe's title, although only the active processing is offered)
+        return {"recipes": work_views.recipe_catalog(), "help": work_views.recipe_help(),
+                "titles": {r["id"]: r["title"] for r in work.recipes()}}
 
     @app.get(r + "/workpackages")
     def workpackages(include_archived: bool = False) -> dict[str, Any]:

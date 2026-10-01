@@ -1,14 +1,14 @@
 // Confirmation of starting a run (061 decision: the trial run, live run and rerun buttons do not start anything, but
-// lead to this page). It summarises what will start: mode, work package, recipe with its settings, number of items,
-// highest cost per provider, and whether the earlier AI response can be reused. A run can only be started from here;
-// Mégse (Cancel) goes back.
+// lead to this page). It summarises what will start: mode, work package, the processing settings, number of items,
+// and (080, the pre-start overview) which services may be called, with the budget maximum and what for. A run can
+// only be started from here; Mégse (Cancel) goes back.
 import { useState } from "react";
 import { api, ApiError, type WorkpackageView } from "../api";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { blockerText, MODE, PARAM_LABEL, providerName, usdBudget, when } from "../labels";
 import { go } from "../route";
-import { paramValue } from "./ProcessStage";
+import { paramValue, RunPlanList } from "./ProcessStage";
 
 const ACTIVE = new Set(["queued", "running"]);
 
@@ -26,7 +26,9 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const assignment = wp.assignment;
-  const recipe = recipes.data?.recipes.find((r) => r.id === assignment?.recipe_id);
+  // 080: without saved settings the default processing's defaults apply (and are saved at start)
+  const recipe = recipes.data?.recipes.find((r) => r.id === assignment?.recipe_id) ?? (assignment ? undefined : recipes.data?.recipes[0]);
+  const settings = assignment?.params ?? Object.fromEntries(Object.entries(recipe?.params ?? {}).map(([k, spec]) => [k, spec.default ?? ""]));
   // rerun: the mode and input of the latest run
   const effectiveMode = rerun && last ? last.mode : mode;
   const items = rerun && last ? last.items : readiness.counts.items;
@@ -55,7 +57,7 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
     } catch (e) {
       const err = e as ApiError;
       setMsg(err.status === 409 && err.code === "revision_conflict"
-        ? t("A csomag vagy a recept közben változott. Frissítettük, nézd át és indítsd újra.") : err.message);
+        ? t("A csomag vagy a beállításai közben változtak. Frissítettük, nézd át és indítsd újra.") : err.message);
       onChanged();
     } finally {
       setBusy(false);
@@ -69,14 +71,13 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
       <dl className="confirm-list">
         <dt>{t("Munkacsomag")}</dt><dd>{wp.name}</dd>
         <dt>{t("Tételek")}</dt><dd>{t("{{n}} tétel", { n: items })}</dd>
-        <dt>{t("Recept")}</dt>
+        <dt>{t("Feldolgozási beállítások")}</dt>
         <dd>
-          {recipe ? t("{{title}} ({{version}}. változat)", { title: t(recipe.title), version: recipe.version }) : assignment?.recipe_id ?? t("nincs")}
-          {assignment ? (
-            <ul className="plain small">
-              {Object.entries(assignment.params).map(([k, v]) => <li key={k}>{PARAM_LABEL[k] ?? k}: {paramValue(k, v)}</li>)}
-            </ul>
-          ) : null}
+          {!recipe && assignment ? <>{t(recipes.data?.titles?.[assignment.recipe_id] ?? assignment.recipe_id)}: </> : null}
+          {readiness.assignment_default ? <span className="muted small">{t("alapbeállítás, az indításkor mentődik a csomaghoz")}</span> : null}
+          <ul className="plain small">
+            {Object.entries(settings).map(([k, v]) => <li key={k}>{PARAM_LABEL[k] ?? k}: {paramValue(k, v)}</li>)}
+          </ul>
         </dd>
         <dt>{t("Legnagyobb költség")}</dt>
         <dd>
@@ -88,6 +89,7 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
             : t("nem jár fizetős hívással")}</span>
         </dd>
       </dl>
+      {readiness.plan ? <RunPlanList plan={readiness.plan} budget={readiness.budget} /> : null}
       {!readiness.ready ? (
         <ul className="plain">{readiness.blockers.map((b, i) => <li key={i} className="blocker">{blockerText(b)}</li>)}</ul>
       ) : null}

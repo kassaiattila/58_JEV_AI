@@ -15,7 +15,7 @@ export function localDay(d = new Date()): string {
 }
 
 /** The action's detail as a label (062): the to-do's reason as an everyday sentence, the decision and the mode in
- *  Hungarian; the recipe title comes from the local service (the UI translates it). The rest (e.g. a mailbox address)
+ *  Hungarian; the processing's title comes from the local service (the UI translates it). The rest (e.g. a mailbox address)
  *  is unchanged. */
 export function activityDetail(action: string, detail: string | null | undefined): string {
   if (!detail) return "";
@@ -40,7 +40,7 @@ export function Activity({ day }: { day?: string }) {
   }
   return (
     <>
-      <PageHeader title={title} summary={t("{{name}} műveletei a napon: recept, futás indítása és jóváhagyása, javítás, teendő lezárása, feladatjavaslat-döntés, csomag-módosítás, postafiók-letöltés.", { name: actor })}
+      <PageHeader title={title} summary={t("{{name}} műveletei a napon: feldolgozási beállítások, futás indítása és jóváhagyása, javítás, teendő lezárása, feladatjavaslat-döntés, csomag-módosítás, postafiók-letöltés.", { name: actor })}
         actions={
           <label className="check small">{t("Nap")}
             <input type="date" value={d} max={today} onChange={(e) => go({ view: "activity", day: e.target.value && e.target.value !== today ? e.target.value : undefined })} />

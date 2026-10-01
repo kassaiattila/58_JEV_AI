@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "changelog": [
       {
         "version": "1.0.0",
@@ -12,31 +12,80 @@
         "version": "1.1.0",
         "date": "2026-09-30",
         "note": "075: the azure_ocr switch (Azure recognition of weak scans, within the recipe's Azure budget)"
+      },
+      {
+        "version": "1.2.0",
+        "date": "2026-10-01",
+        "note": "080 (owner's decisions of 2026-10-01): one processing with processing settings. New: `intro`, `kinds` (what happens to a document and to an email), `paths` (the S and G paths compared, with the measured golden-set agreement of 2026-09 and the typical cost per document from the call log); the path options say which types can take the S path; only the active processing has a `when` text"
       }
     ]
   },
+  "intro": "A rendszer a csomag minden tételét a fajtája szerint dolgozza fel, a típust maga ismeri fel; neked csak a beállításokat kell megadnod. Az alapbeállítás mindennapi munkához való: ha nem módosítod, a futás indításakor ez mentődik el a csomaghoz.",
+  "kinds": {
+    "document": "PDF-irat: a rendszer előbb felismeri a típusát (például számla, közműszámla, bankszámlakivonat, igazolás; JEV, iratonként körülbelül 0,0001 USD), majd a felismert típus mezőit nyeri ki a választott úton, és kódban ellenőrzi őket (például az adószám ellenőrzőszámát, az összegek egyezését). Ha a típus nem dönthető el, az irat teendőt kap.",
+    "email": "Levél: a rendszer felismeri, mi a levél célja (például számla érkezett, fizetési visszaigazolás, kérdés, hírlevél; JEV, levelenként körülbelül 0,0001 USD), és kódban javasolja a következő lépést. A PDF-csatolmányok iratként futnak, a levélre visszavezetve; kérésre feladatjavaslat is készül."
+  },
   "recipes": {
-    "invoice-extraction": {
-      "when": "Ha a csomagban egyféle, ismert típusú irat van (például csak magyar számlák vagy csak villamosenergia-számlák). A típust te adod meg, a rendszer külön nem ismeri fel."
-    },
-    "document-processing": {
-      "when": "Ha a csomagban vegyes vagy ismeretlen típusú iratok vannak. A rendszer iratonként felismeri a típust, és a felismert típus mezőit keresi; a nem eldönthető típus teendő lesz."
-    },
-    "email-intent": {
-      "when": "A postafiókból letöltött levelekhez. Levelenként felismeri, mi a levél célja (például számla érkezett, fizetési visszaigazolás, hírlevél), a PDF-csatolmányokból adatot is kinyer, és kérésre feladatjavaslatot tesz."
+    "processing": {
+      "when": "Minden csomaghoz: vegyes vagy ismeretlen típusú iratokhoz és a postafiókból letöltött levelekhez is. A típust nem kell előre megadni."
     }
+  },
+  "paths": {
+    "intro": "Az út azt mondja meg, hogyan olvassa ki a rendszer egy felismert típusú irat adatait. Bármelyik út után ugyanaz a kódos ellenőrzés jön, és ami bizonytalan, teendő lesz.",
+    "measured": "A számok forrása: az etalon (ellenőrzött mintairatok nyolc számlatípusból) fejadat-mezői, illetve a hívásnapló élő (nem újrahasznált) hívásai iratonként. Az S-út mérése 2026-09-30-i, a G-úté 2026-09-20/21-i, ezért a két szám csak tájékoztató összevetés.",
+    "columns": {
+      "S": "S-út: csak JEV",
+      "G": "G-út: GPT + JEV"
+    },
+    "rows": [
+      {
+        "label": "Mit csinál",
+        "S": "A kód kigyűjti a szövegből a lehetséges értékeket (számlaszám-, dátum-, összeg- és névjelölteket), a JEV mezőnként választ közülük, vagy azt mondja: egyik sem.",
+        "G": "A GPT kiolvassa az adatokat a szövegből, a JEV pedig mezőnként ellenőrzi, nem hibás-e (nem csonka, nem egy másik mező értéke, nincsenek-e felcserélve a felek)."
+      },
+      {
+        "label": "Tételsorok",
+        "S": "Nem olvassa ki.",
+        "G": "Kiolvassa (például a közműszámla díjtételeit és mérőállásait)."
+      },
+      {
+        "label": "Szolgáltatók",
+        "S": "Csak JEV.",
+        "G": "JEV és OpenAI."
+      },
+      {
+        "label": "Jellemző költség iratonként",
+        "S": "Körülbelül 0,001–0,002 USD (a hívásnaplóban 920 iraton: középérték 0,0012, átlag 0,0023 USD).",
+        "G": "Körülbelül 0,007–0,008 USD (a hívásnaplóban 588 iraton: középérték 0,0070, átlag 0,0076 USD)."
+      },
+      {
+        "label": "Egyezés az etalonnal (fejadatok)",
+        "S": "942/953 mező (98,8 %).",
+        "G": "940/953 mező (98,6 %); vízszámlán jobb, mint az S (89/90, illetve 85/90)."
+      },
+      {
+        "label": "Mely irattípusokon",
+        "S": "Csak a nyolc számlatípuson (magyar és külföldi számla, hat közműszámla). A többi irattípus S kérésre is a G-úton fut.",
+        "G": "Minden irattípuson."
+      },
+      {
+        "label": "Mikor jobb",
+        "S": "Számlák fejadataihoz: ugyanolyan pontos, és a G-út költségének harmadába–hatodába kerül.",
+        "G": "Ha a tételsorok is kellenek (közműszámla), és azokon az irattípusokon, amelyeknek csak G-útja van."
+      }
+    ]
   },
   "params": {
     "arm": {
-      "help": "Hogyan olvassa ki a rendszer az adatokat az iratból. Bármelyik út után kódos ellenőrzés jön (például az adószám ellenőrzőszáma, az összegek egyezése); ami bizonytalan, teendő lesz.",
+      "help": "Hogyan olvassa ki a rendszer a felismert típusú irat adatait. Bármelyik út után kódos ellenőrzés jön (például az adószám ellenőrzőszáma, az összegek egyezése); ami bizonytalan, teendő lesz.",
       "options": {
-        "auto": "Az irattípus ajánlott útja: közműszámlán a G, mert a tételsorokat is az adja; magyar számlán az S. Mindennapi munkához ez ajánlott.",
-        "S": "A kód kigyűjti a lehetséges értékeket (számlaszám-, dátum- és összegjelölteket), a JEV mezőnként választ közülük. Csak JEV-hívás, ezért olcsóbb; tételsorokat nem olvas. Egyes irattípusok csak a G utat ismerik.",
+        "auto": "Az irattípus ajánlott útja: magyar és külföldi számlán az S, közműszámlán a G (a tételsorok miatt), a többi irattípuson a G, mert azoknak csak G-útja van. Mindennapi munkához ez ajánlott.",
+        "S": "A kód kigyűjti a lehetséges értékeket, a JEV mezőnként választ közülük. Csak JEV-hívás, ezért olcsóbb; tételsorokat nem olvas. Csak a nyolc számlatípuson működik, a többi irattípus ilyenkor is a G-úton fut.",
         "G": "A GPT kiolvassa az adatokat, a tételsorokat is, a JEV pedig mezőnként ellenőrzi, nem hibás-e. JEV- és OpenAI-hívás is, ezért drágább."
       }
     },
     "doc_type": {
-      "help": "Melyik irattípus mezőit keresse a rendszer (például magyar számla, külföldi számla, villamosenergia-számla). A csomag minden iratán ez a típus fut; vegyes csomaghoz az „Iratok felismerése és adatkinyerése” recept való.",
+      "help": "Belső, mérési beállítás (csak parancssorból): a csomag minden iratán ez az irattípus fut, típusfelismerés nélkül.",
       "options": {}
     },
     "jev_cache": {
@@ -47,7 +96,7 @@
       }
     },
     "tasks": {
-      "help": "Tegyen-e a rendszer feladatjavaslatot a levelekből: mi a teendő, ki a felelős, mi a határidő.",
+      "help": "Tegyen-e a rendszer feladatjavaslatot a levelekből: mi a teendő, ki a felelős, mi a határidő. Csak leveleken hat.",
       "options": {
         "off": "Nincs feladatjavaslat. A levél szándékának felismerése és a csatolmányok feldolgozása így is megtörténik. Ez az alapbeállítás.",
         "propose": "A GPT levelenként javaslatot tesz. A kód ellenőrzi, hogy a javaslat minden idézete szó szerint szerepel-e a levélben; elfogadni csak ember tud. Archiválandó levélen nem fut. Levelenként többlet OpenAI-költséggel jár."
@@ -56,7 +105,7 @@
     "azure_ocr": {
       "help": "Gyenge minőségű szkennelt iratnál használhatja-e a rendszer a pontosabb, fizetős Azure-felismerést a helyi szövegfelismerés helyett.",
       "options": {
-        "on": "Ha a helyi felismerés gyenge, a rendszer az Azure-felismerést használja, iratonként a recept Azure-keretén belül. Minden hívás a hívásnaplóba kerül; ha a futás Azure-kerete elfogy, a helyi szöveg megy tovább, és az irat teendőt kap. Ez az alapbeállítás.",
+        "on": "Ha a helyi felismerés gyenge, a rendszer az Azure-felismerést használja, iratonként legfeljebb 0,02 USD keretből. Minden hívás a hívásnaplóba kerül; ha a futás Azure-kerete elfogy, a helyi szöveg megy tovább, és az irat teendőt kap. Ez az alapbeállítás.",
         "off": "Csak helyi felismerés, gyenge szkennelésnél is. Nincs Azure-költség; a gyenge felismerésű irat a szokásos felismerési teendőket kapja."
       }
     }

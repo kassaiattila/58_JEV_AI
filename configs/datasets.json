@@ -53,7 +53,7 @@
   "body_status": {"full": "teljesen látta", "shortened": "csak az elejét látta", "capped": "letöltéskor elvágódhatott"},
   "task_decision": {"accepted": "elfogadva", "rejected": "elvetve"},
   "activity_action": {"archive": "csomag elrejtése", "restore": "csomag visszahozása", "rename": "csomag átnevezése",
-   "delete": "csomag törlése", "owner": "felelős beállítása", "recipe": "recept hozzárendelése", "run_start": "futás indítása",
+   "delete": "csomag törlése", "owner": "felelős beállítása", "recipe": "feldolgozási beállítások mentése", "run_start": "futás indítása",
    "run_approve": "futás jóváhagyása", "correction": "javítás", "reason_resolve": "teendő lezárása",
    "task_decision": "feladatjavaslat döntése", "task_done": "feladat elvégezve", "mailbox_pull": "postafiók-letöltés"}
  },

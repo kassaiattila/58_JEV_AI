@@ -16,8 +16,8 @@ def _run(**kw):
 
 def test_rules_in_order():
     assert next_step({"items": [], "assignment": None}, None)["code"] == "empty"
-    assert next_step({"items": [{"item_id": "a"}], "assignment": None}, None) == {"code": "configure", "label": "Recept kiválasztása", "stage": "process",
-                                                                                "params": {}}
+    # 080: no "choose a recipe" step: without an assignment the default processing settings apply
+    assert next_step({"items": [{"item_id": "a"}], "assignment": None}, None)["code"] == "start"
     assert next_step(WP, None)["code"] == "start"
     assert next_step(WP, None, ready=False)["code"] == "blocked"
     assert next_step(WP, _run(status="running", items_done=12))["label"] == "Fut: 12/49"

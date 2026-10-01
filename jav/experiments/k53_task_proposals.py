@@ -71,7 +71,8 @@ def _item_rows(variant: str, run_id: str) -> list[dict[str, Any]]:
 def run_ab(paths: list[Path]) -> tuple[str, str, list[dict[str, Any]]]:
     wp = work.create_workpackage(name="K5.3 mérés — 47 valódi levél (feladatjavaslat)", source_kind="manual", source_ref=None)
     wp = work.add_items(wp["id"], paths, kind="email", expected_revision=0)
-    work.assign_recipe(wp["id"], "email-intent", params={"tasks": "propose"}, expected_revision=0, actor="K5.3 mérés",
+    # 080: the email recipe is retired; the processing runs emails the same way
+    work.assign_recipe(wp["id"], "processing", params={"tasks": "propose"}, expected_revision=0, actor="K5.3 mérés",
                        note="058 K5.3 mérés (részkeret 0,30 + 0,10 USD)")
     ready = work.readiness(wp["id"], verify=True)
     run_a = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="K5.3 mérés")["run_id"]

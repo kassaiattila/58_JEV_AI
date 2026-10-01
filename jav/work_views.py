@@ -20,11 +20,12 @@ def jsonable(value: Any) -> Any:
     return json.loads(json.dumps(value, ensure_ascii=False, default=str))
 
 
-def recipe_catalog() -> list[dict[str, Any]]:
-    """The recipes for the UI: the choices taken from the type packs (`allowed_from`) expanded into an `allowed`
-    list."""
+def recipe_catalog(*, every_status: bool = False) -> list[dict[str, Any]]:
+    """The recipes the UI offers (080: only the active processing; internal and retired recipes are not offered;
+    `every_status`: all of them, for the command line): the choices taken from the type packs (`allowed_from`)
+    expanded into an `allowed` list."""
     out = []
-    for r in work.recipes():
+    for r in work.recipes() if every_status else work.active_recipes():
         params = {k: ({**spec, "allowed": sorted(typepack.keys())} if spec.get("allowed_from") == "typepacks" else spec)
                   for k, spec in r["params"].items()}
         out.append({**r, "params": params})
@@ -36,7 +37,8 @@ def recipe_help() -> dict[str, Any]:
     setting and selectable value, what it means. Kept apart from the recipe so that the recipe's fingerprint does not
     change."""
     data = cfg.load("recipe_help")
-    return jsonable({"recipes": data["recipes"], "params": data["params"]})
+    # 080: also the general introduction, the item kinds and the comparison of the paths (Settings › Processing)
+    return jsonable({k: data[k] for k in ("intro", "kinds", "recipes", "paths", "params")})
 
 
 def item_titles(items: list[dict[str, Any]]) -> dict[str, str]:
@@ -74,9 +76,7 @@ def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool |
     n_items = len(items) if items is not None else wp.get("items", 0)
     if not n_items:
         return step("empty", "Üres csomag", "process")
-    if wp.get("assignment") is None and not wp.get("recipe_id"):
-        return step("configure", "Recept kiválasztása", "process")
-    if last_run is None:
+    if last_run is None:  # 080: without an assignment the default processing settings apply
         return step("start", "Próbafutás indítása", "process") if ready is not False else step("blocked", "Nem indítható", "process")
     status = last_run["status"]
     if status in ACTIVE:
@@ -128,7 +128,7 @@ def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
         r["open_reasons"] = last["open_reasons"] if last else 0
         r["last_status"] = last["status"] if last else None
         r["last_activity"] = (last["finished_at"] or last["created_at"]) if last else r["created_at"]
-        # without a run we do not check readiness (expensive); the step is then "start" or "recipe"
+        # without a run we do not check readiness (expensive); the step is then "start"
         r["next"] = next_step(wp, last)
     return jsonable(rows)
 

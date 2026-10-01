@@ -1,5 +1,5 @@
 // Work folders (057, following how the legacy V4 „Figyelt mappák” (Watched folders) work): per folder a name, path,
-// active flag, subfolders, packaging (one shared package / daily packages), recipe and check interval. Draft → save or
+// active flag, subfolders, packaging (one shared package / daily packages) and check interval (080: the package gets the default processing settings). Draft → save or
 // discard; with unsaved changes, leaving the page or following an internal link asks for confirmation (the V4 pattern).
 // The path can be any existing folder (061 decision; the restriction can be switched back on in the local service's
 // settings); the worker checks the folder at intervals, and no paid run starts on its own. 078: below the list, the output
@@ -17,7 +17,6 @@ const EMPTY: WatchedFolder = { name: "", path: "", enabled: true, recursive: fal
 export function FoldersPanel() {
   useLocale();
   const data = useLoad("folders", api.folders);
-  const recipes = useLoad("recipes", api.recipes);
   const [draft, setDraft] = useState<WatchedFolder[]>([]);
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -73,11 +72,9 @@ export function FoldersPanel() {
     }
   }
 
-  const recipeOptions = [{ value: "", label: t("Nincs (a csomagon kell kiválasztani)") },
-    ...(recipes.data?.recipes ?? []).map((r) => ({ value: r.id, label: `${t(r.title)} (v${r.version})` }))];
   return (
     <section className="stage-stack" aria-label={t("Munkamappák")}>
-      <p className="muted small">{t("A feldolgozó a megadott gyakorisággal átnézi a mappát, és az új PDF-ekből munkacsomag lesz (vagy a meglévő bővül). A forrásmappához csak olvasásra nyúl. A csomag megkapja a receptet, de fizetős futás nem indul magától.")}</p>
+      <p className="muted small">{t("A feldolgozó a megadott gyakorisággal átnézi a mappát, és az új PDF-ekből munkacsomag lesz (vagy a meglévő bővül). A forrásmappához csak olvasásra nyúl. A csomag az alap feldolgozási beállításokkal jön létre (a csomagon módosíthatók), de fizetős futás nem indul magától.")}</p>
       {data.error ? <p className="notice error">{data.error.message}</p> : null}
       {draft.map((f, i) => (
         <fieldset key={f.id ?? `new-${i}`} className="card wide folder-card">
@@ -96,7 +93,6 @@ export function FoldersPanel() {
             </fieldset>
           </div>
           <div className="form-row">
-            <Picker label={t("Recept")} value={f.recipe_id ?? ""} options={recipeOptions} onChange={(v) => set(i, { recipe_id: v || null })} />
             <Picker label={t("Átnézés")} value={String(f.interval_min)} options={intervals().map(([m, label]) => ({ value: String(m), label }))}
               onChange={(v) => set(i, { interval_min: Number(v) })} />
           </div>

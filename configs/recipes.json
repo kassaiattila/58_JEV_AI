@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "recipes",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "changelog": [
+   {
+    "version": "1.8.0",
+    "date": "2026-10-01",
+    "note": "080 (owner's decisions of 2026-10-01): one processing for every package. New recipe `processing` chooses the flow per item kind (document: type recognition, then extraction of the recognised type; email: intent + attachments + optional task proposal), with the budgets of the email recipe. `status`: `active` (offered in the UI), `internal` (invoice-extraction: a given type without recognition, command line and tests only), `retired` (document-processing, email-intent: kept for the titles of old runs and for reading old assignments; cannot be assigned again)"
+   },
    {
     "version": "1.7.0",
     "date": "2026-09-30",
@@ -46,6 +51,125 @@
   ]
  },
  "recipes": [
+  {
+   "id": "processing",
+   "version": 1,
+   "status": "active",
+   "title": "Feldolgozás",
+   "description": "A csomag minden tételét a fajtája szerint dolgozza fel: a PDF-iraton felismeri a típust, majd a felismert típus mezőit nyeri ki kódos ellenőrzéssel; a levélen felismeri a szándékot, a PDF-csatolmányait iratként dolgozza fel, és kérésre feladatot javasol. Ami bizonytalan vagy nem dönthető el, teendő lesz.",
+   "steps": [
+    "Beolvasás (szükség esetén szövegfelismerés)",
+    "Iratonként típusfelismerés: durva kategória (JEV), majd részletes típus",
+    "Adatkinyerés a felismert típus szerint, a választott úton (S vagy G)",
+    "Levélen szándékfelismerés (JEV), továbbirányítás kódban, kérésre feladatjavaslat",
+    "Kódos ellenőrzés",
+    "Teendők és eredmény"
+   ],
+   "requirements": [
+    "Legalább egy PDF-irat vagy levél a munkacsomagban",
+    "Keret a használt szolgáltatókra"
+   ],
+   "result": "Iratonként a felismert típus és mezőnkénti adat forrással, ellenőrzési eredménnyel és okonkénti teendőkkel; levelenként a felismert szándék, a javasolt következő lépés és a csatolmányok eredménye, a levélre visszavezetve.",
+   "manual_action": "A teendők rendezése (a nem eldönthető típus és a bizonytalan szándék is teendő), majd éles módban a futás jóváhagyása.",
+   "flow": "document",
+   "flows": {
+    "email": "email",
+    "document": "document"
+   },
+   "input_kinds": [
+    "document",
+    "email"
+   ],
+   "file_suffixes": [
+    ".pdf",
+    ".json"
+   ],
+   "params": {
+    "arm": {
+     "allowed": [
+      "auto",
+      "S",
+      "G"
+     ],
+     "default": "auto"
+    },
+    "jev_cache": {
+     "allowed": [
+      "reuse",
+      "live"
+     ],
+     "default": "reuse"
+    },
+    "tasks": {
+     "allowed": [
+      "off",
+      "propose"
+     ],
+     "default": "off"
+    },
+    "azure_ocr": {
+     "allowed": [
+      "on",
+      "off"
+     ],
+     "default": "on"
+    }
+   },
+   "max_item_usd": {
+    "S": {
+     "jev": "0.07",
+     "openai": "0.15"
+    },
+    "G": {
+     "jev": "0.07",
+     "openai": "0.15"
+    },
+    "auto": {
+     "jev": "0.07",
+     "openai": "0.15"
+    }
+   },
+   "max_item_usd_by_kind": {
+    "email": {
+     "*": {
+      "jev": "0.05"
+     }
+    },
+    "document": {
+     "S": {
+      "jev": "0.07",
+      "openai": "0.15"
+     },
+     "G": {
+      "jev": "0.07",
+      "openai": "0.15"
+     },
+     "auto": {
+      "jev": "0.07",
+      "openai": "0.15"
+     }
+    }
+   },
+   "param_item_usd": [
+    {
+     "param": "tasks",
+     "value": "propose",
+     "kind": "email",
+     "usd": {
+      "openai": "0.006"
+     }
+    },
+    {
+     "param": "azure_ocr",
+     "value": "on",
+     "usd": {
+      "azure_di": "0.02"
+     },
+     "kind": "document"
+    }
+   ],
+   "max_attempts": 2
+  },
   {
    "id": "invoice-extraction",
    "version": 5,
@@ -121,7 +245,8 @@
       "azure_di": "0.02"
      }
     }
-   ]
+   ],
+   "status": "internal"
   },
   {
    "id": "document-processing",
@@ -195,7 +320,8 @@
       "azure_di": "0.02"
      }
     }
-   ]
+   ],
+   "status": "retired"
   },
   {
    "id": "email-intent",
@@ -304,7 +430,8 @@
      }
     }
    },
-   "max_attempts": 2
+   "max_attempts": 2,
+   "status": "retired"
   }
  ]
 }

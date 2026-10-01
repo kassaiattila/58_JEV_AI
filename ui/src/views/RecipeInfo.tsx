@@ -1,7 +1,7 @@
-// 063 (decision of 2026-09-29): explanation of the recipes. The work package's Recipe card states, per setting, what
-// the chosen value means and what the budget per item is; the Beállítások › Receptek (Settings › Recipes) page gives
-// the full description (what it is for, what it needs, steps, result, the person's task, every value of the settings).
-// The text comes from `configs/recipe_help.json`.
+// 063 (decision of 2026-09-29): explanation of the processing. The work package's settings card states, per setting,
+// what the chosen value means and what the budget per item is; the Beállítások › Feldolgozás (Settings › Processing)
+// page gives the full description: how each item kind is processed, the steps, the paths compared with the measured
+// numbers (080), every value of the settings and the result. The text comes from `configs/recipe_help.json`.
 import { api, type Recipe, type RecipeHelp } from "../api";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
@@ -46,33 +46,60 @@ export function RecipeParamList({ recipe, params, help }: { recipe: Recipe; para
   );
 }
 
-/** Beállítások › Receptek (Settings › Recipes): the full description of every recipe. */
+/** Beállítások › Feldolgozás (Settings › Processing, 080): how the system processes a package, the paths compared and
+ *  the settings — for the processing the UI offers (one since 080). */
 export function RecipesPanel() {
   useLocale();
   const recipes = useLoad("recipes", api.recipes);
   if (recipes.error) return <p className="notice error">{recipes.error.message}</p>;
   if (!recipes.data) return <p className="muted">{t("Betöltés…")}</p>;
+  const help = recipes.data.help;
   return (
     <>
-      <p className="page-summary">{t("A recept mondja meg, mit csináljon a rendszer egy munkacsomag tételeivel: milyen lépésekben, milyen beállításokkal és legfeljebb mekkora költséggel. A receptet a csomag Feldolgozás szakaszában lehet kiválasztani és módosítani; a módosítás új változatként mentődik, a korábbi futások a saját receptjüket őrzik.")}</p>
-      {recipes.data.recipes.map((r) => <RecipeDetails key={r.id} recipe={r} help={recipes.data?.help} />)}
+      <p className="page-summary">{help?.intro ? t(help.intro) : null} {t("A beállításokat a csomag Feldolgozás szakaszában lehet módosítani; a módosítás új változatként mentődik, a korábbi futások a saját beállításaikat őrzik.")}</p>
+      {recipes.data.recipes.map((r) => <RecipeDetails key={r.id} recipe={r} help={help} />)}
+      {help?.paths ? <PathCompare paths={help.paths} /> : null}
     </>
+  );
+}
+
+/** 080: the S and G paths side by side — what they do, what they read, which services, typical cost, the measured
+ *  agreement with the golden set, which document types, when each is better. */
+function PathCompare({ paths }: { paths: NonNullable<RecipeHelp["paths"]> }) {
+  useLocale();
+  return (
+    <section className="card wide recipe-doc" aria-label={t("Az utak összevetése")}>
+      <h3>{t("Az utak összevetése")}</h3>
+      <p>{t(paths.intro)}</p>
+      <div className="table-scroll">
+        <table className="path-compare">
+          <thead><tr><th scope="col"><span className="sr-only">{t("Szempont")}</span></th><th scope="col">{t(paths.columns.S)}</th><th scope="col">{t(paths.columns.G)}</th></tr></thead>
+          <tbody>
+            {paths.rows.map((row) => (
+              <tr key={row.label}><th scope="row">{t(row.label)}</th><td>{t(row.S)}</td><td>{t(row.G)}</td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted small">{t(paths.measured)}</p>
+    </section>
   );
 }
 
 function RecipeDetails({ recipe, help }: { recipe: Recipe; help?: RecipeHelp }) {
   useLocale();
   const defaults = recipeDefaults(recipe);
-  const when = help?.recipes[recipe.id]?.when;
+  const kinds = help?.kinds ?? {};
   return (
     <section className="card wide recipe-doc" id={`recipe-${recipe.id}`} aria-label={t(recipe.title)}>
       <div className="card-head">
-        <h3>{t(recipe.title)}</h3>
+        <h3>{t("Hogyan dolgozik a rendszer")}</h3>
         <span className="muted small">{t("{{version}}. változat", { version: recipe.version })}</span>
       </div>
       <p>{t(recipe.description)}</p>
       <dl className="recipe-kv">
-        {when ? <><dt>{t("Mikor válaszd")}</dt><dd>{t(when)}</dd></> : null}
+        {kinds.document ? <><dt>{t("PDF-irat")}</dt><dd>{t(kinds.document)}</dd></> : null}
+        {kinds.email ? <><dt>{t("Levél")}</dt><dd>{t(kinds.email)}</dd></> : null}
         <dt>{t("Mi kell hozzá")}</dt>
         <dd><ul className="tight">{recipe.requirements.map((x) => <li key={x}>{t(x)}</li>)}</ul></dd>
         <dt>{t("Lépések")}</dt>

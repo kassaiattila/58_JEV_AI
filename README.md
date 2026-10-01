@@ -16,11 +16,11 @@ The system reads invoices, other documents and emails. It recognises what type e
 | Extraction | **Data extraction** (M2) on two paths: code finds the candidates and JEV chooses (S path), or GPT extracts and JEV verifies (G path). Type packs for Hungarian and foreign invoices, six kinds of utility bill and the other detailed types | Works |
 | | **Invoice line items**: the line list of an invoice, with a line-total check and per-line checks; line lists can be corrected in the UI, and the checks re-run on the corrected data | Works |
 | | **Data checks** in code: tax numbers and bank account numbers by format and check digit; a field with no candidate is flagged "No estimate"; a document without a type pack gets a to-do; limits on file size, page count and image size | Works |
-| | **OCR** for PDFs without a text layer: local Tesseract, with optional paid escalation to Azure Document Intelligence when the local result is weak. Azure is a recipe switch and is paid from the run's budget | Works |
+| | **OCR** for PDFs without a text layer: local Tesseract, with optional paid escalation to Azure Document Intelligence when the local result is weak. Azure is a processing setting and is paid from the run's budget | Works |
 | Email | **Email intent** (M3): 11 intents, attachment types and a suggested next step; PDF attachments are processed as documents of the same package | Works; real-world accuracy is not proven without a hand-labelled golden set |
 | | **Task proposals from emails**: GPT proposes a concrete task (action, deadline, assignee) with a verbatim quote; a code gate drops any proposal the quote does not support; only a person can accept one | Works; off by default |
 | | **Mailbox download** from the Outlook running on the machine, by mailbox and period, once or on a schedule, with a free message-count preview; new emails become a work package | Works; needs desktop Outlook |
-| Work packages | **Work packages, recipes and runs**: a package from a folder, an upload, a mailbox or a watched folder; a versioned recipe; a readiness check; an idempotent start on a fixed input; trial and live runs; approval and release | Works |
+| Work packages | **Work packages, processing settings and runs**: a package from a folder, an upload, a mailbox or a watched folder; one processing that handles each item by its kind (type recognition, then extraction; email intent and attachments), with versioned settings and a pre-start overview of the services and budget; a readiness check; an idempotent start on a fixed input; trial and live runs; approval and release | Works |
 | | **Reliable execution**: a durable job queue and a single background worker; resumption from the saved step; a call log and an up-front cost reservation for every paid call; to-dos grouped by reason | Works on the worker path |
 | Review | **Workspace** in the browser: each package has three stages — Processing, Review and Result. To-dos are shown on the document's page image with boxed fields, alternative candidates and selection on the image; field corrections are versioned. Hungarian and English, light and dark theme | Works |
 | | **Users and assignment**: "Who is working?", a package owner, "Only my work packages" and "My work today" | Works; choosing a name is not a login |
@@ -67,7 +67,7 @@ python -m jav.cli email <inbox/<mailbox>/<msgid>> | email-golden | email-inbox i
 python -m jav.cli ocr [<pdf>]                                      # without a PDF: the OCR engine's status
 python -m jav.cli eval-report [runs/*.jsonl]                       # shared evaluation report from the raw runs, no model calls
 python -m jav.cli store | admin | configs | flows --check | docs   # store, admin screen, config versions, contract lint, generated docs
-python -m jav.cli recipes | wp-create <folder> | wp-assign <wp> invoice-extraction | wp-show <wp>   # work packages and recipes
+python -m jav.cli recipes | wp-create <folder> | wp-assign <wp> processing | wp-show <wp> | processing-migrate [--write]   # work packages and processing
 python -m jav.cli run-start <wp> [--mode shadow|apply] | worker --once | run-show <run> | run-cancel <run> | run-approve <run> --actor <name>   # shadow = trial run, apply = live run
 cd ui; npm ci; npm run build; cd ..                               # build the UI (once, and after every ui/src change)
 .\scripts\dev.ps1 start | status | stop                          # UI + service: http://127.0.0.1:8930/ (endpoint list: /api/openapi.json) + worker

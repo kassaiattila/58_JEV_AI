@@ -22,10 +22,10 @@ const ACTIVE = new Set(["queued", "running"]);
 
 export function stageStatus(view: WorkpackageView): Record<Stage, string> {
   const last = view.last_run;
-  const recipe = view.workpackage.assignment;
   return {
+    // 080: without saved settings the default processing settings apply, so readiness alone decides
     process: last ? `${MODE[last.mode]} · ${(RUN_STATUS[last.status] ?? last.status).toLowerCase()} · ${last.items_done}/${last.items}`
-      : recipe ? (view.readiness.ready ? t("indítható") : t("nem indítható")) : t("nincs recept"),
+      : view.readiness.ready ? t("indítható") : t("nem indítható"),
     review: last ? (last.open_reasons ? t("{{n}} teendő", { n: last.open_reasons }) : t("nincs teendő")) : itemCountText(view.workpackage.items),
     result: !last ? t("még nincs") : last.mode === "shadow" ? t("próba-eredmény") : last.approval ? t("kiadva") : t("jóváhagyásra vár"),
   };
@@ -71,7 +71,6 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   const wp = useLoad(`wp:${wpId}`, () => api.workpackage(wpId), poll ? 4000 : undefined);
   const lastStatus = wp.data?.last_run?.status;
   useEffect(() => setPoll(lastStatus ? ACTIVE.has(lastStatus) : false), [lastStatus]); // auto-refreshes only during a run
-  const recipes = useLoad("recipes", api.recipes);
 
   if (wp.error?.status === 404 || wp.error?.status === 422) {
     // The work package requested in the address does not exist: we say so, and do not open another one instead.
@@ -90,7 +89,6 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   const summary: ReactNode = (
     <>
       {itemCountText(workpackage.items)}
-      {workpackage.assignment ? ` · ${(() => { const r = recipes.data?.recipes.find((x) => x.id === workpackage.assignment!.recipe_id); return r ? t(r.title) : workpackage.assignment!.recipe_id; })()}` : ""}
       {last ? ` · ${t("utolsó futás: {{mode}}, {{when}}", { mode: MODE[last.mode].toLowerCase(), when: when(last.created_at) })}` : ` · ${t("még nem futott")}`}
     </>
   );
@@ -128,7 +126,7 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
             </>
           ) : (
             <>
-              <p className="notice">{t("A csomagon még nem futott recept, ezért nincs mit ellenőrizni. Az iratok itt megnyithatók és letölthetők; a feldolgozást a")}{" "}
+              <p className="notice">{t("A csomagon még nem futott feldolgozás, ezért nincs mit ellenőrizni. Az iratok itt megnyithatók és letölthetők; a feldolgozást a")}{" "}
                 <a href={`#/workpackages/${wpId}/process`}>{STAGE_LABEL.process}</a> {t("szakaszban indíthatod.")}</p>
               <DocumentsPanel wp={workpackage} onChanged={wp.reload} />
             </>
