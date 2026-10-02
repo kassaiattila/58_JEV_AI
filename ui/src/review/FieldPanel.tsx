@@ -32,15 +32,15 @@ export const UNLOCATED: Record<string, string> = tmap({
 });
 
 /** 091: the tooltip of a field's confidence. A GPT field's confidence (path without JEV) names its basis: the
- *  probability of the answer, lowered by the source or field check if it is weaker, or the check alone. */
+ *  probability of the answer, lowered when its field check failed, or the failed check alone. */
 export function confidenceTitle(pv: Provenance | undefined): string {
   if (pv?.confidence == null) return t("Nincs becslés");
   const p = Math.round(pv.confidence * 100);
   const basis = pv.confidence_basis;
   if (basis?.source !== "gpt") return t("Modellbecslés: {{p}}%", { p });
-  if (basis.token == null) return t("GPT-becslés: {{p}}% (csak a forrás-ellenőrzés alapján; a válasz valószínűsége nem ismert)", { p });
+  if (basis.token == null) return t("GPT-becslés: {{p}}% (csak a mezőellenőrzés alapján; a válasz valószínűsége nem ismert)", { p });
   if (pv.confidence < basis.token) {
-    return t("GPT-becslés: {{p}}% (a válasz valószínűsége {{token}}%, de a forrás- vagy mezőellenőrzés lejjebb vette)",
+    return t("GPT-becslés: {{p}}% (a válasz valószínűsége {{token}}%, de a mezőellenőrzés nem ment át)",
       { p, token: Math.round(basis.token * 100) });
   }
   return t("GPT-becslés: {{p}}% (a válasz valószínűsége)", { p });

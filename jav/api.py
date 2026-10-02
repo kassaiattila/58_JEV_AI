@@ -35,7 +35,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, local_picker, mailbox, numbers, store, version,
+from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, local_picker, mailbox, numbers, policy, store, version,
                  work, work_views)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, worker
@@ -521,7 +521,9 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.get(r + "/settings")
     def ui_settings() -> dict[str, Any]:
         """The UI's display settings (045): confidence bands."""
-        return {"confidence_bands": settings().get("confidence_bands", {"confident": 0.9, "check": 0.5})}
+        bands = dict(settings().get("confidence_bands", {"confident": 0.9, "check": 0.5}))
+        # 091: a GPT field's confidence (path without JEV) has its own display band
+        return {"confidence_bands": {**bands, "gpt": dict(policy.GPT_FIELD_CONFIDENCE["bands"])}}
 
     @app.post(r + "/normalize")
     def normalize(body: NormalizeValue) -> dict[str, Any]:
