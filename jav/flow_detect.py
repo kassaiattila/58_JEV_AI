@@ -127,6 +127,7 @@ def detect(state: DetectState) -> DetectState:
     state.uncertain = policy.choice_needs_review(r.confidence, r.probabilities, "detect.doc_type") or r.doc_type == "unknown"
     if r.doc_type != "unknown":
         _resolve_detail(state, get_adapter())
+        _check_issuer(state, engine="jev")
     return state
 
 
@@ -147,7 +148,17 @@ def _detect_gpt(state: DetectState, pdf) -> DetectState:
                        or policy.choice_needs_review(r.confidence, r.probabilities, "detect.doc_type.gpt"))
     if r.doc_type != "unknown":
         _resolve_detail(state, None, chooser=choose_detail)
+        _check_issuer(state, engine="gpt")
     return state
+
+
+def _check_issuer(state: DetectState, *, engine: str) -> None:
+    """090: the type / issuer cross-check in code (`policy.issuer_mismatch_reason`; `configs/policy.json` names the
+    engines it applies to). A contradiction is a to-do beside the detailed type's; the recognised type stays."""
+    d = state.detail
+    reason = policy.issuer_mismatch_reason(state.result.doc_type, d.key if d else None, state.result.issuer_hu, engine=engine)
+    if reason:
+        state.detail_reasons = state.detail_reasons + [reason]
 
 
 def _resolve_detail(state: DetectState, jev, chooser=None) -> None:
