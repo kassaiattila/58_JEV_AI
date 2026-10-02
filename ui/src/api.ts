@@ -75,6 +75,8 @@ export interface BackupRun {
 export interface Health {
   ok: boolean; api_version: string; service_config: string;
   version: string; commit: string | null; dirty: boolean | null; started_at: string;
+  /** 091: a fingerprint of the UI build the service hands out now (null without a build; missing on older services). */
+  ui_build?: string | null;
 }
 /** 075: the last dependency audit (`runs/deps-audit.json`), as `jav/deps_audit.py` `status()` returns it. */
 export interface DepsAuditInfo {

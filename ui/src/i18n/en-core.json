@@ -108,5 +108,6 @@
   "Váratlan hiba a felületen": "Unexpected error in the interface",
   "Az oldal egy része nem jeleníthető meg. A mentetlen mezőjavításaid megmaradtak; töltsd újra az oldalt.": "Part of the page cannot be shown. Your unsaved field corrections have been kept; reload the page.",
   "Újratöltés": "Reload",
-  "Biztosan? Kattints újra": "Sure? Click again"
+  "Biztosan? Kattints újra": "Sure? Click again",
+  "Újabb változat fut. Töltsd újra az oldalt az új felülethez; a mentetlen javításaid megmaradnak.": "A newer version is running. Reload the page to get the new interface; your unsaved corrections are kept."
 }

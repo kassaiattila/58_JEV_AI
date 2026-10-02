@@ -61,6 +61,9 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .nav:hover { background: #3b3b45; color: #fff; }
 .nav:focus-visible { outline-color: #d98b9c; }
 .main-col { min-width: 0; }
+/* 091: a newer version runs — the banner above the header asks for a reload */
+.update-banner { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 30px; background: var(--warn-tint); color: var(--warn); border-bottom: 1px solid #eedcb8; font-size: 13px; font-weight: 600; }
+.update-banner .primary { padding: 6px 14px; }
 .top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 30px; border-bottom: 1px solid var(--line); background: var(--canvas); flex-wrap: wrap; }
 .main { padding: 8px 30px 40px; max-width: 1600px; margin: 0 auto; outline: none; }
 .actor { display: flex; align-items: center; gap: 8px; font-size: 12px; }
