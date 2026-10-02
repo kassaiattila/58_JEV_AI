@@ -653,13 +653,21 @@ def item_budget(r: dict[str, Any], params: dict[str, Any], kind: str | None = No
     table = (r.get("max_item_usd_by_kind") or {}).get(kind or "") or r["max_item_usd"]
     per = table.get(arm or params.get("arm", "*"), table.get(params.get("arm", "*"), table.get("*", {})))
     out = {provider: Decimal(v) for provider, v in per.items()}
+    drop: set[str] = set()
     for extra in r.get("param_item_usd") or []:  # 058 K5.3: parameter-bound extra (e.g. task proposal on the email)
         # 075: a parameter missing from an older assignment counts with the recipe's default (e.g. the Azure switch)
         value = params.get(extra["param"], (r.get("params", {}).get(extra["param"]) or {}).get("default"))
         if value == extra["value"] and extra.get("kind") in (None, kind):
             for provider, v in extra["usd"].items():
                 out[provider] = out.get(provider, Decimal(0)) + Decimal(v)
-    return out
+            drop.update(extra.get("drop") or ())  # 086: e.g. without JEV the item has no JEV budget at all
+    return {provider: v for provider, v in out.items() if provider not in drop}
+
+
+def jev_off(r: dict[str, Any], params: dict[str, Any]) -> bool:
+    """086: processing without JEV (the `jev` setting off): every document on the G path, the type recognised by GPT,
+    no JEV budget."""
+    return params.get("jev", (r.get("params", {}).get("jev") or {}).get("default", "on")) == "off"
 
 
 def run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]]) -> dict[str, Decimal]:
@@ -712,7 +720,8 @@ def run_plan(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, An
             "attachments": sum(1 for i, _a in docs if i.get("parent_item_id")), "paths": paths,
             "tasks_emails": emails if value("tasks") == "propose" else 0,
             "azure": value("azure_ocr") == "on" and bool(docs), "jev_reuse": value("jev_cache") != "live",
-            "arm": value("arm")}  # 082: with S chosen, a document on the G path has a type without a JEV path
+            "arm": value("arm"),  # 082: with S chosen, a document on the G path has a type without a JEV path
+            "jev": not jev_off(r, params)}  # 086: without JEV, GPT recognises the type and every document runs on G
 
 
 def _known_detail_types(items: list[dict[str, Any]]) -> dict[str, str]:
@@ -733,7 +742,8 @@ def _item_arm(r: dict[str, Any], params: dict[str, Any], item: dict[str, Any], k
 
     flow = flow_for(r, item.get("kind"))
     doc_type = params.get("doc_type") if flow == "invoice" else known.get(item.get("sha256", "")) if flow == "document" else None
-    return typepack.resolve_arm(doc_type, params.get("arm", "auto")) if doc_type in packs else None
+    arm = "G" if jev_off(r, params) else params.get("arm", "auto")  # 086: without JEV only the G path runs
+    return typepack.resolve_arm(doc_type, arm) if doc_type in packs else None
 
 
 def flow_for(r: dict[str, Any], kind: str | None) -> str:

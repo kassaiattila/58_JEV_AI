@@ -92,6 +92,13 @@
  "Az IBAN-ban lévő belföldi számlaszám ellenőrző számjegye hibás": "The check digit of the domestic account number inside the IBAN is wrong",
  "A belföldi bankszámlaszám ellenőrző számjegye hibás": "The check digit of the domestic bank account number is wrong",
  "Azure-felismerés": "Azure recognition",
+ "JEV használata": "Use of JEV",
+ "bekapcsolva": "on",
+ "kikapcsolva — csak GPT (OpenAI)": "off — GPT only (OpenAI)",
+ "JEV: nem hívódik (kikapcsolva).": "JEV: not called (switched off).",
+ "JEV: nem hívódik (kikapcsolva); a levelek szándéka teendő lesz.": "JEV: not called (switched off); the emails' intent becomes a to-do.",
+ "{{n}} irat típusfelismerése és adatkinyerése a G-úton, kódos ellenőrzéssel": "type recognition and extraction of {{n}} document(s) on the G path, checked by the code",
+ "JEV nélküli feldolgozás: a levél szándékát a rendszer nem ismeri fel; olvasd el, és döntsd el kézzel": "Processing without JEV: the system does not recognise the email's intent; read it and decide by hand",
  "gyenge szkennelésnél": "for weak scans",
  "Gyenge helyi felismerés; egy korábbi Azure-hívás kimenete bizonytalan, ezért nem ismételtük meg": "Weak local recognition; an earlier Azure call has an uncertain outcome, so it was not repeated",
  "Gyenge helyi felismerés; az Azure-felismerés a futás kerete miatt elmaradt": "Weak local recognition; Azure recognition was skipped because of the run's budget"

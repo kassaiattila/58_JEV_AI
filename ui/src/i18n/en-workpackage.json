@@ -197,6 +197,8 @@
   "A költségkeret frissítése…": "Refreshing the cost limit…",
   "Gyenge helyi felismerésnél Azure-felismerés (fizetős, a recept Azure-keretén belül)": "Azure recognition for weak local recognition (paid, within the recipe's Azure budget)",
   "Csak helyi felismerés": "Local recognition only",
+  "Bekapcsolva: a JEV ismeri fel a típust és a levél szándékát, és választ vagy ellenőriz az adatkinyerésnél": "On: JEV recognises the type and the email's intent, and chooses or checks during extraction",
+  "Kikapcsolva: csak GPT (OpenAI) — típusfelismerés és adatkinyerés GPT-vel, kódos ellenőrzéssel; a levél szándéka teendő": "Off: GPT only (OpenAI) — type recognition and extraction by GPT, checked by the code; an email's intent becomes a to-do",
   "Fájlnevek": "File names",
   "Az iratok másolatai egységes, tartalom szerinti névvel; az eredeti fájlok nem változnak. A bizonytalan nevűek az „ellenorzendo” almappába kerülnek, a jegyzék (jegyzek.csv) mutatja, melyik eredetiből melyik név lett.": "Copies of the documents with uniform, content-based names; the original files do not change. Copies with an uncertain name go to the “ellenorzendo” (to review) subfolder, and the manifest (jegyzek.csv) shows which original became which name.",
   "Letöltés ZIP-ben": "Download as ZIP",

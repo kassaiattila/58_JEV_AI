@@ -132,10 +132,19 @@ def _stages(recipe: dict[str, Any], params: dict[str, Any]) -> list[tuple[str, d
     extraction of the detected detailed type; the second stage's parameters come from the first one's result
     (`_next_params`)."""
     if recipe["flow"] == "document":
-        return [("doc_detect", {}), ("invoice", dict(params))]
+        return [("doc_detect", {"jev": params["jev"]} if "jev" in params else {}), ("invoice", dict(params))]
     if recipe["flow"] == "invoice" and "doc_type" in params:  # path from the type pack (auto or unsupported request)
-        return [("invoice", {**params, "arm": arm_for(params["doc_type"], params.get("arm", "auto"))})]
+        return [("invoice", {**params, "arm": arm_for(params["doc_type"], _requested_arm(params))})]
     return [(recipe["flow"], dict(params))]
+
+
+def _requested_arm(params: dict[str, Any]) -> str:
+    """086: without JEV only the G path runs, whatever path was asked for."""
+    return "G" if _jev_off(params) else params.get("arm", "auto")
+
+
+def _jev_off(params: dict[str, Any]) -> bool:
+    return params.get("jev") == "off"
 
 
 def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app_id: str, persister,
@@ -147,14 +156,15 @@ def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app
     if recipe["flow"] == "invoice":
         # `jev_cache=live`: skip reading the JEV cache so every call goes through the log and the budget (live test)
         app = mod.build_app(source_path, app_id, params["arm"], tracker=False, doc_type=params["doc_type"], run_id=app_id,
-                            persister=persister, use_cache=params.get("jev_cache", "reuse") != "live", read_path=read_path)
+                            persister=persister, use_cache=params.get("jev_cache", "reuse") != "live", read_path=read_path,
+                            jev=not _jev_off(params))
     elif recipe["flow"] == "email":  # 048 T2: the item is the email's `message.json`; the flow reads its folder
         app = mod.build_app(source_dir=str(Path(source_path).parent), tracker=False, run_id=app_id, persister=persister,
                             use_cache=params.get("jev_cache", "reuse") != "live", propose_tasks=params.get("tasks") == "propose",
-                            attachment_reads=attachment_reads)
+                            attachment_reads=attachment_reads, jev=not _jev_off(params))
     else:
         app = mod.build_app(source_path, tracker=False, run_id=app_id, persister=persister,
-                            use_cache=params.get("jev_cache", "reuse") != "live", read_path=read_path)
+                            use_cache=params.get("jev_cache", "reuse") != "live", read_path=read_path, jev=not _jev_off(params))
     return app, mod.TERMINALS
 
 
@@ -185,7 +195,7 @@ def _next_params(params: dict[str, Any], detect_state) -> dict[str, Any] | None:
     key = (detail.get("key") if isinstance(detail, dict) else getattr(detail, "key", None)) if detail else None
     if not key or detect_state.get("final_status") != "done":
         return None
-    return {**params, "doc_type": key, "arm": arm_for(key, params.get("arm", "auto"))}
+    return {**params, "doc_type": key, "arm": arm_for(key, _requested_arm(params))}
 
 
 def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) -> str:

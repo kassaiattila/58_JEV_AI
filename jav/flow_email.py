@@ -39,6 +39,7 @@ class EmailState(BaseModel):
     run_id: str = ""
     use_cache: bool = True
     detect_attachments: bool = True
+    jev: bool = True  # 086: False = processing without JEV: no intent (a to-do), the attachments are not recognised here
     message: EmailMessage | None = None
     result: IntentResult | None = None
     next_flow: str = ""
@@ -107,12 +108,17 @@ def classify_attachments(state: EmailState) -> EmailState:
     return state
 
 
-@action.pydantic(reads=["message", "run_id", "use_cache", "review_reasons"], writes=["result", "uncertain", "review_reasons"])
+@action.pydantic(reads=["message", "run_id", "use_cache", "jev", "review_reasons"], writes=["result", "uncertain", "review_reasons"])
 def intent(state: EmailState) -> EmailState:
     from jav.adapters.jev import JevUnavailableError, get_adapter
     from jav.intent import classify
 
     assert state.message is not None
+    if not state.jev:  # 086: the intent is a JEV question; without JEV a person reads the email
+        state.result = None
+        state.uncertain = True
+        state.review_reasons = state.review_reasons + ["intent:jev_off"]
+        return state
     try:
         state.result = classify(get_adapter(), state.message, run_id=state.run_id, use_cache=state.use_cache)
     except JevUnavailableError as exc:  # JEV unavailable (in the ledger): no intent, to the manual queue; the flow does not fail
@@ -174,7 +180,7 @@ def tasks(state: EmailState) -> EmailState:
     return state
 
 
-@action.pydantic(reads=["message", "result", "next_flow", "uncertain", "run_id", "review_reasons", "tasks"], writes=["final_status"])
+@action.pydantic(reads=["message", "result", "next_flow", "uncertain", "run_id", "review_reasons", "tasks", "jev"], writes=["final_status"])
 def save(state: EmailState) -> EmailState:
     msg, r = state.message, state.result
     assert msg is not None
@@ -209,7 +215,10 @@ def save(state: EmailState) -> EmailState:
     else:
         store.review_close(subject_kind="email", subject_id=msg.message_id, producer="email_intent", run_id=state.run_id)
     # 048 T2: the worker takes the item's status from this; an uncertain intent = a to-do
-    state.final_status = "jev_unavailable" if r is None else ("needs_review" if state.uncertain or state.review_reasons else "done")
+    if r is None:  # 086: without JEV the missing intent is the expected to-do, not an outage
+        state.final_status = "jev_unavailable" if state.jev else "needs_review"
+    else:
+        state.final_status = "needs_review" if state.uncertain or state.review_reasons else "done"
     return state
 
 
@@ -237,7 +246,7 @@ CONTRACT = {  # the graph declaration: FLOW.md + Mermaid + lint come from it (ja
     "step_meta": {
         "load_message": {"kind": "det", "note": "inbox/<mailbox>/<msgid>/message.json + fájlok, vagy kész EmailMessage (golden)"},
         "classify_attachments": {"kind": "flow", "note": "minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only; olvashatatlan PDF -> unreadable + teendő (attachment:unreadable), a levél tovább fut"},
-        "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben"},
+        "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: no question, an intent:jev_off to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own)"},
         "route": {"kind": "det", "note": "policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés"},
         "tasks": {"kind": "llm", "note": "feladatjavaslat (GPT, a régi email-actions v1.3.0 utasítása) + kódos bizonyíték-kapu; csak ha a recept kéri, archiválandó levélen nem; javaslat -> teendő (ember fogadja el)"},
         "save": {"kind": "store", "note": "emails + email_results (a futás sora, a feladatjavaslat is); bizonytalan intent / javaslat -> review_queue (additív), különben a korábbi tétel zárul"},
@@ -259,12 +268,16 @@ def build_app(
     persister=None,
     propose_tasks: bool = False,
     attachment_reads: dict[str, str] | None = None,
+    jev: bool = True,
 ) -> Application:
     """`run_id` + `persister` (048 T2): when run from the worker, durable state persistence and resumption under the
-    same ID. `attachment_reads`: the source instances to read the package's attachment items from."""
+    same ID. `attachment_reads`: the source instances to read the package's attachment items from. `jev=False` (086):
+    no intent (an `intent:jev_off` to-do) and no attachment recognition here: the PDF attachments are items of the
+    package and are recognised there, by GPT."""
     stem = (message.message_id if message else source_dir or "email").replace(":", "-").replace("\\", "/").rstrip("/").rsplit("/", 1)[-1][:32]
     run_id = run_id or f"email-{stem}-{uuid.uuid4().hex[:8]}"
-    initial = EmailState(source_dir=source_dir, message=message, run_id=run_id, use_cache=use_cache, detect_attachments=detect_attachments,
+    initial = EmailState(source_dir=source_dir, message=message, run_id=run_id, use_cache=use_cache,
+                         detect_attachments=detect_attachments and jev, jev=jev,
                          propose_tasks=propose_tasks, attachment_reads=attachment_reads or {})
     b = (
         ApplicationBuilder()

@@ -14,7 +14,7 @@ import pytest
 
 from jav import detect_detail, detect_gpt, flow_detect, store
 from jav.adapters import jev as jev_mod
-from jav.doc_types import DOC_TYPE_KEYS
+from jav.doc_types import BY_KEY, DOC_TYPE_KEYS
 from jav.runtime import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
@@ -95,8 +95,8 @@ def test_without_log_probabilities_the_confidence_is_unknown_not_zero():
 
 
 def test_the_short_description_is_the_first_clause():
-    assert detect_gpt.short_description("Hungarian utility bill (közüzemi számla): electricity, gas") == "Hungarian utility bill (közüzemi számla)"
-    assert detect_gpt.short_description("Contract or terms; ÁSZF. More text") == "Contract or terms"
+    assert detect_gpt.short_description("Utility bill (power, gas): electricity, gas") == "Utility bill (power, gas)"
+    assert detect_gpt.short_description("Contract or terms; GTC. More text") == "Contract or terms"
     assert detect_gpt.short_description("No separator here") == "No separator here"
 
 
@@ -121,8 +121,9 @@ def test_detect_returns_the_type_the_issuer_and_the_language_with_probabilities(
     assert r.language == "hu"
     instructions, agent = seen[0]
     # the short description of every type and `unknown` are offered; the long description is not sent
-    assert "Hungarian utility bill (közüzemi számla)" in instructions and "unknown" in instructions
-    assert "electricity (villamos energia" not in instructions
+    utility = BY_KEY["utility_bill_hu"].what
+    assert detect_gpt.short_description(utility) in instructions and "unknown" in instructions
+    assert utility not in instructions
     assert "L01:" in agent.prompts[0]  # the same document excerpt as the JEV question
 
 
