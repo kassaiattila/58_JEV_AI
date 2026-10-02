@@ -25,6 +25,7 @@ CONFIG_HASH = cfg.config_hash("policy")
 
 NONE_LABEL: str = _CFG["none_label"]
 DETECT_DETAIL: dict[str, Any] = dict(_CFG["detect_detail"])  # 047 T1.2: threshold of the detailed-type code decision
+DETECT_ISSUER: dict[str, Any] = dict(_CFG["detect_issuer"])  # 090: the type / issuer cross-check
 
 # --------------------------------------------------------------------------------------
 # Bands (policy.json v1.1.0): named sets per call site, precedence by the length of the dotted prefix
@@ -105,6 +106,22 @@ def noul_review_reason(prefix: str, key: str, p: float, callsite: str) -> str | 
         return f"{prefix}:{key}:{p:.2f}"
     if nb == "uncertain" and band(callsite)["uncertain_review"]:
         return f"{prefix}:uncertain:{key}:{p:.2f}"
+    return None
+
+
+def issuer_mismatch_reason(doc_type: str | None, detail_type: str | None, issuer_hu: float | None, *, engine: str) -> str | None:
+    """090 (backlog F-gpt-type-check): a code cross-check of a recognised type against the recogniser's own issuer
+    judgement. A type or detailed type that presumes a Hungarian issuer (`detect_issuer.hungarian_types`) while
+    P(issuer is Hungarian) is in the `no` band of `detect.issuer_is_hungarian.<engine>` contradicts itself: the to-do
+    `detect:issuer_mismatch:<type>` (the detailed type named when it is the Hungarian one); the type is kept. Only for
+    the engines in `detect_issuer.engines`. A foreign invoice with a Hungarian issuer is no contradiction: the form
+    decides there (an Upwork invoice of a Hungarian freelancer is `invoice_foreign`)."""
+    if engine not in DETECT_ISSUER["engines"] or issuer_hu is None:
+        return None
+    hungarian = set(DETECT_ISSUER["hungarian_types"])
+    claimed = detail_type if detail_type in hungarian else doc_type if doc_type in hungarian else None
+    if claimed and noul_band(issuer_hu, f"detect.issuer_is_hungarian.{engine}") == "no":
+        return f"detect:issuer_mismatch:{claimed}"
     return None
 
 

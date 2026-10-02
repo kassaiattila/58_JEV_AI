@@ -103,5 +103,6 @@
  "JEV nélküli feldolgozás: a levél szándékát a rendszer nem ismeri fel; olvasd el, és döntsd el kézzel": "Processing without JEV: the system does not recognise the email's intent; read it and decide by hand",
  "gyenge szkennelésnél": "for weak scans",
  "Gyenge helyi felismerés; egy korábbi Azure-hívás kimenete bizonytalan, ezért nem ismételtük meg": "Weak local recognition; an earlier Azure call has an uncertain outcome, so it was not repeated",
- "Gyenge helyi felismerés; az Azure-felismerés a futás kerete miatt elmaradt": "Weak local recognition; Azure recognition was skipped because of the run's budget"
+ "Gyenge helyi felismerés; az Azure-felismerés a futás kerete miatt elmaradt": "Weak local recognition; Azure recognition was skipped because of the run's budget",
+ "A típus ({{type}}) magyar kiállítót feltételez, de a felismerés szerint a kiállító nem magyar; ellenőrizd a típust": "The type ({{type}}) presumes a Hungarian issuer, but the recognition says the issuer is not Hungarian; check the type"
 }

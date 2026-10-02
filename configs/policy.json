@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "changelog": [
+   {
+    "version": "1.12.0",
+    "date": "2026-10-02",
+    "note": "090 (backlog F-gpt-type-check, the owner's decision of 2026-10-02): detect_issuer - a code cross-check of the recognised type against the recogniser's own issuer judgement: a type or detailed type in hungarian_types (it presumes a Hungarian issuer) whose P(issuer is Hungarian) is in the no band of detect.issuer_is_hungarian.<engine> is a to-do (detect:issuer_mismatch:<type>); the type is kept. Only for the engines listed (gpt: its type errors are confident, so the confidence band cannot catch them); band_for detect.issuer_is_hungarian.gpt = gpt_detect. Measured on the saved runs: 1 of the 2 silent GPT type errors caught, 0 of the 99 correct types flagged. The reverse direction (a foreign invoice with a Hungarian issuer) is no contradiction: the form decides there (doc_types invoice_foreign)"
+   },
    {
     "version": "1.11.0",
     "date": "2026-10-02",
@@ -101,6 +106,7 @@
   "detect.detail_type": "default",
   "detect.doc_type.gpt": "gpt_detect",
   "detect.detail_type.gpt": "gpt_detect",
+  "detect.issuer_is_hungarian.gpt": "gpt_detect",
   "email.intent.gpt": "gpt_intent"
  },
  "email": {
@@ -137,5 +143,11 @@
  },
  "detect_detail": {
   "anchor_margin": 0.75
+ },
+ "detect_issuer": {
+  "engines": ["gpt"],
+  "hungarian_types": ["invoice_hu", "utility_bill_hu", "csatorna_szamla", "foldgaz_szamla", "mohu_szamla",
+                      "villamos_energia_szamla", "viz_szamla", "vizmuvek_szamla", "nav_receipt", "nav_certificate",
+                      "nav_tax_return", "statement_cib", "statement_erste"]
  }
 }

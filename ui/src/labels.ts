@@ -168,6 +168,8 @@ export function reasonText(code: string): string {
     case "detect:low_conf": return t("Bizonytalan típusfelismerés: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
     case "detect:detail_open": return t("A részletes típus nem dönthető el (kategória: {{type}}); válaszd ki kézzel", { type: docTypeLabel(p[2]) });
     case "detect:no_type_pack": return t("Ehhez az irattípushoz nincs adatkinyerés ({{type}}); nézd meg kézzel", { type: docTypeLabel(p[2]) });
+    // 090: the type / issuer cross-check in code (configs/policy.json detect_issuer): the type is kept
+    case "detect:issuer_mismatch": return t("A típus ({{type}}) magyar kiállítót feltételez, de a felismerés szerint a kiállító nem magyar; ellenőrizd a típust", { type: docTypeLabel(p[2]) });
     case "detect_detail:low_conf": return t("Bizonytalan részletes típus: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
     case "detect_detail:second_option": return t("A részletes típusnál a második lehetőség is közel van: {{type}}", { type: docTypeLabel(p[2]) });
     // 086: type recognition by GPT (processing without JEV)
