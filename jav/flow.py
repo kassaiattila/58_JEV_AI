@@ -163,7 +163,8 @@ def extract_llm(state: FlowState) -> FlowState:
     return state
 
 
-@action.pydantic(reads=["layout", "llm_output", "run_id", "use_cache", "doc_type", "needs_review", "review_reasons"], writes=["verdicts", "jev_calls", "needs_review", "review_reasons"])
+@action.pydantic(reads=["layout", "llm_output", "run_id", "use_cache", "doc_type", "source_layer_id", "needs_review", "review_reasons"],
+                 writes=["verdicts", "jev_calls", "needs_review", "review_reasons"])
 def jev_verify(state: FlowState) -> FlowState:
     from jav.adapters.jev import JevUnavailableError, get_adapter
     from jav.jev_verify import code_verdicts, verify
@@ -172,7 +173,8 @@ def jev_verify(state: FlowState) -> FlowState:
         verdicts, call = verify(get_adapter(), state.layout, state.llm_output or {}, run_id=state.run_id, use_cache=state.use_cache, pack=get_pack(state.doc_type))
     except JevUnavailableError as exc:  # without verification the extract cannot be accepted automatically
         # 085: the code's own source check and the required fields still count (before 085 they were dropped too)
-        state.verdicts = code_verdicts(state.layout or [], state.llm_output or {}, pack=get_pack(state.doc_type))
+        state.verdicts = code_verdicts(state.layout or [], state.llm_output or {}, pack=get_pack(state.doc_type),
+                                       layer=_word_layer(state))
         policy.require_review(state, f"jev_unavailable:{exc.reason}")
         return state
     state.verdicts = verdicts
@@ -180,14 +182,23 @@ def jev_verify(state: FlowState) -> FlowState:
     return state
 
 
-@action.pydantic(reads=["layout", "llm_output", "doc_type"], writes=["verdicts"])
+@action.pydantic(reads=["layout", "llm_output", "doc_type", "source_layer_id"], writes=["verdicts"])
 def code_verify(state: FlowState) -> FlowState:
     """085: the G path without JEV: only the code's own source check (every extracted value must be printed on the
-    document); no JEV question, so the remaining checks are the pack's validators and its required fields."""
+    document); no JEV question, so the remaining checks are the pack's validators and its required fields. 092: the
+    word layer too, by the box's rules, so a value with a box is never reported as not printed."""
     from jav.jev_verify import code_verdicts
 
-    state.verdicts = code_verdicts(state.layout or [], state.llm_output or {}, pack=get_pack(state.doc_type))
+    state.verdicts = code_verdicts(state.layout or [], state.llm_output or {}, pack=get_pack(state.doc_type),
+                                   layer=_word_layer(state))
     return state
+
+
+def _word_layer(state: FlowState):
+    """The item's word layer for the code's source check (None: an item without one, e.g. an old state)."""
+    from jav import source_layer
+
+    return source_layer.load(state.source_layer_id) if state.source_layer_id else None
 
 
 @action.pydantic(reads=["layout", "llm_output", "doc_type", "needs_review", "review_reasons"], writes=["invoice", "needs_review", "review_reasons"])

@@ -24,7 +24,7 @@ from typing import Any
 from pydantic import BaseModel
 from typesafe_sdk import Noul
 
-from jav import cfg
+from jav import cfg, grounding
 from jav.adapters.jev import JevAdapter
 from jav.candidates import QUANTITY_RE, find_all, profile_of
 from jav.dates import find_dates_in, read_date
@@ -38,6 +38,7 @@ from jav.models import (
     parse_money,
 )
 from jav.numbers import Convention, document_convention
+from jav.source_layer import SourceLayer
 from jav.typepack import TypePack
 from jav.typepack import get as get_pack
 
@@ -351,10 +352,16 @@ def site_for(pack_key: str) -> VerifySite:
     return VerifySite(get_pack(pack_key))
 
 
-def code_verdicts(lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, pack: TypePack) -> JevVerdicts:
+def code_verdicts(lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, pack: TypePack,
+                  layer: SourceLayer | None = None) -> JevVerdicts:
     """085: the verdicts of the code's own source check alone (no JEV question, no flags): the G path without JEV, and
-    the fallback when JEV is unavailable, so that a value printed nowhere still opens a to-do."""
+    the fallback when JEV is unavailable, so that a value printed nowhere still opens a to-do. 092: a value the line
+    search misses is looked for on the word layer (`layer`) by the box's rules too (an address over several lines of
+    one column, an identifier glued to a label, a country's name for its code); found there, it is printed."""
     _evidence, unsupported = site_for(pack.key).code_evidence(lines, llm)
+    if layer is not None and unsupported:
+        d = _as_dict(llm)
+        unsupported = [f for f in unsupported if not grounding.printed(layer, pack.kind(f), d.get(f))]
     return JevVerdicts(unsupported=unsupported, source="code")
 
 

@@ -10,8 +10,12 @@ Methods (`method`):
 - `pick_line` (S path, `approximate`): the chosen candidate cannot be found either verbatim or by search — the line
   the model chose from serves as an approximate box (so a field to be reviewed still has a location).
 - `search`: the value is searched for in the whole layer, compared by the field's kind (money, date, tax number,
-  IBAN, text). One location → a box; several different locations → `ambiguous` (no box, the locations become
-  `alternatives`); nothing → `not_found`.
+  IBAN, currency, country, address, text). One location → a box; several different locations → `ambiguous` (no box,
+  the locations become `alternatives`); nothing → `not_found`. 092: a name, address or text may run over several
+  lines of one column (`multi_line_max_lines`); an address may also stand with its words in another order inside one
+  column block; an identifier may be glued to a label word ("Ltd.ABN 80 …"), but never inside a longer number.
+- `search_parts` (092): several identifiers listed in one field ("ABN …, VAT …"), each found on its own; one box over
+  all of them.
 - `manual`: a person selected the words on the image (saved by the correction, `jav/corrections.py`).
 
 Status (`status`): located | approximate | ambiguous | context_rejected | not_found | no_value | no_layer. The
@@ -35,7 +39,7 @@ from jav.typepack import CANDIDATE_KIND_OF
 
 MAX_WINDOW = 12  # at most this many consecutive words for one value (name, address)
 # a shorter window per kind: numbers, dates and identifiers wrap onto a few words at most (search cost)
-KIND_WINDOW = {"money": 4, "date": 4, "tax_id": 4, "iban": 8, "invoice_number": 3, "currency": 2}
+KIND_WINDOW = {"money": 4, "date": 4, "tax_id": 4, "iban": 8, "invoice_number": 3, "currency": 2, "country": 4}
 MAX_ALTERNATIVES = 3
 MIN_ALTERNATIVE_P = 0.02
 _DIGIT_GROUP = re.compile(r"^\d{1,3}$")
@@ -57,12 +61,47 @@ def _canon_fn(kind: str) -> Callable[[str], Any]:
     if kind == "iban":
         return lambda s: normalize_iban(s) or _squash(s) or None
     if kind == "currency":  # 053: the document says "Ft" / "forint" / "€", the extracted value is an ISO code
-        return lambda s: CURRENCY_SIGNS.get(_squash(s), _squash(s).upper()) or None
+        return _currency_code
+    if kind == "country":  # 092: the extracted value is an ISO code, the document prints the country's name
+        return _country_code
+    if kind == "address":  # 092: the model adds or drops commas and full stops between the address's parts
+        return lambda s: re.sub(r"[\W_]+", "", s.casefold()) or None
     return lambda s: _squash(s) or None
 
 
 CURRENCY_SIGNS = {"ft": "HUF", "ft.": "HUF", "forint": "HUF", "huf": "HUF", "€": "EUR", "eur": "EUR", "euro": "EUR",
-                  "$": "USD", "usd": "USD"}
+                  "$": "USD", "us$": "USD", "usd": "USD", "£": "GBP", "gbp": "GBP", "chf": "CHF"}
+_SIGNED_AMOUNT = re.compile(r"([^\d]*?)(-?\d[\d.,'’]*)([^\d]*)")
+
+
+def _currency_code(text: str) -> str | None:
+    """The currency of a printed sign or code; 092: also of a sign glued to an amount ("€20.00", "$12.99", "20,00Ft"),
+    only on one side, and only if the rest reads as an amount (an invoice number "FT-2022-18" is not forints)."""
+    s = _squash(text)
+    if s in CURRENCY_SIGNS:
+        return CURRENCY_SIGNS[s]
+    m = _SIGNED_AMOUNT.fullmatch(s)
+    if m and bool(m.group(1)) != bool(m.group(3)) and (m.group(1) or m.group(3)) in CURRENCY_SIGNS:
+        try:
+            if normalize_money(m.group(2)) is not None:
+                return CURRENCY_SIGNS[m.group(1) or m.group(3)]
+        except (ValueError, ArithmeticError):
+            pass  # not an amount: the text is not a currency
+    return s.upper() or None
+
+
+@lru_cache(maxsize=1)
+def _country_names() -> dict[str, str]:
+    return {name: code for code, names in cfg.load("grounding")["countries"].items() for name in names}
+
+
+def _country_code(text: str) -> str | None:
+    """092: an ISO 3166-1 alpha-2 code: written as a code (in capitals, a known one) or as the country's name in
+    English, Hungarian or the country's own language (`countries`). A lower-case "at" or "in" is a word, not a code."""
+    raw = text.strip().strip(_EDGE_PUNCT)
+    if re.fullmatch(r"[A-Z]{2}", raw) and raw in cfg.load("grounding")["countries"]:
+        return raw
+    return _country_names().get(_fold(raw))
 
 
 def _canon(kind: str, value: Any) -> Any:
@@ -200,24 +239,95 @@ def search(layer: SourceLayer, kind: str, value: Any) -> list[list[Word]]:
     for line in lines:
         for i, j in _windows(line, match, kind=kind, max_chars=limit):
             found.append(line[i:j])
-    if not found and kind in cfg.load("grounding")["multi_line_kinds"]:
-        # a name or address wrapped onto two lines: in the same column of lines one below the other (in a two-column
-        # header the supplier's and the customer's names stand side by side, so whole lines must not be joined)
-        for a, b in zip(lines, lines[1:]):
-            if a[0].page != b[0].page:
-                continue
-            height = max(w.y1 - w.y0 for w in a)
-            if min(w.y0 for w in b) - max(w.y1 for w in a) > 1.5 * height:
-                continue
-            for sa in _segments(a):
-                for sb in _segments(b):
-                    if min(sa[-1].x1, sb[-1].x1) - max(sa[0].x0, sb[0].x0) <= 0:
-                        continue  # not one below the other
-                    pair = sa + sb
-                    for i, j in _windows(pair, match, kind=kind, max_chars=limit):
-                        if i < len(sa) < j:
-                            found.append(pair[i:j])
+    conf = cfg.load("grounding")
+    if not found and kind in conf["multi_line_kinds"]:
+        # a name or address wrapped onto several lines: in the same column of lines one below the other (in a
+        # two-column header the supplier's and the customer's names stand side by side, so whole lines must not be
+        # joined); 092: up to `multi_line_max_lines` lines (an address of four lines)
+        seen: set[tuple[int, ...]] = set()
+        for chain in _column_chains(lines, int(conf["multi_line_max_lines"])):
+            for i, j in _windows(chain, match, kind=kind, max_chars=limit):
+                ids = tuple(w.id for w in chain[i:j])
+                if len({w.line_no for w in chain[i:j]}) > 1 and ids not in seen:
+                    seen.add(ids)
+                    found.append(chain[i:j])
+    if not found and kind == "address":
+        found = _unordered(lines, str(value), conf)
+    if not found and kind in GLUED_KINDS:
+        found = _glued(lines, str(value))
     return found
+
+
+def _column_chains(lines: list[list[Word]], max_lines: int) -> Iterable[list[Word]]:
+    """092: the words of column segments one below the other on consecutive lines (at least two lines, at most
+    `max_lines`), every such run from every starting segment. A line joins the run only through exactly one segment
+    overlapping the run horizontally, and only if it is not far below the previous line."""
+    for a, first in enumerate(lines):
+        for seg in _segments(first):
+            words, x0, x1, prev = list(seg), seg[0].x0, seg[-1].x1, first
+            for line in lines[a + 1:a + max_lines]:
+                height = max(w.y1 - w.y0 for w in prev)
+                if line[0].page != prev[0].page or min(w.y0 for w in line) - max(w.y1 for w in prev) > 1.5 * height:
+                    break
+                below = [s for s in _segments(line) if min(s[-1].x1, x1) - max(s[0].x0, x0) > 0]
+                if len(below) != 1:
+                    break
+                words += below[0]
+                x0, x1, prev = min(x0, below[0][0].x0), max(x1, below[0][-1].x1), line
+                yield list(words)
+
+
+def _tokens(text: str) -> list[str]:
+    return re.findall(r"\w+", _fold(text))
+
+
+def _unordered(lines: list[list[Word]], value: str, conf: dict[str, Any]) -> list[list[Word]]:
+    """092: an address whose words the model put in another order ("Springfield 12 Elm Street 4021" for "12 Elm
+    Street / 4021 Springfield"): every word of the value inside one column block of consecutive lines, with at most
+    `max_extra_tokens` other words in the block. The box is on the value's own words. Too short a value (fewer than
+    `min_tokens` words) is not searched this way."""
+    rule = conf["address_unordered"]
+    need = _tokens(value)
+    if len(need) < int(rule["min_tokens"]):
+        return []
+    found: dict[tuple[int, ...], list[Word]] = {}
+    blocks = [seg for line in lines for seg in _segments(line)] + list(_column_chains(lines, int(conf["multi_line_max_lines"])))
+    for block in blocks:
+        pool = [(tok, w) for w in block for tok in _tokens(w.text)]
+        if len(pool) - len(need) > int(rule["max_extra_tokens"]) or len(pool) < len(need):
+            continue
+        free = list(pool)
+        used: list[Word] = []
+        for tok in need:
+            k = next((n for n, (t, _) in enumerate(free) if t == tok), None)
+            if k is None:
+                break
+            used.append(free.pop(k)[1])
+        else:
+            words = sorted({w.id: w for w in used}.values(), key=lambda w: w.id)
+            found.setdefault(tuple(w.id for w in words), words)
+    return list(found.values())
+
+
+GLUED_KINDS = ("tax_id", "iban", "invoice_number")
+GLUED_MIN_CHARS = 6
+
+
+def _glued(lines: list[list[Word]], value: str) -> list[list[Word]]:
+    """092: an identifier glued to a label or another word ("Ltd.ABN 12 345 678 901"): the shortest word run on one
+    line that contains the value, where what is around it has no digit (so a part of a longer number never matches)."""
+    target = _squash(value)
+    if len(target) < GLUED_MIN_CHARS:
+        return []
+
+    def match(ws: list[Word]) -> bool:
+        text = _squash("".join(w.text for w in ws))
+        k = text.find(target)
+        return k >= 0 and not re.search(r"\d", text[:k] + text[k + len(target):])
+
+    # the word limit of a text value: an identifier printed in groups ("12 345 678 901") with its label word is longer
+    # than the identifier window; the character limit keeps the run short
+    return [line[i:j] for line in lines for i, j in _windows(line, match, kind="text", max_chars=len(target) + 24)]
 
 
 COLUMN_GAP = 0.03  # a horizontal gap wider than this fraction of the page width is a column boundary
@@ -269,7 +379,10 @@ class Labels:
             if toks:
                 by_first.setdefault(toks[0], []).append(n)
         self.found: list[tuple[str, list[Word]]] = []
+        self.line_of: dict[int, list[Word]] = {}
         for line in _lines(layer):
+            for w in line:
+                self.line_of[w.id] = line
             folded = [_fold(w.text) for w in line]
             starts: dict[str, list[int]] = {}
             for i, tok in enumerate(folded):
@@ -285,8 +398,10 @@ class Labels:
                         self.found.append((role, line[i:i + len(toks)]))
                         used.update(range(i, i + len(toks)))
 
-    def nearest(self, hit: list[Word]) -> str | None:
-        """The role of the label for a word run: to the left on the same line, or directly above; None on a tie."""
+    def nearest(self, hit: list[Word], *, first_value: bool = False) -> str | None:
+        """The role of the label for a word run: to the left on the same line, or directly above; None on a tie.
+        `first_value` (092, for words, not numbers): a label belongs to the first value after it (`_values_after`).
+        Amounts and dates keep the plain rule: a due date or a period often stands between their label and them."""
         first, last = hit[0], hit[-1]
         hit_ids = {w.id for w in hit}
         options: list[tuple[int, float, str]] = []
@@ -296,12 +411,13 @@ class Labels:
             lab_last = words[-1]
             if lab_last.line_no is not None and lab_last.line_no == first.line_no and lab_last.x1 <= first.x0 + 1e-6:
                 gap = first.x0 - lab_last.x1
-                if gap <= self.same_gap:
+                if gap <= self.same_gap and not (first_value and self._values_after(words, before=first.x0, skip=hit_ids)):
                     options.append((0, gap, role))
             else:
                 bottom = max(w.y1 for w in words)
                 centre = (first.x0 + last.x1) / 2
-                if 0 <= first.y0 - bottom <= self.above_gap and words[0].x0 - 0.02 <= centre <= lab_last.x1 + 0.035:
+                if (0 <= first.y0 - bottom <= self.above_gap and words[0].x0 - 0.02 <= centre <= lab_last.x1 + 0.035
+                        and not (first_value and self._values_after(words))):
                     options.append((1, first.y0 - bottom, role))
         if not options:
             return None
@@ -311,9 +427,31 @@ class Labels:
             return None
         return best[2]
 
+    def _values_after(self, label: list[Word], *, before: float | None = None, skip: set[int] = frozenset()) -> bool:
+        """092: a label belongs to the first value after it. Whether a value (a word with a digit) follows the label on
+        its line — up to `before` when given, the words in `skip` (the value looked at) left out. With such a value the
+        label is not the heading of the lines below it ("Date due  1 May 2026" over a supplier's name), nor the
+        label of words beyond its value on the line ("Invoice no. 1234…" for a country name at the line's far end). A
+        heading has no value beside it ("Gross value (EUR)"), as a table's column header over the rows of its column."""
+        ids = {w.id for w in label}
+        return any(w.id not in ids and w.id not in skip and w.x0 >= label[-1].x1 - 1e-6 and (before is None or w.x1 <= before + 1e-6)
+                   and re.search(r"\d", w.text) for w in self.line_of.get(label[-1].id, []))
+
     def supports(self, role: str | None, field: str) -> bool:
         """The label belongs to the field: its own role, or a general group the field belongs to."""
         return role is not None and (role == field or field in self.groups.get(role, []))
+
+
+NUMERIC_KINDS = ("money", "date", "number")
+
+
+def printed(layer: SourceLayer | None, kind: str, value: Any) -> bool:
+    """092: whether the value stands on the word layer, by the same rules as its box (any location, or every part of a
+    listed value). The code's own source check (G path without JEV) asks this after its own line search, so a field
+    with a box never gets a "not printed on the document" to-do."""
+    if layer is None or value is None or str(value).strip() == "":
+        return False
+    return bool(search(layer, kind, value)) or _parts(layer, kind, str(value)) is not None
 
 
 def locate_value(layer: SourceLayer | None, kind: str, value: Any, *, method: str = "search", field: str | None = None,
@@ -327,6 +465,9 @@ def locate_value(layer: SourceLayer | None, kind: str, value: Any, *, method: st
         return _entry("no_value", None)
     hits = search(layer, kind, value)
     if not hits:
+        parts = _parts(layer, kind, str(value)) if method == "search" else None
+        if parts:
+            return _entry("located", "search_parts", parts, alternatives=[])
         return _entry("not_found", method)
     alts = lambda hs: [{"value": str(value), "p": None, **region(h)} for h in hs[:8]]  # noqa: E731
     order = lambda hs: sorted(hs, key=lambda h: (h[0].page, h[0].y0, h[0].x0))  # noqa: E731 - reading order
@@ -334,7 +475,7 @@ def locate_value(layer: SourceLayer | None, kind: str, value: Any, *, method: st
         hits = order(hits)
         return _entry("located", method, hits[0], alternatives=alts(hits[1:]), multiple=len(hits))
     labels = labels or Labels(layer)
-    roles = [labels.nearest(h) for h in hits]
+    roles = [labels.nearest(h, first_value=kind not in NUMERIC_KINDS) for h in hits]
     own = order([h for h, r in zip(hits, roles) if labels.supports(r, field)])
     free = order([h for h, r in zip(hits, roles) if r is None])
     if not own and not free:  # every hit stands next to another field's label
@@ -344,6 +485,26 @@ def locate_value(layer: SourceLayer | None, kind: str, value: Any, *, method: st
     # number of locations
     best, rest = (own[0], own[1:] + free) if own else (free[0], free[1:])
     return _entry("located", method, best, label=bool(own), alternatives=alts(rest), multiple=len(own) + len(free))
+
+
+PART_KINDS = ("tax_id", "iban", "invoice_number")
+_PART_SPLIT = re.compile(r"\s*[,;]\s+|\s+/\s+")
+
+
+def _parts(layer: SourceLayer, kind: str, value: str) -> list[Word] | None:
+    """092: several identifiers listed in one field ("ABN 12 345 678 901, VAT EU123456789"): each part is searched on
+    its own; all must be found. The words of each part's first location in reading order, together."""
+    parts = [p for p in _PART_SPLIT.split(value) if p.strip()]
+    if kind not in PART_KINDS or len(parts) < 2:
+        return None
+    words: dict[int, Word] = {}
+    for part in parts:
+        hits = search(layer, kind, part)
+        if not hits:
+            return None
+        for w in min(hits, key=lambda h: (h[0].page, h[0].y0, h[0].x0)):
+            words[w.id] = w
+    return [words[k] for k in sorted(words)]
 
 
 # --- rows of itemised lists (053, T1-lista-keret) ---------------------------------------------------------------

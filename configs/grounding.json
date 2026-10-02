@@ -1,12 +1,17 @@
 {
   "meta": {
     "name": "grounding",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "changelog": [
       {
         "version": "1.0.0",
         "date": "2026-09-28",
         "note": "045 K3b: a forráshely-keresés címkeszótára (a V4 sidecar/app/grounding/context.py _SCALAR portja, ékezet nélküli, kisbetűs alakban). Ha egy érték több helyen szerepel, a mező címkéje a sor elején vagy közvetlenül fölötte dönt; ha nincs egyértelmű címke, nincs keret. Az általános címkék (pl. „Adószám”) csoportként mindkét fél mezőjét igazolják (label_groups)."
+      },
+      {
+        "version": "1.1.0",
+        "date": "2026-10-02",
+        "note": "092 (the owner's report: fields without a source box): a value may run over up to multi_line_max_lines lines of one column; an address may also be found with its words in another order inside one column block (address_unordered); the country field's code is matched against the printed country name (countries: ISO 3166-1 alpha-2 code -> folded English, Hungarian and native names); address labels; English date labels; a party heading (seller / buyer) also supports that party's address, tax number and country. Box-only change: nothing sent to a model changes."
       }
     ]
   },
@@ -33,7 +38,8 @@
       "vasarlo",
       "buyer",
       "customer",
-      "bill to"
+      "bill to",
+      "cimzett"
     ],
     "supplier_tax_id": [
       "elado adoszama",
@@ -53,7 +59,8 @@
       "kiallitas datuma",
       "kelt",
       "issue date",
-      "invoice date"
+      "invoice date",
+      "date of issue"
     ],
     "fulfillment_date": [
       "teljesites datuma",
@@ -66,7 +73,8 @@
       "fizetesi hatarido",
       "esedekesseg",
       "due date",
-      "payment due"
+      "payment due",
+      "date due"
     ],
     "net_total": [
       "netto osszeg",
@@ -148,6 +156,24 @@
     "_party": [
       "nev",
       "name"
+    ],
+    "supplier_address": [
+      "elado cime",
+      "szallito cime",
+      "szolgaltato cime",
+      "kiallito cime",
+      "supplier address",
+      "seller address",
+      "vendor address"
+    ],
+    "buyer_address": [
+      "vevo cime",
+      "szamlazasi cim",
+      "vasarlo cime",
+      "megrendelo cime",
+      "billing address",
+      "customer address",
+      "buyer address"
     ]
   },
   "label_groups": {
@@ -158,6 +184,236 @@
     "_party": [
       "supplier_name",
       "buyer_name"
+    ],
+    "supplier_name": [
+      "supplier_address",
+      "supplier_tax_id",
+      "supplier_country"
+    ],
+    "buyer_name": [
+      "buyer_address",
+      "buyer_tax_id"
+    ]
+  },
+  "multi_line_max_lines": 5,
+  "address_unordered": {
+    "min_tokens": 3,
+    "max_extra_tokens": 2
+  },
+  "countries": {
+    "AT": [
+      "austria",
+      "ausztria",
+      "osterreich"
+    ],
+    "BE": [
+      "belgie",
+      "belgique",
+      "belgium"
+    ],
+    "BG": [
+      "bulgaria"
+    ],
+    "HR": [
+      "croatia",
+      "horvatorszag",
+      "hrvatska"
+    ],
+    "CY": [
+      "ciprus",
+      "cyprus"
+    ],
+    "CZ": [
+      "cesko",
+      "csehorszag",
+      "czech republic",
+      "czechia"
+    ],
+    "DK": [
+      "dania",
+      "danmark",
+      "denmark"
+    ],
+    "EE": [
+      "eesti",
+      "estonia",
+      "esztorszag"
+    ],
+    "FI": [
+      "finland",
+      "finnorszag",
+      "suomi"
+    ],
+    "FR": [
+      "france",
+      "franciaorszag"
+    ],
+    "DE": [
+      "deutschland",
+      "germany",
+      "nemetorszag"
+    ],
+    "GR": [
+      "gorogorszag",
+      "greece"
+    ],
+    "HU": [
+      "hungary",
+      "magyarorszag"
+    ],
+    "IE": [
+      "ireland",
+      "irorszag"
+    ],
+    "IT": [
+      "italia",
+      "italy",
+      "olaszorszag"
+    ],
+    "LV": [
+      "latvia",
+      "lettorszag"
+    ],
+    "LT": [
+      "lithuania",
+      "litvania"
+    ],
+    "LU": [
+      "luxembourg",
+      "luxemburg"
+    ],
+    "MT": [
+      "malta"
+    ],
+    "NL": [
+      "hollandia",
+      "nederland",
+      "netherlands",
+      "the netherlands"
+    ],
+    "PL": [
+      "lengyelorszag",
+      "poland",
+      "polska"
+    ],
+    "PT": [
+      "portugal",
+      "portugalia"
+    ],
+    "RO": [
+      "romania"
+    ],
+    "SK": [
+      "slovakia",
+      "slovensko",
+      "szlovakia"
+    ],
+    "SI": [
+      "slovenia",
+      "slovenija",
+      "szlovenia"
+    ],
+    "ES": [
+      "espana",
+      "spain",
+      "spanyolorszag"
+    ],
+    "SE": [
+      "svedorszag",
+      "sverige",
+      "sweden"
+    ],
+    "GB": [
+      "egyesult kiralysag",
+      "great britain",
+      "nagy britannia",
+      "united kingdom"
+    ],
+    "US": [
+      "amerikai egyesult allamok",
+      "egyesult allamok",
+      "united states",
+      "united states of america",
+      "usa"
+    ],
+    "CA": [
+      "canada",
+      "kanada"
+    ],
+    "AU": [
+      "australia",
+      "ausztralia"
+    ],
+    "NZ": [
+      "new zealand",
+      "uj zeland"
+    ],
+    "CH": [
+      "schweiz",
+      "suisse",
+      "svajc",
+      "switzerland"
+    ],
+    "NO": [
+      "norge",
+      "norvegia",
+      "norway"
+    ],
+    "IS": [
+      "iceland",
+      "izland"
+    ],
+    "SG": [
+      "singapore",
+      "szingapur"
+    ],
+    "IL": [
+      "israel",
+      "izrael"
+    ],
+    "IN": [
+      "india"
+    ],
+    "JP": [
+      "japan"
+    ],
+    "CN": [
+      "china",
+      "kina"
+    ],
+    "HK": [
+      "hong kong"
+    ],
+    "AE": [
+      "egyesult arab emirsegek",
+      "united arab emirates"
+    ],
+    "TR": [
+      "torokorszag",
+      "turkey",
+      "turkiye"
+    ],
+    "UA": [
+      "ukraine",
+      "ukrajna"
+    ],
+    "RS": [
+      "serbia",
+      "srbija",
+      "szerbia"
+    ],
+    "BR": [
+      "brazil",
+      "brazilia"
+    ],
+    "MX": [
+      "mexico",
+      "mexiko"
+    ],
+    "KR": [
+      "del korea",
+      "korea",
+      "south korea"
     ]
   }
 }
