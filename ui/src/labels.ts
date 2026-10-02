@@ -188,6 +188,8 @@ export function reasonText(code: string): string {
     case "tasks:proposed": return t("{{n}} feladatjavaslat vár döntésre", { n: p[2] ?? "" });
     case "tasks:failed": return t("A feladatjavaslat nem sikerült ({{why}})", { why: p[2] ?? "" });
   }
+  // 090: a field check's to-do names its field third (`validator:taxid.unrecognized:supplier_tax_id`)
+  if (p[0] === "validator" && p.length === 3 && FIELD[p[2]]) return `${checkText(p[1] ?? "")}: ${fieldLabel(p[2])}`;
   if (p[0] === "validator") return checkText(p[1] ?? "", p.slice(2).join(":") || null);
   if (p[0] === "jev_unavailable") return t("A JEV nem volt elérhető ({{why}}); ellenőrizd kézzel", { why: p.slice(1).join(":") });
   if (p[0] === "llm" && p[1] === "failed") return t("A GPT-kivonat nem sikerült ({{why}})", { why: p[2] ?? "" });

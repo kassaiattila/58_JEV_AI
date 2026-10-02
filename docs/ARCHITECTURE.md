@@ -391,7 +391,7 @@ browser side the security headers protect the UI, and the running version is vis
 
 | Element | File | Guarantee | Test |
 |---|---|---|---|
-| Tax number | `jav/taxid.py`, `jav/validators.py` `tax_id` | recognised format (Hungarian domestic, Hungarian EU VAT (*közösségi adószám*), other EU and some non-EU); the label is stripped; for Hungarian numbers the check digit, VAT code and county code are checked; anything unrecognisable is a to-do | `tests/test_taxid_069.py`, `tests/test_properties_067.py` |
+| Tax number | `jav/taxid.py`, `jav/validators.py` `tax_id` | recognised format (Hungarian domestic, Hungarian EU VAT (*közösségi adószám*), other EU and some non-EU); the label is stripped; for Hungarian numbers the check digit, VAT code and county code are checked; anything unrecognisable is a to-do, which names the field (`validator:<code>:<field>`, as every failed field check does, so it stands at that field in Review) | `tests/test_taxid_069.py`, `tests/test_properties_067.py`, `tests/test_validator_field_090.py` |
 | Field without candidates | `jav/jev_select.py` | a "no estimate" flag and a presence question; an empty field never gets 100% | `tests/test_no_candidate_field_069.py` |
 | Lost glyph | `jav/pdf.py` `fix_lost_glyphs` | a damaged currency sign does not produce a hyphen (a negative amount) | `tests/test_lost_glyph_069.py` |
 | Document without a type pack | `jav/flow_detect.py` | a recognised type that has no pack gets a to-do | `tests/test_no_type_pack_069.py` |
