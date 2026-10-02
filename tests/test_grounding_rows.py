@@ -101,3 +101,14 @@ def test_reground_keeps_exact_picks_and_recomputes_searches_and_rows():
     assert new["gross_total"] == old["gross_total"]  # the chosen candidate's exact location stays
     assert new["net_total"]["status"] == "located" and new["net_total"]["confidence"] == 0.8
     assert new["line_items"]["rows"][0]["status"] == "located"
+
+
+def test_reground_keeps_the_basis_of_a_gpt_confidence():
+    """092: a recomputed box keeps the field's GPT confidence together with its basis (091), so the review still shows
+    it in GPT's own band."""
+    layer = _table()
+    basis = {"source": "gpt", "measure": "joint", "token": 0.97, "failed_check": False}
+    old = {"net_total": {"status": "not_found", "method": "search", "alternatives": [], "confidence": 0.97, "confidence_basis": basis}}
+    new = reground_provenance(layer, old, fields={"net_total": "money"}, values={"net_total": "261"}, list_kinds={})
+    assert new["net_total"]["status"] == "located"
+    assert new["net_total"]["confidence"] == 0.97 and new["net_total"]["confidence_basis"] == basis

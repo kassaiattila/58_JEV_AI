@@ -7,7 +7,8 @@ we want to see this on results that have already run. The extracted values and t
 
 What stays: the exact location of the chosen candidate (`pick`), the approximate line (`pick_line`) and the manual
 selection (`manual`), because these came from choices made during the run and cannot be recomputed afterwards. Every
-other field is searched again, keeping the estimated confidence (`confidence`).
+other field is searched again, keeping the estimated confidence (`confidence`) and, since 092, its basis
+(`confidence_basis`, GPT's own band in the review).
 """
 
 from __future__ import annotations
@@ -33,7 +34,8 @@ def reground_provenance(layer: source_layer.SourceLayer | None, old: dict[str, d
             out[f] = prev
             continue
         entry = grounding.locate_value(layer, kind, values.get(f), field=f, labels=labels)
-        out[f] = {"alternatives": [], **entry, "confidence": prev.get("confidence")}
+        out[f] = {"alternatives": [], **entry, "confidence": prev.get("confidence"),
+                  **({"confidence_basis": prev["confidence_basis"]} if "confidence_basis" in prev else {})}  # 092: GPT's band
     lists = {f: values.get(f) or [] for f, k in fields.items() if k == "list"}
     out.update(grounding.ground_lists(layer, lists=lists, kinds=list_kinds))
     return out
