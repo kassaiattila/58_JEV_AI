@@ -314,9 +314,28 @@ const PARAM_SHORT: Record<string, string> = tmap({
  *  any of them is not shown. */
 const PARAM_KIND: Record<string, string> = { arm: "document", azure_ocr: "document", doc_type: "document", tasks: "email" };
 export const paramApplies = (k: string, kinds?: string[]): boolean => !kinds?.length || !PARAM_KIND[k] || kinds.includes(PARAM_KIND[k]);
+/** 089 (the owner's decision of 2026-10-02): a setting that only counts while another setting has a given value.
+ *  Without JEV (086) every document runs on the G path and no JEV question is asked, so the path and the JEV answers
+ *  do not count and are not shown. A missing value counts as the needed one: an assignment from before the switch ran
+ *  with JEV. */
+const PARAM_NEEDS: Record<string, [string, string]> = { arm: ["jev", "on"], jev_cache: ["jev", "on"] };
+export const paramInEffect = (k: string, params: Record<string, string>): boolean => {
+  const need = PARAM_NEEDS[k];
+  return !need || (params[need[0]] ?? need[1]) === need[1];
+};
+/** 089: the settings in display order: a setting the others depend on (the use of JEV) first, the rest in the
+ *  recipe's order. */
+export function orderedParams(keys: string[]): string[] {
+  const masters = new Set(Object.values(PARAM_NEEDS).map(([k]) => k));
+  return [...keys.filter((k) => masters.has(k)), ...keys.filter((k) => !masters.has(k))];
+}
+/** 089: the one sentence shown instead of the settings that do not count without JEV. */
+export const jevOffNote = (params: Record<string, string>): string | null =>
+  params.jev === "off" ? t("JEV nélkül minden irat a G-úton fut (a GPT olvassa ki az adatokat, a kód ellenőrzi őket), ezért az út és a JEV-válaszok beállítása nem számít, és nem látszik.") : null;
 export const paramShort = (k: string, v: string): string => PARAM_SHORT[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);
 export const paramsText = (params: Record<string, string>): string =>
-  Object.entries(params).map(([k, v]) => `${PARAM_LABEL[k] ?? k}: ${paramShort(k, v)}`).join(" · ");
+  orderedParams(Object.keys(params)).filter((k) => paramInEffect(k, params))
+    .map((k) => `${PARAM_LABEL[k] ?? k}: ${paramShort(k, params[k])}`).join(" · ");
 
 /** 063: an item's budget maximum per provider — a mirror of the service's `work.item_budget` calculation (from the
  *  recipe's data, per item kind; with the setting-dependent extra, e.g. task proposals on an email). */

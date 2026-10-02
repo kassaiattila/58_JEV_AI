@@ -10,7 +10,7 @@ import { Picker } from "../components/Picker";
 import { PackageCosts } from "./PackageCosts";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { itemBudgetLines, MODE, PARAM_LABEL, paramApplies, paramShort, paramsText, planLines, providerName, RUN_STATUS, tmap, usdBudget, when, blockerText } from "../labels";
+import { itemBudgetLines, jevOffNote, MODE, orderedParams, PARAM_LABEL, paramApplies, paramInEffect, paramShort, paramsText, planLines, providerName, RUN_STATUS, tmap, usdBudget, when, blockerText } from "../labels";
 import { go } from "../route";
 import { paramExplanation, RecipeParamList, recipeDefaults } from "./RecipeInfo";
 
@@ -195,6 +195,7 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
     for (const [k, spec] of Object.entries(recipe?.params ?? {})) out[k] = spec.allowed ?? (spec.default ? [spec.default] : []);
     return out;
   }, [recipe]);
+  const full: Record<string, string> = recipe ? { ...recipeDefaults(recipe), ...params } : {};
 
   async function save() {
     if (!recipe) return;
@@ -254,19 +255,22 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
               options={catalogue.map((r) => ({ value: r.id, label: t(r.title) }))}
               onChange={(v) => setRecipeId(v)} />
           ) : null}
-          {Object.entries(options).filter(([k]) => paramApplies(k, kinds)).map(([k, opts]) => {
-            const value = params[k] ?? recipe.params[k].default ?? "";
+          {/* 089: the use of JEV first; without it the path and the JEV answers do not count, one sentence instead */}
+          {orderedParams(Object.keys(options)).filter((k) => paramApplies(k, kinds) && paramInEffect(k, full)).map((k) => {
+            const value = full[k] ?? "";
             const explain = paramExplanation(help, k, value);
+            const note = k === "jev" ? jevOffNote(full) : null;
             return (
               <div key={k} className="param-field">
                 <Picker label={PARAM_LABEL[k] ?? k} className="block-picker" value={value}
-                  options={opts.map((o) => ({ value: o, label: paramValue(k, o) }))}
+                  options={options[k].map((o) => ({ value: o, label: paramValue(k, o) }))}
                   onChange={(v) => setParams((p) => ({ ...p, [k]: v }))} />
                 {explain ? <p className="param-note">{explain}</p> : null}
+                {note ? <p className="param-note">{note}</p> : null}
               </div>
             );
           })}
-          <p className="small"><strong>{t("Költségkeret")}:</strong> {itemBudgetLines(recipe, { ...recipeDefaults(recipe), ...params }, kinds).join("; ")}</p>
+          <p className="small"><strong>{t("Költségkeret")}:</strong> {itemBudgetLines(recipe, full, kinds).join("; ")}</p>
           <label className="block">{t("Megjegyzés")} <span className="muted">{t("(elhagyható)")}</span>
             <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />
           </label>

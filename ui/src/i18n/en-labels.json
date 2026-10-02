@@ -1,4 +1,5 @@
 {
+ "JEV nélkül minden irat a G-úton fut (a GPT olvassa ki az adatokat, a kód ellenőrzi őket), ezért az út és a JEV-válaszok beállítása nem számít, és nem látszik.": "Without JEV every document runs on the G path (GPT reads the data and the code checks it), so the path and JEV-answer settings do not count and are not shown.",
  "{{n}} feladatjavaslat vár döntésre": "{{n}} task proposal(s) awaiting a decision",
  "15 percenként": "every 15 minutes",
  "4 óránként": "every 4 hours",

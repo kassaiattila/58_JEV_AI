@@ -5,7 +5,7 @@
 import { api, type Recipe, type RecipeHelp } from "../api";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { docTypeLabel, itemBudgetLines, PARAM_LABEL, paramApplies, paramShort } from "../labels";
+import { docTypeLabel, itemBudgetLines, jevOffNote, orderedParams, PARAM_LABEL, paramApplies, paramInEffect, paramShort } from "../labels";
 
 const BUDGET_NOTE = "felső határ: ennyit foglal le a rendszer a futás indításakor; a tényleges költség általában kisebb, és a futás oldalán követhető";
 
@@ -27,12 +27,15 @@ export function RecipeParamList({ recipe, params, help, kinds }: { recipe: Recip
   const full = { ...recipeDefaults(recipe), ...params };
   return (
     <dl className="param-help">
-      {Object.keys(recipe.params).filter((k) => paramApplies(k, kinds)).map((k) => {
+      {/* 089: the use of JEV first; without it the path and the JEV answers do not count, one sentence instead */}
+      {orderedParams(Object.keys(recipe.params)).filter((k) => paramApplies(k, kinds) && paramInEffect(k, full)).map((k) => {
         const text = paramExplanation(help, k, full[k]);
+        const note = k === "jev" ? jevOffNote(full) : null;
         return (
           <div key={k} className="param-row">
             <dt>{PARAM_LABEL[k] ?? k}</dt>
-            <dd><strong>{paramShort(k, full[k])}</strong>{text ? <span className="param-note">{text}</span> : null}</dd>
+            <dd><strong>{paramShort(k, full[k])}</strong>{text ? <span className="param-note">{text}</span> : null}
+              {note ? <span className="param-note">{note}</span> : null}</dd>
           </div>
         );
       })}
@@ -114,7 +117,8 @@ function RecipeDetails({ recipe, help }: { recipe: Recipe; help?: RecipeHelp }) 
         </dd>
       </dl>
       <h4>{t("Beállítások")}</h4>
-      {Object.entries(recipe.params).map(([k, spec]) => {
+      {orderedParams(Object.keys(recipe.params)).map((k) => {
+        const spec = recipe.params[k];
         const options = spec.allowed ?? [];
         // the budget per option is only shown where the setting also affects the cost (e.g. path, task proposal)
         const costs = options.map((o) => itemBudgetLines(recipe, { ...defaults, [k]: o }).join("; "));
@@ -135,6 +139,7 @@ function RecipeDetails({ recipe, help }: { recipe: Recipe; help?: RecipeHelp }) 
                     <strong>{paramShort(k, o)}</strong>
                     {o === spec.default ? <span className="status s-ok">{t("alapbeállítás")}</span> : null}
                     {p?.options[o] ? <span className="option-text">{t(p.options[o])}</span> : null}
+                    {jevOffNote({ [k]: o }) ? <span className="option-text">{jevOffNote({ [k]: o })}</span> : null}
                     {costVaries ? <span className="muted small option-text">{t("Költségkeret: {{cost}}", { cost: costs[i] })}</span> : null}
                   </li>
                 ))}

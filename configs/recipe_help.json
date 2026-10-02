@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "changelog": [
+      {
+        "version": "1.5.0",
+        "date": "2026-10-02",
+        "note": "089 (owner's decision of 2026-10-02): the jev switch's off text gives the measured numbers instead of \"this mode is being measured\""
+      },
       {
         "version": "1.4.0",
         "date": "2026-10-02",
@@ -123,7 +128,7 @@
       "help": "Használja-e a rendszer a JEV-et. Kikapcsolva csak az OpenAI (GPT) és, ha be van kapcsolva, az Azure-felismerés dolgozik.",
       "options": {
         "on": "A JEV ismeri fel az irat típusát és a levél szándékát, és a választott úton választ az értékek közül (S) vagy ellenőrzi a GPT kiolvasását (G). Ez az alapbeállítás.",
-        "off": "A GPT ismeri fel az irat típusát (iratonként körülbelül 0,001–0,002 USD), és minden irat a G-úton fut: a GPT olvassa ki az adatokat, a kód ellenőrzi őket (minden kinyert értéknek szó szerint szerepelnie kell az iratban, és megmaradnak az ellenőrzőszám-, az összeg- és a kötelezőmező-ellenőrzések). A JEV második véleménye nélkül kicsit több hiba csúszhat át jelzés nélkül, ezért ezt a módot mérjük. A levelek szándékát a rendszer nem ismeri fel: minden levél teendőt kap, a PDF-csatolmányok iratként futnak. A futás nem kap JEV-keretet, így JEV-hívás nem történhet."
+        "off": "A GPT ismeri fel az irat típusát (iratonként körülbelül 0,001–0,002 USD), és minden irat a G-úton fut: a GPT olvassa ki az adatokat, a kód ellenőrzi őket (minden kinyert értéknek szó szerint szerepelnie kell az iratban, és megmaradnak az ellenőrzőszám-, az összeg- és a kötelezőmező-ellenőrzések). Mérés az etalonon (2026-10-02): a GPT 102 iratból 99 típusát ismerte fel (a JEV mind a 102-t), és a 3 tévedését is magabiztosan mondta, ezért ezek teendő nélkül mehetnek tovább; az etalon 70 iratának 1010 mezőjéből 27 tért el az ellenőrzött értéktől. A levelek szándékát a rendszer nem ismeri fel: minden levél teendőt kap, a PDF-csatolmányok iratként futnak. A futás nem kap JEV-keretet, így JEV-hívás nem történhet."
       }
     }
   }
