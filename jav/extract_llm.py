@@ -4,6 +4,10 @@ The output is a dict following the type pack's schema: for the Hungarian invoice
 legacy schema.json), for other types the Pydantic model generated from the pack's `schema_file`
 (`typepack.TypePack.llm_model`). The legacy flow also sent the PDF/image to the model; here only the text layer goes -
 so it is not directly comparable with the legacy golden floor.
+
+091 (GPT field confidence): the answer is a native structured answer with token log-probabilities (pattern:
+`jav/gpt_choice.py`), so every top-level value gets a measured probability (`jav/token_confidence.py`). The saved
+answer carries a format mark; an answer saved before 091 (the plain extraction) is still read, without probabilities.
 """
 
 from __future__ import annotations
@@ -20,11 +24,11 @@ from functools import lru_cache
 from typing import Any
 
 from pydantic import BaseModel
-from pydantic_ai import Agent
+from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
-from jav import store
+from jav import store, token_confidence
 from jav.runtime import calls
 from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, OPENAI_USD_PER_MTOK, load_prompt, openai_chat_model, openai_price
 from jav.typepack import DEFAULT_KEY, TypePack, get as get_pack
@@ -32,6 +36,31 @@ from jav.typepack import DEFAULT_KEY, TypePack, get as get_pack
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
 USER_PREFIX = "SOURCE TEXT extracted from the invoice PDF (layout-preserving, one line per printed line):\n\n"
+
+# 091: the saved answer's format (the request's shape is part of the reuse key, so an answer of the earlier tool-output
+# request is never reused for this one); the alternatives per token let the measurement compare measures without a new call
+ANSWER_FORMAT = "native_logprobs/1"
+TOP_LOGPROBS = 3
+
+
+class ScoredExtraction(BaseModel):
+    """The extract (the keys of the pack's schema) and the token probabilities of its top-level values (None: an answer
+    saved before 091, not measurable)."""
+
+    output: dict[str, Any]
+    token_p: dict[str, dict[str, float | int]] | None = None
+
+
+def encode_answer(output: dict[str, Any], logprobs: list[dict[str, Any]] | None) -> dict[str, Any]:
+    """The answer as it is saved in the call log."""
+    return {"answer_format": ANSWER_FORMAT, "output": output, "logprobs": logprobs}
+
+
+def decode_answer(saved: dict[str, Any]) -> tuple[dict[str, Any], dict[str, dict[str, float | int]] | None]:
+    """(extract, token probabilities) of a saved answer; a plain extract saved before 091 has no probabilities."""
+    if saved.get("answer_format") != ANSWER_FORMAT:
+        return saved, None
+    return saved["output"], token_confidence.field_probabilities(saved.get("logprobs"))
 
 _agent_factory = ContextVar('extraction_agent_factory', default=None)
 
@@ -51,8 +80,10 @@ def get_agent(pack_key: str = DEFAULT_KEY) -> Agent[None, BaseModel]:
     pack = get_pack(pack_key)
     model = openai_chat_model()
     # The legacy sidecar setting: reasoning none, temperature 0 (we measure non-determinism, we do not fight it)
-    settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"], temperature=OPENAI_SETTINGS["temperature"])
-    return Agent(model, output_type=pack.llm_model(), instructions=load_prompt(pack.prompt_file), model_settings=settings, retries=OPENAI_SETTINGS["retries"])
+    settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"], temperature=OPENAI_SETTINGS["temperature"],
+                                       openai_logprobs=True, openai_top_logprobs=TOP_LOGPROBS)
+    return Agent(model, output_type=NativeOutput(pack.llm_model()), instructions=load_prompt(pack.prompt_file), model_settings=settings,
+                 retries=OPENAI_SETTINGS["retries"])
 
 
 # In a worker run (040 K1) the output and the number of physical requests are actually limited, so the reserved
@@ -98,13 +129,14 @@ def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool)
         seconds=round(time.perf_counter() - t0, 3),
         config_hash=pack.config_hash,
     )
-    return calls.Outcome(response=result.output.model_dump(mode="json"), model=actual, input_tokens=in_tok,
-                         output_tokens=out_tok, cost_usd=None if cost is None else Decimal(str(cost)))
+    details = getattr(getattr(result, "response", None), "provider_details", None) or {}
+    return calls.Outcome(response=encode_answer(result.output.model_dump(mode="json"), details.get("logprobs")), model=actual,
+                         input_tokens=in_tok, output_tokens=out_tok, cost_usd=None if cost is None else Decimal(str(cost)))
 
 
-def extract(text: str, *, run_id: str = "adhoc", pack: TypePack | None = None) -> dict[str, Any]:
-    """The extract as a dict (with the keys of the pack's schema); the call goes into the ledger (tokens, cost, time,
-    errors too).
+def extract_scored(text: str, *, run_id: str = "adhoc", pack: TypePack | None = None) -> ScoredExtraction:
+    """The extract (with the keys of the pack's schema) and its token probabilities; the call goes into the ledger
+    (tokens, cost, time, errors too).
 
     In a worker run it goes through the call log and the budget: an up-front reservation for the worst case, the saved
     answer on a repeat, and no automatic new paid request after an earlier attempt with an uncertain outcome.
@@ -115,18 +147,27 @@ def extract(text: str, *, run_id: str = "adhoc", pack: TypePack | None = None) -
     prompt = USER_PREFIX + text
     ctx = calls.current()
     if ctx is None:
-        return _physical(agent, prompt, run_id=run_id, pack=pack, limited=False).response
+        output, token_p = decode_answer(_physical(agent, prompt, run_id=run_id, pack=pack, limited=False).response)
+        return ScoredExtraction(output=output, token_p=token_p)
     price = openai_price(OPENAI_MODEL)  # 066 Á38: no budgeted call without a price (the reservation would be zero)
-    schema = json.dumps(pack.llm_model().model_json_schema(), ensure_ascii=False)  # sent as the output tool's schema
+    schema = json.dumps(pack.llm_model().model_json_schema(), ensure_ascii=False)  # sent as the answer's JSON schema
     max_cost = calls.estimate_max_cost(
         input_bytes=calls.utf8_bytes(prompt, load_prompt(pack.prompt_file), schema), max_output_tokens=RUN_MAX_OUTPUT_TOKENS,
         usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), rounds=1 + int(OPENAI_SETTINGS["retries"]),
         repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))
     digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
-    # 090: the question's fingerprint for reusing an earlier answer (the step id keeps the text's own digest)
+    # 090: the question's fingerprint for reusing an earlier answer (the step id keeps the text's own digest); 091: the
+    # answer's format and its token alternatives are part of it
     key = calls.answer_key("openai", OPENAI_MODEL, load_prompt(pack.prompt_file), schema,
-                           json.dumps(OPENAI_SETTINGS, sort_keys=True), str(RUN_MAX_OUTPUT_TOKENS), prompt)
+                           json.dumps(OPENAI_SETTINGS, sort_keys=True), str(RUN_MAX_OUTPUT_TOKENS), prompt,
+                           ANSWER_FORMAT, str(TOP_LOGPROBS))
     result = calls.invoke(run_id=run_id, step_id=f"openai:extract_llm:{pack.key}:{digest[:16]}", provider="openai",
                           model=OPENAI_MODEL, max_cost_usd=max_cost, budget_scope=ctx.budget_scope, request_hash=key,
                           reusable=True, fn=lambda: _physical(agent, prompt, run_id=run_id, pack=pack, limited=True))
-    return result.response
+    output, token_p = decode_answer(result.response)
+    return ScoredExtraction(output=output, token_p=token_p)
+
+
+def extract(text: str, *, run_id: str = "adhoc", pack: TypePack | None = None) -> dict[str, Any]:
+    """The extract as a dict (with the keys of the pack's schema), without the probabilities (`extract_scored`)."""
+    return extract_scored(text, run_id=run_id, pack=pack).output

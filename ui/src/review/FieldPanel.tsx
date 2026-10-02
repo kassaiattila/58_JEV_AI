@@ -31,6 +31,21 @@ export const UNLOCATED: Record<string, string> = tmap({
   error: "A forráshely számítása nem sikerült; az értéket a képen ellenőrizd.",
 });
 
+/** 091: the tooltip of a field's confidence. A GPT field's confidence (path without JEV) names its basis: the
+ *  probability of the answer, lowered by the source or field check if it is weaker, or the check alone. */
+export function confidenceTitle(pv: Provenance | undefined): string {
+  if (pv?.confidence == null) return t("Nincs becslés");
+  const p = Math.round(pv.confidence * 100);
+  const basis = pv.confidence_basis;
+  if (basis?.source !== "gpt") return t("Modellbecslés: {{p}}%", { p });
+  if (basis.token == null) return t("GPT-becslés: {{p}}% (csak a forrás-ellenőrzés alapján; a válasz valószínűsége nem ismert)", { p });
+  if (pv.confidence < basis.token) {
+    return t("GPT-becslés: {{p}}% (a válasz valószínűsége {{token}}%, de a forrás- vagy mezőellenőrzés lejjebb vette)",
+      { p, token: Math.round(basis.token * 100) });
+  }
+  return t("GPT-becslés: {{p}}% (a válasz valószínűsége)", { p });
+}
+
 /** The full set of corrections to save: the earlier corrections + the draft's differences from the machine value
  *  (empty = no value). The sources (selected words) only go with the fields that remain in the correction. Line-item
  *  list: the whole list; if it equals the machine one, it is left out (reverts to the machine value). 081: an amount
@@ -397,7 +412,7 @@ export function FieldPanel(p: Props) {
                     : isConfirmed(result, f) ? <span className="badge ok-badge" title={t("Egy ember ellenőrizte ezt az értéket.")}><Icon name="check" />{t("ellenőrizve")}</span>
                     : pv?.corrected ? <span className="badge">{t("javítva")}</span> : null}
                   <span className="band" style={{ color: BAND_COLOR[band], borderColor: BAND_COLOR[band] }}
-                    title={pv?.confidence != null ? t("Modellbecslés: {{p}}%", { p: Math.round(pv.confidence * 100) }) : t("Nincs becslés")}>
+                    title={confidenceTitle(pv)}>
                     {pv?.confidence != null ? `${Math.round(pv.confidence * 100)}%` : "–"}
                   </span>
                   <span className={`src ${pv?.status === "located" ? "src-ok" : pv?.status === "approximate" ? "src-approx" : "src-none"}`}

@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "changelog": [
+   {
+    "version": "1.13.0",
+    "date": "2026-10-02",
+    "note": "091 (backlog F-gpt-field-confidence, the owner's decision of 2026-10-02: token probability + code evidence, the weaker counts): gpt_field_confidence - on the G path without JEV a field's confidence is the token probability of its value (measure: joint = the product of the value's token probabilities; min and first are kept for the measurement), capped by the code's evidence: a value not printed on the document (not_found) or printed only next to another field's label (context_rejected), or one that failed its field check (failed_check), is capped at 0.5 (the review's 'check' band). Without a token probability only a cap below 1 is shown. Display only: no to-do comes from it until the band is set after the paid measurement (owner decision). The caps and the measure are starting values, to be set by the measurement"
+   },
    {
     "version": "1.12.0",
     "date": "2026-10-02",
@@ -149,5 +154,10 @@
   "hungarian_types": ["invoice_hu", "utility_bill_hu", "csatorna_szamla", "foldgaz_szamla", "mohu_szamla",
                       "villamos_energia_szamla", "viz_szamla", "vizmuvek_szamla", "nav_receipt", "nav_certificate",
                       "nav_tax_return", "statement_cib", "statement_erste"]
+ },
+ "gpt_field_confidence": {
+  "measure": "joint",
+  "evidence": {"not_found": 0.5, "context_rejected": 0.5},
+  "failed_check": 0.5
  }
 }

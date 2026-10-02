@@ -150,14 +150,15 @@ def normalize_picks(state: FlowState) -> FlowState:
     return state
 
 
-@action.pydantic(reads=["text", "run_id", "doc_type", "needs_review", "review_reasons"], writes=["llm_output", "needs_review", "review_reasons"])
+@action.pydantic(reads=["text", "run_id", "doc_type", "needs_review", "review_reasons"], writes=["llm_output", "llm_token_p", "needs_review", "review_reasons"])
 def extract_llm(state: FlowState) -> FlowState:
-    from jav.extract_llm import extract
+    from jav.extract_llm import extract_scored
 
     try:
-        state.llm_output = extract(state.text, run_id=state.run_id, pack=get_pack(state.doc_type))
+        scored = extract_scored(state.text, run_id=state.run_id, pack=get_pack(state.doc_type))
+        state.llm_output, state.llm_token_p = scored.output, scored.token_p  # 091: and its token probabilities
     except Exception as exc:  # noqa: BLE001 - an error is a review reason, not the end of the flow
-        state.llm_output = None
+        state.llm_output, state.llm_token_p = None, None
         policy.require_review(state, f"llm:failed:{type(exc).__name__}")
     return state
 
@@ -222,7 +223,21 @@ def decide_route(state: FlowState) -> FlowState:
     return state
 
 
-@action.pydantic(reads=["arm", "doc_type", "source_layer_id", "picks", "candidates", "invoice", "verdicts"], writes=["provenance"])
+def _gpt_confidence(state: FlowState) -> None:
+    """091 (backlog F-gpt-field-confidence): on the G path without a JEV verification, every field's confidence is the
+    token probability of its value capped by the code's evidence (`policy.gpt_field_confidence`); the basis is kept
+    with it, so the review and the measurement can tell the two apart. Display only: no to-do comes from it."""
+    failed = {c.name.split(":", 1)[1] for c in state.validation if not c.ok and ":" in c.name}
+    measure = policy.GPT_FIELD_CONFIDENCE["measure"]
+    for f, entry in state.provenance.items():
+        token_p = (state.llm_token_p or {}).get(f)
+        entry["confidence"] = policy.gpt_field_confidence(token_p, entry.get("status"), failed_check=f in failed)
+        entry["confidence_basis"] = {"source": "gpt", "measure": measure,
+                                     "token": token_p.get(measure) if token_p else None, "failed_check": f in failed}
+
+
+@action.pydantic(reads=["arm", "doc_type", "source_layer_id", "picks", "candidates", "invoice", "verdicts", "llm_token_p", "validation"],
+                 writes=["provenance"])
 def ground(state: FlowState) -> FlowState:
     """045: per-field source location on the word layer (code, no AI call). S path: the chosen candidate on its own
     line, plus the other candidates with their probabilities; G path: the value is searched for with its label context.
@@ -245,6 +260,8 @@ def ground(state: FlowState) -> FlowState:
             flags = state.verdicts.flags if state.verdicts else {}
             conf = {f: round(1 - max(d.values()), 4) for f, d in flags.items() if d}
             state.provenance = grounding.ground_values(layer, fields=fields, values=values, confidence=conf)
+            if state.verdicts is not None and state.verdicts.source == "code":
+                _gpt_confidence(state)
         if state.invoice is not None and pack.list_fields:  # 053: locations of the line-item list rows
             record = state.invoice.to_datapoints(pack.record_fields)
             lists = {f: record.get(f) or [] for f in pack.list_fields}
