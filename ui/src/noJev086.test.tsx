@@ -19,22 +19,22 @@ const RECIPE: Recipe = {
 const PLAN: RunPlan = { documents: 2, emails: 1, attachments: 0, paths: { S: 0, G: 2, unknown: 0 }, tasks_emails: 0, azure: false,
   jev_reuse: true, arm: "auto", jev: false };
 
-describe("086 JEV nélküli feldolgozás", () => {
-  it("kikapcsolva nincs JEV-keret, a típusfelismerés OpenAI-keretet kap", () => {
+describe("086 processing without JEV", () => {
+  it("switched off, there is no JEV budget and type recognition gets an OpenAI budget", () => {
     expect(itemBudget(RECIPE, { arm: "auto", jev: "on" }, "document")).toEqual({ jev: 0.07, openai: 0.15 });
     expect(itemBudget(RECIPE, { arm: "auto", jev: "off" }, "document")).toEqual({ openai: 0.22 });
     expect(itemBudget(RECIPE, { arm: "auto", jev: "off" }, "email")).toEqual({});
     expect(itemBudgetLines(RECIPE, { arm: "auto", jev: "off" })).toEqual(["levelenként: nincs", "PDF-iratonként: OpenAI legfeljebb 0,22 USD"]);
   });
 
-  it("az indítás előtti áttekintés kimondja, hogy a JEV nem hívódik", () => {
+  it("the pre-start overview says that JEV is not called", () => {
     const lines = planLines(PLAN, { openai: "0.44" });
     expect(lines).toContain("JEV: nem hívódik (kikapcsolva); a levelek szándéka teendő lesz.");
     expect(lines).toContain("OpenAI legfeljebb 0,44 USD: 2 irat típusfelismerése és adatkinyerése a G-úton, kódos ellenőrzéssel.");
     expect(lines.some((l) => l.startsWith("JEV legfeljebb"))).toBe(false);
   });
 
-  it("a beállítás és a teendők beszédes nevet kapnak", () => {
+  it("the setting and the to-dos get plain names", () => {
     expect(paramShort("jev", "off")).toBe("kikapcsolva — csak GPT (OpenAI)");
     expect(reasonText("intent:jev_off")).toMatch(/JEV nélküli feldolgozás/);
     expect(reasonText("detect:gpt_failed:BudgetExceeded")).toMatch(/GPT-s típusfelismerés nem sikerült \(BudgetExceeded\)/);

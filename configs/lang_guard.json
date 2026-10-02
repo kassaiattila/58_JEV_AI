@@ -357,6 +357,7 @@
     "ui/src/labels.ts": 130,
     "ui/src/layout.test.tsx": 48,
     "ui/src/naming078.test.tsx": 11,
+    "ui/src/noJev086.test.tsx": 8,
     "ui/src/numberEdit081.test.tsx": 5,
     "ui/src/ops064.test.tsx": 15,
     "ui/src/poll066.test.tsx": 4,

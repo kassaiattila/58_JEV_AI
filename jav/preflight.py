@@ -27,13 +27,17 @@ _NUM = re.compile(r"^(\d{3})-\d{4}-\d{2}-\d{2}-handoff\.md$")
 
 
 def run_pytest() -> tuple[bool, str]:
-    """`pytest tests/ -q` in a subprocess; returns the summary line."""
+    """`pytest tests/ -q` in a subprocess; returns the summary line, and on a failure the failed tests' names too (086:
+    an intermittent failure could not be identified from the summary line alone)."""
     r = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider"],
+        [sys.executable, "-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider", "-rfE"],
         cwd=PROJECT_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     lines = [ln for ln in (r.stdout or "").splitlines() if ln.strip()]
     summary = lines[-1] if lines else (r.stderr or "").strip()[-200:]
+    failed = [ln.split(" - ")[0] for ln in lines if ln.startswith(("FAILED ", "ERROR "))]
+    if failed:
+        summary += "; " + ", ".join(failed[:5]) + (f" (+{len(failed) - 5})" if len(failed) > 5 else "")
     return r.returncode == 0, summary
 
 
