@@ -73,11 +73,13 @@ def test_preflight_without_local_handoffs_is_not_a_failure(tmp_path, monkeypatch
     assert ok and "nincs helyi átadó" in msg
 
 
-def test_preflight_names_the_failed_tests(monkeypatch):
+def test_preflight_names_the_failed_tests(monkeypatch, tmp_path):
     """086: an intermittent failure could not be identified from the summary line alone."""
     from types import SimpleNamespace
 
     from jav import preflight
+
+    monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", tmp_path / "preflight")  # 092: the raw output is kept there
 
     out = ("....F.\n=========================== short test summary info ===========================\n"
            "FAILED tests/test_a.py::test_x - AssertionError: boom\nERROR tests/test_b.py::test_y\n"
@@ -85,4 +87,4 @@ def test_preflight_names_the_failed_tests(monkeypatch):
     monkeypatch.setattr(preflight.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout=out, stderr="", returncode=1))
     ok, summary = preflight.run_pytest()
     assert not ok
-    assert summary == "1 failed, 5 passed, 1 error in 3.10s; FAILED tests/test_a.py::test_x, ERROR tests/test_b.py::test_y"
+    assert summary.startswith("1 failed, 5 passed, 1 error in 3.10s; FAILED tests/test_a.py::test_x, ERROR tests/test_b.py::test_y; log: ")

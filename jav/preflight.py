@@ -26,19 +26,38 @@ WATCH = [PROJECT_ROOT / "jav", PROJECT_ROOT / "tests", PROJECT_ROOT / "configs",
 _NUM = re.compile(r"^(\d{3})-\d{4}-\d{2}-\d{2}-handoff\.md$")
 
 
+PREFLIGHT_RUNS = PROJECT_ROOT / "runs" / "preflight"
+KEEP_LOGS = 20
+_LOG_DIR = re.compile(r"^\d{8}_\d{6}$")
+
+
 def run_pytest() -> tuple[bool, str]:
     """`pytest tests/ -q` in a subprocess; returns the summary line, and on a failure the failed tests' names too (086:
-    an intermittent failure could not be identified from the summary line alone)."""
+    an intermittent failure could not be identified from the summary line alone). 092 (audit T1): the raw output and a
+    JUnit file are kept under `runs/preflight/<timestamp>/` (the latest `KEEP_LOGS`); a failure names the folder."""
+    folder = PREFLIGHT_RUNS / time.strftime("%Y%m%d_%H%M%S")
+    folder.mkdir(parents=True, exist_ok=True)
     r = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider", "-rfE"],
+        [sys.executable, "-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider", "-rfE", f"--junitxml={folder / 'junit.xml'}"],
         cwd=PROJECT_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
+    (folder / "pytest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")
+    _prune_logs(PREFLIGHT_RUNS)
     lines = [ln for ln in (r.stdout or "").splitlines() if ln.strip()]
     summary = lines[-1] if lines else (r.stderr or "").strip()[-200:]
     failed = [ln.split(" - ")[0] for ln in lines if ln.startswith(("FAILED ", "ERROR "))]
     if failed:
         summary += "; " + ", ".join(failed[:5]) + (f" (+{len(failed) - 5})" if len(failed) > 5 else "")
+    if r.returncode != 0:
+        summary += f"; log: {folder}"
     return r.returncode == 0, summary
+
+
+def _prune_logs(root: Path) -> None:
+    """Keeps the latest `KEEP_LOGS` timestamped log folders; anything else in the folder is left alone."""
+    logs = sorted(p for p in root.iterdir() if p.is_dir() and _LOG_DIR.match(p.name))
+    for old in logs[:-KEEP_LOGS]:
+        shutil.rmtree(old)
 
 
 def run_ui_checks() -> tuple[bool, str] | None:
