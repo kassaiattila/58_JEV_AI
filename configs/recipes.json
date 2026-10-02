@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "recipes",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "changelog": [
+   {
+    "version": "1.10.0",
+    "date": "2026-10-02",
+    "note": "089 (owner's decision of 2026-10-02: GPT also recognises the email intent without JEV): with jev off an email gets 0.07 USD OpenAI for the GPT intent question (the worst case of the largest email excerpt is about 0.064 USD; a typical email costs about 0.005 USD); so the routing and the task proposal work without JEV too"
+   },
    {
     "version": "1.9.0",
     "date": "2026-10-02",
@@ -194,7 +199,9 @@
      "param": "jev",
      "value": "off",
      "kind": "email",
-     "usd": {},
+     "usd": {
+      "openai": "0.07"
+     },
      "drop": [
       "jev"
      ]

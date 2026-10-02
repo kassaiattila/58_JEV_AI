@@ -5,7 +5,8 @@
   `<run_id>-doc_detect`, 065); the result (doc_id, doc_type, conf) goes onto the attachment and into the `documents`
   table (with a source_email reference). An attachment known by name only (legacy golden set) -> `name_only`; image ->
   `unsupported` (OCR = extension B5); a PDF the reader cannot read -> `unreadable` + an email to-do (078).
-- `intent`: one JEV request (Choice + 4 Nouls) through the adapter (cache + ledger).
+- `intent`: one JEV request (Choice + 4 Nouls) through the adapter (cache + ledger); without JEV (089) the same
+  questions in one GPT request (`jav/intent_gpt.py`), its confidence from the answer's token log-probabilities.
 - `route`: `policy.email_next_flow` - code decides from the intent, the confidence and the attachment types.
 - `save`: `emails` table (the latest per email) and `email_results` (the run's own row, with the part of the email text
   that was seen, 058 K5.1); uncertain intent -> review_queue (per reason, additive), certain -> its own earlier reasons
@@ -39,7 +40,7 @@ class EmailState(BaseModel):
     run_id: str = ""
     use_cache: bool = True
     detect_attachments: bool = True
-    jev: bool = True  # 086: False = processing without JEV: no intent (a to-do), the attachments are not recognised here
+    jev: bool = True  # 086: False = processing without JEV: GPT recognises the intent (089), the attachments are not recognised here
     message: EmailMessage | None = None
     result: IntentResult | None = None
     next_flow: str = ""
@@ -114,11 +115,8 @@ def intent(state: EmailState) -> EmailState:
     from jav.intent import classify
 
     assert state.message is not None
-    if not state.jev:  # 086: the intent is a JEV question; without JEV a person reads the email
-        state.result = None
-        state.uncertain = True
-        state.review_reasons = state.review_reasons + ["intent:jev_off"]
-        return state
+    if not state.jev:  # 089 (the owner's decision of 2026-10-02): without JEV, GPT recognises the intent
+        return _intent_gpt(state)
     try:
         state.result = classify(get_adapter(), state.message, run_id=state.run_id, use_cache=state.use_cache)
     except JevUnavailableError as exc:  # JEV unavailable (in the ledger): no intent, to the manual queue; the flow does not fail
@@ -130,6 +128,27 @@ def intent(state: EmailState) -> EmailState:
     # M3 signals (v1.1.0): the yes band of an injected instruction is a review reason (additive, the policy decides
     # which signal)
     state.review_reasons = state.review_reasons + [r for r in policy.email_signal_reasons(state.result.signals) if r not in state.review_reasons]
+    return state
+
+
+def _intent_gpt(state: EmailState) -> EmailState:
+    """089: the intent recognised by GPT (processing without JEV). A failed call (no budget, provider error) is a to-do,
+    not the end of the item; an unmeasurable confidence makes the intent uncertain. The signals act as with JEV."""
+    from jav.intent_gpt import classify
+
+    assert state.message is not None
+    try:
+        state.result = classify(state.message, run_id=state.run_id)
+    except Exception as exc:  # noqa: BLE001 - an error is a to-do, not the end of the flow (as with the GPT type)
+        state.result = None
+        state.uncertain = True
+        state.review_reasons = state.review_reasons + [f"intent:gpt_failed:{type(exc).__name__}"]
+        return state
+    r = state.result
+    reasons = [] if r.measured else ["intent:confidence_unavailable"]
+    state.uncertain = not r.measured or policy.choice_needs_review(r.confidence, r.probabilities, "email.intent.gpt")
+    reasons += [x for x in policy.email_signal_reasons(r.signals) if x not in state.review_reasons]
+    state.review_reasons = state.review_reasons + reasons
     return state
 
 
@@ -210,16 +229,20 @@ def save(state: EmailState) -> EmailState:
             subject_kind="email", subject_id=msg.message_id, run_id=state.run_id, reasons=reasons, producer="email_intent",
             payload={"probabilities": r.probabilities, "signals": r.signals, "scores": {k: s.model_dump() for k, s in r.scores.items()},
                      "next_flow": state.next_flow,
-                     "parent": policy.parent_fallback(r.confidence, r.parent, r.parent_prob, "email.intent", r.probabilities), "parent_prob": r.parent_prob},
+                     "parent": policy.parent_fallback(r.confidence, r.parent, r.parent_prob, _band(r), r.probabilities), "parent_prob": r.parent_prob},
         )
     else:
         store.review_close(subject_kind="email", subject_id=msg.message_id, producer="email_intent", run_id=state.run_id)
     # 048 T2: the worker takes the item's status from this; an uncertain intent = a to-do
-    if r is None:  # 086: without JEV the missing intent is the expected to-do, not an outage
-        state.final_status = "jev_unavailable" if state.jev else "needs_review"
+    if r is None:  # 089: without JEV a missing intent means GPT could not answer (as for the GPT type)
+        state.final_status = "jev_unavailable" if state.jev else "gpt_unavailable"
     else:
         state.final_status = "needs_review" if state.uncertain or state.review_reasons else "done"
     return state
+
+
+def _band(r: IntentResult) -> str:
+    return "email.intent.gpt" if r.engine == "gpt" else "email.intent"
 
 
 @action.pydantic(reads=[], writes=[])
@@ -246,7 +269,7 @@ CONTRACT = {  # the graph declaration: FLOW.md + Mermaid + lint come from it (ja
     "step_meta": {
         "load_message": {"kind": "det", "note": "inbox/<mailbox>/<msgid>/message.json + fájlok, vagy kész EmailMessage (golden)"},
         "classify_attachments": {"kind": "flow", "note": "minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only; olvashatatlan PDF -> unreadable + teendő (attachment:unreadable), a levél tovább fut"},
-        "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: no question, an intent:jev_off to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own)"},
+        "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: the same questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/intent_gpt.py); a failed call is an intent:gpt_failed to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own)"},
         "route": {"kind": "det", "note": "policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés"},
         "tasks": {"kind": "llm", "note": "feladatjavaslat (GPT, a régi email-actions v1.3.0 utasítása) + kódos bizonyíték-kapu; csak ha a recept kéri, archiválandó levélen nem; javaslat -> teendő (ember fogadja el)"},
         "save": {"kind": "store", "note": "emails + email_results (a futás sora, a feladatjavaslat is); bizonytalan intent / javaslat -> review_queue (additív), különben a korábbi tétel zárul"},
@@ -271,8 +294,8 @@ def build_app(
     jev: bool = True,
 ) -> Application:
     """`run_id` + `persister` (048 T2): when run from the worker, durable state persistence and resumption under the
-    same ID. `attachment_reads`: the source instances to read the package's attachment items from. `jev=False` (086):
-    no intent (an `intent:jev_off` to-do) and no attachment recognition here: the PDF attachments are items of the
+    same ID. `attachment_reads`: the source instances to read the package's attachment items from. `jev=False` (086,
+    089): GPT recognises the intent, and there is no attachment recognition here: the PDF attachments are items of the
     package and are recognised there, by GPT."""
     stem = (message.message_id if message else source_dir or "email").replace(":", "-").replace("\\", "/").rstrip("/").rsplit("/", 1)[-1][:32]
     run_id = run_id or f"email-{stem}-{uuid.uuid4().hex[:8]}"
@@ -303,7 +326,10 @@ def run_email(
     tracker: bool = False,
     use_cache: bool = True,
     detect_attachments: bool = True,
+    jev: bool = True,
 ) -> EmailState:
-    app = build_app(source_dir=source_dir, message=message, tracker=tracker, use_cache=use_cache, detect_attachments=detect_attachments)
+    """`jev=False` (089): GPT recognises the intent (paid OpenAI call)."""
+    app = build_app(source_dir=source_dir, message=message, tracker=tracker, use_cache=use_cache, detect_attachments=detect_attachments,
+                    jev=jev)
     _, _, state = app.run(halt_after=TERMINALS)
     return state.data

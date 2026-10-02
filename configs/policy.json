@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "changelog": [
+   {
+    "version": "1.11.0",
+    "date": "2026-10-02",
+    "note": "089 (GPT email intent without JEV): band_for email.intent.gpt = gpt_intent - the email intent recognised by GPT (processing without JEV) has its own band set, for the same reason as gpt_detect; it starts empty (the default band's values, as for the JEV intent) and is tuned after the paid measurement. Its yes/no signals (P(yes) from the answer's token log-probabilities) use the email.signal band like JEV's"
+   },
    {
     "version": "1.10.0",
     "date": "2026-10-02",
@@ -80,7 +85,8 @@
    "choice_human_max_conf": 0.85
   },
   "verify_flag": {},
-  "gpt_detect": {}
+  "gpt_detect": {},
+  "gpt_intent": {}
  },
  "band_for": {
   "invoice.pick": "default",
@@ -94,7 +100,8 @@
   "email.urgency": "default",
   "detect.detail_type": "default",
   "detect.doc_type.gpt": "gpt_detect",
-  "detect.detail_type.gpt": "gpt_detect"
+  "detect.detail_type.gpt": "gpt_detect",
+  "email.intent.gpt": "gpt_intent"
  },
  "email": {
   "m2_types": [
