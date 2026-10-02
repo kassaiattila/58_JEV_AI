@@ -274,9 +274,12 @@ def apply_verdict_policy(state: FlowState) -> None:
 
 
 def apply_validation_policy(state: FlowState) -> None:
+    """A failed check opens a to-do. 090: a field check (its name is `<check>:<field>`) names the field third, so the
+    to-do stands at that field in Review and the field's tick closes it; a check of the whole record keeps its code."""
     for check in state.validation:
         if not check.ok and not check.advisory:  # 053: an advisory-only check opens no to-do
-            require_review(state, f"validator:{check.code}")
+            field = check.name.split(":", 1)[1] if ":" in check.name else None
+            require_review(state, f"validator:{check.code}:{field}" if field else f"validator:{check.code}")
 
 
 def decide(state: FlowState) -> str:
