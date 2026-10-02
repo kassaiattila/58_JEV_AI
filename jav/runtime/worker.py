@@ -342,6 +342,9 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
     request (`request_stop`) it exits after finishing the item in progress; the request is cleared at start-up."""
     worker = name or f"{socket.gethostname()}:{int(time.time())}"
     with lock.single_instance(lock_path()):
+        from jav.runtime import preload
+
+        preload.preload()  # 091: all the code now, so later changes on disk cannot mix into this process
         stop_path().unlink(missing_ok=True)
         info: dict[str, Any] = {"startup": startup(), "processed": 0, "results": {}, "stopped": False, "errors": 0}
         log.info("worker %s started: %s", worker, info["startup"])
