@@ -104,6 +104,7 @@ def test_uncertain_attempt_is_not_repeated_automatically(azure_env):
                 ocr.ocr_with_escalation(source, use_cache=False)
     with store.connect() as c:  # a crash leaves the reservation behind; the worker start marks it uncertain
         c.execute("UPDATE invocations SET status='reserved' WHERE provider='azure_di'")
+    calls.release_holder()  # 092: the process stops; the operating system lets go of its holder lock
     calls.recover_uncertain()
     with calls.use_run(budget_scope="run-crash"):
         pdf, escalated = ocr.ocr_with_escalation(source, use_cache=False)

@@ -93,6 +93,7 @@ def test_uncertain_prior_attempt_blocks_jev_call(isolated):
     key = request_hash("jev-1.13.0", {"x": 1}, QS)
     calls._reserve(run_id="run-1", step_id=f"jev:t:{key[:16]}", provider="jev", model="jev-1.13.0",
                    max_cost_usd=Decimal("0.01"), budget_scope=None, request_hash=key)
+    calls.release_holder()  # 092: the process stops; the operating system lets go of its holder lock
     calls.recover_uncertain()
     with calls.use_run(budget_scope=None), pytest.raises(JevUnavailableError) as err:
         jev.ask("t", {"x": 1}, QS, run_id="run-1", use_cache=False)

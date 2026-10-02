@@ -6,8 +6,10 @@ Reservation and check run in one `BEGIN IMMEDIATE` transaction, so they stay cor
 
 States and the amount counted against the budget:
 - `reserved`   : the call is in progress or the process crashed → the maximum is committed; the same step is NOT called
-                 again automatically (`UncertainAttempt`); at startup `recover_uncertain()` marks it `uncertain`.
-                 It cannot be settled by hand (090, audit N03): it may still finish and cost money.
+                 again automatically (`UncertainAttempt`); at startup `recover_uncertain()` marks it `uncertain` once
+                 the process that reserved it has stopped (092: the reservation names its holder, a lock the process
+                 holds for its lifetime). It cannot be settled by hand (090, audit N03): it may still finish and cost
+                 money.
 - `uncertain`  : like `reserved`; manual resolution: `resolve_uncertain(id, cost_usd)`. A completion arriving later
                  closes it only while nobody has settled it.
 - `succeeded`  : the actual amount if the cost is known, otherwise the maximum stays committed. The response is saved as
@@ -25,17 +27,25 @@ truth for reservations and resumability.
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import json
 import logging
+import os
+import re
+import secrets
+import threading
+import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import ROUND_CEILING, Decimal
-from typing import Any, Callable
+from pathlib import Path
+from typing import IO, Any, Callable
 
 from jav import store
+from jav.runtime import lock
 
 log = logging.getLogger("jav.calls")
 
@@ -60,6 +70,7 @@ CREATE TABLE IF NOT EXISTS invocations (
     note            TEXT,
     created_at      TEXT NOT NULL,
     finished_at     TEXT,
+    holder          TEXT,                       -- 092: the reserving process's holder lock (`holder()`)
     UNIQUE (run_id, step_id, attempt)
 );
 CREATE INDEX IF NOT EXISTS ix_invocations_step ON invocations(run_id, step_id);
@@ -72,6 +83,17 @@ CREATE TABLE IF NOT EXISTS budgets (
     PRIMARY KEY (scope, provider)
 );
 """)
+
+
+
+def _add_holder_column(conn) -> None:
+    """092: the holder column on a call log created before it."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(invocations)")}
+    if cols and "holder" not in cols:
+        conn.execute("ALTER TABLE invocations ADD COLUMN holder TEXT")
+
+
+store.register_migration("runtime.calls.holder", _add_holder_column)
 
 RESPONSE_KIND = "invocation_response"
 _OPEN = "('reserved', 'uncertain')"  # 090: the states a completion may still close
@@ -274,10 +296,76 @@ def _reuse_earlier(c, *, run_id: str, step_id: str, attempt: int, provider: str,
     return new_id, int(hit["id"]), json.loads(hit["payload"])["response"]
 
 
+HOLDER_DIR = "call-holders"
+HOLDER_STALE_S = 60
+"""092: a holder's lock file lies next to the store; a file nobody holds is removed by the recovery once it is older than
+this (a process creates and locks its file at once, so a young file may belong to a process that is just starting)."""
+_HOLDER_TOKEN = re.compile(r"[0-9]+-[0-9a-f]+")
+_holders: dict[str, tuple[str, IO[bytes]]] = {}
+_holders_guard = threading.Lock()
+
+
+def holder_path(token: str) -> Path:
+    return store.current_path().with_name(HOLDER_DIR) / f"{token}.lock"
+
+
+def holder() -> str:
+    """092: this process's holder on the current store: a token whose lock file the process keeps locked for its
+    lifetime (the operating system releases it when the process dies). Every reservation records it, so that a worker
+    start can tell a call still in progress in another process (e.g. a command-line measurement) from a crashed one."""
+    key = str(store.current_path())
+    with _holders_guard:
+        held = _holders.get(key)
+        if held is None:
+            token = f"{os.getpid()}-{secrets.token_hex(8)}"
+            held = _holders[key] = (token, lock.hold(holder_path(token)))
+        return held[0]
+
+
+def release_holder() -> None:
+    """092: the process lets go of its holder on the current store (at exit; the tests simulate the process's death
+    with it). Its open reservations then count as abandoned; a later reservation takes a new holder."""
+    with _holders_guard:
+        held = _holders.pop(str(store.current_path()), None)
+    if held is not None:
+        lock.release(held[1])
+        holder_path(held[0]).unlink(missing_ok=True)
+
+
+@atexit.register
+def release_all_holders() -> None:
+    """092: at exit (and after each test) every holder this process took is let go."""
+    with _holders_guard:
+        held = list(_holders.values())
+        _holders.clear()
+    for _, f in held:
+        lock.release(f)
+
+
+def _holder_alive(token: str | None) -> bool:
+    """Whether the process behind a reservation is still running; a reservation without a holder (before 092) or with
+    an unreadable one counts as stopped, as all reservations did before."""
+    return bool(token) and _HOLDER_TOKEN.fullmatch(token) is not None and lock.is_held(holder_path(token))
+
+
+def _remove_stopped_holder_files() -> None:
+    folder = store.current_path().with_name(HOLDER_DIR)
+    if not folder.is_dir():
+        return
+    cutoff = time.time() - HOLDER_STALE_S
+    for path in folder.glob("*.lock"):
+        try:
+            if path.stat().st_mtime < cutoff and not lock.is_held(path):
+                path.unlink()
+        except OSError as exc:  # taken or removed meanwhile by another process: the next start tries again
+            log.debug("holder file %s left in place: %s", path.name, exc)
+
+
 def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max_cost_usd: Decimal,
              budget_scope: str | None, request_hash: str | None, reuse: bool = False) -> tuple[int | None, Any]:
     """Reserves in one transaction. Returns (new invocation id, None), or on a repeat (None, (id, saved response)), or,
     090, with `reuse`, an earlier answer to the same question: (None, (id, response, the call it came from))."""
+    me = holder()
     with store.connect() as c:
         c.commit()
         c.execute("BEGIN IMMEDIATE")
@@ -308,8 +396,8 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
                 raise BudgetExceeded(f"{budget_scope}/{provider}: committed {committed} + max {max_cost_usd} > limit {lim['limit_usd']}")
         cur = c.execute(
             "INSERT INTO invocations(run_id, step_id, attempt, provider, model_requested, request_hash, budget_scope, status,"
-            " max_cost_usd, created_at) VALUES (?,?,?,?,?,?,?,'reserved',?,?)",
-            (run_id, step_id, attempt, provider, model, request_hash, budget_scope, str(max_cost_usd), _now()))
+            " max_cost_usd, created_at, holder) VALUES (?,?,?,?,?,?,?,'reserved',?,?,?)",
+            (run_id, step_id, attempt, provider, model, request_hash, budget_scope, str(max_cost_usd), _now(), me))
         return int(cur.lastrowid), None
 
 
@@ -368,12 +456,20 @@ def recover_uncertain() -> int:
     response is already saved (the shutdown came between saving it and marking the call "succeeded"), the call becomes
     succeeded with the saved cost (failing that, with an unknown cost and the maximum committed), so repeating the step
     returns the saved response. 085 (re-audit A05): a saved cost above the reservation sets the same overrun lock as
-    the normal path. Returns the number of reservations that became uncertain."""
+    the normal path. 092: only the reservations of processes that have stopped; a running process (e.g. a command-line
+    measurement waiting for its answer) closes its own calls. Returns the number of reservations that became uncertain."""
     with store.connect() as c:
         c.commit()
         c.execute("BEGIN IMMEDIATE")
+        live = sorted(r["holder"] for r in c.execute(
+            "SELECT DISTINCT holder FROM invocations WHERE status IN ('reserved','uncertain') AND holder IS NOT NULL")
+            if _holder_alive(r["holder"]))
+        stopped = f" AND (holder IS NULL OR holder NOT IN ({','.join('?' * len(live))}))" if live else ""
+        if live:
+            log.info("%d running process(es) still hold reservations; their calls stay in progress", len(live))
         for r in c.execute("SELECT i.id, i.max_cost_usd, a.payload FROM invocations i JOIN artifacts a ON a.kind=?"
-                           " AND a.artifact_id=CAST(i.id AS TEXT) WHERE i.status IN ('reserved','uncertain')", (RESPONSE_KIND,)).fetchall():
+                           " AND a.artifact_id=CAST(i.id AS TEXT) WHERE i.status IN ('reserved','uncertain')"
+                           + stopped.replace("holder", "i.holder"), (RESPONSE_KIND, *live)).fetchall():
             saved = json.loads(r["payload"])
             cost = saved.get("cost_usd")
             overrun = cost is not None and Decimal(cost) > Decimal(r["max_cost_usd"])
@@ -384,7 +480,9 @@ def recover_uncertain() -> int:
                       " WHERE id=?",
                       (saved.get("model"), saved.get("input_tokens"), saved.get("output_tokens"), cost, int(cost is not None),
                        int(overrun), OVERRUN_NOTE, _now(), r["id"]))
-        return c.execute("UPDATE invocations SET status='uncertain' WHERE status='reserved'").rowcount
+        marked = c.execute("UPDATE invocations SET status='uncertain' WHERE status='reserved'" + stopped, live).rowcount
+    _remove_stopped_holder_files()
+    return marked
 
 
 def resolve_uncertain(invocation_id: int, *, cost_usd: Decimal | None, note: str) -> None:
@@ -392,7 +490,8 @@ def resolve_uncertain(invocation_id: int, *, cost_usd: Decimal | None, note: str
     or with the maximum still committed; afterwards the step can run with a new attempt.
     090 (audit N03): only an `uncertain` attempt, in one conditional write. A `reserved` one may still be in progress:
     releasing its maximum would let a second call spend the same budget while the first one can still finish and cost
-    money. An interrupted process's reservation becomes uncertain at the next worker start (`recover_uncertain`)."""
+    money. An interrupted process's reservation becomes uncertain at the next worker start (`recover_uncertain`), once
+    that process has stopped (092)."""
     with store.connect() as c:
         settled = c.execute(
             "UPDATE invocations SET status='failed', cost_usd=?, cost_known=?, note=?, error=COALESCE(error, 'uncertain_resolved'),"

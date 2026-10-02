@@ -80,6 +80,25 @@ def try_exclusive(path: Path) -> Iterator[bool]:
         f.close()
 
 
+def hold(path: Path) -> IO[bytes]:
+    """092: takes an exclusive lock for as long as the caller keeps the returned file open (normally the life of the
+    process; the operating system releases it when the process dies). `AlreadyRunning` if someone else holds it."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    f = open(path, "a+b")
+    if not _try_lock(f):
+        f.close()
+        raise AlreadyRunning(f"{path.name} is held by another process")
+    return f
+
+
+def release(f: IO[bytes]) -> None:
+    """092: lets go of a lock taken with `hold`."""
+    try:
+        _unlock(f)
+    finally:
+        f.close()
+
+
 def is_held(path: Path) -> bool:
     """Whether anyone holds the lock right now (the probe lock is released at once)."""
     if not path.exists():

@@ -8,7 +8,7 @@ the other tests' logs went there too. While the tests run, the log folder is tem
 import pytest
 
 from jav import gpt_choice
-from jav.runtime import applog
+from jav.runtime import applog, calls
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -28,3 +28,11 @@ def _no_live_gpt_choice():
 
     with gpt_choice.use_agent_factory(refuse):
         yield
+
+
+@pytest.fixture(autouse=True)
+def _release_call_holders():
+    """092: the holder locks a test's reservations took are let go after it, so that no lock file stays open in a
+    temporary folder and no test inherits another's holder."""
+    yield
+    calls.release_all_holders()
