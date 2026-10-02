@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "changelog": [
+   {
+    "version": "1.10.0",
+    "date": "2026-10-02",
+    "note": "086 (backlog F-jev, K4): band_for detect.doc_type.gpt and detect.detail_type.gpt = gpt_detect - the type recognised by GPT (processing without JEV) has its own band set, because its confidence comes from token log-probabilities, not from a calibrated JEV probability; the set starts empty (the default band's values, as for the JEV detection) and is tuned after the paid measurement"
+   },
    {
     "version": "1.0.0",
     "date": "2026-09-20",
@@ -74,7 +79,8 @@
   "high_stakes": {
    "choice_human_max_conf": 0.85
   },
-  "verify_flag": {}
+  "verify_flag": {},
+  "gpt_detect": {}
  },
  "band_for": {
   "invoice.pick": "default",
@@ -86,7 +92,9 @@
   "email.signal": "default",
   "invoice.pick.presence": "default",
   "email.urgency": "default",
-  "detect.detail_type": "default"
+  "detect.detail_type": "default",
+  "detect.doc_type.gpt": "gpt_detect",
+  "detect.detail_type.gpt": "gpt_detect"
  },
  "email": {
   "m2_types": [

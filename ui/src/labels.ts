@@ -170,6 +170,11 @@ export function reasonText(code: string): string {
     case "detect:no_type_pack": return t("Ehhez az irattípushoz nincs adatkinyerés ({{type}}); nézd meg kézzel", { type: docTypeLabel(p[2]) });
     case "detect_detail:low_conf": return t("Bizonytalan részletes típus: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
     case "detect_detail:second_option": return t("A részletes típusnál a második lehetőség is közel van: {{type}}", { type: docTypeLabel(p[2]) });
+    // 086: type recognition by GPT (processing without JEV)
+    case "detect:gpt_failed": return t("A GPT-s típusfelismerés nem sikerült ({{why}}); válaszd ki kézzel", { why: p[2] ?? "" });
+    case "detect:confidence_unavailable": return t("A típusfelismerés bizonyossága nem mérhető: {{type}}; ellenőrizd kézzel", { type: docTypeLabel(p[2]) });
+    case "detect_detail:gpt_failed": return t("A részletes típus GPT-s felismerése nem sikerült ({{why}}); válaszd ki kézzel", { why: p[2] ?? "" });
+    case "detect_detail:confidence_unavailable": return t("A részletes típus bizonyossága nem mérhető: {{type}}; ellenőrizd kézzel", { type: docTypeLabel(p[2]) });
     case "intent:low_conf": return t("Bizonytalan levél-szándék: {{intent}} ({{p}})", { intent: intentLabel(p[2]), p: v });
     case "intent:no_result": return t("A levél szándékát nem sikerült felismerni");
     // 073: task proposals from an e-mail (jav/flow_email.py); until now these showed the raw code

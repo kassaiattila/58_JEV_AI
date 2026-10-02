@@ -55,6 +55,8 @@ class DetectResult(BaseModel):
     parent: str | None = None  # family of the most probable type (registry v2), summed in code
     parent_prob: float = 0.0  # summed probability of the family - parent label at low confidence (policy decides)
     call: JevCall
+    engine: str = "jev"  # 086: "jev" (this module) or "gpt" (`jav/detect_gpt.py`, processing without JEV)
+    measured: bool = True  # 086: False = the confidence could not be measured (GPT without log-probabilities)
 
     @model_validator(mode="after")
     def _fill_parent(self) -> "DetectResult":

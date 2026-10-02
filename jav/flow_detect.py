@@ -34,6 +34,7 @@ class DetectState(BaseModel):
     read_path: str | None = None  # where the bytes are read from (the source instance); None: `source_path`
     run_id: str = ""
     use_cache: bool = True
+    jev: bool = True  # 086: False = processing without JEV, the type is recognised by GPT (`jav/detect_gpt.py`)
     doc_id: str = ""
     text: str = ""
     lines: list[str] = Field(default_factory=list)
@@ -105,7 +106,7 @@ def ocr_pdf(state: DetectState) -> DetectState:
     return state
 
 
-@action.pydantic(reads=["source_path", "text", "lines", "layout", "page_count", "run_id", "use_cache", "review_reasons"],
+@action.pydantic(reads=["source_path", "text", "lines", "layout", "page_count", "run_id", "use_cache", "jev", "review_reasons"],
                  writes=["result", "uncertain", "review_reasons", "detail", "detail_reasons"])
 def detect(state: DetectState) -> DetectState:
     from jav.adapters.jev import JevUnavailableError, get_adapter
@@ -113,6 +114,8 @@ def detect(state: DetectState) -> DetectState:
     from jav.pdf import PdfText
 
     pdf = PdfText(path=state.source_path, text=state.text, lines=state.lines, layout=state.layout, page_count=state.page_count, has_text_layer=True)
+    if not state.jev:
+        return _detect_gpt(state, pdf)
     try:
         state.result = _detect(get_adapter(), pdf, state.source_path, run_id=state.run_id, use_cache=state.use_cache)
     except JevUnavailableError as exc:  # JEV unavailable (ledgered): no type, manual queue; a later scan reruns it
@@ -127,32 +130,61 @@ def detect(state: DetectState) -> DetectState:
     return state
 
 
-def _resolve_detail(state: DetectState, jev) -> None:
+def _detect_gpt(state: DetectState, pdf) -> DetectState:
+    """086: the type recognised by GPT (processing without JEV). A failed call (no budget, provider error) is a to-do,
+    not the end of the item; an unmeasurable confidence makes the type uncertain."""
+    from jav.detect_gpt import choose_detail, detect as _detect
+
+    try:
+        state.result = _detect(pdf, state.source_path, run_id=state.run_id)
+    except Exception as exc:  # noqa: BLE001 - an error is a to-do, not the end of the flow (as on the G path)
+        state.result = None
+        state.uncertain = True
+        state.review_reasons = state.review_reasons + [f"detect:gpt_failed:{type(exc).__name__}"]
+        return state
+    r = state.result
+    state.uncertain = (not r.measured or r.doc_type == "unknown"
+                       or policy.choice_needs_review(r.confidence, r.probabilities, "detect.doc_type.gpt"))
+    if r.doc_type != "unknown":
+        _resolve_detail(state, None, chooser=choose_detail)
+    return state
+
+
+def _resolve_detail(state: DetectState, jev, chooser=None) -> None:
     """047 T1.2: the detailed type (`jav/detect_detail.py`). An open or uncertain detailed type is a to-do alongside
-    the detection's own reasons; a JEV outage does not stop the process here either."""
+    the detection's own reasons; a JEV outage does not stop the process here either. `chooser` (086): the GPT
+    question for processing without JEV; its failure is a to-do too."""
     from jav.adapters.jev import JevUnavailableError
     from jav.detect_detail import resolve
 
     broad = state.result.doc_type
     try:
-        d = resolve(broad, state.text, jev=jev, run_id=state.run_id, use_cache=state.use_cache)
+        d = resolve(broad, state.text, jev=jev, run_id=state.run_id, use_cache=state.use_cache, chooser=chooser)
     except JevUnavailableError as exc:
         d = DetailResult(broad=broad, key=None, method="no_jev")
         state.detail_reasons = [f"jev_unavailable:{exc.reason}"]
+    except Exception as exc:  # noqa: BLE001 - only the GPT chooser gets here (no JEV): a to-do, the item goes on
+        if chooser is None:
+            raise
+        d = DetailResult(broad=broad, key=None, method="gpt")
+        state.detail_reasons = [f"detect_detail:gpt_failed:{type(exc).__name__}"]
     state.detail = d
     if d.method == "no_candidate":  # 069: no type pack for the category (payment reminder, unknown): no extraction
         state.detail_reasons = state.detail_reasons + [f"detect:no_type_pack:{broad}"]
         return
     if d.key is None:
         state.detail_reasons = state.detail_reasons + [f"detect:detail_open:{broad}"]
-    elif d.method == "jev":
-        reason = policy.choice_review_reason("detect_detail", d.key, d.confidence or 0.0, d.probabilities, "detect.detail_type")
+    elif d.method == "gpt" and d.confidence is None:
+        state.detail_reasons = state.detail_reasons + [f"detect_detail:confidence_unavailable:{d.key}"]
+    elif d.method in ("jev", "gpt"):
+        band = "detect.detail_type" if d.method == "jev" else "detect.detail_type.gpt"
+        reason = policy.choice_review_reason("detect_detail", d.key, d.confidence or 0.0, d.probabilities, band)
         if reason:
             state.detail_reasons = state.detail_reasons + [reason]
 
 
 @action.pydantic(reads=["doc_id", "source_path", "has_text_layer", "text_source", "page_count", "year", "result", "run_id", "uncertain",
-                        "review_reasons", "detail", "detail_reasons"], writes=["final_status"])
+                        "review_reasons", "detail", "detail_reasons", "jev"], writes=["final_status"])
 def save(state: DetectState) -> DetectState:
     r, d = state.result, state.detail
     store.upsert_document(
@@ -169,9 +201,11 @@ def save(state: DetectState) -> DetectState:
     elif d is not None:
         store.review_close(subject_kind="document", subject_id=state.doc_id, producer="detect_detail", run_id=state.run_id)
     if state.uncertain and r is not None:
+        # 086: a GPT answer without log-probabilities has no measured confidence: say so, do not report a low one
+        reason = f"detect:low_conf:{r.doc_type}:{r.confidence:.2f}" if r.measured else f"detect:confidence_unavailable:{r.doc_type}"
         store.review_enqueue(
             subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer="detect",
-            reasons=[f"detect:low_conf:{r.doc_type}:{r.confidence:.2f}"],
+            reasons=[reason],
             payload={"probabilities": r.probabilities, "issuer_hu": r.issuer_hu, "language": r.language,
                      "parent": policy.parent_fallback(r.confidence, r.parent, r.parent_prob, "detect.doc_type", r.probabilities), "parent_prob": r.parent_prob},
         )
@@ -188,7 +222,7 @@ def save(state: DetectState) -> DetectState:
         store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer="ocr_coverage", reasons=coverage)
     else:
         store.review_close(subject_kind="document", subject_id=state.doc_id, producer="ocr_coverage", run_id=state.run_id)
-    state.final_status = "done" if r is not None else "jev_unavailable"
+    state.final_status = "done" if r is not None else ("jev_unavailable" if state.jev else "gpt_unavailable")
     return state
 
 
@@ -225,7 +259,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
     "step_meta": {
         "load_pdf": {"kind": "det", "note": "pdfplumber szó-szintű rekonstrukció, sha256 doc_id, év-hint a mappából; szövegréteg-teszt"},
         "ocr_pdf": {"kind": "det", "note": "szöveg nélküli PDF: OCR (jav/ocr.py: oldalkép + tesseract, natív / régi sidecar-kép, lemez-gyorsítótár) ugyanarra az elrendezésre; minőségjelek a state-ben"},
-        "detect": {"kind": "jev", "note": "egy kérés, három ítélet: Choice doc_type (regiszter + unknown), Noul issuer_is_hungarian, Choice language; anchor-találatok feature-ként; utána részletes típus a kategória csomagjai közül (jav/detect_detail.py: régi horgony-pontszám, szükség esetén JEV Choice)"},
+        "detect": {"kind": "jev", "note": "egy kérés, három ítélet: Choice doc_type (regiszter + unknown), Noul issuer_is_hungarian, Choice language; anchor-találatok feature-ként; utána részletes típus a kategória csomagjai közül (jav/detect_detail.py: régi horgony-pontszám, szükség esetén JEV Choice). Without JEV: the same three questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/detect_gpt.py); a failed call is a detect:gpt_failed to-do"},
         "save": {"kind": "store", "note": "documents tábla (részletes típus is; nyitva maradt részletes típus = detect_detail teendő; a típuscsomag nélküli kategória is); conf < policy.detect.low_confidence -> review_queue (okonként, additív), különben a detect saját korábbi okai zárulnak"},
         "done": {"kind": "terminal", "note": "kategorizálva"},
         "needs_ocr": {"kind": "terminal", "note": "szöveg nélküli / törött szövegrétegű PDF, és az OCR sem adott szöveget (vagy nincs motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja"},
@@ -236,12 +270,12 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
 
 
 def build_app(source_path: str, *, tracker: bool = False, use_cache: bool = True, run_id: str | None = None,
-              persister=None, read_path: str | None = None) -> Application:
+              persister=None, read_path: str | None = None, jev: bool = True) -> Application:
     """`persister` (040 K1): durable state persistence, resuming under the same `run_id`; without it, the earlier
     behaviour. `read_path`: the document's bytes are read from here (its source instance); everything else uses
-    `source_path`."""
+    `source_path`. `jev=False` (086): the type is recognised by GPT, JEV is never asked."""
     run_id = run_id or f"detect-{Path(source_path).stem[:24]}-{uuid.uuid4().hex[:8]}"
-    initial = DetectState(source_path=source_path, read_path=read_path, run_id=run_id, use_cache=use_cache)
+    initial = DetectState(source_path=source_path, read_path=read_path, run_id=run_id, use_cache=use_cache, jev=jev)
     b = (
         ApplicationBuilder()
         .with_typing(PydanticTypingSystem(DetectState))
@@ -260,9 +294,10 @@ def build_app(source_path: str, *, tracker: bool = False, use_cache: bool = True
 
 
 def run_detect(source_path: str, *, tracker: bool = False, use_cache: bool = True, run_id: str | None = None,
-               read_path: str | None = None) -> DetectState:
+               read_path: str | None = None, jev: bool = True) -> DetectState:
     """`run_id` (065): when called from another process, logs and records to-dos under that process's identifier.
-    `read_path`: the bytes are read from here (a source instance); the file name and the stored path stay `source_path`."""
-    app = build_app(source_path, tracker=tracker, use_cache=use_cache, run_id=run_id, read_path=read_path)
+    `read_path`: the bytes are read from here (a source instance); the file name and the stored path stay `source_path`.
+    `jev=False` (086): GPT recognises the type."""
+    app = build_app(source_path, tracker=tracker, use_cache=use_cache, run_id=run_id, read_path=read_path, jev=jev)
     _, _, state = app.run(halt_after=TERMINALS)
     return state.data
