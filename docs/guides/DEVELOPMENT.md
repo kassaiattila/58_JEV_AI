@@ -40,7 +40,7 @@ Types: `feat` (new capability), `fix` (bug), `refactor` (no behaviour change), `
 
 - **Language:** commit and tag messages are in English (since 2026-09-30). Earlier commits with Hungarian messages are not rewritten.
 - One commit is one logical change. Its tests and codebase documentation go into the same commit; internal working documents are updated locally, without a commit.
-- Before a commit: `python -m jav.cli preflight --skip-pytest` and the affected tests (`pytest tests/test_<x>.py`). Before a merge: the full `preflight`.
+- Before a commit: `python -m jav.cli preflight --skip-pytest` and the affected tests (`pytest tests/test_<x>.py`). Before a merge: the full `preflight`. The full check keeps the raw pytest output and a JUnit file of each run under `runs/preflight/<timestamp>/` (the latest 20); on a failure its summary names the folder, so an intermittent failure can still be looked up.
 - **Never in git:** `.env`, `runs/`, `store/`, `inbox/`, OCR language data, real documents or emails. New tests need **synthetic or anonymised** data. A test that needs check-digit patterns (tax number, IBAN) computes them at run time, or the made-up value goes onto the `allow` list in `configs/data_guard.json`; the data guard (§1) checks this before the commit.
 - Any further remote repository is added only after an explicit decision by the owner.
 
