@@ -11,6 +11,7 @@
  "A futó egyenleg megszakad": "The running balance is broken",
  "A levél szándékát nem sikerült felismerni": "The email's intent could not be recognised",
  "A modell nem támasztja alá: {{field}}": "Not supported by the model: {{field}}",
+ "A kinyert érték nem szerepel az iratban: {{field}}": "The extracted value is not printed on the document: {{field}}",
  "A nettó, ÁFA vagy bruttó összeg hiányzik": "The net, VAT or gross amount is missing",
  "A nyitó egyenleg + tranzakciók nem adják ki a záró egyenleget": "Opening balance + transactions do not add up to the closing balance",
  "A nyitó egyenleg nem értelmezhető": "The opening balance cannot be parsed",

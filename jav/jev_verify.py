@@ -291,9 +291,9 @@ class VerifySite:
             q[name] = self._noul(name)
         return q
 
-    def verify(
-        self, jev: JevAdapter, lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, run_id: str = "adhoc", use_cache: bool = True
-    ) -> tuple[JevVerdicts, JevCall]:
+    def code_evidence(self, lines: list[LineLayout], llm: BaseModel | dict[str, Any]) -> tuple[dict[str, list[str]], list[str]]:
+        """The code's own source check, before any JEV question (085: also the whole check of the G path without JEV):
+        (the lines each extracted value is printed on, the fields whose value is printed nowhere)."""
         d = _as_dict(llm)
         evidence: dict[str, list[str]] = {}
         unsupported: list[str] = []
@@ -308,6 +308,13 @@ class VerifySite:
                 evidence[field] = hits
             else:
                 unsupported.append(field)
+        return evidence, unsupported
+
+    def verify(
+        self, jev: JevAdapter, lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, run_id: str = "adhoc", use_cache: bool = True
+    ) -> tuple[JevVerdicts, JevCall]:
+        d = _as_dict(llm)
+        evidence, unsupported = self.code_evidence(lines, d)
 
         questions = self.build_questions(d, evidence)
         full_state = {
@@ -342,6 +349,13 @@ class VerifySite:
 @lru_cache(maxsize=None)
 def site_for(pack_key: str) -> VerifySite:
     return VerifySite(get_pack(pack_key))
+
+
+def code_verdicts(lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, pack: TypePack) -> JevVerdicts:
+    """085: the verdicts of the code's own source check alone (no JEV question, no flags): the G path without JEV, and
+    the fallback when JEV is unavailable, so that a value printed nowhere still opens a to-do."""
+    _evidence, unsupported = site_for(pack.key).code_evidence(lines, llm)
+    return JevVerdicts(unsupported=unsupported, source="code")
 
 
 # --- compatible module-level names: the Hungarian invoice's call site -------------------------------------------

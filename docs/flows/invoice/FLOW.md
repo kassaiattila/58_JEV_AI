@@ -14,6 +14,7 @@
 - **jev_select** _(jev)_ — S-kar: kötegelt Choice-kérések (parties / header / money) a csomag select-hívási helyéről, fókuszált state, none mindig opció, jelenlét-Noul mezőnként (jelölt nélkül is, a vizsgált nem kötelező mezőkre, csak meglévő kérésben)
 - **extract_llm** _(llm)_ — G-kar: gpt kivonat a csomag régi promptjával + sémájával (Pydantic AI), az egyetlen generatív lépés
 - **jev_verify** _(jev)_ — G-kar: evidencia-illesztés kódban (unsupported), majd Noul fan-out egy kérésben (off_target, wrong_kind, incomplete, absence_wrong, parties_swapped, tételsorok) a csomag verify-hívási helyéről
+- **code_verify** _(det)_ — the G path without JEV: the code's own source check only (every extracted value must be printed on the document, otherwise a source:not_found to-do); no JEV question
 
 ### normalize
 - **normalize_picks** _(det)_ — S-kar: label -> típusos érték a csomag mező-fajtái szerint (Decimal, date), kód-oldali konzisztencia-okok
@@ -49,6 +50,7 @@ flowchart TD
     jev_select["jev_select (jev)"]
     extract_llm["extract_llm (llm)"]
     jev_verify["jev_verify (jev)"]
+    code_verify["code_verify (det)"]
   end
   subgraph ph_normalize["normalize"]
     normalize_picks["normalize_picks (det)"]
@@ -76,9 +78,11 @@ flowchart TD
   find_candidates --> jev_select
   jev_select --> normalize_picks
   normalize_picks --> validate
+  extract_llm -->|extract, without JEV| code_verify
   extract_llm -->|van kivonat| jev_verify
   extract_llm -->|LLM-hiba| decide_route
   jev_verify --> normalize_llm
+  code_verify --> normalize_llm
   normalize_llm --> validate
   validate --> decide_route
   decide_route --> ground

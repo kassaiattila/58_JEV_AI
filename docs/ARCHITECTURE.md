@@ -75,6 +75,8 @@ the JEV call-site catalogue and the state snapshot (local, generated from the st
      load_pdf [→ ocr_pdf], then
      S: find_candidates (code) → jev_select (JEV Choice, 3 batched requests) → normalize_picks
      G: extract_llm (gpt, Pydantic AI) → jev_verify (code evidence + JEV Noul fan-out) → normalize_llm
+        without JEV: extract_llm → code_verify (code evidence only; a value printed nowhere → source:not_found)
+        → normalize_llm; when JEV is unavailable, jev_verify keeps the code evidence and the required-field check
      both → validate (code) → decide_route (policy) → ground (code) → save → done | needs_review
 ```
 

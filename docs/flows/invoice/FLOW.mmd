@@ -8,6 +8,7 @@ flowchart TD
     jev_select["jev_select (jev)"]
     extract_llm["extract_llm (llm)"]
     jev_verify["jev_verify (jev)"]
+    code_verify["code_verify (det)"]
   end
   subgraph ph_normalize["normalize"]
     normalize_picks["normalize_picks (det)"]
@@ -35,9 +36,11 @@ flowchart TD
   find_candidates --> jev_select
   jev_select --> normalize_picks
   normalize_picks --> validate
+  extract_llm -->|extract, without JEV| code_verify
   extract_llm -->|van kivonat| jev_verify
   extract_llm -->|LLM-hiba| decide_route
   jev_verify --> normalize_llm
+  code_verify --> normalize_llm
   normalize_llm --> validate
   validate --> decide_route
   decide_route --> ground
