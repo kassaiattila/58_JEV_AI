@@ -83,14 +83,25 @@ def datapoints_row(run_id: str, item_id: str) -> dict[str, Any] | None:
 def review_version(run_id: str, c: sqlite3.Connection | None = None) -> str:
     """085 (re-audit A01): the version of a run's reviewed result, from the latest correction version of each item. The
     machine result of a finished run does not change, so the corrections (confirmations included) are what can change
-    under a reviewer. `c`: read inside the caller's transaction (the approval)."""
+    under a reviewer. `c`: read inside the caller's transaction (the approval).
+
+    086 (audit of 2026-10-02, N02): the decisions on an email's task proposals are part of the reviewed result too (the
+    flow runs of a run are `<run_id>:<item_id>`). A run without task decisions keeps the version computed as before."""
     query = "SELECT item_id, MAX(revision) r FROM run_item_corrections WHERE run_id=? GROUP BY item_id ORDER BY item_id"
+    tasks_query = ("SELECT run_id, task_index, decision FROM email_task_decisions WHERE substr(run_id, 1, ?) = ?"
+                   " ORDER BY run_id, task_index")
+    prefix = f"{run_id}:"
     if c is None:
         with store.connect() as own:
             rows = own.execute(query, (run_id,)).fetchall()
+            decisions = own.execute(tasks_query, (len(prefix), prefix)).fetchall()
     else:
         rows = c.execute(query, (run_id,)).fetchall()
-    return hashlib.sha256(json.dumps([[r["item_id"], r["r"]] for r in rows]).encode("utf-8")).hexdigest()[:16]
+        decisions = c.execute(tasks_query, (len(prefix), prefix)).fetchall()
+    payload: Any = [[r["item_id"], r["r"]] for r in rows]
+    if decisions:
+        payload = {"corrections": payload, "tasks": [[d["run_id"], d["task_index"], d["decision"]] for d in decisions]}
+    return hashlib.sha256(json.dumps(payload).encode("utf-8")).hexdigest()[:16]
 
 
 def current(run_id: str, item_id: str) -> dict[str, Any]:

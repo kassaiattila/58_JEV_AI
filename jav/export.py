@@ -77,14 +77,16 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
 
 def _email_subjects(items: list[dict[str, Any]]) -> dict[str, str]:
     """Subjects of the attachments' parent emails (only if the run has attachments)."""
+    from jav.emails import message_version
+
     parents = {i.get("parent_item_id") for i in items if i.get("parent_item_id")}
     out = {}
     for i in items:
         if i["item_id"] in parents:
-            try:
-                out[i["item_id"]] = json.loads(Path(i["source_path"]).read_text(encoding="utf-8")).get("subject") or "(tárgy nélkül)"
-            except (OSError, ValueError):
-                out[i["item_id"]] = "(a levél nem olvasható)"
+            msg, status = message_version(i)  # 086 N04: the version the run processed
+            # data (a cell of the download), not a label
+            out[i["item_id"]] = ("(a levél futáskori változata nem található)" if status == "changed"
+                                 else msg.get("subject") or ("(tárgy nélkül)" if msg else "(a levél nem olvasható)"))
     return out
 
 
@@ -100,10 +102,7 @@ def email_records(run_id: str) -> list[dict[str, Any]]:
         if item.get("kind") != "email":
             continue
         path = Path(item["source_path"])
-        try:
-            msg = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            msg = {}
+        msg, source_status = emails.message_version(item)  # 086 N04: the version the run processed, not the latest
         raw, own = mailbox.email_result_for(work.flow_run_id(run_id, item["item_id"]), path.parent.name)
         corr = corrections.current(run_id, item["item_id"])
         res = mailbox.effective_email_result(raw, corr["fields"].get("intent")) if raw is not None else {}
@@ -119,7 +118,8 @@ def email_records(run_id: str) -> list[dict[str, Any]]:
                     "corrected": bool(res.get("corrected")), "next_flow": res.get("next_flow"),
                     "attachments": res.get("attachments") or [], "from_this_run": own, "body": body,
                     "open_reasons": [r["reason"] for r in work.item_reasons(run_id, item["item_id"], item)["run"]],
-                    "tasks": mailbox.task_view(work.flow_run_id(run_id, item["item_id"]), raw) if own else None})
+                    "tasks": mailbox.task_view(work.flow_run_id(run_id, item["item_id"]), raw) if own else None,
+                    "source_status": source_status})
     return out
 
 

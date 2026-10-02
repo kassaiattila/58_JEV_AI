@@ -48,11 +48,17 @@ export function ResultStage({ view, table, runId, onChanged }: {
   const current: ResultTable = table && available.some((x) => x.key === table) ? table : defaultResultTable(available.map((x) => x.key));
   const nav = (next: { table?: ResultTable; runId?: string }) =>
     go({ view: "workpackages", wpId: wp.id, stage: "result", table: next.table ?? current, runId: next.runId ?? runId });
+  // 086 (audit N01): the approval names the version of the result the table on screen shows; after a conflict the
+  // table is loaded again, and until it has arrived there is nothing to approve
+  const [reloads, setReloads] = useState(0);
+  const [shown, setShown] = useState<{ table: string; version?: string } | null>(null);
 
   if (!chosen) {
     return <div className="empty">{t("Még nincs eredmény: előbb futtasd a csomagot a")} <a href={`#/workpackages/${wp.id}/process`}>{t("Feldolgozás")}</a> {t("szakaszban.")}</div>;
   }
   const spec = TABLES.find((x) => x.key === current) ?? TABLES[1];
+  const tableId = `${spec.dataset}:${chosen}:${reloads}`;
+  const tableVersion = shown?.table === tableId ? shown.version ?? null : undefined; // undefined: not loaded yet
   return (
     <div className="stage-stack">
       <div className="result-bar">
@@ -68,11 +74,13 @@ export function ResultStage({ view, table, runId, onChanged }: {
         <span className="dt-spacer" />
         <a className="secondary dl-btn small-btn" href={api.exportUrl(chosen, "xlsx")} download><Icon name="download" />{t("Teljes Excel-csomag")}</a>
       </div>
-      <Approval runId={chosen} onChanged={onChanged} />
+      <Approval runId={chosen} onChanged={onChanged} hasTable={available.length > 0} tableVersion={tableVersion}
+        onConflict={() => setReloads((n) => n + 1)} />
       {run.data && !available.length ? <p className="notice">{t("Ennek a futásnak nincs irat-eredménye (például csak leveleket dolgozott fel).")}</p> : null}
       {current === "utility" ? <UtilityPanel runId={chosen} wpId={wp.id} /> : null}
       {current === "file_names" ? <NamedCopiesBar runId={chosen} /> : null}
-      {available.length ? <DataTable key={`${spec.dataset}:${chosen}`} dataset={spec.dataset} scope={{ run_id: chosen }} label={TABLE_LABEL[spec.key]} selectable
+      {available.length ? <DataTable key={tableId} dataset={spec.dataset} scope={{ run_id: chosen }} label={TABLE_LABEL[spec.key]} selectable
+        onPage={(page) => setShown({ table: tableId, version: page.review_version })}
         storageId={`result-${spec.dataset}`}
         // proposed next step in the chosen language (the local service gives the code; search uses the Hungarian label)
         cell={spec.key === "emails" ? (col, row) => (col.key === "next_flow" ? nextFlowText(row.next_flow as string | null) : undefined) : undefined}
@@ -120,8 +128,13 @@ export function NamedCopiesBar({ runId }: { runId: string }) {
   );
 }
 
-/** Releasing the run: a person approves the live run, once it has finished, with no open to-dos. */
-function Approval({ runId, onChanged }: { runId: string; onChanged: () => void }) {
+/** Releasing the run: a person approves the live run, once it has finished, with no open to-dos.
+ *  086 (audit N01): with a result table on screen the approval names the version of the result that table shows
+ *  (`tableVersion`; undefined while it loads, so there is nothing to approve yet); a conflict loads the table again
+ *  (`onConflict`). Without a table, the run's version. */
+function Approval({ runId, onChanged, hasTable, tableVersion, onConflict }: {
+  runId: string; onChanged: () => void; hasTable: boolean; tableVersion: string | null | undefined; onConflict: () => void;
+}) {
   useLocale();
   const run = useRunView(runId);
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
@@ -129,20 +142,24 @@ function Approval({ runId, onChanged }: { runId: string; onChanged: () => void }
   if (!run.data) return null;
   const r = run.data.run;
   const open = Object.values(run.data.open_reasons).reduce((n, x) => n + x.length, 0);
+  const loading = hasTable && tableVersion === undefined;
+  const version = hasTable && tableVersion ? tableVersion : run.data.review_version;
 
   async function approve() {
     setBusy(true);
     setMsg(null);
     try {
-      await api.approve(runId, run.data?.review_version);
+      await api.approve(runId, version);
       setMsg({ error: false, text: t("Jóváhagyva: az eredmény kiadható.") });
       run.reload();
       onChanged();
     } catch (e) {
       const err = e as ApiError;
       if (err.status === 409) {
-        // 085: a correction was saved since this page loaded (e.g. in another tab): the new state has to be seen first
+        // 085: a correction was saved since this page loaded (e.g. in another tab): the new state has to be seen first;
+        // 086: the table is loaded again, and the approval waits for it
         setMsg({ error: true, text: t("Az eredmény a megtekintés óta változott (valaki javított rajta). Nézd át újra, majd hagyd jóvá.") });
+        onConflict();
         run.reload();
         return;
       }
@@ -163,7 +180,7 @@ function Approval({ runId, onChanged }: { runId: string; onChanged: () => void }
           : open ? t("Még {{n}} nyitott teendő van; jóváhagyás előtt rendezd őket az Ellenőrzés szakaszban.", { n: open })
             : t("Az éles futás még nem zárult le.")}
       </span>
-      <ConfirmButton className="primary" disabled={busy || r.status !== "done"} onConfirm={() => void approve()}>{t("Jóváhagyás és kiadás")}</ConfirmButton>
+      <ConfirmButton className="primary" disabled={busy || loading || r.status !== "done"} onConfirm={() => void approve()}>{t("Jóváhagyás és kiadás")}</ConfirmButton>
       {msg ? <span role="status" className={msg.error ? "error-text" : ""}>{msg.text}</span> : null}
     </div>
   );

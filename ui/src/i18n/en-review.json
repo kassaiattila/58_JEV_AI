@@ -105,6 +105,8 @@
   "Érkezett": "Received",
   "Csatolmány": "Attachment",
   "(üres levél)": "(empty email)",
+  "A levélnek az a változata, amelyet ez a tétel feldolgozott, már nem található; ezért a szövege nem jeleníthető meg.": "The version of the email this item processed can no longer be found, so its text cannot be shown.",
+  "Ez a levél azóta módosult tartalommal újra beérkezett; itt a feldolgozott változata látszik.": "This email has since arrived again with a changed content; the version that was processed is shown here.",
   "Szándék és teendők": "Intent and to-dos",
   "Ebben a futásban nincs nyitott teendő ezen a levélen.": "There are no open to-dos for this email in this run.",
   "Felismert szándék": "Detected intent",

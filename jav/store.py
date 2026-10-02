@@ -482,16 +482,25 @@ def upsert_email_result(*, run_id: str, message_id: str, intent: str | None, int
                    _json(attachments), _json(body) if body is not None else None, _json(tasks) if tasks is not None else None, _now()))
 
 
-def email_task_decide(run_id: str, index: int, *, decision: str, actor: str, note: str | None) -> None:
+def email_task_decide(run_id: str, index: int, *, decision: str, actor: str, note: str | None,
+                      c: sqlite3.Connection | None = None) -> None:
+    """`c` (086, audit N02): write inside the caller's transaction (which checks the approval first)."""
     if decision not in ("accepted", "rejected"):
         raise ValueError(f"unknown decision: {decision}")
-    with connect() as c:
-        c.execute("INSERT INTO email_task_decisions(run_id, task_index, decision, actor, note, decided_at) VALUES (?,?,?,?,?,?)"
-                  " ON CONFLICT(run_id, task_index) DO UPDATE SET decision=excluded.decision, actor=excluded.actor,"
-                  " note=excluded.note, decided_at=excluded.decided_at,"
-                  # 062: rejecting also clears the done mark (only an accepted task can be done)
-                  " done_by=CASE WHEN excluded.decision='accepted' THEN done_by END,"
-                  " done_at=CASE WHEN excluded.decision='accepted' THEN done_at END", (run_id, index, decision, actor, note, _now()))
+    if c is None:
+        with connect() as own:
+            _email_task_decide(own, run_id, index, decision=decision, actor=actor, note=note)
+    else:
+        _email_task_decide(c, run_id, index, decision=decision, actor=actor, note=note)
+
+
+def _email_task_decide(c: sqlite3.Connection, run_id: str, index: int, *, decision: str, actor: str, note: str | None) -> None:
+    c.execute("INSERT INTO email_task_decisions(run_id, task_index, decision, actor, note, decided_at) VALUES (?,?,?,?,?,?)"
+              " ON CONFLICT(run_id, task_index) DO UPDATE SET decision=excluded.decision, actor=excluded.actor,"
+              " note=excluded.note, decided_at=excluded.decided_at,"
+              # 062: rejecting also clears the done mark (only an accepted task can be done)
+              " done_by=CASE WHEN excluded.decision='accepted' THEN done_by END,"
+              " done_at=CASE WHEN excluded.decision='accepted' THEN done_at END", (run_id, index, decision, actor, note, _now()))
 
 
 def email_task_done(run_id: str, index: int, *, actor: str, done: bool) -> bool:

@@ -718,9 +718,21 @@ def _remember(key: tuple, fp: str, value: Any) -> None:
 
 
 def query(name: str, scope: dict[str, str] | None, q: Query) -> dict[str, Any]:
+    """086 (audit of 2026-10-02, N01): a run's table carries the version of the reviewed result it shows
+    (`review_version`), so the approval names exactly what the approver saw. The version is read before the rows: the
+    rows are never older than it (the cache is keyed by a fingerprint of the same corrections and decisions), and rows
+    newer than it make the approval fail with a conflict, the safe side."""
+    version = None
+    if scope and scope.get("run_id"):
+        from jav import corrections
+
+        version = corrections.review_version(scope["run_id"])
     cols, all_rows = rows(name, scope)
     ds = get(name)
-    return work_views.jsonable({"dataset": ds.spec(), **run_query(cols, all_rows, q)})
+    page = {"dataset": ds.spec(), **run_query(cols, all_rows, q)}
+    if version is not None:
+        page["review_version"] = version
+    return work_views.jsonable(page)
 
 
 # --- download ---------------------------------------------------------------------------------------------------

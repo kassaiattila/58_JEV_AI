@@ -14,6 +14,7 @@ JEV sees the CLEANED body verbatim (Hungarian as is).
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -190,6 +191,36 @@ def load_message_dir(folder: str | Path) -> EmailMessage:
         body=meta.get("body") or meta.get("body_preview") or "",
         attachments=atts,
     )
+
+
+def _file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def message_version(item: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    """086 (audit of 2026-10-02, N04): an email item's message as it was when the item was added - the version whose
+    fingerprint the item recorded (`sha256`). The receiver keeps an earlier version as `message.v<N>.json` when the
+    same email arrives again with a changed content, and writes the new one to `message.json`.
+
+    Returns (message, status): `current` (`message.json` is that version), `earlier` (the email changed since; an
+    earlier version file is that version), `changed` (no file is that version: an empty message, never another
+    version's text), `unknown` (an item without a fingerprint, or an unreadable file: `message.json` as before, or
+    empty)."""
+    path = Path(item["source_path"])
+    expected = item.get("sha256")
+    if not expected:
+        try:
+            return json.loads(path.read_text(encoding="utf-8")), "unknown"
+        except (OSError, ValueError):
+            return {}, "unknown"
+    candidates = [(path, "current"), *((p, "earlier") for p in sorted(path.parent.glob("message.v*.json"), reverse=True))]
+    for candidate, status in candidates:
+        try:
+            if candidate.is_file() and _file_sha256(candidate) == expected:
+                return json.loads(candidate.read_text(encoding="utf-8")), status
+        except (OSError, ValueError):
+            continue  # an unreadable version is not the one; the next candidate is checked
+    return {}, "changed"
 
 
 def iter_inbox(root: str | Path) -> list[Path]:
