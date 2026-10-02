@@ -25,6 +25,7 @@ truth for reservations and resumability.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from contextlib import contextmanager
@@ -103,6 +104,7 @@ class Result:
     response: Any
     invocation_id: int
     replayed: bool
+    reused_from: int | None = None  # 090: the earlier call whose answer was reused (another run, the same question)
 
 
 def _now() -> str:
@@ -111,16 +113,18 @@ def _now() -> str:
 
 @dataclass(frozen=True)
 class RunContext:
-    """Set by the worker for an item of a run: the provider adapters then call through the call log and the budget."""
+    """Set by the worker for an item of a run: the provider adapters then call through the call log and the budget.
+    `reuse` (090): the run's "earlier answers" setting allows reusing an earlier answer to the same question."""
     budget_scope: str | None
+    reuse: bool = False
 
 
 _context: ContextVar[RunContext | None] = ContextVar("jav_run_context", default=None)
 
 
 @contextmanager
-def use_run(*, budget_scope: str | None):
-    token = _context.set(RunContext(budget_scope=budget_scope))
+def use_run(*, budget_scope: str | None, reuse: bool = False):
+    token = _context.set(RunContext(budget_scope=budget_scope, reuse=reuse))
     try:
         yield
     finally:
@@ -238,9 +242,42 @@ def budget_usage(scope: str) -> dict[str, Any]:
         return {"scope": scope, "committed_usd": _committed(c, scope), "providers": per}
 
 
+REUSED_NOTE = "reused_answer"  # 090: `reused_answer:<id of the call whose answer was reused>`
+
+
+def answer_key(provider: str, model: str | None, *parts: str) -> str:
+    """090: the fingerprint of a question for reusing an earlier answer: the provider, the configured model and every
+    text that shapes the answer (instructions, output schema, settings, the document). A change to any of them asks
+    again. The configured model name counts: a model behind an unchanged name is not told apart."""
+    return hashlib.sha256(json.dumps([provider, model, *parts], ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def _reuse_earlier(c, *, run_id: str, step_id: str, attempt: int, provider: str, model: str | None,
+                   request_hash: str, budget_scope: str | None) -> tuple[int, int, Any] | None:
+    """090: the latest succeeded answer of another call to the same question, copied as this step's answer (cost 0,
+    noted with its origin, the saved response beside it so that the step replays within its run); None if there is
+    none. Runs inside the reservation's transaction."""
+    hit = c.execute("SELECT i.id, i.model_actual, a.payload FROM invocations i JOIN artifacts a ON a.kind=?"
+                    " AND a.artifact_id=CAST(i.id AS TEXT) WHERE i.provider=? AND i.request_hash=? AND i.status='succeeded'"
+                    " ORDER BY i.id DESC LIMIT 1", (RESPONSE_KIND, provider, request_hash)).fetchone()
+    if hit is None:
+        return None
+    now = _now()
+    cur = c.execute(
+        "INSERT INTO invocations(run_id, step_id, attempt, provider, model_requested, model_actual, request_hash, budget_scope,"
+        " status, max_cost_usd, cost_usd, cost_known, note, created_at, finished_at)"
+        " VALUES (?,?,?,?,?,?,?,?,'succeeded','0','0',1,?,?,?)",
+        (run_id, step_id, attempt, provider, model, hit["model_actual"], request_hash, budget_scope,
+         f"{REUSED_NOTE}:{hit['id']}", now, now))
+    new_id = int(cur.lastrowid)
+    c.execute("INSERT INTO artifacts VALUES (?,?,?,?)", (RESPONSE_KIND, str(new_id), hit["payload"], now))
+    return new_id, int(hit["id"]), json.loads(hit["payload"])["response"]
+
+
 def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max_cost_usd: Decimal,
-             budget_scope: str | None, request_hash: str | None) -> tuple[int | None, Any]:
-    """Reserves in one transaction. Returns (new invocation id, None), or on a repeat (None, (id, saved response))."""
+             budget_scope: str | None, request_hash: str | None, reuse: bool = False) -> tuple[int | None, Any]:
+    """Reserves in one transaction. Returns (new invocation id, None), or on a repeat (None, (id, saved response)), or,
+    090, with `reuse`, an earlier answer to the same question: (None, (id, response, the call it came from))."""
     with store.connect() as c:
         c.commit()
         c.execute("BEGIN IMMEDIATE")
@@ -253,6 +290,12 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
                 return None, (p["id"], json.loads(saved["payload"])["response"] if saved else None)
             if p["status"] in ("reserved", "uncertain"):
                 raise UncertainAttempt(f"{run_id}/{step_id} attempt {p['attempt']} is {p['status']}")
+        attempt = (prior[-1]["attempt"] + 1) if prior else 1
+        if reuse and request_hash:
+            reused = _reuse_earlier(c, run_id=run_id, step_id=step_id, attempt=attempt, provider=provider, model=model,
+                                    request_hash=request_hash, budget_scope=budget_scope)
+            if reused is not None:
+                return None, (reused[0], reused[2], reused[1])
         if budget_scope is not None:
             lim = c.execute("SELECT limit_usd FROM budgets WHERE scope=? AND provider=?", (budget_scope, provider)).fetchone()
             if lim is None:
@@ -263,7 +306,6 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
             committed = _committed(c, budget_scope, provider)
             if committed + max_cost_usd > Decimal(lim["limit_usd"]):
                 raise BudgetExceeded(f"{budget_scope}/{provider}: committed {committed} + max {max_cost_usd} > limit {lim['limit_usd']}")
-        attempt = (prior[-1]["attempt"] + 1) if prior else 1
         cur = c.execute(
             "INSERT INTO invocations(run_id, step_id, attempt, provider, model_requested, request_hash, budget_scope, status,"
             " max_cost_usd, created_at) VALUES (?,?,?,?,?,?,?,'reserved',?,?)",
@@ -272,11 +314,20 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
 
 
 def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_cost_usd: Decimal,
-           fn: Callable[[], Outcome], budget_scope: str | None = None, request_hash: str | None = None) -> Result:
-    """One physical call through the call log and the budget. Repeating a successful step returns the saved response."""
+           fn: Callable[[], Outcome], budget_scope: str | None = None, request_hash: str | None = None,
+           reusable: bool = False) -> Result:
+    """One physical call through the call log and the budget. Repeating a successful step returns the saved response.
+    090: a `reusable` caller (its `request_hash` is an `answer_key`) gets an earlier answer to the same question when
+    the run allows it (`use_run(reuse=True)`): no call, cost 0, a cached row in the ledger."""
+    ctx = current()
+    reuse = reusable and ctx is not None and ctx.reuse
     inv_id, replay = _reserve(run_id=run_id, step_id=step_id, provider=provider, model=model, max_cost_usd=max_cost_usd,
-                              budget_scope=budget_scope, request_hash=request_hash)
+                              budget_scope=budget_scope, request_hash=request_hash, reuse=reuse)
     if inv_id is None:
+        if len(replay) == 3:  # 090: reused from another call
+            store.ledger_add(run_id=run_id, step=step_id, provider=provider, model=model, input_tokens=None, output_tokens=None,
+                             cost_usd=0.0, seconds=0.0, cached=True, cache_key=(request_hash or "")[:16])
+            return Result(response=replay[1], invocation_id=replay[0], replayed=True, reused_from=replay[2])
         return Result(response=replay[1], invocation_id=replay[0], replayed=True)
     try:
         out = fn()

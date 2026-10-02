@@ -107,5 +107,6 @@
  "Feldolgozási út": "Processing path",
  "Automatikus (ajánlott) — JEV és GPT": "Automatic (recommended) — JEV and GPT",
  "Csak GPT, JEV nélkül (OpenAI)": "GPT only, without JEV (OpenAI)",
- "JEV-vel (ajánlott)": "With JEV (recommended)"
+ "JEV-vel (ajánlott)": "With JEV (recommended)",
+ "Korábbi válaszok": "Earlier answers"
 }

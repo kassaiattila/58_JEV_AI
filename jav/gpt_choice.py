@@ -203,9 +203,12 @@ def ask(request_id: str, instructions: str, prompt: str, fields: dict[str, list[
         saved = _physical(agent, prompt, run_id=run_id, step=step, limits=limits, limited=False).response
     else:
         digest = hashlib.sha256((instructions + "\0" + prompt).encode("utf-8")).hexdigest()
+        # 090: the question's fingerprint for reusing an earlier answer (the step id keeps its own digest)
+        key = calls.answer_key("openai", OPENAI_MODEL, instructions, json.dumps(output_model.model_json_schema(), ensure_ascii=False),
+                               json.dumps(OPENAI_SETTINGS, sort_keys=True), limits.model_dump_json(), prompt)
         saved = calls.invoke(run_id=run_id, step_id=f"openai:{request_id}:{digest[:16]}", provider="openai", model=OPENAI_MODEL,
                              max_cost_usd=max_cost_usd(request_id, instructions, prompt, fields, limits), budget_scope=ctx.budget_scope,
-                             request_hash=digest,
+                             request_hash=key, reusable=True,
                              fn=lambda: _physical(agent, prompt, run_id=run_id, step=step, limits=limits, limited=True)).response
     tokens = saved.get("logprobs") or []
     values, confidence, probabilities = dict(saved["output"]), {}, {}

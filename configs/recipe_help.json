@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "changelog": [
+      {
+        "version": "1.8.0",
+        "date": "2026-10-02",
+        "note": "090 (the owner's decision of 2026-10-02, one setting for JEV and GPT): the earlier answers (jev_cache) cover GPT too: the help and the reuse text say so, and when a question counts as the same"
+      },
       {
         "version": "1.7.0",
         "date": "2026-10-02",
@@ -124,9 +129,9 @@
       "options": {}
     },
     "jev_cache": {
-      "help": "Mi történjen, ha ugyanazt a kérdést korábban már feltettük a JEV-nek.",
+      "help": "Mi történjen, ha ugyanazt a kérdést korábban már feltettük a JEV-nek vagy a GPT-nek. A kérdés akkor ugyanaz, ha a modell, az utasítás és az irat szövege is ugyanaz; ha bármelyik változik, új, élő hívás megy ki.",
       "options": {
-        "reuse": "A korábbi válasz ingyen és azonnal újra felhasználható; ugyanarra a kérdésre ugyanazt adja. Mindennapi munkához ez ajánlott.",
+        "reuse": "A korábbi válasz ingyen és azonnal újra felhasználható, a JEV-nél és a GPT-nél egyaránt; ugyanarra a kérdésre ugyanazt adja, ezért egy újrafuttatás ingyenes és azonos eredményű. Mindennapi munkához ez ajánlott.",
         "live": "Minden kérdés élő, fizetős hívás, a korábbi válasz nem számít. Méréshez kell (például annak vizsgálatára, hogy ismétléskor is ugyanaz-e a válasz); a költség a tételenkénti keretig nőhet."
       }
     },

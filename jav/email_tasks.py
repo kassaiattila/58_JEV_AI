@@ -305,8 +305,11 @@ def extract(snap: dict[str, Any], *, intent_hint: dict[str, Any] | None, run_id:
         usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), rounds=1 + int(OPENAI_SETTINGS["retries"]),
         repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))
     digest = hashlib.sha256((CONFIG_HASH + prompt).encode("utf-8")).hexdigest()
+    # 090: the question's fingerprint for reusing an earlier answer (the step id keeps its own digest)
+    key = calls.answer_key("openai", OPENAI_MODEL, CONFIG_HASH, load_prompt(CFG["prompt_file"]), schema,
+                           json.dumps(OPENAI_SETTINGS, sort_keys=True), prompt)
     result = calls.invoke(run_id=run_id, step_id=f"openai:email_tasks:{digest[:16]}", provider="openai", model=OPENAI_MODEL,
-                          max_cost_usd=max_cost, budget_scope=ctx.budget_scope, request_hash=digest,
+                          max_cost_usd=max_cost, budget_scope=ctx.budget_scope, request_hash=key, reusable=True,
                           fn=lambda: _physical(agent, prompt, run_id=run_id, limited=True))
     return result.response
 
