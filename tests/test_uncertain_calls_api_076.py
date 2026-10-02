@@ -24,6 +24,7 @@ def client(tmp_path: Path):
     with store.use_store(db):
         calls._reserve(run_id="run-x", step_id="s1", provider="openai", model="m", max_cost_usd=Decimal("0.2"),
                        budget_scope=None, request_hash=None)  # the process "stopped" in the middle of the call
+        calls.release_holder()  # 092: the process stops; the operating system lets go of its holder lock
         assert calls.recover_uncertain() == 1
         yield TestClient(api.create_app(store_path=db), base_url=BASE)
 

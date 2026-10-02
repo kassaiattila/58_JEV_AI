@@ -81,6 +81,7 @@ def test_uncertain_calls_can_be_listed_and_resolved_from_the_cli(tmp_path: Path,
     with store.use_store(tmp_path / "c.sqlite"):
         calls._reserve(run_id="r1", step_id="s1", provider="openai", model="m", max_cost_usd=Decimal("0.5"),
                        budget_scope=None, request_hash=None)
+        calls.release_holder()  # 092: the process stops; the operating system lets go of its holder lock
         calls.recover_uncertain()
         listed = _run(capsys, "calls-uncertain")
         assert [(x["run_id"], x["step_id"], x["status"]) for x in listed["uncertain"]] == [("r1", "s1", "uncertain")]

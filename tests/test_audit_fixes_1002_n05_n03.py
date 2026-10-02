@@ -187,6 +187,7 @@ def test_an_uncertain_call_is_settled_once(tmp_path):
     with store.use_store(tmp_path / "jav.sqlite"):
         calls._reserve(run_id="r1", step_id="s1", provider="openai", model="m", max_cost_usd=Decimal("0.2"),
                        budget_scope=None, request_hash=None)
+        calls.release_holder()  # 092: the process stops; the operating system lets go of its holder lock
         assert calls.recover_uncertain() == 1
         inv_id = calls.journal("r1")[0]["id"]
         calls.resolve_uncertain(inv_id, cost_usd=Decimal("0.07"), note="checked on the provider's console")
@@ -196,10 +197,12 @@ def test_an_uncertain_call_is_settled_once(tmp_path):
 
 
 def test_a_late_answer_does_not_overwrite_a_manual_settlement(tmp_path):
-    """A worker start marks every open reservation uncertain, also one a command-line measurement is still waiting
-    on; if a person settles it in that window, the answer arriving afterwards must not rewrite the settlement."""
+    """If a worker start takes a call over while its answer is still outstanding (092: only when its holder lock is
+    gone, e.g. a reservation from before 092 without a holder) and a person settles it in that window, the answer
+    arriving afterwards must not rewrite the settlement."""
     with store.use_store(tmp_path / "jav.sqlite"):
         def answered_after_settlement():
+            calls.release_holder()  # 092: the holder lock is gone while the answer is still outstanding
             assert calls.recover_uncertain() == 1  # another process (the worker) starts meanwhile
             calls.resolve_uncertain(calls.journal("r1")[0]["id"], cost_usd=Decimal("0.05"), note="settled by hand")
             return calls.Outcome(response={"ok": True}, cost_usd=Decimal("0.02"))

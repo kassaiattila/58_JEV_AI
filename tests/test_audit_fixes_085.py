@@ -252,6 +252,7 @@ def test_a05_recovery_reinstates_the_overrun_lock(tmp_path):
         with store.connect() as c:
             c.execute("UPDATE invocations SET status='reserved', cost_usd=NULL, cost_known=0, note=NULL WHERE id=?",
                       (result.invocation_id,))
+        calls.release_holder()  # 092: the process stops; the operating system lets go of its holder lock
         calls.recover_uncertain()
         row = calls.journal("audit-run")[0]
         assert row["status"] == "succeeded" and row["note"] == calls.OVERRUN_NOTE
@@ -270,5 +271,6 @@ def test_a05_recovery_within_the_reservation_is_noted_as_recovered(tmp_path):
         with store.connect() as c:
             c.execute("UPDATE invocations SET status='reserved', cost_usd=NULL, cost_known=0, note=NULL WHERE id=?",
                       (result.invocation_id,))
+        calls.release_holder()  # 092: the process stops; the operating system lets go of its holder lock
         calls.recover_uncertain()
         assert calls.journal("audit-run")[0]["note"] == "recovered_saved_response"

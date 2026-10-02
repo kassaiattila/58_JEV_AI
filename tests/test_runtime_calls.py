@@ -95,6 +95,7 @@ def test_crash_after_reservation_blocks_automatic_second_call(isolated):
     """Crash after the response: the reserved, unclosed attempt is uncertain; no automatic second paid request."""
     calls._reserve(run_id="r1", step_id="s1", provider="openai", model="m", max_cost_usd=Decimal("0.2"),
                    budget_scope=None, request_hash=None)  # the process "crashed" here
+    calls.release_holder()  # 092: the process stops; the operating system lets go of its holder lock
     assert calls.recover_uncertain() == 1
     def must_not_run():
         raise AssertionError("second paid call")
@@ -140,6 +141,7 @@ def test_saved_response_left_reserved_by_a_crash_is_recovered_as_succeeded(isola
     monkeypatch.setattr(store, "connect", real_connect)
     assert calls.journal("r9")[0]["status"] == "reserved"
 
+    calls.release_holder()  # 092: the process stops; the operating system lets go of its holder lock
     calls.recover_uncertain()
     row = calls.journal("r9")[0]
     assert (row["status"], row["cost_usd"], row["cost_known"]) == ("succeeded", "0.10", 1)
