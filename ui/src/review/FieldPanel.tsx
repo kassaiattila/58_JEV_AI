@@ -12,7 +12,7 @@ import { api, ApiError, getActor, NO_ACTOR, type Alternative, type CorrectionVal
 import { Icon } from "../components/Icon";
 import { t, useLocale } from "../i18n";
 import { checkText, editNumber, fieldLabel, reasonText, savedValues, tmap } from "../labels";
-import { clearDraft, draftKey, isDirty, rebaseDraft, revertField, setField, setList, useDraft, type Draft } from "./drafts";
+import { clearDraft, draftKey, isDirty, rebaseDraft, revertField, setField, setList, settleDraft, useDraft, type Draft } from "./drafts";
 import { useResolve } from "./useResolve";
 import { BAND_LABEL, type Band } from "./geometry";
 import { EMPTY_FILTER, FIELD_FILTERS, FILTER_LABEL, isConfirmed, type FieldFilter } from "./fieldFilter";
@@ -181,7 +181,7 @@ export function FieldPanel(p: Props) {
       const saved = await api.saveCorrection(result.run_id, result.item_id, {
         fields: body.fields, expected_revision: base, ...(Object.keys(body.sources).length ? { sources: body.sources } : {}),
       });
-      clearDraft(key);
+      settleDraft(key, draft, saved.correction.revision); // 090 (N06): what was typed during the save stays
       // 081: the amounts typed now, as the local service read them ("28.000" → 28 000); 084: the dates too
       const typed = Object.fromEntries(Object.keys(draft?.values ?? {}).map((f) => [f, saved.correction.fields[f]]));
       const values = savedValues(typed, kinds);
@@ -226,8 +226,7 @@ export function FieldPanel(p: Props) {
       const saved = await api.saveCorrection(result.run_id, result.item_id, {
         fields: body.fields, expected_revision: base, ...(Object.keys(body.sources).length ? { sources: body.sources } : {}), confirm: [f],
       });
-      revertField(key, f);
-      rebaseDraft(key, saved.correction.revision);
+      settleDraft(key, own, saved.correction.revision); // 090 (N06): a value retyped during the save stays
       setState({ kind: "saved", msg: t("Mentve: {{field}} ellenőrizve.", { field: fieldLabel(f) }) });
       p.onSaved();
       p.onConfirmed?.(f, viaKeyboard, saved.correction.revision);

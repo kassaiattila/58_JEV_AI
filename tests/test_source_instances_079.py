@@ -296,4 +296,6 @@ def test_a_damaged_instance_is_not_backed_up_and_is_named(env):
     result = backup.backup(out_root=env["tmp"] / "backups", keep=1)
     entry = next(f for f in result["files"] if f["file"] == "sources")
     assert entry["added"] == 1 and entry["damaged"] == [f"{item['sha256']}.pdf"]
-    assert result["ok"]  # the store backup itself is valid; the damaged copy is named, not hidden
+    # 090 (audit N05): the item refers to it and no intact copy exists anywhere, so the backup could not restore it:
+    # not green, and named; the store copy itself is valid
+    assert not result["ok"] and result["store_ok"] and entry["missing"] == [item["instance"]]

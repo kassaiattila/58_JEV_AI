@@ -7,7 +7,9 @@ Reservation and check run in one `BEGIN IMMEDIATE` transaction, so they stay cor
 States and the amount counted against the budget:
 - `reserved`   : the call is in progress or the process crashed → the maximum is committed; the same step is NOT called
                  again automatically (`UncertainAttempt`); at startup `recover_uncertain()` marks it `uncertain`.
-- `uncertain`  : like `reserved`; manual resolution: `resolve_uncertain(id, cost_usd)`.
+                 It cannot be settled by hand (090, audit N03): it may still finish and cost money.
+- `uncertain`  : like `reserved`; manual resolution: `resolve_uncertain(id, cost_usd)`. A completion arriving later
+                 closes it only while nobody has settled it.
 - `succeeded`  : the actual amount if the cost is known, otherwise the maximum stays committed. The response is saved as
                  a receipt; repeating the step returns the saved response (`replayed=True`) without a new call.
 - `failed`     : the error type is logged; the cost is unknown, so the maximum stays committed (not zero, not released).
@@ -71,6 +73,7 @@ CREATE TABLE IF NOT EXISTS budgets (
 """)
 
 RESPONSE_KIND = "invocation_response"
+_OPEN = "('reserved', 'uncertain')"  # 090: the states a completion may still close
 
 
 class BudgetExceeded(RuntimeError):
@@ -79,6 +82,10 @@ class BudgetExceeded(RuntimeError):
 
 class UncertainAttempt(RuntimeError):
     """The step has an unfinished attempt (crashed or with an uncertain outcome); an automatic new call is forbidden."""
+
+
+class NotUncertain(ValueError):
+    """090 (audit N03): manual settlement refused: the call is unknown, still in progress (`reserved`), or settled."""
 
 
 @dataclass(frozen=True)
@@ -279,7 +286,8 @@ def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_c
             log.warning("call %s/%s may have been processed (%s); its maximum stays reserved until settled by hand",
                         run_id, step_id, _error_text(exc))
         with store.connect() as c:
-            c.execute("UPDATE invocations SET status=?, error=?, finished_at=? WHERE id=?", (status, _error_text(exc), _now(), inv_id))
+            c.execute(f"UPDATE invocations SET status=?, error=?, finished_at=? WHERE id=? AND status IN {_OPEN}",
+                      (status, _error_text(exc), _now(), inv_id))
         raise
     # 066 Á30: cost and tokens are saved with the response too, so that recovery after a shutdown can close it exactly
     store.save_artifact(RESPONSE_KIND, str(inv_id), {"response": out.response, "model": out.model, "input_tokens": out.input_tokens,
@@ -289,10 +297,16 @@ def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_c
     # may not reserve with this provider again (`_reserve`), because its other reservations may be too low as well
     overrun = out.cost_usd is not None and out.cost_usd > max_cost_usd
     with store.connect() as c:
-        c.execute("UPDATE invocations SET status='succeeded', model_actual=?, input_tokens=?, output_tokens=?, cost_usd=?, cost_known=?,"
-                  " note=COALESCE(?, note), finished_at=? WHERE id=?",
-                  (out.model, out.input_tokens, out.output_tokens, None if out.cost_usd is None else str(out.cost_usd),
-                   int(out.cost_usd is not None), OVERRUN_NOTE if overrun else None, _now(), inv_id))
+        # 090 (audit N03): an open attempt only. One settled by hand in the meantime (a worker start marked it
+        # uncertain while this process was still waiting) keeps that settlement; the answer is in the saved receipt.
+        closed = c.execute(
+            "UPDATE invocations SET status='succeeded', model_actual=?, input_tokens=?, output_tokens=?, cost_usd=?, cost_known=?,"
+            f" note=COALESCE(?, note), finished_at=? WHERE id=? AND status IN {_OPEN}",
+            (out.model, out.input_tokens, out.output_tokens, None if out.cost_usd is None else str(out.cost_usd),
+             int(out.cost_usd is not None), OVERRUN_NOTE if overrun else None, _now(), inv_id)).rowcount
+    if not closed:
+        log.warning("call %s/%s answered (cost %s) after it was settled by hand; the settlement stays", run_id, step_id,
+                    out.cost_usd)
     if overrun:
         log.warning("call %s/%s cost %s, above its reserved maximum %s", run_id, step_id, out.cost_usd, max_cost_usd)
     return Result(response=out.response, invocation_id=inv_id, replayed=False)
@@ -324,14 +338,21 @@ def recover_uncertain() -> int:
 
 def resolve_uncertain(invocation_id: int, *, cost_usd: Decimal | None, note: str) -> None:
     """Manual resolution (e.g. after checking the provider's console): the attempt becomes `failed`, with a known cost
-    or with the maximum still committed; afterwards the step can run with a new attempt."""
+    or with the maximum still committed; afterwards the step can run with a new attempt.
+    090 (audit N03): only an `uncertain` attempt, in one conditional write. A `reserved` one may still be in progress:
+    releasing its maximum would let a second call spend the same budget while the first one can still finish and cost
+    money. An interrupted process's reservation becomes uncertain at the next worker start (`recover_uncertain`)."""
     with store.connect() as c:
+        settled = c.execute(
+            "UPDATE invocations SET status='failed', cost_usd=?, cost_known=?, note=?, error=COALESCE(error, 'uncertain_resolved'),"
+            " finished_at=? WHERE id=? AND status='uncertain'",
+            (None if cost_usd is None else str(cost_usd), int(cost_usd is not None), note, _now(), invocation_id)).rowcount
+        if settled:
+            return
         row = c.execute("SELECT status FROM invocations WHERE id=?", (invocation_id,)).fetchone()
-        if row is None or row["status"] not in ("reserved", "uncertain"):
-            raise ValueError(f"invocation {invocation_id} is not uncertain")
-        c.execute("UPDATE invocations SET status='failed', cost_usd=?, cost_known=?, note=?, error=COALESCE(error, 'uncertain_resolved'),"
-                  " finished_at=? WHERE id=?",
-                  (None if cost_usd is None else str(cost_usd), int(cost_usd is not None), note, _now(), invocation_id))
+    if row is not None and row["status"] == "reserved":
+        raise NotUncertain(f"invocation {invocation_id} is still in progress (reserved); it cannot be settled by hand")
+    raise NotUncertain(f"invocation {invocation_id} is not uncertain")
 
 
 def uncertain_list() -> list[dict[str, Any]]:
