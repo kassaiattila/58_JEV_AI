@@ -547,7 +547,9 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.get(r + "/health")
     def health() -> dict[str, Any]:
-        return {"ok": True, "api_version": API_VERSION, "service_config": cfg.version("service"), **running}
+        # 091: the UI build is read on every request (a new build is served at once, even without a restart)
+        return {"ok": True, "api_version": API_VERSION, "service_config": cfg.version("service"), **running,
+                "ui_build": version.ui_build(UI_DIST)}
 
     # --- recipes and work packages ---
 

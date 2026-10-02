@@ -7,6 +7,7 @@ import { useActor, useEvent, useHash, useLoad } from "./hooks";
 import { t, useLocale } from "./i18n";
 import { LanguageSwitch } from "./components/LanguageSwitch";
 import { Picker } from "./components/Picker";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { parseRoute } from "./route";
 import { Activity } from "./views/Activity";
 import { LegacyResult } from "./views/LegacyResult";
@@ -41,6 +42,7 @@ export function App() {
         </nav>
       </aside>
       <div className="main-col">
+        <UpdateBanner />
         <header className="top">
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <WorkerBadge />

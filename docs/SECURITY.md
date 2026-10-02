@@ -146,7 +146,7 @@ The repository is private and has a single maintainer. Report security issues di
 | folder restriction | `checked_path()` (`resolve(strict=True)`), `allowed_roots()`, 403 `forbidden_path` | `restrict_paths` (false), `allowed_roots`, `allow_legacy_data_root`, `JAV_API_ROOTS` | `tests/test_api.py::test_folder_outside_allowed_roots_is_refused`, `::test_any_existing_folder_is_accepted_without_restriction` |
 | endpoint list | `create_app()`: `docs_url=None`, `redoc_url=None`; `/api/openapi.json` stays | – | `tests/test_security_headers_071.py::test_interactive_docs_are_off_machine_list_stays` |
 | security headers | `_SecurityHeaders` (outermost layer): `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy: same-origin`; CSP: `UI_CSP` (UI), `API_CSP` (`default-src 'none'`), `DOCUMENT_CSP` (PDF: only `frame-ancestors 'none'`); `Cache-Control: no-store` under `/api/` | – | `tests/test_security_headers_071.py` |
-| version | `jav/version.py` (`VERSION` from `pyproject.toml`, `commit_info()`); `/api/health`: `version`, `commit`, `dirty`, `started_at` | – | `tests/test_version_071.py` |
+| version | `jav/version.py` (`VERSION` from `pyproject.toml`, `commit_info()`); `/api/health`: `version`, `commit`, `dirty`, `started_at`, `ui_build` (the first 12 hex digits of the SHA-256 of `ui/dist/index.html`; no path or content) | – | `tests/test_version_071.py`, `tests/test_version_banner_091.py` |
 
 **Input, AI calls, approval:**
 

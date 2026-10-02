@@ -6,10 +6,13 @@
   release's, and the development state is identified by the commit.
 - `commit_info`: the working tree's commit (short id) and whether there are uncommitted changes. The service records
   this at start-up, so the health endpoint shows the code that actually runs in the process.
+- `ui_build` (091): a fingerprint of the UI build the service hands out now; with the commit it lets a long-open
+  browser tab notice that a newer version is running.
 """
 
 from __future__ import annotations
 
+import hashlib
 import subprocess
 import tomllib
 from pathlib import Path
@@ -34,4 +37,14 @@ def commit_info(root: Path | None = None) -> dict[str, str | bool | None]:
     return {"commit": head.stdout.strip(), "dirty": bool(status.stdout.strip()) if status.returncode == 0 else None}
 
 
-__all__ = ["VERSION", "commit_info"]
+def ui_build(dist: Path) -> str | None:
+    """091: a short fingerprint of the UI build in `dist` (its entry page names the hash-named asset files, so a new
+    build changes it); None without a build. Read on every call: a new build is served at once, even without a
+    restart."""
+    try:
+        return hashlib.sha256((dist / "index.html").read_bytes()).hexdigest()[:12]
+    except OSError:
+        return None
+
+
+__all__ = ["VERSION", "commit_info", "ui_build"]
