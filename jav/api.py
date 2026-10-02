@@ -1022,8 +1022,9 @@ def serve(*, host: str | None = None, port: int | None = None) -> None:
     host = host or s["host"]
     if host not in LOOPBACK:
         raise ValueError(f"the local service binds only to a loopback address, not {host!r}")
-    from jav.runtime import applog
+    from jav.runtime import applog, preload
 
+    preload.preload()  # 091: all the code now, so later changes on disk cannot mix into the running service
     # 063: the service log also goes to a persistent rotating file (runs/logs/api.log), with tracebacks for 500 errors
     uvicorn.run(create_app(), host=host, port=port or int(s["port"]), log_level="info", access_log=False,
                 log_config=applog.uvicorn_config("api"))
