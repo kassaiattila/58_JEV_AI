@@ -88,7 +88,10 @@ def test_the_gpt_band_is_served_with_the_settings(tmp_path):
     assert {"confident", "check"} <= set(bands)
 
 
-def test_no_new_to_do_comes_from_the_confidence(tmp_path, monkeypatch):
+def test_only_the_low_confidence_to_do_differs_between_a_low_and_a_high_confidence(tmp_path, monkeypatch):
+    """092 (turned round: until then no to-do came from the confidence): a low one adds its `gpt:low_conf` to-dos and
+    nothing else."""
     low = _run_g_with(tmp_path / "a", GOOD, p=0.9, monkeypatch=monkeypatch)
-    high = _run_g_with(tmp_path / "b", GOOD, p=0.999, monkeypatch=monkeypatch)
-    assert sorted(low.review_reasons) == sorted(high.review_reasons)
+    high = _run_g_with(tmp_path / "b", GOOD, p=0.9999, monkeypatch=monkeypatch)
+    assert any(r.startswith("gpt:low_conf:") for r in low.review_reasons)
+    assert sorted(r for r in low.review_reasons if not r.startswith("gpt:low_conf:")) == sorted(high.review_reasons)

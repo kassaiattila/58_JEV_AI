@@ -131,7 +131,7 @@ def gpt_field_confidence(token_p: dict[str, float | int] | None, status: str | N
     token probability of the value (`gpt_field_confidence.measure`) capped by the code's evidence: the source location's
     status (`evidence`: a value not printed on the document, or only next to another field's label) and a failed field
     check (`failed_check`); the weaker counts. Without a token probability only a cap below 1 is an estimate (a located
-    value alone is not), otherwise None. Display only: it opens no to-do."""
+    value alone is not), otherwise None. What is shown; the to-do (092) is `apply_gpt_confidence_policy`."""
     caps = [float(GPT_FIELD_CONFIDENCE["evidence"][status])] if status in GPT_FIELD_CONFIDENCE["evidence"] else []
     if failed_check:
         caps.append(float(GPT_FIELD_CONFIDENCE["failed_check"]))
@@ -297,12 +297,41 @@ def apply_validation_policy(state: FlowState) -> None:
             require_review(state, f"validator:{check.code}:{field}" if field else f"validator:{check.code}")
 
 
+def gpt_review_fields(pack_key: str) -> list[str]:
+    """092: the fields whose GPT confidence can open a to-do: the accounting fields (scored, not informational, and the
+    high-stakes ones), in the pack's order."""
+    pack = get_pack(pack_key)
+    scope = set(pack.strict_scored) | set(pack.high_stakes)
+    return [f for f in pack.header_fields if f in scope]
+
+
+def apply_gpt_confidence_policy(state: FlowState) -> None:
+    """092 (the owner's decisions of 2026-10-02): on the G path without JEV, an accounting field GPT extracted with a
+    token probability below `gpt_field_confidence.review_below` is a `gpt:low_conf:<field>:<p>` to-do. A field without
+    a value, without a token probability, or whose check already failed (it has its to-do) adds nothing; a run with JEV
+    never gets it (`state.jev`), not even when JEV does not answer and the code's own check stands in."""
+    threshold = GPT_FIELD_CONFIDENCE.get("review_below")
+    if state.jev or state.arm != "G" or threshold is None or state.invoice is None:
+        return
+    measure = GPT_FIELD_CONFIDENCE["measure"]
+    failed = {c.name.split(":", 1)[1] for c in state.validation if not c.ok and ":" in c.name}
+    fields = gpt_review_fields(state.doc_type)
+    values = state.invoice.to_datapoints(fields)
+    for field in fields:
+        token = ((state.llm_token_p or {}).get(field) or {}).get(measure)
+        if values.get(field) in (None, "", []) or field in failed or token is None:
+            continue
+        if float(token) < float(threshold):
+            require_review(state, f"gpt:low_conf:{field}:{float(token):.2f}")
+
+
 def decide(state: FlowState) -> str:
     """'auto' or 'human'. The latch already holds every reason; here we only sum up."""
     if state.arm == "S":
         apply_pick_policy(state)
     else:
         apply_verdict_policy(state)
+        apply_gpt_confidence_policy(state)
     apply_validation_policy(state)
     if state.invoice is None:
         require_review(state, "no_invoice")

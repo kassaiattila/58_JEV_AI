@@ -226,7 +226,7 @@ def validate(state: FlowState) -> FlowState:
 
 
 @action.pydantic(
-    reads=["arm", "picks", "verdicts", "validation", "invoice", "doc_type", "needs_review", "review_reasons"],
+    reads=["arm", "picks", "verdicts", "validation", "invoice", "doc_type", "jev", "llm_token_p", "needs_review", "review_reasons"],
     writes=["route", "needs_review", "review_reasons"],
 )
 def decide_route(state: FlowState) -> FlowState:
@@ -237,7 +237,8 @@ def decide_route(state: FlowState) -> FlowState:
 def _gpt_confidence(state: FlowState) -> None:
     """091 (backlog F-gpt-field-confidence): on the G path without a JEV verification, every field's confidence is the
     token probability of its value capped by the code's evidence (`policy.gpt_field_confidence`); the basis is kept
-    with it, so the review and the measurement can tell the two apart. Display only: no to-do comes from it."""
+    with it, so the review and the measurement can tell the two apart. The to-do of a low one comes earlier, in
+    `decide_route`, from the same token probability (092, `policy.apply_gpt_confidence_policy`)."""
     failed = {c.name.split(":", 1)[1] for c in state.validation if not c.ok and ":" in c.name}
     measure = policy.GPT_FIELD_CONFIDENCE["measure"]
     for f, entry in state.provenance.items():
