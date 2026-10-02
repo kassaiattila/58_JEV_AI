@@ -23,6 +23,12 @@ one shared `sources/` folder beside the timestamped backup folders, in the local
 each instance is copied once, checked against its content hash (its file name), and never pruned, because instances
 never change. A damaged instance is not copied and is named in the manifest.
 
+090 (audit of 2026-10-02, N05): the check starts from the instances the saved store copy refers to (`required`), not
+only from the files found in the instance folder. A referenced instance that is missing or damaged in the store but
+already verified in the backup is `preserved`; one that is in neither is `missing`, which fails the backup (it could
+not be restored), names the instances in the status line and stops pruning in both locations. The store copy itself
+is valid, so it still goes to the second location, without pruning there.
+
 Restore (manual, after stopping the service and the worker): copy the saved `jav.sqlite` back under `store/`, and the
 `sources/` folder back to `store/sources/`; details: `docs/guides/SETUP.md`, "Backup, restore and logs".
 """
@@ -78,8 +84,8 @@ def backup(*, out_root: Path | None = None, with_burr: bool = False, keep: int |
         raise
     if not copy_to:
         manifest["copy"] = None
-    elif manifest["ok"]:
-        manifest["copy"] = _copy(Path(manifest["dir"]), Path(copy_to), keep)
+    elif manifest["store_ok"]:  # 090: a valid store copy goes there even with missing sources, but prunes nothing
+        manifest["copy"] = _copy(Path(manifest["dir"]), Path(copy_to), keep, prune=manifest["ok"])
     else:  # a failed backup must not push out a good one in the second location either
         manifest["copy"] = {"dir": None, "ok": False, "verified": False, "skipped": True,
                             "error": "skipped: the local backup failed its integrity check"}
@@ -155,10 +161,15 @@ def _local(root: Path, *, with_burr: bool, keep: int, docs_root: Path | None = N
             docs = _archive_docs(docs_root, dest / DOCS_ARCHIVE)
             if docs:
                 files.append(docs)
+        store_ok = all(x["integrity"] == "ok" for x in files)
         instances = source_instances.files()
-        if instances:
-            files.append(_sync_sources(instances, source_instances.root(), root / SOURCES_DIR))
-        manifest = {"created_at": _now(), "dir": str(dest), "files": files, "ok": all(x["integrity"] == "ok" for x in files)}
+        required = _referenced_instances(dest / src.name)
+        if instances or required:
+            files.append(_sync_sources(instances, source_instances.root(), root / SOURCES_DIR, required=required))
+        manifest = {"created_at": _now(), "dir": str(dest), "files": files, "store_ok": store_ok,
+                    "ok": all(x["integrity"] == "ok" for x in files)}
+        if not manifest["ok"]:  # 090: the status line says what failed (an integrity failure has no exception text)
+            manifest["error"] = "; ".join(f"{x['file']}: {x['integrity']}" for x in files if x["integrity"] != "ok")
         (dest / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     except BaseException:
         shutil.rmtree(dest, ignore_errors=True)  # 066: remove a half-finished backup (it would not count for retention)
@@ -170,6 +181,15 @@ def _local(root: Path, *, with_burr: bool, keep: int, docs_root: Path | None = N
 def _integrity(conn: sqlite3.Connection) -> str:
     """SQLite's integrity check on the saved copy: `ok`, or the first error line."""
     return conn.execute("PRAGMA integrity_check").fetchone()[0]
+
+
+def _referenced_instances(saved_store: Path) -> set[str]:
+    """090 (N05): the source instances the saved store copy refers to (relative paths), read from the copy, so an
+    instance added after the copy was taken is not required by it. A store without work packages refers to none."""
+    with closing(sqlite3.connect(str(saved_store))) as c:
+        if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workpackage_items'").fetchone() is None:
+            return set()
+        return {r[0] for r in c.execute("SELECT DISTINCT instance FROM workpackage_items WHERE instance IS NOT NULL")}
 
 
 def _archive_docs(docs_root: Path, target: Path) -> dict[str, Any] | None:
@@ -195,9 +215,10 @@ def _zip_integrity(path: Path) -> str:
     return "ok" if bad is None else f"bad member: {bad}"
 
 
-def _copy(src_dir: Path, target_root: Path, keep: int) -> dict[str, Any]:
+def _copy(src_dir: Path, target_root: Path, keep: int, *, prune: bool = True) -> dict[str, Any]:
     """064: copy of the finished local backup to the second location (e.g. NAS), verified by content hash; there too
-    the latest `keep` backups are kept. On failure the local backup stays valid and the error goes into the manifest."""
+    the latest `keep` backups are kept. On failure the local backup stays valid and the error goes into the manifest.
+    090: without `prune` (the local backup misses a referenced source instance) nothing is deleted there."""
     target = target_root / src_dir.name
     try:
         target_root.mkdir(parents=True, exist_ok=True)
@@ -210,7 +231,8 @@ def _copy(src_dir: Path, target_root: Path, keep: int) -> dict[str, Any]:
         sources = _sync_sources(instances, local_sources, target_root / SOURCES_DIR) if instances else None
         if sources is not None and sources["integrity"] != "ok":
             raise OSError(sources["integrity"])
-        return {"dir": str(target), "ok": True, "verified": True, "removed": _prune(target_root, keep), "sources": sources}
+        return {"dir": str(target), "ok": True, "verified": True, "removed": _prune(target_root, keep) if prune else [],
+                "sources": sources}
     except OSError as exc:
         log.warning("backup copy to %s failed: %s", target_root, exc)
         return {"dir": str(target), "ok": False, "verified": False, "error": f"{type(exc).__name__}: {exc}"}
@@ -223,14 +245,16 @@ def _instance_files(root: Path) -> list[Path]:
     return sorted(p for p in root.glob("??/*") if p.is_file() and not p.name.endswith(".part"))
 
 
-def _sync_sources(instances: list[Path], src_root: Path, dest_root: Path) -> dict[str, Any]:
+def _sync_sources(instances: list[Path], src_root: Path, dest_root: Path, *, required: set[str] | None = None) -> dict[str, Any]:
     """Copies the source instances not yet in `dest_root` (shared by every backup there, never pruned). A new copy is
     checked against the content hash in its name before it takes its place. 085 (re-audit A02): a copy already there
     is checked by its content hash too (not only by its size); a damaged one is replaced from the intact source
     instance (`repaired`). A damaged source instance is not copied and is named (`damaged`); if the copy in the backup
     is damaged as well, nothing intact is left there, so the entry's integrity is an error. A copy failure is an error
-    too."""
+    too. 090 (N05): every `required` instance (relative path) must end up intact in `dest_root`: one not among the
+    files found but already intact there is `preserved`; one in neither place is `missing`, an error as well."""
     added, total, damaged, repaired, lost = 0, 0, [], [], []
+    safe: set[str] = set()  # relative paths with an intact copy in `dest_root`
     try:
         for f in instances:
             rel = f.relative_to(src_root)
@@ -240,6 +264,7 @@ def _sync_sources(instances: list[Path], src_root: Path, dest_root: Path) -> dic
             present = target.is_file()
             if present and source_instances.intact(target, digest):
                 total += size
+                safe.add(rel.as_posix())
                 continue
             if not source_instances.intact(f, digest):
                 damaged.append(f.name)
@@ -259,12 +284,37 @@ def _sync_sources(instances: list[Path], src_root: Path, dest_root: Path) -> dic
             else:
                 added += 1
             total += size
-        integrity = f"damaged copy without an intact source: {', '.join(lost)}" if lost else "ok"
+            safe.add(rel.as_posix())
+        preserved, missing = _check_required(required or set(), safe, dest_root)
+        problems = [f"damaged copy without an intact source: {', '.join(lost)}"] if lost else []
+        if missing:
+            problems.append(f"referenced source instances missing: {len(missing)} ({', '.join(missing)})")
+            log.warning("backup: %d referenced source instance(s) are neither in the store nor in %s", len(missing), dest_root)
+        integrity = "; ".join(problems) or "ok"
     except OSError as exc:
         log.warning("backup of the source instances to %s failed: %s", dest_root, exc)
         integrity = f"copy failed: {type(exc).__name__}: {exc}"
+        preserved, missing = [], []
     return {"file": SOURCES_DIR, "source": str(src_root), "bytes": total, "entries": len(instances) - len(damaged),
-            "added": added, "repaired": repaired, "damaged": damaged, "integrity": integrity}
+            "added": added, "repaired": repaired, "damaged": damaged, "required": len(required or ()),
+            "preserved": preserved, "missing": missing, "integrity": integrity}
+
+
+def _check_required(required: set[str], safe: set[str], dest_root: Path) -> tuple[list[str], list[str]]:
+    """090 (N05): the referenced instances without a verified copy from this run: (`preserved`, intact in `dest_root`
+    from an earlier backup; `missing`, intact nowhere). A recorded path of a foreign shape counts as missing."""
+    preserved, missing = [], []
+    for rel in sorted(required - safe):
+        try:
+            source_instances.path_of(rel)  # only the store's own shape (it cannot point outside the folder)
+        except ValueError:
+            missing.append(rel)
+            continue
+        if source_instances.intact(dest_root / rel, Path(rel).name.split(".", 1)[0]):
+            preserved.append(rel)
+        else:
+            missing.append(rel)
+    return preserved, missing
 
 
 def _sha256(path: Path) -> str:

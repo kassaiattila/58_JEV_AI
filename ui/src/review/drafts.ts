@@ -1,5 +1,6 @@
 // Drafts (045 K3b, modelled on V4's documentDrafts.ts): the unsaved correction per item, within the session.
-// It survives switching items and going back; a successful save or „Elvetés” (Discard) clears it. The base (the
+// It survives switching items and going back; „Elvetés” (Discard) clears it, a successful save clears what it sent (090:
+// a change made while the save was under way stays). The base (the
 // revision of the saved correction) is stored too: if a newer revision has appeared on the server in the meantime,
 // the UI reports a conflict and does not blindly save over it.
 // 048: the draft of a line-item list is the whole list (rows, text per cell; for a simple list, the `*` column).
@@ -104,6 +105,29 @@ export function rebaseDraft(key: string, baseRevision: number): void {
   const d = store.get(key);
   if (!d) return;
   store.set(key, { ...d, baseRevision });
+  emit();
+}
+
+/** 090 (audit N06): after a successful save, only what was sent (`sent`, the working copy the save was built from)
+ *  leaves the working copy: a field, its selection on the image or a line-item list changed while the save was under
+ *  way stays, rebased on the saved revision, so nothing typed is lost without being sent or discarded. */
+export function settleDraft(key: string, sent: Draft | undefined, baseRevision: number): void {
+  const d = store.get(key);
+  if (!d) return;
+  const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  const values = { ...d.values };
+  const sources = { ...d.sources };
+  const lists = { ...(d.lists ?? {}) };
+  for (const f of Object.keys(values)) {
+    if (sent && f in sent.values && sent.values[f] === values[f] && same(sent.sources[f], sources[f])) {
+      delete values[f];
+      delete sources[f];
+    }
+  }
+  for (const f of Object.keys(lists)) if (sent?.lists && f in sent.lists && same(sent.lists[f], lists[f])) delete lists[f];
+  const next: Draft = { ...d, baseRevision, values, sources, lists };
+  if (isDirty(next)) store.set(key, next);
+  else store.delete(key);
   emit();
 }
 
