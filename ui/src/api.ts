@@ -182,6 +182,9 @@ export interface Provenance extends Partial<Region> {
   confidence?: number | null; corrected?: boolean; present_p?: number | null; label?: boolean;
   multiple?: number | null; // 053: the number of places the value appears in (the box is on the most likely one)
   rows?: Provenance[]; // 053: line list — for each row, the row's location on the image
+  // 091: a GPT field's confidence without JEV — the token probability of the value (null: not measurable), capped by
+  // the source check and the field check
+  confidence_basis?: { source: "gpt"; measure: string; token: number | null; failed_check: boolean } | null;
 }
 export interface SourcePage { page: number; width_pt: number; height_pt: number }
 export interface SourceWord { id: number; page: number; line_no: number | null; text: string; x0: number; y0: number; x1: number; y1: number }

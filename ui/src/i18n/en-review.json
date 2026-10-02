@@ -192,5 +192,8 @@
   "Lapozás a tételek között": "Moving between the items",
   "Előző tétel": "Previous item",
   "Következő tétel": "Next item",
-  "{{n}} korábbi futásból: {{reason}}": "from {{n}} earlier runs: {{reason}}"
+  "{{n}} korábbi futásból: {{reason}}": "from {{n}} earlier runs: {{reason}}",
+  "GPT-becslés: {{p}}% (csak a forrás-ellenőrzés alapján; a válasz valószínűsége nem ismert)": "GPT estimate: {{p}}% (from the source check only; the probability of the answer is not known)",
+  "GPT-becslés: {{p}}% (a válasz valószínűsége {{token}}%, de a forrás- vagy mezőellenőrzés lejjebb vette)": "GPT estimate: {{p}}% (the probability of the answer is {{token}}%, but the source or field check lowered it)",
+  "GPT-becslés: {{p}}% (a válasz valószínűsége)": "GPT estimate: {{p}}% (the probability of the answer)"
 }

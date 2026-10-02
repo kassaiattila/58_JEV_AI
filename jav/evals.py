@@ -267,6 +267,10 @@ def _state_row(case: GoldenCase, state: FlowState, run_no: int, seconds: float, 
         "verdicts": verdicts,
         "jev_calls": [c.model_dump() for c in state.jev_calls],
         "validation": [v.model_dump() for v in state.validation],
+        # 091: the GPT field confidence and its parts (token probabilities, the source location's status)
+        "llm_token_p": state.llm_token_p,
+        "field_confidence": {f: e.get("confidence") for f, e in state.provenance.items()},
+        "provenance_status": {f: e.get("status") for f, e in state.provenance.items()},
     }
 
 

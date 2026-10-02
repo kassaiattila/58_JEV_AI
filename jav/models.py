@@ -586,6 +586,8 @@ class FlowState(BaseModel):
     picks: dict[str, FieldPick] = Field(default_factory=dict)
     # G path: the extract as a dict (keys per the type pack's schema; for the Hungarian invoice, the InvoiceLLM dump)
     llm_output: dict[str, Any] | None = None
+    # 091: the token probabilities of its top-level values (jav/token_confidence.py); None: not measurable
+    llm_token_p: dict[str, dict[str, float | int]] | None = None
     verdicts: JevVerdicts | None = None
     # shared
     invoice: InvoiceHU | None = None

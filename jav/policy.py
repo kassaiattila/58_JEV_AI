@@ -26,6 +26,7 @@ CONFIG_HASH = cfg.config_hash("policy")
 NONE_LABEL: str = _CFG["none_label"]
 DETECT_DETAIL: dict[str, Any] = dict(_CFG["detect_detail"])  # 047 T1.2: threshold of the detailed-type code decision
 DETECT_ISSUER: dict[str, Any] = dict(_CFG["detect_issuer"])  # 090: the type / issuer cross-check
+GPT_FIELD_CONFIDENCE: dict[str, Any] = dict(_CFG["gpt_field_confidence"])  # 091: a GPT field's confidence without JEV
 
 # --------------------------------------------------------------------------------------
 # Bands (policy.json v1.1.0): named sets per call site, precedence by the length of the dotted prefix
@@ -123,6 +124,20 @@ def issuer_mismatch_reason(doc_type: str | None, detail_type: str | None, issuer
     if claimed and noul_band(issuer_hu, f"detect.issuer_is_hungarian.{engine}") == "no":
         return f"detect:issuer_mismatch:{claimed}"
     return None
+
+
+def gpt_field_confidence(token_p: dict[str, float | int] | None, status: str | None, *, failed_check: bool) -> float | None:
+    """091 (backlog F-gpt-field-confidence): the confidence of a field GPT extracted, on the G path without JEV. The
+    token probability of the value (`gpt_field_confidence.measure`) capped by the code's evidence: the source location's
+    status (`evidence`: a value not printed on the document, or only next to another field's label) and a failed field
+    check (`failed_check`); the weaker counts. Without a token probability only a cap below 1 is an estimate (a located
+    value alone is not), otherwise None. Display only: it opens no to-do."""
+    caps = [float(GPT_FIELD_CONFIDENCE["evidence"][status])] if status in GPT_FIELD_CONFIDENCE["evidence"] else []
+    if failed_check:
+        caps.append(float(GPT_FIELD_CONFIDENCE["failed_check"]))
+    token = token_p.get(GPT_FIELD_CONFIDENCE["measure"]) if token_p else None
+    parts = caps + ([float(token)] if token is not None else [])
+    return round(min(parts), 4) if parts else None
 
 
 def parent_fallback(confidence: float, parent: str | None, parent_prob: float, callsite: str, probabilities: dict[str, float] | None = None) -> str | None:
