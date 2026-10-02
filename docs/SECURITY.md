@@ -99,12 +99,13 @@ The system encrypts nothing. Disk encryption (BitLocker) is a machine setting th
 | Runs folder | raw runs; the JEV cache (with the requests, so excerpts of document and email text); the OCR cache (recognised text) | indefinitely |
 | Service log | errors with stack traces, which may include file names and paths; for some operations, the requester's name. Keys, tokens and passwords from the environment and the local key file are masked (since 2026-09-30) | rotates every 5 MB; 5 old copies are kept |
 | Incoming email folder | the text and header data of downloaded emails, and their attachments | indefinitely |
-| Source documents | stay where they are; the system does not copy them, it only refers to them by content hash | not managed by the system |
-| Store backup | the store and the internal working documents, locally and, if one is configured, in the second backup location; unencrypted | the latest 14 in both places (default) |
+| Original documents | stay where they are; the system never changes them | not managed by the system |
+| Document copies | an unchanging copy of every document added to a work package (store folder `sources/`, named by its content hash), so a result can always be shown against the exact file it came from | indefinitely; never thinned |
+| Store backup | the store, the document copies (each once, checked by its content hash) and the internal working documents, locally and, if one is configured, in the second backup location; unencrypted | the latest 14 in both places (default); the document copies are never thinned |
 | Local key file | the providers' keys, unencrypted | indefinitely |
 | Burr's local tracker | only for some command-line measurement commands: the flow steps, in the user's home folder; the worker does not use it | indefinitely |
 
-The backup is not a full recovery: it does not include the source documents, the emails, the runs folder or the keys, nor, by default, the flow-state store. Restoring is manual, with the service stopped ([setup guide, section 6](guides/SETUP.md)); a tested recovery is an open item (section 9).
+The backup holds what a restore needs to show every result against its document: the store and every document copy the store refers to. A copy that is missing or damaged both in the store and in the backup turns the backup red, names the copy, and stops the thinning of older backups. The backup does not include the original documents (they stay outside the system), the incoming email folder, the runs folder (raw runs, the JEV and OCR caches) or the keys, nor, by default, the flow-state store. Restoring is manual, with the service stopped ([setup guide, section 6](guides/SETUP.md)); a tested recovery is an open item (section 9).
 
 ## 8. GitHub and the code
 
