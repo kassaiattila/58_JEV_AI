@@ -293,10 +293,11 @@ def _plain(value: object) -> object:
 
 
 Origin = Literal["llm", "printed", "canonical"]
-# the generative contract: a plain decimal with a DOT ("1234.56"); money with two decimals at most, a quantity also with
-# four or more (a correction factor "0.9853"); three decimals are what a copied thousands group looks like ("28.000")
-_CONTRACT_MONEY = re.compile(r"-?\d+(?:\.\d{1,2})?")
-_CONTRACT_NUMBER = re.compile(r"-?\d+(?:\.\d{1,2}|\.\d{4,})?")
+# the generative contract: a plain decimal with a DOT ("1234.56"), with one or two decimals or with four or more (a
+# correction factor "0.9853"; 090: a unit price "37.4510" Ft/kWh too, which four digits after one separator make a
+# decimal, never a thousands group); three decimals are what a copied thousands group looks like ("28.000"), so they
+# are read with the document's notation
+_CONTRACT = re.compile(r"-?\d+(?:\.\d{1,2}|\.\d{4,})?")
 
 
 def _number_or_reason(kind: Kind, field: str, raw: object, reasons: list[str], *, origin: Origin = "llm",
@@ -317,8 +318,7 @@ def _number_or_reason(kind: Kind, field: str, raw: object, reasons: list[str], *
         return Decimal(raw)
     text = str(raw)
     s = text if origin == "printed" else text.strip().replace(" ", "")
-    contract = _CONTRACT_MONEY if kind == "money" else _CONTRACT_NUMBER
-    if origin == "canonical" or (origin == "llm" and contract.fullmatch(s)):
+    if origin == "canonical" or (origin == "llm" and _CONTRACT.fullmatch(s)):
         try:
             return Decimal(s)
         except InvalidOperation:
