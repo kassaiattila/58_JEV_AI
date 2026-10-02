@@ -13,6 +13,7 @@ the admin read.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import statistics
@@ -280,17 +281,26 @@ def _dump_rows(rows: list[dict[str, Any]], name: str) -> Path:
 
 def golden(
     arm: str, run_one: Callable[..., FlowState], cases: list[GoldenCase] | None = None, tracker: bool = False, use_cache: bool = True,
-    type_key: str = DEFAULT_KEY,
+    type_key: str = DEFAULT_KEY, *, jev: bool = True, budget_usd: Decimal | None = None,
 ) -> list[dict[str, Any]]:
+    """`jev=False` (086): the G path verified by the code alone (no JEV question). `budget_usd`: a hard OpenAI budget
+    for the whole measurement (the owner's sub-budget); JEV and Azure get none, so they cannot be called."""
+    from jav.runtime import calls
+
     pack = get_pack(type_key)
     cases = cases or load_cases(type_key)
     rows: list[dict[str, Any]] = []
-    for case in cases:
-        t0 = time.perf_counter()
-        state = run_one(str(case.pdf), case.case_id, arm, run_no=1, tracker=tracker, use_cache=use_cache, doc_type=type_key)
-        rows.append(_state_row(case, state, 1, time.perf_counter() - t0, pack))
-        print(f"  {case.case_id:40} {state.final_status:12} {state.route or '-':6} {time.perf_counter() - t0:5.1f}s")
-    path = _dump_rows(rows, _run_name(type_key, f"golden_{arm}"))
+    name = _run_name(type_key, f"golden_{arm}" + ("" if jev else "_nojev"))
+    guard = (calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{name}", {"openai": budget_usd}) if budget_usd is not None
+             else contextlib.nullcontext())
+    with guard:
+        for case in cases:
+            t0 = time.perf_counter()
+            kwargs = {} if jev else {"jev": False}  # a stand-in `run_one` without the parameter keeps working
+            state = run_one(str(case.pdf), case.case_id, arm, run_no=1, tracker=tracker, use_cache=use_cache, doc_type=type_key, **kwargs)
+            rows.append(_state_row(case, state, 1, time.perf_counter() - t0, pack))
+            print(f"  {case.case_id:40} {state.final_status:12} {state.route or '-':6} {time.perf_counter() - t0:5.1f}s")
+    path = _dump_rows(rows, name)
     print_golden_report(rows, arm, pack)
     print(f"\nNyers futások: {path}")
     return rows

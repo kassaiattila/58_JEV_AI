@@ -161,9 +161,12 @@ def cmd_detect(args: argparse.Namespace) -> int:
 
 
 def cmd_detect_golden(args: argparse.Namespace) -> int:
+    from decimal import Decimal
+
     from jav.evals_detect import detect_golden
 
-    detect_golden(use_cache=not args.no_cache)
+    detect_golden(use_cache=not args.no_cache, jev=not args.no_jev, descriptions=not args.keys_only,
+                  budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
     return 0
 
 
@@ -296,7 +299,10 @@ def cmd_golden(args: argparse.Namespace) -> int:
     from jav.evals import golden
     from jav.flow import run_one
 
-    golden(args.arm, run_one, tracker=args.tracker, use_cache=not args.no_cache, type_key=args.type)
+    from decimal import Decimal
+
+    golden(args.arm, run_one, tracker=args.tracker, use_cache=not args.no_cache, type_key=args.type, jev=not args.no_jev,
+           budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
     return 0
 
 
@@ -549,6 +555,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("detect-golden", help="M1 golden: a régi doc-triage + doc-extract típus-címkéin")
     p.add_argument("--no-cache", action="store_true")
+    p.add_argument("--no-jev", action="store_true", help="086: GPT recognises the type (paid OpenAI calls)")
+    p.add_argument("--keys-only", action="store_true", help="086: with --no-jev, offer the types by their keys only")
+    p.add_argument("--budget-usd", help="086: hard OpenAI budget for the whole measurement (JEV and Azure get none)")
     p.set_defaults(fn=cmd_detect_golden)
 
     p = sub.add_parser("detect-determinism", help="M1: ismételt futások cache nélkül a detect-goldenen, típus-flipek és conf-szórás")
@@ -690,6 +699,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--type", default="invoice_hu", help=type_help)
     p.add_argument("--tracker", action="store_true")
     p.add_argument("--no-cache", action="store_true")
+    p.add_argument("--no-jev", action="store_true", help="086: the G path verified by the code alone (runs/*_golden_G_nojev.jsonl)")
+    p.add_argument("--budget-usd", help="086: hard OpenAI budget for the whole measurement (JEV and Azure get none)")
     p.set_defaults(fn=cmd_golden)
 
     p = sub.add_parser("determinism")

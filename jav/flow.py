@@ -459,8 +459,10 @@ def build_app(
 
 
 def run_one(
-    source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, doc_type: str = DEFAULT_KEY
+    source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, doc_type: str = DEFAULT_KEY,
+    jev: bool = True,
 ) -> FlowState:
-    app = build_app(source_path, case_id, arm, run_no=run_no, tracker=tracker, use_cache=use_cache, doc_type=doc_type)
+    """`jev=False` (086): the G path verified by the code alone."""
+    app = build_app(source_path, case_id, arm, run_no=run_no, tracker=tracker, use_cache=use_cache, doc_type=doc_type, jev=jev)
     _, _, state = app.run(halt_after=TERMINALS)
     return state.data
