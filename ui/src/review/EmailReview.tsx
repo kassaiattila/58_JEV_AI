@@ -19,6 +19,12 @@ export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onCha
     <Split
       left={
         <article className="mail-view" aria-label={t("A levél")}>
+          {/* 086 (audit N04): the email as the item was added, never a later version's text */}
+          {m.source_status === "changed" ? (
+            <p className="notice error" role="alert">{t("A levélnek az a változata, amelyet ez a tétel feldolgozott, már nem található; ezért a szövege nem jeleníthető meg.")}</p>
+          ) : m.source_status === "earlier" ? (
+            <p className="notice">{t("Ez a levél azóta módosult tartalommal újra beérkezett; itt a feldolgozott változata látszik.")}</p>
+          ) : null}
           <h2>{m.subject || <span className="muted">{t("(tárgy nélkül)")}</span>}</h2>
           <dl className="mail-meta">
             <dt>{t("Feladó")}</dt><dd>{m.sender_name ? `${m.sender_name} <${m.sender ?? ""}>` : m.sender ?? "–"}</dd>

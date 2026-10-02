@@ -527,7 +527,9 @@ def task_view(flow_run_id: str, raw: dict[str, Any] | None) -> dict[str, Any] | 
 def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: str, note: str | None = None) -> dict[str, Any]:
     """A human decision on a task proposal (accept / reject). Once every proposal of the message is decided, the run's
     own "proposal awaits decision" to-do is resolved (the decisions go into the resolution). Frozen on an approved
-    run."""
+    run: 086 (audit of 2026-10-02, N02) the writing transaction checks the approval again, so a decision checked before
+    a concurrent approval is refused instead of being written after it (the decisions are part of the approved result,
+    `corrections.review_version`)."""
     run = work.get_run(run_id)
     if run["approval"]:
         raise work.RevisionConflict(f"run {run_id} is approved; task decisions are frozen")
@@ -538,7 +540,13 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
     view = task_view(flow_id, store.email_result(flow_id))
     if view is None or not 0 <= index < len(view["tasks"]):
         raise KeyError(f"task {index}")
-    store.email_task_decide(flow_id, index, decision=decision, actor=actor, note=note)
+    with store.connect() as c:
+        c.commit()
+        c.execute("BEGIN IMMEDIATE")
+        row = c.execute("SELECT approval FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        if row is not None and row["approval"]:
+            raise work.RevisionConflict(f"run {run_id} is approved; task decisions are frozen")
+        store.email_task_decide(flow_id, index, decision=decision, actor=actor, note=note, c=c)
     view = task_view(flow_id, store.email_result(flow_id))
     if all(t["decision"] for t in view["tasks"]):
         summary = {"decisions": [{"index": t["index"], "decision": t["decision"]["decision"]} for t in view["tasks"]]}
@@ -565,12 +573,14 @@ def mark_task_done(run_id: str, item_id: str, index: int, *, done: bool, actor: 
 
 
 def email_item_view(item: dict[str, Any], flow_run_id: str, corrected_intent: str | None = None) -> dict[str, Any]:
-    """The email item: the message (from `message.json`), the intent detection result with the manual correction, and
-    how much of the message text the detection saw (`body_coverage`, 058 K5.1)."""
-    from jav.emails import EmailMessage, body_coverage
+    """The email item: the message (the version the item was added with, 086 N04: `emails.message_version`), the intent
+    detection result with the manual correction, and how much of the message text the detection saw (`body_coverage`,
+    058 K5.1). `source_status` says whether the email has changed since (`earlier`) or that version is gone
+    (`changed`: no text is shown)."""
+    from jav.emails import EmailMessage, body_coverage, message_version
 
     path = Path(item["source_path"])
-    msg = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    msg, source_status = message_version(item)
     raw, from_this_run = email_result_for(flow_run_id, path.parent.name)
     res = {**effective_email_result(raw, corrected_intent), "from_this_run": from_this_run} if raw is not None else None
     body = msg.get("body") or ""
@@ -579,4 +589,5 @@ def email_item_view(item: dict[str, Any], flow_run_id: str, corrected_intent: st
     return {"subject": msg.get("subject") or "", "sender": msg.get("sender"), "sender_name": msg.get("sender_name"),
             "to": msg.get("to") or [], "received_at": msg.get("received_at"), "mailbox": msg.get("mailbox"),
             "body": body[:20000], "attachments": [a.get("filename") for a in msg.get("attachments") or []],
-            "body_coverage": coverage, "result": res, "tasks": task_view(flow_run_id, raw) if from_this_run else None}
+            "body_coverage": coverage, "result": res, "tasks": task_view(flow_run_id, raw) if from_this_run else None,
+            "source_status": source_status}

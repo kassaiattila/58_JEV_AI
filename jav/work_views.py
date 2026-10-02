@@ -57,14 +57,16 @@ def item_titles(items: list[dict[str, Any]], root: str | None = None) -> dict[st
         p = Path(i["source_path"])
         if base and i.get("kind") != "email" and not i.get("parent_item_id") and p.parent != base and p.is_relative_to(base):
             out[i["item_id"]] = p.relative_to(base).as_posix()
+    from jav.emails import message_version
+
     for i in items:
         if i.get("kind") != "email":
             continue
-        try:
-            m = json.loads(Path(i["source_path"]).read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        subjects[i["item_id"]] = (m.get("subject") or "(tárgy nélkül)")[:100]
+        m, status = message_version(i)  # 086 N04: the version the item was added with, not the latest
+        if not m and status != "changed":
+            continue  # unreadable: the file name stays the title
+        subjects[i["item_id"]] = ("(a levél futáskori változata nem található)" if status == "changed"
+                                  else m.get("subject") or "(tárgy nélkül)")[:100]
         out[i["item_id"]] = f"{subjects[i['item_id']]} — {m.get('sender_name') or m.get('sender') or '?'}"
     for i in items:  # 058 K5.2: the attachment's origin in its name (which email it came from)
         if i.get("parent_item_id") in subjects:

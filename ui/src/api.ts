@@ -201,6 +201,9 @@ export interface EmailItem {
   /** 058 K5.3: task proposals after the gate, with the human decision (null = the run did not ask for proposals). */
   tasks?: { status: "proposed" | "skipped" | "error"; reason?: string | null; error?: string | null; tasks: EmailTask[];
     rejected: RejectedTask[] } | null;
+  /** 086 (audit N04): the email as the item was added — `earlier`: it has changed since (this is the processed
+   *  version); `changed`: that version is gone, no text is shown. */
+  source_status?: "current" | "earlier" | "changed" | "unknown";
 }
 export interface EmailTask {
   index: number; action: string; title: string; due_date: string | null; assignee_hint: string | null;
@@ -268,6 +271,8 @@ export interface DatasetSpec {
 export interface DsPage {
   dataset: DatasetSpec; columns: DsColumn[]; rows: DsRow[]; total: number; matched: number; offset: number; limit: number;
   facets: Record<string, string[]>;
+  /** 086 (audit N01): a run's table — the version of the reviewed result these rows show */
+  review_version?: string;
 }
 export type DsScope = Record<string, string>;
 export type ExportFormat = "xlsx" | "csv" | "json";
