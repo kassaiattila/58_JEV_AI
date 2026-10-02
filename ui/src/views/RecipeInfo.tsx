@@ -5,7 +5,7 @@
 import { api, type Recipe, type RecipeHelp } from "../api";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { docTypeLabel, itemBudgetLines, jevOffNote, orderedParams, PARAM_LABEL, paramApplies, paramInEffect, paramShort } from "../labels";
+import { applyPath, docTypeLabel, itemBudgetLines, PARAM_LABEL, paramShort, PATH, pathOptions, pathValue, shownParams, shownValue } from "../labels";
 
 const BUDGET_NOTE = "felső határ: ennyit foglal le a rendszer a futás indításakor; a tényleges költség általában kisebb, és a futás oldalán követhető";
 
@@ -15,9 +15,20 @@ export const recipeDefaults = (r: Recipe): Record<string, string> =>
 
 /** The explanation of a setting's chosen value; if the value has none (e.g. document type), the setting's own. */
 export function paramExplanation(help: RecipeHelp | undefined, k: string, v: string): string | null {
-  const p = help?.params[k];
+  const p = k === PATH ? pathHelp(help) : help?.params[k];
   const text = p?.options[v] ?? p?.help;
   return text ? t(text) : null;
+}
+
+/** 090: the explanation of the processing path (`configs/recipe_help.json` → `path`); a service without it is
+ *  explained from the documents' path and the use of JEV. */
+function pathHelp(help: RecipeHelp | undefined): { help: string; options: Record<string, string> } | undefined {
+  if (!help) return undefined;
+  if (help.params.path) return help.params.path;
+  const arm = help.params.arm, jev = help.params.jev;
+  if (!arm && !jev) return undefined;
+  return { help: arm?.help ?? jev?.help ?? "",
+    options: { ...(arm?.options ?? {}), ...(jev?.options.off ? { gpt: jev.options.off } : {}), ...(jev?.options.on ? { jev: jev.options.on } : {}) } };
 }
 
 /** The settings card's explanatory list: per setting, the chosen value and its meaning, with the budget at the end.
@@ -27,15 +38,15 @@ export function RecipeParamList({ recipe, params, help, kinds }: { recipe: Recip
   const full = { ...recipeDefaults(recipe), ...params };
   return (
     <dl className="param-help">
-      {/* 089: the use of JEV first; without it the path and the JEV answers do not count, one sentence instead */}
-      {orderedParams(Object.keys(recipe.params)).filter((k) => paramApplies(k, kinds) && paramInEffect(k, full)).map((k) => {
-        const text = paramExplanation(help, k, full[k]);
-        const note = k === "jev" ? jevOffNote(full) : null;
+      {/* 090: the processing path first (the documents' path and the use of JEV as one choice), then the settings
+          that count */}
+      {shownParams(Object.keys(recipe.params), full, kinds).map((k) => {
+        const value = shownValue(k, full, kinds);
+        const text = paramExplanation(help, k, value);
         return (
           <div key={k} className="param-row">
             <dt>{PARAM_LABEL[k] ?? k}</dt>
-            <dd><strong>{paramShort(k, full[k])}</strong>{text ? <span className="param-note">{text}</span> : null}
-              {note ? <span className="param-note">{note}</span> : null}</dd>
+            <dd><strong>{paramShort(k, value)}</strong>{text ? <span className="param-note">{text}</span> : null}</dd>
           </div>
         );
       })}
@@ -117,13 +128,15 @@ function RecipeDetails({ recipe, help }: { recipe: Recipe; help?: RecipeHelp }) 
         </dd>
       </dl>
       <h4>{t("Beállítások")}</h4>
-      {orderedParams(Object.keys(recipe.params)).map((k) => {
-        const spec = recipe.params[k];
+      {/* 090: the processing path as one setting with its four values */}
+      {shownParams(Object.keys(recipe.params), defaults).map((k) => {
+        const isPath = k === PATH;
+        const spec = isPath ? { allowed: pathOptions(recipe.params.arm?.allowed ?? []), default: pathValue(defaults) } : recipe.params[k];
         const options = spec.allowed ?? [];
         // the budget per option is only shown where the setting also affects the cost (e.g. path, task proposal)
-        const costs = options.map((o) => itemBudgetLines(recipe, { ...defaults, [k]: o }).join("; "));
+        const costs = options.map((o) => itemBudgetLines(recipe, isPath ? applyPath(defaults, o) : { ...defaults, [k]: o }).join("; "));
         const costVaries = new Set(costs).size > 1;
-        const p = help?.params[k];
+        const p = isPath ? pathHelp(help) : help?.params[k];
         return (
           <div key={k} className="param-doc">
             <p><strong>{PARAM_LABEL[k] ?? k}</strong>{p?.help ? <> — {t(p.help)}</> : null}</p>
@@ -139,7 +152,6 @@ function RecipeDetails({ recipe, help }: { recipe: Recipe; help?: RecipeHelp }) 
                     <strong>{paramShort(k, o)}</strong>
                     {o === spec.default ? <span className="status s-ok">{t("alapbeállítás")}</span> : null}
                     {p?.options[o] ? <span className="option-text">{t(p.options[o])}</span> : null}
-                    {jevOffNote({ [k]: o }) ? <span className="option-text">{jevOffNote({ [k]: o })}</span> : null}
                     {costVaries ? <span className="muted small option-text">{t("Költségkeret: {{cost}}", { cost: costs[i] })}</span> : null}
                   </li>
                 ))}

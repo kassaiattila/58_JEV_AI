@@ -1,7 +1,6 @@
 {
  "A GPT-s szándékfelismerés nem sikerült ({{why}}); olvasd el a levelet, és döntsd el kézzel": "GPT intent recognition failed ({{why}}); read the email and decide by hand",
  "A levél-szándék bizonyossága nem mérhető; ellenőrizd kézzel": "The confidence of the email's intent cannot be measured; check it by hand",
- "JEV nélkül minden irat a G-úton fut (a GPT olvassa ki az adatokat, a kód ellenőrzi őket), ezért az út és a JEV-válaszok beállítása nem számít, és nem látszik.": "Without JEV every document runs on the G path (GPT reads the data and the code checks it), so the path and JEV-answer settings do not count and are not shown.",
  "{{n}} feladatjavaslat vár döntésre": "{{n}} task proposal(s) awaiting a decision",
  "15 percenként": "every 15 minutes",
  "4 óránként": "every 4 hours",
@@ -104,5 +103,9 @@
  "gyenge szkennelésnél": "for weak scans",
  "Gyenge helyi felismerés; egy korábbi Azure-hívás kimenete bizonytalan, ezért nem ismételtük meg": "Weak local recognition; an earlier Azure call has an uncertain outcome, so it was not repeated",
  "Gyenge helyi felismerés; az Azure-felismerés a futás kerete miatt elmaradt": "Weak local recognition; Azure recognition was skipped because of the run's budget",
- "A típus ({{type}}) magyar kiállítót feltételez, de a felismerés szerint a kiállító nem magyar; ellenőrizd a típust": "The type ({{type}}) presumes a Hungarian issuer, but the recognition says the issuer is not Hungarian; check the type"
+ "A típus ({{type}}) magyar kiállítót feltételez, de a felismerés szerint a kiállító nem magyar; ellenőrizd a típust": "The type ({{type}}) presumes a Hungarian issuer, but the recognition says the issuer is not Hungarian; check the type",
+ "Feldolgozási út": "Processing path",
+ "Automatikus (ajánlott) — JEV és GPT": "Automatic (recommended) — JEV and GPT",
+ "Csak GPT, JEV nélkül (OpenAI)": "GPT only, without JEV (OpenAI)",
+ "JEV-vel (ajánlott)": "With JEV (recommended)"
 }

@@ -10,7 +10,7 @@ import { Picker } from "../components/Picker";
 import { PackageCosts } from "./PackageCosts";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { itemBudgetLines, jevOffNote, MODE, orderedParams, PARAM_LABEL, paramApplies, paramInEffect, paramShort, paramsText, planLines, providerName, RUN_STATUS, tmap, usdBudget, when, blockerText } from "../labels";
+import { applyPath, itemBudgetLines, MODE, PARAM_LABEL, paramShort, paramsText, PATH, pathOptions, planLines, providerName, RUN_STATUS, shownParams, shownValue, tmap, usdBudget, when, blockerText } from "../labels";
 import { go } from "../route";
 import { paramExplanation, RecipeParamList, recipeDefaults } from "./RecipeInfo";
 
@@ -145,6 +145,10 @@ const PARAM_VALUE: Record<string, string> = tmap({
   "azure_ocr:off": "Csak helyi felismerés",
   "jev:on": "Bekapcsolva: a JEV ismeri fel a típust és a levél szándékát, és választ vagy ellenőriz az adatkinyerésnél",
   "jev:off": "Kikapcsolva: csak GPT (OpenAI) — típusfelismerés, adatkinyerés és levélszándék GPT-vel, kódos ellenőrzéssel",
+  // 090: the processing path (the documents' path and the use of JEV as one choice)
+  "path:auto": "Automatikus (ajánlott) — JEV és GPT, iratonként az irattípus ajánlott útja",
+  "path:gpt": "Csak GPT, JEV nélkül — típusfelismerés, adatkinyerés és levélszándék GPT-vel, kódos ellenőrzéssel (OpenAI)",
+  "path:jev": "JEV-vel (ajánlott) — a JEV ismeri fel a levél szándékát",
 });
 /** Label of a setting's value in the editor and on the confirmation page; the path by what it does (080, the owner's
  *  decision of 2026-10-01), a document type by its name. */
@@ -255,18 +259,18 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
               options={catalogue.map((r) => ({ value: r.id, label: t(r.title) }))}
               onChange={(v) => setRecipeId(v)} />
           ) : null}
-          {/* 089: the use of JEV first; without it the path and the JEV answers do not count, one sentence instead */}
-          {orderedParams(Object.keys(options)).filter((k) => paramApplies(k, kinds) && paramInEffect(k, full)).map((k) => {
-            const value = full[k] ?? "";
+          {/* 090: the processing path first (the documents' path and the use of JEV as one choice), then the settings
+              that count; without JEV the JEV answers are not shown */}
+          {shownParams(Object.keys(options), full, kinds).map((k) => {
+            const value = shownValue(k, full, kinds);
+            const choices = k === PATH ? pathOptions(options.arm ?? [], kinds) : options[k];
             const explain = paramExplanation(help, k, value);
-            const note = k === "jev" ? jevOffNote(full) : null;
             return (
               <div key={k} className="param-field">
                 <Picker label={PARAM_LABEL[k] ?? k} className="block-picker" value={value}
-                  options={options[k].map((o) => ({ value: o, label: paramValue(k, o) }))}
-                  onChange={(v) => setParams((p) => ({ ...p, [k]: v }))} />
+                  options={choices.map((o) => ({ value: o, label: paramValue(k, o) }))}
+                  onChange={(v) => setParams((p) => (k === PATH ? applyPath({ ...full, ...p }, v) : { ...p, [k]: v }))} />
                 {explain ? <p className="param-note">{explain}</p> : null}
-                {note ? <p className="param-note">{note}</p> : null}
               </div>
             );
           })}
