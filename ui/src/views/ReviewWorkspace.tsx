@@ -11,7 +11,7 @@ import { draftKey, getDraft, setField, useDraft } from "../review/drafts";
 import { EmailReview } from "../review/EmailReview";
 import { FieldPanel } from "../review/FieldPanel";
 import { classifyFields, initialFilter, nextAfterConfirm, type FieldFilter } from "../review/fieldFilter";
-import { bandOf, orderFields, selectionText, type Bands } from "../review/geometry";
+import { bandOf, bandsFor, orderFields, selectionText, type Bands } from "../review/geometry";
 import { BAND_COLOR, PageViewer } from "../review/PageViewer";
 import { Split } from "../review/Split";
 
@@ -174,7 +174,7 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev, 
 
   const band = useCallback((f: string) => {
     const p = data?.provenance[f];
-    return bandOf(p?.confidence, bands, Boolean(p?.corrected) || getDraft(key)?.values[f] !== undefined);
+    return bandOf(p?.confidence, bandsFor(p, bands), Boolean(p?.corrected) || getDraft(key)?.values[f] !== undefined);
   }, [data, bands, key]);
 
   const allFields = useMemo(() => {

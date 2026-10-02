@@ -3,7 +3,7 @@
 // „Mind” (all fields).
 import type { ItemResult } from "../api";
 import { tmap } from "../labels";
-import { bandOf, type Bands } from "./geometry";
+import { bandOf, bandsFor, type Bands } from "./geometry";
 
 export type FieldFilter = "fix" | "uncertain" | "all";
 export const FIELD_FILTERS: FieldFilter[] = ["fix", "uncertain", "all"];
@@ -18,7 +18,7 @@ export function classifyFields(fields: string[], res: ItemResult, bands: Bands):
   const withReason = new Set(res.open_reasons.map((r) => r.field).filter((f): f is string => Boolean(f)));
   const weak = (f: string) => {
     const p = res.provenance[f];
-    const band = bandOf(p?.confidence, bands);
+    const band = bandOf(p?.confidence, bandsFor(p, bands));
     return (band === "check" || band === "likely_wrong") && !p?.corrected && !isConfirmed(res, f);
   };
   return { fix: fields.filter((f) => withReason.has(f)), uncertain: fields.filter(weak), all: fields };

@@ -5,7 +5,13 @@ import type { Box, Provenance, SourceWord } from "../api";
 import { tmap } from "../labels";
 
 export type Band = "confident" | "check" | "likely_wrong" | "unknown";
-export interface Bands { confident: number; check: number }
+export interface Bands { confident: number; check: number; gpt?: { confident: number; check: number } }
+
+/** 091: the band limits of a field: a GPT field's confidence (path without JEV) has its own band, if the service sends
+ *  it; every other field keeps the common one. */
+export function bandsFor(p: Provenance | undefined, bands: Bands): { confident: number; check: number } {
+  return p?.confidence_basis?.source === "gpt" && bands.gpt ? bands.gpt : { confident: bands.confident, check: bands.check };
+}
 
 // 057: translates when read (tmap); the rendering component refreshes via useLocale()
 export const BAND_LABEL: Record<Band, string> = tmap({

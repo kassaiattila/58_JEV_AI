@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "changelog": [
+   {
+    "version": "1.14.0",
+    "date": "2026-10-02",
+    "note": "091 (the paid measurement of 2026-10-02 on the 70 G-path golden documents without JEV, 0.464 USD; the owner's decisions: 'probability only, 0.98' and 'display only, trial first'): gpt_field_confidence.evidence is empty - the source location no longer caps a GPT field (GPT rewrites values, e.g. 'Hungary' for 'Magyarorszag'; with the caps 19 of 25 wrong fields but 112 of 985 right ones fell below 0.98, without them 15 and 33); failed_check stays 0.5; bands - GPT's own display band (confident from 0.98, check from 0.5), served with the settings for the review's colours and its 'uncertain' filter. Still display only: no to-do comes from it. The threshold was chosen on the measured documents themselves"
+   },
    {
     "version": "1.13.0",
     "date": "2026-10-02",
@@ -157,7 +162,8 @@
  },
  "gpt_field_confidence": {
   "measure": "joint",
-  "evidence": {"not_found": 0.5, "context_rejected": 0.5},
-  "failed_check": 0.5
+  "evidence": {},
+  "failed_check": 0.5,
+  "bands": {"confident": 0.98, "check": 0.5}
  }
 }

@@ -51,3 +51,9 @@ def test_only_the_asked_fields_and_nothing_without_tokens():
     assert set(tc.field_probabilities(toks, fields=["b", "x"])) == {"b"}
     assert tc.field_probabilities([]) == {}
     assert tc.field_probabilities(None) == {}
+
+
+def test_a_probability_never_exceeds_one():
+    """The provider rounds: a log-probability can be a hair above 0."""
+    toks = [{"token": '{"a":', "logprob": 0.0}, {"token": "1", "logprob": 0.0002}, {"token": "}", "logprob": 0.0}]
+    assert tc.field_probabilities(toks)["a"] == {"joint": 1.0, "min": 1.0, "first": 1.0, "n": 1}

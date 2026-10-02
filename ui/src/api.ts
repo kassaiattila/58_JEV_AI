@@ -182,8 +182,8 @@ export interface Provenance extends Partial<Region> {
   confidence?: number | null; corrected?: boolean; present_p?: number | null; label?: boolean;
   multiple?: number | null; // 053: the number of places the value appears in (the box is on the most likely one)
   rows?: Provenance[]; // 053: line list — for each row, the row's location on the image
-  // 091: a GPT field's confidence without JEV — the token probability of the value (null: not measurable), capped by
-  // the source check and the field check
+  // 091: a GPT field's confidence without JEV — the token probability of the value (null: not measurable), lowered by
+  // a failed field check; it has its own band (`Bands.gpt`)
   confidence_basis?: { source: "gpt"; measure: string; token: number | null; failed_check: boolean } | null;
 }
 export interface SourcePage { page: number; width_pt: number; height_pt: number }
@@ -503,7 +503,7 @@ export const api = {
     `/api/workpackages/${enc(wpId)}/items/${enc(itemId)}/pages/${page}.png?dpi=${dpi}`,
   words: (runId: string, itemId: string) =>
     request<{ layer_id: string; pages: SourcePage[]; words: SourceWord[] }>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}/words`),
-  settings: () => request<{ confidence_bands: { confident: number; check: number } }>("GET", "/settings"),
+  settings: () => request<{ confidence_bands: { confident: number; check: number; gpt?: { confident: number; check: number } } }>("GET", "/settings"),
   normalize: (doc_type: string, field: string, text: string) =>
     request<{ ok: boolean; value: string | null; reasons: string[]; kind: string }>("POST", "/normalize", { doc_type, field, text }),
 };

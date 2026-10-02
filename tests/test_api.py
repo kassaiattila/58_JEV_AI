@@ -499,7 +499,8 @@ def test_correction_with_selection_on_the_image(env):
 
 def test_settings_and_normalize_selected_text(env):
     c = env["client"]
-    assert c.get("/api/settings").json()["confidence_bands"] == {"confident": 0.9, "check": 0.5}
+    assert c.get("/api/settings").json()["confidence_bands"] == {"confident": 0.9, "check": 0.5,
+                                                              "gpt": {"confident": 0.98, "check": 0.5}}  # 091: GPT's own band
     r = c.post("/api/normalize", json={"doc_type": "invoice_hu", "field": "gross_total", "text": "1 071 880 Ft"}).json()
     assert r["ok"] is True and r["value"] == "1071880" and r["kind"] == "money"
     d = c.post("/api/normalize", json={"doc_type": "invoice_hu", "field": "issue_date", "text": "2021.04.23."}).json()

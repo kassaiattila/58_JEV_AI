@@ -123,6 +123,7 @@ def field_probabilities(tokens: list[dict[str, Any]] | None, fields: list[str] |
                if s < end and s + len(t.get("token") or "") > start]
         if not lps:
             continue
+        lps = [min(0.0, lp) for lp in lps]  # the provider rounds: a log-probability can be a hair above 0
         out[field] = {"joint": round(math.exp(sum(lps)), 4), "min": round(math.exp(min(lps)), 4),
                       "first": round(math.exp(lps[0]), 4), "n": len(lps)}
     return out
