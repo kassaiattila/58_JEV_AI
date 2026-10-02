@@ -120,6 +120,17 @@ def use_run(*, budget_scope: str | None):
         _context.reset(token)
 
 
+@contextmanager
+def measurement(scope: str, limits: dict[str, Decimal]):
+    """086: a paid measurement outside a work run, under a hard budget (the owner's sub-budget): every call reserves from
+    `scope`'s budget and goes into the call log; a provider without a limit here cannot be called at all (e.g. no
+    Azure escalation, no stray JEV call)."""
+    for provider, limit in limits.items():
+        set_budget(scope, provider, limit)
+    with use_run(budget_scope=scope):
+        yield scope
+
+
 def current() -> RunContext | None:
     """None: the legacy command-line / measurement path, without call log or budget (the earlier behaviour)."""
     return _context.get()

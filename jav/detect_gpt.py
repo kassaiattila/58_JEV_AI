@@ -49,6 +49,18 @@ YES, NO, NONE = "yes", "no", "none"
 OTHER_BRANCHES = "(other)"  # probability of alternative branches that do not lead to a single option
 
 _agent_factory: ContextVar = ContextVar("gpt_detect_agent_factory", default=None)
+_descriptions: ContextVar[bool] = ContextVar("gpt_detect_type_descriptions", default=True)
+
+
+@contextmanager
+def use_type_descriptions(on: bool):
+    """Measurement switch (owner's decision of 2026-10-02: the short descriptions are measured against the bare keys):
+    False offers the coarse types by their keys only, as the legacy project did."""
+    token = _descriptions.set(on)
+    try:
+        yield
+    finally:
+        _descriptions.reset(token)
 
 
 @contextmanager
@@ -78,6 +90,8 @@ def short_description(text: str) -> str:
 
 
 def _type_lines() -> str:
+    if not _descriptions.get():
+        return "\n".join(f"- {key}" for key in [*(t.key for t in DOC_TYPES), UNKNOWN])
     lines = [f"- {t.key}: {short_description(t.what)}" for t in DOC_TYPES]
     lines.append(f"- {UNKNOWN}: {short_description(cfg.load('doc_types')['unknown']['what'])}")
     return "\n".join(lines)

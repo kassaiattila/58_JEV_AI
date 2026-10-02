@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import random
 import statistics
@@ -9,6 +10,7 @@ import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -46,25 +48,41 @@ def load_detect_cases() -> list[DetectCase]:
     return list(seen.values())
 
 
-def detect_golden(use_cache: bool = True) -> list[dict[str, Any]]:
+def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: bool = True,
+                  budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
+    """`jev=False` (086): GPT recognises the type (`jav/detect_gpt.py`); `descriptions=False` offers the types by their
+    keys only (the measured alternative). `budget_usd`: a hard OpenAI budget for the whole measurement (the owner's
+    sub-budget; JEV and Azure get none, so they cannot be called) - a call over it is a `detect:gpt_failed` row."""
+    from jav import detect_gpt
     from jav.flow_detect import run_detect
+    from jav.runtime import calls
 
     cases = load_detect_cases()
     rows: list[dict[str, Any]] = []
-    for case in cases:
-        t0 = time.perf_counter()
-        st = run_detect(str(case.path), use_cache=use_cache)
-        r = st.result
-        rows.append({
-            "case_id": case.case_id, "expected": case.expected, "old_type": case.old_type,
-            "got": r.doc_type if r else None, "confidence": r.confidence if r else None,
-            "issuer_hu": r.issuer_hu if r else None, "language": r.language if r else None,
-            "status": st.final_status, "seconds": round(time.perf_counter() - t0, 2),
-            "top3": dict(sorted(r.probabilities.items(), key=lambda kv: -kv[1])[:3]) if r else {},
-            "parent": r.parent if r else None, "parent_prob": r.parent_prob if r else None,
-        })
+    stamp = f"{datetime.now():%Y%m%d_%H%M%S}"
+    guard = (calls.measurement(f"measure-{stamp}-detect", {"openai": budget_usd}) if budget_usd is not None
+             else contextlib.nullcontext())
+    with guard, detect_gpt.use_type_descriptions(descriptions):
+        for case in cases:
+            t0 = time.perf_counter()
+            st = run_detect(str(case.path), use_cache=use_cache, jev=jev)
+            r, d = st.result, st.detail
+            rows.append({
+                "case_id": case.case_id, "expected": case.expected, "old_type": case.old_type,
+                "got": r.doc_type if r else None, "confidence": r.confidence if r else None,
+                "issuer_hu": r.issuer_hu if r else None, "language": r.language if r else None,
+                "status": st.final_status, "seconds": round(time.perf_counter() - t0, 2),
+                "top3": dict(sorted(r.probabilities.items(), key=lambda kv: -kv[1])[:3]) if r else {},
+                "parent": r.parent if r else None, "parent_prob": r.parent_prob if r else None,
+                # 086: which engine answered, whether its confidence was measurable, the detailed type and the cost
+                "engine": r.engine if r else ("jev" if jev else "gpt"), "measured": r.measured if r else None,
+                "detail_type": d.key if d else None, "detail_method": d.method if d else None,
+                "detail_conf": d.confidence if d else None, "cost_usd": r.call.cost_usd if r else None,
+                "review_reasons": list(st.review_reasons) + list(st.detail_reasons),
+            })
     RUNS_DIR.mkdir(exist_ok=True)
-    out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_detect_golden.jsonl"
+    variant = "" if jev else ("_gpt" if descriptions else "_gpt_keys")
+    out = RUNS_DIR / f"{stamp}_detect_golden{variant}.jsonl"
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
     print_detect_report(rows)
     print(f"\nNyers futások: {out}")
