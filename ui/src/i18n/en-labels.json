@@ -1,4 +1,6 @@
 {
+ "A GPT-s szándékfelismerés nem sikerült ({{why}}); olvasd el a levelet, és döntsd el kézzel": "GPT intent recognition failed ({{why}}); read the email and decide by hand",
+ "A levél-szándék bizonyossága nem mérhető; ellenőrizd kézzel": "The confidence of the email's intent cannot be measured; check it by hand",
  "JEV nélkül minden irat a G-úton fut (a GPT olvassa ki az adatokat, a kód ellenőrzi őket), ezért az út és a JEV-válaszok beállítása nem számít, és nem látszik.": "Without JEV every document runs on the G path (GPT reads the data and the code checks it), so the path and JEV-answer settings do not count and are not shown.",
  "{{n}} feladatjavaslat vár döntésre": "{{n}} task proposal(s) awaiting a decision",
  "15 percenként": "every 15 minutes",
@@ -97,7 +99,6 @@
  "bekapcsolva": "on",
  "kikapcsolva — csak GPT (OpenAI)": "off — GPT only (OpenAI)",
  "JEV: nem hívódik (kikapcsolva).": "JEV: not called (switched off).",
- "JEV: nem hívódik (kikapcsolva); a levelek szándéka teendő lesz.": "JEV: not called (switched off); the emails' intent becomes a to-do.",
  "{{n}} irat típusfelismerése és adatkinyerése a G-úton, kódos ellenőrzéssel": "type recognition and extraction of {{n}} document(s) on the G path, checked by the code",
  "JEV nélküli feldolgozás: a levél szándékát a rendszer nem ismeri fel; olvasd el, és döntsd el kézzel": "Processing without JEV: the system does not recognise the email's intent; read it and decide by hand",
  "gyenge szkennelésnél": "for weak scans",

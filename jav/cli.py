@@ -333,7 +333,10 @@ def cmd_email(args: argparse.Namespace) -> int:
 def cmd_email_golden(args: argparse.Namespace) -> int:
     from jav.evals_email import email_golden
 
-    email_golden(use_cache=not args.no_cache, limit=args.limit)
+    from decimal import Decimal
+
+    email_golden(use_cache=not args.no_cache, limit=args.limit, jev=not args.no_jev,
+                 budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
     return 0
 
 
@@ -511,7 +514,10 @@ def cmd_email_determinism(args: argparse.Namespace) -> int:
 def cmd_email_injection_probe(args: argparse.Namespace) -> int:
     from jav.evals_email import email_injection_probe
 
-    email_injection_probe(limit=args.limit, use_cache=not args.no_cache)
+    from decimal import Decimal
+
+    email_injection_probe(limit=args.limit, use_cache=not args.no_cache, jev=not args.no_jev,
+                          budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
     return 0
 
 
@@ -589,6 +595,8 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("email-golden", help="M3 golden: a régi 96 esetes intent-golden (10_AIFLOW_V4) Jev-Choice-szal")
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--limit", type=int)
+    p.add_argument("--no-jev", action="store_true", help="089: GPT recognises the intent (paid OpenAI calls)")
+    p.add_argument("--budget-usd", help="089: hard OpenAI budget for the whole measurement (JEV and Azure get none)")
     p.set_defaults(fn=cmd_email_golden)
 
     p = sub.add_parser("email-inbox", help="M3: inbox/<mailbox>/<msgid>/ mappák bejárása (Outlook-lekérés után), folytatható")
@@ -659,6 +667,8 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("email-injection-probe", help="M3: beszúrt-utasítás (promptinjekció) szonda a golden levelek tiszta és elrontott változatain (runs/*_email_injection_probe.jsonl)")
     p.add_argument("--limit", type=int, default=8)
     p.add_argument("--no-cache", action="store_true")
+    p.add_argument("--no-jev", action="store_true", help="089: GPT answers the injection question (paid OpenAI calls)")
+    p.add_argument("--budget-usd", help="089: hard OpenAI budget for the whole probe (JEV and Azure get none)")
     p.set_defaults(fn=cmd_email_injection_probe)
 
     p = sub.add_parser("legacy-import", help="047: a régi projekt köteg-exportjai (csak olvasva) a legacy_results táblába, ujjlenyomat szerint")

@@ -3,7 +3,7 @@ only; no paid call.
 
 With JEV switched off a run gets no JEV budget at all, so a stray JEV call could not even reserve: that is the safety
 net. Every document runs on the G path (GPT extraction, the code's own source check), its type is recognised by GPT,
-and an email gets a to-do instead of an intent.
+and (since 089) GPT recognises an email's intent.
 """
 
 from decimal import Decimal
@@ -56,9 +56,9 @@ def test_without_jev_a_document_has_no_jev_budget_and_an_openai_budget_for_recog
     assert off["openai"] == on["openai"] + Decimal("0.07")  # the two GPT type questions (worst case)
 
 
-def test_without_jev_an_email_has_no_budget_at_all():
+def test_without_jev_an_email_has_no_jev_budget_only_openai_for_the_gpt_intent():
     off = work.item_budget(_recipe(), {"arm": "auto", "jev": "off", "tasks": "off"}, "email")
-    assert off == {}
+    assert off == {"openai": Decimal("0.07")}  # 089: GPT recognises the intent (tests/test_gpt_intent_089.py)
 
 
 def test_without_jev_a_known_s_type_document_is_planned_on_the_g_path(isolated):
@@ -120,12 +120,14 @@ def test_without_jev_a_whole_document_runs_with_gpt_only(tmp_path):
 # --- an email without JEV ---------------------------------------------------------------------------------
 
 
-def test_without_jev_an_email_gets_a_to_do_instead_of_an_intent(isolated):
+def test_without_jev_an_email_never_asks_jev(isolated):
+    # 089: GPT recognises the intent without JEV; here GPT is unavailable too (the test guard refuses live calls), so
+    # the email is a to-do (the GPT intent itself: tests/test_gpt_intent_089.py)
     msg = EmailMessage(message_id="m-1", subject="Szamla", body="Mellekelten kuldom a szamlat.",
                        attachments=[Attachment(filename="a.pdf")])
     with jev_mod.use_adapter(_NoJev()):
         app = flow_email.build_app(message=msg, jev=False)
         _, _, state = app.run(halt_after=flow_email.TERMINALS)
     st = state.data
-    assert st.result is None and "intent:jev_off" in st.review_reasons
+    assert st.result is None and "intent:gpt_failed:AssertionError" in st.review_reasons
     assert st.next_flow == "human:jev_unavailable"

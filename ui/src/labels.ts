@@ -177,7 +177,10 @@ export function reasonText(code: string): string {
     case "detect_detail:confidence_unavailable": return t("A részletes típus bizonyossága nem mérhető: {{type}}; ellenőrizd kézzel", { type: docTypeLabel(p[2]) });
     case "intent:low_conf": return t("Bizonytalan levél-szándék: {{intent}} ({{p}})", { intent: intentLabel(p[2]), p: v });
     case "intent:no_result": return t("A levél szándékát nem sikerült felismerni");
-    // 086: processing without JEV: the intent is a JEV question
+    // 089: the intent recognised by GPT (processing without JEV)
+    case "intent:gpt_failed": return t("A GPT-s szándékfelismerés nem sikerült ({{why}}); olvasd el a levelet, és döntsd el kézzel", { why: p[2] ?? "" });
+    case "intent:confidence_unavailable": return t("A levél-szándék bizonyossága nem mérhető; ellenőrizd kézzel");
+    // 086: processing without JEV, before 089 (older runs): the intent was not recognised at all
     case "intent:jev_off": return t("JEV nélküli feldolgozás: a levél szándékát a rendszer nem ismeri fel; olvasd el, és döntsd el kézzel");
     // 073: task proposals from an e-mail (jav/flow_email.py); until now these showed the raw code
     case "tasks:proposed": return t("{{n}} feladatjavaslat vár döntésre", { n: p[2] ?? "" });
@@ -385,11 +388,12 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
   }
   if (plan.jev === false) {
     // 086: processing without JEV — no JEV budget, so not even a stray JEV call could start
-    out.push(plan.emails ? t("JEV: nem hívódik (kikapcsolva); a levelek szándéka teendő lesz.") : t("JEV: nem hívódik (kikapcsolva)."));
+    out.push(t("JEV: nem hívódik (kikapcsolva)."));
   }
   if (amount("openai") > 0 && plan.jev === false) {
     out.push(`${head("openai")}: ${join([
       plan.documents > 0 && t("{{n}} irat típusfelismerése és adatkinyerése a G-úton, kódos ellenőrzéssel", { n: plan.documents }),
+      plan.emails > 0 && t("{{n}} levél szándékfelismerése", { n: plan.emails }),  // 089: by GPT without JEV
       plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
     ])}.`);
   } else if (amount("openai") > 0) {

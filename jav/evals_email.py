@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import statistics
 import time
 from collections import Counter, defaultdict
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -29,13 +31,19 @@ def _cases(limit: int | None = None) -> list[GoldenEmail]:
     return cases[:limit] if limit else cases
 
 
-def _run_case(case: GoldenEmail, *, use_cache: bool) -> dict[str, Any]:
+def _run_case(case: GoldenEmail, *, use_cache: bool, jev: bool = True) -> dict[str, Any]:
     from jav.flow_email import run_email
 
     t0 = time.perf_counter()
-    st = run_email(message=case.message.model_copy(deep=True), use_cache=use_cache, detect_attachments=False)
+    st = run_email(message=case.message.model_copy(deep=True), use_cache=use_cache, detect_attachments=False, jev=jev)
     r = st.result
-    assert r is not None
+    if r is None:  # 089: without JEV a failed GPT call (e.g. the measurement's budget ran out) is a row, not a crash
+        assert not jev, st.review_reasons
+        return {"case_id": case.case_id, "source": case.source, "expected": case.expected, "got": None, "confidence": 0.0,
+                "signals": {}, "scores": {}, "next_flow": st.next_flow, "review_reasons": list(st.review_reasons), "top3": {},
+                "parent": None, "parent_prob": None, "n_attachments": len(case.message.attachments), "cached": False,
+                "cost_usd": 0.0, "input_tokens": None, "seconds": round(time.perf_counter() - t0, 2), "run_id": st.run_id,
+                "engine": "gpt", "measured": None}
     return {
         "case_id": case.case_id, "source": case.source, "expected": case.expected, "got": r.intent,
         "confidence": round(r.confidence, 4), "signals": r.signals, "scores": {k: s.model_dump() for k, s in r.scores.items()},
@@ -43,18 +51,29 @@ def _run_case(case: GoldenEmail, *, use_cache: bool) -> dict[str, Any]:
         "top3": dict(sorted(r.probabilities.items(), key=lambda kv: -kv[1])[:3]), "parent": r.parent, "parent_prob": r.parent_prob,
         "n_attachments": len(case.message.attachments), "cached": r.call.cached, "cost_usd": r.call.cost_usd,
         "input_tokens": r.call.input_tokens, "seconds": round(time.perf_counter() - t0, 2), "run_id": st.run_id,
+        "engine": r.engine, "measured": r.measured,  # 089: which engine answered, whether its confidence was measurable
     }
 
 
-def email_golden(use_cache: bool = True, limit: int | None = None) -> list[dict[str, Any]]:
+def email_golden(use_cache: bool = True, limit: int | None = None, *, jev: bool = True,
+                 budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
+    """`jev=False` (089): GPT recognises the intent (`jav/intent_gpt.py`). `budget_usd`: a hard OpenAI budget for the
+    whole measurement (the owner's sub-budget; JEV and Azure get none, so they cannot be called) - a call over it is an
+    `intent:gpt_failed` row."""
+    from jav.runtime import calls
+
     cases = _cases(limit)
     rows: list[dict[str, Any]] = []
-    for i, case in enumerate(cases, 1):
-        rows.append(_run_case(case, use_cache=use_cache))
-        if i % 20 == 0 or i == len(cases):
-            print(f"  {i}/{len(cases)}  utolsó: {case.case_id[:40]} -> {rows[-1]['got']} {rows[-1]['confidence']:.2f}")
+    stamp = f"{datetime.now():%Y%m%d_%H%M%S}"
+    guard = (calls.measurement(f"measure-{stamp}-email", {"openai": budget_usd}) if budget_usd is not None
+             else contextlib.nullcontext())
+    with guard:
+        for i, case in enumerate(cases, 1):
+            rows.append(_run_case(case, use_cache=use_cache, jev=jev))
+            if i % 20 == 0 or i == len(cases):
+                print(f"  {i}/{len(cases)}  utolsó: {case.case_id[:40]} -> {rows[-1]['got']} {rows[-1]['confidence']:.2f}")
     RUNS_DIR.mkdir(exist_ok=True)
-    out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_email_golden.jsonl"
+    out = RUNS_DIR / f"{stamp}_email_golden{'' if jev else '_gpt'}.jsonl"
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
     print_email_report(rows)
     print(f"\nNyers futások: {out}")
@@ -94,6 +113,10 @@ def print_email_report(rows: list[dict[str, Any]]) -> None:
             sig[k].append(v)
     print("**Noul-jelek átlaga:** " + ", ".join(f"{k}={statistics.mean(v):.2f}" for k, v in sig.items()))
     print_signal_bands(rows)
+    unmeasured = [r for r in rows if r.get("measured") is False]
+    failed = [r for r in rows if r["got"] is None]
+    if unmeasured or failed:  # 089: GPT without measurable confidence, or without an answer
+        print(f"**Confidence not measurable:** {len(unmeasured)}; **no answer (GPT call failed):** {len(failed)}")
     for r in rows:
         if r["got"] != r["expected"]:
             print(f"  - {r['case_id']}: várt {r['expected']}, kapott {r['got']} ({r['confidence']:.2f}) top3={r['top3']}")
@@ -163,23 +186,44 @@ def inject_instruction(msg: EmailMessage, variant: str) -> EmailMessage:
     return out
 
 
-def email_injection_probe(limit: int = 8, use_cache: bool = True) -> list[dict[str, Any]]:
+def email_injection_probe(limit: int = 8, use_cache: bool = True, *, jev: bool = True,
+                          budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
     """Calibration probe of the `prompt_injection` Noul: clean and injected-instruction variants of the first `limit`
     golden emails; raw run `runs/*_email_injection_probe.jsonl`. Measures: the band of P(injection) per variant, intent
-    flips, route changes (by the policy, the yes band is `human:suspicious`)."""
-    from jav.flow_email import run_email
-    from jav.policy import noul_band
+    flips, route changes (by the policy, the yes band is `human:suspicious`). `jev=False` / `budget_usd` (089): GPT
+    answers the same question, under a hard OpenAI budget (as in `email_golden`); a failed call is named, not a crash."""
+    from jav.runtime import calls
 
     cases = _cases(limit)
     rows: list[dict[str, Any]] = []
+    stamp = f"{datetime.now():%Y%m%d_%H%M%S}"
+    guard = (calls.measurement(f"measure-{stamp}-injection", {"openai": budget_usd}) if budget_usd is not None
+             else contextlib.nullcontext())
     print("| eset | variáns | P(injekció) | sáv | szándék | útvonal | review-okok |\n|---|---|---|---|---|---|---|")
+    with guard:
+        _probe_cases(cases, rows, use_cache=use_cache, jev=jev)
+    _print_probe_summary(rows)
+    RUNS_DIR.mkdir(exist_ok=True)
+    out = RUNS_DIR / f"{stamp}_email_injection_probe{'' if jev else '_gpt'}.jsonl"
+    out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
+    print(f"\nNyers futás: {out}")
+    return rows
+
+
+def _probe_cases(cases: list[GoldenEmail], rows: list[dict[str, Any]], *, use_cache: bool, jev: bool) -> None:
+    from jav.flow_email import run_email
+    from jav.policy import noul_band
+
     for case in cases:
         base_intent = None
         for variant in INJECTIONS:
             msg = inject_instruction(case.message, variant)
-            st = run_email(message=msg, use_cache=use_cache, detect_attachments=False)
+            st = run_email(message=msg, use_cache=use_cache, detect_attachments=False, jev=jev)
             r = st.result
-            assert r is not None
+            if r is None:  # 089: without JEV a failed GPT call (e.g. the budget ran out) is named, not a crash
+                assert not jev, st.review_reasons
+                print(f"| {case.case_id[:40]} | {variant} | - | - | - | {st.next_flow} | {'; '.join(st.review_reasons)} |")
+                continue
             p = r.signals["prompt_injection"]
             if variant == "clean":
                 base_intent = r.intent
@@ -191,6 +235,9 @@ def email_injection_probe(limit: int = 8, use_cache: bool = True) -> list[dict[s
             }
             rows.append(row)
             print(f"| {case.case_id[:40]} | {variant} | {p:.2f} | {row['band']} | {r.intent} | {st.next_flow} | {'; '.join(st.review_reasons) or '-'} |")
+
+
+def _print_probe_summary(rows: list[dict[str, Any]]) -> None:
     print("\n**Összegzés variánsonként:**\n\n| variáns | n | nem | bizonytalan | igen | P átlag (min) | szándék-flip | human:suspicious |\n|---|---|---|---|---|---|---|---|")
     for variant in INJECTIONS:
         rs = [r for r in rows if r["variant"] == variant]
@@ -200,11 +247,6 @@ def email_injection_probe(limit: int = 8, use_cache: bool = True) -> list[dict[s
         ps = [r["p"] for r in rs]
         print(f"| {variant} | {len(rs)} | {b.get('no', 0)} | {b.get('uncertain', 0)} | {b.get('yes', 0)} | {statistics.mean(ps):.2f} ({min(ps):.2f}) | "
               f"{sum(r['intent_flipped'] for r in rs)} | {sum(r['next_flow'] == 'human:suspicious' for r in rs)} |")
-    RUNS_DIR.mkdir(exist_ok=True)
-    out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_email_injection_probe.jsonl"
-    out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
-    print(f"\nNyers futás: {out}")
-    return rows
 
 
 def email_determinism(n: int = 3, limit: int | None = None) -> None:

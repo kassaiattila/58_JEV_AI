@@ -63,6 +63,8 @@ class IntentResult(BaseModel):
     parent_prob: float = 0.0  # total probability of the family - parent label at low confidence (the policy decides)
     body_clean: str = ""
     call: JevCall
+    engine: str = "jev"  # 089: "gpt" when GPT recognised the intent (processing without JEV, `jav/intent_gpt.py`)
+    measured: bool = True  # 089: False when GPT's confidence could not be measured (never invented)
 
     @model_validator(mode="after")
     def _fill_parent(self) -> "IntentResult":
