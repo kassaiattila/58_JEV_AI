@@ -209,5 +209,8 @@
   "Nincs kimeneti mappa; add meg a Beállítások › Munkamappák oldalon.": "No output folder; set one under Settings › Work folders.",
   "Előbb adj meg kimeneti mappát a Beállítások › Munkamappák oldalon.": "First set an output folder under Settings › Work folders.",
   "Beállítások › Munkamappák": "Settings › Work folders",
-  "A kiíráshoz válaszd ki a neved a fejlécben.": "To write the copies, choose your name in the header."
+  "A kiíráshoz válaszd ki a neved a fejlécben.": "To write the copies, choose your name in the header.",
+  "Automatikus (ajánlott) — JEV és GPT, iratonként az irattípus ajánlott útja": "Automatic (recommended) — JEV and GPT, the document type's recommended path for each document",
+  "Csak GPT, JEV nélkül — típusfelismerés, adatkinyerés és levélszándék GPT-vel, kódos ellenőrzéssel (OpenAI)": "GPT only, without JEV — type recognition, data extraction and email intent with GPT, checked in code (OpenAI)",
+  "JEV-vel (ajánlott) — a JEV ismeri fel a levél szándékát": "With JEV (recommended) — JEV recognises the email's intent"
 }

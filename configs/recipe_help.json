@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "changelog": [
+      {
+        "version": "1.7.0",
+        "date": "2026-10-02",
+        "note": "090 (the owner's trial and decision of 2026-10-02, \"one picker, four paths\"): params.path - the processing path, the documents' path and the use of JEV as one choice on screen (auto / S / G / gpt, and jev for a package of emails only); the saved settings keep arm and jev. The GPT-only text (path.gpt = jev.off) gives the measured email intent (94 of 96) and the code cross-check of the type"
+      },
       {
         "version": "1.6.0",
         "date": "2026-10-02",
@@ -96,6 +101,16 @@
     ]
   },
   "params": {
+    "path": {
+      "help": "Melyik eszköz dolgozzon. A három JEV-es út abban különbözik, hogyan olvassa ki a rendszer a felismert típusú irat adatait; a „Csak GPT” út JEV nélkül dolgozik. Bármelyik út után kódos ellenőrzés jön (például az adószám ellenőrzőszáma, az összegek egyezése); ami bizonytalan, teendő lesz.",
+      "options": {
+        "auto": "A JEV ismeri fel az irat típusát és a levél szándékát, és az irattípus ajánlott útja fut: magyar és külföldi számlán az S, közműszámlán a G (a tételsorok miatt), a többi irattípuson a G, mert azoknak csak G-útja van. Mindennapi munkához ez ajánlott.",
+        "S": "A kód kigyűjti a lehetséges értékeket, a JEV mezőnként választ közülük. Olcsóbb, tételsorokat nem olvas. A nyolc számlatípuson (magyar és külföldi számla, hat közműszámla) csak JEV-hívás. A többi irattípusnak nincs JEV-útja: ezeken a G-út fut (GPT + JEV), hogy az adataik ilyenkor is kiolvasódjanak, ezért ezekre OpenAI-keret is jut.",
+        "G": "A GPT kiolvassa az adatokat, a tételsorokat is, a JEV pedig mezőnként ellenőrzi, nem hibás-e. JEV- és OpenAI-hívás is, ezért drágább.",
+        "gpt": "JEV nélkül, csak az OpenAI (GPT) dolgozik. A GPT ismeri fel az irat típusát (iratonként körülbelül 0,001–0,002 USD), és minden irat a G-úton fut: a GPT olvassa ki az adatokat, a kód ellenőrzi őket (minden kinyert értéknek szó szerint szerepelnie kell az iratban, és megmaradnak az ellenőrzőszám-, az összeg- és a kötelezőmező-ellenőrzések). Mérés az etalonon (2026-10-02): a GPT 102 iratból 99 típusát ismerte fel (a JEV mind a 102-t), és a 3 tévedését is magabiztosan mondta; kettőt közülük teendő jelez (az egyiket egy kódos ellenőrzés: a típus magyar kiállítót feltételez, de a GPT szerint a kiállító nem magyar), egy teendő nélkül maradhat. Az etalon 70 iratának 1010 mezőjéből 27 tért el az ellenőrzött értéktől. A levelek szándékát is a GPT ismeri fel, a JEV-vel azonos kérdésekkel (a 96 leveles etalonon 94 találat, a 2 tévedés kézi ellenőrzésre ment; levelenként körülbelül 0,0025 USD, legfeljebb 0,07 USD keretből); a PDF-csatolmányok iratként futnak. A futás nem kap JEV-keretet, így JEV-hívás nem történhet.",
+        "jev": "A JEV ismeri fel a levél szándékát; a PDF-csatolmányok iratként, az automatikus úton futnak. Ez az alapbeállítás."
+      }
+    },
     "arm": {
       "help": "Hogyan olvassa ki a rendszer a felismert típusú irat adatait. Bármelyik út után kódos ellenőrzés jön (például az adószám ellenőrzőszáma, az összegek egyezése); ami bizonytalan, teendő lesz.",
       "options": {
@@ -133,7 +148,7 @@
       "help": "Használja-e a rendszer a JEV-et. Kikapcsolva csak az OpenAI (GPT) és, ha be van kapcsolva, az Azure-felismerés dolgozik.",
       "options": {
         "on": "A JEV ismeri fel az irat típusát és a levél szándékát, és a választott úton választ az értékek közül (S) vagy ellenőrzi a GPT kiolvasását (G). Ez az alapbeállítás.",
-        "off": "A GPT ismeri fel az irat típusát (iratonként körülbelül 0,001–0,002 USD), és minden irat a G-úton fut: a GPT olvassa ki az adatokat, a kód ellenőrzi őket (minden kinyert értéknek szó szerint szerepelnie kell az iratban, és megmaradnak az ellenőrzőszám-, az összeg- és a kötelezőmező-ellenőrzések). Mérés az etalonon (2026-10-02): a GPT 102 iratból 99 típusát ismerte fel (a JEV mind a 102-t), és a 3 tévedését is magabiztosan mondta, ezért ezek teendő nélkül mehetnek tovább; az etalon 70 iratának 1010 mezőjéből 27 tért el az ellenőrzött értéktől. A levelek szándékát is a GPT ismeri fel, a JEV-vel azonos kérdésekkel (levelenként körülbelül 0,005 USD, legfeljebb 0,07 USD keretből); a PDF-csatolmányok iratként futnak. A futás nem kap JEV-keretet, így JEV-hívás nem történhet."
+        "off": "JEV nélkül, csak az OpenAI (GPT) dolgozik. A GPT ismeri fel az irat típusát (iratonként körülbelül 0,001–0,002 USD), és minden irat a G-úton fut: a GPT olvassa ki az adatokat, a kód ellenőrzi őket (minden kinyert értéknek szó szerint szerepelnie kell az iratban, és megmaradnak az ellenőrzőszám-, az összeg- és a kötelezőmező-ellenőrzések). Mérés az etalonon (2026-10-02): a GPT 102 iratból 99 típusát ismerte fel (a JEV mind a 102-t), és a 3 tévedését is magabiztosan mondta; kettőt közülük teendő jelez (az egyiket egy kódos ellenőrzés: a típus magyar kiállítót feltételez, de a GPT szerint a kiállító nem magyar), egy teendő nélkül maradhat. Az etalon 70 iratának 1010 mezőjéből 27 tért el az ellenőrzött értéktől. A levelek szándékát is a GPT ismeri fel, a JEV-vel azonos kérdésekkel (a 96 leveles etalonon 94 találat, a 2 tévedés kézi ellenőrzésre ment; levelenként körülbelül 0,0025 USD, legfeljebb 0,07 USD keretből); a PDF-csatolmányok iratként futnak. A futás nem kap JEV-keretet, így JEV-hívás nem történhet."
       }
     }
   }

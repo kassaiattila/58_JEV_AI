@@ -300,10 +300,16 @@ export const intentLabel = (key: string | null | undefined): string => (key ? IN
 
 /** Labels of the processing settings (058; 080: the path by what it does, the owner's decision of 2026-10-01): a short
  *  value without code names; the long explanation is in the settings editor and on Settings › Processing. */
-export const PARAM_LABEL: Record<string, string> = tmap({ arm: "Út", doc_type: "Irattípus", jev_cache: "JEV-válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés", jev: "JEV használata" });
+export const PARAM_LABEL: Record<string, string> = tmap({ path: "Feldolgozási út", arm: "Út", doc_type: "Irattípus", jev_cache: "JEV-válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés", jev: "JEV használata" });
 const PARAM_SHORT: Record<string, string> = tmap({
   "jev:on": "bekapcsolva",
   "jev:off": "kikapcsolva — csak GPT (OpenAI)",
+  // 090: the path and the use of JEV as one choice (`path`, shown only)
+  "path:auto": "Automatikus (ajánlott) — JEV és GPT",
+  "path:S": "JEV, ahol lehet — olcsóbb, tételsorok nélkül; máshol GPT (S)",
+  "path:G": "GPT + JEV — tételsorokkal (G)",
+  "path:gpt": "Csak GPT, JEV nélkül (OpenAI)",
+  "path:jev": "JEV-vel (ajánlott)",
   "arm:auto": "Automatikus (ajánlott)",
   "arm:S": "JEV, ahol lehet — olcsóbb, tételsorok nélkül; máshol GPT (S)",
   "arm:G": "GPT + JEV — tételsorokkal (G)",
@@ -320,27 +326,45 @@ const PARAM_SHORT: Record<string, string> = tmap({
 const PARAM_KIND: Record<string, string> = { arm: "document", azure_ocr: "document", doc_type: "document", tasks: "email" };
 export const paramApplies = (k: string, kinds?: string[]): boolean => !kinds?.length || !PARAM_KIND[k] || kinds.includes(PARAM_KIND[k]);
 /** 089 (the owner's decision of 2026-10-02): a setting that only counts while another setting has a given value.
- *  Without JEV (086) every document runs on the G path and no JEV question is asked, so the path and the JEV answers
- *  do not count and are not shown. A missing value counts as the needed one: an assignment from before the switch ran
- *  with JEV. */
+ *  Without JEV (086) every document runs on the G path and no JEV question is asked, so the JEV answers do not count
+ *  and are not shown. A missing value counts as the needed one: an assignment from before the switch ran with JEV. */
 const PARAM_NEEDS: Record<string, [string, string]> = { arm: ["jev", "on"], jev_cache: ["jev", "on"] };
 export const paramInEffect = (k: string, params: Record<string, string>): boolean => {
   const need = PARAM_NEEDS[k];
   return !need || (params[need[0]] ?? need[1]) === need[1];
 };
-/** 089: the settings in display order: a setting the others depend on (the use of JEV) first, the rest in the
- *  recipe's order. */
-export function orderedParams(keys: string[]): string[] {
-  const masters = new Set(Object.values(PARAM_NEEDS).map(([k]) => k));
-  return [...keys.filter((k) => masters.has(k)), ...keys.filter((k) => !masters.has(k))];
+
+/** 090 (the owner's trial and decision of 2026-10-02, "one picker, four paths"): the documents' path and the use of
+ *  JEV are one choice on screen, the processing path (`path`): automatic, JEV where possible (S), GPT + JEV (G), or
+ *  GPT only, without JEV. The saved settings keep their two values (`arm`, `jev`), so packages, runs and measurements
+ *  stay as they are. The documents' path does not act on emails, so a package of emails only chooses between "with
+ *  JEV" (`jev`) and "GPT only" (`gpt`). Unknown item kinds count as documents. */
+export const PATH = "path";
+const withDocuments = (kinds?: string[]) => !kinds?.length || kinds.includes("document");
+const hasPath = (keys: string[]) => keys.includes("arm") && keys.includes("jev");
+export function pathValue(params: Record<string, string>, kinds?: string[]): string {
+  if ((params.jev ?? "on") === "off") return "gpt";
+  return withDocuments(kinds) ? params.arm ?? "auto" : "jev";
 }
-/** 089: the one sentence shown instead of the settings that do not count without JEV. */
-export const jevOffNote = (params: Record<string, string>): string | null =>
-  params.jev === "off" ? t("JEV nélkül minden irat a G-úton fut (a GPT olvassa ki az adatokat, a kód ellenőrzi őket), ezért az út és a JEV-válaszok beállítása nem számít, és nem látszik.") : null;
+export const pathOptions = (armAllowed: string[], kinds?: string[]): string[] =>
+  withDocuments(kinds) ? [...armAllowed, "gpt"] : ["jev", "gpt"];
+export function applyPath(params: Record<string, string>, path: string): Record<string, string> {
+  if (path === "gpt") return { ...params, jev: "off" };
+  return path === "jev" ? { ...params, jev: "on" } : { ...params, jev: "on", arm: path };
+}
+/** The settings shown, in order: the processing path first (for a recipe with both values), then the recipe's other
+ *  settings that count and act on the package's items. */
+export function shownParams(keys: string[], params: Record<string, string>, kinds?: string[]): string[] {
+  const merged = hasPath(keys);
+  const rest = keys.filter((k) => !(merged && (k === "arm" || k === "jev")) && paramApplies(k, kinds) && paramInEffect(k, params));
+  return merged ? [PATH, ...rest] : rest;
+}
+/** A shown setting's value: the processing path from the two saved values, any other setting as saved. */
+export const shownValue = (k: string, params: Record<string, string>, kinds?: string[]): string =>
+  k === PATH ? pathValue(params, kinds) : params[k] ?? "";
 export const paramShort = (k: string, v: string): string => PARAM_SHORT[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);
 export const paramsText = (params: Record<string, string>): string =>
-  orderedParams(Object.keys(params)).filter((k) => paramInEffect(k, params))
-    .map((k) => `${PARAM_LABEL[k] ?? k}: ${paramShort(k, params[k])}`).join(" · ");
+  shownParams(Object.keys(params), params).map((k) => `${PARAM_LABEL[k] ?? k}: ${paramShort(k, shownValue(k, params))}`).join(" · ");
 
 /** 063: an item's budget maximum per provider — a mirror of the service's `work.item_budget` calculation (from the
  *  recipe's data, per item kind; with the setting-dependent extra, e.g. task proposals on an email). */

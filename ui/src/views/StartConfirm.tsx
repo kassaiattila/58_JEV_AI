@@ -6,7 +6,7 @@ import { useState } from "react";
 import { api, ApiError, type WorkpackageView } from "../api";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { blockerText, jevOffNote, MODE, orderedParams, PARAM_LABEL, paramInEffect, providerName, usdBudget, when } from "../labels";
+import { blockerText, MODE, PARAM_LABEL, providerName, shownParams, shownValue, usdBudget, when } from "../labels";
 import { go } from "../route";
 import { paramValue, RunPlanList } from "./ProcessStage";
 
@@ -32,6 +32,7 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
   // shown with that value
   const defaults: Record<string, string> = Object.fromEntries(Object.entries(recipe?.params ?? {}).map(([k, spec]) => [k, spec.default ?? ""]));
   const settings: Record<string, string> = { ...defaults, ...assignment?.params };
+  const kinds = [...new Set(wp.items.map((i) => i.kind))];
   // rerun: the mode and input of the latest run
   const effectiveMode = rerun && last ? last.mode : mode;
   const items = rerun && last ? last.items : readiness.counts.items;
@@ -79,9 +80,9 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
           {!recipe && assignment ? <>{t(recipes.data?.titles?.[assignment.recipe_id] ?? assignment.recipe_id)}: </> : null}
           {readiness.assignment_default ? <span className="muted small">{t("alapbeállítás, az indításkor mentődik a csomaghoz")}</span> : null}
           <ul className="plain small">
-            {/* 089: the use of JEV first; without it the path and the JEV answers do not count, one sentence instead */}
-            {orderedParams(Object.keys(settings)).filter((k) => paramInEffect(k, settings)).map((k) => <li key={k}>{PARAM_LABEL[k] ?? k}: {paramValue(k, settings[k])}</li>)}
-            {jevOffNote(settings) ? <li className="muted">{jevOffNote(settings)}</li> : null}
+            {/* 090: the processing path first (the documents' path and the use of JEV as one choice), then the settings
+                that count */}
+            {shownParams(Object.keys(settings), settings, kinds).map((k) => <li key={k}>{PARAM_LABEL[k] ?? k}: {paramValue(k, shownValue(k, settings, kinds))}</li>)}
           </ul>
         </dd>
         <dt>{t("Legnagyobb költség")}</dt>
