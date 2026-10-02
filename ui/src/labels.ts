@@ -147,6 +147,8 @@ export function reasonText(code: string): string {
     case "jev:unsupported": return t("A modell nem támasztja alá: {{field}}", { field: f });
     // 085: processing without JEV: the extracted value is printed nowhere on the document (the code's own check)
     case "source:not_found": return t("A kinyert érték nem szerepel az iratban: {{field}}", { field: f });
+    // 092: without JEV, an accounting field GPT is not sure enough of (below the policy's review_below)
+    case "gpt:low_conf": return t("A GPT nem elég biztos az értékben: {{field}} (valószínűség {{p}})", { field: f, p: v });
     case "llm:required_missing": return t("Kötelező mező hiányzik: {{field}}", { field: f });
     case "money:separator_ambiguous": return t("Kétértelmű tizedesjel: {{field}}", { field: f });
     // 081: the S path's safety net: the picked number stands on the page only as a piece of a longer number

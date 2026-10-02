@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "changelog": [
+   {
+    "version": "1.15.0",
+    "date": "2026-10-02",
+    "note": "092 (the owner's decisions of 2026-10-02 after a trial on real work: 'a to-do below 98%', then 'without the informational fields'): gpt_field_confidence.review_below - on the G path without JEV a field GPT extracted with a token probability below it opens a gpt:low_conf:<field>:<p> to-do, only on the accounting fields (the pack's scored, not informational fields and its high-stakes fields); addresses and other informational fields only show it. A field whose check failed already has its to-do. A run with JEV never gets it, not even on the code's fallback when JEV does not answer. On the 70 golden documents (091 answers) it marks 28 of the 59 accepted ones, 6 of the 13 with an error (5 of the 8 with an error in an accounting field); chosen on the measured documents themselves"
+   },
    {
     "version": "1.14.0",
     "date": "2026-10-02",
@@ -164,6 +169,7 @@
   "measure": "joint",
   "evidence": {},
   "failed_check": 0.5,
-  "bands": {"confident": 0.98, "check": 0.5}
+  "bands": {"confident": 0.98, "check": 0.5},
+  "review_below": 0.98
  }
 }
