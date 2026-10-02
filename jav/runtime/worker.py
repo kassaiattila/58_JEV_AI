@@ -156,15 +156,15 @@ def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app
     if recipe["flow"] == "invoice":
         # `jev_cache=live`: skip reading the JEV cache so every call goes through the log and the budget (live test)
         app = mod.build_app(source_path, app_id, params["arm"], tracker=False, doc_type=params["doc_type"], run_id=app_id,
-                            persister=persister, use_cache=params.get("jev_cache", "reuse") != "live", read_path=read_path,
+                            persister=persister, use_cache=reuse_answers(params), read_path=read_path,
                             jev=not _jev_off(params))
     elif recipe["flow"] == "email":  # 048 T2: the item is the email's `message.json`; the flow reads its folder
         app = mod.build_app(source_dir=str(Path(source_path).parent), tracker=False, run_id=app_id, persister=persister,
-                            use_cache=params.get("jev_cache", "reuse") != "live", propose_tasks=params.get("tasks") == "propose",
+                            use_cache=reuse_answers(params), propose_tasks=params.get("tasks") == "propose",
                             attachment_reads=attachment_reads, jev=not _jev_off(params))
     else:
         app = mod.build_app(source_path, tracker=False, run_id=app_id, persister=persister,
-                            use_cache=params.get("jev_cache", "reuse") != "live", read_path=read_path, jev=not _jev_off(params))
+                            use_cache=reuse_answers(params), read_path=read_path, jev=not _jev_off(params))
     return app, mod.TERMINALS
 
 
@@ -180,12 +180,18 @@ def _run_stage(recipe: dict[str, Any], params: dict[str, Any], source_path: str,
         return saved["state"]
     app, terminals = _build(recipe, params, source_path, app_id, persister, read_path, attachment_reads)
     state = None
-    with calls.use_run(budget_scope=run_id):
+    with calls.use_run(budget_scope=run_id, reuse=reuse_answers(params)):
         for action, _result, state in app.iterate(halt_after=terminals):
             if after_step is not None:
                 after_step(action.name)
             queue.check_cancellation(job_id)
     return state
+
+
+def reuse_answers(params: dict[str, Any]) -> bool:
+    """090: the run's "earlier answers" setting (`jev_cache`, the saved key since 040): `reuse` (the default) lets JEV
+    read its cache and GPT reuse an earlier answer to the same question; `live` asks every question again."""
+    return params.get("jev_cache", "reuse") != "live"
 
 
 def _next_params(params: dict[str, Any], detect_state) -> dict[str, Any] | None:

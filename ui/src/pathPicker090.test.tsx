@@ -1,7 +1,8 @@
 // 090 (the owner's trial and decision of 2026-10-02: "one picker, four paths"): the path and the use of JEV are one
 // choice, "Feldolgozási út": automatic, JEV where possible (S), GPT + JEV (G), or GPT only, without JEV. The saved
 // settings keep their two values (the path and the use of JEV), so packages, runs and measurements stay as they are.
-// The JEV answers only count on a path with JEV. A package of emails only chooses between "with JEV" and "GPT only".
+// The earlier answers count on every path (JEV and GPT alike). A package of emails only chooses between "with JEV"
+// and "GPT only".
 // Replaces the 089 tests of the separate switch. Artificial data, no service.
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -37,7 +38,7 @@ const KEYS = ["arm", "jev_cache", "tasks", "azure_ocr", "jev"];
 describe("090 the processing path: one choice", () => {
   it("shows one path in place of the path and the use of JEV, then the settings that count", () => {
     expect(shownParams(KEYS, { jev: "on" }, ["document", "email"])).toEqual(["path", "jev_cache", "tasks", "azure_ocr"]);
-    expect(shownParams(KEYS, { jev: "off" }, ["document", "email"])).toEqual(["path", "tasks", "azure_ocr"]);  // no JEV answers
+    expect(shownParams(KEYS, { jev: "off" }, ["document", "email"])).toEqual(["path", "jev_cache", "tasks", "azure_ocr"]);  // GPT reuses too
     expect(shownParams(KEYS, {}, ["document"])).toEqual(["path", "jev_cache", "azure_ocr"]);  // an older assignment ran with JEV
     expect(shownParams(["arm", "azure_ocr"], {}, ["document"])).toEqual(["arm", "azure_ocr"]);  // a recipe without the switch
   });
@@ -60,8 +61,8 @@ describe("090 the processing path: one choice", () => {
   });
 
   it("the run summary names the path once", () => {
-    expect(paramsText({ arm: "S", jev_cache: "live", tasks: "off", jev: "off" })).toBe("Feldolgozási út: Csak GPT, JEV nélkül (OpenAI) · Feladatjavaslat: kikapcsolva");
-    expect(paramsText({ arm: "G", jev_cache: "reuse", jev: "on" })).toBe("Feldolgozási út: GPT + JEV — tételsorokkal (G) · JEV-válaszok: korábbi válasz újrahasználható");
+    expect(paramsText({ arm: "S", jev_cache: "live", tasks: "off", jev: "off" })).toBe("Feldolgozási út: Csak GPT, JEV nélkül (OpenAI) · Korábbi válaszok: mindig élő hívás · Feladatjavaslat: kikapcsolva");
+    expect(paramsText({ arm: "G", jev_cache: "reuse", jev: "on" })).toBe("Feldolgozási út: GPT + JEV — tételsorokkal (G) · Korábbi válaszok: korábbi válasz újrahasználható");
   });
 
   it("the settings card shows the path first, with its explanation, and no separate use of JEV", () => {
@@ -89,10 +90,10 @@ describe("090 the processing path: one choice", () => {
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [PROCESSING], help: HELP });
     render(<StartConfirm view={v} mode="shadow" rerun={false} onChanged={() => {}} />);
     await waitFor(() => expect(screen.getByText(/^Feldolgozási út: Automatikus/)).toBeTruthy());
-    expect(screen.getByText(/^JEV-válaszok:/)).toBeTruthy();
+    expect(screen.getByText(/^Korábbi válaszok:/)).toBeTruthy();
   });
 
-  it("in the editor, one picker offers the four paths; GPT only hides the JEV answers and saves the use of JEV off", async () => {
+  it("in the editor, one picker offers the four paths; GPT only keeps the earlier answers and saves the use of JEV off", async () => {
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [PROCESSING], help: HELP });
     vi.spyOn(api, "datasetQuery").mockResolvedValue(EMPTY);
     const save = vi.spyOn(api, "saveWorkflow").mockResolvedValue({} as never);
@@ -103,14 +104,14 @@ describe("090 the processing path: one choice", () => {
     const form = await waitFor(() => document.querySelector(".recipe-form") as HTMLElement);
     expect(within(form).queryByRole("button", { name: "JEV használata" })).toBeNull();
     expect(within(form).queryByRole("button", { name: "Út" })).toBeNull();
-    expect(within(form).getByRole("button", { name: "JEV-válaszok" })).toBeTruthy();
+    expect(within(form).getByRole("button", { name: "Korábbi válaszok" })).toBeTruthy();
     fireEvent.click(within(form).getByRole("button", { name: "Feldolgozási út" }));
     const options = (await screen.findAllByRole("option")).map((o) => o.textContent ?? "");
     expect(options).toHaveLength(4);
     expect(options[3]).toMatch(/^Csak GPT, JEV nélkül/);
     fireEvent.click(screen.getByRole("option", { name: /^Csak GPT, JEV nélkül/ }));
-    await waitFor(() => expect(within(form).queryByRole("button", { name: "JEV-válaszok" })).toBeNull());
-    expect(within(form).getByText("Csak GPT magyarázat.")).toBeTruthy();
+    await waitFor(() => expect(within(form).getByText("Csak GPT magyarázat.")).toBeTruthy());
+    expect(within(form).getByRole("button", { name: "Korábbi válaszok" })).toBeTruthy();
     fireEvent.click(within(form).getByRole("button", { name: "Beállítások mentése" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     expect(save.mock.calls[0][1].params).toMatchObject({ arm: "S", jev: "off", jev_cache: "reuse" });

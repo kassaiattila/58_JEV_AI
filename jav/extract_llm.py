@@ -123,7 +123,10 @@ def extract(text: str, *, run_id: str = "adhoc", pack: TypePack | None = None) -
         usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), rounds=1 + int(OPENAI_SETTINGS["retries"]),
         repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))
     digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    # 090: the question's fingerprint for reusing an earlier answer (the step id keeps the text's own digest)
+    key = calls.answer_key("openai", OPENAI_MODEL, load_prompt(pack.prompt_file), schema,
+                           json.dumps(OPENAI_SETTINGS, sort_keys=True), str(RUN_MAX_OUTPUT_TOKENS), prompt)
     result = calls.invoke(run_id=run_id, step_id=f"openai:extract_llm:{pack.key}:{digest[:16]}", provider="openai",
-                          model=OPENAI_MODEL, max_cost_usd=max_cost, budget_scope=ctx.budget_scope, request_hash=digest,
-                          fn=lambda: _physical(agent, prompt, run_id=run_id, pack=pack, limited=True))
+                          model=OPENAI_MODEL, max_cost_usd=max_cost, budget_scope=ctx.budget_scope, request_hash=key,
+                          reusable=True, fn=lambda: _physical(agent, prompt, run_id=run_id, pack=pack, limited=True))
     return result.response

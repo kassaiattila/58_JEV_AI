@@ -302,7 +302,7 @@ export const intentLabel = (key: string | null | undefined): string => (key ? IN
 
 /** Labels of the processing settings (058; 080: the path by what it does, the owner's decision of 2026-10-01): a short
  *  value without code names; the long explanation is in the settings editor and on Settings › Processing. */
-export const PARAM_LABEL: Record<string, string> = tmap({ path: "Feldolgozási út", arm: "Út", doc_type: "Irattípus", jev_cache: "JEV-válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés", jev: "JEV használata" });
+export const PARAM_LABEL: Record<string, string> = tmap({ path: "Feldolgozási út", arm: "Út", doc_type: "Irattípus", jev_cache: "Korábbi válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés", jev: "JEV használata" });
 const PARAM_SHORT: Record<string, string> = tmap({
   "jev:on": "bekapcsolva",
   "jev:off": "kikapcsolva — csak GPT (OpenAI)",
@@ -328,9 +328,10 @@ const PARAM_SHORT: Record<string, string> = tmap({
 const PARAM_KIND: Record<string, string> = { arm: "document", azure_ocr: "document", doc_type: "document", tasks: "email" };
 export const paramApplies = (k: string, kinds?: string[]): boolean => !kinds?.length || !PARAM_KIND[k] || kinds.includes(PARAM_KIND[k]);
 /** 089 (the owner's decision of 2026-10-02): a setting that only counts while another setting has a given value.
- *  Without JEV (086) every document runs on the G path and no JEV question is asked, so the JEV answers do not count
- *  and are not shown. A missing value counts as the needed one: an assignment from before the switch ran with JEV. */
-const PARAM_NEEDS: Record<string, [string, string]> = { arm: ["jev", "on"], jev_cache: ["jev", "on"] };
+ *  Without JEV (086) every document runs on the G path, so the documents' path does not count. A missing value counts
+ *  as the needed one: an assignment from before the switch ran with JEV. 090: the earlier answers (`jev_cache`) count
+ *  for GPT too, so they are shown on every path. */
+const PARAM_NEEDS: Record<string, [string, string]> = { arm: ["jev", "on"] };
 export const paramInEffect = (k: string, params: Record<string, string>): boolean => {
   const need = PARAM_NEEDS[k];
   return !need || (params[need[0]] ?? need[1]) === need[1];
