@@ -170,8 +170,15 @@ export function reasonText(code: string): string {
     case "detect:no_type_pack": return t("Ehhez az irattípushoz nincs adatkinyerés ({{type}}); nézd meg kézzel", { type: docTypeLabel(p[2]) });
     case "detect_detail:low_conf": return t("Bizonytalan részletes típus: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
     case "detect_detail:second_option": return t("A részletes típusnál a második lehetőség is közel van: {{type}}", { type: docTypeLabel(p[2]) });
+    // 086: type recognition by GPT (processing without JEV)
+    case "detect:gpt_failed": return t("A GPT-s típusfelismerés nem sikerült ({{why}}); válaszd ki kézzel", { why: p[2] ?? "" });
+    case "detect:confidence_unavailable": return t("A típusfelismerés bizonyossága nem mérhető: {{type}}; ellenőrizd kézzel", { type: docTypeLabel(p[2]) });
+    case "detect_detail:gpt_failed": return t("A részletes típus GPT-s felismerése nem sikerült ({{why}}); válaszd ki kézzel", { why: p[2] ?? "" });
+    case "detect_detail:confidence_unavailable": return t("A részletes típus bizonyossága nem mérhető: {{type}}; ellenőrizd kézzel", { type: docTypeLabel(p[2]) });
     case "intent:low_conf": return t("Bizonytalan levél-szándék: {{intent}} ({{p}})", { intent: intentLabel(p[2]), p: v });
     case "intent:no_result": return t("A levél szándékát nem sikerült felismerni");
+    // 086: processing without JEV: the intent is a JEV question
+    case "intent:jev_off": return t("JEV nélküli feldolgozás: a levél szándékát a rendszer nem ismeri fel; olvasd el, és döntsd el kézzel");
     // 073: task proposals from an e-mail (jav/flow_email.py); until now these showed the raw code
     case "tasks:proposed": return t("{{n}} feladatjavaslat vár döntésre", { n: p[2] ?? "" });
     case "tasks:failed": return t("A feladatjavaslat nem sikerült ({{why}})", { why: p[2] ?? "" });
@@ -288,8 +295,10 @@ export const intentLabel = (key: string | null | undefined): string => (key ? IN
 
 /** Labels of the processing settings (058; 080: the path by what it does, the owner's decision of 2026-10-01): a short
  *  value without code names; the long explanation is in the settings editor and on Settings › Processing. */
-export const PARAM_LABEL: Record<string, string> = tmap({ arm: "Út", doc_type: "Irattípus", jev_cache: "JEV-válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés" });
+export const PARAM_LABEL: Record<string, string> = tmap({ arm: "Út", doc_type: "Irattípus", jev_cache: "JEV-válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés", jev: "JEV használata" });
 const PARAM_SHORT: Record<string, string> = tmap({
+  "jev:on": "bekapcsolva",
+  "jev:off": "kikapcsolva — csak GPT (OpenAI)",
   "arm:auto": "Automatikus (ajánlott)",
   "arm:S": "JEV, ahol lehet — olcsóbb, tételsorok nélkül; máshol GPT (S)",
   "arm:G": "GPT + JEV — tételsorokkal (G)",
@@ -315,13 +324,15 @@ export function itemBudget(r: Recipe, params: Record<string, string>, kind?: str
   const table = (kind && r.max_item_usd_by_kind?.[kind]) || r.max_item_usd;
   const per = table[params.arm ?? "*"] ?? table["*"] ?? {};
   const out: Record<string, number> = Object.fromEntries(Object.entries(per).map(([p, v]) => [p, Number(v)]));
+  const drop = new Set<string>();
   for (const extra of r.param_item_usd ?? []) {
     // 075: a parameter missing from an older assignment counts with the recipe's default (as on the service)
     if ((params[extra.param] ?? r.params[extra.param]?.default) === extra.value && (extra.kind === undefined || extra.kind === kind)) {
       for (const [p, v] of Object.entries(extra.usd)) out[p] = (out[p] ?? 0) + Number(v);
+      for (const p of extra.drop ?? []) drop.add(p); // 086: e.g. without JEV the item has no JEV budget at all
     }
   }
-  return out;
+  return Object.fromEntries(Object.entries(out).filter(([p]) => !drop.has(p)));
 }
 
 const KIND_BUDGET: Record<string, string> = tmap({ email: "levelenként", document: "PDF-iratonként" });
@@ -353,7 +364,16 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
       plan.jev_reuse ? t("a korábban már feltett kérdésekért nem kell újra fizetni") : t("minden kérdés élő hívás, a korábbi válaszok nem számítanak"),
     ])}.`);
   }
-  if (amount("openai") > 0) {
+  if (plan.jev === false) {
+    // 086: processing without JEV — no JEV budget, so not even a stray JEV call could start
+    out.push(plan.emails ? t("JEV: nem hívódik (kikapcsolva); a levelek szándéka teendő lesz.") : t("JEV: nem hívódik (kikapcsolva)."));
+  }
+  if (amount("openai") > 0 && plan.jev === false) {
+    out.push(`${head("openai")}: ${join([
+      plan.documents > 0 && t("{{n}} irat típusfelismerése és adatkinyerése a G-úton, kódos ellenőrzéssel", { n: plan.documents }),
+      plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
+    ])}.`);
+  } else if (amount("openai") > 0) {
     out.push(`${head("openai")}: ${join([
       plan.paths.G > 0 && (plan.arm === "S"  // 082: the S path runs on G where the type has no JEV path
         ? t("{{n}} irat a G-úton, mert a típusának nincs JEV-útja", { n: plan.paths.G })

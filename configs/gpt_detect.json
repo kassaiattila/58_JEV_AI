@@ -1,0 +1,18 @@
+{
+ "meta": {
+  "name": "gpt_detect",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-02",
+    "note": "086 (backlog F-jev, step K4; owner's decision of 2026-10-02: one short sentence per type, measured): type recognition with GPT for processing without JEV. The questions are those of the JEV detect call site (callsite:detect) so the two recognitions see the same document excerpt and the same instructions; each type is offered with the first clause of its registry description (the full description was measured to regress the invoice family in the legacy project). Structured output, temperature 0, token log-probabilities (top 5): the probability of the chosen option is the product of its tokens' probabilities, an alternative branch's probability goes to the option it leads to"
+   }
+  ]
+ },
+ "preamble": "You classify one business document. Answer every field with exactly one of the allowed values. The document excerpt is JSON: the file name, code-side features, keyword pattern counts per type (`anchor_hits`, hints, not verdicts), and the first and last lines of the text (Lnn = line number).",
+ "detail_preamble": "You choose the detailed document type of one business document. Its broad category is already known: {broad}. Answer with exactly one of the listed detailed types, or 'none' if none of them fits. The document excerpt shows its first lines (Lnn = line number).",
+ "detail_none_description": "none of the listed detailed types fits this document",
+ "max_output_tokens": 200,
+ "top_logprobs": 5
+}

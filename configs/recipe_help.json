@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "changelog": [
+      {
+        "version": "1.4.0",
+        "date": "2026-10-02",
+        "note": "086 (backlog F-jev, K3): the jev switch (processing without JEV: GPT recognises the type and extracts, the code checks; no email intent)"
+      },
       {
         "version": "1.0.0",
         "date": "2026-09-29",
@@ -112,6 +117,13 @@
       "options": {
         "on": "Ha a helyi felismerés gyenge, a rendszer az Azure-felismerést használja, iratonként legfeljebb 0,02 USD keretből. Minden hívás a hívásnaplóba kerül; ha a futás Azure-kerete elfogy, a helyi szöveg megy tovább, és az irat teendőt kap. Ez az alapbeállítás.",
         "off": "Csak helyi felismerés, gyenge szkennelésnél is. Nincs Azure-költség; a gyenge felismerésű irat a szokásos felismerési teendőket kapja."
+      }
+    },
+    "jev": {
+      "help": "Használja-e a rendszer a JEV-et. Kikapcsolva csak az OpenAI (GPT) és, ha be van kapcsolva, az Azure-felismerés dolgozik.",
+      "options": {
+        "on": "A JEV ismeri fel az irat típusát és a levél szándékát, és a választott úton választ az értékek közül (S) vagy ellenőrzi a GPT kiolvasását (G). Ez az alapbeállítás.",
+        "off": "A GPT ismeri fel az irat típusát (iratonként körülbelül 0,001–0,002 USD), és minden irat a G-úton fut: a GPT olvassa ki az adatokat, a kód ellenőrzi őket (minden kinyert értéknek szó szerint szerepelnie kell az iratban, és megmaradnak az ellenőrzőszám-, az összeg- és a kötelezőmező-ellenőrzések). A JEV második véleménye nélkül kicsit több hiba csúszhat át jelzés nélkül, ezért ezt a módot mérjük. A levelek szándékát a rendszer nem ismeri fel: minden levél teendőt kap, a PDF-csatolmányok iratként futnak. A futás nem kap JEV-keretet, így JEV-hívás nem történhet."
       }
     }
   }

@@ -48,6 +48,7 @@ export interface RunPlan {
   documents: number; emails: number; attachments: number; paths: { S: number; G: number; unknown: number };
   tasks_emails: number; azure: boolean; jev_reuse: boolean;
   arm?: string; // 082: the chosen path (with S, a document on the G path has a type without a JEV path)
+  jev?: boolean; // 086: false = processing without JEV (GPT recognises the type, every document on the G path)
 }
 export interface Readiness {
   workpackage_id: string; ready: boolean; blockers: Blocker[]; warnings: Blocker[]; counts: { items: number };
@@ -61,7 +62,7 @@ export interface Recipe {
   result: string; manual_action: string; params: Record<string, RecipeParam>; max_item_usd: Record<string, Record<string, string>>;
   // 058 K5.2–K5.3: per-item budget by item kind (email / attachment) and the setting-dependent extra (task proposal)
   max_item_usd_by_kind?: Record<string, Record<string, Record<string, string>>>;
-  param_item_usd?: { param: string; value: string; kind?: string; usd: Record<string, string> }[];
+  param_item_usd?: { param: string; value: string; kind?: string; usd: Record<string, string>; drop?: string[] }[];
 }
 /** 064: the status of the store backup (store/backups/backup-status.json) and the settings of the daily backup. */
 export interface BackupRun {

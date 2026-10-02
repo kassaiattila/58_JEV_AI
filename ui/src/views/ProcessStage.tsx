@@ -143,6 +143,8 @@ const PARAM_VALUE: Record<string, string> = tmap({
   "tasks:propose": "Feladatjavaslat a levelekből (GPT; archiválandó levélen nem; elfogadni csak ember tud)",
   "azure_ocr:on": "Gyenge helyi felismerésnél Azure-felismerés (fizetős, a futás Azure-keretén belül)",
   "azure_ocr:off": "Csak helyi felismerés",
+  "jev:on": "Bekapcsolva: a JEV ismeri fel a típust és a levél szándékát, és választ vagy ellenőriz az adatkinyerésnél",
+  "jev:off": "Kikapcsolva: csak GPT (OpenAI) — típusfelismerés és adatkinyerés GPT-vel, kódos ellenőrzéssel; a levél szándéka teendő",
 });
 /** Label of a setting's value in the editor and on the confirmation page; the path by what it does (080, the owner's
  *  decision of 2026-10-01), a document type by its name. */
