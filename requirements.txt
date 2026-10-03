@@ -31,3 +31,8 @@ uvicorn
 
 # Riportok: XLSX-export (054 K4, döntés 2026-09-28; a régi projekt tabular.py-ja is ezt használta)
 openpyxl
+
+# Native document readers: measured versions used by the shared application.
+python-docx==1.2.0
+lxml==6.0.2
+defusedxml==0.7.1

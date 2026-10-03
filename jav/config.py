@@ -120,10 +120,20 @@ def get_openai_key() -> str:
 
 
 def build_retry_policy() -> RetryPolicy:
-    """Explicit RetryPolicy from the `jev.retry` block of `configs/models.json` (429/5xx/timeout/connection are retried,
-    `timeout` is the total allowance for one SDK call; the `Retry-After` header is honoured). Missing field = SDK
-    default."""
-    return RetryPolicy(**{k: v for k, v in JEV_RETRY.items() if not k.startswith("_")})  # `_note` = a note in the JSON
+    """Configured backoff and HTTP status retries, with no blind transport retries after a possible send.
+
+    The SDK groups connection failures with broken reads, and all timeouts together. Only a transport cause proving
+    that nothing was sent may retry; a lost response must reach the durable call log as an uncertain outcome.
+    """
+    import httpx2
+
+    def not_sent(error: BaseException) -> bool:
+        cause = error.__cause__
+        return isinstance(cause, (httpx2.ConnectError, httpx2.ConnectTimeout, httpx2.PoolTimeout))
+
+    settings = {k: v for k, v in JEV_RETRY.items() if not k.startswith("_")}
+    settings.update(api_connection_error=False, api_timeout_error=False, predicate=not_sent)
+    return RetryPolicy(**settings)
 
 
 def guard_sdk_logging() -> bool:

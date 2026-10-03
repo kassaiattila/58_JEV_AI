@@ -10,6 +10,7 @@ click==8.5.0
 colorama==0.4.6
 coverage==7.16.2
 cryptography==50.0.1
+defusedxml==0.7.1
 et-xmlfile==2.0.0
 fastapi==0.141.1
 fastapi-pagination==0.16.0
@@ -26,6 +27,7 @@ jinja2==3.1.6
 jiter==0.17.0
 logfire-api==5.1.0
 loguru==0.7.3
+lxml==6.0.2
 markdown-it-py==4.2.0
 markupsafe==3.0.3
 mdurl==0.1.2
@@ -50,6 +52,7 @@ pygments==2.21.0
 pypdfium2==5.13.0
 pytest==9.1.1
 pytest-cov==7.1.0
+python-docx==1.2.0
 python-dotenv==1.2.3
 pyyaml==6.0.3
 regex==2026.9.10
