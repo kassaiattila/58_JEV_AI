@@ -50,6 +50,8 @@ The saved interpretation can be stored with the existing generic `store.save_art
 
 A received GPT answer is saved as a private call receipt even when its interpretation schema is invalid. The receipt contains the original provider response, validation locations and reported usage. Such an answer raises `InterpretationRejected` and never becomes an interpretation; replaying it does not pay for another request. Transport failures retain the existing failed/uncertain handling, and an unknown price keeps the maximum reservation. A financially completed call is distinct from an accepted business result.
 
+Native GPT output explicitly requests the provider's strict JSON schema mode. Local Pydantic strictness alone does not enable that wire setting: optional defaults can make the SDK choose non-strict output. Request bounds and cache identity include the transformed wire schema; local field limits, citation checks and cross-field validation still apply after receipt.
+
 Compare extraction completeness and false claims against independently prepared labels. Report native reading coverage, exact evidence binding, semantic support, human correctness, latency and provider costs separately. Synthetic provider stubs test plumbing; they are never reported as live model quality.
 
 ## Library references and provenance

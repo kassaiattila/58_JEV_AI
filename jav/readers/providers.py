@@ -32,6 +32,14 @@ def require_measurement(provider: str, isolated_store: Path):
     return ctx
 
 
+def gpt_response_format() -> dict:
+    """Match the strict native schema transformation used by the OpenAI model."""
+    from pydantic_ai.profiles.openai import OpenAIJsonSchemaTransformer
+    schema = OpenAIJsonSchemaTransformer(ProposedExtraction.model_json_schema(), strict=True).walk()
+    return {"type": "json_schema", "json_schema": {
+        "name": "ProposedExtraction", "strict": True, "schema": schema}}
+
+
 def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_transfer_bytes=80_000,
                 max_output_tokens=4000, agent=None) -> Interpretation:
     from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_chat_model, openai_price
@@ -41,21 +49,26 @@ def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_tr
     ctx = require_measurement("openai", isolated_store)
     view = source_view(delivery, max_bytes=max_transfer_bytes)
     prompt = json_bytes(view).decode("utf-8")
-    schema = json_bytes(ProposedExtraction.model_json_schema()).decode("utf-8")
-    request_bytes = calls.utf8_bytes(prompt, INSTRUCTIONS, schema)
-    if request_bytes > max_transfer_bytes:
-        raise ValueError("Complete provider request exceeds the explicit transfer bound")
+    response_format = gpt_response_format()
+    schema = json_bytes(response_format).decode("utf-8")
     if not 1 <= max_output_tokens <= 4000:
         raise ValueError("Output tokens exceed the experiment bound")
     price = openai_price(OPENAI_MODEL)
     settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"],
                                       temperature=OPENAI_SETTINGS["temperature"], max_tokens=max_output_tokens)
+    # Count JSON-escaped content and the wire schema, not just the inner source.
+    # The allowance covers SDK field naming and the small request envelope.
+    request_bytes = len(json_bytes({"model": OPENAI_MODEL, "messages": [
+        {"role": "system", "content": INSTRUCTIONS}, {"role": "user", "content": prompt}],
+        "response_format": response_format, **dict(settings)})) + 512
+    if request_bytes > max_transfer_bytes:
+        raise ValueError("Complete provider request exceeds the explicit transfer bound")
     synthetic = agent is not None
     if agent is None:
-        agent = Agent(openai_chat_model(), output_type=NativeOutput(ProposedExtraction),
+        agent = Agent(openai_chat_model(), output_type=NativeOutput(ProposedExtraction, strict=True),
                       instructions=INSTRUCTIONS, model_settings=settings, retries=0)
     key = calls.answer_key("openai", OPENAI_MODEL, INSTRUCTIONS, schema, prompt,
-                           json_bytes(dict(settings)).decode(), "reader-interpretation-0.2-receipt")
+                           json_bytes(dict(settings)).decode(), "reader-interpretation-0.3-strict-wire")
     maximum = calls.estimate_max_cost(input_bytes=request_bytes, max_output_tokens=max_output_tokens,
         usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), rounds=1,
         repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))

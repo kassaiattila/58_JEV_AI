@@ -86,6 +86,60 @@ def test_rejected_native_answer_is_not_an_interpretation_and_is_not_called_again
     assert requests == [1]
 
 
+def test_production_gpt_factory_sends_strict_native_schema(source, tmp_path, monkeypatch):
+    import asyncio
+    import json
+    import httpx2
+    from openai import AsyncOpenAI
+    from pydantic_ai.models.openai import OpenAIChatModel
+    from pydantic_ai.providers.openai import OpenAIProvider
+    from jav import config
+
+    requests = []
+    sizes = []
+    estimated = []
+    original_estimate = calls.estimate_max_cost
+
+    def estimate(**kwargs):
+        estimated.append(kwargs["input_bytes"])
+        return original_estimate(**kwargs)
+
+    monkeypatch.setattr(calls, "estimate_max_cost", estimate)
+
+    def respond(request):
+        requests.append(json.loads(request.content))
+        sizes.append(len(request.content))
+        return httpx2.Response(200, json={"id": "synthetic-completion", "object": "chat.completion",
+            "created": 1700000000, "model": OPENAI_MODEL,
+            "choices": [{"index": 0, "finish_reason": "stop", "message": {
+                "role": "assistant", "content": proposed().model_dump_json()}}],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 40, "total_tokens": 140}})
+
+    client = AsyncOpenAI(api_key="synthetic-not-a-real-key", max_retries=0,
+                         http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(respond)))
+    model = OpenAIChatModel(OPENAI_MODEL, provider=OpenAIProvider(openai_client=client))
+    monkeypatch.setattr(config, "openai_chat_model", lambda: model)
+    path = tmp_path / "trial.sqlite"
+    try:
+        with store.use_store(path), calls.measurement("strict-wire", {"openai": Decimal("1")}):
+            result = extract_gpt(source, run_id="trial", isolated_store=path)
+    finally:
+        asyncio.run(client.close())
+    assert result.facts[0].grounding == "literal_match"
+    assert len(requests) == 1
+    assert estimated[0] >= sizes[0]
+    wire = requests[0]["response_format"]["json_schema"]
+    assert wire["strict"] is True
+    from jav.readers.providers import gpt_response_format
+    assert requests[0]["response_format"] == gpt_response_format()
+    schema = wire["schema"]
+    assert set(schema["properties"]) == {"facts", "gaps"}
+    for shape in [schema, *schema["$defs"].values()]:
+        assert shape["additionalProperties"] is False
+        assert set(shape["required"]) == set(shape["properties"])
+        assert all("default" not in prop for prop in shape["properties"].values())
+
+
 class FakeJev:
     def no_cache_write(self):
         return nullcontext()
