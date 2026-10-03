@@ -34,6 +34,9 @@ class Reading:
         self.issues: list[Issue] = []
         self.children: list[dict] = []
         self.texts: dict[str, str] = {}
+        self.rasters: list[dict] = []
+        self.raster_pixels = 0
+        self.source_layers: dict[str, dict] = {}
         self.status: str | None = None
 
     def issue(self, code: str, message: str, element_id: str | None = None):
@@ -70,7 +73,9 @@ class Reading:
                 "status": self.status or ("partial" if self.issues else "complete"),
                 "elements": [e.model_dump(mode="json") for e in self.elements],
                 "issues": [i.model_dump(mode="json") for i in self.issues],
-                "children": self.children, "texts": self.texts}
+                "children": self.children, "texts": self.texts,
+                **({"rasters": self.rasters} if self.rasters else {}),
+                **({"source_layers": self.source_layers} if self.source_layers else {})}
 
 
 def native_value(value) -> NativeValue:
@@ -241,8 +246,9 @@ def mail(data: bytes, reading: Reading):
     visit(message)
 
 
-def image(data: bytes, reading: Reading):
+def image(data: bytes, reading: Reading, *, recognise: bool = False):
     from PIL import Image
+    from .visual import raster
     with Image.open(BytesIO(data)) as picture:
         frames = getattr(picture, "n_frames", 1)
         total = 0
@@ -254,6 +260,8 @@ def image(data: bytes, reading: Reading):
             identity = reading.add("image", ImageLocator(image_sha256=sha(data), frame=index + 1,
                                    region=(0, 0, picture.width, picture.height)), availability="unreadable")
             reading.issue("needs_ocr", "Original image frame retained; OCR has not run", identity)
+            if recognise:
+                raster(reading, picture, element_id=identity, kind="image", page=index + 1)
 
 
 class InertHTML(HTMLParser):
@@ -275,14 +283,18 @@ class InertHTML(HTMLParser):
             self.pieces.append(data)
 
 
-def read(data: bytes, filename: str, limits: ReadLimits) -> dict:
+def read(data: bytes, filename: str, limits: ReadLimits, *, recognise: bool = False) -> dict:
     limited(len(data) > limits.input_bytes, "Input byte limit exceeded")
     if not data:
         raise ReadFailure("corrupt", "corrupt", "Empty input")
     suffix = PurePosixPath(filename).suffix.lower()
     if data.startswith(b"\xd0\xcf\x11\xe0"):
         raise ReadFailure("unsupported", "unsupported", "OLE or encrypted Office container requires a separate reader")
-    if data.startswith(b"PK"):
+    if data.startswith(b"%PDF-"):
+        from .visual import read_pdf
+        reading = Reading("native-pdf", "application/pdf", limits)
+        read_pdf(data, reading, recognise=recognise)
+    elif data.startswith(b"PK"):
         parts = inspect_package(data, limits)
         if "word/document.xml" in parts:
             reading = Reading("native-docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", limits)
@@ -294,7 +306,7 @@ def read(data: bytes, filename: str, limits: ReadLimits) -> dict:
             raise ReadFailure("unsupported", "unsupported", "ZIP container has no supported Office document")
     elif data.startswith((b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"II*\x00", b"MM\x00*", b"RIFF")):
         reading = Reading("native-image", "image/unknown", limits)
-        image(data, reading)
+        image(data, reading, recognise=recognise)
     elif suffix == ".eml":
         reading = Reading("native-email", "message/rfc822", limits)
         mail(data, reading)
@@ -328,5 +340,9 @@ def read(data: bytes, filename: str, limits: ReadLimits) -> dict:
 
 def evidence_view(response: dict) -> dict:
     """Binary children are frozen separately; structural evidence carries hashes."""
-    return {**response, "children": [{key: value for key, value in child.items() if key != "data"}
-                                     for child in response["children"]]}
+    result = {**response, "children": [{key: value for key, value in child.items() if key != "data"}
+                                      for child in response["children"]]}
+    if "rasters" in response:
+        result["rasters"] = [{key: value for key, value in raster.items() if key != "data"}
+                             for raster in response["rasters"]]
+    return result

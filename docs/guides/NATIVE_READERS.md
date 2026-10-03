@@ -4,7 +4,7 @@
 
 The experimental reader package processes local files and decoded email attachments through the same bounded reading path. It preserves original bytes, source occurrences, structural evidence and visible gaps. It can propose flexible business facts through GPT, choose requested fields with JEV, or ask JEV to assess GPT proposals. Model results remain unreviewed; literal source matching is not a claim of business correctness.
 
-The package runs separately from application ingestion, workers, review and the production store. Its command does not download mail or call a provider. Existing PDF processing remains in the application; this experimental command does not yet bridge to it.
+The package runs separately from application ingestion, workers, review and the production store. Its command does not download mail or call a provider. Its PDF adapter reuses the application's line builder and word-layer model without changing the existing application PDF path.
 
 ## Run a local experiment
 
@@ -12,10 +12,11 @@ Use a separate Windows checkout and virtual environment. The shared `requirement
 
 ```powershell
 & .\.venv\Scripts\python.exe -m jav.readers .\synthetic-inbox --output .\runs\new-reading
+& .\.venv\Scripts\python.exe -m jav.readers .\synthetic-images --ocr --output .\runs\new-local-ocr
 & .\.venv\Scripts\python.exe tests/export_native_corpus.py .\runs\new-synthetic-corpus
 ```
 
-The output directory must be new. It contains `bundle.json`, original content-addressed objects, frozen reading evidence and exact text versions. Loading a delivery verifies hashes, sizes, element content and child inventories without running a reader again. There is no schema migration or second persistent work queue.
+The output directory must be new. It contains `bundle.json`, original content-addressed objects, frozen reading evidence, exact text versions and any recognition rasters. Loading a delivery verifies hashes, sizes, element content, child inventories and PDF word references without running a reader or OCR again. There is no schema migration or second persistent work queue.
 
 ## Measured native scope
 
@@ -26,15 +27,22 @@ The output directory must be new. It contains `bundle.json`, original content-ad
 | CSV | Row/column positions and literal values | UTF-8 and standard comma-delimited CSV only; dialect discovery is not claimed. |
 | TXT | Exact decoded text and character references | UTF-8 only. |
 | JSON/XML/HTML | Bounded, inert source text; JSON/XML validity checks | Dedicated structured paths and HTML layout are not implemented. No external XML resources or active HTML execution. |
-| PNG/JPEG/TIFF/WebP | Original image frames and pixel bounds | OCR has not run; text extraction is not claimed. |
+| PDF | Native words, line references and frozen page-relative word layers; optional local OCR of visual pages | Active content, embedded files and forms are excluded. Annotations remain visible gaps. A page with differing crop/media boxes or inconsistent rendered dimensions is omitted before admitting native words or OCR, with a visible partial-reading issue. Native text and recognised visual text are separate evidence layers. |
+| PNG/JPEG/TIFF/WebP | Original image frames and pixel bounds; optional local OCR text with original-pixel regions | Without `--ocr`, unread text is explicit. Empty OCR is not proof of a blank image. Pixel orientation is preserved; no EXIF-based deskew or display rotation is inferred. |
 | EML | Headers, body text, decoded attachments, inline items, nested messages and visible MIME defects | Nested message serialization is derived from its original parent. This is an offered-file inventory, not proof that a mailbox bridge downloaded everything. |
 | Other formats | Original occurrence and explicit unsupported result | No implicit Office conversion, legacy runtime import or unknown binary execution. |
 
 ## Boundaries and evidence
 
-The parent passes frozen bytes into a Windows process after attaching a Job Object. It bounds memory, process count, wall time and output, removes provider credentials from the worker environment and kills the process on close. ZIP entry count, expansion size/ratio, cell visits, pixels and the complete source tree are bounded. Unsafe paths, active Office parts and external relationships are rejected.
+The parent passes frozen bytes into a Windows process after attaching a Job Object. It bounds memory, process count, wall time and output, removes inherited provider credentials, disables child-process dotenv loading before imports and kills the process on close. This child-only setting does not disable the application's normal dotenv loading. ZIP entry count, expansion size/ratio, cell visits, pixels and the complete source tree are bounded. Unsafe paths, active Office parts and external relationships are rejected.
 
 After trusted dependencies load, a Python audit policy denies network, process, mutation and unrelated filesystem access. It is **not an operating-system sandbox for arbitrary malicious native code**. The measured adapters use in-memory Office/image libraries and forbid XML entities and external relationships. A future native dependency needs its own threat review. Failure to install the process boundary prevents parsing.
+
+Local OCR is explicit and uses only installed Tesseract and configured local language files. The adapter feeds canonical PNG bytes to a fixed stdin/stdout command in a separate Job Object, with a credential-free environment and bounded time, memory, process count and output. It does not use the application's paid OCR escalation. Tesseract is a trusted native dependency, not a Python process covered by the audit hook; this is not a claim of operating-system network isolation. Original filenames never become engine arguments. The executable, adjacent DLLs, model files and recognition settings contribute to the recorded model identity.
+
+An OCR attempt records parser and recognition protections separately, with the weakest values reported in its aggregate protections. Python-parser protections must remain enforced; OCR does not claim filesystem or network isolation. Recognised text is retained with `partial` status and an explicit `protection_unavailable` issue. The typed scopes must agree with the aggregate and frozen evidence, and the recognition resource bounds remain mandatory. Older parser-only deliveries omit these optional scope fields, preserving their saved bundle bytes and digest on reload.
+
+PDF and image text, coordinates, rasters and raw TSV belong to the same source reading. OCR failures keep the source and a visible reason; native PDF words remain available when local recognition fails. PDF OCR coordinates are mapped using the actual raster width and height rather than an assumed DPI. The experimental PDF bound is at most twelve pages, further restricted by the supplied inventory and pixel budgets. Reopening saved evidence never backfills missing OCR automatically.
 
 Large binary children are stored separately from the bounded structural evidence, which records their hashes and sizes. Reading, acquisition, interpretation and human review are separate states. A partial result must not be presented as full-source extraction.
 

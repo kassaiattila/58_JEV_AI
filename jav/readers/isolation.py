@@ -73,18 +73,15 @@ class Job:
             self.handle = None
 
 
-def run(data: bytes, filename: str, limits: ReadLimits, *, probe: str | None = None) -> dict:
-    """Pass bytes only after the process is attached to its resource boundary."""
-    if len(data) > limits.input_bytes:
-        raise ReadFailure("resource_limited", "resource_limit", "Input byte limit exceeded")
+def exchange(command: list[str], request: bytes, limits: ReadLimits, *, output_bound: int,
+             timeout: float | None = None) -> bytes:
+    """Send bounded input only after a trusted worker has joined its Job Object."""
     root = Path(__file__).resolve().parents[2]
-    script = Path(__file__).with_name("worker.py")
     environment = {key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR") if key in os.environ}
     environment["PYTHONUTF8"] = "1"
-    # Windows venv python.exe is a launcher which creates another process. Start
-    # the real interpreter so the Job Object's one-process limit stays meaningful.
-    executable = getattr(sys, "_base_executable", sys.executable)
-    process = subprocess.Popen([executable, "-I", "-B", str(script)], cwd=root,
+    environment["PYTHON_DOTENV_DISABLED"] = "1"
+    environment["OMP_THREAD_LIMIT"] = "1"
+    process = subprocess.Popen(command, cwd=root,
         env=environment, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), close_fds=True)
     job = None
@@ -106,13 +103,10 @@ def run(data: bytes, filename: str, limits: ReadLimits, *, probe: str | None = N
             job = Job(process, limits.memory_bytes)
         except (OSError, ReadFailure) as exc:
             raise ReadFailure("excluded", "protection_unavailable", "Could not enforce worker resource boundary") from exc
-        transport_bound = limits.output_bytes + 2 * limits.expanded_bytes
-        for stream, target, bound in ((process.stdout, output, transport_bound), (process.stderr, diagnostics, 4096)):
+        for stream, target, bound in ((process.stdout, output, output_bound), (process.stderr, diagnostics, 4096)):
             thread = threading.Thread(target=collect, args=(stream, target, bound), daemon=True)
             thread.start()
             threads.append(thread)
-        request = json.dumps({"data": base64.b64encode(data).decode(), "filename": filename,
-                              "limits": limits.model_dump(mode="json"), "probe": probe}).encode()
         # Sending is included in the deadline, including a worker that never reads.
         def send():
             try:
@@ -124,7 +118,7 @@ def run(data: bytes, filename: str, limits: ReadLimits, *, probe: str | None = N
         writer.start()
         threads.append(writer)
         try:
-            process.wait(timeout=limits.wall_seconds)
+            process.wait(timeout=timeout if timeout is not None else limits.wall_seconds)
         except subprocess.TimeoutExpired as exc:
             raise ReadFailure("resource_limited", "resource_limit", "Reader wall-clock deadline exceeded") from exc
         for thread in threads:
@@ -133,13 +127,7 @@ def run(data: bytes, filename: str, limits: ReadLimits, *, probe: str | None = N
             raise ReadFailure("resource_limited", "resource_limit", "Reader output limit exceeded")
         if process.returncode != 0:
             raise ReadFailure("resource_limited", "resource_limit", "Reader stopped before publishing bounded output")
-        try:
-            response = json.loads(b"".join(output))
-        except (ValueError, UnicodeError) as exc:
-            raise ReadFailure("corrupt", "corrupt", "Invalid reader response") from exc
-        if "failure" in response:
-            raise ReadFailure(**response["failure"])
-        return response
+        return b"".join(output)
     finally:
         if process.poll() is None:
             process.kill()
@@ -150,3 +138,25 @@ def run(data: bytes, filename: str, limits: ReadLimits, *, probe: str | None = N
             thread.join(timeout=1)
         for stream in (process.stdin, process.stdout, process.stderr):
             stream.close()
+
+
+def run(data: bytes, filename: str, limits: ReadLimits, *, probe: str | None = None,
+        recognise: bool = False) -> dict:
+    """Parse source bytes under the existing Python and operating-system policy."""
+    if len(data) > limits.input_bytes:
+        raise ReadFailure("resource_limited", "resource_limit", "Input byte limit exceeded")
+    script = Path(__file__).with_name("worker.py")
+    # Avoid the Windows venv launcher's extra child process.
+    executable = getattr(sys, "_base_executable", sys.executable)
+    request = json.dumps({"data": base64.b64encode(data).decode(), "filename": filename,
+                          "limits": limits.model_dump(mode="json"), "probe": probe,
+                          "recognise": recognise}).encode()
+    output = exchange([executable, "-I", "-B", str(script)], request, limits,
+                      output_bound=limits.output_bytes + 2 * limits.expanded_bytes)
+    try:
+        response = json.loads(output)
+    except (ValueError, UnicodeError) as exc:
+        raise ReadFailure("corrupt", "corrupt", "Invalid reader response") from exc
+    if "failure" in response:
+        raise ReadFailure(**response["failure"])
+    return response

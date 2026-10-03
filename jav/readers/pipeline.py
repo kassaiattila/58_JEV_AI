@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import time
 from uuid import uuid4
 
 from .contracts import (
@@ -35,8 +36,11 @@ def json_bytes(value) -> bytes:
 
 def implementation_version() -> str:
     sources = {p.name: digest(p.read_bytes()) for p in Path(__file__).parent.glob("*.py")}
+    for name in ("pdf.py", "source_layer.py", "ocr.py"):
+        path = Path(__file__).parent.parent / name
+        sources[f"jav/{name}"] = digest(path.read_bytes())
     packages = {}
-    for name in ("openpyxl", "python-docx", "lxml", "defusedxml", "Pillow", "pydantic"):
+    for name in ("openpyxl", "python-docx", "lxml", "defusedxml", "Pillow", "pydantic", "pdfplumber", "pdfminer.six", "pypdfium2"):
         try:
             packages[name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:
@@ -84,6 +88,7 @@ class Delivery:
     evidence: dict[str, bytes] = field(repr=False)
     texts: dict[str, bytes] = field(default_factory=dict, repr=False)
     reading_invocations: dict[str, int] = field(default_factory=dict)
+    rasters: dict[str, bytes] = field(default_factory=dict, repr=False)
 
     def select(self, root_ids: set[str]) -> Delivery:
         """Select complete source trees for a bounded experiment, without rereading."""
@@ -101,12 +106,14 @@ class Delivery:
         bundle = SourceBundle(manifest=SourceManifest(
             objects=tuple(o for o in self.bundle.manifest.objects if o.sha256 in hashes), occurrences=occurrences,
             inventories=tuple(i for i in self.bundle.manifest.inventories if i.occurrence_id in selected)), results=results)
-        result = Delivery(bundle, {h: self.objects[h] for h in hashes}, evidence, {h: self.texts[h] for h in text_keys})
+        raster_keys = {r["sha256"] for data in evidence.values() for r in json.loads(data).get("rasters", [])}
+        result = Delivery(bundle, {h: self.objects[h] for h in hashes}, evidence, {h: self.texts[h] for h in text_keys},
+                          rasters={h: self.rasters[h] for h in raster_keys})
         result.verify()
         return result
 
     def verify(self):
-        for namespace in (self.objects, self.evidence, self.texts):
+        for namespace in (self.objects, self.evidence, self.texts, self.rasters):
             if any(digest(data) != key for key, data in namespace.items()):
                 raise ValueError("Artifact content does not match its address")
         for item in self.bundle.manifest.objects:
@@ -117,6 +124,20 @@ class Delivery:
             if ref:
                 verify_evidence(ref, self.objects[ref.source_sha256], self.evidence[ref.sha256])
                 raw = json.loads(self.evidence[ref.sha256])
+                if result.attempt.parser_protections is not None:
+                    expected_scopes = {"parser": result.attempt.parser_protections.model_dump(mode="json"),
+                                       "recognition": result.attempt.recognition_protections.model_dump(mode="json")}
+                    if raw.get("protection_scopes") != expected_scopes:
+                        raise ValueError("Execution protection scopes differ from their frozen evidence")
+                elif raw.get("protection_scopes") is not None:
+                    raise ValueError("Frozen protection scopes are missing from the reading attempt")
+                for raster in raw.get("rasters", []):
+                    if (raster["sha256"] not in self.rasters
+                            or len(self.rasters[raster["sha256"]]) != raster["byte_size"]):
+                        raise ValueError("Missing or wrong-size frozen recognition raster")
+                if raw.get("source_layers") or any(e.locator.kind == "pdf" for e in result.elements):
+                    from .visual import verify_layers
+                    verify_layers(raw, ref.source_sha256)
                 if (raw["elements"] != [e.model_dump(mode="json") for e in result.elements]
                         or raw["issues"] != [i.model_dump(mode="json") for i in result.issues]
                         or raw["status"] != result.status):
@@ -142,7 +163,8 @@ class Delivery:
         self.verify()
         destination = Path(destination)
         destination.mkdir(parents=True, exist_ok=False)
-        for name, items in (("objects", self.objects), ("evidence", self.evidence), ("texts", self.texts)):
+        for name, items in (("objects", self.objects), ("evidence", self.evidence), ("texts", self.texts),
+                            ("rasters", self.rasters)):
             folder = destination / name
             folder.mkdir()
             for key, content in items.items():
@@ -167,12 +189,25 @@ class Delivery:
         objects = {key: bounded_file(destination / "objects" / key, size) for key, size in object_sizes.items()}
         evidence = {key: bounded_file(destination / "evidence" / key, size) for key, size in evidence_sizes.items()}
         texts = {key: bounded_file(destination / "texts" / key, 400_000) for key in text_keys}
-        delivery = cls(bundle, objects, evidence, texts)
+        raster_sizes = {}
+        for data in evidence.values():
+            for raster in json.loads(data).get("rasters", []):
+                key, size = raster["sha256"], raster["byte_size"]
+                if (not isinstance(key, str) or len(key) != 64 or any(c not in "0123456789abcdef" for c in key)
+                        or type(size) is not int or not 0 < size <= DEFAULT_LIMITS.expanded_bytes):
+                    raise ValueError("Invalid saved raster reference")
+                if key in raster_sizes and raster_sizes[key] != size:
+                    raise ValueError("Conflicting saved raster size")
+                raster_sizes[key] = size
+        if sum(raster_sizes.values()) + sum(object_sizes.values()) > DEFAULT_LIMITS.expanded_bytes:
+            raise ValueError("Saved source and raster bytes exceed the delivery bound")
+        rasters = {key: bounded_file(destination / "rasters" / key, size) for key, size in raster_sizes.items()}
+        delivery = cls(bundle, objects, evidence, texts, rasters=rasters)
         delivery.verify()
         return delivery
 
 
-def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS) -> Delivery:
+def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS, ocr: bool = False) -> Delivery:
     inputs = []
     for selected in map(Path, paths):
         if selected.is_dir() and not selected.is_symlink():
@@ -190,8 +225,18 @@ def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS) -> Del
         raise ValueError("No input files were offered")
     limited(len(inputs) > 500, "Input inventory exceeds the experiment limit")
     version = implementation_version()
+    engine, missing_ocr = None, None
+    if ocr:
+        from .visual_ocr import LocalOCR
+        try:
+            engine = LocalOCR.discover()
+        except (ReadFailure, OSError) as exc:
+            missing_ocr = str(exc) if isinstance(exc, ReadFailure) else "Local OCR files are unavailable"
+    model_sha = engine.fingerprint if engine else digest(b"ocr-unavailable" if ocr else b"no-models")
+    config_sha = digest(json_bytes({"limits": limits.model_dump(mode="json"), "local_ocr": True})) if ocr else limits.digest()
     source_version = "intake:" + uuid4().hex
     objects, object_models, evidence, texts, invocations, cache = {}, {}, {}, {}, {}, {}
+    rasters = {}
     occurrences, inventories, results = [], [], []
     total_bytes = 0
     total_elements = 0
@@ -224,17 +269,37 @@ def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS) -> Del
                 if depth >= limits.source_tree_depth:
                     raise ReadFailure("resource_limited", "resource_limit", "Source tree depth limit exceeded")
                 invocations[content_sha] = invocations.get(content_sha, 0) + 1
-                response = run(data, name, limits)
+                started = time.monotonic()
+                response = run(data, name, limits, recognise=ocr)
+                if ocr and response.get("rasters"):
+                    from .visual_ocr import finish
+                    response = finish(response, content_sha, engine, limits, started=started, missing=missing_ocr)
+                if response.get("ocr"):
+                    parser = Protections(**dict.fromkeys(Protections.model_fields, "enforced"))
+                    recognition = parser.model_copy(update={"network": "unavailable", "paths": "unavailable"})
+                    response["protection_scopes"] = {"parser": parser.model_dump(mode="json"),
+                                                       "recognition": recognition.model_dump(mode="json")}
+                    response["status"] = "partial"
+                    response["issues"].append(Issue(stage="reading", code="protection_unavailable",
+                        message="Local OCR enforces resource bounds, but not filesystem or network isolation").model_dump(mode="json"))
+                limited(len(json_bytes(evidence_view(response))) > limits.output_bytes,
+                        "Reading and recognition evidence exceeds the output bound")
                 cache[key] = response
             except ReadFailure as exc:
                 failure = exc
         mime = response["mime"] if response else "application/octet-stream"
         object_models[content_sha] = SourceObject(sha256=content_sha, byte_size=len(data), detected_mime=mime)
+        protections = Protections(**dict.fromkeys(Protections.model_fields, "enforced" if response else "not_executed"))
+        scopes = response.get("protection_scopes") if response else None
+        parser_protections = Protections(**scopes["parser"]) if scopes else None
+        recognition_protections = Protections(**scopes["recognition"]) if scopes else None
+        if scopes:
+            protections = parser_protections.combined_with(recognition_protections)
         attempt = ParseAttempt(attempt_id=f"read:{oid}", occurrence_id=oid, source_sha256=content_sha,
             parser_name=response["parser"] if response else "native-unavailable", parser_version=version,
-            config_sha256=limits.digest(), models_sha256=digest(b"no-models"), execution="reader", limits=limits,
-            protections=Protections(**dict.fromkeys(("network", "paths", "active_content", "expansion", "cells",
-                                                     "pixels", "time", "memory"), "enforced" if response else "not_executed")))
+            config_sha256=config_sha, models_sha256=model_sha, execution="reader", limits=limits,
+            protections=protections, parser_protections=parser_protections,
+            recognition_protections=recognition_protections)
         if failure:
             results.append(ParsedDocument(attempt=attempt, status=failure.status,
                 issues=(Issue(stage="reading", code=failure.code, message=str(failure)[:512]),)))
@@ -243,6 +308,13 @@ def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS) -> Del
                     issues=(Issue(stage="acquisition", code="inventory_unknown", message="Email reading did not establish attachment count"),)))
             return
         raw = json_bytes(evidence_view(response))
+        for raster in response.get("rasters", []):
+            content = base64.b64decode(raster["data"], validate=True)
+            if digest(content) != raster["sha256"] or len(content) != raster["byte_size"]:
+                raise ValueError("Frozen raster differs from its reading receipt")
+            rasters[raster["sha256"]] = content
+        limited(sum(map(len, rasters.values())) + total_bytes > limits.expanded_bytes,
+                "Source and raster bytes exceed the delivery bound")
         raw_sha = digest(raw)
         evidence[raw_sha] = raw
         ref = EvidenceRef(sha256=raw_sha, byte_size=len(raw), source_sha256=content_sha,
@@ -279,6 +351,6 @@ def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS) -> Del
     bundle = SourceBundle(manifest=SourceManifest(objects=tuple(object_models.values()), occurrences=tuple(occurrences),
                                                   inventories=tuple(inventories)), results=tuple(results))
     read_bundle(canonical_bytes(bundle))
-    delivery = Delivery(bundle, objects, evidence, texts, invocations)
+    delivery = Delivery(bundle, objects, evidence, texts, invocations, rasters)
     delivery.verify()
     return delivery

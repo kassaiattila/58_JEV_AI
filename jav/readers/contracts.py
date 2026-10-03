@@ -215,7 +215,7 @@ class ImageLocator(ContractModel):
 
 
 class PdfLocator(ContractModel):
-    """A future bridge to an existing frozen PDF source layer; no conversion."""
+    """A reference to a frozen PDF word layer, without format conversion."""
 
     kind: Literal["pdf"] = "pdf"
     source_layer_id: Identifier
@@ -325,6 +325,12 @@ class Protections(ContractModel):
     time: ProtectionState
     memory: ProtectionState
 
+    def combined_with(self, other: Protections) -> Protections:
+        """Report the weakest stated protection across two execution boundaries."""
+        priority = {"enforced": 0, "not_executed": 1, "unavailable": 2}
+        return Protections(**{name: max((value, getattr(other, name)), key=priority.__getitem__)
+                              for name, value in self.model_dump().items()})
+
 
 class ParseAttempt(ContractModel):
     attempt_id: Identifier
@@ -338,6 +344,17 @@ class ParseAttempt(ContractModel):
     execution: Literal["contract_fixture", "reader"]
     limits: ReadLimits
     protections: Protections
+    parser_protections: Protections | None = Field(default=None, exclude_if=lambda value: value is None)
+    recognition_protections: Protections | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    @model_validator(mode="after")
+    def validate_protection_scopes(self) -> Self:
+        if (self.parser_protections is None) != (self.recognition_protections is None):
+            raise ValueError("Parser and recognition protection scopes must be supplied together")
+        if self.parser_protections is not None:
+            if self.protections != self.parser_protections.combined_with(self.recognition_protections):
+                raise ValueError("Aggregate protections differ from their execution scopes")
+        return self
 
     def reader_key(self) -> str:
         """Reusable reading identity; occurrence and execution attempt stay separate."""
@@ -405,8 +422,19 @@ class ParsedDocument(ContractModel):
         if self.elements and self.raw_evidence is None:
             raise ValueError("A structural result needs a frozen raw-evidence reference")
         if self.attempt.execution == "reader" and self.status in ("complete", "partial"):
-            if any(value != "enforced" for value in self.attempt.protections.model_dump().values()):
+            parser = self.attempt.parser_protections or self.attempt.protections
+            if any(value != "enforced" for value in parser.model_dump().values()):
                 raise ValueError("A real reader must enforce its protections before publishing content")
+            recognition = self.attempt.recognition_protections
+            if recognition is not None:
+                if any(value != "enforced" for name, value in recognition.model_dump().items()
+                       if name not in {"network", "paths"}):
+                    raise ValueError("Recognition must enforce its content and resource bounds")
+                if any(value == "not_executed" for value in recognition.model_dump().values()):
+                    raise ValueError("Published recognition cannot claim an unexecuted boundary")
+                if recognition.network != "enforced" or recognition.paths != "enforced":
+                    if self.status != "partial" or not any(i.code == "protection_unavailable" for i in self.issues):
+                        raise ValueError("Limited recognition isolation requires an explicit partial protection issue")
         return self
 
 

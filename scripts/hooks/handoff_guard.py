@@ -1,6 +1,6 @@
-"""Claude Code hook: guard of the numbered handoff (docs/handoffs/NNN-YYYY-MM-DD-handoff.md). Stdlib only.
+"""Claude Code / Codex hook: guard of the numbered project handoff. Stdlib only.
 
-Usage (called by .claude/settings.json, from the project root):
+Usage (called by the host's hook configuration; resolves paths from this file):
   python scripts/hooks/handoff_guard.py session-start   # SessionStart: the latest handoff into the context (stdout)
   python scripts/hooks/handoff_guard.py pre-compact     # PreCompact: warning if the handoff is stale
   python scripts/hooks/handoff_guard.py stop            # Stop: non-blocking reminder if the handoff is stale
@@ -139,9 +139,11 @@ def main() -> int:
     if event == "session-start":
         state_age = f"{(time.time() - STATE.stat().st_mtime) / 60:.0f} perce" if STATE.exists() else "HIÁNYZIK"
         lines = [f"[handoff-guard] Legfrissebb handoff: {rel} - a következő sorszám: {num + 1:03d}. docs/STATE.md: {state_age}.",
-                 "Session-protokoll (CLAUDE.md §2): 1. `.venv\\Scripts\\python.exe -m jav.cli preflight` (pytest + lint + konfigok +"
-                 " handoff-frissesség + STATE.md), 2. olvasd a handoffot (lent teljes), docs/BACKLOG.md, docs/DECISIONS.md, docs/GLOSSARY.md (fogalomtár: minden felhasználónak szóló szöveg ennek a nyelvén, CLAUDE.md §8),"
-                 " 3. 5-8 soros összefoglaló + nyitott döntések, és kérdezd meg a felhasználót, mielőtt építesz.",
+                 "Session protocol: read AGENTS.md and the shared CLAUDE.md rules, then the latest handoff below, "
+                 "docs/BACKLOG.md, docs/DECISIONS.md and docs/GLOSSARY.md. Use `.venv\\Scripts\\python.exe -m jav.cli preflight` "
+                 "for the required checks; reuse completed checks when the relevant code and environment are unchanged. "
+                 "Summarise the current state and unresolved decisions. Continue already authorised work; "
+                 "ask only about unresolved scope, policy or budget decisions.",
                  f"[handoff-guard] {format_git_line(git_summary(handoff))}."]
         if stale > STALE_MINUTES:
             lines.append(f"FIGYELEM: a kód {stale:.0f} perccel frissebb a handoffnál - az állapot-leírás elavult lehet, ellenőrizd.")

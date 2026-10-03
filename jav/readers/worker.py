@@ -1,4 +1,4 @@
-"""Private subprocess entry point. No model clients or application store imports."""
+"""Private reader process. Shared geometry is imported without opening a store."""
 from __future__ import annotations
 
 import base64
@@ -45,6 +45,7 @@ def main():
     from jav.readers.contracts import ReadLimits
     from jav.readers.limits import ReadFailure
     from jav.readers.native import evidence_view, read
+    from jav.readers import visual  # noqa: F401 - trusted PDF/native imports before restrictions
     import docx  # noqa: F401 - trusted imports before filesystem restrictions
     import openpyxl  # noqa: F401
     from PIL import Image
@@ -73,7 +74,8 @@ def main():
             return
         elif probe:
             raise ValueError("Unknown self-test operation")
-        result = read(base64.b64decode(request["data"], validate=True), request["filename"], limits)
+        result = read(base64.b64decode(request["data"], validate=True), request["filename"], limits,
+                      recognise=request.get("recognise", False))
         output = json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
         structure = json.dumps(evidence_view(result), ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
         if len(structure) > limits.output_bytes or len(output) > limits.output_bytes + 2 * limits.expanded_bytes:

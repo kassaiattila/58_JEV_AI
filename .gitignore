@@ -64,3 +64,6 @@ docs/*_????-??-??.md
 ui/node_modules/
 ui/dist/
 .playwright-mcp/
+
+# Local Codex configuration and reviewed hook installation.
+.codex/
