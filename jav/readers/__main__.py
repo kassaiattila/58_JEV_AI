@@ -10,8 +10,9 @@ def main():
     parser = argparse.ArgumentParser(description="Read local files into frozen, source-bound experimental artifacts")
     parser.add_argument("inputs", nargs="+", type=Path, help="Files or folders; input content stays local")
     parser.add_argument("--output", type=Path, required=True, help="New directory for original bytes, evidence and bundle.json")
+    parser.add_argument("--ocr", action="store_true", help="Use installed local Tesseract; never use a remote OCR provider")
     args = parser.parse_args()
-    delivery = read_files(args.inputs)
+    delivery = read_files(args.inputs, ocr=args.ocr)
     delivery.save(args.output)
     print(json.dumps({"output": str(args.output), "occurrences": len(delivery.bundle.manifest.occurrences),
                       "readings": len(delivery.bundle.results), "provider_calls": 0,

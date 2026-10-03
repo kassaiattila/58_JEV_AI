@@ -33,3 +33,18 @@ The runtime dependencies retain their own licences: python-docx (MIT), openpyxl
 Pillow (MIT-CMU). The isolated experiment records exact installed licence files,
 versions and hashes. Docling and Unstructured are comparison candidates in a
 separate environment and are not runtime dependencies of these adapters.
+
+## PDF and local recognition extension
+
+`visual.py` reuses this repository's `jav/pdf.py:build_layout` and
+`jav/source_layer.py:build` without persisting into the application store.
+`visual_ocr.py` reuses `jav/ocr.py:parse_tsv` at pixel scale. These preserve the
+same-reading text/geometry pattern referenced above; no legacy runtime is loaded.
+
+PDF parsing uses the existing pdfplumber dependency (MIT); page rendering uses
+the existing pypdfium2/PDFium dependency and its bundled third-party notices.
+Local recognition uses installed Tesseract (Apache-2.0), without redistributing
+its executable or language models. The standard
+[TSV output](https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html) and
+[PDFium rendering API](https://pypdfium2.readthedocs.io/en/stable/python_api.html)
+are used with explicit source-coordinate mapping and retained raw evidence.

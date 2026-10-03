@@ -215,7 +215,7 @@ class ImageLocator(ContractModel):
 
 
 class PdfLocator(ContractModel):
-    """A future bridge to an existing frozen PDF source layer; no conversion."""
+    """A reference to a frozen PDF word layer, without format conversion."""
 
     kind: Literal["pdf"] = "pdf"
     source_layer_id: Identifier
