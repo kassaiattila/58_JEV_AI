@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "service",
-    "version": "1.9.0",
+    "version": "1.9.1",
     "changelog": [
+      {
+        "version": "1.9.1",
+        "date": "2026-10-03",
+        "note": "Expose each process's actual PDF memory protection. Optional require_memory_limit refuses parsing without an enforced limit; disabled by default."
+      },
       {
         "version": "1.0.0",
         "date": "2026-09-27",
@@ -88,6 +93,7 @@
   },
   "pdf_reader": {
     "isolated": true,
+    "require_memory_limit": false,
     "read_timeout_s": 120,
     "render_timeout_s": 60,
     "page_image_timeout_s": 15,

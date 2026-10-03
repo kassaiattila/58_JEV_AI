@@ -28,7 +28,7 @@ from typing import Any, Callable
 from burr.integrations.serde import pydantic as burr_pydantic
 
 from jav import app_settings, isolated_pdf, mailbox, pdf, store, work
-from jav.runtime import applog, calls, lock, persistence, queue
+from jav.runtime import applog, calls, lock, pdf_status, persistence, queue
 from jav.runtime.persistence import ClosingSQLitePersister
 
 log = logging.getLogger("jav.worker")
@@ -331,7 +331,9 @@ def request_stop() -> None:
 
 def status() -> dict[str, Any]:
     """Whether a worker is running (the lock is held), whether a stop was requested, and the job counts by state."""
-    return {"running": lock.is_held(lock_path()), "stop_requested": stop_path().exists(), "jobs": queue.counts()}
+    running = lock.is_held(lock_path())
+    return {"running": running, "stop_requested": stop_path().exists(), "jobs": queue.counts(),
+            "pdf_protection": pdf_status.worker_status(store.current_path(), running=running)}
 
 
 def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int | None = None,
@@ -341,7 +343,7 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
     Only one instance may run at a time (`lock.single_instance`; `lock.AlreadyRunning` if the lock is held). On a stop
     request (`request_stop`) it exits after finishing the item in progress; the request is cleared at start-up."""
     worker = name or f"{socket.gethostname()}:{int(time.time())}"
-    with lock.single_instance(lock_path()):
+    with lock.single_instance(lock_path()), pdf_status.publish(store.current_path()):
         from jav.runtime import preload
 
         preload.preload()  # 091: all the code now, so later changes on disk cannot mix into this process
