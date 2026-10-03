@@ -16,5 +16,20 @@ AIFLOW V4 revision `4256cba9ee2b6f007c69d81eafc64d1419418e7f`:
 
 The reference project declares [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0).
 These are newly written behavioural adaptations, not copied implementations.
-No provider selection, legacy database, network client, storage path resolver or
-approval implementation is carried over. No third-party Office reader is bundled.
+No legacy database, network client, storage path resolver or approval implementation
+is carried over. No third-party Office reader implementation is bundled.
+
+## Native adapter extension
+
+The new `native.py` uses the `DocxParser.parse` and `XlsxParser.parse` behavioural
+patterns from `sidecar/app/providers/docx.py` and `xlsx.py` at the same revision:
+open through `python-docx`/`openpyxl`, iterate library objects and close workbooks
+in `finally`. The code is newly authored around structural references, two Excel
+views, an explicit child inventory and bounded isolated execution. It does not
+copy the earlier paragraph-first/table-last or empty-cell-dropping algorithms.
+
+The runtime dependencies retain their own licences: python-docx (MIT), openpyxl
+(MIT), lxml (BSD family, including its bundled libraries), defusedxml (PSF) and
+Pillow (MIT-CMU). The isolated experiment records exact installed licence files,
+versions and hashes. Docling and Unstructured are comparison candidates in a
+separate environment and are not runtime dependencies of these adapters.
