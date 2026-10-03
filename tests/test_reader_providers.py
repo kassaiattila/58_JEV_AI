@@ -11,6 +11,7 @@ from jav.config import OPENAI_MODEL
 from jav.readers.interpretation import ProposedExtraction, ground
 from jav.readers.pipeline import read_files
 from jav.readers.providers import extract_gpt, select_jev, verify_jev
+from jav.readers.receipts import InterpretationRejected
 from jav.runtime import calls
 
 pytest.importorskip("docx", reason="Native reader dependencies await integration")
@@ -59,6 +60,30 @@ def test_gpt_refuses_missing_provider_budget_before_calling(source, tmp_path):
         with pytest.raises(ValueError, match="sub-budget"):
             extract_gpt(source, run_id="trial", isolated_store=path, agent=agent)
     assert agent.calls == 0
+
+
+def test_rejected_native_answer_is_not_an_interpretation_and_is_not_called_again(source, tmp_path):
+    from pydantic_ai import Agent, NativeOutput
+    from pydantic_ai.messages import ModelResponse, TextPart
+    from pydantic_ai.models.function import FunctionModel
+    from pydantic_ai.usage import RequestUsage
+
+    requests = []
+
+    def respond(messages, info):
+        requests.append(1)
+        return ModelResponse([TextPart('{"facts":[{"entity":"order"}]}')],
+                             usage=RequestUsage(input_tokens=100, output_tokens=40))
+
+    agent = Agent(FunctionModel(respond, model_name=OPENAI_MODEL),
+                  output_type=NativeOutput(ProposedExtraction), retries=0)
+    path = tmp_path / "trial.sqlite"
+    with store.use_store(path), calls.measurement("native-invalid", {"openai": Decimal("1")}):
+        for _ in range(2):
+            with pytest.raises(InterpretationRejected, match="private receipt"):
+                extract_gpt(source, run_id="trial", isolated_store=path, agent=agent)
+        assert calls.budget_usage("native-invalid")["committed_usd"] == Decimal("0.000255")
+    assert requests == [1]
 
 
 class FakeJev:

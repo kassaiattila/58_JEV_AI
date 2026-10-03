@@ -48,6 +48,8 @@ The new package does not change `review_version`, existing source identities, ap
 
 The saved interpretation can be stored with the existing generic `store.save_artifact` operation in an explicitly scoped experiment. No document-specific table or automatic schema activation is introduced. Application worker/API/UI integration remains separate work.
 
+A received GPT answer is saved as a private call receipt even when its interpretation schema is invalid. The receipt contains the original provider response, validation locations and reported usage. Such an answer raises `InterpretationRejected` and never becomes an interpretation; replaying it does not pay for another request. Transport failures retain the existing failed/uncertain handling, and an unknown price keeps the maximum reservation. A financially completed call is distinct from an accepted business result.
+
 Compare extraction completeness and false claims against independently prepared labels. Report native reading coverage, exact evidence binding, semantic support, human correctness, latency and provider costs separately. Synthetic provider stubs test plumbing; they are never reported as live model quality.
 
 ## Library references and provenance
