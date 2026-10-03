@@ -8,6 +8,35 @@ Releases in brief, newest first. Release rules: [development guide §1](docs/gui
 
 This list shows what each release brought. `v1.0.0` was the first stable version: work packages, recipes, review on the document's page image, results and approval. The `v1.0.1`–`v1.0.4` fix rounds corrected problems found in daily use and in reviews; the most important of them was the tax-number check. `v1.0.5` is a security round: no personal data can reach GitHub, the browser does not store document data, and you can see which code is running. `v1.1.0` is a second security round after a repeated audit: paid calls, Azure recognition included, stay within a real, reserved upper bound, the documents shown for review are verified, and the repository's documentation is in English. `v1.1.1` cleans the public documents of internal information, keeps machine-specific values out of the repository, and settles uncertain paid calls in the UI. `v1.1.2` adds copies of the processed documents under uniform, content-based names, reads PDFs in an isolated helper process, and no longer lets an unreadable email attachment fail the whole email. `v1.2.0` keeps an unchanging copy of every document added to a work package and works from it, and replaces the choice of recipe with one processing that recognises each item's type itself, with a few processing settings and an overview of the paid services before the start. `v1.3.0` takes a folder's subfolders on request, lets every path be chosen in the Windows picker, and reads every amount and quantity whole by one shared rule, so "28,000" or "28.000" is never read as 28. `v1.4.0` can list documents under their unified, content-based names, shows what each item, run and work package cost, and makes review faster: a tick and a cross next to every field, keyboard navigation, and a readable highlight for a value over several lines. `v1.5.0` reads dates in every common form by one shared rule (month names in six languages, two-digit years, and a to-do instead of a guess when the order of day and month is undecided), and closes the findings of a second security re-audit: an approval covers exactly the result the approver saw, the backup checks and repairs its source copies, a document over the size limit fills no disk, and a paid call without an answer is never repeated by itself.
 
+## v1.6.0 — 2026-10-03
+
+Processing without JEV, reusable GPT answers, field confidence and stronger protection of reviewed results.
+
+- **Processing without JEV:** GPT can recognise document types and email intents and extract document fields;
+  source matching and deterministic checks still apply. One processing-path selector covers automatic selection,
+  JEV where supported, GPT with JEV, and GPT without JEV. A missing JEV key creates a review to-do instead of failing
+  the item. A code cross-check flags contradictions in GPT's document classification.
+- **Reusable GPT answers:** an earlier answer can be reused when the model, instructions, schema and input match.
+  The processing settings make reuse explicit for both providers; reused answers incur no new provider charge.
+- **Field confidence and review:** GPT fields carry their own confidence indication without JEV. Below the configured
+  threshold, scored non-informational fields and high-stakes fields require review. Confidence is a model signal,
+  not proof that a value is correct. Failed field checks now identify the affected field.
+- **Source highlights:** shared matching rules handle multi-line and rearranged addresses, identifiers printed beside
+  labels, and currency or country representations. The code-only source check uses the same rules; recomputing a
+  highlight preserves the basis of the field's GPT confidence. GPT unit prices may retain four decimal places.
+- **Approval and email history:** approval uses the version of the rows actually displayed; a conflict reloads the
+  result before approval can be retried. Email task decisions belong to that version and cannot change after approval.
+  Historical email results and downloads use the exact source version processed, or report that it is missing.
+- **Edits, backups and paid calls:** edits made while a save is pending are preserved. A backup fails visibly when a
+  referenced source is missing and retains earlier copies. Only uncertain calls can be settled manually, and a worker
+  restart takes over reservations only from processes that have stopped; late answers cannot overwrite a settlement.
+- **Operation and diagnostics:** the service and worker load their code at start; the browser asks for a reload when
+  the running version or UI build changes. Full checks retain raw pytest output and JUnit results, and the security
+  documentation describes the document copies included in backups.
+
+The PDF memory-limit status and strict mode, further document-instruction hardening, and business duplicate and
+reconciliation workflows remain future work. This release does not claim that all security work is complete.
+
 ## v1.5.0 — 2026-10-01
 
 Dates in every common form, read by one shared rule, and the fixes of the second security re-audit.
