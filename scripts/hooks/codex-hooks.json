@@ -8,7 +8,7 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/hooks/handoff_guard.py\" session-start",
-            "commandWindows": "$projectRoot = git rev-parse --show-toplevel; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & (Join-Path $projectRoot '.venv/Scripts/python.exe') (Join-Path $projectRoot 'scripts/hooks/handoff_guard.py') session-start",
+            "commandWindows": "$projectRoot = git rev-parse --show-toplevel; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & (Join-Path $projectRoot '.venv/Scripts/python.exe') (Join-Path $projectRoot 'scripts/hooks/handoff_guard.py') session-start; exit $LASTEXITCODE",
             "timeout": 30,
             "additionalContextLimit": 1800,
             "statusMessage": "Loading the latest project handoff"
@@ -23,7 +23,7 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/hooks/handoff_guard.py\" pre-compact",
-            "commandWindows": "$projectRoot = git rev-parse --show-toplevel; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & (Join-Path $projectRoot '.venv/Scripts/python.exe') (Join-Path $projectRoot 'scripts/hooks/handoff_guard.py') pre-compact",
+            "commandWindows": "$projectRoot = git rev-parse --show-toplevel; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & (Join-Path $projectRoot '.venv/Scripts/python.exe') (Join-Path $projectRoot 'scripts/hooks/handoff_guard.py') pre-compact; exit $LASTEXITCODE",
             "timeout": 30,
             "statusMessage": "Checking handoff freshness before compaction"
           }
@@ -36,7 +36,7 @@
           {
             "type": "command",
             "command": "python3 \"$(git rev-parse --show-toplevel)/scripts/hooks/handoff_guard.py\" stop",
-            "commandWindows": "$projectRoot = git rev-parse --show-toplevel; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & (Join-Path $projectRoot '.venv/Scripts/python.exe') (Join-Path $projectRoot 'scripts/hooks/handoff_guard.py') stop",
+            "commandWindows": "$projectRoot = git rev-parse --show-toplevel; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & (Join-Path $projectRoot '.venv/Scripts/python.exe') (Join-Path $projectRoot 'scripts/hooks/handoff_guard.py') stop; exit $LASTEXITCODE",
             "timeout": 30,
             "statusMessage": "Checking project state at session close"
           }
