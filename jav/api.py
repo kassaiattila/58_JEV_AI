@@ -35,10 +35,10 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, local_picker, mailbox, numbers, policy, store, version,
+from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, isolated_pdf, local_picker, mailbox, numbers, policy, store, version,
                  work, work_views)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
-from jav.runtime import calls, worker
+from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
 
 API_VERSION = "1"
@@ -506,7 +506,8 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.exception_handler(ValueError)
     async def invalid(request: Request, exc: ValueError):
         log.warning("422 %s %s: %s", request.method, request.url.path, exc, exc_info=exc)
-        return _error(422, "invalid", str(exc))
+        extra = {"reason": exc.reason} if isinstance(exc, isolated_pdf.PdfReaderLimit) else {}
+        return _error(422, "invalid", str(exc), **extra)
 
     @app.exception_handler(OSError)
     async def unreadable(request: Request, exc: OSError):
@@ -551,7 +552,11 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def health() -> dict[str, Any]:
         # 091: the UI build is read on every request (a new build is served at once, even without a restart)
         return {"ok": True, "api_version": API_VERSION, "service_config": cfg.version("service"), **running,
-                "ui_build": version.ui_build(UI_DIST)}
+                "ui_build": version.ui_build(UI_DIST),
+                "pdf_protection": {
+                    "service": isolated_pdf.protection_status(),
+                    "worker": pdf_status.worker_status(store.current_path(), running=lock.is_held(worker.lock_path())),
+                }}
 
     # --- recipes and work packages ---
 

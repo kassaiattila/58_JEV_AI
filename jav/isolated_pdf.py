@@ -23,7 +23,8 @@ import multiprocessing
 import os
 import sys
 import threading
-from dataclasses import dataclass
+import time
+from dataclasses import asdict, dataclass
 from multiprocessing.connection import Connection
 from typing import Any, Callable, Literal
 
@@ -54,6 +55,7 @@ class ReaderSettings:
     page_image_timeout_s: float
     memory_mb: int
     startup_timeout_s: float
+    require_memory_limit: bool = False
 
     def timeout_s(self, kind: Kind) -> float:
         return {"read": self.read_timeout_s, "render": self.render_timeout_s, "page_image": self.page_image_timeout_s}[kind]
@@ -73,17 +75,47 @@ _default: Reader | None = None
 _default_lock = threading.Lock()
 
 
+def protection_status() -> dict[str, Any]:
+    """A non-starting snapshot of this process's reader, distinct from its configuration."""
+    s = settings()
+    configured = asdict(s)
+    with _default_lock:
+        reader = _default
+    if not s.isolated:
+        report = _report("unprotected", "isolation_disabled")
+    elif reader is None:
+        report = _report("unknown", "not_started")
+    else:
+        report = reader.protection_status()
+        if (reader.memory_mb, reader.require_memory_limit) != (s.memory_mb, s.require_memory_limit):
+            report = {**report, "state": "stale", "reason": "settings_changed", "effective_memory_mb": None}
+    return {**report, "configured": configured, "process_pid": os.getpid()}
+
+
+def _report(state: str, reason: str, *, memory_mb: int | None = None,
+            helper_pid: int | None = None) -> dict[str, Any]:
+    return {"state": state, "reason": reason, "effective_memory_mb": memory_mb,
+            "helper_pid": helper_pid, "observed_at": time.time()}
+
+
 def run(fn: Callable[..., Any], *, kind: Kind, **kwargs: Any) -> Any:
     """Runs one request function of this module (`extract_words`, `page_sizes`, `render_pages`, `render_page_png`,
     `page_count`) in the helper, within the time limit of its `kind`."""
     s = settings()
     if not s.isolated:
+        if s.require_memory_limit:
+            raise PdfReaderLimit("the PDF reader requires an isolated memory limit", reason="memory_limit_unavailable")
         with _INPROCESS_LOCK:
             return fn(**kwargs)
     global _default
     with _default_lock:
+        if _default is not None and (_default.memory_mb, _default.startup_timeout_s, _default.require_memory_limit) != (
+                s.memory_mb, s.startup_timeout_s, s.require_memory_limit):
+            _default.close()
+            _default = None
         if _default is None:
-            _default = Reader(memory_mb=s.memory_mb, startup_timeout_s=s.startup_timeout_s)
+            _default = Reader(memory_mb=s.memory_mb, startup_timeout_s=s.startup_timeout_s,
+                              require_memory_limit=s.require_memory_limit)
         reader = _default
     return reader.call(fn, timeout_s=s.timeout_s(kind), **kwargs)
 
@@ -91,15 +123,27 @@ def run(fn: Callable[..., Any], *, kind: Kind, **kwargs: Any) -> Any:
 class Reader:
     """One helper process and its pipe; started on the first request, started again after a stop."""
 
-    def __init__(self, *, memory_mb: int, startup_timeout_s: float) -> None:
+    def __init__(self, *, memory_mb: int, startup_timeout_s: float, require_memory_limit: bool = False) -> None:
         self.memory_mb = memory_mb
         self.startup_timeout_s = startup_timeout_s
+        self.require_memory_limit = require_memory_limit
         self.starts = 0  # how many helpers have been started (tests; a growing number means limit overruns)
         self.memory_limited = False  # whether the current helper runs under the memory limit
         self._lock = threading.Lock()
+        self._state_lock = threading.Lock()
+        self._state = _report("unknown", "not_started")
         self._proc: Any = None
         self._conn: Connection | None = None
         self._job: int | None = None
+
+    def protection_status(self) -> dict[str, Any]:
+        """Does not wait for a parser request. A dead helper invalidates a former green state."""
+        with self._state_lock:
+            state = dict(self._state)
+            if state["helper_pid"] is not None and (self._proc is None or not self._proc.is_alive()):
+                self.memory_limited = False
+                state.update(state="stale", reason="helper_stopped", effective_memory_mb=None)
+            return {**state, "observed_at": time.time()}
 
     def call(self, fn: Callable[..., Any], *, timeout_s: float, **kwargs: Any) -> Any:
         with self._lock:
@@ -137,36 +181,63 @@ class Reader:
 
     def _ensure(self) -> Connection:
         if self._proc is not None and self._conn is not None and self._proc.is_alive():
+            if self.require_memory_limit and not self.memory_limited:
+                raise PdfReaderLimit("the PDF reader memory limit is unavailable", reason="memory_limit_unavailable")
             return self._conn
         self._stop()
+        if self.require_memory_limit and self.memory_mb <= 0:
+            with self._state_lock:
+                self._state = _report("unprotected", "memory_limit_disabled")
+            raise PdfReaderLimit("the PDF reader memory limit is disabled", reason="memory_limit_unavailable")
         ctx = multiprocessing.get_context("spawn")
         parent, child = ctx.Pipe()
         proc = ctx.Process(target=_serve, args=(child, self.memory_mb * 1_048_576), name="jav-pdf-reader", daemon=True)
         proc.start()
         child.close()
-        self._proc, self._conn = proc, parent
-        self.memory_limited = sys.platform != "win32" and self.memory_mb > 0
+        with self._state_lock:
+            self._proc, self._conn = proc, parent
+            self._state = _report("unknown", "starting", helper_pid=proc.pid)
+        failure = "memory_limit_disabled" if self.memory_mb <= 0 else "memory_limit_unavailable"
+        limited = False
         if sys.platform == "win32" and self.memory_mb > 0:
             try:
                 self._job = _windows_job(proc.pid, self.memory_mb * 1_048_576)
-                self.memory_limited = True
+                limited = True
             except OSError:
                 # the time limit still applies; without the job the helper also stops when its pipe closes
                 log.warning("the PDF reader runs without a memory limit: no job object for pid %s", proc.pid, exc_info=True)
+                failure = "windows_job_unavailable"
         if not parent.poll(self.startup_timeout_s):
             self._stop()
             raise PdfReaderLimit(f"the PDF reader did not start within {self.startup_timeout_s:g} s", reason="startup")
         try:
-            parent.recv()  # ("ready", pid)
+            ready, details = parent.recv()
         except (EOFError, OSError) as exc:
             code = self._stop()
             raise PdfReaderLimit(f"the PDF reader stopped while starting (exit code {code})", reason="startup") from exc
+        if ready != "ready" or not isinstance(details, dict) or details.get("pid") != proc.pid:
+            self._stop()
+            raise PdfReaderLimit("the PDF reader sent an invalid start-up report", reason="startup")
+        if sys.platform != "win32":
+            limited = details.get("memory_limited") is True and self.memory_mb > 0
+            failure = details.get("reason", failure)
+        with self._state_lock:
+            self.memory_limited = limited
+            self._state = _report("protected" if limited else "unprotected", "memory_limit_applied" if limited else failure,
+                                  memory_mb=self.memory_mb if limited else None, helper_pid=proc.pid)
+        if self.require_memory_limit and not limited:
+            self._stop(state="unprotected", reason=failure)
+            raise PdfReaderLimit("the PDF reader memory limit is unavailable", reason="memory_limit_unavailable")
         self.starts += 1
         return parent
 
-    def _stop(self) -> int | None:
-        proc, conn, job = self._proc, self._conn, self._job
-        self._proc, self._conn, self._job = None, None, None
+    def _stop(self, *, state: str = "stale", reason: str = "helper_stopped") -> int | None:
+        with self._state_lock:
+            proc, conn, job = self._proc, self._conn, self._job
+            self._proc, self._conn, self._job = None, None, None
+            self.memory_limited = False
+            if proc is not None or state == "unprotected":
+                self._state = _report(state, reason)
         if conn is not None:
             conn.close()
         code = None
@@ -269,15 +340,21 @@ def _serve(conn: Connection, memory_bytes: int) -> None:
     """The helper's loop: memory limit (outside Windows), parsers preloaded (so a request's time limit covers only its
     work), then one answer per request until the pipe closes. Answers: ("ok", result), ("error", "Type: message"),
     ("memory", "")."""
+    limited = False
+    reason = "memory_limit_disabled" if not memory_bytes else "memory_limit_unavailable"
     if memory_bytes and sys.platform != "win32":
         import resource
 
-        resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
+        try:
+            resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
+            limited = True
+        except (OSError, ValueError):
+            log.warning("the PDF reader could not apply RLIMIT_AS", exc_info=True)
     import pdfplumber  # noqa: F401 - preloaded
     import pypdfium2  # noqa: F401 - preloaded
 
     logging.getLogger("pdfminer").setLevel(logging.ERROR)  # a warning for every broken font descriptor: noise
-    conn.send(("ready", os.getpid()))
+    conn.send(("ready", {"pid": os.getpid(), "memory_limited": limited, "reason": reason}))
     while True:
         try:
             fn, kwargs = conn.recv()

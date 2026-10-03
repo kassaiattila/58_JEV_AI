@@ -18,6 +18,7 @@ import { FoldersPanel } from "./settings/FoldersPanel";
 import { LanguagePanel } from "./settings/LanguagePanel";
 import { UsersPanel } from "./settings/UsersPanel";
 import { VersionPanel } from "./settings/VersionPanel";
+import { PdfProtectionPanel } from "./settings/PdfProtectionPanel";
 import { ConfirmButton } from "../components/ConfirmButton";
 import { UncertainCallsPanel } from "./settings/UncertainCallsPanel";
 
@@ -79,6 +80,7 @@ function SystemPanel() {
   return (
     <div className="stage-stack">
       <VersionPanel />
+      <PdfProtectionPanel />
       <section className="card wide" aria-label={t("Feldolgozó")}>
         <div className="card-head">
           <h3>{t("Feldolgozó")}</h3>
