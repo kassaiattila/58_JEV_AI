@@ -72,11 +72,24 @@ export interface BackupRun {
   copy?: { dir: string; ok: boolean; verified: boolean; error?: string } | null;
 }
 /** 071 S-verzió: `commit` / `dirty` are null if the service was started without git. */
+export interface PdfProtection {
+  state: "protected" | "unprotected" | "unknown" | "stale";
+  reason: string;
+  configured: { isolated: boolean; memory_mb: number; require_memory_limit: boolean } | null;
+  effective_memory_mb: number | null;
+  helper_pid: number | null;
+  process_pid: number | null;
+  observed_at: number | null;
+  reported_at?: number | null;
+  max_age_s?: number;
+}
 export interface Health {
   ok: boolean; api_version: string; service_config: string;
   version: string; commit: string | null; dirty: boolean | null; started_at: string;
   /** 091: a fingerprint of the UI build the service hands out now (null without a build; missing on older services). */
   ui_build?: string | null;
+  /** Missing on older services: no evidence of PDF memory protection. */
+  pdf_protection?: { service: PdfProtection; worker: PdfProtection };
 }
 /** 075: the last dependency audit (`runs/deps-audit.json`), as `jav/deps_audit.py` `status()` returns it. */
 export interface DepsAuditInfo {
@@ -454,7 +467,7 @@ export const api = {
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/correction`, body),
   resolveReason: (reasonId: number, note?: string) =>
     request<{ status: string }>("POST", `/review-reasons/${reasonId}/resolve`, note ? { note } : {}),
-  worker: () => request<{ running: boolean; stop_requested: boolean; jobs: Record<string, number> }>("GET", "/worker"),
+  worker: () => request<{ running: boolean; stop_requested: boolean; jobs: Record<string, number>; pdf_protection?: PdfProtection }>("GET", "/worker"),
   users: () => request<{ users: string[] }>("GET", "/settings/users"),
   saveUsers: (users: string[]) => request<{ users: string[] }>("PUT", "/settings/users", { users }),
   setOwner: (id: string, owner: string | null) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/owner`, { owner }),
