@@ -45,7 +45,9 @@ def inspect_package(data: bytes, limits: ReadLimits) -> dict[str, bytes]:
         entries = package.infolist()
         limited(len(entries) > limits.archive_entries, "Archive entry limit exceeded")
         for entry in entries:
-            name = entry.filename
+            # ZipInfo normalizes backslashes on Windows and truncates NULs in
+            # filename. Inspect the original directory spelling before that loss.
+            name = entry.orig_filename
             path = PurePosixPath(name)
             if (not name or path.is_absolute() or ".." in path.parts or "\\" in name
                     or ":" in name or "\x00" in name or name in parts
