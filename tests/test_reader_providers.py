@@ -86,7 +86,8 @@ def test_rejected_native_answer_is_not_an_interpretation_and_is_not_called_again
     assert requests == [1]
 
 
-def test_production_gpt_factory_sends_strict_native_schema(source, tmp_path, monkeypatch):
+@pytest.mark.parametrize("requested", [False, True])
+def test_production_gpt_factory_sends_strict_native_schema(source, tmp_path, monkeypatch, requested):
     import asyncio
     import json
     import httpx2
@@ -122,11 +123,14 @@ def test_production_gpt_factory_sends_strict_native_schema(source, tmp_path, mon
     path = tmp_path / "trial.sqlite"
     try:
         with store.use_store(path), calls.measurement("strict-wire", {"openai": Decimal("1")}):
-            result = extract_gpt(source, run_id="trial", isolated_store=path)
+            result = extract_gpt(source, run_id="trial", isolated_store=path,
+                **({"fields": {"code": "order identifier"}, "entity": "order"} if requested else {}))
     finally:
         asyncio.run(client.close())
     assert result.facts[0].grounding == "literal_match"
     assert len(requests) == 1
+    if requested:
+        assert any('"requested_fields"' in message["content"] for message in requests[0]["messages"])
     assert estimated[0] >= sizes[0]
     wire = requests[0]["response_format"]["json_schema"]
     assert wire["strict"] is True
@@ -138,6 +142,19 @@ def test_production_gpt_factory_sends_strict_native_schema(source, tmp_path, mon
         assert shape["additionalProperties"] is False
         assert set(shape["required"]) == set(shape["properties"])
         assert all("default" not in prop for prop in shape["properties"].values())
+
+
+def test_requested_task_changes_replay_identity(source, tmp_path):
+    path = tmp_path / "trial.sqlite"
+    agent = FakeAgent()
+    with store.use_store(path), calls.measurement("task-key", {"openai": Decimal("1")}):
+        extract_gpt(source, run_id="trial", isolated_store=path, agent=agent)
+        for _ in range(2):
+            extract_gpt(source, run_id="trial", isolated_store=path, agent=agent,
+                        fields={"code": "order identifier"}, entity="order")
+        with pytest.raises(ValueError, match="one to twenty"):
+            extract_gpt(source, run_id="trial", isolated_store=path, agent=agent, fields={}, entity="order")
+    assert agent.calls == 2
 
 
 class FakeJev:

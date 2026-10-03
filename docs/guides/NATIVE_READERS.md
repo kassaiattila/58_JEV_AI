@@ -54,6 +54,8 @@ Native GPT output explicitly requests the provider's strict JSON schema mode. Lo
 
 Compare extraction completeness and false claims against independently prepared labels. Report native reading coverage, exact evidence binding, semantic support, human correctness, latency and provider costs separately. Synthetic provider stubs test plumbing; they are never reported as live model quality.
 
+For a like-for-like comparison with JEV selection, `extract_gpt(fields=..., entity=...)` accepts the same requested field descriptions and names. This task is included in request bounds and replay identity. Keep this controlled extraction separate from open-ended property discovery: identical literal values with different discovered entity/property names do not pass an exact schema-label metric.
+
 ## Library references and provenance
 
 The native adapters use the provider/result boundary and library-opening/iteration/closing patterns documented in [NOTICE](../../jav/readers/NOTICE.md). They do not import the older runtime or implement an Office file format.
