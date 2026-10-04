@@ -12,7 +12,7 @@ import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { applyPath, itemBudgetLines, MODE, PARAM_LABEL, paramShort, paramsText, PATH, pathOptions, planLines, providerName, RUN_STATUS, shownParams, shownValue, tmap, usdBudget, when, blockerText } from "../labels";
 import { go } from "../route";
-import { paramExplanation, RecipeParamList, recipeDefaults } from "./RecipeInfo";
+import { paramExplanation, RecipeParamList, recipeDefaults, recipeTitle } from "./RecipeInfo";
 
 const ACTIVE = new Set(["queued", "running"]);
 
@@ -235,6 +235,7 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
       {!open ? (
         current && currentRecipe ? (
           <>
+            <p><strong>{recipeTitle(currentRecipe, help)}</strong></p>
             <p className="muted small">{t("mentette: {{actor}}, {{when}}", { actor: current.actor, when: when(current.created_at) })}</p>
             {/* 063: each setting's meaning and the per-item cost budget */}
             <RecipeParamList recipe={currentRecipe} params={current.params} help={help} kinds={kinds} />
@@ -248,17 +249,17 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
           </>
         ) : catalogue[0] ? (
           <>
+            <p><strong>{recipeTitle(catalogue[0], help)}</strong></p>
             <p className="muted">{t("Alapbeállítás: ha nem módosítod, a futás indításakor ez mentődik a csomaghoz.")}</p>
             <RecipeParamList recipe={catalogue[0]} params={{}} help={help} kinds={kinds} />
           </>
         ) : null
       ) : recipe ? (
         <div className="recipe-form">
-          {recipe.file_suffixes?.some((suffix) => [".docx", ".xlsx", ".txt", ".csv"].includes(suffix)) ?
-            <p className="notice small">{t("Native documents use GPT to extract facts; JEV can assess support. The S path with JEV is unavailable for native documents. Azure recognition applies only to PDF files.")}</p> : null}
+          {help?.recipes[recipe.id]?.when ? <p className="notice small">{t(help.recipes[recipe.id].when)}</p> : null}
           {catalogue.length > 1 ? (
             <Picker label={t("Feldolgozás")} value={recipe.id} className="block-picker"
-              options={catalogue.map((r) => ({ value: r.id, label: t(r.title) }))}
+              options={catalogue.map((r) => ({ value: r.id, label: recipeTitle(r, help) }))}
               onChange={(v) => setRecipeId(v)} />
           ) : null}
           {/* 090: the processing path first (the documents' path and the use of JEV as one choice), then the settings
@@ -266,7 +267,7 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
           {shownParams(Object.keys(options), full, kinds).map((k) => {
             const value = shownValue(k, full, kinds);
             const choices = k === PATH ? pathOptions(options.arm ?? [], kinds) : options[k];
-            const explain = paramExplanation(help, k, value);
+            const explain = paramExplanation(help, k, value, recipe);
             return (
               <div key={k} className="param-field">
                 <Picker label={PARAM_LABEL[k] ?? k} className="block-picker" value={value}

@@ -2,6 +2,7 @@
 // what the chosen value means and what the budget per item is; the Beállítások › Feldolgozás (Settings › Processing)
 // page gives the full description: how each item kind is processed, the steps, the paths compared with the measured
 // numbers (080), every value of the settings and the result. The text comes from `configs/recipe_help.json`.
+import { Fragment } from "react";
 import { api, type Recipe, type RecipeHelp } from "../api";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
@@ -13,9 +14,19 @@ const BUDGET_NOTE = "felső határ: ennyit foglal le a rendszer a futás indít�
 export const recipeDefaults = (r: Recipe): Record<string, string> =>
   Object.fromEntries(Object.entries(r.params).map(([k, spec]) => [k, spec.default ?? ""]));
 
+/** Presentation names do not change saved recipe identities or versions. */
+export const recipeTitle = (recipe: Recipe, help?: RecipeHelp): string =>
+  t(help?.recipes[recipe.id]?.title ?? recipe.title);
+
+function scopedHelp(help?: RecipeHelp, recipe?: Recipe): RecipeHelp | undefined {
+  if (!help || !recipe) return help;
+  return { ...help, params: { ...help.params, ...help.recipes[recipe.id]?.params } };
+}
+
 /** The explanation of a setting's chosen value; if the value has none (e.g. document type), the setting's own. */
-export function paramExplanation(help: RecipeHelp | undefined, k: string, v: string): string | null {
-  const p = k === PATH ? pathHelp(help) : help?.params[k];
+export function paramExplanation(help: RecipeHelp | undefined, k: string, v: string, recipe?: Recipe): string | null {
+  const scoped = scopedHelp(help, recipe);
+  const p = k === PATH ? pathHelp(scoped) : scoped?.params[k];
   const text = p?.options[v] ?? p?.help;
   return text ? t(text) : null;
 }
@@ -42,7 +53,7 @@ export function RecipeParamList({ recipe, params, help, kinds }: { recipe: Recip
           that count */}
       {shownParams(Object.keys(recipe.params), full, kinds).map((k) => {
         const value = shownValue(k, full, kinds);
-        const text = paramExplanation(help, k, value);
+        const text = paramExplanation(help, k, value, recipe);
         return (
           <div key={k} className="param-row">
             <dt>{PARAM_LABEL[k] ?? k}</dt>
@@ -61,8 +72,7 @@ export function RecipeParamList({ recipe, params, help, kinds }: { recipe: Recip
   );
 }
 
-/** Beállítások › Feldolgozás (Settings › Processing, 080): how the system processes a package, the paths compared and
- *  the settings — for the processing the UI offers (one since 080). */
+/** Explain each active recipe with its supported inputs and processing paths. */
 export function RecipesPanel() {
   useLocale();
   const recipes = useLoad("recipes", api.recipes);
@@ -72,8 +82,8 @@ export function RecipesPanel() {
   return (
     <>
       <p className="page-summary">{help?.intro ? t(help.intro) : null} {t("A beállításokat a csomag Feldolgozás szakaszában lehet módosítani; a módosítás új változatként mentődik, a korábbi futások a saját beállításaikat őrzik.")}</p>
-      {help?.paths ? <PathCompare paths={help.paths} /> : null}
       {recipes.data.recipes.map((r) => <RecipeDetails key={r.id} recipe={r} help={help} />)}
+      {help?.paths ? <PathCompare paths={help.paths} /> : null}
     </>
   );
 }
@@ -83,8 +93,9 @@ export function RecipesPanel() {
 function PathCompare({ paths }: { paths: NonNullable<RecipeHelp["paths"]> }) {
   useLocale();
   return (
-    <section className="card wide recipe-doc" aria-label={t("Az utak összevetése")}>
-      <h3>{t("Az utak összevetése")}</h3>
+    <section className="card wide recipe-doc" aria-label={t("PDF processing paths")}>
+      <h3>{t("PDF processing paths")}</h3>
+      <p>{t("These measurements concern PDF document types. They do not measure Word, Excel, TXT or CSV extraction quality.")}</p>
       <p>{t(paths.intro)}</p>
       <div className="table-scroll">
         <table className="path-compare">
@@ -104,17 +115,20 @@ function PathCompare({ paths }: { paths: NonNullable<RecipeHelp["paths"]> }) {
 function RecipeDetails({ recipe, help }: { recipe: Recipe; help?: RecipeHelp }) {
   useLocale();
   const defaults = recipeDefaults(recipe);
-  const kinds = help?.kinds ?? {};
+  const details = help?.recipes[recipe.id];
+  const scoped = scopedHelp(help, recipe);
+  const inputs = details?.inputs ?? Object.entries(help?.kinds ?? {})
+    .filter(([kind]) => !recipe.input_kinds || recipe.input_kinds.includes(kind))
+    .map(([kind, description]) => ({ label: kind === "document" ? "PDF documents" : kind === "email" ? "Emails" : kind, description }));
   return (
-    <section className="card wide recipe-doc" id={`recipe-${recipe.id}`} aria-label={t(recipe.title)}>
+    <section className="card wide recipe-doc" id={`recipe-${recipe.id}`} aria-label={recipeTitle(recipe, help)}>
       <div className="card-head">
-        <h3>{t("Hogyan dolgozik a rendszer")}</h3>
-        <span className="muted small">{t("{{version}}. változat", { version: recipe.version })}</span>
+        <h3>{recipeTitle(recipe, help)}</h3>
+        <span className="muted small">{t("Recipe version: {{version}}", { version: recipe.version })}</span>
       </div>
-      <p>{t(recipe.description)}</p>
+      <p>{t(details?.when ?? recipe.description)}</p>
       <dl className="recipe-kv">
-        {kinds.document ? <><dt>{t("PDF-irat")}</dt><dd>{t(kinds.document)}</dd></> : null}
-        {kinds.email ? <><dt>{t("Levél")}</dt><dd>{t(kinds.email)}</dd></> : null}
+        {inputs.map((input) => <Fragment key={input.label}><dt>{t(input.label)}</dt><dd>{t(input.description)}</dd></Fragment>)}
         <dt>{t("Mi kell hozzá")}</dt>
         <dd><ul className="tight">{recipe.requirements.map((x) => <li key={x}>{t(x)}</li>)}</ul></dd>
         <dt>{t("Lépések")}</dt>
@@ -136,7 +150,7 @@ function RecipeDetails({ recipe, help }: { recipe: Recipe; help?: RecipeHelp }) 
         // the budget per option is only shown where the setting also affects the cost (e.g. path, task proposal)
         const costs = options.map((o) => itemBudgetLines(recipe, isPath ? applyPath(defaults, o) : { ...defaults, [k]: o }).join("; "));
         const costVaries = new Set(costs).size > 1;
-        const p = isPath ? pathHelp(help) : help?.params[k];
+        const p = isPath ? pathHelp(scoped) : scoped?.params[k];
         return (
           <div key={k} className="param-doc">
             <p><strong>{PARAM_LABEL[k] ?? k}</strong>{p?.help ? <> — {t(p.help)}</> : null}</p>

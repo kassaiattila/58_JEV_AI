@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.9.0",
+    "version": "1.10.0",
     "changelog": [
+      {
+        "version": "1.10.0",
+        "date": "2026-10-04",
+        "note": "Distinguish recipe names and scope processing explanations to supported inputs without changing recipe identities or model instructions."
+      },
       {
         "version": "1.9.0",
         "date": "2026-10-04",
@@ -55,17 +60,46 @@
       }
     ]
   },
-  "intro": "A rendszer a csomag minden tételét a fajtája szerint dolgozza fel, a típust maga ismeri fel; neked csak a beállításokat kell megadnod. Az alapbeállítás mindennapi munkához való: ha nem módosítod, a futás indításakor ez mentődik el a csomaghoz.",
+  "intro": "Choose a recipe by the files you want to process. Each recipe has its own version number; the number does not rank the recipes.",
   "kinds": {
     "document": "A rendszer előbb felismeri az irat típusát (például számla, közműszámla, bankszámlakivonat, igazolás; JEV, iratonként körülbelül 0,0001 USD), majd a felismert típus mezőit nyeri ki a választott úton, és kódban ellenőrzi őket (például az adószám ellenőrzőszámát, az összegek egyezését). Ha a típus nem dönthető el, az irat teendőt kap.",
     "email": "A rendszer felismeri, mi a levél célja (például számla érkezett, fizetési visszaigazolás, kérdés, hírlevél; JEV, levelenként körülbelül 0,0001 USD), és kódban javasolja a következő lépést. A PDF-csatolmányok iratként futnak, a levélre visszavezetve; kérésre feladatjavaslat is készül."
   },
   "recipes": {
     "multi-format-processing": {
-      "when": "Use this processing for a package containing PDF, Word, Excel, UTF-8 text or CSV documents. Native documents use GPT extraction with optional JEV verification. The JEV-only path is unavailable without a predefined field contract. Reading gaps remain visible after human review. Azure recognition applies only to PDF documents."
+      "title": "Document processing — PDF, Word, Excel, TXT, CSV",
+      "when": "Use this recipe for PDF, DOCX, XLSX, UTF-8 TXT and CSV files. PDF documents follow type-based processing; Word, Excel, text and CSV use GPT to extract facts with source references. JEV can assess those facts. Check reading gaps and the original source before approval.",
+      "inputs": [
+        { "label": "PDF documents", "description": "The system recognises the document type, extracts its fields and checks the results. Uncertain types and values require review." },
+        { "label": "Word, Excel, TXT and CSV", "description": "The reader preserves paragraphs, tables and cell references. GPT proposes facts from the readable content. Images, unsupported structures and missing formula results remain visible gaps; they are not silently treated as read." }
+      ],
+      "params": {
+        "path": {
+          "help": "PDF documents and Word, Excel, TXT or CSV files use different extraction paths. Automatic processing supports a mixed package; Word, Excel, TXT and CSV always need GPT extraction.",
+          "options": {
+            "auto": "PDF documents use the recognised type's recommended path. Word, Excel, TXT and CSV use GPT extraction followed by JEV support checks. Recommended for mixed document packages.",
+            "S": "For PDF documents only: JEV selects candidate values where the type supports it; other PDF types use GPT and JEV. A package containing Word, Excel, TXT or CSV cannot start on this path. Choose Automatic, GPT + JEV or GPT only for those files.",
+            "G": "GPT extracts values and JEV assesses their support. PDF documents use their type's fields; Word, Excel, TXT and CSV produce facts linked to their source structure.",
+            "gpt": "GPT extracts values without JEV calls. PDF documents also use GPT type recognition. Word, Excel, TXT and CSV retain source references and reading gaps. Source checks do not replace human review."
+          }
+        },
+        "azure_ocr": {
+          "help": "Azure text recognition applies only to PDF documents. It does not read images embedded in Word or Excel files.",
+          "options": {
+            "on": "A weak PDF scan may use Azure recognition within its budget. Word, Excel, TXT and CSV are unaffected.",
+            "off": "Azure recognition is disabled. PDF documents can still use local text recognition; unread images in Word or Excel remain visible gaps."
+          }
+        }
+      }
     },
     "processing": {
-      "when": "Minden csomaghoz: vegyes vagy ismeretlen típusú iratokhoz és a postafiókból letöltött levelekhez is. A típust nem kell előre megadni."
+      "title": "PDF and email processing",
+      "when": "Use this recipe for PDF documents and downloaded emails. It recognises document types or email intent, processes supported PDF attachments and can propose email tasks. Choose the document recipe for Word, Excel, TXT or CSV files.",
+      "inputs": [
+        { "label": "PDF documents", "description": "The system recognises the document type, extracts its fields and checks the results. Uncertain types and values require review." },
+        { "label": "Emails", "description": "The selected provider recognises email intent. Supported PDF attachments follow document processing; task proposals are optional."
+        }
+      ]
     }
   },
   "paths": {
