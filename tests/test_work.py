@@ -20,7 +20,7 @@ def _folder(tmp_path: Path, n: int = 2) -> Path:
     d.mkdir()
     for i in range(n):
         (d / f"szamla_{i}.pdf").write_bytes(f"%PDF-1.4 minta {i}".encode())
-    (d / "jegyzet.txt").write_text("nem irat", encoding="utf-8")
+    (d / "excluded.bin").write_text("unsupported input", encoding="utf-8")
     return d
 
 

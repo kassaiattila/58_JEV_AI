@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, ApiError } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
+import { DocumentFormats } from "../components/DocumentFormats";
 import { DataTable, linkOf } from "../components/DataTable";
 import { PageHeader } from "../components/PageHeader";
 import { useActor } from "../hooks";
@@ -86,12 +87,13 @@ export function CreateForm({ onDone }: { onDone: (id: string) => void }) {
     <section className="card create" aria-label={t("Új munkacsomag")}>
       <fieldset className="segmented">
         <legend className="sr-only">{t("Forrás")}</legend>
-        <label><input type="radio" name="src" checked={mode === "folder"} onChange={() => setMode("folder")} /> {t("Egy mappa PDF-jei")}</label>
+        <label><input type="radio" name="src" checked={mode === "folder"} onChange={() => setMode("folder")} /> {t("Documents from a folder")}</label>
         <label><input type="radio" name="src" checked={mode === "files"} onChange={() => setMode("files")} /> {t("Megadott fájlok")}</label>
         <label><input type="radio" name="src" checked={mode === "mailbox"} onChange={() => setMode("mailbox")} /> {t("Postafiókból")}</label>
       </fieldset>
       {mode === "mailbox" ? <Mailbox variant="pull" /> : (
         <form className="create" onSubmit={(e) => { e.preventDefault(); void submit(); }} aria-label={t("Mappa vagy fájlok")}>
+          <DocumentFormats />
           {mode === "folder" ? (
             <>
               <div className="path-row">

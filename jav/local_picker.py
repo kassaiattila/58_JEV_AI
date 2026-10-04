@@ -44,7 +44,7 @@ def pick_folder(*, title: str, initial: str | None = None) -> str | None:
 
 
 def pick_files(*, title: str, initial: str | None = None) -> list[str]:
-    """The files chosen in the system's file picker (PDFs offered first; several can be chosen); empty when cancelled."""
+    """The supported documents chosen in the system's file picker; empty when cancelled."""
     return _ask("files", title, initial)
 
 

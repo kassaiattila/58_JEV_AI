@@ -1,0 +1,22 @@
+flowchart TD
+  subgraph ph_read["read"]
+    read_native["read_native (store)"]
+  end
+  subgraph ph_interpret["interpret"]
+    interpret_native["interpret_native (llm)"]
+  end
+  subgraph ph_publish["publish"]
+    publish_native["publish_native (store)"]
+  end
+  subgraph ph_review["review"]
+    review_native["review_native (store)"]
+  end
+  subgraph ph_terminal["terminal"]
+    done["done (terminal)"]
+    needs_review["needs_review (terminal)"]
+  end
+  read_native --> interpret_native
+  interpret_native --> publish_native
+  publish_native --> review_native
+  review_native -->|Review reasons remain| needs_review
+  review_native -->|No automatic review reason| done

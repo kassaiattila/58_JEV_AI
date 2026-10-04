@@ -36,6 +36,25 @@ def test_admin_report_sections():
     for head in ("## Konfigok", "## Modellek", "## Burr-kontraktok", "## Adattár", "## Utolsó golden", "## Nyitott review-sor"):
         assert head in rep, head
     assert "invoice: PASS" in rep and "doc_detect: PASS" in rep and "email_intent: PASS" in rep  # the invoice graph is type-independent (type packs)
+    assert "native: PASS" in rep
+
+
+def test_preflight_contract_gate_includes_native_and_rejects_its_drift(monkeypatch):
+    import copy
+
+    from jav import flow_native, preflight
+
+    summary = preflight.flow_lint_summary()
+    assert {name for name, _passed, _failures in summary} == {
+        "invoice", "doc_detect", "email_intent", "document_learning", "email_learning", "native"}
+    assert all(passed for _name, passed, _failures in summary)
+    changed = copy.deepcopy(flow_native.CONTRACT)
+    changed["steps"] = [step for step in changed["steps"] if step[0] != "publish_native"]
+    monkeypatch.setattr(flow_native, "CONTRACT", changed)
+    summary = preflight.flow_lint_summary()
+    native = next(row for row in summary if row[0] == "native")
+    assert not native[1] and native[2] > 0
+    assert all(passed for name, passed, _failures in summary if name != "native")
 
 
 def test_write_state_is_generated_snapshot(tmp_path):

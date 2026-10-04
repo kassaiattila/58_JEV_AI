@@ -17,7 +17,9 @@ Contract shape (named `CONTRACT` in the flow module):
 from __future__ import annotations
 
 import inspect
+import ast
 import re
+import textwrap
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -31,6 +33,10 @@ _KIND_MARKERS = {  # trace of a call matching the kind in the action's source (a
     "llm": ("extract_llm", "extract(", "Agent", "openai"),
     "store": ("store.",),
     "flow": ("run_detect(", "run_email(", "run_one("),
+}
+_APPLICATION_CALLS = {
+    "llm": {"native_processing.interpret"},
+    "store": {"native_results.prepare_reading", "native_results.publish"},
 }
 _FORBIDDEN_IMPORTS = ("typesafe_sdk", "openai", "pydantic_ai")
 _UNLATCH = re.compile(r"needs_review\s*=\s*False")
@@ -62,8 +68,8 @@ def flow_md(contract: dict[str, Any]) -> str:
     for name, ph in contract["steps"]:
         by_phase.setdefault(ph, []).append(name)
     lines = [f"# FLOW — {contract['name']}", "",
-             "> A flow-modul `CONTRACT`-jából generálva (`jav/contract.py`, `python -m jav.cli flows`). Ne szerkeszd kézzel -",
-             "> generáld újra. A fázisonként csoportosított gráf a FLOW.mmd.", "", "## Fázisok és lépések", ""]
+             "> Generated from the flow module's `CONTRACT` (`jav/contract.py`, `python -m jav.cli flows`).",
+             "> Regenerate this file instead of editing it. FLOW.mmd groups the graph by phase.", "", "## Phases and steps", ""]
     for ph in contract["phases"]:
         lines.append(f"### {ph}")
         for name in by_phase.get(ph, []):
@@ -72,18 +78,18 @@ def flow_md(contract: dict[str, Any]) -> str:
             lines.append(f"- **{name}**{f' _({kind})_' if kind else ''}{(' — ' + note) if note else ''}")
         lines.append("")
     if contract.get("terminals"):
-        lines += [f"Terminális lépések: {', '.join(contract['terminals'])}", ""]
+        lines += [f"Terminal steps: {', '.join(contract['terminals'])}", ""]
     if contract.get("doc_note"):
         lines += [f"> {contract['doc_note']}", ""]
-    lines += ["## Gráf (Mermaid)", "", "```mermaid", overview_mermaid(contract), "```", ""]
+    lines += ["## Graph (Mermaid)", "", "```mermaid", overview_mermaid(contract), "```", ""]
     return "\n".join(lines)
 
 
 def write_artifacts(contract: dict[str, Any], out_dir: Path | None = None) -> dict[str, str]:
     d = (out_dir or FLOWS_DOC_DIR) / contract["name"]
     d.mkdir(parents=True, exist_ok=True)
-    (d / "FLOW.mmd").write_text(overview_mermaid(contract) + "\n", encoding="utf-8")
-    (d / "FLOW.md").write_text(flow_md(contract), encoding="utf-8")
+    (d / "FLOW.mmd").write_text(overview_mermaid(contract) + "\n", encoding="utf-8", newline="\n")
+    (d / "FLOW.md").write_text(flow_md(contract), encoding="utf-8", newline="\n")
     return {"mmd": str(d / "FLOW.mmd"), "md": str(d / "FLOW.md")}
 
 
@@ -98,6 +104,29 @@ def _live_edges(app: Any) -> set[tuple[str, str]]:
         if a and b:
             edges.add((a, b))
     return edges
+
+
+def _call_name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parent = _call_name(node.value)
+        return f"{parent}.{node.attr}" if parent else node.attr
+    return ""
+
+
+def _step_trace(source: str, kind: str) -> tuple[bool, bool]:
+    """Find actual calls and ledger identifiers; comments and string literals are not execution evidence."""
+    tree = ast.parse(textwrap.dedent(source))
+    calls = {_call_name(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)}
+    wrappers = _APPLICATION_CALLS.get(kind, set())
+    markers = _KIND_MARKERS.get(kind, ())
+    matched = bool(calls & wrappers) or any(marker.rstrip("(") in name for name in calls for marker in markers)
+    ledger = any((isinstance(node, ast.Name) and "run_id" in node.id)
+                 or (isinstance(node, ast.Attribute) and "run_id" in node.attr)
+                 or (isinstance(node, ast.keyword) and node.arg in {"run_id", "work_run_id"})
+                 for node in ast.walk(tree))
+    return matched, ledger
 
 
 def lint_flow(contract: dict[str, Any], app: Any, module: ModuleType) -> dict[str, Any]:
@@ -135,9 +164,10 @@ def lint_flow(contract: dict[str, Any], app: Any, module: ModuleType) -> dict[st
         fn = getattr(module, name, None)
         fn_src = inspect.getsource(getattr(fn, "fn", fn)) if fn is not None else ""
         markers = _KIND_MARKERS.get(kind, ())
-        if markers and not any(m in fn_src for m in markers):
+        matched, ledger = _step_trace(fn_src, kind)
+        if markers and not matched:
             kind_problems.append(f"{name}:{kind} nyoma hiányzik")
-        if kind in ("jev", "llm") and "run_id" not in fn_src:
+        if kind in ("jev", "llm") and not ledger:
             kind_problems.append(f"{name}:{kind} run_id nélkül (ledger)")
     checks.append(("lépés-fajták és nyomaik", not kind_problems, ", ".join(kind_problems) or "rendben"))
 

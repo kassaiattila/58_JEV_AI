@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import errno
 import hashlib
+import json
 import logging
 import os
 import re
@@ -243,8 +244,13 @@ def release(rels: Iterable[str]) -> list[str]:
     more; returns the deleted relative paths."""
     removed = []
     with store.connect() as c:
+        c.execute("BEGIN IMMEDIATE")
+        run_refs = set()
+        if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='runs'").fetchone():
+            for row in c.execute("SELECT input FROM runs"):
+                run_refs.update(item.get("instance") for item in json.loads(row["input"])["items"] if item.get("instance"))
         for rel in sorted(set(r for r in rels if r)):
-            if c.execute("SELECT 1 FROM workpackage_items WHERE instance=? LIMIT 1", (rel,)).fetchone() is None:
+            if rel not in run_refs and c.execute("SELECT 1 FROM workpackage_items WHERE instance=? LIMIT 1", (rel,)).fetchone() is None:
                 path_of(rel).unlink(missing_ok=True)
                 removed.append(rel)
     return removed

@@ -8,10 +8,10 @@ import { ResultStage } from "./views/ResultStage";
 
 vi.mock("./components/DataTable", async () => {
   const React = await import("react");
-  return { DataTable: ({ scope, onPage }: { scope: { run_id: string }; onPage?: (p: DsPage) => void }) => {
+  return { DataTable: ({ dataset, scope, onPage }: { dataset: string; scope: { run_id: string }; onPage?: (p: DsPage) => void }) => {
     const [value, setValue] = React.useState("");
     React.useEffect(() => {
-      void api.datasetQuery("datapoints", scope, {}).then((r) => { setValue(String(r.rows[0].value)); onPage?.(r); });
+      void api.datasetQuery(dataset, scope, {}).then((r) => { setValue(String(r.rows[0].value)); onPage?.(r); });
     }, [scope.run_id]); // eslint-disable-line react-hooks/exhaustive-deps
     return <div data-testid="displayed-result">{value}</div>;
   } };
@@ -19,10 +19,10 @@ vi.mock("./components/DataTable", async () => {
 
 afterEach(() => vi.restoreAllMocks());
 
-it("after a conflict only the version of the rows on screen can be approved", async () => {
+it.each(["datapoints", "native_facts"])("after a conflict only the version of the %s rows on screen can be approved", async (table) => {
   let current = "v1";
   vi.spyOn(api, "run").mockImplementation(async () => ({ run: { run_id: "run-1", mode: "apply", status: "done", approval: null },
-    tables: ["datapoints"], open_reasons: {}, review_version: current }) as unknown as RunView);
+    tables: [table], open_reasons: {}, review_version: current }) as unknown as RunView);
   let release!: () => void;
   const dataset = vi.spyOn(api, "datasetQuery").mockImplementation(async () => {
     const version = current;

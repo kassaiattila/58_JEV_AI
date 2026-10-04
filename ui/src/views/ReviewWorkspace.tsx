@@ -14,6 +14,7 @@ import { classifyFields, initialFilter, nextAfterConfirm, type FieldFilter } fro
 import { bandOf, bandsFor, orderFields, selectionText, type Bands } from "../review/geometry";
 import { BAND_COLOR, PageViewer } from "../review/PageViewer";
 import { Split } from "../review/Split";
+import { NativeReview } from "../review/NativeReview";
 
 const DEFAULT_BANDS: Bands = { confident: 0.9, check: 0.5 };
 
@@ -152,22 +153,36 @@ ${tip}` : name}>{warn}{name}</span>
   );
 }
 
-function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev, onNextTodo }: {
+interface ItemReviewProps {
   wpId: string; runId: string; itemId: string; approved: boolean; onChanged: () => void; onNext?: () => void; onPrev?: () => void;
   onNextTodo?: () => void;
-}) {
+}
+
+/** Dispatch before mounting any PDF hooks, including when a native item has no publication. */
+export function ItemReview(props: ItemReviewProps) {
   useLocale();
+  const { runId, itemId, wpId, onChanged } = props;
   const res = useLoad(`item:${runId}:${itemId}`, () => api.item(runId, itemId));
+  const changed = () => { res.reload(); onChanged(); };
+  if (res.error) return <p className="notice error" role="alert">{res.error.message}</p>;
+  if (!res.data) return <p className="muted pad">{t("Betöltés…")}</p>;
+  if ("result_kind" in res.data && res.data.result_kind === "native") return <NativeReview data={res.data} approved={props.approved} onChanged={changed} />;
+  const data = res.data as ItemResult;
+  if (data.kind === "email" && data.email) return <EmailReview data={data} wpId={wpId} onChanged={changed} />;
+  return <PdfItemReview {...props} data={data} onChanged={changed} />;
+}
+
+function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev, onNextTodo, data }: ItemReviewProps & { data: ItemResult }) {
+  useLocale();
   const settings = useLoad("settings", api.settings);
   // 083 (the owner's decision): selection on the image is always on when the document has a word layer
-  const selectMode = Boolean(res.data?.source);
+  const selectMode = Boolean(data.source);
   const words = useLoad(selectMode ? `words:${runId}:${itemId}` : null, () => api.words(runId, itemId));
   const [active, setActive] = useState<string | null>(null);
   const [focusRequest, setFocusRequest] = useState(0);
   const [selected, setSelected] = useState<number[]>([]);
   const [tab, setTabState] = useState(lastTab);
   const setTab = useCallback((next: string) => { lastTab = next; setTabState(next); }, []);
-  const data = res.data;
   const onList = tab !== "fields" && Boolean(data?.lists?.[tab]);
   const bands = settings.data?.confidence_bands ?? DEFAULT_BANDS;
   const key = draftKey(runId, itemId);
@@ -284,9 +299,6 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev, 
     return () => window.removeEventListener("keydown", on);
   }, [active, fields, focusField, onNext, onPrev, selected.length, onList]);
 
-  if (res.error) return <p className="notice error" role="alert">{res.error.message}</p>;
-  if (!data) return <p className="muted pad">{t("Betöltés…")}</p>;
-  if (data.kind === "email" && data.email) return <EmailReview data={data} wpId={wpId} onChanged={() => { res.reload(); onChanged(); }} />;
 
   const machine = data.extraction?.datapoints ?? {};
   // 053: on the list tab the image shows where the rows are (with the key `lista[n]`), on the fields tab the fields
@@ -329,7 +341,7 @@ function ItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPrev, 
         <FieldPanel result={data} fields={fields} bandOf={band} activeField={active} onActivate={activate}
           selection={{ ids: selected, text: selText }} onClearSelection={() => setSelected([])}
           selectMode={selectMode}
-          onSaved={() => { res.reload(); onChanged(); }} onResolved={() => { res.reload(); onChanged(); }}
+          onSaved={onChanged} onResolved={onChanged}
           onChooseAlternative={chooseAlternative} readOnly={approved} hasWords={Boolean(data.source)} tab={tab} onTab={setTab}
           onRowPick={(f, n) => activate(`${f}[${n}]`)} allFields={allFields} onStartFix={startFix}
           filter={filter ?? undefined} counts={counts ?? undefined} onFilter={chooseFilter}

@@ -55,6 +55,7 @@ KEEP = 7
 STATUS_FILE = "backup-status.json"
 DOCS_ARCHIVE = "internal-docs.zip"
 SOURCES_DIR = "sources"
+NATIVE_ARCHIVE = "native-artifacts.zip"
 _STAMP = re.compile(r"^\d{8}-\d{6}(-\d+)?$")
 log = logging.getLogger("jav.backup")
 
@@ -166,6 +167,9 @@ def _local(root: Path, *, with_burr: bool, keep: int, docs_root: Path | None = N
         required = _referenced_instances(dest / src.name)
         if instances or required:
             files.append(_sync_sources(instances, source_instances.root(), root / SOURCES_DIR, required=required))
+        native = _archive_native(dest / src.name, src.parent, dest / NATIVE_ARCHIVE)
+        if native is not None:
+            files.append(native)
         manifest = {"created_at": _now(), "dir": str(dest), "files": files, "store_ok": store_ok,
                     "ok": all(x["integrity"] == "ok" for x in files)}
         if not manifest["ok"]:  # 090: the status line says what failed (an integrity failure has no exception text)
@@ -189,7 +193,11 @@ def _referenced_instances(saved_store: Path) -> set[str]:
     with closing(sqlite3.connect(str(saved_store))) as c:
         if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='workpackage_items'").fetchone() is None:
             return set()
-        return {r[0] for r in c.execute("SELECT DISTINCT instance FROM workpackage_items WHERE instance IS NOT NULL")}
+        refs = {r[0] for r in c.execute("SELECT DISTINCT instance FROM workpackage_items WHERE instance IS NOT NULL")}
+        if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='runs'").fetchone():
+            for row in c.execute("SELECT input FROM runs"):
+                refs.update(item["instance"] for item in json.loads(row[0])["items"] if item.get("instance"))
+        return refs
 
 
 def _archive_docs(docs_root: Path, target: Path) -> dict[str, Any] | None:
@@ -203,6 +211,42 @@ def _archive_docs(docs_root: Path, target: Path) -> dict[str, Any] | None:
             z.write(p, p.relative_to(docs_root).as_posix())
     return {"file": target.name, "source": f"{docs_root / 'docs'} (belső munkaanyag)", "bytes": target.stat().st_size,
             "entries": len(docs), "integrity": _zip_integrity(target)}
+
+
+def _archive_native(saved_store: Path, source_root: Path, target: Path) -> dict[str, Any] | None:
+    """Archive the complete immutable reader artifacts referenced by the saved database snapshot."""
+    from jav import native_results
+
+    try:
+        with closing(sqlite3.connect(str(saved_store))) as c:
+            c.row_factory = sqlite3.Row
+            if not c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='native_readings'").fetchone():
+                return None
+            refs = native_results.referenced_artifacts(c)
+    except (OSError, ValueError) as exc:
+        return {"file": target.name, "source": str(source_root), "bytes": 0, "entries": 0,
+                "integrity": f"{type(exc).__name__}: {exc}", "artifacts": []}
+    if not refs:
+        return None
+    manifest = [ref.model_dump(mode="json") for ref in refs]
+    total = 0
+    try:
+        with zipfile.ZipFile(target, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for ref in refs:
+                relative = Path(ref.relative_path)
+                source = (source_root / relative).resolve()
+                if relative.is_absolute() or ".." in relative.parts or not source.is_relative_to(source_root.resolve()):
+                    raise ValueError("Native artifact reference escapes the store")
+                data = source.read_bytes()
+                if len(data) != ref.byte_size or hashlib.sha256(data).hexdigest() != ref.sha256:
+                    raise ValueError(f"Native artifact is damaged: {ref.relative_path}")
+                archive.writestr(relative.as_posix(), data)
+                total += len(data)
+        integrity = _zip_integrity(target)
+    except (OSError, ValueError) as exc:
+        integrity = f"{type(exc).__name__}: {exc}"
+    return {"file": target.name, "source": str(source_root), "bytes": total, "entries": len(refs),
+            "integrity": integrity, "artifacts": manifest}
 
 
 def _zip_integrity(path: Path) -> str:

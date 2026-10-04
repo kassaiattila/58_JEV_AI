@@ -39,7 +39,8 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from jav import dates, grounding, numbers, source_layer, store, typepack, validators, work
+from jav import dates, grounding, native_results, numbers, source_layer, store, typepack, validators, work
+from jav.native_contracts import NATIVE_SUFFIXES, Publication
 
 store.register_schema("corrections", """
 CREATE TABLE IF NOT EXISTS run_item_corrections (
@@ -61,6 +62,10 @@ def _migrate(conn) -> None:
         conn.execute("ALTER TABLE run_item_corrections ADD COLUMN sources TEXT")
     if cols and "confirmed" not in cols:  # 083: field -> the value a person confirmed
         conn.execute("ALTER TABLE run_item_corrections ADD COLUMN confirmed TEXT")
+    if cols and "native_sources" not in cols:
+        conn.execute("ALTER TABLE run_item_corrections ADD COLUMN native_sources TEXT")
+    if cols and "result_version" not in cols:
+        conn.execute("ALTER TABLE run_item_corrections ADD COLUMN result_version TEXT")
 
 
 store.register_migration("corrections", _migrate)
@@ -95,25 +100,31 @@ def review_version(run_id: str, c: sqlite3.Connection | None = None) -> str:
         with store.connect() as own:
             rows = own.execute(query, (run_id,)).fetchall()
             decisions = own.execute(tasks_query, (len(prefix), prefix)).fetchall()
+            native = native_results.version_parts(run_id, own)
     else:
         rows = c.execute(query, (run_id,)).fetchall()
         decisions = c.execute(tasks_query, (len(prefix), prefix)).fetchall()
+        native = native_results.version_parts(run_id, c)
     payload: Any = [[r["item_id"], r["r"]] for r in rows]
     if decisions:
         payload = {"corrections": payload, "tasks": [[d["run_id"], d["task_index"], d["decision"]] for d in decisions]}
+    if native:
+        payload = {"review": payload, "native": native}
     return hashlib.sha256(json.dumps(payload).encode("utf-8")).hexdigest()[:16]
 
 
-def current(run_id: str, item_id: str) -> dict[str, Any]:
+def current(run_id: str, item_id: str, c: sqlite3.Connection | None = None) -> dict[str, Any]:
     """The latest correction (version 0 = no correction yet)."""
-    with store.connect() as c:
-        row = c.execute("SELECT * FROM run_item_corrections WHERE run_id=? AND item_id=? ORDER BY revision DESC LIMIT 1",
-                        (run_id, item_id)).fetchone()
+    if c is None:
+        with store.connect() as own:
+            return current(run_id, item_id, own)
+    row = c.execute("SELECT * FROM run_item_corrections WHERE run_id=? AND item_id=? ORDER BY revision DESC LIMIT 1",
+                    (run_id, item_id)).fetchone()
     if row is None:
         return {"run_id": run_id, "item_id": item_id, "revision": 0, "fields": {}, "sources": {}, "confirmed": {}, "actor": None,
-                "note": None, "created_at": None}
+                "note": None, "created_at": None, "native_sources": {}, "result_version": None}
     return {**dict(row), "fields": json.loads(row["fields"]), "sources": json.loads(row["sources"] or "{}"),
-            "confirmed": json.loads(row["confirmed"] or "{}")}
+            "confirmed": json.loads(row["confirmed"] or "{}"), "native_sources": json.loads(row["native_sources"] or "{}")}
 
 
 def reason_field(code: str, fields: set[str]) -> str | None:
@@ -313,12 +324,130 @@ def effective_checks(pack: typepack.TypePack, effective: dict[str, Any]) -> list
     return out
 
 
+def native_publication(run_id: str, item_id: str, *, expected_result_version: str | None = None,
+                       c: sqlite3.Connection | None = None) -> Publication:
+    """Load and verify the exact published native result, inside a caller's transaction if supplied."""
+    publication = native_results.get_publication(run_id, item_id, c=c)
+    if publication is None:
+        raise work.NotReady("The native result has not been published")
+    if expected_result_version is not None and publication.result_version != expected_result_version:
+        raise work.RevisionConflict("The native result changed; review the current version")
+    native_results.verify_publication(publication, c=c)
+    return publication
+
+
+def _native_item_result(run: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
+    """Merge manual values without changing the original proposal or its machine grounding claim."""
+    from jav.native_contracts import NativeItemResult
+
+    run_id, item_id = run["run_id"], item["item_id"]
+    reasons = work.item_reasons(run_id, item_id, item)
+    with store.connect() as c:
+        c.execute("BEGIN")
+        version = review_version(run_id, c)
+        publication = native_results.get_publication(run_id, item_id, c=c)
+        corr = current(run_id, item_id, c)
+        if publication is not None and corr["revision"] and corr["result_version"] != publication.result_version:
+            raise work.RevisionConflict("The correction belongs to a different published result")
+    common = {"run_id": run_id, "item_id": item_id, "review_version": version,
+              "correction": {k: corr[k] for k in ("revision", "fields", "native_sources", "confirmed")},
+              "source_file": {"copy": bool(item.get("instance")), "original": work.original_state(item, verify=True)},
+              "open_reasons": reasons["run"], "earlier_open_reasons": reasons["earlier"]}
+    if publication is None:
+        progress = native_results.unpublished_state(run_id, item_id)
+        data = {**common, "result_version": None, "result_ready": False, "native_source": None,
+                "reading": progress.reading.model_dump(mode="json"),
+                "interpretation_outcome": progress.interpretation_outcome.model_dump(mode="json"),
+                "interpretation": None, "native_facts": []}
+    else:
+        native_results.verify_publication(publication)
+        facts = []
+        for machine in native_results.machine_facts(publication):
+            fact = machine.model_dump(mode="json")
+            key = fact["fact_id"]
+            effective = corr["fields"].get(key, fact["proposal"]["value"])
+            citations = fact["native_citations"]
+            if key in corr["native_sources"]:
+                citations = [value.model_dump(mode="json") for value in native_results.resolve_citations(
+                    publication, corr["native_sources"][key])]
+            elif effective != fact["proposal"]["value"]:
+                citations = []
+            facts.append({**fact, "effective_value": effective, "native_citations": citations,
+                          "confirmed": key in corr["confirmed"] and corr["confirmed"][key] == effective})
+        interpretation = publication.interpretation
+        data = {**common, "result_version": publication.result_version, "result_ready": True,
+                "native_source": {k: getattr(publication, k) for k in
+                                  ("reading_id", "bundle_sha256", "publication_id", "source_sha256")},
+                "reading": publication.reading.model_dump(mode="json"),
+                "interpretation_outcome": publication.interpretation_outcome.model_dump(mode="json"),
+                "interpretation": ({"interpretation_id": publication.interpretation_id,
+                    "payload_sha256": publication.payload_sha256, "status": "completed" if interpretation.facts else "empty",
+                    **interpretation.model_dump(mode="json", include={"provider", "model", "execution", "gaps", "review_status", "correctness"})}
+                    if interpretation is not None else None), "native_facts": facts}
+    return NativeItemResult.model_validate_json(json.dumps(data)).model_dump(mode="json")
+
+
+def save_native(run_id: str, item_id: str, *, values: dict[str, str | None], native_sources: dict[str, Any],
+                expected_revision: int, expected_result_version: str, actor: str,
+                confirm: list[str] | None = None, note: str | None = None) -> dict[str, Any]:
+    """Validate and save a full native override set against immutable result identity under one write lock."""
+    if not isinstance(expected_result_version, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_result_version):
+        raise ValueError("Native corrections require an exact published result version")
+    if any(not isinstance(value, str) and value is not None for value in values.values()):
+        raise ValueError("Native values must be text or null")
+    if any(isinstance(value, str) and len(value) > 100_000 for value in values.values()):
+        raise ValueError("Native values exceed the supported text limit")
+    confirmed_now = set(confirm or [])
+    with store.connect() as c:
+        c.execute("BEGIN IMMEDIATE")
+        run = c.execute("SELECT approval, input FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        if run is None:
+            raise KeyError(run_id)
+        if run["approval"]:
+            raise work.RevisionConflict("The approved result is frozen")
+        item = next((i for i in json.loads(run["input"])["items"] if i["item_id"] == item_id), None)
+        if item is None:
+            raise KeyError(item_id)
+        if item.get("kind") != "document" or Path(item["source_path"]).suffix.lower() not in NATIVE_SUFFIXES:
+            raise ValueError("Native corrections require a native document result")
+        publication = native_publication(run_id, item_id, expected_result_version=expected_result_version, c=c)
+        if publication.interpretation_outcome.status != "succeeded":
+            raise work.NotReady("An unsuccessful interpretation has no facts to correct")
+        previous = current(run_id, item_id, c)
+        if previous["revision"] != expected_revision:
+            raise work.RevisionConflict("The correction changed; your draft has not been saved")
+        facts = {fact.fact_id: fact for fact in native_results.machine_facts(publication, c=c)}
+        unknown = (set(values) | set(native_sources) | confirmed_now) - set(facts)
+        if unknown:
+            raise ValueError("Unknown native fact identifier")
+        if set(native_sources) - set(values):
+            raise ValueError("Manual sources require a matching value override")
+        validated_sources = native_results.validate_sources(publication, native_sources, c=c)
+        native_sources = {key: [cite.model_dump(mode="json") for cite in citations]
+                          for key, citations in validated_sources.items()}
+        effective = {key: values.get(key, fact.proposal.value) for key, fact in facts.items()}
+        confirmed = {key: value for key, value in previous["confirmed"].items()
+                     if key in effective and effective[key] == value
+                     and previous["native_sources"].get(key) == native_sources.get(key)}
+        confirmed.update({key: effective[key] for key in confirmed_now})
+        c.execute("INSERT INTO run_item_corrections(run_id,item_id,revision,fields,actor,note,created_at,"
+                  "native_sources,result_version,confirmed) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                  (run_id, item_id, expected_revision + 1, json.dumps(values, ensure_ascii=False, sort_keys=True),
+                   actor, note, datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                   json.dumps(native_sources, ensure_ascii=False, sort_keys=True), publication.result_version,
+                   json.dumps(confirmed, ensure_ascii=False, sort_keys=True)))
+    # Native confirmations are value decisions, not a resolution of reading gaps or unsupported claims.
+    return current(run_id, item_id)
+
+
 def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     """The result of one item: the machine data, the correction and the two merged (the correction wins)."""
     run = work.get_run(run_id)
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
     if item is None:
         raise KeyError(item_id)
+    if item.get("kind") == "document" and Path(item["source_path"]).suffix.lower() in NATIVE_SUFFIXES:
+        return _native_item_result(run, item)
     if item.get("kind") == "email":  # 048 T2: email item: no extraction or page image; shows the email and intent
         from jav import mailbox
 

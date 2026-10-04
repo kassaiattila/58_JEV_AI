@@ -7,7 +7,9 @@ thresholds and provider adapters are not modified.
 from __future__ import annotations
 
 from decimal import Decimal
+from contextlib import nullcontext
 from pathlib import Path
+from typing import Callable
 
 from .interpretation import Interpretation, ProposedExtraction, ground, source_view
 from .pipeline import Delivery, digest, json_bytes
@@ -42,7 +44,7 @@ def gpt_response_format() -> dict:
 
 def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_transfer_bytes=80_000,
                 max_output_tokens=4000, fields: dict[str, str] | None = None, entity: str | None = None,
-                agent=None) -> Interpretation:
+                agent=None, receipt_observer: Callable | None = None) -> Interpretation:
     from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_chat_model, openai_price
     from jav.runtime import calls
     from pydantic_ai import Agent, NativeOutput
@@ -92,6 +94,8 @@ def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_tr
 
     result = calls.invoke(run_id=run_id, step_id=f"reader:gpt:{key}", provider="openai", model=OPENAI_MODEL,
         max_cost_usd=maximum, budget_scope=ctx.budget_scope, request_hash=key, reusable=True, fn=physical)
+    if receipt_observer is not None:
+        receipt_observer(result)
     if result.response.get("validation_error"):
         raise InterpretationRejected(f"Provider answer failed validation; private receipt {result.invocation_id} retained")
     proposal = ProposedExtraction.model_validate_json(json_bytes(result.response["proposal"]))
@@ -101,7 +105,8 @@ def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_tr
 
 
 def verify_jev(delivery: Delivery, interpretation: Interpretation, *, run_id: str, isolated_store: Path,
-               max_transfer_bytes=80_000, adapter=None) -> Interpretation:
+               max_transfer_bytes=80_000, adapter=None, use_cache: bool = False,
+               receipt_observer: Callable | None = None) -> Interpretation:
     from jav.adapters.jev import JevAdapter
     from typesafe_sdk import Noul
     require_measurement("jev", isolated_store)
@@ -122,9 +127,11 @@ def verify_jev(delivery: Delivery, interpretation: Interpretation, *, run_id: st
     if size > max_transfer_bytes:
         raise ValueError("Complete JEV request exceeds the explicit transfer bound")
     adapter = adapter or JevAdapter()
-    with adapter.no_cache_write():
-        reply = adapter.ask("reader_semantic_support", view, questions, run_id=run_id, use_cache=False,
+    with nullcontext() if use_cache else adapter.no_cache_write():
+        reply = adapter.ask("reader_semantic_support", view, questions, run_id=run_id, use_cache=use_cache,
                             config_hash=digest(json_bytes({k: q.model_dump(mode="json") for k, q in questions.items()})))
+    if receipt_observer is not None:
+        receipt_observer(reply)
     checked = tuple(f.model_copy(update={"semantic_support": float(reply.response.answers[f"f{i}"].noul)})
                     if f"f{i}" in questions else f for i, f in enumerate(interpretation.facts))
     return interpretation.model_copy(update={"facts": checked,

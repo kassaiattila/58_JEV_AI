@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, getActor, NO_ACTOR, type WatchedFolder } from "../../api";
 import { BrowseButton } from "../../components/BrowseButton";
+import { DocumentFormats } from "../../components/DocumentFormats";
 import { Picker } from "../../components/Picker";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
@@ -75,7 +76,8 @@ export function FoldersPanel() {
 
   return (
     <section className="stage-stack" aria-label={t("Munkamappák")}>
-      <p className="muted small">{t("A feldolgozó a megadott gyakorisággal átnézi a mappát, és az új PDF-ekből munkacsomag lesz (vagy a meglévő bővül). A forrásmappához csak olvasásra nyúl. A csomag az alap feldolgozási beállításokkal jön létre (a csomagon módosíthatók), de fizetős futás nem indul magától.")}</p>
+      <p className="muted small">{t("The worker checks this folder at the chosen interval and adds new supported documents to a work package. Source files are read only. Check the package recipe before starting processing; paid runs never start automatically.")}</p>
+      <DocumentFormats />
       {data.error ? <p className="notice error">{data.error.message}</p> : null}
       {draft.map((f, i) => (
         <fieldset key={f.id ?? `new-${i}`} className="card wide folder-card">

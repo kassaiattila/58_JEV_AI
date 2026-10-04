@@ -1,0 +1,21 @@
+.native-source, .native-facts { min-width: 0; min-height: 0; padding: 1rem; overflow: auto; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); }
+.native-source h2, .native-facts h2 { margin-top: 0; }
+.native-block { border: 1px solid var(--border, #ccd2d8); border-radius: 4px; padding: .65rem; margin: .4rem 0; overflow-wrap: anywhere; }
+.native-block > small { display: block; }
+.native-selected { outline: 2px solid var(--accent, #146c8e); outline-offset: -2px; }
+.native-source-location { font-size: .8rem; text-align: left; overflow-wrap: anywhere; max-width: 100%; }
+.native-lexical, .native-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; }
+.native-text { max-height: 65vh; overflow: auto; }
+.native-word-table { margin-left: .8rem; border-left: 3px solid var(--border, #ccd2d8); padding-left: .6rem; }
+.native-cell-scroll { overflow-x: auto; }
+.native-cells { border-collapse: collapse; min-width: 100%; }
+.native-cells td { min-width: 10rem; padding: .2rem; vertical-align: top; }
+.native-fact { padding: 1rem 0; border-top: 1px solid var(--border, #ccd2d8); }
+.native-fact h3 { margin: .2rem 0; }
+.native-fact textarea, .native-fact select { width: 100%; }
+.native-fact dl { display: grid; grid-template-columns: minmax(6rem, 1fr) 2fr; gap: .3rem; font-size: .85rem; }
+.native-fact dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.native-citation { padding: .5rem; border-left: 3px solid var(--border, #ccd2d8); margin: .6rem 0; }
+.native-citation blockquote { margin: .3rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.native-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin: .6rem 0; }
+.native-summary { margin-bottom: 1rem; }

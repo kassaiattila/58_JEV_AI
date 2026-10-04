@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 import sys
 
+from jav.native_contracts import DOCUMENT_FORMATS, DOCUMENT_SUFFIXES
+
 
 def main(argv: list[str]) -> int:
     request = json.loads(argv[0])
@@ -26,7 +28,9 @@ def main(argv: list[str]) -> int:
         chosen = filedialog.askdirectory(mustexist=True, **options)
         paths = [chosen] if chosen else []
     else:
-        chosen = filedialog.askopenfilenames(filetypes=[("PDF", "*.pdf"), ("*.*", "*.*")], **options)
+        filetypes = [("Supported documents", " ".join(f"*{suffix}" for suffix in DOCUMENT_SUFFIXES))]
+        filetypes.extend((item.label, f"*{item.suffix}") for item in DOCUMENT_FORMATS)
+        chosen = filedialog.askopenfilenames(filetypes=filetypes, **options)
         paths = list(root.tk.splitlist(chosen)) if chosen else []
     root.destroy()
     print(json.dumps(paths, ensure_ascii=False))

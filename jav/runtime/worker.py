@@ -115,8 +115,8 @@ def _attachment_reads(items: list[dict[str, Any]], email_item_id: str) -> dict[s
 
 
 def _flow_module(name: str):
-    from jav import flow, flow_detect, flow_email  # deferred import: the flows pull in heavy dependencies
-    return {"invoice": flow, "doc_detect": flow_detect, "email": flow_email}[name]
+    from jav import flow, flow_detect, flow_email, flow_native  # deferred import: the flows pull in heavy dependencies
+    return {"invoice": flow, "doc_detect": flow_detect, "email": flow_email, "native": flow_native}[name]
 
 
 def arm_for(doc_type: str, preferred: str) -> str:
@@ -148,12 +148,24 @@ def _jev_off(params: dict[str, Any]) -> bool:
 
 
 def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app_id: str, persister,
-           read_path: str | None = None, attachment_reads: dict[str, str] | None = None):
+           read_path: str | None = None, attachment_reads: dict[str, str] | None = None,
+           *, run_id: str | None = None, item: dict[str, Any] | None = None, recipe_hash: str | None = None):
     """`read_path`: where a document's bytes are read from (its source instance); the file name, the year hint and
     the stored path stay those of `source_path`, the original. `attachment_reads`: for an email, the source instances
     of its attachments that are items of the package."""
     mod = _flow_module(recipe["flow"])
-    if recipe["flow"] == "invoice":
+    if recipe["flow"] == "native":
+        if run_id is None or item is None or recipe_hash is None:
+            raise ValueError("Native processing requires the frozen run and item identities")
+        from jav.native_processing import estimate_limits
+
+        app = mod.build_app(work_run_id=run_id, item_id=item["item_id"], graph_id=app_id,
+                            source_path=source_path, read_path=read_path or source_path,
+                            original_name=Path(source_path).name, expected_sha256=item["sha256"],
+                            recipe_hash=recipe_hash, jev=not _jev_off(params),
+                            use_cache=reuse_answers(params), requested_arm=params.get("arm", "auto"),
+                            persister=persister, tracker=False, limits=estimate_limits(params))
+    elif recipe["flow"] == "invoice":
         # `jev_cache=live`: skip reading the JEV cache so every call goes through the log and the budget (live test)
         app = mod.build_app(source_path, app_id, params["arm"], tracker=False, doc_type=params["doc_type"], run_id=app_id,
                             persister=persister, use_cache=reuse_answers(params), read_path=read_path,
@@ -170,7 +182,8 @@ def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app
 
 def _run_stage(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app_id: str, persister, *, run_id: str,
                job_id: int, after_step: Callable[[str], None] | None, read_path: str | None = None,
-               attachment_reads: dict[str, str] | None = None):
+               attachment_reads: dict[str, str] | None = None, item: dict[str, Any] | None = None,
+               recipe_hash: str | None = None):
     """Runs one stage with persistence: a stage that already reached a terminal state does not run again (resume after
     a crash). The saved state is looked up under the flow's own partition (066 Á08: the email flow saves under
     `email_intent`, but the lookup used the recipe name `email`, so a finished email ran again and the job died)."""
@@ -178,7 +191,8 @@ def _run_stage(recipe: dict[str, Any], params: dict[str, Any], source_path: str,
     saved = persister.load(mod.PARTITION, app_id)
     if saved and saved["position"] in mod.TERMINALS:
         return saved["state"]
-    app, terminals = _build(recipe, params, source_path, app_id, persister, read_path, attachment_reads)
+    app, terminals = _build(recipe, params, source_path, app_id, persister, read_path, attachment_reads,
+                            run_id=run_id, item=item, recipe_hash=recipe_hash)
     state = None
     with calls.use_run(budget_scope=run_id, reuse=reuse_answers(params)):
         for action, _result, state in app.iterate(halt_after=terminals):
@@ -225,7 +239,7 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
         persister.initialize()
         try:
             # 058 K5.2: a recipe handling several item kinds (email + attachment) chooses the flow per kind
-            stages = _stages({**run["recipe"], "flow": work.flow_for(run["recipe"], item.get("kind"))}, run["params"])
+            stages = _stages({**run["recipe"], "flow": work.flow_for(run["recipe"], item)}, run["params"])
             final, state = None, None
             for n, (flow_name, params) in enumerate(stages):
                 stage_id = app_id if n == len(stages) - 1 else f"{app_id}-{flow_name}"
@@ -236,7 +250,7 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                         break
                 state = _run_stage({**run["recipe"], "flow": flow_name}, params, item["source_path"], stage_id, persister,
                                    run_id=run_id, job_id=job.id, after_step=after_step, read_path=read_path,
-                                   attachment_reads=attachment_reads)
+                                   attachment_reads=attachment_reads, item=item, recipe_hash=run["recipe_hash"])
                 final = state.get("final_status")
         finally:
             persister.cleanup()
@@ -283,6 +297,8 @@ def process_pull(job: queue.Job) -> str:
 def startup() -> dict[str, int]:
     """Start-up: settles interrupted claims and marks unsettled paid calls. The result of an item that became dead or
     cancelled shows on the run too (063: otherwise the run's item would be left without a result)."""
+    from jav import native_results  # noqa: F401 - register native tables before the startup store connection
+
     rec = queue.recover_orphans()
     for job in [*rec.dead, *rec.cancelled]:
         status = "failed" if job in rec.dead else "cancelled"

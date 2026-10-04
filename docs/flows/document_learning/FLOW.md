@@ -1,9 +1,9 @@
 # FLOW — document_learning
 
-> A flow-modul `CONTRACT`-jából generálva (`jav/contract.py`, `python -m jav.cli flows`). Ne szerkeszd kézzel -
-> generáld újra. A fázisonként csoportosított gráf a FLOW.mmd.
+> Generated from the flow module's `CONTRACT` (`jav/contract.py`, `python -m jav.cli flows`).
+> Regenerate this file instead of editing it. FLOW.mmd groups the graph by phase.
 
-## Fázisok és lépések
+## Phases and steps
 
 ### propose
 - **generate** _(llm)_ — Explicit Pydantic AI modell vagy importált javaslat; saját tartós válasz.
@@ -17,11 +17,11 @@
 ### terminal
 - **done** _(terminal)_ — Mentve; a dokumentum teljessége továbbra sem bizonyított.
 
-Terminális lépések: done
+Terminal steps: done
 
 > Kísérleti, UTF-8 szöveges bemenet. A tartós futtató: jav.learning_runtime.run_learning. Munkakönyvtáranként egy futtató; nincs típusaktiválás vagy automatikus személyesadat-küldés.
 
-## Gráf (Mermaid)
+## Graph (Mermaid)
 
 ```mermaid
 flowchart TD

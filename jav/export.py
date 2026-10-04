@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from jav import cfg, corrections, store, typepack, work
+from jav.native_contracts import NATIVE_SUFFIXES
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
 SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
@@ -73,6 +74,38 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
             "source_email": subjects.get(item.get("parent_item_id") or ""),
         })
     return out
+
+
+def native_records(run_id: str) -> list[dict[str, Any]]:
+    """Native review data, including empty or unsuccessful outcomes and original machine proposals."""
+    return [{"file": Path(item["source_path"]).name, **corrections.item_result(run_id, item["item_id"])}
+            for item in work.get_run(run_id)["input"]["items"]
+            if item.get("kind") == "document" and Path(item["source_path"]).suffix.lower() in NATIVE_SUFFIXES]
+
+
+NATIVE_COLUMNS = ("file", "item_id", "fact_id", "entity", "property", "effective_value", "unit", "role",
+                  "related_entity", "machine_state", "machine_grounding", "corrected", "confirmed", "source_citations",
+                  "reading_status", "reading_gaps", "interpretation_status", "correctness", "result_version", "proposal")
+NATIVE_HEAD = ("Document", "Item identifier", "Fact identifier", "Entity", "Property", "Value", "Unit", "Role",
+               "Related entity", "Machine claim", "Machine grounding", "Corrected", "Confirmed", "Source citations",
+               "Reading status", "Reading gaps", "Interpretation status", "Correctness", "Result version", "Original proposal")
+
+
+def native_facts_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[Any]]]:
+    """One native fact per row; text and null remain distinct in the full JSON export."""
+    rows = []
+    for record in records:
+        gaps = json.dumps(record["reading"]["results"], ensure_ascii=False, sort_keys=True)
+        for fact in record["native_facts"]:
+            proposal = fact["proposal"]
+            rows.append([record["file"], record["item_id"], fact["fact_id"], proposal["entity"], proposal["property"],
+                         fact["effective_value"], proposal["unit"], proposal["role"], proposal["related_entity"],
+                         proposal["state"], fact["grounding"], fact["fact_id"] in record["correction"]["fields"],
+                         fact["confirmed"], json.dumps(fact["native_citations"], ensure_ascii=False, sort_keys=True),
+                         record["reading"]["status"], gaps, record["interpretation_outcome"]["status"],
+                         (record["interpretation"] or {}).get("correctness"), record["result_version"],
+                         json.dumps(proposal, ensure_ascii=False, sort_keys=True)])
+    return list(NATIVE_HEAD), rows
 
 
 def _email_subjects(items: list[dict[str, Any]]) -> dict[str, str]:
@@ -326,6 +359,15 @@ def xlsx_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> byte
     wb.remove(wb.active)
     used: set[str] = set()
     mails = email_records(run_id)
+    native = native_records(run_id)
+    if native:
+        head, rows = native_facts_table(native)
+        _write_sheet(wb.create_sheet(_safe_sheet("Native facts", used)), head, rows)
+        _write_sheet(wb.create_sheet(_safe_sheet("Native readings", used)),
+                     ["Document", "Item identifier", "Reading status", "Interpretation status", "Result version", "Reading details"],
+                     [[record["file"], record["item_id"], record["reading"]["status"],
+                       record["interpretation_outcome"]["status"], record["result_version"],
+                       json.dumps(record["reading"], ensure_ascii=False, sort_keys=True)] for record in native])
     if mails:  # 058 K5.1: the email items on their own sheet
         head, rows = emails_table(mails)
         _write_sheet(wb.create_sheet(_safe_sheet("Levelek", used)), head, rows)
@@ -366,32 +408,48 @@ def xlsx_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> byte
 # --- JSON ------------------------------------------------------------------------------------------------------
 
 
-def json_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> bytes:
-    from jav import report_utility
+def _json_export(run_id: str, records: list[dict[str, Any]] | None = None) -> tuple[bytes, int]:
+    from jav import datasets, report_utility
 
+    # Capture before every data read: an interleaved edit must make approval fail,
+    # never give older exported values the version of an unseen correction.
+    review_version = corrections.review_version(run_id)
     run = work.get_run(run_id)
-    records = run_records(run_id) if records is None else records
+    native_run = any(item.get("kind") == "document" and Path(item["source_path"]).suffix.lower() in NATIVE_SUFFIXES
+                     for item in run["input"]["items"])
+    # Caller-supplied rows have no bound version. A native or mixed export must
+    # reload them after the version capture, using the versioned dataset cache.
+    records = datasets.run_records(run_id) if records is None or native_run else records
     body = {"run_id": run_id, "recipe_id": run["recipe_id"], "recipe_version": run["recipe_version"], "params": run["params"],
             "mode": run["mode"], "approval": run["approval"], "created_at": run["created_at"],
             "documents": [{k: v for k, v in r.items() if k != "kinds"} for r in records],
             "emails": email_records(run_id),
             "utility_cost": report_utility.build(records)}
-    return json.dumps(body, ensure_ascii=False, indent=1, default=str).encode("utf-8")
+    native = native_records(run_id)
+    if native:
+        body["native_items"] = native
+        body["review_version"] = review_version
+    return json.dumps(body, ensure_ascii=False, indent=1, default=str).encode("utf-8"), len(records)
+
+
+def json_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> bytes:
+    return _json_export(run_id, records)[0]
 
 
 def render(run_id: str, fmt: str, table: str = "documents") -> tuple[bytes, str, str, int]:
     """(content, media type, file name, row count): what the service's download endpoint returns."""
     from jav import datasets
 
+    if fmt == "json":
+        content, count = _json_export(run_id)
+        return content, "application/json", f"{run_id}.json", count
     records = datasets.run_records(run_id)  # 056: cache shared with the tables and the utility report
     if fmt == "csv":
-        head, rows = TABLES[table](records)
+        head, rows = native_facts_table(native_records(run_id)) if table == "native_facts" else TABLES[table](records)
         return csv_bytes(head, rows), "text/csv; charset=utf-8", f"{run_id}-{table}.csv", len(rows)
     if fmt == "xlsx":
         return (xlsx_bytes(run_id, records), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 f"{run_id}.xlsx", len(records))
-    if fmt == "json":
-        return json_bytes(run_id, records), "application/json", f"{run_id}.json", len(records)
     raise ValueError(f"unknown export format: {fmt}")
 
 

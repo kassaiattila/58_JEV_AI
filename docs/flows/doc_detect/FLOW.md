@@ -1,9 +1,9 @@
 # FLOW — doc_detect
 
-> A flow-modul `CONTRACT`-jából generálva (`jav/contract.py`, `python -m jav.cli flows`). Ne szerkeszd kézzel -
-> generáld újra. A fázisonként csoportosított gráf a FLOW.mmd.
+> Generated from the flow module's `CONTRACT` (`jav/contract.py`, `python -m jav.cli flows`).
+> Regenerate this file instead of editing it. FLOW.mmd groups the graph by phase.
 
-## Fázisok és lépések
+## Phases and steps
 
 ### load
 - **load_pdf** _(det)_ — pdfplumber szó-szintű rekonstrukció, sha256 doc_id, év-hint a mappából; szövegréteg-teszt
@@ -19,11 +19,11 @@
 - **done** _(terminal)_ — kategorizálva
 - **needs_ocr** _(terminal)_ — szöveg nélküli / törött szövegrétegű PDF, és az OCR sem adott szöveget (vagy nincs motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja
 
-Terminális lépések: done, needs_ocr
+Terminal steps: done, needs_ocr
 
 > M1 - a típus a documents táblába kerül; a típus szerinti M2-flow onnan indul. A run_id a gerinc, a Jev-hívás az adapteren megy (cache + ledger + config_hash).
 
-## Gráf (Mermaid)
+## Graph (Mermaid)
 
 ```mermaid
 flowchart TD

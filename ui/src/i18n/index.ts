@@ -7,6 +7,7 @@
 // - nothing is translated when a module loads (translation happens at render time);
 // - for a missing translation the Hungarian label shows; `npm run i18n:check` reports the gap before the build.
 import { useSyncExternalStore } from "react";
+import hungarianNative from "./hu-native.json";
 
 export type Language = "hu" | "en";
 export type Messages = Record<string, string>;
@@ -29,7 +30,7 @@ export function useLocale(): Language {
 
 /** The interface's own text in the chosen language; each `{{name}}` is replaced by the parameter. */
 export function t(source: string, params?: Record<string, unknown>): string {
-  const translated = language === "en" ? (english[source] ?? source) : source;
+  const translated = language === "en" ? (english[source] ?? source) : ((hungarianNative as Messages)[source] ?? source);
   return params
     ? translated.replace(/\{\{(\w+)\}\}/g, (token, key: string) => (Object.prototype.hasOwnProperty.call(params, key) ? String(params[key] ?? "") : token))
     : translated;

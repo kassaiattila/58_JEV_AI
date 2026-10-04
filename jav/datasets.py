@@ -118,8 +118,11 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
         dec = c.execute("SELECT COUNT(*), GROUP_CONCAT(k) FROM (SELECT run_id || '#' || task_index || '=' || decision || '@' || decided_at AS k"
                         " FROM email_task_decisions WHERE run_id >= ? AND run_id < ? ORDER BY k)", (run_id + ":", run_id + ";")).fetchone()
         items = c.execute("SELECT COUNT(*), MAX(updated_at) FROM run_items WHERE run_id=?", (run_id,)).fetchone()
+        from jav import native_results
+
+        native = native_results.version_parts(run_id, c)
     digest = hashlib.sha256(str(dec[1]).encode("utf-8")).hexdigest()[:16]
-    return "|".join(str(x) for x in (*corr, *rsn, dec[0], digest, *items, row["status"], row["approval"]))
+    return "|".join(str(x) for x in (*corr, *rsn, dec[0], digest, *items, row["status"], row["approval"], native))
 
 
 def _calls_fingerprint(scope: dict[str, str]) -> str:
@@ -497,6 +500,16 @@ def _datapoints(scope: dict[str, str]) -> Rows:
     return cols, _zip_rows([c.key for c in cols], rows, run, lambda d: f"{d['item_id']}:{d['field']}")
 
 
+def _native_facts(scope: dict[str, str]) -> Rows:
+    from jav import export
+
+    run = work.get_run(scope["run_id"])
+    _head, records = export.native_facts_table(export.native_records(scope["run_id"]))
+    cols = [_col(key, label, "text", hidden=key in {"item_id", "fact_id", "result_version", "proposal", "reading_gaps"})
+            for key, label in zip(export.NATIVE_COLUMNS, export.NATIVE_HEAD, strict=True)]
+    return cols, _zip_rows(list(export.NATIVE_COLUMNS), records, run, lambda row: f"{row['item_id']}:{row['fact_id']}")
+
+
 def _line_items(scope: dict[str, str]) -> Rows:
     from jav import export
 
@@ -659,6 +672,7 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("email_tasks", "Feladatjavaslatok", ("run_id",), _email_tasks, _run_fingerprint),
     Dataset("documents", "Iratok", ("run_id",), _documents, _run_fingerprint),
     Dataset("datapoints", "Adatpontok", ("run_id",), _datapoints, _run_fingerprint),
+    Dataset("native_facts", "Native facts", ("run_id",), _native_facts, _run_fingerprint),
     Dataset("line_items", "Tételsorok", ("run_id",), _line_items, _run_fingerprint),
     Dataset("utility_cost", "Közmű-költség havonta", ("run_id",), _utility_cost, _run_fingerprint),
     Dataset("utility_sources", "Közmű-költség forrásai", ("run_id",), _utility_sources, _run_fingerprint),

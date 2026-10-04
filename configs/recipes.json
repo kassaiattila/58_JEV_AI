@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "recipes",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "changelog": [
+   {
+    "version": "1.11.0",
+    "date": "2026-10-04",
+    "note": "Add explicit mixed PDF, DOCX, XLSX, TXT and CSV processing. Native items use bounded GPT extraction with optional JEV verification; PDF items keep their existing processing path."
+   },
    {
     "version": "1.10.0",
     "date": "2026-10-02",
@@ -206,6 +211,37 @@
       "jev"
      ]
     }
+   ],
+   "max_attempts": 2
+  },
+  {
+   "id": "multi-format-processing",
+   "version": 1,
+   "status": "active",
+   "title": "Multi-format processing",
+   "description": "Read PDF, Word, Excel, UTF-8 text and CSV documents in one package. Preserve original source structure and review extracted facts before approval.",
+   "steps": ["Read the frozen source", "Extract source-bound facts", "Review values and sources", "Approve and export"],
+   "requirements": ["At least one supported document", "A budget for the selected providers", "GPT extraction for native documents"],
+   "result": "Versioned extracted facts with original proposals, source locations, reading gaps and human corrections.",
+   "manual_action": "Resolve review reasons, check the source and approve the reviewed result version.",
+   "flow": "document",
+   "flows_by_suffix": {".pdf": "document", ".docx": "native", ".xlsx": "native", ".txt": "native", ".csv": "native"},
+   "input_kinds": ["document"],
+   "file_suffixes": [".pdf", ".docx", ".xlsx", ".txt", ".csv"],
+   "params": {
+    "arm": {"allowed": ["auto", "S", "G"], "default": "auto"},
+    "jev_cache": {"allowed": ["reuse", "live"], "default": "reuse"},
+    "azure_ocr": {"allowed": ["on", "off"], "default": "off"},
+    "jev": {"allowed": ["on", "off"], "default": "on"}
+   },
+   "max_item_usd": {
+    "S": {"jev": "0.07", "openai": "0.15"},
+    "G": {"jev": "0.07", "openai": "0.15"},
+    "auto": {"jev": "0.07", "openai": "0.15"}
+   },
+   "param_item_usd": [
+    {"param": "azure_ocr", "value": "on", "usd": {"azure_di": "0.02"}, "kind": "document"},
+    {"param": "jev", "value": "off", "usd": {"openai": "0.07"}, "drop": ["jev"], "kind": "document"}
    ],
    "max_attempts": 2
   },

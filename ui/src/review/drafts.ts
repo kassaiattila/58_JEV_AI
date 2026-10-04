@@ -5,18 +5,24 @@
 // the UI reports a conflict and does not blindly save over it.
 // 048: the draft of a line-item list is the whole list (rows, text per cell; for a simple list, the `*` column).
 import { useSyncExternalStore } from "react";
+import type { Citation } from "../native";
 
 export interface Draft {
   baseRevision: number;
   values: Record<string, string>; // field -> typed / chosen value
   sources: Record<string, number[]>; // field -> the words selected on the image
   lists?: Record<string, ListRow[]>; // line-item list -> the edited rows (the whole list)
+  baseResultVersion?: string;
+  nativeValues?: Record<string, string | null>;
+  nativeSources?: Record<string, Citation[]>;
+  nativeCitationEdits?: Record<string, { element: string; quote: string }>;
 }
 
 export type ListRow = Record<string, string>;
 
 /** Whether the draft has an unsaved change (a field or a line-item list). */
-export const isDirty = (d: Draft | undefined) => Boolean(d && (Object.keys(d.values).length || Object.keys(d.lists ?? {}).length));
+export const isDirty = (d: Draft | undefined) => Boolean(d && (Object.keys(d.values).length || Object.keys(d.lists ?? {}).length
+  || Object.keys(d.nativeValues ?? {}).length || Object.keys(d.nativeSources ?? {}).length || Object.keys(d.nativeCitationEdits ?? {}).length));
 
 const store = new Map<string, Draft>();
 const listeners = new Set<() => void>();
@@ -133,6 +139,46 @@ export function settleDraft(key: string, sent: Draft | undefined, baseRevision: 
 
 export function clearDraft(key: string): void {
   store.delete(key);
+  emit();
+}
+
+/** A native draft stays attached to the exact publication it was written against. */
+export function setNativeField(key: string, revision: number, version: string, field: string, value: string | null): void {
+  const d = store.get(key) ?? { baseRevision: revision, baseResultVersion: version, values: {}, sources: {} };
+  store.set(key, { ...d, nativeValues: { ...d.nativeValues, [field]: value }, nativeSources: { ...d.nativeSources, [field]: [] } });
+  emit();
+}
+
+export function setNativeSources(key: string, revision: number, version: string, field: string, citations: Citation[]): void {
+  const d = store.get(key) ?? { baseRevision: revision, baseResultVersion: version, values: {}, sources: {} };
+  store.set(key, { ...d, nativeSources: { ...d.nativeSources, [field]: citations } });
+  emit();
+}
+
+/** Unchecked citation text also survives item switches and reloads; it is never sent as a verified citation. */
+export function setNativeCitationEdit(key: string, revision: number, version: string, field: string, edit: { element: string; quote: string } | null): void {
+  const d = store.get(key) ?? { baseRevision: revision, baseResultVersion: version, values: {}, sources: {} };
+  const nativeCitationEdits = { ...d.nativeCitationEdits };
+  if (edit) nativeCitationEdits[field] = edit; else delete nativeCitationEdits[field];
+  const next = { ...d, nativeCitationEdits };
+  if (isDirty(next)) store.set(key, next); else store.delete(key);
+  emit();
+}
+
+export function settleNativeDraft(key: string, sent: Draft | undefined, revision: number, version: string): void {
+  const d = store.get(key);
+  if (!d || d.baseResultVersion !== version) return;
+  const nativeValues = { ...d.nativeValues };
+  const nativeSources = { ...d.nativeSources };
+  const fields = new Set([...Object.keys(nativeValues), ...Object.keys(nativeSources)]);
+  for (const f of fields) {
+    // Presence matters: null, empty text and an absent override are different states.
+    const snapshot = (x: Draft | undefined) => JSON.stringify([Object.hasOwn(x?.nativeValues ?? {}, f), x?.nativeValues?.[f],
+      Object.hasOwn(x?.nativeSources ?? {}, f), x?.nativeSources?.[f]]);
+    if (sent && snapshot(sent) === snapshot(d)) { delete nativeValues[f]; delete nativeSources[f]; }
+  }
+  const next = { ...d, baseRevision: revision, nativeValues, nativeSources };
+  if (isDirty(next)) store.set(key, next); else store.delete(key);
   emit();
 }
 

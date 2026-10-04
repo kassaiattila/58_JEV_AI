@@ -1,9 +1,9 @@
 # FLOW — email_learning
 
-> A flow-modul `CONTRACT`-jából generálva (`jav/contract.py`, `python -m jav.cli flows`). Ne szerkeszd kézzel -
-> generáld újra. A fázisonként csoportosított gráf a FLOW.mmd.
+> Generated from the flow module's `CONTRACT` (`jav/contract.py`, `python -m jav.cli flows`).
+> Regenerate this file instead of editing it. FLOW.mmd groups the graph by phase.
 
-## Fázisok és lépések
+## Phases and steps
 
 ### baseline
 - **baseline** _(jev)_ — Változatlan M3-kérdések az új mintán; saját válasznapló.
@@ -20,11 +20,11 @@
 ### terminal
 - **done** _(terminal)_ — Tartós kísérleti eredmény; kézi címkézés külön parancs.
 
-Terminális lépések: done
+Terminal steps: done
 
 > Opt-in M3-próba: jav.email_learning_runtime; üzemi út és küszöbök változatlanok.
 
-## Gráf (Mermaid)
+## Graph (Mermaid)
 
 ```mermaid
 flowchart TD

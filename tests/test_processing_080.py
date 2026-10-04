@@ -39,10 +39,10 @@ def _email(tmp_path: Path, name: str = "level") -> Path:
 
 
 def test_catalogue_offers_only_the_active_processing(isolated):
-    assert [r["id"] for r in work_views.recipe_catalog()] == ["processing"]
+    assert [r["id"] for r in work_views.recipe_catalog()] == ["processing", "multi-format-processing"]
     assert work.default_recipe()["id"] == "processing"
     status = {r["id"]: r.get("status", "active") for r in work.recipes()}
-    assert status == {"processing": "active", "invoice-extraction": "internal",
+    assert status == {"processing": "active", "multi-format-processing": "active", "invoice-extraction": "internal",
                       "document-processing": "retired", "email-intent": "retired"}
     p = work.recipe("processing")
     assert p["flows"] == {"email": "email", "document": "document"} and set(p["input_kinds"]) == {"email", "document"}
@@ -171,15 +171,15 @@ def test_cli_lists_every_status_and_migrates_on_request(isolated, capsys):
     assert work.current_assignment(wp["id"])["recipe_id"] == "processing"
 
 
-def test_service_offers_one_processing_but_knows_every_title(isolated):
+def test_service_offers_active_processing_and_knows_every_title(isolated):
     from fastapi.testclient import TestClient
 
     from jav import api
 
     client = TestClient(api.create_app(store_path=isolated / "w.sqlite"), base_url="http://127.0.0.1:8930")
     body = client.get("/api/recipes").json()
-    assert [r["id"] for r in body["recipes"]] == ["processing"]
-    assert set(body["titles"]) == {"processing", "invoice-extraction", "document-processing", "email-intent"}
+    assert [r["id"] for r in body["recipes"]] == ["processing", "multi-format-processing"]
+    assert set(body["titles"]) == {"processing", "multi-format-processing", "invoice-extraction", "document-processing", "email-intent"}
 
 
 def test_watched_folder_saved_with_a_retired_recipe_moves_onto_the_processing(isolated):

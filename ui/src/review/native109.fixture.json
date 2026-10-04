@@ -1,0 +1,1040 @@
+{
+  "description": "Synthetic contract examples only; not execution or accuracy evidence",
+  "formats": [
+    {
+      "suffix": ".pdf",
+      "label": "PDF",
+      "flow": "document",
+      "source_view": "pdf"
+    },
+    {
+      "suffix": ".docx",
+      "label": "Word",
+      "flow": "native",
+      "source_view": "word"
+    },
+    {
+      "suffix": ".xlsx",
+      "label": "Excel",
+      "flow": "native",
+      "source_view": "cells"
+    },
+    {
+      "suffix": ".txt",
+      "label": "UTF-8 text",
+      "flow": "native",
+      "source_view": "text"
+    },
+    {
+      "suffix": ".csv",
+      "label": "UTF-8 comma-separated values",
+      "flow": "native",
+      "source_view": "cells"
+    }
+  ],
+  "items": {
+    "complete": {
+      "run_id": "synthetic-native-run",
+      "item_id": "synthetic-native-item",
+      "kind": "document",
+      "result_kind": "native",
+      "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "review_version": "f814472ad6c5ea7186e3f4c2eab5dbc04c5a78b5dd99884f424a5ef2669e39b3",
+      "result_ready": true,
+      "native_source": {
+        "reading_id": "nr-4f614c549c38e95d8f65a8cb357b20bcdfc2ed4a090ee4e28574c67de7d33232",
+        "bundle_sha256": "fc41e575dff722a5b11f8829ba4e9a09a6b79371651ff9bf6c5129efa3577121",
+        "publication_id": "np-7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+        "source_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec"
+      },
+      "reading": {
+        "status": "complete",
+        "acquisition_status": "complete",
+        "attempt_ids": [
+          "read:o0"
+        ],
+        "results": [
+          {
+            "occurrence_id": "o0",
+            "attempt_id": "read:o0",
+            "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a",
+            "status": "complete",
+            "issues": []
+          }
+        ]
+      },
+      "interpretation_outcome": {
+        "receipt_refs": [
+          {
+            "kind": "invocation",
+            "receipt_id": "synthetic-invocation-1",
+            "invocation_id": 1,
+            "provider": "openai",
+            "run_id": "synthetic-native-graph",
+            "step_id": "reader:gpt:synthetic",
+            "request_sha256": "5204e4b71093e82122ae013ae183e699dd0ffab865b0579aa5c70d6929529176",
+            "response_sha256": "192880d9c06e4959b4352c447bd7cb4490ac8338dab5186603575baffdcae069",
+            "artifact_kind": "invocation_response",
+            "artifact_id": "1",
+            "call_status": "succeeded",
+            "cost_known": true,
+            "cost_usd": "0.00012",
+            "replayed": false,
+            "reused_from": null
+          }
+        ],
+        "reason": null,
+        "status": "succeeded"
+      },
+      "interpretation": {
+        "interpretation_id": "ni-909c1f7a55cad87ca067927bccbd49d9169dbc4b863fd4b5b0ffe44d622937ab",
+        "payload_sha256": "909c1f7a55cad87ca067927bccbd49d9169dbc4b863fd4b5b0ffe44d622937ab",
+        "status": "completed",
+        "provider": "openai",
+        "model": "synthetic-model",
+        "execution": "synthetic_test",
+        "gaps": [],
+        "review_status": "not_reviewed",
+        "correctness": "not_established"
+      },
+      "native_facts": [
+        {
+          "fact_id": "nf-c3661b692dd97a100c135683",
+          "proposal": {
+            "entity": "document",
+            "property": "reference",
+            "value": "0012",
+            "unit": null,
+            "role": null,
+            "related_entity": null,
+            "state": "stated",
+            "citations": [
+              {
+                "occurrence_id": "o0",
+                "element_id": "e0",
+                "quote": "0012"
+              }
+            ]
+          },
+          "grounding": "literal_match",
+          "reasons": [],
+          "semantic_support": null,
+          "selection_confidence": null,
+          "effective_value": "0012",
+          "native_citations": [
+            {
+              "occurrence_id": "o0",
+              "element_id": "e0",
+              "quote": "0012",
+              "locator": {
+                "kind": "text",
+                "text_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+                "start": 0,
+                "end": 33
+              },
+              "attempt_id": "read:o0",
+              "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a",
+              "reading_id": "nr-4f614c549c38e95d8f65a8cb357b20bcdfc2ed4a090ee4e28574c67de7d33232",
+              "publication_id": "np-7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+              "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+              "source_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+              "quote_match_count": 1,
+              "quote_span": {
+                "kind": "text",
+                "text_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+                "start": 13,
+                "end": 17
+              }
+            }
+          ],
+          "confirmed": false
+        }
+      ],
+      "correction": {
+        "revision": 0,
+        "fields": {},
+        "native_sources": {},
+        "confirmed": {}
+      },
+      "source_file": {
+        "copy": true,
+        "original": "unchanged"
+      },
+      "open_reasons": [],
+      "earlier_open_reasons": []
+    },
+    "partial": {
+      "run_id": "synthetic-native-run",
+      "item_id": "synthetic-native-item",
+      "kind": "document",
+      "result_kind": "native",
+      "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "review_version": "f814472ad6c5ea7186e3f4c2eab5dbc04c5a78b5dd99884f424a5ef2669e39b3",
+      "result_ready": true,
+      "native_source": {
+        "reading_id": "nr-4f614c549c38e95d8f65a8cb357b20bcdfc2ed4a090ee4e28574c67de7d33232",
+        "bundle_sha256": "fc41e575dff722a5b11f8829ba4e9a09a6b79371651ff9bf6c5129efa3577121",
+        "publication_id": "np-7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+        "source_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec"
+      },
+      "reading": {
+        "status": "partial",
+        "acquisition_status": "complete",
+        "attempt_ids": [
+          "read:o0"
+        ],
+        "results": [
+          {
+            "occurrence_id": "o0",
+            "attempt_id": "read:o0",
+            "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a",
+            "status": "partial",
+            "issues": [
+              {
+                "stage": "reading",
+                "code": "unread_content",
+                "message": "Synthetic embedded image was not read",
+                "element_id": null
+              }
+            ]
+          }
+        ]
+      },
+      "interpretation_outcome": {
+        "receipt_refs": [
+          {
+            "kind": "invocation",
+            "receipt_id": "synthetic-invocation-1",
+            "invocation_id": 1,
+            "provider": "openai",
+            "run_id": "synthetic-native-graph",
+            "step_id": "reader:gpt:synthetic",
+            "request_sha256": "5204e4b71093e82122ae013ae183e699dd0ffab865b0579aa5c70d6929529176",
+            "response_sha256": "192880d9c06e4959b4352c447bd7cb4490ac8338dab5186603575baffdcae069",
+            "artifact_kind": "invocation_response",
+            "artifact_id": "1",
+            "call_status": "succeeded",
+            "cost_known": true,
+            "cost_usd": "0.00012",
+            "replayed": false,
+            "reused_from": null
+          }
+        ],
+        "reason": null,
+        "status": "succeeded"
+      },
+      "interpretation": {
+        "interpretation_id": "ni-909c1f7a55cad87ca067927bccbd49d9169dbc4b863fd4b5b0ffe44d622937ab",
+        "payload_sha256": "909c1f7a55cad87ca067927bccbd49d9169dbc4b863fd4b5b0ffe44d622937ab",
+        "status": "completed",
+        "provider": "openai",
+        "model": "synthetic-model",
+        "execution": "synthetic_test",
+        "gaps": [],
+        "review_status": "not_reviewed",
+        "correctness": "not_established"
+      },
+      "native_facts": [
+        {
+          "fact_id": "nf-c3661b692dd97a100c135683",
+          "proposal": {
+            "entity": "document",
+            "property": "reference",
+            "value": "0012",
+            "unit": null,
+            "role": null,
+            "related_entity": null,
+            "state": "stated",
+            "citations": [
+              {
+                "occurrence_id": "o0",
+                "element_id": "e0",
+                "quote": "0012"
+              }
+            ]
+          },
+          "grounding": "literal_match",
+          "reasons": [],
+          "semantic_support": null,
+          "selection_confidence": null,
+          "effective_value": "0012",
+          "native_citations": [
+            {
+              "occurrence_id": "o0",
+              "element_id": "e0",
+              "quote": "0012",
+              "locator": {
+                "kind": "text",
+                "text_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+                "start": 0,
+                "end": 33
+              },
+              "attempt_id": "read:o0",
+              "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a",
+              "reading_id": "nr-4f614c549c38e95d8f65a8cb357b20bcdfc2ed4a090ee4e28574c67de7d33232",
+              "publication_id": "np-7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+              "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+              "source_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+              "quote_match_count": 1,
+              "quote_span": {
+                "kind": "text",
+                "text_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+                "start": 13,
+                "end": 17
+              }
+            }
+          ],
+          "confirmed": false
+        }
+      ],
+      "correction": {
+        "revision": 0,
+        "fields": {},
+        "native_sources": {},
+        "confirmed": {}
+      },
+      "source_file": {
+        "copy": true,
+        "original": "unchanged"
+      },
+      "open_reasons": [],
+      "earlier_open_reasons": []
+    },
+    "empty_success": {
+      "run_id": "synthetic-native-run",
+      "item_id": "synthetic-native-item",
+      "kind": "document",
+      "result_kind": "native",
+      "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "review_version": "f814472ad6c5ea7186e3f4c2eab5dbc04c5a78b5dd99884f424a5ef2669e39b3",
+      "result_ready": true,
+      "native_source": {
+        "reading_id": "nr-4f614c549c38e95d8f65a8cb357b20bcdfc2ed4a090ee4e28574c67de7d33232",
+        "bundle_sha256": "fc41e575dff722a5b11f8829ba4e9a09a6b79371651ff9bf6c5129efa3577121",
+        "publication_id": "np-7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+        "source_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec"
+      },
+      "reading": {
+        "status": "complete",
+        "acquisition_status": "complete",
+        "attempt_ids": [
+          "read:o0"
+        ],
+        "results": [
+          {
+            "occurrence_id": "o0",
+            "attempt_id": "read:o0",
+            "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a",
+            "status": "complete",
+            "issues": []
+          }
+        ]
+      },
+      "interpretation_outcome": {
+        "receipt_refs": [
+          {
+            "kind": "invocation",
+            "receipt_id": "synthetic-invocation-1",
+            "invocation_id": 1,
+            "provider": "openai",
+            "run_id": "synthetic-native-graph",
+            "step_id": "reader:gpt:synthetic",
+            "request_sha256": "5204e4b71093e82122ae013ae183e699dd0ffab865b0579aa5c70d6929529176",
+            "response_sha256": "192880d9c06e4959b4352c447bd7cb4490ac8338dab5186603575baffdcae069",
+            "artifact_kind": "invocation_response",
+            "artifact_id": "1",
+            "call_status": "succeeded",
+            "cost_known": true,
+            "cost_usd": "0.00012",
+            "replayed": false,
+            "reused_from": null
+          }
+        ],
+        "reason": null,
+        "status": "succeeded"
+      },
+      "interpretation": {
+        "interpretation_id": "ni-909c1f7a55cad87ca067927bccbd49d9169dbc4b863fd4b5b0ffe44d622937ab",
+        "payload_sha256": "909c1f7a55cad87ca067927bccbd49d9169dbc4b863fd4b5b0ffe44d622937ab",
+        "status": "empty",
+        "provider": "openai",
+        "model": "synthetic-model",
+        "execution": "synthetic_test",
+        "gaps": [],
+        "review_status": "not_reviewed",
+        "correctness": "not_established"
+      },
+      "native_facts": [],
+      "correction": {
+        "revision": 0,
+        "fields": {},
+        "native_sources": {},
+        "confirmed": {}
+      },
+      "source_file": {
+        "copy": true,
+        "original": "unchanged"
+      },
+      "open_reasons": [],
+      "earlier_open_reasons": []
+    },
+    "corrected": {
+      "run_id": "synthetic-native-run",
+      "item_id": "synthetic-native-item",
+      "kind": "document",
+      "result_kind": "native",
+      "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "review_version": "f814472ad6c5ea7186e3f4c2eab5dbc04c5a78b5dd99884f424a5ef2669e39b3",
+      "result_ready": true,
+      "native_source": {
+        "reading_id": "nr-4f614c549c38e95d8f65a8cb357b20bcdfc2ed4a090ee4e28574c67de7d33232",
+        "bundle_sha256": "fc41e575dff722a5b11f8829ba4e9a09a6b79371651ff9bf6c5129efa3577121",
+        "publication_id": "np-7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+        "source_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec"
+      },
+      "reading": {
+        "status": "complete",
+        "acquisition_status": "complete",
+        "attempt_ids": [
+          "read:o0"
+        ],
+        "results": [
+          {
+            "occurrence_id": "o0",
+            "attempt_id": "read:o0",
+            "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a",
+            "status": "complete",
+            "issues": []
+          }
+        ]
+      },
+      "interpretation_outcome": {
+        "receipt_refs": [
+          {
+            "kind": "invocation",
+            "receipt_id": "synthetic-invocation-1",
+            "invocation_id": 1,
+            "provider": "openai",
+            "run_id": "synthetic-native-graph",
+            "step_id": "reader:gpt:synthetic",
+            "request_sha256": "5204e4b71093e82122ae013ae183e699dd0ffab865b0579aa5c70d6929529176",
+            "response_sha256": "192880d9c06e4959b4352c447bd7cb4490ac8338dab5186603575baffdcae069",
+            "artifact_kind": "invocation_response",
+            "artifact_id": "1",
+            "call_status": "succeeded",
+            "cost_known": true,
+            "cost_usd": "0.00012",
+            "replayed": false,
+            "reused_from": null
+          }
+        ],
+        "reason": null,
+        "status": "succeeded"
+      },
+      "interpretation": {
+        "interpretation_id": "ni-909c1f7a55cad87ca067927bccbd49d9169dbc4b863fd4b5b0ffe44d622937ab",
+        "payload_sha256": "909c1f7a55cad87ca067927bccbd49d9169dbc4b863fd4b5b0ffe44d622937ab",
+        "status": "completed",
+        "provider": "openai",
+        "model": "synthetic-model",
+        "execution": "synthetic_test",
+        "gaps": [],
+        "review_status": "not_reviewed",
+        "correctness": "not_established"
+      },
+      "native_facts": [
+        {
+          "fact_id": "nf-c3661b692dd97a100c135683",
+          "proposal": {
+            "entity": "document",
+            "property": "reference",
+            "value": "0012",
+            "unit": null,
+            "role": null,
+            "related_entity": null,
+            "state": "stated",
+            "citations": [
+              {
+                "occurrence_id": "o0",
+                "element_id": "e0",
+                "quote": "0012"
+              }
+            ]
+          },
+          "grounding": "literal_match",
+          "reasons": [],
+          "semantic_support": null,
+          "selection_confidence": null,
+          "effective_value": "0099",
+          "native_citations": [],
+          "confirmed": true
+        }
+      ],
+      "correction": {
+        "revision": 1,
+        "fields": {
+          "nf-c3661b692dd97a100c135683": "0099"
+        },
+        "native_sources": {
+          "nf-c3661b692dd97a100c135683": []
+        },
+        "confirmed": {
+          "nf-c3661b692dd97a100c135683": "0099"
+        }
+      },
+      "source_file": {
+        "copy": true,
+        "original": "unchanged"
+      },
+      "open_reasons": [],
+      "earlier_open_reasons": []
+    },
+    "not_started": {
+      "run_id": "synthetic-native-run",
+      "item_id": "synthetic-native-item",
+      "kind": "document",
+      "result_kind": "native",
+      "result_version": null,
+      "review_version": "f814472ad6c5ea7186e3f4c2eab5dbc04c5a78b5dd99884f424a5ef2669e39b3",
+      "result_ready": false,
+      "native_source": null,
+      "reading": {
+        "status": "not_attempted",
+        "acquisition_status": "not_attempted",
+        "attempt_ids": [],
+        "results": []
+      },
+      "interpretation_outcome": {
+        "receipt_refs": [],
+        "reason": null,
+        "status": "not_started"
+      },
+      "interpretation": null,
+      "native_facts": [],
+      "correction": {
+        "revision": 0,
+        "fields": {},
+        "native_sources": {},
+        "confirmed": {}
+      },
+      "source_file": {
+        "copy": true,
+        "original": "unchanged"
+      },
+      "open_reasons": [],
+      "earlier_open_reasons": []
+    },
+    "running": {
+      "run_id": "synthetic-native-run",
+      "item_id": "synthetic-native-item",
+      "kind": "document",
+      "result_kind": "native",
+      "result_version": null,
+      "review_version": "f814472ad6c5ea7186e3f4c2eab5dbc04c5a78b5dd99884f424a5ef2669e39b3",
+      "result_ready": false,
+      "native_source": null,
+      "reading": {
+        "status": "not_attempted",
+        "acquisition_status": "not_attempted",
+        "attempt_ids": [],
+        "results": []
+      },
+      "interpretation_outcome": {
+        "receipt_refs": [],
+        "reason": null,
+        "status": "running"
+      },
+      "interpretation": null,
+      "native_facts": [],
+      "correction": {
+        "revision": 0,
+        "fields": {},
+        "native_sources": {},
+        "confirmed": {}
+      },
+      "source_file": {
+        "copy": true,
+        "original": "unchanged"
+      },
+      "open_reasons": [],
+      "earlier_open_reasons": []
+    },
+    "rejected": {
+      "run_id": "synthetic-native-run",
+      "item_id": "synthetic-native-item",
+      "kind": "document",
+      "result_kind": "native",
+      "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "review_version": "f814472ad6c5ea7186e3f4c2eab5dbc04c5a78b5dd99884f424a5ef2669e39b3",
+      "result_ready": true,
+      "native_source": {
+        "reading_id": "nr-4f614c549c38e95d8f65a8cb357b20bcdfc2ed4a090ee4e28574c67de7d33232",
+        "bundle_sha256": "fc41e575dff722a5b11f8829ba4e9a09a6b79371651ff9bf6c5129efa3577121",
+        "publication_id": "np-7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+        "source_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec"
+      },
+      "reading": {
+        "status": "complete",
+        "acquisition_status": "complete",
+        "attempt_ids": [
+          "read:o0"
+        ],
+        "results": [
+          {
+            "occurrence_id": "o0",
+            "attempt_id": "read:o0",
+            "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a",
+            "status": "complete",
+            "issues": []
+          }
+        ]
+      },
+      "interpretation_outcome": {
+        "receipt_refs": [
+          {
+            "kind": "invocation",
+            "receipt_id": "synthetic-invocation-1",
+            "invocation_id": 1,
+            "provider": "openai",
+            "run_id": "synthetic-native-graph",
+            "step_id": "reader:gpt:synthetic",
+            "request_sha256": "5204e4b71093e82122ae013ae183e699dd0ffab865b0579aa5c70d6929529176",
+            "response_sha256": "192880d9c06e4959b4352c447bd7cb4490ac8338dab5186603575baffdcae069",
+            "artifact_kind": "invocation_response",
+            "artifact_id": "1",
+            "call_status": "succeeded",
+            "cost_known": true,
+            "cost_usd": "0.00012",
+            "replayed": false,
+            "reused_from": null
+          }
+        ],
+        "reason": "Received answer failed validation",
+        "status": "rejected"
+      },
+      "interpretation": null,
+      "native_facts": [],
+      "correction": {
+        "revision": 0,
+        "fields": {},
+        "native_sources": {},
+        "confirmed": {}
+      },
+      "source_file": {
+        "copy": true,
+        "original": "unchanged"
+      },
+      "open_reasons": [],
+      "earlier_open_reasons": []
+    },
+    "failed": {
+      "run_id": "synthetic-native-run",
+      "item_id": "synthetic-native-item",
+      "kind": "document",
+      "result_kind": "native",
+      "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "review_version": "f814472ad6c5ea7186e3f4c2eab5dbc04c5a78b5dd99884f424a5ef2669e39b3",
+      "result_ready": true,
+      "native_source": {
+        "reading_id": "nr-4f614c549c38e95d8f65a8cb357b20bcdfc2ed4a090ee4e28574c67de7d33232",
+        "bundle_sha256": "fc41e575dff722a5b11f8829ba4e9a09a6b79371651ff9bf6c5129efa3577121",
+        "publication_id": "np-7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+        "source_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec"
+      },
+      "reading": {
+        "status": "complete",
+        "acquisition_status": "complete",
+        "attempt_ids": [
+          "read:o0"
+        ],
+        "results": [
+          {
+            "occurrence_id": "o0",
+            "attempt_id": "read:o0",
+            "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a",
+            "status": "complete",
+            "issues": []
+          }
+        ]
+      },
+      "interpretation_outcome": {
+        "receipt_refs": [],
+        "reason": "Synthetic request exceeded its transfer bound",
+        "status": "failed"
+      },
+      "interpretation": null,
+      "native_facts": [],
+      "correction": {
+        "revision": 0,
+        "fields": {},
+        "native_sources": {},
+        "confirmed": {}
+      },
+      "source_file": {
+        "copy": true,
+        "original": "unchanged"
+      },
+      "open_reasons": [],
+      "earlier_open_reasons": []
+    },
+    "uncertain": {
+      "run_id": "synthetic-native-run",
+      "item_id": "synthetic-native-item",
+      "kind": "document",
+      "result_kind": "native",
+      "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "review_version": "f814472ad6c5ea7186e3f4c2eab5dbc04c5a78b5dd99884f424a5ef2669e39b3",
+      "result_ready": true,
+      "native_source": {
+        "reading_id": "nr-4f614c549c38e95d8f65a8cb357b20bcdfc2ed4a090ee4e28574c67de7d33232",
+        "bundle_sha256": "fc41e575dff722a5b11f8829ba4e9a09a6b79371651ff9bf6c5129efa3577121",
+        "publication_id": "np-7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+        "source_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec"
+      },
+      "reading": {
+        "status": "complete",
+        "acquisition_status": "complete",
+        "attempt_ids": [
+          "read:o0"
+        ],
+        "results": [
+          {
+            "occurrence_id": "o0",
+            "attempt_id": "read:o0",
+            "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a",
+            "status": "complete",
+            "issues": []
+          }
+        ]
+      },
+      "interpretation_outcome": {
+        "receipt_refs": [
+          {
+            "kind": "invocation",
+            "receipt_id": "synthetic-invocation-1",
+            "invocation_id": 1,
+            "provider": "openai",
+            "run_id": "synthetic-native-graph",
+            "step_id": "reader:gpt:synthetic",
+            "request_sha256": "5204e4b71093e82122ae013ae183e699dd0ffab865b0579aa5c70d6929529176",
+            "response_sha256": null,
+            "artifact_kind": null,
+            "artifact_id": null,
+            "call_status": "uncertain",
+            "cost_known": false,
+            "cost_usd": null,
+            "replayed": false,
+            "reused_from": null
+          }
+        ],
+        "reason": "Synthetic response transport was interrupted",
+        "status": "uncertain"
+      },
+      "interpretation": null,
+      "native_facts": [],
+      "correction": {
+        "revision": 0,
+        "fields": {},
+        "native_sources": {},
+        "confirmed": {}
+      },
+      "source_file": {
+        "copy": true,
+        "original": "unchanged"
+      },
+      "open_reasons": [],
+      "earlier_open_reasons": []
+    },
+    "unpublished_failure": {
+      "run_id": "synthetic-native-run",
+      "item_id": "synthetic-native-item",
+      "kind": "document",
+      "result_kind": "native",
+      "result_version": null,
+      "review_version": "f814472ad6c5ea7186e3f4c2eab5dbc04c5a78b5dd99884f424a5ef2669e39b3",
+      "result_ready": false,
+      "native_source": null,
+      "reading": {
+        "status": "not_attempted",
+        "acquisition_status": "not_attempted",
+        "attempt_ids": [],
+        "results": []
+      },
+      "interpretation_outcome": {
+        "receipt_refs": [],
+        "reason": "Synthetic request exceeded its transfer bound",
+        "status": "failed"
+      },
+      "interpretation": null,
+      "native_facts": [],
+      "correction": {
+        "revision": 0,
+        "fields": {},
+        "native_sources": {},
+        "confirmed": {}
+      },
+      "source_file": {
+        "copy": true,
+        "original": "unchanged"
+      },
+      "open_reasons": [],
+      "earlier_open_reasons": []
+    }
+  },
+  "source_pages": {
+    "text": {
+      "publication_id": "np-7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "reading_id": "nr-4f614c549c38e95d8f65a8cb357b20bcdfc2ed4a090ee4e28574c67de7d33232",
+      "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "bundle_sha256": "fc41e575dff722a5b11f8829ba4e9a09a6b79371651ff9bf6c5129efa3577121",
+      "source_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+      "occurrences": [
+        {
+          "occurrence_id": "o0",
+          "parent_id": null,
+          "source_version": "synthetic-source",
+          "original_name": "synthetic.txt",
+          "role": "document",
+          "acquisition": "received",
+          "object_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+          "issues": []
+        }
+      ],
+      "results": [
+        {
+          "occurrence_id": "o0",
+          "attempt_id": "read:o0",
+          "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a",
+          "status": "complete",
+          "issues": []
+        }
+      ],
+      "elements": [
+        {
+          "element_id": "e0",
+          "parent_id": null,
+          "order": 0,
+          "kind": "text",
+          "locator": {
+            "kind": "text",
+            "text_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+            "start": 0,
+            "end": 33
+          },
+          "availability": "read",
+          "text": "😀 Azonosító: 0012\nPartner: Példa\n",
+          "cell": null,
+          "hidden": false,
+          "occurrence_id": "o0",
+          "attempt_id": "read:o0",
+          "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a"
+        }
+      ],
+      "texts": {
+        "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec": "😀 Azonosító: 0012\nPartner: Példa\n"
+      },
+      "offset": 0,
+      "limit": 200,
+      "total": 1,
+      "has_more": false,
+      "next_offset": null
+    },
+    "cells": {
+      "publication_id": "np-7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "reading_id": "nr-4f614c549c38e95d8f65a8cb357b20bcdfc2ed4a090ee4e28574c67de7d33232",
+      "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "bundle_sha256": "fc41e575dff722a5b11f8829ba4e9a09a6b79371651ff9bf6c5129efa3577121",
+      "source_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+      "occurrences": [
+        {
+          "occurrence_id": "o0",
+          "parent_id": null,
+          "source_version": "synthetic-source",
+          "original_name": "synthetic.txt",
+          "role": "document",
+          "acquisition": "received",
+          "object_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+          "issues": []
+        }
+      ],
+      "results": [
+        {
+          "occurrence_id": "o0",
+          "attempt_id": "read:o0",
+          "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a",
+          "status": "complete",
+          "issues": []
+        }
+      ],
+      "elements": [
+        {
+          "element_id": "sheet",
+          "parent_id": null,
+          "order": 0,
+          "kind": "sheet",
+          "locator": {
+            "kind": "sheet",
+            "sheet": "Sample"
+          },
+          "availability": "read",
+          "text": null,
+          "cell": null,
+          "hidden": false,
+          "occurrence_id": "o0",
+          "attempt_id": "read:o0",
+          "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a"
+        },
+        {
+          "element_id": "cell1",
+          "parent_id": "sheet",
+          "order": 1,
+          "kind": "cell",
+          "locator": {
+            "kind": "cell",
+            "sheet": "Sample",
+            "cell": "A1",
+            "row": 1,
+            "column": 1
+          },
+          "availability": "read",
+          "text": "0012",
+          "cell": {
+            "value": {
+              "kind": "text",
+              "lexical": "0012"
+            },
+            "formula": null,
+            "cached_value": null,
+            "cached_state": "not_applicable",
+            "hidden": false,
+            "merged_range": null
+          },
+          "hidden": false,
+          "occurrence_id": "o0",
+          "attempt_id": "read:o0",
+          "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a"
+        },
+        {
+          "element_id": "cell2",
+          "parent_id": "sheet",
+          "order": 2,
+          "kind": "cell",
+          "locator": {
+            "kind": "cell",
+            "sheet": "Sample",
+            "cell": "B1",
+            "row": 1,
+            "column": 2
+          },
+          "availability": "empty",
+          "text": null,
+          "cell": {
+            "value": {
+              "kind": "empty",
+              "lexical": null
+            },
+            "formula": null,
+            "cached_value": null,
+            "cached_state": "not_applicable",
+            "hidden": false,
+            "merged_range": null
+          },
+          "hidden": false,
+          "occurrence_id": "o0",
+          "attempt_id": "read:o0",
+          "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a"
+        },
+        {
+          "element_id": "cell3",
+          "parent_id": "sheet",
+          "order": 3,
+          "kind": "cell",
+          "locator": {
+            "kind": "cell",
+            "sheet": "Sample",
+            "cell": "C1",
+            "row": 1,
+            "column": 3
+          },
+          "availability": "read",
+          "text": "3.00",
+          "cell": {
+            "value": {
+              "kind": "decimal",
+              "lexical": "3.00"
+            },
+            "formula": "=1+2",
+            "cached_value": {
+              "kind": "decimal",
+              "lexical": "3.00"
+            },
+            "cached_state": "unverified",
+            "hidden": false,
+            "merged_range": null
+          },
+          "hidden": false,
+          "occurrence_id": "o0",
+          "attempt_id": "read:o0",
+          "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a"
+        }
+      ],
+      "texts": {},
+      "offset": 0,
+      "limit": 200,
+      "total": 4,
+      "has_more": false,
+      "next_offset": null
+    }
+  },
+  "resolve_request": {
+    "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+    "citations": [
+      {
+        "occurrence_id": "o0",
+        "element_id": "e0",
+        "quote": "0012"
+      }
+    ]
+  },
+  "resolve_response": [
+    {
+      "occurrence_id": "o0",
+      "element_id": "e0",
+      "quote": "0012",
+      "locator": {
+        "kind": "text",
+        "text_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+        "start": 0,
+        "end": 33
+      },
+      "attempt_id": "read:o0",
+      "reader_key": "56d1af5af6d21f7b972e8ef7437d56c240ac728172ee7e2d712db41db6e90c8a",
+      "reading_id": "nr-4f614c549c38e95d8f65a8cb357b20bcdfc2ed4a090ee4e28574c67de7d33232",
+      "publication_id": "np-7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+      "source_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+      "quote_match_count": 1,
+      "quote_span": {
+        "kind": "text",
+        "text_sha256": "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec",
+        "start": 13,
+        "end": 17
+      }
+    }
+  ],
+  "correction_request": {
+    "kind": "native",
+    "values": {
+      "nf-c3661b692dd97a100c135683": "0099"
+    },
+    "native_sources": {
+      "nf-c3661b692dd97a100c135683": []
+    },
+    "confirm": [
+      "nf-c3661b692dd97a100c135683"
+    ],
+    "expected_revision": 0,
+    "expected_result_version": "7e868dd739f0c090d5973a555fa6a47d8c427bd4ae4983fcd4e8d1e9cc5ae4a9",
+    "note": "Synthetic human correction"
+  }
+}

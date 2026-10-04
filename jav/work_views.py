@@ -178,11 +178,15 @@ def result_tables(run_id: str) -> list[str]:
         if export.task_rows(export.email_records(run_id)):
             out.append("tasks")
     out += ["documents", "datapoints"] if records else []
+    from jav.native_contracts import NATIVE_SUFFIXES
+
+    if any(i.get("kind") == "document" and Path(i["source_path"]).suffix.lower() in NATIVE_SUFFIXES for i in items):
+        out.append("native_facts")
     if any(any(r.get("lists", {}).values()) for r in records):
         out.append("line_items")
     if report_utility.has_utility(records):
         out.append("utility")
-    if any(i.get("kind") != "email" for i in items):  # 078: content-based names of the documents (also detection only)
+    if any(i.get("kind") != "email" and Path(i["source_path"]).suffix.lower() not in NATIVE_SUFFIXES for i in items):
         out.append("file_names")
     return out
 

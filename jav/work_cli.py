@@ -8,7 +8,7 @@
   wp-assign <wp> <recipe> [--arm S|G] [--doc-type T] [--note N]   assign a recipe (to the current revision)
   run-start <wp> [--mode shadow|apply]     start a run with the input pinned by the current readiness check (idempotent)
   run-list [<wp>] | run-show <run>         runs; one run's items, work queue, cost and to-dos
-  run-cancel <run> | run-approve <run> --actor A
+  run-cancel <run> | run-approve <run> --actor A [--review-version V]
   run-names <run> [--zip F | --to-output]  content-based names of the run's documents; the copies into a ZIP or the
                                            output folder (078; the originals are only read)
   worker [--once] [--max-jobs N]           worker: runs the work-queue items (one instance at a time, with a lock)
@@ -165,7 +165,7 @@ def cmd_run_cancel(args):
 
 def cmd_run_approve(args):
     from jav import work
-    run = work.approve_run(args.run, actor=args.actor)
+    run = work.approve_run(args.run, actor=args.actor, review_version=args.review_version)
     return _out(args, run, f"Jóváhagyva: {run['run_id']} ({run['approved_by']})")
 
 
@@ -287,6 +287,7 @@ def register(sub) -> None:
     p = add("run-approve", cmd_run_approve, "éles futás jóváhagyása (csak nyitott teendő nélkül)")
     p.add_argument("run")
     p.add_argument("--actor", required=True)
+    p.add_argument("--review-version", help="approve exactly this reviewed result version; required for native documents")
     p = add("run-names", cmd_run_names, "078: content-based names of a run's documents; --zip or --to-output writes the copies")
     p.add_argument("run")
     p.add_argument("--zip", help="write the copies and the manifest into this new ZIP file")

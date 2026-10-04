@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.8.0",
+    "version": "1.9.0",
     "changelog": [
+      {
+        "version": "1.9.0",
+        "date": "2026-10-04",
+        "note": "Explain the explicit mixed-format recipe and the separate native reading and human review claims."
+      },
       {
         "version": "1.8.0",
         "date": "2026-10-02",
@@ -56,6 +61,9 @@
     "email": "A rendszer felismeri, mi a levél célja (például számla érkezett, fizetési visszaigazolás, kérdés, hírlevél; JEV, levelenként körülbelül 0,0001 USD), és kódban javasolja a következő lépést. A PDF-csatolmányok iratként futnak, a levélre visszavezetve; kérésre feladatjavaslat is készül."
   },
   "recipes": {
+    "multi-format-processing": {
+      "when": "Use this processing for a package containing PDF, Word, Excel, UTF-8 text or CSV documents. Native documents use GPT extraction with optional JEV verification. The JEV-only path is unavailable without a predefined field contract. Reading gaps remain visible after human review. Azure recognition applies only to PDF documents."
+    },
     "processing": {
       "when": "Minden csomaghoz: vegyes vagy ismeretlen típusú iratokhoz és a postafiókból letöltött levelekhez is. A típust nem kell előre megadni."
     }

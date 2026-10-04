@@ -34,6 +34,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from jav import store, work
+from jav.native_contracts import DOCUMENT_SUFFIXES
 from jav.runtime import lock
 
 log = logging.getLogger("jav.folders")
@@ -86,7 +87,7 @@ CREATE TABLE IF NOT EXISTS app_options (
 );
 """)
 
-SUFFIXES = (".pdf",)
+SUFFIXES = DOCUMENT_SUFFIXES
 OUTPUT_FOLDER_KEY = "output_folder"
 SETTLE_S = 10  # a file modified more recently than this may still be being written: it waits for the next scan
 DEFAULT_INTERVAL_MIN = 15

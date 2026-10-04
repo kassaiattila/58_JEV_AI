@@ -254,6 +254,8 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
         ) : null
       ) : recipe ? (
         <div className="recipe-form">
+          {recipe.file_suffixes?.some((suffix) => [".docx", ".xlsx", ".txt", ".csv"].includes(suffix)) ?
+            <p className="notice small">{t("Native documents use GPT to extract facts; JEV can assess support. The S path with JEV is unavailable for native documents. Azure recognition applies only to PDF files.")}</p> : null}
           {catalogue.length > 1 ? (
             <Picker label={t("Feldolgozás")} value={recipe.id} className="block-picker"
               options={catalogue.map((r) => ({ value: r.id, label: t(r.title) }))}

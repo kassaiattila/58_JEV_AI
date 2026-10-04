@@ -1,9 +1,9 @@
 # FLOW — email_intent
 
-> A flow-modul `CONTRACT`-jából generálva (`jav/contract.py`, `python -m jav.cli flows`). Ne szerkeszd kézzel -
-> generáld újra. A fázisonként csoportosított gráf a FLOW.mmd.
+> Generated from the flow module's `CONTRACT` (`jav/contract.py`, `python -m jav.cli flows`).
+> Regenerate this file instead of editing it. FLOW.mmd groups the graph by phase.
 
-## Fázisok és lépések
+## Phases and steps
 
 ### load
 - **load_message** _(det)_ — inbox/<mailbox>/<msgid>/message.json + fájlok, vagy kész EmailMessage (golden)
@@ -26,11 +26,11 @@
 ### terminal
 - **done** _(terminal)_ — szándék + next_flow mentve
 
-Terminális lépések: done
+Terminal steps: done
 
 > M3 - a bemenet a régi outlook_bridge.ps1 -> jav/ingest_server.py -> inbox-mappa; a next_flow kódban dől el, nem Jev-kérdés.
 
-## Gráf (Mermaid)
+## Graph (Mermaid)
 
 ```mermaid
 flowchart TD

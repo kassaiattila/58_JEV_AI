@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 from jav import cfg, source_instances, store, typepack
+from jav.native_contracts import DOCUMENT_SUFFIXES, NATIVE_SUFFIXES
 from jav.runtime import calls, queue
 
 JOB_KIND = "run_item"
@@ -413,7 +414,7 @@ def remove_item(wp_id: str, item_id: str, *, expected_revision: int) -> dict[str
     return get(wp_id)
 
 
-def create_from_folder(folder: Path, *, name: str | None = None, suffixes: tuple[str, ...] = (".pdf",),
+def create_from_folder(folder: Path, *, name: str | None = None, suffixes: tuple[str, ...] = DOCUMENT_SUFFIXES,
                        owner: str | None = None, recursive: bool = False, exclude: Iterable[Path] = ()) -> dict[str, Any]:
     """Work package from the documents of a folder, in path order: by default its direct contents only; with
     `recursive` (081) every subfolder too, except the folders in `exclude` (the caller passes the output folder of the
@@ -685,7 +686,12 @@ def _run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str,
                 arms: list[str | None]) -> dict[str, Decimal]:
     out: dict[str, Decimal] = {}
     for i, arm in zip(items, arms, strict=True):
-        per = item_budget(r, params, i.get("kind"), arm=arm)
+        if flow_for(r, i) == "native":
+            from jav.native_processing import estimate_limits
+
+            per = dict(estimate_limits(params).provider_limits_usd) if params.get("arm") != "S" else {}
+        else:
+            per = item_budget(r, params, i.get("kind"), arm=arm)
         if arm == "S":
             per.pop("openai", None)
         for provider, v in per.items():
@@ -716,12 +722,17 @@ def run_plan(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, An
     paths = {"S": 0, "G": 0, "unknown": 0}
     for _i, a in docs:
         paths[a if a in ("S", "G") else "unknown"] += 1
-    return {"documents": len(docs), "emails": emails,
+    plan = {"documents": len(docs), "emails": emails,
             "attachments": sum(1 for i, _a in docs if i.get("parent_item_id")), "paths": paths,
             "tasks_emails": emails if value("tasks") == "propose" else 0,
-            "azure": value("azure_ocr") == "on" and bool(docs), "jev_reuse": value("jev_cache") != "live",
+            "azure": value("azure_ocr") == "on" and any(flow_for(r, i) != "native" for i, _a in docs),
+            "jev_reuse": value("jev_cache") != "live",
             "arm": value("arm"),  # 082: with S chosen, a document on the G path has a type without a JEV path
             "jev": not jev_off(r, params)}  # 086: without JEV, GPT recognises the type and every document runs on G
+    if r.get("flows_by_suffix"):
+        plan.update(native_documents=sum(flow_for(r, i) == "native" for i, _a in docs),
+                    item_flows={i["item_id"]: flow_for(r, i) for i in items})
+    return plan
 
 
 def _known_detail_types(items: list[dict[str, Any]]) -> dict[str, str]:
@@ -740,15 +751,22 @@ def _item_arm(r: dict[str, Any], params: dict[str, Any], item: dict[str, Any], k
     """The item's path known in advance (S / G), or None if the type is not known before the run (065)."""
     from jav import typepack
 
-    flow = flow_for(r, item.get("kind"))
+    flow = flow_for(r, item)
+    if flow == "native":
+        return "S" if params.get("arm") == "S" else "G"
     doc_type = params.get("doc_type") if flow == "invoice" else known.get(item.get("sha256", "")) if flow == "document" else None
     arm = "G" if jev_off(r, params) else params.get("arm", "auto")  # 086: without JEV only the G path runs
     return typepack.resolve_arm(doc_type, arm) if doc_type in packs else None
 
 
-def flow_for(r: dict[str, Any], kind: str | None) -> str:
-    """The item's flow: a recipe handling several item kinds chooses per kind (`flows`), otherwise the recipe's
-    flow."""
+def flow_for(r: dict[str, Any], item: dict[str, Any] | str | None) -> str:
+    """Use the frozen source suffix for mixed documents, then the recipe's item-kind routing."""
+    kind = item.get("kind") if isinstance(item, dict) else item
+    if isinstance(item, dict) and kind == "document":
+        suffix = Path(item["source_path"]).suffix.lower()
+        routed = (r.get("flows_by_suffix") or {}).get(suffix)
+        if routed:
+            return routed
     return (r.get("flows") or {}).get(kind or "", r["flow"])
 
 
@@ -777,6 +795,10 @@ def readiness(wp_id: str, *, verify: bool = False) -> dict[str, Any]:
         p = Path(i["source_path"])
         if i["kind"] not in r["input_kinds"] or p.suffix.lower() not in r.get("file_suffixes", [p.suffix.lower()]):
             blockers.append({"code": "unsupported_item", "message": f"The processing does not handle: {p.name}"})
+        elif p.suffix.lower() in NATIVE_SUFFIXES and flow_for(r, i) != "native":
+            blockers.append({"code": "native_recipe_required", "message": f"Choose multi-format processing for: {p.name}"})
+        if flow_for(r, i) == "native" and params.get("arm") == "S":
+            blockers.append({"code": "native_s_unsupported", "message": "Native documents require GPT extraction; the JEV-only path has no predefined field contract."})
         if i.get("instance"):
             if not _instance_ok(i, verify=verify):
                 blockers.append({"code": "instance_damaged", "message": f"The copy kept when it was added is missing or damaged: {p.name}"})
@@ -1045,6 +1067,35 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -
         raise NotReady("run has input items without a finished result")
     with store.connect() as c:
         _begin(c)
+        native_items = [i for i in run["input"]["items"]
+                        if i.get("kind") == "document" and Path(i["source_path"]).suffix.lower() in NATIVE_SUFFIXES]
+        if native_items:
+            from jav import native_results
+
+            if review_version is None:
+                raise RevisionConflict("Native approval requires the exact reviewed version")
+            # Recheck terminal items and open reasons under the approval's write lock.
+            latest = c.execute("SELECT status FROM runs WHERE run_id=?", (run_id,)).fetchone()
+            if latest["status"] != "done":
+                raise NotReady("The run is no longer ready for approval")
+            for item in run["input"]["items"]:
+                result = c.execute("SELECT status FROM run_items WHERE run_id=? AND item_id=?",
+                                   (run_id, item["item_id"])).fetchone()
+                if result is None or result["status"] != "done":
+                    raise NotReady("The run has an unfinished input item")
+                subject_kind, subject_id = review_subject(item)
+                reasons = c.execute("SELECT r.run_id FROM review_reasons r JOIN review_queue q ON q.id=r.review_id"
+                                    " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open'",
+                                    (subject_kind, subject_id)).fetchall()
+                if any(is_own_reason(dict(reason), flow_run_id(run_id, item["item_id"])) for reason in reasons):
+                    raise NotReady("The run still has open review reasons")
+            for item in native_items:
+                publication = native_results.get_publication(run_id, item["item_id"], c=c)
+                if publication is None or publication.interpretation_outcome.status != "succeeded":
+                    raise NotReady("Every native item needs a published successful interpretation")
+                if publication.reading.status not in {"complete", "partial"}:
+                    raise NotReady("The source reading is not suitable for approval")
+                native_results.verify_publication(publication, c=c)
         if review_version is not None and corrections.review_version(run_id, c) != review_version:
             raise RevisionConflict(f"the result of run {run_id} changed since it was reviewed; review it again")
         c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=? WHERE run_id=? AND approval IS NULL",

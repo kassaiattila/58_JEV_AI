@@ -2,6 +2,7 @@
 // request. On error, ApiError: the service's error code (not_found, revision_conflict, not_ready, invalid ...) and its
 // message.
 import { t } from "./i18n";
+import type { Citation, DocumentFormat, NativeCitation, NativeCorrectionRequest, NativeItemResult, NativeSourcePage } from "./native";
 
 export class ApiError extends Error {
   constructor(
@@ -58,6 +59,7 @@ export interface Readiness {
 }
 export interface RecipeParam { allowed?: string[]; allowed_from?: string; default?: string }
 export interface Recipe {
+  file_suffixes?: string[];
   id: string; version: number; status?: "active" | "internal" | "retired"; title: string; description: string; steps: string[]; requirements: string[];
   result: string; manual_action: string; params: Record<string, RecipeParam>; max_item_usd: Record<string, Record<string, string>>;
   // 058 K5.2–K5.3: per-item budget by item kind (email / attachment) and the setting-dependent extra (task proposal)
@@ -461,7 +463,14 @@ export const api = {
   /** 085: `reviewVersion` is the run view's `review_version` the approver saw; a correction saved since gives 409. */
   approve: (runId: string, reviewVersion?: string) =>
     request<RunView>("POST", `/runs/${enc(runId)}/approve`, reviewVersion ? { review_version: reviewVersion } : {}),
-  item: (runId: string, itemId: string) => request<ItemResult>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}`),
+  documentFormats: () => request<{ formats: DocumentFormat[]; native_limits: Record<string, unknown> }>("GET", "/document-formats"),
+  item: (runId: string, itemId: string) => request<ItemResult | NativeItemResult>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}`),
+  nativeSources: (runId: string, itemId: string, version: string, offset = 0) =>
+    request<NativeSourcePage>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}/sources?expected_result_version=${enc(version)}&offset=${offset}&limit=500`),
+  resolveNativeCitations: (runId: string, itemId: string, version: string, citations: Citation[]) =>
+    request<{ result_version: string; citations: NativeCitation[] }>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/citations/resolve`, { expected_result_version: version, citations }),
+  saveNativeCorrection: (runId: string, itemId: string, body: NativeCorrectionRequest) =>
+    request<NativeItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/correction`, body),
   saveCorrection: (runId: string, itemId: string, body: { fields: Record<string, CorrectionValue>; expected_revision: number; note?: string;
     sources?: Record<string, number[]>; confirm?: string[] }) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/correction`, body),

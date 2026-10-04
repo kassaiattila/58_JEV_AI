@@ -1,9 +1,9 @@
 # FLOW — invoice
 
-> A flow-modul `CONTRACT`-jából generálva (`jav/contract.py`, `python -m jav.cli flows`). Ne szerkeszd kézzel -
-> generáld újra. A fázisonként csoportosított gráf a FLOW.mmd.
+> Generated from the flow module's `CONTRACT` (`jav/contract.py`, `python -m jav.cli flows`).
+> Regenerate this file instead of editing it. FLOW.mmd groups the graph by phase.
 
-## Fázisok és lépések
+## Phases and steps
 
 ### load
 - **load_pdf** _(det)_ — pdfplumber szó-szintű rekonstrukció, sha256 doc_id; szövegréteg-teszt; a szóréteg (szókeretek) mentése
@@ -33,11 +33,11 @@
 - **needs_review** _(terminal)_ — human - review-sorban, okokkal
 - **needs_ocr** _(terminal)_ — szöveg nélküli PDF, és az OCR sem adott használható szöveget (vagy nincs OCR-motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja
 
-Terminális lépések: done, needs_review, needs_ocr
+Terminal steps: done, needs_review, needs_ocr
 
 > M2 invoice - két kar egy gráfban (S = jelöltek + Jev Choice, G = gpt + Jev Noul); egyetértés = auto, eltérés = review. Típus-független: a típus-csomag (configs/types/<típus>.json: invoice_hu, invoice_foreign, a közmű-számlák) adja a mezőket, kérdéseket, promptot, validátorokat. Szöveg nélküli PDF-nél OCR-lépés (ocr_pdf) ugyanarra az elrendezésre. Minden AI-hívás az adapteren (cache + ledger + config_hash).
 
-## Gráf (Mermaid)
+## Graph (Mermaid)
 
 ```mermaid
 flowchart TD

@@ -1,7 +1,7 @@
 """081 folder browsing (the owner's trial of 2026-10-01): a package from a folder can take the subfolders too, and every
 path field can be filled from the operating system's own folder or file picker.
 
-Synthetic PDFs, no model calls; the picker's dialog process is replaced by a fake runner.
+Synthetic PDFs and text files, no model calls; the picker's dialog process is replaced by a fake runner.
 """
 
 import json
@@ -30,7 +30,8 @@ def tree(tmp_path: Path):
     _pdf(root / "a.pdf", "MINTA-2026-001")
     _pdf(root / "2026-08" / "b.pdf", "MINTA-2026-002")
     _pdf(root / "2026-09" / "deep" / "c.pdf", "MINTA-2026-003")
-    (root / "2026-09" / "notes.txt").write_text("not a document\n", encoding="utf-8")
+    (root / "2026-09" / "notes.txt").write_text("Synthetic document notes\n", encoding="utf-8")
+    (root / "2026-09" / "ignored.bin").write_bytes(b"Unsupported binary format")
     with store.use_store(tmp_path / "w.sqlite"):
         yield root
 
@@ -44,30 +45,37 @@ def test_folder_without_subfolders_stays_the_default(tree):
     assert _names(wp) == ["a.pdf"]
 
 
-def test_folder_with_subfolders_takes_every_pdf_below_it(tree):
+def test_folder_with_subfolders_takes_every_supported_document_below_it(tree):
     wp = work.create_from_folder(tree, recursive=True)
-    assert _names(wp) == ["a.pdf", "b.pdf", "c.pdf"]
+    assert _names(wp) == ["a.pdf", "b.pdf", "c.pdf", "notes.txt"]
     assert wp["source_ref"] == str(tree.resolve())
+
+
+def test_explicit_pdf_filter_takes_only_pdfs_in_subfolders(tree):
+    wp = work.create_from_folder(tree, recursive=True, suffixes=(".pdf",))
+    assert _names(wp) == ["a.pdf", "b.pdf", "c.pdf"]
 
 
 def test_an_excluded_folder_inside_is_skipped(tree):
     out = tree / "atnevezett"
     _pdf(out / "copy.pdf", "MINTA-2026-009")
+    (out / "copied-notes.txt").write_text("Synthetic output notes\n", encoding="utf-8")
     wp = work.create_from_folder(tree, recursive=True, exclude=[out])
-    assert _names(wp) == ["a.pdf", "b.pdf", "c.pdf"]
+    assert _names(wp) == ["a.pdf", "b.pdf", "c.pdf", "notes.txt"]
 
 
 def test_titles_show_the_subfolder_of_a_file_below_the_package_folder(tree):
     wp = work.create_from_folder(tree, recursive=True)
     titles = work_views.item_titles(wp["items"], root=wp["source_ref"])
     by_name = {Path(i["source_path"]).name: titles.get(i["item_id"]) for i in wp["items"]}
-    assert by_name == {"a.pdf": None, "b.pdf": "2026-08/b.pdf", "c.pdf": "2026-09/deep/c.pdf"}
+    assert by_name == {"a.pdf": None, "b.pdf": "2026-08/b.pdf", "c.pdf": "2026-09/deep/c.pdf",
+                       "notes.txt": "2026-09/notes.txt"}
 
 
 def test_the_package_view_and_the_item_list_use_the_subfolder_titles(tree):
     wp = work.create_from_folder(tree, recursive=True)
     view = work_views.workpackage_view(wp["id"])
-    assert sorted(view["titles"].values()) == ["2026-08/b.pdf", "2026-09/deep/c.pdf"]
+    assert sorted(view["titles"].values()) == ["2026-08/b.pdf", "2026-09/deep/c.pdf", "2026-09/notes.txt"]
 
 
 # --- the local service ---------------------------------------------------------------------------------------------
@@ -81,19 +89,20 @@ def client(tree, tmp_path: Path):
 def test_create_from_folder_over_http_takes_subfolders_only_when_asked(client, tree):
     r = client.post("/api/workpackages", headers=HUMAN, json={"folder": str(tree)})
     assert r.status_code == 201, r.text
-    assert len(r.json()["workpackage"]["items"]) == 1
+    assert _names(r.json()["workpackage"]) == ["a.pdf"]
     r = client.post("/api/workpackages", headers=HUMAN, json={"folder": str(tree), "name": "All", "recursive": True})
     assert r.status_code == 201, r.text
-    assert len(r.json()["workpackage"]["items"]) == 3
+    assert _names(r.json()["workpackage"]) == ["a.pdf", "b.pdf", "c.pdf", "notes.txt"]
 
 
 def test_create_from_folder_over_http_skips_the_output_folder(client, tree, monkeypatch):
     out = tree / "atnevezett"
     _pdf(out / "copy.pdf", "MINTA-2026-009")
+    (out / "copied-notes.txt").write_text("Synthetic output notes\n", encoding="utf-8")
     monkeypatch.setattr(app_settings, "output_folder", lambda: str(out))
     r = client.post("/api/workpackages", headers=HUMAN, json={"folder": str(tree), "recursive": True})
     assert r.status_code == 201, r.text
-    assert len(r.json()["workpackage"]["items"]) == 3
+    assert _names(r.json()["workpackage"]) == ["a.pdf", "b.pdf", "c.pdf", "notes.txt"]
 
 
 class _FakeRunner:

@@ -365,6 +365,27 @@ class SaveCorrection(_In):
     confirm: list[Annotated[str, Field(max_length=64)]] | None = Field(default=None, max_length=100)
 
 
+class NativeCitationRequest(_In):
+    occurrence_id: str = Field(min_length=1, max_length=256)
+    element_id: str = Field(min_length=1, max_length=256)
+    quote: str = Field(min_length=1, max_length=10000)
+
+
+class SaveNativeCorrection(_In):
+    kind: Literal["native"]
+    values: dict[Annotated[str, Field(max_length=256)], Annotated[str, Field(max_length=100000)] | None] = Field(max_length=200)
+    native_sources: dict[Annotated[str, Field(max_length=256)], Annotated[list[NativeCitationRequest], Field(max_length=20)]] = Field(default_factory=dict, max_length=200)
+    expected_revision: Annotated[int, Field(ge=0)]
+    expected_result_version: str = Field(pattern=r"^[0-9a-f]{64}$")
+    confirm: list[Annotated[str, Field(max_length=256)]] = Field(default_factory=list, max_length=200)
+    note: Text | None = None
+
+
+class ResolveNativeCitations(_In):
+    expected_result_version: str = Field(pattern=r"^[0-9a-f]{64}$")
+    citations: list[NativeCitationRequest] = Field(max_length=20)
+
+
 ScheduleId = Annotated[str, PathParam(pattern=r"^mbx-[0-9a-f]{10}$")]
 PullId = Annotated[str, PathParam(pattern=r"^pull-[0-9a-f]{10}$")]
 
@@ -776,7 +797,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.get(r + "/runs/{run_id}/export")
     def run_export(run_id: RunId, format: Literal["csv", "xlsx", "json"] = "xlsx",  # noqa: A002 - legacy endpoint parameter
-                   table: Literal["documents", "datapoints", "line_items"] = "documents") -> Response:
+                   table: Literal["documents", "datapoints", "line_items", "native_facts"] = "documents") -> Response:
         """054 K4: the run's valid data for download (modelled on the legacy V4 export endpoint: attachment + row-count
         header)."""
         from jav import export
@@ -839,6 +860,35 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def item(run_id: RunId, item_id: ItemId) -> dict[str, Any]:
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
+    @app.get(r + "/document-formats")
+    def document_formats() -> dict[str, Any]:
+        from jav.native_contracts import DOCUMENT_FORMATS
+        from jav.native_processing import estimate_limits
+
+        limits = estimate_limits({"jev": "off"})
+        return {"formats": [item.model_dump(mode="json") for item in DOCUMENT_FORMATS],
+                "native_limits": limits.model_dump(mode="json", exclude={"provider_limits_usd"})}
+
+    @app.get(r + "/runs/{run_id}/items/{item_id}/sources")
+    def native_sources(run_id: RunId, item_id: ItemId, offset: Annotated[int, Query(ge=0)] = 0,
+                       limit: Annotated[int, Query(ge=1, le=500)] = 100,
+                       occurrence_id: Annotated[str | None, Query(max_length=256)] = None,
+                       expected_result_version: Annotated[str | None, Query(pattern=r"^[0-9a-f]{64}$")] = None) -> dict[str, Any]:
+        from jav import native_results
+
+        publication = corrections.native_publication(run_id, item_id, expected_result_version=expected_result_version)
+        return native_results.source_elements(publication, offset=offset, limit=limit,
+                                              occurrence_id=occurrence_id).model_dump(mode="json")
+
+    @app.post(r + "/runs/{run_id}/items/{item_id}/citations/resolve")
+    def resolve_native_citations(run_id: RunId, item_id: ItemId, body: ResolveNativeCitations) -> dict[str, Any]:
+        from jav import native_results
+
+        publication = corrections.native_publication(run_id, item_id, expected_result_version=body.expected_result_version)
+        return {"result_version": publication.result_version,
+                "citations": [cite.model_dump(mode="json") for cite in native_results.resolve_citations(
+                    publication, [citation.model_dump() for citation in body.citations])]}
+
     @app.get(r + "/runs/{run_id}/items/{item_id}/words")
     def item_words(run_id: RunId, item_id: ItemId) -> dict[str, Any]:
         """The item's word layer (045): pages and words with 0–1 boxes — for selecting on the image."""
@@ -851,11 +901,17 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                                     "words": [w.model_dump() for w in layer.words]})
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/correction")
-    def save_correction(run_id: RunId, item_id: ItemId, body: SaveCorrection,
+    def save_correction(run_id: RunId, item_id: ItemId, body: SaveCorrection | SaveNativeCorrection,
                         who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         corrections.item_result(run_id, item_id)  # unknown item → 404
-        corrections.save(run_id, item_id, fields=dict(body.fields), expected_revision=body.expected_revision,
-                         actor=who, note=body.note, sources=dict(body.sources) if body.sources else None, confirm=body.confirm)
+        if isinstance(body, SaveNativeCorrection):
+            citations = {key: [cite.model_dump() for cite in refs] for key, refs in body.native_sources.items()}
+            corrections.save_native(run_id, item_id, values=body.values, native_sources=citations,
+                                     expected_revision=body.expected_revision, expected_result_version=body.expected_result_version,
+                                     actor=who, note=body.note, confirm=body.confirm)
+        else:
+            corrections.save(run_id, item_id, fields=dict(body.fields), expected_revision=body.expected_revision,
+                             actor=who, note=body.note, sources=dict(body.sources) if body.sources else None, confirm=body.confirm)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/tasks/{index}/decision")
