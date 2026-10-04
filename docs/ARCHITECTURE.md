@@ -25,6 +25,14 @@ decided per task by measurement (section 3).
 (`jav/runtime/`, `jav/adapters/`), and the trial runners live in `jav/experiments/`. The legacy project's database is
 not a runtime dependency.
 
+**Native document path.** Work packages also accept DOCX, XLSX, TXT and CSV. The worker dispatches these to
+`jav/flow_native.py`; the readers preserve structured source elements, and `jav/native_results.py` stores immutable
+readings and interpretation publications. Model calls use the existing provider adapters, receipts and budget ledger.
+The API exposes complete source elements and source-linked facts to the native review views. Corrections retain the
+original proposals, approval is bound to the displayed review version, and the shared result datasets include native
+facts and reading status. PDF and email items keep their existing flows. The storage boundaries, failure states and
+source-location contract are described in [Native document processing](guides/NATIVE_PROCESSING.md).
+
 This page is written by hand. The generated parts are the graphs' `docs/flows/<flow>/FLOW.md` (in the repository), and
 the JEV call-site catalogue and the state snapshot (local, generated from the store: `python -m jav.cli docs`,
 `admin --write`). Rules: `CLAUDE.md` and the [development guide](guides/DEVELOPMENT.md); JEV capabilities:

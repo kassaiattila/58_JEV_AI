@@ -22,11 +22,11 @@ beforeEach(async () => { vi.restoreAllMocks(); resetDrafts(); await setLanguage(
 
 describe("native saved-source contract", () => {
   it("uses Unicode code points and leaves source markup inert", () => {
-    expect(codePointSlice("A😀őZ", 1, 3)).toBe("😀ő");
+    expect(codePointSlice("A😀\u0151Z", 1, 3)).toBe("😀\u0151");
     const source = clone(textSource);
     const element = source.elements.find((e) => e.locator.kind === "text")!;
     if (element.locator.kind !== "text") throw new Error("Fixture needs text");
-    source.texts[element.locator.text_sha256] = "😀<script>alert(1)</script>ő";
+    source.texts[element.locator.text_sha256] = "😀<script>alert(1)</script>\u0151";
     element.locator.end = Array.from(source.texts[element.locator.text_sha256]).length;
     const { container } = render(<NativeSourceViewer source={source} selected={null} citation={null} onPick={() => {}} />);
     expect(container.querySelector("script")).toBeNull();

@@ -822,7 +822,7 @@
             "end": 33
           },
           "availability": "read",
-          "text": "😀 Azonosító: 0012\nPartner: Példa\n",
+          "text": "😀 Azonos\u00edt\u00f3: 0012\nPartner: P\u00e9lda\n",
           "cell": null,
           "hidden": false,
           "occurrence_id": "o0",
@@ -831,7 +831,7 @@
         }
       ],
       "texts": {
-        "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec": "😀 Azonosító: 0012\nPartner: Példa\n"
+        "e46e566f22d525974f68c2d241f619653b1dc1eee90ce98fdbb1e1e4aca309ec": "😀 Azonos\u00edt\u00f3: 0012\nPartner: P\u00e9lda\n"
       },
       "offset": 0,
       "limit": 200,

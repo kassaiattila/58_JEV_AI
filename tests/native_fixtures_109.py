@@ -25,7 +25,8 @@ def sha(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-TEXT = "😀 Azonosító: 0012\nPartner: Példa\n"
+# Explicit codepoints keep the Unicode fixture stable across source encodings.
+TEXT = "😀 Azonos\u00edt\u00f3: 0012\nPartner: P\u00e9lda\n"
 SOURCE_SHA = sha(TEXT)
 BUNDLE_SHA = sha("synthetic bundle")
 RESULT_VERSION = sha("synthetic publication")
