@@ -13,7 +13,7 @@ The interface starts in Hungarian; the **HU / EN** buttons in the header switch 
 | Term | Meaning |
 |---|---|
 | Work package (*munkacsomag*) | Documents or emails from one source, handled together. It has one set of processing settings and can have several runs. |
-| Processing settings (*feldolgozási beállítások*) | The few choices that steer the processing of a package: the processing path (which also says whether JEV is used), Azure recognition, reuse of earlier answers and, for emails, task proposals. There is one processing; the system recognises each document's type itself. |
+| Processing settings (*feldolgozási beállítások*) | The recipe and processing path, Azure recognition, reuse of earlier answers and, for emails, task proposals. The recipe determines supported files; PDF documents use type recognition, while Word, Excel, TXT and CSV use source-bound fact extraction. |
 | Run (*futás*) | Processing the package's items once. It is either a **trial run** (it can be viewed and downloaded but not released) or a **live run** (valid once approved). |
 | To-do (*teendő*) | A reason on an item that needs a person to check it, for example ‘Uncertain value: Gross amount (probability 0.58)’ (*Bizonytalan érték: Bruttó összeg (valószínűség 0,58)*). Each reason is resolved separately. |
 | Worker (*feldolgozó*) | The background program that processes the items of runs one by one. If it is not running, runs wait. |
@@ -109,7 +109,9 @@ The package's documents, the items of a run and the item list of Review can show
 
 ### 6.1 Processing settings
 
-The package's processing recipe determines which documents it accepts. For a package containing Word, Excel, text or CSV files, choose **Multi-format processing** in the Processing settings card and save the settings. This recipe also accepts PDFs in the same package. Existing PDF and email recipes retain their own processing rules.
+The package's processing recipe determines which documents it accepts. Choose **PDF and email processing** for PDF documents and downloaded emails. For DOCX, XLSX, UTF-8 TXT or CSV files, choose **Document processing — PDF, Word, Excel, TXT, CSV** and save the settings; this recipe also accepts PDFs in the same package.
+
+Settings › Processing shows each recipe's own title, supported inputs and explanation. **Recipe version: 1** identifies the revision of that particular recipe; two recipes can have the same version number. The path descriptions also follow the selected recipe in the package settings. Word, Excel, TXT and CSV need GPT extraction, optionally checked by JEV; they cannot use the S path. Azure recognition applies only to PDF files. The historical PDF path comparison does not measure extraction quality for the other formats.
 
 Native documents use GPT to extract facts, with optional JEV support checking. The JEV-only S path is unavailable for these documents; an incompatible choice prevents the run from starting. Azure recognition applies to PDF files only. Reading gaps remain visible after review; checking an extracted value does not recover unread content.
 

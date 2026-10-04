@@ -54,7 +54,7 @@ describe("063 a receptek magyarázata", () => {
     vi.spyOn(api, "recipes").mockResolvedValue({ recipes: [INVOICE], help: HELP });
     render(<RecipesPanel />);
     expect(await screen.findByRole("region", { name: "Számlák adatainak kinyerése" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Hogyan dolgozik a rendszer" })).toBeTruthy(); // 080
+    expect(screen.getByRole("heading", { name: INVOICE.title })).toBeTruthy();
     expect(screen.getByText("Legalább egy PDF-irat a munkacsomagban")).toBeTruthy();
     expect(screen.getByText("Beolvasás (szükség esetén OCR)")).toBeTruthy();
     expect(screen.getAllByText("alapbeállítás").length).toBe(2); // the default of the path and of the JEV answers

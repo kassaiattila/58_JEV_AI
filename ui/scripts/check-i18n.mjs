@@ -85,7 +85,17 @@ export function serverKeys() {
   }
   // 063: the recipe explanations (when a recipe fits, what the settings and their values mean)
   const rh = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "recipe_help.json"), "utf8"));
-  for (const r of Object.values(rh.recipes ?? {})) if (r.when) keys.add(r.when);
+  for (const r of Object.values(rh.recipes ?? {})) {
+    for (const text of [r.when, r.title]) if (text) keys.add(text);
+    for (const input of r.inputs ?? []) {
+      keys.add(input.label);
+      keys.add(input.description);
+    }
+    for (const p of Object.values(r.params ?? {})) {
+      if (p.help) keys.add(p.help);
+      for (const text of Object.values(p.options ?? {})) keys.add(text);
+    }
+  }
   // 080: the general introduction, the item kinds and the comparison of the paths (Settings › Processing)
   if (rh.intro) keys.add(rh.intro);
   for (const v of Object.values(rh.kinds ?? {})) keys.add(v);

@@ -59,6 +59,7 @@ export interface Readiness {
 }
 export interface RecipeParam { allowed?: string[]; allowed_from?: string; default?: string }
 export interface Recipe {
+  input_kinds?: string[];
   file_suffixes?: string[];
   id: string; version: number; status?: "active" | "internal" | "retired"; title: string; description: string; steps: string[]; requirements: string[];
   result: string; manual_action: string; params: Record<string, RecipeParam>; max_item_usd: Record<string, Record<string, string>>;
@@ -116,7 +117,11 @@ export interface BackupInfo {
 export interface RecipeHelp {
   intro?: string;
   kinds?: Record<string, string>;
-  recipes: Record<string, { when: string }>;
+  recipes: Record<string, {
+    when: string; title?: string;
+    inputs?: { label: string; description: string }[];
+    params?: RecipeHelp["params"];
+  }>;
   paths?: { intro: string; measured: string; columns: { S: string; G: string }; rows: { label: string; S: string; G: string }[] };
   params: Record<string, { help: string; options: Record<string, string> }>;
 }
