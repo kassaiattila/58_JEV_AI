@@ -69,7 +69,7 @@ Before you download, the panel shows the number of rows and columns; the row ord
 
 The **New work package** button offers three sources:
 
-- **PDFs in a folder** (*Egy mappa PDF-jei*): fill in ‘Full folder path’ (*Mappa teljes útvonala*), or click **Browse…** (*Tallózás…*) and choose the folder in the Windows folder picker. The package gets the PDFs that sit directly in the folder, in path order. Tick **Include subfolders** (*Almappák is*, off by default) to take the PDFs of every subfolder too. The output folder of the named copies (section 10.2) is then left out, so copies made earlier do not come back as new documents. A document in a subfolder is shown with its path below the folder (for example `2026-09/invoice.pdf`). ‘Name’ is optional; if you leave it empty, the folder name is used.
+- **Documents from a folder** (*Egy mappa dokumentumai*): fill in ‘Full folder path’ (*Mappa teljes útvonala*), or click **Browse…** (*Tallózás…*) and choose the folder in the Windows folder picker. The package gets the supported documents directly in the folder, in path order: PDF, DOCX, XLSX, UTF-8 TXT and CSV. Tick **Include subfolders** (*Almappák is*, off by default) to include supported documents in subfolders too. The output folder of the named copies (section 10.2) is left out, so earlier copies do not return as new documents. A document in a subfolder is shown with its relative path (for example `2026-09/invoice.pdf`). ‘Name’ is optional; if empty, the folder name is used.
 - **Specific files** (*Megadott fájlok*): in ‘Full file paths, one per line’ (*Fájlok teljes útvonala, soronként egy*) you can list files from several folders. **Browse…** opens the Windows file picker, where you can choose several files at once. The chosen files are added after the lines already in the field, each only once. Here the name is required.
 
 **Browse…** asks the local service to open the Windows picker on this computer. While the picker is open, the button reads ‘The picker is open…’ (*A választó ablak nyitva…*). If you cannot see the picker, check the taskbar: it may have opened behind the browser. Cancelling changes nothing. A path can always be typed instead. Only one picker can be open at a time, and one left open for ten minutes is closed.
@@ -109,7 +109,9 @@ The package's documents, the items of a run and the item list of Review can show
 
 ### 6.1 Processing settings
 
-There is one processing for every package, and nothing to choose: the system handles each item according to its kind.
+The package's processing recipe determines which documents it accepts. For a package containing Word, Excel, text or CSV files, choose **Multi-format processing** in the Processing settings card and save the settings. This recipe also accepts PDFs in the same package. Existing PDF and email recipes retain their own processing rules.
+
+Native documents use GPT to extract facts, with optional JEV support checking. The JEV-only S path is unavailable for these documents; an incompatible choice prevents the run from starting. Azure recognition applies to PDF files only. Reading gaps remain visible after review; checking an extracted value does not recover unread content.
 
 - **A PDF document** (*PDF-irat*): the system first recognises its type (for example an invoice, a utility bill, a bank statement or a certificate), then extracts that type's fields on the chosen path and checks them in code (for example the tax number's check digit and the totals). A type that cannot be decided becomes a to-do.
 - **An email** (*levél*): the system recognises its intent (the purpose of the email, for example that an invoice has arrived) and suggests the next step; its PDF attachments are processed as documents, traced back to the email; task proposals are made on request.
@@ -246,6 +248,16 @@ The review works from the keyboard: when an item opens, the cursor is in its fir
 ### 7.9 Managing documents
 
 After a run, the expandable **Manage documents: open, download, remove** (*Iratok kezelése: megnyitás, letöltés, eltávolítás*) section sits below the workspace; before a run, it is the only content of Review. Each row has **Open** (*Megnyitás*) (in a new tab), **Download** and **Remove** (*Eltávolítás*). Removing needs two clicks (‘Sure? Click again’). It takes the item off the package's list; the file stays where it is, and the input of earlier runs does not change.
+
+### 7.10 Word, Excel, text and CSV review
+
+These documents open **Saved source** and **Native facts** instead of a PDF page. Word retains paragraph/table order and header/footer parts; Excel shows sheets, cell positions, empty and hidden content, and distinguishes formulas from their saved results without recalculating them. Text citations use exact character positions; CSV retains its rows, columns and literal text. The [reader guide](NATIVE_READERS.md) describes supported encodings and reading limits.
+
+Each fact keeps its original **Machine proposal** beside the saved and editable value. Use its citation to inspect the source, edit the value if needed, then **Check and attach source** to bind an exact quote from a saved element. Unchecked quote text stays in the local draft. **Save corrections** saves the changes; **Confirm this fact** records the review. A late source check cannot restore a discarded draft.
+
+Draft values and quote edits survive a reload. If another person saves first, your text is retained and saving is blocked until you explicitly review the refreshed correction. A draft for a different result remains separate. Reading coverage, extracted claims and factual correctness are different: a successful read does not prove that every needed fact was extracted or that a proposal is correct.
+
+In **Result**, the **Native facts** table joins the existing PDF views. Table downloads offer Excel, CSV and JSON with explicit row and column scope; **Full Excel package** includes native facts and reading summaries alongside the PDF sheets. Approval binds to the result version actually displayed. A changed version must be reviewed again; approved runs lock corrections. Reopening a saved source or restarting the service does not itself request another model answer. Technical storage and recovery details are in [Native document processing](NATIVE_PROCESSING.md).
 
 ## 8. Result
 
