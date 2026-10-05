@@ -14,9 +14,9 @@ it("distinguishes active recipes with visible names and independent recipe versi
     help: help as RecipeHelp,
   });
   render(<RecipesPanel />);
-  expect(await screen.findByRole("heading", { name: "PDF-ek és levelek feldolgozása" })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Dokumentumok feldolgozása — PDF, Word, Excel, TXT, CSV" })).toBeTruthy();
-  expect(screen.getAllByText("Receptverzió: 1")).toHaveLength(2);
+  expect(await screen.findByRole("heading", { name: "PDF-ek \u00e9s levelek feldolgoz\u00e1sa" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Dokumentumok feldolgoz\u00e1sa — PDF, Word, Excel, TXT, CSV" })).toBeTruthy();
+  expect(screen.getAllByText("Receptverzi\u00f3: 1")).toHaveLength(2);
 });
 
 it("keeps email explanations out of the document-only recipe and explains its native path", async () => {
@@ -26,19 +26,19 @@ it("keeps email explanations out of the document-only recipe and explains its na
   });
   render(<RecipesPanel />);
   const native = within(await screen.findByRole("region", {
-    name: "Dokumentumok feldolgozása — PDF, Word, Excel, TXT, CSV",
+    name: "Dokumentumok feldolgoz\u00e1sa — PDF, Word, Excel, TXT, CSV",
   }));
-  expect(native.queryByText(/^(Levél|Levelek)$/, { selector: "dt" })).toBeNull();
-  expect(native.getByText("Word, Excel, TXT és CSV", { selector: "dt" })).toBeTruthy();
-  expect(native.getByText(/PDF-en a felismert típus ajánlott útja fut/)).toBeTruthy();
-  expect(native.queryByText(/A JEV ismeri fel az irat típusát és a levél szándékát/)).toBeNull();
+  expect(native.queryByText(/^(Lev\u00e9l|Levelek)$/, { selector: "dt" })).toBeNull();
+  expect(native.getByText("Word, Excel, TXT \u00e9s CSV", { selector: "dt" })).toBeTruthy();
+  expect(native.getByText(/PDF-en a felismert t\u00edpus aj\u00e1nlott \u00fatja fut/)).toBeTruthy();
+  expect(native.queryByText(/A JEV ismeri fel az irat t\u00edpus\u00e1t \u00e9s a lev\u00e9l sz\u00e1nd\u00e9k\u00e1t/)).toBeNull();
 });
 
 it("uses the native recipe explanation on the package card and preserves it when changing language", async () => {
   const recipe = catalogue.recipes.find((entry) => entry.id === "multi-format-processing") as unknown as Recipe;
   render(<RecipeParamList recipe={recipe} params={{ jev: "off" }} help={help as RecipeHelp} kinds={["document"]} />);
-  expect(screen.getByText(/A GPT nyeri ki az adatokat, JEV-hívás nélkül/)).toBeTruthy();
-  expect(screen.queryByText(/A levelek szándékát is a GPT ismeri fel/)).toBeNull();
+  expect(screen.getByText(/A GPT nyeri ki az adatokat, JEV-h\u00edv\u00e1s n\u00e9lk\u00fcl/)).toBeTruthy();
+  expect(screen.queryByText(/A levelek sz\u00e1nd\u00e9k\u00e1t is a GPT ismeri fel/)).toBeNull();
   await act(() => setLanguage("en"));
   expect(screen.getByText(/GPT extracts values without JEV calls/)).toBeTruthy();
   expect(screen.queryByText(/A GPT nyeri ki az adatokat/)).toBeNull();

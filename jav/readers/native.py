@@ -94,6 +94,12 @@ def native_value(value) -> NativeValue:
 
 def excel(data: bytes, parts: dict, reading: Reading):
     import openpyxl
+    for name, content in parts.items():
+        if name.lower().endswith(".rels") and any(
+                node.attrib.get("TargetMode", "").lower() == "external" for node in xml(content).iter()):
+            reading.issue("unread_content", "External spreadsheet relationship retained in original; not followed")
+        elif name.startswith(("xl/externalLinks/", "xl/connections", "xl/queryTables/")) and name.endswith(".xml"):
+            reading.issue("unread_content", "External spreadsheet data retained in original; not refreshed or verified")
     # Both views are opened over the same frozen bytes. No recalculation occurs.
     book = openpyxl.load_workbook(BytesIO(data), data_only=False, keep_links=False)
     cached = None
