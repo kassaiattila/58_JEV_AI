@@ -362,16 +362,19 @@ def resolve_citations(publication: Publication, citations: Sequence[Citation | d
 
 
 def _resolve(publication, citations, delivery):
+    from jav.readers.interpretation import citation_text
+
     elements = {(r.attempt.occurrence_id, e.element_id): (r.attempt, e) for r in delivery.bundle.results for e in r.elements}
     result = []
     for raw in citations:
         cite = raw if isinstance(raw, Citation) else Citation.model_validate_json(json_bytes(raw))
         selected = elements.get((cite.occurrence_id, cite.element_id))
-        if selected is None or not selected[1].text or cite.quote not in selected[1].text:
+        text = citation_text(selected[1], cite.quote) if selected is not None else None
+        if text is None:
             raise NativeIntegrityError("Citation is absent from this publication's source element")
         attempt, element = selected
         matches, start = [], 0
-        while (index := element.text.find(cite.quote, start)) >= 0:
+        while (index := text.find(cite.quote, start)) >= 0:
             matches.append(index)
             start = index + 1
         span = None

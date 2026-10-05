@@ -67,6 +67,18 @@ the GPT request and output, optional JEV verification and JEV alias resolution.
 The JEV-off setting omits both its budget and its call. The S path is rejected
 before processing because native discovery has no predefined selection contract.
 
+Large source views are partitioned into requests within the same 80,000-byte
+transfer limit. Worksheet rows stay together, with the first two rows repeated
+as context. Every readable element is accounted for in the saved interpretation's
+coverage record and request digests. Identical proposals with identical citations
+are deduplicated; conflicting proposals remain separate. Cross-part relationships
+remain an explicit review gap. JEV verification batches preserve cited rows and
+headings. A row or citation context that cannot fit fails explicitly before that
+provider stage starts. Each request retains its own receipt and uses the existing
+run budget: partitioning does not increase an approved budget. A later failure
+preserves the receipts and produces a failed or uncertain outcome, never a
+successful partial interpretation. The reader's separate cell limit still applies.
+
 Explicit reuse allows the existing request-key receipt/cache mechanisms. Live
 mode disables cross-run GPT reuse and JEV cache reads/writes, while same-step
 crash recovery still replays a completed receipt. The native JEV cache is scoped
@@ -89,6 +101,14 @@ Stable fact identifiers preserve duplicate properties and original proposals.
 Literal grounding, raw semantic support, effective corrected value and human
 confirmation remain distinct. A correction does not turn a partial reading into
 a complete one or establish the machine proposal's factual correctness.
+
+Formula text, saved formula results and their unverified state reach the model
+together. Citations to an exact saved result resolve to its original cell. A
+formula or saved result used as a business value raises a review warning; no
+recalculation occurs. Explicit currency values claimed as time quantities also
+raise a warning. These checks preserve the original proposal and literal match;
+they do not establish general semantic correctness or introduce a probability
+threshold. Older saved interpretation hashes remain unchanged on reload.
 
 The provenance and parser limitations remain documented in
 [Native readers](NATIVE_READERS.md) and [Reader provenance](../../jav/readers/NOTICE.md).

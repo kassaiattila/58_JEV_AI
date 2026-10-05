@@ -103,11 +103,13 @@ def review_native(state: NativeState) -> NativeState:
             reasons.append("native:no_facts")
         if interpretation.gaps:
             reasons.append("native:interpretation_gaps")
-        for fact in interpretation.facts:
+        for index, fact in enumerate(interpretation.facts):
             if fact.grounding != "literal_match":
                 reasons.append("native:grounding:" + fact.grounding)
             if fact.proposal.state != "stated":
                 reasons.append("native:claim:" + fact.proposal.state)
+            if fact.reasons and fact.grounding == "literal_match":
+                reasons.append(f"native:fact:{index}:requires_review")
     state.review_reasons = sorted(set(reasons))
     if state.review_reasons:
         store.review_enqueue(subject_kind="document", subject_id=state.item_id, run_id=state.graph_id,

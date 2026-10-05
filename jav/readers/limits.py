@@ -36,11 +36,12 @@ def xml(data: bytes):
 def inspect_package(data: bytes, limits: ReadLimits) -> dict[str, bytes]:
     """Inspect ZIP/XML metadata; Office interpretation remains in libraries.
 
-    No package member is extracted to a filesystem path. Active parts and external
-    relationships reject the entire reading, with an explicit exclusion reason.
+    No package member is extracted to a filesystem path. Spreadsheet hyperlinks
+    and external workbook references remain inert; other external parts fail closed.
     """
     parts = {}
     expanded = 0
+    external = []
     with zipfile.ZipFile(BytesIO(data)) as package:
         entries = package.infolist()
         limited(len(entries) > limits.archive_entries, "Archive entry limit exceeded")
@@ -63,12 +64,24 @@ def inspect_package(data: bytes, limits: ReadLimits) -> dict[str, bytes]:
                 content = stream.read(min(entry.file_size + 1, limits.expanded_bytes + 1))
             limited(len(content) != entry.file_size, "Archive size differs from its directory")
             lower = name.lower()
-            if any(term in lower for term in ("vbaproject", "/activex/", "/embeddings/", "/externallinks/")):
+            if any(term in lower for term in ("vbaproject", "/activex/", "/embeddings/")):
                 raise ReadFailure("excluded", "excluded", "Active or embedded executable Office content")
             if lower.endswith((".xml", ".rels")):
                 root = xml(content)
-                if lower.endswith(".rels") and any(
-                        node.attrib.get("TargetMode", "").lower() == "external" for node in root.iter()):
-                    raise ReadFailure("excluded", "excluded", "External Office relationship is not followed")
+                if lower.startswith("xl/externallinks/") and any(
+                        node.tag.rsplit("}", 1)[-1] in {"ddeLink", "oleLink"} for node in root.iter()):
+                    raise ReadFailure("excluded", "excluded", "Active DDE or OLE workbook link")
+                if lower.endswith(".rels"):
+                    external.extend((lower, node.attrib.get("Type", "")) for node in root.iter()
+                                    if node.attrib.get("TargetMode", "").lower() == "external")
             parts[name] = content
+    relationship = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/"
+    if "xl/workbook.xml" not in parts and any("/externallinks/" in name.lower() for name in parts):
+        raise ReadFailure("excluded", "excluded", "External workbook parts require a spreadsheet container")
+    for name, kind in external:
+        inert = "xl/workbook.xml" in parts and (
+            (name.startswith("xl/worksheets/_rels/") and kind == relationship + "hyperlink")
+            or (name.startswith("xl/externallinks/_rels/") and kind == relationship + "externalLinkPath"))
+        if not inert:
+            raise ReadFailure("excluded", "excluded", "External Office relationship is not followed")
     return parts
