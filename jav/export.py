@@ -82,12 +82,42 @@ def native_records(run_id: str) -> list[dict[str, Any]]:
             if native_results.native_item(run_id, item)]
 
 
-NATIVE_COLUMNS = ("file", "item_id", "fact_id", "entity", "property", "effective_value", "unit", "role",
+NATIVE_COLUMNS = ("file", "item_id", "fact_id", "entity", "property", "effective_value", "source", "unit", "role",
                   "related_entity", "machine_state", "machine_grounding", "corrected", "confirmed", "source_citations",
                   "reading_status", "reading_gaps", "interpretation_status", "correctness", "result_version", "proposal")
-NATIVE_HEAD = ("Document", "Item identifier", "Fact identifier", "Entity", "Property", "Value", "Unit", "Role",
+NATIVE_HEAD = ("Document", "Item identifier", "Fact identifier", "Entity", "Property", "Value", "Source", "Unit", "Role",
                "Related entity", "Machine claim", "Machine grounding", "Corrected", "Confirmed", "Source citations",
                "Reading status", "Reading gaps", "Interpretation status", "Correctness", "Result version", "Original proposal")
+
+
+def _citation_place(citation: dict[str, Any]) -> str:
+    """120: a short, language-neutral place of a citation (`Sheet1!B4`, `p. 2`, a pilcrow and the block number); the
+    full locator stays in the technical `source_citations` column."""
+    loc = citation.get("locator") or {}
+    kind = loc.get("kind")
+    if kind == "cell":
+        return f"{loc['sheet']}!{loc['cell']}"
+    if kind == "sheet":
+        return str(loc["sheet"])
+    if kind == "pdf":
+        return f"p. {loc['page']}"
+    if kind == "word":
+        return f"\u00b6 {loc['block_index'] + 1}"
+    if kind == "image":
+        return f"img {loc.get('frame', 1)}"
+    span = citation.get("quote_span") or loc
+    return f"{span['start']}\u2013{span['end']}" if "start" in span else ""
+
+
+def _source_text(citations: list[dict[str, Any]], limit: int = 80) -> str:
+    """120: the cited text with its place, one citation per line, for reading the table without the JSON."""
+    lines = []
+    for citation in citations:
+        quote = " ".join(str(citation.get("quote") or "").split())
+        quote = quote if len(quote) <= limit else quote[: limit - 1] + "\u2026"
+        place = _citation_place(citation)
+        lines.append(f"{quote} [{place}]" if place else quote)
+    return "\n".join(lines)
 
 
 def native_facts_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[Any]]]:
@@ -98,7 +128,8 @@ def native_facts_table(records: list[dict[str, Any]]) -> tuple[list[str], list[l
         for fact in record["native_facts"]:
             proposal = fact["proposal"]
             rows.append([record["file"], record["item_id"], fact["fact_id"], proposal["entity"], proposal["property"],
-                         fact["effective_value"], proposal["unit"], proposal["role"], proposal["related_entity"],
+                         fact["effective_value"], _source_text(fact["native_citations"]), proposal["unit"],
+                         proposal["role"], proposal["related_entity"],
                          proposal["state"], fact["grounding"], fact["fact_id"] in record["correction"]["fields"],
                          fact["confirmed"], json.dumps(fact["native_citations"], ensure_ascii=False, sort_keys=True),
                          record["reading"]["status"], gaps, record["interpretation_outcome"]["status"],

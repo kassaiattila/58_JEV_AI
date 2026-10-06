@@ -7,7 +7,7 @@ import { elementKey, type Citation, type NativeCitation, type NativeCorrectionRe
 import { clearDraft, draftKey, getDraft, isDirty, rebaseDraft, setNativeCitationEdit, setNativeField, setNativeSources, settleNativeDraft, useDraft, type Draft } from "./drafts";
 import { locatorText } from "./NativeSourceViewer";
 import { useResolve } from "./useResolve";
-import { nativeStateLabel } from "./nativeLabels";
+import { issueSummary, nativeStateLabel, outcomeReasonText } from "./nativeLabels";
 
 /** The correction endpoint replaces its maps: retain every previously saved override. */
 export function nativeSaveBody(result: NativeItemResult, draft: Draft | undefined, only?: string): NativeCorrectionRequest {
@@ -60,18 +60,22 @@ export function NativeFactPanel({ result, source, selected, readOnly, onChanged,
       setError(e instanceof Error ? e.message : String(e));
     } finally { saving.current = false; setBusy(false); }
   }
+  const issues = [...result.reading.results.flatMap((r) => r.issues), ...(source?.occurrences.flatMap((o) => o.issues) ?? [])];
   return <section className="native-facts" aria-label={t("Native facts")} onKeyDown={(e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); if (!e.repeat) void save(); }
   }}>
     <h2>{t("Native facts")}</h2>
     <div className="native-summary">
       <p>{t("Reading coverage")}: <strong>{nativeStateLabel(result.reading.status)}</strong> · {t("Acquisition")}: {nativeStateLabel(result.reading.acquisition_status)}</p>
-      <p>{t("Interpretation")}: <strong>{nativeStateLabel(result.interpretation_outcome.status)}</strong>{result.interpretation_outcome.reason ? ` · ${result.interpretation_outcome.reason}` : ""}</p>
-      {result.interpretation ? <p>{result.interpretation.provider} · {result.interpretation.model} · <strong>{result.interpretation.execution === "synthetic_test" ? t("Synthetic test execution") : result.interpretation.execution === "saved_response" ? t("Saved response reused") : t("Live provider execution")}</strong></p> : null}
+      <p>{t("Interpretation")}: <strong>{nativeStateLabel(result.interpretation_outcome.status)}</strong>{result.interpretation_outcome.reason ? ` · ${outcomeReasonText(result.interpretation_outcome.reason)}` : ""}{result.interpretation ? ` · ${result.interpretation.provider.includes("jev") ? "GPT + JEV" : "GPT"}` : ""}</p>
       <p className="notice small">{t("Reading coverage, extracted claims and human correctness are separate. Review each value and its source before approval.")}</p>
-      {[...result.reading.results.flatMap((r) => r.issues), ...(source?.occurrences.flatMap((o) => o.issues) ?? [])].map((issue, i) =>
-        <p key={i} className="notice small">{issue.code}: {issue.message}{issue.element_id ? ` · ${issue.element_id}` : ""}</p>)}
+      {issueSummary(issues).map((text, i) => <p key={i} className="notice small">{text}</p>)}
       {(result.interpretation?.gaps ?? []).map((gap, i) => <p className="notice" key={i}>{t("Extraction gap")}: {gap}</p>)}
+      {/* 120: provider, model and the raw reading messages stay available, but out of the way */}
+      {result.interpretation || issues.length ? <details className="small"><summary>{t("Technical details")}</summary>
+        {result.interpretation ? <p>{result.interpretation.provider} · {result.interpretation.model} · <strong>{result.interpretation.execution === "synthetic_test" ? t("Synthetic test execution") : result.interpretation.execution === "saved_response" ? t("Saved response reused") : t("Live provider execution")}</strong></p> : null}
+        {issues.map((issue, i) => <p key={i} className="muted">{issue.code}: {issue.message}{issue.element_id ? ` · ${issue.element_id}` : ""}</p>)}
+      </details> : null}
     </div>
     {readOnly ? <p className="notice">{t("This run is approved; corrections are locked.")}</p> : null}
     {differentResult ? <div className="notice error" role="alert"><p>{t("This draft belongs to an earlier result. Your text is retained below; review it against the new source before discarding and entering a new correction.")}</p>
@@ -153,7 +157,6 @@ function NativeFactEditor({ fact, result, draft, source, selected, disabled, onC
   const proposal = fact.proposal;
   return <article className="native-fact" data-fact-id={fact.fact_id}>
     <h3>{proposal.entity} · {proposal.property}</h3>
-    <small className="muted">{fact.fact_id}</small>
     <dl><dt>{t("Machine proposal")}</dt><dd>{proposal.value === null ? t("No value") : proposal.value === "" ? t("Empty text") : proposal.value}</dd>
       <dt>{t("Saved effective value")}</dt><dd>{fact.effective_value === null ? t("No value") : fact.effective_value === "" ? t("Empty text") : fact.effective_value}</dd>
       <dt>{t("Claim state")}</dt><dd>{nativeStateLabel(proposal.state)}</dd><dt>{t("Literal grounding")}</dt><dd>{nativeStateLabel(fact.grounding)}</dd>
@@ -162,7 +165,8 @@ function NativeFactEditor({ fact, result, draft, source, selected, disabled, onC
       {proposal.unit !== null ? <><dt>{t("Unit")}</dt><dd>{proposal.unit}</dd></> : null}
       {proposal.role !== null ? <><dt>{t("Role")}</dt><dd>{proposal.role}</dd></> : null}
       {proposal.related_entity !== null ? <><dt>{t("Related entity")}</dt><dd>{proposal.related_entity}</dd></> : null}</dl>
-    {fact.reasons.map((reason, i) => <p className="notice small" key={i}>{reason}</p>)}
+    {fact.reasons.map((reason, i) => <p className="notice small" key={i}>{t(reason)}</p>)}
+    <details className="small"><summary>{t("Technical details")}</summary><p className="muted">{t("Fact identifier")}: {fact.fact_id}</p></details>
     <details><summary>{t("Original machine citations")}</summary>{proposal.citations.map((c, i) => <div key={i}><blockquote>{c.quote}<small> · {c.occurrence_id} / {c.element_id}</small></blockquote>
       <button type="button" disabled={validating || !source} onClick={() => void showOriginal(c)}>{t("Show original source")}</button></div>)}</details>
     <label className="block">{t("Effective value")}<textarea aria-label={t("Effective value for {{property}} ({{id}})", { property: proposal.property, id: fact.fact_id })}

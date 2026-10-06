@@ -129,6 +129,22 @@ export function checkText(code: string, detail?: string | null): string {
 /** The decimal separator according to the chosen language (a comma in Hungarian). */
 const num = (s: string | undefined) => (s === undefined ? "" : getLocale() === "hu-HU" ? s.replace(".", ",") : s);
 
+/** 120: the reading, interpretation and claim states named in native to-dos (codepoints for the language guard). */
+const NATIVE_STATUS: Record<string, string> = tmap({
+  partial: "r\u00e9szleges",
+  resource_limited: "olvas\u00e1si korl\u00e1t",
+  unsupported: "nem t\u00e1mogatott",
+  corrupt: "s\u00e9r\u00fclt",
+  password_required: "jelsz\u00f3val v\u00e9dett",
+  excluded: "kiz\u00e1rva",
+  temporary_error: "\u00e1tmeneti hiba",
+  not_attempted: "nem t\u00f6rt\u00e9nt meg",
+  failed: "sikertelen",
+  rejected: "elutas\u00edtott v\u00e1lasz",
+  uncertain: "bizonytalan",
+  missing: "hi\u00e1nyzik",
+  conflicting: "ellentmond\u00e1sos",
+});
 /** A to-do reason code as an everyday sentence (for an unknown code, the code itself). */
 export function reasonText(code: string): string {
   const p = code.split(":");
@@ -191,6 +207,19 @@ export function reasonText(code: string): string {
     // 073: task proposals from an e-mail (jav/flow_email.py); until now these showed the raw code
     case "tasks:proposed": return t("{{n}} feladatjavaslat vár döntésre", { n: p[2] ?? "" });
     case "tasks:failed": return t("A feladatjavaslat nem sikerült ({{why}})", { why: p[2] ?? "" });
+    // 120: the to-dos of Word, Excel, text and continuing PDF documents (jav/flow_native.py)
+    case "native:reading": return t("Az irat nem teljesen olvashat\u00f3 ({{status}}); n\u00e9zd meg a forr\u00e1st \u00e9s a hi\u00e1nyokat", { status: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
+    case "native:interpretation": return t("Az adatkinyer\u00e9s nem siker\u00fclt ({{status}}); n\u00e9zd meg az ok\u00e1t", { status: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
+    case "native:no_facts": return t("Az iratb\u00f3l nem keletkezett adatjavaslat");
+    case "native:interpretation_gaps": return t("Az adatkinyer\u00e9s hi\u00e1nyt jelzett");
+    case "native:grounding": return t("Egy adatjavaslat nem tal\u00e1lhat\u00f3 sz\u00f3 szerint a forr\u00e1sban");
+    case "native:claim": return t("Egy adatjavaslat nem biztos ({{state}})", { state: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
+    case "native:fact": {
+      const n = Number(p[2]) + 1;
+      if (p[3] === "unsupported") return t("A JEV nem t\u00e1masztja al\u00e1 a(z) {{n}}. adatjavaslatot ({{p}})", { n, p: num(p[4]) });
+      if (p[3] === "uncertain") return t("A JEV bizonytalan a(z) {{n}}. adatjavaslatban ({{p}})", { n, p: num(p[4]) });
+      return t("A(z) {{n}}. adatjavaslathoz figyelmeztet\u00e9s tartozik; ellen\u0151rizd", { n });
+    }
   }
   // 090: a field check's to-do names its field third (`validator:taxid.unrecognized:supplier_tax_id`)
   if (p[0] === "validator" && p.length === 3 && FIELD[p[2]]) return `${checkText(p[1] ?? "")}: ${fieldLabel(p[2])}`;
