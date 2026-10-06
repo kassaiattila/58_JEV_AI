@@ -52,7 +52,9 @@ def test_document_run_with_such_an_item_cannot_be_approved(tmp_path: Path):
     adapter = jev_mod.JevAdapter(client=ReminderClient(), cache_dir=tmp_path / "cache", model="jev-1.13.0")
     with store.use_store(tmp_path / "w.sqlite"), jev_mod.use_adapter(adapter):
         wp = work.create_from_folder(folder, name="Felszólítás")
-        work.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=0, actor="t")
+        # 120: with the unknown-document setting off, the earlier stop and the blocked approval hold
+        work.assign_recipe(wp["id"], "processing", params={"arm": "S", "unknown_documents": "review"},
+                           expected_revision=0, actor="t")
         r = work.readiness(wp["id"])
         run_id = work.start_run(wp["id"], mode="apply", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")["run_id"]
         assert worker.run_worker(once=True)["results"] == {"done": 1}

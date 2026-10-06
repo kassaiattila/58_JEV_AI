@@ -221,3 +221,39 @@ def test_the_native_graph_reads_with_ocr_only_when_asked(tmp_path, monkeypatch):
                 app.run(halt_after=flow_native.TERMINALS)
     assert asked == [False, True]
 
+
+def test_a_scan_read_with_local_ocr_is_partial_and_opens_a_to_do(tmp_path, monkeypatch):
+    """An image-only PDF: the reader's local OCR (a stand-in here) gives text, and the reading is partial."""
+    import hashlib
+    from io import BytesIO
+
+    from PIL import Image, ImageDraw, ImageFont
+
+    from jav import native_results
+    from jav.readers import visual_ocr
+
+    class FakeOCR:
+        fingerprint = "a" * 64
+
+        def recognise(self, png, limits, *, timeout):
+            return ("level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n"
+                    "5\t1\t1\t1\t1\t1\t40\t60\t220\t42\t95\tSYNTHETIC\n")
+
+    monkeypatch.setattr(visual_ocr.LocalOCR, "discover", lambda: FakeOCR())
+    picture = Image.new("RGB", (600, 200), "white")
+    ImageDraw.Draw(picture).text((40, 60), "SYNTHETIC", fill="black", font=ImageFont.load_default(size=40))
+    buffer = BytesIO()
+    picture.save(buffer, "PDF", resolution=150)
+    scan = tmp_path / "scan.pdf"
+    scan.write_bytes(buffer.getvalue())
+    sha = hashlib.sha256(scan.read_bytes()).hexdigest()
+    with store.use_store(tmp_path / "native.sqlite"):
+        ref = native_results.prepare_reading(scan, original_name="scan.pdf", expected_sha256=sha, ocr=True)
+        delivery = native_results.load_reading(ref.reading_id)
+        result = delivery.bundle.results[0]
+        assert ref.reading.status == "partial"
+        assert "protection_unavailable" in {i.code for i in result.issues}
+        assert any(e.text and "SYNTHETIC" in e.text for e in result.elements)
+        plain = native_results.prepare_reading(scan, original_name="scan.pdf", expected_sha256=sha)
+        assert not any(e.text for e in native_results.load_reading(plain.reading_id).bundle.results[0].elements)
+
