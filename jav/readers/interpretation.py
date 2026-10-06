@@ -7,10 +7,11 @@ correctness remain separate; no result is promoted or approved here.
 from __future__ import annotations
 
 from collections import Counter
-import re
 from typing import Annotated, Literal
 
 from pydantic import Field, model_serializer, model_validator
+
+from jav import fact_checks
 
 from .contracts import ContractModel, Digest, Identifier, Label, SourceElement, Text
 from .pipeline import Delivery, digest, json_bytes
@@ -146,12 +147,10 @@ def ground(delivery: Delivery, proposal: ProposedExtraction, *, provider: str, m
                     warnings.append("Formula text is not a calculated business value")
         if fact.value is not None and not any(fact.value in cite.quote for cite in fact.citations):
             reasons.append("Proposed literal value is absent from its citations")
-        if fact.value and re.search(r"(?i)(?:\b(?:HUF|Ft|EUR|USD|GBP|forint)\b|[€$£])", fact.value):
-            meaning = " ".join(filter(None, (fact.property, fact.unit)))
-            time = re.search(r"(?i)\b(?:hours?|minutes?|duration|days?|\u00f3rasz\u00e1m|\u00f3ra|\u00f3r\u00e1k|perc|nap)\b", meaning)
-            rate = re.search(r"(?i)\b(?:rate|price|cost|fee|wage|d\u00edj|\u00e1r|\u00f3rad\u00edj|napid\u00edj|b\u00e9r|\u00f6sszeg)\b", meaning)
-            if time and not rate:
-                warnings.append("Currency value conflicts with a time quantity; check the property and unit")
+        if fact.state != "missing":
+            # 120: shared content checks (configs/fact_checks.json); they only add review warnings.
+            warnings.extend(filter(None, (fact_checks.placeholder_issue(fact.value),
+                                          fact_checks.quantity_issue(fact.value, fact.property, fact.unit))))
         facts.append(CheckedFact(proposal=fact, grounding="rejected" if reasons else
                                   "missing_claim" if fact.state == "missing" else "literal_match",
                                   reasons=tuple(dict.fromkeys(reasons + warnings))))

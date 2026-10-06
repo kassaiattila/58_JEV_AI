@@ -57,7 +57,8 @@ def test_packs_load_and_hu_pack_equals_legacy_constants():
     assert set(hu.required) == {"buyer_name", "gross_total", "invoice_number", "supplier_name"} == set(policy.REQUIRED)
     assert set(hu.high_stakes) == {"amount_due", "due_date", "gross_total", "payment_iban", "supplier_tax_id"} == set(policy.HIGH_STAKES)
     assert [v["check"] for v in hu.validators] == ["vat_consistency", "date_order", "tax_id", "tax_id", "iban_check",
-                                                   "line_items_total", "line_items_arithmetic"]  # 053 T3.2 line items; 069 both parties' tax numbers
+                                                   "line_items_total", "line_items_arithmetic", "distinct_parties",
+                                                   "distinct_parties"]  # 053 T3.2 line items; 069 both parties' tax numbers; 120 one party in two roles
     assert hu.candidate_profile == "hu" and hu.is_default and hu.llm_model().__name__ == "InvoiceLLM"
     fo = typepack.get("invoice_foreign")
     assert fo.candidate_profile == "intl" and fo.select_callsite == "select_foreign" and fo.verify_callsite == "verify_foreign"

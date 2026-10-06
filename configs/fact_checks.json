@@ -1,0 +1,201 @@
+{
+ "meta": {
+  "name": "fact_checks",
+  "version": "1.0.0",
+  "description": "Deterministic content checks shared by the extraction paths (jav/fact_checks.py). They never change a value or a model answer; they only name a reason for human review. Hungarian entries are document vocabulary.",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-06",
+    "note": "120: unfilled template placeholders; quantity-kind conflicts (money, percentage, date, time) generalising the 119 money/time warning; one party in two roles (name subset or tax-number stem)."
+   }
+  ]
+ },
+ "placeholders": {
+  "reason": "Value looks like an unfilled template placeholder, not a stated fact",
+  "patterns": [
+   "\\[[^\\[\\]\\d]*[^\\W\\d_]{2}[^\\[\\]\\d]*\\]",
+   "<[^<>\\d@/:]*[^\\W\\d_]{2}[^<>\\d@/:]*>",
+   "\\{\\{?[^{}\\d]*[^\\W\\d_]{2}[^{}\\d]*\\}\\}?",
+   "(?:[._]{4,}|\u2026{2,})",
+   "(?i)\\b(?:\u00e9\u00e9\u00e9\u00e9|yyyy|jjjj|aaaa)\\s*[.\\-/]\\s*(?:hh|mm)\\s*[.\\-/]\\s*(?:nn|dd|tt|jj)\\b",
+   "(?i)\\b(?:nn|dd|tt|jj)\\s*[.\\-/]\\s*(?:hh|mm)\\s*[.\\-/]\\s*(?:\u00e9\u00e9\u00e9\u00e9|yyyy|jjjj|aaaa)\\b"
+  ]
+ },
+ "quantities": {
+  "reason": "{value} value conflicts with a {meaning} quantity; check the property and unit",
+  "kinds": {
+   "money": {
+    "value_label": "Currency",
+    "meaning_label": "money",
+    "value_patterns": [
+     "(?i)(?:\\b(?:HUF|Ft|EUR|USD|GBP|CHF|forint|euro|dollars?)\\b|[\u20ac$\u00a3])"
+    ],
+    "words": [
+     "\u00e1r",
+     "\u00e1ra",
+     "\u00e1rak",
+     "b\u00e9r",
+     "amount",
+     "price",
+     "cost",
+     "costs",
+     "fee",
+     "fees",
+     "wage",
+     "wages",
+     "salary",
+     "payment",
+     "payments",
+     "balance",
+     "income",
+     "revenue",
+     "expense",
+     "expenses",
+     "rate",
+     "charge",
+     "charges",
+     "sum",
+     "total",
+     "tax"
+    ],
+    "stems": [
+     "d\u00edj",
+     "\u00f6sszeg",
+     "k\u00f6lts\u00e9g",
+     "fizet\u00e9s",
+     "bev\u00e9tel",
+     "kiad\u00e1s",
+     "j\u00f6vedelem",
+     "egyenleg",
+     "ellen\u00e9rt\u00e9k",
+     "tartoz\u00e1s",
+     "munkab\u00e9r",
+     "alapb\u00e9r"
+    ]
+   },
+   "percent": {
+    "value_label": "Percentage",
+    "meaning_label": "percentage",
+    "value_patterns": [
+     "%",
+     "(?i)\\b(?:sz\u00e1zal\u00e9k\\w*|percent|per cent)\\b"
+    ],
+    "words": [
+     "kulcs",
+     "percent",
+     "percentage",
+     "ratio",
+     "rate"
+    ],
+    "stems": [
+     "sz\u00e1zal\u00e9k",
+     "ar\u00e1ny"
+    ]
+   },
+   "date": {
+    "value_label": "Date",
+    "meaning_label": "date",
+    "value_patterns": [
+     "\\b\\d{4}\\s*[.\\-/]\\s*\\d{1,2}\\s*[.\\-/]\\s*\\d{1,2}\\b",
+     "\\b\\d{1,2}\\s*[.\\-/]\\s*\\d{1,2}\\s*[.\\-/]\\s*\\d{4}\\b",
+     "(?i)\\b\\d{4}\\.?\\s+(?:janu\u00e1r|febru\u00e1r|m\u00e1rcius|\u00e1prilis|m\u00e1jus|j\u00fanius|j\u00falius|augusztus|szeptember|okt\u00f3ber|november|december)\\b",
+     "(?i)\\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{1,2},?\\s+\\d{4}\\b",
+     "(?i)\\b\\d{1,2}\\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\\s+\\d{4}\\b"
+    ],
+    "words": [
+     "kelt",
+     "kelte",
+     "date",
+     "dated",
+     "deadline",
+     "birthday"
+    ],
+    "stems": [
+     "d\u00e1tum",
+     "hat\u00e1rid\u0151",
+     "id\u0151pont"
+    ]
+   },
+   "duration": {
+    "value_label": "Time",
+    "meaning_label": "time",
+    "value_patterns": [
+     "(?i)\\b\\d+(?:[.,]\\d+)?\\s*(?:\u00f3r[a\u00e1]\\w*|perc(?!ent)\\w*|nap\\w*|h\u00e9t|het\\w*|hours?|hrs?|minutes?|mins?|days?|weeks?)\\b"
+    ],
+    "words": [
+     "\u00f3ra",
+     "\u00f3r\u00e1k",
+     "\u00f3r\u00e1t",
+     "perc",
+     "percek",
+     "nap",
+     "napok",
+     "hours",
+     "hour",
+     "hrs",
+     "minutes",
+     "minute",
+     "mins",
+     "days",
+     "duration"
+    ],
+    "stems": [
+     "\u00f3rasz\u00e1m",
+     "id\u0151tartam",
+     "munka\u00f3r",
+     "hour"
+    ]
+   }
+  },
+  "compatible": [
+   [
+    "date",
+    "duration"
+   ],
+   [
+    "duration",
+    "date"
+   ]
+  ]
+ },
+ "parties": {
+  "ignore_tokens": [
+   "kft",
+   "zrt",
+   "nyrt",
+   "bt",
+   "kkt",
+   "rt",
+   "ev",
+   "ltd",
+   "limited",
+   "gmbh",
+   "ag",
+   "inc",
+   "llc",
+   "plc",
+   "sa",
+   "sarl",
+   "bv",
+   "nv",
+   "spa",
+   "srl",
+   "sro",
+   "es",
+   "and",
+   "und",
+   "et",
+   "the",
+   "of",
+   "a",
+   "az"
+  ],
+  "min_subset_tokens": 2,
+  "domestic_tax_prefixes": [
+   "",
+   "HU"
+  ],
+  "domestic_tax_stem_digits": 8
+ }
+}

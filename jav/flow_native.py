@@ -8,12 +8,13 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import native_processing, native_results, store
+from jav import native_processing, native_results, policy, store
 from jav.native_contracts import NativeLimits, NATIVE_SUFFIXES
 from jav.readers.pipeline import json_bytes
 
 PARTITION = "native"
 TERMINALS = {"done", "needs_review"}
+SUPPORT_BAND = "native.support"
 
 
 class NativeState(BaseModel):
@@ -110,6 +111,13 @@ def review_native(state: NativeState) -> NativeState:
                 reasons.append("native:claim:" + fact.proposal.state)
             if fact.reasons and fact.grounding == "literal_match":
                 reasons.append(f"native:fact:{index}:requires_review")
+            # 120: JEV's raw support is interpreted with the existing Noul band (`native.support` in policy.json);
+            # the uncertain band opens a to-do only where the band enables it.
+            if fact.semantic_support is not None and fact.grounding == "literal_match":
+                support = policy.noul_band(fact.semantic_support, SUPPORT_BAND)
+                if support == "no" or (support == "uncertain" and policy.band(SUPPORT_BAND)["uncertain_review"]):
+                    label = "unsupported" if support == "no" else "uncertain"
+                    reasons.append(f"native:fact:{index}:{label}:{fact.semantic_support:.2f}")
     state.review_reasons = sorted(set(reasons))
     if state.review_reasons:
         store.review_enqueue(subject_kind="document", subject_id=state.item_id, run_id=state.graph_id,
@@ -143,7 +151,7 @@ CONTRACT = {
         "read_native": {"kind": "store", "note": "Verify the frozen source and save the complete bounded native Delivery; OCR is disabled."},
         "interpret_native": {"kind": "llm", "note": "Use the shared GPT receipt and budget boundary, with optional JEV support; persist a terminal outcome reference."},
         "publish_native": {"kind": "store", "note": "Verify saved evidence and publish exactly once for the frozen run item."},
-        "review_native": {"kind": "store", "note": "Add reading, interpretation and grounding gaps to the existing review queue."},
+        "review_native": {"kind": "store", "note": "Add reading, interpretation, grounding and content-check gaps and no-band JEV support to the existing review queue."},
         "done": {"kind": "terminal", "note": "A published machine result; human approval remains separate."},
         "needs_review": {"kind": "terminal", "note": "Published evidence and explicit gaps or provider outcomes remain available for review."},
     },

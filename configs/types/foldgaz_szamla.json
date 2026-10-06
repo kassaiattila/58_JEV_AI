@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "type:foldgaz_szamla",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "changelog": [
+   {
+    "version": "1.3.0",
+    "date": "2026-10-06",
+    "note": "120 (silent content errors): distinct_parties role-pair check(s) supplier_name/customer_name; a to-do at the second field when both name one party (jav/fact_checks.py). Extraction requests are unchanged."
+   },
    {
     "version": "1.2.0",
     "date": "2026-09-28",
@@ -111,6 +116,13 @@
   },
   {
    "check": "line_items_arithmetic"
+  },
+  {
+   "check": "distinct_parties",
+   "fields": [
+    "supplier_name",
+    "customer_name"
+   ]
   }
  ],
  "text_labels": {

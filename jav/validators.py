@@ -7,6 +7,7 @@ a requirement here - we work with Decimal and `date`. The codes (`totals.ok`, `t
 Which checks run: the type pack's `validators` list (the legacy `rules.json` `named` list + the format rules of
 `fields`, as data): `{"check": <name>, "field": <field>, "optional": true, "regex": ...}`. An `optional`
 check is skipped if the field is empty. The Hungarian invoice's list gives the earlier `run_all` behaviour unchanged.
+A role-pair check names two fields: `{"check": "distinct_parties", "fields": [<first>, <second>]}` (120).
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ import re
 from decimal import Decimal
 from typing import Any
 
-from jav import taxid
+from jav import fact_checks, taxid
 from jav.models import CheckResult, InvoiceHU
 
 HU_TAXID_WEIGHTS = taxid.HU_WEIGHTS
@@ -229,6 +230,7 @@ _RECORD_CHECKS = {"vat_consistency": vat_consistency, "date_order": date_order,
                   "line_items_total": line_items_total, "line_items_arithmetic": line_items_arithmetic,
                   **{n: _statement_check(n) for n in ("running_balance_check", "closing_balance_check", "totals_consistency", "period_dates")}}
 _FIELD_CHECKS = {"hu_tax_id": hu_tax_id, "tax_id": tax_id, "iban_check": iban_check}
+PAIR_CHECKS = frozenset({"distinct_parties"})  # 120: checks naming two fields in `fields`
 
 
 def run_checks(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | list[dict[str, Any]]) -> list[CheckResult]:
@@ -246,12 +248,27 @@ def run_checks(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | list[dic
     return results
 
 
+def distinct_parties(inv: InvoiceHU, first: str, second: str) -> CheckResult | None:
+    """120: two role fields must not name one party (`jav.fact_checks.same_party`). The to-do stands at the second
+    field; the detail names only the fields, never their values. Skipped when either field is empty."""
+    a, b = inv.get_field(first), inv.get_field(second)
+    if a in (None, "") or b in (None, ""):
+        return None
+    name = f"distinct_parties:{second}"
+    if fact_checks.same_party(a, b):
+        return CheckResult(name=name, ok=False, code="parties.same_entity", detail=f"{first} ~ {second}")
+    return CheckResult(name=name, ok=True, code="parties.ok")
+
+
 def _run_one(inv: InvoiceHU, spec: dict[str, Any]) -> CheckResult | None:
     check = spec["check"]
     if check == "date_order":
         return date_order(inv, optional=bool(spec.get("optional", False)))
     if check in _RECORD_CHECKS:
         return _RECORD_CHECKS[check](inv)
+    if check in PAIR_CHECKS:
+        first, second = spec["fields"]
+        return distinct_parties(inv, first, second)
     field = spec["field"]
     value = inv.get_field(field)
     if value is None and spec.get("optional", False):

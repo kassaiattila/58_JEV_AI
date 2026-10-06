@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "changelog": [
+   {
+    "version": "1.16.0",
+    "date": "2026-10-06",
+    "note": "120 (the owner's choice of 2026-10-06, silent content errors): band_for native.support = default - JEV's raw support of a Word/Excel fact is read with the existing default Noul band; a no-band answer opens a to-do. No threshold changed; the uncertain band stays without a to-do (uncertain_review false)."
+   },
    {
     "version": "1.15.0",
     "date": "2026-10-02",
@@ -122,7 +127,8 @@
   "detect.doc_type.gpt": "gpt_detect",
   "detect.detail_type.gpt": "gpt_detect",
   "detect.issuer_is_hungarian.gpt": "gpt_detect",
-  "email.intent.gpt": "gpt_intent"
+  "email.intent.gpt": "gpt_intent",
+  "native.support": "default"
  },
  "email": {
   "m2_types": [

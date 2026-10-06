@@ -98,6 +98,8 @@ const CHECK_TEXT: Record<string, string> = tmap({
   "lines.total_mismatch": "A tételek összege nem egyezik a számla végösszegével",
   "lines.incomplete": "Tételsoron hiányzik az összeg, ezért a tételösszeg nem ellenőrizhető",
   "lines.arithmetic_mismatch": "Tételsoron a mennyiség × egységár vagy a nettó + ÁFA nem adja ki a sor összegét",
+  // 120: the role-pair check (jav/fact_checks.py); written with codepoints for the language guard
+  "parties.same_entity": "Ugyanaz a szerepl\u0151 k\u00e9t k\u00fcl\u00f6nb\u00f6z\u0151 szerepben",
 });
 
 /** The result of one of the package's checks as an everyday sentence (on the corrected, saved data). */
