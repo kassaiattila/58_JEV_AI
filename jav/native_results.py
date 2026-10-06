@@ -18,7 +18,8 @@ from pydantic import TypeAdapter
 from jav import store
 from jav.native_contracts import (
     ArtifactRef, Failed, InterpretationOutcome, NativeCitation, NativeFact,
-    NativeProgress, NativeSourceElement, NATIVE_SUFFIXES, Publication, ReadingRef,
+    NativeProgress, NativeSourceElement, NATIVE_CAPABLE_SUFFIXES, NATIVE_FALLBACK_SUFFIXES, NATIVE_SUFFIXES,
+    Publication, ReadingRef,
     ReadingResult, ReadingSummary, Running, SourcePage,
 )
 from jav.readers.contracts import ReadLimits, SourceBundle, TextLocator, canonical_bytes
@@ -112,7 +113,7 @@ def prepare_reading(read_path: Path, *, original_name: str, expected_sha256: str
                     limits: ReadLimits = DEFAULT_LIMITS) -> ReadingRef:
     """Read once for the exact source/name/reader configuration, with OCR disabled."""
     path = Path(read_path)
-    if Path(original_name).name != original_name or Path(original_name).suffix.lower() not in NATIVE_SUFFIXES:
+    if Path(original_name).name != original_name or Path(original_name).suffix.lower() not in NATIVE_CAPABLE_SUFFIXES:
         raise ValueError("A native reading needs a supported original file name")
     source = pipeline.bounded_file(path, limits.input_bytes)
     if digest(source) != expected_sha256:
@@ -289,6 +290,21 @@ def publish(*, run_id: str, item_id: str, source_sha256: str, recipe_hash: str,
         conn.execute("INSERT INTO native_publications VALUES (?,?,?,?,?)",
                      (run_id, item_id, publication.publication_id, payload.decode(), digest(payload)))
         return publication
+
+
+def native_item(run_id: str, item: Mapping, c=None) -> bool:
+    """Whether an item's result is a native publication: a native format, or (120) a PDF that continued into the
+    native flow because its recognised type had no fitting type pack. The suffix alone no longer decides for a PDF."""
+    if item.get("kind") != "document":
+        return False
+    suffix = Path(item["source_path"]).suffix.lower()
+    if suffix in NATIVE_SUFFIXES:
+        return True
+    if suffix not in NATIVE_FALLBACK_SUFFIXES:
+        return False
+    with _connection(c) as conn:
+        return conn.execute("SELECT 1 FROM native_publications WHERE run_id=? AND item_id=?",
+                            (run_id, item["item_id"])).fetchone() is not None
 
 
 def get_publication(run_id: str, item_id: str, c=None) -> Publication | None:

@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.10.0",
+    "version": "1.11.0",
     "changelog": [
+      {
+        "version": "1.11.0",
+        "date": "2026-10-06",
+        "note": "120: explain the unknown_documents setting (general facts for a text PDF without a fitting type pack, or the earlier stop)."
+      },
       {
         "version": "1.10.0",
         "date": "2026-10-04",
@@ -189,6 +194,13 @@
       "options": {
         "on": "Ha a helyi felismerés gyenge, a rendszer az Azure-felismerést használja, iratonként legfeljebb 0,02 USD keretből. Minden hívás a hívásnaplóba kerül; ha a futás Azure-kerete elfogy, a helyi szöveg megy tovább, és az irat teendőt kap. Ez az alapbeállítás.",
         "off": "Csak helyi felismerés, gyenge szkennelésnél is. Nincs Azure-költség; a gyenge felismerésű irat a szokásos felismerési teendőket kapja."
+      }
+    },
+    "unknown_documents": {
+      "help": "A PDF document whose recognised type has no fitting type pack (for example a declaration or a payment reminder) can still yield source-bound facts. The recognised type and its uncertainty stay visible.",
+      "options": {
+        "facts": "Text PDFs without a fitting type pack get general facts from GPT with JEV support, within the run's budget (about 0.08 USD OpenAI and 0.03 USD JEV per document at most). Scanned PDFs keep a manual to-do. This is the default.",
+        "review": "Such PDFs stop with a manual to-do, as before. No extra provider call."
       }
     },
     "jev": {

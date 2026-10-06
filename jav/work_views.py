@@ -178,9 +178,10 @@ def result_tables(run_id: str) -> list[str]:
         if export.task_rows(export.email_records(run_id)):
             out.append("tasks")
     out += ["documents", "datapoints"] if records else []
+    from jav import native_results
     from jav.native_contracts import NATIVE_SUFFIXES
 
-    if any(i.get("kind") == "document" and Path(i["source_path"]).suffix.lower() in NATIVE_SUFFIXES for i in items):
+    if any(native_results.native_item(run_id, i) for i in items):  # 120: a continuing PDF too
         out.append("native_facts")
     if any(any(r.get("lists", {}).values()) for r in records):
         out.append("line_items")

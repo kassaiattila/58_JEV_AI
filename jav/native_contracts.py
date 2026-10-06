@@ -36,6 +36,9 @@ DOCUMENT_FORMATS = (
 )
 DOCUMENT_SUFFIXES = tuple(item.suffix for item in DOCUMENT_FORMATS)
 NATIVE_SUFFIXES = tuple(item.suffix for item in DOCUMENT_FORMATS if item.flow == "native")
+# 120: a document flow item that may continue into the native flow when its type has no fitting type pack
+NATIVE_FALLBACK_SUFFIXES = (".pdf",)
+NATIVE_CAPABLE_SUFFIXES = NATIVE_SUFFIXES + NATIVE_FALLBACK_SUFFIXES
 
 
 def format_for(path: str | Path) -> DocumentFormat | None:

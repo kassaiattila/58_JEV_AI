@@ -27,8 +27,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, corrections, store, typepack, work
-from jav.native_contracts import NATIVE_SUFFIXES
+from jav import cfg, corrections, native_results, store, typepack, work
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
 SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
@@ -80,7 +79,7 @@ def native_records(run_id: str) -> list[dict[str, Any]]:
     """Native review data, including empty or unsuccessful outcomes and original machine proposals."""
     return [{"file": Path(item["source_path"]).name, **corrections.item_result(run_id, item["item_id"])}
             for item in work.get_run(run_id)["input"]["items"]
-            if item.get("kind") == "document" and Path(item["source_path"]).suffix.lower() in NATIVE_SUFFIXES]
+            if native_results.native_item(run_id, item)]
 
 
 NATIVE_COLUMNS = ("file", "item_id", "fact_id", "entity", "property", "effective_value", "unit", "role",
@@ -415,8 +414,7 @@ def _json_export(run_id: str, records: list[dict[str, Any]] | None = None) -> tu
     # never give older exported values the version of an unseen correction.
     review_version = corrections.review_version(run_id)
     run = work.get_run(run_id)
-    native_run = any(item.get("kind") == "document" and Path(item["source_path"]).suffix.lower() in NATIVE_SUFFIXES
-                     for item in run["input"]["items"])
+    native_run = any(native_results.native_item(run_id, item) for item in run["input"]["items"])
     # Caller-supplied rows have no bound version. A native or mixed export must
     # reload them after the version capture, using the versioned dataset cache.
     records = datasets.run_records(run_id) if records is None or native_run else records

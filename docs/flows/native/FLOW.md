@@ -23,7 +23,7 @@
 
 Terminal steps: done, needs_review
 
-> Immutable source readings, terminal interpretation outcomes and publications remain separate. Resume uses saved identities, without copying source text into Burr state.
+> Immutable source readings, terminal interpretation outcomes and publications remain separate. Resume uses saved identities, without copying source text into Burr state. A text PDF whose recognised type has no fitting type pack can continue here from document detection (120, recipe setting unknown_documents).
 
 ## Graph (Mermaid)
 

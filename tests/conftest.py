@@ -31,6 +31,17 @@ def _no_live_gpt_choice():
 
 
 @pytest.fixture(autouse=True)
+def _no_provider_keys(monkeypatch):
+    """120: no test reaches a paid provider. The keys are read when a call is built (`jav/config.py`), so without them
+    an unpatched OpenAI or JEV call fails with `MissingAPIKeyError` (JEV: `missing_key`) instead of spending. A debug
+    run that left the native GPT extraction and JEV support unpatched made three small live calls before this guard."""
+    from jav.config import API_KEY_ENV_VARS, OPENAI_KEY_ENV_VAR
+
+    for name in (*API_KEY_ENV_VARS, OPENAI_KEY_ENV_VAR):
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
 def _release_call_holders():
     """092: the holder locks a test's reservations took are let go after it, so that no lock file stays open in a
     temporary folder and no test inherits another's holder."""

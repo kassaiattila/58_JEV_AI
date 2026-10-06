@@ -12,7 +12,16 @@ even when a reviewer later supplies a corrected value.
 
 `native_contracts.py` defines the shared format registry and typed result shapes.
 PDF continues through the existing document graph. Native formats use
-`flow_native.py`; OCR is disabled on this route. The graph receives the frozen
+`flow_native.py`; OCR is disabled on this route. A text PDF whose recognised
+type has no fitting type pack (no pack for its category, "none of these" for
+the detailed type, or the unknown type) continues from detection into this graph
+on the G path, when the recipe's `unknown_documents` setting is `facts` (the
+default since 120; `review` keeps the earlier stop). It is not continued after a
+failed classification step or for text that only OCR produced. The recognised
+type and its uncertainty to-dos stay; only the "no extraction for this type"
+to-do is closed. Every place that chooses between the native and the classic
+result asks `native_results.native_item`, so such a PDF is reviewed, exported
+and approved as a native result. The graph receives the frozen
 work-run, item, graph, source and recipe identities explicitly. It uses the
 existing worker, budget context and review queue.
 

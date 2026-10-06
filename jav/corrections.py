@@ -40,7 +40,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from jav import dates, grounding, native_results, numbers, source_layer, store, typepack, validators, work
-from jav.native_contracts import NATIVE_SUFFIXES, Publication
+from jav.native_contracts import Publication
 
 store.register_schema("corrections", """
 CREATE TABLE IF NOT EXISTS run_item_corrections (
@@ -408,7 +408,7 @@ def save_native(run_id: str, item_id: str, *, values: dict[str, str | None], nat
         item = next((i for i in json.loads(run["input"])["items"] if i["item_id"] == item_id), None)
         if item is None:
             raise KeyError(item_id)
-        if item.get("kind") != "document" or Path(item["source_path"]).suffix.lower() not in NATIVE_SUFFIXES:
+        if not native_results.native_item(run_id, item, c):
             raise ValueError("Native corrections require a native document result")
         publication = native_publication(run_id, item_id, expected_result_version=expected_result_version, c=c)
         if publication.interpretation_outcome.status != "succeeded":
@@ -446,7 +446,7 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
     if item is None:
         raise KeyError(item_id)
-    if item.get("kind") == "document" and Path(item["source_path"]).suffix.lower() in NATIVE_SUFFIXES:
+    if native_results.native_item(run_id, item):  # 120: a continuing PDF too, by its publication
         return _native_item_result(run, item)
     if item.get("kind") == "email":  # 048 T2: email item: no extraction or page image; shows the email and intent
         from jav import mailbox
