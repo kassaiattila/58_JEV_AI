@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "recipes",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "changelog": [
+   {
+    "version": "1.12.0",
+    "date": "2026-10-06",
+    "note": "120 (the owner's decision of 2026-10-06): the unknown_documents setting of the processing and multi-format-processing recipes (both now version 2). facts (the default): a text PDF whose recognised type has no fitting type pack continues into the native source-bound facts on the G path, within the PDF item budget; review: the earlier stop with a to-do. The recognised type and its uncertainty to-dos are kept."
+   },
    {
     "version": "1.11.0",
     "date": "2026-10-04",
@@ -68,7 +73,7 @@
  "recipes": [
   {
    "id": "processing",
-   "version": 1,
+   "version": 2,
    "status": "active",
    "title": "Feldolgozás",
    "description": "A csomag minden tételét a fajtája szerint dolgozza fel: a PDF-iraton felismeri a típust, majd a felismert típus mezőit nyeri ki kódos ellenőrzéssel; a levélen felismeri a szándékot, a PDF-csatolmányait iratként dolgozza fel, és kérésre feladatot javasol. Ami bizonytalan vagy nem dönthető el, teendő lesz.",
@@ -135,6 +140,13 @@
       "off"
      ],
      "default": "on"
+    },
+    "unknown_documents": {
+     "allowed": [
+      "facts",
+      "review"
+     ],
+     "default": "facts"
     }
    },
    "max_item_usd": {
@@ -216,7 +228,7 @@
   },
   {
    "id": "multi-format-processing",
-   "version": 1,
+   "version": 2,
    "status": "active",
    "title": "Multi-format processing",
    "description": "Read PDF, Word, Excel, UTF-8 text and CSV documents in one package. Preserve original source structure and review extracted facts before approval.",
@@ -232,7 +244,8 @@
     "arm": {"allowed": ["auto", "S", "G"], "default": "auto"},
     "jev_cache": {"allowed": ["reuse", "live"], "default": "reuse"},
     "azure_ocr": {"allowed": ["on", "off"], "default": "off"},
-    "jev": {"allowed": ["on", "off"], "default": "on"}
+    "jev": {"allowed": ["on", "off"], "default": "on"},
+    "unknown_documents": {"allowed": ["facts", "review"], "default": "facts"}
    },
    "max_item_usd": {
     "S": {"jev": "0.07", "openai": "0.15"},

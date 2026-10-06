@@ -9,7 +9,7 @@ from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
 from jav import native_processing, native_results, policy, store
-from jav.native_contracts import NativeLimits, NATIVE_SUFFIXES
+from jav.native_contracts import NativeLimits, NATIVE_CAPABLE_SUFFIXES
 from jav.readers.pipeline import json_bytes
 
 PARTITION = "native"
@@ -156,7 +156,7 @@ CONTRACT = {
         "needs_review": {"kind": "terminal", "note": "Published evidence and explicit gaps or provider outcomes remain available for review."},
     },
     "terminals": sorted(TERMINALS),
-    "doc_note": "Immutable source readings, terminal interpretation outcomes and publications remain separate. Resume uses saved identities, without copying source text into Burr state.",
+    "doc_note": "Immutable source readings, terminal interpretation outcomes and publications remain separate. Resume uses saved identities, without copying source text into Burr state. A text PDF whose recognised type has no fitting type pack can continue here from document detection (120, recipe setting unknown_documents).",
 }
 
 
@@ -167,7 +167,7 @@ def build_app(*, work_run_id: str, item_id: str, graph_id: str, source_path: str
     """Build the native graph from explicit frozen work identities and limits."""
     if requested_arm not in {"G", "auto"}:
         raise ValueError("Native interpretation requires the G path")
-    if Path(original_name).suffix.lower() not in NATIVE_SUFFIXES:
+    if Path(original_name).suffix.lower() not in NATIVE_CAPABLE_SUFFIXES:
         raise ValueError("Native flow requires a registered native document")
     limits = limits or native_processing.estimate_limits({"jev": "on" if jev else "off", "arm": requested_arm})
     initial = NativeState(work_run_id=work_run_id, item_id=item_id, graph_id=graph_id,

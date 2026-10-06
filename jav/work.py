@@ -1067,10 +1067,10 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -
         raise NotReady("run has input items without a finished result")
     with store.connect() as c:
         _begin(c)
-        native_items = [i for i in run["input"]["items"]
-                        if i.get("kind") == "document" and Path(i["source_path"]).suffix.lower() in NATIVE_SUFFIXES]
+        from jav import native_results
+
+        native_items = [i for i in run["input"]["items"] if native_results.native_item(run_id, i, c)]
         if native_items:
-            from jav import native_results
 
             if review_version is None:
                 raise RevisionConflict("Native approval requires the exact reviewed version")

@@ -218,6 +218,43 @@ def _next_params(params: dict[str, Any], detect_state) -> dict[str, Any] | None:
     return {**params, "doc_type": key, "arm": arm_for(key, _requested_arm(params))}
 
 
+def _field(value: Any, name: str) -> Any:
+    """A field of a saved state value (a dict after persistence, a model in the same process)."""
+    return value.get(name) if isinstance(value, dict) else getattr(value, name, None)
+
+
+def unknown_documents(recipe: dict[str, Any], params: dict[str, Any]) -> str:
+    """120: the run's `unknown_documents` setting; a run started before the setting existed keeps the earlier stop."""
+    default = ((recipe.get("params") or {}).get("unknown_documents") or {}).get("default", "review")
+    return params.get("unknown_documents", default)
+
+
+def native_fallback(params: dict[str, Any], item: dict[str, Any], detect_state) -> dict[str, Any] | None:
+    """120 (the owner's decision of 2026-10-06): a text PDF whose recognised type has no fitting type pack continues
+    into the native source-bound facts on the G path, when `unknown_documents` is `facts`. It does not continue after
+    a failed classification step (JEV or GPT unavailable), for text only OCR produced (the native reader does not
+    reuse it), or for a type that has a fitting pack. Returns the native stage's parameters, or None."""
+    from jav.native_contracts import NATIVE_FALLBACK_SUFFIXES
+
+    if params.get("unknown_documents") != "facts" or item.get("kind") != "document":
+        return None
+    if Path(item["source_path"]).suffix.lower() not in NATIVE_FALLBACK_SUFFIXES:
+        return None
+    if detect_state.get("final_status") != "done" or detect_state.get("text_source") != "pdf":
+        return None
+    doc_type = _field(detect_state.get("result"), "doc_type")
+    if doc_type is None:
+        return None
+    if doc_type != "unknown":
+        detail = detect_state.get("detail")
+        if detail is None or _field(detail, "key") is not None or _field(detail, "method") not in ("no_candidate", "jev", "gpt"):
+            return None
+        failed = ("jev_unavailable", "detect_detail:gpt_failed")
+        if any(str(r).startswith(failed) for r in detect_state.get("detail_reasons") or []):
+            return None
+    return {**params, "arm": "G"}
+
+
 def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) -> str:
     """Processes one claimed job and returns its resulting state. `after_step`: test hook (fault injection)."""
     run_id, item_id = job.payload["run_id"], job.payload["item_id"]
@@ -243,8 +280,14 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
             final, state = None, None
             for n, (flow_name, params) in enumerate(stages):
                 stage_id = app_id if n == len(stages) - 1 else f"{app_id}-{flow_name}"
+                continued = False
                 if n > 0:
-                    params = _next_params(params, state)
+                    detected = state
+                    params = _next_params(params, detected)
+                    if params is None:  # 120: no fitting type pack: a text PDF may continue into general facts
+                        params = native_fallback({**stages[n][1], "unknown_documents": unknown_documents(
+                            run["recipe"], run["params"])}, item, detected)
+                        flow_name, continued = "native", params is not None
                     if params is None:  # detailed type left open: nothing to extract, the to-do belongs to detection
                         final = "needs_review"
                         break
@@ -252,6 +295,14 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                                    run_id=run_id, job_id=job.id, after_step=after_step, read_path=read_path,
                                    attachment_reads=attachment_reads, item=item, recipe_hash=run["recipe_hash"])
                 final = state.get("final_status")
+                if continued:  # the facts exist now: "no extraction for this type" no longer holds
+                    kind, subject = work.review_subject(item)
+                    store.review_close(subject_kind=kind, subject_id=subject, reason_prefix="detect:no_type_pack",
+                                       run_id=f"{app_id}-doc_detect")
+                    # the type's own uncertainty stays a to-do beside the facts
+                    open_type = [r for r in detected.get("detail_reasons") or [] if not str(r).startswith("detect:no_type_pack")]
+                    if final == "done" and (detected.get("uncertain") or open_type or detected.get("review_reasons")):
+                        final = "needs_review"
         finally:
             persister.cleanup()
     except queue.JobCancelled:

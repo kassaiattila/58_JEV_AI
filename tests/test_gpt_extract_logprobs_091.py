@@ -49,7 +49,8 @@ def isolated(tmp_path: Path):
         yield tmp_path
 
 
-def test_the_agent_asks_for_a_native_answer_with_log_probabilities():
+def test_the_agent_asks_for_a_native_answer_with_log_probabilities(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-placeholder")  # 120: building the agent only; no call is made
     agent = extract_llm.get_agent("invoice_hu")
     assert isinstance(agent.output_type, NativeOutput)
     assert agent.model_settings["openai_logprobs"] is True

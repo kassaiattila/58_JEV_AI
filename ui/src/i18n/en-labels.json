@@ -110,5 +110,8 @@
  "Automatikus (ajánlott) — JEV és GPT": "Automatic (recommended) — JEV and GPT",
  "Csak GPT, JEV nélkül (OpenAI)": "GPT only, without JEV (OpenAI)",
  "JEV-vel (ajánlott)": "With JEV (recommended)",
- "Korábbi válaszok": "Earlier answers"
+ "Korábbi válaszok": "Earlier answers",
+ "Ismeretlen PDF-ek": "Unknown PDFs",
+ "általános adatjavaslat (GPT + JEV)": "general facts (GPT + JEV)",
+ "megáll, kézi ellenőrzés": "stops for manual review"
 }

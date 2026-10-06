@@ -176,5 +176,8 @@
   "Header": "Fejléc",
   "Footer": "Lábléc",
   "Choose a sheet": "Válassz munkalapot",
-  "No literal cell value": "Nincs közvetlen cellaérték"
+  "No literal cell value": "Nincs közvetlen cellaérték",
+  "A PDF document whose recognised type has no fitting type pack (for example a declaration or a payment reminder) can still yield source-bound facts. The recognised type and its uncertainty stay visible.": "Az a PDF, amelynek felismert típusához nincs illeszkedő típusleírás (például nyilatkozat vagy fizetési felszólítás), így is adhat forráshoz kötött adatjavaslatokat. A felismert típus és bizonytalansága látható marad.",
+  "Text PDFs without a fitting type pack get general facts from GPT with JEV support, within the run's budget (about 0.08 USD OpenAI and 0.03 USD JEV per document at most). Scanned PDFs keep a manual to-do. This is the default.": "A szöveges PDF-ek illeszkedő típusleírás nélkül is általános adatjavaslatot kapnak a GPT-től, JEV-ellenőrzéssel, a futás keretén belül (iratonként legfeljebb kb. 0,08 USD OpenAI és 0,03 USD JEV). A szkennelt PDF kézi teendőt kap. Ez az alapbeállítás.",
+  "Such PDFs stop with a manual to-do, as before. No extra provider call.": "Az ilyen PDF a korábbiak szerint kézi teendővel megáll. Nincs többlet szolgáltatói hívás."
 }

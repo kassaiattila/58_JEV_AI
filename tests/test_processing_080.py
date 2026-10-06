@@ -46,7 +46,7 @@ def test_catalogue_offers_only_the_active_processing(isolated):
                       "document-processing": "retired", "email-intent": "retired"}
     p = work.recipe("processing")
     assert p["flows"] == {"email": "email", "document": "document"} and set(p["input_kinds"]) == {"email", "document"}
-    assert set(p["params"]) == {"arm", "jev_cache", "tasks", "azure_ocr", "jev"}  # 086: + jev
+    assert set(p["params"]) == {"arm", "jev_cache", "tasks", "azure_ocr", "jev", "unknown_documents"}  # 086: + jev; 120
 
 
 def test_retired_recipe_cannot_be_assigned_but_internal_can(isolated):
@@ -79,7 +79,7 @@ def test_start_without_assignment_pins_the_default_settings(isolated):
     res = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=0, input_hash=r["input_hash"], actor="Anna")
     a = work.current_assignment(wp["id"])
     assert a["revision"] == 1 and a["recipe_id"] == "processing" and a["actor"] == "Anna"
-    assert a["params"] == {"arm": "auto", "jev_cache": "reuse", "tasks": "off", "azure_ocr": "on", "jev": "on"}
+    assert a["params"] == {"arm": "auto", "jev_cache": "reuse", "tasks": "off", "azure_ocr": "on", "jev": "on", "unknown_documents": "facts"}
     assert a["note"]
     run = work.get_run(res["run_id"])
     assert run["recipe_id"] == "processing" and run["assignment_revision"] == 1
@@ -132,9 +132,9 @@ def test_retired_assignment_warns_and_migration_moves_every_package(isolated):
     assert len(done) == 3
     szamla = work.current_assignment(wps["szamla"])
     assert szamla["recipe_id"] == "processing" and szamla["revision"] == 2 and szamla["actor"] == "rendszer"
-    assert szamla["params"] == {"arm": "S", "jev_cache": "reuse", "tasks": "off", "azure_ocr": "off", "jev": "on"}  # the type is dropped
+    assert szamla["params"] == {"arm": "S", "jev_cache": "reuse", "tasks": "off", "azure_ocr": "off", "jev": "on", "unknown_documents": "facts"}  # the type is dropped
     assert "invoice_hu" in szamla["note"]
-    assert work.current_assignment(wps["irat"])["params"] == {"arm": "auto", "jev_cache": "live", "tasks": "off", "azure_ocr": "on", "jev": "on"}
+    assert work.current_assignment(wps["irat"])["params"] == {"arm": "auto", "jev_cache": "live", "tasks": "off", "azure_ocr": "on", "jev": "on", "unknown_documents": "facts"}
     assert work.current_assignment(wps["level"])["params"]["tasks"] == "propose"
     assert work.current_assignment(wps["uj"])["revision"] == 1  # already on the active recipe: untouched
     assert work.readiness(wps["irat"])["warnings"] == []
@@ -150,7 +150,7 @@ def test_migration_moves_watched_folders_off_retired_recipes(isolated):
     assert [x["id"] for x in app_settings.migrate_folder_recipes(write=False)] == [f["id"]]
     app_settings.migrate_folder_recipes(write=True)
     [f2] = app_settings.folders()
-    assert f2["recipe_id"] == "processing" and f2["params"] == {"arm": "S", "jev_cache": "reuse", "tasks": "off", "azure_ocr": "on", "jev": "on"}
+    assert f2["recipe_id"] == "processing" and f2["params"] == {"arm": "S", "jev_cache": "reuse", "tasks": "off", "azure_ocr": "on", "jev": "on", "unknown_documents": "facts"}
     assert app_settings.migrate_folder_recipes(write=True) == []
 
 
@@ -161,7 +161,7 @@ def test_cli_lists_every_status_and_migrates_on_request(isolated, capsys):
     _assign_raw(wp["id"], "email-intent", {"arm": "auto", "jev_cache": "reuse", "tasks": "off"})
     assert cli.main(["recipes"]) == 0
     out = capsys.readouterr().out
-    assert "processing v1 [active]" in out and "invoice-extraction" in out and "[retired]" in out
+    assert "processing v2 [active]" in out and "invoice-extraction" in out and "[retired]" in out
     assert cli.main(["processing-migrate", "--json"]) == 0
     dry = json.loads(capsys.readouterr().out)
     assert not dry["written"] and [p["workpackage_id"] for p in dry["packages"]] == [wp["id"]]
@@ -186,7 +186,7 @@ def test_watched_folder_saved_with_a_retired_recipe_moves_onto_the_processing(is
     # the UI no longer shows the folder's recipe, so saving the list must not fail on an old one
     [f] = app_settings.save_folders([app_settings.WatchedFolder(path=str(_docs(isolated)), recipe_id="email-intent",
                                                                 params={"tasks": "propose"})], check_dir=lambda p: Path(p))
-    assert f["recipe_id"] == "processing" and f["params"] == {"arm": "auto", "jev_cache": "reuse", "tasks": "propose", "azure_ocr": "on", "jev": "on"}
+    assert f["recipe_id"] == "processing" and f["params"] == {"arm": "auto", "jev_cache": "reuse", "tasks": "propose", "azure_ocr": "on", "jev": "on", "unknown_documents": "facts"}
     with pytest.raises(ValueError):
         app_settings.save_folders([app_settings.WatchedFolder(path=str(_docs(isolated / "b")), recipe_id="nincs-ilyen")],
                                   check_dir=lambda p: Path(p))

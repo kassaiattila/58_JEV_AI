@@ -306,7 +306,8 @@ export const intentLabel = (key: string | null | undefined): string => (key ? IN
 
 /** Labels of the processing settings (058; 080: the path by what it does, the owner's decision of 2026-10-01): a short
  *  value without code names; the long explanation is in the settings editor and on Settings › Processing. */
-export const PARAM_LABEL: Record<string, string> = tmap({ path: "Feldolgozási út", arm: "Út", doc_type: "Irattípus", jev_cache: "Korábbi válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés", jev: "JEV használata" });
+export const PARAM_LABEL: Record<string, string> = tmap({ path: "Feldolgozási út", arm: "Út", doc_type: "Irattípus", jev_cache: "Korábbi válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés", jev: "JEV használata",
+  unknown_documents: "Ismeretlen PDF-ek" });  // 120
 const PARAM_SHORT: Record<string, string> = tmap({
   "jev:on": "bekapcsolva",
   "jev:off": "kikapcsolva — csak GPT (OpenAI)",
@@ -325,11 +326,15 @@ const PARAM_SHORT: Record<string, string> = tmap({
   "tasks:propose": "bekapcsolva (GPT)",
   "azure_ocr:on": "gyenge szkennelésnél",
   "azure_ocr:off": "kikapcsolva",
+  // 120: a text PDF without a fitting type pack (written with codepoints for the language guard)
+  "unknown_documents:facts": "\u00e1ltal\u00e1nos adatjavaslat (GPT + JEV)",
+  "unknown_documents:review": "meg\u00e1ll, k\u00e9zi ellen\u0151rz\u00e9s",
 });
 /** 080: the item kind a setting acts on (the path, Azure and the document type on documents, task proposals on
  *  emails); a setting not listed acts on every item. With the package's item kinds known, a setting that cannot act on
  *  any of them is not shown. */
-const PARAM_KIND: Record<string, string> = { arm: "document", azure_ocr: "document", doc_type: "document", tasks: "email" };
+const PARAM_KIND: Record<string, string> = { arm: "document", azure_ocr: "document", doc_type: "document", tasks: "email",
+  unknown_documents: "document" };
 export const paramApplies = (k: string, kinds?: string[]): boolean => !kinds?.length || !PARAM_KIND[k] || kinds.includes(PARAM_KIND[k]);
 /** 089 (the owner's decision of 2026-10-02): a setting that only counts while another setting has a given value.
  *  Without JEV (086) every document runs on the G path, so the documents' path does not count. A missing value counts
