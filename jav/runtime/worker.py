@@ -164,7 +164,8 @@ def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app
                             original_name=Path(source_path).name, expected_sha256=item["sha256"],
                             recipe_hash=recipe_hash, jev=not _jev_off(params),
                             use_cache=reuse_answers(params), requested_arm=params.get("arm", "auto"),
-                            persister=persister, tracker=False, limits=estimate_limits(params))
+                            persister=persister, tracker=False, limits=estimate_limits(params),
+                            ocr=bool(params.get("native_ocr")))
     elif recipe["flow"] == "invoice":
         # `jev_cache=live`: skip reading the JEV cache so every call goes through the log and the budget (live test)
         app = mod.build_app(source_path, app_id, params["arm"], tracker=False, doc_type=params["doc_type"], run_id=app_id,
@@ -230,17 +231,19 @@ def unknown_documents(recipe: dict[str, Any], params: dict[str, Any]) -> str:
 
 
 def native_fallback(params: dict[str, Any], item: dict[str, Any], detect_state) -> dict[str, Any] | None:
-    """120 (the owner's decision of 2026-10-06): a text PDF whose recognised type has no fitting type pack continues
-    into the native source-bound facts on the G path, when `unknown_documents` is `facts`. It does not continue after
-    a failed classification step (JEV or GPT unavailable), for text only OCR produced (the native reader does not
-    reuse it), or for a type that has a fitting pack. Returns the native stage's parameters, or None."""
+    """120 (the owner's decisions of 2026-10-06): a PDF whose recognised type has no fitting type pack continues
+    into the native source-bound facts on the G path, when `unknown_documents` is `facts`. A text PDF is read as it
+    is; when detection only had OCR text (a scan), the native reader uses its own local OCR (`native_ocr`), and such
+    a reading is always partial, so it keeps a to-do. It does not continue after a failed classification step (JEV
+    or GPT unavailable), without any text, or for a type that has a fitting pack. Returns the native stage's
+    parameters, or None."""
     from jav.native_contracts import NATIVE_FALLBACK_SUFFIXES
 
     if params.get("unknown_documents") != "facts" or item.get("kind") != "document":
         return None
     if Path(item["source_path"]).suffix.lower() not in NATIVE_FALLBACK_SUFFIXES:
         return None
-    if detect_state.get("final_status") != "done" or detect_state.get("text_source") != "pdf":
+    if detect_state.get("final_status") != "done" or detect_state.get("text_source") not in ("pdf", "ocr"):
         return None
     doc_type = _field(detect_state.get("result"), "doc_type")
     if doc_type is None:
@@ -252,7 +255,7 @@ def native_fallback(params: dict[str, Any], item: dict[str, Any], detect_state) 
         failed = ("jev_unavailable", "detect_detail:gpt_failed")
         if any(str(r).startswith(failed) for r in detect_state.get("detail_reasons") or []):
             return None
-    return {**params, "arm": "G"}
+    return {**params, "arm": "G", "native_ocr": detect_state.get("text_source") == "ocr"}
 
 
 def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) -> str:

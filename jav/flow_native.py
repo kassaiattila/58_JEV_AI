@@ -29,6 +29,7 @@ class NativeState(BaseModel):
     jev: bool
     use_cache: bool
     limits: dict
+    ocr: bool = False  # 120: a scanned PDF continuing from detection is read with local OCR
     reading_id: str | None = None
     outcome_id: str | None = None
     publication_id: str | None = None
@@ -38,7 +39,7 @@ class NativeState(BaseModel):
 
 
 _INPUTS = ["work_run_id", "item_id", "graph_id", "source_path", "read_path", "original_name",
-           "expected_sha256", "recipe_hash", "jev", "use_cache", "limits"]
+           "expected_sha256", "recipe_hash", "jev", "use_cache", "limits", "ocr"]
 
 
 @action.pydantic(reads=_INPUTS, writes=["reading_id"])
@@ -52,7 +53,7 @@ def read_native(state: NativeState) -> NativeState:
     else:
         state.reading_id = native_results.prepare_reading(Path(state.read_path),
             original_name=state.original_name, expected_sha256=state.expected_sha256,
-            limits=NativeLimits.model_validate_json(json_bytes(state.limits)).read_limits).reading_id
+            limits=NativeLimits.model_validate_json(json_bytes(state.limits)).read_limits, ocr=state.ocr).reading_id
     return state
 
 
@@ -148,7 +149,7 @@ CONTRACT = {
               ("publish_native", "review_native"), ("review_native", "needs_review", "Review reasons remain"),
               ("review_native", "done", "No automatic review reason")],
     "step_meta": {
-        "read_native": {"kind": "store", "note": "Verify the frozen source and save the complete bounded native Delivery; OCR is disabled."},
+        "read_native": {"kind": "store", "note": "Verify the frozen source and save the complete bounded native Delivery; OCR is disabled, except the reader's local OCR for a scanned PDF continuing from detection."},
         "interpret_native": {"kind": "llm", "note": "Use the shared GPT receipt and budget boundary, with optional JEV support; persist a terminal outcome reference."},
         "publish_native": {"kind": "store", "note": "Verify saved evidence and publish exactly once for the frozen run item."},
         "review_native": {"kind": "store", "note": "Add reading, interpretation, grounding and content-check gaps and no-band JEV support to the existing review queue."},
@@ -163,7 +164,8 @@ CONTRACT = {
 def build_app(*, work_run_id: str, item_id: str, graph_id: str, source_path: str,
               read_path: str, original_name: str, expected_sha256: str, recipe_hash: str,
               jev: bool = True, use_cache: bool = True, requested_arm: str = "G",
-              persister=None, tracker: bool = False, limits: NativeLimits | None = None) -> Application:
+              persister=None, tracker: bool = False, limits: NativeLimits | None = None,
+              ocr: bool = False) -> Application:
     """Build the native graph from explicit frozen work identities and limits."""
     if requested_arm not in {"G", "auto"}:
         raise ValueError("Native interpretation requires the G path")
@@ -172,7 +174,7 @@ def build_app(*, work_run_id: str, item_id: str, graph_id: str, source_path: str
     limits = limits or native_processing.estimate_limits({"jev": "on" if jev else "off", "arm": requested_arm})
     initial = NativeState(work_run_id=work_run_id, item_id=item_id, graph_id=graph_id,
         source_path=source_path, read_path=read_path, original_name=original_name, expected_sha256=expected_sha256,
-        recipe_hash=recipe_hash, jev=jev, use_cache=use_cache, limits=limits.model_dump(mode="json"))
+        recipe_hash=recipe_hash, jev=jev, use_cache=use_cache, limits=limits.model_dump(mode="json"), ocr=ocr)
     builder = (ApplicationBuilder().with_typing(PydanticTypingSystem(NativeState))
         .with_actions(read_native, interpret_native, publish_native, review_native, done, needs_review)
         .with_transitions(*TRANSITIONS).with_identifiers(app_id=graph_id, partition_key=PARTITION if persister else None))

@@ -144,7 +144,7 @@ const PARAM_VALUE: Record<string, string> = tmap({
   "azure_ocr:on": "Gyenge helyi felismerésnél Azure-felismerés (fizetős, a futás Azure-keretén belül)",
   "azure_ocr:off": "Csak helyi felismerés",
   // 120 (the owner's decision of 2026-10-06; codepoints for the language guard)
-  "unknown_documents:facts": "Sz\u00f6veges PDF, amelynek t\u00edpus\u00e1hoz nincs illeszked\u0151 t\u00edpusle\u00edr\u00e1s: \u00e1ltal\u00e1nos, forr\u00e1shoz k\u00f6t\u00f6tt adatjavaslatok (GPT + JEV); a felismert t\u00edpus \u00e9s bizonytalans\u00e1ga megmarad",
+  "unknown_documents:facts": "PDF, amelynek t\u00edpus\u00e1hoz nincs illeszked\u0151 t\u00edpusle\u00edr\u00e1s: \u00e1ltal\u00e1nos, forr\u00e1shoz k\u00f6t\u00f6tt adatjavaslatok (GPT + JEV; a szkennelt iratot helyi sz\u00f6vegfelismer\u00e9ssel, teend\u0151vel); a felismert t\u00edpus \u00e9s bizonytalans\u00e1ga megmarad",
   "unknown_documents:review": "Az ilyen PDF feldolgoz\u00e1sa meg\u00e1ll, \u00e9s teend\u0151t kap (kor\u00e1bbi viselked\u00e9s)",
   "jev:on": "Bekapcsolva: a JEV ismeri fel a típust és a levél szándékát, és választ vagy ellenőriz az adatkinyerésnél",
   "jev:off": "Kikapcsolva: csak GPT (OpenAI) — típusfelismerés, adatkinyerés és levélszándék GPT-vel, kódos ellenőrzéssel",

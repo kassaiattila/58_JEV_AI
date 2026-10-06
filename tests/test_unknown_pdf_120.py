@@ -140,7 +140,9 @@ def test_both_document_recipes_default_to_general_facts(recipe):
     ({"final_status": "done", "text_source": "pdf", "result": {"doc_type": "unknown"}, "detail": None,
       "detail_reasons": []}, True),
     ({"final_status": "done", "text_source": "ocr", "result": {"doc_type": "payment_reminder"},
-      "detail": {"key": None, "method": "no_candidate"}, "detail_reasons": []}, False),
+      "detail": {"key": None, "method": "no_candidate"}, "detail_reasons": []}, True),  # a scan: local OCR
+    ({"final_status": "done", "text_source": None, "result": {"doc_type": "unknown"}, "detail": None,
+      "detail_reasons": []}, False),
     ({"final_status": "done", "text_source": "pdf", "result": {"doc_type": "other"},
       "detail": {"key": None, "method": "no_jev"}, "detail_reasons": ["jev_unavailable:timeout"]}, False),
     ({"final_status": "jev_unavailable", "text_source": "pdf", "result": None, "detail": None,
@@ -151,3 +153,71 @@ def test_only_a_readable_pdf_without_a_fitting_pack_continues(detect, expected):
     item = {"kind": "document", "source_path": "C:/synthetic/document.pdf"}
     assert (worker.native_fallback(params, item, detect) is not None) == expected
     assert worker.native_fallback({**params, "unknown_documents": "review"}, item, detect) is None
+
+
+@pytest.mark.parametrize("text_source,ocr", [("pdf", False), ("ocr", True)])
+def test_a_scanned_pdf_continues_with_the_readers_local_ocr(text_source, ocr):
+    detect = {"final_status": "done", "text_source": text_source, "result": {"doc_type": "unknown"}, "detail": None,
+              "detail_reasons": []}
+    params = worker.native_fallback({"unknown_documents": "facts", "jev": "on", "arm": "S"},
+                                    {"kind": "document", "source_path": "C:/synthetic/scan.pdf"}, detect)
+    assert params["arm"] == "G" and params["native_ocr"] is ocr
+
+
+def test_the_continuing_stage_asks_the_native_graph_for_local_ocr(monkeypatch):
+    from jav import flow_native
+
+    seen = {}
+
+    def build_app(**kwargs):
+        seen.update(kwargs)
+        return "app"
+
+    monkeypatch.setattr(flow_native, "build_app", build_app)
+    app, _ = worker._build({"flow": "native"}, {"arm": "G", "jev": "on", "native_ocr": True}, "C:/synthetic/scan.pdf",
+                           "graph-1", None, run_id="run-1", item={"item_id": "a" * 64, "sha256": "a" * 64},
+                           recipe_hash="b" * 16)
+    assert app == "app" and seen["ocr"] is True and seen["requested_arm"] == "G"
+
+
+def test_an_ocr_reading_has_its_own_identity_and_a_plain_reading_keeps_its_old_one(tmp_path, monkeypatch):
+    import hashlib
+    from jav import native_results
+    from jav.readers import pipeline
+    from jav.readers.limits import DEFAULT_LIMITS
+    from jav.readers.pipeline import digest, json_bytes
+
+    source = tmp_path / "statement.txt"
+    source.write_bytes(b"Statement: 0012\n")
+    sha = hashlib.sha256(source.read_bytes()).hexdigest()
+    asked = []
+    original = pipeline.read_files
+    monkeypatch.setattr(pipeline, "read_files", lambda paths, **kw: asked.append(kw["ocr"]) or original(paths, **kw))
+    with store.use_store(tmp_path / "native.sqlite"):
+        plain = native_results.prepare_reading(source, original_name="statement.txt", expected_sha256=sha)
+        recognised = native_results.prepare_reading(source, original_name="statement.txt", expected_sha256=sha, ocr=True)
+    old_key = digest(json_bytes({"source": sha, "name": "statement.txt", "reader": pipeline.implementation_version(),
+                                 "limits": DEFAULT_LIMITS.model_dump(mode="json")}))
+    assert asked == [False, True]
+    assert plain.reading_id == "reading:" + old_key and recognised.reading_id != plain.reading_id
+
+
+def test_the_native_graph_reads_with_ocr_only_when_asked(tmp_path, monkeypatch):
+    from jav import flow_native, native_results
+
+    asked = []
+
+    def prepare(read_path, **kwargs):
+        asked.append(kwargs.get("ocr", False))
+        raise RuntimeError("stop after the reading request")
+
+    monkeypatch.setattr(native_results, "prepare_reading", prepare)
+    with store.use_store(tmp_path / "native.sqlite"):
+        for ocr in (False, True):
+            app = flow_native.build_app(work_run_id="r", item_id="i", graph_id=f"g{ocr}", source_path="C:/s/scan.pdf",
+                                        read_path="C:/s/scan.pdf", original_name="scan.pdf", expected_sha256="a" * 64,
+                                        recipe_hash="b" * 16, jev=False, ocr=ocr)
+            with pytest.raises(RuntimeError):
+                app.run(halt_after=flow_native.TERMINALS)
+    assert asked == [False, True]
+

@@ -213,6 +213,6 @@
   "Automatikus (ajánlott) — JEV és GPT, iratonként az irattípus ajánlott útja": "Automatic (recommended) — JEV and GPT, the document type's recommended path for each document",
   "Csak GPT, JEV nélkül — típusfelismerés, adatkinyerés és levélszándék GPT-vel, kódos ellenőrzéssel (OpenAI)": "GPT only, without JEV — type recognition, data extraction and email intent with GPT, checked in code (OpenAI)",
   "JEV-vel (ajánlott) — a JEV ismeri fel a levél szándékát": "With JEV (recommended) — JEV recognises the email's intent",
-  "Szöveges PDF, amelynek típusához nincs illeszkedő típusleírás: általános, forráshoz kötött adatjavaslatok (GPT + JEV); a felismert típus és bizonytalansága megmarad": "A text PDF whose type has no fitting type pack: general, source-bound facts (GPT + JEV); the recognised type and its uncertainty are kept",
+  "PDF, amelynek típusához nincs illeszkedő típusleírás: általános, forráshoz kötött adatjavaslatok (GPT + JEV; a szkennelt iratot helyi szövegfelismeréssel, teendővel); a felismert típus és bizonytalansága megmarad": "A PDF whose type has no fitting type pack: general, source-bound facts (GPT + JEV; a scan through local text recognition, with a to-do); the recognised type and its uncertainty are kept",
   "Az ilyen PDF feldolgozása megáll, és teendőt kap (korábbi viselkedés)": "Processing of such a PDF stops with a to-do (earlier behaviour)"
 }

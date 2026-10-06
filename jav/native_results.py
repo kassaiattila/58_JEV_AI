@@ -110,8 +110,10 @@ def _summary(delivery: Delivery) -> ReadingSummary:
 
 
 def prepare_reading(read_path: Path, *, original_name: str, expected_sha256: str,
-                    limits: ReadLimits = DEFAULT_LIMITS) -> ReadingRef:
-    """Read once for the exact source/name/reader configuration, with OCR disabled."""
+                    limits: ReadLimits = DEFAULT_LIMITS, ocr: bool = False) -> ReadingRef:
+    """Read once for the exact source/name/reader configuration. OCR stays disabled, except for a scanned PDF that
+    continued from document detection (120): its reading uses the reader's local OCR and has its own identity,
+    while every reading without OCR keeps its earlier key."""
     path = Path(read_path)
     if Path(original_name).name != original_name or Path(original_name).suffix.lower() not in NATIVE_CAPABLE_SUFFIXES:
         raise ValueError("A native reading needs a supported original file name")
@@ -119,14 +121,15 @@ def prepare_reading(read_path: Path, *, original_name: str, expected_sha256: str
     if digest(source) != expected_sha256:
         raise NativeIntegrityError("Source differs from the frozen work item")
     key = digest(json_bytes({"source": expected_sha256, "name": original_name,
-                            "reader": pipeline.implementation_version(), "limits": limits.model_dump(mode="json")}))
+                            "reader": pipeline.implementation_version(), "limits": limits.model_dump(mode="json"),
+                            **({"ocr": True} if ocr else {})}))
     with store.connect() as c:
         row = c.execute("SELECT * FROM native_readings WHERE reading_key=?", (key,)).fetchone()
         if row:
             ref = _checked(row, ReadingRef)
             load_reading(ref.reading_id, c=c)
             return ref
-    delivery = pipeline.read_files([path], limits=limits, ocr=False)
+    delivery = pipeline.read_files([path], limits=limits, ocr=ocr)
     roots = [o for o in delivery.bundle.manifest.occurrences if o.parent_id is None]
     if len(roots) != 1 or roots[0].object_sha256 != expected_sha256 or delivery.objects.get(expected_sha256) != source:
         raise NativeIntegrityError("Acquired source differs from the frozen work item")
