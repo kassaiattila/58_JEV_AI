@@ -30,8 +30,9 @@ not a runtime dependency.
 readings and interpretation publications. Model calls use the existing provider adapters, receipts and budget ledger.
 The API exposes complete source elements and source-linked facts to the native review views. Corrections retain the
 original proposals, approval is bound to the displayed review version, and the shared result datasets include native
-facts and reading status. PDF and email items keep their existing flows. A text PDF whose recognised type has no
-fitting type pack continues from detection into the native flow when the recipe's `unknown_documents` setting is
+facts and reading status. PDF and email items keep their existing flows. A PDF whose recognised type has no fitting
+type pack (a scan with the reader's local OCR) continues from detection into the native flow when the recipe's
+`unknown_documents` setting is
 `facts` (the default, 120); its result is then chosen by its native publication (`native_results.native_item`), not
 by its suffix. The storage boundaries, failure states and
 source-location contract are described in [Native document processing](guides/NATIVE_PROCESSING.md).

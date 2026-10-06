@@ -6,7 +6,7 @@
 ## Phases and steps
 
 ### read
-- **read_native** _(store)_ — Verify the frozen source and save the complete bounded native Delivery; OCR is disabled.
+- **read_native** _(store)_ — Verify the frozen source and save the complete bounded native Delivery; OCR is disabled, except the reader's local OCR for a scanned PDF continuing from detection.
 
 ### interpret
 - **interpret_native** _(llm)_ — Use the shared GPT receipt and budget boundary, with optional JEV support; persist a terminal outcome reference.
