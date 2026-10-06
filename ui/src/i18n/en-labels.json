@@ -26,6 +26,7 @@
  "A részletes típus GPT-s felismerése nem sikerült ({{why}}); válaszd ki kézzel": "Recognising the detailed type by GPT failed ({{why}}); choose it by hand",
  "A részletes típus bizonyossága nem mérhető: {{type}}; ellenőrizd kézzel": "The confidence of the detailed type cannot be measured: {{type}}; check it by hand",
  "A szállító és a vevő adószáma azonos": "The supplier and the buyer have the same tax ID",
+ "Ugyanaz a szereplő két különböző szerepben": "The same party appears in two different roles",
  "A szállító és a vevő neve azonos": "The supplier and the buyer have the same name",
  "A tételek összege nem egyezik a számla végösszegével": "The sum of the line items does not match the invoice total",
  "Adatkinyerés a csatolmányból ({{what}})": "Data extraction from the attachment ({{what}})",

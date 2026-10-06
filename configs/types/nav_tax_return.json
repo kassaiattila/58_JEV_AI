@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "type:nav_tax_return",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-10-06",
+    "note": "120 (silent content errors): distinct_parties role-pair check(s) taxpayer_name/authority; a to-do at the second field when both name one party (jav/fact_checks.py). Extraction requests are unchanged."
+   },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
@@ -86,6 +91,13 @@
    "field": "tax_year",
    "regex": "^[0-9]{4}$",
    "optional": true
+  },
+  {
+   "check": "distinct_parties",
+   "fields": [
+    "taxpayer_name",
+    "authority"
+   ]
   }
  ],
  "legacy_transforms": []

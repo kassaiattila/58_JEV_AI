@@ -11,7 +11,7 @@ from jav import cfg, store
 from jav.config import load_prompt
 from jav.document_learning import digest
 from jav.typepack import TypePack, KINDS, get, keys
-from jav.validators import _RECORD_CHECKS, _FIELD_CHECKS
+from jav.validators import _RECORD_CHECKS, _FIELD_CHECKS, PAIR_CHECKS
 
 
 class SampleRef(BaseModel):
@@ -82,8 +82,12 @@ def inspect_draft(draft: TypeDraft) -> dict:
             errors.append("missing_callsite:"+name)
     for validator in pack.validators:
         name = validator.get("check")
-        if name not in {*_RECORD_CHECKS, *_FIELD_CHECKS, "format"}:
+        if name not in {*_RECORD_CHECKS, *_FIELD_CHECKS, *PAIR_CHECKS, "format"}:
             errors.append("unsupported_validator:"+str(name))
+        elif name in PAIR_CHECKS:
+            pair = validator.get("fields")
+            if not isinstance(pair, list) or len(pair) != 2 or any(f not in fields for f in pair):
+                errors.append("unknown_validator_fields:"+str(pair))
         elif name not in _RECORD_CHECKS and validator.get("field") not in fields:
             errors.append("unknown_validator_field:"+str(validator.get("field")))
         if name == "format":

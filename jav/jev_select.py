@@ -309,12 +309,9 @@ class SelectSite:
                 values[field] = value
             else:
                 extra[field] = value
-        inv = InvoiceHU(**values, extra=extra)
-        if inv.supplier_tax_id and inv.supplier_tax_id == inv.buyer_tax_id:
-            reasons.append("parties:same_tax_id")
-        if inv.supplier_name and inv.supplier_name == inv.buyer_name:
-            reasons.append("parties:same_name")
-        return inv, reasons
+        # 120: one party in two roles is checked on both paths by the type pack's `distinct_parties` validator
+        # (it replaces the S-path-only `parties:same_*` reasons of earlier runs).
+        return InvoiceHU(**values, extra=extra), reasons
 
 
 @lru_cache(maxsize=None)

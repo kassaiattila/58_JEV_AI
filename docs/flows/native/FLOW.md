@@ -15,7 +15,7 @@
 - **publish_native** _(store)_ — Verify saved evidence and publish exactly once for the frozen run item.
 
 ### review
-- **review_native** _(store)_ — Add reading, interpretation and grounding gaps to the existing review queue.
+- **review_native** _(store)_ — Add reading, interpretation, grounding and content-check gaps and no-band JEV support to the existing review queue.
 
 ### terminal
 - **done** _(terminal)_ — A published machine result; human approval remains separate.

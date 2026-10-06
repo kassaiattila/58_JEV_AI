@@ -105,10 +105,17 @@ a complete one or establish the machine proposal's factual correctness.
 Formula text, saved formula results and their unverified state reach the model
 together. Citations to an exact saved result resolve to its original cell. A
 formula or saved result used as a business value raises a review warning; no
-recalculation occurs. Explicit currency values claimed as time quantities also
-raise a warning. These checks preserve the original proposal and literal match;
-they do not establish general semantic correctness or introduce a probability
-threshold. Older saved interpretation hashes remain unchanged on reload.
+recalculation occurs. The shared content checks (`configs/fact_checks.json`,
+`jav/fact_checks.py`) also raise a warning when a value is an unfilled template
+field (`[Name]`, a run of dots, a date mask) or when its kind (money,
+percentage, date, time) conflicts with the meaning of its property and unit;
+a currency value claimed as a time quantity is one such conflict. A JEV support
+in the existing default band's `no` range (`native.support` in `policy.json`)
+opens a `native:fact:<n>:unsupported:<p>` to-do; the uncertain range does not,
+as on the PDF path. These checks preserve the original proposal and literal
+match; they do not establish general semantic correctness or introduce a new
+threshold. Older saved interpretation hashes remain unchanged on reload, and
+earlier results are not re-checked automatically.
 
 The provenance and parser limitations remain documented in
 [Native readers](NATIVE_READERS.md) and [Reader provenance](../../jav/readers/NOTICE.md).
