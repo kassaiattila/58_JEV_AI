@@ -91,6 +91,12 @@ run budget: partitioning does not increase an approved budget. A later failure
 preserves the receipts and produces a failed or uncertain outcome, never a
 successful partial interpretation. The reader's separate cell limit still applies.
 
+The review summary groups reading issues by code with a count and keeps the raw messages, provider and model in
+a technical section; backend reasons and fact warnings are translated in the interface, with an error class left
+as it is. The native facts table adds a readable `source` column (quote and short place, `export._source_text`)
+and labels the machine states (`native_state` in `configs/datasets.json`); the citation JSON stays available as
+a hidden column and in the exports (120).
+
 Explicit reuse allows the existing request-key receipt/cache mechanisms. Live
 mode disables cross-run GPT reuse and JEV cache reads/writes, while same-step
 crash recovery still replays a completed receipt. The native JEV cache is scoped

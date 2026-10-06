@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "changelog": [
+   {
+    "version": "1.7.0",
+    "date": "2026-10-06",
+    "note": "120: native_state labels for the machine claim, grounding, reading, interpretation and correctness states of the native facts table (Hungarian written with codepoints)."
+   },
    {
     "version": "1.6.0",
     "date": "2026-10-01",
@@ -55,6 +60,7 @@
   "provenance": {"located": "pontos", "approximate": "közelítő", "ambiguous": "több helyen", "context_rejected": "más mező mellett", "not_found": "nem található", "no_value": "nincs érték", "no_layer": "nincs szóréteg", "error": "hiba", "list": "lista"},
   "utility_status": {"ok": "rendben", "missing": "hiányzik", "partial": "részleges", "overlap": "átfedés", "settlement": "elszámolás", "no_period": "nem vetíthető: nincs számlázási időszak", "no_amount": "nem vetíthető: nincs összeg", "duplicate": "ismétlődő számla (egyszer számít)"},
   "yes": {"igen": "igen"},
+  "native_state": {"stated": "k\u00f6z\u00f6lt", "missing": "hi\u00e1nyzik", "uncertain": "bizonytalan", "conflicting": "ellentmond\u00e1sos", "literal_match": "sz\u00f3 szerint egyezik", "rejected": "elutas\u00edtva", "missing_claim": "hi\u00e1nyz\u00f3 adat", "complete": "teljes", "partial": "r\u00e9szleges", "not_attempted": "nem t\u00f6rt\u00e9nt meg", "unsupported": "nem t\u00e1mogatott", "password_required": "jelsz\u00f3val v\u00e9dett", "corrupt": "s\u00e9r\u00fclt", "resource_limited": "olvas\u00e1si korl\u00e1t", "temporary_error": "\u00e1tmeneti hiba", "excluded": "kiz\u00e1rva", "succeeded": "sikeres", "failed": "sikertelen", "not_started": "nem indult", "running": "fut", "not_established": "nem meg\u00e1llap\u00edtott"},
   "next_flow": {"human:inbox": "Kézi feldolgozás", "human:fetch_document": "Kézi: a számla feldolgozása", "human:low_confidence": "Kézi ellenőrzés: bizonytalan szándék", "human:jev_unavailable": "Kézi ellenőrzés: a JEV nem volt elérhető", "human:suspicious": "Kézi ellenőrzés: gyanús tartalom", "m1:detect": "Csatolmány: típusfelismerés", "m2:needs_ocr": "Csatolmány: szövegfelismerés kell", "archive": "Archiválás", "archive:payment_proof": "Archiválás (fizetési igazolás)", "archive:calendar": "Archiválás (naptár)", "archive:order_status": "Archiválás (rendelés állapota)"},
   "body_status": {"full": "teljesen látta", "shortened": "csak az elejét látta", "capped": "letöltéskor elvágódhatott"},
   "task_decision": {"accepted": "elfogadva", "rejected": "elvetve"},

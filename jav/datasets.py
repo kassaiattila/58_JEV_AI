@@ -505,7 +505,12 @@ def _native_facts(scope: dict[str, str]) -> Rows:
 
     run = work.get_run(scope["run_id"])
     _head, records = export.native_facts_table(export.native_records(scope["run_id"]))
-    cols = [_col(key, label, "text", hidden=key in {"item_id", "fact_id", "result_version", "proposal", "reading_gaps"})
+    # 120: the readable source column is shown; the citation JSON and the constant correctness stay technical, and the
+    # machine states get their everyday labels
+    hidden = {"item_id", "fact_id", "result_version", "proposal", "reading_gaps", "source_citations", "correctness"}
+    states = {"machine_state", "machine_grounding", "reading_status", "interpretation_status", "correctness"}
+    cols = [_col(key, label, "enum" if key in states else "text", labels="native_state" if key in states else None,
+                 hidden=key in hidden)
             for key, label in zip(export.NATIVE_COLUMNS, export.NATIVE_HEAD, strict=True)]
     return cols, _zip_rows(list(export.NATIVE_COLUMNS), records, run, lambda row: f"{row['item_id']}:{row['fact_id']}")
 
