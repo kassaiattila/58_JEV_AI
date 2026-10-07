@@ -100,6 +100,8 @@ const CHECK_TEXT: Record<string, string> = tmap({
   "lines.arithmetic_mismatch": "Tételsoron a mennyiség × egységár vagy a nettó + ÁFA nem adja ki a sor összegét",
   // 120: the role-pair check (jav/fact_checks.py); written with codepoints for the language guard
   "parties.same_entity": "Ugyanaz a szerepl\u0151 k\u00e9t k\u00fcl\u00f6nb\u00f6z\u0151 szerepben",
+  // 121: the pair against the earlier documents of the same type (jav/party_history.py)
+  "parties.orientation_reversed": "A k\u00e9t f\u00e9l szerepe ford\u00edtott ahhoz k\u00e9pest, ahogy a kor\u00e1bbi, azonos t\u00edpus\u00fa iratokon \u00e1lltak",
 });
 
 /** The result of one of the package's checks as an everyday sentence (on the corrected, saved data). */
