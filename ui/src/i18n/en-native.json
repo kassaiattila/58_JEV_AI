@@ -224,5 +224,12 @@
   "Time value conflicts with a percentage quantity; check the property and unit": "Time value conflicts with a percentage quantity; check the property and unit",
   "Source": "Source",
   "Weak local recognition; Azure recognition is not set up for this document": "Weak local recognition; Azure recognition is not set up for this document",
-  "Weak local recognition; Azure recognition failed": "Weak local recognition; Azure recognition failed"
+  "Weak local recognition; Azure recognition failed": "Weak local recognition; Azure recognition failed",
+  "Weak Azure recognition ({{p}})": "Weak Azure recognition ({{p}})",
+  "Many uncertain words in the Azure recognition ({{p}})": "Many uncertain words in the Azure recognition ({{p}})",
+  "Azure recognition was skipped because of the run's budget; local recognition was used": "Azure recognition was skipped because of the run's budget; local recognition was used",
+  "An earlier Azure call has an uncertain outcome, so it was not repeated; local recognition was used": "An earlier Azure call has an uncertain outcome, so it was not repeated; local recognition was used",
+  "Azure recognition is not set up for this document; local recognition was used": "Azure recognition is not set up for this document; local recognition was used",
+  "Azure recognition failed; local recognition was used": "Azure recognition failed; local recognition was used",
+  "Read by Azure: page {{pages}}, mean word confidence {{p}}": "Read by Azure: page {{pages}}, mean word confidence {{p}}"
 }

@@ -141,7 +141,10 @@ data: a manual labelling list (`*_manual_sample.md`) → our own golden set (`go
    no route to Azure, failed call). Since 123 the original Azure recognition (word polygons, page size, unit, angle)
    is kept once in the store, under the sha256 of its canonical JSON (`ocr.save_recognition`, artifact kind
    `azure_recognition`), and the digest travels with the recognition signals (`recognition_sha256`); the text, the
-   OCR cache key and the call's request hash are unchanged. Heavy dependencies may only go behind a sidecar.
+   OCR cache key and the call's request hash are unchanged. Since 124 detection names the recognition whose text
+   went on (`ocr_recognition`; an Azure text cached before 123 has no kept original and names nothing), and a scan
+   continuing into general facts takes it over in the native reader (`jav/readers/external_recognition.py`, see
+   `docs/guides/NATIVE_READERS.md`). Heavy dependencies may only go behind a sidecar.
 5. **Isolated PDF reading**: `jav/isolated_pdf.py` + `configs/service.json` `pdf_reader` — the third-party PDF parsers
    (pdfplumber for the text layer, PDFium for the OCR page images, the page sizes and the review page images) run in one
    long-lived helper process per calling process (worker, local service), one request at a time, with a time limit per

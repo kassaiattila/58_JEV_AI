@@ -44,6 +44,8 @@ class DetectState(BaseModel):
     text_source: str | None = None  # "pdf" | "ocr" | None
     ocr_conf: float | None = None
     ocr_low_conf_ratio: float | None = None
+    # 124: the digest of the kept original Azure recognition, when its text went on; the native reader takes it over
+    ocr_recognition: str | None = None
     year: int | None = None
     result: DetectResult | None = None
     detail: DetailResult | None = None  # 047 T1.2: detailed type within the coarse category
@@ -84,10 +86,12 @@ def load_pdf(state: DetectState) -> DetectState:
 
 
 @action.pydantic(reads=["source_path", "read_path", "doc_id", "page_count", "review_reasons"],
-                 writes=["text", "lines", "layout", "text_source", "ocr_conf", "ocr_low_conf_ratio", "review_reasons"])
+                 writes=["text", "lines", "layout", "text_source", "ocr_conf", "ocr_low_conf_ratio", "ocr_recognition",
+                         "review_reasons"])
 def ocr_pdf(state: DetectState) -> DetectState:
     """PDF without text: OCR (jav/ocr.py, cached) onto the same layout; no engine / no text -> `needs_ocr`."""
-    from jav.ocr import OcrUnavailableError, azure_alias, escalation_review_reasons, ocr_with_escalation
+    from jav.ocr import (AZURE_PROVIDER, OcrUnavailableError, azure_alias, escalation_review_reasons,
+                         ocr_with_escalation)
 
     try:
         with azure_alias(state.source_path if state.read_path else None, state.doc_id):
@@ -98,6 +102,8 @@ def ocr_pdf(state: DetectState) -> DetectState:
     state.text, state.lines, state.layout, state.text_source = pdf.text, pdf.lines, pdf.layout, pdf.text_source
     signals = pdf.ocr or {}
     state.ocr_conf, state.ocr_low_conf_ratio = signals.get("mean_conf"), signals.get("low_conf_ratio")
+    # 124: an Azure text cached before 123 has no kept original, so it names nothing and is not taken over
+    state.ocr_recognition = signals.get("recognition_sha256") if signals.get("engine") == AZURE_PROVIDER else None
     if pdf.text_source is None:
         state.review_reasons = state.review_reasons + ["ocr:no_text"]
     state.review_reasons = state.review_reasons + [

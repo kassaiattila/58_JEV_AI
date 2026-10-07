@@ -52,12 +52,24 @@ ReadingStatus = Literal["not_attempted", "complete", "partial", "unsupported", "
 RecipeHash = Annotated[str, Field(pattern=r"^(?:[0-9a-f]{16}|[0-9a-f]{64})$")]
 
 
+class RecognitionSummary(ContractModel):
+    """124: an external (Azure) recognition a reading took over: its pages and the frozen word confidences."""
+    provider: Literal["azure_di"]
+    model: Label
+    pages: tuple[Annotated[int, Field(ge=1)], ...]
+    words: Annotated[int, Field(ge=0)]
+    mean_conf: Annotated[float, Field(ge=0, le=1)]
+    low_conf_ratio: Annotated[float, Field(ge=0, le=1)]
+
+
 class ReadingResult(ContractModel):
     occurrence_id: Identifier
     attempt_id: Identifier
     reader_key: Digest
     status: ReadingStatus
     issues: tuple[Issue, ...] = ()
+    # 124: absent from every reading without one, so their serialised identity is unchanged
+    recognition: RecognitionSummary | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class ReadingSummary(ContractModel):

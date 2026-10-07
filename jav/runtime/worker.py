@@ -165,7 +165,7 @@ def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app
                             recipe_hash=recipe_hash, jev=not _jev_off(params),
                             use_cache=reuse_answers(params), requested_arm=params.get("arm", "auto"),
                             persister=persister, tracker=False, limits=estimate_limits(params),
-                            ocr=bool(params.get("native_ocr")))
+                            ocr=bool(params.get("native_ocr")), recognition=params.get("native_recognition"))
     elif recipe["flow"] == "invoice":
         # `jev_cache=live`: skip reading the JEV cache so every call goes through the log and the budget (live test)
         app = mod.build_app(source_path, app_id, params["arm"], tracker=False, doc_type=params["doc_type"], run_id=app_id,
@@ -255,7 +255,10 @@ def native_fallback(params: dict[str, Any], item: dict[str, Any], detect_state) 
         failed = ("jev_unavailable", "detect_detail:gpt_failed")
         if any(str(r).startswith(failed) for r in detect_state.get("detail_reasons") or []):
             return None
-    return {**params, "arm": "G", "native_ocr": detect_state.get("text_source") == "ocr"}
+    out = {**params, "arm": "G", "native_ocr": detect_state.get("text_source") == "ocr"}
+    # 124: the Azure recognition whose text detection used is taken over by the native reader
+    recognition = detect_state.get("ocr_recognition")
+    return {**out, "native_recognition": recognition} if recognition else out
 
 
 def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) -> str:

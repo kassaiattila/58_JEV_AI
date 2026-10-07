@@ -4,7 +4,9 @@ import type { Reason } from "./api";
 export interface DocumentFormat { suffix: string; label: string; flow: "document" | "native"; source_view: "pdf" | "word" | "cells" | "text" }
 export type ReadingStatus = "not_attempted" | "complete" | "partial" | "unsupported" | "password_required" | "corrupt" | "resource_limited" | "temporary_error" | "excluded";
 export interface ReadingIssue { stage: string; code: string; message: string; element_id: string | null }
-export interface ReadingResult { occurrence_id: string; attempt_id: string; reader_key: string; status: ReadingStatus; issues: ReadingIssue[] }
+/** 124: an Azure recognition the reading took over: its pages and frozen word confidences (0-1). */
+export interface RecognitionSummary { provider: string; model: string; pages: number[]; words: number; mean_conf: number; low_conf_ratio: number }
+export interface ReadingResult { occurrence_id: string; attempt_id: string; reader_key: string; status: ReadingStatus; issues: ReadingIssue[]; recognition?: RecognitionSummary | null }
 export interface SourceOccurrence { occurrence_id: string; parent_id: string | null; source_version: string; original_name: string; role: string; acquisition: string; object_sha256: string | null; issues: ReadingIssue[] }
 export interface TextLocator { kind: "text"; text_sha256: string; start: number; end: number }
 export interface WordLocator { kind: "word"; part: string; structural_path: string; block_index: number }
