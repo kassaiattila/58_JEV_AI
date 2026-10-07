@@ -6,7 +6,39 @@ Releases in brief, newest first. Release rules: [development guide §1](docs/gui
 
 ## Plain-language summary
 
-This list shows what each release brought. `v1.0.0` was the first stable version: work packages, recipes, review on the document's page image, results and approval. The `v1.0.1`–`v1.0.4` fix rounds corrected problems found in daily use and in reviews; the most important of them was the tax-number check. `v1.0.5` is a security round: no personal data can reach GitHub, the browser does not store document data, and you can see which code is running. `v1.1.0` is a second security round after a repeated audit: paid calls, Azure recognition included, stay within a real, reserved upper bound, the documents shown for review are verified, and the repository's documentation is in English. `v1.1.1` cleans the public documents of internal information, keeps machine-specific values out of the repository, and settles uncertain paid calls in the UI. `v1.1.2` adds copies of the processed documents under uniform, content-based names, reads PDFs in an isolated helper process, and no longer lets an unreadable email attachment fail the whole email. `v1.2.0` keeps an unchanging copy of every document added to a work package and works from it, and replaces the choice of recipe with one processing that recognises each item's type itself, with a few processing settings and an overview of the paid services before the start. `v1.3.0` takes a folder's subfolders on request, lets every path be chosen in the Windows picker, and reads every amount and quantity whole by one shared rule, so "28,000" or "28.000" is never read as 28. `v1.4.0` can list documents under their unified, content-based names, shows what each item, run and work package cost, and makes review faster: a tick and a cross next to every field, keyboard navigation, and a readable highlight for a value over several lines. `v1.5.0` reads dates in every common form by one shared rule (month names in six languages, two-digit years, and a to-do instead of a guess when the order of day and month is undecided), and closes the findings of a second security re-audit: an approval covers exactly the result the approver saw, the backup checks and repairs its source copies, a document over the size limit fills no disk, and a paid call without an answer is never repeated by itself.
+This list shows what each release brought. `v1.0.0` was the first stable version: work packages, recipes, review on the document's page image, results and approval. The `v1.0.1`–`v1.0.4` fix rounds corrected problems found in daily use and in reviews; the most important of them was the tax-number check. `v1.0.5` is a security round: no personal data can reach GitHub, the browser does not store document data, and you can see which code is running. `v1.1.0` is a second security round after a repeated audit: paid calls, Azure recognition included, stay within a real, reserved upper bound, the documents shown for review are verified, and the repository's documentation is in English. `v1.1.1` cleans the public documents of internal information, keeps machine-specific values out of the repository, and settles uncertain paid calls in the UI. `v1.1.2` adds copies of the processed documents under uniform, content-based names, reads PDFs in an isolated helper process, and no longer lets an unreadable email attachment fail the whole email. `v1.2.0` keeps an unchanging copy of every document added to a work package and works from it, and replaces the choice of recipe with one processing that recognises each item's type itself, with a few processing settings and an overview of the paid services before the start. `v1.3.0` takes a folder's subfolders on request, lets every path be chosen in the Windows picker, and reads every amount and quantity whole by one shared rule, so "28,000" or "28.000" is never read as 28. `v1.4.0` can list documents under their unified, content-based names, shows what each item, run and work package cost, and makes review faster: a tick and a cross next to every field, keyboard navigation, and a readable highlight for a value over several lines. `v1.5.0` reads dates in every common form by one shared rule (month names in six languages, two-digit years, and a to-do instead of a guess when the order of day and month is undecided), and closes the findings of a second security re-audit: an approval covers exactly the result the approver saw, the backup checks and repairs its source copies, a document over the size limit fills no disk, and a paid call without an answer is never repeated by itself. `v1.6.0` can process documents and emails with GPT alone, without JEV, reuses earlier GPT answers, and shows how sure GPT is of each field. `v1.7.0` reads Word, Excel, text and CSV files, proposes source-bound facts for PDFs of an unknown type too, opens to-dos for content errors that used to pass silently, and calls Azure recognition directly for documents in any folder.
+
+## v1.7.0 — 2026-10-07
+
+Word, Excel, text and CSV documents, general facts for unknown PDFs, checks for silent content errors, and direct
+Azure recognition.
+
+- **More file formats:** work packages accept DOCX, XLSX, UTF-8 TXT and CSV files next to PDFs, with the
+  "Multi-format processing" recipe. Bounded, isolated readers keep the original structure (paragraphs, tables,
+  worksheets, cells and formulas) with locations that fit the format, such as a worksheet and cell address. GPT
+  proposes facts bound to those locations, JEV can check their support, and review, correction, approval of the
+  displayed version and export work as for PDFs. Formula text and saved formula results are kept as evidence and
+  flagged; ordinary hyperlinks and external workbook paths no longer exclude a workbook's own cells.
+- **Unknown PDFs:** a PDF whose recognised type has no type pack no longer stops at a to-do; it continues into
+  general, source-bound facts (the "Unknown PDFs" setting of both document recipes, on by default). A scanned one is
+  read with local text recognition and always marked as a partial reading. The recognised type and its uncertainty
+  are kept.
+- **Silent content errors:** a to-do is opened for an unfilled template placeholder, a value whose kind (money,
+  percentage, date, time) contradicts its property, one party named in two roles (on every PDF path, from the type
+  pack) and a Word or Excel fact that JEV explicitly does not support.
+- **Readable results:** the results of the new formats show gaps and to-dos as sentences, grouped by kind; the
+  provider details are folded under technical details, and a "Source" column shows a short quote and location.
+- **Azure recognition:** with its endpoint and key set, the paid escalation of weak local OCR calls Azure Document
+  Intelligence directly, for a document in any folder; the key is only sent to the configured address. An analysis
+  that was accepted but whose result was lost is recorded as uncertain and never repeated by itself. When the
+  recipe's Azure switch is on but the escalation cannot run, the document gets a to-do instead of silently keeping
+  the weak text. Earlier recognised texts stay reusable without a new charge.
+- **Operation:** the System page shows the actual PDF memory protection of the service and of the worker; the
+  processing recipes have distinct titles and input-based help; source copies and retried JEV calls with an unknown
+  outcome are guarded; the test suite runs without provider keys.
+
+Large workbooks over the reading limit, digitally signed or form PDFs in the general-facts path, PowerPoint and image
+files, complete email attachment handling, and business duplicate and reconciliation workflows remain future work.
 
 ## v1.6.0 — 2026-10-03
 
