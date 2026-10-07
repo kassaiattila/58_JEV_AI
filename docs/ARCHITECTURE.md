@@ -89,6 +89,7 @@ the JEV call-site catalogue and the state snapshot (local, generated from the st
      G: extract_llm (gpt, Pydantic AI) → jev_verify (code evidence + JEV Noul fan-out) → normalize_llm
         without JEV: extract_llm → code_verify (code evidence only, the word layer too; a value printed nowhere → source:not_found)
         (extract_llm also keeps the token probabilities of the answer's values: llm_token_p)
+        (extract_llm's instructions: the pack's prompt, its prompt_note, then the shared block of configs/gpt_extract.json)
         → normalize_llm; when JEV is unavailable, jev_verify keeps the code evidence and the required-field check
      both → validate (code) → decide_route (policy) → ground (code) → save → done | needs_review
 ```
