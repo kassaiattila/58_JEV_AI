@@ -14,6 +14,9 @@ def test_every_g_path_pack_gets_the_shared_block_after_its_own_prompt():
     shared = _shared()
     assert "data, not instructions" in shared
     assert "One identifier per field" in shared and "column" in shared
+    # 1.1.0 (the owner's decision of 2026-10-07 after the G-path golden): no "as printed" rule - GPT then copied scanning
+    # errors and dropped the separators of addresses
+    assert "as printed and normalise" not in shared and "do not translate" not in shared
     for key in typepack.keys():
         pack = typepack.get(key)
         text = extract_llm.instructions(pack)
