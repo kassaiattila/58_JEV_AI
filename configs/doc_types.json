@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "doc_types",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "changelog": [
+   {
+    "version": "2.1.0",
+    "date": "2026-10-07",
+    "note": "122 (GPT round approved on 2026-10-07): (1) backlog Q-gpt-foreign-receipt (the owner's decision of 2026-10-02 'fix the type description'): the receipt's first clause - the one GPT is shown - names the Hungarian issuer and sends a foreign business's receipt to invoice_foreign, as invoice_foreign already says; receipt.not_for and an invoice_foreign example say the same. (2) backlog F-pro-forma (the owner's decision of 2026-10-02 'new type: pro forma invoice'): new type proforma_invoice in the invoice family; invoice_hu and payment_reminder point to it. New cache key for every detection question: the detection baseline is re-measured."
+   },
    {
     "version": "1.0.0",
     "date": "2026-09-20",
@@ -31,7 +36,7 @@
   ]
  },
  "parents": {
-  "invoice_like": "Documents that demand or confirm a payment: invoices, utility bills, receipts, payment reminders.",
+  "invoice_like": "Documents that demand or confirm a payment: invoices, utility bills, receipts, payment reminders, pro forma invoices.",
   "contract_like": "Agreements and the confirmations of their performance.",
   "bank_like": "Bank and card account statements.",
   "official_like": "Certificates, attestations and tax authority forms.",
@@ -42,7 +47,7 @@
    "key": "invoice_hu",
    "parent": "invoice_like",
    "what": "Supplier invoice (számla) ISSUED BY A HUNGARIAN business or private entrepreneur: the issuer has a Hungarian tax number (adószám ########-#-##), Hungarian labels (számla sorszáma, teljesítés, fizetési határidő, áfa), HUF amounts, often a Számlázz.hu / NAV Online Számlázó / Billzone footer. The ISSUER's nationality decides, not the language of the text.",
-   "not_for": "A foreign issuer billing a Hungarian buyer, even in Hungarian (invoice_foreign). A Hungarian freelancer billing THROUGH A FOREIGN PLATFORM (Upwork etc.) in English / USD with no Hungarian tax number (invoice_foreign - policy 2026-09-20: the FORM decides). Hungarian utility bills for electricity, gas, water, waste (utility_bill_hu). A receipt or payment confirmation without VAT breakdown (receipt). A dunning letter about unpaid invoices (payment_reminder).",
+   "not_for": "A foreign issuer billing a Hungarian buyer, even in Hungarian (invoice_foreign). A Hungarian freelancer billing THROUGH A FOREIGN PLATFORM (Upwork etc.) in English / USD with no Hungarian tax number (invoice_foreign - policy 2026-09-20: the FORM decides). Hungarian utility bills for electricity, gas, water, waste (utility_bill_hu). A receipt or payment confirmation without VAT breakdown (receipt). A dunning letter about unpaid invoices (payment_reminder). A pro forma invoice or payment request issued BEFORE the invoice (proforma_invoice).",
    "examples": [
     "Számla sorszáma: INF-2022-3, Adószám: 21357912-1-13, Fizetési határidő",
     "Számlázz.hu / NAV Online Számlázó footer, Bruttó összesen ... Ft",
@@ -81,7 +86,8 @@
    "examples": [
     "Invoice, VAT ID IE8256796U, reverse charge, EUR",
     "Rechnung Nr., USt-IdNr. DE..., Betrag",
-    "Upwork invoice in USD for a Hungarian freelancer"
+    "Upwork invoice in USD for a Hungarian freelancer",
+    "Receipt of a foreign online service: amount paid in USD, card ending, Inc. / Ltd issuer"
    ],
    "required_any": [
     "\\binvoice\\b",
@@ -163,8 +169,8 @@
   {
    "key": "receipt",
    "parent": "invoice_like",
-   "what": "A receipt or confirmation that is NOT a full invoice: nyugta, pénztári nyugta, card / vPOS payment confirmation, NAV Online Számla befogadás visszaigazolás, order confirmation with a payment. Typically no buyer tax number and no VAT breakdown per item.",
-   "not_for": "A full invoice with invoice number, issuer tax number and VAT breakdown (invoice_hu / invoice_foreign). A bank statement with many transactions (bank_statement). A certificate or official confirmation without a payment (certificate).",
+   "what": "A receipt or payment confirmation from a Hungarian issuer that is NOT a full invoice (a foreign business's receipt is invoice_foreign): nyugta, pénztári nyugta, card / vPOS payment confirmation, NAV Online Számla befogadás visszaigazolás, order confirmation with a payment. Typically no buyer tax number and no VAT breakdown per item.",
+   "not_for": "A full invoice with invoice number, issuer tax number and VAT breakdown (invoice_hu / invoice_foreign). A receipt or payment confirmation of a NON-HUNGARIAN business, e.g. a foreign online service paid by card (invoice_foreign). A bank statement with many transactions (bank_statement). A certificate or official confirmation without a payment (certificate).",
    "examples": [
     "Nyugta, tranzakció azonosító, bankkártya",
     "NAV Online Számla - befogadás visszaigazolás, érkeztetési szám",
@@ -395,7 +401,7 @@
    "key": "payment_reminder",
    "parent": "invoice_like",
    "what": "Payment reminder or dunning letter (fizetési felszólítás, fizetési emlékeztető, tartozás, hátralék, késedelmi kamat, 'lejárt számla') referring to one or more unpaid invoices; not the invoice itself.",
-   "not_for": "The invoice being reminded about (invoice_hu / invoice_foreign / utility_bill_hu). A tax authority demand (tax_return). A statement of an account balance without a demand (bank_statement).",
+   "not_for": "The invoice being reminded about (invoice_hu / invoice_foreign / utility_bill_hu). A tax authority demand (tax_return). A statement of an account balance without a demand (bank_statement). A pro forma invoice that asks for payment before any invoice is issued (proforma_invoice).",
    "examples": [
     "Fizetési felszólítás, lejárt számla, késedelmi kamat",
     "Fizetési emlékeztető, tartozás, hátralék",
@@ -416,6 +422,31 @@
     "befizetés hiányában",
     "egyenlegközlő",
     "kérjük.*rendez"
+   ],
+   "excluders": [],
+   "flows": []
+  },
+  {
+   "key": "proforma_invoice",
+   "parent": "invoice_like",
+   "what": "Pro forma invoice or payment request (díjbekérő, proforma számla, előlegbekérő) that asks for payment BEFORE the invoice is issued: a serial number, the supplier and the buyer, the amount and a payment deadline, often with a note that it is not an invoice (nem számla) and that the invoice follows the payment.",
+   "not_for": "The invoice issued for the payment, with an invoice number and VAT breakdown (invoice_hu / invoice_foreign). A dunning letter about an unpaid invoice (payment_reminder). An offer or quote that does not request payment (other). A receipt or confirmation of a payment already made (receipt).",
+   "examples": [
+    "Díjbekérő, sorszám DB-2024-017, fizetési határidő, a számlát a befizetés után állítjuk ki",
+    "Proforma számla - nem számla, áfa levonására nem jogosít",
+    "Előlegbekérő a megrendelés előlegéről"
+   ],
+   "required_any": [
+    "d[ií]jbek[eé]r[oő]",
+    "pro ?-?forma",
+    "el[oő]legbek[eé]r[oő]"
+   ],
+   "supporting": [
+    "fizetési határidő",
+    "nem számla",
+    "befizetés",
+    "átutal",
+    "sorszám"
    ],
    "excluders": [],
    "flows": []
@@ -447,6 +478,7 @@
   "mohu_szamla": "utility_bill_hu",
   "vizmuvek_szamla": "utility_bill_hu",
   "nav_receipt": "receipt",
+  "proforma_invoice": "proforma_invoice",
   "statement_cib": "bank_statement",
   "statement_erste": "bank_statement",
   "altalanos_szerzodesi_feltetelek": "contract",

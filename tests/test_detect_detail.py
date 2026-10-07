@@ -23,10 +23,12 @@ def test_candidates_follow_parent_and_skip_pending_types():
     assert detect_detail.candidates("payment_reminder") == []
 
 
-def test_single_candidate_needs_no_call():
+def test_the_category_s_own_single_pack_needs_no_call():
+    """122: only the category's own pack is taken without a question; a narrower single pack is asked about
+    (tests/test_detect_single_pack_122.py)."""
     jev = FakeJev("none")
-    r = detect_detail.resolve("receipt", "NAV elfogadó nyugta, érkeztetési szám 123", jev=jev, run_id="t")
-    assert (r.key, r.method) == ("nav_receipt", "single") and jev.calls == []
+    r = detect_detail.resolve("invoice_foreign", "Invoice, VAT ID IE8256796U", jev=jev, run_id="t")
+    assert (r.key, r.method) == ("invoice_foreign", "single") and jev.calls == []
 
 
 def test_anchors_decide_between_siblings_without_a_call():
@@ -66,7 +68,7 @@ def test_detect_flow_saves_detail_and_opens_task_when_undecided(tmp_path):
     from jav.flow_detect import DetectState, _resolve_detail, save
 
     with store.use_store(tmp_path / "d.sqlite"):
-        for doc_id, broad, text in (("d1", "receipt", "NAV nyugta"), ("d2", "bank_statement", "kivonat: CIB Bank, Erste Bank")):
+        for doc_id, broad, text in (("d1", "invoice_foreign", "Invoice"), ("d2", "bank_statement", "kivonat: CIB Bank, Erste Bank")):
             result = DetectResult.model_construct(doc_type=broad, confidence=0.99, issuer_hu=0.9, probabilities={}, language="hu",
                                                   parent=None, parent_prob=None)
             state = DetectState(source_path="synthetic.pdf", doc_id=doc_id, page_count=1, run_id="r1", text_source="pdf",
@@ -75,6 +77,6 @@ def test_detect_flow_saves_detail_and_opens_task_when_undecided(tmp_path):
             save(state)
         with store.connect() as c:
             rows = dict(c.execute("SELECT doc_id, detail_type FROM documents").fetchall())
-        assert rows == {"d1": "nav_receipt", "d2": None}
+        assert rows == {"d1": "invoice_foreign", "d2": None}
         assert [r["reason"] for r in store.review_open_reasons("document", "d2")] == ["detect:detail_open:bank_statement"]
         assert store.review_open_reasons("document", "d1") == []

@@ -126,6 +126,19 @@ def issuer_mismatch_reason(doc_type: str | None, detail_type: str | None, issuer
     return None
 
 
+def foreign_issuer_pack(broad: str, issuer_hu: float | None, *, engine: str) -> str | None:
+    """122 (backlog Q-upwork-type, DECISIONS 083): the type pack for a category whose own packs presume a Hungarian
+    issuer, when the recogniser's own issuer judgement says the issuer is not Hungarian (`detect_detail.
+    foreign_issuer_pack`; the `no` band of `detect.issuer_is_hungarian[.gpt]`). A receipt of a foreign business is a
+    foreign invoice by the registry; the only receipt pack is the Hungarian tax authority's. An uncertain or missing
+    judgement routes nothing: the detailed-type question decides then."""
+    pack = DETECT_DETAIL.get("foreign_issuer_pack", {}).get(broad)
+    if pack is None or issuer_hu is None:
+        return None
+    callsite = "detect.issuer_is_hungarian" + (".gpt" if engine == "gpt" else "")
+    return pack if noul_band(issuer_hu, callsite) == "no" else None
+
+
 def gpt_field_confidence(token_p: dict[str, float | int] | None, status: str | None, *, failed_check: bool) -> float | None:
     """091 (backlog F-gpt-field-confidence): the confidence of a field GPT extracted, on the G path without JEV. The
     token probability of the value (`gpt_field_confidence.measure`) capped by the code's evidence: the source location's
