@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "changelog": [
+   {
+    "version": "1.8.0",
+    "date": "2026-10-07",
+    "note": "126 (backlog F-duplicate): duplicate labels of the documents table's mark - a copy or modified version a person confirmed, and a suspicion by its kind while the to-do is open (English source text, translated by the interface)."
+   },
    {
     "version": "1.7.0",
     "date": "2026-10-06",
@@ -64,6 +69,8 @@
   "next_flow": {"human:inbox": "Kézi feldolgozás", "human:fetch_document": "Kézi: a számla feldolgozása", "human:low_confidence": "Kézi ellenőrzés: bizonytalan szándék", "human:jev_unavailable": "Kézi ellenőrzés: a JEV nem volt elérhető", "human:suspicious": "Kézi ellenőrzés: gyanús tartalom", "m1:detect": "Csatolmány: típusfelismerés", "m2:needs_ocr": "Csatolmány: szövegfelismerés kell", "archive": "Archiválás", "archive:payment_proof": "Archiválás (fizetési igazolás)", "archive:calendar": "Archiválás (naptár)", "archive:order_status": "Archiválás (rendelés állapota)"},
   "body_status": {"full": "teljesen látta", "shortened": "csak az elejét látta", "capped": "letöltéskor elvágódhatott"},
   "task_decision": {"accepted": "elfogadva", "rejected": "elvetve"},
+  "duplicate": {"copy": "Copy (confirmed)", "variant": "Modified version (confirmed)", "suspected:copy": "Suspected copy",
+   "suspected:variant": "Suspected modified version", "suspected:undecidable": "Possible duplicate (a compared value is missing)"},
   "activity_action": {"archive": "csomag elrejtése", "restore": "csomag visszahozása", "rename": "csomag átnevezése",
    "delete": "csomag törlése", "owner": "felelős beállítása", "recipe": "feldolgozási beállítások mentése", "run_start": "futás indítása",
    "run_approve": "futás jóváhagyása", "correction": "javítás", "reason_resolve": "teendő lezárása",

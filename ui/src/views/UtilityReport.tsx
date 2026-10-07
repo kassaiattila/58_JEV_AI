@@ -80,8 +80,8 @@ export function UtilityTable({ rep, onCell }: { rep: UtilityReport; onCell: (key
         <span className="cell-overlap">{STATUS.overlap}</span> {t("két számla is fedi")} · * {t("elszámoló számla")}
       </p>
       {rep.duplicates.length ? (
-        <p className="small">{t("Ismétlődő számla (azonos típus és számlaszám, egyszer számolva):")}{" "}
-          {rep.duplicates.map((d) => `${d.file} = ${d.same_as_file}`).join("; ")}</p>
+        <p className="small">{t("Duplicate invoice (same invoice number and supplier, counted once):")}{" "}
+          {rep.duplicates.map((d) => `${d.file} = ${d.same_as_file}${d.status === "suspected" ? ` (${t("not yet confirmed")})` : ""}`).join("; ")}</p>
       ) : null}
       {rep.unplaced.length ? (
         <p className="small warn-text">{t("Nem vetíthető közmű-számla:")} {rep.unplaced.map((u) => `${u.file} (${REASON[u.reason] ?? u.reason})`).join("; ")}</p>

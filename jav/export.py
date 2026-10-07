@@ -27,7 +27,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, corrections, native_results, store, typepack, work
+from jav import cfg, corrections, duplicates, native_results, store, typepack, work
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
 SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
@@ -72,6 +72,10 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
             "open_reasons": reasons,
             "source_email": subjects.get(item.get("parent_item_id") or ""),
         })
+    # 126: the duplicate mark (a confirmed copy or modified version, a suspicion, the documents found different)
+    found = duplicates.marks({r["item_id"]: r["open_reasons"] for r in out})
+    for r in out:
+        r["duplicate"] = found.get(r["item_id"])
     return out
 
 
@@ -226,12 +230,22 @@ def _field_reason(reasons: list[str], field: str) -> bool:
 
 # --- tables ----------------------------------------------------------------------------------------------------
 
-DOC_HEAD = ["Irat", "Tétel-azonosító", "Típus", "Út", "Állapot", "Nyitott teendők", "Forrás-levél"]
+DOC_HEAD = ["Irat", "Tétel-azonosító", "Típus", "Út", "Állapot", "Nyitott teendők", "Forrás-levél", "Duplicate", "Duplicate of"]
+
+
+def duplicate_status(mark: dict[str, Any] | None) -> str | None:
+    """126: the duplicate mark as one value: `copy` / `variant` when a person confirmed it, `suspected:<kind>` while the
+    to-do is open; None without a mark (a pair found different has none)."""
+    if not mark or "status" not in mark:
+        return None
+    return f"suspected:{mark['kind']}" if mark["status"] == "suspected" else mark["status"]
 
 
 def _doc_row(r: dict[str, Any]) -> list[Any]:
+    mark = r.get("duplicate")
+    status = duplicate_status(mark)
     return [r["file"], r["item_id"], r["doc_type"], r["arm"], r["final_status"], "; ".join(r["open_reasons"]),
-            r.get("source_email") or ""]
+            r.get("source_email") or "", status, (mark or {}).get("other_file") if status else None]
 
 
 def documents_table(records: list[dict[str, Any]], doc_type: str | None = None) -> tuple[list[str], list[list[Any]]]:

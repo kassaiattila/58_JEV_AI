@@ -175,7 +175,7 @@ export interface UtilitySeries {
 export interface UtilityReport {
   run_id: string; months: string[]; series: UtilitySeries[]; grand_total: string;
   unplaced: { item_id: string; file: string; doc_type: string; reason: string }[];
-  duplicates: { item_id: string; file: string; doc_type: string; same_as: string; same_as_file: string }[];
+  duplicates: { item_id: string; file: string; doc_type: string; same_as: string; same_as_file: string; status?: "suspected" | "copy" | "variant" }[];
 }
 export interface Call {
   id: number; run_id: string; step_id: string; provider: string; model_actual: string | null; status: string;
@@ -272,6 +272,18 @@ export interface ItemResult {
   /** Whether the document is shown from the copy kept when it was added (its source instance), and the state of the
    *  original file since then. */
   source_file?: { copy: boolean; original: "same" | "changed" | "missing" };
+  /** 126: the duplicate suspicions and decisions of the document, the other document's values side by side. */
+  duplicates?: DuplicatePair[];
+}
+/** 126: the code's kind of a suspected duplicate and a person's decision on the pair. */
+export type DuplicateKind = "copy" | "variant" | "undecidable";
+export type DuplicateDecision = "copy" | "variant" | "different";
+export interface DuplicatePair {
+  other_doc_id: string; other_file: string | null; other_run_id: string | null; other_item_id: string | null;
+  other_workpackage_id: string | null;
+  kind: DuplicateKind; reason_id: number | null; repeat: boolean;
+  fields: { field: string; value: unknown; other_value: unknown; differs: boolean; missing: boolean }[];
+  decision: DuplicateDecision | null; decided_by: string | null; decided_at: string | null;
 }
 
 // --- 056 U1: datasets (unified list query and download) -------------------------------------------------------
@@ -437,6 +449,9 @@ export const api = {
     request<{ workpackage: Workpackage; readiness: Readiness }>("POST", "/workpackages", { paths, name }),
   decideTask: (runId: string, itemId: string, index: number, decision: "accepted" | "rejected") =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/decision`, { decision }),
+  /** 126: a person's decision on a suspected duplicate pair (copy, modified version, not the same invoice). */
+  decideDuplicate: (runId: string, itemId: string, otherDocId: string, decision: DuplicateDecision) =>
+    request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/duplicates/${enc(otherDocId)}/decision`, { decision }),
   /** 062: the accepted task marked as done by hand (or unmarked). */
   markTaskDone: (runId: string, itemId: string, index: number, done: boolean) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/done`, { done }),

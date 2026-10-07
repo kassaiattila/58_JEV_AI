@@ -84,7 +84,8 @@ def test_same_invoice_in_two_documents_counts_once():
     rep = report_utility.build([a, b])
     [s] = rep["series"]
     assert s["total"] == "3266.00" and s["cells"]["2026-01"]["status"] == "ok"
-    assert rep["duplicates"] == [{"item_id": "m2", "file": "m2.pdf", "doc_type": "mohu_szamla", "same_as": "m1", "same_as_file": "m1.pdf"}]
+    assert rep["duplicates"] == [{"item_id": "m2", "file": "m2.pdf", "doc_type": "mohu_szamla", "same_as": "m1", "same_as_file": "m1.pdf",
+                                  "status": "suspected"}]  # 126: until a person confirms it
 
 
 def test_settlement_bill_is_booked_at_its_end_month_and_does_not_break_coverage():

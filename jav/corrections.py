@@ -39,7 +39,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from jav import dates, grounding, native_results, numbers, source_layer, store, typepack, validators, work
+from jav import dates, duplicates, grounding, native_results, numbers, source_layer, store, typepack, validators, work
 from jav.native_contracts import Publication
 
 store.register_schema("corrections", """
@@ -91,25 +91,29 @@ def review_version(run_id: str, c: sqlite3.Connection | None = None) -> str:
     under a reviewer. `c`: read inside the caller's transaction (the approval).
 
     086 (audit of 2026-10-02, N02): the decisions on an email's task proposals are part of the reviewed result too (the
-    flow runs of a run are `<run_id>:<item_id>`). A run without task decisions keeps the version computed as before."""
+    flow runs of a run are `<run_id>:<item_id>`). A run without task decisions keeps the version computed as before.
+
+    126: so are the duplicate decisions on pairs that include one of the run's documents; a run without any keeps its
+    earlier version."""
+    if c is None:
+        with store.connect() as own:
+            return review_version(run_id, own)
     query = "SELECT item_id, MAX(revision) r FROM run_item_corrections WHERE run_id=? GROUP BY item_id ORDER BY item_id"
     tasks_query = ("SELECT run_id, task_index, decision FROM email_task_decisions WHERE substr(run_id, 1, ?) = ?"
                    " ORDER BY run_id, task_index")
     prefix = f"{run_id}:"
-    if c is None:
-        with store.connect() as own:
-            rows = own.execute(query, (run_id,)).fetchall()
-            decisions = own.execute(tasks_query, (len(prefix), prefix)).fetchall()
-            native = native_results.version_parts(run_id, own)
-    else:
-        rows = c.execute(query, (run_id,)).fetchall()
-        decisions = c.execute(tasks_query, (len(prefix), prefix)).fetchall()
-        native = native_results.version_parts(run_id, c)
+    rows = c.execute(query, (run_id,)).fetchall()
+    decisions = c.execute(tasks_query, (len(prefix), prefix)).fetchall()
+    native = native_results.version_parts(run_id, c)
+    items = [r["item_id"] for r in c.execute("SELECT item_id FROM run_items WHERE run_id=?", (run_id,))]
+    pairs = duplicates.decisions_for(items, c)
     payload: Any = [[r["item_id"], r["r"]] for r in rows]
     if decisions:
         payload = {"corrections": payload, "tasks": [[d["run_id"], d["task_index"], d["decision"]] for d in decisions]}
     if native:
         payload = {"review": payload, "native": native}
+    if pairs:
+        payload = {"result": payload, "duplicates": [[d["pair_key"], d["doc_id"], d["decision"], d["decided_at"]] for d in pairs]}
     return hashlib.sha256(json.dumps(payload).encode("utf-8")).hexdigest()[:16]
 
 
@@ -489,7 +493,9 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
             # whether the document is shown from the copy kept when it was added, and the original file's state since
             "source_file": {"copy": bool(item.get("instance")), "original": work.original_state(item, verify=True)},
             "open_reasons": _with_fields(reasons["run"], simple),
-            "earlier_open_reasons": _with_fields(reasons["earlier"], simple)}
+            "earlier_open_reasons": _with_fields(reasons["earlier"], simple),
+            # 126: the duplicate suspicions and decisions of the document, with the other document side by side
+            "duplicates": duplicates.item_pairs(item_id, reasons["run"] + reasons["earlier"])}
 
 
 def _insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected_revision: int, actor: str, note: str | None,

@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.3",
+        "date": "2026-10-07",
+        "note": "126: accept the Hungarian word of the new glossary entry (modified version) and the Hungarian interface labels quoted in the user guide's duplicate-invoice text; English definitions and all other file limits are unchanged (the utility report view shrank by one)."
+      },
       {
         "version": "1.0.2",
         "date": "2026-10-07",
@@ -137,7 +142,7 @@
     "configs/types/viz_szamla.json": 29,
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
-    "docs/GLOSSARY.md": 201,
+    "docs/GLOSSARY.md": 202,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 10,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -147,7 +152,7 @@
     "docs/flows/invoice/FLOW.md": 17,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 140,
+    "docs/guides/USER_GUIDE.md": 142,
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
@@ -418,7 +423,7 @@
     "ui/src/views/Runs.tsx": 42,
     "ui/src/views/Settings.tsx": 18,
     "ui/src/views/StartConfirm.tsx": 18,
-    "ui/src/views/UtilityReport.tsx": 21,
+    "ui/src/views/UtilityReport.tsx": 20,
     "ui/src/views/WorkpackageActions.tsx": 15,
     "ui/src/views/WorkpackageDetail.tsx": 19,
     "ui/src/views/Workpackages.tsx": 16,

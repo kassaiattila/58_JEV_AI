@@ -493,6 +493,21 @@ def cmd_deps_audit(args: argparse.Namespace) -> int:
     return 0 if ok and current is not None and not current["errors"] else 1
 
 
+def cmd_duplicates(args: argparse.Namespace) -> int:
+    """126: the duplicate invoices already in the store (read only; counts and kinds, no values), and with --write the
+    one-off to-do on the later document of each undecided pair in runs not yet approved (DECISIONS 126). Free."""
+    from jav import duplicates
+
+    result = duplicates.scan(write=args.write)
+    print(f"documents compared: {result['documents']}")
+    print(f"groups: {result['groups']} ({result['files']} files; sizes {result['group_sizes']})")
+    print(f"pairs by kind: {result['pairs']}")
+    print(f"to-dos to open: {result['to_open']}; skipped: {result['skipped']}")
+    if args.write:
+        print(f"to-dos written: {result['written']}")
+    return 0
+
+
 def cmd_hooks_install(args: argparse.Namespace) -> int:
     from jav import data_guard
     from jav.config import PROJECT_ROOT
@@ -667,6 +682,10 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("deps-audit", help="075: known vulnerabilities in the pinned Python and UI packages (pip-audit, npm audit; needs network)")
     p.add_argument("--show", action="store_true", help="only show the last result (runs/deps-audit.json), without a new audit")
     p.set_defaults(fn=cmd_deps_audit)
+
+    p = sub.add_parser("duplicates", help="126: duplicate invoices in the store (read only); --write opens the to-do on runs not yet approved")
+    p.add_argument("--write", action="store_true", help="open the duplicate to-dos (once; a decided pair or an approved run is skipped)")
+    p.set_defaults(fn=cmd_duplicates)
 
     p = sub.add_parser("hooks-install", help="071 adatőr: a verziózott git-horgok bekapcsolása (core.hooksPath = scripts/githooks)")
     p.set_defaults(fn=cmd_hooks_install)
