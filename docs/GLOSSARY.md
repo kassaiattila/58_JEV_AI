@@ -152,6 +152,19 @@ This glossary explains the project's technical terms in everyday language. Each 
 
 ## Documents and extraction
 
+### Planned ingestion across file formats
+
+These terms describe planned capabilities; they do not mean that the current application supports every format.
+
+| Term | Hungarian | Meaning | Example |
+|---|---|---|---|
+| **Source inventory** | forrásjegyzék | A record of every received file or attachment, including missing, excluded and unreadable items and the reason for each outcome. | An email has five attachments: four were read and one requires a password. |
+| **Format reader** | formátumolvasó | A library-backed component that reads a particular file format into the common source model. | An Excel reader retains worksheet names, cell addresses and formula text. |
+| **Common source model** | közös forrásmodell | A versioned representation of a source's text, tables, images and relationships, with links back to its unchanged original. | A Word table and an Excel range can both be represented as tables without losing their different source locations. |
+| **Structural source location** | szerkezeti forráshely | A location appropriate to the original format, rather than an invented page number. | A worksheet and cell address, a slide and shape, or a text character range. |
+| **Interpretation on use** | felhasználáskori értelmezés | Retaining source structures before deciding which business fields they represent; later interpretations are stored as separate versions. | An unfamiliar spreadsheet is preserved before its columns are mapped to invoice fields. |
+| **Partial extraction** | részleges kinyerés | An extraction with an explicit list of unread or unsupported parts; it cannot claim complete source coverage. | Slide text was read, but a chart image still needs interpretation. |
+
 ### Document types and type packs
 
 | Term | Hungarian | Meaning | Example |

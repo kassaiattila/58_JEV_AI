@@ -219,5 +219,7 @@
   "Date value conflicts with a percentage quantity; check the property and unit": "Date value conflicts with a percentage quantity; check the property and unit",
   "Time value conflicts with a money quantity; check the property and unit": "Time value conflicts with a money quantity; check the property and unit",
   "Time value conflicts with a percentage quantity; check the property and unit": "Time value conflicts with a percentage quantity; check the property and unit",
-  "Source": "Source"
+  "Source": "Source",
+  "Weak local recognition; Azure recognition is not set up for this document": "Weak local recognition; Azure recognition is not set up for this document",
+  "Weak local recognition; Azure recognition failed": "Weak local recognition; Azure recognition failed"
 }

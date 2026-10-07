@@ -219,5 +219,7 @@
   "Date value conflicts with a percentage quantity; check the property and unit": "Dátum érték ütközik a tulajdonság százalék jellegével; ellenőrizd a tulajdonságot és a mértékegységet",
   "Time value conflicts with a money quantity; check the property and unit": "Időtartam érték ütközik a tulajdonság pénzösszeg jellegével; ellenőrizd a tulajdonságot és a mértékegységet",
   "Time value conflicts with a percentage quantity; check the property and unit": "Időtartam érték ütközik a tulajdonság százalék jellegével; ellenőrizd a tulajdonságot és a mértékegységet",
-  "Source": "Forrás"
+  "Source": "Forrás",
+  "Weak local recognition; Azure recognition is not set up for this document": "Gyenge helyi felismerés; az Azure-felismerés ehhez az irathoz nincs beállítva",
+  "Weak local recognition; Azure recognition failed": "Gyenge helyi felismerés; az Azure-felismerés nem sikerült"
 }

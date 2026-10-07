@@ -2,6 +2,7 @@
 // with the recipe's default), the switch has a short label, and the escalation to-do reads as a sentence.
 import { describe, expect, it } from "vitest";
 import type { Recipe } from "./api";
+import hu from "./i18n/hu-native.json";
 import { itemBudget, paramsText, reasonText } from "./labels";
 
 const RECIPE: Recipe = {
@@ -22,5 +23,12 @@ describe("075 Azure recipe switch", () => {
     expect(paramsText({ azure_ocr: "off" })).toBe("Azure-felismerés: kikapcsolva");
     expect(reasonText("ocr:escalation_blocked:budget_exceeded")).toMatch(/kerete miatt elmaradt/);
     expect(reasonText("ocr:escalation_blocked:uncertain_attempt")).toMatch(/bizonytalan/);
+  });
+
+  it("121: names an escalation that had no route to Azure or whose call failed", () => {
+    const unreachable = "Weak local recognition; Azure recognition is not set up for this document";
+    const failed = "Weak local recognition; Azure recognition failed";
+    expect(reasonText("ocr:escalation_blocked:unreachable")).toBe((hu as Record<string, string>)[unreachable]);
+    expect(reasonText("ocr:escalation_blocked:unavailable")).toBe((hu as Record<string, string>)[failed]);
   });
 });

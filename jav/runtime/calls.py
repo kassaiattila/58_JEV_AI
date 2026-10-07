@@ -181,9 +181,11 @@ NOT_SENT = frozenset({"ConnectTimeout", "ConnectError", "PoolTimeout", "ProxyErr
 """Errors (by class name, anywhere in the chain) that show the request never reached the provider, or got a definite
 answer (urllib's `URLError` covers a failure while connecting or sending, and its `HTTPError` an error response)."""
 OUTCOME_UNKNOWN = frozenset({"TimeoutError", "TimeoutException", "ReadTimeout", "WriteTimeout", "ReadError", "WriteError",
-                             "RemoteProtocolError", "APITimeoutError", "TypeSafeAPITimeoutError", "KeyboardInterrupt", "SystemExit"})
+                             "RemoteProtocolError", "APITimeoutError", "TypeSafeAPITimeoutError", "KeyboardInterrupt", "SystemExit",
+                             "AzureOutcomeUnknown"})
 """Errors after the request was handed over and before the answer arrived. Class names, so that the run time imports
-no provider SDK; the SDKs' own wrappers keep the transport error as the cause (httpx / httpx2, openai, typesafe_sdk)."""
+no provider SDK; the SDKs' own wrappers keep the transport error as the cause (httpx / httpx2, openai, typesafe_sdk).
+121: `AzureOutcomeUnknown` (jav/adapters/azure_di.py): Azure accepted the analysis, but its result could not be read."""
 
 
 def _chain(exc: BaseException):
