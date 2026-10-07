@@ -221,7 +221,8 @@ export interface EmailItem {
   body_coverage?: { status: "full" | "shortened" | "capped"; chars: number; own_chars: number; seen_chars: number; seen_lines: number;
     quoted_removed: boolean };
   result: { intent: string | null; intent_label: string | null; confidence: number | null; next_flow: string | null;
-    attachments: { filename: string; doc_type?: string | null; status?: string | null }[]; from_this_run: boolean;
+    // 126: shown_type = the type the attachment was processed as (e.g. a foreign receipt as a foreign invoice)
+    attachments: { filename: string; doc_type?: string | null; shown_type?: string | null; status?: string | null }[]; from_this_run: boolean;
     signals: Record<string, number>; corrected?: boolean; machine_intent?: string | null } | null;
   /** 058 K5.3: task proposals after the gate, with the human decision (null = the run did not ask for proposals). */
   tasks?: { status: "proposed" | "skipped" | "error"; reason?: string | null; error?: string | null; tasks: EmailTask[];

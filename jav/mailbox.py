@@ -491,6 +491,17 @@ def email_result_for(flow_run_id: str, message_id: str) -> tuple[dict[str, Any] 
     return out, row["run_id"] == flow_run_id
 
 
+def processed_types(doc_ids: list[str | None]) -> dict[str, str]:
+    """126: the type each document was last processed as (`documents.doc_type`: the type pack's category once the data
+    extraction saved it, else the recognised category)."""
+    ids = sorted({d for d in doc_ids if d})
+    if not ids:
+        return {}
+    with store.connect() as c:
+        rows = c.execute(f"SELECT doc_id, doc_type FROM documents WHERE doc_id IN ({','.join('?' * len(ids))})", ids).fetchall()
+    return {r["doc_id"]: r["doc_type"] for r in rows if r["doc_type"]}
+
+
 def effective_email_result(res: dict[str, Any], corrected_intent: str | None) -> dict[str, Any]:
     """The email result with the manual correction (058 K5.1): the corrected intent wins and the routing is recomputed
     from it in code (the machine signals - e.g. an injected instruction - still count). The machine intent is kept
@@ -501,6 +512,11 @@ def effective_email_result(res: dict[str, Any], corrected_intent: str | None) ->
     signals = {k: v for k, v in (res.get("signals") or {}).items() if k != "scores"}
     # pre-048 runs also stored the message folder's bookkeeping file as an attachment: it is not one
     atts = [a for a in res.get("attachments") or [] if not is_bookkeeping_file(str(a.get("filename") or ""))]
+    # 126 (Q-gpt-receipt-label): the type shown is the one the document was processed as (a foreign provider's receipt
+    # recognised as a receipt goes to the foreign invoice pack); the recognised category stays in `doc_type`, and the
+    # routing below still reads that
+    processed = processed_types([a.get("doc_id") for a in atts])
+    atts = [{**a, "shown_type": processed.get(a.get("doc_id") or "") or a.get("doc_type")} for a in atts]
     out = {"intent": res.get("intent"), "intent_label": intent_name(res.get("intent")), "confidence": res.get("intent_conf"),
            "next_flow": res.get("next_flow"), "attachments": atts, "signals": signals,
            "corrected": False, "machine_intent": res.get("intent")}
