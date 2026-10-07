@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from jav import cfg, pdf as pdfmod
+from jav.adapters import azure_di
 from jav.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, OLD_DATA_ROOT, PROJECT_ROOT
 from jav.models import LineLayout
 from jav.pdf import PdfText, build_layout, text_layer_ok
@@ -57,7 +58,8 @@ _NOT_OUTPUT: dict[str, tuple[str, ...] | None] = {
     "cache_dir": None,
     "escalation": None,
     "tesseract": ("timeout_s", "exe_candidates"),
-    "azure_di": ("sidecar_url", "data_root", "container_root", "timeout_s"),
+    # 121: the REST API version is in the engine version instead (`engine_version`), so the earlier texts stay reusable
+    "azure_di": ("sidecar_url", "data_root", "container_root", "timeout_s", "api_version", "poll_interval_s"),
 }
 
 
@@ -93,7 +95,9 @@ class OcrUnavailableError(RuntimeError):
 class AzureBlocked(OcrUnavailableError):
     """075: the Azure call was not made in a worker run. `reason`: `off` (the run has no Azure budget: the recipe switch
     is off), `budget_exceeded` (the page reservation does not fit the run's Azure budget) or `uncertain_attempt` (an
-    earlier attempt for this document has an unknown outcome; it is not repeated automatically)."""
+    earlier attempt for this document has an unknown outcome; it is not repeated automatically). 121: `unreachable`
+    (no direct Azure endpoint and key, and the legacy sidecar cannot see the document); this one is raised outside a
+    worker run too."""
 
     def __init__(self, reason: str) -> None:
         super().__init__(f"azure_di: {reason}")
@@ -158,11 +162,17 @@ def engine(want: str | None = None) -> str:
     )
 
 
+# 121: the REST API version every Azure text cached before 121 was read with (the legacy sidecar's SDK 1.0.2)
+_AZURE_FIRST_API = "2024-11-30"
+
+
 @lru_cache(maxsize=None)
 def engine_version(eng: str) -> str:
-    """The engine's version line (part of the cache key: a different binary / model may give a different result)."""
+    """The engine's version line (part of the cache key: a different binary / model may give a different result).
+    121: Azure's carries the REST API version only when it differs from the one the earlier texts were read with."""
     if eng == "azure_di":
-        return "azure_di prebuilt-read"
+        api = str(_CFG["azure_di"].get("api_version") or _AZURE_FIRST_API)
+        return "azure_di prebuilt-read" + ("" if api == _AZURE_FIRST_API else f" {api}")
     if eng == "native":
         out = subprocess.run([native_exe(), "--version"], capture_output=True, text=True, timeout=30)
     else:
@@ -206,16 +216,41 @@ def _sidecar_relative(path: Path, data_root: Path) -> Path:
         return rel
 
 
+def _sidecar_root() -> Path:
+    # 076: the sidecar's `/data` mount is the legacy project's data folder (`JAV_LEGACY_ROOT`), not a path in the config
+    az = _CFG["azure_di"]
+    return Path(az["data_root"]) if az.get("data_root") else OLD_DATA_ROOT
+
+
+def azure_route(path: Path) -> str:
+    """121: `direct` when the Azure endpoint and key are set (any readable document), otherwise `sidecar` when the
+    legacy sidecar can see the document; `AzureBlocked("unreachable")` when neither, before any reservation or call."""
+    if azure_di.configured():
+        return "direct"
+    try:
+        _sidecar_relative(path, _sidecar_root())
+    except ValueError:
+        raise AzureBlocked("unreachable") from None
+    return "sidecar"
+
+
 def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[str, Any]]], list[float], dict[str, Any]]:
-    """The legacy sidecar's `/parse` (chain: azure_di) + the word boxes of the evidence file it saves, in points
-    (inch × 72), with confidence on a 0-100 scale (the same signals as tesseract). The PDF must be under the sidecar's
-    `/data` mount."""
+    """The word boxes of an Azure recognition, in points (inch × 72), with confidence on a 0-100 scale (the same
+    signals as tesseract). 121: directly over the REST API when it is configured (`jav/adapters/azure_di.py`);
+    otherwise the legacy sidecar's `/parse` (chain: azure_di) and the evidence file it saves, for a PDF under the
+    sidecar's `/data` mount."""
     import json as _json
     import urllib.request
 
     az = _CFG["azure_di"]
-    # 076: the sidecar's `/data` mount is the legacy project's data folder (`JAV_LEGACY_ROOT`), not a path in the config
-    data_root = Path(az["data_root"]) if az.get("data_root") else OLD_DATA_ROOT
+    if azure_route(path) == "direct":
+        try:
+            found = azure_di.analyze_read(path, model=AZURE_DI_MODEL, api_version=str(az.get("api_version") or _AZURE_FIRST_API),
+                                          timeout_s=float(az["timeout_s"]), poll_s=float(az.get("poll_interval_s", 1.0)))
+        except (azure_di.AzureDiError, azure_di.AzureOutcomeUnknown, OSError, ValueError) as exc:
+            raise OcrUnavailableError(f"azure_di: {exc}") from exc
+        return azure_evidence_words(found)
+    data_root = _sidecar_root()
     try:
         rel = _sidecar_relative(path, data_root)
     except ValueError as exc:
@@ -235,7 +270,8 @@ def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[
 
 
 AZURE_PROVIDER = "azure_di"
-_ESCALATION_TODO = {"budget_exceeded", "uncertain_attempt"}
+# 121: `unreachable` (no route to Azure for this document) and `unavailable` (the call failed or its outcome is unknown)
+_ESCALATION_TODO = {"budget_exceeded", "uncertain_attempt", "unreachable", "unavailable"}
 
 
 def azure_recognise(path: Path) -> tuple[list[list[dict[str, Any]]], list[float], dict[str, Any]]:
@@ -265,11 +301,12 @@ def azure_recognise(path: Path) -> tuple[list[list[dict[str, Any]]], list[float]
                          output_tokens=None, cost_usd=float(cost), seconds=round(time.perf_counter() - t0, 3), config_hash=CONFIG_HASH)
         return calls.Outcome(response={"pages": pages, "confs": confs, "meta": meta}, model=model, cost_usd=cost)
 
+    if ctx is not None and ctx.budget_scope is not None and not calls.has_budget(ctx.budget_scope, AZURE_PROVIDER):
+        raise AzureBlocked("off")
+    azure_route(path)  # 121: no route, no call: neither a reservation nor a "failed" call-log row
     if ctx is None:  # the command-line / measurement path: no run budget (as for JEV and OpenAI there), but ledgered
         out = physical().response
         return out["pages"], out["confs"], out["meta"]
-    if ctx.budget_scope is not None and not calls.has_budget(ctx.budget_scope, AZURE_PROVIDER):
-        raise AzureBlocked("off")
     n_pages = len(page_sizes(path)) or pdfmod.input_limits().max_pages
     max_cost = (AZURE_USD_PER_PAGE * n_pages).quantize(Decimal("0.000001"), rounding=ROUND_CEILING)
     sha = _sha256(path)
@@ -286,7 +323,8 @@ def azure_recognise(path: Path) -> tuple[list[list[dict[str, Any]]], list[float]
 
 def escalation_review_reasons(signals: dict[str, Any] | None) -> list[str]:
     """075: a to-do when weak local text went on because the Azure escalation was blocked by the budget or by an
-    uncertain earlier attempt; not when the recipe switch is off (the user chose local recognition)."""
+    uncertain earlier attempt; not when the recipe switch is off (the user chose local recognition). 121: also when
+    Azure could not be reached for the document or the call failed."""
     reason = (signals or {}).get("escalation_blocked")
     return [f"ocr:escalation_blocked:{reason}"] if reason in _ESCALATION_TODO else []
 
@@ -546,8 +584,8 @@ ESCALATION: dict[str, Any] = dict(_CFG.get("escalation", {}))
 def ocr_with_escalation(path: str | Path, *, page_count: int | None = None, use_cache: bool = True) -> tuple[PdfText, bool]:
     """The flow's OCR step: the default engine (auto / env); if the result is weak by the policy's `ocr.escalate_*`
     thresholds and escalation is enabled (configs/ocr.json), the text of the more accurate, paid engine (`azure_di`)
-    goes on. Returns (PdfText, whether escalated). If escalation is unavailable (sidecar / mount), the local result
-    stays."""
+    goes on. Returns (PdfText, whether escalated). If escalation is unavailable, the local result stays; 121: the
+    reason is kept in the signals (`escalation_blocked`), and the flow raises a to-do for it (`escalation_review_reasons`)."""
     from jav.policy import ocr_should_escalate
 
     first = ocr_pdf(path, page_count=page_count, use_cache=use_cache)
@@ -560,7 +598,8 @@ def ocr_with_escalation(path: str | Path, *, page_count: int | None = None, use_
     except AzureBlocked as exc:  # 075: kept in the signals; the flow raises a to-do for a budget or uncertainty block
         first.ocr["escalation_blocked"] = exc.reason
         return first, False
-    except OcrUnavailableError:
+    except OcrUnavailableError:  # 121: the call failed or its outcome is unknown; before 121 this was silent
+        first.ocr["escalation_blocked"] = "unavailable"
         return first, False
     if second.ocr and (second.ocr.get("mean_conf") or 0) >= (first.ocr.get("mean_conf") or 0):
         second.ocr["escalated_from"] = first.ocr.get("engine")
@@ -577,7 +616,8 @@ def ocr_with_escalation(path: str | Path, *, page_count: int | None = None, use_
 def status() -> dict[str, Any]:
     """Admin / preflight: which engine, version, language packs, cache size."""
     out: dict[str, Any] = {"config_version": cfg.version("ocr"), "config_hash": CONFIG_HASH, "native_exe": native_exe(), "docker_image": _CFG["docker"]["image"],
-                           "azure_sidecar": _CFG["azure_di"]["sidecar_url"], "engine_env": os.environ.get(ENGINE_ENV)}
+                           "azure_sidecar": _CFG["azure_di"]["sidecar_url"], "azure_direct": azure_di.configured(),  # 121
+                           "engine_env": os.environ.get(ENGINE_ENV)}
     try:
         out["engine"] = engine()
         out["engine_version"] = engine_version(out["engine"])

@@ -177,10 +177,12 @@ export function reasonText(code: string): string {
     case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
     case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });
     case "ocr:low_conf_words": return t("Sok bizonytalan szó a felismerésben ({{p}})", { p: num(p[2]) });
-    // 075: the Azure escalation of a weak scan did not run (jav/ocr.py escalation_review_reasons)
-    case "ocr:escalation_blocked": return p[2] === "uncertain_attempt"
-      ? t("Gyenge helyi felismerés; egy korábbi Azure-hívás kimenete bizonytalan, ezért nem ismételtük meg")
-      : t("Gyenge helyi felismerés; az Azure-felismerés a futás kerete miatt elmaradt");
+    // 075: the Azure escalation of a weak scan did not run (jav/ocr.py escalation_review_reasons); 121: no route, failed call
+    case "ocr:escalation_blocked":
+      if (p[2] === "uncertain_attempt") return t("Gyenge helyi felismerés; egy korábbi Azure-hívás kimenete bizonytalan, ezért nem ismételtük meg");
+      if (p[2] === "unreachable") return t("Weak local recognition; Azure recognition is not set up for this document");
+      if (p[2] === "unavailable") return t("Weak local recognition; Azure recognition failed");
+      return t("Gyenge helyi felismerés; az Azure-felismerés a futás kerete miatt elmaradt");
     // 078: a PDF attachment the reader could not read; the email's intent was still recognised
     case "attachment:unreadable": return t("Egy PDF-csatolmány nem olvasható (sérült, túl nagy, vagy túllépte az olvasási időt vagy memóriát); a levél szándéka ettől még elkészült");
     case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");

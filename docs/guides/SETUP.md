@@ -47,6 +47,7 @@ Optional environment variables (in `.env` or in the shell):
 | `JAV_LEGACY_ROOT` | the location of the legacy project, if it is not the default (section 4) |
 | `JAV_API_ROOTS` | allowed document folders when the folder restriction is on (section 1) |
 | `JAV_INGEST_TOKEN` | the key of the standalone email receiver (`email-ingest-server`) used on the legacy, manual route; without it (and without `--token`) the receiver prints a one-off key at start-up |
+| `AZURE_DI_ENDPOINT`, `AZURE_DI_KEY` | the Azure Document Intelligence resource for the paid escalation of weak local OCR, called directly (section 3); without them the legacy sidecar is used |
 | `JAV_OCR_ENGINE` | `native`, `docker` or `azure_di` for one command; `azure_di` forces the paid Azure recognition (page-limited). The default comes from `configs/ocr.json` and never picks Azure. |
 | `JAV_ALLOW_SDK_DEBUG` | `1`: allows the JEV library's detailed log; it also logs personal data, so use it only on made-up data |
 | `JAV_HYPOTHESIS_EXAMPLES` | the number of generated examples per property-based test (default 150), for a deeper search |
@@ -55,7 +56,7 @@ Optional environment variables (in `.env` or in the shell):
 
 - **Tesseract 5.x**, installed natively in `%LOCALAPPDATA%\Programs\Tesseract-OCR`. It does not need to be on the PATH: `configs/ocr.json` lists where to look (the PATH, this folder and `C:\Program Files\Tesseract-OCR`).
 - **Language packs** (not in git; git-ignored): `tools/tessdata/` (eng, hun, osd; the project uses this one) and `tools/tessdata_best/`. Get them from the tesseract-ocr `tessdata_fast` and `tessdata_best` releases, or from the legacy sidecar's Docker image, where the original copy came from. Without a PDF, `python -m jav.cli ocr` prints the state of the engine and the language packs.
-- The paid Azure Document Intelligence escalation goes through the legacy project's sidecar container. It is needed only to escalate weak local OCR. In a run it is used only within the run's Azure budget (the recipe's Azure recognition switch), and every call is in the call log.
+- The paid Azure Document Intelligence escalation is needed only to escalate weak local OCR. With `AZURE_DI_ENDPOINT` and `AZURE_DI_KEY` in `.env` the system calls the service directly, for a document in any folder; without them it goes through the legacy project's sidecar container, which reads only documents under the legacy data folder. If the recipe's Azure switch is on but the escalation cannot run, the document gets a to-do. In a run it is used only within the run's Azure budget (the recipe's Azure recognition switch), and every call is in the call log.
 
 ## 4. Dependency on the legacy project: what works in a fresh clone
 
@@ -69,7 +70,7 @@ A fresh GitHub clone has neither the legacy project, nor the golden sets, nor th
 | the user interface, the local service and the worker; work packages, recipes, trial and live runs with the keys | `detect-golden`, `detect-determinism` (detection golden set) |
 | local OCR (the language packs have to be obtained separately, section 3) | `email-golden`, `email-determinism`, `email-injection-probe` (email golden set) |
 | downloads, reports and the local backup (the second backup location has to be set for the machine, section 6) | mailbox download and the standalone email receiver (the legacy Outlook bridge script) |
-| the data guard and the start-up check (a missing handoff is only a note) | Azure recognition and the legacy Docker OCR (the legacy sidecar), and `legacy-import` |
+| the data guard and the start-up check (a missing handoff is only a note) | Azure recognition without its own keys and the legacy Docker OCR (the legacy sidecar), and `legacy-import` |
 
 The start-up check is green on a fresh clone too, once the hooks are installed (`python -m jav.cli hooks-install`).
 

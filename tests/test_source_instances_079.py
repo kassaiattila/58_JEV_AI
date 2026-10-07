@@ -267,8 +267,8 @@ def test_azure_gets_the_unchanged_original_under_the_sidecar_folder(env, monkeyp
         ocr.azure_words(instance)
     assert sent == [f"{ocr._CFG['azure_di']['container_root']}/inbox/scan.pdf"]
     original.write_bytes(b"%PDF changed since it was added")
-    with ocr.azure_alias(str(original), digest), pytest.raises(ocr.OcrUnavailableError, match="sidecar"):
-        ocr.azure_words(instance)  # a changed original is never sent: refused as before, with no call
+    with ocr.azure_alias(str(original), digest), pytest.raises(ocr.AzureBlocked, match="unreachable"):
+        ocr.azure_words(instance)  # a changed original is never sent: refused as before (121: as unreachable), with no call
     assert len(sent) == 1
 
 

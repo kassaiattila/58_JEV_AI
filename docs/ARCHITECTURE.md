@@ -131,10 +131,13 @@ data: a manual labelling list (`*_manual_sample.md`) → our own golden set (`go
    into `tools/tessdata`; fallback: the old sidecar image via `docker run`) → the same line/cell builder as for the text layer
    (`jav/pdf.py: build_layout`). A separate graph step (`ocr_pdf`) in the M1 and M2 graphs, a disk cache in `runs/ocr/`,
    raw quality signals in the state, thresholds in the `ocr` block of `policy.json`. The rest of the old sidecar (torch, the matcher)
-   has not been ported; Azure DI is not reimplemented here either: when local OCR is weak, `ocr_with_escalation` reaches it through the
-   old sidecar (paid). The call goes through the call log (`azure_recognise`): in a worker run the page count is
-   reserved from the run's Azure budget (recipe switch `azure_ocr`), a blocked escalation leaves the local text and, for a
-   budget or uncertainty block, a to-do (`ocr:escalation_blocked:*`). Heavy dependencies may only go behind a sidecar.
+   has not been ported. When local OCR is weak, `ocr_with_escalation` asks Azure DI (paid): since 121 directly over its REST API
+   (`jav/adapters/azure_di.py`, standard-library HTTP, ported from the old sidecar's provider) when `AZURE_DI_ENDPOINT` and
+   `AZURE_DI_KEY` are set, otherwise through the old sidecar, which sees only the legacy data folder. The call goes through the
+   call log (`azure_recognise`): in a worker run the page count is reserved from the run's Azure budget (recipe switch
+   `azure_ocr`); an analysis Azure accepted but whose result was lost is an uncertain call. A blocked or failed escalation leaves
+   the local text and, unless the recipe switch is off, a to-do (`ocr:escalation_blocked:*`: budget, uncertain earlier attempt,
+   no route to Azure, failed call). Heavy dependencies may only go behind a sidecar.
 5. **Isolated PDF reading**: `jav/isolated_pdf.py` + `configs/service.json` `pdf_reader` — the third-party PDF parsers
    (pdfplumber for the text layer, PDFium for the OCR page images, the page sizes and the review page images) run in one
    long-lived helper process per calling process (worker, local service), one request at a time, with a time limit per
