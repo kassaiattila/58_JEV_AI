@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "naming",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "changelog": [
+   {
+    "version": "1.3.0",
+    "date": "2026-10-07",
+    "note": "122 (backlog F-pro-forma): the pro forma invoice's own token (DIJBEKERO), named like a Hungarian invoice."
+   },
    {
     "version": "1.2.0",
     "date": "2026-10-06",
@@ -53,6 +58,7 @@
   "invoice_hu": {"token": "SZAMLA", "pattern": "{issue_date|fulfillment_date}_{@type}_{supplier_name}_{invoice_number}"},
   "invoice_foreign": {"token": "INVOICE", "pattern": "{issue_date}_{@type}_{supplier_name}_{invoice_number}"},
   "invoice_out": {"token": "KIMENO-SZAMLA", "pattern": "{issue_date|fulfillment_date}_{@type}_{buyer_name}_{invoice_number}"},
+  "proforma_invoice": {"token": "DIJBEKERO", "pattern": "{issue_date}_{@type}_{supplier_name}_{invoice_number}"},
   "villamos_energia_szamla": {"token": "VILLANY", "pattern": "{billing_period_start|issue_date}_{@type}_{supplier_name}_{consumption_address:street}"},
   "foldgaz_szamla": {"token": "GAZ", "pattern": "{billing_period_start|issue_date}_{@type}_{supplier_name}_{consumption_address:street}"},
   "viz_szamla": {"token": "VIZ", "pattern": "{billing_period_start|issue_date}_{@type}_{supplier_name}_{consumption_address:street}"},

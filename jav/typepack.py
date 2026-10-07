@@ -14,6 +14,8 @@ What the pack contains (a mirror of the legacy 10_AIFLOW_V4 `types/<key>/` pack,
   extension, `utility` = the OCR-tolerant set for Hungarian utility bills);
 - `text_labels` (2026-09-20, utility round): the labels of the free-text fields (`text` kind) on the document (a regex
   list per field) - the labelled text finder (`candidates.find_labelled_text`) yields candidates from it, JEV chooses;
+- `prompt_note` (122): instructions added after the prompt file on the G path, so a variant pack (the pro forma
+  invoice) reuses another pack's verbatim prompt without copying it (`jav.extract_llm.instructions`);
 - `extends` (2026-09-20): a base pack (`configs/types/_base/<name>.json`, e.g. the legacy `_shared/utility_bill_hu`),
   whose fields, lists, validators and schema file are placed before the child's (the legacy `extends` semantics:
   base + child); a base pack is not a runnable type on its own (it has no prompt), and `keys()` does not list it.
@@ -52,6 +54,7 @@ class TypePack(BaseModel):
     candidate_profile: str = "hu"
     prompt_file: str
     schema_file: str
+    prompt_note: str | None = None  # 122: added after the prompt file (a variant pack reusing another pack's prompt)
     base_schema_file: str | None = None  # the base pack's schema (the start of the fields), with `extends`
     extends: str | None = None
     select_callsite: str | None  # None: no S path (047: packs converted from legacy types, G path only)
@@ -252,6 +255,7 @@ def get(key: str = DEFAULT_KEY) -> TypePack:
         candidate_profile=inherit("candidate_profile", "hu"),
         prompt_file=data["prompt_file"],
         schema_file=data["schema_file"],
+        prompt_note=data.get("prompt_note"),
         base_schema_file=base.get("schema_file"),
         extends=extends,
         select_callsite=inherit("select_callsite"),

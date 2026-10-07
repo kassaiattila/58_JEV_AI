@@ -28,6 +28,21 @@ class DetectCase:
     path: Path
     expected: str  # in our taxonomy
     old_type: str
+    expected_detail: str | None = None  # 122: a local case list may name the expected detailed type (pack) too
+
+
+def load_case_file(path: Path) -> list[DetectCase]:
+    """122: a local case list (`{"cases": [{"case_id", "path", "expected", "expected_detail"?}]}`), kept outside git
+    because it names real documents. The expectations are the measurer's own reading of each document, not a golden
+    label; a missing file is skipped."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    out = []
+    for c in data["cases"]:
+        p = Path(c["path"])
+        if p.exists():
+            out.append(DetectCase(case_id=c["case_id"], path=p, expected=c["expected"], old_type="",
+                                  expected_detail=c.get("expected_detail")))
+    return out
 
 
 def load_detect_cases() -> list[DetectCase]:
@@ -49,18 +64,22 @@ def load_detect_cases() -> list[DetectCase]:
 
 
 def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: bool = True,
-                  budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
+                  budget_usd: Decimal | None = None, cases: list[DetectCase] | None = None,
+                  label: str = "golden") -> list[dict[str, Any]]:
     """`jev=False` (086): GPT recognises the type (`jav/detect_gpt.py`); `descriptions=False` offers the types by their
-    keys only (the measured alternative). `budget_usd`: a hard OpenAI budget for the whole measurement (the owner's
-    sub-budget; JEV and Azure get none, so they cannot be called) - a call over it is a `detect:gpt_failed` row."""
+    keys only (the measured alternative). `budget_usd`: a hard budget for the whole measurement (the owner's
+    sub-budget), for the engine that answers - OpenAI with `jev=False`, JEV otherwise (122); the other providers and
+    Azure get none, so they cannot be called. A GPT call over it is a `detect:gpt_failed` row. `cases` / `label` (122):
+    a local case list instead of the golden set (`load_case_file`), and the name of the output file."""
     from jav import detect_gpt
     from jav.flow_detect import run_detect
     from jav.runtime import calls
 
-    cases = load_detect_cases()
+    cases = load_detect_cases() if cases is None else cases
     rows: list[dict[str, Any]] = []
     stamp = f"{datetime.now():%Y%m%d_%H%M%S}"
-    guard = (calls.measurement(f"measure-{stamp}-detect", {"openai": budget_usd}) if budget_usd is not None
+    provider = "jev" if jev else "openai"
+    guard = (calls.measurement(f"measure-{stamp}-detect", {provider: budget_usd}) if budget_usd is not None
              else contextlib.nullcontext())
     with guard, detect_gpt.use_type_descriptions(descriptions):
         for case in cases:
@@ -69,6 +88,7 @@ def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: boo
             r, d = st.result, st.detail
             rows.append({
                 "case_id": case.case_id, "expected": case.expected, "old_type": case.old_type,
+                "expected_detail": case.expected_detail,
                 "got": r.doc_type if r else None, "confidence": r.confidence if r else None,
                 "issuer_hu": r.issuer_hu if r else None, "language": r.language if r else None,
                 "status": st.final_status, "seconds": round(time.perf_counter() - t0, 2),
@@ -82,7 +102,7 @@ def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: boo
             })
     RUNS_DIR.mkdir(exist_ok=True)
     variant = "" if jev else ("_gpt" if descriptions else "_gpt_keys")
-    out = RUNS_DIR / f"{stamp}_detect_golden{variant}.jsonl"
+    out = RUNS_DIR / f"{stamp}_detect_{label}{variant}.jsonl"
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
     print_detect_report(rows)
     print(f"\nNyers futások: {out}")
@@ -152,6 +172,13 @@ def print_detect_report(rows: list[dict[str, Any]]) -> None:
     for r in scored:
         if r["got"] != r["expected"]:
             print(f"  - {r['case_id']}: várt {r['expected']}, kapott {r['got']} ({r['confidence']:.2f}) top3={r['top3']}")
+    detailed = [r for r in scored if r.get("expected_detail")]
+    if detailed:  # 122: a case list may name the expected detailed type; an open one (None) is counted as such
+        same = sum(r.get("detail_type") == r["expected_detail"] for r in detailed)
+        print(f"**detailed type as expected:** {same}/{len(detailed)}")
+        for r in detailed:
+            if r.get("detail_type") != r["expected_detail"]:
+                print(f"  - {r['case_id']}: expected {r['expected_detail']}, got {r.get('detail_type')} ({r.get('detail_method')})")
 
 
 # --- corpus walk -------------------------------------------------------------------------------

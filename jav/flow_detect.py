@@ -170,7 +170,9 @@ def _resolve_detail(state: DetectState, jev, chooser=None) -> None:
 
     broad = state.result.doc_type
     try:
-        d = resolve(broad, state.text, jev=jev, run_id=state.run_id, use_cache=state.use_cache, chooser=chooser)
+        # 122: the recogniser's own issuer judgement may route a foreign issuer's receipt to the foreign invoice pack
+        d = resolve(broad, state.text, jev=jev, run_id=state.run_id, use_cache=state.use_cache, chooser=chooser,
+                    issuer_hu=state.result.issuer_hu, engine="gpt" if chooser is not None else "jev")
     except JevUnavailableError as exc:
         d = DetailResult(broad=broad, key=None, method="no_jev")
         state.detail_reasons = [f"jev_unavailable:{exc.reason}"]

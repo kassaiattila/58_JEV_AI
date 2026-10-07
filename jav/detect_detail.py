@@ -1,8 +1,12 @@
 """047 T1.2: detailed type within the coarse detection category (e.g. bank statement → CIB or Erste).
 
-Detection (`jav/detect.py`, M1) yields 12 coarse categories; extraction asks for the pack of the detailed type. Steps:
+Detection (`jav/detect.py`, M1) yields the coarse categories; extraction asks for the pack of the detailed type. Steps:
+0. 122: a category whose packs presume a Hungarian issuer, with an issuer the recogniser judged foreign → the pack the
+   policy names (`issuer`; a foreign business's receipt → the foreign invoice pack), without a call;
 1. candidates: the category's packs (`parent`), without the dependent types (`auto_detect=false`, DECISIONS 047/3);
-2. one candidate → that one (`single`), without a call;
+2. the category's own pack as the only candidate → that one (`single`), without a call. 122: a single pack NARROWER
+   than its category (receipt → the tax authority's receipt, ticket → admission ticket, contract → general terms, tax
+   return → the tax authority's form) is not taken blind: the question of step 4 asks whether it fits, with `none`;
 3. the legacy anchor score (port of `anchor_check` in V4 `sidecar/app/detect_engine/service.py`) at the START of the
    document (`anchor_head_chars`; in a Díjbeszedő batch the start of the sub-invoice decides, not the rest of the
    batch): required hit 1, +0.25 per supporting pattern, -0.5 per excluder, clamped between 0 and 2. If the best
@@ -29,7 +33,7 @@ _WS = re.compile(r"\s+")
 class DetailResult(BaseModel):
     broad: str
     key: str | None
-    method: str  # single | anchors | jev | gpt | no_jev | no_candidate
+    method: str  # issuer | single | anchors | jev | gpt | no_jev | no_candidate
     confidence: float | None = None  # gpt: None = not measurable
     probabilities: dict[str, float] = Field(default_factory=dict)
     candidates: list[str] = Field(default_factory=list)
@@ -73,23 +77,32 @@ def _state(text: str, conf: dict[str, Any]) -> dict[str, Any]:
     return {"head_lines": [f"L{i:02d}: {ln[: conf['max_line_chars']]}" for i, ln in enumerate(lines, 1)]}
 
 
-def resolve(broad: str, text: str, *, jev: Any, run_id: str, use_cache: bool = True, chooser: Any = None) -> DetailResult:
+def resolve(broad: str, text: str, *, jev: Any, run_id: str, use_cache: bool = True, chooser: Any = None,
+            issuer_hu: float | None = None, engine: str = "jev") -> DetailResult:
+    """`issuer_hu` / `engine` (122): the recogniser's P(issuer is Hungarian) and which recogniser gave it (its band)."""
+    from jav.policy import DETECT_DETAIL, foreign_issuer_pack
+
+    routed = foreign_issuer_pack(broad, issuer_hu, engine=engine)
+    if routed is not None:
+        return DetailResult(broad=broad, key=routed, method="issuer", candidates=[routed])
     cands = candidates(broad)
     if not cands:
         return DetailResult(broad=broad, key=None, method="no_candidate")
-    if len(cands) == 1:
-        return DetailResult(broad=broad, key=cands[0], method="single", candidates=cands)
-    from jav.policy import DETECT_DETAIL
-
+    if cands == [broad]:
+        return DetailResult(broad=broad, key=broad, method="single", candidates=cands)
     packs = {k: typepack.get(k) for k in cands}
     conf = cfg.load("callsite:detect_detail")
-    head = text[: conf["anchor_head_chars"]]
-    scored = {k: anchor_score(packs[k].detect, head) for k in cands}
-    ranked = sorted(cands, key=lambda k: -scored[k][1])
-    base = dict(broad=broad, candidates=cands, scores={k: round(v[1], 3) for k, v in scored.items()})
-    top, second = ranked[0], ranked[1]
-    if scored[top][0] and scored[top][1] - scored[second][1] >= DETECT_DETAIL["anchor_margin"]:
-        return DetailResult(key=top, method="anchors", **base)
+    if len(cands) == 1:  # one narrower pack: the question below asks whether it fits
+        ranked: list[str] = cands
+        base: dict[str, Any] = dict(broad=broad, candidates=cands)
+    else:
+        head = text[: conf["anchor_head_chars"]]
+        scored = {k: anchor_score(packs[k].detect, head) for k in cands}
+        ranked = sorted(cands, key=lambda k: -scored[k][1])
+        base = dict(broad=broad, candidates=cands, scores={k: round(v[1], 3) for k, v in scored.items()})
+        top, second = ranked[0], ranked[1]
+        if scored[top][0] and scored[top][1] - scored[second][1] >= DETECT_DETAIL["anchor_margin"]:
+            return DetailResult(key=top, method="anchors", **base)
     if jev is None and chooser is not None:
         key, confidence, probabilities = chooser(broad, {k: packs[k].document for k in ranked}, _state(text, conf), run_id=run_id)
         return DetailResult(key=key if key in packs else None, method="gpt", confidence=confidence, probabilities=probabilities, **base)

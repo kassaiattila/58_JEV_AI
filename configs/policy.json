@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "changelog": [
+   {
+    "version": "1.17.0",
+    "date": "2026-10-07",
+    "note": "122 (backlog Q-upwork-type, the owner's decision of 2026-10-01, DECISIONS 083; GPT round approved on 2026-10-07): detect_detail.foreign_issuer_pack - a receipt whose issuer is not Hungarian (P(issuer is Hungarian) in the no band of the engine's own issuer question) goes to the foreign invoice pack, as the registry already says (invoice_foreign covers a non-Hungarian business's receipt); the only receipt pack is the Hungarian tax authority's. email.m2_types gains proforma_invoice (backlog F-pro-forma): an attached pro forma invoice is extracted like an invoice. No threshold changed."
+   },
    {
     "version": "1.16.0",
     "date": "2026-10-06",
@@ -134,6 +139,7 @@
   "m2_types": [
    "invoice_foreign",
    "invoice_hu",
+   "proforma_invoice",
    "receipt",
    "utility_bill_hu"
   ],
@@ -163,7 +169,8 @@
   }
  },
  "detect_detail": {
-  "anchor_margin": 0.75
+  "anchor_margin": 0.75,
+  "foreign_issuer_pack": {"receipt": "invoice_foreign"}
  },
  "detect_issuer": {
   "engines": ["gpt"],

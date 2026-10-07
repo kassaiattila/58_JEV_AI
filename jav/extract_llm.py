@@ -75,6 +75,13 @@ def use_agent_factory(factory):
         _agent_factory.reset(token)
 
 
+def instructions(pack: TypePack) -> str:
+    """The G path's instructions for a pack: its prompt file, then its own note (122: a variant pack reusing another
+    pack's verbatim prompt). A pack without a note sends its prompt file unchanged."""
+    text = load_prompt(pack.prompt_file)
+    return f"{text}\n\n{pack.prompt_note}" if pack.prompt_note else text
+
+
 @lru_cache(maxsize=None)
 def get_agent(pack_key: str = DEFAULT_KEY) -> Agent[None, BaseModel]:
     pack = get_pack(pack_key)
@@ -82,7 +89,7 @@ def get_agent(pack_key: str = DEFAULT_KEY) -> Agent[None, BaseModel]:
     # The legacy sidecar setting: reasoning none, temperature 0 (we measure non-determinism, we do not fight it)
     settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"], temperature=OPENAI_SETTINGS["temperature"],
                                        openai_logprobs=True, openai_top_logprobs=TOP_LOGPROBS)
-    return Agent(model, output_type=NativeOutput(pack.llm_model()), instructions=load_prompt(pack.prompt_file), model_settings=settings,
+    return Agent(model, output_type=NativeOutput(pack.llm_model()), instructions=instructions(pack), model_settings=settings,
                  retries=OPENAI_SETTINGS["retries"])
 
 
@@ -152,13 +159,13 @@ def extract_scored(text: str, *, run_id: str = "adhoc", pack: TypePack | None = 
     price = openai_price(OPENAI_MODEL)  # 066 Á38: no budgeted call without a price (the reservation would be zero)
     schema = json.dumps(pack.llm_model().model_json_schema(), ensure_ascii=False)  # sent as the answer's JSON schema
     max_cost = calls.estimate_max_cost(
-        input_bytes=calls.utf8_bytes(prompt, load_prompt(pack.prompt_file), schema), max_output_tokens=RUN_MAX_OUTPUT_TOKENS,
+        input_bytes=calls.utf8_bytes(prompt, instructions(pack), schema), max_output_tokens=RUN_MAX_OUTPUT_TOKENS,
         usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), rounds=1 + int(OPENAI_SETTINGS["retries"]),
         repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))
     digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     # 090: the question's fingerprint for reusing an earlier answer (the step id keeps the text's own digest); 091: the
     # answer's format and its token alternatives are part of it
-    key = calls.answer_key("openai", OPENAI_MODEL, load_prompt(pack.prompt_file), schema,
+    key = calls.answer_key("openai", OPENAI_MODEL, instructions(pack), schema,
                            json.dumps(OPENAI_SETTINGS, sort_keys=True), str(RUN_MAX_OUTPUT_TOKENS), prompt,
                            ANSWER_FORMAT, str(TOP_LOGPROBS))
     result = calls.invoke(run_id=run_id, step_id=f"openai:extract_llm:{pack.key}:{digest[:16]}", provider="openai",

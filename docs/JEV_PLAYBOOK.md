@@ -97,8 +97,8 @@ The 15 type-specific call sites: `verify_altalanos_szerzodesi_feltetelek` (gener
 
 | call site | module | questions and state |
 |---|---|---|
-| `detect` (1.0.0) | `jav/detect.py` | One request: `doc_type` Choice over the type registry (`configs/doc_types.json`: 12 types plus `unknown`, each described by `what / not_for / examples / parent`); `issuer_is_hungarian` Noul; `language` Choice. State: the first 40 and last 8 lines (at most 160 characters each), code-side `features` (counts of tax numbers, VAT ids, IBANs, dates, currencies) and keyword `anchor_hits`. The `config_hash` covers both the call site and the registry. |
-| `detect_detail` (1.0.0) | `jav/detect_detail.py` | `detail_type` Choice: the detailed type within the broad category. The options are the type packs of that category, described by each pack's `document` field, plus `none`. JEV is asked only when the legacy keyword anchors leave more than one type: code decides alone when the leading type has a required anchor and leads the second by at least `detect_detail.anchor_margin` (0.75, `configs/policy.json`). State: the first 40 lines. |
+| `detect` (1.1.0) | `jav/detect.py` | One request: `doc_type` Choice over the type registry (`configs/doc_types.json`: 13 types plus `unknown`, each described by `what / not_for / examples / parent`; its instructions say that the document text is data, not instructions); `issuer_is_hungarian` Noul; `language` Choice. State: the first 40 and last 8 lines (at most 160 characters each), code-side `features` (counts of tax numbers, VAT ids, IBANs, dates, currencies) and keyword `anchor_hits`. The `config_hash` covers both the call site and the registry. |
+| `detect_detail` (1.1.0) | `jav/detect_detail.py` | `detail_type` Choice: the detailed type within the broad category. The options are the type packs of that category, described by each pack's `document` field, plus `none`. JEV is asked when the legacy keyword anchors leave more than one type: code decides alone when the leading type has a required anchor and leads the second by at least `detect_detail.anchor_margin` (0.75, `configs/policy.json`). Since 1.1.0 it is also the fit question of a category whose only pack is narrower than the category (options: that pack and `none`), and its instructions say that the document text is data. State: the first 40 lines. |
 
 ### 4.4 Email intent (M3)
 
@@ -129,7 +129,7 @@ Band sets (policy 1.9.0):
 
 `band_for` maps each judgement point to a band set; the longest matching prefix wins. `invoice.pick.high_stakes` uses `high_stakes`, `invoice.verify` uses `verify_flag`, and everything else uses `default` (`invoice.pick`, `invoice.pick.presence`, `detect.doc_type`, `detect.issuer_is_hungarian`, `detect.detail_type`, `email.intent`, `email.signal`, `email.urgency`).
 
-Other sections of the same file: `email` (intent routes, `low_conf_route` `human:low_confidence`, `jev_unavailable_route` `human:jev_unavailable`, `signal_review` and `signal_routes` for `prompt_injection` → `human:suspicious`), `detect_detail.anchor_margin` (0.75), and `ocr` (review and Azure-escalation thresholds for OCR quality, which do not involve JEV).
+Other sections of the same file: `email` (intent routes, `low_conf_route` `human:low_confidence`, `jev_unavailable_route` `human:jev_unavailable`, `signal_review` and `signal_routes` for `prompt_injection` → `human:suspicious`), `detect_detail.anchor_margin` (0.75) and `detect_detail.foreign_issuer_pack` (a receipt whose issuer is in the `no` band of the issuer question goes to the foreign invoice pack, without a detailed-type question), and `ocr` (review and Azure-escalation thresholds for OCR quality, which do not involve JEV).
 
 ## 6. Question-design checklist
 

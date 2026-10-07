@@ -1,0 +1,151 @@
+{
+ "meta": {
+  "name": "type:proforma_invoice",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-07",
+    "note": "122 (backlog F-pro-forma, the owner's decision of 2026-10-02 'new type: pro forma invoice'): a pro forma invoice (payment request) is read like a Hungarian invoice: the invoice_hu pack's fields, lists, checks, JEV call sites and prompt, plus prompt_note for the G path. Its serial number goes into invoice_number; a fulfilment date is not required. Its own coarse type (configs/doc_types.json), file-name token and label; not an invoice in the reports."
+   }
+  ]
+ },
+ "document": "Pro forma invoice or payment request (díjbekérő) asking for payment before the invoice is issued",
+ "golden_type_key": "proforma_invoice",
+ "parent": "proforma_invoice",
+ "detect": {
+  "required_any": [
+   "d[ií]jbek[eé]r[oő]",
+   "pro ?-?forma",
+   "el[oő]legbek[eé]r[oő]"
+  ],
+  "supporting": [
+   "fizetési határidő",
+   "nem számla",
+   "befizetés"
+  ],
+  "excluders": []
+ },
+ "candidate_profile": "hu",
+ "prompt_file": "invoice_hu_prompt.md",
+ "prompt_note": "This document is a pro forma invoice or payment request (díjbekérő, proforma számla, előlegbekérő), issued BEFORE the invoice; it is not an invoice itself. Put its printed serial number (sorszám, díjbekérő száma) into invoice_number. A fulfilment date is often not printed: then fulfillment_date is null. Do not take dates, numbers or amounts from a later invoice it mentions.",
+ "schema_file": "invoice_hu_schema.json",
+ "select_callsite": "select",
+ "verify_callsite": "verify",
+ "fields": {
+  "supplier_name": "name",
+  "supplier_tax_id": "tax_id",
+  "buyer_name": "name",
+  "buyer_tax_id": "tax_id",
+  "invoice_number": "invoice_number",
+  "issue_date": "date",
+  "fulfillment_date": "date",
+  "due_date": "date",
+  "currency": "currency",
+  "net_total": "money",
+  "vat_total": "money",
+  "gross_total": "money",
+  "payment_iban": "iban",
+  "line_items": "list",
+  "supplier_address": "address",
+  "buyer_address": "address",
+  "payment_method": "text",
+  "order_number": "text",
+  "amount_due": "money"
+ },
+ "list_fields": {
+  "line_items": {
+   "description": "text",
+   "quantity": "number",
+   "unit_price": "money",
+   "net_amount": "money",
+   "vat_rate": "text",
+   "gross_amount": "money",
+   "unit": "text",
+   "product_code": "text",
+   "vat_amount": "money",
+   "note": "text"
+  }
+ },
+ "scored_fields": [
+  "supplier_name",
+  "supplier_tax_id",
+  "buyer_name",
+  "buyer_tax_id",
+  "invoice_number",
+  "issue_date",
+  "fulfillment_date",
+  "due_date",
+  "currency",
+  "net_total",
+  "vat_total",
+  "gross_total",
+  "payment_iban"
+ ],
+ "informational_fields": [
+  "payment_iban"
+ ],
+ "required": [
+  "buyer_name",
+  "gross_total",
+  "invoice_number",
+  "supplier_name"
+ ],
+ "high_stakes": [
+  "amount_due",
+  "due_date",
+  "gross_total",
+  "payment_iban",
+  "supplier_tax_id"
+ ],
+ "validators": [
+  {
+   "check": "vat_consistency"
+  },
+  {
+   "check": "date_order"
+  },
+  {
+   "check": "tax_id",
+   "field": "supplier_tax_id",
+   "optional": true
+  },
+  {
+   "check": "tax_id",
+   "field": "buyer_tax_id",
+   "optional": true
+  },
+  {
+   "check": "iban_check",
+   "field": "payment_iban",
+   "optional": true
+  },
+  {
+   "check": "line_items_total"
+  },
+  {
+   "check": "line_items_arithmetic"
+  },
+  {
+   "check": "distinct_parties",
+   "fields": [
+    "supplier_tax_id",
+    "buyer_tax_id"
+   ]
+  },
+  {
+   "check": "distinct_parties",
+   "fields": [
+    "supplier_name",
+    "buyer_name"
+   ]
+  },
+  {
+   "check": "party_orientation",
+   "fields": [
+    "supplier_tax_id",
+    "buyer_tax_id"
+   ]
+  }
+ ]
+}

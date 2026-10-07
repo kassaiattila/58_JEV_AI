@@ -25,6 +25,7 @@
     "nav_certificate",
     "nav_receipt",
     "nav_tax_return",
+    "proforma_invoice",
     "statement_cib",
     "statement_erste",
     "terkep_adat",
