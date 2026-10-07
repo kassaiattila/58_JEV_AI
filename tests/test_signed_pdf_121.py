@@ -1,4 +1,4 @@
-"""121 (F-aláírt-pdf-általános): a digitally signed PDF is read; any other form or active content stays excluded.
+"""121: a digitally signed PDF is read; any other form or active content stays excluded.
 
 The native reader excluded every PDF with an interactive form, and a digital signature is a form field: 79 of the
 532 PDFs of two of the owner's yearly invoice folders are signed. A signed PDF without a fitting type pack therefore
