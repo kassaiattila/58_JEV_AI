@@ -433,6 +433,8 @@ def scan(*, write: bool = False) -> dict[str, Any]:
     decided = {d["pair_key"] for d in decisions_for(d.doc_id for g in groups for d in g)}
     with store.connect() as c:
         approved = {r["run_id"] for r in c.execute("SELECT run_id FROM runs WHERE approval IS NOT NULL")}
+    already = {(subject, r["reason"], r["run_id"]) for (_kind, subject), rs in
+               store.review_open_reasons_many([("document", d.doc_id) for g in groups for d in g]).items() for r in rs}
     kinds: dict[str, int] = defaultdict(int)
     pending: dict[str, tuple[Document, list[str]]] = {}
     skipped: dict[str, int] = defaultdict(int)
@@ -446,6 +448,8 @@ def scan(*, write: bool = False) -> dict[str, Any]:
                     skipped["no_work_run"] += 1
                 elif later.run_id in approved:
                     skipped["approved_run"] += 1
+                elif (later.doc_id, m.reason, later.flow_run_id) in already:
+                    skipped["already_open"] += 1  # an earlier --write (or the processing) opened it
                 else:
                     pending.setdefault(later.doc_id, (later, []))[1].append(m.reason)
     written = 0
