@@ -138,7 +138,10 @@ data: a manual labelling list (`*_manual_sample.md`) → our own golden set (`go
    call log (`azure_recognise`): in a worker run the page count is reserved from the run's Azure budget (recipe switch
    `azure_ocr`); an analysis Azure accepted but whose result was lost is an uncertain call. A blocked or failed escalation leaves
    the local text and, unless the recipe switch is off, a to-do (`ocr:escalation_blocked:*`: budget, uncertain earlier attempt,
-   no route to Azure, failed call). Heavy dependencies may only go behind a sidecar.
+   no route to Azure, failed call). Since 123 the original Azure recognition (word polygons, page size, unit, angle)
+   is kept once in the store, under the sha256 of its canonical JSON (`ocr.save_recognition`, artifact kind
+   `azure_recognition`), and the digest travels with the recognition signals (`recognition_sha256`); the text, the
+   OCR cache key and the call's request hash are unchanged. Heavy dependencies may only go behind a sidecar.
 5. **Isolated PDF reading**: `jav/isolated_pdf.py` + `configs/service.json` `pdf_reader` — the third-party PDF parsers
    (pdfplumber for the text layer, PDFium for the OCR page images, the page sizes and the review page images) run in one
    long-lived helper process per calling process (worker, local service), one request at a time, with a time limit per
