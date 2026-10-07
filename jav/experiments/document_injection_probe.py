@@ -7,10 +7,13 @@ and if so, does it get a to-do? The key number is the **false acceptance**: a wr
 
     python -m jav.experiments.document_injection_probe            # dry run: plan and cost estimate, no calls
     python -m jav.experiments.document_injection_probe --live     # live, paid run (needs a clean working tree)
+    python -m jav.experiments.document_injection_probe --flows detect --no-jev --live   # 122: GPT type recognition only
 
 Output: `runs/<timestamp>_067_injection/` (PDFs, `probe.sqlite`, `rows.jsonl`, `summary.md`, `accounting.json`).
 The cost ceiling is the config's `budget_usd`: before each run the probe sums its own call log and stops if the
-estimated next step would exceed it.
+estimated next step would exceed it. 122: `--budget-usd` adds a hard limit in code for the engines the run calls
+(`calls.measurement`), `--flows` limits the run to some flows, and `--no-jev` runs without JEV: GPT recognises the
+type and the G path is verified by the code (the S path needs JEV, so it is left out).
 """
 
 from __future__ import annotations
@@ -67,13 +70,18 @@ def variant_rows(invoice: dict[str, Any], variant: dict[str, Any]) -> list[str]:
     return rows[:at] + inserted + rows[at:]
 
 
-def plan(cfg: dict[str, Any]) -> list[Case]:
-    return [Case(inv["id"], name, flow) for inv in cfg["invoices"] for name, v in cfg["variants"].items() for flow in v["flows"]]
+def plan(cfg: dict[str, Any], *, flows: set[str] | None = None, jev: bool = True) -> list[Case]:
+    """The cases; `flows` limits them to some flows, and without JEV the S path is left out (it needs JEV)."""
+    keep = (flows or {"detect", "S", "G"}) - (set() if jev else {"S"})
+    return [Case(inv["id"], name, flow) for inv in cfg["invoices"] for name, v in cfg["variants"].items()
+            for flow in v["flows"] if flow in keep]
 
 
-def estimate(cfg: dict[str, Any]) -> dict[str, float]:
+def estimate(cfg: dict[str, Any], *, flows: set[str] | None = None, jev: bool = True) -> dict[str, float]:
     per = cfg["estimate_usd_per_run"]
-    n = Counter(c.flow for c in plan(cfg))
+    n = Counter(c.flow for c in plan(cfg, flows=flows, jev=jev))
+    if not jev:  # GPT recognises the type, the code verifies the G path
+        return {"openai": round(n["G"] * per["openai_G"] + n["detect"] * per["openai_detect"], 4), "jev": 0.0, "runs": dict(n)}
     return {"openai": round(n["G"] * per["openai_G"], 4),
             "jev": round(n["S"] * per["jev_S"] + n["G"] * per["jev_G"] + n["detect"] * per["jev_detect"], 4),
             "runs": dict(n)}
@@ -118,22 +126,24 @@ def _spent(db: Path) -> dict[str, float]:
     return {"openai": got.get("openai", 0.0), "jev": got.get("jev", 0.0)}
 
 
-def _next_cost(cfg: dict[str, Any], flow: str) -> dict[str, float]:
+def _next_cost(cfg: dict[str, Any], flow: str, jev: bool = True) -> dict[str, float]:
     per = cfg["estimate_usd_per_run"]
+    if not jev:
+        return {"openai": {"G": per["openai_G"], "detect": per["openai_detect"]}[flow], "jev": 0.0}
     return {"openai": per["openai_G"] if flow == "G" else 0.0,
             "jev": {"S": per["jev_S"], "G": per["jev_G"], "detect": per["jev_detect"]}[flow]}
 
 
-def _run_case(case: Case, pdf: Path, cfg: dict[str, Any], clean_detect: dict[str, str]) -> dict[str, Any]:
+def _run_case(case: Case, pdf: Path, cfg: dict[str, Any], clean_detect: dict[str, str], jev: bool = True) -> dict[str, Any]:
     inv = next(i for i in cfg["invoices"] if i["id"] == case.invoice_id)
     variant = cfg["variants"][case.variant]
     row: dict[str, Any] = {"case_id": case.case_id, "invoice": case.invoice_id, "variant": case.variant, "flow": case.flow,
-                           "target": variant["target"]}
+                           "target": variant["target"], "jev": jev}
     if case.flow == "detect":
         from jav.flow_detect import run_detect
 
         row["run_id"] = f"inj067-{case.case_id}-detect"
-        st = run_detect(str(pdf), run_id=row["run_id"])
+        st = run_detect(str(pdf), run_id=row["run_id"], jev=jev)
         doc_type = st.result.doc_type if st.result else None
         row.update(doc_type=doc_type, detail=st.detail.model_dump() if st.detail else None,
                    confidence=st.result.confidence if st.result else None, uncertain=st.uncertain,
@@ -144,7 +154,7 @@ def _run_case(case: Case, pdf: Path, cfg: dict[str, Any], clean_detect: dict[str
         return row
     from jav.flow import run_one
 
-    st = run_one(str(pdf), f"inj067-{case.case_id}", case.flow, tracker=False, doc_type=cfg["doc_type"])
+    st = run_one(str(pdf), f"inj067-{case.case_id}", case.flow, tracker=False, doc_type=cfg["doc_type"], jev=jev)
     row["run_id"] = st.run_id
     invoice = st.invoice.model_dump() if st.invoice else {}
     values = {f: invoice.get(f) for f in inv["truth"]}
@@ -157,8 +167,12 @@ def _run_case(case: Case, pdf: Path, cfg: dict[str, Any], clean_detect: dict[str
     return row
 
 
-def run(cfg: dict[str, Any], out: Path) -> list[dict[str, Any]]:
+def run(cfg: dict[str, Any], out: Path, *, flows: set[str] | None = None, jev: bool = True,
+        hard_limits: dict[str, Decimal] | None = None) -> list[dict[str, Any]]:
+    import contextlib
+
     from jav import store
+    from jav.runtime import calls
     from jav.synthetic_pdf import write_unicode_pdf
 
     (out / "pdfs").mkdir(parents=True, exist_ok=True)
@@ -167,10 +181,11 @@ def run(cfg: dict[str, Any], out: Path) -> list[dict[str, Any]]:
     clean_detect: dict[str, str] = {}
     budget = cfg["budget_usd"]
     # the clean variant first: the type flip and the to-do count are measured against it
-    cases = sorted(plan(cfg), key=lambda c: (c.variant != "clean", c.invoice_id, c.variant, c.flow))
-    with store.use_store(db):
+    cases = sorted(plan(cfg, flows=flows, jev=jev), key=lambda c: (c.variant != "clean", c.invoice_id, c.variant, c.flow))
+    with store.use_store(db), (calls.measurement(f"probe-{out.name}", hard_limits) if hard_limits
+                               else contextlib.nullcontext()):
         for case in cases:
-            spent, nxt = _spent(db), _next_cost(cfg, case.flow)
+            spent, nxt = _spent(db), _next_cost(cfg, case.flow, jev)
             if any(spent[p] + nxt[p] > budget[p] for p in ("openai", "jev")):
                 print(f"[stop] költségplafon: elköltve {spent}, a következő ({case.case_id}/{case.flow}) becslése {nxt}")
                 break
@@ -178,7 +193,7 @@ def run(cfg: dict[str, Any], out: Path) -> list[dict[str, Any]]:
             pdf = out / "pdfs" / f"{case.case_id}.pdf"
             if not pdf.exists():
                 write_unicode_pdf(pdf, variant_rows(inv, cfg["variants"][case.variant]))
-            row = _run_case(case, pdf, cfg, clean_detect)
+            row = _run_case(case, pdf, cfg, clean_detect, jev)
             rows.append(row)
             print(f"[{len(rows)}/{len(cases)}] {case.case_id} {case.flow}: "
                   f"{row.get('outcome') or row.get('doc_type')} review={row.get('needs_review', row.get('uncertain'))}")
@@ -209,11 +224,18 @@ def summarize(rows: list[dict[str, Any]]) -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--live", action="store_true", help="élő, fizetős futás (tiszta munkafa kell)")
+    ap.add_argument("--flows", help="122: comma-separated subset of detect,S,G")
+    ap.add_argument("--no-jev", action="store_true", help="122: GPT recognises the type, the code verifies the G path; no S path")
+    ap.add_argument("--budget-usd", action="append", default=[], metavar="PROVIDER=USD",
+                    help="122: hard limit in code for one provider (openai, jev); repeatable")
     args = ap.parse_args(argv)
     cfg = load_config()
-    est = estimate(cfg)
+    flows = set(args.flows.split(",")) if args.flows else None
+    jev = not args.no_jev
+    hard = {p: Decimal(v) for p, v in (item.split("=", 1) for item in args.budget_usd)} or None
+    est = estimate(cfg, flows=flows, jev=jev)
     print(f"terv: {est['runs']} futás; becslés: {est['openai']} USD OpenAI + {est['jev']} USD JEV; "
-          f"plafon: {cfg['budget_usd']}")
+          f"plafon: {cfg['budget_usd']}; hard limit: {hard}")
     if not args.live:
         return 0
     from jav.devstate import git_state
@@ -222,15 +244,17 @@ def main(argv: list[str] | None = None) -> int:
     if git is None or git.dirty:
         print("élő futás csak tiszta munkafán (CLAUDE.md §4)")
         return 2
-    out = RUNS / f"{datetime.now():%Y%m%d_%H%M%S}_067_injection"
+    out = RUNS / f"{datetime.now():%Y%m%d_%H%M%S}_067_injection{'' if jev else '_nojev'}"
     started = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    rows = run(cfg, out)
+    rows = run(cfg, out, flows=flows, jev=jev, hard_limits=hard)
     summary = summarize(rows)
     (out / "summary.md").write_text(summary, encoding="utf-8")
     spent = _spent(out / "probe.sqlite")
     (out / "accounting.json").write_text(json.dumps({
         "experiment": "067 document_injection", "config_version": cfg["version"], "commit": git.head, "clean_worktree": True,
-        "started_utc": started, "rows": len(rows), "planned": len(plan(cfg)), "budget_usd": cfg["budget_usd"],
+        "started_utc": started, "rows": len(rows), "planned": len(plan(cfg, flows=flows, jev=jev)), "jev": jev,
+        "flows": sorted(flows) if flows else None, "hard_limits": {k: str(v) for k, v in (hard or {}).items()},
+        "budget_usd": cfg["budget_usd"],
         "spent_usd": {k: round(v, 6) for k, v in spent.items()}}, ensure_ascii=False, indent=1), encoding="utf-8")
     print(summary)
     print(f"költség: {spent}; kimenet: {out}")

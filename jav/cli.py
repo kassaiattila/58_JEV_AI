@@ -163,10 +163,17 @@ def cmd_detect(args: argparse.Namespace) -> int:
 def cmd_detect_golden(args: argparse.Namespace) -> int:
     from decimal import Decimal
 
-    from jav.evals_detect import detect_golden
+    import contextlib
 
-    detect_golden(use_cache=not args.no_cache, jev=not args.no_jev, descriptions=not args.keys_only,
-                  budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
+    from jav import store
+    from jav.evals_detect import detect_golden, load_case_file
+
+    cases = load_case_file(args.cases) if args.cases else None
+    # 122: a separate measurement store keeps the results, to-dos and call log of the measurement out of the work store
+    with store.use_store(Path(args.store)) if args.store else contextlib.nullcontext():
+        detect_golden(use_cache=not args.no_cache, jev=not args.no_jev, descriptions=not args.keys_only,
+                      budget_usd=Decimal(args.budget_usd) if args.budget_usd else None, cases=cases,
+                      label="cases" if cases is not None else "golden")
     return 0
 
 
@@ -566,7 +573,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--no-jev", action="store_true", help="086: GPT recognises the type (paid OpenAI calls)")
     p.add_argument("--keys-only", action="store_true", help="086: with --no-jev, offer the types by their keys only")
-    p.add_argument("--budget-usd", help="086: hard OpenAI budget for the whole measurement (JEV and Azure get none)")
+    p.add_argument("--budget-usd", help="086/122: hard budget for the whole measurement, for the engine that answers "
+                                        "(OpenAI with --no-jev, JEV otherwise); the other providers and Azure get none")
+    p.add_argument("--cases", help="122: a local case list (JSON, outside git) instead of the golden set")
+    p.add_argument("--store", help="122: a separate measurement store (results, to-dos and call log stay out of the work store)")
     p.set_defaults(fn=cmd_detect_golden)
 
     p = sub.add_parser("detect-determinism", help="M1: ismételt futások cache nélkül a detect-goldenen, típus-flipek és conf-szórás")
