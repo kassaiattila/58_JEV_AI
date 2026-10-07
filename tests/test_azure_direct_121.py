@@ -27,13 +27,13 @@ from tests.pdfgen import INVOICE_LINES, write_text_pdf
 ENDPOINT = "https://example-di.cognitiveservices.azure.com/"
 OPERATION = "https://example-di.cognitiveservices.azure.com/documentintelligence/documentModels/prebuilt-read/analyzeResults/abc?api-version=2024-11-30"
 RESULT = {"status": "succeeded", "analyzeResult": {
-    "apiVersion": "2024-11-30", "modelId": "prebuilt-read", "content": "Fizetendő 1000",
+    "apiVersion": "2024-11-30", "modelId": "prebuilt-read", "content": "Payable 1000",
     "pages": [{"pageNumber": 1, "angle": 0, "width": 8.5, "height": 11, "unit": "inch",
-               "words": [{"content": "Fizetendő", "polygon": [0.5, 1.0, 1.2, 1.0, 1.2, 1.15, 0.5, 1.15], "confidence": 0.99,
+               "words": [{"content": "Payable", "polygon": [0.5, 1.0, 1.2, 1.0, 1.2, 1.15, 0.5, 1.15], "confidence": 0.99,
                           "span": {"offset": 0, "length": 9}},
                          {"content": "1000", "polygon": [1.3, 1.0, 1.8, 1.0, 1.8, 1.15, 1.3, 1.15], "confidence": 0.98,
                           "span": {"offset": 10, "length": 4}}],
-               "lines": [{"content": "Fizetendő 1000"}]}]}}
+               "lines": [{"content": "Payable 1000"}]}]}}
 
 
 class _Reply(io.BytesIO):
@@ -122,7 +122,7 @@ def test_direct_call_reads_a_document_the_sidecar_cannot_see(weak_scan, keys):
     with patch("urllib.request.urlopen", fake):
         pdf, escalated = _escalate(weak_scan)
     assert escalated and pdf.ocr["engine"] == "azure_di" and pdf.ocr["api_version"] == "2024-11-30"
-    assert [w["text"] for w in pdf.words[0]] == ["Fizetendő", "1000"] and "Fizetendő 1000" in pdf.lines
+    assert [w["text"] for w in pdf.words[0]] == ["Payable", "1000"] and "Payable 1000" in pdf.lines
     post, *polls = fake.requests
     assert post.get_method() == "POST" and post.full_url == (
         "https://example-di.cognitiveservices.azure.com/documentintelligence/documentModels/prebuilt-read:analyze?api-version=2024-11-30")
