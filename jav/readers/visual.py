@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import pdfplumber
 from pdfminer.pdfdocument import PDFPasswordIncorrect
-from pdfminer.pdftypes import PDFStream
+from pdfminer.pdftypes import PDFStream, resolve1
 from pdfminer.psparser import PSLiteral
 import pypdfium2 as pdfium
 
@@ -64,8 +64,40 @@ def raster(reading: Reading, picture, *, element_id: str, kind: str, page: int =
         "kind": kind, "page": page, "page_size": page_size, "element_id": element_id})
 
 
+_ACTIVE_KEYS = frozenset({"JS", "JavaScript", "OpenAction", "AA", "EmbeddedFiles", "EF", "XFA"})
+
+
+def _is_signature(field) -> bool:
+    kind = resolve1(field.get("FT")) if isinstance(field, dict) else None
+    return isinstance(kind, PSLiteral) and kind.name == "Sig"
+
+
+def _signature_only(form, bound: int) -> bool:
+    """121: an interactive form whose fields are all digital signatures (at least one) fills nothing in and runs
+    nothing, so a signed PDF is read. An empty form, any other field kind (also below a signature field) and an XFA
+    form are not one; actions are still rejected wherever they stand (`_inert`)."""
+    form = resolve1(form)
+    if not isinstance(form, dict) or "XFA" in form:
+        return False
+    fields = resolve1(form.get("Fields"))
+    if not isinstance(fields, list) or not fields or not all(_is_signature(resolve1(f)) for f in fields):
+        return False
+    pending, visited = [resolve1(f) for f in fields], 0
+    while pending:
+        visited += 1
+        limited(visited > bound, "PDF form field limit exceeded")
+        field = pending.pop()
+        for kid in resolve1(field.get("Kids")) or []:
+            kid = resolve1(kid)
+            if not isinstance(kid, dict) or (kid.get("FT") is not None and not _is_signature(kid)):
+                return False
+            pending.append(kid)
+    return True
+
+
 def _inert(document, bound: int) -> None:
-    """Reject active/embedded content by parsed names, including escaped names."""
+    """Reject active/embedded content by parsed names, including escaped names. 121: a form of digital signatures
+    only is no longer rejected (`_signature_only`)."""
     ids = set()
     for xref in document.xrefs:
         ids.update(xref.get_objids())
@@ -79,7 +111,7 @@ def _inert(document, bound: int) -> None:
         if isinstance(value, PDFStream):
             value = value.attrs
         if isinstance(value, dict):
-            if set(value) & {"JS", "JavaScript", "OpenAction", "AA", "EmbeddedFiles", "EF", "XFA", "AcroForm"}:
+            if set(value) & _ACTIVE_KEYS or ("AcroForm" in value and not _signature_only(value["AcroForm"], bound)):
                 raise ReadFailure("excluded", "excluded", "Active, embedded or form PDF content needs a separate adapter")
             action = value.get("S")
             if isinstance(action, PSLiteral) and action.name in {"JavaScript", "Launch", "SubmitForm", "ImportData", "GoToR"}:
