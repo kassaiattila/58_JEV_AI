@@ -27,9 +27,10 @@ def test_its_pack_is_the_category_itself_and_reads_like_a_hungarian_invoice():
 def test_the_g_path_instructions_add_the_pro_forma_note_to_the_invoice_prompt():
     pack, invoice = typepack.get("proforma_invoice"), typepack.get("invoice_hu")
     text = extract_llm.instructions(pack)
-    assert text.startswith(load_prompt(invoice.prompt_file)) and "pro forma" in text.lower()
-    # the existing packs' requests are unchanged (their saved answers stay reusable)
-    assert extract_llm.instructions(invoice) == load_prompt(invoice.prompt_file)
+    assert text.startswith(load_prompt(invoice.prompt_file)) and pack.prompt_note in text
+    # a pack without a note gets only the shared block after its prompt (122 B, tests/test_gpt_extract_shared_122.py)
+    shared = cfg.load("gpt_extract")["shared_instructions"]
+    assert extract_llm.instructions(invoice) == load_prompt(invoice.prompt_file) + "\n\n" + shared
 
 
 def test_naming_labels_and_email_routing_know_the_type():

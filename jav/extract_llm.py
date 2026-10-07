@@ -28,7 +28,7 @@ from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
-from jav import store, token_confidence
+from jav import cfg, store, token_confidence
 from jav.runtime import calls
 from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, OPENAI_USD_PER_MTOK, load_prompt, openai_chat_model, openai_price
 from jav.typepack import DEFAULT_KEY, TypePack, get as get_pack
@@ -77,9 +77,15 @@ def use_agent_factory(factory):
 
 def instructions(pack: TypePack) -> str:
     """The G path's instructions for a pack: its prompt file, then its own note (122: a variant pack reusing another
-    pack's verbatim prompt). A pack without a note sends its prompt file unchanged."""
-    text = load_prompt(pack.prompt_file)
-    return f"{text}\n\n{pack.prompt_note}" if pack.prompt_note else text
+    pack's verbatim prompt), then the block shared by every pack (122 B, `configs/gpt_extract.json`: the source text
+    is data, values as printed, one identifier per field, columns kept apart)."""
+    parts = [load_prompt(pack.prompt_file), pack.prompt_note, cfg.load("gpt_extract")["shared_instructions"]]
+    return "\n\n".join(p for p in parts if p)
+
+
+def config_hash(pack: TypePack) -> str:
+    """The identifier in the ledger: the pack and the shared extraction block."""
+    return cfg.combine(pack.config_hash, cfg.config_hash("gpt_extract"))
 
 
 @lru_cache(maxsize=None)
@@ -118,7 +124,7 @@ def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool)
     except Exception as exc:
         store.ledger_add(run_id=run_id, step="extract_llm", provider="openai", model=OPENAI_MODEL, input_tokens=None,
                          output_tokens=None, cost_usd=None, seconds=round(time.perf_counter() - t0, 3),
-                         config_hash=pack.config_hash, error=type(exc).__name__)
+                         config_hash=config_hash(pack), error=type(exc).__name__)
         raise
     usage = result.usage() if callable(result.usage) else result.usage  # pydantic-ai: it was a method, newer versions have a property
     in_tok, out_tok = usage.input_tokens or 0, usage.output_tokens or 0
@@ -134,7 +140,7 @@ def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool)
         output_tokens=out_tok,
         cost_usd=cost,
         seconds=round(time.perf_counter() - t0, 3),
-        config_hash=pack.config_hash,
+        config_hash=config_hash(pack),
     )
     details = getattr(getattr(result, "response", None), "provider_details", None) or {}
     return calls.Outcome(response=encode_answer(result.output.model_dump(mode="json"), details.get("logprobs")), model=actual,

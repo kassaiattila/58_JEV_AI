@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "type:nav_certificate",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-10-07",
+    "note": "122 B (the 118 finding: on a tax-ID certificate issued by NAV the authority went into employer_name; GPT round approved on 2026-10-07): prompt_note after the verbatim legacy prompt - employer_name is the employer or payer of the income, never the tax authority that issues the document; null when no employer or payer is named. The G-path request changes."
+   },
    {
     "version": "1.1.0",
     "date": "2026-10-06",
@@ -60,6 +65,7 @@
   ]
  },
  "prompt_file": "nav_certificate_prompt.md",
+ "prompt_note": "employer_name is the employer or payer named as the source of the income, payment or contributions the document is about. The tax authority (NAV) that issues or sends the document is never the employer_name: it belongs in authority. If no employer or payer is named (for example on a certificate of a tax identification number), employer_name is null.",
  "schema_file": "nav_certificate_schema.json",
  "select_callsite": null,
  "verify_callsite": "verify_nav_certificate",

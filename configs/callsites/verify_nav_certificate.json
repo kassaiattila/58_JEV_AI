@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "verify_nav_certificate",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-10-07",
+    "note": "122 B (the 118 finding): employer_name is the employer or payer of the income, not the tax authority that issues the document (the type pack's prompt_note says the same to GPT). New cache key for this call site's questions."
+   },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
@@ -26,7 +31,7 @@
   "tax_year": "the tax year as printed on the document (Az igazolas adoeve/targyeve, YYYY)",
   "taxpayer_name": "the taxpayer name as printed on the document",
   "tax_id": "the tax id as printed on the document (A maganszemely adoazonosito jele (10 szamjegy), ha szerepel)",
-  "employer_name": "the employer name as printed on the document (A kiallito munkaltato/kifizeto/szerv neve (pl. Allianz Hungaria Zrt., The World Bank))",
+  "employer_name": "the employer or payer of the income as printed on the document (e.g. Allianz Hungaria Zrt., The World Bank); not the tax authority that issues the document, and empty when no employer or payer is named",
   "income_total": "the income total as printed on the document",
   "period": "the period as printed on the document (Az igazolas idoszaka, ahogy a dokumentumon szerepel (pl. 2025. januar - 2025. december))",
   "issue_date": "the issue date as printed on the document (Kiallitas datuma, ISO 8601 YYYY-MM-DD)",

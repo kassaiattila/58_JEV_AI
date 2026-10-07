@@ -306,10 +306,15 @@ def cmd_golden(args: argparse.Namespace) -> int:
     from jav.evals import golden
     from jav.flow import run_one
 
+    import contextlib
     from decimal import Decimal
 
-    golden(args.arm, run_one, tracker=args.tracker, use_cache=not args.no_cache, type_key=args.type, jev=not args.no_jev,
-           budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
+    from jav import store
+
+    # 122: a separate measurement store keeps the results, to-dos and call log of the measurement out of the work store
+    with store.use_store(Path(args.store)) if args.store else contextlib.nullcontext():
+        golden(args.arm, run_one, tracker=args.tracker, use_cache=not args.no_cache, type_key=args.type, jev=not args.no_jev,
+               budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
     return 0
 
 
@@ -724,6 +729,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--no-jev", action="store_true", help="086: the G path verified by the code alone (runs/*_golden_G_nojev.jsonl)")
     p.add_argument("--budget-usd", help="086: hard OpenAI budget for the whole measurement (JEV and Azure get none)")
+    p.add_argument("--store", help="122: a separate measurement store (results, to-dos and call log stay out of the work store)")
     p.set_defaults(fn=cmd_golden)
 
     p = sub.add_parser("determinism")
