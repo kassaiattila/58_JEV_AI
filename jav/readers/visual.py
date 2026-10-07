@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 import pdfplumber
 from pdfminer.pdfdocument import PDFPasswordIncorrect
-from pdfminer.pdftypes import PDFStream, resolve1
+from pdfminer.pdftypes import PDFObjectNotFound, PDFStream, resolve1
 from pdfminer.psparser import PSLiteral
 import pypdfium2 as pdfium
 
@@ -64,7 +64,9 @@ def raster(reading: Reading, picture, *, element_id: str, kind: str, page: int =
         "kind": kind, "page": page, "page_size": page_size, "element_id": element_id})
 
 
-_ACTIVE_KEYS = frozenset({"JS", "JavaScript", "OpenAction", "AA", "EmbeddedFiles", "EF", "XFA"})
+_ACTIVE_KEYS = frozenset({"JS", "JavaScript", "AA", "XFA"})
+# 121 (the owner's decision of 2026-10-07): embedded files are never opened; the visible content is read, partially
+_EMBEDDED_KEYS = frozenset({"EmbeddedFiles", "EF"})
 
 
 def _is_signature(field) -> bool:
@@ -82,11 +84,13 @@ def _signature_only(form, bound: int) -> bool:
     fields = resolve1(form.get("Fields"))
     if not isinstance(fields, list) or not fields or not all(_is_signature(resolve1(f)) for f in fields):
         return False
-    pending, visited = [resolve1(f) for f in fields], 0
+    pending, seen = [resolve1(f) for f in fields], set()
     while pending:
-        visited += 1
-        limited(visited > bound, "PDF form field limit exceeded")
         field = pending.pop()
+        if id(field) in seen:  # a field and its widgets may refer to one another
+            continue
+        seen.add(id(field))
+        limited(len(seen) > bound, "PDF form field limit exceeded")
         for kid in resolve1(field.get("Kids")) or []:
             kid = resolve1(kid)
             if not isinstance(kid, dict) or (kid.get("FT") is not None and not _is_signature(kid)):
@@ -95,9 +99,12 @@ def _signature_only(form, bound: int) -> bool:
     return True
 
 
-def _inert(document, bound: int) -> None:
-    """Reject active/embedded content by parsed names, including escaped names. 121: a form of digital signatures
-    only is no longer rejected (`_signature_only`)."""
+def _inert(document, bound: int) -> set[str]:
+    """Reject active content by parsed names, including escaped names; returns the parts left unread. 121 (the
+    owner's decisions of 2026-10-07): a form of digital signatures only is no longer rejected (`_signature_only`); an
+    opening view setting (a destination: a page and a zoom) is no action, while an opening action dictionary still
+    rejects the file; embedded files are not opened and come back as `embedded_files`."""
+    unread: set[str] = set()
     ids = set()
     for xref in document.xrefs:
         ids.update(xref.get_objids())
@@ -111,8 +118,11 @@ def _inert(document, bound: int) -> None:
         if isinstance(value, PDFStream):
             value = value.attrs
         if isinstance(value, dict):
-            if set(value) & _ACTIVE_KEYS or ("AcroForm" in value and not _signature_only(value["AcroForm"], bound)):
+            if (set(value) & _ACTIVE_KEYS or ("AcroForm" in value and not _signature_only(value["AcroForm"], bound))
+                    or ("OpenAction" in value and not isinstance(resolve1(value["OpenAction"]), list))):
                 raise ReadFailure("excluded", "excluded", "Active, embedded or form PDF content needs a separate adapter")
+            if set(value) & _EMBEDDED_KEYS:
+                unread.add("embedded_files")
             action = value.get("S")
             if isinstance(action, PSLiteral) and action.name in {"JavaScript", "Launch", "SubmitForm", "ImportData", "GoToR"}:
                 raise ReadFailure("excluded", "excluded", "External or executable PDF action was excluded")
@@ -122,7 +132,12 @@ def _inert(document, bound: int) -> None:
             for child in value:
                 inspect(child, depth + 1)
     for identity in ids:
-        inspect(document.getobj(identity))
+        try:
+            obj = document.getobj(identity)
+        except PDFObjectNotFound:  # 121: listed in a cross-reference table but absent (incremental saves); holds nothing
+            continue
+        inspect(obj)
+    return unread
 
 
 def read_pdf(data: bytes, reading: Reading, *, recognise: bool) -> None:
@@ -130,7 +145,8 @@ def read_pdf(data: bytes, reading: Reading, *, recognise: bool) -> None:
     source_sha = hashlib.sha256(data).hexdigest()
     try:
         with pdfplumber.open(BytesIO(data)) as document, pdfium.PdfDocument(data) as geometry:
-            _inert(document.doc, reading.limits.archive_entries)
+            if "embedded_files" in _inert(document.doc, reading.limits.archive_entries):
+                reading.issue("unread_content", "Embedded files remain unopened in the original PDF")
             limited(len(document.pages) > min(12, reading.limits.archive_entries), "PDF page limit exceeded")
             for index, page in enumerate(document.pages):
                 width, height = float(page.width), float(page.height)
@@ -170,7 +186,9 @@ def read_pdf(data: bytes, reading: Reading, *, recognise: bool) -> None:
                 pages_words.append(words)
                 if not words or page.images:
                     visual_pages.append(index)
-                if page.annots:
+                # 121: presence only; resolving every annotation (pdfplumber `page.annots`) recursed without end on
+                # the cycles of signature widgets and rejected valid signed PDFs as corrupt
+                if resolve1(page.page_obj.attrs.get("Annots")):
                     reading.issue("unread_content", f"Page {index + 1} annotations remain in the original PDF")
     except PDFPasswordIncorrect as exc:
         raise ReadFailure("password_required", "password_required", "PDF requires a password") from exc

@@ -319,7 +319,8 @@ def pdf_with_catalog_entry(tmp_path, entry):
     b"/OpenAction << /S /JavaScript /JS (synthetic) >>",
     b"/Open#41ction << /S /Java#53cript /JS (synthetic) >>",
     b"/AcroForm << /Fields [] >>",
-    b"/Names << /EmbeddedFiles << /Names [] >> >>",
+    # 121: embedded files no longer exclude the file; they stay unopened and the reading is partial
+    # (tests/test_signed_pdf_121.py)
 ])
 def test_active_or_unrepresented_pdf_structures_are_excluded(tmp_path, entry):
     result = pipeline.read_files([pdf_with_catalog_entry(tmp_path, entry)]).bundle.results[0]
