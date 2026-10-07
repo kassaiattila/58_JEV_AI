@@ -165,16 +165,17 @@ def cmd_detect_golden(args: argparse.Namespace) -> int:
 
     import contextlib
 
-    from jav import store
-    from jav.evals_detect import detect_golden, load_case_file
+    from jav import evals_detect, store
+    from jav.eval_report import report_budget_skips
 
-    cases = load_case_file(args.cases) if args.cases else None
+    cases = evals_detect.load_case_file(args.cases) if args.cases else None
     # 122: a separate measurement store keeps the results, to-dos and call log of the measurement out of the work store
     with store.use_store(Path(args.store)) if args.store else contextlib.nullcontext():
-        detect_golden(use_cache=not args.no_cache, jev=not args.no_jev, descriptions=not args.keys_only,
-                      budget_usd=Decimal(args.budget_usd) if args.budget_usd else None, cases=cases,
-                      label="cases" if cases is not None else "golden")
-    return 0
+        rows = evals_detect.detect_golden(use_cache=not args.no_cache, jev=not args.no_jev, descriptions=not args.keys_only,
+                                          budget_usd=Decimal(args.budget_usd) if args.budget_usd else None, cases=cases,
+                                          label="cases" if cases is not None else "golden")
+    # 123: exit code 3 = the budget left cases without a result
+    return 3 if report_budget_skips(rows) else 0
 
 
 def cmd_detect_determinism(args: argparse.Namespace) -> int:
@@ -303,19 +304,20 @@ def cmd_burr_prune(args: argparse.Namespace) -> int:
 
 
 def cmd_golden(args: argparse.Namespace) -> int:
-    from jav.evals import golden
     from jav.flow import run_one
 
     import contextlib
     from decimal import Decimal
 
-    from jav import store
+    from jav import evals, store
+    from jav.eval_report import report_budget_skips
 
     # 122: a separate measurement store keeps the results, to-dos and call log of the measurement out of the work store
     with store.use_store(Path(args.store)) if args.store else contextlib.nullcontext():
-        golden(args.arm, run_one, tracker=args.tracker, use_cache=not args.no_cache, type_key=args.type, jev=not args.no_jev,
-               budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
-    return 0
+        rows = evals.golden(args.arm, run_one, tracker=args.tracker, use_cache=not args.no_cache, type_key=args.type,
+                            jev=not args.no_jev, budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
+    # 123: exit code 3 = the budget left cases without a result
+    return 3 if report_budget_skips(rows) else 0
 
 
 def cmd_determinism(args: argparse.Namespace) -> int:

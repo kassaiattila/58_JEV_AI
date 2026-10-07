@@ -68,6 +68,7 @@ python -m jav.cli detect <pdf> | detect-golden | detect-corpus <folder>   # dete
 python -m jav.cli email <inbox/<mailbox>/<msgid>> | email-golden | email-inbox inbox/   # email-golden needs the legacy project
 python -m jav.cli ocr [<pdf>]                                      # without a PDF: the OCR engine's status
 python -m jav.cli eval-report [runs/*.jsonl]                       # shared evaluation report from the raw runs, no model calls
+# golden, detect-golden and extract_cases with --budget-usd exit with code 3 when the budget left cases without a result
 python -m jav.cli store | admin | configs | flows --check | docs   # store, admin screen, config versions, contract lint, generated docs
 python -m jav.cli recipes | wp-create <folder> [--recursive] | wp-assign <wp> processing | wp-show <wp> | processing-migrate [--write]   # work packages and processing
 python -m jav.cli run-start <wp> [--mode shadow|apply] | worker --once | run-show <run> | run-cancel <run> | run-approve <run> --actor <name>   # shadow = trial run, apply = live run
