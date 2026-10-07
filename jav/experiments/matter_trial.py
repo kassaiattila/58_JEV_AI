@@ -115,10 +115,9 @@ def run(root):
     from pydantic_ai import Agent
     from pydantic_ai.models.openai import OpenAIChatModel
     from pydantic_ai.providers.openai import OpenAIProvider
-    from pydantic_ai.usage import UsageLimits
     from typesafe_sdk import Choice, Noul, RetryPolicy
     from jav.adapters.jev import JevAdapter
-    from jav.config import get_openai_key, make_client, OPENAI_USD_PER_MTOK
+    from jav.config import get_openai_key, make_client
     from jav.experiments.pydantic_jev import run_typed
     plan, config, cases = validate(root)
     budget = TrialBudget(root, LIMITS)

@@ -2,10 +2,7 @@
 import json
 import argparse
 from collections import Counter
-from decimal import Decimal
-from pathlib import Path
 from jav.experiments.long_document_trial import OUT,read,write,validate,TrialBudget
-from jav.document_learning import digest
 
 gold=read(OUT/'gold.json')
 

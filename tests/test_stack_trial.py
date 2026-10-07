@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from typesafe_sdk import Choice, Noul, SystemOneResponse
+from typesafe_sdk import Choice, SystemOneResponse
 
 from jav import store
 from jav.adapters.jev import JevAdapter

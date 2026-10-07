@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
-import json
 from contextlib import nullcontext
 from pathlib import Path
 

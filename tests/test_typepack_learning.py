@@ -1,5 +1,4 @@
 from jav import store
-import pytest
 
 
 def test_existing_pack_can_seed_an_independent_draft_and_receipt_without_activation(tmp_path):

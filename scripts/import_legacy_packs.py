@@ -1,6 +1,4 @@
 """One-off, byte-identical port of the schemas missing per the 035 inventory and of the pure legacy validator."""
-from pathlib import Path
-import json
 from jav.config import PROJECT_ROOT, OLD_PROJECT_ROOT
 from jav.experiments.long_document_trial import read, write, sha
 

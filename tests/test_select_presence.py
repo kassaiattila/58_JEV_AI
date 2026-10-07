@@ -18,7 +18,7 @@ from typesafe_sdk import Choice, Noul, SystemOneResponse
 
 from jav import cfg, policy, store
 from jav.adapters.jev import JevAdapter
-from jav.jev_select import PRESENCE_WHAT, build_presence, build_choice, effective_conf, record_conf, select_fields
+from jav.jev_select import PRESENCE_WHAT, build_presence, effective_conf, record_conf, select_fields
 from jav.models import Candidate, CellLayout, FieldPick, FlowState, LineLayout
 
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 from typing import Literal
 from pydantic import ConfigDict, Field, create_model
 from jav.config import PROJECT_ROOT
