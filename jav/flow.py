@@ -228,10 +228,12 @@ def validate(state: FlowState) -> FlowState:
 
 
 @action.pydantic(
-    reads=["arm", "picks", "verdicts", "validation", "invoice", "doc_type", "jev", "llm_token_p", "needs_review", "review_reasons"],
+    reads=["arm", "picks", "verdicts", "validation", "invoice", "doc_type", "doc_id", "jev", "llm_token_p", "needs_review",
+           "review_reasons"],
     writes=["route", "needs_review", "review_reasons"],
 )
 def decide_route(state: FlowState) -> FlowState:
+    # 126: the duplicate check compares the document with the earlier ones in the store (worker runs only)
     state.route = policy.decide(state)
     return state
 

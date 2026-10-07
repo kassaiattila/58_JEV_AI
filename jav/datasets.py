@@ -121,8 +121,13 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
         from jav import native_results
 
         native = native_results.version_parts(run_id, c)
+        from jav import duplicates
+
+        # 126: a duplicate decision on a pair with one of the run's documents changes its mark
+        pairs = [[d["pair_key"], d["decision"], d["decided_at"]] for d in duplicates.decisions_for([i for k, i in subjects if k == "document"], c)]
     digest = hashlib.sha256(str(dec[1]).encode("utf-8")).hexdigest()[:16]
-    return "|".join(str(x) for x in (*corr, *rsn, dec[0], digest, *items, row["status"], row["approval"], native))
+    paired = hashlib.sha256(json.dumps(pairs).encode("utf-8")).hexdigest()[:16] if pairs else ""
+    return "|".join(str(x) for x in (*corr, *rsn, dec[0], digest, *items, row["status"], row["approval"], native, paired))
 
 
 def _calls_fingerprint(scope: dict[str, str]) -> str:
@@ -425,13 +430,15 @@ def _email_tasks(scope: dict[str, str]) -> Rows:
 # the export tables (jav/export.py) by column key, in header order
 _DOC_KEYS = [("file", "Irat", "text"), ("item_id", "Tétel-azonosító", "id"), ("doc_type", "Típus", "enum"), ("arm", "Út", "enum"),
              ("final_status", "Állapot", "enum"), ("open_reasons", "Nyitott teendők", "text"),
-             ("source_email", "Forrás-levél", "text")]  # 058 K5.2: for an email attachment, the email's subject
+             ("source_email", "Forrás-levél", "text"),  # 058 K5.2: for an email attachment, the email's subject
+             ("duplicate", "Duplicate", "enum"), ("duplicate_of", "Duplicate of", "text")]  # 126: the duplicate mark
 _DP_KEYS = _DOC_KEYS[:3] + [("field", "Mező", "enum"), ("value", "Érték", "text"), ("page", "Oldal", "number"),
                             ("quote", "Forrásszöveg", "text"), ("place", "Hely", "enum"), ("corrected", "Javítva", "enum"),
                             ("field_reason", "Teendő a mezőn", "enum")]
 _LI_KEYS = _DOC_KEYS[:3] + [("list", "Lista", "enum"), ("row", "Sor", "number"), ("page", "Oldal", "number")]
 _HIDDEN = {"item_id"}
-_LABELS = {"final_status": "final_status", "place": "provenance", "field": "field", "list": "field", "doc_type": "doc_type"}
+_LABELS = {"final_status": "final_status", "place": "provenance", "field": "field", "list": "field", "doc_type": "doc_type",
+           "duplicate": "duplicate"}
 
 
 def _fixed(keys: list[tuple[str, str, str]]) -> list[Column]:
@@ -488,6 +495,8 @@ def _documents(scope: dict[str, str]) -> Rows:
     cols = _fixed(_DOC_KEYS) + [_col(f"f:{f}", _field_label(f), _field_kind(kinds.get(f)), field=f) for f in fields]
     if not any(r.get("source_email") for r in records):  # only meaningful in an email package: hidden otherwise
         cols = [replace(c, hidden=True) if c.key == "source_email" else c for c in cols]
+    if not any(export.duplicate_status(r.get("duplicate")) for r in records):  # 126: shown only when a document has a mark
+        cols = [replace(c, hidden=True) if c.key in ("duplicate", "duplicate_of") else c for c in cols]
     return cols, _zip_rows([c.key for c in cols], rows, run, lambda d: d["item_id"])
 
 

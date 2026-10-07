@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "changelog": [
+   {
+    "version": "1.18.0",
+    "date": "2026-10-07",
+    "note": "126 (backlog F-duplicate, the owner's decisions of 2026-10-07, DECISIONS 124 and 126): duplicates - an invoice-like document whose normalised invoice number and supplier (tax-number key, else the name) match an earlier document of the same family gets a duplicate:<kind>:<other document> to-do in a worker run; kind = copy (issue date, gross total and currency all equal), variant (one of them differs) or undecidable (one is missing). A pro forma invoice is its own family, so it is never a copy of a final invoice. No AI call and no threshold change; measurements are unaffected (the store is read only in a worker run)."
+   },
    {
     "version": "1.17.0",
     "date": "2026-10-07",
@@ -184,5 +189,16 @@
   "failed_check": 0.5,
   "bands": {"confident": 0.98, "check": 0.5},
   "review_below": 0.98
+ },
+ "duplicates": {
+  "families": {
+   "invoice": ["invoice_hu", "invoice_foreign", "invoice_out", "csatorna_szamla", "foldgaz_szamla", "mohu_szamla",
+               "villamos_energia_szamla", "viz_szamla", "vizmuvek_szamla"],
+   "proforma": ["proforma_invoice"]
+  },
+  "number_field": "invoice_number",
+  "supplier_tax_field": "supplier_tax_id",
+  "supplier_name_field": "supplier_name",
+  "compared_fields": ["issue_date", "gross_total", "currency"]
  }
 }

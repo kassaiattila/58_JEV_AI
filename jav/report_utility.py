@@ -7,8 +7,9 @@ and last invoice, no invoice covers it), `partial` (it has an uncovered day), `o
 invoices), `ok`. The shared water summary (`summary_only`) is informative only: it does not count towards the grand
 total, because its partial invoices also come in as separate documents.
 
-Two general rules (054, from cases found in real data): (1) the same type + invoice number counts only once (an
-invoice that arrives both in the Díjbeszedő batch and as a separate document); the others are `duplicates`; (2) a
+Two general rules (054, from cases found in real data): (1) the same invoice counts only once (an invoice that arrives
+both in the Díjbeszedő batch and as a separate document); the others are `duplicates`. 126: the same invoice is the
+shared duplicate key (`jav/duplicates.py`: family, number, supplier), and a pair a person found different counts twice; (2) a
 settlement invoice, whose period fully contains other invoices of the series, bills the difference: its amount goes
 to the last month of its period (`settlement`), and it does not affect coverage (missing / overlap).
 
@@ -24,7 +25,7 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
-from jav import cfg
+from jav import cfg, duplicates
 
 CENT = Decimal("0.01")
 
@@ -129,25 +130,27 @@ def build(records: list[dict[str, Any]]) -> dict[str, Any]:
         key_addr = _addr_key(raw_addr) if raw_addr else "(ismeretlen hely)"
         addresses.setdefault(key_addr, raw_addr or "(ismeretlen hely)")
         cons_field = u.get("consumption_field")
+        mark = r.get("duplicate") or {}
         bills.append({**base, "addr": key_addr, "utility": u["label"], "summary_only": bool(u.get("summary_only")),
                       "unit": u.get("unit"), "start": start, "end": end, "amount": _dec(f.get(amount_field)),
                       "amount_field": amount_field, "page": (r.get("pages") or {}).get(amount_field),
                       "consumption": _dec(f.get(cons_field)) if cons_field else None,
-                      "supplier": f.get("supplier_name"), "invoice_number": f.get("invoice_number"), "corrected": amount_field in (r.get("corrected") or []),
-                      "open_reasons": len(r.get("open_reasons") or [])})
+                      "supplier": f.get("supplier_name"), "fields": f, "corrected": amount_field in (r.get("corrected") or []),
+                      "open_reasons": len(r.get("open_reasons") or []),
+                      "confirmed": mark.get("status") if mark.get("status") in ("copy", "variant") else None,
+                      "different": set(mark.get("different") or ())})
 
-    duplicates: list[dict[str, Any]] = []
-    seen: dict[tuple[str, str], dict[str, Any]] = {}
+    # 126: the same invoice by the shared duplicate key (family, number, supplier; `jav/duplicates.py`) counts once
+    # until a person decides the two differ; the one a person confirmed as the repeat is the one left out
+    duplicates_out: list[dict[str, Any]] = []
     unique: list[dict[str, Any]] = []
-    for b in bills:
-        number = _fold(str(b["invoice_number"])) if b["invoice_number"] else None
-        first = seen.get((b["doc_type"], number)) if number else None
+    for b in sorted(bills, key=lambda b: b["confirmed"] is not None):
+        first = next((u for u in unique if u["item_id"] not in b["different"] and b["item_id"] not in u["different"]
+                      and duplicates.same_invoice(u["doc_type"], u["fields"], b["doc_type"], b["fields"])), None)
         if first is not None:
-            duplicates.append({"item_id": b["item_id"], "file": b["file"], "doc_type": b["doc_type"],
-                               "same_as": first["item_id"], "same_as_file": first["file"]})
+            duplicates_out.append({"item_id": b["item_id"], "file": b["file"], "doc_type": b["doc_type"],
+                                   "same_as": first["item_id"], "same_as_file": first["file"], "status": b["confirmed"] or "suspected"})
             continue
-        if number:
-            seen[(b["doc_type"], number)] = b
         unique.append(b)
     series_bills: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for b in unique:
@@ -203,7 +206,7 @@ def build(records: list[dict[str, Any]]) -> dict[str, Any]:
                           "consumption": _s(c["consumption"]), "sources": c["sources"]} for m, c in sorted(cells.items())},
         })
     series.sort(key=lambda s: (s["summary_only"], s["address"], s["utility"]))
-    return {"months": sorted(all_months), "series": series, "grand_total": _s(grand), "unplaced": unplaced, "duplicates": duplicates,
+    return {"months": sorted(all_months), "series": series, "grand_total": _s(grand), "unplaced": unplaced, "duplicates": duplicates_out,
             "config_version": cfg.load("reports")["meta"]["version"]}
 
 

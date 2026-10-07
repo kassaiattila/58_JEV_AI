@@ -14,6 +14,7 @@ import { t, useLocale } from "../i18n";
 import { checkText, editNumber, fieldLabel, reasonText, savedValues, tmap } from "../labels";
 import { clearDraft, draftKey, isDirty, rebaseDraft, revertField, setField, setList, settleDraft, useDraft, type Draft } from "./drafts";
 import { useResolve } from "./useResolve";
+import { DuplicatePanel } from "./DuplicatePanel";
 import { BAND_LABEL, type Band } from "./geometry";
 import { EMPTY_FILTER, FIELD_FILTERS, FILTER_LABEL, isConfirmed, type FieldFilter } from "./fieldFilter";
 import { fromRows, ListTable, toRows } from "./ListTable";
@@ -291,9 +292,11 @@ export function FieldPanel(p: Props) {
   // 083: a to-do about one simple field is shown at that field; the others (about the document) stay at the top
   const simpleFields = new Set(p.allFields ?? fields);
   const atField = (f: string) => result.open_reasons.filter((r) => r.field === f);
-  const documentReasons = result.open_reasons.filter((r) => !r.field || !simpleFields.has(r.field));
+  // 126: a duplicate to-do is decided in its own panel (the two documents side by side), not with "resolved"
+  const isDuplicate = (r: Reason) => r.reason.startsWith("duplicate:");
+  const documentReasons = result.open_reasons.filter((r) => (!r.field || !simpleFields.has(r.field)) && !isDuplicate(r));
   const earlierAt = (f: string) => result.earlier_open_reasons.filter((r) => r.field === f);
-  const earlierDocument = result.earlier_open_reasons.filter((r) => !r.field || !simpleFields.has(r.field));
+  const earlierDocument = result.earlier_open_reasons.filter((r) => (!r.field || !simpleFields.has(r.field)) && !isDuplicate(r));
   const prov: Provenance | undefined = activeField ? result.provenance[activeField] : undefined;
   const listRows = (f: string) => draft?.lists?.[f] ?? toRows(result.effective[f], lists[f].columns);
   const goRow = (f: string, row: number) => { p.onTab?.(f); setFocusRow({ row, seq: Date.now() }); };
@@ -317,6 +320,7 @@ export function FieldPanel(p: Props) {
           ))}
         </ul>
       ) : result.open_reasons.length ? null : <p className="ok pad-s">{t("Ebben a futásban nincs nyitott teendő ezen a tételen.")}</p>}
+      <DuplicatePanel result={result} readOnly={readOnly} onDecided={p.onResolved} />
 
       {failed.length ? (
         <ul className="issues checks" aria-label={t("Ellenőrzések a mentett adaton")}>

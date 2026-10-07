@@ -551,5 +551,18 @@ button.chip[aria-pressed="true"] { background: var(--paper); border-color: var(-
 .field-issues.earlier-issues { color: var(--muted); }
 .field-issues.earlier-issues li::before { content: "↺ "; }
 .earlier-box { margin: 6px 8px 0; }
+/* 126: a suspected duplicate invoice: the two documents' compared values side by side, then the decision */
+.duplicates { flex: none; border-bottom: 1px solid var(--line); }
+.duplicate-pair { background: var(--warn-tint); padding: 10px 14px; display: grid; gap: 6px; border-bottom: 1px solid var(--line-soft); }
+.duplicate-pair.decided { background: var(--soft); }
+.duplicate-title { font-size: 12px; color: var(--warn); }
+.duplicate-pair.decided .duplicate-title { color: var(--muted); }
+.duplicate-table { border-collapse: collapse; font-size: 12px; width: 100%; }
+.duplicate-table th, .duplicate-table td { text-align: left; padding: 3px 6px; border-bottom: 1px solid var(--line-soft); overflow-wrap: anywhere; }
+.duplicate-table thead th { color: var(--muted); font-weight: 600; }
+.duplicate-table tbody th { font-weight: 500; color: var(--muted); }
+.duplicate-table tr.differs td { background: var(--tint); color: var(--error); font-weight: 600; }
+.duplicate-table tr.missing td { color: var(--muted); font-style: italic; }
+.duplicate-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-done { display: grid; gap: 6px; justify-items: start; }
 .item-nav { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--line-soft); }

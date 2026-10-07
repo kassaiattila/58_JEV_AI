@@ -187,6 +187,10 @@ export function reasonText(code: string): string {
       return t("Gyenge helyi felismerés; az Azure-felismerés a futás kerete miatt elmaradt");
     // 078: a PDF attachment the reader could not read; the email's intent was still recognised
     case "attachment:unreadable": return t("Egy PDF-csatolmány nem olvasható (sérült, túl nagy, vagy túllépte az olvasási időt vagy memóriát); a levél szándéka ettől még elkészült");
+    // 126: a suspected duplicate invoice (jav/duplicates.py); decided in its own panel on the review page
+    case "duplicate:copy": return t("Possible copy of an earlier document (same invoice number and supplier)");
+    case "duplicate:variant": return t("Possible modified version of an earlier document (same invoice number and supplier, different values)");
+    case "duplicate:undecidable": return t("Possible duplicate of an earlier document (same invoice number and supplier, a value is missing)");
     case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");
     case "parties:same_name": return t("A szállító és a vevő neve azonos");
     case "detect:low_conf": return t("Bizonytalan típusfelismerés: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });

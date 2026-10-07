@@ -338,6 +338,18 @@ def apply_gpt_confidence_policy(state: FlowState) -> None:
             require_review(state, f"gpt:low_conf:{field}:{float(token):.2f}")
 
 
+def apply_duplicate_policy(state: FlowState) -> None:
+    """126 (backlog F-duplicate, the owner's decisions of 2026-10-07): an invoice-like document that is the same
+    invoice as an earlier one in the store gets a `duplicate:<kind>:<other>` to-do (`jav/duplicates.py`). The store is
+    read only in a worker run, so a measurement's result never depends on what the store holds."""
+    if state.invoice is None:
+        return
+    from jav import duplicates
+
+    fields = state.invoice.to_datapoints(tuple(duplicates.key_fields()))  # the stored form, as the earlier ones are
+    require_review(state, *duplicates.review_reasons(state.doc_id, state.doc_type, fields))
+
+
 def decide(state: FlowState) -> str:
     """'auto' or 'human'. The latch already holds every reason; here we only sum up."""
     if state.arm == "S":
@@ -346,6 +358,7 @@ def decide(state: FlowState) -> str:
         apply_verdict_policy(state)
         apply_gpt_confidence_policy(state)
     apply_validation_policy(state)
+    apply_duplicate_policy(state)
     if state.invoice is None:
         require_review(state, "no_invoice")
     return "human" if state.needs_review else "auto"

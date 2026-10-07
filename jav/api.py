@@ -35,8 +35,8 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, isolated_pdf, local_picker, mailbox, numbers, policy, store, version,
-                 work, work_views)
+from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
+                 store, version, work, work_views)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
@@ -305,6 +305,11 @@ class ResolveCall(_In):
 
 class TaskDecision(_In):
     decision: Literal["accepted", "rejected"]
+    note: Text | None = None
+
+
+class DuplicateDecision(_In):
+    decision: Literal["copy", "variant", "different"]  # 126: copy, modified version, not the same invoice
     note: Text | None = None
 
 
@@ -926,6 +931,13 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                   who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """062: mark an accepted task as done by hand (or undo that)."""
         mailbox.mark_task_done(run_id, item_id, index, done=body.done, actor=who)
+        return work_views.jsonable(corrections.item_result(run_id, item_id))
+
+    @app.post(r + "/runs/{run_id}/items/{item_id}/duplicates/{other_doc_id}/decision")
+    def duplicate_decision(run_id: RunId, item_id: ItemId, other_doc_id: ItemId, body: DuplicateDecision,
+                           who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """126: only a human decides whether two documents are the same invoice; the pair's to-dos close."""
+        duplicates.decide(run_id, item_id, other_doc_id, decision=body.decision, actor=who, note=body.note)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
     # --- to-dos ---
