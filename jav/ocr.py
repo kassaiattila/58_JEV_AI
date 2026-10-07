@@ -467,7 +467,13 @@ def parse_tsv(tsv_text: str, *, dpi: int = DPI) -> tuple[list[dict[str, Any]], l
     return words, confs
 
 
-def _y_tolerance(pages: list[list[dict[str, Any]]]) -> float:
+def confidence_signals(confs: list[float]) -> dict[str, float]:
+    """The recognition's mean word confidence (0-1) and the share of weak words, from word confidences on 0-100."""
+    return {"mean_conf": round(statistics.mean(confs) / 100.0, 4) if confs else 0.0,
+            "low_conf_ratio": round(sum(1 for c in confs if c < LOW_CONF_WORD) / len(confs), 4) if confs else 1.0}
+
+
+def line_tolerance(pages: list[list[dict[str, Any]]]) -> float:
     heights = [w["bottom"] - w["top"] for page in pages for w in page if w["bottom"] > w["top"]]
     if not heights:
         return 3.0
@@ -576,11 +582,10 @@ def ocr_pdf(
                 pages.append(words)
                 all_conf.extend(confs)
         n_pages = len(pngs)
-    layout = build_layout(pages, y_tol=_y_tolerance(pages))
+    layout = build_layout(pages, y_tol=line_tolerance(pages))
     n_words = sum(len(p) for p in pages)
     signals = {
-        "mean_conf": round(statistics.mean(all_conf) / 100.0, 4) if all_conf else 0.0,
-        "low_conf_ratio": round(sum(1 for c in all_conf if c < LOW_CONF_WORD) / len(all_conf), 4) if all_conf else 1.0,
+        **confidence_signals(all_conf),
         "words": n_words,
         "pages_ocr": n_pages,
         "dpi": DPI if eng != "azure_di" else None,

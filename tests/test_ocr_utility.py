@@ -59,7 +59,7 @@ def test_build_layout_from_ocr_words_groups_lines_and_cells_with_scan_tolerance(
         ("Adószáma:", 200, 1080, 250, 40, 95), ("26903570-2-44", 480, 1082, 400, 40, 95),
     ])
     words, _ = ocr.parse_tsv(tsv)
-    layout = pdfmod.build_layout([words], y_tol=ocr._y_tolerance([words]))
+    layout = pdfmod.build_layout([words], y_tol=ocr.line_tolerance([words]))
     assert [ln.text for ln in layout] == ["Szolgáltató neve: MVM Next   Dr. Minta-Kovács", "Adószáma: 26903570-2-44"]
     assert [c.text for c in layout[0].cells] == ["Szolgáltató neve: MVM Next", "Dr. Minta-Kovács"]
     assert layout[0].page == 1 and layout[1].no == 2
@@ -340,7 +340,7 @@ def test_azure_evidence_words_convert_inches_to_points_and_percent_confidence():
     pages, confs, meta = ocr.azure_evidence_words(evidence)
     assert [w["text"] for w in pages[0]] == ["Fizetési", "határidő:", "2025.10.01"] and confs == [99.0, 98.0, 97.0]
     assert pages[0][0]["x0"] == pytest.approx(36.0) and pages[0][0]["top"] == pytest.approx(72.0) and meta["model_id"] == "prebuilt-read"
-    layout = pdfmod.build_layout(pages, y_tol=ocr._y_tolerance(pages))
+    layout = pdfmod.build_layout(pages, y_tol=ocr.line_tolerance(pages))
     assert len(layout) == 1 and layout[0].text.startswith("Fizetési határidő:") and layout[0].text.endswith("2025.10.01")  # one line, gap = cell boundary
 
 

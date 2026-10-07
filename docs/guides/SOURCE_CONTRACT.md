@@ -18,6 +18,7 @@ bounds, not production file-size or parser-resource policies.
 | `SourceOccurrence` | Independent identity, parent, acquisition snapshot, original name, role and acquisition gaps |
 | `ChildInventory` | Known or unknown direct-child denominator, including missing and excluded children |
 | `ParseAttempt` | Source binding, reader/configuration/model versions, experiment limits and protection observations |
+| `ExternalRecognition` | Text recognised outside the reader (Azure Document Intelligence) and taken over by an attempt: provider, model, API version, request (the source digest), response digest and size, mapping version |
 | `SourceElement` | Hierarchy, sibling order, native values and typed structural locations |
 | `EvidenceRef` | Immutable raw output linked to the same source and reading identity |
 | `ParsedDocument` | Structural result and reading gaps; interpretation and human review remain unperformed |
@@ -42,6 +43,11 @@ configuration/model digests, execution kind and limits. Occurrences remain
 separate even when their content can share a reading. A fixture cannot share a
 reading key with a real parser. Evidence bytes are checked using
 `verify_evidence`; no OCR or other reader is invoked during that check.
+
+An attempt may name an external recognition it took over (124). Its request
+must be the attempt's own source, it excludes local recognition, and it is part
+of the reading identity. Attempts without one omit the field, so their saved
+bytes and digests are unchanged.
 
 There is no approval operation here. The bundle digest is an input for a future
 integration with the existing reviewed-version contract. It must not replace

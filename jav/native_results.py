@@ -20,7 +20,7 @@ from jav.native_contracts import (
     ArtifactRef, Failed, InterpretationOutcome, NativeCitation, NativeFact,
     NativeProgress, NativeSourceElement, NATIVE_CAPABLE_SUFFIXES, NATIVE_FALLBACK_SUFFIXES, NATIVE_SUFFIXES,
     Publication, ReadingRef,
-    ReadingResult, ReadingSummary, Running, SourcePage,
+    ReadingResult, ReadingSummary, RecognitionSummary, Running, SourcePage,
 )
 from jav.readers.contracts import ReadLimits, SourceBundle, TextLocator, canonical_bytes
 from jav.readers.interpretation import Citation, Interpretation
@@ -97,10 +97,20 @@ def _reading(reading_id: str, c=None) -> ReadingRef:
     return ref
 
 
+def _recognition(delivery: Delivery, result) -> RecognitionSummary | None:
+    """124: the taken-over recognition's summary, from the verified frozen evidence."""
+    external = result.attempt.external_recognition
+    if external is None:
+        return None
+    saved = json.loads(delivery.evidence[result.raw_evidence.sha256])["recognition"]
+    return RecognitionSummary(provider=external.provider, model=external.model, pages=tuple(saved["pages"]),
+                              words=saved["words"], mean_conf=saved["mean_conf"], low_conf_ratio=saved["low_conf_ratio"])
+
+
 def _summary(delivery: Delivery) -> ReadingSummary:
     results = tuple(ReadingResult(occurrence_id=r.attempt.occurrence_id,
         attempt_id=r.attempt.attempt_id, reader_key=r.attempt.reader_key(), status=r.status,
-        issues=r.issues) for r in delivery.bundle.results)
+        issues=r.issues, recognition=_recognition(delivery, r)) for r in delivery.bundle.results)
     states = {r.status for r in results}
     acquisition = delivery.bundle.manifest.acquisition_status()
     status = ("complete" if states == {"complete"} and acquisition == "complete" else
@@ -110,26 +120,39 @@ def _summary(delivery: Delivery) -> ReadingSummary:
 
 
 def prepare_reading(read_path: Path, *, original_name: str, expected_sha256: str,
-                    limits: ReadLimits = DEFAULT_LIMITS, ocr: bool = False) -> ReadingRef:
+                    limits: ReadLimits = DEFAULT_LIMITS, ocr: bool = False,
+                    recognition: str | None = None) -> ReadingRef:
     """Read once for the exact source/name/reader configuration. OCR stays disabled, except for a scanned PDF that
     continued from document detection (120): its reading uses the reader's local OCR and has its own identity,
-    while every reading without OCR keeps its earlier key."""
+    while every reading without OCR keeps its earlier key. 124: `recognition` names a kept Azure recognition of the
+    source; it is taken over instead of local OCR, and its digest is part of the reading's identity."""
     path = Path(read_path)
     if Path(original_name).name != original_name or Path(original_name).suffix.lower() not in NATIVE_CAPABLE_SUFFIXES:
         raise ValueError("A native reading needs a supported original file name")
     source = pipeline.bounded_file(path, limits.input_bytes)
     if digest(source) != expected_sha256:
         raise NativeIntegrityError("Source differs from the frozen work item")
+    recognised = None
+    if recognition is not None:
+        from jav import ocr as ocrmod
+
+        try:
+            recognised = json_bytes(ocrmod.load_recognition(recognition))
+        except (KeyError, ValueError) as exc:
+            raise NativeIntegrityError("The handed-over Azure recognition is missing or changed") from exc
+        if digest(recognised) != recognition:
+            raise NativeIntegrityError("The handed-over Azure recognition is not in its canonical form")
+    mode = {"recognition": recognition} if recognition is not None else {"ocr": True} if ocr else {}
     key = digest(json_bytes({"source": expected_sha256, "name": original_name,
                             "reader": pipeline.implementation_version(), "limits": limits.model_dump(mode="json"),
-                            **({"ocr": True} if ocr else {})}))
+                            **mode}))
     with store.connect() as c:
         row = c.execute("SELECT * FROM native_readings WHERE reading_key=?", (key,)).fetchone()
         if row:
             ref = _checked(row, ReadingRef)
             load_reading(ref.reading_id, c=c)
             return ref
-    delivery = pipeline.read_files([path], limits=limits, ocr=ocr)
+    delivery = pipeline.read_files([path], limits=limits, ocr=ocr and recognised is None, recognition=recognised)
     roots = [o for o in delivery.bundle.manifest.occurrences if o.parent_id is None]
     if len(roots) != 1 or roots[0].object_sha256 != expected_sha256 or delivery.objects.get(expected_sha256) != source:
         raise NativeIntegrityError("Acquired source differs from the frozen work item")
@@ -463,7 +486,7 @@ def referenced_artifacts(c: sqlite3.Connection) -> tuple[ArtifactRef, ...]:
         ref = _reading(row[0], c)
         delivery = load_reading(ref.reading_id, c=c)
         expected = {"bundle.json": canonical_bytes(delivery.bundle)}
-        for name in ("objects", "evidence", "texts", "rasters"):
+        for name in ("objects", "evidence", "texts", "rasters", "recognitions"):
             expected.update({f"{name}/{key}": value for key, value in getattr(delivery, name).items()})
         for name, data in expected.items():
             relative = ref.artifact_relpath + "/" + name

@@ -89,6 +89,8 @@ class Delivery:
     texts: dict[str, bytes] = field(default_factory=dict, repr=False)
     reading_invocations: dict[str, int] = field(default_factory=dict)
     rasters: dict[str, bytes] = field(default_factory=dict, repr=False)
+    # 124: original external recognitions (Azure) taken over by a reading, under their digest
+    recognitions: dict[str, bytes] = field(default_factory=dict, repr=False)
 
     def select(self, root_ids: set[str]) -> Delivery:
         """Select complete source trees for a bounded experiment, without rereading."""
@@ -107,13 +109,16 @@ class Delivery:
             objects=tuple(o for o in self.bundle.manifest.objects if o.sha256 in hashes), occurrences=occurrences,
             inventories=tuple(i for i in self.bundle.manifest.inventories if i.occurrence_id in selected)), results=results)
         raster_keys = {r["sha256"] for data in evidence.values() for r in json.loads(data).get("rasters", [])}
+        recognition_keys = {r.attempt.external_recognition.response_sha256 for r in results
+                            if r.attempt.external_recognition}
         result = Delivery(bundle, {h: self.objects[h] for h in hashes}, evidence, {h: self.texts[h] for h in text_keys},
-                          rasters={h: self.rasters[h] for h in raster_keys})
+                          rasters={h: self.rasters[h] for h in raster_keys},
+                          recognitions={h: self.recognitions[h] for h in recognition_keys})
         result.verify()
         return result
 
     def verify(self):
-        for namespace in (self.objects, self.evidence, self.texts, self.rasters):
+        for namespace in (self.objects, self.evidence, self.texts, self.rasters, self.recognitions):
             if any(digest(data) != key for key, data in namespace.items()):
                 raise ValueError("Artifact content does not match its address")
         for item in self.bundle.manifest.objects:
@@ -138,6 +143,13 @@ class Delivery:
                 if raw.get("source_layers") or any(e.locator.kind == "pdf" for e in result.elements):
                     from .visual import verify_layers
                     verify_layers(raw, ref.source_sha256)
+                external = result.attempt.external_recognition
+                if external is not None:
+                    from .external_recognition import verify as verify_recognition
+                    verify_recognition(raw, self.recognitions.get(external.response_sha256), ref.source_sha256,
+                                       external, result.attempt.limits)
+                elif "recognition" in raw:
+                    raise ValueError("A taken-over recognition is missing from its reading attempt")
                 if (raw["elements"] != [e.model_dump(mode="json") for e in result.elements]
                         or raw["issues"] != [i.model_dump(mode="json") for i in result.issues]
                         or raw["status"] != result.status):
@@ -164,7 +176,7 @@ class Delivery:
         destination = Path(destination)
         destination.mkdir(parents=True, exist_ok=False)
         for name, items in (("objects", self.objects), ("evidence", self.evidence), ("texts", self.texts),
-                            ("rasters", self.rasters)):
+                            ("rasters", self.rasters), ("recognitions", self.recognitions)):
             folder = destination / name
             folder.mkdir()
             for key, content in items.items():
@@ -202,12 +214,22 @@ class Delivery:
         if sum(raster_sizes.values()) + sum(object_sizes.values()) > DEFAULT_LIMITS.expanded_bytes:
             raise ValueError("Saved source and raster bytes exceed the delivery bound")
         rasters = {key: bounded_file(destination / "rasters" / key, size) for key, size in raster_sizes.items()}
-        delivery = cls(bundle, objects, evidence, texts, rasters=rasters)
+        # 124: only the recognitions a validated attempt names, each within its stated size
+        recognition_sizes = {r.attempt.external_recognition.response_sha256: r.attempt.external_recognition.byte_size
+                             for r in bundle.results if r.attempt.external_recognition}
+        recognitions = {key: bounded_file(destination / "recognitions" / key, size)
+                        for key, size in recognition_sizes.items()}
+        delivery = cls(bundle, objects, evidence, texts, rasters=rasters, recognitions=recognitions)
         delivery.verify()
         return delivery
 
 
-def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS, ocr: bool = False) -> Delivery:
+def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS, ocr: bool = False,
+               recognition: bytes | None = None) -> Delivery:
+    """124: `recognition` (the canonical bytes of a kept Azure recognition of the root document) is taken over for
+    its unread visual pages instead of local OCR, which it excludes."""
+    if recognition is not None and ocr:
+        raise ValueError("A taken-over recognition excludes local OCR")
     inputs = []
     for selected in map(Path, paths):
         if selected.is_dir() and not selected.is_symlink():
@@ -236,7 +258,7 @@ def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS, ocr: b
     config_sha = digest(json_bytes({"limits": limits.model_dump(mode="json"), "local_ocr": True})) if ocr else limits.digest()
     source_version = "intake:" + uuid4().hex
     objects, object_models, evidence, texts, invocations, cache = {}, {}, {}, {}, {}, {}
-    rasters = {}
+    rasters, recognitions, externals = {}, {}, {}
     occurrences, inventories, results = [], [], []
     total_bytes = 0
     total_elements = 0
@@ -262,7 +284,8 @@ def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS, ocr: b
             original_name=name[:512] or "unnamed", role="email" if name.lower().endswith(".eml") else role,
             acquisition="received", object_sha256=content_sha))
         failure = None
-        key = (content_sha, Path(name).suffix.lower())
+        take_over = recognition is not None and parent is None
+        key = (content_sha, Path(name).suffix.lower(), take_over)
         response = cache.get(key)
         if response is None:
             try:
@@ -271,14 +294,17 @@ def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS, ocr: b
                 invocations[content_sha] = invocations.get(content_sha, 0) + 1
                 started = time.monotonic()
                 response = run(data, name, limits, recognise=ocr)
-                if ocr and response.get("rasters"):
+                if take_over:
+                    from .external_recognition import finish as take_recognition
+                    response, externals[key] = take_recognition(response, content_sha, recognition, limits)
+                elif ocr and response.get("rasters"):
                     from .visual_ocr import finish
                     response = finish(response, content_sha, engine, limits, started=started, missing=missing_ocr)
                 if response.get("ocr"):
                     parser = Protections(**dict.fromkeys(Protections.model_fields, "enforced"))
-                    recognition = parser.model_copy(update={"network": "unavailable", "paths": "unavailable"})
+                    recognition_scope = parser.model_copy(update={"network": "unavailable", "paths": "unavailable"})
                     response["protection_scopes"] = {"parser": parser.model_dump(mode="json"),
-                                                       "recognition": recognition.model_dump(mode="json")}
+                                                       "recognition": recognition_scope.model_dump(mode="json")}
                     response["status"] = "partial"
                     response["issues"].append(Issue(stage="reading", code="protection_unavailable",
                         message="Local OCR enforces resource bounds, but not filesystem or network isolation").model_dump(mode="json"))
@@ -295,11 +321,14 @@ def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS, ocr: b
         recognition_protections = Protections(**scopes["recognition"]) if scopes else None
         if scopes:
             protections = parser_protections.combined_with(recognition_protections)
+        external = externals.get(key) if response else None
         attempt = ParseAttempt(attempt_id=f"read:{oid}", occurrence_id=oid, source_sha256=content_sha,
             parser_name=response["parser"] if response else "native-unavailable", parser_version=version,
             config_sha256=config_sha, models_sha256=model_sha, execution="reader", limits=limits,
             protections=protections, parser_protections=parser_protections,
-            recognition_protections=recognition_protections)
+            recognition_protections=recognition_protections, external_recognition=external)
+        if external is not None:
+            recognitions[external.response_sha256] = recognition
         if failure:
             results.append(ParsedDocument(attempt=attempt, status=failure.status,
                 issues=(Issue(stage="reading", code=failure.code, message=str(failure)[:512]),)))
@@ -351,6 +380,6 @@ def read_files(paths: list[Path], *, limits: ReadLimits = DEFAULT_LIMITS, ocr: b
     bundle = SourceBundle(manifest=SourceManifest(objects=tuple(object_models.values()), occurrences=tuple(occurrences),
                                                   inventories=tuple(inventories)), results=tuple(results))
     read_bundle(canonical_bytes(bundle))
-    delivery = Delivery(bundle, objects, evidence, texts, invocations, rasters)
+    delivery = Delivery(bundle, objects, evidence, texts, invocations, rasters, recognitions)
     delivery.verify()
     return delivery

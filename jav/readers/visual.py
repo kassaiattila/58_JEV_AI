@@ -26,10 +26,10 @@ RASTER_DPI = 300
 
 
 def layer_for(source_sha: str, words: list[list[dict]], sizes: list[tuple[float, float]], *,
-              recognised: bool = False) -> source_layer.SourceLayer:
+              recognised: bool = False, engine: str = "native") -> source_layer.SourceLayer:
     """Reuse the application's word-layer identity without writing its database."""
     layer = source_layer.build(source_sha, words, sizes, text_source="ocr" if recognised else "pdf",
-                               engine="native" if recognised else None)
+                               engine=engine if recognised else None)
     if layer is not None:
         return layer
     pages = [source_layer.Page(page=i + 1, width_pt=w, height_pt=h) for i, (w, h) in enumerate(sizes)]

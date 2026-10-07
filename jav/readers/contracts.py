@@ -332,6 +332,22 @@ class Protections(ContractModel):
                               for name, value in self.model_dump().items()})
 
 
+class ExternalRecognition(ContractModel):
+    """124: text recognised outside the reader by a paid service, taken over as frozen evidence.
+
+    The reader never calls the provider. The request was the frozen source itself; the response is the provider's
+    original recognition, kept beside the reading under its digest and mapped onto the source again on loading.
+    """
+
+    provider: Literal["azure_di"]
+    model: Label
+    api_version: Label
+    request_sha256: Digest
+    response_sha256: Digest
+    byte_size: Annotated[int, Field(gt=0, le=MAX_CONTRACT_BYTES)]
+    mapping_version: Label
+
+
 class ParseAttempt(ContractModel):
     attempt_id: Identifier
     occurrence_id: Identifier
@@ -346,6 +362,8 @@ class ParseAttempt(ContractModel):
     protections: Protections
     parser_protections: Protections | None = Field(default=None, exclude_if=lambda value: value is None)
     recognition_protections: Protections | None = Field(default=None, exclude_if=lambda value: value is None)
+    # 124: absent from every reading without it, so their serialised identity is unchanged
+    external_recognition: ExternalRecognition | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def validate_protection_scopes(self) -> Self:
@@ -354,6 +372,11 @@ class ParseAttempt(ContractModel):
         if self.parser_protections is not None:
             if self.protections != self.parser_protections.combined_with(self.recognition_protections):
                 raise ValueError("Aggregate protections differ from their execution scopes")
+        if self.external_recognition is not None:
+            if self.external_recognition.request_sha256 != self.source_sha256:
+                raise ValueError("An external recognition must be of the frozen source")
+            if self.recognition_protections is not None:
+                raise ValueError("An external recognition excludes local recognition")
         return self
 
     def reader_key(self) -> str:
@@ -363,6 +386,8 @@ class ParseAttempt(ContractModel):
         )}
         # Limits affect the result and therefore also affect deterministic reuse.
         value["limits"] = self.limits.model_dump(mode="json")
+        if self.external_recognition is not None:
+            value["external_recognition"] = self.external_recognition.model_dump(mode="json")
         return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 

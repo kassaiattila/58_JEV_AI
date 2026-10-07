@@ -16,10 +16,14 @@ PDF continues through the existing document graph. Native formats use
 whose recognised type has no fitting type pack (no pack for its category, "none
 of these" for the detailed type, or the unknown type) continues from detection into this graph
 on the G path, when the recipe's `unknown_documents` setting is `facts` (the
-default since 120; `review` keeps the earlier stop). A text PDF is read as it is;
-a scan, whose detection text came from OCR, is read with the reader's local OCR
-under its own reading identity, and such a reading is always `partial` (local OCR
-has no filesystem or network isolation), so it keeps a to-do. It is not continued
+default since 120; `review` keeps the earlier stop). A text PDF is read as it is.
+A scan whose detection text came from an Azure recognition takes that recognition
+over (124): detection names the kept original (`ocr_recognition`), the worker
+hands it on (`native_recognition`), and the reading, identified by the recognition's
+digest, can be complete. Any other scan, whose detection text came from OCR, is
+read with the reader's local OCR under its own reading identity, and such a
+reading is always `partial` (local OCR has no filesystem or network isolation),
+so it keeps a to-do. It is not continued
 after a failed classification step or without any text. The recognised
 type and its uncertainty to-dos stay; only the "no extraction for this type"
 to-do is closed. Every place that chooses between the native and the classic
