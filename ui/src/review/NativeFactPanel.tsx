@@ -71,6 +71,8 @@ export function NativeFactPanel({ result, source, selected, readOnly, onChanged,
       <p className="notice small">{t("Reading coverage, extracted claims and human correctness are separate. Review each value and its source before approval.")}</p>
       {issueSummary(issues).map((text, i) => <p key={i} className="notice small">{text}</p>)}
       {(result.interpretation?.gaps ?? []).map((gap, i) => <p className="notice" key={i}>{t("Extraction gap")}: {gap}</p>)}
+      {(result.interpretation?.discarded_facts ?? []).map((fact, i) => <p className="notice" key={`discarded-${i}`}>
+        {t("Left-out proposed fact")}: {fact.entity} · {fact.property} ({t(fact.reason)})</p>)}
       {/* 120: provider, model and the raw reading messages stay available, but out of the way */}
       {result.interpretation || issues.length ? <details className="small"><summary>{t("Technical details")}</summary>
         {result.interpretation ? <p>{result.interpretation.provider} · {result.interpretation.model} · <strong>{result.interpretation.execution === "synthetic_test" ? t("Synthetic test execution") : result.interpretation.execution === "saved_response" ? t("Saved response reused") : t("Live provider execution")}</strong></p> : null}

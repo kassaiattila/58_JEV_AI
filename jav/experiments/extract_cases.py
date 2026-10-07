@@ -102,7 +102,10 @@ def main(argv: list[str] | None = None) -> int:
                                                      "jev": not args.no_jev, "budget_usd": args.budget_usd,
                                                      "rows": len(rows)}, indent=1), encoding="utf-8")
     print(f"output: {out}")
-    return 0
+    from jav.eval_report import report_budget_skips
+
+    # 123: exit code 3 = the budget left cases without a result
+    return 3 if report_budget_skips(rows) else 0
 
 
 if __name__ == "__main__":

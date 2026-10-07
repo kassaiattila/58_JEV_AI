@@ -86,6 +86,28 @@ def load_rows(path: Path | str) -> list[dict[str, Any]]:
     return [json.loads(ln) for ln in Path(path).read_text(encoding="utf-8").splitlines() if ln.strip()]
 
 
+def _budget_skipped(row: dict[str, Any]) -> bool:
+    reasons = row.get("review_reasons") or ()
+    return (str(row.get("error") or "").startswith("BudgetExceeded")
+            or any(r.endswith(":BudgetExceeded") or r == "jev_unavailable:budget_exceeded" for r in reasons))
+
+
+def budget_skips(rows: list[dict[str, Any]]) -> list[str]:
+    """The cases a measurement budget left without a result (123): a provider call whose worst-case reservation did
+    not fit. A blocked Azure escalation is not one: measurements give Azure no budget, and the document is read."""
+    return [str(r.get("case_id")) for r in rows if _budget_skipped(r)]
+
+
+def report_budget_skips(rows: list[dict[str, Any]]) -> int:
+    """Print a warning for the cases the budget skipped and return their number; nothing when there are none."""
+    skipped = budget_skips(rows)
+    if skipped:
+        print(f"\n**Skipped for the budget: {len(skipped)} of {len(rows)} cases** ({', '.join(skipped)}). They have no "
+              "result, so the figures above are not comparable. A call reserves its worst case before it starts; "
+              "rerun these cases with enough budget left (saved answers are reused).")
+    return len(skipped)
+
+
 def _top2(probs: dict[str, float] | None) -> tuple[float | None, float | None]:
     if not probs:
         return None, None

@@ -30,6 +30,8 @@ export interface NativeFact {
   grounding: "literal_match" | "rejected" | "missing_claim"; reasons: string[]; semantic_support: number | null;
   selection_confidence: number | null; effective_value: string | null; native_citations: NativeCitation[]; confirmed: boolean;
 }
+/** 123: a received fact left out for breaking the presence rule; the rest of the answer was kept. */
+export interface DiscardedFact { entity: string; property: string; state: string; reason: string }
 export interface NativeSourcePage {
   publication_id: string; reading_id: string; result_version: string; bundle_sha256: string; source_sha256: string;
   occurrences: SourceOccurrence[]; results: ReadingResult[]; elements: NativeElement[]; texts: Record<string, string>;
@@ -41,7 +43,7 @@ export interface NativeItemResult {
   native_source: { reading_id: string; bundle_sha256: string; publication_id: string; source_sha256: string } | null;
   reading: { status: ReadingStatus; acquisition_status: string; attempt_ids: string[]; results: ReadingResult[] };
   interpretation_outcome: { status: "not_started" | "running" | "succeeded" | "rejected" | "failed" | "uncertain"; reason: string | null; receipt_refs: unknown[] };
-  interpretation: { interpretation_id: string; payload_sha256: string; status: "completed" | "empty"; provider: string; model: string; execution: "live" | "saved_response" | "synthetic_test"; gaps: string[]; review_status: "not_reviewed"; correctness: "not_established" } | null;
+  interpretation: { interpretation_id: string; payload_sha256: string; status: "completed" | "empty"; provider: string; model: string; execution: "live" | "saved_response" | "synthetic_test"; gaps: string[]; review_status: "not_reviewed"; correctness: "not_established"; discarded_facts?: DiscardedFact[] } | null;
   native_facts: NativeFact[];
   correction: { revision: number; fields: Record<string, string | null>; native_sources: Record<string, Citation[]>; confirmed: Record<string, string | null> };
   source_file: { copy?: boolean; original?: "same" | "changed" | "missing" };

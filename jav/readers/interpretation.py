@@ -6,10 +6,11 @@ correctness remain separate; no result is promoted or approved here.
 """
 from __future__ import annotations
 
+import json
 from collections import Counter
 from typing import Annotated, Literal
 
-from pydantic import Field, model_serializer, model_validator
+from pydantic import Field, ValidationError, model_serializer, model_validator
 
 from jav import fact_checks
 
@@ -23,7 +24,10 @@ class Citation(ContractModel):
     quote: Annotated[str, Field(min_length=1, max_length=10_000)]
 
 
-class ProposedFact(ContractModel):
+# The shape of a proposed fact without its presence rule; salvage() checks the
+# shape and the rule separately. Subclassing keeps the model's JSON schema
+# (and so the answer key of every saved provider response) unchanged.
+class FactShape(ContractModel):
     entity: Label
     property: Label
     value: Text | None
@@ -33,19 +37,67 @@ class ProposedFact(ContractModel):
     state: Literal["stated", "missing", "uncertain", "conflicting"]
     citations: tuple[Citation, ...] = Field(max_length=20)
 
+    def presence_issue(self) -> str | None:
+        if self.state == "missing":
+            return "Missing facts cannot invent a value" if self.value is not None else None
+        if self.value is None or not self.citations:
+            return "A proposed value needs its source citations"
+        return None
+
+
+class ProposedFact(FactShape):
     @model_validator(mode="after")
     def validate_presence(self):
-        if self.state == "missing":
-            if self.value is not None:
-                raise ValueError("Missing facts cannot invent a value")
-        elif self.value is None or not self.citations:
-            raise ValueError("A proposed value needs its source citations")
+        issue = self.presence_issue()
+        if issue:
+            raise ValueError(issue)
         return self
 
 
 class ProposedExtraction(ContractModel):
     facts: tuple[ProposedFact, ...] = Field(max_length=200)
     gaps: tuple[Label, ...] = Field(default=(), max_length=100)
+
+
+class DiscardedFact(ContractModel):
+    """A received fact left out because it broke the presence rule (123)."""
+    entity: Label
+    property: Label
+    state: Literal["stated", "missing", "uncertain", "conflicting"]
+    reason: Label
+
+
+def salvage(raw: str) -> tuple[ProposedExtraction, tuple[DiscardedFact, ...]] | None:
+    """Keep a received answer whose only defect is the presence rule of single facts.
+
+    The valid facts survive and the others are returned for a review item. Any other
+    defect (no JSON, a missing key, a wrong type, a bound) returns None: the whole
+    answer stays rejected, as before.
+    """
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("facts"), list):
+        return None
+    kept, discarded = [], []
+    for item in data["facts"]:
+        try:
+            shape = FactShape.model_validate_json(json.dumps(item))
+        except ValidationError:
+            return None
+        issue = shape.presence_issue()
+        if issue:
+            discarded.append(DiscardedFact(entity=shape.entity, property=shape.property, state=shape.state, reason=issue))
+        else:
+            kept.append(item)
+    if not discarded:
+        return None
+    try:
+        proposal = ProposedExtraction.model_validate_json(json.dumps({**data, "facts": kept}))
+    except ValidationError:
+        return None
+    return proposal, tuple(discarded)
 
 
 class CheckedFact(ContractModel):
@@ -82,12 +134,15 @@ class Interpretation(ContractModel):
     review_status: Literal["not_reviewed"] = "not_reviewed"
     correctness: Literal["not_established"] = "not_established"
     coverage: InterpretationCoverage | None = None
+    discarded_facts: tuple[DiscardedFact, ...] = ()
 
     @model_serializer(mode="wrap")
     def preserve_legacy_identity(self, handler):
         data = handler(self)
         if self.coverage is None:
             data.pop("coverage", None)
+        if not self.discarded_facts:
+            data.pop("discarded_facts", None)
         return data
 
 
