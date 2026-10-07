@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 import json
+from pathlib import Path
 from typing import Any, Mapping
 
 from jav import native_results, store
@@ -31,6 +32,29 @@ def estimate_limits(params: Mapping[str, Any]) -> NativeLimits:
             usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)),
             repeats=1 + int(JEV_RETRY.get("max_retries", 0)))
     return NativeLimits(max_transfer_bytes=transfer, max_output_tokens=output, provider_limits_usd=amounts)
+
+
+def azure_recognition(read_path: Path, *, source_path: str, sha256: str) -> tuple[str | None, str | None]:
+    """124 (the owner's decision of 2026-10-07): a scan that continued into general facts without an Azure text from
+    detection is recognised by Azure here, but only in a run whose budget has an Azure part (the recipe's Azure
+    switch); an earlier recognition of the same document is reused from the OCR cache at no cost. The reader itself
+    never calls a provider. Returns (the kept recognition's digest, None), or (None, why there is none): `off` (no
+    Azure budget: local OCR, as chosen), a blocked or failed call (`jav.ocr.escalation_review_reasons`), or
+    `no_original` (an Azure text cached before 123, kept without its original; it is not taken over or paid again)."""
+    from jav import ocr
+
+    ctx = calls.current()
+    if ctx is None or ctx.budget_scope is None or not calls.has_budget(ctx.budget_scope, ocr.AZURE_PROVIDER):
+        return None, "off"
+    try:
+        with ocr.azure_alias(source_path if source_path != str(read_path) else None, sha256):
+            recognised = ocr.ocr_pdf(read_path, engine_name=ocr.AZURE_PROVIDER)
+    except ocr.AzureBlocked as exc:
+        return None, exc.reason
+    except ocr.OcrUnavailableError:
+        return None, "unavailable"
+    digest_ = (recognised.ocr or {}).get("recognition_sha256")
+    return (digest_, None) if digest_ else (None, "no_original")
 
 
 def _receipts(graph_id: str, replayed: dict[int, tuple[bool, int | None]]) -> tuple[ReceiptRef, ...]:

@@ -20,10 +20,20 @@ default since 120; `review` keeps the earlier stop). A text PDF is read as it is
 A scan whose detection text came from an Azure recognition takes that recognition
 over (124): detection names the kept original (`ocr_recognition`), the worker
 hands it on (`native_recognition`), and the reading, identified by the recognition's
-digest, can be complete. Any other scan, whose detection text came from OCR, is
-read with the reader's local OCR under its own reading identity, and such a
-reading is always `partial` (local OCR has no filesystem or network isolation),
-so it keeps a to-do. It is not continued
+digest, can be complete. For any other scan the native step asks Azure itself
+before reading (`native_processing.azure_recognition`), but only in a run whose
+budget has an Azure part (the recipe's Azure switch), through the existing call
+log and reservation; an earlier recognition of the same document comes from the
+OCR cache at no cost, while an Azure text cached before 123, kept without its
+original, is neither taken over nor paid for again. Without an Azure budget, or
+when the call is blocked or fails, the scan is read with the reader's local OCR
+under its own reading identity, and such a reading is always `partial` (local OCR
+has no filesystem or network isolation), so it keeps a to-do. A blocked or failed
+call adds `native:recognition:azure_blocked:<reason>`; a switch that is off adds
+nothing. A taken-over recognition whose frozen word confidences are weak by the
+shared OCR thresholds (`policy.json` `ocr`) adds
+`native:recognition:low_confidence:<x>` or `native:recognition:low_conf_words:<x>`,
+and the review panel says which pages Azure read. It is not continued
 after a failed classification step or without any text. The recognised
 type and its uncertainty to-dos stay; only the "no extraction for this type"
 to-do is closed. Every place that chooses between the native and the classic

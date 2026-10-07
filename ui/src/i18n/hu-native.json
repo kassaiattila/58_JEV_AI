@@ -224,5 +224,12 @@
   "Time value conflicts with a percentage quantity; check the property and unit": "Időtartam érték ütközik a tulajdonság százalék jellegével; ellenőrizd a tulajdonságot és a mértékegységet",
   "Source": "Forrás",
   "Weak local recognition; Azure recognition is not set up for this document": "Gyenge helyi felismerés; az Azure-felismerés ehhez az irathoz nincs beállítva",
-  "Weak local recognition; Azure recognition failed": "Gyenge helyi felismerés; az Azure-felismerés nem sikerült"
+  "Weak local recognition; Azure recognition failed": "Gyenge helyi felismerés; az Azure-felismerés nem sikerült",
+  "Weak Azure recognition ({{p}})": "Gyenge Azure-felismerés ({{p}})",
+  "Many uncertain words in the Azure recognition ({{p}})": "Sok bizonytalan szó az Azure-felismerésben ({{p}})",
+  "Azure recognition was skipped because of the run's budget; local recognition was used": "Az Azure-felismerés a futás kerete miatt elmaradt; helyi felismerés készült",
+  "An earlier Azure call has an uncertain outcome, so it was not repeated; local recognition was used": "Egy korábbi Azure-hívás kimenete bizonytalan, ezért nem ismételtük meg; helyi felismerés készült",
+  "Azure recognition is not set up for this document; local recognition was used": "Az Azure-felismerés ehhez az irathoz nincs beállítva; helyi felismerés készült",
+  "Azure recognition failed; local recognition was used": "Az Azure-felismerés nem sikerült; helyi felismerés készült",
+  "Read by Azure: page {{pages}}, mean word confidence {{p}}": "Azure olvasta: {{pages}}. oldal, átlagos szó-bizalom {{p}}"
 }

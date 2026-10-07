@@ -216,6 +216,15 @@ export function reasonText(code: string): string {
     case "native:interpretation": return t("Az adatkinyer\u00e9s nem siker\u00fclt ({{status}}); n\u00e9zd meg az ok\u00e1t", { status: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
     case "native:no_facts": return t("Az iratb\u00f3l nem keletkezett adatjavaslat");
     case "native:interpretation_gaps": return t("Az adatkinyer\u00e9s hi\u00e1nyt jelzett");
+    // 124: a scan read from its Azure recognition (weak word confidences), or the native step's own Azure call
+    // did not run (jav/flow_native.py review_native)
+    case "native:recognition":
+      if (p[2] === "low_confidence") return t("Weak Azure recognition ({{p}})", { p: num(p[3]) });
+      if (p[2] === "low_conf_words") return t("Many uncertain words in the Azure recognition ({{p}})", { p: num(p[3]) });
+      if (p[3] === "uncertain_attempt") return t("An earlier Azure call has an uncertain outcome, so it was not repeated; local recognition was used");
+      if (p[3] === "unreachable") return t("Azure recognition is not set up for this document; local recognition was used");
+      if (p[3] === "unavailable") return t("Azure recognition failed; local recognition was used");
+      return t("Azure recognition was skipped because of the run's budget; local recognition was used");
     // 123: facts left out of a received answer for breaking the presence rule
     case "native:discarded_facts": return t("{{n}} adatjavaslat hib\u00e1s szerkezet\u0171 volt, ez\u00e9rt kimaradt; n\u00e9zd meg a forr\u00e1st", { n: p[2] ?? "" });
     case "native:grounding": return t("Egy adatjavaslat nem tal\u00e1lhat\u00f3 sz\u00f3 szerint a forr\u00e1sban");

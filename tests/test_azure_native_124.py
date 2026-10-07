@@ -242,3 +242,103 @@ def test_the_native_graph_reads_the_handed_over_recognition(tmp_path, monkeypatc
         with pytest.raises(RuntimeError):
             app.run(halt_after=flow_native.TERMINALS)
     assert asked == [(True, "c" * 64)]
+
+
+# --- steps 5-6: the native step's own Azure call, and the to-dos -------------------------------------------------
+
+
+def scan_result(*pages: dict) -> dict:
+    """The REST answer whose evidence is `azure_recognition(*pages)`."""
+    return {"status": "succeeded", "analyzeResult": {
+        "apiVersion": "2024-11-30", "modelId": "prebuilt-read", "content": "\n".join(p["lines"][0] for p in pages),
+        "pages": [{"pageNumber": p["page_number"], "angle": p["angle"], "width": p["width"], "height": p["height"],
+                   "unit": p["unit"], "words": p["words"], "lines": [{"content": line} for line in p["lines"]]}
+                  for p in pages]}}
+
+
+@pytest.fixture
+def scan_run(tmp_path, monkeypatch):
+    """A scanned PDF as a frozen run item, an in-process reader and GPT; Azure needs `keys` and a budget."""
+    from jav import store
+    from native_fixtures_109 import runtime_source, synthetic_gpt
+
+    monkeypatch.setattr(ocr, "CACHE_DIR", tmp_path / "ocr-cache")
+    with store.use_store(tmp_path / "native.sqlite"):
+        pdf, _sha = scan_pdf(tmp_path)
+        source, ref = runtime_source(tmp_path, monkeypatch, name="frozen.pdf", content=pdf.read_bytes())
+        requests = synthetic_gpt(monkeypatch, payload={"facts": [{
+            "entity": "declaration", "property": "year", "value": "2026", "state": "stated",
+            "citations": [{"occurrence_id": "o0", "element_id": "e1", "quote": "Declaration 2026"}]}], "gaps": []})
+        yield source, ref, requests
+
+
+class LocalScanOCR:
+    fingerprint = "a" * 64
+
+    def recognise(self, png, limits, *, timeout):
+        return ("level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n"
+                "5\t1\t1\t1\t1\t1\t40\t60\t220\t42\t95\tLOCAL\n")
+
+
+def run_native(source, ref, *, budgets: dict, recognition: str | None = None, fake=None):
+    from jav import flow_native
+
+    app = flow_native.build_app(work_run_id="native-run", item_id="native-item", graph_id="native-graph",
+        source_path=str(source), read_path=str(source), original_name="original.pdf",
+        expected_sha256=ref.source_sha256, recipe_hash="a" * 16, jev=False, use_cache=False, ocr=True,
+        recognition=recognition)
+    with calls.measurement("native-run", budgets), patch("urllib.request.urlopen", fake or FakeAzure()), \
+            patch.object(azure_di.time, "sleep"):
+        _, _, state = app.run(halt_after=flow_native.TERMINALS)
+    return state.data
+
+
+def _azure_calls() -> list:
+    from jav import store
+
+    with store.connect() as c:
+        return [r[0] for r in c.execute("SELECT status FROM invocations WHERE provider='azure_di'")]
+
+
+def test_a_scan_without_an_azure_text_is_recognised_within_the_run_budget(scan_run, keys, no_local_ocr):  # noqa: F811
+    source, ref, _requests = scan_run
+    fake = FakeAzure(polls=[{"status": "running"}, scan_result(SCAN_TEXT)])
+    state = run_native(source, ref, budgets={"openai": Decimal("1"), "azure_di": Decimal("0.02")}, fake=fake)
+    assert state.recognition == ocr.recognition_digest(azure_recognition(SCAN_TEXT))
+    assert state.recognition_blocked is None and _azure_calls() == ["succeeded"]
+    assert state.final_status == "done" and state.review_reasons == []
+
+
+def test_without_an_azure_budget_the_scan_keeps_local_ocr_without_a_new_to_do(scan_run, keys, monkeypatch):  # noqa: F811
+    from jav.readers import visual_ocr
+
+    monkeypatch.setattr(visual_ocr.LocalOCR, "discover", lambda: LocalScanOCR())
+    source, ref, _requests = scan_run
+    state = run_native(source, ref, budgets={"openai": Decimal("1")})
+    assert (state.recognition, state.recognition_blocked, _azure_calls()) == (None, "off", [])
+    assert "native:reading:partial" in state.review_reasons
+    assert not any(r.startswith("native:recognition") for r in state.review_reasons)
+
+
+def test_an_azure_call_the_budget_does_not_allow_leaves_local_ocr_and_a_to_do(scan_run, keys, monkeypatch):  # noqa: F811
+    from jav.readers import visual_ocr
+
+    monkeypatch.setattr(visual_ocr.LocalOCR, "discover", lambda: LocalScanOCR())
+    source, ref, _requests = scan_run
+    state = run_native(source, ref, budgets={"openai": Decimal("1"), "azure_di": Decimal("0.000001")})
+    assert state.recognition is None and _azure_calls() == []
+    assert "native:recognition:azure_blocked:budget_exceeded" in state.review_reasons
+
+
+def test_a_weak_azure_recognition_is_complete_but_opens_a_to_do(scan_run):
+    from jav import store
+
+    source, ref, _requests = scan_run
+    weak = azure_recognition(azure_page(1, ("Declaration", 0.3, 0.4, 0.5), ("2026", 1.2, 0.4, 0.4)))
+    with store.use_store(store.active_path()):
+        digest = ocr.save_recognition(weak)
+    state = run_native(source, ref, budgets={"openai": Decimal("1")}, recognition=digest)
+    assert "native:reading:complete" not in state.review_reasons
+    assert {"native:recognition:low_confidence:0.45", "native:recognition:low_conf_words:1.00"} <= set(
+        state.review_reasons)
+    assert state.final_status == "needs_review" and _azure_calls() == []

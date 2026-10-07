@@ -32,6 +32,8 @@ class NativeState(BaseModel):
     ocr: bool = False  # 120: a scanned PDF continuing from detection is read with local OCR
     # 124: the digest of the kept Azure recognition detection used; the reader takes it over instead of local OCR
     recognition: str | None = None
+    # 124: why the native step got no Azure recognition of its own (`native_processing.azure_recognition`)
+    recognition_blocked: str | None = None
     reading_id: str | None = None
     outcome_id: str | None = None
     publication_id: str | None = None
@@ -44,7 +46,7 @@ _INPUTS = ["work_run_id", "item_id", "graph_id", "source_path", "read_path", "or
            "expected_sha256", "recipe_hash", "jev", "use_cache", "limits", "ocr", "recognition"]
 
 
-@action.pydantic(reads=_INPUTS, writes=["reading_id"])
+@action.pydantic(reads=_INPUTS, writes=["reading_id", "recognition", "recognition_blocked"])
 def read_native(state: NativeState) -> NativeState:
     publication = native_results.get_publication(state.work_run_id, state.item_id)
     if publication:
@@ -53,6 +55,9 @@ def read_native(state: NativeState) -> NativeState:
             raise native_results.NativeIntegrityError("Graph input differs from the published result")
         state.reading_id = publication.reading_id
     else:
+        if state.ocr and state.recognition is None:  # 124: a scan without an Azure text from detection
+            state.recognition, state.recognition_blocked = native_processing.azure_recognition(
+                Path(state.read_path), source_path=state.source_path, sha256=state.expected_sha256)
         state.reading_id = native_results.prepare_reading(Path(state.read_path),
             original_name=state.original_name, expected_sha256=state.expected_sha256,
             limits=NativeLimits.model_validate_json(json_bytes(state.limits)).read_limits, ocr=state.ocr,
@@ -90,9 +95,11 @@ def publish_native(state: NativeState) -> NativeState:
     return state
 
 
-@action.pydantic(reads=_INPUTS + ["publication_id", "result_version", "review_reasons"],
+@action.pydantic(reads=_INPUTS + ["publication_id", "result_version", "review_reasons", "recognition_blocked"],
                  writes=["review_reasons", "final_status"])
 def review_native(state: NativeState) -> NativeState:
+    from jav.ocr import escalation_review_reasons
+
     publication = native_results.get_publication(state.work_run_id, state.item_id)
     if publication is None or publication.result_version != state.result_version:
         raise native_results.NativeIntegrityError("Graph publication is missing or changed")
@@ -100,6 +107,15 @@ def review_native(state: NativeState) -> NativeState:
     reasons = list(state.review_reasons)
     if publication.reading.status != "complete":
         reasons.append("native:reading:" + publication.reading.status)
+    # 124: an Azure call the native step could not make (budget, uncertain earlier attempt, no route, failure); a
+    # recipe switch that is off is the user's choice and raises nothing
+    if escalation_review_reasons({"escalation_blocked": state.recognition_blocked}):
+        reasons.append("native:recognition:azure_blocked:" + state.recognition_blocked)
+    # 124: a taken-over Azure recognition with weak word confidences, by the shared OCR thresholds (policy.json ocr)
+    for result in publication.reading.results:
+        if result.recognition is not None and result.recognition.pages:
+            reasons.extend("native:recognition:" + reason.split(":", 1)[1] for reason in
+                           policy.ocr_review_reasons(result.recognition.mean_conf, result.recognition.low_conf_ratio))
     if publication.interpretation_outcome.status != "succeeded":
         reasons.append("native:interpretation:" + publication.interpretation_outcome.status)
     else:
@@ -155,7 +171,7 @@ CONTRACT = {
               ("publish_native", "review_native"), ("review_native", "needs_review", "Review reasons remain"),
               ("review_native", "done", "No automatic review reason")],
     "step_meta": {
-        "read_native": {"kind": "store", "note": "Verify the frozen source and save the complete bounded native Delivery; OCR is disabled, except the reader's local OCR for a scanned PDF continuing from detection."},
+        "read_native": {"kind": "store", "note": "Verify the frozen source and save the complete bounded native Delivery; OCR is disabled, except for a scanned PDF continuing from detection: it takes over detection's Azure recognition, or one asked for within the run's Azure budget, otherwise the reader's local OCR."},
         "interpret_native": {"kind": "llm", "note": "Use the shared GPT receipt and budget boundary, with optional JEV support; persist a terminal outcome reference."},
         "publish_native": {"kind": "store", "note": "Verify saved evidence and publish exactly once for the frozen run item."},
         "review_native": {"kind": "store", "note": "Add reading, interpretation, grounding and content-check gaps and no-band JEV support to the existing review queue."},

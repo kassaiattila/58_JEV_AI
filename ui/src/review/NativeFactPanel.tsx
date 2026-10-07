@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError, getActor, NO_ACTOR } from "../api";
 import { useActor } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { reasonText } from "../labels";
+import { numText, reasonText } from "../labels";
 import { elementKey, type Citation, type NativeCitation, type NativeCorrectionRequest, type NativeFact, type NativeItemResult, type NativeSourcePage } from "../native";
 import { clearDraft, draftKey, getDraft, isDirty, rebaseDraft, setNativeCitationEdit, setNativeField, setNativeSources, settleNativeDraft, useDraft, type Draft } from "./drafts";
 import { locatorText } from "./NativeSourceViewer";
@@ -61,12 +61,16 @@ export function NativeFactPanel({ result, source, selected, readOnly, onChanged,
     } finally { saving.current = false; setBusy(false); }
   }
   const issues = [...result.reading.results.flatMap((r) => r.issues), ...(source?.occurrences.flatMap((o) => o.issues) ?? [])];
+  // 124: a scan read from its Azure recognition rather than local OCR
+  const recognised = result.reading.results.flatMap((r) => (r.recognition?.pages.length ? [r.recognition] : []));
   return <section className="native-facts" aria-label={t("Native facts")} onKeyDown={(e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); if (!e.repeat) void save(); }
   }}>
     <h2>{t("Native facts")}</h2>
     <div className="native-summary">
       <p>{t("Reading coverage")}: <strong>{nativeStateLabel(result.reading.status)}</strong> · {t("Acquisition")}: {nativeStateLabel(result.reading.acquisition_status)}</p>
+      {recognised.map((r, i) => <p key={`azure-${i}`} className="small">{t("Read by Azure: page {{pages}}, mean word confidence {{p}}",
+        { pages: r.pages.join(", "), p: numText(r.mean_conf) })}</p>)}
       <p>{t("Interpretation")}: <strong>{nativeStateLabel(result.interpretation_outcome.status)}</strong>{result.interpretation_outcome.reason ? ` · ${outcomeReasonText(result.interpretation_outcome.reason)}` : ""}{result.interpretation ? ` · ${result.interpretation.provider.includes("jev") ? "GPT + JEV" : "GPT"}` : ""}</p>
       <p className="notice small">{t("Reading coverage, extracted claims and human correctness are separate. Review each value and its source before approval.")}</p>
       {issueSummary(issues).map((text, i) => <p key={i} className="notice small">{text}</p>)}
