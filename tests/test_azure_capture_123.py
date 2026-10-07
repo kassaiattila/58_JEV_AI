@@ -28,7 +28,7 @@ def test_evidence_words_name_the_digest_of_the_original_recognition():
     assert ocr.recognition_digest(dict(reversed(list(evidence.items())))) == meta["recognition_sha256"]
 
 
-def test_escalation_keeps_the_original_recognition_without_changing_the_call(weak_scan, keys):
+def test_escalation_keeps_the_original_recognition_without_changing_the_call(weak_scan, keys):  # noqa: F811
     fake = FakeAzure()
     with patch("urllib.request.urlopen", fake):
         pdf, escalated = _escalate(weak_scan)
