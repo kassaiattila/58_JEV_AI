@@ -249,6 +249,7 @@ def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[
                                           timeout_s=float(az["timeout_s"]), poll_s=float(az.get("poll_interval_s", 1.0)))
         except (azure_di.AzureDiError, azure_di.AzureOutcomeUnknown, OSError, ValueError) as exc:
             raise OcrUnavailableError(f"azure_di: {exc}") from exc
+        save_recognition(found)  # 123: the original, for a verifiable handover to the native reader
         return azure_evidence_words(found)
     data_root = _sidecar_root()
     try:
@@ -266,6 +267,7 @@ def azure_words(path: Path, *, run_id: str = "jav-ocr") -> tuple[list[list[dict[
     if result.get("provider_used") != "azure_di" or not result.get("evidence_ref"):
         raise OcrUnavailableError(f"azure_di: nem futott le (provider={result.get('provider_used')}, chain={result.get('fallback_chain')})")
     evidence = _json.loads((data_root / result["evidence_ref"]["path"]).read_text(encoding="utf-8"))
+    save_recognition(evidence)  # 123
     return azure_evidence_words(evidence)
 
 
@@ -329,6 +331,38 @@ def escalation_review_reasons(signals: dict[str, Any] | None) -> list[str]:
     return [f"ocr:escalation_blocked:{reason}"] if reason in _ESCALATION_TODO else []
 
 
+AZURE_RECOGNITION_KIND = "azure_recognition"
+
+
+def recognition_digest(evidence: dict[str, Any]) -> str:
+    """123: the sha256 of an original Azure recognition's canonical JSON (sorted keys, no spaces)."""
+    canonical = json.dumps(evidence, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def save_recognition(evidence: dict[str, Any]) -> str:
+    """123: keep the original recognition (word polygons, page size, unit, angle) once, under its digest, so that a
+    later step can verify where each recognised word came from. Returns the digest."""
+    from jav import store
+
+    sha = recognition_digest(evidence)
+    store.save_artifact(AZURE_RECOGNITION_KIND, sha, evidence)
+    return sha
+
+
+def load_recognition(sha: str) -> dict[str, Any]:
+    """123: a kept original recognition; KeyError when it is missing, ValueError when its content no longer matches
+    its digest."""
+    from jav import store
+
+    evidence = store.load_artifact(AZURE_RECOGNITION_KIND, sha)
+    if evidence is None:
+        raise KeyError(sha)
+    if recognition_digest(evidence) != sha:
+        raise ValueError("The kept Azure recognition does not match its digest")
+    return evidence
+
+
 def azure_evidence_words(evidence: dict[str, Any]) -> tuple[list[list[dict[str, Any]]], list[float], dict[str, Any]]:
     pages: list[list[dict[str, Any]]] = []
     confs: list[float] = []
@@ -346,7 +380,8 @@ def azure_evidence_words(evidence: dict[str, Any]) -> tuple[list[list[dict[str, 
             if conf >= 0:
                 confs.append(conf)
         pages.append(words)
-    meta = {"model_id": evidence.get("model_id"), "api_version": evidence.get("api_version")}
+    meta = {"model_id": evidence.get("model_id"), "api_version": evidence.get("api_version"),
+            "recognition_sha256": recognition_digest(evidence)}
     return pages, confs, meta
 
 
