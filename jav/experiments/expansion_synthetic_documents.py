@@ -1,7 +1,7 @@
 """Only legacy synthetic fixtures; real bank documents cannot enter this runner."""
 from jav.experiments.expansion_trial import ROOT, services, validate
 from jav.experiments.long_document_trial import read, write
-from jav.legacy_packs import keys, load, PACK_ROOT, schema_model
+from jav.legacy_packs import keys, PACK_ROOT, schema_model
 from jav.legacy_runtime import run_pack
 from jav.provider_generation import generate
 from jav.learning_runtime import canonical_hash

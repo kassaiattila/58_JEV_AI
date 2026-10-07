@@ -1,13 +1,18 @@
 {
  "meta": {
   "name": "fact_checks",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Deterministic content checks shared by the extraction paths (jav/fact_checks.py). They never change a value or a model answer; they only name a reason for human review. Hungarian entries are document vocabulary.",
   "changelog": [
    {
     "version": "1.0.0",
     "date": "2026-10-06",
     "note": "120: unfilled template placeholders; quantity-kind conflicts (money, percentage, date, time) generalising the 119 money/time warning; one party in two roles (name subset or tax-number stem)."
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-10-07",
+    "note": "121 (Q-szerepcsere): party_orientation, a to-do when a pair of parties stands the other way round than on at least min_documents earlier documents of the same type, and at least min_ratio times as many as stand alike (jav/party_history.py, in a worker run only). Measured on the stored results: 4 documents flagged, all in one 20-document supplier group, including the swap found in 092, and none the owner had confirmed. Tax numbers compare by one key in both party checks; same_party's results are unchanged."
    }
   ]
  },
@@ -197,5 +202,10 @@
    "HU"
   ],
   "domestic_tax_stem_digits": 8
+ },
+ "party_orientation": {
+  "note": "Counts of earlier documents of the same type naming the same two parties (by tax-number key); not probabilities.",
+  "min_documents": 2,
+  "min_ratio": 2.0
  }
 }

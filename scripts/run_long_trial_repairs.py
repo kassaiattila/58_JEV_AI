@@ -1,6 +1,6 @@
 """Targeted repair round within the same new budget; the original results stay unchanged."""
 import json
-from jav.experiments.long_document_trial import (OUT,PROJECT_ROOT,read,write,sha,validate,snapshot,services)
+from jav.experiments.long_document_trial import (OUT,PROJECT_ROOT,read,write,validate,snapshot,services)
 from jav.document_learning import ProposalBatch,PointProposal,digest
 from jav.evidence_learning import build_bundle,run_evidence_learning
 

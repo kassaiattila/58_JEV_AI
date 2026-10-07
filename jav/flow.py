@@ -217,11 +217,13 @@ def normalize_llm(state: FlowState) -> FlowState:
     return state
 
 
-@action.pydantic(reads=["invoice", "doc_type"], writes=["validation"])
+@action.pydantic(reads=["invoice", "doc_type", "doc_id"], writes=["validation"])
 def validate(state: FlowState) -> FlowState:
     from jav.validators import run_all
 
-    state.validation = run_all(state.invoice, get_pack(state.doc_type).validators) if state.invoice else []
+    # 121: the document's identity, for the checks that compare it with earlier documents (party_orientation)
+    state.validation = (run_all(state.invoice, get_pack(state.doc_type).validators, doc_id=state.doc_id, doc_type=state.doc_type)
+                        if state.invoice else [])
     return state
 
 

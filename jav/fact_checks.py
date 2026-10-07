@@ -11,6 +11,10 @@ are not used here; matching text is code's job.
   warning; a property that names both kinds (an hourly rate) is no conflict.
 - `same_party`: two role fields name one party (the same tax-number stem, or one
   name's significant words contained in the other's).
+- `tax_party_key` (121): the identity of a party by its tax number, so that the
+  domestic and the EU form of one Hungarian number are one party.
+- `orientation_issue` (121): a pair of parties standing the other way round than on
+  most earlier documents of the same type (`jav/party_history.py` counts them).
 """
 from __future__ import annotations
 
@@ -35,7 +39,7 @@ def _rules() -> dict[str, Any]:
             "placeholder_reason": data["placeholders"]["reason"],
             "kinds": kinds, "quantity_reason": data["quantities"]["reason"],
             "compatible": {tuple(pair) for pair in data["quantities"]["compatible"]},
-            "parties": data["parties"]}
+            "parties": data["parties"], "orientation": data["party_orientation"]}
 
 
 def config_hash() -> str:
@@ -76,20 +80,39 @@ def _ascii_words(value: str) -> list[str]:
     return re.findall(r"\w+", plain.lower())
 
 
+def tax_party_key(value: object) -> str | None:
+    """121: a party's identity by its tax number, or None when the value has fewer digits than a domestic stem. A
+    domestic number (no prefix or a domestic one) is its stem, so `12345678-2-41` and `HU12345678` are one party;
+    a foreign one is its prefix with all its digits. 120's `same_party` compares tax numbers by this key."""
+    if value in (None, ""):
+        return None
+    rules = _rules()["parties"]
+    plain = re.sub(r"[^0-9A-Za-z]", "", str(value)).upper()
+    digits = re.sub(r"\D", "", plain)
+    stem = int(rules["domestic_tax_stem_digits"])
+    if len(digits) < stem:
+        return None
+    prefix = re.match(r"[A-Z]*", plain).group()
+    if prefix in set(rules["domestic_tax_prefixes"]):
+        return "domestic:" + digits[:stem]
+    return f"{prefix}:{digits}"
+
+
+def orientation_issue(other: int, alike: int) -> bool:
+    """121: whether the earlier documents of the same type stand the other way round by a clear majority: at least
+    `min_documents` of them, and at least `min_ratio` times as many as stand alike (two-way business stays quiet)."""
+    rules = _rules()["orientation"]
+    return other >= int(rules["min_documents"]) and other >= float(rules["min_ratio"]) * alike
+
+
 def same_party(first: object, second: object) -> bool:
     """Whether two role values name one party. Tax numbers compare by their stem; names by significant words."""
     if first in (None, "") or second in (None, ""):
         return False
     rules = _rules()["parties"]
-    a, b = (re.sub(r"[^0-9A-Za-z]", "", str(v)).upper() for v in (first, second))
-    digits_a, digits_b = re.sub(r"\D", "", a), re.sub(r"\D", "", b)
-    stem = int(rules["domestic_tax_stem_digits"])
-    if len(digits_a) >= stem and len(digits_b) >= stem:
-        prefix_a, prefix_b = (re.match(r"[A-Z]*", v).group() for v in (a, b))
-        domestic = set(rules["domestic_tax_prefixes"])
-        if prefix_a in domestic and prefix_b in domestic:
-            return digits_a[:stem] == digits_b[:stem]
-        return prefix_a == prefix_b and digits_a == digits_b
+    key_a, key_b = tax_party_key(first), tax_party_key(second)
+    if key_a is not None and key_b is not None:
+        return key_a == key_b
     ignore = set(rules["ignore_tokens"])
     words_a = {w for w in _ascii_words(str(first)) if w not in ignore}
     words_b = {w for w in _ascii_words(str(second)) if w not in ignore}

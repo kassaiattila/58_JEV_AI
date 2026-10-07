@@ -1,5 +1,5 @@
 """Re-checks only the three newly uncovered exact-context errors, with zero GPT calls."""
-from jav.experiments.long_document_trial import *
+from jav.experiments.long_document_trial import OUT, ProposalBatch, digest, read, services, snapshot, validate, write
 from jav.evidence_learning import build_bundle,run_evidence_learning
 from jav.document_learning import check_proposals
 

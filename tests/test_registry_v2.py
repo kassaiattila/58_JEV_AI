@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from jav import cfg, doc_types, intents, policy
 from jav.registry import parent_summary

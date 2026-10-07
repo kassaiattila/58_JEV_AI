@@ -3,7 +3,6 @@ import json
 import sqlite3
 import statistics
 from contextlib import closing
-from pathlib import Path
 from jav.config import PROJECT_ROOT
 from jav.experiments.long_document_trial import read, write, sha
 

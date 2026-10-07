@@ -8,6 +8,8 @@ Which checks run: the type pack's `validators` list (the legacy `rules.json` `na
 `fields`, as data): `{"check": <name>, "field": <field>, "optional": true, "regex": ...}`. An `optional`
 check is skipped if the field is empty. The Hungarian invoice's list gives the earlier `run_all` behaviour unchanged.
 A role-pair check names two fields: `{"check": "distinct_parties", "fields": [<first>, <second>]}` (120).
+121: `party_orientation` (same shape) compares the pair with the earlier documents of the same type; it needs the
+document's identifier and type (`run_checks(..., doc_id=, doc_type=)`) and runs only in a worker run.
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ import re
 from decimal import Decimal
 from typing import Any
 
-from jav import fact_checks, taxid
+from jav import fact_checks, party_history, taxid
 from jav.models import CheckResult, InvoiceHU
 
 HU_TAXID_WEIGHTS = taxid.HU_WEIGHTS
@@ -230,16 +232,18 @@ _RECORD_CHECKS = {"vat_consistency": vat_consistency, "date_order": date_order,
                   "line_items_total": line_items_total, "line_items_arithmetic": line_items_arithmetic,
                   **{n: _statement_check(n) for n in ("running_balance_check", "closing_balance_check", "totals_consistency", "period_dates")}}
 _FIELD_CHECKS = {"hu_tax_id": hu_tax_id, "tax_id": tax_id, "iban_check": iban_check}
-PAIR_CHECKS = frozenset({"distinct_parties"})  # 120: checks naming two fields in `fields`
+PAIR_CHECKS = frozenset({"distinct_parties", "party_orientation"})  # 120/121: checks naming two fields in `fields`
 
 
-def run_checks(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | list[dict[str, Any]]) -> list[CheckResult]:
+def run_checks(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | list[dict[str, Any]], *, doc_id: str | None = None,
+               doc_type: str | None = None) -> list[CheckResult]:
     """According to the type pack's `validators` list: record-level checks always; field-level ones on the field's
     value, skipped with `optional: true` if the field is empty (the `optional` semantics of the legacy `named` list).
-    053: `"review": false` = signal only (`advisory`): the result is visible, but the to-do rule skips it."""
+    053: `"review": false` = signal only (`advisory`): the result is visible, but the to-do rule skips it. 121: the
+    document's identifier and type, for the checks that compare it with earlier documents."""
     results: list[CheckResult] = []
     for spec in validators:
-        r = _run_one(inv, spec)
+        r = _run_one(inv, spec, doc_id=doc_id, doc_type=doc_type)
         if r is None:
             continue
         if spec.get("review", True) is False:
@@ -260,7 +264,21 @@ def distinct_parties(inv: InvoiceHU, first: str, second: str) -> CheckResult | N
     return CheckResult(name=name, ok=True, code="parties.ok")
 
 
-def _run_one(inv: InvoiceHU, spec: dict[str, Any]) -> CheckResult | None:
+def party_orientation(inv: InvoiceHU, first: str, second: str, *, doc_id: str | None, doc_type: str | None) -> CheckResult | None:
+    """121: the pair against the earlier documents of the same type (`jav/party_history.py`). The to-do stands at the
+    second field; the detail holds counts only. Skipped outside a worker run, for a missing value, or when no earlier
+    document names the same two parties."""
+    counts = party_history.orientation(doc_id, doc_type, (first, second), (inv.get_field(first), inv.get_field(second)))
+    if counts is None or counts == (0, 0):
+        return None
+    other, alike = counts
+    name = f"party_orientation:{second}"
+    if fact_checks.orientation_issue(other, alike):
+        return CheckResult(name=name, ok=False, code="parties.orientation_reversed", detail=f"{other} the other way, {alike} alike")
+    return CheckResult(name=name, ok=True, code="parties.orientation_ok")
+
+
+def _run_one(inv: InvoiceHU, spec: dict[str, Any], *, doc_id: str | None = None, doc_type: str | None = None) -> CheckResult | None:
     check = spec["check"]
     if check == "date_order":
         return date_order(inv, optional=bool(spec.get("optional", False)))
@@ -268,6 +286,8 @@ def _run_one(inv: InvoiceHU, spec: dict[str, Any]) -> CheckResult | None:
         return _RECORD_CHECKS[check](inv)
     if check in PAIR_CHECKS:
         first, second = spec["fields"]
+        if check == "party_orientation":
+            return party_orientation(inv, first, second, doc_id=doc_id, doc_type=doc_type)
         return distinct_parties(inv, first, second)
     field = spec["field"]
     value = inv.get_field(field)
@@ -281,7 +301,8 @@ def _run_one(inv: InvoiceHU, spec: dict[str, Any]) -> CheckResult | None:
     raise ValueError(f"ismeretlen validátor a típus-csomagban: {check}")
 
 
-def run_all(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | None = None) -> list[CheckResult]:
+def run_all(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | None = None, *, doc_id: str | None = None,
+            doc_type: str | None = None) -> list[CheckResult]:
     """Default: the list of the Hungarian invoice's type pack (= the legacy rules.json `named`: vat_consistency,
     date_order always; tax number / IBAN only if there is a value). For another type, pass the pack's `validators`
     list."""
@@ -289,4 +310,4 @@ def run_all(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | None = None
         from jav.typepack import get
 
         validators = get("invoice_hu").validators
-    return run_checks(inv, validators)
+    return run_checks(inv, validators, doc_id=doc_id, doc_type=doc_type)

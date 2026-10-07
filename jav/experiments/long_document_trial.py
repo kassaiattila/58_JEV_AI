@@ -9,10 +9,9 @@ import sqlite3
 from contextlib import closing
 from pathlib import Path
 
-from jav import store
 from jav.config import PROJECT_ROOT
 from jav.document_learning import digest, load_config, ProposalBatch, PointProposal
-from jav.document_chunks import ChunkPolicy, load_chunk_config, plan_document
+from jav.document_chunks import ChunkPolicy, load_chunk_config
 from jav.models import LineLayout
 from jav.learning_runtime import run_chunked_learning, run_learning
 from jav.adapters.jev import JevAdapter

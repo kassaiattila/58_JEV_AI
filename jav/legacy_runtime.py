@@ -1,12 +1,11 @@
 """A new service of the existing document_learning Burr graph: extraction according to a legacy schema."""
 from __future__ import annotations
-import json
 import sqlite3
 from contextlib import closing
 from pathlib import Path
 
 from jav import store, flow_learning
-from jav.legacy_packs import load, schema_model, validate_record
+from jav.legacy_packs import load, validate_record
 from jav.learning_runtime import canonical_hash
 from jav.runtime.persistence import ClosingSQLitePersister
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import ast
 import re
-from pathlib import Path
 from jav.config import OLD_PROJECT_ROOT, PROJECT_ROOT
 from jav.experiments.long_document_trial import read, write, sha
 

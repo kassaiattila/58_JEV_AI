@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from contextlib import nullcontext
 from pathlib import Path
 
 from jav import store, policy
