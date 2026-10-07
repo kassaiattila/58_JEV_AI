@@ -308,8 +308,9 @@ def test_scan_lists_the_pairs_and_opens_the_to_dos_once_on_runs_not_yet_approved
     [reason] = store.review_open_reasons("document", a2)
     assert reason["reason"] == f"duplicate:copy:{a1[:16]}" and reason["run_id"] == work.flow_run_id("run-1", a2)
     assert work.item_reasons("run-1", a2)["run"]  # the run's own to-do: it blocks the approval until decided
-    duplicates.scan(write=True)
+    again = duplicates.scan(write=True)
     assert len(store.review_open_reasons("document", a2)) == 1
+    assert (again["to_open"], again["written"], again["skipped"]["already_open"]) == (0, 0, 1)  # counted as open, not to open
     duplicates.decide("run-1", a2, a1, decision="copy", actor="t")
     assert duplicates.scan(write=True)["skipped"] == {"approved_run": 1, "decided": 1, "no_work_run": 1}
 
