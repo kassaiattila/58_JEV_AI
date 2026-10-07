@@ -215,7 +215,8 @@ def emails_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[An
     flows = mailbox.next_flow_labels()
     body = cfg.load("datasets")["labels"]["body_status"]
     doc_types = cfg.load("field_labels")["doc_types"]
-    att = lambda a: f"{a.get('filename')} ({doc_types.get(a.get('doc_type'), a.get('doc_type')) or a.get('status') or '–'})"  # noqa: E731
+    shown = lambda a: a.get("shown_type") or a.get("doc_type")  # noqa: E731 - 126: the type the document was processed as
+    att = lambda a: f"{a.get('filename')} ({doc_types.get(shown(a), shown(a)) or a.get('status') or '–'})"  # noqa: E731
     rows = [[r["subject"], r["sender"], r["received_at"], r["mailbox"], mailbox.intent_name(r["intent"]),
              mailbox.intent_name(r["machine_intent"]), r["confidence"], "igen" if r["corrected"] else "",
              flows.get(r["next_flow"] or "", r["next_flow"]), ", ".join(att(a) for a in r["attachments"]),

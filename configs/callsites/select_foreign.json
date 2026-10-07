@@ -1,12 +1,17 @@
 {
  "meta": {
   "name": "select_foreign",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
    {
     "version": "1.0.0",
     "date": "2026-09-20",
     "note": "S-kar hivasi hely a kulfoldi szamlahoz (BACKLOG 1, tipus-csomag invoice_foreign): a select.json mintajara, a mezo-instrukciok a regi invoice_foreign/prompt.md mezo-utmutatasabol atirva Choice-kerdesse; uj kerdes: supplier_country (Choice ISO-kodok kozul, a parties keresben), a penznem-kerdes a szamlazasi penznemre (az adobevallasi HUF-atvaltas informativ); nincs payment_method / amount_due / fulfillment_date (a regi semaban sincs)"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-10-07",
+    "note": "126 (5th group, round A; backlog Q-money-request-size, the owner's decision of 2026-10-07): request_char_budget 110000, the value of select_utility - an oversized request is fitted (candidate lines only, shorter option context, fewer options) and a token error is retried once with a tighter request (jav/jev_budget.py); until now such a money request ended in a jev_unavailable to-do. A request within the budget is sent unchanged, so its cache key stays the same; no Choice text changed."
    }
   ]
  },
@@ -171,5 +176,6 @@
   "vat_total": "invoice-level VAT amount (a printed 0,00 / 0.00 VAT line or an explicit reverse-charge note counts)",
   "gross_total": "invoice-level GROSS / payable total (Total, Total due, Végösszeg) in the billing currency",
   "payment_iban": "supplier's bank account or IBAN printed for paying this invoice"
- }
+ },
+ "request_char_budget": 110000
 }

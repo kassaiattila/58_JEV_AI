@@ -66,7 +66,7 @@ export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onCha
             <div className="pad-s">
               <div className="muted small">{t("Csatolmányok felismerése")}</div>
               <ul className="plain small">
-                {r.attachments.map((a, i) => <li key={i}>{a.filename}: {a.doc_type ? docTypeLabel(a.doc_type) : a.status ? ATTACHMENT_STATUS[a.status] ?? a.status : "–"}</li>)}
+                {r.attachments.map((a, i) => <li key={i}>{a.filename}: {a.shown_type ?? a.doc_type ? docTypeLabel((a.shown_type ?? a.doc_type)!) : a.status ? ATTACHMENT_STATUS[a.status] ?? a.status : "–"}</li>)}
               </ul>
             </div>
           ) : null}

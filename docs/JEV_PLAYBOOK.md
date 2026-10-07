@@ -45,7 +45,7 @@ Every JEV call in the runtime goes through `jav/adapters/jev.py`: `get_adapter()
 
 The server limit is in tokens (section 1), but counting tokens needs the model, so our budget is in **characters**. Hungarian text averages about 2.5 characters per token, but the ratio depends on the text source: the Azure OCR text gave more tokens per character than the tesseract text. The character budget is therefore an estimate, backed by one retry.
 
-- **`request_char_budget`** (call-site key, characters). `select_utility` and every `verify_*` call site except `verify` and `verify_foreign` use 110,000. Without the key there is no fitting and no retry.
+- **`request_char_budget`** (call-site key, characters). The three selection call sites (`select`, `select_foreign` since 126, `select_utility`) and every `verify_*` call site except `verify` and `verify_foreign` use 110,000. Without the key there is no fitting and no retry: an oversized request ends in a `jev_unavailable` to-do. A request within the budget is sent unchanged, so adding the key changes the cache key of the oversized requests only.
 - **`ask_within_budget()`** (`jav/jev_budget.py`) builds the request to fit the budget and asks. If the server still returns `max_tokens_exceeded`, it retries **once** with the smaller of the budget and the size actually sent, times 0.6 (`RETRY_BUDGET_FACTOR`). If that also fails, the error reaches the flow as `jev_unavailable:<reason>`. The failed first call stays in the ledger, and the reduction is visible in the raw run (`JevCall.state_chars`).
 - **Fitting on the S path** (`jav/jev_select.py`, `_fit_budget`), step by step until the request fits: (1) the state keeps only the candidate lines of the fields being asked; (2) the option context shrinks to 80 characters; (3) the options per question are capped at 60, 40, then 25, keeping candidates on total lines first and the rest in document order. The questions and the `none` option never change.
 - **Fitting on the G path** (`jav/jev_verify.py`): (1) `source_lines` shrinks to the evidence lines ±1; (2) if that is still too large, `source_lines` is dropped and the Nouls judge from `printed_on` alone. With `glossary_in_state: true` the glossary goes into the state once instead of into every Noul instruction.
@@ -64,8 +64,8 @@ Module: `jav/jev_select.py`. For each document there is one request per field fa
 
 | call site | type packs | requests | extra questions |
 |---|---|---|---|
-| `select` (1.1.2) | `invoice_hu` (Hungarian invoice) | `parties`, `header`, `money` | `currency`, `payment_method` |
-| `select_foreign` (1.0.0) | `invoice_foreign` (foreign supplier invoice) | `foreign_parties`, `foreign_header`, `foreign_money` | `currency`, `supplier_country` |
+| `select` (1.2.0) | `invoice_hu` (Hungarian invoice) | `parties`, `header`, `money` | `currency`, `payment_method` |
+| `select_foreign` (1.1.0) | `invoice_foreign` (foreign supplier invoice) | `foreign_parties`, `foreign_header`, `foreign_money` | `currency`, `supplier_country` |
 | `select_utility` (1.0.1) | the six Hungarian utility packs that extend `utility_bill_hu`: `villamos_energia_szamla` (electricity), `foldgaz_szamla` (gas), `viz_szamla` (water), `vizmuvek_szamla` (Budapest waterworks), `csatorna_szamla` (sewerage), `mohu_szamla` (waste) | `utility_parties`, `utility_header`, `utility_money`, `utility_meter` | `currency`, `payment_method`, `reading_method` |
 
 ### 4.2 Verification (G path): GPT extracts, JEV checks

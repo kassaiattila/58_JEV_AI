@@ -391,7 +391,9 @@ def _emails(scope: dict[str, str]) -> Rows:
     ]
     rows = []
     for r in records:
-        types = sorted({doc_types.get(a.get("doc_type"), a.get("doc_type")) for a in r["attachments"] if a.get("doc_type")})
+        # 126: the type each attachment was processed as (`shown_type`), else the recognised one
+        shown = [a.get("shown_type") or a.get("doc_type") for a in r["attachments"]]
+        types = sorted({doc_types.get(x, x) for x in shown if x})
         rows.append({"_key": r["item_id"], "_wp": run["workpackage_id"], "_run": run["run_id"], "item_id": r["item_id"],
                      "message_id": r["message_id"], "subject": r["subject"] or "(tárgy nélkül)", "sender": r["sender"],
                      "received_at": r["received_at"], "mailbox": r["mailbox"], "intent": r["intent"],
