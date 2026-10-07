@@ -11,7 +11,7 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import Callable
 
-from .interpretation import Interpretation, InterpretationCoverage, ProposedExtraction, ground, source_view
+from .interpretation import Interpretation, InterpretationCoverage, ProposedExtraction, ground, salvage, source_view
 from .chunks import source_chunks, verification_chunks
 from .pipeline import Delivery, digest, json_bytes
 from .receipts import InterpretationRejected, run_gpt_once
@@ -36,6 +36,13 @@ def require_measurement(provider: str, isolated_store: Path):
     if store.active_path().resolve() != Path(isolated_store).resolve():
         raise ValueError("Interpretation must use the explicitly selected experiment store")
     return ctx
+
+
+def _received_text(response: dict) -> str:
+    """The text of the single received provider answer, or an empty string."""
+    parts = [part for message in response.get("provider_responses") or () for part in message.get("parts") or ()
+             if part.get("part_kind") == "text"]
+    return (parts[0].get("content") or "") if len(parts) == 1 else ""
 
 
 def gpt_response_format() -> dict:
@@ -101,11 +108,18 @@ def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_tr
             fn=lambda: run_gpt_once(agent, prompt, settings, OPENAI_MODEL))
         if receipt_observer is not None:
             receipt_observer(result)
+        discarded = ()
         if result.response.get("validation_error"):
-            raise InterpretationRejected(f"Provider answer failed validation; private receipt {result.invocation_id} retained")
-        proposal = ProposedExtraction.model_validate_json(json_bytes(result.response["proposal"]))
-        completed.append(ground(delivery, proposal, provider="openai", model=result.response["actual_model"],
-            execution="synthetic_test" if synthetic else "saved_response" if result.replayed else "live", view=part))
+            # 123: a fact breaking only the presence rule is left out; the rest of the answer is kept.
+            salvaged = salvage(_received_text(result.response))
+            if salvaged is None:
+                raise InterpretationRejected(f"Provider answer failed validation; private receipt {result.invocation_id} retained")
+            proposal, discarded = salvaged
+        else:
+            proposal = ProposedExtraction.model_validate_json(json_bytes(result.response["proposal"]))
+        grounded = ground(delivery, proposal, provider="openai", model=result.response["actual_model"],
+            execution="synthetic_test" if synthetic else "saved_response" if result.replayed else "live", view=part)
+        completed.append(grounded.model_copy(update={"discarded_facts": discarded}))
     # Deduplicate only identical proposals repeated with the same evidence.
     facts = {json_bytes(f.model_dump(mode="json")): f for part in completed for f in part.facts}
     gaps = list(dict.fromkeys(gap for part in completed for gap in part.gaps))
@@ -116,6 +130,7 @@ def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_tr
         "model": "+".join(dict.fromkeys(part.model for part in completed)),
         "request_sha256": hashes[0] if len(hashes) == 1 else digest(json_bytes(hashes)),
         "execution": "synthetic_test" if synthetic else "live" if any(p.execution == "live" for p in completed) else "saved_response",
+        "discarded_facts": tuple(d for part in completed for d in part.discarded_facts),
         "coverage": InterpretationCoverage(source_elements=len(view["elements"]),
             submitted_elements=len({(row["occurrence_id"], row["element_id"]) for part in chunks for row in part["elements"]}),
             completed_chunks=len(chunks), request_sha256s=hashes)})

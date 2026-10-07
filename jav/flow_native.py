@@ -105,6 +105,9 @@ def review_native(state: NativeState) -> NativeState:
             reasons.append("native:no_facts")
         if interpretation.gaps:
             reasons.append("native:interpretation_gaps")
+        # 123: facts left out of a received answer for breaking the presence rule
+        if interpretation.discarded_facts:
+            reasons.append(f"native:discarded_facts:{len(interpretation.discarded_facts)}")
         for index, fact in enumerate(interpretation.facts):
             if fact.grounding != "literal_match":
                 reasons.append("native:grounding:" + fact.grounding)

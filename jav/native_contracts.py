@@ -16,7 +16,7 @@ from jav.readers.contracts import (
     ContractModel, Digest, Identifier, Issue, Label, Locator, ReadLimits,
     SourceElement, SourceOccurrence, Text, TextLocator,
 )
-from jav.readers.interpretation import Citation, Interpretation, ProposedFact
+from jav.readers.interpretation import Citation, DiscardedFact, Interpretation, ProposedFact
 from jav.readers.limits import DEFAULT_LIMITS
 
 
@@ -264,6 +264,7 @@ class InterpretationView(ContractModel):
     gaps: tuple[str, ...]
     review_status: Literal["not_reviewed"] = "not_reviewed"
     correctness: Literal["not_established"] = "not_established"
+    discarded_facts: tuple[DiscardedFact, ...] = ()
 
 
 class NativeCorrection(ContractModel):

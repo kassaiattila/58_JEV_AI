@@ -382,7 +382,7 @@ def _native_item_result(run: dict[str, Any], item: dict[str, Any]) -> dict[str, 
                 "interpretation_outcome": publication.interpretation_outcome.model_dump(mode="json"),
                 "interpretation": ({"interpretation_id": publication.interpretation_id,
                     "payload_sha256": publication.payload_sha256, "status": "completed" if interpretation.facts else "empty",
-                    **interpretation.model_dump(mode="json", include={"provider", "model", "execution", "gaps", "review_status", "correctness"})}
+                    **interpretation.model_dump(mode="json", include={"provider", "model", "execution", "gaps", "review_status", "correctness", "discarded_facts"})}
                     if interpretation is not None else None), "native_facts": facts}
     return NativeItemResult.model_validate_json(json.dumps(data)).model_dump(mode="json")
 

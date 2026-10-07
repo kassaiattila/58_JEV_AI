@@ -216,6 +216,8 @@ export function reasonText(code: string): string {
     case "native:interpretation": return t("Az adatkinyer\u00e9s nem siker\u00fclt ({{status}}); n\u00e9zd meg az ok\u00e1t", { status: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
     case "native:no_facts": return t("Az iratb\u00f3l nem keletkezett adatjavaslat");
     case "native:interpretation_gaps": return t("Az adatkinyer\u00e9s hi\u00e1nyt jelzett");
+    // 123: facts left out of a received answer for breaking the presence rule
+    case "native:discarded_facts": return t("{{n}} adatjavaslat hib\u00e1s szerkezet\u0171 volt, ez\u00e9rt kimaradt; n\u00e9zd meg a forr\u00e1st", { n: p[2] ?? "" });
     case "native:grounding": return t("Egy adatjavaslat nem tal\u00e1lhat\u00f3 sz\u00f3 szerint a forr\u00e1sban");
     case "native:claim": return t("Egy adatjavaslat nem biztos ({{state}})", { state: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
     case "native:fact": {

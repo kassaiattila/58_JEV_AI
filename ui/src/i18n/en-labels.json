@@ -131,6 +131,7 @@
  "Az adatkinyerés nem sikerült ({{status}}); nézd meg az okát": "The extraction did not succeed ({{status}}); check the reason",
  "Az iratból nem keletkezett adatjavaslat": "The document produced no facts",
  "Az adatkinyerés hiányt jelzett": "The extraction reported a gap",
+ "{{n}} adatjavaslat hibás szerkezetű volt, ezért kimaradt; nézd meg a forrást": "{{n}} proposed facts were malformed and left out; check the source",
  "Egy adatjavaslat nem található szó szerint a forrásban": "A fact is not found word for word in the source",
  "Egy adatjavaslat nem biztos ({{state}})": "A fact is not certain ({{state}})",
  "A JEV nem támasztja alá a(z) {{n}}. adatjavaslatot ({{p}})": "JEV does not support fact {{n}} ({{p}})",
