@@ -99,7 +99,11 @@ a hidden column and in the exports (120).
 
 Explicit reuse allows the existing request-key receipt/cache mechanisms. Live
 mode disables cross-run GPT reuse and JEV cache reads/writes, while same-step
-crash recovery still replays a completed receipt. The native JEV cache is scoped
+crash recovery still replays a completed receipt. The text sent to a model
+holds only the source elements and the reading gaps. The source bundle
+fingerprint, which includes the reader implementation, is kept out of it and
+stays in the saved Interpretation, so a reader change alone does not turn an
+unchanged document into a new paid question (124). The native JEV cache is scoped
 to the selected store. A cache-only answer is preserved as a private artifact;
 it does not invent an invocation or the original answer's unknown paid cost.
 

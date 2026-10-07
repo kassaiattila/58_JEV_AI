@@ -161,7 +161,9 @@ def source_view(delivery: Delivery, *, max_bytes=80_000) -> dict:
                             "kind": element.kind, "locator": element.locator.model_dump(mode="json"),
                             "text": text, "hidden": element.hidden,
                             **({"cell": element.cell.model_dump(mode="json")} if element.cell is not None else {})})
-    view = {"source_bundle_sha256": delivery.bundle.digest(), "elements": records,
+    # 124: the bundle fingerprint (it includes the reader code) stays out of the model's text, so a reader change
+    # alone does not make the same document a new paid question; `Interpretation` keeps the binding.
+    view = {"elements": records,
             "reading_gaps": [{"occurrence_id": r.attempt.occurrence_id, "status": r.status,
                               "issues": [i.model_dump(mode="json") for i in r.issues]}
                              for r in delivery.bundle.results if r.status != "complete"],
