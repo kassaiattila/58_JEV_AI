@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "golden_reconcile",
-    "version": "1.0.0",
-    "description": "128 F-reconciliation: invented golden cases for jav/reconcile.py (no real data). Each case is a snapshot (invoices, statements with their lines) and the expected proposal: the candidate pairs [line, invoice, proposed, multiple], the exclusions [kind, id, reason] and every invoice's status. Expectation: every case exactly (DECISIONS 128).",
+    "version": "1.1.0",
+    "description": "128 F-reconciliation: invented golden cases for jav/reconcile.py (no real data). Each case is a snapshot (invoices, statements with their lines, optionally a person's decisions per invoice and line) and the expected proposal: the candidate pairs [line, invoice, proposed, multiple], the exclusions [kind, id, reason], every invoice's status and the confirmed pairs [line, invoice]. Expectation: every case exactly (DECISIONS 128).",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-10-08",
+        "note": "129 K2: three cases for a person's decision - a rejected pair is not proposed again, a confirmed pair takes its line and invoice out of the other proposals, a decision on a line that is gone changes nothing."
+      },
       {
         "version": "1.0.0",
         "date": "2026-10-08",
@@ -128,6 +133,21 @@
                   {"id": "i2", "number": "INV-0001", "duplicate": "distinct", "amount": "250.00"}],
      "statements": [{"id": "s1", "lines": [{"id": "t1"}]}],
      "expected": {"pairs": [["t1", "i1", true, false], ["t1", "i2", false, false]], "excluded": [],
-                  "status": {"i1": "proposed", "i2": "amount_differs"}}}
+                  "status": {"i1": "proposed", "i2": "amount_differs"}}},
+    {"id": "decision_rejects_one_of_two", "note": "129: of two equal invoices a person rejects one; the other is no longer ambiguous",
+     "invoices": [{"id": "i1", "number": "INV-0001"}, {"id": "i2", "number": "INV-0002"}],
+     "statements": [{"id": "s1", "lines": [{"id": "t1"}]}],
+     "decisions": [{"invoice_id": "i1", "line_id": "t1", "decision": "not_this"}],
+     "expected": {"pairs": [["t1", "i2", true, false]], "excluded": [], "status": {"i1": "no_payment_found", "i2": "proposed"}}},
+    {"id": "decision_confirms_pair", "note": "129: a confirmed pair takes the line out of the other invoice's proposal",
+     "invoices": [{"id": "i1", "number": "INV-0001"}, {"id": "i2", "number": "INV-0002"}],
+     "statements": [{"id": "s1", "lines": [{"id": "t1"}]}],
+     "decisions": [{"invoice_id": "i2", "line_id": "t1", "decision": "paid_by"}],
+     "expected": {"pairs": [], "excluded": [], "status": {"i1": "no_payment_found", "i2": "confirmed"}, "confirmed": [["t1", "i2"]]}},
+    {"id": "decision_on_a_missing_line", "note": "129: decisions on lines a re-extraction removed change nothing",
+     "invoices": [{"id": "i1", "number": "INV-0001"}],
+     "statements": [{"id": "s1", "lines": [{"id": "t1"}]}],
+     "decisions": [{"invoice_id": "i1", "line_id": "t9", "decision": "paid_by"}, {"invoice_id": "i1", "line_id": "t8", "decision": "not_this"}],
+     "expected": {"pairs": [["t1", "i1", true, false]], "excluded": [], "status": {"i1": "proposed"}}}
   ]
 }

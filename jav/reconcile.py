@@ -23,6 +23,16 @@ The core (`propose`) is pure: it takes a snapshot (invoices, statements with the
 `duplicates.documents`), and `scan` summarises it for the command line. Parameters are data (`configs/reconcile.json`);
 the synthetic golden cases are `configs/golden_reconcile.json`.
 
+**A person's decision** (129, K2; the pattern of `jav/duplicates.py`): a proposed pair gets a
+`reconcile:proposed:<invoice id prefix>:<line id>` to-do on the later processed document, in a worker run only
+(`review_reasons`). A person confirms it (`paid_by`, "this line paid it") or rejects it with a reason (`not_this`); the
+decision belongs to the pair (`reconcile_decisions`), closes its to-dos, is part of the reviewed result
+(`corrections.review_version`) and is frozen with the approval of the run it was made in (`decide`). In the core a
+rejected pair is never proposed again, and a confirmed pair makes its invoice `confirmed` and takes the line and the
+invoice out of every other proposal: one line pays one invoice in this version. `scan(write=True)` opens the same to-do
+on the pairs already in the store, on runs not yet approved; `item_pairs` and `run_rows` are the review page's panel and
+the run's reconciliation view.
+
 Reuse: ported selectively from the legacy project's `orchestrator/framework/payables.py` 0.1.1 (10_AIFLOW_V4, HEAD
 4256cba): `normalize`, `account_key`, the canonical money rule, the reason-coded exclusions, the three signals, "an equal
 amount alone is no candidate" and the multiple-candidates flag; its 12 synthetic cases are rewritten in the golden file.
@@ -37,16 +47,43 @@ import json
 import re
 import unicodedata
 from collections import Counter, defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Iterable
 
 from jav import cfg, duplicates, fact_checks, store
 
-ENGINE_VERSION = "1.0.0"
-STATUSES = ("proposed", "amount_differs", "no_payment_found", "partly_covered", "not_covered", "excluded")
+ENGINE_VERSION = "1.1.0"
+STATUSES = ("confirmed", "proposed", "amount_differs", "no_payment_found", "partly_covered", "not_covered", "excluded")
+DECISIONS = ("paid_by", "not_this")
+SIGNALS = ("invoice_number", "supplier_account", "supplier_name")
+REASON = "reconcile"
+PRODUCER = "reconcile"  # the producer of the to-dos opened by `scan`; the flow's own ones are the M2 step's
+PREFIX = 16  # the invoice's id prefix in the to-do (as in `duplicates`)
 _MONEY = re.compile(r"-?\d+(?:\.\d{1,2})?")
+
+store.register_schema("reconcile", """
+CREATE TABLE IF NOT EXISTS reconcile_decisions (
+    pair_key          TEXT PRIMARY KEY,   -- the invoice's document id + '|' + the line id: one decision per pair
+    invoice_doc_id    TEXT NOT NULL,
+    statement_doc_id  TEXT NOT NULL,
+    line_id           TEXT NOT NULL,      -- the statement line's stable id (`line_id`)
+    decision          TEXT NOT NULL,      -- paid_by | not_this
+    signals           TEXT,               -- JSON: the signals of the pair when the person decided
+    amount_relation   TEXT,               -- equal | different: the amounts when the person decided
+    run_id            TEXT,               -- the run in which the person decided
+    actor             TEXT NOT NULL,
+    note              TEXT,
+    decided_at        TEXT NOT NULL
+);
+""")
+
+
+class DecisionError(ValueError):
+    """A decision that cannot be recorded (unknown decision, a rejection without a reason, a pair the item is not part
+    of, a second payment for one line or one invoice)."""
 
 
 @lru_cache(maxsize=None)
@@ -223,7 +260,27 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
         else:
             eligible_payments[key] = pay
     return {"invoices": eligible_invoices, "payments": eligible_payments, "excluded": excluded,
-            "statements": statements, "own_accounts": sorted(own_accounts)}
+            "statements": statements, "own_accounts": sorted(own_accounts), "lines": payments}
+
+
+def _settled(snapshot: dict[str, Any], prepared: dict[str, Any]) -> tuple[set[tuple[str, str]], list[dict[str, Any]]]:
+    """The people's decisions in the snapshot: the rejected pairs, and the confirmed pairs whose invoice is eligible and
+    whose line still exists (a decision on a line a re-extraction removed changes nothing). One line pays one invoice:
+    of two confirmations sharing a line or an invoice, the first in order counts."""
+    rejected: set[tuple[str, str]] = set()
+    confirmed: list[dict[str, Any]] = []
+    used_lines: set[str] = set()
+    used_invoices: set[str] = set()
+    for d in sorted(snapshot.get("decisions") or [], key=lambda d: (str(d["invoice_id"]), str(d["line_id"]))):
+        pair = (str(d["invoice_id"]), str(d["line_id"]))
+        if d["decision"] == "not_this":
+            rejected.add(pair)
+        elif (d["decision"] == "paid_by" and pair[0] in prepared["invoices"] and pair[1] in prepared["lines"]
+              and pair[0] not in used_invoices and pair[1] not in used_lines):
+            used_invoices.add(pair[0])
+            used_lines.add(pair[1])
+            confirmed.append({"invoice_id": pair[0], "line_id": pair[1], "statement_id": prepared["lines"][pair[1]]["statement_id"]})
+    return rejected, confirmed
 
 
 def window(invoice: dict[str, Any]) -> tuple[date, date]:
@@ -286,13 +343,19 @@ def _covered(periods: list[tuple[date, date]], start: date, end: date) -> str:
 
 
 def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
-    """The proposal for a snapshot: candidate pairs, exclusions, every invoice's status and the unpaired lines."""
+    """The proposal for a snapshot: candidate pairs, exclusions, every invoice's status and the unpaired lines. The
+    snapshot's `decisions` (a person's `paid_by` / `not_this` per invoice and line) settle their pairs first."""
     prepared = prepare(snapshot)
+    rejected, confirmed = _settled(snapshot, prepared)
+    paid_invoices = {c["invoice_id"] for c in confirmed}
+    paid_lines = {c["line_id"] for c in confirmed}
     candidates = []
     for pid, pay in sorted(prepared["payments"].items()):
+        if pid in paid_lines:
+            continue
         booked = _date(pay["booking_date"])
         for iid, inv in sorted(prepared["invoices"].items()):
-            if inv["currency"] != pay["currency"]:
+            if inv["currency"] != pay["currency"] or iid in paid_invoices or (iid, pid) in rejected:
                 continue
             start, end = window(inv)
             if not start <= booked <= end:
@@ -318,7 +381,9 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
         start, end = window(inv)
         accounts = [p for (_acct, cur), p in periods.items() if cur == inv["currency"]]
         cover = [_covered(p, start, end) for p in accounts]
-        if any(c["proposed"] for c in mine):
+        if iid in paid_invoices:
+            status = "confirmed"
+        elif any(c["proposed"] for c in mine):
             status = "proposed"
         elif mine:
             status = "amount_differs"
@@ -332,9 +397,10 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     for e in prepared["excluded"]:
         if e["kind"] == "invoice":
             statuses.append({"invoice_id": e["id"], "status": "excluded", "reason": e["reason"]})
-    paired = {c["line_id"] for c in candidates if c["proposed"]}
+    paired = {c["line_id"] for c in candidates if c["proposed"]} | paid_lines
     return {"engine_version": ENGINE_VERSION, "config_hash": config_hash(), "candidates": candidates,
-            "excluded": prepared["excluded"], "invoices": sorted(statuses, key=lambda s: s["invoice_id"]),
+            "confirmed": confirmed, "excluded": prepared["excluded"],
+            "invoices": sorted(statuses, key=lambda s: s["invoice_id"]),
             "unpaired_line_ids": sorted(set(prepared["payments"]) - paired),
             "coverage": [{"account": a, "currency": c, "periods": [[s.isoformat(), e.isoformat()] for s, e in p]}
                          for (a, c), p in sorted(periods.items())]}
@@ -367,7 +433,7 @@ def _latest(types: list[str]) -> list[dict[str, Any]]:
         item = ("ri.run_id AS work_run, ri.item_id" if work else "NULL AS work_run, NULL AS item_id")
         join = (" LEFT JOIN run_items ri ON ri.flow_run_id = d.run_id AND ri.item_id = d.doc_id" if work else "")
         rows = c.execute(
-            f"SELECT d.doc_id, d.doc_type, d.datapoints, d.validation, {item}"
+            f"SELECT d.rowid AS seq, d.run_id AS flow_run_id, d.doc_id, d.doc_type, d.datapoints, d.validation, {item}"
             " FROM datapoints d JOIN (SELECT doc_id, MAX(rowid) AS m FROM datapoints GROUP BY doc_id) l ON l.m = d.rowid"
             f"{join} WHERE d.doc_type IN ({','.join('?' * len(types))}) ORDER BY d.rowid", types).fetchall()
         corrected: dict[tuple[str, str], dict[str, Any]] = {}
@@ -380,7 +446,8 @@ def _latest(types: list[str]) -> list[dict[str, Any]]:
     for r in rows:
         values = json.loads(r["datapoints"] or "{}")
         values.update(corrected.get((r["work_run"], r["item_id"])) or {})
-        out.append({"doc_id": r["doc_id"], "doc_type": r["doc_type"], "values": values, "validation": r["validation"]})
+        out.append({"doc_id": r["doc_id"], "doc_type": r["doc_type"], "values": values, "validation": r["validation"],
+                    "seq": int(r["seq"]), "flow_run_id": r["flow_run_id"], "work_run": r["work_run"], "item_id": r["item_id"]})
     return out
 
 
@@ -412,38 +479,409 @@ def _duplicate_marks() -> dict[str, str]:
     return marks
 
 
-def snapshot() -> dict[str, Any]:
-    """The store's effective invoices and statements as a snapshot for `propose`."""
+def _origin(d: dict[str, Any]) -> dict[str, Any]:
+    """Where a document's values come from: the order of processing and its flow and work run (not used by `propose`)."""
+    return {"seq": d.get("seq", 0), "flow_run_id": d.get("flow_run_id"), "work_run": d.get("work_run"), "item_id": d.get("item_id")}
+
+
+def _decision_rows(c=None) -> list[dict[str, Any]]:
+    if c is None:
+        with store.connect() as own:
+            return _decision_rows(own)
+    if not _has_table(c, "reconcile_decisions"):
+        return []
+    return [dict(r) for r in c.execute("SELECT * FROM reconcile_decisions ORDER BY pair_key")]
+
+
+def handles(doc_type: str | None) -> bool:
+    """Whether a document of this type takes part in the reconciliation as an incoming invoice or a statement."""
+    conf = _conf()
+    return doc_type in conf["invoice_types"] or doc_type in conf["statement_types"]
+
+
+def snapshot(current: dict[str, Any] | None = None) -> dict[str, Any]:
+    """The store's effective invoices and statements, and the people's decisions, as a snapshot for `propose`.
+    `current` (doc_id, doc_type, values, validation): the document being processed, in place of its stored result."""
     conf = _conf()
     f = conf["invoice_fields"]
     marks = _duplicate_marks()
-    invoices = []
-    for d in _latest([*conf["invoice_types"], *conf["outgoing_types"]]):
+    docs = _latest([*conf["invoice_types"], *conf["outgoing_types"], *conf["statement_types"]])
+    if current is not None:
+        docs = [d for d in docs if d["doc_id"] != current["doc_id"]]
+        docs.append({**current, "seq": max((d["seq"] for d in docs), default=0) + 1})
+    invoices, statements = [], []
+    for d in docs:
         v = d["values"]
-        invoices.append({"id": d["doc_id"], "doc_type": d["doc_type"], "number": v.get(f["number"]),
-                         "supplier_name": v.get(f["supplier_name"]), "supplier_tax_id": v.get(f["supplier_tax_id"]),
-                         "payment_account": v.get(f["payment_account"]), "amount": _amount(v),
-                         "currency": v.get(f["currency"]), "issue_date": v.get(f["issue_date"]),
-                         "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"])})
-    statements = []
-    for d in _latest(conf["statement_types"]):
-        v = d["values"]
-        lines = [t for t in v.get("transactions") or [] if isinstance(t, dict)]
-        statements.append({"id": d["doc_id"], "doc_type": d["doc_type"], "account": v.get("account_iban") or v.get("account_no"),
-                           "currency": v.get("currency"), "statement_type": v.get("statement_type"),
-                           "period_start": v.get("period_start"), "period_end": v.get("period_end"),
-                           "verified": verified(d["validation"]), "lines": with_line_ids(d["doc_id"], lines)})
-    return {"invoices": invoices, "statements": statements}
+        if d["doc_type"] in conf["statement_types"]:
+            lines = [t for t in v.get("transactions") or [] if isinstance(t, dict)]
+            statements.append({"id": d["doc_id"], "doc_type": d["doc_type"], "account": v.get("account_iban") or v.get("account_no"),
+                               "currency": v.get("currency"), "statement_type": v.get("statement_type"),
+                               "period_start": v.get("period_start"), "period_end": v.get("period_end"),
+                               "verified": verified(d["validation"]), "lines": with_line_ids(d["doc_id"], lines), **_origin(d)})
+        else:
+            invoices.append({"id": d["doc_id"], "doc_type": d["doc_type"], "number": v.get(f["number"]),
+                             "supplier_name": v.get(f["supplier_name"]), "supplier_tax_id": v.get(f["supplier_tax_id"]),
+                             "payment_account": v.get(f["payment_account"]), "amount": _amount(v),
+                             "currency": v.get(f["currency"]), "issue_date": v.get(f["issue_date"]),
+                             "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"]), **_origin(d)})
+    decisions = [{"invoice_id": r["invoice_doc_id"], "line_id": r["line_id"], "decision": r["decision"]} for r in _decision_rows()]
+    return {"invoices": invoices, "statements": statements, "decisions": decisions}
 
 
-def scan() -> dict[str, Any]:
-    """Counts of the store's proposal for the command line (read-only; nothing is written)."""
+# --- the to-do and the person's decision (129, K2) -------------------------------------------------------------------
+
+
+def reason(invoice_id: str, line: str) -> str:
+    """The to-do of a proposed pair: the invoice by its id prefix and the line by its stable id."""
+    return f"{REASON}:proposed:{invoice_id[:PREFIX]}:{line}"
+
+
+def parse_reason(code: str) -> tuple[str, str] | None:
+    """(the invoice's id prefix, the line id) of a reconciliation to-do; None for any other to-do."""
+    parts = code.split(":")
+    if len(parts) == 6 and parts[0] == REASON and parts[1] == "proposed" and parts[2]:
+        return parts[2], ":".join(parts[3:])
+    return None
+
+
+def pair_key(invoice_id: str, line: str) -> str:
+    return f"{invoice_id}|{line}"
+
+
+def review_reasons(doc_id: str | None, doc_type: str | None, values: dict[str, Any], validation: Any) -> list[str]:
+    """The reconciliation to-dos of the document being processed: every proposed pair it is a side of, against the
+    store, in a worker run only (as `duplicates.review_reasons`). A decided pair adds nothing."""
+    if not duplicates.enabled() or not doc_id or not handles(doc_type):
+        return []
+    snap = snapshot({"doc_id": doc_id, "doc_type": doc_type, "values": values, "validation": validation})
+    if not snap["statements"] or not snap["invoices"]:
+        return []
+    return [reason(c["invoice_id"], c["line_id"]) for c in propose(snap)["candidates"]
+            if c["proposed"] and doc_id in (c["invoice_id"], c["statement_id"])]
+
+
+def decisions_for(doc_ids: Iterable[str], c=None) -> list[dict[str, Any]]:
+    """The decisions on the pairs that have any of the documents as a side, in a fixed order."""
+    ids = set(doc_ids)
+    return [d for d in _decision_rows(c) if d["invoice_doc_id"] in ids or d["statement_doc_id"] in ids] if ids else []
+
+
+def _find_line(snap: dict[str, Any], line: str) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    for st in snap["statements"]:
+        for ln in st["lines"]:
+            if ln["id"] == line:
+                return st, ln
+    return None
+
+
+def _relation(invoice: dict[str, Any], line: dict[str, Any]) -> str | None:
+    try:
+        return "equal" if money(str(line.get("amount"))) == money(str(invoice.get("amount"))) else "different"
+    except ValueError:
+        return None
+
+
+def _open_to_dos(c) -> list[dict[str, Any]]:
+    return [dict(r) for r in c.execute(
+        "SELECT r.id, r.reason, q.subject_id FROM review_reasons r JOIN review_queue q ON q.id = r.review_id"
+        " WHERE q.subject_kind='document' AND r.status='open' AND r.reason LIKE ? ORDER BY r.id", (f"{REASON}:proposed:%",))]
+
+
+def decide(run_id: str, item_id: str, invoice_doc_id: str, line: str, *, decision: str, actor: str,
+           note: str | None = None) -> dict[str, Any]:
+    """A person's decision on a pair, made on a run's item (the invoice or the statement): `paid_by` ("this line paid
+    it") or `not_this` (with a reason). One decision per pair; it may be changed until the run it was made in is
+    approved. The pair's open to-dos close; a confirmation also closes the to-dos of the other pairs of its line and its
+    invoice, as one line pays one invoice. Frozen on an approved run (`work.RevisionConflict`), checked again in the
+    writing transaction, as `duplicates.decide`."""
+    from jav import work
+
+    if decision not in DECISIONS:
+        raise DecisionError(f"unknown reconciliation decision: {decision}")
+    note = (note or "").strip() or None
+    if decision == "not_this" and note is None:
+        raise DecisionError("a rejected pair needs a reason")
+    run = work.get_run(run_id)
+    if run["approval"]:
+        raise work.RevisionConflict(f"run {run_id} is approved; reconciliation decisions are frozen")
+    if not any(i["item_id"] == item_id and i.get("kind") != "email" for i in run["input"]["items"]):
+        raise KeyError(item_id)
+    snap = snapshot()
+    invoice = next((i for i in snap["invoices"] if i["id"] == invoice_doc_id), None)
+    if invoice is None:
+        raise KeyError(invoice_doc_id)
+    found = _find_line(snap, line)
+    if found is None:
+        raise KeyError(line)
+    statement, row = found
+    if item_id not in (invoice_doc_id, statement["id"]):
+        raise DecisionError("the item is neither the invoice nor the statement of the pair")
+    if invoice["doc_type"] in _conf()["outgoing_types"]:
+        raise DecisionError("an outgoing invoice is not paid from an own account")
+    key = pair_key(invoice_doc_id, line)
+    pay = {**row, "currency": statement.get("currency")}
+    with store.connect() as c:
+        store.begin_immediate(c)
+        approved = c.execute("SELECT approval FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        if approved is not None and approved["approval"]:
+            raise work.RevisionConflict(f"run {run_id} is approved; reconciliation decisions are frozen")
+        before = c.execute("SELECT run_id FROM reconcile_decisions WHERE pair_key=?", (key,)).fetchone()
+        if before is not None and before["run_id"] != run_id:
+            owner = c.execute("SELECT approval FROM runs WHERE run_id=?", (before["run_id"],)).fetchone()
+            if owner is not None and owner["approval"]:
+                raise work.RevisionConflict("the pair was decided in an approved run; the decision is frozen")
+        if decision == "paid_by" and c.execute(
+                "SELECT 1 FROM reconcile_decisions WHERE decision='paid_by' AND pair_key<>? AND (line_id=? OR invoice_doc_id=?)",
+                (key, line, invoice_doc_id)).fetchone():
+            raise DecisionError("the line or the invoice is already paired; reject that pair first")
+        c.execute("INSERT INTO reconcile_decisions(pair_key, invoice_doc_id, statement_doc_id, line_id, decision, signals,"
+                  " amount_relation, run_id, actor, note, decided_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+                  " ON CONFLICT(pair_key) DO UPDATE SET decision=excluded.decision, signals=excluded.signals,"
+                  " amount_relation=excluded.amount_relation, run_id=excluded.run_id, actor=excluded.actor,"
+                  " note=excluded.note, decided_at=excluded.decided_at",
+                  (key, invoice_doc_id, statement["id"], line, decision, json.dumps(signals(invoice, pay)), _relation(invoice, pay),
+                   run_id, actor, note, datetime.now(timezone.utc).isoformat(timespec="seconds")))
+        to_dos = _open_to_dos(c)
+    for r in to_dos:
+        parsed = parse_reason(r["reason"])
+        if parsed is None:
+            continue
+        same_line, same_invoice = parsed[1] == line, invoice_doc_id.startswith(parsed[0])
+        if same_line and same_invoice:
+            work.resolve_reason(r["id"], actor=actor, resolution={"reconcile": decision, "pair": key}, note=note)
+        elif decision == "paid_by" and (same_line or same_invoice):
+            work.resolve_reason(r["id"], actor=actor, resolution={"reconcile": "superseded", "pair": key}, note=note)
+    return next(d for d in _decision_rows() if d["pair_key"] == key)
+
+
+# --- views (129, K2) ---------------------------------------------------------------------------------------------------
+
+
+def _file_names(doc_ids: Iterable[str]) -> dict[str, str]:
+    ids = sorted(set(doc_ids))
+    if not ids:
+        return {}
+    out: dict[str, str] = {}
+    with store.connect() as c:
+        for start in range(0, len(ids), 500):  # stays under the SQLite parameter limit
+            chunk = ids[start:start + 500]
+            for r in c.execute(f"SELECT doc_id, source_path FROM documents WHERE doc_id IN ({','.join('?' * len(chunk))})", chunk):
+                out[r["doc_id"]] = Path(r["source_path"] or "").name
+    return out
+
+
+def _packages(runs: Iterable[str | None]) -> dict[str, str]:
+    ids = sorted({r for r in runs if r})
+    if not ids:
+        return {}
+    with store.connect() as c:
+        if not _has_table(c, "runs"):
+            return {}
+        return {r["run_id"]: r["workpackage_id"] for r in c.execute(
+            f"SELECT run_id, workpackage_id FROM runs WHERE run_id IN ({','.join('?' * len(ids))})", ids)}
+
+
+def _invoice_view(inv: dict[str, Any] | None, files: dict[str, str]) -> dict[str, Any] | None:
+    if inv is None:
+        return None
+    return {"number": inv.get("number"), "supplier": inv.get("supplier_name"), "amount": inv.get("amount"),
+            "currency": inv.get("currency"), "issue_date": inv.get("issue_date"), "due_date": inv.get("due_date"),
+            "file": files.get(inv["id"])}
+
+
+def _line_view(found: tuple[dict[str, Any], dict[str, Any]] | None, files: dict[str, str]) -> dict[str, Any] | None:
+    if found is None:
+        return None
+    st, ln = found
+    return {"booking_date": ln.get("booking_date"), "direction": ln.get("direction"), "amount": ln.get("amount"),
+            "currency": st.get("currency"), "counterparty_name": ln.get("counterparty_name"),
+            "counterparty_account": ln.get("counterparty_account"), "memo": ln.get("memo"),
+            "description": ln.get("description"), "file": files.get(st["id"]), "verified": bool(st.get("verified"))}
+
+
+def item_pairs(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The pairs to show on a document's review page: one per open reconciliation to-do (this run's or an earlier one)
+    and per decision on the document, with the invoice and the statement line side by side."""
+    wanted: dict[tuple[str, str], int | None] = {}
+    for r in reasons:
+        parsed = parse_reason(r["reason"])
+        if parsed is not None:
+            wanted.setdefault(parsed, r["id"])
+    decided = {(d["invoice_doc_id"], d["line_id"]): d for d in decisions_for([item_id])}
+    if not wanted and not decided:
+        return []
+    snap = snapshot()
+    invoices = {i["id"]: i for i in snap["invoices"]}
+    pairs: dict[tuple[str, str], int | None] = {}
+    for (prefix, line), reason_id in wanted.items():
+        full = [i for i in invoices if i.startswith(prefix)]
+        if len(full) == 1:
+            pairs.setdefault((full[0], line), reason_id)
+    for key in decided:
+        pairs.setdefault(key, None)
+    lines = {key[1]: _find_line(snap, key[1]) for key in pairs}
+    statement_ids = {found[0]["id"] for found in lines.values() if found}
+    statement_ids |= {d["statement_doc_id"] for d in decided.values()}
+    files = _file_names([*invoices.keys() & {k[0] for k in pairs}, *statement_ids])
+    statements = {s["id"]: s for s in snap["statements"]}
+    packages = _packages([*(i.get("work_run") for i in invoices.values()), *(s.get("work_run") for s in statements.values())])
+    out = []
+    for (iid, line), reason_id in pairs.items():
+        inv, found, d = invoices.get(iid), lines[line], decided.get((iid, line))
+        sid = found[0]["id"] if found else (d["statement_doc_id"] if d else None)
+        pay = {**found[1], "currency": found[0].get("currency")} if found else None
+        side = "invoice" if item_id == iid else "statement"
+        other = statements.get(sid) if side == "invoice" else inv
+        other_id = sid if side == "invoice" else iid
+        out.append({
+            "invoice_doc_id": iid, "statement_doc_id": sid, "line_id": line, "side": side,
+            "invoice": _invoice_view(inv, files), "line": _line_view(found, files),
+            "signals": signals(inv, pay) if inv and pay else (json.loads(d["signals"] or "[]") if d else []),
+            "amount_relation": _relation(inv, pay) if inv and pay else (d["amount_relation"] if d else None),
+            "source_review_required": bool(found) and not found[0].get("verified"), "reason_id": reason_id,
+            "decision": d["decision"] if d else None, "decided_by": d["actor"] if d else None,
+            "decided_at": d["decided_at"] if d else None, "note": d["note"] if d else None,
+            "other_doc_id": other_id, "other_file": files.get(other_id or ""),
+            "other_run_id": other.get("work_run") if other else None, "other_item_id": other.get("item_id") if other else None,
+            "other_workpackage_id": packages.get(other.get("work_run") or "") if other else None,
+        })
+    return sorted(out, key=lambda p: (p["decision"] is not None, p["line"]["booking_date"] if p["line"] else "", p["line_id"]))
+
+
+def _run_doc_ids(run_id: str) -> list[str]:
+    from jav import work
+
+    return [i["item_id"] for i in work.get_run(run_id)["input"]["items"] if i.get("kind") != "email"]
+
+
+def run_rows(run_id: str) -> list[dict[str, Any]]:
+    """The run's reconciliation view: a row per invoice of the run (its status and the line that paid it or may have)
+    and a row per line of the run's statements (the invoice it paid or may have), from the whole store."""
+    mine = set(_run_doc_ids(run_id))
+    snap = snapshot()
+    if not mine & {d["id"] for d in [*snap["invoices"], *snap["statements"]]}:
+        return []
+    result = propose(snap)
+    invoices = {i["id"]: i for i in snap["invoices"]}
+    lines = {ln["id"]: (st, ln) for st in snap["statements"] for ln in st["lines"]}
+    proposed = [c for c in result["candidates"] if c["proposed"]]
+    confirmed = result["confirmed"]
+    rejected = {(d["invoice_id"], d["line_id"]) for d in snap["decisions"] if d["decision"] == "not_this"}
+    files = _file_names([*invoices, *(s["id"] for s in snap["statements"])])
+    excluded = {(e["kind"], e["id"]): e["reason"] for e in result["excluded"]}
+
+    def line_text(line: str) -> str | None:
+        st, ln = lines.get(line, (None, None))
+        return files.get(st["id"]) if st else None
+
+    def signal_flags(inv: dict[str, Any] | None, found: tuple[dict[str, Any], dict[str, Any]] | None) -> dict[str, bool | None]:
+        """The pair's signals as three yes/no columns (empty without a pair)."""
+        got = signals(inv, {**found[1], "currency": found[0].get("currency")}) if inv is not None and found is not None else None
+        return {f"signal_{s}": (s in got if got is not None else None) for s in SIGNALS}
+
+    rows = []
+    for s in result["invoices"]:
+        iid = s["invoice_id"]
+        if iid not in mine:
+            continue
+        inv = invoices[iid]
+        paid = [c for c in confirmed if c["invoice_id"] == iid]
+        offers = paid or [c for c in proposed if c["invoice_id"] == iid] or [c for c in result["candidates"] if c["invoice_id"] == iid]
+        first = offers[0] if offers else None
+        st_ln = lines.get(first["line_id"]) if first else None
+        rows.append({"_key": f"invoice|{iid}", "item_id": iid, "kind": "invoice", "file": files.get(iid), "status": s["status"],
+                     "date": inv.get("issue_date"), "amount": inv.get("amount"), "currency": inv.get("currency"),
+                     "partner": inv.get("supplier_name"), "number": inv.get("number"), "memo": None,
+                     "paired_file": line_text(first["line_id"]) if first else None,
+                     "paired_date": st_ln[1].get("booking_date") if st_ln else None,
+                     "candidates": len(offers),
+                     **signal_flags(inv, st_ln),
+                     "decision": "paid_by" if paid else ("not_this" if any(p[0] == iid for p in rejected) else None),
+                     "reason": s.get("reason")})
+    for st in snap["statements"]:
+        if st["id"] not in mine:
+            continue
+        for ln in st["lines"]:
+            lid = ln["id"]
+            paid = [c for c in confirmed if c["line_id"] == lid]
+            offers = paid or [c for c in proposed if c["line_id"] == lid] or [c for c in result["candidates"] if c["line_id"] == lid]
+            status = ("confirmed" if paid else "proposed" if offers and offers[0] in proposed else
+                      "amount_differs" if offers else "excluded" if ("line", lid) in excluded else "unpaired")
+            first = offers[0] if offers else None
+            inv = invoices.get(first["invoice_id"]) if first else None
+            rows.append({"_key": f"line|{lid}", "item_id": st["id"], "kind": "line", "file": files.get(st["id"]), "status": status,
+                         "date": ln.get("booking_date"), "amount": ln.get("amount"), "currency": st.get("currency"),
+                         "partner": ln.get("counterparty_name"), "number": inv.get("number") if inv else None,
+                         "memo": ln.get("memo") or ln.get("description"),
+                         "paired_file": files.get(first["invoice_id"]) if first else None,
+                         "paired_date": inv.get("issue_date") if inv else None, "candidates": len(offers),
+                         **signal_flags(inv, (st, ln)),
+                         "decision": "paid_by" if paid else ("not_this" if any(p[1] == lid for p in rejected) else None),
+                         "reason": excluded.get(("line", lid))})
+    return rows
+
+
+def worth_showing(rows: Iterable[dict[str, Any]]) -> bool:
+    """Whether a run's reconciliation view (`run_rows`) says anything: the run has a statement line, or one of its
+    invoices has a pair, a decision or (partial) coverage by verified statements."""
+    return any(r["kind"] == "line" or r["status"] in ("confirmed", "proposed", "amount_differs", "no_payment_found", "partly_covered")
+               for r in rows)
+
+
+def fingerprint() -> str:
+    """What the reconciliation of a run depends on besides the run itself: the store's invoices and statements, their
+    corrections and the decisions (`datasets` caches the view by it)."""
+    conf = _conf()
+    types = [*conf["invoice_types"], *conf["outgoing_types"], *conf["statement_types"]]
+    with store.connect() as c:
+        docs = c.execute(f"SELECT COUNT(*), MAX(rowid) FROM datapoints WHERE doc_type IN ({','.join('?' * len(types))})", types).fetchone()
+        corr = (c.execute("SELECT COUNT(*), MAX(created_at) FROM run_item_corrections").fetchone()
+                if _has_table(c, "run_item_corrections") else (0, None))
+        dec = [[d["pair_key"], d["decision"], d["decided_at"]] for d in _decision_rows(c)]
+    return "|".join(str(x) for x in (*docs, *corr, hashlib.sha256(json.dumps(dec).encode("utf-8")).hexdigest()[:16]))
+
+
+# --- the pairs already in the store ------------------------------------------------------------------------------------
+
+
+def scan(*, write: bool = False) -> dict[str, Any]:
+    """Counts of the store's proposal for the command line (no values printed), and with `write` the same to-do the
+    processing would open, on the later processed document of each proposed pair, under the flow run that produced
+    it. A document whose result is not from a work run, or whose run is approved, is skipped."""
+    from jav import work
+
     snap = snapshot()
     result = propose(snap)
 
     def count(rows: list[dict[str, Any]], key: str) -> dict[str, int]:
         return dict(sorted(Counter(str(r.get(key)) for r in rows).items()))
 
+    docs = {d["id"]: d for d in [*snap["invoices"], *snap["statements"]]}
+    with store.connect() as c:
+        approved = ({r["run_id"] for r in c.execute("SELECT run_id FROM runs WHERE approval IS NOT NULL")}
+                    if _has_table(c, "runs") else set())
+        already = {(r["subject_id"], r["reason"]) for r in _open_to_dos(c)}
+    pending: dict[str, tuple[dict[str, Any], list[str]]] = {}
+    skipped: dict[str, int] = defaultdict(int)
+    for cand in (c for c in result["candidates"] if c["proposed"]):
+        later = max(docs[cand["invoice_id"]], docs[cand["statement_id"]], key=lambda d: d["seq"])
+        code = reason(cand["invoice_id"], cand["line_id"])
+        if later.get("work_run") is None:
+            skipped["no_work_run"] += 1
+        elif later["work_run"] in approved:
+            skipped["approved_run"] += 1
+        elif (later["id"], code) in already:
+            skipped["already_open"] += 1  # an earlier --write (or the processing) opened it
+        else:
+            pending.setdefault(later["id"], (later, []))[1].append(code)
+    written = 0
+    if write:
+        for doc, codes in pending.values():
+            store.review_enqueue(subject_kind="document", subject_id=doc["id"], run_id=doc["flow_run_id"] or "",
+                                 reasons=codes, producer=PRODUCER)
+            written += len(codes)
+        for run_id in sorted({doc["work_run"] for doc, _ in pending.values()}):
+            work.refresh_run_status(run_id)
     statements = snap["statements"]
     return {
         "statements": len(statements), "verified_statements": sum(1 for s in statements if s["verified"]),
@@ -453,8 +891,10 @@ def scan() -> dict[str, Any]:
         "proposed_pairs": sum(1 for c in result["candidates"] if c["proposed"]),
         "multiple_candidates": sum(1 for c in result["candidates"] if c["multiple_candidates"]),
         "amount_differs_pairs": sum(1 for c in result["candidates"] if not c["proposed"]),
+        "confirmed_pairs": len(result["confirmed"]), "decisions": count(_decision_rows(), "decision"),
         "invoice_status": count(result["invoices"], "status"),
         "unpaired_lines": len(result["unpaired_line_ids"]),
+        "to_open": sum(len(codes) for _, codes in pending.values()), "written": written, "skipped": dict(sorted(skipped.items())),
         "config_hash": result["config_hash"], "engine_version": ENGINE_VERSION,
     }
 
@@ -471,7 +911,8 @@ def golden_cases() -> list[dict[str, Any]]:
         invoices = [{**d["invoice"], **inv} for inv in case["invoices"]]
         statements = [{**d["statement"], **st, "lines": [{**d["line"], **ln} for ln in st.get("lines", [])]}
                       for st in case["statements"]]
-        out.append({"id": case["id"], "note": case.get("note"), "snapshot": {"invoices": invoices, "statements": statements},
+        out.append({"id": case["id"], "note": case.get("note"),
+                    "snapshot": {"invoices": invoices, "statements": statements, "decisions": case.get("decisions", [])},
                     "expected": case["expected"], "source_review": case.get("source_review", [])})
     return out
 
@@ -493,6 +934,9 @@ def check_case(case: dict[str, Any]) -> list[str]:
     review = sorted(c["line_id"] for c in result["candidates"] if c["source_review_required"])
     if review != sorted(case["source_review"]):
         problems.append(f"source review {review} != {sorted(case['source_review'])}")
+    got_confirmed = sorted([c["line_id"], c["invoice_id"]] for c in result["confirmed"])
+    if got_confirmed != sorted(exp.get("confirmed", [])):
+        problems.append(f"confirmed {got_confirmed} != {sorted(exp.get('confirmed', []))}")
     return problems
 
 

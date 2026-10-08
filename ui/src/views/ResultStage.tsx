@@ -24,10 +24,11 @@ const TABLES: { key: ResultTable; dataset: string }[] = [
   { key: "line_items", dataset: "line_items" },
   { key: "utility", dataset: "utility_cost" },
   { key: "file_names", dataset: "file_names" },
+  { key: "reconciliation", dataset: "reconciliation" }, // 129: invoice <-> statement line pairs
 ];
 // the views' labels are translated when read (tmap)
 const TABLE_LABEL = tmap({ emails: "Levelek", tasks: "Feladatok", documents: "Iratok", datapoints: "Adatpontok", line_items: "Tételsorok",
-  utility: "Közmű-költség", file_names: "Fájlnevek", native_facts: "Native facts" }) as Record<ResultTable, string>;
+  utility: "Közmű-költség", file_names: "Fájlnevek", native_facts: "Native facts", reconciliation: "Reconciliation" }) as Record<ResultTable, string>;
 
 /** The default tab (062): Levelek (Emails) for an email work package, otherwise Adatpontok (Data points), failing
  *  that the first available view. */

@@ -70,7 +70,7 @@ python -m jav.cli email <folder> | email-golden | email-determinism --n 3 | emai
 python -m jav.cli email-ingest-server --port 8931 --run   # receiver for the legacy outlook_bridge.ps1 (8901 = legacy Docker)
 python -m jav.cli recipes | wp-* | run-* | worker [--once] | worker-status | worker-stop   # work package → run (jav/work_cli.py)
 python -m jav.cli calls-uncertain | calls-resolve <id> [--cost USD] --note N   # settle a paid call with an uncertain outcome by hand
-python -m jav.cli duplicates [--write] | reconcile [--golden]   # duplicate invoices | invoice <-> statement line pairs (read only)
+python -m jav.cli duplicates [--write] | reconcile [--golden] [--write]   # duplicate invoices | invoice <-> statement line pairs (--write: open their to-dos)
 .\scripts\dev.ps1 start|status|stop                     # UI + local service (serve, 127.0.0.1:8930) + one worker
 cd ui; npm run build | npm test | npm run dev             # UI (ui/): build into ui/dist, vitest, dev server :5173
 python -m jav.cli ocr [<pdf>] [--force] [--psm N] [--limit N]   # without a PDF: status of the OCR engine
@@ -100,7 +100,7 @@ python -m jav.capability_catalog                  # deterministic inventory of t
   - `work.py`: workpackages · workpackage_items · workpackage_events · recipe_assignments · runs · run_items · file_fingerprints;
   - `runtime/queue.py`: jobs · queue_control; `runtime/calls.py`: invocations · budgets;
   - `app_settings.py`: app_users · watched_folders · watched_packages · watched_seen; `mailbox.py`: mailbox_schedules · mailbox_pulls;
-  - `corrections.py`: run_item_corrections; `duplicates.py`: duplicate_decisions; `source_layer.py`: source_layers; `legacy_import.py`: legacy_results.
+  - `corrections.py`: run_item_corrections; `duplicates.py`: duplicate_decisions; `reconcile.py`: reconcile_decisions; `source_layer.py`: source_layers; `legacy_import.py`: legacy_results.
 
   Burr state: `store/burr_state.sqlite` (thinned out by `burr-prune`). Backups: `store/backups/` (daily, `configs/service.json` `backup`). The golden sets stay in the legacy project and are only referenced.
 - **Evals:** `evals*.py`, shared report `eval_report.py`; raw runs in `runs/*.jsonl`. Experiments: `jav/experiments/` + `configs/experiments/`.
