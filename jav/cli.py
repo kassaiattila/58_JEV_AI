@@ -142,7 +142,10 @@ def cmd_run(args: argparse.Namespace) -> int:
 def cmd_verifier_probe(args: argparse.Namespace) -> int:
     from jav.evals import verifier_probe
 
-    verifier_probe(use_cache=not args.no_cache, type_key=args.type)
+    from decimal import Decimal
+
+    jev_budget = getattr(args, "jev_budget_usd", None)
+    verifier_probe(use_cache=not args.no_cache, type_key=args.type, jev_budget_usd=Decimal(jev_budget) if jev_budget else None)
     return 0
 
 
@@ -314,8 +317,17 @@ def cmd_golden(args: argparse.Namespace) -> int:
 
     # 122: a separate measurement store keeps the results, to-dos and call log of the measurement out of the work store
     with store.use_store(Path(args.store)) if args.store else contextlib.nullcontext():
-        rows = evals.golden(args.arm, run_one, tracker=args.tracker, use_cache=not args.no_cache, type_key=args.type,
-                            jev=not args.no_jev, budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
+        jev_budget = getattr(args, "jev_budget_usd", None)
+        synthetic = getattr(args, "synthetic", False)
+        cases = evals.load_synthetic_cases(args.type) if synthetic else None
+        if synthetic and not cases:
+            print(f"No synthetic golden case for {args.type} (configs/golden_synthetic.json).")
+            return 1
+        rows = evals.golden(args.arm, run_one, cases=cases, tracker=args.tracker, use_cache=not args.no_cache,
+                            type_key=args.type, jev=not args.no_jev,
+                            budget_usd=Decimal(args.budget_usd) if args.budget_usd else None,
+                            jev_budget_usd=Decimal(jev_budget) if jev_budget else None,
+                            label="synthetic" if synthetic else "golden")
     # 123: exit code 3 = the budget left cases without a result
     return 3 if report_budget_skips(rows) else 0
 
@@ -349,8 +361,10 @@ def cmd_email_golden(args: argparse.Namespace) -> int:
 
     from decimal import Decimal
 
+    jev_budget = getattr(args, "jev_budget_usd", None)
     email_golden(use_cache=not args.no_cache, limit=args.limit, jev=not args.no_jev,
-                 budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
+                 budget_usd=Decimal(args.budget_usd) if args.budget_usd else None,
+                 jev_budget_usd=Decimal(jev_budget) if jev_budget else None)
     return 0
 
 
@@ -631,7 +645,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--limit", type=int)
     p.add_argument("--no-jev", action="store_true", help="089: GPT recognises the intent (paid OpenAI calls)")
-    p.add_argument("--budget-usd", help="089: hard OpenAI budget for the whole measurement (JEV and Azure get none)")
+    p.add_argument("--budget-usd", help="089: hard OpenAI budget for the whole measurement")
+    p.add_argument("--jev-budget-usd", help="127: hard JEV budget for the whole measurement; with either budget, a provider "
+                                            "without one (Azure always) cannot be called")
     p.set_defaults(fn=cmd_email_golden)
 
     p = sub.add_parser("email-inbox", help="M3: inbox/<mailbox>/<msgid>/ mappák bejárása (Outlook-lekérés után), folytatható")
@@ -741,6 +757,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("verifier-probe", help="Jev-ellenőrző kalibrációs szonda a golden kivonatokon (OpenAI nélkül); nyers futás runs/*_verifier_probe.jsonl")
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--type", default="invoice_hu", help=type_help)
+    p.add_argument("--jev-budget-usd", help="127: hard JEV budget for the whole probe (no other provider can be called)")
     p.set_defaults(fn=cmd_verifier_probe)
 
     p = sub.add_parser("golden", help="M2 golden egy karra és típus-csomagra (runs/[<típus>_]golden_<kar>.jsonl)")
@@ -749,7 +766,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tracker", action="store_true")
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--no-jev", action="store_true", help="086: the G path verified by the code alone (runs/*_golden_G_nojev.jsonl)")
-    p.add_argument("--budget-usd", help="086: hard OpenAI budget for the whole measurement (JEV and Azure get none)")
+    p.add_argument("--budget-usd", help="086: hard OpenAI budget for the whole measurement")
+    p.add_argument("--jev-budget-usd", help="127: hard JEV budget for the whole measurement; with either budget, a provider "
+                                            "without one (Azure always) cannot be called")
+    p.add_argument("--synthetic", action="store_true", help="127: the synthetic golden cases of the type "
+                                                             "(configs/golden_synthetic.json) instead of the legacy set")
     p.add_argument("--store", help="122: a separate measurement store (results, to-dos and call log stay out of the work store)")
     p.set_defaults(fn=cmd_golden)
 

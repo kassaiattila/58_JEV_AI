@@ -1,0 +1,106 @@
+{
+ "meta": {
+  "name": "golden_synthetic",
+  "version": "1.0.0",
+  "description": "Synthetic golden cases, kept apart from the legacy golden sets (whose results stay comparable): invented documents for cases the legacy sets do not cover. Each case is a single-page PDF written from `rows` (`jav/synthetic_pdf.py`; three spaces separate the columns of a row) and scored only on the fields named in `expected`. Run with `python -m jav.cli golden --arm S --type <type> --synthetic`; the rows go to runs/*_synthetic_<arm>.jsonl. Every value is invented; the tax numbers and VAT ids are on the data guard's allow list.",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-08",
+    "note": "127 (5th group, round B; backlog Q-credit-note and Q-receipt, the owner's decisions of 2026-10-07): a Hungarian and a foreign credit note (the own number, not the referenced original invoice's) and two foreign receipts without an invoice number (receipt number > transaction id; never the order number)."
+   }
+  ]
+ },
+ "cases": [
+  {
+   "id": "synthetic_credit_note_hu",
+   "type_key": "invoice_hu",
+   "why": "A Hungarian credit note prints its own number and the number of the invoice it corrects; the own number is the invoice number.",
+   "rows": [
+    "JÓVÁÍRÓ SZÁMLA",
+    "Jóváíró számla sorszáma: JV-2026-0012",
+    "Eladó:   Vevő:",
+    "Minta Kereskedő Kft.   Példa Vásárló Bt.",
+    "1111 Budapest, Teszt utca 1.   2222 Mintaváros, Próba út 2.",
+    "Adószám: 12121216-2-42   Adószám: 12345676-2-41",
+    "Helyesbített számla sorszáma: KI-2026-0417",
+    "Kiállítás dátuma: 2026.03.10.   Teljesítés dátuma: 2026.03.10.",
+    "Fizetési határidő: 2026.03.18.   Fizetési mód: átutalás",
+    "Megnevezés   Mennyiség   Nettó ár   Áfa   Bruttó ár",
+    "Visszáru: irodaszer   1   -10 000 Ft   27%   -12 700 Ft",
+    "Nettó összesen: -10 000 Ft",
+    "Áfa összesen: -2 700 Ft",
+    "Bruttó összesen: -12 700 Ft"
+   ],
+   "expected": {
+    "invoice_number": "JV-2026-0012",
+    "supplier_name": "Minta Kereskedő Kft.",
+    "buyer_name": "Példa Vásárló Bt.",
+    "issue_date": "2026-03-10"
+   }
+  },
+  {
+   "id": "synthetic_credit_note_en",
+   "type_key": "invoice_foreign",
+   "why": "A foreign credit note prints its own number and, below it, the original invoice's; the own number is the invoice number.",
+   "rows": [
+    "CREDIT NOTE",
+    "Credit Note Number: AB12CD34-0008-CN-01",
+    "Invoice: AB12CD34-0008",
+    "Date of issue: March 12, 2026",
+    "From:   Bill to:",
+    "Example Software Ltd   Példa Vásárló Kft.",
+    "One Example Place, Dublin 2, Ireland   1111 Budapest, Teszt utca 1.",
+    "VAT ID: IE8256796U   VAT ID: HU12121216",
+    "Description   Qty   Amount",
+    "Refund of unused service   1   -EUR 20.00",
+    "Total: -EUR 20.00"
+   ],
+   "expected": {
+    "invoice_number": "AB12CD34-0008-CN-01",
+    "supplier_name": "Example Software Ltd",
+    "buyer_name": "Példa Vásárló Kft.",
+    "issue_date": "2026-03-12"
+   }
+  },
+  {
+   "id": "synthetic_receipt_transaction_id",
+   "type_key": "invoice_foreign",
+   "why": "A receipt with no invoice and no receipt number: the transaction id is the invoice number, never the order number.",
+   "rows": [
+    "Receipt",
+    "Example Code Platform, Inc.",
+    "88 Sample Street, San Francisco, CA 94107, USA",
+    "Billed to: Példa Vásárló Kft.",
+    "Date: 2026-03-01",
+    "Order Number: 900117",
+    "Transaction ID: TXN-48151623",
+    "Pro plan (monthly)   USD 4.00",
+    "Total: USD 4.00"
+   ],
+   "expected": {
+    "invoice_number": "TXN-48151623",
+    "supplier_name": "Example Code Platform, Inc.",
+    "issue_date": "2026-03-01"
+   }
+  },
+  {
+   "id": "synthetic_receipt_receipt_number",
+   "type_key": "invoice_foreign",
+   "why": "A receipt with a receipt number and a transaction id but no invoice number: the receipt number wins.",
+   "rows": [
+    "Receipt from Example Learning Ltd",
+    "Receipt #2459-8602-1123",
+    "Transaction ID: TXN-77001234",
+    "Date paid: March 5, 2026",
+    "Billed to: Példa Vásárló Kft.",
+    "Course subscription   EUR 39.00",
+    "Amount paid: EUR 39.00"
+   ],
+   "expected": {
+    "invoice_number": "2459-8602-1123",
+    "issue_date": "2026-03-05"
+   }
+  }
+ ]
+}

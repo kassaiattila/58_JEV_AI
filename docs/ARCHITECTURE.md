@@ -102,7 +102,9 @@ the receiver resolves both attachment roots (`jav/ingest_server.py` `host_path`)
 The **golden loop** is the same for every flow: golden set (referenced from the legacy project; the PII stays there) → run
 with the cache ($0 thanks to the request hash) → report (`runs/*.jsonl` + Markdown) → discrepancy analysis from the raw
 run → general rule (config change with a version bump) → rerun → determinism measurement without the cache. From live
-data: a manual labelling list (`*_manual_sample.md`) → our own golden set (`golden_labels`).
+data: a manual labelling list (`*_manual_sample.md`) → our own golden set (`golden_labels`). Situations the legacy sets do
+not cover (credit notes, receipts without an invoice number) have invented cases in `configs/golden_synthetic.json`
+(`golden --synthetic`), run and reported apart, so the legacy results stay comparable.
 
 ## 2. The five planes
 
