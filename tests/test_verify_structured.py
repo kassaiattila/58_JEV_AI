@@ -89,7 +89,7 @@ def test_verify_config_is_structured():
 
 def test_build_questions_structured_instructions():
     """The instruction is an object (sde_cascade pattern): field_spec {name, meaning}, extracted_field raw, printed_on,
-    question, glossary."""
+    question, glossary; 127: the document guard as `rule`."""
     from jav.jev_verify import FIELD_SPECS, build_questions
     from jav.jev_select import GLOSSARY
     from jav.models import InvoiceLLM
@@ -98,7 +98,7 @@ def test_build_questions_structured_instructions():
     evidence = {"supplier_name": ["L01: Teszt Kft."], "supplier_tax_id": ["L02: Adószám: 12345678-1-42"]}
     q = build_questions(llm, evidence)
     ot = q["supplier_name__off_target"].instructions
-    assert isinstance(ot, dict) and set(ot) == {"glossary", "field_spec", "extracted_field", "printed_on", "question"}
+    assert isinstance(ot, dict) and set(ot) == {"glossary", "rule", "field_spec", "extracted_field", "printed_on", "question"}
     assert ot["field_spec"] == {"name": "supplier_name", "meaning": FIELD_SPECS["supplier_name"]}
     assert ot["extracted_field"] == "Teszt Kft." and ot["printed_on"] == ["L01: Teszt Kft."]  # raw value, not repr
     assert ot["glossary"] == GLOSSARY and "`printed_on`" in ot["question"]
@@ -108,9 +108,9 @@ def test_build_questions_structured_instructions():
     assert wk["extracted_field"] == "12345678-1-42" and wk["field_spec"]["name"] == "supplier_tax_id"
     assert "net_total__off_target" not in q  # no evidence -> unsupported, JEV is not asked
     aw = q["buyer_name__absence_wrong"].instructions
-    assert set(aw) == {"glossary", "field_spec", "extracted_field", "question"} and aw["extracted_field"] is None
+    assert set(aw) == {"glossary", "rule", "field_spec", "extracted_field", "question"} and aw["extracted_field"] is None
     ps = q["parties_swapped"].instructions
-    assert set(ps) == {"glossary", "question"} and "SWAPPED" in ps["question"]
+    assert set(ps) == {"glossary", "rule", "question"} and "SWAPPED" in ps["question"]
     assert all(isinstance(x.instructions, dict) for x in q.values())
 
 

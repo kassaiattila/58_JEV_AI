@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.4",
+        "date": "2026-10-08",
+        "note": "127: accept document vocabulary in the round-B changes - the credit-note, buyer and street words of the candidate patterns (jav/candidates.py), the credit-note glossary line of the Hungarian selection questions (select.json), the pro forma and invoice titles of the type registry (doc_types.json) - and the Hungarian words of three new glossary entries; the data guard config lost six Hungarian lines. All other file limits are unchanged."
+      },
       {
         "version": "1.0.3",
         "date": "2026-10-07",
@@ -37,7 +42,7 @@
     "configs/callsites/detect.json": 1,
     "configs/callsites/detect_detail.json": 1,
     "configs/callsites/email_intent.json": 4,
-    "configs/callsites/select.json": 33,
+    "configs/callsites/select.json": 34,
     "configs/callsites/select_foreign.json": 24,
     "configs/callsites/select_utility.json": 84,
     "configs/callsites/verify.json": 17,
@@ -58,9 +63,9 @@
     "configs/callsites/verify_statement_erste.json": 2,
     "configs/callsites/verify_terkep_adat.json": 2,
     "configs/callsites/verify_utility.json": 35,
-    "configs/data_guard.json": 19,
+    "configs/data_guard.json": 13,
     "configs/datasets.json": 24,
-    "configs/doc_types.json": 174,
+    "configs/doc_types.json": 178,
     "configs/email_tasks.json": 8,
     "configs/experiments/claim_assessment_cases.json": 4,
     "configs/experiments/document_injection.json": 59,
@@ -142,7 +147,7 @@
     "configs/types/viz_szamla.json": 29,
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
-    "docs/GLOSSARY.md": 202,
+    "docs/GLOSSARY.md": 205,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 10,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -159,7 +164,7 @@
     "jav/api.py": 11,
     "jav/app_settings.py": 6,
     "jav/backup.py": 2,
-    "jav/candidates.py": 59,
+    "jav/candidates.py": 62,
     "jav/cfg.py": 3,
     "jav/cli.py": 71,
     "jav/config.py": 5,

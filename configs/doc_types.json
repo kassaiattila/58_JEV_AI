@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "doc_types",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "changelog": [
+   {
+    "version": "2.2.0",
+    "date": "2026-10-08",
+    "note": "127 (5th group, round B; backlog Q-pro-forma-JEV): JEV could not tell the Számlázz.hu pro formas from invoices (0.47-0.52 on 3 of 4), because both entries separated them by timing, which the page does not show, and proforma_invoice.not_for described the pro formas themselves (serial number, VAT breakdown). Now the document's own title decides: proforma_invoice.what (after its first clause), not_for and examples, invoice_hu.what (after its first clause), the last sentence of its not_for and one example; an advance invoice (előlegszámla) or an invoice issued on a díjbekérő is an invoice. The first clauses GPT is shown are unchanged, so the GPT detection instructions are byte-identical. New cache key for every JEV detection question: the detection baseline is re-measured."
+   },
    {
     "version": "2.1.0",
     "date": "2026-10-07",
@@ -46,12 +51,13 @@
   {
    "key": "invoice_hu",
    "parent": "invoice_like",
-   "what": "Supplier invoice (számla) ISSUED BY A HUNGARIAN business or private entrepreneur: the issuer has a Hungarian tax number (adószám ########-#-##), Hungarian labels (számla sorszáma, teljesítés, fizetési határidő, áfa), HUF amounts, often a Számlázz.hu / NAV Online Számlázó / Billzone footer. The ISSUER's nationality decides, not the language of the text.",
-   "not_for": "A foreign issuer billing a Hungarian buyer, even in Hungarian (invoice_foreign). A Hungarian freelancer billing THROUGH A FOREIGN PLATFORM (Upwork etc.) in English / USD with no Hungarian tax number (invoice_foreign - policy 2026-09-20: the FORM decides). Hungarian utility bills for electricity, gas, water, waste (utility_bill_hu). A receipt or payment confirmation without VAT breakdown (receipt). A dunning letter about unpaid invoices (payment_reminder). A pro forma invoice or payment request issued BEFORE the invoice (proforma_invoice).",
+   "what": "Supplier invoice (számla) ISSUED BY A HUNGARIAN business or private entrepreneur: the issuer has a Hungarian tax number (adószám ########-#-##), Hungarian labels (számla sorszáma, teljesítés, fizetési határidő, áfa), HUF amounts, often a Számlázz.hu / NAV Online Számlázó / Billzone footer; a title, when printed, calls it an invoice (SZÁMLA, ELEKTRONIKUS SZÁMLA, e-számla, ELŐLEGSZÁMLA, VÉGSZÁMLA). Advance invoices (előlegszámla) and invoices issued on the basis of an earlier díjbekérő or előlegbekérő are invoices. The ISSUER's nationality decides, not the language of the text.",
+   "not_for": "A foreign issuer billing a Hungarian buyer, even in Hungarian (invoice_foreign). A Hungarian freelancer billing THROUGH A FOREIGN PLATFORM (Upwork etc.) in English / USD with no Hungarian tax number (invoice_foreign - policy 2026-09-20: the FORM decides). Hungarian utility bills for electricity, gas, water, waste (utility_bill_hu). A receipt or payment confirmation without VAT breakdown (receipt). A dunning letter about unpaid invoices (payment_reminder). A document whose own title or number label names it a payment request or pro forma (DÍJBEKÉRŐ, PROFORMA SZÁMLA, ELŐLEGBEKÉRŐ), even with a full invoice layout, VAT breakdown and fulfilment date (proforma_invoice).",
    "examples": [
     "Számla sorszáma: INF-2022-3, Adószám: 21357912-1-13, Fizetési határidő",
     "Számlázz.hu / NAV Online Számlázó footer, Bruttó összesen ... Ft",
-    "Egyéni vállalkozó (kisadózó) számlája, AAM áfa"
+    "Egyéni vállalkozó (kisadózó) számlája, AAM áfa",
+    "SZÁMLA / ELŐLEGSZÁMLA issued on the basis of an earlier díjbekérő or előlegbekérő (advance or final invoice)"
    ],
    "required_any": [
     "számla",
@@ -429,12 +435,12 @@
   {
    "key": "proforma_invoice",
    "parent": "invoice_like",
-   "what": "Pro forma invoice or payment request (díjbekérő, proforma számla, előlegbekérő) that asks for payment BEFORE the invoice is issued: a serial number, the supplier and the buyer, the amount and a payment deadline, often with a note that it is not an invoice (nem számla) and that the invoice follows the payment.",
-   "not_for": "The invoice issued for the payment, with an invoice number and VAT breakdown (invoice_hu / invoice_foreign). A dunning letter about an unpaid invoice (payment_reminder). An offer or quote that does not request payment (other). A receipt or confirmation of a payment already made (receipt).",
+   "what": "Pro forma invoice or payment request (díjbekérő, proforma számla, előlegbekérő) that asks for payment BEFORE the invoice is issued: the document's own title or number label names it a payment request or pro forma (DÍJBEKÉRŐ, Díjbekérő sorszáma, PROFORMA SZÁMLA, ELŐLEGBEKÉRŐ). Otherwise it may look exactly like an invoice - issuer tax number, buyer, serial number, line items with VAT rate and VAT amount, gross total, fulfilment, issue and due dates, an invoicing-software footer such as Számlázz.hu - because the same software prints both; the document's own title decides, not the layout. Some also state that it is not an invoice (nem számla, nem adóügyi bizonylat) or that the invoice follows the payment.",
+   "not_for": "A document whose title names it an invoice (SZÁMLA, ELEKTRONIKUS SZÁMLA, e-számla, ELŐLEGSZÁMLA, VÉGSZÁMLA), even when it refers to an earlier or paid díjbekérő or előlegbekérő ('a ... díjbekérő alapján', 'Kifizetett díjbekérő sorszáma') or bills or deducts an advance payment (előleg): an advance invoice (előlegszámla) is an invoice (invoice_hu / invoice_foreign). A dunning letter about an unpaid invoice (payment_reminder). An offer or quote that does not request payment (other). A receipt or confirmation of a payment already made (receipt).",
    "examples": [
-    "Díjbekérő, sorszám DB-2024-017, fizetési határidő, a számlát a befizetés után állítjuk ki",
+    "DÍJBEKÉRŐ title, Sorszám, Teljesítés dátuma, Fizetési határidő, items with Áfa % and Bruttó ár - invoice-style layout from invoicing software",
     "Proforma számla - nem számla, áfa levonására nem jogosít",
-    "Előlegbekérő a megrendelés előlegéről"
+    "Előlegbekérő a megrendelés előlegéről, a számlát a befizetés után állítjuk ki"
    ],
    "required_any": [
     "d[ií]jbek[eé]r[oő]",

@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "verify_foreign",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-10-08",
+    "note": "127 (5th group, round B): own data replaced (069 decision): the example buyer VAT number in buyer_tax_id is an invented one. The document guard and the request size budget (110000) come from verify 1.2.0. Backlog Q-credit-note and Q-receipt (the owner's decision of 2026-10-07): the invoice_number field spec names a credit note's own number and, on a receipt without an invoice number, the receipt number, else the transaction / payment id."
+   },
    {
     "version": "1.0.0",
     "date": "2026-09-20",
@@ -19,9 +24,9 @@
   "supplier_address": "postal address of the supplier (issuer), as printed",
   "supplier_country": "ISO 3166-1 alpha-2 country code of the SUPPLIER (issuer), inferred from its address or tax-id prefix (IE, US, DE, PL, TR, ...) - not the buyer's country",
   "buyer_name": "name of the BUYER, the party that receives the invoice (Bill to / Customer / Vevő / Számlafizető), typically a Hungarian company",
-  "buyer_tax_id": "the buyer's tax / VAT identification number exactly as printed (typically HU-prefixed, e.g. HU28994028, or Hungarian ########-#-##)",
+  "buyer_tax_id": "the buyer's tax / VAT identification number exactly as printed (typically HU-prefixed, e.g. HU12121216, or Hungarian ########-#-##)",
   "buyer_address": "postal address of the buyer (Bill to / Vevő block), as printed",
-  "invoice_number": "the invoice's own document number (Invoice No / #, Fatura No, Belge No, Rechnungsnummer, Számla száma), not an order number, UUID, customer id, tax id or bank account",
+  "invoice_number": "the document's own number: the invoice number (Invoice No / #, Fatura No, Belge No, Rechnungsnummer, Számla száma); on a credit note or refund its own credit-note number, not the referenced original invoice's; on a receipt that prints no invoice number the receipt number, else the transaction / payment id; never an order number, UUID, customer id, tax id or bank account",
   "issue_date": "issue date (Date, Invoice date, Fatura Tarihi, Számla dátuma), ISO format",
   "due_date": "payment due date (Due date, Vade, Határidő), ISO format; often absent on e-tickets and card-charged invoices",
   "currency": "ISO 4217 code of the invoice's BILLING currency (TL = TRY; a HUF tax-reporting conversion is not the billing currency)",
