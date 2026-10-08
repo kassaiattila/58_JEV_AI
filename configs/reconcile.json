@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "name": "reconcile",
+    "version": "1.0.0",
+    "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment kinds left to a person and when a statement counts as verified coverage. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid').",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-08",
+        "note": "128 K1: first version. Rules ported selectively from the legacy project's orchestrator/framework/payables.py 0.1.1 (10_AIFLOW_V4 HEAD 4256cba): the reason-coded exclusions, the signals and 'an equal amount alone is no candidate'. New: the exact-amount rule, the window's upper end, coverage by verified statements."
+      }
+    ]
+  },
+  "invoice_types": ["invoice_hu", "invoice_foreign", "proforma_invoice", "csatorna_szamla", "foldgaz_szamla", "mohu_szamla",
+                    "villamos_energia_szamla", "viz_szamla", "vizmuvek_szamla"],
+  "outgoing_types": ["invoice_out"],
+  "statement_types": ["statement_cib", "statement_erste"],
+  "currencies": ["HUF", "EUR", "USD", "GBP"],
+  "invoice_fields": {
+    "number": "invoice_number",
+    "supplier_name": "supplier_name",
+    "supplier_tax_id": "supplier_tax_id",
+    "payment_account": "payment_iban",
+    "amount": ["amount_due", "gross_total"],
+    "currency": "currency",
+    "issue_date": "issue_date",
+    "due_date": "due_date"
+  },
+  "window": {
+    "days_before_issue": 31,
+    "days_after_due": 60
+  },
+  "signals": {
+    "min_number_chars": 4,
+    "min_compact_number_chars": 6,
+    "min_name_share": 0.75
+  },
+  "payment_review_pattern": "hitelkartya|torleszt|jutalek|kamat|szamlavezetesi dij|kartyadij",
+  "verified_when": {
+    "closing_balance_check": ["closing.ok"],
+    "totals_consistency": ["totals.ok", "totals.na"]
+  }
+}
