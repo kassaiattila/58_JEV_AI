@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.5",
+        "date": "2026-10-08",
+        "note": "127: accept the new round-B data files, which the check saw only once they were committed: the invented golden documents (configs/golden_synthetic.json) and the synthetic test lines of three tests; and the legal-form adjectives of the candidate finder (jav/candidates.py). All other file limits are unchanged."
+      },
       {
         "version": "1.0.4",
         "date": "2026-10-08",
@@ -78,6 +83,7 @@
     "configs/experiments/pydantic_jev.json": 3,
     "configs/experiments/source_find_cases.json": 6,
     "configs/field_labels.json": 167,
+    "configs/golden_synthetic.json": 20,
     "configs/grounding.json": 1,
     "configs/intents.json": 34,
     "configs/legacy_types/altalanos_szerzodesi_feltetelek/detect.json": 16,
@@ -164,7 +170,7 @@
     "jav/api.py": 11,
     "jav/app_settings.py": 6,
     "jav/backup.py": 2,
-    "jav/candidates.py": 62,
+    "jav/candidates.py": 64,
     "jav/cfg.py": 3,
     "jav/cli.py": 71,
     "jav/config.py": 5,
@@ -272,6 +278,7 @@
     "tests/test_candidates.py": 28,
     "tests/test_candidates_065.py": 5,
     "tests/test_candidates_066.py": 3,
+    "tests/test_candidates_127.py": 29,
     "tests/test_cfg.py": 1,
     "tests/test_config_hash_067.py": 2,
     "tests/test_contract.py": 2,
@@ -285,6 +292,7 @@
     "tests/test_doc_links.py": 1,
     "tests/test_docs_071.py": 1,
     "tests/test_docsgen_067.py": 1,
+    "tests/test_document_guard_127.py": 1,
     "tests/test_document_injection_probe.py": 3,
     "tests/test_email_results.py": 18,
     "tests/test_email_signals.py": 4,
@@ -326,6 +334,7 @@
     "tests/test_reports.py": 5,
     "tests/test_review_gate_066.py": 6,
     "tests/test_review_reasons.py": 1,
+    "tests/test_round_b_texts_127.py": 7,
     "tests/test_runtime_adapters.py": 6,
     "tests/test_runtime_calls.py": 3,
     "tests/test_runtime_queue.py": 1,

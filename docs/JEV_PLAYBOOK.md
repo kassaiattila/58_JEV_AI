@@ -67,7 +67,7 @@ Every Choice and presence Noul carries the call site's `document_guard` after th
 | call site | type packs | requests | extra questions |
 |---|---|---|---|
 | `select` (1.3.0) | `invoice_hu` (Hungarian invoice) | `parties`, `header`, `money` | `currency`, `payment_method` |
-| `select_foreign` (1.2.0) | `invoice_foreign` (foreign supplier invoice) | `foreign_parties`, `foreign_header`, `foreign_money` | `currency`, `supplier_country` |
+| `select_foreign` (1.2.1) | `invoice_foreign` (foreign supplier invoice) | `foreign_parties`, `foreign_header`, `foreign_money` | `currency`, `supplier_country` |
 | `select_utility` (1.1.0) | the six Hungarian utility packs that extend `utility_bill_hu`: `villamos_energia_szamla` (electricity), `foldgaz_szamla` (gas), `viz_szamla` (water), `vizmuvek_szamla` (Budapest waterworks), `csatorna_szamla` (sewerage), `mohu_szamla` (waste) | `utility_parties`, `utility_header`, `utility_money`, `utility_meter` | `currency`, `payment_method`, `reading_method` |
 
 ### 4.2 Verification (G path): GPT extracts, JEV checks

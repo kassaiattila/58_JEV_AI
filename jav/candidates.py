@@ -661,12 +661,19 @@ def _column_join(lines: list[LineLayout], i: int, cell_idx: int, depth: int) -> 
 NAME_STOP_RE = re.compile(r"[:：]|\d{4}[ ,]|\d{8}|adószám|iban|bank|telefon|tel\.|e-mail|@|www\.")
 
 
+# 127: a legal-form adjective that still wants its noun ("társaság") from the next line
+_INCOMPLETE_LEGAL_FORM_RE = re.compile(r"(?i)^(?:korlátolt felelősségű|betéti|közkereseti)$")
+
+
 def _ends_with_legal_form(text: str, legal_form_re: re.Pattern[str]) -> bool:
-    """127: the name is complete when its last word is a legal form ("Minta Kft.", "... Ltd")."""
+    """127: the name is complete when its last word is a legal form ("Minta Kft.", "... Ltd"); a legal-form adjective
+    at the end is not complete."""
     last = None
     for last in legal_form_re.finditer(text):
         pass
-    return last is not None and not text[last.end():].strip(" .,;")
+    if last is None or text[last.end():].strip(" .,;"):
+        return False
+    return not _INCOMPLETE_LEGAL_FORM_RE.match(" ".join(last.group(0).split()))
 
 
 def _cut_address_tail(text: str, legal_form_re: re.Pattern[str]) -> str:

@@ -63,6 +63,17 @@ def test_a_two_line_company_name_ending_in_reszvenytarsasag_is_joined():
         assert "Példa Közlekedési Központ Zártkörűen Működő Részvénytársaság" in _names(lines, profile), profile
 
 
+def test_a_name_ending_in_an_incomplete_legal_form_is_still_joined():
+    """A legal-form adjective ("korlátolt felelősségű", "betéti") wants its noun ("társaság") from the next line; found
+    in the 127 measurement, where the name lost its last line without a to-do."""
+    lines = [_line(1, ("MINTA-TAX KORLÁTOLT FELELŐSSÉGŰ", 30)), _line(2, ("TÁRSASÁG", 30)),
+             _line(3, ("PÉLDA KERESKEDELMI BETÉTI", 300)), _line(4, ("TÁRSASÁG", 300))]
+    for profile in ("hu", "intl"):
+        names = _names(lines, profile)
+        assert "MINTA-TAX KORLÁTOLT FELELŐSSÉGŰ TÁRSASÁG" in names, profile
+        assert "PÉLDA KERESKEDELMI BETÉTI TÁRSASÁG" in names, profile
+
+
 def test_the_existing_three_line_joins_still_work():
     lines = [_line(1, ("PELDADATA KERESKEDELMI ÉS", 28)), _line(2, ("SZOLGÁLTATÓ BETÉTI TÁRSASÁG", 28)),
              _line(3, ("Magyarország 1119 BUDAPEST", 28))]

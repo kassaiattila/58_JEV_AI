@@ -55,3 +55,10 @@ def test_the_pro_forma_is_told_apart_by_its_own_title_and_an_advance_invoice_sta
     assert "előlegszámla" in pro.not_for and "invoice_hu" in pro.not_for
     assert "előlegszámla" in inv.what
     assert "proforma_invoice" in inv.not_for and "DÍJBEKÉRŐ" in inv.not_for
+
+
+def test_a_hu_prefixed_id_is_the_suppliers_only_in_its_own_block():
+    """127 measurement: without our real VAT number as the example, the supplier's 'none' needs the rule itself."""
+    foreign = cfg.load("callsite:select_foreign")["instructions"]
+    for field in ("supplier_tax_id", "buyer_tax_id"):
+        assert "only tax id" in foreign[field] and "legal footer" in foreign[field], field
