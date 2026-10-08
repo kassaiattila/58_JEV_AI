@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.8",
+        "date": "2026-10-08",
+        "note": "129: accept document vocabulary of the party-name tail rule - the Hungarian words for a partner and a branch and the Polish word for a partnership in the candidate finder's name-continuation pattern (jav/candidates.py), and the invented Hungarian and Polish company names of its test (tests/test_name_tail_129.py). All other file limits are unchanged."
+      },
       {
         "version": "1.0.7",
         "date": "2026-10-08",
@@ -181,7 +186,7 @@
     "jav/api.py": 11,
     "jav/app_settings.py": 6,
     "jav/backup.py": 2,
-    "jav/candidates.py": 64,
+    "jav/candidates.py": 66,
     "jav/cfg.py": 3,
     "jav/cli.py": 71,
     "jav/config.py": 5,
@@ -325,6 +330,7 @@
     "tests/test_long_documents.py": 1,
     "tests/test_lost_glyph_069.py": 1,
     "tests/test_mailbox.py": 9,
+    "tests/test_name_tail_129.py": 4,
     "tests/test_naming_078.py": 16,
     "tests/test_next_step.py": 2,
     "tests/test_no_candidate_field_069.py": 1,
