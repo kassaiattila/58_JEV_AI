@@ -377,6 +377,11 @@ def normalize_value(kind: str, raw: object, field: str, reasons: list[str], *, o
             return False
         reasons.append(f"{field}:unparseable:{raw!r}")
         return None
+    if kind == "name":  # 129: a party name ends at its legal form (a tagline, an address or an ID after it is cut)
+        from jav.candidates import trim_after_legal_form
+
+        text = normalize_text(str(raw))
+        return trim_after_legal_form(text) if text else text
     return normalize_text(str(raw))
 
 

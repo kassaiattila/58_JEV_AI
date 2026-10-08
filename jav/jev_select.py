@@ -24,7 +24,7 @@ from typesafe_sdk import Choice, Noul
 
 from jav import cfg
 from jav.adapters.jev import JevAdapter
-from jav.candidates import MAX_OPTIONS, candidate_lines, find_currencies, payment_method_lines
+from jav.candidates import MAX_OPTIONS, candidate_lines, find_currencies, payment_method_lines, trim_after_legal_form
 from jav.candidates import TOTAL_LINE_RE as _TOTAL_LINE_RE
 from jav.dates import read_date
 from jav.jev_budget import ask_within_budget
@@ -312,6 +312,8 @@ class SelectSite:
                     reasons.append(f"date:order_ambiguous:{field}:{cand.raw!r}")
             elif label is not None and kind in ("currency", "country"):
                 value = label.upper()
+            elif label is not None and kind == "name":
+                value = trim_after_legal_form(label)  # 129: the same rule as the G path, after the choice
             if field in own:
                 values[field] = value
             else:

@@ -676,6 +676,39 @@ def _ends_with_legal_form(text: str, legal_form_re: re.Pattern[str]) -> bool:
     return not _INCOMPLETE_LEGAL_FORM_RE.match(" ".join(last.group(0).split()))
 
 
+# 129: the legal forms of every profile, for the name-tail rule that runs after the choice on both paths
+_ANY_LEGAL_FORM_RE = re.compile("|".join(f"(?:{rx.pattern.removeprefix('(?i)')})"
+                                         for rx in (LEGAL_FORM_RE, LEGAL_FORM_INTL_RE, LEGAL_FORM_UTILITY_RE)), re.IGNORECASE)
+# a continuation that still belongs to a registered name: a partner, a branch, a winding-up state, a trading name
+_NAME_GOES_ON_RE = re.compile(r"(?i)^(?:&|and\b|és\s+társa|fióktelep|branch\b|f\.\s?a\.|v\.\s?a\.|cs\.\s?a\.|kv\.\s?a\.|dba\b"
+                              r"|d/b/a|t/a\b|trading as\b|spółka\b|co\.|kg\b)")
+_NAME_TAIL_SEPARATOR_RE = re.compile(r"^\s*[,\-–—:|/]")
+
+
+def trim_after_legal_form(name: str) -> str:
+    """129: "Minta Kft. <a shop's tagline>" -> "Minta Kft.": the text after a party name's last legal
+    form is cut when it is clearly not part of a registered name - it has a digit (an address, a tax or registration
+    number), it starts after a separator (a remark), or it is a phrase of two or more words with a lower-case word (a
+    tagline). Kept: another legal form, a partner ("& Co."), a branch, a winding-up state ("f.a."), a trading name
+    ("dba"), and a single capitalised word, which may be part of the name. Runs after the choice (the candidates sent
+    to JEV are unchanged)."""
+    last = None
+    for last in _ANY_LEGAL_FORM_RE.finditer(name):
+        pass
+    if last is None or not name[: last.start()].strip():
+        return name
+    end = last.end() + (1 if name[last.end() : last.end() + 1] == "." else 0)  # the dot of the legal form belongs to the name
+    rest = name[end:]
+    tail = rest.strip(" .,;")
+    if not tail or _NAME_GOES_ON_RE.match(rest.lstrip(" ,;")):
+        return name
+    words = tail.split()
+    if (re.search(r"\d", tail) or _NAME_TAIL_SEPARATOR_RE.match(rest)
+            or (len(words) >= 2 and any(w[:1].islower() for w in words))):
+        return name[:end].rstrip(" ,;-–—")
+    return name
+
+
 def _cut_address_tail(text: str, legal_form_re: re.Pattern[str]) -> str:
     """127: "Minta Kft. Fo utca 82. 1141" -> "Minta Kft.": an address-shaped continuation right after a legal form is
     not part of the name (any other continuation stays, e.g. a branch name)."""
