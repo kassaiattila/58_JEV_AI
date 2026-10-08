@@ -2,7 +2,7 @@
 
 A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition (M1), invoice data extraction (M2) and email intent (M3) — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.10.0`** (2026-10-07). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.11.0`** (2026-10-08). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
