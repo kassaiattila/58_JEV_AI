@@ -21,7 +21,8 @@ from jav.runtime import calls
 
 def enabled() -> bool:
     ctx = calls.current()
-    return ctx is not None and ctx.budget_scope is not None
+    # 127: a budgeted measurement has a budget scope too, but it is not a worker run
+    return ctx is not None and ctx.budget_scope is not None and not ctx.measurement
 
 
 def orientation(doc_id: str | None, doc_type: str | None, fields: tuple[str, str], values: tuple[object, object]) -> tuple[int, int] | None:

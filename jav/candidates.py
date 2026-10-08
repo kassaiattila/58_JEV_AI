@@ -72,8 +72,13 @@ TAXID_EU_INTL_RE = re.compile(
 TAXID_LABEL_INTL_RE = re.compile(r"(?i)\b(?:vat\s*(?:id|no|number|reg)|tax\s*(?:id|number|no)|(?-i:EIN)|vkn|tckn|nip|ust[-.]?\s?idnr|steuernummer|abn|gstin|vergi\s*no|áfaazonosító|adószám)\b")
 TAXID_LABEL_TOKEN_RE = re.compile(r"(?<![\w-])(?:\d{2}-\d{7}|\d{9,11}|\d{3}[- ]\d{3}[- ]\d{3}[- ]\d{2,3})(?![\w-])")  # EIN 12-3456789, VKN 10 digits, ABN 11 digits
 
+# 127: the own number of a credit note or corrective invoice is labelled by the document's own name; the referenced
+# original stays a candidate too, the Choice text tells them apart
+CREDIT_NOTE_LABEL_HU = (r"|jóváír\w*\s*(?:számla\s*)?(?:száma|sorszáma|dokumentum)|helyesbítő\s*számla|sztornó\s*számla"
+                        r"|érvénytelenítő\s*számla")
 INVOICE_LABEL_RE = re.compile(
     r"(?i)számla\s*sorszám|sorszám|számlaszám|számla\s*száma|bizonylatszám|invoice\s*(?:no|number|#)|számla\s*azonosító"
+    + CREDIT_NOTE_LABEL_HU
 )
 INVOICE_LABEL_INTL_RE = re.compile(
     r"(?i)számla\s*sorszám|sorszám|számlaszám|számla\s*száma|bizonylatszám|invoice\s*(?:no|number|#|id)|számla\s*azonosító"
@@ -81,6 +86,10 @@ INVOICE_LABEL_INTL_RE = re.compile(
     # 065: on a receipt the order / transaction ID is the document number; credit note; Microsoft's billing summary
     # 066 Á03: with word boundaries ("Order now…" advertising line, "recorder Number" are not labels)
     r"|\border\s*(?:no|number|id)\b|\border\s*#|\btransaction\s*id\b|\bcredit\s*note\b|számlázási\s*szám"
+    # 127: credit memo, a receipt's payment / receipt id and transaction number (owner's decision of 2026-10-07: on a
+    # receipt without an invoice number its own identifier is the invoice number)
+    r"|\bcredit\s*memo\b|\bpayment\s*id\b|\breceipt\s*id\b|\btransaction\s*(?:no|number)\b|\btransaction\s*#"
+    + CREDIT_NOTE_LABEL_HU
 )
 # 065: title line ("Elektronikus számla", "Invoice") with a single identifier below it (Billingo: the number stands
 # below the title without a label)
@@ -145,25 +154,26 @@ CURRENCY_TOKENS_INTL = {
 }
 
 LEGAL_FORM_RE = re.compile(
-    r"(?i)(?:\bkft\b|\bzrt\b|\bbt\b|\bnyrt\b|\bkkt\b|\be\.\s?v\.?(?=\W|$)|\bev\b|\begyéni vállalkozó\b|\bkisadózó\b"
+    r"(?i)(?:\bkft\b|\bzrt\b|\bbt\b|\bnyrt\b|\bkkt\b|\brészvénytársaság\b|\be\.\s?v\.?(?=\W|$)|\bev\b|\begyéni vállalkozó\b|\bkisadózó\b"
     r"|\begyesület\b|\balapítvány\b|\bltd\b|\bgmbh\b|\bs\.r\.o\.|\bsrl\b|\bag\b"
     r"|\btársaság\b|\bkorlátolt felelősségű\b|\bbetéti\b|\bközkereseti\b|\bintézmény\b|\bönkormányzat\b)"
 )
 LEGAL_FORM_INTL_RE = re.compile(
-    r"(?i)(?:\bkft\b|\bzrt\b|\bbt\b|\bnyrt\b|\bkkt\b|\be\.\s?v\.?(?=\W|$)|\begyesület\b|\balapítvány\b"
+    r"(?i)(?:\bkft\b|\bzrt\b|\bbt\b|\bnyrt\b|\bkkt\b|\brészvénytársaság\b|\be\.\s?v\.?(?=\W|$)|\begyesület\b|\balapítvány\b"
     r"|\bltd\.?(?=\W|$)|\blimited\b|\binc\.?(?=\W|$)|\bincorporated\b|\bllc\b|\bl\.l\.c\.|\bcorp\.?(?=\W|$)|\bcorporation\b|\bplc\b|\bpty\b"
     r"|\bgmbh\b|\bag\b|\bs\.r\.o\.|\bsrl\b|\bs\.r\.l\.|\bs\.p\.a\.|\bs\.a\.s\.|\bsarl\b|\bs\.à\s?r\.l\.|\bsp\.\s?z\s?o\.?\s?o\.?|\ba\.s\.|\ba\.ş\.|\bşti\.?(?=\W|$)"
     r"|\bb\.v\.|\bbv\b|\bn\.v\.|\boy\b|\bab\b|\bapS\b|\ba/s\b|\bd\.o\.o\.|\bpte\.?\s+ltd|\boü\b|\bsia\b|\buab\b"
     r"|\btársaság\b|\bkorlátolt felelősségű\b|\bbetéti\b|\bközkereseti\b|\bintézmény\b|\bönkormányzat\b)"
 )
+# 127: a label is a whole word (a customer-code label is not the buyer label followed by "code"); two more buyer labels
 PARTY_LABEL_RE = re.compile(
-    r"(?i)^(?:szállító|eladó|kibocsátó|kiállító|vevő|megrendelő|szolgáltató|supplier|seller|buyer|customer|vendor)"
-    r"\s*(?:neve|name)?\s*[:：]?\s*"
+    r"(?i)^(?:szállító|eladó|kibocsátó|kiállító|vevő|vásárló|ügyfél|megrendelő|szolgáltató|supplier|seller|buyer|customer|vendor)"
+    r"(?!\w)\s*(?:neve|name)?\s*[:：]?\s*"
 )
 PARTY_LABEL_INTL_RE = re.compile(
-    r"(?i)^(?:szállító|eladó|kibocsátó|kiállító|vevő|megrendelő|szolgáltató|számlafizető|supplier|seller|buyer|customer|vendor|client"
+    r"(?i)^(?:szállító|eladó|kibocsátó|kiállító|vevő|vásárló|ügyfél|megrendelő|szolgáltató|számlafizető|supplier|seller|buyer|customer|vendor|client"
     r"|from|bill(?:ed)?\s+to|sold\s+to|ship\s+to|invoice\s+to|remit\s+to|issued\s+by|sayın)"
-    r"\s*(?:neve|name)?\s*[:：]?\s*"
+    r"(?!\w)\s*(?:neve|name)?\s*[:：]?\s*"
 )
 LABEL_ONLY_RE = re.compile(r"(?i)^(?:számla|e-számla|szamla|sorszám|kiállító|vevő|eladó|szállító|megrendelő)\s*[:：]?$")
 LABEL_ONLY_INTL_RE = re.compile(
@@ -573,10 +583,21 @@ def find_currencies(lines: list[LineLayout], profile: str | Profile | None = Non
 
 _LEADING_ARTICLE_RE = re.compile(r"(?i)^(?:az?|the)\s+")
 _PAREN_WRAP_RE = re.compile(r"^\((.+)\)\.?$")
+# 127: a greeting before the addressee's name ("Dear <Name>,") is not part of the name
+_GREETING_RE = re.compile(r"(?i)^(?:dear|hello|hi|kedves|tisztelt)\s+(?=\S)")
+# 127: an address after a complete name in the same cell: a postcode ("1141", "1119 Budapest") or a street with a house
+# number, optionally after a comma
+_ADDRESS_TAIL_RE = re.compile(
+    r"^[\s,;-]*(?:\d{4}(?!\d)|(?:[A-ZÁÉÍÓÖŐÚÜŰ][\w.\-]*\s+){1,4}(?:utca|u\.|út|útja|tér|tere|körút|krt\.|köz|sor|sétány|fasor"
+    r"|rakpart|street|st\.|road|rd\.|avenue|ave\.)\s*\d)"
+)
 
 
 def _clean_name(text: str, profile: Profile = HU) -> str:
     s = profile.party_label_re.sub("", text.strip())
+    greeted = _GREETING_RE.match(s)
+    if greeted:
+        s = s[greeted.end():].rstrip(" ,!")
     s = NAME_TRAILING_ID_RE.sub("", s)
     s = s.strip(" ,;:")
     if profile.name_cut_after_legal_form:
@@ -640,14 +661,42 @@ def _column_join(lines: list[LineLayout], i: int, cell_idx: int, depth: int) -> 
 NAME_STOP_RE = re.compile(r"[:：]|\d{4}[ ,]|\d{8}|adószám|iban|bank|telefon|tel\.|e-mail|@|www\.")
 
 
-def _name_join(lines: list[LineLayout], i: int, cell_idx: int, depth: int) -> list[tuple[str, int]]:
+# 127: a legal-form adjective that still wants its noun ("társaság") from the next line
+_INCOMPLETE_LEGAL_FORM_RE = re.compile(r"(?i)^(?:korlátolt felelősségű|betéti|közkereseti)$")
+
+
+def _ends_with_legal_form(text: str, legal_form_re: re.Pattern[str]) -> bool:
+    """127: the name is complete when its last word is a legal form ("Minta Kft.", "... Ltd"); a legal-form adjective
+    at the end is not complete."""
+    last = None
+    for last in legal_form_re.finditer(text):
+        pass
+    if last is None or text[last.end():].strip(" .,;"):
+        return False
+    return not _INCOMPLETE_LEGAL_FORM_RE.match(" ".join(last.group(0).split()))
+
+
+def _cut_address_tail(text: str, legal_form_re: re.Pattern[str]) -> str:
+    """127: "Minta Kft. Fo utca 82. 1141" -> "Minta Kft.": an address-shaped continuation right after a legal form is
+    not part of the name (any other continuation stays, e.g. a branch name)."""
+    for m in legal_form_re.finditer(text):
+        end = m.end() + (1 if text[m.end() : m.end() + 1] == "." else 0)  # the dot of the legal form belongs to the name
+        if end < len(text) and _ADDRESS_TAIL_RE.match(text[end:]):
+            return text[:end]
+    return text
+
+
+def _name_join(lines: list[LineLayout], i: int, cell_idx: int, depth: int,
+               legal_form_re: re.Pattern[str] | None = None) -> list[tuple[str, int]]:
     """Like `_column_join`, but stops when the next cell is already an address / label / identifier (not a name
-    continuation)."""
+    continuation), or (127) when the name so far already ends in its legal form."""
     base = lines[i].cells[cell_idx]
     texts = [base.text]
     out: list[tuple[str, int]] = [(base.text, i)]
     for _, text in _column_cells_below(lines, i, base.x0, depth):
         if NAME_STOP_RE.search(text.casefold()):
+            break
+        if legal_form_re is not None and _ends_with_legal_form(" ".join(texts), legal_form_re):
             break
         texts.append(text)
         out.append((" ".join(texts), i))
@@ -658,8 +707,9 @@ def find_names(lines: list[LineLayout], profile: Profile = HU) -> list[Candidate
     bucket = _Bucket("name")
     for i, ln in enumerate(lines):
         for ci, cell in enumerate(ln.cells):
-            for text, at in _name_join(lines, i, ci, depth=2):
+            for text, at in _name_join(lines, i, ci, depth=2, legal_form_re=profile.legal_form_re):
                 if profile.legal_form_re.search(text):
+                    text = _cut_address_tail(text, profile.legal_form_re)
                     if profile.name_cut_after_legal_form:
                         text = _cut_after_legal_form(text, profile)
                     name = _clean_name(text, profile)

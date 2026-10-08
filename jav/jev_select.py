@@ -52,6 +52,9 @@ class SelectSite:
         # 067 (066 Á18): the pack's identity (type JSON + instruction + schema) is included for the default pack too
         self.config_hash = cfg.combine(cfg.config_hash(f"callsite:{self.callsite}"), pack.config_hash)
         self.glossary: str = cfg_data["glossary"]
+        # 127 (S-injection, JEV part): the document text is data, not instructions; sent after the glossary in every
+        # question's instructions (never in the state, where the document text itself is)
+        self.document_guard: str | None = cfg_data.get("document_guard")
         self.none_desc: str = cfg_data["none_description"]
         self.document: str = cfg_data.get("document", _DEFAULT_DOCUMENT)
         self.field_kind: dict[str, str] = dict(cfg_data["field_kind"])
@@ -75,6 +78,10 @@ class SelectSite:
 
     # --- question builders ---------------------------------------------------------------
 
+    def _instructions(self, question: str) -> str:
+        head = f"{self.glossary}\n\n{self.document_guard}" if self.document_guard else self.glossary
+        return f"{head}\n\n{question}"
+
     def build_choice(self, field: str, cands: list[Candidate]) -> Choice:
         criteria: dict[str, str | None] = {}
         for c in cands[:MAX_OPTIONS]:
@@ -84,17 +91,17 @@ class SelectSite:
                 desc += " (separator ambiguous)"
             criteria[c.label] = desc
         criteria[NONE_LABEL] = self.none_desc.format(what=_what(field))
-        return Choice(instructions=f"{self.glossary}\n\n{self.instructions[field]}", criteria=criteria)
+        return Choice(instructions=self._instructions(self.instructions[field]), criteria=criteria)
 
     def build_presence(self, field: str) -> Noul:
         """Presence Noul next to the field's Choice ("is it on the document at all"), so that the model does not
         confidently pick a wrong value when the field is not on the document (docs: function_calling / semantic_find
         pattern). Runs in the same request."""
-        return Noul(instructions=f"{self.glossary}\n\n{self.presence_template.format(what=self.presence_what[field])}")
+        return Noul(instructions=self._instructions(self.presence_template.format(what=self.presence_what[field])))
 
     def build_extra(self, key: str) -> Choice:
         q = self.extra[key]
-        return Choice(instructions=f"{self.glossary}\n\n{q['instructions']}", criteria=dict(q["criteria"]))
+        return Choice(instructions=self._instructions(q["instructions"]), criteria=dict(q["criteria"]))
 
     # --- requests -----------------------------------------------------------------------
 

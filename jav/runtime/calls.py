@@ -136,17 +136,20 @@ def _now() -> str:
 @dataclass(frozen=True)
 class RunContext:
     """Set by the worker for an item of a run: the provider adapters then call through the call log and the budget.
-    `reuse` (090): the run's "earlier answers" setting allows reusing an earlier answer to the same question."""
+    `reuse` (090): the run's "earlier answers" setting allows reusing an earlier answer to the same question.
+    `measurement` (127): a paid measurement outside a work run (`measurement()`), which must not read the store's
+    earlier documents (the duplicate check, the party-role history), so that its result does not depend on them."""
     budget_scope: str | None
     reuse: bool = False
+    measurement: bool = False
 
 
 _context: ContextVar[RunContext | None] = ContextVar("jav_run_context", default=None)
 
 
 @contextmanager
-def use_run(*, budget_scope: str | None, reuse: bool = False):
-    token = _context.set(RunContext(budget_scope=budget_scope, reuse=reuse))
+def use_run(*, budget_scope: str | None, reuse: bool = False, measurement: bool = False):
+    token = _context.set(RunContext(budget_scope=budget_scope, reuse=reuse, measurement=measurement))
     try:
         yield
     finally:
@@ -160,7 +163,7 @@ def measurement(scope: str, limits: dict[str, Decimal]):
     Azure escalation, no stray JEV call)."""
     for provider, limit in limits.items():
         set_budget(scope, provider, limit)
-    with use_run(budget_scope=scope):
+    with use_run(budget_scope=scope, measurement=True):
         yield scope
 
 

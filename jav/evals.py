@@ -62,6 +62,26 @@ def load_cases(type_key: str = DEFAULT_KEY) -> list[GoldenCase]:
     return cases
 
 
+SYNTHETIC_DIR = RUNS_DIR / "synthetic_golden"
+
+
+def load_synthetic_cases(type_key: str = DEFAULT_KEY, out_dir: Path = SYNTHETIC_DIR) -> list[GoldenCase]:
+    """127: the synthetic golden cases of one type (`configs/golden_synthetic.json`): each case's single-page PDF is
+    written from its rows into `out_dir` (outside git); it is scored only on the fields its `expected` names. Kept apart
+    from the legacy golden sets, so their results stay comparable."""
+    from jav import cfg
+    from jav.synthetic_pdf import write_unicode_pdf
+
+    cases: list[GoldenCase] = []
+    for c in cfg.load("golden_synthetic")["cases"]:
+        if c["type_key"] != type_key:
+            continue
+        out_dir.mkdir(parents=True, exist_ok=True)
+        pdf = write_unicode_pdf(out_dir / f"{c['id']}.pdf", list(c["rows"]))
+        cases.append(GoldenCase(case_id=c["id"], pdf=pdf, expected=dict(c["expected"]), expected_valid=True, type_key=type_key))
+    return cases
+
+
 def _flow_label(type_key: str, arm: str) -> str:
     return f"invoice_{arm}" if type_key == DEFAULT_KEY else f"{type_key}_{arm}"
 
@@ -286,16 +306,20 @@ def _dump_rows(rows: list[dict[str, Any]], name: str) -> Path:
 def golden(
     arm: str, run_one: Callable[..., FlowState], cases: list[GoldenCase] | None = None, tracker: bool = False, use_cache: bool = True,
     type_key: str = DEFAULT_KEY, *, jev: bool = True, budget_usd: Decimal | None = None,
+    jev_budget_usd: Decimal | None = None, label: str = "golden",
 ) -> list[dict[str, Any]]:
     """`jev=False` (086): the G path verified by the code alone (no JEV question). `budget_usd`: a hard OpenAI budget
-    for the whole measurement (the owner's sub-budget); JEV and Azure get none, so they cannot be called."""
+    for the whole measurement (the owner's sub-budget); `jev_budget_usd` (127): a hard JEV budget. With either one the
+    measurement runs under a budget, and a provider without its own budget (Azure always) cannot be called. `label`
+    (127): the run file's name part (`synthetic` for the synthetic cases, so they never pass for a legacy golden run)."""
     from jav.runtime import calls
 
     pack = get_pack(type_key)
     cases = cases or load_cases(type_key)
     rows: list[dict[str, Any]] = []
-    name = _run_name(type_key, f"golden_{arm}" + ("" if jev else "_nojev"))
-    guard = (calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{name}", {"openai": budget_usd}) if budget_usd is not None
+    name = _run_name(type_key, f"{label}_{arm}" + ("" if jev else "_nojev"))
+    limits = {p: b for p, b in (("openai", budget_usd), ("jev", jev_budget_usd)) if b is not None}
+    guard = (calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits) if limits
              else contextlib.nullcontext())
     with guard:
         for case in cases:
@@ -498,13 +522,24 @@ def probe_summary(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return out
 
 
-def verifier_probe(cases: list[GoldenCase] | None = None, use_cache: bool = True, type_key: str = DEFAULT_KEY) -> list[dict[str, Any]]:
+def verifier_probe(cases: list[GoldenCase] | None = None, use_cache: bool = True, type_key: str = DEFAULT_KEY,
+                   jev_budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
     """Runs the JEV verifier on the golden EXPECTED extract (perfect) and on deliberately broken variants of it.
 
     This is the calibration test of the G path's JEV half: for the perfect extract the flags must be low, for the
     injected errors the matching flag must be high. No OpenAI call. The raw rows go to `runs/*_verifier_probe.jsonl`
-    (variant, expected flag, P, band, all flags); the summary also shows the two-sided bands.
+    (variant, expected flag, P, band, all flags); the summary also shows the two-sided bands. `jev_budget_usd` (127):
+    a hard JEV budget for the whole probe; the other providers cannot be called then.
     """
+    from jav.runtime import calls
+
+    guard = (calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{_run_name(type_key, 'verifier_probe')}",
+                               {"jev": jev_budget_usd}) if jev_budget_usd is not None else contextlib.nullcontext())
+    with guard:
+        return _verifier_probe(cases, use_cache, type_key)
+
+
+def _verifier_probe(cases: list[GoldenCase] | None, use_cache: bool, type_key: str) -> list[dict[str, Any]]:
     from jav.adapters.jev import get_adapter
     from jav.jev_verify import site_for
     from jav.pdf import read_document

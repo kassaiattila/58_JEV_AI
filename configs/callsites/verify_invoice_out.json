@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "verify_invoice_out",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "changelog": [
+   {
+    "version": "1.2.0",
+    "date": "2026-10-08",
+    "note": "127 (5th group, round B): own data replaced (069 decision): the supplier_tax_id description no longer names our company; its example tax number is an invented one. The document guard comes from verify 1.2.0."
+   },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
@@ -23,7 +28,7 @@
  "request_char_budget": 110000,
  "field_specs": {
   "supplier_name": "the supplier name as printed on the document",
-  "supplier_tax_id": "the supplier tax id as printed on the document (Kiallito HU adoszama (BestixCom: 12345678-2-42), formatum ########-#-##)",
+  "supplier_tax_id": "the supplier tax id as printed on the document (Kiallito HU adoszama (pl. 12121216-2-42), formatum ########-#-##)",
   "buyer_name": "the buyer name as printed on the document (Vevo (customer) neve)",
   "buyer_tax_id": "the buyer tax id as printed on the document (Vevo adoszama / VAT registration No., ha szerepel)",
   "buyer_address": "the buyer address as printed on the document (Vevo cime, ahogy a szamlan szerepel)",

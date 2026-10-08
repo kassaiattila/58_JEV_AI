@@ -1,7 +1,7 @@
 {
  "meta": {
   "name": "intents",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "changelog": [
    {
     "version": "1.0.0",
@@ -12,6 +12,11 @@
     "version": "2.0.0",
     "date": "2026-09-20",
     "note": "regiszter-séma v2: description -> what + not_for (a NOT-szabályok külön mezőben, testvér-szándékokra mutatva), few_shot -> examples (verbatim, változatlan), parent (payment_documents, automated_notices, broadcast, human_correspondence, community_events, other); egy általános bővítés: a szolgáltató saját ügyfeleinek szóló csomag-/terv-ajánlata newsletter_marketing (in-sample: live_22)"
+   },
+   {
+    "version": "2.1.0",
+    "date": "2026-10-08",
+    "note": "127 (5th group, round B): own data replaced (069 decision): two examples (system_notification, social_network_notification) no longer carry the user's name or user name. Only `examples` changed; GPT sees `what` and `not_for` only, so its instructions are unchanged. New cache keys for the JEV intent question: the email baseline is re-measured on the JEV side."
    }
   ]
  },
@@ -110,7 +115,7 @@
    "what": "Automated system or service notification with no personal sender: CI / build result (e.g. GitHub 'Run failed'), service incident or status (statuspage.io), platform product notice (Atlassian / Jira), account or service state (domain renewal, balance), terms-of-service or privacy-policy change notices. Includes automated, no-action-needed DOCUMENT delivery for information: insurance policy (kötvény) or its lifecycle notice, bank statement delivery, official or authority notice, re-sent or corrected certificate, a medical or vaccination certificate / treatment sheet - also when an invoice is attached ALONGSIDE it as a secondary item, because the certificate is the subject.",
    "not_for": "A concrete purchase order's parcel status (megrendeles_statusz_ertesites). A message whose subject IS the invoice or e-invoice, even one already paid (szamlakuldes). Proof of a completed payment (fizetesi_visszaigazolas). A periodic editorial issue / digest or a promotional offer of a platform, shop or magazine (newsletter_marketing). A social network's connection / activity notice (social_network_notification).",
    "examples": [
-    "[kassaiattila/Pliro] Run failed: nightly eval",
+    "[example-org/billing-app] Run failed: nightly eval",
     "Claude Incident - Elevated errors on Opus 4.8",
     "Your organization now has Goals, Projects, and more"
    ],
@@ -151,7 +156,7 @@
    "examples": [
     "Attila, add Gábor Kovács",
     "You appeared in 14 searches this week",
-    "Weekly activity report for Kassai"
+    "Weekly activity report for Peter"
    ],
    "document_bearing": false
   },

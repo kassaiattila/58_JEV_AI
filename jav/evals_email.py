@@ -56,17 +56,18 @@ def _run_case(case: GoldenEmail, *, use_cache: bool, jev: bool = True) -> dict[s
 
 
 def email_golden(use_cache: bool = True, limit: int | None = None, *, jev: bool = True,
-                 budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
+                 budget_usd: Decimal | None = None, jev_budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
     """`jev=False` (089): GPT recognises the intent (`jav/intent_gpt.py`). `budget_usd`: a hard OpenAI budget for the
-    whole measurement (the owner's sub-budget; JEV and Azure get none, so they cannot be called) - a call over it is an
-    `intent:gpt_failed` row."""
+    whole measurement (the owner's sub-budget) - a call over it is an `intent:gpt_failed` row; `jev_budget_usd` (127):
+    a hard JEV budget. With either one the measurement runs under a budget, and a provider without its own budget
+    (Azure always) cannot be called."""
     from jav.runtime import calls
 
     cases = _cases(limit)
     rows: list[dict[str, Any]] = []
     stamp = f"{datetime.now():%Y%m%d_%H%M%S}"
-    guard = (calls.measurement(f"measure-{stamp}-email", {"openai": budget_usd}) if budget_usd is not None
-             else contextlib.nullcontext())
+    limits = {p: b for p, b in (("openai", budget_usd), ("jev", jev_budget_usd)) if b is not None}
+    guard = (calls.measurement(f"measure-{stamp}-email", limits) if limits else contextlib.nullcontext())
     with guard:
         for i, case in enumerate(cases, 1):
             rows.append(_run_case(case, use_cache=use_cache, jev=jev))

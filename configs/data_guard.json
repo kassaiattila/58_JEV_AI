@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "Adatőr (070 terv 2.1 S-adatőr, jav/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
     "changelog": [
       {
@@ -23,6 +23,11 @@
         "version": "1.0.3",
         "date": "2026-09-30",
         "note": "076: the tolerated user name in configs/service.json removed; the second backup location moved to the local environment (JAV_BACKUP_COPY_TO)."
+      },
+      {
+        "version": "1.0.4",
+        "date": "2026-10-08",
+        "note": "127 (S-injection, JEV part; 069 decision): the own data left in the JEV call sites (select_foreign, verify_foreign, verify_invoice_out) and in two email intent examples (intents) replaced by invented values; those paths left the known list."
       }
     ]
   },
@@ -168,19 +173,16 @@
       "kind": "hu_tax_id",
       "sha256": "bf213562da2804e99c4298ad2713b7a9dde6cb4c4091b9254335244e5200c2e8",
       "paths": [
-        "configs/callsites/select_foreign.json",
-        "configs/callsites/verify_foreign.json",
         "tests/test_evidence_learning.py",
         "tests/test_typepack.py"
       ],
-      "until": "S-injekció (069-es döntés)",
-      "why": "a saját cég uniós adószáma a hívási beállításokban és két tesztben"
+      "until": "a separate decision (127: the call sites no longer carry it)",
+      "why": "our company's EU VAT number in two tests"
     },
     {
       "kind": "deny_term",
       "sha256": "202d4544fffca058908bcaafc37e54b26a401fcd9253ca5e2256b1643d9f1a6b",
       "paths": [
-        "configs/callsites/verify_invoice_out.json",
         "configs/legacy_types/invoice_out/detect.json",
         "configs/legacy_types/invoice_out/fixtures/synth_invoice_out.json",
         "configs/legacy_types/invoice_out/prompt.md",
@@ -195,17 +197,8 @@
         "tests/test_pdf_text_layer.py",
         "tests/test_typepack.py"
       ],
-      "until": "S-injekció (069-es döntés)",
-      "why": "a saját cég neve a típuscsomagokban, utasításokban és tesztekben"
-    },
-    {
-      "kind": "deny_term",
-      "sha256": "7d8572392319585ee6abdd73a06b247daeb79975997cab7bf7e647019f1d0e20",
-      "paths": [
-        "configs/intents.json"
-      ],
-      "until": "S-injekció (069-es döntés)",
-      "why": "a felhasználónév a levélszándék-példákban"
+      "until": "a separate decision (127: the outgoing invoice pack recognises our company by its name; the call sites no longer carry it)",
+      "why": "our company's name in the outgoing invoice pack, its GPT prompt and schema, and tests"
     },
     {
       "kind": "deny_term",

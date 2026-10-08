@@ -64,7 +64,7 @@ Activated venv: `.\.venv\Scripts\Activate.ps1`; without it: `.venv\Scripts\pytho
 python -m jav.cli preflight [--skip-pytest]      # session start: tests (Python + UI) + contract lint + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
 pytest tests/                                     # offline tests; a single test: pytest tests/test_emails.py -k next_flow
 python smoke_test.py                              # venv + keys + one live JEV call
-python -m jav.cli recall | golden --arm S|G | determinism --arm S --n 5 | verifier-probe [--no-cache] [--type invoice_foreign]
+python -m jav.cli recall | golden --arm S|G [--synthetic] | determinism --arm S --n 5 | verifier-probe [--no-cache] [--type invoice_foreign]
 python -m jav.cli detect <pdf> | detect-golden | detect-determinism --n 3 | detect-corpus <folder> [--redo-unknown] | detect-sample <folder>
 python -m jav.cli email <folder> | email-golden | email-determinism --n 3 | email-inbox inbox/ | email-sample | email-injection-probe
 python -m jav.cli email-ingest-server --port 8931 --run   # receiver for the legacy outlook_bridge.ps1 (8901 = legacy Docker)

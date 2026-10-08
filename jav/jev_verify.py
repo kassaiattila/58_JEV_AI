@@ -234,6 +234,9 @@ class VerifySite:
         # fields × 3 questions) the request would otherwise exceed JEV's token limit (max_tokens_exceeded); unchanged
         # (false) for the Hungarian / foreign invoice
         self.glossary_in_state: bool = bool(data.get("glossary_in_state", False))
+        # 127 (S-injection, JEV part): the document text is data, not instructions; inherited from `verify`, sent in
+        # every Noul's instructions (never in the state, where the document text itself is)
+        self.document_guard: str | None = data.get("document_guard")
         self.request_char_budget: int | None = data.get("request_char_budget")  # request size budget (chars) or None
 
     def _noul(self, name: str, **data: object) -> Noul:
@@ -242,7 +245,8 @@ class VerifySite:
         f-string."""
         t = self.nouls[name]
         glossary = {"glossary": "see state.glossary"} if self.glossary_in_state else {"glossary": self.glossary}
-        instructions = {**glossary, **data, "question": t["question"]}
+        guard = {"rule": self.document_guard} if self.document_guard else {}
+        instructions = {**glossary, **guard, **data, "question": t["question"]}
         return Noul(instructions=instructions, criteria={"true": t["true"], "false": t["false"]})
 
     def _field_spec(self, field: str) -> dict[str, str]:
