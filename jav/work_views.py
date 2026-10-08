@@ -189,6 +189,11 @@ def result_tables(run_id: str) -> list[str]:
         out.append("utility")
     if any(i.get("kind") != "email" and Path(i["source_path"]).suffix.lower() not in NATIVE_SUFFIXES for i in items):
         out.append("file_names")
+    from jav import reconcile
+
+    # 129: a statement, or an invoice with a pair or coverage; from the dataset cache, as the run's page polls this view
+    if records and reconcile.worth_showing(datasets.rows("reconciliation", {"run_id": run_id})[1]):
+        out.append("reconciliation")
     return out
 
 

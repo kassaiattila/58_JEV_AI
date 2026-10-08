@@ -275,6 +275,8 @@ export interface ItemResult {
   source_file?: { copy: boolean; original: "same" | "changed" | "missing" };
   /** 126: the duplicate suspicions and decisions of the document, the other document's values side by side. */
   duplicates?: DuplicatePair[];
+  /** 129: the proposed invoice <-> statement line pairs of the document and the decisions on them. */
+  reconcile?: ReconcilePair[];
 }
 /** 126: the code's kind of a suspected duplicate and a person's decision on the pair. */
 export type DuplicateKind = "copy" | "variant" | "undecidable";
@@ -285,6 +287,22 @@ export interface DuplicatePair {
   kind: DuplicateKind; reason_id: number | null; repeat: boolean;
   fields: { field: string; value: unknown; other_value: unknown; differs: boolean; missing: boolean }[];
   decision: DuplicateDecision | null; decided_by: string | null; decided_at: string | null;
+}
+/** 129: a person's decision on a proposed invoice <-> statement line pair: this line paid it, or not this one. */
+export type ReconcileDecision = "paid_by" | "not_this";
+export type ReconcileSignal = "invoice_number" | "supplier_account" | "supplier_name";
+export interface ReconcilePair {
+  invoice_doc_id: string; statement_doc_id: string | null; line_id: string; side: "invoice" | "statement";
+  invoice: { number: string | null; supplier: string | null; amount: string | null; currency: string | null;
+    issue_date: string | null; due_date: string | null; file: string | null } | null;
+  line: { booking_date: string | null; direction: string | null; amount: string | null; currency: string | null;
+    counterparty_name: string | null; counterparty_account: string | null; memo: string | null; description: string | null;
+    file: string | null; verified: boolean } | null;
+  signals: ReconcileSignal[]; amount_relation: "equal" | "different" | null; source_review_required: boolean;
+  reason_id: number | null; decision: ReconcileDecision | null; decided_by: string | null; decided_at: string | null;
+  note: string | null;
+  other_doc_id: string | null; other_file: string | null; other_run_id: string | null; other_item_id: string | null;
+  other_workpackage_id: string | null;
 }
 
 // --- 056 U1: datasets (unified list query and download) -------------------------------------------------------
@@ -453,6 +471,10 @@ export const api = {
   /** 126: a person's decision on a suspected duplicate pair (copy, modified version, not the same invoice). */
   decideDuplicate: (runId: string, itemId: string, otherDocId: string, decision: DuplicateDecision) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/duplicates/${enc(otherDocId)}/decision`, { decision }),
+  /** 129: a person's decision on a proposed invoice <-> statement line pair; a rejection carries its reason. */
+  decideReconcile: (runId: string, itemId: string, invoiceDocId: string, lineId: string, decision: ReconcileDecision, note?: string) =>
+    request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/reconcile/decision`,
+      { invoice_doc_id: invoiceDocId, line_id: lineId, decision, ...(note ? { note } : {}) }),
   /** 062: the accepted task marked as done by hand (or unmarked). */
   markTaskDone: (runId: string, itemId: string, index: number, done: boolean) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/done`, { done }),

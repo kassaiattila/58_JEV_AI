@@ -15,6 +15,7 @@ import { checkText, editNumber, fieldLabel, reasonText, savedValues, tmap } from
 import { clearDraft, draftKey, isDirty, rebaseDraft, revertField, setField, setList, settleDraft, useDraft, type Draft } from "./drafts";
 import { useResolve } from "./useResolve";
 import { DuplicatePanel } from "./DuplicatePanel";
+import { ReconcilePanel } from "./ReconcilePanel";
 import { BAND_LABEL, type Band } from "./geometry";
 import { EMPTY_FILTER, FIELD_FILTERS, FILTER_LABEL, isConfirmed, type FieldFilter } from "./fieldFilter";
 import { fromRows, ListTable, toRows } from "./ListTable";
@@ -321,6 +322,7 @@ export function FieldPanel(p: Props) {
         </ul>
       ) : result.open_reasons.length ? null : <p className="ok pad-s">{t("Ebben a futásban nincs nyitott teendő ezen a tételen.")}</p>}
       <DuplicatePanel result={result} readOnly={readOnly} onDecided={p.onResolved} />
+      <ReconcilePanel result={result} readOnly={readOnly} onDecided={p.onResolved} />
 
       {failed.length ? (
         <ul className="issues checks" aria-label={t("Ellenőrzések a mentett adaton")}>
