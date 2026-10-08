@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "description": "Adatőr (070 terv 2.1 S-adatőr, jav/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
     "changelog": [
       {
@@ -33,6 +33,11 @@
         "version": "1.0.5",
         "date": "2026-10-08",
         "note": "128 (owner's decision): select_foreign tolerated again for one push only. Three earlier commits not yet pushed rewrote that file's line endings, so its old lines with our EU VAT number count as new on push; the remote history already carries them. The next version removes the path again."
+      },
+      {
+        "version": "1.0.6",
+        "date": "2026-10-08",
+        "note": "128: v1.11.0 is pushed, so select_foreign leaves the known list again (the state of 1.0.4)."
       }
     ]
   },
@@ -178,12 +183,11 @@
       "kind": "hu_tax_id",
       "sha256": "bf213562da2804e99c4298ad2713b7a9dde6cb4c4091b9254335244e5200c2e8",
       "paths": [
-        "configs/callsites/select_foreign.json",
         "tests/test_evidence_learning.py",
         "tests/test_typepack.py"
       ],
-      "until": "a separate decision (127: the call sites no longer carry it); select_foreign only until the v1.11.0 push (128)",
-      "why": "our company's EU VAT number in two tests, and in select_foreign's history not yet pushed"
+      "until": "a separate decision (127: the call sites no longer carry it)",
+      "why": "our company's EU VAT number in two tests"
     },
     {
       "kind": "deny_term",
