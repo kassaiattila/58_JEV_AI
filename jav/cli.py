@@ -522,6 +522,29 @@ def cmd_duplicates(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reconcile(args: argparse.Namespace) -> int:
+    """128: invoice <-> bank statement line pairs proposed by code (read only; counts, no values), or with --golden the
+    synthetic golden cases (configs/golden_reconcile.json). Free."""
+    from jav import reconcile
+
+    if args.golden:
+        score = reconcile.golden_score()
+        print(f"golden cases: {score['passed']}/{score['total']}")
+        for case, problems in score["failures"].items():
+            print(f"  {case}: " + "; ".join(problems))
+        return 0 if not score["failures"] else 1
+    r = reconcile.scan()
+    print(f"statements: {r['statements']} (verified by their balances: {r['verified_statements']}), lines: {r['lines']}")
+    print(f"invoices: {r['invoices']}; excluded by reason: {r['excluded_invoices']}")
+    print(f"lines excluded by reason: {r['excluded_lines']}")
+    print(f"proposed pairs: {r['proposed_pairs']} (with more than one candidate: {r['multiple_candidates']}); "
+          f"signal with a different amount: {r['amount_differs_pairs']}")
+    print(f"invoice status: {r['invoice_status']}")
+    print(f"lines without a proposed pair: {r['unpaired_lines']}")
+    print(f"engine {r['engine_version']}, config {r['config_hash']}")
+    return 0
+
+
 def cmd_hooks_install(args: argparse.Namespace) -> int:
     from jav import data_guard
     from jav.config import PROJECT_ROOT
@@ -702,6 +725,10 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("duplicates", help="126: duplicate invoices in the store (read only); --write opens the to-do on runs not yet approved")
     p.add_argument("--write", action="store_true", help="open the duplicate to-dos (once; a decided pair or an approved run is skipped)")
     p.set_defaults(fn=cmd_duplicates)
+
+    p = sub.add_parser("reconcile", help="128: invoice <-> bank statement line pairs proposed by code (read only); --golden: the synthetic cases")
+    p.add_argument("--golden", action="store_true", help="score the synthetic golden cases (configs/golden_reconcile.json)")
+    p.set_defaults(fn=cmd_reconcile)
 
     p = sub.add_parser("hooks-install", help="071 adatőr: a verziózott git-horgok bekapcsolása (core.hooksPath = scripts/githooks)")
     p.set_defaults(fn=cmd_hooks_install)

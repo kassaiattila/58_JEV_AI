@@ -70,6 +70,7 @@ python -m jav.cli email <folder> | email-golden | email-determinism --n 3 | emai
 python -m jav.cli email-ingest-server --port 8931 --run   # receiver for the legacy outlook_bridge.ps1 (8901 = legacy Docker)
 python -m jav.cli recipes | wp-* | run-* | worker [--once] | worker-status | worker-stop   # work package → run (jav/work_cli.py)
 python -m jav.cli calls-uncertain | calls-resolve <id> [--cost USD] --note N   # settle a paid call with an uncertain outcome by hand
+python -m jav.cli duplicates [--write] | reconcile [--golden]   # duplicate invoices | invoice <-> statement line pairs (read only)
 .\scripts\dev.ps1 start|status|stop                     # UI + local service (serve, 127.0.0.1:8930) + one worker
 cd ui; npm run build | npm test | npm run dev             # UI (ui/): build into ui/dist, vitest, dev server :5173
 python -m jav.cli ocr [<pdf>] [--force] [--psm N] [--limit N]   # without a PDF: status of the OCR engine
