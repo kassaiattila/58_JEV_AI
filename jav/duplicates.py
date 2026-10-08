@@ -198,7 +198,8 @@ def pair_key(a: str, b: str) -> str:
 def enabled() -> bool:
     """The store is read only inside a worker run, as in `party_history`."""
     ctx = calls.current()
-    return ctx is not None and ctx.budget_scope is not None
+    # 127: a budgeted measurement has a budget scope too, but it is not a worker run
+    return ctx is not None and ctx.budget_scope is not None and not ctx.measurement
 
 
 def _has_table(c, name: str) -> bool:
