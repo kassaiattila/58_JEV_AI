@@ -31,6 +31,19 @@ def _no_live_gpt_choice():
 
 
 @pytest.fixture(autouse=True)
+def _no_live_fx():
+    """130: a test never asks the MNB rate service; a test that needs rates installs its own stand-in with
+    `fx.use_transport`."""
+    from jav import fx
+
+    def refuse(url, body, headers, timeout):
+        raise AssertionError("a test tried a live exchange rate request (jav/fx.py); install a stand-in with use_transport")
+
+    with fx.use_transport(refuse):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def _no_provider_keys(monkeypatch):
     """120: no test reaches a paid provider. The keys are read when a call is built (`jav/config.py`), so without them
     an unpatched OpenAI or JEV call fails with `MissingAPIKeyError` (JEV: `missing_key`) instead of spending. A debug

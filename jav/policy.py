@@ -11,6 +11,7 @@ type-independent and live here.
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any, Literal
 
 from jav import cfg
@@ -27,6 +28,7 @@ NONE_LABEL: str = _CFG["none_label"]
 DETECT_DETAIL: dict[str, Any] = dict(_CFG["detect_detail"])  # 047 T1.2: threshold of the detailed-type code decision
 DETECT_ISSUER: dict[str, Any] = dict(_CFG["detect_issuer"])  # 090: the type / issuer cross-check
 GPT_FIELD_CONFIDENCE: dict[str, Any] = dict(_CFG["gpt_field_confidence"])  # 091: a GPT field's confidence without JEV
+RECONCILE: dict[str, Any] = dict(_CFG["reconcile"])  # 130: the card pair's band around the converted amount
 
 # --------------------------------------------------------------------------------------
 # Bands (policy.json v1.1.0): named sets per call site, precedence by the length of the dotted prefix
@@ -363,6 +365,13 @@ def apply_reconcile_policy(state: FlowState) -> None:
     values = state.invoice.to_datapoints(typepack.get(state.doc_type).record_fields)  # the stored form
     validation = [v.model_dump() for v in state.validation]
     require_review(state, *reconcile.review_reasons(state.doc_id, state.doc_type, values, validation))
+
+
+def reconcile_fx_tolerance() -> tuple[Decimal, Decimal]:
+    """130 (DECISIONS 130): how far below and above the invoice amount converted at the MNB rate a forint card line may
+    be for the pair to be proposed, as fractions (0.02, 0.05: -2% ... +5%). A proposal only; a person decides."""
+    band = RECONCILE["fx_tolerance"]
+    return Decimal(str(band["below"])), Decimal(str(band["above"]))
 
 
 def decide(state: FlowState) -> str:

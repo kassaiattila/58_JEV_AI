@@ -291,6 +291,10 @@ export interface DuplicatePair {
 /** 129: a person's decision on a proposed invoice <-> statement line pair: this line paid it, or not this one. */
 export type ReconcileDecision = "paid_by" | "not_this";
 export type ReconcileSignal = "invoice_number" | "supplier_account" | "supplier_name";
+/** 130: how the amounts of a pair relate; the fx ones are a card line against an invoice of another currency. */
+export type ReconcileRelation = "equal" | "different" | "fx_within" | "fx_outside" | "no_rate";
+/** 130: a card pair's conversion at the MNB rate of the invoice's issue date (deviation: the line's, as a fraction). */
+export interface ReconcileFx { rate: string; rate_day: string; source: string; converted: string; deviation: string }
 export interface ReconcilePair {
   invoice_doc_id: string; statement_doc_id: string | null; line_id: string; side: "invoice" | "statement";
   invoice: { number: string | null; supplier: string | null; amount: string | null; currency: string | null;
@@ -298,7 +302,8 @@ export interface ReconcilePair {
   line: { booking_date: string | null; direction: string | null; amount: string | null; currency: string | null;
     counterparty_name: string | null; counterparty_account: string | null; memo: string | null; description: string | null;
     file: string | null; verified: boolean } | null;
-  signals: ReconcileSignal[]; amount_relation: "equal" | "different" | null; source_review_required: boolean;
+  signals: ReconcileSignal[]; amount_relation: ReconcileRelation | null; fx?: ReconcileFx | null;
+  source_review_required: boolean;
   reason_id: number | null; decision: ReconcileDecision | null; decided_by: string | null; decided_at: string | null;
   note: string | null;
   other_doc_id: string | null; other_file: string | null; other_run_id: string | null; other_item_id: string | null;

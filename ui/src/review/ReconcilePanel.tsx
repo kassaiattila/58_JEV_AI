@@ -3,6 +3,8 @@
 // the invoice stand side by side with the details that tie them, and a person decides: this line paid it, or not this
 // one (with a reason). The decision belongs to the pair and closes its to-dos; it can be changed until the run is
 // approved. The pattern is the duplicate invoice panel (DuplicatePanel.tsx).
+// 130: a forint card line and an invoice of another currency are compared through the MNB rate of the issue date; the
+// panel shows the converted amount, the rate and the line's deviation from it, or that no rate is stored yet.
 import { useRef, useState } from "react";
 import { api, ApiError, type ItemResult, type ReconcileDecision, type ReconcilePair, type ReconcileSignal } from "../api";
 import { getLocale, t, useLocale } from "../i18n";
@@ -23,6 +25,13 @@ function money(amount: string | null, currency: string | null): string {
   if (!amount) return "–";
   const text = getLocale() === "hu-HU" ? amount.replace(".", ",") : amount;
   return currency ? `${text} ${currency}` : text;
+}
+
+/** A deviation fraction ("0.0270") as a signed percentage ("+2,7%"). */
+function percent(fraction: string): string {
+  const value = Number(fraction) * 100;
+  const text = `${value > 0 ? "+" : ""}${value.toFixed(1)}%`;
+  return getLocale() === "hu-HU" ? text.replace(".", ",") : text;
 }
 
 function shown(v: string | null | undefined): string {
@@ -86,8 +95,12 @@ export function ReconcilePanel({ result, readOnly, onDecided }: Props) {
               <strong>{p.side === "invoice" ? t("A statement line may have paid this invoice") : t("This statement line may have paid an invoice")}</strong>
             </p>
             <p className="small">
-              {t("Matched by:")} {[...(p.amount_relation === "equal" ? [t("the same amount")] : []), ...p.signals.map((s) => SIGNAL[s])].join(", ")}
+              {t("Matched by:")} {[...(p.amount_relation === "equal" ? [t("the same amount")] : []),
+                ...(p.amount_relation === "fx_within" ? [t("the converted amount")] : []), ...p.signals.map((s) => SIGNAL[s])].join(", ")}
             </p>
+            {p.amount_relation === "no_rate" ? (
+              <p className="small warn-text">{t("No MNB exchange rate is stored for the invoice's issue date yet, so the amounts could not be compared")}</p>
+            ) : null}
             {p.source_review_required ? (
               <p className="small warn-text">{t("The statement's balances do not check out; look at the line on the statement before deciding")}</p>
             ) : null}
@@ -108,11 +121,21 @@ export function ReconcilePanel({ result, readOnly, onDecided }: Props) {
                   <td>{shown(line?.booking_date)}</td>
                   <td>{shown(inv?.issue_date)}{inv?.due_date ? ` (${t("due {{date}}", { date: inv.due_date })})` : ""}</td>
                 </tr>
-                <tr className={p.amount_relation === "different" ? "differs" : undefined}>
+                <tr className={p.amount_relation === "different" || p.amount_relation === "fx_outside" ? "differs" : undefined}>
                   <th scope="row">{t("Amount")}</th>
                   <td>{money(line?.amount ?? null, line?.currency ?? null)}</td>
                   <td>{money(inv?.amount ?? null, inv?.currency ?? null)}</td>
                 </tr>
+                {p.fx ? (
+                  <tr className={p.amount_relation === "fx_outside" ? "differs" : undefined}>
+                    <th scope="row">{t("Converted at the MNB rate")}</th>
+                    <td>{t("{{pct}} from the converted amount", { pct: percent(p.fx.deviation) })}</td>
+                    <td>
+                      {money(p.fx.converted, line?.currency ?? null)}{" "}
+                      ({t("{{rate}} HUF per {{currency}}, {{day}}", { rate: money(p.fx.rate, null), currency: inv?.currency ?? "", day: p.fx.rate_day })})
+                    </td>
+                  </tr>
+                ) : null}
                 <tr>
                   <th scope="row">{t("Supplier or counterparty")}</th>
                   <td>{shown(line?.counterparty_name)}{line?.counterparty_account ? ` · ${line.counterparty_account}` : ""}</td>

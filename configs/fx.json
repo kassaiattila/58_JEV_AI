@@ -1,0 +1,25 @@
+{
+  "meta": {
+    "name": "fx",
+    "version": "1.0.0",
+    "description": "130 F-reconciliation K3 (jav/fx.py): the official daily exchange rates of the Hungarian central bank (MNB), fetched only for the days a reconciliation needs and kept in the store. Only dates and currency codes leave the machine. The service answers its SOAP calls over plain HTTP only (HTTPS returns 404 for the same address), so every response passes a plausibility check, and a rate only shapes a proposal a person decides on. Decisions: DECISIONS 128 (MNB daily rate, automatic download, kept locally), DECISIONS 130 (HTTP accepted).",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-09",
+        "note": "130 K3: first version. GetExchangeRates of http://www.mnb.hu/arfolyamok.asmx (tried on 2026-10-09: the rates come as an XML string with a decimal comma and a per-currency unit, e.g. 100 for JPY). A day without a publication (weekend, holiday) takes the latest published rate within lookback_days, but only when every day in between was fetched; a response with a day-to-day change above max_day_change is refused as a whole."
+      }
+    ]
+  },
+  "source": {
+    "name": "mnb",
+    "url": "http://www.mnb.hu/arfolyamok.asmx",
+    "soap_action": "http://www.mnb.hu/webservices/MNBArfolyamServiceSoap/GetExchangeRates",
+    "timeout_s": 20
+  },
+  "currencies": ["EUR", "USD", "GBP"],
+  "lookback_days": 7,
+  "retry_after_minutes": 60,
+  "max_day_change": "0.10",
+  "max_span_days": 4000
+}

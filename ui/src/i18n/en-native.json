@@ -283,7 +283,7 @@
   "Not this one": "Not this one",
   "Why not this one?": "Why not this one?",
   "Save the rejection": "Save the rejection",
-  "Possible payment: a statement line and an invoice have the same amount and a shared detail": "Possible payment: a statement line and an invoice have the same amount and a shared detail",
+  "Possible payment: a statement line and an invoice have the same amount (for a card payment, the converted amount) and a shared detail": "Possible payment: a statement line and an invoice have the same amount (for a card payment, the converted amount) and a shared detail",
   "Reconciliation": "Reconciliation",
   "Kind": "Kind",
   "Currency": "Currency",
@@ -317,5 +317,11 @@
   "No booking date": "No booking date",
   "Not an outgoing payment": "Not an outgoing payment",
   "Transfer between own accounts": "Transfer between own accounts",
-  "Fee, interest, repayment or card settlement": "Fee, interest, repayment or card settlement"
+  "Fee, interest, repayment or card settlement": "Fee, interest, repayment or card settlement",
+  "the converted amount": "the converted amount",
+  "Converted at the MNB rate": "Converted at the MNB rate",
+  "{{pct}} from the converted amount": "{{pct}} from the converted amount",
+  "{{rate}} HUF per {{currency}}, {{day}}": "{{rate}} HUF per {{currency}}, {{day}}",
+  "No MNB exchange rate is stored for the invoice's issue date yet, so the amounts could not be compared": "No MNB exchange rate is stored for the invoice's issue date yet, so the amounts could not be compared",
+  "No exchange rate for the issue date": "No exchange rate for the issue date"
 }
