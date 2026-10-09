@@ -118,7 +118,8 @@ def test_a_confirmed_pair_takes_the_line_and_the_invoice_out_of_every_other_prop
     result = _with("ambiguous", ("i2", "t1", "paid_by"))
     assert result["candidates"] == []
     assert _status(result) == {"i1": "no_payment_found", "i2": "confirmed"}
-    assert result["confirmed"] == [{"invoice_id": "i2", "line_id": "t1", "statement_id": "s1"}]
+    assert result["confirmed"] == [{"invoice_id": "i2", "line_id": "t1", "statement_id": "s1",
+                                    "line_amount": "100.00", "invoice_amount": "100.00"}]  # 131: as a whole-amount allocation
     assert result["unpaired_line_ids"] == []
 
 

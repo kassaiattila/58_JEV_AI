@@ -36,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
-                 reconcile, store, version, work, work_views)
+                 reconcile, reconcile_package, store, version, work, work_views)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
@@ -319,6 +319,57 @@ class ReconcileDecision(_In):
     invoice_doc_id: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
     line_id: Annotated[str, Field(pattern=r"^[0-9A-Za-z_-]{1,16}:[0-9a-f]{12}:\d{1,5}$")]  # the statement line's stable id
     decision: Literal["paid_by", "not_this"]  # this line paid it | not this one (a reason is required)
+    note: Text | None = None
+
+
+# 131 (F-reconciliation E1): the reconciliation package (`jav/reconcile_package.py`)
+DocId = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+LineId = Annotated[str, Field(pattern=r"^[0-9A-Za-z_-]{1,16}:[0-9a-f]{12}:\d{1,5}$")]  # the statement line's stable id
+Money = Annotated[str, Field(pattern=r"^\d{1,12}(\.\d{1,2})?$")]  # a canonical amount, never a guessed separator
+IsoDay = Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
+
+
+class ReconcileScope(_In):
+    accounts: Annotated[list[Annotated[str, Field(min_length=1, max_length=80)]], Field(min_length=1, max_length=50)]
+    period_start: IsoDay
+    period_end: IsoDay
+
+
+class CreateReconcilePackage(ReconcileScope):
+    name: Annotated[str, Field(min_length=1, max_length=200)]
+
+
+class SetReconcileScope(ReconcileScope):
+    expected_revision: Annotated[int, Field(ge=1)]
+
+
+class AllocationPair(_In):
+    invoice_doc_id: DocId
+    line_id: LineId
+    line_amount: Money | None = None  # None: what both sides have left (one currency) or both whole (two currencies)
+    invoice_amount: Money | None = None
+
+
+class ReconcileAllocate(_In):
+    pairs: Annotated[list[AllocationPair], Field(min_length=1, max_length=200)]
+    note: Text | None = None  # required for a split or a converted pair outside the card band
+
+
+class ReconcileReject(_In):
+    invoice_doc_id: DocId
+    line_id: LineId
+    note: Annotated[str, Field(min_length=1, max_length=2000)]
+
+
+class ReconcileMark(_In):
+    line_id: LineId
+    category: Annotated[str, Field(min_length=1, max_length=40)]  # configs/reconcile.json line_marks
+    note: Text | None = None
+
+
+class ReconcileRevoke(_In):
+    kind: Literal["allocation", "mark", "decision"]
+    ref: Annotated[str, Field(min_length=1, max_length=200)]  # an allocation's or a mark's id, or a decision's pair key
     note: Text | None = None
 
 
@@ -955,6 +1006,60 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         """129: only a human confirms or rejects a proposed invoice <-> statement line pair; the pair's to-dos close."""
         reconcile.decide(run_id, item_id, body.invoice_doc_id, body.line_id, decision=body.decision, actor=who, note=body.note)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
+
+    # --- 131: the reconciliation package (jav/reconcile_package.py): a scope, two lists, decisions per pair ---
+
+    @app.get(r + "/reconcile/accounts")
+    def reconcile_accounts() -> dict[str, Any]:
+        return work_views.jsonable({"accounts": reconcile_package.accounts()})
+
+    @app.post(r + "/reconcile/packages", status_code=201)
+    def create_reconcile_package(body: CreateReconcilePackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        sc = reconcile_package.create(name=body.name, accounts=body.accounts, period_start=body.period_start,
+                                      period_end=body.period_end, actor=who)
+        return work_views.workpackage_view(sc["workpackage_id"])
+
+    @app.get(r + "/workpackages/{wp_id}/reconcile")
+    def reconcile_workspace(wp_id: WpId) -> dict[str, Any]:
+        return work_views.jsonable(reconcile_package.workspace(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/scope")
+    def reconcile_scope(wp_id: WpId, body: SetReconcileScope, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        reconcile_package.set_scope(wp_id, accounts=body.accounts, period_start=body.period_start, period_end=body.period_end,
+                                    expected_revision=body.expected_revision, actor=who)
+        return work_views.jsonable(reconcile_package.workspace(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/refresh")
+    def reconcile_refresh(wp_id: WpId, body: Empty, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """Recomputes with the missing MNB rates fetched (only dates and currency codes leave the machine)."""
+        reconcile_package.refresh(wp_id)
+        return work_views.jsonable(reconcile_package.workspace(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/allocate")
+    def reconcile_allocate(wp_id: WpId, body: ReconcileAllocate, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        reconcile_package.allocate(wp_id, [p.model_dump() for p in body.pairs], note=body.note, actor=who)
+        return work_views.jsonable(reconcile_package.workspace(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/accept-proposed")
+    def reconcile_accept_proposed(wp_id: WpId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """Every unambiguous proposal at once (proposed, the only candidate, a statement whose balances check out)."""
+        reconcile_package.accept_proposed(wp_id, actor=who)
+        return work_views.jsonable(reconcile_package.workspace(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/reject")
+    def reconcile_reject(wp_id: WpId, body: ReconcileReject, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        reconcile_package.reject(wp_id, body.invoice_doc_id, body.line_id, note=body.note, actor=who)
+        return work_views.jsonable(reconcile_package.workspace(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/mark")
+    def reconcile_mark(wp_id: WpId, body: ReconcileMark, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        reconcile_package.mark(wp_id, body.line_id, category=body.category, note=body.note, actor=who)
+        return work_views.jsonable(reconcile_package.workspace(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/revoke")
+    def reconcile_revoke(wp_id: WpId, body: ReconcileRevoke, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        reconcile_package.revoke(wp_id, kind=body.kind, ref=body.ref, actor=who, note=body.note)
+        return work_views.jsonable(reconcile_package.workspace(wp_id))
 
     # --- to-dos ---
 

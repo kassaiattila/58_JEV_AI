@@ -38,7 +38,7 @@ def db(tmp_path):
 def test_the_golden_set_has_the_new_cases_and_every_case_passes():
     assert set(NEW) <= set(CASES)
     assert reconcile.golden_score() == {"passed": len(CASES), "total": len(CASES), "failures": {}}
-    assert len(CASES) == 44
+    assert len(CASES) >= 44
 
 
 def test_the_line_name_key_drops_reference_numbers():

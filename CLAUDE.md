@@ -101,7 +101,7 @@ python -m jav.capability_catalog                  # deterministic inventory of t
   - `work.py`: workpackages · workpackage_items · workpackage_events · recipe_assignments · runs · run_items · file_fingerprints;
   - `runtime/queue.py`: jobs · queue_control; `runtime/calls.py`: invocations · budgets;
   - `app_settings.py`: app_users · watched_folders · watched_packages · watched_seen; `mailbox.py`: mailbox_schedules · mailbox_pulls;
-  - `corrections.py`: run_item_corrections; `duplicates.py`: duplicate_decisions; `reconcile.py`: reconcile_decisions; `fx.py`: fx_rates · fx_fetches; `source_layer.py`: source_layers; `legacy_import.py`: legacy_results.
+  - `corrections.py`: run_item_corrections; `duplicates.py`: duplicate_decisions; `reconcile.py`: reconcile_decisions · reconcile_allocations · reconcile_line_marks; `reconcile_package.py`: reconcile_scopes; `fx.py`: fx_rates · fx_fetches; `source_layer.py`: source_layers; `legacy_import.py`: legacy_results.
 
   Burr state: `store/burr_state.sqlite` (thinned out by `burr-prune`). Backups: `store/backups/` (daily, `configs/service.json` `backup`). The golden sets stay in the legacy project and are only referenced.
 - **Evals:** `evals*.py`, shared report `eval_report.py`; raw runs in `runs/*.jsonl`. Experiments: `jav/experiments/` + `configs/experiments/`.

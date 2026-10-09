@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person and when a statement counts as verified coverage. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131.",
     "changelog": [
+      {
+        "version": "1.3.0",
+        "date": "2026-10-09",
+        "note": "131 E1 (DECISIONS 131, the reconciliation package): line_marks - the reasons a person gives for a statement line that needs no invoice (a private expense, a bank fee or interest, a transfer between own accounts, a tax or contribution, a cash withdrawal, a salary, other with a note)."
+      },
       {
         "version": "1.2.0",
         "date": "2026-10-09",
@@ -51,6 +56,8 @@
   ],
   "amount_only": {"enabled": true},
   "learning": {"min_confirmations": 1},
+  "line_marks": ["private", "fee", "own_transfer", "tax", "cash", "salary", "other"],
+  "line_mark_note_required": ["other"],
   "fx": {
     "statement_types": ["credit_card"],
     "line_currency": "HUF",

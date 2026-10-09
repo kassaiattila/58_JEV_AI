@@ -35,7 +35,7 @@ store.register_schema("work", """
 CREATE TABLE IF NOT EXISTS workpackages (
     id          TEXT PRIMARY KEY,
     name        TEXT NOT NULL,
-    source_kind TEXT NOT NULL,                 -- folder | upload | mailbox | manual
+    source_kind TEXT NOT NULL,                 -- folder | upload | mailbox | manual | watch | reconcile (131)
     source_ref  TEXT,
     revision    INTEGER NOT NULL DEFAULT 0,
     status      TEXT NOT NULL DEFAULT 'open',
@@ -495,6 +495,21 @@ def _event(c, wp_id: str, action: str, actor: str, detail: dict[str, Any] | None
               (wp_id, action, actor, _canon(detail) if detail else None, _now()))
 
 
+def record_event(c, wp_id: str, action: str, actor: str, detail: dict[str, Any] | None = None) -> None:
+    """131: an event of another module on the package (a reconciliation package's decisions), in the package's log, in
+    the caller's transaction."""
+    _event(c, wp_id, action, actor, detail)
+
+
+_DELETE_GUARDS: list[Callable[[sqlite3.Connection, str], None]] = []
+
+
+def register_delete_guard(fn: Callable[[sqlite3.Connection, str], None]) -> None:
+    """131: a module with its own rows for a package (a reconciliation package's scope) checks a deletion inside its
+    transaction: it raises `NotReady` to refuse it, or deletes its rows."""
+    _DELETE_GUARDS.append(fn)
+
+
 def _set_wp(wp_id: str, action: str, actor: str, **fields: Any) -> dict[str, Any]:
     cols = ", ".join(f"{k}=?" for k in fields)
     with store.connect() as c:
@@ -548,6 +563,8 @@ def delete_workpackage(wp_id: str, *, actor: str) -> None:
             raise NotReady("a work package with runs can only be archived",
                            [{"code": "has_runs", "message": "A csomagnak van futása: csak elrejthető."}])
         rows = c.execute("SELECT instance FROM workpackage_items WHERE workpackage_id=?", (wp_id,)).fetchall()
+        for guard in _DELETE_GUARDS:  # 131: e.g. a reconciliation package with decisions is only hidden
+            guard(c, wp_id)
         for table in ("workpackage_items", "recipe_assignments"):
             c.execute(f"DELETE FROM {table} WHERE workpackage_id=?", (wp_id,))
         c.execute("DELETE FROM workpackages WHERE id=?", (wp_id,))

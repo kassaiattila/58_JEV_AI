@@ -326,5 +326,11 @@
   "Új fájlnév": "New file name",
   "Miért ellenőrzendő": "Why to review",
   "Eredeti fájlnév": "Original file name",
-  "Típus": "Type"
+  "Típus": "Type",
+  "egyeztetés": "reconciliation",
+  "egyeztetési kör beállítása": "reconciliation scope set",
+  "egyeztetés: párosítás": "reconciliation: pairing",
+  "egyeztetés: elutasítás": "reconciliation: rejection",
+  "egyeztetés: nem kell számla": "reconciliation: needs no invoice",
+  "egyeztetés: visszavonás": "reconciliation: revocation"
 }
