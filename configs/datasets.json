@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "changelog": [
+   {
+    "version": "1.12.0",
+    "date": "2026-10-09",
+    "note": "131 E1 (DECISIONS 131): the reconciliation package - source_kind reconcile, and the activity log's reconciliation actions (scope, allocation, rejection, needs-no-invoice mark, revocation)."
+   },
    {
     "version": "1.11.0",
     "date": "2026-10-09",
@@ -75,7 +80,7 @@
   "approval": {"approved": "Jóváhagyva"},
   "wp_status": {"open": "Aktív", "archived": "Elrejtve"},
   "kind": {"document": "Irat", "email": "Levél"},
-  "source_kind": {"folder": "mappa", "mailbox": "postafiók", "manual": "kézi válogatás", "watch": "figyelt mappa"},
+  "source_kind": {"folder": "mappa", "mailbox": "postafiók", "manual": "kézi válogatás", "watch": "figyelt mappa", "reconcile": "egyeztetés"},
   "pull_status": {"queued": "Sorban áll", "running": "Fut", "ok": "Kész", "error": "Hibás"},
   "provenance": {"located": "pontos", "approximate": "közelítő", "ambiguous": "több helyen", "context_rejected": "más mező mellett", "not_found": "nem található", "no_value": "nincs érték", "no_layer": "nincs szóréteg", "error": "hiba", "list": "lista"},
   "utility_status": {"ok": "rendben", "missing": "hiányzik", "partial": "részleges", "overlap": "átfedés", "settlement": "elszámolás", "no_period": "nem vetíthető: nincs számlázási időszak", "no_amount": "nem vetíthető: nincs összeg", "duplicate": "ismétlődő számla (egyszer számít)"},
@@ -100,7 +105,7 @@
   "activity_action": {"archive": "csomag elrejtése", "restore": "csomag visszahozása", "rename": "csomag átnevezése",
    "delete": "csomag törlése", "owner": "felelős beállítása", "recipe": "feldolgozási beállítások mentése", "run_start": "futás indítása",
    "run_approve": "futás jóváhagyása", "correction": "javítás", "reason_resolve": "teendő lezárása",
-   "task_decision": "feladatjavaslat döntése", "task_done": "feladat elvégezve", "mailbox_pull": "postafiók-letöltés"}
+   "task_decision": "feladatjavaslat döntése", "task_done": "feladat elvégezve", "mailbox_pull": "postafiók-letöltés", "reconcile_scope": "egyeztetési kör beállítása", "reconcile_allocate": "egyeztetés: párosítás", "reconcile_reject": "egyeztetés: elutasítás", "reconcile_mark": "egyeztetés: nem kell számla", "reconcile_revoke": "egyeztetés: visszavonás"}
  },
  "cache_entries": 24,
  "export_max_rows": 100000

@@ -57,6 +57,13 @@ signal. Three additions, all proposals for a person:
   reference numbers (`name_key`), to the invoice's supplier (`supplier_keys`); a later line of that name and an invoice
   of that supplier are tied by it. A line through a payment app teaches nothing, as the app pays many suppliers.
 
+**Allocations and marks** (131 E1, the reconciliation package, `jav/reconcile_package.py`): a confirmation is an
+allocation of an amount (`reconcile_allocations`), several per line and per invoice, never over either amount; a
+`paid_by` decision counts as both whole amounts. The proposal compares what is left, so the rest of a split payment can
+be proposed (status `partly_paid` when nothing fits the rest); a converted card pair is compared only in whole. A line a
+person marked as needing no invoice (`reconcile_line_marks`) takes part in nothing. A package's scope
+(`scope_statements`) limits the lines and the coverage, never the amounts allocated so far.
+
 Reuse: ported selectively from the legacy project's `orchestrator/framework/payables.py` 0.1.1 (10_AIFLOW_V4, HEAD
 4256cba): `normalize`, `account_key`, the canonical money rule, the reason-coded exclusions, the three signals, "an equal
 amount alone is no candidate" and the multiple-candidates flag; its 12 synthetic cases are rewritten in the golden file.
@@ -79,9 +86,9 @@ from typing import Any, Iterable
 
 from jav import cfg, duplicates, fact_checks, fx, store
 
-ENGINE_VERSION = "1.3.0"
-STATUSES = ("confirmed", "proposed", "amount_only", "amount_differs", "rate_missing", "no_payment_found", "partly_covered",
-            "not_covered", "excluded")
+ENGINE_VERSION = "1.4.0"
+STATUSES = ("confirmed", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing", "no_payment_found",
+            "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate")  # how a candidate's amounts relate
 DECISIONS = ("paid_by", "not_this")
 SIGNALS = ("invoice_number", "supplier_account", "supplier_name", "payment_channel", "learned_name")
@@ -105,7 +112,49 @@ CREATE TABLE IF NOT EXISTS reconcile_decisions (
     note              TEXT,
     decided_at        TEXT NOT NULL
 );
+-- 131 (E1, DECISIONS 131): a person's allocation of a line's amount to an invoice in a reconciliation package; several
+-- per line and per invoice (split and combined payments), within both sides' amounts. A revoked one keeps its row.
+CREATE TABLE IF NOT EXISTS reconcile_allocations (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_doc_id    TEXT NOT NULL,
+    statement_doc_id  TEXT NOT NULL,
+    line_id           TEXT NOT NULL,
+    line_amount       TEXT NOT NULL,      -- canonical decimal, in the line's currency
+    invoice_amount    TEXT NOT NULL,      -- canonical decimal, in the invoice's currency (equal in one currency)
+    workpackage_id    TEXT NOT NULL,      -- the reconciliation package it was made in
+    actor             TEXT NOT NULL,
+    note              TEXT,
+    created_at        TEXT NOT NULL,
+    revoked_at        TEXT,
+    revoked_by        TEXT,
+    revoke_note       TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_reconcile_allocations_line ON reconcile_allocations(line_id);
+CREATE INDEX IF NOT EXISTS ix_reconcile_allocations_invoice ON reconcile_allocations(invoice_doc_id);
+-- 131: a line that needs no invoice (a private expense, a fee, a transfer ...), by a person, with its reason
+CREATE TABLE IF NOT EXISTS reconcile_line_marks (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    statement_doc_id  TEXT NOT NULL,
+    line_id           TEXT NOT NULL,
+    category          TEXT NOT NULL,      -- configs/reconcile.json line_marks
+    note              TEXT,
+    workpackage_id    TEXT NOT NULL,
+    actor             TEXT NOT NULL,
+    created_at        TEXT NOT NULL,
+    revoked_at        TEXT,
+    revoked_by        TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_reconcile_line_marks_line ON reconcile_line_marks(line_id);
 """)
+
+
+def _migrate(conn) -> None:
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(reconcile_decisions)")}
+    if cols and "workpackage_id" not in cols:  # 131: a rejection made in a reconciliation package (not on a run)
+        conn.execute("ALTER TABLE reconcile_decisions ADD COLUMN workpackage_id TEXT")
+
+
+store.register_migration("reconcile", _migrate)
 
 
 class DecisionError(ValueError):
@@ -310,24 +359,52 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             "statements": statements, "own_accounts": sorted(own_accounts), "lines": payments}
 
 
-def _settled(snapshot: dict[str, Any], prepared: dict[str, Any]) -> tuple[set[tuple[str, str]], list[dict[str, Any]]]:
-    """The people's decisions in the snapshot: the rejected pairs, and the confirmed pairs whose invoice is eligible and
-    whose line still exists (a decision on a line a re-extraction removed changes nothing). One line pays one invoice:
-    of two confirmations sharing a line or an invoice, the first in order counts."""
+Settled = tuple[set[tuple[str, str]], list[dict[str, Any]], dict[str, Decimal], dict[str, Decimal]]
+
+
+def _settled(snapshot: dict[str, Any], prepared: dict[str, Any]) -> Settled:
+    """The people's decisions in the snapshot: the rejected pairs, the confirmed allocations, and the amount allocated
+    so far per line (in its currency) and per invoice (in its currency). A confirmation counts only when its invoice is
+    eligible and its line still exists (a decision on a line a re-extraction removed changes nothing).
+
+    131 (DECISIONS 131): a confirmation is an allocation of an amount (`snapshot["allocations"]`, from a reconciliation
+    package: several per line and per invoice, for split and combined payments); a `paid_by` decision without an
+    allocation of its pair counts as both whole amounts. Allocations apply in order while both sides have room; one that
+    would exceed a side's amount is ignored (the recording refuses it, so only a re-extraction that changed an amount
+    gets here). Of two whole-amount confirmations sharing a line or an invoice, the first therefore counts, as before."""
     rejected: set[tuple[str, str]] = set()
-    confirmed: list[dict[str, Any]] = []
-    used_lines: set[str] = set()
-    used_invoices: set[str] = set()
+    wanted: list[tuple[str, str, Any, Any]] = []
+    explicit = set()
+    for a in snapshot.get("allocations") or []:
+        explicit.add((str(a["invoice_id"]), str(a["line_id"])))
+        wanted.append((str(a["invoice_id"]), str(a["line_id"]), a.get("line_amount"), a.get("invoice_amount")))
     for d in sorted(snapshot.get("decisions") or [], key=lambda d: (str(d["invoice_id"]), str(d["line_id"]))):
         pair = (str(d["invoice_id"]), str(d["line_id"]))
         if d["decision"] == "not_this":
             rejected.add(pair)
-        elif (d["decision"] == "paid_by" and pair[0] in prepared["invoices"] and pair[1] in prepared["lines"]
-              and pair[0] not in used_invoices and pair[1] not in used_lines):
-            used_invoices.add(pair[0])
-            used_lines.add(pair[1])
-            confirmed.append({"invoice_id": pair[0], "line_id": pair[1], "statement_id": prepared["lines"][pair[1]]["statement_id"]})
-    return rejected, confirmed
+        elif d["decision"] == "paid_by" and pair not in explicit:
+            wanted.append((pair[0], pair[1], None, None))
+    confirmed: list[dict[str, Any]] = []
+    paid_line: dict[str, Decimal] = defaultdict(Decimal)
+    paid_invoice: dict[str, Decimal] = defaultdict(Decimal)
+    for iid, lid, line_part, invoice_part in wanted:
+        if iid not in prepared["invoices"] or lid not in prepared["lines"]:
+            continue
+        try:
+            line_total = money(str(prepared["lines"][lid].get("amount")))
+            invoice_total = money(str(prepared["invoices"][iid].get("amount")))
+            la = money(str(line_part)) if line_part is not None else line_total
+            ia = money(str(invoice_part)) if invoice_part is not None else invoice_total
+        except ValueError:
+            continue
+        if (la <= 0 or ia <= 0 or paid_line.get(lid, Decimal(0)) + la > line_total
+                or paid_invoice.get(iid, Decimal(0)) + ia > invoice_total):
+            continue
+        paid_line[lid] += la
+        paid_invoice[iid] += ia
+        confirmed.append({"invoice_id": iid, "line_id": lid, "statement_id": prepared["lines"][lid]["statement_id"],
+                          "line_amount": str(la), "invoice_amount": str(ia)})
+    return rejected, confirmed, dict(paid_line), dict(paid_invoice)
 
 
 def window(invoice: dict[str, Any]) -> tuple[date, date]:
@@ -488,25 +565,37 @@ def _covered(periods: list[tuple[date, date]], start: date, end: date) -> str:
 
 def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     """The proposal for a snapshot: candidate pairs, exclusions, every invoice's status and the unpaired lines. The
-    snapshot's `decisions` (a person's `paid_by` / `not_this` per invoice and line) settle their pairs first."""
+    snapshot's `decisions` (a person's `paid_by` / `not_this` per invoice and line) and `allocations` settle their
+    pairs first. 131: the amounts compared are what is left after the allocations, so the rest of a split payment can
+    be proposed; a converted card pair needs both sides untouched; a line a person marked as needing no invoice
+    (`marks`) takes part in nothing. `scope_statements` (a reconciliation package's scope): only the lines and the
+    coverage of these statements count, while the amounts allocated so far come from every statement."""
     prepared = prepare(snapshot)
-    rejected, confirmed = _settled(snapshot, prepared)
+    scope = set(snapshot["scope_statements"]) if snapshot.get("scope_statements") is not None else set(prepared["statements"])
+    rejected, confirmed, paid_line, paid_invoice = _settled(snapshot, prepared)
     learned = _learned(prepared, confirmed)
-    paid_invoices = {c["invoice_id"] for c in confirmed}
-    paid_lines = {c["line_id"] for c in confirmed}
+    marked = {str(m["line_id"]): str(m["category"]) for m in snapshot.get("marks") or [] if str(m["line_id"]) in prepared["lines"]}
+    rest_invoice = {iid: money(str(inv["amount"])) - paid_invoice.get(iid, Decimal(0)) for iid, inv in prepared["invoices"].items()}
+    rest_line = {pid: money(str(pay["amount"])) - paid_line.get(pid, Decimal(0)) for pid, pay in prepared["payments"].items()}
+    paid_invoices = {iid for iid, rest in rest_invoice.items() if rest <= 0}
+    paid_lines = {pid for pid, rest in rest_line.items() if rest <= 0}
     rates = snapshot.get("fx_rates") or {}
     amount_only = bool(_conf()["amount_only"]["enabled"])
     candidates = []
-    for pid, pay in sorted(prepared["payments"].items()):
-        if pid in paid_lines:
+    for pid, pay_whole in sorted(prepared["payments"].items()):
+        if pid in paid_lines or pid in marked or pay_whole["statement_id"] not in scope:
             continue
+        pay = {**pay_whole, "amount": str(rest_line[pid])}
         booked = _date(pay["booking_date"])
-        for iid, inv in sorted(prepared["invoices"].items()):
+        for iid, inv_whole in sorted(prepared["invoices"].items()):
             if iid in paid_invoices or (iid, pid) in rejected:
                 continue
+            inv = {**inv_whole, "amount": str(rest_invoice[iid])}
             same = inv["currency"] == pay["currency"]
             if not same and not (fx_capable(pay) and rate_need(inv)):
                 continue
+            if not same and (pid in paid_line or iid in paid_invoice):
+                continue  # a converted pair is compared only in whole (DECISIONS 131)
             start, end = window(inv) if same else fx_window(inv)
             if not start <= booked <= end:
                 continue
@@ -539,9 +628,10 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     for c in candidates:
         c["multiple_candidates"] = ((c["proposed"] and (per_line[c["line_id"]] > 1 or per_invoice[c["invoice_id"]] > 1))
                                     or (c["amount_only"] and (open_line[c["line_id"]] > 1 or open_invoice[c["invoice_id"]] > 1)))
-    periods = coverage(prepared["statements"])
+    in_scope = {k: st for k, st in prepared["statements"].items() if k in scope}
+    periods = coverage(in_scope)
     f = _conf()["fx"]
-    card_accounts = {(statement_account(st), str(st.get("currency"))) for st in prepared["statements"].values()
+    card_accounts = {(statement_account(st), str(st.get("currency"))) for st in in_scope.values()
                      if st.get("statement_type") in f["statement_types"] and st.get("currency") == f["line_currency"]}
     statuses = []
     for iid, inv in sorted(prepared["invoices"].items()):
@@ -558,6 +648,8 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             status = "proposed"
         elif len(signed) < len(mine):
             status = "amount_only"
+        elif iid in paid_invoice:
+            status = "partly_paid"  # 131: part of it is allocated, nothing proposed for the rest
         elif any(c["amount_relation"] != "no_rate" for c in signed):
             status = "amount_differs"
         elif signed:
@@ -572,7 +664,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     for e in prepared["excluded"]:
         if e["kind"] == "invoice":
             statuses.append({"invoice_id": e["id"], "status": "excluded", "reason": e["reason"]})
-    paired = {c["line_id"] for c in candidates if c["proposed"]} | paid_lines
+    paired = {c["line_id"] for c in candidates if c["proposed"]} | paid_lines | set(marked)
     from jav import policy
 
     below, above = policy.reconcile_fx_tolerance()
@@ -580,7 +672,10 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             "candidates": candidates, "learned_names": len(learned),
             "confirmed": confirmed, "excluded": prepared["excluded"],
             "invoices": sorted(statuses, key=lambda s: s["invoice_id"]),
-            "unpaired_line_ids": sorted(set(prepared["payments"]) - paired),
+            "unpaired_line_ids": sorted(p for p, pay in prepared["payments"].items() if p not in paired and pay["statement_id"] in scope),
+            "marked": sorted([lid, cat] for lid, cat in marked.items()),
+            "paid": {"invoices": {k: str(v) for k, v in sorted(paid_invoice.items())},  # 131: allocated so far
+                     "lines": {k: str(v) for k, v in sorted(paid_line.items())}},
             "coverage": [{"account": a, "currency": c, "periods": [[s.isoformat(), e.isoformat()] for s, e in p]}
                          for (a, c), p in sorted(periods.items())]}
 
@@ -707,11 +802,39 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
                              "currency": v.get(f["currency"]), "issue_date": v.get(f["issue_date"]),
                              "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"]), **_origin(d)})
     decisions = [{"invoice_id": r["invoice_doc_id"], "line_id": r["line_id"], "decision": r["decision"]} for r in _decision_rows()]
+    allocations, marks = active_allocations(), active_marks()
     f = conf["fx"]
     cards = any(s.get("statement_type") in f["statement_types"] and s.get("currency") == f["line_currency"] for s in statements)
     needs = {n for inv in invoices if (n := rate_need(inv)) and inv.get("currency") in conf["currencies"]} if cards else set()
     rates = fx.table(needs, fetch_missing=fetch_rates) if needs else {}
-    return {"invoices": invoices, "statements": statements, "decisions": decisions, "fx_rates": rates}
+    return {"invoices": invoices, "statements": statements, "decisions": decisions, "fx_rates": rates,
+            "allocations": allocations, "marks": marks}
+
+
+def active_allocations(c=None) -> list[dict[str, Any]]:
+    """131: the allocations not revoked, in the order they were made, in the core's shape."""
+    if c is None:
+        with store.connect() as own:
+            return active_allocations(own)
+    if not _has_table(c, "reconcile_allocations"):
+        return []
+    return [{"id": r["id"], "invoice_id": r["invoice_doc_id"], "line_id": r["line_id"], "statement_id": r["statement_doc_id"],
+             "line_amount": r["line_amount"], "invoice_amount": r["invoice_amount"], "workpackage_id": r["workpackage_id"]}
+            for r in c.execute("SELECT * FROM reconcile_allocations WHERE revoked_at IS NULL ORDER BY id")]
+
+
+def active_marks(c=None) -> list[dict[str, Any]]:
+    """131: the lines a person marked as needing no invoice, not revoked (the latest per line counts)."""
+    if c is None:
+        with store.connect() as own:
+            return active_marks(own)
+    if not _has_table(c, "reconcile_line_marks"):
+        return []
+    latest: dict[str, dict[str, Any]] = {}
+    for r in c.execute("SELECT * FROM reconcile_line_marks WHERE revoked_at IS NULL ORDER BY id"):
+        latest[r["line_id"]] = {"id": r["id"], "line_id": r["line_id"], "statement_id": r["statement_doc_id"],
+                                "category": r["category"], "note": r["note"], "workpackage_id": r["workpackage_id"]}
+    return list(latest.values())
 
 
 # --- the to-do and the person's decision (129, K2) -------------------------------------------------------------------
@@ -851,7 +974,7 @@ def decide(run_id: str, item_id: str, invoice_doc_id: str, line: str, *, decisio
 # --- views (129, K2) ---------------------------------------------------------------------------------------------------
 
 
-def _file_names(doc_ids: Iterable[str]) -> dict[str, str]:
+def file_names(doc_ids: Iterable[str]) -> dict[str, str]:
     ids = sorted(set(doc_ids))
     if not ids:
         return {}
@@ -917,7 +1040,7 @@ def item_pairs(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str
     lines = {key[1]: _find_line(snap, key[1]) for key in pairs}
     statement_ids = {found[0]["id"] for found in lines.values() if found}
     statement_ids |= {d["statement_doc_id"] for d in decided.values()}
-    files = _file_names([*invoices.keys() & {k[0] for k in pairs}, *statement_ids])
+    files = file_names([*invoices.keys() & {k[0] for k in pairs}, *statement_ids])
     statements = {s["id"]: s for s in snap["statements"]}
     packages = _packages([*(i.get("work_run") for i in invoices.values()), *(s.get("work_run") for s in statements.values())])
     out = []
@@ -968,7 +1091,7 @@ def run_rows(run_id: str) -> list[dict[str, Any]]:
     equal_only = [c for c in result["candidates"] if c["amount_only"]]
     confirmed = result["confirmed"]
     rejected = {(d["invoice_id"], d["line_id"]) for d in snap["decisions"] if d["decision"] == "not_this"}
-    files = _file_names([*invoices, *(s["id"] for s in snap["statements"])])
+    files = file_names([*invoices, *(s["id"] for s in snap["statements"])])
     excluded = {(e["kind"], e["id"]): e["reason"] for e in result["excluded"]}
 
     def line_text(line: str) -> str | None:
@@ -1044,6 +1167,9 @@ def fingerprint() -> str:
         corr = (c.execute("SELECT COUNT(*), MAX(created_at) FROM run_item_corrections").fetchone()
                 if _has_table(c, "run_item_corrections") else (0, None))
         dec = [[d["pair_key"], d["decision"], d["decided_at"]] for d in _decision_rows(c)]
+        for table in ("reconcile_allocations", "reconcile_line_marks"):  # 131: a person's allocations and marks
+            if _has_table(c, table):
+                dec.append([table, *[[r[0], r[1]] for r in c.execute(f"SELECT id, revoked_at FROM {table} ORDER BY id")]])
     return "|".join(str(x) for x in (*docs, *corr, hashlib.sha256(json.dumps(dec).encode("utf-8")).hexdigest()[:16],
                                       fx.fingerprint()))
 
@@ -1127,7 +1253,8 @@ def golden_cases() -> list[dict[str, Any]]:
                       for st in case["statements"]]
         out.append({"id": case["id"], "note": case.get("note"),
                     "snapshot": {"invoices": invoices, "statements": statements, "decisions": case.get("decisions", []),
-                                 "fx_rates": case.get("fx_rates", {})},
+                                 "fx_rates": case.get("fx_rates", {}), "allocations": case.get("allocations", []),
+                                 "marks": case.get("marks", [])},
                     "expected": case["expected"], "source_review": case.get("source_review", [])})
     return out
 
@@ -1165,6 +1292,10 @@ def check_case(case: dict[str, Any]) -> list[str]:
         wanted_sig = {k: got_sig.get(k) for k in exp["signals"]}
         if wanted_sig != exp["signals"]:
             problems.append(f"signals {wanted_sig} != {exp['signals']}")
+    if result["marked"] != sorted(exp.get("marked", [])):  # 131 E1: the lines marked as needing no invoice
+        problems.append(f"marked {result['marked']} != {sorted(exp.get('marked', []))}")
+    if "paid" in exp and result["paid"] != exp["paid"]:  # 131 E1: the amounts allocated so far
+        problems.append(f"paid {result['paid']} != {exp['paid']}")
     return problems
 
 

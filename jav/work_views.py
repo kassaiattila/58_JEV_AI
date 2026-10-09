@@ -109,6 +109,12 @@ def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool |
 
 def workpackage_view(wp_id: str) -> dict[str, Any]:
     wp = work.get(wp_id)
+    if wp["source_kind"] == "reconcile":  # 131: a reconciliation package has a scope, no files and no runs
+        from jav import reconcile_package
+
+        view = reconcile_package.package_view(wp_id)
+        return jsonable({"workpackage": wp, "readiness": view["readiness"], "titles": {}, "last_run": None, "runs": 0,
+                         "next": view["next"], "reconcile": {k: view[k] for k in ("scope", "counts", "coverage")}})
     ready = work.readiness(wp_id)
     runs = work.run_rows(wp_id)
     extra = {}
@@ -142,6 +148,11 @@ def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
         r["open_reasons"] = last["open_reasons"] if last else 0
         r["last_status"] = last["status"] if last else None
         r["last_activity"] = (last["finished_at"] or last["created_at"]) if last else r["created_at"]
+        if wp["source_kind"] == "reconcile":  # 131: its own next step (pairing / result)
+            from jav import reconcile_package
+
+            r["next"] = reconcile_package.package_view(r["id"])["next"]
+            continue
         # without a run we do not check readiness (expensive); the step is then "start"
         r["next"] = next_step(wp, last)
     return jsonable(rows)
