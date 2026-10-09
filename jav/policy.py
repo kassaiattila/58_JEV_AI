@@ -355,7 +355,9 @@ def apply_duplicate_policy(state: FlowState) -> None:
 def apply_reconcile_policy(state: FlowState) -> None:
     """129 (backlog F-reconciliation K2, DECISIONS 128): an incoming invoice or a bank statement that forms a proposed
     pair with a statement line or an invoice already in the store gets a `reconcile:proposed:<invoice>:<line>` to-do
-    (`jav/reconcile.py`). Read in a worker run only, as the duplicates; a measurement's result never depends on it."""
+    (`jav/reconcile.py`); 131: a pair of exactly equal amounts that nothing else ties gets a
+    `reconcile:amount_only:<invoice>:<line>` to-do. Read in a worker run only, as the duplicates; a measurement's result
+    never depends on it."""
     if state.invoice is None:
         return
     from jav import reconcile, typepack

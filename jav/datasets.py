@@ -592,6 +592,8 @@ def _reconciliation(scope: dict[str, str]) -> Rows:
         _col("signal_invoice_number", "Invoice number in the memo", "bool"),
         _col("signal_supplier_account", "Supplier's account", "bool"),
         _col("signal_supplier_name", "Supplier's name", "bool"),
+        _col("signal_payment_channel", "Payment method", "bool"),
+        _col("signal_learned_name", "Name from an earlier decision", "bool"),
         _col("decision", "Decision", "enum", labels="reconcile_decision"),
         _col("reason", "Why excluded", "enum", labels="reconcile_reason", hidden=True),
         _col("item_id", "Item id", "id", hidden=True),

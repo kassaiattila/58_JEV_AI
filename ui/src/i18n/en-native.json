@@ -323,5 +323,12 @@
   "{{pct}} from the converted amount": "{{pct}} from the converted amount",
   "{{rate}} HUF per {{currency}}, {{day}}": "{{rate}} HUF per {{currency}}, {{day}}",
   "No MNB exchange rate is stored for the invoice's issue date yet, so the amounts could not be compared": "No MNB exchange rate is stored for the invoice's issue date yet, so the amounts could not be compared",
-  "No exchange rate for the issue date": "No exchange rate for the issue date"
+  "No exchange rate for the issue date": "No exchange rate for the issue date",
+  "the payment method (a cheque bill paid through a cheque app)": "the payment method (a cheque bill paid through a cheque app)",
+  "the name of an earlier confirmed payment": "the name of an earlier confirmed payment",
+  "Only the amount and the dates fit: nothing else ties this line to the invoice. Decide from the documents.": "Only the amount and the dates fit: nothing else ties this line to the invoice. Decide from the documents.",
+  "Possible payment to decide: a statement line has exactly the invoice's amount, but nothing else ties them": "Possible payment to decide: a statement line has exactly the invoice's amount, but nothing else ties them",
+  "Same amount, nothing else ties them": "Same amount, nothing else ties them",
+  "Payment method": "Payment method",
+  "Name from an earlier decision": "Name from an earlier decision"
 }

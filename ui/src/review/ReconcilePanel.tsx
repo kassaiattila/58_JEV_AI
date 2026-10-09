@@ -5,6 +5,9 @@
 // approved. The pattern is the duplicate invoice panel (DuplicatePanel.tsx).
 // 130: a forint card line and an invoice of another currency are compared through the MNB rate of the issue date; the
 // panel shows the converted amount, the rate and the line's deviation from it, or that no rate is stored yet.
+// 131: a line with exactly the invoice's amount but nothing else tying them is never proposed; it stands here for a
+// person to decide, with a note that only the amount and the dates fit. Two more details can tie a pair: the payment
+// method (a cheque bill paid through a cheque app) and a name learnt from an earlier confirmed pair.
 import { useRef, useState } from "react";
 import { api, ApiError, type ItemResult, type ReconcileDecision, type ReconcilePair, type ReconcileSignal } from "../api";
 import { getLocale, t, useLocale } from "../i18n";
@@ -14,6 +17,8 @@ const SIGNAL: Record<ReconcileSignal, string> = tmap({
   invoice_number: "invoice number in the memo",
   supplier_account: "the supplier's account number",
   supplier_name: "the supplier's name",
+  payment_channel: "the payment method (a cheque bill paid through a cheque app)",
+  learned_name: "the name of an earlier confirmed payment",
 });
 
 const DECIDED: Record<ReconcileDecision, string> = tmap({
@@ -98,6 +103,9 @@ export function ReconcilePanel({ result, readOnly, onDecided }: Props) {
               {t("Matched by:")} {[...(p.amount_relation === "equal" ? [t("the same amount")] : []),
                 ...(p.amount_relation === "fx_within" ? [t("the converted amount")] : []), ...p.signals.map((s) => SIGNAL[s])].join(", ")}
             </p>
+            {p.amount_only ? (
+              <p className="small warn-text">{t("Only the amount and the dates fit: nothing else ties this line to the invoice. Decide from the documents.")}</p>
+            ) : null}
             {p.amount_relation === "no_rate" ? (
               <p className="small warn-text">{t("No MNB exchange rate is stored for the invoice's issue date yet, so the amounts could not be compared")}</p>
             ) : null}
