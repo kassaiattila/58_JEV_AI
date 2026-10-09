@@ -539,7 +539,8 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
     print(f"invoices: {r['invoices']}; excluded by reason: {r['excluded_invoices']}")
     print(f"lines excluded by reason: {r['excluded_lines']}")
     print(f"proposed pairs: {r['proposed_pairs']} (with more than one candidate: {r['multiple_candidates']}); "
-          f"signal with a different amount: {r['amount_differs_pairs']}")
+          f"same amount, no signal: {r['amount_only_pairs']}; signal with a different amount: {r['amount_differs_pairs']}")
+    print(f"signals: {r['signals']}; names learnt from confirmations: {r['learned_names']}")
     print(f"invoice status: {r['invoice_status']}")
     print(f"lines without a proposed pair: {r['unpaired_lines']}")
     print(f"confirmed pairs: {r['confirmed_pairs']}; decisions: {r['decisions']}")

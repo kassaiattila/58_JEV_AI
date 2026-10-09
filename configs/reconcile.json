@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.1.0",
-    "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment kinds left to a person and when a statement counts as verified coverage. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid').",
+    "version": "1.2.0",
+    "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person and when a statement counts as verified coverage. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131.",
     "changelog": [
+      {
+        "version": "1.2.0",
+        "date": "2026-10-09",
+        "note": "131 (DECISIONS 131): invoice_fields.payment_method; payment_channels (the postal cheque: an invoice payable by cheque and a line through a cheque payment app are tied by the payment_channel signal; patterns on the normalised, accent-free text, document vocabulary); amount_only (a line with exactly an invoice's amount in one currency, in its window, without a signal, is listed for a person, never proposed); learning.min_confirmations (a person's confirmation ties the line's counterparty name to the supplier, the learned_name signal; a payment app line teaches nothing)."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-09",
@@ -26,6 +31,7 @@
     "supplier_name": "supplier_name",
     "supplier_tax_id": "supplier_tax_id",
     "payment_account": "payment_iban",
+    "payment_method": "payment_method",
     "amount": ["amount_due", "gross_total"],
     "currency": "currency",
     "issue_date": "issue_date",
@@ -40,6 +46,11 @@
     "min_compact_number_chars": 6,
     "min_name_share": 0.75
   },
+  "payment_channels": [
+    {"name": "postal_cheque", "invoice_method": "postai szamlabefizetesi|keszpenz atutalasi|csekk", "line_text": "postacsekk|icsekk|csekkbefizet"}
+  ],
+  "amount_only": {"enabled": true},
+  "learning": {"min_confirmations": 1},
   "fx": {
     "statement_types": ["credit_card"],
     "line_currency": "HUF",

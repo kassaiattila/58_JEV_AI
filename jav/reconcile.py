@@ -43,6 +43,20 @@ proposed outside it (`fx_outside`, status `amount_differs`) or without a known r
 needs them covered too. The rates come in the snapshot (`fx_rates`), so the core stays pure; only the processing and
 the command line fetch missing rates, a view reads the store.
 
+**Payment method, equal amounts, learnt names** (131, DECISIONS 131): the store's card lines show the payment service
+(PostaCsekk, iCsekk) or a shortened merchant name (EXAMPLETEL*12345), not the supplier, so none of them carried a
+signal. Three additions, all proposals for a person:
+
+- The **payment method** is a signal (`payment_channel`): the invoice's payment method fits a configured channel
+  (`payment_channels`, e.g. the postal cheque) and the line's name or description names that channel's payment app.
+  Alone it ties no other amount: the app pays many bills.
+- A line with **exactly the amount** of an invoice in one currency, in its window, but without any signal, is listed
+  for a person (`amount_only`, its own `reconcile:amount_only:...` to-do, status `amount_only`), never proposed; not for
+  a converted card amount (the band admits chance matches) and not beside a proposed pair of its line or invoice.
+- A **learnt name** is a signal (`learned_name`): a person's confirmation ties the line's counterparty name, without its
+  reference numbers (`name_key`), to the invoice's supplier (`supplier_keys`); a later line of that name and an invoice
+  of that supplier are tied by it. A line through a payment app teaches nothing, as the app pays many suppliers.
+
 Reuse: ported selectively from the legacy project's `orchestrator/framework/payables.py` 0.1.1 (10_AIFLOW_V4, HEAD
 4256cba): `normalize`, `account_key`, the canonical money rule, the reason-coded exclusions, the three signals, "an equal
 amount alone is no candidate" and the multiple-candidates flag; its 12 synthetic cases are rewritten in the golden file.
@@ -65,12 +79,13 @@ from typing import Any, Iterable
 
 from jav import cfg, duplicates, fact_checks, fx, store
 
-ENGINE_VERSION = "1.2.0"
-STATUSES = ("confirmed", "proposed", "amount_differs", "rate_missing", "no_payment_found", "partly_covered", "not_covered",
-            "excluded")
+ENGINE_VERSION = "1.3.0"
+STATUSES = ("confirmed", "proposed", "amount_only", "amount_differs", "rate_missing", "no_payment_found", "partly_covered",
+            "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate")  # how a candidate's amounts relate
 DECISIONS = ("paid_by", "not_this")
-SIGNALS = ("invoice_number", "supplier_account", "supplier_name")
+SIGNALS = ("invoice_number", "supplier_account", "supplier_name", "payment_channel", "learned_name")
+KINDS = ("proposed", "amount_only")  # the to-do of a proposed pair and of a pair listed for its equal amount alone
 REASON = "reconcile"
 PRODUCER = "reconcile"  # the producer of the to-dos opened by `scan`; the flow's own ones are the M2 step's
 PREFIX = 16  # the invoice's id prefix in the to-do (as in `duplicates`)
@@ -124,6 +139,26 @@ def normalize(value: Any) -> str:
 
 def compact(value: Any) -> str:
     return normalize(value).replace(" ", "")
+
+
+def name_key(value: Any) -> str | None:
+    """A line's counterparty name without its reference numbers and single letters, so the monthly lines of one merchant
+    share it: "EXAMPLETEL*12345 BUDAPEST" -> "exampletel budapest" (131); None when nothing is left."""
+    words = [w for w in normalize(value).split() if len(w) > 1 and not any(ch.isdigit() for ch in w)]
+    return " ".join(words) or None
+
+
+def supplier_keys(invoice: dict[str, Any]) -> set[str]:
+    """The keys a learnt name is tied to: the supplier's tax number and its name without legal forms and numbers, so an
+    invoice that lacks one of them still finds the name (131)."""
+    keys = set()
+    if tax := fact_checks.tax_party_key(invoice.get("supplier_tax_id")):
+        keys.add("tax:" + tax)
+    words = [w for w in normalize(invoice.get("supplier_name")).split()
+             if w not in _ignore_tokens() and not any(ch.isdigit() for ch in w)]
+    if words:
+        keys.add(" ".join(words))
+    return keys
 
 
 def account_key(value: Any) -> str:
@@ -303,8 +338,26 @@ def window(invoice: dict[str, Any]) -> tuple[date, date]:
     return issue - timedelta(days=int(w["days_before_issue"])), max(end, issue) + timedelta(days=int(w["days_after_due"]))
 
 
-def signals(invoice: dict[str, Any], payment: dict[str, Any]) -> list[str]:
-    """The facts that tie a line to an invoice; the amount is never one of them."""
+def _line_text(payment: dict[str, Any]) -> str:
+    return normalize(f"{payment.get('counterparty_name') or ''} {payment.get('description') or ''} {payment.get('memo') or ''}")
+
+
+def through_app(payment: dict[str, Any]) -> bool:
+    """Whether the line names the payment app of a configured channel (131): such a line pays many suppliers."""
+    text = _line_text(payment)
+    return any(re.search(ch["line_text"], text) for ch in _conf()["payment_channels"])
+
+
+def _channel(invoice: dict[str, Any], payment: dict[str, Any]) -> bool:
+    """The invoice's payment method fits a channel and the line names that channel's payment app (131)."""
+    method, text = normalize(invoice.get("payment_method")), _line_text(payment)
+    return bool(method) and any(re.search(ch["invoice_method"], method) and re.search(ch["line_text"], text)
+                                for ch in _conf()["payment_channels"])
+
+
+def signals(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple[str, str]] | None = None) -> list[str]:
+    """The facts that tie a line to an invoice; the amount is never one of them. `learned`: the (name key, supplier key)
+    pairs of a person's confirmations (`learned_names`)."""
     s = _conf()["signals"]
     found = []
     text = f"{payment.get('memo') or ''} {payment.get('description') or ''}"
@@ -321,7 +374,32 @@ def signals(invoice: dict[str, Any], payment: dict[str, Any]) -> list[str]:
     counterparty = set(normalize(payment.get("counterparty_name") or payment.get("description")).split())
     if supplier and len(supplier & counterparty) / len(supplier) >= float(s["min_name_share"]):
         found.append("supplier_name")
+    if _channel(invoice, payment):
+        found.append("payment_channel")
+    key = name_key(payment.get("counterparty_name"))
+    if learned and key and any((key, sk) in learned for sk in supplier_keys(invoice)):
+        found.append("learned_name")
     return found
+
+
+def _learned(prepared: dict[str, Any], confirmed: list[dict[str, Any]]) -> set[tuple[str, str]]:
+    """The (name key, supplier key) pairs confirmed at least `learning.min_confirmations` times; a line through a
+    payment app or without a counterparty name teaches nothing (131)."""
+    counts: Counter[tuple[str, str]] = Counter()
+    for c in confirmed:
+        line, invoice = prepared["lines"][c["line_id"]], prepared["invoices"][c["invoice_id"]]
+        key = name_key(line.get("counterparty_name"))
+        if key is None or through_app(line):
+            continue
+        counts.update((key, sk) for sk in supplier_keys(invoice))
+    least = int(_conf()["learning"]["min_confirmations"])
+    return {pair for pair, n in counts.items() if n >= least}
+
+
+def learned_names(snapshot: dict[str, Any]) -> set[tuple[str, str]]:
+    """The names a snapshot's confirmations teach (`_learned`), for the views that show a pair's signals."""
+    prepared = prepare(snapshot)
+    return _learned(prepared, _settled(snapshot, prepared)[1])
 
 
 def fx_capable(payment: dict[str, Any]) -> bool:
@@ -413,9 +491,11 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     snapshot's `decisions` (a person's `paid_by` / `not_this` per invoice and line) settle their pairs first."""
     prepared = prepare(snapshot)
     rejected, confirmed = _settled(snapshot, prepared)
+    learned = _learned(prepared, confirmed)
     paid_invoices = {c["invoice_id"] for c in confirmed}
     paid_lines = {c["line_id"] for c in confirmed}
     rates = snapshot.get("fx_rates") or {}
+    amount_only = bool(_conf()["amount_only"]["enabled"])
     candidates = []
     for pid, pay in sorted(prepared["payments"].items()):
         if pid in paid_lines:
@@ -430,24 +510,35 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             start, end = window(inv) if same else fx_window(inv)
             if not start <= booked <= end:
                 continue
-            found = signals(inv, pay)
-            if not found:
-                continue  # an equal (or converted) amount alone ties nothing
+            found = signals(inv, pay, learned)
             relation, conversion = amount_relation(inv, pay, rates)
+            if found == ["payment_channel"] and relation not in ("equal", "fx_within"):
+                continue  # a payment app pays many bills: its channel alone says nothing about another amount (131)
+            if not found and not (amount_only and relation == "equal"):
+                continue  # a converted amount alone ties nothing; an equal one is only listed for a person (131)
             candidate = {"line_id": pid, "invoice_id": iid, "statement_id": pay["statement_id"], "currency": inv["currency"],
                          "line_currency": pay["currency"], "amount_relation": relation,
-                         "proposed": relation in ("equal", "fx_within"), "signals": found,
-                         "source_review_required": not pay["statement_verified"]}
+                         "proposed": bool(found) and relation in ("equal", "fx_within"), "amount_only": not found,
+                         "signals": found, "source_review_required": not pay["statement_verified"]}
             if conversion is not None:
                 candidate["fx"] = conversion
             candidates.append(candidate)
+    proposed_lines = {c["line_id"] for c in candidates if c["proposed"]}
+    proposed_invoices = {c["invoice_id"] for c in candidates if c["proposed"]}
+    candidates = [c for c in candidates if not c["amount_only"]
+                  or (c["line_id"] not in proposed_lines and c["invoice_id"] not in proposed_invoices)]
     per_line, per_invoice = defaultdict(int), defaultdict(int)
+    open_line, open_invoice = defaultdict(int), defaultdict(int)  # the pairs waiting for a person: proposed or equal amount
     for c in candidates:
         if c["proposed"]:
             per_line[c["line_id"]] += 1
             per_invoice[c["invoice_id"]] += 1
+        if c["proposed"] or c["amount_only"]:
+            open_line[c["line_id"]] += 1
+            open_invoice[c["invoice_id"]] += 1
     for c in candidates:
-        c["multiple_candidates"] = c["proposed"] and (per_line[c["line_id"]] > 1 or per_invoice[c["invoice_id"]] > 1)
+        c["multiple_candidates"] = ((c["proposed"] and (per_line[c["line_id"]] > 1 or per_invoice[c["invoice_id"]] > 1))
+                                    or (c["amount_only"] and (open_line[c["line_id"]] > 1 or open_invoice[c["invoice_id"]] > 1)))
     periods = coverage(prepared["statements"])
     f = _conf()["fx"]
     card_accounts = {(statement_account(st), str(st.get("currency"))) for st in prepared["statements"].values()
@@ -455,6 +546,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     statuses = []
     for iid, inv in sorted(prepared["invoices"].items()):
         mine = [c for c in candidates if c["invoice_id"] == iid]
+        signed = [c for c in mine if not c["amount_only"]]
         start, end = window(inv)
         cover = [_covered(p, start, end) for (_acct, cur), p in periods.items() if cur == inv["currency"]]
         if rate_need(inv):  # a card account can pay it too, in the card window
@@ -464,9 +556,11 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             status = "confirmed"
         elif any(c["proposed"] for c in mine):
             status = "proposed"
-        elif any(c["amount_relation"] != "no_rate" for c in mine):
+        elif len(signed) < len(mine):
+            status = "amount_only"
+        elif any(c["amount_relation"] != "no_rate" for c in signed):
             status = "amount_differs"
-        elif mine:
+        elif signed:
             status = "rate_missing"
         elif cover and all(c == "full" for c in cover):
             status = "no_payment_found"
@@ -483,7 +577,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
 
     below, above = policy.reconcile_fx_tolerance()
     return {"engine_version": ENGINE_VERSION, "config_hash": config_hash(), "fx_tolerance": [str(below), str(above)],
-            "candidates": candidates,
+            "candidates": candidates, "learned_names": len(learned),
             "confirmed": confirmed, "excluded": prepared["excluded"],
             "invoices": sorted(statuses, key=lambda s: s["invoice_id"]),
             "unpaired_line_ids": sorted(set(prepared["payments"]) - paired),
@@ -608,7 +702,8 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
         else:
             invoices.append({"id": d["doc_id"], "doc_type": d["doc_type"], "number": v.get(f["number"]),
                              "supplier_name": v.get(f["supplier_name"]), "supplier_tax_id": v.get(f["supplier_tax_id"]),
-                             "payment_account": v.get(f["payment_account"]), "amount": _amount(v),
+                             "payment_account": v.get(f["payment_account"]), "payment_method": v.get(f["payment_method"]),
+                             "amount": _amount(v),
                              "currency": v.get(f["currency"]), "issue_date": v.get(f["issue_date"]),
                              "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"]), **_origin(d)})
     decisions = [{"invoice_id": r["invoice_doc_id"], "line_id": r["line_id"], "decision": r["decision"]} for r in _decision_rows()]
@@ -622,15 +717,27 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
 # --- the to-do and the person's decision (129, K2) -------------------------------------------------------------------
 
 
-def reason(invoice_id: str, line: str) -> str:
-    """The to-do of a proposed pair: the invoice by its id prefix and the line by its stable id."""
-    return f"{REASON}:proposed:{invoice_id[:PREFIX]}:{line}"
+def reason(invoice_id: str, line: str, kind: str = "proposed") -> str:
+    """The to-do of a pair: its kind (`KINDS`: proposed, or listed for its equal amount alone), the invoice by its id
+    prefix and the line by its stable id."""
+    if kind not in KINDS:
+        raise ValueError(f"unknown reconciliation to-do kind: {kind}")
+    return f"{REASON}:{kind}:{invoice_id[:PREFIX]}:{line}"
+
+
+def _kind(candidate: dict[str, Any]) -> str:
+    return "amount_only" if candidate["amount_only"] else "proposed"
+
+
+def _waits(candidate: dict[str, Any]) -> bool:
+    """Whether a candidate waits for a person: proposed, or listed for its equal amount alone (131)."""
+    return candidate["proposed"] or candidate["amount_only"]
 
 
 def parse_reason(code: str) -> tuple[str, str] | None:
-    """(the invoice's id prefix, the line id) of a reconciliation to-do; None for any other to-do."""
+    """(the invoice's id prefix, the line id) of a reconciliation to-do of either kind; None for any other to-do."""
     parts = code.split(":")
-    if len(parts) == 6 and parts[0] == REASON and parts[1] == "proposed" and parts[2]:
+    if len(parts) == 6 and parts[0] == REASON and parts[1] in KINDS and parts[2]:
         return parts[2], ":".join(parts[3:])
     return None
 
@@ -640,15 +747,16 @@ def pair_key(invoice_id: str, line: str) -> str:
 
 
 def review_reasons(doc_id: str | None, doc_type: str | None, values: dict[str, Any], validation: Any) -> list[str]:
-    """The reconciliation to-dos of the document being processed: every proposed pair it is a side of, against the
-    store, in a worker run only (as `duplicates.review_reasons`). A decided pair adds nothing."""
+    """The reconciliation to-dos of the document being processed: every proposed pair it is a side of, and every pair
+    listed for its equal amount alone (131), against the store, in a worker run only (as `duplicates.review_reasons`). A
+    decided pair adds nothing."""
     if not duplicates.enabled() or not doc_id or not handles(doc_type):
         return []
     snap = snapshot({"doc_id": doc_id, "doc_type": doc_type, "values": values, "validation": validation}, fetch_rates=True)
     if not snap["statements"] or not snap["invoices"]:
         return []
-    return [reason(c["invoice_id"], c["line_id"]) for c in propose(snap)["candidates"]
-            if c["proposed"] and doc_id in (c["invoice_id"], c["statement_id"])]
+    return [reason(c["invoice_id"], c["line_id"], _kind(c)) for c in propose(snap)["candidates"]
+            if _waits(c) and doc_id in (c["invoice_id"], c["statement_id"])]
 
 
 def decisions_for(doc_ids: Iterable[str], c=None) -> list[dict[str, Any]]:
@@ -668,7 +776,8 @@ def _find_line(snap: dict[str, Any], line: str) -> tuple[dict[str, Any], dict[st
 def _open_to_dos(c) -> list[dict[str, Any]]:
     return [dict(r) for r in c.execute(
         "SELECT r.id, r.reason, q.subject_id FROM review_reasons r JOIN review_queue q ON q.id = r.review_id"
-        " WHERE q.subject_kind='document' AND r.status='open' AND r.reason LIKE ? ORDER BY r.id", (f"{REASON}:proposed:%",))]
+        " WHERE q.subject_kind='document' AND r.status='open' AND r.reason LIKE ? ORDER BY r.id", (f"{REASON}:%",))
+        if parse_reason(r["reason"]) is not None]
 
 
 def decide(run_id: str, item_id: str, invoice_doc_id: str, line: str, *, decision: str, actor: str,
@@ -723,7 +832,7 @@ def decide(run_id: str, item_id: str, invoice_doc_id: str, line: str, *, decisio
                   " ON CONFLICT(pair_key) DO UPDATE SET decision=excluded.decision, signals=excluded.signals,"
                   " amount_relation=excluded.amount_relation, run_id=excluded.run_id, actor=excluded.actor,"
                   " note=excluded.note, decided_at=excluded.decided_at",
-                  (key, invoice_doc_id, statement["id"], line, decision, json.dumps(signals(invoice, pay)),
+                  (key, invoice_doc_id, statement["id"], line, decision, json.dumps(signals(invoice, pay, learned_names(snap))),
                    amount_relation(invoice, pay, snap.get("fx_rates"))[0],
                    run_id, actor, note, datetime.now(timezone.utc).isoformat(timespec="seconds")))
         to_dos = _open_to_dos(c)
@@ -796,6 +905,7 @@ def item_pairs(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str
     if not wanted and not decided:
         return []
     snap = snapshot()
+    learned = learned_names(snap)
     invoices = {i["id"]: i for i in snap["invoices"]}
     pairs: dict[tuple[str, str], int | None] = {}
     for (prefix, line), reason_id in wanted.items():
@@ -820,11 +930,13 @@ def item_pairs(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str
         side = "invoice" if item_id == iid else "statement"
         other = statements.get(sid) if side == "invoice" else inv
         other_id = sid if side == "invoice" else iid
+        tied = signals(inv, pay, learned) if inv and pay else (json.loads(d["signals"] or "[]") if d else [])
+        relation = relation if inv and pay else (d["amount_relation"] if d else None)
         out.append({
             "invoice_doc_id": iid, "statement_doc_id": sid, "line_id": line, "side": side,
             "invoice": _invoice_view(inv, files), "line": _line_view(found, files),
-            "signals": signals(inv, pay) if inv and pay else (json.loads(d["signals"] or "[]") if d else []),
-            "amount_relation": relation if inv and pay else (d["amount_relation"] if d else None), "fx": conversion,
+            "signals": tied, "amount_relation": relation, "fx": conversion,
+            "amount_only": relation == "equal" and not tied,
             "source_review_required": bool(found) and not found[0].get("verified"), "reason_id": reason_id,
             "decision": d["decision"] if d else None, "decided_by": d["actor"] if d else None,
             "decided_at": d["decided_at"] if d else None, "note": d["note"] if d else None,
@@ -849,9 +961,11 @@ def run_rows(run_id: str) -> list[dict[str, Any]]:
     if not mine & {d["id"] for d in [*snap["invoices"], *snap["statements"]]}:
         return []
     result = propose(snap)
+    learned = learned_names(snap)
     invoices = {i["id"]: i for i in snap["invoices"]}
     lines = {ln["id"]: (st, ln) for st in snap["statements"] for ln in st["lines"]}
     proposed = [c for c in result["candidates"] if c["proposed"]]
+    equal_only = [c for c in result["candidates"] if c["amount_only"]]
     confirmed = result["confirmed"]
     rejected = {(d["invoice_id"], d["line_id"]) for d in snap["decisions"] if d["decision"] == "not_this"}
     files = _file_names([*invoices, *(s["id"] for s in snap["statements"])])
@@ -862,8 +976,9 @@ def run_rows(run_id: str) -> list[dict[str, Any]]:
         return files.get(st["id"]) if st else None
 
     def signal_flags(inv: dict[str, Any] | None, found: tuple[dict[str, Any], dict[str, Any]] | None) -> dict[str, bool | None]:
-        """The pair's signals as three yes/no columns (empty without a pair)."""
-        got = signals(inv, {**found[1], "currency": found[0].get("currency")}) if inv is not None and found is not None else None
+        """The pair's signals as yes/no columns (empty without a pair)."""
+        got = (signals(inv, {**found[1], "currency": found[0].get("currency")}, learned)
+               if inv is not None and found is not None else None)
         return {f"signal_{s}": (s in got if got is not None else None) for s in SIGNALS}
 
     rows = []
@@ -873,7 +988,8 @@ def run_rows(run_id: str) -> list[dict[str, Any]]:
             continue
         inv = invoices[iid]
         paid = [c for c in confirmed if c["invoice_id"] == iid]
-        offers = paid or [c for c in proposed if c["invoice_id"] == iid] or [c for c in result["candidates"] if c["invoice_id"] == iid]
+        offers = (paid or [c for c in proposed if c["invoice_id"] == iid] or [c for c in equal_only if c["invoice_id"] == iid]
+                  or [c for c in result["candidates"] if c["invoice_id"] == iid])
         first = offers[0] if offers else None
         st_ln = lines.get(first["line_id"]) if first else None
         rows.append({"_key": f"invoice|{iid}", "item_id": iid, "kind": "invoice", "file": files.get(iid), "status": s["status"],
@@ -891,8 +1007,10 @@ def run_rows(run_id: str) -> list[dict[str, Any]]:
         for ln in st["lines"]:
             lid = ln["id"]
             paid = [c for c in confirmed if c["line_id"] == lid]
-            offers = paid or [c for c in proposed if c["line_id"] == lid] or [c for c in result["candidates"] if c["line_id"] == lid]
+            offers = (paid or [c for c in proposed if c["line_id"] == lid] or [c for c in equal_only if c["line_id"] == lid]
+                      or [c for c in result["candidates"] if c["line_id"] == lid])
             status = ("confirmed" if paid else "proposed" if offers and offers[0] in proposed else
+                      "amount_only" if offers and offers[0] in equal_only else
                       "amount_differs" if offers else "excluded" if ("line", lid) in excluded else "unpaired")
             first = offers[0] if offers else None
             inv = invoices.get(first["invoice_id"]) if first else None
@@ -911,7 +1029,8 @@ def run_rows(run_id: str) -> list[dict[str, Any]]:
 def worth_showing(rows: Iterable[dict[str, Any]]) -> bool:
     """Whether a run's reconciliation view (`run_rows`) says anything: the run has a statement line, or one of its
     invoices has a pair, a decision or (partial) coverage by verified statements."""
-    return any(r["kind"] == "line" or r["status"] in ("confirmed", "proposed", "amount_differs", "no_payment_found", "partly_covered")
+    return any(r["kind"] == "line" or r["status"] in ("confirmed", "proposed", "amount_only", "amount_differs",
+                                                      "no_payment_found", "partly_covered")
                for r in rows)
 
 
@@ -934,8 +1053,10 @@ def fingerprint() -> str:
 
 def scan(*, write: bool = False) -> dict[str, Any]:
     """Counts of the store's proposal for the command line (no values printed), and with `write` the same to-do the
-    processing would open, on the later processed document of each proposed pair, under the flow run that produced
-    it. A document whose result is not from a work run, or whose run is approved, is skipped."""
+    processing would open, on the later processed document of each proposed pair and of each pair listed for its equal
+    amount alone (131), under the flow run that produced it. 131: when the later document's result is not from a work
+    run (an evaluation on the command line) or its run is approved, the to-do goes to the other document of the pair if
+    that one is in a run not yet approved; a pair with neither is skipped."""
     from jav import work
 
     snap = snapshot(fetch_rates=True)
@@ -951,17 +1072,17 @@ def scan(*, write: bool = False) -> dict[str, Any]:
         already = {(r["subject_id"], r["reason"]) for r in _open_to_dos(c)}
     pending: dict[str, tuple[dict[str, Any], list[str]]] = {}
     skipped: dict[str, int] = defaultdict(int)
-    for cand in (c for c in result["candidates"] if c["proposed"]):
-        later = max(docs[cand["invoice_id"]], docs[cand["statement_id"]], key=lambda d: d["seq"])
-        code = reason(cand["invoice_id"], cand["line_id"])
-        if later.get("work_run") is None:
-            skipped["no_work_run"] += 1
-        elif later["work_run"] in approved:
-            skipped["approved_run"] += 1
-        elif (later["id"], code) in already:
+    for cand in (c for c in result["candidates"] if _waits(c)):
+        sides = sorted((docs[cand["invoice_id"]], docs[cand["statement_id"]]), key=lambda d: d["seq"], reverse=True)
+        in_work = [d for d in sides if d.get("work_run") is not None]
+        target = next((d for d in in_work if d["work_run"] not in approved), None)  # 131: the later one in a work run
+        code = reason(cand["invoice_id"], cand["line_id"], _kind(cand))
+        if target is None:
+            skipped["approved_run" if in_work else "no_work_run"] += 1
+        elif (target["id"], code) in already:
             skipped["already_open"] += 1  # an earlier --write (or the processing) opened it
         else:
-            pending.setdefault(later["id"], (later, []))[1].append(code)
+            pending.setdefault(target["id"], (target, []))[1].append(code)
     written = 0
     if write:
         for doc, codes in pending.values():
@@ -978,7 +1099,10 @@ def scan(*, write: bool = False) -> dict[str, Any]:
         "excluded_lines": count([e for e in result["excluded"] if e["kind"] == "line"], "reason"),
         "proposed_pairs": sum(1 for c in result["candidates"] if c["proposed"]),
         "multiple_candidates": sum(1 for c in result["candidates"] if c["multiple_candidates"]),
-        "amount_differs_pairs": sum(1 for c in result["candidates"] if not c["proposed"]),
+        "amount_only_pairs": sum(1 for c in result["candidates"] if c["amount_only"]),
+        "amount_differs_pairs": sum(1 for c in result["candidates"] if not _waits(c)),
+        "signals": count([{"s": s} for c in result["candidates"] for s in c["signals"]], "s"),
+        "learned_names": result["learned_names"],
         "relations": count(result["candidates"], "amount_relation"),
         "rates": sum(len(days) for days in snap["fx_rates"].values()),
         "confirmed_pairs": len(result["confirmed"]), "decisions": count(_decision_rows(), "decision"),
@@ -1033,6 +1157,14 @@ def check_case(case: dict[str, Any]) -> list[str]:
     got_confirmed = sorted([c["line_id"], c["invoice_id"]] for c in result["confirmed"])
     if got_confirmed != sorted(exp.get("confirmed", [])):
         problems.append(f"confirmed {got_confirmed} != {sorted(exp.get('confirmed', []))}")
+    got_equal = sorted([c["line_id"], c["invoice_id"]] for c in result["candidates"] if c["amount_only"])
+    if got_equal != sorted(exp.get("amount_only", [])):  # 131: every case names its equal-amount pairs
+        problems.append(f"amount_only {got_equal} != {sorted(exp.get('amount_only', []))}")
+    if "signals" in exp:  # 131: the signals of the named pairs
+        got_sig = {f'{c["line_id"]}|{c["invoice_id"]}': c["signals"] for c in result["candidates"]}
+        wanted_sig = {k: got_sig.get(k) for k in exp["signals"]}
+        if wanted_sig != exp["signals"]:
+            problems.append(f"signals {wanted_sig} != {exp['signals']}")
     return problems
 
 

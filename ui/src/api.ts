@@ -290,7 +290,9 @@ export interface DuplicatePair {
 }
 /** 129: a person's decision on a proposed invoice <-> statement line pair: this line paid it, or not this one. */
 export type ReconcileDecision = "paid_by" | "not_this";
-export type ReconcileSignal = "invoice_number" | "supplier_account" | "supplier_name";
+/** 131: the payment method (an invoice payable by cheque, a line through a cheque payment app) and a name learnt from an
+ * earlier confirmed pair also tie a line to an invoice. */
+export type ReconcileSignal = "invoice_number" | "supplier_account" | "supplier_name" | "payment_channel" | "learned_name";
 /** 130: how the amounts of a pair relate; the fx ones are a card line against an invoice of another currency. */
 export type ReconcileRelation = "equal" | "different" | "fx_within" | "fx_outside" | "no_rate";
 /** 130: a card pair's conversion at the MNB rate of the invoice's issue date (deviation: the line's, as a fraction). */
@@ -303,6 +305,8 @@ export interface ReconcilePair {
     counterparty_name: string | null; counterparty_account: string | null; memo: string | null; description: string | null;
     file: string | null; verified: boolean } | null;
   signals: ReconcileSignal[]; amount_relation: ReconcileRelation | null; fx?: ReconcileFx | null;
+  /** 131: exactly the same amount, but nothing else ties the line to the invoice: never proposed, a person decides. */
+  amount_only?: boolean;
   source_review_required: boolean;
   reason_id: number | null; decision: ReconcileDecision | null; decided_by: string | null; decided_at: string | null;
   note: string | null;

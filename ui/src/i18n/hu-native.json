@@ -323,5 +323,12 @@
   "{{pct}} from the converted amount": "{{pct}} eltérés az átszámított összegtől",
   "{{rate}} HUF per {{currency}}, {{day}}": "{{rate}} Ft/{{currency}}, {{day}}",
   "No MNB exchange rate is stored for the invoice's issue date yet, so the amounts could not be compared": "A számla kiállítási napjára még nincs tárolt MNB-árfolyam, ezért az összegek nem hasonlíthatók össze",
-  "No exchange rate for the issue date": "Nincs árfolyam a kiállítás napjára"
+  "No exchange rate for the issue date": "Nincs árfolyam a kiállítás napjára",
+  "the payment method (a cheque bill paid through a cheque app)": "a fizetési mód (csekkes számla csekkfizető alkalmazással fizetve)",
+  "the name of an earlier confirmed payment": "egy korábban megerősített fizetés neve",
+  "Only the amount and the dates fit: nothing else ties this line to the invoice. Decide from the documents.": "Csak az összeg és a dátumok illenek: más nem köti a tételt a számlához. Az iratok alapján döntsön.",
+  "Possible payment to decide: a statement line has exactly the invoice's amount, but nothing else ties them": "Eldöntendő lehetséges kifizetés: egy banki tétel összege pontosan a számláé, de más nem köti össze őket",
+  "Same amount, nothing else ties them": "Azonos összeg, más nem köti össze őket",
+  "Payment method": "Fizetési mód",
+  "Name from an earlier decision": "Név egy korábbi döntésből"
 }
