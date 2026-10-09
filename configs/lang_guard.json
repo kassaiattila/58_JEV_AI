@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.9",
+        "date": "2026-10-09",
+        "note": "130: accept the Hungarian column of the three new glossary entries of the card payments in another currency (the MNB exchange rate, the converted amount and the card payment band, docs/GLOSSARY.md). All other file limits are unchanged."
+      },
       {
         "version": "1.0.8",
         "date": "2026-10-08",
@@ -169,7 +174,7 @@
     "configs/types/viz_szamla.json": 29,
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
-    "docs/GLOSSARY.md": 210,
+    "docs/GLOSSARY.md": 213,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 10,
     "docs/flows/doc_detect/FLOW.mmd": 3,

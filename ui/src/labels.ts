@@ -191,8 +191,9 @@ export function reasonText(code: string): string {
     case "duplicate:copy": return t("Possible copy of an earlier document (same invoice number and supplier)");
     case "duplicate:variant": return t("Possible modified version of an earlier document (same invoice number and supplier, different values)");
     case "duplicate:undecidable": return t("Possible duplicate of an earlier document (same invoice number and supplier, a value is missing)");
-    // 129: a proposed invoice <-> statement line pair (jav/reconcile.py); decided in its own panel on the review page
-    case "reconcile:proposed": return t("Possible payment: a statement line and an invoice have the same amount and a shared detail");
+    // 129: a proposed invoice <-> statement line pair (jav/reconcile.py); decided in its own panel on the review page.
+    // 130: a card line is compared with the invoice amount converted at the MNB rate
+    case "reconcile:proposed": return t("Possible payment: a statement line and an invoice have the same amount (for a card payment, the converted amount) and a shared detail");
     case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");
     case "parties:same_name": return t("A szállító és a vevő neve azonos");
     case "detect:low_conf": return t("Bizonytalan típusfelismerés: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });

@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "golden_reconcile",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "128 F-reconciliation: invented golden cases for jav/reconcile.py (no real data). Each case is a snapshot (invoices, statements with their lines, optionally a person's decisions per invoice and line) and the expected proposal: the candidate pairs [line, invoice, proposed, multiple], the exclusions [kind, id, reason], every invoice's status and the confirmed pairs [line, invoice]. Expectation: every case exactly (DECISIONS 128).",
     "changelog": [
+      {
+        "version": "1.2.0",
+        "date": "2026-10-09",
+        "note": "130 K3: eight card cases - a forint card line and a dollar invoice converted at an invented MNB rate (326.18 HUF/USD): within the -2% ... +5% band (proposed), above and below it (listed, amount_differs), no known rate (rate_missing), no signal, a bank account line (no conversion), outside the card window, and one line for two invoices (multiple candidates). The rates are given in the case (fx_rates), as the snapshot carries them."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-08",
@@ -148,6 +153,46 @@
      "invoices": [{"id": "i1", "number": "INV-0001"}],
      "statements": [{"id": "s1", "lines": [{"id": "t1"}]}],
      "decisions": [{"invoice_id": "i1", "line_id": "t9", "decision": "paid_by"}, {"invoice_id": "i1", "line_id": "t8", "decision": "not_this"}],
-     "expected": {"pairs": [["t1", "i1", true, false]], "excluded": [], "status": {"i1": "proposed"}}}
+     "expected": {"pairs": [["t1", "i1", true, false]], "excluded": [], "status": {"i1": "proposed"}}},
+    {"id": "fx_card_within", "note": "130: 20.00 USD x 326.18 = 6523.60 HUF; the card line of 6700.00 is +2.70%, within the band",
+     "invoices": [{"id": "i1", "number": "EC-1001", "currency": "USD", "amount": "20.00", "supplier_name": "Example Cloud Inc.", "payment_account": null, "issue_date": "2026-04-01", "due_date": null}],
+     "statements": [{"id": "c1", "statement_type": "credit_card", "account": "4444555566667777", "period_start": "2026-03-01", "period_end": "2026-04-30", "lines": [{"id": "t1", "amount": "6700.00", "booking_date": "2026-04-03", "counterparty_name": "EXAMPLE CLOUD", "counterparty_account": null, "description": "EXAMPLE CLOUD SUBSCRIPTION"}]}],
+     "fx_rates": {"USD": {"2026-04-01": {"rate": "326.18", "rate_day": "2026-04-01", "source": "mnb"}, "2026-04-02": {"rate": "326.94", "rate_day": "2026-04-02", "source": "mnb"}}},
+     "expected": {"pairs": [["t1", "i1", true, false]], "excluded": [], "status": {"i1": "proposed"}, "relations": {"t1|i1": "fx_within"}}},
+    {"id": "fx_card_above_band", "note": "130: 7000.00 HUF is +7.30% over the converted amount: listed, not proposed",
+     "invoices": [{"id": "i1", "number": "EC-1001", "currency": "USD", "amount": "20.00", "supplier_name": "Example Cloud Inc.", "payment_account": null, "issue_date": "2026-04-01", "due_date": null}],
+     "statements": [{"id": "c1", "statement_type": "credit_card", "account": "4444555566667777", "period_start": "2026-03-01", "period_end": "2026-04-30", "lines": [{"id": "t1", "amount": "7000.00", "booking_date": "2026-04-03", "counterparty_name": "EXAMPLE CLOUD", "counterparty_account": null, "description": "EXAMPLE CLOUD SUBSCRIPTION"}]}],
+     "fx_rates": {"USD": {"2026-04-01": {"rate": "326.18", "rate_day": "2026-04-01", "source": "mnb"}, "2026-04-02": {"rate": "326.94", "rate_day": "2026-04-02", "source": "mnb"}}},
+     "expected": {"pairs": [["t1", "i1", false, false]], "excluded": [], "status": {"i1": "amount_differs"}, "relations": {"t1|i1": "fx_outside"}}},
+    {"id": "fx_card_below_band", "note": "130: 6350.00 HUF is -2.66% under the converted amount: below the -2% edge",
+     "invoices": [{"id": "i1", "number": "EC-1001", "currency": "USD", "amount": "20.00", "supplier_name": "Example Cloud Inc.", "payment_account": null, "issue_date": "2026-04-01", "due_date": null}],
+     "statements": [{"id": "c1", "statement_type": "credit_card", "account": "4444555566667777", "period_start": "2026-03-01", "period_end": "2026-04-30", "lines": [{"id": "t1", "amount": "6350.00", "booking_date": "2026-04-03", "counterparty_name": "EXAMPLE CLOUD", "counterparty_account": null, "description": "EXAMPLE CLOUD SUBSCRIPTION"}]}],
+     "fx_rates": {"USD": {"2026-04-01": {"rate": "326.18", "rate_day": "2026-04-01", "source": "mnb"}, "2026-04-02": {"rate": "326.94", "rate_day": "2026-04-02", "source": "mnb"}}},
+     "expected": {"pairs": [["t1", "i1", false, false]], "excluded": [], "status": {"i1": "amount_differs"}, "relations": {"t1|i1": "fx_outside"}}},
+    {"id": "fx_card_no_rate", "note": "130: no known rate for the issue date: the pair is listed, not proposed",
+     "invoices": [{"id": "i1", "number": "EC-1001", "currency": "USD", "amount": "20.00", "supplier_name": "Example Cloud Inc.", "payment_account": null, "issue_date": "2026-04-01", "due_date": null}],
+     "statements": [{"id": "c1", "statement_type": "credit_card", "account": "4444555566667777", "period_start": "2026-03-01", "period_end": "2026-04-30", "lines": [{"id": "t1", "amount": "6700.00", "booking_date": "2026-04-03", "counterparty_name": "EXAMPLE CLOUD", "counterparty_account": null, "description": "EXAMPLE CLOUD SUBSCRIPTION"}]}],
+     "expected": {"pairs": [["t1", "i1", false, false]], "excluded": [], "status": {"i1": "rate_missing"}, "relations": {"t1|i1": "no_rate"}}},
+    {"id": "fx_card_no_signal", "note": "130: a matching converted amount alone ties nothing; the card account covers the card window",
+     "invoices": [{"id": "i1", "number": "EC-1001", "currency": "USD", "amount": "20.00", "supplier_name": "Example Cloud Inc.", "payment_account": null, "issue_date": "2026-04-01", "due_date": null}],
+     "statements": [{"id": "c1", "statement_type": "credit_card", "account": "4444555566667777", "period_start": "2026-03-01", "period_end": "2026-04-30", "lines": [{"id": "t1", "amount": "6700.00", "booking_date": "2026-04-03", "counterparty_name": "OTHER SHOP", "counterparty_account": null, "description": "OTHER SHOP"}]}],
+     "fx_rates": {"USD": {"2026-04-01": {"rate": "326.18", "rate_day": "2026-04-01", "source": "mnb"}, "2026-04-02": {"rate": "326.94", "rate_day": "2026-04-02", "source": "mnb"}}},
+     "expected": {"pairs": [], "excluded": [], "status": {"i1": "no_payment_found"}}},
+    {"id": "fx_bank_account_line", "note": "130: only a card statement's forint line is converted; a bank account line in forints is not",
+     "invoices": [{"id": "i1", "number": "EC-1001", "currency": "USD", "amount": "20.00", "supplier_name": "Example Cloud Inc.", "payment_account": null, "issue_date": "2026-04-01", "due_date": null}],
+     "statements": [{"id": "s1", "statement_type": "bank_account", "lines": [{"id": "t1", "amount": "6700.00", "booking_date": "2026-04-03", "counterparty_name": "EXAMPLE CLOUD", "counterparty_account": null, "description": "EXAMPLE CLOUD SUBSCRIPTION"}]}],
+     "fx_rates": {"USD": {"2026-04-01": {"rate": "326.18", "rate_day": "2026-04-01", "source": "mnb"}, "2026-04-02": {"rate": "326.94", "rate_day": "2026-04-02", "source": "mnb"}}},
+     "expected": {"pairs": [], "excluded": [], "status": {"i1": "not_covered"}}},
+    {"id": "fx_card_outside_window", "note": "130: a card line 14 days after the issue date is outside the -3 ... +10 day card window",
+     "invoices": [{"id": "i1", "number": "EC-1001", "currency": "USD", "amount": "20.00", "supplier_name": "Example Cloud Inc.", "payment_account": null, "issue_date": "2026-04-01", "due_date": null}],
+     "statements": [{"id": "c1", "statement_type": "credit_card", "account": "4444555566667777", "period_start": "2026-03-01", "period_end": "2026-04-30", "lines": [{"id": "t1", "amount": "6700.00", "booking_date": "2026-04-15", "counterparty_name": "EXAMPLE CLOUD", "counterparty_account": null, "description": "EXAMPLE CLOUD SUBSCRIPTION"}]}],
+     "fx_rates": {"USD": {"2026-04-01": {"rate": "326.18", "rate_day": "2026-04-01", "source": "mnb"}, "2026-04-02": {"rate": "326.94", "rate_day": "2026-04-02", "source": "mnb"}}},
+     "expected": {"pairs": [], "excluded": [], "status": {"i1": "no_payment_found"}}},
+    {"id": "fx_card_two_invoices", "note": "130: one card line within the band of two invoices of the same supplier: both proposed, flagged as more than one candidate",
+     "invoices": [{"id": "i1", "number": "EC-1001", "currency": "USD", "amount": "20.00", "supplier_name": "Example Cloud Inc.", "payment_account": null, "issue_date": "2026-04-01", "due_date": null}, {"id": "i2", "number": "EC-1002", "currency": "USD", "amount": "20.00", "supplier_name": "Example Cloud Inc.", "payment_account": null, "issue_date": "2026-04-02", "due_date": null}],
+     "statements": [{"id": "c1", "statement_type": "credit_card", "account": "4444555566667777", "period_start": "2026-03-01", "period_end": "2026-04-30", "lines": [{"id": "t1", "amount": "6700.00", "booking_date": "2026-04-03", "counterparty_name": "EXAMPLE CLOUD", "counterparty_account": null, "description": "EXAMPLE CLOUD SUBSCRIPTION"}]}],
+     "fx_rates": {"USD": {"2026-04-01": {"rate": "326.18", "rate_day": "2026-04-01", "source": "mnb"}, "2026-04-02": {"rate": "326.94", "rate_day": "2026-04-02", "source": "mnb"}}},
+     "expected": {"pairs": [["t1", "i1", true, true], ["t1", "i2", true, true]], "excluded": [], "status": {"i1": "proposed", "i2": "proposed"},
+                  "relations": {"t1|i1": "fx_within", "t1|i2": "fx_within"}}}
   ]
 }

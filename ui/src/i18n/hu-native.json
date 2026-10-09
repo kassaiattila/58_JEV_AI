@@ -283,7 +283,7 @@
   "Not this one": "Nem ez",
   "Why not this one?": "Miért nem ez?",
   "Save the rejection": "Elutasítás mentése",
-  "Possible payment: a statement line and an invoice have the same amount and a shared detail": "Lehetséges kifizetés: egy banki tétel és egy számla összege azonos, és van közös adatuk",
+  "Possible payment: a statement line and an invoice have the same amount (for a card payment, the converted amount) and a shared detail": "Lehetséges kifizetés: egy banki tétel és egy számla összege azonos (kártyás fizetésnél az átszámított összeg), és van közös adatuk",
   "Reconciliation": "Egyeztetés",
   "Kind": "Fajta",
   "Currency": "Pénznem",
@@ -317,5 +317,11 @@
   "No booking date": "Nincs könyvelési dátum",
   "Not an outgoing payment": "Nem kifizetés",
   "Transfer between own accounts": "Átvezetés saját számlák között",
-  "Fee, interest, repayment or card settlement": "Díj, kamat, törlesztés vagy kártyaelszámolás"
+  "Fee, interest, repayment or card settlement": "Díj, kamat, törlesztés vagy kártyaelszámolás",
+  "the converted amount": "az átszámított összeg",
+  "Converted at the MNB rate": "Átszámítva MNB-árfolyamon",
+  "{{pct}} from the converted amount": "{{pct}} eltérés az átszámított összegtől",
+  "{{rate}} HUF per {{currency}}, {{day}}": "{{rate}} Ft/{{currency}}, {{day}}",
+  "No MNB exchange rate is stored for the invoice's issue date yet, so the amounts could not be compared": "A számla kiállítási napjára még nincs tárolt MNB-árfolyam, ezért az összegek nem hasonlíthatók össze",
+  "No exchange rate for the issue date": "Nincs árfolyam a kiállítás napjára"
 }

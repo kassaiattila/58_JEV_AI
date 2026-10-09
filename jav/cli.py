@@ -544,7 +544,35 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
     print(f"lines without a proposed pair: {r['unpaired_lines']}")
     print(f"confirmed pairs: {r['confirmed_pairs']}; decisions: {r['decisions']}")
     print(f"to-dos to open: {r['to_open']}, written: {r['written']}; skipped: {r['skipped']}")
+    print(f"amount relations: {r['relations']}; card pair rates known: {r['rates']}")
     print(f"engine {r['engine_version']}, config {r['config_hash']}")
+    return 0
+
+
+def cmd_fx_rates(args: argparse.Namespace) -> int:
+    """130: the stored MNB exchange rates (counts and the latest attempts, no rates printed); with --fetch FROM TO one
+    request for the span. Free; only the dates and the currency codes leave the machine."""
+    from datetime import date
+
+    from jav import cfg, fx
+
+    if args.fetch:
+        start, end = (date.fromisoformat(d) for d in args.fetch)
+        codes = [c.strip().upper() for c in (args.currency or ",".join(cfg.load("fx")["currencies"])).split(",") if c.strip()]
+        try:
+            print(f"published days received: {fx.fetch(start, end, codes)}")
+        except (fx.FxUnavailableError, fx.FxRefusedError) as exc:
+            print(f"fetch did not succeed: {exc}")
+            return 1
+    s = fx.status()
+    for currency, row in s["currencies"].items():
+        print(f"{currency}: {row['days']} published days, {row['first']} - {row['last']}")
+    if not s["currencies"]:
+        print("no stored rates")
+    for a in s["attempts"]:
+        print(f"attempt {a['fetched_at']}: {a['currencies']} {a['start_day']} - {a['end_day']} -> {a['status']}"
+              f"{' (' + str(a['days']) + ' days)' if a['status'] == 'ok' else ''}{' ' + a['error'] if a['error'] else ''}")
+    print(f"config {s['config_hash']}")
     return 0
 
 
@@ -733,6 +761,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--golden", action="store_true", help="score the synthetic golden cases (configs/golden_reconcile.json)")
     p.add_argument("--write", action="store_true", help="129: open the to-do of each proposed pair (once; a decided pair or an approved run is skipped)")
     p.set_defaults(fn=cmd_reconcile)
+
+    p = sub.add_parser("fx-rates", help="130: the stored MNB exchange rates (counts); --fetch FROM TO: fetch a span (free)")
+    p.add_argument("--fetch", nargs=2, metavar=("FROM", "TO"), help="fetch the published days of the span (YYYY-MM-DD)")
+    p.add_argument("--currency", help="comma separated codes (default: configs/fx.json currencies)")
+    p.set_defaults(fn=cmd_fx_rates)
 
     p = sub.add_parser("hooks-install", help="071 adatőr: a verziózott git-horgok bekapcsolása (core.hooksPath = scripts/githooks)")
     p.set_defaults(fn=cmd_hooks_install)

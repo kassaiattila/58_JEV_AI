@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment kinds left to a person and when a statement counts as verified coverage. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid').",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-10-09",
+        "note": "130 K3: card payments of foreign-currency invoices (DECISIONS 128 variant C, second half). A forint line of a credit card statement and an invoice in another currency form a candidate when a signal ties them and the line falls in fx.window around the issue date; the invoice amount is converted at the MNB rate of the issue date (jav/fx.py) and the pair is proposed when the line is within policy.json reconcile.fx_tolerance. Without a known rate the pair is listed, not proposed (status rate_missing). The card accounts also count in the coverage of a foreign-currency invoice."
+      },
       {
         "version": "1.0.0",
         "date": "2026-10-08",
@@ -34,6 +39,14 @@
     "min_number_chars": 4,
     "min_compact_number_chars": 6,
     "min_name_share": 0.75
+  },
+  "fx": {
+    "statement_types": ["credit_card"],
+    "line_currency": "HUF",
+    "window": {
+      "days_before_issue": 3,
+      "days_after_issue": 10
+    }
   },
   "payment_review_pattern": "hitelkartya|torleszt|jutalek|kamat|szamlavezetesi dij|kartyadij",
   "verified_when": {
