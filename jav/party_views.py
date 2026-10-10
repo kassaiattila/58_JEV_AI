@@ -186,10 +186,11 @@ def _column(statements: list[dict[str, Any]], opened: date | None, closed: date 
                    key=lambda t: (t[1], t[2], t[0]["id"]))
     overlaps: set[str] = set()
     breaks: set[str] = set()
-    for (first, _a1, end1), (second, start2, end2) in zip(dated, dated[1:]):
-        if start2 <= end1:
+    for (first, start1, end1), (second, start2, end2) in zip(dated, dated[1:]):
+        touching = start2 == end1 and start1 < start2  # a card cycle starts on the previous one's closing day
+        if start2 <= end1 and not touching:
             overlaps.update(reconcile.months(start2.isoformat(), min(end1, end2).isoformat()))
-        elif start2 == end1 + timedelta(days=1):
+        elif touching or start2 == end1 + timedelta(days=1):
             closing, opening = _balance(first.get("closing_balance")), _balance(second.get("opening_balance"))
             if closing is not None and opening is not None and closing != opening:
                 breaks.add(start2.strftime("%Y-%m"))

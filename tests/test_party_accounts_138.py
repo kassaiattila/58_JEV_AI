@@ -168,6 +168,17 @@ def test_the_monthly_status_shows_each_months_statements_and_invoices(db):
     assert out["summary"] == {"ok": 2, "unapproved": 1, "unverified": 1, "partial": 1, "missing": 2, "overlap": 1, "break": 1}
 
 
+def test_a_card_cycle_that_starts_on_the_previous_closing_day_is_no_overlap(db):
+    # a credit card statement prints its closing day as the next cycle's first day (the store's card statements do)
+    k2._run(APPROVED, ["c1", "c2", "c3"], approved=True)
+    _month_stmt("c1", "2026-03-25", "2026-04-24", "-100.00", "-200.00")
+    _month_stmt("c2", "2026-04-24", "2026-05-22", "-200.00", "-50.00")
+    _month_stmt("c3", "2026-05-22", "2026-06-25", "-60.00", "-10.00")  # does not continue -50.00
+    home = _home(("account", OWN_KEY, k2.OWN))
+    [col] = party_views.months(home, "2026-04", "2026-06", today=date(2026, 8, 15))["columns"]
+    assert [(c["state"], c["flags"]) for c in col["months"]] == [("ok", []), ("ok", ["break"]), ("partial", [])]
+
+
 def test_a_registered_account_is_expected_from_its_opening_to_its_closing(db):
     home = _home()
     party_views.register_account(home, OTHER, kind="card", currencies=["HUF"], valid_from="2026-02-15", valid_to="2026-04-10", actor="t")
