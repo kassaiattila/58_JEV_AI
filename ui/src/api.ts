@@ -358,6 +358,8 @@ export interface ReconcileLine {
   /** 135: the counterparty name without its reference numbers (null: no name), and the needs-no-invoice reasons a
    *  person gave the partner's other lines, the most frequent first (none through a payment app) */
   partner?: string | null; earlier_marks?: { category: string; lines: number }[];
+  /** 140: the needs-no-invoice reason the line's own category suggests (configs/reconcile.json category_marks) */
+  category_mark?: string | null;
 }
 /** 140: a statement of a statement package's survey or of the store, as a reference (jav/statement_package.py). */
 export interface StatementRef {

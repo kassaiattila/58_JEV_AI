@@ -1,8 +1,8 @@
 // 135 (plan 134 P2): a statement line's partner and what is known about it, for the pairing page. The partner is the
 // line's counterparty name without its reference numbers (the service's `partner`, jav/reconcile.py `name_key`); its
 // lines are grouped and marked as needing no invoice in one step. A suggestion for the reason comes from a person's
-// earlier marks of the partner's lines first, then from the AI's kind of payment (jav/reconcile_ai.py) — a suggestion
-// only: a person chooses and saves it.
+// earlier marks of the partner's lines first, then (140) from the lines' own category in the bank's export, then from
+// the AI's kind of payment (jav/reconcile_ai.py) — a suggestion only: a person chooses and saves it.
 import { OPEN_LINE_STATES, type ReconcileAiEngine, type ReconcileLine } from "../../api";
 import { parseCanonical } from "./money";
 
@@ -42,18 +42,22 @@ export function expectsInvoice(line: ReconcileLine): boolean {
   return OPEN_LINE_STATES.includes(line.state) && !line.candidates.length && kinds(line).some((k) => k.expects === true);
 }
 
-export type SuggestionSource = "earlier" | "ai_both" | "ai_one";
+export type SuggestionSource = "earlier" | "category" | "ai_both" | "ai_one";
 export interface MarkSuggestion { category: string; source: SuggestionSource; lines?: number; engines?: ReconcileAiEngine[] }
 
 /** The reason suggested for marking these lines: the most frequent earlier reason of their partner; otherwise the
- *  reason both engines' kind suggests for every line; otherwise the one engine that answered alone does. None when the
- *  engines disagree or a line's kind expects an invoice. */
+ *  reason every line's own category suggests (140); otherwise the reason both engines' kind suggests for every line;
+ *  otherwise the one engine that answered alone does. None when the engines disagree or a line's kind expects an
+ *  invoice. */
 export function suggestMark(lines: ReconcileLine[]): MarkSuggestion | null {
   if (!lines.length) return null;
   const earlier = new Map<string, number>();
   for (const l of lines) for (const e of l.earlier_marks ?? []) earlier.set(e.category, Math.max(earlier.get(e.category) ?? 0, e.lines));
   const best = [...earlier].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
   if (best) return { category: best[0], source: "earlier", lines: best[1] };
+  const categories = new Set(lines.map((l) => l.category_mark ?? null));
+  const [only] = [...categories];
+  if (categories.size === 1 && only) return { category: only, source: "category" };
   const per = lines.map((l) => kinds(l));
   if (per.some((ks) => !ks.length || ks.some((k) => !k.mark))) return null;
   const marks = new Set(per.flatMap((ks) => ks.map((k) => k.mark!)));

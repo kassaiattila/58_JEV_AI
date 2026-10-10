@@ -379,7 +379,8 @@ def workspace(wp_id: str) -> dict[str, Any]:
                                                for c in theirs],
                           "rejected": sorted(i for i, l_ in rejected if l_ == lid),
                           "statement_verified": bool(st.get("verified")),
-                          "partner": partner, "earlier_marks": _earlier_marks(history, ln, partner)})
+                          "partner": partner, "earlier_marks": _earlier_marks(history, ln, partner),
+                          "category_mark": reconcile.category_mark(ln)})  # 140: the line's own category suggests a reason
     line_ids = {ln["id"] for ln in lines}
     from jav import reconcile_ai  # 134: the AI's stored answers per line (that module reads this workspace)
 

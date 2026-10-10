@@ -766,5 +766,6 @@
   "This PDF is not a bank statement ({{type}}): the statement package extracts no data from it. Remove it from the package, or process it in a document package.": "This PDF is not a bank statement ({{type}}): the statement package extracts no data from it. Remove it from the package, or process it in a document package.",
   "The statement's account belongs to another own party, and it stayed there. If it is this package's party's, move it in Settings › Own parties.": "The statement's account belongs to another own party, and it stayed there. If it is this package's party's, move it in Settings › Own parties.",
   "Given files": "Given files",
-  "The files' full paths, one per line": "The files' full paths, one per line"
+  "The files' full paths, one per line": "The files' full paths, one per line",
+  "The bank's category suggests: {{reason}}": "The bank's category suggests: {{reason}}"
 }
