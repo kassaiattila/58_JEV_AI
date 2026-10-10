@@ -383,9 +383,11 @@ def workspace(wp_id: str) -> dict[str, Any]:
     line_ids = {ln["id"] for ln in lines}
     from jav import reconcile_ai  # 134: the AI's stored answers per line (that module reads this workspace)
 
-    ai = reconcile_ai.proposals(line_ids)
+    # 139: a line of a statement that replaced another keeps the answers given on the same line of the replaced one
+    earlier = {new: old for old, new in snap.get("line_map", {}).items() if new in line_ids}
+    ai = reconcile_ai.proposals(line_ids | set(earlier.values()))
     for ln in lines:
-        ln["ai"] = ai.get(ln["id"], {})
+        ln["ai"] = ai.get(ln["id"]) or ai.get(earlier.get(ln["id"], ""), {})
     currencies = {str(st.get("currency")) for st in statements}
     cards = any(reconcile.fx_capable({"currency": st.get("currency"), "statement_type": st.get("statement_type")})
                 or any(reconcile.original(ln) for ln in st["lines"]) for st in statements)  # 137: card purchases' originals
@@ -437,7 +439,11 @@ def workspace(wp_id: str) -> dict[str, Any]:
     for row in invoice_rows:
         if row["source"] != "approved" and (row["allocations"] or (row["own"] and row["candidates"])):
             blockers.append({"code": f"source_{row['source']}", "doc_id": row["id"], "file": row["file"], "kind": "invoice"})
+    left_over = left_over_rows(snap, scope_ids, wp_id)
+    for row in left_over:
+        blockers.append({"code": "decision_not_carried", "doc_id": row["statement_id"], "file": row["file"], "kind": "statement"})
     return {"workpackage_id": wp_id, "scope": sc, "lines": lines, "invoices": invoice_rows, "coverage": coverage,
+            "left_over": left_over,
             "blockers": blockers, "line_marks": list(_conf()["line_marks"]), "open": _open_refs(docs),
             "counts": {"lines": dict(sorted(Counter(ln["state"] for ln in lines).items())),
                        "invoices": dict(sorted(Counter(str(r["state"]) for r in invoice_rows if r["own"]).items())),
@@ -449,6 +455,31 @@ def workspace(wp_id: str) -> dict[str, Any]:
 
 
 OPEN_LINE_STATES = ("proposed", "amount_only", "partly_allocated", "open")  # a person still has to decide these
+
+
+def left_over_rows(snap: dict[str, Any], scope_ids: set[str], wp_id: str) -> list[dict[str, Any]]:
+    """139 (DECISIONS 139): the decisions made on a replaced statement's line that has no same line on the statement
+    replacing it, for the package that made them or whose scope holds the replacing statement; each with its line and
+    the two statements, to be revoked (and made again on the valid statement)."""
+    replaced = snap.get("replaced") or {}
+    out = []
+    for kind, rows in sorted((snap.get("left_over") or {}).items()):
+        for row in rows:
+            old = replaced.get(str(row.get("statement_id")))
+            if old is None or (row.get("workpackage_id") != wp_id and old["by"] not in scope_ids):
+                continue
+            line = next((ln for ln in old["lines"] if ln["id"] == row["line_id"]), {})
+            out.append({"kind": kind[:-1], "ref": str(row["pair_key"] if kind == "decisions" else row["id"]),
+                        "line_id": row["line_id"], "statement_id": row["statement_id"], "replaced_by": old["by"],
+                        "invoice_id": row.get("invoice_id"), "category": row.get("category"), "decision": row.get("decision"),
+                        "workpackage_id": row.get("workpackage_id"), "currency": old.get("currency"),
+                        **{k: line.get(k) for k in ("booking_date", "amount", "direction", "counterparty_name")}})
+    files = reconcile.file_names([*(r["statement_id"] for r in out), *(r["replaced_by"] for r in out),
+                                  *(r["invoice_id"] for r in out if r["invoice_id"])])
+    for r in out:
+        r["file"], r["replaced_by_file"] = files.get(r["statement_id"]), files.get(r["replaced_by"])
+        r["invoice_file"] = files.get(r["invoice_id"]) if r["invoice_id"] else None
+    return out
 
 
 def _source_state(doc: dict[str, Any], approved: set[str]) -> str:
@@ -684,7 +715,10 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
                else c.execute("SELECT * FROM reconcile_decisions WHERE pair_key=?", (ref,)).fetchone())
     if row is None:
         raise KeyError(ref)
-    _scope_line(ctx, row["line_id"])
+    # 139: a decision made on a replaced statement's line stands on the same line of the valid one, or is left over
+    left = {(r["kind"], r["ref"]) for r in left_over_rows(ctx["snap"], ctx["scope_ids"], wp_id)}
+    if (kind, str(ref)) not in left:
+        _scope_line(ctx, ctx["snap"].get("line_map", {}).get(row["line_id"], row["line_id"]))
     if kind == "decision" and row["run_id"] and work.approved_runs([row["run_id"]]):
         raise work.RevisionConflict("the pair was decided in an approved run; the decision is frozen")
 

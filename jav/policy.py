@@ -366,6 +366,21 @@ def apply_party_policy(state: FlowState) -> None:
     require_review(state, *parties.review_reasons(state.doc_type, values))
 
 
+def apply_statement_policy(state: FlowState) -> None:
+    """139 (DECISIONS 139): a statement that books the same days of an account as another one in the store, when
+    neither replaces the other by the rule and no person has chosen, gets a `statement:overlap:<other>` to-do
+    (`jav/statement_months.py`). Read in a worker run only, as the duplicates."""
+    if state.invoice is None or not state.doc_id:
+        return
+    from jav import statement_months, typepack
+
+    if state.doc_type not in cfg.load("reconcile")["statement_types"]:
+        return
+    values = state.invoice.to_datapoints(typepack.get(state.doc_type).record_fields)  # the stored form
+    current = statement_months.current(state.doc_id, state.doc_type, values, [v.model_dump() for v in state.validation])
+    require_review(state, *statement_months.review_reasons(current))
+
+
 def reconcile_fx_tolerance() -> tuple[Decimal, Decimal]:
     """130 (DECISIONS 130): how far below and above the invoice amount converted at the MNB rate a forint card line may
     be for the pair to be proposed, as fractions (0.02, 0.05: -2% ... +5%). A proposal only; a person decides."""
@@ -383,6 +398,7 @@ def decide(state: FlowState) -> str:
     apply_validation_policy(state)
     apply_duplicate_policy(state)
     apply_party_policy(state)
+    apply_statement_policy(state)
     if state.invoice is None:
         require_review(state, "no_invoice")
     return "human" if state.needs_review else "auto"

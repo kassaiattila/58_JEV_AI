@@ -27,7 +27,7 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import policy, statement_table, store
+from jav import policy, statement_months, statement_table, store
 from jav.typepack import get as get_pack
 
 PARTITION = "statement_table"
@@ -94,6 +94,9 @@ def check_table(state: TableState) -> TableState:
         policy.require_review(state, f"statement_table:unreadable_lines:{len(state.problems)}")
     if state.companion_problems:
         policy.require_review(state, f"statement_table:companion_mismatch:{len(state.companion_problems)}")
+    # 139 (DECISIONS 139): another statement of the account's same days that neither replaces nor is replaced
+    current = statement_months.current(state.item_id, DOC_TYPE, values, state.validation)
+    policy.require_review(state, *statement_months.review_reasons(current))
     return state
 
 

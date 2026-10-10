@@ -113,7 +113,7 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.7.0"
+ENGINE_VERSION = "1.8.0"  # 139: one valid statement per account and day (jav/statement_months.py)
 STATUSES = ("confirmed", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing", "no_payment_found",
             "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate")  # how a candidate's amounts relate
@@ -966,12 +966,7 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
     for d in docs:
         v = d["values"]
         if d["doc_type"] in conf["statement_types"]:
-            lines = [t for t in v.get("transactions") or [] if isinstance(t, dict)]
-            statements.append({"id": d["doc_id"], "doc_type": d["doc_type"], "account": v.get("account_iban") or v.get("account_no"),
-                               "currency": v.get("currency"), "statement_type": v.get("statement_type"),
-                               "period_start": v.get("period_start"), "period_end": v.get("period_end"),
-                               "opening_balance": v.get("opening_balance"), "closing_balance": v.get("closing_balance"),
-                               "verified": verified(d["validation"]), "lines": with_line_ids(d["doc_id"], lines), **_origin(d)})
+            statements.append(_statement(d))
         else:
             invoices.append({"id": d["doc_id"], "doc_type": d["doc_type"], "number": v.get(f["number"]),
                              "supplier_name": v.get(f["supplier_name"]), "supplier_tax_id": v.get(f["supplier_tax_id"]),
@@ -981,14 +976,46 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
                              "currency": v.get(f["currency"]), "issue_date": v.get(f["issue_date"]),
                              "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"]),
                              "buyer_name": _first(v, f["buyer_name"]), "buyer_tax_id": _first(v, f["buyer_tax_id"]), **_origin(d)})
-    decisions = [{"invoice_id": r["invoice_doc_id"], "line_id": r["line_id"], "decision": r["decision"]} for r in _decision_rows()]
-    allocations, marks = active_allocations(), active_marks()
+    # 139 (DECISIONS 139): one valid statement per account, currency and day; a replaced statement's decisions move to
+    # the same lines of the one replacing it, and what has no same line is left over (`left_over`)
+    from jav import statement_months
+
+    resolution = statement_months.resolve(statements, statement_months.choices())
+    every = {s["id"]: s for s in statements}
+    statements = resolution.live(statements)
+    decisions, left_decisions = statement_months.carry(
+        ({"invoice_id": r["invoice_doc_id"], "line_id": r["line_id"], "statement_id": r["statement_doc_id"],
+          "decision": r["decision"], "pair_key": r["pair_key"]} for r in _decision_rows()), resolution)
+    allocations, left_allocations = statement_months.carry(active_allocations(), resolution)
+    marks, left_marks = statement_months.carry(active_marks(), resolution)
     f = conf["fx"]
     cards = any(s.get("statement_type") in f["statement_types"] and s.get("currency") == f["line_currency"] for s in statements)
     needs = {n for inv in invoices if (n := rate_need(inv)) and inv.get("currency") in conf["currencies"]} if cards else set()
     rates = fx.table(needs, fetch_missing=fetch_rates) if needs else {}
     return {"invoices": invoices, "statements": statements, "decisions": decisions, "fx_rates": rates,
-            "allocations": allocations, "marks": marks}
+            "allocations": allocations, "marks": marks,
+            "replaced": {old: {"by": r.new, "how": r.how, "account": statement_account(every[old]),
+                               **{k: every[old].get(k) for k in ("currency", "period_start", "period_end", "doc_type", "work_run")},
+                               "lines": every[old]["lines"]}
+                         for old, r in sorted(resolution.replaced.items())},
+            "conflicts": [list(p) for p in resolution.conflicts], "line_map": dict(resolution.line_map),
+            "left_over": {"allocations": left_allocations, "marks": left_marks, "decisions": left_decisions}}
+
+
+def _statement(d: dict[str, Any]) -> dict[str, Any]:
+    """A stored statement in the snapshot's shape."""
+    v = d["values"]
+    lines = [t for t in v.get("transactions") or [] if isinstance(t, dict)]
+    return {"id": d["doc_id"], "doc_type": d["doc_type"], "account": v.get("account_iban") or v.get("account_no"),
+            "currency": v.get("currency"), "statement_type": v.get("statement_type"),
+            "period_start": v.get("period_start"), "period_end": v.get("period_end"),
+            "opening_balance": v.get("opening_balance"), "closing_balance": v.get("closing_balance"),
+            "verified": verified(d["validation"]), "lines": with_line_ids(d["doc_id"], lines), **_origin(d)}
+
+
+def statements() -> list[dict[str, Any]]:
+    """139: every stored statement in the snapshot's shape, a replaced one too (`jav/statement_months.py` decides)."""
+    return [_statement(d) for d in _latest(list(_conf()["statement_types"]))]
 
 
 def active_allocations(c=None) -> list[dict[str, Any]]:

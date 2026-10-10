@@ -39,7 +39,8 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from jav import dates, duplicates, grounding, native_results, numbers, reconcile, source_layer, store, typepack, validators, work
+from jav import (dates, duplicates, grounding, native_results, numbers, reconcile, source_layer, statement_months, store, typepack,
+                 validators, work)
 from jav.native_contracts import Publication
 
 store.register_schema("corrections", """
@@ -94,7 +95,8 @@ def review_version(run_id: str, c: sqlite3.Connection | None = None) -> str:
     flow runs of a run are `<run_id>:<item_id>`). A run without task decisions keeps the version computed as before.
 
     126: so are the duplicate decisions on pairs that include one of the run's documents; a run without any keeps its
-    earlier version. 129: and so are the reconciliation decisions on pairs one of the run's documents is a side of."""
+    earlier version. 129: and so are the reconciliation decisions on pairs one of the run's documents is a side of.
+    139: and so are the choices between two statements of the same days that include one of the run's documents."""
     if c is None:
         with store.connect() as own:
             return review_version(run_id, own)
@@ -108,6 +110,7 @@ def review_version(run_id: str, c: sqlite3.Connection | None = None) -> str:
     items = [r["item_id"] for r in c.execute("SELECT item_id FROM run_items WHERE run_id=?", (run_id,))]
     pairs = duplicates.decisions_for(items, c)
     paid = reconcile.decisions_for(items, c)
+    chosen = statement_months.choices_for(items, c)
     payload: Any = [[r["item_id"], r["r"]] for r in rows]
     if decisions:
         payload = {"corrections": payload, "tasks": [[d["run_id"], d["task_index"], d["decision"]] for d in decisions]}
@@ -117,6 +120,8 @@ def review_version(run_id: str, c: sqlite3.Connection | None = None) -> str:
         payload = {"result": payload, "duplicates": [[d["pair_key"], d["doc_id"], d["decision"], d["decided_at"]] for d in pairs]}
     if paid:
         payload = {"reviewed": payload, "reconcile": [[d["pair_key"], d["decision"], d["decided_at"]] for d in paid]}
+    if chosen:
+        payload = {"checked": payload, "statements": [[d["pair_key"], d["keep_doc_id"], d["decided_at"]] for d in chosen]}
     return hashlib.sha256(json.dumps(payload).encode("utf-8")).hexdigest()[:16]
 
 
@@ -500,7 +505,9 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
             "open_reasons": _with_fields(reasons["run"], simple),
             "earlier_open_reasons": _with_fields(reasons["earlier"], simple),
             # 126: the duplicate suspicions and decisions of the document, with the other document side by side
-            "duplicates": duplicates.item_pairs(item_id, reasons["run"] + reasons["earlier"])}
+            "duplicates": duplicates.item_pairs(item_id, reasons["run"] + reasons["earlier"]),
+            # 139: the statement that replaced this one, the ones it replaced, and the undecided ones of the same days
+            "statements": statement_months.item_view(item_id, reasons["run"] + reasons["earlier"])}
 
 
 def _insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected_revision: int, actor: str, note: str | None,
