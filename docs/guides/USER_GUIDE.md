@@ -67,13 +67,14 @@ Before you download, the panel shows the number of rows and columns; the row ord
 
 ## 4. New work package
 
-The **New work package** button offers three sources:
+The **New work package** button offers four sources:
 
 - **Documents from a folder** (*Egy mappa dokumentumai*): fill in ‘Full folder path’ (*Mappa teljes útvonala*), or click **Browse…** (*Tallózás…*) and choose the folder in the Windows folder picker. The package gets the supported documents directly in the folder, in path order: PDF, DOCX, XLSX, UTF-8 TXT and CSV. Tick **Include subfolders** (*Almappák is*, off by default) to include supported documents in subfolders too. The output folder of the named copies (section 10.2) is left out, so earlier copies do not return as new documents. A document in a subfolder is shown with its relative path (for example `2026-09/invoice.pdf`). ‘Name’ is optional; if empty, the folder name is used.
 - **Specific files** (*Megadott fájlok*): in ‘Full file paths, one per line’ (*Fájlok teljes útvonala, soronként egy*) you can list files from several folders. **Browse…** opens the Windows file picker, where you can choose several files at once. The chosen files are added after the lines already in the field, each only once. Here the name is required.
 
 **Browse…** asks the local service to open the Windows picker on this computer. While the picker is open, the button reads ‘The picker is open…’ (*A választó ablak nyitva…*). If you cannot see the picker, check the taskbar: it may have opened behind the browser. Cancelling changes nothing. A path can always be typed instead. Only one picker can be open at a time, and one left open for ten minutes is closed.
 - **From a mailbox** (*Postafiókból*): the mailbox form (section 10.1), with the **Download now: new work package** (*Letöltés most: új munkacsomag*) button. The worker does the download; the new emails become a package, which appears in the list.
+- **Reconciliation of statements and invoices** (*Kivonatok és számlák egyeztetése*): a reconciliation package (section 5.3). Tick the own accounts and cards (*Saját számlák és kártyák*: those the store has processed statements of, with the number of statements and the span they cover) and give the period (*Időszak kezdete*, *vége*; by default the previous month). ‘Name’ is optional; if empty, the period is used. It processes no file and calls no AI service.
 
 After **Create** (*Létrehozás*), the package's Processing stage opens, and the person who created it becomes the package's owner. The files stay where they are and are never changed. As a document is added, the system keeps an unchanging copy of it (its source instance), and from then on the package works from that copy: processing, the page image in review and the named copies. So if the original file is later edited, moved or deleted, you still see exactly what the result was made from. You cannot add new documents to an existing package from the interface: new documents need a new package (a work folder can extend its own package by itself).
 
@@ -104,6 +105,40 @@ The package's documents, the items of a run and the item list of Review can show
 - With a unified name shown, the tooltip gives the original name. Searching, sorting and filtering work on the name that is shown; the search also finds the other name.
 - Emails have no file name of their own and always keep their subject.
 - The **Columns** menu offers **Unified name** (*Egységes név*), **Original name** (*Eredeti név*) and **Unified name status** (*Egységes név állapota*: ‘Done’, ‘To check’ (*Ellenőrzendő*), ‘Not yet’ (*Még nincs*), ‘None (email)’ (*Nincs (levél)*)), so both names can be seen side by side.
+
+### 5.3 A reconciliation package
+
+A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank and card statements with invoices already processed in other packages. It has no files and no runs; it works on the corrected values of the documents. Every decision belongs to the pair of a line and an invoice, not to the package: another package with the same line shows the same decision. Its stages are different:
+
+- **1 Preparation** (*Előkészítés*):
+  - **Scope** (*Kör*): the accounts and cards and the period; **Save the scope** (*Kör mentése*) keeps every decision made so far.
+  - **Coverage** (*Lefedettség*): per account and month, how many statements there are; ‘✓ 2’ means two statements whose balances check out, ‘! 0/1’ a statement whose balances do not, ‘–’ no statement. **Recompute** (*Újraszámolás*) fetches the missing MNB exchange rates (only dates and currency codes leave the computer).
+  - **What blocks the approval** (*Mi akadályozza a jóváhagyást*): source documents whose run is not approved, or that were processed on the command line, and statements whose balances do not check out. Pairing can start anyway.
+  - **Where the pairing stands** (*Hol tart a párosítás*): the lines and invoices by state.
+- **2 Pairing** (*Párosítás*): two lists side by side.
+  - **Statement lines** (*Banki tételek*) on the left, filtered by state: ‘To decide’ (*Eldöntendő*, the default), ‘Proposed pair’, ‘Same amount only’, ‘Partly paired’, ‘No candidate’, ‘Paired’, ‘Needs no invoice’, ‘Left out’ (an incoming payment, a fee or interest, a transfer between own accounts; with the reason) and ‘All’; by account, month and a search in the name, memo and amount. Clicking a line selects it; the checkbox (or Ctrl-click) adds more lines to the selection; ‘Select all shown’ (*A látható tételek kijelölése*) selects the whole filtered list.
+  - **Invoices** (*Számlák*) on the right: first the selected line's details (with what was decided on it, each with **Undo**, *Visszavonás*), then its candidates (*A kijelölt tétel jelöltjei*), highlighted and numbered, with what ties them (the same amount, the invoice number, the supplier's account or name, the payment method, a learnt name, the converted amount); then the other invoices, the nearest amount first (with a search: the newest first). ‘Unpaid only’ (*Csak a ki nem fizetettek*) is on by default.
+  - **The selection bar** at the bottom shows the selected lines and invoices with their totals and the difference, and acts on them:
+    - **Pair** (*Párosítás*): one line with one or more invoices, or one invoice with one or more lines (instalments). When the amounts settle every side, it is saved at once. When a rest is left, the amounts can be set per pair and a reason is required (for example an instalment, a bank fee, a discount). A card line in forints and an invoice in another currency pair only one to one, in whole; outside the card band or without an exchange rate it needs a reason.
+    - **Not this one** (*Nem ez*): rejects the selected candidate with a reason; it is never offered again (until undone).
+    - **Needs no invoice** (*Nem kell számla*): marks all the selected lines at once, with one reason (private expense, bank fee or interest, transfer between own accounts, tax or contribution, cash withdrawal, salary, or other with a note).
+    - **Accept the N unambiguous proposals** (*A(z) N egyértelmű javaslat elfogadása*, two clicks) pairs every proposal that is the only candidate of its line and its invoice, on a statement whose balances check out.
+  - **Documents** (*Iratok*, key `d`): the statement opens at the page of the selected line, with the line framed (found by its amount and date), next to the selected invoice (or the first candidate). A document processed on the command line has no image here. **Open in its package** opens the document's review page in a new tab.
+  - After a decision the next line is selected. If someone else decided meanwhile, the lists are reloaded and your selection is kept.
+- **3 Result** (*Eredmény*): for now, where the pairing stands.
+
+**Keys on the pairing page** (not while typing in a field; **Keys**, *Billentyűk*, or `?` lists them):
+
+| Key | Action |
+|---|---|
+| ↑ ↓ or `j` `k` | previous or next line |
+| Space | add the line to the selection or take it out |
+| `1`–`9` | select or unselect the line's n-th candidate |
+| Enter | pair the selection |
+| `x` | not this one (with a reason) |
+| `m` | needs no invoice (with a reason) |
+| `d` | show or hide the documents |
+| Esc | close the panel, or clear the selection |
 
 ## 6. Processing
 

@@ -24,12 +24,13 @@ Layer: UI/CLI → **this** (application operation) → `jav.reconcile` (the core
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter, defaultdict
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import cfg, reconcile, store, work
+from jav import cfg, corrections, reconcile, store, work
 
 KIND = "reconcile"
 REVOKE_KINDS = ("allocation", "mark", "decision")
@@ -201,6 +202,26 @@ def _money(value: Any) -> Decimal | None:
         return None
 
 
+def _open_refs(docs: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """132: where a document's image opens: the package, run and item of its work run, and its page count. A document
+    from an evaluation on the command line has none (it belongs to no package)."""
+    docs = [d for d in docs if d.get("work_run") and d.get("item_id")]
+    runs = sorted({d["work_run"] for d in docs})
+    ids = sorted({d["id"] for d in docs})
+    if not docs:
+        return {}
+    with store.connect() as c:
+        packages = {r["run_id"]: r["workpackage_id"] for r in c.execute(
+            f"SELECT run_id, workpackage_id FROM runs WHERE run_id IN ({','.join('?' * len(runs))})", runs)}
+        pages: dict[str, int | None] = {}
+        for start in range(0, len(ids), 500):  # stays under the SQLite parameter limit
+            chunk = ids[start:start + 500]
+            pages.update({r["doc_id"]: r["page_count"] for r in c.execute(
+                f"SELECT doc_id, page_count FROM documents WHERE doc_id IN ({','.join('?' * len(chunk))})", chunk)})
+    return {d["id"]: {"workpackage_id": packages[d["work_run"]], "run_id": d["work_run"], "item_id": d["item_id"],
+                      "pages": pages.get(d["id"])} for d in docs if d["work_run"] in packages}
+
+
 def workspace(wp_id: str) -> dict[str, Any]:
     """Everything the pairing page shows: the scope's lines (in the period) and the invoices they may pay, each with
     its state, the amount allocated and left, its allocations and candidates; the coverage per account and month; the
@@ -321,7 +342,7 @@ def workspace(wp_id: str) -> dict[str, Any]:
         if row["source"] != "approved" and (row["allocations"] or row["candidates"]):
             blockers.append({"code": f"source_{row['source']}", "doc_id": row["id"], "file": row["file"], "kind": "invoice"})
     return {"workpackage_id": wp_id, "scope": sc, "lines": lines, "invoices": invoice_rows, "coverage": coverage,
-            "blockers": blockers, "line_marks": list(_conf()["line_marks"]),
+            "blockers": blockers, "line_marks": list(_conf()["line_marks"]), "open": _open_refs(docs),
             "counts": {"lines": dict(sorted(Counter(ln["state"] for ln in lines).items())),
                        "invoices": dict(sorted(Counter(str(r["state"]) for r in invoice_rows).items())),
                        "open_lines": sum(1 for ln in lines if ln["state"] in OPEN_LINE_STATES)},
@@ -388,8 +409,9 @@ def _scope_line(ctx: dict[str, Any], line_id: str) -> dict[str, Any]:
 
 def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor: str) -> list[dict[str, Any]]:
     """Allocations of lines to invoices in one step (all or none). A pair without an amount takes what both sides have
-    left in one currency, or both whole amounts for a converted card pair. A split, or a converted pair outside the
-    card band or without a rate, needs `note`."""
+    left in one currency, or both whole amounts for a converted card pair. A step that leaves a rest on a line or an
+    invoice it touches in one currency (a split), or a converted pair outside the card band or without a rate, needs
+    `note`; 132: instalments or a combined payment that settle every side they touch do not."""
     note = (note or "").strip() or None
     if not pairs:
         raise PackageError("no pair to allocate")
@@ -397,6 +419,7 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
     rows, needs_reason = [], False
     used_line: dict[str, Decimal] = defaultdict(Decimal)
     used_invoice: dict[str, Decimal] = defaultdict(Decimal)
+    rest_after: dict[tuple[str, str], Decimal] = {}  # the rest each one-currency side touched is left with
     for p in pairs:
         iid, lid = str(p["invoice_doc_id"]), str(p["line_id"])
         inv = ctx["invoices"].get(iid)
@@ -418,7 +441,8 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
                 raise PackageError("in one currency the line's and the invoice's share are one canonical amount")
             share = given.pop() if given else min(line_rest, invoice_rest)
             la = ia = share
-            needs_reason |= not (la == line_rest and ia == invoice_rest)
+            rest_after[("line", lid)] = line_rest - la
+            rest_after[("invoice", iid)] = invoice_rest - ia
         else:
             if (ctx["paid_line"].get(lid) or ctx["paid_invoice"].get(iid) or used_line[lid] or used_invoice[iid]
                     or p.get("line_amount") or p.get("invoice_amount")):
@@ -433,6 +457,7 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
         used_line[lid] += la
         used_invoice[iid] += ia
         rows.append((iid, line["statement_id"], lid, str(la), str(ia)))
+    needs_reason |= any(rest > 0 for rest in rest_after.values())
     if needs_reason and note is None:
         raise PackageError("a split, or a pair outside the card band or without a rate, needs a reason")
 
@@ -493,28 +518,34 @@ def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: s
     return _write(ctx["state"], write)
 
 
-def mark(wp_id: str, line_id: str, *, category: str, note: str | None, actor: str) -> dict[str, Any]:
-    """'Needs no invoice' with its reason (`configs/reconcile.json` `line_marks`); a line with an allocation cannot be
-    marked. A new mark replaces the line's earlier one."""
+def mark(wp_id: str, line_ids: Iterable[str], *, category: str, note: str | None, actor: str) -> list[dict[str, Any]]:
+    """'Needs no invoice' with its reason (`configs/reconcile.json` `line_marks`) for one or more lines in one step,
+    all or none (132: most lines of a real statement need no invoice); a line with an allocation cannot be marked. A
+    new mark replaces the line's earlier one."""
     note = (note or "").strip() or None
+    ids = list(dict.fromkeys(line_ids))
+    if not ids:
+        raise PackageError("no line to mark")
     conf = _conf()
     if category not in conf["line_marks"]:
         raise PackageError(f"unknown reason: {category}")
     if category in conf["line_mark_note_required"] and note is None:
         raise PackageError("this reason needs a note")
     ctx = _context(wp_id)
-    line = _scope_line(ctx, line_id)
-    if ctx["paid_line"].get(line_id):
-        raise PackageError("the line has an allocation; revoke it first")
+    lines = [_scope_line(ctx, lid) for lid in ids]
+    if any(ctx["paid_line"].get(lid) for lid in ids):
+        raise PackageError("a line has an allocation; revoke it first")
 
-    def write(c) -> dict[str, Any]:
-        now = _now()
-        c.execute("UPDATE reconcile_line_marks SET revoked_at=?, revoked_by=? WHERE line_id=? AND revoked_at IS NULL",
-                  (now, actor, line_id))
-        cur = c.execute("INSERT INTO reconcile_line_marks(statement_doc_id, line_id, category, note, workpackage_id, actor,"
-                        " created_at) VALUES (?,?,?,?,?,?,?)", (line["statement_id"], line_id, category, note, wp_id, actor, now))
-        work.record_event(c, wp_id, "reconcile_mark", actor, {"mark": cur.lastrowid, "category": category})
-        return dict(c.execute("SELECT * FROM reconcile_line_marks WHERE id=?", (cur.lastrowid,)).fetchone())
+    def write(c) -> list[dict[str, Any]]:
+        now, made = _now(), []
+        for lid, line in zip(ids, lines):
+            c.execute("UPDATE reconcile_line_marks SET revoked_at=?, revoked_by=? WHERE line_id=? AND revoked_at IS NULL",
+                      (now, actor, lid))
+            cur = c.execute("INSERT INTO reconcile_line_marks(statement_doc_id, line_id, category, note, workpackage_id, actor,"
+                            " created_at) VALUES (?,?,?,?,?,?,?)", (line["statement_id"], lid, category, note, wp_id, actor, now))
+            made.append(cur.lastrowid)
+        work.record_event(c, wp_id, "reconcile_mark", actor, {"marks": made, "category": category})
+        return [dict(r) for r in c.execute(f"SELECT * FROM reconcile_line_marks WHERE id IN ({','.join('?' * len(made))})", made)]
     return _write(ctx["state"], write)
 
 
@@ -545,6 +576,81 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
             c.execute("DELETE FROM reconcile_decisions WHERE pair_key=?", (ref,))
         work.record_event(c, wp_id, "reconcile_revoke", actor, {"kind": kind, "ref": str(ref), "row": dict(row), "note": note})
     _write(ctx["state"], write)
+
+
+# --- where a line stands on its statement page --------------------------------------------------------------------------
+
+_SEP = "[ .  ]?"  # a thousands separator a statement may print: space, dot, (narrow) no-break space
+_WORD = re.compile(r"[^\W\d_]{4,}")
+
+
+def _amount_pattern(amount: Decimal) -> re.Pattern[str]:
+    """The amount as a statement prints it: digits grouped by three with an optional separator, a decimal comma or
+    point, with or without a sign; no digit may continue it on either side."""
+    whole, _, frac = f"{abs(amount):.2f}".partition(".")
+    groups = []
+    while whole:
+        groups.insert(0, whole[-3:])
+        whole = whole[:-3]
+    return re.compile(r"(?<![\d.,])[-+]?" + _SEP.join(groups) + r"[,.]" + frac + r"(?!\d)")
+
+
+def _date_patterns(day: date) -> list[re.Pattern[str]]:
+    y, m, d = f"{day.year:04d}", f"{day.month:02d}", f"{day.day:02d}"
+    return [re.compile(rf"{y}[.\-/ ]?{m}[.\-/ ]?{d}"), re.compile(rf"(?<!\d){m}[.\-/]{d}(?!\d)"),
+            re.compile(rf"(?<!\d){d}[.\-/]{m}(?!\d)")]
+
+
+def find_line(layer: Any, line: dict[str, Any], *, rank: int = 0) -> tuple[int | None, list[float] | None]:
+    """132: the page and the box (0–1 fractions of the page: x0, y0, x1, y1) of a statement line, found in the
+    statement's word layer by code: the text line that prints its amount, preferring the one with its booking date on
+    the same line (or next to it) and a word of its name or memo nearby. `rank`: the line's order among the statement's
+    lines with the same date and amount, which tells identical lines apart. Not found: (None, None)."""
+    amount = _money(line.get("amount"))
+    if amount is None or amount == 0:
+        return None, None
+    pattern = _amount_pattern(amount)
+    day = _iso(line.get("booking_date"))
+    dates = _date_patterns(day) if day else []
+    names = set(_WORD.findall(" ".join(str(line.get(k) or "") for k in ("counterparty_name", "description", "memo")).lower()))
+    grouped: dict[tuple[int, int | None], list[Any]] = defaultdict(list)
+    for w in layer.words:
+        grouped[(w.page, w.line_no)].append(w)
+    rows = sorted(grouped.values(), key=lambda ws: (ws[0].page, min(w.y0 for w in ws)))
+    texts = [" ".join(w.text for w in sorted(ws, key=lambda w: w.x0)) for ws in rows]
+    hits: list[tuple[int, int]] = []
+    for i, text in enumerate(texts):
+        if not pattern.search(text):
+            continue
+        near = " ".join(texts[max(0, i - 1):i + 2])
+        score = 1 + (2 if any(p.search(text) for p in dates) else 1 if any(p.search(near) for p in dates) else 0)
+        score += 1 if names and any(n in near.lower() for n in names) else 0
+        hits.append((score, i))
+    if not hits:
+        return None, None
+    best = max(s for s, _ in hits)
+    top = [i for s, i in hits if s == best]
+    ws = rows[top[min(rank, len(top) - 1)]]
+    return ws[0].page, [min(w.x0 for w in ws), min(w.y0 for w in ws), max(w.x1 for w in ws), max(w.y1 for w in ws)]
+
+
+def locate(wp_id: str, line_id: str) -> dict[str, Any]:
+    """Where a line of the scope stands: its statement, where the statement opens, and the line's page and box on it
+    (None when the statement has no word layer or the line's amount is not printed on it)."""
+    ctx = _context(wp_id)
+    line = _scope_line(ctx, line_id)
+    statement = next(st for st in ctx["snap"]["statements"] if st["id"] == line["statement_id"])
+    out: dict[str, Any] = {"line_id": line_id, "statement_id": statement["id"],
+                           "open": _open_refs([statement]).get(statement["id"]), "page": None, "box": None}
+    if out["open"] is None:
+        return out
+    layer = corrections.layer_for(corrections.datapoints_row(statement["work_run"], statement["item_id"]))
+    if layer is None:
+        return out
+    key = (line.get("booking_date"), str(_money(line.get("amount"))))
+    same = [ln["id"] for ln in statement["lines"] if (ln.get("booking_date"), str(_money(ln.get("amount")))) == key]
+    out["page"], out["box"] = find_line(layer, line, rank=same.index(line_id) if line_id in same else 0)
+    return out
 
 
 def refresh(wp_id: str) -> dict[str, Any]:

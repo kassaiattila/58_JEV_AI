@@ -14,14 +14,25 @@ import { DocumentsPanel } from "./DocumentsPanel";
 import { ProcessStage } from "./ProcessStage";
 import { ResultStage } from "./ResultStage";
 import { ReviewWorkspace } from "./ReviewWorkspace";
+import { ReconcileStages } from "./reconcile/ReconcileStages";
 import { StartConfirm } from "./StartConfirm";
 import { WorkpackageActions } from "./WorkpackageActions";
 
 const STAGE_LABEL = tmap({ process: "Feldolgozás", review: "Ellenőrzés", result: "Eredmény" }) as Record<Stage, string>;
+// 132: a reconciliation package's stages (it has no files and no runs: a scope, the pairing, the result)
+const RECONCILE_STAGE_LABEL = tmap({ process: "Preparation", review: "Pairing", result: "Result" }) as Record<Stage, string>;
 const ACTIVE = new Set(["queued", "running"]);
 
 export function stageStatus(view: WorkpackageView): Record<Stage, string> {
   const last = view.last_run;
+  if (view.reconcile) {
+    const { scope, counts } = view.reconcile;
+    return {
+      process: t("{{n}} accounts, {{from}} – {{to}}", { n: scope.accounts.length, from: scope.period_start, to: scope.period_end }),
+      review: counts.open_lines ? t("{{n}} open lines", { n: counts.open_lines }) : t("no open line"),
+      result: t("not approved yet"),
+    };
+  }
   return {
     // 080: without saved settings the default processing settings apply, so readiness alone decides
     process: last ? `${MODE[last.mode]} · ${(RUN_STATUS[last.status] ?? last.status).toLowerCase()} · ${last.items_done}/${last.items}`
@@ -85,8 +96,12 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   const { workpackage, next, last_run: last } = view;
   const stage: Stage = route.stage ?? next.stage;
   const status = stageStatus(view);
+  const reconcile = workpackage.source_kind === "reconcile";
+  const labels = reconcile ? RECONCILE_STAGE_LABEL : STAGE_LABEL;
 
-  const summary: ReactNode = (
+  const summary: ReactNode = reconcile && view.reconcile ? (
+    t("Reconciliation of {{n}} accounts or cards, {{from}} – {{to}}", { n: view.reconcile.scope.accounts.length, from: view.reconcile.scope.period_start, to: view.reconcile.scope.period_end })
+  ) : (
     <>
       {itemCountText(workpackage.items)}
       {last ? ` · ${t("utolsó futás: {{mode}}, {{when}}", { mode: MODE[last.mode].toLowerCase(), when: when(last.created_at) })}` : ` · ${t("még nem futott")}`}
@@ -105,17 +120,18 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
         <p className="notice">{t("Ez a csomag el van rejtve a listából; a futásai és az eredményei megmaradtak. Visszahozni a „Csomag kezelése” gombbal lehet.")}</p>
       ) : null}
       <div className="stage-tabs" role="tablist" aria-label={t("A csomag szakaszai")}>
-        {(Object.keys(STAGE_LABEL) as Stage[]).map((s, i) => (
+        {(Object.keys(labels) as Stage[]).map((s, i) => (
           <a key={s} role="tab" aria-selected={stage === s} className={`stage-tab ${next.stage === s ? "is-next" : ""}`} href={`#/workpackages/${wpId}/${s}`}>
             <span className="stage-no" aria-hidden="true">{i + 1}</span>
-            <span className="stage-text"><strong>{STAGE_LABEL[s]}</strong><span className="small">{status[s]}</span></span>
+            <span className="stage-text"><strong>{labels[s]}</strong><span className="small">{status[s]}</span></span>
           </a>
         ))}
       </div>
-      <div role="tabpanel" aria-label={STAGE_LABEL[stage]}>
-        {stage === "process" && route.start ? <StartConfirm view={view} mode={route.start.mode} rerun={route.start.rerun} onChanged={wp.reload} /> : null}
-        {stage === "process" && !route.start ? <ProcessStage view={view} onChanged={wp.reload} /> : null}
-        {stage === "review" ? (
+      <div role="tabpanel" aria-label={labels[stage]}>
+        {reconcile ? <ReconcileStages view={view} stage={stage} onChanged={wp.reload} /> : null}
+        {!reconcile && stage === "process" && route.start ? <StartConfirm view={view} mode={route.start.mode} rerun={route.start.rerun} onChanged={wp.reload} /> : null}
+        {!reconcile && stage === "process" && !route.start ? <ProcessStage view={view} onChanged={wp.reload} /> : null}
+        {!reconcile && stage === "review" ? (
           view.runs ? (
             <>
               <ReviewWorkspace wp={workpackage} itemId={route.itemId} />
@@ -132,7 +148,7 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
             </>
           )
         ) : null}
-        {stage === "result" ? <ResultStage view={view} table={route.table} runId={route.runId} onChanged={wp.reload} /> : null}
+        {!reconcile && stage === "result" ? <ResultStage view={view} table={route.table} runId={route.runId} onChanged={wp.reload} /> : null}
       </div>
     </>
   );

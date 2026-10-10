@@ -10,6 +10,7 @@ import { Mailbox } from "./Mailbox";
 import { RUN_STATUS, stepLabel } from "../labels";
 import { go, type Route } from "../route";
 import { WorkpackageDetail } from "./WorkpackageDetail";
+import { ReconcileCreate } from "./reconcile/ReconcileCreate";
 
 export function Workpackages({ route }: { route: Extract<Route, { view: "workpackages" }> }) {
   if (route.wpId) return <WorkpackageDetail route={route} wpId={route.wpId} />;
@@ -50,7 +51,7 @@ function WorkpackageList() {
 // 081: exported for its tests (the subfolder switch and the Browse buttons)
 export function CreateForm({ onDone }: { onDone: (id: string) => void }) {
   useLocale();
-  const [mode, setMode] = useState<"folder" | "files" | "mailbox">("folder");
+  const [mode, setMode] = useState<"folder" | "files" | "mailbox" | "reconcile">("folder");
   const [folder, setFolder] = useState("");
   const [recursive, setRecursive] = useState(false);
   const [files, setFiles] = useState("");
@@ -90,8 +91,10 @@ export function CreateForm({ onDone }: { onDone: (id: string) => void }) {
         <label><input type="radio" name="src" checked={mode === "folder"} onChange={() => setMode("folder")} /> {t("Documents from a folder")}</label>
         <label><input type="radio" name="src" checked={mode === "files"} onChange={() => setMode("files")} /> {t("Megadott fájlok")}</label>
         <label><input type="radio" name="src" checked={mode === "mailbox"} onChange={() => setMode("mailbox")} /> {t("Postafiókból")}</label>
+        {/* 132: a reconciliation package pairs statement lines with invoices already processed */}
+        <label><input type="radio" name="src" checked={mode === "reconcile"} onChange={() => setMode("reconcile")} /> {t("Reconciliation of statements and invoices")}</label>
       </fieldset>
-      {mode === "mailbox" ? <Mailbox variant="pull" /> : (
+      {mode === "reconcile" ? <ReconcileCreate onDone={(id) => onDone(id)} /> : mode === "mailbox" ? <Mailbox variant="pull" /> : (
         <form className="create" onSubmit={(e) => { e.preventDefault(); void submit(); }} aria-label={t("Mappa vagy fájlok")}>
           <DocumentFormats />
           {mode === "folder" ? (

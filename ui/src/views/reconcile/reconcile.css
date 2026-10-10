@@ -1,0 +1,102 @@
+/* 132: the reconciliation package's pages — two lists side by side, the selection bar at the bottom, the documents
+   below. Only the shared colour tokens are used, so the dark theme and the compact density apply. */
+.rc-stack { display: grid; gap: 16px; }
+.rc-stack .card { max-width: none; margin: 0; }
+.rc-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.rc-toolbar .spacer { flex: 1 1 auto; }
+.rc-toolbar input[type="search"], .rc-pane-head input[type="search"] {
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; background: var(--paper); min-width: 180px; }
+.rc-toolbar select, .rc-pane-head select { border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--paper); }
+
+.rc-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .rc-grid { grid-template-columns: minmax(0, 1fr); } }
+.rc-pane { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); display: flex; flex-direction: column; min-width: 0; }
+.rc-pane-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.rc-pane-head h2 { margin: 0; font-size: 15px; }
+.rc-list { overflow: auto; max-height: calc(100vh - 380px); min-height: 280px; }
+.rc-section { font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: var(--muted);
+  padding: 8px 12px 4px; background: var(--soft); border-bottom: 1px solid var(--line-soft); position: sticky; top: 0; z-index: 1; }
+.rc-more { padding: 8px 12px; }
+
+.rc-row { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; align-items: start; padding: 6px 12px 6px 9px;
+  border-bottom: 1px solid var(--line-soft); border-left: 3px solid transparent; }
+.rc-row:hover { background: var(--soft); }
+.rc-row.is-selected { background: var(--tint); }
+.rc-row.active { border-left-color: var(--accent); }
+.rc-row.candidate { background: var(--ok-tint); }
+.rc-row.candidate.is-selected { background: var(--tint); }
+.rc-row input[type="checkbox"] { margin: 4px 0 0; }
+.rc-rowbody { display: grid; grid-template-columns: 78px 150px minmax(0, 1fr) auto; gap: 8px; align-items: start; width: 100%;
+  background: none; border: 0; padding: 1px 0; margin: 0; text-align: left; color: inherit; font: inherit; border-radius: 4px; }
+.rc-rowbody:disabled { opacity: 1; cursor: default; }
+.rc-row .rc-text { min-width: 0; display: grid; }
+.rc-row .rc-main { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-row .rc-sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-row .rc-side { display: grid; justify-items: end; gap: 3px; }
+.rc-amount { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.rc-amount.credit { color: var(--ok); }
+.rc-date { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--muted); font-size: 13px; }
+.rc-sigs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.rc-sig { font-size: 11px; padding: 0 7px; border-radius: 999px; background: var(--chip); color: var(--ink); }
+.rc-sig.warn { background: var(--warn-tint); color: var(--warn); }
+.rc-sig.good { background: var(--ok-tint); color: var(--ok); }
+
+.rc-state { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--chip); color: var(--ink); white-space: nowrap; }
+.rc-state.s-proposed { background: #e9eef8; color: #2f4f86; }
+.rc-state.s-amount_only, .rc-state.s-partly_allocated, .rc-state.s-partly_paid, .rc-state.s-amount_differs, .rc-state.s-rate_missing { background: var(--warn-tint); color: var(--warn); }
+.rc-state.s-allocated, .rc-state.s-confirmed { background: var(--ok-tint); color: var(--ok); }
+.rc-state.s-marked, .rc-state.s-excluded { background: var(--chip); color: var(--muted); }
+:root[data-theme="dark"] .rc-state.s-proposed { background: #1f2a3d; color: #9dbbe8; }
+
+.rc-detail { padding: 10px 12px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; background: var(--soft); }
+.rc-detail dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; margin: 0; font-size: 13px; }
+.rc-detail dt { color: var(--muted); }
+.rc-detail dd { margin: 0; overflow-wrap: anywhere; }
+.rc-decided { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; }
+
+.rc-bar { position: sticky; bottom: 0; z-index: 3; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 -6px 18px rgba(0, 0, 0, .06); padding: 10px 14px; display: grid; gap: 10px; }
+.rc-bar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.rc-bar-row .spacer { flex: 1 1 auto; }
+.rc-sum { font-size: 13px; }
+.rc-sum strong { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.rc-diff { font-weight: 600; }
+.rc-diff.zero { color: var(--ok); }
+.rc-diff.off { color: var(--warn); }
+.rc-panel { border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 8px; }
+.rc-panel table { border-collapse: collapse; font-size: 13px; }
+.rc-panel th, .rc-panel td { padding: 4px 10px 4px 0; text-align: left; vertical-align: middle; }
+.rc-panel td.num, .rc-panel th.num { text-align: right; }
+.rc-panel input[type="text"] { border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--paper); }
+.rc-panel input.amount { width: 130px; text-align: right; font-family: var(--mono); }
+.rc-panel textarea { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--paper); min-height: 44px; width: 100%; }
+.rc-reasons { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.rc-docs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 1100px) { .rc-docs { grid-template-columns: minmax(0, 1fr); } }
+.rc-doc { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; display: grid; gap: 8px; min-width: 0; }
+.rc-doc-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.rc-doc-head .spacer { flex: 1 1 auto; }
+.rc-page { position: relative; width: 100%; }
+.rc-page img { width: 100%; display: block; border: 1px solid var(--line-soft); background: #fff; }
+.rc-box { position: absolute; border: 2px solid var(--accent); background: rgba(163, 63, 83, .12); border-radius: 3px; pointer-events: none; }
+
+.rc-accounts { display: grid; gap: 6px; }
+.rc-accounts label { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; align-items: start; cursor: pointer; }
+.rc-period { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.rc-period input[type="date"] { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--paper); }
+.rc-cov td { text-align: center; font-variant-numeric: tabular-nums; }
+.rc-cov td.ok { color: var(--ok); }
+.rc-cov td.warn { color: var(--warn); }
+.rc-cov td.none { color: var(--muted); }
+.rc-counts { display: flex; flex-wrap: wrap; gap: 6px; }
+.rc-keys { display: grid; grid-template-columns: max-content 1fr; gap: 3px 14px; font-size: 13px; margin: 0; }
+.rc-keys dt { font-family: var(--mono); }
+.rc-keys dd { margin: 0; }
+.rc-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; align-items: center; }
+/* the shared plain list is a grid with a gap: here the rows stack tightly at the top, whatever the list's height */
+.rc-list.plain, .rc-list .plain { display: block; margin: 0; font-size: 14px; }
+.rc-doc { margin: 0; align-content: start; }
+.rc-doc-head .muted { overflow-wrap: anywhere; }
+/* a long invoice state ("statements cover part of its period") wraps instead of squeezing the supplier's name */
+.rc-row .rc-side .rc-state { max-width: 190px; white-space: normal; text-align: right; }

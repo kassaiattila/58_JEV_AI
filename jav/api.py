@@ -324,7 +324,8 @@ class ReconcileDecision(_In):
 
 # 131 (F-reconciliation E1): the reconciliation package (`jav/reconcile_package.py`)
 DocId = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
-LineId = Annotated[str, Field(pattern=r"^[0-9A-Za-z_-]{1,16}:[0-9a-f]{12}:\d{1,5}$")]  # the statement line's stable id
+LINE_ID = r"^[0-9A-Za-z_-]{1,16}:[0-9a-f]{12}:\d{1,5}$"
+LineId = Annotated[str, Field(pattern=LINE_ID)]  # the statement line's stable id
 Money = Annotated[str, Field(pattern=r"^\d{1,12}(\.\d{1,2})?$")]  # a canonical amount, never a guessed separator
 IsoDay = Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
 
@@ -362,7 +363,7 @@ class ReconcileReject(_In):
 
 
 class ReconcileMark(_In):
-    line_id: LineId
+    line_ids: Annotated[list[LineId], Field(min_length=1, max_length=5000)]  # 132: several lines in one step
     category: Annotated[str, Field(min_length=1, max_length=40)]  # configs/reconcile.json line_marks
     note: Text | None = None
 
@@ -1053,8 +1054,13 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/mark")
     def reconcile_mark(wp_id: WpId, body: ReconcileMark, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        reconcile_package.mark(wp_id, body.line_id, category=body.category, note=body.note, actor=who)
+        reconcile_package.mark(wp_id, body.line_ids, category=body.category, note=body.note, actor=who)
         return work_views.jsonable(reconcile_package.workspace(wp_id))
+
+    @app.get(r + "/workpackages/{wp_id}/reconcile/locate")
+    def reconcile_locate(wp_id: WpId, line_id: Annotated[str, Query(pattern=LINE_ID)]) -> dict[str, Any]:
+        """132: where a line stands on its statement page (found in the word layer by its amount and date)."""
+        return work_views.jsonable(reconcile_package.locate(wp_id, line_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/revoke")
     def reconcile_revoke(wp_id: WpId, body: ReconcileRevoke, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
