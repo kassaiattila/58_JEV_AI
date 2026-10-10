@@ -7,7 +7,7 @@
       {
         "version": "1.0.19",
         "date": "2026-10-10",
-        "note": "136: accept the Hungarian column of the new glossary entry (the statement from a table, docs/GLOSSARY.md) and the Hungarian names of the new work package source in the user guide (docs/guides/USER_GUIDE.md); accept the document vocabulary of the tabular statement profiles (the column headers, account labels and total row of the Hungarian Revolut export, configs/statement_tables.json) and the synthetic Hungarian export the reader's tests build (tests/test_statement_table_136.py). All other file limits are unchanged."
+        "note": "136: accept the Hungarian column of the new glossary entry (the statement from a table, docs/GLOSSARY.md) and the Hungarian names of the new work package source in the user guide (docs/guides/USER_GUIDE.md); accept the document vocabulary of the tabular statement profiles (the column headers, account labels and total row of the Hungarian Revolut export, configs/statement_tables.json) and the synthetic Hungarian export the reader's tests build (tests/test_statement_table_136.py, tests/test_flow_statement_table_136.py). All other file limits are unchanged."
       },
       {
         "version": "1.0.18",
@@ -372,6 +372,7 @@
     "tests/test_emails.py": 14,
     "tests/test_encoding_guard.py": 3,
     "tests/test_eval_report.py": 1,
+    "tests/test_flow_statement_table_136.py": 2,
     "tests/test_gpt_reuse_090.py": 2,
     "tests/test_handoff_guard.py": 2,
     "tests/test_ingest_security.py": 8,
