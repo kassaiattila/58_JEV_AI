@@ -16,6 +16,7 @@ import { BackupPanel } from "./settings/BackupPanel";
 import { DepsAuditPanel } from "./settings/DepsAuditPanel";
 import { FoldersPanel } from "./settings/FoldersPanel";
 import { LanguagePanel } from "./settings/LanguagePanel";
+import { PartiesPanel } from "./settings/PartiesPanel";
 import { UsersPanel } from "./settings/UsersPanel";
 import { VersionPanel } from "./settings/VersionPanel";
 import { PdfProtectionPanel } from "./settings/PdfProtectionPanel";
@@ -28,6 +29,8 @@ import { UncertainCallsPanel } from "./settings/UncertainCallsPanel";
 export const SETTINGS_SECTIONS: { key: SettingsSection; label: string; hint: string }[] = [
   { key: "mailboxes", label: "Postafiókok", hint: "Outlook-fiókok, ütemezett letöltés, letöltési napló" },
   { key: "folders", label: "Munkamappák", hint: "Figyelt mappák: az új iratokból magától lesz munkacsomag" },
+  // 133: new labels have an English source (the Hungarian translation is in hu-native.json)
+  { key: "parties", label: "Own parties", hint: "Whose money is reconciled: companies, associations and people, with their names, tax numbers and accounts" },
   { key: "recipes", label: "Feldolgozás", hint: "Hogyan dolgozza fel a rendszer az iratokat és a leveleket, mit jelentenek a beállítások, mennyibe kerülnek" },
   { key: "users", label: "Felhasználók", hint: "A „Ki dolgozik?” választéka" },
   { key: "appearance", label: "Megjelenés", hint: "Téma és sűrűség" },
@@ -51,6 +54,7 @@ export function Settings({ section }: { section: SettingsSection }) {
           <h2>{t(current.label)}</h2>
           {current.key === "mailboxes" ? <Mailbox variant="settings" /> : null}
           {current.key === "folders" ? <FoldersPanel /> : null}
+          {current.key === "parties" ? <PartiesPanel /> : null}
           {current.key === "recipes" ? <RecipesPanel /> : null}
           {current.key === "users" ? <UsersPanel /> : null}
           {current.key === "appearance" ? <AppearancePanel /> : null}

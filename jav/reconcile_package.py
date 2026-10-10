@@ -16,6 +16,9 @@ Rules (the owner's decisions of 2026-10-09):
   blocker; the package's approval (E3) needs every one of them approved. Open lines do not block the approval.
 - Two writers are kept apart optimistically: a decision checks, in its writing transaction, that no other decision was
   recorded since it read the state (`work.RevisionConflict`, the interface reloads).
+- 133 (DECISIONS 133): a package is one own party's (`jav.parties`). Its invoices and the unassigned ones are its own;
+  another party's invoice is listed with its party for a person to pair on purpose, never proposed to the line's state
+  or accepted in bulk (`other_candidates`). A package without a party (made before 133) takes every invoice as its own.
 
 Layer: UI/CLI → **this** (application operation) → `jav.reconcile` (the core and its store adapter) and `jav.work`
 (the package record and its log).
@@ -30,7 +33,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import cfg, corrections, reconcile, store, work
+from jav import cfg, corrections, parties, reconcile, store, work
 
 KIND = "reconcile"
 REVOKE_KINDS = ("allocation", "mark", "decision")
@@ -43,9 +46,23 @@ CREATE TABLE IF NOT EXISTS reconcile_scopes (
     period_end     TEXT NOT NULL,      -- ISO date, inclusive
     revision       INTEGER NOT NULL DEFAULT 1,
     actor          TEXT NOT NULL,
-    updated_at     TEXT NOT NULL
+    updated_at     TEXT NOT NULL,
+    party_id       TEXT                -- 133: the own party (jav.parties); NULL: every invoice is the package's
 );
 """)
+
+
+def _migrate(conn) -> None:
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(reconcile_scopes)")}
+    if cols and "party_id" not in cols:  # 133: a package is one own party's
+        conn.execute("ALTER TABLE reconcile_scopes ADD COLUMN party_id TEXT")
+
+
+store.register_migration("reconcile_package", _migrate)
+parties.register_reference(
+    "reconcile_package",
+    count=lambda c, pid: c.execute("SELECT COUNT(*) FROM reconcile_scopes WHERE party_id=?", (pid,)).fetchone()[0],
+    repoint=lambda c, old, new: c.execute("UPDATE reconcile_scopes SET party_id=? WHERE party_id=?", (new, old)))
 
 
 class PackageError(ValueError):
@@ -93,8 +110,27 @@ def accounts() -> list[dict[str, Any]]:
             if st.get(k):
                 edge = "first" if k == "period_start" else "last"
                 g[edge] = pick(filter(None, (g[edge], str(st[k])[:10])))
+    r, names = parties.resolver(), _party_names()
     return [{**g, "statement_types": sorted(t for t in g["statement_types"] if t),
-             "currencies": sorted(c for c in g["currencies"] if c)} for _k, g in sorted(groups.items())]
+             "currencies": sorted(c for c in g["currencies"] if c), "party": _party_ref(r.account(k), names)}
+            for k, g in sorted(groups.items())]
+
+
+def _party_names() -> dict[str, str]:
+    return {p["id"]: p["name"] for p in parties.parties()}
+
+
+def _party_ref(party_id: str | None, names: dict[str, str]) -> dict[str, str] | None:
+    return {"id": party_id, "name": names.get(party_id, party_id)} if party_id else None
+
+
+def _checked_party(party_id: str | None) -> str | None:
+    if party_id is None:
+        return None
+    try:
+        return parties.get(party_id)["id"]
+    except KeyError:
+        raise PackageError(f"no own party {party_id}") from None
 
 
 def _checked_scope(keys: Iterable[str], period_start: Any, period_end: Any) -> tuple[list[str], str, str]:
@@ -110,15 +146,17 @@ def _checked_scope(keys: Iterable[str], period_start: Any, period_end: Any) -> t
     return chosen, start.isoformat(), end.isoformat()
 
 
-def create(*, name: str, accounts: list[str], period_start: str, period_end: str, actor: str) -> dict[str, Any]:
-    """A new reconciliation package with its scope; the creator owns it (decision 065)."""
+def create(*, name: str, accounts: list[str], period_start: str, period_end: str, actor: str,
+           party_id: str | None = None) -> dict[str, Any]:
+    """A new reconciliation package with its scope and own party; the creator owns it (decision 065)."""
     keys, start, end = _checked_scope(accounts, period_start, period_end)
+    party = _checked_party(party_id)
     wp = work.create_workpackage(name=name, source_kind=KIND, source_ref=f"{start}..{end}", owner=actor)
     with store.connect() as c:
         store.begin_immediate(c)
-        c.execute("INSERT INTO reconcile_scopes(workpackage_id, accounts, period_start, period_end, revision, actor, updated_at)"
-                  " VALUES (?,?,?,?,1,?,?)", (wp["id"], json.dumps(keys), start, end, actor, _now()))
-        work.record_event(c, wp["id"], "reconcile_scope", actor, {"accounts": len(keys), "period": [start, end]})
+        c.execute("INSERT INTO reconcile_scopes(workpackage_id, accounts, period_start, period_end, revision, actor, updated_at,"
+                  " party_id) VALUES (?,?,?,?,1,?,?,?)", (wp["id"], json.dumps(keys), start, end, actor, _now(), party))
+        work.record_event(c, wp["id"], "reconcile_scope", actor, {"accounts": len(keys), "period": [start, end], "party": party})
     return scope(wp["id"])
 
 
@@ -136,13 +174,15 @@ def scope(wp_id: str) -> dict[str, Any]:
     if row is None:
         raise KeyError(wp_id)
     return {"workpackage_id": wp_id, "accounts": json.loads(row["accounts"]), "period_start": row["period_start"],
-            "period_end": row["period_end"], "revision": row["revision"], "updated_at": row["updated_at"]}
+            "period_end": row["period_end"], "revision": row["revision"], "updated_at": row["updated_at"],
+            "party_id": row["party_id"], "party": _party_ref(row["party_id"], _party_names())}
 
 
 def set_scope(wp_id: str, *, accounts: list[str], period_start: str, period_end: str, expected_revision: int,
-              actor: str) -> dict[str, Any]:
-    """A changed scope; the decisions stay (they belong to the pairs)."""
+              actor: str, party_id: str | None = None) -> dict[str, Any]:
+    """A changed scope and party; the decisions stay (they belong to the pairs)."""
     keys, start, end = _checked_scope(accounts, period_start, period_end)
+    party = _checked_party(party_id)
     scope(wp_id)
     with store.connect() as c:
         store.begin_immediate(c)
@@ -150,9 +190,9 @@ def set_scope(wp_id: str, *, accounts: list[str], period_start: str, period_end:
         if row["revision"] != expected_revision:
             raise work.RevisionConflict(f"the scope is at revision {row['revision']}, not {expected_revision}")
         c.execute("UPDATE reconcile_scopes SET accounts=?, period_start=?, period_end=?, revision=revision+1, actor=?,"
-                  " updated_at=? WHERE workpackage_id=?", (json.dumps(keys), start, end, actor, _now(), wp_id))
+                  " updated_at=?, party_id=? WHERE workpackage_id=?", (json.dumps(keys), start, end, actor, _now(), party, wp_id))
         c.execute("UPDATE workpackages SET source_ref=?, updated_at=? WHERE id=?", (f"{start}..{end}", _now(), wp_id))
-        work.record_event(c, wp_id, "reconcile_scope", actor, {"accounts": len(keys), "period": [start, end]})
+        work.record_event(c, wp_id, "reconcile_scope", actor, {"accounts": len(keys), "period": [start, end], "party": party})
     return scope(wp_id)
 
 
@@ -175,6 +215,27 @@ def scoped_snapshot(wp_id: str, *, fetch_rates: bool = False) -> tuple[dict[str,
 
 
 # --- the workspace -----------------------------------------------------------------------------------------------------
+
+
+class _Parties:
+    """133: the own party of an invoice (`{id, name, how}` or None) and whether it is the package's own: of the
+    package's party or of none; a package without a party takes every invoice as its own."""
+
+    def __init__(self, sc: dict[str, Any], invoices: dict[str, dict[str, Any]]):
+        self.party, self.invoices = sc.get("party_id"), invoices
+        self.resolver, self.names = parties.resolver(), _party_names()
+        self.cache: dict[str, dict[str, Any] | None] = {}
+
+    def of(self, invoice_id: str) -> dict[str, Any] | None:
+        if invoice_id not in self.cache:
+            inv = self.invoices.get(invoice_id) or {}
+            pid, how = self.resolver.invoice(inv.get("buyer_name"), inv.get("buyer_tax_id"))
+            self.cache[invoice_id] = {"id": pid, "name": self.names.get(pid, pid), "how": how} if pid else None
+        return self.cache[invoice_id]
+
+    def own(self, invoice_id: str) -> bool:
+        ref = self.of(invoice_id) if self.party else None
+        return ref is None or ref["id"] == self.party
 
 
 def _months(start: str, end: str) -> list[str]:
@@ -250,6 +311,7 @@ def workspace(wp_id: str) -> dict[str, Any]:
         shares_line[a["line_id"]].append(share)
         shares_invoice[a["invoice_id"]].append(share)
     rejected = {(d["invoice_id"], d["line_id"]) for d in snap["decisions"] if d["decision"] == "not_this"}
+    who = _Parties(sc, invoices)
 
     def candidate_view(c: dict[str, Any]) -> dict[str, Any]:
         return {k: c.get(k) for k in ("invoice_id", "line_id", "proposed", "amount_only", "signals", "amount_relation",
@@ -263,7 +325,8 @@ def workspace(wp_id: str) -> dict[str, Any]:
                 continue
             lid, amount = ln["id"], _money(ln.get("amount"))
             paid = paid_line.get(lid, Decimal(0))
-            mine = by_line.get(lid, [])
+            mine = [c for c in by_line.get(lid, []) if who.own(c["invoice_id"])]
+            theirs = [c for c in by_line.get(lid, []) if not who.own(c["invoice_id"])]
             if lid in marks:
                 state = "marked"
             elif amount is not None and paid >= amount > 0:
@@ -287,6 +350,8 @@ def workspace(wp_id: str) -> dict[str, Any]:
                           "allocated": str(paid), "rest": str(amount - paid) if amount is not None else None,
                           "mark": marks.get(lid), "allocations": shares_line.get(lid, []),
                           "candidates": [candidate_view(c) for c in mine],
+                          "other_candidates": [{"invoice_id": c["invoice_id"], "party": (who.of(c["invoice_id"]) or {}).get("name")}
+                                               for c in theirs],
                           "rejected": sorted(i for i, l_ in rejected if l_ == lid),
                           "statement_verified": bool(st.get("verified"))})
     line_ids = {ln["id"] for ln in lines}
@@ -321,7 +386,7 @@ def workspace(wp_id: str) -> dict[str, Any]:
                              "rest": str(amount - paid) if amount is not None else None,
                              "allocations": shares_invoice.get(iid, []), "candidates": [candidate_view(c) for c in by_invoice.get(iid, [])
                                                                                       if c["line_id"] in line_ids],
-                             "source": _source_state(inv, approved)})
+                             "source": _source_state(inv, approved), "party": who.of(iid), "own": who.own(iid)})
     for ln in lines:
         ln["file"] = files.get(ln["statement_id"])
     coverage = []
@@ -339,12 +404,13 @@ def workspace(wp_id: str) -> dict[str, Any]:
         if not st.get("verified"):
             blockers.append({"code": "statement_unverified", "doc_id": st["id"], "file": files.get(st["id"]), "kind": "statement"})
     for row in invoice_rows:
-        if row["source"] != "approved" and (row["allocations"] or row["candidates"]):
+        if row["source"] != "approved" and (row["allocations"] or (row["own"] and row["candidates"])):
             blockers.append({"code": f"source_{row['source']}", "doc_id": row["id"], "file": row["file"], "kind": "invoice"})
     return {"workpackage_id": wp_id, "scope": sc, "lines": lines, "invoices": invoice_rows, "coverage": coverage,
             "blockers": blockers, "line_marks": list(_conf()["line_marks"]), "open": _open_refs(docs),
             "counts": {"lines": dict(sorted(Counter(ln["state"] for ln in lines).items())),
-                       "invoices": dict(sorted(Counter(str(r["state"]) for r in invoice_rows).items())),
+                       "invoices": dict(sorted(Counter(str(r["state"]) for r in invoice_rows if r["own"]).items())),
+                       "other_invoices": sum(1 for r in invoice_rows if not r["own"]),
                        "open_lines": sum(1 for ln in lines if ln["state"] in OPEN_LINE_STATES)},
             "learned_names": result["learned_names"], "fx_tolerance": result["fx_tolerance"],
             "engine_version": reconcile.ENGINE_VERSION, "config_hash": reconcile.config_hash(),
@@ -475,11 +541,13 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
 
 def accept_proposed(wp_id: str, *, actor: str) -> int:
     """Every unambiguous proposal of the scope at once: proposed, the only candidate of its line and its invoice, on a
-    statement whose balances check out, the line booked in the period. Returns how many were allocated."""
+    statement whose balances check out, the line booked in the period, the invoice the package's own (133: another
+    party's pair waits for a person). Returns how many were allocated."""
     ctx = _context(wp_id)
     sc = ctx["scope"]
+    who = _Parties(sc, ctx["invoices"])
     pairs = [{"invoice_doc_id": c["invoice_id"], "line_id": c["line_id"]} for c in ctx["result"]["candidates"]
-             if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"]
+             if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"] and who.own(c["invoice_id"])
              and sc["period_start"] <= str(ctx["prepared"]["lines"][c["line_id"]].get("booking_date") or "")[:10] <= sc["period_end"]]
     if not pairs:
         return 0

@@ -36,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
-                 reconcile, reconcile_package, store, version, work, work_views)
+                 parties, party_views, reconcile, reconcile_package, store, version, work, work_views)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
@@ -330,10 +330,15 @@ Money = Annotated[str, Field(pattern=r"^\d{1,12}(\.\d{1,2})?$")]  # a canonical 
 IsoDay = Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
 
 
+PartyId = Annotated[str, Field(pattern=r"^party-[0-9a-f]{12}$")]  # 133: an own party (`jav/parties.py`)
+PartyName = Annotated[str, Field(min_length=1, max_length=200)]
+
+
 class ReconcileScope(_In):
     accounts: Annotated[list[Annotated[str, Field(min_length=1, max_length=80)]], Field(min_length=1, max_length=50)]
     period_start: IsoDay
     period_end: IsoDay
+    party_id: PartyId | None = None  # 133: the package's own party; None: every invoice is its own
 
 
 class CreateReconcilePackage(ReconcileScope):
@@ -372,6 +377,36 @@ class ReconcileRevoke(_In):
     kind: Literal["allocation", "mark", "decision"]
     ref: Annotated[str, Field(min_length=1, max_length=200)]  # an allocation's or a mark's id, or a decision's pair key
     note: Text | None = None
+
+
+# 133 (F-own-parties): the own parties (`jav/parties.py`, `jav/party_views.py`)
+class PartyIdentity(_In):
+    kind: Literal["tax", "name", "account"]
+    key: Annotated[str, Field(min_length=1, max_length=300)]
+    label: Annotated[str, Field(min_length=1, max_length=300)]
+
+
+class AcceptPartySuggestions(_In):
+    ids: Annotated[list[Annotated[str, Field(pattern=r"^[0-9a-f]{16}$")]], Field(min_length=1, max_length=200)]
+    names: dict[str, PartyName] = Field(default_factory=dict)  # by suggestion id: the name a person gave it
+
+
+class CreateParty(_In):
+    name: PartyName
+    identities: Annotated[list[PartyIdentity], Field(max_length=500)] = Field(default_factory=list)
+
+
+class RenameParty(_In):
+    name: PartyName
+
+
+class MergeParty(_In):
+    into: PartyId
+
+
+class SetPartyIdentity(PartyIdentity):
+    action: Literal["assign", "dismiss", "release"]  # give it to a party | no own party's | unassigned again
+    party_id: PartyId | None = None  # required for "assign"
 
 
 class TaskDone(_In):
@@ -1008,6 +1043,50 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         reconcile.decide(run_id, item_id, body.invoice_doc_id, body.line_id, decision=body.decision, actor=who, note=body.note)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
+    # --- 133: the own parties (jav/parties.py): proposed from the data, rearranged by a person at any time ---
+    # every change answers with the whole overview, as the settings page shows it
+
+    @app.get(r + "/parties")
+    def own_parties() -> dict[str, Any]:
+        return work_views.jsonable(party_views.overview())
+
+    @app.post(r + "/parties/accept")
+    def accept_party_suggestions(body: AcceptPartySuggestions, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        party_views.accept(body.ids, names=body.names, actor=who)
+        return work_views.jsonable(party_views.overview())
+
+    @app.post(r + "/parties", status_code=201)
+    def create_party(body: CreateParty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        parties.create(body.name, identities=[(i.kind, i.key, i.label) for i in body.identities], actor=who)
+        return work_views.jsonable(party_views.overview())
+
+    @app.post(r + "/parties/identities")
+    def set_party_identity(body: SetPartyIdentity, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        if body.action == "release":
+            parties.release(body.kind, body.key, actor=who)
+        elif body.action == "dismiss":
+            parties.assign(body.kind, body.key, body.label, None, actor=who)
+        elif body.party_id is None:
+            raise ValueError("assigning an identity needs a party")
+        else:
+            parties.assign(body.kind, body.key, body.label, body.party_id, actor=who)
+        return work_views.jsonable(party_views.overview())
+
+    @app.post(r + "/parties/{party_id}/rename")
+    def rename_party(party_id: PartyId, body: RenameParty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        parties.rename(party_id, body.name, actor=who)
+        return work_views.jsonable(party_views.overview())
+
+    @app.post(r + "/parties/{party_id}/merge")
+    def merge_party(party_id: PartyId, body: MergeParty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        parties.merge(party_id, body.into, actor=who)
+        return work_views.jsonable(party_views.overview())
+
+    @app.post(r + "/parties/{party_id}/delete")
+    def delete_party(party_id: PartyId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        parties.delete(party_id, actor=who)
+        return work_views.jsonable(party_views.overview())
+
     # --- 131: the reconciliation package (jav/reconcile_package.py): a scope, two lists, decisions per pair ---
 
     @app.get(r + "/reconcile/accounts")
@@ -1017,7 +1096,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/reconcile/packages", status_code=201)
     def create_reconcile_package(body: CreateReconcilePackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         sc = reconcile_package.create(name=body.name, accounts=body.accounts, period_start=body.period_start,
-                                      period_end=body.period_end, actor=who)
+                                      period_end=body.period_end, actor=who, party_id=body.party_id)
         return work_views.workpackage_view(sc["workpackage_id"])
 
     @app.get(r + "/workpackages/{wp_id}/reconcile")
@@ -1027,7 +1106,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/workpackages/{wp_id}/reconcile/scope")
     def reconcile_scope(wp_id: WpId, body: SetReconcileScope, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.set_scope(wp_id, accounts=body.accounts, period_start=body.period_start, period_end=body.period_end,
-                                    expected_revision=body.expected_revision, actor=who)
+                                    expected_revision=body.expected_revision, actor=who, party_id=body.party_id)
         return work_views.jsonable(reconcile_package.workspace(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/refresh")

@@ -6,6 +6,8 @@
 // selected lines as needing no invoice — several at once, because most lines of a real statement need none
 // (DECISIONS 132). Every decision can be undone from the line's details. Keyboard: arrows or j/k move, Space selects,
 // 1–9 picks a candidate, Enter pairs, x rejects, m marks, d shows the documents, Esc clears, ? lists the keys.
+// 133: a package is one own party's (DECISIONS 133): the other parties' invoices show with a switch or a search, named by
+// their party, and the selected line says when another party's invoice is its candidate.
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   api, ApiError, OPEN_LINE_STATES, type ReconcileCandidate, type ReconcileInvoice, type ReconcileLine, type ReconcileLineState,
@@ -75,6 +77,7 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
   const [q, setQ] = useState("");
   const [invQ, setInvQ] = useState("");
   const [unpaidOnly, setUnpaidOnly] = useState(true);
+  const [showOthers, setShowOthers] = useState(false);
   const [limit, setLimit] = useState(PAGE);
   const [active, setActive] = useState<string | null>(null);
   const [selLines, setSelLines] = useState<string[]>([]);
@@ -223,9 +226,13 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
   // the invoice list: the active line's candidates first, then the rest (unpaid ones by default)
   const candidates = activeLine ? rankedCandidates(activeLine).filter((c) => !activeLine.rejected.includes(c.invoice_id) && invoiceById.has(c.invoice_id)) : [];
   const candidateIds = new Set(candidates.map((c) => c.invoice_id));
+  const otherCandidates = activeLine?.other_candidates ?? [];
+  const otherIds = new Set(otherCandidates.map((c) => c.invoice_id));
   // without a search, the invoices nearest to the selected line's amount come first (same currency before others), so
-  // the payment of a line without a candidate is found by eye; otherwise the newest first
+  // the payment of a line without a candidate is found by eye; otherwise the newest first. Another party's invoice is
+  // listed with the switch on, or when a search finds it (133).
   const others = ws.invoices.filter((i) => !candidateIds.has(i.id) && invoiceMatches(i, invQ)
+    && (i.own !== false || showOthers || Boolean(invQ) || selInvoices.includes(i.id))
     && (!unpaidOnly || (i.state !== "confirmed" && rest(i) > 0n) || selInvoices.includes(i.id)));
   const byAmount = Boolean(activeLine) && !invQ;
   if (byAmount && activeLine) {
@@ -234,6 +241,8 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
     others.sort((a, b) => Number(a.currency !== activeLine.currency) - Number(b.currency !== activeLine.currency)
       || (distance(a) < distance(b) ? -1 : distance(a) > distance(b) ? 1 : 0));
   } else others.sort((a, b) => (b.issue_date ?? "").localeCompare(a.issue_date ?? ""));
+  if (showOthers) others.sort((a, b) => Number(otherIds.has(b.id)) - Number(otherIds.has(a.id))); // another party's candidates first
+  const scoped = Boolean(ws.scope.party);
   const docInvoice = invoices[0] ?? (candidates[0] ? invoiceById.get(candidates[0].invoice_id) ?? null : null);
   const differs = oneCurrency && lines.length > 0 && invoices.length > 0 ? lineSum - invoiceSum : null;
   const currency = lines[0]?.currency ?? invoices[0]?.currency ?? null;
@@ -299,9 +308,14 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
 
         <section className="rc-pane" aria-label={t("Invoices")}>
           <div className="rc-pane-head">
-            <h2>{t("Invoices")}</h2>
+            <h2>{ws.scope.party ? t("Invoices of {{party}}", { party: ws.scope.party.name }) : t("Invoices")}</h2>
             <input type="search" placeholder={t("Search supplier, number, amount")} aria-label={t("Search the invoices")} value={invQ} onChange={(e) => setInvQ(e.target.value)} />
             <label className="check small"><input type="checkbox" checked={unpaidOnly} onChange={(e) => setUnpaidOnly(e.target.checked)} /> {t("Unpaid only")}</label>
+            {ws.counts.other_invoices ? (
+              <label className="check small">
+                <input type="checkbox" checked={showOthers} onChange={(e) => setShowOthers(e.target.checked)} /> {t("Other parties' invoices too ({{n}})", { n: ws.counts.other_invoices })}
+              </label>
+            ) : null}
           </div>
           <div className="rc-list">
             {activeLine ? <LineDetail line={activeLine} invoiceById={invoiceById} readOnly={readOnly} busy={busy}
@@ -312,15 +326,23 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
                 <ul className="plain">
                   {candidates.map((c, n) => {
                     const inv = invoiceById.get(c.invoice_id)!;
-                    return <InvoiceRow key={inv.id} invoice={inv} candidate={c} index={n + 1} selected={selInvoices.includes(inv.id)} onToggle={toggleInvoice} readOnly={readOnly} />;
+                    return <InvoiceRow key={inv.id} invoice={inv} candidate={c} index={n + 1} selected={selInvoices.includes(inv.id)} onToggle={toggleInvoice} readOnly={readOnly} scoped={scoped} />;
                   })}
                 </ul>
+                {otherCandidates.length ? (
+                  <p className="small muted rc-others">
+                    {t("{{n}} candidate(s) among other parties' invoices: {{parties}}", {
+                      n: otherCandidates.length, parties: [...new Set(otherCandidates.map((c) => c.party ?? "?"))].join(", "),
+                    })}
+                    {showOthers ? null : <button type="button" className="quiet small-btn" onClick={() => setShowOthers(true)}>{t("Show them")}</button>}
+                  </p>
+                ) : null}
               </>
             ) : null}
             <p className="rc-section">{byAmount ? t("Other invoices, nearest amount first") : t("Other invoices, newest first")}</p>
             <ul className="plain">
               {others.slice(0, PAGE).map((inv) => (
-                <InvoiceRow key={inv.id} invoice={inv} selected={selInvoices.includes(inv.id)} onToggle={toggleInvoice} readOnly={readOnly} />
+                <InvoiceRow key={inv.id} invoice={inv} selected={selInvoices.includes(inv.id)} onToggle={toggleInvoice} readOnly={readOnly} scoped={scoped} />
               ))}
               {!others.length ? <li className="rc-more muted small">{t("No invoice matches.")}</li> : null}
               {others.length > PAGE ? <li className="rc-more muted small">{t("Narrow the search to see the rest ({{n}}).", { n: others.length - PAGE })}</li> : null}
@@ -399,8 +421,9 @@ function LineRow({ line, active, selected, onChoose }: {
   );
 }
 
-function InvoiceRow({ invoice, candidate, index, selected, onToggle, readOnly }: {
+function InvoiceRow({ invoice, candidate, index, selected, onToggle, readOnly, scoped }: {
   invoice: ReconcileInvoice; candidate?: ReconcileCandidate; index?: number; selected: boolean; onToggle: (id: string) => void; readOnly: boolean;
+  scoped?: boolean; // 133: the package has an own party, so an invoice without one is marked
 }) {
   const partly = parseCanonical(invoice.allocated) !== 0n && invoice.state !== "confirmed";
   return (
@@ -427,6 +450,8 @@ function InvoiceRow({ invoice, candidate, index, selected, onToggle, readOnly }:
           <span className={`rc-state s-${invoice.state ?? "none"}`}>{INVOICE_STATE[invoice.state ?? ""] ?? invoice.state ?? "–"}</span>
           {partly ? <span className="small muted">{t("left: {{amount}}", { amount: show(invoice.rest, invoice.currency) })}</span> : null}
           {invoice.source !== "approved" ? <span className="small muted">{invoice.source === "no_run" ? t("command line") : t("run not approved")}</span> : null}
+          {invoice.own === false && invoice.party ? <span className="rc-sig warn">{t("Other party: {{party}}", { party: invoice.party.name })}</span> : null}
+          {scoped && !invoice.party ? <span className="small muted">{t("no own party")}</span> : null}
         </span>
       </button>
     </li>

@@ -7,7 +7,7 @@
 // run list) lead to their new place, so bookmarks are not lost.
 
 export type Stage = "process" | "review" | "result";
-export type SettingsSection = "mailboxes" | "folders" | "recipes" | "users" | "appearance" | "language" | "system";
+export type SettingsSection = "mailboxes" | "folders" | "parties" | "recipes" | "users" | "appearance" | "language" | "system";
 export type ResultTable = "emails" | "tasks" | "documents" | "datapoints" | "line_items" | "utility" | "file_names" | "native_facts" | "reconciliation";
 
 /** 061: a confirmation page before a run is started (in the Processing section) */
@@ -24,7 +24,7 @@ export type Route =
   | { view: "legacy-result"; runId?: string; table?: ResultTable };
 
 export const STAGES: Stage[] = ["process", "review", "result"];
-export const SECTIONS: SettingsSection[] = ["mailboxes", "folders", "recipes", "users", "appearance", "language", "system"];
+export const SECTIONS: SettingsSection[] = ["mailboxes", "folders", "parties", "recipes", "users", "appearance", "language", "system"];
 export const RESULT_TABLES: ResultTable[] = ["emails", "tasks", "documents", "datapoints", "line_items", "utility", "file_names", "native_facts", "reconciliation"];
 const OLD_TAB: Record<string, Stage> = { items: "review", reviews: "review", workflow: "process" };
 const OLD_DATASET: Record<string, ResultTable> = {

@@ -321,9 +321,11 @@ export interface ReconcilePair {
 export interface ReconcileAccount {
   key: string; account: string | null; statement_types: string[]; currencies: string[]; statements: number;
   first: string | null; last: string | null;
+  party?: PartyRef | null; // 133: the own party the account belongs to
 }
 export interface ReconcileScope {
   workpackage_id: string; accounts: string[]; period_start: string; period_end: string; revision: number; updated_at: string;
+  party_id?: string | null; party?: PartyRef | null; // 133: the package's own party; none: every invoice is its own
 }
 /** A line's state: proposed / amount_only / partly_allocated / open still need a person; allocated, marked (needs no
  *  invoice) and excluded (no usable amount) do not. */
@@ -346,18 +348,21 @@ export interface ReconcileLine {
   state: ReconcileLineState; excluded_reason: string | null; allocated: string; rest: string | null;
   mark: ReconcileLineMark | null; allocations: ReconcileShare[]; candidates: ReconcileCandidate[]; rejected: string[];
   statement_verified: boolean; file: string | null;
+  other_candidates?: { invoice_id: string; party: string | null }[]; // 133: candidates among another party's invoices
 }
 export interface ReconcileInvoice {
   id: string; doc_type: string; number: string | null; supplier_name: string | null; amount: string | null; currency: string | null;
   issue_date: string | null; due_date: string | null; payment_method: string | null; file: string | null; state: string | null;
   allocated: string; rest: string | null; allocations: ReconcileShare[]; candidates: ReconcileCandidate[];
   source: "approved" | "not_approved" | "no_run";
+  party?: (PartyRef & { how: PartyHow }) | null; // 133: the buyer's own party; none: no party claims it
+  own?: boolean; // 133: the package's party's or no party's (listed by default); false: another party's
 }
 /** Where a document's image opens: the package, run and item of its work run (none for a command-line evaluation). */
 export interface ReconcileOpen { workpackage_id: string; run_id: string; item_id: string; pages: number | null }
 export interface ReconcileCoverage { account: string; month: string; statements: number; verified: number }
 export interface ReconcileBlocker { code: string; doc_id: string; file: string | null; kind: "statement" | "invoice" }
-export interface ReconcileCounts { lines: Record<string, number>; invoices: Record<string, number>; open_lines: number }
+export interface ReconcileCounts { lines: Record<string, number>; invoices: Record<string, number>; open_lines: number; other_invoices?: number }
 export interface ReconcileWorkspace {
   workpackage_id: string; scope: ReconcileScope; lines: ReconcileLine[]; invoices: ReconcileInvoice[];
   coverage: ReconcileCoverage[]; blockers: ReconcileBlocker[]; line_marks: string[]; open: Record<string, ReconcileOpen>;
@@ -368,6 +373,28 @@ export interface ReconcileLocation {
   line_id: string; statement_id: string; open: ReconcileOpen | null; page: number | null; box: [number, number, number, number] | null;
 }
 export interface ReconcileAllocationPair { invoice_doc_id: string; line_id: string; line_amount?: string; invoice_amount?: string }
+
+// --- 133: the own parties (jav/parties.py, jav/party_views.py) --------------------------------------------------------
+/** How an invoice was tied to its party: its buyer's tax number, a known name variant, or a name holding one variant. */
+export type PartyHow = "tax" | "name" | "similar" | "ambiguous" | null;
+export interface PartyRef { id: string; name: string }
+export type PartyIdentityKind = "tax" | "name" | "account";
+/** A tax number, a buyer name variant or an account, with how many invoices (statements for an account) carry it. */
+export interface PartyIdentity { kind: PartyIdentityKind; key: string; label: string; invoices: number }
+export interface PartyAccount {
+  key: string; label: string; statements: number; first: string | null; last: string | null; statement_types: string[]; currencies: string[];
+}
+export interface OwnParty {
+  id: string; name: string; invoices: number; first: string | null; last: string | null; statements_first: string | null;
+  statements_last: string | null; accounts: PartyAccount[]; identities: PartyIdentity[]; updated_at: string;
+}
+/** A new party (`party_id` null) or what an existing one gains, as the data proposes it now. */
+export interface PartySuggestion { id: string; party_id: string | null; name: string; invoices: number; identities: PartyIdentity[] }
+export interface PartiesOverview {
+  parties: OwnParty[]; suggestions: PartySuggestion[]; unassigned: PartyIdentity[]; dismissed: PartyIdentity[]; invoices: number;
+  unclaimed_invoices: number; ambiguous_invoices: number; buyer_is_supplier: number; no_buyer: number; config_hash: string;
+}
+const identityBody = (i: PartyIdentity) => ({ kind: i.kind, key: i.key, label: i.label });
 
 // --- 056 U1: datasets (unified list query and download) -------------------------------------------------------
 export type ColKind = "text" | "number" | "money" | "date" | "datetime" | "enum" | "bool" | "id";
@@ -541,10 +568,10 @@ export const api = {
       { invoice_doc_id: invoiceDocId, line_id: lineId, decision, ...(note ? { note } : {}) }),
   // 131–132: the reconciliation package; every decision returns the recomputed workspace
   reconcileAccounts: () => request<{ accounts: ReconcileAccount[] }>("GET", "/reconcile/accounts"),
-  createReconcilePackage: (body: { name: string; accounts: string[]; period_start: string; period_end: string }) =>
+  createReconcilePackage: (body: { name: string; accounts: string[]; period_start: string; period_end: string; party_id?: string | null }) =>
     request<WorkpackageView>("POST", "/reconcile/packages", body),
   reconcileWorkspace: (wpId: string) => request<ReconcileWorkspace>("GET", `/workpackages/${enc(wpId)}/reconcile`),
-  setReconcileScope: (wpId: string, body: { accounts: string[]; period_start: string; period_end: string; expected_revision: number }) =>
+  setReconcileScope: (wpId: string, body: { accounts: string[]; period_start: string; period_end: string; expected_revision: number; party_id?: string | null }) =>
     request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/scope`, body),
   reconcileRefresh: (wpId: string) => request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/refresh`, {}),
   reconcileAllocate: (wpId: string, pairs: ReconcileAllocationPair[], note?: string) =>
@@ -558,6 +585,17 @@ export const api = {
     request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/revoke`, { kind, ref, ...(note ? { note } : {}) }),
   reconcileLocate: (wpId: string, lineId: string) =>
     request<ReconcileLocation>("GET", `/workpackages/${enc(wpId)}/reconcile/locate?line_id=${enc(lineId)}`),
+  // 133: the own parties; every change answers with the whole overview
+  parties: () => request<PartiesOverview>("GET", "/parties"),
+  acceptPartySuggestions: (ids: string[], names: Record<string, string> = {}) =>
+    request<PartiesOverview>("POST", "/parties/accept", { ids, names }),
+  createParty: (name: string, identities: PartyIdentity[]) =>
+    request<PartiesOverview>("POST", "/parties", { name, identities: identities.map(identityBody) }),
+  setPartyIdentity: (identity: PartyIdentity, action: "assign" | "dismiss" | "release", partyId?: string) =>
+    request<PartiesOverview>("POST", "/parties/identities", { ...identityBody(identity), action, ...(partyId ? { party_id: partyId } : {}) }),
+  renameParty: (id: string, name: string) => request<PartiesOverview>("POST", `/parties/${enc(id)}/rename`, { name }),
+  mergeParty: (id: string, into: string) => request<PartiesOverview>("POST", `/parties/${enc(id)}/merge`, { into }),
+  deleteParty: (id: string) => request<PartiesOverview>("POST", `/parties/${enc(id)}/delete`, {}),
   /** 062: the accepted task marked as done by hand (or unmarked). */
   markTaskDone: (runId: string, itemId: string, index: number, done: boolean) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/done`, { done }),

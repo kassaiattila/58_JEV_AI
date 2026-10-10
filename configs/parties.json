@@ -1,0 +1,29 @@
+{
+  "meta": {
+    "name": "parties",
+    "version": "1.0.0",
+    "description": "133 F-own-parties (jav/parties.py): the own parties - the companies, associations and people whose money is reconciled - and how a document is tied to one by code: the buyer's tax number first, then a known name variant, then a name that holds every word of one known variant (a misread letter allowed). The proposal from the store groups the buyers by tax number and by name, and an account by the holder name at the top of its statement's first page. No AI call. Decisions: DECISIONS 133 (a reconciliation package is one party's; the parties are proposed from the data and rearranged by a person at any time).",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-10",
+        "note": "133: first version. Thresholds tried on the store's invoices (read only, 0 USD): a misread letter in a long word (e.g. one letter of nine) stays above similar_word.min_ratio; two different personal names sharing a family name stay apart because a variant must be found whole."
+      }
+    ]
+  },
+  "similar_word": {
+    "min_ratio": 0.85,
+    "min_chars": 5
+  },
+  "variant": {
+    "min_words": 2,
+    "min_single_word_chars": 5
+  },
+  "suggestion": {
+    "min_invoices": 2
+  },
+  "holder_zone": {
+    "page": 1,
+    "max_y": 0.35
+  }
+}
