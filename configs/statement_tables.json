@@ -19,7 +19,7 @@
   },
   "repairs": {
     "csv_in_first_columns": {"max_filled_cells": 2, "min_share": 0.8},
-    "mojibake": {"read_as": "cp1250", "markers": ["Ă", "Ĺ", "Â", "Ä", "â€"]}
+    "mojibake": {"read_as": "cp1250", "markers": ["\u0102", "\u0139", "\u00c2", "\u00c4", "\u00e2\u20ac"]}
   },
   "profiles": [
     {
