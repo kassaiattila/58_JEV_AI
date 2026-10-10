@@ -467,7 +467,8 @@ export function FieldPanel(p: Props) {
                 <div className="fdetail">
                   {prov?.status === "located" && prov.quote ? <div className="small">{t("Forrásszöveg:")} „{prov.quote}”{prov.page ? ` · ${t("{{n}}. oldal", { n: prov.page })}` : ""}
                       {prov.multiple && prov.multiple > 1 ? ` · ${t("{{n}} helyen szerepel az iraton; a keret a legvalószínűbbön, a többi szaggatottan", { n: prov.multiple })}` : ""}</div>
-                    : <div className="small muted">{UNLOCATED[prov?.status ?? "no_layer"]}{prov?.status === "approximate" && prov.quote ? ` ${t("A sor:")} „${prov.quote}”.` : ""}</div>}
+                    : <div className="small muted">{result.kind === "statement_table"  // 136: the value is the table export's; there is no page image
+                      ? t("Read by code from the bank's table export; this statement has no page image.") : UNLOCATED[prov?.status ?? "no_layer"]}{prov?.status === "approximate" && prov.quote ? ` ${t("A sor:")} „${prov.quote}”.` : ""}</div>}
                   {edited || pv?.corrected ? <div className="small muted">{t("Gépi érték:")} {machine[f] === null || machine[f] === undefined ? "–" : String(machine[f])}</div> : null}
                   {prov?.alternatives?.length ? (
                     <div className="alts">

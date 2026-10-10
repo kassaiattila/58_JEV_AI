@@ -652,5 +652,7 @@
   "(optional: the bank and the period)": "(optional: the bank and the period)",
   "Create with {{n}} account(s)": "Create with {{n}} account(s)",
   "{{institution}} statements {{from}} – {{to}}": "{{institution}} statements {{from}} – {{to}}",
-  "{{n}} statement(s) from a table export: read by code, free.": "{{n}} statement(s) from a table export: read by code, free."
+  "{{n}} statement(s) from a table export: read by code, free.": "{{n}} statement(s) from a table export: read by code, free.",
+  "Read by code from the bank's table export; this statement has no page image.": "Read by code from the bank's table export; this statement has no page image.",
+  "per statement from a table export": "per statement from a table export"
 }
