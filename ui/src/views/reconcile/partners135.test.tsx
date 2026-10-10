@@ -53,6 +53,16 @@ describe("the suggested reason and the expected invoice", () => {
     expect(suggestMark([shop])).toEqual({ category: "private", source: "earlier", lines: 3 });
   });
 
+  it("140: suggests the reason of the lines' own category before the AI's, when every line has the same", () => {
+    const ai = { ai: { jev: answer("bank_fee"), gpt: answer("bank_fee") } };
+    expect(suggestMark([line(1, "atm", { ...ai, category_mark: "cash" }), line(2, "atm", { category_mark: "cash" })]))
+      .toEqual({ category: "cash", source: "category" });
+    expect(suggestMark([line(1, "atm", { ...ai, category_mark: "cash" }), line(2, "atm", { ...ai })]))
+      .toEqual({ category: "fee", source: "ai_both", engines: ["jev", "gpt"] }); // not every line has the category
+    const earlier = line(1, "atm", { category_mark: "cash", earlier_marks: [{ category: "private", lines: 2 }] });
+    expect(suggestMark([earlier])).toEqual({ category: "private", source: "earlier", lines: 2 });
+  });
+
   it("suggests the AI's reason only when every line and both engines agree", () => {
     const both = (n: number, kind: string, gpt = kind) => line(n, "exampleshop", { ai: { jev: answer(kind), gpt: answer(gpt) } });
     expect(suggestMark([both(1, "retail_purchase"), both(2, "retail_purchase")])).toEqual({ category: "private", source: "ai_both", engines: ["jev", "gpt"] });

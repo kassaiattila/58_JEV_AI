@@ -548,6 +548,7 @@ function PartnerHead({ group, selected, readOnly, busy, onSelect, onMark, onUnma
 function suggestionText(s: MarkSuggestion): string {
   const reason = MARK[s.category] ?? s.category;
   if (s.source === "earlier") return t("Earlier for this partner: {{reason}} ({{n}} lines)", { reason, n: s.lines ?? 0 });
+  if (s.source === "category") return t("The bank's category suggests: {{reason}}", { reason });
   if (s.source === "ai_both") return t("AI suggests: {{reason}} (JEV and GPT agree)", { reason });
   return t("AI suggests: {{reason}} ({{engine}} only)", { reason, engine: (s.engines ?? []).map((e) => ENGINE[e]).join(", ") });
 }

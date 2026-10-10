@@ -206,6 +206,15 @@ def normalize(value: Any) -> str:
     return " ".join(re.findall(r"[a-z0-9]+", "".join(c for c in text if not unicodedata.combining(c))))
 
 
+def category_mark(line: dict[str, Any]) -> str | None:
+    """140: the needs-no-invoice reason a line's own category suggests (`category_marks`: patterns on the normalised
+    description, the first that matches), or None. A suggestion for a person, never a mark by itself."""
+    text = normalize(line.get("description"))
+    if not text:
+        return None
+    return next((r["mark"] for r in _conf().get("category_marks", []) if re.search(r["pattern"], text)), None)
+
+
 def compact(value: Any) -> str:
     return normalize(value).replace(" ", "")
 

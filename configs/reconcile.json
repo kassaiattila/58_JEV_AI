@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person, when a statement counts as verified coverage and how a candidate's strength is weighed. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131, DECISIONS 134.",
     "changelog": [
+      {
+        "version": "1.8.0",
+        "date": "2026-10-10",
+        "note": "140 (DECISIONS 140, F-category-signal): category_marks - a statement line's own category (its description, accent-free and in lower case, as reconcile.normalize writes it) suggests a needs-no-invoice reason on the pairing page: the Revolut categories of an exchange between own currency accounts and of a top-up are a transfer between own accounts, a cash withdrawal is cash. Document vocabulary, matched as a whole description; a suggestion only, a person saves the mark. The pairing engine is unchanged."
+      },
       {
         "version": "1.7.0",
         "date": "2026-10-10",
@@ -89,6 +94,11 @@
   "amount_only": {"enabled": true},
   "learning": {"min_confirmations": 1},
   "line_marks": ["private", "fee", "own_transfer", "tax", "cash", "salary", "other"],
+  "category_marks": [
+    {"pattern": "^atvaltas$", "mark": "own_transfer"},
+    {"pattern": "^feltoltes$", "mark": "own_transfer"},
+    {"pattern": "^atm$", "mark": "cash"}
+  ],
   "line_mark_note_required": ["other"],
   "fx": {
     "statement_types": ["credit_card"],
