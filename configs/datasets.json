@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "changelog": [
+   {
+    "version": "1.14.0",
+    "date": "2026-10-10",
+    "note": "137 (DECISIONS 137): the run's reconciliation view is retired with the review page's pair panel (the reconciliation package does that work), so its label tables reconcile_kind, reconcile_status, reconcile_decision and reconcile_reason go; the package has its own labels in the interface."
+   },
    {
     "version": "1.13.0",
     "date": "2026-10-10",
@@ -96,17 +101,6 @@
   "task_decision": {"accepted": "elfogadva", "rejected": "elvetve"},
   "duplicate": {"copy": "Copy (confirmed)", "variant": "Modified version (confirmed)", "suspected:copy": "Suspected copy",
    "suspected:variant": "Suspected modified version", "suspected:undecidable": "Possible duplicate (a compared value is missing)"},
-  "reconcile_kind": {"invoice": "Invoice", "line": "Statement line"},
-  "reconcile_status": {"confirmed": "Paid (confirmed)", "proposed": "Proposed pair", "amount_only": "Same amount, nothing else ties them", "partly_paid": "Partly paid",
-   "amount_differs": "Related line, different amount", "rate_missing": "No exchange rate for the issue date",
-   "no_payment_found": "No payment in the covered period", "partly_covered": "Statements cover only part of the period",
-   "not_covered": "No statement for this period", "excluded": "Left out", "unpaired": "No invoice found"},
-  "reconcile_decision": {"paid_by": "This line paid it", "not_this": "Not this one"},
-  "reconcile_reason": {"missing_amount": "No amount", "non_positive_amount": "Zero or negative amount", "invalid_amount": "Unreadable amount",
-   "unsupported_currency": "Currency not handled", "missing_issue_date": "No issue date", "outgoing_invoice": "Outgoing invoice",
-   "duplicate_copy": "Confirmed duplicate copy", "duplicate_undecided": "Undecided duplicate", "missing_booking_date": "No booking date",
-   "not_outgoing_payment": "Not an outgoing payment", "own_account_transfer": "Transfer between own accounts",
-   "payment_kind_review": "Fee, interest, repayment or card settlement"},
   "activity_action": {"archive": "csomag elrejtése", "restore": "csomag visszahozása", "rename": "csomag átnevezése",
    "delete": "csomag törlése", "owner": "felelős beállítása", "recipe": "feldolgozási beállítások mentése", "run_start": "futás indítása",
    "run_approve": "futás jóváhagyása", "correction": "javítás", "reason_resolve": "teendő lezárása",

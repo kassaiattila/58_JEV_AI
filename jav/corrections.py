@@ -500,9 +500,7 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
             "open_reasons": _with_fields(reasons["run"], simple),
             "earlier_open_reasons": _with_fields(reasons["earlier"], simple),
             # 126: the duplicate suspicions and decisions of the document, with the other document side by side
-            "duplicates": duplicates.item_pairs(item_id, reasons["run"] + reasons["earlier"]),
-            # 129: the proposed invoice <-> statement line pairs and the decisions on them, both sides side by side
-            "reconcile": reconcile.item_pairs(item_id, reasons["run"] + reasons["earlier"])}
+            "duplicates": duplicates.item_pairs(item_id, reasons["run"] + reasons["earlier"])}
 
 
 def _insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected_revision: int, actor: str, note: str | None,

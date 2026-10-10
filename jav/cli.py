@@ -514,8 +514,8 @@ def cmd_duplicates(args: argparse.Namespace) -> int:
 
 def cmd_reconcile(args: argparse.Namespace) -> int:
     """128: invoice <-> bank statement line pairs proposed by code (read only; counts, no values), or with --golden the
-    synthetic golden cases (configs/golden_reconcile.json). 129: with --write the proposed pairs get their to-do on the
-    later processed document, on runs not yet approved. Free."""
+    synthetic golden cases (configs/golden_reconcile.json). 137: the pairs are decided in a reconciliation package; the
+    command opens no to-do. Free."""
     from jav import reconcile
 
     if args.golden:
@@ -524,7 +524,7 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
         for case, problems in score["failures"].items():
             print(f"  {case}: " + "; ".join(problems))
         return 0 if not score["failures"] else 1
-    r = reconcile.scan(write=args.write)
+    r = reconcile.scan()
     print(f"statements: {r['statements']} (verified by their balances: {r['verified_statements']}), lines: {r['lines']}")
     print(f"invoices: {r['invoices']}; excluded by reason: {r['excluded_invoices']}")
     print(f"lines excluded by reason: {r['excluded_lines']}")
@@ -534,7 +534,6 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
     print(f"invoice status: {r['invoice_status']}")
     print(f"lines without a proposed pair: {r['unpaired_lines']}")
     print(f"confirmed pairs: {r['confirmed_pairs']}; decisions: {r['decisions']}")
-    print(f"to-dos to open: {r['to_open']}, written: {r['written']}; skipped: {r['skipped']}")
     print(f"amount relations: {r['relations']}; card pair rates known: {r['rates']}")
     print(f"engine {r['engine_version']}, config {r['config_hash']}")
     return 0
@@ -813,7 +812,6 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("reconcile", help="128: invoice <-> bank statement line pairs proposed by code (read only); --golden: the synthetic cases")
     p.add_argument("--golden", action="store_true", help="score the synthetic golden cases (configs/golden_reconcile.json)")
-    p.add_argument("--write", action="store_true", help="129: open the to-do of each proposed pair (once; a decided pair or an approved run is skipped)")
     p.set_defaults(fn=cmd_reconcile)
 
     p = sub.add_parser("reconcile-ai", help="134: AI proposals (JEV / GPT) for a reconciliation package's lines; without a budget only the free estimate")

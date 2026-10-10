@@ -36,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
-                 parties, party_views, reconcile, reconcile_package, store, version, work, work_views)
+                 parties, party_views, reconcile_package, store, version, work, work_views)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
@@ -327,15 +327,6 @@ class TaskDecision(_In):
 
 class DuplicateDecision(_In):
     decision: Literal["copy", "variant", "different"]  # 126: copy, modified version, not the same invoice
-    note: Text | None = None
-
-
-class ReconcileDecision(_In):
-    """129: a person's decision on a proposed invoice <-> statement line pair (`jav/reconcile.py`)."""
-
-    invoice_doc_id: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
-    line_id: Annotated[str, Field(pattern=r"^[0-9A-Za-z_-]{1,16}:[0-9a-f]{12}:\d{1,5}$")]  # the statement line's stable id
-    decision: Literal["paid_by", "not_this"]  # this line paid it | not this one (a reason is required)
     note: Text | None = None
 
 
@@ -1075,13 +1066,6 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                            who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """126: only a human decides whether two documents are the same invoice; the pair's to-dos close."""
         duplicates.decide(run_id, item_id, other_doc_id, decision=body.decision, actor=who, note=body.note)
-        return work_views.jsonable(corrections.item_result(run_id, item_id))
-
-    @app.post(r + "/runs/{run_id}/items/{item_id}/reconcile/decision")
-    def reconcile_decision(run_id: RunId, item_id: ItemId, body: ReconcileDecision,
-                           who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """129: only a human confirms or rejects a proposed invoice <-> statement line pair; the pair's to-dos close."""
-        reconcile.decide(run_id, item_id, body.invoice_doc_id, body.line_id, decision=body.decision, actor=who, note=body.note)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
     # --- 133: the own parties (jav/parties.py): proposed from the data, rearranged by a person at any time ---

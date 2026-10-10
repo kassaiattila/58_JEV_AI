@@ -278,8 +278,6 @@ export interface ItemResult {
   source_file?: { copy: boolean; original: "same" | "changed" | "missing" };
   /** 126: the duplicate suspicions and decisions of the document, the other document's values side by side. */
   duplicates?: DuplicatePair[];
-  /** 129: the proposed invoice <-> statement line pairs of the document and the decisions on them. */
-  reconcile?: ReconcilePair[];
 }
 /** 126: the code's kind of a suspected duplicate and a person's decision on the pair. */
 export type DuplicateKind = "copy" | "variant" | "undecidable";
@@ -291,8 +289,6 @@ export interface DuplicatePair {
   fields: { field: string; value: unknown; other_value: unknown; differs: boolean; missing: boolean }[];
   decision: DuplicateDecision | null; decided_by: string | null; decided_at: string | null;
 }
-/** 129: a person's decision on a proposed invoice <-> statement line pair: this line paid it, or not this one. */
-export type ReconcileDecision = "paid_by" | "not_this";
 /** 131: the payment method (an invoice payable by cheque, a line through a cheque payment app) and a name learnt from an
  * earlier confirmed pair also tie a line to an invoice. */
 export type ReconcileSignal = "invoice_number" | "reference" | "supplier_account" | "supplier_name" | "supplier_name_fuzzy"
@@ -301,22 +297,6 @@ export type ReconcileSignal = "invoice_number" | "reference" | "supplier_account
 export type ReconcileRelation = "equal" | "different" | "fx_within" | "fx_outside" | "no_rate";
 /** 130: a card pair's conversion at the MNB rate of the invoice's issue date (deviation: the line's, as a fraction). */
 export interface ReconcileFx { rate: string; rate_day: string; source: string; converted: string; deviation: string }
-export interface ReconcilePair {
-  invoice_doc_id: string; statement_doc_id: string | null; line_id: string; side: "invoice" | "statement";
-  invoice: { number: string | null; supplier: string | null; amount: string | null; currency: string | null;
-    issue_date: string | null; due_date: string | null; file: string | null } | null;
-  line: { booking_date: string | null; direction: string | null; amount: string | null; currency: string | null;
-    counterparty_name: string | null; counterparty_account: string | null; memo: string | null; description: string | null;
-    file: string | null; verified: boolean } | null;
-  signals: ReconcileSignal[]; amount_relation: ReconcileRelation | null; fx?: ReconcileFx | null;
-  /** 131: exactly the same amount, but nothing else ties the line to the invoice: never proposed, a person decides. */
-  amount_only?: boolean;
-  source_review_required: boolean;
-  reason_id: number | null; decision: ReconcileDecision | null; decided_by: string | null; decided_at: string | null;
-  note: string | null;
-  other_doc_id: string | null; other_file: string | null; other_run_id: string | null; other_item_id: string | null;
-  other_workpackage_id: string | null;
-}
 
 // --- 131–132: the reconciliation package (jav/reconcile_package.py) -----------------------------------------------
 /** An own account or card the store has statements of (the scope is chosen from these). */
@@ -584,10 +564,6 @@ export const api = {
   /** 126: a person's decision on a suspected duplicate pair (copy, modified version, not the same invoice). */
   decideDuplicate: (runId: string, itemId: string, otherDocId: string, decision: DuplicateDecision) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/duplicates/${enc(otherDocId)}/decision`, { decision }),
-  /** 129: a person's decision on a proposed invoice <-> statement line pair; a rejection carries its reason. */
-  decideReconcile: (runId: string, itemId: string, invoiceDocId: string, lineId: string, decision: ReconcileDecision, note?: string) =>
-    request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/reconcile/decision`,
-      { invoice_doc_id: invoiceDocId, line_id: lineId, decision, ...(note ? { note } : {}) }),
   // 131–132: the reconciliation package; every decision returns the recomputed workspace
   reconcileAccounts: () => request<{ accounts: ReconcileAccount[] }>("GET", "/reconcile/accounts"),
   /** 136: the accounts of a bank's tabular statement export (no lines or balances); a package of the chosen ones. */

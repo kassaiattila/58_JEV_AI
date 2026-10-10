@@ -70,7 +70,7 @@ python -m jav.cli email <folder> | email-golden | email-determinism --n 3 | emai
 python -m jav.cli email-ingest-server --port 8931 --run   # receiver for the legacy outlook_bridge.ps1 (8901 = legacy Docker)
 python -m jav.cli recipes | wp-* | run-* | worker [--once] | worker-status | worker-stop   # work package → run (jav/work_cli.py)
 python -m jav.cli calls-uncertain | calls-resolve <id> [--cost USD] --note N   # settle a paid call with an uncertain outcome by hand
-python -m jav.cli duplicates [--write] | reconcile [--golden] [--write]   # duplicate invoices | invoice <-> statement line pairs (--write: open their to-dos)
+python -m jav.cli duplicates [--write] | reconcile [--golden]   # duplicate invoices (--write: open their to-dos) | invoice <-> statement line pairs (counts)
 python -m jav.cli reconcile-ai <package> [--engine jev|gpt|both] [--jev-budget-usd X] [--budget-usd Y] [--redo] | --evaluate   # 134 AI proposals for a package's lines (without a budget: free estimate; 136: only the new lines, the kind once per partner) | 135 their hits against a person's decisions (free)
 python -m jav.cli fx-rates [--fetch FROM TO] [--currency C]             # 130 stored MNB exchange rates (counts) | fetch a span (free; only dates and codes leave)
 python -m jav.cli statement-table <file.xlsx|file.csv>                  # 136 a tabular bank statement export read by code (free): its accounts and checks

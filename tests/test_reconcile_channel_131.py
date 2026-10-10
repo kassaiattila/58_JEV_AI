@@ -13,7 +13,7 @@ import copy
 
 import pytest
 
-from jav import cfg, datasets, reconcile, store, work
+from jav import reconcile, store
 from tests import test_reconcile_k2_129 as k2
 
 CASES = {c["id"]: c for c in reconcile.golden_cases()}
@@ -104,15 +104,6 @@ def test_the_learnt_name_counts_only_from_the_configured_number_of_confirmations
     assert reconcile.learned_names(CASES["learned_name_from_a_confirmation"]["snapshot"]) == set()
 
 
-def test_the_to_do_names_its_kind():
-    code = reconcile.reason(k2._id("inv"), "0123456789abcdef:0a1b2c3d4e5f:0", kind="amount_only")
-    assert code == f"reconcile:amount_only:{k2._id('inv')[:16]}:0123456789abcdef:0a1b2c3d4e5f:0"
-    assert reconcile.parse_reason(code) == (k2._id("inv")[:16], "0123456789abcdef:0a1b2c3d4e5f:0")
-    assert reconcile.parse_reason("reconcile:other:abc:0123456789abcdef:0a1b2c3d4e5f:0") is None
-    with pytest.raises(ValueError):
-        reconcile.reason(k2._id("inv"), "x", kind="maybe")
-
-
 # --- through the store -----------------------------------------------------------------------------------------------
 
 
@@ -144,74 +135,36 @@ def _telecom_run() -> tuple[str, str, str]:
     return stmt, inv, reconcile.with_line_ids(stmt, [APRIL, MAY])[0]["id"]
 
 
-def test_an_equal_amount_pair_gets_its_own_to_do_in_a_worker_run(db):
+def _candidate(invoice: str, line: str) -> dict:
+    return next(c for c in reconcile.propose(reconcile.snapshot())["candidates"]
+                if (c["invoice_id"], c["line_id"]) == (invoice, line))
+
+
+def test_an_equal_amount_pair_is_listed_for_a_person_not_proposed(db):
     stmt = k2._save("card", _card(APRIL), doc_type="statement_cib", validation=k2.VERIFIED)
-    inv = k2._id("tel-04")
+    inv = k2._save("tel-04", _telecom("TEL-04"))
     line = reconcile.with_line_ids(stmt, [APRIL])[0]["id"]
-    assert reconcile.review_reasons(inv, "invoice_hu", _telecom("TEL-04"), []) == []  # outside a worker run
-    assert k2._in_run(lambda: reconcile.review_reasons(inv, "invoice_hu", _telecom("TEL-04"), [])) == [
-        reconcile.reason(inv, line, kind="amount_only")]
+    pair = _candidate(inv, line)
+    assert (pair["amount_only"], pair["proposed"], pair["signals"], pair["amount_relation"]) == (True, False, [], "equal")
 
 
-def test_a_person_confirms_an_equal_amount_pair_and_the_next_month_is_proposed_by_the_learnt_name(db):
+def test_a_confirmed_equal_amount_pair_teaches_the_name_for_the_next_month(db):
     stmt, inv, april = _telecom_run()
-    store.review_enqueue(subject_kind="document", subject_id=inv, run_id=work.flow_run_id(k2.RUN, inv),
-                         reasons=[reconcile.reason(inv, april, kind="amount_only")], producer="m2:G")
-    [pair] = reconcile.item_pairs(inv, store.review_open_reasons("document", inv))
-    assert (pair["amount_only"], pair["signals"], pair["amount_relation"], pair["line_id"]) == (True, [], "equal", april)
-    reconcile.decide(k2.RUN, inv, inv, april, decision="paid_by", actor="reviewer")
-    assert store.review_open_reasons("document", inv) == []
+    k2._decide(inv, stmt, april, run_id=k2.RUN)  # a decision of the retired review page panel (129-136)
     may_line = reconcile.with_line_ids(stmt, [APRIL, MAY])[1]["id"]
-    may = k2._id("tel-05")
-    reasons = k2._in_run(lambda: reconcile.review_reasons(may, "invoice_hu", _telecom("TEL-05", "120.00", "2026-05-01", "2026-05-15"), []))
-    assert reasons == [reconcile.reason(may, may_line)]
-    k2._save("tel-05", _telecom("TEL-05", "120.00", "2026-05-01", "2026-05-15"), run_id=k2.RUN)
-    [pair] = reconcile.item_pairs(may, [{"id": 1, "reason": reasons[0]}])
-    assert (pair["signals"], pair["amount_only"]) == (["learned_name"], False)
+    may = k2._save("tel-05", _telecom("TEL-05", "120.00", "2026-05-01", "2026-05-15"), run_id=k2.RUN)
+    pair = _candidate(may, may_line)
+    assert (pair["signals"], pair["amount_only"], pair["proposed"]) == (["learned_name"], False, True)
 
 
-def test_the_run_view_shows_the_equal_amount_status_and_the_new_signal_columns(db):
-    stmt, inv, april = _telecom_run()
-    cols, rows = datasets.rows("reconciliation", {"run_id": k2.RUN})
-    assert {"signal_payment_channel", "signal_learned_name"} <= {c.key for c in cols}
-    by = {(r["kind"], r["item_id"], r["date"]): r for r in rows}
-    assert by[("invoice", inv, "2026-04-01")]["status"] == "amount_only"
-    assert by[("line", stmt, "2026-04-10")]["status"] == "amount_only"
-    assert by[("line", stmt, "2026-05-10")]["status"] == "unpaired"
-    reconcile.decide(k2.RUN, stmt, inv, april, decision="paid_by", actor="t")
-    k2._save("tel-05", _telecom("TEL-05", "120.00", "2026-05-01", "2026-05-15"), run_id=k2.RUN)
-    _cols, rows = datasets.rows("reconciliation", {"run_id": k2.RUN})
-    may = next(r for r in rows if r["kind"] == "line" and r["date"] == "2026-05-10")
-    assert (may["status"], may["signal_learned_name"], may["signal_supplier_name"]) == ("proposed", True, False)
-
-
-def test_scan_counts_and_writes_the_equal_amount_pairs(db):
+def test_scan_counts_the_equal_amount_pairs(db):
     stmt, inv, april = _telecom_run()
     dry = reconcile.scan()
-    assert (dry["proposed_pairs"], dry["amount_only_pairs"], dry["to_open"]) == (0, 1, 1)
-    assert reconcile.scan(write=True)["written"] == 1
-    [reason] = store.review_open_reasons("document", inv)  # the invoice was processed after the statement
-    assert reason["reason"] == reconcile.reason(inv, april, kind="amount_only")
-    assert reconcile.scan(write=True)["skipped"] == {"already_open": 1}
-    assert stmt
-
-
-@pytest.mark.parametrize("approved, written, skipped", [(False, 1, {}), (True, 0, {"approved_run": 1})])
-def test_scan_puts_the_to_do_on_the_other_document_when_the_later_one_is_not_in_a_work_run(db, approved, written, skipped):
-    """The utility invoices of the store came from evaluations on the command line, their statements from a work run:
-    the to-do goes where a person can see it."""
-    k2._run(k2.RUN, ["card"], approved=approved)
-    stmt = k2._save("card", _card(APRIL), run_id=k2.RUN, doc_type="statement_cib", validation=k2.VERIFIED)
-    inv = k2._save("tel-04", _telecom("TEL-04"))  # processed later, from the command line
-    wrote = reconcile.scan(write=True)
-    assert (wrote["written"], wrote["skipped"]) == (written, skipped)
-    line = reconcile.with_line_ids(stmt, [APRIL])[0]["id"]
-    assert [r["reason"] for r in store.review_open_reasons("document", stmt)] == (
-        [reconcile.reason(inv, line, kind="amount_only")] if written else [])
+    assert (dry["proposed_pairs"], dry["amount_only_pairs"]) == (0, 1)
+    assert stmt and inv and april
 
 
 def test_the_labels_name_the_new_status_and_the_config_names_the_channel():
-    assert "amount_only" in cfg.load("datasets")["labels"]["reconcile_status"]
     assert "amount_only" in reconcile.STATUSES and {"payment_channel", "learned_name"} <= set(reconcile.SIGNALS)
     [channel] = reconcile._conf()["payment_channels"]
     assert channel["name"] == "postal_cheque"

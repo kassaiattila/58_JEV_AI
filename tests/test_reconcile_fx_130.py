@@ -100,24 +100,31 @@ def _documents(run_id=k2.RUN):
     return stmt
 
 
-def test_the_processing_fetches_the_rate_and_opens_the_to_do(db):
+def _pair(stmt: str) -> dict:
+    [pair] = reconcile.propose(reconcile.snapshot())["candidates"]
+    assert pair["line_id"] == _line_id(stmt)
+    return pair
+
+
+def test_the_command_line_fetches_the_rate_once(db):
     stmt = _documents()
+    k2._save("inv", _usd_invoice(), run_id=k2.RUN, doc_type="invoice_foreign")
     service = Service(RATES)
     with fx.use_transport(service):
-        inv = k2._id("inv")
-        reasons = k2._in_run(lambda: reconcile.review_reasons(inv, "invoice_foreign", _usd_invoice(), []))
-    assert reasons == [reconcile.reason(inv, _line_id(stmt))]
+        [pair] = reconcile.propose(reconcile.snapshot(fetch_rates=True))["candidates"]
+    assert (pair["proposed"], pair["amount_relation"], pair["line_id"]) == (True, "fx_within", _line_id(stmt))
     assert len(service.calls) == 1 and service.calls[0]["codes"] == ["USD"]
     with fx.use_transport(service):
-        k2._in_run(lambda: reconcile.review_reasons(inv, "invoice_foreign", _usd_invoice(), []))
+        reconcile.snapshot(fetch_rates=True)
     assert len(service.calls) == 1  # stored: not asked again
 
 
-def test_without_a_rate_no_to_do_is_opened_and_the_failure_is_logged(db):
+def test_without_a_rate_nothing_is_proposed_and_the_failure_is_logged(db):
     stmt = _documents()
+    k2._save("inv", _usd_invoice(), run_id=k2.RUN, doc_type="invoice_foreign")
     with fx.use_transport(Service(RATES, fail=OSError("down"))):
-        inv = k2._id("inv")
-        assert k2._in_run(lambda: reconcile.review_reasons(inv, "invoice_foreign", _usd_invoice(), [])) == []
+        [pair] = reconcile.propose(reconcile.snapshot(fetch_rates=True))["candidates"]
+    assert (pair["proposed"], pair["amount_relation"]) == (False, "no_rate")
     with store.connect() as c:
         assert [r["status"] for r in c.execute("SELECT status FROM fx_fetches")] == ["failed"]
     assert stmt
@@ -125,30 +132,20 @@ def test_without_a_rate_no_to_do_is_opened_and_the_failure_is_logged(db):
 
 def test_a_view_reads_the_stored_rates_and_never_fetches(db):
     stmt = _documents()
-    inv = k2._save("inv", _usd_invoice(), run_id=k2.RUN, doc_type="invoice_foreign")
-    reason = {"id": 1, "reason": reconcile.reason(inv, _line_id(stmt))}
-    [pair] = reconcile.item_pairs(stmt, [reason])  # the test setup refuses any request: nothing was fetched
-    assert (pair["amount_relation"], pair["fx"]) == ("no_rate", None)
+    k2._save("inv", _usd_invoice(), run_id=k2.RUN, doc_type="invoice_foreign")
+    pair = _pair(stmt)  # the test setup refuses any request: nothing was fetched
+    assert (pair["amount_relation"], pair.get("fx")) == ("no_rate", None)
     with fx.use_transport(Service(RATES)):
         fx.ensure([("USD", reconcile._date("2026-04-01"))])
-    [pair] = reconcile.item_pairs(stmt, [reason])
+    pair = _pair(stmt)
     assert pair["amount_relation"] == "fx_within" and pair["fx"]["converted"] == "6523.60"
 
 
-def test_a_person_confirms_a_card_pair(db):
+def test_an_earlier_confirmation_settles_a_card_pair(db):
     stmt = _documents()
     inv = k2._save("inv", _usd_invoice(), run_id=k2.RUN, doc_type="invoice_foreign")
     with fx.use_transport(Service(RATES)):
         fx.ensure([("USD", reconcile._date("2026-04-01"))])
-    d = reconcile.decide(k2.RUN, stmt, inv, _line_id(stmt), decision="paid_by", actor="reviewer")
-    assert (d["decision"], d["amount_relation"]) == ("paid_by", "fx_within")
-    rows = {r["kind"]: r for r in reconcile.run_rows(k2.RUN)}
-    assert rows["invoice"]["status"] == "confirmed" and rows["line"]["status"] == "confirmed"
-
-
-def test_the_stored_rates_change_the_views_fingerprint(db):
-    _documents()
-    before = reconcile.fingerprint()
-    with fx.use_transport(Service(RATES)):
-        fx.ensure([("USD", reconcile._date("2026-04-01"))])
-    assert reconcile.fingerprint() != before
+    k2._decide(inv, stmt, _line_id(stmt), run_id=k2.RUN)  # a decision of the retired review page panel (129-136)
+    result = reconcile.propose(reconcile.snapshot())
+    assert {s["invoice_id"]: s["status"] for s in result["invoices"]} == {inv: "confirmed"} and result["candidates"] == []
