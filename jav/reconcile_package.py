@@ -31,13 +31,12 @@ Layer: UI/CLI → **this** (application operation) → `jav.reconcile` (the core
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter, defaultdict
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import cfg, corrections, parties, reconcile, store, work
+from jav import cfg, corrections, grounding, parties, reconcile, store, typepack, work
 
 KIND = "reconcile"
 REVOKE_KINDS = ("allocation", "mark", "decision")
@@ -703,58 +702,18 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
 
 # --- where a line stands on its statement page --------------------------------------------------------------------------
 
-_SEP = "[ .  ]?"  # a thousands separator a statement may print: space, dot, (narrow) no-break space
-_WORD = re.compile(r"[^\W\d_]{4,}")
 
-
-def _amount_pattern(amount: Decimal) -> re.Pattern[str]:
-    """The amount as a statement prints it: digits grouped by three with an optional separator, a decimal comma or
-    point, with or without a sign; no digit may continue it on either side."""
-    whole, _, frac = f"{abs(amount):.2f}".partition(".")
-    groups = []
-    while whole:
-        groups.insert(0, whole[-3:])
-        whole = whole[:-3]
-    return re.compile(r"(?<![\d.,])[-+]?" + _SEP.join(groups) + r"[,.]" + frac + r"(?!\d)")
-
-
-def _date_patterns(day: date) -> list[re.Pattern[str]]:
-    y, m, d = f"{day.year:04d}", f"{day.month:02d}", f"{day.day:02d}"
-    return [re.compile(rf"{y}[.\-/ ]?{m}[.\-/ ]?{d}"), re.compile(rf"(?<!\d){m}[.\-/]{d}(?!\d)"),
-            re.compile(rf"(?<!\d){d}[.\-/]{m}(?!\d)")]
-
-
-def find_line(layer: Any, line: dict[str, Any], *, rank: int = 0) -> tuple[int | None, list[float] | None]:
-    """132: the page and the box (0–1 fractions of the page: x0, y0, x1, y1) of a statement line, found in the
-    statement's word layer by code: the text line that prints its amount, preferring the one with its booking date on
-    the same line (or next to it) and a word of its name or memo nearby. `rank`: the line's order among the statement's
-    lines with the same date and amount, which tells identical lines apart. Not found: (None, None)."""
-    amount = _money(line.get("amount"))
-    if amount is None or amount == 0:
-        return None, None
-    pattern = _amount_pattern(amount)
-    day = _iso(line.get("booking_date"))
-    dates = _date_patterns(day) if day else []
-    names = set(_WORD.findall(" ".join(str(line.get(k) or "") for k in ("counterparty_name", "description", "memo")).lower()))
-    grouped: dict[tuple[int, int | None], list[Any]] = defaultdict(list)
-    for w in layer.words:
-        grouped[(w.page, w.line_no)].append(w)
-    rows = sorted(grouped.values(), key=lambda ws: (ws[0].page, min(w.y0 for w in ws)))
-    texts = [" ".join(w.text for w in sorted(ws, key=lambda w: w.x0)) for ws in rows]
-    hits: list[tuple[int, int]] = []
-    for i, text in enumerate(texts):
-        if not pattern.search(text):
-            continue
-        near = " ".join(texts[max(0, i - 1):i + 2])
-        score = 1 + (2 if any(p.search(text) for p in dates) else 1 if any(p.search(near) for p in dates) else 0)
-        score += 1 if names and any(n in near.lower() for n in names) else 0
-        hits.append((score, i))
-    if not hits:
-        return None, None
-    best = max(s for s, _ in hits)
-    top = [i for s, i in hits if s == best]
-    ws = rows[top[min(rank, len(top) - 1)]]
-    return ws[0].page, [min(w.x0 for w in ws), min(w.y0 for w in ws), max(w.x1 for w in ws), max(w.y1 for w in ws)]
+def place(layer: Any, doc_type: str, lines: list[dict[str, Any]], line_id: str) -> tuple[int | None, list[float] | None]:
+    """The page and the box (0-1 fractions of the page: x0, y0, x1, y1) of one statement line in the statement's word
+    layer. 138 (Q-line-locator reuse): the statement's lines are located together, in document order, by the review
+    page's row locator (`grounding.locate_rows`: the line's amounts, with either sign, and dates on one text line), so
+    identical lines land on consecutive text lines; only a sure place counts, (None, None) otherwise. On the store's 233
+    lines it placed every one; on 3 it chose the booking line with its running balance, where the pairing page's own
+    search of 132 had chosen a detail line printing the same amount."""
+    kinds = dict(typepack.get(doc_type).list_fields.get("transactions", {}))
+    rows = grounding.locate_rows(layer, [{k: v for k, v in ln.items() if k != "id"} for ln in lines], kinds)
+    where = rows[[ln["id"] for ln in lines].index(line_id)]
+    return (where.get("page"), where.get("bbox")) if where["status"] == "located" else (None, None)
 
 
 def locate(wp_id: str, line_id: str) -> dict[str, Any]:
@@ -770,9 +729,7 @@ def locate(wp_id: str, line_id: str) -> dict[str, Any]:
     layer = corrections.layer_for(corrections.datapoints_row(statement["work_run"], statement["item_id"]))
     if layer is None:
         return out
-    key = (line.get("booking_date"), str(_money(line.get("amount"))))
-    same = [ln["id"] for ln in statement["lines"] if (ln.get("booking_date"), str(_money(ln.get("amount")))) == key]
-    out["page"], out["box"] = find_line(layer, line, rank=same.index(line_id) if line_id in same else 0)
+    out["page"], out["box"] = place(layer, statement["doc_type"], statement["lines"], line_id)
     return out
 
 
