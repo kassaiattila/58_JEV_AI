@@ -550,6 +550,38 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reconcile_ai(args: argparse.Namespace) -> int:
+    """134: AI proposals (JEV and/or GPT) for the lines a reconciliation package still has to decide: which preselected
+    invoice a line pays and what kind of payment it is. Without a budget only the free estimate; with the owner's
+    sub-budget (--jev-budget-usd, --budget-usd for OpenAI) the paid measurement: answers stored per line and engine,
+    raw answers in runs/. Counts only, no values printed."""
+    from decimal import Decimal
+
+    from jav import reconcile_ai
+
+    engines = list(reconcile_ai.ENGINES) if args.engine == "both" else [args.engine]
+    limits = {}
+    if args.jev_budget_usd:
+        limits["jev"] = Decimal(args.jev_budget_usd)
+    if args.budget_usd:
+        limits["openai"] = Decimal(args.budget_usd)
+    if not limits:
+        est = reconcile_ai.estimate(args.workpackage_id)
+        print(f"lines to decide: {est['lines']}, with preselected invoices: {est['with_options']} ({est['options']} options)")
+        print(f"sum of the worst-case reservations (a measurement needs its actual cost plus one): {est['reservations_usd']}")
+        print("free estimate only; a measurement needs --jev-budget-usd and/or --budget-usd (the owner's sub-budget)")
+        return 0
+    missing = [e for e in engines if {"jev": "jev", "gpt": "openai"}[e] not in limits]
+    if missing:
+        print(f"no budget for: {', '.join(missing)} (jev: --jev-budget-usd, gpt: --budget-usd)")
+        return 2
+    r = reconcile_ai.run(args.workpackage_id, engines=engines, limits=limits, max_lines=args.max_lines, use_cache=not args.no_cache)
+    print(f"lines asked: {r['lines']}; per engine: {r['counts']}")
+    print(f"budget scope {r['scope']}: {r['usage']}")
+    print(f"raw answers: {r['raw']}; config jev {r['jev_config']}, gpt {r['gpt_config']}")
+    return 0
+
+
 def cmd_fx_rates(args: argparse.Namespace) -> int:
     """130: the stored MNB exchange rates (counts and the latest attempts, no rates printed); with --fetch FROM TO one
     request for the span. Free; only the dates and the currency codes leave the machine."""
@@ -762,6 +794,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--golden", action="store_true", help="score the synthetic golden cases (configs/golden_reconcile.json)")
     p.add_argument("--write", action="store_true", help="129: open the to-do of each proposed pair (once; a decided pair or an approved run is skipped)")
     p.set_defaults(fn=cmd_reconcile)
+
+    p = sub.add_parser("reconcile-ai", help="134: AI proposals (JEV / GPT) for a reconciliation package's lines; without a budget only the free estimate")
+    p.add_argument("workpackage_id", help="the reconciliation package (wp-...)")
+    p.add_argument("--engine", choices=["jev", "gpt", "both"], default="both")
+    p.add_argument("--jev-budget-usd", help="the JEV sub-budget of the measurement (USD)")
+    p.add_argument("--budget-usd", help="the OpenAI sub-budget of the measurement (USD)")
+    p.add_argument("--max-lines", type=int, help="ask only the first N lines")
+    p.add_argument("--no-cache", action="store_true", help="JEV: no cached answers (live calls)")
+    p.set_defaults(fn=cmd_reconcile_ai)
 
     p = sub.add_parser("fx-rates", help="130: the stored MNB exchange rates (counts); --fetch FROM TO: fetch a span (free)")
     p.add_argument("--fetch", nargs=2, metavar=("FROM", "TO"), help="fetch the published days of the span (YYYY-MM-DD)")

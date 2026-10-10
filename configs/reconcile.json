@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.4.0",
-    "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person and when a statement counts as verified coverage. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131.",
+    "version": "1.5.0",
+    "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person, when a statement counts as verified coverage and how a candidate's strength is weighed. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131, DECISIONS 134.",
     "changelog": [
+      {
+        "version": "1.5.0",
+        "date": "2026-10-10",
+        "note": "134 (DECISIONS 134, pre-matching by code): signals.fuzzy_name - a distinctive word of the supplier's name (cut after its legal form, without numbers, min_chars letters at least) that begins a word of the line's name, or the other way round when the line's word holds min_prefix_share of it (a name cut short on a card terminal), or differs from it by about a letter (min_ratio), or is the same whole word leading the supplier's name (its brand), is the weak supplier_name_fuzzy signal; it alone ties only an equal amount; a word in the names of common_min suppliers, or of common_min lines making common_share of the different line names, ties nothing. invoice_fields.references - the customer id, customer code, order and contract number matched in the memo like the invoice number (the reference signal). invoice_fields.payment_account is a list: a utility bill names the supplier's account supplier_bank_account. strength - the weights of a candidate's 0-100 strength (signals, amounts, booked by the due date plus grace_days or only in the window): an order and a reason on the pairing page, not a threshold."
+      },
       {
         "version": "1.4.0",
         "date": "2026-10-10",
@@ -40,7 +45,8 @@
     "number": "invoice_number",
     "supplier_name": "supplier_name",
     "supplier_tax_id": "supplier_tax_id",
-    "payment_account": "payment_iban",
+    "payment_account": ["payment_iban", "supplier_bank_account"],
+    "references": ["customer_id", "customer_code", "order_number", "contract_number"],
     "payment_method": "payment_method",
     "amount": ["amount_due", "gross_total"],
     "currency": "currency",
@@ -56,7 +62,16 @@
   "signals": {
     "min_number_chars": 4,
     "min_compact_number_chars": 6,
-    "min_name_share": 0.75
+    "min_name_share": 0.75,
+    "fuzzy_name": {"min_chars": 5, "min_prefix_share": 0.7, "min_ratio": 0.85, "common_min": 3, "common_share": 0.1}
+  },
+  "strength": {
+    "signals": {"invoice_number": 40, "reference": 35, "supplier_account": 40, "supplier_name": 25, "learned_name": 25,
+                "supplier_name_fuzzy": 15, "payment_channel": 10},
+    "amount": {"equal": 35, "fx_within": 25, "fx_outside": 5, "no_rate": 5, "different": 0},
+    "timing": {"by_due": 15, "in_window": 5},
+    "grace_days": 7,
+    "max": 100
   },
   "payment_channels": [
     {"name": "postal_cheque", "invoice_method": "postai szamlabefizetesi|keszpenz atutalasi|csekk", "line_text": "postacsekk|icsekk|csekkbefizet"}

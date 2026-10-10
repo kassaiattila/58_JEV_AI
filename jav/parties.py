@@ -326,6 +326,51 @@ def _suggestion_id(party_id: str | None, identities: Iterable[tuple[str, str]]) 
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
+def _supplier_tax_numbers(invoices: list[dict[str, Any]]) -> set[int]:
+    """134: the invoices (by position) whose buyer tax number is a supplier's, read on the wrong side: either the two
+    numbers are swapped (the supplier's side holds a number printed as the buyer's on more invoices than this buyer
+    number), or the buyer number is printed as a supplier's more often than as a buyer's elsewhere. The store showed
+    both: a rail company's and a service provider's numbers had been proposed as the buyer company's."""
+    supplier_n: Counter[str] = Counter()
+    buyer_n: Counter[str] = Counter()
+    sides = []
+    for inv in invoices:
+        st, bt = tax_key(inv.get("supplier_tax_id")), tax_key(inv.get("tax_id"))
+        sides.append((st, bt))
+        if st:
+            supplier_n[st] += 1
+        if bt and bt != st:
+            buyer_n[bt] += 1
+    swapped = {i for i, (st, bt) in enumerate(sides) if st and bt and st != bt and buyer_n[st] > buyer_n[bt]}
+    clean: Counter[str] = Counter(bt for i, (st, bt) in enumerate(sides) if bt and bt != st and i not in swapped)
+    return swapped | {i for i, (st, bt) in enumerate(sides) if bt and bt != st and supplier_n[bt] > clean[bt]}
+
+
+def supplier_check_types() -> frozenset[str]:
+    """The incoming invoice types the supplier tax check looks at (`supplier_check.doc_types`)."""
+    return frozenset(_conf()["supplier_check"]["doc_types"])
+
+
+def review_reasons(doc_type: str | None, values: dict[str, Any]) -> list[str]:
+    """134: an incoming invoice whose supplier tax number is an own party's (a given identity) while the buyer's is
+    another number or missing: the two parties' numbers are likely swapped, or it is an outgoing invoice typed as an
+    incoming one. A to-do for a person (`parties:own_tax_as_supplier`); the same number on both sides is the role-pair
+    check's (`validator:parties.same_entity`). Read in a worker run only, as the duplicates, so a measurement's result
+    never depends on the store."""
+    from jav.runtime import calls
+
+    ctx = calls.current()
+    check = _conf()["supplier_check"]
+    if ctx is None or ctx.budget_scope is None or ctx.measurement or doc_type not in supplier_check_types():
+        return []
+    st, bt = tax_key(values.get(check["supplier_tax_field"])), tax_key(values.get(check["buyer_tax_field"]))
+    if not st or st == bt:
+        return []
+    with store.connect() as c:
+        own = c.execute("SELECT 1 FROM own_party_identities WHERE kind='tax' AND key=? AND party_id IS NOT NULL", (st,)).fetchone()
+    return ["parties:own_tax_as_supplier"] if own else []
+
+
 def suggest(invoices: Iterable[dict[str, Any]], accounts: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """What the data proposes beside the parties already there.
 
@@ -340,6 +385,8 @@ def suggest(invoices: Iterable[dict[str, Any]], accounts: Iterable[dict[str, Any
     fixed = {(r["kind"], r["key"]) for r in stored}
     with store.connect() as c:
         existing = _party_rows(c)
+    invoices = list(invoices)
+    foreign = _supplier_tax_numbers(invoices)
     seen: list[tuple[Any, Any]] = []
     tax_n, name_n = Counter(), Counter()
     tax_labels: dict[str, Counter] = defaultdict(Counter)
@@ -347,7 +394,7 @@ def suggest(invoices: Iterable[dict[str, Any]], accounts: Iterable[dict[str, Any
     name_labels: dict[str, Counter] = defaultdict(Counter)
     name_taxes: dict[str, Counter] = defaultdict(Counter)
     supplier_named = no_buyer = 0
-    for inv in invoices:
+    for i, inv in enumerate(invoices):
         tk, nk = tax_key(inv.get("tax_id")), name_key(inv.get("name"))
         if not tk and not nk:
             no_buyer += 1
@@ -357,6 +404,8 @@ def suggest(invoices: Iterable[dict[str, Any]], accounts: Iterable[dict[str, Any
             continue
         seen.append((inv.get("name"), inv.get("tax_id")))
         label = " ".join(str(inv.get("name") or "").split())
+        if i in foreign:  # 134: a supplier's tax number read as the buyer's: the buyer counts as one without a number
+            tk = None
         if tk:
             tax_n[tk] += 1
             tax_printed[tk][" ".join(str(inv["tax_id"]).split())] += 1

@@ -118,6 +118,10 @@ def code_hashes(name: str) -> dict[str, str]:
         from jav import detect_detail
 
         return {"detect_detail": detect_detail.config_hash()}
+    if name == "reconcile_line":
+        from jav import reconcile_ai
+
+        return {"reconcile_line": reconcile_ai.jev_hash()}
     from jav import typepack
     from jav.jev_select import site_for as select_site
     from jav.jev_verify import site_for as verify_site
@@ -168,6 +172,11 @@ def _q_rows(name: str, data: dict[str, Any]) -> list[str]:
         for key, q in data["questions"].items():
             crit = q["criteria"]
             crit_s = f"regiszter `configs/{crit.split(':')[1]}.json`" if isinstance(crit, str) else ", ".join(crit)
+            rows.append(f"| `{key}` | {q['kind']} | {q['instructions'][:140]}… | {crit_s} |")
+    elif name == "reconcile_line":  # 134: the invoice options are built per line by code
+        for key, q in data["questions"].items():
+            crit = q["criteria"]
+            crit_s = "the preselected invoices (code, at most `preselect.max_options`) + `none`" if isinstance(crit, str) else ", ".join(crit)
             rows.append(f"| `{key}` | {q['kind']} | {q['instructions'][:140]}… | {crit_s} |")
     elif name.startswith("select"):
         for rid, r in data["requests"].items():

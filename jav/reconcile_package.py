@@ -315,7 +315,8 @@ def workspace(wp_id: str) -> dict[str, Any]:
 
     def candidate_view(c: dict[str, Any]) -> dict[str, Any]:
         return {k: c.get(k) for k in ("invoice_id", "line_id", "proposed", "amount_only", "signals", "amount_relation",
-                                      "multiple_candidates", "source_review_required", "fx")}
+                                      "multiple_candidates", "source_review_required", "fx", "strength", "days_after_issue",
+                                      "by_due")}
 
     lines = []
     for st in statements:
@@ -355,6 +356,11 @@ def workspace(wp_id: str) -> dict[str, Any]:
                           "rejected": sorted(i for i, l_ in rejected if l_ == lid),
                           "statement_verified": bool(st.get("verified"))})
     line_ids = {ln["id"] for ln in lines}
+    from jav import reconcile_ai  # 134: the AI's stored answers per line (that module reads this workspace)
+
+    ai = reconcile_ai.proposals(line_ids)
+    for ln in lines:
+        ln["ai"] = ai.get(ln["id"], {})
     currencies = {str(st.get("currency")) for st in statements}
     cards = any(reconcile.fx_capable({"currency": st.get("currency"), "statement_type": st.get("statement_type")})
                 for st in statements)
@@ -579,7 +585,7 @@ def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: s
                   " amount_relation=excluded.amount_relation, run_id=NULL, actor=excluded.actor, note=excluded.note,"
                   " decided_at=excluded.decided_at, workpackage_id=excluded.workpackage_id",
                   (key, invoice_doc_id, line["statement_id"], line_id, "not_this",
-                   json.dumps(reconcile.signals(inv, line, reconcile.learned_names(ctx["snap"]))),
+                   json.dumps(reconcile.signals(inv, line, **reconcile.signal_context(ctx["snap"]))),
                    reconcile.amount_relation(inv, line, ctx["snap"].get("fx_rates"))[0], None, actor, note, _now(), wp_id))
         work.record_event(c, wp_id, "reconcile_reject", actor, {"pair": key})
         return dict(c.execute("SELECT * FROM reconcile_decisions WHERE pair_key=?", (key,)).fetchone())

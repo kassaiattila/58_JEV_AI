@@ -57,6 +57,20 @@ signal. Three additions, all proposals for a person:
   reference numbers (`name_key`), to the invoice's supplier (`supplier_keys`); a later line of that name and an invoice
   of that supplier are tied by it. A line through a payment app teaches nothing, as the app pays many suppliers.
 
+**Looser names, reference numbers, strength** (134, DECISIONS 134): a card line prints a merchant name glued to a
+suffix ("EXAMPLETELECOMSZAML*12345") or with a misread letter, so the whole-word supplier name signal misses it.
+
+- A **fuzzy supplier name** is a weak signal (`supplier_name_fuzzy`): a distinctive word of the supplier's name (cut
+  after its legal form, without numbers) begins a word of the line's name, or the line's word begins it and holds most
+  of it (a name cut short on a card terminal), or they differ by about a letter; the same whole word counts only when it leads the supplier's name (its brand: "SIMPLEP*EXAMPLEINSURE"
+  and "Exampleinsure Hungaria Zrt."), otherwise the whole-word share rule decides. A word common to many suppliers or to
+  many lines' names (a city) ties nothing (`common_words`). Like the payment method, it alone ties only an equal amount.
+- A **reference number** is a signal (`reference`): the invoice's customer id, customer code, order or contract number
+  (`invoice_fields.references`) in the line's memo or description, matched like the invoice number.
+- Every candidate carries its **strength** (0-100) from its signals, its amounts and when the line was booked
+  (`configs/reconcile.json` `strength`), and the days from the issue date: the pairing page orders the candidates by it
+  and says why. It is no threshold; what is proposed is unchanged.
+
 **Allocations and marks** (131 E1, the reconciliation package, `jav/reconcile_package.py`): a confirmation is an
 allocation of an amount (`reconcile_allocations`), several per line and per invoice, never over either amount; a
 `paid_by` decision counts as both whole amounts. The proposal compares what is left, so the rest of a split payment can
@@ -80,18 +94,22 @@ import unicodedata
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
+from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
 from jav import cfg, duplicates, fact_checks, fx, store
+from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.4.0"
+ENGINE_VERSION = "1.5.0"
 STATUSES = ("confirmed", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing", "no_payment_found",
             "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate")  # how a candidate's amounts relate
 DECISIONS = ("paid_by", "not_this")
-SIGNALS = ("invoice_number", "supplier_account", "supplier_name", "payment_channel", "learned_name")
+SIGNALS = ("invoice_number", "reference", "supplier_account", "supplier_name", "supplier_name_fuzzy", "payment_channel",
+           "learned_name")
+WEAK_SIGNALS = frozenset({"payment_channel", "supplier_name_fuzzy"})  # alone they tie only an equal amount
 KINDS = ("proposed", "amount_only")  # the to-do of a proposed pair and of a pair listed for its equal amount alone
 REASON = "reconcile"
 PRODUCER = "reconcile"  # the producer of the to-dos opened by `scan`; the flow's own ones are the M2 step's
@@ -208,6 +226,60 @@ def supplier_keys(invoice: dict[str, Any]) -> set[str]:
     if words:
         keys.add(" ".join(words))
     return keys
+
+
+def name_words(name: Any) -> list[str]:
+    """134: a supplier's name as the signals compare it: cut after its legal form when an address or a remark follows
+    (`candidates.trim_after_legal_form`), without numbers, legal forms and filler words."""
+    return [w for w in normalize(trim_after_legal_form(str(name or ""))).split()
+            if w not in _ignore_tokens() and not any(ch.isdigit() for ch in w)]
+
+
+def supplier_words(name: Any) -> list[str]:
+    """134: the words of a supplier's name a fuzzy match may use: `name_words` of `fuzzy_name.min_chars` letters."""
+    least = int(_conf()["signals"]["fuzzy_name"]["min_chars"])
+    return [w for w in name_words(name) if len(w) >= least]
+
+
+def line_words(payment: dict[str, Any]) -> list[str]:
+    """134: the words of a line's name (the counterparty, else the description) without numbers and short pieces."""
+    return [w for w in normalize(payment.get("counterparty_name") or payment.get("description")).split()
+            if len(w) >= 4 and not any(ch.isdigit() for ch in w)]
+
+
+def common_words(invoices: Iterable[dict[str, Any]], lines: Iterable[dict[str, Any]]) -> frozenset[str]:
+    """134: the words too common to tie a name: in the names of `common_min` suppliers or more, or in the names of
+    `common_min` lines or more that make at least `common_share` of the different line names (a city on every card
+    line)."""
+    f = _conf()["signals"]["fuzzy_name"]
+    least = int(f["common_min"])
+    by_supplier: Counter[str] = Counter()
+    for words in {tuple(supplier_words(i.get("supplier_name"))) for i in invoices}:  # one supplier, however spelt
+        by_supplier.update(set(words))
+    keys = {" ".join(line_words(ln)) for ln in lines} - {""}
+    by_line: Counter[str] = Counter(w for key in keys for w in set(key.split()))
+    line_least = max(least, float(f["common_share"]) * len(keys))
+    return frozenset({w for w, n in by_supplier.items() if n >= least} | {w for w, n in by_line.items() if n >= line_least})
+
+
+def _fuzzy_word(word: str, other: str) -> bool:
+    """The supplier's word begins the line's word (glued to a suffix), or the line's word begins the supplier's and
+    holds `min_prefix_share` of it (a name cut short on a card terminal), or they differ by about a letter."""
+    f = _conf()["signals"]["fuzzy_name"]
+    least = int(f["min_chars"])
+    if other.startswith(word) or (len(other) >= max(least, float(f["min_prefix_share"]) * len(word)) and word.startswith(other)):
+        return True
+    return (min(len(word), len(other)) >= least and abs(len(word) - len(other)) <= 2
+            and SequenceMatcher(None, word, other).ratio() >= float(f["min_ratio"]))
+
+
+def _number_in(value: Any, text: str) -> bool:
+    """A document number in a line's text: as whole words, or without separators when long enough (128)."""
+    s = _conf()["signals"]
+    number, number_c = normalize(value), compact(value)
+    return len(number_c) >= int(s["min_number_chars"]) and bool(
+        re.search(r"(?<![a-z0-9])" + re.escape(number) + r"(?![a-z0-9])", normalize(text))
+        or (len(number_c) >= int(s["min_compact_number_chars"]) and number_c in compact(text)))
 
 
 def account_key(value: Any) -> str:
@@ -356,7 +428,8 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
         else:
             eligible_payments[key] = pay
     return {"invoices": eligible_invoices, "payments": eligible_payments, "excluded": excluded,
-            "statements": statements, "own_accounts": sorted(own_accounts), "lines": payments}
+            "statements": statements, "own_accounts": sorted(own_accounts), "lines": payments,
+            "common_words": common_words(invoices.values(), payments.values())}
 
 
 Settled = tuple[set[tuple[str, str]], list[dict[str, Any]], dict[str, Decimal], dict[str, Decimal]]
@@ -432,31 +505,59 @@ def _channel(invoice: dict[str, Any], payment: dict[str, Any]) -> bool:
                                 for ch in _conf()["payment_channels"])
 
 
-def signals(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple[str, str]] | None = None) -> list[str]:
+def signals(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple[str, str]] | None = None,
+            common: frozenset[str] | None = None) -> list[str]:
     """The facts that tie a line to an invoice; the amount is never one of them. `learned`: the (name key, supplier key)
-    pairs of a person's confirmations (`learned_names`)."""
+    pairs of a person's confirmations; `common`: the words too common to tie a name (both from `signal_context`)."""
     s = _conf()["signals"]
     found = []
     text = f"{payment.get('memo') or ''} {payment.get('description') or ''}"
-    number, text_n = normalize(invoice.get("number")), normalize(text)
-    number_c = compact(invoice.get("number"))
-    if len(number_c) >= int(s["min_number_chars"]) and (
-            re.search(r"(?<![a-z0-9])" + re.escape(number) + r"(?![a-z0-9])", text_n)
-            or (len(number_c) >= int(s["min_compact_number_chars"]) and number_c in compact(text))):
+    if _number_in(invoice.get("number"), text):
         found.append("invoice_number")
+    if any(_number_in(ref, text) for ref in invoice.get("references") or []):
+        found.append("reference")
     account = account_key(invoice.get("payment_account"))
     if account and account == account_key(payment.get("counterparty_account")):
         found.append("supplier_account")
-    supplier = set(normalize(invoice.get("supplier_name")).split()) - _ignore_tokens()
+    supplier = set(name_words(invoice.get("supplier_name")))  # 134: without a printed address after the legal form
     counterparty = set(normalize(payment.get("counterparty_name") or payment.get("description")).split())
     if supplier and len(supplier & counterparty) / len(supplier) >= float(s["min_name_share"]):
         found.append("supplier_name")
+    else:
+        # a glued or misread word; a whole word only when it leads the supplier's name (its brand), else the share rule
+        # above decides, so two suppliers sharing a trade word ("... Waterworks") are not tied by it
+        common = common or frozenset()
+        words = supplier_words(invoice.get("supplier_name"))
+        mine = [w for w in words if w not in common]
+        theirs = [w for w in line_words(payment) if w not in common]
+        if any((w != o and _fuzzy_word(w, o)) or (w == o and w == words[0]) for w in mine for o in theirs):
+            found.append("supplier_name_fuzzy")
     if _channel(invoice, payment):
         found.append("payment_channel")
     key = name_key(payment.get("counterparty_name"))
     if learned and key and any((key, sk) in learned for sk in supplier_keys(invoice)):
         found.append("learned_name")
     return found
+
+
+def strength(invoice: dict[str, Any], payment: dict[str, Any], found: list[str], relation: str) -> dict[str, Any]:
+    """134: how strongly a candidate is tied, 0-100, from its signals, its amounts and when the line was booked
+    (`strength` weights), with the days from the issue date and whether it was booked by the due date (`grace_days`
+    after it). An order and a reason for a person, not a threshold."""
+    w = _conf()["strength"]
+    issue, booked = _date(invoice.get("issue_date")), _date(payment.get("booking_date"))
+    due = _date(invoice.get("due_date")) or issue
+    days = (booked - issue).days if issue and booked else None
+    by_due = bool(issue and booked and due and issue <= booked <= max(due, issue) + timedelta(days=int(w["grace_days"])))
+    score = sum(int(w["signals"].get(s, 0)) for s in found) + int(w["amount"].get(relation, 0))
+    score += int(w["timing"]["by_due"] if by_due else w["timing"]["in_window"])
+    return {"strength": min(score, int(w["max"])), "days_after_issue": days, "by_due": by_due}
+
+
+def signal_context(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """The snapshot-wide inputs of `signals` (134): the names a person's confirmations teach and the common words."""
+    prepared = prepare(snapshot)
+    return {"learned": _learned(prepared, _settled(snapshot, prepared)[1]), "common": prepared["common_words"]}
 
 
 def _learned(prepared: dict[str, Any], confirmed: list[dict[str, Any]]) -> set[tuple[str, str]]:
@@ -573,7 +674,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     prepared = prepare(snapshot)
     scope = set(snapshot["scope_statements"]) if snapshot.get("scope_statements") is not None else set(prepared["statements"])
     rejected, confirmed, paid_line, paid_invoice = _settled(snapshot, prepared)
-    learned = _learned(prepared, confirmed)
+    learned, common = _learned(prepared, confirmed), prepared["common_words"]
     marked = {str(m["line_id"]): str(m["category"]) for m in snapshot.get("marks") or [] if str(m["line_id"]) in prepared["lines"]}
     rest_invoice = {iid: money(str(inv["amount"])) - paid_invoice.get(iid, Decimal(0)) for iid, inv in prepared["invoices"].items()}
     rest_line = {pid: money(str(pay["amount"])) - paid_line.get(pid, Decimal(0)) for pid, pay in prepared["payments"].items()}
@@ -599,16 +700,17 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             start, end = window(inv) if same else fx_window(inv)
             if not start <= booked <= end:
                 continue
-            found = signals(inv, pay, learned)
+            found = signals(inv, pay, learned, common)
             relation, conversion = amount_relation(inv, pay, rates)
-            if found == ["payment_channel"] and relation not in ("equal", "fx_within"):
-                continue  # a payment app pays many bills: its channel alone says nothing about another amount (131)
+            if found and set(found) <= WEAK_SIGNALS and relation not in ("equal", "fx_within"):
+                continue  # a payment app pays many bills, a loose name is no proof: alone they tie no other amount (131, 134)
             if not found and not (amount_only and relation == "equal"):
                 continue  # a converted amount alone ties nothing; an equal one is only listed for a person (131)
             candidate = {"line_id": pid, "invoice_id": iid, "statement_id": pay["statement_id"], "currency": inv["currency"],
                          "line_currency": pay["currency"], "amount_relation": relation,
                          "proposed": bool(found) and relation in ("equal", "fx_within"), "amount_only": not found,
-                         "signals": found, "source_review_required": not pay["statement_verified"]}
+                         "signals": found, "source_review_required": not pay["statement_verified"],
+                         **strength(inv, pay, found, relation)}
             if conversion is not None:
                 candidate["fx"] = conversion
             candidates.append(candidate)
@@ -802,7 +904,8 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
         else:
             invoices.append({"id": d["doc_id"], "doc_type": d["doc_type"], "number": v.get(f["number"]),
                              "supplier_name": v.get(f["supplier_name"]), "supplier_tax_id": v.get(f["supplier_tax_id"]),
-                             "payment_account": v.get(f["payment_account"]), "payment_method": v.get(f["payment_method"]),
+                             "payment_account": _first(v, f["payment_account"]), "payment_method": v.get(f["payment_method"]),
+                             "references": [str(v[r]) for r in f["references"] if v.get(r) not in (None, "")],
                              "amount": _amount(v),
                              "currency": v.get(f["currency"]), "issue_date": v.get(f["issue_date"]),
                              "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"]),
@@ -961,7 +1064,7 @@ def decide(run_id: str, item_id: str, invoice_doc_id: str, line: str, *, decisio
                   " ON CONFLICT(pair_key) DO UPDATE SET decision=excluded.decision, signals=excluded.signals,"
                   " amount_relation=excluded.amount_relation, run_id=excluded.run_id, actor=excluded.actor,"
                   " note=excluded.note, decided_at=excluded.decided_at",
-                  (key, invoice_doc_id, statement["id"], line, decision, json.dumps(signals(invoice, pay, learned_names(snap))),
+                  (key, invoice_doc_id, statement["id"], line, decision, json.dumps(signals(invoice, pay, **signal_context(snap))),
                    amount_relation(invoice, pay, snap.get("fx_rates"))[0],
                    run_id, actor, note, datetime.now(timezone.utc).isoformat(timespec="seconds")))
         to_dos = _open_to_dos(c)
@@ -1034,7 +1137,7 @@ def item_pairs(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str
     if not wanted and not decided:
         return []
     snap = snapshot()
-    learned = learned_names(snap)
+    context = signal_context(snap)
     invoices = {i["id"]: i for i in snap["invoices"]}
     pairs: dict[tuple[str, str], int | None] = {}
     for (prefix, line), reason_id in wanted.items():
@@ -1059,7 +1162,7 @@ def item_pairs(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str
         side = "invoice" if item_id == iid else "statement"
         other = statements.get(sid) if side == "invoice" else inv
         other_id = sid if side == "invoice" else iid
-        tied = signals(inv, pay, learned) if inv and pay else (json.loads(d["signals"] or "[]") if d else [])
+        tied = signals(inv, pay, **context) if inv and pay else (json.loads(d["signals"] or "[]") if d else [])
         relation = relation if inv and pay else (d["amount_relation"] if d else None)
         out.append({
             "invoice_doc_id": iid, "statement_doc_id": sid, "line_id": line, "side": side,
@@ -1090,7 +1193,7 @@ def run_rows(run_id: str) -> list[dict[str, Any]]:
     if not mine & {d["id"] for d in [*snap["invoices"], *snap["statements"]]}:
         return []
     result = propose(snap)
-    learned = learned_names(snap)
+    context = signal_context(snap)
     invoices = {i["id"]: i for i in snap["invoices"]}
     lines = {ln["id"]: (st, ln) for st in snap["statements"] for ln in st["lines"]}
     proposed = [c for c in result["candidates"] if c["proposed"]]
@@ -1106,7 +1209,7 @@ def run_rows(run_id: str) -> list[dict[str, Any]]:
 
     def signal_flags(inv: dict[str, Any] | None, found: tuple[dict[str, Any], dict[str, Any]] | None) -> dict[str, bool | None]:
         """The pair's signals as yes/no columns (empty without a pair)."""
-        got = (signals(inv, {**found[1], "currency": found[0].get("currency")}, learned)
+        got = (signals(inv, {**found[1], "currency": found[0].get("currency")}, **context)
                if inv is not None and found is not None else None)
         return {f"signal_{s}": (s in got if got is not None else None) for s in SIGNALS}
 

@@ -15,8 +15,10 @@ import { tmap } from "../labels";
 
 const SIGNAL: Record<ReconcileSignal, string> = tmap({
   invoice_number: "invoice number in the memo",
+  reference: "a reference number in the memo (customer id, order or contract number)",
   supplier_account: "the supplier's account number",
   supplier_name: "the supplier's name",
+  supplier_name_fuzzy: "a similar supplier name (glued to other text or one letter off)",
   payment_channel: "the payment method (a cheque bill paid through a cheque app)",
   learned_name: "the name of an earlier confirmed payment",
 });

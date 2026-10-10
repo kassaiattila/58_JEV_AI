@@ -71,6 +71,7 @@ python -m jav.cli email-ingest-server --port 8931 --run   # receiver for the leg
 python -m jav.cli recipes | wp-* | run-* | worker [--once] | worker-status | worker-stop   # work package → run (jav/work_cli.py)
 python -m jav.cli calls-uncertain | calls-resolve <id> [--cost USD] --note N   # settle a paid call with an uncertain outcome by hand
 python -m jav.cli duplicates [--write] | reconcile [--golden] [--write]   # duplicate invoices | invoice <-> statement line pairs (--write: open their to-dos)
+python -m jav.cli reconcile-ai <package> [--engine jev|gpt|both] [--jev-budget-usd X] [--budget-usd Y]   # 134 AI proposals for a package's lines (without a budget: free estimate)
 python -m jav.cli fx-rates [--fetch FROM TO] [--currency C]             # 130 stored MNB exchange rates (counts) | fetch a span (free; only dates and codes leave)
 .\scripts\dev.ps1 start|status|stop                     # UI + local service (serve, 127.0.0.1:8930) + one worker
 cd ui; npm run build | npm test | npm run dev             # UI (ui/): build into ui/dist, vitest, dev server :5173
@@ -101,7 +102,7 @@ python -m jav.capability_catalog                  # deterministic inventory of t
   - `work.py`: workpackages · workpackage_items · workpackage_events · recipe_assignments · runs · run_items · file_fingerprints;
   - `runtime/queue.py`: jobs · queue_control; `runtime/calls.py`: invocations · budgets;
   - `app_settings.py`: app_users · watched_folders · watched_packages · watched_seen; `mailbox.py`: mailbox_schedules · mailbox_pulls;
-  - `corrections.py`: run_item_corrections; `duplicates.py`: duplicate_decisions; `reconcile.py`: reconcile_decisions · reconcile_allocations · reconcile_line_marks; `reconcile_package.py`: reconcile_scopes; `fx.py`: fx_rates · fx_fetches; `source_layer.py`: source_layers; `legacy_import.py`: legacy_results; `parties.py`: own_parties · own_party_identities.
+  - `corrections.py`: run_item_corrections; `reconcile_ai.py`: reconcile_ai_proposals; `duplicates.py`: duplicate_decisions; `reconcile.py`: reconcile_decisions · reconcile_allocations · reconcile_line_marks; `reconcile_package.py`: reconcile_scopes; `fx.py`: fx_rates · fx_fetches; `source_layer.py`: source_layers; `legacy_import.py`: legacy_results; `parties.py`: own_parties · own_party_identities.
 
   Burr state: `store/burr_state.sqlite` (thinned out by `burr-prune`). Backups: `store/backups/` (daily, `configs/service.json` `backup`). The golden sets stay in the legacy project and are only referenced.
 - **Evals:** `evals*.py`, shared report `eval_report.py`; raw runs in `runs/*.jsonl`. Experiments: `jav/experiments/` + `configs/experiments/`.

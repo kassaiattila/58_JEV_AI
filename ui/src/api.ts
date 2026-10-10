@@ -294,7 +294,8 @@ export interface DuplicatePair {
 export type ReconcileDecision = "paid_by" | "not_this";
 /** 131: the payment method (an invoice payable by cheque, a line through a cheque payment app) and a name learnt from an
  * earlier confirmed pair also tie a line to an invoice. */
-export type ReconcileSignal = "invoice_number" | "supplier_account" | "supplier_name" | "payment_channel" | "learned_name";
+export type ReconcileSignal = "invoice_number" | "reference" | "supplier_account" | "supplier_name" | "supplier_name_fuzzy"
+  | "payment_channel" | "learned_name";
 /** 130: how the amounts of a pair relate; the fx ones are a card line against an invoice of another currency. */
 export type ReconcileRelation = "equal" | "different" | "fx_within" | "fx_outside" | "no_rate";
 /** 130: a card pair's conversion at the MNB rate of the invoice's issue date (deviation: the line's, as a fraction). */
@@ -334,6 +335,8 @@ export const OPEN_LINE_STATES: ReconcileLineState[] = ["proposed", "amount_only"
 export interface ReconcileCandidate {
   invoice_id: string; line_id: string; proposed: boolean; amount_only: boolean; signals: ReconcileSignal[];
   amount_relation: ReconcileRelation | null; multiple_candidates: boolean; source_review_required: boolean; fx: ReconcileFx | null;
+  /** 134: how strongly it is tied (0-100), the days from the issue date to the booking, booked by the due date */
+  strength?: number; days_after_issue?: number | null; by_due?: boolean;
 }
 /** An allocation of a line's amount to an invoice; `allocation_id` null: a confirmation from the review page (129). */
 export interface ReconcileShare {
@@ -349,6 +352,13 @@ export interface ReconcileLine {
   mark: ReconcileLineMark | null; allocations: ReconcileShare[]; candidates: ReconcileCandidate[]; rejected: string[];
   statement_verified: boolean; file: string | null;
   other_candidates?: { invoice_id: string; party: string | null }[]; // 133: candidates among another party's invoices
+  ai?: Partial<Record<ReconcileAiEngine, ReconcileAiProposal>>; // 134: the AI's stored answers about the line
+}
+/** 134: JEV's or GPT's raw answer about a statement line (jav/reconcile_ai.py); a person decides. */
+export type ReconcileAiEngine = "jev" | "gpt";
+export interface ReconcileAiProposal {
+  pays: string | null; pays_probability: number | null; options: string[]; kind: string | null; kind_probability: number | null;
+  suggested_mark: string | null; expects_invoice: boolean | null; measured: boolean; error: string | null; created_at: string;
 }
 export interface ReconcileInvoice {
   id: string; doc_type: string; number: string | null; supplier_name: string | null; amount: string | null; currency: string | null;
