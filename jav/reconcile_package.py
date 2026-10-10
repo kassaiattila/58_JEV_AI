@@ -100,8 +100,9 @@ def _day(value: Any, what: str) -> date:
 
 
 def accounts() -> list[dict[str, Any]]:
-    """The own accounts and cards the store has statements of, to choose a package's scope from: the account key, the
-    printed account, the statement kinds and currencies, how many statements and the span they cover."""
+    """The own accounts and cards to choose a package's scope from: those the store has statements of and, 138, those
+    registered with a party without a statement yet: the account key, the printed account, the statement kinds and
+    currencies, how many statements and the span they cover, the party and the registered details."""
     groups: dict[str, dict[str, Any]] = {}
     for st in reconcile.snapshot()["statements"]:
         key = reconcile.statement_account(st)
@@ -114,10 +115,21 @@ def accounts() -> list[dict[str, Any]]:
             if st.get(k):
                 edge = "first" if k == "period_start" else "last"
                 g[edge] = pick(filter(None, (g[edge], str(st[k])[:10])))
-    r, names = parties.resolver(), _party_names()
+    r, names, registered = parties.resolver(), _party_names(), _registered()
+    for key, details in registered.items():
+        if key not in groups:
+            groups[key] = {"key": key, "account": details["label"], "statement_types": set(), "currencies": set(),
+                           "statements": 0, "first": None, "last": None}
     return [{**g, "statement_types": sorted(t for t in g["statement_types"] if t),
-             "currencies": sorted(c for c in g["currencies"] if c), "party": _party_ref(r.account(k), names)}
+             "currencies": sorted({*(c for c in g["currencies"] if c), *registered.get(k, {}).get("currencies", [])}),
+             "party": _party_ref(r.account(k), names), "registered": registered.get(k)}
             for k, g in sorted(groups.items())]
+
+
+def _registered() -> dict[str, dict[str, Any]]:
+    """138: the accounts registered with a party, with their details and the label the party knows them by."""
+    labels = {i["key"]: i["label"] for p in parties.parties() for i in p["identities"] if i["kind"] == "account"}
+    return {k: {**d, "label": labels[k]} for k, d in parties.accounts().items() if k in labels}
 
 
 def _party_names() -> dict[str, str]:
@@ -146,7 +158,7 @@ def _checked_scope(keys: Iterable[str], period_start: Any, period_end: Any) -> t
         raise PackageError("choose at least one account or card")
     known = {a["key"] for a in accounts()}
     if unknown := [k for k in chosen if k not in known]:
-        raise PackageError(f"no statement in the store for: {', '.join(unknown)}")
+        raise PackageError(f"neither a statement nor a registered account: {', '.join(unknown)}")
     return chosen, start.isoformat(), end.isoformat()
 
 
@@ -212,10 +224,13 @@ def _in_scope(st: dict[str, Any], sc: dict[str, Any]) -> bool:
 
 def scoped_snapshot(wp_id: str, *, fetch_rates: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
     """The store's snapshot with the package's scope: every statement stays for the amounts allocated so far, the
-    proposal and the coverage take the scope's statements only."""
+    proposal and the coverage take the scope's statements only; 138: the scope's registered accounts have to be
+    covered too, with or without a statement (`own_accounts`)."""
     sc = scope(wp_id)
     snap = reconcile.snapshot(fetch_rates=fetch_rates)
-    return {**snap, "scope_statements": [st["id"] for st in snap["statements"] if _in_scope(st, sc)]}, sc
+    own = [{"key": k, **{f: d[f] for f in ("kind", "currencies", "valid_from", "valid_to")}}
+           for k, d in sorted(parties.accounts().items()) if k in sc["accounts"]]
+    return {**snap, "scope_statements": [st["id"] for st in snap["statements"] if _in_scope(st, sc)], "own_accounts": own}, sc
 
 
 # --- the workspace -----------------------------------------------------------------------------------------------------
@@ -240,24 +255,6 @@ class _Parties:
     def own(self, invoice_id: str) -> bool:
         ref = self.of(invoice_id) if self.party else None
         return ref is None or ref["id"] == self.party
-
-
-def _months(start: str, end: str) -> list[str]:
-    y, m = int(start[:4]), int(start[5:7])
-    out = []
-    while f"{y:04d}-{m:02d}" <= end[:7]:
-        out.append(f"{y:04d}-{m:02d}")
-        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
-    return out
-
-
-def _approved_runs(runs: Iterable[str | None]) -> set[str]:
-    ids = sorted({r for r in runs if r})
-    if not ids:
-        return set()
-    with store.connect() as c:
-        return {r["run_id"] for r in c.execute(
-            f"SELECT run_id FROM runs WHERE approval IS NOT NULL AND run_id IN ({','.join('?' * len(ids))})", ids)}
 
 
 def _money(value: Any) -> Decimal | None:
@@ -407,7 +404,7 @@ def workspace(wp_id: str) -> dict[str, Any]:
             wanted.add(iid)
     files = reconcile.file_names([*wanted, *(st["id"] for st in statements)])
     docs = [*(invoices[i] for i in wanted if i in invoices), *statements]
-    approved = _approved_runs(d.get("work_run") for d in docs)
+    approved = work.approved_runs(d.get("work_run") for d in docs)
     invoice_rows = []
     for iid in sorted(wanted, key=lambda i: (str(invoices[i].get("issue_date") or ""), i)):
         inv = invoices[iid]
@@ -427,7 +424,7 @@ def workspace(wp_id: str) -> dict[str, Any]:
     coverage = []
     for key in sc["accounts"]:
         own = [st for st in statements if reconcile.statement_account(st) == key]
-        for month in _months(sc["period_start"], sc["period_end"]):
+        for month in reconcile.months(sc["period_start"], sc["period_end"]):
             meets = [st for st in own if str(st.get("period_start") or "")[:7] <= month <= str(st.get("period_end") or "")[:7]]
             coverage.append({"account": key, "month": month, "statements": len(meets),
                              "verified": sum(1 for st in meets if st.get("verified"))})
@@ -606,7 +603,7 @@ def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: s
 
     def write(c) -> dict[str, Any]:
         before = c.execute("SELECT run_id FROM reconcile_decisions WHERE pair_key=?", (key,)).fetchone()
-        if before is not None and before["run_id"] and _approved_runs([before["run_id"]]):
+        if before is not None and before["run_id"] and work.approved_runs([before["run_id"]]):
             raise work.RevisionConflict("the pair was decided in an approved run; the decision is frozen")
         c.execute("INSERT INTO reconcile_decisions(pair_key, invoice_doc_id, statement_doc_id, line_id, decision, signals,"
                   " amount_relation, run_id, actor, note, decided_at, workpackage_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
@@ -689,7 +686,7 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
     if row is None:
         raise KeyError(ref)
     _scope_line(ctx, row["line_id"])
-    if kind == "decision" and row["run_id"] and _approved_runs([row["run_id"]]):
+    if kind == "decision" and row["run_id"] and work.approved_runs([row["run_id"]]):
         raise work.RevisionConflict("the pair was decided in an approved run; the decision is frozen")
 
     def write(c) -> None:

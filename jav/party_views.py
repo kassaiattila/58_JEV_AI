@@ -12,7 +12,10 @@ Layer: UI/CLI → **this** (application operation) → `jav.parties` (the partie
 
 from __future__ import annotations
 
+import re
 from collections import Counter, defaultdict
+from datetime import date, timedelta
+from decimal import Decimal
 from typing import Any
 
 from jav import cfg, parties, reconcile, source_layer, store, work
@@ -79,15 +82,23 @@ def overview() -> dict[str, Any]:
             unclaimed += 1
             ambiguous += how == "ambiguous"
     acct = {a["key"]: a for a in accounts}
+    registered = parties.accounts()
 
     def counted(i: dict[str, Any]) -> dict[str, Any]:
         n = name_n[i["key"]] if i["kind"] == "name" else tax_n[i["key"]] if i["kind"] == "tax" else acct.get(i["key"], {}).get("statements", 0)
         return {**i, "invoices": n}
 
+    def account(i: dict[str, Any]) -> dict[str, Any]:
+        """138: an account with what its statements show, or registered without a statement yet, and its details."""
+        seen = acct.get(i["key"]) or {"key": i["key"], "label": i["label"], "statements": 0, "first": None, "last": None,
+                                      "statement_types": [], "currencies": []}
+        details = registered.get(i["key"])
+        currencies = sorted({*seen["currencies"], *(details["currencies"] if details else [])})
+        return {**{k: v for k, v in seen.items() if k != "holder_text"}, "currencies": currencies, "registered": details}
+
     out = []
     for p in parties.parties():
-        own = [{k: v for k, v in acct[i["key"]].items() if k != "holder_text"} for i in p["identities"]
-               if i["kind"] == "account" and i["key"] in acct]
+        own = [account(i) for i in p["identities"] if i["kind"] == "account" and (i["key"] in acct or i["key"] in registered)]
         first, last = _span(held.get(p["id"], []))
         out.append({"id": p["id"], "name": p["name"], "invoices": len(held.get(p["id"], [])), "first": first, "last": last,
                     "statements_first": _span([a["first"] or "" for a in own])[0], "statements_last": _span([a["last"] or "" for a in own])[1],
@@ -99,6 +110,23 @@ def overview() -> dict[str, Any]:
             "config_hash": parties.config_hash()}
 
 
+def account_key(number: str) -> str:
+    """138: the key of an account number as a person types it: the statement's key (a Hungarian IBAN and its domestic
+    number are one account)."""
+    key = reconcile.account_key(number)
+    if not key:
+        raise parties.PartyError("an account number has 16 characters at least: an IBAN or a domestic account number")
+    return key
+
+
+def register_account(party_id: str, number: str, *, kind: str, currencies: list[str], bank: str | None = None,
+                     valid_from: str | None = None, valid_to: str | None = None, actor: str) -> dict[str, Any]:
+    """138: an own account or card registered with its party by its number, before or after its statements."""
+    parties.register_account(party_id, account_key(number), " ".join(number.split()), kind=kind, currencies=currencies,
+                             bank=bank, valid_from=valid_from, valid_to=valid_to, actor=actor)
+    return overview()
+
+
 def accept(ids: list[str], *, names: dict[str, str] | None = None, actor: str) -> list[dict[str, Any]]:
     """Carries out the chosen suggestions, as the data proposes them now; one that has changed refuses them all."""
     invoices, accounts = observations()
@@ -106,3 +134,134 @@ def accept(ids: list[str], *, names: dict[str, str] | None = None, actor: str) -
     if missing := [i for i in ids if i not in current]:
         raise work.RevisionConflict(f"{len(missing)} suggestion(s) changed meanwhile; reload them")
     return [parties.apply(current[i], actor=actor, name=(names or {}).get(i)) for i in ids]
+
+
+# --- the monthly data status (138) ---------------------------------------------------------------------------------------
+
+_MONTH = re.compile(r"\d{4}-(0[1-9]|1[0-2])")
+MAX_MONTHS = 120
+STATES = ("ok", "unapproved", "unverified", "partial", "missing", "none")
+
+
+def _bounds(month: str) -> tuple[date, date]:
+    y, m = int(month[:4]), int(month[5:7])
+    following = date(y + 1, 1, 1) if m == 12 else date(y, m + 1, 1)
+    return date(y, m, 1), following - timedelta(days=1)
+
+
+def _day(value: Any) -> date | None:
+    try:
+        return date.fromisoformat(str(value)[:10]) if value else None
+    except ValueError:
+        return None
+
+
+def _balance(value: Any) -> Decimal | None:
+    try:
+        return reconcile.money(str(value)) if value not in (None, "") else None
+    except ValueError:
+        return None
+
+
+def period(start: str | None, end: str | None, today: date) -> tuple[str, str]:
+    """The months asked for ("YYYY-MM"); by default this year up to the last closed month (last year in January)."""
+    end = end or (date(today.year, today.month, 1) - timedelta(days=1)).strftime("%Y-%m")
+    start = start or f"{end[:4]}-01"
+    if not _MONTH.fullmatch(start) or not _MONTH.fullmatch(end):
+        raise parties.PartyError("a month is written YYYY-MM")
+    if start > end:
+        raise parties.PartyError("the period ends before it starts")
+    if len(reconcile.months(start, end)) > MAX_MONTHS:
+        raise parties.PartyError(f"at most {MAX_MONTHS} months at once")
+    return start, end
+
+
+def _column(statements: list[dict[str, Any]], opened: date | None, closed: date | None, months: list[str], today: date,
+            approved: set[str]) -> list[dict[str, Any]]:
+    """One account and currency month by month: the state of its statements in the month (`STATES`), and the flags of
+    two statements booking the same days (`overlap`) or an opening balance that does not continue the previous
+    statement's closing one (`break`). Up to yesterday: the running month is asked only as far as it has gone."""
+    dated = sorted(((s, a, b) for s in statements
+                    if (a := _day(s.get("period_start"))) and (b := _day(s.get("period_end"))) and a <= b),
+                   key=lambda t: (t[1], t[2], t[0]["id"]))
+    overlaps: set[str] = set()
+    breaks: set[str] = set()
+    for (first, _a1, end1), (second, start2, end2) in zip(dated, dated[1:]):
+        if start2 <= end1:
+            overlaps.update(reconcile.months(start2.isoformat(), min(end1, end2).isoformat()))
+        elif start2 == end1 + timedelta(days=1):
+            closing, opening = _balance(first.get("closing_balance")), _balance(second.get("opening_balance"))
+            if closing is not None and opening is not None and closing != opening:
+                breaks.add(start2.strftime("%Y-%m"))
+    yesterday = today - timedelta(days=1)
+    cells = []
+    for month in months:
+        first_day, last_day = _bounds(month)
+        lo = max(first_day, opened) if opened else first_day
+        hi = min(last_day, closed, yesterday) if closed else min(last_day, yesterday)
+        meets = [(s, a, b) for s, a, b in dated if a <= last_day and b >= first_day]
+        if not meets:
+            state = "missing" if lo <= hi and last_day < today else "none"
+        elif lo <= hi and reconcile.covered_by(reconcile.merge_periods((a, b) for _s, a, b in meets), lo, hi) != "full":
+            state = "partial"
+        elif not all(s.get("verified") for s, _a, _b in meets):
+            state = "unverified"
+        elif not all(s.get("work_run") in approved for s, _a, _b in meets):
+            state = "unapproved"
+        else:
+            state = "ok"
+        cells.append({"month": month, "state": state, "statements": len(meets),
+                      "flags": [flag for flag, hit in (("overlap", overlaps), ("break", breaks)) if month in hit]})
+    return cells
+
+
+def months(party_id: str, start: str | None = None, end: str | None = None, *, today: date | None = None) -> dict[str, Any]:
+    """138 (DECISIONS 137): a party's data month by month, before it is reconciled: per own account and currency
+    whether statements cover the month, check out by their balances, come from an approved run and continue the
+    previous one; and how many of the party's incoming invoices the month has, by the state of their run. A month is
+    expected from the day the account was opened (registered, else its first statement) to the day it was closed, up
+    to the last closed month."""
+    today = today or date.today()
+    start, end = period(start, end, today)
+    party = parties.get(party_id)
+    wanted = reconcile.months(start, end)
+    snap = reconcile.snapshot()
+    registered = parties.accounts()
+    conf = cfg.load("reconcile")
+    by_column: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for st in snap["statements"]:
+        by_column[(reconcile.statement_account(st), str(st.get("currency") or ""))].append(st)
+    r = parties.resolver()
+    invoices = [i for i in snap["invoices"] if i.get("doc_type") not in conf["outgoing_types"] and i.get("duplicate") != "copy"
+                and r.invoice(i.get("buyer_name"), i.get("buyer_tax_id"))[0] == party_id]
+    approved = work.approved_runs([*(s.get("work_run") for sts in by_column.values() for s in sts),
+                                   *(i.get("work_run") for i in invoices)])
+    columns = []
+    for ident in (i for i in party["identities"] if i["kind"] == "account"):
+        details = registered.get(ident["key"])
+        seen = {cur for key, cur in by_column if key == ident["key"]}
+        for currency in sorted(seen | set((details or {}).get("currencies") or [])):
+            sts = by_column.get((ident["key"], currency), [])
+            first = min((d for s in sts if (d := _day(s.get("period_start")))), default=None)
+            opened = _day((details or {}).get("valid_from")) or first
+            closed = _day((details or {}).get("valid_to"))
+            card = any(s.get("statement_type") in conf["fx"]["statement_types"] for s in sts)
+            columns.append({"key": ident["key"], "currency": currency, "label": ident["label"],
+                            "kind": (details or {}).get("kind") or ("card" if card else "account"),
+                            "bank": (details or {}).get("bank"), "registered": details is not None,
+                            "opened": opened.isoformat() if opened else None, "closed": closed.isoformat() if closed else None,
+                            "statements": len(sts), "months": _column(sts, opened, closed, wanted, today, approved)})
+    per_month: dict[str, Counter] = {m: Counter() for m in wanted}
+    for inv in invoices:
+        month = str(inv.get("issue_date") or "")[:7]
+        if month in per_month:
+            run = inv.get("work_run")
+            per_month[month]["total"] += 1
+            per_month[month]["no_run" if run is None else "approved" if run in approved else "not_approved"] += 1
+    states = Counter(cell["state"] for col in columns for cell in col["months"])
+    flags = Counter(flag for col in columns for cell in col["months"] for flag in cell["flags"])
+    return {"party": {"id": party["id"], "name": party["name"]}, "start": start, "end": end, "months": wanted,
+            "today": today.isoformat(), "columns": columns,
+            "invoices": [{"month": m, **{k: c[k] for k in ("total", "approved", "not_approved", "no_run")}}
+                         for m, c in per_month.items()],
+            "summary": {**{s: states[s] for s in STATES if s != "none"}, "overlap": flags["overlap"], "break": flags["break"]}}
