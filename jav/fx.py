@@ -393,14 +393,6 @@ def table(needed: Iterable[tuple[str, date]], *, fetch_missing: bool = False) ->
     return out
 
 
-def fingerprint() -> str:
-    """What a reconciliation view depends on in this table (`reconcile.fingerprint`)."""
-    with store.connect() as c:
-        rates = c.execute("SELECT COUNT(*), MAX(fetched_at) FROM fx_rates").fetchone()
-        fetches = c.execute("SELECT COUNT(*), MAX(id) FROM fx_fetches").fetchone()
-    return "|".join(str(x) for x in (*rates, *fetches))
-
-
 def status() -> dict[str, Any]:
     """Counts for the command line: the stored days per currency and the latest attempts (no rates printed)."""
     with store.connect() as c:
@@ -412,5 +404,5 @@ def status() -> dict[str, Any]:
 
 
 __all__ = ["FxRefusedError", "FxUnavailableError", "Rate", "canonical", "config_hash", "ensure", "envelope", "fetch",
-           "fingerprint", "parse", "plausible", "resolve", "status", "table", "use_transport"]
+           "parse", "plausible", "resolve", "status", "table", "use_transport"]
 

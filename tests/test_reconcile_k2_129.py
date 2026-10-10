@@ -1,9 +1,13 @@
 """129 (backlog F-reconciliation, K2): a person decides on a proposed invoice <-> statement line pair.
 
 The owner's decisions of 2026-10-08 (DECISIONS 128, 129): the code proposes, a person confirms ("this line paid it") or
-rejects with a reason ("not this one"); the decision belongs to the pair, closes its to-dos on both documents, is part
-of the reviewed result and is frozen with the run's approval; a rejected pair never comes up again. The to-do stands on
-the later processed document, in a worker run only. Synthetic documents and made-up accounts only; no AI call.
+rejects with a reason ("not this one"); the decision belongs to the pair and a rejected pair never comes up again.
+
+137 (DECISIONS 137): the reconciliation package (131) does this work, so the processing no longer opens a to-do for a
+pair on the documents, and the review page's panel, its service route, the run's reconciliation view and the command
+line's `--write` are gone. The decisions made through the panel stay in the store: the core still honours them and they
+stay part of the reviewed result of their run. The helpers here are shared by the later reconciliation tests.
+Synthetic documents and made-up accounts only; no AI call.
 """
 
 from __future__ import annotations
@@ -15,7 +19,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import corrections, datasets, policy, reconcile, store, work, work_views
+from jav import cli, corrections, datasets, policy, reconcile, store, work, work_views
 from jav.models import CheckResult, FlowState, InvoiceHU
 from jav.runtime import calls
 from tests import test_api
@@ -134,211 +138,78 @@ def test_the_golden_set_has_decision_cases():
         assert reconcile.check_case(CASES[case_id]) == []
 
 
-def test_the_to_do_names_the_invoice_and_the_line():
-    code = reconcile.reason(_id("inv"), "0123456789abcdef:0a1b2c3d4e5f:0")
-    assert code == f"reconcile:proposed:{_id('inv')[:16]}:0123456789abcdef:0a1b2c3d4e5f:0"
-    assert reconcile.parse_reason(code) == (_id("inv")[:16], "0123456789abcdef:0a1b2c3d4e5f:0")
-    assert reconcile.parse_reason("duplicate:copy:0123456789abcdef") is None
-    assert reconcile.parse_reason("reconcile:proposed:abc") is None
+# --- shared helpers for the store ------------------------------------------------------------------------------------
 
 
-# --- the store: only in a worker run, on the later processed document ----------------------------------------------
+def _pair_in_run(*, approved=False, extra=()):
+    """An invoice and a statement of one run whose line pays it (the golden "one payment" shape)."""
+    _run(RUN, ["inv", "stmt", *extra], approved=approved)
+    inv = _save("inv", _invoice(), run_id=RUN)
+    stmt = _save_statement("stmt", run_id=RUN)
+    return inv, stmt, _line_id(stmt)
 
 
-def test_outside_a_worker_run_the_store_is_not_read(db):
+def _decide(invoice: str, statement: str, line: str, decision: str = "paid_by", *, run_id: str | None = None,
+            note: str | None = None) -> None:
+    """A decision row as the review page's panel wrote it from 129 to 136; the store keeps such rows."""
+    with store.connect() as c:
+        c.execute("INSERT INTO reconcile_decisions(pair_key, invoice_doc_id, statement_doc_id, line_id, decision, signals,"
+                  " amount_relation, run_id, actor, note, decided_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                  (reconcile.pair_key(invoice, line), invoice, statement, line, decision, "[]", "equal", run_id,
+                   "reviewer", note, NOW))
+
+
+# --- 137: the reconciliation lives in its package only --------------------------------------------------------------
+
+
+def test_the_processing_opens_no_reconciliation_to_do(db):
     _save("inv", _invoice())
-    assert reconcile.review_reasons(_id("stmt"), "statement_cib", _statement(), VERIFIED) == []
-
-
-def test_a_statement_processed_after_the_invoice_gets_the_to_do(db):
-    inv = _save("inv", _invoice())
-    stmt = _id("stmt")
-    reasons = _in_run(lambda: reconcile.review_reasons(stmt, "statement_cib", _statement(), VERIFIED))
-    assert reasons == [reconcile.reason(inv, _line_id(stmt))]
-
-
-def test_an_invoice_processed_after_the_statement_gets_the_to_do(db):
-    stmt = _save_statement("stmt")
-    inv = _id("inv")
-    assert _in_run(lambda: reconcile.review_reasons(inv, "invoice_hu", _invoice(), [])) == [reconcile.reason(inv, _line_id(stmt))]
-    assert _in_run(lambda: reconcile.review_reasons(inv, "nav_receipt", _invoice(), [])) == []  # not a payable type
-
-
-def test_the_current_values_replace_the_documents_stored_ones(db):
-    _save_statement("stmt")
-    inv = _save("inv", _invoice(amount="999.00"))  # an earlier, misread result of the same document
-    assert _in_run(lambda: reconcile.review_reasons(inv, "invoice_hu", _invoice(), [])) != []
-
-
-def test_the_policy_step_opens_the_to_do_on_a_statement(db):
-    inv = _save("inv", _invoice())
     stmt = _id("stmt")
     values = _statement()
     state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", doc_type="statement_cib", doc_id=stmt)
     state.invoice = InvoiceHU(currency="HUF", extra={k: v for k, v in values.items() if k != "currency"})
     state.validation = [CheckResult(**v) for v in VERIFIED]
-    policy.apply_reconcile_policy(state)
-    assert state.review_reasons == []  # outside a worker run
-    _in_run(lambda: policy.apply_reconcile_policy(state))
-    assert state.review_reasons == [reconcile.reason(inv, _line_id(stmt))] and state.needs_review
+    _in_run(lambda: policy.decide(state))
+    assert not [r for r in state.review_reasons if r.startswith("reconcile:")]
+    assert not hasattr(policy, "apply_reconcile_policy") and not hasattr(reconcile, "review_reasons")
 
 
-# --- the person's decision ------------------------------------------------------------------------------------------
-
-
-def _pair_in_run(*, approved=False, extra=()):
-    _run(RUN, ["inv", "stmt", *extra], approved=approved)
-    inv = _save("inv", _invoice(), run_id=RUN)
-    stmt = _save_statement("stmt", run_id=RUN)
-    line = _line_id(stmt)
-    store.review_enqueue(subject_kind="document", subject_id=stmt, run_id=work.flow_run_id(RUN, stmt),
-                         reasons=[reconcile.reason(inv, line)], producer="m2:G")
-    return inv, stmt, line
-
-
-def test_a_confirmation_closes_the_pair_and_is_part_of_the_reviewed_result(db):
+def test_an_earlier_decision_still_settles_the_pair_and_stays_in_the_reviewed_version(db):
     inv, stmt, line = _pair_in_run()
     before = corrections.review_version(RUN)
-    d = reconcile.decide(RUN, stmt, inv, line, decision="paid_by", actor="reviewer")
-    assert (d["invoice_doc_id"], d["statement_doc_id"], d["line_id"], d["decision"], d["actor"]) == (inv, stmt, line, "paid_by", "reviewer")
-    assert json.loads(d["signals"]) == ["invoice_number", "supplier_account", "supplier_name"] and d["amount_relation"] == "equal"
-    assert store.review_open_reasons("document", stmt) == []
-    assert corrections.review_version(RUN) != before
-    changed = corrections.review_version(RUN)
-    reconcile.decide(RUN, inv, inv, line, decision="not_this", actor="other", note="paid in cash")  # from the invoice side
-    assert corrections.review_version(RUN) != changed
-    assert _in_run(lambda: reconcile.review_reasons(stmt, "statement_cib", _statement(), VERIFIED)) == []  # never again
+    assert before == hashlib.sha256(json.dumps([]).encode("utf-8")).hexdigest()[:16]  # no decision: the plain version
+    _decide(inv, stmt, line, run_id=RUN)
+    result = reconcile.propose(reconcile.snapshot())
+    assert _status(result) == {inv: "confirmed"} and result["candidates"] == []
+    assert corrections.review_version(RUN) != before  # an approved run's version is the same as before 137
 
 
-def test_a_rejection_needs_a_reason_and_a_decision_needs_the_pair(db):
-    inv, stmt, line = _pair_in_run(extra=["other"])
-    with pytest.raises(reconcile.DecisionError):
-        reconcile.decide(RUN, stmt, inv, line, decision="not_this", actor="t", note="  ")
-    with pytest.raises(reconcile.DecisionError):
-        reconcile.decide(RUN, stmt, inv, line, decision="maybe", actor="t")
-    other = _save("other", _invoice(number="INV-0002"), run_id=RUN)
-    with pytest.raises(reconcile.DecisionError):
-        reconcile.decide(RUN, other, inv, line, decision="paid_by", actor="t")  # the item is neither side of the pair
-    with pytest.raises(KeyError):
-        reconcile.decide(RUN, stmt, inv, f"{stmt[:16]}:000000000000:0", decision="paid_by", actor="t")  # no such line
-    with pytest.raises(KeyError):
-        reconcile.decide(RUN, _id("not-in-run"), inv, line, decision="paid_by", actor="t")
-
-
-def test_one_line_pays_one_invoice(db):
-    inv, stmt, line = _pair_in_run()
-    other = _save("other", _invoice(number="INV-0002"), run_id=RUN)
-    reconcile.decide(RUN, stmt, inv, line, decision="paid_by", actor="t")
-    with pytest.raises(reconcile.DecisionError):
-        reconcile.decide(RUN, stmt, other, line, decision="paid_by", actor="t")
-    reconcile.decide(RUN, stmt, other, line, decision="not_this", actor="t", note="another invoice")  # a rejection is fine
-
-
-def test_a_confirmation_closes_the_other_proposals_of_its_line(db):
-    inv, stmt, line = _pair_in_run(extra=["other"])
-    other = _save("other", _invoice(number="INV-0002"), run_id=RUN)  # an equal invoice of the same supplier: ambiguous
-    store.review_enqueue(subject_kind="document", subject_id=stmt, run_id=work.flow_run_id(RUN, stmt),
-                         reasons=[reconcile.reason(inv, line), reconcile.reason(other, line)], producer="m2:G")  # the run's whole list
-    assert len(store.review_open_reasons("document", stmt)) == 2
-    reconcile.decide(RUN, stmt, inv, line, decision="paid_by", actor="t")
-    assert store.review_open_reasons("document", stmt) == []  # one line pays one invoice
-    assert _in_run(lambda: reconcile.review_reasons(other, "invoice_hu", _invoice(number="INV-0002"), [])) == []
-
-
-def test_decisions_are_frozen_on_an_approved_run(db):
-    inv, stmt, line = _pair_in_run(approved=True)
-    with pytest.raises(work.RevisionConflict):
-        reconcile.decide(RUN, stmt, inv, line, decision="paid_by", actor="t")
-
-
-def test_a_run_without_reconcile_decisions_keeps_its_review_version(db):
+def test_a_run_has_no_reconciliation_view(db):
     _pair_in_run()
-    assert corrections.review_version(RUN) == hashlib.sha256(json.dumps([]).encode("utf-8")).hexdigest()[:16]
-
-
-# --- what a person sees ----------------------------------------------------------------------------------------------
-
-
-def test_the_review_page_shows_the_line_and_the_invoice_side_by_side(db):
-    inv, stmt, line = _pair_in_run()
-    reasons = store.review_open_reasons("document", stmt)
-    [pair] = reconcile.item_pairs(stmt, reasons)
-    assert (pair["invoice_doc_id"], pair["statement_doc_id"], pair["line_id"], pair["side"]) == (inv, stmt, line, "statement")
-    assert (pair["invoice"]["number"], pair["invoice"]["amount"], pair["invoice"]["file"]) == ("INV-0001", "100.00", "inv.pdf")
-    assert (pair["line"]["booking_date"], pair["line"]["amount"], pair["line"]["memo"], pair["line"]["file"]) == ("2026-04-10", "100.00", "INV-0001", "stmt.pdf")
-    assert pair["signals"] == ["invoice_number", "supplier_account", "supplier_name"] and pair["amount_relation"] == "equal"
-    assert pair["reason_id"] == reasons[0]["id"] and pair["decision"] is None and not pair["source_review_required"]
-    assert (pair["other_run_id"], pair["other_item_id"], pair["other_workpackage_id"]) == (RUN, inv, "wp-1")
-    reconcile.decide(RUN, stmt, inv, line, decision="paid_by", actor="reviewer")
-    [pair] = reconcile.item_pairs(inv, [])  # the invoice side shows the decision too
-    assert (pair["side"], pair["decision"], pair["decided_by"], pair["reason_id"]) == ("invoice", "paid_by", "reviewer", None)
-
-
-def test_an_unverified_statement_asks_for_its_source_to_be_checked(db):
-    _run(RUN, ["inv", "stmt"])
-    inv = _save("inv", _invoice(), run_id=RUN)
-    stmt = _save_statement("stmt", run_id=RUN, verified=False)
-    [pair] = reconcile.item_pairs(stmt, [{"id": 1, "reason": reconcile.reason(inv, _line_id(stmt))}])
-    assert pair["source_review_required"]
-
-
-def test_the_run_dataset_lists_the_invoices_and_the_lines(db):
-    inv, stmt, line = _pair_in_run()
-    assert "reconciliation" in work_views.result_tables(RUN)
-    cols, rows = datasets.rows("reconciliation", {"run_id": RUN})
-    by_kind = {r["kind"]: r for r in rows}
-    assert {c.key for c in cols} >= {"kind", "file", "status", "date", "amount", "currency", "partner", "number", "paired_file", "signal_invoice_number", "decision"}
-    assert (by_kind["invoice"]["status"], by_kind["invoice"]["paired_file"], by_kind["invoice"]["number"]) == ("proposed", "stmt.pdf", "INV-0001")
-    assert (by_kind["line"]["status"], by_kind["line"]["paired_file"], by_kind["line"]["amount"]) == ("proposed", "inv.pdf", "100.00")
-    assert (by_kind["line"]["signal_invoice_number"], by_kind["line"]["signal_supplier_account"]) == (True, True)
-    reconcile.decide(RUN, stmt, inv, line, decision="paid_by", actor="t")
-    _cols, rows = datasets.rows("reconciliation", {"run_id": RUN})
-    assert {r["kind"]: (r["status"], r["decision"]) for r in rows} == {"invoice": ("confirmed", "paid_by"), "line": ("confirmed", "paid_by")}
-
-
-def test_a_run_without_statements_or_matches_has_no_reconciliation_view(db):
-    _run(RUN, ["inv"])
-    _save("inv", _invoice(), run_id=RUN)
     assert "reconciliation" not in work_views.result_tables(RUN)
+    with pytest.raises(datasets.UnknownDataset):
+        datasets.rows("reconciliation", {"run_id": RUN})
 
 
-# --- the pairs already in the store ----------------------------------------------------------------------------------
+def test_the_command_line_only_counts(db, capsys):
+    _pair_in_run()
+    summary = reconcile.scan()
+    assert summary["proposed_pairs"] == 1 and not {"to_open", "written", "skipped"} & set(summary)
+    with pytest.raises(TypeError):
+        reconcile.scan(write=True)  # type: ignore[call-arg]
+    with pytest.raises(SystemExit):
+        cli.main(["reconcile", "--write"])
+    capsys.readouterr()
 
 
-def test_scan_opens_the_to_do_once_on_the_later_document_of_a_run_not_yet_approved(db):
-    _run(RUN, ["inv", "stmt"])
-    inv = _save("inv", _invoice(), run_id=RUN)
-    stmt = _save_statement("stmt", run_id=RUN)
-    _save("cli-inv", _invoice(number="INV-0007", amount="7.00"))  # from the command line: no work run to show it in
-    _save_statement("cli-stmt", _line(memo="INV-0007", amount="7.00"))
-    dry = reconcile.scan()
-    assert (dry["proposed_pairs"], dry["to_open"], dry["written"], dry["skipped"]) == (2, 1, 0, {"no_work_run": 1})
-    wrote = reconcile.scan(write=True)
-    assert wrote["written"] == 1
-    [reason] = store.review_open_reasons("document", stmt)
-    assert reason["reason"] == reconcile.reason(inv, _line_id(stmt)) and reason["run_id"] == work.flow_run_id(RUN, stmt)
-    again = reconcile.scan(write=True)
-    assert (again["to_open"], again["written"], again["skipped"]) == (0, 0, {"already_open": 1, "no_work_run": 1})
-    reconcile.decide(RUN, stmt, inv, _line_id(stmt), decision="not_this", actor="t", note="refund")
-    assert reconcile.scan(write=True)["skipped"] == {"no_work_run": 1}  # a rejected pair is no longer a proposal
-
-
-# --- end to end: the service records the decision ------------------------------------------------------------------
-
-
-def test_the_service_shows_the_pair_and_records_the_decision(env):
+def test_the_review_page_shows_no_pairs_and_the_route_is_gone(env):
     from tests.test_api import HUMAN
 
     c = env["client"]
     inv, stmt, line = _pair_in_run()
+    _decide(inv, stmt, line, run_id=RUN)
     view = c.get(f"/api/runs/{RUN}/items/{stmt}").json()
-    [pair] = view["reconcile"]
-    assert pair["invoice_doc_id"] == inv and pair["line_id"] == line and pair["decision"] is None
-    url = f"/api/runs/{RUN}/items/{stmt}/reconcile/decision"
-    bad = c.post(url, headers=HUMAN, json={"invoice_doc_id": inv, "line_id": line, "decision": "not_this"})
-    assert bad.status_code == 422  # a rejection needs a reason
-    r = c.post(url, headers=HUMAN, json={"invoice_doc_id": inv, "line_id": line, "decision": "paid_by"})
-    assert r.status_code == 200, r.text
-    assert r.json()["reconcile"][0]["decision"] == "paid_by"
-    assert not [x for x in r.json()["open_reasons"] if x["reason"].startswith("reconcile:")]
-    assert c.post(url, headers=HUMAN, json={"invoice_doc_id": inv, "line_id": "x", "decision": "paid_by"}).status_code == 422
+    assert "reconcile" not in view and view["item_id"] == stmt
+    r = c.post(f"/api/runs/{RUN}/items/{stmt}/reconcile/decision", headers=HUMAN,
+               json={"invoice_doc_id": inv, "line_id": line, "decision": "paid_by"})
+    assert r.status_code in (404, 405)

@@ -366,23 +366,6 @@ def apply_party_policy(state: FlowState) -> None:
     require_review(state, *parties.review_reasons(state.doc_type, values))
 
 
-def apply_reconcile_policy(state: FlowState) -> None:
-    """129 (backlog F-reconciliation K2, DECISIONS 128): an incoming invoice or a bank statement that forms a proposed
-    pair with a statement line or an invoice already in the store gets a `reconcile:proposed:<invoice>:<line>` to-do
-    (`jav/reconcile.py`); 131: a pair of exactly equal amounts that nothing else ties gets a
-    `reconcile:amount_only:<invoice>:<line>` to-do. Read in a worker run only, as the duplicates; a measurement's result
-    never depends on it."""
-    if state.invoice is None:
-        return
-    from jav import reconcile, typepack
-
-    if not reconcile.handles(state.doc_type):
-        return
-    values = state.invoice.to_datapoints(typepack.get(state.doc_type).record_fields)  # the stored form
-    validation = [v.model_dump() for v in state.validation]
-    require_review(state, *reconcile.review_reasons(state.doc_id, state.doc_type, values, validation))
-
-
 def reconcile_fx_tolerance() -> tuple[Decimal, Decimal]:
     """130 (DECISIONS 130): how far below and above the invoice amount converted at the MNB rate a forint card line may
     be for the pair to be proposed, as fractions (0.02, 0.05: -2% ... +5%). A proposal only; a person decides."""
@@ -400,7 +383,6 @@ def decide(state: FlowState) -> str:
     apply_validation_policy(state)
     apply_duplicate_policy(state)
     apply_party_policy(state)
-    apply_reconcile_policy(state)
     if state.invoice is None:
         require_review(state, "no_invoice")
     return "human" if state.needs_review else "auto"

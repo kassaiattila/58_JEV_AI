@@ -143,13 +143,6 @@ def _run_items_fingerprint(scope: dict[str, str]) -> str:
     return f"{_run_fingerprint(scope)}#{_calls_fingerprint(scope)}"
 
 
-def _reconciliation_fingerprint(scope: dict[str, str]) -> str:
-    """129: a run's reconciliation also depends on the invoices, statements and decisions of other runs."""
-    from jav import reconcile
-
-    return f"{_run_fingerprint(scope)}#{reconcile.fingerprint()}"
-
-
 # --- row builders ----------------------------------------------------------------------------------------------
 
 
@@ -570,40 +563,6 @@ def _file_names(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
-def _reconciliation(scope: dict[str, str]) -> Rows:
-    """129 (backlog F-reconciliation K2): the run's invoices with their status and paying line, and its statement lines
-    with the invoice they paid, against the whole store (`jav/reconcile.py` `run_rows`)."""
-    from jav import reconcile
-
-    run = work.get_run(scope["run_id"])
-    cols = [
-        _col("kind", "Kind", "enum", labels="reconcile_kind"),
-        _col("file", "File", link="review"),
-        _col("status", "Reconciliation", "enum", labels="reconcile_status", badge=True),
-        _col("date", "Date", "date"),
-        _col("amount", "Amount", "money"),
-        _col("currency", "Currency"),
-        _col("partner", "Supplier or counterparty"),
-        _col("number", "Invoice number"),
-        _col("memo", "Memo"),
-        _col("paired_file", "Paired with"),
-        _col("paired_date", "Its date", "date"),
-        _col("candidates", "Candidates", "number", hidden=True),
-        _col("signal_invoice_number", "Invoice number in the memo", "bool"),
-        _col("signal_reference", "Reference number in the memo", "bool"),
-        _col("signal_supplier_account", "Supplier's account", "bool"),
-        _col("signal_supplier_name", "Supplier's name", "bool"),
-        _col("signal_supplier_name_fuzzy", "Supplier's name, loose match", "bool"),
-        _col("signal_payment_channel", "Payment method", "bool"),
-        _col("signal_learned_name", "Name from an earlier decision", "bool"),
-        _col("decision", "Decision", "enum", labels="reconcile_decision"),
-        _col("reason", "Why excluded", "enum", labels="reconcile_reason", hidden=True),
-        _col("item_id", "Item id", "id", hidden=True),
-    ]
-    rows = [{**r, "_run": run["run_id"], "_wp": run["workpackage_id"]} for r in reconcile.run_rows(run["run_id"])]
-    return cols, rows
-
-
 def _calls(scope: dict[str, str]) -> Rows:
     work.get_run(scope["run_id"])
     cols = [
@@ -734,7 +693,6 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("utility_cost", "Közmű-költség havonta", ("run_id",), _utility_cost, _run_fingerprint),
     Dataset("utility_sources", "Közmű-költség forrásai", ("run_id",), _utility_sources, _run_fingerprint),
     Dataset("file_names", "Fájlnevek", ("run_id",), _file_names, _run_fingerprint),
-    Dataset("reconciliation", "Reconciliation", ("run_id",), _reconciliation, _reconciliation_fingerprint),
     Dataset("calls", "Hívásnapló", ("run_id",), _calls, _calls_fingerprint),
     Dataset("mailbox_pulls", "Postafiók-letöltések", (), _mailbox_pulls),
     Dataset("activity", "Tevékenységnapló", ("actor",), _activity, optional_scope=("day",)),

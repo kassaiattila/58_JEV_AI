@@ -198,7 +198,7 @@ def test_an_allocation_from_another_account_still_pays_the_invoice(db):
 
 def test_the_trial_confirmations_count_as_whole_allocations(db):
     inv, stmt, line = k2._pair_in_run()
-    reconcile.decide(k2.RUN, stmt, inv, line, decision="paid_by", actor="reviewer")
+    k2._decide(inv, stmt, line, run_id=k2.RUN)  # a decision of the retired review page panel (129-136)
     ws = rp.workspace(_package())
     [share] = _line_row(ws, line)["allocations"]
     assert (share["allocation_id"], share["line_amount"]) == (None, "100.00") and _line_row(ws, line)["state"] == "allocated"
