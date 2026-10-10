@@ -554,7 +554,8 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
     """134: AI proposals (JEV and/or GPT) for the lines a reconciliation package still has to decide: which preselected
     invoice a line pays and what kind of payment it is. Without a budget only the free estimate; with the owner's
     sub-budget (--jev-budget-usd, --budget-usd for OpenAI) the paid measurement: answers stored per line and engine,
-    raw answers in runs/. Counts only, no values printed."""
+    raw answers in runs/. 136: only the lines without an answer (--redo: all), the kind once per partner. Counts only,
+    no values printed."""
     from decimal import Decimal
 
     from jav import reconcile_ai
@@ -572,8 +573,11 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
     if args.budget_usd:
         limits["openai"] = Decimal(args.budget_usd)
     if not limits:
-        est = reconcile_ai.estimate(args.workpackage_id)
+        est = reconcile_ai.estimate(args.workpackage_id, redo=args.redo)
         print(f"lines to decide: {est['lines']}, with preselected invoices: {est['with_options']} ({est['options']} options)")
+        for engine, plan in est["plan"].items():
+            print(f"{engine}: answered already {plan['answered']}; requests {plan['requests']} (with invoices {plan['with_options']});"
+                  f" taking a partner's answer over {plan['inherited']}")
         print(f"sum of the worst-case reservations (a measurement needs its actual cost plus one): {est['reservations_usd']}")
         print("free estimate only; a measurement needs --jev-budget-usd and/or --budget-usd (the owner's sub-budget)")
         return 0
@@ -581,7 +585,8 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
     if missing:
         print(f"no budget for: {', '.join(missing)} (jev: --jev-budget-usd, gpt: --budget-usd)")
         return 2
-    r = reconcile_ai.run(args.workpackage_id, engines=engines, limits=limits, max_lines=args.max_lines, use_cache=not args.no_cache)
+    r = reconcile_ai.run(args.workpackage_id, engines=engines, limits=limits, max_lines=args.max_lines, use_cache=not args.no_cache,
+                         redo=args.redo)
     print(f"lines asked: {r['lines']}; per engine: {r['counts']}")
     print(f"budget scope {r['scope']}: {r['usage']}")
     print(f"raw answers: {r['raw']}; config jev {r['jev_config']}, gpt {r['gpt_config']}")
@@ -808,6 +813,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--budget-usd", help="the OpenAI sub-budget of the measurement (USD)")
     p.add_argument("--max-lines", type=int, help="ask only the first N lines")
     p.add_argument("--no-cache", action="store_true", help="JEV: no cached answers (live calls)")
+    p.add_argument("--redo", action="store_true", help="136: ask the lines that have an answer again (default: only the new ones)")
     p.add_argument("--evaluate", action="store_true",
                    help="free: compare the stored answers with a person's decisions on the package's lines")
     p.set_defaults(fn=cmd_reconcile_ai)

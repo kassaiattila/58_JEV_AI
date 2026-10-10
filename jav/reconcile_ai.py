@@ -19,6 +19,13 @@ structured request (`jav/gpt_choice.py`, `configs/gpt_reconcile.json`). The raw 
 distribution) are kept per line and engine in `reconcile_ai_proposals`; nothing is decided, no threshold is applied.
 `run` asks under the owner's sub-budget (`calls.measurement`: a provider without a limit is never called) and writes the
 raw answers to `runs/<stamp>_reconcile_ai.jsonl`; an engine's failure on a line is recorded and the run goes on.
+
+136 (DECISIONS 136, the owner chose once per partner): a run asks only about the lines without an answer of the engine (`redo`
+asks them all again), and the kind of payment once per partner (`reconcile.name_key` of the counterparty name, as on the
+pairing page). A line without preselected invoices takes over the answer its partner's line already has - from an
+earlier run or from this one - without a call; the stored row names the line that was asked (`asked_line_id`). A line
+with preselected invoices is still asked on its own, as which invoice it pays is its own question; a line through a
+payment app (it pays many suppliers, 131) or without a name is asked alone. A failed answer is never lent.
 """
 
 from __future__ import annotations
@@ -28,7 +35,7 @@ from collections import Counter
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable, Iterator
 
 from typesafe_sdk import Choice
 
@@ -62,9 +69,19 @@ CREATE TABLE IF NOT EXISTS reconcile_ai_proposals (
     scope             TEXT,               -- the budget scope of the measurement
     error             TEXT,
     created_at        TEXT NOT NULL,
+    asked_line_id     TEXT,               -- 136: the partner's line that was asked, when this line took its kind over
     PRIMARY KEY (line_id, engine)
 );
 """)
+
+
+def _migrate(conn: Any) -> None:
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(reconcile_ai_proposals)")}
+    if cols and "asked_line_id" not in cols:  # 136
+        conn.execute("ALTER TABLE reconcile_ai_proposals ADD COLUMN asked_line_id TEXT")
+
+
+store.register_migration("reconcile_ai", _migrate)
 
 
 def _site() -> dict[str, Any]:
@@ -279,31 +296,95 @@ def ask_gpt(line: dict[str, Any], invoices: list[dict[str, Any]], facts: list[di
 # --- the package -------------------------------------------------------------------------------------------------------
 
 
-def lines_to_ask(wp_id: str) -> tuple[list[tuple[dict[str, Any], list[dict[str, Any]]]], dict[str, Any]]:
-    """The package's lines a person still has to decide (`preselect.line_states`), each with its preselected invoices,
-    and the exchange rates of the snapshot."""
+Item = tuple[dict[str, Any], list[dict[str, Any]]]
+
+
+def _lines(wp_id: str) -> tuple[list[dict[str, Any]], list[Item], dict[str, Any]]:
+    """All the package's lines (with their stored answers), the ones a person still has to decide
+    (`preselect.line_states`) each with its preselected invoices, and the exchange rates of the snapshot."""
     ws = reconcile_package.workspace(wp_id)
     rates = reconcile_package.scoped_snapshot(wp_id)[0].get("fx_rates") or {}
     states = set(_site()["preselect"]["line_states"])
-    return [(ln, preselect(ln, ws["invoices"], rates)) for ln in ws["lines"] if ln["state"] in states], rates
+    return ws["lines"], [(ln, preselect(ln, ws["invoices"], rates)) for ln in ws["lines"] if ln["state"] in states], rates
 
 
-def estimate(wp_id: str) -> dict[str, Any]:
-    """Free: how many lines and options would be asked and, per engine, the sum of the worst-case reservations made
-    before each call. A finished call counts with its actual cost, so a measurement needs its actual cost plus one
-    reservation, not this sum."""
-    items, rates = lines_to_ask(wp_id)
-    jev_max = gpt_max = Decimal(0)
-    for line, invoices in items:
-        facts = [option_facts(inv, line, rates) for inv in invoices]
-        body = json.dumps({"state": build_state(line), "questions": {k: q.model_dump(mode="json") for k, q in build_questions(facts).items()}},
-                          ensure_ascii=False)
-        jev_max += calls.estimate_max_cost(input_bytes=calls.utf8_bytes(body), max_output_tokens=0,
-                                           usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)))
-        gpt_max += gpt_choice.max_cost_usd(REQUEST_ID, gpt_instructions(facts), json.dumps(build_state(line), ensure_ascii=False),
-                                           gpt_fields(len(facts)), _limits())
-    return {"lines": len(items), "with_options": sum(1 for _l, inv in items if inv), "options": sum(len(inv) for _l, inv in items),
-            "reservations_usd": {"jev": str(jev_max.quantize(Decimal("0.000001"))), "openai": str(gpt_max.quantize(Decimal("0.000001")))}}
+def partner(line: dict[str, Any]) -> str | None:
+    """136: the key a line shares its kind of payment by - the partner of the pairing page (`reconcile.name_key`); none
+    for a line through a payment app (it pays many suppliers, 131) or without a name, which is asked alone."""
+    return None if reconcile.through_app(line) else reconcile.name_key(line.get("counterparty_name"))
+
+
+def _order(line: dict[str, Any]) -> tuple[str, str]:
+    return str(line.get("booking_date") or ""), line["id"]
+
+
+def _usable(answer: dict[str, Any] | None) -> bool:
+    return bool(answer) and not answer.get("error") and bool(answer.get("kind"))
+
+
+def _lent(answer: dict[str, Any], asked_line_id: str) -> dict[str, Any]:
+    """The partner's kind of payment as another line's answer: no invoice question, no cost."""
+    return {"options": [], "pays": None, "pays_probability": None, "pays_distribution": None, "kind": answer.get("kind"),
+            "kind_probability": answer.get("kind_probability"), "kind_distribution": answer.get("kind_distribution"),
+            "measured": bool(answer.get("measured")), "model": answer.get("model"), "cost_usd": 0.0, "error": None,
+            "asked_line_id": asked_line_id}
+
+
+def _walk(engine: str, lines: list[dict[str, Any]], items: list[Item], ask: Callable[[dict[str, Any], list[dict[str, Any]]], dict[str, Any]],
+          *, redo: bool) -> Iterator[tuple[dict[str, Any], list[dict[str, Any]], str, dict[str, Any]]]:
+    """136: one engine's steps over the lines to decide, as (line, its invoices, "asked" | "inherited", answer). A line
+    with the engine's answer is left out (unless `redo`). The lines with preselected invoices are asked first, one by
+    one; then a line without invoices takes over its partner's answer - stored earlier on any line of the package, or
+    given in this run - and only a partner without one gets a call (its earliest line; the next one when it fails)."""
+    answered = set() if redo else {ln["id"] for ln in lines if _usable((ln.get("ai") or {}).get(engine))}
+    lenders: dict[str, tuple[str, dict[str, Any]]] = {}
+    for ln in [] if redo else sorted(lines, key=_order):
+        answer, key = (ln.get("ai") or {}).get(engine), partner(ln)
+        if key and key not in lenders and _usable(answer):
+            lenders[key] = (answer.get("asked_line_id") or ln["id"], answer)
+    for line, invoices in sorted((it for it in items if it[0]["id"] not in answered), key=lambda it: (bool(not it[1]), *_order(it[0]))):
+        key = partner(line)
+        if not invoices and key in lenders:
+            asked, answer = lenders[key]
+            yield line, invoices, "inherited", _lent(answer, asked)
+            continue
+        answer = ask(line, invoices)
+        yield line, invoices, "asked", answer
+        if key and key not in lenders and _usable(answer):
+            lenders[key] = (line["id"], answer)
+
+
+def estimate(wp_id: str, *, redo: bool = False) -> dict[str, Any]:
+    """Free: the lines to decide and, per engine, the plan of a run (`_walk`, every request taken as answered): the
+    lines answered already, the requests (those with preselected invoices among them), the lines that would take a
+    partner's answer over, and the sum of the worst-case reservations made before each request. A finished call counts
+    with its actual cost, so a measurement needs its actual cost plus one reservation, not this sum."""
+    lines, items, rates = _lines(wp_id)
+    out: dict[str, Any] = {"lines": len(items), "with_options": sum(1 for _l, inv in items if inv),
+                           "options": sum(len(inv) for _l, inv in items), "plan": {}, "reservations_usd": {}}
+    for engine, provider in (("jev", "jev"), ("gpt", "openai")):
+        total = Decimal(0)
+
+        def planned(line: dict[str, Any], invoices: list[dict[str, Any]], engine: str = engine) -> dict[str, Any]:
+            nonlocal total
+            facts = [option_facts(inv, line, rates) for inv in invoices]
+            if engine == "jev":
+                body = json.dumps({"state": build_state(line), "questions": {k: q.model_dump(mode="json") for k, q in build_questions(facts).items()}},
+                                  ensure_ascii=False)
+                total += calls.estimate_max_cost(input_bytes=calls.utf8_bytes(body), max_output_tokens=0,
+                                                 usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)))
+            else:
+                total += gpt_choice.max_cost_usd(REQUEST_ID, gpt_instructions(facts), json.dumps(build_state(line), ensure_ascii=False),
+                                                 gpt_fields(len(facts)), _limits())
+            return {"kind": "planned"}
+
+        plan = Counter(requests=0, with_options=0, inherited=0)
+        for _line, invoices, how, _answer in _walk(engine, lines, items, planned, redo=redo):
+            plan["requests" if how == "asked" else "inherited"] += 1
+            plan["with_options"] += how == "asked" and bool(invoices)
+        out["plan"][engine] = {"answered": len(items) - plan["requests"] - plan["inherited"], **plan}
+        out["reservations_usd"][provider] = str(total.quantize(Decimal("0.000001")))
+    return out
 
 
 def _save(wp_id: str, line: dict[str, Any], engine: str, answer: dict[str, Any], scope: str | None) -> None:
@@ -311,51 +392,60 @@ def _save(wp_id: str, line: dict[str, Any], engine: str, answer: dict[str, Any],
     with store.connect() as c:
         c.execute("INSERT INTO reconcile_ai_proposals(line_id, engine, statement_doc_id, workpackage_id, options, pays,"
                   " pays_probability, pays_distribution, kind, kind_probability, kind_distribution, measured, model, config_hash,"
-                  " scope, error, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                  " scope, error, created_at, asked_line_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
                   " ON CONFLICT(line_id, engine) DO UPDATE SET statement_doc_id=excluded.statement_doc_id,"
                   " workpackage_id=excluded.workpackage_id, options=excluded.options, pays=excluded.pays,"
                   " pays_probability=excluded.pays_probability, pays_distribution=excluded.pays_distribution, kind=excluded.kind,"
                   " kind_probability=excluded.kind_probability, kind_distribution=excluded.kind_distribution,"
                   " measured=excluded.measured, model=excluded.model, config_hash=excluded.config_hash, scope=excluded.scope,"
-                  " error=excluded.error, created_at=excluded.created_at",
+                  " error=excluded.error, created_at=excluded.created_at, asked_line_id=excluded.asked_line_id",
                   (line["id"], engine, line["statement_id"], wp_id, dump(answer.get("options") or []), answer.get("pays"),
                    answer.get("pays_probability"), dump(answer.get("pays_distribution")), answer.get("kind"),
                    answer.get("kind_probability"), dump(answer.get("kind_distribution")), int(bool(answer.get("measured"))),
                    answer.get("model"), jev_hash() if engine == "jev" else gpt_hash(), scope, answer.get("error"),
-                   datetime.now(timezone.utc).isoformat(timespec="seconds")))
+                   datetime.now(timezone.utc).isoformat(timespec="seconds"), answer.get("asked_line_id")))
 
 
 def run(wp_id: str, *, engines: Iterable[str], limits: dict[str, Decimal], max_lines: int | None = None,
-        use_cache: bool = True, out_dir: Path = RUNS_DIR) -> dict[str, Any]:
+        use_cache: bool = True, redo: bool = False, out_dir: Path = RUNS_DIR) -> dict[str, Any]:
     """Asks the chosen engines about the package's lines to decide, under the owner's sub-budget (`limits` per
-    provider: `jev`, `openai`), stores the latest answer per line and engine and writes the raw answers to a jsonl file.
-    An engine that fails on a line (JEV unavailable, the budget spent, an OpenAI error) is recorded and the run goes on."""
+    provider: `jev`, `openai`): only the lines without an answer (all with `redo`) and the kind of payment once per
+    partner (`_walk`). Stores the latest answer per line and engine and writes one raw row per line and engine to a
+    jsonl file. An engine that fails on a line (JEV unavailable, the budget spent, an OpenAI error) is recorded and the
+    run goes on."""
     engines = [e for e in ENGINES if e in set(engines)]
-    items, rates = lines_to_ask(wp_id)
+    lines, items, rates = _lines(wp_id)
     items = items[:max_lines] if max_lines is not None else items
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     scope = f"measure-{stamp}-reconcile-ai"
     out_dir.mkdir(parents=True, exist_ok=True)
     raw = out_dir / f"{stamp}_reconcile_ai.jsonl"
-    counts: dict[str, dict[str, int]] = {e: {"asked": 0, "pays": 0, "failed": 0} for e in engines}
-    with calls.measurement(scope, limits), raw.open("w", encoding="utf-8", newline="\n") as fh:
-        for line, invoices in items:
+    counts = {e: {"asked": 0, "inherited": 0, "skipped": 0, "pays": 0, "failed": 0} for e in engines}
+
+    def asker(engine: str) -> Callable[[dict[str, Any], list[dict[str, Any]]], dict[str, Any]]:
+        def ask(line: dict[str, Any], invoices: list[dict[str, Any]]) -> dict[str, Any]:
             facts = [option_facts(inv, line, rates) for inv in invoices]
-            row: dict[str, Any] = {"line_id": line["id"], "state": line["state"], "options": [inv["id"] for inv in invoices]}
-            for engine in engines:
-                try:
-                    answer = (ask_jev(line, invoices, facts, run_id=scope, use_cache=use_cache) if engine == "jev"
-                              else ask_gpt(line, invoices, facts, run_id=scope))
-                except (JevUnavailableError, calls.BudgetExceeded, calls.UncertainAttempt) as exc:
-                    answer = {"options": row["options"], "measured": False, "error": f"{type(exc).__name__}: {exc}"}
-                except Exception as exc:  # noqa: BLE001 - an OpenAI or schema error is recorded for this line, the run goes on
-                    answer = {"options": row["options"], "measured": False, "error": f"{type(exc).__name__}: {exc}"}
+            try:
+                return (ask_jev(line, invoices, facts, run_id=scope, use_cache=use_cache) if engine == "jev"
+                        else ask_gpt(line, invoices, facts, run_id=scope))
+            except (JevUnavailableError, calls.BudgetExceeded, calls.UncertainAttempt) as exc:
+                return {"options": [inv["id"] for inv in invoices], "measured": False, "error": f"{type(exc).__name__}: {exc}"}
+            except Exception as exc:  # noqa: BLE001 - an OpenAI or schema error is recorded for this line, the run goes on
+                return {"options": [inv["id"] for inv in invoices], "measured": False, "error": f"{type(exc).__name__}: {exc}"}
+        return ask
+
+    with calls.measurement(scope, limits), raw.open("w", encoding="utf-8", newline="\n") as fh:
+        for engine in engines:
+            steps = 0
+            for line, _invoices, how, answer in _walk(engine, lines, items, asker(engine), redo=redo):
                 _save(wp_id, line, engine, answer, scope)
-                counts[engine]["asked"] += 1
+                steps += 1
+                counts[engine][how] += 1
                 counts[engine]["pays"] += answer.get("pays") is not None
                 counts[engine]["failed"] += answer.get("error") is not None
-                row[engine] = answer
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+                fh.write(json.dumps({"engine": engine, "line_id": line["id"], "state": line["state"], "how": how, **answer},
+                                    ensure_ascii=False) + "\n")
+            counts[engine]["skipped"] = len(items) - steps
     return {"scope": scope, "raw": str(raw), "lines": len(items), "counts": counts, "usage": calls.budget_usage(scope),
             "jev_config": jev_hash(), "gpt_config": gpt_hash()}
 
@@ -413,7 +503,8 @@ def evaluate(wp_id: str) -> dict[str, Any]:
 
 def proposals(line_ids: Iterable[str]) -> dict[str, dict[str, dict[str, Any]]]:
     """The stored answers of the lines, per line and engine, with the needs-no-invoice reason the kind suggests and
-    whether the kind expects an invoice (for the pairing page)."""
+    whether the kind expects an invoice (for the pairing page); `asked_line_id` names the partner's line that was asked
+    when the line took its kind over (136)."""
     ids = sorted(set(line_ids))
     site = _site()
     marks, expects = site["kind_marks"], set(site["kind_expects_invoice"])
@@ -428,5 +519,6 @@ def proposals(line_ids: Iterable[str]) -> dict[str, dict[str, dict[str, Any]]]:
                     "pays": r["pays"], "pays_probability": r["pays_probability"], "options": json.loads(r["options"] or "[]"),
                     "kind": r["kind"], "kind_probability": r["kind_probability"], "suggested_mark": marks.get(r["kind"] or ""),
                     "expects_invoice": (r["kind"] in expects) if r["kind"] else None, "measured": bool(r["measured"]),
-                    "error": r["error"], "created_at": r["created_at"]}
+                    "kind_distribution": json.loads(r["kind_distribution"]) if r["kind_distribution"] else None,
+                    "model": r["model"], "asked_line_id": r["asked_line_id"], "error": r["error"], "created_at": r["created_at"]}
     return out

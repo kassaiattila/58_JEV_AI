@@ -143,6 +143,11 @@ describe("the partners on the pairing page", () => {
     expect(within(list).getByText(/Example Supplier 2/)).toBeTruthy();
   });
 
+  it("says when the line's kind was asked once for its partner, on another line (136)", () => {
+    page(workspace([line(2, "exampleshop", { ai: { jev: answer("retail_purchase", { asked_line_id: lineId(1) }) } })]));
+    expect(screen.getByText(/JEV: .* · asked once for the partner/)).toBeTruthy();
+  });
+
   it("narrows the lines by partner and the other invoices by supplier and nearness to the line's amount", () => {
     const near = { ...invoice(2), supplier_name: "Example Shop Kft.", amount: "105.00", rest: "105.00" };
     const far = { ...invoice(3), supplier_name: "Example Shop Kft.", amount: "300.00", rest: "300.00" };

@@ -8,13 +8,18 @@ import { parseCanonical } from "./money";
 
 export const ENGINES: ReconcileAiEngine[] = ["jev", "gpt"];
 
-export interface KindAnswer { engine: ReconcileAiEngine; kind: string; probability: number | null; mark: string | null; expects: boolean | null }
+export interface KindAnswer {
+  engine: ReconcileAiEngine; kind: string; probability: number | null; mark: string | null; expects: boolean | null;
+  /** 136: asked once for the partner, on another of its lines */
+  lent: boolean;
+}
 
 /** The AI's kind of payment for a line, per engine that answered (JEV first). */
 export function kinds(line: ReconcileLine): KindAnswer[] {
   return ENGINES.flatMap((engine) => {
     const a = line.ai?.[engine];
-    return a?.kind ? [{ engine, kind: a.kind, probability: a.kind_probability, mark: a.suggested_mark, expects: a.expects_invoice }] : [];
+    return a?.kind ? [{ engine, kind: a.kind, probability: a.kind_probability, mark: a.suggested_mark, expects: a.expects_invoice,
+      lent: Boolean(a.asked_line_id) }] : [];
   });
 }
 

@@ -149,12 +149,14 @@ def test_a_run_asks_both_engines_under_the_sub_budget_and_stores_the_raw_answers
     monkeypatch.setattr(reconcile_ai, "get_adapter", lambda: jev)
     monkeypatch.setattr(gpt_choice, "ask", _fake_gpt)
     r = reconcile_ai.run(wp, engines=["jev", "gpt"], limits={"jev": Decimal("0.10"), "openai": Decimal("0.30")}, out_dir=tmp_path)
-    assert r["lines"] == 3 and r["counts"] == {"jev": {"asked": 3, "pays": 2, "failed": 0}, "gpt": {"asked": 3, "pays": 0, "failed": 0}}
+    none = {"inherited": 0, "skipped": 0}  # three partners: each line is asked (136)
+    assert r["lines"] == 3 and r["counts"] == {"jev": {"asked": 3, "pays": 2, "failed": 0, **none},
+                                               "gpt": {"asked": 3, "pays": 0, "failed": 0, **none}}
     assert set(r["usage"]) and r["scope"].startswith("measure-")
     asked_pays = [("pays" in q) for _s, q in jev.asked]
     assert sorted(asked_pays) == [False, True, True]  # the shop line has no preselected invoice
     rows = [json.loads(x) for x in open(r["raw"], encoding="utf-8")]
-    assert len(rows) == 3 and all({"jev", "gpt"} <= set(row) for row in rows)
+    assert len(rows) == 6 and sorted(row["engine"] for row in rows) == ["gpt"] * 3 + ["jev"] * 3  # one row per line and engine (136)
     ws = reconcile_package.workspace(wp)
     jane = next(ln for ln in ws["lines"] if ln["counterparty_name"] == "Jane Example")
     assert jane["ai"]["jev"]["pays"] == k2._id("tel") and jane["ai"]["jev"]["pays_probability"] == 0.8
@@ -170,7 +172,7 @@ def test_an_engine_failing_on_a_line_is_recorded_and_the_run_goes_on(db, monkeyp
     wp = _package()
     monkeypatch.setattr(reconcile_ai, "get_adapter", lambda: FakeJev(fail_on="Jane Example"))
     r = reconcile_ai.run(wp, engines=["jev"], limits={"jev": Decimal("0.10")}, out_dir=tmp_path)
-    assert r["counts"]["jev"] == {"asked": 3, "pays": 1, "failed": 1}
+    assert r["counts"]["jev"] == {"asked": 3, "inherited": 0, "skipped": 0, "pays": 1, "failed": 1}
     ai = reconcile_ai.proposals(ln["id"] for ln in reconcile_package.workspace(wp)["lines"])
     errors = [a["jev"]["error"] for a in ai.values() if a["jev"]["error"]]
     assert errors == ["JevUnavailableError: TypeSafeRateLimitError:429"]
