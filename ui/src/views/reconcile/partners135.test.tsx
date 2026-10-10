@@ -8,6 +8,7 @@ import {
   api, setActor, type ReconcileAiProposal, type ReconcileInvoice, type ReconcileLine, type ReconcileWorkspace,
 } from "../../api";
 import { setLanguage } from "../../i18n";
+import { invoiceMatches, lineMatches, NO_INVOICE_FILTERS, NO_LINE_FILTERS, NO_PARTY } from "./filters";
 import { expectsInvoice, groupByPartner, suggestMark } from "./partners";
 import { ReconcilePairing } from "./ReconcilePairing";
 
@@ -70,6 +71,22 @@ describe("the suggested reason and the expected invoice", () => {
     expect(expectsInvoice(line(1, "examplestream", { ...sub, state: "amount_only", candidates: [candidate] }))).toBe(false);
   });
 
+  it("filters the lines and the invoices by what a person sets", () => {
+    const cafe = line(1, "examplecafe", { amount: "30.00", ai: { gpt: answer("retail_purchase") } });
+    expect(lineMatches({ ...NO_LINE_FILTERS, partner: "examplecafe", kind: "retail_purchase", min: "20", max: "30" }, cafe)).toBe(true);
+    expect(lineMatches({ ...NO_LINE_FILTERS, kind: "subscription" }, cafe)).toBe(false);
+    expect(lineMatches({ ...NO_LINE_FILTERS, direction: "credit" }, cafe)).toBe(false);
+    expect(lineMatches({ ...NO_LINE_FILTERS, min: "30.01" }, cafe)).toBe(false);
+    const inv = { ...invoice(1), supplier_name: "Exâmple Shop Kft.", issue_date: "2026-04-05", party: null };
+    expect(invoiceMatches({ ...NO_INVOICE_FILTERS, supplier: "example shop kft.", party: NO_PARTY, from: "2026-04-01", to: "2026-04-30" }, inv, null)).toBe(true);
+    expect(invoiceMatches({ ...NO_INVOICE_FILTERS, to: "2026-04-04" }, inv, null)).toBe(false);
+    expect(invoiceMatches({ ...NO_INVOICE_FILTERS, withCandidates: true }, inv, null)).toBe(false);
+    const target = line(2, "exampleshop", { amount: "95.00", rest: "95.00" });
+    expect(invoiceMatches({ ...NO_INVOICE_FILTERS, near: true, nearPct: "5" }, inv, target)).toBe(false); // 100 is 5.3% off
+    expect(invoiceMatches({ ...NO_INVOICE_FILTERS, near: true, nearPct: "6" }, inv, target)).toBe(true);
+    expect(invoiceMatches({ ...NO_INVOICE_FILTERS, near: true }, { ...inv, currency: "EUR" }, target)).toBe(false);
+  });
+
   it("groups the lines by partner, the largest group first", () => {
     const groups = groupByPartner([line(1, "examplecafe"), line(2, "exampleshop"), line(3, "exampleshop"), line(4, "exampleshop", { partner: null })]);
     expect(groups.map((g) => [g.key.startsWith("line:") ? "own" : g.key, g.lines.length])).toEqual([["exampleshop", 2], ["examplecafe", 1], ["own", 1]]);
@@ -124,6 +141,27 @@ describe("the partners on the pairing page", () => {
     expect(within(list).getByText("GPT 0.95")).toBeTruthy();
     expect(within(list).getByText("AI only: code found nothing that ties them")).toBeTruthy();
     expect(within(list).getByText(/Example Supplier 2/)).toBeTruthy();
+  });
+
+  it("narrows the lines by partner and the other invoices by supplier and nearness to the line's amount", () => {
+    const near = { ...invoice(2), supplier_name: "Example Shop Kft.", amount: "105.00", rest: "105.00" };
+    const far = { ...invoice(3), supplier_name: "Example Shop Kft.", amount: "300.00", rest: "300.00" };
+    page(workspace([shop(1), line(2, "examplecafe"), shop(3)], [invoice(1), near, far]));
+    const linesPane = screen.getByRole("region", { name: "Statement lines" });
+    fireEvent.click(within(linesPane).getByRole("button", { name: "Filters" }));
+    fireEvent.click(within(linesPane).getByRole("button", { name: /^Partner of the line/ }));
+    fireEvent.click(screen.getByRole("option", { name: /EXAMPLECAFE/ }));
+    expect(within(linesPane).queryByRole("checkbox", { name: /EXAMPLESHOP/ })).toBeNull();
+    expect(within(linesPane).getByRole("button", { name: "Filters (1)" })).toBeTruthy();
+    const invoicesPane = screen.getByRole("region", { name: "Invoices" });
+    fireEvent.click(within(invoicesPane).getByRole("button", { name: "Filters" }));
+    fireEvent.click(within(invoicesPane).getByRole("button", { name: /^Supplier/ }));
+    fireEvent.click(screen.getByRole("option", { name: /Example Shop Kft/ }));
+    expect(within(invoicesPane).queryByText(/Example Supplier 1/)).toBeNull();
+    expect(within(invoicesPane).getByText(/INV-0002/) && within(invoicesPane).getByText(/INV-0003/)).toBeTruthy();
+    fireEvent.click(within(invoicesPane).getByRole("checkbox", { name: "Near the selected line's amount" })); // ±10% of 100.00
+    expect(within(invoicesPane).getByText(/INV-0002/)).toBeTruthy();
+    expect(within(invoicesPane).queryByText(/INV-0003/)).toBeNull();
   });
 
   it("selects the partner's lines with p", () => {

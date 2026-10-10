@@ -12,7 +12,9 @@
 // person's earlier reason for the partner, or the AI's kind of payment) and marks or unmarks the group in one step. The
 // lines whose kind expects an invoice that has no candidate have a filter of their own (the missing invoices, per
 // partner when grouped). A candidate shows its strength and the engines that chose it; an invoice the AI chose without
-// a code candidate stands among the candidates, marked as the AI's. p selects the partner's lines.
+// a code candidate stands among the candidates, marked as the AI's. p selects the partner's lines. Both lists have a
+// row of filters (FilterRows.tsx): the lines by partner, kind, direction and amount; the other invoices by supplier,
+// party, currency, state, issue date, amount or nearness to the selected line's amount, and having a candidate.
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   api, ApiError, OPEN_LINE_STATES, type ReconcileCandidate, type ReconcileInvoice, type ReconcileLine, type ReconcileLineState,
@@ -22,6 +24,10 @@ import { ConfirmButton } from "../../components/ConfirmButton";
 import { t, useLocale } from "../../i18n";
 import { tmap } from "../../labels";
 import { DocumentPair } from "./DocumentPair";
+import { InvoiceFilterRow, LineFilterRow } from "./FilterRows";
+import {
+  activeCount, invoiceMatches, lineMatches, NO_INVOICE_FILTERS, NO_LINE_FILTERS, type InvoiceFilters, type LineFilters,
+} from "./filters";
 import { ENGINE, EXCLUDED, INVOICE_STATE, KIND, LINE_STATE, MARK, probability, relationText, SIGNAL } from "./labels";
 import { display, parseCanonical, parseInput, show, sum } from "./money";
 import { candidateOf, check, planPairing, rankedCandidates, rest, toRequest, type PlannedPair, type Plan, type Refusal } from "./pairing";
@@ -69,7 +75,7 @@ function matches(line: ReconcileLine, q: string): boolean {
   return hay.includes(q.toLowerCase());
 }
 
-function invoiceMatches(inv: ReconcileInvoice, q: string): boolean {
+function invoiceSearch(inv: ReconcileInvoice, q: string): boolean {
   if (!q) return true;
   const hay = [inv.supplier_name, inv.number, inv.amount, show(inv.amount), inv.file, inv.issue_date].join(" ").toLowerCase();
   return hay.includes(q.toLowerCase());
@@ -88,6 +94,9 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
   const [unpaidOnly, setUnpaidOnly] = useState(true);
   const [showOthers, setShowOthers] = useState(false);
   const [grouped, setGrouped] = useState(false);
+  const [lineFilters, setLineFilters] = useState<LineFilters>(NO_LINE_FILTERS);
+  const [invoiceFilters, setInvoiceFilters] = useState<InvoiceFilters>(NO_INVOICE_FILTERS);
+  const [filtersShown, setFiltersShown] = useState({ lines: false, invoices: false });
   const [limit, setLimit] = useState(PAGE);
   const [active, setActive] = useState<string | null>(null);
   const [selLines, setSelLines] = useState<string[]>([]);
@@ -114,7 +123,8 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
   }, [ws.lines]);
   const filtered = useMemo(() => ws.lines.filter((l) =>
     (filter === "all" || (filter === "todo" ? OPEN_LINE_STATES.includes(l.state) : filter === "expected" ? expectsInvoice(l) : l.state === filter))
-    && (!account || l.account === account) && (!month || (l.booking_date ?? "").startsWith(month)) && matches(l, q)), [ws.lines, filter, account, month, q]);
+    && (!account || l.account === account) && (!month || (l.booking_date ?? "").startsWith(month)) && matches(l, q) && lineMatches(lineFilters, l)),
+  [ws.lines, filter, account, month, q, lineFilters]);
   // grouped by partner, the list runs group by group, so the keys move in the order shown
   const groups = useMemo(() => (grouped ? groupByPartner(filtered) : []), [grouped, filtered]);
   const visible = useMemo(() => (grouped ? groups.flatMap((g) => g.lines) : filtered), [grouped, groups, filtered]);
@@ -254,9 +264,10 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
   // without a search, the invoices nearest to the selected line's amount come first (same currency before others), so
   // the payment of a line without a candidate is found by eye; otherwise the newest first. Another party's invoice is
   // listed with the switch on, or when a search finds it (133).
-  const others = ws.invoices.filter((i) => !candidateIds.has(i.id) && invoiceMatches(i, invQ)
-    && (i.own !== false || showOthers || Boolean(invQ) || selInvoices.includes(i.id))
-    && (!unpaidOnly || (i.state !== "confirmed" && rest(i) > 0n) || selInvoices.includes(i.id)));
+  // a supplier or party filter finds another party's invoice as a search does; a state filter overrides "unpaid only"
+  const others = ws.invoices.filter((i) => !candidateIds.has(i.id) && invoiceSearch(i, invQ) && invoiceMatches(invoiceFilters, i, activeLine)
+    && (i.own !== false || showOthers || Boolean(invQ) || Boolean(invoiceFilters.supplier || invoiceFilters.party) || selInvoices.includes(i.id))
+    && (!unpaidOnly || Boolean(invoiceFilters.state) || (i.state !== "confirmed" && rest(i) > 0n) || selInvoices.includes(i.id)));
   const byAmount = Boolean(activeLine) && !invQ;
   if (byAmount && activeLine) {
     const target = rest(activeLine);
@@ -314,6 +325,7 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
             <label className="check small">
               <input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} /> {t("By partner")}
             </label>
+            <FilterToggle open={filtersShown.lines} count={activeCount(lineFilters)} onToggle={() => setFiltersShown((f) => ({ ...f, lines: !f.lines }))} />
             {visible.length > 1 && !readOnly ? (
               <label className="check small">
                 <input type="checkbox" checked={visible.slice(0, limit).every((l) => selLines.includes(l.id))}
@@ -322,6 +334,7 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
               </label>
             ) : null}
           </div>
+          {filtersShown.lines ? <LineFilterRow lines={ws.lines} value={lineFilters} onChange={(f) => { setLineFilters(f); setLimit(PAGE); }} /> : null}
           <ul className="rc-list plain" aria-label={t("Statement lines")}>
             {visible.slice(0, limit).map((l, n, shown) => {
               const g = groupOf.get(l.id);
@@ -355,7 +368,9 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
                 <input type="checkbox" checked={showOthers} onChange={(e) => setShowOthers(e.target.checked)} /> {t("Other parties' invoices too ({{n}})", { n: ws.counts.other_invoices })}
               </label>
             ) : null}
+            <FilterToggle open={filtersShown.invoices} count={activeCount(invoiceFilters)} onToggle={() => setFiltersShown((f) => ({ ...f, invoices: !f.invoices }))} />
           </div>
+          {filtersShown.invoices ? <InvoiceFilterRow invoices={ws.invoices} target={activeLine} value={invoiceFilters} onChange={setInvoiceFilters} /> : null}
           <div className="rc-list">
             {activeLine ? <LineDetail line={activeLine} invoiceById={invoiceById} readOnly={readOnly} busy={busy}
               onRevoke={(kind, ref) => void act(() => api.reconcileRevoke(wpId, kind, ref), { done: t("The decision has been undone.") })} /> : null}
@@ -434,6 +449,16 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
 
       {showDocs ? <DocumentPair wpId={wpId} line={activeLine} invoice={docInvoice} opens={ws.open} /> : null}
     </div>
+  );
+}
+
+/** 135: shows or hides a list's filters; the count says how many are set while they are hidden. */
+function FilterToggle({ open, count, onToggle }: { open: boolean; count: number; onToggle: () => void }) {
+  useLocale();
+  return (
+    <button type="button" className={count ? "secondary small-btn" : "quiet small-btn"} aria-expanded={open} onClick={onToggle}>
+      {count ? t("Filters ({{n}})", { n: count }) : t("Filters")}
+    </button>
   );
 }
 
