@@ -101,6 +101,7 @@ export function blockerText(b: ReconcileBlocker): string {
     case "source_not_approved": return t("Its run is not approved yet: {{name}}", { name });
     case "source_no_run": return t("Processed on the command line, not in a work package: {{name}}", { name });
     case "statement_unverified": return t("The statement's balances do not check out: {{name}}", { name });
+    case "decision_not_carried": return t("A decision on a replaced statement's line has no same line on the valid statement: {{name}}", { name });
     default: return `${b.code}: ${name}`;
   }
 }

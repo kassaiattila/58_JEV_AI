@@ -18,7 +18,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from jav import cfg, parties, reconcile, source_layer, store, work
+from jav import cfg, parties, reconcile, source_layer, statement_months, store, work
 
 
 def _holder_text(statement: dict[str, Any]) -> str:
@@ -177,20 +177,21 @@ def period(start: str | None, end: str | None, today: date) -> tuple[str, str]:
 
 
 def _column(statements: list[dict[str, Any]], opened: date | None, closed: date | None, months: list[str], today: date,
-            approved: set[str]) -> list[dict[str, Any]]:
+            approved: set[str], replaced: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     """One account and currency month by month: the state of its statements in the month (`STATES`), and the flags of
     two statements booking the same days (`overlap`) or an opening balance that does not continue the previous
-    statement's closing one (`break`). Up to yesterday: the running month is asked only as far as it has gone."""
+    statement's closing one (`break`). Up to yesterday: the running month is asked only as far as it has gone.
+    139: the statements are the valid ones; an overlap is two a person still has to choose between, and `replaced`
+    names the statements of the month another one replaced."""
     dated = sorted(((s, a, b) for s in statements
                     if (a := _day(s.get("period_start"))) and (b := _day(s.get("period_end"))) and a <= b),
                    key=lambda t: (t[1], t[2], t[0]["id"]))
     overlaps: set[str] = set()
     breaks: set[str] = set()
     for (first, start1, end1), (second, start2, end2) in zip(dated, dated[1:]):
-        touching = start2 == end1 and start1 < start2  # a card cycle starts on the previous one's closing day
-        if start2 <= end1 and not touching:
+        if statement_months.overlaps((start1, end1), (start2, end2)):
             overlaps.update(reconcile.months(start2.isoformat(), min(end1, end2).isoformat()))
-        elif touching or start2 == end1 + timedelta(days=1):
+        elif start2 == end1 or start2 == end1 + timedelta(days=1):  # a card cycle starts on the previous one's closing day
             closing, opening = _balance(first.get("closing_balance")), _balance(second.get("opening_balance"))
             if closing is not None and opening is not None and closing != opening:
                 breaks.add(start2.strftime("%Y-%m"))
@@ -211,8 +212,11 @@ def _column(statements: list[dict[str, Any]], opened: date | None, closed: date 
             state = "unapproved"
         else:
             state = "ok"
+        gone = sorted(r["id"] for r in replaced or [] if (p := statement_months.dates(r.get("period_start"), r.get("period_end")))
+                      and p[0] <= last_day and p[1] >= first_day)
         cells.append({"month": month, "state": state, "statements": len(meets),
-                      "flags": [flag for flag, hit in (("overlap", overlaps), ("break", breaks)) if month in hit]})
+                      "flags": [flag for flag, hit in (("overlap", overlaps), ("break", breaks)) if month in hit],
+                      "replaced": gone})
     return cells
 
 
@@ -232,6 +236,9 @@ def months(party_id: str, start: str | None = None, end: str | None = None, *, t
     by_column: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for st in snap["statements"]:
         by_column[(reconcile.statement_account(st), str(st.get("currency") or ""))].append(st)
+    gone: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    for old_id, r in snap.get("replaced", {}).items():
+        gone[(r["account"], str(r.get("currency") or ""))].append({"id": old_id, **r})
     r = parties.resolver()
     invoices = [i for i in snap["invoices"] if i.get("doc_type") not in conf["outgoing_types"] and i.get("duplicate") != "copy"
                 and r.invoice(i.get("buyer_name"), i.get("buyer_tax_id"))[0] == party_id]
@@ -251,7 +258,8 @@ def months(party_id: str, start: str | None = None, end: str | None = None, *, t
                             "kind": (details or {}).get("kind") or ("card" if card else "account"),
                             "bank": (details or {}).get("bank"), "registered": details is not None,
                             "opened": opened.isoformat() if opened else None, "closed": closed.isoformat() if closed else None,
-                            "statements": len(sts), "months": _column(sts, opened, closed, wanted, today, approved)})
+                            "statements": len(sts),
+                            "months": _column(sts, opened, closed, wanted, today, approved, gone.get((ident["key"], currency)))})
     per_month: dict[str, Counter] = {m: Counter() for m in wanted}
     for inv in invoices:
         month = str(inv.get("issue_date") or "")[:7]

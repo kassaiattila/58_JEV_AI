@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person, when a statement counts as verified coverage and how a candidate's strength is weighed. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131, DECISIONS 134.",
     "changelog": [
+      {
+        "version": "1.7.0",
+        "date": "2026-10-10",
+        "note": "139 (DECISIONS 139): replacement - one valid statement per own account, currency and day. Of two statements booking the same days, the better source by the order of ranks replaces the other when it covers its whole period; an equal rank or a partial cover is a conflict a person decides (jav/statement_months.py). carry_over: the fields that make a replaced statement's line the same line on the statement replacing it."
+      },
       {
         "version": "1.6.0",
         "date": "2026-10-10",
@@ -94,6 +99,14 @@
     }
   },
   "payment_review_pattern": "hitelkartya|torleszt|jutalek|kamat|szamlavezetesi dij|kartyadij",
+  "replacement": {
+    "ranks": [
+      {"name": "code_checked", "doc_types": ["statement_table"], "verified": true},
+      {"name": "extracted_checked", "verified": true},
+      {"name": "unchecked"}
+    ],
+    "carry_over": ["booking_date", "amount", "direction"]
+  },
   "verified_when": {
     "closing_balance_check": ["closing.ok"],
     "totals_consistency": ["totals.ok", "totals.na"]

@@ -36,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
-                 parties, party_views, reconcile_package, store, version, work, work_views)
+                 parties, party_views, reconcile_package, statement_months, store, version, work, work_views)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
@@ -327,6 +327,11 @@ class TaskDecision(_In):
 
 class DuplicateDecision(_In):
     decision: Literal["copy", "variant", "different"]  # 126: copy, modified version, not the same invoice
+    note: Text | None = None
+
+
+class StatementChoice(_In):
+    keep: Literal["this", "other", "rule"]  # 139: which of two statements of the same days stays valid; rule: as ranked
     note: Text | None = None
 
 
@@ -1087,6 +1092,14 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                            who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """126: only a human decides whether two documents are the same invoice; the pair's to-dos close."""
         duplicates.decide(run_id, item_id, other_doc_id, decision=body.decision, actor=who, note=body.note)
+        return work_views.jsonable(corrections.item_result(run_id, item_id))
+
+    @app.post(r + "/runs/{run_id}/items/{item_id}/statements/{other_doc_id}/choice")
+    def statement_choice(run_id: RunId, item_id: ItemId, other_doc_id: ItemId, body: StatementChoice,
+                         who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """139: a person chooses which of two statements of the same days stays valid; the pair's to-dos close."""
+        keep = {"this": item_id, "other": other_doc_id, "rule": None}[body.keep]
+        statement_months.decide(run_id, item_id, other_doc_id, keep=keep, actor=who, note=body.note)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
     # --- 133: the own parties (jav/parties.py): proposed from the data, rearranged by a person at any time ---

@@ -170,6 +170,11 @@ def test_scheduled_pull_runs_in_the_worker_and_records_the_outcome(env, monkeypa
     monkeypatch.setattr(mailbox, "_subprocess_runner", lambda argv, t: (1, "", "Outlook must already be running."))
     mailbox.update_schedule(sch["id"], enabled=False)
     mailbox.update_schedule(sch["id"], enabled=True)  # switching on = due at once
+    assert mailbox.schedule(sch["id"])["next_at"] <= mailbox._utc()
+    # 139: a time slot is named to the second and downloads once; switched on within the second of the first download,
+    # the slot would be the same, so the second download is moved to a slot of its own (it failed when the run was fast)
+    with store.connect() as c:
+        c.execute("UPDATE mailbox_schedules SET next_at=? WHERE id=?", ("2000-01-01T00:00:00+00:00", sch["id"]))
     assert worker.run_worker(once=True)["results"] == {"done": 1}
     failed = mailbox.schedule(sch["id"])
     assert failed["last_status"] == "error" and "Outlook" in failed["last_result"]["error"]

@@ -23,7 +23,7 @@ const STATE_HINT: Record<string, string> = tmap({
 });
 const FLAG: Record<string, string> = tmap({ overlap: "two statements", break: "balance break" });
 const FLAG_HINT: Record<string, string> = tmap({
-  overlap: "Two statements book the same days: their lines may be counted twice.",
+  overlap: "Two statements book the same days and neither replaces the other: their lines may be counted twice until you choose the valid one on the review page.",
   break: "The opening balance does not continue the previous statement's closing balance.",
 });
 const KIND: Record<string, string> = tmap({ account: "Bank account", card: "Card" });
@@ -43,6 +43,12 @@ function Cell({ cell }: { cell: MonthCell }) {
       <span>{STATE[cell.state]}</span>
       {cell.statements > 1 ? <span className="muted small"> ({cell.statements})</span> : null}
       {cell.flags.map((f) => <span key={f} className="ms-flag">{FLAG[f]}</span>)}
+      {/* 139: a statement another one replaced is left out of the reconciliation; the grid says it is there */}
+      {cell.replaced?.length ? (
+        <span className="ms-replaced muted small" title={t("{{n}} statements of this month were replaced by a better one and are left out.", { n: cell.replaced.length })}>
+          {t("{{n}} replaced", { n: cell.replaced.length })}
+        </span>
+      ) : null}
     </td>
   );
 }
@@ -100,7 +106,7 @@ export function monthWarnings(data: PartyMonths, accounts?: string[]): string[] 
   if (partial) out.push(t("{{n}} months of an account are covered only in part.", { n: partial }));
   if (unverified) out.push(t("{{n}} months of an account have a statement whose balances do not check out.", { n: unverified }));
   if (unapproved) out.push(t("{{n}} months of an account have a statement whose run is not approved yet.", { n: unapproved }));
-  if (overlap) out.push(t("{{n}} months of an account have two statements for the same days: their lines may be counted twice.", { n: overlap }));
+  if (overlap) out.push(t("{{n}} months of an account have two statements for the same days, and a person has to choose the valid one (on the review page): until then their lines may be counted twice.", { n: overlap }));
   if (broken) out.push(t("{{n}} months of an account do not continue the previous closing balance: a statement may be missing or wrong.", { n: broken }));
   return out;
 }
