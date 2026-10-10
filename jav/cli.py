@@ -559,6 +559,12 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
 
     from jav import reconcile_ai
 
+    if args.evaluate:  # 135: free, read only - the stored answers against a person's decisions
+        ev = reconcile_ai.evaluate(args.workpackage_id)
+        print(f"lines a person decided (paired or marked) that have AI answers: {ev['lines_decided']}")
+        for engine, t in ev["engines"].items():
+            print(f"{engine}: invoice choice {t['pays']}; kind of payment {t['kind']}")
+        return 0
     engines = list(reconcile_ai.ENGINES) if args.engine == "both" else [args.engine]
     limits = {}
     if args.jev_budget_usd:
@@ -802,6 +808,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--budget-usd", help="the OpenAI sub-budget of the measurement (USD)")
     p.add_argument("--max-lines", type=int, help="ask only the first N lines")
     p.add_argument("--no-cache", action="store_true", help="JEV: no cached answers (live calls)")
+    p.add_argument("--evaluate", action="store_true",
+                   help="free: compare the stored answers with a person's decisions on the package's lines")
     p.set_defaults(fn=cmd_reconcile_ai)
 
     p = sub.add_parser("fx-rates", help="130: the stored MNB exchange rates (counts); --fetch FROM TO: fetch a span (free)")
