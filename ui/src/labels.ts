@@ -456,7 +456,8 @@ export function itemBudget(r: Recipe, params: Record<string, string>, kind?: str
   return Object.fromEntries(Object.entries(out).filter(([p]) => !drop.has(p)));
 }
 
-const KIND_BUDGET: Record<string, string> = tmap({ email: "levelenként", document: "PDF-iratonként" });
+const KIND_BUDGET: Record<string, string> = tmap({ email: "levelenként", document: "PDF-iratonként",
+  statement_table: "per statement from a table export" });  // 136: read by code, so its budget is empty
 /** The per-item budget line by line (one line per item kind), e.g. „levelenként: JEV legfeljebb 0,05 USD” (per email:
  *  JEV at most 0.05 USD). */
 export function itemBudgetLines(r: Recipe, params: Record<string, string>, only?: string[]): string[] {

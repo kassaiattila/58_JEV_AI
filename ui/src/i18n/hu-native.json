@@ -652,5 +652,7 @@
   "(optional: the bank and the period)": "(elhagyható: a bank és az időszak)",
   "Create with {{n}} account(s)": "Létrehozás {{n}} számlával",
   "{{institution}} statements {{from}} – {{to}}": "{{institution}}-kivonatok {{from}} – {{to}}",
-  "{{n}} statement(s) from a table export: read by code, free.": "{{n}} kivonat táblázatos exportból: kódos olvasás, ingyenes."
+  "{{n}} statement(s) from a table export: read by code, free.": "{{n}} kivonat táblázatos exportból: kódos olvasás, ingyenes.",
+  "Read by code from the bank's table export; this statement has no page image.": "A bank táblázatos exportjából, kódból olvasva; ennek a kivonatnak nincs oldalképe.",
+  "per statement from a table export": "táblázatos kivonatonként"
 }
