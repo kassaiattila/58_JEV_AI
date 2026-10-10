@@ -74,6 +74,19 @@ def test_rows_are_located_by_their_amounts_in_document_order():
     assert out[1]["quote"].startswith("Energiadij")
 
 
+def test_a_statement_row_is_found_by_its_amount_printed_with_a_minus_sign():
+    # 138: a statement prints a debit as "-44.970,00" while the extraction keeps the amount unsigned with its direction;
+    # without the amount both lines hold only the two dates, and the first one would win
+    layer = layer_of([
+        [("2026.06.08.", 20), ("2026.06.06.", 90), ("Example", 160), ("Shop", 210), ("-29.764,00", 300)],
+        [("2026.06.08.", 20), ("2026.06.06.", 90), ("Example", 160), ("Store", 210), ("-44.970,00", 300)],
+    ])
+    kinds = {"booking_date": "date", "value_date": "date", "amount": "money", "counterparty_name": "text"}
+    rows = [{"booking_date": "2026-06-08", "value_date": "2026-06-06", "amount": "44970", "counterparty_name": "Example Store"}]
+    [found] = grounding.locate_rows(layer, rows, kinds)
+    assert found["status"] == "located" and found["quote"].endswith("-44.970,00")
+
+
 def test_row_without_findable_values_has_no_frame():
     out = grounding.locate_rows(_table(), [{"description": "Nincs ilyen", "net_amount": "999999"}, {}], KINDS)
     assert [r["status"] for r in out] == ["not_found", "no_value"]

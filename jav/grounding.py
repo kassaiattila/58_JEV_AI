@@ -512,12 +512,22 @@ def _parts(layer: SourceLayer, kind: str, value: str) -> list[Word] | None:
 ROW_ANCHOR_KINDS = ("money", "date")
 
 
+def _negated(value: Any) -> str | None:
+    """The amount with the other sign (a canonical decimal string), or None when it is no nonzero amount."""
+    try:
+        amount = Decimal(str(value))
+    except (ArithmeticError, ValueError):
+        return None
+    return str(-amount) if amount.is_finite() and amount != 0 else None
+
+
 def locate_rows(layer: SourceLayer | None, rows: list[Any], kinds: dict[str, str]) -> list[dict[str, Any]]:
     """The location of an itemised list's rows: the row's amounts and dates (anchors) on the same word-layer line. The
     line with the most anchors wins; on a tie, the first one after the previous row's line (the list is in document
     order, so items with repeated amounts land on consecutive lines). Without anchors, the description text is searched.
-    Box: every word of the word-layer line; `approximate` when a row with several anchors matches only one of them on
-    the line."""
+    An amount is found with either sign (138: a statement prints a debit as "-44.970,00", the extraction keeps 44970
+    and its direction). Box: every word of the word-layer line; `approximate` when a row with several anchors matches
+    only one of them on the line."""
     if layer is None:
         return [_entry("no_layer", None) for _ in rows]
     cache: dict[tuple[str, str], list[list[Word]]] = {}
@@ -526,6 +536,10 @@ def locate_rows(layer: SourceLayer | None, rows: list[Any], kinds: dict[str, str
         key = (kind, str(value))
         if key not in cache:
             cache[key] = search(layer, kind, value)
+            if kind == "money" and (other := _negated(value)) is not None:
+                # 138: a statement prints a debit with a minus sign while the extraction keeps the amount unsigned
+                # with its direction (and a credit note may be the other way round)
+                cache[key] = cache[key] + search(layer, kind, other)
         return cache[key]
 
     out: list[dict[str, Any]] = []

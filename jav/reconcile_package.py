@@ -31,13 +31,12 @@ Layer: UI/CLI → **this** (application operation) → `jav.reconcile` (the core
 from __future__ import annotations
 
 import json
-import re
 from collections import Counter, defaultdict
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import cfg, corrections, parties, reconcile, store, work
+from jav import cfg, corrections, grounding, parties, reconcile, store, typepack, work
 
 KIND = "reconcile"
 REVOKE_KINDS = ("allocation", "mark", "decision")
@@ -100,8 +99,9 @@ def _day(value: Any, what: str) -> date:
 
 
 def accounts() -> list[dict[str, Any]]:
-    """The own accounts and cards the store has statements of, to choose a package's scope from: the account key, the
-    printed account, the statement kinds and currencies, how many statements and the span they cover."""
+    """The own accounts and cards to choose a package's scope from: those the store has statements of and, 138, those
+    registered with a party without a statement yet: the account key, the printed account, the statement kinds and
+    currencies, how many statements and the span they cover, the party and the registered details."""
     groups: dict[str, dict[str, Any]] = {}
     for st in reconcile.snapshot()["statements"]:
         key = reconcile.statement_account(st)
@@ -114,10 +114,21 @@ def accounts() -> list[dict[str, Any]]:
             if st.get(k):
                 edge = "first" if k == "period_start" else "last"
                 g[edge] = pick(filter(None, (g[edge], str(st[k])[:10])))
-    r, names = parties.resolver(), _party_names()
+    r, names, registered = parties.resolver(), _party_names(), _registered()
+    for key, details in registered.items():
+        if key not in groups:
+            groups[key] = {"key": key, "account": details["label"], "statement_types": set(), "currencies": set(),
+                           "statements": 0, "first": None, "last": None}
     return [{**g, "statement_types": sorted(t for t in g["statement_types"] if t),
-             "currencies": sorted(c for c in g["currencies"] if c), "party": _party_ref(r.account(k), names)}
+             "currencies": sorted({*(c for c in g["currencies"] if c), *registered.get(k, {}).get("currencies", [])}),
+             "party": _party_ref(r.account(k), names), "registered": registered.get(k)}
             for k, g in sorted(groups.items())]
+
+
+def _registered() -> dict[str, dict[str, Any]]:
+    """138: the accounts registered with a party, with their details and the label the party knows them by."""
+    labels = {i["key"]: i["label"] for p in parties.parties() for i in p["identities"] if i["kind"] == "account"}
+    return {k: {**d, "label": labels[k]} for k, d in parties.accounts().items() if k in labels}
 
 
 def _party_names() -> dict[str, str]:
@@ -146,7 +157,7 @@ def _checked_scope(keys: Iterable[str], period_start: Any, period_end: Any) -> t
         raise PackageError("choose at least one account or card")
     known = {a["key"] for a in accounts()}
     if unknown := [k for k in chosen if k not in known]:
-        raise PackageError(f"no statement in the store for: {', '.join(unknown)}")
+        raise PackageError(f"neither a statement nor a registered account: {', '.join(unknown)}")
     return chosen, start.isoformat(), end.isoformat()
 
 
@@ -212,10 +223,13 @@ def _in_scope(st: dict[str, Any], sc: dict[str, Any]) -> bool:
 
 def scoped_snapshot(wp_id: str, *, fetch_rates: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
     """The store's snapshot with the package's scope: every statement stays for the amounts allocated so far, the
-    proposal and the coverage take the scope's statements only."""
+    proposal and the coverage take the scope's statements only; 138: the scope's registered accounts have to be
+    covered too, with or without a statement (`own_accounts`)."""
     sc = scope(wp_id)
     snap = reconcile.snapshot(fetch_rates=fetch_rates)
-    return {**snap, "scope_statements": [st["id"] for st in snap["statements"] if _in_scope(st, sc)]}, sc
+    own = [{"key": k, **{f: d[f] for f in ("kind", "currencies", "valid_from", "valid_to")}}
+           for k, d in sorted(parties.accounts().items()) if k in sc["accounts"]]
+    return {**snap, "scope_statements": [st["id"] for st in snap["statements"] if _in_scope(st, sc)], "own_accounts": own}, sc
 
 
 # --- the workspace -----------------------------------------------------------------------------------------------------
@@ -240,24 +254,6 @@ class _Parties:
     def own(self, invoice_id: str) -> bool:
         ref = self.of(invoice_id) if self.party else None
         return ref is None or ref["id"] == self.party
-
-
-def _months(start: str, end: str) -> list[str]:
-    y, m = int(start[:4]), int(start[5:7])
-    out = []
-    while f"{y:04d}-{m:02d}" <= end[:7]:
-        out.append(f"{y:04d}-{m:02d}")
-        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
-    return out
-
-
-def _approved_runs(runs: Iterable[str | None]) -> set[str]:
-    ids = sorted({r for r in runs if r})
-    if not ids:
-        return set()
-    with store.connect() as c:
-        return {r["run_id"] for r in c.execute(
-            f"SELECT run_id FROM runs WHERE approval IS NOT NULL AND run_id IN ({','.join('?' * len(ids))})", ids)}
 
 
 def _money(value: Any) -> Decimal | None:
@@ -407,7 +403,7 @@ def workspace(wp_id: str) -> dict[str, Any]:
             wanted.add(iid)
     files = reconcile.file_names([*wanted, *(st["id"] for st in statements)])
     docs = [*(invoices[i] for i in wanted if i in invoices), *statements]
-    approved = _approved_runs(d.get("work_run") for d in docs)
+    approved = work.approved_runs(d.get("work_run") for d in docs)
     invoice_rows = []
     for iid in sorted(wanted, key=lambda i: (str(invoices[i].get("issue_date") or ""), i)):
         inv = invoices[iid]
@@ -427,7 +423,7 @@ def workspace(wp_id: str) -> dict[str, Any]:
     coverage = []
     for key in sc["accounts"]:
         own = [st for st in statements if reconcile.statement_account(st) == key]
-        for month in _months(sc["period_start"], sc["period_end"]):
+        for month in reconcile.months(sc["period_start"], sc["period_end"]):
             meets = [st for st in own if str(st.get("period_start") or "")[:7] <= month <= str(st.get("period_end") or "")[:7]]
             coverage.append({"account": key, "month": month, "statements": len(meets),
                              "verified": sum(1 for st in meets if st.get("verified"))})
@@ -606,7 +602,7 @@ def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: s
 
     def write(c) -> dict[str, Any]:
         before = c.execute("SELECT run_id FROM reconcile_decisions WHERE pair_key=?", (key,)).fetchone()
-        if before is not None and before["run_id"] and _approved_runs([before["run_id"]]):
+        if before is not None and before["run_id"] and work.approved_runs([before["run_id"]]):
             raise work.RevisionConflict("the pair was decided in an approved run; the decision is frozen")
         c.execute("INSERT INTO reconcile_decisions(pair_key, invoice_doc_id, statement_doc_id, line_id, decision, signals,"
                   " amount_relation, run_id, actor, note, decided_at, workpackage_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
@@ -689,7 +685,7 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
     if row is None:
         raise KeyError(ref)
     _scope_line(ctx, row["line_id"])
-    if kind == "decision" and row["run_id"] and _approved_runs([row["run_id"]]):
+    if kind == "decision" and row["run_id"] and work.approved_runs([row["run_id"]]):
         raise work.RevisionConflict("the pair was decided in an approved run; the decision is frozen")
 
     def write(c) -> None:
@@ -706,58 +702,18 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
 
 # --- where a line stands on its statement page --------------------------------------------------------------------------
 
-_SEP = "[ .  ]?"  # a thousands separator a statement may print: space, dot, (narrow) no-break space
-_WORD = re.compile(r"[^\W\d_]{4,}")
 
-
-def _amount_pattern(amount: Decimal) -> re.Pattern[str]:
-    """The amount as a statement prints it: digits grouped by three with an optional separator, a decimal comma or
-    point, with or without a sign; no digit may continue it on either side."""
-    whole, _, frac = f"{abs(amount):.2f}".partition(".")
-    groups = []
-    while whole:
-        groups.insert(0, whole[-3:])
-        whole = whole[:-3]
-    return re.compile(r"(?<![\d.,])[-+]?" + _SEP.join(groups) + r"[,.]" + frac + r"(?!\d)")
-
-
-def _date_patterns(day: date) -> list[re.Pattern[str]]:
-    y, m, d = f"{day.year:04d}", f"{day.month:02d}", f"{day.day:02d}"
-    return [re.compile(rf"{y}[.\-/ ]?{m}[.\-/ ]?{d}"), re.compile(rf"(?<!\d){m}[.\-/]{d}(?!\d)"),
-            re.compile(rf"(?<!\d){d}[.\-/]{m}(?!\d)")]
-
-
-def find_line(layer: Any, line: dict[str, Any], *, rank: int = 0) -> tuple[int | None, list[float] | None]:
-    """132: the page and the box (0–1 fractions of the page: x0, y0, x1, y1) of a statement line, found in the
-    statement's word layer by code: the text line that prints its amount, preferring the one with its booking date on
-    the same line (or next to it) and a word of its name or memo nearby. `rank`: the line's order among the statement's
-    lines with the same date and amount, which tells identical lines apart. Not found: (None, None)."""
-    amount = _money(line.get("amount"))
-    if amount is None or amount == 0:
-        return None, None
-    pattern = _amount_pattern(amount)
-    day = _iso(line.get("booking_date"))
-    dates = _date_patterns(day) if day else []
-    names = set(_WORD.findall(" ".join(str(line.get(k) or "") for k in ("counterparty_name", "description", "memo")).lower()))
-    grouped: dict[tuple[int, int | None], list[Any]] = defaultdict(list)
-    for w in layer.words:
-        grouped[(w.page, w.line_no)].append(w)
-    rows = sorted(grouped.values(), key=lambda ws: (ws[0].page, min(w.y0 for w in ws)))
-    texts = [" ".join(w.text for w in sorted(ws, key=lambda w: w.x0)) for ws in rows]
-    hits: list[tuple[int, int]] = []
-    for i, text in enumerate(texts):
-        if not pattern.search(text):
-            continue
-        near = " ".join(texts[max(0, i - 1):i + 2])
-        score = 1 + (2 if any(p.search(text) for p in dates) else 1 if any(p.search(near) for p in dates) else 0)
-        score += 1 if names and any(n in near.lower() for n in names) else 0
-        hits.append((score, i))
-    if not hits:
-        return None, None
-    best = max(s for s, _ in hits)
-    top = [i for s, i in hits if s == best]
-    ws = rows[top[min(rank, len(top) - 1)]]
-    return ws[0].page, [min(w.x0 for w in ws), min(w.y0 for w in ws), max(w.x1 for w in ws), max(w.y1 for w in ws)]
+def place(layer: Any, doc_type: str, lines: list[dict[str, Any]], line_id: str) -> tuple[int | None, list[float] | None]:
+    """The page and the box (0-1 fractions of the page: x0, y0, x1, y1) of one statement line in the statement's word
+    layer. 138 (Q-line-locator reuse): the statement's lines are located together, in document order, by the review
+    page's row locator (`grounding.locate_rows`: the line's amounts, with either sign, and dates on one text line), so
+    identical lines land on consecutive text lines; only a sure place counts, (None, None) otherwise. On the store's 233
+    lines it placed every one; on 3 it chose the booking line with its running balance, where the pairing page's own
+    search of 132 had chosen a detail line printing the same amount."""
+    kinds = dict(typepack.get(doc_type).list_fields.get("transactions", {}))
+    rows = grounding.locate_rows(layer, [{k: v for k, v in ln.items() if k != "id"} for ln in lines], kinds)
+    where = rows[[ln["id"] for ln in lines].index(line_id)]
+    return (where.get("page"), where.get("bbox")) if where["status"] == "located" else (None, None)
 
 
 def locate(wp_id: str, line_id: str) -> dict[str, Any]:
@@ -773,9 +729,7 @@ def locate(wp_id: str, line_id: str) -> dict[str, Any]:
     layer = corrections.layer_for(corrections.datapoints_row(statement["work_run"], statement["item_id"]))
     if layer is None:
         return out
-    key = (line.get("booking_date"), str(_money(line.get("amount"))))
-    same = [ln["id"] for ln in statement["lines"] if (ln.get("booking_date"), str(_money(ln.get("amount")))) == key]
-    out["page"], out["box"] = find_line(layer, line, rank=same.index(line_id) if line_id in same else 0)
+    out["page"], out["box"] = place(layer, statement["doc_type"], statement["lines"], line_id)
     return out
 
 

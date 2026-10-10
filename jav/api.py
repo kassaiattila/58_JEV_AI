@@ -421,6 +421,26 @@ class SetPartyIdentity(PartyIdentity):
     party_id: PartyId | None = None  # required for "assign"
 
 
+# 138 (DECISIONS 137): an own account or card registered with its details (`jav/parties.py` `own_accounts`)
+class AccountDetails(_In):
+    kind: Literal["account", "card"]
+    currencies: Annotated[list[Annotated[str, Field(pattern=r"^[A-Za-z]{3}$")]], Field(min_length=1, max_length=10)]
+    bank: Annotated[str, Field(max_length=100)] | None = None
+    valid_from: IsoDay | None = None  # the day it was opened; None: since its first statement
+    valid_to: IsoDay | None = None  # the day it was closed; None: still open
+
+
+class RegisterPartyAccount(AccountDetails):
+    number: Annotated[str, Field(min_length=1, max_length=80)]  # an IBAN or a domestic account number, as printed
+
+
+class SetPartyAccount(AccountDetails):
+    key: Annotated[str, Field(min_length=1, max_length=80)]  # the account's key (an identity of kind "account")
+
+
+Month = Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")]
+
+
 class TaskDone(_In):
     done: bool
 
@@ -1112,6 +1132,25 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def delete_party(party_id: PartyId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         parties.delete(party_id, actor=who)
         return work_views.jsonable(party_views.overview())
+
+    # 138: accounts and cards registered with their details, and a party's data month by month
+
+    @app.post(r + "/parties/{party_id}/accounts")
+    def register_party_account(party_id: PartyId, body: RegisterPartyAccount,
+                               who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(party_views.register_account(
+            party_id, body.number, kind=body.kind, currencies=body.currencies, bank=body.bank, valid_from=body.valid_from,
+            valid_to=body.valid_to, actor=who))
+
+    @app.post(r + "/parties/accounts/details")
+    def set_party_account(body: SetPartyAccount, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        parties.set_account(body.key, kind=body.kind, currencies=body.currencies, bank=body.bank, valid_from=body.valid_from,
+                            valid_to=body.valid_to, actor=who)
+        return work_views.jsonable(party_views.overview())
+
+    @app.get(r + "/parties/{party_id}/months")
+    def party_months(party_id: PartyId, start: Month | None = None, end: Month | None = None) -> dict[str, Any]:
+        return work_views.jsonable(party_views.months(party_id, start, end))
 
     # --- 131: the reconciliation package (jav/reconcile_package.py): a scope, two lists, decisions per pair ---
 

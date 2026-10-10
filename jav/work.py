@@ -504,6 +504,16 @@ def list_workpackages(*, include_archived: bool = False) -> list[dict[str, Any]]
     return [dict(r) for r in rows]
 
 
+def approved_runs(runs: Iterable[str | None]) -> set[str]:
+    """The approved ones of the given runs (a document's source counts only from an approved run)."""
+    ids = sorted({r for r in runs if r})
+    if not ids:
+        return set()
+    with store.connect() as c:
+        return {r["run_id"] for r in c.execute(
+            f"SELECT run_id FROM runs WHERE approval IS NOT NULL AND run_id IN ({','.join('?' * len(ids))})", ids)}
+
+
 # --- hiding, renaming, deleting (058) ----------------------------------------------------------------
 # The name and the hiding are not part of the run's input, so they do not bump the revision (runs and readiness stay).
 

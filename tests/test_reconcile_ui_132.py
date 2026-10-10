@@ -115,24 +115,33 @@ def _layer(doc_id: str, rows: list[tuple[int, str]]) -> source_layer.SourceLayer
     return layer
 
 
+# 138 (Q-line-locator reuse): the pairing page places a line with the review page's row locator (grounding.locate_rows)
+
+
+def _lines(*lines):
+    return reconcile.with_line_ids("s" * 64, list(lines))
+
+
 def test_a_line_is_found_by_its_amount_and_date_on_the_same_text_line():
-    line = e1._line(amount="12345.00", day="2026-04-10", memo="INV-0001")
+    [line] = _lines(e1._line(amount="12345.00", day="2026-04-10", memo="INV-0001"))
     layer = _layer("s" * 64, [(1, "Opening balance 12 345,00"), (1, "2026.04.09 Card fee 12 345,00"),
                               (2, "2026.04.10 Example Supplier INV-0001 -12 345,00")])
-    page, box = rp.find_line(layer, line, rank=0)
+    page, box = rp.place(layer, "statement_cib", [line], line["id"])
     assert page == 2 and box is not None and box[1] < box[3]
 
 
 def test_identical_lines_are_told_apart_by_their_order():
-    line = e1._line(amount="5.00", day="2026-04-10", memo="fee", counterparty_name="Bank", description="Fee")
+    fee = e1._line(amount="5.00", day="2026-04-10", memo="fee", counterparty_name="Bank", description="Fee")
+    lines = _lines(fee, fee)
     layer = _layer("s" * 64, [(1, "2026.04.10 Bank fee 5,00"), (1, "2026.04.10 Bank fee 5,00")])
-    (_p1, first), (_p2, second) = rp.find_line(layer, line, rank=0), rp.find_line(layer, line, rank=1)
+    (_p1, first), (_p2, second) = (rp.place(layer, "statement_cib", lines, ln["id"]) for ln in lines)
     assert first is not None and second is not None and first[1] < second[1]
 
 
 def test_a_line_whose_amount_is_not_printed_is_not_located():
     layer = _layer("s" * 64, [(1, "2026.04.10 Something else 7,00")])
-    assert rp.find_line(layer, e1._line(amount="100.00"), rank=0) == (None, None)
+    [line] = _lines(e1._line(amount="100.00"))
+    assert rp.place(layer, "statement_cib", [line], line["id"]) == (None, None)
 
 
 def test_the_package_locates_a_line_on_its_statements_word_layer(db):

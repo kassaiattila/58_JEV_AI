@@ -8,6 +8,10 @@ invoices and the holder of the bank accounts and cards. It has a name and identi
   order ignored), so "Jane Example" and "EXAMPLE, Jane" are one variant;
 - `account`: a bank account or card by its statement key (`reconcile.statement_account`).
 
+138 (DECISIONS 137): an account or card can also be registered with its party in advance, with its kind, bank,
+currencies and the days it was open (`own_accounts`), so an account without a processed statement is known too: the
+reconciliation asks it to be covered and the monthly data status shows its missing months.
+
 An identity belongs to one party at most, or is dismissed as no own party's (a buyer name misread from a ticket).
 Nothing is fixed (the owner's decision of 2026-10-10): the store's data proposes the parties (`suggest`), a person
 accepts, renames, merges, moves or dismisses, and every reader resolves at read time (`Resolver`), so a change shows at
@@ -25,9 +29,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from difflib import SequenceMatcher
 from itertools import combinations
 from typing import Any, Callable, Iterable
@@ -56,6 +61,22 @@ CREATE TABLE IF NOT EXISTS own_party_identities (
 );
 CREATE INDEX IF NOT EXISTS ix_own_party_identities_party ON own_party_identities(party_id);
 """)
+store.register_schema("party_accounts", """
+-- 138 (DECISIONS 137): an own account or card registered with its details, before or after its first statement; whose
+-- it is stays in own_party_identities (kind 'account'), so moving and merging work as for every identity
+CREATE TABLE IF NOT EXISTS own_accounts (
+    key         TEXT PRIMARY KEY,   -- the statement's account key (reconcile.statement_account)
+    kind        TEXT NOT NULL,      -- account | card
+    bank        TEXT,
+    currencies  TEXT NOT NULL,      -- JSON: the ISO 4217 codes it books in
+    valid_from  TEXT,               -- ISO date it was opened; NULL: since its first statement
+    valid_to    TEXT,               -- ISO date it was closed; NULL: still open
+    actor       TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+""")
+ACCOUNT_KINDS = ("account", "card")
+BANK_MAX = 100
 
 
 class PartyError(ValueError):
@@ -273,6 +294,77 @@ def delete(party_id: str, *, actor: str) -> None:
             raise PartyError(f"the party is used by {used} record(s); merge it into another one instead")
         c.execute("DELETE FROM own_party_identities WHERE party_id=?", (party_id,))
         c.execute("DELETE FROM own_parties WHERE id=?", (party_id,))
+
+
+# --- accounts and cards registered with their details (138) -------------------------------------------------------------
+
+
+def _account_details(kind: str, bank: str | None, currencies: Iterable[str], valid_from: str | None,
+                     valid_to: str | None) -> tuple[str, str | None, str, str | None, str | None]:
+    if kind not in ACCOUNT_KINDS:
+        raise PartyError(f"an account is one of {', '.join(ACCOUNT_KINDS)}")
+    clean_bank = " ".join(str(bank or "").split()) or None
+    if clean_bank and len(clean_bank) > BANK_MAX:
+        raise PartyError(f"a bank's name is at most {BANK_MAX} characters")
+    codes = sorted({str(c).strip().upper() for c in currencies})
+    if not codes or not all(re.fullmatch(r"[A-Z]{3}", c) for c in codes):
+        raise PartyError("an account books in one currency at least, each an ISO code of three letters")
+    days = []
+    for value in (valid_from, valid_to):
+        try:
+            days.append(date.fromisoformat(value).isoformat() if value else None)
+        except ValueError as exc:
+            raise PartyError("the days an account was open are ISO dates") from exc
+    if days[0] and days[1] and days[0] > days[1]:
+        raise PartyError("the account is closed before it was opened")
+    return kind, clean_bank, json.dumps(codes), days[0], days[1]
+
+
+def _put_account(c, key: str, details: tuple[str, str | None, str, str | None, str | None], actor: str) -> None:
+    c.execute("INSERT INTO own_accounts(key, kind, bank, currencies, valid_from, valid_to, actor, updated_at)"
+              " VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(key) DO UPDATE SET kind=excluded.kind, bank=excluded.bank,"
+              " currencies=excluded.currencies, valid_from=excluded.valid_from, valid_to=excluded.valid_to,"
+              " actor=excluded.actor, updated_at=excluded.updated_at", (key, *details, actor, _now()))
+
+
+def register_account(party_id: str, key: str, label: str, *, kind: str, currencies: Iterable[str], bank: str | None = None,
+                     valid_from: str | None = None, valid_to: str | None = None, actor: str) -> dict[str, Any]:
+    """An own account or card given to a party with its details, whether its statements are processed yet or not; a
+    dismissed or unassigned account is taken, another party's is refused (a person moves it on purpose)."""
+    canon = _canonical("account", key)
+    details = _account_details(kind, bank, currencies, valid_from, valid_to)
+    with store.connect() as c:
+        store.begin_immediate(c)
+        _exists(c, party_id)
+        held = c.execute("SELECT p.name FROM own_party_identities i JOIN own_parties p ON p.id = i.party_id"
+                         " WHERE i.kind='account' AND i.key=? AND i.party_id<>?", (canon, party_id)).fetchone()
+        if held is not None:
+            raise PartyError(f"the account is {held['name']}'s; move it from there")
+        _put(c, "account", canon, label, party_id, actor)
+        _put_account(c, canon, details, actor)
+    return get(party_id)
+
+
+def set_account(key: str, *, kind: str, currencies: Iterable[str], bank: str | None = None, valid_from: str | None = None,
+                valid_to: str | None = None, actor: str) -> None:
+    """The details of an account a party holds (one found on statements included)."""
+    canon = _canonical("account", key)
+    details = _account_details(kind, bank, currencies, valid_from, valid_to)
+    with store.connect() as c:
+        store.begin_immediate(c)
+        if not c.execute("SELECT 1 FROM own_party_identities WHERE kind='account' AND key=? AND party_id IS NOT NULL",
+                         (canon,)).fetchone():
+            raise KeyError(key)
+        _put_account(c, canon, details, actor)
+
+
+def accounts() -> dict[str, dict[str, Any]]:
+    """The registered details of the accounts, by key: kind, bank, currencies, the days open, who set them."""
+    with store.connect() as c:
+        rows = c.execute("SELECT * FROM own_accounts ORDER BY key").fetchall()
+    return {r["key"]: {"kind": r["kind"], "bank": r["bank"], "currencies": json.loads(r["currencies"]),
+                       "valid_from": r["valid_from"], "valid_to": r["valid_to"], "actor": r["actor"],
+                       "updated_at": r["updated_at"]} for r in rows}
 
 
 # --- reading ------------------------------------------------------------------------------------------------------------

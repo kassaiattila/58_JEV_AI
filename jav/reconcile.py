@@ -76,6 +76,12 @@ window around the issue date and is compared on the original amount exactly (`eq
 rate; like a converted pair it is allocated only in whole. An account with such lines counts in the coverage of a
 foreign-currency invoice's card window, as a card statement does.
 
+**Accounts registered in advance** (138, DECISIONS 137): an own account or card can be registered with its party before
+any statement of it is processed (`jav/parties.py`); a reconciliation package passes its scope's registrations in the
+snapshot (`own_accounts`: key, kind, currencies, the days it was open). Such an account has to be covered like one
+with statements, so an invoice it may have paid is never `no_payment_found` while its statements are missing; it is
+asked only for the part of a window it was open, and a registered forint card counts in the card window.
+
 **Allocations and marks** (131 E1, the reconciliation package, `jav/reconcile_package.py`): a confirmation is an
 allocation of an amount (`reconcile_allocations`), several per line and per invoice, never over either amount; a
 `paid_by` decision counts as both whole amounts. The proposal compares what is left, so the rest of a split payment can
@@ -107,7 +113,7 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.6.0"
+ENGINE_VERSION = "1.7.0"
 STATUSES = ("confirmed", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing", "no_payment_found",
             "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate")  # how a candidate's amounts relate
@@ -667,7 +673,18 @@ def amount_relation(invoice: dict[str, Any], payment: dict[str, Any], rates: dic
     return None, None
 
 
-def _merge(intervals: Iterable[tuple[date, date]]) -> list[tuple[date, date]]:
+def months(start: str, end: str) -> list[str]:
+    """The months ("YYYY-MM") from the month of `start` to the month of `end`, both included."""
+    y, m = int(start[:4]), int(start[5:7])
+    out = []
+    while f"{y:04d}-{m:02d}" <= end[:7]:
+        out.append(f"{y:04d}-{m:02d}")
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    return out
+
+
+def merge_periods(intervals: Iterable[tuple[date, date]]) -> list[tuple[date, date]]:
+    """The periods joined where they overlap or follow each other without a day between."""
     out: list[tuple[date, date]] = []
     for start, end in sorted(intervals):
         if out and start <= out[-1][1] + timedelta(days=1):
@@ -687,10 +704,10 @@ def coverage(statements: dict[str, dict[str, Any]]) -> dict[tuple[str, str], lis
         start, end = _date(st.get("period_start")), _date(st.get("period_end"))
         if st.get("verified") and start and end and start <= end:
             periods[key].append((start, end))
-    return {k: _merge(v) for k, v in periods.items()}
+    return {k: merge_periods(v) for k, v in periods.items()}
 
 
-def _covered(periods: list[tuple[date, date]], start: date, end: date) -> str:
+def covered_by(periods: list[tuple[date, date]], start: date, end: date) -> str:
     """full / partial / none: how much of [start, end] the merged periods cover."""
     if any(a <= start and end <= b for a, b in periods):
         return "full"
@@ -774,15 +791,29 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     card_accounts = {(statement_account(st), str(st.get("currency"))) for st in in_scope.values()
                      if (st.get("statement_type") in f["statement_types"] and st.get("currency") == f["line_currency"])
                      or statement_account(st) in purchases}
+    registered = {str(a["key"]): a for a in snapshot.get("own_accounts") or []}
+    for key, acct in sorted(registered.items()):  # 138: an account registered in advance has to be covered, statement or not
+        for cur in acct.get("currencies") or []:
+            periods.setdefault((key, str(cur)), [])
+            if acct.get("kind") == "card" and cur == f["line_currency"]:
+                card_accounts.add((key, str(cur)))
+
+    def covered(key: tuple[str, str], start: date, end: date) -> str | None:
+        """How far the account covers the window, within the days it was open (None: closed for the whole window)."""
+        acct = registered.get(key[0]) or {}
+        opened, closed = _date(acct.get("valid_from")), _date(acct.get("valid_to"))
+        start, end = max(start, opened) if opened else start, min(end, closed) if closed else end
+        return covered_by(periods[key], start, end) if start <= end else None
+
     statuses = []
     for iid, inv in sorted(prepared["invoices"].items()):
         mine = [c for c in candidates if c["invoice_id"] == iid]
         signed = [c for c in mine if not c["amount_only"]]
         start, end = window(inv)
-        cover = [_covered(p, start, end) for (_acct, cur), p in periods.items() if cur == inv["currency"]]
+        cover = [c for key in sorted(periods) if key[1] == inv["currency"] and (c := covered(key, start, end)) is not None]
         if rate_need(inv):  # a card account can pay it too, in the card window
             fx_start, fx_end = fx_window(inv)
-            cover += [_covered(periods[key], fx_start, fx_end) for key in sorted(card_accounts)]
+            cover += [c for key in sorted(card_accounts) if (c := covered(key, fx_start, fx_end)) is not None]
         if iid in paid_invoices:
             status = "confirmed"
         elif any(c["proposed"] for c in mine):
@@ -939,6 +970,7 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
             statements.append({"id": d["doc_id"], "doc_type": d["doc_type"], "account": v.get("account_iban") or v.get("account_no"),
                                "currency": v.get("currency"), "statement_type": v.get("statement_type"),
                                "period_start": v.get("period_start"), "period_end": v.get("period_end"),
+                               "opening_balance": v.get("opening_balance"), "closing_balance": v.get("closing_balance"),
                                "verified": verified(d["validation"]), "lines": with_line_ids(d["doc_id"], lines), **_origin(d)})
         else:
             invoices.append({"id": d["doc_id"], "doc_type": d["doc_type"], "number": v.get(f["number"]),
@@ -1064,7 +1096,7 @@ def golden_cases() -> list[dict[str, Any]]:
         out.append({"id": case["id"], "note": case.get("note"),
                     "snapshot": {"invoices": invoices, "statements": statements, "decisions": case.get("decisions", []),
                                  "fx_rates": case.get("fx_rates", {}), "allocations": case.get("allocations", []),
-                                 "marks": case.get("marks", [])},
+                                 "marks": case.get("marks", []), "own_accounts": case.get("accounts", [])},
                     "expected": case["expected"], "source_review": case.get("source_review", [])})
     return out
 

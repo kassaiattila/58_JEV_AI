@@ -101,6 +101,8 @@ describe("a new package starts from its own party", () => {
       { key: "acct-2", account: "3333-4444", statement_types: ["credit_card"], currencies: ["HUF"], statements: 1, first: "2026-05-01", last: "2026-05-31", party: null },
     ] });
     const create = vi.spyOn(api, "createReconcilePackage").mockResolvedValue({ workpackage: { id: WP } } as unknown as WorkpackageView);
+    vi.spyOn(api, "partyMonths").mockResolvedValue({ party: HOME, start: "2026-04", end: "2026-08", months: [], today: "2026-10-10",
+      columns: [], invoices: [], summary: { ok: 0, unapproved: 0, unverified: 0, partial: 0, missing: 0, overlap: 0, break: 0 } }); // 138
     const done = vi.fn();
     render(<ReconcileCreate onDone={done} />);
     const home = await screen.findByRole("radio", { name: /Example Home/ });
