@@ -353,6 +353,9 @@ export interface ReconcileLine {
   statement_verified: boolean; file: string | null;
   other_candidates?: { invoice_id: string; party: string | null }[]; // 133: candidates among another party's invoices
   ai?: Partial<Record<ReconcileAiEngine, ReconcileAiProposal>>; // 134: the AI's stored answers about the line
+  /** 135: the counterparty name without its reference numbers (null: no name), and the needs-no-invoice reasons a
+   *  person gave the partner's other lines, the most frequent first (none through a payment app) */
+  partner?: string | null; earlier_marks?: { category: string; lines: number }[];
 }
 /** 134: JEV's or GPT's raw answer about a statement line (jav/reconcile_ai.py); a person decides. */
 export type ReconcileAiEngine = "jev" | "gpt";
@@ -591,6 +594,8 @@ export const api = {
     request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/reject`, { invoice_doc_id: invoiceDocId, line_id: lineId, note }),
   reconcileMark: (wpId: string, lineIds: string[], category: string, note?: string) =>
     request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/mark`, { line_ids: lineIds, category, ...(note ? { note } : {}) }),
+  reconcileUnmark: (wpId: string, lineIds: string[]) =>
+    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/unmark`, { line_ids: lineIds }),
   reconcileRevoke: (wpId: string, kind: "allocation" | "mark" | "decision", ref: string, note?: string) =>
     request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/revoke`, { kind, ref, ...(note ? { note } : {}) }),
   reconcileLocate: (wpId: string, lineId: string) =>

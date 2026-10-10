@@ -8,6 +8,13 @@
 // 1–9 picks a candidate, Enter pairs, x rejects, m marks, d shows the documents, Esc clears, ? lists the keys.
 // 133: a package is one own party's (DECISIONS 133): the other parties' invoices show with a switch or a search, named by
 // their party, and the selected line says when another party's invoice is its candidate.
+// 135 (plan 134 P2): the lines can be grouped by partner; a group's head shows the suggested needs-no-invoice reason (a
+// person's earlier reason for the partner, or the AI's kind of payment) and marks or unmarks the group in one step. The
+// lines whose kind expects an invoice that has no candidate have a filter of their own (the missing invoices, per
+// partner when grouped). A candidate shows its strength and the engines that chose it; an invoice the AI chose without
+// a code candidate stands among the candidates, marked as the AI's. p selects the partner's lines. Both lists have a
+// row of filters (FilterRows.tsx): the lines by partner, kind, direction and amount; the other invoices by supplier,
+// party, currency, state, issue date, amount or nearness to the selected line's amount, and having a candidate.
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   api, ApiError, OPEN_LINE_STATES, type ReconcileCandidate, type ReconcileInvoice, type ReconcileLine, type ReconcileLineState,
@@ -17,14 +24,21 @@ import { ConfirmButton } from "../../components/ConfirmButton";
 import { t, useLocale } from "../../i18n";
 import { tmap } from "../../labels";
 import { DocumentPair } from "./DocumentPair";
-import { EXCLUDED, INVOICE_STATE, LINE_STATE, MARK, relationText, SIGNAL } from "./labels";
+import { InvoiceFilterRow, LineFilterRow } from "./FilterRows";
+import {
+  activeCount, invoiceMatches, lineMatches, NO_INVOICE_FILTERS, NO_LINE_FILTERS, type InvoiceFilters, type LineFilters,
+} from "./filters";
+import { ENGINE, EXCLUDED, INVOICE_STATE, KIND, LINE_STATE, MARK, probability, relationText, SIGNAL } from "./labels";
 import { display, parseCanonical, parseInput, show, sum } from "./money";
 import { candidateOf, check, planPairing, rankedCandidates, rest, toRequest, type PlannedPair, type Plan, type Refusal } from "./pairing";
+import {
+  aiChosen, aiPicks, expectsInvoice, groupByPartner, kinds, markable, suggestMark, type MarkSuggestion, type PartnerGroup,
+} from "./partners";
 
-type LineFilter = "todo" | "all" | ReconcileLineState;
+type LineFilter = "todo" | "expected" | "all" | ReconcileLineState;
 type Mode = null | "pair" | "reject" | "mark" | "keys";
 const PAGE = 300;
-const FILTERS: LineFilter[] = ["todo", "proposed", "amount_only", "partly_allocated", "open", "allocated", "marked", "excluded", "all"];
+const FILTERS: LineFilter[] = ["todo", "expected", "proposed", "amount_only", "partly_allocated", "open", "allocated", "marked", "excluded", "all"];
 
 const REFUSAL: Record<Refusal, string> = tmap({
   nothing: "Select a statement line and an invoice.",
@@ -50,6 +64,7 @@ const isTyping = (el: EventTarget | null) =>
 
 function filterLabel(f: LineFilter): string {
   if (f === "todo") return t("To decide");
+  if (f === "expected") return t("Invoice expected");
   if (f === "all") return t("All");
   return LINE_STATE[f];
 }
@@ -60,7 +75,7 @@ function matches(line: ReconcileLine, q: string): boolean {
   return hay.includes(q.toLowerCase());
 }
 
-function invoiceMatches(inv: ReconcileInvoice, q: string): boolean {
+function invoiceSearch(inv: ReconcileInvoice, q: string): boolean {
   if (!q) return true;
   const hay = [inv.supplier_name, inv.number, inv.amount, show(inv.amount), inv.file, inv.issue_date].join(" ").toLowerCase();
   return hay.includes(q.toLowerCase());
@@ -78,6 +93,10 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
   const [invQ, setInvQ] = useState("");
   const [unpaidOnly, setUnpaidOnly] = useState(true);
   const [showOthers, setShowOthers] = useState(false);
+  const [grouped, setGrouped] = useState(false);
+  const [lineFilters, setLineFilters] = useState<LineFilters>(NO_LINE_FILTERS);
+  const [invoiceFilters, setInvoiceFilters] = useState<InvoiceFilters>(NO_INVOICE_FILTERS);
+  const [filtersShown, setFiltersShown] = useState({ lines: false, invoices: false });
   const [limit, setLimit] = useState(PAGE);
   const [active, setActive] = useState<string | null>(null);
   const [selLines, setSelLines] = useState<string[]>([]);
@@ -94,16 +113,22 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
   const invoiceById = useMemo(() => new Map(ws.invoices.map((i) => [i.id, i])), [ws.invoices]);
   const months = useMemo(() => [...new Set(ws.lines.map((l) => (l.booking_date ?? "").slice(0, 7)).filter(Boolean))].sort(), [ws.lines]);
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: ws.lines.length, todo: 0 };
+    const c: Record<string, number> = { all: ws.lines.length, todo: 0, expected: 0 };
     for (const l of ws.lines) {
       c[l.state] = (c[l.state] ?? 0) + 1;
       if (OPEN_LINE_STATES.includes(l.state)) c.todo += 1;
+      if (expectsInvoice(l)) c.expected += 1;
     }
     return c;
   }, [ws.lines]);
-  const visible = useMemo(() => ws.lines.filter((l) =>
-    (filter === "all" || (filter === "todo" ? OPEN_LINE_STATES.includes(l.state) : l.state === filter))
-    && (!account || l.account === account) && (!month || (l.booking_date ?? "").startsWith(month)) && matches(l, q)), [ws.lines, filter, account, month, q]);
+  const filtered = useMemo(() => ws.lines.filter((l) =>
+    (filter === "all" || (filter === "todo" ? OPEN_LINE_STATES.includes(l.state) : filter === "expected" ? expectsInvoice(l) : l.state === filter))
+    && (!account || l.account === account) && (!month || (l.booking_date ?? "").startsWith(month)) && matches(l, q) && lineMatches(lineFilters, l)),
+  [ws.lines, filter, account, month, q, lineFilters]);
+  // grouped by partner, the list runs group by group, so the keys move in the order shown
+  const groups = useMemo(() => (grouped ? groupByPartner(filtered) : []), [grouped, filtered]);
+  const visible = useMemo(() => (grouped ? groups.flatMap((g) => g.lines) : filtered), [grouped, groups, filtered]);
+  const groupOf = useMemo(() => new Map(groups.flatMap((g) => g.lines.map((l) => [l.id, g] as const))), [groups]);
   const activeLine = active ? lineById.get(active) ?? null : null;
   // a state filter that a decision emptied falls back to the lines still to decide (its chip would vanish otherwise)
   useEffect(() => { if (filter !== "todo" && filter !== "all" && !counts[filter]) setFilter("todo"); }, [filter, counts]);
@@ -140,6 +165,7 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
   const pairCandidate = lines.length === 1 && invoices.length === 1 ? candidateOf(lines[0], invoices[0].id) : undefined;
   const canReject = Boolean(pairCandidate) && !lines[0]?.allocations.some((a) => a.invoice_id === invoices[0]?.id);
   const canMark = lines.length > 0 && invoices.length === 0 && lines.every((l) => l.state !== "allocated" && parseCanonical(l.allocated) === 0n);
+  const suggestion = canMark ? suggestMark(lines) : null;
 
   function choose(id: string, additive: boolean) {
     setActive(id);
@@ -207,8 +233,11 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
       e.preventDefault();
       setSelLines((sel) => (sel.includes(active) ? sel.filter((x) => x !== active) : [...sel, active]));
     } else if (/^[1-9]$/.test(e.key) && activeLine) {
-      const c = rankedCandidates(activeLine).filter((x) => !activeLine.rejected.includes(x.invoice_id))[Number(e.key) - 1];
-      if (c) toggleInvoice(c.invoice_id);
+      const id = candidateRows[Number(e.key) - 1];
+      if (id) toggleInvoice(id);
+    } else if (e.key === "p" && activeLine) {
+      const partner = visible.filter((l) => activeLine.partner && l.partner === activeLine.partner).map((l) => l.id);
+      if (partner.length) { setSelLines(partner); setSelInvoices([]); }
     } else if (e.key === "Enter" && !onButton) {
       e.preventDefault();
       pair();
@@ -225,15 +254,20 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
 
   // the invoice list: the active line's candidates first, then the rest (unpaid ones by default)
   const candidates = activeLine ? rankedCandidates(activeLine).filter((c) => !activeLine.rejected.includes(c.invoice_id) && invoiceById.has(c.invoice_id)) : [];
-  const candidateIds = new Set(candidates.map((c) => c.invoice_id));
+  // 135: an invoice the AI chose that code did not offer stands after the code's candidates
+  const aiOnly = activeLine ? aiChosen(activeLine).filter((id) => invoiceById.has(id) && !activeLine.rejected.includes(id)
+    && !candidates.some((c) => c.invoice_id === id)) : [];
+  const candidateRows = [...candidates.map((c) => c.invoice_id), ...aiOnly];
+  const candidateIds = new Set(candidateRows);
   const otherCandidates = activeLine?.other_candidates ?? [];
   const otherIds = new Set(otherCandidates.map((c) => c.invoice_id));
   // without a search, the invoices nearest to the selected line's amount come first (same currency before others), so
   // the payment of a line without a candidate is found by eye; otherwise the newest first. Another party's invoice is
   // listed with the switch on, or when a search finds it (133).
-  const others = ws.invoices.filter((i) => !candidateIds.has(i.id) && invoiceMatches(i, invQ)
-    && (i.own !== false || showOthers || Boolean(invQ) || selInvoices.includes(i.id))
-    && (!unpaidOnly || (i.state !== "confirmed" && rest(i) > 0n) || selInvoices.includes(i.id)));
+  // a supplier or party filter finds another party's invoice as a search does; a state filter overrides "unpaid only"
+  const others = ws.invoices.filter((i) => !candidateIds.has(i.id) && invoiceSearch(i, invQ) && invoiceMatches(invoiceFilters, i, activeLine)
+    && (i.own !== false || showOthers || Boolean(invQ) || Boolean(invoiceFilters.supplier || invoiceFilters.party) || selInvoices.includes(i.id))
+    && (!unpaidOnly || Boolean(invoiceFilters.state) || (i.state !== "confirmed" && rest(i) > 0n) || selInvoices.includes(i.id)));
   const byAmount = Boolean(activeLine) && !invQ;
   if (byAmount && activeLine) {
     const target = rest(activeLine);
@@ -252,7 +286,8 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
       <div className="rc-toolbar" role="toolbar" aria-label={t("Filters")}>
         <span className="chip-row" role="group" aria-label={t("Lines by state")}>
           {FILTERS.filter((f) => f === "todo" || f === "all" || counts[f]).map((f) => (
-            <button key={f} type="button" className="chip" aria-pressed={filter === f} onClick={() => { setFilter(f); setLimit(PAGE); }}>
+            <button key={f} type="button" className="chip" aria-pressed={filter === f}
+              onClick={() => { setFilter(f); setLimit(PAGE); if (f === "expected") setGrouped(true); }}>
               {filterLabel(f)} ({counts[f] ?? 0})
             </button>
           ))}
@@ -287,6 +322,10 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
                 {months.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             ) : null}
+            <label className="check small">
+              <input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} /> {t("By partner")}
+            </label>
+            <FilterToggle open={filtersShown.lines} count={activeCount(lineFilters)} onToggle={() => setFiltersShown((f) => ({ ...f, lines: !f.lines }))} />
             {visible.length > 1 && !readOnly ? (
               <label className="check small">
                 <input type="checkbox" checked={visible.slice(0, limit).every((l) => selLines.includes(l.id))}
@@ -295,10 +334,23 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
               </label>
             ) : null}
           </div>
+          {filtersShown.lines ? <LineFilterRow lines={ws.lines} value={lineFilters} onChange={(f) => { setLineFilters(f); setLimit(PAGE); }} /> : null}
           <ul className="rc-list plain" aria-label={t("Statement lines")}>
-            {visible.slice(0, limit).map((l) => (
-              <LineRow key={l.id} line={l} active={l.id === active} selected={selLines.includes(l.id)} onChoose={choose} />
-            ))}
+            {visible.slice(0, limit).map((l, n, shown) => {
+              const g = groupOf.get(l.id);
+              const head = g && (n === 0 || groupOf.get(shown[n - 1].id) !== g) ? (
+                <PartnerHead group={g} selected={selLines} readOnly={readOnly} busy={busy}
+                  onSelect={(ids) => { setSelLines(ids); setSelInvoices([]); if (ids[0]) setActive(ids[0]); setMode(null); }}
+                  onMark={(ids) => { setSelLines(ids); setSelInvoices([]); if (ids[0]) setActive(ids[0]); setMode("mark"); }}
+                  onUnmark={(ids) => void act(() => api.reconcileUnmark(wpId, ids), { done: t("The marks have been undone.") })} />
+              ) : null;
+              return (
+                <Fragment key={l.id}>
+                  {head}
+                  <LineRow line={l} active={l.id === active} selected={selLines.includes(l.id)} onChoose={choose} />
+                </Fragment>
+              );
+            })}
             {!visible.length ? <li className="rc-more muted small">{t("No line matches the filters.")}</li> : null}
             {visible.length > limit ? (
               <li className="rc-more"><button type="button" className="quiet small-btn" onClick={() => setLimit((n) => n + PAGE)}>{t("Show {{n}} more", { n: Math.min(PAGE, visible.length - limit) })}</button></li>
@@ -316,18 +368,25 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
                 <input type="checkbox" checked={showOthers} onChange={(e) => setShowOthers(e.target.checked)} /> {t("Other parties' invoices too ({{n}})", { n: ws.counts.other_invoices })}
               </label>
             ) : null}
+            <FilterToggle open={filtersShown.invoices} count={activeCount(invoiceFilters)} onToggle={() => setFiltersShown((f) => ({ ...f, invoices: !f.invoices }))} />
           </div>
+          {filtersShown.invoices ? <InvoiceFilterRow invoices={ws.invoices} target={activeLine} value={invoiceFilters} onChange={setInvoiceFilters} /> : null}
           <div className="rc-list">
             {activeLine ? <LineDetail line={activeLine} invoiceById={invoiceById} readOnly={readOnly} busy={busy}
               onRevoke={(kind, ref) => void act(() => api.reconcileRevoke(wpId, kind, ref), { done: t("The decision has been undone.") })} /> : null}
             {activeLine ? (
               <>
-                <p className="rc-section">{candidates.length ? t("Candidates of the selected line") : t("The selected line has no candidate; search the invoices below")}</p>
+                <p className="rc-section">{candidateRows.length ? t("Candidates of the selected line") : t("The selected line has no candidate; search the invoices below")}</p>
                 <ul className="plain">
                   {candidates.map((c, n) => {
                     const inv = invoiceById.get(c.invoice_id)!;
-                    return <InvoiceRow key={inv.id} invoice={inv} candidate={c} index={n + 1} selected={selInvoices.includes(inv.id)} onToggle={toggleInvoice} readOnly={readOnly} scoped={scoped} />;
+                    return <InvoiceRow key={inv.id} invoice={inv} candidate={c} index={n + 1} selected={selInvoices.includes(inv.id)} onToggle={toggleInvoice}
+                      readOnly={readOnly} scoped={scoped} ai={aiPicks(activeLine, inv.id)} />;
                   })}
+                  {aiOnly.map((id, n) => (
+                    <InvoiceRow key={id} invoice={invoiceById.get(id)!} index={candidates.length + n + 1} selected={selInvoices.includes(id)} onToggle={toggleInvoice}
+                      readOnly={readOnly} scoped={scoped} ai={aiPicks(activeLine, id)} />
+                  ))}
                 </ul>
                 {otherCandidates.length ? (
                   <p className="small muted rc-others">
@@ -381,7 +440,7 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
               onSave={(note) => void act(() => api.reconcileReject(wpId, invoices[0].id, lines[0].id, note))} />
           ) : null}
           {mode === "mark" && canMark ? (
-            <MarkPanel count={lines.length} categories={ws.line_marks} busy={busy} onCancel={() => setMode(null)}
+            <MarkPanel count={lines.length} categories={ws.line_marks} suggestion={suggestion} busy={busy} onCancel={() => setMode(null)}
               onSave={(category, note) => void act(() => api.reconcileMark(wpId, lines.map((l) => l.id), category, note), { advance: true })} />
           ) : null}
           {mode === "keys" ? <KeysHelp /> : null}
@@ -393,6 +452,16 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
   );
 }
 
+/** 135: shows or hides a list's filters; the count says how many are set while they are hidden. */
+function FilterToggle({ open, count, onToggle }: { open: boolean; count: number; onToggle: () => void }) {
+  useLocale();
+  return (
+    <button type="button" className={count ? "secondary small-btn" : "quiet small-btn"} aria-expanded={open} onClick={onToggle}>
+      {count ? t("Filters ({{n}})", { n: count }) : t("Filters")}
+    </button>
+  );
+}
+
 function LineRow({ line, active, selected, onChoose }: {
   line: ReconcileLine; active: boolean; selected: boolean; onChoose: (id: string, additive: boolean) => void;
 }) {
@@ -400,6 +469,8 @@ function LineRow({ line, active, selected, onChoose }: {
   useEffect(() => { if (active) ref.current?.scrollIntoView?.({ block: "nearest" }); }, [active]);
   const amount = signed(line);
   const partly = parseCanonical(line.allocated) !== 0n && line.state !== "allocated";
+  const expected = expectsInvoice(line);
+  const suggested = !expected && markable(line) ? suggestMark([line]) : null;
   return (
     <li ref={ref} className={`rc-row${active ? " active" : ""}${selected ? " is-selected" : ""}`} aria-current={active ? "true" : undefined}>
       <input type="checkbox" checked={selected} aria-label={t("Select the line {{name}}", { name: lineTitle(line) })} onChange={() => onChoose(line.id, true)} />
@@ -415,19 +486,77 @@ function LineRow({ line, active, selected, onChoose }: {
           {partly ? <span className="small muted">{t("left: {{amount}}", { amount: show(line.rest, line.currency) })}</span> : null}
           {line.mark ? <span className="small muted">{MARK[line.mark.category] ?? line.mark.category}</span> : null}
           {line.excluded_reason ? <span className="small muted">{EXCLUDED[line.excluded_reason] ?? line.excluded_reason}</span> : null}
+          {expected ? <span className="rc-sig warn">{t("invoice expected")}</span> : null}
+          {suggested ? <span className="small muted">{t("suggested: {{reason}}", { reason: MARK[suggested.category] ?? suggested.category })}</span> : null}
         </span>
       </button>
     </li>
   );
 }
 
-function InvoiceRow({ invoice, candidate, index, selected, onToggle, readOnly, scoped }: {
+/** 135: the head of a partner's lines: how many and how much, the suggested reason and the AI's kinds, and the buttons
+ *  that select, mark or unmark the group's lines in one step. */
+function PartnerHead({ group, selected, readOnly, busy, onSelect, onMark, onUnmark }: {
+  group: PartnerGroup; selected: string[]; readOnly: boolean; busy: boolean;
+  onSelect: (ids: string[]) => void; onMark: (ids: string[]) => void; onUnmark: (ids: string[]) => void;
+}) {
+  useLocale();
+  const ids = group.lines.map((l) => l.id);
+  const open = group.lines.filter(markable);
+  const marked = group.lines.filter((l) => l.mark);
+  const expected = group.lines.filter(expectsInvoice).length;
+  const suggestion = suggestMark(open);
+  const currencies = new Set(group.lines.map((l) => l.currency));
+  const total = currencies.size === 1 ? display(sum(group.lines.map(signed)), group.lines[0].currency) : t("several currencies");
+  const kindsOf = [...new Set(group.lines.flatMap((l) => kinds(l).map((k) => k.kind)))];
+  const all = ids.every((id) => selected.includes(id));
+  return (
+    <li className="rc-group" aria-label={t("Partner {{name}}", { name: group.name })}>
+      {readOnly ? <span /> : (
+        <input type="checkbox" checked={all} aria-label={t("Select the lines of {{name}}", { name: group.name })}
+          onChange={() => onSelect(all ? [] : ids)} />
+      )}
+      <span className="rc-group-body">
+        <span className="rc-group-name">{group.name}</span>
+        <span className="small muted">{t("{{n}} lines", { n: group.lines.length })} · <span className="mono">{total}</span></span>
+        {kindsOf.length ? <span className="small muted">{t("AI: {{kinds}}", { kinds: kindsOf.map((k) => KIND[k] ?? k).join(", ") })}</span> : null}
+        {expected ? <span className="rc-sig warn">{t("invoice expected: {{n}}", { n: expected })}</span> : null}
+        {suggestion ? <span className="rc-sig">{suggestionText(suggestion)}</span> : null}
+      </span>
+      {readOnly ? null : (
+        <span className="rc-group-actions">
+          {open.length ? (
+            <button type="button" className="secondary small-btn" disabled={busy} onClick={() => onMark(open.map((l) => l.id))}>
+              {t("Needs no invoice ({{n}})", { n: open.length })}
+            </button>
+          ) : null}
+          {marked.length ? (
+            <button type="button" className="quiet small-btn" disabled={busy} onClick={() => onUnmark(marked.map((l) => l.id))}>
+              {t("Undo the marks ({{n}})", { n: marked.length })}
+            </button>
+          ) : null}
+        </span>
+      )}
+    </li>
+  );
+}
+
+/** Where a suggested reason comes from, in words. */
+function suggestionText(s: MarkSuggestion): string {
+  const reason = MARK[s.category] ?? s.category;
+  if (s.source === "earlier") return t("Earlier for this partner: {{reason}} ({{n}} lines)", { reason, n: s.lines ?? 0 });
+  if (s.source === "ai_both") return t("AI suggests: {{reason}} (JEV and GPT agree)", { reason });
+  return t("AI suggests: {{reason}} ({{engine}} only)", { reason, engine: (s.engines ?? []).map((e) => ENGINE[e]).join(", ") });
+}
+
+function InvoiceRow({ invoice, candidate, index, selected, onToggle, readOnly, scoped, ai = [] }: {
   invoice: ReconcileInvoice; candidate?: ReconcileCandidate; index?: number; selected: boolean; onToggle: (id: string) => void; readOnly: boolean;
   scoped?: boolean; // 133: the package has an own party, so an invoice without one is marked
+  ai?: { engine: string; probability: number | null }[]; // 135: the engines that chose it as the selected line's payment
 }) {
   const partly = parseCanonical(invoice.allocated) !== 0n && invoice.state !== "confirmed";
   return (
-    <li className={`rc-row${candidate ? " candidate" : ""}${selected ? " is-selected" : ""}`}>
+    <li className={`rc-row${candidate || ai.length ? " candidate" : ""}${selected ? " is-selected" : ""}`}>
       <input type="checkbox" checked={selected} disabled={readOnly} aria-label={t("Select the invoice {{name}}", { name: invoiceTitle(invoice) })} onChange={() => onToggle(invoice.id)} />
       <button type="button" className="rc-rowbody" disabled={readOnly} onClick={() => onToggle(invoice.id)}>
         <span className="rc-date">{invoice.issue_date ?? "–"}</span>
@@ -435,6 +564,14 @@ function InvoiceRow({ invoice, candidate, index, selected, onToggle, readOnly, s
         <span className="rc-text">
           <span className="rc-main">{index ? <span className="kbd">{index}</span> : null} {invoiceTitle(invoice)}</span>
           <span className="rc-sub">{[invoice.due_date ? t("due {{date}}", { date: invoice.due_date }) : null, invoice.file].filter(Boolean).join(" · ")}</span>
+          {candidate || ai.length ? (
+            <span className="rc-sigs">
+              {!candidate ? <span className="rc-sig warn">{t("AI only: code found nothing that ties them")}</span> : null}
+              {candidate?.strength !== undefined ? <span className="rc-sig">{t("strength {{n}}", { n: candidate.strength })}</span> : null}
+              {ai.map((a) => <span key={a.engine} className="rc-sig good">{`${ENGINE[a.engine] ?? a.engine} ${probability(a.probability)}`}</span>)}
+              {candidate?.by_due ? <span className="rc-sig good">{t("booked by the due date")}</span> : null}
+            </span>
+          ) : null}
           {candidate ? (
             <span className="rc-sigs">
               {candidate.amount_relation ? <span className={`rc-sig ${candidate.amount_relation === "equal" || candidate.amount_relation === "fx_within" ? "good" : "warn"}`}>{relationText(candidate.amount_relation)}</span> : null}
@@ -473,6 +610,21 @@ function LineDetail({ line, invoiceById, readOnly, busy, onRevoke }: {
         {line.memo ? <><dt>{t("Memo")}</dt><dd>{line.memo}</dd></> : null}
         {line.description ? <><dt>{t("Description")}</dt><dd>{line.description}</dd></> : null}
         <dt>{t("Statement")}</dt><dd>{line.file ?? "–"}{line.statement_verified ? "" : ` · ${t("balances do not check out")}`}</dd>
+        {kinds(line).length ? (
+          <>
+            <dt>{t("Kind (AI)")}</dt>
+            <dd>
+              {kinds(line).map((k) => `${ENGINE[k.engine]}: ${KIND[k.kind] ?? k.kind} ${probability(k.probability)}`).join(" · ")}
+              {expectsInvoice(line) ? ` · ${t("an invoice is expected, but none is in the store")}` : ""}
+            </dd>
+          </>
+        ) : null}
+        {line.earlier_marks?.length ? (
+          <>
+            <dt>{t("Earlier for this partner")}</dt>
+            <dd>{line.earlier_marks.map((e) => t("{{reason}} ({{n}} lines)", { reason: MARK[e.category] ?? e.category, n: e.lines })).join(", ")}</dd>
+          </>
+        ) : null}
       </dl>
       {line.allocations.map((a) => (
         <div key={`${a.invoice_id}|${a.allocation_id ?? "d"}`} className="rc-decided">
@@ -578,17 +730,19 @@ function ReasonPanel({ label, action, busy, onSave, onCancel }: {
   );
 }
 
-function MarkPanel({ count, categories, busy, onSave, onCancel }: {
-  count: number; categories: string[]; busy: boolean; onSave: (category: string, note?: string) => void; onCancel: () => void;
+function MarkPanel({ count, categories, suggestion, busy, onSave, onCancel }: {
+  count: number; categories: string[]; suggestion?: MarkSuggestion | null; busy: boolean; onSave: (category: string, note?: string) => void; onCancel: () => void;
 }) {
   useLocale();
-  const [category, setCategory] = useState(categories[0] ?? "");
+  // 135: the suggested reason is chosen at the start; a person can choose another before saving
+  const [category, setCategory] = useState(suggestion && categories.includes(suggestion.category) ? suggestion.category : categories[0] ?? "");
   const [note, setNote] = useState("");
   const needsNote = category === "other";
   return (
     <form className="rc-panel" aria-label={t("Needs no invoice")} onSubmit={(e) => { e.preventDefault(); if (category && (!needsNote || note.trim())) onSave(category, note.trim() || undefined); }}>
       <fieldset className="rc-reasons">
         <legend className="small">{t("Why do the {{n}} selected lines need no invoice?", { n: count })}</legend>
+        {suggestion ? <p className="small muted rc-suggestion">{suggestionText(suggestion)}</p> : null}
         {categories.map((c) => (
           <label key={c} className="check small"><input type="radio" name="mark" checked={category === c} onChange={() => setCategory(c)} /> {MARK[c] ?? c}</label>
         ))}
@@ -609,7 +763,8 @@ function KeysHelp() {
   const rows: [string, string][] = [
     ["↑ ↓ / j k", t("Previous or next line")], ["Space", t("Add the line to the selection or take it out")],
     ["1–9", t("Select or unselect a candidate invoice")], ["Enter", t("Pair the selection")], ["x", t("Not this one (with a reason)")],
-    ["m", t("Needs no invoice (with a reason)")], ["d", t("Show or hide the documents")], ["Esc", t("Clear the selection or close the panel")],
+    ["m", t("Needs no invoice (with a reason)")], ["p", t("Select the lines of the partner")], ["d", t("Show or hide the documents")],
+    ["Esc", t("Clear the selection or close the panel")],
   ];
   return <dl className="rc-keys rc-panel">{rows.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl>;
 }

@@ -24,6 +24,7 @@ raw answers to `runs/<stamp>_reconcile_ai.jsonl`; an engine's failure on a line 
 from __future__ import annotations
 
 import json
+from collections import Counter
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -357,6 +358,57 @@ def run(wp_id: str, *, engines: Iterable[str], limits: dict[str, Decimal], max_l
             fh.write(json.dumps(row, ensure_ascii=False) + "\n")
     return {"scope": scope, "raw": str(raw), "lines": len(items), "counts": counts, "usage": calls.budget_usage(scope),
             "jev_config": jev_hash(), "gpt_config": gpt_hash()}
+
+
+def _pays_outcome(answer: dict[str, Any], paid: set[str], marked: bool) -> str:
+    if not answer["options"]:
+        return "not_offered" if paid else "not_asked"
+    if paid and not paid & set(answer["options"]):
+        return "not_offered"  # the preselection missed the invoice the person paired
+    if marked:
+        return "right" if answer["pays"] is None else "wrong"
+    return "right" if answer["pays"] in paid else "missed" if answer["pays"] is None else "wrong"
+
+
+def _kind_outcome(answer: dict[str, Any], marked: str | None) -> str:
+    if marked:
+        return "no_suggestion" if answer["suggested_mark"] is None else "agrees" if answer["suggested_mark"] == marked else "differs"
+    return "agrees" if answer["expects_invoice"] else "differs" if answer["suggested_mark"] else "no_suggestion"
+
+
+def evaluate(wp_id: str) -> dict[str, Any]:
+    """135 (plan 134 P2): the stored answers against a person's decisions on the package's lines; free and read only.
+    The person's decision is the reference: a line paired with invoices, or marked as needing no invoice with a reason;
+    lines still open or left out are not counted. Per engine:
+
+    - `pays`: `right` when the engine chose an invoice the person paired, or none for a marked line; `missed` when it
+      chose none for a paired line; `wrong` for another invoice, or one for a marked line; `not_offered` when the
+      invoice the person paired was not among the options (the preselection missed it); `not_asked` for a marked line
+      without options.
+    - `kind`: for a marked line `agrees` when the reason the kind suggests is the person's, `differs` when it suggests
+      another, `no_suggestion` when it suggests none; for a paired line `agrees` when the kind expects an invoice,
+      `differs` when it suggests a needs-no-invoice reason.
+
+    An engine's failed answer counts as `failed` in both. Agreement with a person is measured here, not between the
+    models (DECISIONS 134)."""
+    ws = reconcile_package.workspace(wp_id)
+    tally = {e: {"pays": Counter(), "kind": Counter()} for e in ENGINES}
+    rows = []
+    for ln in ws["lines"]:
+        paid = {a["invoice_id"] for a in ln["allocations"]}
+        marked = (ln.get("mark") or {}).get("category")
+        if not ln.get("ai") or not (paid or marked):
+            continue
+        row: dict[str, Any] = {"line_id": ln["id"], "decision": "marked" if marked else "paired", "reason": marked}
+        for engine, answer in ln["ai"].items():
+            pays, kind = (("failed", "failed") if answer["error"] else
+                          (_pays_outcome(answer, paid, bool(marked)), _kind_outcome(answer, marked)))
+            tally[engine]["pays"][pays] += 1
+            tally[engine]["kind"][kind] += 1
+            row[engine] = {"pays": pays, "kind": kind}
+        rows.append(row)
+    return {"workpackage_id": wp_id, "lines_decided": len(rows), "rows": rows,
+            "engines": {e: {k: dict(sorted(v.items())) for k, v in t.items()} for e, t in tally.items()}}
 
 
 def proposals(line_ids: Iterable[str]) -> dict[str, dict[str, dict[str, Any]]]:
