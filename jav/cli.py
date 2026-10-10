@@ -593,6 +593,26 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_statement_table(args: argparse.Namespace) -> int:
+    """136 (E4): a bank's tabular statement export (a workbook or a CSV file) read by code, free: the accounts found
+    with their line counts, dates and checks; account numbers only by their last four characters, no lines or
+    balances printed."""
+    from jav import statement_table
+
+    try:
+        reading = statement_table.read(Path(args.file))
+    except (OSError, statement_table.StatementTableError) as exc:
+        print(f"not readable as a statement table: {exc}")
+        return 2
+    survey = statement_table.survey(reading)
+    print(f"profile {survey['profile']} ({survey['institution']}); repairs: {', '.join(survey['repairs']) or 'none'}")
+    for n, a in enumerate(survey["accounts"], start=1):
+        print(f"{n:>2}. {a['title']} ({a['currency']}) {a['account'] or '-'}: {a['lines']} lines {a['first'] or ''} - {a['last'] or ''};"
+              f" period {a['period_start']} - {a['period_end']}; checks {'ok' if a['checks_ok'] else 'FAILED'}"
+              + (f"; {a['problems']} unreadable lines" if a["problems"] else ""))
+    return 0
+
+
 def cmd_fx_rates(args: argparse.Namespace) -> int:
     """130: the stored MNB exchange rates (counts and the latest attempts, no rates printed); with --fetch FROM TO one
     request for the span. Free; only the dates and the currency codes leave the machine."""
@@ -817,6 +837,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--evaluate", action="store_true",
                    help="free: compare the stored answers with a person's decisions on the package's lines")
     p.set_defaults(fn=cmd_reconcile_ai)
+
+    p = sub.add_parser("statement-table", help="136: a tabular bank statement export read by code (free): the accounts found and their checks")
+    p.add_argument("file", help="the workbook (.xlsx) or CSV file")
+    p.set_defaults(fn=cmd_statement_table)
 
     p = sub.add_parser("fx-rates", help="130: the stored MNB exchange rates (counts); --fetch FROM TO: fetch a span (free)")
     p.add_argument("--fetch", nargs=2, metavar=("FROM", "TO"), help="fetch the published days of the span (YYYY-MM-DD)")

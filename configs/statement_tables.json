@@ -1,0 +1,47 @@
+{
+  "meta": {
+    "name": "statement_tables",
+    "version": "1.0.0",
+    "description": "136 E4 (jav/statement_table.py): bank statements exported as a table (a workbook or a CSV file), read by code without AI. A profile names a kind of export by its column headers and says where an account's title, number and balances stand; the header aliases, titles and labels are document vocabulary, quoted as the bank prints them. Decisions: DECISIONS 132 (a general tabular statement reader, not code for one bank; only the two personal accounts of the Revolut export go into the store), DECISIONS 136 (processed as a work package, one statement per account, the accounts chosen by a person before the run).",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-10",
+        "note": "136: first version, the Hungarian Revolut consolidated statement (an Excel workbook whose first column holds the CSV records, UTF-8 read as cp1250): the account summaries with the IBAN and the opening and closing balances, then one transaction table per account ending in a total row; the period is printed in the file name only."
+      }
+    ]
+  },
+  "limits": {
+    "max_bytes": 20000000,
+    "max_rows": 100000,
+    "max_cells": 1000000,
+    "archive": {"archive_entries": 200, "expanded_bytes": 200000000, "expansion_ratio": 200}
+  },
+  "repairs": {
+    "csv_in_first_columns": {"max_filled_cells": 2, "min_share": 0.8},
+    "mojibake": {"read_as": "cp1250", "markers": ["Ă", "Ĺ", "Â", "Ä", "â€"]}
+  },
+  "profiles": [
+    {
+      "name": "revolut_consolidated_hu",
+      "institution": "Revolut",
+      "columns": {
+        "date": ["Dátum"],
+        "description": ["Leírás"],
+        "category": ["Kategória"],
+        "amount": ["Pénz be-/kifizetése"],
+        "balance": ["Egyenleg"]
+      },
+      "required": ["date", "description", "amount", "balance"],
+      "account_title": "^(?P<name>.+?)\\s*\\((?P<currency>[A-Z]{3})\\)$",
+      "summary": {
+        "account_iban": ["Számlaszám (IBAN)"],
+        "opening_balance": ["Nyitóegyenleg"],
+        "closing_balance": ["Záróegyenleg"]
+      },
+      "total_row": ["Végösszeg"],
+      "statement_type": "bank_account",
+      "period_from_filename": "(?P<start>\\d{4}-\\d{2}-\\d{2})_(?P<end>\\d{4}-\\d{2}-\\d{2})"
+    }
+  ]
+}
