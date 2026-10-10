@@ -352,6 +352,13 @@ export interface ReconcileLine {
   mark: ReconcileLineMark | null; allocations: ReconcileShare[]; candidates: ReconcileCandidate[]; rejected: string[];
   statement_verified: boolean; file: string | null;
   other_candidates?: { invoice_id: string; party: string | null }[]; // 133: candidates among another party's invoices
+  ai?: Partial<Record<ReconcileAiEngine, ReconcileAiProposal>>; // 134: the AI's stored answers about the line
+}
+/** 134: JEV's or GPT's raw answer about a statement line (jav/reconcile_ai.py); a person decides. */
+export type ReconcileAiEngine = "jev" | "gpt";
+export interface ReconcileAiProposal {
+  pays: string | null; pays_probability: number | null; options: string[]; kind: string | null; kind_probability: number | null;
+  suggested_mark: string | null; expects_invoice: boolean | null; measured: boolean; error: string | null; created_at: string;
 }
 export interface ReconcileInvoice {
   id: string; doc_type: string; number: string | null; supplier_name: string | null; amount: string | null; currency: string | null;

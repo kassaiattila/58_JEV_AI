@@ -356,6 +356,11 @@ def workspace(wp_id: str) -> dict[str, Any]:
                           "rejected": sorted(i for i, l_ in rejected if l_ == lid),
                           "statement_verified": bool(st.get("verified"))})
     line_ids = {ln["id"] for ln in lines}
+    from jav import reconcile_ai  # 134: the AI's stored answers per line (that module reads this workspace)
+
+    ai = reconcile_ai.proposals(line_ids)
+    for ln in lines:
+        ln["ai"] = ai.get(ln["id"], {})
     currencies = {str(st.get("currency")) for st in statements}
     cards = any(reconcile.fx_capable({"currency": st.get("currency"), "statement_type": st.get("statement_type")})
                 for st in statements)
