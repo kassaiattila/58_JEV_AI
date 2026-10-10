@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "field_labels",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "changelog": [
+   {
+    "version": "1.5.0",
+    "date": "2026-10-10",
+    "note": "137 (DECISIONS 137): the Hungarian names of a statement line's two new columns, a card purchase's original amount and currency (the Erste PDF statement read by code)."
+   },
    {
     "version": "1.4.0",
     "date": "2026-10-07",
@@ -159,6 +164,8 @@
   "description": "Leírás",
   "counterparty_name": "Partner",
   "counterparty_account": "Partner számlája",
+  "original_amount": "Eredeti összeg",
+  "original_currency": "Eredeti pénznem",
   "memo": "Közlemény",
   "quantity": "Mennyiség",
   "unit": "Egység",

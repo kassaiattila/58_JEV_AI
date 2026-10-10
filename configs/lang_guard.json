@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.20",
+    "version": "1.0.21",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.21",
+        "date": "2026-10-10",
+        "note": "137: accept the Hungarian interface names of a statement line's two new columns, the original amount and currency of a card purchase (configs/field_labels.json). All other file limits are unchanged."
+      },
       {
         "version": "1.0.20",
         "date": "2026-10-10",
@@ -157,7 +162,7 @@
     "configs/experiments/matter_cases.json": 2,
     "configs/experiments/pydantic_jev.json": 3,
     "configs/experiments/source_find_cases.json": 6,
-    "configs/field_labels.json": 167,
+    "configs/field_labels.json": 169,
     "configs/golden_reconcile.json": 9,
     "configs/golden_synthetic.json": 20,
     "configs/grounding.json": 1,
