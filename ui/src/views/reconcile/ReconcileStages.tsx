@@ -2,13 +2,13 @@
 // package's workspace (its lines, invoices, coverage and blockers) is loaded once here; every decision returns the
 // recomputed workspace, which replaces it (no periodic reloading of the whole page, the legacy weakness).
 import { useEffect, useState } from "react";
-import { api, ApiError, type ReconcileWorkspace, type WorkpackageView } from "../../api";
+import { api, ApiError, type ReconcileLeftOver, type ReconcileWorkspace, type WorkpackageView } from "../../api";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { go, type Stage } from "../../route";
 import { AccountChecklist } from "./ReconcileCreate";
 import { ReconcilePairing } from "./ReconcilePairing";
-import { blockerText, INVOICE_STATE, LINE_STATE } from "./labels";
+import { blockerText, INVOICE_STATE, LINE_STATE, MARK } from "./labels";
 import "./reconcile.css";
 
 export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageView; stage: Stage; onChanged: () => void }) {
@@ -140,6 +140,9 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
         </div>
       </section>
 
+      <LeftOver ws={ws} readOnly={readOnly} busy={busy}
+        onRevoke={(r) => void act(() => api.reconcileRevoke(ws.workpackage_id, r.kind, r.ref), t("The decision has been revoked."))} />
+
       <section className="card" aria-label={t("What blocks the approval")}>
         <h2>{t("What blocks the approval")}</h2>
         {ws.blockers.length ? (
@@ -160,6 +163,39 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
         </div>
       </section>
     </div>
+  );
+}
+
+/** 139 (DECISIONS 139): the decisions made on a line of a replaced statement that has no same line on the valid
+ *  statement; each can be revoked here and made again on the valid statement's lines. */
+function LeftOver({ ws, readOnly, busy, onRevoke }: {
+  ws: ReconcileWorkspace; readOnly: boolean; busy: boolean; onRevoke: (r: ReconcileLeftOver) => void;
+}) {
+  useLocale();
+  const rows = ws.left_over ?? [];
+  if (!rows.length) return null;
+  const what = (r: ReconcileLeftOver) => r.kind === "mark" ? t("needs no invoice ({{reason}})", { reason: MARK[r.category ?? ""] ?? r.category ?? "" })
+    : r.kind === "allocation" ? t("paid: {{invoice}}", { invoice: r.invoice_file ?? r.invoice_id?.slice(0, 12) ?? "" })
+      : t("a decision on the pair with {{invoice}}", { invoice: r.invoice_file ?? r.invoice_id?.slice(0, 12) ?? "" });
+  return (
+    <section className="card" aria-label={t("Decisions not carried over")}>
+      <h2>{t("Decisions not carried over")}</h2>
+      <p className="muted small">{t("A better statement replaced one of these accounts' statements, but these lines have no same line on it. Revoke each decision, then make it again on the valid statement's lines.")}</p>
+      <table className="table compact">
+        <thead><tr><th>{t("Line")}</th><th>{t("Decision")}</th><th>{t("Replaced statement")}</th><th>{t("Valid statement")}</th><th /></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={`${r.kind}:${r.ref}`}>
+              <td>{r.booking_date} · {r.counterparty_name ?? "–"} · {r.direction === "credit" ? "+" : "−"}{r.amount} {r.currency}</td>
+              <td>{what(r)}</td>
+              <td>{r.file ?? r.statement_id.slice(0, 12)}</td>
+              <td>{r.replaced_by_file ?? r.replaced_by.slice(0, 12)}</td>
+              <td>{readOnly ? null : <button type="button" className="secondary small-btn" disabled={busy} onClick={() => onRevoke(r)}>{t("Revoke")}</button>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   );
 }
 

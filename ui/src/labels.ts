@@ -191,6 +191,8 @@ export function reasonText(code: string): string {
     case "duplicate:copy": return t("Possible copy of an earlier document (same invoice number and supplier)");
     case "duplicate:variant": return t("Possible modified version of an earlier document (same invoice number and supplier, different values)");
     case "duplicate:undecidable": return t("Possible duplicate of an earlier document (same invoice number and supplier, a value is missing)");
+    // 139: another statement books the same days of the account and neither replaces the other; chosen in its own panel
+    case "statement:overlap": return t("Another statement books the same days of this account: choose the valid one");
     // 129: a proposed invoice <-> statement line pair (jav/reconcile.py); decided in its own panel on the review page.
     // 130: a card line is compared with the invoice amount converted at the MNB rate
     case "reconcile:proposed": return t("Possible payment: a statement line and an invoice have the same amount (for a card payment, the converted amount) and a shared detail");

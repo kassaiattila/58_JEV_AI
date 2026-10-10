@@ -278,7 +278,21 @@ export interface ItemResult {
   source_file?: { copy: boolean; original: "same" | "changed" | "missing" };
   /** 126: the duplicate suspicions and decisions of the document, the other document's values side by side. */
   duplicates?: DuplicatePair[];
+  /** 139: the statement that replaced this one, the ones it replaced, and the undecided ones of the same days. */
+  statements?: StatementRelation[];
 }
+/** 139: one statement of the same account and days as this one: it replaced this one (`replaced_by`), this one replaced
+ *  it (`replaces`), or neither, and a person chooses (`conflict`); `how`: by the rule of ranks or by a person. */
+export type StatementRelationKind = "replaced_by" | "replaces" | "conflict";
+export interface StatementRelation {
+  other_doc_id: string; other_file: string | null; relation: StatementRelationKind; how: "rule" | "person" | null;
+  other_run_id: string | null; other_item_id: string | null; other_workpackage_id: string | null;
+  period: [string | null, string | null]; other_period: [string | null, string | null];
+  rank: string; other_rank: string; lines: number; other_lines: number;
+  carried: number | null; left_over: number | null; reason_id: number | null;
+  kept: string | null; decided_by: string | null; decided_at: string | null;
+}
+export type StatementKeep = "this" | "other" | "rule";
 /** 126: the code's kind of a suspected duplicate and a person's decision on the pair. */
 export type DuplicateKind = "copy" | "variant" | "undecidable";
 export type DuplicateDecision = "copy" | "variant" | "different";
@@ -378,8 +392,16 @@ export interface ReconcileOpen { workpackage_id: string; run_id: string; item_id
 export interface ReconcileCoverage { account: string; month: string; statements: number; verified: number }
 export interface ReconcileBlocker { code: string; doc_id: string; file: string | null; kind: "statement" | "invoice" }
 export interface ReconcileCounts { lines: Record<string, number>; invoices: Record<string, number>; open_lines: number; other_invoices?: number }
+/** 139: a decision made on a line of a replaced statement that has no same line on the statement replacing it. */
+export interface ReconcileLeftOver {
+  kind: "allocation" | "mark" | "decision"; ref: string; line_id: string; statement_id: string; replaced_by: string;
+  invoice_id: string | null; category: string | null; decision: string | null; workpackage_id: string | null;
+  currency: string | null; booking_date: string | null; amount: string | null; direction: string | null;
+  counterparty_name: string | null; file: string | null; replaced_by_file: string | null; invoice_file: string | null;
+}
 export interface ReconcileWorkspace {
   workpackage_id: string; scope: ReconcileScope; lines: ReconcileLine[]; invoices: ReconcileInvoice[];
+  left_over?: ReconcileLeftOver[];
   coverage: ReconcileCoverage[]; blockers: ReconcileBlocker[]; line_marks: string[]; open: Record<string, ReconcileOpen>;
   counts: ReconcileCounts; learned_names: unknown; fx_tolerance: unknown; engine_version: string; config_hash: string;
 }
@@ -412,7 +434,10 @@ export interface AccountDetailsInput {
 /** 138: a month of an account: missing / partial / unverified (balances do not check out) / unapproved / ok, or none
  *  (not expected); overlap: two statements book the same days; break: the opening balance does not continue the last. */
 export type MonthState = "ok" | "unapproved" | "unverified" | "partial" | "missing" | "none";
-export interface MonthCell { month: string; state: MonthState; statements: number; flags: ("overlap" | "break")[] }
+export interface MonthCell {
+  month: string; state: MonthState; statements: number; flags: ("overlap" | "break")[];
+  replaced?: string[]; // 139: the statements of the month another one replaced (left out of the reconciliation)
+}
 export interface MonthColumn {
   key: string; currency: string; label: string; kind: AccountKind; bank: string | null; registered: boolean;
   opened: string | null; closed: string | null; statements: number; months: MonthCell[];
@@ -600,6 +625,9 @@ export const api = {
   /** 126: a person's decision on a suspected duplicate pair (copy, modified version, not the same invoice). */
   decideDuplicate: (runId: string, itemId: string, otherDocId: string, decision: DuplicateDecision) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/duplicates/${enc(otherDocId)}/decision`, { decision }),
+  /** 139: which of two statements of the same days stays valid (this one, the other one, or the rule of ranks). */
+  chooseStatement: (runId: string, itemId: string, otherDocId: string, keep: StatementKeep) =>
+    request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/statements/${enc(otherDocId)}/choice`, { keep }),
   // 131–132: the reconciliation package; every decision returns the recomputed workspace
   reconcileAccounts: () => request<{ accounts: ReconcileAccount[] }>("GET", "/reconcile/accounts"),
   /** 136: the accounts of a bank's tabular statement export (no lines or balances); a package of the chosen ones. */
