@@ -25,7 +25,7 @@ describe("a package from a bank's table export", () => {
     const create = vi.spyOn(api, "createFromStatementTable").mockResolvedValue({ workpackage: { id: "wp-000000000001" } } as WorkpackageView);
     const done = vi.fn();
     render(<StatementTableCreate onDone={done} />);
-    fireEvent.change(screen.getByLabelText("The exported file's full path"), { target: { value: "C:\\exports\\statement.xlsx" } });
+    fireEvent.change(screen.getByLabelText("The exported file's or folder's full path"), { target: { value: "C:\\exports\\statement.xlsx" } });
     fireEvent.click(screen.getByRole("button", { name: "List the accounts" }));
     await screen.findByText("Accounts in the file (Revolut)");
     expect(survey).toHaveBeenCalledWith("C:\\exports\\statement.xlsx");
@@ -36,5 +36,26 @@ describe("a package from a bank's table export", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create with 1 account(s)" }));
     await waitFor(() => expect(done).toHaveBeenCalledWith("wp-000000000001"));
     expect(create).toHaveBeenCalledWith("C:\\exports\\statement.xlsx", ["A:HUF"], "Revolut statements 2026-01-01 – 2026-03-31");
+  });
+
+  it("137: lists a folder's months, marks the ones without a PDF statement and selects them all", async () => {
+    const month = (start: string, end: string, pdf: boolean) => ({
+      key: `111122233333444455556666:HUF:${start}`, account: null, title: `…6666 E ${start.slice(5, 7)}/2026`, occurrence: 1,
+      currency: "HUF", lines: 3, first: start, last: end, period_start: start, period_end: end, checks_ok: pdf, problems: 0,
+      balance_checked: pdf, companion: pdf ? `${end.replace(/-/g, "")}_S.pdf` : null });
+    vi.spyOn(api, "statementTableSurvey").mockResolvedValue({
+      profile: "erste_ledger_hu", institution: "Erste", file: "erste", repairs: [], skipped: 1,
+      accounts: [month("2026-05-01", "2026-05-31", false), month("2026-06-01", "2026-06-30", true)] });
+    const create = vi.spyOn(api, "createFromStatementTable").mockResolvedValue({ workpackage: { id: "wp-000000000002" } } as WorkpackageView);
+    render(<StatementTableCreate onDone={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("The exported file's or folder's full path"), { target: { value: "C:\\exports\\erste" } });
+    fireEvent.click(screen.getByRole("button", { name: "List the accounts" }));
+    await screen.findByText("Accounts in the file (Erste)");
+    expect(screen.getByText("balances not checked: no PDF statement (a to-do in the run)")).toBeTruthy();
+    expect(screen.getByText("1 file(s) in the folder could not be read as an export")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Select all" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create with 2 account(s)" }));
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    expect(create.mock.calls[0][1]).toEqual(["111122233333444455556666:HUF:2026-05-01", "111122233333444455556666:HUF:2026-06-01"]);
   });
 });

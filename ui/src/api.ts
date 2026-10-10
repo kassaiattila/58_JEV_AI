@@ -342,8 +342,16 @@ export interface ReconcileLine {
 export interface StatementTableAccount {
   key: string; account: string | null; title: string; occurrence: number; currency: string; lines: number;
   first: string | null; last: string | null; period_start: string | null; period_end: string | null; checks_ok: boolean; problems: number;
+  /** 137: false when the export has no balances and its PDF statement was not found (a to-do in the run) */
+  balance_checked?: boolean;
+  /** 137: the month's PDF statement that completed a ledger export (the Erste XML) */
+  companion?: string | null;
 }
-export interface StatementTableSurvey { profile: string; institution: string; file: string; repairs: string[]; accounts: StatementTableAccount[] }
+export interface StatementTableSurvey {
+  profile: string; institution: string; file: string; repairs: string[]; accounts: StatementTableAccount[];
+  /** 137: the files of a folder that could not be read as an export */
+  skipped?: number;
+}
 /** 134: JEV's or GPT's raw answer about a statement line (jav/reconcile_ai.py); a person decides. */
 export type ReconcileAiEngine = "jev" | "gpt";
 export interface ReconcileAiProposal {

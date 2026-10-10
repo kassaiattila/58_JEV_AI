@@ -34,17 +34,30 @@ the description column, and the category as the description). Without a summary,
 line's balance less its amount and the closing balance the last line's. Code checks the running balance line by line,
 the total row against the lines and the opening balance plus the lines against the closing balance (`Account.checks`);
 a line whose date or amount cannot be read is left out and reported (`Account.problems`).
+
+137 (DECISIONS 137, "XML + PDF by code"): a **ledger** profile (`layout: ledger`) reads an export that lists every line
+with its own account and statement number, such as the Erste Excel 2003 XML export (SpreadsheetML, read with
+defusedxml): one statement per account and statement number, the period from the file name's month. Such an export has
+no balance, and a card line names no merchant, so the profile's **companion** is the same month's PDF statement, found
+by its name next to the export or in a `pdf` subfolder. Its text layer (the isolated PDF reader) is read with the
+profile's patterns: the period, the account, the opening and closing balances and every line with its running balance,
+the merchant and a foreign purchase's original amount and currency. The export's lines are matched to the PDF's by
+booking date and amount, in order; the export stays the list of lines, the PDF adds the balances and the details, and a
+line on one side only is a finding (`Account.companion_problems`). Without a PDF the balances cannot be checked
+(`Account.balances` is `none`). A folder is read as a whole: every export in it, each with its own source and
+companion, and the files no profile knows are listed (`Reading.skipped`).
 """
 
 from __future__ import annotations
 
+import calendar
 import csv
 import hashlib
 import html
 import io
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -54,7 +67,7 @@ from jav.dates import read_date
 from jav.numbers import read_number
 
 CONFIG = "statement_tables"
-SUFFIXES = (".xlsx", ".csv")
+SUFFIXES = (".xlsx", ".csv", ".xml")
 CENT = Decimal("0.01")
 
 
@@ -72,6 +85,9 @@ class Account:
     statement: dict[str, Any]
     checks: dict[str, Any]
     problems: list[str] = field(default_factory=list)
+    source: dict[str, Any] | None = None  # 137: the export file (and its companion) this account was read from
+    balances: str = "export"  # 137: where the balances come from: export | companion | none (cannot be checked)
+    companion_problems: list[str] = field(default_factory=list)  # 137: lines on one side only, another account
 
 
 @dataclass(frozen=True)
@@ -82,6 +98,7 @@ class Reading:
     sha256: str
     repairs: list[str]
     accounts: list[Account]
+    skipped: list[dict[str, str]] = field(default_factory=list)  # 137: the files of a folder no profile reads
 
 
 def _conf() -> dict[str, Any]:
@@ -125,6 +142,43 @@ def _workbook_rows(data: bytes, limits: dict[str, Any]) -> list[list[str]]:
         return rows
     finally:
         wb.close()
+
+
+_SS = "{urn:schemas-microsoft-com:office:spreadsheet}"
+
+
+def _spreadsheetml_rows(data: bytes, limits: dict[str, Any]) -> list[list[str]]:
+    """137: the first sheet of an Excel 2003 XML workbook (SpreadsheetML). defusedxml refuses a document type
+    declaration, entities and external references; a cell's `ss:Index` skips the empty cells before it; a date-time
+    keeps its date."""
+    from defusedxml import ElementTree
+
+    try:
+        root = ElementTree.fromstring(data)
+    except Exception as exc:  # defusedxml raises its own and ElementTree's errors (as in jav/fx.py)
+        raise StatementTableError(f"the XML workbook cannot be read: {type(exc).__name__}") from exc
+    sheet = root.find(_SS + "Worksheet") if root.tag == _SS + "Workbook" else None
+    table = sheet.find(_SS + "Table") if sheet is not None else None
+    if table is None:
+        raise StatementTableError("not an Excel 2003 XML workbook with a table")
+    rows, cells = [], 0
+    for row in table.iter(_SS + "Row"):
+        texts: list[str] = []
+        for cell in row.findall(_SS + "Cell"):
+            if (index := cell.get(_SS + "Index")) and index.isdigit():
+                texts += [""] * max(0, int(index) - 1 - len(texts))
+            data_el = cell.find(_SS + "Data")
+            value = _text(data_el.text) if data_el is not None else ""
+            if data_el is not None and data_el.get(_SS + "Type") == "DateTime":
+                value = value[:10]
+            texts.append(value)
+        while texts and not texts[-1]:
+            texts.pop()
+        cells += len(texts)
+        if len(rows) >= limits["max_rows"] or cells > limits["max_cells"]:
+            raise StatementTableError("the workbook is over the row limit or the cell limit")
+        rows.append(texts)
+    return rows
 
 
 def _csv_rows(data: bytes) -> list[list[str]]:
@@ -181,6 +235,8 @@ def _rows(path: Path, data: bytes, conf: dict[str, Any]) -> tuple[list[list[str]
         rows = _csv_rows(data)
         if len(rows) > limits["max_rows"]:
             raise StatementTableError("the file is over the row limit")
+    elif path.suffix.lower() == ".xml":
+        rows = _spreadsheetml_rows(data, limits)
     else:
         rows = _workbook_rows(data, limits)
     if (fixed := _unmangled(rows, conf["repairs"]["mojibake"])) is not None:
@@ -348,43 +404,310 @@ def _accounts(blocks: list[_Block], file_name: str, profile: dict[str, Any]) -> 
     return out
 
 
-def read(path: Path, *, name: str | None = None) -> Reading:
-    """Reads a statement table with the first profile that finds a table in it. `name`: the file name to take the
-    period from, when the path is a copy (the source instance) of the original."""
-    path = Path(path)
+# --- 137: a ledger export (a line per row, with its account and statement number) and its PDF companion ----------------
+
+
+def _ledger_amount(text: str, profile: dict[str, Any]) -> Decimal | None:
+    """A machine number ("-7291.00") when the profile says so, otherwise the shared number reader."""
+    if profile.get("amounts") == "machine":
+        return Decimal(text).quantize(CENT) if re.fullmatch(r"-?\d+(?:\.\d+)?", text) else None
+    return _money(text)
+
+
+def _ledgers(rows: list[list[str]], profile: dict[str, Any]
+             ) -> tuple[dict[str, int] | None, dict[tuple[str, str], list[list[str]]]]:
+    """The header's columns and the rows after it, grouped by account and statement number, in order."""
+    columns: dict[str, int] | None = None
+    groups: dict[tuple[str, str], list[list[str]]] = {}
+    for row in rows:
+        if not any(row):
+            continue
+        if columns is None:
+            columns = _header(row, profile)
+            continue
+        groups.setdefault((_cell(row, columns, "account"), _cell(row, columns, "statement")), []).append(row)
+    return columns, groups
+
+
+def _pdf_lines(path: Path) -> list[str]:
+    """The PDF's text layer as lines (the isolated PDF reader, jav/pdf.py); the tests replace it."""
+    from jav import pdf
+
+    return pdf.read_pdf(path).lines
+
+
+def _hu_amount(text: str) -> Decimal | None:
+    read = read_number(text)
+    return None if read.value is None or read.ambiguous else Decimal(read.value).quantize(CENT)
+
+
+def _dot_amount(text: str) -> Decimal | None:
+    """An amount with a decimal point and optional thousands commas ("1,234.56", "20.00")."""
+    plain = text.replace(",", "")
+    return Decimal(plain).quantize(CENT) if re.fullmatch(r"\d+(?:\.\d+)?", plain) else None
+
+
+def _without_page_breaks(lines: list[str], blocks: list[list[str]]) -> list[str]:
+    """The lines without the repeated page footer and header: from a block's first pattern to its last, inclusive."""
+    out: list[str] = []
+    skipping: str | None = None
+    for line in lines:
+        if skipping is None:
+            skipping = next((end for start, end in blocks if re.search(start, line)), None)
+            if skipping is None:
+                out.append(line)
+        elif re.search(skipping, line):
+            skipping = None
+    return out
+
+
+def parse_companion(lines: list[str], conf: dict[str, Any]) -> dict[str, Any]:
+    """The PDF statement's period, account, currency, balances and lines (each with its details), from its text lines
+    and the profile's patterns (`companion`). Pure: no file is read."""
+    lines = _without_page_breaks(lines, conf.get("skip_blocks", []))
+    text = "\n".join(lines)
+
+    def first(key: str) -> re.Match[str] | None:
+        return re.search(conf[key], text, re.MULTILINE) if conf.get(key) else None
+
+    period, opening, closing = first("period"), first("opening"), first("closing")
+    line_re, start_re, end_re = re.compile(conf["line"]), re.compile(conf["lines_start"]), re.compile(conf["lines_end"])
+    details = {k: re.compile(v) for k, v in conf.get("details", {}).items()}
+    started = False
+    out: list[dict[str, Any]] = []
+    problems: list[str] = []
+    for line in lines:
+        if not started:
+            started = bool(start_re.search(line))
+            continue
+        if end_re.search(line):
+            break
+        if m := line_re.match(line):
+            booked, amount, balance = read_date(m["booked"]), _hu_amount(m["amount"]), _hu_amount(m["balance"])
+            if booked.value is None or amount is None or balance is None:
+                problems.append(f"PDF line {len(out) + 1}: unreadable")
+            out.append({"booked": booked.value.isoformat() if booked.value else None, "kind": m["kind"].strip(),
+                        "amount": amount, "balance": balance, "details": {}})
+            continue
+        if out:
+            for key, rx in details.items():
+                if key not in out[-1]["details"] and (d := rx.search(line)):
+                    out[-1]["details"][key] = {k: v.strip() for k, v in d.groupdict().items() if v}
+    start = read_date(period["start"]).value if period else None
+    end = read_date(period["end"]).value if period else None
+    account, currency = first("account"), first("currency")
+    return {"period": (start.isoformat() if start else None, end.isoformat() if end else None),
+            "account": account["value"] if account else None, "currency": currency["value"] if currency else None,
+            "opening": _hu_amount(opening["value"]) if opening else None,
+            "closing": _hu_amount(closing["value"]) if closing else None, "lines": out, "problems": problems}
+
+
+def _companion_path(path: Path, conf: dict[str, Any] | None) -> Path | None:
+    if not conf or not (m := re.match(conf["name_from"], path.name)):
+        return None
+    name = conf["name"].format(**m.groupdict())
+    return next((p for folder in conf.get("folders", ["."]) if (p := path.parent / folder / name).is_file()), None)
+
+
+def _month(file_name: str, pattern: str | None) -> tuple[str | None, str | None]:
+    """The calendar month the file name names (`year`, `month`), as a period."""
+    if not pattern or not (m := re.search(pattern, file_name)):
+        return None, None
+    year, month = int(m["year"]), int(m["month"])
+    return f"{year:04d}-{month:02d}-01", f"{year:04d}-{month:02d}-{calendar.monthrange(year, month)[1]:02d}"
+
+
+def _ledger_lines(rows: list[list[str]], columns: dict[str, int], profile: dict[str, Any]
+                  ) -> tuple[list[dict[str, Any]], list[Decimal], list[str]]:
+    placeholders = {_norm(x) for x in profile.get("placeholder_counterparty", [])}
+    lines, amounts, problems = [], [], []
+    for n, row in enumerate(rows, start=1):
+        booked = read_date(_cell(row, columns, "date"))
+        valued = read_date(_cell(row, columns, "value_date"))
+        amount = _ledger_amount(_cell(row, columns, "amount"), profile)
+        if booked.value is None or booked.ambiguous:
+            problems.append(f"line {n}: unreadable date")
+            continue
+        if amount is None:
+            problems.append(f"line {n}: unreadable amount")
+            continue
+        party = _cell(row, columns, "counterparty")
+        amounts.append(amount)
+        lines.append({"booking_date": booked.value.isoformat(),
+                      "value_date": valued.value.isoformat() if valued.value and not valued.ambiguous else None,
+                      "direction": "debit" if amount < 0 else "credit", "amount": _plain(abs(amount)),
+                      "running_balance": None, "description": _cell(row, columns, "kind") or None,
+                      "counterparty_name": None if _norm(party) in placeholders else party or None,
+                      "counterparty_account": _cell(row, columns, "counterparty_account") or None,
+                      "memo": _cell(row, columns, "memo") or None, "original_amount": None, "original_currency": None})
+    return lines, amounts, problems
+
+
+def _merge_companion(lines: list[dict[str, Any]], amounts: list[Decimal], pdf: dict[str, Any], currency: str
+                     ) -> tuple[list[Decimal | None], list[str]]:
+    """Each export line takes the first unused PDF line of its booking date and amount: its running balance, the
+    merchant of a card line without a partner and a foreign purchase's original amount and currency."""
+    used: set[int] = set()
+    balances: list[Decimal | None] = []
+    problems: list[str] = []
+    for n, (line, amount) in enumerate(zip(lines, amounts), start=1):
+        j = next((k for k, c in enumerate(pdf["lines"]) if k not in used and c["booked"] == line["booking_date"]
+                  and c["amount"] == amount), None)
+        if j is None:
+            balances.append(None)
+            problems.append(f"line {n}: not on the PDF statement")
+            continue
+        used.add(j)
+        c = pdf["lines"][j]
+        balances.append(c["balance"])
+        line["running_balance"] = _plain(c["balance"])
+        if not line["counterparty_name"] and (merchant := c["details"].get("merchant")):
+            line["counterparty_name"] = merchant.get("value")
+        original = c["details"].get("original") or {}
+        value = _dot_amount(original.get("amount", ""))
+        if original.get("currency") and original["currency"] != currency and value is not None:
+            line["original_amount"], line["original_currency"] = _plain(value), original["currency"]
+    problems += [f"PDF line {k + 1}: not in the export" for k in range(len(pdf["lines"])) if k not in used]
+    return balances, problems
+
+
+def _ledger_account(account_no: str, number: str, rows: list[list[str]], columns: dict[str, int],
+                    profile: dict[str, Any], path: Path, file_name: str, source: dict[str, Any]) -> Account:
+    lines, amounts, problems = _ledger_lines(rows, columns, profile)
+    currency = profile["currency"]
+    start, end = _month(file_name, profile.get("period_month_from_filename"))
+    companion_path = _companion_path(path, profile.get("companion"))
+    opening = closing = None
+    balances: list[Decimal | None] = [None] * len(lines)
+    companion_problems: list[str] = []
+    if companion_path is not None:
+        data = companion_path.read_bytes()
+        pdf = parse_companion(_pdf_lines(companion_path), profile["companion"])
+        source = {**source, "companion": {"file": companion_path.name, "sha256": hashlib.sha256(data).hexdigest()}}
+        if pdf["account"] and re.sub(r"\D", "", pdf["account"]) != re.sub(r"\D", "", account_no):
+            companion_problems.append("the PDF statement is of another account")
+        else:
+            if pdf["currency"] and pdf["currency"] != currency:
+                companion_problems.append(f"the PDF statement's currency is {pdf['currency']}")
+            balances, merged = _merge_companion(lines, amounts, pdf, currency)
+            companion_problems += pdf["problems"] + merged
+            opening, closing = pdf["opening"], pdf["closing"]
+            start, end = pdf["period"][0] or start, pdf["period"][1] or end
+    if start is None and lines:
+        start, end = min(t["booking_date"] for t in lines), max(t["booking_date"] for t in lines)
+    statement = {"statement_type": profile["statement_type"], "account_no": account_no, "account_iban": None,
+                 "period_start": start, "period_end": end, "currency": currency,
+                 "opening_balance": _plain(opening), "closing_balance": _plain(closing),
+                 "total_debit": _plain(sum((-a for a in amounts if a < 0), Decimal(0))),
+                 "total_credit": _plain(sum((a for a in amounts if a > 0), Decimal(0))), "transactions": lines}
+    checked = opening is not None and closing is not None
+    running = None
+    if checked:
+        ok, previous = 0, opening
+        for amount, balance in zip(amounts, balances):
+            ok += previous is not None and balance is not None and previous + amount == balance
+            previous = balance
+        running = {"ok": ok, "lines": len(lines)}
+    checks = {"running_balance": running, "total_row": None,
+              "closing_balance": opening + sum(amounts, Decimal(0)) == closing if checked else None}
+    digits = re.sub(r"\D", "", account_no)
+    return Account(key=f"{digits}:{currency}:{start}", title=f"…{digits[-4:]} {number}".strip(), currency=currency,
+                   occurrence=1, statement=statement, checks=checks, problems=problems, source=source,
+                   balances="companion" if checked else "none", companion_problems=companion_problems)
+
+
+def _ledger_accounts(rows: list[list[str]], profile: dict[str, Any], path: Path, file_name: str,
+                     source: dict[str, Any]) -> list[Account]:
+    columns, groups = _ledgers(rows, profile)
+    if columns is None:
+        return []
+    return [_ledger_account(account_no, number, group, columns, profile, path, file_name, source)
+            for (account_no, number), group in groups.items() if account_no]
+
+
+# --- reading a file or a folder ----------------------------------------------------------------------------------------
+
+
+def _read_file(path: Path, *, name: str | None = None) -> Reading:
     if path.suffix.lower() not in SUFFIXES:
         raise StatementTableError(f"a statement table is a {' or '.join(SUFFIXES)} file")
     data = path.read_bytes()
     conf = _conf()
     rows, repairs = _rows(path, data, conf)
     file_name = name or path.name
+    sha = hashlib.sha256(data).hexdigest()
+    source = {"file": file_name, "sha256": sha, "repairs": repairs}
     for profile in conf["profiles"]:
-        accounts = _accounts(_blocks(rows, profile), file_name, profile)
+        if profile.get("layout") == "ledger":
+            accounts = _ledger_accounts(rows, profile, path, file_name, source)
+        else:
+            accounts = [replace(a, source=source) for a in _accounts(_blocks(rows, profile), file_name, profile)]
         if accounts:
             return Reading(profile=profile["name"], institution=profile["institution"], file_name=file_name,
-                           sha256=hashlib.sha256(data).hexdigest(), repairs=repairs, accounts=accounts)
+                           sha256=sha, repairs=repairs, accounts=accounts)
     raise StatementTableError("no statement table of a known profile in the file")
+
+
+def _read_folder(folder: Path) -> Reading:
+    """137: every export directly in the folder; a file no profile reads is listed, and a statement read twice (the
+    same statement in two files) keeps its first file."""
+    limit = _conf()["limits"]["max_files"]
+    files = sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in SUFFIXES)
+    if len(files) > limit:
+        raise StatementTableError(f"the folder holds more than {limit} export files")
+    readings, skipped = [], []
+    for f in files:
+        try:
+            readings.append(_read_file(f))
+        except StatementTableError as exc:  # listed for the person, not dropped
+            skipped.append({"file": f.name, "reason": str(exc)})
+    accounts: dict[str, Account] = {}
+    for r in readings:
+        for a in r.accounts:
+            if a.key in accounts:
+                skipped.append({"file": r.file_name, "reason": f"the statement {a.title} is already in another file"})
+            else:
+                accounts[a.key] = a
+    if not accounts:
+        raise StatementTableError("no statement export of a known profile in the folder")
+    parts = sorted({f"{a.source['file']}:{a.source['sha256']}:{(a.source.get('companion') or {}).get('sha256', '')}"
+                    for a in accounts.values() if a.source})
+    return Reading(profile=",".join(dict.fromkeys(r.profile for r in readings)), institution=readings[0].institution,
+                   file_name=folder.name, sha256=hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest(),
+                   repairs=sorted({x for r in readings for x in r.repairs}), accounts=list(accounts.values()),
+                   skipped=skipped)
+
+
+def read(path: Path, *, name: str | None = None) -> Reading:
+    """Reads a statement table with the first profile that finds a table in it; 137: or every export of a folder.
+    `name`: the file name to take the period from, when the path is a copy (the source instance) of the original."""
+    path = Path(path)
+    return _read_folder(path) if path.is_dir() else _read_file(path, name=name)
 
 
 def checks_ok(account: Account) -> bool:
     c = account.checks
-    return (c["running_balance"]["ok"] == c["running_balance"]["lines"] and c["total_row"] is not False
-            and c["closing_balance"] is not False and not account.problems)
+    running = c["running_balance"]
+    return (running is not None and running["ok"] == running["lines"] and c["total_row"] is not False
+            and c["closing_balance"] is not False and not account.problems and not account.companion_problems)
 
 
 def survey(reading: Reading) -> dict[str, Any]:
     """The accounts found, without their lines and balances: what a person chooses from (the account number only by
-    its last four characters)."""
+    its last four characters). 137: whether the balances could be checked, and the companion PDF's name."""
     out = []
     for a in reading.accounts:
         dates = [t["booking_date"] for t in a.statement["transactions"]]
         iban = a.statement["account_iban"]
+        companion = (a.source or {}).get("companion")
         out.append({"key": a.key, "account": "…" + iban[-4:] if iban else None, "title": a.title, "occurrence": a.occurrence,
                     "currency": a.currency, "lines": len(dates), "first": min(dates) if dates else None,
                     "last": max(dates) if dates else None, "period_start": a.statement["period_start"],
-                    "period_end": a.statement["period_end"], "checks_ok": checks_ok(a), "problems": len(a.problems)})
+                    "period_end": a.statement["period_end"], "checks_ok": checks_ok(a),
+                    "problems": len(a.problems) + len(a.companion_problems),
+                    "balance_checked": a.balances != "none", "companion": companion["file"] if companion else None})
     return {"profile": reading.profile, "institution": reading.institution, "file": reading.file_name,
-            "repairs": reading.repairs, "accounts": out}
+            "repairs": reading.repairs, "accounts": out, "skipped": len(reading.skipped)}
 
 
 # --- one file per chosen account ------------------------------------------------------------------------------------------
@@ -423,10 +746,13 @@ def derive(reading: Reading, keys: list[str], out_dir: Path | None = None) -> li
     paths = []
     for key in dict.fromkeys(keys):
         a = by_key[key]
+        source = a.source or {"file": reading.file_name, "sha256": reading.sha256, "repairs": reading.repairs}
         content = {"format": FORMAT, "version": FORMAT_VERSION, "profile": reading.profile, "institution": reading.institution,
-                   "source": {"file": reading.file_name, "sha256": reading.sha256, "repairs": reading.repairs},
+                   "source": {k: source[k] for k in ("file", "sha256", "repairs")},
                    "account": {"key": a.key, "title": a.title, "currency": a.currency, "occurrence": a.occurrence},
                    "checks": a.checks, "problems": a.problems, "statement": a.statement}
+        if a.source is not None and a.balances != "export":  # 137: a ledger export; its companion PDF and findings
+            content |= {"companion": source.get("companion"), "balances": a.balances, "companion_problems": a.companion_problems}
         path = folder / _file_name(reading, a)
         path.write_text(json.dumps(content, ensure_ascii=False, sort_keys=True, indent=1) + "\n", encoding="utf-8", newline="\n")
         paths.append(path)

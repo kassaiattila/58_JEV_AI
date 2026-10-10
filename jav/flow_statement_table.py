@@ -9,6 +9,11 @@ The graph verifies the file against the run's frozen fingerprint, runs the type 
 as the item's document and data points, so the reconciliation reads it like an extracted statement. A failed check, a
 missing required field and a line the reader could not read each open a to-do. No model is called: the run costs
 nothing.
+
+137 (DECISIONS 137): a statement of a ledger export (the Erste XML) carries where its balances come from. Without its PDF
+statement they cannot be checked: one `statement_table:balance_unchecked` to-do stands for the missing balances and the
+closing check that cannot run, and the statement stays unverified for the reconciliation. A line on one side only, or a
+PDF of another account, is a `statement_table:companion_mismatch:<n>` to-do.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ PARTITION = "statement_table"
 TERMINALS = {"done", "needs_review"}
 DOC_TYPE = "statement_table"
 ARM = "code"
+BALANCE_FIELDS = frozenset({"opening_balance", "closing_balance"})
 
 
 class TableState(BaseModel):
@@ -39,6 +45,8 @@ class TableState(BaseModel):
     expected_sha256: str
     statement: dict[str, Any] = Field(default_factory=dict)
     problems: list[str] = Field(default_factory=list)
+    balances: str = "export"  # 137: export | companion | none (a ledger export without its PDF statement)
+    companion_problems: list[str] = Field(default_factory=list)
     validation: list[dict[str, Any]] = Field(default_factory=list)
     review_reasons: list[str] = Field(default_factory=list)
     needs_review: bool = False
@@ -48,7 +56,7 @@ class TableState(BaseModel):
 _INPUTS = ["run_id", "item_id", "source_path", "read_path", "expected_sha256"]
 
 
-@action.pydantic(reads=_INPUTS, writes=["statement", "problems"])
+@action.pydantic(reads=_INPUTS, writes=["statement", "problems", "balances", "companion_problems"])
 def load_table(state: TableState) -> TableState:
     """The account's statement file, verified against the frozen fingerprint of the run's input."""
     data = Path(state.read_path).read_bytes()
@@ -56,10 +64,12 @@ def load_table(state: TableState) -> TableState:
         raise statement_table.StatementTableError("the statement file differs from the run's frozen input")
     derived = statement_table.load_derived(data)
     state.statement, state.problems = derived["statement"], list(derived["problems"])
+    state.balances, state.companion_problems = derived.get("balances", "export"), list(derived.get("companion_problems", []))
     return state
 
 
-@action.pydantic(reads=["statement", "problems", "item_id"], writes=["validation", "review_reasons", "needs_review"])
+@action.pydantic(reads=["statement", "problems", "balances", "companion_problems", "item_id"],
+                 writes=["validation", "review_reasons", "needs_review"])
 def check_table(state: TableState) -> TableState:
     """The type pack's checks on the statement; a failed one, a missing required field and an unreadable line are
     to-dos (the additive latch of `policy.require_review`)."""
@@ -70,15 +80,20 @@ def check_table(state: TableState) -> TableState:
     policy.require_review(state, *reasons)
     results = run_all(record, pack.validators, doc_id=state.item_id, doc_type=DOC_TYPE)
     state.validation = [r.model_dump() for r in results]
+    unchecked = state.balances == "none"  # 137: one to-do for the balances a ledger export lacks
     for r in results:
-        if not r.ok and not r.advisory:
+        if not r.ok and not r.advisory and not (unchecked and r.code == "closing.unparseable"):
             policy.require_review(state, f"validator:{r.code}")
     values = record.to_datapoints(pack.record_fields)
     for field in pack.required:
-        if values.get(field) in (None, "", []) and field != "transactions":
+        if values.get(field) in (None, "", []) and field != "transactions" and not (unchecked and field in BALANCE_FIELDS):
             policy.require_review(state, f"statement_table:missing:{field}")
+    if unchecked:
+        policy.require_review(state, "statement_table:balance_unchecked")
     if state.problems:
         policy.require_review(state, f"statement_table:unreadable_lines:{len(state.problems)}")
+    if state.companion_problems:
+        policy.require_review(state, f"statement_table:companion_mismatch:{len(state.companion_problems)}")
     return state
 
 
@@ -123,7 +138,7 @@ CONTRACT = {
               ("save_table", "needs_review", "To-dos remain"), ("save_table", "done", "Every check passed")],
     "step_meta": {
         "load_table": {"kind": "det", "note": "Verify the account's statement file against the run's frozen fingerprint and load the statement the reader built from the export (jav/statement_table.py)."},
-        "check_table": {"kind": "det", "note": "The type pack's checks (running balance, closing balance, totals, period dates); a failed check, a missing required field and a line the reader could not read are to-dos."},
+        "check_table": {"kind": "det", "note": "The type pack's checks (running balance, closing balance, totals, period dates); a failed check, a missing required field and a line the reader could not read are to-dos; 137: a ledger export without its PDF statement has one to-do for its balances, and a line on one side only is a to-do."},
         "save_table": {"kind": "store", "note": "Save the statement as the item's document and data points, so the reconciliation reads it like an extracted statement; the to-dos go into the review queue."},
         "done": {"kind": "terminal", "note": "Every check passed; human approval remains separate."},
         "needs_review": {"kind": "terminal", "note": "A check failed or a line could not be read; the statement is saved with its to-dos."},

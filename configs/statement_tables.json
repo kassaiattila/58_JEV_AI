@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "statement_tables",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "136 E4 (jav/statement_table.py): bank statements exported as a table (a workbook or a CSV file), read by code without AI. A profile names a kind of export by its column headers and says where an account's title, number and balances stand; the header aliases, titles and labels are document vocabulary, quoted as the bank prints them. Decisions: DECISIONS 132 (a general tabular statement reader, not code for one bank; only the two personal accounts of the Revolut export go into the store), DECISIONS 136 (processed as a work package, one statement per account, the accounts chosen by a person before the run).",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-10-10",
+        "note": "137 (DECISIONS 137, 'XML + PDF by code'): the ledger layout and its first profile, the Erste Excel 2003 XML export (one row per line with its account and statement number, the amount as a number, no balance; a card line names no merchant). One statement per account and statement number, the period from the file name's month. Its companion is the same month's PDF statement next to the export or in a pdf subfolder: its text layer gives the period, the account, the opening and closing balances and every line with its running balance, the merchant (Elfogadó) and a foreign purchase's original amount and currency (Tr.összeg). New limit: max_files, the export files read from one folder."
+      },
       {
         "version": "1.0.0",
         "date": "2026-10-10",
@@ -15,6 +20,7 @@
     "max_bytes": 20000000,
     "max_rows": 100000,
     "max_cells": 1000000,
+    "max_files": 500,
     "archive": {"archive_entries": 200, "expanded_bytes": 200000000, "expansion_ratio": 200}
   },
   "repairs": {
@@ -42,6 +48,49 @@
       "total_row": ["Végösszeg"],
       "statement_type": "bank_account",
       "period_from_filename": "(?P<start>\\d{4}-\\d{2}-\\d{2})_(?P<end>\\d{4}-\\d{2}-\\d{2})"
+    },
+    {
+      "name": "erste_ledger_hu",
+      "institution": "Erste",
+      "layout": "ledger",
+      "columns": {
+        "statement": ["Kivonat sorszáma"],
+        "date": ["Könyvelés dátuma"],
+        "value_date": ["Értéknap"],
+        "account": ["Számlaszám"],
+        "counterparty": ["Partner neve"],
+        "counterparty_account": ["Partner számlaszáma"],
+        "amount": ["Összeg"],
+        "direction": ["Terhelés vagy jóváírás (T/J)"],
+        "kind": ["Tranzakció típusa"],
+        "memo": ["Közlemény"]
+      },
+      "required": ["statement", "date", "account", "amount"],
+      "amounts": "machine",
+      "currency": "HUF",
+      "statement_type": "bank_account",
+      "placeholder_counterparty": ["Kártya Használat"],
+      "period_month_from_filename": "^(?P<year>\\d{4})(?P<month>\\d{2})\\d{2}_",
+      "companion": {
+        "name_from": "^(?P<date>\\d{8})_(?P<account>\\d+)_excel\\.xml$",
+        "name": "{date}_{account}_S.pdf",
+        "folders": [".", "pdf"],
+        "skip_blocks": [["^Ez a bankszámlakivonat egyúttal", "^dátuma\\s+\\(PTI\\+KPTI\\)"]],
+        "period": "Időszak\\s+(?P<start>\\d{4}\\.\\d{2}\\.\\d{2}\\.)\\s*[–-]\\s*(?P<end>\\d{4}\\.\\d{2}\\.\\d{2}\\.)",
+        "account": "Bankszámlaszám\\s+(?P<value>\\d{8}-\\d{8}(?:-\\d{8})?)",
+        "currency": "Devizanem\\s+(?P<value>[A-Z]{3})",
+        "opening": "^Nyitó egyenleg\\s*\\n\\d{4}\\.\\d{2}\\.\\d{2}\\.\\s+(?P<value>-?\\d[\\d.]*(?:,\\d+)?)",
+        "closing": "^Záró egyenleg\\s+(?P<value>-?\\d[\\d.]*(?:,\\d+)?)",
+        "lines_start": "^Nyitó egyenleg",
+        "lines_end": "^(?:Összes terhelés|Összes Jóváírás|Záró egyenleg)",
+        "line": "^(?P<booked>\\d{4}\\.\\d{2}\\.\\d{2}\\.)\\s+(?P<value>\\d{4}\\.\\d{2}\\.\\d{2}\\.)\\s+(?P<kind>.+?)\\s{2,}(?P<amount>-?\\d[\\d.]*(?:,\\d+)?)\\s{2,}(?P<balance>-?\\d[\\d.]*(?:,\\d+)?)(?:\\s{2,}.*)?$",
+        "details": {
+          "merchant": "^Elfogadó\\s+(?P<value>.+)$",
+          "original": "^Tr\\.összeg - Árfolyam\\s+(?P<amount>[\\d,]*\\d(?:\\.\\d+)?)\\s+(?P<currency>[A-Z]{3})\\b",
+          "partner": "^Partner számlatulajdonos:\\s+(?P<value>.+)$",
+          "memo": "^Közlemény:\\s+(?P<value>.+)$"
+        }
+      }
     }
   ]
 }
