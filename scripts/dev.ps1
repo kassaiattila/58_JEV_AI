@@ -41,6 +41,12 @@ function Start-Tracked([string]$Name, [string[]]$CliArgs) {
     Write-Output "$Name started (pid $($proc.Id)), log: $out"
 }
 
+function Invoke-Cli([string[]]$CliArgs) {
+    # 139: jav.cli is only importable from the project root, so the script may be started from any folder
+    Push-Location $Root
+    try { & $Python -X utf8 -m jav.cli @CliArgs } finally { Pop-Location }
+}
+
 switch ($Action) {
     "start" {
         Start-Tracked "api" @("serve", "--port", "$Port")
@@ -51,12 +57,13 @@ switch ($Action) {
             $p = Get-Tracked $name
             if ($null -eq $p) { Write-Output "$name : not running" } else { Write-Output "$name : running (pid $($p.Id))" }
         }
-        & $Python -X utf8 -m jav.cli worker-status
+        Invoke-Cli @("worker-status")
     }
     "stop" {
         $w = Get-Tracked "worker"
         if ($null -ne $w) {
-            & $Python -X utf8 -m jav.cli worker-stop | Out-Null
+            Invoke-Cli @("worker-stop") | Out-Null
+            if ($LASTEXITCODE -ne 0) { Write-Output "worker-stop request failed (exit $LASTEXITCODE); waiting for the worker anyway" }
             if (-not $w.WaitForExit($StopTimeoutSec * 1000)) {
                 Write-Output "worker did not stop in $StopTimeoutSec s, killing (the run resumes from the saved step)"
                 Stop-Process -Id $w.Id -Force

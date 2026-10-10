@@ -4,7 +4,7 @@
   --canvas: #f4f4f5; --paper: #fff; --ink: #27272f; --muted: #62626c; --line: #dedee3;
   --accent: #a33f53; --accent-ink: #fff; --tint: #f7edf0; --tint-line: #e2c9d0;
   --ok: #2f6b4f; --ok-tint: #eaf3ee; --warn: #8a5a12; --warn-tint: #fbf3e4; --error: #933548;
-  --rail: #27272f; --soft: #fafafb; --chip: #ececf0; --line-soft: #eeeef0; --radius: 10px; --font: "Geist Sans", "Segoe UI", sans-serif; --mono: "Geist Mono", Consolas, monospace;
+  --rail: #27272f; --soft: #fafafb; --chip: #ececf0; --line-soft: #eeeef0; --grid: #e6e6ea; --radius: 10px; --font: "Geist Sans", "Segoe UI", sans-serif; --mono: "Geist Mono", Consolas, monospace;
 }
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
@@ -84,8 +84,23 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .tab:hover { color: var(--accent); border-bottom-color: var(--tint-line); }
 
 /* table, card, message */
-.table { width: 100%; border-collapse: collapse; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-.table th, .table td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+/* 139: separate borders, so that a sticky header cell keeps its own lines while the table scrolls under it */
+.table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.table th, .table td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+.table thead th { border-bottom-color: var(--line); }
+/* 139 (the owner's request of 2026-10-10): faint lines between the columns too, so that a cell is easy to follow by eye */
+:is(.table, .path-compare, .duplicate-table, .rc-panel table, .native-cells) :is(th, td) + :is(th, td) { border-left: 1px solid var(--grid); }
+/* 139: column widths set by dragging (ColumnResize.tsx): fixed layout, the text wraps inside the cell */
+.table.sized { table-layout: fixed; }
+.table.sized td { overflow-wrap: anywhere; }
+.table.sized th { white-space: normal; overflow-wrap: break-word; } /* a header breaks inside a word only when the word alone does not fit */
+.table.sized .th-sort { text-align: left; }
+/* the handle stays inside its cell: the next sticky header cell would cover anything beyond the edge */
+.col-resizer { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; z-index: 1; touch-action: none; }
+.col-resizer::after { content: ""; position: absolute; top: 20%; bottom: 20%; right: 1px; width: 2px; border-radius: 1px; background: transparent; transition: background-color .12s; }
+th:hover > .col-resizer::after { background: var(--line); }
+.col-resizer:hover::after, .col-resizer:focus-visible::after, .col-resizer:active::after { background: var(--accent); }
+.col-resizer:focus-visible { outline: none; }
 .table th { font-size: 11px; color: var(--muted); font-weight: 500; background: var(--soft); }
 .table tr:last-child td { border-bottom: 0; }
 .table .num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -267,6 +282,7 @@ body.dragging { cursor: col-resize; user-select: none; }
 .list-table tr.row-bad td { background: var(--warn-tint); }
 .list-table tr.row-bad td:first-child { box-shadow: inset 3px 0 var(--warn); color: var(--warn); font-weight: 600; }
 .list-table input.wide { min-width: 160px; }
+.list-table.sized input, .list-table.sized select, .list-table.sized input.wide { min-width: 0; }
 .list-table tr.row-active td { background: #0057ff12; }
 .list-table tr.row-active td:first-child { box-shadow: inset 3px 0 var(--accent); font-weight: 600; }
 
@@ -479,7 +495,7 @@ th:hover .th-filter, .th-filter:focus-visible, .th-filter[aria-expanded="true"] 
   --canvas: #16161b; --paper: #1f1f26; --ink: #e8e8ee; --muted: #a1a1ad; --line: #34343e; --rail: #0f0f13;
   --accent: #d9788c; --accent-ink: #1a1015; --tint: #3a2229; --tint-line: #5b3440;
   --ok: #7fc8a2; --ok-tint: #1f3329; --warn: #e6b870; --warn-tint: #382c19; --error: #f0879a;
-  --soft: #24242c; --chip: #2d2d36; --line-soft: #2b2b33; color-scheme: dark;
+  --soft: #24242c; --chip: #2d2d36; --line-soft: #2b2b33; --grid: #30303a; color-scheme: dark;
 }
 :root[data-theme="dark"] .s-running, :root[data-theme="dark"] .s-queued { background: #1f2a3d; color: #9dbbe8; }
 :root[data-theme="dark"] .page-wrap img { filter: none; }

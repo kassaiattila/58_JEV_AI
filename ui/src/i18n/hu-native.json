@@ -676,5 +676,8 @@
   "{{n}} accounts or cards, no statement yet": "{{n}} számla vagy kártya, még nincs kivonat",
   "Data status of the period": "Az időszak adatállapota",
   "The package can be created; the gaps show in its result.": "A csomag létrehozható; a hiányok az eredményében látszanak.",
-  "Every month of the chosen accounts has an approved statement that checks out.": "A választott számlák minden hónapjára van jóváhagyott, stimmelő kivonat."
+  "Every month of the chosen accounts has an approved statement that checks out.": "A választott számlák minden hónapjára van jóváhagyott, stimmelő kivonat.",
+  "Column width: {{label}}": "Oszlopszélesség: {{label}}",
+  "Drag to change the column width (or use the arrow keys)": "Húzással állítható az oszlop szélessége (vagy a nyílbillentyűkkel)",
+  "Reset column widths": "Oszlopszélességek alaphelyzetbe"
 }
