@@ -572,5 +572,6 @@
   "reference number": "hivatkozásszám",
   "supplier's name (loose match)": "a szállító neve (laza egyezés)",
   "a reference number in the memo (customer id, order or contract number)": "hivatkozásszám a közleményben (ügyfél-azonosító, rendelés- vagy szerződésszám)",
-  "a similar supplier name (glued to other text or one letter off)": "hasonló szállítónév (más szöveggel egybeírva vagy egy betűben eltérve)"
+  "a similar supplier name (glued to other text or one letter off)": "hasonló szállítónév (más szöveggel egybeírva vagy egy betűben eltérve)",
+  "The supplier's tax number is an own party's: the two tax numbers may be swapped, or this is an outgoing invoice": "A szállító adószáma egy saját gazdálkodóé: a két adószám felcserélődhetett, vagy ez kimenő számla"
 }

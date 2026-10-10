@@ -198,6 +198,8 @@ export function reasonText(code: string): string {
     case "reconcile:amount_only": return t("Possible payment to decide: a statement line has exactly the invoice's amount, but nothing else ties them");
     case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");
     case "parties:same_name": return t("A szállító és a vevő neve azonos");
+    // 134: the supplier tax number is an own party's (jav/parties.py review_reasons)
+    case "parties:own_tax_as_supplier": return t("The supplier's tax number is an own party's: the two tax numbers may be swapped, or this is an outgoing invoice");
     case "detect:low_conf": return t("Bizonytalan típusfelismerés: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
     case "detect:detail_open": return t("A részletes típus nem dönthető el (kategória: {{type}}); válaszd ki kézzel", { type: docTypeLabel(p[2]) });
     case "detect:no_type_pack": return t("Ehhez az irattípushoz nincs adatkinyerés ({{type}}); nézd meg kézzel", { type: docTypeLabel(p[2]) });

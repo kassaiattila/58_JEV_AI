@@ -352,6 +352,20 @@ def apply_duplicate_policy(state: FlowState) -> None:
     require_review(state, *duplicates.review_reasons(state.doc_id, state.doc_type, fields))
 
 
+def apply_party_policy(state: FlowState) -> None:
+    """134 (DECISIONS 134): an incoming invoice whose supplier tax number is an own party's, while the buyer's is
+    another number or missing, gets a `parties:own_tax_as_supplier` to-do (`jav/parties.py`): the numbers are likely
+    swapped, or it is an outgoing invoice. Read in a worker run only, as the duplicates."""
+    if state.invoice is None:
+        return
+    from jav import parties, typepack
+
+    if state.doc_type not in parties.supplier_check_types():
+        return
+    values = state.invoice.to_datapoints(typepack.get(state.doc_type).record_fields)  # the stored form
+    require_review(state, *parties.review_reasons(state.doc_type, values))
+
+
 def apply_reconcile_policy(state: FlowState) -> None:
     """129 (backlog F-reconciliation K2, DECISIONS 128): an incoming invoice or a bank statement that forms a proposed
     pair with a statement line or an invoice already in the store gets a `reconcile:proposed:<invoice>:<line>` to-do
@@ -385,6 +399,7 @@ def decide(state: FlowState) -> str:
         apply_gpt_confidence_policy(state)
     apply_validation_policy(state)
     apply_duplicate_policy(state)
+    apply_party_policy(state)
     apply_reconcile_policy(state)
     if state.invoice is None:
         require_review(state, "no_invoice")

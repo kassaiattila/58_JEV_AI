@@ -572,5 +572,6 @@
   "reference number": "reference number",
   "supplier's name (loose match)": "supplier's name (loose match)",
   "a reference number in the memo (customer id, order or contract number)": "a reference number in the memo (customer id, order or contract number)",
-  "a similar supplier name (glued to other text or one letter off)": "a similar supplier name (glued to other text or one letter off)"
+  "a similar supplier name (glued to other text or one letter off)": "a similar supplier name (glued to other text or one letter off)",
+  "The supplier's tax number is an own party's: the two tax numbers may be swapped, or this is an outgoing invoice": "The supplier's tax number is an own party's: the two tax numbers may be swapped, or this is an outgoing invoice"
 }
