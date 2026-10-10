@@ -373,6 +373,10 @@ class ReconcileMark(_In):
     note: Text | None = None
 
 
+class ReconcileUnmark(_In):
+    line_ids: Annotated[list[LineId], Field(min_length=1, max_length=5000)]  # 135: a partner's lines undone in one step
+
+
 class ReconcileRevoke(_In):
     kind: Literal["allocation", "mark", "decision"]
     ref: Annotated[str, Field(min_length=1, max_length=200)]  # an allocation's or a mark's id, or a decision's pair key
@@ -1134,6 +1138,12 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/workpackages/{wp_id}/reconcile/mark")
     def reconcile_mark(wp_id: WpId, body: ReconcileMark, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.mark(wp_id, body.line_ids, category=body.category, note=body.note, actor=who)
+        return work_views.jsonable(reconcile_package.workspace(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/unmark")
+    def reconcile_unmark(wp_id: WpId, body: ReconcileUnmark, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """135: the needs-no-invoice marks of several lines undone in one step."""
+        reconcile_package.unmark(wp_id, body.line_ids, actor=who)
         return work_views.jsonable(reconcile_package.workspace(wp_id))
 
     @app.get(r + "/workpackages/{wp_id}/reconcile/locate")

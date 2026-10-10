@@ -101,6 +101,15 @@
 /* a long invoice state ("statements cover part of its period") wraps instead of squeezing the supplier's name */
 .rc-row .rc-side .rc-state { max-width: 190px; white-space: normal; text-align: right; }
 
+/* 135: a partner's head in the grouped line list */
+.rc-group { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 6px; align-items: start; padding: 8px 12px 6px 9px;
+  background: var(--soft); border-bottom: 1px solid var(--line); border-top: 1px solid var(--line); }
+.rc-group input[type="checkbox"] { margin: 4px 0 0; }
+.rc-group-body { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 10px; min-width: 0; }
+.rc-group-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.rc-group-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.rc-suggestion { margin: 0 0 4px; flex-basis: 100%; }
+
 /* 133: the own party */
 .rc-party-pick select { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--paper); max-width: 360px; }
 .rc-others { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }

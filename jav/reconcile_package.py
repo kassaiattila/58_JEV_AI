@@ -19,6 +19,10 @@ Rules (the owner's decisions of 2026-10-09):
 - 133 (DECISIONS 133): a package is one own party's (`jav.parties`). Its invoices and the unassigned ones are its own;
   another party's invoice is listed with its party for a person to pair on purpose, never proposed to the line's state
   or accepted in bulk (`other_candidates`). A package without a party (made before 133) takes every invoice as its own.
+- 135 (plan 134 P2): a line's partner is its counterparty name without its reference numbers (`reconcile.name_key`),
+  so the page can group a partner's lines and mark them in one step (`unmark` undoes them in one step). The reasons a
+  person gave earlier for that partner's lines, in any package, come with each line (`earlier_marks`) as a suggestion,
+  never applied by itself; a line through a payment app teaches nothing, as the app pays many suppliers (131).
 
 Layer: UI/CLI → **this** (application operation) → `jav.reconcile` (the core and its store adapter) and `jav.work`
 (the package record and its log).
@@ -283,11 +287,33 @@ def _open_refs(docs: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
                       "pages": pages.get(d["id"])} for d in docs if d["work_run"] in packages}
 
 
+def _partner_marks(snap: dict[str, Any]) -> dict[str, dict[str, set[str]]]:
+    """135: the active needs-no-invoice marks per partner (`reconcile.name_key`) and reason: the lines marked with it.
+    A line through a payment app, or without a name, teaches nothing."""
+    lines = {ln["id"]: ln for st in snap["statements"] for ln in st["lines"]}
+    out: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+    for m in snap["marks"]:
+        ln = lines.get(m["line_id"])
+        key = reconcile.name_key(ln.get("counterparty_name")) if ln else None
+        if key and not reconcile.through_app(ln):
+            out[key][m["category"]].add(m["line_id"])
+    return out
+
+
+def _earlier_marks(history: dict[str, dict[str, set[str]]], line: dict[str, Any], key: str | None) -> list[dict[str, Any]]:
+    """The reasons given for the partner's other lines, the most frequent first (135); none through a payment app."""
+    if not key or key not in history or reconcile.through_app(line):
+        return []
+    counts = {cat: len(ids - {line["id"]}) for cat, ids in history[key].items()}
+    return [{"category": cat, "lines": n} for cat, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])) if n]
+
+
 def workspace(wp_id: str) -> dict[str, Any]:
     """Everything the pairing page shows: the scope's lines (in the period) and the invoices they may pay, each with
-    its state, the amount allocated and left, its allocations and candidates; the coverage per account and month; the
-    blockers of the approval; and counts."""
+    its state, the amount allocated and left, its allocations and candidates, its partner and the reasons given earlier
+    for that partner's lines; the coverage per account and month; the blockers of the approval; and counts."""
     snap, sc = scoped_snapshot(wp_id)
+    history = _partner_marks(snap)
     result = reconcile.propose(snap)
     scope_ids = set(snap["scope_statements"])
     statements = [st for st in snap["statements"] if st["id"] in scope_ids]
@@ -342,6 +368,7 @@ def workspace(wp_id: str) -> dict[str, Any]:
                 state = "excluded"
             else:
                 state = "open"
+            partner = reconcile.name_key(ln.get("counterparty_name"))
             lines.append({"id": lid, "statement_id": st["id"], "account": reconcile.statement_account(st),
                           "statement_type": st.get("statement_type"), "currency": st.get("currency"),
                           "booking_date": ln.get("booking_date"), "direction": ln.get("direction"), "amount": ln.get("amount"),
@@ -354,7 +381,8 @@ def workspace(wp_id: str) -> dict[str, Any]:
                           "other_candidates": [{"invoice_id": c["invoice_id"], "party": (who.of(c["invoice_id"]) or {}).get("name")}
                                                for c in theirs],
                           "rejected": sorted(i for i, l_ in rejected if l_ == lid),
-                          "statement_verified": bool(st.get("verified"))})
+                          "statement_verified": bool(st.get("verified")),
+                          "partner": partner, "earlier_marks": _earlier_marks(history, ln, partner)})
     line_ids = {ln["id"] for ln in lines}
     from jav import reconcile_ai  # 134: the AI's stored answers per line (that module reads this workspace)
 
@@ -620,6 +648,29 @@ def mark(wp_id: str, line_ids: Iterable[str], *, category: str, note: str | None
             made.append(cur.lastrowid)
         work.record_event(c, wp_id, "reconcile_mark", actor, {"marks": made, "category": category})
         return [dict(r) for r in c.execute(f"SELECT * FROM reconcile_line_marks WHERE id IN ({','.join('?' * len(made))})", made)]
+    return _write(ctx["state"], write)
+
+
+def unmark(wp_id: str, line_ids: Iterable[str], *, actor: str) -> int:
+    """135: revokes the needs-no-invoice marks of lines of the scope in one step (a partner's lines marked at once are
+    undone at once); lines without a mark are skipped, but at least one must have one. Returns how many were revoked."""
+    ids = list(dict.fromkeys(line_ids))
+    if not ids:
+        raise PackageError("no line to unmark")
+    ctx = _context(wp_id)
+    for lid in ids:
+        _scope_line(ctx, lid)
+    marked = [ctx["marks"][lid]["id"] for lid in ids if lid in ctx["marks"]]
+    if not marked:
+        raise PackageError("none of the lines is marked")
+
+    def write(c) -> int:
+        now = _now()
+        for mark_id in marked:
+            c.execute("UPDATE reconcile_line_marks SET revoked_at=?, revoked_by=? WHERE id=? AND revoked_at IS NULL",
+                      (now, actor, mark_id))
+        work.record_event(c, wp_id, "reconcile_revoke", actor, {"kind": "marks", "refs": marked})
+        return len(marked)
     return _write(ctx["state"], write)
 
 

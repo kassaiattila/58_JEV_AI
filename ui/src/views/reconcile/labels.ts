@@ -1,7 +1,7 @@
 // 132: the labels of the reconciliation package's pages, in the chosen language (English source text; the Hungarian
 // is in i18n/hu-native.json). The codes come from the local service (jav/reconcile_package.py, configs/reconcile.json).
 import type { ReconcileBlocker, ReconcileLineState, ReconcileRelation, ReconcileSignal } from "../../api";
-import { t } from "../../i18n";
+import { getLocale, t } from "../../i18n";
 import { tmap } from "../../labels";
 
 export const LINE_STATE: Record<ReconcileLineState, string> = tmap({
@@ -58,6 +58,31 @@ export const MARK: Record<string, string> = tmap({
   salary: "Salary",
   other: "Other (with a note)",
 });
+
+/** 135: the kind of payment the AI read from a line's text (configs/callsites/reconcile_line.json `line_kind`). */
+export const KIND: Record<string, string> = tmap({
+  utility_or_telecom: "Utility or telecom bill",
+  subscription: "Subscription",
+  insurance: "Insurance",
+  online_order: "Online order",
+  retail_purchase: "Retail purchase",
+  institution_fee: "Fee to an institution",
+  person_transfer: "Transfer to a person",
+  own_transfer: "Own transfer or top-up",
+  bank_fee: "Bank fee",
+  tax_or_duty: "Tax or duty",
+  cash: "Cash",
+  other: "Other",
+});
+
+export const ENGINE: Record<string, string> = { jev: "JEV", gpt: "GPT" };
+
+/** A probability (0–1) as a decimal in the chosen language: 0.87 → "0,87". */
+export function probability(p: number | null | undefined): string {
+  if (p === null || p === undefined) return "–";
+  const text = p.toFixed(2);
+  return getLocale() === "hu-HU" ? text.replace(".", ",") : text;
+}
 
 export function relationText(relation: ReconcileRelation | null): string {
   switch (relation) {
