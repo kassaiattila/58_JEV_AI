@@ -615,6 +615,7 @@ function LineDetail({ line, invoiceById, readOnly, busy, onRevoke }: {
             <dt>{t("Kind (AI)")}</dt>
             <dd>
               {kinds(line).map((k) => `${ENGINE[k.engine]}: ${KIND[k.kind] ?? k.kind} ${probability(k.probability)}`).join(" · ")}
+              {kinds(line).some((k) => k.lent) ? ` · ${t("asked once for the partner")}` : ""}
               {expectsInvoice(line) ? ` · ${t("an invoice is expected, but none is in the store")}` : ""}
             </dd>
           </>

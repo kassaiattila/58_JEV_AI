@@ -362,6 +362,8 @@ export type ReconcileAiEngine = "jev" | "gpt";
 export interface ReconcileAiProposal {
   pays: string | null; pays_probability: number | null; options: string[]; kind: string | null; kind_probability: number | null;
   suggested_mark: string | null; expects_invoice: boolean | null; measured: boolean; error: string | null; created_at: string;
+  /** 136: the partner's line that was asked, when this line took the kind of payment over from it (no call) */
+  asked_line_id?: string | null;
 }
 export interface ReconcileInvoice {
   id: string; doc_type: string; number: string | null; supplier_name: string | null; amount: string | null; currency: string | null;

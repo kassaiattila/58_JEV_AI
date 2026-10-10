@@ -71,7 +71,7 @@ python -m jav.cli email-ingest-server --port 8931 --run   # receiver for the leg
 python -m jav.cli recipes | wp-* | run-* | worker [--once] | worker-status | worker-stop   # work package → run (jav/work_cli.py)
 python -m jav.cli calls-uncertain | calls-resolve <id> [--cost USD] --note N   # settle a paid call with an uncertain outcome by hand
 python -m jav.cli duplicates [--write] | reconcile [--golden] [--write]   # duplicate invoices | invoice <-> statement line pairs (--write: open their to-dos)
-python -m jav.cli reconcile-ai <package> [--engine jev|gpt|both] [--jev-budget-usd X] [--budget-usd Y] | --evaluate   # 134 AI proposals for a package's lines (without a budget: free estimate) | 135 their hits against a person's decisions (free)
+python -m jav.cli reconcile-ai <package> [--engine jev|gpt|both] [--jev-budget-usd X] [--budget-usd Y] [--redo] | --evaluate   # 134 AI proposals for a package's lines (without a budget: free estimate; 136: only the new lines, the kind once per partner) | 135 their hits against a person's decisions (free)
 python -m jav.cli fx-rates [--fetch FROM TO] [--currency C]             # 130 stored MNB exchange rates (counts) | fetch a span (free; only dates and codes leave)
 .\scripts\dev.ps1 start|status|stop                     # UI + local service (serve, 127.0.0.1:8930) + one worker
 cd ui; npm run build | npm test | npm run dev             # UI (ui/): build into ui/dist, vitest, dev server :5173
