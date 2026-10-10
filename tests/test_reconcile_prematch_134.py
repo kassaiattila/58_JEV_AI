@@ -40,7 +40,7 @@ def _conf_with(monkeypatch, **fuzzy):
 def test_the_golden_set_has_the_new_cases_and_every_case_passes():
     assert set(NEW) <= set(CASES) and len(CASES) >= 60
     assert reconcile.golden_score() == {"passed": len(CASES), "total": len(CASES), "failures": {}}
-    assert {"reference", "supplier_name_fuzzy"} <= set(reconcile.SIGNALS) and reconcile.ENGINE_VERSION == "1.5.0"
+    assert {"reference", "supplier_name_fuzzy"} <= set(reconcile.SIGNALS) and reconcile.ENGINE_VERSION == "1.6.0"  # 137
 
 
 def test_the_supplier_name_is_compared_without_its_address_numbers_and_legal_form():

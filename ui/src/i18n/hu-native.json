@@ -605,6 +605,8 @@
   "The exported file's full path": "Az exportált fájl teljes útvonala",
   "Reading…": "Olvasás…",
   "List the accounts": "A számlák listázása",
+  "originally {{amount}}": "eredetileg {{amount}}",
+  "on the card purchase's original {{amount}}": "a kártyás vásárlás eredeti összegén ({{amount}})",
   "A folder of exports is read as a whole, for example the Erste XML files: one statement per month, completed from the month's PDF statement next to them or in a pdf subfolder.": "Egy mappa exportjait együtt olvassa, például az Erste XML-fájljait: havonta egy kivonat, amelyet a hónap PDF-kivonata egészít ki (mellettük vagy egy pdf almappában).",
   "The exported file's or folder's full path": "Az exportált fájl vagy mappa teljes útvonala",
   "Select all": "Mind kijelölése",

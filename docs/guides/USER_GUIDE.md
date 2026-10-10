@@ -146,6 +146,9 @@ loaded statements cover.
   computer when the rates are fetched.
 - **Payment method:** a bill payable by postal cheque (*csekk*) paid through a cheque payment app (PostaCsekk, iCsekk) shows
   the app's name, not the supplier's; with the cheque as payment method and exactly the same amount the pair is proposed.
+- **A card purchase's original amount:** when the bank prints a card purchase's original amount next to the forint line (the
+  Erste PDF statement, for example 20.00 USD), the line is compared with an invoice of that currency on that amount, exactly,
+  without an exchange rate; the line shows ‘originally 20.00 USD’ and the candidate says it was compared on it.
 - **Names learnt from your decisions:** after you pair a line with an invoice, the line's name (without its reference numbers)
   ties later lines of that name to the same supplier. A line through a payment app teaches nothing.
 

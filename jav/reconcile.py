@@ -69,6 +69,13 @@ suffix ("EXAMPLETELECOMSZAML*12345") or with a misread letter, so the whole-word
   (`configs/reconcile.json` `strength`), and the days from the issue date: the pairing page orders the candidates by it
   and says why. It is no threshold; what is proposed is unchanged.
 
+**A card purchase's original amount** (137, DECISIONS 137): a bank account's PDF statement (the Erste export completed
+by code, `jav/statement_table.py`) prints a card purchase's original amount and currency next to its forint line
+(`original_amount`, `original_currency`). Such a line meets an invoice of that currency (`meets`: `original`) in the card
+window around the issue date and is compared on the original amount exactly (`equal` / `different`), without the MNB
+rate; like a converted pair it is allocated only in whole. An account with such lines counts in the coverage of a
+foreign-currency invoice's card window, as a card statement does.
+
 **Allocations and marks** (131 E1, the reconciliation package, `jav/reconcile_package.py`): a confirmation is an
 allocation of an amount (`reconcile_allocations`), several per line and per invoice, never over either amount; a
 `paid_by` decision counts as both whole amounts. The proposal compares what is left, so the rest of a split payment can
@@ -100,7 +107,7 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.5.0"
+ENGINE_VERSION = "1.6.0"
 STATUSES = ("confirmed", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing", "no_payment_found",
             "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate")  # how a candidate's amounts relate
@@ -575,6 +582,38 @@ def fx_capable(payment: dict[str, Any]) -> bool:
     return payment.get("currency") == f["line_currency"] and payment.get("statement_type") in f["statement_types"]
 
 
+def original(payment: dict[str, Any]) -> tuple[str, Decimal] | None:
+    """137: a card purchase's original currency and amount, as the bank printed them next to the forint line."""
+    currency, amount = payment.get("original_currency"), payment.get("original_amount")
+    if not currency or amount in (None, ""):
+        return None
+    try:
+        return str(currency), money(str(amount))
+    except (ValueError, InvalidOperation):
+        return None
+
+
+def meets(invoice: dict[str, Any], payment: dict[str, Any]) -> str | None:
+    """How a line can pay an invoice: `same` (one currency), `original` (137: a card purchase in the invoice's
+    currency), `fx` (130: a forint card line against another currency, through the MNB rate), or None."""
+    if invoice.get("currency") == payment.get("currency"):
+        return "same"
+    if (orig := original(payment)) is not None and orig[0] == invoice.get("currency"):
+        return "original"
+    if fx_capable(payment) and rate_need(invoice):
+        return "fx"
+    return None
+
+
+def pair_window(invoice: dict[str, Any], payment: dict[str, Any]) -> tuple[date, date] | None:
+    """The days the line may be booked in to pay the invoice: its payment window in one currency, the card window
+    around the issue date otherwise; None when their currencies cannot meet."""
+    how = meets(invoice, payment)
+    if how is None:
+        return None
+    return window(invoice) if how == "same" else fx_window(invoice)
+
+
 def fx_window(invoice: dict[str, Any]) -> tuple[date, date]:
     """The days a card payment of the invoice is searched in: around its issue date (the day of the purchase)."""
     w = _conf()["fx"]["window"]
@@ -611,12 +650,17 @@ def convert(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, A
 
 def amount_relation(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, Any] | None = None
                     ) -> tuple[str | None, dict[str, str] | None]:
-    """How a line's amount relates to an invoice's: `equal` / `different` in one currency, the conversion for a card
-    line of another currency (`convert`), None when the amounts cannot be compared."""
+    """How a line's amount relates to an invoice's: `equal` / `different` in one currency or on a card purchase's
+    original amount (137), the conversion for a card line of another currency (`convert`), None when the amounts cannot
+    be compared."""
     try:
-        if invoice.get("currency") == payment.get("currency"):
+        how = meets(invoice, payment)
+        if how == "same":
             return ("equal" if money(str(payment.get("amount"))) == money(str(invoice.get("amount"))) else "different"), None
-        if fx_capable(payment) and rate_need(invoice):
+        if how == "original":  # 137: the card purchase's original amount, exactly
+            orig = original(payment)
+            return ("equal" if orig is not None and orig[1] == money(str(invoice.get("amount"))) else "different"), None
+        if how == "fx":
             return convert(invoice, payment, rates)
     except (ValueError, InvalidOperation, ZeroDivisionError):
         return None, None
@@ -681,12 +725,12 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             if iid in paid_invoices or (iid, pid) in rejected:
                 continue
             inv = {**inv_whole, "amount": str(rest_invoice[iid])}
-            same = inv["currency"] == pay["currency"]
-            if not same and not (fx_capable(pay) and rate_need(inv)):
+            how = meets(inv, pay)
+            if how is None:
                 continue
-            if not same and (pid in paid_line or iid in paid_invoice):
-                continue  # a converted pair is compared only in whole (DECISIONS 131)
-            start, end = window(inv) if same else fx_window(inv)
+            if how != "same" and (pid in paid_line or iid in paid_invoice):
+                continue  # a pair of two currencies is compared only in whole (DECISIONS 131)
+            start, end = window(inv) if how == "same" else fx_window(inv)
             if not start <= booked <= end:
                 continue
             found = signals(inv, pay, learned, common)
@@ -702,6 +746,9 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
                          **strength(inv, pay, found, relation)}
             if conversion is not None:
                 candidate["fx"] = conversion
+            if how == "original":  # 137: compared on the card purchase's original amount
+                orig = original(pay)
+                candidate["original"] = {"amount": f"{orig[1]:.2f}", "currency": orig[0]} if orig else None
             candidates.append(candidate)
     proposed_lines = {c["line_id"] for c in candidates if c["proposed"]}
     proposed_invoices = {c["invoice_id"] for c in candidates if c["proposed"]}
@@ -722,8 +769,11 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     in_scope = {k: st for k, st in prepared["statements"].items() if k in scope}
     periods = coverage(in_scope)
     f = _conf()["fx"]
+    purchases = {statement_account(st) for st in in_scope.values()  # 137: an account printing card purchases' originals
+                 if any(original(ln) for ln in st.get("lines") or [])}
     card_accounts = {(statement_account(st), str(st.get("currency"))) for st in in_scope.values()
-                     if st.get("statement_type") in f["statement_types"] and st.get("currency") == f["line_currency"]}
+                     if (st.get("statement_type") in f["statement_types"] and st.get("currency") == f["line_currency"])
+                     or statement_account(st) in purchases}
     statuses = []
     for iid, inv in sorted(prepared["invoices"].items()):
         mine = [c for c in candidates if c["invoice_id"] == iid]

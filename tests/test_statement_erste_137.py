@@ -206,3 +206,36 @@ def test_the_service_surveys_a_folder(tmp_path, monkeypatch):
         r = client.post("/api/statement-tables/survey", headers=HUMAN, json={"path": str(folder)})
         assert r.status_code == 200, r.text
         assert [a["balance_checked"] for a in r.json()["accounts"]] == [True] and "EXAMPLE CLOUD" not in r.text
+
+
+# --- in the reconciliation: a card purchase on its original amount -------------------------------------------------------
+
+
+def test_a_card_purchase_pairs_with_the_dollar_invoice_on_its_original_amount(db):
+    from jav import reconcile_ai, reconcile_package
+    from tests import test_reconcile_k2_129 as k2
+
+    folder = db / "erste"
+    _export(folder, "20260630", JUNE, pdf=PDF_JUNE)
+    wp = work.create_from_statement_table(folder, [f"{DIGITS}:HUF:2026-06-01"], name="Erste 2026-06", owner="tester")
+    run_id = _run_all(wp["id"])
+    work.approve_run(run_id, actor="tester")
+    usd = k2._save("usd", {"invoice_number": "EC-0601", "supplier_name": "Example Cloud Inc.", "gross_total": "20.00",
+                           "currency": "USD", "issue_date": "2026-06-01"}, doc_type="invoice_foreign")
+    k2._save("usd-other", {"invoice_number": "EC-0501", "supplier_name": "Example Cloud Inc.", "gross_total": "20.00",
+                           "currency": "USD", "issue_date": "2026-05-01"}, doc_type="invoice_foreign")
+    package = reconcile_package.create(name="Erste June", accounts=[reconcile.account_key(OWN)], period_start="2026-06-01",
+                                       period_end="2026-06-30", actor="tester")["workpackage_id"]
+    ws = reconcile_package.workspace(package)
+    card = next(ln for ln in ws["lines"] if ln["original_currency"] == "USD")
+    [cand] = card["candidates"]
+    assert (cand["invoice_id"], cand["proposed"], cand["amount_relation"], cand["original"]) == (
+        usd, True, "equal", {"amount": "20.00", "currency": "USD"})
+    assert usd in {i["id"] for i in ws["invoices"]}
+    offered = reconcile_ai.preselect(card, ws["invoices"])
+    assert [i["id"] for i in offered][:1] == [usd]
+    facts = reconcile_ai.option_facts(next(i for i in ws["invoices"] if i["id"] == usd), card)
+    assert facts["amount"].endswith("the same as the card purchase's original amount")
+    reconcile_package.allocate(package, [{"invoice_doc_id": usd, "line_id": card["id"]}], note=None, actor="tester")
+    ws = reconcile_package.workspace(package)
+    assert next(ln for ln in ws["lines"] if ln["id"] == card["id"])["state"] == "allocated"
