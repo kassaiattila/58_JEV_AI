@@ -41,11 +41,14 @@ def _run_all(wp_id: str, mode: str = "apply") -> str:
 
 
 def test_only_the_chosen_accounts_are_written_once_each(db):
-    reading = st.read(_workbook(db))
+    export = _workbook(db)
+    reading = st.read(export)
     paths = st.derive(reading, [HUF, EUR, HUF])
     assert len(paths) == 2 and all(p.parent.parent == st.derived_dir() for p in paths)
     first = [p.read_bytes() for p in paths]
-    assert [p.read_bytes() for p in st.derive(st.read(_workbook(db)), [HUF, EUR])] == first  # canonical: the same items
+    # canonical: the same export read again gives the same items. 139: the same file, as a workbook saved again carries
+    # its save time, and since the reader runs isolated (138) the two saves fell into different seconds
+    assert [p.read_bytes() for p in st.derive(st.read(export), [HUF, EUR])] == first
     content = st.load_derived(first[0])
     assert content["account"] == {"key": HUF, "title": "Személyes számla", "currency": "HUF", "occurrence": 1}
     assert content["source"]["file"].endswith(".xlsx") and len(content["statement"]["transactions"]) == 4
