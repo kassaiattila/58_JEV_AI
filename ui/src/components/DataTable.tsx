@@ -2,7 +2,7 @@
 // local service (decision of 2026-09-28); here there is only the request state and the rendering. The headless
 // engine (TanStack Table) provides the header, the sorting state, column visibility and selection; on a large page
 // TanStack Virtual renders only the visible rows. Column visibility is kept per table (following the legacy project's
-// DataTable.tsx, in local storage).
+// DataTable.tsx, in local storage), and so are the column widths set by dragging (139, ColumnResize.tsx).
 import {
   flexRender, getCoreRowModel, useReactTable,
   type ColumnDef, type RowSelectionState, type SortingState, type VisibilityState,
@@ -13,6 +13,7 @@ import type { DsColumn, DsFilter, DsPage, DsRow, DsScope, DsSort } from "../api"
 import { useDataset, useDebounced } from "../hooks";
 import { getLocale, t, useLocale } from "../i18n";
 import { fold, numText, tmap, when } from "../labels";
+import { ColumnResizer, useColumnWidths } from "./ColumnResize";
 import { DownloadPanel } from "./DownloadPanel";
 import { Picker } from "./Picker";
 import { Popover } from "./Popover";
@@ -220,8 +221,10 @@ function ColumnFilter({ col, facets, current, onApply }: {
 
 // --- column picker ----------------------------------------------------------------------------------------------
 
-function ColumnMenu({ columns, visible, onChange, onReset }: {
+function ColumnMenu({ columns, visible, onChange, onReset, onResetWidths }: {
   columns: DsColumn[]; visible: (c: DsColumn) => boolean; onChange: (key: string, on: boolean) => void; onReset: () => void;
+  /** 139: only while a column width is set */
+  onResetWidths?: () => void;
 }) {
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -244,6 +247,7 @@ function ColumnMenu({ columns, visible, onChange, onReset }: {
           ))}
         </div>
         <button type="button" className="link-btn small" onClick={onReset}>{t("Alaphelyzet")}</button>
+        {onResetWidths ? <button type="button" className="link-btn small" onClick={onResetWidths}>{t("Reset column widths")}</button> : null}
       </Popover>
     </>
   );
@@ -351,15 +355,19 @@ export function DataTable(p: Props) {
 
   const rows = table.getRowModel().rows;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const widths = useColumnWidths(storageId, tableRef);
   const virtual = rows.length > VIRTUAL_MIN;
+  // 139: a wrapped row is taller than the estimate, so the drawn rows are measured
   const virtualizer = useVirtualizer({
     count: virtual ? rows.length : 0, getScrollElement: () => scrollRef.current, estimateSize: () => ROW_PX, overscan: 12,
   });
   const items = virtual ? virtualizer.getVirtualItems() : [];
   const padTop = virtual && items.length ? items[0].start : 0;
   const padBottom = virtual && items.length ? virtualizer.getTotalSize() - items[items.length - 1].end : 0;
-  const drawn = virtual ? items.map((v) => rows[v.index]) : rows;
-  const visibleCount = table.getVisibleLeafColumns().length;
+  const drawn = virtual ? items.map((v) => ({ row: rows[v.index], index: v.index })) : rows.map((row, index) => ({ row, index }));
+  const leafIds = table.getVisibleLeafColumns().map((c) => c.id);
+  const visibleCount = leafIds.length;
 
   const byKey = Object.fromEntries(columns.map((c) => [c.key, c]));
   const filtersOf = (key: string) => state.filters.filter((f) => f.col === key);
@@ -381,7 +389,7 @@ export function DataTable(p: Props) {
         {p.toolbar}
         <span className="dt-spacer" />
         {columns.length ? <ColumnMenu columns={columns} visible={isVisible} onChange={setVisible}
-          onReset={() => { setVisibility({}); saveVisibility(storageId, {}); }} /> : null}
+          onReset={() => { setVisibility({}); saveVisibility(storageId, {}); }} onResetWidths={widths.sized ? widths.reset : undefined} /> : null}
         <DownloadPanel dataset={p.dataset} scope={scope} label={p.label} query={query} total={total} matched={matched}
           filtered={filtered} selectedKeys={selectedKeys} columns={columns} visibleKeys={columns.filter(isVisible).map((c) => c.key)}
           extras={p.downloadExtras} />
@@ -406,7 +414,9 @@ export function DataTable(p: Props) {
       {!data && !page.error ? <p className="muted small pad">{t("Betöltés…")}</p> : null}
       {data ? (
         <div className="dt-scroll" ref={scrollRef} style={{ maxHeight: p.maxHeight ?? "70vh" }}>
-          <table className="table dt-table" aria-label={p.label} aria-rowcount={matched + 1}>
+          <table ref={tableRef} className={widths.sized ? "table dt-table sized" : "table dt-table"} aria-label={p.label} aria-rowcount={matched + 1}
+            style={widths.sized ? { width: widths.total(leafIds) } : undefined}>
+            {widths.sized ? <colgroup>{leafIds.map((id) => <col key={id} style={{ width: widths.widthOf(id) }} />)}</colgroup> : null}
             <thead>
               {table.getHeaderGroups().map((hg) => (
                 <tr key={hg.id}>
@@ -420,7 +430,7 @@ export function DataTable(p: Props) {
                     const next = h.column.getNextSortingOrder();
                     const hint = `${next === "asc" ? t("Kattints: növekvő sorrend") : next === "desc" ? t("Kattints: csökkenő sorrend") : t("Kattints: rendezés kikapcsolása")} · ${t("Shift + kattintás: további rendezési szint")}`;
                     return (
-                      <th key={h.id} className={c && NUMERIC.has(c.kind) ? "num" : undefined}
+                      <th key={h.id} data-col={h.column.id} className={c && NUMERIC.has(c.kind) ? "num" : undefined}
                         aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : undefined}>
                         {c ? (
                           <span className="th-in">
@@ -432,6 +442,7 @@ export function DataTable(p: Props) {
                             <ColumnFilter col={c} facets={data.facets[c.key]} current={filtersOf(c.key)} onApply={(fs) => setColumnFilters(c.key, fs)} />
                           </span>
                         ) : flexRender(h.column.columnDef.header, h.getContext())}
+                        {c ? <ColumnResizer col={h.column.id} label={t(c.label)} widths={widths} /> : null}
                       </th>
                     );
                   })}
@@ -440,8 +451,9 @@ export function DataTable(p: Props) {
             </thead>
             <tbody>
               {padTop > 0 ? <tr aria-hidden="true"><td colSpan={visibleCount} style={{ height: padTop, padding: 0 }} /></tr> : null}
-              {drawn.map((row) => (
-                <tr key={row.id} className={row.getIsSelected() ? "row-selected" : undefined}>
+              {drawn.map(({ row, index }) => (
+                <tr key={row.id} className={row.getIsSelected() ? "row-selected" : undefined}
+                  data-index={index} ref={virtual ? virtualizer.measureElement : undefined}>
                   {row.getVisibleCells().map((cell) => {
                     const c = cell.column.columnDef.meta as DsColumn | undefined;
                     return (

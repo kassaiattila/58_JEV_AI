@@ -676,5 +676,8 @@
   "{{n}} accounts or cards, no statement yet": "{{n}} accounts or cards, no statement yet",
   "Data status of the period": "Data status of the period",
   "The package can be created; the gaps show in its result.": "The package can be created; the gaps show in its result.",
-  "Every month of the chosen accounts has an approved statement that checks out.": "Every month of the chosen accounts has an approved statement that checks out."
+  "Every month of the chosen accounts has an approved statement that checks out.": "Every month of the chosen accounts has an approved statement that checks out.",
+  "Column width: {{label}}": "Column width: {{label}}",
+  "Drag to change the column width (or use the arrow keys)": "Drag to change the column width (or use the arrow keys)",
+  "Reset column widths": "Reset column widths"
 }

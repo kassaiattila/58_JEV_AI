@@ -53,6 +53,7 @@ Tables work the same way in every list:
 - **Only my work packages** (*Csak a saját csomagjaim*): shows only the packages you are the owner of. You need to choose a name first.
 - **Hidden packages too** (*Elrejtett csomagok is*): also shows hidden packages, with a ‘Package’ (*Csomag*) column showing their state.
 - **Columns (x/y)** (*Oszlopok (x/y)*): turn on hidden columns here, for example ‘Open to-dos incl. earlier runs’ (*Nyitott teendő a korábbi futásokkal*) or ‘Source location’ (*Forrás helye*). **Reset** (*Alaphelyzet*) restores the original columns. The choice is remembered per table in this browser.
+- **Column width:** drag the right edge of a column header to make the column narrower or wider; the text wraps inside the cell. With the keyboard, move to the edge with Tab and use the left and right arrows. From the first change, only the column you drag changes width and the table grows or shrinks with it. **Reset column widths** (*Oszlopszélességek alaphelyzetbe*, in the **Columns** menu) returns the automatic widths. The widths are remembered per table in this browser. Faint lines separate the rows and the columns of every table.
 - **Paging:** at the bottom you find ‘1–100 of N rows’ (*1–100 / N sor*), the number of rows per page (50, 100, 250, 500) and the page buttons.
 
 ### 3.1 Download
@@ -277,7 +278,7 @@ You can correct a value in three ways:
 
 ### 7.5 Line lists
 
-If the document has a line list (for example invoice line items or statement transactions), tabs appear at the top of the panel: ‘Fields’ (*Mezők*) and the name of the list with its number of rows; a ‘ •’ marker shows unsaved changes. The cells of the list can be edited (dates in any unambiguous form, stored as YYYY-MM-DD; amounts and quantities as in section 7.4), **Add row** (*Sor hozzáadása*) adds a new row, × deletes a row, and **Revert list** (*A lista visszaállítása*) discards your changes to the list. Clicking a row makes the image jump to where that row is. A row that failed a check is shown in red. The correction applies to the whole list; the machine list is kept unchanged alongside it.
+If the document has a line list (for example invoice line items or statement transactions), tabs appear at the top of the panel: ‘Fields’ (*Mezők*) and the name of the list with its number of rows; a ‘ •’ marker shows unsaved changes. The cells of the list can be edited (dates in any unambiguous form, stored as YYYY-MM-DD; amounts and quantities as in section 7.4), **Add row** (*Sor hozzáadása*) adds a new row, × deletes a row, and **Revert list** (*A lista visszaállítása*) discards your changes to the list. The column widths can be dragged as in the tables (section 3); they are remembered per list (for example for every statement's transactions), and **Reset column widths** in the list header returns the automatic widths. Clicking a row makes the image jump to where that row is. A row that failed a check is shown in red. The correction applies to the whole list; the machine list is kept unchanged alongside it.
 
 ### 7.6 Saving and conflicts
 
@@ -464,7 +465,7 @@ The names offered by **Who is working?**. Add a new name with the ‘New name’
   - the processing and its settings: `configs/recipes.json` (internally still called recipes; the UI offers only the active `processing`); their explanatory texts and the comparison of the paths: `configs/recipe_help.json`; moving old packages onto the processing: `python -m jav.cli processing-migrate [--write]`;
   - confidence bands (`confidence_bands`, 0.9 and 0.5 by default), backup (`backup`: time, number of copies kept, `max_age_hours`) and folder restriction (`restrict_paths`, `JAV_API_ROOTS`): `configs/service.json`;
   - Hungarian names of fields and document types: `configs/field_labels.json`; email intents: `configs/intents.json`; task-proposal actions: `configs/email_tasks.json`.
-- **Data stored in the browser** (per viewer, not stored in the database): name `jav.actor`, language `jav.ui-language`, appearance `jav.appearance`, column visibility `jav.table.<table>.cols`, the image/panel ratio `jav.review.split` (on the line-list tab `jav.review.split.list`); the working copy, per tab: `jav.drafts` (sessionStorage).
+- **Data stored in the browser** (per viewer, not stored in the database): name `jav.actor`, language `jav.ui-language`, appearance `jav.appearance`, column visibility `jav.table.<table>.cols`, column widths `jav.table.<table>.widths` (a line list: `jav.table.list.<field>.widths`), the image/panel ratio `jav.review.split` (on the line-list tab `jav.review.split.list`); the working copy, per tab: `jav.drafts` (sessionStorage).
 - **Source code:** the interface is in `ui/src/` (views: `views/`, review: `review/`, labels: `labels.ts`, English translation: `i18n/en-*.json`); the service is `jav/api.py`, the table columns are in `jav/datasets.py`, the next step in `jav/work_views.py`. Structure: [architecture](../ARCHITECTURE.md), section 8.
 - **Main labels in Hungarian** (the interface's default language):
 

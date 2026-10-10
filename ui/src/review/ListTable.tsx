@@ -1,6 +1,7 @@
 // Line-item list (048 T1-lista): a table of statement transactions, resolutions and line items with editable cells,
 // and with adding and deleting rows. The correction covers the whole list (the local service checks the kind per cell);
 // the draft lives in the drafts.ts store and is saved together with the field correction.
+import { ColumnResizer, useColumnWidths } from "../components/ColumnResize";
 import { Picker } from "../components/Picker";
 import { useEffect, useRef } from "react";
 import type { Cell, CorrectionValue, ListColumn } from "../api";
@@ -47,7 +48,11 @@ export function ListTable(p: Props) {
   const { field, columns, rows, badRows, readOnly } = p;
   useLocale();
   const body = useRef<HTMLTableSectionElement | null>(null);
+  const tableRef = useRef<HTMLTableElement>(null);
+  // 139: column widths by dragging, kept per list field (the same field has the same columns on every document)
+  const widths = useColumnWidths(`list.${field}`, tableRef);
   const simple = columns.length === 1 && columns[0].name === "*";
+  const colIds = ["_n", ...columns.map((c) => c.name), "_delete"];
 
   useEffect(() => {
     if (!p.focusRow) return;
@@ -72,17 +77,27 @@ export function ListTable(p: Props) {
         <span className="muted small">{t("{{n}} sor", { n: rows.length })}</span>
         {p.edited ? <span className="badge">{t("mentetlen")}</span> : p.corrected ? <span className="badge">{t("javítva")}</span> : null}
         <span className="spacer" />
+        {widths.sized ? <button type="button" className="quiet small-btn" onClick={widths.reset}>{t("Reset column widths")}</button> : null}
         {p.edited ? <button type="button" className="quiet small-btn" onClick={p.onRevert}>{t("A lista visszaállítása")}</button> : null}
         <button type="button" className="secondary small-btn" disabled={readOnly} onClick={add}><Icon name="plus" />{t("Sor hozzáadása")}</button>
       </div>
       {rows.length === 0 ? <p className="muted small pad-s">{t("A lista üres: a gép nem talált ilyen sort. Ha az iraton van, add hozzá.")}</p> : (
         <div className="list-scroll">
-          <table className="table compact list-table">
+          <table ref={tableRef} className={widths.sized ? "table compact list-table sized" : "table compact list-table"}
+            style={widths.sized ? { width: widths.total(colIds) } : undefined}>
+            {widths.sized ? <colgroup>{colIds.map((id) => <col key={id} style={{ width: widths.widthOf(id) }} />)}</colgroup> : null}
             <thead>
               <tr>
-                <th className="num">#</th>
-                {columns.map((c) => <th key={c.name} className={NUMERIC.has(c.kind) ? "num" : ""}>{simple ? t("Érték") : columnLabel(c.name)}</th>)}
-                <th aria-label={t("Törlés")} />
+                <th data-col="_n" className="num">#</th>
+                {columns.map((c) => {
+                  const label = simple ? t("Érték") : columnLabel(c.name);
+                  return (
+                    <th key={c.name} data-col={c.name} className={NUMERIC.has(c.kind) ? "num" : ""}>
+                      {label}<ColumnResizer col={c.name} label={label} widths={widths} />
+                    </th>
+                  );
+                })}
+                <th data-col="_delete" aria-label={t("Törlés")} />
               </tr>
             </thead>
             <tbody ref={body}>
