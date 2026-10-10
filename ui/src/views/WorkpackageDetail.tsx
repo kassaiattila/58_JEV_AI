@@ -13,6 +13,7 @@ import { go, type Route, type Stage } from "../route";
 import { DocumentsPanel } from "./DocumentsPanel";
 import { ProcessStage } from "./ProcessStage";
 import { ResultStage } from "./ResultStage";
+import { StatementPackagePanel } from "./StatementPackagePanel";
 import { ReviewWorkspace } from "./ReviewWorkspace";
 import { ReconcileStages } from "./reconcile/ReconcileStages";
 import { StartConfirm } from "./StartConfirm";
@@ -103,6 +104,7 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
     t("Reconciliation of {{n}} accounts or cards, {{from}} – {{to}}", { n: view.reconcile.scope.accounts.length, from: view.reconcile.scope.period_start, to: view.reconcile.scope.period_end })
   ) : (
     <>
+      {view.statements ? `${t("Bank statements of {{party}}, {{from}} – {{to}}", { party: view.statements.scope.party.name, from: view.statements.scope.period_start, to: view.statements.scope.period_end })} · ` : null}
       {itemCountText(workpackage.items)}
       {last ? ` · ${t("utolsó futás: {{mode}}, {{when}}", { mode: MODE[last.mode].toLowerCase(), when: when(last.created_at) })}` : ` · ${t("még nem futott")}`}
     </>
@@ -148,6 +150,8 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
             </>
           )
         ) : null}
+        {/* 140: a statement package's statements and its party's months, before and after its run */}
+        {!reconcile && stage === "result" && view.statements ? <StatementPackagePanel view={view.statements} /> : null}
         {!reconcile && stage === "result" ? <ResultStage view={view} table={route.table} runId={route.runId} onChanged={wp.reload} /> : null}
       </div>
     </>
