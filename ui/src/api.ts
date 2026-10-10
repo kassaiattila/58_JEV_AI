@@ -304,6 +304,7 @@ export interface ReconcileAccount {
   key: string; account: string | null; statement_types: string[]; currencies: string[]; statements: number;
   first: string | null; last: string | null;
   party?: PartyRef | null; // 133: the own party the account belongs to
+  registered?: (AccountDetails & { label: string }) | null; // 138: registered with its party (statements may be 0)
 }
 export interface ReconcileScope {
   workpackage_id: string; accounts: string[]; period_start: string; period_end: string; revision: number; updated_at: string;
@@ -397,6 +398,29 @@ export type PartyIdentityKind = "tax" | "name" | "account";
 export interface PartyIdentity { kind: PartyIdentityKind; key: string; label: string; invoices: number }
 export interface PartyAccount {
   key: string; label: string; statements: number; first: string | null; last: string | null; statement_types: string[]; currencies: string[];
+  registered?: AccountDetails | null; // 138: the details a person registered (kind, bank, currencies, the days it was open)
+}
+/** 138: an own account or card as a person registered it; it is known even before any statement of it. */
+export type AccountKind = "account" | "card";
+export interface AccountDetails {
+  kind: AccountKind; bank: string | null; currencies: string[]; valid_from: string | null; valid_to: string | null;
+  actor?: string; updated_at?: string;
+}
+export interface AccountDetailsInput {
+  kind: AccountKind; currencies: string[]; bank: string | null; valid_from: string | null; valid_to: string | null;
+}
+/** 138: a month of an account: missing / partial / unverified (balances do not check out) / unapproved / ok, or none
+ *  (not expected); overlap: two statements book the same days; break: the opening balance does not continue the last. */
+export type MonthState = "ok" | "unapproved" | "unverified" | "partial" | "missing" | "none";
+export interface MonthCell { month: string; state: MonthState; statements: number; flags: ("overlap" | "break")[] }
+export interface MonthColumn {
+  key: string; currency: string; label: string; kind: AccountKind; bank: string | null; registered: boolean;
+  opened: string | null; closed: string | null; statements: number; months: MonthCell[];
+}
+export interface MonthInvoices { month: string; total: number; approved: number; not_approved: number; no_run: number }
+export interface PartyMonths {
+  party: PartyRef; start: string; end: string; months: string[]; today: string; columns: MonthColumn[]; invoices: MonthInvoices[];
+  summary: Record<Exclude<MonthState, "none"> | "overlap" | "break", number>;
 }
 export interface OwnParty {
   id: string; name: string; invoices: number; first: string | null; last: string | null; statements_first: string | null;
@@ -612,6 +636,13 @@ export const api = {
   renameParty: (id: string, name: string) => request<PartiesOverview>("POST", `/parties/${enc(id)}/rename`, { name }),
   mergeParty: (id: string, into: string) => request<PartiesOverview>("POST", `/parties/${enc(id)}/merge`, { into }),
   deleteParty: (id: string) => request<PartiesOverview>("POST", `/parties/${enc(id)}/delete`, {}),
+  // 138: accounts and cards registered with their details, and a party's data month by month
+  registerPartyAccount: (id: string, number: string, details: AccountDetailsInput) =>
+    request<PartiesOverview>("POST", `/parties/${enc(id)}/accounts`, { number, ...details }),
+  setPartyAccount: (key: string, details: AccountDetailsInput) =>
+    request<PartiesOverview>("POST", "/parties/accounts/details", { key, ...details }),
+  partyMonths: (id: string, start?: string, end?: string) =>
+    request<PartyMonths>("GET", `/parties/${enc(id)}/months${start && end ? `?start=${enc(start)}&end=${enc(end)}` : ""}`),
   /** 062: the accepted task marked as done by hand (or unmarked). */
   markTaskDone: (runId: string, itemId: string, index: number, done: boolean) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/done`, { done }),

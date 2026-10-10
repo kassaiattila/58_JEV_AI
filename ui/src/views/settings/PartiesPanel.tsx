@@ -3,15 +3,22 @@
 // a statement); a person accepts them and rearranges them at any time (the owner's decision of 2026-10-10): renames a
 // party, moves a name variant, a tax number or an account to another party, merges two parties, dismisses what names
 // no own party. A reconciliation package is one party's and follows every change at once.
+// 138 (DECISIONS 137): an account or card is registered with its party in advance (kind, bank, currencies, the days it
+// was open), so a month without its statement shows; the party's data status month by month folds open below.
 import { useEffect, useState } from "react";
-import { api, ApiError, type OwnParty, type PartiesOverview, type PartyIdentity, type PartySuggestion } from "../../api";
+import {
+  api, ApiError, type AccountDetailsInput, type AccountKind, type OwnParty, type PartiesOverview, type PartyAccount,
+  type PartyIdentity, type PartySuggestion,
+} from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { tmap } from "../../labels";
+import { MonthStatus } from "./MonthStatus";
 import "./parties.css";
 
 const KIND: Record<string, string> = tmap({ tax: "Tax number", name: "Name variant", account: "Account or card" });
+const ACCOUNT_KIND: Record<string, string> = tmap({ account: "Bank account", card: "Card" });
 const NAMES_SHOWN = 4; // more name variants than this fold into a list
 
 /** Runs a change and shows the overview it answers with; true when it went through. */
@@ -181,11 +188,116 @@ function IdentityRows({ list, targets, busy, act }: { list: PartyIdentity[]; tar
   );
 }
 
+/** 138: what a person registers of an account or card; with `withNumber` its number too (a new one). */
+export function AccountForm({ initial, withNumber, busy, onSave, onCancel }: {
+  initial?: PartyAccount; withNumber?: boolean; busy: boolean;
+  onSave: (details: AccountDetailsInput, number: string) => void; onCancel: () => void;
+}) {
+  useLocale();
+  const reg = initial?.registered;
+  const [number, setNumber] = useState("");
+  const [kind, setKind] = useState<AccountKind>(reg?.kind ?? (initial?.statement_types.includes("credit_card") ? "card" : "account"));
+  const [bank, setBank] = useState(reg?.bank ?? "");
+  const [currencies, setCurrencies] = useState((reg?.currencies ?? initial?.currencies ?? ["HUF"]).join(", "));
+  const [from, setFrom] = useState(reg?.valid_from ?? "");
+  const [to, setTo] = useState(reg?.valid_to ?? "");
+  const codes = currencies.split(/[\s,;]+/).map((c) => c.trim().toUpperCase()).filter(Boolean);
+  const valid = codes.length > 0 && codes.every((c) => /^[A-Z]{3}$/.test(c)) && (!withNumber || number.trim().length > 0)
+    && (!from || !to || from <= to);
+  return (
+    <form className="pt-account-form" aria-label={withNumber ? t("New account or card") : t("Details of {{label}}", { label: initial?.label ?? "" })}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (valid) onSave({ kind, currencies: codes, bank: bank.trim() || null, valid_from: from || null, valid_to: to || null }, number.trim());
+      }}>
+      {withNumber ? (
+        <label className="block">{t("Account number (IBAN or domestic)")}
+          <input value={number} maxLength={80} onChange={(e) => setNumber(e.target.value)} className="mono" />
+        </label>
+      ) : null}
+      <label className="block">{t("Kind")}
+        <select value={kind} onChange={(e) => setKind(e.target.value as AccountKind)}>
+          <option value="account">{ACCOUNT_KIND.account}</option>
+          <option value="card">{ACCOUNT_KIND.card}</option>
+        </select>
+      </label>
+      <label className="block">{t("Bank")} <span className="muted">{t("(optional)")}</span>
+        <input value={bank} maxLength={100} onChange={(e) => setBank(e.target.value)} />
+      </label>
+      <label className="block">{t("Currencies")}
+        <input value={currencies} maxLength={60} onChange={(e) => setCurrencies(e.target.value)} placeholder="HUF, EUR" />
+      </label>
+      <label className="block">{t("Opened")} <span className="muted">{t("(optional)")}</span>
+        <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+      </label>
+      <label className="block">{t("Closed")} <span className="muted">{t("(optional)")}</span>
+        <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+      </label>
+      {from && to && from > to ? <p className="small warn-text">{t("The account is closed before it was opened.")}</p> : null}
+      <div className="button-row">
+        <button type="submit" className="secondary" disabled={busy || !valid}>{t("Save")}</button>
+        <button type="button" className="quiet" onClick={onCancel}>{t("Cancel")}</button>
+      </div>
+    </form>
+  );
+}
+
+/** 138: an account's registered details in brief, or what its statements show. */
+function accountDetails(a: PartyAccount | undefined): string {
+  if (!a) return "";
+  const reg = a.registered;
+  const parts = [reg ? ACCOUNT_KIND[reg.kind] : null, reg?.bank, a.currencies.join(", ")];
+  if (reg?.valid_from || reg?.valid_to) parts.push(`${reg.valid_from ?? "…"} – ${reg.valid_to ?? "…"}`);
+  return parts.filter(Boolean).join(" · ");
+}
+
+/** 138: the party's accounts and cards with their details, each movable like any identity and its details editable. */
+function AccountRows({ party, targets, busy, act }: { party: OwnParty; targets: OwnParty[]; busy: boolean; act: Act }) {
+  useLocale();
+  const [editing, setEditing] = useState<string | null>(null);
+  const list = party.identities.filter((i) => i.kind === "account");
+  const info = Object.fromEntries(party.accounts.map((a) => [a.key, a]));
+  if (!list.length) return null;
+  return (
+    <table className="table compact pt-table">
+      <tbody>
+        {list.map((i) => (
+          editing === i.key ? (
+            <tr key={i.key}>
+              <td colSpan={4}>
+                <span className="mono">{i.label}</span>
+                <AccountForm initial={info[i.key]} busy={busy} onCancel={() => setEditing(null)}
+                  onSave={(details) => void act(() => api.setPartyAccount(i.key, details), t("The account's details have been saved."))
+                    .then((ok) => { if (ok) setEditing(null); })} />
+              </td>
+            </tr>
+          ) : (
+            <tr key={i.key}>
+              <td className="muted small">{KIND[i.kind]}</td>
+              <td>
+                <span className="mono">{i.label}</span>
+                <div className="pt-details">{accountDetails(info[i.key]) || t("no details registered")}</div>
+              </td>
+              <td className="num small">{i.invoices ? count(i) : t("no statement yet")}</td>
+              <td>
+                <button type="button" className="quiet small-btn" disabled={busy} onClick={() => setEditing(i.key)}>{t("Details")}</button>
+                <MoveIdentity identity={i} targets={targets} busy={busy} act={act} />
+              </td>
+            </tr>
+          )
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function PartyCard({ party, others, busy, act }: { party: OwnParty; others: OwnParty[]; busy: boolean; act: Act }) {
   useLocale();
   const [editing, setEditing] = useState<string | null>(null);
   const [into, setInto] = useState("");
-  const fixed = party.identities.filter((i) => i.kind !== "name");
+  const [adding, setAdding] = useState(false);
+  const [monthsOpen, setMonthsOpen] = useState(false);
+  const fixed = party.identities.filter((i) => i.kind === "tax");
   const names = party.identities.filter((i) => i.kind === "name");
   const span = party.first ? ` · ${party.first} – ${party.last}` : "";
   return (
@@ -207,17 +319,31 @@ function PartyCard({ party, others, busy, act }: { party: OwnParty; others: OwnP
       <p className="small">
         {t("{{n}} invoices", { n: party.invoices })}{span}
         {" · "}
-        {party.accounts.length
-          ? t("statements {{first}} – {{last}}", { first: party.statements_first ?? "?", last: party.statements_last ?? "?" })
+        {party.statements_first
+          ? t("statements {{first}} – {{last}}", { first: party.statements_first, last: party.statements_last ?? "?" })
           : t("no statement yet")}
       </p>
       {fixed.length ? <IdentityRows list={fixed} targets={others} busy={busy} act={act} /> : null}
+      <AccountRows party={party} targets={others} busy={busy} act={act} />
+      {adding ? (
+        <AccountForm withNumber busy={busy} onCancel={() => setAdding(false)}
+          onSave={(details, number) => void act(() => api.registerPartyAccount(party.id, number, details), t("The account has been registered."))
+            .then((ok) => { if (ok) setAdding(false); })} />
+      ) : (
+        <div className="button-row">
+          <button type="button" className="quiet small-btn" disabled={busy} onClick={() => setAdding(true)}>{t("Register a bank account or card")}</button>
+        </div>
+      )}
       {names.length ? (
         <details className="pt-names" open={names.length <= NAMES_SHOWN}>
           <summary>{t("{{n}} name variants", { n: names.length })}</summary>
           <IdentityRows list={names} targets={others} busy={busy} act={act} />
         </details>
       ) : null}
+      <details className="pt-names" onToggle={(e) => setMonthsOpen((e.target as HTMLDetailsElement).open)}>
+        <summary>{t("Data status by month")}</summary>
+        {monthsOpen ? <MonthStatus partyId={party.id} /> : null}
+      </details>
       <div className="button-row">
         {others.length ? (
           <span className="pt-move">

@@ -2,10 +2,13 @@
 // or cards (those the store has statements of) and a period; it pairs the statement lines with the invoices other
 // packages processed (DECISIONS 131). 133: the package is one own party's (DECISIONS 133): the parties stand first with
 // their invoices and statements; choosing one checks its accounts and sets the period to its statements' span.
+// 138 (DECISIONS 137): an account registered with the party without a statement can be chosen too, and the chosen
+// accounts' months show before creating: a month without a statement warns, it does not stop the package.
 import { useState } from "react";
 import { api, ApiError, type OwnParty, type PartiesOverview, type ReconcileAccount } from "../../api";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
+import { MonthGrid, monthWarnings } from "../settings/MonthStatus";
 import { STATEMENT_TYPE } from "./labels";
 import "./reconcile.css";
 
@@ -30,7 +33,8 @@ export function AccountChecklist({ accounts, chosen, onChange, partyId }: {
             <span className="mono">{a.account ?? a.key}</span>{" "}
             <span className="muted small">
               {[a.statement_types.map((s) => STATEMENT_TYPE[s] ?? s).join(", "), a.currencies.join(", ")].filter(Boolean).join(" · ")}
-              {" · "}{t("{{n}} statements, {{first}} – {{last}}", { n: a.statements, first: a.first ?? "?", last: a.last ?? "?" })}
+              {" · "}{a.statements ? t("{{n}} statements, {{first}} – {{last}}", { n: a.statements, first: a.first ?? "?", last: a.last ?? "?" })
+                : t("registered, no statement yet")}
             </span>
             {a.party && partyId && a.party.id !== partyId ? <>{" "}<span className="rc-sig warn">{a.party.name}</span></> : null}
           </span>
@@ -55,16 +59,17 @@ export function PartyChoice({ overview, value, onPick }: { overview: PartiesOver
     <fieldset className="rc-accounts rc-parties">
       <legend className="small muted">{t("Own party")}</legend>
       {list.map((p) => {
-        const noStatement = !p.accounts.length;
+        const noAccount = !p.accounts.length;
         return (
-          <label key={p.id} className={noStatement ? "muted" : undefined}>
-            <input type="radio" name="rc-party" checked={value === p.id} disabled={noStatement} onChange={() => onPick(p)} />
+          <label key={p.id} className={noAccount ? "muted" : undefined}>
+            <input type="radio" name="rc-party" checked={value === p.id} disabled={noAccount} onChange={() => onPick(p)} />
             <span>
               <strong>{p.name}</strong>{" "}
               <span className="muted small">
                 {t("{{n}} invoices", { n: p.invoices })}{p.first ? `, ${p.first} – ${p.last}` : ""}{" · "}
-                {noStatement ? t("no statement yet")
-                  : t("{{n}} accounts or cards, statements {{first}} – {{last}}", { n: p.accounts.length, first: p.statements_first ?? "?", last: p.statements_last ?? "?" })}
+                {noAccount ? t("no account or statement yet")
+                  : p.statements_first ? t("{{n}} accounts or cards, statements {{first}} – {{last}}", { n: p.accounts.length, first: p.statements_first, last: p.statements_last ?? "?" })
+                    : t("{{n}} accounts or cards, no statement yet", { n: p.accounts.length })}
               </span>
             </span>
           </label>
@@ -83,6 +88,30 @@ export function PartyChoice({ overview, value, onPick }: { overview: PartiesOver
         </p>
       ) : null}
     </fieldset>
+  );
+}
+
+/** 138: the chosen accounts' months in the period, with what they lack; a gap warns, it does not stop the package. */
+function MonthPreview({ partyId, accounts, start, end }: { partyId: string; accounts: string[]; start: string; end: string }) {
+  useLocale();
+  const [from, to] = [start.slice(0, 7), end.slice(0, 7)];
+  const loaded = useLoad(`party-months:${partyId}:${from}:${to}`, () => api.partyMonths(partyId, from, to));
+  if (loaded.error) return <p className="notice error" role="alert">{loaded.error.message}</p>;
+  if (!loaded.data) return <p className="muted small">{t("Loading…")}</p>;
+  const warnings = monthWarnings(loaded.data, accounts);
+  return (
+    <section className="rc-months" aria-label={t("Data status of the period")}>
+      {warnings.length ? (
+        <div className="notice" role="status">
+          <ul className="small ms-warnings">{warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+          <p className="small muted">{t("The package can be created; the gaps show in its result.")}</p>
+        </div>
+      ) : <p className="small ok">{t("Every month of the chosen accounts has an approved statement that checks out.")}</p>}
+      <details>
+        <summary className="small">{t("Data status by month")}</summary>
+        <MonthGrid data={loaded.data} accounts={accounts} />
+      </details>
+    </section>
   );
 }
 
@@ -143,6 +172,8 @@ export function ReconcileCreate({ onDone }: { onDone: (id: string) => void }) {
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} />
       </label>
       {start && end && start > end ? <p className="small warn-text">{t("The period ends before it starts.")}</p> : null}
+      {party && chosen.length > 0 && start && end && start <= end
+        ? <MonthPreview partyId={party.id} accounts={chosen} start={start} end={end} /> : null}
       {error ? <p className="notice error" role="alert">{error}</p> : null}
       <button type="submit" className="primary" disabled={busy || !valid}>{busy ? t("Creating…") : t("Create")}</button>
     </form>

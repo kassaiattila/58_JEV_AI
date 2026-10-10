@@ -15,3 +15,19 @@
 .pt-move select { max-width: 240px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; background: var(--paper); }
 .pt-dismissed summary { cursor: pointer; }
 .pt-stack .button-row .spacer { flex: 1 1 auto; }
+
+/* 138: accounts registered with their details, and the monthly data status */
+.pt-account-form { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); align-items: end; padding: 8px 0; }
+.pt-account-form input, .pt-account-form select { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--paper); }
+.pt-account-form .button-row { grid-column: 1 / -1; }
+.pt-details { font-size: 12px; color: var(--muted); }
+.ms-stack { display: grid; gap: 10px; padding-top: 8px; }
+.ms-wrap { overflow-x: auto; max-width: 100%; }
+.ms-grid th, .ms-grid td { padding: 4px 8px; white-space: nowrap; }
+.ms-grid td.num { text-align: right; }
+.ms-cell.ok { color: var(--ok); }
+.ms-cell.warn { color: var(--warn); background: var(--warn-tint); }
+.ms-cell.bad { color: var(--error); background: var(--tint); }
+.ms-cell.none { color: var(--muted); }
+.ms-flag { margin-left: 6px; font-size: 11px; padding: 0 6px; border-radius: 999px; background: var(--warn-tint); color: var(--warn); }
+.ms-warnings { margin: 0; padding-left: 18px; color: var(--warn); }
