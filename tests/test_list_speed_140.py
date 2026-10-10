@@ -140,3 +140,27 @@ def test_a_reconciliation_change_shows_in_the_lists_next_step(db, monkeypatch):
         rp.mark(wp, [line["id"]], category="private", note=None, actor="reviewer")
     after = next(r for r in datasets.query("workpackages", None, Query())["rows"] if r["id"] == wp)
     assert before["next_code"] == "reconcile_pair" and after["next_code"] == "reconcile_result"
+
+
+def test_an_ai_answer_replaced_within_the_same_second_builds_the_workspace_again(db):
+    """Found by the full check: an answer is replaced in place, so its row count, rowid and time stay the same."""
+    wp, _statement, _invoice = _workspace_package()
+    line = next(ln for ln in rp.workspace(wp)["lines"] if ln["memo"] == "INV-0001")
+    for kind in ("retail_purchase", "subscription"):
+        with store.connect() as c:
+            c.execute("INSERT INTO reconcile_ai_proposals(line_id, engine, statement_doc_id, workpackage_id, options, kind, config_hash,"
+                      " measured, created_at) VALUES (?,?,?,?,?,?,'x',1,'2026-10-10T20:00:00+00:00') ON CONFLICT(line_id, engine)"
+                      " DO UPDATE SET kind=excluded.kind", (line["id"], "jev", line["statement_id"], wp, "[]", kind))
+        if kind == "retail_purchase":
+            assert next(ln for ln in rp.workspace(wp)["lines"] if ln["id"] == line["id"])["ai"]["jev"]["kind"] == kind
+    assert next(ln for ln in rp.workspace(wp)["lines"] if ln["id"] == line["id"])["ai"]["jev"]["kind"] == "subscription"
+
+
+def test_nothing_is_kept_beyond_the_time_slot(db, monkeypatch):
+    calls = _counting(monkeypatch)
+    wp, _statement, _invoice = _workspace_package()
+    rp.workspace(wp)
+    now = rp.time.time()
+    monkeypatch.setattr(rp.time, "time", lambda: now + rp.KEEP_SECONDS)
+    rp.workspace(wp)
+    assert len(calls) == 2

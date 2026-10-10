@@ -34,6 +34,7 @@ import copy
 import hashlib
 import json
 import threading
+import time
 from collections import Counter, OrderedDict, defaultdict
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -322,8 +323,11 @@ WORKSPACE_INPUTS: dict[str, str | None] = {
     "reconcile_allocations": "COUNT(revoked_at)",
     "reconcile_line_marks": "COUNT(revoked_at)",
     "reconcile_scopes": "(SELECT group_concat(workpackage_id || ':' || revision, '|') FROM reconcile_scopes)",
-    "reconcile_ai_proposals": "MAX(created_at)",
-    "fx_rates": None,
+    # an answer is replaced in place (one row per line and engine), possibly within the same second: its content counts
+    "reconcile_ai_proposals": "(SELECT group_concat(line_id || ':' || engine || ':' || COALESCE(pays, '') || ':'"
+                              " || COALESCE(kind, '') || ':' || COALESCE(error, '') || ':' || COALESCE(options, '') || ':'"
+                              " || COALESCE(asked_line_id, '') || ':' || created_at, '|') FROM reconcile_ai_proposals)",
+    "fx_rates": "MAX(fetched_at)",
     "own_parties": "(SELECT group_concat(id || ':' || name, '|') FROM own_parties)",
     "own_party_identities": "(SELECT group_concat(kind || ':' || key || ':' || COALESCE(party_id, '-'), '|') FROM own_party_identities)",
     "own_accounts": "(SELECT group_concat(key || ':' || kind || ':' || currencies || ':' || COALESCE(valid_from, '')"
@@ -332,10 +336,12 @@ WORKSPACE_INPUTS: dict[str, str | None] = {
 _kept: OrderedDict[tuple[str, str], tuple[str, dict[str, Any]]] = OrderedDict()
 _kept_lock = threading.Lock()
 KEPT_WORKSPACES = 16
+KEEP_SECONDS = 120  # a safety bound: a change the marks miss shows within this time at the latest
 
 
 def inputs_mark(c=None) -> str:
-    """140: a mark of everything a workspace reads (the tables above, the configurations and the day)."""
+    """140: a mark of everything a workspace reads (the tables above, the configurations and the day), and a time slot
+    of `KEEP_SECONDS`, so nothing is kept longer than that."""
     # the modules whose tables the workspace reads register them on import (a later import would change the mark)
     from jav import duplicates, fx, reconcile_ai, statement_months  # noqa: F401
 
@@ -343,7 +349,7 @@ def inputs_mark(c=None) -> str:
         with store.connect() as own:
             return inputs_mark(own)
     parts = [store.table_marks(c, WORKSPACE_INPUTS), reconcile.config_hash(), parties.config_hash(), cfg.config_hash("fx"),
-             reconcile.ENGINE_VERSION, date.today().isoformat()]
+             reconcile.ENGINE_VERSION, date.today().isoformat(), int(time.time() // KEEP_SECONDS)]
     return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
 
 
