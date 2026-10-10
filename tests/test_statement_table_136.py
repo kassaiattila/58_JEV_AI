@@ -193,7 +193,8 @@ def test_the_survey_lists_the_accounts_without_their_values(tmp_path):
     huf = survey["accounts"][0]
     assert huf == {"key": IBAN_HUF.replace(" ", "") + ":HUF", "account": "…" + IBAN_HUF.replace(" ", "")[-4:], "title": "Személyes számla",
                    "occurrence": 1, "currency": "HUF", "lines": 4, "first": "2026-01-02", "last": "2026-03-01",
-                   "period_start": "2026-01-01", "period_end": "2026-03-31", "checks_ok": True, "problems": 0}
+                   "period_start": "2026-01-01", "period_end": "2026-03-31", "checks_ok": True, "problems": 0,
+                   "balance_checked": True, "companion": None}  # 137: an export with its own balances
     assert "Example Market" not in repr(survey)
 
 

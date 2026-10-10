@@ -484,6 +484,9 @@ function LineRow({ line, active, selected, onChoose }: {
         <span className="rc-side">
           <span className={`rc-state s-${line.state}`}>{LINE_STATE[line.state] ?? line.state}</span>
           {partly ? <span className="small muted">{t("left: {{amount}}", { amount: show(line.rest, line.currency) })}</span> : null}
+          {line.original_amount && line.original_currency ? (  // 137: the card purchase's original amount
+            <span className="small muted">{t("originally {{amount}}", { amount: show(line.original_amount, line.original_currency) })}</span>
+          ) : null}
           {line.mark ? <span className="small muted">{MARK[line.mark.category] ?? line.mark.category}</span> : null}
           {line.excluded_reason ? <span className="small muted">{EXCLUDED[line.excluded_reason] ?? line.excluded_reason}</span> : null}
           {expected ? <span className="rc-sig warn">{t("invoice expected")}</span> : null}
@@ -580,6 +583,7 @@ function InvoiceRow({ invoice, candidate, index, selected, onToggle, readOnly, s
               {candidate.multiple_candidates ? <span className="rc-sig warn">{t("several candidates")}</span> : null}
               {candidate.source_review_required ? <span className="rc-sig warn">{t("statement balances do not check out")}</span> : null}
               {candidate.fx ? <span className="rc-sig">{t("{{amount}} at the MNB rate of {{day}}", { amount: show(candidate.fx.converted, "HUF"), day: candidate.fx.rate_day })}</span> : null}
+              {candidate.original ? <span className="rc-sig good">{t("on the card purchase's original {{amount}}", { amount: show(candidate.original.amount, candidate.original.currency) })}</span> : null}
             </span>
           ) : null}
         </span>

@@ -78,9 +78,9 @@ def allowed_roots() -> list[Path]:
     return [r.resolve() for r in roots if r.exists()]
 
 
-def checked_path(raw: str, *, want_dir: bool) -> Path:
-    """The path, resolved (following links), is an existing folder / file; when restricted, under one of the allowed
-    roots."""
+def checked_path(raw: str, *, want_dir: bool | None) -> Path:
+    """The path, resolved (following links), is an existing folder / file (`want_dir` None: either); when restricted,
+    under one of the allowed roots."""
     try:
         p = Path(raw).resolve(strict=True)
     except (OSError, RuntimeError) as exc:
@@ -89,7 +89,7 @@ def checked_path(raw: str, *, want_dir: bool) -> Path:
         raise ForbiddenPath("path is outside the allowed roots (configs/service.json)")
     if want_dir and not p.is_dir():
         raise ValueError(f"not a folder: {p.name}")
-    if not want_dir and not p.is_file():
+    if want_dir is False and not p.is_file():
         raise ValueError(f"not a file: {p.name}")
     return p
 
@@ -789,21 +789,22 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/statement-tables/survey")
     def statement_table_survey(body: StatementTableFile, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """136 (E4): the accounts of a bank's tabular export with their line counts, dates and checks, for a person to
-        choose from; no lines or balances, nothing is stored."""
+        choose from; no lines or balances, nothing is stored. 137: or of every export in a folder (the Erste XML files
+        with their PDF statements), one statement per account and month."""
         from jav import statement_table
 
-        return statement_table.survey(statement_table.read(checked_path(body.path, want_dir=False)))
+        return statement_table.survey(statement_table.read(checked_path(body.path, want_dir=None)))
 
     @app.post(r + "/statement-tables/workpackage", status_code=201)
     def create_from_statement_table(body: CreateFromStatementTable, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """136 (E4): a new package of the chosen accounts of the export; the creator is its owner (065)."""
-        wp = work.create_from_statement_table(checked_path(body.path, want_dir=False), body.keys, name=body.name, owner=who)
+        wp = work.create_from_statement_table(checked_path(body.path, want_dir=None), body.keys, name=body.name, owner=who)
         return work_views.workpackage_view(wp["id"])
 
     @app.post(r + "/workpackages/{wp_id}/statement-tables")
     def add_statement_tables(wp_id: WpId, body: AddStatementTables, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """136 (E4, DECISIONS 136): the chosen accounts of the export as the package's items, one statement each."""
-        work.add_statement_tables(wp_id, checked_path(body.path, want_dir=False), body.keys, expected_revision=body.expected_revision)
+        work.add_statement_tables(wp_id, checked_path(body.path, want_dir=None), body.keys, expected_revision=body.expected_revision)
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/items/{item_id}/remove")

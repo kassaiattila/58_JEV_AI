@@ -341,8 +341,8 @@ def workspace(wp_id: str) -> dict[str, Any]:
 
     def candidate_view(c: dict[str, Any]) -> dict[str, Any]:
         return {k: c.get(k) for k in ("invoice_id", "line_id", "proposed", "amount_only", "signals", "amount_relation",
-                                      "multiple_candidates", "source_review_required", "fx", "strength", "days_after_issue",
-                                      "by_due")}
+                                      "multiple_candidates", "source_review_required", "fx", "original", "strength",
+                                      "days_after_issue", "by_due")}
 
     lines = []
     for st in statements:
@@ -374,6 +374,7 @@ def workspace(wp_id: str) -> dict[str, Any]:
                           "booking_date": ln.get("booking_date"), "direction": ln.get("direction"), "amount": ln.get("amount"),
                           "counterparty_name": ln.get("counterparty_name"), "counterparty_account": ln.get("counterparty_account"),
                           "description": ln.get("description"), "memo": ln.get("memo"),
+                          "original_amount": ln.get("original_amount"), "original_currency": ln.get("original_currency"),
                           "state": state, "excluded_reason": excluded.get(("line", lid)),
                           "allocated": str(paid), "rest": str(amount - paid) if amount is not None else None,
                           "mark": marks.get(lid), "allocations": shares_line.get(lid, []),
@@ -391,7 +392,7 @@ def workspace(wp_id: str) -> dict[str, Any]:
         ln["ai"] = ai.get(ln["id"], {})
     currencies = {str(st.get("currency")) for st in statements}
     cards = any(reconcile.fx_capable({"currency": st.get("currency"), "statement_type": st.get("statement_type")})
-                for st in statements)
+                or any(reconcile.original(ln) for ln in st["lines"]) for st in statements)  # 137: card purchases' originals
     start, end = date.fromisoformat(sc["period_start"]), date.fromisoformat(sc["period_end"])
     wanted = {c["invoice_id"] for lid in line_ids for c in by_line.get(lid, [])}
     wanted |= {s["invoice_id"] for lid in line_ids for s in shares_line.get(lid, [])}
@@ -547,11 +548,11 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
             if (ctx["paid_line"].get(lid) or ctx["paid_invoice"].get(iid) or used_line[lid] or used_invoice[iid]
                     or p.get("line_amount") or p.get("invoice_amount")):
                 raise PackageError("a pair of two currencies is allocated only in whole")
-            relation, _conv = reconcile.amount_relation(inv, line, ctx["snap"].get("fx_rates"))
-            if relation not in ("fx_within", "fx_outside", "no_rate"):
+            if reconcile.meets(inv, line) is None:  # 137: a card purchase in the invoice's currency meets it too
                 raise PackageError("this line cannot pay an invoice of another currency")
+            relation, _conv = reconcile.amount_relation(inv, line, ctx["snap"].get("fx_rates"))
             la, ia = line_total, invoice_total
-            needs_reason |= relation != "fx_within"
+            needs_reason |= relation not in ("fx_within", "equal")
         if la <= 0 or la > line_rest or ia > invoice_rest:
             raise PackageError("the amount is over what the line or the invoice has left")
         used_line[lid] += la

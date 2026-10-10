@@ -110,7 +110,8 @@ def _money(value: Any) -> Decimal | None:
 
 def _payment(line: dict[str, Any]) -> dict[str, Any]:
     """The line as the core's helpers take it: what is left of it to pair, its currency and statement type."""
-    return {"amount": str(_money(line.get("rest")) or ""), "currency": line.get("currency"), "statement_type": line.get("statement_type")}
+    return {"amount": str(_money(line.get("rest")) or ""), "currency": line.get("currency"), "statement_type": line.get("statement_type"),
+            "original_amount": line.get("original_amount"), "original_currency": line.get("original_currency")}  # 137
 
 
 def _left(invoice: dict[str, Any]) -> dict[str, Any]:
@@ -138,14 +139,17 @@ def preselect(line: dict[str, Any], invoices: Iterable[dict[str, Any]], rates: d
         left = _money(inv.get("rest"))
         if not inv.get("own") or not left or inv["id"] in rejected or reconcile._date(inv.get("issue_date")) is None:
             continue
-        same = inv.get("currency") == line.get("currency")
-        if not same and not (reconcile.fx_capable(payment) and reconcile.rate_need(inv)):
+        how = reconcile.meets(inv, payment)
+        if how is None:
             continue
-        start, end = reconcile.window(inv) if same else reconcile.fx_window(inv)
+        start, end = reconcile.window(inv) if how == "same" else reconcile.fx_window(inv)
         if not start <= booked <= end:
             continue
-        if same:
+        if how == "same":
             gap = abs(rest - left) / left
+        elif how == "original":  # 137: the card purchase's original amount
+            orig = reconcile.original(payment)
+            gap = abs(orig[1] - left) / left if orig else Decimal(1)
         else:
             _relation, conversion = reconcile.convert(_left(inv), payment, rates)
             gap = abs(Decimal(conversion["deviation"])) if conversion else Decimal(1)
@@ -169,12 +173,16 @@ def option_facts(invoice: dict[str, Any], line: dict[str, Any], rates: dict[str,
     left, rest = _money(invoice.get("rest")), _money(line.get("rest"))
     whole = _money(invoice.get("amount"))
     amount = f"{left} {invoice.get('currency')}" + (f" left to pay of {whole}" if whole is not None and whole != left else "")
+    orig = reconcile.original(line) if reconcile.meets(invoice, line) == "original" else None
     if invoice.get("currency") == line.get("currency"):
         if left == rest:
             facts["amount"] = f"{amount}: the same amount as the line"
         elif left and rest:
             diff = (left - rest) / rest * 100
             facts["amount"] = f"{amount}: {abs(diff):.1f}% {'more' if diff > 0 else 'less'} than the line"
+    elif orig is not None:  # 137: the card purchase's original amount, as the bank printed it
+        facts["amount"] = (f"{amount}: the same as the card purchase's original amount" if left == orig[1] else
+                           f"{amount}: the card purchase's original amount was {orig[1]} {orig[0]}")
     else:
         _relation, conv = reconcile.convert(_left(invoice), _payment(line), rates)
         facts["amount"] = (f"{amount}: about {conv['converted']} {line.get('currency')} at the MNB rate of {conv['rate_day']}; "

@@ -318,6 +318,8 @@ export interface ReconcileCandidate {
   amount_relation: ReconcileRelation | null; multiple_candidates: boolean; source_review_required: boolean; fx: ReconcileFx | null;
   /** 134: how strongly it is tied (0-100), the days from the issue date to the booking, booked by the due date */
   strength?: number; days_after_issue?: number | null; by_due?: boolean;
+  /** 137: compared on the card purchase's original amount, as the bank printed it */
+  original?: { amount: string; currency: string } | null;
 }
 /** An allocation of a line's amount to an invoice; `allocation_id` null: a confirmation from the review page (129). */
 export interface ReconcileShare {
@@ -329,6 +331,8 @@ export interface ReconcileLine {
   id: string; statement_id: string; account: string; statement_type: string | null; currency: string | null;
   booking_date: string | null; direction: string | null; amount: string | null; counterparty_name: string | null;
   counterparty_account: string | null; description: string | null; memo: string | null;
+  /** 137: a card purchase's original amount and currency (the Erste PDF statement) */
+  original_amount?: string | null; original_currency?: string | null;
   state: ReconcileLineState; excluded_reason: string | null; allocated: string; rest: string | null;
   mark: ReconcileLineMark | null; allocations: ReconcileShare[]; candidates: ReconcileCandidate[]; rejected: string[];
   statement_verified: boolean; file: string | null;
@@ -342,8 +346,16 @@ export interface ReconcileLine {
 export interface StatementTableAccount {
   key: string; account: string | null; title: string; occurrence: number; currency: string; lines: number;
   first: string | null; last: string | null; period_start: string | null; period_end: string | null; checks_ok: boolean; problems: number;
+  /** 137: false when the export has no balances and its PDF statement was not found (a to-do in the run) */
+  balance_checked?: boolean;
+  /** 137: the month's PDF statement that completed a ledger export (the Erste XML) */
+  companion?: string | null;
 }
-export interface StatementTableSurvey { profile: string; institution: string; file: string; repairs: string[]; accounts: StatementTableAccount[] }
+export interface StatementTableSurvey {
+  profile: string; institution: string; file: string; repairs: string[]; accounts: StatementTableAccount[];
+  /** 137: the files of a folder that could not be read as an export */
+  skipped?: number;
+}
 /** 134: JEV's or GPT's raw answer about a statement line (jav/reconcile_ai.py); a person decides. */
 export type ReconcileAiEngine = "jev" | "gpt";
 export interface ReconcileAiProposal {

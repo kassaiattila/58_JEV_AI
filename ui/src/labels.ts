@@ -199,6 +199,8 @@ export function reasonText(code: string): string {
     // 136: a statement read by code from a bank's table export (jav/flow_statement_table.py)
     case "statement_table:unreadable_lines": return t("Some lines of the table export could not be read ({{n}}); they are left out of the statement", { n: p[2] ?? "" });
     case "statement_table:missing": return t("A required field is missing from the table export: {{field}}", { field: f });
+    case "statement_table:balance_unchecked": return t("The balances cannot be checked: the export has none, and its PDF statement was not found next to it");
+    case "statement_table:companion_mismatch": return t("The export and its PDF statement differ ({{n}}): a line is on one side only, or the PDF is of another account", { n: p[2] ?? "" });
     case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");
     case "parties:same_name": return t("A szállító és a vevő neve azonos");
     // 134: the supplier tax number is an own party's (jav/parties.py review_reasons)
