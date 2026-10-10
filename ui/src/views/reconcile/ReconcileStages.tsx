@@ -45,6 +45,8 @@ interface StageProps { ws: ReconcileWorkspace; readOnly: boolean; onWorkspace: (
 export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StageProps) {
   useLocale();
   const accounts = useLoad("reconcile-accounts", api.reconcileAccounts);
+  const parties = useLoad("parties", api.parties);
+  const [partyId, setPartyId] = useState<string>(ws.scope.party_id ?? "");
   const [chosen, setChosen] = useState<string[]>(ws.scope.accounts);
   const [start, setStart] = useState(ws.scope.period_start);
   const [end, setEnd] = useState(ws.scope.period_end);
@@ -52,7 +54,7 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const dirty = chosen.slice().sort().join("|") !== ws.scope.accounts.slice().sort().join("|")
-    || start !== ws.scope.period_start || end !== ws.scope.period_end;
+    || start !== ws.scope.period_start || end !== ws.scope.period_end || partyId !== (ws.scope.party_id ?? "");
   const months = [...new Set(ws.coverage.map((c) => c.month))];
   const byKey = new Map((accounts.data?.accounts ?? []).map((a) => [a.key, a]));
 
@@ -83,13 +85,19 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
           </button>
         </div>
         <p className="muted small">{t("The pairing works on the corrected values of documents already processed. Changing the scope keeps every decision made so far: they belong to the pairs, not to the package.")}</p>
-        {accounts.data ? <AccountChecklist accounts={accounts.data.accounts} chosen={chosen} onChange={setChosen} /> : <p className="muted">{t("Loading…")}</p>}
+        <label className="block rc-party-pick">{t("Own party")}
+          <select value={partyId} disabled={readOnly} onChange={(e) => setPartyId(e.target.value)}>
+            {!ws.scope.party_id ? <option value="">{t("None: every invoice is the package's")}</option> : null}
+            {(parties.data?.parties ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </label>
+        {accounts.data ? <AccountChecklist accounts={accounts.data.accounts} chosen={chosen} onChange={setChosen} partyId={partyId || null} /> : <p className="muted">{t("Loading…")}</p>}
         <div className="rc-period">
           <label className="block">{t("Period from")}<input type="date" value={start} disabled={readOnly} onChange={(e) => setStart(e.target.value)} /></label>
           <label className="block">{t("to")}<input type="date" value={end} disabled={readOnly} onChange={(e) => setEnd(e.target.value)} /></label>
           {readOnly ? null : (
             <button type="button" className="secondary" disabled={!dirty || busy || !chosen.length || !start || !end || start > end}
-              onClick={() => void act(() => api.setReconcileScope(ws.workpackage_id, { accounts: chosen, period_start: start, period_end: end, expected_revision: ws.scope.revision }), t("The scope has been saved."))}>
+              onClick={() => void act(() => api.setReconcileScope(ws.workpackage_id, { accounts: chosen, period_start: start, period_end: end, expected_revision: ws.scope.revision, party_id: partyId || null }), t("The scope has been saved."))}>
               {t("Save the scope")}
             </button>
           )}

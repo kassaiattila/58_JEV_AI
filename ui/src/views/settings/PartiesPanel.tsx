@@ -1,0 +1,306 @@
+// 133 (backlog F-own-parties; DECISIONS 133): the own parties — the companies, associations and people whose money is
+// reconciled. The data proposes them (the buyer's tax number and name on the invoices, the holder's name at the top of
+// a statement); a person accepts them and rearranges them at any time (the owner's decision of 2026-10-10): renames a
+// party, moves a name variant, a tax number or an account to another party, merges two parties, dismisses what names
+// no own party. A reconciliation package is one party's and follows every change at once.
+import { useEffect, useState } from "react";
+import { api, ApiError, type OwnParty, type PartiesOverview, type PartyIdentity, type PartySuggestion } from "../../api";
+import { ConfirmButton } from "../../components/ConfirmButton";
+import { useLoad } from "../../hooks";
+import { t, useLocale } from "../../i18n";
+import { tmap } from "../../labels";
+import "./parties.css";
+
+const KIND: Record<string, string> = tmap({ tax: "Tax number", name: "Name variant", account: "Account or card" });
+const NAMES_SHOWN = 4; // more name variants than this fold into a list
+
+/** Runs a change and shows the overview it answers with; true when it went through. */
+type Act = (fn: () => Promise<PartiesOverview>, done: string) => Promise<boolean>;
+
+/** How often an identity is printed: a tax number or a name on so many invoices (some of them may go to another party by
+ *  their tax number), an account in so many statements. */
+function count(i: PartyIdentity): string {
+  return i.kind === "account" ? t("{{n}} statements", { n: i.invoices }) : t("on {{n}} invoices", { n: i.invoices });
+}
+
+/** A party's or a suggestion's identities in brief: tax numbers and accounts one by one, name variants folded. */
+function Identities({ list }: { list: PartyIdentity[] }) {
+  useLocale();
+  const names = list.filter((i) => i.kind === "name");
+  const chips = (items: PartyIdentity[]) => items.map((i) => (
+    <span key={`${i.kind}|${i.key}`} className="pt-id" title={KIND[i.kind]}>
+      <span className={i.kind === "name" ? "" : "mono"}>{i.label}</span> <span className="muted">({count(i)})</span>
+    </span>
+  ));
+  return (
+    <div className="pt-ids">
+      {chips(list.filter((i) => i.kind !== "name"))}
+      {names.length <= NAMES_SHOWN ? chips(names) : (
+        <details className="pt-names">
+          <summary>{t("{{n}} name variants", { n: names.length })}</summary>
+          <div className="pt-ids">{chips(names)}</div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+export function PartiesPanel() {
+  useLocale();
+  const loaded = useLoad("parties", api.parties);
+  const [data, setData] = useState<PartiesOverview | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
+  useEffect(() => { if (loaded.data) setData(loaded.data); }, [loaded.data]);
+
+  const act: Act = async (fn, done) => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      setData(await fn());
+      setMsg({ error: false, text: done });
+      return true;
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        setMsg({ error: true, text: t("The data changed meanwhile; the suggestions have been reloaded. Check them and try again.") });
+        loaded.reload();
+      } else setMsg({ error: true, text: e instanceof ApiError ? e.message : String(e) });
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!data) return loaded.error ? <p className="notice error" role="alert">{loaded.error.message}</p> : <p className="muted">{t("Loading…")}</p>;
+  const claimed = data.invoices - data.unclaimed_invoices;
+  return (
+    <div className="pt-stack">
+      <section className="card wide" aria-label={t("Own parties")}>
+        <p className="muted small">
+          {t("An own party is a company, an association or a person whose money is reconciled. The system proposes them from the processed documents: the buyer's tax number and name on the invoices, and the holder's name at the top of a statement. Accept them, then rearrange them at any time; a reconciliation package is one party's and follows every change at once.")}
+        </p>
+        <p className="small">{t("{{n}} incoming invoices: {{claimed}} belong to an own party, {{unclaimed}} to none yet.", { n: data.invoices, claimed, unclaimed: data.unclaimed_invoices })}</p>
+        {data.buyer_is_supplier ? <p className="muted small">{t("{{n}} invoices name their own supplier as the buyer (a misreading); that name is not taken as a buyer.", { n: data.buyer_is_supplier })}</p> : null}
+        {msg ? <p className={msg.error ? "notice error" : "small ok"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}
+      </section>
+      {data.suggestions.length ? <Suggestions data={data} busy={busy} act={act} /> : null}
+      {data.parties.map((p) => <PartyCard key={p.id} party={p} others={data.parties.filter((o) => o.id !== p.id)} busy={busy} act={act} />)}
+      {!data.parties.length && !data.suggestions.length ? <p className="muted">{t("No invoice or statement names a buyer or a holder yet.")}</p> : null}
+      {data.unassigned.length ? <Unassigned data={data} busy={busy} act={act} /> : null}
+      {data.dismissed.length ? <Dismissed list={data.dismissed} busy={busy} act={act} /> : null}
+    </div>
+  );
+}
+
+function Suggestions({ data, busy, act }: { data: PartiesOverview; busy: boolean; act: Act }) {
+  useLocale();
+  const [names, setNames] = useState<Record<string, string>>({});
+  const nameOf = (s: PartySuggestion) => names[s.id] ?? s.name;
+  const partyName = (id: string | null) => data.parties.find((p) => p.id === id)?.name ?? "";
+  const given = (ids: string[]) => Object.fromEntries(ids.filter((id) => names[id]?.trim()).map((id) => [id, names[id].trim()]));
+  const dismiss = (s: PartySuggestion) => act(async () => {
+    let last: PartiesOverview | null = null;
+    for (const i of s.identities) last = await api.setPartyIdentity(i, "dismiss");
+    return last!;
+  }, t("Dismissed: it names no own party."));
+  return (
+    <section className="card wide" aria-label={t("Suggestions from the data")}>
+      <div className="card-head">
+        <h3>{t("Suggestions from the data")}</h3>
+        {data.suggestions.length > 1 ? (
+          <ConfirmButton className="primary" disabled={busy}
+            onConfirm={() => void act(() => api.acceptPartySuggestions(data.suggestions.map((s) => s.id), given(data.suggestions.map((s) => s.id))), t("The suggestions have been accepted."))}>
+            {t("Accept all {{n}}", { n: data.suggestions.length })}
+          </ConfirmButton>
+        ) : null}
+      </div>
+      <p className="muted small">{t("Check the name of each new party, and dismiss what names no own party of yours (for example a buyer misread from a ticket).")}</p>
+      <ul className="plain pt-list">
+        {data.suggestions.map((s) => (
+          <li key={s.id} className="pt-row">
+            <div className="pt-main">
+              {s.party_id ? <strong>{t("Add to {{party}}", { party: partyName(s.party_id) })}</strong> : (
+                <input value={nameOf(s)} maxLength={200} aria-label={t("Name of the new party")} disabled={busy}
+                  onChange={(e) => setNames((n) => ({ ...n, [s.id]: e.target.value }))} />
+              )}
+              <span className="muted small">{t("{{n}} invoices", { n: s.invoices })}</span>
+            </div>
+            <Identities list={s.identities} />
+            <div className="button-row">
+              <button type="button" className="secondary" disabled={busy || !nameOf(s).trim()}
+                onClick={() => void act(() => api.acceptPartySuggestions([s.id], given([s.id])), t("The suggestion has been accepted."))}>
+                {s.party_id ? t("Add") : t("Accept")}
+              </button>
+              <ConfirmButton className="quiet" disabled={busy} onConfirm={() => void dismiss(s)}>{t("Not own")}</ConfirmButton>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Where an identity can go: another party, nowhere (unassigned, proposed again) or dismissed. */
+function MoveIdentity({ identity, targets, busy, act }: { identity: PartyIdentity; targets: OwnParty[]; busy: boolean; act: Act }) {
+  useLocale();
+  const [to, setTo] = useState("");
+  function move() {
+    if (to === "dismiss") void act(() => api.setPartyIdentity(identity, "dismiss"), t("Dismissed: it names no own party."));
+    else if (to === "release") void act(() => api.setPartyIdentity(identity, "release"), t("Taken out of the party; it is proposed again."));
+    else if (to) void act(() => api.setPartyIdentity(identity, "assign", to), t("Moved."));
+    setTo("");
+  }
+  return (
+    <span className="pt-move">
+      <select value={to} disabled={busy} aria-label={t("Move {{label}}", { label: identity.label })} onChange={(e) => setTo(e.target.value)}>
+        <option value="">{t("Move to…")}</option>
+        {targets.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        <option value="release">{t("No party (unassigned)")}</option>
+        <option value="dismiss">{t("Not own (dismissed)")}</option>
+      </select>
+      <button type="button" className="quiet small-btn" disabled={busy || !to} onClick={move}>{t("Move")}</button>
+    </span>
+  );
+}
+
+function IdentityRows({ list, targets, busy, act }: { list: PartyIdentity[]; targets: OwnParty[]; busy: boolean; act: Act }) {
+  useLocale();
+  return (
+    <table className="table compact pt-table">
+      <tbody>
+        {list.map((i) => (
+          <tr key={`${i.kind}|${i.key}`}>
+            <td className="muted small">{KIND[i.kind]}</td>
+            <td className={i.kind === "name" ? "" : "mono"}>{i.label}</td>
+            <td className="num small">{count(i)}</td>
+            <td><MoveIdentity identity={i} targets={targets} busy={busy} act={act} /></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function PartyCard({ party, others, busy, act }: { party: OwnParty; others: OwnParty[]; busy: boolean; act: Act }) {
+  useLocale();
+  const [editing, setEditing] = useState<string | null>(null);
+  const [into, setInto] = useState("");
+  const fixed = party.identities.filter((i) => i.kind !== "name");
+  const names = party.identities.filter((i) => i.kind === "name");
+  const span = party.first ? ` · ${party.first} – ${party.last}` : "";
+  return (
+    <section className="card wide" aria-label={party.name}>
+      <div className="card-head">
+        {editing === null ? (
+          <h3>{party.name} <button type="button" className="quiet small-btn" disabled={busy} onClick={() => setEditing(party.name)}>{t("Rename")}</button></h3>
+        ) : (
+          <form className="pt-main" onSubmit={(e) => {
+            e.preventDefault();
+            if (editing.trim()) void act(() => api.renameParty(party.id, editing.trim()), t("The party has been renamed.")).then((ok) => { if (ok) setEditing(null); });
+          }}>
+            <input value={editing} maxLength={200} autoFocus aria-label={t("New name of {{party}}", { party: party.name })} onChange={(e) => setEditing(e.target.value)} />
+            <button type="submit" className="secondary" disabled={busy || !editing.trim()}>{t("Save")}</button>
+            <button type="button" className="quiet" onClick={() => setEditing(null)}>{t("Cancel")}</button>
+          </form>
+        )}
+      </div>
+      <p className="small">
+        {t("{{n}} invoices", { n: party.invoices })}{span}
+        {" · "}
+        {party.accounts.length
+          ? t("statements {{first}} – {{last}}", { first: party.statements_first ?? "?", last: party.statements_last ?? "?" })
+          : t("no statement yet")}
+      </p>
+      {fixed.length ? <IdentityRows list={fixed} targets={others} busy={busy} act={act} /> : null}
+      {names.length ? (
+        <details className="pt-names" open={names.length <= NAMES_SHOWN}>
+          <summary>{t("{{n}} name variants", { n: names.length })}</summary>
+          <IdentityRows list={names} targets={others} busy={busy} act={act} />
+        </details>
+      ) : null}
+      <div className="button-row">
+        {others.length ? (
+          <span className="pt-move">
+            <select value={into} disabled={busy} aria-label={t("Merge {{party}} into", { party: party.name })} onChange={(e) => setInto(e.target.value)}>
+              <option value="">{t("Merge into…")}</option>
+              {others.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <ConfirmButton className="quiet" disabled={busy || !into}
+              onConfirm={() => void act(() => api.mergeParty(party.id, into), t("The parties have been merged."))}>{t("Merge")}</ConfirmButton>
+          </span>
+        ) : null}
+        <span className="spacer" />
+        <ConfirmButton className="quiet" disabled={busy} ariaLabel={t("Delete {{party}}", { party: party.name })}
+          onConfirm={() => void act(() => api.deleteParty(party.id), t("The party has been deleted; its names and accounts are proposed again."))}>
+          {t("Delete")}
+        </ConfirmButton>
+      </div>
+    </section>
+  );
+}
+
+/** The identities nothing claims: given to a party, made a new party, or dismissed. */
+function Unassigned({ data, busy, act }: { data: PartiesOverview; busy: boolean; act: Act }) {
+  useLocale();
+  const [to, setTo] = useState<Record<string, string>>({});
+  const key = (i: PartyIdentity) => `${i.kind}|${i.key}`;
+  function give(i: PartyIdentity) {
+    const target = to[key(i)];
+    if (target === "new") void act(() => api.createParty(i.label, [i]), t("A new party has been made of it."));
+    else if (target) void act(() => api.setPartyIdentity(i, "assign", target), t("Moved."));
+  }
+  return (
+    <section className="card wide" aria-label={t("Unassigned")}>
+      <div className="card-head"><h3>{t("Unassigned")}</h3></div>
+      <p className="muted small">{t("Seen on too few invoices, or like more than one party: give them to a party, make a new party of them, or dismiss them.")}</p>
+      <table className="table compact pt-table">
+        <tbody>
+          {data.unassigned.map((i) => (
+            <tr key={key(i)}>
+              <td className="muted small">{KIND[i.kind]}</td>
+              <td className={i.kind === "name" ? "" : "mono"}>{i.label}</td>
+              <td className="num small">{count(i)}</td>
+              <td>
+                <span className="pt-move">
+                  <select value={to[key(i)] ?? ""} disabled={busy} aria-label={t("Give {{label}} to", { label: i.label })}
+                    onChange={(e) => setTo((m) => ({ ...m, [key(i)]: e.target.value }))}>
+                    <option value="">{t("Give to…")}</option>
+                    {data.parties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    <option value="new">{t("A new party")}</option>
+                  </select>
+                  <button type="button" className="quiet small-btn" disabled={busy || !to[key(i)]} onClick={() => give(i)}>{t("Give")}</button>
+                  <ConfirmButton className="quiet small-btn" disabled={busy}
+                    onConfirm={() => void act(() => api.setPartyIdentity(i, "dismiss"), t("Dismissed: it names no own party."))}>{t("Not own")}</ConfirmButton>
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function Dismissed({ list, busy, act }: { list: PartyIdentity[]; busy: boolean; act: Act }) {
+  useLocale();
+  return (
+    <details className="card wide pt-dismissed">
+      <summary>{t("Not own ({{n}})", { n: list.length })}</summary>
+      <table className="table compact pt-table">
+        <tbody>
+          {list.map((i) => (
+            <tr key={`${i.kind}|${i.key}`}>
+              <td className="muted small">{KIND[i.kind]}</td>
+              <td className={i.kind === "name" ? "" : "mono"}>{i.label}</td>
+              <td className="num small">{count(i)}</td>
+              <td>
+                <button type="button" className="quiet small-btn" disabled={busy}
+                  onClick={() => void act(() => api.setPartyIdentity(i, "release"), t("Taken back; it is proposed again."))}>{t("Undo")}</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </details>
+  );
+}

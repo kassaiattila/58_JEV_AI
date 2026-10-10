@@ -74,7 +74,7 @@ The **New work package** button offers four sources:
 
 **Browse…** asks the local service to open the Windows picker on this computer. While the picker is open, the button reads ‘The picker is open…’ (*A választó ablak nyitva…*). If you cannot see the picker, check the taskbar: it may have opened behind the browser. Cancelling changes nothing. A path can always be typed instead. Only one picker can be open at a time, and one left open for ten minutes is closed.
 - **From a mailbox** (*Postafiókból*): the mailbox form (section 10.1), with the **Download now: new work package** (*Letöltés most: új munkacsomag*) button. The worker does the download; the new emails become a package, which appears in the list.
-- **Reconciliation of statements and invoices** (*Kivonatok és számlák egyeztetése*): a reconciliation package (section 5.3). Tick the own accounts and cards (*Saját számlák és kártyák*: those the store has processed statements of, with the number of statements and the span they cover) and give the period (*Időszak kezdete*, *vége*; by default the previous month). ‘Name’ is optional; if empty, the period is used. It processes no file and calls no AI service.
+- **Reconciliation of statements and invoices** (*Kivonatok és számlák egyeztetése*): a reconciliation package (section 5.3). First choose the own party (*Saját gazdálkodó*, section 10.3): each is listed with its invoices and the span of its statements; a party without a statement cannot be chosen yet. Choosing it ticks its accounts and cards (*Saját számlák és kártyák*: those the store has processed statements of, with the number of statements and the span they cover; another party's account is marked with its name) and sets the period (*Időszak kezdete*, *vége*) to the span of its statements; both can be changed. ‘Name’ is optional; if empty, the party and the period are used. It processes no file and calls no AI service.
 
 After **Create** (*Létrehozás*), the package's Processing stage opens, and the person who created it becomes the package's owner. The files stay where they are and are never changed. As a document is added, the system keeps an unchanging copy of it (its source instance), and from then on the package works from that copy: processing, the page image in review and the named copies. So if the original file is later edited, moved or deleted, you still see exactly what the result was made from. You cannot add new documents to an existing package from the interface: new documents need a new package (a work folder can extend its own package by itself).
 
@@ -108,21 +108,21 @@ The package's documents, the items of a run and the item list of Review can show
 
 ### 5.3 A reconciliation package
 
-A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank and card statements with invoices already processed in other packages. It has no files and no runs; it works on the corrected values of the documents. Every decision belongs to the pair of a line and an invoice, not to the package: another package with the same line shows the same decision. Its stages are different:
+A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank and card statements with invoices already processed in other packages. It has no files and no runs; it works on the corrected values of the documents. Every decision belongs to the pair of a line and an invoice, not to the package: another package with the same line shows the same decision. A package is one own party's (section 10.3): it lists that party's invoices and the invoices no party claims; a package made before the own parties takes every invoice as its own. Its stages are different:
 
 - **1 Preparation** (*Előkészítés*):
-  - **Scope** (*Kör*): the accounts and cards and the period; **Save the scope** (*Kör mentése*) keeps every decision made so far.
+  - **Scope** (*Kör*): the own party (*Saját gazdálkodó*), the accounts and cards and the period; **Save the scope** (*Kör mentése*) keeps every decision made so far. A package made before the own parties can be given its party here.
   - **Coverage** (*Lefedettség*): per account and month, how many statements there are; ‘✓ 2’ means two statements whose balances check out, ‘! 0/1’ a statement whose balances do not, ‘–’ no statement. **Recompute** (*Újraszámolás*) fetches the missing MNB exchange rates (only dates and currency codes leave the computer).
   - **What blocks the approval** (*Mi akadályozza a jóváhagyást*): source documents whose run is not approved, or that were processed on the command line, and statements whose balances do not check out. Pairing can start anyway.
   - **Where the pairing stands** (*Hol tart a párosítás*): the lines and invoices by state.
 - **2 Pairing** (*Párosítás*): two lists side by side.
   - **Statement lines** (*Banki tételek*) on the left, filtered by state: ‘To decide’ (*Eldöntendő*, the default), ‘Proposed pair’, ‘Same amount only’, ‘Partly paired’, ‘No candidate’, ‘Paired’, ‘Needs no invoice’, ‘Left out’ (an incoming payment, a fee or interest, a transfer between own accounts; with the reason) and ‘All’; by account, month and a search in the name, memo and amount. Clicking a line selects it; the checkbox (or Ctrl-click) adds more lines to the selection; ‘Select all shown’ (*A látható tételek kijelölése*) selects the whole filtered list.
-  - **Invoices** (*Számlák*) on the right: first the selected line's details (with what was decided on it, each with **Undo**, *Visszavonás*), then its candidates (*A kijelölt tétel jelöltjei*), highlighted and numbered, with what ties them (the same amount, the invoice number, the supplier's account or name, the payment method, a learnt name, the converted amount); then the other invoices, the nearest amount first (with a search: the newest first). ‘Unpaid only’ (*Csak a ki nem fizetettek*) is on by default.
+  - **Invoices of the party** (*… számlái*) on the right: first the selected line's details (with what was decided on it, each with **Undo**, *Visszavonás*), then its candidates (*A kijelölt tétel jelöltjei*), highlighted and numbered, with what ties them (the same amount, the invoice number, the supplier's account or name, the payment method, a learnt name, the converted amount); then the other invoices, the nearest amount first (with a search: the newest first). ‘Unpaid only’ (*Csak a ki nem fizetettek*) is on by default. An invoice no party claims is marked ‘no own party’ (*nincs gazdálkodója*). Another party's invoices show with the ‘Other parties' invoices too’ (*Más gazdálkodók számlái is*) switch, or when a search finds them, marked ‘Other party: …’ (*Más gazdálkodó: …*); when the selected line's candidate is another party's invoice, a note says so, with **Show them** (*Mutasd őket*). Such a pair is never proposed and never accepted in bulk: a person pairs it on purpose (for example a company invoice paid from a private card).
   - **The selection bar** at the bottom shows the selected lines and invoices with their totals and the difference, and acts on them:
     - **Pair** (*Párosítás*): one line with one or more invoices, or one invoice with one or more lines (instalments). When the amounts settle every side, it is saved at once. When a rest is left, the amounts can be set per pair and a reason is required (for example an instalment, a bank fee, a discount). A card line in forints and an invoice in another currency pair only one to one, in whole; outside the card band or without an exchange rate it needs a reason.
     - **Not this one** (*Nem ez*): rejects the selected candidate with a reason; it is never offered again (until undone).
     - **Needs no invoice** (*Nem kell számla*): marks all the selected lines at once, with one reason (private expense, bank fee or interest, transfer between own accounts, tax or contribution, cash withdrawal, salary, or other with a note).
-    - **Accept the N unambiguous proposals** (*A(z) N egyértelmű javaslat elfogadása*, two clicks) pairs every proposal that is the only candidate of its line and its invoice, on a statement whose balances check out.
+    - **Accept the N unambiguous proposals** (*A(z) N egyértelmű javaslat elfogadása*, two clicks) pairs every proposal that is the only candidate of its line and its invoice, on a statement whose balances check out, with an invoice of the package's party or of none.
   - **Documents** (*Iratok*, key `d`): the statement opens at the page of the selected line, with the line framed (found by its amount and date), next to the selected invoice (or the first candidate). A document processed on the command line has no image here. **Open in its package** opens the document's review page in a new tab.
   - After a decision the next line is selected. If someone else decided meanwhile, the lists are reloaded and your selection is kept.
 - **3 Result** (*Eredmény*): for now, where the pairing stands.
@@ -329,7 +329,7 @@ The **My work today** link in the header shows the selected person's actions for
 
 ## 10. Settings
 
-The left-hand menu of Settings has seven items: Mailboxes (*Postafiókok*), Work folders (*Munkamappák*), Processing (*Feldolgozás*), Users, Appearance (*Megjelenés*), Language and System (*Rendszer*).
+The left-hand menu of Settings has eight items: Mailboxes (*Postafiókok*), Work folders (*Munkamappák*), Own parties (*Saját gazdálkodók*), Processing (*Feldolgozás*), Users, Appearance (*Megjelenés*), Language and System (*Rendszer*).
 
 ### 10.1 Mailboxes
 
@@ -347,23 +347,34 @@ A work folder (a watched folder) is a folder that the worker checks at the frequ
 
 Below the list, the **Output folder** (*Kimeneti mappa*) card sets where the content-named copies of a run are written (Result › File names). It is saved on its own with its **Save** button; an empty field clears it. It cannot be inside a watched work folder or contain one (the watcher would take the copies in again), and a work folder cannot be saved inside it either.
 
-### 10.3 Processing
+### 10.3 Own parties
+
+An own party (*saját gazdálkodó*) is a company, an association or a person whose money is reconciled: the buyer of the incoming invoices and the holder of the bank accounts and cards. A reconciliation package is one party's (section 5.3). The system proposes the parties from the processed documents, by code and free of charge: the buyer's tax number and name on the invoices, and the holder's name at the top of a statement's first page. It does not decide on its own; nothing is fixed, and every package follows a change at once.
+
+- **Suggestions from the data** (*Javaslatok az adatokból*): a new party with its invoices, its tax numbers, its name variants (*névváltozat*: how its name is printed as the buyer; the legal form, the numbers and the order of the words do not count) and its accounts; or what an existing party gains. Check the name of a new party (it can be edited), then **Accept** (*Elfogadás*) or **Add** (*Hozzáadás*); **Accept all N** (*Mind elfogadása*, two clicks) accepts them at once. **Not own** (*Nem saját*, two clicks) dismisses a suggestion that names no own party of yours, for example a buyer misread from a ticket.
+- **The parties**: each with its invoices and their span, the span of its statements, its tax numbers and accounts, and its name variants (folded when there are many). **Rename** (*Átnevezés*); **Move to…** (*Áthelyezés ide…*) moves a tax number, a name variant or an account to another party, back among the unassigned ones (proposed again) or among the dismissed ones; **Merge into…** (*Összevonás ezzel…*, two clicks) merges two parties (its packages follow); **Delete** (*Törlés*, two clicks) works only for a party no package uses, and its names and accounts are proposed again.
+- **Unassigned** (*Besorolatlan*): a tax number or a name seen on too few invoices, or one like more than one party: **Give to…** (*Besorolás ide…*) a party or **A new party** (*Új gazdálkodó*), or **Not own**.
+- **Not own (N)** (*Nem saját*): the dismissed ones; **Undo** (*Visszavonás*) proposes them again.
+
+Which party an invoice belongs to: its buyer's tax number first (so the company's contact person printed as the buyer does not move it), then a known name variant, then a name that holds every word of exactly one party's variant, a misread letter allowed. An invoice that names its own supplier as the buyer is a misreading and counts as having no party.
+
+### 10.4 Processing
 
 How the system works: what happens to a PDF document and to an email, what it needs, the steps, the result, what the person has to do, the default cost budget, every possible value of every setting with its meaning and budget, and **The paths compared** (*Az utak összevetése*): what the S and G paths do, whether they read line items, which services they call, their typical cost per document, their agreement with the golden set, which document types they work on and when each is better, with the source and date of the numbers. Nothing can be changed here; this is a read-only description.
 
-### 10.4 Users
+### 10.5 Users
 
 The names offered by **Who is working?**. Add a new name with the ‘New name’ (*Új név*) field and the **Add** (*Felvétel*) button; delete one with **Delete** (two clicks: ‘Sure? Click again’). Both are saved immediately. A name may contain letters, digits, spaces, dots, @ and hyphens, up to 64 characters. If the list is not empty, changes can only be made with a name on the list, and the package owner is also chosen from it.
 
-### 10.5 Appearance
+### 10.6 Appearance
 
 ‘Theme’ (*Téma*): ‘Follow the system’ (*A rendszer szerint*), ‘Light’ (*Világos*) or ‘Dark’ (*Sötét*). ‘Density’ (*Sűrűség*): ‘Comfortable’ (*Tágas*) or ‘Compact’ (*Tömör*). Changes apply immediately and are remembered in this browser.
 
-### 10.6 Language
+### 10.7 Language
 
 ‘Magyar’ or ‘English’ (each language name is shown in its own language); this is the same as the HU / EN buttons in the header (section 2.2).
 
-### 10.7 System
+### 10.8 System
 
 - **Version** (*Verzió*): the running release version and commit (a fixed, identified state of the code in version control), and how long the service has been running. New code only takes effect after the service is restarted. ‘The running code contains uncommitted changes.’ (*A futó kód commitolatlan változást tartalmaz.*): the running code includes changes that have not been committed yet, so it is not exactly a released state. ‘The commit is unknown…’ (*A commit nem ismert…*): the service was started without version control.
 - **A newer version is running** (*Újabb változat fut…*, a banner above the header on every page): the service was restarted with new code or the interface was rebuilt since this browser tab was loaded, so the tab still shows the old interface. **Reload** (*Újratöltés*) loads the new one; unsaved corrections are kept. The tab checks every minute and whenever you switch back to it. A restart of the same code shows no banner.

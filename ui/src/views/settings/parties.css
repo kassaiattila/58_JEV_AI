@@ -1,0 +1,17 @@
+/* 133: the own parties (Settings › Own parties) */
+.pt-stack { display: grid; gap: 16px; }
+.pt-stack .card { margin: 0; }
+.pt-list { display: grid; gap: 0; }
+.pt-row { display: grid; gap: 6px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.pt-row:first-child { border-top: 0; }
+.pt-main { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.pt-main input { border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; min-width: 260px; background: var(--paper); }
+.pt-ids { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pt-id { font-size: 12px; padding: 1px 9px; border-radius: 999px; background: var(--chip); }
+.pt-names summary { cursor: pointer; font-size: 12px; color: var(--muted); padding: 4px 0; }
+.pt-table td { padding: 4px 8px; vertical-align: middle; }
+.pt-table td.num { text-align: right; white-space: nowrap; }
+.pt-move { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pt-move select { max-width: 240px; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; background: var(--paper); }
+.pt-dismissed summary { cursor: pointer; }
+.pt-stack .button-row .spacer { flex: 1 1 auto; }

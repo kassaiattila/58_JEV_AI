@@ -100,3 +100,7 @@
 .rc-doc-head .muted { overflow-wrap: anywhere; }
 /* a long invoice state ("statements cover part of its period") wraps instead of squeezing the supplier's name */
 .rc-row .rc-side .rc-state { max-width: 190px; white-space: normal; text-align: right; }
+
+/* 133: the own party */
+.rc-party-pick select { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--paper); max-width: 360px; }
+.rc-others { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
