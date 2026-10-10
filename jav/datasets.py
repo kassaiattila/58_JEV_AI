@@ -138,6 +138,33 @@ def _calls_fingerprint(scope: dict[str, str]) -> str:
     return "|".join(str(x) for x in row)
 
 
+# 140 (Q-filter-slowness): what the package list reads besides the reconciliation (its packages' next step reads that):
+# a package's change bumps its revision or writes an event, a run's status and approval change in place, and the
+# items' results and the to-dos tell the counts.
+LIST_INPUTS: dict[str, str | None] = {
+    "workpackages": "SUM(revision), (SELECT group_concat(status || ':' || COALESCE(owner, ''), '|') FROM workpackages)",
+    "workpackage_events": None,
+    "workpackage_items": "COUNT(removed_revision)",
+    "recipe_assignments": None,
+    "runs": "(SELECT group_concat(run_id || ':' || status || ':' || COALESCE(approval, '') || ':' || COALESCE(finished_at, ''),"
+            " '|') FROM runs)",
+    "run_items": "SUM(status='done'), MAX(updated_at)",
+    "review_reasons": "SUM(status='open'), MAX(closed_at)",
+    "review_queue": "SUM(status='open')",
+}
+
+
+def _workpackages_fingerprint(scope: dict[str, str]) -> str:
+    """140: the package list is built again only when what it shows may have changed (measured: 1.5-3.1 s per query
+    before, at every filter change and refresh, as each reconciliation package's next step built its workspace)."""
+    from jav import reconcile_package
+
+    reconciliation = reconcile_package.inputs_mark()  # first: it makes sure the tables it reads are registered
+    with store.connect() as c:
+        parts = [store.table_marks(c, LIST_INPUTS), reconciliation]
+    return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
+
+
 def _run_items_fingerprint(scope: dict[str, str]) -> str:
     """082: the run items carry their cost, so the call log is part of their fingerprint."""
     return f"{_run_fingerprint(scope)}#{_calls_fingerprint(scope)}"
@@ -679,7 +706,7 @@ def _mailbox_pulls(_scope: dict[str, str]) -> Rows:
 
 REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("runs", "Futások", (), _runs, optional_scope=("workpackage_id",)),
-    Dataset("workpackages", "Munkacsomagok", (), _workpackages, optional_scope=("include_archived", "owner"),
+    Dataset("workpackages", "Munkacsomagok", (), _workpackages, _workpackages_fingerprint, optional_scope=("include_archived", "owner"),
             natural_sort=(("created_at", True),)),
     Dataset("workpackage_items", "Csomag tételei", ("workpackage_id",), _workpackage_items, optional_scope=("names",)),
     Dataset("run_items", "Futás tételei", ("run_id",), _run_items, _run_items_fingerprint, optional_scope=("names",)),
