@@ -737,6 +737,11 @@ def _amount(values: dict[str, Any]) -> str | None:
     return str(present[-1]) if present else None
 
 
+def _first(values: dict[str, Any], fields: list[str]) -> Any:
+    """The first of the fields with a value (133: the buyer is `buyer_name` on an invoice, `customer_name` on a bill)."""
+    return next((values[f] for f in fields if values.get(f) not in (None, "")), None)
+
+
 def _duplicate_marks() -> dict[str, str]:
     """The duplicate decisions as invoice marks: the repeat of a confirmed copy is `copy`; both documents of a pair a
     person called different (or a modified version) are `distinct`."""
@@ -800,7 +805,8 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
                              "payment_account": v.get(f["payment_account"]), "payment_method": v.get(f["payment_method"]),
                              "amount": _amount(v),
                              "currency": v.get(f["currency"]), "issue_date": v.get(f["issue_date"]),
-                             "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"]), **_origin(d)})
+                             "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"]),
+                             "buyer_name": _first(v, f["buyer_name"]), "buyer_tax_id": _first(v, f["buyer_tax_id"]), **_origin(d)})
     decisions = [{"invoice_id": r["invoice_doc_id"], "line_id": r["line_id"], "decision": r["decision"]} for r in _decision_rows()]
     allocations, marks = active_allocations(), active_marks()
     f = conf["fx"]

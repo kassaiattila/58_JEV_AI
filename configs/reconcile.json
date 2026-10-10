@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person and when a statement counts as verified coverage. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131.",
     "changelog": [
+      {
+        "version": "1.4.0",
+        "date": "2026-10-10",
+        "note": "133 (DECISIONS 133, the own parties): invoice_fields.buyer_name and buyer_tax_id - the buyer side of an invoice, read into the snapshot so a reconciliation package shows its own party's invoices (jav/parties.py); the pairing itself does not use them."
+      },
       {
         "version": "1.3.0",
         "date": "2026-10-09",
@@ -40,7 +45,9 @@
     "amount": ["amount_due", "gross_total"],
     "currency": "currency",
     "issue_date": "issue_date",
-    "due_date": "due_date"
+    "due_date": "due_date",
+    "buyer_name": ["buyer_name", "customer_name"],
+    "buyer_tax_id": ["buyer_tax_id"]
   },
   "window": {
     "days_before_issue": 31,

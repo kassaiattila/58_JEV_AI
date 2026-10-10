@@ -80,6 +80,13 @@ def _ascii_words(value: str) -> list[str]:
     return re.findall(r"\w+", plain.lower())
 
 
+def significant_words(value: object) -> list[str]:
+    """133: a party name's words in their order, without the legal forms and filler words (`parties.ignore_tokens`);
+    shared by `same_party` and the own parties (`jav.parties`)."""
+    ignore = set(_rules()["parties"]["ignore_tokens"])
+    return [w for w in _ascii_words(str(value or "")) if w not in ignore]
+
+
 def tax_party_key(value: object) -> str | None:
     """121: a party's identity by its tax number, or None when the value has fewer digits than a domestic stem. A
     domestic number (no prefix or a domestic one) is its stem, so `12345678-2-41` and `HU12345678` are one party;
@@ -113,9 +120,7 @@ def same_party(first: object, second: object) -> bool:
     key_a, key_b = tax_party_key(first), tax_party_key(second)
     if key_a is not None and key_b is not None:
         return key_a == key_b
-    ignore = set(rules["ignore_tokens"])
-    words_a = {w for w in _ascii_words(str(first)) if w not in ignore}
-    words_b = {w for w in _ascii_words(str(second)) if w not in ignore}
+    words_a, words_b = set(significant_words(first)), set(significant_words(second))
     if not words_a or not words_b:
         return False
     if words_a == words_b:
