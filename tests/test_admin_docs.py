@@ -46,7 +46,7 @@ def test_preflight_contract_gate_includes_native_and_rejects_its_drift(monkeypat
 
     summary = preflight.flow_lint_summary()
     assert {name for name, _passed, _failures in summary} == {
-        "invoice", "doc_detect", "email_intent", "document_learning", "email_learning", "native"}
+        "invoice", "doc_detect", "email_intent", "document_learning", "email_learning", "native", "statement_table"}
     assert all(passed for _name, passed, _failures in summary)
     changed = copy.deepcopy(flow_native.CONTRACT)
     changed["steps"] = [step for step in changed["steps"] if step[0] != "publish_native"]

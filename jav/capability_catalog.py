@@ -37,7 +37,8 @@ def build_catalog():
     doc_path=PROJECT_ROOT/spec['document_registry']
     intent_path=PROJECT_ROOT/spec['intent_registry']
     registry=_read(doc_path); intents=_read(intent_path)['intents']
-    core=set(typepack.keys()); legacy=set(legacy_packs.keys())
+    # 136: the inventory of the extractable types; a code-only pack (a statement read from a table export) is not one
+    core=set(typepack.extractable_keys()); legacy=set(legacy_packs.keys())
     expected=set(spec['expected_document_keys'])
     # 047 T1.1: all 23 types are full packs; the 15 legacy copies stay as sources (hash check), each has a pack
     if core != expected or not legacy <= core or set(registry['old_type_map']) != expected:

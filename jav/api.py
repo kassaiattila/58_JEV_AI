@@ -272,6 +272,23 @@ class Revision(_In):
     expected_revision: Annotated[int, Field(ge=0)]
 
 
+class StatementTableFile(_In):
+    """136: a bank's tabular statement export (a workbook or a CSV file)."""
+    path: Annotated[str, Field(min_length=1, max_length=1024)]
+
+
+class StatementTableAccounts(StatementTableFile):
+    keys: Annotated[list[Annotated[str, Field(min_length=1, max_length=300)]], Field(min_length=1, max_length=100)]
+
+
+class AddStatementTables(StatementTableAccounts):
+    expected_revision: Annotated[int, Field(ge=0)]
+
+
+class CreateFromStatementTable(StatementTableAccounts):
+    name: Annotated[str, Field(min_length=1, max_length=200)]
+
+
 class SaveWorkflow(_In):
     recipe_id: Annotated[str, Field(min_length=1, max_length=100)]
     params: dict[Annotated[str, Field(max_length=64)], Annotated[str, Field(max_length=200)]] = Field(default_factory=dict, max_length=20)
@@ -776,6 +793,26 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def add_attachments(wp_id: WpId, body: Revision, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """058 K5.2: the emails' PDF attachments go into the package as documents, pointing back to the email."""
         mailbox.add_attachments(wp_id, expected_revision=body.expected_revision)
+        return work_views.workpackage_view(wp_id)
+
+    @app.post(r + "/statement-tables/survey")
+    def statement_table_survey(body: StatementTableFile, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """136 (E4): the accounts of a bank's tabular export with their line counts, dates and checks, for a person to
+        choose from; no lines or balances, nothing is stored."""
+        from jav import statement_table
+
+        return statement_table.survey(statement_table.read(checked_path(body.path, want_dir=False)))
+
+    @app.post(r + "/statement-tables/workpackage", status_code=201)
+    def create_from_statement_table(body: CreateFromStatementTable, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """136 (E4): a new package of the chosen accounts of the export; the creator is its owner (065)."""
+        wp = work.create_from_statement_table(checked_path(body.path, want_dir=False), body.keys, name=body.name, owner=who)
+        return work_views.workpackage_view(wp["id"])
+
+    @app.post(r + "/workpackages/{wp_id}/statement-tables")
+    def add_statement_tables(wp_id: WpId, body: AddStatementTables, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """136 (E4, DECISIONS 136): the chosen accounts of the export as the package's items, one statement each."""
+        work.add_statement_tables(wp_id, checked_path(body.path, want_dir=False), body.keys, expected_revision=body.expected_revision)
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/items/{item_id}/remove")

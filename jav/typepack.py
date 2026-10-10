@@ -282,6 +282,12 @@ def keys() -> list[str]:
     return [n.split(":", 1)[1] for n in cfg.all_names() if n.startswith("type:") and not n.split(":", 1)[1].startswith(BASE_PREFIX)]
 
 
+def extractable_keys() -> list[str]:
+    """136: the packs a document's data can be extracted with (an S or G path); a code-only pack (a statement read from
+    a bank's tabular export) is never offered as a type to extract."""
+    return [k for k in keys() if {"S", "G"} & set(get(k).arms)]
+
+
 def catalog_hash() -> str:
     """067 (066 Á18): the joint identifier of all type packs (the options of the detailed-type question are the packs'
     descriptions)."""

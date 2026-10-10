@@ -294,7 +294,7 @@ def _validated_params(r: dict[str, Any], params: dict[str, Any]) -> dict[str, An
         raise ValueError(f"unknown params: {sorted(unknown)}")
     for name, spec in r["params"].items():
         value = params.get(name, spec.get("default"))
-        allowed = spec.get("allowed") or (typepack.keys() if spec.get("allowed_from") == "typepacks" else None)
+        allowed = spec.get("allowed") or (typepack.extractable_keys() if spec.get("allowed_from") == "typepacks" else None)
         if allowed is not None and value not in allowed:
             raise ValueError(f"param {name}={value!r} not in {sorted(allowed)}")
         out[name] = value
@@ -352,14 +352,15 @@ def add_documents(wp_id: str, paths: list[Path], *, expected_revision: int) -> d
 
 def add_items(wp_id: str, paths: list[Path], *, kind: str, expected_revision: int,
               parents: dict[Path, str] | None = None) -> dict[str, Any]:
-    """Adds items in one revision step (`document`: a document file; `email`: the email's `message.json`, 048 T2).
+    """Adds items in one revision step (`document`: a document file; `email`: the email's `message.json`, 048 T2;
+    `statement_table`: an account's statement file derived from a bank's tabular export, 136).
     The item's identifier is the file's content hash; identical content appears once. `parents` (058 K5.2): the parent
     item's identifier per file — so an email attachment points to its email (the attachment's origin).
 
     A document is copied into the source instance store as it is added (`jav/source_instances.py`), and its
     fingerprint is that of the copied bytes; an email is hashed in place (it is already the system's own copy). If the
     intake fails, the copies made for it are released again."""
-    if kind not in ("document", "email"):
+    if kind not in ("document", "email", "statement_table"):
         raise ValueError(f"unknown item kind: {kind}")
     parents = {Path(k).resolve(): v for k, v in (parents or {}).items()}
     resolved: list[tuple[Path, str, str | None]] = []
@@ -368,7 +369,7 @@ def add_items(wp_id: str, paths: list[Path], *, kind: str, expected_revision: in
             p = Path(p).resolve(strict=True)
             if not p.is_file():
                 raise ValueError(f"not a file: {p}")
-            if kind == "document":
+            if kind in ("document", "statement_table"):
                 resolved.append(_document_entry(p))
             else:
                 resolved.append((p, sha256_file(p), None))
@@ -385,6 +386,16 @@ def add_items(wp_id: str, paths: list[Path], *, kind: str, expected_revision: in
         source_instances.release(i for _p, _d, i in resolved if i)
         raise
     return get(wp_id)
+
+
+def add_statement_tables(wp_id: str, export: Path, keys: list[str], *, expected_revision: int) -> dict[str, Any]:
+    """136 (E4, DECISIONS 136): the chosen accounts of a bank's tabular export as items of the package, one statement
+    file per account (`statement_table.derive`), read by code; the accounts not chosen are never written. The export
+    itself is not an item, so only the chosen accounts' lines are kept."""
+    from jav import statement_table
+
+    reading = statement_table.read(Path(export))
+    return add_items(wp_id, statement_table.derive(reading, keys), kind="statement_table", expected_revision=expected_revision)
 
 
 def _document_entry(p: Path) -> tuple[Path, str, str | None]:
@@ -445,6 +456,13 @@ def create_from_files(paths: list[Path], *, name: str, owner: str | None = None)
         raise ValueError("at least one file is required")
     wp = create_workpackage(name=name, source_kind="manual", source_ref=None, owner=owner)
     return _fill_new(wp, lambda: add_documents(wp["id"], list(paths), expected_revision=0))
+
+
+def create_from_statement_table(export: Path, keys: list[str], *, name: str, owner: str | None = None) -> dict[str, Any]:
+    """136 (E4): a work package of the chosen accounts of a bank's tabular export, one statement item each
+    (`add_statement_tables`); the export's path is the package's source."""
+    wp = create_workpackage(name=name, source_kind="manual", source_ref=str(export), owner=owner)
+    return _fill_new(wp, lambda: add_statement_tables(wp["id"], export, keys, expected_revision=0))
 
 
 def _fill_new(wp: dict[str, Any], fill: Callable[[], dict[str, Any]]) -> dict[str, Any]:
@@ -739,7 +757,8 @@ def run_plan(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, An
     paths = {"S": 0, "G": 0, "unknown": 0}
     for _i, a in docs:
         paths[a if a in ("S", "G") else "unknown"] += 1
-    plan = {"documents": len(docs), "emails": emails,
+    tables = sum(1 for i in items if i.get("kind") == "statement_table")
+    plan = {"documents": len(docs), "emails": emails, **({"statement_tables": tables} if tables else {}),  # 136: code, free
             "attachments": sum(1 for i, _a in docs if i.get("parent_item_id")), "paths": paths,
             "tasks_emails": emails if value("tasks") == "propose" else 0,
             "azure": value("azure_ocr") == "on" and any(flow_for(r, i) != "native" for i, _a in docs),

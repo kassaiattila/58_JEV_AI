@@ -90,10 +90,11 @@ def last_golden_results() -> list[dict[str, Any]]:
     return out
 
 
-def flow_lint_summary() -> list[tuple[str, bool, int]]:
-    from jav import flow, flow_detect, flow_email, flow_learning, flow_email_learning, flow_native
+def flow_lint_targets() -> list[tuple[Any, Any]]:
+    """Every flow module with a live graph built for the contract lint (`flows`, the admin report)."""
+    from jav import flow, flow_detect, flow_email, flow_learning, flow_email_learning, flow_native, flow_statement_table
 
-    apps = [
+    return [
         (flow, flow.build_app("lint.pdf", "lint", "S", tracker=False)),
         (flow_detect, flow_detect.build_app("lint.pdf", tracker=False)),
         (flow_email, flow_email.build_app(source_dir="lint", tracker=False)),
@@ -102,9 +103,14 @@ def flow_lint_summary() -> list[tuple[str, bool, int]]:
         (flow_native, flow_native.build_app(work_run_id="lint-native-run", item_id="0" * 64,
             graph_id="lint-native-graph", source_path="lint.txt", read_path="lint.txt", original_name="lint.txt",
             expected_sha256="0" * 64, recipe_hash="0" * 16, jev=False)),
+        (flow_statement_table, flow_statement_table.build_app(run_id="lint-statement-table", item_id="0" * 64,
+            source_path="lint.json", read_path="lint.json", expected_sha256="0" * 64)),
     ]
+
+
+def flow_lint_summary() -> list[tuple[str, bool, int]]:
     out = []
-    for module, app in apps:
+    for module, app in flow_lint_targets():
         r = contract.lint_flow(module.CONTRACT, app, module)
         out.append((r["name"], r["passed"], sum(1 for _, ok, _ in r["checks"] if not ok)))
     return out

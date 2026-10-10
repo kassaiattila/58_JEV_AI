@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person, when a statement counts as verified coverage and how a candidate's strength is weighed. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131, DECISIONS 134.",
     "changelog": [
+      {
+        "version": "1.6.0",
+        "date": "2026-10-10",
+        "note": "136 E4 (DECISIONS 132, 136): statement_types also takes statement_table, an account's statement read by code from a bank's tabular export (jav/statement_table.py, jav/flow_statement_table.py); its lines are paired like an extracted statement's."
+      },
       {
         "version": "1.5.0",
         "date": "2026-10-10",
@@ -39,7 +44,7 @@
   "invoice_types": ["invoice_hu", "invoice_foreign", "proforma_invoice", "csatorna_szamla", "foldgaz_szamla", "mohu_szamla",
                     "villamos_energia_szamla", "viz_szamla", "vizmuvek_szamla"],
   "outgoing_types": ["invoice_out"],
-  "statement_types": ["statement_cib", "statement_erste"],
+  "statement_types": ["statement_cib", "statement_erste", "statement_table"],
   "currencies": ["HUF", "EUR", "USD", "GBP"],
   "invoice_fields": {
     "number": "invoice_number",

@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "recipes",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "changelog": [
+   {
+    "version": "1.13.0",
+    "date": "2026-10-10",
+    "note": "136 E4 (DECISIONS 132, 136): the processing recipe also handles the statement_table item kind - an account's statement file derived from a bank's tabular export (jav/statement_table.py) - with the code-only statement_table flow (jav/flow_statement_table.py); no provider is called, so its item budget is empty."
+   },
    {
     "version": "1.12.0",
     "date": "2026-10-06",
@@ -94,11 +99,13 @@
    "flow": "document",
    "flows": {
     "email": "email",
-    "document": "document"
+    "document": "document",
+    "statement_table": "statement_table"
    },
    "input_kinds": [
     "document",
-    "email"
+    "email",
+    "statement_table"
    ],
    "file_suffixes": [
     ".pdf",
@@ -164,6 +171,9 @@
     }
    },
    "max_item_usd_by_kind": {
+    "statement_table": {
+     "*": {}
+    },
     "email": {
      "*": {
       "jev": "0.05"

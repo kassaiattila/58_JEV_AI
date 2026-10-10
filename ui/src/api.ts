@@ -52,6 +52,7 @@ export interface RunPlan {
   tasks_emails: number; azure: boolean; jev_reuse: boolean;
   arm?: string; // 082: the chosen path (with S, a document on the G path has a type without a JEV path)
   jev?: boolean; // 086: false = processing without JEV (GPT recognises the type, every document on the G path)
+  statement_tables?: number; // 136: statements from a bank's table export, read by code (free)
 }
 export interface Readiness {
   workpackage_id: string; ready: boolean; blockers: Blocker[]; warnings: Blocker[]; counts: { items: number };
@@ -264,7 +265,7 @@ export interface MailboxSchedule {
   last_at: string | null; last_status: "ok" | "error" | null; last_result: MailboxPull["result"];
 }
 export interface ItemResult {
-  run_id: string; item_id: string; kind?: "document" | "email"; email?: EmailItem; page_count?: number | null; extraction: Extraction | null; correction: Correction;
+  run_id: string; item_id: string; kind?: "document" | "email" | "statement_table"; email?: EmailItem; page_count?: number | null; extraction: Extraction | null; correction: Correction;
   attachment_items?: { item_id: string; filename: string }[]; // 058 K5.2: the email's attachments that ran as documents
   effective: Record<string, unknown>; open_reasons: Reason[]; earlier_open_reasons: Reason[];
   provenance: Record<string, Provenance>;
@@ -357,6 +358,12 @@ export interface ReconcileLine {
    *  person gave the partner's other lines, the most frequent first (none through a payment app) */
   partner?: string | null; earlier_marks?: { category: string; lines: number }[];
 }
+/** 136: an account found in a bank's tabular statement export, without its lines and balances (jav/statement_table.py). */
+export interface StatementTableAccount {
+  key: string; account: string | null; title: string; occurrence: number; currency: string; lines: number;
+  first: string | null; last: string | null; period_start: string | null; period_end: string | null; checks_ok: boolean; problems: number;
+}
+export interface StatementTableSurvey { profile: string; institution: string; file: string; repairs: string[]; accounts: StatementTableAccount[] }
 /** 134: JEV's or GPT's raw answer about a statement line (jav/reconcile_ai.py); a person decides. */
 export type ReconcileAiEngine = "jev" | "gpt";
 export interface ReconcileAiProposal {
@@ -583,6 +590,10 @@ export const api = {
       { invoice_doc_id: invoiceDocId, line_id: lineId, decision, ...(note ? { note } : {}) }),
   // 131–132: the reconciliation package; every decision returns the recomputed workspace
   reconcileAccounts: () => request<{ accounts: ReconcileAccount[] }>("GET", "/reconcile/accounts"),
+  /** 136: the accounts of a bank's tabular statement export (no lines or balances); a package of the chosen ones. */
+  statementTableSurvey: (path: string) => request<StatementTableSurvey>("POST", "/statement-tables/survey", { path }),
+  createFromStatementTable: (path: string, keys: string[], name: string) =>
+    request<WorkpackageView>("POST", "/statement-tables/workpackage", { path, keys, name }),
   createReconcilePackage: (body: { name: string; accounts: string[]; period_start: string; period_end: string; party_id?: string | null }) =>
     request<WorkpackageView>("POST", "/reconcile/packages", body),
   reconcileWorkspace: (wpId: string) => request<ReconcileWorkspace>("GET", `/workpackages/${enc(wpId)}/reconcile`),

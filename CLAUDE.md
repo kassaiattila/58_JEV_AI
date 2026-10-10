@@ -93,7 +93,8 @@ python -m jav.capability_catalog                  # deterministic inventory of t
   - `jav/flow.py` (M2, S and G paths, type-agnostic; the type pack is `configs/types/<type>.json` + `jav/typepack.py`, inheritance via `extends`);
   - `jav/flow_detect.py` (M1);
   - `jav/flow_email.py` (M3, calls M1 on the attachments);
-  - `flow_learning.py`, `flow_email_learning.py` (learning branches).
+  - `flow_learning.py`, `flow_email_learning.py` (learning branches);
+  - `jav/flow_statement_table.py` (136: an account's statement from a bank's tabular export, code only).
 - **S path (S arm):** code finds candidates (`candidates.py`), a JEV Choice picks one, with a presence Noul per field (`jev_select.py`). **G path (G arm):** GPT extraction (`extract_llm.py`) + JEV Noul verification (`jev_verify.py`). A run takes one path (`arm` = S or G, chosen by the recipe or the eval); an agreement gate comparing the two paths is not built — the planned second opinion (H-065: the G path only on documents the S path left with to-dos) is the first combination. The safety net is `validators.py`.
 - **Every JEV call** goes through `ask()` in `jav/adapters/jev.py`: request-hash cache keyed by the concrete model version, RetryPolicy, ledger, cost. An SDK error raises `JevUnavailableError`. Flows never call the SDK directly.
 - **OCR:** the `ocr_pdf` step (`jav/ocr.py`, `configs/ocr.json`): native tesseract, Azure escalation on a weak result (`ocr_with_escalation`; an escalation that cannot run raises an `ocr:escalation_blocked:*` to-do, except when the recipe switch is off). Evals use `jav/pdf.py: read_document()`, without escalation.

@@ -115,8 +115,9 @@ def _attachment_reads(items: list[dict[str, Any]], email_item_id: str) -> dict[s
 
 
 def _flow_module(name: str):
-    from jav import flow, flow_detect, flow_email, flow_native  # deferred import: the flows pull in heavy dependencies
-    return {"invoice": flow, "doc_detect": flow_detect, "email": flow_email, "native": flow_native}[name]
+    from jav import flow, flow_detect, flow_email, flow_native, flow_statement_table  # deferred: heavy dependencies
+    return {"invoice": flow, "doc_detect": flow_detect, "email": flow_email, "native": flow_native,
+            "statement_table": flow_statement_table}[name]
 
 
 def arm_for(doc_type: str, preferred: str) -> str:
@@ -166,6 +167,11 @@ def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app
                             use_cache=reuse_answers(params), requested_arm=params.get("arm", "auto"),
                             persister=persister, tracker=False, limits=estimate_limits(params),
                             ocr=bool(params.get("native_ocr")), recognition=params.get("native_recognition"))
+    elif recipe["flow"] == "statement_table":  # 136: an account's statement from a tabular export, code only
+        if item is None:
+            raise ValueError("A statement table requires the frozen item identity")
+        app = mod.build_app(run_id=app_id, item_id=item["item_id"], source_path=source_path,
+                            read_path=read_path or source_path, expected_sha256=item["sha256"], persister=persister)
     elif recipe["flow"] == "invoice":
         # `jev_cache=live`: skip reading the JEV cache so every call goes through the log and the budget (live test)
         app = mod.build_app(source_path, app_id, params["arm"], tracker=False, doc_type=params["doc_type"], run_id=app_id,

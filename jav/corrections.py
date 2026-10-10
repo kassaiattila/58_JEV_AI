@@ -481,13 +481,15 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     from jav import isolated_pdf, page_image
 
     src = work.source_file(item)  # the source instance if the item has one
+    table = item.get("kind") == "statement_table"  # 136: a statement read from a tabular export has no page image
     try:
-        n_pages = page_image.page_count(src) if src.is_file() else None
+        n_pages = page_image.page_count(src) if src.is_file() and not table else None
     except (OSError, RuntimeError, isolated_pdf.PdfReaderError, isolated_pdf.PdfReaderLimit):
         # a damaged PDF (in-process pypdfium: RuntimeError) or one over the isolated reader's limits (077): the word
         # layer's page count is used
         n_pages = None
-    return {"run_id": run_id, "item_id": item_id, "kind": "document", "page_count": n_pages, "extraction": dp, "correction": corr,
+    return {"run_id": run_id, "item_id": item_id, "kind": "statement_table" if table else "document", "page_count": n_pages,
+            "extraction": dp, "correction": corr,
             "effective": effective, "lists": lists,
             # 081: the field kinds, so the UI shows amounts and quantities for editing the Hungarian way ("35,56")
             "kinds": {f: k for f, k in pack.fields.items() if k != "list"} if pack else {},

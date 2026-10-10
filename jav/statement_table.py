@@ -42,6 +42,7 @@ import csv
 import hashlib
 import html
 import io
+import json
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -53,6 +54,7 @@ from jav.dates import read_date
 from jav.numbers import read_number
 
 CONFIG = "statement_tables"
+SUFFIXES = (".xlsx", ".csv")
 CENT = Decimal("0.01")
 
 
@@ -350,6 +352,8 @@ def read(path: Path, *, name: str | None = None) -> Reading:
     """Reads a statement table with the first profile that finds a table in it. `name`: the file name to take the
     period from, when the path is a copy (the source instance) of the original."""
     path = Path(path)
+    if path.suffix.lower() not in SUFFIXES:
+        raise StatementTableError(f"a statement table is a {' or '.join(SUFFIXES)} file")
     data = path.read_bytes()
     conf = _conf()
     rows, repairs = _rows(path, data, conf)
@@ -381,3 +385,62 @@ def survey(reading: Reading) -> dict[str, Any]:
                     "period_end": a.statement["period_end"], "checks_ok": checks_ok(a), "problems": len(a.problems)})
     return {"profile": reading.profile, "institution": reading.institution, "file": reading.file_name,
             "repairs": reading.repairs, "accounts": out}
+
+
+# --- one file per chosen account ------------------------------------------------------------------------------------------
+
+FORMAT = "jav.statement_table"
+FORMAT_VERSION = 1
+_UNSAFE = re.compile(r'[<>:"/\|?*\x00-\x1f]+')
+
+
+def derived_dir() -> Path:
+    """Where the accounts' statement files are written: next to the store in use (tests get their own folder)."""
+    from jav import store
+
+    return store.current_path().parent / "statement_tables"
+
+
+def _file_name(reading: Reading, account: Account) -> str:
+    s = account.statement
+    name = f"{reading.institution} - {account.title} ({account.currency}) {s['period_start'] or ''}_{s['period_end'] or ''}"
+    if account.occurrence > 1:
+        name += f" {account.occurrence}"
+    return _UNSAFE.sub("_", name).strip(" .") + ".json"
+
+
+def derive(reading: Reading, keys: list[str], out_dir: Path | None = None) -> list[Path]:
+    """Writes one statement file per chosen account (`keys`, as `Account.key`), the work package item of that
+    account: the statement, the export's name and fingerprint, the account and the reader's findings. The content is
+    canonical, so the same account of the same export always gives the same file and the same item. An unknown key is
+    refused, so nothing is written for a wrong choice."""
+    by_key = {a.key: a for a in reading.accounts}
+    unknown = [k for k in keys if k not in by_key]
+    if unknown or not keys:
+        raise StatementTableError(f"choose at least one account of the file; unknown: {len(unknown)}")
+    folder = (out_dir or derived_dir()) / reading.sha256[:16]
+    folder.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for key in dict.fromkeys(keys):
+        a = by_key[key]
+        content = {"format": FORMAT, "version": FORMAT_VERSION, "profile": reading.profile, "institution": reading.institution,
+                   "source": {"file": reading.file_name, "sha256": reading.sha256, "repairs": reading.repairs},
+                   "account": {"key": a.key, "title": a.title, "currency": a.currency, "occurrence": a.occurrence},
+                   "checks": a.checks, "problems": a.problems, "statement": a.statement}
+        path = folder / _file_name(reading, a)
+        path.write_text(json.dumps(content, ensure_ascii=False, sort_keys=True, indent=1) + "\n", encoding="utf-8", newline="\n")
+        paths.append(path)
+    return paths
+
+
+def load_derived(data: bytes) -> dict[str, Any]:
+    """An account's statement file, checked for its format."""
+    try:
+        content = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise StatementTableError("not a statement file") from exc
+    if not isinstance(content, dict) or content.get("format") != FORMAT or content.get("version") != FORMAT_VERSION \
+            or not isinstance(content.get("statement"), dict):
+        raise StatementTableError("not a statement file of this version")
+    return content
+

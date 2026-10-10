@@ -27,7 +27,7 @@ def recipe_catalog(*, every_status: bool = False) -> list[dict[str, Any]]:
     expanded into an `allowed` list."""
     out = []
     for r in work.recipes() if every_status else work.active_recipes():
-        params = {k: ({**spec, "allowed": sorted(typepack.keys())} if spec.get("allowed_from") == "typepacks" else spec)
+        params = {k: ({**spec, "allowed": sorted(typepack.extractable_keys())} if spec.get("allowed_from") == "typepacks" else spec)
                   for k, spec in r["params"].items()}
         out.append({**r, "params": params})
     return jsonable(out)

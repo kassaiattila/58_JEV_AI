@@ -7,7 +7,7 @@
       {
         "version": "1.0.19",
         "date": "2026-10-10",
-        "note": "136: accept the document vocabulary of the tabular statement profiles (the column headers, account labels and total row of the Hungarian Revolut export, configs/statement_tables.json) and the synthetic Hungarian export the reader's tests build (tests/test_statement_table_136.py). All other file limits are unchanged."
+        "note": "136: accept the Hungarian column of the new glossary entry (the statement from a table, docs/GLOSSARY.md) and the Hungarian names of the new work package source in the user guide (docs/guides/USER_GUIDE.md); accept the document vocabulary of the tabular statement profiles (the column headers, account labels and total row of the Hungarian Revolut export, configs/statement_tables.json) and the synthetic Hungarian export the reader's tests build (tests/test_statement_table_136.py). All other file limits are unchanged."
       },
       {
         "version": "1.0.18",
@@ -225,7 +225,7 @@
     "configs/types/viz_szamla.json": 29,
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
-    "docs/GLOSSARY.md": 232,
+    "docs/GLOSSARY.md": 233,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 10,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -235,7 +235,7 @@
     "docs/flows/invoice/FLOW.md": 17,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 165,
+    "docs/guides/USER_GUIDE.md": 166,
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
