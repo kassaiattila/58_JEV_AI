@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "naming",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "changelog": [
+   {
+    "version": "1.4.0",
+    "date": "2026-10-10",
+    "note": "136 E4: the token of a statement read from a bank's table export (KIVONAT_TABLA), named like the other bank statements."
+   },
    {
     "version": "1.3.0",
     "date": "2026-10-07",
@@ -67,6 +72,7 @@
   "mohu_szamla": {"token": "HULLADEK", "pattern": "{billing_period_start|issue_date}_{@type}_{supplier_name}_{consumption_address:street}"},
   "statement_cib": {"token": "KIVONAT_CIB", "pattern": "{period_start}_{period_end}_{@type}_{currency}_{account_no|account_iban:last8}"},
   "statement_erste": {"token": "KIVONAT_ERSTE", "pattern": "{period_start}_{period_end}_{@type}_{currency}_{account_no|account_iban:last8}"},
+  "statement_table": {"token": "KIVONAT_TABLA", "pattern": "{period_start}_{period_end}_{@type}_{currency}_{account_no|account_iban:last8}"},
   "nav_certificate": {"token": "NAV-IGAZOLAS", "pattern": "{issue_date}_{@type}_{taxpayer_name}_{tax_year}"},
   "nav_receipt": {"token": "NAV-ELISMERVENY", "pattern": "{issue_date}_{@type}_{taxpayer_name}_{reference_number}"},
   "nav_tax_return": {"token": "NAV-BEVALLAS", "pattern": "{issue_date}_{@type}_{taxpayer_name}_{form_code}"},

@@ -324,7 +324,12 @@ function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPre
 
   return (
     <Split variant={onList ? "list" : "fields"}
-      left={withNote(sourceFileNote(data.source_file), data.source ? (
+      left={withNote(sourceFileNote(data.source_file), data.kind === "statement_table" ? (
+        // 136: a statement read by code from a bank's table export has no page image
+        <div className="viewer-stack">
+          <p className="notice small">{t("This statement was read by code from a bank's table export, so it has no page image. Its lines are on the transactions tab; the checks of the balances are among the fields.")}</p>
+        </div>
+      ) : data.source ? (
         <PageViewer pageUrl={(n) => api.pageUrl(wpId, itemId, n)} pages={pages} pageCount={data.page_count} prov={viewerProv} activeField={active}
           focusRequest={focusRequest} colorOf={colorOf} labelOf={labelOf} onPickField={activate}
           onChooseAlternative={chooseAlternative} selectMode={selectMode} words={words.data?.words ?? null}

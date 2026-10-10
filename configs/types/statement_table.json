@@ -1,0 +1,96 @@
+{
+ "meta": {
+  "name": "type:statement_table",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-10",
+    "note": "136 E4 (DECISIONS 132, 136): a bank or card account statement exported as a table (a workbook or a CSV file), read by code without AI (jav/statement_table.py, jav/flow_statement_table.py). The fields, list fields, enumerations, required fields and checks are those of the bank statement packs (statement_cib, statement_erste); the schema and prompt files are theirs too and are never sent, as the code path calls no model. Not offered to detection (auto_detect false): an account's statement file is added to a work package from a chosen export."
+   }
+  ]
+ },
+ "document": "Bank or card account statement exported as a table (a workbook or a CSV file, e.g. a Revolut statement), read by code without AI",
+ "golden_type_key": "statement_table",
+ "candidate_profile": "intl",
+ "arms": [
+  "code"
+ ],
+ "parent": "bank_statement",
+ "auto_detect": false,
+ "prompt_file": "statement_cib_prompt.md",
+ "schema_file": "statement_cib_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_statement_cib",
+ "fields": {
+  "statement_type": "text",
+  "account_no": "text",
+  "account_iban": "iban",
+  "period_start": "date",
+  "period_end": "date",
+  "currency": "currency",
+  "opening_balance": "money",
+  "closing_balance": "money",
+  "total_debit": "money",
+  "total_credit": "money",
+  "transactions": "list"
+ },
+ "list_fields": {
+  "transactions": {
+   "booking_date": "date",
+   "value_date": "date",
+   "direction": "text",
+   "amount": "money",
+   "running_balance": "money",
+   "description": "text",
+   "counterparty_name": "name",
+   "counterparty_account": "text",
+   "memo": "text"
+  }
+ },
+ "enums": {
+  "statement_type": [
+   "bank_account",
+   "credit_card"
+  ],
+  "transactions[].direction": [
+   "debit",
+   "credit"
+  ]
+ },
+ "scored_fields": [
+  "statement_type",
+  "account_no",
+  "account_iban",
+  "period_start",
+  "period_end",
+  "currency",
+  "opening_balance",
+  "closing_balance",
+  "total_debit",
+  "total_credit"
+ ],
+ "informational_fields": [],
+ "required": [
+  "statement_type",
+  "period_start",
+  "period_end",
+  "opening_balance",
+  "closing_balance",
+  "transactions"
+ ],
+ "validators": [
+  {
+   "check": "running_balance_check"
+  },
+  {
+   "check": "closing_balance_check"
+  },
+  {
+   "check": "totals_consistency"
+  },
+  {
+   "check": "period_dates"
+  }
+ ]
+}

@@ -1,0 +1,18 @@
+flowchart TD
+  subgraph ph_read["read"]
+    load_table["load_table (det)"]
+  end
+  subgraph ph_check["check"]
+    check_table["check_table (det)"]
+  end
+  subgraph ph_save["save"]
+    save_table["save_table (store)"]
+  end
+  subgraph ph_terminal["terminal"]
+    done["done (terminal)"]
+    needs_review["needs_review (terminal)"]
+  end
+  load_table --> check_table
+  check_table --> save_table
+  save_table -->|To-dos remain| needs_review
+  save_table -->|Every check passed| done

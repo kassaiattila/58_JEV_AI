@@ -196,6 +196,9 @@ export function reasonText(code: string): string {
     case "reconcile:proposed": return t("Possible payment: a statement line and an invoice have the same amount (for a card payment, the converted amount) and a shared detail");
     // 131: the same amount alone is never a proposal; the pair is listed for a person to decide
     case "reconcile:amount_only": return t("Possible payment to decide: a statement line has exactly the invoice's amount, but nothing else ties them");
+    // 136: a statement read by code from a bank's table export (jav/flow_statement_table.py)
+    case "statement_table:unreadable_lines": return t("Some lines of the table export could not be read ({{n}}); they are left out of the statement", { n: p[2] ?? "" });
+    case "statement_table:missing": return t("A required field is missing from the table export: {{field}}", { field: f });
     case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");
     case "parties:same_name": return t("A szállító és a vevő neve azonos");
     // 134: the supplier tax number is an own party's (jav/parties.py review_reasons)
@@ -475,6 +478,8 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
   const join = (parts: (string | false)[]) => parts.filter(Boolean).join("; ");
   const out: string[] = [];
   if (plan.documents) out.push(t("Helyi szövegfelismerés: ingyenes, minden iraton."));
+  // 136: a statement from a bank's table export is read by code; no service is called for it
+  if (plan.statement_tables) out.push(t("{{n}} statement(s) from a table export: read by code, free.", { n: plan.statement_tables }));
   if (amount("jev") > 0) {
     out.push(`${head("jev")}: ${join([
       plan.documents > 0 && t("{{n}} irat típusfelismerése és adatkinyerése", { n: plan.documents }),

@@ -45,7 +45,8 @@ def test_catalogue_offers_only_the_active_processing(isolated):
     assert status == {"processing": "active", "multi-format-processing": "active", "invoice-extraction": "internal",
                       "document-processing": "retired", "email-intent": "retired"}
     p = work.recipe("processing")
-    assert p["flows"] == {"email": "email", "document": "document"} and set(p["input_kinds"]) == {"email", "document"}
+    assert p["flows"] == {"email": "email", "document": "document", "statement_table": "statement_table"}  # 136: + tables
+    assert set(p["input_kinds"]) == {"email", "document", "statement_table"}
     assert set(p["params"]) == {"arm", "jev_cache", "tasks", "azure_ocr", "jev", "unknown_documents"}  # 086: + jev; 120
 
 
