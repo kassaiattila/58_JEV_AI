@@ -577,6 +577,20 @@ def _sync_review_item(c: sqlite3.Connection, review_id: int, closing_status: str
 _pinned_run_check: Callable[[sqlite3.Connection, str], bool] | None = None
 
 
+def table_marks(c: sqlite3.Connection, spec: dict[str, str | None]) -> list[Any]:
+    """140: a cheap mark of tables' content for a cache that is kept until its inputs change: per table its row count,
+    its largest rowid and the given aggregate (a SELECT expression over the table, for what changes in place: a
+    revocation count, the text of a small table's changing columns). A table the store does not have marks as None."""
+    out: list[Any] = []
+    for table, extra in spec.items():
+        if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone() is None:
+            out.append(None)
+            continue
+        row = c.execute(f"SELECT COUNT(*), MAX(rowid){', ' + extra if extra else ''} FROM {table}").fetchone()
+        out.append(list(row))
+    return out
+
+
 def begin_immediate(c: sqlite3.Connection) -> None:
     """Write lock at the start of the block, before the first read (066 Á32): this way read–decide–write does not
     interleave even between two parallel calls. Any work not yet committed is committed first (like the end of a

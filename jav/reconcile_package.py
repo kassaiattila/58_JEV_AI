@@ -30,8 +30,11 @@ Layer: UI/CLI → **this** (application operation) → `jav.reconcile` (the core
 
 from __future__ import annotations
 
+import copy
+import hashlib
 import json
-from collections import Counter, defaultdict
+import threading
+from collections import Counter, OrderedDict, defaultdict
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
@@ -304,7 +307,71 @@ def _earlier_marks(history: dict[str, dict[str, set[str]]], line: dict[str, Any]
     return [{"category": cat, "lines": n} for cat, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])) if n]
 
 
+# 140 (Q-filter-slowness): what a workspace reads, as `store.table_marks` specs. A workspace is kept until one of these
+# changes (about 1 s to build; the package list builds one per reconciliation package). Each entry adds what changes
+# in place to the row count and the largest rowid: an approval, a revocation, a decision, a party's identities.
+WORKSPACE_INPUTS: dict[str, str | None] = {
+    "datapoints": None,
+    "run_item_corrections": None,
+    "run_items": "SUM(status='done'), MAX(updated_at)",
+    "documents": "SUM(page_count)",
+    "runs": "(SELECT group_concat(run_id || ':' || COALESCE(approval, ''), '|') FROM runs)",
+    "duplicate_decisions": "(SELECT group_concat(pair_key || ':' || decision || ':' || decided_at, '|') FROM duplicate_decisions)",
+    "statement_choices": None,
+    "reconcile_decisions": "(SELECT group_concat(pair_key || ':' || decision || ':' || decided_at, '|') FROM reconcile_decisions)",
+    "reconcile_allocations": "COUNT(revoked_at)",
+    "reconcile_line_marks": "COUNT(revoked_at)",
+    "reconcile_scopes": "(SELECT group_concat(workpackage_id || ':' || revision, '|') FROM reconcile_scopes)",
+    "reconcile_ai_proposals": "MAX(created_at)",
+    "fx_rates": None,
+    "own_parties": "(SELECT group_concat(id || ':' || name, '|') FROM own_parties)",
+    "own_party_identities": "(SELECT group_concat(kind || ':' || key || ':' || COALESCE(party_id, '-'), '|') FROM own_party_identities)",
+    "own_accounts": "(SELECT group_concat(key || ':' || kind || ':' || currencies || ':' || COALESCE(valid_from, '')"
+                    " || ':' || COALESCE(valid_to, ''), '|') FROM own_accounts)",
+}
+_kept: OrderedDict[tuple[str, str], tuple[str, dict[str, Any]]] = OrderedDict()
+_kept_lock = threading.Lock()
+KEPT_WORKSPACES = 16
+
+
+def inputs_mark(c=None) -> str:
+    """140: a mark of everything a workspace reads (the tables above, the configurations and the day)."""
+    # the modules whose tables the workspace reads register them on import (a later import would change the mark)
+    from jav import duplicates, fx, reconcile_ai, statement_months  # noqa: F401
+
+    if c is None:
+        with store.connect() as own:
+            return inputs_mark(own)
+    parts = [store.table_marks(c, WORKSPACE_INPUTS), reconcile.config_hash(), parties.config_hash(), cfg.config_hash("fx"),
+             reconcile.ENGINE_VERSION, date.today().isoformat()]
+    return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
+
+
+def clear_cache() -> None:
+    with _kept_lock:
+        _kept.clear()
+
+
 def workspace(wp_id: str) -> dict[str, Any]:
+    """Everything the pairing page shows (`_workspace`), kept until its inputs change (140); the caller gets its own
+    copy, so changing it changes nothing kept."""
+    mark = inputs_mark()
+    key = (str(store.active_path()), wp_id)
+    with _kept_lock:
+        hit = _kept.get(key)
+        if hit and hit[0] == mark:
+            _kept.move_to_end(key)
+            return copy.deepcopy(hit[1])
+    built = _workspace(wp_id)
+    with _kept_lock:
+        _kept[key] = (mark, built)
+        _kept.move_to_end(key)
+        while len(_kept) > KEPT_WORKSPACES:
+            _kept.popitem(last=False)
+    return copy.deepcopy(built)
+
+
+def _workspace(wp_id: str) -> dict[str, Any]:
     """Everything the pairing page shows: the scope's lines (in the period) and the invoices they may pay, each with
     its state, the amount allocated and left, its allocations and candidates, its partner and the reasons given earlier
     for that partner's lines; the coverage per account and month; the blockers of the approval; and counts."""
