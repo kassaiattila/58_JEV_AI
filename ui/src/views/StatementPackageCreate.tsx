@@ -192,7 +192,7 @@ export function StatementPackageCreate({ onDone }: { onDone: (wpId: string) => v
       <fieldset className="segmented">
         <legend className="sr-only">{t("Source")}</legend>
         <label><input type="radio" name="sp-src" checked={source === "folder"} onChange={() => reset(setSource)("folder")} /> {t("A folder")}</label>
-        <label><input type="radio" name="sp-src" checked={source === "files"} onChange={() => reset(setSource)("files")} /> {t("Megadott fájlok")}</label>
+        <label><input type="radio" name="sp-src" checked={source === "files"} onChange={() => reset(setSource)("files")} /> {t("Given files")}</label>
       </fieldset>
       {source === "folder" ? (
         <div className="path-row">
@@ -203,7 +203,7 @@ export function StatementPackageCreate({ onDone }: { onDone: (wpId: string) => v
         </div>
       ) : (
         <div className="path-row">
-          <label className="block grow">{t("Fájlok teljes útvonala, soronként egy")}
+          <label className="block grow">{t("The files' full paths, one per line")}
             <textarea value={files} onChange={(e) => reset(setFiles)(e.target.value)} rows={4} />
           </label>
           <BrowseButton kind="files" initial={lines[lines.length - 1]} onPick={(picked) => reset(setFiles)([...lines, ...picked].join("\n"))} />
