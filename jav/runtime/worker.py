@@ -286,6 +286,7 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
         attachment_reads = _attachment_reads(run["input"]["items"], item_id) if item.get("kind") == "email" else None
         persister = StatePersister(str(persister_path()))
         persister.initialize()
+        rule = work.package_rule(run["workpackage_id"])  # 140: what the package's kind adds (a statement package)
         try:
             # 058 K5.2: a recipe handling several item kinds (email + attachment) chooses the flow per kind
             stages = _stages({**run["recipe"], "flow": work.flow_for(run["recipe"], item)}, run["params"])
@@ -295,6 +296,11 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                 continued = False
                 if n > 0:
                     detected = state
+                    stop = rule.after_detection(run, item, detected) if rule and rule.after_detection else None
+                    if stop is not None:  # 140: the package's kind takes no such document: no extraction, a to-do
+                        work.raise_item_reasons(run_id, item, stop, producer="package_rule:detection")
+                        final = "needs_review"
+                        break
                     params = _next_params(params, detected)
                     if params is None:  # 120: no fitting type pack: a text PDF may continue into general facts
                         params = native_fallback({**stages[n][1], "unknown_documents": unknown_documents(
@@ -315,6 +321,10 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                     open_type = [r for r in detected.get("detail_reasons") or [] if not str(r).startswith("detect:no_type_pack")]
                     if final == "done" and (detected.get("uncertain") or open_type or detected.get("review_reasons")):
                         final = "needs_review"
+            if rule and rule.after_item and final is not None:  # 140: e.g. the statement's account and its party
+                if added := rule.after_item(run, item):
+                    work.raise_item_reasons(run_id, item, added, producer="package_rule:item")
+                    final = "needs_review"
         finally:
             persister.cleanup()
     except queue.JobCancelled:

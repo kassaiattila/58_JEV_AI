@@ -358,6 +358,20 @@ class CreateReconcilePackage(ReconcileScope):
     name: Annotated[str, Field(min_length=1, max_length=200)]
 
 
+class StatementPackageSources(_In):
+    """140: a statement package's party, period and files (one folder, or files: exports and PDFs)."""
+    paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(min_length=1, max_length=500)]
+    party_id: PartyId
+    period_start: IsoDay
+    period_end: IsoDay
+
+
+class CreateStatementPackage(StatementPackageSources):
+    name: Annotated[str, Field(min_length=1, max_length=200)]
+    statements: Annotated[list[Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]], Field(max_length=2000)] = Field(default_factory=list)
+    pdfs: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(max_length=500)] = Field(default_factory=list)
+
+
 class SetReconcileScope(ReconcileScope):
     expected_revision: Annotated[int, Field(ge=1)]
 
@@ -825,6 +839,28 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         """136 (E4): a new package of the chosen accounts of the export; the creator is its owner (065)."""
         wp = work.create_from_statement_table(checked_path(body.path, want_dir=None), body.keys, name=body.name, owner=who)
         return work_views.workpackage_view(wp["id"])
+
+    @app.post(r + "/statement-packages/survey")
+    def statement_package_survey(body: StatementPackageSources, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """140: what a folder or the given files hold for a party and a period, before anything is written: every
+        statement with its account's last four characters, month, checks, what it would replace and whose account it
+        is; the PDFs no export uses. No line, partner or balance leaves."""
+        from jav import statement_package
+
+        paths = [checked_path(p, want_dir=None) for p in body.paths]
+        return work_views.jsonable(statement_package.survey(paths, party_id=body.party_id, period_start=body.period_start,
+                                                            period_end=body.period_end))
+
+    @app.post(r + "/statement-packages", status_code=201)
+    def create_statement_package(body: CreateStatementPackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """140: a new statement package of the statements and PDFs ticked in the survey; the creator is its owner."""
+        from jav import statement_package
+
+        sc = statement_package.create(name=body.name, party_id=body.party_id, period_start=body.period_start,
+                                      period_end=body.period_end, paths=[checked_path(p, want_dir=None) for p in body.paths],
+                                      statements=body.statements, pdfs=[str(checked_path(p, want_dir=False)) for p in body.pdfs],
+                                      actor=who)
+        return work_views.workpackage_view(sc["workpackage_id"])
 
     @app.post(r + "/workpackages/{wp_id}/statement-tables")
     def add_statement_tables(wp_id: WpId, body: AddStatementTables, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:

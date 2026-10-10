@@ -51,15 +51,18 @@ function lastMonth(today = new Date()): [string, string] {
   return [first.toISOString().slice(0, 10), last.toISOString().slice(0, 10)];
 }
 
-/** 133: the own parties to choose from, each with its invoices and its statements' span. */
-export function PartyChoice({ overview, value, onPick }: { overview: PartiesOverview; value: string | null; onPick: (p: OwnParty) => void }) {
+/** 133: the own parties to choose from, each with its invoices and its statements' span. 140: `anyParty` offers a
+ *  party without an account too (a statement package brings its first statements). */
+export function PartyChoice({ overview, value, onPick, anyParty = false }: {
+  overview: PartiesOverview; value: string | null; onPick: (p: OwnParty) => void; anyParty?: boolean;
+}) {
   useLocale();
   const list = overview.parties;
   return (
     <fieldset className="rc-accounts rc-parties">
       <legend className="small muted">{t("Own party")}</legend>
       {list.map((p) => {
-        const noAccount = !p.accounts.length;
+        const noAccount = !p.accounts.length && !anyParty;
         return (
           <label key={p.id} className={noAccount ? "muted" : undefined}>
             <input type="radio" name="rc-party" checked={value === p.id} disabled={noAccount} onChange={() => onPick(p)} />
@@ -67,7 +70,7 @@ export function PartyChoice({ overview, value, onPick }: { overview: PartiesOver
               <strong>{p.name}</strong>{" "}
               <span className="muted small">
                 {t("{{n}} invoices", { n: p.invoices })}{p.first ? `, ${p.first} – ${p.last}` : ""}{" · "}
-                {noAccount ? t("no account or statement yet")
+                {!p.accounts.length ? t("no account or statement yet")
                   : p.statements_first ? t("{{n}} accounts or cards, statements {{first}} – {{last}}", { n: p.accounts.length, first: p.statements_first, last: p.statements_last ?? "?" })
                     : t("{{n}} accounts or cards, no statement yet", { n: p.accounts.length })}
               </span>

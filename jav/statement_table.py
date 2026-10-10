@@ -769,17 +769,28 @@ def derive(reading: Reading, keys: list[str], out_dir: Path | None = None) -> li
     paths = []
     for key in dict.fromkeys(keys):
         a = by_key[key]
-        source = a.source or {"file": reading.file_name, "sha256": reading.sha256, "repairs": reading.repairs}
-        content = {"format": FORMAT, "version": FORMAT_VERSION, "profile": reading.profile, "institution": reading.institution,
-                   "source": {k: source[k] for k in ("file", "sha256", "repairs")},
-                   "account": {"key": a.key, "title": a.title, "currency": a.currency, "occurrence": a.occurrence},
-                   "checks": a.checks, "problems": a.problems, "statement": a.statement}
-        if a.source is not None and a.balances != "export":  # 137: a ledger export; its companion PDF and findings
-            content |= {"companion": source.get("companion"), "balances": a.balances, "companion_problems": a.companion_problems}
         path = folder / _file_name(reading, a)
-        path.write_text(json.dumps(content, ensure_ascii=False, sort_keys=True, indent=1) + "\n", encoding="utf-8", newline="\n")
+        path.write_bytes(derived_bytes(reading, a))
         paths.append(path)
     return paths
+
+
+def derived_bytes(reading: Reading, a: Account) -> bytes:
+    """The content of an account's statement file (`derive`), canonical. 140: its fingerprint is the id of the item
+    and of the document, so a survey knows it before anything is written (`derived_id`)."""
+    source = a.source or {"file": reading.file_name, "sha256": reading.sha256, "repairs": reading.repairs}
+    content = {"format": FORMAT, "version": FORMAT_VERSION, "profile": reading.profile, "institution": reading.institution,
+               "source": {k: source[k] for k in ("file", "sha256", "repairs")},
+               "account": {"key": a.key, "title": a.title, "currency": a.currency, "occurrence": a.occurrence},
+               "checks": a.checks, "problems": a.problems, "statement": a.statement}
+    if a.source is not None and a.balances != "export":  # 137: a ledger export; its companion PDF and findings
+        content |= {"companion": source.get("companion"), "balances": a.balances, "companion_problems": a.companion_problems}
+    return (json.dumps(content, ensure_ascii=False, sort_keys=True, indent=1) + "\n").encode("utf-8")
+
+
+def derived_id(reading: Reading, a: Account) -> str:
+    """The id an account's statement gets as an item and as a document: its statement file's fingerprint."""
+    return hashlib.sha256(derived_bytes(reading, a)).hexdigest()
 
 
 def load_derived(data: bytes) -> dict[str, Any]:

@@ -11,7 +11,7 @@ import { RUN_STATUS, stepLabel } from "../labels";
 import { go, type Route } from "../route";
 import { WorkpackageDetail } from "./WorkpackageDetail";
 import { ReconcileCreate } from "./reconcile/ReconcileCreate";
-import { StatementTableCreate } from "./StatementTableCreate";
+import { StatementPackageCreate } from "./StatementPackageCreate";
 
 export function Workpackages({ route }: { route: Extract<Route, { view: "workpackages" }> }) {
   if (route.wpId) return <WorkpackageDetail route={route} wpId={route.wpId} />;
@@ -49,10 +49,15 @@ function WorkpackageList() {
   );
 }
 
-// 081: exported for its tests (the subfolder switch and the Browse buttons)
+// 081: exported for its tests (the subfolder switch and the Browse buttons). 140 (plan 139, K3): the goal first
+// (documents, emails, bank statements, reconciliation), then its source; the earlier "Bank statement from a table" is
+// part of the bank statements.
+type Goal = "documents" | "emails" | "statements" | "reconcile";
+
 export function CreateForm({ onDone }: { onDone: (id: string) => void }) {
   useLocale();
-  const [mode, setMode] = useState<"folder" | "files" | "mailbox" | "reconcile" | "statement_table">("folder");
+  const [goal, setGoal] = useState<Goal>("documents");
+  const [mode, setMode] = useState<"folder" | "files">("folder");
   const [folder, setFolder] = useState("");
   const [recursive, setRecursive] = useState(false);
   const [files, setFiles] = useState("");
@@ -88,19 +93,23 @@ export function CreateForm({ onDone }: { onDone: (id: string) => void }) {
   return (
     <section className="card create" aria-label={t("Új munkacsomag")}>
       <fieldset className="segmented">
-        <legend className="sr-only">{t("Forrás")}</legend>
-        <label><input type="radio" name="src" checked={mode === "folder"} onChange={() => setMode("folder")} /> {t("Documents from a folder")}</label>
-        <label><input type="radio" name="src" checked={mode === "files"} onChange={() => setMode("files")} /> {t("Megadott fájlok")}</label>
-        <label><input type="radio" name="src" checked={mode === "mailbox"} onChange={() => setMode("mailbox")} /> {t("Postafiókból")}</label>
+        <legend className="sr-only">{t("What is the package for?")}</legend>
+        <label><input type="radio" name="goal" checked={goal === "documents"} onChange={() => setGoal("documents")} /> {t("Documents: extract their data")}</label>
+        <label><input type="radio" name="goal" checked={goal === "emails"} onChange={() => setGoal("emails")} /> {t("Emails from a mailbox")}</label>
+        {/* 140: one party's bank statements for a period, from a folder or files (exports read by code, PDFs by AI) */}
+        <label><input type="radio" name="goal" checked={goal === "statements"} onChange={() => setGoal("statements")} /> {t("Bank statements")}</label>
         {/* 132: a reconciliation package pairs statement lines with invoices already processed */}
-        <label><input type="radio" name="src" checked={mode === "reconcile"} onChange={() => setMode("reconcile")} /> {t("Reconciliation of statements and invoices")}</label>
-        {/* 136: a bank's statement exported as a table, one statement per chosen account */}
-        <label><input type="radio" name="src" checked={mode === "statement_table"} onChange={() => setMode("statement_table")} /> {t("Bank statement from a table")}</label>
+        <label><input type="radio" name="goal" checked={goal === "reconcile"} onChange={() => setGoal("reconcile")} /> {t("Reconciliation of statements and invoices")}</label>
       </fieldset>
-      {mode === "reconcile" ? <ReconcileCreate onDone={(id) => onDone(id)} />
-        : mode === "statement_table" ? <StatementTableCreate onDone={(id) => onDone(id)} />
-        : mode === "mailbox" ? <Mailbox variant="pull" /> : (
+      {goal === "reconcile" ? <ReconcileCreate onDone={(id) => onDone(id)} />
+        : goal === "statements" ? <StatementPackageCreate onDone={(id) => onDone(id)} />
+        : goal === "emails" ? <Mailbox variant="pull" /> : (
         <form className="create" onSubmit={(e) => { e.preventDefault(); void submit(); }} aria-label={t("Mappa vagy fájlok")}>
+          <fieldset className="segmented">
+            <legend className="sr-only">{t("Forrás")}</legend>
+            <label><input type="radio" name="src" checked={mode === "folder"} onChange={() => setMode("folder")} /> {t("Documents from a folder")}</label>
+            <label><input type="radio" name="src" checked={mode === "files"} onChange={() => setMode("files")} /> {t("Megadott fájlok")}</label>
+          </fieldset>
           <DocumentFormats />
           {mode === "folder" ? (
             <>

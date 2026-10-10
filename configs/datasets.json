@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "changelog": [
+   {
+    "version": "1.15.0",
+    "date": "2026-10-10",
+    "note": "140 (DECISIONS 140, the statement package): source_kind statements - a work package of one own party's bank statements for a period (jav/statement_package.py)."
+   },
    {
     "version": "1.14.0",
     "date": "2026-10-10",
@@ -90,7 +95,7 @@
   "approval": {"approved": "Jóváhagyva"},
   "wp_status": {"open": "Aktív", "archived": "Elrejtve"},
   "kind": {"document": "Irat", "email": "Levél"},
-  "source_kind": {"folder": "mappa", "mailbox": "postafiók", "manual": "kézi válogatás", "watch": "figyelt mappa", "reconcile": "egyeztetés"},
+  "source_kind": {"folder": "mappa", "mailbox": "postafiók", "manual": "kézi válogatás", "watch": "figyelt mappa", "reconcile": "egyeztetés", "statements": "bankkivonatok"},
   "pull_status": {"queued": "Sorban áll", "running": "Fut", "ok": "Kész", "error": "Hibás"},
   "provenance": {"located": "pontos", "approximate": "közelítő", "ambiguous": "több helyen", "context_rejected": "más mező mellett", "not_found": "nem található", "no_value": "nincs érték", "no_layer": "nincs szóréteg", "error": "hiba", "list": "lista"},
   "utility_status": {"ok": "rendben", "missing": "hiányzik", "partial": "részleges", "overlap": "átfedés", "settlement": "elszámolás", "no_period": "nem vetíthető: nincs számlázási időszak", "no_amount": "nem vetíthető: nincs összeg", "duplicate": "ismétlődő számla (egyszer számít)"},

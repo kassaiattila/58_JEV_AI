@@ -44,6 +44,8 @@ export interface WorkpackageView {
   attachments_missing?: number; // 058 K5.2: in an email package, the number of PDF attachments not yet added
   /** 131: a reconciliation package's scope, counts and coverage (it has no files and no runs) */
   reconcile?: { scope: ReconcileScope; counts: ReconcileCounts; coverage: ReconcileCoverage[] };
+  /** 140: a statement package's party, period and each item's statement */
+  statements?: StatementPackageView;
 }
 /** 080: what a run of the package will do (the pre-start overview): documents by their path known in advance (S / G /
  *  type not known yet), emails, emails with a task proposal, whether Azure may be used and earlier JEV answers reused. */
@@ -357,20 +359,37 @@ export interface ReconcileLine {
    *  person gave the partner's other lines, the most frequent first (none through a payment app) */
   partner?: string | null; earlier_marks?: { category: string; lines: number }[];
 }
-/** 136: an account found in a bank's tabular statement export, without its lines and balances (jav/statement_table.py). */
-export interface StatementTableAccount {
-  key: string; account: string | null; title: string; occurrence: number; currency: string; lines: number;
-  first: string | null; last: string | null; period_start: string | null; period_end: string | null; checks_ok: boolean; problems: number;
-  /** 137: false when the export has no balances and its PDF statement was not found (a to-do in the run) */
-  balance_checked?: boolean;
-  /** 137: the month's PDF statement that completed a ledger export (the Erste XML) */
-  companion?: string | null;
+/** 140: a statement of a statement package's survey or of the store, as a reference (jav/statement_package.py). */
+export interface StatementRef {
+  id: string; file: string | null; period_start: string | null; period_end: string | null; rank: string; in_store: boolean;
 }
-export interface StatementTableSurvey {
-  profile: string; institution: string; file: string; repairs: string[]; accounts: StatementTableAccount[];
-  /** 137: the files of a folder that could not be read as an export */
-  skipped?: number;
+/** 140: a statement the surveyed files hold: its account's last four characters, month, checks and source rank, whose
+ *  account it is, and what it would replace or be replaced by; `chosen` is the proposed tick. No line or balance. */
+export interface StatementSurveyRow {
+  id: string; institution: string; file: string; companion: string | null; title: string; account: string | null;
+  currency: string | null; period_start: string | null; period_end: string | null; lines: number; checks_ok: boolean;
+  balance_checked: boolean; rank: string; in_period: boolean; in_store: boolean;
+  owner: "package" | "none" | "other"; owner_party: { id: string; name: string } | null;
+  replaces: StatementRef[]; replaced_by: StatementRef | null; conflicts: StatementRef[]; chosen: boolean;
 }
+/** 140: a PDF of the surveyed files that no export uses: processed with type recognition and AI extraction. */
+export interface StatementSurveyPdf { path: string; file: string; sha256: string; in_store: boolean; statement: StatementRef | null; chosen: boolean }
+export interface StatementPackageSurvey {
+  party: { id: string; name: string }; period_start: string; period_end: string;
+  statements: StatementSurveyRow[]; pdfs: StatementSurveyPdf[]; skipped: { file: string; reason: string }[];
+}
+export type StatementItemState = "valid" | "replaced" | "conflict" | "pending";
+/** 140: a statement package item's statement: valid, replaced, in a conflict a person decides, or pending. */
+export interface StatementPackageItem {
+  item_id: string; kind: string; file: string; state: StatementItemState; account?: string | null; currency?: string | null;
+  period_start?: string | null; period_end?: string | null; rank?: string; work_run?: string | null;
+  replaced_by?: string | null; replaces?: string[]; conflicts?: string[];
+}
+export interface StatementPackageView {
+  scope: { workpackage_id: string; party_id: string; party: { id: string; name: string }; period_start: string; period_end: string; revision: number };
+  statements: StatementPackageItem[];
+}
+export interface StatementPackageSources { paths: string[]; party_id: string; period_start: string; period_end: string }
 /** 134: JEV's or GPT's raw answer about a statement line (jav/reconcile_ai.py); a person decides. */
 export type ReconcileAiEngine = "jev" | "gpt";
 export interface ReconcileAiProposal {
@@ -631,9 +650,10 @@ export const api = {
   // 131–132: the reconciliation package; every decision returns the recomputed workspace
   reconcileAccounts: () => request<{ accounts: ReconcileAccount[] }>("GET", "/reconcile/accounts"),
   /** 136: the accounts of a bank's tabular statement export (no lines or balances); a package of the chosen ones. */
-  statementTableSurvey: (path: string) => request<StatementTableSurvey>("POST", "/statement-tables/survey", { path }),
-  createFromStatementTable: (path: string, keys: string[], name: string) =>
-    request<WorkpackageView>("POST", "/statement-tables/workpackage", { path, keys, name }),
+  // 140: the statement package: a survey of the files for a party and a period, then the package of the ticked ones
+  statementPackageSurvey: (body: StatementPackageSources) => request<StatementPackageSurvey>("POST", "/statement-packages/survey", body),
+  createStatementPackage: (body: StatementPackageSources & { name: string; statements: string[]; pdfs: string[] }) =>
+    request<WorkpackageView>("POST", "/statement-packages", body),
   createReconcilePackage: (body: { name: string; accounts: string[]; period_start: string; period_end: string; party_id?: string | null }) =>
     request<WorkpackageView>("POST", "/reconcile/packages", body),
   reconcileWorkspace: (wpId: string) => request<ReconcileWorkspace>("GET", `/workpackages/${enc(wpId)}/reconcile`),

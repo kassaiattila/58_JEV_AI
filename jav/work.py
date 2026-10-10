@@ -20,6 +20,7 @@ import json
 import sqlite3
 import uuid
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -35,7 +36,7 @@ store.register_schema("work", """
 CREATE TABLE IF NOT EXISTS workpackages (
     id          TEXT PRIMARY KEY,
     name        TEXT NOT NULL,
-    source_kind TEXT NOT NULL,                 -- folder | upload | mailbox | manual | watch | reconcile (131)
+    source_kind TEXT NOT NULL,                 -- folder | upload | mailbox | manual | watch | reconcile (131) | statements (140)
     source_ref  TEXT,
     revision    INTEGER NOT NULL DEFAULT 0,
     status      TEXT NOT NULL DEFAULT 'open',
@@ -360,30 +361,42 @@ def add_items(wp_id: str, paths: list[Path], *, kind: str, expected_revision: in
     A document is copied into the source instance store as it is added (`jav/source_instances.py`), and its
     fingerprint is that of the copied bytes; an email is hashed in place (it is already the system's own copy). If the
     intake fails, the copies made for it are released again."""
-    if kind not in ("document", "email", "statement_table"):
+    if kind not in ITEM_KINDS:
         raise ValueError(f"unknown item kind: {kind}")
+    return add_entries(wp_id, [(Path(p), kind) for p in paths], expected_revision=expected_revision, parents=parents)
+
+
+ITEM_KINDS = ("document", "email", "statement_table")
+
+
+def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revision: int,
+                parents: dict[Path, str] | None = None) -> dict[str, Any]:
+    """`add_items` for items of several kinds in one revision step (140: a statement package holds the statements read
+    from exports and the PDF statements together): (path, kind) pairs."""
+    if unknown := sorted({kind for _p, kind in entries if kind not in ITEM_KINDS}):
+        raise ValueError(f"unknown item kind: {', '.join(unknown)}")
     parents = {Path(k).resolve(): v for k, v in (parents or {}).items()}
-    resolved: list[tuple[Path, str, str | None]] = []
+    resolved: list[tuple[Path, str, str | None, str]] = []
     try:
-        for p in paths:
+        for p, kind in entries:
             p = Path(p).resolve(strict=True)
             if not p.is_file():
                 raise ValueError(f"not a file: {p}")
             if kind in ("document", "statement_table"):
-                resolved.append(_document_entry(p))
+                resolved.append((*_document_entry(p), kind))
             else:
-                resolved.append((p, sha256_file(p), None))
+                resolved.append((p, sha256_file(p), None, kind))
         with store.connect() as c:
             _begin(c)
             rev = _bump(c, wp_id, expected_revision)
-            for p, digest, instance in resolved:
+            for p, digest, instance, kind in resolved:
                 c.execute("INSERT INTO workpackage_items(workpackage_id, item_id, kind, source_path, sha256, added_revision, parent_item_id, instance)"
                           " VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, item_id) DO UPDATE SET removed_revision=NULL,"
                           " source_path=excluded.source_path, parent_item_id=COALESCE(workpackage_items.parent_item_id, excluded.parent_item_id),"
                           " instance=COALESCE(workpackage_items.instance, excluded.instance)",
                           (wp_id, digest, kind, str(p), digest, rev, parents.get(p), instance))
     except BaseException:
-        source_instances.release(i for _p, _d, i in resolved if i)
+        source_instances.release(i for _p, _d, i, _k in resolved if i)
         raise
     return get(wp_id)
 
@@ -465,6 +478,14 @@ def create_from_statement_table(export: Path, keys: list[str], *, name: str, own
     return _fill_new(wp, lambda: add_statement_tables(wp["id"], export, keys, expected_revision=0))
 
 
+def create_with_items(*, name: str, source_kind: str, source_ref: str | None, owner: str | None,
+                      entries: list[tuple[Path, str]]) -> dict[str, Any]:
+    """140: a new package of its own kind filled with (path, kind) items in one revision step; a failed intake leaves
+    no empty package behind."""
+    wp = create_workpackage(name=name, source_kind=source_kind, source_ref=source_ref, owner=owner)
+    return _fill_new(wp, lambda: add_entries(wp["id"], entries, expected_revision=0))
+
+
 def _fill_new(wp: dict[str, Any], fill: Callable[[], dict[str, Any]]) -> dict[str, Any]:
     """063: fills the new package; if adding fails (e.g. a locked file), the empty package does not stay in the
     list."""
@@ -527,6 +548,43 @@ def record_event(c, wp_id: str, action: str, actor: str, detail: dict[str, Any] 
     """131: an event of another module on the package (a reconciliation package's decisions), in the package's log, in
     the caller's transaction."""
     _event(c, wp_id, action, actor, detail)
+
+
+@dataclass(frozen=True)
+class PackageRule:
+    """140: what a package kind adds to the processing of its items, registered by the kind's module (the worker asks
+    it; the runtime never imports an application module).
+
+    - `after_detection(run, item, detected)`: called once a document's type is recognised, before its extraction.
+      None lets the item go on as in any package; a list stops it there, and its to-do reasons are raised on the item
+      (an empty list: the detection's own to-dos stand for it).
+    - `after_item(run, item)`: called when an item's flow has finished; the to-do reasons it returns are raised on the
+      item."""
+
+    after_detection: Callable[[dict[str, Any], dict[str, Any], Any], list[str] | None] | None = None
+    after_item: Callable[[dict[str, Any], dict[str, Any]], list[str]] | None = None
+
+
+_PACKAGE_RULES: dict[str, PackageRule] = {}
+
+
+def register_package_rule(source_kind: str, rule: PackageRule) -> None:
+    _PACKAGE_RULES[source_kind] = rule
+
+
+def package_rule(wp_id: str) -> PackageRule | None:
+    """The rule of the package's kind, if its module registered one."""
+    with store.connect() as c:
+        row = c.execute("SELECT source_kind FROM workpackages WHERE id=?", (wp_id,)).fetchone()
+    return _PACKAGE_RULES.get(row["source_kind"]) if row else None
+
+
+def raise_item_reasons(run_id: str, item: dict[str, Any], reasons: list[str], *, producer: str) -> None:
+    """140: to-do reasons on a run's item, raised under the item's flow identifier (they count as this run's own)."""
+    if reasons:
+        kind, subject = review_subject(item)
+        store.review_enqueue(subject_kind=kind, subject_id=subject, run_id=flow_run_id(run_id, item["item_id"]),
+                             reasons=reasons, producer=producer)
 
 
 _DELETE_GUARDS: list[Callable[[sqlite3.Connection, str], None]] = []

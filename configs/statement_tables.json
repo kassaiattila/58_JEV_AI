@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "statement_tables",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "136 E4 (jav/statement_table.py): bank statements exported as a table (a workbook or a CSV file), read by code without AI. A profile names a kind of export by its column headers and says where an account's title, number and balances stand; the header aliases, titles and labels are document vocabulary, quoted as the bank prints them. Decisions: DECISIONS 132 (a general tabular statement reader, not code for one bank; only the two personal accounts of the Revolut export go into the store), DECISIONS 136 (processed as a work package, one statement per account, the accounts chosen by a person before the run).",
     "changelog": [
+      {
+        "version": "1.2.0",
+        "date": "2026-10-10",
+        "note": "140 (DECISIONS 137, 139, 140; jav/statement_package.py): package - the statement package of an own party and a period. accepted_parents: the coarse detection categories (configs/doc_types.json) a PDF of such a package may have; a PDF recognised as anything else stops after its type is recognised, with a statements:not_a_statement to-do and without an extraction. The reading of the exports is unchanged."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-10",
@@ -15,6 +20,9 @@
         "note": "136: first version, the Hungarian Revolut consolidated statement (an Excel workbook whose first column holds the CSV records, UTF-8 read as cp1250): the account summaries with the IBAN and the opening and closing balances, then one transaction table per account ending in a total row; the period is printed in the file name only."
       }
     ]
+  },
+  "package": {
+    "accepted_parents": ["bank_statement"]
   },
   "limits": {
     "max_bytes": 20000000,

@@ -203,6 +203,9 @@ export function reasonText(code: string): string {
     case "statement_table:missing": return t("A required field is missing from the table export: {{field}}", { field: f });
     case "statement_table:balance_unchecked": return t("The balances cannot be checked: the export has none, and its PDF statement was not found next to it");
     case "statement_table:companion_mismatch": return t("The export and its PDF statement differ ({{n}}): a line is on one side only, or the PDF is of another account", { n: p[2] ?? "" });
+    // 140: a statement package (jav/statement_package.py)
+    case "statements:not_a_statement": return t("This PDF is not a bank statement ({{type}}): the statement package extracts no data from it. Remove it from the package, or process it in a document package.", { type: docTypeLabel(p[2] ?? "") });
+    case "statements:other_party": return t("The statement's account belongs to another own party, and it stayed there. If it is this package's party's, move it in Settings › Own parties.");
     case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");
     case "parties:same_name": return t("A szállító és a vevő neve azonos");
     // 134: the supplier tax number is an own party's (jav/parties.py review_reasons)

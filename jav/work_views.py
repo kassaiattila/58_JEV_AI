@@ -122,6 +122,10 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
         from jav import mailbox
 
         extra["attachments_missing"] = len(mailbox.missing_attachments(wp))
+    if wp["source_kind"] == "statements":  # 140: the party, the period and each item's statement
+        from jav import statement_package
+
+        extra["statements"] = statement_package.package_view(wp_id)
     return jsonable({"workpackage": wp, "readiness": ready, "titles": item_titles(wp["items"], package_root(wp)), **extra,
                      "last_run": runs[0] if runs else None, "runs": len(runs),
                      "next": next_step(wp, runs[0] if runs else None, ready["ready"])})
