@@ -46,6 +46,10 @@ booking date and amount, in order; the export stays the list of lines, the PDF a
 line on one side only is a finding (`Account.companion_problems`). Without a PDF the balances cannot be checked
 (`Account.balances` is `none`). A folder is read as a whole: every export in it, each with its own source and
 companion, and the files no profile knows are listed (`Reading.skipped`).
+
+138 (Q-table-reader-isolation, DECISIONS 138): the third-party parsing of an export (`parse_rows`) runs in the isolated
+PDF reader's helper process, within its read time limit and memory limit, as the local service reads a file a person
+picks; our own reading of the rows stays in the calling process.
 """
 
 from __future__ import annotations
@@ -57,12 +61,13 @@ import html
 import io
 import json
 import re
+import zipfile
 from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import cfg
+from jav import cfg, isolated_pdf
 from jav.dates import read_date
 from jav.numbers import read_number
 
@@ -127,7 +132,7 @@ def _workbook_rows(data: bytes, limits: dict[str, Any]) -> list[list[str]]:
         inspect_package(data, ReadLimits(**{**DEFAULT_LIMITS.model_dump(), **archive, "input_bytes": limits["max_bytes"],
                                             "visited_cells": limits["max_cells"]}))
         wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-    except (ReadFailure, OSError, KeyError, ValueError) as exc:
+    except (ReadFailure, OSError, KeyError, ValueError, zipfile.BadZipFile) as exc:  # 138: a broken archive too
         raise StatementTableError(f"the workbook cannot be read: {exc}") from exc
     try:
         rows, cells = [], 0
@@ -227,18 +232,36 @@ def _unmangled(rows: list[list[str]], conf: dict[str, Any]) -> list[list[str]] |
         return None
 
 
+def parse_rows(suffix: str, data: bytes, limits: dict[str, Any]) -> list[list[str]]:
+    """The rows of cell texts of an export's bytes: the third-party parsing (openpyxl, defusedxml, the CSV reader). 138
+    (Q-table-reader-isolation): it runs in the isolated reader's helper process (`jav/isolated_pdf.py`), within its time
+    and memory limits, every setting a parameter."""
+    if suffix == ".csv":
+        rows = _csv_rows(data)
+        if len(rows) > limits["max_rows"]:
+            raise StatementTableError("the file is over the row limit")
+        return rows
+    if suffix == ".xml":
+        return _spreadsheetml_rows(data, limits)
+    return _workbook_rows(data, limits)
+
+
+def _parsed(suffix: str, data: bytes, limits: dict[str, Any]) -> list[list[str]]:
+    """`parse_rows` in the isolated helper; its error keeps its message, a limit is a named refusal."""
+    try:
+        return isolated_pdf.run(parse_rows, kind="read", suffix=suffix, data=data, limits=limits)
+    except isolated_pdf.PdfReaderError as exc:
+        name, _, message = str(exc).partition(": ")
+        raise StatementTableError(message if name == StatementTableError.__name__ else str(exc)) from exc
+    except isolated_pdf.PdfReaderLimit as exc:
+        raise StatementTableError(f"the file could not be read within the reader's limits ({exc.reason}): {exc}") from exc
+
+
 def _rows(path: Path, data: bytes, conf: dict[str, Any]) -> tuple[list[list[str]], list[str]]:
     limits, repairs = conf["limits"], []
     if len(data) > limits["max_bytes"]:
         raise StatementTableError("the file is over the size limit")
-    if path.suffix.lower() == ".csv":
-        rows = _csv_rows(data)
-        if len(rows) > limits["max_rows"]:
-            raise StatementTableError("the file is over the row limit")
-    elif path.suffix.lower() == ".xml":
-        rows = _spreadsheetml_rows(data, limits)
-    else:
-        rows = _workbook_rows(data, limits)
+    rows = _parsed(path.suffix.lower(), data, limits)
     if (fixed := _unmangled(rows, conf["repairs"]["mojibake"])) is not None:
         rows, repairs = fixed, [*repairs, "mojibake"]
     if path.suffix.lower() != ".csv" and (joined := _joined_csv(rows, conf["repairs"]["csv_in_first_columns"])) is not None:

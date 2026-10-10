@@ -153,7 +153,9 @@ not cover (credit notes, receipts without an invoice number) have invented cases
    request and a memory limit (on Windows a job object). Our own processing (words → lines and cells) stays in the
    calling process. Over a limit the helper is stopped and replaced; text extraction fails the item with a named error
    (`PdfReaderLimit`, no retry), the OCR page images give a to-do (`ocr:unavailable:PdfRenderLimit`), and a review page
-   image is answered with 422. `isolated: false` runs the same functions in-process.
+   image is answered with 422. `isolated: false` runs the same functions in-process. 138: the same helper parses a
+   tabular statement export (`statement_table.parse_rows`: openpyxl, defusedxml, the CSV reader) within the read time
+   limit; a parser error keeps its message and a limit is a named refusal (`StatementTableError`, 422).
 
 ## 4. Tuning and changes — the procedure
 
