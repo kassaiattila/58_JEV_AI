@@ -566,5 +566,11 @@
   "Show them": "Mutasd őket",
   "Other party: {{party}}": "Más gazdálkodó: {{party}}",
   "no own party": "nincs gazdálkodója",
-  "on {{n}} invoices": "{{n}} számlán"
+  "on {{n}} invoices": "{{n}} számlán",
+  "Reference number in the memo": "Hivatkozásszám a közleményben",
+  "Supplier's name, loose match": "A szállító neve, laza egyezéssel",
+  "reference number": "hivatkozásszám",
+  "supplier's name (loose match)": "a szállító neve (laza egyezés)",
+  "a reference number in the memo (customer id, order or contract number)": "hivatkozásszám a közleményben (ügyfél-azonosító, rendelés- vagy szerződésszám)",
+  "a similar supplier name (glued to other text or one letter off)": "hasonló szállítónév (más szöveggel egybeírva vagy egy betűben eltérve)"
 }

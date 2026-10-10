@@ -294,7 +294,8 @@ export interface DuplicatePair {
 export type ReconcileDecision = "paid_by" | "not_this";
 /** 131: the payment method (an invoice payable by cheque, a line through a cheque payment app) and a name learnt from an
  * earlier confirmed pair also tie a line to an invoice. */
-export type ReconcileSignal = "invoice_number" | "supplier_account" | "supplier_name" | "payment_channel" | "learned_name";
+export type ReconcileSignal = "invoice_number" | "reference" | "supplier_account" | "supplier_name" | "supplier_name_fuzzy"
+  | "payment_channel" | "learned_name";
 /** 130: how the amounts of a pair relate; the fx ones are a card line against an invoice of another currency. */
 export type ReconcileRelation = "equal" | "different" | "fx_within" | "fx_outside" | "no_rate";
 /** 130: a card pair's conversion at the MNB rate of the invoice's issue date (deviation: the line's, as a fraction). */
@@ -334,6 +335,8 @@ export const OPEN_LINE_STATES: ReconcileLineState[] = ["proposed", "amount_only"
 export interface ReconcileCandidate {
   invoice_id: string; line_id: string; proposed: boolean; amount_only: boolean; signals: ReconcileSignal[];
   amount_relation: ReconcileRelation | null; multiple_candidates: boolean; source_review_required: boolean; fx: ReconcileFx | null;
+  /** 134: how strongly it is tied (0-100), the days from the issue date to the booking, booked by the due date */
+  strength?: number; days_after_issue?: number | null; by_due?: boolean;
 }
 /** An allocation of a line's amount to an invoice; `allocation_id` null: a confirmation from the review page (129). */
 export interface ReconcileShare {

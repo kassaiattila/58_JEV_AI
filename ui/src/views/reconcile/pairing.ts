@@ -89,5 +89,6 @@ export function toRequest(pairs: PlannedPair[]): ReconcileAllocationPair[] {
 /** The candidates of a line, the best first: proposed, then the same amount only, then the rest. */
 export function rankedCandidates(line: ReconcileLine): ReconcileCandidate[] {
   const rank = (c: ReconcileCandidate) => (c.proposed ? 0 : c.amount_only ? 1 : c.amount_relation === "fx_within" ? 2 : 3);
-  return [...line.candidates].sort((a, b) => rank(a) - rank(b));
+  // 134: within a rank, the stronger tie first (the service's strength: signals, amounts, booked by the due date)
+  return [...line.candidates].sort((a, b) => rank(a) - rank(b) || (b.strength ?? 0) - (a.strength ?? 0));
 }

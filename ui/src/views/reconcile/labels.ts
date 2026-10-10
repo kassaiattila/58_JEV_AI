@@ -40,8 +40,10 @@ export const INVOICE_STATE: Record<string, string> = tmap({
 
 export const SIGNAL: Record<ReconcileSignal, string> = tmap({
   invoice_number: "invoice number",
+  reference: "reference number",
   supplier_account: "supplier's account",
   supplier_name: "supplier's name",
+  supplier_name_fuzzy: "supplier's name (loose match)",
   payment_channel: "payment method",
   learned_name: "learnt name",
 }) as Record<ReconcileSignal, string>;

@@ -90,7 +90,7 @@ def test_the_checker_notices_a_wrong_equal_amount_or_signal_expectation():
 
 
 def test_names_are_learnt_only_from_confirmations_and_not_through_a_payment_app():
-    assert reconcile.learned_names(CASES["learned_name_from_a_confirmation"]["snapshot"]) == {("exampletel budapest", "example telecom")}
+    assert reconcile.learned_names(CASES["learned_name_from_a_confirmation"]["snapshot"]) == {("extel budapest", "example telecom")}
     assert reconcile.learned_names(CASES["no_learning_from_a_payment_app"]["snapshot"]) == set()
     assert reconcile.learned_names(CASES["one_payment"]["snapshot"]) == set()
     snap = copy.deepcopy(CASES["learned_name_from_a_confirmation"]["snapshot"])
@@ -132,8 +132,9 @@ def _telecom(number: str, amount: str = "100.00", issue: str = "2026-04-01", due
             "issue_date": issue, "due_date": due}
 
 
-APRIL = _card_line("EXAMPLETEL*111 BUDAPEST")
-MAY = _card_line("EXAMPLETEL*222 BUDAPEST", amount="120.00", booking="2026-05-10")
+# 134: a shortened card name the code cannot tie to Example Telecom (EXAMPLETEL* now carries the loose name signal)
+APRIL = _card_line("EXTEL*111 BUDAPEST")
+MAY = _card_line("EXTEL*222 BUDAPEST", amount="120.00", booking="2026-05-10")
 
 
 def _telecom_run() -> tuple[str, str, str]:

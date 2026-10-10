@@ -566,5 +566,11 @@
   "Show them": "Show them",
   "Other party: {{party}}": "Other party: {{party}}",
   "no own party": "no own party",
-  "on {{n}} invoices": "on {{n}} invoices"
+  "on {{n}} invoices": "on {{n}} invoices",
+  "Reference number in the memo": "Reference number in the memo",
+  "Supplier's name, loose match": "Supplier's name, loose match",
+  "reference number": "reference number",
+  "supplier's name (loose match)": "supplier's name (loose match)",
+  "a reference number in the memo (customer id, order or contract number)": "a reference number in the memo (customer id, order or contract number)",
+  "a similar supplier name (glued to other text or one letter off)": "a similar supplier name (glued to other text or one letter off)"
 }
