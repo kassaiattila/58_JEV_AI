@@ -316,6 +316,8 @@ const STEP_LABEL = tmap({
   empty: "Üres csomag", start: "Próbafutás indítása", blocked: "Nem indítható",
   rerun: "Hibás vagy leállított futás: újrafuttatás", done: "Kiadva: eredmény letöltése", approve: "Jóváhagyás",
   go_live: "Próba rendben: éles futás",
+  // 132: a reconciliation package's steps (jav/reconcile_package.py `next_step`)
+  reconcile_empty: "No statement line in the scope", reconcile_result: "Reconciliation result",
 });
 
 /** The package's next step in the chosen language (057): from the service's code and parameters; for an unknown code,
@@ -323,6 +325,7 @@ const STEP_LABEL = tmap({
 export function stepLabel(code: string, params: Record<string, unknown> | undefined, fallback: string): string {
   if (code === "running") return t("Fut: {{done}}/{{total}}", { done: params?.done ?? 0, total: params?.total ?? 0 });
   if (code === "review") return t("Ellenőrzés: {{n}} teendő", { n: params?.n ?? 0 });
+  if (code === "reconcile_pair") return t("Pairing: {{n}} open lines", { n: params?.n ?? 0 });
   return Object.prototype.hasOwnProperty.call(STEP_LABEL, code) ? STEP_LABEL[code] : fallback;
 }
 

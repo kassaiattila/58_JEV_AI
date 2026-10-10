@@ -256,10 +256,10 @@ def test_a_line_that_needs_no_invoice_is_marked_with_its_reason(db):
     [lid] = _ids(stmt, _line())
     wp_id = _package()
     with pytest.raises(rp.PackageError):
-        rp.mark(wp_id, lid, category="holiday", note=None, actor="t")
+        rp.mark(wp_id, [lid], category="holiday", note=None, actor="t")
     with pytest.raises(rp.PackageError):
-        rp.mark(wp_id, lid, category="other", note=None, actor="t")  # 'other' needs a note
-    m = rp.mark(wp_id, lid, category="private", note=None, actor="t")
+        rp.mark(wp_id, [lid], category="other", note=None, actor="t")  # 'other' needs a note
+    [m] = rp.mark(wp_id, [lid], category="private", note=None, actor="t")
     ws = rp.workspace(wp_id)
     assert _line_row(ws, lid)["state"] == "marked" and _line_row(ws, lid)["mark"]["category"] == "private"
     assert ws["counts"]["open_lines"] == 0
@@ -268,7 +268,7 @@ def test_a_line_that_needs_no_invoice_is_marked_with_its_reason(db):
     rp.revoke(wp_id, kind="mark", ref=str(m["id"]), actor="t")
     rp.allocate(wp_id, [{"invoice_doc_id": inv, "line_id": lid}], note=None, actor="t")
     with pytest.raises(rp.PackageError):
-        rp.mark(wp_id, lid, category="fee", note=None, actor="t")  # allocated: revoke it first
+        rp.mark(wp_id, [lid], category="fee", note=None, actor="t")  # allocated: revoke it first
 
 
 def test_a_decision_after_another_one_was_recorded_meanwhile_conflicts(db):
@@ -277,7 +277,7 @@ def test_a_decision_after_another_one_was_recorded_meanwhile_conflicts(db):
     [lid] = _ids(stmt, _line())
     wp_id = _package()
     stale = rp._decision_state()
-    rp.mark(wp_id, lid, category="private", note=None, actor="other")
+    rp.mark(wp_id, [lid], category="private", note=None, actor="other")
     with pytest.raises(work.RevisionConflict):
         rp._write(stale, lambda c: None)
     assert inv
@@ -291,7 +291,7 @@ def test_a_package_with_decisions_is_only_hidden(db):
     with store.connect() as c:
         assert c.execute("SELECT COUNT(*) FROM reconcile_scopes").fetchone()[0] == 0
     used = _package(name="used")
-    rp.mark(used, lid, category="private", note=None, actor="t")
+    rp.mark(used, [lid], category="private", note=None, actor="t")
     with pytest.raises(work.NotReady):
         work.delete_workpackage(used, actor="t")
 
@@ -321,7 +321,7 @@ def test_the_service_creates_the_package_and_records_the_decisions(env):
     alloc = r.json()["lines"][0]["allocations"][0]["allocation_id"]
     r = c.post(f"/api/workpackages/{wp_id}/reconcile/revoke", headers=HUMAN, json={"kind": "allocation", "ref": str(alloc)})
     assert r.json()["lines"][0]["state"] == "proposed"
-    r = c.post(f"/api/workpackages/{wp_id}/reconcile/mark", headers=HUMAN, json={"line_id": lid, "category": "fee"})
+    r = c.post(f"/api/workpackages/{wp_id}/reconcile/mark", headers=HUMAN, json={"line_ids": [lid], "category": "fee"})
     assert r.json()["lines"][0]["state"] == "marked"
-    assert c.post(f"/api/workpackages/{wp_id}/reconcile/mark", headers=HUMAN, json={"line_id": lid, "category": "nope"}).status_code == 422
+    assert c.post(f"/api/workpackages/{wp_id}/reconcile/mark", headers=HUMAN, json={"line_ids": [lid], "category": "nope"}).status_code == 422
     assert any(w["id"] == wp_id for w in c.get("/api/workpackages").json()["workpackages"])

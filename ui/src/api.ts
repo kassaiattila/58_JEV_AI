@@ -42,6 +42,8 @@ export interface RunRow {
 export interface WorkpackageView {
   workpackage: Workpackage; readiness: Readiness; titles?: Record<string, string>; next: NextStep; last_run: RunRow | null; runs: number;
   attachments_missing?: number; // 058 K5.2: in an email package, the number of PDF attachments not yet added
+  /** 131: a reconciliation package's scope, counts and coverage (it has no files and no runs) */
+  reconcile?: { scope: ReconcileScope; counts: ReconcileCounts; coverage: ReconcileCoverage[] };
 }
 /** 080: what a run of the package will do (the pre-start overview): documents by their path known in advance (S / G /
  *  type not known yet), emails, emails with a task proposal, whether Azure may be used and earlier JEV answers reused. */
@@ -314,6 +316,59 @@ export interface ReconcilePair {
   other_workpackage_id: string | null;
 }
 
+// --- 131–132: the reconciliation package (jav/reconcile_package.py) -----------------------------------------------
+/** An own account or card the store has statements of (the scope is chosen from these). */
+export interface ReconcileAccount {
+  key: string; account: string | null; statement_types: string[]; currencies: string[]; statements: number;
+  first: string | null; last: string | null;
+}
+export interface ReconcileScope {
+  workpackage_id: string; accounts: string[]; period_start: string; period_end: string; revision: number; updated_at: string;
+}
+/** A line's state: proposed / amount_only / partly_allocated / open still need a person; allocated, marked (needs no
+ *  invoice) and excluded (no usable amount) do not. */
+export type ReconcileLineState = "proposed" | "amount_only" | "partly_allocated" | "open" | "allocated" | "marked" | "excluded";
+export const OPEN_LINE_STATES: ReconcileLineState[] = ["proposed", "amount_only", "partly_allocated", "open"];
+export interface ReconcileCandidate {
+  invoice_id: string; line_id: string; proposed: boolean; amount_only: boolean; signals: ReconcileSignal[];
+  amount_relation: ReconcileRelation | null; multiple_candidates: boolean; source_review_required: boolean; fx: ReconcileFx | null;
+}
+/** An allocation of a line's amount to an invoice; `allocation_id` null: a confirmation from the review page (129). */
+export interface ReconcileShare {
+  invoice_id: string; line_id: string; line_amount: string; invoice_amount: string; allocation_id: number | null;
+  workpackage_id: string | null;
+}
+export interface ReconcileLineMark { id: number; line_id: string; statement_id: string; category: string; note: string | null; workpackage_id: string | null }
+export interface ReconcileLine {
+  id: string; statement_id: string; account: string; statement_type: string | null; currency: string | null;
+  booking_date: string | null; direction: string | null; amount: string | null; counterparty_name: string | null;
+  counterparty_account: string | null; description: string | null; memo: string | null;
+  state: ReconcileLineState; excluded_reason: string | null; allocated: string; rest: string | null;
+  mark: ReconcileLineMark | null; allocations: ReconcileShare[]; candidates: ReconcileCandidate[]; rejected: string[];
+  statement_verified: boolean; file: string | null;
+}
+export interface ReconcileInvoice {
+  id: string; doc_type: string; number: string | null; supplier_name: string | null; amount: string | null; currency: string | null;
+  issue_date: string | null; due_date: string | null; payment_method: string | null; file: string | null; state: string | null;
+  allocated: string; rest: string | null; allocations: ReconcileShare[]; candidates: ReconcileCandidate[];
+  source: "approved" | "not_approved" | "no_run";
+}
+/** Where a document's image opens: the package, run and item of its work run (none for a command-line evaluation). */
+export interface ReconcileOpen { workpackage_id: string; run_id: string; item_id: string; pages: number | null }
+export interface ReconcileCoverage { account: string; month: string; statements: number; verified: number }
+export interface ReconcileBlocker { code: string; doc_id: string; file: string | null; kind: "statement" | "invoice" }
+export interface ReconcileCounts { lines: Record<string, number>; invoices: Record<string, number>; open_lines: number }
+export interface ReconcileWorkspace {
+  workpackage_id: string; scope: ReconcileScope; lines: ReconcileLine[]; invoices: ReconcileInvoice[];
+  coverage: ReconcileCoverage[]; blockers: ReconcileBlocker[]; line_marks: string[]; open: Record<string, ReconcileOpen>;
+  counts: ReconcileCounts; learned_names: unknown; fx_tolerance: unknown; engine_version: string; config_hash: string;
+}
+/** 132: where a line stands on its statement page (box: 0–1 fractions of the page, x0 y0 x1 y1). */
+export interface ReconcileLocation {
+  line_id: string; statement_id: string; open: ReconcileOpen | null; page: number | null; box: [number, number, number, number] | null;
+}
+export interface ReconcileAllocationPair { invoice_doc_id: string; line_id: string; line_amount?: string; invoice_amount?: string }
+
 // --- 056 U1: datasets (unified list query and download) -------------------------------------------------------
 export type ColKind = "text" | "number" | "money" | "date" | "datetime" | "enum" | "bool" | "id";
 export type LinkKind = "run" | "workpackage" | "next" | "reviews" | "review" | "item";
@@ -484,6 +539,25 @@ export const api = {
   decideReconcile: (runId: string, itemId: string, invoiceDocId: string, lineId: string, decision: ReconcileDecision, note?: string) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/reconcile/decision`,
       { invoice_doc_id: invoiceDocId, line_id: lineId, decision, ...(note ? { note } : {}) }),
+  // 131–132: the reconciliation package; every decision returns the recomputed workspace
+  reconcileAccounts: () => request<{ accounts: ReconcileAccount[] }>("GET", "/reconcile/accounts"),
+  createReconcilePackage: (body: { name: string; accounts: string[]; period_start: string; period_end: string }) =>
+    request<WorkpackageView>("POST", "/reconcile/packages", body),
+  reconcileWorkspace: (wpId: string) => request<ReconcileWorkspace>("GET", `/workpackages/${enc(wpId)}/reconcile`),
+  setReconcileScope: (wpId: string, body: { accounts: string[]; period_start: string; period_end: string; expected_revision: number }) =>
+    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/scope`, body),
+  reconcileRefresh: (wpId: string) => request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/refresh`, {}),
+  reconcileAllocate: (wpId: string, pairs: ReconcileAllocationPair[], note?: string) =>
+    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/allocate`, { pairs, ...(note ? { note } : {}) }),
+  reconcileAcceptProposed: (wpId: string) => request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/accept-proposed`, {}),
+  reconcileReject: (wpId: string, invoiceDocId: string, lineId: string, note: string) =>
+    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/reject`, { invoice_doc_id: invoiceDocId, line_id: lineId, note }),
+  reconcileMark: (wpId: string, lineIds: string[], category: string, note?: string) =>
+    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/mark`, { line_ids: lineIds, category, ...(note ? { note } : {}) }),
+  reconcileRevoke: (wpId: string, kind: "allocation" | "mark" | "decision", ref: string, note?: string) =>
+    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/revoke`, { kind, ref, ...(note ? { note } : {}) }),
+  reconcileLocate: (wpId: string, lineId: string) =>
+    request<ReconcileLocation>("GET", `/workpackages/${enc(wpId)}/reconcile/locate?line_id=${enc(lineId)}`),
   /** 062: the accepted task marked as done by hand (or unmarked). */
   markTaskDone: (runId: string, itemId: string, index: number, done: boolean) =>
     request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/done`, { done }),
