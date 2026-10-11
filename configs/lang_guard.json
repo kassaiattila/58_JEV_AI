@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.27",
+    "version": "1.0.28",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.28",
+        "date": "2026-10-11",
+        "note": "141: accept the Hungarian column of the two new glossary entries (combined payment, credit note; docs/GLOSSARY.md) and the invoice date labels a test of the two-digit-year dates quotes as document vocabulary (tests/test_reconcile_141.py). All other file limits are unchanged."
+      },
       {
         "version": "1.0.27",
         "date": "2026-10-11",
@@ -265,7 +270,7 @@
     "configs/types/viz_szamla.json": 29,
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
-    "docs/GLOSSARY.md": 238,
+    "docs/GLOSSARY.md": 240,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 10,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -445,6 +450,7 @@
     "tests/test_processing_080.py": 4,
     "tests/test_properties_067.py": 12,
     "tests/test_recipe_help.py": 1,
+    "tests/test_reconcile_141.py": 2,
     "tests/test_registry_v2.py": 4,
     "tests/test_reports.py": 5,
     "tests/test_review_gate_066.py": 6,

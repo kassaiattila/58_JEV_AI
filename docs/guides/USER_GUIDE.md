@@ -158,6 +158,15 @@ loaded statements cover.
   without an exchange rate; the line shows ‘originally 20.00 USD’ and the candidate says it was compared on it.
 - **Names learnt from your decisions:** after you pair a line with an invoice, the line's name (without its reference numbers)
   ties later lines of that name to the same supplier. A line through a payment app teaches nothing.
+- **One transfer for several invoices:** when a line's memo names several invoices and their amounts add up to the line's
+  amount exactly, they are proposed together (‘with the other named invoices, the line's amount’). Choosing one of them
+  chooses the whole group, and accepting the unambiguous proposals pairs them all.
+- **Credit notes:** a supplier's credit note (a negative invoice) that cancels exactly one of its invoices settles it: the
+  invoice shows ‘Cancelled by a credit note’ with the credit note's number, and no payment is looked for. Not when a line
+  naming the invoice pays it (a refund may follow) or when two invoices could be meant.
+- **Recurring bills:** a line booked more than 20 days before an invoice was issued is offered for it only when its memo
+  names the invoice (an advance payment); otherwise it paid an earlier month. When a line's memo names one invoice, other
+  invoices of the same amount are still listed under it, but not proposed.
 
 **Keys on the pairing page** (not while typing in a field; **Keys**, *Billentyűk*, or `?` lists them):
 

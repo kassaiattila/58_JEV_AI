@@ -28,6 +28,13 @@ and the Italian "mag" is left out (the full "maggio" stays).
 A flagged reading becomes a to-do where it is used; it is never resolved silently. Manual input (`read_date_input`)
 takes every unambiguous form and refuses an ambiguous one.
 
+141 (DECISIONS 141): a Hungarian accounting program printed "26.07.10" and "26.06.24" (year, month, day); the day-first
+reading made them 2010 and 2024 and the invoice lost its dates. A document's two-digit-year dates are read year first
+(`document_short_order` = "ymd") only when that reading makes every one of them a date within `SHORT_RECENT_YEARS`
+years before this year to the end of next year, while the day-first and the month-first readings each leave at least
+one outside (or invalid). Anything else stays as before: a single "26.06.24" (2026-06-24 or 2024-06-26) is still
+flagged, and a document's day/month order is still `document_date_order`.
+
 The two old Hungarian patterns in `jav/models.py` (`DATE_NUMERIC_RE`, `DATE_TEXT_RE`) stay unchanged: the type
 recognition request counts their matches, and changing them would make every recognition a new, paid call.
 """
@@ -44,7 +51,9 @@ from typing import Literal
 from pydantic import BaseModel
 
 DateOrder = Literal["dmy", "mdy"]  # dmy: 04/12/2022 = 4 December (continental, British); mdy: 12/04/2022 (US)
+ShortOrder = Literal["ymd"]  # 141: a document's two-digit-year dates printed year first (26.06.24 = 2026-06-24)
 Kind = Literal["ymd", "name", "dot", "dash", "slash"]
+SHORT_RECENT_YEARS = 5  # 141: how far back a year-first short date may be to count as recent
 
 
 class DateRead(BaseModel):
@@ -123,6 +132,7 @@ _PATTERNS: tuple[tuple[Kind, Tag, re.Pattern[str]], ...] = (
     # 04.12.22 / 04-12-22 / 04/12/22: a two-digit year only with the same separator twice and nothing number-like around
     ("dot", "short", re.compile(r"(?<![\d.\-/])(?P<a>\d{1,2})(?P<s>[./-])(?P<b>\d{1,2})(?P=s)(?P<y>\d{2})(?!\d)(?![./-]\d)")),
 )
+_SHORT = _PATTERNS[-1][2]
 _OCR_YMD = re.compile(r"(?<!\d)(?P<y>(?:19|20)\d{2})\s*[.\-/,]\s*(?P<m>\d{1,2})\s*[.\-/,]\s*(?P<d>\d{1,2})\.?(?!\d)")
 _TIME = re.compile(r"\b\d{1,2}:\d{2}(?::\d{2})?\b")
 
@@ -141,12 +151,16 @@ def _valid(y: int, m: int, d: int) -> date | None:
         return None
 
 
-def _numeric(m: re.Match[str], kind: Kind, order: DateOrder | None, today: date) -> DateHit | None:
+def _numeric(m: re.Match[str], kind: Kind, order: DateOrder | None, today: date,
+             short_order: ShortOrder | None = None) -> DateHit | None:
     a, b, short = int(m.group("a")), int(m.group("b")), len(m.group("y")) == 2
     y = _year(m.group("y"), today)
     sep = "/" if kind == "slash" else m.group("s")
     kind = {"/": "slash", "-": "dash", ".": "dot"}[sep]  # type: ignore[assignment]
     raw, start, end = m.group(0), m.start(), m.end()
+    if short and short_order == "ymd":  # 141: the document prints its short dates year first
+        value = _valid(_year(m.group("a"), today), b, int(m.group("y"))) if len(m.group("a")) == 2 else None
+        return DateHit(start, end, raw, value, kind=kind, short=True) if value else None
     dmy, mdy = _valid(y, b, a), _valid(y, a, b)
     if dmy is None and mdy is None:
         return None
@@ -168,9 +182,10 @@ def _numeric(m: re.Match[str], kind: Kind, order: DateOrder | None, today: date)
     return DateHit(start, end, raw, mdy, ambiguous=True, alt=dmy, kind=kind)
 
 
-def _hit(m: re.Match[str], kind: Kind, tag: Tag, order: DateOrder | None, today: date) -> DateHit | None:
+def _hit(m: re.Match[str], kind: Kind, tag: Tag, order: DateOrder | None, today: date,
+         short_order: ShortOrder | None = None) -> DateHit | None:
     if kind in ("dot", "slash"):
-        return _numeric(m, kind, order, today)
+        return _numeric(m, kind, order, today, short_order)
     month = _MONTHS[_fold(m.group("mn"))] if kind == "name" else int(m.group("m"))
     value = _valid(_year(m.group("y"), today), month, int(m.group("d")))
     decisive = tag if tag in ("dmy", "mdy") else None  # a month name after or before the day shows the document's order
@@ -178,11 +193,12 @@ def _hit(m: re.Match[str], kind: Kind, tag: Tag, order: DateOrder | None, today:
 
 
 def find_dates_in(text: str | None, *, order: DateOrder | None = None, ocr: bool = False, short: bool = True,
-                  today: date | None = None) -> list[DateHit]:
+                  today: date | None = None, short_order: ShortOrder | None = None) -> list[DateHit]:
     """Every date of a text, left to right, without overlaps (at the same start the longer form wins). `order`: the
     document's own order (`document_date_order`); `ocr`: a comma read as a dot in a year-first date; `short=False`
     leaves out the all-number dates with a two-digit year (on Hungarian and utility documents such text is mostly a
-    code, and it could only be a to-do anyway)."""
+    code, and it could only be a to-do anyway); 141: `short_order` "ymd" reads them year first, unflagged
+    (`document_short_order`)."""
     if not text:
         return []
     today = today or date.today()
@@ -190,7 +206,8 @@ def find_dates_in(text: str | None, *, order: DateOrder | None = None, ocr: bool
     patterns = [(k, g, rx) for k, g, rx in _PATTERNS if short or g != "short"]
     if ocr:
         patterns.append(("ymd", None, _OCR_YMD))
-    found = [h for kind, tag, rx in patterns for m in rx.finditer(s) if (h := _hit(m, kind, tag, order, today)) is not None]
+    found = [h for kind, tag, rx in patterns for m in rx.finditer(s)
+             if (h := _hit(m, kind, tag, order, today, short_order)) is not None]
     found.sort(key=lambda h: (h.start, -(h.end - h.start)))
     out: list[DateHit] = []
     for h in found:
@@ -215,6 +232,28 @@ def document_date_order(texts: Iterable[str], *, today: date | None = None) -> D
     seen = {h.decisive for t in texts for h in find_dates_in(t, today=today)
             if h.kind in ("dash", "slash", "name") and h.decisive and not h.short}
     return seen.pop() if len(seen) == 1 else None
+
+
+def document_short_order(texts: Iterable[str], *, today: date | None = None) -> ShortOrder | None:
+    """141: "ymd" when the document's all-number two-digit-year dates are all recent only when read year first (each
+    within `SHORT_RECENT_YEARS` years before this year to the end of next year), and the day-first and the month-first
+    readings each leave at least one of them invalid or outside; None otherwise, also without such a date."""
+    today = today or date.today()
+    low, high = date(today.year - SHORT_RECENT_YEARS, 1, 1), date(today.year + 1, 12, 31)
+    shorts = [m for t in texts for m in _SHORT.finditer(str(t).replace(" ", " "))]
+    if not shorts or any(len(m.group("a")) != 2 for m in shorts):
+        return None
+
+    def recent(read) -> bool:
+        return all((d := read(m)) is not None and low <= d <= high for m in shorts)
+
+    def year(text: str) -> int:
+        return _year(text, today)
+
+    ymd = recent(lambda m: _valid(year(m.group("a")), int(m.group("b")), int(m.group("y"))))
+    dmy = recent(lambda m: _valid(year(m.group("y")), int(m.group("b")), int(m.group("a"))))
+    mdy = recent(lambda m: _valid(year(m.group("y")), int(m.group("a")), int(m.group("b"))))
+    return "ymd" if ymd and not dmy and not mdy else None
 
 
 def read_date_input(raw: object, *, today: date | None = None) -> str:

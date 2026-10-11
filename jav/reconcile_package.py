@@ -260,6 +260,13 @@ class _Parties:
         return ref is None or ref["id"] == self.party
 
 
+def _credit_note(credit_id: str | None, invoices: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    """141: the credit note that cancels an invoice: its id and number, for the pairing page."""
+    if not credit_id:
+        return None
+    return {"id": credit_id, "number": (invoices.get(credit_id) or {}).get("number")}
+
+
 def _money(value: Any) -> Decimal | None:
     try:
         return reconcile.money(str(value))
@@ -411,7 +418,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     def candidate_view(c: dict[str, Any]) -> dict[str, Any]:
         return {k: c.get(k) for k in ("invoice_id", "line_id", "proposed", "amount_only", "signals", "amount_relation",
                                       "multiple_candidates", "source_review_required", "fx", "original", "strength",
-                                      "days_after_issue", "by_due")}
+                                      "days_after_issue", "by_due", "combined")}
 
     lines = []
     for st in statements:
@@ -493,7 +500,8 @@ def _workspace(wp_id: str) -> dict[str, Any]:
                              "rest": str(amount - paid) if amount is not None else None,
                              "allocations": shares_invoice.get(iid, []), "candidates": [candidate_view(c) for c in by_invoice.get(iid, [])
                                                                                       if c["line_id"] in line_ids],
-                             "source": _source_state(inv, approved), "party": who.of(iid), "own": who.own(iid)})
+                             "source": _source_state(inv, approved), "party": who.of(iid), "own": who.own(iid),
+                             "credited_by": _credit_note(status.get(iid, {}).get("credited_by"), invoices)})
     for ln in lines:
         ln["file"] = files.get(ln["statement_id"])
     coverage = []

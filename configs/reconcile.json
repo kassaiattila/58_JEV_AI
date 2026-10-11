@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.8.0",
+    "version": "1.9.0",
     "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person, when a statement counts as verified coverage and how a candidate's strength is weighed. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131, DECISIONS 134.",
     "changelog": [
+      {
+        "version": "1.9.0",
+        "date": "2026-10-11",
+        "note": "141 (DECISIONS 141, the sports club's trial; engine 1.9.0): combined.max_invoices - a line whose memo names two or more invoices whose amounts left add up to it exactly proposes them together (amount relation combined, strength.amount.combined), at most this many; proposal.unnamed_days_before_issue - a line booked more than this many days before an invoice's issue date is its candidate only when its memo names the invoice (an advance payment). Without a setting: a credit note that cancels exactly one invoice of its supplier settles it (status credited), and a line whose memo names one invoice proposes no other."
+      },
       {
         "version": "1.8.0",
         "date": "2026-10-10",
@@ -83,11 +88,13 @@
   "strength": {
     "signals": {"invoice_number": 40, "reference": 35, "supplier_account": 40, "supplier_name": 25, "learned_name": 25,
                 "supplier_name_fuzzy": 15, "payment_channel": 10},
-    "amount": {"equal": 35, "fx_within": 25, "fx_outside": 5, "no_rate": 5, "different": 0},
+    "amount": {"equal": 35, "fx_within": 25, "fx_outside": 5, "no_rate": 5, "different": 0, "combined": 30},
     "timing": {"by_due": 15, "in_window": 5},
     "grace_days": 7,
     "max": 100
   },
+  "proposal": {"unnamed_days_before_issue": 20},
+  "combined": {"max_invoices": 8},
   "payment_channels": [
     {"name": "postal_cheque", "invoice_method": "postai szamlabefizetesi|keszpenz atutalasi|csekk", "line_text": "postacsekk|icsekk|csekkbefizet"}
   ],
