@@ -4,12 +4,14 @@
 // already, what it would replace and whose account it is; and the PDFs no export uses, which a run processes with type
 // recognition and AI extraction. A person ticks what goes in; the party's months show beside it. It replaces the
 // earlier "Bank statement from a table" (136, 137): an export of one file or a folder of exports is surveyed here too.
+// 146: which files a reader knows folds open under the introduction (the catalogue of `BankFiles.tsx`).
 import { useState } from "react";
 import { api, ApiError, type OwnParty, type StatementPackageSurvey, type StatementRef, type StatementSurveyRow } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { tmap } from "../labels";
+import { BankFilesInfo } from "./BankFiles";
 import { PartyChoice } from "./reconcile/ReconcileCreate";
 import { MonthGrid } from "./settings/MonthStatus";
 
@@ -176,8 +178,9 @@ export function StatementPackageCreate({ onDone }: { onDone: (wpId: string) => v
     <form className="create rc-stack" aria-label={t("New statement package")}
       onSubmit={(e) => { e.preventDefault(); if (survey && nStatements + nPdfs) void submit(); }}>
       <p className="muted small">
-        {t("A statement package holds one party's bank statements for a period. A bank's export (Excel, CSV or the Erste XML with its PDF statements) is read by code, one statement per account and month; a PDF statement is recognised and its data extracted by AI in the run. Nothing is stored before you create the package.")}
+        {t("A statement package holds one party's bank statements for a period. A file a reader knows is read by code, one statement per account and month; any other PDF statement is recognised and its data extracted by AI in the run. Nothing is stored before you create the package.")}
       </p>
+      <BankFilesInfo />
       {parties.error ? <p className="notice error" role="alert">{parties.error.message}</p> : null}
       {parties.data ? <PartyChoice overview={parties.data} value={party?.id ?? null} onPick={reset(setParty)} anyParty /> : <p className="muted">{t("Loading…")}</p>}
       <div className="rc-period">

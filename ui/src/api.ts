@@ -130,6 +130,18 @@ export interface RecipeHelp {
   paths?: { intro: string; measured: string; columns: { S: string; G: string }; rows: { label: string; S: string; G: string }[] };
   params: Record<string, { help: string; options: Record<string, string> }>;
 }
+/** 146: one kind of bank file and its reader (`configs/bank_files.json` with the reader's own configuration). A reader
+ *  nobody described yet is listed from its configuration alone (`described` false). */
+export interface BankFile {
+  id: string; reader: { profile?: string; type?: string }; read_by: "code" | "ai"; bank: string | null;
+  statement: string | null; formats: string[]; suffixes: string[]; kinds: string[]; version: string;
+  header: string[]; reads: string[]; not_read: string[]; checks: string[]; notes: string[]; described: boolean;
+}
+/** 146: which bank files the system reads; the texts are English source strings, `labels` the facts' field labels. */
+export interface BankFilesCatalogue {
+  version: string; intro: string; read_by: Record<"code" | "ai", string>; checks: Record<string, string>;
+  files: BankFile[]; not_read: string[]; labels: Record<string, string>;
+}
 export interface RunItem {
   run_id: string; item_id: string; status: string; final_status: string | null; flow_run_id: string | null;
   error: string | null; updated_at: string;
@@ -745,6 +757,8 @@ const enc = encodeURIComponent;
 export const api = {
   // 080: `recipes` holds only the active processing; `titles` every recipe's title (old runs, packages not yet migrated)
   recipes: () => request<{ recipes: Recipe[]; help?: RecipeHelp; titles?: Record<string, string> }>("GET", "/recipes"),
+  /** 146: which bank files the system reads, and how. */
+  bankFiles: () => request<BankFilesCatalogue>("GET", "/bank-files"),
   workpackages: () => request<{ workpackages: WorkpackageRow[] }>("GET", "/workpackages"),
   workpackage: (id: string) => request<WorkpackageView>("GET", `/workpackages/${enc(id)}`),
   /** 081: `recursive` takes the PDFs of the subfolders too (the output folder of the named copies is left out). */

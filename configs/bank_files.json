@@ -1,0 +1,149 @@
+{
+  "meta": {
+    "name": "bank_files",
+    "version": "1.0.0",
+    "description": "146 (backlog D-bank-files, the owner's request of 2026-10-11): which bank files the system processes today, as data. Each entry names its reader: a profile of configs/statement_tables.json (read by code) or a bank statement type pack (extracted by AI). jav/bank_files.py adds what the readers' own configuration says (bank, kind of statement, file types, version, an AI type's fields and checks), serves the catalogue to the interface (GET /bank-files) and writes docs/BANK_FILES.md (python -m jav.cli docs). A test reads each code profile's synthetic files and holds the listed line facts to what the reader gives, and every profile and bank statement type pack must have an entry. Texts are English; the interface translates them (ui/src/i18n/hu-native.json).",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-11",
+        "note": "146: first version - five code profiles (CIB account and credit card, Erste XML export with its PDF, camt.053, Revolut) and two AI types (CIB, Erste PDF), with what each does not read and the files no reader knows."
+      }
+    ]
+  },
+  "intro": "Which bank files the system reads, and how. A file read by code costs nothing, gives the same result every time and checks itself by its balances. A PDF statement no code reads is extracted by AI, paid within the run's budget. Bring statements in with a Bank statements package: its survey shows, before anything is stored, which reader takes each file.",
+  "read_by": {
+    "code": "Read by code, free",
+    "ai": "Extracted by AI, paid"
+  },
+  "checks": {
+    "running_balance": "the running balance, line by line",
+    "totals": "the printed debit and credit totals against the lines",
+    "total_row": "the export's total row against the lines",
+    "closing_balance": "the opening balance plus the lines against the closing balance",
+    "period_dates": "every line's date within the statement's period"
+  },
+  "files": [
+    {
+      "id": "cib_account",
+      "reader": {"profile": "cib_text_hu"},
+      "bank": "CIB Bank",
+      "statement": "Current account or investment client account statement",
+      "formats": [
+        "The statement PDF as the bank sends it (with its text layer)",
+        "The bank's fixed-width text export (.txt)"
+      ],
+      "header": ["account_no", "account_iban", "currency", "period_start", "period_end", "opening_balance", "closing_balance", "total_debit", "total_credit"],
+      "reads": ["booking_date", "value_date", "amount", "running_balance", "description", "counterparty_name",
+                "counterparty_account", "memo", "original_amount", "bank_reference", "order_id", "end_to_end_id",
+                "card_number", "purchase_date", "transaction_time"],
+      "checks": ["running_balance", "totals", "closing_balance"],
+      "notes": [
+        "A scanned PDF without a text layer is not read by code; it is extracted by AI as a CIB statement.",
+        "In a documents package a CIB PDF is extracted by AI; in a Bank statements package the code reads it for free."
+      ]
+    },
+    {
+      "id": "cib_card",
+      "reader": {"profile": "cib_card_text_hu"},
+      "bank": "CIB Bank",
+      "statement": "Credit card statement (HITELKÁRTYA KIVONAT)",
+      "formats": [
+        "The statement PDF as the bank sends it (with its text layer)",
+        "The bank's fixed-width text export (.txt)"
+      ],
+      "header": ["account_no", "account_iban", "currency", "period_start", "period_end", "opening_balance", "closing_balance", "total_debit", "total_credit"],
+      "reads": ["booking_date", "value_date", "amount", "description", "counterparty_name", "memo", "original_amount",
+                "card_number", "purchase_date", "transaction_time"],
+      "checks": ["totals", "closing_balance"],
+      "notes": [
+        "The statement prints no running balance, so it is checked by its totals and its closing balance.",
+        "The merchant is the line's first unlabelled row; a purchase in another currency keeps its original amount."
+      ]
+    },
+    {
+      "id": "erste_export",
+      "reader": {"profile": "erste_ledger_hu"},
+      "bank": "Erste Bank",
+      "statement": "Account statement: the Excel export (Excel 2003 XML) with the month's PDF statement",
+      "formats": [
+        "The export file named <date>_<account>_excel.xml",
+        "The same month's PDF statement, <date>_<account>_S.pdf, next to it or in a pdf subfolder"
+      ],
+      "header": ["account_no", "currency", "period_start", "period_end", "opening_balance", "closing_balance", "total_debit", "total_credit"],
+      "reads": ["booking_date", "value_date", "amount", "running_balance", "description", "counterparty_name",
+                "counterparty_account", "memo", "original_amount", "card_number", "purchase_date", "terminal",
+                "authorisation_code", "exchange_rate"],
+      "checks": ["running_balance", "closing_balance"],
+      "notes": [
+        "The export has no balances and does not name a card purchase's merchant: the PDF statement adds the balances, the merchant, the original amount and the card details.",
+        "Without its PDF the export is still read, but its balances are not checked, and the run gets a to-do for the month."
+      ]
+    },
+    {
+      "id": "camt053",
+      "reader": {"profile": "camt053"},
+      "bank": "Any bank (Erste's transaction codes and card details are known)",
+      "statement": "The bank's standard XML statement (ISO 20022 camt.053)",
+      "formats": [
+        "An .xml file in the camt.053 namespace, one or more statements in it"
+      ],
+      "header": ["account_iban", "currency", "period_start", "period_end", "opening_balance", "closing_balance", "total_debit", "total_credit"],
+      "reads": ["booking_date", "value_date", "amount", "running_balance", "description", "counterparty_name",
+                "counterparty_account", "memo", "original_amount", "bank_reference", "end_to_end_id", "card_number",
+                "purchase_date", "transaction_time", "terminal", "authorisation_code", "exchange_rate", "fee"],
+      "checks": ["running_balance", "totals", "closing_balance"],
+      "notes": [
+        "It needs no PDF: the balances, the partners and the card details are in the XML.",
+        "For a bank other than Erste the transaction codes stay codes, and a card purchase's details (merchant, original amount, card, terminal, exchange rate) are not split into their own facts."
+      ]
+    },
+    {
+      "id": "revolut",
+      "reader": {"profile": "revolut_consolidated_hu"},
+      "bank": "Revolut",
+      "statement": "Consolidated statement of every account, in Hungarian",
+      "formats": [
+        "The Excel workbook (.xlsx) or the CSV file of the consolidated statement; the period comes from the file name, otherwise from the first and the last line"
+      ],
+      "header": ["account_iban", "currency", "period_start", "period_end", "opening_balance", "closing_balance", "total_debit", "total_credit"],
+      "reads": ["booking_date", "amount", "running_balance", "description", "counterparty_name", "fee"],
+      "checks": ["running_balance", "total_row", "closing_balance"],
+      "notes": [
+        "One statement per account: a person ticks which accounts go into the store.",
+        "The export prints no value date, partner account or memo; the bank's category stands as the description and suggests why a line needs no invoice."
+      ]
+    },
+    {
+      "id": "cib_pdf_ai",
+      "reader": {"type": "statement_cib"},
+      "bank": "CIB Bank",
+      "statement": "Account or credit card statement PDF that no code reads (for example a scanned one)",
+      "formats": [
+        "A PDF; a scanned one is read by local text recognition first"
+      ],
+      "notes": [
+        "Paid, within the run's budget: GPT extracts the statement, and JEV checks the values when it is on."
+      ]
+    },
+    {
+      "id": "erste_pdf_ai",
+      "reader": {"type": "statement_erste"},
+      "bank": "Erste Bank",
+      "statement": "Account or credit card statement PDF without its export",
+      "formats": [
+        "A PDF; a scanned one is read by local text recognition first"
+      ],
+      "notes": [
+        "Paid, within the run's budget: GPT extracts the statement, and JEV checks the values when it is on.",
+        "With the month's Excel export next to it, the code reads both for free instead."
+      ]
+    }
+  ],
+  "not_read": [
+    "Another bank's PDF statement (for example OTP, K&H, Raiffeisen, MBH, Revolut or Wise): recognised as a bank statement, but no reader knows it, so the run stops with a to-do and nothing is extracted.",
+    "Another bank's Excel or CSV export: the survey lists it among the files that could not be read.",
+    "The older Excel format (.xls), MT940, OFX and QIF files.",
+    "A PDF that is not a bank statement, in a Bank statements package: its type is recognised, then it stops with a to-do, without extraction."
+  ]
+}
