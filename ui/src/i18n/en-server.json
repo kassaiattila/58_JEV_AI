@@ -335,5 +335,14 @@
   "egyeztetés: párosítás": "reconciliation: pairing",
   "egyeztetés: elutasítás": "reconciliation: rejection",
   "egyeztetés: nem kell számla": "reconciliation: needs no invoice",
-  "egyeztetés: visszavonás": "reconciliation: revocation"
+  "egyeztetés: visszavonás": "reconciliation: revocation",
+  "Banki azonosító": "Bank reference",
+  "Megbízás-azonosító": "Order id",
+  "Partnerek közti azonosító": "End-to-end id",
+  "Kártya": "Card",
+  "Vásárlás napja": "Purchase date",
+  "Terminál": "Terminal",
+  "Engedélyszám": "Authorisation code",
+  "Árfolyam": "Exchange rate",
+  "Díj": "Fee"
 }
