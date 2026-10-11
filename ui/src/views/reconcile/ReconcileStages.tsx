@@ -9,7 +9,8 @@ import { go, type Stage } from "../../route";
 import { AccountChecklist } from "./ReconcileCreate";
 import { ReconcileCards } from "./ReconcileCards";
 import { ReconcilePairing } from "./ReconcilePairing";
-import { blockerText, INVOICE_STATE, LINE_STATE, MARK } from "./labels";
+import { ReconcileResult } from "./ReconcileResult";
+import { blockerText, INVOICE_STATE, LINE_STATE, MARK, warningText } from "./labels";
 import "./reconcile.css";
 
 export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageView; stage: Stage; onChanged: () => void }) {
@@ -21,19 +22,32 @@ export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageV
   const update = (next: ReconcileWorkspace) => { setWs(next); onChanged(); };
   // 142: the pairing opens on the cards; the two lists are for pairing by hand, with the line a card sent there
   const [manual, setManual] = useState<{ line: string | null } | null>(null);
-  const readOnly = view.workpackage.status === "archived";
+  const archived = view.workpackage.status === "archived";
+  // 145: an approved package takes no decision until its approval is reopened (the Result stage)
+  const approved = ws?.approval?.active ?? null;
+  const readOnly = archived || approved !== null;
 
   if (!ws) {
     return loaded.error ? <p className="notice error" role="alert">{loaded.error.message}</p> : <p className="muted">{t("Loading…")}</p>;
   }
-  if (stage === "process") return <ReconcilePrepare ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload} />;
-  if (stage === "review") {
-    return manual || !ws.overview ? ( // a service without the overview keeps the two lists
-      <ReconcilePairing key={manual?.line ?? "lists"} ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload}
-        initialLine={manual?.line ?? null} onCards={ws.overview ? () => setManual(null) : undefined} />
-    ) : <ReconcileCards ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload} onManual={(line) => setManual({ line })} />;
+  if (stage === "result") {
+    return <ReconcileResult ws={ws} archived={archived} onChanged={onChanged} reloadWorkspace={loaded.reload} />;
   }
-  return <ReconcileSummary ws={ws} />;
+  const banner = approved ? (
+    <p className="notice ok-box" role="status">
+      {t("Approved: version {{n}}, by {{who}}. The decisions are locked; reopen the approval in the Result stage to change them.", { n: approved.version, who: approved.approved_by })}
+    </p>
+  ) : null;
+  if (stage === "process") return <>{banner}<ReconcilePrepare ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload} /></>;
+  return (
+    <>
+      {banner}
+      {manual || !ws.overview ? ( // a service without the overview keeps the two lists
+        <ReconcilePairing key={manual?.line ?? "lists"} ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload}
+          initialLine={manual?.line ?? null} onCards={ws.overview ? () => setManual(null) : undefined} />
+      ) : <ReconcileCards ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload} onManual={(line) => setManual({ line })} />}
+    </>
+  );
 }
 
 function Counts({ counts, labels }: { counts: Record<string, number>; labels: Record<string, string> }) {
@@ -161,6 +175,14 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
             </ul>
           </>
         ) : <p className="small ok">{t("Nothing: every source document comes from an approved run.")}</p>}
+        {ws.warnings?.length ? (
+          <>
+            <h3>{t("Warnings")}</h3>
+            <ul className="plain">
+              {ws.warnings.map((w) => <li key={`${w.code}:${w.doc_id}`} className="small warn">{warningText(w)}</li>)}
+            </ul>
+          </>
+        ) : null}
       </section>
 
       <section className="card" aria-label={t("Where the pairing stands")}>
@@ -204,22 +226,5 @@ function LeftOver({ ws, readOnly, busy, onRevoke }: {
         </tbody>
       </table>
     </section>
-  );
-}
-
-/** Result: where the reconciliation stands (the statement, its download and the approval come with the next step). */
-export function ReconcileSummary({ ws }: { ws: ReconcileWorkspace }) {
-  useLocale();
-  return (
-    <div className="rc-stack">
-      <section className="card" aria-label={t("Where the pairing stands")}>
-        <h2>{t("Where the pairing stands")}</h2>
-        <div className="rc-kv">
-          <span className="muted small">{t("Statement lines")}</span><Counts counts={ws.counts.lines} labels={LINE_STATE} />
-          <span className="muted small">{t("Invoices")}</span><Counts counts={ws.counts.invoices} labels={INVOICE_STATE} />
-        </div>
-        <p className="muted small">{t("The reconciliation statement, its download and its approval will be shown here.")}</p>
-      </section>
-    </div>
   );
 }

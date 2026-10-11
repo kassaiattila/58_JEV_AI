@@ -36,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
-                 parties, party_views, reconcile_package, statement_months, store, version, work, work_views)
+                 parties, party_views, reconcile_package, reconcile_statement, statement_months, store, version, work, work_views)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
@@ -410,6 +410,19 @@ class ReconcileRevoke(_In):
     note: Text | None = None
 
 
+# 145 (F-reconciliation E3b): the result (`jav/reconcile_statement.py`)
+class ReconcileApprove(_In):
+    fingerprint: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]  # the statement the person saw
+
+
+class ReconcileReopen(_In):
+    note: Annotated[str, Field(min_length=1, max_length=2000)]
+
+
+class ReconcileAcceptSources(_In):
+    doc_ids: Annotated[list[DocId], Field(min_length=1, max_length=5000)]
+
+
 # 133 (F-own-parties): the own parties (`jav/parties.py`, `jav/party_views.py`)
 class PartyIdentity(_In):
     kind: Literal["tax", "name", "account"]
@@ -639,6 +652,10 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.exception_handler(work.NotReady)
     async def not_ready(_request: Request, exc: work.NotReady):
         return _error(409, "not_ready", str(exc), blockers=exc.blockers)
+
+    @app.exception_handler(reconcile_package.Locked)
+    async def reconcile_locked(_request: Request, exc: reconcile_package.Locked):
+        return _error(422, "reconcile_locked", str(exc))  # 145: the UI names it in the display language
 
     @app.exception_handler(UnknownUser)
     async def unknown_user(_request: Request, exc: UnknownUser):
@@ -1278,6 +1295,41 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def reconcile_revoke(wp_id: WpId, body: ReconcileRevoke, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.revoke(wp_id, kind=body.kind, ref=body.ref, actor=who, note=body.note)
         return work_views.jsonable(reconcile_package.workspace(wp_id))
+
+    # --- 145: the result - the statement, its approval as a version that locks its lines, its download ---
+
+    @app.get(r + "/workpackages/{wp_id}/reconcile/statement")
+    def reconcile_statement_view(wp_id: WpId, version: Annotated[int | None, Query(ge=1, le=100000)] = None) -> dict[str, Any]:
+        """The statement as it stands now (with its fingerprint, blockers, warnings and the approval), or an approved
+        version as it was approved."""
+        if version is not None:
+            return work_views.jsonable(reconcile_statement.approved_version(wp_id, version))
+        return work_views.jsonable(reconcile_statement.current(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/accept-sources")
+    def reconcile_accept_sources(wp_id: WpId, body: ReconcileAcceptSources,
+                                 who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """DECISIONS 132: a person accepts command-line results as sources (who and when is recorded)."""
+        reconcile_statement.accept_sources(wp_id, body.doc_ids, actor=who)
+        return work_views.jsonable(reconcile_statement.current(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/approve")
+    def reconcile_approve(wp_id: WpId, body: ReconcileApprove, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        reconcile_statement.approve(wp_id, fingerprint=body.fingerprint, actor=who)
+        return work_views.jsonable(reconcile_statement.current(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/reopen")
+    def reconcile_reopen(wp_id: WpId, body: ReconcileReopen, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        reconcile_statement.reopen(wp_id, note=body.note, actor=who)
+        return work_views.jsonable(reconcile_statement.current(wp_id))
+
+    @app.get(r + "/workpackages/{wp_id}/reconcile/statement.xlsx")
+    def reconcile_statement_xlsx(wp_id: WpId, version: Annotated[int | None, Query(ge=1, le=100000)] = None) -> Response:
+        """DECISIONS 145: the statement as an Excel workbook (invoices and lines): the draft, or an approved version."""
+        data, name = reconcile_statement.xlsx(wp_id, version=version)
+        return Response(data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": attachment_header(name), "Cache-Control": "no-store",
+                                 "X-Content-Type-Options": "nosniff"})
 
     # --- to-dos ---
 

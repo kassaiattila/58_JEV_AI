@@ -333,8 +333,16 @@ def _cell_value(v: Any, kind: str | None) -> Any:
         try:
             return Decimal(str(v))
         except InvalidOperation:
-            return str(v)
-    return v if isinstance(v, (int, float, Decimal)) and not isinstance(v, bool) else str(v)
+            return _cell_text(str(v))
+    return v if isinstance(v, (int, float, Decimal)) and not isinstance(v, bool) else _cell_text(str(v))
+
+
+def _cell_text(s: str) -> str:
+    """145: a control character a PDF's text layer may carry (a broken glyph) is refused by the workbook format, and
+    openpyxl raised on it, failing the whole download; it becomes a space."""
+    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+
+    return ILLEGAL_CHARACTERS_RE.sub(" ", s)
 
 
 def _write_sheet(ws, head: list[str], rows: list[list[Any]], kinds: list[str | None] | None = None) -> None:

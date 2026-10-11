@@ -114,7 +114,7 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
 
         view = reconcile_package.package_view(wp_id)
         return jsonable({"workpackage": wp, "readiness": view["readiness"], "titles": {}, "last_run": None, "runs": 0,
-                         "next": view["next"], "reconcile": {k: view[k] for k in ("scope", "counts", "coverage")}})
+                         "next": view["next"], "reconcile": {k: view[k] for k in ("scope", "counts", "coverage", "approval")}})
     ready = work.readiness(wp_id)
     runs = work.run_rows(wp_id)
     extra = {}

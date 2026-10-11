@@ -122,7 +122,7 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
   - **Scope** (*Kör*): the own party (*Saját gazdálkodó*), the accounts and cards and the period; **Save the scope** (*Kör mentése*) keeps every decision made so far. A package made before the own parties can be given its party here.
   - **Coverage** (*Lefedettség*): per account and month, how many statements there are; ‘✓ 2’ means two statements whose balances check out, ‘! 0/1’ a statement whose balances do not, ‘–’ no statement. **Recompute** (*Újraszámolás*) fetches the missing MNB exchange rates (only dates and currency codes leave the computer).
   - **Decisions not carried over** (*Át nem vitt döntések*, only when there are any): a better statement replaced a statement of the scope, and a decision made on one of its lines (a pair, ‘needs no invoice’) has no same line on the valid statement. **Revoke** (*Visszavonás*) each, then make it again on the valid statement's lines.
-  - **What blocks the approval** (*Mi akadályozza a jóváhagyást*): source documents whose run is not approved, or that were processed on the command line, statements whose balances do not check out, and decisions not carried over. Pairing can start anyway.
+  - **What blocks the approval** (*Mi akadályozza a jóváhagyást*): source documents whose run is not approved, or that were processed on the command line (until you accept them in the Result stage), and decisions not carried over. Pairing can start anyway. **Warnings** (*Figyelmeztetések*): statements whose balances do not check out; they do not block the approval (145).
   - **Where the pairing stands** (*Hol tart a párosítás*): the lines and invoices by state.
 - **2 Pairing** (*Párosítás*) opens on **the cards** (*kártyák*, 142). A card holds what belongs together: a transfer with
   the invoices it pays, an invoice with the transfers that paid it (in parts, or more than once), or a transfer or an
@@ -222,7 +222,31 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
       **All N lines** (*Mind a(z) N tétel*) shows every line. It is open when there is no page to show, folded otherwise.
   - The selected line on the left list shows its whole memo (144); the others stay on one line.
   - After a decision the next line is selected. If someone else decided meanwhile, the lists are reloaded and your selection is kept.
-- **3 Result** (*Eredmény*): for now, where the pairing stands.
+- **3 Result** (*Eredmény*, 145): the reconciliation's summary, its download and its approval.
+  - **The summary:** every invoice of the package with its result: **Paid** (*Kifizetve*), **Partly paid** (*Részben
+    kifizetve*), **Settled by a credit note** (*Sztornó számla rendezi*), **Proposal to decide** (*Eldöntetlen javaslat*: a
+    proposal is no decision), **No payment in the covered period** (*Nincs fizetés a lefedett időszakban*: verified statements
+    cover its payment window and show no payment) and **Statements do not cover it** (*A kivonatok nem fedik le*); with the day
+    it was paid and the days late or overdue. Another party's invoice is listed only when a line of the package paid it, with
+    its party. Every statement line with its result: **Paired** (*Párosítva*), **Partly paired**, **Needs no invoice** with
+    your reason, **Left out** with the code's reason (incoming money, a fee …) and **Open** (*Nyitott*).
+  - **Warnings** (*Figyelmeztetések*): a statement whose balances do not check out, a month of an account without a
+    statement. They are listed, they do not block.
+  - **Download** (*Letöltés*): an Excel workbook with two sheets, **Számlák** (invoices) and **Tételek** (statement lines),
+    each under a heading naming the package, the party, the period, the accounts and the state (‘Tervezet — nem jóváhagyott’
+    before the approval, the version and who approved it after). Money is written as numbers, the header row is filtered and
+    stays in place when scrolling.
+  - **What blocks the approval:** a source document whose run is not approved (approve that run first), or a decision not
+    carried over. A document processed on the command line belongs to no run: **Accept N command-line documents as
+    sources** (*N parancssori irat elfogadása forrásnak*) records your name and the time; when the document is processed
+    again, its new result has to be accepted again. Open lines do not block the approval: the summary lists them.
+  - **Approve the reconciliation** (*Az egyeztetés jóváhagyása*; click twice to confirm): records the summary you see as an
+    unchangeable **version** (*változat*). If anything changed since the page was shown, nothing is recorded and the page
+    reloads. From then on the decisions on its lines are **locked** (*zárolva*) in every package, the package's scope cannot
+    change, and the Preparation and Pairing stages are read only.
+  - **Reopen** (*Újranyitás*, with a reason): the lock goes; the version stays among the **Earlier versions** (*Korábbi
+    változatok*), each still downloadable as it was approved, and the next approval makes a new version. If the data changed
+    after an approval (for example a document was processed again), the page says so; the approved version stays as it was.
 
 **How the code finds a candidate** (free, no AI service): a line and an invoice of the same currency are a candidate when the
 line falls within the invoice's dates and at least one more detail ties them: the invoice number or a reference number in the

@@ -102,6 +102,8 @@ export function ReconcileCards({ ws, readOnly, onWorkspace, reload, onManual }: 
       if (e instanceof ApiError && e.status === 409) {
         setError(t("Someone decided meanwhile; the lists have been reloaded. Check the card and try again."));
         reload();
+      } else if (e instanceof ApiError && e.code === "reconcile_locked") {
+        setError(t("This line is in an approved reconciliation; reopen that approval first."));
       } else setError(t("The decision could not be saved: {{reason}}", { reason: e instanceof ApiError ? e.message : String(e) }));
     } finally {
       setBusy(false);

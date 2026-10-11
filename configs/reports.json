@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "reports",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-10-11",
+    "note": "145 (DECISIONS 132, 145; backlog F-reconciliation E3b): reconcile_statement - the labels of a reconciliation package's statement downloaded as an Excel workbook with two sheets, invoices and lines (jav/reconcile_statement.py): the file name's parts, the sheet names, the heading block, the columns the field names of field_labels.json do not give, the results of an invoice and a line, the reasons (a person's needs-no-invoice mark, the code's exclusion; the same wording as the interface's Hungarian translation) and the sources. Display vocabulary, in Hungarian."
+   },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
@@ -12,19 +17,140 @@
  },
  "utility_cost": {
   "utilities": {
-   "villamos_energia_szamla": {"label": "Villamos energia", "consumption_field": "consumption_kwh", "unit": "kWh"},
-   "foldgaz_szamla": {"label": "Földgáz", "consumption_field": "consumption_m3", "unit": "m3"},
-   "vizmuvek_szamla": {"label": "Ivóvíz", "consumption_field": "consumption_m3", "unit": "m3"},
-   "csatorna_szamla": {"label": "Csatorna", "consumption_field": "consumption_m3", "unit": "m3"},
-   "mohu_szamla": {"label": "Hulladék", "consumption_field": null, "unit": null},
-   "viz_szamla": {"label": "Díjbeszedő-összesítő (víz, csatorna, hulladék)", "consumption_field": "consumption_m3", "unit": "m3", "summary_only": true}
+   "villamos_energia_szamla": {
+    "label": "Villamos energia",
+    "consumption_field": "consumption_kwh",
+    "unit": "kWh"
+   },
+   "foldgaz_szamla": {
+    "label": "Földgáz",
+    "consumption_field": "consumption_m3",
+    "unit": "m3"
+   },
+   "vizmuvek_szamla": {
+    "label": "Ivóvíz",
+    "consumption_field": "consumption_m3",
+    "unit": "m3"
+   },
+   "csatorna_szamla": {
+    "label": "Csatorna",
+    "consumption_field": "consumption_m3",
+    "unit": "m3"
+   },
+   "mohu_szamla": {
+    "label": "Hulladék",
+    "consumption_field": null,
+    "unit": null
+   },
+   "viz_szamla": {
+    "label": "Díjbeszedő-összesítő (víz, csatorna, hulladék)",
+    "consumption_field": "consumption_m3",
+    "unit": "m3",
+    "summary_only": true
+   }
   },
-  "amount_fields": ["gross_total", "amount_due"],
-  "address_fields": ["consumption_address", "customer_address", "customer_id"],
-  "period_fields": ["billing_period_start", "billing_period_end"]
+  "amount_fields": [
+   "gross_total",
+   "amount_due"
+  ],
+  "address_fields": [
+   "consumption_address",
+   "customer_address",
+   "customer_id"
+  ],
+  "period_fields": [
+   "billing_period_start",
+   "billing_period_end"
+  ]
  },
  "export": {
   "csv_delimiter": ";",
-  "formula_prefixes": ["=", "+", "-", "@", "\t", "\r"]
+  "formula_prefixes": [
+   "=",
+   "+",
+   "-",
+   "@",
+   "\t",
+   "\r"
+  ]
+ },
+ "reconcile_statement": {
+  "file": {
+   "prefix": "egyeztetes",
+   "draft": "tervezet",
+   "version": "v{n}"
+  },
+  "sheets": {
+   "invoices": "Számlák",
+   "lines": "Tételek"
+  },
+  "heading": {
+   "package": "Egyeztetési csomag",
+   "party": "Gazdálkodó",
+   "period": "Időszak",
+   "accounts": "Számlák és kártyák",
+   "state": "Állapot",
+   "draft": "Tervezet — nem jóváhagyott",
+   "approved": "{n}. változat, jóváhagyta: {by}, {at}",
+   "earlier": "{n}. változat (korábbi; újranyitotta: {by}, {at}; indok: {note})",
+   "open_lines": "Nyitott tételek"
+  },
+  "columns": {
+   "amount": "Összeg",
+   "result": "Eredmény",
+   "allocated": "Párosítva",
+   "rest": "Maradék",
+   "paid_by": "Fizette (tétel)",
+   "pays": "Ezt fizette (számla)",
+   "paid_on": "Fizetés napja",
+   "days_from_due": "Késés a határidőhöz (nap)",
+   "overdue_days": "Lejárt, fizetés nélkül (nap)",
+   "other_party": "Más gazdálkodó számlája",
+   "source": "Forrás",
+   "file": "Fájl",
+   "account": "Számla vagy kártya",
+   "reason": "Ok",
+   "note": "Megjegyzés",
+   "statement_file": "Kivonat",
+   "statement_verified": "Egyenleg stimmel"
+  },
+  "invoice_results": {
+   "paid": "Kifizetve",
+   "partly_paid": "Részben kifizetve",
+   "credited": "Sztornó számla rendezi",
+   "undecided": "Eldöntetlen javaslat",
+   "no_payment_found": "Nincs fizetés a lefedett időszakban",
+   "not_covered": "A kivonatok nem fedik le"
+  },
+  "line_results": {
+   "paired": "Párosítva",
+   "partly_paired": "Részben párosítva",
+   "needs_no_invoice": "Nem kell számla",
+   "left_out": "Kimaradt",
+   "open": "Nyitott"
+  },
+  "reasons": {
+   "private": "Magánkiadás",
+   "fee": "Banki díj vagy kamat",
+   "own_transfer": "Átvezetés saját számlák között",
+   "tax": "Adó vagy járulék",
+   "cash": "Készpénzfelvétel",
+   "salary": "Bér",
+   "other": "Egyéb (megjegyzéssel)",
+   "not_outgoing_payment": "Nem kifizetés",
+   "own_account_transfer": "Átvezetés saját számlák között",
+   "payment_kind_review": "Díj, kamat, törlesztés vagy kártyaelszámolás",
+   "missing_amount": "Nincs összeg",
+   "non_positive_amount": "Nulla vagy negatív összeg",
+   "invalid_amount": "Olvashatatlan összeg",
+   "unsupported_currency": "Nem kezelt pénznem",
+   "missing_booking_date": "Nincs könyvelési dátum"
+  },
+  "sources": {
+   "approved": "jóváhagyott futás",
+   "accepted": "személyesen elfogadva"
+  },
+  "yes": "igen",
+  "no": "nem"
  }
 }

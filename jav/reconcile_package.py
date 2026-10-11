@@ -26,6 +26,11 @@ Rules (the owner's decisions of 2026-10-09):
 
 - 143 (DECISIONS 143): the finder of the two lists (`matches`) compares the selected line with every invoice of the
   page in code - name, invoice number, account, amount, timing - and orders them by how they fit; it decides nothing.
+- 145 (DECISIONS 132, 145; the result, `jav/reconcile_statement.py`): the approved versions of a package's statement
+  (`reconcile_versions`) lock their lines: no decision on them is made or revoked in any package, and the package's
+  scope does not change, until a person reopens the version (`Locked`). A source from an evaluation on the command line
+  stops blocking once a person accepts its result as a source (`reconcile_source_acceptances`). A statement whose
+  balances do not check out is a warning, not a blocker (DECISIONS 132).
 
 Layer: UI/CLI → **this** (application operation) → `jav.reconcile` (the core and its store adapter) and `jav.work`
 (the package record and its log).
@@ -60,6 +65,32 @@ CREATE TABLE IF NOT EXISTS reconcile_scopes (
     updated_at     TEXT NOT NULL,
     party_id       TEXT                -- 133: the own party (jav.parties); NULL: every invoice is the package's
 );
+-- 145: an approved, unchangeable version of a package's statement (jav/reconcile_statement.py); while it is not
+-- reopened, its lines are locked
+CREATE TABLE IF NOT EXISTS reconcile_versions (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    workpackage_id TEXT NOT NULL,
+    version        INTEGER NOT NULL,
+    content        TEXT NOT NULL,      -- JSON: the statement as approved
+    fingerprint    TEXT NOT NULL,      -- sha256 of the content
+    line_ids       TEXT NOT NULL,      -- JSON: the statement's lines, locked while the version is not reopened
+    approved_by    TEXT NOT NULL,
+    approved_at    TEXT NOT NULL,
+    reopened_by    TEXT,
+    reopened_at    TEXT,
+    reopen_note    TEXT,
+    UNIQUE (workpackage_id, version)
+);
+-- 145 (DECISIONS 132): a person accepted a document's result from an evaluation on the command line as a source; a
+-- later result of the document needs a new acceptance
+CREATE TABLE IF NOT EXISTS reconcile_source_acceptances (
+    doc_id         TEXT NOT NULL,
+    flow_run_id    TEXT NOT NULL,
+    workpackage_id TEXT NOT NULL,
+    actor          TEXT NOT NULL,
+    accepted_at    TEXT NOT NULL,
+    PRIMARY KEY (doc_id, flow_run_id)
+);
 """)
 
 
@@ -79,6 +110,11 @@ parties.register_reference(
 class PackageError(ValueError):
     """A request the reconciliation package refuses (not such a package, a line outside its scope, an amount over a
     side's rest, a missing reason ...); the interface shows the message (422)."""
+
+
+class Locked(PackageError):
+    """145: a decision on a line of an approved statement, or a change of an approved package's scope; the version has
+    to be reopened first (422, code `reconcile_locked`)."""
 
 
 def _now() -> str:
@@ -203,10 +239,12 @@ def scope(wp_id: str) -> dict[str, Any]:
 
 def set_scope(wp_id: str, *, accounts: list[str], period_start: str, period_end: str, expected_revision: int,
               actor: str, party_id: str | None = None) -> dict[str, Any]:
-    """A changed scope and party; the decisions stay (they belong to the pairs)."""
+    """A changed scope and party; the decisions stay (they belong to the pairs). 145: not while approved."""
     keys, start, end = _checked_scope(accounts, period_start, period_end)
     party = _checked_party(party_id)
     scope(wp_id)
+    if active := active_versions().get(wp_id):
+        raise Locked(f"the package's statement is approved (version {active['version']}); reopen it to change the scope")
     with store.connect() as c:
         store.begin_immediate(c)
         row = c.execute("SELECT revision FROM reconcile_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
@@ -339,7 +377,9 @@ WORKSPACE_INPUTS: dict[str, str | None] = {
                               " || COALESCE(kind, '') || ':' || COALESCE(error, '') || ':' || COALESCE(options, '') || ':'"
                               " || COALESCE(asked_line_id, '') || ':' || created_at, '|') FROM reconcile_ai_proposals)",
     "fx_rates": "MAX(fetched_at)",
-    "own_parties": "(SELECT group_concat(id || ':' || name, '|') FROM own_parties)",
+    "reconcile_versions": "COUNT(reopened_at)",  # 145: an approval, a reopening
+    "reconcile_source_acceptances": None,
+    "own_parties":"(SELECT group_concat(id || ':' || name, '|') FROM own_parties)",
     "own_party_identities": "(SELECT group_concat(kind || ':' || key || ':' || COALESCE(party_id, '-'), '|') FROM own_party_identities)",
     "own_accounts": "(SELECT group_concat(key || ':' || kind || ':' || currencies || ':' || COALESCE(valid_from, '')"
                     " || ':' || COALESCE(valid_to, ''), '|') FROM own_accounts)",
@@ -419,6 +459,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
         shares_invoice[a["invoice_id"]].append(share)
     rejected = {(d["invoice_id"], d["line_id"]) for d in snap["decisions"] if d["decision"] == "not_this"}
     who = _Parties(sc, invoices)
+    locked = locks(snap)  # 145: the lines of approved statements
 
     def candidate_view(c: dict[str, Any]) -> dict[str, Any]:
         return {k: c.get(k) for k in ("invoice_id", "line_id", "proposed", "amount_only", "signals", "amount_relation",
@@ -467,7 +508,8 @@ def _workspace(wp_id: str) -> dict[str, Any]:
                           "rejected": sorted(i for i, l_ in rejected if l_ == lid),
                           "statement_verified": bool(st.get("verified")),
                           "partner": partner, "earlier_marks": _earlier_marks(history, ln, partner),
-                          "category_mark": reconcile.category_mark(ln)})  # 140: the line's own category suggests a reason
+                          "category_mark": reconcile.category_mark(ln),  # 140: the line's own category suggests a reason
+                          "locked": locked.get(lid)})
     line_ids = {ln["id"] for ln in lines}
     from jav import reconcile_ai  # 134: the AI's stored answers per line (that module reads this workspace)
 
@@ -494,6 +536,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     files = reconcile.file_names([*wanted, *(st["id"] for st in statements)])
     docs = [*(invoices[i] for i in wanted if i in invoices), *statements]
     approved = work.approved_runs(d.get("work_run") for d in docs)
+    accepted = accepted_sources()
     invoice_rows = []
     for iid in sorted(wanted, key=lambda i: (str(invoices[i].get("issue_date") or ""), i)):
         inv = invoices[iid]
@@ -507,7 +550,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
                              "rest": str(amount - paid) if amount is not None else None,
                              "allocations": shares_invoice.get(iid, []), "candidates": [candidate_view(c) for c in by_invoice.get(iid, [])
                                                                                       if c["line_id"] in line_ids],
-                             "source": _source_state(inv, approved), "party": who.of(iid), "own": who.own(iid),
+                             "source": _source_state(inv, approved, accepted), "party": who.of(iid), "own": who.own(iid),
                              "credited_by": _credit_note(status.get(iid, {}).get("credited_by"), invoices),
                              # 142: every fact the card shows, and the day its statements are checked until
                              **{k: inv.get(k) for k in ("supplier_tax_id", "payment_account", "references", "buyer_name",
@@ -522,22 +565,23 @@ def _workspace(wp_id: str) -> dict[str, Any]:
             meets = [st for st in own if str(st.get("period_start") or "")[:7] <= month <= str(st.get("period_end") or "")[:7]]
             coverage.append({"account": key, "month": month, "statements": len(meets),
                              "verified": sum(1 for st in meets if st.get("verified"))})
-    blockers = []
+    blockers, warnings = [], []
     for st in statements:
-        state = _source_state(st, approved)
-        if state != "approved":
+        state = _source_state(st, approved, accepted)
+        if state not in SOURCE_OK:
             blockers.append({"code": f"source_{state}", "doc_id": st["id"], "file": files.get(st["id"]), "kind": "statement"})
-        if not st.get("verified"):
-            blockers.append({"code": "statement_unverified", "doc_id": st["id"], "file": files.get(st["id"]), "kind": "statement"})
+        if not st.get("verified"):  # DECISIONS 132: a warning in the statement, not a blocker
+            warnings.append({"code": "statement_unverified", "doc_id": st["id"], "file": files.get(st["id"]), "kind": "statement"})
     for row in invoice_rows:
-        if row["source"] != "approved" and (row["allocations"] or (row["own"] and row["candidates"])):
+        if row["source"] not in SOURCE_OK and (row["allocations"] or (row["own"] and row["candidates"])):
             blockers.append({"code": f"source_{row['source']}", "doc_id": row["id"], "file": row["file"], "kind": "invoice"})
     left_over = left_over_rows(snap, scope_ids, wp_id)
     for row in left_over:
         blockers.append({"code": "decision_not_carried", "doc_id": row["statement_id"], "file": row["file"], "kind": "statement"})
     return {"workpackage_id": wp_id, "scope": sc, "lines": lines, "invoices": invoice_rows, "coverage": coverage,
             "left_over": left_over, "overview": reconcile_overview.build(lines, invoice_rows, result["repeats"]),
-            "blockers": blockers, "line_marks": list(_conf()["line_marks"]), "open": _open_refs(docs),
+            "blockers": blockers, "warnings": warnings, "approval": approval(wp_id),
+            "line_marks": list(_conf()["line_marks"]), "open": _open_refs(docs),
             "counts": {"lines": dict(sorted(Counter(ln["state"] for ln in lines).items())),
                        "invoices": dict(sorted(Counter(str(r["state"]) for r in invoice_rows if r["own"]).items())),
                        "other_invoices": sum(1 for r in invoice_rows if not r["own"]),
@@ -645,15 +689,68 @@ def left_over_rows(snap: dict[str, Any], scope_ids: set[str], wp_id: str) -> lis
     return out
 
 
-def _source_state(doc: dict[str, Any], approved: set[str]) -> str:
-    """approved: its run is approved; not_approved: a run not yet approved; no_run: an evaluation on the command line."""
+SOURCE_OK = ("approved", "accepted")  # 145: a source that does not block the approval
+
+
+def _source_state(doc: dict[str, Any], approved: set[str], accepted: set[tuple[str, str]] | frozenset = frozenset()) -> str:
+    """approved: its run is approved; not_approved: a run not yet approved; no_run: an evaluation on the command line;
+    145: accepted, such an evaluation's result a person accepted as a source."""
     run = doc.get("work_run")
-    return "no_run" if run is None else ("approved" if run in approved else "not_approved")
+    if run is None:
+        return "accepted" if (doc["id"], str(doc.get("flow_run_id"))) in accepted else "no_run"
+    return "approved" if run in approved else "not_approved"
+
+
+# --- 145: approved versions and accepted sources ---------------------------------------------------------------------
+
+
+def _version_meta(r: Any) -> dict[str, Any]:
+    return {k: r[k] for k in ("version", "fingerprint", "approved_by", "approved_at", "reopened_by", "reopened_at", "reopen_note")}
+
+
+def active_versions(c=None) -> dict[str, dict[str, Any]]:
+    """The approved versions not reopened, per package, with the lines they lock."""
+    if c is None:
+        with store.connect() as own:
+            return active_versions(own)
+    return {r["workpackage_id"]: {**_version_meta(r), "line_ids": json.loads(r["line_ids"])}
+            for r in c.execute("SELECT * FROM reconcile_versions WHERE reopened_at IS NULL ORDER BY id")}
+
+
+def approval(wp_id: str, c=None) -> dict[str, Any]:
+    """A package's approval: its active version (None while it has none) and every version, the latest first."""
+    if c is None:
+        with store.connect() as own:
+            return approval(wp_id, own)
+    versions = [_version_meta(r) for r in c.execute(
+        "SELECT * FROM reconcile_versions WHERE workpackage_id=? ORDER BY version DESC", (wp_id,))]
+    return {"active": next((v for v in versions if v["reopened_at"] is None), None), "versions": versions}
+
+
+def locks(snap: dict[str, Any] | None = None, c=None) -> dict[str, dict[str, Any]]:
+    """The locked lines: a line's id -> the package and version locking it; 139: the same line of a statement that
+    replaced a locked one is locked too (the decisions moved to it)."""
+    out: dict[str, dict[str, Any]] = {}
+    for wp_id, v in active_versions(c).items():
+        for lid in v["line_ids"]:
+            out.setdefault(lid, {"workpackage_id": wp_id, "version": v["version"]})
+    for old, new in ((snap or {}).get("line_map") or {}).items():
+        if old in out:
+            out.setdefault(new, out[old])
+    return out
+
+
+def accepted_sources(c=None) -> set[tuple[str, str]]:
+    """The command-line results a person accepted as a source: (document, its flow run)."""
+    if c is None:
+        with store.connect() as own:
+            return accepted_sources(own)
+    return {(r["doc_id"], r["flow_run_id"]) for r in c.execute("SELECT doc_id, flow_run_id FROM reconcile_source_acceptances")}
 
 
 def _decision_state(c=None) -> list[Any]:
-    """What a decision depends on having read: the allocations, marks and decisions recorded so far (for the
-    optimistic check of a write)."""
+    """What a decision depends on having read: the allocations, marks and decisions recorded so far, and (145) the
+    approvals (for the optimistic check of a write)."""
     if c is None:
         with store.connect() as own:
             return _decision_state(own)
@@ -661,6 +758,7 @@ def _decision_state(c=None) -> list[Any]:
     for table in ("reconcile_allocations", "reconcile_line_marks"):
         state.append(list(c.execute(f"SELECT COUNT(*), MAX(id), COUNT(revoked_at) FROM {table}").fetchone()))
     state.append(list(c.execute("SELECT COUNT(*), MAX(decided_at) FROM reconcile_decisions").fetchone()))
+    state.append(list(c.execute("SELECT COUNT(*), MAX(id), COUNT(reopened_at) FROM reconcile_versions").fetchone()))
     return state
 
 
@@ -677,8 +775,11 @@ def _write(read_state: list[Any], fn) -> Any:
 
 
 def _context(wp_id: str) -> dict[str, Any]:
+    """What a decision reads; 145: an approved package takes no decision until its version is reopened."""
     _package(wp_id)
     state = _decision_state()
+    if active := active_versions().get(wp_id):
+        raise Locked(f"the package's statement is approved (version {active['version']}); reopen it first")
     snap, sc = scoped_snapshot(wp_id)
     result = reconcile.propose(snap)
     prepared = reconcile.prepare(snap)
@@ -686,7 +787,15 @@ def _context(wp_id: str) -> dict[str, Any]:
             "scope_ids": set(snap["scope_statements"]), "invoices": {i["id"]: i for i in snap["invoices"]},
             "paid_line": {k: Decimal(v) for k, v in result["paid"]["lines"].items()},
             "paid_invoice": {k: Decimal(v) for k, v in result["paid"]["invoices"].items()},
-            "marks": {m["line_id"]: m for m in snap["marks"]}}
+            "marks": {m["line_id"]: m for m in snap["marks"]}, "locked": locks(snap)}
+
+
+def _unlocked(ctx: dict[str, Any], line_ids: Iterable[str]) -> None:
+    """145: refuses a decision on a line of an approved statement (of any package)."""
+    for lid in line_ids:
+        if lock := ctx["locked"].get(lid):
+            raise Locked(f"the line is in version {lock['version']} of an approved statement ({lock['workpackage_id']});"
+                         " reopen it first")
 
 
 def _scope_line(ctx: dict[str, Any], line_id: str) -> dict[str, Any]:
@@ -719,6 +828,7 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
         if inv["doc_type"] in _conf()["outgoing_types"]:
             raise PackageError("an outgoing invoice is not paid from an own account")
         line = _scope_line(ctx, lid)
+        _unlocked(ctx, [lid])
         if lid in ctx["marks"]:
             raise PackageError("the line is marked as needing no invoice; revoke the mark first")
         line_total, invoice_total = _money(line.get("amount")), _money(inv.get("amount"))
@@ -767,12 +877,13 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
 def accept_proposed(wp_id: str, *, actor: str) -> int:
     """Every unambiguous proposal of the scope at once: proposed, the only candidate of its line and its invoice, on a
     statement whose balances check out, the line booked in the period, the invoice the package's own (133: another
-    party's pair waits for a person). Returns how many were allocated."""
+    party's pair waits for a person), the line in no approved statement (145). Returns how many were allocated."""
     ctx = _context(wp_id)
     sc = ctx["scope"]
     who = _Parties(sc, ctx["invoices"])
     pairs = [{"invoice_doc_id": c["invoice_id"], "line_id": c["line_id"]} for c in ctx["result"]["candidates"]
              if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"] and who.own(c["invoice_id"])
+             and c["line_id"] not in ctx["locked"]
              and sc["period_start"] <= str(ctx["prepared"]["lines"][c["line_id"]].get("booking_date") or "")[:10] <= sc["period_end"]]
     if not pairs:
         return 0
@@ -790,6 +901,7 @@ def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: s
     if inv is None:
         raise KeyError(invoice_doc_id)
     line = _scope_line(ctx, line_id)
+    _unlocked(ctx, [line_id])
     if any(a["invoice_id"] == invoice_doc_id and a["line_id"] == line_id for a in ctx["result"]["confirmed"]):
         raise PackageError("the pair is allocated; revoke the allocation first")
     key = reconcile.pair_key(invoice_doc_id, line_id)
@@ -826,6 +938,7 @@ def mark(wp_id: str, line_ids: Iterable[str], *, category: str, note: str | None
         raise PackageError("this reason needs a note")
     ctx = _context(wp_id)
     lines = [_scope_line(ctx, lid) for lid in ids]
+    _unlocked(ctx, ids)
     if any(ctx["paid_line"].get(lid) for lid in ids):
         raise PackageError("a line has an allocation; revoke it first")
 
@@ -851,6 +964,7 @@ def unmark(wp_id: str, line_ids: Iterable[str], *, actor: str) -> int:
     ctx = _context(wp_id)
     for lid in ids:
         _scope_line(ctx, lid)
+    _unlocked(ctx, ids)
     marked = [ctx["marks"][lid]["id"] for lid in ids if lid in ctx["marks"]]
     if not marked:
         raise PackageError("none of the lines is marked")
@@ -882,6 +996,7 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
     left = {(r["kind"], r["ref"]) for r in left_over_rows(ctx["snap"], ctx["scope_ids"], wp_id)}
     if (kind, str(ref)) not in left:
         _scope_line(ctx, ctx["snap"].get("line_map", {}).get(row["line_id"], row["line_id"]))
+    _unlocked(ctx, [row["line_id"], ctx["snap"].get("line_map", {}).get(row["line_id"], row["line_id"])])
     if kind == "decision" and row["run_id"] and work.approved_runs([row["run_id"]]):
         raise work.RevisionConflict("the pair was decided in an approved run; the decision is frozen")
 
@@ -1022,8 +1137,9 @@ def package_view(wp_id: str) -> dict[str, Any]:
     the readiness, and the next step."""
     ws = workspace(wp_id)
     blockers = [{"code": b["code"], "message": b["file"] or b["doc_id"][:12]} for b in ws["blockers"]]
-    return {"scope": ws["scope"], "counts": ws["counts"], "coverage": ws["coverage"],
-            "readiness": {"workpackage_id": wp_id, "ready": bool(ws["lines"]), "blockers": blockers, "warnings": [],
+    warnings = [{"code": w["code"], "message": w["file"] or w["doc_id"][:12]} for w in ws["warnings"]]
+    return {"scope": ws["scope"], "counts": ws["counts"], "coverage": ws["coverage"], "approval": ws["approval"],
+            "readiness": {"workpackage_id": wp_id, "ready": bool(ws["lines"]), "blockers": blockers, "warnings": warnings,
                           "counts": {"items": 0, "lines": len(ws["lines"]), "invoices": len(ws["invoices"])}},
             "next": next_step(ws)}
 
@@ -1033,6 +1149,8 @@ def next_step(ws: dict[str, Any]) -> dict[str, Any]:
     def step(code: str, label: str, stage: str, **params: Any) -> dict[str, Any]:
         return {"code": code, "label": label, "stage": stage, "params": params}
 
+    if active := (ws.get("approval") or {}).get("active"):  # 145
+        return step("reconcile_approved", f"Approved: version {active['version']}", "result", version=active["version"])
     if not ws["lines"]:
         return step("reconcile_empty", "No statement line in the scope", "process")
     if ws["counts"]["open_lines"]:
@@ -1041,8 +1159,9 @@ def next_step(ws: dict[str, Any]) -> dict[str, Any]:
 
 
 def _delete_guard(c, wp_id: str) -> None:
-    """A reconciliation package with decisions made in it can only be hidden (the decisions refer to it)."""
-    for table in ("reconcile_allocations", "reconcile_line_marks", "reconcile_decisions"):
+    """A reconciliation package with decisions made in it, or (145) an approved version, can only be hidden (they refer
+    to it)."""
+    for table in ("reconcile_allocations", "reconcile_line_marks", "reconcile_decisions", "reconcile_versions"):
         if c.execute(f"SELECT 1 FROM {table} WHERE workpackage_id=? LIMIT 1", (wp_id,)).fetchone() is not None:
             raise work.NotReady("a reconciliation package with decisions can only be archived",
                                 [{"code": "has_decisions", "message": "The package has decisions: it can only be hidden."}])
