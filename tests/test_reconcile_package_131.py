@@ -101,12 +101,13 @@ def test_the_workspace_shows_the_periods_lines_the_invoices_and_the_blockers(db)
     assert stmt
 
 
-def test_an_approved_source_is_no_blocker_and_an_unverified_statement_is(db):
+def test_an_approved_source_is_no_blocker_and_an_unverified_statement_is_a_warning(db):
     k2._run(k2.RUN, ["inv", "stmt"], approved=True)
     k2._save("inv", k2._invoice(), run_id=k2.RUN)
     _stmt("stmt", _line(), run_id=k2.RUN, verified=False)
     ws = rp.workspace(_package())
-    assert [b["code"] for b in ws["blockers"]] == ["statement_unverified"]
+    # 145 (DECISIONS 132): a statement whose balances do not check out warns, it does not block the approval
+    assert ws["blockers"] == [] and [w["code"] for w in ws["warnings"]] == ["statement_unverified"]
 
 
 # --- allocations ---------------------------------------------------------------------------------------------------------

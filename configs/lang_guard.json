@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.34",
+    "version": "1.0.35",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.35",
+        "date": "2026-10-11",
+        "note": "145: accept the Hungarian labels of the reconciliation statement's Excel download (configs/reports.json reconcile_statement; display vocabulary, like the field names)."
+      },
       {
         "version": "1.0.34",
         "date": "2026-10-11",
@@ -271,7 +276,7 @@
     "configs/policy.json": 3,
     "configs/recipe_help.json": 49,
     "configs/recipes.json": 52,
-    "configs/reports.json": 5,
+    "configs/reports.json": 54,
     "configs/service.json": 7,
     "configs/statement_tables.json": 81,
     "configs/types/_base/utility_bill_hu.json": 3,
