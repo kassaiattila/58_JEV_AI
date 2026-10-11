@@ -310,7 +310,8 @@ export interface DuplicatePair {
 export type ReconcileSignal = "invoice_number" | "reference" | "supplier_account" | "supplier_name" | "supplier_name_fuzzy"
   | "payment_channel" | "learned_name";
 /** 130: how the amounts of a pair relate; the fx ones are a card line against an invoice of another currency. */
-export type ReconcileRelation = "equal" | "different" | "fx_within" | "fx_outside" | "no_rate";
+/** 141: combined - one of the invoices a line's memo names, whose amounts together are the line's */
+export type ReconcileRelation = "equal" | "different" | "fx_within" | "fx_outside" | "no_rate" | "combined";
 /** 130: a card pair's conversion at the MNB rate of the invoice's issue date (deviation: the line's, as a fraction). */
 export interface ReconcileFx { rate: string; rate_day: string; source: string; converted: string; deviation: string }
 
@@ -337,6 +338,8 @@ export interface ReconcileCandidate {
   strength?: number; days_after_issue?: number | null; by_due?: boolean;
   /** 137: compared on the card purchase's original amount, as the bank printed it */
   original?: { amount: string; currency: string } | null;
+  /** 141: a combined payment's invoices, in the order of issue */
+  combined?: string[] | null;
 }
 /** An allocation of a line's amount to an invoice; `allocation_id` null: a confirmation from the review page (129). */
 export interface ReconcileShare {
@@ -407,6 +410,7 @@ export interface ReconcileInvoice {
   source: "approved" | "not_approved" | "no_run";
   party?: (PartyRef & { how: PartyHow }) | null; // 133: the buyer's own party; none: no party claims it
   own?: boolean; // 133: the package's party's or no party's (listed by default); false: another party's
+  credited_by?: { id: string; number: string | null } | null; // 141: the credit note that cancels it
 }
 /** Where a document's image opens: the package, run and item of its work run (none for a command-line evaluation). */
 export interface ReconcileOpen { workpackage_id: string; run_id: string; item_id: string; pages: number | null }

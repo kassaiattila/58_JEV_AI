@@ -89,6 +89,24 @@ be proposed (status `partly_paid` when nothing fits the rest); a converted card 
 person marked as needing no invoice (`reconcile_line_marks`) takes part in nothing. A package's scope
 (`scope_statements`) limits the lines and the coverage, never the amounts allocated so far.
 
+**The sports club's gaps** (141, DECISIONS 141): the club's statements and invoices showed four, each closed by code.
+
+- A **combined payment**: a line whose memo names two or more invoices (their number signal) whose amounts left add up to
+  the line's amount left exactly proposes them together (`amount_relation: combined`, `combined`: the group's invoices
+  in the order of issue, at most `combined.max_invoices`); the group counts as one proposal of its line, so accepting the
+  unambiguous proposals allocates it whole. A line with a proposal of its own makes no group.
+- A **credit note** (a negative invoice) that cancels exactly one eligible invoice of its supplier (the same supplier,
+  currency and amount, issued on or before it) settles that invoice: status `credited` (`credited_by`), no candidate is
+  listed for it, and the credit note is excluded as `credit_note` (`credits`). Not when two invoices could be meant, when
+  anything was allocated to the invoice, or when a line naming the invoice's number is proposed for it (it was paid; a
+  refund may follow).
+- A line booked more than `proposal.unnamed_days_before_issue` days before an invoice's issue date is its candidate
+  only with the invoice's number or a reference in the memo (an advance payment); without one it paid the previous
+  month of a recurring bill.
+- A line whose memo names an invoice (number or reference) proposes no other invoice, and such an invoice is proposed
+  on no other line: the rest stay listed candidates for a person. An invoice whose candidates all stay unproposed this
+  way gets its coverage status, not `amount_differs`.
+
 Reuse: ported selectively from the legacy project's `orchestrator/framework/payables.py` 0.1.1 (10_AIFLOW_V4, HEAD
 4256cba): `normalize`, `account_key`, the canonical money rule, the reason-coded exclusions, the three signals, "an equal
 amount alone is no candidate" and the multiple-candidates flag; its 12 synthetic cases are rewritten in the golden file.
@@ -113,10 +131,11 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.8.0"  # 139: one valid statement per account and day (jav/statement_months.py)
-STATUSES = ("confirmed", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing", "no_payment_found",
-            "partly_covered", "not_covered", "excluded")
-RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate")  # how a candidate's amounts relate
+ENGINE_VERSION = "1.9.0"  # 141: combined payments, credit notes, cleaner proposals
+STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
+            "no_payment_found", "partly_covered", "not_covered", "excluded")
+RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate", "combined")  # how a candidate's amounts relate
+NAMED_SIGNALS = frozenset({"invoice_number", "reference"})  # 141: the line's memo names the invoice
 DECISIONS = ("paid_by", "not_this")
 SIGNALS = ("invoice_number", "reference", "supplier_account", "supplier_name", "supplier_name_fuzzy", "payment_channel",
            "learned_name")
@@ -373,9 +392,13 @@ def _payments(statements: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]
     return _ids(rows, "line")
 
 
+def _supplier_key(invoice: dict[str, Any]) -> str:
+    return fact_checks.tax_party_key(invoice.get("supplier_tax_id")) or normalize(invoice.get("supplier_name"))
+
+
 def _identity(invoice: dict[str, Any]) -> tuple[str, str, str] | None:
     number = duplicates.number_key(invoice.get("number"))
-    supplier = fact_checks.tax_party_key(invoice.get("supplier_tax_id")) or normalize(invoice.get("supplier_name"))
+    supplier = _supplier_key(invoice)
     if not number or not supplier or not invoice.get("currency"):
         return None
     return supplier, number, str(invoice["currency"])
@@ -405,7 +428,7 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
         if ident and inv.get("duplicate") is None:  # a person's duplicate decision settles the pair
             identities[ident].append(key)
     clashing = {k for keys in identities.values() if len(keys) > 1 for k in keys}
-    eligible_invoices, eligible_payments, excluded = {}, {}, []
+    eligible_invoices, eligible_payments, excluded, credit_notes = {}, {}, [], {}
     for key, inv in sorted(invoices.items()):
         reason = _amount_reason(inv.get("amount"))
         if inv.get("currency") not in currencies:
@@ -420,6 +443,8 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             reason = "duplicate_undecided"
         if reason:
             excluded.append({"kind": "invoice", "id": key, "reason": reason})
+            if reason == "non_positive_amount" and money(str(inv["amount"])) < 0 and _supplier_key(inv):
+                credit_notes[key] = inv  # 141: it may cancel an invoice of its supplier (`_credited`)
         else:
             eligible_invoices[key] = inv
     for key, pay in sorted(payments.items()):
@@ -440,7 +465,23 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             eligible_payments[key] = pay
     return {"invoices": eligible_invoices, "payments": eligible_payments, "excluded": excluded,
             "statements": statements, "own_accounts": sorted(own_accounts), "lines": payments,
-            "common_words": common_words(invoices.values(), payments.values())}
+            "common_words": common_words(invoices.values(), payments.values()), "credit_notes": credit_notes}
+
+
+def _credited(prepared: dict[str, Any], paid_invoice: dict[str, Decimal]) -> dict[str, str]:
+    """141: the invoices a credit note cancels: {invoice: credit note}. A credit note cancels an invoice of its supplier,
+    currency and exact amount, issued on or before it, when exactly one such eligible invoice has nothing allocated
+    and no other credit note took it."""
+    out: dict[str, str] = {}
+    for cid, note in sorted(prepared["credit_notes"].items()):
+        issued, amount = _date(note.get("issue_date")), -money(str(note["amount"]))
+        matches = [iid for iid, inv in sorted(prepared["invoices"].items())
+                   if iid not in out and not paid_invoice.get(iid) and _supplier_key(inv) == _supplier_key(note)
+                   and inv.get("currency") == note.get("currency") and money(str(inv["amount"])) == amount
+                   and issued is not None and _date(inv["issue_date"]) <= issued]
+        if len(matches) == 1:
+            out[matches[0]] = cid
+    return out
 
 
 Settled = tuple[set[tuple[str, str]], list[dict[str, Any]], dict[str, Decimal], dict[str, Decimal]]
@@ -723,6 +764,38 @@ def covered_by(periods: list[tuple[date, date]], start: date, end: date) -> str:
     return "partial" if any(a <= end and start <= b for a, b in periods) else "none"
 
 
+def _named_first(candidates: list[dict[str, Any]]) -> None:
+    """141: a line whose memo names a proposed invoice proposes no other, and a named invoice is proposed on no other
+    line; those pairs stay listed candidates for a person."""
+    named = [c for c in candidates if c["proposed"] and NAMED_SIGNALS & set(c["signals"])]
+    lines, invoices = {c["line_id"] for c in named}, {c["invoice_id"] for c in named}
+    for c in candidates:
+        if c["proposed"] and not NAMED_SIGNALS & set(c["signals"]) and (c["line_id"] in lines or c["invoice_id"] in invoices):
+            c["proposed"] = False
+
+
+def _combine(candidates: list[dict[str, Any]], prepared: dict[str, Any], rest_invoice: dict[str, Decimal],
+             rest_line: dict[str, Decimal]) -> None:
+    """141: a line without a proposal whose memo names two or more invoices of its currency whose amounts left add up
+    to the line's amount left exactly proposes them together, in the order of issue."""
+    limit = int(_conf()["combined"]["max_invoices"])
+    by_line: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for c in candidates:
+        by_line[c["line_id"]].append(c)
+    for lid, mine in sorted(by_line.items()):
+        if any(c["proposed"] for c in mine):
+            continue
+        group = [c for c in mine if "invoice_number" in c["signals"] and c["amount_relation"] == "different"
+                 and c["currency"] == c["line_currency"]]
+        if not 2 <= len(group) <= limit or sum(rest_invoice[c["invoice_id"]] for c in group) != rest_line[lid]:
+            continue
+        group.sort(key=lambda c: (str(prepared["invoices"][c["invoice_id"]].get("issue_date")), c["invoice_id"]))
+        ids = [c["invoice_id"] for c in group]
+        for c in group:
+            c.update(proposed=True, amount_relation="combined", combined=ids,
+                     **strength(prepared["invoices"][c["invoice_id"]], prepared["payments"][lid], c["signals"], "combined"))
+
+
 def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     """The proposal for a snapshot: candidate pairs, exclusions, every invoice's status and the unpaired lines. The
     snapshot's `decisions` (a person's `paid_by` / `not_this` per invoice and line) and `allocations` settle their
@@ -741,6 +814,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     paid_lines = {pid for pid, rest in rest_line.items() if rest <= 0}
     rates = snapshot.get("fx_rates") or {}
     amount_only = bool(_conf()["amount_only"]["enabled"])
+    unnamed_days = int(_conf()["proposal"]["unnamed_days_before_issue"])
     candidates = []
     for pid, pay_whole in sorted(prepared["payments"].items()):
         if pid in paid_lines or pid in marked or pay_whole["statement_id"] not in scope:
@@ -765,32 +839,40 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
                 continue  # a payment app pays many bills, a loose name is no proof: alone they tie no other amount (131, 134)
             if not found and not (amount_only and relation == "equal"):
                 continue  # a converted amount alone ties nothing; an equal one is only listed for a person (131)
+            tie = strength(inv, pay, found, relation)
+            if not NAMED_SIGNALS & set(found) and tie["days_after_issue"] is not None and tie["days_after_issue"] < -unnamed_days:
+                continue  # 141: well before the issue date, only a line naming the invoice is an advance payment
             candidate = {"line_id": pid, "invoice_id": iid, "statement_id": pay["statement_id"], "currency": inv["currency"],
                          "line_currency": pay["currency"], "amount_relation": relation,
                          "proposed": bool(found) and relation in ("equal", "fx_within"), "amount_only": not found,
-                         "signals": found, "source_review_required": not pay["statement_verified"],
-                         **strength(inv, pay, found, relation)}
+                         "signals": found, "source_review_required": not pay["statement_verified"], **tie}
             if conversion is not None:
                 candidate["fx"] = conversion
             if how == "original":  # 137: compared on the card purchase's original amount
                 orig = original(pay)
                 candidate["original"] = {"amount": f"{orig[1]:.2f}", "currency": orig[0]} if orig else None
             candidates.append(candidate)
+    _named_first(candidates)
+    named_paid = {c["invoice_id"] for c in candidates if c["proposed"] and NAMED_SIGNALS & set(c["signals"])}
+    credited = {iid: cid for iid, cid in _credited(prepared, paid_invoice).items() if iid not in named_paid}
+    candidates = [c for c in candidates if c["invoice_id"] not in credited]  # 141: a cancelled invoice needs no payment
+    _combine(candidates, prepared, rest_invoice, rest_line)
     proposed_lines = {c["line_id"] for c in candidates if c["proposed"]}
     proposed_invoices = {c["invoice_id"] for c in candidates if c["proposed"]}
     candidates = [c for c in candidates if not c["amount_only"]
                   or (c["line_id"] not in proposed_lines and c["invoice_id"] not in proposed_invoices)]
-    per_line, per_invoice = defaultdict(int), defaultdict(int)
+    per_line: dict[str, set[str]] = defaultdict(set)  # 141: a combined group is one proposal of its line
+    per_invoice = defaultdict(int)
     open_line, open_invoice = defaultdict(int), defaultdict(int)  # the pairs waiting for a person: proposed or equal amount
     for c in candidates:
         if c["proposed"]:
-            per_line[c["line_id"]] += 1
+            per_line[c["line_id"]].add("combined" if c.get("combined") else c["invoice_id"])
             per_invoice[c["invoice_id"]] += 1
         if c["proposed"] or c["amount_only"]:
             open_line[c["line_id"]] += 1
             open_invoice[c["invoice_id"]] += 1
     for c in candidates:
-        c["multiple_candidates"] = ((c["proposed"] and (per_line[c["line_id"]] > 1 or per_invoice[c["invoice_id"]] > 1))
+        c["multiple_candidates"] = ((c["proposed"] and (len(per_line[c["line_id"]]) > 1 or per_invoice[c["invoice_id"]] > 1))
                                     or (c["amount_only"] and (open_line[c["line_id"]] > 1 or open_invoice[c["invoice_id"]] > 1)))
     in_scope = {k: st for k, st in prepared["statements"].items() if k in scope}
     periods = coverage(in_scope)
@@ -825,15 +907,17 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             cover += [c for key in sorted(card_accounts) if (c := covered(key, fx_start, fx_end)) is not None]
         if iid in paid_invoices:
             status = "confirmed"
+        elif iid in credited:
+            status = "credited"  # 141: its credit note cancels it
         elif any(c["proposed"] for c in mine):
             status = "proposed"
         elif len(signed) < len(mine):
             status = "amount_only"
         elif iid in paid_invoice:
             status = "partly_paid"  # 131: part of it is allocated, nothing proposed for the rest
-        elif any(c["amount_relation"] != "no_rate" for c in signed):
-            status = "amount_differs"
-        elif signed:
+        elif any(c["amount_relation"] not in ("no_rate", "equal", "fx_within") for c in signed):
+            status = "amount_differs"  # 141: an equal pair left unproposed (another invoice is named) is no difference
+        elif any(c["amount_relation"] == "no_rate" for c in signed):
             status = "rate_missing"
         elif cover and all(c == "full" for c in cover):
             status = "no_payment_found"
@@ -841,8 +925,12 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             status = "partly_covered"
         else:
             status = "not_covered"
-        statuses.append({"invoice_id": iid, "status": status, "window": [start.isoformat(), end.isoformat()]})
-    for e in prepared["excluded"]:
+        row = {"invoice_id": iid, "status": status, "window": [start.isoformat(), end.isoformat()]}
+        statuses.append({**row, "credited_by": credited[iid]} if iid in credited else row)
+    credits = {cid: iid for iid, cid in credited.items()}
+    excluded = [{**e, "reason": "credit_note", "credits": credits[e["id"]]} if e["kind"] == "invoice" and e["id"] in credits else e
+                for e in prepared["excluded"]]
+    for e in excluded:
         if e["kind"] == "invoice":
             statuses.append({"invoice_id": e["id"], "status": "excluded", "reason": e["reason"]})
     paired = {c["line_id"] for c in candidates if c["proposed"]} | paid_lines | set(marked)
@@ -851,7 +939,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     below, above = policy.reconcile_fx_tolerance()
     return {"engine_version": ENGINE_VERSION, "config_hash": config_hash(), "fx_tolerance": [str(below), str(above)],
             "candidates": candidates, "learned_names": len(learned),
-            "confirmed": confirmed, "excluded": prepared["excluded"],
+            "confirmed": confirmed, "excluded": excluded,
             "invoices": sorted(statuses, key=lambda s: s["invoice_id"]),
             "unpaired_line_ids": sorted(p for p, pay in prepared["payments"].items() if p not in paired and pay["statement_id"] in scope),
             "marked": sorted([lid, cat] for lid, cat in marked.items()),

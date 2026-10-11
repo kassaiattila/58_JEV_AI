@@ -27,6 +27,7 @@ export const EXCLUDED: Record<string, string> = tmap({
 /** The invoice's state in the pairing (jav/reconcile.py STATUSES). */
 export const INVOICE_STATE: Record<string, string> = tmap({
   confirmed: "Paid",
+  credited: "Cancelled by a credit note",
   proposed: "Proposed pair",
   amount_only: "Same amount only",
   partly_paid: "Partly paid",
@@ -91,6 +92,7 @@ export function relationText(relation: ReconcileRelation | null): string {
     case "fx_outside": return t("converted amount outside the card band");
     case "no_rate": return t("no exchange rate for the issue date");
     case "different": return t("different amount");
+    case "combined": return t("with the other named invoices, the line's amount");
     default: return "";
   }
 }

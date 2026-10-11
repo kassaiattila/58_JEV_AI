@@ -177,7 +177,12 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
     setMode((m) => (m === "keys" ? m : null));
   }
 
-  const toggleInvoice = (id: string) => setSelInvoices((sel) => (sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]));
+  const toggleInvoice = (id: string) => setSelInvoices((sel) => {
+    if (sel.includes(id)) return sel.filter((x) => x !== id);
+    // 141: an invoice of a combined payment brings its whole group, in the order of issue
+    const group = activeLine ? candidateOf(activeLine, id)?.combined ?? null : null;
+    return group ? [...sel, ...group.filter((g) => !sel.includes(g))] : [...sel, id];
+  });
 
   async function act(fn: () => Promise<ReconcileWorkspace>, opts: { advance?: boolean; done?: string } = {}) {
     if (busy) return;
@@ -578,7 +583,7 @@ function InvoiceRow({ invoice, candidate, index, selected, onToggle, readOnly, s
           ) : null}
           {candidate ? (
             <span className="rc-sigs">
-              {candidate.amount_relation ? <span className={`rc-sig ${candidate.amount_relation === "equal" || candidate.amount_relation === "fx_within" ? "good" : "warn"}`}>{relationText(candidate.amount_relation)}</span> : null}
+              {candidate.amount_relation ? <span className={`rc-sig ${["equal", "fx_within", "combined"].includes(candidate.amount_relation) ? "good" : "warn"}`}>{relationText(candidate.amount_relation)}</span> : null}
               {candidate.signals.map((s) => <span key={s} className="rc-sig good">{SIGNAL[s] ?? s}</span>)}
               {candidate.amount_only ? <span className="rc-sig warn">{t("nothing else ties them")}</span> : null}
               {candidate.multiple_candidates ? <span className="rc-sig warn">{t("several candidates")}</span> : null}
@@ -590,6 +595,7 @@ function InvoiceRow({ invoice, candidate, index, selected, onToggle, readOnly, s
         </span>
         <span className="rc-side">
           <span className={`rc-state s-${invoice.state ?? "none"}`}>{INVOICE_STATE[invoice.state ?? ""] ?? invoice.state ?? "–"}</span>
+          {invoice.credited_by ? <span className="small muted">{t("credit note: {{number}}", { number: invoice.credited_by.number ?? "–" })}</span> : null}
           {partly ? <span className="small muted">{t("left: {{amount}}", { amount: show(invoice.rest, invoice.currency) })}</span> : null}
           {invoice.source !== "approved" ? <span className="small muted">{invoice.source === "no_run" ? t("command line") : t("run not approved")}</span> : null}
           {invoice.own === false && invoice.party ? <span className="rc-sig warn">{t("Other party: {{party}}", { party: invoice.party.name })}</span> : null}

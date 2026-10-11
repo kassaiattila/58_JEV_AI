@@ -22,7 +22,7 @@ import re
 from collections import OrderedDict
 from dataclasses import dataclass, field
 
-from jav.dates import document_date_order, find_dates_in
+from jav.dates import document_date_order, document_short_order, find_dates_in
 from jav.models import (
     DATE_NUMERIC_RE,
     Candidate,
@@ -443,11 +443,13 @@ def _label_spans(ln: LineLayout, label_re: re.Pattern[str]) -> list[tuple[int, i
 def find_dates(lines: list[LineLayout], work: list[str], profile: Profile = HU) -> list[Candidate]:
     """084: every date of every line by the shared date reader (`jav/dates.py`), on every profile, with the document's
     own day/month order; a date whose day and month can be read two ways is a flagged candidate (picking it gives a
-    to-do). A range like "11/25/2022 - 12/25/2022" stays two dates: the reader never lets one date overlap another."""
+    to-do). A range like "11/25/2022 - 12/25/2022" stays two dates: the reader never lets one date overlap another.
+    141: a document printing its two-digit-year dates year first ("26.06.24") has them read so, on every profile."""
     order = document_date_order(ln.text for ln in lines)
+    short_order = document_short_order(ln.text for ln in lines)
     bucket = _Bucket("date")
     for i in range(len(lines)):
-        for h in find_dates_in(work[i], order=order, ocr=profile.ocr_dates):
+        for h in find_dates_in(work[i], order=order, ocr=profile.ocr_dates, short_order=short_order):
             if h.short and h.ambiguous and not profile.short_dates:
                 continue
             bucket.add(h.value.isoformat(), h.raw, lines, i, ambiguous=h.ambiguous)
