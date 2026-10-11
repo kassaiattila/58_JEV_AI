@@ -573,7 +573,11 @@ def _workspace(wp_id: str) -> dict[str, Any]:
         if not st.get("verified"):  # DECISIONS 132: a warning in the statement, not a blocker
             warnings.append({"code": "statement_unverified", "doc_id": st["id"], "file": files.get(st["id"]), "kind": "statement"})
     for row in invoice_rows:
-        if row["source"] not in SOURCE_OK and (row["allocations"] or (row["own"] and row["candidates"])):
+        # DECISIONS 145: an invoice of no own party (every package's own, 133) or of another party blocks only once a
+        # line of this package paid it; the package party's own invoice also with a candidate or a payment elsewhere
+        paid_here = any(a["line_id"] in line_ids for a in row["allocations"])
+        mine = row["own"] and row["party"] is not None
+        if row["source"] not in SOURCE_OK and (paid_here or (mine and (row["allocations"] or row["candidates"]))):
             blockers.append({"code": f"source_{row['source']}", "doc_id": row["id"], "file": row["file"], "kind": "invoice"})
     left_over = left_over_rows(snap, scope_ids, wp_id)
     for row in left_over:

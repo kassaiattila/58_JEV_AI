@@ -237,7 +237,9 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
     before the approval, the version and who approved it after). Money is written as numbers, the header row is filtered and
     stays in place when scrolling.
   - **What blocks the approval:** a source document whose run is not approved (approve that run first), or a decision not
-    carried over. A document processed on the command line belongs to no run: **Accept N command-line documents as
+    carried over. An invoice counts when a line of this package paid it; the package party's own invoice also when it
+    has a candidate here or was paid elsewhere. An invoice of no own party, or another party's invoice paid in another
+    package, does not block. A document processed on the command line belongs to no run: **Accept N command-line documents as
     sources** (*N parancssori irat elfogadása forrásnak*) records your name and the time; when the document is processed
     again, its new result has to be accepted again. Open lines do not block the approval: the summary lists them.
   - **Approve the reconciliation** (*Az egyeztetés jóváhagyása*; click twice to confirm): records the summary you see as an

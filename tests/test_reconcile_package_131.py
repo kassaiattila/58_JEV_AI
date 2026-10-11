@@ -95,7 +95,8 @@ def test_the_workspace_shows_the_periods_lines_the_invoices_and_the_blockers(db)
     assert (line["state"], line["rest"], line["file"], line["statement_verified"]) == ("proposed", "100.00", "stmt.pdf", True)
     assert line["candidates"][0]["invoice_id"] == inv and line["candidates"][0]["signals"] == ["invoice_number", "supplier_account", "supplier_name"]
     assert [i["id"] for i in ws["invoices"]] == [inv]  # an invoice whose window misses the period is not listed
-    assert {(b["code"], b["kind"]) for b in ws["blockers"]} == {("source_no_run", "statement"), ("source_no_run", "invoice")}
+    # DECISIONS 145: the invoice belongs to no own party, so only a payment by the package's line makes it a blocker
+    assert {(b["code"], b["kind"]) for b in ws["blockers"]} == {("source_no_run", "statement")}
     assert ws["coverage"] == [{"account": OWN_KEY, "month": "2026-04", "statements": 1, "verified": 1}]
     assert ws["counts"]["open_lines"] == 1 and ws["line_marks"][0] == "private"
     assert stmt
