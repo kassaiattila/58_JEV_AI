@@ -27,7 +27,7 @@ from typing import Any, Callable
 
 from burr.integrations.serde import pydantic as burr_pydantic
 
-from jav import app_settings, isolated_pdf, mailbox, pdf, store, work
+from jav import app_settings, isolated_pdf, mailbox, pdf, store, work, workflows
 from jav.runtime import applog, calls, lock, pdf_status, persistence, queue
 from jav.runtime.persistence import ClosingSQLitePersister
 
@@ -446,7 +446,9 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
                 break
             # 048 T2: a download job for each due mailbox schedule; 057: scan the watched work folders that are due.
             # 063: a scheduler error does not stop the worker (the error is logged and retried in the next round).
-            for name, tick in (("mailbox.tick", mailbox.tick), ("folders.tick", app_settings.tick)):
+            # 146: the workflows' automatic chain moves on (at most every workflows.TICK_EVERY_S)
+            for name, tick in (("mailbox.tick", mailbox.tick), ("folders.tick", app_settings.tick),
+                               ("workflows.tick", workflows.tick)):
                 try:
                     tick()
                 except Exception:  # noqa: BLE001 - operational safety net, logged

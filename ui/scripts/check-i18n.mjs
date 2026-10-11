@@ -110,6 +110,15 @@ export function serverKeys() {
   const bf = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "bank_files.json"), "utf8"));
   for (const v of [bf.intro, ...Object.values(bf.read_by ?? {}), ...Object.values(bf.checks ?? {}), ...(bf.not_read ?? [])]) if (v) keys.add(v);
   for (const f of bf.files ?? []) for (const v of [f.bank, f.statement, ...(f.formats ?? []), ...(f.notes ?? [])]) if (v) keys.add(v);
+  // 146: the new work wizard's groups, kinds and templates (configs/workflows.json)
+  const wf = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "workflows.json"), "utf8"));
+  if (wf.intro) keys.add(wf.intro);
+  for (const g of wf.groups ?? []) for (const v of [g.title, g.description]) if (v) keys.add(v);
+  for (const k of Object.values(wf.kinds ?? {})) for (const v of [k.title, k.description, k.cost]) if (v) keys.add(v);
+  for (const tp of wf.templates ?? []) {
+    for (const v of [tp.title, tp.description]) if (v) keys.add(v);
+    for (const s of tp.steps ?? []) if (s.title) keys.add(s.title);
+  }
   return keys;
 }
 

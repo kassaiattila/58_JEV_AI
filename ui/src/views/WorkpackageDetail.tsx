@@ -122,6 +122,11 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
       {workpackage.status === "archived" ? (
         <p className="notice">{t("Ez a csomag el van rejtve a listából; a futásai és az eredményei megmaradtak. Visszahozni a „Csomag kezelése” gombbal lehet.")}</p>
       ) : null}
+      {view.workflow ? (
+        // 146: the workflow the package is a step of, with a link to its control view
+        <p className="small wf-of">{t("Step {{step}} of the workflow", { step: t(view.workflow.step_title) })}{" "}
+          <a href={`#/workflows/${encodeURIComponent(view.workflow.id)}`}>{view.workflow.name}</a></p>
+      ) : null}
       <div className="stage-tabs" role="tablist" aria-label={t("A csomag szakaszai")}>
         {(Object.keys(labels) as Stage[]).map((s, i) => (
           <a key={s} role="tab" aria-selected={stage === s} className={`stage-tab ${next.stage === s ? "is-next" : ""}`} href={`#/workpackages/${wpId}/${s}`}>

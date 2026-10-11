@@ -16,6 +16,8 @@ export interface StartRequest { mode: "shadow" | "apply"; rerun: boolean }
 export type Route =
   | { view: "workpackages"; wpId?: string; stage?: Stage; itemId?: string; table?: ResultTable; runId?: string; start?: StartRequest }
   | { view: "run"; runId: string }
+  /** 146: the workflows (the work packages of one job, chained): the list, the new work wizard, a control view */
+  | { view: "workflows"; wfId?: string; create?: boolean }
   | { view: "settings"; section: SettingsSection }
   /** 061: the selected person's actions on a day („Mai munkám” (My work today)); without a day, today's */
   | { view: "activity"; day?: string }
@@ -46,6 +48,9 @@ export function parseRoute(hash: string): Route {
     }
     case "runs":
       return parts[1] ? { view: "run", runId: parts[1] } : { view: "settings", section: "system" };
+    case "workflows":
+      if (parts[1] === "new") return { view: "workflows", create: true };
+      return parts[1] ? { view: "workflows", wfId: parts[1] } : { view: "workflows" };
     case "reports":
       return { view: "legacy-result", runId: parts[1], table: "utility" };
     case "data":
@@ -76,6 +81,7 @@ export function routeHash(r: Route): string {
     case "settings": return `#/settings/${r.section}`;
     case "activity": return r.day ? `#/activity?day=${r.day}` : "#/activity";
     case "run": return `#/runs/${e(r.runId)}`;
+    case "workflows": return r.create ? "#/workflows/new" : r.wfId ? `#/workflows/${e(r.wfId)}` : "#/workflows";
     case "legacy-result": return r.runId ? `#/reports/${e(r.runId)}` : "#/reports";
     case "workpackages": {
       if (!r.wpId) return "#/workpackages";

@@ -1,9 +1,24 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.37",
+    "version": "1.0.40",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.40",
+        "date": "2026-10-11",
+        "note": "146: accept the Hungarian interface labels the user guide quotes for the new work wizard and the workflows (docs/guides/USER_GUIDE.md 4, 4.1)."
+      },
+      {
+        "version": "1.0.39",
+        "date": "2026-10-11",
+        "note": "146: the documents form moved out of the new work package form into its own file (ui/src/views/DocumentsCreate.tsx) with its Hungarian source labels; ui/src/views/Workpackages.tsx has them no more."
+      },
+      {
+        "version": "1.0.38",
+        "date": "2026-10-11",
+        "note": "146: accept the Hungarian column of the three workflow glossary entries (docs/GLOSSARY.md)."
+      },
       {
         "version": "1.0.37",
         "date": "2026-10-11",
@@ -317,7 +332,7 @@
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 256,
+    "docs/GLOSSARY.md": 257,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 10,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -327,7 +342,7 @@
     "docs/flows/invoice/FLOW.md": 17,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 217,
+    "docs/guides/USER_GUIDE.md": 221,
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
@@ -602,6 +617,7 @@
     "ui/src/validatorField090.test.ts": 2,
     "ui/src/version071.test.tsx": 6,
     "ui/src/views/Activity.tsx": 8,
+    "ui/src/views/DocumentsCreate.tsx": 9,
     "ui/src/views/DocumentsPanel.tsx": 7,
     "ui/src/views/LegacyResult.tsx": 2,
     "ui/src/views/Mailbox.tsx": 40,
@@ -616,7 +632,7 @@
     "ui/src/views/UtilityReport.tsx": 20,
     "ui/src/views/WorkpackageActions.tsx": 15,
     "ui/src/views/WorkpackageDetail.tsx": 19,
-    "ui/src/views/Workpackages.tsx": 15,
+    "ui/src/views/Workpackages.tsx": 5,
     "ui/src/views/bankFiles146.test.tsx": 12,
     "ui/src/views/settings/AppearancePanel.tsx": 8,
     "ui/src/views/settings/BackupPanel.tsx": 17,

@@ -114,7 +114,8 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
 
         view = reconcile_package.package_view(wp_id)
         return jsonable({"workpackage": wp, "readiness": view["readiness"], "titles": {}, "last_run": None, "runs": 0,
-                         "next": view["next"], "reconcile": {k: view[k] for k in ("scope", "counts", "coverage", "approval")}})
+                         "next": view["next"], "reconcile": {k: view[k] for k in ("scope", "counts", "coverage", "approval")},
+                         "workflow": _workflow_of(wp_id)})
     ready = work.readiness(wp_id)
     runs = work.run_rows(wp_id)
     extra = {}
@@ -128,7 +129,14 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
         extra["statements"] = statement_package.package_view(wp_id)
     return jsonable({"workpackage": wp, "readiness": ready, "titles": item_titles(wp["items"], package_root(wp)), **extra,
                      "last_run": runs[0] if runs else None, "runs": len(runs),
-                     "next": next_step(wp, runs[0] if runs else None, ready["ready"])})
+                     "next": next_step(wp, runs[0] if runs else None, ready["ready"]), "workflow": _workflow_of(wp_id)})
+
+
+def _workflow_of(wp_id: str) -> dict[str, Any] | None:
+    """146: the workflow the package is a step of (the package header links to its control view)."""
+    from jav import workflows
+
+    return workflows.workflow_of(wp_id)
 
 
 def workpackage_list(*, include_archived: bool = False) -> list[dict[str, Any]]:
