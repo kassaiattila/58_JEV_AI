@@ -129,8 +129,8 @@ def test_a_registered_account_in_a_package_keeps_its_invoice_from_no_payment_fou
 # --- the monthly data status ---------------------------------------------------------------------------------------------
 
 
-def _month_stmt(name, start, end, opening, closing, *, run_id=APPROVED, verified=True):
-    values = {**k2._statement(p131._line(day=start)), "period_start": start, "period_end": end,
+def _month_stmt(name, start, end, opening, closing, *, run_id=APPROVED, verified=True, amount="100.00"):
+    values = {**k2._statement(p131._line(day=start, amount=amount)), "period_start": start, "period_end": end,
               "opening_balance": opening, "closing_balance": closing}
     return k2._save(name, values, run_id=run_id, doc_type="statement_cib", validation=k2.VERIFIED if verified else [])
 
@@ -143,7 +143,8 @@ def _status_store():
     _month_stmt("mar", "2026-03-01", "2026-03-31", "130.00", "90.00", run_id=OPEN, verified=False)  # 130 does not continue 120
     _month_stmt("may", "2026-05-01", "2026-05-20", "90.00", "80.00", run_id=OPEN)
     _month_stmt("jun-a", "2026-06-01", "2026-06-30", "80.00", "70.00")
-    _month_stmt("jun-b", "2026-06-01", "2026-06-30", "80.00", "70.00")  # the same month loaded twice
+    # the same month loaded twice, with another line (144: the same lines would be one statement read twice, the later valid)
+    _month_stmt("jun-b", "2026-06-01", "2026-06-30", "80.00", "70.00", amount="90.00")
     for name, day, run in (("inv-jan", "2026-01-05", APPROVED), ("inv-feb", "2026-02-05", APPROVED), ("inv-mar", "2026-03-05", OPEN)):
         k2._save(name, k2._invoice(number=name.upper(), issue_date=day, buyer_name="Jane Example"), run_id=run)
     k2._save("inv-cli", k2._invoice(number="CLI-1", issue_date="2026-03-09", buyer_name="Jane Example"))  # an evaluation's
