@@ -124,7 +124,39 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
   - **Decisions not carried over** (*Át nem vitt döntések*, only when there are any): a better statement replaced a statement of the scope, and a decision made on one of its lines (a pair, ‘needs no invoice’) has no same line on the valid statement. **Revoke** (*Visszavonás*) each, then make it again on the valid statement's lines.
   - **What blocks the approval** (*Mi akadályozza a jóváhagyást*): source documents whose run is not approved, or that were processed on the command line, statements whose balances do not check out, and decisions not carried over. Pairing can start anyway.
   - **Where the pairing stands** (*Hol tart a párosítás*): the lines and invoices by state.
-- **2 Pairing** (*Párosítás*): two lists side by side.
+- **2 Pairing** (*Párosítás*) opens on **the cards** (*kártyák*, 142). A card holds what belongs together: a transfer with
+  the invoices it pays, an invoice with the transfers that paid it (in parts, or more than once), or a transfer or an
+  invoice standing alone.
+  - **Every fact of both sides:** for a transfer its booking and value day, amount (and original amount), counterparty and
+    their account, memo, description, the balance after it, the account and the statement; for an invoice its supplier, tax
+    number, number, issue, fulfilment and due date, net, VAT and total, payment method, the supplier's account, references,
+    buyer and file.
+  - **The pairs** below them: each transfer–invoice pair with its amount, its state (paired, proposed, may repeat the
+    payment) and **against the due date** (*a határidőhöz képest*): ‘5 days late’, ‘on the due date’, ‘3 days before the
+    due date’ or ‘no due date’. Every day after the due date counts as a delay. Under each invoice: when it was paid (or
+    the proposed payment) and how late, or ‘Overdue, no payment found: N days after the due date, by <day>’, the last day
+    the package's statements cover it without a gap.
+  - **The totals** of the transfers and the invoices, in words: they match, more was transferred than invoiced, or part
+    of the invoices is not paid by these transfers.
+  - **The lists** (chips at the top, each with its count): ‘To decide’ (*Eldöntendő*, the default), ‘Transfers without an
+    invoice’, ‘Invoices without a payment’, ‘Overdue, no payment found’, ‘Paid late’, ‘Possible double payment’, ‘To
+    clarify’, ‘Paired’, ‘Needs no invoice’, ‘Cancelled by a credit note’, ‘Left out’ and ‘All’. A **possible double
+    payment** is an invoice two or more transfers each look like the full payment of (paired or proposed for it, or of
+    its exact amount, tied to it by its number, the supplier's account or name, in its period, paying no other invoice):
+    it may be paid twice, or the invoice of another month is missing. A transfer you marked as needing no invoice, or
+    rejected for the invoice, does not count. The overdue list never says ‘unpaid’: the statements show nothing about cash
+    or another account.
+  - **Actions** on a card: **Accept** (*Elfogadás*, Enter) pairs the card's proposal at once; **Accept this one**
+    (*Ezt fogadom el*) when a transfer has several candidates; **Not this one** (*Nem ez*) with a reason; **Undo**
+    (*Visszavonás*) a pair; **Needs no invoice** (*Nem kell számla*) with a reason; **Pair by hand** (*Kézi párosítás*)
+    opens the two lists with the card's transfer selected.
+  - **Documents** (*Iratok*, key `d`): the statement page with the transfer framed and the invoice beside it; when a card
+    has several, chips choose which. A card that asks for a look (several candidates, a different amount, a possible
+    double payment, an amount left, a statement whose balances do not check out) opens them by itself when selected.
+  - Keys: ↑ ↓ or `j` `k` move between the cards, Enter accepts, `d` shows the documents.
+- **Two lists (pair by hand)** (*Két lista (kézi párosítás)*): the earlier page, for searching an invoice by hand and for
+  selecting many lines at once; **Back to the cards** (*Vissza a kártyákhoz*) returns.
+- **The two lists** side by side:
   - **Statement lines** (*Banki tételek*) on the left, filtered by state: ‘To decide’ (*Eldöntendő*, the default), ‘Proposed pair’, ‘Same amount only’, ‘Partly paired’, ‘No candidate’, ‘Paired’, ‘Needs no invoice’, ‘Left out’ (an incoming payment, a fee or interest, a transfer between own accounts; with the reason) and ‘All’; by account, month and a search in the name, memo and amount. Clicking a line selects it; the checkbox (or Ctrl-click) adds more lines to the selection; ‘Select all shown’ (*A látható tételek kijelölése*) selects the whole filtered list.
   - **Invoice expected** (*Számla várható*): the lines still to decide, without a candidate, whose kind of payment (as JEV or GPT read it) expects an invoice: a utility or telecom bill, a subscription, insurance, an online order. Their invoice is probably missing from the store; choosing this filter also groups the lines by partner, so the list says which invoices to look for.
   - **By partner** (*Partnerenként*): groups the lines by partner, the name on the line without its reference numbers. A group's head shows its lines and their total, the AI's kinds of payment, how many invoices are expected and the suggested reason; its checkbox selects the group's lines, **Needs no invoice (N)** (*Nem kell számla (N)*) opens the reason for the group's lines still to decide, and **Undo the marks (N)** (*Jelölések visszavonása (N)*) undoes the group's marks in one step.
@@ -167,6 +199,8 @@ loaded statements cover.
 - **Recurring bills:** a line booked more than 20 days before an invoice was issued is offered for it only when its memo
   names the invoice (an advance payment); otherwise it paid an earlier month. When a line's memo names one invoice, other
   invoices of the same amount are still listed under it, but not proposed.
+- **Possible double payments and overdue invoices** (142): found by code as described under the cards above; they are
+  facts to check, not decisions.
 
 **Keys on the pairing page** (not while typing in a field; **Keys**, *Billentyűk*, or `?` lists them):
 

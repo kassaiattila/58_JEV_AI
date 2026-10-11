@@ -107,6 +107,15 @@ person marked as needing no invoice (`reconcile_line_marks`) takes part in nothi
   on no other line: the rest stay listed candidates for a person. An invoice whose candidates all stay unproposed this
   way gets its coverage status, not `amount_differs`.
 
+**What the overview needs** (142, DECISIONS 142, the reconciliation result's first part): two facts a person reads, not
+decisions.
+- `repeats`: the invoices two or more outgoing lines each look like the full payment of: allocated or proposed in full
+  for it, or of its exact amount, tied to it by a signal in its window and paying no other invoice (a possible double
+  payment, or the invoice of a later month is missing). A line a person marked or rejected for it does not count.
+- `checked_until` on an invoice's status: the last day up to which the statements of every account that could pay it
+  cover it without a gap from its issue date (None: not from its issue date). An invoice past its due date by then,
+  with nothing paid or proposed, is overdue with no payment found in the covered period.
+
 Reuse: ported selectively from the legacy project's `orchestrator/framework/payables.py` 0.1.1 (10_AIFLOW_V4, HEAD
 4256cba): `normalize`, `account_key`, the canonical money rule, the reason-coded exclusions, the three signals, "an equal
 amount alone is no candidate" and the multiple-candidates flag; its 12 synthetic cases are rewritten in the golden file.
@@ -131,7 +140,7 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.9.0"  # 141: combined payments, credit notes, cleaner proposals
+ENGINE_VERSION = "1.10.0"  # 142: possible double payments (repeats) and the day an invoice is checked until
 STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
             "no_payment_found", "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate", "combined")  # how a candidate's amounts relate
@@ -796,6 +805,57 @@ def _combine(candidates: list[dict[str, Any]], prepared: dict[str, Any], rest_in
                      **strength(prepared["invoices"][c["invoice_id"]], prepared["payments"][lid], c["signals"], "combined"))
 
 
+def _repeats(prepared: dict[str, Any], candidates: list[dict[str, Any]], confirmed: list[dict[str, Any]],
+             rejected: set[tuple[str, str]], marked: dict[str, str], scope: set[str],
+             context: tuple[set[tuple[str, str]], frozenset[str]], allocated: set[str], credited: set[str]) -> list[dict[str, Any]]:
+    """142 (DECISIONS 142): the invoices two or more outgoing lines each look like the full payment of - allocated in
+    full, proposed for it while nothing is allocated to it, or of its exact amount in its currency, tied to it by a
+    signal in its window and paying no other invoice (an unnamed line more than `proposal.unnamed_days_before_issue`
+    days before the issue date paid another month, as for a candidate). A line a person marked, or rejected for the
+    invoice, does not count. Each with the lines (`paid_by`: those allocated or proposed) and the signals of the others."""
+    learned, common = context
+    unnamed_days = int(_conf()["proposal"]["unnamed_days_before_issue"])
+    proposals: dict[str, set[tuple[str, ...]]] = defaultdict(set)  # a line's proposals: one invoice, or a combined group
+    for c in candidates:
+        if c["proposed"]:
+            proposals[c["line_id"]].add(tuple(c["combined"]) if c.get("combined") else (c["invoice_id"],))
+
+    def elsewhere(pid: str, iid: str) -> bool:
+        return any(iid not in unit for unit in proposals.get(pid, ()))
+
+    allocated_to: dict[str, set[str]] = defaultdict(set)
+    for a in confirmed:
+        allocated_to[a["line_id"]].add(a["invoice_id"])
+    by_amount: dict[tuple[str, Decimal], list[str]] = defaultdict(list)
+    for pid, pay in prepared["payments"].items():
+        if pay["statement_id"] in scope and pid not in marked:
+            by_amount[(str(pay.get("currency")), money(str(pay["amount"])))].append(pid)
+    out = []
+    for iid, inv in sorted(prepared["invoices"].items()):
+        if iid in credited:
+            continue
+        whole = money(str(inv["amount"]))
+        paid_by = {a["line_id"] for a in confirmed if a["invoice_id"] == iid and money(a["invoice_amount"]) >= whole}
+        if iid not in allocated:  # a line proposed for this invoice alone (or for its combined group)
+            paid_by |= {pid for pid, units in proposals.items() if any(iid in u for u in units) and not elsewhere(pid, iid)}
+        start, end = window(inv)
+        tied = {}
+        for pid in by_amount.get((str(inv.get("currency")), whole), []):
+            pay = prepared["payments"][pid]
+            booked = _date(pay["booking_date"])
+            if (pid in paid_by or (iid, pid) in rejected or allocated_to[pid] - {iid} or elsewhere(pid, iid)
+                    or not booked or not start <= booked <= end):
+                continue
+            found = signals(inv, pay, learned, common)
+            early = (booked - issued).days < -unnamed_days if (issued := _date(inv.get("issue_date"))) else False
+            if found and (NAMED_SIGNALS & set(found) or not early):  # 141: an unnamed line well before the issue paid another month
+                tied[pid] = found
+        lines = sorted(paid_by | set(tied))
+        if len(lines) >= 2:
+            out.append({"invoice_id": iid, "line_ids": lines, "paid_by": sorted(paid_by), "signals": dict(sorted(tied.items()))})
+    return out
+
+
 def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     """The proposal for a snapshot: candidate pairs, exclusions, every invoice's status and the unpaired lines. The
     snapshot's `decisions` (a person's `paid_by` / `not_this` per invoice and line) and `allocations` settle their
@@ -896,15 +956,30 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
         start, end = max(start, opened) if opened else start, min(end, closed) if closed else end
         return covered_by(periods[key], start, end) if start <= end else None
 
+    def covered_until(key: tuple[str, str], start: date) -> date | None:
+        """142: the last day the account covers without a gap from `start` (date.max: nothing to cover after it closed)."""
+        acct = registered.get(key[0]) or {}
+        opened, closed = _date(acct.get("valid_from")), _date(acct.get("valid_to"))
+        if closed and closed < start:
+            return date.max
+        start = max(start, opened) if opened else start
+        end = next((b for a, b in periods[key] if a <= start <= b), None)
+        return date.max if end is not None and closed and end >= closed else end
+
     statuses = []
     for iid, inv in sorted(prepared["invoices"].items()):
         mine = [c for c in candidates if c["invoice_id"] == iid]
         signed = [c for c in mine if not c["amount_only"]]
         start, end = window(inv)
-        cover = [c for key in sorted(periods) if key[1] == inv["currency"] and (c := covered(key, start, end)) is not None]
+        keys = [key for key in sorted(periods) if key[1] == inv["currency"]]
+        cover = [c for key in keys if (c := covered(key, start, end)) is not None]
         if rate_need(inv):  # a card account can pay it too, in the card window
             fx_start, fx_end = fx_window(inv)
             cover += [c for key in sorted(card_accounts) if (c := covered(key, fx_start, fx_end)) is not None]
+            keys += sorted(card_accounts)
+        issued = _date(inv.get("issue_date"))
+        untils = [covered_until(key, issued) for key in keys] if issued else []
+        checked = None if not untils or None in untils else min(u for u in untils if u is not None)
         if iid in paid_invoices:
             status = "confirmed"
         elif iid in credited:
@@ -925,7 +1000,8 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             status = "partly_covered"
         else:
             status = "not_covered"
-        row = {"invoice_id": iid, "status": status, "window": [start.isoformat(), end.isoformat()]}
+        row = {"invoice_id": iid, "status": status, "window": [start.isoformat(), end.isoformat()],
+               "checked_until": checked.isoformat() if checked not in (None, date.max) else None}
         statuses.append({**row, "credited_by": credited[iid]} if iid in credited else row)
     credits = {cid: iid for iid, cid in credited.items()}
     excluded = [{**e, "reason": "credit_note", "credits": credits[e["id"]]} if e["kind"] == "invoice" and e["id"] in credits else e
@@ -934,6 +1010,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
         if e["kind"] == "invoice":
             statuses.append({"invoice_id": e["id"], "status": "excluded", "reason": e["reason"]})
     paired = {c["line_id"] for c in candidates if c["proposed"]} | paid_lines | set(marked)
+    repeats = _repeats(prepared, candidates, confirmed, rejected, marked, scope, (learned, common), set(paid_invoice), set(credited))
     from jav import policy
 
     below, above = policy.reconcile_fx_tolerance()
@@ -942,7 +1019,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             "confirmed": confirmed, "excluded": excluded,
             "invoices": sorted(statuses, key=lambda s: s["invoice_id"]),
             "unpaired_line_ids": sorted(p for p, pay in prepared["payments"].items() if p not in paired and pay["statement_id"] in scope),
-            "marked": sorted([lid, cat] for lid, cat in marked.items()),
+            "marked": sorted([lid, cat] for lid, cat in marked.items()), "repeats": repeats,
             "paid": {"invoices": {k: str(v) for k, v in sorted(paid_invoice.items())},  # 131: allocated so far
                      "lines": {k: str(v) for k, v in sorted(paid_line.items())}},
             "coverage": [{"account": a, "currency": c, "periods": [[s.isoformat(), e.isoformat()] for s, e in p]}
@@ -1072,6 +1149,7 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
                              "amount": _amount(v),
                              "currency": v.get(f["currency"]), "issue_date": v.get(f["issue_date"]),
                              "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"]),
+                             **{k: v.get(f[k]) for k in ("fulfillment_date", "net_total", "vat_total")},  # 142: shown only
                              "buyer_name": _first(v, f["buyer_name"]), "buyer_tax_id": _first(v, f["buyer_tax_id"]), **_origin(d)})
     # 139 (DECISIONS 139): one valid statement per account, currency and day; a replaced statement's decisions move to
     # the same lines of the one replacing it, and what has no same line is left over (`left_over`)
@@ -1262,6 +1340,14 @@ def check_case(case: dict[str, Any]) -> list[str]:
         problems.append(f"marked {result['marked']} != {sorted(exp.get('marked', []))}")
     if "paid" in exp and result["paid"] != exp["paid"]:  # 131 E1: the amounts allocated so far
         problems.append(f"paid {result['paid']} != {exp['paid']}")
+    got_repeats = sorted([r["invoice_id"], r["line_ids"]] for r in result["repeats"])
+    if got_repeats != sorted(exp.get("repeats", [])):  # 142: every case names its possible double payments
+        problems.append(f"repeats {got_repeats} != {sorted(exp.get('repeats', []))}")
+    if "checked_until" in exp:  # 142: the day the named invoices are checked until
+        got_until = {s["invoice_id"]: s.get("checked_until") for s in result["invoices"]}
+        wanted_until = {k: got_until.get(k) for k in exp["checked_until"]}
+        if wanted_until != exp["checked_until"]:
+            problems.append(f"checked_until {wanted_until} != {exp['checked_until']}")
     return problems
 
 

@@ -7,6 +7,7 @@ import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { go, type Stage } from "../../route";
 import { AccountChecklist } from "./ReconcileCreate";
+import { ReconcileCards } from "./ReconcileCards";
 import { ReconcilePairing } from "./ReconcilePairing";
 import { blockerText, INVOICE_STATE, LINE_STATE, MARK } from "./labels";
 import "./reconcile.css";
@@ -18,13 +19,20 @@ export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageV
   const [ws, setWs] = useState<ReconcileWorkspace | null>(null);
   useEffect(() => { if (loaded.data) setWs(loaded.data); }, [loaded.data]);
   const update = (next: ReconcileWorkspace) => { setWs(next); onChanged(); };
+  // 142: the pairing opens on the cards; the two lists are for pairing by hand, with the line a card sent there
+  const [manual, setManual] = useState<{ line: string | null } | null>(null);
   const readOnly = view.workpackage.status === "archived";
 
   if (!ws) {
     return loaded.error ? <p className="notice error" role="alert">{loaded.error.message}</p> : <p className="muted">{t("Loading…")}</p>;
   }
   if (stage === "process") return <ReconcilePrepare ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload} />;
-  if (stage === "review") return <ReconcilePairing ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload} />;
+  if (stage === "review") {
+    return manual || !ws.overview ? ( // a service without the overview keeps the two lists
+      <ReconcilePairing key={manual?.line ?? "lists"} ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload}
+        initialLine={manual?.line ?? null} onCards={ws.overview ? () => setManual(null) : undefined} />
+    ) : <ReconcileCards ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload} onManual={(line) => setManual({ line })} />;
+  }
   return <ReconcileSummary ws={ws} />;
 }
 
