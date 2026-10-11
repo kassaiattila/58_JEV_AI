@@ -347,7 +347,7 @@ export interface ReconcileShare {
   workpackage_id: string | null;
 }
 export interface ReconcileLineMark { id: number; line_id: string; statement_id: string; category: string; note: string | null; workpackage_id: string | null }
-export interface ReconcileLine {
+export interface ReconcileLine extends ReconcileLineDetails {  // 144: with the facts beyond the money
   id: string; statement_id: string; account: string; statement_type: string | null; currency: string | null;
   booking_date: string | null; direction: string | null; amount: string | null; counterparty_name: string | null;
   counterparty_account: string | null; description: string | null; memo: string | null;
@@ -462,10 +462,16 @@ export interface ReconcileWorkspace {
 }
 /** 132: where a line stands on its statement page (box: 0–1 fractions of the page, x0 y0 x1 y1). */
 /** 144: a statement line as the statement prints it (the documents' statement pane, jav/reconcile_package.py `locate`). */
-export interface ReconcileStatementLine {
+export type ReconcileStatementLine = {
   id?: string; booking_date: string | null; value_date?: string | null; direction: string | null; amount: string | null;
   original_amount?: string | null; original_currency?: string | null; counterparty_name: string | null;
   counterparty_account: string | null; memo: string | null; description: string | null; running_balance?: string | null;
+} & ReconcileLineDetails;
+/** 144: a statement line's facts beyond the money, as a code reader keeps them (only the ones its statement prints; a
+ *  card number masked to its first six and last four digits). */
+export interface ReconcileLineDetails {
+  bank_reference?: string; order_id?: string; end_to_end_id?: string; card_number?: string; purchase_date?: string;
+  transaction_time?: string; terminal?: string; authorisation_code?: string; exchange_rate?: string; fee?: string;
 }
 /** 144: the statement of a line as read: its heading facts and every line in its order. */
 export interface ReconcileStatementView {

@@ -35,6 +35,26 @@ export function TransactionFacts({ line: l, currency, account }: {
       {l.description ? <Fact label={t("Description")}>{l.description}</Fact> : null}
       {l.running_balance ? <Fact label={t("Balance after")}>{show(l.running_balance, currency)}</Fact> : null}
       {account ? <Fact label={t("Account or card")}>{account}</Fact> : null}
+      <DetailFacts line={l} />
+    </>
+  );
+}
+
+/** 144: the facts beyond the money a code reader kept (only the ones the statement prints; the card number masked). */
+function DetailFacts({ line: l }: { line: ReconcileStatementLine }) {
+  useLocale();
+  const when = [l.purchase_date, l.transaction_time].filter(Boolean).join(" ");
+  return (
+    <>
+      {l.card_number ? <Fact label={t("Card")}>{l.card_number}</Fact> : null}
+      {l.purchase_date ? <Fact label={t("Purchased")}>{when}</Fact> : l.transaction_time ? <Fact label={t("Time")}>{when}</Fact> : null}
+      {l.terminal ? <Fact label={t("Terminal")}>{l.terminal}</Fact> : null}
+      {l.authorisation_code ? <Fact label={t("Authorisation code")}>{l.authorisation_code}</Fact> : null}
+      {l.exchange_rate ? <Fact label={t("Exchange rate")}>{l.exchange_rate}</Fact> : null}
+      {l.fee ? <Fact label={t("Fee")}>{l.fee}</Fact> : null}
+      {l.bank_reference ? <Fact label={t("Bank reference")}>{l.bank_reference}</Fact> : null}
+      {l.order_id ? <Fact label={t("Order id")}>{l.order_id}</Fact> : null}
+      {l.end_to_end_id ? <Fact label={t("End-to-end id")}>{l.end_to_end_id}</Fact> : null}
     </>
   );
 }

@@ -63,6 +63,24 @@ describe("the line's facts", () => {
     expect(screen.queryByText(/statement 2026-04\.json/)).toBeNull();
   });
 
+  it("show the facts beyond the money a code reader kept, only the printed ones", () => {
+    const { unmount } = render(<LineFacts line={line(1, {
+      card_number: "411111xxxxxx1111", purchase_date: "2026-04-09", transaction_time: "10:15", authorisation_code: "123456",
+      exchange_rate: "394.11 HUF/EUR", fee: "300 HUF + 450 HUF", bank_reference: "A1BC000000000000001", end_to_end_id: "E2E-77",
+    })} repeat={false} invoices={new Map()} />);
+    for (const [label, value] of [["Card", "411111xxxxxx1111"], ["Purchased", "2026-04-09 10:15"], ["Authorisation code", "123456"],
+      ["Exchange rate", "394.11 HUF/EUR"], ["Fee", "300 HUF + 450 HUF"], ["Bank reference", "A1BC000000000000001"], ["End-to-end id", "E2E-77"]]) {
+      expect(screen.getByText(label)).toBeTruthy();
+      expect(screen.getByText(value)).toBeTruthy();
+    }
+    expect(screen.queryByText("Terminal")).toBeNull();
+    expect(screen.queryByText("Order id")).toBeNull();
+    unmount();
+    render(<LineFacts line={line(2, { transaction_time: "08:01:02" })} repeat={false} invoices={new Map()} />);
+    expect(screen.getByText("Time")).toBeTruthy();
+    expect(screen.queryByText("Purchased")).toBeNull();
+  });
+
   it("on the card name every fact but the statement's file, and warn when the balances do not check out", () => {
     render(<LineFacts line={line(1, { statement_verified: false })} repeat={false} invoices={new Map()} />);
     expect(screen.getByText("Booking day")).toBeTruthy();

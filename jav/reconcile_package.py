@@ -44,6 +44,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav import cfg, corrections, grounding, parties, reconcile, reconcile_overview, store, typepack, work
+from jav.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 
 KIND = "reconcile"
 REVOKE_KINDS = ("allocation", "mark", "decision")
@@ -456,6 +457,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
                           "description": ln.get("description"), "memo": ln.get("memo"),
                           "original_amount": ln.get("original_amount"), "original_currency": ln.get("original_currency"),
                           "value_date": ln.get("value_date"), "running_balance": ln.get("running_balance"),  # 142: the card
+                          **{k: ln[k] for k in LINE_DETAILS if ln.get(k)},  # 144: the facts beyond the money
                           "state": state, "excluded_reason": excluded.get(("line", lid)),
                           "allocated": str(paid), "rest": str(amount - paid) if amount is not None else None,
                           "mark": marks.get(lid), "allocations": shares_line.get(lid, []),
@@ -934,7 +936,7 @@ def _placed(layer: Any, doc_type: str, lines: list[dict[str, Any]]) -> list[tupl
 
 
 LINE_FACTS = ("booking_date", "value_date", "direction", "amount", "original_amount", "original_currency", "counterparty_name",
-              "counterparty_account", "memo", "description", "running_balance")
+              "counterparty_account", "memo", "description", "running_balance", *LINE_DETAILS)
 
 
 def _statement_view(statement: dict[str, Any], institution: str | None) -> dict[str, Any]:

@@ -213,6 +213,10 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
       package that brought the statement (or wherever the store saw the same file), only while its content is the one
       that was read; its name stands in the pane's head. The pane says when a table or XML export has no PDF, and names
       a PDF moved away or changed since: put it back in the folder to see it again.
+    - **Facts beyond the money** (144): a statement read by code also shows what the bank printed about the line: the card
+      (only its first six and last four digits), when the purchase was made, the terminal and the authorisation code,
+      the exchange rate, the fee, the bank's reference, the order id and the parties' end-to-end id; only the ones
+      the statement prints. They stand in the line's facts on the cards, in the finder and in the documents.
     - **The statement as read** (*A beolvasott kivonat (N tétel)*): the statement's heading (bank, account, period,
       opening and closing balance, whether the balances check out) and its lines around the selected one, highlighted;
       **All N lines** (*Mind a(z) N tétel*) shows every line. It is open when there is no page to show, folded otherwise.

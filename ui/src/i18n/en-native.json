@@ -898,5 +898,14 @@
   "All {{n}} lines": "All {{n}} lines",
   "This statement was read from the bank's table or XML export, so it has no PDF page.": "This statement was read from the bank's table or XML export, so it has no PDF page.",
   "The bank's PDF ({{file}}) is not in the package's source folder, or it changed since it was read.": "The bank's PDF ({{file}}) is not in the package's source folder, or it changed since it was read.",
-  "The line on the statement": "The line on the statement"
+  "The line on the statement": "The line on the statement",
+  "Bank reference": "Bank reference",
+  "Order id": "Order id",
+  "End-to-end id": "End-to-end id",
+  "Purchased": "Purchased",
+  "Time": "Time",
+  "Terminal": "Terminal",
+  "Authorisation code": "Authorisation code",
+  "Exchange rate": "Exchange rate",
+  "Fee": "Fee"
 }

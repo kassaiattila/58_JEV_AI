@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.10.0",
+    "version": "1.11.0",
     "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person, when a statement counts as verified coverage and how a candidate's strength is weighed. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131, DECISIONS 134.",
     "changelog": [
+      {
+        "version": "1.11.0",
+        "date": "2026-10-11",
+        "note": "144 (DECISIONS 144; engine 1.11.0): replacement.reread - two statements of the same rank and period whose lines are the same lines (carry_over) are one statement read twice; the later processed reading replaces the earlier (how: reread), with no to-do, and the decisions move to its same lines. A newer reader keeping more of a line's facts reads the statements again for free."
+      },
       {
         "version": "1.10.0",
         "date": "2026-10-11",
@@ -130,7 +135,8 @@
       {"name": "extracted_checked", "verified": true},
       {"name": "unchecked"}
     ],
-    "carry_over": ["booking_date", "amount", "direction"]
+    "carry_over": ["booking_date", "amount", "direction"],
+    "reread": true
   },
   "verified_when": {
     "closing_balance_check": ["closing.ok"],
