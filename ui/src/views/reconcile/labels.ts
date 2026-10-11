@@ -1,7 +1,8 @@
 // 132: the labels of the reconciliation package's pages, in the chosen language (English source text; the Hungarian
 // is in i18n/hu-native.json). The codes come from the local service (jav/reconcile_package.py, configs/reconcile.json).
 import type {
-  ReconcileBlocker, ReconcileFlag, ReconcileGroupKind, ReconcileLineState, ReconcileList, ReconcileRelation, ReconcileSignal,
+  ReconcileBlocker, ReconcileFlag, ReconcileGroupKind, ReconcileInvoiceResult, ReconcileLineResult, ReconcileLineState, ReconcileList,
+  ReconcileRelation, ReconcileSignal, ReconcileWarning,
 } from "../../api";
 import { getLocale, t } from "../../i18n";
 import { tmap } from "../../labels";
@@ -158,4 +159,32 @@ export function dueText(days: number | null | undefined): string {
   if (days > 0) return t("{{n}} days late", { n: days });
   if (days === 0) return t("on the due date");
   return t("{{n}} days before the due date", { n: -days });
+}
+
+/** 145: an invoice's result in the reconciliation statement (jav/reconcile_statement.py `INVOICE_RESULTS`). */
+export const INVOICE_RESULT: Record<ReconcileInvoiceResult, string> = tmap({
+  paid: "Paid",
+  partly_paid: "Partly paid",
+  credited: "Settled by a credit note",
+  undecided: "Proposal to decide",
+  no_payment_found: "No payment in the covered period",
+  not_covered: "Statements do not cover it",
+}) as Record<ReconcileInvoiceResult, string>;
+
+/** 145: a statement line's result in the reconciliation statement (jav/reconcile_statement.py `LINE_RESULTS`). */
+export const LINE_RESULT: Record<ReconcileLineResult, string> = tmap({
+  paired: "Paired",
+  partly_paired: "Partly paired",
+  needs_no_invoice: "Needs no invoice",
+  left_out: "Left out",
+  open: "Open",
+}) as Record<ReconcileLineResult, string>;
+
+/** 145: what the statement warns about without blocking its approval (DECISIONS 132, 137). */
+export function warningText(w: ReconcileWarning): string {
+  switch (w.code) {
+    case "statement_unverified": return t("The statement's balances do not check out: {{name}}", { name: w.file ?? w.doc_id?.slice(0, 12) ?? "" });
+    case "month_without_statement": return t("No statement for {{month}}: {{account}}", { month: w.month ?? "", account: w.account ?? "" });
+    default: return w.code;
+  }
 }

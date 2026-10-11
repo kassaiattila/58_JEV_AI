@@ -43,7 +43,7 @@ export interface WorkpackageView {
   workpackage: Workpackage; readiness: Readiness; titles?: Record<string, string>; next: NextStep; last_run: RunRow | null; runs: number;
   attachments_missing?: number; // 058 K5.2: in an email package, the number of PDF attachments not yet added
   /** 131: a reconciliation package's scope, counts and coverage (it has no files and no runs) */
-  reconcile?: { scope: ReconcileScope; counts: ReconcileCounts; coverage: ReconcileCoverage[] };
+  reconcile?: { scope: ReconcileScope; counts: ReconcileCounts; coverage: ReconcileCoverage[]; approval?: ReconcileApproval };
   /** 140: a statement package's party, period and each item's statement */
   statements?: StatementPackageView;
 }
@@ -365,7 +365,44 @@ export interface ReconcileLine extends ReconcileLineDetails {  // 144: with the 
   partner?: string | null; earlier_marks?: { category: string; lines: number }[];
   /** 140: the needs-no-invoice reason the line's own category suggests (configs/reconcile.json category_marks) */
   category_mark?: string | null;
+  /** 145: the approved statement (package and version) that locks the line; null: none */
+  locked?: { workpackage_id: string; version: number } | null;
 }
+
+// --- 145: the reconciliation result (jav/reconcile_statement.py) ------------------------------------------------------
+export interface ReconcileVersionMeta {
+  version: number; fingerprint: string; approved_by: string; approved_at: string;
+  reopened_by: string | null; reopened_at: string | null; reopen_note: string | null;
+}
+export interface ReconcileApproval { active: ReconcileVersionMeta | null; versions: ReconcileVersionMeta[] }
+export type ReconcileInvoiceResult = "paid" | "partly_paid" | "credited" | "undecided" | "no_payment_found" | "not_covered";
+export type ReconcileLineResult = "paired" | "partly_paired" | "needs_no_invoice" | "left_out" | "open";
+export interface ReconcileStatementInvoice {
+  id: string; number: string | null; supplier_name: string | null; supplier_tax_id: string | null; issue_date: string | null;
+  fulfillment_date: string | null; due_date: string | null; amount: string | null; currency: string | null;
+  payment_method: string | null; file: string | null; result: ReconcileInvoiceResult; engine_state: string | null;
+  allocated: string; rest: string | null; paid_on: string | null; days_from_due: number | null; overdue_days: number | null;
+  double_payment: boolean; credited_by: string | null; other_party: string | null; source: string | null;
+  paid_by: { line_id: string; line_amount: string; invoice_amount: string; booking_date: string | null; account: string | null; in_scope: boolean }[];
+}
+export interface ReconcileStatementRow {
+  id: string; account: string; currency: string | null; booking_date: string | null; value_date: string | null;
+  direction: string | null; amount: string | null; counterparty_name: string | null; counterparty_account: string | null;
+  memo: string | null; description: string | null; file: string | null; statement_verified: boolean;
+  result: ReconcileLineResult; engine_state: string; reason: string | null; note: string | null; allocated: string; rest: string | null;
+  pays: { invoice_id: string; number: string | null; supplier_name: string | null; line_amount: string; invoice_amount: string }[];
+}
+export interface ReconcileWarning { code: string; doc_id?: string; file?: string | null; account?: string; month?: string }
+export interface ReconcileStatement {
+  format: number; package: { id: string; name: string }; party: string | null; period: [string, string]; accounts: string[];
+  invoices: ReconcileStatementInvoice[]; lines: ReconcileStatementRow[]; warnings: ReconcileWarning[];
+  counts: { invoices: Record<string, number>; lines: Record<string, number>; open_lines: number };
+}
+export interface ReconcileStatementCurrent {
+  statement: ReconcileStatement; fingerprint: string; blockers: ReconcileBlocker[]; warnings: ReconcileWarning[];
+  approval: ReconcileApproval;
+}
+export interface ReconcileStatementVersion extends ReconcileVersionMeta { statement: ReconcileStatement }
 /** 140: a statement of a statement package's survey or of the store, as a reference (jav/statement_package.py). */
 export interface StatementRef {
   id: string; file: string | null; period_start: string | null; period_end: string | null; rank: string; in_store: boolean;
@@ -456,9 +493,12 @@ export interface ReconcileLeftOver {
 export interface ReconcileWorkspace {
   workpackage_id: string; scope: ReconcileScope; lines: ReconcileLine[]; invoices: ReconcileInvoice[];
   left_over?: ReconcileLeftOver[];
+  /** 145: what warns without blocking the approval (a statement whose balances do not check out), and the approval */
+  warnings?: ReconcileBlocker[]; approval?: ReconcileApproval;
   coverage: ReconcileCoverage[]; blockers: ReconcileBlocker[]; line_marks: string[]; open: Record<string, ReconcileOpen>;
   counts: ReconcileCounts; learned_names: unknown; fx_tolerance: unknown; engine_version: string; config_hash: string;
   overview?: ReconcileOverview; // 142: the cards of the pairing page
+  decision_state?: unknown; // what the decisions read (145: the result reloads when it changes)
 }
 /** 132: where a line stands on its statement page (box: 0–1 fractions of the page, x0 y0 x1 y1). */
 /** 144: a statement line as the statement prints it (the documents' statement pane, jav/reconcile_package.py `locate`). */
@@ -753,6 +793,18 @@ export const api = {
     request<ReconcileLocation>("GET", `/workpackages/${enc(wpId)}/reconcile/locate?line_id=${enc(lineId)}`),
   reconcileMatches: (wpId: string, lineId: string) =>
     request<ReconcileMatches>("GET", `/workpackages/${enc(wpId)}/reconcile/matches?line_id=${enc(lineId)}`),
+  // 145: the result - the statement, its approval as a version that locks its lines, reopening, accepted sources
+  reconcileStatement: (wpId: string) => request<ReconcileStatementCurrent>("GET", `/workpackages/${enc(wpId)}/reconcile/statement`),
+  reconcileStatementVersion: (wpId: string, version: number) =>
+    request<ReconcileStatementVersion>("GET", `/workpackages/${enc(wpId)}/reconcile/statement?version=${version}`),
+  reconcileAcceptSources: (wpId: string, docIds: string[]) =>
+    request<ReconcileStatementCurrent>("POST", `/workpackages/${enc(wpId)}/reconcile/accept-sources`, { doc_ids: docIds }),
+  reconcileApprove: (wpId: string, fingerprint: string) =>
+    request<ReconcileStatementCurrent>("POST", `/workpackages/${enc(wpId)}/reconcile/approve`, { fingerprint }),
+  reconcileReopen: (wpId: string, note: string) =>
+    request<ReconcileStatementCurrent>("POST", `/workpackages/${enc(wpId)}/reconcile/reopen`, { note }),
+  reconcileStatementXlsxUrl: (wpId: string, version?: number) =>
+    `/api/workpackages/${enc(wpId)}/reconcile/statement.xlsx${version ? `?version=${version}` : ""}`,
   // 133: the own parties; every change answers with the whole overview
   parties: () => request<PartiesOverview>("GET", "/parties"),
   acceptPartySuggestions: (ids: string[], names: Record<string, string> = {}) =>
