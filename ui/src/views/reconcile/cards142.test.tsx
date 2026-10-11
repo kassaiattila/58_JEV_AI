@@ -4,7 +4,8 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  api, setActor, type ReconcileGroup, type ReconcileInvoice, type ReconcileLine, type ReconcileOverview, type ReconcileWorkspace,
+  api, setActor, type ReconcileGroup, type ReconcileInvoice, type ReconcileLine, type ReconcileLocation, type ReconcileOverview,
+  type ReconcileWorkspace,
 } from "../../api";
 import { setLanguage } from "../../i18n";
 import { ReconcileCards } from "./ReconcileCards";
@@ -32,6 +33,12 @@ const proposal = (l: number, i: number, combined: number[] | null = null) => ({
   invoice_id: invId(i), line_id: lineId(l), proposed: true, amount_only: false, signals: ["invoice_number" as const],
   amount_relation: (combined ? "combined" : "equal") as "combined" | "equal", multiple_candidates: false,
   source_review_required: false, fx: null, combined: combined ? combined.map(invId) : null,
+});
+// 144: the documents' statement pane gets the statement as read with the line's place
+const located = (id: string): ReconcileLocation => ({
+  line_id: id, statement_id: STMT, open: null, image: null, pages: null, page: null, box: null, original: null,
+  statement: { file: null, institution: null, account: "A", currency: "HUF", period_start: null, period_end: null,
+    opening_balance: null, closing_balance: null, verified: true, lines: [] },
 });
 const facts = (over = {}) => ({ paid_on: null, days_from_due: null, overdue_days: null, checked_until: "2026-06-30", double_payment: null, ...over });
 
@@ -85,7 +92,7 @@ function cards(onManual = vi.fn()) {
 
 describe("the cards of the pairing page (142)", () => {
   it("shows a transfer with the three invoices it pays, every fact, and each pair's days against the due date", () => {
-    vi.spyOn(api, "reconcileLocate").mockResolvedValue({ line_id: lineId(1), statement_id: STMT, open: null, page: null, box: null });
+    vi.spyOn(api, "reconcileLocate").mockResolvedValue(located(lineId(1)));
     cards();
     const card = screen.getByRole("article", { name: /Proposal to decide: Example Partner 1/ });
     expect(within(card).getByText("Invoices (3)")).toBeTruthy();
@@ -96,7 +103,7 @@ describe("the cards of the pairing page (142)", () => {
   });
 
   it("accepts the card's proposal with one share per invoice", async () => {
-    vi.spyOn(api, "reconcileLocate").mockResolvedValue({ line_id: lineId(1), statement_id: STMT, open: null, page: null, box: null });
+    vi.spyOn(api, "reconcileLocate").mockResolvedValue(located(lineId(1)));
     const allocate = vi.spyOn(api, "reconcileAllocate").mockResolvedValue(ws);
     const { onWorkspace } = cards();
     const card = screen.getByRole("article", { name: /Proposal to decide/ });
@@ -110,7 +117,7 @@ describe("the cards of the pairing page (142)", () => {
   });
 
   it("lists the overdue invoice and the possible double payment under their chips", async () => {
-    const locate = vi.spyOn(api, "reconcileLocate").mockResolvedValue({ line_id: lineId(5), statement_id: STMT, open: null, page: null, box: null });
+    const locate = vi.spyOn(api, "reconcileLocate").mockResolvedValue(located(lineId(5)));
     cards();
     fireEvent.click(screen.getByRole("button", { name: "Overdue, no payment found (1)" }));
     const overdue = screen.getByRole("article", { name: /Invoice without a payment/ });

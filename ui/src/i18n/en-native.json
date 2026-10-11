@@ -890,5 +890,13 @@
   "The comparison is not available: {{reason}}": "The comparison is not available: {{reason}}",
   "By amount only, nearest first": "By amount only, nearest first",
   "Bound to another line or settled ({{n}})": "Bound to another line or settled ({{n}})",
-  "Bound to another line or settled": "Bound to another line or settled"
+  "Bound to another line or settled": "Bound to another line or settled",
+  "The statement as read ({{n}} lines)": "The statement as read ({{n}} lines)",
+  "Opening balance": "Opening balance",
+  "Closing balance": "Closing balance",
+  "Only the lines around it": "Only the lines around it",
+  "All {{n}} lines": "All {{n}} lines",
+  "This statement was read from the bank's table or XML export, so it has no PDF page.": "This statement was read from the bank's table or XML export, so it has no PDF page.",
+  "The bank's PDF ({{file}}) is not in the package's source folder, or it changed since it was read.": "The bank's PDF ({{file}}) is not in the package's source folder, or it changed since it was read.",
+  "The line on the statement": "The line on the statement"
 }

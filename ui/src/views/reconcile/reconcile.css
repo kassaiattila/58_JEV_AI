@@ -32,6 +32,8 @@
 .rc-row .rc-text { min-width: 0; display: grid; }
 .rc-row .rc-main { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rc-row .rc-sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 144: the selected line shows its whole memo (DECISIONS 144) */
+.rc-row.active .rc-sub { white-space: normal; overflow-wrap: anywhere; }
 .rc-row .rc-side { display: grid; justify-items: end; gap: 3px; }
 .rc-amount { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .rc-amount.credit { color: var(--ok); }
@@ -80,6 +82,19 @@
 .rc-page { position: relative; width: 100%; }
 .rc-page img { width: 100%; display: block; border: 1px solid var(--line-soft); background: #fff; }
 .rc-box { position: absolute; border: 2px solid var(--accent); background: rgba(163, 63, 83, .12); border-radius: 3px; pointer-events: none; }
+/* 144: the statement pane — the line's facts, the statement as read, then the page */
+.rc-doc-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 1px 12px; margin: 0; font-size: 13px; }
+.rc-doc-facts dt { color: var(--muted); }
+.rc-doc-facts dd { margin: 0; overflow-wrap: anywhere; }
+.rc-asread { display: grid; gap: 6px; }
+.rc-asread summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.rc-asread p { margin: 0; }
+.rc-asread-scroll { overflow-x: auto; }
+.rc-asread-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.rc-asread-table th, .rc-asread-table td { padding: 3px 6px; border-bottom: 1px solid var(--line-soft); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.rc-asread-table th { color: var(--muted); font-weight: 600; }
+.rc-asread-table .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rc-asread-table tr.is-line td { background: rgba(163, 63, 83, .12); font-weight: 600; }
 
 .rc-accounts { display: grid; gap: 6px; }
 .rc-accounts label { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; align-items: start; cursor: pointer; }
@@ -173,7 +188,9 @@
 .rc-finder-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
 .rc-finder-line .rc-amount { font-size: 16px; }
 .rc-finder-title { font-weight: 600; overflow-wrap: anywhere; }
-.rc-finder-sub { margin: 0; overflow-wrap: anywhere; }
+.rc-finder-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 1px 12px; margin: 0; font-size: 13px; }
+.rc-finder-facts dt { color: var(--muted); }
+.rc-finder-facts dd { margin: 0; overflow-wrap: anywhere; }
 .rc-finder-head p { margin: 0; }
 .rc-cover { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .rc-meter { flex: 1 1 140px; max-width: 260px; height: 8px; border-radius: 999px; background: var(--line-soft); overflow: hidden; }

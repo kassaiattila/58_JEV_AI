@@ -496,7 +496,7 @@ function LineRow({ line, active, selected, onChoose }: {
         <span className={`rc-amount${amount !== null && amount > 0n ? " credit" : ""}`}>{display(amount, line.currency)}</span>
         <span className="rc-text">
           <span className="rc-main">{lineTitle(line)}</span>
-          <span className="rc-sub">{[line.memo, line.description].filter((x) => x && x !== lineTitle(line)).join(" · ") || line.file}</span>
+          <span className="rc-sub">{[line.memo, line.description].filter((x) => x && x !== lineTitle(line)).join(" · ")}</span>
         </span>
         <span className="rc-side">
           <span className={`rc-state s-${line.state}`}>{LINE_STATE[line.state] ?? line.state}</span>

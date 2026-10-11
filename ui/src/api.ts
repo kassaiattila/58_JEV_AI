@@ -461,8 +461,27 @@ export interface ReconcileWorkspace {
   overview?: ReconcileOverview; // 142: the cards of the pairing page
 }
 /** 132: where a line stands on its statement page (box: 0–1 fractions of the page, x0 y0 x1 y1). */
+/** 144: a statement line as the statement prints it (the documents' statement pane, jav/reconcile_package.py `locate`). */
+export interface ReconcileStatementLine {
+  id?: string; booking_date: string | null; value_date?: string | null; direction: string | null; amount: string | null;
+  original_amount?: string | null; original_currency?: string | null; counterparty_name: string | null;
+  counterparty_account: string | null; memo: string | null; description: string | null; running_balance?: string | null;
+}
+/** 144: the statement of a line as read: its heading facts and every line in its order. */
+export interface ReconcileStatementView {
+  file: string | null; institution: string | null; account: string; currency: string | null; period_start: string | null;
+  period_end: string | null; opening_balance: string | null; closing_balance: string | null; verified: boolean;
+  lines: (ReconcileStatementLine & { id: string })[];
+}
+/** 144: the bank's PDF behind a statement read by code — found, missing (moved or changed since the reading), or none
+ *  (a table or XML export). */
+export interface ReconcileOriginal { file: string | null; state: "found" | "missing" | "export" }
 export interface ReconcileLocation {
-  line_id: string; statement_id: string; open: ReconcileOpen | null; page: number | null; box: [number, number, number, number] | null;
+  line_id: string; statement_id: string; open: ReconcileOpen | null;
+  /** 144: the page image to show: the statement's own document, the bank's PDF behind a statement read by code, none */
+  image: "item" | "original" | null; pages: number | null;
+  page: number | null; box: [number, number, number, number] | null;
+  original: ReconcileOriginal | null; statement: ReconcileStatementView;
 }
 export interface ReconcileAllocationPair { invoice_doc_id: string; line_id: string; line_amount?: string; invoice_amount?: string }
 /** 143 (jav/reconcile_package.py `matches`): how an invoice fits a line — proposed or listed by the engine for it, its
@@ -837,6 +856,9 @@ export const api = {
   sourceUrl: (wpId: string, itemId: string) => `/api/workpackages/${enc(wpId)}/items/${enc(itemId)}/source`,
   pageUrl: (wpId: string, itemId: string, page: number, dpi = 144) =>
     `/api/workpackages/${enc(wpId)}/items/${enc(itemId)}/pages/${page}.png?dpi=${dpi}`,
+  /** 144: a page of the bank's PDF behind the statement of a line read by code */
+  originalPageUrl: (wpId: string, lineId: string, page: number, dpi = 144) =>
+    `/api/workpackages/${enc(wpId)}/reconcile/original/pages/${page}.png?line_id=${enc(lineId)}&dpi=${dpi}`,
   words: (runId: string, itemId: string) =>
     request<{ layer_id: string; pages: SourcePage[]; words: SourceWord[] }>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}/words`),
   settings: () => request<{ confidence_bands: { confident: number; check: number; gpt?: { confident: number; check: number } } }>("GET", "/settings"),

@@ -905,27 +905,105 @@ def place(layer: Any, doc_type: str, lines: list[dict[str, Any]], line_id: str) 
     identical lines land on consecutive text lines; only a sure place counts, (None, None) otherwise. On the store's 233
     lines it placed every one; on 3 it chose the booking line with its running balance, where the pairing page's own
     search of 132 had chosen a detail line printing the same amount."""
+    return _placed(layer, doc_type, lines)[[ln["id"] for ln in lines].index(line_id)]
+
+
+# 144: the places of a statement's lines, kept for the next line of the same statement (the row locator took about half
+# a second for a ten-line statement); the key is the layer's content id and the lines' content
+_places: OrderedDict[tuple[str, str, str, str], list[tuple[int | None, list[float] | None]]] = OrderedDict()
+_places_lock = threading.Lock()
+_PLACES_MAX = 64
+
+
+def _placed(layer: Any, doc_type: str, lines: list[dict[str, Any]]) -> list[tuple[int | None, list[float] | None]]:
+    plain = [{k: v for k, v in ln.items() if k != "id"} for ln in lines]
+    key = (str(store.active_path()), layer.layer_id, doc_type,
+           hashlib.sha256(json.dumps(plain, sort_keys=True, default=str).encode("utf-8")).hexdigest())
+    with _places_lock:
+        if key in _places:
+            _places.move_to_end(key)
+            return _places[key]
     kinds = dict(typepack.get(doc_type).list_fields.get("transactions", {}))
-    rows = grounding.locate_rows(layer, [{k: v for k, v in ln.items() if k != "id"} for ln in lines], kinds)
-    where = rows[[ln["id"] for ln in lines].index(line_id)]
-    return (where.get("page"), where.get("bbox")) if where["status"] == "located" else (None, None)
+    rows = grounding.locate_rows(layer, plain, kinds)
+    out = [(r.get("page"), r.get("bbox")) if r["status"] == "located" else (None, None) for r in rows]
+    with _places_lock:
+        _places[key] = out
+        while len(_places) > _PLACES_MAX:
+            _places.popitem(last=False)
+    return out
+
+
+LINE_FACTS = ("booking_date", "value_date", "direction", "amount", "original_amount", "original_currency", "counterparty_name",
+              "counterparty_account", "memo", "description", "running_balance")
+
+
+def _statement_view(statement: dict[str, Any], institution: str | None) -> dict[str, Any]:
+    """144: the statement as read, for the documents' statement pane: its heading facts and every line in its order."""
+    return {"file": reconcile.file_names([statement["id"]]).get(statement["id"]), "institution": institution,
+            "account": reconcile.statement_account(statement),
+            **{k: statement.get(k) for k in ("currency", "period_start", "period_end", "opening_balance", "closing_balance")},
+            "verified": bool(statement.get("verified")),
+            "lines": [{"id": ln["id"], **{k: ln.get(k) for k in LINE_FACTS}} for ln in statement["lines"]]}
+
+
+def _scope_statement(wp_id: str, line_id: str) -> dict[str, Any]:
+    """The statement of a line in the scope (KeyError: no such line; `PackageError`: out of the scope). 144: without the
+    proposals (`_context`), which a document view does not need (it took most of the time)."""
+    _package(wp_id)
+    snap, _sc = scoped_snapshot(wp_id)
+    statement = next((st for st in snap["statements"] if any(ln["id"] == line_id for ln in st["lines"])), None)
+    if statement is None:
+        raise KeyError(line_id)
+    if statement["id"] not in set(snap["scope_statements"]):
+        raise PackageError("the line is not in the package's scope")
+    return statement
 
 
 def locate(wp_id: str, line_id: str) -> dict[str, Any]:
-    """Where a line of the scope stands: its statement, where the statement opens, and the line's page and box on it
-    (None when the statement has no word layer or the line's amount is not printed on it)."""
-    ctx = _context(wp_id)
-    line = _scope_line(ctx, line_id)
-    statement = next(st for st in ctx["snap"]["statements"] if st["id"] == line["statement_id"])
+    """Where a line of the scope stands: its statement as read (`statement`), the page image to show (`image`: `item`,
+    the statement's own document; `original`, the bank's PDF behind a statement read by code; None), and the line's
+    page and box on it (None when there is no word layer or the line's amount is not printed on it). 144: a statement
+    read by code has no page of its own (its item is the reader's statement file); `original` says whether the bank's
+    PDF was found (`jav/statement_original.py`)."""
+    from jav import statement_original
+
+    statement = _scope_statement(wp_id, line_id)
+    coded = statement["doc_type"] == statement_original.DOC_TYPE
+    source = statement_original.source_of(statement["item_id"]) if coded and statement.get("item_id") else None
     out: dict[str, Any] = {"line_id": line_id, "statement_id": statement["id"],
-                           "open": _open_refs([statement]).get(statement["id"]), "page": None, "box": None}
-    if out["open"] is None:
-        return out
-    layer = corrections.layer_for(corrections.datapoints_row(statement["work_run"], statement["item_id"]))
-    if layer is None:
-        return out
-    out["page"], out["box"] = place(layer, statement["doc_type"], statement["lines"], line_id)
+                           "open": _open_refs([statement]).get(statement["id"]), "image": None, "pages": None,
+                           "page": None, "box": None, "original": None,
+                           "statement": _statement_view(statement, (source or {}).get("institution"))}
+    if coded:
+        original = statement_original.find(statement["item_id"]) if statement.get("item_id") else None
+        if original is None:
+            return out
+        out["original"] = {"file": original.file, "state": original.state}
+        if original.state != statement_original.FOUND:
+            return out
+        layer = statement_original.layer(original)
+        out["image"], out["pages"] = "original", (len(layer.pages) if layer else statement_original.page_count(original))
+    else:
+        if out["open"] is None:
+            return out
+        out["image"], out["pages"] = "item", out["open"].get("pages")
+        layer = corrections.layer_for(corrections.datapoints_row(statement["work_run"], statement["item_id"]))
+    if layer is not None:
+        out["page"], out["box"] = place(layer, statement["doc_type"], statement["lines"], line_id)
     return out
+
+
+def original_page(wp_id: str, line_id: str, page: int, *, dpi: int) -> bytes:
+    """144: a page of the bank's PDF behind the statement of a line in the scope, read by code (KeyError: none found)."""
+    from jav import statement_original
+
+    statement = _scope_statement(wp_id, line_id)
+    if statement["doc_type"] != statement_original.DOC_TYPE or not statement.get("item_id"):
+        raise KeyError(line_id)
+    original = statement_original.find(statement["item_id"])
+    if original.state != statement_original.FOUND:
+        raise KeyError(original.file or line_id)
+    return statement_original.page(original, page, dpi=dpi)
 
 
 def refresh(wp_id: str) -> dict[str, Any]:

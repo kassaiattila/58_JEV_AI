@@ -153,6 +153,8 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
   - **Documents** (*Iratok*, key `d`): the statement page with the transfer framed and the invoice beside it; when a card
     has several, chips choose which. A card that asks for a look (several candidates, a different amount, a possible
     double payment, an amount left, a statement whose balances do not check out) opens them by itself when selected.
+    The statement pane is described under the two lists' **Documents** below (144). A card shows every fact of the
+    transfer; the statement's file name stands only in the documents.
   - Keys: ↑ ↓ or `j` `k` move between the cards, Enter accepts, `d` shows the documents.
 - **Two lists (pair by hand)** (*Két lista (kézi párosítás)*): the earlier page, for searching an invoice by hand and for
   selecting many lines at once; **Back to the cards** (*Vissza a kártyákhoz*) returns.
@@ -164,8 +166,10 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
   - **The suggested reason** (*javaslat*) for lines that need no invoice is the reason given earlier for the partner's other lines, in any package (a line through a payment app such as iCsekk teaches nothing); otherwise (140) the one the lines' own category in the bank's export suggests when every line has it, ‘The bank's category suggests: …’ (*A bank kategóriája alapján: …*): a Revolut exchange between your currency accounts or a top-up is a transfer between own accounts, a cash withdrawal (ATM) is cash; otherwise the one the AI's kind of payment suggests when JEV and GPT agree on every line, or when only one of them answered. It is only chosen in advance in the reason panel: nothing is saved until you save it.
   - **Invoices of the party** (*… számlái*) on the right: the **finder** (*párkereső*, 143), which compares the selected line
     with every invoice of the page in code (free) and says which ones fit and why.
-    - **At the top, pinned** (*Ehhez keresünk számlát*): the selected line with its date, amount, partner, memo, the partner's
-      account and the statement, and a bar of how much of it the ticked invoices cover: ‘Still to cover: …’ (*Még
+    - **At the top, pinned** (*Ehhez keresünk számlát*): the selected line with its date, amount and partner, then every
+      fact of the transfer in labelled fields (144): booking day, value day, original amount, partner, the partner's
+      account, memo, description, balance after and the own account or card; the statement's file name stands only in
+      the documents. Then a bar of how much of it the ticked invoices cover: ‘Still to cover: …’ (*Még
       lefedetlen: …*), ‘Covered exactly’ (*Pontosan lefedve*) or ‘More than the line: …’ (*Több, mint a tétel: …*). Below it
       what was decided on the line, each with **Undo** (*Visszavonás*); the AI's kind of payment per engine with its
       probability (‘asked once for the partner’, *a partnerre egyszer kérdezve*, when it was asked on another line of the
@@ -203,6 +207,16 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
     - **Needs no invoice** (*Nem kell számla*): marks all the selected lines at once, with one reason (private expense, bank fee or interest, transfer between own accounts, tax or contribution, cash withdrawal, salary, or other with a note).
     - **Accept the N unambiguous proposals** (*A(z) N egyértelmű javaslat elfogadása*, two clicks) pairs every proposal that is the only candidate of its line and its invoice, on a statement whose balances check out, with an invoice of the package's party or of none.
   - **Documents** (*Iratok*, key `d`): the statement opens at the page of the selected line, with the line framed (found by its amount and date), next to the selected invoice (or the first candidate). A document processed on the command line has no image here. **Open in its package** opens the document's review page in a new tab.
+    - **The statement pane** (144) starts with the line's facts as the statement prints them (*A tétel a kivonaton*). A
+      statement read by code (a CIB PDF's text, a bank's table or XML export) is stored as the reader's own statement
+      file, which has no page: the pane shows the bank's PDF it was read from instead, found again in the folder of the
+      package that brought the statement (or wherever the store saw the same file), only while its content is the one
+      that was read; its name stands in the pane's head. The pane says when a table or XML export has no PDF, and names
+      a PDF moved away or changed since: put it back in the folder to see it again.
+    - **The statement as read** (*A beolvasott kivonat (N tétel)*): the statement's heading (bank, account, period,
+      opening and closing balance, whether the balances check out) and its lines around the selected one, highlighted;
+      **All N lines** (*Mind a(z) N tétel*) shows every line. It is open when there is no page to show, folded otherwise.
+  - The selected line on the left list shows its whole memo (144); the others stay on one line.
   - After a decision the next line is selected. If someone else decided meanwhile, the lists are reloaded and your selection is kept.
 - **3 Result** (*Eredmény*): for now, where the pairing stands.
 
