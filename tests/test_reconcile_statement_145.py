@@ -113,9 +113,11 @@ def test_another_partys_invoice_appears_only_when_a_line_of_the_scope_paid_it(db
 
 
 def test_the_approval_needs_the_sources_and_the_statement_the_person_saw(db):
-    k2._save("inv", k2._invoice())
+    inv = k2._save("inv", k2._invoice())
     stmt = _stmt("stmt", _line())  # both from the command line: no run
     wp_id = _package()
+    # the invoice belongs to no own party: it blocks once a line of the package paid it (DECISIONS 145)
+    rp.allocate(wp_id, [{"invoice_doc_id": inv, "line_id": _ids(stmt, _line())[0]}], note=None, actor="t")
     view = rs.current(wp_id)
     assert {(b["code"], b["kind"]) for b in view["blockers"]} == {("source_no_run", "statement"), ("source_no_run", "invoice")}
     with pytest.raises(work.NotReady) as exc:
@@ -139,9 +141,10 @@ def test_the_approval_needs_the_sources_and_the_statement_the_person_saw(db):
 
 
 def test_an_accepted_source_holds_for_its_result_only(db):
-    k2._save("inv", k2._invoice())
-    _stmt("stmt", _line())
+    inv = k2._save("inv", k2._invoice())
+    stmt = _stmt("stmt", _line())
     wp_id = _package()
+    rp.allocate(wp_id, [{"invoice_doc_id": inv, "line_id": _ids(stmt, _line())[0]}], note=None, actor="t")
     view = rs.current(wp_id)
     rs.accept_sources(wp_id, [b["doc_id"] for b in view["blockers"]], actor="t")
     assert rs.current(wp_id)["blockers"] == []
@@ -282,3 +285,42 @@ def test_the_service_shows_approves_downloads_and_reopens(env):
     assert c.post(f"/api/workpackages/{wp_id}/reconcile/mark", headers=HUMAN,
                   json={"line_ids": [lid], "category": "fee"}).status_code == 200
     assert reconcile.ENGINE_VERSION
+
+
+def test_an_unassigned_invoice_blocks_the_approval_only_once_a_line_paid_it(db):
+    # DECISIONS 145: an invoice of no own party is every package's own (133), but it blocks a package's approval only
+    # when a line of the package paid it; an own party's invoice still blocks with a candidate
+    from tests import test_parties_package_133 as p133
+
+    home, _club = p133._parties()
+    _approved_sources("stmt")
+    mine = k2._save("mine", k2._invoice(buyer_name="Jane Example"))  # the home party's, by name; no run
+    nobody = k2._save("nobody", k2._invoice(number="NB-5", amount="40.00"))  # no buyer: unassigned; no run
+    stmt = _stmt("stmt", _line(), _line(amount="40.00", memo="NB-5", day="2026-04-12"), run_id=k2.RUN)
+    wp_id = rp.create(name="Home", accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-04-30", actor="t",
+                      party_id=home)["workpackage_id"]
+    ws = rp.workspace(wp_id)
+    assert next(i for i in ws["invoices"] if i["id"] == nobody)["candidates"]  # it has a candidate ...
+    assert [b["doc_id"] for b in ws["blockers"]] == [mine]  # ... but only the party's own invoice blocks
+    _first, second = _ids(stmt, _line(), _line(amount="40.00", memo="NB-5", day="2026-04-12"))
+    rp.allocate(wp_id, [{"invoice_doc_id": nobody, "line_id": second}], note=None, actor="t")
+    assert {b["doc_id"] for b in rp.workspace(wp_id)["blockers"]} == {mine, nobody}  # paid by the package: it blocks
+
+
+def test_an_invoice_paid_in_another_partys_package_does_not_block_this_one(db):
+    # found on the real store: the household's electricity bills, paid in the household's package, blocked the club's
+    from tests import test_parties_package_133 as p133
+    from tests.test_reconcile_package_131 import OTHER
+
+    home, club = p133._parties()
+    _approved_sources("stmt", "club-stmt")
+    _mine, club_inv, _nobody, _stmt_home = p133._docs()  # the club's invoice: no run
+    club_line = _line(amount="250.00", memo="CLUB-77")
+    club_stmt = _stmt("club-stmt", club_line, run_id=k2.RUN, account=OTHER)
+    club_wp = rp.create(name="Club", accounts=[reconcile.account_key(OTHER)], period_start="2026-04-01",
+                        period_end="2026-04-30", actor="t", party_id=club)["workpackage_id"]
+    rp.allocate(club_wp, [{"invoice_doc_id": club_inv, "line_id": _ids(club_stmt, club_line)[0]}], note=None, actor="t")
+    home_wp = rp.create(name="Home", accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-04-30", actor="t",
+                        party_id=home)["workpackage_id"]
+    assert club_inv not in {b["doc_id"] for b in rp.workspace(home_wp)["blockers"]}
+    assert club_inv in {b["doc_id"] for b in rp.workspace(club_wp)["blockers"]}
