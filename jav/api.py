@@ -35,7 +35,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
+from jav import (app_settings, backup, bank_files, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
                  parties, party_views, reconcile_package, reconcile_statement, statement_months, store, version, work, work_views)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
@@ -756,6 +756,11 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         # recipe's title, although only the active processing is offered)
         return {"recipes": work_views.recipe_catalog(), "help": work_views.recipe_help(),
                 "titles": {r["id"]: r["title"] for r in work.recipes()}}
+
+    @app.get(r + "/bank-files")
+    def bank_files_catalogue() -> dict[str, Any]:
+        # 146: which bank files the system reads, and how (configs/bank_files.json with the readers' own configuration)
+        return {**bank_files.catalogue(), "labels": bank_files.labels()}
 
     @app.get(r + "/workpackages")
     def workpackages(include_archived: bool = False) -> dict[str, Any]:

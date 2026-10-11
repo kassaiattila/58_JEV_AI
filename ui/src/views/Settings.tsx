@@ -9,6 +9,7 @@ import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import type { SettingsSection } from "../route";
 import { Mailbox } from "./Mailbox";
+import { BankFilesPanel } from "./BankFiles";
 import { RecipesPanel } from "./RecipeInfo";
 import { RunList } from "./Runs";
 import { AppearancePanel } from "./settings/AppearancePanel";
@@ -55,7 +56,13 @@ export function Settings({ section }: { section: SettingsSection }) {
           {current.key === "mailboxes" ? <Mailbox variant="settings" /> : null}
           {current.key === "folders" ? <FoldersPanel /> : null}
           {current.key === "parties" ? <PartiesPanel /> : null}
-          {current.key === "recipes" ? <RecipesPanel /> : null}
+          {current.key === "recipes" ? (
+            <>
+              <RecipesPanel />
+              <h2>{t("Bank files the system reads")}</h2>
+              <BankFilesPanel />
+            </>
+          ) : null}
           {current.key === "users" ? <UsersPanel /> : null}
           {current.key === "appearance" ? <AppearancePanel /> : null}
           {current.key === "language" ? <LanguagePanel /> : null}

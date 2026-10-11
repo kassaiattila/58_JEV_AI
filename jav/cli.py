@@ -411,11 +411,12 @@ def cmd_flows(args: argparse.Namespace) -> int:
 
 
 def cmd_docs(args: argparse.Namespace) -> int:
-    """Generated docs: docs/flows (contracts) + docs/callsites (JEV call sites)."""
-    from jav import docsgen
+    """Generated docs: docs/flows (contracts) + docs/callsites (JEV call sites) + docs/BANK_FILES.md (146)."""
+    from jav import bank_files, docsgen
 
     for p in docsgen.write_callsite_docs():
         print(f"  -> {p}")
+    print(f"  -> {bank_files.write_doc()}")
     args.check = False
     return cmd_flows(args)
 
@@ -779,7 +780,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--check", action="store_true", help="csak lint, fájlírás nélkül")
     p.set_defaults(fn=cmd_flows)
 
-    p = sub.add_parser("docs", help="generált doksik: docs/callsites/ (Jev-hívási helyek) + docs/flows/ (kontraktok)")
+    p = sub.add_parser("docs", help="generated docs: docs/callsites/ (JEV call sites) + docs/flows/ (contracts) + docs/BANK_FILES.md (bank files)")
     p.set_defaults(fn=cmd_docs)
 
     p = sub.add_parser("admin", help="egy képernyő: konfigok, modellek, flow-lint, store, utolsó golden-eredmények, review-sor")

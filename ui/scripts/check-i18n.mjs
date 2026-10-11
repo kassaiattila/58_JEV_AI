@@ -106,6 +106,10 @@ export function serverKeys() {
     if (p.help) keys.add(p.help);
     for (const v of Object.values(p.options ?? {})) keys.add(v);
   }
+  // 146: the bank files the system reads (Settings › Processing, the statement package's form)
+  const bf = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "bank_files.json"), "utf8"));
+  for (const v of [bf.intro, ...Object.values(bf.read_by ?? {}), ...Object.values(bf.checks ?? {}), ...(bf.not_read ?? [])]) if (v) keys.add(v);
+  for (const f of bf.files ?? []) for (const v of [f.bank, f.statement, ...(f.formats ?? []), ...(f.notes ?? [])]) if (v) keys.add(v);
   return keys;
 }
 

@@ -42,6 +42,7 @@ Since 2026-09-30 (the owner's decision) **everything that reaches GitHub is writ
 | State snapshot (generated) | local, generated | `docs/STATE.md` | Config versions, contracts, store, git state; **not in git** (it changes on every run) | Hand-written text | `preflight` / Stop hook |
 | Call sites (generated) | local, generated | `docs/callsites/` | Questions and thresholds of the JEV call sites and the local call-log statistics | Hand-written text | `python -m jav.cli docs` |
 | Flow description (generated) | codebase | `docs/flows/<flow>/FLOW.md` | Steps and diagram generated from the graph contract | Hand-written text | `python -m jav.cli flows` |
+| Bank files (generated) | codebase | `docs/BANK_FILES.md` | Which bank files the system reads, how, and what it does not read; generated from `configs/bank_files.json` and the readers' configuration | Hand-written text | `python -m jav.cli docs` (a test checks it is current) |
 | Backlog | internal | `docs/BACKLOG.md` | The single priority list, with status and plan IDs | Long justifications (those go into the plan) | Every finished task |
 | Decisions log | internal | `docs/DECISIONS.md` | The owner's decisions with dates; append-only | Engineering proposals presented as decisions | Every owner decision |
 | Glossary | codebase | `docs/GLOSSARY.md` | Every technical term in 1–3 sentences with an example, plus its Hungarian equivalent | Piles of synonyms | **Before** a new term is used |

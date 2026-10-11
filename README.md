@@ -113,6 +113,7 @@ Documents in the repository:
 - [Documentation standard](docs/guides/DOCUMENTATION.md) · [Development workflow](docs/guides/DEVELOPMENT.md) · [Setup](docs/guides/SETUP.md) · [Configuration files](docs/guides/CONFIGS.md)
 - [Changelog](CHANGELOG.md): the releases in brief
 - Generated flow descriptions: [docs/flows/](docs/flows/) (`python -m jav.cli flows`)
+- Bank files the system reads (generated): [docs/BANK_FILES.md](docs/BANK_FILES.md) (`python -m jav.cli docs`)
 - [Claude instructions](CLAUDE.md): standing working rules for the development model
 - Official TypeSafe/JEV documentation: [docs.typesafe.ai](https://docs.typesafe.ai/llms.txt)
 
