@@ -47,11 +47,12 @@ describe("a combined payment and a credit note (141)", () => {
     const { container } = render(<ReconcilePairing ws={ws} readOnly={false} onWorkspace={vi.fn()} reload={() => {}} />);
     expect(screen.getAllByText("with the other named invoices, the line's amount").length).toBe(3);
     fireEvent.click(screen.getAllByRole("checkbox", { name: /INV-0102/ })[0]);
-    expect(container.querySelectorAll(".rc-row.candidate.is-selected").length).toBe(3);
+    expect(container.querySelectorAll(".rc-frow.proposed.is-selected").length).toBe(3);
   });
 
   it("says which credit note cancels an invoice", () => {
     render(<ReconcilePairing ws={ws} readOnly={false} onWorkspace={vi.fn()} reload={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: /Bound to another line or settled \(1\)/ })); // 143: settled ones stand closed
     expect(screen.getAllByText("Cancelled by a credit note").length).toBeGreaterThan(0);
     expect(screen.getAllByText("credit note: CN-0202").length).toBeGreaterThan(0);
   });

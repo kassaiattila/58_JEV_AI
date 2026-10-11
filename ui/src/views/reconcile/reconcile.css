@@ -164,3 +164,57 @@
 .rc-doc-pick { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip.rc-chip-warn:not([aria-pressed="true"]) { color: var(--warn); }
 @media (max-width: 700px) { .rc-pairs { display: block; overflow-x: auto; } }
+
+/* 143: the finder — the invoice pane of the two lists. The selected line stands pinned above the invoices with a bar of
+   how much the ticked invoices cover; every invoice row has columns for the amount, the name, the number, the account
+   and the timing against the due date, with a tick, a cross or a dash. */
+.rc-finder-head { padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--soft); display: grid; gap: 5px; }
+.rc-finder-kicker { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
+.rc-finder-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.rc-finder-line .rc-amount { font-size: 16px; }
+.rc-finder-title { font-weight: 600; overflow-wrap: anywhere; }
+.rc-finder-sub { margin: 0; overflow-wrap: anywhere; }
+.rc-finder-head p { margin: 0; }
+.rc-cover { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.rc-meter { flex: 1 1 140px; max-width: 260px; height: 8px; border-radius: 999px; background: var(--line-soft); overflow: hidden; }
+.rc-meter > span { display: block; height: 100%; background: var(--warn); border-radius: 999px; }
+.rc-meter.full > span { background: var(--ok); }
+.rc-meter.over > span { background: var(--error); }
+.rc-empty { padding: 8px 12px; display: grid; gap: 6px; }
+.rc-empty p { margin: 0; }
+.rc-section-toggle { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line-soft); cursor: pointer; font: inherit;
+  font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
+.rc-section-toggle:hover { color: var(--ink); }
+
+.rc-fhead, .rc-frow { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; padding: 6px 12px 6px 9px; }
+.rc-fhead { padding-top: 4px; padding-bottom: 2px; border-bottom: 1px solid var(--line-soft); border-left: 3px solid transparent;
+  font-size: 11px; color: var(--muted); }
+.rc-pane { container-type: inline-size; }
+.rc-fhead-cols, .rc-frow-body { display: grid; grid-template-columns: minmax(0, 1fr) 132px 40px 40px 82px 150px; gap: 8px; align-items: start; }
+.rc-fhead-cols .num { text-align: right; }
+.rc-fhead-cols > span:nth-child(3), .rc-fhead-cols > span:nth-child(4), .rc-fhead-cols > span:nth-child(5) { text-align: center; }
+.rc-frow { border-bottom: 1px solid var(--line-soft); border-left: 3px solid transparent; align-items: start; }
+.rc-frow:hover { background: var(--soft); }
+.rc-frow.proposed { border-left-color: var(--ok); }
+.rc-frow.is-selected { background: var(--tint); }
+.rc-frow input[type="checkbox"] { margin: 4px 0 0; }
+.rc-frow-body { width: 100%; background: none; border: 0; padding: 1px 0; margin: 0; text-align: left; color: inherit; font: inherit; border-radius: 4px; }
+.rc-frow-body:disabled { opacity: 1; cursor: default; }
+.rc-fcell { display: grid; gap: 2px; min-width: 0; }
+.rc-finv .rc-main { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-finv .rc-sub { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.rc-finv .rc-sigs:empty { display: none; }
+.rc-famount { justify-items: end; text-align: right; }
+.rc-ftime { font-size: 13px; }
+.rc-verdict { justify-self: center; font-size: 16px; line-height: 1.2; font-weight: 700; }
+.rc-verdict.v-yes { color: var(--ok); }
+.rc-verdict.v-loose { color: var(--warn); }
+.rc-verdict.v-no { color: var(--muted); font-weight: 400; }
+.rc-verdict.v-differs { color: var(--error); }
+.rc-verdict.v-unknown { color: var(--line); font-weight: 400; }
+@container (max-width: 640px) {
+  .rc-fhead-cols, .rc-frow-body { grid-template-columns: minmax(0, 1fr) 120px 34px 34px 34px; }
+  .rc-fhead-cols > span:last-child { display: none; }
+  .rc-ftime { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 2px 10px; }
+}
+.rc-fhead-cols > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

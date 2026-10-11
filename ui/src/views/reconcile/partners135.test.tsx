@@ -139,14 +139,14 @@ describe("the partners on the pairing page", () => {
     expect(within(lines).queryByText(/EXAMPLESHOP/)).toBeNull();
   });
 
-  it("shows a candidate's strength and the engines that chose it, and the AI's own choice among the candidates", () => {
+  it("shows what ties a candidate and the engines that chose it, and the AI's own choice among the candidates", () => {
     const candidate = { invoice_id: invId(1), line_id: lineId(1), proposed: true, amount_only: false, signals: ["supplier_name" as const],
       amount_relation: "equal" as const, multiple_candidates: false, source_review_required: false, fx: null, strength: 55, by_due: true };
     page(workspace([line(1, "exampleshop", { state: "proposed", candidates: [candidate],
       ai: { jev: answer("online_order", { pays: invId(1), pays_probability: 0.87 }), gpt: answer("online_order", { pays: invId(2), pays_probability: 0.95 }) } })],
     [invoice(1), invoice(2)]));
-    const list = screen.getByText("Candidates of the selected line").nextElementSibling as HTMLElement;
-    expect(within(list).getByText("strength 55")).toBeTruthy();
+    const list = screen.getByRole("list", { name: "Invoices that fit" }); // 143: the finder's columns say what ties them
+    expect(within(list).getByRole("img", { name: "The name matches" })).toBeTruthy();
     expect(within(list).getByText("JEV 0.87")).toBeTruthy();
     expect(within(list).getByText("GPT 0.95")).toBeTruthy();
     expect(within(list).getByText("AI only: code found nothing that ties them")).toBeTruthy();

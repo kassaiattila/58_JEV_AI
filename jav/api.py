@@ -1261,6 +1261,11 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         """132: where a line stands on its statement page (found in the word layer by its amount and date)."""
         return work_views.jsonable(reconcile_package.locate(wp_id, line_id))
 
+    @app.get(r + "/workpackages/{wp_id}/reconcile/matches")
+    def reconcile_matches(wp_id: WpId, line_id: Annotated[str, Query(pattern=LINE_ID)]) -> dict[str, Any]:
+        """143: every invoice of the page compared with one line, the fitting ones first (the two lists' finder)."""
+        return work_views.jsonable(reconcile_package.matches(wp_id, line_id))
+
     @app.post(r + "/workpackages/{wp_id}/reconcile/revoke")
     def reconcile_revoke(wp_id: WpId, body: ReconcileRevoke, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.revoke(wp_id, kind=body.kind, ref=body.ref, actor=who, note=body.note)
