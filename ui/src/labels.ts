@@ -338,6 +338,7 @@ export function stepLabel(code: string, params: Record<string, unknown> | undefi
   if (code === "running") return t("Fut: {{done}}/{{total}}", { done: params?.done ?? 0, total: params?.total ?? 0 });
   if (code === "review") return t("Ellenőrzés: {{n}} teendő", { n: params?.n ?? 0 });
   if (code === "reconcile_pair") return t("Pairing: {{n}} open lines", { n: params?.n ?? 0 });
+  if (code === "reconcile_approved") return t("Approved: version {{n}}", { n: params?.version ?? "" }); // 145
   return Object.prototype.hasOwnProperty.call(STEP_LABEL, code) ? STEP_LABEL[code] : fallback;
 }
 

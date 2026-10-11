@@ -27,11 +27,12 @@ const ACTIVE = new Set(["queued", "running"]);
 export function stageStatus(view: WorkpackageView): Record<Stage, string> {
   const last = view.last_run;
   if (view.reconcile) {
-    const { scope, counts } = view.reconcile;
+    const { scope, counts, approval } = view.reconcile;
     return {
       process: t("{{n}} accounts, {{from}} – {{to}}", { n: scope.accounts.length, from: scope.period_start, to: scope.period_end }),
       review: counts.open_lines ? t("{{n}} open lines", { n: counts.open_lines }) : t("no open line"),
-      result: t("not approved yet"),
+      // 145: the approved version, if any
+      result: approval?.active ? t("approved: version {{n}}", { n: approval.active.version }) : t("not approved yet"),
     };
   }
   return {

@@ -129,3 +129,14 @@ describe("the Result stage of a reconciliation package (145)", () => {
     expect(screen.queryByRole("button", { name: /Approve the reconciliation/ })).toBeNull();
   });
 });
+
+describe("the approved package in the header (145)", () => {
+  it("names the approved version as the next step and on the Result stage", async () => {
+    const { stepLabel } = await import("../../labels");
+    const { stageStatus } = await import("../WorkpackageDetail");
+    expect(stepLabel("reconcile_approved", { version: 2 }, "Approved: version 2")).toBe("Approved: version 2");
+    const view = { last_run: null, reconcile: { scope: { accounts: ["A"], period_start: "2026-04-01", period_end: "2026-04-30" },
+      counts: { open_lines: 0 }, coverage: [], approval: { active: v1, versions: [v1] } } };
+    expect(stageStatus(view as never).result).toBe("approved: version 1");
+  });
+});

@@ -947,5 +947,7 @@
   "Statements do not cover it": "Statements do not cover it",
   "Open": "Open",
   "No statement for {{month}}: {{account}}": "No statement for {{month}}: {{account}}",
-  "This line is in an approved reconciliation; reopen that approval first.": "This line is in an approved reconciliation; reopen that approval first."
+  "This line is in an approved reconciliation; reopen that approval first.": "This line is in an approved reconciliation; reopen that approval first.",
+  "Approved: version {{n}}": "Approved: version {{n}}",
+  "approved: version {{n}}": "approved: version {{n}}"
 }

@@ -115,6 +115,7 @@ def build(ws: dict[str, Any], name: str) -> dict[str, Any]:
                                     "supplier_name": (rows.get(a["invoice_id"]) or {}).get("supplier_name"),
                                     "line_amount": a["line_amount"], "invoice_amount": a["invoice_amount"]}
                                    for a in ln["allocations"]]})
+    out_lines.sort(key=lambda ln: (ln["account"] or "", str(ln["booking_date"] or "")))  # per account, by day (stable)
     warnings = [{"code": w["code"], "doc_id": w["doc_id"], "file": w["file"]} for w in ws["warnings"]]
     warnings += [{"code": "month_without_statement", "account": c["account"], "month": c["month"]}
                  for c in ws["coverage"] if not c["statements"]]

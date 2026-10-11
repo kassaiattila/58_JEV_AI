@@ -948,5 +948,7 @@
   "Statements do not cover it": "A kivonatok nem fedik le",
   "Open": "Nyitott",
   "No statement for {{month}}: {{account}}": "Nincs kivonat erre a hónapra ({{month}}): {{account}}",
-  "This line is in an approved reconciliation; reopen that approval first.": "Ez a tétel egy jóváhagyott egyeztetésben szerepel; előbb azt a jóváhagyást kell újranyitni."
+  "This line is in an approved reconciliation; reopen that approval first.": "Ez a tétel egy jóváhagyott egyeztetésben szerepel; előbb azt a jóváhagyást kell újranyitni.",
+  "Approved: version {{n}}": "Jóváhagyva: {{n}}. változat",
+  "approved: version {{n}}": "jóváhagyva: {{n}}. változat"
 }
