@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "statement_tables",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "description": "136 E4 (jav/statement_table.py): bank statements exported as a table (a workbook or a CSV file), read by code without AI. A profile names a kind of export by its column headers and says where an account's title, number and balances stand; the header aliases, titles and labels are document vocabulary, quoted as the bank prints them. Decisions: DECISIONS 132 (a general tabular statement reader, not code for one bank; only the two personal accounts of the Revolut export go into the store), DECISIONS 136 (processed as a work package, one statement per account, the accounts chosen by a person before the run).",
     "changelog": [
+      {
+        "version": "1.3.0",
+        "date": "2026-10-11",
+        "note": "141 (DECISIONS 141, the sports club's statements read by code first): the text layout and its first profile, the CIB bank statement (a current account or an investment client account), read from its PDF's text layer or from the bank's fixed-width text export (cp1250). signature: patterns every one of which the text holds; header: the statement number, period, currency, giro and IBAN numbers, opening and closing balances and the printed totals; the lines stand between lines_start and lines_end, without the page breaks (skip_blocks: a page's footer to the next page's period, and the table header); line: booking date, kind, signed amount, running balance; value_line: the value date and its text (the counterparty's account, a foreign transfer's original amount, or the bank's description of a fee); labels: the counterparty's name and account and the memo; labelled: a row that is no counterparty's name. The credit card statement (HITELKÁRTYA KIVONAT) has another layout and is not read by this profile. The other profiles are unchanged."
+      },
       {
         "version": "1.2.0",
         "date": "2026-10-10",
@@ -99,6 +104,38 @@
           "memo": "^Közlemény:\\s+(?P<value>.+)$"
         }
       }
+    },
+    {
+      "name": "cib_text_hu",
+      "institution": "CIB",
+      "layout": "text",
+      "suffixes": [".pdf", ".txt"],
+      "encodings": ["utf-8", "cp1250"],
+      "statement_type": "bank_account",
+      "signature": ["CIB(?:24|HHUHB)", "(?:BANKSZÁMLA|BEFEKTETÉSI ÜGYFÉLSZÁMLA) KIVONAT", "^NYITÓ EGYENLEG:", "TERHELÉSEK\\(-\\)/"],
+      "header": {
+        "number": "SORSZÁM:\\s+(?P<value>\\d+)",
+        "period": "IDŐSZAK:\\s+(?P<start>\\d{4}\\.\\d{2}\\.\\d{2})\\.?\\s*-\\s*(?P<end>\\d{4}\\.\\d{2}\\.\\d{2})\\.?",
+        "currency": "DEVIZANEM:\\s+(?P<value>[A-Z]{3})\\b",
+        "account": "GIRO SZÁM:\\s+(?P<value>\\d{8}-\\d{8}(?:-\\d{8})?)",
+        "iban": "IBAN SZÁM:\\s+(?P<value>[A-Z]{2}\\d{2}(?: ?[0-9A-Z]{4}){3,7})",
+        "opening": "^NYITÓ EGYENLEG:\\s+(?P<value>-?\\s?\\d[\\d.]*,\\d{2})",
+        "closing": "ZÁRÓ EGYENLEG:\\s+(?P<value>-?\\s?\\d[\\d.]*,\\d{2})",
+        "totals": "^ÖSSZESEN FORGALOM\\s+TERHELÉS:\\s+(?P<debit>-?\\s?\\d[\\d.]*,\\d{2})\\s+JÓVÁÍRÁS:\\s+(?P<credit>-?\\s?\\d[\\d.]*,\\d{2})"
+      },
+      "lines_start": "^NYITÓ EGYENLEG:",
+      "lines_end": "^ÖSSZESEN FORGALOM",
+      "skip_blocks": [["^CIB Bank Zrt\\.", "^IDŐSZAK:"], ["^CCIIBB", "^IDŐSZAK:"], ["^#\\d", "^IDŐSZAK:"], ["^KÖNYVELÉSI/", "^ÉRTÉKNAP"]],
+      "line": "^(?P<booked>\\d{4}\\.\\d{2}\\.\\d{2}\\.)\\s+(?P<kind>.+?)\\s{2,}(?P<amount>-?\\d[\\d.]*,\\d{2})\\s{2,}(?P<balance>-?\\d[\\d.]*,\\d{2})$",
+      "value_line": "^(?P<value_date>\\d{4}\\.\\d{2}\\.\\d{2}\\.)(?:\\s+(?P<text>.*))?$",
+      "counterparty_account": "\\d{8}-\\d{8}(?:-\\d{8})?|[A-Z]{2}\\d{2}(?: ?[0-9A-Z]{4}){3,7}(?: ?[0-9A-Z]{1,3})?",
+      "original": "^(?P<currency>[A-Z]{3})\\s+(?P<amount>\\d+(?:,\\d+)?)/",
+      "labels": {
+        "counterparty_name": "^(?:Kedvezményezett|Megbízó) neve:\\s*(?P<value>.+)$",
+        "counterparty_account": "^(?:Kedvezményezett|Megbízó) IBAN számlaszáma:\\s*(?P<value>\\S+)$",
+        "memo": "^Közlemény:\\s*(?P<value>.+)$"
+      },
+      "labelled": "^[^:]{2,60}:\\s"
     }
   ]
 }

@@ -50,6 +50,18 @@ companion, and the files no profile knows are listed (`Reading.skipped`).
 138 (Q-table-reader-isolation, DECISIONS 138): the third-party parsing of an export (`parse_rows`) runs in the isolated
 PDF reader's helper process, within its read time limit and memory limit, as the local service reads a file a person
 picks; our own reading of the rows stays in the calling process.
+
+141 (DECISIONS 141, the sports club's statements read by code first): a **text** profile (`layout: text`) reads a statement printed as text:
+a PDF's text layer (the isolated PDF reader) or the bank's fixed-width text export (`.txt`, in one of the profile's
+`encodings`), such as the CIB statement. A profile knows its statement by `signature` (every pattern found in the text);
+`header` gives the statement number, period, currency, account, IBAN, opening and closing balances and the printed
+totals; the lines stand between `lines_start` and `lines_end`, without the page breaks (`skip_blocks`). A line is its
+first row (booking date, kind, signed amount, running balance), then its value date row, whose text is the
+counterparty's account (the next unlabelled row is then the counterparty's name), a foreign transfer's original amount
+(`original`) or the bank's own description of a fee; the labelled rows (`labels`) give the counterparty's name and
+account and the memo. The statement checks itself: the running balance line by line, the printed totals and the closing
+balance. A PDF no text profile knows is left alone when a folder is read: it may be another export's companion or a
+statement to extract (`jav/statement_package.py`).
 """
 
 from __future__ import annotations
@@ -73,6 +85,7 @@ from jav.numbers import read_number
 
 CONFIG = "statement_tables"
 SUFFIXES = (".xlsx", ".csv", ".xml")
+TEXT_SUFFIXES = (".pdf", ".txt")  # 141: a statement printed as text
 CENT = Decimal("0.01")
 
 
@@ -91,7 +104,8 @@ class Account:
     checks: dict[str, Any]
     problems: list[str] = field(default_factory=list)
     source: dict[str, Any] | None = None  # 137: the export file (and its companion) this account was read from
-    balances: str = "export"  # 137: where the balances come from: export | companion | none (cannot be checked)
+    balances: str = "export"  # 137: where the balances come from: export (141: or the text statement itself) |
+    #                           companion | none (cannot be checked)
     companion_problems: list[str] = field(default_factory=list)  # 137: lines on one side only, another account
 
 
@@ -648,12 +662,177 @@ def _ledger_accounts(rows: list[list[str]], profile: dict[str, Any], path: Path,
             for (account_no, number), group in groups.items() if account_no]
 
 
+# --- 141: a statement printed as text (a PDF's text layer or the bank's text export) -----------------------------------
+
+
+def _signed(text: str | None) -> Decimal | None:
+    """A Hungarian amount whose minus sign may stand apart ("- 2.000.000,00")."""
+    return _hu_amount(re.sub(r"^-\s+", "-", text.strip())) if text else None
+
+
+def _comma_amount(text: str) -> Decimal | None:
+    """An amount with a decimal comma and no thousands separator ("1000,000"), when it is a whole number of cents."""
+    if not re.fullmatch(r"\d+(?:,\d+)?", text):
+        return None
+    value = Decimal(text.replace(",", "."))
+    return value.quantize(CENT) if value == value.quantize(CENT) else None
+
+
+def _text_line(m: re.Match[str]) -> dict[str, Any]:
+    kind = " ".join(m["kind"].split())
+    return {"booked": read_date(m["booked"]).value, "kind": kind.split(";", 1)[0].strip() or kind,
+            "amount": _hu_amount(m["amount"]), "balance": _hu_amount(m["balance"]), "value_date": None,
+            "counterparty_name": None, "counterparty_account": None, "memo": None, "note": None,
+            "original_amount": None, "original_currency": None, "expect_name": False}
+
+
+def parse_text_statement(lines: list[str], profile: dict[str, Any]) -> dict[str, Any]:
+    """The statement's header fields and lines from its text lines and the profile's patterns. Pure: no file is read.
+    A text keeps single spaces only, as a fixed-width export pads inside a description where the PDF does not."""
+    lines = [ln.strip() for ln in lines]
+    text = "\n".join(lines)
+    header = {k: re.search(v, text, re.MULTILINE) for k, v in profile["header"].items()}
+    start_re, end_re = re.compile(profile["lines_start"]), re.compile(profile["lines_end"])
+    first = next((i for i, ln in enumerate(lines) if start_re.search(ln)), len(lines))
+    last = next((i for i in range(first + 1, len(lines)) if end_re.search(lines[i])), len(lines))
+    body = [ln for ln in _without_page_breaks(lines[first + 1:last], profile.get("skip_blocks", [])) if ln.strip("-= ")]
+    line_re, value_re = re.compile(profile["line"]), re.compile(profile["value_line"])
+    account_re, original_re = re.compile(profile["counterparty_account"]), re.compile(profile["original"])
+    labels = {k: re.compile(v) for k, v in profile["labels"].items()}
+    labelled, dated = re.compile(profile["labelled"]), re.compile(r"^\d{4}\.\d{2}\.\d{2}\.")
+    out: list[dict[str, Any]] = []
+    problems: list[str] = []
+    expect_value = False
+    for ln in body:
+        if m := line_re.match(ln):
+            out.append(_text_line(m))
+            if out[-1]["booked"] is None or out[-1]["amount"] is None or out[-1]["balance"] is None:
+                problems.append(f"line {len(out)}: unreadable")
+            expect_value = True
+            continue
+        current = out[-1] if out else None
+        if expect_value and current is not None and (v := value_re.match(ln)):
+            expect_value = False
+            current["value_date"] = read_date(v["value_date"]).value
+            rest = (v["text"] or "").strip()
+            if account_re.fullmatch(rest):
+                current["counterparty_account"] = rest if "-" in rest else rest.replace(" ", "")
+                current["expect_name"] = True
+            elif rest:
+                current["note"] = " ".join(rest.split())
+                if (o := original_re.match(rest)) and (amount := _comma_amount(o["amount"])) is not None:
+                    current["original_amount"], current["original_currency"] = amount, o["currency"]
+            continue
+        expect_value = False
+        if current is None:
+            continue
+        if dated.match(ln):
+            problems.append(f"line {len(out)}: an unreadable row after it")
+            continue
+        found = False
+        for key, rx in labels.items():
+            if d := rx.match(ln):
+                found = True
+                if current[key] is None:
+                    current[key] = " ".join(d["value"].split())
+        if not found and current["expect_name"] and not labelled.match(ln):
+            current["counterparty_name"] = " ".join(ln.split())
+        current["expect_name"] = False
+    period = header.get("period")
+    totals = header.get("totals")
+    return {"number": header["number"]["value"] if header.get("number") else None,
+            "period": (read_date(period["start"]).value, read_date(period["end"]).value) if period else (None, None),
+            "currency": header["currency"]["value"] if header.get("currency") else None,
+            "account": header["account"]["value"] if header.get("account") else None,
+            "iban": header["iban"]["value"].replace(" ", "") if header.get("iban") else None,
+            "opening": _signed(header["opening"]["value"]) if header.get("opening") else None,
+            "closing": _signed(header["closing"]["value"]) if header.get("closing") else None,
+            "totals": (_signed(totals["debit"]), _signed(totals["credit"])) if totals else None,
+            "lines": out, "problems": problems}
+
+
+def _text_account(parsed: dict[str, Any], profile: dict[str, Any], source: dict[str, Any]) -> Account:
+    """One account's statement from a parsed text statement, with the checks of its own balances and totals."""
+    lines = [t for t in parsed["lines"] if t["booked"] is not None and t["amount"] is not None]
+    amounts = [t["amount"] for t in lines]
+    transactions = [{"booking_date": t["booked"].isoformat(),
+                     "value_date": t["value_date"].isoformat() if t["value_date"] else None,
+                     "direction": "debit" if t["amount"] < 0 else "credit", "amount": _plain(abs(t["amount"])),
+                     "running_balance": _plain(t["balance"]), "description": t["kind"] or None,
+                     "counterparty_name": t["counterparty_name"], "counterparty_account": t["counterparty_account"],
+                     "memo": t["memo"] or t["note"], "original_amount": _plain(t["original_amount"]),
+                     "original_currency": t["original_currency"]} for t in lines]
+    opening, closing = parsed["opening"], parsed["closing"]
+    start, end = (d.isoformat() if d else None for d in parsed["period"])
+    if start is None and transactions:
+        start, end = min(t["booking_date"] for t in transactions), max(t["booking_date"] for t in transactions)
+    debits = sum((-a for a in amounts if a < 0), Decimal(0))
+    credits = sum((a for a in amounts if a > 0), Decimal(0))
+    currency = parsed["currency"] or ""
+    statement = {"statement_type": profile["statement_type"], "account_no": parsed["account"],
+                 "account_iban": parsed["iban"], "period_start": start, "period_end": end, "currency": currency or None,
+                 "opening_balance": _plain(opening), "closing_balance": _plain(closing), "total_debit": _plain(debits),
+                 "total_credit": _plain(credits), "transactions": transactions}
+    running = None
+    if opening is not None:
+        ok, previous = 0, opening
+        for t in lines:
+            ok += previous is not None and t["balance"] is not None and previous + t["amount"] == t["balance"]
+            previous = t["balance"]
+        running = {"ok": ok, "lines": len(lines)}
+    totals = parsed["totals"]
+    checks = {"running_balance": running,
+              "total_row": None if totals is None or None in totals else (abs(totals[0]), totals[1]) == (debits, credits),
+              "closing_balance": None if opening is None or closing is None else opening + sum(amounts, Decimal(0)) == closing}
+    digits = re.sub(r"\D", "", parsed["account"] or (parsed["iban"] or "")[4:])
+    number = parsed["number"]
+    title = f"…{digits[-4:]} {int(number)}" if number else f"…{digits[-4:]}"
+    return Account(key=f"{digits}:{currency}:{start}", title=title, currency=currency, occurrence=1, statement=statement,
+                   checks=checks, problems=list(parsed["problems"]), source=source)
+
+
+def _text_lines(path: Path, data: bytes, profiles: list[dict[str, Any]]) -> list[str]:
+    """The lines of a PDF's text layer (the isolated PDF reader) or of a text export in one of the profiles' encodings."""
+    if path.suffix.lower() == ".pdf":
+        try:
+            return _pdf_lines(path)
+        except (ValueError, OSError) as exc:  # the PDF reader's refusals (size, pages, a parser error) are ValueErrors
+            raise StatementTableError(f"the PDF cannot be read: {exc}") from exc
+    for encoding in dict.fromkeys(e for p in profiles for e in p.get("encodings", ["utf-8"])):
+        try:
+            return data.decode(encoding).splitlines()
+        except UnicodeDecodeError:
+            continue
+    raise StatementTableError("the text file is in none of the profiles' encodings")
+
+
+def _read_text(path: Path, *, name: str | None = None) -> Reading:
+    data = path.read_bytes()
+    conf = _conf()
+    if len(data) > conf["limits"]["max_bytes"]:
+        raise StatementTableError("the file is over the size limit")
+    profiles = [p for p in conf["profiles"] if p.get("layout") == "text" and path.suffix.lower() in p["suffixes"]]
+    lines = [ln.strip() for ln in _text_lines(path, data, profiles)] if profiles else []
+    text = "\n".join(lines)
+    file_name = name or path.name
+    sha = hashlib.sha256(data).hexdigest()
+    for profile in profiles:
+        if all(re.search(s, text, re.MULTILINE) for s in profile["signature"]):
+            account = _text_account(parse_text_statement(lines, profile), profile,
+                                    {"file": file_name, "sha256": sha, "repairs": []})
+            return Reading(profile=profile["name"], institution=profile["institution"], file_name=file_name,
+                           sha256=sha, repairs=[], accounts=[account])
+    raise StatementTableError("no statement of a known profile in the file")
+
+
 # --- reading a file or a folder ----------------------------------------------------------------------------------------
 
 
 def _read_file(path: Path, *, name: str | None = None) -> Reading:
+    if path.suffix.lower() in TEXT_SUFFIXES:
+        return _read_text(path, name=name)
     if path.suffix.lower() not in SUFFIXES:
-        raise StatementTableError(f"a statement table is a {' or '.join(SUFFIXES)} file")
+        raise StatementTableError(f"a statement table is a {' or '.join(SUFFIXES + TEXT_SUFFIXES)} file")
     data = path.read_bytes()
     conf = _conf()
     rows, repairs = _rows(path, data, conf)
@@ -661,6 +840,8 @@ def _read_file(path: Path, *, name: str | None = None) -> Reading:
     sha = hashlib.sha256(data).hexdigest()
     source = {"file": file_name, "sha256": sha, "repairs": repairs}
     for profile in conf["profiles"]:
+        if profile.get("layout") == "text":  # 141: read from a PDF or a text export only
+            continue
         if profile.get("layout") == "ledger":
             accounts = _ledger_accounts(rows, profile, path, file_name, source)
         else:
@@ -673,17 +854,19 @@ def _read_file(path: Path, *, name: str | None = None) -> Reading:
 
 def _read_folder(folder: Path) -> Reading:
     """137: every export directly in the folder; a file no profile reads is listed, and a statement read twice (the
-    same statement in two files) keeps its first file."""
+    same statement in two files) keeps its first file. 141: and every statement printed as text; a PDF or a text file
+    no profile reads is not listed (a PDF may be an export's companion or a statement to extract, a text file a note)."""
     limit = _conf()["limits"]["max_files"]
-    files = sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in SUFFIXES)
+    files = sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in SUFFIXES + TEXT_SUFFIXES)
     if len(files) > limit:
-        raise StatementTableError(f"the folder holds more than {limit} export files")
+        raise StatementTableError(f"the folder holds more than {limit} statement files")
     readings, skipped = [], []
     for f in files:
         try:
             readings.append(_read_file(f))
         except StatementTableError as exc:  # listed for the person, not dropped
-            skipped.append({"file": f.name, "reason": str(exc)})
+            if f.suffix.lower() not in TEXT_SUFFIXES:
+                skipped.append({"file": f.name, "reason": str(exc)})
     accounts: dict[str, Account] = {}
     for r in readings:
         for a in r.accounts:

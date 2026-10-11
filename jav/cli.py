@@ -826,8 +826,9 @@ def main(argv: list[str] | None = None) -> int:
                    help="free: compare the stored answers with a person's decisions on the package's lines")
     p.set_defaults(fn=cmd_reconcile_ai)
 
-    p = sub.add_parser("statement-table", help="136: a tabular bank statement export read by code (free): the accounts found and their checks")
-    p.add_argument("file", help="the workbook (.xlsx) or CSV file")
+    p = sub.add_parser("statement-table", help="136: a tabular bank statement export read by code (free): the accounts found and their checks;"
+                                               " 141: also a statement printed as text (a CIB PDF or text export) or a folder of them")
+    p.add_argument("file", help="the workbook (.xlsx), CSV, Excel 2003 XML, PDF or text file, or a folder")
     p.set_defaults(fn=cmd_statement_table)
 
     p = sub.add_parser("fx-rates", help="130: the stored MNB exchange rates (counts); --fetch FROM TO: fetch a span (free)")
