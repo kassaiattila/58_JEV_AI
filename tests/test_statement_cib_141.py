@@ -156,6 +156,23 @@ def test_the_text_export_of_the_same_month_gives_the_same_statement(tmp_path):
     assert (from_text.key, from_text.title, st.checks_ok(from_text)) == (from_pdf.key, from_pdf.title, True)
 
 
+def test_a_row_whose_numbers_the_pdf_prints_twice_over_is_read(tmp_path):
+    """The first row after a page break: the PDF's text layer doubles each character of its date and amounts."""
+    def doubled(token: str) -> str:
+        return "".join(ch * 2 for ch in token)
+
+    lines = _pdf_lines()
+    at = next(i for i, ln in enumerate(lines) if ln.startswith("2026.05.20."))
+    first = "2026.05.20.   Terhelés EGT-n belüli (SEPA) deviza; SPKSKI2A100C1   -397.000,00   732.460,00"
+    lines[at] = "   ".join([doubled("2026.05.20."), "Terhelés EGT-n belüli (SEPA) deviza; SPKSKI2A100C1",
+                            doubled("-397.000,00"), doubled("732.460,00")])
+    assert lines[at] != first
+    a = _only(st.read(_pdf(tmp_path, "s.pdf", lines)))
+    assert len(a.statement["transactions"]) == 5 and st.checks_ok(a)
+    assert st._undoubled("22002266..0022..0055..   Kimenő") == "2026.02.05.   Kimenő"
+    assert st._undoubled("11.000.000,00   000000   11   --") == "11.000.000,00   000000   11   --"  # nothing doubled
+
+
 def test_a_wrong_running_balance_or_closing_balance_is_a_finding(tmp_path):
     lines = [(LINES[0][0].replace("1.250.000,00", "1.250.001,00"), *LINES[0][1:]), *LINES[1:]]
     a = _only(st.read(_pdf(tmp_path, "s.pdf", _pdf_lines(lines=lines, closing="730.001,00"))))
@@ -219,3 +236,43 @@ def test_a_statement_package_reads_the_cib_pdfs_by_code_and_extracts_none(db):
     assert parties.resolver().account(DIGITS) == party
     with store.connect() as c:
         assert c.execute("SELECT COUNT(*) FROM invocations").fetchone()[0] == 0  # no AI call
+
+
+# --- the credit card statement --------------------------------------------------------------------------------------------
+
+CARD_GIRO = "11112223-33334444-77776666"  # made up, wrong check digits
+CARD = ["SORSZÁM:   7", "OLDALSZÁM:   1", "ÜGYFÉLSZOLGÁLAT", "CIB24 azonosító:   12345678   STMC", "EXAMPLE PERSON",
+        "HITELKÁRTYA KIVONAT   EXAMPLETOWN", "SZÁMLA:   1111 222233 777", "EXAMPLE UTCA 1.", "IDŐSZAK:   2025.12.23 - 2026.01.23.",
+        "DEVIZANEM:   HUF   2026", f"GIRO SZÁM:   {CARD_GIRO}", "IBAN SZÁM:   HU00 1111 2223 3333 4444 7777 6666",
+        "NYITÓ EGYENLEG:   -120.000,00", "KÖNYVELÉS NAPJA TRANZAKCIÓ DÁTUMA   MEGNEVEZÉS   TERHELÉS(-)/JÓVÁÍRÁS",
+        "2026.01.05.   2026.01.05.   JÓVÁÍRÁS   120.000,00", "KÁRTYASZÁM: 0000 XXXX XXXX 0000",
+        "2026.01.10.   2026.01.08.   VÁSÁRLÁS   -12.990,00", "12990.00 HUF", "EXAMPLE SHOP BUDAPEST",
+        *FOOTER, "SORSZÁM:   7", "HITELKÁRTYA KIVONAT", "OLDALSZÁM:   2", "SZÁMLA:   1111 222233 777",
+        "IDŐSZAK:   2025.12.23 - 2026.01.23.", "KÖNYVELÉS NAPJA TRANZAKCIÓ DÁTUMA   MEGNEVEZÉS   TERHELÉS(-)/JÓVÁÍRÁS",
+        "2026.01.15.   2026.01.14.   VÁSÁRLÁS   -7.450,00", "0000 0000 0000 0000 00000000 000000", "20.00 USD", "EXAMPLE CLOUD INC",
+        "BEFIZETÉSEK ÖSSZESEN 120.000,00   TÁRGYHAVI TERHELÉSEK ÖSSZEGE: -20.440,00", "ZÁRÓ EGYENLEG:   -20.440,00",
+        "TELJES HITELKERET:   500.000,00", *FOOTER]
+
+
+def test_a_cib_credit_card_statement_is_read_by_code_with_its_merchants_and_original_amounts(tmp_path):
+    reading = st.read(_pdf(tmp_path, "card_20260123.pdf", CARD))
+    a = _only(reading)
+    s = a.statement
+    assert (reading.profile, s["statement_type"], s["account_no"], s["period_start"], s["period_end"]) == (
+        "cib_card_text_hu", "credit_card", CARD_GIRO, "2025-12-23", "2026-01-23")
+    assert (s["opening_balance"], s["closing_balance"], s["total_debit"], s["total_credit"]) == (
+        "-120000.00", "-20440.00", "20440.00", "120000.00")
+    payment, shop, cloud = s["transactions"]
+    assert (payment["direction"], payment["counterparty_name"], payment["running_balance"]) == ("credit", None, None)
+    assert (shop["booking_date"], shop["value_date"], shop["counterparty_name"], shop["original_amount"]) == (
+        "2026-01-10", "2026-01-08", "EXAMPLE SHOP BUDAPEST", None)  # the forint amount is no original amount
+    assert (cloud["counterparty_name"], cloud["original_amount"], cloud["original_currency"], cloud["description"]) == (
+        "EXAMPLE CLOUD INC", "20.00", "USD", "VÁSÁRLÁS")
+    assert a.checks == {"running_balance": None, "total_row": True, "closing_balance": True}
+    assert st.checks_ok(a) and a.problems == []
+
+
+def test_a_card_statement_without_running_balances_is_checked_by_its_closing_balance(tmp_path):
+    wrong = [ln.replace("ZÁRÓ EGYENLEG:   -20.440,00", "ZÁRÓ EGYENLEG:   -20.441,00") for ln in CARD]
+    a = _only(st.read(_pdf(tmp_path, "card.pdf", wrong)))
+    assert a.checks["closing_balance"] is False and not st.checks_ok(a)

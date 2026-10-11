@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.28",
+    "version": "1.0.29",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.29",
+        "date": "2026-10-11",
+        "note": "141: accept the bank vocabulary of the CIB card statement profile and of the Erste camt.053 transaction code texts (configs/statement_tables.json), the Hungarian column of the glossary entry of the bank's XML statement (docs/GLOSSARY.md), and the synthetic card and camt.053 statement lines the readers' tests build (tests/test_statement_cib_141.py, tests/test_statement_camt_141.py). All other file limits are unchanged."
+      },
       {
         "version": "1.0.28",
         "date": "2026-10-11",
@@ -243,7 +248,7 @@
     "configs/recipes.json": 52,
     "configs/reports.json": 5,
     "configs/service.json": 7,
-    "configs/statement_tables.json": 45,
+    "configs/statement_tables.json": 71,
     "configs/types/_base/utility_bill_hu.json": 3,
     "configs/types/altalanos_szerzodesi_feltetelek.json": 16,
     "configs/types/belepo_jegy.json": 10,
@@ -270,7 +275,7 @@
     "configs/types/viz_szamla.json": 29,
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
-    "docs/GLOSSARY.md": 240,
+    "docs/GLOSSARY.md": 241,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 10,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -465,7 +470,8 @@
     "tests/test_source_find.py": 1,
     "tests/test_stability_063.py": 13,
     "tests/test_stack_trial.py": 3,
-    "tests/test_statement_cib_141.py": 44,
+    "tests/test_statement_camt_141.py": 6,
+    "tests/test_statement_cib_141.py": 59,
     "tests/test_statement_erste_137.py": 27,
     "tests/test_statement_package_140.py": 7,
     "tests/test_statement_table_136.py": 38,

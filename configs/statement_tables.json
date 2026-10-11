@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "statement_tables",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "description": "136 E4 (jav/statement_table.py): bank statements exported as a table (a workbook or a CSV file), read by code without AI. A profile names a kind of export by its column headers and says where an account's title, number and balances stand; the header aliases, titles and labels are document vocabulary, quoted as the bank prints them. Decisions: DECISIONS 132 (a general tabular statement reader, not code for one bank; only the two personal accounts of the Revolut export go into the store), DECISIONS 136 (processed as a work package, one statement per account, the accounts chosen by a person before the run).",
     "changelog": [
+      {
+        "version": "1.4.0",
+        "date": "2026-10-11",
+        "note": "141 (DECISIONS 141): two profiles. cib_card_text_hu - the CIB credit card statement (HITELKÁRTYA KIVONAT) as text: a line's row prints the booking and the purchase day and the amount, no running balance (the statement checks its closing balance and printed totals); the merchant is the first unlabelled row after it (name_from first_unlabelled), a purchase's amount in its own currency is its own row (original_row); drop_rows - rows left out (the repeated table header, card and reference numbers). camt053 - a bank's ISO 20022 camt.053 XML statement (layout camt053): banks by BIC give the texts of the bank's own transaction codes (kinds, as its Excel export prints them) and the patterns of its card details (details: merchant, original); the Erste codes are the 25 its 2022-2026 statements use. The text profiles also read a number the PDF prints with every character twice (the first row after a page break). The other profiles are unchanged."
+      },
       {
         "version": "1.3.0",
         "date": "2026-10-11",
@@ -136,6 +141,63 @@
         "memo": "^Közlemény:\\s*(?P<value>.+)$"
       },
       "labelled": "^[^:]{2,60}:\\s"
+    },
+    {
+      "name": "cib_card_text_hu",
+      "institution": "CIB",
+      "layout": "text",
+      "suffixes": [".pdf", ".txt"],
+      "encodings": ["utf-8", "cp1250"],
+      "statement_type": "credit_card",
+      "signature": ["CIB(?:24|HHUHB)", "HITELKÁRTYA KIVONAT", "^NYITÓ EGYENLEG:", "TERHELÉS\\(-\\)/JÓVÁÍRÁS"],
+      "header": {
+        "number": "SORSZÁM:\\s+(?P<value>\\d+)",
+        "period": "IDŐSZAK:\\s+(?P<start>\\d{4}\\.\\d{2}\\.\\d{2})\\.?\\s*-\\s*(?P<end>\\d{4}\\.\\d{2}\\.\\d{2})\\.?",
+        "currency": "DEVIZANEM:\\s+(?P<value>[A-Z]{3})\\b",
+        "account": "GIRO SZÁM:\\s+(?P<value>\\d{8}-\\d{8}(?:-\\d{8})?)",
+        "iban": "IBAN SZÁM:\\s+(?P<value>[A-Z]{2}\\d{2}(?: ?[0-9A-Z]{4}){3,7})",
+        "opening": "^NYITÓ EGYENLEG:\\s+(?P<value>-?\\s?\\d[\\d.]*,\\d{2})",
+        "closing": "ZÁRÓ EGYENLEG:\\s+(?P<value>-?\\s?\\d[\\d.]*,\\d{2})",
+        "totals": "^BEFIZETÉSEK ÖSSZESEN\\s+(?P<credit>-?\\s?\\d[\\d.]*,\\d{2})\\s+TÁRGYHAVI TERHELÉSEK ÖSSZEGE:\\s+(?P<debit>-?\\s?\\d[\\d.]*,\\d{2})"
+      },
+      "lines_start": "^KÖNYVELÉS NAPJA",
+      "lines_end": "^BEFIZETÉSEK ÖSSZESEN",
+      "skip_blocks": [["^CIB Bank Zrt\\.", "^IDŐSZAK:"], ["^CCIIBB", "^IDŐSZAK:"], ["^#\\d", "^IDŐSZAK:"]],
+      "drop_rows": ["^KÖNYVELÉS NAPJA", "^[\\d\\s]+$"],
+      "line": "^(?P<booked>\\d{4}\\.\\d{2}\\.\\d{2}\\.)\\s+(?P<value>\\d{4}\\.\\d{2}\\.\\d{2}\\.)\\s+(?P<kind>.+?)\\s{2,}(?P<amount>-?\\d[\\d.]*,\\d{2})$",
+      "name_from": "first_unlabelled",
+      "original_row": "^(?P<amount>\\d+(?:\\.\\d+)?)\\s+(?P<currency>[A-Z]{3})$",
+      "labels": {
+        "memo": "^Közlemény:\\s*(?P<value>.+)$"
+      },
+      "labelled": "^[^:]{2,60}:\\s"
+    },
+    {
+      "name": "camt053",
+      "institution": "ISO 20022",
+      "layout": "camt053",
+      "statement_type": "bank_account",
+      "banks": {
+        "GIBAHUHB": {
+          "institution": "Erste",
+          "kinds": {
+            "DPTD": "Kártya Használat", "DPTC": "Kártya Használat - Jóváírás", "DATD": "Kártya Használat - ATM",
+            "NKIP": "AZONNALI ÁTUTALÁS BANKON KÍVÜLRE NETBANKON", "MKIP": "AZONNALI ÁTUTALÁS BANKON KÍVÜLRE MOBILBANKON",
+            "NBIP": "AZONNALI ÁTUTALÁS BANKON BELÜLRE NETBANKON", "MBIP": "AZONNALI ÁTUTALÁS BANKON BELÜLRE MOBILBANKON",
+            "NAVA": "AZONNALI ÁTUTALÁS NAV-NAK", "KNAV": "ESETI UTALÁS BANKON KÍVÜL NAV", "IB02": "IB UTALÁS BANKON KÍVÜL",
+            "BEIP": "BANKON KÍVÜLI AZONNALI ÁTUTALÁS JÓVÁÍRÁSA", "BB05": "BANKON BELÜLI ÁTUT. JÓVÁÍRÁSA",
+            "100B": "00100 BEJÖVŐ GIRO ÁTUTALÁS", "FTCR": "BEJÖVŐ ÁTUTALÁS", "IAP1": "JÓVÁÍRT KÖVETEL KAMAT",
+            "JD0Z": "HAVI SZÁMLAVEZETÉSI DÍJ", "AD03": "TERHELÉSI TRANZAKCIÓ JUTALÉKA", "JD03": "JUT:ESETI ÁTUT,NETBANK/B.KIV.",
+            "JD05": "JUT:ESETI ÁTUT,ELEKT/ B.KIVÜL", "JD0E": "JUT:ESETI ÁTUT,MCASH/ B.BELÜL", "KT61": "KÁRTYADÍJ",
+            "JKOD": "KÁRTYA ÖRZÉS, POSTÁZÁS DÍJ", "J1KD": "KÁRTYA KIBOCSÁTÁSI DÍJ", "JUED": "EGYENLEG LEKÉRDEZÉS DÍJ",
+            "JTRD": "KÁRTYA TRANZAKCIÓS DÍJ"
+          },
+          "details": {
+            "merchant": "Elfogadó:\\s*(?P<value>.+)",
+            "original": "Tr\\.összeg - Árfolyam:\\s*(?P<amount>[\\d,]*\\d(?:\\.\\d+)?)\\s+(?P<currency>[A-Z]{3})\\b"
+          }
+        }
+      }
     }
   ]
 }

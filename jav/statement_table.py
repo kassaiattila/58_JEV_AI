@@ -62,6 +62,15 @@ counterparty's account (the next unlabelled row is then the counterparty's name)
 account and the memo. The statement checks itself: the running balance line by line, the printed totals and the closing
 balance. A PDF no text profile knows is left alone when a folder is read: it may be another export's companion or a
 statement to extract (`jav/statement_package.py`).
+
+141 (DECISIONS 141, the Erste account's source): a **camt053** profile (`layout: camt053`) reads a bank's ISO 20022
+camt.053 statement (an XML file in the `urn:iso:std:iso:20022:tech:xsd:camt.053.` namespace, parsed with defusedxml in
+the isolated reader's helper): per statement its account (IBAN), currency, number, period, the booked opening and
+closing balances and the printed totals, and per entry its booking and value dates, signed amount, running balance
+(`POSTBALANCE`), counterparty (the creditor of a debit, the debtor of a credit) with its account, and memo. A bank,
+known by its BIC (`banks`), adds the texts of its own transaction codes (`kinds`, as its Excel export prints them) and
+the patterns of its card details in the entry's additional information (`details`: the merchant, a foreign purchase's
+original amount and currency); another bank's statement keeps its codes. The statement checks itself like an export.
 """
 
 from __future__ import annotations
@@ -678,26 +687,45 @@ def _comma_amount(text: str) -> Decimal | None:
     return value.quantize(CENT) if value == value.quantize(CENT) else None
 
 
-def _text_line(m: re.Match[str]) -> dict[str, Any]:
-    kind = " ".join(m["kind"].split())
+def _text_line(m: re.Match[str], *, expect_name: bool) -> dict[str, Any]:
+    """A line's first row; a card statement's row prints the purchase day (`value`) and no running balance."""
+    kind, groups = " ".join(m["kind"].split()), m.groupdict()
+    value = read_date(groups["value"]).value if groups.get("value") else None
     return {"booked": read_date(m["booked"]).value, "kind": kind.split(";", 1)[0].strip() or kind,
-            "amount": _hu_amount(m["amount"]), "balance": _hu_amount(m["balance"]), "value_date": None,
-            "counterparty_name": None, "counterparty_account": None, "memo": None, "note": None,
-            "original_amount": None, "original_currency": None, "expect_name": False}
+            "amount": _hu_amount(m["amount"]), "balance": _hu_amount(groups["balance"]) if groups.get("balance") else None,
+            "has_balance": "balance" in groups, "value_date": value, "counterparty_name": None, "counterparty_account": None,
+            "memo": None, "note": None, "original_amount": None, "original_currency": None, "expect_name": expect_name}
+
+
+_DOUBLED = re.compile(r"(?<!\S)(?=\S*\d)(?=\S*(?:\.\.|,,|--))(?:([0-9.,\-])\1)+(?!\S)")
+
+
+def _undoubled(line: str) -> str:
+    """141: a number the PDF's text layer prints with every character twice ("22002266..0022..0055.." for
+    "2026.02.05.", the CIB statement's first row after a page break) is read once. Only a whole token of digits and
+    separators whose every character is doubled, with a doubled separator, so no real number is touched."""
+    return _DOUBLED.sub(lambda m: m.group(0)[::2], line)
 
 
 def parse_text_statement(lines: list[str], profile: dict[str, Any]) -> dict[str, Any]:
     """The statement's header fields and lines from its text lines and the profile's patterns. Pure: no file is read.
     A text keeps single spaces only, as a fixed-width export pads inside a description where the PDF does not."""
-    lines = [ln.strip() for ln in lines]
+    lines = [_undoubled(ln.strip()) for ln in lines]
     text = "\n".join(lines)
     header = {k: re.search(v, text, re.MULTILINE) for k, v in profile["header"].items()}
     start_re, end_re = re.compile(profile["lines_start"]), re.compile(profile["lines_end"])
     first = next((i for i, ln in enumerate(lines) if start_re.search(ln)), len(lines))
     last = next((i for i in range(first + 1, len(lines)) if end_re.search(lines[i])), len(lines))
-    body = [ln for ln in _without_page_breaks(lines[first + 1:last], profile.get("skip_blocks", [])) if ln.strip("-= ")]
-    line_re, value_re = re.compile(profile["line"]), re.compile(profile["value_line"])
-    account_re, original_re = re.compile(profile["counterparty_account"]), re.compile(profile["original"])
+    drop = [re.compile(x) for x in profile.get("drop_rows", [])]
+    body = [ln for ln in _without_page_breaks(lines[first + 1:last], profile.get("skip_blocks", []))
+            if ln.strip("-= ") and not any(rx.search(ln) for rx in drop)]
+
+    def optional(key: str) -> re.Pattern[str] | None:
+        return re.compile(profile[key]) if profile.get(key) else None
+
+    line_re, value_re = re.compile(profile["line"]), optional("value_line")
+    account_re, original_re, original_row = optional("counterparty_account"), optional("original"), optional("original_row")
+    named_first = profile.get("name_from") == "first_unlabelled"  # a card purchase's merchant follows its line
     labels = {k: re.compile(v) for k, v in profile["labels"].items()}
     labelled, dated = re.compile(profile["labelled"]), re.compile(r"^\d{4}\.\d{2}\.\d{2}\.")
     out: list[dict[str, Any]] = []
@@ -705,22 +733,22 @@ def parse_text_statement(lines: list[str], profile: dict[str, Any]) -> dict[str,
     expect_value = False
     for ln in body:
         if m := line_re.match(ln):
-            out.append(_text_line(m))
-            if out[-1]["booked"] is None or out[-1]["amount"] is None or out[-1]["balance"] is None:
+            out.append(_text_line(m, expect_name=named_first))
+            if out[-1]["booked"] is None or out[-1]["amount"] is None or (out[-1]["has_balance"] and out[-1]["balance"] is None):
                 problems.append(f"line {len(out)}: unreadable")
-            expect_value = True
+            expect_value = value_re is not None
             continue
         current = out[-1] if out else None
-        if expect_value and current is not None and (v := value_re.match(ln)):
+        if expect_value and current is not None and value_re is not None and (v := value_re.match(ln)):
             expect_value = False
             current["value_date"] = read_date(v["value_date"]).value
             rest = (v["text"] or "").strip()
-            if account_re.fullmatch(rest):
+            if account_re is not None and account_re.fullmatch(rest):
                 current["counterparty_account"] = rest if "-" in rest else rest.replace(" ", "")
                 current["expect_name"] = True
             elif rest:
                 current["note"] = " ".join(rest.split())
-                if (o := original_re.match(rest)) and (amount := _comma_amount(o["amount"])) is not None:
+                if original_re and (o := original_re.match(rest)) and (amount := _comma_amount(o["amount"])) is not None:
                     current["original_amount"], current["original_currency"] = amount, o["currency"]
             continue
         expect_value = False
@@ -728,6 +756,10 @@ def parse_text_statement(lines: list[str], profile: dict[str, Any]) -> dict[str,
             continue
         if dated.match(ln):
             problems.append(f"line {len(out)}: an unreadable row after it")
+            continue
+        if original_row is not None and (o := original_row.match(ln)):  # a card purchase's amount in its own currency
+            if current["original_amount"] is None and (amount := _dot_amount(o["amount"])) is not None:
+                current["original_amount"], current["original_currency"] = amount, o["currency"]
             continue
         found = False
         for key, rx in labels.items():
@@ -755,6 +787,10 @@ def _text_account(parsed: dict[str, Any], profile: dict[str, Any], source: dict[
     """One account's statement from a parsed text statement, with the checks of its own balances and totals."""
     lines = [t for t in parsed["lines"] if t["booked"] is not None and t["amount"] is not None]
     amounts = [t["amount"] for t in lines]
+    currency = parsed["currency"] or ""
+    for t in lines:  # an amount in the statement's own currency is no original amount
+        if t["original_currency"] == currency:
+            t["original_amount"] = t["original_currency"] = None
     transactions = [{"booking_date": t["booked"].isoformat(),
                      "value_date": t["value_date"].isoformat() if t["value_date"] else None,
                      "direction": "debit" if t["amount"] < 0 else "credit", "amount": _plain(abs(t["amount"])),
@@ -768,13 +804,12 @@ def _text_account(parsed: dict[str, Any], profile: dict[str, Any], source: dict[
         start, end = min(t["booking_date"] for t in transactions), max(t["booking_date"] for t in transactions)
     debits = sum((-a for a in amounts if a < 0), Decimal(0))
     credits = sum((a for a in amounts if a > 0), Decimal(0))
-    currency = parsed["currency"] or ""
     statement = {"statement_type": profile["statement_type"], "account_no": parsed["account"],
                  "account_iban": parsed["iban"], "period_start": start, "period_end": end, "currency": currency or None,
                  "opening_balance": _plain(opening), "closing_balance": _plain(closing), "total_debit": _plain(debits),
                  "total_credit": _plain(credits), "transactions": transactions}
     running = None
-    if opening is not None:
+    if opening is not None and lines and all(t["has_balance"] for t in lines):  # a card statement prints none
         ok, previous = 0, opening
         for t in lines:
             ok += previous is not None and t["balance"] is not None and previous + t["amount"] == t["balance"]
@@ -825,6 +860,144 @@ def _read_text(path: Path, *, name: str | None = None) -> Reading:
     raise StatementTableError("no statement of a known profile in the file")
 
 
+# --- 141: a bank's ISO 20022 camt.053 statement ------------------------------------------------------------------------
+
+CAMT = "urn:iso:std:iso:20022:tech:xsd:camt.053."
+
+
+def _is_camt(data: bytes) -> bool:
+    return CAMT.encode("ascii") in data[:4096]
+
+
+def parse_camt(data: bytes, limits: dict[str, Any]) -> list[dict[str, Any]]:
+    """The statements of a camt.053 file as plain texts (defusedxml refuses a document type declaration, entities and
+    external references). It runs in the isolated reader's helper process, as the export parsing does (138)."""
+    from defusedxml import ElementTree
+
+    try:
+        root = ElementTree.fromstring(data)
+    except Exception as exc:  # defusedxml raises its own and ElementTree's errors (as in _spreadsheetml_rows)
+        raise StatementTableError(f"the XML statement cannot be read: {type(exc).__name__}") from exc
+    ns = root.tag[1:].split("}")[0] if root.tag.startswith("{") else ""
+    if not ns.startswith(CAMT):
+        raise StatementTableError("not an ISO 20022 camt.053 statement")
+
+    def q(path: str) -> str:
+        return "/".join(f"{{{ns}}}{part}" for part in path.split("/"))
+
+    def text(el: Any, path: str) -> str | None:
+        found = el.find(q(path))
+        return found.text.strip() if found is not None and found.text and found.text.strip() else None
+
+    out, count = [], 0
+    for stmt in root.iter(q("Stmt")):
+        balances = {}
+        for bal in stmt.findall(q("Bal")):
+            amount = text(bal, "Amt")
+            if amount is not None:
+                balances[text(bal, "Tp/CdOrPrtry/Cd")] = ("-" if text(bal, "CdtDbtInd") == "DBIT" else "") + amount
+        entries = []
+        for n in stmt.findall(q("Ntry")):
+            count += 1
+            if count > limits["max_rows"]:
+                raise StatementTableError("the statement is over the row limit")
+            debit = text(n, "CdtDbtInd") == "DBIT"
+            role = "Cdtr" if debit else "Dbtr"
+            post = next((text(a, "Amt") for a in n.iter(q("PrtryAmt")) if text(a, "Tp") == "POSTBALANCE"), None)
+            party = f"NtryDtls/TxDtls/RltdPties/{role}"
+            entries.append({"amount": text(n, "Amt"), "debit": debit, "booked": text(n, "BookgDt/Dt"), "value": text(n, "ValDt/Dt"),
+                            "code": text(n, "BkTxCd/Prtry/Cd"), "name": text(n, f"{party}/Nm"),
+                            "account": text(n, f"{party}Acct/Id/IBAN") or text(n, f"{party}Acct/Id/Othr/Id"),
+                            "memo": " ".join(u.text.strip() for u in n.iter(q("Ustrd")) if u.text and u.text.strip()) or None,
+                            "info": text(n, "NtryDtls/TxDtls/AddtlTxInf") or text(n, "AddtlNtryInf"), "balance": post})
+        out.append({"id": text(stmt, "Id"), "iban": text(stmt, "Acct/Id/IBAN"), "other": text(stmt, "Acct/Id/Othr/Id"),
+                    "currency": text(stmt, "Acct/Ccy"), "bic": text(stmt, "Acct/Svcr/FinInstnId/BIC"),
+                    "bank": text(stmt, "Acct/Svcr/FinInstnId/Nm"), "from": (text(stmt, "FrToDt/FrDtTm") or "")[:10] or None,
+                    "to": (text(stmt, "FrToDt/ToDtTm") or "")[:10] or None,
+                    "opening": balances.get("OPBD") or balances.get("PRCD"), "closing": balances.get("CLBD"),
+                    "credit_total": text(stmt, "TxsSummry/TtlCdtNtries/Sum"), "debit_total": text(stmt, "TxsSummry/TtlDbtNtries/Sum"),
+                    "entries": entries})
+    if not out:
+        raise StatementTableError("no statement in the camt.053 file")
+    return out
+
+
+def _xml_amount(value: str | None) -> Decimal | None:
+    """An XML decimal ("7291.00", ".00", "-12.5")."""
+    return Decimal(value).quantize(CENT) if value and re.fullmatch(r"-?\d*\.?\d+", value) else None
+
+
+def _camt_account(s: dict[str, Any], profile: dict[str, Any], source: dict[str, Any]) -> Account:
+    bank = profile.get("banks", {}).get(s["bic"] or "", {})
+    kinds, details = bank.get("kinds", {}), {k: re.compile(v) for k, v in bank.get("details", {}).items()}
+    currency = s["currency"] or ""
+    lines, amounts, balances, problems = [], [], [], []
+    for n, e in enumerate(s["entries"], start=1):
+        amount, booked = _xml_amount(e["amount"]), read_date(e["booked"]).value
+        if amount is None or booked is None:
+            problems.append(f"line {n}: unreadable")
+            continue
+        amount = -amount if e["debit"] else amount
+        info = e["info"] or ""
+        name = " ".join(e["name"].split()) if e["name"] else None  # single spaces, as the text statements keep them
+        if not name and "merchant" in details and (m := details["merchant"].search(info)):
+            name = " ".join(m["value"].split())
+        original = details["original"].search(info) if "original" in details else None
+        foreign = original is not None and original["currency"] != currency and _dot_amount(original["amount"]) is not None
+        balance = _xml_amount(e["balance"])
+        amounts.append(amount)
+        balances.append(balance)
+        value = read_date(e["value"]).value
+        lines.append({"booking_date": booked.isoformat(), "value_date": value.isoformat() if value else None,
+                      "direction": "debit" if amount < 0 else "credit", "amount": _plain(abs(amount)),
+                      "running_balance": _plain(balance), "description": kinds.get(e["code"] or "", e["code"]),
+                      "counterparty_name": name, "counterparty_account": e["account"],
+                      "memo": " ".join(e["memo"].split()) if e["memo"] else None,
+                      "original_amount": _plain(_dot_amount(original["amount"])) if foreign else None,
+                      "original_currency": original["currency"] if foreign else None})
+    opening, closing = _xml_amount(s["opening"]), _xml_amount(s["closing"])
+    start = read_date(s["from"]).value if s["from"] else None
+    end = read_date(s["to"]).value if s["to"] else None
+    if start is None and lines:
+        start, end = (read_date(x).value for x in (min(t["booking_date"] for t in lines), max(t["booking_date"] for t in lines)))
+    debits = sum((-a for a in amounts if a < 0), Decimal(0))
+    credits = sum((a for a in amounts if a > 0), Decimal(0))
+    iban = (s["iban"] or "").replace(" ", "") or None
+    statement = {"statement_type": profile["statement_type"], "account_no": None if iban else s["other"], "account_iban": iban,
+                 "period_start": start.isoformat() if start else None, "period_end": end.isoformat() if end else None,
+                 "currency": currency or None, "opening_balance": _plain(opening), "closing_balance": _plain(closing),
+                 "total_debit": _plain(debits), "total_credit": _plain(credits), "transactions": lines}
+    running = None
+    if opening is not None and lines and all(b is not None for b in balances):
+        ok, previous = 0, opening
+        for amount, balance in zip(amounts, balances):
+            ok += previous + amount == balance
+            previous = balance
+        running = {"ok": ok, "lines": len(lines)}
+    printed = (_xml_amount(s["debit_total"]), _xml_amount(s["credit_total"]))
+    checks = {"running_balance": running,
+              "total_row": None if None in printed else (abs(printed[0]), printed[1]) == (debits, credits),
+              "closing_balance": None if opening is None or closing is None else opening + sum(amounts, Decimal(0)) == closing}
+    digits = re.sub(r"\D", "", iban[4:]) if iban else re.sub(r"\D", "", s["other"] or "")
+    return Account(key=f"{digits}:{currency}:{statement['period_start']}", title=f"…{digits[-4:]} {s['id'] or ''}".strip(),
+                   currency=currency, occurrence=1, statement=statement, checks=checks, problems=problems, source=source)
+
+
+def _read_camt(data: bytes, profile: dict[str, Any], limits: dict[str, Any], file_name: str, sha: str) -> Reading:
+    try:
+        statements = isolated_pdf.run(parse_camt, kind="read", data=data, limits=limits)
+    except isolated_pdf.PdfReaderError as exc:
+        name, _, message = str(exc).partition(": ")
+        raise StatementTableError(message if name == StatementTableError.__name__ else str(exc)) from exc
+    except isolated_pdf.PdfReaderLimit as exc:
+        raise StatementTableError(f"the file could not be read within the reader's limits ({exc.reason}): {exc}") from exc
+    source = {"file": file_name, "sha256": sha, "repairs": []}
+    accounts = [_camt_account(s, profile, source) for s in statements]
+    bank = profile.get("banks", {}).get(statements[0]["bic"] or "", {})
+    return Reading(profile=profile["name"], institution=bank.get("institution") or statements[0]["bank"] or profile["institution"],
+                   file_name=file_name, sha256=sha, repairs=[], accounts=accounts)
+
+
 # --- reading a file or a folder ----------------------------------------------------------------------------------------
 
 
@@ -835,12 +1008,17 @@ def _read_file(path: Path, *, name: str | None = None) -> Reading:
         raise StatementTableError(f"a statement table is a {' or '.join(SUFFIXES + TEXT_SUFFIXES)} file")
     data = path.read_bytes()
     conf = _conf()
-    rows, repairs = _rows(path, data, conf)
     file_name = name or path.name
     sha = hashlib.sha256(data).hexdigest()
+    camt = next((p for p in conf["profiles"] if p.get("layout") == "camt053"), None)
+    if camt is not None and path.suffix.lower() == ".xml" and _is_camt(data):  # 141: a bank's ISO 20022 statement
+        if len(data) > conf["limits"]["max_bytes"]:
+            raise StatementTableError("the file is over the size limit")
+        return _read_camt(data, camt, conf["limits"], file_name, sha)
+    rows, repairs = _rows(path, data, conf)
     source = {"file": file_name, "sha256": sha, "repairs": repairs}
     for profile in conf["profiles"]:
-        if profile.get("layout") == "text":  # 141: read from a PDF or a text export only
+        if profile.get("layout") in ("text", "camt053"):  # 141: read from a PDF, a text export or a camt.053 file only
             continue
         if profile.get("layout") == "ledger":
             accounts = _ledger_accounts(rows, profile, path, file_name, source)
@@ -892,10 +1070,13 @@ def read(path: Path, *, name: str | None = None) -> Reading:
 
 
 def checks_ok(account: Account) -> bool:
+    """Every line's running balance checks out (141: or, on a statement printing none, such as a card statement, the
+    closing balance does), and no check failed and nothing was unreadable."""
     c = account.checks
     running = c["running_balance"]
-    return (running is not None and running["ok"] == running["lines"] and c["total_row"] is not False
-            and c["closing_balance"] is not False and not account.problems and not account.companion_problems)
+    balances = running["ok"] == running["lines"] if running is not None else c["closing_balance"] is True
+    return (balances and c["total_row"] is not False and c["closing_balance"] is not False and not account.problems
+            and not account.companion_problems)
 
 
 def survey(reading: Reading) -> dict[str, Any]:
