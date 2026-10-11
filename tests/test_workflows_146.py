@@ -331,3 +331,53 @@ def test_the_estimate_is_the_recipes_item_budget_times_the_items(db):
     assert (statements["statements"], statements["pdfs"], statements["usd"]) == (1, 0, {})  # read by code: free
     mail = wf.estimate(kind="emails", source={"kind": "mailbox", "request": {"accounts": ["a@example.com"], "max_items": 10}})
     assert mail["items"] == 10 and mail["usd"] == wf._times(wf._per_item("email"), 10)
+
+
+# --- the service ---------------------------------------------------------------------------------------------------------------
+
+
+def test_the_service_offers_the_templates_estimates_makes_shows_and_moves_a_workflow(db):
+    from fastapi.testclient import TestClient
+
+    from jav import api
+    from tests.test_api import BASE, HUMAN
+
+    client = TestClient(api.create_app(store_path=db / "s.sqlite"), base_url=BASE)
+    party = _party()
+    folder = _invoices(db / "inv")
+    templates = client.get("/api/workflow-templates").json()
+    assert "meta" not in templates and {t["id"] for t in templates["templates"]} >= {"monthly_reconciliation", "documents"}
+    est = client.post("/api/workflows/estimate", json={"kind": "documents", "source": {"kind": "folder", "folder": str(folder)}})
+    assert est.status_code == 200 and est.json()["items"] == 2
+    body = {"template": "monthly_reconciliation", "party_id": party, "period_start": MONTH[0], "period_end": MONTH[1],
+            "auto": False, "names": {"invoices": "June · invoices"},
+            "steps": {"invoices": {"source": {"kind": "folder", "folder": str(folder)}, "budget": {"jev": "0.5"}},
+                      "statements": {"source": {"kind": "folder", "folder": str(db)}},
+                      "reconcile": {"source": {"kind": "none"}}}}
+    nameless = client.post("/api/workflows", json=body)  # a person must be named
+    assert nameless.status_code == 422 and wf.workflows() == []
+    bad = client.post("/api/workflows", headers=HUMAN, json=body | {"steps": body["steps"] | {
+        "invoices": {"source": {"kind": "folder", "folder": str(db / "nope")}}}})
+    assert bad.status_code == 422 and "does not exist" in bad.json()["message"]
+    assert client.post("/api/workflows", headers=HUMAN, json=body | {"steps": body["steps"] | {
+        "invoices": {"source": {"kind": "folder", "folder": str(folder)}, "budget": {"gpt": "1"}}}}).status_code == 422
+    made = client.post("/api/workflows", headers=HUMAN, json=body)
+    assert made.status_code == 201, made.text
+    wf_id = made.json()["workflow"]["id"]
+    assert _steps(made.json())["invoices"]["budget"] == {"jev": "0.5"}
+    assert [r["id"] for r in client.get("/api/workflows").json()["workflows"]] == [wf_id]
+    started = client.post(f"/api/workflows/{wf_id}/steps/invoices/start", headers=HUMAN,
+                          json={"budget": {"jev": "9", "openai": "9", "azure_di": "9"}})
+    assert started.status_code == 200 and _steps(started.json())["invoices"]["state"] == "started"
+    package = _steps(started.json())["invoices"]["package"]["id"]
+    wp_view = client.get(f"/api/workpackages/{package}").json()
+    assert wp_view["workflow"] == {"id": wf_id, "name": made.json()["workflow"]["name"], "step": "invoices",
+                                   "step_title": "Incoming invoices"}
+    assert work.get(package)["name"] == "June · invoices"
+    again = client.post(f"/api/workflows/{wf_id}/steps/invoices/start", headers=HUMAN, json={})
+    assert again.status_code == 422
+    patched = client.patch(f"/api/workflows/{wf_id}", headers=HUMAN, json={"name": "June", "archived": True})
+    assert patched.json()["workflow"]["status"] == "archived" and patched.json()["workflow"]["name"] == "June"
+    assert client.get("/api/workflows").json()["workflows"] == []
+    assert client.get("/api/workflows/wf-000000000000").status_code == 404
+    assert client.get("/api/workflows/not-an-id").status_code == 422

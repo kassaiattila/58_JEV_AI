@@ -36,7 +36,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from jav import (app_settings, backup, bank_files, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
-                 parties, party_views, reconcile_package, reconcile_statement, statement_months, store, version, work, work_views)
+                 parties, party_views, reconcile_package, reconcile_statement, statement_months, store, version, work, work_views,
+                 workflows)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
@@ -241,6 +242,8 @@ WpId = Annotated[str, PathParam(pattern=r"^wp-[0-9a-f]{12}$")]
 RunId = Annotated[str, PathParam(pattern=r"^run-[0-9a-f]{12}$")]
 ItemId = Annotated[str, PathParam(pattern=r"^[0-9a-f]{64}$")]
 DatasetName = Annotated[str, PathParam(pattern=r"^[a-z_]{1,40}$")]
+WfId = Annotated[str, PathParam(pattern=r"^wf-[0-9a-f]{12}$")]  # 146: a workflow
+StepId = Annotated[str, PathParam(pattern=r"^[a-z_]{1,40}$")]  # 146: a workflow step
 Text = Annotated[str, Field(max_length=2000)]
 
 
@@ -370,6 +373,58 @@ class CreateStatementPackage(StatementPackageSources):
     name: Annotated[str, Field(min_length=1, max_length=200)]
     statements: Annotated[list[Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]], Field(max_length=2000)] = Field(default_factory=list)
     pdfs: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(max_length=500)] = Field(default_factory=list)
+
+
+StepKey = Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]
+Budget = dict[Literal["jev", "openai", "azure_di"], Annotated[str, Field(pattern=r"^\d{1,4}(\.\d{1,6})?$")]]
+
+
+class WorkflowSource(_In):
+    """146: a workflow step's source: a folder or files, a mailbox request, an existing work package, or none."""
+    kind: Literal["folder", "files", "mailbox", "package", "none"]
+    folder: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
+    recursive: bool = False
+    paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(max_length=500)] | None = None
+    request: dict[str, Any] | None = None  # checked as a mailbox.MailboxRequest
+    workpackage_id: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")] | None = None
+
+
+class WorkflowStepInput(_In):
+    source: WorkflowSource
+    budget: Budget | None = None  # 146: the most an automatic start may reserve, per provider (USD)
+
+
+class CreateWorkflow(_In):
+    template: Annotated[str, Field(pattern=r"^[a-z_]{1,60}$")]
+    party_id: PartyId
+    period_start: IsoDay
+    period_end: IsoDay
+    name: Annotated[str, Field(max_length=200)] | None = None
+    names: dict[StepKey, Annotated[str, Field(min_length=1, max_length=200)]] | None = None  # the steps' package names
+    auto: bool = True
+    steps: Annotated[dict[StepKey, WorkflowStepInput], Field(min_length=1, max_length=10)]
+
+
+class WorkflowEstimate(_In):
+    kind: Literal["documents", "emails", "statements", "reconcile"]
+    source: WorkflowSource
+    party_id: PartyId | None = None
+    period_start: IsoDay | None = None
+    period_end: IsoDay | None = None
+
+
+class StartWorkflowStep(_In):
+    budget: Budget | None = None  # a person's new budget for the step (recorded)
+
+
+class LinkWorkflowStep(_In):
+    workpackage_id: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]
+
+
+class UpdateWorkflow(_In):
+    auto: bool | None = None
+    name: Annotated[str, Field(min_length=1, max_length=200)] | None = None
+    archived: bool | None = None
 
 
 class SetReconcileScope(ReconcileScope):
@@ -1234,6 +1289,58 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         sc = reconcile_package.create(name=body.name, accounts=body.accounts, period_start=body.period_start,
                                       period_end=body.period_end, actor=who, party_id=body.party_id)
         return work_views.workpackage_view(sc["workpackage_id"])
+
+    # --- 146: workflows (the work packages of one job, chained; jav/workflows.py) ---
+
+    def workflow_source(src: WorkflowSource) -> dict[str, Any]:
+        """A step's source with its paths checked like a typed path (existing, under the allowed roots)."""
+        out = src.model_dump(exclude_none=True)
+        if src.kind == "folder":
+            out["folder"] = str(checked_path(src.folder or "", want_dir=True))
+        elif src.kind == "files":
+            out["paths"] = [str(checked_path(p, want_dir=False)) for p in src.paths or []]
+        return out
+
+    @app.get(r + "/workflow-templates")
+    def workflow_templates() -> dict[str, Any]:
+        return {k: v for k, v in workflows.config().items() if k != "meta"}
+
+    @app.post(r + "/workflows/estimate")
+    def workflow_estimate(body: WorkflowEstimate) -> dict[str, Any]:
+        return work_views.jsonable(workflows.estimate(kind=body.kind, source=workflow_source(body.source),
+                                                      party_id=body.party_id, period_start=body.period_start,
+                                                      period_end=body.period_end))
+
+    @app.get(r + "/workflows")
+    def workflow_list(include_archived: bool = False) -> dict[str, Any]:
+        return {"workflows": work_views.jsonable(workflows.workflows(include_archived=include_archived))}
+
+    @app.post(r + "/workflows", status_code=201)
+    def create_workflow(body: CreateWorkflow, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        steps = {sid: {"source": workflow_source(s.source), "budget": s.budget or {}} for sid, s in body.steps.items()}
+        return work_views.jsonable(workflows.create(template_id=body.template, party_id=body.party_id,
+                                                    period_start=body.period_start, period_end=body.period_end,
+                                                    steps=steps, actor=who, name=body.name, names=body.names,
+                                                    auto=body.auto))
+
+    @app.get(r + "/workflows/{wf_id}")
+    def workflow_view(wf_id: WfId) -> dict[str, Any]:
+        return work_views.jsonable(workflows.view(wf_id))
+
+    @app.patch(r + "/workflows/{wf_id}")
+    def update_workflow(wf_id: WfId, body: UpdateWorkflow, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(workflows.update(wf_id, actor=who, auto=body.auto, name=body.name,
+                                                    archived=body.archived))
+
+    @app.post(r + "/workflows/{wf_id}/steps/{step}/start")
+    def start_workflow_step(wf_id: WfId, step: StepId, body: StartWorkflowStep,
+                            who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(workflows.start_step(wf_id, step, actor=who, budget=body.budget))
+
+    @app.post(r + "/workflows/{wf_id}/steps/{step}/link")
+    def link_workflow_step(wf_id: WfId, step: StepId, body: LinkWorkflowStep,
+                           who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(workflows.link(wf_id, step, body.workpackage_id, actor=who))
 
     @app.get(r + "/workpackages/{wp_id}/reconcile")
     def reconcile_workspace(wp_id: WpId) -> dict[str, Any]:
