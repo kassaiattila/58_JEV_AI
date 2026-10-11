@@ -46,6 +46,8 @@ export interface WorkpackageView {
   reconcile?: { scope: ReconcileScope; counts: ReconcileCounts; coverage: ReconcileCoverage[]; approval?: ReconcileApproval };
   /** 140: a statement package's party, period and each item's statement */
   statements?: StatementPackageView;
+  /** 146: the workflow the package is a step of */
+  workflow?: WorkflowRef | null;
 }
 /** 080: what a run of the package will do (the pre-start overview): documents by their path known in advance (S / G /
  *  type not known yet), emails, emails with a task proposal, whether Azure may be used and earlier JEV answers reused. */
@@ -141,6 +143,54 @@ export interface BankFile {
 export interface BankFilesCatalogue {
   version: string; intro: string; read_by: Record<"code" | "ai", string>; checks: Record<string, string>;
   files: BankFile[]; not_read: string[]; labels: Record<string, string>;
+}
+/** 146: the new work wizard's templates (`configs/workflows.json`); texts are English source strings. */
+export type WorkKind = "documents" | "emails" | "statements" | "reconcile";
+export type WorkSourceKind = "folder" | "files" | "mailbox" | "package" | "none";
+export interface WorkflowTemplateStep { id: string; kind: WorkKind; title?: string; after?: string[] }
+export interface WorkflowTemplate { id: string; group: string; title: string; description: string; steps: WorkflowTemplateStep[] }
+export interface WorkflowTemplates {
+  intro: string; groups: { id: string; title: string; description: string }[];
+  kinds: Record<WorkKind, { title: string; description: string; sources: WorkSourceKind[]; cost: string }>;
+  templates: WorkflowTemplate[];
+}
+export interface WorkflowSource {
+  kind: WorkSourceKind; folder?: string; recursive?: boolean; paths?: string[]; request?: MailboxRequest; workpackage_id?: string;
+}
+export type WorkflowBudget = Partial<Record<"jev" | "openai" | "azure_di", string>>;
+export interface WorkflowEstimate {
+  items: number | null; usd: WorkflowBudget; note: string | null; statements?: number; pdfs?: number; per_item?: WorkflowBudget;
+}
+/** What a person sees of a step: the stored automation state and the package's own next step. */
+export type WorkflowStepStatus = "waiting" | "ready" | "starting" | "pulling" | "needs_budget" | "nothing_new" | "failed"
+  | "running" | "review" | "approve" | "approved" | "pairing" | "attention" | "missing";
+export interface WorkflowStep {
+  id: string; kind: WorkKind; title: string; kind_title: string; after: string[];
+  source: { kind: WorkSourceKind; folder?: string; recursive?: boolean; count?: number; first?: string; accounts?: string[];
+    folders?: string[]; workpackage_id?: string };
+  budget: WorkflowBudget; name: string; state: string; status: WorkflowStepStatus; done: boolean;
+  note: string | { estimate: WorkflowBudget; budget: WorkflowBudget; over: WorkflowBudget } | null;
+  package: { id: string; name: string | null; next: NextStep | null } | null; run_id: string | null; pull_id: string | null;
+  updated_at: string;
+}
+export interface WorkflowInfo {
+  id: string; template: string; template_title: string; name: string; party_id: string; party: string;
+  period_start: string; period_end: string; auto: boolean; status: "open" | "archived"; actor: string;
+  created_at: string; updated_at: string;
+}
+export interface WorkflowView {
+  workflow: WorkflowInfo; steps: WorkflowStep[]; done: number; total: number;
+  next: { step: string; status: WorkflowStepStatus } | null;
+  events: { step: string | null; action: string; actor: string; detail: Record<string, unknown>; created_at: string }[];
+}
+export interface WorkflowRow extends WorkflowInfo {
+  done: number; total: number; next: { step: string; status: WorkflowStepStatus } | null;
+  steps: { id: string; title: string; status: WorkflowStepStatus }[];
+}
+export interface WorkflowRef { id: string; name: string; step: string; step_title: string }
+export interface CreateWorkflowBody {
+  template: string; party_id: string; period_start: string; period_end: string; name?: string; auto: boolean;
+  names?: Record<string, string>; steps: Record<string, { source: WorkflowSource; budget?: WorkflowBudget }>;
 }
 export interface RunItem {
   run_id: string; item_id: string; status: string; final_status: string | null; flow_run_id: string | null;
@@ -759,6 +809,20 @@ export const api = {
   recipes: () => request<{ recipes: Recipe[]; help?: RecipeHelp; titles?: Record<string, string> }>("GET", "/recipes"),
   /** 146: which bank files the system reads, and how. */
   bankFiles: () => request<BankFilesCatalogue>("GET", "/bank-files"),
+  /** 146: the new work wizard's templates and the workflows (the work packages of one job, chained). */
+  workflowTemplates: () => request<WorkflowTemplates>("GET", "/workflow-templates"),
+  workflowEstimate: (body: { kind: WorkKind; source: WorkflowSource; party_id?: string; period_start?: string; period_end?: string }) =>
+    request<WorkflowEstimate>("POST", "/workflows/estimate", body),
+  workflows: (includeArchived = false) =>
+    request<{ workflows: WorkflowRow[] }>("GET", `/workflows${includeArchived ? "?include_archived=true" : ""}`),
+  workflowView: (id: string) => request<WorkflowView>("GET", `/workflows/${enc(id)}`),
+  createWorkflow: (body: CreateWorkflowBody) => request<WorkflowView>("POST", "/workflows", body),
+  updateWorkflow: (id: string, body: { auto?: boolean; name?: string; archived?: boolean }) =>
+    request<WorkflowView>("PATCH", `/workflows/${enc(id)}`, body),
+  startWorkflowStep: (id: string, step: string, budget?: WorkflowBudget) =>
+    request<WorkflowView>("POST", `/workflows/${enc(id)}/steps/${enc(step)}/start`, budget ? { budget } : {}),
+  linkWorkflowStep: (id: string, step: string, workpackageId: string) =>
+    request<WorkflowView>("POST", `/workflows/${enc(id)}/steps/${enc(step)}/link`, { workpackage_id: workpackageId }),
   workpackages: () => request<{ workpackages: WorkpackageRow[] }>("GET", "/workpackages"),
   workpackage: (id: string) => request<WorkpackageView>("GET", `/workpackages/${enc(id)}`),
   /** 081: `recursive` takes the PDFs of the subfolders too (the output folder of the named copies is left out). */

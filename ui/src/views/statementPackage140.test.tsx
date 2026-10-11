@@ -6,8 +6,9 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   api, setActor, type OwnParty, type PartiesOverview, type PartyMonths, type StatementPackageSurvey, type StatementSurveyRow,
-  type WorkpackageView,
+  type WorkflowTemplates, type WorkpackageView,
 } from "../api";
+import workflowConfig from "../../../configs/workflows.json";
 import hungarian from "../i18n/hu-native.json";
 import { setLanguage, t } from "../i18n";
 import { reasonText } from "../labels";
@@ -49,16 +50,23 @@ beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer")
 afterEach(() => vi.restoreAllMocks());
 
 describe("the create form asks the goal first", () => {
-  it("offers documents from a folder or files, emails, bank statements and reconciliation", async () => {
+  // 146: the new work wizard - what the work is for, which work, then its own form
+  it("offers documents, emails, bank statements and reconciliation step by step", async () => {
     vi.spyOn(api, "parties").mockResolvedValue(OVERVIEW);
+    vi.spyOn(api, "workflowTemplates").mockResolvedValue(workflowConfig as unknown as WorkflowTemplates);
     render(<CreateForm onDone={vi.fn()} />);
-    expect((screen.getByRole("radio", { name: "Documents: extract their data" }) as HTMLInputElement).checked).toBe(true);
-    expect(screen.getByRole("radio", { name: "Documents from a folder" })).toBeTruthy();
+    expect((await screen.findByRole("radio", { name: "Documents and emails" }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole("radio", { name: "Bank statements and reconciliation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
+    expect((screen.getByRole("radio", { name: "Bank statements" }) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole("radio", { name: "Reconciliation of statements and invoices" })).toBeTruthy();
     expect(screen.queryByRole("radio", { name: "Bank statement from a table" })).toBeNull();
-    fireEvent.click(screen.getByRole("radio", { name: "Bank statements" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
     expect(screen.getByRole("form", { name: "New statement package" })).toBeTruthy();
     expect(screen.queryByRole("radio", { name: "Documents from a folder" })).toBeNull();
     await screen.findByText("Example Kft.");
+    fireEvent.click(screen.getByRole("button", { name: "← Back" }));
+    expect(screen.getByRole("radio", { name: "Reconciliation of statements and invoices" })).toBeTruthy();
   });
 });
 

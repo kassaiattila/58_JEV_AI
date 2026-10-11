@@ -45,7 +45,7 @@ describe("081 package from a folder", () => {
     const create = vi.spyOn(api, "createFromFolder").mockResolvedValue(CREATED);
     const onDone = vi.fn();
     const user = userEvent.setup();
-    render(<CreateForm onDone={onDone} />);
+    render(<CreateForm onDone={onDone} initialTemplate="documents" />);
     const sub = screen.getByRole("checkbox", { name: "Almappák is" }) as HTMLInputElement;
     expect(sub.checked).toBe(false);
     await user.click(screen.getByRole("button", { name: "Tallózás…" }));
@@ -59,7 +59,7 @@ describe("081 package from a folder", () => {
   it("the file picker appends the chosen files to the existing lines without repeats", async () => {
     vi.spyOn(api, "pickFiles").mockResolvedValue({ paths: ["C:\\a\\1.pdf", "C:\\b\\2.pdf"] });
     const user = userEvent.setup();
-    render(<CreateForm onDone={vi.fn()} />);
+    render(<CreateForm onDone={vi.fn()} initialTemplate="documents" />);
     await user.click(screen.getByRole("radio", { name: "Megadott fájlok" }));
     const box = screen.getByLabelText("Fájlok teljes útvonala, soronként egy") as HTMLTextAreaElement;
     await user.type(box, "C:\\a\\1.pdf");

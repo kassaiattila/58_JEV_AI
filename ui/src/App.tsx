@@ -14,11 +14,14 @@ import { LegacyResult } from "./views/LegacyResult";
 import { RunDetail } from "./views/Runs";
 import { Settings } from "./views/Settings";
 import { Workpackages } from "./views/Workpackages";
+import { Workflows } from "./views/workflows/Workflows";
 
 // the label is the Hungarian source, translated at render time (058: the rail is wide enough for the label to fit
 // without hyphenation)
 const NAV = [
   { view: "workpackages", href: "#/workpackages", label: "Munkacsomagok", icon: <path d="M4 7h16M4 12h16M4 17h10" /> },
+  // 146: the workflows (the work packages of one job, chained); an English source label, translated at render time
+  { view: "workflows", href: "#/workflows", label: "Workflows", icon: <path d="M5 6h4v4H5zM15 14h4v4h-4zM9 8h4a2 2 0 0 1 2 2v4" /> },
   { view: "settings", href: "#/settings", label: "Beállítások", icon: <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" /> },
 ] as const;
 
@@ -26,7 +29,7 @@ export function App() {
   useLocale(); // on a language change the whole tree re-renders (the working copy is kept)
   const route = parseRoute(useHash());
   // the run page and the old result addresses belong to Work packages
-  const section = route.view === "settings" ? "settings" : "workpackages";
+  const section = route.view === "settings" ? "settings" : route.view === "workflows" ? "workflows" : "workpackages";
   return (
     <div className="shell">
       <a className="skip" href="#main">{t("Ugrás a tartalomra")}</a>
@@ -53,6 +56,7 @@ export function App() {
         <main id="main" className="main" tabIndex={-1}>
           {route.view === "workpackages" ? <Workpackages route={route} /> : null}
           {route.view === "run" ? <RunDetail runId={route.runId} /> : null}
+          {route.view === "workflows" ? <Workflows route={route} /> : null}
           {route.view === "settings" ? <Settings section={route.section} /> : null}
           {route.view === "legacy-result" ? <LegacyResult runId={route.runId} table={route.table} /> : null}
           {route.view === "activity" ? <Activity day={route.day} /> : null}

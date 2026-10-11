@@ -582,3 +582,37 @@ button.chip[aria-pressed="true"] { background: var(--paper); border-color: var(-
 .duplicate-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-done { display: grid; gap: 6px; justify-items: start; }
 .item-nav { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--line-soft); }
+
+/* 146: the new work wizard and the workflows (list, control view) */
+.wizard-steps { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; margin: 0 0 14px; padding: 0 0 10px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.wizard-steps li[aria-current="step"] { color: var(--ink); font-weight: 600; }
+.wizard-steps li.done { color: var(--ok); }
+.wizard-n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 999px; border: 1px solid currentColor; font-size: 11px; margin-right: 4px; }
+.wizard-choices { display: grid; gap: 8px; border: 0; padding: 0; margin: 0 0 12px; }
+.wizard-choices legend { font-weight: 600; margin-bottom: 6px; }
+.wizard-choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); cursor: pointer; }
+.wizard-choice:has(input:checked) { border-color: var(--accent); background: var(--tint); }
+.wizard-choice > span { display: grid; gap: 3px; }
+.wz-chain { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.wz-step { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 8px; }
+.wz-step legend { font-weight: 600; padding: 0 4px; }
+.wz-budget { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.wz-budget input { width: 6.5em; }
+.wz-overview { display: grid; gap: 8px; padding-left: 20px; }
+.wf-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 8px 0 12px; }
+.wf-status { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
+.wf-ok.wf-status, .wf-dot.wf-ok { background: var(--ok-tint); color: var(--ok); border-color: #cfe2d7; }
+.wf-warn.wf-status, .wf-dot.wf-warn { background: var(--warn-tint); color: var(--warn); border-color: #eedcb8; }
+.wf-error.wf-status, .wf-dot.wf-error { background: var(--tint); color: var(--error); border-color: var(--tint-line); }
+.wf-active.wf-status, .wf-dot.wf-active { color: var(--accent); border-color: var(--tint-line); }
+.wf-muted.wf-status, .wf-dot.wf-muted { color: var(--muted); }
+.wf-dot { padding: 0 6px; border-radius: 999px; border: 1px solid var(--line); }
+.wf-chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; list-style: none; padding: 0; margin: 12px 0; }
+.wf-arrow { align-self: center; color: var(--muted); font-size: 18px; }
+.wf-step { flex: 1 1 220px; max-width: 360px; }
+.wf-card { height: 100%; display: grid; gap: 6px; align-content: start; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+.wf-warn > .wf-card, .wf-error > .wf-card { border-color: var(--tint-line); }
+.wf-ok > .wf-card { border-color: #cfe2d7; }
+.wf-card-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.wf-events { padding-left: 18px; }
+.wf-of { margin: 4px 0 8px; }
