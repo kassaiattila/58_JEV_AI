@@ -90,9 +90,9 @@ describe("money and the pairing rules computed before sending", () => {
 describe("the two-list pairing page", () => {
   it("puts the selected line's candidates at the top of the invoice list with what ties them", () => {
     page(workspace([line(1, { state: "proposed", candidates: [candidate(1, 2)] })], [invoice(1), invoice(2)]));
-    const candidates = screen.getByText("Candidates of the selected line").nextElementSibling as HTMLElement;
+    const candidates = screen.getByRole("list", { name: "Invoices that fit" }); // 143: the finder's first group
     expect(within(candidates).getByText(/Example Supplier 2/)).toBeTruthy();
-    expect(within(candidates).getByText("invoice number")).toBeTruthy();
+    expect(within(candidates).getByRole("img", { name: "The memo names the invoice" })).toBeTruthy();
     expect(within(candidates).queryByText(/Example Supplier 1 ·/)).toBeNull();
   });
 

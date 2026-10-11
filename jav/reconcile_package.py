@@ -24,6 +24,9 @@ Rules (the owner's decisions of 2026-10-09):
   person gave earlier for that partner's lines, in any package, come with each line (`earlier_marks`) as a suggestion,
   never applied by itself; a line through a payment app teaches nothing, as the app pays many suppliers (131).
 
+- 143 (DECISIONS 143): the finder of the two lists (`matches`) compares the selected line with every invoice of the
+  page in code - name, invoice number, account, amount, timing - and orders them by how they fit; it decides nothing.
+
 Layer: UI/CLI → **this** (application operation) → `jav.reconcile` (the core and its store adapter) and `jav.work`
 (the package record and its log).
 """
@@ -363,6 +366,7 @@ def inputs_mark(c=None) -> str:
 def clear_cache() -> None:
     with _kept_lock:
         _kept.clear()
+        _signal_inputs_kept.clear()
 
 
 def workspace(wp_id: str) -> dict[str, Any]:
@@ -542,6 +546,76 @@ def _workspace(wp_id: str) -> dict[str, Any]:
 
 
 OPEN_LINE_STATES = ("proposed", "amount_only", "partly_allocated", "open")  # a person still has to decide these
+
+
+# --- 143: the finder ---------------------------------------------------------------------------------------------------
+
+FITS = ("proposed", "candidate", "named", "tied", "same_amount")  # how an invoice fits a line (`_fit`)
+_signal_inputs_kept: dict[str, tuple[str, dict[str, Any]]] = {}
+
+
+def _signal_inputs() -> dict[str, Any]:
+    """The store-wide inputs of `reconcile.compare` (the learnt names, the common words, the exchange rates), kept
+    until the workspace's inputs change."""
+    mark, key = inputs_mark(), str(store.active_path())
+    with _kept_lock:
+        hit = _signal_inputs_kept.get(key)
+        if hit and hit[0] == mark:
+            return hit[1]
+    snap = reconcile.snapshot()
+    built = {**reconcile.signal_context(snap), "rates": snap.get("fx_rates") or {}}
+    with _kept_lock:
+        _signal_inputs_kept[key] = (mark, built)
+    return built
+
+
+def _compared(row: dict[str, Any]) -> Any:
+    """The amount a side is compared on: what is left of it, or the whole when nothing is (a paid invoice may be paid
+    again)."""
+    left = _money(row.get("rest"))
+    return str(left) if left is not None and left > 0 else row.get("amount")
+
+
+def _fit(facts: dict[str, Any], candidate: dict[str, Any] | None) -> str | None:
+    """How an invoice fits the line (`FITS`): proposed or listed by the engine for the line; its number or reference in
+    the line's text (wherever booked: an advance or a late payment); in its payment window, tied by a signal that is
+    not weak, or of the same amount; None otherwise."""
+    if candidate is not None:
+        return "proposed" if candidate.get("proposed") else "candidate"
+    found = set(facts["signals"])
+    if found & reconcile.NAMED_SIGNALS:
+        return "named"
+    if facts["in_window"] and found - reconcile.WEAK_SIGNALS:
+        return "tied"
+    if facts["in_window"] and facts["amount_relation"] in ("equal", "fx_within"):
+        return "same_amount"
+    return None
+
+
+def matches(wp_id: str, line_id: str) -> dict[str, Any]:
+    """143 (DECISIONS 143): every invoice of the package's page compared with one of its lines (`reconcile.compare`,
+    on what is left of both sides), with how it fits (`_fit`) and the days from its due date to the line's booking
+    day: the engine's proposals first, then the other fitting ones by strength, then the rest by the nearest amount.
+    Raises KeyError for a line the page does not show."""
+    ws = workspace(wp_id)
+    line = next((ln for ln in ws["lines"] if ln["id"] == line_id), None)
+    if line is None:
+        raise KeyError(line_id)
+    inputs = _signal_inputs()
+    payment = {**line, "amount": _compared(line)}
+    candidates = {c["invoice_id"]: c for c in line["candidates"]}
+    found = []
+    for row in ws["invoices"]:
+        facts = reconcile.compare({**row, "amount": _compared(row)}, payment, inputs["learned"], inputs["common"], inputs["rates"])
+        found.append({"invoice_id": row["id"], "fit": _fit(facts, candidates.get(row["id"])), **facts,
+                      "days_from_due": reconcile_overview.days_from_due(line, row)})
+
+    def order(m: dict[str, Any]) -> tuple[Any, ...]:
+        rank = 0 if m["fit"] == "proposed" else 1 if m["fit"] else 2
+        gap = abs(Decimal(m["difference"]["amount"])) if m["difference"] else None
+        return (rank, -int(m["strength"] or 0) if m["fit"] else 0, gap is None, gap or Decimal(0), m["invoice_id"])
+
+    return {"line_id": line_id, "matches": sorted(found, key=order)}
 
 
 def left_over_rows(snap: dict[str, Any], scope_ids: set[str], wp_id: str) -> list[dict[str, Any]]:

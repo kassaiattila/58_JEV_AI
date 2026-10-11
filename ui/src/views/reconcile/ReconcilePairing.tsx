@@ -8,6 +8,9 @@
 // 1–9 picks a candidate, Enter pairs, x rejects, m marks, d shows the documents, Esc clears, ? lists the keys.
 // 142: the cards (ReconcileCards.tsx) are the page's overview; these two lists stay for pairing by hand, and a card's
 // line arrives here selected.
+// 143 (DECISIONS 143): the invoice pane is the finder (ReconcileFinder.tsx, finder.ts): the selected line pinned at the
+// top with how much the ticked invoices cover, then the invoices that fit it, the rest by amount only, and the bound or
+// settled ones closed; every row says whether the name, the number and the account match and how the amount differs.
 // 133: a package is one own party's (DECISIONS 133): the other parties' invoices show with a switch or a search, named by
 // their party, and the selected line says when another party's invoice is its candidate.
 // 135 (plan 134 P2): the lines can be grouped by partner; a group's head shows the suggested needs-no-invoice reason (a
@@ -20,7 +23,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   api, ApiError, OPEN_LINE_STATES, type ReconcileCandidate, type ReconcileInvoice, type ReconcileLine, type ReconcileLineState,
-  type ReconcileWorkspace,
+  type ReconcileMatch, type ReconcileWorkspace,
 } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { t, useLocale } from "../../i18n";
@@ -31,11 +34,13 @@ import {
   activeCount, invoiceMatches, lineMatches, NO_INVOICE_FILTERS, NO_LINE_FILTERS, type InvoiceFilters, type LineFilters,
 } from "./filters";
 import { ENGINE, EXCLUDED, INVOICE_STATE, KIND, LINE_STATE, MARK, probability, relationText, SIGNAL } from "./labels";
+import { finderSections } from "./finder";
 import { display, parseCanonical, parseInput, show, sum } from "./money";
 import { candidateOf, check, planPairing, rankedCandidates, rest, toRequest, type PlannedPair, type Plan, type Refusal } from "./pairing";
 import {
-  aiChosen, aiPicks, expectsInvoice, groupByPartner, kinds, markable, suggestMark, type MarkSuggestion, type PartnerGroup,
+  aiChosen, expectsInvoice, groupByPartner, kinds, markable, suggestMark, type MarkSuggestion, type PartnerGroup,
 } from "./partners";
+import { FinderHead, FinderLists } from "./ReconcileFinder";
 
 type LineFilter = "todo" | "expected" | "all" | ReconcileLineState;
 type Mode = null | "pair" | "reject" | "mark" | "keys";
@@ -97,7 +102,6 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
   const [month, setMonth] = useState("");
   const [q, setQ] = useState("");
   const [invQ, setInvQ] = useState("");
-  const [unpaidOnly, setUnpaidOnly] = useState(true);
   const [showOthers, setShowOthers] = useState(false);
   const [grouped, setGrouped] = useState(false);
   const [lineFilters, setLineFilters] = useState<LineFilters>(NO_LINE_FILTERS);
@@ -112,6 +116,9 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // 143: the service's comparison of the active line with every invoice, in its order (the fitting ones first)
+  const [found, setFound] = useState<{ lineId: string; matches: Map<string, ReconcileMatch> } | null>(null);
+  const [findError, setFindError] = useState<string | null>(null);
   const advanceFrom = useRef<number | null>(null);
   const lastIndex = useRef(0);
 
@@ -221,6 +228,22 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
     setMode("pair");
   }
 
+  // 143: compared again when the line or the workspace changes (a decision changes what is left); a quick run of the
+  // arrow keys asks only for the line it stops on
+  useEffect(() => {
+    if (!active) return;
+    let live = true;
+    const timer = window.setTimeout(() => {
+      api.reconcileMatches(wpId, active).then((r) => {
+        if (!live) return;
+        setFound({ lineId: active, matches: new Map(r.matches.map((m) => [m.invoice_id, m])) });
+        setFindError(null);
+      }).catch((e) => { if (live) setFindError(e instanceof Error ? e.message : String(e)); });
+    }, 120);
+    return () => { live = false; window.clearTimeout(timer); };
+  }, [wpId, active, ws]);
+  const compared = found && found.lineId === active ? found.matches : null;
+
   // the keyboard works while no text field has the focus (Esc always)
   const keys = useRef<(e: KeyboardEvent) => void>(() => {});
   keys.current = (e: KeyboardEvent) => {
@@ -263,34 +286,23 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
     return () => window.removeEventListener("keydown", on);
   }, []);
 
-  // the invoice list: the active line's candidates first, then the rest (unpaid ones by default)
+  // the invoice pane: with a line, the finder's groups (143); without one, every invoice, the newest first. The line's
+  // candidates, the AI's choices and the ticked invoices always stand; the search and the filters narrow the rest, and
+  // another party's invoice is listed with the switch on, or when a search or a supplier or party filter finds it (133).
   const candidates = activeLine ? rankedCandidates(activeLine).filter((c) => !activeLine.rejected.includes(c.invoice_id) && invoiceById.has(c.invoice_id)) : [];
-  // 135: an invoice the AI chose that code did not offer stands after the code's candidates
-  const aiOnly = activeLine ? aiChosen(activeLine).filter((id) => invoiceById.has(id) && !activeLine.rejected.includes(id)
-    && !candidates.some((c) => c.invoice_id === id)) : [];
-  const candidateRows = [...candidates.map((c) => c.invoice_id), ...aiOnly];
-  const candidateIds = new Set(candidateRows);
+  const pinned = new Set([...candidates.map((c) => c.invoice_id), ...(activeLine ? aiChosen(activeLine) : []), ...selInvoices]);
+  const listed = ws.invoices.filter((i) => pinned.has(i.id) || (invoiceSearch(i, invQ) && invoiceMatches(invoiceFilters, i, activeLine)
+    && (i.own !== false || showOthers || Boolean(invQ) || Boolean(invoiceFilters.supplier || invoiceFilters.party))));
+  const sections = activeLine ? finderSections(activeLine, listed, compared) : null;
+  const candidateRows = sections ? sections.fits.slice(0, 9).map((e) => e.invoice.id) : [];
   const otherCandidates = activeLine?.other_candidates ?? [];
-  const otherIds = new Set(otherCandidates.map((c) => c.invoice_id));
-  // without a search, the invoices nearest to the selected line's amount come first (same currency before others), so
-  // the payment of a line without a candidate is found by eye; otherwise the newest first. Another party's invoice is
-  // listed with the switch on, or when a search finds it (133).
-  // a supplier or party filter finds another party's invoice as a search does; a state filter overrides "unpaid only"
-  const others = ws.invoices.filter((i) => !candidateIds.has(i.id) && invoiceSearch(i, invQ) && invoiceMatches(invoiceFilters, i, activeLine)
-    && (i.own !== false || showOthers || Boolean(invQ) || Boolean(invoiceFilters.supplier || invoiceFilters.party) || selInvoices.includes(i.id))
-    && (!unpaidOnly || Boolean(invoiceFilters.state) || (i.state !== "confirmed" && rest(i) > 0n) || selInvoices.includes(i.id)));
-  const byAmount = Boolean(activeLine) && !invQ;
-  if (byAmount && activeLine) {
-    const target = rest(activeLine);
-    const distance = (i: ReconcileInvoice) => { const d = rest(i) - target; return d < 0n ? -d : d; };
-    others.sort((a, b) => Number(a.currency !== activeLine.currency) - Number(b.currency !== activeLine.currency)
-      || (distance(a) < distance(b) ? -1 : distance(a) > distance(b) ? 1 : 0));
-  } else others.sort((a, b) => (b.issue_date ?? "").localeCompare(a.issue_date ?? ""));
-  if (showOthers) others.sort((a, b) => Number(otherIds.has(b.id)) - Number(otherIds.has(a.id))); // another party's candidates first
+  const newest = activeLine ? [] : [...listed].sort((a, b) => (b.issue_date ?? "").localeCompare(a.issue_date ?? ""));
   const scoped = Boolean(ws.scope.party);
-  const docInvoice = invoices[0] ?? (candidates[0] ? invoiceById.get(candidates[0].invoice_id) ?? null : null);
+  const docInvoice = invoices[0] ?? sections?.fits[0]?.invoice ?? null;
   const differs = oneCurrency && lines.length > 0 && invoices.length > 0 ? lineSum - invoiceSum : null;
   const currency = lines[0]?.currency ?? invoices[0]?.currency ?? null;
+  const lineSuggestion = activeLine && markable(activeLine) ? suggestMark([activeLine]) : null;
+  const markHint = lineSuggestion ? suggestionText(lineSuggestion) : null;
 
   return (
     <div className="rc-stack">
@@ -374,7 +386,6 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
           <div className="rc-pane-head">
             <h2>{ws.scope.party ? t("Invoices of {{party}}", { party: ws.scope.party.name }) : t("Invoices")}</h2>
             <input type="search" placeholder={t("Search supplier, number, amount")} aria-label={t("Search the invoices")} value={invQ} onChange={(e) => setInvQ(e.target.value)} />
-            <label className="check small"><input type="checkbox" checked={unpaidOnly} onChange={(e) => setUnpaidOnly(e.target.checked)} /> {t("Unpaid only")}</label>
             {ws.counts.other_invoices ? (
               <label className="check small">
                 <input type="checkbox" checked={showOthers} onChange={(e) => setShowOthers(e.target.checked)} /> {t("Other parties' invoices too ({{n}})", { n: ws.counts.other_invoices })}
@@ -383,41 +394,35 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
             <FilterToggle open={filtersShown.invoices} count={activeCount(invoiceFilters)} onToggle={() => setFiltersShown((f) => ({ ...f, invoices: !f.invoices }))} />
           </div>
           {filtersShown.invoices ? <InvoiceFilterRow invoices={ws.invoices} target={activeLine} value={invoiceFilters} onChange={setInvoiceFilters} /> : null}
+          {activeLine ? (
+            <FinderHead line={activeLine} lines={lines} invoices={invoices} invoiceById={invoiceById} readOnly={readOnly} busy={busy}
+              onRevoke={(kind, ref) => void act(() => api.reconcileRevoke(wpId, kind, ref), { done: t("The decision has been undone.") })} />
+          ) : null}
           <div className="rc-list">
-            {activeLine ? <LineDetail line={activeLine} invoiceById={invoiceById} readOnly={readOnly} busy={busy}
-              onRevoke={(kind, ref) => void act(() => api.reconcileRevoke(wpId, kind, ref), { done: t("The decision has been undone.") })} /> : null}
-            {activeLine ? (
-              <>
-                <p className="rc-section">{candidateRows.length ? t("Candidates of the selected line") : t("The selected line has no candidate; search the invoices below")}</p>
-                <ul className="plain">
-                  {candidates.map((c, n) => {
-                    const inv = invoiceById.get(c.invoice_id)!;
-                    return <InvoiceRow key={inv.id} invoice={inv} candidate={c} index={n + 1} selected={selInvoices.includes(inv.id)} onToggle={toggleInvoice}
-                      readOnly={readOnly} scoped={scoped} ai={aiPicks(activeLine, inv.id)} />;
-                  })}
-                  {aiOnly.map((id, n) => (
-                    <InvoiceRow key={id} invoice={invoiceById.get(id)!} index={candidates.length + n + 1} selected={selInvoices.includes(id)} onToggle={toggleInvoice}
-                      readOnly={readOnly} scoped={scoped} ai={aiPicks(activeLine, id)} />
-                  ))}
-                </ul>
-                {otherCandidates.length ? (
-                  <p className="small muted rc-others">
-                    {t("{{n}} candidate(s) among other parties' invoices: {{parties}}", {
-                      n: otherCandidates.length, parties: [...new Set(otherCandidates.map((c) => c.party ?? "?"))].join(", "),
-                    })}
-                    {showOthers ? null : <button type="button" className="quiet small-btn" onClick={() => setShowOthers(true)}>{t("Show them")}</button>}
-                  </p>
-                ) : null}
-              </>
+            {activeLine && otherCandidates.length ? (
+              <p className="small muted rc-others">
+                {t("{{n}} candidate(s) among other parties' invoices: {{parties}}", {
+                  n: otherCandidates.length, parties: [...new Set(otherCandidates.map((c) => c.party ?? "?"))].join(", "),
+                })}
+                {showOthers ? null : <button type="button" className="quiet small-btn" onClick={() => setShowOthers(true)}>{t("Show them")}</button>}
+              </p>
             ) : null}
-            <p className="rc-section">{byAmount ? t("Other invoices, nearest amount first") : t("Other invoices, newest first")}</p>
-            <ul className="plain">
-              {others.slice(0, PAGE).map((inv) => (
-                <InvoiceRow key={inv.id} invoice={inv} selected={selInvoices.includes(inv.id)} onToggle={toggleInvoice} readOnly={readOnly} scoped={scoped} />
-              ))}
-              {!others.length ? <li className="rc-more muted small">{t("No invoice matches.")}</li> : null}
-              {others.length > PAGE ? <li className="rc-more muted small">{t("Narrow the search to see the rest ({{n}}).", { n: others.length - PAGE })}</li> : null}
-            </ul>
+            {activeLine && sections ? (
+              <FinderLists key={activeLine.id} line={activeLine} sections={sections} state={{ loading: !compared && !findError, error: findError }}
+                selected={selInvoices} onToggle={toggleInvoice} readOnly={readOnly} scoped={scoped} lineById={lineById}
+                canMark={canMark && selLines.length === 1} onMark={() => setMode("mark")} markHint={markHint} />
+            ) : (
+              <>
+                <p className="rc-section">{t("Other invoices, newest first")}</p>
+                <ul className="plain">
+                  {newest.slice(0, PAGE).map((inv) => (
+                    <InvoiceRow key={inv.id} invoice={inv} selected={selInvoices.includes(inv.id)} onToggle={toggleInvoice} readOnly={readOnly} scoped={scoped} />
+                  ))}
+                  {!newest.length ? <li className="rc-more muted small">{t("No invoice matches.")}</li> : null}
+                  {newest.length > PAGE ? <li className="rc-more muted small">{t("Narrow the search to see the rest ({{n}}).", { n: newest.length - PAGE })}</li> : null}
+                </ul>
+              </>
+            )}
           </div>
         </section>
       </div>
@@ -610,65 +615,6 @@ function InvoiceRow({ invoice, candidate, index, selected, onToggle, readOnly, s
         </span>
       </button>
     </li>
-  );
-}
-
-function LineDetail({ line, invoiceById, readOnly, busy, onRevoke }: {
-  line: ReconcileLine; invoiceById: Map<string, ReconcileInvoice>; readOnly: boolean; busy: boolean;
-  onRevoke: (kind: "allocation" | "mark" | "decision", ref: string) => void;
-}) {
-  useLocale();
-  const name = (id: string) => { const inv = invoiceById.get(id); return inv ? invoiceTitle(inv) : id.slice(0, 12); };
-  return (
-    <div className="rc-detail" aria-label={t("The selected line")}>
-      <dl>
-        <dt>{t("Date")}</dt><dd>{line.booking_date ?? "–"}</dd>
-        <dt>{t("Amount")}</dt><dd className="mono">{display(signed(line), line.currency)}{line.state === "partly_allocated" ? ` · ${t("left: {{amount}}", { amount: show(line.rest, line.currency) })}` : ""}</dd>
-        <dt>{t("Counterparty")}</dt><dd>{[line.counterparty_name, line.counterparty_account].filter(Boolean).join(" · ") || "–"}</dd>
-        {line.memo ? <><dt>{t("Memo")}</dt><dd>{line.memo}</dd></> : null}
-        {line.description ? <><dt>{t("Description")}</dt><dd>{line.description}</dd></> : null}
-        <dt>{t("Statement")}</dt><dd>{line.file ?? "–"}{line.statement_verified ? "" : ` · ${t("balances do not check out")}`}</dd>
-        {kinds(line).length ? (
-          <>
-            <dt>{t("Kind (AI)")}</dt>
-            <dd>
-              {kinds(line).map((k) => `${ENGINE[k.engine]}: ${KIND[k.kind] ?? k.kind} ${probability(k.probability)}`).join(" · ")}
-              {kinds(line).some((k) => k.lent) ? ` · ${t("asked once for the partner")}` : ""}
-              {expectsInvoice(line) ? ` · ${t("an invoice is expected, but none is in the store")}` : ""}
-            </dd>
-          </>
-        ) : null}
-        {line.earlier_marks?.length ? (
-          <>
-            <dt>{t("Earlier for this partner")}</dt>
-            <dd>{line.earlier_marks.map((e) => t("{{reason}} ({{n}} lines)", { reason: MARK[e.category] ?? e.category, n: e.lines })).join(", ")}</dd>
-          </>
-        ) : null}
-      </dl>
-      {line.allocations.map((a) => (
-        <div key={`${a.invoice_id}|${a.allocation_id ?? "d"}`} className="rc-decided">
-          <span className="ok">{t("Paired with {{invoice}}: {{amount}}", { invoice: name(a.invoice_id), amount: show(a.line_amount, line.currency) })}</span>
-          {readOnly ? null : (
-            <button type="button" className="quiet small-btn" disabled={busy}
-              onClick={() => onRevoke(a.allocation_id !== null ? "allocation" : "decision", a.allocation_id !== null ? String(a.allocation_id) : `${a.invoice_id}|${line.id}`)}>
-              {t("Undo")}
-            </button>
-          )}
-        </div>
-      ))}
-      {line.mark ? (
-        <div className="rc-decided">
-          <span>{t("Needs no invoice")}: {MARK[line.mark.category] ?? line.mark.category}{line.mark.note ? ` — ${line.mark.note}` : ""}</span>
-          {readOnly ? null : <button type="button" className="quiet small-btn" disabled={busy} onClick={() => onRevoke("mark", String(line.mark!.id))}>{t("Undo")}</button>}
-        </div>
-      ) : null}
-      {line.rejected.map((id) => (
-        <div key={id} className="rc-decided">
-          <span className="muted">{t("Not this one: {{invoice}}", { invoice: name(id) })}</span>
-          {readOnly ? null : <button type="button" className="quiet small-btn" disabled={busy} onClick={() => onRevoke("decision", `${id}|${line.id}`)}>{t("Undo")}</button>}
-        </div>
-      ))}
-    </div>
   );
 }
 

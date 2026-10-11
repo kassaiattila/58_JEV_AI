@@ -107,6 +107,9 @@ person marked as needing no invoice (`reconcile_line_marks`) takes part in nothi
   on no other line: the rest stay listed candidates for a person. An invoice whose candidates all stay unproposed this
   way gets its coverage status, not `amount_differs`.
 
+**The finder** (143, DECISIONS 143): `compare` relates one line to one invoice for a person searching by hand, with
+every pair kept (the proposal's rules decide nothing there).
+
 **What the overview needs** (142, DECISIONS 142, the reconciliation result's first part): two facts a person reads, not
 decisions.
 - `repeats`: the invoices two or more outgoing lines each look like the full payment of: allocated or proposed in full
@@ -601,17 +604,19 @@ def signals(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple
     return found
 
 
-def strength(invoice: dict[str, Any], payment: dict[str, Any], found: list[str], relation: str) -> dict[str, Any]:
+def strength(invoice: dict[str, Any], payment: dict[str, Any], found: list[str], relation: str | None,
+             in_window: bool = True) -> dict[str, Any]:
     """134: how strongly a candidate is tied, 0-100, from its signals, its amounts and when the line was booked
     (`strength` weights), with the days from the issue date and whether it was booked by the due date (`grace_days`
-    after it). An order and a reason for a person, not a threshold."""
+    after it). An order and a reason for a person, not a threshold. 143: a pair outside the invoice's payment window
+    (`in_window` False, only the finder compares one) gets no timing weight."""
     w = _conf()["strength"]
     issue, booked = _date(invoice.get("issue_date")), _date(payment.get("booking_date"))
     due = _date(invoice.get("due_date")) or issue
     days = (booked - issue).days if issue and booked else None
     by_due = bool(issue and booked and due and issue <= booked <= max(due, issue) + timedelta(days=int(w["grace_days"])))
-    score = sum(int(w["signals"].get(s, 0)) for s in found) + int(w["amount"].get(relation, 0))
-    score += int(w["timing"]["by_due"] if by_due else w["timing"]["in_window"])
+    score = sum(int(w["signals"].get(s, 0)) for s in found) + int(w["amount"].get(relation or "", 0))
+    score += int(w["timing"]["by_due"] if by_due else w["timing"]["in_window"] if in_window else 0)
     return {"strength": min(score, int(w["max"])), "days_after_issue": days, "by_due": by_due}
 
 
@@ -730,6 +735,35 @@ def amount_relation(invoice: dict[str, Any], payment: dict[str, Any], rates: dic
     except (ValueError, InvalidOperation, ZeroDivisionError):
         return None, None
     return None, None
+
+
+def compare(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple[str, str]] | None = None,
+            common: frozenset[str] | None = None, rates: dict[str, Any] | None = None) -> dict[str, Any]:
+    """143: one line against one invoice, for a person looking for a line's invoice by hand (the pairing page's
+    finder, DECISIONS 143). Unlike `propose` it drops no pair: the signals that tie them, whether the line went to
+    another account than the one the invoice names (not for a line through a payment app, whose account is the app's),
+    how their amounts relate and the invoice's amount less the line's (on a card purchase's original amount when it is
+    in the invoice's currency), whether the line was booked in the invoice's payment window, and the strength. A
+    reason for a person, never a proposal."""
+    found = signals(invoice, payment, learned, common)
+    relation, conversion = amount_relation(invoice, payment, rates)
+    how = meets(invoice, payment)
+    span = pair_window(invoice, payment) if _date(invoice.get("issue_date")) else None
+    booked = _date(payment.get("booking_date"))
+    in_window = bool(span and booked and span[0] <= booked <= span[1])
+    mine, theirs = account_key(invoice.get("payment_account")), account_key(payment.get("counterparty_account"))
+    difference = None
+    try:
+        if how == "same":
+            difference = {"amount": f"{money(str(invoice['amount'])) - money(str(payment['amount'])):.2f}",
+                          "currency": str(invoice.get("currency"))}
+        elif how == "original" and (orig := original(payment)) is not None:
+            difference = {"amount": f"{money(str(invoice['amount'])) - orig[1]:.2f}", "currency": orig[0]}
+    except (KeyError, ValueError, InvalidOperation):
+        difference = None
+    return {"signals": found, "amount_relation": relation, "fx": conversion, "difference": difference,
+            "account_differs": bool(mine and theirs and mine != theirs and not through_app(payment)),
+            "in_window": in_window, **strength(invoice, payment, found, relation, in_window)}
 
 
 def months(start: str, end: str) -> list[str]:

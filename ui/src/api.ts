@@ -465,6 +465,23 @@ export interface ReconcileLocation {
   line_id: string; statement_id: string; open: ReconcileOpen | null; page: number | null; box: [number, number, number, number] | null;
 }
 export interface ReconcileAllocationPair { invoice_doc_id: string; line_id: string; line_amount?: string; invoice_amount?: string }
+/** 143 (jav/reconcile_package.py `matches`): how an invoice fits a line — proposed or listed by the engine for it, its
+ *  number or reference in the line's text, tied by a signal in its payment window, or of the same amount there. */
+export type ReconcileFit = "proposed" | "candidate" | "named" | "tied" | "same_amount";
+/** 143: one invoice compared with the selected line in code (jav/reconcile.py `compare`), on what is left of both. */
+export interface ReconcileMatch {
+  invoice_id: string; fit: ReconcileFit | null; signals: ReconcileSignal[]; amount_relation: ReconcileRelation | null;
+  fx: ReconcileFx | null;
+  /** the invoice's amount less the line's, in the invoice's currency (null: the currencies do not meet) */
+  difference: { amount: string; currency: string } | null;
+  /** the line went to another account than the one the invoice names */
+  account_differs: boolean; in_window: boolean; strength: number; by_due: boolean; days_after_issue: number | null;
+  /** the days from the invoice's due date to the line's booking day (positive: late) */
+  days_from_due: number | null;
+}
+/** 143: every invoice of the page against one line: the engine's proposals first, the other fitting ones by strength,
+ *  then the rest by the nearest amount. */
+export interface ReconcileMatches { line_id: string; matches: ReconcileMatch[] }
 
 // --- 133: the own parties (jav/parties.py, jav/party_views.py) --------------------------------------------------------
 /** How an invoice was tied to its party: its buyer's tax number, a known name variant, or a name holding one variant. */
@@ -709,6 +726,8 @@ export const api = {
     request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/revoke`, { kind, ref, ...(note ? { note } : {}) }),
   reconcileLocate: (wpId: string, lineId: string) =>
     request<ReconcileLocation>("GET", `/workpackages/${enc(wpId)}/reconcile/locate?line_id=${enc(lineId)}`),
+  reconcileMatches: (wpId: string, lineId: string) =>
+    request<ReconcileMatches>("GET", `/workpackages/${enc(wpId)}/reconcile/matches?line_id=${enc(lineId)}`),
   // 133: the own parties; every change answers with the whole overview
   parties: () => request<PartiesOverview>("GET", "/parties"),
   acceptPartySuggestions: (ids: string[], names: Record<string, string> = {}) =>
