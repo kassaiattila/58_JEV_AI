@@ -127,7 +127,7 @@ def _pdfs_in(folder: Path) -> list[Path]:
 def _sources(paths: Iterable[Path]) -> _Found:
     """The exports and the PDFs of a folder or of the given files. A folder's exports are read as a whole (each with its
     companion PDF); the PDFs left are those no export used as its companion. A file no reader knows is listed, not
-    dropped."""
+    dropped. 141: a PDF a text profile reads (a CIB statement) is a statement read by code, not a PDF to extract."""
     out = _Found()
     pdfs: list[Path] = []
     for raw in paths:
@@ -143,8 +143,11 @@ def _sources(paths: Iterable[Path]) -> _Found:
                 out.skipped += reading.skipped
             pdfs += _pdfs_in(p)
         elif p.suffix.lower() == ".pdf":
-            pdfs.append(p)
-        elif p.suffix.lower() in statement_table.SUFFIXES:
+            try:
+                out.readings.append(statement_table.read(p))
+            except statement_table.StatementTableError:  # no text profile knows it: a PDF to extract
+                pdfs.append(p)
+        elif p.suffix.lower() in statement_table.SUFFIXES + statement_table.TEXT_SUFFIXES:
             try:
                 out.readings.append(statement_table.read(p))
             except statement_table.StatementTableError as exc:
@@ -154,9 +157,10 @@ def _sources(paths: Iterable[Path]) -> _Found:
     limit = int(cfg.load(statement_table.CONFIG)["limits"]["max_files"])
     if len(pdfs) > limit:
         raise PackageError(f"more than {limit} PDF files")
-    companions = {(a.source or {}).get("companion", {}).get("sha256") for r in out.readings for a in r.accounts
-                  if (a.source or {}).get("companion")}
-    out.pdfs = [p for p in dict.fromkeys(q.resolve() for q in pdfs) if work.sha256_file(p) not in companions]
+    read = {(a.source or {}).get("sha256") for r in out.readings for a in r.accounts}  # 141: the text statements
+    read |= {(a.source or {}).get("companion", {}).get("sha256") for r in out.readings for a in r.accounts
+             if (a.source or {}).get("companion")}
+    out.pdfs = [p for p in dict.fromkeys(q.resolve() for q in pdfs) if work.sha256_file(p) not in read]
     return out
 
 
