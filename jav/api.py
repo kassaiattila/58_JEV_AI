@@ -1258,8 +1258,16 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.get(r + "/workpackages/{wp_id}/reconcile/locate")
     def reconcile_locate(wp_id: WpId, line_id: Annotated[str, Query(pattern=LINE_ID)]) -> dict[str, Any]:
-        """132: where a line stands on its statement page (found in the word layer by its amount and date)."""
+        """132: where a line stands on its statement page (found in the word layer by its amount and date); 144: with the
+        statement as read and, for a statement read by code, whether the bank's PDF behind it was found."""
         return work_views.jsonable(reconcile_package.locate(wp_id, line_id))
+
+    @app.get(r + "/workpackages/{wp_id}/reconcile/original/pages/{page}.png")
+    def reconcile_original_page(wp_id: WpId, page: Annotated[int, PathParam(ge=1, le=500)],
+                                line_id: Annotated[str, Query(pattern=LINE_ID)],
+                                dpi: Annotated[int, Query(ge=72, le=200)] = 144) -> Response:
+        """144: a page of the bank's PDF behind a statement read by code (the line says which; its verified bytes, 075)."""
+        return Response(reconcile_package.original_page(wp_id, line_id, page, dpi=dpi), media_type="image/png")
 
     @app.get(r + "/workpackages/{wp_id}/reconcile/matches")
     def reconcile_matches(wp_id: WpId, line_id: Annotated[str, Query(pattern=LINE_ID)]) -> dict[str, Any]:

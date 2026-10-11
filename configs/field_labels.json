@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "field_labels",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "changelog": [
+   {
+    "version": "1.6.0",
+    "date": "2026-10-11",
+    "note": "144 (DECISIONS 144): the Hungarian names of a statement line's facts beyond the money, read by code: the bank's reference, the order id, the parties' end-to-end id, the masked card number, the purchase day, the time, the terminal, the authorisation code, the exchange rate and the fee."
+   },
    {
     "version": "1.5.0",
     "date": "2026-10-10",
@@ -166,6 +171,16 @@
   "counterparty_account": "Partner számlája",
   "original_amount": "Eredeti összeg",
   "original_currency": "Eredeti pénznem",
+  "bank_reference": "Banki azonosító",
+  "order_id": "Megbízás-azonosító",
+  "end_to_end_id": "Partnerek közti azonosító",
+  "card_number": "Kártya",
+  "purchase_date": "Vásárlás napja",
+  "transaction_time": "Időpont",
+  "terminal": "Terminál",
+  "authorisation_code": "Engedélyszám",
+  "exchange_rate": "Árfolyam",
+  "fee": "Díj",
   "memo": "Közlemény",
   "quantity": "Mennyiség",
   "unit": "Egység",

@@ -62,7 +62,9 @@ def test_the_rank_decides_not_the_order_of_processing():
 
 def test_equal_rank_or_a_partial_cover_is_a_conflict():
     a = _st("aaaa-0000000000000", "2026-01-01", "2026-01-31")
-    b = _st("bbbb-0000000000000", "2026-01-01", "2026-01-31", seq=2)
+    # 144: with other lines; the same lines are one statement read twice (test_statement_fields_144)
+    b = _st("bbbb-0000000000000", "2026-01-01", "2026-01-31", seq=2,
+            lines=[_ln("bbbb", "2026-01-05", "100.00"), _ln("bbbb", "2026-01-21", "300.00", "credit")])
     assert sm.resolve([a, b], {}).conflicts == [(a["id"], b["id"])]
     short = _st("cccc-0000000000000", "2026-01-10", "2026-01-31")  # better, but does not cover the old one's first days
     worse = _st("dddd-0000000000000", "2026-01-01", "2026-01-31", verified=False)

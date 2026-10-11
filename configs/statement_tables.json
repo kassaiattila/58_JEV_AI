@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "statement_tables",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "description": "136 E4 (jav/statement_table.py): bank statements exported as a table (a workbook or a CSV file), read by code without AI. A profile names a kind of export by its column headers and says where an account's title, number and balances stand; the header aliases, titles and labels are document vocabulary, quoted as the bank prints them. Decisions: DECISIONS 132 (a general tabular statement reader, not code for one bank; only the two personal accounts of the Revolut export go into the store), DECISIONS 136 (processed as a work package, one statement per account, the accounts chosen by a person before the run).",
     "changelog": [
+      {
+        "version": "1.5.0",
+        "date": "2026-10-11",
+        "note": "144 (DECISIONS 144): the readers keep a line's facts beyond the money. cib_text_hu: the bank's reference after the kind's semicolon (reference), the parties' end-to-end id and the order id (labels), and a card charge's detail row (card_row: the card, the purchase day and time). cib_card_text_hu: each card's purchases under its KÁRTYASZÁM head (card_section), and the detail row a digits-only drop used to remove (card_row). camt053 (Erste): the card block of the additional information (card, terminal, rate) and the fee text; the references and the acceptance time come from the entry itself. erste_ledger_hu: the same card block on the month's PDF statement. revolut_consolidated_hu: the fee column (Díjak). A card number is kept masked to its first six and last four digits (jav/card_numbers.py)."
+      },
       {
         "version": "1.4.0",
         "date": "2026-10-11",
@@ -54,7 +59,8 @@
         "description": ["Leírás"],
         "category": ["Kategória"],
         "amount": ["Pénz be-/kifizetése"],
-        "balance": ["Egyenleg"]
+        "balance": ["Egyenleg"],
+        "fee": ["Díjak"]
       },
       "required": ["date", "description", "amount", "balance"],
       "account_title": "^(?P<name>.+?)\\s*\\((?P<currency>[A-Z]{3})\\)$",
@@ -106,7 +112,10 @@
           "merchant": "^Elfogadó\\s+(?P<value>.+)$",
           "original": "^Tr\\.összeg - Árfolyam\\s+(?P<amount>[\\d,]*\\d(?:\\.\\d+)?)\\s+(?P<currency>[A-Z]{3})\\b",
           "partner": "^Partner számlatulajdonos:\\s+(?P<value>.+)$",
-          "memo": "^Közlemény:\\s+(?P<value>.+)$"
+          "memo": "^Közlemény:\\s+(?P<value>.+)$",
+          "card": "^Kártyaszám - Tr\\.időpont\\s+(?P<card>\\d{6}[xX*]{6}\\d{4})\\s*-\\s*(?P<date>\\d{4}\\.\\d{2}\\.\\d{2})\\.?(?:\\s+(?P<time>\\d{1,2}:\\d{2}(?::\\d{2})?))?",
+          "terminal": "^Terminál - eng\\.kód\\s+Trtip\\s+(?:(?P<terminal>\\S+)\\s+)?-\\s*(?P<auth>\\w+)\\s*-",
+          "rate": "^(?P<rate>\\d+(?:\\.\\d+)?\\s+[A-Z]{3}/[A-Z]{3})$"
         }
       }
     },
@@ -138,9 +147,13 @@
       "labels": {
         "counterparty_name": "^(?:Kedvezményezett|Megbízó) neve:\\s*(?P<value>.+)$",
         "counterparty_account": "^(?:Kedvezményezett|Megbízó) IBAN számlaszáma:\\s*(?P<value>\\S+)$",
-        "memo": "^Közlemény:\\s*(?P<value>.+)$"
+        "memo": "^Közlemény:\\s*(?P<value>.+)$",
+        "end_to_end_id": "^Partnerek közti egyedi azonosító:\\s*(?P<value>.+)$",
+        "order_id": "^Megbízás azonosító:\\s*(?P<value>.+)$"
       },
-      "labelled": "^[^:]{2,60}:\\s"
+      "labelled": "^[^:]{2,60}:\\s",
+      "reference": "(?P<value>(?=[A-Z0-9/-]*\\d)[A-Z][A-Z0-9/-]{7,}(?: \\d{1,4})?)",
+      "card_row": "^(?P<card>\\d{4} ?\\d{4} ?\\d{4} ?\\d{4})(?:\\s+(?P<date>\\d{8})\\s+(?P<time>\\d{6}))?(?:\\s*;.*)?$"
     },
     {
       "name": "cib_card_text_hu",
@@ -170,7 +183,9 @@
       "labels": {
         "memo": "^Közlemény:\\s*(?P<value>.+)$"
       },
-      "labelled": "^[^:]{2,60}:\\s"
+      "labelled": "^[^:]{2,60}:\\s",
+      "card_section": "(?i)^kártyaszám:\\s*(?P<card>\\d{4} ?[\\dX*]{4} ?[\\dX*]{4} ?\\d{4})\\s*$",
+      "card_row": "^(?P<card>\\d{4} ?\\d{4} ?\\d{4} ?\\d{4})(?:\\s+(?P<date>\\d{8})\\s+(?P<time>\\d{6}))?$"
     },
     {
       "name": "camt053",
@@ -194,7 +209,11 @@
           },
           "details": {
             "merchant": "Elfogadó:\\s*(?P<value>.+)",
-            "original": "Tr\\.összeg - Árfolyam:\\s*(?P<amount>[\\d,]*\\d(?:\\.\\d+)?)\\s+(?P<currency>[A-Z]{3})\\b"
+            "original": "Tr\\.összeg - Árfolyam:\\s*(?P<amount>[\\d,]*\\d(?:\\.\\d+)?)\\s+(?P<currency>[A-Z]{3})\\b",
+            "card": "Kártyaszám - Tr\\.időpont:\\s*(?P<card>\\d{6}[xX*]{6}\\d{4}|\\d{16})\\s*-\\s*(?P<date>\\d{4}\\.\\d{2}\\.\\d{2})\\.?(?:\\s+(?P<time>\\d{1,2}:\\d{2}(?::\\d{2})?))?",
+            "terminal": "Terminál - eng\\.kód\\s+Trtip:\\s*(?:(?P<terminal>\\S+)\\s+)?-\\s*(?P<auth>\\w+)\\s*-",
+            "rate": "(?P<rate>\\d+(?:\\.\\d+)?\\s+[A-Z]{3}/[A-Z]{3})",
+            "fee": "Jutalék összege:\\s*:?\\s*(?P<fee>.+)"
           }
         }
       }

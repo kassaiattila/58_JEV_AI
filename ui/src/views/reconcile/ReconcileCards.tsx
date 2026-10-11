@@ -7,7 +7,7 @@
 // for a look (several candidates, a different amount, a possible double payment, an amount left, unverified balances).
 // The two lists side by side (ReconcilePairing.tsx) stay for pairing by hand; a card sends its line there.
 // Keyboard: arrows or j/k move between the cards, Enter accepts the selected card's proposal, d shows its documents.
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   api, ApiError, type ReconcileGroup, type ReconcileGroupPair, type ReconcileInvoice, type ReconcileInvoiceFacts,
   type ReconcileLine, type ReconcileList, type ReconcileWorkspace,
@@ -15,12 +15,13 @@ import {
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { t, useLocale } from "../../i18n";
 import { DocumentPair } from "./DocumentPair";
+import { Fact, LineFacts } from "./LineFacts";
 import {
-  CARD_LIST, dueText, ENGINE, EXCLUDED, FLAG, GROUP_KIND, INVOICE_STATE, KIND, LINE_STATE, MARK, probability, relationText, SIGNAL,
+  CARD_LIST, dueText, FLAG, GROUP_KIND, INVOICE_STATE, relationText, SIGNAL,
 } from "./labels";
 import { display, parseCanonical, show, sum } from "./money";
 import { planPairing, rankedCandidates, toRequest } from "./pairing";
-import { expectsInvoice, kinds, markable, suggestMark } from "./partners";
+import { markable, suggestMark } from "./partners";
 import { MarkPanel, ReasonPanel } from "./ReconcilePairing";
 
 type View = ReconcileList | "all";
@@ -349,44 +350,6 @@ function Difference({ paid, invoiced, currency }: { paid: bigint; invoiced: bigi
       {diff > 0n ? t("Transferred {{amount}} more than invoiced", { amount: display(diff, currency) })
         : t("{{amount}} of the invoices is not paid by these transfers", { amount: display(-diff, currency) })}
     </span>
-  );
-}
-
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return <><dt>{label}</dt><dd>{children}</dd></>;
-}
-
-function LineFacts({ line: l, repeat, invoices }: { line: ReconcileLine; repeat: boolean; invoices: Map<string, ReconcileInvoice> }) {
-  useLocale();
-  const amount = signed(l);
-  const partly = parseCanonical(l.allocated) !== 0n && l.state !== "allocated";
-  const ks = kinds(l);
-  return (
-    <div className={`rc-facts${repeat ? " repeat" : ""}`}>
-      <div className="rc-facts-head">
-        <span className={`rc-amount${amount !== null && amount > 0n ? " credit" : ""}`}>{display(amount, l.currency)}</span>
-        <span className={`rc-state s-${l.state}`}>{LINE_STATE[l.state] ?? l.state}</span>
-        {repeat ? <span className="rc-sig warn">{t("may repeat the payment")}</span> : null}
-        {expectsInvoice(l) ? <span className="rc-sig warn">{t("invoice expected")}</span> : null}
-      </div>
-      <dl>
-        <Fact label={t("Booking day")}>{l.booking_date ?? "–"}</Fact>
-        {l.value_date && l.value_date !== l.booking_date ? <Fact label={t("Value day")}>{l.value_date}</Fact> : null}
-        {partly ? <Fact label={t("Left to pair")}>{show(l.rest, l.currency)}</Fact> : null}
-        {l.original_amount && l.original_currency ? <Fact label={t("Original amount")}>{show(l.original_amount, l.original_currency)}</Fact> : null}
-        <Fact label={t("Counterparty")}>{l.counterparty_name || "–"}</Fact>
-        {l.counterparty_account ? <Fact label={t("Counterparty's account")}>{l.counterparty_account}</Fact> : null}
-        {l.memo ? <Fact label={t("Memo")}>{l.memo}</Fact> : null}
-        {l.description ? <Fact label={t("Description")}>{l.description}</Fact> : null}
-        {l.running_balance ? <Fact label={t("Balance after")}>{show(l.running_balance, l.currency)}</Fact> : null}
-        <Fact label={t("Account or card")}>{l.account}</Fact>
-        <Fact label={t("Statement")}>{l.file ?? "–"}{l.statement_verified ? "" : ` · ${t("balances do not check out")}`}</Fact>
-        {ks.length ? <Fact label={t("Kind (AI)")}>{ks.map((k) => `${ENGINE[k.engine]}: ${KIND[k.kind] ?? k.kind} ${probability(k.probability)}`).join(" · ")}</Fact> : null}
-        {l.mark ? <Fact label={t("Needs no invoice")}>{MARK[l.mark.category] ?? l.mark.category}{l.mark.note ? ` — ${l.mark.note}` : ""}</Fact> : null}
-        {l.excluded_reason ? <Fact label={t("Left out")}>{EXCLUDED[l.excluded_reason] ?? l.excluded_reason}</Fact> : null}
-        {l.rejected.length ? <Fact label={t("Not this one")}>{l.rejected.map((id) => invoices.get(id)?.number ?? id.slice(0, 12)).join(", ")}</Fact> : null}
-      </dl>
-    </div>
   );
 }
 

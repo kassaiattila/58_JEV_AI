@@ -890,5 +890,22 @@
   "The comparison is not available: {{reason}}": "Az összevetés nem érhető el: {{reason}}",
   "By amount only, nearest first": "Csak az összeg alapján, a legközelebbi elöl",
   "Bound to another line or settled ({{n}})": "Másik tételhez kötött vagy rendezett számlák ({{n}})",
-  "Bound to another line or settled": "Másik tételhez kötött vagy rendezett számlák"
+  "Bound to another line or settled": "Másik tételhez kötött vagy rendezett számlák",
+  "The statement as read ({{n}} lines)": "A beolvasott kivonat ({{n}} tétel)",
+  "Opening balance": "Nyitóegyenleg",
+  "Closing balance": "Záróegyenleg",
+  "Only the lines around it": "Csak a környező tételek",
+  "All {{n}} lines": "Mind a(z) {{n}} tétel",
+  "This statement was read from the bank's table or XML export, so it has no PDF page.": "Ez a kivonat a bank táblázatos vagy XML-exportjából készült, ezért nincs PDF-oldala.",
+  "The bank's PDF ({{file}}) is not in the package's source folder, or it changed since it was read.": "A bank PDF-je ({{file}}) nincs meg a csomag forrásmappájában, vagy a beolvasás óta megváltozott.",
+  "The line on the statement": "A tétel a kivonaton",
+  "Bank reference": "Banki azonosító",
+  "Order id": "Megbízás-azonosító",
+  "End-to-end id": "Partnerek közti azonosító",
+  "Purchased": "Vásárlás ideje",
+  "Time": "Időpont",
+  "Terminal": "Terminál",
+  "Authorisation code": "Engedélyszám",
+  "Exchange rate": "Árfolyam",
+  "Fee": "Díj"
 }

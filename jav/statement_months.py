@@ -16,6 +16,9 @@ The rule (the owner's decisions of 2026-10-10):
   later processed one gets a `statement:overlap:<the other's id prefix>` to-do in a worker run;
 - a person's choice on a pair (`statement_choices`) wins over the rule and can keep either; the latest choice counts,
   and choosing the rule again undoes it;
+- 144 (`replacement.reread`): two statements of the same rank and period whose lines are the same lines (booking day,
+  amount, direction) are one statement read twice, for example by a newer reader that keeps more of its facts: the later
+  processed reading replaces the earlier (`how: reread`), with no to-do;
 - the decisions on a replaced statement's lines (allocations, marks, pair decisions) go to the same line of the
   statement that replaced it: the same booking day, amount and direction, repeated lines in their order. A decision
   whose line has no same line is left over, and the reconciliation package lists it.
@@ -63,7 +66,7 @@ class ChoiceError(ValueError):
 class Replacement:
     old: str
     new: str  # the live statement that replaces it (a chain is followed to its end)
-    how: str  # rule | person
+    how: str  # rule | person | reread (144: a later reading of the same statement)
 
 
 @dataclass
@@ -154,6 +157,12 @@ def match_lines(old: list[dict[str, Any]], new: list[dict[str, Any]]) -> tuple[d
     return mapped, left
 
 
+def _same_lines(a: dict[str, Any], b: dict[str, Any]) -> bool:
+    """144: every line of each has its same line on the other (booking day, amount, direction; repeats in order)."""
+    la, lb = a.get("lines") or [], b.get("lines") or []
+    return len(la) == len(lb) and not match_lines(la, lb)[1]
+
+
 def _group(statement: dict[str, Any]) -> tuple[str, str]:
     from jav import reconcile
 
@@ -180,6 +189,11 @@ def resolve(statements: list[dict[str, Any]], choices: dict[str, str | None]) ->
                     beaten[loser].append((kept, "person"))
                     continue
                 ra, rb = rank(a), rank(b)
+                if _conf().get("reread") and ra == rb and pa == pb and _same_lines(a, b):
+                    # 144: the same statement read again (a newer reader keeping more of its facts): the later reading
+                    later, earlier = sorted((a, b), key=lambda s: (int(s.get("seq") or 0), str(s["id"])))[::-1]
+                    beaten[earlier["id"]].append((later["id"], "reread"))
+                    continue
                 better, worse = (a, b) if ra < rb else (b, a)
                 if ra != rb and covers(pa if better is a else pb, pb if better is a else pa):
                     beaten[worse["id"]].append((better["id"], "rule"))

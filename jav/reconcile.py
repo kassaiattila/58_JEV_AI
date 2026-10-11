@@ -143,7 +143,7 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.10.0"  # 142: possible double payments (repeats) and the day an invoice is checked until
+ENGINE_VERSION = "1.11.0"  # 144: a later reading of the same statement replaces the earlier (statement_months)
 STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
             "no_payment_found", "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate", "combined")  # how a candidate's amounts relate
@@ -1219,7 +1219,16 @@ def _statement(d: dict[str, Any]) -> dict[str, Any]:
             "currency": v.get("currency"), "statement_type": v.get("statement_type"),
             "period_start": v.get("period_start"), "period_end": v.get("period_end"),
             "opening_balance": v.get("opening_balance"), "closing_balance": v.get("closing_balance"),
-            "verified": verified(d["validation"]), "lines": with_line_ids(d["doc_id"], lines), **_origin(d)}
+            "verified": verified(d["validation"]), "lines": [_masked(ln) for ln in with_line_ids(d["doc_id"], lines)],
+            **_origin(d)}
+
+
+def _masked(line: dict[str, Any]) -> dict[str, Any]:
+    """144 (DECISIONS 144): a full card number in a line's texts is masked to its first six and last four digits for every
+    view and request (a statement extracted by AI kept it). The id is taken first, so the decisions on the line stay."""
+    from jav import card_numbers
+
+    return {**line, **{k: card_numbers.mask_text(line[k]) for k in ("memo", "description", "counterparty_name") if line.get(k)}}
 
 
 def statements() -> list[dict[str, Any]]:

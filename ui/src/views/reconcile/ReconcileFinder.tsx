@@ -11,6 +11,7 @@ import { criteria, daysFromDue, type Binding, type FinderEntry, type FinderSecti
 import { dueText, ENGINE, INVOICE_STATE, KIND, MARK, probability, relationText, SIGNAL } from "./labels";
 import { display, parseCanonical, show, sum } from "./money";
 import { rest } from "./pairing";
+import { TransactionFacts } from "./LineFacts";
 import { expectsInvoice, kinds } from "./partners";
 
 const FIRST = 30; // the invoices shown at first by amount only; more on request
@@ -30,7 +31,6 @@ export function FinderHead({ line, lines, invoices, invoiceById, readOnly, busy,
 }) {
   useLocale();
   const name = (id: string) => { const inv = invoiceById.get(id); return inv ? invoiceTitle(inv) : id.slice(0, 12); };
-  const sub = [line.memo, line.description !== lineTitle(line) ? line.description : null, line.counterparty_account, line.file].filter(Boolean);
   const several = lines.length > 1;
   return (
     <div className="rc-finder-head" aria-label={t("The selected line")}>
@@ -42,7 +42,10 @@ export function FinderHead({ line, lines, invoices, invoiceById, readOnly, busy,
         {line.state === "partly_allocated" ? <span className="small muted">{t("left: {{amount}}", { amount: show(line.rest, line.currency) })}</span> : null}
         {line.statement_verified ? null : <span className="rc-sig warn">{t("statement balances do not check out")}</span>}
       </div>
-      {sub.length ? <p className="small muted rc-finder-sub">{sub.join(" · ")}</p> : null}
+      {/* 144: every fact of the transfer, labelled (DECISIONS 144) */}
+      <dl className="rc-finder-facts">
+        <TransactionFacts line={line} currency={line.currency} account={line.account} />
+      </dl>
       {several ? (
         <p className="small">{t("{{n}} lines selected, together: {{amount}}", { n: lines.length, amount: sideTotal(lines) })} · {t("the columns compare the line above")}</p>
       ) : null}

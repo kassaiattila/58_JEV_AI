@@ -88,7 +88,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, isolated_pdf
+from jav import card_numbers, cfg, isolated_pdf
 from jav.dates import read_date
 from jav.numbers import read_number
 
@@ -408,6 +408,8 @@ def _account(block: _Block, summary: dict[str, str], occurrence: int, file_name:
                       "direction": "debit" if amount < 0 else "credit", "amount": _plain(abs(amount)),
                       "running_balance": _plain(balance), "description": _cell(row, columns, "category") or None,
                       "counterparty_name": _cell(row, columns, "description") or None, "counterparty_account": None, "memo": None})
+        if (fee := _money(_cell(row, columns, "fee"))) is not None and fee != 0:  # 144: a fee column (Revolut)
+            _with(lines[-1], fee=f"{_plain(abs(fee))} {block.currency}")
     iban = (summary.get("account_iban") or "").replace(" ", "") or None
     opening, closing = _money(summary.get("opening_balance")), _money(summary.get("closing_balance"))
     if opening is None and balances and balances[0] is not None:
@@ -589,6 +591,38 @@ def _ledger_lines(rows: list[list[str]], columns: dict[str, int], profile: dict[
     return lines, amounts, problems
 
 
+LINE_DETAILS = ("bank_reference", "order_id", "end_to_end_id", "card_number", "purchase_date", "transaction_time", "terminal",
+                "authorisation_code", "exchange_rate", "fee")  # 144: the line's facts beyond the money (type pack 1.2.0)
+
+
+def _with(line: dict[str, Any], **values: str | None) -> None:
+    """144: the line's details that have a value (a line keeps no empty detail keys)."""
+    line.update({k: v for k, v in values.items() if k in LINE_DETAILS and v not in (None, "")})
+
+
+def _clock(text: str | None) -> str | None:
+    """A time of day as HH:MM or HH:MM:SS ("10:00", "101500" → "10:15:00", "2026-06-04T10:15:30" → "10:15:30")."""
+    if not text:
+        return None
+    m = re.search(r"(?:T|^)(\d{1,2}):?(\d{2})(?::?(\d{2}))?(?:\.\d+)?(?:[+-]\d{2}:?\d{2}|Z)?$", text.strip())
+    if m is None or int(m[1]) > 23 or int(m[2]) > 59 or (m[3] and int(m[3]) > 59):
+        return None
+    return f"{int(m[1]):02d}:{m[2]}" + (f":{m[3]}" if m[3] else "")
+
+
+def _card_details(found: dict[str, dict[str, str]]) -> dict[str, str | None]:
+    """144: a line's card and charge details from the matches of a profile's `details` patterns (the camt.053 entry's
+    additional information, the Erste PDF statement's card block): the masked card number, the purchase day and time,
+    the terminal and the authorisation code, the exchange rate and the fee as the bank prints them."""
+    card, terminal = found.get("card") or {}, found.get("terminal") or {}
+    day = read_date(card["date"]).value if card.get("date") else None
+    return {"card_number": card_numbers.masked(card.get("card")), "purchase_date": day.isoformat() if day else None,
+            "transaction_time": _clock(card.get("time")), "terminal": terminal.get("terminal"),
+            "authorisation_code": terminal.get("auth"),
+            "exchange_rate": " ".join(found["rate"]["rate"].split()) if (found.get("rate") or {}).get("rate") else None,
+            "fee": " ".join(found["fee"]["fee"].split()) if (found.get("fee") or {}).get("fee") else None}
+
+
 def _merge_companion(lines: list[dict[str, Any]], amounts: list[Decimal], pdf: dict[str, Any], currency: str
                      ) -> tuple[list[Decimal | None], list[str]]:
     """Each export line takes the first unused PDF line of its booking date and amount: its running balance, the
@@ -613,6 +647,7 @@ def _merge_companion(lines: list[dict[str, Any]], amounts: list[Decimal], pdf: d
         value = _dot_amount(original.get("amount", ""))
         if original.get("currency") and original["currency"] != currency and value is not None:
             line["original_amount"], line["original_currency"] = _plain(value), original["currency"]
+        _with(line, **_card_details(c["details"]))  # 144
     problems += [f"PDF line {k + 1}: not in the export" for k in range(len(pdf["lines"])) if k not in used]
     return balances, problems
 
@@ -687,14 +722,27 @@ def _comma_amount(text: str) -> Decimal | None:
     return value.quantize(CENT) if value == value.quantize(CENT) else None
 
 
-def _text_line(m: re.Match[str], *, expect_name: bool) -> dict[str, Any]:
-    """A line's first row; a card statement's row prints the purchase day (`value`) and no running balance."""
+def _text_line(m: re.Match[str], *, expect_name: bool, reference: re.Pattern[str] | None = None) -> dict[str, Any]:
+    """A line's first row; a card statement's row prints the purchase day (`value`) and no running balance. 144: the
+    bank's reference after the kind's semicolon, when it has the profile's `reference` shape."""
     kind, groups = " ".join(m["kind"].split()), m.groupdict()
     value = read_date(groups["value"]).value if groups.get("value") else None
+    after = kind.split(";", 1)[1].strip() if ";" in kind else ""
+    ref = reference.fullmatch(after) if reference is not None and after else None
     return {"booked": read_date(m["booked"]).value, "kind": kind.split(";", 1)[0].strip() or kind,
             "amount": _hu_amount(m["amount"]), "balance": _hu_amount(groups["balance"]) if groups.get("balance") else None,
             "has_balance": "balance" in groups, "value_date": value, "counterparty_name": None, "counterparty_account": None,
-            "memo": None, "note": None, "original_amount": None, "original_currency": None, "expect_name": expect_name}
+            "memo": None, "note": None, "original_amount": None, "original_currency": None, "expect_name": expect_name,
+            "details": {"bank_reference": ref["value"] if ref else None}}
+
+
+def _card_row(current: dict[str, Any], m: re.Match[str]) -> None:
+    """144: a card charge's detail row (`1234 5678 9012 3456 20260105 101500; …`): the masked card number, the purchase
+    day and the time, on the line it belongs to."""
+    groups = m.groupdict()
+    day = read_date(re.sub(r"^(\d{4})(\d{2})(\d{2})$", r"\1-\2-\3", groups["date"])).value if groups.get("date") else None
+    current["details"].update({"card_number": card_numbers.masked(groups["card"]),
+                               "purchase_date": day.isoformat() if day else None, "transaction_time": _clock(groups.get("time"))})
 
 
 _DOUBLED = re.compile(r"(?<!\S)(?=\S*\d)(?=\S*(?:\.\.|,,|--))(?:([0-9.,\-])\1)+(?!\S)")
@@ -717,12 +765,14 @@ def parse_text_statement(lines: list[str], profile: dict[str, Any]) -> dict[str,
     first = next((i for i, ln in enumerate(lines) if start_re.search(ln)), len(lines))
     last = next((i for i in range(first + 1, len(lines)) if end_re.search(lines[i])), len(lines))
     drop = [re.compile(x) for x in profile.get("drop_rows", [])]
-    body = [ln for ln in _without_page_breaks(lines[first + 1:last], profile.get("skip_blocks", []))
-            if ln.strip("-= ") and not any(rx.search(ln) for rx in drop)]
 
     def optional(key: str) -> re.Pattern[str] | None:
         return re.compile(profile[key]) if profile.get(key) else None
 
+    # 144: a card charge's detail row (the card, the day, the time) is kept even where its digits fit a dropped row
+    card_row, card_section, reference = optional("card_row"), optional("card_section"), optional("reference")
+    body = [ln for ln in _without_page_breaks(lines[first + 1:last], profile.get("skip_blocks", []))
+            if ln.strip("-= ") and ((card_row is not None and card_row.match(ln)) or not any(rx.search(ln) for rx in drop))]
     line_re, value_re = re.compile(profile["line"]), optional("value_line")
     account_re, original_re, original_row = optional("counterparty_account"), optional("original"), optional("original_row")
     named_first = profile.get("name_from") == "first_unlabelled"  # a card purchase's merchant follows its line
@@ -731,9 +781,18 @@ def parse_text_statement(lines: list[str], profile: dict[str, Any]) -> dict[str,
     out: list[dict[str, Any]] = []
     problems: list[str] = []
     expect_value = False
+    section_card: str | None = None  # 144: a credit card statement heads each card's purchases with its number
     for ln in body:
+        if card_section is not None and (c := card_section.match(ln)):
+            section_card = card_numbers.masked(c["card"])
+            expect_value = False
+            if out:
+                out[-1]["expect_name"] = False
+            continue
         if m := line_re.match(ln):
-            out.append(_text_line(m, expect_name=named_first))
+            out.append(_text_line(m, expect_name=named_first, reference=reference))
+            if section_card:
+                out[-1]["details"]["card_number"] = section_card
             if out[-1]["booked"] is None or out[-1]["amount"] is None or (out[-1]["has_balance"] and out[-1]["balance"] is None):
                 problems.append(f"line {len(out)}: unreadable")
             expect_value = value_re is not None
@@ -750,12 +809,17 @@ def parse_text_statement(lines: list[str], profile: dict[str, Any]) -> dict[str,
                 current["note"] = " ".join(rest.split())
                 if original_re and (o := original_re.match(rest)) and (amount := _comma_amount(o["amount"])) is not None:
                     current["original_amount"], current["original_currency"] = amount, o["currency"]
+                if card_row is not None and (c := card_row.match(current["note"])):
+                    _card_row(current, c)
             continue
         expect_value = False
         if current is None:
             continue
         if dated.match(ln):
             problems.append(f"line {len(out)}: an unreadable row after it")
+            continue
+        if card_row is not None and (c := card_row.match(ln)):
+            _card_row(current, c)
             continue
         if original_row is not None and (o := original_row.match(ln)):  # a card purchase's amount in its own currency
             if current["original_amount"] is None and (amount := _dot_amount(o["amount"])) is not None:
@@ -765,8 +829,11 @@ def parse_text_statement(lines: list[str], profile: dict[str, Any]) -> dict[str,
         for key, rx in labels.items():
             if d := rx.match(ln):
                 found = True
-                if current[key] is None:
-                    current[key] = " ".join(d["value"].split())
+                value = " ".join(d["value"].split())
+                if key in LINE_DETAILS:  # 144: an identifier the statement labels (the parties' end-to-end id, the order id)
+                    current["details"][key] = current["details"].get(key) or value
+                elif current[key] is None:
+                    current[key] = value
         if not found and current["expect_name"] and not labelled.match(ln):
             current["counterparty_name"] = " ".join(ln.split())
         current["expect_name"] = False
@@ -798,6 +865,8 @@ def _text_account(parsed: dict[str, Any], profile: dict[str, Any], source: dict[
                      "counterparty_name": t["counterparty_name"], "counterparty_account": t["counterparty_account"],
                      "memo": t["memo"] or t["note"], "original_amount": _plain(t["original_amount"]),
                      "original_currency": t["original_currency"]} for t in lines]
+    for line, t in zip(transactions, lines):
+        _with(line, **t["details"])
     opening, closing = parsed["opening"], parsed["closing"]
     start, end = (d.isoformat() if d else None for d in parsed["period"])
     if start is None and transactions:
@@ -865,8 +934,15 @@ def _read_text(path: Path, *, name: str | None = None) -> Reading:
 CAMT = "urn:iso:std:iso:20022:tech:xsd:camt.053."
 
 
+_ROOT = re.compile(rb"<(?![?!])(?:[\w.\-]+:)?([\w.\-]+)([^>]*)>")
+
+
 def _is_camt(data: bytes) -> bool:
-    return CAMT.encode("ascii") in data[:4096]
+    """Whether the file's root element is a camt.053 document. 144: the root decides, not any mention of the namespace
+    in the head: the Erste Excel 2003 XML export declares a `camt` prefix on its `Workbook` root, and since 141 every
+    such export went to the camt reader, which refused it."""
+    root = _ROOT.search(re.sub(rb"<!--.*?-->", b"", data[:4096], flags=re.DOTALL))
+    return root is not None and root.group(1) == b"Document" and CAMT.encode("ascii") in root.group(2)
 
 
 def parse_camt(data: bytes, limits: dict[str, Any]) -> list[dict[str, Any]]:
@@ -905,11 +981,18 @@ def parse_camt(data: bytes, limits: dict[str, Any]) -> list[dict[str, Any]]:
             role = "Cdtr" if debit else "Dbtr"
             post = next((text(a, "Amt") for a in n.iter(q("PrtryAmt")) if text(a, "Tp") == "POSTBALANCE"), None)
             party = f"NtryDtls/TxDtls/RltdPties/{role}"
+            charges = [(text(c, "Amt"), c.find(q("Amt")).get("Ccy") if c.find(q("Amt")) is not None else None)
+                       for c in n.findall(q("Chrgs"))]
             entries.append({"amount": text(n, "Amt"), "debit": debit, "booked": text(n, "BookgDt/Dt"), "value": text(n, "ValDt/Dt"),
                             "code": text(n, "BkTxCd/Prtry/Cd"), "name": text(n, f"{party}/Nm"),
                             "account": text(n, f"{party}Acct/Id/IBAN") or text(n, f"{party}Acct/Id/Othr/Id"),
                             "memo": " ".join(u.text.strip() for u in n.iter(q("Ustrd")) if u.text and u.text.strip()) or None,
-                            "info": text(n, "NtryDtls/TxDtls/AddtlTxInf") or text(n, "AddtlNtryInf"), "balance": post})
+                            "info": text(n, "NtryDtls/TxDtls/AddtlTxInf") or text(n, "AddtlNtryInf"), "balance": post,
+                            # 144: the bank's reference, the parties' end-to-end id, when it was accepted, its charges
+                            "reference": text(n, "NtryDtls/TxDtls/Refs/TxId") or text(n, "NtryDtls/TxDtls/Refs/AcctSvcrRef")
+                            or text(n, "AcctSvcrRef"),
+                            "end_to_end": text(n, "NtryDtls/TxDtls/Refs/EndToEndId"),
+                            "accepted": text(n, "NtryDtls/TxDtls/RltdDts/AccptncDtTm"), "charges": charges})
         out.append({"id": text(stmt, "Id"), "iban": text(stmt, "Acct/Id/IBAN"), "other": text(stmt, "Acct/Id/Othr/Id"),
                     "currency": text(stmt, "Acct/Ccy"), "bic": text(stmt, "Acct/Svcr/FinInstnId/BIC"),
                     "bank": text(stmt, "Acct/Svcr/FinInstnId/Nm"), "from": (text(stmt, "FrToDt/FrDtTm") or "")[:10] or None,
@@ -955,6 +1038,15 @@ def _camt_account(s: dict[str, Any], profile: dict[str, Any], source: dict[str, 
                       "memo": " ".join(e["memo"].split()) if e["memo"] else None,
                       "original_amount": _plain(_dot_amount(original["amount"])) if foreign else None,
                       "original_currency": original["currency"] if foreign else None})
+        # 144: the entry's references and its card and charge details (the bank's own text first, else its charges)
+        found = {k: m.groupdict() for k, rx in details.items() if (m := rx.search(info))}
+        card = _card_details(found)
+        charged = [(a, c) for a, c in e.get("charges", []) if (v := _xml_amount(a)) is not None and v != 0]
+        card["fee"] = card["fee"] or (" + ".join(f"{_plain(_xml_amount(a))} {c or currency}" for a, c in charged) or None)
+        card["transaction_time"] = card["transaction_time"] or _clock(e.get("accepted"))
+        end_to_end = e.get("end_to_end")
+        _with(lines[-1], bank_reference=e.get("reference"), **card,
+              end_to_end_id=None if not end_to_end or end_to_end.upper() == "NOTPROVIDED" else end_to_end)
     opening, closing = _xml_amount(s["opening"]), _xml_amount(s["closing"])
     start = read_date(s["from"]).value if s["from"] else None
     end = read_date(s["to"]).value if s["to"] else None
@@ -1066,7 +1158,16 @@ def read(path: Path, *, name: str | None = None) -> Reading:
     """Reads a statement table with the first profile that finds a table in it; 137: or every export of a folder.
     `name`: the file name to take the period from, when the path is a copy (the source instance) of the original."""
     path = Path(path)
-    return _read_folder(path) if path.is_dir() else _read_file(path, name=name)
+    return _masked(_read_folder(path) if path.is_dir() else _read_file(path, name=name))
+
+
+def _masked(reading: Reading) -> Reading:
+    """144 (DECISIONS 144): no full card number leaves a reader; the texts keep only its first six and last four digits."""
+    for account in reading.accounts:
+        for line in account.statement.get("transactions") or []:
+            for key in ("memo", "description", "counterparty_name"):
+                line[key] = card_numbers.mask_text(line.get(key))
+    return reading
 
 
 def checks_ok(account: Account) -> bool:

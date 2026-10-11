@@ -1,9 +1,24 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.31",
+    "version": "1.0.34",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.34",
+        "date": "2026-10-11",
+        "note": "144: accept the Hungarian names of the statement line's new columns (configs/field_labels.json) and the Hungarian bank texts of the new reader tests' synthetic statements (tests/test_statement_fields_144.py)."
+      },
+      {
+        "version": "1.0.33",
+        "date": "2026-10-11",
+        "note": "144: accept the statement readers' new Hungarian document vocabulary (the CIB, Erste and Revolut labels and patterns, configs/statement_tables.json) and the Hungarian column of three glossary entries (docs/GLOSSARY.md)."
+      },
+      {
+        "version": "1.0.32",
+        "date": "2026-10-11",
+        "note": "144: accept the Hungarian interface labels the user guide quotes for the documents' statement pane (docs/guides/USER_GUIDE.md)."
+      },
       {
         "version": "1.0.31",
         "date": "2026-10-11",
@@ -212,7 +227,7 @@
     "configs/experiments/matter_cases.json": 2,
     "configs/experiments/pydantic_jev.json": 3,
     "configs/experiments/source_find_cases.json": 6,
-    "configs/field_labels.json": 169,
+    "configs/field_labels.json": 179,
     "configs/golden_reconcile.json": 9,
     "configs/golden_synthetic.json": 20,
     "configs/grounding.json": 1,
@@ -258,7 +273,7 @@
     "configs/recipes.json": 52,
     "configs/reports.json": 5,
     "configs/service.json": 7,
-    "configs/statement_tables.json": 71,
+    "configs/statement_tables.json": 81,
     "configs/types/_base/utility_bill_hu.json": 3,
     "configs/types/altalanos_szerzodesi_feltetelek.json": 16,
     "configs/types/belepo_jegy.json": 10,
@@ -285,7 +300,7 @@
     "configs/types/viz_szamla.json": 29,
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
-    "docs/GLOSSARY.md": 246,
+    "docs/GLOSSARY.md": 249,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 10,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -295,7 +310,7 @@
     "docs/flows/invoice/FLOW.md": 17,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 199,
+    "docs/guides/USER_GUIDE.md": 202,
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
@@ -483,6 +498,7 @@
     "tests/test_statement_camt_141.py": 6,
     "tests/test_statement_cib_141.py": 59,
     "tests/test_statement_erste_137.py": 27,
+    "tests/test_statement_fields_144.py": 21,
     "tests/test_statement_package_140.py": 7,
     "tests/test_statement_table_136.py": 38,
     "tests/test_store_tx_067.py": 1,

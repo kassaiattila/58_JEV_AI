@@ -205,7 +205,8 @@ def survey(paths: Iterable[Path], *, party_id: str, period_start: Any, period_en
     stored = reconcile.statements()
     stored_ids = {s["id"] for s in stored}
     previews = [(r, a, _preview(r, a)) for r in found.readings for a in r.accounts]
-    new = {s["id"]: s for _r, _a, s in previews if s["id"] not in stored_ids}
+    top = max((int(s.get("seq") or 0) for s in stored), default=0) + 1  # 144: a file read now is later than any stored reading
+    new = {s["id"]: {**s, "seq": top} for _r, _a, s in previews if s["id"] not in stored_ids}
     every = {**{s["id"]: s for s in stored}, **new}
     res = statement_months.resolve(list(every.values()), statement_months.choices())
     files = {**reconcile.file_names(stored_ids), **{s["id"]: (a.source or {}).get("file", r.file_name) for r, a, s in previews}}

@@ -347,7 +347,7 @@ export interface ReconcileShare {
   workpackage_id: string | null;
 }
 export interface ReconcileLineMark { id: number; line_id: string; statement_id: string; category: string; note: string | null; workpackage_id: string | null }
-export interface ReconcileLine {
+export interface ReconcileLine extends ReconcileLineDetails {  // 144: with the facts beyond the money
   id: string; statement_id: string; account: string; statement_type: string | null; currency: string | null;
   booking_date: string | null; direction: string | null; amount: string | null; counterparty_name: string | null;
   counterparty_account: string | null; description: string | null; memo: string | null;
@@ -461,8 +461,33 @@ export interface ReconcileWorkspace {
   overview?: ReconcileOverview; // 142: the cards of the pairing page
 }
 /** 132: where a line stands on its statement page (box: 0–1 fractions of the page, x0 y0 x1 y1). */
+/** 144: a statement line as the statement prints it (the documents' statement pane, jav/reconcile_package.py `locate`). */
+export type ReconcileStatementLine = {
+  id?: string; booking_date: string | null; value_date?: string | null; direction: string | null; amount: string | null;
+  original_amount?: string | null; original_currency?: string | null; counterparty_name: string | null;
+  counterparty_account: string | null; memo: string | null; description: string | null; running_balance?: string | null;
+} & ReconcileLineDetails;
+/** 144: a statement line's facts beyond the money, as a code reader keeps them (only the ones its statement prints; a
+ *  card number masked to its first six and last four digits). */
+export interface ReconcileLineDetails {
+  bank_reference?: string; order_id?: string; end_to_end_id?: string; card_number?: string; purchase_date?: string;
+  transaction_time?: string; terminal?: string; authorisation_code?: string; exchange_rate?: string; fee?: string;
+}
+/** 144: the statement of a line as read: its heading facts and every line in its order. */
+export interface ReconcileStatementView {
+  file: string | null; institution: string | null; account: string; currency: string | null; period_start: string | null;
+  period_end: string | null; opening_balance: string | null; closing_balance: string | null; verified: boolean;
+  lines: (ReconcileStatementLine & { id: string })[];
+}
+/** 144: the bank's PDF behind a statement read by code — found, missing (moved or changed since the reading), or none
+ *  (a table or XML export). */
+export interface ReconcileOriginal { file: string | null; state: "found" | "missing" | "export" }
 export interface ReconcileLocation {
-  line_id: string; statement_id: string; open: ReconcileOpen | null; page: number | null; box: [number, number, number, number] | null;
+  line_id: string; statement_id: string; open: ReconcileOpen | null;
+  /** 144: the page image to show: the statement's own document, the bank's PDF behind a statement read by code, none */
+  image: "item" | "original" | null; pages: number | null;
+  page: number | null; box: [number, number, number, number] | null;
+  original: ReconcileOriginal | null; statement: ReconcileStatementView;
 }
 export interface ReconcileAllocationPair { invoice_doc_id: string; line_id: string; line_amount?: string; invoice_amount?: string }
 /** 143 (jav/reconcile_package.py `matches`): how an invoice fits a line — proposed or listed by the engine for it, its
@@ -837,6 +862,9 @@ export const api = {
   sourceUrl: (wpId: string, itemId: string) => `/api/workpackages/${enc(wpId)}/items/${enc(itemId)}/source`,
   pageUrl: (wpId: string, itemId: string, page: number, dpi = 144) =>
     `/api/workpackages/${enc(wpId)}/items/${enc(itemId)}/pages/${page}.png?dpi=${dpi}`,
+  /** 144: a page of the bank's PDF behind the statement of a line read by code */
+  originalPageUrl: (wpId: string, lineId: string, page: number, dpi = 144) =>
+    `/api/workpackages/${enc(wpId)}/reconcile/original/pages/${page}.png?line_id=${enc(lineId)}&dpi=${dpi}`,
   words: (runId: string, itemId: string) =>
     request<{ layer_id: string; pages: SourcePage[]; words: SourceWord[] }>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}/words`),
   settings: () => request<{ confidence_bands: { confident: number; check: number; gpt?: { confident: number; check: number } } }>("GET", "/settings"),
