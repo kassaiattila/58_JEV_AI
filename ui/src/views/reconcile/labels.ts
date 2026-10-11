@@ -1,6 +1,8 @@
 // 132: the labels of the reconciliation package's pages, in the chosen language (English source text; the Hungarian
 // is in i18n/hu-native.json). The codes come from the local service (jav/reconcile_package.py, configs/reconcile.json).
-import type { ReconcileBlocker, ReconcileLineState, ReconcileRelation, ReconcileSignal } from "../../api";
+import type {
+  ReconcileBlocker, ReconcileFlag, ReconcileGroupKind, ReconcileLineState, ReconcileList, ReconcileRelation, ReconcileSignal,
+} from "../../api";
 import { getLocale, t } from "../../i18n";
 import { tmap } from "../../labels";
 
@@ -109,3 +111,51 @@ export function blockerText(b: ReconcileBlocker): string {
 }
 
 export const STATEMENT_TYPE: Record<string, string> = tmap({ bank_account: "bank account", credit_card: "card" });
+
+/** 142: the kind of a card on the pairing page (jav/reconcile_overview.py `KINDS`). */
+export const GROUP_KIND: Record<ReconcileGroupKind, string> = tmap({
+  proposed: "Proposal to decide",
+  paired: "Paired",
+  line_only: "Transfer without an invoice",
+  invoice_only: "Invoice without a payment",
+  credited: "Cancelled by a credit note",
+  marked: "Needs no invoice",
+  excluded: "Left out",
+}) as Record<ReconcileGroupKind, string>;
+
+/** 142: the lists of the cards, as chips (jav/reconcile_overview.py `LISTS`). */
+export const CARD_LIST: Record<ReconcileList | "all", string> = tmap({
+  to_decide: "To decide",
+  line_without_invoice: "Transfers without an invoice",
+  invoice_without_payment: "Invoices without a payment",
+  overdue: "Overdue, no payment found",
+  late: "Paid late",
+  double_payment: "Possible double payment",
+  clarify: "To clarify",
+  paired: "Paired",
+  marked: "Needs no invoice",
+  credited: "Cancelled by a credit note",
+  excluded: "Left out",
+  all: "All",
+}) as Record<ReconcileList | "all", string>;
+
+/** 142: what a card's flag says. */
+export const FLAG: Record<ReconcileFlag, string> = tmap({
+  late: "paid late",
+  overdue: "overdue, no payment found",
+  double_payment: "possible double payment",
+  several_candidates: "several candidates",
+  amount_differs: "different amount",
+  statement_unverified: "statement balances do not check out",
+  rest_left: "an amount is left",
+  no_due_date: "no due date on the invoice",
+  paid_elsewhere: "paid by a line outside this package",
+}) as Record<ReconcileFlag, string>;
+
+/** 142: a pair's booking day against the invoice's due date: every day after it is a delay (DECISIONS 142). */
+export function dueText(days: number | null | undefined): string {
+  if (days === null || days === undefined) return t("no due date");
+  if (days > 0) return t("{{n}} days late", { n: days });
+  if (days === 0) return t("on the due date");
+  return t("{{n}} days before the due date", { n: -days });
+}

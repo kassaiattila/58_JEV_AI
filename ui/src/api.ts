@@ -353,6 +353,8 @@ export interface ReconcileLine {
   counterparty_account: string | null; description: string | null; memo: string | null;
   /** 137: a card purchase's original amount and currency (the Erste PDF statement) */
   original_amount?: string | null; original_currency?: string | null;
+  /** 142: the value day and the balance after the line, as the statement prints them (shown on the card) */
+  value_date?: string | null; running_balance?: string | null;
   state: ReconcileLineState; excluded_reason: string | null; allocated: string; rest: string | null;
   mark: ReconcileLineMark | null; allocations: ReconcileShare[]; candidates: ReconcileCandidate[]; rejected: string[];
   statement_verified: boolean; file: string | null;
@@ -411,6 +413,33 @@ export interface ReconcileInvoice {
   party?: (PartyRef & { how: PartyHow }) | null; // 133: the buyer's own party; none: no party claims it
   own?: boolean; // 133: the package's party's or no party's (listed by default); false: another party's
   credited_by?: { id: string; number: string | null } | null; // 141: the credit note that cancels it
+  /** 142: every fact the card shows, and the last day its statements cover it without a gap from its issue date */
+  supplier_tax_id?: string | null; payment_account?: string | null; references?: string[]; buyer_name?: string | null;
+  fulfillment_date?: string | null; net_total?: string | null; vat_total?: string | null; duplicate?: string | null;
+  checked_until?: string | null;
+}
+/** 142 (jav/reconcile_overview.py): the related lines and invoices as groups, with their pairs, kind, flags and lists. */
+export type ReconcileGroupKind = "proposed" | "paired" | "line_only" | "invoice_only" | "credited" | "marked" | "excluded";
+export type ReconcileList = "to_decide" | "line_without_invoice" | "invoice_without_payment" | "overdue" | "late" | "double_payment"
+  | "clarify" | "paired" | "marked" | "credited" | "excluded";
+export type ReconcileFlag = "late" | "overdue" | "double_payment" | "several_candidates" | "amount_differs" | "statement_unverified"
+  | "rest_left" | "no_due_date" | "paid_elsewhere";
+export interface ReconcileGroupPair {
+  line_id: string; invoice_id: string; state: "allocated" | "proposed" | "repeat";
+  /** the days from the invoice's due date to the line's booking day (positive: late); null without a due date */
+  days_from_due: number | null; several?: boolean; relation?: ReconcileRelation | null;
+  line_amount?: string; invoice_amount?: string; allocation_id?: number | null;
+}
+export interface ReconcileGroup {
+  id: string; kind: ReconcileGroupKind; date: string; lines: string[]; invoices: string[]; pairs: ReconcileGroupPair[];
+  flags: ReconcileFlag[]; lists: ReconcileList[];
+}
+export interface ReconcileInvoiceFacts {
+  paid_on: string | null; days_from_due: number | null; overdue_days: number | null; checked_until: string | null;
+  double_payment: { line_ids: string[]; paid_by: string[] } | null;
+}
+export interface ReconcileOverview {
+  groups: ReconcileGroup[]; invoices: Record<string, ReconcileInvoiceFacts>; counts: Record<ReconcileList | "all", number>;
 }
 /** Where a document's image opens: the package, run and item of its work run (none for a command-line evaluation). */
 export interface ReconcileOpen { workpackage_id: string; run_id: string; item_id: string; pages: number | null }
@@ -429,6 +458,7 @@ export interface ReconcileWorkspace {
   left_over?: ReconcileLeftOver[];
   coverage: ReconcileCoverage[]; blockers: ReconcileBlocker[]; line_marks: string[]; open: Record<string, ReconcileOpen>;
   counts: ReconcileCounts; learned_names: unknown; fx_tolerance: unknown; engine_version: string; config_hash: string;
+  overview?: ReconcileOverview; // 142: the cards of the pairing page
 }
 /** 132: where a line stands on its statement page (box: 0–1 fractions of the page, x0 y0 x1 y1). */
 export interface ReconcileLocation {

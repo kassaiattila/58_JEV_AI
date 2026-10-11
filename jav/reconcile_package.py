@@ -40,7 +40,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import cfg, corrections, grounding, parties, reconcile, store, typepack, work
+from jav import cfg, corrections, grounding, parties, reconcile, reconcile_overview, store, typepack, work
 
 KIND = "reconcile"
 REVOKE_KINDS = ("allocation", "mark", "decision")
@@ -451,6 +451,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
                           "counterparty_name": ln.get("counterparty_name"), "counterparty_account": ln.get("counterparty_account"),
                           "description": ln.get("description"), "memo": ln.get("memo"),
                           "original_amount": ln.get("original_amount"), "original_currency": ln.get("original_currency"),
+                          "value_date": ln.get("value_date"), "running_balance": ln.get("running_balance"),  # 142: the card
                           "state": state, "excluded_reason": excluded.get(("line", lid)),
                           "allocated": str(paid), "rest": str(amount - paid) if amount is not None else None,
                           "mark": marks.get(lid), "allocations": shares_line.get(lid, []),
@@ -501,7 +502,11 @@ def _workspace(wp_id: str) -> dict[str, Any]:
                              "allocations": shares_invoice.get(iid, []), "candidates": [candidate_view(c) for c in by_invoice.get(iid, [])
                                                                                       if c["line_id"] in line_ids],
                              "source": _source_state(inv, approved), "party": who.of(iid), "own": who.own(iid),
-                             "credited_by": _credit_note(status.get(iid, {}).get("credited_by"), invoices)})
+                             "credited_by": _credit_note(status.get(iid, {}).get("credited_by"), invoices),
+                             # 142: every fact the card shows, and the day its statements are checked until
+                             **{k: inv.get(k) for k in ("supplier_tax_id", "payment_account", "references", "buyer_name",
+                                                        "fulfillment_date", "net_total", "vat_total", "duplicate")},
+                             "checked_until": status.get(iid, {}).get("checked_until")})
     for ln in lines:
         ln["file"] = files.get(ln["statement_id"])
     coverage = []
@@ -525,7 +530,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     for row in left_over:
         blockers.append({"code": "decision_not_carried", "doc_id": row["statement_id"], "file": row["file"], "kind": "statement"})
     return {"workpackage_id": wp_id, "scope": sc, "lines": lines, "invoices": invoice_rows, "coverage": coverage,
-            "left_over": left_over,
+            "left_over": left_over, "overview": reconcile_overview.build(lines, invoice_rows, result["repeats"]),
             "blockers": blockers, "line_marks": list(_conf()["line_marks"]), "open": _open_refs(docs),
             "counts": {"lines": dict(sorted(Counter(ln["state"] for ln in lines).items())),
                        "invoices": dict(sorted(Counter(str(r["state"]) for r in invoice_rows if r["own"]).items())),

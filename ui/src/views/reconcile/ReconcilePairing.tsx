@@ -6,6 +6,8 @@
 // selected lines as needing no invoice — several at once, because most lines of a real statement need none
 // (DECISIONS 132). Every decision can be undone from the line's details. Keyboard: arrows or j/k move, Space selects,
 // 1–9 picks a candidate, Enter pairs, x rejects, m marks, d shows the documents, Esc clears, ? lists the keys.
+// 142: the cards (ReconcileCards.tsx) are the page's overview; these two lists stay for pairing by hand, and a card's
+// line arrives here selected.
 // 133: a package is one own party's (DECISIONS 133): the other parties' invoices show with a switch or a search, named by
 // their party, and the selected line says when another party's invoice is its candidate.
 // 135 (plan 134 P2): the lines can be grouped by partner; a group's head shows the suggested needs-no-invoice reason (a
@@ -81,12 +83,16 @@ function invoiceSearch(inv: ReconcileInvoice, q: string): boolean {
   return hay.includes(q.toLowerCase());
 }
 
-interface Props { ws: ReconcileWorkspace; readOnly: boolean; onWorkspace: (ws: ReconcileWorkspace) => void; reload: () => void }
+interface Props {
+  ws: ReconcileWorkspace; readOnly: boolean; onWorkspace: (ws: ReconcileWorkspace) => void; reload: () => void;
+  /** 142: the line a card sent here to search its invoice by hand, and the way back to the cards */
+  initialLine?: string | null; onCards?: () => void;
+}
 
-export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
+export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLine = null, onCards }: Props) {
   useLocale();
   const wpId = ws.workpackage_id;
-  const [filter, setFilter] = useState<LineFilter>("todo");
+  const [filter, setFilter] = useState<LineFilter>(initialLine ? "all" : "todo");
   const [account, setAccount] = useState("");
   const [month, setMonth] = useState("");
   const [q, setQ] = useState("");
@@ -98,8 +104,8 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
   const [invoiceFilters, setInvoiceFilters] = useState<InvoiceFilters>(NO_INVOICE_FILTERS);
   const [filtersShown, setFiltersShown] = useState({ lines: false, invoices: false });
   const [limit, setLimit] = useState(PAGE);
-  const [active, setActive] = useState<string | null>(null);
-  const [selLines, setSelLines] = useState<string[]>([]);
+  const [active, setActive] = useState<string | null>(initialLine);
+  const [selLines, setSelLines] = useState<string[]>(initialLine ? [initialLine] : []);
   const [selInvoices, setSelInvoices] = useState<string[]>([]);
   const [mode, setMode] = useState<Mode>(null);
   const [showDocs, setShowDocs] = useState(false);
@@ -298,6 +304,7 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload }: Props) {
           ))}
         </span>
         <span className="spacer" />
+        {onCards ? <button type="button" className="secondary" onClick={onCards}>{t("Back to the cards")}</button> : null}
         {!readOnly && unambiguous ? (
           <ConfirmButton className="secondary" disabled={busy} onConfirm={() => void act(() => api.reconcileAcceptProposed(wpId), { done: t("The unambiguous proposals have been accepted.") })}>
             {t("Accept the {{n}} unambiguous proposals", { n: unambiguous })}
@@ -724,7 +731,7 @@ function PairPanel({ plan, busy, onSave, onCancel }: {
   );
 }
 
-function ReasonPanel({ label, action, busy, onSave, onCancel }: {
+export function ReasonPanel({ label, action, busy, onSave, onCancel }: {
   label: string; action: string; busy: boolean; onSave: (note: string) => void; onCancel: () => void;
 }) {
   useLocale();
@@ -742,7 +749,7 @@ function ReasonPanel({ label, action, busy, onSave, onCancel }: {
   );
 }
 
-function MarkPanel({ count, categories, suggestion, busy, onSave, onCancel }: {
+export function MarkPanel({ count, categories, suggestion, busy, onSave, onCancel }: {
   count: number; categories: string[]; suggestion?: MarkSuggestion | null; busy: boolean; onSave: (category: string, note?: string) => void; onCancel: () => void;
 }) {
   useLocale();

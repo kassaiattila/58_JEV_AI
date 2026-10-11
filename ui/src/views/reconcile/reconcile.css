@@ -119,3 +119,48 @@
 /* 133: the own party */
 .rc-party-pick select { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--paper); max-width: 360px; }
 .rc-others { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+
+/* 142: the cards of the pairing page — a group of related transfers and invoices, every fact of both sides, the pairs
+   with their days against the due date, the documents of the selected card below it */
+.rc-cards { display: grid; gap: 12px; }
+.rc-card { background: var(--paper); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: var(--radius);
+  padding: 10px 14px; display: grid; gap: 10px; min-width: 0; }
+.rc-card.focused { box-shadow: 0 0 0 2px var(--accent); }
+.rc-card.k-proposed { border-left-color: #2f4f86; }
+.rc-card.k-paired { border-left-color: var(--ok); }
+.rc-card.k-line_only, .rc-card.k-invoice_only { border-left-color: var(--warn); }
+.rc-card.k-credited, .rc-card.k-marked, .rc-card.k-excluded { border-left-color: var(--line); }
+.rc-card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.rc-card-name { overflow-wrap: anywhere; }
+.rc-kind { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--chip); white-space: nowrap; }
+.rc-kind.k-proposed { background: #e9eef8; color: #2f4f86; }
+.rc-kind.k-paired { background: var(--ok-tint); color: var(--ok); }
+.rc-kind.k-line_only, .rc-kind.k-invoice_only { background: var(--warn-tint); color: var(--warn); }
+:root[data-theme="dark"] .rc-kind.k-proposed { background: #1f2a3d; color: #9dbbe8; }
+:root[data-theme="dark"] .rc-card.k-proposed { border-left-color: #9dbbe8; }
+.rc-card-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 900px) { .rc-card-cols { grid-template-columns: minmax(0, 1fr); } }
+.rc-card-side { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.rc-card-side h3 { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
+.rc-facts { border: 1px solid var(--line-soft); border-radius: 6px; padding: 8px 10px; display: grid; gap: 6px; background: var(--soft); }
+.rc-facts.repeat { border-color: var(--warn); }
+.rc-facts-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.rc-facts-head .rc-amount { font-weight: 600; }
+.rc-facts dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 12px; margin: 0; font-size: 13px; }
+.rc-facts dt { color: var(--muted); }
+.rc-facts dd { margin: 0; overflow-wrap: anywhere; }
+.rc-timing { margin: 0; font-size: 13px; font-weight: 600; }
+.rc-late, .rc-sig.late { color: var(--warn); }
+.rc-sig.late { background: var(--warn-tint); }
+.rc-options { margin: 0; }
+.rc-pairs { border-collapse: collapse; font-size: 13px; width: 100%; }
+.rc-pairs th, .rc-pairs td { padding: 4px 10px 4px 0; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--line-soft); }
+.rc-pairs th { font-size: 11px; color: var(--muted); font-weight: 600; }
+.rc-pairs .num { text-align: right; }
+.rc-pair-actions { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.rc-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.rc-card-foot .spacer { flex: 1 1 auto; }
+.rc-card-docs { display: grid; gap: 8px; }
+.rc-doc-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip.rc-chip-warn:not([aria-pressed="true"]) { color: var(--warn); }
+@media (max-width: 700px) { .rc-pairs { display: block; overflow-x: auto; } }
