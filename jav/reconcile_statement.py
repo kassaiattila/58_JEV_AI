@@ -30,13 +30,12 @@ from __future__ import annotations
 import hashlib
 import io
 import json
-import re
 from collections import Counter
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any, Iterable
 
-from jav import cfg, export, reconcile_package as rp, store, work
+from jav import cfg, export, naming, reconcile_package as rp, store, work
 
 FORMAT = 1  # the statement's content layout; a new layout bumps it (a stored version keeps its own)
 INVOICE_RESULTS = ("paid", "partly_paid", "credited", "undecided", "no_payment_found", "not_covered")
@@ -277,7 +276,7 @@ def _sheet(ws: Any, heading: list[tuple[str, str]], head: list[str], rows: list[
     from openpyxl.utils import get_column_letter
 
     for label, value in heading:
-        ws.append([label, value])
+        ws.append([label, export._cell_value(value, None)])
         ws.cell(ws.max_row, 1).font = Font(bold=True)
     ws.append([])
     top = ws.max_row + 1
@@ -299,9 +298,6 @@ def _sheet(ws: Any, heading: list[tuple[str, str]], head: list[str], rows: list[
     for i, h in enumerate(head, 1):
         width = max([len(str(h))] + [len(str(r[i - 1])) for r in rows[:200] if r[i - 1] is not None])
         ws.column_dimensions[get_column_letter(i)].width = min(60, max(10, width + 2))
-
-
-_SLUG = re.compile(r"[^0-9A-Za-z]+")
 
 
 def _shown(stamp: str | None) -> str:
@@ -334,5 +330,5 @@ def xlsx(wp_id: str, *, version: int | None = None) -> tuple[bytes, str]:
     _sheet(wb.create_sheet(export._safe_sheet(lab["sheets"]["lines"], used)), heading, *_line_table(st, lab))
     buf = io.BytesIO()
     wb.save(buf)
-    slug = _SLUG.sub("-", st["package"]["name"]).strip("-")[:40] or st["package"]["id"]
+    slug = naming.safe_part(st["package"]["name"], limit=40) or st["package"]["id"]  # accents folded (078)
     return buf.getvalue(), f"{lab['file']['prefix']}-{slug}-{suffix}.xlsx"
