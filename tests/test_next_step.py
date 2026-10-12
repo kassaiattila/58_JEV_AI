@@ -22,7 +22,8 @@ def test_rules_in_order():
     assert next_step(WP, None, ready=False)["code"] == "blocked"
     assert next_step(WP, _run(status="running", items_done=12))["label"] == "Fut: 12/49"
     assert next_step(WP, _run(status="failed"))["code"] == "rerun"
-    review = next_step(WP, _run(status="needs_review", open_reasons=187))
+    # 150: only a live run's to-dos are the next step (after a trial: tests/test_trial_todos_150.py)
+    review = next_step(WP, _run(mode="apply", status="needs_review", open_reasons=187))
     assert review == {"code": "review", "label": "Ellenőrzés: 187 teendő", "stage": "review", "params": {"n": 187}}
     assert next_step(WP, _run())["code"] == "go_live"
     assert next_step(WP, _run(mode="apply")) == {"code": "approve", "label": "Jóváhagyás", "stage": "result", "params": {}}

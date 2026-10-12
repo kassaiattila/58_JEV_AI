@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.49",
+    "version": "1.0.50",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.50",
+        "date": "2026-10-12",
+        "note": "150: accept the Hungarian caption of the next step after a trial with to-dos (jav/work_views.py; the interface translates from the code) and the Hungarian text the two trial to-do tests check (tests/test_trial_todos_150.py, ui/src/trialTodos150.test.tsx)."
+      },
       {
         "version": "1.0.49",
         "date": "2026-10-12",
@@ -484,7 +489,7 @@
     "jav/version.py": 1,
     "jav/work.py": 22,
     "jav/work_cli.py": 57,
-    "jav/work_views.py": 10,
+    "jav/work_views.py": 11,
     "pyproject.toml": 5,
     "requirements.txt": 9,
     "scripts/analyze_long_trial.py": 1,
@@ -586,6 +591,7 @@
     "tests/test_store_tx_067.py": 1,
     "tests/test_tablequery.py": 9,
     "tests/test_taxid_069.py": 5,
+    "tests/test_trial_todos_150.py": 1,
     "tests/test_typepack.py": 6,
     "tests/test_typepack_lists.py": 3,
     "tests/test_unified_names_082.py": 1,
@@ -660,6 +666,7 @@
     "ui/src/sourceInstance079.test.ts": 6,
     "ui/src/stability063.test.tsx": 3,
     "ui/src/styles.css": 1,
+    "ui/src/trialTodos150.test.tsx": 2,
     "ui/src/uifixes073.test.tsx": 8,
     "ui/src/uncertain076.test.tsx": 13,
     "ui/src/unifiedNames082.test.tsx": 12,

@@ -17,7 +17,8 @@ export class ApiError extends Error {
 
 export interface Blocker { code: string; message: string }
 /** 083: `field` is the simple field the to-do is about (null: about the document or a line item). */
-export interface Reason { id: number; reason: string; producer: string; run_id: string; field?: string | null }
+/** 150: `trial` (on an earlier reason only): raised by a trial run; the review page hides those by default. */
+export interface Reason { id: number; reason: string; producer: string; run_id: string; field?: string | null; trial?: boolean }
 export interface Item { item_id: string; kind: string; source_path: string; sha256: string; added_revision: number; parent_item_id?: string }
 export interface Assignment {
   workpackage_id: string; revision: number; recipe_id: string; recipe_version: number; recipe_hash: string;

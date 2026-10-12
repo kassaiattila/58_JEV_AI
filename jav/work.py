@@ -1106,16 +1106,39 @@ def item_reasons(run_id: str, item_id: str, item: dict[str, Any] | None = None) 
 
 
 def items_reasons(run_id: str, items: list[dict[str, Any]]) -> dict[str, dict[str, list[dict[str, Any]]]]:
-    """`item_reasons` for several items, with one store query (061: instead of the list views' per-item queries)."""
+    """`item_reasons` for several items, with one store query (061: instead of the list views' per-item queries).
+    150: an earlier reason carries `trial`: it was raised by a trial run (the interface hides those by default)."""
     by_subject = store.review_open_reasons_many([review_subject(i) for i in items])
+    trial = trial_runs(r["run_id"] for rs in by_subject.values() for r in rs)
     out: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for i in items:
         own = flow_run_id(run_id, i["item_id"])
         split: dict[str, list[dict[str, Any]]] = {"run": [], "earlier": []}
         for r in by_subject[review_subject(i)]:
-            split["run" if is_own_reason(r, own) else "earlier"].append(r)
+            if is_own_reason(r, own):
+                split["run"].append(r)
+            else:
+                split["earlier"].append({**r, "trial": owning_run(r) in trial})
         out[i["item_id"]] = split
     return out
+
+
+def owning_run(reason: dict[str, Any]) -> str:
+    """The work run a to-do reason was raised in (its flow identifier is `<run>:<item>`); a command-line measurement's
+    identifier has no such part and names no run."""
+    return (reason.get("run_id") or "").split(":", 1)[0]
+
+
+def trial_runs(flow_run_ids: Iterable[str | None]) -> set[str]:
+    """150: which of the work runs behind these flow identifiers are trial runs."""
+    owners = sorted({(rid or "").split(":", 1)[0] for rid in flow_run_ids} - {""})
+    found: set[str] = set()
+    with store.connect() as c:
+        for start in range(0, len(owners), 500):  # stays under the SQLite parameter limit
+            chunk = owners[start:start + 500]
+            found |= {r["run_id"] for r in c.execute(
+                f"SELECT run_id FROM runs WHERE mode='shadow' AND run_id IN ({','.join('?' * len(chunk))})", chunk)}
+    return found
 
 
 def open_reasons_for_run(run_id: str) -> int:

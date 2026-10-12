@@ -99,6 +99,8 @@ def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool |
     if status in ("failed", "cancelled"):
         return step("rerun", "Hibás vagy leállított futás: újrafuttatás", "process")
     if last_run.get("open_reasons"):
+        if last_run["mode"] == "shadow":  # 150: a trial cannot be approved; its to-dos are information, the step is going live
+            return step("go_live", "Próba kész: éles futás", "process", trial_reasons=last_run["open_reasons"])
         return step("review", f"Ellenőrzés: {last_run['open_reasons']} teendő", "review", n=last_run["open_reasons"])
     if last_run["mode"] == "apply":
         if last_run.get("approval"):
