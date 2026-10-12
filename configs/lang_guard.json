@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.46",
+    "version": "1.0.47",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.47",
+        "date": "2026-10-12",
+        "note": "149: accept the Hungarian text the sent-message interface test checks (ui/src/review/sentMail149.test.tsx) and the accented company name the memoised normaliser is tested on (tests/test_quick_review_speed_149.py)."
+      },
       {
         "version": "1.0.46",
         "date": "2026-10-12",
@@ -543,6 +548,7 @@
     "tests/test_policy_bands.py": 1,
     "tests/test_processing_080.py": 4,
     "tests/test_properties_067.py": 12,
+    "tests/test_quick_review_speed_149.py": 1,
     "tests/test_recipe_help.py": 1,
     "tests/test_reconcile_141.py": 2,
     "tests/test_reconcile_review_147.py": 5,
@@ -633,6 +639,7 @@
     "ui/src/review/drafts066.test.ts": 5,
     "ui/src/review/fieldFilter.ts": 6,
     "ui/src/review/geometry.ts": 4,
+    "ui/src/review/sentMail149.test.tsx": 4,
     "ui/src/review/useResolve.ts": 2,
     "ui/src/review/useResolve066.test.tsx": 5,
     "ui/src/review066.test.tsx": 9,
