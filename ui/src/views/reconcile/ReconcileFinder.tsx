@@ -138,7 +138,7 @@ function amountText(entry: FinderEntry, line: ReconcileLine): { text: string; to
   const m = entry.match;
   const fx = m?.fx ?? entry.candidate?.fx;
   if (fx) {
-    const ok = (m?.amount_relation ?? entry.candidate?.amount_relation) === "fx_within";
+    const ok = ["fx_within", "combined"].includes(String(m?.amount_relation ?? entry.candidate?.amount_relation)); // 151: together
     return { text: fxText(fx, show(fx.converted, "HUF")), tone: ok ? "ok" : "warn" };
   }
   let diff: bigint | null = null;

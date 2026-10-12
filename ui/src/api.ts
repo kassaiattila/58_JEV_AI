@@ -447,6 +447,8 @@ export interface ReconcileCandidate {
   original?: { amount: string; currency: string } | null;
   /** 141: a combined payment's invoices, in the order of issue */
   combined?: string[] | null;
+  /** 151: a forint bank line paying invoices of another currency together: their sum converted, the line's deviation */
+  combined_fx?: { basis: "fulfillment" | "booking"; converted: string; deviation: string } | null;
 }
 /** An allocation of a line's amount to an invoice; `allocation_id` null: a confirmation from the review page (129). */
 export interface ReconcileShare {

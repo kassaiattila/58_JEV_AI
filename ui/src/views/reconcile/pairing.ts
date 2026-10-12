@@ -7,6 +7,9 @@
 //   A step that leaves a rest on a line or an invoice it touches needs a reason.
 // - A card line and an invoice of another currency pair only in whole, one to one; outside the card band or without
 //   an exchange rate it needs a reason.
+// - 151: a bank line pays several invoices of one other currency together, all in whole; the service splits the
+//   line's forints in the ratio of their converted amounts. Outside the band it needs a reason; every invoice needs
+//   an exchange rate.
 import type { ReconcileAllocationPair, ReconcileCandidate, ReconcileInvoice, ReconcileLine } from "../../api";
 import { canonical, min, parseCanonical } from "./money";
 
@@ -32,6 +35,15 @@ export function planPairing(lines: ReconcileLine[], invoices: ReconcileInvoice[]
   if (lines.some((l) => rest(l) <= 0n)) return { ok: false, why: "line_settled" };
   if (invoices.some((i) => rest(i) <= 0n)) return { ok: false, why: "invoice_settled" };
   const currencies = new Set([...lines.map((l) => l.currency), ...invoices.map((i) => i.currency)]);
+  if (currencies.size > 1 && lines.length === 1 && invoices.length > 1) {
+    const [line] = lines;
+    const relations = invoices.map((i) => candidateOf(line, i.id)?.amount_relation);
+    const whole = [line, ...invoices].every((x) => parseCanonical(x.allocated) === 0n);
+    const oneCurrency = new Set(invoices.map((i) => i.currency)).size === 1 && !invoices.some((i) => i.currency === line.currency);
+    if (!whole || !oneCurrency || relations.some((r) => !r || !["fx_within", "fx_outside", "combined"].includes(r))) return { ok: false, why: "currency" };
+    const combined = relations.every((r) => r === "combined");
+    return { ok: true, pairs: invoices.map((invoice) => ({ line, invoice, amount: null })), converted: true, needsReason: !combined, exact: combined };
+  }
   if (currencies.size > 1) {
     const [line] = lines;
     const [invoice] = invoices;

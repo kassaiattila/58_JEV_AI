@@ -1196,5 +1196,6 @@
   "A later live run processed the same documents again.": "A later live run processed the same documents again.",
   "Superseding keeps this run as a stopped run and closes its {{n}} open to-dos; it cannot be approved afterwards.": "Superseding keeps this run as a stopped run and closes its {{n}} open to-dos; it cannot be approved afterwards.",
   "On this run {{r}} to-dos were already closed and {{c}} documents corrected by hand; they stay with this run and are not carried over to the later one.": "On this run {{r}} to-dos were already closed and {{c}} documents corrected by hand; they stay with this run and are not carried over to the later one.",
-  "Supersede": "Supersede"
+  "Supersede": "Supersede",
+  "the named invoices together: {{amount}}": "the named invoices together: {{amount}}"
 }
