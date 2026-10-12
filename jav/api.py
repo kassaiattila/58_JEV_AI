@@ -387,6 +387,7 @@ class WorkflowSource(_In):
     paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(max_length=500)] | None = None
     request: dict[str, Any] | None = None  # checked as a mailbox.MailboxRequest
     workpackage_id: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")] | None = None
+    only_new: bool = False  # 147: a documents step takes only the documents no live run has processed yet
 
 
 class WorkflowStepInput(_In):
@@ -403,6 +404,7 @@ class CreateWorkflow(_In):
     names: dict[StepKey, Annotated[str, Field(min_length=1, max_length=200)]] | None = None  # the steps' package names
     auto: bool = True
     steps: Annotated[dict[StepKey, WorkflowStepInput], Field(min_length=1, max_length=10)]
+    previous: Annotated[str, Field(pattern=r"^wf-[0-9a-f]{12}$")] | None = None  # 147: the workflow this one repeats
 
 
 class WorkflowEstimate(_In):
@@ -1321,11 +1323,16 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         return work_views.jsonable(workflows.create(template_id=body.template, party_id=body.party_id,
                                                     period_start=body.period_start, period_end=body.period_end,
                                                     steps=steps, actor=who, name=body.name, names=body.names,
-                                                    auto=body.auto))
+                                                    auto=body.auto, previous=body.previous))
 
     @app.get(r + "/workflows/{wf_id}")
     def workflow_view(wf_id: WfId) -> dict[str, Any]:
         return work_views.jsonable(workflows.view(wf_id))
+
+    @app.get(r + "/workflows/{wf_id}/repeat")
+    def workflow_repeat(wf_id: WfId) -> dict[str, Any]:
+        """147: the workflow for the next period, as the wizard shows it filled in (nothing is written)."""
+        return work_views.jsonable(workflows.repeat_draft(wf_id))
 
     @app.patch(r + "/workflows/{wf_id}")
     def update_workflow(wf_id: WfId, body: UpdateWorkflow, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:

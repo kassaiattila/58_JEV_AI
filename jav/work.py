@@ -438,11 +438,11 @@ def remove_item(wp_id: str, item_id: str, *, expected_revision: int) -> dict[str
     return get(wp_id)
 
 
-def create_from_folder(folder: Path, *, name: str | None = None, suffixes: tuple[str, ...] = DOCUMENT_SUFFIXES,
-                       owner: str | None = None, recursive: bool = False, exclude: Iterable[Path] = ()) -> dict[str, Any]:
-    """Work package from the documents of a folder, in path order: by default its direct contents only; with
-    `recursive` (081) every subfolder too, except the folders in `exclude` (the caller passes the output folder of the
-    named copies, so they do not come back as new documents). A link pointing outside the folder is left out."""
+def folder_documents(folder: Path, *, suffixes: tuple[str, ...] = DOCUMENT_SUFFIXES, recursive: bool = False,
+                     exclude: Iterable[Path] = ()) -> list[Path]:
+    """The documents of a folder, in path order: by default its direct contents only; with `recursive` (081) every
+    subfolder too, except the folders in `exclude` (the caller passes the output folder of the named copies, so they do
+    not come back as new documents). A link pointing outside the folder is left out."""
     folder = Path(folder)
     if not folder.is_dir():
         raise ValueError(f"folder does not exist: {folder}")
@@ -457,9 +457,42 @@ def create_from_folder(folder: Path, *, name: str | None = None, suffixes: tuple
         inside = rp.parent == root if not recursive else rp.is_relative_to(root)
         if inside and not any(rp.is_relative_to(s) for s in skip):
             files.append(p)
-    files.sort(key=lambda p: p.relative_to(root).as_posix().lower())
+    return sorted(files, key=lambda p: p.relative_to(root).as_posix().lower())
+
+
+def create_from_folder(folder: Path, *, name: str | None = None, suffixes: tuple[str, ...] = DOCUMENT_SUFFIXES,
+                       owner: str | None = None, recursive: bool = False, exclude: Iterable[Path] = (),
+                       only: Iterable[Path] | None = None) -> dict[str, Any]:
+    """Work package from the documents of a folder (`folder_documents`); with `only` (147) just those of them."""
+    files = folder_documents(folder, suffixes=suffixes, recursive=recursive, exclude=exclude)
+    if only is not None:
+        wanted = {Path(p).resolve() for p in only}
+        files = [p for p in files if p.resolve() in wanted]
+    root = Path(folder).resolve(strict=True)
     wp = create_workpackage(name=name or root.name, source_kind="folder", source_ref=str(root), owner=owner)
     return _fill_new(wp, lambda: add_documents(wp["id"], files, expected_revision=0)) if files else wp
+
+
+def processed_live(digests: Iterable[str]) -> set[str]:
+    """147: the content hashes among `digests` whose document a live run has processed (an item done in an `apply`
+    run). A trial run's item or a failed one does not count."""
+    wanted = sorted(set(digests))
+    found: set[str] = set()
+    with store.connect() as c:
+        for i in range(0, len(wanted), 500):
+            chunk = wanted[i:i + 500]
+            found |= {r["item_id"] for r in c.execute(
+                "SELECT DISTINCT ri.item_id FROM run_items ri JOIN runs r ON r.run_id=ri.run_id WHERE r.mode='apply'"
+                f" AND ri.status='done' AND ri.item_id IN ({','.join('?' * len(chunk))})", chunk)}
+    return found
+
+
+def unprocessed(paths: Iterable[Path]) -> tuple[list[Path], list[Path]]:
+    """147: the documents no live run has processed yet, and those one has (by content), each in the given order."""
+    paths = list(paths)
+    digests = {p: fingerprint(p) for p in paths}
+    seen = processed_live(digests.values())
+    return [p for p in paths if digests[p] not in seen], [p for p in paths if digests[p] in seen]
 
 
 def create_from_files(paths: list[Path], *, name: str, owner: str | None = None) -> dict[str, Any]:
