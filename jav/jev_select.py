@@ -300,11 +300,11 @@ class SelectSite:
             value: Any = label
             if label is not None and kind in ("money", "number"):
                 cand = next((c for c in cands.get("money" if kind == "money" else "quantity", []) if c.label == label), None)
-                if cand is not None and cand.ambiguous:
+                value = Decimal(label)  # number: the number finder's normalised label (quantity: kWh, m3, MJ)
+                if cand is not None and cand.ambiguous and value != 0:  # 152: "0.00" is zero either way
                     reasons.append(f"money:separator_ambiguous:{field}:{cand.raw!r}")
                 if cand is not None and cand.line_no in by_no and not is_whole_token(cand.raw, by_no[cand.line_no]):
                     reasons.append(f"money:token_cut:{field}:{cand.raw!r}")
-                value = Decimal(label)  # number: the number finder's normalised label (quantity: kWh, m3, MJ)
             elif label is not None and kind == "date":
                 value = read_date(label).value  # the candidate's label is the reader's ISO date
                 cand = next((c for c in cands.get("date", []) if c.label == label), None)

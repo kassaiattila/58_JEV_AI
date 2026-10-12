@@ -327,7 +327,7 @@ def _number_or_reason(kind: Kind, field: str, raw: object, reasons: list[str], *
     got = read_number(s, kind=kind, convention=convention)
     if got.value is None:
         reasons.append(f"{field}:unparseable:{text!r}")
-    elif got.ambiguous:
+    elif got.ambiguous and got.value != 0:  # 152: "0.00" is zero whichever separator is the decimal one
         reasons.append(f"money:separator_ambiguous:{field}:{text!r}")
     return got.value
 
