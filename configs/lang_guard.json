@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.42",
+    "version": "1.0.43",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.43",
+        "date": "2026-10-12",
+        "note": "147: accept the quick review's Hungarian words: the Hungarian column of its glossary entry (docs/GLOSSARY.md), the interface labels the user guide quotes for it (docs/guides/USER_GUIDE.md 5.3), the Hungarian memos the AI's new salary kind gives as examples (configs/callsites/reconcile_line.json, document vocabulary) and the statement memos the salary rule's tests read (tests/test_reconcile_review_147.py)."
+      },
       {
         "version": "1.0.42",
         "date": "2026-10-12",
@@ -233,6 +238,7 @@
     "configs/callsites/detect.json": 1,
     "configs/callsites/detect_detail.json": 1,
     "configs/callsites/email_intent.json": 4,
+    "configs/callsites/reconcile_line.json": 1,
     "configs/callsites/select.json": 34,
     "configs/callsites/select_foreign.json": 24,
     "configs/callsites/select_utility.json": 84,
@@ -342,7 +348,7 @@
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 257,
+    "docs/GLOSSARY.md": 258,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 10,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -352,7 +358,7 @@
     "docs/flows/invoice/FLOW.md": 17,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 222,
+    "docs/guides/USER_GUIDE.md": 232,
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
@@ -524,6 +530,7 @@
     "tests/test_properties_067.py": 12,
     "tests/test_recipe_help.py": 1,
     "tests/test_reconcile_141.py": 2,
+    "tests/test_reconcile_review_147.py": 5,
     "tests/test_reconcile_statement_145.py": 10,
     "tests/test_registry_v2.py": 4,
     "tests/test_reports.py": 5,

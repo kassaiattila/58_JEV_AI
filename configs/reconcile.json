@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.11.0",
+    "version": "1.12.0",
     "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person, when a statement counts as verified coverage and how a candidate's strength is weighed. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131, DECISIONS 134.",
     "changelog": [
+      {
+        "version": "1.12.0",
+        "date": "2026-10-12",
+        "note": "147 (DECISIONS 147, the quick review): salary_marks - patterns on a line's normalised memo and description that suggest the salary reason (munkaber, ber, berkifizetes, payroll, salary, wage; not fizetes, which a card payment also says). On the store's 1183 lines only munkaber occurs (8 incoming lines). A suggestion for a person, as category_marks."
+      },
       {
         "version": "1.11.0",
         "date": "2026-10-11",
@@ -119,6 +124,7 @@
     {"pattern": "^feltoltes$", "mark": "own_transfer"},
     {"pattern": "^atm$", "mark": "cash"}
   ],
+  "salary_marks": ["\\bmunkaber\\b", "\\bber\\b", "\\bberek\\b", "\\bberkifizetes\\b", "\\bpayroll\\b", "\\bsalary\\b", "\\bwages?\\b"],
   "line_mark_note_required": ["other"],
   "fx": {
     "statement_types": ["credit_card"],
