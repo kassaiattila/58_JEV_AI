@@ -91,6 +91,12 @@ def test_a_credit_without_a_candidate_stays_informational():
     assert "c1" not in result["unpaired_line_ids"]
 
 
+def test_the_payment_kind_pattern_is_for_outgoing_payments_only():
+    # interest credited (kamat) is incoming money without an outgoing invoice: informational as before, not "look at it"
+    result = reconcile.propose(_snap([_invoice("i1")], [_credit("c1", memo="Kamat jovairas", counterparty_name="Bank")]))
+    assert [["line", "c1", "not_outgoing_payment"]] == [[e["kind"], e["id"], e["reason"]] for e in result["excluded"]]
+
+
 def test_a_credit_from_an_own_account_is_a_transfer():
     snap = _snap([_outgoing("o1")], [_credit("c1", memo="INV-o1", counterparty_account="10000001-20000002-00000000")],
                  own_accounts=[{"key": "10000001-20000002-00000000", "kind": "bank", "currencies": ["HUF"]}])

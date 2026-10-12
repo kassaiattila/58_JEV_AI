@@ -501,8 +501,8 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             reason = "not_outgoing_payment"
         elif account_key(pay.get("counterparty_account")) and account_key(pay.get("counterparty_account")) in own_accounts:
             reason = "own_account_transfer"
-        elif review.search(normalize(f"{pay.get('description') or ''} {pay.get('memo') or ''}")):
-            reason = "payment_kind_review"
+        elif pay["direction"] == "debit" and review.search(normalize(f"{pay.get('description') or ''} {pay.get('memo') or ''}")):
+            reason = "payment_kind_review"  # 148: a kind of outgoing payment; incoming money is paired or informational
         if reason:
             excluded.append({"kind": "line", "id": key, "reason": reason})
         else:
