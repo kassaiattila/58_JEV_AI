@@ -68,7 +68,7 @@ Every Choice and presence Noul carries the call site's `document_guard` after th
 |---|---|---|---|
 | `select` (1.3.0) | `invoice_hu` (Hungarian invoice) | `parties`, `header`, `money` | `currency`, `payment_method` |
 | `select_foreign` (1.2.1) | `invoice_foreign` (foreign supplier invoice) | `foreign_parties`, `foreign_header`, `foreign_money` | `currency`, `supplier_country` |
-| `select_invoice_out` (1.0.0, 151) | `invoice_out` (outgoing invoice: our company the issuer, the customer Hungarian or foreign; Hungarian and English two-column layouts, a foreign billing currency with a VAT summary converted into HUF) | `out_parties`, `out_header`, `out_money` | `currency` |
+| `select_invoice_out` (1.1.0, 151) | `invoice_out` (outgoing invoice: our company the issuer, the customer Hungarian or foreign; Hungarian and English two-column layouts, a foreign billing currency with a VAT summary converted into HUF) | `out_parties`, `out_header`, `out_money` | `currency` |
 | `select_utility` (1.1.0) | the six Hungarian utility packs that extend `utility_bill_hu`: `villamos_energia_szamla` (electricity), `foldgaz_szamla` (gas), `viz_szamla` (water), `vizmuvek_szamla` (Budapest waterworks), `csatorna_szamla` (sewerage), `mohu_szamla` (waste) | `utility_parties`, `utility_header`, `utility_money`, `utility_meter` | `currency`, `payment_method`, `reading_method` |
 
 ### 4.2 Verification (G path): GPT extracts, JEV checks
@@ -157,6 +157,7 @@ The short form of this list is the JEV checklist in `CLAUDE.md`.
 - Every Choice has a `none`, `unknown` or `other` option. At most 255 options (our cap: 250 candidates plus `none`); deduplicate the candidates.
 - Describe confusable Choice options with `what / not_for / examples` (the registry schema, `jav/registry.py`).
 - Add few-shot examples only if they are consistent with the golden set.
+- Never ask for an option the candidate list may not carry. The finder lists one account once, in the form it saw first, so an instruction such as "if both forms are printed, choose the IBAN" splits the answer between the only option and `none` (`tests/test_account_question_152.py`).
 
 **Thresholds and confidence**
 

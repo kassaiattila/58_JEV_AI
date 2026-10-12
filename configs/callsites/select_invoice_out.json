@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "select_invoice_out",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-10-12",
+    "note": "152: the account question no longer asks for the IBAN when the same account is printed in both forms. The candidate finder lists such an account once, in the form it saw first (usually the domestic one), so the JEV split between that only option and 'none': 31 of the 43 real outgoing invoices of the 151 measurement got a low-confidence to-do, every one of them printing both forms. The question now says the two forms are one account listed once."
+   },
    {
     "version": "1.0.0",
     "date": "2026-10-12",
@@ -42,7 +47,7 @@
   "net_total": "Each option is an amount (normalized) together with the source lines where it was printed. Which one is the invoice-level NET total in the invoice's BILLING currency (the currency of the line items: the Sum / Összesen of the VAT basis or net values for the whole invoice)? On an invoice billed in a foreign currency the VAT summary is also printed converted into HUF: that HUF value is a tax-reporting conversion, not the net total. Not a single line-item amount. Choose 'none' if no invoice-level net total is printed.",
   "vat_total": "Each option is an amount (normalized) together with the source lines where it was printed. Which one is the invoice-level VAT total in the invoice's BILLING currency (the Sum / Összesen of the VAT amounts, ÁFA érték)? For an invoice with E-AAC (intra-Community supply), AAM (exempt), 'VAT free', reverse charge or 0% the VAT total is 0, and '0' is then the correct choice. Not the HUF conversion of a foreign-currency invoice. Choose 'none' only if no VAT total is printed and no such note appears.",
   "gross_total": "Each option is an amount (normalized) together with the source lines where it was printed. Which one is the invoice-level GROSS total payable in the invoice's BILLING currency (Fizetendő végösszeg, Invoice total, the Sum / Összesen of the gross amounts)? Not a single line-item amount, and not the HUF conversion of a foreign-currency invoice. Choose 'none' if the gross total is not among the options.",
-  "payment_iban": "Which option is the bank account printed for paying this invoice, i.e. the ISSUER's (our company's) account in the payment information (Payment information / Fizetési információk, or the bank details in the footer)? If the same account is printed both as an IBAN and as a domestic account number, choose the IBAN. Do not choose the customer's account, a tax number or a reference number. Choose 'none' if no account is printed."
+  "payment_iban": "Which option is the bank account printed for paying this invoice, i.e. the ISSUER's (our company's) account in the payment information (Payment information / Fizetési információk, or the bank details in the footer)? The same account may be printed both as an IBAN and as a domestic account number: that is one account, listed once among the options in one of its two forms, so choose that option. Do not choose the customer's account, a tax number or a reference number. Choose 'none' if no account is printed."
  },
  "extra_questions": {
   "currency": {
