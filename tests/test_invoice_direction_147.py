@@ -15,9 +15,9 @@ from __future__ import annotations
 
 import pytest
 
-from jav import export, parties, reconcile, reconcile_package as rp, store
+from jav import export, parties, reconcile, store
 from tests import test_reconcile_k2_129 as k2
-from tests.test_reconcile_package_131 import _line, _package, _stmt
+from tests.test_reconcile_package_131 import _line, _stmt
 
 CLUB_TAX = "13570008-1-13"  # a sample number on the data guard's allow list
 
