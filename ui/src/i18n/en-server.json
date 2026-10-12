@@ -311,6 +311,8 @@
   "felelős beállítása": "owner set",
   "futás indítása": "run started",
   "futás jóváhagyása": "run approved",
+  "futás leállítása": "run stopped",
+  "futás leváltása": "run superseded",
   "javítás": "correction",
   "postafiók-letöltés": "mailbox download",
   "recept hozzárendelése": "recipe assigned",

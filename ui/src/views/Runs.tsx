@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, ApiError, type ProviderCost, type RunCostView, type RunView } from "../api";
+import { api, ApiError, type ProviderCost, type RunCostView, type RunView, type SupersedeInfo } from "../api";
 import { DataTable } from "../components/DataTable";
 import { nameCell, NameModeSwitch } from "../components/NameCell";
 import { PageHeader } from "../components/PageHeader";
@@ -44,6 +44,20 @@ export function RunDetail({ runId }: { runId: string }) {
   const budgetBlocked = Object.values(own).some((rs) => rs.some((r) => /BudgetExceeded|budget_exceeded/.test(r.reason)));
   const wpBase = `#/workpackages/${encodeURIComponent(run.workpackage_id)}`;
 
+  async function supersede() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const out = await api.supersede(runId);
+      setMsg({ error: false, text: t("Run superseded; {{n}} open to-dos closed.", { n: out.reasons_closed }) });
+    } catch (e) {
+      setMsg({ error: true, text: (e as ApiError).message });
+    } finally {
+      setBusy(false);
+      view.reload();
+    }
+  }
+
   async function cancel() {
     setBusy(true);
     setMsg(null);
@@ -71,6 +85,10 @@ export function RunDetail({ runId }: { runId: string }) {
           <a className="secondary dl-btn" href={`${wpBase}/result?run=${encodeURIComponent(run.run_id)}`}>{run.mode === "apply" && !run.approval ? t("Eredmény és jóváhagyás") : t("Eredmény")}</a>
         </div>} />
       {msg ? <p role="status" className={msg.error ? "notice error" : "notice"}>{msg.text}</p> : null}
+      {view.data.superseded ? <p className="notice">{t("Superseded by a later live run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.",
+        { who: view.data.superseded.actor, when: when(view.data.superseded.at), n: view.data.superseded.reasons_closed })}{" "}
+        <a href={`#/runs/${encodeURIComponent(view.data.superseded.by)}`}>{t("The later run")}</a></p> : null}
+      {view.data.supersede ? <SupersedeOffer offer={view.data.supersede} busy={busy} onConfirm={() => void supersede()} /> : null}
       {run.approval ? <p className="notice ok-box">{t("Kiadva: jóváhagyta {{who}}, {{when}}.", { who: run.approved_by, when: when(run.approved_at) })}</p> : null}
       {ownTotal ? <p className="notice">{t("{{n}} nyitott teendő.", { n: ownTotal })} <a href={`${wpBase}/review`}>{t("Ellenőrzés")}</a></p> : null}
 
@@ -97,6 +115,25 @@ export function RunDetail({ runId }: { runId: string }) {
       </div>
       <Journal runId={runId} />
     </>
+  );
+}
+
+/** 151 (decision of 2026-10-12): an older live run that a later live run repeated on the same documents. Its to-dos
+ *  stay open until it is approved (066), so a person can supersede it: it stays as a stopped run and its open to-dos
+ *  close. Human work done on it (closed to-dos, corrections) stays with it and is not carried over — said before the
+ *  click. */
+export function SupersedeOffer({ offer, busy, onConfirm }: { offer: SupersedeInfo; busy: boolean; onConfirm: () => void }) {
+  useLocale();
+  const human = offer.resolved_reasons + offer.corrected_items > 0;
+  return (
+    <div className="notice" role="region" aria-label={t("Superseding the run")}>
+      <p>{t("A later live run processed the same documents again.")}{" "}
+        <a href={`#/runs/${encodeURIComponent(offer.by)}`}>{t("The later run")}</a></p>
+      <p>{t("Superseding keeps this run as a stopped run and closes its {{n}} open to-dos; it cannot be approved afterwards.", { n: offer.open_reasons })}</p>
+      {human ? <p className="error-text">{t("On this run {{r}} to-dos were already closed and {{c}} documents corrected by hand; they stay with this run and are not carried over to the later one.",
+        { r: offer.resolved_reasons, c: offer.corrected_items })}</p> : null}
+      <ConfirmButton className="secondary" disabled={busy} onConfirm={onConfirm}>{t("Supersede")}</ConfirmButton>
+    </div>
   );
 }
 

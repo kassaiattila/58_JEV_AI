@@ -252,7 +252,11 @@ export interface RunView {
   names?: Record<string, ItemName>; // 082: the items' unified names (only when asked for)
   costs?: RunCostView; // 082: planned and actual cost per provider
   review_version?: string; // 085: the version of the result shown; the approval sends it back
+  supersede?: SupersedeInfo | null; // 151: a later live run repeated this one; it can be superseded
+  superseded?: { by: string; actor: string; at: string; reasons_closed: number } | null; // 151: who superseded it
 }
+/** 151: the later live run that repeated this one, its own open to-dos that would close, and the human work done on it. */
+export interface SupersedeInfo { by: string; open_reasons: number; resolved_reasons: number; corrected_items: number }
 /** 082: one provider of a run — what the pre-start overview expected (yes / maybe / no; null for an older run), the
  *  budget, the paid calls (failed among them, still open), the known cost, the reserved maximum of the calls without a
  *  known cost, the answers reused from earlier, the models; `unexpected`: called although the overview did not count
@@ -977,6 +981,8 @@ export const api = {
     request<RunView>("GET", `/runs/${enc(runId)}${names === "unified" ? "?names=unified" : ""}`),
   journal: (runId: string) => request<{ calls: Call[]; budget: Budget }>("GET", `/runs/${enc(runId)}/journal`),
   cancel: (runId: string) => request<{ status: string }>("POST", `/runs/${enc(runId)}/cancel`, {}),
+  supersede: (runId: string) =>
+    request<{ run_id: string; superseded_by: string; reasons_closed: number; status: string }>("POST", `/runs/${enc(runId)}/supersede`, {}),
   /** 085: `reviewVersion` is the run view's `review_version` the approver saw; a correction saved since gives 409. */
   approve: (runId: string, reviewVersion?: string) =>
     request<RunView>("POST", `/runs/${enc(runId)}/approve`, reviewVersion ? { review_version: reviewVersion } : {}),

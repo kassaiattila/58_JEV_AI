@@ -1189,5 +1189,13 @@
   "outgoing": "kimenő",
   "Trial finished: live run ({{n}} to-dos in the trial)": "Próba kész: éles futás ({{n}} teendő a próbában)",
   "To-dos that trial runs left on these documents. A trial run cannot be approved, so they never close by themselves; they do not affect this run.": "Próbafutások által ezeken az iratokon hagyott teendők. Próbafutást nem lehet jóváhagyni, ezért ezek maguktól nem zárulnak le; ezt a futást nem befolyásolják.",
-  "trial runs' to-dos too": "a próbafutások teendői is"
+  "trial runs' to-dos too": "a próbafutások teendői is",
+  "Run superseded; {{n}} open to-dos closed.": "Futás leváltva; {{n}} nyitott teendő lezárva.",
+  "Superseded by a later live run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.": "Leváltotta egy újabb éles futás ugyanezekkel az iratokkal ({{who}}, {{when}}); {{n}} nyitott teendő lezárva.",
+  "The later run": "Az újabb futás",
+  "Superseding the run": "A futás leváltása",
+  "A later live run processed the same documents again.": "Egy újabb éles futás ugyanezeket az iratokat újra feldolgozta.",
+  "Superseding keeps this run as a stopped run and closes its {{n}} open to-dos; it cannot be approved afterwards.": "Leváltáskor ez a futás leállítottként megmarad, {{n}} nyitott teendője lezárul; utána nem hagyható jóvá.",
+  "On this run {{r}} to-dos were already closed and {{c}} documents corrected by hand; they stay with this run and are not carried over to the later one.": "Ezen a futáson már {{r}} teendőt lezártak és {{c}} iratot kézzel javítottak; ezek ennél a futásnál maradnak, az újabb futásba nem kerülnek át.",
+  "Supersede": "Leváltás"
 }

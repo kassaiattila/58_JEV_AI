@@ -1188,5 +1188,13 @@
   "outgoing": "outgoing",
   "Trial finished: live run ({{n}} to-dos in the trial)": "Trial finished: live run ({{n}} to-dos in the trial)",
   "To-dos that trial runs left on these documents. A trial run cannot be approved, so they never close by themselves; they do not affect this run.": "To-dos that trial runs left on these documents. A trial run cannot be approved, so they never close by themselves; they do not affect this run.",
-  "trial runs' to-dos too": "trial runs' to-dos too"
+  "trial runs' to-dos too": "trial runs' to-dos too",
+  "Run superseded; {{n}} open to-dos closed.": "Run superseded; {{n}} open to-dos closed.",
+  "Superseded by a later live run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.": "Superseded by a later live run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.",
+  "The later run": "The later run",
+  "Superseding the run": "Superseding the run",
+  "A later live run processed the same documents again.": "A later live run processed the same documents again.",
+  "Superseding keeps this run as a stopped run and closes its {{n}} open to-dos; it cannot be approved afterwards.": "Superseding keeps this run as a stopped run and closes its {{n}} open to-dos; it cannot be approved afterwards.",
+  "On this run {{r}} to-dos were already closed and {{c}} documents corrected by hand; they stay with this run and are not carried over to the later one.": "On this run {{r}} to-dos were already closed and {{c}} documents corrected by hand; they stay with this run and are not carried over to the later one.",
+  "Supersede": "Supersede"
 }

@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.17.0",
+  "version": "1.18.0",
   "changelog": [
+   {
+    "version": "1.18.0",
+    "date": "2026-10-12",
+    "note": "151 (DECISIONS 151): activity_action run_cancel and run_supersede - stopping a run and superseding an older live run appear in the activity log with a label."
+   },
    {
     "version": "1.17.0",
     "date": "2026-10-12",
@@ -120,7 +125,7 @@
    "suspected:variant": "Suspected modified version", "suspected:undecidable": "Possible duplicate (a compared value is missing)"},
   "activity_action": {"archive": "csomag elrejtése", "restore": "csomag visszahozása", "rename": "csomag átnevezése",
    "delete": "csomag törlése", "owner": "felelős beállítása", "recipe": "feldolgozási beállítások mentése", "run_start": "futás indítása",
-   "run_approve": "futás jóváhagyása", "correction": "javítás", "reason_resolve": "teendő lezárása",
+   "run_approve": "futás jóváhagyása", "run_cancel": "futás leállítása", "run_supersede": "futás leváltása", "correction": "javítás", "reason_resolve": "teendő lezárása",
    "task_decision": "feladatjavaslat döntése", "task_done": "feladat elvégezve", "mailbox_pull": "postafiók-letöltés", "reconcile_scope": "egyeztetési kör beállítása", "reconcile_allocate": "egyeztetés: párosítás", "reconcile_reject": "egyeztetés: elutasítás", "reconcile_mark": "egyeztetés: nem kell számla", "reconcile_revoke": "egyeztetés: visszavonás"}
  },
  "cache_entries": 24,
