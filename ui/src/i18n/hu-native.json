@@ -1135,5 +1135,15 @@
   "At most this many emails": "Legfeljebb ennyi levél",
   "(0 = no limit)": "(0 = nincs korlát)",
   "Number of days": "Napok száma",
-  "Include subfolders": "Almappák is"
+  "Include subfolders": "Almappák is",
+  "Repeat for the next period": "Ismétlés a következő időszakra",
+  "Repeats:": "Ezt ismétli:",
+  "Repeated as:": "Megismételve:",
+  "{{new}} new document(s); {{left}} already processed by a live run, left out": "{{new}} új irat; {{left}} irat kimaradt, mert egy éles futás már feldolgozta",
+  "This repeats an earlier workflow for the next period. Check the period, the sources and the budgets: you approve them again here.": "Ez egy korábbi munkafolyamat ismétlése a következő időszakra. Nézd át az időszakot, a forrásokat és a kereteket: itt újra te hagyod jóvá őket.",
+  "Only the documents no live run has processed yet": "Csak azok az iratok, amelyeket még egyetlen éles futás sem dolgozott fel",
+  "{{n}} already processed by a live run, left out": "{{n}} irat kimarad, mert egy éles futás már feldolgozta",
+  "only the documents no live run has processed yet": "csak a még fel nem dolgozott iratok",
+  "no new documents: {{a}} already processed by a live run": "nincs új irat: {{a}} iratot egy éles futás már feldolgozott",
+  "no new statement: {{a}} statement(s) and {{b}} PDF(s) are in the store or outside the period": "nincs új kivonat: {{a}} kivonat és {{b}} PDF már a tárban van, vagy az időszakon kívül esik"
 }

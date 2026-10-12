@@ -156,10 +156,13 @@ export interface WorkflowTemplates {
 }
 export interface WorkflowSource {
   kind: WorkSourceKind; folder?: string; recursive?: boolean; paths?: string[]; request?: MailboxRequest; workpackage_id?: string;
+  /** 147: a documents step takes only the documents no live run has processed yet */
+  only_new?: boolean;
 }
 export type WorkflowBudget = Partial<Record<"jev" | "openai" | "azure_di", string>>;
 export interface WorkflowEstimate {
   items: number | null; usd: WorkflowBudget; note: string | null; statements?: number; pdfs?: number; per_item?: WorkflowBudget;
+  left_out?: number;
 }
 /** What a person sees of a step: the stored automation state and the package's own next step. */
 export type WorkflowStepStatus = "waiting" | "ready" | "starting" | "pulling" | "needs_budget" | "nothing_new" | "failed"
@@ -167,7 +170,7 @@ export type WorkflowStepStatus = "waiting" | "ready" | "starting" | "pulling" | 
 export interface WorkflowStep {
   id: string; kind: WorkKind; title: string; kind_title: string; after: string[];
   source: { kind: WorkSourceKind; folder?: string; recursive?: boolean; count?: number; first?: string; accounts?: string[];
-    folders?: string[]; workpackage_id?: string };
+    folders?: string[]; workpackage_id?: string; only_new?: boolean };
   budget: WorkflowBudget; name: string; state: string; status: WorkflowStepStatus; done: boolean;
   note: string | { estimate: WorkflowBudget; budget: WorkflowBudget; over: WorkflowBudget } | null;
   package: { id: string; name: string | null; next: NextStep | null } | null; run_id: string | null; pull_id: string | null;
@@ -182,6 +185,14 @@ export interface WorkflowView {
   workflow: WorkflowInfo; steps: WorkflowStep[]; done: number; total: number;
   next: { step: string; status: WorkflowStepStatus } | null;
   events: { step: string | null; action: string; actor: string; detail: Record<string, unknown>; created_at: string }[];
+  /** 147: the workflow this one repeats for the next period, and the ones repeating it */
+  repeat_of?: WorkflowBrief | null; repeated_as?: WorkflowBrief[];
+}
+export interface WorkflowBrief { id: string; name: string; period_start: string; period_end: string }
+/** 147: a workflow for the next period, as the wizard shows it filled in (a step without a source is asked for). */
+export interface WorkflowDraft {
+  template: string; party_id: string; period_start: string; period_end: string; name: string | null; auto: boolean;
+  previous: string; steps: Record<string, { source: WorkflowSource | null; budget: WorkflowBudget }>;
 }
 export interface WorkflowRow extends WorkflowInfo {
   done: number; total: number; next: { step: string; status: WorkflowStepStatus } | null;
@@ -191,6 +202,7 @@ export interface WorkflowRef { id: string; name: string; step: string; step_titl
 export interface CreateWorkflowBody {
   template: string; party_id: string; period_start: string; period_end: string; name?: string; auto: boolean;
   names?: Record<string, string>; steps: Record<string, { source: WorkflowSource; budget?: WorkflowBudget }>;
+  previous?: string;
 }
 export interface RunItem {
   run_id: string; item_id: string; status: string; final_status: string | null; flow_run_id: string | null;
@@ -816,6 +828,7 @@ export const api = {
   workflows: (includeArchived = false) =>
     request<{ workflows: WorkflowRow[] }>("GET", `/workflows${includeArchived ? "?include_archived=true" : ""}`),
   workflowView: (id: string) => request<WorkflowView>("GET", `/workflows/${enc(id)}`),
+  workflowRepeat: (id: string) => request<WorkflowDraft>("GET", `/workflows/${enc(id)}/repeat`),
   createWorkflow: (body: CreateWorkflowBody) => request<WorkflowView>("POST", "/workflows", body),
   updateWorkflow: (id: string, body: { auto?: boolean; name?: string; archived?: boolean }) =>
     request<WorkflowView>("PATCH", `/workflows/${enc(id)}`, body),

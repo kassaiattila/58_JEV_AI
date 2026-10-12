@@ -1134,5 +1134,15 @@
   "At most this many emails": "At most this many emails",
   "(0 = no limit)": "(0 = no limit)",
   "Number of days": "Number of days",
-  "Include subfolders": "Include subfolders"
+  "Include subfolders": "Include subfolders",
+  "Repeat for the next period": "Repeat for the next period",
+  "Repeats:": "Repeats:",
+  "Repeated as:": "Repeated as:",
+  "{{new}} new document(s); {{left}} already processed by a live run, left out": "{{new}} new document(s); {{left}} already processed by a live run, left out",
+  "This repeats an earlier workflow for the next period. Check the period, the sources and the budgets: you approve them again here.": "This repeats an earlier workflow for the next period. Check the period, the sources and the budgets: you approve them again here.",
+  "Only the documents no live run has processed yet": "Only the documents no live run has processed yet",
+  "{{n}} already processed by a live run, left out": "{{n}} already processed by a live run, left out",
+  "only the documents no live run has processed yet": "only the documents no live run has processed yet",
+  "no new documents: {{a}} already processed by a live run": "no new documents: {{a}} already processed by a live run",
+  "no new statement: {{a}} statement(s) and {{b}} PDF(s) are in the store or outside the period": "no new statement: {{a}} statement(s) and {{b}} PDF(s) are in the store or outside the period"
 }

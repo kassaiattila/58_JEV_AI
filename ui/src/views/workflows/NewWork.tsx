@@ -5,14 +5,18 @@
 //   4 Overview (a workflow): the chain, the sources and the budgets, then it is made and its first steps start.
 // A paid step starts by itself only within the budget given here; the estimate is the processing's item budget times
 // the items found.
+// 147 (DECISIONS 147): a workflow repeated for the next period opens at its details, filled in from the earlier one's
+// draft (the period moved on, a documents step only with the documents no live run has processed); a person checks it
+// and approves the budgets again.
 import { Fragment, useMemo, useState } from "react";
 import {
-  api, ApiError, type MailboxRequest, type OwnParty, type WorkflowBudget, type WorkflowEstimate, type WorkflowSource,
+  api, ApiError, type MailboxRequest, type WorkflowBudget, type WorkflowDraft, type WorkflowEstimate, type WorkflowSource,
   type WorkflowTemplate, type WorkflowTemplates, type WorkKind, type WorkSourceKind,
 } from "../../api";
 import { BrowseButton } from "../../components/BrowseButton";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
+import { go } from "../../route";
 import { DocumentsCreate } from "../DocumentsCreate";
 import { Mailbox, splitAccounts, toggleAccount } from "../Mailbox";
 import { PartyChoice, ReconcileCreate } from "../reconcile/ReconcileCreate";
@@ -45,14 +49,18 @@ function SingleForm({ kind, onDone }: { kind: WorkKind; onDone: (id: string) => 
 
 const SINGLE: Record<string, WorkKind> = { documents: "documents", emails: "emails", statements: "statements", reconcile: "reconcile" };
 
-export function NewWork({ onPackage, onWorkflow, initialTemplate, initialGroup }: {
+export function NewWork({ onPackage, onWorkflow, initialTemplate, initialGroup, repeatOf }: {
   onPackage: (wpId: string) => void; onWorkflow: (wfId: string) => void; initialTemplate?: string; initialGroup?: string;
+  /** 147: the workflow to repeat for the next period */
+  repeatOf?: string;
 }) {
   useLocale();
   const conf = useLoad("workflow-templates", api.workflowTemplates);
-  const [stage, setStage] = useState(initialTemplate ? 3 : 1);
+  const repeat = useLoad(repeatOf ? `workflow-repeat:${repeatOf}` : null, () => api.workflowRepeat(repeatOf!));
+  const [stage, setStage] = useState(initialTemplate || repeatOf ? 3 : 1);
   const [group, setGroup] = useState(initialGroup ?? "documents");
-  const [templateId, setTemplateId] = useState<string | null>(initialTemplate ?? null);
+  const [chosen, setTemplateId] = useState<string | null>(initialTemplate ?? null);
+  const templateId = repeatOf ? repeat.data?.template ?? null : chosen;
   const tpl = conf.data?.templates.find((x) => x.id === templateId) ?? null;
   const single = templateId && SINGLE[templateId] && (!tpl || tpl.steps.length === 1) ? SINGLE[templateId] : null;
   const isWorkflow = Boolean(tpl && tpl.steps.length > 1);
@@ -75,6 +83,8 @@ export function NewWork({ onPackage, onWorkflow, initialTemplate, initialGroup }
         ))}
       </ol>
       {conf.error && stage < 3 ? <p className="notice error" role="alert">{conf.error.message}</p> : null}
+      {repeat.error ? <p className="notice error" role="alert">{repeat.error.message}</p> : null}
+      {repeatOf && !repeat.data && !repeat.error ? <p className="muted">{t("Loading…")}</p> : null}
       {stage === 1 ? (
         conf.data ? (
           <>
@@ -113,7 +123,8 @@ export function NewWork({ onPackage, onWorkflow, initialTemplate, initialGroup }
         </>
       ) : null}
       {stage >= 3 && isWorkflow && tpl && conf.data ? (
-        <WorkflowSetup tpl={tpl} conf={conf.data} overview={stage === 4} onBack={() => setStage(stage - 1)}
+        <WorkflowSetup tpl={tpl} conf={conf.data} overview={stage === 4} initial={repeat.data ?? undefined}
+          onBack={repeatOf && stage === 3 ? () => go({ view: "workflows", wfId: repeatOf }) : () => setStage(stage - 1)}
           onNext={() => setStage(4)} onCreated={onWorkflow} />
       ) : null}
     </section>
@@ -147,16 +158,41 @@ function TemplateChoice({ tpl, conf, checked, onPick }: { tpl: WorkflowTemplate;
 // --- a workflow's details and overview ----------------------------------------------------------------------------------
 
 interface StepDraft {
-  source: WorkSourceKind; folder: string; recursive: boolean; files: string; packageId: string;
-  accounts: string; folders: string; usePeriod: boolean; days: number; maxItems: number;
+  source: WorkSourceKind; folder: string; recursive: boolean; onlyNew: boolean; files: string; packageId: string;
+  packageName: string; accounts: string; folders: string; usePeriod: boolean; days: number; maxItems: number;
   budget: WorkflowBudget; estimate: WorkflowEstimate | null; estimating: boolean; error: string | null;
 }
 
 function draftFor(kind: WorkKind, conf: WorkflowTemplates): StepDraft {
   return {
-    source: conf.kinds[kind].sources[0], folder: "", recursive: false, files: "", packageId: "", accounts: "", folders: "Inbox",
-    usePeriod: true, days: 31, maxItems: 0, budget: {}, estimate: null, estimating: false, error: null,
+    source: conf.kinds[kind].sources[0], folder: "", recursive: false, onlyNew: false, files: "", packageId: "", packageName: "",
+    accounts: "", folders: "Inbox", usePeriod: true, days: 31, maxItems: 0, budget: {}, estimate: null, estimating: false, error: null,
   };
+}
+
+/** 147: a step of a repeated workflow, from the draft's source (none: the person gives it) and budget. */
+function draftFrom(kind: WorkKind, conf: WorkflowTemplates, src: WorkflowSource | null, budget: WorkflowBudget): StepDraft {
+  const d = { ...draftFor(kind, conf), budget: { ...budget } };
+  if (!src) return d;
+  switch (src.kind) {
+    case "folder": return { ...d, source: "folder", folder: src.folder ?? "", recursive: Boolean(src.recursive), onlyNew: Boolean(src.only_new) };
+    case "files": return { ...d, source: "files", files: (src.paths ?? []).join("\n"), onlyNew: Boolean(src.only_new) };
+    case "package": return { ...d, source: "package", packageId: src.workpackage_id ?? "" };
+    case "mailbox": {
+      const r = src.request;
+      if (!r) return d;
+      return { ...d, source: "mailbox", accounts: r.accounts.join(", "), folders: (r.folders ?? ["Inbox"]).join(", "),
+        usePeriod: !r.since_days, days: r.since_days ?? 31, maxItems: r.max_items ?? 0 };
+    }
+    default: return { ...d, source: "none" };
+  }
+}
+
+/** The overview's words after a step's source: the folder, the package's name (146 F-wizard-overview-package-name),
+ * and whether only the new documents are taken. */
+function sourceDetail(d: StepDraft, src: WorkflowSource | null): string {
+  const what = src?.folder ? `: ${src.folder}` : d.source === "package" && d.packageName ? `: ${d.packageName}` : "";
+  return src?.only_new ? `${what} · ${t("only the documents no live run has processed yet")}` : what;
 }
 
 function lines(text: string): string[] {
@@ -165,8 +201,8 @@ function lines(text: string): string[] {
 
 function sourceOf(d: StepDraft, period: [string, string]): WorkflowSource | null {
   switch (d.source) {
-    case "folder": return d.folder.trim() ? { kind: "folder", folder: d.folder.trim(), recursive: d.recursive } : null;
-    case "files": return lines(d.files).length ? { kind: "files", paths: lines(d.files) } : null;
+    case "folder": return d.folder.trim() ? { kind: "folder", folder: d.folder.trim(), recursive: d.recursive, ...(d.onlyNew ? { only_new: true } : {}) } : null;
+    case "files": return lines(d.files).length ? { kind: "files", paths: lines(d.files), ...(d.onlyNew ? { only_new: true } : {}) } : null;
     case "package": return d.packageId ? { kind: "package", workpackage_id: d.packageId } : null;
     case "mailbox": {
       const accounts = splitAccounts(d.accounts);
@@ -181,18 +217,20 @@ function sourceOf(d: StepDraft, period: [string, string]): WorkflowSource | null
   }
 }
 
-function WorkflowSetup({ tpl, conf, overview, onBack, onNext, onCreated }: {
-  tpl: WorkflowTemplate; conf: WorkflowTemplates; overview: boolean; onBack: () => void; onNext: () => void;
-  onCreated: (wfId: string) => void;
+function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated }: {
+  tpl: WorkflowTemplate; conf: WorkflowTemplates; overview: boolean; initial?: WorkflowDraft; onBack: () => void;
+  onNext: () => void; onCreated: (wfId: string) => void;
 }) {
   useLocale();
   const parties = useLoad("parties", api.parties);
-  const [party, setParty] = useState<OwnParty | null>(null);
-  const [[start, end], setPeriod] = useState<[string, string]>(lastClosedMonth);
-  const [name, setName] = useState("");
-  const [auto, setAuto] = useState(true);
+  const [partyId, setPartyId] = useState<string | null>(initial?.party_id ?? null);
+  const party = parties.data?.parties.find((p) => p.id === partyId) ?? null;
+  const [[start, end], setPeriod] = useState<[string, string]>(() => (initial ? [initial.period_start, initial.period_end] : lastClosedMonth()));
+  const [name, setName] = useState(initial?.name ?? "");
+  const [auto, setAuto] = useState(initial?.auto ?? true);
   const [drafts, setDrafts] = useState<Record<string, StepDraft>>(() =>
-    Object.fromEntries(tpl.steps.map((s) => [s.id, draftFor(s.kind, conf)])));
+    Object.fromEntries(tpl.steps.map((s) => [s.id, initial?.steps[s.id]
+      ? draftFrom(s.kind, conf, initial.steps[s.id].source, initial.steps[s.id].budget) : draftFor(s.kind, conf)])));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const periodOk = Boolean(start) && Boolean(end) && start <= end;
@@ -227,6 +265,7 @@ function WorkflowSetup({ tpl, conf, overview, onBack, onNext, onCreated }: {
     try {
       const view = await api.createWorkflow({
         template: tpl.id, party_id: party.id, period_start: start, period_end: end, name: title, auto,
+        ...(initial ? { previous: initial.previous } : {}),
         names: Object.fromEntries(tpl.steps.map((s) => [s.id, `${title} · ${stepTitle(s.id)}`])),
         steps: Object.fromEntries(tpl.steps.map((s) => [s.id, {
           source: sources[s.id]!,
@@ -251,7 +290,7 @@ function WorkflowSetup({ tpl, conf, overview, onBack, onNext, onCreated }: {
             <li key={s.id}>
               <strong>{stepTitle(s.id)}</strong>
               {s.after?.length ? <span className="muted small"> · {t("starts once these are approved: {{steps}}", { steps: s.after.map(stepTitle).join(", ") })}</span> : null}
-              <div className="small">{t(SOURCE_LABEL[drafts[s.id].source])}{sources[s.id]?.folder ? `: ${sources[s.id]!.folder}` : ""}</div>
+              <div className="small">{t(SOURCE_LABEL[drafts[s.id].source])}{sourceDetail(drafts[s.id], sources[s.id])}</div>
               {PAID.includes(s.kind) && !["package", "none"].includes(drafts[s.id].source) ? (
                 <div className="small">{t("Budget for an automatic start: {{budget}}", { budget: budgetText(drafts[s.id].budget) })}</div>
               ) : null}
@@ -273,7 +312,8 @@ function WorkflowSetup({ tpl, conf, overview, onBack, onNext, onCreated }: {
   return (
     <div className="rc-stack" aria-label={t("Details")}>
       {parties.error ? <p className="notice error" role="alert">{parties.error.message}</p> : null}
-      {parties.data ? <PartyChoice overview={parties.data} value={party?.id ?? null} onPick={setParty} anyParty /> : <p className="muted">{t("Loading…")}</p>}
+      {initial ? <p className="notice small">{t("This repeats an earlier workflow for the next period. Check the period, the sources and the budgets: you approve them again here.")}</p> : null}
+      {parties.data ? <PartyChoice overview={parties.data} value={partyId} onPick={(p) => setPartyId(p.id)} anyParty /> : <p className="muted">{t("Loading…")}</p>}
       <div className="rc-period">
         <label className="block">{t("Period from")}<input type="date" value={start} onChange={(e) => setPeriod([e.target.value, end])} required /></label>
         <label className="block">{t("to")}<input type="date" value={end} onChange={(e) => setPeriod([start, e.target.value])} required /></label>
@@ -328,6 +368,9 @@ function StepEditor({ n, title, kind, conf, draft, after, onChange, onEstimate, 
           {kind === "documents" ? <label className="check"><input type="checkbox" checked={draft.recursive} onChange={(e) => touched({ recursive: e.target.checked })} /> {t("Include subfolders")}</label> : null}
         </>
       ) : null}
+      {kind === "documents" && (draft.source === "folder" || draft.source === "files") ? (
+        <label className="check"><input type="checkbox" checked={draft.onlyNew} onChange={(e) => touched({ onlyNew: e.target.checked })} /> {t("Only the documents no live run has processed yet")}</label>
+      ) : null}
       {draft.source === "files" ? (
         <div className="path-row">
           <label className="block grow">{t("The files' full paths, one per line")}
@@ -337,7 +380,7 @@ function StepEditor({ n, title, kind, conf, draft, after, onChange, onEstimate, 
         </div>
       ) : null}
       {draft.source === "mailbox" ? <MailboxSource draft={draft} onChange={touched} /> : null}
-      {draft.source === "package" ? <PackageSource kind={kind} value={draft.packageId} onChange={(id) => touched({ packageId: id })} /> : null}
+      {draft.source === "package" ? <PackageSource kind={kind} value={draft.packageId} onChange={(id, name) => touched({ packageId: id, packageName: name })} /> : null}
       {paid ? (
         <div className="wz-budget">
           <span className="small">{t("Budget for an automatic start (USD)")}</span>
@@ -354,6 +397,7 @@ function StepEditor({ n, title, kind, conf, draft, after, onChange, onEstimate, 
             <span className="small">
               {draft.estimate.items === null ? t("The number of items is known only after the download.")
                 : t("{{n}} item(s), at most {{cost}}", { n: draft.estimate.items, cost: budgetText(draft.estimate.usd) })}
+              {draft.estimate.left_out ? ` · ${t("{{n}} already processed by a live run, left out", { n: draft.estimate.left_out })}` : ""}
               {draft.estimate.note ? ` · ${t(draft.estimate.note)}` : ""}
             </span>
           ) : null}
@@ -398,14 +442,14 @@ function MailboxSource({ draft, onChange }: { draft: StepDraft; onChange: (patch
   );
 }
 
-function PackageSource({ kind, value, onChange }: { kind: WorkKind; value: string; onChange: (id: string) => void }) {
+function PackageSource({ kind, value, onChange }: { kind: WorkKind; value: string; onChange: (id: string, name: string) => void }) {
   useLocale();
   const list = useLoad("workpackages", api.workpackages);
   const options = useMemo(() => (list.data?.workpackages ?? []).filter((w) => PACKAGE_KINDS[kind].includes(w.source_kind)), [list.data, kind]);
   if (list.error) return <p className="notice error" role="alert">{list.error.message}</p>;
   return (
     <label className="block">{t("Work package")}
-      <select value={value} onChange={(e) => onChange(e.target.value)}>
+      <select value={value} onChange={(e) => onChange(e.target.value, options.find((w) => w.id === e.target.value)?.name ?? "")}>
         <option value="">{t("Choose…")}</option>
         {options.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
       </select>

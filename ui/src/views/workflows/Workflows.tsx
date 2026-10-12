@@ -1,20 +1,23 @@
 // 146 (backlog F-package-kind-chooser; DECISIONS 146): the Workflows main menu. The list (filtered by party, state and a
 // search), the new work wizard, and a workflow's control view: its steps as a chain, each with its state, its package
 // and the package's next step, what needs a person first, the switch of the automatic chain, a step's start (with a new
-// budget when its run's estimate did not fit) and an existing package linked as a step.
+// budget when its run's estimate did not fit) and an existing package linked as a step. 147: a workflow is repeated for
+// the next period (the wizard opens filled in), and the two are linked both ways.
 import { Fragment, useState } from "react";
-import { api, ApiError, type WorkflowBudget, type WorkflowRow, type WorkflowStep, type WorkflowView } from "../../api";
+import {
+  api, ApiError, type WorkflowBrief, type WorkflowBudget, type WorkflowRow, type WorkflowStep, type WorkflowView,
+} from "../../api";
 import { PageHeader } from "../../components/PageHeader";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { stepLabel } from "../../labels";
 import { go, wpHash, type Route } from "../../route";
-import { budgetText, PROVIDER, sourceText, STEP_STATUS, statusTone } from "./labels";
+import { budgetText, PROVIDER, sourceText, STEP_STATUS, statusTone, stepNote } from "./labels";
 import { NewWork } from "./NewWork";
 
 export function Workflows({ route }: { route: Extract<Route, { view: "workflows" }> }) {
   if (route.wfId) return <WorkflowControl wfId={route.wfId} />;
-  return <WorkflowList creating={Boolean(route.create)} />;
+  return <WorkflowList creating={Boolean(route.create)} repeatOf={route.repeat} />;
 }
 
 function StatusChip({ status }: { status: WorkflowStep["status"] }) {
@@ -22,7 +25,7 @@ function StatusChip({ status }: { status: WorkflowStep["status"] }) {
   return <span className={`wf-status wf-${statusTone(status)}`}>{STEP_STATUS[status] ?? status}</span>;
 }
 
-function WorkflowList({ creating }: { creating: boolean }) {
+function WorkflowList({ creating, repeatOf }: { creating: boolean; repeatOf?: string }) {
   useLocale();
   const [archived, setArchived] = useState(false);
   const [party, setParty] = useState("");
@@ -39,7 +42,8 @@ function WorkflowList({ creating }: { creating: boolean }) {
       <PageHeader title={t("Workflows")} badge={list.data ? <span className="count">{list.data.workflows.length}</span> : null}
         summary={t("A workflow chains the work packages of one job for an own party and a period: invoices, statements and their reconciliation. Its page shows where the chain stands and what needs you.")}
         actions={<a className="button primary" href={creating ? "#/workflows" : "#/workflows/new"} aria-expanded={creating}>{t("New workflow")}</a>} />
-      {creating ? <NewWork initialGroup="monthly" onPackage={(id) => go({ view: "workpackages", wpId: id, stage: "process" })}
+      {creating ? <NewWork key={repeatOf ?? "new"} initialGroup="monthly" repeatOf={repeatOf}
+        onPackage={(id) => go({ view: "workpackages", wpId: id, stage: "process" })}
         onWorkflow={(id) => go({ view: "workflows", wfId: id })} /> : null}
       <div className="toolbar wf-filters">
         <label className="inline small">{t("Search")}<input value={search} onChange={(e) => setSearch(e.target.value)} /></label>
@@ -120,10 +124,18 @@ function WorkflowControl({ wfId }: { wfId: string }) {
         actions={<>
           <label className="check small"><input type="checkbox" checked={wf.auto} disabled={wf.status !== "open"}
             onChange={(e) => void act(() => api.updateWorkflow(wf.id, { auto: e.target.checked }))} /> {t("Start the steps by themselves")}</label>
+          <a className="button secondary small-btn" href={`#/workflows/${encodeURIComponent(wf.id)}/repeat`}>{t("Repeat for the next period")}</a>
           <button type="button" className="secondary small-btn" onClick={() => void act(() => api.updateWorkflow(wf.id, { archived: wf.status === "open" }))}>
             {wf.status === "open" ? t("Archive") : t("Restore")}
           </button>
         </>} />
+      {v.repeat_of || v.repeated_as?.length ? (
+        <p className="small wf-repeats">
+          {v.repeat_of ? <>{t("Repeats:")} <BriefLink w={v.repeat_of} /></> : null}
+          {v.repeat_of && v.repeated_as?.length ? " · " : null}
+          {v.repeated_as?.length ? <>{t("Repeated as:")} {v.repeated_as.map((w, i) => <Fragment key={w.id}>{i ? ", " : null}<BriefLink w={w} /></Fragment>)}</> : null}
+        </p>
+      ) : null}
       {wf.status === "archived" ? <p className="notice">{t("This workflow is archived: its steps do not start. Its packages stay as they are.")}</p> : null}
       {nextStep && v.next ? (
         <p className="notice wf-next" role="status">
@@ -148,7 +160,7 @@ function WorkflowControl({ wfId }: { wfId: string }) {
         <summary className="small">{t("What happened ({{n}})", { n: v.events.length })}</summary>
         <ul className="small wf-events">
           {v.events.map((e, i) => (
-            <li key={i}><span className="mono">{e.created_at.replace("T", " ").slice(0, 16)}</span> · {e.actor} · {e.step ? `${t(v.steps.find((s) => s.id === e.step)?.title ?? e.step)}: ` : ""}{eventText(e.action)}</li>
+            <li key={i}><span className="mono">{e.created_at.replace("T", " ").slice(0, 16)}</span> · {e.actor} · {e.step ? `${t(v.steps.find((s) => s.id === e.step)?.title ?? e.step)}: ` : ""}{eventText(e.action, e.detail)}</li>
           ))}
         </ul>
       </details>
@@ -156,7 +168,14 @@ function WorkflowControl({ wfId }: { wfId: string }) {
   );
 }
 
-function eventText(action: string): string {
+function BriefLink({ w }: { w: WorkflowBrief }) {
+  return <a href={`#/workflows/${encodeURIComponent(w.id)}`}>{w.name}</a>;
+}
+
+function eventText(action: string, detail: Record<string, unknown>): string {
+  if (action === "left_out") {  // 147: only the new documents of the folder
+    return t("{{new}} new document(s); {{left}} already processed by a live run, left out", { new: Number(detail.new ?? 0), left: Number(detail.left_out ?? 0) });
+  }
   const words: Record<string, string> = {
     create: "the workflow was made", update: "the workflow was changed", pull: "the mailbox download was queued",
     run: "its live run started", package: "its package was made", needs_budget: "its run's estimate is over its budget",
@@ -188,7 +207,7 @@ function StepCard({ step, steps, open, onStart, onLink }: {
         </div>
       ) : null}
       {step.status === "failed" && typeof step.note === "string" ? <div className="small warn-text">{step.note}</div> : null}
-      {step.status === "nothing_new" && typeof step.note === "string" ? <div className="small muted">{t(step.note)}</div> : null}
+      {step.status === "nothing_new" && typeof step.note === "string" ? <div className="small muted">{stepNote(step.note)}</div> : null}
       {Object.keys(step.budget).length || over ? <div className="small">{t("Budget: {{budget}}", { budget: budgetText(step.budget) })}</div> : null}
       {over ? (
         <div className="wz-budget">
