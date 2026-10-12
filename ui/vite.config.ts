@@ -13,5 +13,6 @@ export default defineConfig({
     proxy: { "/api": { target: "http://127.0.0.1:8930", changeOrigin: true } },
   },
   build: { outDir: "dist", emptyOutDir: true },
-  test: { environment: "jsdom", globals: true, setupFiles: ["src/test-setup.ts"] },
+  // 149: a test may wait up to 5 s per step (src/test-setup.ts), so the whole test gets more than vitest's default 5 s
+  test: { environment: "jsdom", globals: true, setupFiles: ["src/test-setup.ts"], testTimeout: 30000 },
 });
