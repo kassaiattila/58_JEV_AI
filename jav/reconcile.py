@@ -303,8 +303,14 @@ def supplier_keys(invoice: dict[str, Any]) -> set[str]:
 def name_words(name: Any) -> list[str]:
     """134: a supplier's name as the signals compare it: cut after its legal form when an address or a remark follows
     (`candidates.trim_after_legal_form`), without numbers, legal forms and filler words."""
-    return [w for w in normalize(trim_after_legal_form(str(name or ""))).split()
-            if w not in _ignore_tokens() and not any(ch.isdigit() for ch in w)]
+    return list(_name_words(str(name or "")))
+
+
+@lru_cache(maxsize=16384)
+def _name_words(name: str) -> tuple[str, ...]:
+    """151: memoised, as `_normalized`; one pairing compares each supplier's name with every line in its window."""
+    return tuple(w for w in normalize(trim_after_legal_form(name)).split()
+                 if w not in _ignore_tokens() and not any(ch.isdigit() for ch in w))
 
 
 def supplier_words(name: Any) -> list[str]:
@@ -315,8 +321,13 @@ def supplier_words(name: Any) -> list[str]:
 
 def line_words(payment: dict[str, Any]) -> list[str]:
     """134: the words of a line's name (the counterparty, else the description) without numbers and short pieces."""
-    return [w for w in normalize(payment.get("counterparty_name") or payment.get("description")).split()
-            if len(w) >= 4 and not any(ch.isdigit() for ch in w)]
+    return list(_line_words(str(payment.get("counterparty_name") or payment.get("description") or "")))
+
+
+@lru_cache(maxsize=16384)
+def _line_words(name: str) -> tuple[str, ...]:
+    """151: memoised, as `_name_words`."""
+    return tuple(w for w in normalize(name).split() if len(w) >= 4 and not any(ch.isdigit() for ch in w))
 
 
 def common_words(invoices: Iterable[dict[str, Any]], lines: Iterable[dict[str, Any]]) -> frozenset[str]:
@@ -334,9 +345,11 @@ def common_words(invoices: Iterable[dict[str, Any]], lines: Iterable[dict[str, A
     return frozenset({w for w, n in by_supplier.items() if n >= least} | {w for w, n in by_line.items() if n >= line_least})
 
 
+@lru_cache(maxsize=65536)
 def _fuzzy_word(word: str, other: str) -> bool:
     """The supplier's word begins the line's word (glued to a suffix), or the line's word begins the supplier's and
-    holds `min_prefix_share` of it (a name cut short on a card terminal), or they differ by about a letter."""
+    holds `min_prefix_share` of it (a name cut short on a card terminal), or they differ by about a letter. 151:
+    memoised (the configuration is read once per process, `_conf`)."""
     f = _conf()["signals"]["fuzzy_name"]
     least = int(f["min_chars"])
     if other.startswith(word) or (len(other) >= max(least, float(f["min_prefix_share"]) * len(word)) and word.startswith(other)):
@@ -1078,15 +1091,18 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     amount_only = bool(_conf()["amount_only"]["enabled"])
     unnamed_days = int(_conf()["proposal"]["unnamed_days_before_issue"])
     candidates = []
-    # 149: the open invoices with what they have left, sorted once (the rests do not change in the loop)
-    open_invoices = [(iid, inv_whole, {**inv_whole, "amount": str(rest_invoice[iid])})
+    # 149: the open invoices with what they have left, sorted once (the rests do not change in the loop); 151: with
+    # their payment window and card window, so a line booked outside both is passed over before the costlier checks
+    open_invoices = [(iid, inv_whole, {**inv_whole, "amount": str(rest_invoice[iid])}, window(inv_whole), fx_window(inv_whole))
                      for iid, inv_whole in sorted(prepared["invoices"].items()) if iid not in paid_invoices]
     for pid, pay_whole in sorted(prepared["payments"].items()):
         if pid in paid_lines or pid in marked or pay_whole["statement_id"] not in scope:
             continue
         pay = {**pay_whole, "amount": str(rest_line[pid])}
         booked = _date(pay["booking_date"])
-        for iid, inv_whole, inv in open_invoices:
+        for iid, inv_whole, inv, pay_span, card_span in open_invoices:
+            if not (pay_span[0] <= booked <= pay_span[1] or card_span[0] <= booked <= card_span[1]):
+                continue  # 151: in neither window this line could be searched in
             if (iid, pid) in rejected or not pays(pay_whole, inv_whole):
                 continue
             how = meets(inv, pay)
@@ -1094,7 +1110,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
                 continue
             if how != "same" and (pid in paid_line or iid in paid_invoice):
                 continue  # a pair of two currencies is compared only in whole (DECISIONS 131)
-            start, end = window(inv) if how in ("same", "fx_bank") else fx_window(inv)  # 149: a bank line in the payment window
+            start, end = pay_span if how in ("same", "fx_bank") else card_span  # 149: a bank line in the payment window
             if not start <= booked <= end:
                 continue
             relation, conversion = amount_relation(inv, pay, rates)

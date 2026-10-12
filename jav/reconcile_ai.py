@@ -35,15 +35,18 @@ from collections import Counter
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Callable, Iterable, Iterator
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 
 from typesafe_sdk import Choice
 
-from jav import cfg, gpt_choice, reconcile, reconcile_package, store
+from jav import cfg, reconcile, reconcile_package, store
 from jav.adapters.jev import JevUnavailableError, get_adapter
 from jav.candidates import trim_after_legal_form
 from jav.config import JEV_USD_PER_MTOK, RUNS_DIR
 from jav.runtime import calls
+
+if TYPE_CHECKING:
+    from jav import gpt_choice
 
 ENGINES = ("jev", "gpt")
 NONE = "none"
@@ -96,9 +99,17 @@ def gpt_hash() -> str:
     return cfg.config_hash("gpt_reconcile", "callsite:reconcile_line")
 
 
+def _gpt():
+    """151: `jav/gpt_choice.py` is loaded with the first GPT question. It brings openai and pydantic_ai (about 1.6 s),
+    which the pairing page and the quick review never need; their first request after a restart loaded it before."""
+    from jav import gpt_choice
+
+    return gpt_choice
+
+
 def _limits() -> gpt_choice.Limits:
     g = cfg.load("gpt_reconcile")
-    return gpt_choice.Limits(config_hash=gpt_hash(), max_output_tokens=int(g["max_output_tokens"]), top_logprobs=int(g["top_logprobs"]))
+    return _gpt().Limits(config_hash=gpt_hash(), max_output_tokens=int(g["max_output_tokens"]), top_logprobs=int(g["top_logprobs"]))
 
 
 def _money(value: Any) -> Decimal | None:
@@ -290,11 +301,11 @@ def ask_jev(line: dict[str, Any], invoices: list[dict[str, Any]], facts: list[di
 def ask_gpt(line: dict[str, Any], invoices: list[dict[str, Any]], facts: list[dict[str, str]], *, run_id: str) -> dict[str, Any]:
     """The same questions about one line in one structured GPT request."""
     fields = gpt_fields(len(facts))
-    a = gpt_choice.ask(REQUEST_ID, gpt_instructions(facts), json.dumps(build_state(line), ensure_ascii=False), fields,
-                       run_id=run_id, limits=_limits())
+    a = _gpt().ask(REQUEST_ID, gpt_instructions(facts), json.dumps(build_state(line), ensure_ascii=False), fields,
+                   run_id=run_id, limits=_limits())
 
     def picked(key: str) -> tuple[str | None, dict[str, float]]:
-        dist = {k: v for k, v in a.probabilities[key].items() if k != gpt_choice.OTHER_BRANCHES}
+        dist = {k: v for k, v in a.probabilities[key].items() if k != _gpt().OTHER_BRANCHES}
         return a.values[key], dist or {a.values[key]: float(a.confidence[key] or 0.0)}
 
     return _answer([inv["id"] for inv in invoices], picked("pays") if "pays" in fields else None, picked("line_kind"),
@@ -389,8 +400,8 @@ def estimate(wp_id: str, *, redo: bool = False, stale: bool = False) -> dict[str
                 total += calls.estimate_max_cost(input_bytes=calls.utf8_bytes(body), max_output_tokens=0,
                                                  usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)))
             else:
-                total += gpt_choice.max_cost_usd(REQUEST_ID, gpt_instructions(facts), json.dumps(build_state(line), ensure_ascii=False),
-                                                 gpt_fields(len(facts)), _limits())
+                total += _gpt().max_cost_usd(REQUEST_ID, gpt_instructions(facts), json.dumps(build_state(line), ensure_ascii=False),
+                                              gpt_fields(len(facts)), _limits())
             return {"kind": "planned"}
 
         plan = Counter(requests=0, with_options=0, inherited=0)
