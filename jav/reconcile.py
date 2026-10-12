@@ -237,7 +237,13 @@ def _ignore_tokens() -> frozenset[str]:
 
 def normalize(value: Any) -> str:
     """Lower-case ASCII words joined by single spaces: "INV-001/A" -> "inv 001 a"."""
-    text = unicodedata.normalize("NFKD", str(value or "")).casefold()
+    return _normalized(str(value or ""))
+
+
+@lru_cache(maxsize=65536)
+def _normalized(value: str) -> str:
+    """149: memoised; one pairing normalises the same few thousand names and numbers some hundred thousand times."""
+    text = unicodedata.normalize("NFKD", value).casefold()
     return " ".join(re.findall(r"[a-z0-9]+", "".join(c for c in text if not unicodedata.combining(c))))
 
 
@@ -947,15 +953,17 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     amount_only = bool(_conf()["amount_only"]["enabled"])
     unnamed_days = int(_conf()["proposal"]["unnamed_days_before_issue"])
     candidates = []
+    # 149: the open invoices with what they have left, sorted once (the rests do not change in the loop)
+    open_invoices = [(iid, inv_whole, {**inv_whole, "amount": str(rest_invoice[iid])})
+                     for iid, inv_whole in sorted(prepared["invoices"].items()) if iid not in paid_invoices]
     for pid, pay_whole in sorted(prepared["payments"].items()):
         if pid in paid_lines or pid in marked or pay_whole["statement_id"] not in scope:
             continue
         pay = {**pay_whole, "amount": str(rest_line[pid])}
         booked = _date(pay["booking_date"])
-        for iid, inv_whole in sorted(prepared["invoices"].items()):
-            if iid in paid_invoices or (iid, pid) in rejected or not pays(pay_whole, inv_whole):
+        for iid, inv_whole, inv in open_invoices:
+            if (iid, pid) in rejected or not pays(pay_whole, inv_whole):
                 continue
-            inv = {**inv_whole, "amount": str(rest_invoice[iid])}
             how = meets(inv, pay)
             if how is None:
                 continue
