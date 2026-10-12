@@ -87,4 +87,18 @@ describe("the quick review", () => {
     expect(await screen.findByRole("region", { name: "Sure by AI" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Accept/ })).toBeNull();
   });
+
+  it("lays each group out as a card in the page flow, not as the document page's highlight frame", async () => {
+    // 148: the groups once wore the highlight frame's class (absolutely positioned, ignoring clicks), so they were drawn
+    // on top of one another and their buttons could not be pressed.
+    vi.spyOn(api, "reconcileQuickReview").mockResolvedValue(review());
+    render(<ReconcileQuickReview wpId="wp-00000000000a" readOnly={false} onWorkspace={vi.fn()} onCards={vi.fn()} />);
+    await screen.findByRole("region", { name: "Sure by AI" });
+    const groups = screen.getAllByRole("region");
+    expect(groups.length).toBe(4);
+    for (const group of groups) {
+      expect(group.classList.contains("card")).toBe(true);
+      expect(group.classList.contains("rc-box")).toBe(false);
+    }
+  });
 });
