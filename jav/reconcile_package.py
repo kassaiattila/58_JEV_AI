@@ -837,9 +837,9 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
         inv = ctx["invoices"].get(iid)
         if inv is None:
             raise KeyError(iid)
-        if inv["doc_type"] in _conf()["outgoing_types"]:
-            raise PackageError("an outgoing invoice is not paid from an own account")
         line = _scope_line(ctx, lid)
+        if not reconcile.pays(line, inv):  # 151: the engine's side rule (148), not a ban on the outgoing type
+            raise PackageError("the line is not on the invoice's side: incoming money pays an outgoing invoice, a payment an incoming one")
         _unlocked(ctx, [lid])
         if lid in ctx["marks"]:
             raise PackageError("the line is marked as needing no invoice; revoke the mark first")
