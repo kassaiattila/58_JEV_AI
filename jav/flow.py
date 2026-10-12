@@ -288,9 +288,30 @@ def ground(state: FlowState) -> FlowState:
     return state
 
 
+def confirm_detail_by_direction(state: FlowState) -> None:
+    """149: the detection's detailed type was uncertain between an outgoing and an incoming pack; the direction the
+    own parties give the extracted invoice settles it (`policy.detail_direction`). The parties alone decide here: the
+    outgoing type is evidence in `parties.direction`, and would confirm itself. A match closes the detailed type's
+    uncertainty to-do, a contradiction is a to-do of its own; anything else is left as it was."""
+    if state.invoice is None or not state.detail_probabilities:
+        return
+    from jav import parties
+
+    direction = parties.direction(parties.resolver(), None, state.invoice.model_dump())[0]
+    verdict = policy.detail_direction(state.doc_type, state.detail_probabilities, direction)
+    if verdict == "confirmed":
+        for kind in ("low_conf", "second_option"):
+            store.review_close(subject_kind="document", subject_id=state.doc_id, producer="detect_detail",
+                               reason_prefix=f"detect_detail:{kind}:{state.doc_type}:", run_id=state.run_id)
+    elif verdict == "contradicted":
+        store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id,
+                             producer="detect_detail_direction",
+                             reasons=[f"detect_detail:direction_mismatch:{state.doc_type}:{direction}"])
+
+
 @action.pydantic(
     reads=["run_id", "doc_id", "doc_type", "arm", "source_path", "has_text_layer", "text_source", "page_count", "invoice", "picks", "verdicts",
-           "validation", "route", "review_reasons", "needs_review", "provenance", "source_layer_id"],
+           "validation", "route", "review_reasons", "needs_review", "provenance", "source_layer_id", "detail_probabilities"],
     writes=[],
 )
 def save(state: FlowState) -> FlowState:
@@ -349,6 +370,7 @@ def save(state: FlowState) -> FlowState:
             producer=f"m2:{state.arm}",
             payload={"arm": state.arm, "doc_type": state.doc_type, "datapoints": state.invoice.to_datapoints(pack.record_fields) if state.invoice else None},
         )
+    confirm_detail_by_direction(state)
     return state
 
 
@@ -435,7 +457,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
         "validate": {"kind": "det", "note": "a csomag validátor-listája (a régi rules.json): áfa-egyenlet, dátumsorrend, adószám-ellenőrzőszám, IBAN mod-97, formátum-regexek"},
         "decide_route": {"kind": "det", "note": "policy.decide: küszöbök (configs/policy.json), a csomag kötelező / magas tétű mezői, additív review-latch -> auto | human"},
         "ground": {"kind": "det", "note": "mezőnkénti forráshely a szórétegen (S: a kiválasztott jelölt sora + a többi jelölt; G: kódos keresés címkével, configs/grounding.json); hiba esetén forráshely nélkül tovább"},
-        "save": {"kind": "store", "note": "documents + datapoints (mezőnkénti confidence, a hívási hely config_hash-e) + review_queue"},
+        "save": {"kind": "store", "note": "documents + datapoints (mezőnkénti confidence, a hívási hely config_hash-e) + review_queue; 149: an uncertain detailed type between an outgoing and an incoming pack is settled by the own parties' direction (confirm_detail_by_direction)"},
         "done": {"kind": "terminal", "note": "auto - elfogadva"},
         "needs_review": {"kind": "terminal", "note": "human - review-sorban, okokkal"},
         "needs_ocr": {"kind": "terminal", "note": "szöveg nélküli PDF, és az OCR sem adott használható szöveget (vagy nincs OCR-motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja"},
@@ -458,11 +480,13 @@ def new_run_id(case_id: str, arm: str, run_no: int) -> str:
 def build_app(
     source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, doc_type: str = DEFAULT_KEY,
     *, run_id: str | None = None, persister=None, read_path: str | None = None, jev: bool = True,
+    detail_probabilities: dict[str, float] | None = None,
 ) -> Application:
     """`persister` (040 K1, supplied by the worker): durable state persistence after every step; with the same `run_id`
     the run resumes at the next step. Without it, the earlier behaviour: a new identifier, no persistence.
     `read_path`: the document's bytes are read from here (its source instance); everything else uses `source_path`.
-    `jev=False` (085): processing without JEV: only the G path, verified by the code alone (`code_verify`)."""
+    `jev=False` (085): processing without JEV: only the G path, verified by the code alone (`code_verify`).
+    `detail_probabilities` (149): the detection's answer on the detailed type, for `confirm_detail_by_direction`."""
     pack = get_pack(doc_type)  # unknown type pack -> error right here, not in the middle of the graph
     if arm not in pack.arms:
         raise ValueError(f"a(z) {doc_type} típus-csomag csak ezekkel a karokkal fut: {', '.join(pack.arms)} (kért: {arm})")
@@ -470,7 +494,7 @@ def build_app(
         raise ValueError(f"without JEV only the G path runs (requested: {arm})")
     run_id = run_id or new_run_id(case_id, arm, run_no)
     initial = FlowState(source_path=source_path, read_path=read_path, case_id=case_id, arm=arm, run_no=run_no, run_id=run_id,
-                        use_cache=use_cache, doc_type=doc_type, jev=jev)
+                        use_cache=use_cache, doc_type=doc_type, jev=jev, detail_probabilities=detail_probabilities or {})
     builder = (
         ApplicationBuilder()
         .with_typing(PydanticTypingSystem(FlowState))

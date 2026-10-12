@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.48",
+    "version": "1.0.49",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.49",
+        "date": "2026-10-12",
+        "note": "149: accept the Hungarian text the direction-mismatch interface test checks (ui/src/detailDirection149.test.tsx)."
+      },
       {
         "version": "1.0.48",
         "date": "2026-10-12",
@@ -616,6 +621,7 @@
     "ui/src/datatable.test.tsx": 51,
     "ui/src/dateReading084.test.tsx": 9,
     "ui/src/deps075.test.tsx": 3,
+    "ui/src/detailDirection149.test.tsx": 1,
     "ui/src/errorboundary066.test.tsx": 7,
     "ui/src/feedback062.test.tsx": 26,
     "ui/src/fieldVerdict083.test.tsx": 21,

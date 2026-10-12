@@ -217,6 +217,9 @@ export function reasonText(code: string): string {
     // 090: the type / issuer cross-check in code (configs/policy.json detect_issuer): the type is kept
     case "detect:issuer_mismatch": return t("A típus ({{type}}) magyar kiállítót feltételez, de a felismerés szerint a kiállító nem magyar; ellenőrizd a típust", { type: docTypeLabel(p[2]) });
     case "detect_detail:low_conf": return t("Bizonytalan részletes típus: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
+    // 149: the direction the own parties give contradicts the detailed type
+    case "detect_detail:direction_mismatch": return t("The detailed type ({{type}}) contradicts the parties: by them the invoice is {{direction}}; check the type", {
+      type: docTypeLabel(p[2]), direction: p[3] === "outgoing" ? t("outgoing") : p[3] === "incoming" ? t("incoming") : p[3] ?? "" });
     case "detect_detail:second_option": return t("A részletes típusnál a második lehetőség is közel van: {{type}}", { type: docTypeLabel(p[2]) });
     // 086: type recognition by GPT (processing without JEV)
     case "detect:gpt_failed": return t("A GPT-s típusfelismerés nem sikerült ({{why}}); válaszd ki kézzel", { why: p[2] ?? "" });
