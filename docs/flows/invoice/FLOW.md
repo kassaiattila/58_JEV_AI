@@ -26,7 +26,7 @@
 
 ### persist
 - **ground** _(det)_ — mezőnkénti forráshely a szórétegen (S: a kiválasztott jelölt sora + a többi jelölt; G: kódos keresés címkével, configs/grounding.json); hiba esetén forráshely nélkül tovább
-- **save** _(store)_ — documents + datapoints (mezőnkénti confidence, a hívási hely config_hash-e) + review_queue
+- **save** _(store)_ — documents + datapoints (mezőnkénti confidence, a hívási hely config_hash-e) + review_queue; 149: an uncertain detailed type between an outgoing and an incoming pack is settled by the own parties' direction (confirm_detail_by_direction)
 
 ### terminal
 - **done** _(terminal)_ — auto - elfogadva

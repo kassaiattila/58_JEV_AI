@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.22.0",
+  "version": "1.23.0",
   "changelog": [
+   {
+    "version": "1.23.0",
+    "date": "2026-10-12",
+    "note": "149 (backlog F-type-uncertainty-outgoing, the owner's decision of 2026-10-12, DECISIONS 149): detect_detail.direction_sides - when the detailed type was uncertain between an outgoing and an incoming invoice pack (the runner-up on the other side), the direction the own parties alone give the extracted invoice settles it: a match closes the uncertainty to-do, a contradiction is a detect_detail:direction_mismatch to-do. On the store: the 21 uncertain outgoing invoices of one own company are all outgoing by their parties. No threshold changed."
+   },
    {
     "version": "1.22.0",
     "date": "2026-10-12",
@@ -196,7 +201,8 @@
  },
  "detect_detail": {
   "anchor_margin": 0.75,
-  "foreign_issuer_pack": {"receipt": "invoice_foreign"}
+  "foreign_issuer_pack": {"receipt": "invoice_foreign"},
+  "direction_sides": {"outgoing": ["invoice_out"], "incoming": ["invoice_hu"]}
  },
  "detect_issuer": {
   "engines": ["gpt"],

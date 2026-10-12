@@ -573,6 +573,7 @@ class FlowState(BaseModel):
     doc_type: str = "invoice_hu"
     use_cache: bool = True  # False when measuring determinism
     jev: bool = True  # 085: False = processing without JEV (the G path with the code's own check)
+    detail_probabilities: dict[str, float] = Field(default_factory=dict)  # 149: the detection's detailed-type answer
     # pdf
     text: str = ""
     lines: list[str] = Field(default_factory=list)

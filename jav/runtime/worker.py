@@ -176,7 +176,7 @@ def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app
         # `jev_cache=live`: skip reading the JEV cache so every call goes through the log and the budget (live test)
         app = mod.build_app(source_path, app_id, params["arm"], tracker=False, doc_type=params["doc_type"], run_id=app_id,
                             persister=persister, use_cache=reuse_answers(params), read_path=read_path,
-                            jev=not _jev_off(params))
+                            jev=not _jev_off(params), detail_probabilities=params.get("detail_probabilities"))
     elif recipe["flow"] == "email":  # 048 T2: the item is the email's `message.json`; the flow reads its folder
         app = mod.build_app(source_dir=str(Path(source_path).parent), tracker=False, run_id=app_id, persister=persister,
                             use_cache=reuse_answers(params), propose_tasks=params.get("tasks") == "propose",
@@ -222,7 +222,9 @@ def _next_params(params: dict[str, Any], detect_state) -> dict[str, Any] | None:
     key = (detail.get("key") if isinstance(detail, dict) else getattr(detail, "key", None)) if detail else None
     if not key or detect_state.get("final_status") != "done":
         return None
-    return {**params, "doc_type": key, "arm": arm_for(key, _requested_arm(params))}
+    # 149: the detection's answer goes along, so the parties can settle an uncertain direction after the extraction
+    probabilities = _field(detail, "probabilities") or {}
+    return {**params, "doc_type": key, "arm": arm_for(key, _requested_arm(params)), "detail_probabilities": dict(probabilities)}
 
 
 def _field(value: Any, name: str) -> Any:

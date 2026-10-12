@@ -90,6 +90,21 @@ def choice_needs_review(confidence: float, probabilities: dict[str, float] | Non
     return cb == "human" or (cb == "uncertain" and bool(band(callsite)["uncertain_review"]))
 
 
+def detail_direction(key: str | None, probabilities: dict[str, float] | None, direction: str | None) -> str | None:
+    """149: whether the direction the own parties give an invoice settles its uncertain detailed type: `confirmed`
+    (the type's side, `detect_detail.direction_sides`), `contradicted` (the side of the runner-up), or None when the
+    uncertainty was not between an outgoing and an incoming pack, or the parties do not say."""
+    sides = {k: side for side, keys in DETECT_DETAIL.get("direction_sides", {}).items() for k in keys}
+    if not key or key not in sides or not probabilities:
+        return None
+    rivals = sorted(((p, k) for k, p in probabilities.items() if k not in (key, "none")), reverse=True)
+    if not rivals or sides.get(rivals[0][1]) in (None, sides[key]):
+        return None
+    if direction == sides[key]:
+        return "confirmed"
+    return "contradicted" if direction == sides[rivals[0][1]] else None
+
+
 def choice_review_reason(prefix: str, key: str, confidence: float, probabilities: dict[str, float] | None, callsite: str) -> str | None:
     """Review reason text for a Choice verdict, or None: `<prefix>:low_conf:<key>:<conf>` |
     `<prefix>:second_option:<key>:<gap>`."""

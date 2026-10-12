@@ -1182,5 +1182,8 @@
   "Unclear": "Unclear",
   "{{amount}} at the MNB rate of the fulfilment day, {{day}}": "{{amount}} at the MNB rate of the fulfilment day, {{day}}",
   "{{amount}} at the MNB rate of the booking day, {{day}}": "{{amount}} at the MNB rate of the booking day, {{day}}",
-  "A line and an invoice of different currencies pair only one to one and in whole, when a conversion at the MNB rate relates them.": "A line and an invoice of different currencies pair only one to one and in whole, when a conversion at the MNB rate relates them."
+  "A line and an invoice of different currencies pair only one to one and in whole, when a conversion at the MNB rate relates them.": "A line and an invoice of different currencies pair only one to one and in whole, when a conversion at the MNB rate relates them.",
+  "The detailed type ({{type}}) contradicts the parties: by them the invoice is {{direction}}; check the type": "The detailed type ({{type}}) contradicts the parties: by them the invoice is {{direction}}; check the type",
+  "incoming": "incoming",
+  "outgoing": "outgoing"
 }
