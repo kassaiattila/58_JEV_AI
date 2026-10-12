@@ -103,8 +103,11 @@ The **golden loop** is the same for every flow: golden set (referenced from the 
 with the cache ($0 thanks to the request hash) → report (`runs/*.jsonl` + Markdown) → discrepancy analysis from the raw
 run → general rule (config change with a version bump) → rerun → determinism measurement without the cache. From live
 data: a manual labelling list (`*_manual_sample.md`) → our own golden set (`golden_labels`). Situations the legacy sets do
-not cover (credit notes, receipts without an invoice number) have invented cases in `configs/golden_synthetic.json`
-(`golden --synthetic`), run and reported apart, so the legacy results stay comparable.
+not cover (credit notes, receipts without an invoice number; 151: the outgoing invoice) have invented cases in
+`configs/golden_synthetic.json` (`golden --synthetic`), run and reported apart, so the legacy results stay comparable.
+151: a local case list outside git (`golden --cases <file>`, `evals.load_case_file`) measures a path on real documents
+against reference values, such as the other path's results; its run file is `<type>_local_<arm>` and its score is an
+agreement, not an accuracy.
 
 ## 2. The five planes
 

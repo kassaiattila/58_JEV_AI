@@ -319,15 +319,19 @@ def cmd_golden(args: argparse.Namespace) -> int:
     with store.use_store(Path(args.store)) if args.store else contextlib.nullcontext():
         jev_budget = getattr(args, "jev_budget_usd", None)
         synthetic = getattr(args, "synthetic", False)
-        cases = evals.load_synthetic_cases(args.type) if synthetic else None
-        if synthetic and not cases:
-            print(f"No synthetic golden case for {args.type} (configs/golden_synthetic.json).")
+        local = getattr(args, "cases", None)
+        cases = (evals.load_case_file(Path(local), args.type) if local
+                 else evals.load_synthetic_cases(args.type) if synthetic else None)
+        if (synthetic or local) and not cases:
+            print(f"No case for {args.type} ({local or 'configs/golden_synthetic.json'}).")
             return 1
+        if local:  # 151: a local list's expectations are reference values, so its score is an agreement
+            print("Local cases: the scores compare with the list's reference values (agreement, not accuracy).")
         rows = evals.golden(args.arm, run_one, cases=cases, tracker=args.tracker, use_cache=not args.no_cache,
                             type_key=args.type, jev=not args.no_jev,
                             budget_usd=Decimal(args.budget_usd) if args.budget_usd else None,
                             jev_budget_usd=Decimal(jev_budget) if jev_budget else None,
-                            label="synthetic" if synthetic else "golden")
+                            label="local" if local else "synthetic" if synthetic else "golden")
     # 123: exit code 3 = the budget left cases without a result
     return 3 if report_budget_skips(rows) else 0
 
@@ -906,6 +910,8 @@ def main(argv: list[str] | None = None) -> int:
                                             "without one (Azure always) cannot be called")
     p.add_argument("--synthetic", action="store_true", help="127: the synthetic golden cases of the type "
                                                              "(configs/golden_synthetic.json) instead of the legacy set")
+    p.add_argument("--cases", help="151: a local case list (JSON, outside git) with reference values; the run file is "
+                                   "named <type>_local_<arm> and its scores are an agreement, not an accuracy")
     p.add_argument("--store", help="122: a separate measurement store (results, to-dos and call log stay out of the work store)")
     p.set_defaults(fn=cmd_golden)
 

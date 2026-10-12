@@ -65,6 +65,16 @@ def load_cases(type_key: str = DEFAULT_KEY) -> list[GoldenCase]:
 SYNTHETIC_DIR = RUNS_DIR / "synthetic_golden"
 
 
+def load_case_file(path: Path, type_key: str = DEFAULT_KEY) -> list[GoldenCase]:
+    """151: a local case list (`{"cases": [{"case_id", "path", "expected"}]}`), kept outside git because it names real
+    documents, as for the type recognition (122, `evals_detect.load_case_file`). The expectations are the measurer's
+    reference values (for example another path's results, which makes the score an agreement, not an accuracy); a
+    missing file is skipped."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    return [GoldenCase(case_id=c["case_id"], pdf=Path(c["path"]), expected=dict(c["expected"]), expected_valid=True,
+                       type_key=type_key) for c in data["cases"] if Path(c["path"]).exists()]
+
+
 def load_synthetic_cases(type_key: str = DEFAULT_KEY, out_dir: Path = SYNTHETIC_DIR) -> list[GoldenCase]:
     """127: the synthetic golden cases of one type (`configs/golden_synthetic.json`): each case's single-page PDF is
     written from its rows into `out_dir` (outside git); it is scored only on the fields its `expected` names. Kept apart
