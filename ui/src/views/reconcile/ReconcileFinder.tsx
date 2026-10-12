@@ -8,7 +8,7 @@ import { useState } from "react";
 import type { ReconcileInvoice, ReconcileLine } from "../../api";
 import { t, useLocale } from "../../i18n";
 import { criteria, daysFromDue, type Binding, type FinderEntry, type FinderSections, type Verdict } from "./finder";
-import { dueText, ENGINE, INVOICE_STATE, KIND, MARK, probability, relationText, SIGNAL } from "./labels";
+import { dueText, ENGINE, fxText, INVOICE_STATE, KIND, MARK, probability, relationText, SIGNAL } from "./labels";
 import { display, parseCanonical, show, sum } from "./money";
 import { rest } from "./pairing";
 import { TransactionFacts } from "./LineFacts";
@@ -139,7 +139,7 @@ function amountText(entry: FinderEntry, line: ReconcileLine): { text: string; to
   const fx = m?.fx ?? entry.candidate?.fx;
   if (fx) {
     const ok = (m?.amount_relation ?? entry.candidate?.amount_relation) === "fx_within";
-    return { text: t("{{amount}} at the MNB rate of {{day}}", { amount: show(fx.converted, "HUF"), day: fx.rate_day }), tone: ok ? "ok" : "warn" };
+    return { text: fxText(fx, show(fx.converted, "HUF")), tone: ok ? "ok" : "warn" };
   }
   let diff: bigint | null = null;
   let cur: string | null = entry.invoice.currency;

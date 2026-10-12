@@ -339,7 +339,6 @@
   "A selected line is marked as needing no invoice; undo the mark first.": "A selected line is marked as needing no invoice; undo the mark first.",
   "A selected line is already paired in full.": "A selected line is already paired in full.",
   "A selected invoice is already paid in full.": "A selected invoice is already paid in full.",
-  "A line and an invoice of different currencies pair only one to one and in whole, when the card's conversion relates them.": "A line and an invoice of different currencies pair only one to one and in whole, when the card's conversion relates them.",
   "The amount does not reach every selected item; select fewer.": "The amount does not reach every selected item; select fewer.",
   "To decide": "To decide",
   "All": "All",
@@ -1180,5 +1179,8 @@
   "Not an own party's": "Not an own party's",
   "Sent message: its intent is not asked": "Sent message: its intent is not asked",
   "sent message": "sent message",
-  "Unclear": "Unclear"
+  "Unclear": "Unclear",
+  "{{amount}} at the MNB rate of the fulfilment day, {{day}}": "{{amount}} at the MNB rate of the fulfilment day, {{day}}",
+  "{{amount}} at the MNB rate of the booking day, {{day}}": "{{amount}} at the MNB rate of the booking day, {{day}}",
+  "A line and an invoice of different currencies pair only one to one and in whole, when a conversion at the MNB rate relates them.": "A line and an invoice of different currencies pair only one to one and in whole, when a conversion at the MNB rate relates them."
 }

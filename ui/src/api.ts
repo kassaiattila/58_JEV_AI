@@ -413,7 +413,9 @@ export type ReconcileSignal = "invoice_number" | "reference" | "supplier_account
 /** 141: combined - one of the invoices a line's memo names, whose amounts together are the line's */
 export type ReconcileRelation = "equal" | "different" | "fx_within" | "fx_outside" | "no_rate" | "combined";
 /** 130: a card pair's conversion at the MNB rate of the invoice's issue date (deviation: the line's, as a fraction). */
-export interface ReconcileFx { rate: string; rate_day: string; source: string; converted: string; deviation: string }
+export interface ReconcileFx { rate: string; rate_day: string; source: string; converted: string; deviation: string;
+  /** 149: a forint bank line's rate day: the invoice's fulfilment day or the line's booking day (none: a card line). */
+  basis?: "fulfillment" | "booking" }
 
 // --- 131–132: the reconciliation package (jav/reconcile_package.py) -----------------------------------------------
 /** An own account or card the store has statements of (the scope is chosen from these). */

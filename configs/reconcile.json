@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.12.0",
+    "version": "1.13.0",
     "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person, when a statement counts as verified coverage and how a candidate's strength is weighed. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131, DECISIONS 134.",
     "changelog": [
+      {
+        "version": "1.13.0",
+        "date": "2026-10-12",
+        "note": "149 (backlog F-outgoing-fx, DECISIONS 149): fx.bank - a forint line of a bank account meets an invoice in another currency at the MNB rate of the invoice's fulfilment day, then of the line's booking day (rate_days), in the invoice's payment window; CHF joins the currencies (11 outgoing invoices in francs). Engine 1.15.0."
+      },
       {
         "version": "1.12.0",
         "date": "2026-10-12",
@@ -75,7 +80,7 @@
                     "villamos_energia_szamla", "viz_szamla", "vizmuvek_szamla"],
   "outgoing_types": ["invoice_out"],
   "statement_types": ["statement_cib", "statement_erste", "statement_table"],
-  "currencies": ["HUF", "EUR", "USD", "GBP"],
+  "currencies": ["HUF", "EUR", "USD", "GBP", "CHF"],
   "invoice_fields": {
     "number": "invoice_number",
     "supplier_name": "supplier_name",
@@ -132,7 +137,8 @@
     "window": {
       "days_before_issue": 3,
       "days_after_issue": 10
-    }
+    },
+    "bank": {"statement_types": ["bank_account"], "rate_days": ["fulfillment", "booking"]}
   },
   "payment_review_pattern": "hitelkartya|torleszt|jutalek|kamat|szamlavezetesi dij|kartyadij",
   "replacement": {

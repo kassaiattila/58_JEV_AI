@@ -41,6 +41,17 @@ proposed outside it (`fx_outside`, status `amount_differs`) or without a known r
 needs them covered too. The rates come in the snapshot (`fx_rates`), so the core stays pure; only the processing and
 the command line fetch missing rates, a view reads the store.
 
+**Bank lines in forints against an invoice in another currency** (149): a forint line of a bank account
+(`fx.bank.statement_types`) may pay an invoice in another currency in two ways, measured on the store's 11 named
+payments of 2022-2026: a Hungarian buyer pays the forint value at the MNB rate of the invoice's fulfilment day (5 of
+5 to the forint), and a bank converts foreign money at its own rate on the booking day (6 of 6 within 0.6-1.1% below
+the MNB rate). So the line is compared at the MNB rate of each day in `fx.bank.rate_days` in turn (`bank_rate_days`),
+each with its own band (`policy.json` `reconcile.fx_bank_tolerance`); the first within its band makes the pair
+`fx_within`, otherwise the nearest is `fx_outside`, listed only when the line names the invoice (a payment service
+converting above the rate and a name alone gave 56 such listings on the store). The line is searched in the invoice's
+payment window, as in one currency, and the forint bank accounts count in the coverage of an outgoing invoice in
+another currency (incoming ones keep their card and same-currency accounts).
+
 **Payment method, equal amounts, learnt names** (131, DECISIONS 131): the store's card lines show the payment service
 (PostaCsekk, iCsekk) or a shortened merchant name (EXAMPLETEL*12345), not the supplier, so none of them carried a
 signal. Three additions, all proposals for a person:
@@ -143,7 +154,7 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.14.0"  # 148: a credit line pays an outgoing invoice (its partner the buyer); 1.13.0: a known direction decides
+ENGINE_VERSION = "1.15.0"  # 149: a forint bank line meets another currency; 1.14.0 (148): a credit line pays an outgoing invoice (its partner the buyer); 1.13.0: a known direction decides
 STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
             "no_payment_found", "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate", "combined")  # how a candidate's amounts relate
@@ -612,17 +623,21 @@ def _channel(invoice: dict[str, Any], payment: dict[str, Any]) -> bool:
                                 for ch in _conf()["payment_channels"])
 
 
+def named(invoice: dict[str, Any], payment: dict[str, Any]) -> list[str]:
+    """The signals of a line's text naming the invoice (`NAMED_SIGNALS`): its number, a reference of it."""
+    text = f"{payment.get('memo') or ''} {payment.get('description') or ''}"
+    found = ["invoice_number"] if _number_in(invoice.get("number"), text) else []
+    if any(_number_in(ref, text) for ref in invoice.get("references") or []):
+        found.append("reference")
+    return found
+
+
 def signals(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple[str, str]] | None = None,
             common: frozenset[str] | None = None) -> list[str]:
     """The facts that tie a line to an invoice; the amount is never one of them. `learned`: the (name key, supplier key)
     pairs of a person's confirmations; `common`: the words too common to tie a name (both from `signal_context`)."""
     s = _conf()["signals"]
-    found = []
-    text = f"{payment.get('memo') or ''} {payment.get('description') or ''}"
-    if _number_in(invoice.get("number"), text):
-        found.append("invoice_number")
-    if any(_number_in(ref, text) for ref in invoice.get("references") or []):
-        found.append("reference")
+    found = named(invoice, payment)
     account = account_key(invoice.get("payment_account"))
     if account and account == account_key(payment.get("counterparty_account")):
         found.append("supplier_account")
@@ -695,6 +710,21 @@ def fx_capable(payment: dict[str, Any]) -> bool:
     return payment.get("currency") == f["line_currency"] and payment.get("statement_type") in f["statement_types"]
 
 
+def fx_bank_capable(payment: dict[str, Any]) -> bool:
+    """149: a forint line of a bank account statement (`fx.bank.statement_types`); `meets` leaves out a card purchase
+    the statement prints with its original currency."""
+    f = _conf()["fx"]
+    return payment.get("currency") == f["line_currency"] and payment.get("statement_type") in f["bank"]["statement_types"]
+
+
+def bank_rate_days(invoice: dict[str, Any], payment: dict[str, Any]) -> list[tuple[str, date]]:
+    """149: the days whose MNB rate a forint bank line is compared at, in the order of `fx.bank.rate_days`: the
+    invoice's fulfilment day (its issue day when none was read) and the line's booking day."""
+    days = {"fulfillment": _date(invoice.get("fulfillment_date")) or _date(invoice.get("issue_date")),
+            "booking": _date(payment.get("booking_date"))}
+    return [(basis, day) for basis in _conf()["fx"]["bank"]["rate_days"] if (day := days.get(basis))]
+
+
 def original(payment: dict[str, Any]) -> tuple[str, Decimal] | None:
     """137: a card purchase's original currency and amount, as the bank printed them next to the forint line."""
     currency, amount = payment.get("original_currency"), payment.get("original_amount")
@@ -708,13 +738,16 @@ def original(payment: dict[str, Any]) -> tuple[str, Decimal] | None:
 
 def meets(invoice: dict[str, Any], payment: dict[str, Any]) -> str | None:
     """How a line can pay an invoice: `same` (one currency), `original` (137: a card purchase in the invoice's
-    currency), `fx` (130: a forint card line against another currency, through the MNB rate), or None."""
+    currency), `fx` (130: a forint card line against another currency, through the MNB rate), `fx_bank` (149: a forint
+    bank line against another currency, through the MNB rate of the fulfilment or the booking day), or None."""
     if invoice.get("currency") == payment.get("currency"):
         return "same"
     if (orig := original(payment)) is not None and orig[0] == invoice.get("currency"):
         return "original"
     if fx_capable(payment) and rate_need(invoice):
         return "fx"
+    if fx_bank_capable(payment) and original(payment) is None and rate_need(invoice):
+        return "fx_bank"  # a card purchase printed with its original currency is that currency's, not converted
     return None
 
 
@@ -724,7 +757,7 @@ def pair_window(invoice: dict[str, Any], payment: dict[str, Any]) -> tuple[date,
     how = meets(invoice, payment)
     if how is None:
         return None
-    return window(invoice) if how == "same" else fx_window(invoice)
+    return window(invoice) if how in ("same", "fx_bank") else fx_window(invoice)  # 149: a bank line in the payment window
 
 
 def fx_window(invoice: dict[str, Any]) -> tuple[date, date]:
@@ -748,6 +781,8 @@ def convert(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, A
     conversion behind it: the rate and its day, the converted amount and the line's deviation from it."""
     from jav import policy
 
+    if meets(invoice, payment) == "fx_bank":
+        return _convert_bank(invoice, payment, rates)
     need = rate_need(invoice)
     entry = (rates or {}).get(need[0], {}).get(need[1].isoformat()) if need else None
     if not entry:
@@ -759,6 +794,32 @@ def convert(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, A
     relation = "fx_within" if -below <= deviation <= above else "fx_outside"
     return relation, {"rate": str(entry["rate"]), "rate_day": str(entry["rate_day"]), "source": str(entry.get("source") or "mnb"),
                       "converted": str(expected.quantize(Decimal("0.01"))), "deviation": str(deviation.quantize(Decimal("0.0001")))}
+
+
+def _convert_bank(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, Any] | None
+                  ) -> tuple[str, dict[str, str] | None]:
+    """149: a forint bank line against an invoice of another currency, at the MNB rate of each `bank_rate_days` day in
+    turn, each with its band (`policy.reconcile_fx_bank_tolerance`): the first within makes `fx_within`, otherwise the
+    nearest is `fx_outside`; `no_rate` without any rate. The conversion names the day's kind (`basis`)."""
+    from jav import policy
+
+    currency, amount, paid = str(invoice.get("currency")), money(str(invoice["amount"])), money(str(payment["amount"]))
+    nearest: tuple[Decimal, dict[str, str]] | None = None
+    for basis, day in bank_rate_days(invoice, payment):
+        entry = (rates or {}).get(currency, {}).get(day.isoformat())
+        if not entry:
+            continue
+        expected = amount * Decimal(str(entry["rate"]))
+        deviation = paid / expected - 1
+        conversion = {"rate": str(entry["rate"]), "rate_day": str(entry["rate_day"]), "source": str(entry.get("source") or "mnb"),
+                      "basis": basis, "converted": str(expected.quantize(Decimal("0.01"))),
+                      "deviation": str(deviation.quantize(Decimal("0.0001")))}
+        below, above = policy.reconcile_fx_bank_tolerance(basis)
+        if -below <= deviation <= above:
+            return "fx_within", conversion
+        if nearest is None or abs(deviation) < nearest[0]:
+            nearest = (abs(deviation), conversion)
+    return ("fx_outside", nearest[1]) if nearest else ("no_rate", None)
 
 
 def amount_relation(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, Any] | None = None
@@ -773,7 +834,7 @@ def amount_relation(invoice: dict[str, Any], payment: dict[str, Any], rates: dic
         if how == "original":  # 137: the card purchase's original amount, exactly
             orig = original(payment)
             return ("equal" if orig is not None and orig[1] == money(str(invoice.get("amount"))) else "different"), None
-        if how == "fx":
+        if how in ("fx", "fx_bank"):
             return convert(invoice, payment, rates)
     except (ValueError, InvalidOperation, ZeroDivisionError):
         return None, None
@@ -969,11 +1030,13 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
                 continue
             if how != "same" and (pid in paid_line or iid in paid_invoice):
                 continue  # a pair of two currencies is compared only in whole (DECISIONS 131)
-            start, end = window(inv) if how == "same" else fx_window(inv)
+            start, end = window(inv) if how in ("same", "fx_bank") else fx_window(inv)  # 149: a bank line in the payment window
             if not start <= booked <= end:
                 continue
-            found = signals(inv, pay, learned, common)
             relation, conversion = amount_relation(inv, pay, rates)
+            if how == "fx_bank" and relation != "fx_within" and not named(inv, pay):
+                continue  # 149: a converted bank line outside its band is listed only when it names the invoice
+            found = signals(inv, pay, learned, common)
             if found and set(found) <= WEAK_SIGNALS and relation not in ("equal", "fx_within"):
                 continue  # a payment app pays many bills, a loose name is no proof: alone they tie no other amount (131, 134)
             if not found and not (amount_only and relation == "equal"):
@@ -1021,6 +1084,8 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     card_accounts = {(statement_account(st), str(st.get("currency"))) for st in in_scope.values()
                      if (st.get("statement_type") in f["statement_types"] and st.get("currency") == f["line_currency"])
                      or statement_account(st) in purchases}
+    bank_accounts = {(statement_account(st), str(st.get("currency"))) for st in in_scope.values()  # 149: they pay one too
+                     if st.get("statement_type") in f["bank"]["statement_types"] and st.get("currency") == f["line_currency"]}
     registered = {str(a["key"]): a for a in snapshot.get("own_accounts") or []}
     for key, acct in sorted(registered.items()):  # 138: an account registered in advance has to be covered, statement or not
         for cur in acct.get("currencies") or []:
@@ -1056,6 +1121,9 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             fx_start, fx_end = fx_window(inv)
             cover += [c for key in sorted(card_accounts) if (c := covered(key, fx_start, fx_end)) is not None]
             keys += sorted(card_accounts)
+            if outgoing(inv):  # 149: an outgoing one is paid into a forint bank account, in its payment window
+                cover += [c for key in sorted(bank_accounts - card_accounts) if (c := covered(key, start, end)) is not None]
+                keys += sorted(bank_accounts - card_accounts)
         issued = _date(inv.get("issue_date"))
         untils = [covered_until(key, issued) for key in keys] if issued else []
         checked = None if not untils or None in untils else min(u for u in untils if u is not None)
@@ -1207,6 +1275,20 @@ def handles(doc_type: str | None) -> bool:
     return doc_type in conf["invoice_types"] or doc_type in conf["statement_types"]
 
 
+def bank_rate_needs(invoices: list[dict[str, Any]], statements: list[dict[str, Any]]) -> set[tuple[str, date]]:
+    """149: the (currency, day) rates a forint bank line may need: each foreign-currency invoice's fulfilment (else
+    issue) day, and every booking day of the forint bank lines in each foreign currency present."""
+    f, currencies = _conf()["fx"], set(_conf()["currencies"])
+    banks = [s for s in statements if s.get("statement_type") in f["bank"]["statement_types"] and s.get("currency") == f["line_currency"]]
+    foreign = [inv for inv in invoices if rate_need(inv) and inv.get("currency") in currencies]
+    if not banks or not foreign:
+        return set()
+    needs = {(str(inv["currency"]), day) for inv in foreign
+             if (day := _date(inv.get("fulfillment_date")) or _date(inv.get("issue_date")))}
+    days = {day for s in banks for ln in s.get("lines") or [] if (day := _date(ln.get("booking_date")))}
+    return needs | {(cur, day) for cur in {str(inv["currency"]) for inv in foreign} for day in days}
+
+
 def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False) -> dict[str, Any]:
     """The store's effective invoices and statements, the people's decisions and the exchange rates a card pair needs,
     as a snapshot for `propose`. `current` (doc_id, doc_type, values, validation): the document being processed, in
@@ -1253,6 +1335,7 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
     f = conf["fx"]
     cards = any(s.get("statement_type") in f["statement_types"] and s.get("currency") == f["line_currency"] for s in statements)
     needs = {n for inv in invoices if (n := rate_need(inv)) and inv.get("currency") in conf["currencies"]} if cards else set()
+    needs |= bank_rate_needs(invoices, statements)
     rates = fx.table(needs, fetch_missing=fetch_rates) if needs else {}
     return {"invoices": invoices, "statements": statements, "decisions": decisions, "fx_rates": rates,
             "allocations": allocations, "marks": marks,

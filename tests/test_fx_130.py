@@ -208,7 +208,8 @@ def test_ensure_fetches_the_gap_once_and_then_reads_the_store(db):
 def test_ensure_skips_unhandled_currencies_and_future_days(db):
     service = Service(WEEK)
     with fx.use_transport(service):
-        assert fx.ensure([("CHF", date(2026, 10, 1)), ("USD", NOW.date() + timedelta(days=3))])["status"] == "complete"
+        # 149: CHF is handled now, so the unhandled currency is JPY
+        assert fx.ensure([("JPY", date(2026, 10, 1)), ("USD", NOW.date() + timedelta(days=3))])["status"] == "complete"
     assert service.calls == []
 
 
