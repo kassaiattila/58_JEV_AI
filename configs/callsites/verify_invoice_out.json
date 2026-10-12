@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "verify_invoice_out",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "changelog": [
+   {
+    "version": "1.3.0",
+    "date": "2026-10-12",
+    "note": "151 (backlog F-outgoing-invoice-S-path): own_glossary - the G path keeps this call site's glossary now that the pack has an S path of its own (select_invoice_out); without it the glossary would come from the select call site and every G question would change. The questions sent are the same as before."
+   },
    {
     "version": "1.2.0",
     "date": "2026-10-08",
@@ -25,6 +30,7 @@
  "document": "Outgoing (issued) Hungarian invoice, where our company is the SUPPLIER",
  "glossary": "Document type: Outgoing (issued) Hungarian invoice, where our company is the SUPPLIER. Field names are English identifiers; the document text is verbatim, usually Hungarian.",
  "glossary_in_state": true,
+ "own_glossary": true,
  "request_char_budget": 110000,
  "field_specs": {
   "supplier_name": "the supplier name as printed on the document",

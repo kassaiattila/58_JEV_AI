@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.51",
+    "version": "1.0.52",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.52",
+        "date": "2026-10-12",
+        "note": "151: accept the outgoing invoice's S path questions, whose glossary and instructions quote the Hungarian labels printed on the invoices (configs/callsites/select_invoice_out.json, document vocabulary), and the eight invented Hungarian and English outgoing invoices of the synthetic golden set (configs/golden_synthetic.json, test data)."
+      },
       {
         "version": "1.0.51",
         "date": "2026-10-12",
@@ -281,6 +286,7 @@
     "configs/callsites/reconcile_line.json": 1,
     "configs/callsites/select.json": 34,
     "configs/callsites/select_foreign.json": 24,
+    "configs/callsites/select_invoice_out.json": 25,
     "configs/callsites/select_utility.json": 84,
     "configs/callsites/verify.json": 17,
     "configs/callsites/verify_altalanos_szerzodesi_feltetelek.json": 4,
@@ -316,7 +322,7 @@
     "configs/experiments/source_find_cases.json": 6,
     "configs/field_labels.json": 179,
     "configs/golden_reconcile.json": 9,
-    "configs/golden_synthetic.json": 20,
+    "configs/golden_synthetic.json": 120,
     "configs/grounding.json": 1,
     "configs/intents.json": 34,
     "configs/legacy_types/altalanos_szerzodesi_feltetelek/detect.json": 16,

@@ -212,8 +212,10 @@ class VerifySite:
         self.pack = pack
         self.callsite = pack.verify_callsite
         data = dict(cfg.load(f"callsite:{self.callsite}"))
-        # the glossary comes from the select call site; for a pack without an S path (047), from its own call site
-        names = [f"callsite:{self.callsite}"] + ([f"callsite:{pack.select_callsite}"] if pack.select_callsite else [])
+        # the glossary comes from the select call site; for a pack without an S path (047), from its own call site;
+        # 151: also for a call site with `own_glossary` (its G questions stay as they were when the S path came)
+        own_glossary = bool(data.get("own_glossary")) or not pack.select_callsite
+        names = [f"callsite:{self.callsite}"] + ([] if own_glossary else [f"callsite:{pack.select_callsite}"])
         parent = data.get("inherits")
         if parent:
             base = cfg.load(f"callsite:{parent}")
@@ -224,7 +226,7 @@ class VerifySite:
         self.config_hash = cfg.combine(cfg.config_hash(*names), pack.config_hash)
         self.request_id: str = data.get("request_id", "verify")
         self.document: str = data.get("document", "Hungarian supplier invoice")
-        self.glossary: str = data["glossary"] if not pack.select_callsite else select_site_for(pack.key).glossary
+        self.glossary: str = data["glossary"] if own_glossary else select_site_for(pack.key).glossary
         self.field_specs: dict[str, str] = dict(data["field_specs"])
         self.incomplete_fields = tuple(data["incomplete_fields"])
         self.wrong_kind_fields = tuple(data["wrong_kind_fields"])

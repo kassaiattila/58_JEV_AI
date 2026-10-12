@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "type:invoice_out",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "changelog": [
+   {
+    "version": "1.5.0",
+    "date": "2026-10-12",
+    "note": "151 (backlog F-outgoing-invoice-S-path; DECISIONS 151): an S path (code candidates + a JEV Choice per field, configs/callsites/select_invoice_out.json); arms S and G, default_arm G, so the automatic path stays the G path until the owner decides on the measurement. The G path's verification keeps its own glossary (verify_invoice_out own_glossary), so its questions do not change."
+   },
    {
     "version": "1.4.0",
     "date": "2026-10-07",
@@ -46,8 +51,10 @@
  "golden_type_key": "invoice_out",
  "candidate_profile": "intl",
  "arms": [
+  "S",
   "G"
  ],
+ "default_arm": "G",
  "parent": "invoice_hu",
  "auto_detect": true,
  "detect": {
@@ -61,7 +68,7 @@
  },
  "prompt_file": "invoice_out_prompt.md",
  "schema_file": "invoice_out_schema.json",
- "select_callsite": null,
+ "select_callsite": "select_invoice_out",
  "verify_callsite": "verify_invoice_out",
  "fields": {
   "supplier_name": "name",
