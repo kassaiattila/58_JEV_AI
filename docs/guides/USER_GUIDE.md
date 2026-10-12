@@ -309,7 +309,11 @@ loaded statements cover.
   ties later lines of that name to the same supplier. A line through a payment app teaches nothing.
 - **One transfer for several invoices:** when a line's memo names several invoices and their amounts add up to the line's
   amount exactly, they are proposed together (‘with the other named invoices, the line's amount’). Choosing one of them
-  chooses the whole group, and accepting the unambiguous proposals pairs them all.
+  chooses the whole group, and accepting the unambiguous proposals pairs them all. A forint transfer naming several invoices
+  of one other currency (for example two franc invoices) is compared with their sum at the MNB rate, as a single invoice
+  is (the fulfilment day's rate, then the booking day's); within the band they are proposed together (‘the named invoices
+  together: …’). Paired, each invoice is settled in whole and the line's forints are shared in the ratio of the invoices'
+  converted amounts.
 - **Credit notes:** a supplier's credit note (a negative invoice) that cancels exactly one of its invoices settles it: the
   invoice shows ‘Cancelled by a credit note’ with the credit note's number, and no payment is looked for. Not when a line
   naming the invoice pays it (a refund may follow) or when two invoices could be meant.

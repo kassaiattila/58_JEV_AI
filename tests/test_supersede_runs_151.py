@@ -1,6 +1,6 @@
 """151: superseding an older live run.
 
-A live run that is not approved pins its to-do reasons (066 Á06): no other run takes them over or closes them. When a
+A live run that is not approved pins its to-do reasons (since 066): no other run takes them over or closes them. When a
 later live run of the same package has processed the same items again, the older run can be superseded by a person:
 it stays as a cancelled run, its own open reasons close as `superseded` (they stay in the store), and the package's
 event log records who did it and which run superseded it. Synthetic data, no paid calls.
@@ -103,7 +103,7 @@ def test_human_work_on_the_older_run_is_reported_before_superseding(runs):
                   " VALUES (?,?,1,'{}','teszt.elek','2026-10-12T00:00:00+00:00')", (runs["older"], item))
         rid = c.execute("SELECT id FROM review_reasons WHERE status='open' AND run_id=?",
                         (work.flow_run_id(runs["older"], item),)).fetchone()["id"]
-    work.resolve_reason(rid, actor="teszt.elek", resolution=None, note="rendben")
+    work.resolve_reason(rid, actor="teszt.elek", resolution=None, note="fine")
     offer = work.supersede_info(runs["older"])
     assert offer["corrected_items"] == 1 and offer["resolved_reasons"] == 1 and offer["open_reasons"] == 1
 

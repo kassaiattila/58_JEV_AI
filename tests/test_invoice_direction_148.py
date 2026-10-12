@@ -112,4 +112,4 @@ def test_such_incoming_invoices_are_a_payments_candidates_again(db):
 
 
 def test_the_engine_version_marks_the_change():
-    assert reconcile.ENGINE_VERSION == "1.15.0"  # 149: a forint bank line meets another currency
+    assert reconcile.ENGINE_VERSION == "1.16.0"  # 151: a forint bank line pays invoices of another currency together

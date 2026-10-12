@@ -154,7 +154,7 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.15.0"  # 149: a forint bank line meets another currency; 1.14.0 (148): a credit line pays an outgoing invoice (its partner the buyer); 1.13.0: a known direction decides
+ENGINE_VERSION = "1.16.0"  # 151: a forint bank line pays two or more invoices of another currency together; 1.15.0 (149): a forint bank line meets another currency; 1.14.0 (148): a credit line pays an outgoing invoice (its partner the buyer); 1.13.0: a known direction decides
 STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
             "no_payment_found", "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate", "combined")  # how a candidate's amounts relate
@@ -822,6 +822,50 @@ def _convert_bank(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[
     return ("fx_outside", nearest[1]) if nearest else ("no_rate", None)
 
 
+def convert_combined(invoices: list[dict[str, Any]], payment: dict[str, Any], rates: dict[str, Any] | None
+                     ) -> tuple[str, dict[str, Any] | None]:
+    """151: one forint bank line against two or more invoices of one other currency it pays together. Their sum is
+    converted at the MNB rate of each `bank_rate_days` day in turn (each invoice at its own fulfilment day, all at the
+    line's booking day), each with its band: the first within makes `fx_within`, otherwise the nearest is `fx_outside`;
+    `no_rate` unless every invoice has a rate on some day. The conversion: the day's kind (`basis`), the converted sum,
+    the line's deviation from it, and each invoice's own conversion (`parts`, in the order given)."""
+    from jav import policy
+
+    paid = money(str(payment["amount"]))
+    nearest: tuple[Decimal, dict[str, Any]] | None = None
+    for basis in _conf()["fx"]["bank"]["rate_days"]:
+        parts = []
+        for inv in invoices:
+            day = dict(bank_rate_days(inv, payment)).get(basis)
+            entry = (rates or {}).get(str(inv.get("currency")), {}).get(day.isoformat()) if day else None
+            if not entry:
+                break
+            converted = money(str(inv["amount"])) * Decimal(str(entry["rate"]))
+            parts.append({"rate": str(entry["rate"]), "rate_day": str(entry["rate_day"]), "source": str(entry.get("source") or "mnb"),
+                          "basis": basis, "converted": str(converted.quantize(Decimal("0.01")))})
+        if len(parts) < len(invoices):
+            continue
+        total = sum((money(p["converted"]) for p in parts), Decimal(0))
+        deviation = paid / total - 1
+        conversion = {"basis": basis, "converted": str(total.quantize(Decimal("0.01"))),
+                      "deviation": str(deviation.quantize(Decimal("0.0001"))), "parts": parts}
+        below, above = policy.reconcile_fx_bank_tolerance(basis)
+        if -below <= deviation <= above:
+            return "fx_within", conversion
+        if nearest is None or abs(deviation) < nearest[0]:
+            nearest = (abs(deviation), conversion)
+    return ("fx_outside", nearest[1]) if nearest else ("no_rate", None)
+
+
+def split_line(amount: Decimal, conversion: dict[str, Any]) -> list[Decimal]:
+    """151: a line's amount shared among the invoices of a combined conversion in the ratio of their converted amounts,
+    to two decimals; the rounding goes to the last, so the shares add up to the amount exactly."""
+    weights = [money(p["converted"]) for p in conversion["parts"]]
+    total = sum(weights, Decimal(0))
+    shares = [(amount * w / total).quantize(Decimal("0.01")) for w in weights[:-1]]
+    return [*shares, amount - sum(shares, Decimal(0))]
+
+
 def amount_relation(invoice: dict[str, Any], payment: dict[str, Any], rates: dict[str, Any] | None = None
                     ) -> tuple[str | None, dict[str, str] | None]:
     """How a line's amount relates to an invoice's: `equal` / `different` in one currency or on a card purchase's
@@ -922,25 +966,45 @@ def _named_first(candidates: list[dict[str, Any]]) -> None:
 
 
 def _combine(candidates: list[dict[str, Any]], prepared: dict[str, Any], rest_invoice: dict[str, Decimal],
-             rest_line: dict[str, Decimal]) -> None:
+             rest_line: dict[str, Decimal], rates: dict[str, Any] | None = None) -> None:
     """141: a line without a proposal whose memo names two or more invoices of its currency whose amounts left add up
-    to the line's amount left exactly proposes them together, in the order of issue."""
+    to the line's amount left exactly proposes them together, in the order of issue. 151: so does a forint bank line
+    naming two or more invoices of one other currency whose sum, converted as `convert_combined` does, is within its
+    band (the pairs of two currencies are untouched on both sides, `propose`); each pair carries its own conversion at
+    the day that decided (`fx`) and the group's (`combined_fx`)."""
     limit = int(_conf()["combined"]["max_invoices"])
     by_line: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for c in candidates:
         by_line[c["line_id"]].append(c)
+
+    def by_issue(c: dict[str, Any]) -> tuple[str, str]:
+        return str(prepared["invoices"][c["invoice_id"]].get("issue_date")), c["invoice_id"]
+
     for lid, mine in sorted(by_line.items()):
         if any(c["proposed"] for c in mine):
             continue
+        pay = prepared["payments"][lid]
         group = [c for c in mine if "invoice_number" in c["signals"] and c["amount_relation"] == "different"
                  and c["currency"] == c["line_currency"]]
-        if not 2 <= len(group) <= limit or sum(rest_invoice[c["invoice_id"]] for c in group) != rest_line[lid]:
+        fx = [c for c in mine if "invoice_number" in c["signals"] and c["amount_relation"] in ("fx_outside", "no_rate")
+              and meets(prepared["invoices"][c["invoice_id"]], pay) == "fx_bank"]
+        combined_fx = None
+        if 2 <= len(group) <= limit and sum(rest_invoice[c["invoice_id"]] for c in group) == rest_line[lid]:
+            group.sort(key=by_issue)
+        elif 2 <= len(fx) <= limit and len({c["currency"] for c in fx}) == 1:
+            group = sorted(fx, key=by_issue)
+            relation, combined_fx = convert_combined([prepared["invoices"][c["invoice_id"]] for c in group], pay, rates)
+            if relation != "fx_within" or combined_fx is None:
+                continue
+        else:
             continue
-        group.sort(key=lambda c: (str(prepared["invoices"][c["invoice_id"]].get("issue_date")), c["invoice_id"]))
         ids = [c["invoice_id"] for c in group]
-        for c in group:
+        for n, c in enumerate(group):
             c.update(proposed=True, amount_relation="combined", combined=ids,
-                     **strength(prepared["invoices"][c["invoice_id"]], prepared["payments"][lid], c["signals"], "combined"))
+                     **strength(prepared["invoices"][c["invoice_id"]], pay, c["signals"], "combined"))
+            if combined_fx is not None:
+                c.update(fx=combined_fx["parts"][n],
+                         combined_fx={k: combined_fx[k] for k in ("basis", "converted", "deviation")})
 
 
 def _repeats(prepared: dict[str, Any], candidates: list[dict[str, Any]], confirmed: list[dict[str, Any]],
@@ -1058,7 +1122,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     named_paid = {c["invoice_id"] for c in candidates if c["proposed"] and NAMED_SIGNALS & set(c["signals"])}
     credited = {iid: cid for iid, cid in _credited(prepared, paid_invoice).items() if iid not in named_paid}
     candidates = [c for c in candidates if c["invoice_id"] not in credited]  # 141: a cancelled invoice needs no payment
-    _combine(candidates, prepared, rest_invoice, rest_line)
+    _combine(candidates, prepared, rest_invoice, rest_line, rates)
     proposed_lines = {c["line_id"] for c in candidates if c["proposed"]}
     proposed_invoices = {c["invoice_id"] for c in candidates if c["proposed"]}
     candidates = [c for c in candidates if not c["amount_only"]

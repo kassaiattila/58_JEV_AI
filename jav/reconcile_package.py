@@ -466,7 +466,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     def candidate_view(c: dict[str, Any]) -> dict[str, Any]:
         return {k: c.get(k) for k in ("invoice_id", "line_id", "proposed", "amount_only", "signals", "amount_relation",
                                       "multiple_candidates", "source_review_required", "fx", "original", "strength",
-                                      "days_after_issue", "by_due", "combined")}
+                                      "days_after_issue", "by_due", "combined", "combined_fx")}
 
     lines = []
     for st in statements:
@@ -819,11 +819,45 @@ def _scope_line(ctx: dict[str, Any], line_id: str) -> dict[str, Any]:
     return line
 
 
+def _converted_groups(ctx: dict[str, Any], pairs: list[dict[str, Any]]) -> tuple[dict[tuple[str, str], Decimal], bool]:
+    """151: the lines a step pairs with two or more invoices of another currency (a forint bank line paying them
+    together). Each such group is allocated in whole on both sides: the invoices' whole amounts, the line's whole amount
+    split in the ratio of their converted amounts (`reconcile.convert_combined`, `reconcile.split_line`). Returns each
+    pair's line share and whether a group is outside its band (a reason is needed); `PackageError` for a group that
+    cannot be converted: one of its sides already allocated, an amount given, invoices of several currencies, a line
+    that cannot meet them, or no rate for every invoice."""
+    by_line: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for p in pairs:
+        inv, line = ctx["invoices"].get(str(p["invoice_doc_id"])), ctx["prepared"]["lines"].get(str(p["line_id"]))
+        if inv is not None and line is not None and inv.get("currency") != line.get("currency"):
+            by_line[str(p["line_id"])].append(p)
+    shares: dict[tuple[str, str], Decimal] = {}
+    needs_reason = False
+    for lid, group in by_line.items():
+        if len(group) < 2:
+            continue
+        line = ctx["prepared"]["lines"][lid]
+        invoices = [ctx["invoices"][str(p["invoice_doc_id"])] for p in group]
+        if (ctx["paid_line"].get(lid) or any(ctx["paid_invoice"].get(i["id"]) for i in invoices)
+                or any(p.get("line_amount") or p.get("invoice_amount") for p in group)):
+            raise PackageError("a pair of two currencies is allocated only in whole")
+        if len({i.get("currency") for i in invoices}) > 1 or any(reconcile.meets(i, line) != "fx_bank" for i in invoices):
+            raise PackageError("a line pays several invoices of another currency only from a bank account, in one currency")
+        relation, conversion = reconcile.convert_combined(invoices, line, ctx["snap"].get("fx_rates"))
+        if conversion is None:
+            raise PackageError("a combined payment of another currency needs an exchange rate for every invoice")
+        needs_reason |= relation != "fx_within"
+        for p, share in zip(group, reconcile.split_line(_money(line.get("amount")), conversion)):
+            shares[(str(p["invoice_doc_id"]), lid)] = share
+    return shares, needs_reason
+
+
 def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor: str) -> list[dict[str, Any]]:
     """Allocations of lines to invoices in one step (all or none). A pair without an amount takes what both sides have
     left in one currency, or both whole amounts for a converted card pair. A step that leaves a rest on a line or an
     invoice it touches in one currency (a split), or a converted pair outside the card band or without a rate, needs
-    `note`; 132: instalments or a combined payment that settle every side they touch do not."""
+    `note`; 132: instalments or a combined payment that settle every side they touch do not. 151: a line paying several
+    invoices of another currency together is split in the ratio of their converted amounts (`_converted_groups`)."""
     note = (note or "").strip() or None
     if not pairs:
         raise PackageError("no pair to allocate")
@@ -832,14 +866,16 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
     used_line: dict[str, Decimal] = defaultdict(Decimal)
     used_invoice: dict[str, Decimal] = defaultdict(Decimal)
     rest_after: dict[tuple[str, str], Decimal] = {}  # the rest each one-currency side touched is left with
+    shares, group_reason = _converted_groups(ctx, pairs)  # 151: a line paying several invoices of another currency
+    needs_reason |= group_reason
     for p in pairs:
         iid, lid = str(p["invoice_doc_id"]), str(p["line_id"])
         inv = ctx["invoices"].get(iid)
         if inv is None:
             raise KeyError(iid)
-        if inv["doc_type"] in _conf()["outgoing_types"]:
-            raise PackageError("an outgoing invoice is not paid from an own account")
         line = _scope_line(ctx, lid)
+        if not reconcile.pays(line, inv):  # 151: the engine's side rule (148), not a ban on the outgoing type
+            raise PackageError("the line is not on the invoice's side: incoming money pays an outgoing invoice, a payment an incoming one")
         _unlocked(ctx, [lid])
         if lid in ctx["marks"]:
             raise PackageError("the line is marked as needing no invoice; revoke the mark first")
@@ -856,6 +892,8 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
             la = ia = share
             rest_after[("line", lid)] = line_rest - la
             rest_after[("invoice", iid)] = invoice_rest - ia
+        elif (iid, lid) in shares:
+            la, ia = shares[(iid, lid)], invoice_total
         else:
             if (ctx["paid_line"].get(lid) or ctx["paid_invoice"].get(iid) or used_line[lid] or used_invoice[iid]
                     or p.get("line_amount") or p.get("invoice_amount")):

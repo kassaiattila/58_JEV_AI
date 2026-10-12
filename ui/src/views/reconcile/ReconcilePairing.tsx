@@ -603,6 +603,7 @@ function InvoiceRow({ invoice, candidate, index, selected, onToggle, readOnly, s
               {candidate.multiple_candidates ? <span className="rc-sig warn">{t("several candidates")}</span> : null}
               {candidate.source_review_required ? <span className="rc-sig warn">{t("statement balances do not check out")}</span> : null}
               {candidate.fx ? <span className="rc-sig">{fxText(candidate.fx, show(candidate.fx.converted, "HUF"))}</span> : null}
+              {candidate.combined_fx ? <span className="rc-sig good">{t("the named invoices together: {{amount}}", { amount: show(candidate.combined_fx.converted, "HUF") })}</span> : null}
               {candidate.original ? <span className="rc-sig good">{t("on the card purchase's original {{amount}}", { amount: show(candidate.original.amount, candidate.original.currency) })}</span> : null}
             </span>
           ) : null}
