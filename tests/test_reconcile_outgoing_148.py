@@ -159,6 +159,8 @@ def test_the_package_of_the_issuing_party_pairs_its_outgoing_invoice(db):
     ws = rp.workspace(wp)
     own = {i["id"]: i["own"] for i in ws["invoices"]}
     assert own == {out: True, home_out: False}  # an outgoing invoice belongs to its issuer's package
+    row = next(i for i in ws["invoices"] if i["id"] == out)
+    assert row["outgoing"] is True and row["partner_name"] == "Northwind Trading Ltd."  # shown as the invoice's partner
     (line,) = ws["lines"]
     assert line["direction"] == "credit" and line["state"] == "proposed"
 

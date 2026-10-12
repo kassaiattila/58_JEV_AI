@@ -21,7 +21,7 @@ const signed = (line: ReconcileLine): bigint | null => {
   return v === null ? null : line.direction === "credit" ? v : -v;
 };
 const lineTitle = (l: ReconcileLine) => l.counterparty_name || l.description || l.memo || "–";
-const invoiceTitle = (i: ReconcileInvoice) => [i.supplier_name, i.number].filter(Boolean).join(" · ") || i.file || "–";
+const invoiceTitle = (i: ReconcileInvoice) => [i.partner_name ?? i.supplier_name, i.number].filter(Boolean).join(" · ") || i.file || "–";
 
 /** The selected line pinned above the invoices: what is searched for, how much the ticked invoices cover, and the
  *  decisions already made on it (each can be undone). */

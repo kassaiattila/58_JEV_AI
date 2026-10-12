@@ -199,7 +199,7 @@ export interface QuickReviewLine {
   /** the reason a mark group suggests */
   category?: string;
   /** the invoices a sure pair pays */
-  invoices?: { id: string; number: string | null; supplier_name: string | null; amount: string | null; currency: string | null;
+  invoices?: { id: string; number: string | null; supplier_name: string | null; partner_name?: string | null; amount: string | null; currency: string | null;
     issue_date: string | null }[];
   ai?: Partial<Record<"jev" | "gpt", { kind: string; probability: number | null }>>;
   earlier_lines?: number;
@@ -542,6 +542,8 @@ export interface ReconcileAiProposal {
 }
 export interface ReconcileInvoice {
   id: string; doc_type: string; number: string | null; supplier_name: string | null; amount: string | null; currency: string | null;
+  /** 148: an own party's outgoing invoice, and the partner it is shown by (the buyer of an outgoing invoice) */
+  outgoing?: boolean; partner_name?: string | null;
   issue_date: string | null; due_date: string | null; payment_method: string | null; file: string | null; state: string | null;
   allocated: string; rest: string | null; allocations: ReconcileShare[]; candidates: ReconcileCandidate[];
   source: "approved" | "not_approved" | "no_run";

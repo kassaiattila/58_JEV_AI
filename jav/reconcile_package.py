@@ -546,6 +546,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
         paid = paid_invoice.get(iid, Decimal(0))
         invoice_rows.append({"id": iid, "doc_type": inv.get("doc_type"), "number": inv.get("number"),
                              "supplier_name": inv.get("supplier_name"), "amount": inv.get("amount"),
+                             "outgoing": reconcile.outgoing(inv), "partner_name": reconcile.partner_name(inv),  # 148
                              "currency": inv.get("currency"), "issue_date": inv.get("issue_date"), "due_date": inv.get("due_date"),
                              "payment_method": inv.get("payment_method"), "file": files.get(iid),
                              "state": status.get(iid, {}).get("status"), "allocated": str(paid),

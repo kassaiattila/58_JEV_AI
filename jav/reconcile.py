@@ -437,6 +437,11 @@ def partner_view(invoice: dict[str, Any]) -> dict[str, Any]:
             "payment_account": None}
 
 
+def partner_name(invoice: dict[str, Any]) -> Any:
+    """148: the name the invoice is shown by: its partner's (`partner_view`), the buyer of an outgoing invoice."""
+    return partner_view(invoice).get("supplier_name")
+
+
 def _supplier_key(invoice: dict[str, Any]) -> str:
     return fact_checks.tax_party_key(invoice.get("supplier_tax_id")) or normalize(invoice.get("supplier_name"))
 
