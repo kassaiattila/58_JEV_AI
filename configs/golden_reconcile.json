@@ -1,9 +1,10 @@
 {
   "meta": {
     "name": "golden_reconcile",
-    "version": "1.10.0",
+    "version": "1.11.0",
     "description": "128 F-reconciliation: invented golden cases for jav/reconcile.py (no real data). Each case is a snapshot (invoices, statements with their lines, optionally a person's decisions per invoice and line) and the expected proposal: the candidate pairs [line, invoice, proposed, multiple], the exclusions [kind, id, reason], every invoice's status, the confirmed pairs [line, invoice] and the pairs listed only for their equal amount [line, invoice]; optionally the amount relation and the signals of named pairs. Expectation: every case exactly (DECISIONS 128).",
     "changelog": [
+    {"version": "1.11.0", "date": "2026-10-12", "note": "148 (DECISIONS 148, invoice direction): one case. An invoice typed as outgoing whose direction is incoming (an own buyer, a supplier no own party is tied to) is paid like any incoming invoice: a known direction decides over the type."},
     {"version": "1.10.0", "date": "2026-10-12", "note": "147 (DECISIONS 147, invoice direction): one case. An invoice whose supplier is an own party (its direction outgoing, from the own parties' identities) is left out as an outgoing invoice whatever its type, as one typed as outgoing."},
     {"version": "1.9.0", "date": "2026-10-11", "note": "142 (DECISIONS 142, the reconciliation result's first part): nine cases. An invoice allocated to one line with a second line of its amount naming it, and one whose two lines of its amount both name it, are possible double payments (repeats); a monthly bill each month's line pays (named or not), a second line a person rejected or marked, and a second line of another amount are none. The day an invoice is checked until stops at a month without a statement and runs to the last statement without one. Expectations may name the possible double payments (repeats; none when absent) and the checked-until days."},
     {"version": "1.8.0", "date": "2026-10-11", "note": "141 (DECISIONS 141, the sports club's trial): eight cases. A line whose memo names several invoices whose amounts add up to it exactly proposes them together (combined), not when the sum differs; a credit note that cancels exactly one invoice of its supplier settles it (credited), not when two invoices could be cancelled or when a line names the invoice; a line booked well before the issue date without the invoice's number is no candidate, with it it stays an advance payment; a line whose memo names one invoice proposes no other of the same amount."},
@@ -85,6 +86,10 @@
      "invoices": [{"id": "i1", "number": "INV-0001", "direction": "outgoing"}],
      "statements": [{"id": "s1", "lines": [{"id": "t1"}]}],
      "expected": {"pairs": [], "excluded": [["invoice", "i1", "outgoing_invoice"]], "status": {"i1": "excluded"}}},
+    {"id": "typed_outgoing_but_incoming", "note": "148: typed as outgoing, but its direction (from the own parties) is incoming: a known direction decides, so it is paid",
+     "invoices": [{"id": "i1", "number": "INV-0001", "doc_type": "invoice_out", "direction": "incoming"}],
+     "statements": [{"id": "s1", "lines": [{"id": "t1"}]}],
+     "expected": {"pairs": [["t1", "i1", true, false]], "excluded": [], "status": {"i1": "proposed"}}},
     {"id": "duplicate_invoice", "note": "legacy duplicate_invoice: the same supplier and number twice without a decision; both wait for the duplicate decision",
      "invoices": [{"id": "i1", "number": "INV-0001"}, {"id": "i2", "number": "INV 0001"}],
      "statements": [{"id": "s1", "lines": [{"id": "t1"}]}],

@@ -143,7 +143,7 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.12.0"  # 147: an invoice whose supplier is an own party is outgoing (its direction)
+ENGINE_VERSION = "1.13.0"  # 148: a known direction decides over the outgoing type; a misread supplier name is not an own party
 STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
             "no_payment_found", "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate", "combined")  # how a candidate's amounts relate
@@ -460,7 +460,8 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             reason = "unsupported_currency"
         if not _date(inv.get("issue_date")):
             reason = "missing_issue_date"
-        if inv.get("doc_type") in conf["outgoing_types"] or inv.get("direction") == "outgoing":  # 147: by the own parties too
+        # 147: by the own parties too; 148: an invoice's direction, when known, decides over its type
+        if (inv["direction"] == "outgoing") if inv.get("direction") else inv.get("doc_type") in conf["outgoing_types"]:
             reason = "outgoing_invoice"
         if inv.get("duplicate") == "copy":
             reason = "duplicate_copy"

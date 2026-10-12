@@ -384,10 +384,18 @@ class Resolver:
     def invoice(self, buyer_name: Any, buyer_tax_id: Any) -> tuple[str | None, str | None]:
         """(party id, how): `tax`, `name`, `similar`; (None, `ambiguous`) when two parties' variants are in the name;
         (None, None) when nothing ties it, or its identity is dismissed."""
-        tk = tax_key(buyer_tax_id)
-        if tk and self.taxes.get(tk):
-            return self.taxes[tk], "tax"
-        nk = name_key(buyer_name)
+        party = self.by_tax(buyer_tax_id)
+        return (party, "tax") if party else self.by_name(buyer_name)
+
+    def by_tax(self, tax_id: Any) -> str | None:
+        """The party a tax number is registered to; None for an unknown or a dismissed one."""
+        tk = tax_key(tax_id)
+        return self.taxes.get(tk) if tk else None
+
+    def by_name(self, name: Any) -> tuple[str | None, str | None]:
+        """(party id, how) by a name alone: `name`, `similar`; (None, `ambiguous`) when two parties' variants are in
+        it; (None, None) when nothing ties it, or its identity is dismissed."""
+        nk = name_key(name)
         if not nk:
             return None, None
         if nk in self.names:
@@ -400,6 +408,10 @@ class Resolver:
 
     def account(self, key: str) -> str | None:
         return self.accounts.get(key)
+
+    def has_tax(self, party_id: str) -> bool:
+        """Whether the party has a tax number registered (148: then another number read beside its name contradicts it)."""
+        return party_id in self.taxes.values()
 
 
 def resolver() -> Resolver:
@@ -414,24 +426,73 @@ def direction(res: Resolver, doc_type: str | None, values: dict[str, Any]) -> tu
     its two sides (the supplier read as the buyer is: tax number, name, a similar name), by the reconciliation's field
     names (`reconcile.json` `invoice_fields`): `incoming` (the buyer is an own party), `outgoing` (the supplier is, or
     the type is an outgoing invoice), `internal` (two own parties: incoming for the buyer, outgoing for the supplier),
-    `not_own` (neither side), `unclear` (the same party on both sides, or a name two parties' variants fit)."""
+    `not_own` (neither side), `unclear` (the same party on both sides, or a name two parties' variants fit).
+
+    148 (DECISIONS 148): each side is weighed for a party (`_Side`), since the store's misread sides showed an own name
+    beside another company's tax number, swapped tax numbers and one number on both sides. An invoice is outgoing only on
+    consistent evidence (an outgoing invoice is left out of the pairing of payments); conflicting evidence leaves it
+    unclear; when the same party is on both sides, it is incoming if only the supplier side has evidence against the
+    party, otherwise unclear. The outgoing type
+    decides only when the parties do not say incoming (an own buyer and a supplier no own party is tied to)."""
     conf = cfg.load("reconcile")
     fields = conf["invoice_fields"]
 
     def first(keys: str | list[str]) -> Any:
         return next((values.get(k) for k in ([keys] if isinstance(keys, str) else keys) if values.get(k) not in (None, "")), None)
 
-    supplier, s_how = res.invoice(first(fields["supplier_name"]), first(fields["supplier_tax_id"]))
-    buyer, b_how = res.invoice(first(fields["buyer_name"]), first(fields["buyer_tax_id"]))
-    if "ambiguous" in (s_how, b_how):
+    s_side = _Side.read(res, first(fields["supplier_name"]), first(fields["supplier_tax_id"]))
+    b_side = _Side.read(res, first(fields["buyer_name"]), first(fields["buyer_tax_id"]))
+    if s_side.ambiguous or b_side.ambiguous:
         return "unclear", None
-    if doc_type in conf["outgoing_types"]:
+    if s_side.tax_key and s_side.tax_key == b_side.tax_key and not s_side.by_tax:
+        s_side.tax_key = b_side.tax_key = None  # another company's number on both sides is a copy: no evidence
+    supplier, buyer = s_side.best(res), b_side.best(res)
+    if doc_type in conf["outgoing_types"] and (supplier or not buyer):
         return "outgoing", supplier
     if supplier and buyer:
-        return ("unclear", None) if supplier == buyer else ("internal", None)
+        if supplier != buyer:
+            return "internal", None
+        # the same party on both sides: one side is misread. Only the incoming reading may win (a clean buyer side, a
+        # supplier side with evidence against it): an own name on the buyer side is evidence enough against outgoing.
+        if not b_side.against(res, buyer) and s_side.against(res, supplier):
+            return "incoming", buyer
+        return "unclear", None
     if supplier:
-        return "outgoing", supplier
-    return ("incoming", buyer) if buyer else ("not_own", None)
+        return ("outgoing", supplier) if s_side.net(res, supplier) > 0 else ("unclear", None)
+    if buyer:
+        return ("incoming", buyer) if b_side.net(res, buyer) > 0 else ("unclear", None)
+    return "not_own", None
+
+
+class _Side:
+    """148: what one side of an invoice says of the own parties, by its name and by its tax number."""
+
+    def __init__(self, by_name: str | None, named: bool, by_tax: str | None, tax_key: str | None, ambiguous: bool):
+        self.by_name, self.named, self.by_tax, self.tax_key, self.ambiguous = by_name, named, by_tax, tax_key, ambiguous
+
+    @classmethod
+    def read(cls, res: Resolver, name: Any, tax_id: Any) -> _Side:
+        by_name, how = res.by_name(name)
+        by_tax = res.by_tax(tax_id)
+        return cls(by_name, bool(name_key(name)), by_tax, tax_key(tax_id), how == "ambiguous" and not by_tax)
+
+    def parties(self) -> set[str]:
+        return {p for p in (self.by_name, self.by_tax) if p}
+
+    def support(self, party: str) -> int:
+        """The evidence for the party being on this side: its tax number counts two, its name one."""
+        return (self.by_name == party) + 2 * (self.by_tax == party)
+
+    def against(self, res: Resolver, party: str) -> int:
+        """The evidence against: another name, and another tax number when the party has one registered."""
+        return (self.named and self.by_name != party) + 2 * bool(self.tax_key and self.by_tax != party and res.has_tax(party))
+
+    def net(self, res: Resolver, party: str) -> int:
+        return self.support(party) - self.against(res, party)
+
+    def best(self, res: Resolver) -> str | None:
+        """The party this side names with the most net evidence (by id on a tie), or None."""
+        return max(sorted(self.parties()), key=lambda p: self.net(res, p), default=None)
 
 
 # --- the proposal from the data -------------------------------------------------------------------------------------------
