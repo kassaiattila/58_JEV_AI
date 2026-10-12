@@ -1,9 +1,19 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.40",
+    "version": "1.0.42",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.42",
+        "date": "2026-10-12",
+        "note": "147: accept the Hungarian translations of the workflow step notes the interface test checks (ui/src/views/workflows/repeat147.test.tsx)."
+      },
+      {
+        "version": "1.0.41",
+        "date": "2026-10-12",
+        "note": "147: accept the Hungarian interface labels the user guide quotes for repeating a workflow for the next period (docs/guides/USER_GUIDE.md 4.1)."
+      },
       {
         "version": "1.0.40",
         "date": "2026-10-11",
@@ -342,7 +352,7 @@
     "docs/flows/invoice/FLOW.md": 17,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 221,
+    "docs/guides/USER_GUIDE.md": 222,
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
@@ -642,6 +652,7 @@
     "ui/src/views/settings/UncertainCallsPanel.tsx": 11,
     "ui/src/views/settings/UsersPanel.tsx": 11,
     "ui/src/views/settings/VersionPanel.tsx": 5,
+    "ui/src/views/workflows/repeat147.test.tsx": 3,
     "ui/vite.config.ts": 3
   }
 }

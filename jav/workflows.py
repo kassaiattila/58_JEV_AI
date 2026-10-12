@@ -19,6 +19,10 @@ time), `pulling` (a mailbox download queued), `started`, `linked`, `needs_budget
 sees (`status`) adds the package's own next step. `advance` moves the chain on; the worker calls `tick` in its loop
 (at most every `TICK_EVERY_S`), the service on creation and when a person starts a step.
 
+147 (DECISIONS 147): a workflow is repeated for the next period from a draft the wizard shows filled in
+(`repeat_draft`); a documents step may take only the documents no live run has processed yet (`only_new`), so the
+folder of a year's invoices does not bring last month's back. The two workflows are linked (`previous_id`).
+
 Layer: UI/CLI → **this** (application operation) → `jav.work`, `jav.statement_package`, `jav.reconcile_package`,
 `jav.mailbox`, `jav.parties` and `jav.work_views.next_step`. No AI call here: the runs it starts call them, within their
 budgets.
@@ -30,13 +34,12 @@ import json
 import logging
 import time
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
 from jav import app_settings, cfg, mailbox, parties, reconcile_package, statement_package, store, work
-from jav.native_contracts import DOCUMENT_SUFFIXES
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +64,8 @@ CREATE TABLE IF NOT EXISTS workflows (
     status        TEXT NOT NULL DEFAULT 'open', -- open | archived
     actor         TEXT NOT NULL,       -- who made it: the owner of its packages
     created_at    TEXT NOT NULL,
-    updated_at    TEXT NOT NULL
+    updated_at    TEXT NOT NULL,
+    previous_id   TEXT                 -- 147: the workflow this one repeats for the next period
 );
 CREATE TABLE IF NOT EXISTS workflow_steps (
     workflow_id    TEXT NOT NULL,
@@ -88,6 +92,15 @@ CREATE TABLE IF NOT EXISTS workflow_events (
     created_at  TEXT NOT NULL
 );
 """)
+
+
+def _migrate(conn) -> None:
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(workflows)")}
+    if cols and "previous_id" not in cols:  # 147: a workflow repeated for the next period
+        conn.execute("ALTER TABLE workflows ADD COLUMN previous_id TEXT")
+
+
+store.register_migration("workflows", _migrate)
 
 
 class WorkflowError(ValueError):
@@ -162,23 +175,27 @@ def _budget(raw: dict[str, Any] | None) -> dict[str, str]:
 
 
 def _source(kind: str, raw: dict[str, Any] | None) -> dict[str, Any]:
-    """A step's source as the wizard gave it, checked against the kind's allowed sources."""
+    """A step's source as the wizard gave it, checked against the kind's allowed sources. A documents step's folder or
+    files may take only the documents no live run has processed yet (`only_new`, 147)."""
     raw = dict(raw or {})
     src = raw.get("kind")
     if src not in config()["kinds"][kind]["sources"]:
         raise WorkflowError(f"a {kind} step takes no {src!r} source")
+    only_new = {"only_new": bool(raw.get("only_new"))} if kind == "documents" else {}
+    if raw.get("only_new") and not only_new:
+        raise WorkflowError("only a documents step can leave out the documents a live run has processed")
     if src == "folder":
         folder = Path(str(raw.get("folder") or ""))
         if not folder.is_dir():
             raise WorkflowError(f"folder does not exist: {folder}")
-        return {"kind": "folder", "folder": str(folder), "recursive": bool(raw.get("recursive"))}
+        return {"kind": "folder", "folder": str(folder), "recursive": bool(raw.get("recursive"))} | only_new
     if src == "files":
         paths = [str(p) for p in raw.get("paths") or [] if str(p).strip()]
         if not paths:
             raise WorkflowError("give at least one file")
         if missing := [p for p in paths if not Path(p).is_file()]:
             raise WorkflowError(f"{len(missing)} file(s) do not exist, the first: {missing[0]}")
-        return {"kind": "files", "paths": paths}
+        return {"kind": "files", "paths": paths} | only_new
     if src == "mailbox":
         request = mailbox.MailboxRequest.model_validate(raw.get("request") or {})
         return {"kind": "mailbox", "request": request.model_dump(mode="json")}
@@ -203,13 +220,16 @@ def _check_package(kind: str, wp_id: str) -> None:
 
 def create(*, template_id: str, party_id: str, period_start: Any, period_end: Any, steps: dict[str, dict[str, Any]],
            actor: str, name: str | None = None, names: dict[str, str] | None = None, auto: bool = True,
-           advance_now: bool = True) -> dict[str, Any]:
+           advance_now: bool = True, previous: str | None = None) -> dict[str, Any]:
     """A new workflow of a template of several steps: every step needs its source (`steps[step]["source"]`) and may
     have a budget (`steps[step]["budget"]`, {provider: usd}); `names` are the steps' package names (the interface
-    passes them in its language). With `advance_now` the steps that wait for nothing start at once."""
+    passes them in its language). With `advance_now` the steps that wait for nothing start at once. `previous` (147):
+    the workflow this one repeats for the next period (`repeat_draft`)."""
     t = template(template_id)
     if not is_workflow(t):
         raise WorkflowError("a one-step template makes a work package, not a workflow")
+    if previous is not None and _brief(previous) is None:
+        raise WorkflowError(f"no workflow {previous!r} to repeat")
     party = _party(party_id)
     start, end = _period(period_start, period_end)
     defs = {s["id"]: s for s in t["steps"]}
@@ -229,9 +249,9 @@ def create(*, template_id: str, party_id: str, period_start: Any, period_end: An
     with store.connect() as c:
         store.begin_immediate(c)
         c.execute("INSERT INTO workflows(id, template, definition, name, party_id, period_start, period_end, auto, actor,"
-                  " created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                  " created_at, updated_at, previous_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                   (wf_id, t["id"], json.dumps(t, ensure_ascii=False), title[:200], party["id"], start, end, int(auto),
-                   actor, now, now))
+                   actor, now, now, previous))
         for sid, source, budget, step_name in rows:
             linked = source["kind"] == "package"
             c.execute("INSERT INTO workflow_steps(workflow_id, step, source, budget, name, state, workpackage_id,"
@@ -239,7 +259,7 @@ def create(*, template_id: str, party_id: str, period_start: Any, period_end: An
                       (wf_id, sid, json.dumps(source, ensure_ascii=False), json.dumps(budget), step_name,
                        "linked" if linked else "waiting", source.get("workpackage_id"), now))
         _event(c, wf_id, None, "create", actor, {"template": t["id"], "party": party["id"], "period": [start, end],
-                                                  "auto": bool(auto)})
+                                                  "auto": bool(auto)} | ({"previous": previous} if previous else {}))
     if advance_now:
         advance(wf_id, actor=actor)
     return view(wf_id)
@@ -393,18 +413,29 @@ def view(wf_id: str) -> dict[str, Any]:
     with store.connect() as c:
         events = [dict(r) for r in c.execute("SELECT step, action, actor, detail, created_at FROM workflow_events"
                                              " WHERE workflow_id=? ORDER BY id DESC LIMIT 50", (wf_id,))]
+        repeated = [dict(r) for r in c.execute("SELECT id, name, period_start, period_end FROM workflows WHERE previous_id=?"
+                                               " ORDER BY period_start, created_at", (wf_id,))]
     for e in events:
         e["detail"] = json.loads(e["detail"] or "{}")
     return {"workflow": {k: wf[k] for k in ("id", "template", "name", "party_id", "period_start", "period_end", "auto",
                                             "status", "actor", "created_at", "updated_at")}
             | {"party": party_names.get(wf["party_id"], wf["party_id"]), "template_title": wf["definition"]["title"]},
             "steps": out_steps, "done": sum(1 for s in out_steps if s["done"]), "total": len(out_steps),
-            "next": {"step": first["id"], "status": first["status"]} if first else None, "events": events}
+            "next": {"step": first["id"], "status": first["status"]} if first else None, "events": events,
+            "repeat_of": _brief(wf["previous_id"]) if wf.get("previous_id") else None, "repeated_as": repeated}
+
+
+def _brief(wf_id: str) -> dict[str, Any] | None:
+    """A workflow's id, name and period (the other end of a repeat), or None."""
+    with store.connect() as c:
+        row = c.execute("SELECT id, name, period_start, period_end FROM workflows WHERE id=?", (wf_id,)).fetchone()
+    return dict(row) if row else None
 
 
 def _shown_source(source: dict[str, Any]) -> dict[str, Any]:
     if source["kind"] == "files":
-        return {"kind": "files", "count": len(source["paths"]), "first": Path(source["paths"][0]).name}
+        return {"kind": "files", "count": len(source["paths"]), "first": Path(source["paths"][0]).name,
+                "only_new": bool(source.get("only_new"))}
     if source["kind"] == "mailbox":
         req = source["request"]
         return {"kind": "mailbox", "accounts": req.get("accounts"), "folders": req.get("folders")}
@@ -422,6 +453,74 @@ def workflows(*, include_archived: bool = False) -> list[dict[str, Any]]:
         out.append({**v["workflow"], "done": v["done"], "total": v["total"], "next": v["next"],
                     "steps": [{"id": s["id"], "title": s["title"], "status": s["status"]} for s in v["steps"]]})
     return out
+
+
+# --- repeating (147) ----------------------------------------------------------------------------------------------------
+
+
+def _first_of_month_after(d: date, months: int) -> date:
+    m = d.month - 1 + months
+    return date(d.year + m // 12, m % 12 + 1, 1)
+
+
+def next_period(start: Any, end: Any) -> tuple[str, str]:
+    """The period after this one: whole calendar months are followed by as many months (a month by the next month, a
+    quarter by the next quarter); any other period by one as long, right after it."""
+    a, b = (date.fromisoformat(d) for d in _period(start, end))
+    after = b + timedelta(days=1)
+    if a.day == 1 and after.day == 1:
+        months = (after.year - a.year) * 12 + after.month - a.month
+        return after.isoformat(), (_first_of_month_after(after, months) - timedelta(days=1)).isoformat()
+    return after.isoformat(), (after + (b - a)).isoformat()
+
+
+def _package_source(kind: str, wp_id: str) -> dict[str, Any] | None:
+    """The source a linked package's step repeats from: the package's folder (a documents or statements package made
+    from one), nothing for a reconciliation; None when it cannot be told (the wizard asks for it)."""
+    if kind == "reconcile":
+        return {"kind": "none"}
+    try:
+        wp = work.get(wp_id)
+    except KeyError:
+        return None
+    ref = wp.get("source_ref")
+    if kind in ("documents", "statements") and wp["source_kind"] in ("folder", "watch", "statements") and ref \
+            and Path(ref).is_dir():
+        return {"kind": "folder", "folder": ref, "recursive": False} | ({"only_new": True} if kind == "documents" else {})
+    return None
+
+
+def _repeated_source(kind: str, source: dict[str, Any], period: tuple[str, str], wf: dict[str, Any]) -> dict[str, Any] | None:
+    if source["kind"] == "package":
+        return _package_source(kind, source["workpackage_id"])
+    if kind == "documents" and source["kind"] in ("folder", "files"):
+        return source | {"only_new": True}  # last period's documents are not brought back
+    if source["kind"] == "mailbox":
+        req = dict(source["request"])
+        if req.get("received_from") or req.get("received_to"):
+            own = (req.get("received_from"), req.get("received_to"))
+            moved = period if own == (wf["period_start"], wf["period_end"]) else next_period(
+                own[0] or wf["period_start"], own[1] or wf["period_end"])
+            req["received_from"], req["received_to"] = moved
+        return {"kind": "mailbox", "request": req}  # a number of days stays as it is
+    return source
+
+
+def repeat_draft(wf_id: str) -> dict[str, Any]:
+    """The workflow for the next period as the wizard shows it filled in: the template, the party, the steps' sources and
+    budgets, the name with the new period (None when the name does not hold the period: the wizard proposes one). A
+    documents step takes only the documents no live run has processed; a mailbox's dates move on. Nothing is written: a
+    person checks it and makes the new workflow (`create` with `previous`), approving its budgets again."""
+    wf = _row(wf_id)
+    period = next_period(wf["period_start"], wf["period_end"])
+    name = wf["name"]
+    named = wf["period_start"] in name and wf["period_end"] in name
+    steps = _steps(wf_id)
+    return {"template": wf["template"], "party_id": wf["party_id"], "period_start": period[0], "period_end": period[1],
+            "name": name.replace(wf["period_start"], period[0]).replace(wf["period_end"], period[1]) if named else None,
+            "auto": wf["auto"], "previous": wf_id,
+            "steps": {s["id"]: {"source": _repeated_source(s["kind"], steps[s["id"]]["source"], period, wf),
+                                "budget": steps[s["id"]]["budget"]} for s in wf["definition"]["steps"]}}
 
 
 # --- moving on ----------------------------------------------------------------------------------------------------------
@@ -529,17 +628,7 @@ def _start(wf: dict[str, Any], sdef: dict[str, Any], *, actor: str, states: tupl
             pull = mailbox.request_pull(req, actor=wf["actor"], dedup_key=f"workflow:{wf['id']}:{step}:{uuid.uuid4().hex[:8]}")
             _done(wf, step, actor, "pull", state="pulling", pull_id=str(pull["id"]))
         elif sdef["kind"] == "documents":
-            if source["kind"] == "folder":  # with the subfolders, the output folder of the named copies is left out
-                out = app_settings.output_folder() if source["recursive"] else None
-                wp = work.create_from_folder(Path(source["folder"]), name=st["name"], owner=wf["actor"],
-                                             recursive=source["recursive"], exclude=[Path(out)] if out else [])
-            else:
-                wp = work.create_from_files([Path(p) for p in source["paths"]], name=st["name"], owner=wf["actor"])
-            if not work.get(wp["id"])["items"]:
-                work.delete_workpackage(wp["id"], actor=actor)
-                _done(wf, step, actor, "nothing_new", state="nothing_new", note="no documents in the folder")
-                return
-            _start_run(wf, sdef, st, wp["id"], actor=actor)
+            _start_documents(wf, sdef, st, actor=actor)
         elif sdef["kind"] == "statements":
             _start_statements(wf, sdef, st, actor=actor)
         elif sdef["kind"] == "reconcile":
@@ -554,6 +643,44 @@ def _start(wf: dict[str, Any], sdef: dict[str, Any], *, actor: str, states: tupl
     except Exception as exc:  # the step shows why; a person retries it
         log.warning("workflow %s step %s did not start: %s", wf["id"], step, exc)
         _done(wf, step, actor, "failed", state="failed", note=str(exc)[:1000])
+
+
+def _exclude(source: dict[str, Any]) -> list[Path]:
+    """With the subfolders, the output folder of the named copies is left out (they are not new documents)."""
+    out = app_settings.output_folder() if source.get("recursive") else None
+    return [Path(out)] if out else []
+
+
+def _documents(source: dict[str, Any]) -> tuple[list[Path], list[Path]]:
+    """A documents step's documents, and those left out because a live run has processed them (`only_new`, 147)."""
+    if source["kind"] == "folder":
+        files = work.folder_documents(Path(source["folder"]), recursive=source["recursive"], exclude=_exclude(source))
+    else:
+        files = [Path(p) for p in source["paths"]]
+    return work.unprocessed(files) if source.get("only_new") else (files, [])
+
+
+def _start_documents(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], *, actor: str) -> None:
+    source, step = st["source"], sdef["id"]
+    files, left_out = _documents(source)
+    wp = None
+    if files and source["kind"] == "folder":
+        wp = work.create_from_folder(Path(source["folder"]), name=st["name"], owner=wf["actor"],
+                                     recursive=source["recursive"], exclude=_exclude(source),
+                                     only=files if left_out else None)
+    elif files:
+        wp = work.create_from_files(files, name=st["name"], owner=wf["actor"])
+    if wp is None or not work.get(wp["id"])["items"]:
+        if wp is not None:
+            work.delete_workpackage(wp["id"], actor=actor)
+        note = f"no new documents: {len(left_out)} already processed" if left_out else "no documents in the folder"
+        _done(wf, step, actor, "nothing_new", state="nothing_new", note=note)
+        return
+    if left_out:
+        with store.connect() as c:
+            store.begin_immediate(c)
+            _event(c, wf["id"], step, "left_out", actor, {"new": len(files), "left_out": len(left_out)})
+    _start_run(wf, sdef, st, wp["id"], actor=actor)
 
 
 def _start_statements(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], *, actor: str) -> None:
@@ -637,12 +764,6 @@ def tick(now: float | None = None) -> int:
 # --- the wizard's estimate -----------------------------------------------------------------------------------------------
 
 
-def _folder_files(folder: Path, recursive: bool) -> list[Path]:
-    root = folder.resolve()
-    found = root.rglob("*") if recursive else root.iterdir()
-    return [p for p in found if p.is_file() and p.suffix.lower() in DOCUMENT_SUFFIXES]
-
-
 def _per_item(kind: str) -> dict[str, Decimal]:
     r = work.default_recipe()
     return work.item_budget(r, work.carried_params(r, {}), kind)
@@ -656,7 +777,8 @@ def estimate(*, kind: str, source: dict[str, Any], party_id: str | None = None, 
              period_end: Any = None) -> dict[str, Any]:
     """What a step would cost at most with the default processing: the items it would hold and the budget per provider
     (the recipe's item budget times the items). A mailbox's emails are counted only when a most is given; a step of an
-    existing package or a reconciliation costs nothing here."""
+    existing package or a reconciliation costs nothing here. With `only_new` the documents a live run has processed are
+    not counted (`left_out`)."""
     src = _source(kind, source)
     if src["kind"] in ("package", "none"):
         return {"items": None, "usd": {}, "note": None}
@@ -666,8 +788,9 @@ def estimate(*, kind: str, source: dict[str, Any], party_id: str | None = None, 
         return {"items": n or None, "usd": _times(per, n) if n else {}, "per_item": {p: str(v) for p, v in per.items()},
                 "note": "each email's PDF attachments add a document's budget"}
     if kind == "documents":
-        n = len(_folder_files(Path(src["folder"]), src["recursive"])) if src["kind"] == "folder" else len(src["paths"])
-        return {"items": n, "usd": _times(_per_item("document"), n), "note": None}
+        files, left_out = _documents(src)
+        return {"items": len(files), "usd": _times(_per_item("document"), len(files)), "left_out": len(left_out),
+                "note": None}
     # statements: the code reads the exports for free; a PDF no reader knows is extracted by AI
     start, end = _period(period_start, period_end)
     paths = [Path(src["folder"])] if src["kind"] == "folder" else [Path(p) for p in src["paths"]]
