@@ -60,6 +60,7 @@ _SAFE = re.compile(r"[^A-Za-z0-9._-]")
 _LOCK = threading.Lock()
 _STR_FIELDS = ("message_id", "account", "from", "sender", "subject", "body_preview", "received", "batch_id", "ocr_policy")
 _LIST_FIELDS = ("to", "cc")
+FOLDERS = ("inbox", "sent")  # 148: the folder a message was read from (the bridge's `folder`)
 
 
 class BadPayload(ValueError):
@@ -116,6 +117,8 @@ def validate_payload(payload: Any) -> dict[str, Any]:
         v = payload.get(key)
         if v is not None and (not isinstance(v, list) or len(v) > MAX_LIST or not all(isinstance(x, str) and len(x) < 1000 for x in v)):
             raise BadPayload(f"{key} must be a list of strings")
+    if "folder" in payload and payload["folder"] not in FOLDERS:
+        raise BadPayload(f"folder must be one of {', '.join(FOLDERS)}")
     atts = payload.get("attachments")
     if atts is not None:
         if not isinstance(atts, list) or len(atts) > MAX_ATTACHMENTS:
@@ -146,6 +149,8 @@ def _record(payload: dict[str, Any], msg_id: str, mailbox: str) -> dict[str, Any
         "body": payload.get("body_preview") or "",
         "attachments": atts,
         "attachments_failed": payload.get("attachments_failed"),
+        # 148: only a sent message says where it came from, so an Inbox message's record (and its hash) is unchanged
+        **({"folder": "sent"} if payload.get("folder") == "sent" else {}),
     }
 
 

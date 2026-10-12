@@ -85,10 +85,10 @@ burr                                                               # Burr tracke
 
 Full list: `python -m jav.cli --help`, or section 5 of [CLAUDE.md](CLAUDE.md).
 
-**Live email intake:** the recommended route is the UI's Mailbox view. The older manual route uses the legacy project's Outlook bridge unchanged (it writes into the legacy project's `data/` folder): first start `python -m jav.cli email-ingest-server --port 8931 --run [--token <key>]`, then run the bridge in a separate window with the `-ApiToken <key>` switch. The receiver accepts requests only with a key: without `--token` (or the `JAV_INGEST_TOKEN` environment variable) it prints a one-off key at start-up. It rejects requests that come from a browser.
+**Live email intake:** the recommended route is the UI's Mailbox view. The manual route uses the Outlook bridge in `scripts/outlook_bridge.ps1` (ported from the legacy project; it reads the Inbox, its direct subfolders and, with `-MailFolders 'Sent Items'`, the sent messages; an unknown folder is an error): first start `python -m jav.cli email-ingest-server --port 8931 --run [--token <key>]`, then run the bridge in a separate window with the `-ApiToken <key>` switch. The receiver accepts requests only with a key: without `--token` (or the `JAV_INGEST_TOKEN` environment variable) it prints a one-off key at start-up. It rejects requests that come from a browser.
 
 ```powershell
-powershell -File <legacy-root>\scripts\outlook_bridge.ps1 -RepoRoot <legacy-root> -OrchUrl http://127.0.0.1:8931/ingest/email -Accounts <smtp> -PeriodMode recent -SinceDays 30 -MaxItems 50 -AllEmails -ManualRun -NoArchive -WorkflowId email-intent -WorkflowVersion 1 -ApiToken <key> [-Force]
+powershell -File scripts\outlook_bridge.ps1 -RepoRoot inbox\.bridge -OrchUrl http://127.0.0.1:8931/ingest/email -Accounts <smtp> -PeriodMode recent -SinceDays 30 -MaxItems 50 -AllEmails -ManualRun -NoArchive -WorkflowId email-intent -WorkflowVersion 1 -ApiToken <key> [-Force]
 ```
 
 ## Repository layout

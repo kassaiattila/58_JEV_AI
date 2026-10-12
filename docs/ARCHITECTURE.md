@@ -54,7 +54,7 @@ the JEV call-site catalogue and the state snapshot (local, generated from the st
  scripts/mail_bridge_call.ps1
         │
         ▼
- old 10_AIFLOW_V4/scripts/outlook_bridge.ps1 (unchanged; reads desktop Outlook, read-only; -RepoRoot inbox/.bridge)
+ scripts/outlook_bridge.ps1 (148: ported from 10_AIFLOW_V4; the Inbox, its direct subfolders and Sent Items; reads desktop Outlook, read-only; -RepoRoot inbox/.bridge)
         │
         ├─► attachment files: inbox/.bridge/data/inbox/email/<acct>/<eid>/
         │
@@ -386,19 +386,19 @@ on the machine.
 ```mermaid
 flowchart LR
   UI["Settings → Mailboxes"] -->|preview| API[jav/api.py /mailbox/count]
-  API --> W[scripts/mail_bridge_call.ps1] --> B[old outlook_bridge.ps1 -CountOnly]
+  API --> W[scripts/mail_bridge_call.ps1] --> B[outlook_bridge.ps1 -CountOnly]
   UI -->|download / schedule| Q[(job queue: mail_pull)]
   T["worker: tick()"] --> Q
   Q --> F[mailbox.fetch]
   F --> R[temporary receiver, one-time key]
-  B2[old outlook_bridge.ps1] -->|/ingest/email| R
+  B2[outlook_bridge.ps1] -->|/ingest/email| R
   R --> I[inbox/&lt;mailbox&gt;/&lt;message&gt;/message.json]
   F --> WP[work package: email items + default processing]
 ```
 
 | Element | File | What it does | Test |
 |---|---|---|---|
-| Preview, download | `jav/mailbox.py` `count`, `fetch` | the old script, unchanged; its project root is `inbox/.bridge` (attachments, "already read" list), not the legacy project; all messages (`-AllEmails`); a work package from the new / changed messages | `tests/test_mailbox.py` |
+| Preview, download | `jav/mailbox.py` `count`, `fetch` | the script ported from the legacy project (148: it reads the Sent Items folder too, by the sent time, and a sent message's `message.json` has `folder: sent`; a folder name it cannot find is an error, not an empty folder); its project root is `inbox/.bridge` (attachments, "already read" list), not the legacy project; all messages (`-AllEmails`); a work package from the new / changed messages | `tests/test_mailbox.py`, `tests/test_mail_sent_items_148.py` |
 | Temporary receiver | `jav/ingest_server.py` `make_server(0, token=…, on_ingest=…)` | free port, one-time key; the existing replay protection (identical content = replay) | `tests/test_mailbox.py`, `tests/test_ingest_security.py` |
 | Download log, schedule | `jav/mailbox.py` (`mailbox_pulls`, `mailbox_schedules`), `jav/runtime/worker.py` | every download is a job-queue task; the worker calls `tick()` on every loop; an error goes to the log and is not retried | `tests/test_mailbox.py` |
 | Email item | `jav/work.py` `add_items(kind="email")`, `review_subject`; `configs/recipes.json` `processing`; `jav/flow_email.py` (`run_id`, state persistence) | item = the email's `message.json`; the subject of the to-dos is the email's identifier | `tests/test_mailbox.py` |
