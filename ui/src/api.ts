@@ -188,6 +188,30 @@ export interface WorkflowView {
   /** 147: the workflow this one repeats for the next period, and the ones repeating it */
   repeat_of?: WorkflowBrief | null; repeated_as?: WorkflowBrief[];
 }
+/** 147: the quick review of a reconciliation package (jav/reconcile_review.py): the lines to decide in groups by what
+ *  is known of them, each group accepted at once. */
+export type QuickReviewGroupId = "sure_pairs" | "earlier" | "bank_category" | "salary_rule" | "ai_sure" | "ai_review"
+  | "expects_invoice" | "rest";
+export interface QuickReviewLine {
+  id: string; statement_id: string; booking_date: string | null; amount: string | null; currency: string | null;
+  direction: string | null; counterparty_name: string | null; memo: string | null; description: string | null;
+  file?: string | null; partner?: string | null;
+  /** the reason a mark group suggests */
+  category?: string;
+  /** the invoices a sure pair pays */
+  invoices?: { id: string; number: string | null; supplier_name: string | null; amount: string | null; currency: string | null;
+    issue_date: string | null }[];
+  ai?: Partial<Record<"jev" | "gpt", { kind: string; probability: number | null }>>;
+  earlier_lines?: number;
+}
+export interface QuickReviewGroup {
+  id: QuickReviewGroupId; action: "pair" | "mark" | "none"; lines: QuickReviewLine[]; count: number; totals: Record<string, string>;
+}
+export interface QuickReview {
+  workpackage_id: string; threshold: number; groups: QuickReviewGroup[];
+  excluded: Record<string, { count: number; totals: Record<string, string>; lines: QuickReviewLine[] }>;
+  decided: Record<string, number>;
+}
 export interface WorkflowBrief { id: string; name: string; period_start: string; period_end: string }
 /** 147: a workflow for the next period, as the wizard shows it filled in (a step without a source is asked for). */
 export interface WorkflowDraft {
@@ -872,6 +896,10 @@ export const api = {
   reconcileAllocate: (wpId: string, pairs: ReconcileAllocationPair[], note?: string) =>
     request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/allocate`, { pairs, ...(note ? { note } : {}) }),
   reconcileAcceptProposed: (wpId: string) => request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/accept-proposed`, {}),
+  reconcileQuickReview: (wpId: string) => request<QuickReview>("GET", `/workpackages/${enc(wpId)}/reconcile/quick-review`),
+  reconcileQuickAccept: (wpId: string, group: QuickReviewGroupId, lineIds: string[]) =>
+    request<{ accepted: number; review: QuickReview; workspace: ReconcileWorkspace }>("POST",
+      `/workpackages/${enc(wpId)}/reconcile/quick-review/accept`, { group, line_ids: lineIds }),
   reconcileReject: (wpId: string, invoiceDocId: string, lineId: string, note: string) =>
     request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/reject`, { invoice_doc_id: invoiceDocId, line_id: lineId, note }),
   reconcileMark: (wpId: string, lineIds: string[], category: string, note?: string) =>

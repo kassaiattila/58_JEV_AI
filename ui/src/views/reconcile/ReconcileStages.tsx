@@ -9,6 +9,7 @@ import { go, type Stage } from "../../route";
 import { AccountChecklist } from "./ReconcileCreate";
 import { ReconcileCards } from "./ReconcileCards";
 import { ReconcilePairing } from "./ReconcilePairing";
+import { ReconcileQuickReview } from "./ReconcileQuickReview";
 import { ReconcileResult } from "./ReconcileResult";
 import { blockerText, INVOICE_STATE, LINE_STATE, MARK, warningText } from "./labels";
 import "./reconcile.css";
@@ -22,6 +23,8 @@ export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageV
   const update = (next: ReconcileWorkspace) => { setWs(next); onChanged(); };
   // 142: the pairing opens on the cards; the two lists are for pairing by hand, with the line a card sent there
   const [manual, setManual] = useState<{ line: string | null } | null>(null);
+  // 147: the pairing opens on the quick review (the groups accepted at once); the cards and the two lists stay
+  const [mode, setMode] = useState<"quick" | "cards">("quick");
   const archived = view.workpackage.status === "archived";
   // 145: an approved package takes no decision until its approval is reopened (the Result stage)
   const approved = ws?.approval?.active ?? null;
@@ -42,9 +45,17 @@ export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageV
   return (
     <>
       {banner}
+      {ws.overview && !manual ? (
+        <div className="segmented-tabs rc-modes" role="tablist" aria-label={t("Pairing views")}>
+          <button type="button" role="tab" className="seg" aria-selected={mode === "quick"} onClick={() => setMode("quick")}>{t("Quick review")}</button>
+          <button type="button" role="tab" className="seg" aria-selected={mode === "cards"} onClick={() => setMode("cards")}>{t("Cards")}</button>
+        </div>
+      ) : null}
       {manual || !ws.overview ? ( // a service without the overview keeps the two lists
         <ReconcilePairing key={manual?.line ?? "lists"} ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload}
           initialLine={manual?.line ?? null} onCards={ws.overview ? () => setManual(null) : undefined} />
+      ) : mode === "quick" ? (
+        <ReconcileQuickReview wpId={wpId} readOnly={readOnly} onWorkspace={update} onCards={() => setMode("cards")} />
       ) : <ReconcileCards ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload} onManual={(line) => setManual({ line })} />}
     </>
   );
