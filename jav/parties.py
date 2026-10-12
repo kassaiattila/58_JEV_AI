@@ -406,6 +406,34 @@ def resolver() -> Resolver:
     return Resolver(_identity_rows())
 
 
+DIRECTIONS = ("incoming", "outgoing", "internal", "not_own", "unclear")
+
+
+def direction(res: Resolver, doc_type: str | None, values: dict[str, Any]) -> tuple[str, str | None]:
+    """147 (DECISIONS 147): an invoice's direction and the own party it is that direction for, from the identities on
+    its two sides (the supplier read as the buyer is: tax number, name, a similar name), by the reconciliation's field
+    names (`reconcile.json` `invoice_fields`): `incoming` (the buyer is an own party), `outgoing` (the supplier is, or
+    the type is an outgoing invoice), `internal` (two own parties: incoming for the buyer, outgoing for the supplier),
+    `not_own` (neither side), `unclear` (the same party on both sides, or a name two parties' variants fit)."""
+    conf = cfg.load("reconcile")
+    fields = conf["invoice_fields"]
+
+    def first(keys: str | list[str]) -> Any:
+        return next((values.get(k) for k in ([keys] if isinstance(keys, str) else keys) if values.get(k) not in (None, "")), None)
+
+    supplier, s_how = res.invoice(first(fields["supplier_name"]), first(fields["supplier_tax_id"]))
+    buyer, b_how = res.invoice(first(fields["buyer_name"]), first(fields["buyer_tax_id"]))
+    if "ambiguous" in (s_how, b_how):
+        return "unclear", None
+    if doc_type in conf["outgoing_types"]:
+        return "outgoing", supplier
+    if supplier and buyer:
+        return ("unclear", None) if supplier == buyer else ("internal", None)
+    if supplier:
+        return "outgoing", supplier
+    return ("incoming", buyer) if buyer else ("not_own", None)
+
+
 # --- the proposal from the data -------------------------------------------------------------------------------------------
 
 

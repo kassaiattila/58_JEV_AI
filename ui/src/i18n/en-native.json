@@ -1175,5 +1175,8 @@
   "Suggestion": "Suggestion",
   "Line of {{date}}, {{amount}}": "Line of {{date}}, {{amount}}",
   "as on {{n}} earlier line(s)": "as on {{n}} earlier line(s)",
-  "Salary or wage": "Salary or wage"
+  "Salary or wage": "Salary or wage",
+  "Between own parties": "Between own parties",
+  "Not an own party's": "Not an own party's",
+  "Unclear": "Unclear"
 }

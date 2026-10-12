@@ -143,7 +143,7 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.11.0"  # 144: a later reading of the same statement replaces the earlier (statement_months)
+ENGINE_VERSION = "1.12.0"  # 147: an invoice whose supplier is an own party is outgoing (its direction)
 STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
             "no_payment_found", "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate", "combined")  # how a candidate's amounts relate
@@ -460,7 +460,7 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             reason = "unsupported_currency"
         if not _date(inv.get("issue_date")):
             reason = "missing_issue_date"
-        if inv.get("doc_type") in conf["outgoing_types"]:
+        if inv.get("doc_type") in conf["outgoing_types"] or inv.get("direction") == "outgoing":  # 147: by the own parties too
             reason = "outgoing_invoice"
         if inv.get("duplicate") == "copy":
             reason = "duplicate_copy"
@@ -1176,9 +1176,12 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
     as a snapshot for `propose`. `current` (doc_id, doc_type, values, validation): the document being processed, in
     place of its stored result. `fetch_rates`: fetch the missing MNB rates first (the processing and the command line);
     a view only reads the stored ones."""
+    from jav import parties  # 147: an invoice's direction from the own parties' identities
+
     conf = _conf()
     f = conf["invoice_fields"]
     marks = _duplicate_marks()
+    res = parties.resolver()
     docs = _latest([*conf["invoice_types"], *conf["outgoing_types"], *conf["statement_types"]])
     if current is not None:
         docs = [d for d in docs if d["doc_id"] != current["doc_id"]]
@@ -1197,7 +1200,8 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
                              "currency": v.get(f["currency"]), "issue_date": v.get(f["issue_date"]),
                              "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"]),
                              **{k: v.get(f[k]) for k in ("fulfillment_date", "net_total", "vat_total")},  # 142: shown only
-                             "buyer_name": _first(v, f["buyer_name"]), "buyer_tax_id": _first(v, f["buyer_tax_id"]), **_origin(d)})
+                             "buyer_name": _first(v, f["buyer_name"]), "buyer_tax_id": _first(v, f["buyer_tax_id"]),
+                             "direction": parties.direction(res, d["doc_type"], v)[0], **_origin(d)})
     # 139 (DECISIONS 139): one valid statement per account, currency and day; a replaced statement's decisions move to
     # the same lines of the one replacing it, and what has no same line is left over (`left_over`)
     from jav import statement_months
