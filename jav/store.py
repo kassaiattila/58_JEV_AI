@@ -714,6 +714,18 @@ def review_close(
         return closed
 
 
+def close_run_reasons(c: sqlite3.Connection, run_id: str, *, status: str = "superseded") -> int:
+    """151: closes every open reason a work run raised (under its items' flow identifiers `<run>:<item>[-stage]`), in
+    the caller's transaction; an item left without an open reason closes too. Returns the number of reasons closed."""
+    rows = c.execute("SELECT id, review_id FROM review_reasons WHERE status='open' AND substr(run_id, 1, ?) = ?",
+                     (len(run_id) + 1, run_id + ":")).fetchall()
+    for r in rows:
+        c.execute("UPDATE review_reasons SET status=?, closed_at=? WHERE id=?", (status, _now(), r["id"]))
+    for review_id in dict.fromkeys(r["review_id"] for r in rows):
+        _sync_review_item(c, review_id, closing_status=status)
+    return len(rows)
+
+
 def review_resolve(reason_id: int, *, actor: str, resolution: dict[str, Any] | None = None, note: str | None = None) -> None:
     """Human decision on a single reason: author, content, note. A reason already closed cannot be closed again
     (ValueError)."""

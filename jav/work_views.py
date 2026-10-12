@@ -229,7 +229,9 @@ def run_view(run_id: str, *, names: bool = False) -> dict[str, Any]:
     from jav import corrections, costs
 
     extra: dict[str, Any] = {"costs": costs.plan_vs_actual(run_id),  # 082: planned and actual cost per provider
-                             "review_version": corrections.review_version(run_id)}
+                             "review_version": corrections.review_version(run_id),
+                             # 151: the offer to supersede an older live run, or who superseded it
+                             "supersede": work.supersede_info(run_id), "superseded": work.superseded(run_id)}
     if names:
         from jav import naming
 

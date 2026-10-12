@@ -1040,6 +1040,12 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         work.get_run(run_id)
         return {"run_id": run_id, "jobs": work.cancel_run(run_id, actor=who), "status": work.get_run(run_id)["status"]}
 
+    @app.post(r + "/runs/{run_id}/supersede")
+    def supersede(run_id: RunId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """151: a person supersedes an older live run that a later live run has repeated (`work.supersede_run`)."""
+        out = work.supersede_run(run_id, actor=who)
+        return {**out, "status": work.get_run(run_id)["status"]}
+
     @app.post(r + "/runs/{run_id}/approve")
     def approve(run_id: RunId, body: Approve, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         work.approve_run(run_id, actor=who, review_version=body.review_version)
