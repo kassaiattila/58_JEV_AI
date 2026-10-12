@@ -339,7 +339,6 @@
   "A selected line is marked as needing no invoice; undo the mark first.": "Egy kijelölt tételen „nem kell számla” jelölés van; előbb vond vissza.",
   "A selected line is already paired in full.": "Egy kijelölt tétel már teljes összegben párosítva van.",
   "A selected invoice is already paid in full.": "Egy kijelölt számla már teljes összegben ki van fizetve.",
-  "A line and an invoice of different currencies pair only one to one and in whole, when the card's conversion relates them.": "Eltérő pénznemű tétel és számla csak egy az egyben, teljes összeggel párosítható, ha a kártyás átszámítás összeköti őket.",
   "The amount does not reach every selected item; select fewer.": "Az összeg nem jut minden kijelölt elemre; jelölj ki kevesebbet.",
   "To decide": "Eldöntendő",
   "All": "Mind",
@@ -1181,5 +1180,8 @@
   "Not an own party's": "Nem saját",
   "Sent message: its intent is not asked": "Elküldött levél: a szándékát nem kérdezzük",
   "sent message": "elküldött levél",
-  "Unclear": "Eldönthetetlen"
+  "Unclear": "Eldönthetetlen",
+  "{{amount}} at the MNB rate of the fulfilment day, {{day}}": "{{amount}} a teljesítés napi ({{day}}) MNB-árfolyamon",
+  "{{amount}} at the MNB rate of the booking day, {{day}}": "{{amount}} a könyvelés napi ({{day}}) MNB-árfolyamon",
+  "A line and an invoice of different currencies pair only one to one and in whole, when a conversion at the MNB rate relates them.": "Eltérő pénznemű tétel és számla csak egy az egyben, teljes összeggel párosítható, ha az MNB-árfolyamos átszámítás összeköti őket."
 }

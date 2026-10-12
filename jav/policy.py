@@ -388,6 +388,13 @@ def reconcile_fx_tolerance() -> tuple[Decimal, Decimal]:
     return Decimal(str(band["below"])), Decimal(str(band["above"]))
 
 
+def reconcile_fx_bank_tolerance(basis: str) -> tuple[Decimal, Decimal]:
+    """149: how far below and above the invoice amount converted at the MNB rate of the `basis` day (fulfilment or
+    booking) a forint bank line may be for the pair to be proposed, as fractions. A proposal only; a person decides."""
+    band = RECONCILE["fx_bank_tolerance"][basis]
+    return Decimal(str(band["below"])), Decimal(str(band["above"]))
+
+
 def decide(state: FlowState) -> str:
     """'auto' or 'human'. The latch already holds every reason; here we only sum up."""
     if state.arm == "S":

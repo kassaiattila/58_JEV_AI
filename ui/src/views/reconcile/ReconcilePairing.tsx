@@ -33,7 +33,7 @@ import { InvoiceFilterRow, LineFilterRow } from "./FilterRows";
 import {
   activeCount, invoiceMatches, lineMatches, NO_INVOICE_FILTERS, NO_LINE_FILTERS, type InvoiceFilters, type LineFilters,
 } from "./filters";
-import { ENGINE, EXCLUDED, INVOICE_STATE, KIND, LINE_STATE, MARK, probability, relationText, SIGNAL } from "./labels";
+import { ENGINE, EXCLUDED, fxText, INVOICE_STATE, KIND, LINE_STATE, MARK, probability, relationText, SIGNAL } from "./labels";
 import { finderSections } from "./finder";
 import { display, parseCanonical, parseInput, show, sum } from "./money";
 import { candidateOf, check, planPairing, rankedCandidates, rest, toRequest, type PlannedPair, type Plan, type Refusal } from "./pairing";
@@ -54,7 +54,7 @@ const REFUSAL: Record<Refusal, string> = tmap({
   line_excluded: "A selected line is left out of the pairing (an incoming payment, a fee or a transfer between own accounts).",
   line_settled: "A selected line is already paired in full.",
   invoice_settled: "A selected invoice is already paid in full.",
-  currency: "A line and an invoice of different currencies pair only one to one and in whole, when the card's conversion relates them.",
+  currency: "A line and an invoice of different currencies pair only one to one and in whole, when a conversion at the MNB rate relates them.",
   too_many: "The amount does not reach every selected item; select fewer.",
 }) as Record<Refusal, string>;
 
@@ -602,7 +602,7 @@ function InvoiceRow({ invoice, candidate, index, selected, onToggle, readOnly, s
               {candidate.amount_only ? <span className="rc-sig warn">{t("nothing else ties them")}</span> : null}
               {candidate.multiple_candidates ? <span className="rc-sig warn">{t("several candidates")}</span> : null}
               {candidate.source_review_required ? <span className="rc-sig warn">{t("statement balances do not check out")}</span> : null}
-              {candidate.fx ? <span className="rc-sig">{t("{{amount}} at the MNB rate of {{day}}", { amount: show(candidate.fx.converted, "HUF"), day: candidate.fx.rate_day })}</span> : null}
+              {candidate.fx ? <span className="rc-sig">{fxText(candidate.fx, show(candidate.fx.converted, "HUF"))}</span> : null}
               {candidate.original ? <span className="rc-sig good">{t("on the card purchase's original {{amount}}", { amount: show(candidate.original.amount, candidate.original.currency) })}</span> : null}
             </span>
           ) : null}

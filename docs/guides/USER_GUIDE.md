@@ -294,6 +294,12 @@ loaded statements cover.
   official MNB exchange rate of the invoice's issue date; the line must be booked between 3 days before and 10 days after the
   issue date, and its amount between 2% below and 5% above the converted amount. Only dates and currency codes leave the
   computer when the rates are fetched.
+- **Bank transfers in forints for an invoice in another currency:** a forint line of a bank account and an invoice in
+  francs, dollars or euros are compared at the MNB exchange rate of the invoice's fulfilment day (a Hungarian customer pays
+  the forint value the invoice states), then of the day the bank booked the line (the bank converted the money); the line
+  is looked for in the invoice's payment window. The candidate says which day's rate the amount matched at (*a teljesítés
+  napi* / *a könyvelés napi MNB-árfolyamon*). Outside the band the pair is listed only when the line's memo names the
+  invoice. Run **Recompute** (*Újraszámolás*) once so that the missing rates are fetched.
 - **Payment method:** a bill payable by postal cheque (*csekk*) paid through a cheque payment app (PostaCsekk, iCsekk) shows
   the app's name, not the supplier's; with the cheque as payment method and exactly the same amount the pair is proposed.
 - **A card purchase's original amount:** when the bank prints a card purchase's original amount next to the forint line (the

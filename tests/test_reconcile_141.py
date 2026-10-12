@@ -44,7 +44,7 @@ def _pair(result: dict, line: str, invoice: str) -> dict:
 def test_the_golden_set_has_the_new_cases_and_every_case_passes():
     assert set(NEW) <= set(CASES)
     assert reconcile.golden_score() == {"passed": len(CASES), "total": len(CASES), "failures": {}}
-    assert reconcile.ENGINE_VERSION == "1.14.0" and {"combined"} <= set(reconcile.RELATIONS)
+    assert reconcile.ENGINE_VERSION == "1.15.0" and {"combined"} <= set(reconcile.RELATIONS)
     assert "credited" in reconcile.STATUSES
 
 

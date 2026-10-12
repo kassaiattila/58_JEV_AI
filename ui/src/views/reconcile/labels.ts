@@ -1,7 +1,7 @@
 // 132: the labels of the reconciliation package's pages, in the chosen language (English source text; the Hungarian
 // is in i18n/hu-native.json). The codes come from the local service (jav/reconcile_package.py, configs/reconcile.json).
 import type {
-  ReconcileBlocker, ReconcileFlag, ReconcileGroupKind, ReconcileInvoiceResult, ReconcileLineResult, ReconcileLineState, ReconcileList,
+  ReconcileBlocker, ReconcileFlag, ReconcileFx, ReconcileGroupKind, ReconcileInvoiceResult, ReconcileLineResult, ReconcileLineState, ReconcileList,
   ReconcileRelation, ReconcileSignal, ReconcileWarning,
 } from "../../api";
 import { getLocale, t } from "../../i18n";
@@ -16,6 +16,13 @@ export const LINE_STATE: Record<ReconcileLineState, string> = tmap({
   marked: "Needs no invoice",
   excluded: "Left out",
 }) as Record<ReconcileLineState, string>;
+
+/** 149: the invoice amount converted at the MNB rate, naming the day for a forint bank line (fulfilment or booking). */
+export function fxText(fx: ReconcileFx, amount: string): string {
+  if (fx.basis === "fulfillment") return t("{{amount}} at the MNB rate of the fulfilment day, {{day}}", { amount, day: fx.rate_day });
+  if (fx.basis === "booking") return t("{{amount}} at the MNB rate of the booking day, {{day}}", { amount, day: fx.rate_day });
+  return t("{{amount}} at the MNB rate of {{day}}", { amount, day: fx.rate_day });
+}
 
 /** Why the code left a line or an invoice out of the pairing (jav/reconcile.py `prepare`; the same labels as the run's
  *  reconciliation view, configs/datasets.json `reconcile_reason`). */

@@ -166,4 +166,4 @@ def test_the_package_of_the_issuing_party_pairs_its_outgoing_invoice(db):
 
 
 def test_the_engine_version_marks_the_change():
-    assert reconcile.ENGINE_VERSION == "1.14.0"
+    assert reconcile.ENGINE_VERSION == "1.15.0"  # 149: a forint bank line meets another currency

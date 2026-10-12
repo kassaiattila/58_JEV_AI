@@ -53,7 +53,8 @@ def test_a_line_outside_the_payment_window_still_compares_with_less_strength():
 
 
 def test_currencies_that_cannot_meet_have_no_amount_to_compare():
-    m = reconcile.compare({**INVOICE, "currency": "EUR"}, LINE)
+    # 149: a forint bank line meets a euro invoice through the MNB rate, a dollar account's line does not
+    m = reconcile.compare({**INVOICE, "currency": "EUR"}, {**LINE, "currency": "USD"})
     assert (m["amount_relation"], m["difference"], m["in_window"]) == (None, None, False)
 
 
