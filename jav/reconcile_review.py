@@ -90,7 +90,8 @@ def _brief(line: dict[str, Any], suggestion: dict[str, Any], invoices: dict[str,
         out["category"] = suggestion["category"]
     if "invoice_ids" in suggestion:
         out["invoices"] = [{k: invoices.get(i, {}).get(k) for k in ("number", "supplier_name", "amount", "currency", "issue_date")}
-                           | {"id": i} for i in suggestion["invoice_ids"]]
+                           | {"id": i, "partner_name": reconcile.partner_name(invoices.get(i, {}))}  # 148: the buyer if outgoing
+                           for i in suggestion["invoice_ids"]]
     if answers := _answers(line):
         out["ai"] = {e: {"kind": a["kind"], "probability": a.get("kind_probability")} for e, a in answers.items()}
     if earlier := line.get("earlier_marks"):

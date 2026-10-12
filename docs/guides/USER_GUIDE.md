@@ -127,7 +127,7 @@ The package's documents, the items of a run and the item list of Review can show
 
 ### 5.3 A reconciliation package
 
-A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank and card statements with invoices already processed in other packages. It has no files and no runs; it works on the corrected values of the documents. Every decision belongs to the pair of a line and an invoice, not to the package: another package with the same line shows the same decision. A package is one own party's (section 10.3): it lists that party's invoices and the invoices no party claims; a package made before the own parties takes every invoice as its own. Its stages are different:
+A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank and card statements with invoices already processed in other packages: an outgoing payment with an incoming invoice, and (148) incoming money with an outgoing invoice the package's party issued, whose partner is the buyer. Incoming money with no outgoing invoice to pair stays informational, as before. It has no files and no runs; it works on the corrected values of the documents. Every decision belongs to the pair of a line and an invoice, not to the package: another package with the same line shows the same decision. A package is one own party's (section 10.3): it lists that party's invoices and the invoices no party claims; a package made before the own parties takes every invoice as its own. Its stages are different:
 
 - **1 Preparation** (*Előkészítés*):
   - **Scope** (*Kör*): the own party (*Saját gazdálkodó*), the accounts and cards and the period; **Save the scope** (*Kör mentése*) keeps every decision made so far. A package made before the own parties can be given its party here.

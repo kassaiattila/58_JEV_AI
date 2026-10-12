@@ -35,7 +35,7 @@ const signed = (line: ReconcileLine): bigint | null => {
   return v === null ? null : line.direction === "credit" ? v : -v;
 };
 const lineTitle = (l: ReconcileLine) => l.counterparty_name || l.description || l.memo || "–";
-const invoiceTitle = (i: ReconcileInvoice) => [i.supplier_name, i.number].filter(Boolean).join(" · ") || i.file || "–";
+const invoiceTitle = (i: ReconcileInvoice) => [i.partner_name ?? i.supplier_name, i.number].filter(Boolean).join(" · ") || i.file || "–";
 const isTyping = (el: EventTarget | null) =>
   el instanceof HTMLElement && ((el instanceof HTMLInputElement && !["checkbox", "radio", "button"].includes(el.type))
     || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable);
@@ -45,7 +45,7 @@ function searchText(g: ReconcileGroup, lines: Map<string, ReconcileLine>, invoic
   const ls = g.lines.map((id) => lines.get(id)).filter((l): l is ReconcileLine => Boolean(l))
     .map((l) => [l.counterparty_name, l.memo, l.description, l.amount, show(l.amount), l.booking_date].join(" "));
   const is = g.invoices.map((id) => invoices.get(id)).filter((i): i is ReconcileInvoice => Boolean(i))
-    .map((i) => [i.supplier_name, i.number, i.amount, show(i.amount), i.issue_date, i.file].join(" "));
+    .map((i) => [i.partner_name ?? i.supplier_name, i.number, i.amount, show(i.amount), i.issue_date, i.file].join(" "));
   return [...ls, ...is].join(" ").toLowerCase();
 }
 
@@ -364,9 +364,11 @@ function InvoiceFacts({ invoice: i, facts, lines }: { invoice: ReconcileInvoice;
         <span className="rc-amount">{show(i.amount, i.currency)}</span>
         <span className={`rc-state s-${i.state ?? "none"}`}>{INVOICE_STATE[i.state ?? ""] ?? i.state ?? "–"}</span>
         {i.own === false && i.party ? <span className="rc-sig warn">{t("Other party: {{party}}", { party: i.party.name })}</span> : null}
+        {i.outgoing ? <span className="rc-sig">{t("Outgoing invoice")}</span> : null}
       </div>
       <Timing invoice={i} facts={facts} />
       <dl>
+        {i.outgoing ? <Fact label={t("Buyer")}>{i.partner_name || "–"}</Fact> : null}
         <Fact label={t("Supplier")}>{i.supplier_name || "–"}</Fact>
         {i.supplier_tax_id ? <Fact label={t("Tax number")}>{i.supplier_tax_id}</Fact> : null}
         <Fact label={t("Invoice number")}>{i.number || "–"}</Fact>

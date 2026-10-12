@@ -163,7 +163,7 @@ function Suggestion({ line }: { line: QuickReviewLine }) {
   useLocale();
   const parts: string[] = [];
   if (line.category) parts.push(MARK[line.category] ?? line.category);
-  for (const inv of line.invoices ?? []) parts.push(`${inv.number ?? "–"} · ${inv.supplier_name ?? "–"}`);
+  for (const inv of line.invoices ?? []) parts.push(`${inv.number ?? "–"} · ${inv.partner_name ?? inv.supplier_name ?? "–"}`);
   if (line.earlier_lines) parts.push(t("as on {{n}} earlier line(s)", { n: line.earlier_lines }));
   for (const [engine, a] of Object.entries(line.ai ?? {})) {
     if (a) parts.push(`${ENGINE[engine] ?? engine}: ${KIND[a.kind] ?? a.kind} ${probability(a.probability)}`);

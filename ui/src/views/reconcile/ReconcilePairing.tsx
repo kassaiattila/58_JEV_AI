@@ -63,7 +63,7 @@ const signed = (line: ReconcileLine): bigint | null => {
   return v === null ? null : line.direction === "credit" ? v : -v;
 };
 const lineTitle = (l: ReconcileLine) => l.counterparty_name || l.description || l.memo || "–";
-const invoiceTitle = (i: ReconcileInvoice) => [i.supplier_name, i.number].filter(Boolean).join(" · ") || i.file || "–";
+const invoiceTitle = (i: ReconcileInvoice) => [i.partner_name ?? i.supplier_name, i.number].filter(Boolean).join(" · ") || i.file || "–";
 /** Whether the key goes into a text field (a checkbox or a radio button with the focus does not take letters). */
 const isTyping = (el: EventTarget | null) =>
   el instanceof HTMLElement && ((el instanceof HTMLInputElement && !["checkbox", "radio", "button"].includes(el.type))
@@ -84,7 +84,7 @@ function matches(line: ReconcileLine, q: string): boolean {
 
 function invoiceSearch(inv: ReconcileInvoice, q: string): boolean {
   if (!q) return true;
-  const hay = [inv.supplier_name, inv.number, inv.amount, show(inv.amount), inv.file, inv.issue_date].join(" ").toLowerCase();
+  const hay = [inv.partner_name ?? inv.supplier_name, inv.number, inv.amount, show(inv.amount), inv.file, inv.issue_date].join(" ").toLowerCase();
   return hay.includes(q.toLowerCase());
 }
 

@@ -143,7 +143,7 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.13.0"  # 148: a known direction decides over the outgoing type; a misread supplier name is not an own party
+ENGINE_VERSION = "1.14.0"  # 148: a credit line pays an outgoing invoice (its partner the buyer); 1.13.0: a known direction decides
 STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
             "no_payment_found", "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate", "combined")  # how a candidate's amounts relate
@@ -417,6 +417,31 @@ def _payments(statements: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]
     return _ids(rows, "line")
 
 
+def outgoing(invoice: dict[str, Any]) -> bool:
+    """148: whether the invoice is an own party's outgoing invoice: its direction when known (147), else its type."""
+    return invoice["direction"] == "outgoing" if invoice.get("direction") else invoice.get("doc_type") in _conf()["outgoing_types"]
+
+
+def pays(payment: dict[str, Any], invoice: dict[str, Any]) -> bool:
+    """148: whether the line is on the invoice's side: an outgoing payment (debit) pays an incoming invoice, incoming
+    money (credit) an outgoing one."""
+    return (payment.get("direction") == "credit") == outgoing(invoice)
+
+
+def partner_view(invoice: dict[str, Any]) -> dict[str, Any]:
+    """148: the invoice as the signals compare it: the supplier fields carry its partner, the supplier of an incoming
+    invoice and the buyer of an outgoing one; an outgoing invoice's bank account is the own party's, so it ties nothing."""
+    if not outgoing(invoice):
+        return invoice
+    return {**invoice, "supplier_name": invoice.get("buyer_name"), "supplier_tax_id": invoice.get("buyer_tax_id"),
+            "payment_account": None}
+
+
+def partner_name(invoice: dict[str, Any]) -> Any:
+    """148: the name the invoice is shown by: its partner's (`partner_view`), the buyer of an outgoing invoice."""
+    return partner_view(invoice).get("supplier_name")
+
+
 def _supplier_key(invoice: dict[str, Any]) -> str:
     return fact_checks.tax_party_key(invoice.get("supplier_tax_id")) or normalize(invoice.get("supplier_name"))
 
@@ -454,15 +479,13 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             identities[ident].append(key)
     clashing = {k for keys in identities.values() if len(keys) > 1 for k in keys}
     eligible_invoices, eligible_payments, excluded, credit_notes = {}, {}, [], {}
-    for key, inv in sorted(invoices.items()):
+    views = {key: partner_view(inv) for key, inv in invoices.items()}  # 148: an outgoing invoice's partner is its buyer
+    for key, inv in sorted(views.items()):
         reason = _amount_reason(inv.get("amount"))
         if inv.get("currency") not in currencies:
             reason = "unsupported_currency"
         if not _date(inv.get("issue_date")):
             reason = "missing_issue_date"
-        # 147: by the own parties too; 148: an invoice's direction, when known, decides over its type
-        if (inv["direction"] == "outgoing") if inv.get("direction") else inv.get("doc_type") in conf["outgoing_types"]:
-            reason = "outgoing_invoice"
         if inv.get("duplicate") == "copy":
             reason = "duplicate_copy"
         elif key in clashing:
@@ -479,19 +502,19 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             reason = "unsupported_currency"
         if not _date(pay.get("booking_date")):
             reason = "missing_booking_date"
-        if pay.get("direction") != "debit":
+        if pay.get("direction") not in ("debit", "credit"):
             reason = "not_outgoing_payment"
         elif account_key(pay.get("counterparty_account")) and account_key(pay.get("counterparty_account")) in own_accounts:
             reason = "own_account_transfer"
-        elif review.search(normalize(f"{pay.get('description') or ''} {pay.get('memo') or ''}")):
-            reason = "payment_kind_review"
+        elif pay["direction"] == "debit" and review.search(normalize(f"{pay.get('description') or ''} {pay.get('memo') or ''}")):
+            reason = "payment_kind_review"  # 148: a kind of outgoing payment; incoming money is paired or informational
         if reason:
             excluded.append({"kind": "line", "id": key, "reason": reason})
         else:
             eligible_payments[key] = pay
     return {"invoices": eligible_invoices, "payments": eligible_payments, "excluded": excluded,
             "statements": statements, "own_accounts": sorted(own_accounts), "lines": payments,
-            "common_words": common_words(invoices.values(), payments.values()), "credit_notes": credit_notes}
+            "common_words": common_words(views.values(), payments.values()), "credit_notes": credit_notes}
 
 
 def _credited(prepared: dict[str, Any], paid_invoice: dict[str, Decimal]) -> dict[str, str]:
@@ -892,7 +915,7 @@ def _repeats(prepared: dict[str, Any], candidates: list[dict[str, Any]], confirm
             pay = prepared["payments"][pid]
             booked = _date(pay["booking_date"])
             if (pid in paid_by or (iid, pid) in rejected or allocated_to[pid] - {iid} or elsewhere(pid, iid)
-                    or not booked or not start <= booked <= end):
+                    or not booked or not start <= booked <= end or not pays(pay, inv)):
                 continue
             found = signals(inv, pay, learned, common)
             early = (booked - issued).days < -unnamed_days if (issued := _date(inv.get("issue_date"))) else False
@@ -930,7 +953,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
         pay = {**pay_whole, "amount": str(rest_line[pid])}
         booked = _date(pay["booking_date"])
         for iid, inv_whole in sorted(prepared["invoices"].items()):
-            if iid in paid_invoices or (iid, pid) in rejected:
+            if iid in paid_invoices or (iid, pid) in rejected or not pays(pay_whole, inv_whole):
                 continue
             inv = {**inv_whole, "amount": str(rest_invoice[iid])}
             how = meets(inv, pay)
@@ -1057,7 +1080,11 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     for e in excluded:
         if e["kind"] == "invoice":
             statuses.append({"invoice_id": e["id"], "status": "excluded", "reason": e["reason"]})
-    paired = {c["line_id"] for c in candidates if c["proposed"]} | paid_lines | set(marked)
+    # 148 (DECISIONS 148): incoming money with no outgoing invoice as a candidate stays informational, as before
+    tied = {c["line_id"] for c in candidates} | set(paid_line) | set(marked)
+    idle = sorted(pid for pid, pay in prepared["payments"].items() if pay.get("direction") == "credit" and pid not in tied)
+    excluded += [{"kind": "line", "id": pid, "reason": "not_outgoing_payment"} for pid in idle]
+    paired = {c["line_id"] for c in candidates if c["proposed"]} | paid_lines | set(marked) | set(idle)
     repeats = _repeats(prepared, candidates, confirmed, rejected, marked, scope, (learned, common), set(paid_invoice), set(credited))
     from jav import policy
 
