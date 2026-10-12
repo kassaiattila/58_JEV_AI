@@ -334,7 +334,8 @@ def _run_items(scope: dict[str, str]) -> Rows:
         rows.append({"_key": i["item_id"], "_wp": run["workpackage_id"], "_run": run["run_id"], "item_id": i["item_id"],
                      **_name_fields(i, titles, names[i["item_id"]], choice), "kind": i.get("kind") or "document", "status": r.get("status"),
                      "final_status": r.get("final_status"), "error": r.get("error"), "updated_at": r.get("updated_at"),
-                     "open_reasons": len(split["run"]), "earlier_reasons": len(split["earlier"]),
+                     # 150: the reasons left by trial runs are not counted (the review page hides them by default)
+                     "open_reasons": len(split["run"]), "earlier_reasons": sum(not r["trial"] for r in split["earlier"]),
                      **_cost_fields(spent.items[i["item_id"]])})
     return cols, rows
 

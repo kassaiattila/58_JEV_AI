@@ -15,6 +15,7 @@ import { bandOf, bandsFor, orderFields, selectionText, type Bands } from "../rev
 import { BAND_COLOR, PageViewer } from "../review/PageViewer";
 import { Split } from "../review/Split";
 import { NativeReview } from "../review/NativeReview";
+import { setShowTrialReasons, useShowTrialReasons, visibleEarlier } from "../review/trialReasons";
 
 const DEFAULT_BANDS: Bands = { confident: 0.9, check: 0.5 };
 
@@ -62,6 +63,7 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
   // 056 U1: the item list stays manageable even with several hundred items: filtering by name, only those with to-dos
   const [queueQ, setQueueQ] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
+  const showTrial = useShowTrialReasons();
 
   if (latest.error) return <p className="notice error" role="alert">{latest.error.message}</p>;
   if (!latest.data) return <p className="muted">{t("Betöltés…")}</p>;
@@ -83,6 +85,8 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
   const nextTodo = [...items.slice(index + 1), ...items.slice(0, Math.max(index, 0))].find((i) => (own[i.item_id] ?? []).length > 0);
   const pick = (id: string) => go({ view: "workpackages", wpId: wp.id, stage: "review", itemId: id });
   const ownTotal = Object.values(own).reduce((n, r) => n + r.length, 0);
+  // 150: the switch appears only when trial runs left to-dos on this run's items
+  const anyTrial = Object.values(earlier).some((rs) => rs.some((r) => r.trial));
   // 082: the unified name when chosen and already known; the original stays searchable and is in the tooltip
   const original = (i: (typeof items)[number]) => itemName(i, view.data?.titles);
   const unified = (i: (typeof items)[number]) => (names === "unified" ? view.data?.names?.[i.item_id] : undefined);
@@ -105,11 +109,16 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
             <input type="search" aria-label={t("Tétel keresése")} placeholder={t("Keresés {{n}} tétel között…", { n: items.length })} value={queueQ}
               onChange={(e) => setQueueQ(e.target.value)} />
             <label className="check small"><input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} />{t("csak teendős")}</label>
+            {anyTrial ? (
+              <label className="check small" title={t("To-dos that trial runs left on these documents. A trial run cannot be approved, so they never close by themselves; they do not affect this run.")}>
+                <input type="checkbox" checked={showTrial} onChange={(e) => setShowTrialReasons(e.target.checked)} />{t("trial runs' to-dos too")}
+              </label>
+            ) : null}
           </div>
           {items.filter((i) => (!onlyOpen || (own[i.item_id] ?? []).length > 0)
             && (!needle || fold(shown(i)).includes(needle) || fold(original(i)).includes(needle))).map((i) => {
             const n = (own[i.item_id] ?? []).length;
-            const m = (earlier[i.item_id] ?? []).length;
+            const m = visibleEarlier(earlier[i.item_id] ?? [], showTrial).length;
             const res = run.items.find((x) => x.item_id === i.item_id);
             const u = unified(i);
             return (

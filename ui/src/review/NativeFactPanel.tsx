@@ -8,6 +8,7 @@ import { clearDraft, draftKey, getDraft, isDirty, rebaseDraft, setNativeCitation
 import { locatorText } from "./NativeSourceViewer";
 import { useResolve } from "./useResolve";
 import { issueSummary, nativeStateLabel, outcomeReasonText } from "./nativeLabels";
+import { useShowTrialReasons, visibleEarlier } from "./trialReasons";
 
 /** The correction endpoint replaces its maps: retain every previously saved override. */
 export function nativeSaveBody(result: NativeItemResult, draft: Draft | undefined, only?: string): NativeCorrectionRequest {
@@ -32,6 +33,7 @@ export function NativeFactPanel({ result, source, selected, readOnly, onChanged,
 }) {
   useLocale();
   const actor = useActor();
+  const earlier = visibleEarlier(result.earlier_open_reasons, useShowTrialReasons()); // 150
   const key = draftKey(result.run_id, result.item_id);
   const draft = useDraft(key);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +101,7 @@ export function NativeFactPanel({ result, source, selected, readOnly, onChanged,
     <h3>{t("Open review reasons")}</h3>
     {result.open_reasons.map((reason) => <div key={reason.id} className="notice"><p>{reasonText(reason.reason)}</p>
       <button type="button" disabled={readOnly || busy || resolve.pending !== null || !actor.trim()} onClick={() => void resolve.resolve(reason)}>{t("Mark resolved")}</button></div>)}
-    {result.earlier_open_reasons.length ? <details><summary>{t("Earlier review reasons")}</summary>{result.earlier_open_reasons.map((r) => <p key={r.id}>{reasonText(r.reason)}</p>)}</details> : null}
+    {earlier.length ? <details><summary>{t("Earlier review reasons")}</summary>{earlier.map((r) => <p key={r.id}>{reasonText(r.reason)}</p>)}</details> : null}
   </section>;
 }
 

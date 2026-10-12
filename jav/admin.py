@@ -144,9 +144,25 @@ def admin_report() -> str:
         rq = [dict(r) for r in c.execute("SELECT subject_kind, reasons FROM review_queue WHERE status='open'")]
     kinds = Counter(r["subject_kind"] for r in rq)
     reasons = Counter(json.loads(r["reasons"])[0].split(":")[0] if r["reasons"] else "?" for r in rq)
-    L += ["", "## Nyitott review-sor", "", f"- alany szerint: {dict(kinds) or '-'}", f"- fő ok szerint: {dict(reasons) or '-'}", "",
+    by_kind = reasons_by_run_kind()
+    L += ["", "## Nyitott review-sor", "", f"- alany szerint: {dict(kinds) or '-'}", f"- fő ok szerint: {dict(reasons) or '-'}",
+          f"- open reasons by the kind of run that raised them: live {by_kind['live']} · trial {by_kind['trial']}"
+          f" · without a run {by_kind['no_run']}", "",
           "Parancsok: `configs`, `flows [--check]`, `docs`, `store`, golden / determinism / email-golden / detect-golden (README).", ""]
     return "\n".join(L)
+
+
+def reasons_by_run_kind() -> dict[str, int]:
+    """150: the open to-do reasons by the kind of run that raised them: a live run, a trial run (never approved, so its
+    reasons stay open) or no run (a command-line measurement). The queue count above counts documents and emails."""
+    out = {"live": 0, "trial": 0, "no_run": 0}
+    kind = {"apply": "live", "shadow": "trial"}
+    with store.connect() as c:
+        for r in c.execute("SELECT x.mode, COUNT(*) AS n FROM review_reasons r LEFT JOIN runs x"
+                           " ON x.run_id = substr(r.run_id, 1, instr(r.run_id || ':', ':') - 1)"
+                           " WHERE r.status='open' GROUP BY x.mode"):
+            out[kind.get(r["mode"], "no_run")] += r["n"]
+    return out
 
 
 def write_state(path: Path = STATE_PATH) -> Path:

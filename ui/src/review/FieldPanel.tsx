@@ -17,6 +17,7 @@ import { useResolve } from "./useResolve";
 import { DuplicatePanel } from "./DuplicatePanel";
 import { StatementPanel } from "./StatementPanel";
 import { BAND_LABEL, type Band } from "./geometry";
+import { useShowTrialReasons, visibleEarlier } from "./trialReasons";
 import { EMPTY_FILTER, FIELD_FILTERS, FILTER_LABEL, isConfirmed, type FieldFilter } from "./fieldFilter";
 import { fromRows, ListTable, toRows } from "./ListTable";
 import { BAND_COLOR } from "./PageViewer";
@@ -136,6 +137,7 @@ export function FieldPanel(p: Props) {
   const base = result.correction.revision;
   const conflict = Boolean(draft && draft.baseRevision !== base);
   const dirty = isDirty(draft);
+  const showTrial = useShowTrialReasons(); // 150: trial runs' earlier to-dos only when switched on
   const lists = result.lists ?? {};
   const listNames = Object.keys(lists);
   const tab = p.tab && (p.tab === "fields" || p.tab in lists) ? p.tab : "fields";
@@ -296,8 +298,9 @@ export function FieldPanel(p: Props) {
   // 126: a duplicate to-do is decided in its own panel (the two documents side by side), not with "resolved"
   const isDuplicate = (r: Reason) => r.reason.startsWith("duplicate:");
   const documentReasons = result.open_reasons.filter((r) => (!r.field || !simpleFields.has(r.field)) && !isDuplicate(r));
-  const earlierAt = (f: string) => result.earlier_open_reasons.filter((r) => r.field === f);
-  const earlierDocument = result.earlier_open_reasons.filter((r) => (!r.field || !simpleFields.has(r.field)) && !isDuplicate(r));
+  const earlierShown = visibleEarlier(result.earlier_open_reasons, showTrial);
+  const earlierAt = (f: string) => earlierShown.filter((r) => r.field === f);
+  const earlierDocument = earlierShown.filter((r) => (!r.field || !simpleFields.has(r.field)) && !isDuplicate(r));
   const prov: Provenance | undefined = activeField ? result.provenance[activeField] : undefined;
   const listRows = (f: string) => draft?.lists?.[f] ?? toRows(result.effective[f], lists[f].columns);
   const goRow = (f: string, row: number) => { p.onTab?.(f); setFocusRow({ row, seq: Date.now() }); };
