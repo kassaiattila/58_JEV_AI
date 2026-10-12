@@ -50,7 +50,8 @@ export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onCha
           {r ? (
             <div className="intent-box">
               <div className="muted small">{t("Felismert szándék")}</div>
-              <div className="intent">{r.intent ? intentLabel(r.intent) : r.intent_label ?? t("nem sikerült felismerni")}</div>
+              <div className="intent">{r.sent ? t("Sent message: its intent is not asked")
+                : r.intent ? intentLabel(r.intent) : r.intent_label ?? t("nem sikerült felismerni")}</div>
               {r.corrected ? (
                 <div className="small">{r.machine_intent && r.machine_intent !== r.intent
                   ? t("Kézzel javítva (a gép szerint: {{intent}})", { intent: intentLabel(r.machine_intent) })

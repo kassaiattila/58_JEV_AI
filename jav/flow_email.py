@@ -8,6 +8,9 @@
 - `intent`: one JEV request (Choice + 4 Nouls) through the adapter (cache + ledger); without JEV (089) the same
   questions in one GPT request (`jav/intent_gpt.py`), its confidence from the answer's token log-probabilities.
 - `route`: `policy.email_next_flow` - code decides from the intent, the confidence and the attachment types.
+- 149: a sent message (`folder = 'sent'`) is not asked about its intent (the question reads the sender's aim, and the
+  call is paid): its attachments still run and decide the route (`policy.email_sent_route`), no task proposal is made,
+  and without a problem it leaves no to-do.
 - `save`: `emails` table (the latest per email) and `email_results` (the run's own row, with the part of the email text
   that was seen, 058 K5.1); uncertain intent -> review_queue (per reason, additive), certain -> its own earlier reasons
   are closed.
@@ -115,6 +118,9 @@ def intent(state: EmailState) -> EmailState:
     from jav.intent import classify
 
     assert state.message is not None
+    if state.message.folder == "sent":  # 149: no sender's aim to recognise in a message we sent
+        state.result, state.uncertain = None, False
+        return state
     if not state.jev:  # 089 (the owner's decision of 2026-10-02): without JEV, GPT recognises the intent
         return _intent_gpt(state)
     try:
@@ -155,6 +161,9 @@ def _intent_gpt(state: EmailState) -> EmailState:
 @action.pydantic(reads=["message", "result"], writes=["next_flow"])
 def route(state: EmailState) -> EmailState:
     assert state.message is not None
+    if state.message.folder == "sent":  # 149: its attachments decide
+        state.next_flow = policy.email_sent_route(state.message.attachments)
+        return state
     if state.result is None:
         state.next_flow = policy.EMAIL_JEV_UNAVAILABLE_ROUTE
         return state
@@ -176,8 +185,8 @@ def tasks(state: EmailState) -> EmailState:
 
     msg = state.message
     assert msg is not None
-    skip = email_tasks.skip_reason(state.next_flow, signals=state.result.signals if state.result else None,
-                                   has_intent=state.result is not None)
+    skip = "sent_message" if msg.folder == "sent" else email_tasks.skip_reason(
+        state.next_flow, signals=state.result.signals if state.result else None, has_intent=state.result is not None)
     if skip:
         state.tasks = {"status": "skipped", "reason": skip, "tasks": [], "rejected": []}
         return state
@@ -218,12 +227,13 @@ def save(state: EmailState) -> EmailState:
         run_id=state.run_id, message_id=msg.message_id, intent=r.intent if r else None, intent_conf=r.confidence if r else None,
         signals=({**r.signals, "scores": {k: s.model_dump() for k, s in r.scores.items()}} if r else None),
         next_flow=state.next_flow, attachments=[a.model_dump(exclude={"path"}) for a in msg.attachments],
-        body=body_coverage(msg), tasks=state.tasks,
+        body=body_coverage(msg), tasks=state.tasks, folder=msg.folder,
     )
-    if r is None:
+    sent = msg.folder == "sent"  # 149: no intent was asked, so a missing one is no to-do
+    if r is None and not (sent and not state.review_reasons):
         store.review_enqueue(subject_kind="email", subject_id=msg.message_id, run_id=state.run_id, producer="email_intent",
                              reasons=list(state.review_reasons) or ["intent:no_result"])
-    elif state.uncertain or state.review_reasons:
+    elif r is not None and (state.uncertain or state.review_reasons):
         reasons = ([f"intent:low_conf:{r.intent}:{r.confidence:.2f}"] if state.uncertain else []) + list(state.review_reasons)
         store.review_enqueue(
             subject_kind="email", subject_id=msg.message_id, run_id=state.run_id, reasons=reasons, producer="email_intent",
@@ -234,7 +244,9 @@ def save(state: EmailState) -> EmailState:
     else:
         store.review_close(subject_kind="email", subject_id=msg.message_id, producer="email_intent", run_id=state.run_id)
     # 048 T2: the worker takes the item's status from this; an uncertain intent = a to-do
-    if r is None:  # 089: without JEV a missing intent means GPT could not answer (as for the GPT type)
+    if sent:
+        state.final_status = "needs_review" if state.review_reasons else "done"
+    elif r is None:  # 089: without JEV a missing intent means GPT could not answer (as for the GPT type)
         state.final_status = "jev_unavailable" if state.jev else "gpt_unavailable"
     else:
         state.final_status = "needs_review" if state.uncertain or state.review_reasons else "done"
@@ -269,9 +281,9 @@ CONTRACT = {  # the graph declaration: FLOW.md + Mermaid + lint come from it (ja
     "step_meta": {
         "load_message": {"kind": "det", "note": "inbox/<mailbox>/<msgid>/message.json + fájlok, vagy kész EmailMessage (golden)"},
         "classify_attachments": {"kind": "flow", "note": "minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only; olvashatatlan PDF -> unreadable + teendő (attachment:unreadable), a levél tovább fut"},
-        "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: the same questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/intent_gpt.py); a failed call is an intent:gpt_failed to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own)"},
-        "route": {"kind": "det", "note": "policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés"},
-        "tasks": {"kind": "llm", "note": "feladatjavaslat (GPT, a régi email-actions v1.3.0 utasítása) + kódos bizonyíték-kapu; csak ha a recept kéri, archiválandó levélen nem; javaslat -> teendő (ember fogadja el)"},
+        "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: the same questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/intent_gpt.py); a failed call is an intent:gpt_failed to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own). A sent message (folder = sent, 149) is not asked: no call, no to-do"},
+        "route": {"kind": "det", "note": "policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés. A sent message (149): policy.email_sent_route, its attachments' types, else archive:sent"},
+        "tasks": {"kind": "llm", "note": "feladatjavaslat (GPT, a régi email-actions v1.3.0 utasítása) + kódos bizonyíték-kapu; csak ha a recept kéri, archiválandó levélen nem; javaslat -> teendő (ember fogadja el). Not for a sent message (149)"},
         "save": {"kind": "store", "note": "emails + email_results (a futás sora, a feladatjavaslat is); bizonytalan intent / javaslat -> review_queue (additív), különben a korábbi tétel zárul"},
         "done": {"kind": "terminal", "note": "szándék + next_flow mentve"},
     },

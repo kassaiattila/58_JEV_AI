@@ -19,7 +19,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -70,6 +70,7 @@ class EmailMessage(BaseModel):
     received_at: str | None = None
     body: str = ""  # raw body (plain text)
     attachments: list[Attachment] = Field(default_factory=list)
+    folder: Literal["inbox", "sent"] = "inbox"  # 148: the mail folder it was read from; 149: a sent one has no intent
 
 
 @dataclass
@@ -190,6 +191,7 @@ def load_message_dir(folder: str | Path) -> EmailMessage:
         received_at=meta.get("received_at"),
         body=meta.get("body") or meta.get("body_preview") or "",
         attachments=atts,
+        folder="sent" if meta.get("folder") == "sent" else "inbox",
     )
 
 

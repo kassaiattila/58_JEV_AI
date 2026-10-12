@@ -520,7 +520,8 @@ def effective_email_result(res: dict[str, Any], corrected_intent: str | None) ->
     atts = [{**a, "shown_type": processed.get(a.get("doc_id") or "") or a.get("doc_type")} for a in atts]
     out = {"intent": res.get("intent"), "intent_label": intent_name(res.get("intent")), "confidence": res.get("intent_conf"),
            "next_flow": res.get("next_flow"), "attachments": atts, "signals": signals,
-           "corrected": False, "machine_intent": res.get("intent")}
+           "corrected": False, "machine_intent": res.get("intent"),
+           "sent": res.get("folder") == "sent"}  # 149: a sent message is not asked about its intent
     if corrected_intent and corrected_intent != res.get("intent"):
         atts = [Attachment.model_validate(a) for a in out["attachments"]]
         out.update(intent=corrected_intent, intent_label=intent_name(corrected_intent), corrected=True,

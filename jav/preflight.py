@@ -15,6 +15,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from xml.etree import ElementTree
 
 from jav import cfg, devstate
 from jav.admin import STATE_PATH, flow_lint_summary, write_state
@@ -31,12 +32,18 @@ KEEP_LOGS = 20
 _LOG_DIR = re.compile(r"^\d{8}_\d{6}$")
 
 
-def run_pytest() -> tuple[bool, str]:
+def log_folder() -> Path:
+    """A new timestamped folder under `runs/preflight/` for one full check's raw outputs (092, 149)."""
+    folder = PREFLIGHT_RUNS / time.strftime("%Y%m%d_%H%M%S")
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
+def run_pytest(folder: Path | None = None) -> tuple[bool, str]:
     """`pytest tests/ -q` in a subprocess; returns the summary line, and on a failure the failed tests' names too (086:
     an intermittent failure could not be identified from the summary line alone). 092 (audit T1): the raw output and a
     JUnit file are kept under `runs/preflight/<timestamp>/` (the latest `KEEP_LOGS`); a failure names the folder."""
-    folder = PREFLIGHT_RUNS / time.strftime("%Y%m%d_%H%M%S")
-    folder.mkdir(parents=True, exist_ok=True)
+    folder = folder or log_folder()
     r = subprocess.run(
         [sys.executable, "-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider", "-rfE", f"--junitxml={folder / 'junit.xml'}"],
         cwd=PROJECT_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace",
@@ -60,9 +67,21 @@ def _prune_logs(root: Path) -> None:
         shutil.rmtree(old)
 
 
-def run_ui_checks() -> tuple[bool, str] | None:
+def _failed_ui_tests(junit: Path) -> list[str]:
+    """`file > test name` of every failed or errored test case in vitest's JUnit file (149)."""
+    try:
+        root = ElementTree.parse(junit).getroot()
+    except (OSError, ElementTree.ParseError):
+        return []
+    return [f"{case.get('classname')} > {case.get('name')}" for case in root.iter("testcase")
+            if case.find("failure") is not None or case.find("error") is not None]
+
+
+def run_ui_checks(folder: Path | None = None) -> tuple[bool, str] | None:
     """The UI (040 K3): `tsc --noEmit` + `vitest run` + (057) translation completeness (`scripts/check-i18n.mjs` and
-    `--audit`). Skipped (None) if the Node dependencies are not installed."""
+    `--audit`). Skipped (None) if the Node dependencies are not installed. 149: the vitest output and a JUnit file are
+    kept next to the pytest log, and a failure names the failed tests and the folder (an intermittent UI failure could
+    not be identified before)."""
     npx = shutil.which("npx")
     if npx is None or not (UI_DIR / "node_modules").is_dir():
         return None
@@ -78,9 +97,21 @@ def run_ui_checks() -> tuple[bool, str] | None:
         if i18n.returncode != 0:
             last = [ln for ln in (i18n.stderr or "").splitlines() if ln.strip()]
             return False, f"fordítás: {(last[-1] if last else 'check-i18n hiba')[:160]}"
-    r = subprocess.run([npx, "vitest", "run"], cwd=UI_DIR, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    folder = folder or log_folder()
+    junit = folder / "vitest-junit.xml"
+    r = subprocess.run(
+        [npx, "vitest", "run", "--reporter=default", "--reporter=junit", f"--outputFile.junit={junit}"],
+        cwd=UI_DIR, capture_output=True, text=True, encoding="utf-8", errors="replace",
+    )
+    (folder / "vitest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")
     tests = next((ln.strip() for ln in (r.stdout or "").splitlines() if ln.strip().startswith("Tests")), "")
-    return r.returncode == 0, f"típusellenőrzés és fordítás OK; {re.sub(r'\s+', ' ', tests) or 'vitest: nincs összegzés'}"
+    summary = f"típusellenőrzés és fordítás OK; {re.sub(r'\s+', ' ', tests) or 'vitest: nincs összegzés'}"
+    if r.returncode != 0:
+        failed = _failed_ui_tests(junit)
+        if failed:
+            summary += "; " + ", ".join(failed[:5]) + (f" (+{len(failed) - 5})" if len(failed) > 5 else "")
+        summary += f"; log: {folder}"
+    return r.returncode == 0, summary
 
 
 def latest_handoff() -> tuple[Path | None, int]:
@@ -148,9 +179,10 @@ def preflight(*, skip_pytest: bool = False) -> int:
     results: list[tuple[str, bool, str]] = []
 
     if not skip_pytest:
-        ok, summary = run_pytest()
+        folder = log_folder()
+        ok, summary = run_pytest(folder)
         results.append(("pytest", ok, summary))
-        ui = run_ui_checks()
+        ui = run_ui_checks(folder)
         results.append(("felület", ui[0], ui[1]) if ui else ("felület", True, "kihagyva (ui/node_modules nincs telepítve)"))
 
     lint = flow_lint_summary()

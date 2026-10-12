@@ -104,7 +104,8 @@ CREATE TABLE IF NOT EXISTS email_results (
     attachments   TEXT NOT NULL,             -- JSON: csatolmányok felismeréssel (doc_id, doc_type, status)
     body          TEXT,                      -- JSON: a levél szövegéből látott rész (emails.body_coverage)
     tasks         TEXT,                      -- JSON: 058 K5.3 feladatjavaslat a kapu után (NULL = nem kértük)
-    created_at    TEXT NOT NULL
+    created_at    TEXT NOT NULL,
+    folder        TEXT                       -- 149: 'sent' for a message read from the Sent Items folder, else NULL
 );
 
 -- 058 K5.3: emberi döntés a feladatjavaslatról (javaslatonként; a legutóbbi döntés érvényes, a korábbi a naplóban)
@@ -321,6 +322,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
     ecols = {r[1] for r in conn.execute("PRAGMA table_info(email_results)")}
     if ecols and "tasks" not in ecols:  # 058 K5.3: the task proposal next to the email result
         conn.execute("ALTER TABLE email_results ADD COLUMN tasks TEXT")
+    if ecols and "folder" not in ecols:  # 149: a sent message has no intent; the result says why
+        conn.execute("ALTER TABLE email_results ADD COLUMN folder TEXT")
     doc_cols = {r[1] for r in conn.execute("PRAGMA table_info(documents)")}
     for col, typ in (("detail_type", "TEXT"), ("detail_conf", "REAL"), ("detail_method", "TEXT")):  # 047 T1.2: detailed type
         if col not in doc_cols:
@@ -470,16 +473,18 @@ def insert_datapoints(
 
 def upsert_email_result(*, run_id: str, message_id: str, intent: str | None, intent_conf: float | None,
                         signals: dict[str, Any] | None, next_flow: str | None, attachments: list[dict[str, Any]],
-                        body: dict[str, Any] | None, tasks: dict[str, Any] | None = None) -> None:
+                        body: dict[str, Any] | None, tasks: dict[str, Any] | None = None, folder: str = "inbox") -> None:
     """058 K5.1: the email result as the run's own row (a repeated run does not overwrite the earlier one); K5.3: the
-    task proposal."""
+    task proposal; 149: the mail folder, stored only for a sent message."""
     with connect() as c:
-        c.execute("INSERT INTO email_results(run_id, message_id, intent, intent_conf, signals, next_flow, attachments, body, tasks, created_at)"
-                  " VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(run_id) DO UPDATE SET message_id=excluded.message_id,"
+        c.execute("INSERT INTO email_results(run_id, message_id, intent, intent_conf, signals, next_flow, attachments, body, tasks, created_at, folder)"
+                  " VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(run_id) DO UPDATE SET message_id=excluded.message_id,"
                   " intent=excluded.intent, intent_conf=excluded.intent_conf, signals=excluded.signals, next_flow=excluded.next_flow,"
-                  " attachments=excluded.attachments, body=excluded.body, tasks=excluded.tasks, created_at=excluded.created_at",
+                  " attachments=excluded.attachments, body=excluded.body, tasks=excluded.tasks, created_at=excluded.created_at,"
+                  " folder=excluded.folder",
                   (run_id, message_id, intent, intent_conf, _json(signals) if signals is not None else None, next_flow,
-                   _json(attachments), _json(body) if body is not None else None, _json(tasks) if tasks is not None else None, _now()))
+                   _json(attachments), _json(body) if body is not None else None, _json(tasks) if tasks is not None else None, _now(),
+                   folder if folder == "sent" else None))
 
 
 def email_task_decide(run_id: str, index: int, *, decision: str, actor: str, note: str | None,

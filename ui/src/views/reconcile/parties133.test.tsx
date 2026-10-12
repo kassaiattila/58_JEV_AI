@@ -157,8 +157,13 @@ describe("the own parties in the settings", () => {
     fireEvent.click(within(card).getByRole("button", { name: "Move" }));
     await waitFor(() => expect(set).toHaveBeenCalledWith(club.identities[0], "assign", HOME.id));
     set.mockClear();
-    const unassigned = screen.getByRole("region", { name: "Unassigned" });
-    const notOwn = within(unassigned).getByRole("button", { name: "Not own" });
+    // 149: every button of the panel stays disabled until the move's request has finished; under the load of a full
+    // check the clicks used to land on the disabled button now and then
+    const notOwn = await waitFor(() => {
+      const button = within(screen.getByRole("region", { name: "Unassigned" })).getByRole("button", { name: "Not own" });
+      expect((button as HTMLButtonElement).disabled).toBe(false);
+      return button;
+    });
     fireEvent.click(notOwn);
     fireEvent.click(notOwn);
     await waitFor(() => expect(set).toHaveBeenCalledWith(lonely, "dismiss"));

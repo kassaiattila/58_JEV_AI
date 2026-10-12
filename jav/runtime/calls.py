@@ -178,6 +178,8 @@ Measured in the call log (2026-09-30): the smallest JEV request (the model probe
 OpenAI calls the input tokens were at most 0.60 and 0.90 of the request's characters."""
 
 OVERRUN_NOTE = "actual_exceeds_reserved"
+LEAN_NOTE = "lean_bound"
+"""149: the call was sent with its lean bound (e.g. one request, no validation retry), because the full one did not fit."""
 
 NOT_SENT = frozenset({"ConnectTimeout", "ConnectError", "PoolTimeout", "ProxyError", "UnsupportedProtocol", "LocalProtocolError",
                       "InvalidURL", "URLError"})
@@ -367,10 +369,13 @@ def _remove_stopped_holder_files() -> None:
 
 
 def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max_cost_usd: Decimal,
-             budget_scope: str | None, request_hash: str | None, reuse: bool = False) -> tuple[int | None, Any]:
+             budget_scope: str | None, request_hash: str | None, reuse: bool = False,
+             lean_cost_usd: Decimal | None = None) -> tuple[int | None, Any]:
     """Reserves in one transaction. Returns (new invocation id, None), or on a repeat (None, (id, saved response)), or,
-    090, with `reuse`, an earlier answer to the same question: (None, (id, response, the call it came from))."""
-    me = holder()
+    090, with `reuse`, an earlier answer to the same question: (None, (id, response, the call it came from)). 149: when
+    `max_cost_usd` does not fit the budget left but `lean_cost_usd` does, the lean bound is reserved and the row is
+    marked `LEAN_NOTE`."""
+    me, note = holder(), None
     with store.connect() as c:
         c.commit()
         c.execute("BEGIN IMMEDIATE")
@@ -396,32 +401,42 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
             if c.execute("SELECT 1 FROM invocations WHERE budget_scope=? AND provider=? AND note=?",
                          (budget_scope, provider, OVERRUN_NOTE)).fetchone():
                 raise BudgetExceeded(f"{budget_scope}/{provider}: an earlier call exceeded its reservation; no further calls")
-            committed = _committed(c, budget_scope, provider)
-            if committed + max_cost_usd > Decimal(lim["limit_usd"]):
-                raise BudgetExceeded(f"{budget_scope}/{provider}: committed {committed} + max {max_cost_usd} > limit {lim['limit_usd']}")
+            committed, limit = _committed(c, budget_scope, provider), Decimal(lim["limit_usd"])
+            if committed + max_cost_usd > limit:
+                if lean_cost_usd is None or committed + lean_cost_usd > limit:
+                    raise BudgetExceeded(f"{budget_scope}/{provider}: committed {committed} + max {max_cost_usd} > limit {limit}")
+                max_cost_usd, note = lean_cost_usd, LEAN_NOTE
         cur = c.execute(
             "INSERT INTO invocations(run_id, step_id, attempt, provider, model_requested, request_hash, budget_scope, status,"
-            " max_cost_usd, created_at, holder) VALUES (?,?,?,?,?,?,?,'reserved',?,?,?)",
-            (run_id, step_id, attempt, provider, model, request_hash, budget_scope, str(max_cost_usd), _now(), me))
+            " max_cost_usd, note, created_at, holder) VALUES (?,?,?,?,?,?,?,'reserved',?,?,?,?)",
+            (run_id, step_id, attempt, provider, model, request_hash, budget_scope, str(max_cost_usd), note, _now(), me))
         return int(cur.lastrowid), None
 
 
 def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_cost_usd: Decimal,
            fn: Callable[[], Outcome], budget_scope: str | None = None, request_hash: str | None = None,
-           reusable: bool = False) -> Result:
+           reusable: bool = False, lean: tuple[Decimal, Callable[[], Outcome]] | None = None) -> Result:
     """One physical call through the call log and the budget. Repeating a successful step returns the saved response.
     090: a `reusable` caller (its `request_hash` is an `answer_key`) gets an earlier answer to the same question when
-    the run allows it (`use_run(reuse=True)`): no call, cost 0, a cached row in the ledger."""
+    the run allows it (`use_run(reuse=True)`): no call, cost 0, a cached row in the ledger. 149: `lean` = (a lower
+    bound, the call that keeps to it), sent instead of `fn` when only the lower bound fits the budget left; it must be
+    a true bound as well (e.g. the same request without validation retries)."""
     ctx = current()
     reuse = reusable and ctx is not None and ctx.reuse
     inv_id, replay = _reserve(run_id=run_id, step_id=step_id, provider=provider, model=model, max_cost_usd=max_cost_usd,
-                              budget_scope=budget_scope, request_hash=request_hash, reuse=reuse)
+                              budget_scope=budget_scope, request_hash=request_hash, reuse=reuse,
+                              lean_cost_usd=lean[0] if lean else None)
     if inv_id is None:
         if len(replay) == 3:  # 090: reused from another call
             store.ledger_add(run_id=run_id, step=step_id, provider=provider, model=model, input_tokens=None, output_tokens=None,
                              cost_usd=0.0, seconds=0.0, cached=True, cache_key=(request_hash or "")[:16])
             return Result(response=replay[1], invocation_id=replay[0], replayed=True, reused_from=replay[2])
         return Result(response=replay[1], invocation_id=replay[0], replayed=True)
+    if lean is not None:
+        with store.connect() as c:
+            if c.execute("SELECT note FROM invocations WHERE id=?", (inv_id,)).fetchone()["note"] == LEAN_NOTE:
+                max_cost_usd, fn = lean
+                log.info("call %s/%s sent with its lean bound %s: the full one did not fit the budget", run_id, step_id, max_cost_usd)
     try:
         out = fn()
     except BaseException as exc:

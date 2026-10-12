@@ -781,12 +781,17 @@ def _write(read_state: list[Any], fn) -> Any:
 # --- decisions -----------------------------------------------------------------------------------------------------------
 
 
+def _refuse_approved(wp_id: str) -> None:
+    """145: an approved package takes no decision until its version is reopened."""
+    if active := active_versions().get(wp_id):
+        raise Locked(f"the package's statement is approved (version {active['version']}); reopen it first")
+
+
 def _context(wp_id: str) -> dict[str, Any]:
     """What a decision reads; 145: an approved package takes no decision until its version is reopened."""
     _package(wp_id)
     state = _decision_state()
-    if active := active_versions().get(wp_id):
-        raise Locked(f"the package's statement is approved (version {active['version']}); reopen it first")
+    _refuse_approved(wp_id)
     snap, sc = scoped_snapshot(wp_id)
     result = reconcile.propose(snap)
     prepared = reconcile.prepare(snap)
@@ -884,14 +889,13 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
 def proposed_pairs(wp_id: str) -> list[dict[str, str]]:
     """The unambiguous proposals of the scope: proposed, the only candidate of its line and its invoice, on a statement
     whose balances check out, the line booked in the period, the invoice the package's own (133: another party's pair
-    waits for a person), the line in no approved statement (145). 147: the quick review's sure pairs are these."""
-    ctx = _context(wp_id)
-    sc = ctx["scope"]
-    who = _Parties(sc, ctx["invoices"])
-    return [{"invoice_doc_id": c["invoice_id"], "line_id": c["line_id"]} for c in ctx["result"]["candidates"]
-            if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"] and who.own(c["invoice_id"])
-            and c["line_id"] not in ctx["locked"]
-            and sc["period_start"] <= str(ctx["prepared"]["lines"][c["line_id"]].get("booking_date") or "")[:10] <= sc["period_end"]]
+    waits for a person), the line in no approved statement (145). 147: the quick review's sure pairs are these. 149: read
+    from the kept workspace, whose lines are the period's and whose candidates are the package's own invoices; a fresh
+    pairing here made the quick review pair the whole scope twice on every request."""
+    _package(wp_id)
+    _refuse_approved(wp_id)
+    return [{"invoice_doc_id": c["invoice_id"], "line_id": ln["id"]} for ln in workspace(wp_id)["lines"] if not ln.get("locked")
+            for c in ln["candidates"] if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"]]
 
 
 def accept_proposed(wp_id: str, *, actor: str) -> int:

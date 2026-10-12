@@ -529,6 +529,7 @@ Mailbox download brings in emails from the Outlook running on this computer.
 - **Schedule** (only with the ‘last days’ period): choose a frequency (every 15 minutes, every 30 minutes, hourly, every 4 hours, daily), then **Save schedule** (*Ütemezés mentése*). In the **Schedules** (*Ütemezések*) table you can change the frequency, turn a schedule off and on, or delete it (**Delete** (*Törlés*) needs two clicks). The ‘Last’ (*Legutóbb*) column shows the result or error of the last download. A schedule only runs while the worker is running and Outlook is open.
 - **Downloads** (*Letöltések*): the state of every download, the number of new emails, the work package created and any error. Known Outlook errors (for example ‘Outlook is not running on this computer…’ (*Az Outlook nem fut ezen a gépen…*)) are shown in the interface language, both here and in the ‘Last’ column.
 - The worker does the download, and document processing waits in the meantime. The new emails become a work package, but no paid run starts on its own.
+- A message from the Sent Items folder is not asked about its intent, because that question reads the sender's aim: only its attachments are processed, it gets no task proposal, and its review page says ‘Sent message: its intent is not asked’ (*Elküldött levél: a szándékát nem kérdezzük*).
 
 ### 10.2 Work folders
 

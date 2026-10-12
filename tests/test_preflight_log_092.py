@@ -3,6 +3,7 @@ looked up afterwards; the latest few are kept. A stand-in for the subprocess, no
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 from jav import preflight
@@ -29,6 +30,64 @@ def test_the_raw_output_and_a_junit_file_are_kept(tmp_path, monkeypatch):
     assert f"--junitxml={folder / 'junit.xml'}" in seen[0]
     text = (folder / "pytest.txt").read_text(encoding="utf-8")
     assert "AssertionError: boom" in text and "a warning" in text
+
+
+JUNIT = """<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="3" failures="1" errors="0">
+  <testsuite name="src/views/a.test.tsx" tests="3" failures="1">
+    <testcase classname="src/views/a.test.tsx" name="the list &gt; shows a row" time="0.1"/>
+    <testcase classname="src/views/a.test.tsx" name="the list &gt; opens the card" time="1.2">
+      <failure message="Unable to find an element" type="TestingLibraryElementError">stack</failure>
+    </testcase>
+    <testcase classname="src/views/a.test.tsx" name="the list &gt; filters" time="0.1"/>
+  </testsuite>
+</testsuites>
+"""
+VITEST_OUT = " FAIL  src/views/a.test.tsx > the list > opens the card\n Tests  1 failed | 2 passed (3)\n"
+
+
+def _fake_ui(seen):
+    def run(cmd, **kw):
+        seen.append(cmd)
+        if "vitest" in cmd:
+            junit = next(a.split("=", 1)[1] for a in cmd if a.startswith("--outputFile.junit="))
+            Path(junit).write_text(JUNIT, encoding="utf-8")
+            return SimpleNamespace(stdout=VITEST_OUT, stderr="", returncode=1)
+        return SimpleNamespace(stdout="", stderr="", returncode=0)
+    return run
+
+
+def test_149_the_ui_test_output_is_kept_and_a_failure_is_named(tmp_path, monkeypatch):
+    """149 (backlog Q-flaky-ui-test): an intermittent UI test failure could not be identified, because the vitest
+    output was thrown away. It is now kept next to the pytest log, and the summary names the failed test."""
+    seen: list = []
+    (tmp_path / "ui" / "node_modules").mkdir(parents=True)
+    monkeypatch.setattr(preflight, "UI_DIR", tmp_path / "ui")
+    monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", tmp_path / "preflight")
+    monkeypatch.setattr(preflight.shutil, "which", lambda name: name)
+    monkeypatch.setattr(preflight.subprocess, "run", _fake_ui(seen))
+    folder = preflight.log_folder()
+    ok, summary = preflight.run_ui_checks(folder)
+    assert not ok
+    assert "src/views/a.test.tsx > the list > opens the card" in summary
+    assert str(folder) in summary  # where to look
+    assert (folder / "vitest.txt").read_text(encoding="utf-8") == VITEST_OUT
+    assert (folder / "vitest-junit.xml").is_file()
+
+
+def test_149_a_green_ui_run_reports_the_count_only(tmp_path, monkeypatch):
+    def run(cmd, **kw):
+        if "vitest" in cmd:
+            return SimpleNamespace(stdout=" Tests  3 passed (3)\n", stderr="", returncode=0)
+        return SimpleNamespace(stdout="", stderr="", returncode=0)
+
+    (tmp_path / "ui" / "node_modules").mkdir(parents=True)
+    monkeypatch.setattr(preflight, "UI_DIR", tmp_path / "ui")
+    monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", tmp_path / "preflight")
+    monkeypatch.setattr(preflight.shutil, "which", lambda name: name)
+    monkeypatch.setattr(preflight.subprocess, "run", run)
+    ok, summary = preflight.run_ui_checks(preflight.log_folder())
+    assert ok and summary.endswith("Tests 3 passed (3)") and "log:" not in summary
 
 
 def test_only_the_latest_logs_are_kept(tmp_path, monkeypatch):

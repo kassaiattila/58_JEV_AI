@@ -412,6 +412,7 @@ INTENT_HUMAN_MAX_CONF: float = band("email.intent")["choice_human_max_conf"]  # 
 M2_TYPES = frozenset(_EMAIL["m2_types"])  # has / will have an M2 flow
 INTENT_ROUTE: dict[str, str] = dict(_EMAIL["intent_route"])  # attachment-independent default per intent
 EMAIL_JEV_UNAVAILABLE_ROUTE: str = _EMAIL["jev_unavailable_route"]  # JEV did not answer -> manual queue
+EMAIL_SENT_ROUTE: str = _EMAIL["sent_route"]  # 149: a message we sent, without a document attachment
 
 
 EMAIL_SIGNAL_REVIEW: tuple[str, ...] = tuple(_EMAIL.get("signal_review", ()))  # signals whose yes band means review
@@ -453,11 +454,26 @@ def email_next_flow(
     if choice_needs_review(confidence, probabilities, "email.intent"):
         return _EMAIL["low_conf_route"]
     if intent in DOCUMENT_BEARING:
-        typed = [a for a in attachments if a.doc_type in M2_TYPES]
-        if typed:
-            return f"m2:{typed[0].doc_type}"
-        if any(a.status == "needs_ocr" for a in attachments):
-            return _EMAIL["needs_ocr_route"]
-        if any(a.ext == ".pdf" and a.status in (None, "name_only", "skipped") for a in attachments):
-            return _EMAIL["detect_route"]
+        by_attachment = _attachment_route(attachments)
+        if by_attachment:
+            return by_attachment
     return INTENT_ROUTE.get(intent, _EMAIL["default_route"])
+
+
+def _attachment_route(attachments: list[Attachment]) -> str | None:
+    """The route an email's attachments give: the first attachment of a type with a data extraction, else text
+    recognition or type recognition still to do; None if no attachment decides."""
+    typed = [a for a in attachments if a.doc_type in M2_TYPES]
+    if typed:
+        return f"m2:{typed[0].doc_type}"
+    if any(a.status == "needs_ocr" for a in attachments):
+        return _EMAIL["needs_ocr_route"]
+    if any(a.ext == ".pdf" and a.status in (None, "name_only", "skipped") for a in attachments):
+        return _EMAIL["detect_route"]
+    return None
+
+
+def email_sent_route(attachments: list[Attachment]) -> str:
+    """149: the route of a message we sent. It has no intent to ask about (the intent question reads the sender's aim),
+    so its attachments decide, as for a document-bearing intent; without a deciding attachment it is archived."""
+    return _attachment_route(attachments) or EMAIL_SENT_ROUTE
