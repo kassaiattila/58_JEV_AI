@@ -235,3 +235,13 @@
   .rc-ftime { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 2px 10px; }
 }
 .rc-fhead-cols > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 147: the quick review */
+.rc-modes { margin-bottom: 4px; }
+.rc-qr { display: flex; flex-direction: column; gap: 6px; }
+.rc-qr-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.rc-qr-head .spacer { flex: 1; }
+.rc-qr-sure { border-left: 3px solid var(--ok, #2e7d32); }
+.rc-qr-look { border-left: 3px solid var(--warn, #b26a00); }
+.rc-qr-info { border-left: 3px solid var(--line, #c9c9d4); }
+.rc-qr-lines td.rc-qr-memo { max-width: 28em; overflow-wrap: anywhere; }

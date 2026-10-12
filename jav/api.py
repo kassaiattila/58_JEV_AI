@@ -36,8 +36,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from jav import (app_settings, backup, bank_files, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
-                 parties, party_views, reconcile_package, reconcile_statement, statement_months, store, version, work, work_views,
-                 workflows)
+                 parties, party_views, reconcile_package, reconcile_review, reconcile_statement, statement_months, store, version, work,
+                 work_views, workflows)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
@@ -455,6 +455,12 @@ class ReconcileMark(_In):
     line_ids: Annotated[list[LineId], Field(min_length=1, max_length=5000)]  # 132: several lines in one step
     category: Annotated[str, Field(min_length=1, max_length=40)]  # configs/reconcile.json line_marks
     note: Text | None = None
+
+
+class QuickReviewAccept(_In):
+    """147: a person accepts a quick review group's suggestion for these of its lines."""
+    group: Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]
+    line_ids: Annotated[list[LineId], Field(min_length=1, max_length=5000)]
 
 
 class ReconcileUnmark(_In):
@@ -1385,6 +1391,20 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def reconcile_mark(wp_id: WpId, body: ReconcileMark, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.mark(wp_id, body.line_ids, category=body.category, note=body.note, actor=who)
         return work_views.jsonable(reconcile_package.workspace(wp_id))
+
+    @app.get(r + "/workpackages/{wp_id}/reconcile/quick-review")
+    def reconcile_quick_review(wp_id: WpId) -> dict[str, Any]:
+        """147: the lines to decide in groups by what is known of them (jav/reconcile_review.py)."""
+        return work_views.jsonable(reconcile_review.review(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/quick-review/accept")
+    def reconcile_quick_review_accept(wp_id: WpId, body: QuickReviewAccept,
+                                      who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """147: a group's suggestion accepted for the given lines (only those still in the group, all or none); the
+        review and the workspace after it."""
+        n = reconcile_review.accept(wp_id, body.group, body.line_ids, actor=who)
+        return {"accepted": n, "review": work_views.jsonable(reconcile_review.review(wp_id)),
+                "workspace": work_views.jsonable(reconcile_package.workspace(wp_id))}
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/unmark")
     def reconcile_unmark(wp_id: WpId, body: ReconcileUnmark, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:

@@ -375,7 +375,8 @@ WORKSPACE_INPUTS: dict[str, str | None] = {
     # an answer is replaced in place (one row per line and engine), possibly within the same second: its content counts
     "reconcile_ai_proposals": "(SELECT group_concat(line_id || ':' || engine || ':' || COALESCE(pays, '') || ':'"
                               " || COALESCE(kind, '') || ':' || COALESCE(error, '') || ':' || COALESCE(options, '') || ':'"
-                              " || COALESCE(asked_line_id, '') || ':' || created_at, '|') FROM reconcile_ai_proposals)",
+                              " || COALESCE(asked_line_id, '') || ':' || COALESCE(config_hash, '') || ':' || created_at, '|')"
+                              " FROM reconcile_ai_proposals)",  # 147: the version of the question shows (stale answers)
     "fx_rates": "MAX(fetched_at)",
     "reconcile_versions": "COUNT(reopened_at)",  # 145: an approval, a reopening
     "reconcile_source_acceptances": None,
@@ -878,17 +879,22 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
     return _write(ctx["state"], write)
 
 
-def accept_proposed(wp_id: str, *, actor: str) -> int:
-    """Every unambiguous proposal of the scope at once: proposed, the only candidate of its line and its invoice, on a
-    statement whose balances check out, the line booked in the period, the invoice the package's own (133: another
-    party's pair waits for a person), the line in no approved statement (145). Returns how many were allocated."""
+def proposed_pairs(wp_id: str) -> list[dict[str, str]]:
+    """The unambiguous proposals of the scope: proposed, the only candidate of its line and its invoice, on a statement
+    whose balances check out, the line booked in the period, the invoice the package's own (133: another party's pair
+    waits for a person), the line in no approved statement (145). 147: the quick review's sure pairs are these."""
     ctx = _context(wp_id)
     sc = ctx["scope"]
     who = _Parties(sc, ctx["invoices"])
-    pairs = [{"invoice_doc_id": c["invoice_id"], "line_id": c["line_id"]} for c in ctx["result"]["candidates"]
-             if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"] and who.own(c["invoice_id"])
-             and c["line_id"] not in ctx["locked"]
-             and sc["period_start"] <= str(ctx["prepared"]["lines"][c["line_id"]].get("booking_date") or "")[:10] <= sc["period_end"]]
+    return [{"invoice_doc_id": c["invoice_id"], "line_id": c["line_id"]} for c in ctx["result"]["candidates"]
+            if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"] and who.own(c["invoice_id"])
+            and c["line_id"] not in ctx["locked"]
+            and sc["period_start"] <= str(ctx["prepared"]["lines"][c["line_id"]].get("booking_date") or "")[:10] <= sc["period_end"]]
+
+
+def accept_proposed(wp_id: str, *, actor: str) -> int:
+    """Every unambiguous proposal of the scope at once (`proposed_pairs`). Returns how many were allocated."""
+    pairs = proposed_pairs(wp_id)
     if not pairs:
         return 0
     return len(allocate(wp_id, pairs, note=None, actor=actor))
@@ -931,15 +937,25 @@ def mark(wp_id: str, line_ids: Iterable[str], *, category: str, note: str | None
     """'Needs no invoice' with its reason (`configs/reconcile.json` `line_marks`) for one or more lines in one step,
     all or none (132: most lines of a real statement need no invoice); a line with an allocation cannot be marked. A
     new mark replaces the line's earlier one."""
-    note = (note or "").strip() or None
     ids = list(dict.fromkeys(line_ids))
     if not ids:
         raise PackageError("no line to mark")
+    return mark_each(wp_id, {lid: category for lid in ids}, note=note, actor=actor)
+
+
+def mark_each(wp_id: str, marks: dict[str, str], *, note: str | None, actor: str, basis: str | None = None) -> list[dict[str, Any]]:
+    """147: several lines marked in one step, each with its own reason (the quick review accepts a group whose lines'
+    suggestions differ), all or none; `basis` records the suggestion they came from (None: a person's own choice)."""
+    note = (note or "").strip() or None
+    if not marks:
+        raise PackageError("no line to mark")
     conf = _conf()
-    if category not in conf["line_marks"]:
-        raise PackageError(f"unknown reason: {category}")
-    if category in conf["line_mark_note_required"] and note is None:
-        raise PackageError("this reason needs a note")
+    for category in set(marks.values()):
+        if category not in conf["line_marks"]:
+            raise PackageError(f"unknown reason: {category}")
+        if category in conf["line_mark_note_required"] and note is None:
+            raise PackageError("this reason needs a note")
+    ids = list(marks)
     ctx = _context(wp_id)
     lines = [_scope_line(ctx, lid) for lid in ids]
     _unlocked(ctx, ids)
@@ -952,9 +968,12 @@ def mark(wp_id: str, line_ids: Iterable[str], *, category: str, note: str | None
             c.execute("UPDATE reconcile_line_marks SET revoked_at=?, revoked_by=? WHERE line_id=? AND revoked_at IS NULL",
                       (now, actor, lid))
             cur = c.execute("INSERT INTO reconcile_line_marks(statement_doc_id, line_id, category, note, workpackage_id, actor,"
-                            " created_at) VALUES (?,?,?,?,?,?,?)", (line["statement_id"], lid, category, note, wp_id, actor, now))
+                            " created_at, basis) VALUES (?,?,?,?,?,?,?,?)",
+                            (line["statement_id"], lid, marks[lid], note, wp_id, actor, now, basis))
             made.append(cur.lastrowid)
-        work.record_event(c, wp_id, "reconcile_mark", actor, {"marks": made, "category": category})
+        categories = sorted(set(marks.values()))
+        work.record_event(c, wp_id, "reconcile_mark", actor, {"marks": made, "category": categories[0] if len(categories) == 1
+                                                               else categories} | ({"basis": basis} if basis else {}))
         return [dict(r) for r in c.execute(f"SELECT * FROM reconcile_line_marks WHERE id IN ({','.join('?' * len(made))})", made)]
     return _write(ctx["state"], write)
 

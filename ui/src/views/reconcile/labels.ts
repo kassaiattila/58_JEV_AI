@@ -76,6 +76,7 @@ export const KIND: Record<string, string> = tmap({
   bank_fee: "Bank fee",
   tax_or_duty: "Tax or duty",
   cash: "Cash",
+  salary: "Salary or wage",
   other: "Other",
 });
 

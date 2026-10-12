@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "changelog": [
+   {
+    "version": "1.20.0",
+    "date": "2026-10-12",
+    "note": "147 (backlog F-quick-review, the owner's decision of 2026-10-12, DECISIONS 147): reconcile.ai_sure - in a reconciliation package's quick review, the AI's kind of payment counts as sure when both engines (JEV and GPT) give the same kind, that kind suggests a needs-no-invoice reason, and JEV's probability of it is at least min_jev_probability (0.95). GPT's probability is not used: it is about 1 on nearly every line (23 of the 27 agreeing lines at 0.95 or more). On the store's 132 lines with both answers, 27 agree on a reason-giving kind and 15 of them pass. Agreement of the two models, not measured correctness: a person still accepts the group; the rest of the AI's suggestions are a group to look at."
+   },
    {
     "version": "1.19.0",
     "date": "2026-10-09",
@@ -207,6 +212,7 @@
   "compared_fields": ["issue_date", "gross_total", "currency"]
  },
  "reconcile": {
-  "fx_tolerance": {"below": "0.02", "above": "0.05"}
+  "fx_tolerance": {"below": "0.02", "above": "0.05"},
+  "ai_sure": {"min_jev_probability": 0.95}
  }
 }

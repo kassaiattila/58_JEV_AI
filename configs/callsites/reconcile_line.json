@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile_line",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "134 F-pre-matching P3 (jav/reconcile_ai.py): two judgements about one statement line of a reconciliation package that code left without a confirmed pair - which of the invoices code preselected it pays (or none), and what kind of payment it is (to propose a needs-no-invoice reason or to say that an invoice is expected). JEV asks both in one request; GPT (configs/gpt_reconcile.json) gets the same texts. Raw probabilities are stored; a person decides. Decisions: DECISIONS 134 (JEV and GPT compared, sub-budget 0.10 USD JEV + 0.30 USD OpenAI).",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-10-12",
+        "note": "147 (DECISIONS 147, the owner's decision 'code and a new AI kind'): the kind of payment gains salary (a wage or salary paid to an employee, or received), which suggests the salary reason (kind_marks). A new option: every line is asked again (a new cache key), within the owner's sub-budget of 0.10 USD JEV + 1.00 USD OpenAI."
+      },
       {
         "version": "1.0.0",
         "date": "2026-10-10",
@@ -62,6 +67,11 @@
           "not_for": "A tax, duty or fine paid to an authority: tax_or_duty.",
           "examples": ["EXAMPLE PRIMARY SCHOOL", "EXAMPLE SPORTS CLUB membership"]
         },
+        "salary": {
+          "what": "A wage, salary, bonus or payroll payment to an employee, or a salary received from an employer; the memo or the description usually says so.",
+          "not_for": "A payment to a private person for a one-off service or a private matter: person_transfer. A contractor's invoice: online_order or other.",
+          "examples": ["Szeptemberi munkabér", "Payroll September", "BÉR 2026/09"]
+        },
         "person_transfer": {
           "what": "A transfer to a private person: a personal name without a company form, for example a babysitter, a tutor or a relative.",
           "not_for": "A sole trader or company named with a legal form (E.V., Kft., Bt.): online_order or other.",
@@ -95,6 +105,6 @@
       }
     }
   },
-  "kind_marks": {"retail_purchase": "private", "own_transfer": "own_transfer", "bank_fee": "fee", "tax_or_duty": "tax", "cash": "cash"},
+  "kind_marks": {"retail_purchase": "private", "own_transfer": "own_transfer", "bank_fee": "fee", "tax_or_duty": "tax", "cash": "cash", "salary": "salary"},
   "kind_expects_invoice": ["utility_or_telecom", "subscription", "insurance", "online_order"]
 }

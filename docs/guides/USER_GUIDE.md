@@ -135,7 +135,29 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
   - **Decisions not carried over** (*Át nem vitt döntések*, only when there are any): a better statement replaced a statement of the scope, and a decision made on one of its lines (a pair, ‘needs no invoice’) has no same line on the valid statement. **Revoke** (*Visszavonás*) each, then make it again on the valid statement's lines.
   - **What blocks the approval** (*Mi akadályozza a jóváhagyást*): source documents whose run is not approved, or that were processed on the command line (until you accept them in the Result stage), and decisions not carried over. Pairing can start anyway. **Warnings** (*Figyelmeztetések*): statements whose balances do not check out; they do not block the approval (145).
   - **Where the pairing stands** (*Hol tart a párosítás*): the lines and invoices by state.
-- **2 Pairing** (*Párosítás*) opens on **the cards** (*kártyák*, 142). A card holds what belongs together: a transfer with
+- **2 Pairing** (*Párosítás*) opens on **the quick review** (*Gyors áttekintés*, 147); **Cards** (*Kártyák*) switches to the cards.
+  The quick review shows the lines you still decide in groups, by what is known of them; each line is in the first group
+  that fits:
+  - **Sure pairs** (*Biztos párok*): the invoice number or another sign and the exact amount tie the line to one invoice,
+    on a statement whose balances check out (the same as the cards' accept button).
+  - **As decided before** (*Korábbi döntés szerint*): the reason you gave the partner's other lines.
+  - **By the bank's category** (*A bank kategóriája szerint*): an ATM withdrawal is cash, an exchange or a top-up a transfer
+    between own accounts.
+  - **Salary** (*Bér*): the memo or the description says salary (for example *munkabér*).
+  - **Sure by AI** (*AI-val biztos*): both AIs (JEV and GPT) read the same kind of payment, it means a ‘needs no invoice’
+    reason, and JEV is at least 0.95 sure of it (the policy's threshold). The two models agree; that is not a checked fact.
+  - **AI suggestion: look at it** (*AI-javaslat: nézd át*): only one AI answered, or JEV is less sure: its lines start
+    unticked.
+  - **An invoice is expected** (*Számla várható*) and **To decide on the cards** (*A kártyákon eldöntendő*): for information;
+    **To the cards** (*A kártyákhoz*) opens the cards.
+
+  Each group shows its count and total, a line of how it is known and its lines (date, amount, partner, memo and the
+  suggestion: the reason, the invoice, the AIs' kinds with their probability). A line with a candidate invoice is never in
+  a reason group. Untick the lines you do not agree with, then **Accept N line(s)** (*N tétel elfogadása*, a second click
+  confirms): the sure pairs are paired, the others marked as needing no invoice with the group's reason, and the mark
+  records which suggestion it came from. If the group changed meanwhile, nothing is saved and the review is reloaded.
+  **Left out by the code** (*A kód által kihagyott tételek*) counts the lines the code leaves out, by reason.
+- **The cards** (*kártyák*, 142). A card holds what belongs together: a transfer with
   the invoices it pays, an invoice with the transfers that paid it (in parts, or more than once), or a transfer or an
   invoice standing alone.
   - **Every fact of both sides:** for a transfer its booking and value day, amount (and original amount), counterparty and
