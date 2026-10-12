@@ -49,6 +49,8 @@ export interface WorkpackageView {
   statements?: StatementPackageView;
   /** 146: the workflow the package is a step of */
   workflow?: WorkflowRef | null;
+  /** 152: the older live runs a person can supersede, oldest first */
+  supersedable?: SupersedableRun[];
 }
 /** 080: what a run of the package will do (the pre-start overview): documents by their path known in advance (S / G /
  *  type not known yet), emails, emails with a task proposal, whether Azure may be used and earlier JEV answers reused. */
@@ -257,6 +259,8 @@ export interface RunView {
 }
 /** 151: the later live run that repeated this one, its own open to-dos that would close, and the human work done on it. */
 export interface SupersedeInfo { by: string; open_reasons: number; resolved_reasons: number; corrected_items: number }
+/** 152: an older live run of a package that a person can supersede, with the offer of its own page */
+export interface SupersedableRun extends SupersedeInfo { run_id: string; created_at: string }
 /** 082: one provider of a run — what the pre-start overview expected (yes / maybe / no; null for an older run), the
  *  budget, the paid calls (failed among them, still open), the known cost, the reserved maximum of the calls without a
  *  known cost, the answers reused from earlier, the models; `unexpected`: called although the overview did not count

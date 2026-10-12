@@ -1255,6 +1255,20 @@ def supersede_info(run_id: str) -> dict[str, Any] | None:
                 "resolved_reasons": _own_reason_count(c, run_id, "resolved"), "corrected_items": corrected}
 
 
+def supersedable_runs(wp_id: str) -> list[dict[str, Any]]:
+    """152: the package's older live runs a person can supersede, oldest first, each with the offer of its own page
+    (`supersede_info`) and its start, so the package's processing section can offer them too."""
+    with store.connect() as c:
+        rows = c.execute("SELECT run_id, created_at FROM runs WHERE workpackage_id=? AND mode='apply' AND approval IS NULL"
+                         " AND status IN (?, ?, ?) ORDER BY created_at, rowid", (wp_id, *SUPERSEDABLE)).fetchall()
+    out = []
+    for row in rows:
+        info = supersede_info(row["run_id"])
+        if info is not None:
+            out.append({"run_id": row["run_id"], "created_at": row["created_at"], **info})
+    return out
+
+
 def supersede_run(run_id: str, *, actor: str) -> dict[str, Any]:
     """151 (decision of 2026-10-12): a person supersedes an older live run that a later live run has repeated. The run
     is kept as cancelled, its own open reasons close as `superseded` (they stay in the store), and the package's event

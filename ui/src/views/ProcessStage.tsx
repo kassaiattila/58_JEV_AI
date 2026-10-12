@@ -3,7 +3,8 @@
 // The run's details (progress, cost, call log) are on the run's page. The run buttons do not start anything: they lead
 // to the confirmation page (061 decision, `StartConfirm`).
 import { useEffect, useMemo, useState } from "react";
-import { api, ApiError, type Recipe, type RecipeHelp, type RunPlan, type WorkpackageView } from "../api";
+import { api, ApiError, type Recipe, type RecipeHelp, type RunPlan, type SupersedableRun, type WorkpackageView } from "../api";
+import { ConfirmButton } from "../components/ConfirmButton";
 import { DataTable } from "../components/DataTable";
 import { Icon } from "../components/Icon";
 import { Picker } from "../components/Picker";
@@ -62,6 +63,20 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
     }
   }
 
+  async function supersede(runId: string) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await api.supersede(runId);
+      setMsg({ error: false, text: t("Run superseded: {{n}} open to-dos closed.", { n: r.reasons_closed }) });
+    } catch (e) {
+      setMsg({ error: true, text: (e as ApiError).message });
+    } finally {
+      setBusy(false);
+      onChanged();
+    }
+  }
+
   // 061: the button leads to the confirmation page; the start happens there
   const start = (mode: "shadow" | "apply", rerun = false) => go({ view: "workpackages", wpId: wp.id, stage: "process", start: { mode, rerun } });
 
@@ -101,6 +116,7 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
             </li>))}
           </ul>
         ) : null}
+        <OlderRunsOffer runs={view.supersedable ?? []} busy={busy || active} onSupersede={(id) => void supersede(id)} />
         <div className="button-row">
           <button type="button" className={btn("shadow")} disabled={!readiness.ready || busy || active} onClick={() => start("shadow")}><Icon name="trial" />{t("Próbafutás")}…</button>
           <button type="button" className={btn("apply")}
@@ -159,6 +175,32 @@ export const paramValue = (k: string, v: string) => PARAM_VALUE[`${k}:${v}`] ?? 
 
 /** 080 (the pre-start overview of F-külső-kapcsolók): which services a run may call, with the budget maximum and what
  *  it is for. */
+/** 152 (the owner's request of 2026-10-12): the package's older live runs a later live run repeated on the same
+ *  documents, each with a link to its page and a "Supersede" button (the run's page offers the same, 151). Human work
+ *  left on a run stays with it and is named before the click. */
+export function OlderRunsOffer({ runs, busy, onSupersede }: { runs: SupersedableRun[]; busy: boolean; onSupersede: (runId: string) => void }) {
+  useLocale();
+  if (!runs.length) return null;
+  const open = runs.reduce((n, r) => n + r.open_reasons, 0);
+  return (
+    <div className="notice" role="region" aria-label={t("Older live runs")}>
+      <p>{t("{{n}} older live run(s) were repeated by a later live run on the same documents. Superseding stops them and closes their {{m}} open to-dos; they cannot be approved afterwards.",
+        { n: runs.length, m: open })}</p>
+      <ul className="plain">
+        {runs.map((r) => (
+          <li key={r.run_id}>
+            <a href={`#/runs/${encodeURIComponent(r.run_id)}`}>{t("Live run, {{when}}", { when: when(r.created_at) })}</a>
+            {" · "}{t("{{n}} open to-dos", { n: r.open_reasons })}
+            {r.resolved_reasons + r.corrected_items > 0 ? <span className="error-text">{" · "}{t("{{r}} closed to-dos and {{c}} hand-corrected documents stay with it and are not carried over",
+              { r: r.resolved_reasons, c: r.corrected_items })}</span> : null}{" "}
+            <ConfirmButton className="secondary small-btn" disabled={busy} onConfirm={() => onSupersede(r.run_id)}>{t("Supersede")}</ConfirmButton>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function RunPlanList({ plan, budget }: { plan: RunPlan; budget: Record<string, string> }) {
   useLocale();
   return (
