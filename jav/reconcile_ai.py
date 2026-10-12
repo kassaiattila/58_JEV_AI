@@ -339,16 +339,23 @@ def _lent(answer: dict[str, Any], asked_line_id: str) -> dict[str, Any]:
 
 
 def _walk(engine: str, lines: list[dict[str, Any]], items: list[Item], ask: Callable[[dict[str, Any], list[dict[str, Any]]], dict[str, Any]],
-          *, redo: bool) -> Iterator[tuple[dict[str, Any], list[dict[str, Any]], str, dict[str, Any]]]:
+          *, redo: bool, stale: bool = False) -> Iterator[tuple[dict[str, Any], list[dict[str, Any]], str, dict[str, Any]]]:
     """136: one engine's steps over the lines to decide, as (line, its invoices, "asked" | "inherited", answer). A line
     with the engine's answer is left out (unless `redo`). The lines with preselected invoices are asked first, one by
     one; then a line without invoices takes over its partner's answer - stored earlier on any line of the package, or
-    given in this run - and only a partner without one gets a call (its earliest line; the next one when it fails)."""
-    answered = set() if redo else {ln["id"] for ln in lines if _usable((ln.get("ai") or {}).get(engine))}
+    given in this run - and only a partner without one gets a call (its earliest line; the next one when it fails).
+    147: with `stale` an answer of an older version of the question (another `config_hash`) counts as none: it is
+    asked again and never lent."""
+    current = jev_hash() if engine == "jev" else gpt_hash()
+
+    def kept(answer: dict[str, Any] | None) -> bool:
+        return _usable(answer) and (not stale or (answer or {}).get("config_hash") == current)
+
+    answered = set() if redo else {ln["id"] for ln in lines if kept((ln.get("ai") or {}).get(engine))}
     lenders: dict[str, tuple[str, dict[str, Any]]] = {}
     for ln in [] if redo else sorted(lines, key=_order):
         answer, key = (ln.get("ai") or {}).get(engine), partner(ln)
-        if key and key not in lenders and _usable(answer):
+        if key and key not in lenders and kept(answer):
             lenders[key] = (answer.get("asked_line_id") or ln["id"], answer)
     for line, invoices in sorted((it for it in items if it[0]["id"] not in answered), key=lambda it: (bool(not it[1]), *_order(it[0]))):
         key = partner(line)
@@ -362,7 +369,7 @@ def _walk(engine: str, lines: list[dict[str, Any]], items: list[Item], ask: Call
             lenders[key] = (line["id"], answer)
 
 
-def estimate(wp_id: str, *, redo: bool = False) -> dict[str, Any]:
+def estimate(wp_id: str, *, redo: bool = False, stale: bool = False) -> dict[str, Any]:
     """Free: the lines to decide and, per engine, the plan of a run (`_walk`, every request taken as answered): the
     lines answered already, the requests (those with preselected invoices among them), the lines that would take a
     partner's answer over, and the sum of the worst-case reservations made before each request. A finished call counts
@@ -387,7 +394,7 @@ def estimate(wp_id: str, *, redo: bool = False) -> dict[str, Any]:
             return {"kind": "planned"}
 
         plan = Counter(requests=0, with_options=0, inherited=0)
-        for _line, invoices, how, _answer in _walk(engine, lines, items, planned, redo=redo):
+        for _line, invoices, how, _answer in _walk(engine, lines, items, planned, redo=redo, stale=stale):
             plan["requests" if how == "asked" else "inherited"] += 1
             plan["with_options"] += how == "asked" and bool(invoices)
         out["plan"][engine] = {"answered": len(items) - plan["requests"] - plan["inherited"], **plan}
@@ -415,10 +422,10 @@ def _save(wp_id: str, line: dict[str, Any], engine: str, answer: dict[str, Any],
 
 
 def run(wp_id: str, *, engines: Iterable[str], limits: dict[str, Decimal], max_lines: int | None = None,
-        use_cache: bool = True, redo: bool = False, out_dir: Path = RUNS_DIR) -> dict[str, Any]:
+        use_cache: bool = True, redo: bool = False, stale: bool = False, out_dir: Path = RUNS_DIR) -> dict[str, Any]:
     """Asks the chosen engines about the package's lines to decide, under the owner's sub-budget (`limits` per
     provider: `jev`, `openai`): only the lines without an answer (all with `redo`) and the kind of payment once per
-    partner (`_walk`). Stores the latest answer per line and engine and writes one raw row per line and engine to a
+    partner (`_walk`; `stale`: also the answers of an older question). Stores the latest answer per line and engine and writes one raw row per line and engine to a
     jsonl file. An engine that fails on a line (JEV unavailable, the budget spent, an OpenAI error) is recorded and the
     run goes on."""
     engines = [e for e in ENGINES if e in set(engines)]
@@ -445,7 +452,7 @@ def run(wp_id: str, *, engines: Iterable[str], limits: dict[str, Decimal], max_l
     with calls.measurement(scope, limits), raw.open("w", encoding="utf-8", newline="\n") as fh:
         for engine in engines:
             steps = 0
-            for line, _invoices, how, answer in _walk(engine, lines, items, asker(engine), redo=redo):
+            for line, _invoices, how, answer in _walk(engine, lines, items, asker(engine), redo=redo, stale=stale):
                 _save(wp_id, line, engine, answer, scope)
                 steps += 1
                 counts[engine][how] += 1
@@ -528,5 +535,6 @@ def proposals(line_ids: Iterable[str]) -> dict[str, dict[str, dict[str, Any]]]:
                     "kind": r["kind"], "kind_probability": r["kind_probability"], "suggested_mark": marks.get(r["kind"] or ""),
                     "expects_invoice": (r["kind"] in expects) if r["kind"] else None, "measured": bool(r["measured"]),
                     "kind_distribution": json.loads(r["kind_distribution"]) if r["kind_distribution"] else None,
-                    "model": r["model"], "asked_line_id": r["asked_line_id"], "error": r["error"], "created_at": r["created_at"]}
+                    "model": r["model"], "asked_line_id": r["asked_line_id"], "error": r["error"], "created_at": r["created_at"],
+                    "config_hash": r["config_hash"]}
     return out

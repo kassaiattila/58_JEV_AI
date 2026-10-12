@@ -375,7 +375,8 @@ WORKSPACE_INPUTS: dict[str, str | None] = {
     # an answer is replaced in place (one row per line and engine), possibly within the same second: its content counts
     "reconcile_ai_proposals": "(SELECT group_concat(line_id || ':' || engine || ':' || COALESCE(pays, '') || ':'"
                               " || COALESCE(kind, '') || ':' || COALESCE(error, '') || ':' || COALESCE(options, '') || ':'"
-                              " || COALESCE(asked_line_id, '') || ':' || created_at, '|') FROM reconcile_ai_proposals)",
+                              " || COALESCE(asked_line_id, '') || ':' || COALESCE(config_hash, '') || ':' || created_at, '|')"
+                              " FROM reconcile_ai_proposals)",  # 147: the version of the question shows (stale answers)
     "fx_rates": "MAX(fetched_at)",
     "reconcile_versions": "COUNT(reopened_at)",  # 145: an approval, a reopening
     "reconcile_source_acceptances": None,
