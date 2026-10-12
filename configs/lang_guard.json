@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.45",
+    "version": "1.0.46",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.46",
+        "date": "2026-10-12",
+        "note": "149: accept the user guide's quoted Hungarian label of a sent message (docs/guides/USER_GUIDE.md)."
+      },
       {
         "version": "1.0.45",
         "date": "2026-10-12",
@@ -368,7 +373,7 @@
     "docs/flows/invoice/FLOW.md": 17,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 232,
+    "docs/guides/USER_GUIDE.md": 233,
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
@@ -471,7 +476,7 @@
     "scripts/dev.ps1": 1,
     "scripts/githooks/pre-commit": 3,
     "scripts/hooks/handoff_guard.py": 17,
-    "scripts/mail_bridge_call.ps1": 8,
+    "scripts/mail_bridge_call.ps1": 6,
     "scripts/prepare_long_trial_gold.py": 10,
     "smoke_test.py": 11,
     "tests/test_admin_docs.py": 5,

@@ -59,7 +59,8 @@ export function nextFlowText(code: string | null | undefined): string {
   const [kind, what] = code.split(":");
   if (kind === "m2") return what === "needs_ocr" ? t("Csatolmány: szövegfelismerés kell") : t("Adatkinyerés a csatolmányból ({{what}})", { what: docTypeLabel(what) });
   if (kind === "m1") return t("Csatolmány: típusfelismerés");
-  const archive = tmap({ payment_proof: "fizetési igazolás", calendar: "naptár", order_status: "rendelés állapota" });
+  const archive = tmap({ payment_proof: "fizetési igazolás", calendar: "naptár", order_status: "rendelés állapota",
+    sent: "sent message" });
   if (kind === "archive") return what ? t("Archiválás ({{what}})", { what: archive[what] ?? what }) : t("Archiválás");
   const human = tmap({ inbox: "Kézi feldolgozás", fetch_document: "Kézi: a számla feldolgozása",
     low_confidence: "Kézi ellenőrzés: bizonytalan szándék", jev_unavailable: "Kézi ellenőrzés: a JEV nem volt elérhető",
