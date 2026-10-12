@@ -137,7 +137,7 @@ function GroupCard({ group, threshold, readOnly, busy, onAccept, onCards }: {
             <tr>
               {acts ? <th><input type="checkbox" checked={all} aria-label={t("All lines of {{group}}", { group: TITLE[group.id] })}
                 onChange={() => setPicked(new Set(all ? [] : group.lines.map((l) => l.id)))} /></th> : null}
-              <th>{t("Date")}</th><th>{t("Amount")}</th><th>{t("Partner")}</th><th>{t("Memo")}</th><th>{t("Suggestion")}</th>
+              <th>{t("Date")}</th><th>{t("Amount")}</th><th>{t("Counterparty")}</th><th>{t("Memo")}</th><th>{t("Suggestion")}</th>
             </tr>
           </thead>
           <tbody>
