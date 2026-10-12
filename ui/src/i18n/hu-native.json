@@ -1198,5 +1198,11 @@
   "Superseding keeps this run as a stopped run and closes its {{n}} open to-dos; it cannot be approved afterwards.": "Leváltáskor ez a futás leállítottként megmarad, {{n}} nyitott teendője lezárul; utána nem hagyható jóvá.",
   "On this run {{r}} to-dos were already closed and {{c}} documents corrected by hand; they stay with this run and are not carried over to the later one.": "Ezen a futáson már {{r}} teendőt lezártak és {{c}} iratot kézzel javítottak; ezek ennél a futásnál maradnak, az újabb futásba nem kerülnek át.",
   "Supersede": "Leváltás",
+  "Older live runs": "Régebbi éles futások",
+  "Live run, {{when}}": "Éles futás, {{when}}",
+  "{{n}} open to-dos": "{{n}} nyitott teendő",
+  "{{n}} older live run(s) were repeated by a later live run on the same documents. Superseding stops them and closes their {{m}} open to-dos; they cannot be approved afterwards.": "{{n}} régebbi éles futást egy újabb éles futás megismételt ugyanezekkel az iratokkal. A leváltás leállítja őket és lezárja {{m}} nyitott teendőjüket; utána nem hagyhatók jóvá.",
+  "{{r}} closed to-dos and {{c}} hand-corrected documents stay with it and are not carried over": "{{r}} lezárt teendője és {{c}} kézzel javított irata a régin marad, nem kerül át",
+  "Run superseded: {{n}} open to-dos closed.": "Futás leváltva: {{n}} nyitott teendő lezárva.",
   "the named invoices together: {{amount}}": "a megnevezett számlák együtt: {{amount}}"
 }

@@ -131,7 +131,8 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
         extra["statements"] = statement_package.package_view(wp_id)
     return jsonable({"workpackage": wp, "readiness": ready, "titles": item_titles(wp["items"], package_root(wp)), **extra,
                      "last_run": runs[0] if runs else None, "runs": len(runs),
-                     "next": next_step(wp, runs[0] if runs else None, ready["ready"]), "workflow": _workflow_of(wp_id)})
+                     "next": next_step(wp, runs[0] if runs else None, ready["ready"]), "workflow": _workflow_of(wp_id),
+                     "supersedable": work.supersedable_runs(wp_id)})  # 152: older live runs a person can supersede
 
 
 def _workflow_of(wp_id: str) -> dict[str, Any] | None:
