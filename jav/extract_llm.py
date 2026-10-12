@@ -112,13 +112,16 @@ def _price_for(actual_model: str | None) -> tuple[float, float] | None:
     return price
 
 
-def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool) -> calls.Outcome:
-    """One `run_sync` (including Pydantic AI's validation retries). Errors go into the ledger too (F05)."""
+ROUNDS = 1 + int(OPENAI_SETTINGS["retries"])  # requests of one call: the first and Pydantic AI's validation retries
+
+
+def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool, rounds: int = ROUNDS) -> calls.Outcome:
+    """One `run_sync` (including Pydantic AI's validation retries, at most `rounds` requests in a worker run). Errors
+    go into the ledger too (F05)."""
     t0 = time.perf_counter()
     kwargs: dict[str, Any] = {}
     if limited:
-        kwargs = {"model_settings": {"max_tokens": RUN_MAX_OUTPUT_TOKENS},
-                  "usage_limits": UsageLimits(request_limit=1 + int(OPENAI_SETTINGS["retries"]))}
+        kwargs = {"model_settings": {"max_tokens": RUN_MAX_OUTPUT_TOKENS}, "usage_limits": UsageLimits(request_limit=rounds)}
     try:
         result = agent.run_sync(prompt, **kwargs)
     except Exception as exc:
@@ -164,10 +167,11 @@ def extract_scored(text: str, *, run_id: str = "adhoc", pack: TypePack | None = 
         return ScoredExtraction(output=output, token_p=token_p)
     price = openai_price(OPENAI_MODEL)  # 066 Á38: no budgeted call without a price (the reservation would be zero)
     schema = json.dumps(pack.llm_model().model_json_schema(), ensure_ascii=False)  # sent as the answer's JSON schema
-    max_cost = calls.estimate_max_cost(
-        input_bytes=calls.utf8_bytes(prompt, instructions(pack), schema), max_output_tokens=RUN_MAX_OUTPUT_TOKENS,
-        usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), rounds=1 + int(OPENAI_SETTINGS["retries"]),
-        repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))
+    def bound(rounds: int) -> Decimal:
+        return calls.estimate_max_cost(
+            input_bytes=calls.utf8_bytes(prompt, instructions(pack), schema), max_output_tokens=RUN_MAX_OUTPUT_TOKENS,
+            usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), rounds=rounds,
+            repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))
     digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     # 090: the question's fingerprint for reusing an earlier answer (the step id keeps the text's own digest); 091: the
     # answer's format and its token alternatives are part of it
@@ -175,8 +179,10 @@ def extract_scored(text: str, *, run_id: str = "adhoc", pack: TypePack | None = 
                            json.dumps(OPENAI_SETTINGS, sort_keys=True), str(RUN_MAX_OUTPUT_TOKENS), prompt,
                            ANSWER_FORMAT, str(TOP_LOGPROBS))
     result = calls.invoke(run_id=run_id, step_id=f"openai:extract_llm:{pack.key}:{digest[:16]}", provider="openai",
-                          model=OPENAI_MODEL, max_cost_usd=max_cost, budget_scope=ctx.budget_scope, request_hash=key,
-                          reusable=True, fn=lambda: _physical(agent, prompt, run_id=run_id, pack=pack, limited=True))
+                          model=OPENAI_MODEL, max_cost_usd=bound(ROUNDS), budget_scope=ctx.budget_scope, request_hash=key,
+                          reusable=True, fn=lambda: _physical(agent, prompt, run_id=run_id, pack=pack, limited=True),
+                          # 149: when the full bound no longer fits the budget: one request, no validation retry
+                          lean=(bound(1), lambda: _physical(agent, prompt, run_id=run_id, pack=pack, limited=True, rounds=1)))
     output, token_p = decode_answer(result.response)
     return ScoredExtraction(output=output, token_p=token_p)
 

@@ -150,13 +150,15 @@ def _agent(output_model: type[BaseModel], instructions: str, limits: Limits):
                  model_settings=settings, retries=OPENAI_SETTINGS["retries"])
 
 
-def _physical(agent, prompt: str, *, run_id: str, step: str, limits: Limits, limited: bool) -> calls.Outcome:
-    """One `run_sync`; the call goes into the ledger, errors too."""
+ROUNDS = 1 + int(OPENAI_SETTINGS["retries"])  # requests of one call: the first and Pydantic AI's validation retries
+
+
+def _physical(agent, prompt: str, *, run_id: str, step: str, limits: Limits, limited: bool, rounds: int = ROUNDS) -> calls.Outcome:
+    """One `run_sync` (at most `rounds` requests in a worker run); the call goes into the ledger, errors too."""
     t0 = time.perf_counter()
     kwargs: dict[str, Any] = {}
     if limited:
-        kwargs = {"model_settings": {"max_tokens": limits.max_output_tokens},
-                  "usage_limits": UsageLimits(request_limit=1 + int(OPENAI_SETTINGS["retries"]))}
+        kwargs = {"model_settings": {"max_tokens": limits.max_output_tokens}, "usage_limits": UsageLimits(request_limit=rounds)}
     try:
         result = agent.run_sync(prompt, **kwargs)
     except Exception as exc:
@@ -180,14 +182,16 @@ def _physical(agent, prompt: str, *, run_id: str, step: str, limits: Limits, lim
                          cost_usd=None if cost is None else Decimal(str(cost)))
 
 
-def max_cost_usd(request_id: str, instructions: str, prompt: str, fields: dict[str, list[str]], limits: Limits) -> Decimal:
-    """The reservation of one question: the worst case of its input, output limit and retries."""
+def max_cost_usd(request_id: str, instructions: str, prompt: str, fields: dict[str, list[str]], limits: Limits,
+                 rounds: int = ROUNDS) -> Decimal:
+    """The reservation of one question: the worst case of its input, output limit and retries (149: `rounds=1` is the
+    lean bound, without validation retries)."""
     output_model = _output_model(f"{request_id}_answer", fields)
     price = openai_price(OPENAI_MODEL)
     schema = json.dumps(output_model.model_json_schema(), ensure_ascii=False)
     return calls.estimate_max_cost(
         input_bytes=calls.utf8_bytes(prompt, instructions, schema), max_output_tokens=limits.max_output_tokens,
-        usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), rounds=1 + int(OPENAI_SETTINGS["retries"]),
+        usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))), rounds=rounds,
         repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))
 
 
@@ -210,7 +214,11 @@ def ask(request_id: str, instructions: str, prompt: str, fields: dict[str, list[
         saved = calls.invoke(run_id=run_id, step_id=f"openai:{request_id}:{digest[:16]}", provider="openai", model=OPENAI_MODEL,
                              max_cost_usd=max_cost_usd(request_id, instructions, prompt, fields, limits), budget_scope=ctx.budget_scope,
                              request_hash=key, reusable=True,
-                             fn=lambda: _physical(agent, prompt, run_id=run_id, step=step, limits=limits, limited=True)).response
+                             fn=lambda: _physical(agent, prompt, run_id=run_id, step=step, limits=limits, limited=True),
+                             # 149: when the full bound no longer fits the budget: one request, no validation retry
+                             lean=(max_cost_usd(request_id, instructions, prompt, fields, limits, rounds=1),
+                                   lambda: _physical(agent, prompt, run_id=run_id, step=step, limits=limits, limited=True,
+                                                     rounds=1))).response
     tokens = saved.get("logprobs") or []
     values, confidence, probabilities = dict(saved["output"]), {}, {}
     for f, opts in fields.items():
