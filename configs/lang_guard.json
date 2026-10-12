@@ -5,6 +5,11 @@
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
       {
+        "version": "1.0.42",
+        "date": "2026-10-12",
+        "note": "147: accept the Hungarian translations of the workflow step notes the interface test checks (ui/src/views/workflows/repeat147.test.tsx)."
+      },
+      {
         "version": "1.0.41",
         "date": "2026-10-12",
         "note": "147: accept the Hungarian interface labels the user guide quotes for repeating a workflow for the next period (docs/guides/USER_GUIDE.md 4.1)."
@@ -647,6 +652,7 @@
     "ui/src/views/settings/UncertainCallsPanel.tsx": 11,
     "ui/src/views/settings/UsersPanel.tsx": 11,
     "ui/src/views/settings/VersionPanel.tsx": 5,
+    "ui/src/views/workflows/repeat147.test.tsx": 3,
     "ui/vite.config.ts": 3
   }
 }
