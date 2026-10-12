@@ -67,7 +67,7 @@ python smoke_test.py                              # venv + keys + one live JEV c
 python -m jav.cli recall | golden --arm S|G [--synthetic] | determinism --arm S --n 5 | verifier-probe [--no-cache] [--type invoice_foreign]
 python -m jav.cli detect <pdf> | detect-golden | detect-determinism --n 3 | detect-corpus <folder> [--redo-unknown] | detect-sample <folder>
 python -m jav.cli email <folder> | email-golden | email-determinism --n 3 | email-inbox inbox/ | email-sample | email-injection-probe
-python -m jav.cli email-ingest-server --port 8931 --run   # receiver for the legacy outlook_bridge.ps1 (8901 = legacy Docker)
+python -m jav.cli email-ingest-server --port 8931 --run   # receiver for scripts/outlook_bridge.ps1 (8901 = legacy Docker)
 python -m jav.cli recipes | wp-* | run-* | worker [--once] | worker-status | worker-stop   # work package → run (jav/work_cli.py)
 python -m jav.cli calls-uncertain | calls-resolve <id> [--cost USD] --note N   # settle a paid call with an uncertain outcome by hand
 python -m jav.cli duplicates [--write] | reconcile [--golden]   # duplicate invoices (--write: open their to-dos) | invoice <-> statement line pairs (counts)
@@ -84,7 +84,7 @@ python -m jav.cli deps-audit [--show]                       # 075 known vulnerab
 python -m jav.capability_catalog                  # deterministic inventory of types and intents
 ```
 
-`JAV_OCR_ENGINE=azure_di <command>`: Azure DI, called directly when `AZURE_DI_ENDPOINT` and `AZURE_DI_KEY` are in `.env` (121, `jav/adapters/azure_di.py`), otherwise through the legacy sidecar (only for PDFs under the legacy data folder). **Paid**, page-limited, never chosen by `auto`, but OCR escalation (`configs/ocr.json`) calls it automatically on weak local OCR; since 075 only within the run's Azure budget (recipe switch `azure_ocr`, 0.02 USD per document by default) and through the call log (`jav/ocr.py` `azure_recognise`). Live Outlook download: from the UI (Settings › Mailboxes) or with the legacy bridge unchanged; the exact command is in the README's email section. Keys live in `.env` (`TypeSafeJAV_API_KEY`, `OPENAI_API_KEY`, optionally `AZURE_DI_ENDPOINT` + `AZURE_DI_KEY`; optional variables: `.env.example`); never print a value.
+`JAV_OCR_ENGINE=azure_di <command>`: Azure DI, called directly when `AZURE_DI_ENDPOINT` and `AZURE_DI_KEY` are in `.env` (121, `jav/adapters/azure_di.py`), otherwise through the legacy sidecar (only for PDFs under the legacy data folder). **Paid**, page-limited, never chosen by `auto`, but OCR escalation (`configs/ocr.json`) calls it automatically on weak local OCR; since 075 only within the run's Azure budget (recipe switch `azure_ocr`, 0.02 USD per document by default) and through the call log (`jav/ocr.py` `azure_recognise`). Live Outlook download: from the UI (Settings › Mailboxes) or with the Outlook bridge ported into `scripts/outlook_bridge.ps1` (148: Sent Items too); the exact command is in the README's email section. Keys live in `.env` (`TypeSafeJAV_API_KEY`, `OPENAI_API_KEY`, optionally `AZURE_DI_ENDPOINT` + `AZURE_DI_KEY`; optional variables: `.env.example`); never print a value.
 
 ## 6. Architecture (details: `docs/ARCHITECTURE.md`)
 
@@ -109,8 +109,8 @@ python -m jav.capability_catalog                  # deterministic inventory of t
   Burr state: `store/burr_state.sqlite` (thinned out by `burr-prune`). Backups: `store/backups/` (daily, `configs/service.json` `backup`). The golden sets stay in the legacy project and are only referenced.
 - **Evals:** `evals*.py`, shared report `eval_report.py`; raw runs in `runs/*.jsonl`. Experiments: `jav/experiments/` + `configs/experiments/`.
 - **Email input** (both paths write `inbox/<mailbox>/<msgid>/message.json`):
-  - from the UI or a schedule: `jav/mailbox.py` → `scripts/mail_bridge_call.ps1` → the legacy `outlook_bridge.ps1` → a temporary receiver with a one-time token (`jav/ingest_server.py`) → a new work package with the email intent recipe (no paid run starts by itself);
-  - standalone: the legacy `outlook_bridge.ps1` → `python -m jav.cli email-ingest-server` (`jav/ingest_server.py`).
+  - from the UI or a schedule: `jav/mailbox.py` → `scripts/mail_bridge_call.ps1` → `scripts/outlook_bridge.ps1` (148: ported from the legacy project; the Inbox, its direct subfolders and Sent Items) → a temporary receiver with a one-time token (`jav/ingest_server.py`) → a new work package with the email intent recipe (no paid run starts by itself);
+  - standalone: `scripts/outlook_bridge.ps1` → `python -m jav.cli email-ingest-server` (`jav/ingest_server.py`).
 
 ## 7. Pitfalls
 

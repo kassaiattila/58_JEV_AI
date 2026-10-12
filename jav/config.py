@@ -33,9 +33,10 @@ LEGACY_ROOT_ENV = "JAV_LEGACY_ROOT"
 DEFAULT_OLD_PROJECT_ROOT = PROJECT_ROOT.parent / "10_AIFLOW_V4"
 OLD_PROJECT_ROOT = Path(os.environ.get(LEGACY_ROOT_ENV) or DEFAULT_OLD_PROJECT_ROOT)
 OLD_DATA_ROOT = OLD_PROJECT_ROOT / "data"
-# 048 T2: the legacy Outlook script (called unchanged) and the project root we give it: this way the attachments and the
-# "already read" list land in our own git-ignored inbox folder, not in the (read-only) legacy project.
-OUTLOOK_BRIDGE_SCRIPT = OLD_PROJECT_ROOT / "scripts" / "outlook_bridge.ps1"
+# 048 T2: the Outlook script and the project root we give it: this way the attachments and the "already read" list land
+# in our own git-ignored inbox folder, not in the (read-only) legacy project. 148: the script is ported from the legacy
+# project (it reads the Sent Items folder too; an unknown folder is an error).
+OUTLOOK_BRIDGE_SCRIPT = PROJECT_ROOT / "scripts" / "outlook_bridge.ps1"
 BRIDGE_ROOT = PROJECT_ROOT / "inbox" / ".bridge"
 BRIDGE_DATA_ROOT = BRIDGE_ROOT / "data"
 GOLDEN_MANIFEST = OLD_PROJECT_ROOT / "flows" / "doc-extract-bare" / "golden" / "manifest.json"

@@ -121,7 +121,7 @@ export function Mailbox({ variant = "settings" }: { variant?: "pull" | "settings
         ) : null}
         <div className="form-row">
           <label className="block">{t("Mappa")} <span className="muted">{t("(vesszővel)")}</span>
-            <input value={folders} onChange={(e) => { setFolders(e.target.value); setPreview(null); }} />
+            <input value={folders} placeholder="Inbox, Sent Items" onChange={(e) => { setFolders(e.target.value); setPreview(null); }} />
           </label>
           <label className="check"><input type="checkbox" checked={subfolders} onChange={(e) => setSubfolders(e.target.checked)} /> {t("almappákkal")}</label>
         </div>

@@ -1,6 +1,7 @@
 """Mailbox reading from the local service (048 T2): count preview, download, a work package from the fresh messages.
 
-The legacy Outlook script (`OUTLOOK_BRIDGE_SCRIPT`) is called unchanged via the `scripts/mail_bridge_call.ps1` wrapper:
+The Outlook script (`OUTLOOK_BRIDGE_SCRIPT`; 148: ported from the legacy project, it reads the Sent Items folder too and
+an unknown folder is an error) is called via the `scripts/mail_bridge_call.ps1` wrapper:
 - **preview** (`count`): the legacy `-CountOnly`; free of charge, writes no file, marks nothing as read;
 - **download** (`fetch`): for the duration of the download we start our own email receiver on a free port with a
   one-off key (`jav.ingest_server.make_server`) and the script sends the messages there; the receiver writes them into

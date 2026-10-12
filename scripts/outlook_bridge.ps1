@@ -2,6 +2,11 @@
 .SYNOPSIS
   AIFLOW V4 - local Outlook -> /ingest/email bridge (READ-ONLY).
 
+  58_JAV_AI (148): ported from the legacy project (10_AIFLOW_V4/scripts/outlook_bridge.ps1 at efa7b50), which
+  stays read-only. Changes: besides the Inbox and its direct subfolders, the Sent Items folder can be read (by
+  'Sent Items' or its localised name), by its sent time; a requested folder that matches none of them is an error
+  instead of an empty folder; a sent message's payload carries folder = 'sent'.
+
 .DESCRIPTION
   Reads mail from the locally-configured desktop Outlook (COM/MAPI) for the target accounts,
   drops qualifying document attachments under the shared repo `data/` dir, archives the raw
@@ -67,7 +72,7 @@ $ErrorActionPreference = 'Stop'
 # NOTE: no Set-StrictMode — it false-positives on COM collections (.Count) + our defensive try/catch pattern.
 
 # ---------------------------------------------------------------- constants
-# Ü7.5/CH4 — DELIBERATELY NARROWER than the orchestrator's channels.INGESTIBLE SoR (which also accepts
+# legacy U7.5/CH4 — DELIBERATELY NARROWER than the orchestrator's channels.INGESTIBLE SoR (which also accepts
 # .docx/.xlsx). This is a decision, not drift: the bridge is the ONLY component reading a live Outlook
 # mailbox, so it is the untrusted-input frontier, and an Office attachment is a macro/OLE carrier class
 # that PDFs and images are not. Everything the bridge does save is re-filtered downstream against the SoR
@@ -81,6 +86,7 @@ $MIN_ATTACH_BYTES = 8192                                     # skip tiny inline/
 $BODY_PREVIEW_CHARS = 20000
 $OL_MAIL_CLASS = 43                                          # olMail
 $OL_FOLDER_INBOX = 6                                         # olFolderInbox
+$OL_FOLDER_SENT = 5                                          # olFolderSentMail (148)
 $OL_BY_VALUE = 1                                             # olByValue (real file attachment)
 $OL_SAVE_MSG_UNICODE = 9                                     # olMSGUnicode
 $DATA_DIR = Join-Path $RepoRoot 'data'
@@ -306,20 +312,30 @@ function Get-HttpStatus($errorRecord) {
     return 0
 }
 
-function Get-InboxFolders($inbox, [string[]]$wanted, [bool]$recurse) {
-    # Explicit UI names select only those direct Inbox children. -Subfolders remains the CLI all-children override.
-    $folders = @()
-    if ($recurse -or @($wanted | Where-Object { $_ -ieq 'Inbox' }).Count) { $folders += $inbox }
-    if ($recurse) {
-        foreach ($f in $inbox.Folders) {
-            try { $folders += $f } catch {}
+function Get-MailFolders($target, [string[]]$wanted, [bool]$recurse) {
+    # 148: the folders to read, each with whether it is the Sent Items folder. Explicit UI names select the Inbox,
+    # its direct children and the Sent Items folder ('Sent Items' or its localised name); -Subfolders remains the
+    # CLI all-children override. A name matching none of them throws: it must not look like an empty folder.
+    $inbox = $target.inbox
+    $sent = $null
+    try { $sent = $target.store.GetDefaultFolder($OL_FOLDER_SENT) } catch {}
+    $children = @()
+    foreach ($f in $inbox.Folders) { try { $children += $f } catch {} }
+    $out = @()
+    if ($recurse -or @($wanted | Where-Object { $_ -ieq 'Inbox' }).Count) { $out += [pscustomobject]@{ folder = $inbox; sent = $false } }
+    if ($recurse) { foreach ($f in $children) { $out += [pscustomobject]@{ folder = $f; sent = $false } } }
+    foreach ($name in @($wanted | Where-Object { $_ -and $_ -ine 'Inbox' } | Select-Object -Unique)) {
+        if ($sent -and (($name -ieq 'Sent Items') -or ($name -ieq [string]$sent.Name))) {
+            $out += [pscustomobject]@{ folder = $sent; sent = $true }
+            continue
         }
-    } else {
-        foreach ($f in $inbox.Folders) {
-            try { if (@($wanted | Where-Object { $_ -ieq $f.Name }).Count) { $folders += $f } } catch {}
+        $match = @($children | Where-Object { [string]$_.Name -ieq $name })
+        if ($match.Count -eq 0) {
+            throw "Mail folder '$name' was not found in mailbox '$($target.smtp)' (readable: Inbox, its direct subfolders, Sent Items)."
         }
+        if (-not $recurse) { $out += [pscustomobject]@{ folder = $match[0]; sent = $false } }
     }
-    return $folders
+    return $out
 }
 
 function Resolve-OutlookTargets($Namespace, [string[]]$RequestedAccounts) {
@@ -334,7 +350,7 @@ function Resolve-OutlookTargets($Namespace, [string[]]$RequestedAccounts) {
         try { $inbox = $matches[0].DeliveryStore.GetDefaultFolder($OL_FOLDER_INBOX) }
         catch { throw "Cannot open Inbox for mailbox '$requested': $($_.Exception.Message)" }
         if (-not $inbox) { throw "Cannot open Inbox for mailbox '$requested'." }
-        $targets += [pscustomobject]@{ smtp = [string]$matches[0].SmtpAddress; inbox = $inbox }
+        $targets += [pscustomobject]@{ smtp = [string]$matches[0].SmtpAddress; inbox = $inbox; store = $matches[0].DeliveryStore }
     }
     return $targets
 }
@@ -385,6 +401,8 @@ $ol = New-Object -ComObject Outlook.Application
 $ns = $ol.GetNamespace('MAPI')
 try {
 $targets = @(Resolve-OutlookTargets $ns $Accounts)
+$targetFolders = @{}
+foreach ($tg in $targets) { $targetFolders[$tg.smtp] = @(Get-MailFolders $tg $MailFolders ([bool]$Subfolders)) }
 if (-not $CountOnly) {
     foreach ($d in @($DATA_DIR, $TMP_DIR)) { if (-not (Test-Path -LiteralPath $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null } }
 }
@@ -426,15 +444,18 @@ foreach ($target in $targets) {
     if ($stop) { break }
     $smtp = $target.smtp
     $acctSafe = Get-SafeName $smtp 60
-    $inbox = $target.inbox
     $per = [ordered]@{ scanned = 0; mail = 0; withDocs = 0; attachments = 0; posted = 0; deduped = 0; skippedSeen = 0; noDoc = 0; attachFail = 0; errors = 0 }
     Write-Host ("--- account {0} ---" -f $smtp) -ForegroundColor Yellow
 
-    foreach ($folder in (Get-InboxFolders $inbox $MailFolders ([bool]$Subfolders))) {
+    # Resolved for every account before the first one is read, so a wrong folder name stops the run before any write.
+    foreach ($entry in $targetFolders[$smtp]) {
         if ($stop) { break }
+        $folder = $entry.folder
+        # 148: a sent message is dated by when it was sent
+        $timeProp = if ($entry.sent) { 'SentOn' } else { 'ReceivedTime' }
         $items = $folder.Items
         # The lower-bound early break is correct only after a successful newest-first sort.
-        $items.Sort('[ReceivedTime]', $true)
+        $items.Sort("[$timeProp]", $true)
         $count = $items.Count
 
         for ($i = 1; $i -le $count; $i++) {
@@ -444,8 +465,8 @@ foreach ($target in $targets) {
             try {
                 if ($item.Class -ne $OL_MAIL_CLASS) { continue }
                 $per.scanned++; $grand.scanned++
-                $rt = $null; try { $rt = $item.ReceivedTime } catch {}
-                if ($rt -isnot [datetime]) { throw 'Email ReceivedTime is unavailable; refusing an unbounded item.' }
+                $rt = $null; try { $rt = $item.$timeProp } catch {}
+                if ($rt -isnot [datetime]) { throw "Email $timeProp is unavailable; refusing an unbounded item." }
                 if ($rt -and $dateTo -and ($rt -gt $dateTo)) { continue }
                 if ($rt -and ($rt -lt $cutoff)) { break }          # sorted desc -> everything past here is older
                 $per.mail++; $grand.mail++
@@ -527,6 +548,7 @@ foreach ($target in $targets) {
                     subject      = $subject
                     body_preview = $bodyPreview
                     received     = $receivedIso
+                    folder       = $(if ($entry.sent) { 'sent' } else { 'inbox' })
                     attachments  = $attachmentsPayload
                     ocr_policy   = $OcrPolicy
                     attachments_failed = $failed         # s27/CH3: recognized-but-unsaved (server records the loss)
@@ -638,7 +660,7 @@ if ((-not $DryRun) -and $script:EmailBatchId) {
     } catch { $grand.errors++; Write-Warning "could not seal email batch $($script:EmailBatchId): $($_.Exception.Message)" }
 }
 
-# ---------------------------------------------------------------- Ü7.4/CH1: the host<->container status bridge
+# ---------------------------------------------------------------- legacy U7.4/CH1: the host<->container status bridge
 # The orchestrator cannot see this script (Outlook COM lives on the host), so if the scheduled task stops
 # firing — host asleep, schtasks disabled, broken Outlook profile — email intake silently goes to ZERO and
 # every downstream surface just looks quiet. Writing a heartbeat here lets /health surface it (passive) and
