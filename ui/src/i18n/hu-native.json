@@ -1176,5 +1176,8 @@
   "Suggestion": "Javaslat",
   "Line of {{date}}, {{amount}}": "Tétel: {{date}}, {{amount}}",
   "as on {{n}} earlier line(s)": "ahogy {{n}} korábbi tételnél",
-  "Salary or wage": "Bér vagy munkabér"
+  "Salary or wage": "Bér vagy munkabér",
+  "Between own parties": "Saját gazdálkodók közti",
+  "Not an own party's": "Nem saját",
+  "Unclear": "Eldönthetetlen"
 }

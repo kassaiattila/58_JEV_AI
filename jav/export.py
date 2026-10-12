@@ -231,7 +231,8 @@ def _field_reason(reasons: list[str], field: str) -> bool:
 
 # --- tables ----------------------------------------------------------------------------------------------------
 
-DOC_HEAD = ["Irat", "Tétel-azonosító", "Típus", "Út", "Állapot", "Nyitott teendők", "Forrás-levél", "Duplicate", "Duplicate of"]
+DOC_HEAD = ["Irat", "Tétel-azonosító", "Típus", "Út", "Állapot", "Nyitott teendők", "Forrás-levél", "Duplicate", "Duplicate of",
+            "Direction"]
 
 
 def duplicate_status(mark: dict[str, Any] | None) -> str | None:
@@ -242,11 +243,23 @@ def duplicate_status(mark: dict[str, Any] | None) -> str | None:
     return f"suspected:{mark['kind']}" if mark["status"] == "suspected" else mark["status"]
 
 
-def _doc_row(r: dict[str, Any]) -> list[Any]:
+def _doc_row(r: dict[str, Any], direction: str | None) -> list[Any]:
     mark = r.get("duplicate")
     status = duplicate_status(mark)
     return [r["file"], r["item_id"], r["doc_type"], r["arm"], r["final_status"], "; ".join(r["open_reasons"]),
-            r.get("source_email") or "", status, (mark or {}).get("other_file") if status else None]
+            r.get("source_email") or "", status, (mark or {}).get("other_file") if status else None, direction]
+
+
+def _directions(recs: list[dict[str, Any]]) -> list[str | None]:
+    """147: an invoice's direction from the own parties (`parties.direction`); None for a document of another kind."""
+    from jav import parties
+
+    conf = cfg.load("reconcile")
+    kinds = {*conf["invoice_types"], *conf["outgoing_types"]}
+    if not any(r["doc_type"] in kinds for r in recs):
+        return [None] * len(recs)
+    res = parties.resolver()
+    return [parties.direction(res, r["doc_type"], r["fields"])[0] if r["doc_type"] in kinds else None for r in recs]
 
 
 def documents_table(records: list[dict[str, Any]], doc_type: str | None = None) -> tuple[list[str], list[list[Any]]]:
@@ -255,7 +268,7 @@ def documents_table(records: list[dict[str, Any]], doc_type: str | None = None) 
     fields: list[str] = []
     for r in recs:
         fields += [f for f in r["fields"] if f not in fields]
-    return DOC_HEAD + fields, [_doc_row(r) + [r["fields"].get(f) for f in fields] for r in recs]
+    return DOC_HEAD + fields, [_doc_row(r, d) + [r["fields"].get(f) for f in fields] for r, d in zip(recs, _directions(recs))]
 
 
 def datapoints_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[Any]]]:

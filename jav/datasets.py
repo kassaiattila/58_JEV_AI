@@ -460,14 +460,15 @@ def _email_tasks(scope: dict[str, str]) -> Rows:
 _DOC_KEYS = [("file", "Irat", "text"), ("item_id", "Tétel-azonosító", "id"), ("doc_type", "Típus", "enum"), ("arm", "Út", "enum"),
              ("final_status", "Állapot", "enum"), ("open_reasons", "Nyitott teendők", "text"),
              ("source_email", "Forrás-levél", "text"),  # 058 K5.2: for an email attachment, the email's subject
-             ("duplicate", "Duplicate", "enum"), ("duplicate_of", "Duplicate of", "text")]  # 126: the duplicate mark
+             ("duplicate", "Duplicate", "enum"), ("duplicate_of", "Duplicate of", "text"),  # 126: the duplicate mark
+             ("direction", "Direction", "enum")]  # 147: an invoice's direction from the own parties
 _DP_KEYS = _DOC_KEYS[:3] + [("field", "Mező", "enum"), ("value", "Érték", "text"), ("page", "Oldal", "number"),
                             ("quote", "Forrásszöveg", "text"), ("place", "Hely", "enum"), ("corrected", "Javítva", "enum"),
                             ("field_reason", "Teendő a mezőn", "enum")]
 _LI_KEYS = _DOC_KEYS[:3] + [("list", "Lista", "enum"), ("row", "Sor", "number"), ("page", "Oldal", "number")]
 _HIDDEN = {"item_id"}
 _LABELS = {"final_status": "final_status", "place": "provenance", "field": "field", "list": "field", "doc_type": "doc_type",
-           "duplicate": "duplicate"}
+           "duplicate": "duplicate", "direction": "direction"}
 
 
 def _fixed(keys: list[tuple[str, str, str]]) -> list[Column]:
@@ -526,6 +527,8 @@ def _documents(scope: dict[str, str]) -> Rows:
         cols = [replace(c, hidden=True) if c.key == "source_email" else c for c in cols]
     if not any(export.duplicate_status(r.get("duplicate")) for r in records):  # 126: shown only when a document has a mark
         cols = [replace(c, hidden=True) if c.key in ("duplicate", "duplicate_of") else c for c in cols]
+    if not any(row[len(_DOC_KEYS) - 1] for row in rows):  # 147: shown only when a document is an invoice
+        cols = [replace(c, hidden=True) if c.key == "direction" else c for c in cols]
     return cols, _zip_rows([c.key for c in cols], rows, run, lambda d: d["item_id"])
 
 
