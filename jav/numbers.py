@@ -156,10 +156,13 @@ def read_input(raw: object, *, kind: Kind = "money") -> str:
     """A typed number by the Hungarian habit, as the stored canonical text ("28000", "28000.5"): a space or a dot groups
     thousands ("28 000", "28.000"), a comma is the decimal separator ("28,5"); "28 000,50" and "28,000.00" are read by
     their last separator. Raises `AmbiguousNumber` for a form that can be read two ways ("28.5" or "28,000" for money,
-    "1.5" for a quantity) and `ValueError` for text that is not a number."""
+    "1.5" for a quantity; a zero such as "0.00" reads the same either way and is accepted) and `ValueError` for text that
+    is not a number."""
     s = str(raw).replace(" ", "").replace(" ", "").strip()
     if not _INPUT.fullmatch(s) or not any(ch.isdigit() for ch in s):
         raise ValueError(f"not a number: {raw!r}")
+    if not s.strip("-.,0"):  # 152: only zeros ("0.00", "0,000"): zero whichever separator is the decimal one
+        return _label(Decimal(0))
     has_dot, has_comma = "." in s, "," in s
     if has_dot and has_comma:
         got = read_number(s, kind=kind)
