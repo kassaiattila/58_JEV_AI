@@ -62,7 +62,8 @@ def test_the_buyer_fields_are_read_by_the_reconciliations_field_names(db):
 # --- the pairing of payments ---------------------------------------------------------------------------------------------
 
 
-def test_an_own_partys_outgoing_invoice_is_left_out_of_the_pairing(db):
+def test_an_own_partys_outgoing_invoice_is_no_payments_candidate(db):
+    # 148: no longer left out of the pairing; incoming money pays it (tests/test_reconcile_outgoing_148.py), a payment never
     _home, _club = _parties()
     out = k2._save("out", k2._invoice(number="OUT-1", supplier_name="Sporting Club", supplier_tax_id=CLUB_TAX,
                                        buyer_name="A Customer Bt."))
@@ -73,10 +74,8 @@ def test_an_own_partys_outgoing_invoice_is_left_out_of_the_pairing(db):
     directions = {i["id"]: i["direction"] for i in snap["invoices"]}
     assert directions == {out: "outgoing", internal: "internal"}
     result = reconcile.propose(snap)
-    assert ["invoice", out, "outgoing_invoice"] in [[e["kind"], e["id"], e["reason"]] for e in result["excluded"]]
+    assert not [e for e in result["excluded"] if e["kind"] == "invoice"]
     assert {c["invoice_id"] for c in result["candidates"]} == {internal}  # the buyer's incoming invoice is still paid
-    ws = rp.workspace(_package())
-    assert [i["id"] for i in ws["invoices"]] == [internal]
 
 
 def test_the_golden_case_of_an_invoice_whose_supplier_is_an_own_party():

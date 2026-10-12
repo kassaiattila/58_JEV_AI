@@ -293,7 +293,8 @@ class _Parties:
     def of(self, invoice_id: str) -> dict[str, Any] | None:
         if invoice_id not in self.cache:
             inv = self.invoices.get(invoice_id) or {}
-            pid, how = self.resolver.invoice(inv.get("buyer_name"), inv.get("buyer_tax_id"))
+            side = "supplier" if reconcile.outgoing(inv) else "buyer"  # 148: an outgoing invoice is its issuer's
+            pid, how = self.resolver.invoice(inv.get(f"{side}_name"), inv.get(f"{side}_tax_id"))
             self.cache[invoice_id] = {"id": pid, "name": self.names.get(pid, pid), "how": how} if pid else None
         return self.cache[invoice_id]
 
