@@ -245,3 +245,4 @@
 .rc-qr-look { border-left: 3px solid var(--warn, #b26a00); }
 .rc-qr-info { border-left: 3px solid var(--line, #c9c9d4); }
 .rc-qr-lines td.rc-qr-memo { max-width: 28em; overflow-wrap: anywhere; }
+.rc-qr-lines td.mono { white-space: nowrap; }

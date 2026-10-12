@@ -117,7 +117,7 @@ function GroupCard({ group, threshold, readOnly, busy, onAccept, onCards }: {
   });
   const all = chosen.length === group.lines.length;
   return (
-    <section className={`rc-box rc-qr rc-qr-${TONE[group.id]}`} aria-label={TITLE[group.id]}>
+    <section className={`card rc-qr rc-qr-${TONE[group.id]}`} aria-label={TITLE[group.id]}>
       <div className="rc-qr-head">
         <strong>{TITLE[group.id]}</strong>
         <span className="count">{group.count}</span>
