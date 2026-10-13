@@ -128,8 +128,11 @@ def test_a_filter_on_the_unchanged_list_does_not_build_it_again(db, monkeypatch,
     page = datasets.query("workpackages", None, Query(filters=[Filter(col="source_kind", op="in", value=["manual"])]))
     assert len(calls) == 1 and page["matched"] == 1
     work.rename_workpackage(wp["id"], "Renamed", actor="reviewer")
+    page = datasets.query("workpackages", None, Query())  # 153: the last rows at once, rebuilt behind
+    assert page["refreshing"] is True and page["rows"][0]["name"] == "Files"
+    datasets.wait_for_rebuilds()
     page = datasets.query("workpackages", None, Query())
-    assert len(calls) == 2 and page["rows"][0]["name"] == "Renamed"
+    assert len(calls) == 2 and page["rows"][0]["name"] == "Renamed" and "refreshing" not in page
 
 
 def test_a_reconciliation_change_shows_in_the_lists_next_step(db, monkeypatch):
@@ -138,6 +141,8 @@ def test_a_reconciliation_change_shows_in_the_lists_next_step(db, monkeypatch):
     ws = rp.workspace(wp)
     for line in ws["lines"]:
         rp.mark(wp, [line["id"]], category="private", note=None, actor="reviewer")
+    datasets.query("workpackages", None, Query())  # 153: starts the rebuild behind
+    datasets.wait_for_rebuilds()
     after = next(r for r in datasets.query("workpackages", None, Query())["rows"] if r["id"] == wp)
     assert before["next_code"] == "reconcile_pair" and after["next_code"] == "reconcile_result"
 

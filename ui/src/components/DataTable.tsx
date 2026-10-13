@@ -62,6 +62,7 @@ export function linkOf(col: DsColumn, row: DsRow): string | null {
     case "workpackage": return wp;
     case "next": return wp && row._stage ? `${wp}/${String(row._stage)}` : wp;
     case "reviews": return wp ? `${wp}/review` : null;
+    case "process": return wp ? `${wp}/process` : null; // 153: older runs to supersede
     case "review":
     case "item": return wp ? `${wp}/review/${e(item)}` : null;
     default: return null;
@@ -479,6 +480,7 @@ export function DataTable(p: Props) {
               ? t("{{from}}–{{to}} / {{matched}} sor (szűrve, összesen {{total}})", { from, to, matched: matched.toLocaleString(getLocale()), total: total.toLocaleString(getLocale()) })
               : t("{{from}}–{{to}} / {{matched}} sor", { from, to, matched: matched.toLocaleString(getLocale()) })}
           </span>
+          {data.refreshing ? <span className="small muted">{t("Updating…")}</span> : null}
           <span className="dt-spacer" />
           <Picker label={t("Sor laponként")} compact value={String(state.limit)}
             options={PAGE_SIZES.map((n) => ({ value: String(n), label: t("{{n}} / lap", { n }) }))} onChange={(v) => patch({ limit: Number(v) })} hideLabel />

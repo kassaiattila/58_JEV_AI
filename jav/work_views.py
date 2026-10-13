@@ -109,6 +109,14 @@ def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool |
     return step("go_live", "Próba rendben: éles futás", "process")
 
 
+def current_run(runs: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """153: the run the package's next step is about — the newest run, passing over runs a person stopped after it, so
+    a later stopped run does not hide the to-dos or the approval of an earlier finished run (2026-10-13: a package with
+    169 open to-dos on its live run offered "rerun" because two later runs had been stopped). A package whose runs were
+    all stopped still offers a rerun. `runs`: newest first (`work.run_rows`)."""
+    return next((r for r in runs if r["status"] != "cancelled"), runs[0] if runs else None)
+
+
 def workpackage_view(wp_id: str) -> dict[str, Any]:
     wp = work.get(wp_id)
     if wp["source_kind"] == "reconcile":  # 131: a reconciliation package has a scope, no files and no runs
@@ -129,9 +137,10 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
         from jav import statement_package
 
         extra["statements"] = statement_package.package_view(wp_id)
+    current = current_run(runs)
     return jsonable({"workpackage": wp, "readiness": ready, "titles": item_titles(wp["items"], package_root(wp)), **extra,
-                     "last_run": runs[0] if runs else None, "runs": len(runs),
-                     "next": next_step(wp, runs[0] if runs else None, ready["ready"]), "workflow": _workflow_of(wp_id),
+                     "last_run": runs[0] if runs else None, "current_run": current, "runs": len(runs),
+                     "next": next_step(wp, current, ready["ready"]), "workflow": _workflow_of(wp_id),
                      "supersedable": work.supersedable_runs(wp_id)})  # 152: older live runs a person can supersede
 
 
@@ -160,16 +169,21 @@ def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
         r["open_reasons_all"] = sum(len(open_by_subject[work.review_subject(i)]) for i in wp["items"])
         runs = work.run_rows(r["id"])
         last = runs[0] if runs else None
-        r["open_reasons"] = last["open_reasons"] if last else 0
+        current = current_run(runs)  # 153: the to-dos and the next step of the run a later stopped run does not hide
+        r["open_reasons"] = current["open_reasons"] if current else 0
         r["last_status"] = last["status"] if last else None
         r["last_activity"] = (last["finished_at"] or last["created_at"]) if last else r["created_at"]
+        r["older_runs"] = 0
         if wp["source_kind"] == "reconcile":  # 131: its own next step (pairing / result)
             from jav import reconcile_package
 
             r["next"] = reconcile_package.package_view(r["id"])["next"]
             continue
+        # 153: the owner could not tell from the list which packages had older live runs to supersede (152 shows them
+        # on the package's page only)
+        r["older_runs"] = len(work.supersedable_runs(r["id"]))
         # without a run we do not check readiness (expensive); the step is then "start"
-        r["next"] = next_step(wp, last)
+        r["next"] = next_step(wp, current)
     return jsonable(rows)
 
 

@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.53",
+    "version": "1.0.54",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.54",
+        "date": "2026-10-13",
+        "note": "153: accept the Hungarian texts the interface test of the package list's refresh, its older-runs link and the supersede warnings checks (ui/src/listRefresh153.test.tsx)."
+      },
       {
         "version": "1.0.53",
         "date": "2026-10-12",
@@ -655,6 +660,7 @@
     "ui/src/jevPath082.test.tsx": 3,
     "ui/src/labels.ts": 140,
     "ui/src/layout.test.tsx": 48,
+    "ui/src/listRefresh153.test.tsx": 18,
     "ui/src/naming078.test.tsx": 11,
     "ui/src/noJev086.test.tsx": 10,
     "ui/src/numberEdit081.test.tsx": 5,

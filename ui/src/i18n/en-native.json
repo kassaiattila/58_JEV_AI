@@ -1203,5 +1203,11 @@
   "{{n}} older live run(s) were repeated by a later live run on the same documents. Superseding stops them and closes their {{m}} open to-dos; they cannot be approved afterwards.": "{{n}} older live run(s) were repeated by a later live run on the same documents. Superseding stops them and closes their {{m}} open to-dos; they cannot be approved afterwards.",
   "{{r}} closed to-dos and {{c}} hand-corrected documents stay with it and are not carried over": "{{r}} closed to-dos and {{c}} hand-corrected documents stay with it and are not carried over",
   "Run superseded: {{n}} open to-dos closed.": "Run superseded: {{n}} open to-dos closed.",
-  "the named invoices together: {{amount}}": "the named invoices together: {{amount}}"
+  "the named invoices together: {{amount}}": "the named invoices together: {{amount}}",
+  "{{r}} closed to-dos stay with it and are not carried over": "{{r}} closed to-dos stay with it and are not carried over",
+  "{{c}} hand-corrected documents stay with it and are not carried over": "{{c}} hand-corrected documents stay with it and are not carried over",
+  "On this run {{r}} to-dos were already closed; they stay with this run and are not carried over to the later one.": "On this run {{r}} to-dos were already closed; they stay with this run and are not carried over to the later one.",
+  "On this run {{c}} documents were corrected by hand; they stay with this run and are not carried over to the later one.": "On this run {{c}} documents were corrected by hand; they stay with this run and are not carried over to the later one.",
+  "Updating…": "Updating…",
+  "Older runs to supersede": "Older runs to supersede"
 }

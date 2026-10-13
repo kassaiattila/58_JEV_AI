@@ -122,6 +122,15 @@ export function RunDetail({ runId }: { runId: string }) {
  *  stay open until it is approved (066), so a person can supersede it: it stays as a stopped run and its open to-dos
  *  close. Human work done on it (closed to-dos, corrections) stays with it and is not carried over — said before the
  *  click. */
+/** 153: the human work done on the run, naming only the parts that are not zero. */
+function humanWorkOnRun(r: number, c: number): string {
+  if (r && c) {
+    return t("On this run {{r}} to-dos were already closed and {{c}} documents corrected by hand; they stay with this run and are not carried over to the later one.", { r, c });
+  }
+  return r ? t("On this run {{r}} to-dos were already closed; they stay with this run and are not carried over to the later one.", { r })
+    : t("On this run {{c}} documents were corrected by hand; they stay with this run and are not carried over to the later one.", { c });
+}
+
 export function SupersedeOffer({ offer, busy, onConfirm }: { offer: SupersedeInfo; busy: boolean; onConfirm: () => void }) {
   useLocale();
   const human = offer.resolved_reasons + offer.corrected_items > 0;
@@ -130,8 +139,7 @@ export function SupersedeOffer({ offer, busy, onConfirm }: { offer: SupersedeInf
       <p>{t("A later live run processed the same documents again.")}{" "}
         <a href={`#/runs/${encodeURIComponent(offer.by)}`}>{t("The later run")}</a></p>
       <p>{t("Superseding keeps this run as a stopped run and closes its {{n}} open to-dos; it cannot be approved afterwards.", { n: offer.open_reasons })}</p>
-      {human ? <p className="error-text">{t("On this run {{r}} to-dos were already closed and {{c}} documents corrected by hand; they stay with this run and are not carried over to the later one.",
-        { r: offer.resolved_reasons, c: offer.corrected_items })}</p> : null}
+      {human ? <p className="error-text">{humanWorkOnRun(offer.resolved_reasons, offer.corrected_items)}</p> : null}
       <ConfirmButton className="secondary" disabled={busy} onConfirm={onConfirm}>{t("Supersede")}</ConfirmButton>
     </div>
   );

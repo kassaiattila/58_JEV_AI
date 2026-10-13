@@ -103,6 +103,9 @@ export function useHash(): string {
 /** Dataset page (056 U1). While paging, sorting and filtering, the previous page stays visible until the new one
  *  arrives; on a switch to another dataset or scope, however, it disappears at once (another run's data must not stay
  *  on screen). An old response that arrives later does not overwrite the new one. */
+/** 153: how soon rows marked `refreshing` are asked for again. */
+export const REFRESHING_RETRY_MS = 2000;
+
 export function useDataset(name: string | null, scope: DsScope, query: DsQuery, pollMs?: number): Loaded<DsPage> {
   const [data, setData] = useState<DsPage | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
@@ -140,6 +143,14 @@ export function useDataset(name: string | null, scope: DsScope, query: DsQuery, 
     const t = window.setInterval(() => setTick((n) => n + 1), pollMs);
     return () => window.clearInterval(t);
   }, [pollMs, key]);
+
+  // 153: rows served while newer ones are being built are asked for again soon, not only at the next poll
+  const refreshing = Boolean(data?.refreshing);
+  useEffect(() => {
+    if (!refreshing || key === null) return;
+    const t = window.setTimeout(() => setTick((n) => n + 1), REFRESHING_RETRY_MS);
+    return () => window.clearTimeout(t);
+  }, [refreshing, data, key]);
 
   const reload = useCallback(() => setTick((n) => n + 1), []);
   return { data, error, loading, reload };

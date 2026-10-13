@@ -26,6 +26,8 @@ const ACTIVE = new Set(["queued", "running"]);
 
 export function stageStatus(view: WorkpackageView): Record<Stage, string> {
   const last = view.last_run;
+  // 153: the to-dos and the approval are the current run's (a later run a person stopped does not hide them)
+  const current = view.current_run ?? last;
   if (view.reconcile) {
     const { scope, counts, approval } = view.reconcile;
     return {
@@ -39,8 +41,8 @@ export function stageStatus(view: WorkpackageView): Record<Stage, string> {
     // 080: without saved settings the default processing settings apply, so readiness alone decides
     process: last ? `${MODE[last.mode]} · ${(RUN_STATUS[last.status] ?? last.status).toLowerCase()} · ${last.items_done}/${last.items}`
       : view.readiness.ready ? t("indítható") : t("nem indítható"),
-    review: last ? (last.open_reasons ? t("{{n}} teendő", { n: last.open_reasons }) : t("nincs teendő")) : itemCountText(view.workpackage.items),
-    result: !last ? t("még nincs") : last.mode === "shadow" ? t("próba-eredmény") : last.approval ? t("kiadva") : t("jóváhagyásra vár"),
+    review: current ? (current.open_reasons ? t("{{n}} teendő", { n: current.open_reasons }) : t("nincs teendő")) : itemCountText(view.workpackage.items),
+    result: !current ? t("még nincs") : current.mode === "shadow" ? t("próba-eredmény") : current.approval ? t("kiadva") : t("jóváhagyásra vár"),
   };
 }
 

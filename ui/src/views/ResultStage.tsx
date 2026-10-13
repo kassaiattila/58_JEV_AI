@@ -43,7 +43,7 @@ export function ResultStage({ view, table, runId, onChanged }: {
 }) {
   useLocale();
   const wp = view.workpackage;
-  const chosen = runId ?? view.last_run?.run_id ?? null;
+  const chosen = runId ?? view.current_run?.run_id ?? view.last_run?.run_id ?? null; // 153: the run the next step is about
   const run = useRunView(chosen);
   // 058: only the views that contain data (e.g. utility cost only for utility invoices); the local service says which
   const available = run.data?.tables ? TABLES.filter((x) => run.data!.tables!.includes(x.key)) : TABLES;

@@ -336,15 +336,14 @@ def _package_state(wp_id: str) -> tuple[bool, dict[str, Any] | None]:
     if wp["source_kind"] == "reconcile":
         approved = reconcile_package.approval(wp_id)["active"] is not None
         return approved, reconcile_package.package_view(wp_id)["next"]
-    runs = work.run_rows(wp_id)
-    nxt = work_views.next_step(wp, runs[0] if runs else None)
+    nxt = work_views.next_step(wp, work_views.current_run(work.run_rows(wp_id)))  # 153: a later stopped run hides nothing
     return _live_run_approved(wp_id), nxt
 
 
 def _live_run_approved(wp_id: str) -> bool:
-    with store.connect() as c:
-        row = c.execute("SELECT approval FROM runs WHERE workpackage_id=? AND mode='apply' ORDER BY created_at DESC, rowid DESC"
-                        " LIMIT 1", (wp_id,)).fetchone()
+    with store.connect() as c:  # 153: a live run a person stopped later does not undo an approved one
+        row = c.execute("SELECT approval FROM runs WHERE workpackage_id=? AND mode='apply' AND status != 'cancelled'"
+                        " ORDER BY created_at DESC, rowid DESC LIMIT 1", (wp_id,)).fetchone()
     return bool(row and row["approval"])
 
 
