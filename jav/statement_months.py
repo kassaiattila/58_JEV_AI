@@ -11,9 +11,12 @@ The rule (the owner's decisions of 2026-10-10):
   cycle's closing day is adjacent, not an overlap) are a pair to decide;
 - the better source replaces the other when it covers the other's whole period. The order is data
   (`configs/reconcile.json` `replacement.ranks`): read by code and checked by its balances, then extracted and
-  checked, then unchecked;
-- an equal rank, or a better statement that does not cover the other's period, is a conflict: both stay, and the
-  later processed one gets a `statement:overlap:<the other's id prefix>` to-do in a worker run;
+  checked, then unchecked. 154 (`replacement.keep_every_line`, DECISIONS 154): only when every line of the other has
+  its same line on it, or when it comes from an approved live run (a person has checked it); otherwise a line the
+  replacement would drop makes the pair a conflict, so a file nobody approved cannot hide real lines;
+- an equal rank, a better statement that does not cover the other's period or would drop one of its lines, is a
+  conflict: both stay, and the later processed one gets a `statement:overlap:<the other's id prefix>` to-do in a
+  worker run;
 - a person's choice on a pair (`statement_choices`) wins over the rule and can keep either; the latest choice counts,
   and choosing the rule again undoes it;
 - 144 (`replacement.reread`): two statements of the same rank and period whose lines are the same lines (booking day,
@@ -163,14 +166,35 @@ def _same_lines(a: dict[str, Any], b: dict[str, Any]) -> bool:
     return len(la) == len(lb) and not match_lines(la, lb)[1]
 
 
+def _keeps_lines(better: dict[str, Any], worse: dict[str, Any]) -> bool:
+    """154 (DECISIONS 154): every line of the worse statement has its same line on the better one, or the rule may
+    drop lines (`replacement.keep_every_line` off)."""
+    if not _conf().get("keep_every_line"):
+        return True
+    return not match_lines(worse.get("lines") or [], better.get("lines") or [])[1]
+
+
 def _group(statement: dict[str, Any]) -> tuple[str, str]:
     from jav import reconcile
 
     return reconcile.statement_account(statement), str(statement.get("currency") or "")
 
 
-def resolve(statements: list[dict[str, Any]], choices: dict[str, str | None]) -> Resolution:
-    """Which statements stay valid. `choices`: a person's statement kept per pair key (None: the rule decides)."""
+def resolve(statements: list[dict[str, Any]], choices: dict[str, str | None], *,
+            approved: Iterable[str] | None = None) -> Resolution:
+    """Which statements stay valid. `choices`: a person's statement kept per pair key (None: the rule decides).
+    `approved`: the approved live runs, which may replace a statement whose lines they lack (154; None: looked up in the
+    store, only when a replacement would drop a line)."""
+    trusted_runs: set[str] | None = set(approved) if approved is not None else None
+
+    def trusted(st: dict[str, Any]) -> bool:
+        nonlocal trusted_runs
+        if trusted_runs is None:
+            from jav import work
+
+            trusted_runs = work.approved_runs(s.get("work_run") for s in statements)
+        return st.get("work_run") in trusted_runs
+
     beaten: dict[str, list[tuple[str, str]]] = defaultdict(list)  # loser -> [(winner, how)]
     undecided: list[tuple[str, str]] = []
     by_group: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
@@ -195,7 +219,8 @@ def resolve(statements: list[dict[str, Any]], choices: dict[str, str | None]) ->
                     beaten[earlier["id"]].append((later["id"], "reread"))
                     continue
                 better, worse = (a, b) if ra < rb else (b, a)
-                if ra != rb and covers(pa if better is a else pb, pb if better is a else pa):
+                if (ra != rb and covers(pa if better is a else pb, pb if better is a else pa)
+                        and (_keeps_lines(better, worse) or trusted(better))):
                     beaten[worse["id"]].append((better["id"], "rule"))
                 else:
                     undecided.append((a["id"], b["id"]))

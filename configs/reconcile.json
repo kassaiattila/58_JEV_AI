@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.13.0",
+    "version": "1.14.0",
     "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person, when a statement counts as verified coverage and how a candidate's strength is weighed. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131, DECISIONS 134.",
     "changelog": [
+      {
+        "version": "1.14.0",
+        "date": "2026-10-13",
+        "note": "154 (DECISIONS 154, the 153 review's security item 4): replacement.keep_every_line - the better source replaces the other by rule only when every line of the other has its same line (carry_over) on it, or when it comes from an approved live run (a person has checked it; the lines it lacks are left over as before); otherwise a line the replacement would drop makes the pair a conflict a person decides, so a file nobody approved cannot hide real lines. On the live store 3 of the 20 rule replacements lack a line an unapproved trial run's AI read another way (a swapped date, a credit read as a debit); all 3 replacing statements come from an approved live run, so nothing changes. Engine 1.17.0."
+      },
       {
         "version": "1.13.0",
         "date": "2026-10-12",
@@ -148,7 +153,8 @@
       {"name": "unchecked"}
     ],
     "carry_over": ["booking_date", "amount", "direction"],
-    "reread": true
+    "reread": true,
+    "keep_every_line": true
   },
   "verified_when": {
     "closing_balance_check": ["closing.ok"],

@@ -154,7 +154,7 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.16.0"  # 151: a forint bank line pays two or more invoices of another currency together; 1.15.0 (149): a forint bank line meets another currency; 1.14.0 (148): a credit line pays an outgoing invoice (its partner the buyer); 1.13.0: a known direction decides
+ENGINE_VERSION = "1.17.0"  # 154: the rule replaces a statement only when none of its lines is lost; 151: a forint bank line pays two or more invoices of another currency together; 1.15.0 (149): a forint bank line meets another currency; 1.14.0 (148): a credit line pays an outgoing invoice (its partner the buyer); 1.13.0: a known direction decides
 STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
             "no_payment_found", "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate", "combined")  # how a candidate's amounts relate
