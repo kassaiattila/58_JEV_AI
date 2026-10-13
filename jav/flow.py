@@ -32,7 +32,7 @@ from burr.core import ApplicationBuilder, action, default, expr, when
 from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 
-from jav import cfg, policy, store
+from jav import card_numbers, cfg, policy, store
 from jav.config import TRACKER_PROJECTS
 from jav.models import FlowState
 from jav.typepack import DEFAULT_KEY, get as get_pack
@@ -349,7 +349,8 @@ def save(state: FlowState) -> FlowState:
             doc_id=state.doc_id,
             doc_type=state.doc_type,
             arm=state.arm,
-            datapoints=state.invoice.to_datapoints(pack.record_fields),
+            # 153 (review C4): a full card number is never saved (a card statement processed as a document)
+            datapoints=card_numbers.mask_values(state.invoice.to_datapoints(pack.record_fields)),
             field_conf=field_conf,
             validation=[v.model_dump() for v in state.validation],
             route=state.route,

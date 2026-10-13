@@ -15,6 +15,7 @@ views of a statement extracted by AI) use it.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 # sixteen digits in one run, or four groups of four that are not part of a longer grouped number (an IBAN printed in
 # groups of four): no digit and a space before the first group
@@ -60,3 +61,16 @@ def mask_text(text: str | None) -> str | None:
         return f"{digits[:6]}xxxxxx{digits[-4:]}" if is_card_number(digits) else m.group(0)
 
     return _CARD.sub(one, text)
+
+
+def mask_values(value: Any) -> Any:
+    """153 (review C4): every text in a value (a dict's values, a list's items, nested) with its full card numbers
+    masked; anything else unchanged. Extracted data is saved and exported this way, so a card statement processed as a
+    document keeps only the first six and the last four digits too (the decision of 144)."""
+    if isinstance(value, str):
+        return mask_text(value)
+    if isinstance(value, dict):
+        return {k: mask_values(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [mask_values(v) for v in value]
+    return value

@@ -29,7 +29,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, corrections, duplicates, native_results, store, typepack, work
+from jav import card_numbers, cfg, corrections, duplicates, native_results, store, typepack, work
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
 SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
@@ -328,6 +328,18 @@ def line_items_table(records: list[dict[str, Any]]) -> tuple[list[str], list[lis
                            + [row.get(c) for c in cols])
     return head, out
 
+
+def _masked_table(build: Any) -> Any:
+    """153 (review C4): a table's text cells with full card numbers masked (data saved before the masking at saving)."""
+    def table(records: list[dict[str, Any]], *args: Any, **kwargs: Any) -> tuple[list[str], list[list[Any]]]:
+        head, rows = build(records, *args, **kwargs)
+        return head, [[card_numbers.mask_text(v) if isinstance(v, str) else v for v in row] for row in rows]
+    return table
+
+
+documents_table = _masked_table(documents_table)
+datapoints_table = _masked_table(datapoints_table)
+line_items_table = _masked_table(line_items_table)
 
 TABLES = {"documents": documents_table, "datapoints": datapoints_table, "line_items": line_items_table}
 
