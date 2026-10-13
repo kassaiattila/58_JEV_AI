@@ -306,10 +306,11 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
         _col("item_id", "Tétel-azonosító", "id", hidden=True),
     ]
     open_by_subject = store.review_open_reasons_many([work.review_subject(i) for i in wp["items"]])
+    mine = work_views.package_run_ids(wp["id"])  # 153: this package's runs' to-dos only
     rows = [{"_key": i["item_id"], "_wp": wp["id"], "item_id": i["item_id"], **_name_fields(i, titles, names[i["item_id"]], choice),
              "kind": i.get("kind") or "document", "source_path": i["source_path"], "sha256": i.get("sha256"),
              "added_revision": i.get("added_revision"),
-             "open_reasons": len(open_by_subject[work.review_subject(i)])} for i in wp["items"]]
+             "open_reasons": len(work_views.own_reasons(open_by_subject[work.review_subject(i)], mine))} for i in wp["items"]]
     return cols, rows
 
 
