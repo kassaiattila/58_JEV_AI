@@ -149,7 +149,12 @@ def sender_domain(sender: str | None) -> str | None:
 def _allowed_attachment(path: Path, folder: Path) -> bool:
     """An attachment may only be read from the email's own folder, the bridge's own `data/` root (048 T2) or the legacy
     project's `data/` root (040 K1, F01):
-    an absolute or `..` path must not point outside these even after resolution."""
+    an absolute or `..` path must not point outside these even after resolution. 153 (review C6): a network path
+    (beginning with two backslashes or two slashes) or a drive-relative one is refused by its text first: resolving it
+    would already contact the host (an outgoing SMB connection, which can leak the Windows sign-in hash)."""
+    text = str(path)
+    if text.startswith(("\\\\", "//")) or (path.drive and not path.root):
+        return False
     try:
         resolved = path.resolve()
     except (OSError, ValueError):
