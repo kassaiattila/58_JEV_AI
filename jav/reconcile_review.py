@@ -108,7 +108,7 @@ def _totals(lines: Iterable[dict[str, Any]]) -> dict[str, str]:
 def review(wp_id: str) -> dict[str, Any]:
     """The package's lines to decide in their groups (each with its action, its lines, their count and totals per
     currency), the excluded lines by their reason, the decided ones counted by state, and the AI threshold used."""
-    ws = reconcile_package.workspace(wp_id)
+    ws = reconcile_package.kept_workspace(wp_id)  # 153: read only
     sure: dict[str, list[str]] = defaultdict(list)
     for p in reconcile_package.proposed_pairs(wp_id):
         sure[p["line_id"]].append(p["invoice_doc_id"])

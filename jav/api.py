@@ -1370,40 +1370,40 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.get(r + "/workpackages/{wp_id}/reconcile")
     def reconcile_workspace(wp_id: WpId) -> dict[str, Any]:
-        return work_views.jsonable(reconcile_package.workspace(wp_id))
+        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/scope")
     def reconcile_scope(wp_id: WpId, body: SetReconcileScope, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.set_scope(wp_id, accounts=body.accounts, period_start=body.period_start, period_end=body.period_end,
                                     expected_revision=body.expected_revision, actor=who, party_id=body.party_id)
-        return work_views.jsonable(reconcile_package.workspace(wp_id))
+        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/refresh")
     def reconcile_refresh(wp_id: WpId, body: Empty, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """Recomputes with the missing MNB rates fetched (only dates and currency codes leave the machine)."""
         reconcile_package.refresh(wp_id)
-        return work_views.jsonable(reconcile_package.workspace(wp_id))
+        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/allocate")
     def reconcile_allocate(wp_id: WpId, body: ReconcileAllocate, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.allocate(wp_id, [p.model_dump() for p in body.pairs], note=body.note, actor=who)
-        return work_views.jsonable(reconcile_package.workspace(wp_id))
+        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/accept-proposed")
     def reconcile_accept_proposed(wp_id: WpId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """Every unambiguous proposal at once (proposed, the only candidate, a statement whose balances check out)."""
         reconcile_package.accept_proposed(wp_id, actor=who)
-        return work_views.jsonable(reconcile_package.workspace(wp_id))
+        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/reject")
     def reconcile_reject(wp_id: WpId, body: ReconcileReject, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.reject(wp_id, body.invoice_doc_id, body.line_id, note=body.note, actor=who)
-        return work_views.jsonable(reconcile_package.workspace(wp_id))
+        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/mark")
     def reconcile_mark(wp_id: WpId, body: ReconcileMark, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.mark(wp_id, body.line_ids, category=body.category, note=body.note, actor=who)
-        return work_views.jsonable(reconcile_package.workspace(wp_id))
+        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
 
     @app.get(r + "/workpackages/{wp_id}/reconcile/quick-review")
     def reconcile_quick_review(wp_id: WpId) -> dict[str, Any]:
@@ -1417,13 +1417,13 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         review and the workspace after it."""
         n = reconcile_review.accept(wp_id, body.group, body.line_ids, actor=who)
         return {"accepted": n, "review": work_views.jsonable(reconcile_review.review(wp_id)),
-                "workspace": work_views.jsonable(reconcile_package.workspace(wp_id))}
+                "workspace": work_views.jsonable(reconcile_package.kept_workspace(wp_id))}
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/unmark")
     def reconcile_unmark(wp_id: WpId, body: ReconcileUnmark, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """135: the needs-no-invoice marks of several lines undone in one step."""
         reconcile_package.unmark(wp_id, body.line_ids, actor=who)
-        return work_views.jsonable(reconcile_package.workspace(wp_id))
+        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
 
     @app.get(r + "/workpackages/{wp_id}/reconcile/locate")
     def reconcile_locate(wp_id: WpId, line_id: Annotated[str, Query(pattern=LINE_ID)]) -> dict[str, Any]:
@@ -1446,7 +1446,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/workpackages/{wp_id}/reconcile/revoke")
     def reconcile_revoke(wp_id: WpId, body: ReconcileRevoke, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.revoke(wp_id, kind=body.kind, ref=body.ref, actor=who, note=body.note)
-        return work_views.jsonable(reconcile_package.workspace(wp_id))
+        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
 
     # --- 145: the result - the statement, its approval as a version that locks its lines, its download ---
 

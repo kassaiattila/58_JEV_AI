@@ -415,20 +415,26 @@ def clear_cache() -> None:
 def workspace(wp_id: str) -> dict[str, Any]:
     """Everything the pairing page shows (`_workspace`), kept until its inputs change (140); the caller gets its own
     copy, so changing it changes nothing kept."""
+    return copy.deepcopy(kept_workspace(wp_id))
+
+
+def kept_workspace(wp_id: str) -> dict[str, Any]:
+    """153 (review B5): the kept workspace itself, for a caller that only reads it (the next step, the quick review,
+    the sure pairs, a JSON answer): the copy was 85-93 % of their time. Never change what it returns."""
     mark = inputs_mark()
     key = (str(store.active_path()), wp_id)
     with _kept_lock:
         hit = _kept.get(key)
         if hit and hit[0] == mark:
             _kept.move_to_end(key)
-            return copy.deepcopy(hit[1])
+            return hit[1]
     built = _workspace(wp_id)
     with _kept_lock:
         _kept[key] = (mark, built)
         _kept.move_to_end(key)
         while len(_kept) > KEPT_WORKSPACES:
             _kept.popitem(last=False)
-    return copy.deepcopy(built)
+    return built
 
 
 def _workspace(wp_id: str) -> dict[str, Any]:
@@ -962,7 +968,7 @@ def proposed_pairs(wp_id: str) -> list[dict[str, str]]:
     pairing here made the quick review pair the whole scope twice on every request."""
     _package(wp_id)
     _refuse_approved(wp_id)
-    return [{"invoice_doc_id": c["invoice_id"], "line_id": ln["id"]} for ln in workspace(wp_id)["lines"] if not ln.get("locked")
+    return [{"invoice_doc_id": c["invoice_id"], "line_id": ln["id"]} for ln in kept_workspace(wp_id)["lines"] if not ln.get("locked")
             for c in ln["candidates"] if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"]]
 
 
@@ -1233,7 +1239,7 @@ def refresh(wp_id: str) -> dict[str, Any]:
 def package_view(wp_id: str) -> dict[str, Any]:
     """The package header's data (`work_views.workpackage_view` for this kind): the scope, the counts, the blockers as
     the readiness, and the next step."""
-    ws = workspace(wp_id)
+    ws = kept_workspace(wp_id)  # 153: read only
     blockers = [{"code": b["code"], "message": b["file"] or b["doc_id"][:12]} for b in ws["blockers"]]
     warnings = [{"code": w["code"], "message": w["file"] or w["doc_id"][:12]} for w in ws["warnings"]]
     return {"scope": ws["scope"], "counts": ws["counts"], "coverage": ws["coverage"], "approval": ws["approval"],
