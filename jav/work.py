@@ -915,7 +915,15 @@ def readiness(wp_id: str, *, verify: bool = False) -> dict[str, Any]:
     changed or missing original is a warning. An item without one follows the original file, as before.
 
     080: a package without an assignment runs with the default processing and its default settings
-    (`assignment_default`); starting the run saves them (`start_run`)."""
+    (`assignment_default`); starting the run saves them (`start_run`).
+
+    153 (review B1): one connection for the whole check; a package of 468 documents opened in 4 s, as each item's
+    instance and original check opened its own (944 connections)."""
+    with store.session():
+        return _readiness(wp_id, verify=verify)
+
+
+def _readiness(wp_id: str, *, verify: bool) -> dict[str, Any]:
     wp = get(wp_id)
     blockers: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
@@ -1045,7 +1053,9 @@ def run_rows(wp_id: str | None = None) -> list[dict[str, Any]]:
            " r.approval, r.approved_by, r.actor, r.created_at, r.finished_at,"
            " json_array_length(r.input, '$.items') AS items,"
            " (SELECT COUNT(*) FROM run_items i WHERE i.run_id=r.run_id) AS items_done,"
-           " (SELECT COUNT(*) FROM review_reasons x WHERE x.status='open' AND x.run_id LIKE r.run_id || ':%') AS open_reasons"
+           # 153 (review B4): a range on the item flow ids `<run>:...` (';' follows ':'), so the index is used
+           " (SELECT COUNT(*) FROM review_reasons x WHERE x.status='open' AND x.run_id >= r.run_id || ':'"
+           " AND x.run_id < r.run_id || ';') AS open_reasons"
            " FROM runs r JOIN workpackages w ON w.id=r.workpackage_id")
     args: tuple = ()
     if wp_id is not None:

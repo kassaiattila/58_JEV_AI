@@ -151,6 +151,7 @@ CREATE TABLE IF NOT EXISTS review_reasons (
     closed_at     TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_review_reasons_item ON review_reasons(review_id, status);
+CREATE INDEX IF NOT EXISTS ix_review_reasons_status_run ON review_reasons(status, run_id);  -- 153: a run's open to-dos
 
 CREATE TABLE IF NOT EXISTS ledger (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
