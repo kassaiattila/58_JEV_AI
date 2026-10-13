@@ -23,6 +23,8 @@ import csv
 import io
 import json
 import re
+import threading
+from collections import OrderedDict
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -43,9 +45,34 @@ def run_records(run_id: str) -> list[dict[str, Any]]:
         return _run_records(run_id)
 
 
+# 153 (review B3): an item's source locations kept until its machine result or its correction changes. During a large
+# run every finished item rebuilt every document's locations (the word layer and its grounding index: about 0.9 s of a
+# 468-document run's 1.1 s), and the word-layer cache holds fewer layers than such a run has.
+_provenance: OrderedDict[tuple[Any, ...], dict[str, Any]] = OrderedDict()
+_provenance_lock = threading.Lock()
+_PROVENANCE_MAX = 5000
+
+
+def _item_provenance(run_id: str, item_id: str, dp: dict[str, Any], corr: dict[str, Any]) -> dict[str, Any]:
+    key = (str(store.active_path()), run_id, item_id, dp.get("run_id"), dp.get("created_at"), corr.get("revision"),
+           corr.get("created_at"))
+    with _provenance_lock:
+        hit = _provenance.get(key)
+        if hit is not None:
+            _provenance.move_to_end(key)
+            return hit
+    prov = corrections.effective_provenance(dp, corr, corrections.layer_for(dp))
+    with _provenance_lock:
+        _provenance[key] = prov
+        while len(_provenance) > _PROVENANCE_MAX:
+            _provenance.popitem(last=False)
+    return prov
+
+
 def _run_records(run_id: str) -> list[dict[str, Any]]:
     run = work.get_run(run_id)
     subjects = _email_subjects(run["input"]["items"])
+    split = work.items_reasons(run_id, run["input"]["items"])  # 153 (review B3): one query, not one per item
     out = []
     for item in run["input"]["items"]:
         if item.get("kind") == "email":
@@ -55,9 +82,9 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
             continue
         corr = corrections.current(run_id, item["item_id"])
         effective = {**(dp.get("datapoints") or {}), **corr["fields"]}
-        prov = corrections.effective_provenance(dp, corr, corrections.layer_for(dp))
+        prov = _item_provenance(run_id, item["item_id"], dp, corr)
         pack = typepack.get(dp["doc_type"])
-        reasons = [r["reason"] for r in work.item_reasons(run_id, item["item_id"], item)["run"]]
+        reasons = [r["reason"] for r in split[item["item_id"]]["run"]]
         out.append({
             "item_id": item["item_id"], "file": Path(item["source_path"]).name, "doc_type": dp["doc_type"], "arm": dp.get("arm"),
             "final_status": dp.get("final_status"),
@@ -165,7 +192,9 @@ def email_records(run_id: str) -> list[dict[str, Any]]:
     from jav import emails, mailbox
 
     out = []
-    for item in work.get_run(run_id)["input"]["items"]:
+    items = work.get_run(run_id)["input"]["items"]
+    split = work.items_reasons(run_id, [i for i in items if i.get("kind") == "email"])  # 153 (review B3): one query
+    for item in items:
         if item.get("kind") != "email":
             continue
         path = Path(item["source_path"])
@@ -184,7 +213,7 @@ def email_records(run_id: str) -> list[dict[str, Any]]:
                     "intent": res.get("intent"), "machine_intent": res.get("machine_intent"), "confidence": res.get("confidence"),
                     "corrected": bool(res.get("corrected")), "next_flow": res.get("next_flow"),
                     "attachments": res.get("attachments") or [], "from_this_run": own, "body": body,
-                    "open_reasons": [r["reason"] for r in work.item_reasons(run_id, item["item_id"], item)["run"]],
+                    "open_reasons": [r["reason"] for r in split[item["item_id"]]["run"]],
                     "tasks": mailbox.task_view(work.flow_run_id(run_id, item["item_id"]), raw) if own else None,
                     "source_status": source_status})
     return out
