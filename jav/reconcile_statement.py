@@ -32,10 +32,10 @@ import io
 import json
 from collections import Counter
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import cfg, export, naming, reconcile_package as rp, store, work
+from jav import cfg, export, naming, reconcile, reconcile_package as rp, store, work
 
 FORMAT = 1  # the statement's content layout; a new layout bumps it (a stored version keeps its own)
 INVOICE_RESULTS = ("paid", "partly_paid", "credited", "undecided", "no_payment_found", "not_covered")
@@ -58,10 +58,7 @@ def _now() -> str:
 
 
 def _money(value: Any) -> Decimal | None:
-    try:
-        return Decimal(str(value)) if value not in (None, "") else None
-    except InvalidOperation:
-        return None
+    return reconcile.decimal_or_none(value)  # 153 (review A6): one reader for the stored amounts
 
 
 def fingerprint(content: dict[str, Any]) -> str:

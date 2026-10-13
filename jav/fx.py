@@ -95,10 +95,17 @@ def _now() -> datetime:
 # --- the transport (a test installs a stand-in) --------------------------------------------------------------------
 
 
+# 153 (review C5): the most an answer may be (a year of one currency's rates is a few tens of kilobytes)
+MAX_RESPONSE_BYTES = 5_000_000
+
+
 def _urllib_transport(url: str, body: bytes, headers: dict[str, str], timeout: float) -> bytes:
     request = urllib.request.Request(url, data=body, headers=headers, method="POST")
     with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - the configured MNB address
-        return response.read()
+        raw = response.read(MAX_RESPONSE_BYTES + 1)
+    if len(raw) > MAX_RESPONSE_BYTES:
+        raise FxUnavailableError("the rate service's answer is over the size limit")
+    return raw
 
 
 _transport: contextvars.ContextVar[Transport | None] = contextvars.ContextVar("fx_transport", default=None)
@@ -215,6 +222,22 @@ def _log(c, *, source: str, currencies: Iterable[str], start: date, end: date, s
                                             status, days, error, _now().isoformat(timespec="seconds")))
 
 
+def unchanged(rows: list[tuple[date, str, int, Decimal]], stored: dict[tuple[str, str], Decimal]) -> None:
+    """153 (review C5): a published day's rate does not change afterwards, so an answer that would change a stored day
+    is refused (`FxRefusedError`) instead of overwriting it. `stored`: (currency, ISO day) -> the stored rate per unit."""
+    for day, currency, unit, rate in rows:
+        before = stored.get((currency, day.isoformat()))
+        if before is not None and rate / unit != before:
+            raise FxRefusedError(f"a stored rate would change: {currency} {day.isoformat()}")
+
+
+def _stored(c, source: str, currencies: Iterable[str], start: date, end: date) -> dict[tuple[str, str], Decimal]:
+    codes = sorted(set(currencies))
+    rows = c.execute(f"SELECT currency, day, unit, rate FROM fx_rates WHERE source=? AND day BETWEEN ? AND ?"
+                     f" AND currency IN ({','.join('?' * len(codes))})", (source, start.isoformat(), end.isoformat(), *codes))
+    return {(r["currency"], r["day"]): Decimal(r["rate"]) / int(r["unit"]) for r in rows}
+
+
 def _previous(c, source: str, currencies: Iterable[str], before: date) -> dict[str, Decimal]:
     out = {}
     for currency in currencies:
@@ -247,6 +270,7 @@ def fetch(start: date, end: date, currencies: Iterable[str]) -> int:
         with store.connect() as c:
             plausible(rows, start=start, end=end, currencies=set(codes),
                       previous=_previous(c, source["name"], codes, start))
+            unchanged(rows, _stored(c, source["name"], codes, start, end))  # 153 (review C5)
             store.begin_immediate(c)
             fetched_at = _now().isoformat(timespec="seconds")
             for day, currency, unit, rate in rows:

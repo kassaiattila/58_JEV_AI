@@ -371,11 +371,17 @@ def _blocks(rows: list[list[str]], profile: dict[str, Any]) -> list[_Block]:
 # --- the statement of an account ---------------------------------------------------------------------------------------
 
 
+def _cents(value: Decimal) -> Decimal | None:
+    """153 (review A6): an amount in cents, only when no non-zero digit stands beyond them ("10.000" is 10.00); "10.005"
+    is None, so the line is unreadable and said so, instead of rounded without a word."""
+    return value.quantize(CENT) if value == value.quantize(CENT) else None
+
+
 def _money(text: str | None) -> Decimal | None:
     if not text:
         return None
     read = read_number(text)
-    return None if read.value is None or read.ambiguous else Decimal(read.value).quantize(CENT)
+    return None if read.value is None or read.ambiguous else _cents(Decimal(read.value))
 
 
 def _cell(row: list[str], columns: dict[str, int], role: str) -> str:
@@ -462,7 +468,7 @@ def _accounts(blocks: list[_Block], file_name: str, profile: dict[str, Any]) -> 
 def _ledger_amount(text: str, profile: dict[str, Any]) -> Decimal | None:
     """A machine number ("-7291.00") when the profile says so, otherwise the shared number reader."""
     if profile.get("amounts") == "machine":
-        return Decimal(text).quantize(CENT) if re.fullmatch(r"-?\d+(?:\.\d+)?", text) else None
+        return _cents(Decimal(text)) if re.fullmatch(r"-?\d+(?:\.\d+)?", text) else None
     return _money(text)
 
 
@@ -518,13 +524,13 @@ def _pdf_lines(path: Path) -> list[str]:
 
 def _hu_amount(text: str) -> Decimal | None:
     read = read_number(text)
-    return None if read.value is None or read.ambiguous else Decimal(read.value).quantize(CENT)
+    return None if read.value is None or read.ambiguous else _cents(Decimal(read.value))
 
 
 def _dot_amount(text: str) -> Decimal | None:
     """An amount with a decimal point and optional thousands commas ("1,234.56", "20.00")."""
     plain = text.replace(",", "")
-    return Decimal(plain).quantize(CENT) if re.fullmatch(r"\d+(?:\.\d+)?", plain) else None
+    return _cents(Decimal(plain)) if re.fullmatch(r"\d+(?:\.\d+)?", plain) else None
 
 
 def _without_page_breaks(lines: list[str], blocks: list[list[str]]) -> list[str]:
@@ -1042,7 +1048,7 @@ def _xml_amount(value: str | None) -> Decimal | None:
     backtrack (a 20,000-digit amount took seconds)."""
     if not value or len(value) > 40 or not re.fullmatch(r"-?(?:\d+(?:\.\d+)?|\.\d+)", value):
         return None
-    return Decimal(value).quantize(CENT)
+    return _cents(Decimal(value))
 
 
 def _camt_account(s: dict[str, Any], profile: dict[str, Any], source: dict[str, Any]) -> Account:
@@ -1158,12 +1164,22 @@ def _read_file(path: Path, *, name: str | None = None) -> Reading:
     raise StatementTableError("no statement table of a known profile in the file")
 
 
+def inside(path: Path, folder: Path) -> bool:
+    """153 (review C8): a file of the folder that stays in it once its links are followed (`work.folder_documents` does
+    the same); a link to a file elsewhere is passed over, as the other folder readers do."""
+    try:
+        return path.resolve().is_relative_to(folder.resolve())
+    except (OSError, ValueError):
+        return False
+
+
 def _read_folder(folder: Path) -> Reading:
     """137: every export directly in the folder; a file no profile reads is listed, and a statement read twice (the
     same statement in two files) keeps its first file. 141: and every statement printed as text; a PDF or a text file
     no profile reads is not listed (a PDF may be an export's companion or a statement to extract, a text file a note)."""
     limit = _conf()["limits"]["max_files"]
-    files = sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in SUFFIXES + TEXT_SUFFIXES)
+    files = sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in SUFFIXES + TEXT_SUFFIXES
+                   and inside(p, folder))
     if len(files) > limit:
         raise StatementTableError(f"the folder holds more than {limit} statement files")
     readings, skipped = [], []

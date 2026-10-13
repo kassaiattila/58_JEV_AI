@@ -22,8 +22,10 @@ the package's workspace (`jav/reconcile_package.py`) and the engine's `repeats`,
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any
+
+from jav import reconcile
 
 KINDS = ("proposed", "paired", "line_only", "invoice_only", "credited", "marked", "excluded")
 LISTS = ("to_decide", "line_without_invoice", "invoice_without_payment", "overdue", "late", "double_payment", "clarify",
@@ -41,10 +43,7 @@ def _day(value: Any) -> date | None:
 
 
 def _money(value: Any) -> Decimal | None:
-    try:
-        return Decimal(str(value)) if value not in (None, "") else None
-    except InvalidOperation:
-        return None
+    return reconcile.decimal_or_none(value)  # 153 (review A6): one reader for the stored amounts
 
 
 def days_from_due(line: dict[str, Any], invoice: dict[str, Any]) -> int | None:

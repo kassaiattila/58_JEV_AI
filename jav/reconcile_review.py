@@ -26,7 +26,7 @@ Layer: UI/CLI → **this** (application operation) → `jav.reconcile_package` (
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any, Iterable
 
 from jav import policy, reconcile, reconcile_package, work
@@ -44,10 +44,9 @@ class ReviewError(ValueError):
 
 
 def _money(value: Any) -> Decimal:
-    try:
-        return Decimal(str(value))
-    except (InvalidOperation, ValueError):
-        return Decimal(0)
+    """A stored amount, or zero when there is none (153, review A6: by the shared reader; "NaN" or an exponent counted
+    before, "12,5" read as zero without a word)."""
+    return reconcile.decimal_or_none(value) or Decimal(0)
 
 
 def _answers(line: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -109,7 +108,7 @@ def _totals(lines: Iterable[dict[str, Any]]) -> dict[str, str]:
 def review(wp_id: str) -> dict[str, Any]:
     """The package's lines to decide in their groups (each with its action, its lines, their count and totals per
     currency), the excluded lines by their reason, the decided ones counted by state, and the AI threshold used."""
-    ws = reconcile_package.workspace(wp_id)
+    ws = reconcile_package.kept_workspace(wp_id)  # 153: read only
     sure: dict[str, list[str]] = defaultdict(list)
     for p in reconcile_package.proposed_pairs(wp_id):
         sure[p["line_id"]].append(p["invoice_doc_id"])

@@ -77,3 +77,35 @@ def test_an_archived_workflows_step_lets_its_package_go(db):
     with store.connect() as c:
         assert c.execute("SELECT workpackage_id FROM workflow_steps WHERE workflow_id=? AND step='invoices'",
                          (wf_id,)).fetchone()[0] is None
+
+
+# --- 153 (review D2): a start that was interrupted does not stay "starting" for good ----------------------------------------
+
+
+def test_an_interrupted_start_releases_its_claim(db, monkeypatch):
+    a = parties.create("Example G Kft.", identities=[], actor="t")["id"]
+    wf_id = _make(db, a, advance_now=False)["workflow"]["id"]
+
+    def stopped(*args, **kwargs):  # the process stops while the package is being made
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(work, "create_from_folder", stopped)
+    with pytest.raises(KeyboardInterrupt):
+        wf.advance(wf_id, actor="t")
+    monkeypatch.undo()
+    step = {s["id"]: s for s in wf.view(wf_id)["steps"]}["invoices"]
+    assert step["state"] == "failed" and step["note"] == wf.INTERRUPTED
+    out = wf.start_step(wf_id, "invoices", actor="t")  # a person starts it again
+    assert {s["id"]: s for s in out["steps"]}["invoices"]["state"] != "failed"
+
+
+def test_a_claim_left_by_a_stopped_process_is_released_by_the_workers_turn(db):
+    a = parties.create("Example H Kft.", identities=[], actor="t")["id"]
+    wf_id = _make(db, a, advance_now=False)["workflow"]["id"]
+    with store.connect() as c:  # a process claimed the start two hours ago and never came back
+        c.execute("UPDATE workflow_steps SET state='starting', updated_at='2026-01-01T00:00:00+00:00' WHERE workflow_id=? AND step='invoices'",
+                  (wf_id,))
+    assert wf.release_stale_starts() == 1
+    step = {s["id"]: s for s in wf.view(wf_id)["steps"]}["invoices"]
+    assert step["state"] == "failed" and step["note"] == wf.INTERRUPTED
+    assert wf.release_stale_starts() == 0

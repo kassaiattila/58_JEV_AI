@@ -50,6 +50,9 @@ PACKAGE_KINDS = {"documents": ("folder", "manual", "watch", "upload"), "emails":
                  "statements": ("statements",), "reconcile": ("reconcile",)}
 OPEN_STATES = ("waiting", "pulling", "needs_budget", "failed")
 TICK_EVERY_S = 10.0
+# 153 (review D2): a start claimed this long ago and still not finished was interrupted (a service stopped while a
+# large folder was fingerprinted): the step goes to `failed`, so a person can start it again
+STALE_START_S = 3600
 
 store.register_schema("workflows", """
 CREATE TABLE IF NOT EXISTS workflows (
@@ -665,6 +668,9 @@ def _start(wf: dict[str, Any], sdef: dict[str, Any], *, actor: str, states: tupl
     except Exception as exc:  # the step shows why; a person retries it
         log.warning("workflow %s step %s did not start: %s", wf["id"], step, exc)
         _done(wf, step, actor, "failed", state="failed", note=str(exc)[:1000])
+    except BaseException:  # 153 (review D2): interrupted (the process stops): the claim is released, then it stops
+        _done(wf, step, actor, "failed", state="failed", note=INTERRUPTED)
+        raise
 
 
 def _exclude(source: dict[str, Any]) -> list[Path]:
@@ -764,14 +770,36 @@ def _start_run(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], wp_
 _last_tick = 0.0
 
 
+INTERRUPTED = "the start was interrupted; start the step again"
+
+
+def release_stale_starts(max_age_s: float = STALE_START_S) -> int:
+    """153 (review D2): steps claimed for a start more than `max_age_s` ago and never finished (the process that held
+    the claim stopped) go to `failed` with a note, so a person can start them again; before, they stayed "starting" for
+    good. Returns how many it released."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max_age_s)).isoformat(timespec="seconds")
+    with store.connect() as c:
+        stale = c.execute("SELECT s.workflow_id, s.step, w.actor FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
+                          " WHERE s.state='starting' AND s.updated_at < ?", (cutoff,)).fetchall()
+    released = 0
+    for r in stale:
+        if _set(r["workflow_id"], r["step"], expect=("starting",), state="failed", note=INTERRUPTED):
+            with store.connect() as c:
+                store.begin_immediate(c)
+                _event(c, r["workflow_id"], r["step"], "failed", auto_actor(r["actor"]), {"note": INTERRUPTED})
+            released += 1
+    return released
+
+
 def tick(now: float | None = None) -> int:
-    """The worker's turn (at most every `TICK_EVERY_S`): advances every open, automatic workflow with a step still to
-    move. Returns how many it looked at."""
+    """The worker's turn (at most every `TICK_EVERY_S`): releases interrupted starts (153), then advances every open,
+    automatic workflow with a step still to move. Returns how many it looked at."""
     global _last_tick
     now = time.monotonic() if now is None else now
     if now - _last_tick < TICK_EVERY_S:
         return 0
     _last_tick = now
+    release_stale_starts()
     with store.connect() as c:
         rows = c.execute("SELECT DISTINCT w.id, w.actor FROM workflows w JOIN workflow_steps s ON s.workflow_id=w.id"
                          " WHERE w.status='open' AND w.auto=1 AND s.state IN ('waiting', 'pulling')").fetchall()

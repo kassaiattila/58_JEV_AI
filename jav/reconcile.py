@@ -378,6 +378,17 @@ def account_key(value: Any) -> str:
     return text if len(text) >= 16 else ""
 
 
+_DECIMAL = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def decimal_or_none(value: Any) -> Decimal | None:
+    """153 (review A6): a stored amount ("1234.50", "-12.5", any number of decimals) as a finite Decimal; None for
+    anything else ("NaN", "Infinity", "1E+3", "12,5", empty). The reconciliation views each had their own reader: some
+    took "NaN" or an exponent, one read "12,5" as zero."""
+    text = str(value) if value is not None else ""
+    return Decimal(text) if _DECIMAL.fullmatch(text) else None
+
+
 def money(value: Any) -> Decimal:
     """Only a canonical decimal string ("1234.5", "-10"); a separator is never guessed and nothing is rounded."""
     if not isinstance(value, str) or not _MONEY.fullmatch(value):

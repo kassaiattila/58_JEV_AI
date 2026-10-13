@@ -156,6 +156,21 @@ def _workflow_of(wp_id: str) -> dict[str, Any] | None:
     return workflows.workflow_of(wp_id)
 
 
+def own_reasons(reasons: list[dict[str, Any]], wp_id: str, run_packages: dict[str, str]) -> list[dict[str, Any]]:
+    """153 (review): the to-do reasons on a package's documents, without those another package's runs raised. A to-do
+    belongs to the document's content, so the same file in another package carried that package's to-dos into this one
+    (a package never run showed 720). A reason of a run that belongs to no package (a measurement or the command line)
+    still shows (K3: an old measurement's to-do stays on the document). `run_packages`: run id -> package
+    (`run_packages()`)."""
+    return [r for r in reasons if run_packages.get(str(r.get("run_id") or "").split(":", 1)[0], wp_id) == wp_id]
+
+
+def run_packages() -> dict[str, str]:
+    """Every run's package, by run id (one query)."""
+    with store.connect() as c:
+        return {r["run_id"]: r["workpackage_id"] for r in c.execute("SELECT run_id, workpackage_id FROM runs")}
+
+
 def workpackage_list(*, include_archived: bool = False) -> list[dict[str, Any]]:
     """List: name, source, item count, recipe, last run and the number of the items' open to-do reasons."""
     with store.session():  # 061: one connection for the per-package queries
@@ -169,10 +184,11 @@ def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
     # one query for all items of all packages (061: instead of a connection per item)
     open_by_subject = store.review_open_reasons_many(
         [work.review_subject(i) for wp in packages.values() for i in wp["items"]])
+    owners = run_packages()  # 153: not another package's runs' to-dos
     for r in rows:
         wp = packages[r["id"]]
-        r["open_reasons_all"] = sum(len(open_by_subject[work.review_subject(i)]) for i in wp["items"])
         runs = work.run_rows(r["id"])
+        r["open_reasons_all"] = sum(len(own_reasons(open_by_subject[work.review_subject(i)], r["id"], owners)) for i in wp["items"])
         last = runs[0] if runs else None
         current = current_run(runs)  # 153: the to-dos and the next step of the run a later stopped run does not hide
         r["open_reasons"] = current["open_reasons"] if current else 0
@@ -196,8 +212,9 @@ def workpackage_reviews(wp_id: str) -> dict[str, Any]:
     """The open to-do reasons of the package's items, per item (the UI's To-dos tab)."""
     wp = work.get(wp_id)
     open_by_subject = store.review_open_reasons_many([work.review_subject(i) for i in wp["items"]])
+    owners = run_packages()  # 153: not another package's runs' to-dos
     items = [{"item_id": i["item_id"], "source_path": i["source_path"],
-              "open_reasons": open_by_subject[work.review_subject(i)]} for i in wp["items"]]
+              "open_reasons": own_reasons(open_by_subject[work.review_subject(i)], wp_id, owners)} for i in wp["items"]]
     return jsonable({"workpackage_id": wp_id, "items": items,
                      "open_reasons": sum(len(i["open_reasons"]) for i in items)})
 

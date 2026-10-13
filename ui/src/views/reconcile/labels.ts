@@ -108,6 +108,24 @@ export function relationText(relation: ReconcileRelation | null): string {
   }
 }
 
+/** 153 (review): what a kind of blocker means, for a group of them ("{{n}} documents: …"). */
+export function blockerGroupText(code: string, n: number): string {
+  switch (code) {
+    case "source_not_approved": return t("{{n}} documents come from a run not approved yet", { n });
+    case "source_no_run": return t("{{n}} documents were processed on the command line, not in a work package", { n });
+    case "decision_not_carried": return t("{{n}} decisions on replaced statements' lines have no same line on the valid statement", { n });
+    case "allocation_no_longer_fits": return t("{{n}} pairings no longer fit the amounts of their line or invoice", { n });
+    default: return `${code}: ${n}`;
+  }
+}
+
+/** 153 (review): the blockers by reason, in the order each reason first occurs. */
+export function blockerGroups(blockers: ReconcileBlocker[]): { code: string; items: ReconcileBlocker[] }[] {
+  const groups = new Map<string, ReconcileBlocker[]>();
+  for (const b of blockers) groups.set(b.code, [...(groups.get(b.code) ?? []), b]);
+  return [...groups].map(([code, items]) => ({ code, items }));
+}
+
 export function blockerText(b: ReconcileBlocker): string {
   const name = b.file ?? b.doc_id.slice(0, 12);
   switch (b.code) {

@@ -11,7 +11,8 @@ import { ReconcileCards } from "./ReconcileCards";
 import { ReconcilePairing } from "./ReconcilePairing";
 import { ReconcileQuickReview } from "./ReconcileQuickReview";
 import { ReconcileResult } from "./ReconcileResult";
-import { blockerText, INVOICE_STATE, LINE_STATE, MARK, warningText } from "./labels";
+import { INVOICE_STATE, LINE_STATE, MARK, warningText } from "./labels";
+import { BlockerList } from "./BlockerList";
 import { show } from "./money";
 import "./reconcile.css";
 
@@ -184,9 +185,7 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
         {ws.blockers.length ? (
           <>
             <p className="muted small">{t("Pairing can start now; the reconciliation can only be approved once every source document comes from an approved run.")}</p>
-            <ul className="plain">
-              {ws.blockers.map((b) => <li key={`${b.code}:${b.doc_id}`} className="blocker small">{blockerText(b)}</li>)}
-            </ul>
+            <BlockerList blockers={ws.blockers} />
           </>
         ) : <p className="small ok">{t("Nothing: every source document comes from an approved run.")}</p>}
         {ws.warnings?.length ? (

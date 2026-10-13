@@ -120,6 +120,43 @@ describe("a workflow's control view", () => {
   });
 });
 
+describe("153 the wizard's estimate", () => {
+  it("keeps a cap typed while it runs", async () => {
+    vi.spyOn(api, "workflowTemplates").mockResolvedValue(TEMPLATES);
+    vi.spyOn(api, "parties").mockResolvedValue(OVERVIEW);
+    let answer!: (v: { items: number; usd: Record<string, string>; note: null }) => void;
+    vi.spyOn(api, "workflowEstimate").mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    render(<NewWork onPackage={vi.fn()} onWorkflow={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("radio", { name: "A whole period's work" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next →" }));
+    fireEvent.click(await screen.findByRole("radio", { name: /Example Kft\./ }));
+    fireEvent.change(screen.getByLabelText("Folder of Incoming invoices"), { target: { value: "C:\work\invoices" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Estimate" })[0]);
+    fireEvent.change(screen.getByLabelText("OpenAI budget of Incoming invoices"), { target: { value: "0.10" } }); // typed meanwhile
+    answer({ items: 3, usd: { jev: "0.0612", openai: "0.73" }, note: null });
+    await waitFor(() => expect((screen.getByLabelText("JEV budget of Incoming invoices") as HTMLInputElement).value).toBe("0.07"));
+    expect((screen.getByLabelText("OpenAI budget of Incoming invoices") as HTMLInputElement).value).toBe("0.10"); // before: 0.73
+  });
+});
+
+describe("153 the control view after an action", () => {
+  it("follows the states loaded after it, though the workflow's update time stays the same", async () => {
+    const waiting = view();
+    const running = view({ steps: view().steps.map((s) => (s.id === "invoices" ? { ...s, state: "started", status: "running", note: null } : s)) });
+    const approved = view({ steps: view().steps.map((s) => (s.id === "invoices" ? { ...s, state: "started", status: "approved", done: true, note: null } : s)),
+      done: 2 });
+    const load = vi.spyOn(api, "workflowView").mockResolvedValueOnce(waiting).mockResolvedValue(approved);
+    vi.spyOn(api, "startWorkflowStep").mockResolvedValue(running); // the action's answer, same `updated_at`
+    render(<Workflows route={{ view: "workflows", wfId: "wf-00000000000a" }} />);
+    await screen.findByRole("button", { name: "Start with this budget" });
+    fireEvent.click(screen.getByRole("button", { name: "Start with this budget" }));
+    await waitFor(() => expect(load.mock.calls.length).toBeGreaterThanOrEqual(2));
+    const steps = () => within(screen.getByRole("list", { name: "Steps" })).getAllByRole("listitem").filter((li) => li.className.includes("wf-step"));
+    await waitFor(() => expect(steps()[0].textContent).toContain("approved")); // before: frozen on the action's "running"
+  });
+});
+
 describe("the workflows list", () => {
   it("filters by state and search", async () => {
     const row = (id: string, name: string, done: number, next: WorkflowRow["next"]): WorkflowRow => ({

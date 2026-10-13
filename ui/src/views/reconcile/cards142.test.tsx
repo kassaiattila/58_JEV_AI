@@ -119,11 +119,11 @@ describe("the cards of the pairing page (142)", () => {
   it("lists the overdue invoice and the possible double payment under their chips", async () => {
     const locate = vi.spyOn(api, "reconcileLocate").mockResolvedValue(located(lineId(5)));
     cards();
-    fireEvent.click(screen.getByRole("button", { name: "Overdue, no payment found (1)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Overdue, no payment found (1 card(s))" }));
     const overdue = screen.getByRole("article", { name: /Invoice without a payment/ });
     expect(within(overdue).getByText(/Overdue, no payment found: 76 days after the due date, by 2026-06-30/)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Possible double payment (1)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Possible double payment (1 card(s))" }));
     const double = screen.getByRole("article", { name: /Paired/ });
     expect(within(double).getByText("May repeat the payment")).toBeTruthy();
     expect(within(double).getByText(/Transferred 80.00 HUF more than invoiced/)).toBeTruthy(); // 160 for an invoice of 80
@@ -134,7 +134,7 @@ describe("the cards of the pairing page (142)", () => {
 
   it("sends a card's open line to the two lists to be paired by hand", () => {
     const { onManual } = cards();
-    fireEvent.click(screen.getByRole("button", { name: "Possible double payment (1)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Possible double payment (1 card(s))" }));
     fireEvent.click(within(screen.getByRole("article", { name: /Paired/ })).getByRole("button", { name: "Pair by hand" }));
     expect(onManual).toHaveBeenCalledWith(lineId(6));
   });

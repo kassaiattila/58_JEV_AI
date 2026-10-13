@@ -504,9 +504,20 @@ def _manifest(rows: list[tuple[NamedCopy, str, str]]) -> bytes:
     cols, status_labels = raw["manifest_columns"], raw["status_labels"]
     doc_types = cfg.load("field_labels")["doc_types"]
     head = [cols[k] for k in ("path", "status", "why", "original", "source_path", "sha256", "doc_type", "item_id")]
-    body = [[c.path if status != "skipped" else "", status_labels[status], why, c.original, c.source_path, c.sha256,
+    where = _shared_folder_paths([c.source_path for c, _status, _why in rows])
+    body = [[c.path if status != "skipped" else "", status_labels[status], why, c.original, where[c.source_path], c.sha256,
              doc_types.get(c.doc_type or "", c.doc_type or ""), c.item_id] for c, status, why in rows]
     return export.csv_bytes(head, body)
+
+
+def _shared_folder_paths(paths: list[str]) -> dict[str, str]:
+    """153 (review C8): each original's path below the folder the originals share, not its full local path (the
+    manifest travels in a ZIP someone may pass on; the full path named the machine's folders and its user)."""
+    try:
+        base = os.path.commonpath([os.path.dirname(p) for p in paths]) if paths else ""
+    except ValueError:  # on several drives: only the names
+        base = ""
+    return {p: os.path.relpath(p, base) if base else Path(p).name for p in paths}
 
 
 def _materialise(copies: list[NamedCopy], put: Callable[[str, bytes], None], manifest_file: str) -> dict[str, int]:

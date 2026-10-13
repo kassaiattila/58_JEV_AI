@@ -291,3 +291,17 @@ def test_a_foreign_amount_is_not_read_together_with_its_neighbour():
     labels = {c.label for c in find_all(lines, "intl")["money"]}
     assert "11.99" in labels
     assert not labels & {"11.991", "11991"}
+
+
+def test_a_value_that_is_no_number_or_no_date_names_its_field(service):
+    """153 (review): the interface named no field and showed the reader's English text ("not a number: 'abc'"); the
+    service now says which field and what kind of value it expected (an ambiguous form names its field too)."""
+    c, run_id, item_id = _corrected(service)
+    url = f"/api/runs/{run_id}/items/{item_id}/correction"
+    bad = c.post(url, headers=HUMAN, json={"fields": {"net_total": "abc"}, "expected_revision": 0})
+    assert bad.status_code == 422, bad.text
+    assert {k: bad.json()[k] for k in ("error", "field", "kind")} == {"error": "invalid_value", "field": "net_total", "kind": "money"}
+    bad = c.post(url, headers=HUMAN, json={"fields": {"issue_date": "2024-02-31"}, "expected_revision": 0})
+    assert {k: bad.json()[k] for k in ("error", "field", "kind")} == {"error": "invalid_value", "field": "issue_date", "kind": "date"}
+    bad = c.post(url, headers=HUMAN, json={"fields": {"vat_total": "7.56"}, "expected_revision": 0})
+    assert (bad.json()["error"], bad.json()["field"]) == ("ambiguous_number", "vat_total")

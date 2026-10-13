@@ -10,6 +10,8 @@ export class ApiError extends Error {
     public code: string,
     message: string,
     public blockers: Blocker[] = [],
+    /** 153: the field a correction's value could not be read in, and its kind (money, number or date) */
+    public detail: { field?: string | null; kind?: string | null } = {},
   ) {
     super(message);
   }
@@ -860,11 +862,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     data = null;
   }
   if (!res.ok) {
-    const d = (data ?? {}) as { error?: string; message?: string; detail?: unknown; blockers?: Blocker[] };
+    const d = (data ?? {}) as { error?: string; message?: string; detail?: unknown; blockers?: Blocker[]; field?: string; kind?: string };
     const missingActor = Array.isArray(d.detail) && d.detail.some((x) => Array.isArray(x?.loc) && x.loc.includes("x-actor"));
     const message = missingActor ? t(NO_ACTOR) : d.error === "unknown_user" ? t(UNKNOWN_ACTOR)
       : d.message ?? (typeof d.detail === "string" ? d.detail : `HTTP ${res.status}`);
-    throw new ApiError(res.status, d.error ?? (res.status === 422 ? "invalid" : "error"), message, d.blockers ?? []);
+    throw new ApiError(res.status, d.error ?? (res.status === 422 ? "invalid" : "error"), message, d.blockers ?? [],
+      { field: d.field ?? null, kind: d.kind ?? null });
   }
   return data as T;
 }

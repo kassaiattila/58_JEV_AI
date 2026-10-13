@@ -3,7 +3,7 @@
 // and the package's next step, what needs a person first, the switch of the automatic chain, a step's start (with a new
 // budget when its run's estimate did not fit) and an existing package linked as a step. 147: a workflow is repeated for
 // the next period (the wizard opens filled in), and the two are linked both ways.
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   api, ApiError, type WorkflowBrief, type WorkflowBudget, type WorkflowRow, type WorkflowStep, type WorkflowView,
 } from "../../api";
@@ -100,7 +100,11 @@ function WorkflowControl({ wfId }: { wfId: string }) {
   const loaded = useLoad(`workflow:${wfId}`, () => api.workflowView(wfId), 5000);
   const [view, setView] = useState<WorkflowView | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const v = view && view.workflow.id === wfId && (!loaded.data || view.workflow.updated_at >= loaded.data.workflow.updated_at) ? view : loaded.data;
+  // 153 (review D3): an action's answer is shown until the next loaded view arrives (asked for right after the action).
+  // Before, it was kept while its `updated_at` was not older, and the steps' states are computed live, so the view
+  // froze after any action until the page was reloaded.
+  useEffect(() => setView(null), [loaded.data]);
+  const v = view && view.workflow.id === wfId ? view : loaded.data;
 
   async function act(fn: () => Promise<WorkflowView>) {
     setError(null);
@@ -149,7 +153,8 @@ function WorkflowControl({ wfId }: { wfId: string }) {
           <Fragment key={s.id}>
             {i ? <li className="wf-arrow" aria-hidden="true">→</li> : null}
             <li className={`wf-step wf-${statusTone(s.status)}`}>
-              <StepCard step={s} steps={v.steps} open={wf.status === "open"}
+              {/* 153 (review D3): a step that turns to another status gets a new form (a budget it now needs) */}
+              <StepCard key={`${s.id}:${s.status}`} step={s} steps={v.steps} open={wf.status === "open"}
                 onStart={(budget) => void act(() => api.startWorkflowStep(wf.id, s.id, budget))}
                 onLink={(wpId) => void act(() => api.linkWorkflowStep(wf.id, s.id, wpId))} />
             </li>

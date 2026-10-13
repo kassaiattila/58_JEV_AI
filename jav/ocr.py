@@ -390,12 +390,18 @@ def _tesseract_args(psm: int | None = None) -> list[str]:
             "-c", "tessedit_create_tsv=1", "-c", "tessedit_create_txt=0"]
 
 
+def tessdata_dir() -> Path:
+    """The language data of the native recogniser: `JAV_TESSDATA_DIR` when set (153, review F2: a second checkout or a
+    worktree has no `tools/tessdata` of its own), else the configured folder of this checkout."""
+    return Path(os.environ["JAV_TESSDATA_DIR"]) if os.environ.get("JAV_TESSDATA_DIR") else PROJECT_ROOT / _TESS["tessdata_dir"]
+
+
 def _run_tesseract(png: Path, out_base: Path, *, psm: int | None = None, eng: str = "native") -> str:
     """OCR of one page image; returns the TSV text. Native: `--tessdata-dir tools/tessdata`; Docker: the tessdata
     inside the image."""
     timeout = float(_TESS["timeout_s"])
     if eng == "native":
-        tessdata = PROJECT_ROOT / _TESS["tessdata_dir"]
+        tessdata = tessdata_dir()
         cmd = [native_exe(), str(png), str(out_base), "--tessdata-dir", str(tessdata), *_tesseract_args(psm)]
     else:
         work = png.parent
@@ -664,7 +670,7 @@ def status() -> dict[str, Any]:
     except OcrUnavailableError as exc:
         out["engine"] = None
         out["error"] = str(exc)
-    tessdata = PROJECT_ROOT / _TESS["tessdata_dir"]
+    tessdata = tessdata_dir()
     out["tessdata"] = sorted(p.stem for p in tessdata.glob("*.traineddata")) if tessdata.exists() else []
     out["cache_files"] = len(list(CACHE_DIR.glob("*.json"))) if CACHE_DIR.exists() else 0
     return out

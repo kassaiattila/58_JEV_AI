@@ -36,7 +36,7 @@ class LocalOCR:
 
     @classmethod
     def discover(cls) -> LocalOCR:
-        from jav.ocr import native_exe
+        from jav.ocr import native_exe, tessdata_dir
         executable = native_exe()
         if not executable:
             raise ReadFailure("unsupported", "needs_ocr", "Local Tesseract is not installed")
@@ -44,7 +44,7 @@ class LocalOCR:
         languages = settings["lang"]
         if not re.fullmatch(r"[A-Za-z0-9_]+(?:\+[A-Za-z0-9_]+)*", languages):
             raise ReadFailure("unsupported", "needs_ocr", "Local OCR language configuration is invalid")
-        folder = Path(__file__).resolve().parents[2] / settings["tessdata_dir"]
+        folder = tessdata_dir()  # 153 (review F2): `JAV_TESSDATA_DIR`, else this checkout's configured folder
         models = [folder / f"{language}.traineddata" for language in languages.split("+")]
         if not all(path.is_file() for path in models):
             raise ReadFailure("unsupported", "needs_ocr", "A configured local OCR language model is missing")

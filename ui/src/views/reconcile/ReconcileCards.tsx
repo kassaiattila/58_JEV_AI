@@ -139,7 +139,8 @@ export function ReconcileCards({ ws, readOnly, onWorkspace, reload, onManual }: 
           {VIEWS.filter((v) => v === "to_decide" || v === "all" || overview.counts[v]).map((v) => (
             <button key={v} type="button" className={`chip${["overdue", "double_payment", "late"].includes(v) && overview.counts[v] ? " rc-chip-warn" : ""}`}
               aria-pressed={view === v} onClick={() => { setView(v); setLimit(PAGE); }}>
-              {CARD_LIST[v]} ({overview.counts[v] ?? 0})
+              {/* 153 (review): the chips count cards; the header and the lists count lines */}
+              {CARD_LIST[v]} ({t("{{n}} card(s)", { n: overview.counts[v] ?? 0 })})
             </button>
           ))}
         </span>

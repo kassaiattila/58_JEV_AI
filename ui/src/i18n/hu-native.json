@@ -1219,5 +1219,15 @@
   "Amounts now": "Összegek most",
   "line {{line}} · invoice {{invoice}}": "sor {{line}} · számla {{invoice}}",
   "to an account not registered as own": "nem nyilvántartott saját számlára",
-  "A statement here prints the account it went to, but no own party holds that account (Settings › Own parties). Register it there if it is yours; then the line counts as a transfer between own accounts.": "Egy itteni kivonat kiírja a számlát, ahová ment, de ezt a számlát egyik saját gazdálkodó sem tartja nyilván (Beállítások › Saját gazdálkodók). Ha a tiéd, vedd fel ott; akkor a sor saját számlák közti átvezetésnek számít."
+  "A statement here prints the account it went to, but no own party holds that account (Settings › Own parties). Register it there if it is yours; then the line counts as a transfer between own accounts.": "Egy itteni kivonat kiírja a számlát, ahová ment, de ezt a számlát egyik saját gazdálkodó sem tartja nyilván (Beállítások › Saját gazdálkodók). Ha a tiéd, vedd fel ott; akkor a sor saját számlák közti átvezetésnek számít.",
+  "{{n}} documents come from a run not approved yet": "{{n}} irat még jóvá nem hagyott futásból származik",
+  "{{n}} documents were processed on the command line, not in a work package": "{{n}} iratot parancssorból dolgoztak fel, nem munkacsomagban",
+  "{{n}} decisions on replaced statements' lines have no same line on the valid statement": "{{n}} döntésnek a felváltott kivonat során nincs azonos sora az érvényes kivonaton",
+  "{{n}} pairings no longer fit the amounts of their line or invoice": "{{n}} párosítás már nem fér bele a sora vagy a számlája összegébe",
+  "{{n}} card(s)": "{{n}} kártya",
+  "The net amount and the VAT do not add up to the gross amount": "A nettó összeg és az ÁFA nem adja ki a bruttó összeget",
+  "difference: {{diff}}": "eltérés: {{diff}}",
+  "Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.": "Nem sikerült menteni: a(z) „{{field}}” mező értéke nem {{what}}. Javítsd, és mentsd újra; a módosításaid megmaradtak.",
+  "valid date": "érvényes dátum",
+  "number": "szám"
 }

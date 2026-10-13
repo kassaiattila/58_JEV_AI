@@ -6,9 +6,11 @@ import json
 from pathlib import Path
 import sys
 
-# -I removes caller-controlled import paths; this trusted checkout is explicit.
+# -I removes caller-controlled import paths; this trusted checkout is explicit. 153 (review F2): the packages are the
+# parent interpreter's (its first argument), so a second checkout or a worktree without its own `.venv` reads too;
+# without it, the checkout's own `.venv`, as before.
 CHECKOUT = Path(__file__).resolve().parents[2]
-DEPENDENCIES = CHECKOUT / ".venv" / "Lib" / "site-packages"
+DEPENDENCIES = Path(sys.argv[1]) if len(sys.argv) > 1 else CHECKOUT / ".venv" / "Lib" / "site-packages"
 sys.path.insert(0, str(DEPENDENCIES))
 sys.path.insert(0, str(CHECKOUT))
 

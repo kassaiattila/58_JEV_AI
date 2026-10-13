@@ -1218,5 +1218,15 @@
   "Amounts now": "Amounts now",
   "line {{line}} · invoice {{invoice}}": "line {{line}} · invoice {{invoice}}",
   "to an account not registered as own": "to an account not registered as own",
-  "A statement here prints the account it went to, but no own party holds that account (Settings › Own parties). Register it there if it is yours; then the line counts as a transfer between own accounts.": "A statement here prints the account it went to, but no own party holds that account (Settings › Own parties). Register it there if it is yours; then the line counts as a transfer between own accounts."
+  "A statement here prints the account it went to, but no own party holds that account (Settings › Own parties). Register it there if it is yours; then the line counts as a transfer between own accounts.": "A statement here prints the account it went to, but no own party holds that account (Settings › Own parties). Register it there if it is yours; then the line counts as a transfer between own accounts.",
+  "{{n}} documents come from a run not approved yet": "{{n}} documents come from a run not approved yet",
+  "{{n}} documents were processed on the command line, not in a work package": "{{n}} documents were processed on the command line, not in a work package",
+  "{{n}} decisions on replaced statements' lines have no same line on the valid statement": "{{n}} decisions on replaced statements' lines have no same line on the valid statement",
+  "{{n}} pairings no longer fit the amounts of their line or invoice": "{{n}} pairings no longer fit the amounts of their line or invoice",
+  "{{n}} card(s)": "{{n}} card(s)",
+  "The net amount and the VAT do not add up to the gross amount": "The net amount and the VAT do not add up to the gross amount",
+  "difference: {{diff}}": "difference: {{diff}}",
+  "Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.": "Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.",
+  "valid date": "valid date",
+  "number": "number"
 }
