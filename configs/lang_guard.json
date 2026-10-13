@@ -7,7 +7,7 @@
       {
         "version": "1.0.55",
         "date": "2026-10-13",
-        "note": "153: accept the Hungarian texts the interface test of the pairings that no longer fit and of the unregistered own account checks (ui/src/views/reconcile/unfit153.test.tsx), and the user guide's Hungarian label of that mark (docs/guides/USER_GUIDE.md)."
+        "note": "153: accept the Hungarian texts the interface test of the pairings that no longer fit and of the unregistered own account checks (ui/src/views/reconcile/unfit153.test.tsx), the user guide's Hungarian label of that mark (docs/guides/USER_GUIDE.md), and the Erste rate label a hostile-input test reads (tests/test_statement_hostile_153.py; document vocabulary)."
       },
       {
         "version": "1.0.54",
@@ -612,6 +612,7 @@
     "tests/test_statement_cib_141.py": 59,
     "tests/test_statement_erste_137.py": 27,
     "tests/test_statement_fields_144.py": 21,
+    "tests/test_statement_hostile_153.py": 1,
     "tests/test_statement_package_140.py": 7,
     "tests/test_statement_table_136.py": 38,
     "tests/test_store_tx_067.py": 1,
