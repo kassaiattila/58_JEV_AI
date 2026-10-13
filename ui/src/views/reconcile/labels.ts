@@ -115,6 +115,7 @@ export function blockerText(b: ReconcileBlocker): string {
     case "source_no_run": return t("Processed on the command line, not in a work package: {{name}}", { name });
     case "statement_unverified": return t("The statement's balances do not check out: {{name}}", { name });
     case "decision_not_carried": return t("A decision on a replaced statement's line has no same line on the valid statement: {{name}}", { name });
+    case "allocation_no_longer_fits": return t("A pairing no longer fits the amounts of its line or invoice: {{name}}", { name });
     default: return `${b.code}: ${name}`;
   }
 }

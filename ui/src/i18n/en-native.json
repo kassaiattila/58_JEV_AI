@@ -1210,5 +1210,11 @@
   "On this run {{c}} documents were corrected by hand; they stay with this run and are not carried over to the later one.": "On this run {{c}} documents were corrected by hand; they stay with this run and are not carried over to the later one.",
   "Updating…": "Updating…",
   "Older runs to supersede": "Older runs to supersede",
-  "An amount cannot be read, or can be read two ways: type it like 12 345,67.": "An amount cannot be read, or can be read two ways: type it like 12 345,67."
+  "An amount cannot be read, or can be read two ways: type it like 12 345,67.": "An amount cannot be read, or can be read two ways: type it like 12 345,67.",
+  "A pairing no longer fits the amounts of its line or invoice: {{name}}": "A pairing no longer fits the amounts of its line or invoice: {{name}}",
+  "Pairings that no longer fit": "Pairings that no longer fit",
+  "An amount of the line or the invoice changed since these pairings were made, and they no longer fit it. They count nowhere; revoke each one, then pair the line again.": "An amount of the line or the invoice changed since these pairings were made, and they no longer fit it. They count nowhere; revoke each one, then pair the line again.",
+  "Paired amount": "Paired amount",
+  "Amounts now": "Amounts now",
+  "line {{line}} · invoice {{invoice}}": "line {{line}} · invoice {{invoice}}"
 }

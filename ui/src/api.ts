@@ -607,9 +607,17 @@ export interface ReconcileLeftOver {
   currency: string | null; booking_date: string | null; amount: string | null; direction: string | null;
   counterparty_name: string | null; file: string | null; replaced_by_file: string | null; invoice_file: string | null;
 }
+/** 153 (review A3): an allocation that no longer fits its line or invoice (an amount changed since it was made). */
+export interface ReconcileUnfit {
+  kind: "allocation"; ref: string; line_id: string; invoice_id: string; statement_id: string | null; workpackage_id: string | null;
+  line_amount: string | null; invoice_amount: string | null; line_total: string | null; invoice_total: string | null;
+  currency: string | null; booking_date: string | null; direction: string | null; counterparty_name: string | null;
+  invoice_file: string | null;
+}
 export interface ReconcileWorkspace {
   workpackage_id: string; scope: ReconcileScope; lines: ReconcileLine[]; invoices: ReconcileInvoice[];
   left_over?: ReconcileLeftOver[];
+  unfit?: ReconcileUnfit[];
   /** 145: what warns without blocking the approval (a statement whose balances do not check out), and the approval */
   warnings?: ReconcileBlocker[]; approval?: ReconcileApproval;
   coverage: ReconcileCoverage[]; blockers: ReconcileBlocker[]; line_marks: string[]; open: Record<string, ReconcileOpen>;

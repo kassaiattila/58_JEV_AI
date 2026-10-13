@@ -2,7 +2,7 @@
 // package's workspace (its lines, invoices, coverage and blockers) is loaded once here; every decision returns the
 // recomputed workspace, which replaces it (no periodic reloading of the whole page, the legacy weakness).
 import { useEffect, useState } from "react";
-import { api, ApiError, type ReconcileLeftOver, type ReconcileWorkspace, type WorkpackageView } from "../../api";
+import { api, ApiError, type ReconcileLeftOver, type ReconcileUnfit, type ReconcileWorkspace, type WorkpackageView } from "../../api";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { go, type Stage } from "../../route";
@@ -12,6 +12,7 @@ import { ReconcilePairing } from "./ReconcilePairing";
 import { ReconcileQuickReview } from "./ReconcileQuickReview";
 import { ReconcileResult } from "./ReconcileResult";
 import { blockerText, INVOICE_STATE, LINE_STATE, MARK, warningText } from "./labels";
+import { show } from "./money";
 import "./reconcile.css";
 
 export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageView; stage: Stage; onChanged: () => void }) {
@@ -175,6 +176,8 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
 
       <LeftOver ws={ws} readOnly={readOnly} busy={busy}
         onRevoke={(r) => void act(() => api.reconcileRevoke(ws.workpackage_id, r.kind, r.ref), t("The decision has been revoked."))} />
+      <Unfit ws={ws} readOnly={readOnly} busy={busy}
+        onRevoke={(r) => void act(() => api.reconcileRevoke(ws.workpackage_id, r.kind, r.ref), t("The decision has been revoked."))} />
 
       <section className="card" aria-label={t("What blocks the approval")}>
         <h2>{t("What blocks the approval")}</h2>
@@ -204,6 +207,36 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
         </div>
       </section>
     </div>
+  );
+}
+
+/** 153 (review A3): the pairings that no longer fit the amounts of their line or invoice (a correction or a new
+ *  reading changed an amount since); they count nowhere and block the approval until revoked here. */
+export function Unfit({ ws, readOnly, busy, onRevoke }: {
+  ws: ReconcileWorkspace; readOnly: boolean; busy: boolean; onRevoke: (r: ReconcileUnfit) => void;
+}) {
+  useLocale();
+  const rows = ws.unfit ?? [];
+  if (!rows.length) return null;
+  return (
+    <section className="card" aria-label={t("Pairings that no longer fit")}>
+      <h2>{t("Pairings that no longer fit")}</h2>
+      <p className="muted small">{t("An amount of the line or the invoice changed since these pairings were made, and they no longer fit it. They count nowhere; revoke each one, then pair the line again.")}</p>
+      <table className="table compact">
+        <thead><tr><th>{t("Line")}</th><th>{t("Invoice")}</th><th className="num">{t("Paired amount")}</th><th className="num">{t("Amounts now")}</th><th /></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.ref}>
+              <td>{r.booking_date ?? "–"} · {r.counterparty_name ?? "–"}</td>
+              <td>{r.invoice_file ?? r.invoice_id.slice(0, 12)}</td>
+              <td className="num">{show(r.line_amount, r.currency)}</td>
+              <td className="num">{t("line {{line}} · invoice {{invoice}}", { line: show(r.line_total, r.currency), invoice: show(r.invoice_total) })}</td>
+              <td>{readOnly ? null : <button type="button" className="secondary small-btn" disabled={busy} onClick={() => onRevoke(r)}>{t("Revoke")}</button>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
   );
 }
 
