@@ -252,7 +252,13 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
       const est = await api.workflowEstimate({ kind, source, party_id: party?.id, period_start: start, period_end: end });
       // the budget proposed: the estimate rounded up to the cent (a person can change it)
       const proposed = Object.fromEntries(Object.entries(est.usd).map(([p, v]) => [p, (Math.ceil(Number(v) * 100) / 100).toFixed(2)]));
-      set(id, { estimate: est, estimating: false, budget: { ...proposed, ...drafts[id].budget } });
+      // 153 (review D3): merged into the draft as it is now, so a cap typed while the estimate ran stays (it was
+      // overwritten by the proposal); an answer for a source changed meanwhile is dropped
+      const asked = JSON.stringify(source);
+      setDrafts((prev) => {
+        if (JSON.stringify(sourceOf(prev[id], [start, end])) !== asked) return { ...prev, [id]: { ...prev[id], estimating: false } };
+        return { ...prev, [id]: { ...prev[id], estimate: est, estimating: false, budget: { ...proposed, ...prev[id].budget } } };
+      });
     } catch (e) {
       set(id, { estimating: false, error: e instanceof ApiError ? e.message : String(e) });
     }
