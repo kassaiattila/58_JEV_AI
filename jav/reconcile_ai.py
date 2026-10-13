@@ -121,7 +121,8 @@ def _money(value: Any) -> Decimal | None:
 
 def _payment(line: dict[str, Any]) -> dict[str, Any]:
     """The line as the core's helpers take it: what is left of it to pair, its currency and statement type."""
-    return {"amount": str(_money(line.get("rest")) or ""), "currency": line.get("currency"), "statement_type": line.get("statement_type"),
+    rest = _money(line.get("rest"))  # 153 (review A6): a rest of zero is "0.00", not "" (a zero Decimal is falsy)
+    return {"amount": "" if rest is None else str(rest), "currency": line.get("currency"), "statement_type": line.get("statement_type"),
             "original_amount": line.get("original_amount"), "original_currency": line.get("original_currency")}  # 137
 
 
