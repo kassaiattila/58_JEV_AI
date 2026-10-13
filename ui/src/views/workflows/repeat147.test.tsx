@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import workflowConfig from "../../../../configs/workflows.json";
 import {
   api, setActor, type OwnParty, type PartiesOverview, type WorkflowDraft, type WorkflowTemplates, type WorkflowView,
-  type WorkpackageRow,
+  type WorkpackageBrief,
 } from "../../api";
 import { setLanguage } from "../../i18n";
 import { parseRoute, routeHash } from "../../route";
@@ -102,9 +102,10 @@ describe("the overview of a new workflow", () => {
   it("names the existing package chosen as a step's source", async () => {
     vi.spyOn(api, "workflowTemplates").mockResolvedValue(TEMPLATES);
     vi.spyOn(api, "parties").mockResolvedValue(OVERVIEW);
-    const pkg: WorkpackageRow = { id: "wp-00000000000c", name: "September invoices", source_kind: "folder", source_ref: null,
-      revision: 1, created_at: "", items: 3, recipe_id: null, last_run_id: null, open_reasons: 0 };
-    vi.spyOn(api, "workpackages").mockResolvedValue({ workpackages: [pkg] });
+    const pkg: WorkpackageBrief = { id: "wp-00000000000c", name: "September invoices", source_kind: "folder", source_ref: null,
+      revision: 1, created_at: "", items: 3, recipe_id: null, last_run_id: null };
+    vi.spyOn(api, "workpackagesBrief").mockResolvedValue({ workpackages: [pkg] });
+    const full = vi.spyOn(api, "workpackages");  // 154: the picker does not ask for the full list
     render(<NewWork initialTemplate="monthly_reconciliation" onPackage={vi.fn()} onWorkflow={vi.fn()} />);
     fireEvent.click(await screen.findByRole("radio", { name: /Example Kft\./ }));
     const sources = screen.getByRole("radiogroup", { name: "Source of Incoming invoices" });
@@ -113,6 +114,7 @@ describe("the overview of a new workflow", () => {
     fireEvent.change(screen.getByLabelText("Folder of Bank statements"), { target: { value: "C:\\work\\statements" } });
     fireEvent.click(screen.getByRole("button", { name: "Next →" }));
     expect(screen.getByLabelText("Overview").textContent).toContain("An existing work package: September invoices");
+    expect(full).not.toHaveBeenCalled();
   });
 });
 

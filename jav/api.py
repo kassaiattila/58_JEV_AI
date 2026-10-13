@@ -832,7 +832,11 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         return {**bank_files.catalogue(), "labels": bank_files.labels()}
 
     @app.get(r + "/workpackages")
-    def workpackages(include_archived: bool = False) -> dict[str, Any]:
+    def workpackages(include_archived: bool = False, brief: bool = False) -> dict[str, Any]:
+        """154: `brief` gives the packages as stored, without their to-dos and next step (the workflow pickers need
+        only the name and the kind; the full list builds every reconciliation workspace)."""
+        if brief:
+            return {"workpackages": work_views.jsonable(work.list_workpackages(include_archived=include_archived))}
         return {"workpackages": work_views.workpackage_list(include_archived=include_archived)}
 
     @app.post(r + "/workpackages", status_code=201)
