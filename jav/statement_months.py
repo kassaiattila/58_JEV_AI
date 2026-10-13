@@ -355,6 +355,13 @@ def item_view(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str,
     it was decided, and how many lines of the replaced statement found their same line."""
     from jav import reconcile
 
+    # 153 (review B6): only a stored statement has relations; a document of another kind returns before every stored
+    # statement is built (0.10 s of each review page's 0.15-0.19 s, growing with the store; 102 s for a run's results)
+    with store.connect() as c:
+        row = c.execute("SELECT doc_type FROM datapoints WHERE doc_id=? ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                        (item_id,)).fetchone()
+    if row is None or row["doc_type"] not in reconcile._conf()["statement_types"]:
+        return []
     every = reconcile.statements()
     by_id = {s["id"]: s for s in every}
     if item_id not in by_id:

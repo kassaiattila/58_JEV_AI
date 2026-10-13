@@ -1060,8 +1060,9 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.get(r + "/runs/{run_id}/results")
     def results(run_id: RunId) -> dict[str, Any]:
         """The run's result per item (machine data, correction, merged value) — the basis of the reports (K4)."""
-        items = work.get_run(run_id)["input"]["items"]
-        return work_views.jsonable({"run_id": run_id, "items": [corrections.item_result(run_id, i["item_id"]) for i in items]})
+        with store.session():  # 153 (review B6): one connection for every item
+            items = work.get_run(run_id)["input"]["items"]
+            return work_views.jsonable({"run_id": run_id, "items": [corrections.item_result(run_id, i["item_id"]) for i in items]})
 
     @app.get(r + "/datasets")
     def dataset_catalog() -> dict[str, Any]:
