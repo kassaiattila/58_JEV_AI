@@ -56,6 +56,7 @@ const REFUSAL: Record<Refusal, string> = tmap({
   invoice_settled: "A selected invoice is already paid in full.",
   currency: "A line and an invoice of different currencies pair only one to one and in whole, when a conversion at the MNB rate relates them.",
   too_many: "The amount does not reach every selected item; select fewer.",
+  amount_unreadable: "An amount cannot be read, or can be read two ways: type it like 12 345,67.",
 }) as Record<Refusal, string>;
 
 const signed = (line: ReconcileLine): bigint | null => {
@@ -451,7 +452,8 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
           </div>
           {!plan.ok && lines.length && invoices.length ? <p className="small warn-text">{REFUSAL[plan.why]}</p> : null}
           {mode === "pair" && plan.ok ? (
-            <PairPanel plan={plan} busy={busy} onCancel={() => setMode(null)}
+            // 153 (review A2): another selection is another panel, with an amount for each of its pairs
+            <PairPanel key={plan.pairs.map((p) => `${p.line.id}|${p.invoice.id}`).join(",")} plan={plan} busy={busy} onCancel={() => setMode(null)}
               onSave={(pairs, note) => void act(() => api.reconcileAllocate(wpId, toRequest(pairs), note), { advance: true })} />
           ) : null}
           {mode === "reject" && canReject ? (

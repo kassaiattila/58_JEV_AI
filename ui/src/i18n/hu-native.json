@@ -1210,5 +1210,6 @@
   "On this run {{r}} to-dos were already closed; they stay with this run and are not carried over to the later one.": "Ezen a futáson már {{r}} teendőt lezártak; ezek ennél a futásnál maradnak, az újabb futásba nem kerülnek át.",
   "On this run {{c}} documents were corrected by hand; they stay with this run and are not carried over to the later one.": "Ezen a futáson már {{c}} iratot kézzel javítottak; ezek ennél a futásnál maradnak, az újabb futásba nem kerülnek át.",
   "Updating…": "Frissül…",
-  "Older runs to supersede": "Leváltható régi futás"
+  "Older runs to supersede": "Leváltható régi futás",
+  "An amount cannot be read, or can be read two ways: type it like 12 345,67.": "Egy összeg nem olvasható, vagy kétféleképpen is olvasható: így írd: 12 345,67."
 }

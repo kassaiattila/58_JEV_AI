@@ -58,9 +58,10 @@ export function invoiceMatches(f: InvoiceFilters, i: ReconcileInvoice, target: R
   if (!inRange(parseCanonical(i.amount), f.min, f.max)) return false;
   if (f.near && target) {
     if (i.currency !== target.currency) return false;
-    const pct = Number((f.nearPct || "0").replace(",", "."));
+    const typed = Number((f.nearPct || "0").replace(",", "."));
+    const pct = Number.isFinite(typed) ? Math.min(Math.max(0, typed), 1000) : 0; // 153: "," or "1e999" broke the page
     const want = rest(target);
-    const slack = (want * BigInt(Math.round(Math.max(0, pct) * 100))) / 10000n;
+    const slack = (want * BigInt(Math.round(pct * 100))) / 10000n;
     if (abs(rest(i) - want) > slack) return false;
   }
   return true;
