@@ -7,7 +7,7 @@
       {
         "version": "1.0.55",
         "date": "2026-10-13",
-        "note": "153: accept the Hungarian texts the interface test of the pairings that no longer fit checks (ui/src/views/reconcile/unfit153.test.tsx)."
+        "note": "153: accept the Hungarian texts the interface test of the pairings that no longer fit and of the unregistered own account checks (ui/src/views/reconcile/unfit153.test.tsx), and the user guide's Hungarian label of that mark (docs/guides/USER_GUIDE.md)."
       },
       {
         "version": "1.0.54",

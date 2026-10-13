@@ -233,6 +233,8 @@ def test_a_statement_package_reads_the_cib_pdfs_by_code_and_extracts_none(db):
     assert [(s["period_start"], s["verified"], len(s["lines"])) for s in saved] == [("2026-05-01", True, 5),
                                                                                       ("2026-06-01", True, 1)]
     assert {reconcile.statement_account(s) for s in saved} == {DIGITS}
+    assert parties.resolver().account(DIGITS) is None  # 153: the account goes to the party when the run is approved
+    work.approve_run(run_id, actor="tester")
     assert parties.resolver().account(DIGITS) == party
     with store.connect() as c:
         assert c.execute("SELECT COUNT(*) FROM invocations").fetchone()[0] == 0  # no AI call

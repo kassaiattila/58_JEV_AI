@@ -1216,5 +1216,7 @@
   "An amount of the line or the invoice changed since these pairings were made, and they no longer fit it. They count nowhere; revoke each one, then pair the line again.": "An amount of the line or the invoice changed since these pairings were made, and they no longer fit it. They count nowhere; revoke each one, then pair the line again.",
   "Paired amount": "Paired amount",
   "Amounts now": "Amounts now",
-  "line {{line}} · invoice {{invoice}}": "line {{line}} · invoice {{invoice}}"
+  "line {{line}} · invoice {{invoice}}": "line {{line}} · invoice {{invoice}}",
+  "to an account not registered as own": "to an account not registered as own",
+  "A statement here prints the account it went to, but no own party holds that account (Settings › Own parties). Register it there if it is yours; then the line counts as a transfer between own accounts.": "A statement here prints the account it went to, but no own party holds that account (Settings › Own parties). Register it there if it is yours; then the line counts as a transfer between own accounts."
 }

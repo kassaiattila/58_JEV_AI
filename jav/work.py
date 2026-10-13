@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import sqlite3
 import uuid
 from collections.abc import Callable, Iterable
@@ -592,10 +593,13 @@ class PackageRule:
       None lets the item go on as in any package; a list stops it there, and its to-do reasons are raised on the item
       (an empty list: the detection's own to-dos stand for it).
     - `after_item(run, item)`: called when an item's flow has finished; the to-do reasons it returns are raised on the
-      item."""
+      item.
+    - `after_approval(run)` (153): called once a live run of the package is approved, after the approval is recorded; a
+      failure is logged and never undoes the approval."""
 
     after_detection: Callable[[dict[str, Any], dict[str, Any], Any], list[str] | None] | None = None
     after_item: Callable[[dict[str, Any], dict[str, Any]], list[str]] | None = None
+    after_approval: Callable[[dict[str, Any]], None] | None = None
 
 
 _PACKAGE_RULES: dict[str, PackageRule] = {}
@@ -1360,4 +1364,11 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -
             raise RevisionConflict(f"the result of run {run_id} changed since it was reviewed; review it again")
         c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=? WHERE run_id=? AND approval IS NULL"
                   " AND status='done'", (actor, _now(), run_id))
-    return get_run(run_id)
+    approved = get_run(run_id)
+    rule = package_rule(run["workpackage_id"])
+    if rule is not None and rule.after_approval is not None and approved["approval"]:
+        try:
+            rule.after_approval(approved)
+        except Exception:  # noqa: BLE001 - the approval stands; the rule's failure is logged with its traceback
+            logging.getLogger("jav.work").exception("the approval rule of package %s failed", run["workpackage_id"])
+    return approved

@@ -500,7 +500,15 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
     invoices = _ids(snapshot.get("invoices", []), "invoice")
     statements = _ids(snapshot.get("statements", []), "statement")
     payments = _payments(statements)
-    own_accounts = {statement_account(st) for st in statements.values()}
+    # 153 (decision of 2026-10-13, review A4): a payment is a transfer between own accounts only when it goes to a
+    # registered own account (`registered_accounts`); before, any stored statement made its account "own", so one from a
+    # trial run or an email attachment hid the payments to it. A payment to an account only a statement prints stays
+    # in the pairing, marked (`unregistered_own`). A snapshot without registrations (a measurement case) takes the
+    # statements' accounts, as before.
+    printed = {statement_account(st) for st in statements.values()}
+    registered = snapshot.get("registered_accounts")
+    own_accounts = printed if registered is None else set(registered)
+    unregistered_own: list[str] = []
     review = re.compile(conf["payment_review_pattern"])
     identities: dict[tuple[str, str, str], list[str]] = defaultdict(list)
     for key, inv in invoices.items():
@@ -536,6 +544,8 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             reason = "not_outgoing_payment"
         elif account_key(pay.get("counterparty_account")) and account_key(pay.get("counterparty_account")) in own_accounts:
             reason = "own_account_transfer"
+        elif account_key(pay.get("counterparty_account")) in printed:
+            unregistered_own.append(key)  # 153: to an account a statement prints but no party holds: a person decides
         elif pay["direction"] == "debit" and review.search(normalize(f"{pay.get('description') or ''} {pay.get('memo') or ''}")):
             reason = "payment_kind_review"  # 148: a kind of outgoing payment; incoming money is paired or informational
         if reason:
@@ -544,6 +554,7 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             eligible_payments[key] = pay
     return {"invoices": eligible_invoices, "payments": eligible_payments, "excluded": excluded,
             "statements": statements, "own_accounts": sorted(own_accounts), "lines": payments,
+            "unregistered_own": sorted(unregistered_own),
             "common_words": common_words(views.values(), payments.values()), "credit_notes": credit_notes}
 
 
@@ -1258,6 +1269,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             "invoices": sorted(statuses, key=lambda s: s["invoice_id"]),
             "unpaired_line_ids": sorted(p for p, pay in prepared["payments"].items() if p not in paired and pay["statement_id"] in scope),
             "marked": sorted([lid, cat] for lid, cat in marked.items()), "repeats": repeats,
+            "unregistered_own": prepared["unregistered_own"],  # 153: lines to an account no party holds
             "paid": {"invoices": {k: str(v) for k, v in sorted(paid_invoice.items())},  # 131: allocated so far
                      "lines": {k: str(v) for k, v in sorted(paid_line.items())}},
             "coverage": [{"account": a, "currency": c, "periods": [[s.isoformat(), e.isoformat()] for s, e in p]}
@@ -1426,6 +1438,7 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
     rates = fx.table(needs, fetch_missing=fetch_rates) if needs else {}
     return {"invoices": invoices, "statements": statements, "decisions": decisions, "fx_rates": rates,
             "allocations": allocations, "marks": marks,
+            "registered_accounts": sorted(parties.registered_accounts()),  # 153: the own accounts a party holds
             "replaced": {old: {"by": r.new, "how": r.how, "account": statement_account(every[old]),
                                **{k: every[old].get(k) for k in ("currency", "period_start", "period_end", "doc_type", "work_run")},
                                "lines": every[old]["lines"]}

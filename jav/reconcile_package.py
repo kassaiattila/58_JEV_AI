@@ -446,6 +446,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     paid_invoice = {k: Decimal(v) for k, v in result["paid"]["invoices"].items()}
     marks = {m["line_id"]: m for m in snap["marks"]}
     excluded = {(e["kind"], e["id"]): e["reason"] for e in result["excluded"]}
+    unregistered = set(result.get("unregistered_own") or [])  # 153: lines to an account no party holds
     by_line, by_invoice = defaultdict(list), defaultdict(list)
     for c in result["candidates"]:
         by_line[c["line_id"]].append(c)
@@ -511,6 +512,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
                           "statement_verified": bool(st.get("verified")),
                           "partner": partner, "earlier_marks": _earlier_marks(history, ln, partner),
                           "category_mark": reconcile.category_mark(ln),  # 140: the line's own category suggests a reason
+                          "own_account_unregistered": lid in unregistered,  # 153: own transfer? no party holds the account
                           "locked": locked.get(lid)})
     line_ids = {ln["id"] for ln in lines}
     from jav import reconcile_ai  # 134: the AI's stored answers per line (that module reads this workspace)

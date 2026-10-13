@@ -480,6 +480,8 @@ export interface ReconcileLine extends ReconcileLineDetails {  // 144: with the 
   partner?: string | null; earlier_marks?: { category: string; lines: number }[];
   /** 140: the needs-no-invoice reason the line's own category suggests (configs/reconcile.json category_marks) */
   category_mark?: string | null;
+  /** 153: it went to an account a stored statement prints but no own party holds: a transfer between own accounts? */
+  own_account_unregistered?: boolean;
   /** 145: the approved statement (package and version) that locks the line; null: none */
   locked?: { workpackage_id: string; version: number } | null;
 }

@@ -1217,5 +1217,7 @@
   "An amount of the line or the invoice changed since these pairings were made, and they no longer fit it. They count nowhere; revoke each one, then pair the line again.": "Ezek a párosítások óta megváltozott a sor vagy a számla összege, és már nem férnek bele. Sehol nem számítanak; vond vissza mindegyiket, aztán párosítsd újra a sort.",
   "Paired amount": "Párosított összeg",
   "Amounts now": "Összegek most",
-  "line {{line}} · invoice {{invoice}}": "sor {{line}} · számla {{invoice}}"
+  "line {{line}} · invoice {{invoice}}": "sor {{line}} · számla {{invoice}}",
+  "to an account not registered as own": "nem nyilvántartott saját számlára",
+  "A statement here prints the account it went to, but no own party holds that account (Settings › Own parties). Register it there if it is yours; then the line counts as a transfer between own accounts.": "Egy itteni kivonat kiírja a számlát, ahová ment, de ezt a számlát egyik saját gazdálkodó sem tartja nyilván (Beállítások › Saját gazdálkodók). Ha a tiéd, vedd fel ott; akkor a sor saját számlák közti átvezetésnek számít."
 }
