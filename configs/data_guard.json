@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "description": "Adatőr (070 terv 2.1 S-adatőr, jav/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
     "changelog": [
+      {
+        "version": "1.0.7",
+        "date": "2026-10-13",
+        "note": "153 (review C2): the bank statement exports read since 136-141 are guarded too: data/ (an input root) is a blocked path; .csv, .xml, .txt, .sta, .940 and .camt are blocked file types (requirements.txt allowed); a payment card number (sixteen digits in one run or in four groups, a scheme's first digit and a right Luhn check digit) is a value kind (card_number). Allowed: the published Visa test number of the card masking tests."
+      },
       {
         "version": "1.0.0",
         "date": "2026-09-30",
@@ -46,7 +51,8 @@
     "669e851cd9ab07673a129452af7d2f0160a8af19"
   ],
   "allowed_paths": [
-    ".env.example"
+    ".env.example",
+    "requirements.txt"
   ],
   "blocked_paths": [
     ".env",
@@ -54,7 +60,8 @@
     "runs/",
     "store/",
     "inbox/",
-    "tools/tessdata/"
+    "tools/tessdata/",
+    "data/"
   ],
   "blocked_extensions": [
     ".pdf",
@@ -81,7 +88,13 @@
     ".webp",
     ".zip",
     ".7z",
-    ".rar"
+    ".rar",
+    ".csv",
+    ".xml",
+    ".txt",
+    ".sta",
+    ".940",
+    ".camt"
   ],
   "allowed_binary": [],
   "patterns": {
@@ -90,7 +103,8 @@
     "iban": "(?<![0-9A-Za-z])[A-Z]{2}\\d{2}(?: ?[0-9A-Z]{4}){2,7}(?: ?[0-9A-Z]{1,4})?(?![0-9A-Za-z])",
     "bank_account": "(?<![0-9A-Za-z-])\\d{8}[- ]\\d{8}(?:[- ]\\d{8})?(?![0-9A-Za-z-])",
     "email": "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}",
-    "phone": "(?<![0-9A-Za-z+])(?:\\+36|0036|06)[ /.-]?(?:1|[2-9]\\d)[ /.-]?\\d{3}[ /.-]?\\d{3,4}(?![0-9A-Za-z])"
+    "phone": "(?<![0-9A-Za-z+])(?:\\+36|0036|06)[ /.-]?(?:1|[2-9]\\d)[ /.-]?\\d{3}[ /.-]?\\d{3,4}(?![0-9A-Za-z])",
+    "card_number": "(?<!\\d)(?:\\d{16}|(?<!\\d )\\d{4} \\d{4} \\d{4} \\d{4})(?!\\d)"
   },
   "api_key_patterns": [
     "\\bsk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}",
@@ -176,6 +190,9 @@
       "+36 1 234 5678",
       "+36 20 000 1234",
       "06-30-123-4567"
+    ],
+    "card_number": [
+      "4111111111111111"
     ]
   },
   "known": [
@@ -226,7 +243,8 @@
     "iban": "kitalált vagy szintetikus értékek (067-es szonda, régi szintetikus mintairatok, 066 után a tesztekben)",
     "bank_account": "kitalált vagy szintetikus értékek (régi szintetikus kivonat-minták, tesztek)",
     "email": "kitalált címek a tesztekben és a felület mintaszövegében; noreply@billingo.hu nyilvános szolgáltatói feladó",
-    "phone": "kitalált telefonszámok a tesztekben"
+    "phone": "kitalált telefonszámok a tesztekben",
+    "card_number": "the card schemes' published test number (Visa), used by the card masking tests"
   },
   "deny": [
     {

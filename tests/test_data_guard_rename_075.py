@@ -39,7 +39,7 @@ def guard():
     conf = data_guard.load_config()
     entry = data_guard.deny_entry(MARKER)
     conf["deny"] = [entry]
-    conf["known"] = [{"sha256": entry["sha256"], "paths": ["original.txt"]}]
+    conf["known"] = [{"sha256": entry["sha256"], "paths": ["original.py"]}]
     conf["allowed_binary"] = ["assets/*.bin"]
     return data_guard.Guard(conf, env_secrets={})
 
@@ -53,16 +53,16 @@ def _commit_baseline(repo: Path, name: str, data: bytes) -> None:
 
 
 def test_rename_is_checked_under_the_new_path(repo, guard):
-    _commit_baseline(repo, "original.txt", f"{MARKER}\n".encode())
-    git(repo, "mv", "original.txt", "public-copy.txt")
+    _commit_baseline(repo, "original.py", f"{MARKER}\n".encode())
+    git(repo, "mv", "original.py", "public-copy.py")
     found = data_guard.blocking(data_guard.check_staged(repo, guard))
-    assert [f.path for f in found] == ["public-copy.txt"]
+    assert [f.path for f in found] == ["public-copy.py"]
 
 
 def test_copy_is_checked_under_the_new_path(repo, guard):
-    _commit_baseline(repo, "original.txt", f"{MARKER}\n".encode())
-    (repo / "public-copy.txt").write_text(f"{MARKER}\n", encoding="utf-8")
-    git(repo, "add", "public-copy.txt")
+    _commit_baseline(repo, "original.py", f"{MARKER}\n".encode())
+    (repo / "public-copy.py").write_text(f"{MARKER}\n", encoding="utf-8")
+    git(repo, "add", "public-copy.py")
     assert data_guard.blocking(data_guard.check_staged(repo, guard))
 
 
@@ -75,24 +75,24 @@ def test_binary_rename_out_of_its_allowed_folder_is_blocked(repo, guard):
 
 
 def test_staged_content_counts_not_the_working_tree(repo, guard):
-    _commit_baseline(repo, "notes.txt", b"clean\n")
-    (repo / "notes.txt").write_text(f"clean\n{MARKER}\n", encoding="utf-8")
-    git(repo, "add", "notes.txt")
-    (repo / "notes.txt").write_text("clean\n", encoding="utf-8")  # the working tree is clean again, the index is not
+    _commit_baseline(repo, "notes.py", b"clean\n")
+    (repo / "notes.py").write_text(f"clean\n{MARKER}\n", encoding="utf-8")
+    git(repo, "add", "notes.py")
+    (repo / "notes.py").write_text("clean\n", encoding="utf-8")  # the working tree is clean again, the index is not
     assert data_guard.blocking(data_guard.check_staged(repo, guard))
 
 
 def test_rename_in_a_pushed_commit_is_blocked(repo, guard):
-    _commit_baseline(repo, "original.txt", f"{MARKER}\n".encode())
+    _commit_baseline(repo, "original.py", f"{MARKER}\n".encode())
     base = git(repo, "rev-parse", "HEAD")
-    git(repo, "mv", "original.txt", "public-copy.txt")
+    git(repo, "mv", "original.py", "public-copy.py")
     git(repo, "commit", "-qm", "rename")
     head = git(repo, "rev-parse", "HEAD")
     found = data_guard.check_push(repo, guard, [f"refs/heads/main {head} refs/heads/main {base}"])
-    assert [f.path for f in data_guard.blocking(found)] == ["public-copy.txt"]
+    assert [f.path for f in data_guard.blocking(found)] == ["public-copy.py"]
 
 
 def test_unchanged_tolerated_file_still_passes(repo, guard):
-    (repo / "original.txt").write_text(f"{MARKER}\n", encoding="utf-8")
-    git(repo, "add", "original.txt")
+    (repo / "original.py").write_text(f"{MARKER}\n", encoding="utf-8")
+    git(repo, "add", "original.py")
     assert not data_guard.blocking(data_guard.check_staged(repo, guard))

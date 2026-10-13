@@ -37,7 +37,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from jav import cfg, doc_scope, taxid, validators
+from jav import card_numbers, cfg, doc_scope, taxid, validators
 from jav.config import PROJECT_ROOT
 
 HOOKS_DIR = "scripts/githooks"
@@ -50,6 +50,7 @@ KIND_LABELS = {
     "bank_account": "bankszámlaszám",
     "email": "e-mail-cím",
     "phone": "telefonszám",
+    "card_number": "card number",  # 153 (review C2)
     "api_key": "kulcs",
     "env_secret": ".env-titok",
     "deny_term": "tiltott kifejezés",
@@ -60,8 +61,8 @@ KIND_LABELS = {
     "forbidden_history": "tiltott történet",
 }
 
-_VALUE_KINDS = frozenset({"hu_tax_id", "eu_vat", "iban", "bank_account", "email", "phone", "api_key", "env_secret",
-                          "deny_term"})
+_VALUE_KINDS = frozenset({"hu_tax_id", "eu_vat", "iban", "bank_account", "email", "phone", "card_number", "api_key",
+                          "env_secret", "deny_term"})
 _PATH_KINDS = frozenset({"internal_doc", "blocked_path", "blocked_file", "binary_file"})
 _TOKEN = re.compile(r"\w+")
 _ENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$")
@@ -102,7 +103,7 @@ def normalize(kind: str, value: str) -> str:
         return t.canonical if t else re.sub(r"[\s.\-]", "", v).upper()
     if kind == "iban":
         return re.sub(r"\s", "", v).upper()
-    if kind == "bank_account":
+    if kind in ("bank_account", "card_number"):
         return re.sub(r"\D", "", v)
     if kind == "email":
         return v.lower()
@@ -144,7 +145,13 @@ def _real_account(value: str) -> bool:
     return validators.hu_account_check_digits_ok(re.sub(r"\D", "", value))  # 075: one rule with the validator
 
 
-_REAL = {"hu_tax_id": _real_hu_tax, "eu_vat": _real_eu_vat, "iban": _real_iban, "bank_account": _real_account}
+def _real_card(value: str) -> bool:
+    """153 (review C2): a payment card number (a scheme's first digit and a right check digit, `jav/card_numbers.py`)."""
+    return card_numbers.is_card_number(re.sub(r"\D", "", value))
+
+
+_REAL = {"hu_tax_id": _real_hu_tax, "eu_vat": _real_eu_vat, "iban": _real_iban, "bank_account": _real_account,
+         "card_number": _real_card}
 
 
 def _mask(kind: str, value: str) -> str:
