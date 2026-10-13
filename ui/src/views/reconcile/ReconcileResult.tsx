@@ -11,7 +11,8 @@ import { Icon } from "../../components/Icon";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { when } from "../../labels";
-import { blockerText, INVOICE_RESULT, LINE_RESULT, MARK, EXCLUDED, warningText } from "./labels";
+import { INVOICE_RESULT, LINE_RESULT, MARK, EXCLUDED, warningText } from "./labels";
+import { BlockerList } from "./BlockerList";
 import { show } from "./money";
 
 export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
@@ -99,9 +100,7 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
             {current.blockers.length ? (
               <>
                 <h3>{t("What blocks the approval")}</h3>
-                <ul className="plain">
-                  {current.blockers.map((b) => <li key={`${b.code}:${b.doc_id}`} className="blocker small">{blockerText(b)}</li>)}
-                </ul>
+                <BlockerList blockers={current.blockers} />
                 {accept.length && !archived ? (
                   <div className="rc-accept">
                     <p className="muted small">{t("A document processed on the command line belongs to no run. You can accept its current result as a source; your name and the time are recorded.")}</p>
