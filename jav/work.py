@@ -1329,26 +1329,26 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -
         _begin(c)
         from jav import native_results
 
+        # Recheck the run, its items and its open reasons under the approval's write lock (153, review: the check above
+        # ran before it, so a run superseded or stopped in between ended both cancelled and approved)
+        latest = c.execute("SELECT status FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        if latest["status"] != "done":
+            raise NotReady("The run is no longer ready for approval")
+        for item in run["input"]["items"]:
+            result = c.execute("SELECT status FROM run_items WHERE run_id=? AND item_id=?",
+                               (run_id, item["item_id"])).fetchone()
+            if result is None or result["status"] != "done":
+                raise NotReady("The run has an unfinished input item")
+            subject_kind, subject_id = review_subject(item)
+            reasons = c.execute("SELECT r.run_id FROM review_reasons r JOIN review_queue q ON q.id=r.review_id"
+                                " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open'",
+                                (subject_kind, subject_id)).fetchall()
+            if any(is_own_reason(dict(reason), flow_run_id(run_id, item["item_id"])) for reason in reasons):
+                raise NotReady("The run still has open review reasons")
         native_items = [i for i in run["input"]["items"] if native_results.native_item(run_id, i, c)]
         if native_items:
-
             if review_version is None:
                 raise RevisionConflict("Native approval requires the exact reviewed version")
-            # Recheck terminal items and open reasons under the approval's write lock.
-            latest = c.execute("SELECT status FROM runs WHERE run_id=?", (run_id,)).fetchone()
-            if latest["status"] != "done":
-                raise NotReady("The run is no longer ready for approval")
-            for item in run["input"]["items"]:
-                result = c.execute("SELECT status FROM run_items WHERE run_id=? AND item_id=?",
-                                   (run_id, item["item_id"])).fetchone()
-                if result is None or result["status"] != "done":
-                    raise NotReady("The run has an unfinished input item")
-                subject_kind, subject_id = review_subject(item)
-                reasons = c.execute("SELECT r.run_id FROM review_reasons r JOIN review_queue q ON q.id=r.review_id"
-                                    " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open'",
-                                    (subject_kind, subject_id)).fetchall()
-                if any(is_own_reason(dict(reason), flow_run_id(run_id, item["item_id"])) for reason in reasons):
-                    raise NotReady("The run still has open review reasons")
             for item in native_items:
                 publication = native_results.get_publication(run_id, item["item_id"], c=c)
                 if publication is None or publication.interpretation_outcome.status != "succeeded":
@@ -1358,6 +1358,6 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -
                 native_results.verify_publication(publication, c=c)
         if review_version is not None and corrections.review_version(run_id, c) != review_version:
             raise RevisionConflict(f"the result of run {run_id} changed since it was reviewed; review it again")
-        c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=? WHERE run_id=? AND approval IS NULL",
-                  (actor, _now(), run_id))
+        c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=? WHERE run_id=? AND approval IS NULL"
+                  " AND status='done'", (actor, _now(), run_id))
     return get_run(run_id)
