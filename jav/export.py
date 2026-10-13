@@ -340,7 +340,8 @@ def _safe_text(v: Any) -> str:
         return ""
     s = str(v)
     prefixes = tuple(cfg.load("reports")["export"]["formula_prefixes"])
-    if s.startswith(prefixes) and not NUMBER.match(s):
+    # 153 (review C8): a spreadsheet also reads a formula after leading spaces or line breaks (" =1+1")
+    if s.lstrip(" \t\r\n").startswith(prefixes) and not NUMBER.match(s):
         return "'" + s  # guards against formula injection (OWASP CSV injection; the rule of the legacy csv.ts)
     return s
 
@@ -349,7 +350,7 @@ def csv_bytes(head: list[str], rows: list[list[Any]]) -> bytes:
     """With a UTF-8 BOM, `;` as separator and CRLF line endings: Hungarian Excel then opens it split into columns."""
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=cfg.load("reports")["export"]["csv_delimiter"], lineterminator="\r\n")
-    w.writerow(head)
+    w.writerow([_safe_text(h) for h in head])  # 153 (review C8): the header row is guarded too
     for row in rows:
         w.writerow([_safe_text(v) for v in row])
     return b"\xef\xbb\xbf" + buf.getvalue().encode("utf-8")
@@ -394,7 +395,7 @@ def _write_sheet(ws, head: list[str], rows: list[list[Any]], kinds: list[str | N
     ws.append(head)
     for row in rows:
         ws.append([_cell_value(v, kinds[i] if kinds and i < len(kinds) else None) for i, v in enumerate(row)])
-    for row in ws.iter_rows(min_row=2):
+    for row in ws.iter_rows(min_row=1):  # 153 (review C8): the header row too
         for c in row:
             if isinstance(c.value, str):
                 c.data_type = "s"  # text is never a formula

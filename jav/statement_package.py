@@ -117,10 +117,11 @@ def _companion_folders() -> list[str]:
 
 
 def _pdfs_in(folder: Path) -> list[Path]:
-    found = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() == ".pdf"]
+    found = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() == ".pdf" and statement_table.inside(p, folder)]
     for sub in _companion_folders():
-        if (folder / sub).is_dir():
-            found += [p for p in (folder / sub).iterdir() if p.is_file() and p.suffix.lower() == ".pdf"]
+        if (folder / sub).is_dir():  # 153 (review C8): a file that stays in the folder once its links are followed
+            found += [p for p in (folder / sub).iterdir() if p.is_file() and p.suffix.lower() == ".pdf"
+                      and statement_table.inside(p, folder)]
     return sorted(found, key=lambda p: p.relative_to(folder).as_posix().lower())
 
 

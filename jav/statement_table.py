@@ -1164,12 +1164,22 @@ def _read_file(path: Path, *, name: str | None = None) -> Reading:
     raise StatementTableError("no statement table of a known profile in the file")
 
 
+def inside(path: Path, folder: Path) -> bool:
+    """153 (review C8): a file of the folder that stays in it once its links are followed (`work.folder_documents` does
+    the same); a link to a file elsewhere is passed over, as the other folder readers do."""
+    try:
+        return path.resolve().is_relative_to(folder.resolve())
+    except (OSError, ValueError):
+        return False
+
+
 def _read_folder(folder: Path) -> Reading:
     """137: every export directly in the folder; a file no profile reads is listed, and a statement read twice (the
     same statement in two files) keeps its first file. 141: and every statement printed as text; a PDF or a text file
     no profile reads is not listed (a PDF may be an export's companion or a statement to extract, a text file a note)."""
     limit = _conf()["limits"]["max_files"]
-    files = sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in SUFFIXES + TEXT_SUFFIXES)
+    files = sorted(p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in SUFFIXES + TEXT_SUFFIXES
+                   and inside(p, folder))
     if len(files) > limit:
         raise StatementTableError(f"the folder holds more than {limit} statement files")
     readings, skipped = [], []
