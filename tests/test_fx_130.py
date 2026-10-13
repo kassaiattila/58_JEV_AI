@@ -240,3 +240,38 @@ def test_status_counts_without_rates(db):
     s = fx.status()
     assert s["currencies"]["USD"] == {"days": 6, "first": "2026-09-29", "last": "2026-10-06"}
     assert s["attempts"][0]["status"] == "ok"
+
+
+# --- 153 (review C5): a stored day is not overwritten; the answer's size is bounded ---------------------------------------
+
+
+def test_an_answer_that_would_change_a_stored_day_is_refused(db):
+    with fx.use_transport(Service({"2026-10-01": {"USD": (1, "326,18")}})):
+        fx.fetch(date(2026, 10, 1), date(2026, 10, 1), ["USD"])
+    with fx.use_transport(Service({"2026-10-01": {"USD": (1, "330,00")}})), pytest.raises(fx.FxRefusedError, match="would change"):
+        fx.fetch(date(2026, 10, 1), date(2026, 10, 1), ["USD"])
+    assert [r["rate"] for r in _rows("SELECT rate FROM fx_rates")] == ["326.18"]
+    with fx.use_transport(Service({"2026-10-01": {"USD": (1, "326,18000")}})):  # the same rate again: accepted
+        assert fx.fetch(date(2026, 10, 1), date(2026, 10, 1), ["USD"]) == 1
+
+
+def test_an_oversized_answer_is_not_read_whole(monkeypatch):
+    class Answer:
+        def __init__(self):
+            self.asked: list[int] = []
+
+        def read(self, n=-1):
+            self.asked.append(n)
+            return b"x" * (n if n > 0 else 10)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    answer = Answer()
+    monkeypatch.setattr(fx.urllib.request, "urlopen", lambda request, timeout: answer)
+    with pytest.raises(fx.FxUnavailableError, match="size limit"):
+        fx._urllib_transport("http://example.invalid", b"", {}, 1.0)
+    assert answer.asked == [fx.MAX_RESPONSE_BYTES + 1]
