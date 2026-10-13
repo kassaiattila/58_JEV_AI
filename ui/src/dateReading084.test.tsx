@@ -74,4 +74,18 @@ describe("084 dates in Review", () => {
     expect(await screen.findByText(/az évvel kezdve/)).toBeTruthy();
     expect((screen.getByLabelText("Kiállítás dátuma") as HTMLInputElement).value).toBe("04/12/2022");
   });
+
+  it("153: a value that is no date names its field, marks it, and the message goes with the discarded changes", async () => {
+    setField(draftKey(RUN, ITEM), 0, "issue_date", "2024-02-31");
+    vi.spyOn(api, "saveCorrection").mockRejectedValue(
+      new ApiError(422, "invalid_value", "issue_date: not a date: '2024-02-31'", [], { field: "issue_date", kind: "date" }));
+    render(panel(result()));
+    await userEvent.click(screen.getByRole("button", { name: "Kiállítás dátuma: helyes" }));
+    expect(await screen.findByText("Nem sikerült menteni: a(z) „Kiállítás dátuma” mező értéke nem érvényes dátum. Javítsd, és mentsd újra; a módosításaid megmaradtak.")).toBeTruthy();
+    expect(screen.getByLabelText("Kiállítás dátuma").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.queryByText(/not a date/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Minden módosítás elvetése" }));
+    expect(screen.queryByText(/a módosításaid megmaradtak/)).toBeNull();
+    expect(screen.getByLabelText("Kiállítás dátuma").getAttribute("aria-invalid")).toBeNull();
+  });
 });

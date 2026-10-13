@@ -1224,5 +1224,10 @@
   "{{n}} documents were processed on the command line, not in a work package": "{{n}} iratot parancssorból dolgoztak fel, nem munkacsomagban",
   "{{n}} decisions on replaced statements' lines have no same line on the valid statement": "{{n}} döntésnek a felváltott kivonat során nincs azonos sora az érvényes kivonaton",
   "{{n}} pairings no longer fit the amounts of their line or invoice": "{{n}} párosítás már nem fér bele a sora vagy a számlája összegébe",
-  "{{n}} card(s)": "{{n}} kártya"
+  "{{n}} card(s)": "{{n}} kártya",
+  "The net amount and the VAT do not add up to the gross amount": "A nettó összeg és az ÁFA nem adja ki a bruttó összeget",
+  "difference: {{diff}}": "eltérés: {{diff}}",
+  "Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.": "Nem sikerült menteni: a(z) „{{field}}” mező értéke nem {{what}}. Javítsd, és mentsd újra; a módosításaid megmaradtak.",
+  "valid date": "érvényes dátum",
+  "number": "szám"
 }

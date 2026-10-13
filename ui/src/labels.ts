@@ -107,6 +107,12 @@ const CHECK_TEXT: Record<string, string> = tmap({
 
 /** The result of one of the package's checks as an everyday sentence (on the corrected, saved data). */
 export function checkText(code: string, detail?: string | null): string {
+  // 153 (review): an invoice's VAT check shares its code with a statement's totals check; its detail tells them apart
+  if (code === "totals.mismatch" && detail?.startsWith("net+vat-gross=")) {
+    const diff = detail.match(/^net\+vat-gross=([-\d.]+)/)?.[1];
+    const base = t("The net amount and the VAT do not add up to the gross amount");
+    return diff ? `${base} (${t("difference: {{diff}}", { diff: num(diff) })})` : base;
+  }
   const known = Object.prototype.hasOwnProperty.call(CHECK_TEXT, code);
   const base = known ? CHECK_TEXT[code] : t("Ellenőrzés nem ment át ({{code}})", { code });
   if (code.startsWith("lines.") && detail) {

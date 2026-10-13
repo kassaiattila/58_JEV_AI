@@ -144,7 +144,8 @@ export function FieldPanel(p: Props) {
   const [focusRow, setFocusRow] = useState<{ row: number; seq: number } | null>(null);
   const failed = (result.checks ?? []).filter((c) => !c.ok);
   const machine = result.extraction?.datapoints ?? {};
-  const [state, setState] = useState<{ kind: "idle" | "saving" | "saved" | "error"; msg?: string }>({ kind: "idle" });
+  // 153: `field`: the field a value could not be read in (marked until the next save or discard)
+  const [state, setState] = useState<{ kind: "idle" | "saving" | "saved" | "error"; msg?: string; field?: string | null }>({ kind: "idle" });
   const [norm, setNorm] = useState<{ text: string; value: string | null; ok: boolean; twoWayDate?: boolean } | null>(null);
   const activeRow = useRef<HTMLLIElement | null>(null);
 
@@ -215,7 +216,13 @@ export function FieldPanel(p: Props) {
 
   function reportSaveError(e: unknown) {
     const err = e instanceof ApiError ? e : new ApiError(0, "error", String(e));
-    setState({ kind: "error", msg: err.status === 409
+    const field = err.detail?.field ?? null;
+    if (err.code === "invalid_value" && field) { // 153: the field named, in the interface's language, and marked
+      setState({ kind: "error", field, msg: t("Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.",
+        { field: fieldLabel(field), what: err.detail?.kind === "date" ? t("valid date") : t("number") }) });
+      return;
+    }
+    setState({ kind: "error", field, msg: err.status === 409
       ? t("Közben más is mentett erre a tételre. A módosításaid megmaradtak; frissítsd, és mentsd újra.")
       : err.code === "ambiguous_number"
         ? t("Nem sikerült menteni: egy szám kétféleképpen is olvasható. Tizedesvesszővel (28,50) vagy tagolás nélkül (28000) írd be. A módosításaid megmaradtak.")
@@ -413,7 +420,7 @@ export function FieldPanel(p: Props) {
           const label = fieldLabel(f);
           const todo = atField(f);
           return (
-            <li key={f} ref={isActive ? activeRow : undefined} className={`frow ${isActive ? "active" : ""} ${todo.length ? "has-todo" : ""}`} onClick={() => onActivate(f)}>
+            <li key={f} ref={isActive ? activeRow : undefined} className={`frow ${isActive ? "active" : ""} ${todo.length ? "has-todo" : ""} ${state.kind === "error" && state.field === f ? "invalid" : ""}`} onClick={() => onActivate(f)}>
               <div className="frow-head">
                 <label htmlFor={`fv-${f}`}>{label}</label>
                 <span className="chips">
@@ -432,6 +439,7 @@ export function FieldPanel(p: Props) {
               </div>
               <div className="frow-value">
                 <input id={`fv-${f}`} value={shown(f)} readOnly={readOnly} onFocus={() => onActivate(f)}
+                  aria-invalid={state.kind === "error" && state.field === f ? true : undefined}
                   onChange={(e) => setField(key, base, f, e.target.value, null)} onKeyDown={(e) => onFieldKey(e, f)} />
                 <button type="button" className="verdict verdict-ok" aria-label={t("{{field}}: helyes", { field: label })}
                   title={t("Helyes: mentés és ellenőrzöttnek jelölés (a mező teendői lezárulnak)")}
@@ -519,7 +527,10 @@ export function FieldPanel(p: Props) {
             <button type="button" className="primary" disabled={!dirty || conflict || state.kind === "saving"} onClick={() => void save()}>
               {state.kind === "saving" ? t("Mentés…") : t("Javítás mentése")} <span className="kbd">Ctrl+Enter</span>
             </button>
-            {dirty ? <button type="button" className="quiet small-btn" onClick={() => clearDraft(key)}>{t("Minden módosítás elvetése")}</button> : null}
+            {dirty ? <button type="button" className="quiet small-btn" onClick={() => {
+              clearDraft(key);
+              if (state.kind === "error") setState({ kind: "idle" }); // 153: "your changes are kept" no longer holds
+            }}>{t("Minden módosítás elvetése")}</button> : null}
           </>
         )}
         <p role="status" className={`save-state ${state.kind === "error" ? "error" : ""}`}>

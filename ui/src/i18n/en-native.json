@@ -1223,5 +1223,10 @@
   "{{n}} documents were processed on the command line, not in a work package": "{{n}} documents were processed on the command line, not in a work package",
   "{{n}} decisions on replaced statements' lines have no same line on the valid statement": "{{n}} decisions on replaced statements' lines have no same line on the valid statement",
   "{{n}} pairings no longer fit the amounts of their line or invoice": "{{n}} pairings no longer fit the amounts of their line or invoice",
-  "{{n}} card(s)": "{{n}} card(s)"
+  "{{n}} card(s)": "{{n}} card(s)",
+  "The net amount and the VAT do not add up to the gross amount": "The net amount and the VAT do not add up to the gross amount",
+  "difference: {{diff}}": "difference: {{diff}}",
+  "Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.": "Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.",
+  "valid date": "valid date",
+  "number": "number"
 }

@@ -738,11 +738,17 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.exception_handler(numbers.AmbiguousNumber)
     async def ambiguous_number(_request: Request, exc: numbers.AmbiguousNumber):
-        return _error(422, "ambiguous_number", str(exc))  # 081: the UI asks for the Hungarian form ("28,50")
+        # 081: the UI asks for the Hungarian form ("28,50"); 153: and names the field
+        return _error(422, "ambiguous_number", str(exc), field=getattr(exc, "field", None))
 
     @app.exception_handler(dates.AmbiguousDate)
     async def ambiguous_date(_request: Request, exc: dates.AmbiguousDate):
-        return _error(422, "ambiguous_date", str(exc))  # 084: the UI asks for the year first ("2022-12-04")
+        # 084: the UI asks for the year first ("2022-12-04"); 153: and names the field
+        return _error(422, "ambiguous_date", str(exc), field=getattr(exc, "field", None))
+
+    @app.exception_handler(corrections.InvalidValue)
+    async def invalid_value(_request: Request, exc: corrections.InvalidValue):
+        return _error(422, "invalid_value", str(exc), field=exc.field, kind=exc.kind)  # 153: the UI names the field
 
     @app.exception_handler(local_picker.PickerBusy)
     async def picker_busy(_request: Request, exc: local_picker.PickerBusy):

@@ -199,7 +199,16 @@ def effective_provenance(dp: dict[str, Any] | None, corr: dict[str, Any],
     return out
 
 
-def _typed_value(kind: str, value: Any, known: set[str]) -> Any:
+class InvalidValue(ValueError):
+    """153 (review): a typed value of a field that is no number or no date (`field`: the field, `kind`: money, number or
+    date), so the interface can name the field instead of showing the reader's English text."""
+
+    def __init__(self, field: str, kind: str, value: Any) -> None:
+        super().__init__(f"{field}: not a {'date' if kind == 'date' else 'number'}: {value!r}")
+        self.field, self.kind = field, kind
+
+
+def _typed_value(kind: str, value: Any, known: set[str], field: str = "") -> Any:
     """081: a typed amount or quantity by the Hungarian habit (`numbers.read_input`), as canonical text ("28000"); 084: a
     typed date by the shared date reader (`dates.read_date_input`), as an ISO date. A value sent back unchanged (the
     machine value or the previous correction, already canonical) is kept as it is."""
@@ -209,9 +218,15 @@ def _typed_value(kind: str, value: Any, known: set[str]) -> Any:
         return str(value)
     if not isinstance(value, str) or value in known or not value.strip():
         return value
-    if kind == "date":
-        return dates.read_date_input(value)
-    return numbers.read_input(value, kind=kind)  # type: ignore[arg-type]
+    try:
+        if kind == "date":
+            return dates.read_date_input(value)
+        return numbers.read_input(value, kind=kind)  # type: ignore[arg-type]
+    except (numbers.AmbiguousNumber, dates.AmbiguousDate) as exc:
+        exc.field = field  # type: ignore[attr-defined]  # 153: the interface names the field
+        raise
+    except ValueError as exc:
+        raise InvalidValue(field, kind, value) from exc
 
 
 def _known(*values: Any) -> set[str]:
@@ -233,7 +248,7 @@ def read_typed_values(pack: typepack.TypePack, fields: dict[str, Any], machine: 
     for name, value in fields.items():
         kind = pack.kind(name)
         if kind != "list":
-            out[name] = _typed_value(kind, value, _known(machine.get(name), previous.get(name)))
+            out[name] = _typed_value(kind, value, _known(machine.get(name), previous.get(name)), name)
             continue
         if not isinstance(value, list):
             out[name] = value
@@ -242,9 +257,11 @@ def read_typed_values(pack: typepack.TypePack, fields: dict[str, Any], machine: 
         rows = []
         for i, row in enumerate(value):
             if "*" in cols:
-                rows.append(_typed_value(cols["*"], row, _known(_row_cell(machine.get(name), i, "*"), _row_cell(previous.get(name), i, "*"))))
+                rows.append(_typed_value(cols["*"], row, _known(_row_cell(machine.get(name), i, "*"), _row_cell(previous.get(name), i, "*")),
+                                         name))
             elif isinstance(row, dict):
-                rows.append({c: _typed_value(cols.get(c, "text"), v, _known(_row_cell(machine.get(name), i, c), _row_cell(previous.get(name), i, c)))
+                rows.append({c: _typed_value(cols.get(c, "text"), v, _known(_row_cell(machine.get(name), i, c), _row_cell(previous.get(name), i, c)),
+                                             name)
                              for c, v in row.items()})
             else:
                 rows.append(row)
