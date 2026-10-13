@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import sysconfig
 import threading
 
 from .contracts import ReadLimits
@@ -151,7 +152,9 @@ def run(data: bytes, filename: str, limits: ReadLimits, *, probe: str | None = N
     request = json.dumps({"data": base64.b64encode(data).decode(), "filename": filename,
                           "limits": limits.model_dump(mode="json"), "probe": probe,
                           "recognise": recognise}).encode()
-    output = exchange([executable, "-I", "-B", str(script)], request, limits,
+    # 153 (review F2): the helper imports the packages of this interpreter, wherever the checkout is
+    packages = sysconfig.get_paths()["purelib"]
+    output = exchange([executable, "-I", "-B", str(script), packages], request, limits,
                       output_bound=limits.output_bytes + 2 * limits.expanded_bytes)
     try:
         response = json.loads(output)
