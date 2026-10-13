@@ -450,7 +450,7 @@ function MailboxSource({ draft, onChange }: { draft: StepDraft; onChange: (patch
 
 function PackageSource({ kind, value, onChange }: { kind: WorkKind; value: string; onChange: (id: string, name: string) => void }) {
   useLocale();
-  const list = useLoad("workpackages", api.workpackages);
+  const list = useLoad("workpackages-brief", api.workpackagesBrief);  // 154: the name and the kind are enough
   const options = useMemo(() => (list.data?.workpackages ?? []).filter((w) => PACKAGE_KINDS[kind].includes(w.source_kind)), [list.data, kind]);
   if (list.error) return <p className="notice error" role="alert">{list.error.message}</p>;
   return (

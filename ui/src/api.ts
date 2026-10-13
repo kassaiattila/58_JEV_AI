@@ -35,6 +35,8 @@ export interface WorkpackageRow {
   id: string; name: string; source_kind: string; source_ref: string | null; revision: number; created_at: string;
   items: number; recipe_id: string | null; last_run_id: string | null; open_reasons: number;
 }
+/** 154: a package as stored, without its to-dos and next step (the workflow pickers need the name and the kind). */
+export type WorkpackageBrief = Omit<WorkpackageRow, "open_reasons">;
 /** 057: the package's next step (the service computes it in one place; both the list and the header button show it). */
 export interface NextStep { code: string; label: string; stage: "process" | "review" | "result"; params?: Record<string, number> }
 export interface RunRow {
@@ -895,6 +897,7 @@ export const api = {
   linkWorkflowStep: (id: string, step: string, workpackageId: string) =>
     request<WorkflowView>("POST", `/workflows/${enc(id)}/steps/${enc(step)}/link`, { workpackage_id: workpackageId }),
   workpackages: () => request<{ workpackages: WorkpackageRow[] }>("GET", "/workpackages"),
+  workpackagesBrief: () => request<{ workpackages: WorkpackageBrief[] }>("GET", "/workpackages?brief=true"),
   workpackage: (id: string) => request<WorkpackageView>("GET", `/workpackages/${enc(id)}`),
   /** 081: `recursive` takes the PDFs of the subfolders too (the output folder of the named copies is left out). */
   createFromFolder: (folder: string, name?: string, recursive = false) =>

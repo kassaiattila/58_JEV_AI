@@ -154,7 +154,7 @@ from typing import Any, Iterable
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
 
-ENGINE_VERSION = "1.16.0"  # 151: a forint bank line pays two or more invoices of another currency together; 1.15.0 (149): a forint bank line meets another currency; 1.14.0 (148): a credit line pays an outgoing invoice (its partner the buyer); 1.13.0: a known direction decides
+ENGINE_VERSION = "1.17.0"  # 154: the rule replaces a statement only when none of its lines is lost; 151: a forint bank line pays two or more invoices of another currency together; 1.15.0 (149): a forint bank line meets another currency; 1.14.0 (148): a credit line pays an outgoing invoice (its partner the buyer); 1.13.0: a known direction decides
 STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
             "no_payment_found", "partly_covered", "not_covered", "excluded")
 RELATIONS = ("equal", "different", "fx_within", "fx_outside", "no_rate", "combined")  # how a candidate's amounts relate
@@ -1317,6 +1317,12 @@ def _latest(types: list[str]) -> list[dict[str, Any]]:
             f"SELECT d.rowid AS seq, d.run_id AS flow_run_id, d.doc_id, d.doc_type, d.datapoints, d.validation, {item}"
             " FROM datapoints d JOIN (SELECT doc_id, MAX(rowid) AS m FROM datapoints GROUP BY doc_id) l ON l.m = d.rowid"
             f"{join} WHERE d.doc_type IN ({','.join('?' * len(types))}) ORDER BY d.rowid", types).fetchall()
+        # 154 (DECISIONS 154): the documents that came as an attachment of an email routed as suspicious
+        from jav.work import SUSPICIOUS_ATTACHMENT
+
+        suspicious = ({r["run_id"] for r in c.execute("SELECT DISTINCT run_id FROM review_reasons WHERE reason=?",
+                                                      (SUSPICIOUS_ATTACHMENT,))}
+                      if _has_table(c, "review_reasons") else set())
         corrected: dict[tuple[str, str], dict[str, Any]] = {}
         if work and _has_table(c, "run_item_corrections"):
             for r in c.execute("SELECT c.run_id, c.item_id, c.fields FROM run_item_corrections c JOIN"
@@ -1328,7 +1334,8 @@ def _latest(types: list[str]) -> list[dict[str, Any]]:
         values = json.loads(r["datapoints"] or "{}")
         values.update(corrected.get((r["work_run"], r["item_id"])) or {})
         out.append({"doc_id": r["doc_id"], "doc_type": r["doc_type"], "values": values, "validation": r["validation"],
-                    "seq": int(r["seq"]), "flow_run_id": r["flow_run_id"], "work_run": r["work_run"], "item_id": r["item_id"]})
+                    "seq": int(r["seq"]), "flow_run_id": r["flow_run_id"], "work_run": r["work_run"], "item_id": r["item_id"],
+                    "suspicious_source": r["flow_run_id"] in suspicious})
     return out
 
 
@@ -1467,6 +1474,7 @@ def _statement(d: dict[str, Any]) -> dict[str, Any]:
             "period_start": v.get("period_start"), "period_end": v.get("period_end"),
             "opening_balance": v.get("opening_balance"), "closing_balance": v.get("closing_balance"),
             "verified": verified(d["validation"]), "lines": [_masked(ln) for ln in with_line_ids(d["doc_id"], lines)],
+            "suspicious_source": bool(d.get("suspicious_source")),  # 154: never replaces another statement by rule
             **_origin(d)}
 
 

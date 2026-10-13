@@ -291,6 +291,7 @@ class SelectSite:
         reasons: list[str] = []
         values: dict[str, Any] = {}
         extra: dict[str, Any] = {}
+        flagged: dict[str, str | None] = {}  # 154: an amount not read for certain -> its separator to-do (if any)
         own = set(InvoiceHU.model_fields) - {"extra", "line_items"}
         for field, kind in self.pack.fields.items():
             if kind == "list":
@@ -303,8 +304,10 @@ class SelectSite:
                 value = Decimal(label)  # number: the number finder's normalised label (quantity: kWh, m3, MJ)
                 if cand is not None and cand.ambiguous and value != 0:  # 152: "0.00" is zero either way
                     reasons.append(f"money:separator_ambiguous:{field}:{cand.raw!r}")
+                    flagged[field] = reasons[-1]
                 if cand is not None and cand.line_no in by_no and not is_whole_token(cand.raw, by_no[cand.line_no]):
                     reasons.append(f"money:token_cut:{field}:{cand.raw!r}")
+                    flagged.setdefault(field, None)
             elif label is not None and kind == "date":
                 value = read_date(label).value  # the candidate's label is the reader's ISO date
                 cand = next((c for c in cands.get("date", []) if c.label == label), None)
@@ -318,6 +321,14 @@ class SelectSite:
                 values[field] = value
             else:
                 extra[field] = value
+        if flagged:
+            # 154: the invoice's own totals confirm an ambiguous reading ("486.00" on a dollar invoice whose net and
+            # gross are printed unambiguously and add up exactly); the option text sent to JEV stays as it was
+            from jav.validators import confirmed_by_sum
+
+            confirmed = confirmed_by_sum({**values, **extra}, flagged, self.pack.validators)
+            drop = {flagged[f] for f in confirmed if flagged[f]}
+            reasons = [r for r in reasons if r not in drop]
         # 120: one party in two roles is checked on both paths by the type pack's `distinct_parties` validator
         # (it replaces the S-path-only `parties:same_*` reasons of earlier runs).
         return InvoiceHU(**values, extra=extra), reasons

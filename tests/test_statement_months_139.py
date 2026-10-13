@@ -105,7 +105,8 @@ def test_lines_without_a_same_line_are_left_over_and_repeated_lines_pair_in_orde
         _ln("old-", "2026-01-05", "100", n=0), _ln("old-", "2026-01-05", "100", n=1), _ln("old-", "2026-01-07", "7.5")])
     new = _st("new-0000000000000000", "2026-01-01", "2026-01-31", lines=[
         _ln("new-", "2026-01-05", "100.00", n=0), _ln("new-", "2026-01-05", "100.00", n=1), _ln("new-", "2026-01-07", "7.5", "credit")])
-    res = sm.resolve([old, new], {})
+    assert sm.resolve([old, new], {}).conflicts == [(new["id"], old["id"])]  # 154: the rule drops no line
+    res = sm.resolve([old, new], {sm.pair_key(old["id"], new["id"]): new["id"]})  # a person lets it go
     assert res.line_map == {old["lines"][0]["id"]: new["lines"][0]["id"], old["lines"][1]["id"]: new["lines"][1]["id"]}
     assert res.orphans == {old["lines"][2]["id"]: old["id"]}  # another direction is another line
 

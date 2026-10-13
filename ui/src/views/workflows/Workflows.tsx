@@ -254,7 +254,7 @@ function LinkPackage({ step, onLink }: { step: WorkflowStep; onLink: (wpId: stri
   useLocale();
   const [open, setOpen] = useState(false);
   const [choice, setChoice] = useState("");
-  const list = useLoad(open ? "workpackages" : null, api.workpackages);
+  const list = useLoad(open ? "workpackages-brief" : null, api.workpackagesBrief);  // 154: the name and the kind are enough
   if (!open) return <button type="button" className="secondary small-btn" onClick={() => setOpen(true)}>{t("Use an existing package…")}</button>;
   const options = (list.data?.workpackages ?? []).filter((w) => PACKAGE_KINDS[step.kind].includes(w.source_kind));
   return (

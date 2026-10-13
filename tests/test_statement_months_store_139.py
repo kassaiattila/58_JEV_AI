@@ -1,9 +1,9 @@
 """139 (DECISIONS 139): the valid statement in the store and in a reconciliation package.
 
 An unchecked statement and a later code-read, checked one of the same account and period: the reconciliation sees the
-second only, a pair made on a line of the first stands on the same line of the second and can still be revoked, a
-mark on a line the second does not have is left over (listed with a blocker, revocable); a person's choice keeps the
-first again. Synthetic documents and made-up accounts only; no AI call."""
+second only, a pair made on a line of the first stands on the same line of the second and can still be revoked; when
+the second lacks a line of the first, the pair is a conflict until a person lets the first go (154), and a mark on the
+missing line is then left over (listed with a blocker, revocable); a person's choice keeps the first again. Synthetic documents and made-up accounts only; no AI call."""
 
 from __future__ import annotations
 
@@ -45,9 +45,12 @@ def test_the_better_statement_replaces_the_old_and_takes_its_decisions(db):
 
     new = _checked("new", _line(memo="INV-0001 ref"))  # the same payment, its memo printed longer; no fee line
     [new_pay] = _ids(new, _line(memo="INV-0001 ref"))
+    snap = reconcile.snapshot()  # 154: the rule does not drop the fee line, a person decides
+    assert sorted(s["id"] for s in snap["statements"]) == sorted([old, new]) and snap["conflicts"] == [sorted([old, new])]
+    _choose(old, new, new)
     snap = reconcile.snapshot()
     assert [s["id"] for s in snap["statements"]] == [new]
-    assert snap["replaced"][old]["by"] == new and snap["replaced"][old]["how"] == "rule"
+    assert snap["replaced"][old]["by"] == new and snap["replaced"][old]["how"] == "person"
     assert snap["line_map"] == {old_pay: new_pay}
 
     ws = rp.workspace(wp_id)

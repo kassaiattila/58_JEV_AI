@@ -15,6 +15,7 @@ document's identifier and type (`run_checks(..., doc_id=, doc_type=)`) and runs 
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Mapping
 from decimal import Decimal
 from typing import Any
 
@@ -48,6 +49,33 @@ def vat_consistency(inv: InvoiceHU) -> CheckResult:
         code="totals.mismatch",
         detail=f"net+vat-gross={diff} ({inv.currency or '?'})",
     )
+
+
+# 154: the sum checks that can confirm a printed amount's reading: check name -> (parts, total); a pack opts in by
+# listing the check among its validators
+SUM_CHECKS: dict[str, tuple[tuple[str, ...], str]] = {"vat_consistency": (("net_total", "vat_total"), "gross_total")}
+
+
+def confirmed_by_sum(values: Mapping[str, Any], flagged: Iterable[str],
+                     checks: Iterable[Mapping[str, Any]]) -> set[str]:
+    """154 (an English decimal point such as "486.00" on a dollar invoice): the `flagged` amounts whose ambiguous
+    reading a sum check of the pack confirms. The parts must add up to the total exactly (no tolerance), and at least
+    one other term must be unflagged and not zero: with every term flagged, a reading scaled the same way would add up
+    as well ("100.00 + 27.00 = 127.00")."""
+    flagged = set(flagged)
+    confirmed: set[str] = set()
+    for spec in checks:
+        relation = SUM_CHECKS.get(str(spec.get("check")))
+        if relation is None:
+            continue
+        parts, total = relation
+        terms = (*parts, total)
+        nums = [values.get(t) for t in terms]
+        if not all(isinstance(n, Decimal) for n in nums) or sum(nums[:-1], Decimal(0)) != nums[-1]:
+            continue
+        if any(t not in flagged and values[t] != 0 for t in terms):
+            confirmed |= flagged & set(terms)
+    return confirmed
 
 
 def date_order(inv: InvoiceHU, optional: bool = False) -> CheckResult:
