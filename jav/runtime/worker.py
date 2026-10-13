@@ -327,6 +327,8 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                 if added := rule.after_item(run, item):
                     work.raise_item_reasons(run_id, item, added, producer="package_rule:item")
                     final = "needs_review"
+            if final is not None and work.mark_suspicious_source(run, item):  # 154: an attachment of a suspicious email
+                final = "needs_review"
         finally:
             persister.cleanup()
     except queue.JobCancelled:

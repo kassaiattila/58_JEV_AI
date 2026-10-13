@@ -624,6 +624,37 @@ def raise_item_reasons(run_id: str, item: dict[str, Any], reasons: list[str], *,
                              reasons=reasons, producer=producer)
 
 
+SUSPICIOUS_ATTACHMENT = "attachment:suspicious_email"  # 154 (DECISIONS 154)
+
+
+def suspicious_email(run_id: str, email_item_id: str) -> bool:
+    """154: whether the run's email item was routed by a signal (an injected instruction -> `human:suspicious`,
+    policy `email.signal_routes`)."""
+    from jav import policy
+
+    result = store.email_result(flow_run_id(run_id, email_item_id))
+    return bool(result) and result.get("next_flow") in set(policy.EMAIL_SIGNAL_ROUTES.values())
+
+
+def mark_suspicious_source(run: dict[str, Any], item: dict[str, Any]) -> bool:
+    """154 (DECISIONS 154): the attachments of an email routed as suspicious are processed but marked: each gets an
+    `attachment:suspicious_email` to-do in the run, so the run cannot be approved before a person has looked at it,
+    and a statement from it never replaces another by rule (`reconcile.statements`). Called after every item, so it
+    does not matter whether the email or its attachment is processed first. Returns whether this item got the to-do."""
+    run_id = run["run_id"]
+    if item.get("kind") == "email":
+        if suspicious_email(run_id, item["item_id"]):
+            for attachment in run["input"]["items"]:
+                if attachment.get("parent_item_id") == item["item_id"]:
+                    raise_item_reasons(run_id, attachment, [SUSPICIOUS_ATTACHMENT], producer="email_source")
+        return False
+    parent = item.get("parent_item_id")
+    if parent and suspicious_email(run_id, parent):
+        raise_item_reasons(run_id, item, [SUSPICIOUS_ATTACHMENT], producer="email_source")
+        return True
+    return False
+
+
 _DELETE_GUARDS: list[Callable[[sqlite3.Connection, str], None]] = []
 
 

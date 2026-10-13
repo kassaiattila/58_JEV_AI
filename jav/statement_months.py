@@ -13,7 +13,9 @@ The rule (the owner's decisions of 2026-10-10):
   (`configs/reconcile.json` `replacement.ranks`): read by code and checked by its balances, then extracted and
   checked, then unchecked. 154 (`replacement.keep_every_line`, DECISIONS 154): only when every line of the other has
   its same line on it, or when it comes from an approved live run (a person has checked it); otherwise a line the
-  replacement would drop makes the pair a conflict, so a file nobody approved cannot hide real lines;
+  replacement would drop makes the pair a conflict, so a file nobody approved cannot hide real lines. A statement that
+  came as an attachment of an email routed as suspicious (`suspicious_source`) never replaces another by rule, and a
+  clean reading of the same lines replaces it;
 - an equal rank, a better statement that does not cover the other's period or would drop one of its lines, is a
   conflict: both stay, and the later processed one gets a `statement:overlap:<the other's id prefix>` to-do in a
   worker run;
@@ -216,10 +218,14 @@ def resolve(statements: list[dict[str, Any]], choices: dict[str, str | None], *,
                 if _conf().get("reread") and ra == rb and pa == pb and _same_lines(a, b):
                     # 144: the same statement read again (a newer reader keeping more of its facts): the later reading
                     later, earlier = sorted((a, b), key=lambda s: (int(s.get("seq") or 0), str(s["id"])))[::-1]
-                    beaten[earlier["id"]].append((later["id"], "reread"))
-                    continue
+                    if later.get("suspicious_source"):  # 154: a reading from a suspicious email gives way to a clean one
+                        later, earlier = earlier, later
+                    if not later.get("suspicious_source"):
+                        beaten[earlier["id"]].append((later["id"], "reread"))
+                        continue
                 better, worse = (a, b) if ra < rb else (b, a)
                 if (ra != rb and covers(pa if better is a else pb, pb if better is a else pa)
+                        and not better.get("suspicious_source")
                         and (_keeps_lines(better, worse) or trusted(better))):
                     beaten[worse["id"]].append((better["id"], "rule"))
                 else:
