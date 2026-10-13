@@ -117,7 +117,8 @@ describe("the documents' statement pane", () => {
     expect(within(current).getByText("MEMO-5")).toBeTruthy();
     expect(container.querySelectorAll(".rc-asread-table tbody tr")).toHaveLength(7);
     fireEvent.click(screen.getByRole("button", { name: "All 10 lines" }));
-    expect(container.querySelectorAll(".rc-asread-table tbody tr")).toHaveLength(10);
+    // 153: waited for, as the other interface tests do (under the full check's load it once still showed the 7 rows)
+    await waitFor(() => expect(container.querySelectorAll(".rc-asread-table tbody tr")).toHaveLength(10));
     expect(screen.getByText(/Opening balance: 9,000\.00 HUF/)).toBeTruthy();
   });
 
