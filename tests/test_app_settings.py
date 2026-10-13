@@ -3,12 +3,22 @@
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
+
 from jav import app_settings, store
 from tests import test_api
 from tests.test_api import HUMAN, INVOICE_LINES, write_text_pdf
 
 env = test_api.env
 LATER = datetime.now(timezone.utc) + timedelta(minutes=5)  # a freshly written file has already "settled"
+
+
+@pytest.fixture(autouse=True)
+def _fresh_later():
+    """153 (review F3): "five minutes from now" is taken when each test starts; taken at import, it went stale when the
+    file ran almost five minutes later in a long run, and three tests failed."""
+    global LATER
+    LATER = datetime.now(timezone.utc) + timedelta(minutes=5)
 
 
 def _resolve(raw: str) -> Path:

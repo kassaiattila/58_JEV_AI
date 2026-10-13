@@ -43,9 +43,10 @@ _SOURCES: tuple[tuple[str, str], ...] = (
 def day_bounds(day: str | None) -> tuple[str, str]:
     """Bounds of the local calendar day (YYYY-MM-DD; empty: today) as UTC ISO strings."""
     d = date.fromisoformat(day) if day else datetime.now().astimezone().date()
-    local = datetime.now().astimezone().tzinfo
-    start = datetime.combine(d, time.min, tzinfo=local).astimezone(timezone.utc)
-    end = start + timedelta(days=1)
+    # 153 (review F7): each midnight with the offset of its own date (today's offset shifted a day across a summer-time
+    # change by an hour; such a day is 23 or 25 hours long)
+    start = datetime.combine(d, time.min).astimezone().astimezone(timezone.utc)
+    end = datetime.combine(d + timedelta(days=1), time.min).astimezone().astimezone(timezone.utc)
     return start.isoformat(timespec="seconds"), end.isoformat(timespec="seconds")
 
 
