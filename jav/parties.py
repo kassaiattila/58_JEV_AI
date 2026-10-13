@@ -358,6 +358,15 @@ def set_account(key: str, *, kind: str, currencies: Iterable[str], bank: str | N
         _put_account(c, canon, details, actor)
 
 
+def registered_accounts(c=None) -> set[str]:
+    """153 (decision of 2026-10-13): the account keys an own party holds (a person assigned them, or an approved live
+    run of a statement package did): a payment to one of them is a transfer between own accounts."""
+    if c is None:
+        with store.connect() as own:
+            return registered_accounts(own)
+    return {r["key"] for r in c.execute("SELECT key FROM own_party_identities WHERE kind='account' AND party_id IS NOT NULL")}
+
+
 def accounts() -> dict[str, dict[str, Any]]:
     """The registered details of the accounts, by key: kind, bank, currencies, the days open, who set them."""
     with store.connect() as c:

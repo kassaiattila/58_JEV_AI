@@ -20,7 +20,7 @@ Catalogue version 1.0.0. The interface shows the same list under New work packag
 
 ## CIB Bank: Current account or investment client account statement
 
-- **Read by:** Read by code, free (profile `cib_text_hu`, statement_tables 1.5.0).
+- **Read by:** Read by code, free (profile `cib_text_hu`, statement_tables 1.5.1).
 - **Files:** The statement PDF as the bank sends it (with its text layer); The bank's fixed-width text export (.txt).
 - **Statement:** account number, IBAN, currency, period start, period end, opening balance, closing balance, total debit, total credit.
 - **Each line:** booking date, value date, amount, running balance, description, counterparty name, counterparty account, memo, original amount, bank reference, order id, end-to-end id, card number, purchase date, transaction time.
@@ -31,7 +31,7 @@ Catalogue version 1.0.0. The interface shows the same list under New work packag
 
 ## CIB Bank: Credit card statement (HITELKÁRTYA KIVONAT)
 
-- **Read by:** Read by code, free (profile `cib_card_text_hu`, statement_tables 1.5.0).
+- **Read by:** Read by code, free (profile `cib_card_text_hu`, statement_tables 1.5.1).
 - **Files:** The statement PDF as the bank sends it (with its text layer); The bank's fixed-width text export (.txt).
 - **Statement:** account number, IBAN, currency, period start, period end, opening balance, closing balance, total debit, total credit.
 - **Each line:** booking date, value date, amount, description, counterparty name, memo, original amount, card number, purchase date, transaction time.
@@ -42,7 +42,7 @@ Catalogue version 1.0.0. The interface shows the same list under New work packag
 
 ## Erste Bank: Account statement: the Excel export (Excel 2003 XML) with the month's PDF statement
 
-- **Read by:** Read by code, free (profile `erste_ledger_hu`, statement_tables 1.5.0).
+- **Read by:** Read by code, free (profile `erste_ledger_hu`, statement_tables 1.5.1).
 - **Files:** The export file named <date>_<account>_excel.xml; The same month's PDF statement, <date>_<account>_S.pdf, next to it or in a pdf subfolder.
 - **Statement:** account number, currency, period start, period end, opening balance, closing balance, total debit, total credit.
 - **Each line:** booking date, value date, amount, running balance, description, counterparty name, counterparty account, memo, original amount, card number, purchase date, terminal, authorisation code, exchange rate.
@@ -53,7 +53,7 @@ Catalogue version 1.0.0. The interface shows the same list under New work packag
 
 ## Any bank (Erste's transaction codes and card details are known): The bank's standard XML statement (ISO 20022 camt.053)
 
-- **Read by:** Read by code, free (profile `camt053`, statement_tables 1.5.0).
+- **Read by:** Read by code, free (profile `camt053`, statement_tables 1.5.1).
 - **Files:** An .xml file in the camt.053 namespace, one or more statements in it.
 - **Statement:** IBAN, currency, period start, period end, opening balance, closing balance, total debit, total credit.
 - **Each line:** booking date, value date, amount, running balance, description, counterparty name, counterparty account, memo, original amount, bank reference, end-to-end id, card number, purchase date, transaction time, terminal, authorisation code, exchange rate, fee.
@@ -64,7 +64,7 @@ Catalogue version 1.0.0. The interface shows the same list under New work packag
 
 ## Revolut: Consolidated statement of every account, in Hungarian
 
-- **Read by:** Read by code, free (profile `revolut_consolidated_hu`, statement_tables 1.5.0).
+- **Read by:** Read by code, free (profile `revolut_consolidated_hu`, statement_tables 1.5.1).
 - **Files:** The Excel workbook (.xlsx) or the CSV file of the consolidated statement; the period comes from the file name, otherwise from the first and the last line.
 - **Statement:** IBAN, currency, period start, period end, opening balance, closing balance, total debit, total credit.
 - **Each line:** booking date, amount, running balance, description, counterparty name, fee.

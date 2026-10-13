@@ -10,6 +10,12 @@ for 49 documents), while paging and filtering send a new request at every step. 
 fingerprint of the run's data (corrections, to-dos, item status) changes; after a correction or a closed to-do, the
 next request recomputes them.
 
+Refresh behind (153): the package list is the one view a person waits on all day (it refreshes every 10 s) whose
+rebuild got slow (about 5 s live on 2026-10-13: it builds every reconciliation package's workspace, which expire at
+least every 120 s). Such a dataset (`refresh_behind`) answers from its last rows at once when its fingerprint has
+changed, rebuilds in one background thread, and says so (`refreshing`); the next request after the rebuild gets the new
+rows. A run's tables never do this: an approval names the version of the rows on screen (086).
+
 Column `extra` for the UI: `link` = link target (`run`, `workpackage`, `reviews`, `review`, `item`); the link is built
 from the row's `_wp`, `_run`, `_stage` and `item_id` fields (`next`: the stage of the package's next step). `names`
 (082, on the name column of an item list): which name the column shows (`original` or `unified`, the scope key `names`).
@@ -19,6 +25,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import threading
 from collections import Counter, OrderedDict
 from collections.abc import Callable
@@ -50,6 +57,7 @@ class Dataset:
     fingerprint: Callable[[dict[str, str]], str] | None = None  # None: no cache (cheap list)
     optional_scope: tuple[str, ...] = ()
     natural_sort: tuple[tuple[str, bool], ...] = ()  # 062: (column, descending): row order when no sort is requested
+    refresh_behind: bool = False  # 153: an outdated value is served at once and rebuilt in the background
 
     def spec(self) -> dict[str, Any]:
         return {"name": self.name, "label": self.label, "scope": list(self.scope), "optional_scope": list(self.optional_scope),
@@ -211,6 +219,7 @@ def _workpackages(scope: dict[str, str]) -> Rows:
         _col("items", "Tétel", "number"),  # 058: document or email
         _col("open_reasons", "Nyitott teendő", "number", link="reviews", alert=True),
         _col("open_reasons_all", "Nyitott teendő a korábbi futásokkal", "number", hidden=True),
+        _col("older_runs", "Older runs to supersede", "number", link="process", alert=True),  # 153
         _col("source_kind", "Forrás", "enum", labels="source_kind"),
         _col("recipe_id", "Feldolgozás", "enum", labels="recipe"),
         _col("owner", "Felelős"),  # 061
@@ -711,7 +720,7 @@ def _mailbox_pulls(_scope: dict[str, str]) -> Rows:
 REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("runs", "Futások", (), _runs, optional_scope=("workpackage_id",)),
     Dataset("workpackages", "Munkacsomagok", (), _workpackages, _workpackages_fingerprint, optional_scope=("include_archived", "owner"),
-            natural_sort=(("created_at", True),)),
+            natural_sort=(("created_at", True),), refresh_behind=True),
     Dataset("workpackage_items", "Csomag tételei", ("workpackage_id",), _workpackage_items, optional_scope=("names",)),
     Dataset("run_items", "Futás tételei", ("run_id",), _run_items, _run_items_fingerprint, optional_scope=("names",)),
     Dataset("package_costs", "A csomag költsége", ("workpackage_id",), _package_costs),
@@ -734,6 +743,8 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
 
 _cache: OrderedDict[tuple, tuple[str, Any]] = OrderedDict()
 _lock = threading.Lock()
+_rebuilding: dict[tuple, threading.Thread] = {}  # 153: the background rebuild of a `refresh_behind` dataset, per key
+_log = logging.getLogger("jav.datasets")
 
 
 def get(name: str) -> Dataset:
@@ -751,23 +762,65 @@ def _scope_of(ds: Dataset, scope: dict[str, str] | None) -> dict[str, str]:
 
 
 def rows(name: str, scope: dict[str, str] | None = None) -> Rows:
-    """The dataset's columns and all rows (for the scope), from the cache if the fingerprint has not changed."""
+    """The dataset's columns and all rows (for the scope), from the cache if the fingerprint has not changed. Never
+    outdated (a download, for example); `query` may serve a `refresh_behind` dataset's last rows."""
+    return _rows(name, scope, stale_ok=False)[0]
+
+
+def _rows(name: str, scope: dict[str, str] | None, *, stale_ok: bool) -> tuple[Rows, bool]:
+    """The rows, and whether they are the last ones while a newer version is being built (153, `refresh_behind`)."""
     ds = get(name)
     sc = _scope_of(ds, scope)
     key = (str(store.active_path()), name, tuple(sorted(sc.items())))
     if ds.fingerprint is None:
         with store.session():  # 061: one connection for all queries of the rows
-            return ds.build(sc)
+            return ds.build(sc), False
     fp = ds.fingerprint(sc)
     with _lock:
         hit = _cache.get(key)
         if hit and hit[0] == fp:
             _cache.move_to_end(key)
-            return hit[1]
+            return hit[1], False
+        if hit and stale_ok and ds.refresh_behind:
+            _rebuild_behind(key, ds, sc)
+            return hit[1], True
     with store.session():
         built = ds.build(sc)
     _remember(key, fp, built)
-    return built
+    return built, False
+
+
+def _rebuild_behind(key: tuple, ds: Dataset, sc: dict[str, str]) -> None:
+    """Starts the background rebuild of `key` unless one is running (called under `_lock`). The thread works on the
+    request's store; its fingerprint is taken before the build, so a change during the build shows at the next request."""
+    if key in _rebuilding:
+        return
+    path = store.active_path()
+
+    def rebuild() -> None:
+        try:
+            with store.use_store(path):
+                fp = ds.fingerprint(sc)  # type: ignore[misc] - only datasets with a fingerprint are kept
+                with store.session():
+                    built = ds.build(sc)
+                _remember(key, fp, built)
+        except Exception:  # noqa: BLE001 - the last rows stay; the next request starts another rebuild
+            _log.exception("background rebuild of dataset %s failed", ds.name)
+        finally:
+            with _lock:
+                _rebuilding.pop(key, None)
+
+    thread = threading.Thread(target=rebuild, name=f"dataset-{ds.name}", daemon=True)
+    _rebuilding[key] = thread
+    thread.start()
+
+
+def wait_for_rebuilds(timeout: float = 30.0) -> None:
+    """Waits for the running background rebuilds (tests, and a clean stop)."""
+    with _lock:
+        threads = list(_rebuilding.values())
+    for thread in threads:
+        thread.join(timeout)
 
 
 def _remember(key: tuple, fp: str, value: Any) -> None:
@@ -788,11 +841,13 @@ def query(name: str, scope: dict[str, str] | None, q: Query) -> dict[str, Any]:
         from jav import corrections
 
         version = corrections.review_version(scope["run_id"])
-    cols, all_rows = rows(name, scope)
+    (cols, all_rows), refreshing = _rows(name, scope, stale_ok=True)
     ds = get(name)
     page = {"dataset": ds.spec(), **run_query(cols, all_rows, q)}
     if version is not None:
         page["review_version"] = version
+    if refreshing:
+        page["refreshing"] = True  # 153: these are the last rows; newer ones are being built
     return work_views.jsonable(page)
 
 
@@ -879,9 +934,10 @@ def catalog() -> list[dict[str, Any]]:
 
 
 def clear_cache() -> None:
+    wait_for_rebuilds()  # 153: a rebuild finishing later would put its rows back
     with _lock:
         _cache.clear()
 
 
 __all__ = ["REGISTRY", "Dataset", "MissingScope", "UnknownDataset", "catalog", "clear_cache", "export_file", "export_rows",
-           "get", "query", "rows", "run_records"]
+           "get", "query", "rows", "run_records", "wait_for_rebuilds"]

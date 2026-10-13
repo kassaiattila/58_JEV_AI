@@ -67,3 +67,5 @@ ui/dist/
 
 # Local Codex configuration and reviewed hook installation.
 .codex/
+# 153 (review C2): an input root for documents and bank exports (personal data)
+data/

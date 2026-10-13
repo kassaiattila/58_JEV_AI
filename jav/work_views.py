@@ -109,7 +109,20 @@ def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool |
     return step("go_live", "Próba rendben: éles futás", "process")
 
 
+def current_run(runs: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """153: the run the package's next step is about — the newest run, passing over runs a person stopped after it, so
+    a later stopped run does not hide the to-dos or the approval of an earlier finished run (2026-10-13: a package with
+    169 open to-dos on its live run offered "rerun" because two later runs had been stopped). A package whose runs were
+    all stopped still offers a rerun. `runs`: newest first (`work.run_rows`)."""
+    return next((r for r in runs if r["status"] != "cancelled"), runs[0] if runs else None)
+
+
 def workpackage_view(wp_id: str) -> dict[str, Any]:
+    with store.session():  # 153 (review B1): one connection for the package's page
+        return _workpackage_view(wp_id)
+
+
+def _workpackage_view(wp_id: str) -> dict[str, Any]:
     wp = work.get(wp_id)
     if wp["source_kind"] == "reconcile":  # 131: a reconciliation package has a scope, no files and no runs
         from jav import reconcile_package
@@ -129,9 +142,10 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
         from jav import statement_package
 
         extra["statements"] = statement_package.package_view(wp_id)
+    current = current_run(runs)
     return jsonable({"workpackage": wp, "readiness": ready, "titles": item_titles(wp["items"], package_root(wp)), **extra,
-                     "last_run": runs[0] if runs else None, "runs": len(runs),
-                     "next": next_step(wp, runs[0] if runs else None, ready["ready"]), "workflow": _workflow_of(wp_id),
+                     "last_run": runs[0] if runs else None, "current_run": current, "runs": len(runs),
+                     "next": next_step(wp, current, ready["ready"]), "workflow": _workflow_of(wp_id),
                      "supersedable": work.supersedable_runs(wp_id)})  # 152: older live runs a person can supersede
 
 
@@ -160,16 +174,21 @@ def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
         r["open_reasons_all"] = sum(len(open_by_subject[work.review_subject(i)]) for i in wp["items"])
         runs = work.run_rows(r["id"])
         last = runs[0] if runs else None
-        r["open_reasons"] = last["open_reasons"] if last else 0
+        current = current_run(runs)  # 153: the to-dos and the next step of the run a later stopped run does not hide
+        r["open_reasons"] = current["open_reasons"] if current else 0
         r["last_status"] = last["status"] if last else None
         r["last_activity"] = (last["finished_at"] or last["created_at"]) if last else r["created_at"]
+        r["older_runs"] = 0
         if wp["source_kind"] == "reconcile":  # 131: its own next step (pairing / result)
             from jav import reconcile_package
 
             r["next"] = reconcile_package.package_view(r["id"])["next"]
             continue
+        # 153: the owner could not tell from the list which packages had older live runs to supersede (152 shows them
+        # on the package's page only)
+        r["older_runs"] = len(work.supersedable_runs(r["id"]))
         # without a run we do not check readiness (expensive); the step is then "start"
-        r["next"] = next_step(wp, last)
+        r["next"] = next_step(wp, current)
     return jsonable(rows)
 
 
@@ -223,7 +242,13 @@ def run_view(run_id: str, *, names: bool = False) -> dict[str, Any]:
     open on the documents (`earlier_open_reasons`, for information only, they do not block approval). `names` (082):
     also the items' unified names in this run (`jav/naming.py` `run_item_names`) — only on request, because the
     run's page polls this view while the run is going. `review_version` (085): the version of the result shown, which
-    the approval sends back (`work.approve_run`)."""
+    the approval sends back (`work.approve_run`). 153 (review B2): one connection for the whole view; a run of 468
+    documents took 1.6 s on every poll, as each item's native check opened its own."""
+    with store.session():
+        return _run_view(run_id, names=names)
+
+
+def _run_view(run_id: str, *, names: bool) -> dict[str, Any]:
     run = work.get_run(run_id)
     split = work.items_reasons(run_id, run["input"]["items"])
     titles = item_titles(run["input"]["items"], package_root(work.get(run["workpackage_id"])))
@@ -244,12 +269,13 @@ def run_view(run_id: str, *, names: bool = False) -> dict[str, Any]:
 
 
 def run_list(wp_id: str | None = None, *, limit: int = 50) -> list[dict[str, Any]]:
-    if wp_id is not None:
-        work.get(wp_id)
-        return jsonable(work.runs(wp_id))
-    with store.connect() as c:
-        ids = [r["run_id"] for r in c.execute("SELECT run_id FROM runs ORDER BY created_at DESC, rowid DESC LIMIT ?", (limit,))]
-    return jsonable([work.get_run(i) for i in ids])
+    with store.session():  # 153 (review B4): one connection for the list, not one per run
+        if wp_id is not None:
+            work.get(wp_id)
+            return jsonable(work.runs(wp_id))
+        with store.connect() as c:
+            ids = [r["run_id"] for r in c.execute("SELECT run_id FROM runs ORDER BY created_at DESC, rowid DESC LIMIT ?", (limit,))]
+        return jsonable([work.get_run(i) for i in ids])
 
 
 def run_journal(run_id: str) -> dict[str, Any]:

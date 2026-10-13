@@ -102,6 +102,29 @@ def _migrate(conn) -> None:
 
 store.register_migration("workflows", _migrate)
 
+# 153 (review D1): a workflow names its own party and its steps' packages. A merge moves the party's workflows to the
+# party it was merged into, and a party a workflow names cannot be deleted (before, the workflow kept a deleted party's
+# id and every later step failed with "no own party").
+parties.register_reference(
+    "workflows",
+    count=lambda c, pid: c.execute("SELECT COUNT(*) FROM workflows WHERE party_id=?", (pid,)).fetchone()[0],
+    repoint=lambda c, old, new: c.execute("UPDATE workflows SET party_id=? WHERE party_id=?", (new, old)))
+
+
+def _delete_guard(c, wp_id: str) -> None:
+    """153 (review D1): the package of an open workflow's step cannot be deleted (every later start of the step failed
+    with the deleted package's id); it can be hidden, or the workflow archived first. An archived workflow's step lets
+    its package go."""
+    row = c.execute("SELECT w.name FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
+                    " WHERE s.workpackage_id=? AND w.status='open' LIMIT 1", (wp_id,)).fetchone()
+    if row is not None:
+        raise work.NotReady("the package is a step of an open workflow; archive the workflow first or hide the package",
+                            [{"code": "workflow_step", "message": f"The package is a step of the workflow {row['name']}: it can only be hidden."}])
+    c.execute("UPDATE workflow_steps SET workpackage_id=NULL WHERE workpackage_id=?", (wp_id,))
+
+
+work.register_delete_guard(_delete_guard)
+
 
 class WorkflowError(ValueError):
     """A workflow request that cannot be met: an unknown template, step or source, or a step in the wrong state."""
@@ -336,15 +359,14 @@ def _package_state(wp_id: str) -> tuple[bool, dict[str, Any] | None]:
     if wp["source_kind"] == "reconcile":
         approved = reconcile_package.approval(wp_id)["active"] is not None
         return approved, reconcile_package.package_view(wp_id)["next"]
-    runs = work.run_rows(wp_id)
-    nxt = work_views.next_step(wp, runs[0] if runs else None)
+    nxt = work_views.next_step(wp, work_views.current_run(work.run_rows(wp_id)))  # 153: a later stopped run hides nothing
     return _live_run_approved(wp_id), nxt
 
 
 def _live_run_approved(wp_id: str) -> bool:
-    with store.connect() as c:
-        row = c.execute("SELECT approval FROM runs WHERE workpackage_id=? AND mode='apply' ORDER BY created_at DESC, rowid DESC"
-                        " LIMIT 1", (wp_id,)).fetchone()
+    with store.connect() as c:  # 153: a live run a person stopped later does not undo an approved one
+        row = c.execute("SELECT approval FROM runs WHERE workpackage_id=? AND mode='apply' AND status != 'cancelled'"
+                        " ORDER BY created_at DESC, rowid DESC LIMIT 1", (wp_id,)).fetchone()
     return bool(row and row["approval"])
 
 

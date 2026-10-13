@@ -500,7 +500,15 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
     invoices = _ids(snapshot.get("invoices", []), "invoice")
     statements = _ids(snapshot.get("statements", []), "statement")
     payments = _payments(statements)
-    own_accounts = {statement_account(st) for st in statements.values()}
+    # 153 (decision of 2026-10-13, review A4): a payment is a transfer between own accounts only when it goes to a
+    # registered own account (`registered_accounts`); before, any stored statement made its account "own", so one from a
+    # trial run or an email attachment hid the payments to it. A payment to an account only a statement prints stays
+    # in the pairing, marked (`unregistered_own`). A snapshot without registrations (a measurement case) takes the
+    # statements' accounts, as before.
+    printed = {statement_account(st) for st in statements.values()}
+    registered = snapshot.get("registered_accounts")
+    own_accounts = printed if registered is None else set(registered)
+    unregistered_own: list[str] = []
     review = re.compile(conf["payment_review_pattern"])
     identities: dict[tuple[str, str, str], list[str]] = defaultdict(list)
     for key, inv in invoices.items():
@@ -536,6 +544,8 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             reason = "not_outgoing_payment"
         elif account_key(pay.get("counterparty_account")) and account_key(pay.get("counterparty_account")) in own_accounts:
             reason = "own_account_transfer"
+        elif account_key(pay.get("counterparty_account")) in printed:
+            unregistered_own.append(key)  # 153: to an account a statement prints but no party holds: a person decides
         elif pay["direction"] == "debit" and review.search(normalize(f"{pay.get('description') or ''} {pay.get('memo') or ''}")):
             reason = "payment_kind_review"  # 148: a kind of outgoing payment; incoming money is paired or informational
         if reason:
@@ -544,6 +554,7 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             eligible_payments[key] = pay
     return {"invoices": eligible_invoices, "payments": eligible_payments, "excluded": excluded,
             "statements": statements, "own_accounts": sorted(own_accounts), "lines": payments,
+            "unregistered_own": sorted(unregistered_own),
             "common_words": common_words(views.values(), payments.values()), "credit_notes": credit_notes}
 
 
@@ -563,7 +574,7 @@ def _credited(prepared: dict[str, Any], paid_invoice: dict[str, Decimal]) -> dic
     return out
 
 
-Settled = tuple[set[tuple[str, str]], list[dict[str, Any]], dict[str, Decimal], dict[str, Decimal]]
+Settled = tuple[set[tuple[str, str]], list[dict[str, Any]], dict[str, Decimal], dict[str, Decimal], list[dict[str, Any]]]
 
 
 def _settled(snapshot: dict[str, Any], prepared: dict[str, Any]) -> Settled:
@@ -575,23 +586,26 @@ def _settled(snapshot: dict[str, Any], prepared: dict[str, Any]) -> Settled:
     package: several per line and per invoice, for split and combined payments); a `paid_by` decision without an
     allocation of its pair counts as both whole amounts. Allocations apply in order while both sides have room; one that
     would exceed a side's amount is ignored (the recording refuses it, so only a re-extraction that changed an amount
-    gets here). Of two whole-amount confirmations sharing a line or an invoice, the first therefore counts, as before."""
+    gets here). Of two whole-amount confirmations sharing a line or an invoice, the first therefore counts, as before.
+    153 (review A3): such an ignored allocation is returned (`unfit`, the fifth element), so the package shows it to be
+    revoked; before, it vanished from every view while it stayed recorded, and came back if the amount did."""
     rejected: set[tuple[str, str]] = set()
-    wanted: list[tuple[str, str, Any, Any]] = []
+    wanted: list[tuple[str, str, Any, Any, dict[str, Any] | None]] = []
     explicit = set()
     for a in snapshot.get("allocations") or []:
         explicit.add((str(a["invoice_id"]), str(a["line_id"])))
-        wanted.append((str(a["invoice_id"]), str(a["line_id"]), a.get("line_amount"), a.get("invoice_amount")))
+        wanted.append((str(a["invoice_id"]), str(a["line_id"]), a.get("line_amount"), a.get("invoice_amount"), a))
     for d in sorted(snapshot.get("decisions") or [], key=lambda d: (str(d["invoice_id"]), str(d["line_id"]))):
         pair = (str(d["invoice_id"]), str(d["line_id"]))
         if d["decision"] == "not_this":
             rejected.add(pair)
         elif d["decision"] == "paid_by" and pair not in explicit:
-            wanted.append((pair[0], pair[1], None, None))
+            wanted.append((pair[0], pair[1], None, None, None))
     confirmed: list[dict[str, Any]] = []
+    unfit: list[dict[str, Any]] = []
     paid_line: dict[str, Decimal] = defaultdict(Decimal)
     paid_invoice: dict[str, Decimal] = defaultdict(Decimal)
-    for iid, lid, line_part, invoice_part in wanted:
+    for iid, lid, line_part, invoice_part, allocation in wanted:
         if iid not in prepared["invoices"] or lid not in prepared["lines"]:
             continue
         try:
@@ -600,15 +614,19 @@ def _settled(snapshot: dict[str, Any], prepared: dict[str, Any]) -> Settled:
             la = money(str(line_part)) if line_part is not None else line_total
             ia = money(str(invoice_part)) if invoice_part is not None else invoice_total
         except ValueError:
+            if allocation is not None:
+                unfit.append({**allocation, "line_total": None, "invoice_total": None})
             continue
         if (la <= 0 or ia <= 0 or paid_line.get(lid, Decimal(0)) + la > line_total
                 or paid_invoice.get(iid, Decimal(0)) + ia > invoice_total):
+            if allocation is not None:
+                unfit.append({**allocation, "line_total": str(line_total), "invoice_total": str(invoice_total)})
             continue
         paid_line[lid] += la
         paid_invoice[iid] += ia
         confirmed.append({"invoice_id": iid, "line_id": lid, "statement_id": prepared["lines"][lid]["statement_id"],
                           "line_amount": str(la), "invoice_amount": str(ia)})
-    return rejected, confirmed, dict(paid_line), dict(paid_invoice)
+    return rejected, confirmed, dict(paid_line), dict(paid_invoice), unfit
 
 
 def window(invoice: dict[str, Any]) -> tuple[date, date]:
@@ -1080,7 +1098,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     coverage of these statements count, while the amounts allocated so far come from every statement."""
     prepared = prepare(snapshot)
     scope = set(snapshot["scope_statements"]) if snapshot.get("scope_statements") is not None else set(prepared["statements"])
-    rejected, confirmed, paid_line, paid_invoice = _settled(snapshot, prepared)
+    rejected, confirmed, paid_line, paid_invoice, unfit = _settled(snapshot, prepared)
     learned, common = _learned(prepared, confirmed), prepared["common_words"]
     marked = {str(m["line_id"]): str(m["category"]) for m in snapshot.get("marks") or [] if str(m["line_id"]) in prepared["lines"]}
     rest_invoice = {iid: money(str(inv["amount"])) - paid_invoice.get(iid, Decimal(0)) for iid, inv in prepared["invoices"].items()}
@@ -1247,10 +1265,11 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     below, above = policy.reconcile_fx_tolerance()
     return {"engine_version": ENGINE_VERSION, "config_hash": config_hash(), "fx_tolerance": [str(below), str(above)],
             "candidates": candidates, "learned_names": len(learned),
-            "confirmed": confirmed, "excluded": excluded,
+            "confirmed": confirmed, "excluded": excluded, "unfit": unfit,  # 153: allocations that no longer fit
             "invoices": sorted(statuses, key=lambda s: s["invoice_id"]),
             "unpaired_line_ids": sorted(p for p, pay in prepared["payments"].items() if p not in paired and pay["statement_id"] in scope),
             "marked": sorted([lid, cat] for lid, cat in marked.items()), "repeats": repeats,
+            "unregistered_own": prepared["unregistered_own"],  # 153: lines to an account no party holds
             "paid": {"invoices": {k: str(v) for k, v in sorted(paid_invoice.items())},  # 131: allocated so far
                      "lines": {k: str(v) for k, v in sorted(paid_line.items())}},
             "coverage": [{"account": a, "currency": c, "periods": [[s.isoformat(), e.isoformat()] for s, e in p]}
@@ -1419,6 +1438,7 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
     rates = fx.table(needs, fetch_missing=fetch_rates) if needs else {}
     return {"invoices": invoices, "statements": statements, "decisions": decisions, "fx_rates": rates,
             "allocations": allocations, "marks": marks,
+            "registered_accounts": sorted(parties.registered_accounts()),  # 153: the own accounts a party holds
             "replaced": {old: {"by": r.new, "how": r.how, "account": statement_account(every[old]),
                                **{k: every[old].get(k) for k in ("currency", "period_start", "period_end", "doc_type", "work_run")},
                                "lines": every[old]["lines"]}

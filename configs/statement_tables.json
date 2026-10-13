@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "statement_tables",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "description": "136 E4 (jav/statement_table.py): bank statements exported as a table (a workbook or a CSV file), read by code without AI. A profile names a kind of export by its column headers and says where an account's title, number and balances stand; the header aliases, titles and labels are document vocabulary, quoted as the bank prints them. Decisions: DECISIONS 132 (a general tabular statement reader, not code for one bank; only the two personal accounts of the Revolut export go into the store), DECISIONS 136 (processed as a work package, one statement per account, the accounts chosen by a person before the run).",
     "changelog": [
+      {
+        "version": "1.5.1",
+        "date": "2026-10-13",
+        "note": "153 (review C1): the Erste camt.053 rate pattern reads at most 12 digits and 8 decimals, not after another digit or point, so a crafted 20,000-digit text no longer keeps the reader busy for seconds; what it finds on a real statement is unchanged."
+      },
       {
         "version": "1.5.0",
         "date": "2026-10-11",
@@ -212,7 +217,7 @@
             "original": "Tr\\.összeg - Árfolyam:\\s*(?P<amount>[\\d,]*\\d(?:\\.\\d+)?)\\s+(?P<currency>[A-Z]{3})\\b",
             "card": "Kártyaszám - Tr\\.időpont:\\s*(?P<card>\\d{6}[xX*]{6}\\d{4}|\\d{16})\\s*-\\s*(?P<date>\\d{4}\\.\\d{2}\\.\\d{2})\\.?(?:\\s+(?P<time>\\d{1,2}:\\d{2}(?::\\d{2})?))?",
             "terminal": "Terminál - eng\\.kód\\s+Trtip:\\s*(?:(?P<terminal>\\S+)\\s+)?-\\s*(?P<auth>\\w+)\\s*-",
-            "rate": "(?P<rate>\\d+(?:\\.\\d+)?\\s+[A-Z]{3}/[A-Z]{3})",
+            "rate": "(?<![\\d.])(?P<rate>\\d{1,12}(?:\\.\\d{1,8})?\\s+[A-Z]{3}/[A-Z]{3})",
             "fee": "Jutalék összege:\\s*:?\\s*(?P<fee>.+)"
           }
         }

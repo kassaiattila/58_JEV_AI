@@ -178,6 +178,13 @@ export const paramValue = (k: string, v: string) => PARAM_VALUE[`${k}:${v}`] ?? 
 /** 152 (the owner's request of 2026-10-12): the package's older live runs a later live run repeated on the same
  *  documents, each with a link to its page and a "Supersede" button (the run's page offers the same, 151). Human work
  *  left on a run stays with it and is named before the click. */
+/** 153: the human work left on an older run, naming only the parts that are not zero ("0 closed to-dos" read oddly). */
+function humanWorkLeft(r: number, c: number): string {
+  if (r && c) return t("{{r}} closed to-dos and {{c}} hand-corrected documents stay with it and are not carried over", { r, c });
+  return r ? t("{{r}} closed to-dos stay with it and are not carried over", { r })
+    : t("{{c}} hand-corrected documents stay with it and are not carried over", { c });
+}
+
 export function OlderRunsOffer({ runs, busy, onSupersede }: { runs: SupersedableRun[]; busy: boolean; onSupersede: (runId: string) => void }) {
   useLocale();
   if (!runs.length) return null;
@@ -191,8 +198,7 @@ export function OlderRunsOffer({ runs, busy, onSupersede }: { runs: Supersedable
           <li key={r.run_id}>
             <a href={`#/runs/${encodeURIComponent(r.run_id)}`}>{t("Live run, {{when}}", { when: when(r.created_at) })}</a>
             {" · "}{t("{{n}} open to-dos", { n: r.open_reasons })}
-            {r.resolved_reasons + r.corrected_items > 0 ? <span className="error-text">{" · "}{t("{{r}} closed to-dos and {{c}} hand-corrected documents stay with it and are not carried over",
-              { r: r.resolved_reasons, c: r.corrected_items })}</span> : null}{" "}
+            {r.resolved_reasons + r.corrected_items > 0 ? <span className="error-text">{" · "}{humanWorkLeft(r.resolved_reasons, r.corrected_items)}</span> : null}{" "}
             <ConfirmButton className="secondary small-btn" disabled={busy} onConfirm={() => onSupersede(r.run_id)}>{t("Supersede")}</ConfirmButton>
           </li>
         ))}

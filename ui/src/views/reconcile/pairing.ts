@@ -15,7 +15,8 @@ import { canonical, min, parseCanonical } from "./money";
 
 export interface PlannedPair { line: ReconcileLine; invoice: ReconcileInvoice; amount: bigint | null } // null: whole, converted
 export type Refusal =
-  | "nothing" | "many_to_many" | "line_marked" | "line_excluded" | "line_settled" | "invoice_settled" | "currency" | "too_many";
+  | "nothing" | "many_to_many" | "line_marked" | "line_excluded" | "line_settled" | "invoice_settled" | "currency" | "too_many"
+  | "amount_unreadable";
 export type Plan =
   | { ok: true; pairs: PlannedPair[]; converted: boolean; needsReason: boolean; exact: boolean }
   | { ok: false; why: Refusal };
@@ -79,7 +80,8 @@ export function check(pairs: PlannedPair[]): Plan {
   const usedLine = new Map<string, bigint>();
   const usedInvoice = new Map<string, bigint>();
   for (const p of pairs) {
-    if (p.amount === null || p.amount <= 0n) return { ok: false, why: "nothing" };
+    if (p.amount === null) return { ok: false, why: "amount_unreadable" }; // 153: say why, not "select a line"
+    if (p.amount <= 0n) return { ok: false, why: "nothing" };
     usedLine.set(p.line.id, (usedLine.get(p.line.id) ?? 0n) + p.amount);
     usedInvoice.set(p.invoice.id, (usedInvoice.get(p.invoice.id) ?? 0n) + p.amount);
   }

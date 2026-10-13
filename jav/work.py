@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import sqlite3
 import uuid
 from collections.abc import Callable, Iterable
@@ -592,10 +593,13 @@ class PackageRule:
       None lets the item go on as in any package; a list stops it there, and its to-do reasons are raised on the item
       (an empty list: the detection's own to-dos stand for it).
     - `after_item(run, item)`: called when an item's flow has finished; the to-do reasons it returns are raised on the
-      item."""
+      item.
+    - `after_approval(run)` (153): called once a live run of the package is approved, after the approval is recorded; a
+      failure is logged and never undoes the approval."""
 
     after_detection: Callable[[dict[str, Any], dict[str, Any], Any], list[str] | None] | None = None
     after_item: Callable[[dict[str, Any], dict[str, Any]], list[str]] | None = None
+    after_approval: Callable[[dict[str, Any]], None] | None = None
 
 
 _PACKAGE_RULES: dict[str, PackageRule] = {}
@@ -915,7 +919,15 @@ def readiness(wp_id: str, *, verify: bool = False) -> dict[str, Any]:
     changed or missing original is a warning. An item without one follows the original file, as before.
 
     080: a package without an assignment runs with the default processing and its default settings
-    (`assignment_default`); starting the run saves them (`start_run`)."""
+    (`assignment_default`); starting the run saves them (`start_run`).
+
+    153 (review B1): one connection for the whole check; a package of 468 documents opened in 4 s, as each item's
+    instance and original check opened its own (944 connections)."""
+    with store.session():
+        return _readiness(wp_id, verify=verify)
+
+
+def _readiness(wp_id: str, *, verify: bool) -> dict[str, Any]:
     wp = get(wp_id)
     blockers: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
@@ -1045,7 +1057,9 @@ def run_rows(wp_id: str | None = None) -> list[dict[str, Any]]:
            " r.approval, r.approved_by, r.actor, r.created_at, r.finished_at,"
            " json_array_length(r.input, '$.items') AS items,"
            " (SELECT COUNT(*) FROM run_items i WHERE i.run_id=r.run_id) AS items_done,"
-           " (SELECT COUNT(*) FROM review_reasons x WHERE x.status='open' AND x.run_id LIKE r.run_id || ':%') AS open_reasons"
+           # 153 (review B4): a range on the item flow ids `<run>:...` (';' follows ':'), so the index is used
+           " (SELECT COUNT(*) FROM review_reasons x WHERE x.status='open' AND x.run_id >= r.run_id || ':'"
+           " AND x.run_id < r.run_id || ';') AS open_reasons"
            " FROM runs r JOIN workpackages w ON w.id=r.workpackage_id")
     args: tuple = ()
     if wp_id is not None:
@@ -1319,26 +1333,26 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -
         _begin(c)
         from jav import native_results
 
+        # Recheck the run, its items and its open reasons under the approval's write lock (153, review: the check above
+        # ran before it, so a run superseded or stopped in between ended both cancelled and approved)
+        latest = c.execute("SELECT status FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        if latest["status"] != "done":
+            raise NotReady("The run is no longer ready for approval")
+        for item in run["input"]["items"]:
+            result = c.execute("SELECT status FROM run_items WHERE run_id=? AND item_id=?",
+                               (run_id, item["item_id"])).fetchone()
+            if result is None or result["status"] != "done":
+                raise NotReady("The run has an unfinished input item")
+            subject_kind, subject_id = review_subject(item)
+            reasons = c.execute("SELECT r.run_id FROM review_reasons r JOIN review_queue q ON q.id=r.review_id"
+                                " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open'",
+                                (subject_kind, subject_id)).fetchall()
+            if any(is_own_reason(dict(reason), flow_run_id(run_id, item["item_id"])) for reason in reasons):
+                raise NotReady("The run still has open review reasons")
         native_items = [i for i in run["input"]["items"] if native_results.native_item(run_id, i, c)]
         if native_items:
-
             if review_version is None:
                 raise RevisionConflict("Native approval requires the exact reviewed version")
-            # Recheck terminal items and open reasons under the approval's write lock.
-            latest = c.execute("SELECT status FROM runs WHERE run_id=?", (run_id,)).fetchone()
-            if latest["status"] != "done":
-                raise NotReady("The run is no longer ready for approval")
-            for item in run["input"]["items"]:
-                result = c.execute("SELECT status FROM run_items WHERE run_id=? AND item_id=?",
-                                   (run_id, item["item_id"])).fetchone()
-                if result is None or result["status"] != "done":
-                    raise NotReady("The run has an unfinished input item")
-                subject_kind, subject_id = review_subject(item)
-                reasons = c.execute("SELECT r.run_id FROM review_reasons r JOIN review_queue q ON q.id=r.review_id"
-                                    " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open'",
-                                    (subject_kind, subject_id)).fetchall()
-                if any(is_own_reason(dict(reason), flow_run_id(run_id, item["item_id"])) for reason in reasons):
-                    raise NotReady("The run still has open review reasons")
             for item in native_items:
                 publication = native_results.get_publication(run_id, item["item_id"], c=c)
                 if publication is None or publication.interpretation_outcome.status != "succeeded":
@@ -1348,6 +1362,13 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -
                 native_results.verify_publication(publication, c=c)
         if review_version is not None and corrections.review_version(run_id, c) != review_version:
             raise RevisionConflict(f"the result of run {run_id} changed since it was reviewed; review it again")
-        c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=? WHERE run_id=? AND approval IS NULL",
-                  (actor, _now(), run_id))
-    return get_run(run_id)
+        c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=? WHERE run_id=? AND approval IS NULL"
+                  " AND status='done'", (actor, _now(), run_id))
+    approved = get_run(run_id)
+    rule = package_rule(run["workpackage_id"])
+    if rule is not None and rule.after_approval is not None and approved["approval"]:
+        try:
+            rule.after_approval(approved)
+        except Exception:  # noqa: BLE001 - the approval stands; the rule's failure is logged with its traceback
+            logging.getLogger("jav.work").exception("the approval rule of package %s failed", run["workpackage_id"])
+    return approved

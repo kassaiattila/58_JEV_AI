@@ -192,7 +192,7 @@ def test_added_lines_parses_unified_diff():
     diff = "\n".join([
         "diff --git a/x.py b/x.py", "index 1..2 100644", "--- a/x.py", "+++ b/x.py", "@@ -3,0 +4,2 @@",
         "+uj sor", "+masik", "diff --git a/y.md b/y.md", "new file mode 100644", "--- /dev/null", "+++ b/y.md",
-        "@@ -0,0 +1 @@", "+elso", "diff --git a/z.txt b/z.txt", "deleted file mode 100644", "--- a/z.txt",
+        "@@ -0,0 +1 @@", "+elso", "diff --git a/z.py b/z.py", "deleted file mode 100644", "--- a/z.py",
         "+++ /dev/null", "@@ -1 +0,0 @@", "-torolt",
     ])
     assert list(data_guard.added_lines(diff)) == [("x.py", 4, "uj sor"), ("x.py", 5, "masik"), ("y.md", 1, "elso")]
@@ -231,12 +231,12 @@ def test_check_staged_blocks_binary_and_internal_paths(repo, guard):
 
 
 def test_pre_push_blocks_forbidden_history_and_scans_new_commits(repo, guard):
-    (repo / "a.txt").write_text("régi\n", encoding="utf-8")
-    _git(repo, "add", "a.txt")
+    (repo / "a.py").write_text("régi\n", encoding="utf-8")
+    _git(repo, "add", "a.py")
     _git(repo, "commit", "-q", "-m", "régi")
     old = _git(repo, "rev-parse", "HEAD").strip()
-    (repo / "b.txt").write_text("tiszta\n", encoding="utf-8")
-    _git(repo, "add", "b.txt")
+    (repo / "b.py").write_text("tiszta\n", encoding="utf-8")
+    _git(repo, "add", "b.py")
     _git(repo, "commit", "-q", "-m", "rá épül")
     head = _git(repo, "rev-parse", "HEAD").strip()
     zero = "0" * 40
@@ -247,8 +247,8 @@ def test_pre_push_blocks_forbidden_history_and_scans_new_commits(repo, guard):
     assert _kinds(found) == ["forbidden_history"]
     # new starting point: it does not build on the forbidden line, but its content is still scanned
     _git(repo, "checkout", "-q", "--orphan", "uj")
-    (repo / "c.txt").write_text(f"tel {_hu_tax('2468135')}\n", encoding="utf-8")
-    _git(repo, "add", "c.txt")
+    (repo / "c.py").write_text(f"tel {_hu_tax('2468135')}\n", encoding="utf-8")
+    _git(repo, "add", "c.py")
     _git(repo, "commit", "-q", "-m", "új gyökér")
     new = _git(repo, "rev-parse", "HEAD").strip()
     found = data_guard.check_push(repo, g, [f"refs/heads/uj {new} refs/heads/uj {zero}"])

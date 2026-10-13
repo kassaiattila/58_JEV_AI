@@ -209,7 +209,7 @@ def _spreadsheetml_rows(data: bytes, limits: dict[str, Any]) -> list[list[str]]:
     return rows
 
 
-def _csv_rows(data: bytes) -> list[list[str]]:
+def _csv_rows(data: bytes, limits: dict[str, Any]) -> list[list[str]]:
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError:
@@ -219,7 +219,14 @@ def _csv_rows(data: bytes) -> list[list[str]]:
             raise StatementTableError("the CSV file is neither UTF-8 nor cp1250 text") from exc
     first = text.split("\n", 1)[0]
     delimiter = ";" if first.count(";") > first.count(",") else ","
-    return [[_text(v) for v in row] for row in csv.reader(io.StringIO(text), delimiter=delimiter)]
+    rows: list[list[str]] = []
+    cells = 0
+    for row in csv.reader(io.StringIO(text), delimiter=delimiter):  # 153 (review C3): the cell limit while reading
+        cells += len(row)
+        if len(rows) >= limits["max_rows"] or cells > limits["max_cells"]:
+            raise StatementTableError("the file is over the row limit or the cell limit")
+        rows.append([_text(v) for v in row])
+    return rows
 
 
 def _joined_csv(rows: list[list[str]], conf: dict[str, Any]) -> list[list[str]] | None:
@@ -260,10 +267,7 @@ def parse_rows(suffix: str, data: bytes, limits: dict[str, Any]) -> list[list[st
     (Q-table-reader-isolation): it runs in the isolated reader's helper process (`jav/isolated_pdf.py`), within its time
     and memory limits, every setting a parameter."""
     if suffix == ".csv":
-        rows = _csv_rows(data)
-        if len(rows) > limits["max_rows"]:
-            raise StatementTableError("the file is over the row limit")
-        return rows
+        return _csv_rows(data, limits)
     if suffix == ".xml":
         return _spreadsheetml_rows(data, limits)
     return _workbook_rows(data, limits)
@@ -477,6 +481,34 @@ def _ledgers(rows: list[list[str]], profile: dict[str, Any]
     return columns, groups
 
 
+# 153 (review C1): what a statement's patterns read stays short. A crafted file with a 20,000-digit amount or a line of
+# thousands of spaces kept the service busy for minutes (the patterns backtrack, and the reading after the isolated
+# helper's parse runs in the service): a field or a line over LINE_MAX characters is cut or left out, and a run of three
+# or more spaces becomes two (the text profiles separate their columns by two or more).
+LINE_MAX = 2000
+_SPACE_RUN = re.compile(r"[ \t]{3,}")
+
+
+def _bounded(lines: list[str]) -> tuple[list[str], list[str]]:
+    """The lines with their space runs shortened, then any line still over LINE_MAX characters left out, and the
+    repairs that say how many were left out."""
+    out, cut = [], 0
+    for ln in lines:
+        ln = _SPACE_RUN.sub("  ", ln)
+        if len(ln) > LINE_MAX:
+            cut += 1
+            continue
+        out.append(ln)
+    return out, ([f"{cut} line(s) over {LINE_MAX} characters left out"] if cut else [])
+
+
+def _within_size(path: Path, limits: dict[str, Any]) -> None:
+    """153 (review C3): the size limit is checked before a file is read (a 1 GB file raised the service's memory to
+    1.27 GB before it was refused)."""
+    if path.stat().st_size > limits["max_bytes"]:
+        raise StatementTableError("the file is over the size limit")
+
+
 def _pdf_lines(path: Path) -> list[str]:
     """The PDF's text layer as lines (the isolated PDF reader, jav/pdf.py); the tests replace it."""
     from jav import pdf
@@ -662,8 +694,9 @@ def _ledger_account(account_no: str, number: str, rows: list[list[str]], columns
     balances: list[Decimal | None] = [None] * len(lines)
     companion_problems: list[str] = []
     if companion_path is not None:
+        _within_size(companion_path, _conf()["limits"])
         data = companion_path.read_bytes()
-        pdf = parse_companion(_pdf_lines(companion_path), profile["companion"])
+        pdf = parse_companion(_bounded(_pdf_lines(companion_path))[0], profile["companion"])
         source = {**source, "companion": {"file": companion_path.name, "sha256": hashlib.sha256(data).hexdigest()}}
         if pdf["account"] and re.sub(r"\D", "", pdf["account"]) != re.sub(r"\D", "", account_no):
             companion_problems.append("the PDF statement is of another account")
@@ -911,21 +944,20 @@ def _text_lines(path: Path, data: bytes, profiles: list[dict[str, Any]]) -> list
 
 
 def _read_text(path: Path, *, name: str | None = None) -> Reading:
-    data = path.read_bytes()
     conf = _conf()
-    if len(data) > conf["limits"]["max_bytes"]:
-        raise StatementTableError("the file is over the size limit")
+    _within_size(path, conf["limits"])
+    data = path.read_bytes()
     profiles = [p for p in conf["profiles"] if p.get("layout") == "text" and path.suffix.lower() in p["suffixes"]]
-    lines = [ln.strip() for ln in _text_lines(path, data, profiles)] if profiles else []
+    lines, repairs = _bounded([ln.strip() for ln in _text_lines(path, data, profiles)] if profiles else [])
     text = "\n".join(lines)
     file_name = name or path.name
     sha = hashlib.sha256(data).hexdigest()
     for profile in profiles:
         if all(re.search(s, text, re.MULTILINE) for s in profile["signature"]):
             account = _text_account(parse_text_statement(lines, profile), profile,
-                                    {"file": file_name, "sha256": sha, "repairs": []})
+                                    {"file": file_name, "sha256": sha, "repairs": repairs})
             return Reading(profile=profile["name"], institution=profile["institution"], file_name=file_name,
-                           sha256=sha, repairs=[], accounts=[account])
+                           sha256=sha, repairs=repairs, accounts=[account])
     raise StatementTableError("no statement of a known profile in the file")
 
 
@@ -1006,8 +1038,11 @@ def parse_camt(data: bytes, limits: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _xml_amount(value: str | None) -> Decimal | None:
-    """An XML decimal ("7291.00", ".00", "-12.5")."""
-    return Decimal(value).quantize(CENT) if value and re.fullmatch(r"-?\d*\.?\d+", value) else None
+    """An XML decimal ("7291.00", ".00", "-12.5"). 153 (review C1): at most 40 characters, by a pattern that does not
+    backtrack (a 20,000-digit amount took seconds)."""
+    if not value or len(value) > 40 or not re.fullmatch(r"-?(?:\d+(?:\.\d+)?|\.\d+)", value):
+        return None
+    return Decimal(value).quantize(CENT)
 
 
 def _camt_account(s: dict[str, Any], profile: dict[str, Any], source: dict[str, Any]) -> Account:
@@ -1021,7 +1056,7 @@ def _camt_account(s: dict[str, Any], profile: dict[str, Any], source: dict[str, 
             problems.append(f"line {n}: unreadable")
             continue
         amount = -amount if e["debit"] else amount
-        info = e["info"] or ""
+        info = (e["info"] or "")[:LINE_MAX]  # 153 (review C1): the bank's patterns read a bounded text
         name = " ".join(e["name"].split()) if e["name"] else None  # single spaces, as the text statements keep them
         if not name and "merchant" in details and (m := details["merchant"].search(info)):
             name = " ".join(m["value"].split())
@@ -1098,8 +1133,9 @@ def _read_file(path: Path, *, name: str | None = None) -> Reading:
         return _read_text(path, name=name)
     if path.suffix.lower() not in SUFFIXES:
         raise StatementTableError(f"a statement table is a {' or '.join(SUFFIXES + TEXT_SUFFIXES)} file")
-    data = path.read_bytes()
     conf = _conf()
+    _within_size(path, conf["limits"])
+    data = path.read_bytes()
     file_name = name or path.name
     sha = hashlib.sha256(data).hexdigest()
     camt = next((p for p in conf["profiles"] if p.get("layout") == "camt053"), None)

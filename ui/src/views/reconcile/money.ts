@@ -23,12 +23,38 @@ export function canonical(value: bigint): string {
   return `${sign}${whole}.${frac}`;
 }
 
-/** What a person types ("12 345,67", "12345.67", "12,345.67") → a scaled integer; the decimal mark is the chosen
- *  language's (comma in Hungarian, point in English); spaces and the other mark group thousands. */
-export function parseInput(text: string): bigint | null {
+const GROUPED: Record<string, RegExp> = { ".": /^\d{1,3}(?:\.\d{3})+$/, ",": /^\d{1,3}(?:,\d{3})+$/ };
+
+/** What a person types → a scaled integer; null when it is not a number or can be read two ways (153, review A1: the
+ *  page dropped every point in Hungarian, so "60.50" became 6050 and a pair was saved a hundred times too large). The
+ *  rules of the service's reader of typed numbers (`jav/numbers.py` `read_input`), in the chosen language: the
+ *  language's decimal mark (a comma in Hungarian, a point in English) alone is the decimal mark, but not before
+ *  exactly three digits ("28,000" in Hungarian reads two ways); the other mark alone only groups thousands ("28.000",
+ *  "1.234.567" in Hungarian), otherwise it reads two ways ("60.50" in Hungarian); with both marks the last one is the
+ *  decimal mark ("12.345,67", "12,345.67"). Spaces group thousands. Only zeros read as zero either way. */
+export function parseInput(text: string | null | undefined): bigint | null {
+  const s = (text ?? "").replace(/[\s  ]/g, "");
+  if (!/^-?[\d.,]+$/.test(s) || !/\d/.test(s)) return null;
+  if (!/[1-9]/.test(s)) return 0n;
   const hu = getLocale() === "hu-HU";
-  const cleaned = text.replace(/[\s\u00a0\u202f]/g, "").replace(hu ? /\./g : /,/g, "").replace(hu ? "," : ".", ".");
-  return parseCanonical(cleaned);
+  const dec = hu ? "," : ".";
+  const grp = hu ? "." : ",";
+  const sign = s.startsWith("-") ? "-" : "";
+  const body = s.slice(sign.length);
+  if (body.includes(dec) && body.includes(grp)) {
+    const at = Math.max(body.lastIndexOf(","), body.lastIndexOf("."));
+    const mark = body[at];
+    const whole = body.slice(0, at);
+    if (whole.includes(mark) || !GROUPED[mark === "," ? "." : ","].test(whole)) return null;
+    return parseCanonical(`${sign}${whole.replace(/[.,]/g, "")}.${body.slice(at + 1)}`);
+  }
+  if (body.includes(dec)) {
+    const parts = body.split(dec);
+    if (parts.length > 2 || parts[1].length === 3) return null;
+    return parseCanonical(`${sign}${parts[0]}.${parts[1]}`);
+  }
+  if (body.includes(grp)) return GROUPED[grp].test(body) ? parseCanonical(`${sign}${body.split(grp).join("")}`) : null;
+  return parseCanonical(s);
 }
 
 /** A scaled integer for display: grouped thousands, the language's decimal mark, two decimals (more if needed). */

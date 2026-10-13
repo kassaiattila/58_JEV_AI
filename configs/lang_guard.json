@@ -1,9 +1,19 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.53",
+    "version": "1.0.55",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.55",
+        "date": "2026-10-13",
+        "note": "153: accept the Hungarian texts the interface test of the pairings that no longer fit and of the unregistered own account checks (ui/src/views/reconcile/unfit153.test.tsx), the user guide's Hungarian label of that mark (docs/guides/USER_GUIDE.md), and the Erste rate label a hostile-input test reads (tests/test_statement_hostile_153.py; document vocabulary)."
+      },
+      {
+        "version": "1.0.54",
+        "date": "2026-10-13",
+        "note": "153: accept the Hungarian texts the interface test of the package list's refresh, its older-runs link and the supersede warnings checks (ui/src/listRefresh153.test.tsx)."
+      },
       {
         "version": "1.0.53",
         "date": "2026-10-12",
@@ -409,7 +419,7 @@
     "docs/flows/invoice/FLOW.md": 17,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 237,
+    "docs/guides/USER_GUIDE.md": 238,
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
@@ -602,6 +612,7 @@
     "tests/test_statement_cib_141.py": 59,
     "tests/test_statement_erste_137.py": 27,
     "tests/test_statement_fields_144.py": 21,
+    "tests/test_statement_hostile_153.py": 1,
     "tests/test_statement_package_140.py": 7,
     "tests/test_statement_table_136.py": 38,
     "tests/test_store_tx_067.py": 1,
@@ -655,6 +666,7 @@
     "ui/src/jevPath082.test.tsx": 3,
     "ui/src/labels.ts": 140,
     "ui/src/layout.test.tsx": 48,
+    "ui/src/listRefresh153.test.tsx": 18,
     "ui/src/naming078.test.tsx": 11,
     "ui/src/noJev086.test.tsx": 10,
     "ui/src/numberEdit081.test.tsx": 5,
@@ -710,6 +722,7 @@
     "ui/src/views/Workpackages.tsx": 5,
     "ui/src/views/bankFiles146.test.tsx": 12,
     "ui/src/views/reconcile/fxBank149.test.tsx": 3,
+    "ui/src/views/reconcile/unfit153.test.tsx": 6,
     "ui/src/views/settings/AppearancePanel.tsx": 8,
     "ui/src/views/settings/BackupPanel.tsx": 17,
     "ui/src/views/settings/DepsAuditPanel.tsx": 8,

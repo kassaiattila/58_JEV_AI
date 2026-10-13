@@ -23,8 +23,10 @@ export function useLoad<T>(key: string | null, fn: () => Promise<T>, pollMs?: nu
   // refresh does
   const gone = useRef(false);
   // 066 Á36: while a request is pending and on a hidden tab, the automatic refresh is skipped (requests do not pile up
-  // when the service is slow)
-  const inFlight = useRef(false);
+  // when the service is slow). 153 (review): the mark names the pending request, so a superseded one ending later does
+  // not clear it
+  const inFlight = useRef(0);
+  const requests = useRef(0);
 
   useEffect(() => {
     if (key === null) return;
@@ -35,7 +37,8 @@ export function useLoad<T>(key: string | null, fn: () => Promise<T>, pollMs?: nu
       gone.current = false;
     }
     setLoading(true);
-    inFlight.current = true;
+    const my = ++requests.current;
+    inFlight.current = my;
     fnRef.current()
       .then((d) => {
         if (!alive) return;
@@ -52,7 +55,7 @@ export function useLoad<T>(key: string | null, fn: () => Promise<T>, pollMs?: nu
         setError(err);
       })
       .finally(() => {
-        inFlight.current = false;
+        if (inFlight.current === my) inFlight.current = 0;
         if (alive) setLoading(false);
       });
     return () => {
@@ -100,9 +103,14 @@ export function useHash(): string {
   return hash;
 }
 
+/** 153: how soon rows marked `refreshing` are asked for again. */
+export const REFRESHING_RETRY_MS = 2000;
+
 /** Dataset page (056 U1). While paging, sorting and filtering, the previous page stays visible until the new one
  *  arrives; on a switch to another dataset or scope, however, it disappears at once (another run's data must not stay
- *  on screen). An old response that arrives later does not overwrite the new one. */
+ *  on screen). An old response that arrives later does not overwrite the new one. 153 (review B7): the automatic
+ *  refresh waits while a request is pending, on a hidden tab and after a 4xx, as `useLoad` does; before, a query slower
+ *  than the refresh was superseded by the next one every time, so the table never filled and the requests piled up. */
 export function useDataset(name: string | null, scope: DsScope, query: DsQuery, pollMs?: number): Loaded<DsPage> {
   const [data, setData] = useState<DsPage | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
@@ -112,10 +120,13 @@ export function useDataset(name: string | null, scope: DsScope, query: DsQuery, 
   const key = ident === null ? null : JSON.stringify([ident, query]);
   const shownIdent = useRef<string | null>(null);
   const seq = useRef(0);
+  const pending = useRef(0); // the request being waited for (0: none)
+  const gone = useRef(false); // the last answer was a 4xx: only a change or a manual reload asks again
 
   useEffect(() => {
     if (key === null || name === null) return;
     const my = ++seq.current;
+    pending.current = my;
     if (shownIdent.current !== ident) {
       setData(null);
       setError(null);
@@ -125,21 +136,39 @@ export function useDataset(name: string | null, scope: DsScope, query: DsQuery, 
       .then((d) => {
         if (my !== seq.current) return;
         shownIdent.current = ident;
+        gone.current = false;
         setData(d);
         setError(null);
       })
       .catch((e: unknown) => {
         if (my !== seq.current) return;
-        setError(e instanceof ApiError ? e : new ApiError(0, "error", String(e)));
+        const err = e instanceof ApiError ? e : new ApiError(0, "error", String(e));
+        gone.current = err.status >= 400 && err.status < 500;
+        setError(err);
       })
-      .finally(() => my === seq.current && setLoading(false));
+      .finally(() => {
+        if (pending.current === my) pending.current = 0;
+        if (my === seq.current) setLoading(false);
+      });
   }, [key, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const refresh = useCallback(() => {
+    if (!gone.current && !pending.current && !document.hidden) setTick((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     if (!pollMs || key === null) return;
-    const t = window.setInterval(() => setTick((n) => n + 1), pollMs);
+    const t = window.setInterval(refresh, pollMs);
     return () => window.clearInterval(t);
-  }, [pollMs, key]);
+  }, [pollMs, key, refresh]);
+
+  // 153: rows served while newer ones are being built are asked for again soon, not only at the next poll
+  const refreshing = Boolean(data?.refreshing);
+  useEffect(() => {
+    if (!refreshing || key === null) return;
+    const t = window.setTimeout(refresh, REFRESHING_RETRY_MS);
+    return () => window.clearTimeout(t);
+  }, [refreshing, data, key, refresh]);
 
   const reload = useCallback(() => setTick((n) => n + 1), []);
   return { data, error, loading, reload };

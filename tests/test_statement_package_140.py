@@ -174,14 +174,22 @@ def _package(db: Path, party: str, *, pdfs: bool = False) -> str:
                      pdfs=[p["path"] for p in survey["pdfs"]] if pdfs else [], actor="tester")["workpackage_id"]
 
 
-def test_a_live_run_gives_an_account_no_party_holds_to_the_packages_party(db):
+def test_an_approved_live_run_gives_an_account_no_party_holds_to_the_packages_party(db):
+    """153 (decision of 2026-10-13): the account goes to the party when the live run is approved, not when it is saved;
+    until then a payment to it stays in the pairing instead of counting as a transfer between own accounts."""
     party = _party()
     wp = _package(db, party)
     run_id = _run_all(wp)
+    assert work.get_run(run_id)["status"] in ("done", "needs_review")  # May's unchecked balances stay its own to-do
+    assert parties.resolver().account(OWN_KEY) is None
+    assert not [e for e in work.workpackage_events(wp) if e["action"] == "statement_account"]
+    with store.connect() as c:  # a person closes the run's to-dos, then approves it
+        c.execute("UPDATE review_reasons SET status='resolved' WHERE substr(run_id, 1, ?) = ?", (len(run_id) + 1, run_id + ":"))
+    work.approve_run(run_id, actor="approver")
     assert parties.resolver().account(OWN_KEY) == party
     event = next(e for e in work.workpackage_events(wp) if e["action"] == "statement_account")
-    assert (json.loads(event["detail"]) if isinstance(event["detail"], str) else event["detail"])["party"] == party
-    assert work.get_run(run_id)["status"] in ("done", "needs_review")  # May's unchecked balances stay its own to-do
+    detail = json.loads(event["detail"]) if isinstance(event["detail"], str) else event["detail"]
+    assert detail == {"account": OWN_KEY, "party": party, "run_id": run_id} and event["actor"] == "approver"
 
 
 def test_a_trial_run_assigns_no_account(db):

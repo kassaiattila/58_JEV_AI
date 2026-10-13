@@ -19,6 +19,17 @@ def _no_ops_log(tmp_path_factory):
 
 
 @pytest.fixture(autouse=True)
+def _no_default_store(tmp_path_factory, monkeypatch):
+    """153 (review F1): a test never opens the real store (`store/jav.sqlite`: personal data, used by the running
+    service and worker). 38 tests did, through code that reads the default store (the call-site pages' ledger figures, a
+    documents table's directions): they ran the schema set-up on it and read its ledger. The default store is now a
+    temporary file per test; a test that needs a store names it (`store.use_store`) or uses this empty one."""
+    from jav import store
+
+    monkeypatch.setattr(store, "STORE_PATH", tmp_path_factory.mktemp("default-store") / "jav.sqlite")
+
+
+@pytest.fixture(autouse=True)
 def _no_live_gpt_choice():
     """089: a test never sends a GPT choice question (type or email intent without JEV) to OpenAI, which would be a paid
     call; a test that needs an answer installs its own stand-in with `gpt_choice.use_agent_factory`."""

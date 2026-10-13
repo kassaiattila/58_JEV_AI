@@ -73,6 +73,11 @@ export function LineFacts({ line: l, repeat, invoices }: { line: ReconcileLine; 
         {repeat ? <span className="rc-sig warn">{t("may repeat the payment")}</span> : null}
         {expectsInvoice(l) ? <span className="rc-sig warn">{t("invoice expected")}</span> : null}
         {l.statement_verified ? null : <span className="rc-sig warn">{t("statement balances do not check out")}</span>}
+        {l.own_account_unregistered ? (
+          <span className="rc-sig warn" title={t("A statement here prints the account it went to, but no own party holds that account (Settings › Own parties). Register it there if it is yours; then the line counts as a transfer between own accounts.")}>
+            {t("to an account not registered as own")}
+          </span>
+        ) : null}
       </div>
       <dl>
         {partly ? <Fact label={t("Left to pair")}>{show(l.rest, l.currency)}</Fact> : null}

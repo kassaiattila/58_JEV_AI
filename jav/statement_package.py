@@ -359,8 +359,9 @@ def after_detection(run: dict[str, Any], item: dict[str, Any], detected: Any) ->
 
 
 def after_item(run: dict[str, Any], item: dict[str, Any]) -> list[str]:
-    """The saved statement's account and the package's party: an account no party holds goes to the package's party
-    in a live run (with an event in the package's log); another party's account is a to-do."""
+    """The saved statement's account and the package's party: another party's account is a to-do. 153 (decision of
+    2026-10-13): an account no party holds goes to the package's party only when the live run is approved
+    (`after_approval`); until then a payment to it is no transfer between own accounts."""
     st = next((s for s in reconcile.statements() if s["id"] == item["item_id"]), None)
     if st is None:
         return []
@@ -376,15 +377,37 @@ def after_item(run: dict[str, Any], item: dict[str, Any]) -> list[str]:
         return []
     if owner:
         return [f"{OTHER_PARTY}:{owner}"]
-    if run["mode"] == "apply":
-        parties.assign("account", key, str(st.get("account") or key), party_id, actor=run["actor"])
-        with store.connect() as c:
-            work.record_event(c, run["workpackage_id"], "statement_account", run["actor"],
-                              {"account": key, "party": party_id, "run_id": run["run_id"]})
     return []
 
 
-work.register_package_rule(KIND, work.PackageRule(after_detection=after_detection, after_item=after_item))
+def after_approval(run: dict[str, Any]) -> None:
+    """153 (decision of 2026-10-13, review A4): the accounts of an approved live run's statements that no party holds
+    go to the package's party, each with an event in the package's log (who approved, which run)."""
+    if run["mode"] != "apply":
+        return
+    row = _scope_row(run["workpackage_id"])
+    if row is None:
+        return
+    res = parties.resolver()
+    statements = {s["id"]: s for s in reconcile.statements()}
+    done: set[str] = set()
+    actor = run.get("approved_by") or run["actor"]
+    for item in run["input"]["items"]:
+        st = statements.get(item["item_id"])
+        if st is None:
+            continue
+        key = reconcile.statement_account(st)
+        if key.startswith("doc:") or key in done or res.account(key):
+            continue
+        parties.assign("account", key, str(st.get("account") or key), row["party_id"], actor=actor)
+        done.add(key)
+        with store.connect() as c:
+            work.record_event(c, run["workpackage_id"], "statement_account", actor,
+                              {"account": key, "party": row["party_id"], "run_id": run["run_id"]})
+
+
+work.register_package_rule(KIND, work.PackageRule(after_detection=after_detection, after_item=after_item,
+                                                  after_approval=after_approval))
 
 
 def _delete_guard(c, wp_id: str) -> None:

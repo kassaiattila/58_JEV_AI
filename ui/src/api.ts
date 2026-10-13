@@ -42,6 +42,8 @@ export interface RunRow {
 }
 export interface WorkpackageView {
   workpackage: Workpackage; readiness: Readiness; titles?: Record<string, string>; next: NextStep; last_run: RunRow | null; runs: number;
+  /** 153: the run the next step is about (a later run a person stopped does not hide an earlier finished one) */
+  current_run?: RunRow | null;
   attachments_missing?: number; // 058 K5.2: in an email package, the number of PDF attachments not yet added
   /** 131: a reconciliation package's scope, counts and coverage (it has no files and no runs) */
   reconcile?: { scope: ReconcileScope; counts: ReconcileCounts; coverage: ReconcileCoverage[]; approval?: ReconcileApproval };
@@ -478,6 +480,8 @@ export interface ReconcileLine extends ReconcileLineDetails {  // 144: with the 
   partner?: string | null; earlier_marks?: { category: string; lines: number }[];
   /** 140: the needs-no-invoice reason the line's own category suggests (configs/reconcile.json category_marks) */
   category_mark?: string | null;
+  /** 153: it went to an account a stored statement prints but no own party holds: a transfer between own accounts? */
+  own_account_unregistered?: boolean;
   /** 145: the approved statement (package and version) that locks the line; null: none */
   locked?: { workpackage_id: string; version: number } | null;
 }
@@ -605,9 +609,17 @@ export interface ReconcileLeftOver {
   currency: string | null; booking_date: string | null; amount: string | null; direction: string | null;
   counterparty_name: string | null; file: string | null; replaced_by_file: string | null; invoice_file: string | null;
 }
+/** 153 (review A3): an allocation that no longer fits its line or invoice (an amount changed since it was made). */
+export interface ReconcileUnfit {
+  kind: "allocation"; ref: string; line_id: string; invoice_id: string; statement_id: string | null; workpackage_id: string | null;
+  line_amount: string | null; invoice_amount: string | null; line_total: string | null; invoice_total: string | null;
+  currency: string | null; booking_date: string | null; direction: string | null; counterparty_name: string | null;
+  invoice_file: string | null;
+}
 export interface ReconcileWorkspace {
   workpackage_id: string; scope: ReconcileScope; lines: ReconcileLine[]; invoices: ReconcileInvoice[];
   left_over?: ReconcileLeftOver[];
+  unfit?: ReconcileUnfit[];
   /** 145: what warns without blocking the approval (a statement whose balances do not check out), and the approval */
   warnings?: ReconcileBlocker[]; approval?: ReconcileApproval;
   coverage: ReconcileCoverage[]; blockers: ReconcileBlocker[]; line_marks: string[]; open: Record<string, ReconcileOpen>;
@@ -713,7 +725,7 @@ const identityBody = (i: PartyIdentity) => ({ kind: i.kind, key: i.key, label: i
 
 // --- 056 U1: datasets (unified list query and download) -------------------------------------------------------
 export type ColKind = "text" | "number" | "money" | "date" | "datetime" | "enum" | "bool" | "id";
-export type LinkKind = "run" | "workpackage" | "next" | "reviews" | "review" | "item";
+export type LinkKind = "run" | "workpackage" | "next" | "reviews" | "review" | "item" | "process";
 export interface DsColumn {
   key: string; label: string; kind: ColKind; hidden: boolean; labels: Record<string, string> | null; link?: LinkKind; field?: string;
   badge?: boolean; alert?: boolean; // 057: status badge; a value above 0 is highlighted
@@ -735,6 +747,8 @@ export interface DsPage {
   facets: Record<string, string[]>;
   /** 086 (audit N01): a run's table — the version of the reviewed result these rows show */
   review_version?: string;
+  /** 153: the package list's last rows, served while newer ones are being built */
+  refreshing?: boolean;
 }
 export type DsScope = Record<string, string>;
 export type ExportFormat = "xlsx" | "csv" | "json";

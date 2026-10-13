@@ -1204,5 +1204,20 @@
   "{{n}} older live run(s) were repeated by a later live run on the same documents. Superseding stops them and closes their {{m}} open to-dos; they cannot be approved afterwards.": "{{n}} régebbi éles futást egy újabb éles futás megismételt ugyanezekkel az iratokkal. A leváltás leállítja őket és lezárja {{m}} nyitott teendőjüket; utána nem hagyhatók jóvá.",
   "{{r}} closed to-dos and {{c}} hand-corrected documents stay with it and are not carried over": "{{r}} lezárt teendője és {{c}} kézzel javított irata a régin marad, nem kerül át",
   "Run superseded: {{n}} open to-dos closed.": "Futás leváltva: {{n}} nyitott teendő lezárva.",
-  "the named invoices together: {{amount}}": "a megnevezett számlák együtt: {{amount}}"
+  "the named invoices together: {{amount}}": "a megnevezett számlák együtt: {{amount}}",
+  "{{r}} closed to-dos stay with it and are not carried over": "{{r}} lezárt teendője a régin marad, nem kerül át",
+  "{{c}} hand-corrected documents stay with it and are not carried over": "{{c}} kézzel javított irata a régin marad, nem kerül át",
+  "On this run {{r}} to-dos were already closed; they stay with this run and are not carried over to the later one.": "Ezen a futáson már {{r}} teendőt lezártak; ezek ennél a futásnál maradnak, az újabb futásba nem kerülnek át.",
+  "On this run {{c}} documents were corrected by hand; they stay with this run and are not carried over to the later one.": "Ezen a futáson már {{c}} iratot kézzel javítottak; ezek ennél a futásnál maradnak, az újabb futásba nem kerülnek át.",
+  "Updating…": "Frissül…",
+  "Older runs to supersede": "Leváltható régi futás",
+  "An amount cannot be read, or can be read two ways: type it like 12 345,67.": "Egy összeg nem olvasható, vagy kétféleképpen is olvasható: így írd: 12 345,67.",
+  "A pairing no longer fits the amounts of its line or invoice: {{name}}": "Egy párosítás már nem fér bele a sora vagy a számlája összegébe: {{name}}",
+  "Pairings that no longer fit": "Már nem férő párosítások",
+  "An amount of the line or the invoice changed since these pairings were made, and they no longer fit it. They count nowhere; revoke each one, then pair the line again.": "Ezek a párosítások óta megváltozott a sor vagy a számla összege, és már nem férnek bele. Sehol nem számítanak; vond vissza mindegyiket, aztán párosítsd újra a sort.",
+  "Paired amount": "Párosított összeg",
+  "Amounts now": "Összegek most",
+  "line {{line}} · invoice {{invoice}}": "sor {{line}} · számla {{invoice}}",
+  "to an account not registered as own": "nem nyilvántartott saját számlára",
+  "A statement here prints the account it went to, but no own party holds that account (Settings › Own parties). Register it there if it is yours; then the line counts as a transfer between own accounts.": "Egy itteni kivonat kiírja a számlát, ahová ment, de ezt a számlát egyik saját gazdálkodó sem tartja nyilván (Beállítások › Saját gazdálkodók). Ha a tiéd, vedd fel ott; akkor a sor saját számlák közti átvezetésnek számít."
 }

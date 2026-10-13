@@ -446,6 +446,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     paid_invoice = {k: Decimal(v) for k, v in result["paid"]["invoices"].items()}
     marks = {m["line_id"]: m for m in snap["marks"]}
     excluded = {(e["kind"], e["id"]): e["reason"] for e in result["excluded"]}
+    unregistered = set(result.get("unregistered_own") or [])  # 153: lines to an account no party holds
     by_line, by_invoice = defaultdict(list), defaultdict(list)
     for c in result["candidates"]:
         by_line[c["line_id"]].append(c)
@@ -511,6 +512,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
                           "statement_verified": bool(st.get("verified")),
                           "partner": partner, "earlier_marks": _earlier_marks(history, ln, partner),
                           "category_mark": reconcile.category_mark(ln),  # 140: the line's own category suggests a reason
+                          "own_account_unregistered": lid in unregistered,  # 153: own transfer? no party holds the account
                           "locked": locked.get(lid)})
     line_ids = {ln["id"] for ln in lines}
     from jav import reconcile_ai  # 134: the AI's stored answers per line (that module reads this workspace)
@@ -585,8 +587,12 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     left_over = left_over_rows(snap, scope_ids, wp_id)
     for row in left_over:
         blockers.append({"code": "decision_not_carried", "doc_id": row["statement_id"], "file": row["file"], "kind": "statement"})
+    unfit = unfit_rows(result, snap, scope_ids, wp_id)
+    for row in unfit:
+        blockers.append({"code": "allocation_no_longer_fits", "doc_id": row["invoice_id"], "file": row["invoice_file"],
+                         "kind": "invoice"})
     return {"workpackage_id": wp_id, "scope": sc, "lines": lines, "invoices": invoice_rows, "coverage": coverage,
-            "left_over": left_over, "overview": reconcile_overview.build(lines, invoice_rows, result["repeats"]),
+            "left_over": left_over, "unfit": unfit, "overview": reconcile_overview.build(lines, invoice_rows, result["repeats"]),
             "blockers": blockers, "warnings": warnings, "approval": approval(wp_id),
             "line_marks": list(_conf()["line_marks"]), "open": _open_refs(docs),
             "counts": {"lines": dict(sorted(Counter(ln["state"] for ln in lines).items())),
@@ -696,6 +702,28 @@ def left_over_rows(snap: dict[str, Any], scope_ids: set[str], wp_id: str) -> lis
     return out
 
 
+def unfit_rows(result: dict[str, Any], snap: dict[str, Any], scope_ids: set[str], wp_id: str) -> list[dict[str, Any]]:
+    """153 (review A3): the allocations that no longer fit their line or invoice (an amount corrected or read again
+    since, `reconcile._settled`), for the package that made them or whose scope holds the line; each with its amounts and
+    the sides' amounts now, to be revoked (and made again). They block the approval."""
+    lines = {ln["id"]: {**ln, "statement_id": st["id"], "currency": st.get("currency")}
+             for st in snap["statements"] for ln in st["lines"]}
+    out = []
+    for a in result.get("unfit") or []:
+        line = lines.get(str(a["line_id"]), {})
+        if a.get("workpackage_id") != wp_id and line.get("statement_id") not in scope_ids:
+            continue
+        out.append({"kind": "allocation", "ref": str(a["id"]), "line_id": a["line_id"], "invoice_id": a["invoice_id"],
+                    "statement_id": line.get("statement_id") or a.get("statement_id"), "workpackage_id": a.get("workpackage_id"),
+                    "line_amount": a.get("line_amount"), "invoice_amount": a.get("invoice_amount"),
+                    "line_total": a.get("line_total"), "invoice_total": a.get("invoice_total"), "currency": line.get("currency"),
+                    **{k: line.get(k) for k in ("booking_date", "direction", "counterparty_name")}})
+    files = reconcile.file_names([r["invoice_id"] for r in out])
+    for r in out:
+        r["invoice_file"] = files.get(r["invoice_id"])
+    return out
+
+
 SOURCE_OK = ("approved", "accepted")  # 145: a source that does not block the approval
 
 
@@ -766,6 +794,8 @@ def _decision_state(c=None) -> list[Any]:
         state.append(list(c.execute(f"SELECT COUNT(*), MAX(id), COUNT(revoked_at) FROM {table}").fetchone()))
     state.append(list(c.execute("SELECT COUNT(*), MAX(decided_at) FROM reconcile_decisions").fetchone()))
     state.append(list(c.execute("SELECT COUNT(*), MAX(id), COUNT(reopened_at) FROM reconcile_versions").fetchone()))
+    # 153 (review A3): a scope changed meanwhile (a line checked against the old one might now be outside it)
+    state.append(list(c.execute("SELECT COUNT(*), SUM(revision) FROM reconcile_scopes").fetchone()))
     return state
 
 
@@ -1061,6 +1091,7 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
         raise KeyError(ref)
     # 139: a decision made on a replaced statement's line stands on the same line of the valid one, or is left over
     left = {(r["kind"], r["ref"]) for r in left_over_rows(ctx["snap"], ctx["scope_ids"], wp_id)}
+    left |= {(r["kind"], r["ref"]) for r in unfit_rows(ctx["result"], ctx["snap"], ctx["scope_ids"], wp_id)}  # 153
     if (kind, str(ref)) not in left:
         _scope_line(ctx, ctx["snap"].get("line_map", {}).get(row["line_id"], row["line_id"]))
     _unlocked(ctx, [row["line_id"], ctx["snap"].get("line_map", {}).get(row["line_id"], row["line_id"])])
