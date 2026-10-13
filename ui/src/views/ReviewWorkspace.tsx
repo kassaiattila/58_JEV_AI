@@ -6,7 +6,7 @@ import { useDataset, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { FIELD, fieldLabel, fold, ITEM_STATUS, itemName } from "../labels";
 import { useNameMode } from "../names";
-import { go } from "../route";
+import { go, routeHash } from "../route";
 import { draftKey, getDraft, setField, useDraft } from "../review/drafts";
 import { EmailReview } from "../review/EmailReview";
 import { FieldPanel } from "../review/FieldPanel";
@@ -53,7 +53,9 @@ function withNote(note: string | null, node: ReactNode): ReactNode {
 
 /** To-dos: the items on the left, the page image with the field frames in the middle, the to-dos and the fields on
  *  the right (045 K3b). We work on the result of one run (the latest by default); a correction belongs to that run. */
-export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: string }) {
+/** 153 (review): `onChanged` tells the package page that a to-do or a value changed, so its header and stage tabs
+ *  follow (they kept the old count until the browser was reloaded). */
+export function ReviewWorkspace({ wp, itemId, onChanged }: { wp: Workpackage; itemId?: string; onChanged?: () => void }) {
   useLocale();
   const latest = useDataset("runs", { workpackage_id: wp.id }, { limit: 1 });
   const [runId, setRunId] = useState<string | null>(null);
@@ -134,7 +136,7 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
           <div className="empty">{t("A kért tétel ({{id}}) nem része ennek a futásnak. Válassz a listából.", { id: selectedId?.slice(0, 12) ?? "" })}</div>
         ) : (
           <ItemReview key={`${run.run_id}:${selected.item_id}`} wpId={wp.id} runId={run.run_id} itemId={selected.item_id}
-            approved={Boolean(run.approval)} onChanged={view.reload}
+            approved={Boolean(run.approval)} onChanged={() => itemChanged(wp.id, !itemId, selected.item_id, view.reload, onChanged)}
             onNext={index < items.length - 1 ? () => pick(items[index + 1].item_id) : undefined}
             onPrev={index > 0 ? () => pick(items[index - 1].item_id) : undefined}
             onNextTodo={nextTodo ? () => pick(nextTodo.item_id) : undefined} />
@@ -144,14 +146,26 @@ export function ReviewWorkspace({ wp, itemId }: { wp: Workpackage; itemId?: stri
   );
 }
 
+/** 153 (review): after a change on an item. An item the queue chose (no item in the address) is put into the address,
+ *  so it stays chosen when its last to-do closes (it jumped to the first item); the run's view reloads, and the package
+ *  page is told (its header and stage tabs kept the old count). */
+export function itemChanged(wpId: string, chosenByQueue: boolean, itemId: string, reloadRun: () => void, onChanged?: () => void): void {
+  if (chosenByQueue) window.location.replace(routeHash({ view: "workpackages", wpId, stage: "review", itemId }));
+  reloadRun();
+  onChanged?.();
+}
+
 function QueueItem({ runId, itemId, name, tip, warn, active, status, own, earlier, onClick }: {
   runId: string; itemId: string; name: string; tip?: string; warn?: ReactNode; active: boolean; status: string; own: number; earlier: number;
   onClick: () => void;
 }) {
   useLocale();
   const draft = useDraft(draftKey(runId, itemId));
+  const ref = useRef<HTMLButtonElement>(null);
+  // 153 (review): the active item is scrolled into the queue's view (it could sit a screen below the visible part)
+  useEffect(() => { if (active) ref.current?.scrollIntoView?.({ block: "nearest" }); }, [active]);
   return (
-    <button type="button" className="work-item" aria-pressed={active} onClick={onClick}>
+    <button ref={ref} type="button" className="work-item" aria-pressed={active} onClick={onClick}>
       <span className="work-title" title={tip ? `${name}
 ${tip}` : name}>{warn}{name}</span>
       <small>{status}</small>

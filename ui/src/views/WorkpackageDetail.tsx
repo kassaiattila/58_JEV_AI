@@ -144,7 +144,7 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
         {!reconcile && stage === "review" ? (
           view.runs ? (
             <>
-              <ReviewWorkspace wp={workpackage} itemId={route.itemId} />
+              <ReviewWorkspace wp={workpackage} itemId={route.itemId} onChanged={wp.reload} />
               <details className="details mt">
                 <summary>{t("Iratok kezelése: megnyitás, letöltés, eltávolítás")}</summary>
                 <DocumentsPanel wp={workpackage} onChanged={wp.reload} />
