@@ -1,6 +1,8 @@
-import "@fontsource/geist-sans/400.css";
-import "@fontsource/geist-sans/600.css";
-import "@fontsource/geist-mono/400.css";
+// 155: IBM Plex Sans for text (clear, tabular figures for amounts and dates), IBM Plex Mono for codes; self-hosted
+import "@fontsource/ibm-plex-sans/400.css";
+import "@fontsource/ibm-plex-sans/500.css";
+import "@fontsource/ibm-plex-sans/600.css";
+import "@fontsource/ibm-plex-mono/400.css";
 import "./styles.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
