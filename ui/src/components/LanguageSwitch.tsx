@@ -28,14 +28,16 @@ export function LanguageSwitch() {
   }
 
   return (
-    <div role="group" className="lang-switch" aria-label={t("A felület nyelve")} aria-busy={busy} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-      {LANGUAGES.map((l) => (
-        <button key={l.value} type="button" className="secondary small-btn" lang={l.value} title={l.name}
-          aria-pressed={current === l.value} disabled={busy} onClick={() => void choose(l.value)}>
-          {l.code}
-        </button>
-      ))}
-      {failed ? <span className="small" role="alert" style={{ color: "var(--error)" }}>{t("A nyelv betöltése nem sikerült.")}</span> : null}
-    </div>
+    <>
+      <div role="group" className="lang-switch" aria-label={t("A felület nyelve")} aria-busy={busy}>
+        {LANGUAGES.map((l) => (
+          <button key={l.value} type="button" className="secondary small-btn" lang={l.value} title={l.name}
+            aria-pressed={current === l.value} disabled={busy} onClick={() => void choose(l.value)}>
+            {l.code}
+          </button>
+        ))}
+      </div>
+      {failed ? <span className="small lang-error" role="alert">{t("A nyelv betöltése nem sikerült.")}</span> : null}
+    </>
   );
 }

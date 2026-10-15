@@ -112,6 +112,11 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
       {last ? ` · ${t("utolsó futás: {{mode}}, {{when}}", { mode: MODE[last.mode].toLowerCase(), when: when(last.created_at) })}` : ` · ${t("még nem futott")}`}
     </>
   );
+  // 146: the workflow the package is a step of, with a link to its control view (155: on the summary line)
+  const workflowOf: ReactNode = view.workflow ? (
+    <>{" · "}{t("Step {{step}} of the workflow", { step: t(view.workflow.step_title) })}{" "}
+      <a href={`#/workflows/${encodeURIComponent(view.workflow.id)}`}>{view.workflow.name}</a></>
+  ) : null;
   // the next-step button; not needed if we are already on that stage's page
   const nextButton = next.stage !== stage || route.stage === undefined ? (
     <button type="button" className="primary" onClick={() => go({ view: "workpackages", wpId, stage: next.stage })}>{nextStepText(view)} →</button>
@@ -119,15 +124,11 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
 
   return (
     <>
-      <PageHeader crumbs={[{ label: t("Munkacsomagok"), href: "#/workpackages" }]} title={workpackage.name} summary={summary}
+      <PageHeader compact crumbs={[{ label: t("Munkacsomagok"), href: "#/workpackages" }]} title={workpackage.name}
+        summary={<>{summary}{workflowOf}</>}
         actions={<><OwnerPicker view={view} onChanged={wp.reload} />{nextButton}<WorkpackageActions view={view} onChanged={wp.reload} /></>} />
       {workpackage.status === "archived" ? (
         <p className="notice">{t("Ez a csomag el van rejtve a listából; a futásai és az eredményei megmaradtak. Visszahozni a „Csomag kezelése” gombbal lehet.")}</p>
-      ) : null}
-      {view.workflow ? (
-        // 146: the workflow the package is a step of, with a link to its control view
-        <p className="small wf-of">{t("Step {{step}} of the workflow", { step: t(view.workflow.step_title) })}{" "}
-          <a href={`#/workflows/${encodeURIComponent(view.workflow.id)}`}>{view.workflow.name}</a></p>
       ) : null}
       <div className="stage-tabs" role="tablist" aria-label={t("A csomag szakaszai")}>
         {(Object.keys(labels) as Stage[]).map((s, i) => (

@@ -97,8 +97,18 @@ function Cell({ col, row, custom }: { col: DsColumn; row: DsRow; custom?: Props[
   // 057: status as a badge, an attention count above 0 highlighted (the column description says which column is one)
   const body = col.badge ? <span className={`status s-${String(raw)}`}>{text}</span>
     : col.alert && Number(raw) > 0 ? <span className="count-alert">{text}</span>
-      : col.kind === "id" ? <span className="mono small">{text}</span> : text;
+      : col.kind === "id" ? <span className="mono small">{text}</span>
+        : col.kind === "datetime" ? <When text={text} /> : text;
   return href ? <a href={href}>{body}</a> : <>{body}</>;
+}
+
+/** 155: a date-time as its date and its time, so that a narrow column puts the time under the date instead of breaking
+ *  the date itself; the text (and what a test or a screen reader reads) stays the same. */
+function When({ text }: { text: string }) {
+  // the time is the last part that starts with h:mm (with any AM/PM after it): "2026. 10. 13. 19:03", "10/13/26, 7:03 PM"
+  const m = /^(.*\S)(\s+)(\d{1,2}[:.]\d{2}\D*)$/.exec(text);
+  if (!m) return <>{text}</>;
+  return <span className="when"><span>{m[1]}</span>{m[2]}<span>{m[3]}</span></span>;
 }
 
 const NUMERIC = new Set(["number", "money"]);
@@ -416,6 +426,7 @@ export function DataTable(p: Props) {
       {data ? (
         <div className="dt-scroll" ref={scrollRef} style={{ maxHeight: p.maxHeight ?? "70vh" }}>
           <table ref={tableRef} className={widths.sized ? "table dt-table sized" : "table dt-table"} aria-label={p.label} aria-rowcount={matched + 1}
+            data-dataset={p.dataset}
             style={widths.sized ? { width: widths.total(leafIds) } : undefined}>
             {widths.sized ? <colgroup>{leafIds.map((id) => <col key={id} style={{ width: widths.widthOf(id) }} />)}</colgroup> : null}
             <thead>
@@ -458,7 +469,7 @@ export function DataTable(p: Props) {
                   {row.getVisibleCells().map((cell) => {
                     const c = cell.column.columnDef.meta as DsColumn | undefined;
                     return (
-                      <td key={cell.id} className={c && NUMERIC.has(c.kind) ? "num" : undefined}>
+                      <td key={cell.id} data-col={cell.column.id} className={c && NUMERIC.has(c.kind) ? "num" : undefined}>
                         {c ? <Cell col={c} row={row.original} custom={p.cell} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     );

@@ -47,7 +47,7 @@ export function App() {
       <div className="main-col">
         <UpdateBanner />
         <header className="top">
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div className="top-status">
             <WorkerBadge />
             <LanguageSwitch />
           </div>
@@ -69,7 +69,7 @@ export function App() {
 function WorkerBadge() {
   const w = useLoad("worker", api.worker, 5000);
   if (w.error) return <span className="pill error-pill" role="status">{t("A helyi szolgáltatás nem érhető el")}</span>;
-  if (!w.data) return <span className="pill">…</span>;
+  if (!w.data) return <span className="pill pending-pill">…</span>;
   const waiting = (w.data.jobs.queued ?? 0) + (w.data.jobs.claimed ?? 0);
   return (
     <span className={`pill ${w.data.running ? "" : "warn-pill"}`} role="status">

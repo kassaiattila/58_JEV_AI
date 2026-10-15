@@ -37,7 +37,10 @@ function WorkpackageList() {
         </>}
         cell={(col, row) => (col.key === "next_label" ? (
           // the next step in the chosen language (from the local service's code), with a link to the stage
-          <a href={linkOf(col, row) ?? "#/workpackages"}>{stepLabel(String(row.next_code), row._next_params as Record<string, unknown>, String(row.next_label))}</a>
+          <a className="next-step" href={linkOf(col, row) ?? "#/workpackages"}>
+            <StageTrack stage={String(row._stage)} code={String(row.next_code)} />
+            <span>{stepLabel(String(row.next_code), row._next_params as Record<string, unknown>, String(row.next_label))}</span>
+          </a>
         ) : undefined)}
         emptyText={t("Még nincs munkacsomag. Az „Új munkacsomag” gombbal mappából, fájlokból vagy postafiókból hozhatsz létre.")} />
     </>
@@ -49,6 +52,23 @@ function WorkpackageList() {
 // `initialTemplate` opens a template's form at once.
 export function CreateForm({ onDone, initialTemplate }: { onDone: (id: string) => void; initialTemplate?: string }) {
   return <NewWork onPackage={onDone} onWorkflow={(id) => go({ view: "workflows", wfId: id })} initialTemplate={initialTemplate} />;
+}
+
+const STAGE_ORDER = ["process", "review", "result"];
+const TRACK_TONE: Record<string, string> = {
+  running: "t-running", review: "t-todo", reconcile_pair: "t-todo", rerun: "t-failed", blocked: "t-failed",
+  done: "t-done", reconcile_approved: "t-done",
+};
+
+/** 155: where the package stands on its way — Processing · Review · Result — as three short segments before the next
+ *  step; the current one takes the state's colour. Purely visual: the step's text says the same in words. */
+function StageTrack({ stage, code }: { stage: string; code: string }) {
+  const at = Math.max(0, STAGE_ORDER.indexOf(stage));
+  return (
+    <span className={`track ${TRACK_TONE[code] ?? ""}`} aria-hidden="true">
+      {STAGE_ORDER.map((s, i) => <i key={s} className={i < at ? "passed" : i === at ? "current" : undefined} />)}
+    </span>
+  );
 }
 
 export function RunStatus({ status }: { status: string }) {

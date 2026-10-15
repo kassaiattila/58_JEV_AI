@@ -10,8 +10,10 @@ import type { Alternative, Provenance, SourcePage, SourceWord } from "../api";
 import { t, useLocale } from "../i18n";
 import { cyclePick, fieldsAtPoint, frameBoxes, inflate, insideShare, unionBox, wordAt, wordsInRect } from "./geometry";
 
+// 155: the design system's state colours (docs/guides/DESIGN.md): a field to check is a person's to-do (orange), one
+// a person entered is a selection (blue); on the page image the light-theme values apply in both themes
 export const BAND_COLOR: Record<string, string> = {
-  confident: "#008A2E", check: "#0057FF", likely_wrong: "#E00024", unknown: "#5b5b66", manual: "#7a3fb0",
+  confident: "var(--ok)", check: "var(--todo)", likely_wrong: "var(--error)", unknown: "var(--muted)", manual: "var(--run)",
 };
 
 interface Props {
