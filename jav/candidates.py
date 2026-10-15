@@ -28,6 +28,7 @@ from jav.models import (
     Candidate,
     CandidateKind,
     LineLayout,
+    account_key,
     money_label,
     normalize_tax_id,
     parse_money,
@@ -322,14 +323,25 @@ PARTIAL_HU_IBAN_RE = re.compile(r"^HU\d{2}(?:[  ]\d{4}){1,5}$")
 IBAN_GROUP_RE = re.compile(r"^\d{4}$")
 
 
+def _account_merge_keys(raw: str) -> tuple[str, str | None]:
+    """Two forms are one account when either key matches. The last 16 digits join a 24-digit number with its tail
+    when the reader split the number across two cells; 156: the 24-digit domestic number of a Hungarian account joins
+    its 16-digit form (eight trailing zeros) and its IBAN (without the country code and check digits)."""
+    domestic = account_key(raw)
+    return re.sub(r"\D", "", raw)[-16:], domestic if len(domestic) == 24 and domestic.isdigit() else None
+
+
 def find_ibans(lines: list[LineLayout], work: list[str], profile: Profile = HU) -> list[Candidate]:
     bucket = _Bucket("iban")
-    seen_digits: dict[str, str] = {}
+    seen_tails: dict[str, str] = {}
+    seen_domestic: dict[str, str] = {}
 
     def add(label_raw: str, i: int) -> None:
-        digits = re.sub(r"\D", "", label_raw)
-        label = seen_digits.get(digits[-16:], " ".join(label_raw.split()))
-        seen_digits.setdefault(digits[-16:], label)
+        tail, domestic = _account_merge_keys(label_raw)
+        label = seen_tails.get(tail) or (seen_domestic.get(domestic) if domestic else None) or " ".join(label_raw.split())
+        seen_tails.setdefault(tail, label)
+        if domestic:
+            seen_domestic.setdefault(domestic, label)
         bucket.add(label, label_raw, lines, i)
 
     # HU IBAN broken across lines (NAV Online Számlázó template): "HU82 1210 0028 4681 3574 0000" + "0000" below it
