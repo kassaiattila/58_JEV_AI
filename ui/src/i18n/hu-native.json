@@ -1230,5 +1230,6 @@
   "difference: {{diff}}": "eltérés: {{diff}}",
   "Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.": "Nem sikerült menteni: a(z) „{{field}}” mező értéke nem {{what}}. Javítsd, és mentsd újra; a módosításaid megmaradtak.",
   "valid date": "érvényes dátum",
-  "number": "szám"
+  "number": "szám",
+  "Starts a run that can spend up to {{usd}}": "Futást indít, amely legfeljebb {{usd}} összeget költhet"
 }

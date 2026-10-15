@@ -123,7 +123,7 @@ th:hover > .col-resizer::after { background: var(--line); }
 .table tr:last-child td { border-bottom: 0; }
 .table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .table.compact th, .table.compact td { padding: 6px var(--sp-2); }
-.card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 18px; display: grid; gap: 12px; max-width: 720px; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--sp-4); margin-bottom: var(--sp-4); display: grid; gap: var(--sp-3); max-width: 720px; }
 .block { display: grid; gap: 6px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
 .block input, .block select, .block textarea { font-weight: 400; border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; background: var(--paper); width: 100%; }
 .segmented { border: 0; padding: 0; margin: 0; display: flex; gap: 18px; font-size: 13px; }
@@ -209,12 +209,12 @@ th:hover > .col-resizer::after { background: var(--line); }
 .run-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 30px; align-items: start; }
 /* 083: the run's total cost first; the budget bars in a closed part under it */
 .cost-total { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 2px 0 10px; }
-.cost-total strong { font-size: 20px; }
+.cost-total strong { font-size: var(--fs-xl); font-variant-numeric: tabular-nums; }
 .budget-box { margin-top: 12px; }
 .budget { margin-bottom: 12px; }
 .budget-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
-.bar { height: 8px; background: #e6e6ea; border-radius: 99px; overflow: hidden; }
-.bar span { display: block; height: 100%; background: var(--accent); }
+.bar { height: 8px; background: var(--chip); border-radius: var(--r-full); overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--run); } /* a run in progress is a running state, not an action */
 
 @media (max-width: 1280px) {
   .workspace { grid-template-columns: 200px minmax(280px, 1fr) 320px; }
@@ -503,44 +503,44 @@ th.num .th-in { flex-direction: row-reverse; }
 .wide-bar { flex: 1 1 100%; }
 .recipe-form { display: grid; gap: 10px; max-width: 720px; border-top: 1px solid var(--line-soft); padding-top: 12px; }
 /* 063: the explanation of the recipes (recipe card, Settings › Recipes) */
-.param-help { display: grid; gap: 0; margin: 0; max-width: 900px; border: 1px solid var(--line-soft); border-radius: 8px; overflow: hidden; }
+.param-help { display: grid; gap: 0; margin: 0; max-width: 900px; border: 1px solid var(--line-soft); border-radius: var(--radius); overflow: hidden; }
 .param-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 14px; padding: 9px 12px; border-bottom: 1px solid var(--line-soft); }
 .param-row:last-child { border-bottom: 0; }
 .param-row dt { color: var(--muted); font-size: 13px; }
 .param-row dd { margin: 0; display: grid; gap: 3px; }
-.param-note { display: block; font-size: 12.5px; color: var(--muted); border-left: 3px solid var(--tint-line); padding-left: 9px; margin: 0; }
+.param-note { display: block; font-size: var(--fs-xs); color: var(--muted); background: var(--soft); border-radius: var(--r-sm); padding: var(--sp-1) var(--sp-2); margin: 0; }
 .param-field .block-picker { margin-bottom: 4px; }
 .param-field { margin-bottom: 8px; }
 .budget-line { font-weight: 600; }
-.recipe-doc h3 { font-size: 16px; margin: 0; }
-.recipe-doc h4 { font-size: 14px; margin: 4px 0 0; }
-.recipe-kv { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 8px 16px; margin: 0; font-size: 13.5px; }
+.recipe-doc h3 { font-size: var(--fs-md); margin: 0; }
+.recipe-doc h4 { font-size: var(--fs-sm); margin: var(--sp-1) 0 0; }
+.recipe-kv { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: var(--sp-2) var(--sp-4); margin: 0; font-size: var(--fs-sm); }
 .recipe-kv dt { color: var(--muted); font-weight: 600; }
 .recipe-kv dd { margin: 0; }
 .tight { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
 .tight.columns { display: block; columns: 3 220px; margin-top: 6px; }
-.param-doc { border-top: 1px solid var(--line-soft); padding-top: 10px; display: grid; gap: 6px; font-size: 13.5px; }
-.param-doc details summary { cursor: pointer; color: var(--accent); }
+.param-doc { border-top: 1px solid var(--line-soft); padding-top: 10px; display: grid; gap: 6px; font-size: var(--fs-sm); }
+.param-doc details summary { cursor: pointer; color: var(--ink-2); }
 .option-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.option-list li { display: grid; grid-template-columns: max-content auto 1fr; gap: 2px 10px; align-items: baseline; padding-left: 12px; border-left: 3px solid var(--tint-line); }
+.option-list li { display: grid; grid-template-columns: max-content auto 1fr; gap: 2px 10px; align-items: baseline; padding: var(--sp-1) var(--sp-2); background: var(--soft); border-radius: var(--r-sm); }
 .option-list .option-text { grid-column: 1 / -1; color: var(--ink); }
 .option-list .option-text.muted { color: var(--muted); }
 .option-list .status { justify-self: start; }
 @media (max-width: 800px) { .param-row, .recipe-kv { grid-template-columns: 1fr; gap: 2px; } }
 /* 080: the paths compared (Settings › Processing) and the pre-start overview (run card, confirmation page) */
 .table-scroll { overflow-x: auto; max-width: 100%; }
-.path-compare { width: 100%; max-width: 980px; border-collapse: collapse; font-size: 13.5px; }
+.path-compare { width: 100%; max-width: 980px; border-collapse: collapse; font-size: var(--fs-sm); }
 .path-compare th, .path-compare td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line-soft); }
 .path-compare thead th { color: var(--muted); font-weight: 600; }
 .path-compare tbody th { color: var(--muted); font-weight: 600; width: 190px; }
 @media (max-width: 800px) { .path-compare tbody th { width: auto; } .path-compare th, .path-compare td { padding: 6px; } }
 .run-plan { border-top: 1px solid var(--line-soft); margin-top: 10px; padding-top: 8px; }
-.run-plan h3 { font-size: 14px; margin: 0 0 4px; }
+.run-plan h3 { font-size: var(--fs-sm); margin: 0 0 var(--sp-1); }
 .run-plan ul { display: grid; gap: 3px; }
 .result-bar { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
 .result-bar .picker { width: min(460px, 100%); }
 .segmented-tabs { display: inline-flex; background: var(--chip); border-radius: 8px; padding: 3px; gap: 2px; }
-.seg { border: 0; background: none; padding: 7px 14px; border-radius: 6px; font-size: 13.5px; font-weight: 500; color: var(--muted); }
+.seg { border: 0; background: none; padding: 6px var(--sp-3); border-radius: var(--r-md); font-size: var(--fs-sm); font-weight: 500; color: var(--muted); }
 .seg:hover:not([aria-selected="true"]) { color: var(--accent); background: var(--tint); }
 .seg[aria-selected="true"] { background: var(--paper); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-raised); }
 .approval-box { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--warn-tint); color: var(--warn); }
@@ -644,7 +644,12 @@ th:hover .th-filter, .th-filter:focus-visible, .th-filter[aria-expanded="true"] 
 /* 058: shortened link in the email text (not clickable; the full address is in the tooltip) */
 .mail-link { display: inline-block; padding: 0 6px; margin: 0 1px; border: 1px solid var(--line); border-radius: 4px; color: var(--muted); font-size: 12px; line-height: 1.5; white-space: nowrap; }
 /* 058: a short explanation of the three run buttons */
-.run-help { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 10px 0 4px; color: var(--muted); }
+.run-help { display: grid; grid-template-columns: max-content 1fr; gap: 2px var(--sp-3); margin: 10px 0 var(--sp-1); color: var(--muted); }
+/* 155: a run's cost cap on every button that starts one (a trial spends from the same budget as a live run); the
+   live run, whose result can be released, carries a firm ink border when it is not the recommended step */
+.spend { display: inline-flex; margin-left: var(--sp-1); padding-left: var(--sp-2); border-left: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  font-size: var(--fs-xs); font-weight: 500; font-variant-numeric: tabular-nums; opacity: .85; }
+.button-row [data-run="apply"].secondary { border-color: var(--ink); font-weight: 600; }
 .run-help dt { font-weight: 600; color: var(--ink); }
 .run-help dd { margin: 0; }
 /* 058: picker for the mailboxes used before */

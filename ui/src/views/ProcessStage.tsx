@@ -79,6 +79,12 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
 
   // 061: the button leads to the confirmation page; the start happens there
   const start = (mode: "shadow" | "apply", rerun = false) => go({ view: "workpackages", wpId: wp.id, stage: "process", start: { mode, rerun } });
+  // 155: every run spends from the same budget (a trial calls the same services as a live run), so each start button
+  // carries the cap; a run that can spend nothing carries no mark
+  const cap = Object.values(readiness.budget).reduce((s, v) => s + (Number(v) || 0), 0);
+  const spend = cap > 0 ? <span className="spend" aria-hidden="true">≤ {usdBudget(cap)}</span> : null;
+  const spendNote = cap > 0 ? t("Starts a run that can spend up to {{usd}}", { usd: usdBudget(cap) }) : "";
+  const withSpend = (title?: string) => [title, spendNote].filter(Boolean).join(" · ") || undefined;
 
   return (
     <div className="stage-grid">
@@ -118,12 +124,14 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
         ) : null}
         <OlderRunsOffer runs={view.supersedable ?? []} busy={busy || active} onSupersede={(id) => void supersede(id)} />
         <div className="button-row">
-          <button type="button" className={btn("shadow")} disabled={!readiness.ready || busy || active} onClick={() => start("shadow")}><Icon name="trial" />{t("Próbafutás")}…</button>
-          <button type="button" className={btn("apply")}
-            disabled={!readiness.ready || busy || active} onClick={() => start("apply")}><Icon name="play" />{t("Éles futás")}…</button>
-          <button type="button" className={btn("rerun")} disabled={!last || !readiness.ready || busy || active}
-            title={last ? t("A legutóbbi ({{mode}}) futás megismétlése ugyanezzel a bemenettel", { mode: MODE[last.mode].toLowerCase() }) : t("Még nincs megismételhető futás")}
-            onClick={() => last && start(last.mode, true)}><Icon name="rerun" />{t("Újrafuttatás")}…</button>
+          <button type="button" className={btn("shadow")} data-run="shadow" title={withSpend()} disabled={!readiness.ready || busy || active}
+            onClick={() => start("shadow")}><Icon name="trial" />{t("Próbafutás")}…{spend}</button>
+          {/* the live run is the consequential one: only its result can be released */}
+          <button type="button" className={btn("apply")} data-run="apply" title={withSpend()}
+            disabled={!readiness.ready || busy || active} onClick={() => start("apply")}><Icon name="play" />{t("Éles futás")}…{spend}</button>
+          <button type="button" className={btn("rerun")} data-run="rerun" disabled={!last || !readiness.ready || busy || active}
+            title={withSpend(last ? t("A legutóbbi ({{mode}}) futás megismétlése ugyanezzel a bemenettel", { mode: MODE[last.mode].toLowerCase() }) : t("Még nincs megismételhető futás"))}
+            onClick={() => last && start(last.mode, true)}><Icon name="rerun" />{t("Újrafuttatás")}…{spend}</button>
         </div>
         <dl className="run-help small">
           <dt>{t("Próbafutás")}</dt><dd>{t("az eredmény megtekinthető és letölthető, de nem adható ki")}</dd>

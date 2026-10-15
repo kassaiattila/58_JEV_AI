@@ -1229,5 +1229,6 @@
   "difference: {{diff}}": "difference: {{diff}}",
   "Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.": "Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.",
   "valid date": "valid date",
-  "number": "number"
+  "number": "number",
+  "Starts a run that can spend up to {{usd}}": "Starts a run that can spend up to {{usd}}"
 }
