@@ -469,7 +469,7 @@ export function DataTable(p: Props) {
                   {row.getVisibleCells().map((cell) => {
                     const c = cell.column.columnDef.meta as DsColumn | undefined;
                     return (
-                      <td key={cell.id} data-col={cell.column.id} className={c && NUMERIC.has(c.kind) ? "num" : undefined}>
+                      <td key={cell.id} data-col={cell.column.id} data-wrap={c?.wrap} className={c && NUMERIC.has(c.kind) ? "num" : undefined}>
                         {c ? <Cell col={c} row={row.original} custom={p.cell} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     );

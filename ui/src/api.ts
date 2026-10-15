@@ -735,6 +735,7 @@ export interface DsColumn {
   badge?: boolean; alert?: boolean; // 057: status badge; a value above 0 is highlighted
   percent?: boolean; // 062: a probability between 0 and 1, shown as a percentage
   names?: "original" | "unified"; // 082: the name column of an item list shows this name
+  wrap?: "anywhere"; // 156: a name-like value (a file name, a path, an e-mail address) may break inside a word
 }
 export type FilterOp = "contains" | "eq" | "neq" | "in" | "gte" | "lte" | "empty" | "notempty";
 export interface DsFilter { col: string; op: FilterOp; value?: string | string[] | null }
