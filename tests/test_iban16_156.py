@@ -27,22 +27,22 @@ def _ibans(*texts: str) -> list[str]:
 
 
 def test_short_domestic_number_and_its_iban_are_one_candidate():
-    assert _ibans(f"Bankszámlaszám: {SHORT}", f"IBAN: {IBAN}") == [SHORT]  # the form seen first is the label
+    assert _ibans(f"Account number: {SHORT}", f"IBAN: {IBAN}") == [SHORT]  # the form seen first is the label
 
 
 def test_short_and_long_domestic_numbers_are_one_candidate():
-    assert _ibans(f"Számlaszám: {LONG}", f"Bankszámla: {SHORT}") == [LONG]
+    assert _ibans(f"Account: {LONG}", f"Bank account: {SHORT}") == [LONG]
 
 
 def test_a_number_split_across_cells_still_joins_its_full_form():
     # the reader puts a 24-digit number printed with a wide gap into two cells; its tail looks like a 16-digit number
     head, tail = OTHER.split("-", 1)
-    lines = [_line(1, (f"Számlaszám: {OTHER}", 30)), _line(2, (head, 30), (tail, 120))]
+    lines = [_line(1, (f"Account: {OTHER}", 30)), _line(2, (head, 30), (tail, 120))]
     assert [c.label for c in find_all(lines)["iban"]] == [OTHER]
 
 
 def test_a_short_number_with_a_non_zero_tail_is_another_account():
-    assert len(_ibans(f"Számlaszám: {OTHER}", f"Bankszámla: {SHORT}")) == 2
+    assert len(_ibans(f"Account: {OTHER}", f"Bank account: {SHORT}")) == 2
 
 
 def test_foreign_iban_forms_are_still_merged():
