@@ -142,7 +142,7 @@ The owner reported that undefined jargon, numbers without context and code ident
 
 ## 9. Frontend aesthetics (UI redesign, decided 2026-10-15)
 
-Applies to every change under `ui/`. The confirmed brief and these rules win over any skill's defaults.
+Applies to every change under `ui/`. The confirmed brief and these rules win over any skill's defaults. The token values, components and the check for a changed screen are in [docs/guides/DESIGN.md](docs/guides/DESIGN.md).
 
 - **One direction: a refined version of the current workspace.** Keep the structure (dark side rail, light canvas, one burgundy accent) and make it distinctive through craft: typography, number setting, consistent states, and information density in the spirit of Linear and Bloomberg terminals. Desktop and laptop only (1366–1920 px); no phone layouts.
 - **Colour.** Every colour is a token in `ui/src/styles.css`, defined for light and dark. Burgundy marks the primary action and the brand, nothing else. Errors use their own red; error, warning, to-do, done and running each look different and never share the action colour. A paid action (a live run) looks different from a free one (a trial run). Not every link is burgundy and underlined.

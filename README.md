@@ -110,6 +110,7 @@ powershell -File scripts\outlook_bridge.ps1 -RepoRoot inbox\.bridge -OrchUrl htt
 Documents in the repository:
 
 - [User guide](docs/guides/USER_GUIDE.md): how to use the workspace
+- [Design system](docs/guides/DESIGN.md): the workspace's colours, type, components and the check for a changed screen
 - [Architecture](docs/ARCHITECTURE.md) · [Security notes](docs/SECURITY.md) · [Glossary](docs/GLOSSARY.md) · [JEV playbook](docs/JEV_PLAYBOOK.md)
 - [Documentation standard](docs/guides/DOCUMENTATION.md) · [Development workflow](docs/guides/DEVELOPMENT.md) · [Setup](docs/guides/SETUP.md) · [Configuration files](docs/guides/CONFIGS.md)
 - [Changelog](CHANGELOG.md): the releases in brief
