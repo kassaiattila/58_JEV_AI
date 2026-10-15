@@ -149,6 +149,17 @@ def normalize_iban(raw: str | None) -> str | None:
     return s or None
 
 
+def account_key(value: Any) -> str:
+    """One key for one account: a Hungarian IBAN and its 24-digit domestic number are the same, and a 16-digit domestic
+    number is its 24-digit form; anything shorter than 16 characters is no account."""
+    text = re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
+    if re.fullmatch(r"HU\d{26}", text):
+        return text[4:]
+    if re.fullmatch(r"\d{16}", text):
+        return text + "00000000"
+    return text if len(text) >= 16 else ""
+
+
 def normalize_text(raw: str | None) -> str | None:
     if raw is None:
         return None

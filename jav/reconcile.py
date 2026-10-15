@@ -153,6 +153,7 @@ from typing import Any, Iterable
 
 from jav import cfg, duplicates, fact_checks, fx, store
 from jav.candidates import trim_after_legal_form
+from jav.models import account_key  # 156: shared with the candidate finder; callers keep using reconcile.account_key
 
 ENGINE_VERSION = "1.17.0"  # 154: the rule replaces a statement only when none of its lines is lost; 151: a forint bank line pays two or more invoices of another currency together; 1.15.0 (149): a forint bank line meets another currency; 1.14.0 (148): a credit line pays an outgoing invoice (its partner the buyer); 1.13.0: a known direction decides
 STATUSES = ("confirmed", "credited", "proposed", "amount_only", "partly_paid", "amount_differs", "rate_missing",
@@ -365,17 +366,6 @@ def _number_in(value: Any, text: str) -> bool:
     return len(number_c) >= int(s["min_number_chars"]) and bool(
         re.search(r"(?<![a-z0-9])" + re.escape(number) + r"(?![a-z0-9])", normalize(text))
         or (len(number_c) >= int(s["min_compact_number_chars"]) and number_c in compact(text)))
-
-
-def account_key(value: Any) -> str:
-    """One key for one account: a Hungarian IBAN and its 24-digit domestic number are the same, and a 16-digit domestic
-    number is its 24-digit form; anything shorter than 16 characters is no account."""
-    text = re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
-    if re.fullmatch(r"HU\d{26}", text):
-        return text[4:]
-    if re.fullmatch(r"\d{16}", text):
-        return text + "00000000"
-    return text if len(text) >= 16 else ""
 
 
 _DECIMAL = re.compile(r"-?\d+(?:\.\d+)?")
