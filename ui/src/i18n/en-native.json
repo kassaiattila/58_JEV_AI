@@ -1230,5 +1230,13 @@
   "Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.": "Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.",
   "valid date": "valid date",
   "number": "number",
-  "Starts a run that can spend up to {{usd}}": "Starts a run that can spend up to {{usd}}"
+  "Starts a run that can spend up to {{usd}}": "Starts a run that can spend up to {{usd}}",
+  "Trial result": "Trial result",
+  "{{when}} · it can be viewed and downloaded but not released; a release needs a live run": "{{when}} · it can be viewed and downloaded but not released; a release needs a live run",
+  "Released": "Released",
+  "approved by {{who}}, {{when}}": "approved by {{who}}, {{when}}",
+  "the live run has finished with no open to-dos": "the live run has finished with no open to-dos",
+  "settle them in the Review section before the approval": "settle them in the Review section before the approval",
+  "Not finished": "Not finished",
+  "the live run has not finished yet": "the live run has not finished yet"
 }

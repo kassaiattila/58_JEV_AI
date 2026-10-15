@@ -53,13 +53,14 @@ Every text pair above reaches at least 4.5:1 contrast in both themes (the lowest
 - **Side rail.** Dark, 120 px; icon above a 12 px label; the current item is a lighter block (no stripe on its side).
 - **A package's page.** A compact header (18 px title, the summary and the workflow it belongs to on one small line, the owner and the next step on the right) and the three stages as one 40 px bar: number, name and state on one line; the open stage is a neutral tint with an ink underline.
 - **Review workspace.** The run picker has a fixed width and the keyboard help takes the rest of the toolbar row (in full in its tooltip). The panes measure where they start and end just above the bottom of the screen, so on a 1366 × 768 laptop the page image, the first fields and the save button show without scrolling the page. The selected item and the active field are cards with a firm border, never a side stripe.
+- **Result section.** One row for the run picker (fixed width, its label for screen readers only), the views and the full Excel package. Under it the release line: the shown run's state as one line with its own state mark — released ● green, awaiting approval or open to-dos ● orange, still running ● blue, a trial result neutral — and its detail in muted text; never a tinted banner. The approval sits at the end of that line and is the solid main action only when it can be given. A view may hide columns a person seldom reads by default (the column menu shows them, and the full Excel package always has them).
 - **Confidence colours on the page image.** Confident green, to check orange (a person's to-do), likely wrong red, entered by a person blue, unknown grey. The scanned page stays white paper in the dark theme too, so its frames keep the light-theme values there.
 
 ## 5. Tables
 
 - The header may wrap onto two lines; the filter icon floats over the header's corner and appears on hover, on focus and while a filter is active.
 - A date-time is drawn as its date and its time, so a narrow column puts the time under the date; its text stays one value.
-- Words wrap at spaces; only a name may break inside a long unbroken value (a file path or an e-mail address).
+- Words wrap at spaces; only a name-like column may break inside a long unbroken value (a name, a file name, a path, an e-mail address). The dataset marks such columns (`wrap: "anywhere"`, by key in `jav/datasets.py`), so one long address cannot widen a whole table.
 - A dataset can give its own columns a minimum width (`.dt-table[data-dataset="…"] th[data-col="…"]`). The work package list's default columns fit 1440 px and 1366 px without sideways scrolling.
 - A width a person dragged is kept per browser; the column menu resets it.
 

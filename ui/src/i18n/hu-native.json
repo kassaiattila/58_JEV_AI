@@ -1231,5 +1231,13 @@
   "Could not save: the value of “{{field}}” is not a {{what}}. Correct it and save again; your changes are kept.": "Nem sikerült menteni: a(z) „{{field}}” mező értéke nem {{what}}. Javítsd, és mentsd újra; a módosításaid megmaradtak.",
   "valid date": "érvényes dátum",
   "number": "szám",
-  "Starts a run that can spend up to {{usd}}": "Futást indít, amely legfeljebb {{usd}} összeget költhet"
+  "Starts a run that can spend up to {{usd}}": "Futást indít, amely legfeljebb {{usd}} összeget költhet",
+  "Trial result": "Próba-eredmény",
+  "{{when}} · it can be viewed and downloaded but not released; a release needs a live run": "{{when}} · megtekinthető és letölthető, de nem adható ki; kiadáshoz éles futás kell",
+  "Released": "Kiadva",
+  "approved by {{who}}, {{when}}": "jóváhagyta {{who}}, {{when}}",
+  "the live run has finished with no open to-dos": "az éles futás lezárult, nyitott teendő nélkül",
+  "settle them in the Review section before the approval": "jóváhagyás előtt rendezd őket az Ellenőrzés szakaszban",
+  "Not finished": "Nem zárult le",
+  "the live run has not finished yet": "az éles futás még nem zárult le"
 }
