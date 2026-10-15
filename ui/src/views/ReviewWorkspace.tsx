@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, type Alternative, type ItemResult, type Provenance, type RunItem, type Workpackage } from "../api";
 import { DatasetPicker, runOption } from "../components/DatasetPicker";
 import { NameModeSwitch, NameWarning } from "../components/NameCell";
@@ -53,10 +53,26 @@ function withNote(note: string | null, node: ReactNode): ReactNode {
 
 /** To-dos: the items on the left, the page image with the field frames in the middle, the to-dos and the fields on
  *  the right (045 K3b). We work on the result of one run (the latest by default); a correction belongs to that run. */
+/** 155: the review panes end just above the bottom of the screen however tall the header above them is (a title on one
+ *  or two lines, a notice): the grid measures its own top and sets `--review-offset`, which the panes' heights use. */
+function useFitToScreen<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => el.style.setProperty("--review-offset", `${Math.round(el.getBoundingClientRect().top + window.scrollY) + 12}px`);
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
+  });
+  return ref;
+}
+
 /** 153 (review): `onChanged` tells the package page that a to-do or a value changed, so its header and stage tabs
  *  follow (they kept the old count until the browser was reloaded). */
 export function ReviewWorkspace({ wp, itemId, onChanged }: { wp: Workpackage; itemId?: string; onChanged?: () => void }) {
   useLocale();
+  const gridRef = useFitToScreen<HTMLDivElement>();
   const latest = useDataset("runs", { workpackage_id: wp.id }, { limit: 1 });
   const [runId, setRunId] = useState<string | null>(null);
   const chosen = runId ?? latest.data?.rows[0]?._key ?? null;
@@ -94,6 +110,7 @@ export function ReviewWorkspace({ wp, itemId, onChanged }: { wp: Workpackage; it
   const unified = (i: (typeof items)[number]) => (names === "unified" ? view.data?.names?.[i.item_id] : undefined);
   const shown = (i: (typeof items)[number]) => unified(i)?.unified ?? original(i);
   const needle = fold(queueQ.trim());
+  const keysHelp = t("Tab / ↓ következő mező · Enter ✓ · Esc vissza · PageDown / PageUp tétel · Ctrl+Enter mentés");
 
   return (
     <>
@@ -103,9 +120,9 @@ export function ReviewWorkspace({ wp, itemId, onChanged }: { wp: Workpackage; it
         <span className="muted small">{ownTotal ? t("{{n}} nyitott teendő ebben a futásban", { n: ownTotal }) : t("Ebben a futásban nincs nyitott teendő.")}</span>
         <a className="small" href={`#/runs/${run.run_id}`}>{t("A futás részletei")}</a>
         <NameModeSwitch />
-        <span className="muted small kbd-help">{t("Tab / ↓ következő mező · Enter ✓ · Esc vissza · PageDown / PageUp tétel · Ctrl+Enter mentés")}</span>
+        <span className="muted small kbd-help" title={keysHelp}>{keysHelp}</span>
       </div>
-      <div className="review-grid">
+      <div className="review-grid" ref={gridRef}>
         <nav className="queue" aria-label={t("Tételek")}>
           <div className="queue-filter">
             <input type="search" aria-label={t("Tétel keresése")} placeholder={t("Keresés {{n}} tétel között…", { n: items.length })} value={queueQ}

@@ -50,6 +50,9 @@ Every text pair above reaches at least 4.5:1 contrast in both themes (the lowest
 - **Links.** Ink with a quiet underline; accent on hover. In table cells the underline appears on hover only.
 - **Language switch.** One segmented control (HU / EN), not two separate buttons.
 - **Side rail.** Dark, 120 px; icon above a 12 px label; the current item is a lighter block (no stripe on its side).
+- **A package's page.** A compact header (18 px title, the summary and the workflow it belongs to on one small line, the owner and the next step on the right) and the three stages as one 40 px bar: number, name and state on one line; the open stage is a neutral tint with an ink underline.
+- **Review workspace.** The run picker has a fixed width and the keyboard help takes the rest of the toolbar row (in full in its tooltip). The panes measure where they start and end just above the bottom of the screen, so on a 1366 × 768 laptop the page image, the first fields and the save button show without scrolling the page. The selected item and the active field are cards with a firm border, never a side stripe.
+- **Confidence colours on the page image.** Confident green, to check orange (a person's to-do), likely wrong red, entered by a person blue, unknown grey. The scanned page stays white paper in the dark theme too, so its frames keep the light-theme values there.
 
 ## 5. Tables
 
