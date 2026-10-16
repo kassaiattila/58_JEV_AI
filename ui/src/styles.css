@@ -150,6 +150,7 @@ th:hover > .col-resizer::after { background: var(--line); }
 .s-failed, .s-error { color: var(--error); }
 .plain { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 6px; font-size: 13px; }
 .blocker::before { content: "✕ "; color: var(--error); }
+.blocker:has(> details) { display: flex; gap: var(--sp-1); align-items: baseline; } /* 156: the mark stays beside a reason that opens */
 .warning::before { content: "! "; color: var(--warn); font-weight: 700; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13px; margin: 0 0 12px; }
 .kv dt { color: var(--muted); }
@@ -666,8 +667,9 @@ th:hover .th-filter, .th-filter:focus-visible, .th-filter[aria-expanded="true"] 
 .run-help dd { margin: 0; }
 /* 058: picker for the mailboxes used before */
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: -4px 0 4px; }
-button.chip { cursor: pointer; padding: 3px 10px; border-radius: 999px; }
-button.chip[aria-pressed="true"] { background: var(--paper); border-color: var(--accent); color: var(--accent); }
+button.chip { cursor: pointer; padding: 3px 10px; border-radius: var(--r-full); }
+/* 156: a pressed filter is a neutral selection (ink border on the selected tint), never the action colour */
+button.chip[aria-pressed="true"] { background: var(--tint); border-color: var(--ink-2); color: var(--ink); font-weight: 600; }
 /* 058 K5.3: task proposals in the email view */
 .task-list { display: grid; gap: 8px; margin-top: 6px; }
 .task-item { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; display: grid; gap: 3px; }

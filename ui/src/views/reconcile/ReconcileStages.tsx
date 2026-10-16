@@ -115,7 +115,7 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
       <section className="card" aria-label={t("Scope")}>
         <div className="card-head">
           <h2>{t("Scope")}</h2>
-          <button type="button" className="primary" onClick={() => go({ view: "workpackages", wpId: ws.workpackage_id, stage: "review" })}>
+          <button type="button" className="secondary" onClick={() => go({ view: "workpackages", wpId: ws.workpackage_id, stage: "review" })}>{/* 156: the header holds the solid next step */}
             {t("Go to pairing")} →
           </button>
         </div>

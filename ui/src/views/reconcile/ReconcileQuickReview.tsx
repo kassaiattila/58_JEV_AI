@@ -123,8 +123,9 @@ function GroupCard({ group, threshold, readOnly, busy, onAccept, onCards }: {
         <span className="count">{group.count}</span>
         <span className="small">{totalsText(group.totals)}</span>
         <span className="spacer" />
-        {acts ? (
-          <ConfirmButton className="primary small-btn" disabled={busy || !chosen.length} onConfirm={() => onAccept(chosen)}>
+        {acts ? ( // 156: one solid action per view — accepting the sure pairs; the other groups' acceptances are secondary
+          <ConfirmButton className={group.id === "sure_pairs" ? "primary small-btn" : "secondary small-btn"} disabled={busy || !chosen.length}
+            onConfirm={() => onAccept(chosen)}>
             {t("Accept {{n}} line(s)", { n: chosen.length })}
           </ConfirmButton>
         ) : group.action === "none" ? <button type="button" className="secondary small-btn" onClick={onCards}>{t("To the cards")}</button> : null}
@@ -145,8 +146,8 @@ function GroupCard({ group, threshold, readOnly, busy, onAccept, onCards }: {
               <tr key={l.id}>
                 {acts ? <td><input type="checkbox" checked={picked.has(l.id)} onChange={() => toggle(l.id)}
                   aria-label={t("Line of {{date}}, {{amount}}", { date: l.booking_date ?? "", amount: show(l.amount, l.currency) })} /></td> : null}
-                <td className="mono">{l.booking_date ?? "–"}</td>
-                <td className="mono">{show(l.amount, l.currency)}</td>
+                <td className="rc-qr-num">{l.booking_date ?? "–"}</td>
+                <td className="rc-qr-num">{show(l.amount, l.currency)}</td>
                 <td>{l.counterparty_name ?? "–"}</td>
                 <td className="rc-qr-memo small">{[l.memo, l.description].filter(Boolean).join(" · ") || "–"}</td>
                 <td className="small"><Suggestion line={l} /></td>
