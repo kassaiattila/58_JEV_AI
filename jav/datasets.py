@@ -16,6 +16,12 @@ least every 120 s). Such a dataset (`refresh_behind`) answers from its last rows
 changed, rebuilds in one background thread, and says so (`refreshing`); the next request after the rebuild gets the new
 rows. A run's tables never do this: an approval names the version of the rows on screen (086).
 
+Warm-up (158): a fresh service has no rows for the list yet, so its first request built them while the person waited
+(5-8 s, reported on 2026-10-16 as "slow the first time"). The service now builds them in the background when it starts
+(`warm_up`); a request for rows that are being built waits for that build instead of starting a second one; and the
+cache pushes out a run's tables before a refresh-behind dataset, so the list's rows do not have to be built again after
+a person has opened a few runs.
+
 Column `extra` for the UI: `link` = link target (`run`, `workpackage`, `reviews`, `review`, `item`); the link is built
 from the row's `_wp`, `_run`, `_stage` and `item_id` fields (`next`: the stage of the package's next step). `names`
 (082, on the name column of an item list): which name the column shows (`original` or `unified`, the scope key `names`).
@@ -753,6 +759,7 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
 _cache: OrderedDict[tuple, tuple[str, Any]] = OrderedDict()
 _lock = threading.Lock()
 _rebuilding: dict[tuple, threading.Thread] = {}  # 153: the background rebuild of a `refresh_behind` dataset, per key
+BUILD_WAIT_SECONDS = 60.0  # 158: how long a request with no rows waits for their running build before building them itself
 _log = logging.getLogger("jav.datasets")
 
 
@@ -776,15 +783,23 @@ def rows(name: str, scope: dict[str, str] | None = None) -> Rows:
     return _rows(name, scope, stale_ok=False)[0]
 
 
+def _key(name: str, sc: dict[str, str]) -> tuple:
+    return (str(store.active_path()), name, tuple(sorted(sc.items())))
+
+
 def _rows(name: str, scope: dict[str, str] | None, *, stale_ok: bool) -> tuple[Rows, bool]:
     """The rows, and whether they are the last ones while a newer version is being built (153, `refresh_behind`)."""
     ds = get(name)
     sc = _scope_of(ds, scope)
-    key = (str(store.active_path()), name, tuple(sorted(sc.items())))
+    key = _key(name, sc)
     if ds.fingerprint is None:
         with store.session():  # 061: one connection for all queries of the rows
             return ds.build(sc), False
     fp = ds.fingerprint(sc)
+    with _lock:
+        running = None if key in _cache else _rebuilding.get(key)
+    if running is not None:
+        running.join(BUILD_WAIT_SECONDS)  # 158: no rows yet, but they are being built (the warm-up): wait for them
     with _lock:
         hit = _cache.get(key)
         if hit and hit[0] == fp:
@@ -837,7 +852,31 @@ def _remember(key: tuple, fp: str, value: Any) -> None:
         _cache[key] = (fp, value)
         _cache.move_to_end(key)
         while len(_cache) > cfg.load("datasets")["cache_entries"]:
-            _cache.popitem(last=False)
+            # 158: the least recently used entry goes, but a run's table before a refresh-behind dataset
+            victim = next((k for k in _cache if not _refreshes_behind(k)), None) or next(iter(_cache))
+            del _cache[victim]
+
+
+def _refreshes_behind(key: tuple) -> bool:
+    ds = REGISTRY.get(key[1])
+    return bool(ds and ds.refresh_behind)
+
+
+def _warm_names() -> list[str]:
+    """The datasets the service builds when it starts: those served outdated, in their default scope."""
+    return [ds.name for ds in REGISTRY.values() if ds.refresh_behind and ds.fingerprint is not None]
+
+
+def warm_up() -> None:
+    """158: starts building the rows of `_warm_names` in the background on the active store, unless they are cached
+    or being built; a request that arrives meanwhile waits for that build (`_rows`)."""
+    with _lock:
+        for name in _warm_names():
+            ds = REGISTRY[name]
+            sc = _scope_of(ds, None)
+            key = _key(name, sc)
+            if key not in _cache:
+                _rebuild_behind(key, ds, sc)
 
 
 def query(name: str, scope: dict[str, str] | None, q: Query) -> dict[str, Any]:
@@ -949,4 +988,4 @@ def clear_cache() -> None:
 
 
 __all__ = ["REGISTRY", "Dataset", "MissingScope", "UnknownDataset", "catalog", "clear_cache", "export_file", "export_rows",
-           "get", "query", "rows", "run_records", "wait_for_rebuilds"]
+           "get", "query", "rows", "run_records", "wait_for_rebuilds", "warm_up"]
