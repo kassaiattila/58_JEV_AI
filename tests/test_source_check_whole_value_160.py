@@ -42,7 +42,6 @@ def test_an_iban_missing_its_last_group_is_not_printed():
 
 
 def test_an_amount_with_a_shifted_decimal_place_is_not_printed():
-    pack = typepack.get("invoice_foreign")
     texts = ["Example GmbH", "Invoice no. RE-2026-17", "Net 10,00 EUR   VAT 2,50 EUR", "Total 12,50 EUR"]
     lines, conv = _lines(texts), document_convention(texts)
     assert find_evidence("gross_total", "12.50", lines, kind="money", intl=True, convention=conv) == ["L04: Total 12,50 EUR"]
