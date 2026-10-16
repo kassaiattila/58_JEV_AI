@@ -109,7 +109,8 @@ def _totals(lines: Iterable[dict[str, Any]]) -> dict[str, str]:
 
 def review(wp_id: str) -> dict[str, Any]:
     """The package's lines to decide in their groups (each with its action, its lines, their count and totals per
-    currency), the excluded lines by their reason, the decided ones counted by state, and the AI threshold used."""
+    currency, and 158: how many of them a person decides - not the incoming money shown for information), the excluded
+    lines by their reason, the decided ones counted by state, and the AI threshold used."""
     ws = reconcile_package.kept_workspace(wp_id)  # 153: read only
     sure: dict[str, list[str]] = defaultdict(list)
     for p in reconcile_package.proposed_pairs(wp_id):
@@ -117,12 +118,14 @@ def review(wp_id: str) -> dict[str, Any]:
     threshold = float(policy.RECONCILE["ai_sure"]["min_jev_probability"])
     invoices = {i["id"]: i for i in ws["invoices"]}
     groups: dict[str, list[dict[str, Any]]] = {g: [] for g in GROUPS}
+    shown_only: Counter[str] = Counter()  # 158: lines a group shows for information, with nothing for a person to decide
     excluded: dict[str, list[dict[str, Any]]] = defaultdict(list)
     decided: Counter[str] = Counter()
     for ln in ws["lines"]:
         if ln["state"] == "excluded" and ln.get("excluded_reason") == "not_outgoing_payment" and any(
                 a.get("expects_invoice") for a in _answers(ln).values()):
             groups["expects_invoice"].append(_brief(ln, {}, invoices))  # 158: a customer's payment without its invoice
+            shown_only["expects_invoice"] += 1
         elif ln["state"] == "excluded":
             excluded[ln.get("excluded_reason") or "other"].append(_brief(ln, {}, invoices))
         elif ln["state"] not in DECIDING or ln.get("locked"):
@@ -131,8 +134,8 @@ def review(wp_id: str) -> dict[str, Any]:
             group, suggestion = _place(ln, sure, threshold)
             groups[group].append(_brief(ln, suggestion, invoices))
     return {"workpackage_id": wp_id, "threshold": threshold,
-            "groups": [{"id": g, "action": ACTIONS.get(g, "mark"), "lines": ls, "count": len(ls), "totals": _totals(ls)}
-                       for g, ls in groups.items()],
+            "groups": [{"id": g, "action": ACTIONS.get(g, "mark"), "lines": ls, "count": len(ls),
+                        "to_decide": len(ls) - shown_only[g], "totals": _totals(ls)} for g, ls in groups.items()],
             "excluded": {r: {"count": len(ls), "totals": _totals(ls), "lines": ls} for r, ls in sorted(excluded.items())},
             "decided": dict(sorted(decided.items()))}
 

@@ -54,6 +54,15 @@ describe("the quick review", () => {
     expect(screen.getByText(/Left out by the code \(1\)/)).toBeTruthy();
   });
 
+  it("158: counts only the lines to decide, not the incoming money shown for information", async () => {
+    const info = line("l-in", { direction: "credit", counterparty_name: "Example Customer", ai: { jev: { kind: "customer_payment", probability: 0.9 } } });
+    const groups = [...review().groups, { id: "expects_invoice" as const, action: "none" as const, count: 1, to_decide: 0, totals: { HUF: "13.00" }, lines: [info] }];
+    vi.spyOn(api, "reconcileQuickReview").mockResolvedValue(review({ groups }));
+    render(<ReconcileQuickReview wpId="wp-00000000000a" readOnly={false} onWorkspace={vi.fn()} onCards={vi.fn()} />);
+    expect(await screen.findByRole("region", { name: "An invoice is expected" })).toBeTruthy();
+    expect(screen.getByText("5 line(s) to decide; 4 of them are in a group you can accept at once.")).toBeTruthy();
+  });
+
   it("accepts a group's ticked lines with a second click and shows the new review", async () => {
     vi.spyOn(api, "reconcileQuickReview").mockResolvedValue(review());
     const after = review({ groups: review().groups.map((g) => (g.id === "ai_review" ? { ...g, count: 1, lines: g.lines.slice(1) } : g)) });

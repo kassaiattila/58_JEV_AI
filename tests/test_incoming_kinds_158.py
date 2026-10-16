@@ -174,6 +174,9 @@ def test_a_customers_payment_is_listed_where_an_invoice_is_expected(db, monkeypa
     view = reconcile_review.review(wp)
     groups = {g["id"]: g for g in view["groups"]}
     assert [ln["counterparty_name"] for ln in groups["expects_invoice"]["lines"]] == ["Example Customer Kft"]
+    # it is shown, but a person has nothing to decide on it (the quick review's "lines to decide" stays as before)
+    assert (groups["expects_invoice"]["count"], groups["expects_invoice"]["to_decide"]) == (1, 0)
+    assert all(g["to_decide"] == g["count"] for g in view["groups"] if g["id"] != "expects_invoice")
     assert view["excluded"]["not_outgoing_payment"]["count"] == 1  # the other one stays informational
     with pytest.raises(reconcile_review.ReviewError):
         reconcile_review.accept(wp, "expects_invoice", [_ids(wp)["Example Customer Kft"]], actor="tester")
