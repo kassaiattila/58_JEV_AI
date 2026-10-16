@@ -9,7 +9,7 @@ This guide lists what a machine needs to run the project. Git holds only the sou
 ## 1. Python environment
 
 ```powershell
-uv venv --python 3.12 .venv
+uv venv --python 3.12.13 .venv   # the latest 3.12 patch release; uv fetches it if it is missing
 uv pip install -r requirements.lock
 .\.venv\Scripts\Activate.ps1
 python -m jav.cli hooks-install      # data guard: a check before every commit and push; once per clone
