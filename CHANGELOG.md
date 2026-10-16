@@ -35,6 +35,8 @@ A refined workspace, one candidate for a domestic account number and its IBAN, a
 - **Smaller fixes:** the wizard's work package chooser answers at once; a long folder path or package name no longer
   pushes a workflow step's card off the screen; the statement comparison's row labels no longer break inside a word;
   a link drawn as a button stays readable when pointed at; the delete button is readable in the dark theme.
+- **Dependencies:** pydantic-ai 2.53.0 (with openai 3.31.0) for two published advisories; neither affected feature is
+  used here. The setup guide names Python 3.12.13.
 
 ## v1.15.0 — 2026-10-13
 
