@@ -562,27 +562,45 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
     """134: AI proposals (JEV and/or GPT) for the lines a reconciliation package still has to decide: which preselected
     invoice a line pays and what kind of payment it is. Without a budget only the free estimate; with the owner's
     sub-budget (--jev-budget-usd, --budget-usd for OpenAI) the paid measurement: answers stored per line and engine,
-    raw answers in runs/. 136: only the lines without an answer (--redo: all), the kind once per partner. Counts only,
-    no values printed."""
+    raw answers in runs/. 136: only the lines without an answer (--redo: all), the kind once per partner. 158: --golden
+    measures the incoming money kind question on the invented lines instead. Counts only, no values printed."""
     from decimal import Decimal
 
     from jav import reconcile_ai
 
-    if args.evaluate:  # 135: free, read only - the stored answers against a person's decisions
-        ev = reconcile_ai.evaluate(args.workpackage_id)
-        print(f"lines a person decided (paired or marked) that have AI answers: {ev['lines_decided']}")
-        for engine, t in ev["engines"].items():
-            print(f"{engine}: invoice choice {t['pays']}; kind of payment {t['kind']}")
-        return 0
     engines = list(reconcile_ai.ENGINES) if args.engine == "both" else [args.engine]
     limits = {}
     if args.jev_budget_usd:
         limits["jev"] = Decimal(args.jev_budget_usd)
     if args.budget_usd:
         limits["openai"] = Decimal(args.budget_usd)
+    if args.golden:
+        try:
+            g = reconcile_ai.golden(engines=engines, limits=limits, use_cache=not args.no_cache)
+        except ValueError as exc:
+            print(f"{exc} (jev: --jev-budget-usd, gpt: --budget-usd)")
+            return 2
+        print(f"golden cases: {g['cases']} (golden {g['golden_version']}, config jev {g['jev_config']}, gpt {g['gpt_config']})")
+        for engine, s in g["engines"].items():
+            kinds = ", ".join(f"{k} {t['right']}/{t['cases']}" for k, t in s["by_kind"].items())
+            print(f"{engine}: {s['right']}/{s['cases']} as labelled, failed {s['failed']}; {kinds}")
+            if s["confusions"]:
+                print(f"  {engine} differs: " + ", ".join(f"{k} x{n}" for k, n in s["confusions"].items()))
+        print(f"budget scope {g['scope']}: {g['usage']}")
+        print(f"raw answers: {g['raw']}")
+        return 0
+    if not args.workpackage_id:
+        print("a reconciliation package (wp-...) is needed, or --golden")
+        return 2
+    if args.evaluate:  # 135: free, read only - the stored answers against a person's decisions
+        ev = reconcile_ai.evaluate(args.workpackage_id)
+        print(f"lines a person decided (paired or marked) that have AI answers: {ev['lines_decided']}")
+        for engine, t in ev["engines"].items():
+            print(f"{engine}: invoice choice {t['pays']}; kind of payment {t['kind']}")
+        return 0
     if not limits:
-        est = reconcile_ai.estimate(args.workpackage_id, redo=args.redo, stale=args.stale)
-        print(f"lines to decide: {est['lines']}, with preselected invoices: {est['with_options']} ({est['options']} options)")
+        est = reconcile_ai.estimate(args.workpackage_id, redo=args.redo, stale=args.stale, incoming_only=args.incoming)
+        print(f"lines to ask about: {est['lines']}, with preselected invoices: {est['with_options']} ({est['options']} options)")
         for engine, plan in est["plan"].items():
             print(f"{engine}: answered already {plan['answered']}; requests {plan['requests']} (with invoices {plan['with_options']});"
                   f" taking a partner's answer over {plan['inherited']}")
@@ -594,7 +612,7 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
         print(f"no budget for: {', '.join(missing)} (jev: --jev-budget-usd, gpt: --budget-usd)")
         return 2
     r = reconcile_ai.run(args.workpackage_id, engines=engines, limits=limits, max_lines=args.max_lines, use_cache=not args.no_cache,
-                         redo=args.redo, stale=args.stale)
+                         redo=args.redo, stale=args.stale, incoming_only=args.incoming)
     print(f"lines asked: {r['lines']}; per engine: {r['counts']}")
     print(f"budget scope {r['scope']}: {r['usage']}")
     print(f"raw answers: {r['raw']}; config jev {r['jev_config']}, gpt {r['gpt_config']}")
@@ -838,7 +856,7 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(fn=cmd_reconcile)
 
     p = sub.add_parser("reconcile-ai", help="134: AI proposals (JEV / GPT) for a reconciliation package's lines; without a budget only the free estimate")
-    p.add_argument("workpackage_id", help="the reconciliation package (wp-...)")
+    p.add_argument("workpackage_id", nargs="?", help="the reconciliation package (wp-...); not with --golden")
     p.add_argument("--engine", choices=["jev", "gpt", "both"], default="both")
     p.add_argument("--jev-budget-usd", help="the JEV sub-budget of the measurement (USD)")
     p.add_argument("--budget-usd", help="the OpenAI sub-budget of the measurement (USD)")
@@ -846,8 +864,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-cache", action="store_true", help="JEV: no cached answers (live calls)")
     p.add_argument("--redo", action="store_true", help="136: ask the lines that have an answer again (default: only the new ones)")
     p.add_argument("--stale", action="store_true", help="147: also ask the lines whose answer came from an older version of the question")
+    p.add_argument("--incoming", action="store_true", help="158: ask about the incoming money alone")
     p.add_argument("--evaluate", action="store_true",
                    help="free: compare the stored answers with a person's decisions on the package's lines")
+    p.add_argument("--golden", action="store_true",
+                   help="158: the incoming money kind question on the invented golden lines (configs/golden_credit_kinds.json);"
+                        " needs the sub-budget of each engine, stores nothing")
     p.set_defaults(fn=cmd_reconcile_ai)
 
     p = sub.add_parser("statement-table", help="136: a tabular bank statement export read by code (free): the accounts found and their checks;"

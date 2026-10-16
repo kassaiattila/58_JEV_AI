@@ -128,7 +128,7 @@ def test_the_salary_rule_reads_the_memo_and_the_description(memo, description, m
 def test_the_ais_kind_of_payment_knows_salary():
     site = cfg.load("callsite:reconcile_line")
     assert "salary" in site["questions"]["line_kind"]["criteria"] and site["kind_marks"]["salary"] == "salary"
-    assert site["meta"]["version"] == "1.1.0"
+    assert site["meta"]["version"] == "1.2.0"  # 158: incoming money got its own kind question
 
 
 # --- accepting a group -------------------------------------------------------------------------------------------------

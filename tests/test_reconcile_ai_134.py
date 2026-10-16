@@ -133,8 +133,10 @@ def test_the_state_is_the_line_as_printed_clipped():
 
 def test_the_call_site_offers_a_fallback_and_maps_the_kinds_to_valid_marks():
     site = cfg.load("callsite:reconcile_line")
-    kinds = site["questions"]["line_kind"]["criteria"]
-    assert "other" in kinds and all({"what", "not_for", "examples"} <= set(c) for c in kinds.values())
+    for question in ("line_kind", "credit_kind"):  # 158: incoming money has its own kinds
+        own = site["questions"][question]["criteria"]
+        assert "other" in own and all({"what", "not_for", "examples"} <= set(c) for c in own.values())
+    kinds = {**site["questions"]["line_kind"]["criteria"], **site["questions"]["credit_kind"]["criteria"]}
     assert set(site["kind_marks"]) <= set(kinds) and set(site["kind_marks"].values()) <= set(cfg.load("reconcile")["line_marks"])
     assert set(site["kind_expects_invoice"]) <= set(kinds) and not set(site["kind_expects_invoice"]) & set(site["kind_marks"])
     assert {"what", "not_for"} <= set(site["questions"]["pays"]["none"])

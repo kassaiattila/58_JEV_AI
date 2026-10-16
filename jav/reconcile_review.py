@@ -15,7 +15,9 @@ still decides is in the first group that fits, in this order:
 - `rest`: everything else, for the pairing page.
 
 A line with a candidate invoice or an allocated amount is never in a reason group: a person pairs or rules it out. The
-lines code left out (excluded) are counted by their reason, for information. Accepting a group re-reads it and takes
+lines code left out (excluded) are counted by their reason, for information; 158: incoming money left out without an
+outgoing invoice whose kind the AI read as one that expects an invoice (a customer's payment) is listed under
+`expects_invoice` instead, as an outgoing invoice may be missing from the store. Accepting a group re-reads it and takes
 only the lines still in it (a stale view is refused), all or none: a sure pair is allocated, a reason is marked with
 the group as its `basis`. Agreement of the two models is not measured correctness; a person accepts each group.
 
@@ -118,7 +120,10 @@ def review(wp_id: str) -> dict[str, Any]:
     excluded: dict[str, list[dict[str, Any]]] = defaultdict(list)
     decided: Counter[str] = Counter()
     for ln in ws["lines"]:
-        if ln["state"] == "excluded":
+        if ln["state"] == "excluded" and ln.get("excluded_reason") == "not_outgoing_payment" and any(
+                a.get("expects_invoice") for a in _answers(ln).values()):
+            groups["expects_invoice"].append(_brief(ln, {}, invoices))  # 158: a customer's payment without its invoice
+        elif ln["state"] == "excluded":
             excluded[ln.get("excluded_reason") or "other"].append(_brief(ln, {}, invoices))
         elif ln["state"] not in DECIDING or ln.get("locked"):
             decided[ln["state"]] += 1
