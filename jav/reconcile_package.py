@@ -386,24 +386,35 @@ WORKSPACE_INPUTS: dict[str, str | None] = {
     "own_accounts": "(SELECT group_concat(key || ':' || kind || ':' || currencies || ':' || COALESCE(valid_from, '')"
                     " || ':' || COALESCE(valid_to, ''), '|') FROM own_accounts)",
 }
-_kept: OrderedDict[tuple[str, str], tuple[str, dict[str, Any]]] = OrderedDict()
+_kept: OrderedDict[tuple[str, str], tuple[str, float, dict[str, Any]]] = OrderedDict()  # mark, built at, workspace
 _kept_lock = threading.Lock()
 KEPT_WORKSPACES = 16
 KEEP_SECONDS = 120  # a safety bound: a change the marks miss shows within this time at the latest
+# 159: the same bound for the package list's next step. With the short one the list built every reconciliation
+# workspace again every two minutes although nothing had changed (5-6 s on one core, live on 2026-10-16).
+LIST_KEEP_SECONDS = 900
 
 
-def inputs_mark(c=None) -> str:
-    """140: a mark of everything a workspace reads (the tables above, the configurations and the day), and a time slot
-    of `KEEP_SECONDS`, so nothing is kept longer than that."""
+def _inputs(c) -> list[Any]:
+    """140: what a workspace reads: the tables above, the configurations and the day."""
     # the modules whose tables the workspace reads register them on import (a later import would change the mark)
     from jav import duplicates, fx, reconcile_ai, statement_months  # noqa: F401
 
+    return [store.table_marks(c, WORKSPACE_INPUTS), reconcile.config_hash(), parties.config_hash(), cfg.config_hash("fx"),
+            reconcile.ENGINE_VERSION, date.today().isoformat()]
+
+
+def _digest(parts: list[Any]) -> str:
+    return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
+
+
+def inputs_mark(c=None, *, keep_seconds: int = KEEP_SECONDS) -> str:
+    """140: a mark of everything a workspace reads, and a time slot of `keep_seconds`, so nothing is kept longer than
+    that."""
     if c is None:
         with store.connect() as own:
-            return inputs_mark(own)
-    parts = [store.table_marks(c, WORKSPACE_INPUTS), reconcile.config_hash(), parties.config_hash(), cfg.config_hash("fx"),
-             reconcile.ENGINE_VERSION, date.today().isoformat(), int(time.time() // KEEP_SECONDS)]
-    return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
+            return inputs_mark(own, keep_seconds=keep_seconds)
+    return _digest([*_inputs(c), int(time.time() // keep_seconds)])
 
 
 def clear_cache() -> None:
@@ -418,19 +429,22 @@ def workspace(wp_id: str) -> dict[str, Any]:
     return copy.deepcopy(kept_workspace(wp_id))
 
 
-def kept_workspace(wp_id: str) -> dict[str, Any]:
+def kept_workspace(wp_id: str, *, keep_seconds: int = KEEP_SECONDS) -> dict[str, Any]:
     """153 (review B5): the kept workspace itself, for a caller that only reads it (the next step, the quick review,
-    the sure pairs, a JSON answer): the copy was 85-93 % of their time. Never change what it returns."""
-    mark = inputs_mark()
+    the sure pairs, a JSON answer): the copy was 85-93 % of their time. Never change what it returns. 159: kept while
+    its inputs are unchanged and it was built in the caller's current time slot of `keep_seconds`."""
+    now = time.time()
+    with store.connect() as c:
+        mark = _digest(_inputs(c))
     key = (str(store.active_path()), wp_id)
     with _kept_lock:
         hit = _kept.get(key)
-        if hit and hit[0] == mark:
+        if hit and hit[0] == mark and hit[1] // keep_seconds == now // keep_seconds:
             _kept.move_to_end(key)
-            return hit[1]
+            return hit[2]
     built = _workspace(wp_id)
     with _kept_lock:
-        _kept[key] = (mark, built)
+        _kept[key] = (mark, now, built)
         _kept.move_to_end(key)
         while len(_kept) > KEPT_WORKSPACES:
             _kept.popitem(last=False)
@@ -1236,10 +1250,10 @@ def refresh(wp_id: str) -> dict[str, Any]:
 # --- the package in the lists ------------------------------------------------------------------------------------------
 
 
-def package_view(wp_id: str) -> dict[str, Any]:
+def package_view(wp_id: str, *, keep_seconds: int = KEEP_SECONDS) -> dict[str, Any]:
     """The package header's data (`work_views.workpackage_view` for this kind): the scope, the counts, the blockers as
-    the readiness, and the next step."""
-    ws = kept_workspace(wp_id)  # 153: read only
+    the readiness, and the next step. The package list asks with `LIST_KEEP_SECONDS` (159)."""
+    ws = kept_workspace(wp_id, keep_seconds=keep_seconds)  # 153: read only
     blockers = [{"code": b["code"], "message": b["file"] or b["doc_id"][:12]} for b in ws["blockers"]]
     warnings = [{"code": w["code"], "message": w["file"] or w["doc_id"][:12]} for w in ws["warnings"]]
     return {"scope": ws["scope"], "counts": ws["counts"], "coverage": ws["coverage"], "approval": ws["approval"],

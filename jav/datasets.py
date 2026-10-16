@@ -22,6 +22,11 @@ Warm-up (158): a fresh service has no rows for the list yet, so its first reques
 cache pushes out a run's tables before a refresh-behind dataset, so the list's rows do not have to be built again after
 a person has opened a few runs.
 
+The list's own safety bound (159): the workspaces' 120 s bound (for a change their marks miss) also ended the list's
+rows, so every two minutes the list built every reconciliation workspace again although nothing had changed (5-6 s on
+one core, slowing every other request). The list's fingerprint and its next step now use a 15-minute bound
+(`reconcile_package.LIST_KEEP_SECONDS`); a change the marks see still shows at once, and the pairing page keeps 120 s.
+
 Column `extra` for the UI: `link` = link target (`run`, `workpackage`, `reviews`, `review`, `item`); the link is built
 from the row's `_wp`, `_run`, `_stage` and `item_id` fields (`next`: the stage of the package's next step). `names`
 (082, on the name column of an item list): which name the column shows (`original` or `unified`, the scope key `names`).
@@ -181,7 +186,8 @@ def _workpackages_fingerprint(scope: dict[str, str]) -> str:
     before, at every filter change and refresh, as each reconciliation package's next step built its workspace)."""
     from jav import reconcile_package
 
-    reconciliation = reconcile_package.inputs_mark()  # first: it makes sure the tables it reads are registered
+    # first: it makes sure the tables it reads are registered; 159: the list's own safety bound
+    reconciliation = reconcile_package.inputs_mark(keep_seconds=reconcile_package.LIST_KEEP_SECONDS)
     with store.connect() as c:
         parts = [store.table_marks(c, LIST_INPUTS), reconciliation]
     return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
