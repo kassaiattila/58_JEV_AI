@@ -121,6 +121,8 @@ export function blockerGroupText(code: string, n: number): string {
     case "source_no_run": return t("{{n}} documents were processed on the command line, not in a work package", { n });
     case "decision_not_carried": return t("{{n}} decisions on replaced statements' lines have no same line on the valid statement", { n });
     case "allocation_no_longer_fits": return t("{{n}} pairings no longer fit the amounts of their line or invoice", { n });
+    case "allocation_invoice_left_out": return t("{{n}} pairings whose invoice no longer takes part in the pairing", { n });
+    case "decision_line_gone": return t("{{n}} decisions whose line is no longer on its statement", { n });
     default: return `${code}: ${n}`;
   }
 }
@@ -140,6 +142,8 @@ export function blockerText(b: ReconcileBlocker): string {
     case "statement_unverified": return t("The statement's balances do not check out: {{name}}", { name });
     case "decision_not_carried": return t("A decision on a replaced statement's line has no same line on the valid statement: {{name}}", { name });
     case "allocation_no_longer_fits": return t("A pairing no longer fits the amounts of its line or invoice: {{name}}", { name });
+    case "allocation_invoice_left_out": return t("A pairing's invoice no longer takes part in the pairing: {{name}}", { name });
+    case "decision_line_gone": return t("A decision's line is no longer on its statement: {{name}}", { name });
     default: return `${b.code}: ${name}`;
   }
 }

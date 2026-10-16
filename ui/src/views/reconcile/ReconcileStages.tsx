@@ -11,7 +11,7 @@ import { ReconcileCards } from "./ReconcileCards";
 import { ReconcilePairing } from "./ReconcilePairing";
 import { ReconcileQuickReview } from "./ReconcileQuickReview";
 import { ReconcileResult } from "./ReconcileResult";
-import { INVOICE_STATE, LINE_STATE, MARK, warningText } from "./labels";
+import { EXCLUDED, INVOICE_STATE, LINE_STATE, MARK, warningText } from "./labels";
 import { BlockerList } from "./BlockerList";
 import { show } from "./money";
 import "./reconcile.css";
@@ -210,26 +210,37 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
 }
 
 /** 153 (review A3): the pairings that no longer fit the amounts of their line or invoice (a correction or a new
- *  reading changed an amount since); they count nowhere and block the approval until revoked here. */
+ *  reading changed an amount since); 160 (review M-1): also a pairing whose invoice left the pairing, and a pairing or a
+ *  mark whose line is no longer on its statement. They count nowhere and block the approval until revoked here. */
 export function Unfit({ ws, readOnly, busy, onRevoke }: {
   ws: ReconcileWorkspace; readOnly: boolean; busy: boolean; onRevoke: (r: ReconcileUnfit) => void;
 }) {
   useLocale();
   const rows = ws.unfit ?? [];
   if (!rows.length) return null;
+  const line = (r: ReconcileUnfit) => r.reason === "line_gone"
+    ? t("no longer on {{file}}", { file: r.file ?? r.statement_id?.slice(0, 12) ?? "–" })
+    : `${r.booking_date ?? "–"} · ${r.counterparty_name ?? "–"}`;
+  const decision = (r: ReconcileUnfit) => r.kind === "mark"
+    ? t("needs no invoice ({{reason}})", { reason: MARK[r.category ?? ""] ?? r.category ?? "" })
+    : t("paid: {{invoice}}", { invoice: r.invoice_file ?? r.invoice_id?.slice(0, 12) ?? "" });
+  const why = (r: ReconcileUnfit) => r.reason === "line_gone" ? t("the line was changed or read again")
+    : r.reason === "invoice_left_out" ? t("the invoice left the pairing: {{why}}", { why: EXCLUDED[r.invoice_reason ?? ""] ?? r.invoice_reason ?? "–" })
+      : t("an amount changed");
   return (
-    <section className="card" aria-label={t("Pairings that no longer fit")}>
-      <h2>{t("Pairings that no longer fit")}</h2>
-      <p className="muted small">{t("An amount of the line or the invoice changed since these pairings were made, and they no longer fit it. They count nowhere; revoke each one, then pair the line again.")}</p>
+    <section className="card" aria-label={t("Decisions that no longer count")}>
+      <h2>{t("Decisions that no longer count")}</h2>
+      <p className="muted small">{t("These pairings and marks count nowhere: an amount changed since they were made, the invoice no longer takes part in the pairing, or the line was changed or read again. Revoke each one, then decide on the line again.")}</p>
       <table className="table compact">
-        <thead><tr><th>{t("Line")}</th><th>{t("Invoice")}</th><th className="num">{t("Paired amount")}</th><th className="num">{t("Amounts now")}</th><th /></tr></thead>
+        <thead><tr><th>{t("Line")}</th><th>{t("Decision")}</th><th>{t("Reason")}</th><th className="num">{t("Paired amount")}</th><th className="num">{t("Amounts now")}</th><th /></tr></thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.ref}>
-              <td>{r.booking_date ?? "–"} · {r.counterparty_name ?? "–"}</td>
-              <td>{r.invoice_file ?? r.invoice_id.slice(0, 12)}</td>
-              <td className="num">{show(r.line_amount, r.currency)}</td>
-              <td className="num">{t("line {{line}} · invoice {{invoice}}", { line: show(r.line_total, r.currency), invoice: show(r.invoice_total) })}</td>
+            <tr key={`${r.kind}:${r.ref}`}>
+              <td>{line(r)}</td>
+              <td>{decision(r)}</td>
+              <td>{why(r)}</td>
+              <td className="num">{r.kind === "mark" ? "–" : show(r.line_amount, r.currency)}</td>
+              <td className="num">{r.reason === "amounts" ? t("line {{line}} · invoice {{invoice}}", { line: show(r.line_total, r.currency), invoice: show(r.invoice_total) }) : "–"}</td>
               <td>{readOnly ? null : <button type="button" className="secondary small-btn" disabled={busy} onClick={() => onRevoke(r)}>{t("Revoke")}</button>}</td>
             </tr>
           ))}

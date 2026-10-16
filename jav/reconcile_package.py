@@ -609,8 +609,12 @@ def _workspace(wp_id: str) -> dict[str, Any]:
         blockers.append({"code": "decision_not_carried", "doc_id": row["statement_id"], "file": row["file"], "kind": "statement"})
     unfit = unfit_rows(result, snap, scope_ids, wp_id)
     for row in unfit:
-        blockers.append({"code": "allocation_no_longer_fits", "doc_id": row["invoice_id"], "file": row["invoice_file"],
-                         "kind": "invoice"})
+        if row["reason"] == "line_gone":  # 160 (review M-1): its line is no longer on its statement
+            blockers.append({"code": "decision_line_gone", "doc_id": row["statement_id"] or "", "file": row["file"],
+                             "kind": "statement"})
+        else:
+            blockers.append({"code": UNFIT_BLOCKER[row["reason"]], "doc_id": row["invoice_id"], "file": row["invoice_file"],
+                             "kind": "invoice"})
     return {"workpackage_id": wp_id, "scope": sc, "lines": lines, "invoices": invoice_rows, "coverage": coverage,
             "left_over": left_over, "unfit": unfit, "overview": reconcile_overview.build(lines, invoice_rows, result["repeats"]),
             "blockers": blockers, "warnings": warnings, "approval": approval(wp_id),
@@ -722,25 +726,38 @@ def left_over_rows(snap: dict[str, Any], scope_ids: set[str], wp_id: str) -> lis
     return out
 
 
+UNFIT_BLOCKER = {"amounts": "allocation_no_longer_fits", "invoice_left_out": "allocation_invoice_left_out"}
+
+
 def unfit_rows(result: dict[str, Any], snap: dict[str, Any], scope_ids: set[str], wp_id: str) -> list[dict[str, Any]]:
     """153 (review A3): the allocations that no longer fit their line or invoice (an amount corrected or read again
     since, `reconcile._settled`), for the package that made them or whose scope holds the line; each with its amounts and
-    the sides' amounts now, to be revoked (and made again). They block the approval."""
+    the sides' amounts now, to be revoked (and made again). They block the approval.
+
+    160 (review M-1): each with its `reason`: `amounts` (the above), `invoice_left_out` (the invoice no longer takes part
+    in the pairing; `invoice_reason`: why) or `line_gone` (the line is no longer on its statement); a mark whose line is
+    gone is listed too (`kind` `mark`, with its `category`). A row of a gone line has no line data."""
     lines = {ln["id"]: {**ln, "statement_id": st["id"], "currency": st.get("currency")}
              for st in snap["statements"] for ln in st["lines"]}
+    currency = {st["id"]: st.get("currency") for st in snap["statements"]}
     out = []
-    for a in result.get("unfit") or []:
-        line = lines.get(str(a["line_id"]), {})
-        if a.get("workpackage_id") != wp_id and line.get("statement_id") not in scope_ids:
-            continue
-        out.append({"kind": "allocation", "ref": str(a["id"]), "line_id": a["line_id"], "invoice_id": a["invoice_id"],
-                    "statement_id": line.get("statement_id") or a.get("statement_id"), "workpackage_id": a.get("workpackage_id"),
-                    "line_amount": a.get("line_amount"), "invoice_amount": a.get("invoice_amount"),
-                    "line_total": a.get("line_total"), "invoice_total": a.get("invoice_total"), "currency": line.get("currency"),
-                    **{k: line.get(k) for k in ("booking_date", "direction", "counterparty_name")}})
-    files = reconcile.file_names([r["invoice_id"] for r in out])
+    for kind, rows in (("allocation", result.get("unfit") or []), ("mark", result.get("unfit_marks") or [])):
+        for a in rows:
+            line = lines.get(str(a["line_id"]), {})
+            statement_id = line.get("statement_id") or a.get("statement_id")
+            if a.get("workpackage_id") != wp_id and statement_id not in scope_ids:
+                continue
+            out.append({"kind": kind, "ref": str(a["id"]), "reason": a.get("reason", "amounts"), "line_id": a["line_id"],
+                        "invoice_id": a.get("invoice_id"), "invoice_reason": a.get("invoice_reason"),
+                        "category": a.get("category"), "statement_id": statement_id, "workpackage_id": a.get("workpackage_id"),
+                        "line_amount": a.get("line_amount"), "invoice_amount": a.get("invoice_amount"),
+                        "line_total": a.get("line_total"), "invoice_total": a.get("invoice_total"),
+                        "currency": line.get("currency") or currency.get(statement_id),
+                        **{k: line.get(k) for k in ("booking_date", "direction", "counterparty_name")}})
+    files = reconcile.file_names([*(r["invoice_id"] for r in out if r["invoice_id"]), *(r["statement_id"] for r in out if r["statement_id"])])
     for r in out:
-        r["invoice_file"] = files.get(r["invoice_id"])
+        r["invoice_file"] = files.get(r["invoice_id"]) if r["invoice_id"] else None
+        r["file"] = files.get(r["statement_id"]) if r["statement_id"] else None
     return out
 
 
