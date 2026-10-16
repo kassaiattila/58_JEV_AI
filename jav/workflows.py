@@ -736,7 +736,16 @@ def _poll_pull(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], act
     if not _set(wf["id"], sdef["id"], expect=("pulling",), state="starting"):
         return
     result = pull.get("result") or {}
-    if pull["status"] != "ok":
+    if pull["status"] != "ok" and result.get("workpackage"):
+        # 160 (review R-1): an interrupted download packaged the emails that arrived; the step runs that package, and
+        # the error stays in its events (before, the step failed without the package and a restart found nothing new)
+        with store.connect() as c:
+            store.begin_immediate(c)
+            _event(c, wf["id"], sdef["id"], "pull_interrupted", actor,
+                   {"pull_id": st["pull_id"], "workpackage_id": result["workpackage"],
+                    "note": str(result.get("error") or pull["status"])[:1000]})
+        _start_run(wf, sdef, st, result["workpackage"], actor=actor)
+    elif pull["status"] != "ok":
         _done(wf, sdef["id"], actor, "failed", state="failed", note=str(result.get("error") or pull["status"])[:1000])
     elif not result.get("workpackage"):
         _done(wf, sdef["id"], actor, "nothing_new", state="nothing_new", note="no new emails")

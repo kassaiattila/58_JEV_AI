@@ -1095,6 +1095,7 @@
   "the workflow was made": "a munkafolyamat létrejött",
   "the workflow was changed": "a munkafolyamat módosult",
   "the mailbox download was queued": "a postafiók letöltése sorba került",
+  "the mailbox download was interrupted; the emails that arrived were packaged": "a postafiók letöltése megszakadt; a megérkezett levelek csomagba kerültek",
   "its live run started": "elindult az éles futása",
   "its package was made": "létrejött a csomagja",
   "its run's estimate is over its budget": "a futás becslése meghaladja a keretét",

@@ -1094,6 +1094,7 @@
   "the workflow was made": "the workflow was made",
   "the workflow was changed": "the workflow was changed",
   "the mailbox download was queued": "the mailbox download was queued",
+  "the mailbox download was interrupted; the emails that arrived were packaged": "the mailbox download was interrupted; the emails that arrived were packaged",
   "its live run started": "its live run started",
   "its package was made": "its package was made",
   "its run's estimate is over its budget": "its run's estimate is over its budget",
