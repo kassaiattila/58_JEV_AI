@@ -159,7 +159,11 @@ def cmd_run_show(args):
 
 def cmd_run_cancel(args):
     from jav import work
-    res = work.cancel_run(args.run)
+    try:
+        res = work.cancel_run(args.run)
+    except work.RevisionConflict as exc:  # 160 (review R-3): a finished run is superseded, not stopped
+        print(exc)
+        return 2
     return _out(args, res, f"Leállítás: {res or 'nincs futó vagy sorban álló tétel'}")
 
 

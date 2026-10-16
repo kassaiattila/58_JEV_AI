@@ -132,6 +132,9 @@ def _migrate(conn) -> None:
     rcols = {r[1] for r in conn.execute("PRAGMA table_info(runs)")}
     if rcols and "plan" not in rcols:  # 082: the pre-start overview (`run_plan`), compared with the actual calls
         conn.execute("ALTER TABLE runs ADD COLUMN plan TEXT")
+    if rcols and "stopped_at" not in rcols:  # 160 (review R-4): a person stopped the run (it ends cancelled)
+        conn.execute("ALTER TABLE runs ADD COLUMN stopped_at TEXT")
+        conn.execute("ALTER TABLE runs ADD COLUMN stopped_by TEXT")
 
 
 store.register_migration("work", _migrate)
@@ -1203,6 +1206,8 @@ def refresh_run_status(run_id: str) -> str:
         status = "cancelled"
     elif pending:
         status = "running" if (jobs.get("claimed") or any(v for k, v in jobs.items() if k in ("done", "dead"))) else "queued"
+    elif run.get("stopped_at"):  # 160 (review R-4): a person's stop ends as stopped, whatever an earlier item did
+        status = "cancelled"
     elif jobs.get("dead"):
         status = "failed"
     elif jobs.get("cancelled"):
@@ -1236,21 +1241,35 @@ def resolve_reason(reason_id: int, *, actor: str, resolution: dict[str, Any] | N
     return {"reason_id": reason_id, "status": "resolved", "actor": actor, "run_status": run_status}
 
 
+STOPPABLE = ("queued", "running")  # 160 (review R-3): a finished run is superseded instead (`supersede_run`)
+
+
 def cancel_run(run_id: str, *, actor: str | None = None) -> dict[str, int]:
     """Queued items stop at once, an active one at the next step boundary. 066 Á35: the actor (if any) goes into the
     package's event log. 082: the run's jobs are stopped in one step (`queue.cancel_run_jobs`); with an item still
-    running, the run's status is refreshed here too (the worker's own refresh after that item ends it as cancelled)."""
+    running, the run's status is refreshed here too (the worker's own refresh after that item ends it as cancelled).
+
+    160 (review R-3): only a queued or running run can be stopped (`RevisionConflict` otherwise, also when it finishes
+    meanwhile: the write is conditional). R-4: the stop is noted on the run (`stopped_at`, `stopped_by`), so it ends
+    cancelled even when an earlier item failed."""
     with store.connect() as c:
+        store.begin_immediate(c)
+        row = c.execute("SELECT workpackage_id, status FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        if row is None:
+            raise KeyError(run_id)
+        if row["status"] not in STOPPABLE:
+            raise RevisionConflict(f"the run is {row['status']}: only a queued or running run can be stopped; "
+                                   "supersede a finished one instead")
+        c.execute("UPDATE runs SET stopped_at=?, stopped_by=? WHERE run_id=?", (_now(), actor, run_id))
         if actor is not None:
-            wp_row = c.execute("SELECT workpackage_id FROM runs WHERE run_id=?", (run_id,)).fetchone()
-            if wp_row is not None:
-                _event(c, wp_row["workpackage_id"], "run_cancel", actor, {"run_id": run_id})
+            _event(c, row["workpackage_id"], "run_cancel", actor, {"run_id": run_id})
     out = queue.cancel_run_jobs(run_id)
     if out.get("cancel_requested"):
         refresh_run_status(run_id)
     else:
         with store.connect() as c:
-            c.execute("UPDATE runs SET status='cancelled', finished_at=? WHERE run_id=?", (_now(), run_id))
+            c.execute("UPDATE runs SET status='cancelled', finished_at=? WHERE run_id=? AND status IN ('queued','running')",
+                      (_now(), run_id))
     return out
 
 
