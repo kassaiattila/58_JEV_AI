@@ -164,7 +164,7 @@ export function BudgetBars({ budget }: { budget: RunView["budget"] }) {
         const pct = Math.min(100, (Number(v.committed_usd) / Math.max(Number(v.limit_usd), 1e-9)) * 100);
         return (
           <div key={p} className="budget">
-            <div className="budget-label"><span>{providerName(p)}</span><span className="mono">{usd(v.committed_usd)} / {usd(v.limit_usd)}</span></div>
+            <div className="budget-label"><span>{providerName(p)}</span><span className="tnum">{usd(v.committed_usd)} / {usd(v.limit_usd)}</span></div>
             <div className="bar" role="meter" aria-label={t("{{provider}} keret felhasználva", { provider: providerName(p) })} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(pct)}>
               <span style={{ width: `${pct}%` }} />
             </div>
@@ -188,7 +188,7 @@ export function RunCost({ costs, budget, budgetBlocked }: { costs: RunCostView |
     <section aria-label={t("Költség")}>
       <h2>{t("Költség")}</h2>
       {costs ? <>
-        <div className="cost-total"><span>{t("A futás költsége")}</span><strong className="mono">{usd(costs.total.usd)}</strong></div>
+        <div className="cost-total"><span>{t("A futás költsége")}</span><strong>{usd(costs.total.usd)}</strong></div>
         {costs.providers.length ? (
           <dl className="kv cost-kv">
             {costs.providers.map((p) => [

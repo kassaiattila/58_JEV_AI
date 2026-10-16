@@ -573,7 +573,7 @@ The names offered by **Who is working?**. Add a new name with the ‘New name’
 
 ### 10.6 Appearance
 
-‘Theme’ (*Téma*): ‘Follow the system’ (*A rendszer szerint*), ‘Light’ (*Világos*) or ‘Dark’ (*Sötét*). ‘Density’ (*Sűrűség*): ‘Comfortable’ (*Tágas*) or ‘Compact’ (*Tömör*). Changes apply immediately and are remembered in this browser.
+‘Theme’ (*Téma*): ‘Follow the system’ (*A rendszer szerint*), ‘Light’ (*Világos*) or ‘Dark’ (*Sötét*); each choice shows a small drawing of the workspace in that theme. The change applies immediately and is remembered in this browser. There is one density for everyone; the earlier ‘Density’ (*Sűrűség*) switch was removed with the 2026 redesign.
 
 ### 10.7 Language
 

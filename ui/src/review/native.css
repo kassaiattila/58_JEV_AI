@@ -1,21 +1,34 @@
-.native-source, .native-facts { min-width: 0; min-height: 0; padding: 1rem; overflow: auto; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); }
+/* The native view: a Word, Excel, text or CSV document's saved source on the left, its facts on the right.
+   157 (redesign): shared tokens only (the old fallbacks were fixed colours), the 4 px spacing scale, 12 px at the least;
+   a nested table and a quoted source are indented with a hairline, not a thick side stripe; the selected element has an
+   ink frame (the accent marks the main action only); a location is a quiet code label. */
+.native-source, .native-facts { min-width: 0; min-height: 0; padding: var(--sp-4); overflow: auto; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); }
 .native-source h2, .native-facts h2 { margin-top: 0; }
-.native-block { border: 1px solid var(--border, #ccd2d8); border-radius: 4px; padding: .65rem; margin: .4rem 0; overflow-wrap: anywhere; }
-.native-block > small { display: block; }
-.native-selected { outline: 2px solid var(--accent, #146c8e); outline-offset: -2px; }
-.native-source-location { font-size: .8rem; text-align: left; overflow-wrap: anywhere; max-width: 100%; }
+.native-block { display: grid; gap: var(--sp-1); justify-items: start; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 10px var(--sp-3); margin: 6px 0; overflow-wrap: anywhere; }
+.native-block > * { max-width: 100%; }
+.native-block > small { display: block; color: var(--muted); }
+.native-selected { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.native-source-location { font: var(--fs-xs)/1.4 var(--mono); color: var(--ink-2); background: var(--soft); border: 1px solid var(--line); border-radius: var(--r-sm);
+  padding: 1px 6px; text-align: left; overflow-wrap: anywhere; max-width: 100%; cursor: pointer; }
+.native-source-location:hover { border-color: var(--line-strong); color: var(--ink); }
+.native-source-location[aria-pressed="true"] { background: var(--tint); border-color: var(--ink); color: var(--ink); }
 .native-lexical, .native-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; }
-.native-text { max-height: 65vh; overflow: auto; }
-.native-word-table { margin-left: .8rem; border-left: 3px solid var(--border, #ccd2d8); padding-left: .6rem; }
+.native-text { max-height: 65vh; overflow: auto; margin: 0; }
+.native-word-table { margin-left: var(--sp-3); border-left: 1px solid var(--line); padding-left: var(--sp-3); }
 .native-cell-scroll { overflow-x: auto; }
 .native-cells { border-collapse: collapse; min-width: 100%; }
-.native-cells td { min-width: 10rem; padding: .2rem; vertical-align: top; }
-.native-fact { padding: 1rem 0; border-top: 1px solid var(--border, #ccd2d8); }
-.native-fact h3 { margin: .2rem 0; }
+.native-cells caption { text-align: left; font-weight: 600; padding: var(--sp-1) 0; }
+.native-cells td { min-width: 10rem; padding: var(--sp-1); vertical-align: top; }
+.native-fact { display: grid; gap: var(--sp-2); padding: var(--sp-4) 0; border-top: 1px solid var(--line); }
+.native-fact h3 { margin: 2px 0; }
+.native-fact h4 { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); }
 .native-fact textarea, .native-fact select { width: 100%; }
-.native-fact dl { display: grid; grid-template-columns: minmax(6rem, 1fr) 2fr; gap: .3rem; font-size: .85rem; }
+.native-fact dl { display: grid; grid-template-columns: minmax(6rem, 1fr) 2fr; gap: var(--sp-1) var(--sp-3); font-size: var(--fs-sm); margin: 0; }
+.native-fact dt { color: var(--muted); }
 .native-fact dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.native-citation { padding: .5rem; border-left: 3px solid var(--border, #ccd2d8); margin: .6rem 0; }
-.native-citation blockquote { margin: .3rem 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.native-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin: .6rem 0; }
-.native-summary { margin-bottom: 1rem; }
+.native-fact > button { justify-self: start; }
+.native-citation { display: grid; gap: 6px; justify-items: start; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line-soft); border-radius: var(--r-sm); background: var(--soft); margin: 6px 0; }
+.native-citation blockquote, .native-fact details blockquote { margin: 0; padding-left: var(--sp-3); border-left: 1px solid var(--line-strong); white-space: pre-wrap; overflow-wrap: anywhere; }
+.native-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin: 10px 0; }
+.native-summary { margin-bottom: var(--sp-4); }
+.native-summary p { margin: 0 0 6px; }

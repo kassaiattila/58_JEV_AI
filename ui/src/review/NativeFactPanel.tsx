@@ -89,18 +89,18 @@ export function NativeFactPanel({ result, source, selected, readOnly, onChanged,
     {differentResult ? <div className="notice error" role="alert"><p>{t("This draft belongs to an earlier result. Your text is retained below; review it against the new source before discarding and entering a new correction.")}</p>
       <pre>{JSON.stringify({ values: draft?.nativeValues, sources: draft?.nativeSources, citationEdits: draft?.nativeCitationEdits }, null, 2)}</pre></div> : null}
     {(conflict || revisionChanged) && !differentResult ? <div className="notice" role="alert"><p>{t("The saved correction changed. Your draft is retained. Compare it with the refreshed machine and saved values before continuing.")}</p>
-      <button type="button" disabled={conflict && conflictResult.current === result} onClick={() => { rebaseDraft(key, result.correction.revision); setConflict(false); setError(null); }}>{t("I reviewed the refreshed correction")}</button></div> : null}
+      <button type="button" className="secondary small-btn" disabled={conflict && conflictResult.current === result} onClick={() => { rebaseDraft(key, result.correction.revision); setConflict(false); setError(null); }}>{t("I reviewed the refreshed correction")}</button></div> : null}
     {error || resolve.error ? <p className="notice error" role="alert">{error ?? resolve.error}</p> : null}
     {Object.keys(draft?.nativeCitationEdits ?? {}).length ? <p className="notice small">{t("Unchecked citation text is kept in your draft. Check and attach it before saving its source.")}</p> : null}
-    <div className="native-actions"><button type="button" className="primary" disabled={disabled || !hasSave} onClick={() => void save()}>{busy ? t("Saving…") : t("Save corrections")}</button>
-      <button type="button" disabled={!isDirty(draft) || busy} onClick={() => clearDraft(key)}>{t("Discard draft")}</button>
-      <button type="button" disabled={busy} onClick={onChanged}>{t("Reload result")}</button></div>
+    <div className="native-actions"><button type="button" className={hasSave ? "primary" : "secondary"} disabled={disabled || !hasSave} onClick={() => void save()}>{busy ? t("Saving…") : t("Save corrections")}</button>
+      <button type="button" className="secondary" disabled={!isDirty(draft) || busy} onClick={() => clearDraft(key)}>{t("Discard draft")}</button>
+      <button type="button" className="secondary" disabled={busy} onClick={onChanged}>{t("Reload result")}</button></div>
     {!result.native_facts.length ? <p className="notice">{result.result_ready ? t("No valid native facts were published. Review the reading and interpretation outcomes.") : t("No native result has been published yet.")}</p> : null}
     {result.native_facts.map((fact) => <NativeFactEditor key={fact.fact_id} fact={fact} result={result} draft={draft} source={source} selected={selected}
       disabled={disabled} onConfirm={() => void save(fact.fact_id)} onCitation={onCitation} onError={setError} />)}
     <h3>{t("Open review reasons")}</h3>
     {result.open_reasons.map((reason) => <div key={reason.id} className="notice"><p>{reasonText(reason.reason)}</p>
-      <button type="button" disabled={readOnly || busy || resolve.pending !== null || !actor.trim()} onClick={() => void resolve.resolve(reason)}>{t("Mark resolved")}</button></div>)}
+      <button type="button" className="secondary small-btn" disabled={readOnly || busy || resolve.pending !== null || !actor.trim()} onClick={() => void resolve.resolve(reason)}>{t("Mark resolved")}</button></div>)}
     {earlier.length ? <details><summary>{t("Earlier review reasons")}</summary>{earlier.map((r) => <p key={r.id}>{reasonText(r.reason)}</p>)}</details> : null}
   </section>;
 }
@@ -176,7 +176,7 @@ function NativeFactEditor({ fact, result, draft, source, selected, disabled, onC
     {fact.reasons.map((reason, i) => <p className="notice small" key={i}>{t(reason)}</p>)}
     <details className="small"><summary>{t("Technical details")}</summary><p className="muted">{t("Fact identifier")}: {fact.fact_id}</p></details>
     <details><summary>{t("Original machine citations")}</summary>{proposal.citations.map((c, i) => <div key={i}><blockquote>{c.quote}<small> · {c.occurrence_id} / {c.element_id}</small></blockquote>
-      <button type="button" disabled={validating || !source} onClick={() => void showOriginal(c)}>{t("Show original source")}</button></div>)}</details>
+      <button type="button" className="secondary small-btn" disabled={validating || !source} onClick={() => void showOriginal(c)}>{t("Show original source")}</button></div>)}</details>
     <label className="block">{t("Effective value")}<textarea aria-label={t("Effective value for {{property}} ({{id}})", { property: proposal.property, id: fact.fact_id })}
       value={value ?? ""} disabled={disabled || value === null} rows={2} onChange={(e) => setNativeField(key, result.correction.revision, result.result_version!, fact.fact_id, e.target.value)} /></label>
     <label className="check"><input type="checkbox" checked={value === null} disabled={disabled} onChange={(e) => setNativeField(key, result.correction.revision, result.result_version!, fact.fact_id, e.target.checked ? null : "")} />{t("No value")}</label>
@@ -184,17 +184,17 @@ function NativeFactEditor({ fact, result, draft, source, selected, disabled, onC
     <h4>{t("Effective source citations")}</h4>
     {!citations.length ? <p className="notice small">{t("No source citation is attached to this effective value.")}</p> : null}
     {citations.map((c, i) => <div className="native-citation" key={`${c.occurrence_id}:${c.element_id}:${i}`}><blockquote>{c.quote}</blockquote>
-      {"locator" in c ? <><button type="button" onClick={() => onCitation(c as NativeCitation)}>{locatorText((c as NativeCitation).quote_span ?? (c as NativeCitation).locator)}</button>
+      {"locator" in c ? <><button type="button" className="native-source-location" onClick={() => onCitation(c as NativeCitation)}>{locatorText((c as NativeCitation).quote_span ?? (c as NativeCitation).locator)}</button>
         {(c as NativeCitation).quote_match_count > 1 ? <p className="notice small">{t("This quote occurs {{n}} times in the element; no unique text span is claimed.", { n: (c as NativeCitation).quote_match_count })}</p> : null}</> : <small>{c.occurrence_id} / {c.element_id} · {t("Draft source")}</small>}
-      <button type="button" disabled={disabled} onClick={() => updateSources(citations.filter((_, n) => n !== i))}>{t("Remove citation")}</button></div>)}
+      <button type="button" className="secondary small-btn" disabled={disabled} onClick={() => updateSources(citations.filter((_, n) => n !== i))}>{t("Remove citation")}</button></div>)}
     <details onToggle={(e) => setSourceEditing(e.currentTarget.open)}><summary>{t("Edit source citations")}</summary>
       {sourceEditing ? <>
       <label className="block">{t("Source element")}<select value={chosen} disabled={disabled || !source} onChange={(e) => updateEdit(e.target.value, quote)}>
         <option value="">{t("Select a saved source element")}</option>{source?.elements.map((e) => <option value={elementKey(e)} key={elementKey(e)}>{e.occurrence_id} · {locatorText(e.locator)} · {e.element_id}</option>)}</select></label>
       <label className="block">{t("Exact source quote")}<textarea value={quote} disabled={disabled} onChange={(e) => updateEdit(chosen, e.target.value)} rows={3} /></label>
-      <button type="button" disabled={disabled || validating || !source || !chosen || !quote} onClick={() => void addCitation()}>{validating ? t("Checking source…") : t("Check and attach source")}</button>
+      <button type="button" className="secondary small-btn" disabled={disabled || validating || !source || !chosen || !quote} onClick={() => void addCitation()}>{validating ? t("Checking source…") : t("Check and attach source")}</button>
       </> : null}
     </details>
-    <button type="button" disabled={disabled || validating || Boolean(edit)} onClick={onConfirm}>{t("Confirm this fact")}</button>
+    <button type="button" className="secondary small-btn" disabled={disabled || validating || Boolean(edit)} onClick={onConfirm}>{t("Confirm this fact")}</button>
   </article>;
 }

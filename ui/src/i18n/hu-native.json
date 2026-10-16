@@ -1239,5 +1239,6 @@
   "the live run has finished with no open to-dos": "az éles futás lezárult, nyitott teendő nélkül",
   "settle them in the Review section before the approval": "jóváhagyás előtt rendezd őket az Ellenőrzés szakaszban",
   "Not finished": "Nem zárult le",
-  "the live run has not finished yet": "az éles futás még nem zárult le"
+  "the live run has not finished yet": "az éles futás még nem zárult le",
+  "The theme: light, dark or as the system is set": "Téma: világos, sötét vagy a rendszer szerint"
 }

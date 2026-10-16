@@ -38,7 +38,7 @@ export function BrowseButton({ kind, initial, onPick }: {
 
   return (
     <span className="browse">
-      <button type="button" onClick={() => void browse()} disabled={busy} aria-busy={busy}>
+      <button type="button" className="secondary" onClick={() => void browse()} disabled={busy} aria-busy={busy}>
         {busy ? t("A választó ablak nyitva…") : t("Tallózás…")}
       </button>
       {busy ? <span className="muted">{t("Ha nem látod, nézd meg a tálcán.")}</span> : null}

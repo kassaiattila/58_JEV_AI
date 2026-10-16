@@ -46,7 +46,7 @@ export function NativeReview({ data, approved, onChanged }: { data: NativeItemRe
     {data.source_file.original === "changed" || data.source_file.original === "missing"
       ? <p className="notice">{t("The original file changed or disappeared. This view uses the saved source used for this result.")}</p> : null}
     {!data.result_ready ? <p className="notice">{t("No published native source is available yet.")}</p>
-      : source.error ? <p className="notice error" role="alert">{source.error.message}<button onClick={source.reload}>{t("Reload source")}</button></p>
+      : source.error ? <p className="notice error" role="alert">{source.error.message}<button type="button" className="secondary small-btn" onClick={source.reload}>{t("Reload source")}</button></p>
         : !shownSource ? <p role="status">{t("Loading the complete saved source…")}</p>
           : <NativeSourceViewer source={shownSource} selected={selected} citation={citation?.result_version === data.result_version ? citation : null} onPick={(e) => { setSelected(elementKey(e)); setCitation(null); }} />}
   </div>} right={<NativeFactPanel result={data} source={shownSource} selected={selected} readOnly={approved} onChanged={onChanged}
