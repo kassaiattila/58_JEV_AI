@@ -1,5 +1,5 @@
-"""159 (backlog Q-lista-kétperces-újraszámolás): the package list no longer rebuilds every reconciliation workspace every
-two minutes when nothing has changed.
+"""159 (the list's two-minute rebuild): the package list no longer rebuilds every reconciliation workspace every two
+minutes when nothing has changed.
 
 The workspace's safety bound (`KEEP_SECONDS`, 120 s: a change the marks miss shows within this time) also ended the
 list's rows, so the list built all six live reconciliation workspaces again every two minutes (5-6 s on one core,
