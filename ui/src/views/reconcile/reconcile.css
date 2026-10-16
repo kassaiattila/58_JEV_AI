@@ -1,5 +1,5 @@
 /* 132: the reconciliation package's pages — two lists side by side, the selection bar at the bottom, the documents
-   below. Only the shared colour tokens are used, so the dark theme and the compact density apply.
+   below. Only the shared colour tokens are used, so the dark theme applies.
    156 (redesign): no side stripes — a state is a small mark in its own colour before its label (DESIGN.md §4), a
    selected row or card has a firm border; amounts use tabular figures in the text face, not monospace; no label below
    12 px and no uppercase micro-labels. */

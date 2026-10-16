@@ -13,6 +13,10 @@
   --todo: #b0500e; --todo-tint: #fcefe3; --todo-line: #f1d2b4;
   --ok: #2c7651; --ok-tint: #e7f2ec; --ok-line: #c6e0d1;
   --run: #2d5c9e; --run-tint: #e8eef8; --run-line: #c9d6ec;
+  /* 157: the theme swatches draw both themes, so these keep their values in the dark theme too */
+  --preview-light-rail: #1f1d20; --preview-light-canvas: #f4f3f0; --preview-light-paper: #fff; --preview-light-line: #dedbd5;
+  --preview-dark-rail: #0e0d10; --preview-dark-canvas: #161518; --preview-dark-paper: #1e1d20; --preview-dark-line: #343238;
+  --preview-accent: #a33f53;
   --fs-xs: 12px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 18px; --fs-xl: 22px; --fs-2xl: 28px;
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
   --r-sm: 4px; --r-md: 6px; --radius: 10px; --r-full: 999px;
@@ -458,6 +462,7 @@ th.num .th-in { flex-direction: row-reverse; }
 .check-list { display: grid; gap: 2px; max-height: 240px; overflow: auto; }
 .check { display: flex; gap: var(--sp-2); align-items: flex-start; font-size: var(--fs-sm); padding: 3px 2px; cursor: pointer; }
 .check input { margin-top: 3px; accent-color: var(--ink); }
+input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157: a choice is ink, not the browser's blue */
 .range { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .range label, .block-label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
 .blank-row { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--line-soft); padding-top: 6px; }
@@ -571,10 +576,11 @@ th.num .th-in { flex-direction: row-reverse; }
 .named-copies > [role="status"] { flex-basis: 100%; }
 .settings-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 24px; align-items: start; }
 .settings-nav { display: grid; gap: 2px; position: sticky; top: 12px; }
-/* 063: the menu items are larger and are highlighted with a coloured bar on hover */
-.settings-nav a { padding: 10px 14px; border-radius: 6px; text-decoration: none; color: var(--ink); font-size: 14px; font-weight: 500; transition: background-color .12s, box-shadow .12s; }
-.settings-nav a:hover { background: var(--tint); color: var(--accent); box-shadow: inset 3px 0 var(--tint-line); }
-.settings-nav a[aria-current="page"] { background: var(--tint); color: var(--accent); font-weight: 600; box-shadow: inset 3px 0 var(--accent); }
+/* 157: the current menu item is a neutral block in ink, as on the side rail: no coloured side bar and no accent (the
+   accent marks the main action only) */
+.settings-nav a { padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md); text-decoration: none; color: var(--ink-2); font-size: var(--fs-sm); font-weight: 500; transition: background-color .12s; }
+.settings-nav a:hover { background: var(--hover); color: var(--ink); }
+.settings-nav a[aria-current="page"] { background: var(--tint); color: var(--ink); font-weight: 600; }
 .settings-body { display: grid; gap: 14px; min-width: 0; }
 .settings-body > h2 { margin: 0; }
 @media (max-width: 800px) { .settings-layout { grid-template-columns: 1fr; } .stage-tabs { grid-template-columns: 1fr; } .stage-tab { border-right: 0; border-bottom: 1px solid var(--line); } }
@@ -603,7 +609,7 @@ th:hover .th-filter, .th-filter:focus-visible, .th-filter[aria-expanded="true"] 
 .track.t-failed > i.current { background: var(--error); }
 .track.t-done > i { background: var(--ok); }
 
-/* 057: appearance — dark theme (from Settings › Appearance, or the system setting) and density */
+/* 057: appearance — dark theme (from Settings › Appearance, or the system setting); 157: one density for everyone */
 :root[data-theme="dark"] {
   --canvas: #161518; --paper: #1e1d20; --soft: #222124; --hover: #29282c;
   --ink: #edebef; --ink-2: #c7c4cb; --muted: #9d99a3; --faint: #6e6a73;
@@ -621,16 +627,25 @@ th:hover .th-filter, .th-filter:focus-visible, .th-filter[aria-expanded="true"] 
 }
 :root[data-theme="dark"] .rail { border-right: 1px solid var(--line-soft); }
 :root[data-theme="dark"] .page-wrap img { filter: none; }
-:root[data-density="compact"] body { font-size: 13px; }
-:root[data-density="compact"] .dt-table td { padding: 4px 8px; height: 30px; }
-:root[data-density="compact"] .dt-table th { padding: 4px 8px; }
-:root[data-density="compact"] .card { padding: 12px; gap: 8px; }
-:root[data-density="compact"] .page-head { padding: 12px 0 10px; }
-:root[data-density="compact"] .main { padding: 4px 20px 30px; }
-.theme-choice { display: flex; gap: 10px; flex-wrap: wrap; }
-.theme-choice label { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; min-width: 130px; }
-.theme-choice label:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 2px var(--tint); }
-.theme-swatch { height: 36px; border-radius: 6px; border: 1px solid var(--line); }
+/* 157: a theme's swatch is a small drawing of the workspace in that theme — the rail with the brand mark, the canvas
+   and a card — from the preview tokens, which keep their values in both themes; the chosen theme is a selection (ink
+   border, neutral tint), not the accent */
+.theme-choice { display: flex; gap: var(--sp-3); flex-wrap: wrap; }
+.theme-choice label { display: grid; gap: var(--sp-2); padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; min-width: 136px; background: var(--paper); }
+.theme-choice label:hover { border-color: var(--line-strong); }
+.theme-choice label:has(input:checked) { border-color: var(--ink); background: var(--tint); }
+.theme-swatch { display: flex; height: 44px; border-radius: var(--r-sm); border: 1px solid var(--line); overflow: hidden; }
+.theme-swatch > span { flex: 1; display: grid; grid-template-columns: 12px 1fr; }
+.theme-swatch i { position: relative; }
+.theme-swatch i::before { content: ""; position: absolute; left: 3px; top: 4px; width: 6px; height: 6px; border-radius: 1px; background: var(--preview-accent); }
+.theme-swatch b { position: relative; }
+.theme-swatch b::after { content: ""; position: absolute; left: 6px; right: 6px; top: 9px; bottom: 9px; border-radius: 2px; }
+.swatch-light i { background: var(--preview-light-rail); }
+.swatch-light b { background: var(--preview-light-canvas); }
+.swatch-light b::after { background: var(--preview-light-paper); box-shadow: 0 0 0 1px var(--preview-light-line); }
+.swatch-dark i { background: var(--preview-dark-rail); }
+.swatch-dark b { background: var(--preview-dark-canvas); }
+.swatch-dark b::after { background: var(--preview-dark-paper); box-shadow: 0 0 0 1px var(--preview-dark-line); }
 .user-list li { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line-soft); max-width: 460px; }
 .folder-card legend { font-weight: 600; padding: 0 6px; }
 .form-row .grow { flex: 1 1 360px; }

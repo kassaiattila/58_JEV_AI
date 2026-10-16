@@ -115,7 +115,8 @@ export function FoldersPanel() {
         <button type="button" className="secondary" onClick={() => setDraft((d) => [...d, { ...EMPTY }])}><Icon name="plus" />{t("Munkamappa hozzáadása")}</button>
         <span className="dt-spacer" />
         <button type="button" className="secondary" disabled={!dirty || busy} onClick={() => setDraft(baseline)}>{t("Módosítások elvetése")}</button>
-        <button type="button" className="primary" disabled={!dirty || busy} onClick={() => void save()}>{busy ? t("Mentés…") : t("Mentés")}</button>
+        {/* 157: solid only while there is something to save (a faded solid button was noise) */}
+        <button type="button" className={dirty ? "primary" : "secondary"} disabled={!dirty || busy} onClick={() => void save()}>{busy ? t("Mentés…") : t("Mentés")}</button>
       </div>
       <p className="muted small" role="status">{dirty ? t("Mentetlen módosítás van.") : ""}</p>
       {msg ? <p className={msg.error ? "notice error" : "notice"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}
@@ -166,7 +167,7 @@ export function OutputFolderCard() {
       </div>
       <div className="button-row">
         <span className="dt-spacer" />
-        <button type="button" className="primary" disabled={busy || path.trim() === saved} onClick={() => void save()}>{busy ? t("Mentés…") : t("Mentés")}</button>
+        <button type="button" className={path.trim() === saved ? "secondary" : "primary"} disabled={busy || path.trim() === saved} onClick={() => void save()}>{busy ? t("Mentés…") : t("Mentés")}</button>
       </div>
       {msg ? <p className={msg.error ? "notice error" : "notice"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}
     </fieldset>

@@ -63,7 +63,7 @@ export function UsersPanel() {
         if (name) void save([...draft, name], t("{{name}} felvéve és mentve.", { name })).then((ok) => { if (ok) setAdd(""); });
       }}>
         <label className="block">{t("Új név")}<input value={add} maxLength={64} onChange={(e) => setAdd(e.target.value)} /></label>
-        <button type="submit" className="primary" disabled={!add.trim() || busy}>{t("Felvétel")}</button>
+        <button type="submit" className={add.trim() ? "primary" : "secondary"} disabled={!add.trim() || busy}>{t("Felvétel")}</button>
       </form>
       {msg ? <p className={msg.error ? "notice error" : "muted small"} role={msg.error ? "alert" : "status"}>{msg.text}</p> : null}
     </section>

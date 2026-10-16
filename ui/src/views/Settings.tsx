@@ -34,7 +34,7 @@ export const SETTINGS_SECTIONS: { key: SettingsSection; label: string; hint: str
   { key: "parties", label: "Own parties", hint: "Whose money is reconciled: companies, associations and people, with their names, tax numbers and accounts" },
   { key: "recipes", label: "Feldolgozás", hint: "Hogyan dolgozza fel a rendszer az iratokat és a leveleket, mit jelentenek a beállítások, mennyibe kerülnek" },
   { key: "users", label: "Felhasználók", hint: "A „Ki dolgozik?” választéka" },
-  { key: "appearance", label: "Megjelenés", hint: "Téma és sűrűség" },
+  { key: "appearance", label: "Megjelenés", hint: "The theme: light, dark or as the system is set" },
   { key: "language", label: "Nyelv", hint: "A felület nyelve: magyar vagy angol" },
   { key: "system", label: "Rendszer", hint: "A futó verzió, a feldolgozó állapota, az adattár mentése, minden futás" },
 ];

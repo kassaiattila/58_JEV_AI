@@ -1,15 +1,16 @@
-// Appearance (057): theme (light / dark / following the system) and density (comfortable / compact). Per viewer,
-// stored in the browser (the legacy V4 handled it the same way); without storage (private window) the default applies.
+// Appearance (057): the theme (light / dark / following the system). Per viewer, stored in the browser (the legacy V4
+// handled it the same way); without storage (private window) the default applies. 157: the density switch is gone
+// (one density for everyone, as the design brief decided); a density remembered from before is ignored.
 export type Theme = "light" | "dark" | "system";
-export type Density = "comfortable" | "compact";
-export interface Appearance { theme: Theme; density: Density }
+export interface Appearance { theme: Theme }
 
 const KEY = "jav.appearance";
-const DEFAULT: Appearance = { theme: "system", density: "comfortable" };
+const DEFAULT: Appearance = { theme: "system" };
 
 export function getAppearance(): Appearance {
   try {
-    return { ...DEFAULT, ...(JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Appearance>) };
+    const saved = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<Appearance>;
+    return { theme: saved.theme ?? DEFAULT.theme };
   } catch {
     return DEFAULT;
   }
@@ -23,7 +24,6 @@ function effectiveTheme(t: Theme): "light" | "dark" {
 export function applyAppearance(a: Appearance = getAppearance()): void {
   const root = document.documentElement;
   root.dataset.theme = effectiveTheme(a.theme);
-  root.dataset.density = a.density;
 }
 
 export function setAppearance(a: Appearance): void {
