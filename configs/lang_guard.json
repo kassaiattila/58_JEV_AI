@@ -556,6 +556,7 @@
     "tests/test_date_reading_084.py": 6,
     "tests/test_detect.py": 4,
     "tests/test_detect_detail.py": 4,
+    "tests/test_detection_live_160.py": 2,
     "tests/test_devstate.py": 3,
     "tests/test_doc_links.py": 1,
     "tests/test_docs_071.py": 1,
