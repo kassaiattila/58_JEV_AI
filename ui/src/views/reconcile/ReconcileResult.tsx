@@ -113,7 +113,7 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
               </>
             ) : <p className="small ok">{t("Nothing blocks the approval.")}</p>}
             {archived ? null : (
-              <ConfirmButton className="primary" disabled={busy || current.blockers.length > 0}
+              <ConfirmButton className={current.blockers.length > 0 ? "secondary" : "primary"} disabled={busy || current.blockers.length > 0}
                 onConfirm={() => void act(() => api.reconcileApprove(wpId, current.fingerprint), t("The reconciliation has been approved."))}>
                 {current.statement.counts.open_lines
                   ? t("Approve the reconciliation ({{n}} open lines listed)", { n: current.statement.counts.open_lines })

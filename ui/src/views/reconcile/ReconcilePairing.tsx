@@ -542,7 +542,7 @@ function PartnerHead({ group, selected, readOnly, busy, onSelect, onMark, onUnma
       )}
       <span className="rc-group-body">
         <span className="rc-group-name">{group.name}</span>
-        <span className="small muted">{t("{{n}} lines", { n: group.lines.length })} · <span className="mono">{total}</span></span>
+        <span className="small muted">{t("{{n}} lines", { n: group.lines.length })} · <span className="rc-amount">{total}</span></span>
         {kindsOf.length ? <span className="small muted">{t("AI: {{kinds}}", { kinds: kindsOf.map((k) => KIND[k] ?? k).join(", ") })}</span> : null}
         {expected ? <span className="rc-sig warn">{t("invoice expected: {{n}}", { n: expected })}</span> : null}
         {suggestion ? <span className="rc-sig">{suggestionText(suggestion)}</span> : null}
