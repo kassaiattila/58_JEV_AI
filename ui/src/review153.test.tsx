@@ -1,6 +1,6 @@
 // 153 (review): Review says what an invoice's VAT check found (it shared its code with a statement's totals check and
 // showed the statement's sentence). Artificial data, no service.
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, type DsPage, type RunView, type Workpackage } from "./api";
 import { checkText } from "./labels";
@@ -50,6 +50,7 @@ describe("153 Review keeps its place and tells the package page", () => {
     render(<ReviewWorkspace wp={{ id: "wp-1" } as Workpackage} />);
     const active = await screen.findByRole("button", { pressed: true });
     expect(active.textContent).toContain("b.pdf");
-    expect(scrolled).toHaveBeenCalled();
+    // 158: the scroll runs in an effect after the render; on a busy machine it may come after the button shows
+    await waitFor(() => expect(scrolled).toHaveBeenCalled());
   });
 });
