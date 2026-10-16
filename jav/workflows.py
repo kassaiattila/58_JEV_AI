@@ -114,16 +114,25 @@ parties.register_reference(
     repoint=lambda c, old, new: c.execute("UPDATE workflows SET party_id=? WHERE party_id=?", (new, old)))
 
 
+PACKAGE_DELETED = "its package was deleted; start the step again"
+
+
 def _delete_guard(c, wp_id: str) -> None:
     """153 (review D1): the package of an open workflow's step cannot be deleted (every later start of the step failed
     with the deleted package's id); it can be hidden, or the workflow archived first. An archived workflow's step lets
-    its package go."""
+    its package go. 160 (review R-5): that step is failed with the reason (and its run forgotten), so after the
+    workflow is restored a person can start it again; before, it kept its state without a package and stood still."""
     row = c.execute("SELECT w.name FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
                     " WHERE s.workpackage_id=? AND w.status='open' LIMIT 1", (wp_id,)).fetchone()
     if row is not None:
         raise work.NotReady("the package is a step of an open workflow; archive the workflow first or hide the package",
                             [{"code": "workflow_step", "message": f"The package is a step of the workflow {row['name']}: it can only be hidden."}])
-    c.execute("UPDATE workflow_steps SET workpackage_id=NULL WHERE workpackage_id=?", (wp_id,))
+    steps = c.execute("SELECT s.workflow_id, s.step, w.actor FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
+                      " WHERE s.workpackage_id=?", (wp_id,)).fetchall()
+    c.execute("UPDATE workflow_steps SET workpackage_id=NULL, run_id=NULL, state='failed', note=?, updated_at=?"
+              " WHERE workpackage_id=?", (PACKAGE_DELETED, _now(), wp_id))
+    for s in steps:
+        _event(c, s["workflow_id"], s["step"], "failed", auto_actor(s["actor"]), {"note": PACKAGE_DELETED, "workpackage_id": wp_id})
 
 
 work.register_delete_guard(_delete_guard)
