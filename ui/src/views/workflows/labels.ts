@@ -11,16 +11,24 @@ export const STEP_STATUS: Record<WorkflowStepStatus, string> = tmap({
   missing: "its package is missing",
 }) as Record<WorkflowStepStatus, string>;
 
-/** The CSS tone of a status chip. */
-export function statusTone(status: WorkflowStepStatus): "ok" | "warn" | "error" | "muted" | "active" {
-  if (status === "approved" || status === "nothing_new") return "ok";
-  if (status === "failed" || status === "missing") return "error";
-  if (status === "needs_budget" || status === "review" || status === "approve" || status === "attention") return "warn";
-  if (status === "waiting") return "muted";
-  return "active";
+/** 157: a step's state mark (`.status .s-<mark>`): done green, a person's turn orange (a budget, to-dos, an approval,
+ * pairing), failed red, running blue, starting a blue ring; ready and waiting are neutral. Never the action colour. */
+export function stepMark(status: WorkflowStepStatus): "done" | "review" | "failed" | "running" | "queued" | "waiting" | "startable" {
+  if (status === "approved" || status === "nothing_new") return "done";
+  if (status === "failed" || status === "missing") return "failed";
+  if (["needs_budget", "review", "approve", "attention", "pairing"].includes(status)) return "review";
+  if (status === "running" || status === "pulling") return "running";
+  if (status === "starting") return "queued";
+  if (status === "waiting") return "waiting";
+  return "startable";
 }
 
 export const PROVIDER: Record<string, string> = { jev: "JEV", openai: "OpenAI", azure_di: "Azure" };
+
+/** 157: what a step's run may spend at most: the sum of its services' budgets. */
+export function budgetSum(budget: WorkflowBudget | undefined): number {
+  return Object.values(budget ?? {}).reduce((s, v) => s + (Number(v) || 0), 0);
+}
 
 export function budgetText(budget: WorkflowBudget | undefined): string {
   const parts = Object.entries(budget ?? {}).filter(([, v]) => v && Number(v) > 0).map(([p, v]) => `${PROVIDER[p] ?? p} ${v} USD`);

@@ -50,6 +50,11 @@ button:active:not(:disabled) { transform: scale(.97); }
 .secondary { background: var(--paper); border: 1px solid var(--line-strong); color: var(--ink); padding: 6px 12px; font-weight: 500; text-decoration: none; }
 .secondary:hover:not(:disabled) { background: var(--hover); border-color: var(--faint); }
 .secondary[aria-expanded="true"], .secondary[aria-pressed="true"] { background: var(--tint); border-color: var(--faint); }
+/* 157: a link drawn as a button keeps the button's look: no underline, and no accent text on hover (an accent label on
+   the accent fill could not be read) */
+a.primary, a.secondary, a.quiet { text-decoration: none; }
+a.primary:hover { color: var(--accent-ink); }
+a.secondary:hover, a.quiet:hover { color: var(--ink); }
 .quiet { background: transparent; border: 0; color: var(--muted); padding: 6px 10px; }
 .quiet:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
 .small-btn { min-height: 28px; padding: 4px 10px; font-size: var(--fs-xs); flex: none; }
@@ -125,6 +130,7 @@ th:hover > .col-resizer::after { background: var(--line); }
 .table.compact th, .table.compact td { padding: 6px var(--sp-2); }
 .card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--sp-4); margin-bottom: var(--sp-4); display: grid; gap: var(--sp-3); max-width: 720px; }
 .block { display: grid; gap: 6px; font-size: 12px; font-weight: 600; margin-bottom: 12px; }
+.block .muted { font-weight: 400; } /* 157: a hint beside a label is quieter than the label */
 .block input, .block select, .block textarea { font-weight: 400; border: 1px solid var(--line); border-radius: 6px; padding: 9px 11px; background: var(--paper); width: 100%; }
 .segmented { border: 0; padding: 0; margin: 0; display: flex; gap: 18px; font-size: 13px; }
 /* 082: the name switch above an item list and the mark on an uncertain unified name */
@@ -148,6 +154,9 @@ th:hover > .col-resizer::after { background: var(--line); }
 .s-queued::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--run); }
 .s-failed::before, .s-cancelled::before, .s-error::before { background: var(--error); border-radius: 0; }
 .s-failed, .s-error { color: var(--error); }
+.s-waiting::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); } /* 157: waits for earlier steps */
+.s-waiting { color: var(--muted); }
+.s-startable::before { background: var(--ink-2); } /* 157: ready to start; the start button carries the action */
 .plain { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 6px; font-size: 13px; }
 .blocker::before { content: "✕ "; color: var(--error); }
 .blocker:has(> details) { display: flex; gap: var(--sp-1); align-items: baseline; } /* 156: the mark stays beside a reason that opens */
@@ -710,37 +719,43 @@ button.chip[aria-pressed="true"] { background: var(--tint); border-color: var(--
 .item-nav { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--line-soft); }
 
 /* 146: the new work wizard and the workflows (list, control view) */
-.wizard-steps { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; margin: 0 0 14px; padding: 0 0 10px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+/* 157: the wizard's numbers are 12 px; the current step's number is filled with ink, a done step's is green */
+.wizard-steps { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; margin: 0 0 var(--sp-3); padding: 0 0 10px; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); color: var(--muted); }
 .wizard-steps li[aria-current="step"] { color: var(--ink); font-weight: 600; }
+.wizard-steps li[aria-current="step"] .wizard-n { background: var(--ink); border-color: var(--ink); color: var(--paper); }
 .wizard-steps li.done { color: var(--ok); }
-.wizard-n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 999px; border: 1px solid currentColor; font-size: 11px; margin-right: 4px; }
+.wizard-n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-full); border: 1px solid currentColor; font-size: var(--fs-xs); font-weight: 600; font-variant-numeric: tabular-nums; margin-right: var(--sp-1); }
 .wizard-choices { display: grid; gap: 8px; border: 0; padding: 0; margin: 0 0 12px; }
 .wizard-choices legend { font-weight: 600; margin-bottom: 6px; }
-.wizard-choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); cursor: pointer; }
-.wizard-choice:has(input:checked) { border-color: var(--accent); background: var(--tint); }
+.wizard-choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); cursor: pointer; }
+.wizard-choice:hover { border-color: var(--line-strong); }
+.wizard-choice:has(input:checked) { border-color: var(--ink); background: var(--tint); } /* 157: a choice is a selection, not an action */
+.wizard-choice input { accent-color: var(--ink); }
 .wizard-choice > span { display: grid; gap: 3px; }
-.wz-chain { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+.wz-chain { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-1); }
 .wz-step { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); min-width: 0; overflow-wrap: anywhere; }  /* 154: a fieldset is min-content wide by default */
 .wz-step legend { font-weight: 600; padding: 0 4px; }
 .wz-budget { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .wz-budget input { width: 6.5em; }
 .wz-overview { display: grid; gap: 8px; padding-left: 20px; min-width: 0; overflow-wrap: anywhere; }
-.wf-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 8px 0 12px; }
-.wf-status { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); white-space: nowrap; }
-.wf-ok.wf-status, .wf-dot.wf-ok { background: var(--ok-tint); color: var(--ok); border-color: #cfe2d7; }
-.wf-warn.wf-status, .wf-dot.wf-warn { background: var(--warn-tint); color: var(--warn); border-color: #eedcb8; }
-.wf-error.wf-status, .wf-dot.wf-error { background: var(--error-tint); color: var(--error); border-color: var(--error-line); }
-.wf-active.wf-status, .wf-dot.wf-active { color: var(--accent); border-color: var(--tint-line); }
-.wf-muted.wf-status, .wf-dot.wf-muted { color: var(--muted); }
-.wf-dot { padding: 0 6px; border-radius: 999px; border: 1px solid var(--line); }
-.wf-chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; list-style: none; padding: 0; margin: 12px 0; }
-.wf-arrow { align-self: center; color: var(--muted); font-size: 18px; }
+/* 157: a label beside its control (the workflows' filters and budgets) */
+label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.wf-filters { display: flex; flex-wrap: wrap; gap: var(--sp-3) var(--sp-5); align-items: center; margin: var(--sp-2) 0 var(--sp-3); }
+.wf-filters .check { padding: 0; align-items: center; }
+.wf-filters .check input { margin-top: 0; }
+/* 157: a step's state is a state mark (.status .s-*), never a tinted pill or the action colour */
+.wf-period, .wf-when { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wf-next-cell { display: flex; flex-wrap: wrap; gap: 2px var(--sp-2); align-items: baseline; }
+.wf-next { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); align-items: baseline; }
+.wf-next .status { font-size: var(--fs-sm); }
+.wz-chain .status { font-size: inherit; }
+.wf-chain { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: stretch; list-style: none; padding: 0; margin: var(--sp-3) 0; }
+.wf-arrow { align-self: center; color: var(--faint); font-size: var(--fs-lg); }
 /* 154: a long folder path or package name breaks inside the card; without min-width: 0 the step grew to its longest
    word, ran over the arrow and the next card and pushed the page header's buttons off the screen */
 .wf-step { flex: 1 1 220px; max-width: 360px; min-width: 0; }
 .wf-card { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; align-content: start; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); min-width: 0; overflow-wrap: anywhere; }
-.wf-warn > .wf-card, .wf-error > .wf-card { border-color: var(--tint-line); }
-.wf-ok > .wf-card { border-color: #cfe2d7; }
-.wf-card-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.wf-step[aria-current="step"] > .wf-card { border-color: var(--ink); } /* the step that needs a person first */
+.wf-card-head { display: flex; justify-content: space-between; gap: var(--sp-2); align-items: baseline; flex-wrap: wrap; }
 .wf-events { padding-left: 18px; }
 .wf-of { margin: 4px 0 8px; }

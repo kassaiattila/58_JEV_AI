@@ -10,9 +10,9 @@ import {
 import { PageHeader } from "../../components/PageHeader";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
-import { stepLabel } from "../../labels";
+import { stepLabel, usdBudget } from "../../labels";
 import { go, wpHash, type Route } from "../../route";
-import { budgetText, PROVIDER, sourceText, STEP_STATUS, statusTone, stepNote } from "./labels";
+import { budgetSum, budgetText, PROVIDER, sourceText, STEP_STATUS, stepMark, stepNote } from "./labels";
 import { NewWork } from "./NewWork";
 
 export function Workflows({ route }: { route: Extract<Route, { view: "workflows" }> }) {
@@ -20,9 +20,10 @@ export function Workflows({ route }: { route: Extract<Route, { view: "workflows"
   return <WorkflowList creating={Boolean(route.create)} repeatOf={route.repeat} />;
 }
 
-function StatusChip({ status }: { status: WorkflowStep["status"] }) {
+/** 157: a step's state as a state mark in its own colour, never the action colour. */
+function StepState({ status }: { status: WorkflowStep["status"] }) {
   useLocale();
-  return <span className={`wf-status wf-${statusTone(status)}`}>{STEP_STATUS[status] ?? status}</span>;
+  return <span className={`status s-${stepMark(status)}`}>{STEP_STATUS[status] ?? status}</span>;
 }
 
 function WorkflowList({ creating, repeatOf }: { creating: boolean; repeatOf?: string }) {
@@ -41,7 +42,7 @@ function WorkflowList({ creating, repeatOf }: { creating: boolean; repeatOf?: st
     <>
       <PageHeader title={t("Workflows")} badge={list.data ? <span className="count">{list.data.workflows.length}</span> : null}
         summary={t("A workflow chains the work packages of one job for an own party and a period: invoices, statements and their reconciliation. Its page shows where the chain stands and what needs you.")}
-        actions={<a className="button primary" href={creating ? "#/workflows" : "#/workflows/new"} aria-expanded={creating}>{t("New workflow")}</a>} />
+        actions={<a className={creating ? "button secondary" : "button primary"} href={creating ? "#/workflows" : "#/workflows/new"} aria-expanded={creating}>{t("New workflow")}</a>} />
       {creating ? <NewWork key={repeatOf ?? "new"} initialGroup="monthly" repeatOf={repeatOf}
         onPackage={(id) => go({ view: "workpackages", wpId: id, stage: "process" })}
         onWorkflow={(id) => go({ view: "workflows", wfId: id })} /> : null}
@@ -81,14 +82,14 @@ function WorkflowListRow({ w }: { w: WorkflowRow }) {
     <tr className={w.status === "archived" ? "muted" : undefined}>
       <td><a href={`#/workflows/${encodeURIComponent(w.id)}`}><strong>{w.name}</strong></a><div className="small muted">{t(w.template_title)}</div></td>
       <td>{w.party}</td>
-      <td className="mono">{w.period_start} – {w.period_end}</td>
+      <td className="wf-period">{w.period_start} – {w.period_end}</td>
       <td>
         <span className="small">{t("{{done}} of {{total}} done", { done: w.done, total: w.total })}</span>
         <div className="wz-chain small">{w.steps.map((s, i) => (
-          <Fragment key={s.id}>{i ? <span aria-hidden="true"> → </span> : null}<span title={STEP_STATUS[s.status]} className={`wf-dot wf-${statusTone(s.status)}`}>{t(s.title)}</span></Fragment>
+          <Fragment key={s.id}>{i ? <span aria-hidden="true"> → </span> : null}<span title={STEP_STATUS[s.status]} className={`status s-${stepMark(s.status)}`}>{t(s.title)}</span></Fragment>
         ))}</div>
       </td>
-      <td>{next && w.next ? <>{t(next.title)}: <StatusChip status={w.next.status} /></> : w.done === w.total ? t("Every step done") : "–"}</td>
+      <td>{next && w.next ? <div className="wf-next-cell"><span>{t(next.title)}</span> <StepState status={w.next.status} /></div> : w.done === w.total ? t("Every step done") : "–"}</td>
     </tr>
   );
 }
@@ -143,7 +144,7 @@ function WorkflowControl({ wfId }: { wfId: string }) {
       {wf.status === "archived" ? <p className="notice">{t("This workflow is archived: its steps do not start. Its packages stay as they are.")}</p> : null}
       {nextStep && v.next ? (
         <p className="notice wf-next" role="status">
-          <strong>{t("Next: {{step}}", { step: t(nextStep.title) })}</strong> — {STEP_STATUS[v.next.status]}
+          <strong>{t("Next: {{step}}", { step: t(nextStep.title) })}</strong> <StepState status={v.next.status} />
           {nextStep.package ? <> · <a href={wpHash(nextStep.package.id, nextStep.package.next?.stage)}>{t("Open its package")}</a></> : null}
         </p>
       ) : v.done === v.total ? <p className="notice ok" role="status">{t("Every step is done.")}</p> : null}
@@ -152,9 +153,10 @@ function WorkflowControl({ wfId }: { wfId: string }) {
         {v.steps.map((s, i) => (
           <Fragment key={s.id}>
             {i ? <li className="wf-arrow" aria-hidden="true">→</li> : null}
-            <li className={`wf-step wf-${statusTone(s.status)}`}>
+            {/* 157: the step that needs a person first has a firm border and the view's one solid button */}
+            <li className="wf-step" aria-current={v.next?.step === s.id ? "step" : undefined}>
               {/* 153 (review D3): a step that turns to another status gets a new form (a budget it now needs) */}
-              <StepCard key={`${s.id}:${s.status}`} step={s} steps={v.steps} open={wf.status === "open"}
+              <StepCard key={`${s.id}:${s.status}`} step={s} steps={v.steps} open={wf.status === "open"} isNext={v.next?.step === s.id}
                 onStart={(budget) => void act(() => api.startWorkflowStep(wf.id, s.id, budget))}
                 onLink={(wpId) => void act(() => api.linkWorkflowStep(wf.id, s.id, wpId))} />
             </li>
@@ -165,7 +167,7 @@ function WorkflowControl({ wfId }: { wfId: string }) {
         <summary className="small">{t("What happened ({{n}})", { n: v.events.length })}</summary>
         <ul className="small wf-events">
           {v.events.map((e, i) => (
-            <li key={i}><span className="mono">{e.created_at.replace("T", " ").slice(0, 16)}</span> · {e.actor} · {e.step ? `${t(v.steps.find((s) => s.id === e.step)?.title ?? e.step)}: ` : ""}{eventText(e.action, e.detail)}</li>
+            <li key={i}><span className="wf-when">{e.created_at.replace("T", " ").slice(0, 16)}</span> · {e.actor} · {e.step ? `${t(v.steps.find((s) => s.id === e.step)?.title ?? e.step)}: ` : ""}{eventText(e.action, e.detail)}</li>
           ))}
         </ul>
       </details>
@@ -189,19 +191,23 @@ function eventText(action: string, detail: Record<string, unknown>): string {
   return words[action] ? t(words[action]) : action;
 }
 
-function StepCard({ step, steps, open, onStart, onLink }: {
-  step: WorkflowStep; steps: WorkflowStep[]; open: boolean; onStart: (budget?: WorkflowBudget) => void; onLink: (wpId: string) => void;
+function StepCard({ step, steps, open, isNext, onStart, onLink }: {
+  step: WorkflowStep; steps: WorkflowStep[]; open: boolean; isNext: boolean; onStart: (budget?: WorkflowBudget) => void;
+  onLink: (wpId: string) => void;
 }) {
   useLocale();
   const waitsFor = steps.filter((s) => step.after.includes(s.id) && !s.done).map((s) => t(s.title));
   const over = step.status === "needs_budget" && step.note && typeof step.note === "object" ? step.note : null;
   const [budget, setBudget] = useState<WorkflowBudget>(() => (over ? roundedUp(over.estimate) : step.budget));
   const canStart = open && ["ready", "waiting", "failed", "needs_budget"].includes(step.status);
+  // 155/157: a button that starts a run shows what the run may spend (the budget given here, or the step's)
+  const cap = budgetSum(over ? clean(budget) : step.budget);
+  const spendNote = cap > 0 ? t("Starts a run that can spend up to {{usd}}", { usd: usdBudget(cap) }) : undefined;
   return (
     <div className="wf-card">
       <div className="wf-card-head">
         <strong>{t(step.title)}</strong>
-        <StatusChip status={step.status} />
+        <StepState status={step.status} />
       </div>
       <div className="small muted">{t(step.kind_title)} · {sourceText(step)}</div>
       {step.status === "waiting" && waitsFor.length ? <div className="small">{t("Waits for: {{steps}}", { steps: waitsFor.join(", ") })}</div> : null}
@@ -227,9 +233,10 @@ function StepCard({ step, steps, open, onStart, onLink }: {
       ) : null}
       {canStart ? (
         <div className="button-row">
-          <button type="button" className={step.status === "waiting" ? "secondary small-btn" : "primary small-btn"}
-            onClick={() => onStart(over ? clean(budget) : undefined)}>
+          <button type="button" className={isNext && step.status !== "waiting" ? "primary small-btn" : "secondary small-btn"}
+            title={spendNote} onClick={() => onStart(over ? clean(budget) : undefined)}>
             {over ? t("Start with this budget") : step.status === "failed" ? t("Try again") : step.status === "waiting" ? t("Start now anyway") : t("Start")}
+            {cap > 0 ? <span className="spend" aria-hidden="true">≤ {usdBudget(cap)}</span> : null}
           </button>
           {["ready", "waiting", "failed"].includes(step.status) ? <LinkPackage step={step} onLink={onLink} /> : null}
         </div>
@@ -263,7 +270,7 @@ function LinkPackage({ step, onLink }: { step: WorkflowStep; onLink: (wpId: stri
         <option value="">{t("Choose…")}</option>
         {options.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
       </select>
-      <button type="button" className="primary small-btn" disabled={!choice} onClick={() => onLink(choice)}>{t("Link")}</button>
+      <button type="button" className="secondary small-btn" disabled={!choice} onClick={() => onLink(choice)}>{t("Link")}</button>
     </span>
   );
 }
