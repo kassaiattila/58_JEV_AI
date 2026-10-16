@@ -218,6 +218,8 @@ export interface QuickReviewLine {
 }
 export interface QuickReviewGroup {
   id: QuickReviewGroupId; action: "pair" | "mark" | "none"; lines: QuickReviewLine[]; count: number; totals: Record<string, string>;
+  /** 158: how many of the lines a person decides (the incoming money "an invoice is expected" shows is information only). */
+  to_decide?: number;
 }
 export interface QuickReview {
   workpackage_id: string; threshold: number; groups: QuickReviewGroup[];

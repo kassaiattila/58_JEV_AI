@@ -77,7 +77,7 @@ export function ReconcileQuickReview({ wpId, readOnly, onWorkspace, onCards }: {
 
   if (loaded.error && !rv) return <p className="notice error" role="alert">{loaded.error.message}</p>;
   if (!rv) return <p className="muted">{t("Loading…")}</p>;
-  const toDecide = rv.groups.reduce((n, g) => n + g.count, 0);
+  const toDecide = rv.groups.reduce((n, g) => n + (g.to_decide ?? g.count), 0);  // 158: not the lines shown for information
   const atOnce = rv.groups.filter((g) => g.action !== "none").reduce((n, g) => n + g.count, 0);
   const excluded = Object.entries(rv.excluded);
   return (
