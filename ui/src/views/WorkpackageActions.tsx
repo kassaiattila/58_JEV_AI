@@ -72,7 +72,7 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
               <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} required autoFocus />
             </label>
             <div className="button-row">
-              <button type="submit" className="primary" disabled={busy || !name.trim() || name.trim() === wp.name}>{t("Mentés")}</button>
+              <button type="submit" className={name.trim() && name.trim() !== wp.name ? "primary" : "secondary"} disabled={busy || !name.trim() || name.trim() === wp.name}>{t("Mentés")}</button>
               <button type="button" className="secondary" onClick={() => setMode("menu")}>{t("Mégse")}</button>
             </div>
           </form>

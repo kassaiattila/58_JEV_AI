@@ -33,7 +33,7 @@ export function StatementPackagePanel({ view }: { view: StatementPackageView }) 
             <tr key={s.item_id}>
               <td><span className="mono">{s.file}</span></td>
               <td>{s.account ? <><span className="mono">{s.account}</span> {s.currency}</> : "–"}</td>
-              <td className="mono">{s.period_start ? `${s.period_start} – ${s.period_end ?? "?"}` : "–"}</td>
+              <td className="tnum">{s.period_start ? `${s.period_start} – ${s.period_end ?? "?"}` : "–"}</td>
               <td>{s.rank ? RANK[s.rank] ?? s.rank : "–"}</td>
               <td className={TONE[s.state]}>{STATE[s.state] ?? s.state}</td>
             </tr>

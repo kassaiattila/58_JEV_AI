@@ -524,7 +524,7 @@ export function FieldPanel(p: Props) {
                 </div>
               </div>
             ) : null}
-            <button type="button" className="primary" disabled={!dirty || conflict || state.kind === "saving"} onClick={() => void save()}>
+            <button type="button" className={dirty ? "primary" : "secondary"} disabled={!dirty || conflict || state.kind === "saving"} onClick={() => void save()}>
               {state.kind === "saving" ? t("Mentés…") : t("Javítás mentése")} <span className="kbd">Ctrl+Enter</span>
             </button>
             {dirty ? <button type="button" className="quiet small-btn" onClick={() => {

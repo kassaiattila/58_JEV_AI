@@ -29,5 +29,5 @@
 .ms-cell.warn { color: var(--warn); background: var(--warn-tint); }
 .ms-cell.bad { color: var(--error); background: var(--error-tint); }
 .ms-cell.none { color: var(--muted); }
-.ms-flag { margin-left: 6px; font-size: 11px; padding: 0 6px; border-radius: 999px; background: var(--warn-tint); color: var(--warn); }
+.ms-flag { margin-left: 6px; font-size: var(--fs-xs); padding: 0 6px; border-radius: var(--r-sm); background: var(--warn-tint); color: var(--warn); } /* 157: 12 px */
 .ms-warnings { margin: 0; padding-left: 18px; color: var(--warn); }

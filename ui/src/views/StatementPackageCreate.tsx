@@ -78,7 +78,7 @@ function SurveyTable({ survey, chosen, onToggle }: { survey: StatementPackageSur
                 aria-label={t("Choose {{title}} ({{currency}}), {{period}}", { title: r.title, currency: r.currency ?? "?", period: period(r) })} />
             </td>
             <td><strong>{r.institution}</strong> <span className="mono">{r.account ?? r.title}</span> {r.currency}</td>
-            <td className="mono">{period(r)}{r.in_period ? null : <div className="small">{t("outside the period")}</div>}</td>
+            <td className="tnum">{period(r)}{r.in_period ? null : <div className="small">{t("outside the period")}</div>}</td>
             <td>
               <span title={r.file}>{r.file}</span>
               {r.companion ? <div className="small muted">{t("with its PDF statement")}</div> : null}

@@ -76,7 +76,7 @@ export function MonthGrid({ data, accounts }: { data: PartyMonths; accounts?: st
             const waiting = inv ? inv.not_approved + inv.no_run : 0;
             return (
               <tr key={m}>
-                <th scope="row" className="mono">{m}</th>
+                <th scope="row" className="tnum">{m}</th>
                 {columns.map((c) => <Cell key={`${c.key}|${c.currency}`} cell={c.months[row]} />)}
                 <td className="num">
                   {inv?.total ?? 0}

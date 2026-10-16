@@ -439,7 +439,8 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
               <span className={`rc-sum rc-diff ${differs === 0n ? "zero" : "off"}`}>{t("Difference")}: {display(differs, currency)}</span>
             ) : lines.length && invoices.length ? <span className="rc-sum muted">{t("Different currencies: compared through the exchange rate")}</span> : null}
             <span className="spacer" />
-            <button type="button" className="primary" disabled={busy || !plan.ok} onClick={pair}>{t("Pair")} <span className="kbd">Enter</span></button>
+            {/* 157: solid only once the selection can be paired (a faded solid button was noise) */}
+            <button type="button" className={plan.ok ? "primary" : "secondary"} disabled={busy || !plan.ok} onClick={pair}>{t("Pair")} <span className="kbd">Enter</span></button>
             <button type="button" className="secondary" disabled={busy || !canReject} aria-expanded={mode === "reject"} onClick={() => setMode(mode === "reject" ? null : "reject")}>
               {t("Not this one")} <span className="kbd">x</span>
             </button>
