@@ -25,6 +25,9 @@ from jav.runtime import lock
 log = logging.getLogger(__name__)
 REPORT_INTERVAL_S = 2.0
 MAX_AGE_S = 10.0
+# 159: on Windows a reader holding the report (the service's status request) makes the replace fail for a moment.
+REPLACE_ATTEMPTS = 5
+REPLACE_RETRY_DELAY_S = 0.05
 
 
 def report_path(store_path: Path) -> Path:
@@ -35,11 +38,36 @@ def _owner_path(store_path: Path, instance: str) -> Path:
     return store_path.parent / "pdf-status" / f"{instance}.lock"
 
 
+def _replace(temporary: Path, target: Path) -> None:
+    for attempt in range(1, REPLACE_ATTEMPTS + 1):
+        try:
+            os.replace(temporary, target)
+            return
+        except PermissionError:
+            if attempt == REPLACE_ATTEMPTS:
+                raise
+            time.sleep(REPLACE_RETRY_DELAY_S)
+
+
+def _remove_ended_instances(folder: Path) -> None:
+    """159: one lock file is left per worker start; remove those whose worker has ended."""
+    for path in folder.glob("*.lock"):
+        try:
+            if not lock.is_held(path):
+                path.unlink(missing_ok=True)
+        except OSError as exc:
+            # Someone is probing it right now; the next worker start tries again.
+            log.debug("kept the lock file %s: %s", path.name, exc)
+
+
 @contextmanager
 def publish(store_path: Path) -> Iterator[None]:
     """Publish while holding the worker lock; refresh even during a long document read."""
     instance = uuid.uuid4().hex
-    owner = lock.hold(_owner_path(store_path, instance))
+    owner_path = _owner_path(store_path, instance)
+    owner_path.parent.mkdir(parents=True, exist_ok=True)
+    _remove_ended_instances(owner_path.parent)
+    owner = lock.hold(owner_path)
     stopped = threading.Event()
     target = report_path(store_path)
     temporary = target.with_suffix(f".{instance}.tmp")
@@ -49,7 +77,7 @@ def publish(store_path: Path) -> Iterator[None]:
             report = {**isolated_pdf.protection_status(), "schema": 1, "instance": instance,
                       "reported_at": time.time(), "max_age_s": MAX_AGE_S}
             temporary.write_text(json.dumps(report, allow_nan=False), encoding="utf-8")
-            os.replace(temporary, target)
+            _replace(temporary, target)
         except (OSError, ValueError):
             # Old reports expire. Failure to report must never imply protection or stop a job.
             log.exception("could not publish the worker PDF protection state")
@@ -68,6 +96,12 @@ def publish(store_path: Path) -> Iterator[None]:
         if thread.ident is not None:
             thread.join()
         lock.release(owner)
+        for leftover in (temporary, owner_path):
+            try:
+                leftover.unlink(missing_ok=True)
+            except OSError as exc:
+                # A reader holds it; a missing or unheld lock file both read as an ended instance.
+                log.debug("kept %s: %s", leftover.name, exc)
 
 
 def worker_status(store_path: Path, *, running: bool, now: float | None = None) -> dict[str, Any]:

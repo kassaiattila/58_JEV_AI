@@ -198,7 +198,8 @@ def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
         if wp["source_kind"] == "reconcile":  # 131: its own next step (pairing / result)
             from jav import reconcile_package
 
-            r["next"] = reconcile_package.package_view(r["id"])["next"]
+            # 159: with the list's own safety bound (its fingerprint uses the same)
+            r["next"] = reconcile_package.package_view(r["id"], keep_seconds=reconcile_package.LIST_KEEP_SECONDS)["next"]
             continue
         # 153: the owner could not tell from the list which packages had older live runs to supersede (152 shows them
         # on the package's page only)
