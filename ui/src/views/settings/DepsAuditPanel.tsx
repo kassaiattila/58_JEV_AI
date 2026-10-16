@@ -1,6 +1,7 @@
 // 075: the result of the regular dependency audit on the System page — when it last ran, how
 // many known vulnerabilities it found in the pinned Python and UI packages, and a warning when it is missing, stale or
-// incomplete. The audit runs from the command line or with the daily backup (weekly); the service only reads it.
+// incomplete, and (158) when the Python runtime is behind the latest patch of its line. The audit runs from the command
+// line or with the daily backup (weekly); the service only reads it.
 import { api, type DepsAuditInfo } from "../../api";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
@@ -14,6 +15,10 @@ export function depsAuditState(info: DepsAuditInfo): { level: "ok" | "warn" | "e
   if (s.finding_count > 0) return { level: "error", text: t("{{n}} ismert sebezhetőség a csomagokban ({{when}}).", counts) };
   if (s.errors.length) return { level: "warn", text: t("A legutóbbi csomag-ellenőrzés nem teljes ({{when}}): {{error}}", { when: counts.when, error: s.errors.join("; ") }) };
   if (s.stale) return { level: "warn", text: t("A legutóbbi csomag-ellenőrzés {{days}} napnál régebbi ({{when}}).", { days: info.max_age_days, when: counts.when }) };
+  if (s.runtime_outdated && s.runtime) {  // 158: a newer patch of the running Python is out
+    return { level: "warn", text: t("Python {{running}} is behind the latest patch of its line, {{latest}} ({{date}}).",
+      { running: s.runtime.running, latest: s.runtime.latest ?? "", date: s.runtime.latest_date ?? "?" }) };
+  }
   return { level: "ok", text: t("Nincs ismert sebezhetőség: {{py}} Python- és {{ui}} felület-csomag ({{when}}).", counts) };
 }
 
