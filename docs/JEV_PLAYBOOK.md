@@ -73,7 +73,7 @@ Every Choice and presence Noul carries the call site's `document_guard` after th
 
 ### 4.2 Verification (G path): GPT extracts, JEV checks
 
-Module: `jav/jev_verify.py`. Code first checks that each extracted value is printed in the source (`find_evidence`); a value with no source line is `unsupported`, and JEV is never asked to do fuzzy string matching. JEV judges only what needs understanding, with all Nouls in one request (fan-out). Each Noul instruction is an object rather than a formatted string: `glossary`, `rule` (the document guard, since `verify` 1.2.0), `field_spec` (name and meaning), `extracted_field` (the raw value), `printed_on` (the evidence lines) and `question` (the SDE-cascade pattern, `verify` 1.1.0).
+Module: `jav/jev_verify.py`. Code first checks that each extracted value is printed in the source (`find_evidence`); a value with no source line is `unsupported`, and JEV is never asked to do fuzzy string matching. The value must stand whole: not as a part of a longer word or number (a truncated invoice or tax number), and an amount only where a printed number reads as the same amount ("12,50" is no evidence for 1250). JEV judges only what needs understanding, with all Nouls in one request (fan-out). Each Noul instruction is an object rather than a formatted string: `glossary`, `rule` (the document guard, since `verify` 1.2.0), `field_spec` (name and meaning), `extracted_field` (the raw value), `printed_on` (the evidence lines) and `question` (the SDE-cascade pattern, `verify` 1.1.0).
 
 The Noul questions are defined once in `verify.json`; the other verification call sites inherit them (`inherits: verify`) and add only their own field descriptions (`field_specs`) and field lists.
 

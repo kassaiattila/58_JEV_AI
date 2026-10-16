@@ -81,6 +81,37 @@ def _fold(s: str) -> str:
     return " ".join(_PUNCT.sub(" ", s).split()).casefold()
 
 
+def _whole(target: str, text: str) -> bool:
+    """160 (review AI-1): the target stands in the text as a whole, not as a part of a longer word or number
+    ("inv-2026-012" is not in "inv-2026-0123")."""
+    return re.search(rf"(?<!\w){re.escape(target)}(?!\w)", text) is not None
+
+
+_ID_SEP = r"[ .\-/]"
+
+
+def _whole_digits(target: str, text: str) -> bool:
+    """160 (review AI-1): the digits of an identifier (tax number, IBAN) stand in the text as one whole number, its
+    groups separated by at most one space, dot, hyphen or slash, and with no further digit group right before or
+    after it ("13570008-1-1" is not in "13570008-1-13", nor an IBAN without its last group)."""
+    body = f"{_ID_SEP}?".join(target)
+    return re.search(rf"(?<!\d)(?<!\d{_ID_SEP}){body}(?!{_ID_SEP}?\d)", text) is not None
+
+
+def _readings(token: str) -> list[Decimal]:
+    """160 (review AI-1): the amounts a printed number token can stand for: its last separator as the decimal mark,
+    or every separator as a thousands mark when each group after the first has three digits ("1.153" is 1.153 or
+    1153; "12,50" is only 12.50; "1.0000" is only 1.0000)."""
+    seps = [i for i, ch in enumerate(token) if ch in ".,"]
+    if not seps:
+        return [Decimal(token)]
+    out = [Decimal(re.sub(r"\D", "", token[: seps[-1]]) + "." + token[seps[-1] + 1 :])]
+    groups = re.split(r"[.,]", token)
+    if all(len(g) == 3 for g in groups[1:]):
+        out.append(Decimal("".join(groups)))
+    return out
+
+
 CANDIDATE_KIND = {"name": "name", "address": "address", "iban": "iban"}  # field kind -> candidate kind (multi-line)
 
 
@@ -109,13 +140,16 @@ def find_evidence(
         return hits[:4]
     if kind in ("money", "number"):  # quantity (kWh, m3): the same number matching as for money
         targets: set[str] = set()
+        amounts: list[Decimal] = []
         try:
-            targets.add(money_label(Decimal(value)))
+            amounts.append(Decimal(value))
+            targets.add(money_label(amounts[-1]))
         except (InvalidOperation, ValueError):
             pass
         # 054: raw "1.153" as the record reads it (Hungarian thousands dot); 081: by the document's notation
         raw = parse_money(value, intl=intl, kind="number" if kind == "number" else "money", convention=convention).value
         if raw is not None:
+            amounts.append(raw)
             targets.add(money_label(raw))
         if not targets:
             return hits
@@ -132,9 +166,11 @@ def find_evidence(
                     (exact if re.sub(r"\D", "", m.group(1)) == digits else hits).append(f"L{ln.no:02d}: {ln.text}")
                     break
         if len(digits) >= 2:  # the money tokeniser takes "1.0000" as thousands dot; a digit-exact token is evidence too
+            # 160 (review AI-1): only if the token can be read as the same amount ("12,50" is not evidence for 1250)
             for ln in lines:
                 row = f"L{ln.no:02d}: {ln.text}"
-                if row not in exact and any(re.sub(r"\D", "", t) == digits for t in re.findall(r"\d(?:[\d.,]*\d)?", ln.text)):
+                if row not in exact and any(re.sub(r"\D", "", t) == digits and any(r == a for r in _readings(t) for a in amounts)
+                                            for t in re.findall(r"\d(?:[\d.,]*\d)?", ln.text)):
                     exact.append(row)
         hits = exact + [h for h in hits if h not in exact]
         if not hits and target == "0" and intl and any(re.search(r"(?i)reverse\s*charge|fordított\s*áfa", ln.text) for ln in lines):
@@ -152,10 +188,11 @@ def find_evidence(
         if not target:
             return hits
         for ln in lines:
-            if target in _digits(ln.text) and (len(target) >= 6 or value.casefold() in ln.text.casefold()):
+            if _whole_digits(target, ln.text) and (len(target) >= 6 or value.casefold() in ln.text.casefold()):
                 hits.append(f"L{ln.no:02d}: {ln.text}")
         if not hits and re.search(r"[A-Z]", value):  # ID with letters (e.g. Irish VAT): whole token, case-insensitive
-            hits = [f"L{ln.no:02d}: {ln.text}" for ln in lines if value.replace(" ", "").casefold() in ln.text.replace(" ", "").casefold()]
+            squashed = value.replace(" ", "").casefold()
+            hits = [f"L{ln.no:02d}: {ln.text}" for ln in lines if _whole(squashed, ln.text.replace(" ", "").casefold())]
     elif kind == "currency":
         rx = CURRENCY_EVIDENCE_RE.get(value.upper())
         if rx:
@@ -174,14 +211,14 @@ def find_evidence(
             return hits
         joined = [(ln, _fold(ln.text)) for ln in lines]
         for ln, folded in joined:
-            if target in folded:
+            if _whole(target, folded):
                 hits.append(f"L{ln.no:02d}: {ln.text}")
         if not hits:
             # multi-line value (e.g. a company name broken over two lines): consecutive line pairs/triples
             for i in range(len(joined)):
                 for span in (2, 3):
                     chunk = " ".join(f for _, f in joined[i : i + span])
-                    if target in chunk:
+                    if _whole(target, chunk):
                         hits.extend(f"L{ln.no:02d}: {ln.text}" for ln, _ in joined[i : i + span])
                         break
                 if hits:
@@ -189,7 +226,7 @@ def find_evidence(
         if not hits:
             # 054: OCR confusions (lower-case L / capital I / vertical bar for 1, O for 0) - on both sides
             ocr_target = _ocr_fold(target)
-            hits = [f"L{ln.no:02d}: {ln.text}" for ln, folded in joined if ocr_target in _ocr_fold(folded)]
+            hits = [f"L{ln.no:02d}: {ln.text}" for ln, folded in joined if _whole(ocr_target, _ocr_fold(folded))]
         if not hits and kind == "address":
             # address: comma-separated / multi-line, parts on separate lines; accepted if at least half of them occur
             parts = [_fold(p) for p in re.split(r"[,;]", value) if len(_fold(p)) >= 4]
