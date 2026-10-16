@@ -1524,9 +1524,9 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/system/backup")
     def backup_now(body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """Back up now, with the daily backup's settings (locally and to the second location). A failure also shows in
-        the status."""
+        the status. 160 (review R-6): it counts with the manual backups, so it never pushes out a daily one."""
         log.info("backup requested by %s", who)
-        return work_views.jsonable(backup.scheduled())
+        return work_views.jsonable(backup.scheduled(kind="manual"))
 
     # --- paid calls with an uncertain outcome (076): listed and settled by hand, as `calls-uncertain` / `calls-resolve` ---
 

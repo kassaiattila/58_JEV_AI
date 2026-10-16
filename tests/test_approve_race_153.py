@@ -3,7 +3,8 @@
 The approval checked the run's status before its transaction (for documents without a native result), so a person
 superseding the run in between left it both cancelled and approved. The status, the items and the open reasons are now
 checked again under the approval's write lock, and the approval is recorded only on a finished run. Synthetic data, no
-paid calls.
+paid calls. 160 (review R-3): a finished run can no longer be stopped at all (`tests/test_run_stop_160.py`), so only
+superseding is left to race the approval.
 """
 
 import pytest
@@ -17,7 +18,7 @@ def _close_reasons(run_id: str) -> None:
         c.execute("UPDATE review_reasons SET status='resolved' WHERE substr(run_id, 1, ?) = ?", (len(run_id) + 1, run_id + ":"))
 
 
-@pytest.mark.parametrize("meanwhile", ["supersede", "stop"])
+@pytest.mark.parametrize("meanwhile", ["supersede"])
 def test_a_run_changed_during_its_approval_is_not_approved(runs, monkeypatch, meanwhile):  # noqa: F811
     with store.use_store(runs["db"]):
         _close_reasons(runs["older"])

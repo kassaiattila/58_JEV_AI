@@ -133,7 +133,8 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
   - **Scope** (*Kör*): the own party (*Saját gazdálkodó*), the accounts and cards and the period; **Save the scope** (*Kör mentése*) keeps every decision made so far. A package made before the own parties can be given its party here.
   - **Coverage** (*Lefedettség*): per account and month, how many statements there are; ‘✓ 2’ means two statements whose balances check out, ‘! 0/1’ a statement whose balances do not, ‘–’ no statement. **Recompute** (*Újraszámolás*) fetches the missing MNB exchange rates (only dates and currency codes leave the computer).
   - **Decisions not carried over** (*Át nem vitt döntések*, only when there are any): a better statement replaced a statement of the scope, and a decision made on one of its lines (a pair, ‘needs no invoice’) has no same line on the valid statement. **Revoke** (*Visszavonás*) each, then make it again on the valid statement's lines.
-  - **What blocks the approval** (*Mi akadályozza a jóváhagyást*): source documents whose run is not approved, or that were processed on the command line (until you accept them in the Result stage), and decisions not carried over. Pairing can start anyway. **Warnings** (*Figyelmeztetések*): statements whose balances do not check out; they do not block the approval (145).
+  - **Decisions that no longer count** (*Már nem érvényes döntések*, only when there are any): pairings and ‘needs no invoice’ marks that count nowhere, each with its reason: an amount of the line or the invoice changed since, the invoice no longer takes part in the pairing (for example its amount was corrected to zero or a second copy of it arrived), or the line was changed or read again, so it is no longer on its statement as it was. **Revoke** (*Visszavonás*) each, then decide on the line again.
+  - **What blocks the approval** (*Mi akadályozza a jóváhagyást*): source documents whose run is not approved, or that were processed on the command line (until you accept them in the Result stage), decisions not carried over and decisions that no longer count. Pairing can start anyway. **Warnings** (*Figyelmeztetések*): statements whose balances do not check out; they do not block the approval (145).
   - **Where the pairing stands** (*Hol tart a párosítás*): the lines and invoices by state.
 - **2 Pairing** (*Párosítás*) opens on **the quick review** (*Gyors áttekintés*, 147); **Cards** (*Kártyák*) switches to the cards.
   The quick review shows the lines you still decide in groups, by what is known of them; each line is in the first group
@@ -316,7 +317,9 @@ loaded statements cover.
   converted amounts.
 - **Credit notes:** a supplier's credit note (a negative invoice) that cancels exactly one of its invoices settles it: the
   invoice shows ‘Cancelled by a credit note’ with the credit note's number, and no payment is looked for. Not when a line
-  naming the invoice pays it (a refund may follow) or when two invoices could be meant.
+  naming the invoice pays it (a refund may follow) or when two invoices could be meant. An invoice already paid counts
+  among the ones it could mean: a credit note refunding a paid month does not cancel next month's unpaid invoice of the
+  same amount; you decide.
 - **Recurring bills:** a line booked more than 20 days before an invoice was issued is offered for it only when its memo
   names the invoice (an advance payment); otherwise it paid an earlier month. When a line's memo names one invoice, other
   invoices of the same amount are still listed under it, but not proposed.
@@ -403,7 +406,7 @@ The three buttons do not start anything straight away; they take you to a summar
 - **Budget** (*Keret*), closed by default; its title gives each provider's share used (for example ‘Budget (JEV 13%, OpenAI 0%)’). Opened, it shows for each provider the committed amount against the budget: the cost of the completed calls plus the reserved upper bound of the calls not yet settled. It opens by itself when a budget is at least 80% used, or when the budget stopped something in the run (a to-do says so).
 - **Job queue** (*Munkasor*): how many jobs are queued, running, done, failed (given up) or stopped.
 - **Call log (raw model calls)** (*Hívásnapló (nyers modellhívások)*): an expandable list of the paid calls. It is empty if every answer came from the cache.
-- **Stop** (*Leállítás*) (only while the run is in progress): needs two clicks (‘Sure? Click again’ (*Biztosan? Kattints újra*)). Queued items stop at once; the item in progress stops after its next step.
+- **Stop** (*Leállítás*) (only while the run is in progress): needs two clicks (‘Sure? Click again’ (*Biztosan? Kattints újra*)). Queued items stop at once; the item in progress stops after its next step. The run then ends as stopped, even if an earlier item failed. A run that has finished meanwhile is not stopped: supersede it instead.
 - **Supersede** (*Leváltás*) (only on a finished live run that is not approved, when a later live run of the package processed the same documents again and has finished): the to-dos of a live run that is not approved stay open until it is approved, even after a rerun. Superseding keeps the run as a stopped run and closes its own open to-dos (they are kept, not deleted); it cannot be approved afterwards. The box says how many to-dos close, links the later run, and warns if to-dos were already closed or documents corrected on this run (naming only what there is): that work stays with it and is not carried over. It needs two clicks. Afterwards the page says who superseded it, when, and with which run; the package's activity log records it too. The package's Processing section lists every such run too (*Régebbi éles futások*), with its start, its open to-dos, a link to its page and the same two-click button.
 - **Result**, or for a live run **Result and approval** (*Eredmény és jóváhagyás*): takes you to the package's Result stage.
 

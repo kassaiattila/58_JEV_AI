@@ -108,9 +108,9 @@ person marked as needing no invoice (`reconcile_line_marks`) takes part in nothi
   unambiguous proposals allocates it whole. A line with a proposal of its own makes no group.
 - A **credit note** (a negative invoice) that cancels exactly one eligible invoice of its supplier (the same supplier,
   currency and amount, issued on or before it) settles that invoice: status `credited` (`credited_by`), no candidate is
-  listed for it, and the credit note is excluded as `credit_note` (`credits`). Not when two invoices could be meant, when
-  anything was allocated to the invoice, or when a line naming the invoice's number is proposed for it (it was paid; a
-  refund may follow).
+  listed for it, and the credit note is excluded as `credit_note` (`credits`). Not when two invoices could be meant (160:
+  an invoice already paid counts among them), when anything was allocated to the invoice, or when a line naming the
+  invoice's number is proposed for it (it was paid; a refund may follow).
 - A line booked more than `proposal.unnamed_days_before_issue` days before an invoice's issue date is its candidate
   only with the invoice's number or a reference in the memo (an advance payment); without one it paid the previous
   month of a recurring bill.
@@ -561,16 +561,18 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
 
 def _credited(prepared: dict[str, Any], paid_invoice: dict[str, Decimal]) -> dict[str, str]:
     """141: the invoices a credit note cancels: {invoice: credit note}. A credit note cancels an invoice of its supplier,
-    currency and exact amount, issued on or before it, when exactly one such eligible invoice has nothing allocated
-    and no other credit note took it."""
+    currency and exact amount, issued on or before it, when that invoice is the only such eligible one no other credit
+    note took, and it has nothing allocated. 160 (review M-2): an invoice already paid counts among the ones it could
+    mean, so a credit note refunding a paid month does not cancel the unpaid month of the same amount; a person
+    decides."""
     out: dict[str, str] = {}
     for cid, note in sorted(prepared["credit_notes"].items()):
         issued, amount = _date(note.get("issue_date")), -money(str(note["amount"]))
         matches = [iid for iid, inv in sorted(prepared["invoices"].items())
-                   if iid not in out and not paid_invoice.get(iid) and _supplier_key(inv) == _supplier_key(note)
+                   if iid not in out and _supplier_key(inv) == _supplier_key(note)
                    and inv.get("currency") == note.get("currency") and money(str(inv["amount"])) == amount
                    and issued is not None and _date(inv["issue_date"]) <= issued]
-        if len(matches) == 1:
+        if len(matches) == 1 and not paid_invoice.get(matches[0]):
             out[matches[0]] = cid
     return out
 
@@ -589,7 +591,11 @@ def _settled(snapshot: dict[str, Any], prepared: dict[str, Any]) -> Settled:
     would exceed a side's amount is ignored (the recording refuses it, so only a re-extraction that changed an amount
     gets here). Of two whole-amount confirmations sharing a line or an invoice, the first therefore counts, as before.
     153 (review A3): such an ignored allocation is returned (`unfit`, the fifth element), so the package shows it to be
-    revoked; before, it vanished from every view while it stayed recorded, and came back if the amount did."""
+    revoked; before, it vanished from every view while it stayed recorded, and came back if the amount did.
+    160 (review M-1): so is an allocation whose invoice left the pairing (`reason` `invoice_left_out`, with the
+    invoice's exclusion reason as `invoice_reason`) or whose line is no longer on its statement (`line_gone`: a
+    correction or a new reading gave it a new identity); the amount check's own reason is `amounts`. A `paid_by`
+    decision without an allocation still changes nothing then (129)."""
     rejected: set[tuple[str, str]] = set()
     wanted: list[tuple[str, str, Any, Any, dict[str, Any] | None]] = []
     explicit = set()
@@ -606,8 +612,16 @@ def _settled(snapshot: dict[str, Any], prepared: dict[str, Any]) -> Settled:
     unfit: list[dict[str, Any]] = []
     paid_line: dict[str, Decimal] = defaultdict(Decimal)
     paid_invoice: dict[str, Decimal] = defaultdict(Decimal)
+    left_out = {e["id"]: e["reason"] for e in prepared["excluded"] if e["kind"] == "invoice"}
     for iid, lid, line_part, invoice_part, allocation in wanted:
-        if iid not in prepared["invoices"] or lid not in prepared["lines"]:
+        if lid not in prepared["lines"]:
+            if allocation is not None:
+                unfit.append({**allocation, "line_total": None, "invoice_total": None, "reason": "line_gone"})
+            continue
+        if iid not in prepared["invoices"]:
+            if allocation is not None:
+                unfit.append({**allocation, "line_total": None, "invoice_total": None, "reason": "invoice_left_out",
+                              "invoice_reason": left_out.get(iid)})
             continue
         try:
             line_total = money(str(prepared["lines"][lid].get("amount")))
@@ -616,12 +630,13 @@ def _settled(snapshot: dict[str, Any], prepared: dict[str, Any]) -> Settled:
             ia = money(str(invoice_part)) if invoice_part is not None else invoice_total
         except ValueError:
             if allocation is not None:
-                unfit.append({**allocation, "line_total": None, "invoice_total": None})
+                unfit.append({**allocation, "line_total": None, "invoice_total": None, "reason": "amounts"})
             continue
         if (la <= 0 or ia <= 0 or paid_line.get(lid, Decimal(0)) + la > line_total
                 or paid_invoice.get(iid, Decimal(0)) + ia > invoice_total):
             if allocation is not None:
-                unfit.append({**allocation, "line_total": str(line_total), "invoice_total": str(invoice_total)})
+                unfit.append({**allocation, "line_total": str(line_total), "invoice_total": str(invoice_total),
+                              "reason": "amounts"})
             continue
         paid_line[lid] += la
         paid_invoice[iid] += ia
@@ -1102,6 +1117,8 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     rejected, confirmed, paid_line, paid_invoice, unfit = _settled(snapshot, prepared)
     learned, common = _learned(prepared, confirmed), prepared["common_words"]
     marked = {str(m["line_id"]): str(m["category"]) for m in snapshot.get("marks") or [] if str(m["line_id"]) in prepared["lines"]}
+    # 160 (review M-1): a mark whose line is no longer on its statement is returned, as an allocation's is
+    unfit_marks = [{**m, "reason": "line_gone"} for m in snapshot.get("marks") or [] if str(m["line_id"]) not in prepared["lines"]]
     rest_invoice = {iid: money(str(inv["amount"])) - paid_invoice.get(iid, Decimal(0)) for iid, inv in prepared["invoices"].items()}
     rest_line = {pid: money(str(pay["amount"])) - paid_line.get(pid, Decimal(0)) for pid, pay in prepared["payments"].items()}
     paid_invoices = {iid for iid, rest in rest_invoice.items() if rest <= 0}
@@ -1267,6 +1284,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     return {"engine_version": ENGINE_VERSION, "config_hash": config_hash(), "fx_tolerance": [str(below), str(above)],
             "candidates": candidates, "learned_names": len(learned),
             "confirmed": confirmed, "excluded": excluded, "unfit": unfit,  # 153: allocations that no longer fit
+            "unfit_marks": unfit_marks,  # 160: marks whose line is gone
             "invoices": sorted(statuses, key=lambda s: s["invoice_id"]),
             "unpaired_line_ids": sorted(p for p, pay in prepared["payments"].items() if p not in paired and pay["statement_id"] in scope),
             "marked": sorted([lid, cat] for lid, cat in marked.items()), "repeats": repeats,

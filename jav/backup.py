@@ -66,7 +66,8 @@ def default_root() -> Path:
 
 
 def backup(*, out_root: Path | None = None, with_burr: bool = False, keep: int | None = None,
-           copy_to: Path | None = None, with_docs: bool = False, docs_root: Path | None = None) -> dict[str, Any]:
+           copy_to: Path | None = None, with_docs: bool = False, docs_root: Path | None = None,
+           kind: str = "manual") -> dict[str, Any]:
     """Back up the store (and, on request, the flow-state store and the internal working documents), with an optional
     copy to a second location. The manifest is kept both in the backup folder and in the status file; on failure the
     status file records the error.
@@ -74,11 +75,16 @@ def backup(*, out_root: Path | None = None, with_burr: bool = False, keep: int |
     066: without `keep`, the daily backup's retention applies (`configured_keep`; previously a manual backup pruned to 7
     in the same folder where the daily one keeps 14). After a backup that fails its integrity check there is no pruning
     and no copying.
-    070: `with_docs` also backs up the internal documents from under `docs_root` (the project root by default)."""
+    070: `with_docs` also backs up the internal documents from under `docs_root` (the project root by default).
+    160 (review R-6): `kind` (`manual`, or `scheduled` for the daily one) goes into the manifest, and `keep` counts only
+    the backups of the same kind, so manual backups never push out the daily ones (`_prune`)."""
+    if kind not in KINDS:
+        raise ValueError(f"unknown backup kind: {kind}")
     root = Path(out_root) if out_root else default_root()
     keep = keep if keep is not None else configured_keep()
     try:
-        manifest = _local(root, with_burr=with_burr, keep=keep, docs_root=(docs_root or PROJECT_ROOT) if with_docs else None)
+        manifest = _local(root, with_burr=with_burr, keep=keep, docs_root=(docs_root or PROJECT_ROOT) if with_docs else None,
+                          kind=kind)
     except Exception as exc:
         _write_status(root, {"created_at": _now(), "ok": False, "error": f"{type(exc).__name__}: {exc}"})
         log.exception("backup failed")
@@ -86,7 +92,7 @@ def backup(*, out_root: Path | None = None, with_burr: bool = False, keep: int |
     if not copy_to:
         manifest["copy"] = None
     elif manifest["store_ok"]:  # 090: a valid store copy goes there even with missing sources, but prunes nothing
-        manifest["copy"] = _copy(Path(manifest["dir"]), Path(copy_to), keep, prune=manifest["ok"])
+        manifest["copy"] = _copy(Path(manifest["dir"]), Path(copy_to), keep, prune=manifest["ok"], kind=kind)
     else:  # a failed backup must not push out a good one in the second location either
         manifest["copy"] = {"dir": None, "ok": False, "verified": False, "skipped": True,
                             "error": "skipped: the local backup failed its integrity check"}
@@ -109,13 +115,14 @@ def configured_copy_to() -> str | None:
     return cfg.load("service").get("backup", {}).get("copy_to") or os.environ.get(COPY_TO_ENV) or None
 
 
-def scheduled(*, config: dict[str, Any] | None = None) -> dict[str, Any]:
+def scheduled(*, config: dict[str, Any] | None = None, kind: str = "scheduled") -> dict[str, Any]:
     """The daily scheduled backup, as configured (`configs/service.json` → `backup`, the second location also from the
-    environment). An explicit `config` is used as given, without the environment."""
+    environment). An explicit `config` is used as given, without the environment. 160: `kind="manual"` makes a
+    person's "back up now" with the same settings, counted with the manual backups."""
     c = config if config is not None else cfg.load("service").get("backup", {})
     copy_to = c.get("copy_to") if config is not None else configured_copy_to()
     return backup(keep=int(c.get("keep", KEEP)), copy_to=Path(copy_to) if copy_to else None, with_burr=bool(c.get("with_burr")),
-                  with_docs=bool(c.get("with_docs")))
+                  with_docs=bool(c.get("with_docs")), kind=kind)
 
 
 def status(root: Path | None = None) -> dict[str, Any] | None:
@@ -130,7 +137,7 @@ def _now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
-def _local(root: Path, *, with_burr: bool, keep: int, docs_root: Path | None = None) -> dict[str, Any]:
+def _local(root: Path, *, with_burr: bool, keep: int, docs_root: Path | None = None, kind: str = "manual") -> dict[str, Any]:
     if keep < 1:
         raise ValueError("keep must be at least 1")
     src = store.current_path()
@@ -170,7 +177,7 @@ def _local(root: Path, *, with_burr: bool, keep: int, docs_root: Path | None = N
         native = _archive_native(dest / src.name, src.parent, dest / NATIVE_ARCHIVE)
         if native is not None:
             files.append(native)
-        manifest = {"created_at": _now(), "dir": str(dest), "files": files, "store_ok": store_ok,
+        manifest = {"created_at": _now(), "dir": str(dest), "kind": kind, "files": files, "store_ok": store_ok,
                     "ok": all(x["integrity"] == "ok" for x in files)}
         if not manifest["ok"]:  # 090: the status line says what failed (an integrity failure has no exception text)
             manifest["error"] = "; ".join(f"{x['file']}: {x['integrity']}" for x in files if x["integrity"] != "ok")
@@ -178,7 +185,7 @@ def _local(root: Path, *, with_burr: bool, keep: int, docs_root: Path | None = N
     except BaseException:
         shutil.rmtree(dest, ignore_errors=True)  # 066: remove a half-finished backup (it would not count for retention)
         raise
-    manifest["removed"] = _prune(root, keep) if manifest["ok"] else []  # 066: no pruning after a failed backup
+    manifest["removed"] = _prune(root, keep, kind) if manifest["ok"] else []  # 066: no pruning after a failed backup
     return manifest
 
 
@@ -259,7 +266,7 @@ def _zip_integrity(path: Path) -> str:
     return "ok" if bad is None else f"bad member: {bad}"
 
 
-def _copy(src_dir: Path, target_root: Path, keep: int, *, prune: bool = True) -> dict[str, Any]:
+def _copy(src_dir: Path, target_root: Path, keep: int, *, prune: bool = True, kind: str = "manual") -> dict[str, Any]:
     """064: copy of the finished local backup to the second location (e.g. NAS), verified by content hash; there too
     the latest `keep` backups are kept. On failure the local backup stays valid and the error goes into the manifest.
     090: without `prune` (the local backup misses a referenced source instance) nothing is deleted there."""
@@ -275,7 +282,7 @@ def _copy(src_dir: Path, target_root: Path, keep: int, *, prune: bool = True) ->
         sources = _sync_sources(instances, local_sources, target_root / SOURCES_DIR) if instances else None
         if sources is not None and sources["integrity"] != "ok":
             raise OSError(sources["integrity"])
-        return {"dir": str(target), "ok": True, "verified": True, "removed": _prune(target_root, keep) if prune else [],
+        return {"dir": str(target), "ok": True, "verified": True, "removed": _prune(target_root, keep, kind) if prune else [],
                 "sources": sources}
     except OSError as exc:
         log.warning("backup copy to %s failed: %s", target_root, exc)
@@ -376,10 +383,28 @@ def _write_status(root: Path, data: dict[str, Any]) -> None:
     tmp.replace(root / STATUS_FILE)
 
 
-def _prune(root: Path, keep: int) -> list[str]:
-    """The latest `keep` backups are kept; only our own timestamp-named folders may be deleted. A backup that failed its
-    integrity check (066) does not count and is not deleted (it is kept for investigating the failure)."""
-    dirs = sorted((p for p in root.iterdir() if p.is_dir() and _STAMP.match(p.name) and not _failed(p)), key=lambda p: p.name)
+KINDS = ("manual", "scheduled")  # 160 (review R-6): each kind keeps its own count
+
+
+def _kind(backup_dir: Path) -> str:
+    """The backup's kind from its manifest; one made before the kinds (160) counts as scheduled when its folder name
+    gives the scheduled time (`backup.schedule`, e.g. 12:00 → 1200xx), otherwise as manual."""
+    try:
+        kind = json.loads((backup_dir / "manifest.json").read_text(encoding="utf-8")).get("kind")
+    except (OSError, ValueError):
+        kind = None
+    if kind in KINDS:
+        return kind
+    at = str(cfg.load("service").get("backup", {}).get("schedule") or "").replace(":", "")
+    return "scheduled" if at and backup_dir.name[9:13] == at else "manual"
+
+
+def _prune(root: Path, keep: int, kind: str = "manual") -> list[str]:
+    """The latest `keep` backups of the same `kind` are kept (160: manual ones never push out the daily ones); only our
+    own timestamp-named folders may be deleted. A backup that failed its integrity check (066) does not count and is not
+    deleted (it is kept for investigating the failure)."""
+    dirs = sorted((p for p in root.iterdir() if p.is_dir() and _STAMP.match(p.name) and not _failed(p) and _kind(p) == kind),
+                  key=lambda p: p.name)
     removed = []
     for old in dirs[:-keep]:
         shutil.rmtree(old)
@@ -398,4 +423,4 @@ def _failed(backup_dir: Path) -> bool:
         return True  # unreadable manifest: not necessarily a good backup, so it does not count
 
 
-__all__ = ["DOCS_ARCHIVE", "KEEP", "backup", "configured_keep", "default_root", "scheduled", "status"]
+__all__ = ["DOCS_ARCHIVE", "KEEP", "KINDS", "backup", "configured_keep", "default_root", "scheduled", "status"]

@@ -114,16 +114,25 @@ parties.register_reference(
     repoint=lambda c, old, new: c.execute("UPDATE workflows SET party_id=? WHERE party_id=?", (new, old)))
 
 
+PACKAGE_DELETED = "its package was deleted; start the step again"
+
+
 def _delete_guard(c, wp_id: str) -> None:
     """153 (review D1): the package of an open workflow's step cannot be deleted (every later start of the step failed
     with the deleted package's id); it can be hidden, or the workflow archived first. An archived workflow's step lets
-    its package go."""
+    its package go. 160 (review R-5): that step is failed with the reason (and its run forgotten), so after the
+    workflow is restored a person can start it again; before, it kept its state without a package and stood still."""
     row = c.execute("SELECT w.name FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
                     " WHERE s.workpackage_id=? AND w.status='open' LIMIT 1", (wp_id,)).fetchone()
     if row is not None:
         raise work.NotReady("the package is a step of an open workflow; archive the workflow first or hide the package",
                             [{"code": "workflow_step", "message": f"The package is a step of the workflow {row['name']}: it can only be hidden."}])
-    c.execute("UPDATE workflow_steps SET workpackage_id=NULL WHERE workpackage_id=?", (wp_id,))
+    steps = c.execute("SELECT s.workflow_id, s.step, w.actor FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
+                      " WHERE s.workpackage_id=?", (wp_id,)).fetchall()
+    c.execute("UPDATE workflow_steps SET workpackage_id=NULL, run_id=NULL, state='failed', note=?, updated_at=?"
+              " WHERE workpackage_id=?", (PACKAGE_DELETED, _now(), wp_id))
+    for s in steps:
+        _event(c, s["workflow_id"], s["step"], "failed", auto_actor(s["actor"]), {"note": PACKAGE_DELETED, "workpackage_id": wp_id})
 
 
 work.register_delete_guard(_delete_guard)
@@ -641,7 +650,9 @@ def _done(wf: dict[str, Any], step: str, actor: str, action: str, **fields: Any)
 
 
 def _start(wf: dict[str, Any], sdef: dict[str, Any], *, actor: str, states: tuple[str, ...] = ("waiting",)) -> None:
-    """Makes the step's package (or queues its mailbox download) and starts its run; a failure stays on the step."""
+    """Makes the step's package (or queues its mailbox download) and starts its run; a failure stays on the step. 160
+    (review R-2): the package is noted on the step as soon as it exists, so a start interrupted later (before or after
+    the run was made) is started again with that package (`start_step`), never with a second one."""
     step = sdef["id"]
     if not _set(wf["id"], step, expect=states, state="starting", note=None):
         return  # another process has it, or it is past waiting
@@ -704,6 +715,7 @@ def _start_documents(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any
         note = f"no new documents: {len(left_out)} already processed" if left_out else "no documents in the folder"
         _done(wf, step, actor, "nothing_new", state="nothing_new", note=note)
         return
+    _set(wf["id"], step, workpackage_id=wp["id"])  # 160 (review R-2): an interrupted start goes on with this package
     if left_out:
         with store.connect() as c:
             store.begin_immediate(c)
@@ -726,6 +738,7 @@ def _start_statements(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, An
     scope = statement_package.create(name=st["name"], party_id=wf["party_id"], period_start=wf["period_start"],
                                      period_end=wf["period_end"], paths=paths, statements=chosen, pdfs=pdfs,
                                      actor=wf["actor"])
+    _set(wf["id"], sdef["id"], workpackage_id=scope["workpackage_id"])  # 160 (review R-2), as for documents
     _start_run(wf, sdef, st, scope["workpackage_id"], actor=actor)
 
 
@@ -736,7 +749,16 @@ def _poll_pull(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], act
     if not _set(wf["id"], sdef["id"], expect=("pulling",), state="starting"):
         return
     result = pull.get("result") or {}
-    if pull["status"] != "ok":
+    if pull["status"] != "ok" and result.get("workpackage"):
+        # 160 (review R-1): an interrupted download packaged the emails that arrived; the step runs that package, and
+        # the error stays in its events (before, the step failed without the package and a restart found nothing new)
+        with store.connect() as c:
+            store.begin_immediate(c)
+            _event(c, wf["id"], sdef["id"], "pull_interrupted", actor,
+                   {"pull_id": st["pull_id"], "workpackage_id": result["workpackage"],
+                    "note": str(result.get("error") or pull["status"])[:1000]})
+        _start_run(wf, sdef, st, result["workpackage"], actor=actor)
+    elif pull["status"] != "ok":
         _done(wf, sdef["id"], actor, "failed", state="failed", note=str(result.get("error") or pull["status"])[:1000])
     elif not result.get("workpackage"):
         _done(wf, sdef["id"], actor, "nothing_new", state="nothing_new", note="no new emails")

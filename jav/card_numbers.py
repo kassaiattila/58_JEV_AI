@@ -51,8 +51,12 @@ def masked(card: str | None) -> str | None:
     return f"{compact[:lead]}{'x' * (12 - lead)}{compact[-4:]}"
 
 
+_DIGEST = re.compile(r"(?<![0-9A-Za-z])[0-9a-f]{32,}(?![0-9A-Za-z])")  # 160: a document's id, a source's sha256
+
+
 def mask_text(text: str | None) -> str | None:
-    """The text with every full card number in it masked (anything else unchanged)."""
+    """The text with every full card number in it masked (anything else unchanged). 160 (review S-2): a digest (32 or
+    more lowercase hexadecimal digits in one run) is left as it is, so masking never changes an identity."""
     if not text:
         return text
 
@@ -60,7 +64,11 @@ def mask_text(text: str | None) -> str | None:
         digits = m.group(1) or "".join(m.group(i) for i in range(2, 6))
         return f"{digits[:6]}xxxxxx{digits[-4:]}" if is_card_number(digits) else m.group(0)
 
-    return _CARD.sub(one, text)
+    out, end = [], 0
+    for d in _DIGEST.finditer(text):
+        out += [_CARD.sub(one, text[end:d.start()]), d.group(0)]
+        end = d.end()
+    return "".join(out) + _CARD.sub(one, text[end:])
 
 
 def mask_values(value: Any) -> Any:

@@ -340,6 +340,7 @@ def _masked_table(build: Any) -> Any:
 documents_table = _masked_table(documents_table)
 datapoints_table = _masked_table(datapoints_table)
 line_items_table = _masked_table(line_items_table)
+native_facts_table = _masked_table(native_facts_table)  # 160 (review S-2): its CSV, Excel sheet and dataset too
 
 TABLES = {"documents": documents_table, "datapoints": datapoints_table, "line_items": line_items_table}
 
@@ -536,6 +537,7 @@ def _json_export(run_id: str, records: list[dict[str, Any]] | None = None) -> tu
     if native:
         body["native_items"] = native
         body["review_version"] = review_version
+    body = card_numbers.mask_values(body)  # 160 (review S-2): a native result, and data saved before the masking of 153
     return json.dumps(body, ensure_ascii=False, indent=1, default=str).encode("utf-8"), len(records)
 
 

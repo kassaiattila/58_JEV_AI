@@ -7,6 +7,7 @@ correctness remain separate; no result is promoted or approved here.
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter
 from typing import Annotated, Literal
 
@@ -182,6 +183,14 @@ def citation_text(element: SourceElement, quote: str) -> str | None:
     return None
 
 
+def literal_in(value: str, quote: str) -> bool:
+    """160 (review AI-1): the proposed value stands in the quote as a whole: not as a part of a longer word or number
+    ("001" is not in "Order code: 0012"), and a number not cut at its decimal mark ("12" is not in "12.50")."""
+    head = r"(?<!\d[.,])" if value[:1].isdigit() else ""
+    tail = r"(?![.,]\d)" if value[-1:].isdigit() else ""
+    return re.search(rf"(?<!\w){head}{re.escape(value)}(?!\w){tail}", quote) is not None
+
+
 def ground(delivery: Delivery, proposal: ProposedExtraction, *, provider: str, model: str,
            execution: str, max_bytes=80_000, view: dict | None = None) -> Interpretation:
     if view is None:
@@ -202,7 +211,7 @@ def ground(delivery: Delivery, proposal: ProposedExtraction, *, provider: str, m
                     warnings.append("Saved formula result was not recalculated and may be stale")
                 elif fact.value == element.cell.formula:
                     warnings.append("Formula text is not a calculated business value")
-        if fact.value is not None and not any(fact.value in cite.quote for cite in fact.citations):
+        if fact.value is not None and not any(literal_in(fact.value, cite.quote) for cite in fact.citations):
             reasons.append("Proposed literal value is absent from its citations")
         if fact.state != "missing":
             # 120: shared content checks (configs/fact_checks.json); they only add review warnings.

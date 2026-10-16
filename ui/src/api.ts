@@ -619,11 +619,14 @@ export interface ReconcileLeftOver {
   counterparty_name: string | null; file: string | null; replaced_by_file: string | null; invoice_file: string | null;
 }
 /** 153 (review A3): an allocation that no longer fits its line or invoice (an amount changed since it was made). */
+/** 153: a pairing that no longer fits the amounts; 160 (review M-1): also one whose invoice left the pairing, and a
+ *  pairing or a mark whose line is no longer on its statement (`reason`). */
 export interface ReconcileUnfit {
-  kind: "allocation"; ref: string; line_id: string; invoice_id: string; statement_id: string | null; workpackage_id: string | null;
-  line_amount: string | null; invoice_amount: string | null; line_total: string | null; invoice_total: string | null;
-  currency: string | null; booking_date: string | null; direction: string | null; counterparty_name: string | null;
-  invoice_file: string | null;
+  kind: "allocation" | "mark"; ref: string; reason: "amounts" | "invoice_left_out" | "line_gone"; line_id: string;
+  invoice_id: string | null; invoice_reason: string | null; category: string | null; statement_id: string | null;
+  workpackage_id: string | null; line_amount: string | null; invoice_amount: string | null; line_total: string | null;
+  invoice_total: string | null; currency: string | null; booking_date: string | null; direction: string | null;
+  counterparty_name: string | null; invoice_file: string | null; file: string | null;
 }
 export interface ReconcileWorkspace {
   workpackage_id: string; scope: ReconcileScope; lines: ReconcileLine[]; invoices: ReconcileInvoice[];

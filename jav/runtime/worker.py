@@ -131,9 +131,10 @@ def arm_for(doc_type: str, preferred: str) -> str:
 def _stages(recipe: dict[str, Any], params: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     """The recipe's stages: (flow, parameters). The `document` recipe (047 T1.3) has two stages: detection, then
     extraction of the detected detailed type; the second stage's parameters come from the first one's result
-    (`_next_params`)."""
+    (`_next_params`). 160 (review AI-4): the detection follows the run's JEV switch and its "earlier answers" setting
+    too, so a live run asks the detection again."""
     if recipe["flow"] == "document":
-        return [("doc_detect", {"jev": params["jev"]} if "jev" in params else {}), ("invoice", dict(params))]
+        return [("doc_detect", {k: params[k] for k in ("jev", "jev_cache") if k in params}), ("invoice", dict(params))]
     if recipe["flow"] == "invoice" and "doc_type" in params:  # path from the type pack (auto or unsupported request)
         return [("invoice", {**params, "arm": arm_for(params["doc_type"], _requested_arm(params))})]
     return [(recipe["flow"], dict(params))]

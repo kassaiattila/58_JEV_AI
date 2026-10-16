@@ -185,6 +185,7 @@ function eventText(action: string, detail: Record<string, unknown>): string {
   }
   const words: Record<string, string> = {
     create: "the workflow was made", update: "the workflow was changed", pull: "the mailbox download was queued",
+    pull_interrupted: "the mailbox download was interrupted; the emails that arrived were packaged",  // 160 (review R-1)
     run: "its live run started", package: "its package was made", needs_budget: "its run's estimate is over its budget",
     budget: "its budget was changed", nothing_new: "nothing new", failed: "it did not start", link: "an existing package was linked",
   };

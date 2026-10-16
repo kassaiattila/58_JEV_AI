@@ -365,9 +365,28 @@ def _recently_tried(c, source: str, currencies: Iterable[str], start: date, end:
     return False
 
 
+def _spans(missing: dict[str, set[date]], max_days: int) -> list[tuple[date, date, list[str]]]:
+    """160 (review M-9): the missing days in spans of at most `max_days` days, each with the currencies missing a day
+    in it, so that a far-off day (a mistyped year) is fetched on its own instead of making one span too long."""
+    spans: list[tuple[date, date, list[str]]] = []
+    start = prev = None
+    for day in sorted(set().union(*missing.values())):
+        if start is not None and (day - start).days > max_days:
+            spans.append((start, prev, sorted(cur for cur, ds in missing.items() if any(start <= d <= prev for d in ds))))
+            start = None
+        start, prev = start or day, day
+    if start is not None:
+        spans.append((start, prev, sorted(cur for cur, ds in missing.items() if any(start <= d <= prev for d in ds))))
+    return spans
+
+
+_WORST = ("ok", "recently_tried", "failed", "refused")  # 160: the reported status of several spans is the worst one
+
+
 def ensure(needed: Iterable[tuple[str, date]]) -> dict[str, Any]:
-    """Fetch what is missing for the (currency, day) pairs, at most one call, and never twice within
-    `retry_after_minutes` for the same span. Never raises for the service: a failure is logged and reported."""
+    """Fetch what is missing for the (currency, day) pairs, one call per span (160: a span is at most `max_span_days`
+    long, so usually one call), and never twice within `retry_after_minutes` for the same span. Never raises for the
+    service: a failure is logged and reported."""
     conf = _conf()
     source, lookback = conf["source"]["name"], int(conf["lookback_days"])
     allowed = set(conf["currencies"])
@@ -381,17 +400,22 @@ def ensure(needed: Iterable[tuple[str, date]]) -> dict[str, Any]:
     missing = {cur: days for cur, days in missing.items() if days}
     if not missing:
         return {"fetched": False, "status": "complete"}
-    start, end = min(min(d) for d in missing.values()), max(max(d) for d in missing.values())
-    with store.connect() as c:
-        if _recently_tried(c, source, missing, start, end, int(conf["retry_after_minutes"])):
-            return {"fetched": False, "status": "recently_tried"}
-    try:
-        days = fetch(start, end, missing)
-    except FxRefusedError:
-        return {"fetched": True, "status": "refused"}
-    except FxUnavailableError:
-        return {"fetched": True, "status": "failed"}
-    return {"fetched": True, "status": "ok", "days": days}
+    statuses, fetched, days = [], False, 0
+    for start, end, currencies in _spans(missing, int(conf["max_span_days"])):
+        with store.connect() as c:
+            if _recently_tried(c, source, currencies, start, end, int(conf["retry_after_minutes"])):
+                statuses.append("recently_tried")
+                continue
+        fetched = True
+        try:
+            days += fetch(start, end, currencies)
+            statuses.append("ok")
+        except FxRefusedError:
+            statuses.append("refused")
+        except FxUnavailableError:
+            statuses.append("failed")
+    status = max(statuses, key=_WORST.index)
+    return {"fetched": fetched, "status": status, **({"days": days} if status == "ok" else {})}
 
 
 def table(needed: Iterable[tuple[str, date]], *, fetch_missing: bool = False) -> dict[str, dict[str, dict[str, str]]]:
