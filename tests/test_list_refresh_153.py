@@ -132,9 +132,17 @@ def test_the_list_counts_the_older_runs_to_supersede(runs):  # noqa: F811
         assert _row(runs["wp"])["older_runs"] == 0
 
 
+def _stop(run_id: str) -> None:
+    """A person stops the run while it is still running (160, review R-3: a finished run can no longer be stopped; the
+    fixture's runs have finished, so the run is put back to running first)."""
+    with store.connect() as c:
+        c.execute("UPDATE runs SET status='running' WHERE run_id=?", (run_id,))
+    work.cancel_run(run_id, actor="teszt.elek")
+
+
 def test_a_later_stopped_run_does_not_hide_the_earlier_live_runs_to_dos(runs):  # noqa: F811
     with store.use_store(runs["db"]):
-        work.cancel_run(runs["newer"], actor="teszt.elek")
+        _stop(runs["newer"])
         row = _row(runs["wp"])
         assert row["last_status"] == "cancelled"  # the list still says what happened last
         assert row["next_code"] == "review" and row["open_reasons"] == 2  # the older live run's to-dos
@@ -145,8 +153,8 @@ def test_a_later_stopped_run_does_not_hide_the_earlier_live_runs_to_dos(runs):  
 
 def test_a_package_whose_runs_were_all_stopped_still_offers_a_rerun(runs):  # noqa: F811
     with store.use_store(runs["db"]):
-        work.cancel_run(runs["older"], actor="teszt.elek")
-        work.cancel_run(runs["newer"], actor="teszt.elek")
+        _stop(runs["older"])
+        _stop(runs["newer"])
         assert work_views.workpackage_view(runs["wp"])["next"]["code"] == "rerun"
         assert _row(runs["wp"])["next_code"] == "rerun"
 
@@ -165,6 +173,6 @@ def test_a_workflow_step_stays_done_when_a_later_live_run_was_stopped(runs):  # 
             c.execute("UPDATE review_reasons SET status='resolved' WHERE substr(run_id, 1, ?) = ?",
                       (len(runs["older"]) + 1, runs["older"] + ":"))
             c.execute("UPDATE runs SET status='done', approval='approved' WHERE run_id=?", (runs["older"],))
-        work.cancel_run(runs["newer"], actor="teszt.elek")
+        _stop(runs["newer"])
         approved, nxt = workflows._package_state(runs["wp"])
         assert approved is True and nxt["code"] == "done"
