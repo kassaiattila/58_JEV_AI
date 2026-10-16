@@ -1,9 +1,13 @@
 """Regular dependency audit (075): known vulnerabilities in the pinned packages, with a date.
 
-Two checks, both free and read-only (they query public vulnerability databases, not our data):
+Three checks, all free and read-only (they query public databases, not our data):
 - Python: `pip-audit -r requirements.lock --no-deps` (the installed `pip-audit`, or `uvx pip-audit` when only uv is
   present);
-- UI: `npm audit --json` in `ui/` (the pinned `package-lock.json`).
+- UI: `npm audit --json` in `ui/` (the pinned `package-lock.json`);
+- runtime (158, review item C7 of 153): the latest patch release of the running Python's version line, from the public
+  release list of endoflife.date (only the version line, e.g. 3.12, is in the address). uv's own download list is not
+  enough: it is built into uv, so an older uv offers an older patch (on 2026-10-16 uv 0.11.2 offered 3.12.13 while
+  3.12.15 was out). A runtime behind its latest patch is a notice, not a failure.
 
 The result goes to `runs/deps-audit.json` (not in git). The start-up check reports its age and findings, the System
 page shows it, and the scheduled daily backup refreshes it when it is older than `MAX_AGE_DAYS` (`refresh_if_stale`).
@@ -14,8 +18,10 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import shutil
 import subprocess
+import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,6 +32,9 @@ from jav.config import PROJECT_ROOT
 STATUS_PATH = PROJECT_ROOT / "runs" / "deps-audit.json"
 MAX_AGE_DAYS = 7
 TIMEOUT_S = 600
+RELEASES_URL = "https://endoflife.date/api/v1/products/python/releases/{line}"  # 158: the runtime's version line
+FETCH_TIMEOUT_S = 20
+PARTS = ("python", "npm", "runtime")
 
 
 @dataclass(frozen=True)
@@ -105,9 +114,38 @@ def _npm(root: Path) -> dict[str, Any]:
     return {"ok": True, "packages": count, "findings": [f.__dict__ for f in found]}
 
 
+def _fetch_json(url: str) -> dict[str, Any]:
+    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "jav-deps-audit"})
+    with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT_S) as res:  # noqa: S310 - a fixed https address
+        return json.loads(res.read().decode("utf-8"))
+
+
+def _version(text: str) -> tuple[int, ...]:
+    return tuple(int(p) for p in text.split(".") if p.isdigit())
+
+
+def parse_runtime(report: dict[str, Any], running: str) -> dict[str, Any]:
+    """158: the running Python against the latest patch of its version line, from the release list's answer."""
+    result = report["result"]
+    latest = result["latest"]
+    return {"ok": True, "running": running, "latest": latest["name"], "latest_date": latest.get("date"),
+            "outdated": _version(latest["name"]) > _version(running), "maintained": result.get("isMaintained"),
+            "eol_from": result.get("eolFrom")}
+
+
+def _runtime() -> dict[str, Any]:
+    running = platform.python_version()
+    line = ".".join(running.split(".")[:2])
+    try:
+        return parse_runtime(_fetch_json(RELEASES_URL.format(line=line)), running)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return {"ok": False, "running": running, "error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+
+
 def run(root: Path = PROJECT_ROOT, *, status_path: Path | None = None) -> dict[str, Any]:
-    """Runs both audits and writes the status file; returns the status."""
-    status = {"checked_at": _now().isoformat(timespec="seconds"), "python": _python(root), "npm": _npm(root)}
+    """Runs the audits and writes the status file; returns the status."""
+    status = {"checked_at": _now().isoformat(timespec="seconds"), "python": _python(root), "npm": _npm(root),
+              "runtime": _runtime()}
     path = status_path or STATUS_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
@@ -126,8 +164,12 @@ def status(*, status_path: Path | None = None, now: datetime | None = None) -> d
         return None
     age = ((now or _now()) - checked).total_seconds() / 86400
     findings = [f for part in ("python", "npm") for f in (data.get(part) or {}).get("findings") or []]
-    errors = [f"{part}: {data[part]['error']}" for part in ("python", "npm") if not (data.get(part) or {}).get("ok")]
-    return {**data, "age_days": round(age, 1), "stale": age > MAX_AGE_DAYS, "finding_count": len(findings), "errors": errors}
+    # 158: an audit written before the runtime check has no `runtime` part: nothing to report about it
+    errors = [f"{part}: {data[part].get('error', '?')}" for part in PARTS
+              if part in data and not (data.get(part) or {}).get("ok")]
+    errors += [f"{part}: missing" for part in ("python", "npm") if part not in data]
+    return {**data, "age_days": round(age, 1), "stale": age > MAX_AGE_DAYS, "finding_count": len(findings), "errors": errors,
+            "runtime_outdated": bool((data.get("runtime") or {}).get("outdated"))}
 
 
 def refresh_if_stale(root: Path = PROJECT_ROOT, *, status_path: Path | None = None) -> dict[str, Any] | None:
@@ -144,6 +186,9 @@ def verdict(current: dict[str, Any] | None) -> tuple[bool, str]:
         return True, "no audit yet (python -m jav.cli deps-audit)"
     line = (f"{current['checked_at'][:10]} ({current['age_days']:g} days ago): {current['finding_count']} known vulnerabilities"
             f" in {(current.get('python') or {}).get('packages', 0)} Python and {(current.get('npm') or {}).get('packages', 0)} UI packages")
+    if current.get("runtime_outdated"):
+        rt = current["runtime"]
+        line += f"; Python {rt['running']} is behind the latest patch of its line, {rt['latest']} ({rt.get('latest_date') or '?'})"
     if current["errors"]:
         line += f"; incomplete: {'; '.join(current['errors'])}"
     if current["stale"]:

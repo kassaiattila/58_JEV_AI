@@ -115,6 +115,9 @@ export interface DepsAuditInfo {
   status: {
     checked_at: string; age_days: number; stale: boolean; finding_count: number; errors: string[];
     python?: { packages?: number }; npm?: { packages?: number };
+    /** 158: the running Python against the latest patch of its version line. */
+    runtime?: { ok: boolean; running: string; latest?: string; latest_date?: string | null; error?: string };
+    runtime_outdated?: boolean;
   } | null;
   max_age_days: number;
 }

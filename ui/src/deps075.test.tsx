@@ -25,6 +25,14 @@ describe("075 dependency audit on the System page", () => {
     expect(depsAuditState({ status: null, max_age_days: 7 })).toMatchObject({ level: "warn" });
   });
 
+  it("158: warns when the Python runtime is behind the latest patch of its line", () => {
+    const behind = info({ runtime_outdated: true, runtime: { ok: true, running: "3.12.13", latest: "3.12.15", latest_date: "2026-10-01" } });
+    expect(depsAuditState(behind)).toMatchObject({ level: "warn" });
+    expect(depsAuditState(behind).text).toMatch(/Python 3\.12\.13.*3\.12\.15/);
+    expect(depsAuditState(info({ finding_count: 1, runtime_outdated: true, runtime: { ok: true, running: "3.12.13", latest: "3.12.15" } })))
+      .toMatchObject({ level: "error" });  // a vulnerable package still comes first
+  });
+
   it("draws the card from the service's answer", async () => {
     vi.spyOn(api, "depsAudit").mockResolvedValue(info({ finding_count: 1 }));
     render(<DepsAuditPanel />);

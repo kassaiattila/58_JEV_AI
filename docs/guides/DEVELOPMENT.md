@@ -64,7 +64,7 @@ Only at the end of a session and when a stage closes. A finished measurement als
 Run them before a release, after updating dependencies, or when a sensitive area has changed. None of them costs money. The start-up check runs none of them; it only reads the dependency audit's last result (it fails on a known vulnerability and notes an audit older than a week). The daily backup renews that result once a week, and the System page shows it.
 
 ```powershell
-python -m jav.cli deps-audit                          # known vulnerabilities in the pinned Python and UI packages (needs network)
+python -m jav.cli deps-audit                          # known vulnerabilities in the pinned Python and UI packages, and whether the Python runtime is behind its latest patch (needs network)
 pytest tests/ --cov=jav --cov-report=term-missing     # test coverage: which lines no test executes
 $env:JAV_HYPOTHESIS_EXAMPLES = "3000"; pytest tests/test_properties_067.py   # property-based tests with a deeper search
 ```

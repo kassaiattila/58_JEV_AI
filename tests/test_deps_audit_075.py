@@ -13,6 +13,15 @@ import pytest
 
 from jav import deps_audit
 
+
+@pytest.fixture(autouse=True)
+def offline_release_list(monkeypatch):
+    """158: the runtime check asks a public release list; here it answers that the running Python is the latest."""
+    running = deps_audit.platform.python_version()
+    line = ".".join(running.split(".")[:2])
+    monkeypatch.setattr(deps_audit, "_fetch_json", lambda url: {"result": {"name": line, "isMaintained": True,
+                                                                          "latest": {"name": running, "date": "2026-01-01"}}})
+
 PIP_CLEAN = {"dependencies": [{"name": "fastapi", "version": "0.120.0", "vulns": []},
                               {"name": "httpx2", "version": "2.13.0", "vulns": []}]}
 PIP_VULN = {"dependencies": [{"name": "demo-lib", "version": "1.0.0",
