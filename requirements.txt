@@ -5,7 +5,7 @@ typesafe-sdk
 python-dotenv
 
 # Generatív kivonatolás (G-kar): Pydantic AI + OpenAI; a typesafe extra későbbi kísérletekhez
-pydantic-ai-slim[openai,typesafe]
+pydantic-ai-slim[openai,typesafe]>=2.53.0  # 157: PYSEC-2026-4285 and PYSEC-2026-4290
 
 # Állapotgép + lokális tracker UI (a [start] extra streamlit/pandas-t húzna, nem kell)
 apache-burr[tracking-client,tracking-server]

@@ -15,7 +15,7 @@ et-xmlfile==2.0.0
 fastapi==0.141.1
 fastapi-pagination==0.16.0
 fastapi-utils==0.8.0
-genai-prices==0.1.7
+genai-prices==0.1.13
 griffelib==2.3.0
 h11==0.16.0
 httpcore2==2.13.0
@@ -32,7 +32,7 @@ markdown-it-py==4.2.0
 markupsafe==3.0.3
 mdurl==0.1.2
 mypy-extensions==1.1.0
-openai==3.16.2
+openai==3.31.0
 openpyxl==3.1.5
 opentelemetry-api==1.44.0
 packaging==26.3
@@ -43,10 +43,10 @@ pluggy==1.6.0
 psutil==5.9.8
 pycparser==3.0
 pydantic==2.13.5
-pydantic-ai-slim==2.46.0
+pydantic-ai-slim==2.53.0
 pydantic-core==2.46.5
-pydantic-evals==2.46.0
-pydantic-graph==2.46.0
+pydantic-evals==2.53.0
+pydantic-graph==2.53.0
 pydantic-settings==2.15.0
 pygments==2.21.0
 pypdfium2==5.13.0
