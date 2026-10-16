@@ -89,12 +89,12 @@ The start-up check is green on a fresh clone too, once the hooks are installed (
 
 ## 6. Backup, restore and logs
 
-**Plain-language summary:** the database (work packages, runs, corrections and decisions) can be backed up with one command, even while the local service is running. The backup also checks that the database is intact. It can run by itself every day at a set time (12:00 by default), and a verified copy can also go to a second location, such as a network drive; both places keep the last 14 backups. The daily backup also takes the internal working documents (handoffs, plans, reports, the backlog, the decisions log), because git does not track them, and the copies the system keeps of the documents added to work packages, each only once. The state of the last backup is shown on the Settings › System page. Errors of the local service and the worker go to permanent log files, so the cause of a stop can be found later.
+**Plain-language summary:** the database (work packages, runs, corrections and decisions) can be backed up with one command, even while the local service is running. The backup also checks that the database is intact. It can run by itself every day at a set time (12:00 by default), and a verified copy can also go to a second location, such as a network drive; both places keep the last 14 daily backups. Manual backups (the command below, or Back up now on the System page) are kept apart, the last 14 of them, so they never push out a daily one. The daily backup also takes the internal working documents (handoffs, plans, reports, the backlog, the decisions log), because git does not track them, and the copies the system keeps of the documents added to work packages, each only once. The state of the last backup is shown on the Settings › System page. Errors of the local service and the worker go to permanent log files, so the cause of a stop can be found later.
 
 **Backup:**
 
 ```powershell
-python -m jav.cli backup                 # store\backups\<timestamp>\jav.sqlite + manifest.json; the last 14 are kept (the daily backup's retention)
+python -m jav.cli backup                 # store\backups\<timestamp>\jav.sqlite + manifest.json; the last 14 manual backups are kept, apart from the daily ones
 python -m jav.cli backup --with-burr     # also the flow-state store (store\burr_state.sqlite; it can be large)
 python -m jav.cli backup --with-docs     # also the internal working documents, into internal-docs.zip (the daily backup does this by default)
 python -m jav.cli backup --out D:\Backup --keep 30

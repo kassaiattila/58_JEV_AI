@@ -107,7 +107,7 @@ The system encrypts nothing. Disk encryption (BitLocker) is a machine setting th
 | Incoming email folder | the text and header data of downloaded emails, and their attachments | indefinitely |
 | Original documents | stay where they are; the system never changes them | not managed by the system |
 | Document copies | an unchanging copy of every document added to a work package (store folder `sources/`, named by its content hash), so a result can always be shown against the exact file it came from | indefinitely; never thinned |
-| Store backup | the store, the document copies (each once, checked by its content hash) and the internal working documents, locally and, if one is configured, in the second backup location; unencrypted | the latest 14 in both places (default); the document copies are never thinned |
+| Store backup | the store, the document copies (each once, checked by its content hash) and the internal working documents, locally and, if one is configured, in the second backup location; unencrypted | the latest 14 daily backups in both places (default), and separately the latest 14 manual ones, so manual backups never push out the daily ones (since 2026-10-16); the document copies are never thinned |
 | Local key file | the providers' keys, unencrypted | indefinitely |
 | Burr's local tracker | only for some command-line measurement commands: the flow steps, in the user's home folder; the worker does not use it | indefinitely |
 
