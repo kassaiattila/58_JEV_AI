@@ -641,7 +641,9 @@ def _done(wf: dict[str, Any], step: str, actor: str, action: str, **fields: Any)
 
 
 def _start(wf: dict[str, Any], sdef: dict[str, Any], *, actor: str, states: tuple[str, ...] = ("waiting",)) -> None:
-    """Makes the step's package (or queues its mailbox download) and starts its run; a failure stays on the step."""
+    """Makes the step's package (or queues its mailbox download) and starts its run; a failure stays on the step. 160
+    (review R-2): the package is noted on the step as soon as it exists, so a start interrupted later (before or after
+    the run was made) is started again with that package (`start_step`), never with a second one."""
     step = sdef["id"]
     if not _set(wf["id"], step, expect=states, state="starting", note=None):
         return  # another process has it, or it is past waiting
@@ -704,6 +706,7 @@ def _start_documents(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any
         note = f"no new documents: {len(left_out)} already processed" if left_out else "no documents in the folder"
         _done(wf, step, actor, "nothing_new", state="nothing_new", note=note)
         return
+    _set(wf["id"], step, workpackage_id=wp["id"])  # 160 (review R-2): an interrupted start goes on with this package
     if left_out:
         with store.connect() as c:
             store.begin_immediate(c)
@@ -726,6 +729,7 @@ def _start_statements(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, An
     scope = statement_package.create(name=st["name"], party_id=wf["party_id"], period_start=wf["period_start"],
                                      period_end=wf["period_end"], paths=paths, statements=chosen, pdfs=pdfs,
                                      actor=wf["actor"])
+    _set(wf["id"], sdef["id"], workpackage_id=scope["workpackage_id"])  # 160 (review R-2), as for documents
     _start_run(wf, sdef, st, scope["workpackage_id"], actor=actor)
 
 
