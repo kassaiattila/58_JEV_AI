@@ -541,24 +541,74 @@ def supplier_check_types() -> frozenset[str]:
     return frozenset(_conf()["supplier_check"]["doc_types"])
 
 
-def review_reasons(doc_type: str | None, values: dict[str, Any]) -> list[str]:
+OWN_TAX_REASON = "parties:own_tax_as_supplier"
+SCAN_PRODUCER = "parties"  # 157: the producer of the to-dos opened by `scan_own_tax`; the flow's own ones are the M2 step's
+
+
+def own_tax_reasons(doc_type: str | None, values: dict[str, Any], c=None) -> list[str]:
     """134: an incoming invoice whose supplier tax number is an own party's (a given identity) while the buyer's is
     another number or missing: the two parties' numbers are likely swapped, or it is an outgoing invoice typed as an
     incoming one. A to-do for a person (`parties:own_tax_as_supplier`); the same number on both sides is the role-pair
-    check's (`validator:parties.same_entity`). Read in a worker run only, as the duplicates, so a measurement's result
-    never depends on the store."""
-    from jav.runtime import calls
-
-    ctx = calls.current()
+    check's (`validator:parties.same_entity`). 157: the check itself, shared by the flow and the store scan."""
     check = _conf()["supplier_check"]
-    if ctx is None or ctx.budget_scope is None or ctx.measurement or doc_type not in supplier_check_types():
+    if doc_type not in supplier_check_types():
         return []
     st, bt = tax_key(values.get(check["supplier_tax_field"])), tax_key(values.get(check["buyer_tax_field"]))
     if not st or st == bt:
         return []
+    if c is None:
+        with store.connect() as own_conn:
+            return own_tax_reasons(doc_type, values, own_conn)
+    own = c.execute("SELECT 1 FROM own_party_identities WHERE kind='tax' AND key=? AND party_id IS NOT NULL", (st,)).fetchone()
+    return [OWN_TAX_REASON] if own else []
+
+
+def review_reasons(doc_type: str | None, values: dict[str, Any]) -> list[str]:
+    """134: the own-tax check in a flow (`own_tax_reasons`). Read in a worker run only, as the duplicates, so a
+    measurement's result never depends on the store."""
+    from jav.runtime import calls
+
+    ctx = calls.current()
+    if ctx is None or ctx.budget_scope is None or ctx.measurement:
+        return []
+    return own_tax_reasons(doc_type, values)
+
+
+def scan_own_tax(*, write: bool = False) -> dict[str, Any]:
+    """157 (backlog Q-own-tax-afterwards): the incoming invoices already in the store that the check would flag (read
+    only, counts only), and with `write` the same to-do the processing would open, once, under the flow run that
+    produced the document. A document whose result is not from a work run, or whose run is approved, is skipped (an
+    approved result never reopens), as in the duplicates' scan."""
+    from jav import duplicates, work
+
+    check = _conf()["supplier_check"]
+    docs = duplicates.documents((check["supplier_tax_field"], check["buyer_tax_field"]), supplier_check_types())
     with store.connect() as c:
-        own = c.execute("SELECT 1 FROM own_party_identities WHERE kind='tax' AND key=? AND party_id IS NOT NULL", (st,)).fetchone()
-    return ["parties:own_tax_as_supplier"] if own else []
+        approved = {r["run_id"] for r in c.execute("SELECT run_id FROM runs WHERE approval IS NOT NULL")}
+        flagged = [d for d in docs if own_tax_reasons(d.doc_type, d.fields, c)]
+    already = {(subject, r["reason"], r["run_id"]) for (_kind, subject), rs in
+               store.review_open_reasons_many([("document", d.doc_id) for d in flagged]).items() for r in rs}
+    pending = []
+    skipped: Counter[str] = Counter()
+    for d in flagged:
+        if d.run_id is None:
+            skipped["no_work_run"] += 1
+        elif d.run_id in approved:
+            skipped["approved_run"] += 1
+        elif (d.doc_id, OWN_TAX_REASON, d.flow_run_id) in already:
+            skipped["already_open"] += 1  # an earlier --write (or the processing) opened it
+        else:
+            pending.append(d)
+    written = 0
+    if write:
+        for d in pending:
+            store.review_enqueue(subject_kind="document", subject_id=d.doc_id, run_id=d.flow_run_id or "",
+                                 reasons=[OWN_TAX_REASON], producer=SCAN_PRODUCER)
+            written += 1
+        for run_id in sorted({d.run_id for d in pending if d.run_id}):
+            work.refresh_run_status(run_id)
+    return {"documents": len(docs), "flagged": len(flagged), "to_open": len(pending), "written": written,
+            "skipped": dict(sorted(skipped.items()))}
 
 
 def suggest(invoices: Iterable[dict[str, Any]], accounts: Iterable[dict[str, Any]]) -> dict[str, Any]:

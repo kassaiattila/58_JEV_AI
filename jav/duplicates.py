@@ -206,10 +206,12 @@ def _has_table(c, name: str) -> bool:
     return c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
 
 
-def documents() -> list[Document]:
+def documents(fields: Iterable[str] | None = None, types: Iterable[str] | None = None) -> list[Document]:
     """Every invoice-like document's effective values: its latest result (of any type; a document re-read as another
-    type drops out), with the latest correction of the run item that produced it."""
-    fields, types = key_fields(), family_types()
+    type drops out), with the latest correction of the run item that produced it. 157: another check can ask for its
+    own fields and types (the own-tax scan of `jav/parties.py`); by default the duplicates' key fields and types."""
+    fields = tuple(key_fields() if fields is None else fields)
+    types = tuple(family_types() if types is None else types)
     extracts = ", ".join("json_extract(d.datapoints, '$.' || ?)" for _ in fields)
     with store.connect() as c:
         rows = c.execute(

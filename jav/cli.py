@@ -517,6 +517,20 @@ def cmd_duplicates(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_own_tax(args: argparse.Namespace) -> int:
+    """157: the incoming invoices already in the store whose supplier tax number is an own party's (read only; counts
+    only, no values), and with --write the one-off to-do of 134 on runs not yet approved. Free."""
+    from jav import parties
+
+    result = parties.scan_own_tax(write=args.write)
+    print(f"incoming invoices checked: {result['documents']}")
+    print(f"an own party's tax number as the supplier's: {result['flagged']}")
+    print(f"to-dos to open: {result['to_open']}; skipped: {result['skipped']}")
+    if args.write:
+        print(f"to-dos written: {result['written']}")
+    return 0
+
+
 def cmd_reconcile(args: argparse.Namespace) -> int:
     """128: invoice <-> bank statement line pairs proposed by code (read only; counts, no values), or with --golden the
     synthetic golden cases (configs/golden_reconcile.json). 137: the pairs are decided in a reconciliation package; the
@@ -814,6 +828,10 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("duplicates", help="126: duplicate invoices in the store (read only); --write opens the to-do on runs not yet approved")
     p.add_argument("--write", action="store_true", help="open the duplicate to-dos (once; a decided pair or an approved run is skipped)")
     p.set_defaults(fn=cmd_duplicates)
+
+    p = sub.add_parser("own-tax", help="157: incoming invoices whose supplier tax number is an own party's (read only); --write opens the to-do on runs not yet approved")
+    p.add_argument("--write", action="store_true", help="open the to-dos (once; an approved run or a command-line result is skipped)")
+    p.set_defaults(fn=cmd_own_tax)
 
     p = sub.add_parser("reconcile", help="128: invoice <-> bank statement line pairs proposed by code (read only); --golden: the synthetic cases")
     p.add_argument("--golden", action="store_true", help="score the synthetic golden cases (configs/golden_reconcile.json)")
