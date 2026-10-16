@@ -316,7 +316,9 @@ loaded statements cover.
   converted amounts.
 - **Credit notes:** a supplier's credit note (a negative invoice) that cancels exactly one of its invoices settles it: the
   invoice shows ‘Cancelled by a credit note’ with the credit note's number, and no payment is looked for. Not when a line
-  naming the invoice pays it (a refund may follow) or when two invoices could be meant.
+  naming the invoice pays it (a refund may follow) or when two invoices could be meant. An invoice already paid counts
+  among the ones it could mean: a credit note refunding a paid month does not cancel next month's unpaid invoice of the
+  same amount; you decide.
 - **Recurring bills:** a line booked more than 20 days before an invoice was issued is offered for it only when its memo
   names the invoice (an advance payment); otherwise it paid an earlier month. When a line's memo names one invoice, other
   invoices of the same amount are still listed under it, but not proposed.

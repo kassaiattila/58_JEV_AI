@@ -108,9 +108,9 @@ person marked as needing no invoice (`reconcile_line_marks`) takes part in nothi
   unambiguous proposals allocates it whole. A line with a proposal of its own makes no group.
 - A **credit note** (a negative invoice) that cancels exactly one eligible invoice of its supplier (the same supplier,
   currency and amount, issued on or before it) settles that invoice: status `credited` (`credited_by`), no candidate is
-  listed for it, and the credit note is excluded as `credit_note` (`credits`). Not when two invoices could be meant, when
-  anything was allocated to the invoice, or when a line naming the invoice's number is proposed for it (it was paid; a
-  refund may follow).
+  listed for it, and the credit note is excluded as `credit_note` (`credits`). Not when two invoices could be meant (160:
+  an invoice already paid counts among them), when anything was allocated to the invoice, or when a line naming the
+  invoice's number is proposed for it (it was paid; a refund may follow).
 - A line booked more than `proposal.unnamed_days_before_issue` days before an invoice's issue date is its candidate
   only with the invoice's number or a reference in the memo (an advance payment); without one it paid the previous
   month of a recurring bill.
@@ -561,16 +561,18 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
 
 def _credited(prepared: dict[str, Any], paid_invoice: dict[str, Decimal]) -> dict[str, str]:
     """141: the invoices a credit note cancels: {invoice: credit note}. A credit note cancels an invoice of its supplier,
-    currency and exact amount, issued on or before it, when exactly one such eligible invoice has nothing allocated
-    and no other credit note took it."""
+    currency and exact amount, issued on or before it, when that invoice is the only such eligible one no other credit
+    note took, and it has nothing allocated. 160 (review M-2): an invoice already paid counts among the ones it could
+    mean, so a credit note refunding a paid month does not cancel the unpaid month of the same amount; a person
+    decides."""
     out: dict[str, str] = {}
     for cid, note in sorted(prepared["credit_notes"].items()):
         issued, amount = _date(note.get("issue_date")), -money(str(note["amount"]))
         matches = [iid for iid, inv in sorted(prepared["invoices"].items())
-                   if iid not in out and not paid_invoice.get(iid) and _supplier_key(inv) == _supplier_key(note)
+                   if iid not in out and _supplier_key(inv) == _supplier_key(note)
                    and inv.get("currency") == note.get("currency") and money(str(inv["amount"])) == amount
                    and issued is not None and _date(inv["issue_date"]) <= issued]
-        if len(matches) == 1:
+        if len(matches) == 1 and not paid_invoice.get(matches[0]):
             out[matches[0]] = cid
     return out
 
