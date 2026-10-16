@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "name": "golden_credit_kinds",
+    "version": "1.0.0",
+    "description": "158 F-incoming-money-kinds (DECISIONS 152, 158): invented statement lines of incoming money (no real data) with the kind a bookkeeper would give, for the incoming kind question of callsite:reconcile_line (credit_kind). The names are invented; the memo texts are the kind a Hungarian or a foreign bank prints. None of them is one of the question's examples. Measured per engine (JEV, GPT) against these labels; the labels were written for this measurement, so the result says how the question works on such texts, not how it works on real statements.",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-16", "note": "158: first version, 29 lines over the seven kinds the owner chose (customer payment, own transfer, income, interest, refund, owner's contribution, other)."}
+    ]
+  },
+  "cases": [
+    {"id": "customer_invoice_number", "account": "bank_account", "currency": "HUF", "booking_date": "2026-09-15", "amount": "127000.00", "counterparty_name": "MINTA SZOLGALTATO KFT", "description": "Atutalas", "memo": "SZLA 2026/0153 KIEGYENLITES", "expected": "customer_payment"},
+    {"id": "customer_invoice_code", "account": "bank_account", "currency": "HUF", "booking_date": "2026-03-02", "amount": "48260.00", "counterparty_name": "Pelda Bt.", "description": "Bejovo atutalas", "memo": "INV-2026-0042 fizetese", "expected": "customer_payment"},
+    {"id": "customer_advance_proforma", "account": "bank_account", "currency": "HUF", "booking_date": "2026-05-20", "amount": "300000.00", "counterparty_name": "TESZT KERESKEDELMI ZRT", "description": "Atutalas", "memo": "Dijbekero 2026/17 alapjan eloleg", "expected": "customer_payment"},
+    {"id": "customer_foreign_services", "account": "bank_account", "currency": "EUR", "booking_date": "2026-07-08", "amount": "1850.00", "counterparty_name": "EXAMPLE CONSULTING GMBH", "description": "SEPA credit transfer", "memo": "Invoice 2026-118 consulting services June", "expected": "customer_payment"},
+    {"id": "customer_order", "account": "bank_account", "currency": "HUF", "booking_date": "2026-02-11", "amount": "15990.00", "counterparty_name": "Proba es Tarsa Kft", "description": "Atutalas", "memo": "Rendeles 5521 ellenerteke", "expected": "customer_payment"},
+    {"id": "own_between_accounts", "account": "bank_account", "currency": "HUF", "booking_date": "2026-04-30", "amount": "200000.00", "description": "Sajat szamlak kozotti atvezetes", "expected": "own_transfer"},
+    {"id": "own_from_savings", "account": "bank_account", "currency": "HUF", "booking_date": "2026-06-03", "amount": "150000.00", "description": "Atvezetes megtakaritasi szamlarol", "expected": "own_transfer"},
+    {"id": "own_deposit_principal", "account": "bank_account", "currency": "HUF", "booking_date": "2026-08-01", "amount": "1000000.00", "description": "Lekotott betet megszunese", "memo": "Toke visszavezetese a folyoszamlara", "expected": "own_transfer"},
+    {"id": "own_currency_exchange", "account": "bank_account", "currency": "HUF", "booking_date": "2026-09-09", "amount": "39400.00", "description": "Exchanged to HUF", "memo": "From EUR pocket", "expected": "own_transfer"},
+    {"id": "income_monthly_wage", "account": "bank_account", "currency": "HUF", "booking_date": "2026-10-05", "amount": "412300.00", "counterparty_name": "PELDA INFORMATIKA KFT", "description": "Atutalas", "memo": "2026. szeptemberi munkaber", "expected": "income"},
+    {"id": "income_family_allowance", "account": "bank_account", "currency": "HUF", "booking_date": "2026-10-10", "amount": "12200.00", "counterparty_name": "ALLAMKINCSTAR", "description": "Atutalas", "memo": "Csaladi potlek 2026.10", "expected": "income"},
+    {"id": "income_bonus", "account": "bank_account", "currency": "HUF", "booking_date": "2026-07-15", "amount": "250000.00", "counterparty_name": "MINTA ZRT", "description": "Atutalas", "memo": "Premium Q2 2026", "expected": "income"},
+    {"id": "income_pension", "account": "bank_account", "currency": "HUF", "booking_date": "2026-03-12", "amount": "198000.00", "counterparty_name": "NYUGDIJFOLYOSITO", "description": "Atutalas", "memo": "Oregsegi nyugdij 2026. marcius", "expected": "income"},
+    {"id": "interest_account", "account": "bank_account", "currency": "HUF", "booking_date": "2026-06-30", "amount": "342.00", "description": "SZAMLAKAMAT JOVAIRAS", "expected": "interest"},
+    {"id": "interest_deposit", "account": "bank_account", "currency": "HUF", "booking_date": "2026-08-01", "amount": "18750.00", "description": "Betetkamat", "memo": "Lekotott betet kamata 3 honap", "expected": "interest"},
+    {"id": "interest_savings_en", "account": "bank_account", "currency": "EUR", "booking_date": "2026-09-30", "amount": "4.12", "description": "Savings interest", "memo": "Interest earned September", "expected": "interest"},
+    {"id": "interest_monthly", "account": "bank_account", "currency": "HUF", "booking_date": "2026-01-31", "amount": "57.00", "description": "Kamat", "memo": "Havi kamatelszamolas", "expected": "interest"},
+    {"id": "refund_webshop", "account": "bank_account", "currency": "HUF", "booking_date": "2026-05-06", "amount": "8990.00", "counterparty_name": "EXAMPLESHOP.HU", "description": "Atutalas", "memo": "Visszaterites rendeles 88123", "expected": "refund"},
+    {"id": "refund_tax", "account": "bank_account", "currency": "HUF", "booking_date": "2026-06-18", "amount": "64500.00", "counterparty_name": "NAV", "description": "Atutalas", "memo": "SZJA visszateritese 2025", "expected": "refund"},
+    {"id": "refund_card", "account": "credit_card", "currency": "HUF", "booking_date": "2026-04-14", "amount": "12490.00", "counterparty_name": "PAYPAL *EXAMPLESTORE", "description": "Refund", "expected": "refund"},
+    {"id": "refund_overpayment", "account": "bank_account", "currency": "HUF", "booking_date": "2026-02-27", "amount": "3150.00", "counterparty_name": "Teszt Biztosito Zrt", "description": "Atutalas", "memo": "Tulfizetes visszautalasa", "expected": "refund"},
+    {"id": "owner_member_loan", "account": "bank_account", "currency": "HUF", "booking_date": "2026-01-20", "amount": "500000.00", "counterparty_name": "Teszt Elek", "description": "Atutalas", "memo": "Tagi kolcson", "expected": "owner_contribution"},
+    {"id": "owner_additional_payment", "account": "bank_account", "currency": "HUF", "booking_date": "2026-03-25", "amount": "1000000.00", "counterparty_name": "Minta Anna", "description": "Atutalas", "memo": "Potbefizetes a tarsasagba", "expected": "owner_contribution"},
+    {"id": "owner_share_capital", "account": "bank_account", "currency": "HUF", "booking_date": "2026-02-02", "amount": "3000000.00", "counterparty_name": "Teszt Elek", "description": "Atutalas", "memo": "Torzstoke befizetese", "expected": "owner_contribution"},
+    {"id": "owner_capital_en", "account": "bank_account", "currency": "EUR", "booking_date": "2026-05-12", "amount": "10000.00", "counterparty_name": "Peter Example", "description": "SEPA credit transfer", "memo": "Shareholder capital contribution", "expected": "owner_contribution"},
+    {"id": "other_loan_disbursement", "account": "bank_account", "currency": "HUF", "booking_date": "2026-04-02", "amount": "5000000.00", "counterparty_name": "PELDA BANK ZRT", "description": "Hitelfolyositas", "memo": "Szerzodes 123456", "expected": "other"},
+    {"id": "other_gift", "account": "bank_account", "currency": "HUF", "booking_date": "2026-08-22", "amount": "20000.00", "counterparty_name": "Proba Gabor", "description": "Atutalas", "memo": "Szulinapi ajandek", "expected": "other"},
+    {"id": "other_grant", "account": "bank_account", "currency": "HUF", "booking_date": "2026-09-01", "amount": "2400000.00", "counterparty_name": "Palyazati Iroda", "description": "Atutalas", "memo": "Vissza nem terintendo tamogatas elso reszlet", "expected": "other"},
+    {"id": "other_unexplained", "account": "bank_account", "currency": "HUF", "booking_date": "2026-07-29", "amount": "35000.00", "counterparty_name": "Minta Peter", "description": "Atutalas", "expected": "other"}
+  ]
+}

@@ -70,7 +70,8 @@ export const MARK: Record<string, string> = tmap({
   other: "Other (with a note)",
 });
 
-/** 135: the kind of payment the AI read from a line's text (configs/callsites/reconcile_line.json `line_kind`). */
+/** 135: the kind of payment the AI read from a line's text (configs/callsites/reconcile_line.json `line_kind`; 158: and
+ *  the kinds of incoming money, `credit_kind`). */
 export const KIND: Record<string, string> = tmap({
   utility_or_telecom: "Utility or telecom bill",
   subscription: "Subscription",
@@ -84,6 +85,11 @@ export const KIND: Record<string, string> = tmap({
   tax_or_duty: "Tax or duty",
   cash: "Cash",
   salary: "Salary or wage",
+  customer_payment: "Customer payment",
+  income: "Salary or other income",
+  interest: "Interest",
+  refund: "Refund",
+  owner_contribution: "Owner's contribution",
   other: "Other",
 });
 
