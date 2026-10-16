@@ -19,6 +19,8 @@ rows. A run's tables never do this: an approval names the version of the rows on
 Column `extra` for the UI: `link` = link target (`run`, `workpackage`, `reviews`, `review`, `item`); the link is built
 from the row's `_wp`, `_run`, `_stage` and `item_id` fields (`next`: the stage of the package's next step). `names`
 (082, on the name column of an item list): which name the column shows (`original` or `unified`, the scope key `names`).
+`wrap` (156): `anywhere` on a name-like text column (a name, a file name, a path, an e-mail address), whose long
+unbroken value may break inside a word; every other column wraps at spaces only.
 """
 
 from __future__ import annotations
@@ -94,7 +96,13 @@ def _column_label(c: str) -> str:
     return cfg.load("field_labels")["columns"].get(c, c)
 
 
+# 156: the keys of name-like columns; one such value cannot widen a whole table past the screen
+_NAME_LIKE = frozenset({"name", "unified_name", "original_name", "file", "filename", "original", "source_path", "sender"})
+
+
 def _col(key: str, label: str, kind: str = "text", *, labels: str | None = None, hidden: bool = False, **extra: Any) -> Column:
+    if key in _NAME_LIKE and kind == "text":
+        extra.setdefault("wrap", "anywhere")
     return Column(key, label, kind, hidden=hidden, labels=_labels(labels) if labels else None, extra=extra)  # type: ignore[arg-type]
 
 

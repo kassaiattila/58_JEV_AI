@@ -25,6 +25,12 @@ const TABLES: { key: ResultTable; dataset: string }[] = [
   { key: "utility", dataset: "utility_cost" },
   { key: "file_names", dataset: "file_names" },
 ];
+// 156: columns a person seldom reads, hidden by default so that a view fits a laptop screen without sideways
+// scrolling; the column menu shows them again, and the full Excel package always has them
+const DEFAULT_HIDDEN: Record<string, string[]> = {
+  emails: ["corrected", "attachments", "body_status"],
+  native_facts: ["unit", "role", "related_entity", "reading_status", "interpretation_status"], // the last two: per document
+};
 // the views' labels are translated when read (tmap)
 const TABLE_LABEL = tmap({ emails: "Levelek", tasks: "Feladatok", documents: "Iratok", datapoints: "Adatpontok", line_items: "Tételsorok",
   utility: "Közmű-költség", file_names: "Fájlnevek", native_facts: "Native facts" }) as Record<ResultTable, string>;
@@ -62,10 +68,10 @@ export function ResultStage({ view, table, runId, onChanged }: {
   const tableId = `${spec.dataset}:${chosen}:${reloads}`;
   const tableVersion = shown?.table === tableId ? shown.version ?? null : undefined; // undefined: not loaded yet
   return (
-    <div className="stage-stack">
+    <div className="stage-stack result-stage">
       <div className="result-bar">
         {view.runs > 1 ? (
-          <DatasetPicker dataset="runs" scope={{ workpackage_id: wp.id }} label={t("Futás")} value={chosen} valueCol="run_id"
+          <DatasetPicker dataset="runs" scope={{ workpackage_id: wp.id }} label={t("Futás")} hideLabel value={chosen} valueCol="run_id"
             toOption={runOption} onChange={(v) => nav({ runId: v })} />
         ) : null}
         <div className="segmented-tabs" role="tablist" aria-label={t("Eredmény nézetei")}>
@@ -83,7 +89,7 @@ export function ResultStage({ view, table, runId, onChanged }: {
       {current === "file_names" ? <NamedCopiesBar runId={chosen} /> : null}
       {available.length ? <DataTable key={tableId} dataset={spec.dataset} scope={{ run_id: chosen }} label={TABLE_LABEL[spec.key]} selectable
         onPage={(page) => setShown({ table: tableId, version: page.review_version })}
-        storageId={`result-${spec.dataset}`}
+        storageId={`result-${spec.dataset}`} defaultHidden={DEFAULT_HIDDEN[spec.dataset]}
         // proposed next step in the chosen language (the local service gives the code; search uses the Hungarian label)
         cell={spec.key === "emails" ? (col, row) => (col.key === "next_flow" ? nextFlowText(row.next_flow as string | null) : undefined) : undefined}
         downloadExtras={<a className="small" href={api.exportUrl(chosen, "xlsx")} download>{t("A futás teljes Excel-csomagja (minden tábla és a közmű-költség)")}</a>} /> : null}
@@ -117,7 +123,7 @@ export function NamedCopiesBar({ runId }: { runId: string }) {
   }
 
   return (
-    <div className="notice named-copies">
+    <div className="named-copies">
       <span>{t("Az iratok másolatai egységes, tartalom szerinti névvel; az eredeti fájlok nem változnak. A bizonytalan nevűek az „ellenorzendo” almappába kerülnek, a jegyzék (jegyzek.csv) mutatja, melyik eredetiből melyik név lett.")}</span>
       <span className="button-row">
         <a className="secondary dl-btn small-btn" href={api.namedCopiesZipUrl(runId)} download><Icon name="download" />{t("Letöltés ZIP-ben")}</a>
@@ -171,19 +177,28 @@ function Approval({ runId, onChanged, hasTable, tableVersion, onConflict }: {
     }
   }
 
-  if (r.mode === "shadow") {
-    return <p className="notice">{t("Próbafutás eredménye ({{when}}): megtekinthető és letölthető, de nem adható ki. Kiadáshoz éles futás kell a Feldolgozás szakaszban.", { when: when(r.created_at) })}</p>;
-  }
-  if (r.approval) return <p className="notice ok-box">{t("Kiadva: jóváhagyta {{who}}, {{when}}.", { who: r.approved_by, when: when(r.approved_at) })}</p>;
+  // 156: one line with the state's own mark; the approval is the solid main action only when it can be given
+  const state: ReleaseState = r.mode === "shadow" ? "trial" : r.approval ? "released" : r.status === "done" ? "ready" : open ? "todo" : "running";
+  const [label, detail] = {
+    trial: [t("Trial result"), t("{{when}} · it can be viewed and downloaded but not released; a release needs a live run", { when: when(r.created_at) })],
+    released: [t("Released"), t("approved by {{who}}, {{when}}", { who: r.approved_by, when: when(r.approved_at) })],
+    ready: [t("Awaiting approval"), t("the live run has finished with no open to-dos")],
+    todo: [t("{{n}} open to-dos", { n: open }), t("settle them in the Review section before the approval")],
+    running: [t("Not finished"), t("the live run has not finished yet")],
+  }[state];
   return (
-    <div className="notice approval-box">
-      <span>
-        {r.status === "done" ? t("Az éles futás lezárult, nyitott teendő nélkül: jóváhagyható.")
-          : open ? t("Még {{n}} nyitott teendő van; jóváhagyás előtt rendezd őket az Ellenőrzés szakaszban.", { n: open })
-            : t("Az éles futás még nem zárult le.")}
-      </span>
-      <ConfirmButton className="primary" disabled={busy || loading || r.status !== "done"} onConfirm={() => void approve()}>{t("Jóváhagyás és kiadás")}</ConfirmButton>
+    <div className="release-line" data-state={state}>
+      <span className={`status ${RELEASE_MARK[state]}`}>{label}</span>
+      <span className="release-detail">{detail}</span>
+      {state === "trial" || state === "released" ? null : (
+        <ConfirmButton className={state === "ready" ? "primary" : "secondary"} disabled={busy || loading || state !== "ready"}
+          onConfirm={() => void approve()}>{t("Jóváhagyás és kiadás")}</ConfirmButton>
+      )}
       {msg ? <span role="status" className={msg.error ? "error-text" : ""}>{msg.text}</span> : null}
     </div>
   );
 }
+
+type ReleaseState = "trial" | "released" | "ready" | "todo" | "running";
+// the state marks of DESIGN.md §4: a person has to act (orange), done (green), running (blue); a trial is neutral
+const RELEASE_MARK: Record<ReleaseState, string> = { trial: "", released: "s-done", ready: "s-review", todo: "s-needs_review", running: "s-running" };

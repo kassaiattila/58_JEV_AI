@@ -141,7 +141,7 @@ th:hover > .col-resizer::after { background: var(--line); }
    so states never look like buttons and never borrow the accent */
 .status { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 500; color: var(--ink-2); letter-spacing: 0; white-space: nowrap; }
 .status::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: var(--r-full); background: var(--faint); }
-.s-done::before, .s-ok::before { background: var(--ok); }
+.s-done::before, .s-ok::before, .s-ready::before { background: var(--ok); } /* 156: ready = a named copy is done */
 .s-needs_review::before, .s-review::before { background: var(--todo); }
 .s-needs_review, .s-review { color: var(--todo); }
 .s-running::before { background: var(--run); }
@@ -403,7 +403,7 @@ body.dragging { cursor: col-resize; user-select: none; }
 /* words wrap at spaces; only a name may break inside a long unbroken value (a file path, an e-mail address), so
    that one such value cannot widen the whole table */
 .dt-table td { padding: 7px var(--sp-2); height: 36px; overflow-wrap: break-word; }
-.dt-table td[data-col="name"] { overflow-wrap: anywhere; }
+.dt-table td[data-wrap="anywhere"] { overflow-wrap: anywhere; } /* 156: the dataset marks its name-like columns */
 .dt-table td.num, .dt-table td .status, .dt-table td .count-alert { white-space: nowrap; }
 /* the work-package list (155): the name leads the row; the other columns get just the room their values need, so
    the default columns fit 1440 px (and 1366 px) without sideways scrolling */
@@ -537,16 +537,28 @@ th.num .th-in { flex-direction: row-reverse; }
 .run-plan { border-top: 1px solid var(--line-soft); margin-top: 10px; padding-top: 8px; }
 .run-plan h3 { font-size: var(--fs-sm); margin: 0 0 var(--sp-1); }
 .run-plan ul { display: grid; gap: 3px; }
-.result-bar { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
-.result-bar .picker { width: min(460px, 100%); }
-.segmented-tabs { display: inline-flex; background: var(--chip); border-radius: 8px; padding: 3px; gap: 2px; }
+/* 156: the Result section — the run picker (fixed width, its label for screen readers only), the views and the
+   download share one row, as in the review toolbar */
+.result-stage { gap: var(--sp-3); }
+.result-bar { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; }
+.result-bar .picker { width: min(420px, 34vw); }
+.segmented-tabs { display: inline-flex; background: var(--chip); border-radius: var(--radius); padding: 3px; gap: 2px; }
 .seg { border: 0; background: none; padding: 6px var(--sp-3); border-radius: var(--r-md); font-size: var(--fs-sm); font-weight: 500; color: var(--muted); }
-.seg:hover:not([aria-selected="true"]) { color: var(--accent); background: var(--tint); }
+.seg:hover:not([aria-selected="true"]) { color: var(--ink); background: var(--tint); }
 .seg[aria-selected="true"] { background: var(--paper); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-raised); }
-.approval-box { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--warn-tint); color: var(--warn); }
-/* 078: the content-named copies above the File names table (explanation, then the two actions and the result) */
-.named-copies { display: grid; gap: 8px; }
-.named-copies .button-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+/* 156: the release line — the shown run's state as one line with its own mark (never a tinted banner); the approval
+   sits at its end and is the solid main action only when it can be given */
+.release-line { display: flex; align-items: center; gap: var(--sp-2) var(--sp-3); flex-wrap: wrap; min-height: 40px;
+  padding-bottom: var(--sp-2); border-bottom: 1px solid var(--line-soft); }
+.release-line .status { font-size: var(--fs-sm); font-weight: 600; }
+.release-detail { color: var(--muted); min-width: 0; font-variant-numeric: tabular-nums; }
+.release-line > button { margin-left: auto; }
+.release-line > [role="status"] { flex-basis: 100%; }
+/* 078: the content-named copies above the File names table: the explanation, then the two actions, on one row */
+.named-copies { display: flex; gap: var(--sp-2) var(--sp-4); align-items: center; flex-wrap: wrap; }
+.named-copies > span:first-child { flex: 1 1 520px; color: var(--ink-2); text-wrap: pretty; }
+.named-copies .button-row { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
+.named-copies > [role="status"] { flex-basis: 100%; }
 .settings-layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 24px; align-items: start; }
 .settings-nav { display: grid; gap: 2px; position: sticky; top: 12px; }
 /* 063: the menu items are larger and are highlighted with a coloured bar on hover */
