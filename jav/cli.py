@@ -599,7 +599,7 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
             print(f"{engine}: invoice choice {t['pays']}; kind of payment {t['kind']}")
         return 0
     if not limits:
-        est = reconcile_ai.estimate(args.workpackage_id, redo=args.redo, stale=args.stale)
+        est = reconcile_ai.estimate(args.workpackage_id, redo=args.redo, stale=args.stale, incoming_only=args.incoming)
         print(f"lines to ask about: {est['lines']}, with preselected invoices: {est['with_options']} ({est['options']} options)")
         for engine, plan in est["plan"].items():
             print(f"{engine}: answered already {plan['answered']}; requests {plan['requests']} (with invoices {plan['with_options']});"
@@ -612,7 +612,7 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
         print(f"no budget for: {', '.join(missing)} (jev: --jev-budget-usd, gpt: --budget-usd)")
         return 2
     r = reconcile_ai.run(args.workpackage_id, engines=engines, limits=limits, max_lines=args.max_lines, use_cache=not args.no_cache,
-                         redo=args.redo, stale=args.stale)
+                         redo=args.redo, stale=args.stale, incoming_only=args.incoming)
     print(f"lines asked: {r['lines']}; per engine: {r['counts']}")
     print(f"budget scope {r['scope']}: {r['usage']}")
     print(f"raw answers: {r['raw']}; config jev {r['jev_config']}, gpt {r['gpt_config']}")
@@ -864,6 +864,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-cache", action="store_true", help="JEV: no cached answers (live calls)")
     p.add_argument("--redo", action="store_true", help="136: ask the lines that have an answer again (default: only the new ones)")
     p.add_argument("--stale", action="store_true", help="147: also ask the lines whose answer came from an older version of the question")
+    p.add_argument("--incoming", action="store_true", help="158: ask about the incoming money alone")
     p.add_argument("--evaluate", action="store_true",
                    help="free: compare the stored answers with a person's decisions on the package's lines")
     p.add_argument("--golden", action="store_true",

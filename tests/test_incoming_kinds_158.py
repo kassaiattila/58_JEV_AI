@@ -145,6 +145,16 @@ def test_an_answer_of_the_outgoing_question_counts_as_none_for_incoming_money(db
     assert len(jev.asked) == 1 and _stored()[line_id]["kind"] == "customer_payment"
 
 
+def test_a_package_never_asked_can_be_asked_about_its_incoming_money_alone(db, monkeypatch, tmp_path):
+    wp = _package(_debit("EXAMPLEMARKET ONLINE", "7.00"), _credit("Example Customer Kft", "250.00", memo="INV-0012"))
+    assert reconcile_ai.estimate(wp, incoming_only=True)["plan"]["jev"]["requests"] == 1
+    assert reconcile_ai.estimate(wp)["plan"]["jev"]["requests"] == 2
+    jev = KindJev()
+    r = _run(wp, tmp_path, jev, monkeypatch, incoming_only=True)
+    assert r["lines"] == 1 and [s["line"].get("direction") for s, _q in jev.asked] == ["incoming (a credit)"]
+    assert set(_stored()) == {_ids(wp)["Example Customer Kft"]}
+
+
 def test_the_preselection_offers_only_the_invoices_on_the_lines_side(db):
     outgoing = k2._invoice(number="OUT-04", supplier_name="Example Supplier Kft.", buyer_name="Example Buyer Kft.")
     wp = _package(_debit("Example Buyer", "100.00", memo=None), _credit("Example Buyer", "101.00", memo=None),

@@ -425,12 +425,18 @@ def _walk(engine: str, lines: list[dict[str, Any]], items: list[Item], ask: Call
             lenders[key] = (line["id"], answer)
 
 
-def estimate(wp_id: str, *, redo: bool = False, stale: bool = False) -> dict[str, Any]:
+def _only_incoming(items: list[Item], incoming_only: bool) -> list[Item]:
+    """158: with `incoming_only` the incoming money alone (a package whose lines going out were never asked)."""
+    return [it for it in items if incoming(it[0])] if incoming_only else items
+
+
+def estimate(wp_id: str, *, redo: bool = False, stale: bool = False, incoming_only: bool = False) -> dict[str, Any]:
     """Free: the lines to decide and, per engine, the plan of a run (`_walk`, every request taken as answered): the
     lines answered already, the requests (those with preselected invoices among them), the lines that would take a
     partner's answer over, and the sum of the worst-case reservations made before each request. A finished call counts
     with its actual cost, so a measurement needs its actual cost plus one reservation, not this sum."""
     lines, items, rates = _lines(wp_id)
+    items = _only_incoming(items, incoming_only)
     out: dict[str, Any] = {"lines": len(items), "with_options": sum(1 for _l, inv in items if inv),
                            "options": sum(len(inv) for _l, inv in items), "plan": {}, "reservations_usd": {}}
     for engine, provider in (("jev", "jev"), ("gpt", "openai")):
@@ -481,14 +487,16 @@ def _save(wp_id: str, line: dict[str, Any], engine: str, answer: dict[str, Any],
 
 
 def run(wp_id: str, *, engines: Iterable[str], limits: dict[str, Decimal], max_lines: int | None = None,
-        use_cache: bool = True, redo: bool = False, stale: bool = False, out_dir: Path = RUNS_DIR) -> dict[str, Any]:
+        use_cache: bool = True, redo: bool = False, stale: bool = False, incoming_only: bool = False,
+        out_dir: Path = RUNS_DIR) -> dict[str, Any]:
     """Asks the chosen engines about the package's lines to decide, under the owner's sub-budget (`limits` per
     provider: `jev`, `openai`): only the lines without an answer (all with `redo`) and the kind of payment once per
-    partner (`_walk`; `stale`: also the answers of an older question). Stores the latest answer per line and engine and writes one raw row per line and engine to a
-    jsonl file. An engine that fails on a line (JEV unavailable, the budget spent, an OpenAI error) is recorded and the
-    run goes on."""
+    partner (`_walk`; `stale`: also the answers of an older question; 158: `incoming_only`: the incoming money alone).
+    Stores the latest answer per line and engine and writes one raw row per line and engine to a jsonl file. An engine
+    that fails on a line (JEV unavailable, the budget spent, an OpenAI error) is recorded and the run goes on."""
     engines = [e for e in ENGINES if e in set(engines)]
     lines, items, rates = _lines(wp_id)
+    items = _only_incoming(items, incoming_only)
     items = items[:max_lines] if max_lines is not None else items
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     scope = f"measure-{stamp}-reconcile-ai"
