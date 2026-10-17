@@ -5,7 +5,7 @@
   wp-create <folder> [--name N]            work package from the PDFs in a folder
   wp-create --files <pdf>... --name N      work package from the given files (possibly from several folders)
   wp-list | wp-show <wp>                   work packages; one package's items, recipe and readiness
-  wp-assign <wp> <recipe> [--arm S|G] [--doc-type T] [--note N]   assign a recipe (to the current revision)
+  wp-assign <wp> <recipe> [--arm S|G] [--doc-type T] [--engine jev|gpt] [--note N]   assign a recipe (keeps the settings it does not name)
   run-start <wp> [--mode shadow|apply]     start a run with the input pinned by the current readiness check (idempotent)
   run-list [<wp>] | run-show <run>         runs; one run's items, work queue, cost and to-dos
   run-cancel <run> | run-approve <run> --actor A [--review-version V]
@@ -108,9 +108,19 @@ def cmd_wp_show(args):
 
 
 def cmd_wp_assign(args):
+    """160 (plan F-csak-gpt, L2): a reassignment of the same recipe keeps the settings it does not name (it used to
+    reset them to the recipe's defaults, so a package without JEV silently got JEV back)."""
     from jav import work
     current = work.current_assignment(args.wp)
-    params = {k: v for k, v in {"arm": args.arm, "doc_type": args.doc_type, "jev_cache": args.jev_cache}.items() if v is not None}
+    r = work.recipe(args.recipe)
+    kept = current["params"] if current and current["recipe_id"] == args.recipe else {}
+    named = {k: v for k, v in {"arm": args.arm, "doc_type": args.doc_type, "jev_cache": args.jev_cache}.items() if v is not None}
+    if args.engine is not None:
+        if "jev" not in r["params"]:
+            print(f"the recipe {args.recipe!r} has no engine setting")
+            return 2
+        named["jev"] = "off" if args.engine == "gpt" else "on"
+    params = {**{k: v for k, v in kept.items() if k in r["params"]}, **named}
     a = work.assign_recipe(args.wp, args.recipe, params=params, expected_revision=current["revision"] if current else 0,
                            actor=args.actor, note=args.note)
     return _out(args, a, f"Hozzárendelve: {a['recipe_id']} {a['params']} (hozzárendelés {a['revision']})")
@@ -276,6 +286,7 @@ def register(sub) -> None:
     p.add_argument("--arm", choices=["S", "G"])
     p.add_argument("--doc-type")
     p.add_argument("--jev-cache", choices=["reuse", "live"], help="live: a JEV-gyorsítótár olvasása nélkül (élő próba)")
+    p.add_argument("--engine", choices=["jev", "gpt"], help="160: gpt = processing without JEV (GPT only); jev = JEV and GPT")
     p.add_argument("--note")
     p.add_argument("--actor", default="cli")
     p = add("run-start", cmd_run_start, "futás indítása rögzített bemenettel (idempotens)")

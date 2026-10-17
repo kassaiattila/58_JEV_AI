@@ -73,7 +73,7 @@ python -m jav.cli eval-report [runs/*.jsonl]                       # shared eval
 # golden, detect-golden and extract_cases with --budget-usd exit with code 3 when the budget left cases without a result;
 # golden and email-golden take a hard JEV budget with --jev-budget-usd (a provider without a budget cannot be called)
 python -m jav.cli store | admin | configs | flows --check | docs   # store, admin screen, config versions, contract lint, generated docs
-python -m jav.cli recipes | wp-create <folder> [--recursive] | wp-assign <wp> processing | wp-show <wp> | processing-migrate [--write]   # work packages and processing
+python -m jav.cli recipes | wp-create <folder> [--recursive] | wp-assign <wp> processing [--engine jev|gpt] | wp-show <wp> | processing-migrate [--write]   # work packages and processing
 python -m jav.cli run-start <wp> [--mode shadow|apply] | worker --once | run-show <run> | run-cancel <run> | run-approve <run> --actor <name>   # shadow = trial run, apply = live run
 cd ui; npm ci; npm run build; cd ..                               # build the UI (once, and after every ui/src change)
 .\scripts\dev.ps1 start | status | stop                          # UI + service: http://127.0.0.1:8930/ (endpoint list: /api/openapi.json) + worker
