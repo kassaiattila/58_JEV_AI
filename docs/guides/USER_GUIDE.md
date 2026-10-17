@@ -529,6 +529,7 @@ In **Result**, the **Native facts** table joins the existing PDF views. Its **So
 - **Approval:**
   - For a trial run, the interface states that the result cannot be released; that needs a live run.
   - For a live run, the **Approve and release** (*Jóváhagyás és kiadás*) button is active only once the run has finished and no to-dos are open; until then the interface tells you how many to-dos remain. The button needs two clicks.
+  - A live run that a person stopped, that ended with an error or that a later live run superseded cannot be approved: the line says so (‘Stopped’, ‘Failed’, ‘Superseded’), and the Result tab reads ‘cannot be approved’ (*nem hagyható jóvá*). Rerun it in Processing. If the approval is refused because the run is not ready (for example a to-do opened meanwhile), the line gives the reason.
   - If an item was removed from the package after the run started (section 7.9), the line says how many (‘N removed’, *N kivéve*, with an amber mark): the approval leaves them out of the released result, and their to-dos do not count. If someone removes another item in the meantime, the approval is refused until you have seen the new count.
   - After approval, ‘Released: approved by …, …’ (*Kiadva: jóváhagyta …, …*) is shown. An item removed or restored later does not change a released result. Approval locks the run's field corrections, intent corrections and task-proposal decisions; you can still mark an accepted task as ‘done’ (*elvégezve*). Approval cannot be undone from the interface. Downloads remain available afterwards.
 
