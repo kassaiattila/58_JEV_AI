@@ -288,6 +288,27 @@ def carried_params(r: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     return _validated_params(r, {k: v for k, v in params.items() if k in r["params"]})
 
 
+ENGINE_JEV = {"jev": "on", "gpt": "off"}  # 160-D: the AI engine as the recipes' `jev` setting
+
+
+def engine_params(r: dict[str, Any], engine: str | None = None) -> dict[str, str]:
+    """160-D (plan F-csak-gpt Sz4): the engine setting a new processing setting gets when it does not name one:
+    `engine`, or the application's (`app_settings.engine_default`). Empty for a recipe without the setting."""
+    if "jev" not in r["params"]:
+        return {}
+    if engine is None:
+        from jav import app_settings  # it imports this module
+
+        engine = app_settings.engine_default()
+    return {"jev": ENGINE_JEV[engine]}
+
+
+def default_params(r: dict[str, Any], engine: str | None = None) -> dict[str, Any]:
+    """The settings of a package without saved ones: the recipe's defaults with the application's engine (or
+    `engine`, a workflow step's own)."""
+    return _validated_params(r, engine_params(r, engine))
+
+
 def recipe_hash(r: dict[str, Any]) -> str:
     return hashlib.sha256(_canon(r).encode("utf-8")).hexdigest()[:16]
 
@@ -750,11 +771,12 @@ def assignment_history(wp_id: str) -> list[dict[str, Any]]:
 def assign_recipe(wp_id: str, recipe_id: str, *, params: dict[str, Any], expected_revision: int, actor: str,
                   note: str | None = None) -> dict[str, Any]:
     """The assignment gets its own revision (the V4 `expected_revision` pattern); earlier ones stay as history. A
-    retired recipe (080) cannot be assigned again."""
+    retired recipe (080) cannot be assigned again. 160-D: a setting that does not name the engine takes the
+    application's."""
     r = recipe(recipe_id)
     if recipe_status(r) == "retired":
         raise RetiredRecipe(f"recipe {recipe_id!r} is retired; assign {default_recipe()['id']!r} instead")
-    clean = _validated_params(r, params)
+    clean = _validated_params(r, {**engine_params(r), **params})
     with store.connect() as c:
         _begin(c)
         if c.execute("SELECT 1 FROM workpackages WHERE id=?", (wp_id,)).fetchone() is None:
@@ -969,7 +991,7 @@ def _readiness(wp_id: str, *, verify: bool) -> dict[str, Any]:
     if not wp["items"]:
         blockers.append({"code": "no_items", "message": "A munkacsomagban nincs tétel."})
     r = recipe(a["recipe_id"]) if a else default_recipe()
-    params = a["params"] if a else _validated_params(r, {})
+    params = a["params"] if a else default_params(r)  # 160-D: with the application's engine
     if a is not None and recipe_status(r) == "retired":
         warnings.append({"code": "recipe_retired", "message": "The package uses a retired processing; switch it to the current processing settings."})
     elif a is not None and recipe_hash(r) != a["recipe_hash"]:
@@ -1040,7 +1062,8 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
         if a is None:  # 080: the default settings the readiness check used are saved, in the starter's name
             d = default_recipe()
             # data (the assignment history, shown in the UI as written), not a label
-            _insert_assignment(c, wp_id, d, _validated_params(d, {}), expected_revision=0, actor=actor,
+            # 160-D: with the engine the readiness check (its budget) used, even if the application's changed since
+            _insert_assignment(c, wp_id, d, default_params(d, "jev" if ready["plan"]["jev"] else "gpt"), expected_revision=0, actor=actor,
                                note="alapbeállítás, a futás indításakor mentve")
             a = current_assignment(wp_id, c)
         r = recipe(a["recipe_id"])

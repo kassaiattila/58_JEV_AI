@@ -561,6 +561,10 @@ class SaveOutputFolder(_In):
     path: str | None = Field(default=None, max_length=1024)  # empty: no output folder
 
 
+class SaveEngine(_In):
+    engine: Literal["jev", "gpt"]  # 160-D: JEV and GPT | GPT only (app_settings.ENGINES)
+
+
 _ScopeMap = Annotated[dict[Annotated[str, Field(max_length=64)], Annotated[str, Field(max_length=200)]], Field(max_length=5)]
 
 
@@ -1577,6 +1581,16 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def settings_save_output_folder(body: SaveOutputFolder, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """An existing folder that does not overlap a watched folder (the watcher would take the copies in again)."""
         return {"path": app_settings.save_output_folder(body.path, check_dir=lambda raw: checked_path(raw, want_dir=True), actor=who)}
+
+    @app.get(r + "/settings/engine")
+    def settings_engine() -> dict[str, Any]:
+        """160-D: the application's AI engine, the default of every new processing setting that does not name one."""
+        return app_settings.engine_setting()
+
+    @app.put(r + "/settings/engine")
+    def settings_save_engine(body: SaveEngine, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """Saved settings and started runs keep their own engine; only new settings follow."""
+        return app_settings.save_engine_default(body.engine, actor=who)
 
     @app.post(r + "/settings/folders/{folder_id}/scan")
     def settings_scan_folder(folder_id: Annotated[str, PathParam(pattern=r"^wf-[0-9a-f]{10}$")], body: Empty,

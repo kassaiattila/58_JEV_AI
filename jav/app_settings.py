@@ -402,5 +402,38 @@ def save_output_folder(path: str | None, *, check_dir: Callable[[str], Path], ac
     return str(p)
 
 
-__all__ = ["WatchedFolder", "check_output_folder", "folders", "output_folder", "save_folders", "save_output_folder",
-           "save_users", "scan", "tick", "users"]
+# --- the AI engine (160-D, plan F-csak-gpt Sz4) -------------------------------------------------------------------
+
+ENGINE_KEY = "engine"
+ENGINES = ("jev", "gpt")  # JEV and GPT (the default, decision 160) | GPT only, without JEV
+DEFAULT_ENGINE = "jev"
+
+
+def engine_setting() -> dict[str, Any]:
+    """The application's AI engine with who set it and when (both None while it is the default)."""
+    with store.connect() as c:
+        row = c.execute("SELECT value, actor, updated_at FROM app_options WHERE key=?", (ENGINE_KEY,)).fetchone()
+    if row is None:
+        return {"engine": DEFAULT_ENGINE, "actor": None, "updated_at": None}
+    return {"engine": row["value"], "actor": row["actor"], "updated_at": row["updated_at"]}
+
+
+def engine_default() -> str:
+    """The engine of every new processing setting that does not name one (`work.default_params`); saved settings and
+    runs keep their own."""
+    return engine_setting()["engine"]
+
+
+def save_engine_default(engine: str, *, actor: str) -> dict[str, Any]:
+    if engine not in ENGINES:
+        raise ValueError(f"unknown engine {engine!r}; expected one of {list(ENGINES)}")
+    with store.connect() as c:
+        c.execute("INSERT INTO app_options(key, value, actor, updated_at) VALUES (?,?,?,?) ON CONFLICT(key)"
+                  " DO UPDATE SET value=excluded.value, actor=excluded.actor, updated_at=excluded.updated_at",
+                  (ENGINE_KEY, engine, actor, _iso(_now())))
+    log.info("AI engine set to %s by %s", engine, actor)
+    return engine_setting()
+
+
+__all__ = ["WatchedFolder", "check_output_folder", "engine_default", "engine_setting", "folders", "output_folder",
+           "save_engine_default", "save_folders", "save_output_folder", "save_users", "scan", "tick", "users"]

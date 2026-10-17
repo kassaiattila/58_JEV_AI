@@ -24,11 +24,14 @@ def jsonable(value: Any) -> Any:
 def recipe_catalog(*, every_status: bool = False) -> list[dict[str, Any]]:
     """The recipes the UI offers (080: only the active processing; internal and retired recipes are not offered;
     `every_status`: all of them, for the command line): the choices taken from the type packs (`allowed_from`)
-    expanded into an `allowed` list."""
+    expanded into an `allowed` list. 160-D: the engine's default is the application's, as for a package without saved
+    settings (`work.default_params`)."""
     out = []
     for r in work.recipes() if every_status else work.active_recipes():
         params = {k: ({**spec, "allowed": sorted(typepack.extractable_keys())} if spec.get("allowed_from") == "typepacks" else spec)
                   for k, spec in r["params"].items()}
+        if engine := work.engine_params(r):
+            params["jev"] = {**params["jev"], "default": engine["jev"]}
         out.append({**r, "params": params})
     return jsonable(out)
 

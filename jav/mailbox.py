@@ -240,8 +240,8 @@ def _workpackage(req: MailboxRequest, messages: list[Path], *, actor: str) -> di
     wp = work.add_items(wp["id"], messages, kind="email", expected_revision=0)
     wp = add_attachments(wp["id"], expected_revision=wp["revision"])  # 058 K5.2: plus the PDF attachments
     r = work.default_recipe()  # 080: one processing; on an email, intent + attachments
-    params = {k: spec["default"] for k, spec in r["params"].items()}
-    work.assign_recipe(wp["id"], r["id"], params=params, expected_revision=0, actor=actor,
+    # the recipe's defaults; 160-D: the application's engine (`assign_recipe` fills what is not named)
+    work.assign_recipe(wp["id"], r["id"], params={}, expected_revision=0, actor=actor,
                        note="postafiók-letöltés után automatikusan (a futtatás kézi)")
     return work.get(wp["id"])
 

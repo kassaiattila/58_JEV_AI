@@ -838,7 +838,7 @@ def tick(now: float | None = None) -> int:
 
 def _per_item(kind: str) -> dict[str, Decimal]:
     r = work.default_recipe()
-    return work.item_budget(r, work.carried_params(r, {}), kind)
+    return work.item_budget(r, work.default_params(r), kind)  # 160-D: with the application's engine
 
 
 def _times(per: dict[str, Decimal], n: int) -> dict[str, str]:
