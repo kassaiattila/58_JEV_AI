@@ -1,30 +1,26 @@
 // 086: the processing setting "without JEV". The run gets no JEV budget, GPT recognises the type and every document
 // runs on the G path; since 089 GPT recognises an email's intent too. Artificial data, no service.
+// 160 (plan F-csak-gpt, L9): the budgets come from the real recipe catalogue, so the test cannot keep an outdated one
+// (it expected no email budget without JEV after the recipe had given GPT's intent recognition 0.07 USD).
 import { describe, expect, it } from "vitest";
+import catalogue from "../../configs/recipes.json";
 import { type Recipe, type RunPlan } from "./api";
 import { itemBudget, itemBudgetLines, paramShort, planLines, reasonText } from "./labels";
 
-const RECIPE: Recipe = {
-  id: "processing", version: 1, status: "active", title: "Feldolgozás", description: "Leírás.", steps: [], requirements: [],
-  result: "Eredmény.", manual_action: "Teendők.",
-  params: { arm: { allowed: ["auto", "S", "G"], default: "auto" }, jev: { allowed: ["on", "off"], default: "on" } },
-  max_item_usd: { auto: { jev: "0.07", openai: "0.15" } },
-  max_item_usd_by_kind: { email: { "*": { jev: "0.05" } }, document: { auto: { jev: "0.07", openai: "0.15" } } },
-  param_item_usd: [
-    { param: "jev", value: "off", kind: "document", usd: { openai: "0.07" }, drop: ["jev"] },
-    { param: "jev", value: "off", kind: "email", usd: {}, drop: ["jev"] },
-  ],
-};
+const RECIPE = catalogue.recipes.find((r) => r.id === "processing") as unknown as Recipe;
 
 const PLAN: RunPlan = { documents: 2, emails: 1, attachments: 0, paths: { S: 0, G: 2, unknown: 0 }, tasks_emails: 0, azure: false,
   jev_reuse: true, arm: "auto", jev: false };
 
 describe("086 processing without JEV", () => {
-  it("switched off, there is no JEV budget and type recognition gets an OpenAI budget", () => {
-    expect(itemBudget(RECIPE, { arm: "auto", jev: "on" }, "document")).toEqual({ jev: 0.07, openai: 0.15 });
-    expect(itemBudget(RECIPE, { arm: "auto", jev: "off" }, "document")).toEqual({ openai: 0.22 });
-    expect(itemBudget(RECIPE, { arm: "auto", jev: "off" }, "email")).toEqual({});
-    expect(itemBudgetLines(RECIPE, { arm: "auto", jev: "off" })).toEqual(["levelenként: nincs", "PDF-iratonként: OpenAI legfeljebb 0,22 USD"]);
+  it("switched off, there is no JEV budget and the type and intent recognition get an OpenAI budget", () => {
+    const settings = { arm: "auto", azure_ocr: "off", tasks: "off" };
+    expect(itemBudget(RECIPE, { ...settings, jev: "on" }, "document")).toEqual({ jev: 0.07, openai: 0.15 });
+    expect(itemBudget(RECIPE, { ...settings, jev: "off" }, "document")).toEqual({ openai: 0.22 });
+    expect(itemBudget(RECIPE, { ...settings, jev: "off" }, "email")).toEqual({ openai: 0.07 });
+    expect(itemBudget(RECIPE, { ...settings, jev: "off" }, "statement_table")).toEqual({});
+    expect(itemBudgetLines(RECIPE, { ...settings, jev: "off" })).toEqual([
+      "táblázatos kivonatonként: nincs", "levelenként: OpenAI legfeljebb 0,07 USD", "PDF-iratonként: OpenAI legfeljebb 0,22 USD"]);
   });
 
   it("the pre-start overview says that JEV is not called", () => {
