@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.62",
+    "version": "1.0.63",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.63",
+        "date": "2026-10-17",
+        "note": "168: accept the Hungarian column of the counted run's glossary entry (docs/GLOSSARY.md) and the Hungarian interface labels the user guide quotes for the package's item list and adding in three steps (docs/guides/USER_GUIDE.md 6.3, 7.9); ui/src/views/DocumentsPanel.tsx is gone (the shared item list is ui/src/views/PackageItems.tsx, in English)."
+      },
       {
         "version": "1.0.62",
         "date": "2026-10-17",
@@ -444,7 +449,7 @@
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 270,
+    "docs/GLOSSARY.md": 271,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 9,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -454,7 +459,7 @@
     "docs/flows/invoice/FLOW.md": 15,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 247,
+    "docs/guides/USER_GUIDE.md": 249,
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
@@ -742,7 +747,6 @@
     "ui/src/version071.test.tsx": 6,
     "ui/src/views/Activity.tsx": 8,
     "ui/src/views/DocumentsCreate.tsx": 9,
-    "ui/src/views/DocumentsPanel.tsx": 6,
     "ui/src/views/LegacyResult.tsx": 2,
     "ui/src/views/Mailbox.tsx": 40,
     "ui/src/views/PackageCosts.tsx": 8,

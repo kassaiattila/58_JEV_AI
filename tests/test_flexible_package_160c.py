@@ -215,11 +215,11 @@ def test_adding_documents_reports_what_changed_and_is_logged(env):
                json={"paths": [str(new), str(env["folder"] / "invoice_1.pdf")], "expected_revision": wp["revision"]})
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["added"] == {"added": 1, "already": 1, "restored": 0, "processed_elsewhere": []}
+    assert body["added"] == {"added": 1, "already": 1, "restored": 0, "left_out": 0, "processed_elsewhere": []}
     assert len(body["workpackage"]["items"]) == 3
     event = work.workpackage_events(wp["id"])[-1]
     assert (event["action"], event["actor"]) == ("items_add", "teszt.elek")
-    assert json.loads(event["detail"]) == {"added": 1, "already": 1, "restored": 0}
+    assert json.loads(event["detail"]) == {"added": 1, "already": 1, "restored": 0, "left_out": 0}
     again = c.post(f"/api/workpackages/{wp['id']}/items", headers=HUMAN,
                    json={"paths": [str(new)], "expected_revision": body["workpackage"]["revision"]}).json()
     assert again["added"]["already"] == 1 and again["workpackage"]["revision"] == body["workpackage"]["revision"]  # no step
@@ -233,7 +233,7 @@ def test_adding_a_removed_item_again_restores_it(env):
                      json={"expected_revision": wp["revision"], "reason": "wrong month"}).json()["workpackage"]
     r = c.post(f"/api/workpackages/{wp['id']}/items", headers=HUMAN,
                json={"paths": [item["source_path"]], "expected_revision": removed["revision"]}).json()
-    assert r["added"] == {"added": 0, "already": 0, "restored": 1, "processed_elsewhere": []}
+    assert r["added"] == {"added": 0, "already": 0, "restored": 1, "left_out": 0, "processed_elsewhere": []}
     assert item["item_id"] in {i["item_id"] for i in r["workpackage"]["items"]}
     assert all(row["_removed"] is False for row in _items(c, wp["id"], removed=True))
 

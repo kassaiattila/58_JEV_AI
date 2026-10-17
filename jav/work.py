@@ -507,40 +507,97 @@ SURVEYED_KINDS = {"statements": "add statements to a statement package through i
                   "reconcile": "a reconciliation package has no documents"}
 
 
-def add_to_package(wp_id: str, paths: list[Path], *, expected_revision: int, actor: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def _addable(wp_id: str) -> dict[str, Any]:
+    wp = get(wp_id)
+    if wp["source_kind"] in SURVEYED_KINDS:
+        raise ValueError(SURVEYED_KINDS[wp["source_kind"]])
+    return wp
+
+
+def _held_items(wp_id: str) -> dict[str, int | None]:
+    """Every item the package ever held, with its removal revision (None: in use)."""
+    with store.connect() as c:
+        return {r["item_id"]: r["removed_revision"] for r in c.execute(
+            "SELECT item_id, removed_revision FROM workpackage_items WHERE workpackage_id=?", (wp_id,))}
+
+
+def add_to_package(wp_id: str, paths: list[Path], *, expected_revision: int, actor: str, exclude: Iterable[str] = (),
+                   restore: Iterable[str] | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
     """160-C S2: documents a person adds to an existing package, by content: a new one is added, one already in the
     package changes nothing, and a removed one is restored. Only an actual change takes a revision step, and it is
     logged (`items_add`) in the same transaction. Returns the package and what happened, with the names of the
     documents a live run of another package has already processed (a warning: the same file may be counted twice
-    later, e.g. by the duplicate check or the reconciliation)."""
-    wp = get(wp_id)
-    if wp["source_kind"] in SURVEYED_KINDS:
-        raise ValueError(SURVEYED_KINDS[wp["source_kind"]])
+    later, e.g. by the duplicate check or the reconciliation).
+
+    168 (plan F-item-list-and-adding): what the person unticked in the preview (`preview_additions`) stays out: the
+    new documents whose content hash is in `exclude`, and, when `restore` is given, every removed one not in it (the
+    preview leaves a removed document unticked, so adding a folder again does not quietly bring back what was taken
+    out on purpose). These are counted as `left_out`."""
+    wp = _addable(wp_id)
     files = list(dict.fromkeys(Path(p).resolve(strict=True) for p in paths))
     digests = {p: sha256_file(p) for p in files}
-    with store.connect() as c:
-        state = {r["item_id"]: r["removed_revision"] for r in c.execute(
-            "SELECT item_id, removed_revision FROM workpackage_items WHERE workpackage_id=?", (wp_id,))}
+    state = _held_items(wp_id)
+    skip, back = set(exclude), None if restore is None else set(restore)
     seen: set[str] = set()
-    added, restored, already = [], [], 0
+    added, restored, already, left_out = [], [], 0, 0
     for p in files:
         d = digests[p]
         if d in seen:
             continue
         seen.add(d)
         if d not in state:
-            added.append(p)
+            if d in skip:
+                left_out += 1
+            else:
+                added.append(p)
         elif state[d] is not None:
-            restored.append(p)
+            if back is None or d in back:
+                restored.append(p)
+            else:
+                left_out += 1
         else:
             already += 1
-    summary = {"added": len(added), "already": already, "restored": len(restored)}
+    summary = {"added": len(added), "already": already, "restored": len(restored), "left_out": left_out}
     changed = added + restored
     if changed:
         wp = add_entries(wp_id, [(p, "document") for p in changed], expected_revision=expected_revision,
                          event=("items_add", actor, summary))
     elsewhere = _processed_live_elsewhere(wp_id, [digests[p] for p in changed])
     return wp, {**summary, "processed_elsewhere": [p.name for p in changed if digests[p] in elsewhere]}
+
+
+PREVIEW_OTHER_NAMES = 20  # the other files named in a preview; the rest only counted
+
+
+def preview_additions(wp_id: str, paths: Iterable[Path], *, others: Iterable[Path] = (), root: Path | None = None) -> dict[str, Any]:
+    """168 (plan F-item-list-and-adding; the legacy V4 upload page's selection preview): what adding `paths` to the
+    package would do, without writing anything. Each document is `new`, `already` in the package, `removed` from it
+    (restored only when ticked), or `repeated` (the same content earlier in the selection); `elsewhere` marks one a
+    live run of another package has processed. A file that is not a document is left out and named (`others`, with the
+    other files of a folder the caller collected). `root`: the folder the files came from (each file's `folder` is its
+    subfolder, '' for the folder itself)."""
+    _addable(wp_id)
+    docs: list[Path] = []
+    skipped = list(others)
+    for p in dict.fromkeys(Path(x).resolve(strict=True) for x in paths):
+        (docs if p.suffix.lower() in DOCUMENT_SUFFIXES else skipped).append(p)
+    digests = {p: sha256_file(p) for p in docs}
+    state = _held_items(wp_id)
+    elsewhere = _processed_live_elsewhere(wp_id, sorted(set(digests.values())))
+    base = Path(root).resolve() if root else None
+    seen: set[str] = set()
+    files = []
+    for p in docs:
+        d = digests[p]
+        kind = "repeated" if d in seen else "new" if d not in state else "already" if state[d] is None else "removed"
+        seen.add(d)
+        folder = p.parent.relative_to(base).as_posix() if base and p.is_relative_to(base) else str(p.parent)
+        files.append({"path": str(p), "name": p.name, "folder": "" if folder == "." else folder, "item_id": d,
+                      "state": kind, "elsewhere": d in elsewhere})
+    counts = {k: sum(f["state"] == k for f in files) for k in ("new", "already", "removed", "repeated")}
+    counts["elsewhere"] = sum(f["elsewhere"] and f["state"] in ("new", "removed") for f in files)
+    return {"files": files, "counts": counts, "folder": str(base) if base else None,
+            "others": {"count": len(skipped), "names": [Path(p).name for p in skipped[:PREVIEW_OTHER_NAMES]]}}
 
 
 def _processed_live_elsewhere(wp_id: str, digests: list[str]) -> set[str]:
@@ -559,32 +616,63 @@ def _processed_live_elsewhere(wp_id: str, digests: list[str]) -> set[str]:
 def remove_item(wp_id: str, item_id: str, *, expected_revision: int, actor: str, reason: str) -> dict[str, Any]:
     """160-C S1 (decision 163 D2, D3): a virtual removal by a named person with a reason, logged. The item stays out
     of the package's next runs; a run already started keeps it in its frozen input, and `restore_item` brings it back."""
+    return _remove(wp_id, [item_id], expected_revision=expected_revision, actor=actor, reason=reason,
+                   event=("item_remove", {"item_id": item_id}))
+
+
+def remove_items(wp_id: str, item_ids: Iterable[str], *, expected_revision: int, actor: str, reason: str) -> dict[str, Any]:
+    """168 (plan F-item-list-and-adding): several items removed with one reason in one revision step and one log event
+    (`items_remove`), e.g. a folder added by mistake. All or nothing: an item not in use (`KeyError`) changes nothing."""
+    ids = list(dict.fromkeys(item_ids))
+    if not ids:
+        raise explained(ValueError, "choose at least one item")
+    return _remove(wp_id, ids, expected_revision=expected_revision, actor=actor, reason=reason,
+                   event=("items_remove", {"item_ids": ids}))
+
+
+def _remove(wp_id: str, ids: list[str], *, expected_revision: int, actor: str, reason: str,
+            event: tuple[str, dict[str, Any]]) -> dict[str, Any]:
     reason = reason.strip()
     if not reason:
         raise explained(ValueError, "a reason is required to remove an item")
     with store.connect() as c:
         _begin(c)
         rev = _bump(c, wp_id, expected_revision)  # first: a stale page gets a conflict, not "not found"
-        if c.execute("SELECT 1 FROM workpackage_items WHERE workpackage_id=? AND item_id=? AND removed_revision IS NULL",
-                     (wp_id, item_id)).fetchone() is None:
-            raise KeyError(item_id)
-        c.execute("UPDATE workpackage_items SET removed_revision=?, removed_at=?, removed_by=?, removed_reason=?"
-                  " WHERE workpackage_id=? AND item_id=?", (rev, _now(), actor, reason, wp_id, item_id))
-        _event(c, wp_id, "item_remove", actor, {"item_id": item_id, "reason": reason})
+        in_use = {r["item_id"] for r in c.execute(
+            "SELECT item_id FROM workpackage_items WHERE workpackage_id=? AND removed_revision IS NULL", (wp_id,))}
+        if missing := [i for i in ids if i not in in_use]:
+            raise KeyError(missing[0])
+        now = _now()
+        c.executemany("UPDATE workpackage_items SET removed_revision=?, removed_at=?, removed_by=?, removed_reason=?"
+                      " WHERE workpackage_id=? AND item_id=?", [(rev, now, actor, reason, wp_id, i) for i in ids])
+        _event(c, wp_id, event[0], actor, {**event[1], "reason": reason})
     return get(wp_id)
 
 
 def restore_item(wp_id: str, item_id: str, *, expected_revision: int, actor: str) -> dict[str, Any]:
     """160-C S1 (decision 163 D3): a removed item is back in the package, logged; it takes part in the next run."""
+    return _restore(wp_id, [item_id], expected_revision=expected_revision, actor=actor, event=("item_restore", {"item_id": item_id}))
+
+
+def restore_items(wp_id: str, item_ids: Iterable[str], *, expected_revision: int, actor: str) -> dict[str, Any]:
+    """168: several removed items back in the package in one revision step, logged once (`items_restore`)."""
+    ids = list(dict.fromkeys(item_ids))
+    if not ids:
+        raise explained(ValueError, "choose at least one item")
+    return _restore(wp_id, ids, expected_revision=expected_revision, actor=actor, event=("items_restore", {"item_ids": ids}))
+
+
+def _restore(wp_id: str, ids: list[str], *, expected_revision: int, actor: str, event: tuple[str, dict[str, Any]]) -> dict[str, Any]:
     with store.connect() as c:
         _begin(c)
         _bump(c, wp_id, expected_revision)
-        if c.execute("SELECT 1 FROM workpackage_items WHERE workpackage_id=? AND item_id=? AND removed_revision IS NOT NULL",
-                     (wp_id, item_id)).fetchone() is None:
-            raise KeyError(item_id)
-        c.execute("UPDATE workpackage_items SET removed_revision=NULL, removed_at=NULL, removed_by=NULL, removed_reason=NULL"
-                  " WHERE workpackage_id=? AND item_id=?", (wp_id, item_id))
-        _event(c, wp_id, "item_restore", actor, {"item_id": item_id})
+        removed = {r["item_id"] for r in c.execute(
+            "SELECT item_id FROM workpackage_items WHERE workpackage_id=? AND removed_revision IS NOT NULL", (wp_id,))}
+        if missing := [i for i in ids if i not in removed]:
+            raise KeyError(missing[0])
+        c.executemany("UPDATE workpackage_items SET removed_revision=NULL, removed_at=NULL, removed_by=NULL, removed_reason=NULL"
+                      " WHERE workpackage_id=? AND item_id=?", [(wp_id, i) for i in ids])
+        _event(c, wp_id, event[0], actor, event[1])
     return get(wp_id)
 
 
@@ -602,21 +690,31 @@ def folder_documents(folder: Path, *, suffixes: tuple[str, ...] = DOCUMENT_SUFFI
     """The documents of a folder, in path order: by default its direct contents only; with `recursive` (081) every
     subfolder too, except the folders in `exclude` (the caller passes the output folder of the named copies, so they do
     not come back as new documents). A link pointing outside the folder is left out."""
+    return folder_contents(folder, suffixes=suffixes, recursive=recursive, exclude=exclude)[0]
+
+
+def folder_contents(folder: Path, *, suffixes: tuple[str, ...] = DOCUMENT_SUFFIXES, recursive: bool = False,
+                    exclude: Iterable[Path] = ()) -> tuple[list[Path], list[Path]]:
+    """`folder_documents` and, beside them, the folder's other files under the same rules (168: a preview names what it
+    leaves out), each in path order."""
     folder = Path(folder)
     if not folder.is_dir():
         raise explained(ValueError, "folder does not exist: {{folder}}", folder=folder)
     root = folder.resolve(strict=True)
     skip = [Path(p).resolve() for p in exclude]
     found = root.rglob("*") if recursive else root.iterdir()
-    files = []
+    files: list[Path] = []
+    others: list[Path] = []
     for p in found:
-        if not p.is_file() or p.suffix.lower() not in suffixes:
+        if not p.is_file():
             continue
         rp = p.resolve()
         inside = rp.parent == root if not recursive else rp.is_relative_to(root)
         if inside and not any(rp.is_relative_to(s) for s in skip):
-            files.append(p)
-    return sorted(files, key=lambda p: p.relative_to(root).as_posix().lower())
+            (files if p.suffix.lower() in suffixes else others).append(p)
+    for paths in (files, others):
+        paths.sort(key=lambda p: p.relative_to(root).as_posix().lower())
+    return files, others
 
 
 def create_from_folder(folder: Path, *, name: str | None = None, suffixes: tuple[str, ...] = DOCUMENT_SUFFIXES,
@@ -1354,6 +1452,49 @@ def pending_items(wp_id: str, mode: str, wp: dict[str, Any] | None = None) -> li
             "SELECT DISTINCT ri.item_id FROM run_items ri JOIN runs r ON r.run_id=ri.run_id WHERE r.workpackage_id=?"
             " AND r.mode=? AND r.status<>'cancelled' AND ri.status='done'", (wp_id, mode))}
     return [i["item_id"] for i in (wp or get(wp_id))["items"] if i["item_id"] not in done]
+
+
+def _counted_rank(row: Any) -> int:
+    """The S4 order of a finished item's result: approved live (2) > live (1) > trial (0)."""
+    if row["mode"] != "apply":
+        return 0
+    return 2 if row["approval"] == "approved" else 1
+
+
+def item_states(wp_id: str, items: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """168 (plan F-item-list-and-adding; the rule of plan F-flexible work package S4): per item, its state in the package
+    and the run whose result counts now. The counted result is the latest finished one of an approved live run, else
+    of a live run, else of a trial run; a stopped or superseded run does not count. State: `approved` / `live` /
+    `trial` by that result; `running` while a queued or running run still has the item to do (the counted result
+    stays beside it); otherwise `failed` if a run failed it, else `pending`. One query for the whole package."""
+    with store.connect() as c:
+        rows = c.execute(
+            "SELECT ri.item_id, ri.status, ri.final_status, r.run_id, r.mode, r.approval, r.created_at FROM run_items ri"
+            " JOIN runs r ON r.run_id=ri.run_id WHERE r.workpackage_id=? AND r.status<>'cancelled'"
+            " ORDER BY r.created_at, r.rowid", (wp_id,)).fetchall()
+        active = [(r["run_id"], json.loads(r["input"])) for r in c.execute(
+            "SELECT run_id, input FROM runs WHERE workpackage_id=? AND status IN ('queued', 'running')", (wp_id,))]
+    counted: dict[str, Any] = {}
+    failed: set[str] = set()
+    finished: set[tuple[str, str]] = set()
+    for r in rows:
+        if r["status"] == "done":
+            finished.add((r["run_id"], r["item_id"]))
+            best = counted.get(r["item_id"])
+            if best is None or _counted_rank(r) >= _counted_rank(best):  # in start order: the later of equals wins
+                counted[r["item_id"]] = r
+        elif r["status"] == "failed":
+            failed.add(r["item_id"])
+    running = {i["item_id"] for run_id, given in active for i in given["items"] if (run_id, i["item_id"]) not in finished}
+    out = {}
+    for item in items:
+        iid = item["item_id"]
+        best = counted.get(iid)
+        state = ("running" if iid in running else ("trial", "live", "approved")[_counted_rank(best)] if best
+                 else "failed" if iid in failed else "pending")
+        out[iid] = {"state": state, "run_id": best["run_id"] if best else None, "mode": best["mode"] if best else None,
+                    "run_at": best["created_at"] if best else None, "final_status": best["final_status"] if best else None}
+    return out
 
 
 def runs(wp_id: str) -> list[dict[str, Any]]:

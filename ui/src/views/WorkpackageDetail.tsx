@@ -10,7 +10,7 @@ import { useEvent, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { itemCountText, MODE, RUN_STATUS, stepLabel, tmap, when } from "../labels";
 import { go, type Route, type Stage } from "../route";
-import { DocumentsPanel } from "./DocumentsPanel";
+import { PackageItemsPanel } from "./PackageItems";
 import { ProcessStage } from "./ProcessStage";
 import { ResultStage } from "./ResultStage";
 import { StatementPackagePanel } from "./StatementPackagePanel";
@@ -151,16 +151,17 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
               <ReviewWorkspace wp={workpackage} itemId={route.itemId} onChanged={wp.reload} currentRunId={view.current_run?.run_id}
                 openRuns={view.open_runs} />
               <details className="details mt">
-                {/* 167: the title names adding too (the owner did not find it behind "Manage documents") */}
-                <summary>{t("Documents: add, open, download, remove")}</summary>
-                <DocumentsPanel wp={workpackage} onChanged={wp.reload} />
+                {/* 167: the title names adding too (the owner did not find it behind "Manage documents"); 168: the same
+                    item list as in Processing (DECISIONS 168) */}
+                <summary>{t("The package's items: add, open, download, remove")}</summary>
+                <PackageItemsPanel view={view} onChanged={wp.reload} />
               </details>
             </>
           ) : (
             <>
               <p className="notice">{t("A csomagon még nem futott feldolgozás, ezért nincs mit ellenőrizni. Az iratok itt megnyithatók és letölthetők; a feldolgozást a")}{" "}
                 <a href={`#/workpackages/${wpId}/process`}>{STAGE_LABEL.process}</a> {t("szakaszban indíthatod.")}</p>
-              <DocumentsPanel wp={workpackage} onChanged={wp.reload} />
+              <PackageItemsPanel view={view} onChanged={wp.reload} />
             </>
           )
         ) : null}

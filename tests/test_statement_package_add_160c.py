@@ -73,3 +73,28 @@ def test_the_service_grows_a_statement_package_through_its_survey_only(env):
                    json={"paths": [str(folder)], "statements": [june["id"]], "pdfs": [], "expected_revision": rev})
     assert added.status_code == 200, added.text
     assert june["id"] in {i["item_id"] for i in added.json()["workpackage"]["items"]}
+
+
+# --- 168: a folder with its subfolders -------------------------------------------------------------------------------
+
+
+def test_the_packages_survey_reads_the_subfolders_only_when_asked_and_a_companion_folder_once(db):
+    """168 (plan F-item-list-and-adding): each subfolder is read as a folder of its own; a profile's companion PDF folder
+    is left to its parent, so the June statement and its PDF are offered once."""
+    import shutil
+
+    party = _party()
+    wp_id, folder = _package_with_may(db, party)
+    nested = db / "later"
+    shutil.copytree(folder, nested / "erste-copy")
+    assert (nested / "erste-copy" / "pdf").is_dir()  # the June export's companion PDF is in its pdf subfolder
+    flat = sp.survey_for(wp_id, [nested])
+    assert flat["statements"] == []  # the folder itself holds no export
+    deep = sp.survey_for(wp_id, [nested], recursive=True)
+    june = [r for r in deep["statements"] if r["period_start"].startswith("2026-06")]
+    assert len(june) == 1 and june[0]["chosen"] and not june[0]["in_package"]
+    assert [p["file"] for p in deep["pdfs"]] == ["other-bank-2026-05.pdf"]  # the companion PDF is the statement's, not a PDF of its own
+    assert _row(deep, "2026-05")["in_package"] is True
+    rev = work.get(wp_id)["revision"]
+    wp = sp.add(wp_id, paths=[nested], statements=[june[0]["id"]], pdfs=[], expected_revision=rev, actor="tester", recursive=True)
+    assert june[0]["id"] in {i["item_id"] for i in wp["items"]}

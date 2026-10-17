@@ -267,8 +267,22 @@ class PickRequest(_In):
     initial: Annotated[str, Field(max_length=1024)] | None = None
 
 
-class AddItems(_In):
-    paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(min_length=1, max_length=500)]
+Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+
+
+class ItemSources(_In):
+    """168 (plan F-item-list-and-adding): exactly one of the given files (`paths`) or a folder's documents (`folder`;
+    with `recursive` its subfolders' too, without the output folder of the named copies)."""
+    paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(min_length=1, max_length=500)] | None = None
+    folder: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
+    recursive: bool = False
+
+
+class AddItems(ItemSources):
+    """160-C S2; 168: what the person unticked in the preview stays out: the new documents in `exclude`, and, when
+    `restore` is given, every removed one not in it."""
+    exclude: Annotated[list[Digest], Field(max_length=2000)] = Field(default_factory=list)
+    restore: Annotated[list[Digest], Field(max_length=2000)] | None = None
     expected_revision: Annotated[int, Field(ge=0)]
 
 
@@ -278,6 +292,15 @@ class Revision(_In):
 
 class RemoveItem(Revision):
     """160-C S1 (decision 163 D2): the reason is required; the person is the request's actor."""
+    reason: Annotated[str, Field(min_length=1, max_length=500)]
+
+
+class ItemIds(Revision):
+    """168: several of the package's items at once."""
+    item_ids: Annotated[list[Digest], Field(min_length=1, max_length=2000)]
+
+
+class RemoveItems(ItemIds):
     reason: Annotated[str, Field(min_length=1, max_length=500)]
 
 
@@ -386,8 +409,10 @@ class CreateStatementPackage(StatementPackageSources):
 
 
 class PackageStatementFiles(_In):
-    """160-C S2: more files for an existing statement package (its party and period are the package's own)."""
+    """160-C S2: more files for an existing statement package (its party and period are the package's own); 168: with
+    `recursive`, a folder's subfolders too."""
     paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(min_length=1, max_length=500)]
+    recursive: bool = False
 
 
 class AddPackageStatements(PackageStatementFiles):
@@ -935,13 +960,43 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         work.delete_workpackage(wp_id, actor=who)
         return {"deleted": wp_id}
 
+    def _sources(body: ItemSources) -> tuple[list[Path], list[Path], Path | None]:
+        """168: the documents of the given files or of the folder, the folder's other files, and the folder."""
+        if (body.folder is None) == (body.paths is None):
+            raise explained(ValueError, "give exactly one of folder or paths")
+        if body.paths is not None:
+            return [checked_path(p, want_dir=False) for p in body.paths], [], None
+        root = checked_path(body.folder, want_dir=True)
+        out = app_settings.output_folder() if body.recursive else None  # 081: not the named copies
+        docs, others = work.folder_contents(root, recursive=body.recursive, exclude=[Path(out)] if out else [])
+        return docs, others, root
+
+    @app.post(r + "/workpackages/{wp_id}/items/preview")
+    def preview_items(wp_id: WpId, body: ItemSources, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """168: what adding the files or the folder would do, file by file; nothing is written."""
+        docs, others, root = _sources(body)
+        return work.preview_additions(wp_id, docs, others=others, root=root)
+
     @app.post(r + "/workpackages/{wp_id}/items")
     def add_items(wp_id: WpId, body: AddItems, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """160-C S2: documents added to an existing package, with what happened (`added`: added, already in the
-        package, restored, and those processed live in another package)."""
-        paths = [checked_path(p, want_dir=False) for p in body.paths]
-        _wp, summary = work.add_to_package(wp_id, paths, expected_revision=body.expected_revision, actor=who)
+        package, restored, left out as unticked (168), and those processed live in another package)."""
+        docs, _others, _root = _sources(body)
+        _wp, summary = work.add_to_package(wp_id, docs, expected_revision=body.expected_revision, actor=who,
+                                           exclude=body.exclude, restore=body.restore)
         return {**work_views.workpackage_view(wp_id), "added": summary}
+
+    @app.post(r + "/workpackages/{wp_id}/items/remove")
+    def remove_items(wp_id: WpId, body: RemoveItems, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """168: several items removed with one reason, in one step."""
+        work.remove_items(wp_id, body.item_ids, expected_revision=body.expected_revision, actor=who, reason=body.reason)
+        return work_views.workpackage_view(wp_id)
+
+    @app.post(r + "/workpackages/{wp_id}/items/restore")
+    def restore_items(wp_id: WpId, body: ItemIds, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """168: several removed items back in the package, in one step."""
+        work.restore_items(wp_id, body.item_ids, expected_revision=body.expected_revision, actor=who)
+        return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/attachments")
     def add_attachments(wp_id: WpId, body: Revision, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
@@ -993,7 +1048,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         from jav import statement_package
 
         paths = [checked_path(p, want_dir=None) for p in body.paths]
-        return work_views.jsonable(statement_package.survey_for(wp_id, paths))
+        return work_views.jsonable(statement_package.survey_for(wp_id, paths, recursive=body.recursive))
 
     @app.post(r + "/workpackages/{wp_id}/statements/add")
     def add_package_statements(wp_id: WpId, body: AddPackageStatements, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
@@ -1002,7 +1057,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
         statement_package.add(wp_id, paths=[checked_path(p, want_dir=None) for p in body.paths], statements=body.statements,
                               pdfs=[str(checked_path(p, want_dir=False)) for p in body.pdfs], expected_revision=body.expected_revision,
-                              actor=who)
+                              actor=who, recursive=body.recursive)
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/statement-tables")

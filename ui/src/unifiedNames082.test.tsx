@@ -4,10 +4,10 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type DsColumn, type DsPage, type DsRow, type RunView, type Workpackage } from "./api";
+import { api, setActor, type DsColumn, type DsPage, type DsRow, type RunView, type Workpackage, type WorkpackageView } from "./api";
 import { nameCell } from "./components/NameCell";
 import { getNameMode, setNameMode } from "./names";
-import { DocumentsPanel } from "./views/DocumentsPanel";
+import { PackageItemsPanel } from "./views/PackageItems";
 import { ReviewWorkspace } from "./views/ReviewWorkspace";
 
 beforeEach(() => { localStorage.clear(); setActor("teszt.elek"); });
@@ -33,7 +33,8 @@ describe("082 name choice", () => {
 
   it("the package's document list asks the service for the chosen name, and the switch changes it", async () => {
     const query = vi.spyOn(api, "datasetQuery").mockResolvedValue(page([row({})]));
-    render(<DocumentsPanel wp={{ id: "wp-1", revision: 3, source_kind: "folder", source_ref: "C:\\szamlak" } as Workpackage} onChanged={vi.fn()} />);
+    const wp = { id: "wp-1", revision: 3, source_kind: "folder", source_ref: "C:\\szamlak", items: [] } as unknown as Workpackage;
+    render(<PackageItemsPanel view={{ workpackage: wp, readiness: {} } as unknown as WorkpackageView} onChanged={vi.fn()} />);
     await waitFor(() => expect(query).toHaveBeenCalledWith("workpackage_items", { workpackage_id: "wp-1", names: "unified" }, expect.anything()));
     await userEvent.setup().click(screen.getByRole("radio", { name: "Eredeti" }));
     await waitFor(() => expect(query).toHaveBeenLastCalledWith("workpackage_items", { workpackage_id: "wp-1", names: "original" }, expect.anything()));

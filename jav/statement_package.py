@@ -126,6 +126,24 @@ def _pdfs_in(folder: Path) -> list[Path]:
     return sorted(found, key=lambda p: p.relative_to(folder).as_posix().lower())
 
 
+def expand_folders(paths: Iterable[Path], *, recursive: bool) -> list[Path]:
+    """168 (plan F-item-list-and-adding): with `recursive`, each folder among `paths` followed by its subfolders, each
+    read as a folder of its own (a bank's exports with their companion PDFs, or PDF statements); a profile's companion
+    PDF folder is left to its parent, which already reads it. A folder linked from elsewhere is passed over."""
+    out: list[Path] = []
+    companions = _companion_folders()
+    for raw in paths:
+        p = Path(raw)
+        out.append(p)
+        if not (recursive and p.is_dir()):
+            continue
+        root = p.resolve()
+        for sub in sorted((q for q in root.rglob("*") if q.is_dir()), key=lambda q: q.relative_to(root).as_posix().lower()):
+            if statement_table.inside(sub, root) and not any(sub.as_posix().endswith("/" + c) for c in companions):
+                out.append(sub)
+    return out
+
+
 def _sources(paths: Iterable[Path]) -> _Found:
     """The exports and the PDFs of a folder or of the given files. A folder's exports are read as a whole (each with its
     companion PDF); the PDFs left are those no export used as its companion. A file no reader knows is listed, not
@@ -299,11 +317,13 @@ def _held(wp_id: str) -> set[str]:
     return {i["item_id"] for i in work.get(wp_id)["items"]}
 
 
-def survey_for(wp_id: str, paths: Iterable[Path]) -> dict[str, Any]:
+def survey_for(wp_id: str, paths: Iterable[Path], *, recursive: bool = False) -> dict[str, Any]:
     """160-C S2: the survey of more files for an existing statement package, with the package's party and period;
-    `in_package` marks a statement or PDF the package already holds, and such a one is not proposed again."""
+    `in_package` marks a statement or PDF the package already holds, and such a one is not proposed again. 168: with
+    `recursive`, a folder's subfolders too (`expand_folders`)."""
     sc = scope(wp_id)
-    out = survey(paths, party_id=sc["party_id"], period_start=sc["period_start"], period_end=sc["period_end"])
+    out = survey(expand_folders(paths, recursive=recursive), party_id=sc["party_id"], period_start=sc["period_start"],
+                 period_end=sc["period_end"])
     held = _held(wp_id)
     for row in out["statements"]:
         row["in_package"] = row["id"] in held
@@ -315,12 +335,12 @@ def survey_for(wp_id: str, paths: Iterable[Path]) -> dict[str, Any]:
 
 
 def add(wp_id: str, *, paths: list[Path], statements: list[str], pdfs: list[str], expected_revision: int,
-        actor: str) -> dict[str, Any]:
+        actor: str, recursive: bool = False) -> dict[str, Any]:
     """160-C S2: the statements and PDFs a person ticked in the package's own survey (`survey_for`), added to it in
     one revision step and logged (`statement_add`). One the package already holds is refused, so a stale survey
     cannot add it twice."""
     _package(wp_id)
-    entries, wanted, picked = _chosen(_sources(paths), statements, pdfs)
+    entries, wanted, picked = _chosen(_sources(expand_folders(paths, recursive=recursive)), statements, pdfs)
     held = _held(wp_id)
     if dup := (wanted | {work.sha256_file(p) for p in picked}) & held:
         raise explained(PackageError, "{{dup}} chosen statement(s) or PDF(s) are already in the package; survey them again",

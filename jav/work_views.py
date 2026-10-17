@@ -8,6 +8,7 @@ rendered as text (not as a float), dates as ISO text.
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -169,11 +170,22 @@ def _workpackage_view(wp_id: str) -> dict[str, Any]:
 
         extra["statements"] = statement_package.package_view(wp_id)
     current = current_run(runs)
+    extra["item_counts"] = item_counts(wp)  # 168: the item list's tally
     return jsonable({"workpackage": wp, "readiness": ready, "titles": item_titles(wp["items"], package_root(wp)), **extra,
                      "last_run": runs[0] if runs else None, "current_run": current, "runs": len(runs),
                      "open_runs": open_runs(runs),  # 160-C S3: every open live run, the current one too
                      "next": next_step(wp, current, ready["ready"]), "workflow": _workflow_of(wp_id),
                      "supersedable": work.supersedable_runs(wp_id)})  # 152: older live runs a person can supersede
+
+
+def item_counts(wp: dict[str, Any]) -> dict[str, int]:
+    """168 (plan F-item-list-and-adding): how many of the package's items are in each state (`work.item_states`), and
+    how many were removed; a state without items is left out."""
+    states = Counter(s["state"] for s in work.item_states(wp["id"], wp["items"]).values())
+    with store.connect() as c:
+        removed = c.execute("SELECT COUNT(*) FROM workpackage_items WHERE workpackage_id=? AND removed_revision IS NOT NULL",
+                            (wp["id"],)).fetchone()[0]
+    return {**dict(states), **({"removed": removed} if removed else {})}
 
 
 def _workflow_of(wp_id: str) -> dict[str, Any] | None:
