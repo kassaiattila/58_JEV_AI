@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
@@ -256,8 +256,19 @@ def cmd_calls_uncertain(args):
 
 def cmd_calls_resolve(args):
     from jav.runtime import calls
-    cost = Decimal(args.cost) if args.cost is not None else None
-    calls.resolve_uncertain(args.invocation_id, cost_usd=cost, note=args.note)
+    try:
+        cost = Decimal(args.cost) if args.cost is not None else None
+    except InvalidOperation:
+        print(f"Refused: --cost {args.cost!r} is not a number.")
+        return 2
+    try:
+        calls.resolve_uncertain(args.invocation_id, cost_usd=cost, note=args.note)
+    except calls.InvalidSettlement as exc:  # 167 (review R-9)
+        print(f"Refused: {exc}.")
+        return 2
+    except calls.NotUncertain as exc:
+        print(f"Not settled: {exc}.")
+        return 2
     return _out(args, {"resolved": args.invocation_id, "cost_usd": cost},
                 f"Rendezve: {args.invocation_id} ({'költség ' + _usd(cost) if cost is not None else 'ismeretlen költség, a maximum lekötve marad'}); "
                 "a lépés új próbálkozással futtatható.")

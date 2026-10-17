@@ -111,6 +111,15 @@ class NotUncertain(ValueError):
     """090 (audit N03): manual settlement refused: the call is unknown, still in progress (`reserved`), or settled."""
 
 
+class InvalidSettlement(ValueError):
+    """167 (review R-9): manual settlement refused: the cost is not a finite amount between 0 and the cap."""
+
+
+# 167 (review R-9): the largest cost a person may book for one call by hand; the local service's request model uses it
+# too. A negative amount would free budget for dearer calls, and NaN breaks every later sum of the budget.
+MAX_SETTLED_COST_USD = Decimal("100")
+
+
 @dataclass(frozen=True)
 class Outcome:
     """The result of the physical call, as returned by the call function (`fn`)."""
@@ -559,7 +568,13 @@ def resolve_uncertain(invocation_id: int, *, cost_usd: Decimal | None, note: str
     090 (audit N03): only an `uncertain` attempt, in one conditional write. A `reserved` one may still be in progress:
     releasing its maximum would let a second call spend the same budget while the first one can still finish and cost
     money. An interrupted process's reservation becomes uncertain at the next worker start (`recover_uncertain`), once
-    that process has stopped (092)."""
+    that process has stopped (092).
+    167 (review R-9): a known cost must be finite and between 0 and `MAX_SETTLED_COST_USD`, otherwise
+    `InvalidSettlement` and nothing changes."""
+    if cost_usd is not None:
+        if not cost_usd.is_finite() or cost_usd < 0 or cost_usd > MAX_SETTLED_COST_USD:
+            raise InvalidSettlement(f"a settled cost must be between 0 and {MAX_SETTLED_COST_USD} USD, not {cost_usd}")
+        cost_usd = cost_usd.copy_abs()  # -0 is stored as 0
     with store.connect() as c:
         settled = c.execute(
             "UPDATE invocations SET status='failed', cost_usd=?, cost_known=?, note=?, error=COALESCE(error, 'uncertain_resolved'),"

@@ -327,7 +327,8 @@ class Approve(_In):
 class ResolveCall(_In):
     """076: settling a paid call with an uncertain outcome by hand, as `calls-resolve` does."""
 
-    cost_usd: Decimal | None = Field(default=None, ge=0, le=Decimal("100"))  # None: unknown, the maximum stays committed
+    # None: unknown, the maximum stays committed; 167 (review R-9): the same cap as the settlement itself
+    cost_usd: Decimal | None = Field(default=None, ge=0, le=calls.MAX_SETTLED_COST_USD, allow_inf_nan=False)
     note: str = Field(min_length=3, max_length=500)
 
 
