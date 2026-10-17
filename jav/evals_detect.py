@@ -81,7 +81,8 @@ def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: boo
     limits = {provider: budget_usd} if budget_usd is not None else {}
     if not limits:  # 160 (review AI-8): without a budget only earlier answers count
         print(calls.NO_BUDGET_NOTE)
-    with calls.measurement(f"measure-{stamp}-detect", limits), detect_gpt.use_type_descriptions(descriptions):
+    with (calls.measurement(f"measure-{stamp}-detect", limits, reuse=use_cache),
+          detect_gpt.use_type_descriptions(descriptions)):
         for case in cases:
             t0 = time.perf_counter()
             st = run_detect(str(case.path), use_cache=use_cache, jev=jev)

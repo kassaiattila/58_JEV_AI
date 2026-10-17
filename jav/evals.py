@@ -330,7 +330,7 @@ def golden(
     limits = {p: b for p, b in (("openai", budget_usd), ("jev", jev_budget_usd)) if b is not None}
     if not limits:  # 160 (review AI-8): without a budget only earlier answers count, never an unbudgeted live call
         print(calls.NO_BUDGET_NOTE)
-    guard = calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits)
+    guard = calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits, reuse=use_cache)
     with guard:
         for case in cases:
             t0 = time.perf_counter()
@@ -550,7 +550,8 @@ def verifier_probe(cases: list[GoldenCase] | None = None, use_cache: bool = True
     limits = {"jev": jev_budget_usd} if jev_budget_usd is not None else {}
     if not limits:  # 160 (review AI-8): without a budget only earlier answers count
         print(calls.NO_BUDGET_NOTE)
-    with calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{_run_name(type_key, 'verifier_probe')}", limits):
+    with calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{_run_name(type_key, 'verifier_probe')}", limits,
+                           reuse=use_cache):
         return _verifier_probe(cases, use_cache, type_key)
 
 

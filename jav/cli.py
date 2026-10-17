@@ -32,10 +32,11 @@ import jav  # noqa: F401  - sets up UTF-8 output
 
 
 @contextmanager
-def _under_budget(args: argparse.Namespace, name: str):
+def _under_budget(args: argparse.Namespace, name: str, *, reuse: bool | None = None):
     """160 (review AI-8): a command that can make paid calls runs under the owner's sub-budget only: `--jev-budget-usd`,
     `--budget-usd` (OpenAI), Azure never. Without one only earlier answers count (the JEV cache): a live call is refused
-    and becomes the item's to-do, so a forgotten budget cannot spend."""
+    and becomes the item's to-do, so a forgotten budget cannot spend. 160-D: an earlier GPT answer to the same question
+    is reused as the JEV cache is, unless `--no-cache`; a determinism measurement passes `reuse=False`."""
     from datetime import datetime
     from decimal import Decimal
 
@@ -45,7 +46,9 @@ def _under_budget(args: argparse.Namespace, name: str):
                                          ("openai", getattr(args, "budget_usd", None))) if v}
     if not limits:
         print(calls.NO_BUDGET_NOTE)
-    with calls.measurement(f"cli-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits):
+    if reuse is None:
+        reuse = not getattr(args, "no_cache", False)
+    with calls.measurement(f"cli-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits, reuse=reuse):
         yield
 
 
@@ -244,7 +247,7 @@ def cmd_detect_golden(args: argparse.Namespace) -> int:
 def cmd_detect_determinism(args: argparse.Namespace) -> int:
     from jav.evals_detect import detect_determinism
 
-    with _under_budget(args, "detect-determinism"):
+    with _under_budget(args, "detect-determinism", reuse=False):
         detect_determinism(n=args.n, limit=args.limit, jev=_jev_on(args))
     return 0
 
@@ -407,7 +410,7 @@ def cmd_determinism(args: argparse.Namespace) -> int:
 
     if _s_without_jev(args):
         return 2
-    with _under_budget(args, "determinism"):
+    with _under_budget(args, "determinism", reuse=False):
         determinism(args.arm, args.n, run_one, type_key=args.type, jev=_jev_on(args))
     return 0
 
@@ -770,7 +773,7 @@ def cmd_eval_report(args: argparse.Namespace) -> int:
 def cmd_email_determinism(args: argparse.Namespace) -> int:
     from jav.evals_email import email_determinism
 
-    with _under_budget(args, "email-determinism"):
+    with _under_budget(args, "email-determinism", reuse=False):
         email_determinism(n=args.n, limit=args.limit, jev=_jev_on(args))
     return 0
 

@@ -68,7 +68,7 @@ def email_golden(use_cache: bool = True, limit: int | None = None, *, jev: bool 
     limits = {p: b for p, b in (("openai", budget_usd), ("jev", jev_budget_usd)) if b is not None}
     if not limits:  # 160 (review AI-8): without a budget only earlier answers count
         print(calls.NO_BUDGET_NOTE)
-    with calls.measurement(f"measure-{stamp}-email", limits):
+    with calls.measurement(f"measure-{stamp}-email", limits, reuse=use_cache):
         for i, case in enumerate(cases, 1):
             rows.append(_run_case(case, use_cache=use_cache, jev=jev))
             if i % 20 == 0 or i == len(cases):
@@ -201,7 +201,7 @@ def email_injection_probe(limit: int = 8, use_cache: bool = True, *, jev: bool =
     limits = {"openai": budget_usd} if budget_usd is not None else {}
     if not limits:  # 160 (review AI-8): without a budget only earlier answers count
         print(calls.NO_BUDGET_NOTE)
-    guard = calls.measurement(f"measure-{stamp}-injection", limits)
+    guard = calls.measurement(f"measure-{stamp}-injection", limits, reuse=use_cache)
     print("| eset | variáns | P(injekció) | sáv | szándék | útvonal | review-okok |\n|---|---|---|---|---|---|---|")
     with guard:
         _probe_cases(cases, rows, use_cache=use_cache, jev=jev)
