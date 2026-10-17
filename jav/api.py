@@ -41,6 +41,7 @@ from jav import (app_settings, backup, bank_files, cfg, corrections, dates, deps
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
+from jav.user_messages import message_fields
 
 API_VERSION = "1"
 UI_DIST = PROJECT_ROOT / "ui" / "dist"  # the UI build (040 K3); if present, the service serves it at the root
@@ -735,15 +736,15 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.exception_handler(work.RevisionConflict)
     async def conflict(_request: Request, exc: work.RevisionConflict):
-        return _error(409, "revision_conflict", str(exc))
+        return _error(409, "revision_conflict", str(exc), **message_fields(exc))
 
     @app.exception_handler(work.NotReady)
     async def not_ready(_request: Request, exc: work.NotReady):
-        return _error(409, "not_ready", str(exc), blockers=exc.blockers)
+        return _error(409, "not_ready", str(exc), blockers=exc.blockers, **message_fields(exc))
 
     @app.exception_handler(reconcile_package.Locked)
     async def reconcile_locked(_request: Request, exc: reconcile_package.Locked):
-        return _error(422, "reconcile_locked", str(exc))  # 145: the UI names it in the display language
+        return _error(422, "reconcile_locked", str(exc), **message_fields(exc))  # 145: the UI names it in the display language
 
     @app.exception_handler(UnknownUser)
     async def unknown_user(_request: Request, exc: UnknownUser):
@@ -755,43 +756,43 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.exception_handler(app_settings.FolderOverlap)
     async def folder_overlap(_request: Request, exc: app_settings.FolderOverlap):
-        return _error(422, "folder_overlap", str(exc))  # 078: the UI names it in the display language
+        return _error(422, "folder_overlap", str(exc), **message_fields(exc))  # 078: the UI names it in the display language
 
     @app.exception_handler(app_settings.NoOutputFolder)
     async def no_output_folder(_request: Request, exc: app_settings.NoOutputFolder):
-        return _error(422, "no_output_folder", str(exc))
+        return _error(422, "no_output_folder", str(exc), **message_fields(exc))
 
     @app.exception_handler(numbers.AmbiguousNumber)
     async def ambiguous_number(_request: Request, exc: numbers.AmbiguousNumber):
         # 081: the UI asks for the Hungarian form ("28,50"); 153: and names the field
-        return _error(422, "ambiguous_number", str(exc), field=getattr(exc, "field", None))
+        return _error(422, "ambiguous_number", str(exc), field=getattr(exc, "field", None), **message_fields(exc))
 
     @app.exception_handler(dates.AmbiguousDate)
     async def ambiguous_date(_request: Request, exc: dates.AmbiguousDate):
         # 084: the UI asks for the year first ("2022-12-04"); 153: and names the field
-        return _error(422, "ambiguous_date", str(exc), field=getattr(exc, "field", None))
+        return _error(422, "ambiguous_date", str(exc), field=getattr(exc, "field", None), **message_fields(exc))
 
     @app.exception_handler(corrections.InvalidValue)
     async def invalid_value(_request: Request, exc: corrections.InvalidValue):
-        return _error(422, "invalid_value", str(exc), field=exc.field, kind=exc.kind)  # 153: the UI names the field
+        return _error(422, "invalid_value", str(exc), field=exc.field, kind=exc.kind, **message_fields(exc))  # 153: the UI names the field
 
     @app.exception_handler(local_picker.PickerBusy)
     async def picker_busy(_request: Request, exc: local_picker.PickerBusy):
-        return _error(409, "picker_busy", str(exc))
+        return _error(409, "picker_busy", str(exc), **message_fields(exc))
 
     @app.exception_handler(local_picker.PickerUnavailable)
     async def picker_unavailable(_request: Request, exc: local_picker.PickerUnavailable):
-        return _error(503, "picker_unavailable", str(exc))
+        return _error(503, "picker_unavailable", str(exc), **message_fields(exc))
 
     @app.exception_handler(mailbox.BridgeError)
     async def bridge_failed(_request: Request, exc: mailbox.BridgeError):
-        return _error(503, "mailbox_unavailable", str(exc))
+        return _error(503, "mailbox_unavailable", str(exc), **message_fields(exc))
 
     @app.exception_handler(ValueError)
     async def invalid(request: Request, exc: ValueError):
         log.warning("422 %s %s: %s", request.method, request.url.path, exc, exc_info=exc)
         extra = {"reason": exc.reason} if isinstance(exc, isolated_pdf.PdfReaderLimit) else {}
-        return _error(422, "invalid", str(exc), **extra)
+        return _error(422, "invalid", str(exc), **extra, **message_fields(exc))
 
     @app.exception_handler(OSError)
     async def unreadable(request: Request, exc: OSError):

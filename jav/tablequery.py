@@ -21,6 +21,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from jav import numbers
+from jav.user_messages import explained
+
 Kind = Literal["text", "number", "money", "date", "datetime", "enum", "bool", "id"]
 NUMERIC = ("number", "money")
 MAX_FACET = 250  # upper limit of the filter choices of an enum column
@@ -174,11 +177,29 @@ def facets(columns: list[Column], rows: list[dict[str, Any]]) -> dict[str, list[
     return out
 
 
+def _typed(f: Filter, col: Column) -> Filter:
+    """167 (review 160 U-2): the typed number of a numeric column's filter, read by the Hungarian habit like any typed
+    number ("1.000.000" is a million, "1.234,50" is 1234.5) into its canonical text. It used to be read with a decimal
+    point ("1.234" = 1.234) and an unreadable form matched nothing in silence; now a form that can be read two ways or
+    is not a number is refused (422) with the column's name."""
+    if col.kind not in NUMERIC or f.op not in ("eq", "neq", "gte", "lte") or f.value is None or isinstance(f.value, (int, float)):
+        return f
+    try:
+        value = numbers.read_input(f.value, kind="money" if col.kind == "money" else "number")
+    except numbers.AmbiguousNumber:
+        raise explained(numbers.AmbiguousNumber, "The filter of {{column}} can be read two ways: {{value}}. Write it as 1 234,50.",
+                        column=col.label, value=f.value) from None
+    except ValueError:
+        raise explained(ValueError, "The filter of {{column}} is not a number: {{value}}", column=col.label, value=f.value) from None
+    return f.model_copy(update={"value": value})
+
+
 def select(columns: list[Column], rows: list[dict[str, Any]], q: Query) -> list[dict[str, Any]]:
     """The filtered and sorted rows (without paging): the part shared by the query and the download."""
     cols = {c.key: c for c in columns}
     for f in q.filters:
         _check_col(cols, f.col)
+    filters = [_typed(f, cols[f.col]) for f in q.filters]
     for s in q.sort:
         _check_col(cols, s.col)
     out = rows
@@ -188,7 +209,7 @@ def select(columns: list[Column], rows: list[dict[str, Any]], q: Query) -> list[
     if q.q and q.q.strip():
         needle = fold(q.q.strip())
         out = [r for r in out if any(needle in fold(shown(c, r[c.key])) for c in columns if not _empty(r.get(c.key)))]
-    for f in q.filters:
+    for f in filters:
         out = [r for r in out if _match(r, f, cols[f.col])]
     for s in reversed(q.sort):  # stable, multi-level: the least important key first
         kind = cols[s.col].kind

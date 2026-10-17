@@ -43,6 +43,7 @@ from jav import (dates, duplicates, grounding, native_results, numbers, reconcil
                  validators, work)
 from jav.native_contracts import Publication
 from jav.policy import reason_field
+from jav.user_messages import explained
 
 store.register_schema("corrections", """
 CREATE TABLE IF NOT EXISTS run_item_corrections (
@@ -264,7 +265,7 @@ def _check_value(pack: typepack.TypePack, field: str, value: Any) -> None:
         _check_list(pack, field, value)
         return
     if isinstance(value, (list, dict)):
-        raise ValueError(f"{field}: a single value is expected, not a list")
+        raise explained(ValueError, "{{field}}: a single value is expected, not a list", field=field)
     _check_cell(field, pack.kind(field), value)
 
 
@@ -272,19 +273,21 @@ def _check_cell(path: str, kind: str, value: Any, allowed: tuple[Any, ...] | Non
     if value is None:
         return
     if not isinstance(value, (str, int)) or isinstance(value, bool):
-        raise ValueError(f"{path}: the value must be text, an integer or null")
+        raise explained(ValueError, "{{path}}: the value must be text, an integer or null", path=path)
     if kind in ("money", "number"):
         try:
             Decimal(str(value))
         except InvalidOperation as exc:
-            raise ValueError(f"{path}: not a number: {value!r}") from exc
+            raise explained(ValueError, "{{path}}: not a number: {{value}}", path=path, value=repr(value)) from exc
     elif kind == "date":
         try:
             date.fromisoformat(str(value))
         except ValueError as exc:
-            raise ValueError(f"{path}: not an ISO date (YYYY-MM-DD): {value!r}") from exc
+            raise explained(ValueError, "{{path}}: not an ISO date (YYYY-MM-DD): {{value}}",
+                            path=path, value=repr(value)) from exc
     if allowed is not None and value not in allowed:
-        raise ValueError(f"{path}: {value!r} is not one of {list(allowed)}")
+        raise explained(ValueError, "{{path}}: {{value}} is not one of {{allowed}}",
+                        path=path, value=repr(value), allowed=list(allowed))
 
 
 def list_columns(pack: typepack.TypePack, field: str, machine_rows: Any = None) -> list[dict[str, Any]]:
@@ -304,7 +307,7 @@ def list_columns(pack: typepack.TypePack, field: str, machine_rows: Any = None) 
 
 def _check_list(pack: typepack.TypePack, field: str, rows: Any, machine_rows: Any = None) -> None:
     if not isinstance(rows, list):
-        raise ValueError(f"{field}: a list of rows is expected")
+        raise explained(ValueError, "{{field}}: a list of rows is expected", field=field)
     cols = {c["name"]: c for c in list_columns(pack, field, machine_rows)}
     simple = "*" in cols
     for i, row in enumerate(rows):
@@ -313,10 +316,11 @@ def _check_list(pack: typepack.TypePack, field: str, rows: Any, machine_rows: An
             _check_cell(path, cols["*"]["kind"], row, tuple(cols["*"].get("options", ())) or None)
             continue
         if not isinstance(row, dict):
-            raise ValueError(f"{path}: a row must be an object of columns")
+            raise explained(ValueError, "{{path}}: a row must be an object of columns", path=path)
         unknown = sorted(set(row) - set(cols))
         if unknown:
-            raise ValueError(f"{path}: not columns of {field}: {unknown}")
+            raise explained(ValueError, "{{path}}: not columns of {{field}}: {{unknown}}",
+                            path=path, field=field, unknown=unknown)
         for name, value in row.items():
             _check_cell(f"{path}.{name}", cols[name]["kind"], value, tuple(cols[name].get("options", ())) or None)
 
@@ -348,9 +352,9 @@ def native_publication(run_id: str, item_id: str, *, expected_result_version: st
     """Load and verify the exact published native result, inside a caller's transaction if supplied."""
     publication = native_results.get_publication(run_id, item_id, c=c)
     if publication is None:
-        raise work.NotReady("The native result has not been published")
+        raise explained(work.NotReady, "The native result has not been published")
     if expected_result_version is not None and publication.result_version != expected_result_version:
-        raise work.RevisionConflict("The native result changed; review the current version")
+        raise explained(work.RevisionConflict, "The native result changed; review the current version")
     native_results.verify_publication(publication, c=c)
     return publication
 
@@ -367,7 +371,7 @@ def _native_item_result(run: dict[str, Any], item: dict[str, Any]) -> dict[str, 
         publication = native_results.get_publication(run_id, item_id, c=c)
         corr = current(run_id, item_id, c)
         if publication is not None and corr["revision"] and corr["result_version"] != publication.result_version:
-            raise work.RevisionConflict("The correction belongs to a different published result")
+            raise explained(work.RevisionConflict, "The correction belongs to a different published result")
     common = {"run_id": run_id, "item_id": item_id, "review_version": version,
               "correction": {k: corr[k] for k in ("revision", "fields", "native_sources", "confirmed")},
               "source_file": {"copy": bool(item.get("instance")), "original": work.original_state(item, verify=True)},
@@ -411,11 +415,11 @@ def save_native(run_id: str, item_id: str, *, values: dict[str, str | None], nat
                 confirm: list[str] | None = None, note: str | None = None) -> dict[str, Any]:
     """Validate and save a full native override set against immutable result identity under one write lock."""
     if not isinstance(expected_result_version, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_result_version):
-        raise ValueError("Native corrections require an exact published result version")
+        raise explained(ValueError, "Native corrections require an exact published result version")
     if any(not isinstance(value, str) and value is not None for value in values.values()):
-        raise ValueError("Native values must be text or null")
+        raise explained(ValueError, "Native values must be text or null")
     if any(isinstance(value, str) and len(value) > 100_000 for value in values.values()):
-        raise ValueError("Native values exceed the supported text limit")
+        raise explained(ValueError, "Native values exceed the supported text limit")
     confirmed_now = set(confirm or [])
     with store.connect() as c:
         c.execute("BEGIN IMMEDIATE")
@@ -423,24 +427,24 @@ def save_native(run_id: str, item_id: str, *, values: dict[str, str | None], nat
         if run is None:
             raise KeyError(run_id)
         if run["approval"]:
-            raise work.RevisionConflict("The approved result is frozen")
+            raise explained(work.RevisionConflict, "The approved result is frozen")
         item = next((i for i in json.loads(run["input"])["items"] if i["item_id"] == item_id), None)
         if item is None:
             raise KeyError(item_id)
         if not native_results.native_item(run_id, item, c):
-            raise ValueError("Native corrections require a native document result")
+            raise explained(ValueError, "Native corrections require a native document result")
         publication = native_publication(run_id, item_id, expected_result_version=expected_result_version, c=c)
         if publication.interpretation_outcome.status != "succeeded":
-            raise work.NotReady("An unsuccessful interpretation has no facts to correct")
+            raise explained(work.NotReady, "An unsuccessful interpretation has no facts to correct")
         previous = current(run_id, item_id, c)
         if previous["revision"] != expected_revision:
-            raise work.RevisionConflict("The correction changed; your draft has not been saved")
+            raise explained(work.RevisionConflict, "The correction changed; your draft has not been saved")
         facts = {fact.fact_id: fact for fact in native_results.machine_facts(publication, c=c)}
         unknown = (set(values) | set(native_sources) | confirmed_now) - set(facts)
         if unknown:
-            raise ValueError("Unknown native fact identifier")
+            raise explained(ValueError, "Unknown native fact identifier")
         if set(native_sources) - set(values):
-            raise ValueError("Manual sources require a matching value override")
+            raise explained(ValueError, "Manual sources require a matching value override")
         validated_sources = native_results.validate_sources(publication, native_sources, c=c)
         native_sources = {key: [cite.model_dump(mode="json") for cite in citations]
                           for key, citations in validated_sources.items()}
@@ -530,11 +534,12 @@ def _insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected
         # concurrent approval must not be written after it
         run = c.execute("SELECT approval FROM runs WHERE run_id=?", (run_id,)).fetchone()
         if run is not None and run["approval"]:
-            raise work.RevisionConflict(f"run {run_id} is approved; corrections are frozen")
+            raise explained(work.RevisionConflict, "run {{run_id}} is approved; corrections are frozen", run_id=run_id)
         cur = c.execute("SELECT MAX(revision) m FROM run_item_corrections WHERE run_id=? AND item_id=?",
                         (run_id, item_id)).fetchone()["m"] or 0
         if cur != expected_revision:
-            raise work.RevisionConflict(f"correction of {item_id[:12]} is at revision {cur}, not {expected_revision}")
+            raise explained(work.RevisionConflict, "correction of {{item_id_12}} is at revision {{cur}}, not {{expected_revision}}",
+                            item_id_12=item_id[:12], cur=cur, expected_revision=expected_revision)
         c.execute("INSERT INTO run_item_corrections(run_id, item_id, revision, fields, actor, note, created_at, sources, confirmed)"
                   " VALUES (?,?,?,?,?,?,?,?,?)",
                   (run_id, item_id, cur + 1, json.dumps(fields, ensure_ascii=False, sort_keys=True), actor, note,
@@ -554,12 +559,13 @@ def _save_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], ex
 
     unknown = sorted(set(fields) - set(EMAIL_FIELDS))
     if unknown:
-        raise ValueError(f"only {', '.join(EMAIL_FIELDS)} can be corrected on an email: {unknown}")
+        raise explained(ValueError, "only {{email_fields}} can be corrected on an email: {{unknown}}",
+                        email_fields=", ".join(EMAIL_FIELDS), unknown=unknown)
     if sources:
-        raise ValueError("source selection is not supported for emails")
+        raise explained(ValueError, "source selection is not supported for emails")
     key = fields.get("intent")
     if key is not None and key not in intents.BY_KEY:
-        raise ValueError(f"unknown intent: {key}")
+        raise explained(ValueError, "unknown intent: {{key}}", key=key)
     item_id = item["item_id"]
     _insert_revision(run_id, item_id, fields, expected_revision, actor, note, None)
     if key is not None:
@@ -579,19 +585,20 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     confirm = list(dict.fromkeys(confirm or []))
     run = work.get_run(run_id)
     if run["approval"]:
-        raise work.RevisionConflict(f"run {run_id} is approved; corrections are frozen")
+        raise explained(work.RevisionConflict, "run {{run_id}} is approved; corrections are frozen", run_id=run_id)
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
     if item is not None and item.get("kind") == "email":
         if confirm:
-            raise ValueError("fields cannot be confirmed on an email; correct its intent instead")
+            raise explained(ValueError, "fields cannot be confirmed on an email; correct its intent instead")
         return _save_email(run_id, item, fields=fields, expected_revision=expected_revision, actor=actor, note=note, sources=sources)
     dp = datapoints_row(run_id, item_id)
     if dp is None:
-        raise work.NotReady(f"item {item_id[:12]} has no extraction result in run {run_id}")
+        raise explained(work.NotReady, "item {{item_id_12}} has no extraction result in run {{run_id}}",
+                        item_id_12=item_id[:12], run_id=run_id)
     pack = typepack.get(dp["doc_type"])
     unknown = sorted(set(fields) - set(pack.record_fields))
     if unknown:
-        raise ValueError(f"not fields of {pack.key}: {unknown}")
+        raise explained(ValueError, "not fields of {{key}}: {{unknown}}", key=pack.key, unknown=unknown)
     fields = read_typed_values(pack, fields, dp.get("datapoints") or {}, current(run_id, item_id)["fields"])
     for name, value in fields.items():
         if pack.kind(name) == "list":
@@ -600,10 +607,10 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
             _check_value(pack, name, value)
     listed = sorted(f for f in sources if pack.kind(f) == "list")
     if listed:
-        raise ValueError(f"source selection is not supported for lists: {listed}")
+        raise explained(ValueError, "source selection is not supported for lists: {{listed}}", listed=listed)
     stray = sorted(set(sources) - set(fields))
     if stray:
-        raise ValueError(f"source selection for fields without a corrected value: {stray}")
+        raise explained(ValueError, "source selection for fields without a corrected value: {{stray}}", stray=stray)
     if sources:
         layer = layer_for(dp)
         for ids in sources.values():
@@ -611,7 +618,7 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     simple = {f for f in pack.record_fields if pack.kind(f) != "list"}
     odd = sorted(set(confirm) - simple)
     if odd:
-        raise ValueError(f"only simple fields of {pack.key} can be confirmed: {odd}")
+        raise explained(ValueError, "only simple fields of {{key}} can be confirmed: {{odd}}", key=pack.key, odd=odd)
     effective = {**(dp.get("datapoints") or {}), **fields}
     # the earlier confirmations whose value did not change stay; the fields confirmed now are added with their value
     confirmed = {f: v for f, v in current(run_id, item_id)["confirmed"].items() if _same_value(effective.get(f), v)}

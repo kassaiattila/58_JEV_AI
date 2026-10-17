@@ -41,6 +41,7 @@ from typing import Any, Iterable
 
 from jav import cfg, fact_checks, store
 from jav.runtime import calls
+from jav.user_messages import explained
 
 REASON = "duplicate"
 PRODUCER = "duplicates"  # the producer of the to-dos opened by `scan`; the flow's own ones are the M2 step's
@@ -289,12 +290,13 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor
     from jav import work
 
     if decision not in DECISIONS:
-        raise DecisionError(f"unknown duplicate decision: {decision}")
+        raise explained(DecisionError, "unknown duplicate decision: {{decision}}", decision=decision)
     if other_doc_id == item_id:
-        raise DecisionError("a document is not a duplicate of itself")
+        raise explained(DecisionError, "a document is not a duplicate of itself")
     run = work.get_run(run_id)
     if run["approval"]:
-        raise work.RevisionConflict(f"run {run_id} is approved; duplicate decisions are frozen")
+        raise explained(work.RevisionConflict, "run {{run_id}} is approved; duplicate decisions are frozen",
+                        run_id=run_id)
     if not any(i["item_id"] == item_id and i.get("kind") != "email" for i in run["input"]["items"]):
         raise KeyError(item_id)
     docs = {d.doc_id: d for d in documents() if d.doc_id in (item_id, other_doc_id)}
@@ -307,12 +309,13 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor
         store.begin_immediate(c)
         row = c.execute("SELECT approval FROM runs WHERE run_id=?", (run_id,)).fetchone()
         if row is not None and row["approval"]:
-            raise work.RevisionConflict(f"run {run_id} is approved; duplicate decisions are frozen")
+            raise explained(work.RevisionConflict, "run {{run_id}} is approved; duplicate decisions are frozen",
+                            run_id=run_id)
         before = c.execute("SELECT run_id FROM duplicate_decisions WHERE pair_key=?", (key,)).fetchone()
         if before is not None and before["run_id"] != run_id:
             owner = c.execute("SELECT approval FROM runs WHERE run_id=?", (before["run_id"],)).fetchone()
             if owner is not None and owner["approval"]:
-                raise work.RevisionConflict("the pair was decided in an approved run; the decision is frozen")
+                raise explained(work.RevisionConflict, "the pair was decided in an approved run; the decision is frozen")
         c.execute("INSERT INTO duplicate_decisions(pair_key, doc_id, other_doc_id, decision, suggested, run_id, actor, note, decided_at)"
                   # a changed decision keeps the pair's direction: the repeat stays the document the to-do stood on
                   " VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(pair_key) DO UPDATE SET decision=excluded.decision,"

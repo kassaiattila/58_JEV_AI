@@ -239,7 +239,7 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
     - **Pair** (*Párosítás*): one line with one or more invoices, or one invoice with one or more lines (instalments). When the amounts settle every side, it is saved at once. When a rest is left, the amounts can be set per pair and a reason is required (for example an instalment, a bank fee, a discount). A card line in forints and an invoice in another currency pair only one to one, in whole; outside the card band or without an exchange rate it needs a reason.
     - **Not this one** (*Nem ez*): rejects the selected candidate with a reason; it is never offered again (until undone).
     - **Needs no invoice** (*Nem kell számla*): marks all the selected lines at once, with one reason (private expense, bank fee or interest, transfer between own accounts, tax or contribution, cash withdrawal, salary, or other with a note).
-    - **Accept the N unambiguous proposals** (*A(z) N egyértelmű javaslat elfogadása*, two clicks) pairs every proposal that is the only candidate of its line and its invoice, on a statement whose balances check out, with an invoice of the package's party or of none.
+    - **Accept the N unambiguous proposals** (*Egyértelmű javaslatok elfogadása (N)*, two clicks) pairs every proposal that is the only candidate of its line and its invoice, on a statement whose balances check out, with an invoice of the package's party or of none.
   - **Documents** (*Iratok*, key `d`): the statement opens at the page of the selected line, with the line framed (found by its amount and date), next to the selected invoice (or the first candidate). A document processed on the command line has no image here. **Open in its package** opens the document's review page in a new tab.
     - **The statement pane** (144) starts with the line's facts as the statement prints them (*A tétel a kivonaton*). A
       statement read by code (a CIB PDF's text, a bank's table or XML export) is stored as the reader's own statement
@@ -253,7 +253,7 @@ A reconciliation package (*egyeztetési csomag*) pairs the lines of your bank an
       the statement prints. They stand in the line's facts on the cards, in the finder and in the documents.
     - **The statement as read** (*A beolvasott kivonat (N tétel)*): the statement's heading (bank, account, period,
       opening and closing balance, whether the balances check out) and its lines around the selected one, highlighted;
-      **All N lines** (*Mind a(z) N tétel*) shows every line. It is open when there is no page to show, folded otherwise.
+      **All N lines** (*Minden tétel (N)*) shows every line. It is open when there is no page to show, folded otherwise.
   - The selected line on the left list shows its whole memo (144); the others stay on one line.
   - After a decision the next line is selected. If someone else decided meanwhile, the lists are reloaded and your selection is kept.
 - **3 Result** (*Eredmény*, 145): the reconciliation's summary, its download and its approval.

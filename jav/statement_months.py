@@ -42,6 +42,7 @@ from functools import lru_cache
 from typing import Any, Iterable
 
 from jav import cfg, store
+from jav.user_messages import explained
 
 REASON = "statement"
 OVERLAP = "overlap"
@@ -331,12 +332,13 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, ac
     from jav import reconcile, work
 
     if other_doc_id == item_id:
-        raise ChoiceError("a statement does not overlap itself")
+        raise explained(ChoiceError, "a statement does not overlap itself")
     if keep not in (None, item_id, other_doc_id):
-        raise ChoiceError("the statement kept must be one of the pair")
+        raise explained(ChoiceError, "the statement kept must be one of the pair")
     run = work.get_run(run_id)
     if run["approval"]:
-        raise work.RevisionConflict(f"run {run_id} is approved; its statement choices are frozen")
+        raise explained(work.RevisionConflict, "run {{run_id}} is approved; its statement choices are frozen",
+                        run_id=run_id)
     if not any(i["item_id"] == item_id for i in run["input"]["items"]):
         raise KeyError(item_id)
     found = {s["id"]: s for s in reconcile.statements() if s["id"] in (item_id, other_doc_id)}
@@ -345,12 +347,13 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, ac
     a, b = found[item_id], found[other_doc_id]
     if _group(a) != _group(b) or not overlaps(dates(a.get("period_start"), a.get("period_end")),
                                               dates(b.get("period_start"), b.get("period_end"))):
-        raise ChoiceError("the two statements do not book the same days of one account")
+        raise explained(ChoiceError, "the two statements do not book the same days of one account")
     with store.connect() as c:
         store.begin_immediate(c)
         row = c.execute("SELECT approval FROM runs WHERE run_id=?", (run_id,)).fetchone()
         if row is not None and row["approval"]:
-            raise work.RevisionConflict(f"run {run_id} is approved; its statement choices are frozen")
+            raise explained(work.RevisionConflict, "run {{run_id}} is approved; its statement choices are frozen",
+                            run_id=run_id)
         c.execute("INSERT INTO statement_choices(pair_key, keep_doc_id, run_id, actor, note, decided_at) VALUES (?,?,?,?,?,?)",
                   (pair_key(item_id, other_doc_id), keep, run_id, actor, note, _now()))
     resolution = {"statement_choice": keep, "pair": pair_key(item_id, other_doc_id)}

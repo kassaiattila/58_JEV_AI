@@ -352,6 +352,12 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
+def shown_final(final_status: str | None, open_reasons: int) -> str | None:
+    """167 (review 153 E): an item that ended with to-dos and has none open now reads "to-dos settled", not "to-dos"
+    (the flow's own final status does not change when a person settles them)."""
+    return "settled" if final_status == "needs_review" and not open_reasons else final_status
+
+
 def _run_items(scope: dict[str, str]) -> Rows:
     from jav import naming
 
@@ -381,7 +387,8 @@ def _run_items(scope: dict[str, str]) -> Rows:
         split = splits[i["item_id"]]
         rows.append({"_key": i["item_id"], "_wp": run["workpackage_id"], "_run": run["run_id"], "item_id": i["item_id"],
                      **_name_fields(i, titles, names[i["item_id"]], choice), "kind": i.get("kind") or "document", "status": r.get("status"),
-                     "final_status": r.get("final_status"), "error": r.get("error"), "updated_at": r.get("updated_at"),
+                     "final_status": shown_final(r.get("final_status"), len(split["run"])), "error": r.get("error"),
+                     "updated_at": r.get("updated_at"),
                      # 150: the reasons left by trial runs are not counted (the review page hides them by default)
                      "open_reasons": len(split["run"]), "earlier_reasons": sum(not r["trial"] for r in split["earlier"]),
                      **_cost_fields(spent.items[i["item_id"]])})

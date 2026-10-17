@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "changelog": [
+   {
+    "version": "1.20.0",
+    "date": "2026-10-17",
+    "note": "167 (review 153 E): final_status settled - an item that ended with to-dos and has none open now (its to-dos were settled by a person) reads Teendő, rendezve on the run page instead of Teendő."
+   },
    {
     "version": "1.19.0",
     "date": "2026-10-17",
@@ -110,7 +115,7 @@
   "naming_status": {"ready": "Kész", "review": "Ellenőrzendő"},
   "name_state": {"ready": "Kész", "review": "Ellenőrzendő", "pending": "Még nincs", "none": "Nincs (levél)"},
   "item_status": {"done": "Lefutott", "failed": "Hibás", "cancelled": "Leállítva", "needs_review": "Teendő", "needs_ocr": "OCR kell"},
-  "final_status": {"done": "Lezárva, teendő nélkül", "needs_review": "Teendő", "needs_ocr": "OCR kell", "jev_unavailable": "JEV nem volt elérhető"},
+  "final_status": {"done": "Lezárva, teendő nélkül", "needs_review": "Teendő", "settled": "Teendő, rendezve", "needs_ocr": "OCR kell", "jev_unavailable": "JEV nem volt elérhető"},
   "mode": {"shadow": "Próba", "apply": "Éles"},
   "run_scope": {"pending": "Pending items only"},
   "approval": {"approved": "Jóváhagyva"},

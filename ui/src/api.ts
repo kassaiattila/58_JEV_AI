@@ -881,18 +881,37 @@ export function setActor(name: string): void {
   window.dispatchEvent(new Event(ACTOR_EVENT));
 }
 
+export const READ_TIMEOUT_MS = 60_000;
+
+/** The fields of a validation error (the last part of each location), without repeats. */
+function refusedFields(detail: unknown[]): string {
+  const names = detail.map((x) => {
+    const loc = (x as { loc?: unknown[] } | null)?.loc;
+    return Array.isArray(loc) && loc.length ? String(loc[loc.length - 1]) : "";
+  }).filter(Boolean);
+  return [...new Set(names)].join(", ") || "?";
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
   const actor = getActor();
   if (actor) headers["X-Actor"] = encodeURIComponent(actor); // the service decodes it (accents in the header)
   if (body !== undefined) headers["Content-Type"] = "application/json";
+  // 167 (review 160 U-14): a read that never answers used to stop a view's refresh for good (a poll waits for the
+  // request in flight); a read gives up after a minute. A change is not cut off: it may take long (a folder picker).
+  const abort = method === "GET" ? new AbortController() : null;
+  const timer = abort ? setTimeout(() => abort.abort(), READ_TIMEOUT_MS) : undefined;
   let res: Response;
+  let text: string;
   try {
-    res = await fetch(`/api${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    res = await fetch(`/api${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: abort?.signal });
+    text = await res.text();
   } catch {
+    if (abort?.signal.aborted) throw new ApiError(0, "timeout", t("The local service did not answer within a minute; the view will try again."));
     throw new ApiError(0, "offline", t("A helyi szolgáltatás nem érhető el. Fut a scripts\\dev.ps1 start?"));
+  } finally {
+    clearTimeout(timer);
   }
-  const text = await res.text();
   let data: unknown = null;
   try {
     data = text ? JSON.parse(text) : null;
@@ -900,9 +919,14 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     data = null;
   }
   if (!res.ok) {
-    const d = (data ?? {}) as { error?: string; message?: string; detail?: unknown; blockers?: Blocker[]; field?: string; kind?: string };
+    const d = (data ?? {}) as { error?: string; message?: string; detail?: unknown; blockers?: Blocker[]; field?: string; kind?: string;
+      template?: string; params?: Record<string, string> };
     const missingActor = Array.isArray(d.detail) && d.detail.some((x) => Array.isArray(x?.loc) && x.loc.includes("x-actor"));
+    // 167 (review 160 U-1): a message the service wrote as a template is translated like the interface's own labels
     const message = missingActor ? t(NO_ACTOR) : d.error === "unknown_user" ? t(UNKNOWN_ACTOR)
+      : typeof d.template === "string" ? t(d.template, d.params ?? {})
+      // 153 (review E) / 167: a refused request body (the service's validation) names the fields, not a bare "HTTP 422"
+      : Array.isArray(d.detail) ? t("The service refused a value: {{fields}}", { fields: refusedFields(d.detail) })
       : d.message ?? (typeof d.detail === "string" ? d.detail : `HTTP ${res.status}`);
     throw new ApiError(res.status, d.error ?? (res.status === 422 ? "invalid" : "error"), message, d.blockers ?? [],
       { field: d.field ?? null, kind: d.kind ?? null });

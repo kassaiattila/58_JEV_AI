@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 from jav import app_settings, cfg, mailbox, parties, reconcile_package, statement_package, store, work
+from jav.user_messages import explained
 
 log = logging.getLogger(__name__)
 
@@ -129,8 +130,8 @@ def _delete_guard(c, wp_id: str) -> None:
     row = c.execute("SELECT w.name FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
                     " WHERE s.workpackage_id=? AND w.status='open' LIMIT 1", (wp_id,)).fetchone()
     if row is not None:
-        raise work.NotReady("the package is a step of an open workflow; archive the workflow first or hide the package",
-                            [{"code": "workflow_step", "message": f"The package is a step of the workflow {row['name']}: it can only be hidden."}])
+        raise explained(work.NotReady, "the package is a step of an open workflow; archive the workflow first or hide the package",
+                        [{"code": "workflow_step", "message": f"The package is a step of the workflow {row["name"]}: it can only be hidden."}])
     steps = c.execute("SELECT s.workflow_id, s.step, w.actor FROM workflow_steps s JOIN workflows w ON w.id=s.workflow_id"
                       " WHERE s.workpackage_id=?", (wp_id,)).fetchall()
     c.execute("UPDATE workflow_steps SET workpackage_id=NULL, run_id=NULL, state='failed', note=?, updated_at=?"
@@ -166,7 +167,7 @@ def template(template_id: str) -> dict[str, Any]:
     for t in config()["templates"]:
         if t["id"] == template_id:
             return t
-    raise WorkflowError(f"unknown workflow template {template_id!r}")
+    raise explained(WorkflowError, "unknown workflow template {{template_id}}", template_id=repr(template_id))
 
 
 def is_workflow(t: dict[str, Any]) -> bool:
@@ -185,16 +186,16 @@ def _party(party_id: str) -> dict[str, Any]:
     for p in parties.parties():
         if p["id"] == party_id:
             return p
-    raise WorkflowError(f"unknown own party {party_id!r}")
+    raise explained(WorkflowError, "unknown own party {{party_id}}", party_id=repr(party_id))
 
 
 def _period(start: Any, end: Any) -> tuple[str, str]:
     try:
         a, b = date.fromisoformat(str(start)), date.fromisoformat(str(end))
     except ValueError as exc:
-        raise WorkflowError(f"a period is two dates (YYYY-MM-DD): {exc}") from exc
+        raise explained(WorkflowError, "a period is two dates (YYYY-MM-DD): {{exc}}", exc=exc) from exc
     if a > b:
-        raise WorkflowError("the period ends before it starts")
+        raise explained(WorkflowError, "the period ends before it starts")
     return a.isoformat(), b.isoformat()
 
 
@@ -202,13 +203,13 @@ def _budget(raw: dict[str, Any] | None) -> dict[str, str]:
     out: dict[str, str] = {}
     for provider, value in (raw or {}).items():
         if provider not in PROVIDERS:
-            raise WorkflowError(f"unknown budget provider {provider!r}")
+            raise explained(WorkflowError, "unknown budget provider {{provider}}", provider=repr(provider))
         try:
             amount = Decimal(str(value))
         except InvalidOperation as exc:
-            raise WorkflowError(f"a budget is an amount in USD: {value!r}") from exc
+            raise explained(WorkflowError, "a budget is an amount in USD: {{value}}", value=repr(value)) from exc
         if amount < 0 or amount > 1000:
-            raise WorkflowError(f"a budget is between 0 and 1000 USD: {value!r}")
+            raise explained(WorkflowError, "a budget is between 0 and 1000 USD: {{value}}", value=repr(value))
         out[provider] = str(amount)
     return out
 
@@ -219,9 +220,11 @@ def _engine(kind: str, source: dict[str, Any], raw: Any) -> str | None:
     if raw is None:
         return None
     if raw not in work.ENGINE_JEV:
-        raise WorkflowError(f"unknown engine {raw!r}; expected one of {sorted(work.ENGINE_JEV)}")
+        raise explained(WorkflowError, "unknown engine {{raw}}; expected one of {{engine_jev}}",
+                        raw=repr(raw), engine_jev=sorted(work.ENGINE_JEV))
     if kind == "reconcile" or source["kind"] not in ("folder", "files", "mailbox"):
-        raise WorkflowError(f"a {kind} step with a {source['kind']!r} source has no engine of its own")
+        raise explained(WorkflowError, "a {{kind}} step with a {{kind2}} source has no engine of its own",
+                        kind=kind, kind2=repr(source["kind"]))
     return str(raw)
 
 
@@ -231,21 +234,22 @@ def _source(kind: str, raw: dict[str, Any] | None) -> dict[str, Any]:
     raw = dict(raw or {})
     src = raw.get("kind")
     if src not in config()["kinds"][kind]["sources"]:
-        raise WorkflowError(f"a {kind} step takes no {src!r} source")
+        raise explained(WorkflowError, "a {{kind}} step takes no {{src}} source", kind=kind, src=repr(src))
     only_new = {"only_new": bool(raw.get("only_new"))} if kind == "documents" else {}
     if raw.get("only_new") and not only_new:
-        raise WorkflowError("only a documents step can leave out the documents a live run has processed")
+        raise explained(WorkflowError, "only a documents step can leave out the documents a live run has processed")
     if src == "folder":
         folder = Path(str(raw.get("folder") or ""))
         if not folder.is_dir():
-            raise WorkflowError(f"folder does not exist: {folder}")
+            raise explained(WorkflowError, "folder does not exist: {{folder}}", folder=folder)
         return {"kind": "folder", "folder": str(folder), "recursive": bool(raw.get("recursive"))} | only_new
     if src == "files":
         paths = [str(p) for p in raw.get("paths") or [] if str(p).strip()]
         if not paths:
-            raise WorkflowError("give at least one file")
+            raise explained(WorkflowError, "give at least one file")
         if missing := [p for p in paths if not Path(p).is_file()]:
-            raise WorkflowError(f"{len(missing)} file(s) do not exist, the first: {missing[0]}")
+            raise explained(WorkflowError, "{{missing}} file(s) do not exist, the first: {{missing_0}}",
+                            missing=len(missing), missing_0=missing[0])
         return {"kind": "files", "paths": paths} | only_new
     if src == "mailbox":
         request = mailbox.MailboxRequest.model_validate(raw.get("request") or {})
@@ -261,12 +265,13 @@ def _check_package(kind: str, wp_id: str) -> None:
     try:
         wp = work.get(wp_id)
     except KeyError as exc:
-        raise WorkflowError(f"no work package {wp_id!r}") from exc
+        raise explained(WorkflowError, "no work package {{wp_id}}", wp_id=repr(wp_id)) from exc
     if wp["source_kind"] not in PACKAGE_KINDS[kind]:
-        raise WorkflowError(f"work package {wp['name']!r} is not of a {kind} step's kind")
+        raise explained(WorkflowError, "work package {{name}} is not of a {{kind}} step's kind",
+                        name=repr(wp["name"]), kind=kind)
     with store.connect() as c:
         if c.execute("SELECT 1 FROM workflow_steps WHERE workpackage_id=?", (wp_id,)).fetchone():
-            raise WorkflowError(f"work package {wp['name']!r} already belongs to a workflow")
+            raise explained(WorkflowError, "work package {{name}} already belongs to a workflow", name=repr(wp["name"]))
 
 
 def create(*, template_id: str, party_id: str, period_start: Any, period_end: Any, steps: dict[str, dict[str, Any]],
@@ -278,20 +283,21 @@ def create(*, template_id: str, party_id: str, period_start: Any, period_end: An
     the workflow this one repeats for the next period (`repeat_draft`)."""
     t = template(template_id)
     if not is_workflow(t):
-        raise WorkflowError("a one-step template makes a work package, not a workflow")
+        raise explained(WorkflowError, "a one-step template makes a work package, not a workflow")
     if previous is not None and _brief(previous) is None:
-        raise WorkflowError(f"no workflow {previous!r} to repeat")
+        raise explained(WorkflowError, "no workflow {{previous}} to repeat", previous=repr(previous))
     party = _party(party_id)
     start, end = _period(period_start, period_end)
     defs = {s["id"]: s for s in t["steps"]}
     if unknown := set(steps) - set(defs):
-        raise WorkflowError(f"unknown step(s) of {template_id}: {sorted(unknown)}")
+        raise explained(WorkflowError, "unknown step(s) of {{template_id}}: {{unknown}}",
+                        template_id=template_id, unknown=sorted(unknown))
     title = name.strip() if name and name.strip() else f"{party['name']} {start} – {end}"
     rows = []
     for sid, sdef in defs.items():
         given = steps.get(sid) or {}
         if "source" not in given:
-            raise WorkflowError(f"step {sid!r} needs its source")
+            raise explained(WorkflowError, "step {{sid}} needs its source", sid=repr(sid))
         source = _source(sdef["kind"], given["source"])
         step_name = ((names or {}).get(sid) or f"{title} · {_step_title(sdef)}").strip()[:200]
         rows.append((sid, source, _budget(given.get("budget")), step_name, _engine(sdef["kind"], source, given.get("engine"))))
@@ -603,13 +609,14 @@ def start_step(wf_id: str, step: str, *, actor: str, budget: dict[str, Any] | No
     a budget; a `budget` given here replaces the step's budget (the person's own decision, recorded)."""
     wf = _row(wf_id)
     if wf["status"] != "open":
-        raise WorkflowError("the workflow is archived")
+        raise explained(WorkflowError, "the workflow is archived")
     sdef = next((s for s in wf["definition"]["steps"] if s["id"] == step), None)
     if sdef is None:
-        raise WorkflowError(f"unknown step {step!r}")
+        raise explained(WorkflowError, "unknown step {{step}}", step=repr(step))
     st = _steps(wf_id)[step]
     if st["state"] not in ("waiting", "failed", "needs_budget"):
-        raise WorkflowError(f"step {step!r} is {st['state']}: it cannot be started")
+        raise explained(WorkflowError, "step {{step}} is {{state}}: it cannot be started",
+                        step=repr(step), state=st["state"])
     if budget is not None:
         new = _budget(budget)
         _set(wf_id, step, budget=json.dumps(new))
@@ -630,11 +637,11 @@ def link(wf_id: str, step: str, wp_id: str, *, actor: str) -> dict[str, Any]:
     wf = _row(wf_id)
     sdef = next((s for s in wf["definition"]["steps"] if s["id"] == step), None)
     if sdef is None:
-        raise WorkflowError(f"unknown step {step!r}")
+        raise explained(WorkflowError, "unknown step {{step}}", step=repr(step))
     _check_package(sdef["kind"], wp_id)
     if not _set(wf_id, step, expect=("waiting", "failed", "nothing_new"), state="linked", workpackage_id=wp_id,
                 source=json.dumps({"kind": "package", "workpackage_id": wp_id}), note=None):
-        raise WorkflowError(f"step {step!r} has started already")
+        raise explained(WorkflowError, "step {{step}} has started already", step=repr(step))
     with store.connect() as c:
         store.begin_immediate(c)
         _event(c, wf_id, step, "link", actor, {"workpackage": wp_id})
@@ -692,12 +699,12 @@ def _start(wf: dict[str, Any], sdef: dict[str, Any], *, actor: str, states: tupl
         elif sdef["kind"] == "reconcile":
             keys = [a["key"] for a in reconcile_package.accounts() if (a.get("party") or {}).get("id") == wf["party_id"]]
             if not keys:
-                raise WorkflowError("the party has no account or card with a statement yet")
+                raise explained(WorkflowError, "the party has no account or card with a statement yet")
             scope = reconcile_package.create(name=st["name"], accounts=keys, period_start=wf["period_start"],
                                              period_end=wf["period_end"], actor=wf["actor"], party_id=wf["party_id"])
             _done(wf, step, actor, "package", state="started", workpackage_id=scope["workpackage_id"])
         else:
-            raise WorkflowError(f"unknown step kind {sdef['kind']!r}")
+            raise explained(WorkflowError, "unknown step kind {{kind}}", kind=repr(sdef["kind"]))
     except Exception as exc:  # the step shows why; a person retries it
         log.warning("workflow %s step %s did not start: %s", wf["id"], step, exc)
         _done(wf, step, actor, "failed", state="failed", note=str(exc)[:1000])
