@@ -2,7 +2,7 @@
 
 A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition (M1), invoice data extraction (M2) and email intent (M3) — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.17.1`** (2026-10-17). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.18.0`** (2026-10-17). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
@@ -75,6 +75,9 @@ python -m jav.cli eval-report [runs/*.jsonl]                       # shared eval
 # every command that can make paid calls (also run, detect, detect-corpus, email, email-inbox and the determinism ones)
 # needs the sub-budget for live calls: --jev-budget-usd, --budget-usd (OpenAI); Azure is never called from the command
 # line; without a budget only earlier answers count (the JEV cache) and a live call becomes a to-do
+# every command that asks AI takes --engine jev|gpt (--no-jev = --engine gpt): run, detect, detect-corpus, email and
+# email-inbox follow the application's AI engine (Settings > Processing) when they name none; the measurements measure
+# JEV and GPT unless told, and the S path needs JEV
 python -m jav.cli store | admin | configs | flows --check | docs   # store, admin screen, config versions, contract lint, generated docs
 python -m jav.cli recipes | wp-create <folder> [--recursive] | wp-assign <wp> processing [--engine jev|gpt] | wp-show <wp> | processing-migrate [--write]   # work packages and processing
 python -m jav.cli run-start <wp> [--mode shadow|apply] | worker --once | run-show <run> | run-cancel <run> | run-approve <run> --actor <name>   # shadow = trial run, apply = live run

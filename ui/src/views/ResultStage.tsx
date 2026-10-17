@@ -13,6 +13,7 @@ import { nextFlowText, tmap, when } from "../labels";
 import { go, type ResultTable } from "../route";
 import { UtilityPanel } from "./UtilityReport";
 import { Icon } from "../components/Icon";
+import { EngineMark } from "../components/EngineMark";
 import { ConfirmButton } from "../components/ConfirmButton";
 
 const TABLES: { key: ResultTable; dataset: string }[] = [
@@ -190,6 +191,7 @@ function Approval({ runId, onChanged, hasTable, tableVersion, onConflict }: {
     <div className="release-line" data-state={state}>
       <span className={`status ${RELEASE_MARK[state]}`}>{label}</span>
       <span className="release-detail">{detail}</span>
+      <EngineMark engine={run.data.engine} />
       {state === "trial" || state === "released" ? null : (
         <ConfirmButton className={state === "ready" ? "primary" : "secondary"} disabled={busy || loading || state !== "ready"}
           onConfirm={() => void approve()}>{t("Jóváhagyás és kiadás")}</ConfirmButton>

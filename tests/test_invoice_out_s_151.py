@@ -90,7 +90,7 @@ def test_a_local_case_list_is_measured_apart(tmp_path, monkeypatch):
         return []
 
     monkeypatch.setattr(evals, "golden", golden)
-    args = argparse.Namespace(store=None, arm="S", tracker=False, no_cache=False, type="invoice_out", no_jev=False,
+    args = argparse.Namespace(store=None, arm="S", tracker=False, no_cache=False, type="invoice_out", engine="jev",
                               budget_usd=None, jev_budget_usd="0.20", synthetic=False, cases=str(listing))
     assert cli.cmd_golden(args) == 0
     assert seen["label"] == "local" and [c.case_id for c in seen["cases"]] == ["a"]

@@ -54,7 +54,7 @@ def test_golden_without_any_budget_answers_from_earlier_answers_only(monkeypatch
 def test_golden_command_passes_the_jev_budget(monkeypatch):
     got = {}
     monkeypatch.setattr(evals, "golden", lambda *a, **k: got.update(k) or [])
-    args = argparse.Namespace(store=None, arm="S", tracker=False, no_cache=False, type="invoice_hu", no_jev=False,
+    args = argparse.Namespace(store=None, arm="S", tracker=False, no_cache=False, type="invoice_hu", engine="jev",
                               budget_usd=None, jev_budget_usd="0.40")
     assert cli.cmd_golden(args) == 0
     assert got["jev_budget_usd"] == Decimal("0.40") and got["budget_usd"] is None

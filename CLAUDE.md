@@ -66,13 +66,14 @@ pytest tests/                                     # offline tests; a single test
 python smoke_test.py                              # venv + keys + one live JEV call
 python -m jav.cli recall | golden --arm S|G [--synthetic] | determinism --arm S --n 5 | verifier-probe [--no-cache] [--type invoice_foreign]
 # 160: every command that can make paid calls needs --jev-budget-usd / --budget-usd (OpenAI) for a live call; without them only earlier answers count
+# 160-D: every command that asks AI takes --engine jev|gpt (--no-jev = gpt); a processing command follows the application's engine, a measurement defaults to jev
 python -m jav.cli detect <pdf> | detect-golden | detect-determinism --n 3 | detect-corpus <folder> [--redo-unknown] | detect-sample <folder>
 python -m jav.cli email <folder> | email-golden | email-determinism --n 3 | email-inbox inbox/ | email-sample | email-injection-probe
 python -m jav.cli email-ingest-server --port 8931 --run   # receiver for scripts/outlook_bridge.ps1 (8901 = legacy Docker)
 python -m jav.cli recipes | wp-* | run-* | worker [--once] | worker-status | worker-stop   # work package → run (jav/work_cli.py)
 python -m jav.cli calls-uncertain | calls-resolve <id> [--cost USD] --note N   # settle a paid call with an uncertain outcome by hand
 python -m jav.cli duplicates [--write] | own-tax [--write] | reconcile [--golden]   # duplicate invoices | an own tax number as the supplier's (--write: open their to-dos) | invoice <-> statement line pairs (counts)
-python -m jav.cli reconcile-ai <package> [--engine jev|gpt|both] [--jev-budget-usd X] [--budget-usd Y] [--redo | --stale] [--incoming] | --evaluate | --golden   # 134 AI proposals for a package's lines (without a budget: free estimate; 136: only the new lines, the kind once per partner; 158: incoming money its own kinds) | 135 their hits against a person's decisions (free) | 158 the incoming kinds on invented lines (with a budget)
+python -m jav.cli reconcile-ai <package> [--engine jev|gpt|both (default: the application's engine)] [--jev-budget-usd X] [--budget-usd Y] [--redo | --stale] [--incoming] | --evaluate | --golden   # 134 AI proposals for a package's lines (without a budget: free estimate; 136: only the new lines, the kind once per partner; 158: incoming money its own kinds) | 135 their hits against a person's decisions (free) | 158 the incoming kinds on invented lines (with a budget)
 python -m jav.cli fx-rates [--fetch FROM TO] [--currency C]             # 130 stored MNB exchange rates (counts) | fetch a span (free; only dates and codes leave)
 python -m jav.cli statement-table <file.xlsx|file.csv|file.pdf|folder>  # 136 a bank statement export read by code (free): its accounts and checks (141: a CIB PDF or text statement, a camt.053 XML too)
 .\scripts\dev.ps1 start|status|stop                     # UI + local service (serve, 127.0.0.1:8930) + one worker
@@ -104,7 +105,7 @@ python -m jav.capability_catalog                  # deterministic inventory of t
   - `store.py`: documents · datapoints · emails · email_results · email_task_decisions · review_queue · review_reasons · ledger · golden_labels · artifacts · meta;
   - `work.py`: workpackages · workpackage_items · workpackage_events · recipe_assignments · runs · run_items · file_fingerprints;
   - `runtime/queue.py`: jobs · queue_control; `runtime/calls.py`: invocations · budgets;
-  - `app_settings.py`: app_users · watched_folders · watched_packages · watched_seen; `mailbox.py`: mailbox_schedules · mailbox_pulls;
+  - `app_settings.py`: app_users · watched_folders · watched_packages · watched_seen · app_options (output folder, AI engine); `mailbox.py`: mailbox_schedules · mailbox_pulls;
   - `corrections.py`: run_item_corrections; `reconcile_ai.py`: reconcile_ai_proposals; `duplicates.py`: duplicate_decisions; `statement_months.py`: statement_choices; `statement_package.py`: statement_scopes; `reconcile.py`: reconcile_decisions · reconcile_allocations · reconcile_line_marks; `reconcile_package.py`: reconcile_scopes · reconcile_versions · reconcile_source_acceptances; `fx.py`: fx_rates · fx_fetches; `source_layer.py`: source_layers; `legacy_import.py`: legacy_results; `parties.py`: own_parties · own_party_identities · own_accounts; `workflows.py`: workflows · workflow_steps · workflow_events.
 
   Burr state: `store/burr_state.sqlite` (thinned out by `burr-prune`). Backups: `store/backups/` (daily, `configs/service.json` `backup`). The golden sets stay in the legacy project and are only referenced.

@@ -1,6 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api, type Alternative, type ItemResult, type Provenance, type RunItem, type Workpackage } from "../api";
 import { DatasetPicker, runOption } from "../components/DatasetPicker";
+import { EngineMark } from "../components/EngineMark";
 import { NameModeSwitch, NameWarning } from "../components/NameCell";
 import { useDataset, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
@@ -118,6 +119,7 @@ export function ReviewWorkspace({ wp, itemId, onChanged }: { wp: Workpackage; it
         <DatasetPicker dataset="runs" scope={{ workpackage_id: wp.id }} label={t("Futás")} hideLabel value={chosen} valueCol="run_id"
           toOption={runOption} onChange={setRunId} />
         <span className="muted small">{ownTotal ? t("{{n}} nyitott teendő ebben a futásban", { n: ownTotal }) : t("Ebben a futásban nincs nyitott teendő.")}</span>
+        <EngineMark engine={view.data.engine} />
         <a className="small" href={`#/runs/${run.run_id}`}>{t("A futás részletei")}</a>
         <NameModeSwitch />
         <span className="muted small kbd-help" title={keysHelp}>{keysHelp}</span>

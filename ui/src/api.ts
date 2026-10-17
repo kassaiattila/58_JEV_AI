@@ -172,6 +172,10 @@ export interface WorkflowSource {
   only_new?: boolean;
 }
 export type WorkflowBudget = Partial<Record<"jev" | "openai" | "azure_di", string>>;
+/** 160-D: the AI engine — JEV and GPT (the default) or GPT only, without JEV. */
+export type Engine = "jev" | "gpt";
+/** 160-D: the application's AI engine, the default of every new processing setting that does not name one. */
+export interface EngineSetting { engine: Engine; actor: string | null; updated_at: string | null }
 export interface WorkflowEstimate {
   items: number | null; usd: WorkflowBudget; note: string | null; statements?: number; pdfs?: number; per_item?: WorkflowBudget;
   left_out?: number;
@@ -184,6 +188,8 @@ export interface WorkflowStep {
   source: { kind: WorkSourceKind; folder?: string; recursive?: boolean; count?: number; first?: string; accounts?: string[];
     folders?: string[]; workpackage_id?: string; only_new?: boolean };
   budget: WorkflowBudget; name: string; state: string; status: WorkflowStepStatus; done: boolean;
+  /** 160-D: the step's own AI engine; null: the application's when the step starts */
+  engine?: Engine | null;
   note: string | { estimate: WorkflowBudget; budget: WorkflowBudget; over: WorkflowBudget } | null;
   package: { id: string; name: string | null; next: NextStep | null } | null; run_id: string | null; pull_id: string | null;
   updated_at: string;
@@ -230,7 +236,7 @@ export interface WorkflowBrief { id: string; name: string; period_start: string;
 /** 147: a workflow for the next period, as the wizard shows it filled in (a step without a source is asked for). */
 export interface WorkflowDraft {
   template: string; party_id: string; period_start: string; period_end: string; name: string | null; auto: boolean;
-  previous: string; steps: Record<string, { source: WorkflowSource | null; budget: WorkflowBudget }>;
+  previous: string; steps: Record<string, { source: WorkflowSource | null; budget: WorkflowBudget; engine?: Engine | null }>;
 }
 export interface WorkflowRow extends WorkflowInfo {
   done: number; total: number; next: { step: string; status: WorkflowStepStatus } | null;
@@ -239,7 +245,7 @@ export interface WorkflowRow extends WorkflowInfo {
 export interface WorkflowRef { id: string; name: string; step: string; step_title: string }
 export interface CreateWorkflowBody {
   template: string; party_id: string; period_start: string; period_end: string; name?: string; auto: boolean;
-  names?: Record<string, string>; steps: Record<string, { source: WorkflowSource; budget?: WorkflowBudget }>;
+  names?: Record<string, string>; steps: Record<string, { source: WorkflowSource; budget?: WorkflowBudget; engine?: Engine | null }>;
   previous?: string;
 }
 export interface RunItem {
@@ -267,6 +273,7 @@ export interface RunView {
   review_version?: string; // 085: the version of the result shown; the approval sends it back
   supersede?: SupersedeInfo | null; // 151: a later live run repeated this one; it can be superseded
   superseded?: { by: string; actor: string; at: string; reasons_closed: number } | null; // 151: who superseded it
+  engine?: Engine | null; // 160-D: the AI engine the run ran with (absent from an older service)
 }
 /** 151: the later live run that repeated this one, its own open to-dos that would close, and the human work done on it. */
 export interface SupersedeInfo { by: string; open_reasons: number; resolved_reasons: number; corrected_items: number }
@@ -402,6 +409,9 @@ export interface ItemResult {
   duplicates?: DuplicatePair[];
   /** 139: the statement that replaced this one, the ones it replaced, and the undecided ones of the same days. */
   statements?: StatementRelation[];
+  /** 160-D: the AI engine of the run that produced the result shown; null for a statement read by code and for an
+   *  email intent taken from another run. */
+  engine?: Engine | null;
 }
 /** 139: one statement of the same account and days as this one: it replaced this one (`replaced_by`), this one replaced
  *  it (`replaces`), or neither, and a person chooses (`conflict`); `how`: by the rule of ranks or by a person. */
@@ -892,7 +902,8 @@ export const api = {
   bankFiles: () => request<BankFilesCatalogue>("GET", "/bank-files"),
   /** 146: the new work wizard's templates and the workflows (the work packages of one job, chained). */
   workflowTemplates: () => request<WorkflowTemplates>("GET", "/workflow-templates"),
-  workflowEstimate: (body: { kind: WorkKind; source: WorkflowSource; party_id?: string; period_start?: string; period_end?: string }) =>
+  workflowEstimate: (body: { kind: WorkKind; source: WorkflowSource; party_id?: string; period_start?: string; period_end?: string;
+    engine?: Engine | null }) =>
     request<WorkflowEstimate>("POST", "/workflows/estimate", body),
   workflows: (includeArchived = false) =>
     request<{ workflows: WorkflowRow[] }>("GET", `/workflows${includeArchived ? "?include_archived=true" : ""}`),
@@ -1048,6 +1059,9 @@ export const api = {
   /** 078: where the content-named copies of a run are written (never inside a watched folder). */
   outputFolder: () => request<{ path: string | null }>("GET", "/settings/output-folder"),
   saveOutputFolder: (path: string | null) => request<{ path: string | null }>("PUT", "/settings/output-folder", { path }),
+  /** 160-D: the application's AI engine. */
+  engine: () => request<EngineSetting>("GET", "/settings/engine"),
+  saveEngine: (engine: Engine) => request<EngineSetting>("PUT", "/settings/engine", { engine }),
   /** 078: the run's documents under content-based names, with the manifest, into a new subfolder of the output folder. */
   writeNamedCopies: (runId: string) =>
     request<{ path: string; ready: number; review: number; skipped: number }>("POST", `/runs/${enc(runId)}/named-copies`, {}),

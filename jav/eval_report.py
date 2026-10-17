@@ -12,6 +12,13 @@ rate, ECE) by top prob and by confidence, top prob vs. confidence gap, policy-ba
 change band with the `uncertain_review` switch), determinism (per-question spread, flips).
 
 Wiring in a new flow: an extractor `_from_<flow>(row) -> list[Judgment]` + the file-name pattern in `FLOW_PATTERNS`.
+
+160-D (measurements without JEV): the GPT measurements (`*_gpt.jsonl`, `*_G_nojev.jsonl` and their determinism files)
+are flows of their own, named `<flow>_gpt`. Their judgments use the GPT call sites (`.gpt`), so the bands are the ones
+the flows apply without JEV. A GPT field's confidence is a judgment of the `field` kind: the probability that the
+extracted value is the document's, its truth the field's score, its band `auto` at or above the policy's
+`gpt_field_confidence.review_below` and a to-do below it. The silent errors section counts the wrong answers the
+recorded run left without a to-do (`Judgment.flagged`), for every flow whose rows record their to-dos.
 """
 
 from __future__ import annotations
@@ -28,10 +35,16 @@ from typing import Any, Callable, Literal
 from jav import policy
 from jav.config import RUNS_DIR
 
-Kind = Literal["choice", "noul", "score"]  # score: conf / top_prob read as for a Choice, the label is the level
+# score: conf / top_prob read as for a Choice, the label is the level; field (160-D): a GPT field's confidence
+Kind = Literal["choice", "noul", "score", "field"]
 
 # file-name pattern -> flow name (the determinism files belong to the same flow, several rows per case)
+# 160-D: the GPT patterns come first, since the JEV detection determinism pattern would take their files too
 FLOW_PATTERNS: tuple[tuple[str, str], ...] = (
+    (r"_detect_golden_gpt(_keys)?\.jsonl$|_detect_determinism_gpt\.jsonl$", "doc_detect_gpt"),
+    (r"_email_golden_gpt\.jsonl$|_email_determinism_gpt\.jsonl$", "email_intent_gpt"),
+    (r"_email_injection_probe_gpt\.jsonl$", "email_injection_probe_gpt"),
+    (r"_(golden|synthetic)_G_nojev\.jsonl$|_determinism_G_n\d+_nojev\.jsonl$", "invoice_G_gpt"),
     (r"_golden_S\.jsonl$|_determinism_S_n\d+\.jsonl$", "invoice_S"),
     (r"_golden_G\.jsonl$|_determinism_G_n\d+\.jsonl$", "invoice_G"),
     (r"_detect_golden\.jsonl$|_detect_determinism.*\.jsonl$", "doc_detect"),
@@ -41,8 +54,13 @@ FLOW_PATTERNS: tuple[tuple[str, str], ...] = (
 )
 DEFAULT_GLOBS: tuple[str, ...] = ("*_golden_S.jsonl", "*_golden_G.jsonl", "*_detect_golden.jsonl", "*_email_golden.jsonl",
                                   "*_determinism_S_n*.jsonl", "*_determinism_G_n*.jsonl", "*_detect_determinism.jsonl", "*_email_determinism.jsonl",
-                                  "*_verifier_probe.jsonl", "*_email_injection_probe.jsonl")
+                                  "*_verifier_probe.jsonl", "*_email_injection_probe.jsonl",
+                                  "*_detect_golden_gpt.jsonl", "*_email_golden_gpt.jsonl", "*_golden_G_nojev.jsonl",
+                                  "*_detect_determinism_gpt.jsonl", "*_email_determinism_gpt.jsonl",
+                                  "*_determinism_G_n*_nojev.jsonl", "*_email_injection_probe_gpt.jsonl")
 CAL_BIN_EDGES: tuple[float, ...] = (0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0)
+# 160-D: GPT confidences crowd near 1 and the field threshold is 0.98, so the GPT flows get finer bins there
+GPT_CAL_BIN_EDGES: tuple[float, ...] = (0.0, 0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 1.0)
 
 
 @dataclass
@@ -65,6 +83,7 @@ class Judgment:
     parent: str | None = None  # registry v2: family of the most probable option (from the run row)
     parent_prob: float | None = None  # combined probability of the family
     parent_correct: bool | None = None  # family of the expected label == parent (where the truth is known)
+    flagged: bool | None = None  # 160-D: the recorded run left a to-do on it (None: the row does not record to-dos)
 
 
 # --- file -> judgments ---------------------------------------------------------------------------
@@ -131,6 +150,7 @@ def _from_invoice_S(row: dict[str, Any]) -> list[Judgment]:
             callsite="invoice.pick.high_stakes" if field in high_stakes else "invoice.pick",
             label=pick.get("label"), expected=None, correct=scores.get(field), confidence=float(pick["confidence"]),
             top_prob=top, second_prob=second, p=None, route_recorded=row.get("route"), run_no=int(row.get("run_no", 1)),
+            field=field, flagged=_field_flagged(row, field),
         ))
         out.extend(_presence_judgment(row, flow, field, pick, expected_present))
     return out
@@ -177,6 +197,63 @@ def _from_invoice_G(row: dict[str, Any]) -> list[Judgment]:
     return out
 
 
+def _from_invoice_G_gpt(row: dict[str, Any]) -> list[Judgment]:
+    """160-D: the G path without JEV. Each field with a measured GPT confidence is a `field` judgment; its truth is the
+    field's score (None when the golden set does not score it). A field without a measured confidence has no judgment:
+    the flow makes it a to-do of its own (`gpt:confidence_unavailable`), and a budget-skipped case has none."""
+    out = []
+    scores = row.get("scores") or {}
+    flow = (row.get("flow_label") or "invoice_G") + "_gpt"
+    # 164: a field outside the pack's to-do fields (an address, `gpt_field_confidence.info_only`) only shows its value
+    to_do = set(policy.gpt_review_fields(row["doc_type"])) if row.get("doc_type") else None
+    for field, conf in (row.get("field_confidence") or {}).items():
+        if conf is None:
+            continue
+        callsite = "invoice.gpt_field" if to_do is None or field in to_do else "invoice.gpt_field.info"
+        out.append(Judgment(
+            flow=flow, case_id=row["case_id"], question=field, kind="field", callsite=callsite,
+            label=None, expected=None, correct=scores.get(field), confidence=float(conf), top_prob=float(conf),
+            second_prob=None, p=None, route_recorded=row.get("route"), run_no=int(row.get("run_no", 1)), field=field,
+            flagged=_field_flagged(row, field),
+        ))
+    return out
+
+
+def _field_flagged(row: dict[str, Any], field: str) -> bool | None:
+    """Whether the recorded run left a to-do on the field (`policy.reason_field`); None when the row has no to-dos."""
+    if "review_reasons" not in row:
+        return None
+    return any(policy.reason_field(r, {field}) == field for r in row["review_reasons"] or ())
+
+
+def _item_flagged(row: dict[str, Any]) -> bool | None:
+    """Whether the recorded run left any to-do on the item (a type or an intent is one answer per item)."""
+    return bool(row["review_reasons"]) if "review_reasons" in row else None
+
+
+def _band_flag(j: Judgment, row: dict[str, Any], *, unknown: bool = False) -> Judgment:
+    """A type's or an intent's own low-confidence to-do is not among the row's reasons: the flow adds it at its end,
+    from the band (`policy.choice_needs_review`), for an unmeasured confidence and for an unknown type. So a judgment
+    in the to-do band counts as flagged too."""
+    if j.flagged is not None:
+        j.flagged = (j.flagged or unknown or j.confidence is None
+                     or policy.choice_needs_review(j.confidence, row.get("top3"), j.callsite))
+    return j
+
+
+def _gpt(callsite: str, gpt: bool) -> str:
+    return callsite + ".gpt" if gpt else callsite
+
+
+def _measured(row: dict[str, Any]) -> tuple[float | None, float | None, float | None]:
+    """The confidence, the top and the second probability of a Choice row; 160-D: a GPT answer without
+    log-probabilities (`measured` false) has none, so it falls into the to-do band and out of the calibration."""
+    if row.get("measured") is False:
+        return None, None, None
+    top, second = _top2(row.get("top3"))
+    return float(row["confidence"]), top, second
+
+
 def _parent_fields(row: dict[str, Any], parent_of: dict[str, str]) -> dict[str, Any]:
     parent, prob = row.get("parent"), row.get("parent_prob")
     exp = row.get("expected")
@@ -184,40 +261,45 @@ def _parent_fields(row: dict[str, Any], parent_of: dict[str, str]) -> dict[str, 
     return {"parent": parent, "parent_prob": prob, "parent_correct": correct}
 
 
-def _from_detect(row: dict[str, Any]) -> list[Judgment]:
+def _from_detect(row: dict[str, Any], *, gpt: bool = False) -> list[Judgment]:
     from jav.doc_types import PARENT_OF
 
     if row.get("got") is None:
         return []
-    top, second = _top2(row.get("top3"))
-    out = [Judgment(flow="doc_detect", case_id=row["case_id"], question="doc_type", kind="choice", callsite="detect.doc_type",
+    flow = "doc_detect_gpt" if gpt else "doc_detect"
+    confidence, top, second = _measured(row)
+    out = [Judgment(flow=flow, case_id=row["case_id"], question="doc_type", kind="choice", callsite=_gpt("detect.doc_type", gpt),
                     label=row["got"], expected=row.get("expected"), correct=None if row.get("expected") is None else row["got"] == row["expected"],
-                    confidence=float(row["confidence"]), top_prob=top, second_prob=second, p=None, route_recorded=row.get("status"),
-                    run_no=int(row.get("run_no", 1)), **_parent_fields(row, PARENT_OF))]
+                    confidence=confidence, top_prob=top, second_prob=second, p=None, route_recorded=row.get("status"),
+                    run_no=int(row.get("run_no", 1)), flagged=_item_flagged(row), **_parent_fields(row, PARENT_OF))]
+    _band_flag(out[0], row, unknown=row["got"] == "unknown")
     if row.get("issuer_hu") is not None:
-        out.append(Judgment(flow="doc_detect", case_id=row["case_id"], question="issuer_is_hungarian", kind="noul", callsite="detect.issuer_is_hungarian",
+        out.append(Judgment(flow=flow, case_id=row["case_id"], question="issuer_is_hungarian", kind="noul",
+                            callsite=_gpt("detect.issuer_is_hungarian", gpt),
                             label="yes" if row["issuer_hu"] >= 0.5 else "no", expected=None, correct=None, confidence=None, top_prob=None,
                             second_prob=None, p=float(row["issuer_hu"]), route_recorded=None, run_no=int(row.get("run_no", 1))))
     return out
 
 
-def _from_email(row: dict[str, Any]) -> list[Judgment]:
+def _from_email(row: dict[str, Any], *, gpt: bool = False) -> list[Judgment]:
     from jav.intents import PARENT_OF
 
     if row.get("got") is None:
         return []
-    top, second = _top2(row.get("top3"))
-    out = [Judgment(flow="email_intent", case_id=row["case_id"], question="intent", kind="choice", callsite="email.intent",
+    flow = "email_intent_gpt" if gpt else "email_intent"
+    confidence, top, second = _measured(row)
+    out = [Judgment(flow=flow, case_id=row["case_id"], question="intent", kind="choice", callsite=_gpt("email.intent", gpt),
                     label=row["got"], expected=row.get("expected"), correct=None if row.get("expected") is None else row["got"] == row["expected"],
-                    confidence=float(row["confidence"]), top_prob=top, second_prob=second, p=None, route_recorded=row.get("next_flow"),
-                    run_no=int(row.get("run_no", 1)), **_parent_fields(row, PARENT_OF))]
+                    confidence=confidence, top_prob=top, second_prob=second, p=None, route_recorded=row.get("next_flow"),
+                    run_no=int(row.get("run_no", 1)), flagged=_item_flagged(row), **_parent_fields(row, PARENT_OF))]
+    _band_flag(out[0], row)
     for key, p in (row.get("signals") or {}).items():
-        out.append(Judgment(flow="email_intent", case_id=row["case_id"], question=key, kind="noul", callsite="email.signal",
+        out.append(Judgment(flow=flow, case_id=row["case_id"], question=key, kind="noul", callsite=_gpt("email.signal", gpt),
                             label="yes" if p >= 0.5 else "no", expected=None, correct=None, confidence=None, top_prob=None, second_prob=None,
-                            p=float(p), route_recorded=None, run_no=int(row.get("run_no", 1))))
+                            p=float(p), route_recorded=None, run_no=int(row.get("run_no", 1)), flagged=_item_flagged(row)))
     for key, s in (row.get("scores") or {}).items():  # v1.1.0: Score signal (urgency) - label = level, conf + level probabilities
         top, second = _top2(s.get("probabilities"))
-        out.append(Judgment(flow="email_intent", case_id=row["case_id"], question=key, kind="score", callsite=f"email.{key}",
+        out.append(Judgment(flow=flow, case_id=row["case_id"], question=key, kind="score", callsite=_gpt(f"email.{key}", gpt),
                             label=str(s.get("level")), expected=None, correct=None, confidence=float(s.get("confidence") or 0.0),
                             top_prob=top, second_prob=second, p=None, route_recorded=None, run_no=int(row.get("run_no", 1))))
     return out
@@ -258,14 +340,14 @@ def _from_verify_probe(row: dict[str, Any]) -> list[Judgment]:
     return out
 
 
-def _from_email_injection(row: dict[str, Any]) -> list[Judgment]:
+def _from_email_injection(row: dict[str, Any], *, gpt: bool = False) -> list[Judgment]:
     """Injected-instruction probe: like the email golden set, but the truth of the `prompt_injection` Noul is known
     (clean -> no, tampered -> yes), the case is `<case>/<variant>`; the truth of the intent is the golden expected
     intent (for the tampered variant too - a flip is an error)."""
-    out = _from_email(row)
+    out = _from_email(row, gpt=gpt)
     variant = row.get("variant", "clean")
     for j in out:
-        j.flow = "email_injection_probe"
+        j.flow = "email_injection_probe_gpt" if gpt else "email_injection_probe"
         j.case_id = f"{row['case_id']}/{variant}"
         if j.kind == "noul" and j.question == "prompt_injection":
             j.expected = "no" if variant == "clean" else "yes"
@@ -276,6 +358,8 @@ def _from_email_injection(row: dict[str, Any]) -> list[Judgment]:
 EXTRACTORS: dict[str, Callable[[dict[str, Any]], list[Judgment]]] = {
     "invoice_S": _from_invoice_S, "invoice_G": _from_invoice_G, "doc_detect": _from_detect, "email_intent": _from_email,
     "invoice_verify_probe": _from_verify_probe, "email_injection_probe": _from_email_injection,
+    "doc_detect_gpt": lambda row: _from_detect(row, gpt=True), "email_intent_gpt": lambda row: _from_email(row, gpt=True),
+    "email_injection_probe_gpt": lambda row: _from_email_injection(row, gpt=True), "invoice_G_gpt": _from_invoice_G_gpt,
 }
 
 
@@ -296,6 +380,9 @@ def judgments_from_file(path: Path | str) -> list[Judgment]:
             for j in js:
                 j.run_no = seen[key]
         out.extend(js)
+    if "_synthetic_" in Path(path).name:  # 160-D: the invented cases, apart from the golden set's flow
+        for j in out:
+            j.flow = f"{j.flow} (synthetic)"
     return out
 
 
@@ -305,6 +392,10 @@ def judgments_from_file(path: Path | str) -> list[Judgment]:
 def band_of(j: Judgment) -> str:
     if j.kind == "noul":
         return policy.noul_band(j.p or 0.0, j.callsite)
+    if j.kind == "field":  # 160-D: below the review threshold the flow leaves a to-do on the field (164: not on .info)
+        if j.callsite.endswith(".info"):
+            return "auto"
+        return "auto" if j.confidence is not None and j.confidence >= policy.GPT_FIELD_CONFIDENCE["review_below"] else "human"
     probs = None
     if j.top_prob is not None:
         probs = {"_top": j.top_prob, "_second": j.second_prob} if j.second_prob is not None else {"_top": j.top_prob}
@@ -345,14 +436,14 @@ def per_question(js: list[Judgment]) -> list[dict[str, Any]]:
     return rows
 
 
-def calibration(js: list[Judgment], *, key: str = "top_prob") -> dict[str, Any]:
-    """Choice judgments with truth: mean P vs. hit rate per bin, ECE (n-weighted |acc - P|)."""
-    items = [j for j in _first_runs(js) if j.kind == "choice" and j.correct is not None and getattr(j, key) is not None]
+def calibration(js: list[Judgment], *, key: str = "top_prob", edges: tuple[float, ...] = CAL_BIN_EDGES) -> dict[str, Any]:
+    """Choice (and 160-D: GPT field) judgments with truth: mean P vs. hit rate per bin, ECE (n-weighted |acc - P|)."""
+    items = [j for j in _first_runs(js) if j.kind in ("choice", "field") and j.correct is not None and getattr(j, key) is not None]
     bins = []
     n_total = len(items)
     ece = 0.0
-    for lo, hi in zip(CAL_BIN_EDGES, CAL_BIN_EDGES[1:]):
-        last = hi == CAL_BIN_EDGES[-1]
+    for lo, hi in zip(edges, edges[1:]):
+        last = hi == edges[-1]
         inb = [j for j in items if (lo <= getattr(j, key) < hi) or (last and getattr(j, key) == hi)]
         if not inb:
             bins.append({"lo": lo, "hi": hi, "n": 0, "mean_p": None, "hit_rate": None})
@@ -400,7 +491,7 @@ def policy_reeval(js: list[Judgment]) -> list[dict[str, Any]]:
         unc_scored: list[bool] = []
         noul_unc = 0
         for _, items in cases.items():
-            bands = {band_of(j) for j in items if j.kind == "choice"}
+            bands = {band_of(j) for j in items if j.kind in ("choice", "field")}
             noul_unc += sum(1 for j in items if j.kind == "noul" and band_of(j) == "uncertain")
             if "human" in bands:
                 n_human += 1
@@ -432,6 +523,23 @@ def parent_fallback_summary(js: list[Judgment]) -> list[dict[str, Any]]:
             "parent_usable": len(usable), "parent_correct": sum(1 for j in usable if j.parent_correct),
             "parent_correct_all": sum(1 for j in items if j.parent_correct), "parent_scored": sum(1 for j in items if j.parent_correct is not None),
         })
+    return rows
+
+
+def silent_errors(js: list[Judgment], *, examples: int = 10) -> list[dict[str, Any]]:
+    """160-D: per flow, the judgments with a known truth (1st run) whose row records its to-dos: how many were wrong,
+    how many of those the recorded run flagged with a to-do, and how many passed without one (silent errors), with the
+    first silent cases (`<case> <question>`). Without JEV this is the number the field threshold has to keep low."""
+    groups: dict[str, list[Judgment]] = defaultdict(list)
+    for j in _first_runs(js):
+        if j.correct is not None and j.flagged is not None:
+            groups[j.flow].append(j)
+    rows = []
+    for flow, items in sorted(groups.items()):
+        wrong = [j for j in items if not j.correct]
+        silent = [j for j in wrong if not j.flagged]
+        rows.append({"flow": flow, "scored": len(items), "wrong": len(wrong), "flagged": len(wrong) - len(silent),
+                     "silent": len(silent), "silent_cases": [f"{j.case_id} {j.question}" for j in silent[:examples]]})
     return rows
 
 
@@ -497,12 +605,16 @@ def report_markdown(paths: list[Path | str]) -> str:
         bands = ", ".join(f"{b} {n}" for b, n in r["bands"].items())
         accb = ", ".join(f"{b} {a:.0%}" for b, a in r["acc_by_band"].items()) or "-"
         L.append(f"| {r['flow']} | {r['question']} | {r['kind']} | {r['n']} | {acc} | {_f(r['mean'])} | {_f(r['std'])} | {bands} | {accb} |")
-    L += ["", "## Kalibráció (Choice-ítéletek igazsággal)", ""]
-    flows = sorted({j.flow for j in js if j.kind == "choice" and j.correct is not None})
+    L += ["", "## Kalibráció (Choice-ítéletek igazsággal)", "",
+          "GPT flows (`_gpt`, 160-D): their own call sites (`.gpt`) and finer bins near 1; a GPT field's band is `auto` "
+          f"at or above {policy.GPT_FIELD_CONFIDENCE['review_below']} (`gpt_field_confidence.review_below`), a to-do below.", ""]
+    flows = sorted({j.flow for j in js if j.kind in ("choice", "field") and j.correct is not None})
     for flow in flows:
         fj = [j for j in js if j.flow == flow]
-        for key in ("top_prob", "confidence"):
-            cal = calibration(fj, key=key)
+        fields_only = all(j.kind == "field" for j in fj if j.kind in ("choice", "field"))
+        edges = GPT_CAL_BIN_EDGES if "_gpt" in flow else CAL_BIN_EDGES
+        for key in (("confidence",) if fields_only else ("top_prob", "confidence")):
+            cal = calibration(fj, key=key, edges=edges)
             if cal["n"] == 0:
                 continue
             L += [f"**{flow} · {key}** — n = {cal['n']}, ECE = {cal['ece']:.3f}", "", "| sáv | n | átlag P | találat |", "|---|---|---|---|"]
@@ -521,6 +633,18 @@ def report_markdown(paths: list[Path | str]) -> str:
     for r in policy_reeval(js):
         acc = f"{r['uncertain_only_accuracy']:.0%}" if r["uncertain_only_accuracy"] is not None else "-"
         L.append(f"| {r['flow']} | {r['cases']} | {r['cases_human']} | {r['cases_uncertain_only']} | {acc} | {r['noul_uncertain']} |")
+    L += ["", "## Silent errors (wrong, no to-do in the recorded run)", ""]
+    srows = silent_errors(js)
+    if srows:
+        L += ["Judgments with a known truth whose run rows record their to-dos. `flagged`: the run left a to-do on the "
+              "wrong answer (on the field, or on the item for a type or an intent, its own low-confidence band "
+              "included); `silent`: it passed without one. A field outside the policy's to-do fields can be silent "
+              "below the threshold too: its colour still shows the lower confidence.", "",
+              "| flow | scored | wrong | flagged | silent | first silent cases |", "|---|---|---|---|---|---|"]
+        for r in srows:
+            L.append(f"| {r['flow']} | {r['scored']} | {r['wrong']} | {r['flagged']} | {r['silent']} | {', '.join(r['silent_cases']) or '-'} |")
+    else:
+        L.append("(no input row records its to-dos)")
     L += ["", "## Szülő-címke (regiszter v2, `parent_min_prob`)", ""]
     prows = parent_fallback_summary(js)
     if prows:

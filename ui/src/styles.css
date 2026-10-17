@@ -572,6 +572,9 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .release-line .status { font-size: var(--fs-sm); font-weight: 600; }
 .release-detail { color: var(--muted); min-width: 0; font-variant-numeric: tabular-nums; }
 .release-line > button { margin-left: auto; }
+/* 160-D: the AI engine of a run or a result: a fact, not a state, so a hairline frame with no state colour or accent */
+.engine-mark { display: inline-flex; align-items: center; font-size: var(--fs-xs); font-weight: 500; line-height: 18px;
+  color: var(--ink-2); padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); white-space: nowrap; }
 .release-line > [role="status"] { flex-basis: 100%; }
 /* 078: the content-named copies above the File names table: the explanation, then the two actions, on one row */
 .named-copies { display: flex; gap: var(--sp-2) var(--sp-4); align-items: center; flex-wrap: wrap; }
@@ -751,11 +754,13 @@ button.chip[aria-pressed="true"] { background: var(--tint); border-color: var(--
 .wizard-choice:has(input:checked) { border-color: var(--ink); background: var(--tint); } /* 157: a choice is a selection, not an action */
 .wizard-choice input { accent-color: var(--ink); }
 .wizard-choice > span { display: grid; gap: 3px; }
+.engine-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* 160-D: the two AI engines side by side */
 .wz-chain { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-1); }
 .wz-step { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); min-width: 0; overflow-wrap: anywhere; }  /* 154: a fieldset is min-content wide by default */
 .wz-step legend { font-weight: 600; padding: 0 4px; }
 .wz-budget { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .wz-budget input { width: 6.5em; }
+.wz-engine { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); align-items: center; } /* 160-D: a step's AI engine, above its budget */
 .wz-overview { display: grid; gap: 8px; padding-left: 20px; min-width: 0; overflow-wrap: anywhere; }
 /* 157: a label beside its control (the workflows' filters and budgets) */
 label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }

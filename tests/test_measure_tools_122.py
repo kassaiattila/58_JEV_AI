@@ -32,10 +32,11 @@ class _Spy:
     def __init__(self):
         self.limits, self.calls = [], []
 
-    def measurement(self, scope, limits):
+    def measurement(self, scope, limits, *, reuse=False):  # 160-D: a golden measurement passes its cache setting
         from contextlib import nullcontext
 
         self.limits.append(limits)
+        self.calls.append(reuse)
         return nullcontext(scope)
 
 

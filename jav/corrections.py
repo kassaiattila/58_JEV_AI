@@ -42,6 +42,7 @@ from typing import Any
 from jav import (dates, duplicates, grounding, native_results, numbers, reconcile, source_layer, statement_months, store, typepack,
                  validators, work)
 from jav.native_contracts import Publication
+from jav.policy import reason_field
 
 store.register_schema("corrections", """
 CREATE TABLE IF NOT EXISTS run_item_corrections (
@@ -137,17 +138,6 @@ def current(run_id: str, item_id: str, c: sqlite3.Connection | None = None) -> d
                 "note": None, "created_at": None, "native_sources": {}, "result_version": None}
     return {**dict(row), "fields": json.loads(row["fields"]), "sources": json.loads(row["sources"] or "{}"),
             "confirmed": json.loads(row["confirmed"] or "{}"), "native_sources": json.loads(row["native_sources"] or "{}")}
-
-
-def reason_field(code: str, fields: set[str]) -> str | None:
-    """083: the simple field a to-do is about, or None when it is about the document (or a line item). The field stands
-    third in most codes (`pick:low_conf:payment_iban:0.53`) and first in a parse error (`meter_reading_start:unparseable`);
-    only a simple field of the item's type pack counts."""
-    parts = code.split(":")
-    for part in (parts[2] if len(parts) > 2 else None, parts[0]):
-        if part in fields:
-            return part
-    return None
 
 
 def _with_fields(reasons: list[dict[str, Any]], fields: set[str]) -> list[dict[str, Any]]:
@@ -475,8 +465,9 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
     if item is None:
         raise KeyError(item_id)
+    engine = work.run_engine(run)  # 160-D: the engine of the run that produced the result shown
     if native_results.native_item(run_id, item):  # 120: a continuing PDF too, by its publication
-        return _native_item_result(run, item)
+        return {**_native_item_result(run, item), "engine": engine}
     if item.get("kind") == "email":  # 048 T2: email item: no extraction or page image; shows the email and intent
         from jav import mailbox
 
@@ -485,10 +476,13 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
         # 058 K5.2: the email's attachments that ran as documents in the run (the UI refers to them)
         attachment_items = [{"item_id": i["item_id"], "filename": Path(i["source_path"]).name}
                             for i in run["input"]["items"] if i.get("parent_item_id") == item_id]
+        email = mailbox.email_item_view(item, work.flow_run_id(run_id, item_id), corr["fields"].get("intent"))
+        own = bool(email["result"] and email["result"]["from_this_run"])
         return {"run_id": run_id, "item_id": item_id, "kind": "email", "extraction": None, "correction": corr,
                 "effective": {}, "lists": {}, "checks": [], "provenance": {}, "source": None,
-                "attachment_items": attachment_items,
-                "email": mailbox.email_item_view(item, work.flow_run_id(run_id, item_id), corr["fields"].get("intent")),
+                "attachment_items": attachment_items, "email": email,
+                # an intent taken from another run was not produced with this run's settings
+                "engine": engine if own else None,
                 "open_reasons": reasons["run"], "earlier_open_reasons": reasons["earlier"]}
     dp = datapoints_row(run_id, item_id)
     corr = current(run_id, item_id)
@@ -511,7 +505,7 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
         # layer's page count is used
         n_pages = None
     return {"run_id": run_id, "item_id": item_id, "kind": "statement_table" if table else "document", "page_count": n_pages,
-            "extraction": dp, "correction": corr,
+            "extraction": dp, "correction": corr, "engine": None if table else engine,  # 136: a statement read by code
             "effective": effective, "lists": lists,
             # 081: the field kinds, so the UI shows amounts and quantities for editing the Hungarian way ("35,56")
             "kinds": {f: k for f, k in pack.fields.items() if k != "list"} if pack else {},

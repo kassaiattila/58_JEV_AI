@@ -81,7 +81,8 @@ def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: boo
     limits = {provider: budget_usd} if budget_usd is not None else {}
     if not limits:  # 160 (review AI-8): without a budget only earlier answers count
         print(calls.NO_BUDGET_NOTE)
-    with calls.measurement(f"measure-{stamp}-detect", limits), detect_gpt.use_type_descriptions(descriptions):
+    with (calls.measurement(f"measure-{stamp}-detect", limits, reuse=use_cache),
+          detect_gpt.use_type_descriptions(descriptions)):
         for case in cases:
             t0 = time.perf_counter()
             st = run_detect(str(case.path), use_cache=use_cache, jev=jev)
@@ -109,9 +110,10 @@ def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: boo
     return rows
 
 
-def detect_determinism(n: int = 3, limit: int | None = None) -> None:
+def detect_determinism(n: int = 3, limit: int | None = None, *, jev: bool = True) -> None:
     """n repeated runs WITHOUT cache on the detect golden set (under `no_cache_write()`, the reference cache is
-    untouched): type flips per case, confidence spread. The rows fit the determinism section of the eval report."""
+    untouched): type flips per case, confidence spread. The rows fit the determinism section of the eval report.
+    `jev=False` (160-D): GPT recognises the type, every run a live call (a measurement reuses no earlier answer)."""
     from jav.adapters.jev import get_adapter
     from jav.flow_detect import run_detect
 
@@ -122,7 +124,7 @@ def detect_determinism(n: int = 3, limit: int | None = None) -> None:
     with get_adapter().no_cache_write():
         for k in range(n):
             for case in cases:
-                st = run_detect(str(case.path), use_cache=False)
+                st = run_detect(str(case.path), use_cache=False, jev=jev)
                 r = st.result
                 if r is None:
                     continue
@@ -146,7 +148,7 @@ def detect_determinism(n: int = 3, limit: int | None = None) -> None:
     if stds:
         print(f"**Choice confidence szórás:** átlag {statistics.mean(stds):.4f}, max {max(stds):.4f}")
     RUNS_DIR.mkdir(exist_ok=True)
-    out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_detect_determinism.jsonl"
+    out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_detect_determinism{'' if jev else '_gpt'}.jsonl"
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for rs in per_case.values() for r in rs) + "\n", encoding="utf-8")
     print(f"Nyers futások: {out}")
 
@@ -193,7 +195,8 @@ def _already_detected() -> set[str]:
         return {r["source_path"] for r in c.execute("SELECT source_path FROM documents WHERE doc_type IS NOT NULL OR has_text = 0")}
 
 
-def detect_corpus(root: Path, *, limit: int | None = None, force: bool = False, use_cache: bool = True, redo_unknown: bool = False) -> None:
+def detect_corpus(root: Path, *, limit: int | None = None, force: bool = False, use_cache: bool = True, redo_unknown: bool = False,
+                  jev: bool = True) -> None:
     from jav.flow_detect import run_detect
 
     pdfs = iter_pdfs(root)
@@ -212,7 +215,7 @@ def detect_corpus(root: Path, *, limit: int | None = None, force: bool = False, 
     errors: list[str] = []
     for i, p in enumerate(todo, 1):
         try:
-            st = run_detect(str(p), use_cache=use_cache)
+            st = run_detect(str(p), use_cache=use_cache, jev=jev)
             tag = st.result.doc_type if st.result else st.final_status
             conf = f"{st.result.confidence:.2f}" if st.result else "-"
         except Exception as exc:  # noqa: BLE001 - one faulty PDF must not stop the walk

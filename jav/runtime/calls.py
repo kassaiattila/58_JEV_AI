@@ -157,19 +157,42 @@ def use_run(*, budget_scope: str | None, reuse: bool = False, measurement: bool 
 
 
 @contextmanager
-def measurement(scope: str, limits: dict[str, Decimal]):
+def measurement(scope: str, limits: dict[str, Decimal], *, reuse: bool = False):
     """086: a paid measurement outside a work run, under a hard budget (the owner's sub-budget): every call reserves from
     `scope`'s budget and goes into the call log; a provider without a limit here cannot be called at all (e.g. no
     Azure escalation, no stray JEV call). 160 (review AI-8): with no limit at all, only earlier answers count (the JEV
     cache); the commands and measurements that used to run outside the call log without a budget run so. A name used
     again keeps its budget and what it has spent (a rerun cannot spend the sub-budget twice), unless the earlier use
     budgeted a provider this one gives none: then the name gets a suffix, so that provider stays uncallable here. The
-    scope actually used is yielded."""
+    scope actually used is yielded. 160-D: `reuse` lets the measurement reuse an earlier answer to the same question
+    (090), free and without a budget, as a work run does; a golden measurement passes its cache setting, a determinism
+    measurement never reuses. At the end it prints how many calls were live and how many answers were reused."""
     scope = _fresh_scope(scope, set(limits))
     for provider, limit in limits.items():
         set_budget(scope, provider, limit)
-    with use_run(budget_scope=scope, measurement=True):
-        yield scope
+    try:
+        with use_run(budget_scope=scope, reuse=reuse, measurement=True):
+            yield scope
+    finally:
+        counts = scope_calls(scope)
+        if counts["live"] or counts["reused"]:
+            print(scope_calls_text(counts), flush=True)
+
+
+def scope_calls(scope: str) -> dict[str, Any]:
+    """160-D: the calls of a budget scope: the live ones with what they cost, and the reused answers (090)."""
+    with store.connect() as c:
+        rows = c.execute("SELECT note, cost_usd FROM invocations WHERE budget_scope=?", (scope,)).fetchall()
+    reused = [r for r in rows if (r["note"] or "").startswith(f"{REUSED_NOTE}:")]
+    live = [r for r in rows if not (r["note"] or "").startswith(f"{REUSED_NOTE}:")]
+    cost = sum((Decimal(str(r["cost_usd"])) for r in live if r["cost_usd"] is not None), Decimal("0"))
+    return {"live": len(live), "live_cost_usd": cost, "reused": len(reused)}
+
+
+def scope_calls_text(counts: dict[str, Any]) -> str:
+    live, reused = counts["live"], counts["reused"]
+    return (f"Calls: {live} live call{'' if live == 1 else 's'} ({counts['live_cost_usd']} USD), "
+            f"{reused} earlier answer{'' if reused == 1 else 's'} reused (0 USD).")
 
 
 def _fresh_scope(scope: str, providers: set[str]) -> str:

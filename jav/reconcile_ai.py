@@ -519,7 +519,7 @@ def run(wp_id: str, *, engines: Iterable[str], limits: dict[str, Decimal], max_l
                 return {"options": [inv["id"] for inv in invoices], "measured": False, "error": f"{type(exc).__name__}: {exc}"}
         return ask
 
-    with calls.measurement(scope, limits) as scope, raw.open("w", encoding="utf-8", newline="\n") as fh:
+    with calls.measurement(scope, limits, reuse=use_cache) as scope, raw.open("w", encoding="utf-8", newline="\n") as fh:
         for engine in engines:
             steps = 0
             for line, _invoices, how, answer in _walk(engine, lines, items, asker(engine), redo=redo, stale=stale):
@@ -559,7 +559,7 @@ def golden(*, engines: Iterable[str], limits: dict[str, Decimal], use_cache: boo
     out_dir.mkdir(parents=True, exist_ok=True)
     raw = out_dir / f"{stamp}_credit_kinds_golden.jsonl"
     score: dict[str, dict[str, Any]] = {}
-    with calls.measurement(scope, limits) as scope, raw.open("w", encoding="utf-8", newline="\n") as fh:
+    with calls.measurement(scope, limits, reuse=use_cache) as scope, raw.open("w", encoding="utf-8", newline="\n") as fh:
         for engine in engines:
             by_kind: dict[str, Counter[str]] = {}
             confusions: Counter[str] = Counter()

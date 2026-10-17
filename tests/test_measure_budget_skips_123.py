@@ -37,7 +37,7 @@ def test_golden_command_exits_with_three_when_the_budget_skipped_a_case(monkeypa
     from jav import evals
     monkeypatch.setattr(evals, "golden", lambda *a, **k: rows())
     args = argparse.Namespace(store=None, arm="G", tracker=False, no_cache=False, type="invoice_hu",
-                              no_jev=True, budget_usd="0.05")
+                              engine="gpt", budget_usd="0.05")
     assert cli.cmd_golden(args) == 3
     monkeypatch.setattr(evals, "golden", lambda *a, **k: rows()[:1])
     assert cli.cmd_golden(args) == 0
@@ -48,5 +48,5 @@ def test_detect_golden_command_exits_with_three_when_the_budget_skipped_a_case(m
 
     from jav import evals_detect
     monkeypatch.setattr(evals_detect, "detect_golden", lambda *a, **k: rows())
-    args = argparse.Namespace(store=None, cases=None, no_cache=False, no_jev=True, keys_only=False, budget_usd="0.05")
+    args = argparse.Namespace(store=None, cases=None, no_cache=False, engine="gpt", keys_only=False, budget_usd="0.05")
     assert cli.cmd_detect_golden(args) == 3
