@@ -309,6 +309,7 @@ class StartRun(_In):
     expected_revision: Annotated[int, Field(ge=0)]
     input_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{16}$")]
     rerun_of: Annotated[str, Field(pattern=r"^run-[0-9a-f]{12}$")] | None = None  # 057: rerun
+    scope: Literal["all", "pending"] = "all"  # 160-C S3: "pending" = only the package's pending items
 
 
 class Empty(_In):
@@ -1073,7 +1074,8 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/workpackages/{wp_id}/workflow/start")
     def start(wp_id: WpId, body: StartRun, who: Annotated[str, Depends(human_actor)]) -> JavJSONResponse:
         res = work.start_run(wp_id, mode=body.mode, expected_assignment_revision=body.expected_revision,
-                             input_hash=body.input_hash, actor=who, rerun_of=body.rerun_of)
+                             input_hash=body.input_hash, actor=who, rerun_of=body.rerun_of,
+                             scope=body.scope)
         run = work.get_run(res["run_id"])
         return JavJSONResponse({**res, "status": run["status"]}, status_code=200 if res["deduped"] else 201)
 

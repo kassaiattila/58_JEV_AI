@@ -215,6 +215,7 @@ def _runs(scope: dict[str, str]) -> Rows:
         _col("workpackage_name", "Munkacsomag", link="workpackage"),
         _col("recipe_id", "Feldolgozás", "enum", labels="recipe"),
         _col("mode", "Mód", "enum", labels="mode"),
+        _col("scope", "Run scope", "enum", labels="run_scope"),  # 160-C S3: a run over only the pending items
         _col("status", "Állapot", "enum", labels="run_status", badge=True),
         _col("approval", "Jóváhagyás", "enum", labels="approval"),
         _col("approved_by", "Jóváhagyta", hidden=True),

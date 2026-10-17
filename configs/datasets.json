@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.18.0",
+  "version": "1.19.0",
   "changelog": [
+   {
+    "version": "1.19.0",
+    "date": "2026-10-17",
+    "note": "160-C S3: run_scope - a run over only the package's pending items (the runs table's Scope column); activity_action item_remove, item_restore and items_add - removing, restoring and adding items appear in the activity log with a label (English source text, translated by the interface)."
+   },
    {
     "version": "1.18.0",
     "date": "2026-10-12",
@@ -107,6 +112,7 @@
   "item_status": {"done": "Lefutott", "failed": "Hibás", "cancelled": "Leállítva", "needs_review": "Teendő", "needs_ocr": "OCR kell"},
   "final_status": {"done": "Lezárva, teendő nélkül", "needs_review": "Teendő", "needs_ocr": "OCR kell", "jev_unavailable": "JEV nem volt elérhető"},
   "mode": {"shadow": "Próba", "apply": "Éles"},
+  "run_scope": {"pending": "Pending items only"},
   "approval": {"approved": "Jóváhagyva"},
   "wp_status": {"open": "Aktív", "archived": "Elrejtve"},
   "kind": {"document": "Irat", "email": "Levél"},
@@ -125,7 +131,7 @@
    "suspected:variant": "Suspected modified version", "suspected:undecidable": "Possible duplicate (a compared value is missing)"},
   "activity_action": {"archive": "csomag elrejtése", "restore": "csomag visszahozása", "rename": "csomag átnevezése",
    "delete": "csomag törlése", "owner": "felelős beállítása", "recipe": "feldolgozási beállítások mentése", "run_start": "futás indítása",
-   "run_approve": "futás jóváhagyása", "run_cancel": "futás leállítása", "run_supersede": "futás leváltása", "correction": "javítás", "reason_resolve": "teendő lezárása",
+   "run_approve": "futás jóváhagyása", "run_cancel": "futás leállítása", "run_supersede": "futás leváltása", "item_remove": "item removed", "item_restore": "item restored", "items_add": "items added","correction": "javítás", "reason_resolve": "teendő lezárása",
    "task_decision": "feladatjavaslat döntése", "task_done": "feladat elvégezve", "mailbox_pull": "postafiók-letöltés", "reconcile_scope": "egyeztetési kör beállítása", "reconcile_allocate": "egyeztetés: párosítás", "reconcile_reject": "egyeztetés: elutasítás", "reconcile_mark": "egyeztetés: nem kell számla", "reconcile_revoke": "egyeztetés: visszavonás"}
  },
  "cache_entries": 24,

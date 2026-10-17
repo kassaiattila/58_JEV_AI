@@ -5,6 +5,7 @@ and a finished run keeps it. Synthetic PDFs, a fake JEV client, no paid calls.
 """
 
 import json
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -278,3 +279,144 @@ def test_an_item_removed_after_the_approval_stays_in_the_released_result(env):
            json={"expected_revision": work.get(wp["id"])["revision"], "reason": "later"})
     assert _exported_items(c, run_id) == {i["item_id"] for i in wp["items"]}
     assert c.get(f"/api/runs/{run_id}").json()["removed_items"] == []
+
+
+# --- S3: a run over only the pending items ------------------------------------------------------------------------
+
+
+def _add(c: TestClient, env, wp_id: str, name: str, number: str) -> str:
+    r = c.post(f"/api/workpackages/{wp_id}/items", headers=HUMAN,
+               json={"paths": [str(_new_pdf(env, name, number))], "expected_revision": work.get(wp_id)["revision"]})
+    assert r.status_code == 200, r.text
+    return next(i["item_id"] for i in r.json()["workpackage"]["items"] if i["source_path"].endswith(name))
+
+
+def test_a_run_over_the_pending_items_takes_only_them_with_their_own_budget(env):
+    c = env["client"]
+    wp = _package(c, env["folder"])
+    _assign(c, wp["id"])
+    first = _start(c, wp["id"])["run_id"]
+    worker.run_worker(once=True)
+    assert "apply" not in c.get(f"/api/workpackages/{wp['id']}/workflow/readiness").json().get("supplement", {})
+    new = _add(c, env, wp["id"], "invoice_5.pdf", "MINTA-2026-005")
+    ready = c.get(f"/api/workpackages/{wp['id']}/workflow/readiness").json()
+    sup = ready["supplement"]["apply"]
+    assert sup["items"] == 1 and ready["counts"]["items"] == 3
+    assert sup["input_hash"] != ready["input_hash"] and sup["ready"] is True
+    full = {p: Decimal(v) for p, v in ready["budget"].items()}
+    assert {p: Decimal(v) for p, v in sup["budget"].items()} == {p: v / 3 for p, v in full.items()}  # one item's of three
+    assert sup["plan"]["documents"] == 1
+    assert "shadow" not in ready["supplement"]  # no trial run yet: a trial takes the whole package
+    r = c.post(f"/api/workpackages/{wp['id']}/workflow/start", headers=HUMAN,
+               json={"mode": "apply", "scope": "pending", "expected_revision": ready["assignment_revision"],
+                     "input_hash": sup["input_hash"]})
+    assert r.status_code == 201, r.text
+    run = work.get_run(r.json()["run_id"])
+    assert [i["item_id"] for i in run["input"]["items"]] == [new] and run["scope"] == "pending"
+    worker.run_worker(once=True)
+    assert [i["item_id"] for i in work.get_run(run["run_id"])["items"]] == [new]
+    assert len(work.get_run(first)["items"]) == 2  # the first run is untouched
+    assert work.pending_items(wp["id"], "apply") == []
+    assert "apply" not in c.get(f"/api/workpackages/{wp['id']}/workflow/readiness").json().get("supplement", {})
+
+
+def _start_pending(c: TestClient, wp_id: str, mode: str = "apply"):
+    ready = c.get(f"/api/workpackages/{wp_id}/workflow/readiness").json()
+    return c.post(f"/api/workpackages/{wp_id}/workflow/start", headers=HUMAN,
+                  json={"mode": mode, "scope": "pending", "expected_revision": ready["assignment_revision"],
+                        "input_hash": ready["supplement"][mode]["input_hash"]})
+
+
+def test_a_double_click_starts_one_run_over_the_pending_items_and_a_stopped_one_can_start_again(env):
+    c = env["client"]
+    wp = _package(c, env["folder"])
+    _assign(c, wp["id"])
+    _start(c, wp["id"])
+    worker.run_worker(once=True)
+    _add(c, env, wp["id"], "invoice_6.pdf", "MINTA-2026-006")
+    ready = c.get(f"/api/workpackages/{wp['id']}/workflow/readiness").json()
+    body = {"mode": "apply", "scope": "pending", "expected_revision": ready["assignment_revision"],
+            "input_hash": ready["supplement"]["apply"]["input_hash"]}
+    first = c.post(f"/api/workpackages/{wp['id']}/workflow/start", headers=HUMAN, json=body)
+    again = c.post(f"/api/workpackages/{wp['id']}/workflow/start", headers=HUMAN, json=body)
+    assert (first.status_code, again.status_code) == (201, 200)
+    assert again.json()["run_id"] == first.json()["run_id"] and again.json()["deduped"] is True
+    assert c.post(f"/api/runs/{first.json()['run_id']}/cancel", headers=HUMAN, json={}).status_code == 200
+    restarted = _start_pending(c, wp["id"])
+    assert restarted.status_code == 201 and restarted.json()["run_id"] != first.json()["run_id"]
+    _add(c, env, wp["id"], "invoice_7.pdf", "MINTA-2026-007")  # while that run is queued
+    refused = _start_pending(c, wp["id"])
+    assert refused.status_code == 409 and refused.json()["blockers"][0]["code"] == "run_active"
+    worker.run_worker(once=True)
+    late = c.post(f"/api/workpackages/{wp['id']}/workflow/start", headers=HUMAN, json=body)
+    assert late.status_code == 409  # the pending items changed since: a stale page starts nothing
+
+
+def _resolve(c: TestClient, wp_id: str, run_id: str) -> None:
+    """Close the open to-dos one run raised on the package."""
+    for item in c.get(f"/api/workpackages/{wp_id}/reviews").json()["items"]:
+        for reason in item["open_reasons"]:
+            if str(reason["run_id"]).startswith(run_id + ":"):
+                assert c.post(f"/api/review-reasons/{reason['id']}/resolve", json={"note": "checked"}, headers=HUMAN).status_code == 200
+
+
+def test_the_oldest_open_live_run_is_the_packages_current_one_and_the_others_show(env):
+    """160-C S3: a run over the pending items next to an earlier live run waiting for its review: the package's next
+    step is about the earlier one first, the later one is listed with its to-dos, and neither hides the other."""
+    c = env["client"]
+    wp = _package(c, env["folder"])
+    _assign(c, wp["id"])
+    first = _start(c, wp["id"])["run_id"]
+    worker.run_worker(once=True)
+    _add(c, env, wp["id"], "invoice_8.pdf", "MINTA-2026-008")
+    second = _start_pending(c, wp["id"]).json()["run_id"]
+    worker.run_worker(once=True)
+    view = c.get(f"/api/workpackages/{wp['id']}").json()
+    assert view["last_run"]["run_id"] == second and view["current_run"]["run_id"] == first
+    assert view["next"]["code"] == "review" and view["next"]["params"]["n"] == view["current_run"]["open_reasons"]
+    assert [(r["run_id"], r["items"]) for r in view["open_runs"]] == [(first, 2), (second, 1)]
+    assert view["open_runs"][1]["open_reasons"] > 0 and view["open_runs"][1]["scope"] == "pending"
+    _resolve(c, wp["id"], first)
+    assert c.post(f"/api/runs/{first}/approve", json={}, headers=HUMAN).status_code == 200
+    view = c.get(f"/api/workpackages/{wp['id']}").json()
+    assert view["current_run"]["run_id"] == second and view["next"]["code"] == "review"
+    assert [r["run_id"] for r in view["open_runs"]] == [second]
+    _resolve(c, wp["id"], second)
+    assert c.post(f"/api/runs/{second}/approve", json={}, headers=HUMAN).status_code == 200
+    view = c.get(f"/api/workpackages/{wp['id']}").json()
+    assert view["next"]["code"] == "done" and view["open_runs"] == []
+    approved = work.get_run(first)
+    assert approved["approval"] == "approved" and len(approved["input"]["items"]) == 2  # untouched by the later run
+    assert _exported_items(c, first) == {i["item_id"] for i in wp["items"]}
+
+
+def test_a_workflow_step_is_not_done_while_an_earlier_live_run_of_its_package_is_open(env):
+    """160-C S3: an approved run over the pending items next to an earlier open live run does not make the step done
+    (it looked only at the latest live run)."""
+    from jav import parties, workflows
+
+    c = env["client"]
+    wp = _package(c, env["folder"])
+    party = parties.create("Example Kft.", identities=[], actor="tester")["id"]
+    made = workflows.create(template_id="monthly_reconciliation", party_id=party, period_start="2026-06-01",
+                            period_end="2026-06-30", actor="tester", auto=False,
+                            steps={"invoices": {"source": {"kind": "package", "workpackage_id": wp["id"]}},
+                                   "statements": {"source": {"kind": "folder", "folder": str(env["root"])}},
+                                   "reconcile": {"source": {"kind": "none"}}})
+
+    def status() -> str:
+        return next(s["status"] for s in workflows.view(made["workflow"]["id"])["steps"] if s["id"] == "invoices")
+
+    _assign(c, wp["id"])
+    first = _start(c, wp["id"])["run_id"]
+    worker.run_worker(once=True)
+    _add(c, env, wp["id"], "invoice_9.pdf", "MINTA-2026-009")
+    second = _start_pending(c, wp["id"]).json()["run_id"]
+    worker.run_worker(once=True)
+    _resolve(c, wp["id"], second)
+    assert c.post(f"/api/runs/{second}/approve", json={}, headers=HUMAN).status_code == 200
+    assert status() == "review"  # the first run's to-dos are still open
+    _resolve(c, wp["id"], first)
+    assert status() == "approve"
+    assert c.post(f"/api/runs/{first}/approve", json={}, headers=HUMAN).status_code == 200
+    assert status() == "approved"

@@ -392,10 +392,14 @@ def _package_state(wp_id: str) -> tuple[bool, dict[str, Any] | None]:
 
 
 def _live_run_approved(wp_id: str) -> bool:
+    """Whether the package has an approved live run and no other live run still going or open (160-C S3: a run over
+    the pending items next to an earlier live run waiting for review; `work.open_live_runs`)."""
     with store.connect() as c:  # 153: a live run a person stopped later does not undo an approved one
-        row = c.execute("SELECT approval FROM runs WHERE workpackage_id=? AND mode='apply' AND status != 'cancelled'"
-                        " ORDER BY created_at DESC, rowid DESC LIMIT 1", (wp_id,)).fetchone()
-    return bool(row and row["approval"])
+        rows = c.execute("SELECT approval, status FROM runs WHERE workpackage_id=? AND mode='apply' AND status != 'cancelled'",
+                         (wp_id,)).fetchall()
+    if not any(r["approval"] for r in rows) or any(not r["approval"] and r["status"] in ("queued", "running") for r in rows):
+        return False
+    return not work.open_live_runs(wp_id)
 
 
 def _satisfied(st: dict[str, Any]) -> bool:

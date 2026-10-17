@@ -11,6 +11,8 @@ Rules:
 - Starting the same package + assignment revision + input + mode again returns the existing run (`deduped`).
 - Approval only in live mode, once every item has finished and with no open to-do.
 - The run's budget is the recipe's per-item maximum × the item count (`jav.runtime.calls`, scope = run_id).
+- 160-C S3: a run can take only the package's pending items (`scope="pending"`); its input, budget and plan are
+  those items' alone, and the earlier runs stay as they are.
 """
 
 from __future__ import annotations
@@ -140,6 +142,8 @@ def _migrate(conn) -> None:
         conn.execute("ALTER TABLE runs ADD COLUMN stopped_by TEXT")
     if rcols and "excluded_items" not in rcols:  # 160-C (decision 163 D7): items removed before the approval (JSON)
         conn.execute("ALTER TABLE runs ADD COLUMN excluded_items TEXT")
+    if rcols and "scope" not in rcols:  # 160-C S3: NULL = every item in use, 'pending' = only the pending items
+        conn.execute("ALTER TABLE runs ADD COLUMN scope TEXT")
     if cols and "removed_at" not in cols:  # 160-C S1 (decision 163 D2): who removed an item, when and why
         conn.execute("ALTER TABLE workpackage_items ADD COLUMN removed_at TEXT")
         conn.execute("ALTER TABLE workpackage_items ADD COLUMN removed_by TEXT")
@@ -931,11 +935,12 @@ def migrate_assignments(*, write: bool) -> list[dict[str, Any]]:
 # --- readiness ---------------------------------------------------------------------------------------
 
 
-def _input_snapshot(wp: dict[str, Any]) -> dict[str, Any]:
-    items = [{"item_id": i["item_id"], "kind": i["kind"], "source_path": i["source_path"], "sha256": i["sha256"],
-              **({"parent_item_id": i["parent_item_id"]} if i.get("parent_item_id") else {}),
-              **({"instance": i["instance"]} if i.get("instance") else {})} for i in wp["items"]]
-    return {"workpackage_id": wp["id"], "workpackage_revision": wp["revision"], "items": items}
+def _input_snapshot(wp: dict[str, Any], items: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """The frozen input of a run: the package's items in use, or only `items` (160-C S3: the pending ones)."""
+    frozen = [{"item_id": i["item_id"], "kind": i["kind"], "source_path": i["source_path"], "sha256": i["sha256"],
+               **({"parent_item_id": i["parent_item_id"]} if i.get("parent_item_id") else {}),
+               **({"instance": i["instance"]} if i.get("instance") else {})} for i in (wp["items"] if items is None else items)]
+    return {"workpackage_id": wp["id"], "workpackage_revision": wp["revision"], "items": frozen}
 
 
 def _snapshot_hash(snapshot: dict[str, Any]) -> str:
@@ -1104,46 +1109,92 @@ def _readiness(wp_id: str, *, verify: bool) -> dict[str, Any]:
         warnings.append({"code": "recipe_retired", "message": "The package uses a retired processing; switch it to the current processing settings."})
     elif a is not None and recipe_hash(r) != a["recipe_hash"]:
         warnings.append({"code": "recipe_changed", "message": "The processing changed since the settings were saved; save them again."})
-    for i in wp["items"]:
-        p = Path(i["source_path"])
-        if i["kind"] not in r["input_kinds"] or p.suffix.lower() not in r.get("file_suffixes", [p.suffix.lower()]):
-            blockers.append({"code": "unsupported_item", "message": f"The processing does not handle: {p.name}"})
-        elif p.suffix.lower() in NATIVE_SUFFIXES and flow_for(r, i) != "native":
-            blockers.append({"code": "native_recipe_required", "message": f"Choose multi-format processing for: {p.name}"})
-        if flow_for(r, i) == "native" and params.get("arm") == "S":
-            blockers.append({"code": "native_s_unsupported", "message": "Native documents require GPT extraction; the JEV-only path has no predefined field contract."})
-        if i.get("instance"):
-            if not _instance_ok(i, verify=verify):
-                blockers.append({"code": "instance_damaged", "message": f"The copy kept when it was added is missing or damaged: {p.name}"})
-            elif (state := original_state(i)) != "same":
-                warnings.append({"code": f"original_{state}", "message": (
-                    f"The original file has {'changed' if state == 'changed' else 'disappeared'} since it was added; "
-                    f"the copy kept then is processed: {p.name}")})
-        elif not p.exists():
-            blockers.append({"code": "source_missing", "message": f"Hiányzó forrás: {p.name}"})
-        elif fingerprint(p, verify=verify) != i["sha256"]:
-            blockers.append({"code": "source_changed", "message": f"A forrás tartalma a felvétel óta változott: {p.name}"})
+    checks = _item_checks(r, params, wp["items"], verify=verify)
     snapshot = _input_snapshot(wp)
     arms = _item_arms(r, params, wp["items"])
-    return {"workpackage_id": wp_id, "ready": not blockers, "blockers": blockers, "warnings": warnings,
-            "counts": {"items": len(wp["items"])}, "budget": _run_budget(r, params, wp["items"], arms),
-            "plan": run_plan(r, params, wp["items"], arms),
-            "assignment_revision": a["revision"] if a else 0, "assignment_default": a is None,
-            "input_hash": _snapshot_hash(snapshot)}
+    out = {"workpackage_id": wp_id, "ready": not blockers and not any(level == "blocker" for _i, level, _f in checks),
+           "blockers": blockers + [f for _i, level, f in checks if level == "blocker"],
+           "warnings": warnings + [f for _i, level, f in checks if level == "warning"],
+           "counts": {"items": len(wp["items"])}, "budget": _run_budget(r, params, wp["items"], arms),
+           "plan": run_plan(r, params, wp["items"], arms),
+           "assignment_revision": a["revision"] if a else 0, "assignment_default": a is None,
+           "input_hash": _snapshot_hash(snapshot)}
+    if supplement := _supplements(wp, r, params, warnings, checks):
+        out["supplement"] = supplement
+    return out
+
+
+def _item_checks(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]], *,
+                 verify: bool) -> list[tuple[str, str, dict[str, str]]]:
+    """The readiness findings of each item, in item order: (item id, "blocker" | "warning", finding)."""
+    out: list[tuple[str, str, dict[str, str]]] = []
+    for i in items:
+        p = Path(i["source_path"])
+        found: list[tuple[str, dict[str, str]]] = []
+        if i["kind"] not in r["input_kinds"] or p.suffix.lower() not in r.get("file_suffixes", [p.suffix.lower()]):
+            found.append(("blocker", {"code": "unsupported_item", "message": f"The processing does not handle: {p.name}"}))
+        elif p.suffix.lower() in NATIVE_SUFFIXES and flow_for(r, i) != "native":
+            found.append(("blocker", {"code": "native_recipe_required", "message": f"Choose multi-format processing for: {p.name}"}))
+        if flow_for(r, i) == "native" and params.get("arm") == "S":
+            found.append(("blocker", {"code": "native_s_unsupported", "message": "Native documents require GPT extraction; the JEV-only path has no predefined field contract."}))
+        if i.get("instance"):
+            if not _instance_ok(i, verify=verify):
+                found.append(("blocker", {"code": "instance_damaged", "message": f"The copy kept when it was added is missing or damaged: {p.name}"}))
+            elif (state := original_state(i)) != "same":
+                found.append(("warning", {"code": f"original_{state}", "message": (
+                    f"The original file has {'changed' if state == 'changed' else 'disappeared'} since it was added; "
+                    f"the copy kept then is processed: {p.name}")}))
+        elif not p.exists():
+            found.append(("blocker", {"code": "source_missing", "message": f"Hiányzó forrás: {p.name}"}))
+        elif fingerprint(p, verify=verify) != i["sha256"]:
+            found.append(("blocker", {"code": "source_changed", "message": f"A forrás tartalma a felvétel óta változott: {p.name}"}))
+        out += [(i["item_id"], level, finding) for level, finding in found]
+    return out
+
+
+def _supplements(wp: dict[str, Any], r: dict[str, Any], params: dict[str, Any], warnings: list[dict[str, str]],
+                 checks: list[tuple[str, str, dict[str, str]]]) -> dict[str, dict[str, Any]]:
+    """160-C S3: per mode (shadow / apply), the run over only the package's pending items, offered when a run of that
+    mode has already finished some of the items in use and others are pending. Its blockers and warnings are the
+    pending items' own (an earlier item's changed source does not hold it up), its budget, plan and input hash are
+    theirs alone; `start_run(scope="pending")` starts it."""
+    out: dict[str, dict[str, Any]] = {}
+    for mode in ("shadow", "apply"):
+        pending = set(pending_items(wp["id"], mode, wp))
+        if not 0 < len(pending) < len(wp["items"]):
+            continue
+        items = [i for i in wp["items"] if i["item_id"] in pending]
+        found = [(level, f) for item_id, level, f in checks if item_id in pending]
+        arms = _item_arms(r, params, items)
+        out[mode] = {"items": len(items), "ready": not any(level == "blocker" for level, _f in found),
+                     "blockers": [f for level, f in found if level == "blocker"],
+                     "warnings": warnings + [f for level, f in found if level == "warning"],
+                     "budget": _run_budget(r, params, items, arms), "plan": run_plan(r, params, items, arms),
+                     "input_hash": _snapshot_hash(_input_snapshot(wp, items))}
+    return out
 
 
 # --- runs --------------------------------------------------------------------------------------------
 
 
 def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input_hash: str, actor: str,
-              rerun_of: str | None = None) -> dict[str, Any]:
+              rerun_of: str | None = None, scope: str = "all") -> dict[str, Any]:
     """Idempotent start with a pinned input: one queue job per item, with a run-level cost budget.
 
     Rerun (057): for the same input and recipe, starting returns the existing run; `rerun_of` (the run being repeated)
     asks for a new run. A repeated request with the same `rerun_of` still yields only one new run (against double
-    clicks); an active run cannot be rerun."""
+    clicks); an active run cannot be rerun.
+
+    160-C S3: `scope="pending"` takes only the package's pending items in `mode`, with the input hash, budget and plan
+    of the readiness check's `supplement` for that mode. It does not start while another run of the package is queued
+    or running (its items would be pending there too); a repeated request returns the same run, and once that run was
+    stopped or failed, the same pending items can be started again."""
     if mode not in ("shadow", "apply"):
         raise ValueError("mode must be shadow or apply")
+    if scope not in ("all", "pending"):
+        raise ValueError("scope must be all or pending")
+    if scope == "pending" and rerun_of is not None:
+        raise ValueError("a run over the pending items is not a rerun")
     if rerun_of is not None:
         prev = get_run(rerun_of)
         if prev["workpackage_id"] != wp_id:
@@ -1153,7 +1204,12 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
     ready = readiness(wp_id, verify=True)
     if ready["assignment_revision"] != expected_assignment_revision:
         raise RevisionConflict(f"assignment is at revision {ready['assignment_revision']}, not {expected_assignment_revision}")
-    if ready["input_hash"] != input_hash:
+    if scope == "pending":
+        offer = ready.get("supplement", {}).get(mode)
+        if offer is None or offer["input_hash"] != input_hash:
+            raise RevisionConflict("the package's pending items changed since the readiness check")
+        ready = {**ready, **{k: offer[k] for k in ("ready", "blockers", "budget", "plan")}}
+    elif ready["input_hash"] != input_hash:
         raise RevisionConflict("workpackage input changed since readiness check")
     if not ready["ready"]:
         raise NotReady("workpackage is not ready", ready["blockers"])
@@ -1164,7 +1220,11 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
         # what the readiness check saw; an edit in between is a conflict, not a run with an unchecked input
         wp = get(wp_id)
         a = wp["assignment"]
-        snapshot = _input_snapshot(wp)
+        if scope == "pending":
+            pending = set(pending_items(wp_id, mode, wp))
+            snapshot = _input_snapshot(wp, [i for i in wp["items"] if i["item_id"] in pending])
+        else:
+            snapshot = _input_snapshot(wp)
         if (a["revision"] if a else 0) != expected_assignment_revision or _snapshot_hash(snapshot) != input_hash:
             raise RevisionConflict("workpackage changed while the run was being started")
         if a is None:  # 080: the default settings the readiness check used are saved, in the starter's name
@@ -1176,12 +1236,22 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
             a = current_assignment(wp_id, c)
         r = recipe(a["recipe_id"])
         dedup = f"{wp_id}:{a['revision']}:{input_hash}:{mode}" + (f":rerun:{rerun_of}" if rerun_of else "")
+        if scope == "pending":
+            # a stopped or failed run over the same pending items does not stand in the way of a new one: the key
+            # counts them (a double click meanwhile counts the same, so it gets the run the first click started)
+            ended = c.execute("SELECT COUNT(*) FROM runs WHERE workpackage_id=? AND mode=? AND status IN ('cancelled','failed')",
+                              (wp_id, mode)).fetchone()[0]
+            dedup += f":pending:{ended}"
         existing = c.execute("SELECT run_id, input FROM runs WHERE dedup_key=?", (dedup,)).fetchone()
+        if not existing and scope == "pending" and c.execute(
+                "SELECT 1 FROM runs WHERE workpackage_id=? AND status IN ('queued','running')", (wp_id,)).fetchone():
+            raise NotReady("another run of the package is still going; start the pending items after it",
+                           [{"code": "run_active", "message": "Another run of the package is still going."}])
         if not existing:
             c.execute("INSERT INTO runs(run_id, workpackage_id, dedup_key, mode, assignment_revision, recipe_id, recipe_version, recipe_hash,"
-                      " recipe, params, input, input_hash, status, actor, created_at, plan) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'queued',?,?,?)",
+                      " recipe, params, input, input_hash, status, actor, created_at, plan, scope) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'queued',?,?,?,?)",
                       (run_id, wp_id, dedup, mode, a["revision"], r["id"], r["version"], recipe_hash(r), _canon(r), _canon(a["params"]),
-                       _canon(snapshot), input_hash, actor, _now(), _canon(ready["plan"])))
+                       _canon(snapshot), input_hash, actor, _now(), _canon(ready["plan"]), "pending" if scope == "pending" else None))
     if existing:
         # 063: if the previous start broke off after the run row, the repeated start fills in the budget and the jobs
         _ensure_run_work(existing["run_id"], json.loads(existing["input"])["items"], ready["budget"], replace_budget=False)
@@ -1220,7 +1290,7 @@ def run_rows(wp_id: str | None = None) -> list[dict[str, Any]]:
     """Runs as list rows, in one query, without truncation (056 U1 dataset): package name, item count, the finished
     items and the run's own open to-do reasons (the item's flow identifier starts with `<run>:`)."""
     sql = ("SELECT r.run_id, r.workpackage_id, w.name AS workpackage_name, r.recipe_id, r.recipe_version, r.mode, r.status,"
-           " r.approval, r.approved_by, r.actor, r.created_at, r.finished_at,"
+           " r.approval, r.approved_by, r.actor, r.created_at, r.finished_at, r.scope,"
            " json_array_length(r.input, '$.items') AS items,"
            " (SELECT COUNT(*) FROM run_items i WHERE i.run_id=r.run_id) AS items_done,"
            # 153 (review B4): a range on the item flow ids `<run>:...` (';' follows ':'), so the index is used
@@ -1243,14 +1313,15 @@ def run_rows(wp_id: str | None = None) -> list[dict[str, Any]]:
     return rows
 
 
-def pending_items(wp_id: str, mode: str) -> list[str]:
+def pending_items(wp_id: str, mode: str, wp: dict[str, Any] | None = None) -> list[str]:
     """160-C S2/S3 (pending item): the package's items in use that no run of the package in `mode` (shadow / apply)
-    has finished — a cancelled or superseded run does not count, a failed item stays pending. In package order."""
+    has finished — a cancelled or superseded run does not count, a failed item stays pending. In package order. `wp`:
+    the package already read (`get`), if at hand."""
     with store.connect() as c:
         done = {r["item_id"] for r in c.execute(
             "SELECT DISTINCT ri.item_id FROM run_items ri JOIN runs r ON r.run_id=ri.run_id WHERE r.workpackage_id=?"
             " AND r.mode=? AND r.status<>'cancelled' AND ri.status='done'", (wp_id, mode))}
-    return [i["item_id"] for i in get(wp_id)["items"] if i["item_id"] not in done]
+    return [i["item_id"] for i in (wp or get(wp_id))["items"] if i["item_id"] not in done]
 
 
 def runs(wp_id: str) -> list[dict[str, Any]]:
@@ -1488,6 +1559,18 @@ def supersede_info(run_id: str) -> dict[str, Any] | None:
         corrected = c.execute("SELECT COUNT(DISTINCT item_id) FROM run_item_corrections WHERE run_id=?", (run_id,)).fetchone()[0]
         return {"by": by, "open_reasons": _own_reason_count(c, run_id, "open"),
                 "resolved_reasons": _own_reason_count(c, run_id, "resolved"), "corrected_items": corrected}
+
+
+def open_live_runs(wp_id: str) -> list[str]:
+    """160-C S3: the package's open live runs, oldest first: finished (to-dos raised, done, or failed), not approved,
+    not stopped, and not repeated on all their items by a later finished live run (such a run is to be superseded, not
+    reviewed: `supersede_info`). Each waits for a person; with a run over the pending items a package can have more
+    than one, and its step is not done while one is open."""
+    with store.connect() as c:
+        rows = c.execute("SELECT run_id, input FROM runs WHERE workpackage_id=? AND mode='apply' AND approval IS NULL"
+                         " AND status IN (?, ?, ?) ORDER BY created_at, rowid", (wp_id, *SUPERSEDABLE)).fetchall()
+        return [r["run_id"] for r in rows
+                if _superseding_run(c, {"run_id": r["run_id"], "input": json.loads(r["input"])}) is None]
 
 
 def supersedable_runs(wp_id: str) -> list[dict[str, Any]]:

@@ -6,7 +6,8 @@
   wp-create --files <pdf>... --name N      work package from the given files (possibly from several folders)
   wp-list | wp-show <wp>                   work packages; one package's items, recipe and readiness
   wp-assign <wp> <recipe> [--arm S|G] [--doc-type T] [--engine jev|gpt] [--note N]   assign a recipe (keeps the settings it does not name)
-  run-start <wp> [--mode shadow|apply]     start a run with the input pinned by the current readiness check (idempotent)
+  run-start <wp> [--mode shadow|apply] [--pending]   start a run with the input pinned by the current readiness check
+                                           (idempotent); --pending: only the package's pending items (160-C S3)
   run-list [<wp>] | run-show <run>         runs; one run's items, work queue, cost and to-dos
   run-cancel <run> | run-approve <run> --actor A [--review-version V]
   run-names <run> [--zip F | --to-output]  content-based names of the run's documents; the copies into a ZIP or the
@@ -129,11 +130,18 @@ def cmd_wp_assign(args):
 def cmd_run_start(args):
     from jav import work
     ready = work.readiness(args.wp)
-    if not ready["ready"]:
-        print("Nem indítható:\n" + "\n".join(f"  - {b['message']}" for b in ready["blockers"]))
+    offer = ready
+    if args.pending:  # 160-C S3: only the pending items, with their own budget and input
+        offer = ready.get("supplement", {}).get(args.mode)
+        if offer is None:
+            print(f"No pending items to start on their own in {args.mode} mode (no {args.mode} run has finished some"
+                  " of the package's items while others wait).")
+            return 2
+    if not offer["ready"]:
+        print("Nem indítható:\n" + "\n".join(f"  - {b['message']}" for b in offer["blockers"]))
         return 2
     res = work.start_run(args.wp, mode=args.mode, expected_assignment_revision=ready["assignment_revision"],
-                         input_hash=ready["input_hash"], actor=args.actor)
+                         input_hash=offer["input_hash"], actor=args.actor, scope="pending" if args.pending else "all")
     note = "(már létezett, ugyanaz a futás)" if res["deduped"] else "(új; a feldolgozó futtatja: python -m jav.cli worker)"
     return _out(args, res, f"Futás: {res['run_id']} {note}")
 
@@ -292,6 +300,7 @@ def register(sub) -> None:
     p = add("run-start", cmd_run_start, "futás indítása rögzített bemenettel (idempotens)")
     p.add_argument("wp")
     p.add_argument("--mode", choices=["shadow", "apply"], default="shadow")
+    p.add_argument("--pending", action="store_true", help="160-C S3: only the package's pending items")
     p.add_argument("--actor", default="cli")
     p = add("run-list", cmd_run_list, "futások (egy munkacsomagé vagy az utolsó 50)")
     p.add_argument("wp", nargs="?")
