@@ -171,7 +171,8 @@ def jev_verify(state: FlowState) -> FlowState:
     from jav.jev_verify import code_verdicts, verify
 
     try:
-        verdicts, call = verify(get_adapter(), state.layout, state.llm_output or {}, run_id=state.run_id, use_cache=state.use_cache, pack=get_pack(state.doc_type))
+        verdicts, call = verify(get_adapter(), state.layout, state.llm_output or {}, run_id=state.run_id, use_cache=state.use_cache,
+                                pack=get_pack(state.doc_type), layer=_word_layer(state))  # 160 (AI-9): the word layer too
     except JevUnavailableError as exc:  # without verification the extract cannot be accepted automatically
         # 085: the code's own source check and the required fields still count (before 085 they were dropped too)
         state.verdicts = code_verdicts(state.layout or [], state.llm_output or {}, pack=get_pack(state.doc_type),

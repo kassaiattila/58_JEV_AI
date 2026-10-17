@@ -355,10 +355,14 @@ class VerifySite:
         return evidence, unsupported
 
     def verify(
-        self, jev: JevAdapter, lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, run_id: str = "adhoc", use_cache: bool = True
+        self, jev: JevAdapter, lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, run_id: str = "adhoc",
+        use_cache: bool = True, layer: SourceLayer | None = None,
     ) -> tuple[JevVerdicts, JevCall]:
+        """160 (review AI-9): a value the line search misses but the word layer (`layer`) shows printed is not
+        unsupported here either, as in `code_verdicts`; the request is unchanged (the questions use the line evidence)."""
         d = _as_dict(llm)
         evidence, unsupported = self.code_evidence(lines, d)
+        unsupported = _printed_on_layer(unsupported, d, layer, self.pack)
 
         questions = self.build_questions(d, evidence)
         full_state = {
@@ -402,10 +406,14 @@ def code_verdicts(lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, p
     search misses is looked for on the word layer (`layer`) by the box's rules too (an address over several lines of
     one column, an identifier glued to a label, a country's name for its code); found there, it is printed."""
     _evidence, unsupported = site_for(pack.key).code_evidence(lines, llm)
-    if layer is not None and unsupported:
-        d = _as_dict(llm)
-        unsupported = [f for f in unsupported if not grounding.printed(layer, pack.kind(f), d.get(f))]
-    return JevVerdicts(unsupported=unsupported, source="code")
+    return JevVerdicts(unsupported=_printed_on_layer(unsupported, _as_dict(llm), layer, pack), source="code")
+
+
+def _printed_on_layer(unsupported: list[str], values: dict[str, Any], layer: SourceLayer | None, pack: TypePack) -> list[str]:
+    """092: the fields the line search missed, without those the word layer shows printed by the box's rules."""
+    if layer is None or not unsupported:
+        return unsupported
+    return [f for f in unsupported if not grounding.printed(layer, pack.kind(f), values.get(f))]
 
 
 # --- compatible module-level names: the Hungarian invoice's call site -------------------------------------------
@@ -423,9 +431,10 @@ def build_questions(llm: BaseModel | dict[str, Any], evidence: dict[str, list[st
 
 
 def verify(
-    jev: JevAdapter, lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, run_id: str = "adhoc", use_cache: bool = True, pack: TypePack | None = None
+    jev: JevAdapter, lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, run_id: str = "adhoc", use_cache: bool = True,
+    pack: TypePack | None = None, layer: SourceLayer | None = None,
 ) -> tuple[JevVerdicts, JevCall]:
     """State: `{"document", "source_lines": ["Lnn: <line>", ...], "extraction": <the extract as a dict>,
     "evidence": {field: [lines]}}` - the whole document, because the verification questions may refer to any field."""
     site = _DEFAULT if pack is None else site_for(pack.key)
-    return site.verify(jev, lines, llm, run_id=run_id, use_cache=use_cache)
+    return site.verify(jev, lines, llm, run_id=run_id, use_cache=use_cache, layer=layer)
