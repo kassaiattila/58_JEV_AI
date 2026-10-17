@@ -39,5 +39,7 @@ describe("086 processing without JEV", () => {
     // 089: the intent recognised by GPT
     expect(reasonText("intent:gpt_failed:BudgetExceeded")).toMatch(/GPT-s szándékfelismerés nem sikerült \(BudgetExceeded\)/);
     expect(reasonText("intent:confidence_unavailable")).toMatch(/levél-szándék bizonyossága nem mérhető/);
+    // 160: a JEV question asked anyway in processing without JEV is refused, not sent
+    expect(reasonText("jev_unavailable:disabled")).toBe("A JEV-kérdés nem ment el, mert ez a feldolgozás JEV nélkül, csak GPT-vel fut; ellenőrizd kézzel");
   });
 });

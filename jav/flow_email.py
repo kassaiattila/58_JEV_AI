@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field
 
 from jav import policy, store
 from jav.emails import DOC_EXTS, EmailMessage, body_coverage, load_message_dir
+from jav.engine import with_engine
 from jav.intent import IntentResult
 
 log = logging.getLogger("jav.flow_email")
@@ -328,7 +329,7 @@ def build_app(
         b = b.with_state(initial).with_entrypoint("load_message")
     if tracker:
         b = b.with_tracker("local", project=TRACKER_PROJECT)
-    return b.build()
+    return with_engine(b, jev_on=jev).build()  # 160: without JEV, a JEV question is refused
 
 
 def run_email(

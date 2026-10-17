@@ -1256,5 +1256,6 @@
   "Not finished": "Nem zárult le",
   "the live run has not finished yet": "az éles futás még nem zárult le",
   "The theme: light, dark or as the system is set": "Téma: világos, sötét vagy a rendszer szerint",
-  "Python {{running}} is behind the latest patch of its line, {{latest}} ({{date}}).": "A Python {{running}} lemaradt a sora legújabb javítóverziójától: {{latest}} ({{date}})."
+  "Python {{running}} is behind the latest patch of its line, {{latest}} ({{date}}).": "A Python {{running}} lemaradt a sora legújabb javítóverziójától: {{latest}} ({{date}}).",
+  "The JEV question was not sent: this processing runs without JEV, on GPT only; check by hand": "A JEV-kérdés nem ment el, mert ez a feldolgozás JEV nélkül, csak GPT-vel fut; ellenőrizd kézzel"
 }

@@ -34,6 +34,7 @@ from burr.integrations.pydantic import PydanticTypingSystem
 
 from jav import card_numbers, cfg, policy, store
 from jav.config import TRACKER_PROJECTS
+from jav.engine import with_engine
 from jav.models import FlowState
 from jav.typepack import DEFAULT_KEY, get as get_pack
 
@@ -513,7 +514,7 @@ def build_app(
         builder = builder.with_state(initial).with_entrypoint("load_pdf")
     if tracker:
         builder = builder.with_tracker("local", project=tracker_project(doc_type))
-    return builder.build()
+    return with_engine(builder, jev_on=jev).build()  # 160: without JEV, a JEV question is refused
 
 
 def run_one(

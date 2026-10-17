@@ -272,6 +272,8 @@ export function reasonText(code: string): string {
   // 090: a field check's to-do names its field third (`validator:taxid.unrecognized:supplier_tax_id`)
   if (p[0] === "validator" && p.length === 3 && FIELD[p[2]]) return `${checkText(p[1] ?? "")}: ${fieldLabel(p[2])}`;
   if (p[0] === "validator") return checkText(p[1] ?? "", p.slice(2).join(":") || null);
+  // 160: in processing without JEV a JEV question asked anyway is refused before it is sent
+  if (code === "jev_unavailable:disabled") return t("The JEV question was not sent: this processing runs without JEV, on GPT only; check by hand");
   if (p[0] === "jev_unavailable") return t("A JEV nem volt elérhető ({{why}}); ellenőrizd kézzel", { why: p.slice(1).join(":") });
   if (p[0] === "llm" && p[1] === "failed") return t("A GPT-kivonat nem sikerült ({{why}})", { why: p[2] ?? "" });
   return code;

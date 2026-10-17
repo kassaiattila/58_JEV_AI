@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from jav import policy, store
 from jav.detect import DetectResult
 from jav.detect_detail import DetailResult
+from jav.engine import with_engine
 from jav.models import LineLayout
 
 TERMINALS = ["done", "needs_ocr"]
@@ -139,7 +140,9 @@ def detect(state: DetectState) -> DetectState:
 
 def _detect_gpt(state: DetectState, pdf) -> DetectState:
     """086: the type recognised by GPT (processing without JEV). A failed call (no budget, provider error) is a to-do,
-    not the end of the item; an unmeasurable confidence makes the type uncertain."""
+    not the end of the item; an unmeasurable confidence makes the type uncertain. 160: a JEV question asked here
+    anyway is refused (`jav/engine.py`) and named as such."""
+    from jav.adapters.jev import JevUnavailableError
     from jav.detect_gpt import choose_detail, detect as _detect
 
     try:
@@ -147,7 +150,8 @@ def _detect_gpt(state: DetectState, pdf) -> DetectState:
     except Exception as exc:  # noqa: BLE001 - an error is a to-do, not the end of the flow (as on the G path)
         state.result = None
         state.uncertain = True
-        state.review_reasons = state.review_reasons + [f"detect:gpt_failed:{type(exc).__name__}"]
+        reason = f"jev_unavailable:{exc.reason}" if isinstance(exc, JevUnavailableError) else f"detect:gpt_failed:{type(exc).__name__}"
+        state.review_reasons = state.review_reasons + [reason]
         return state
     r = state.result
     state.uncertain = (not r.measured or r.doc_type == "unknown"
@@ -309,7 +313,7 @@ def build_app(source_path: str, *, tracker: bool = False, use_cache: bool = True
         b = b.with_state(initial).with_entrypoint("load_pdf")
     if tracker:
         b = b.with_tracker("local", project=TRACKER_PROJECT)
-    return b.build()
+    return with_engine(b, jev_on=jev).build()  # 160: without JEV, a JEV question is refused
 
 
 def run_detect(source_path: str, *, tracker: bool = False, use_cache: bool = True, run_id: str | None = None,

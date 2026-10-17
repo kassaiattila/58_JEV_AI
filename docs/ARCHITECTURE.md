@@ -130,7 +130,11 @@ agreement, not an accuracy.
    with `uncertain_review: true`. Because of the request-hash cache, the same (concrete model version, state, questions) gives the same answer
    for $0; the alias (`jev-latest`) is resolved with a probe (`runs/cache/_model_versions.json`, 24 h TTL). If JEV still
    does not answer after the SDK retries, the adapter writes a ledger entry (`error`) and raises `JevUnavailableError`; the flows turn this
-   into a `jev_unavailable:<reason>` review (M1/M3 `final_status = jev_unavailable`) instead of crashing.
+   into a `jev_unavailable:<reason>` review (M1/M3 `final_status = jev_unavailable`) instead of crashing. Processing without JEV
+   is a guarantee (160, `jav/engine.py`): a flow application built with `jev=False` runs every step inside `jev.disabled()`, so a
+   JEV question asked anyway is refused before the model probe, the cache and the call log (`JevUnavailableError("disabled")`,
+   the `jev_unavailable:disabled` to-do; `get_adapter()` refuses too, whatever adapter a run installed). In the tests the refusal
+   fails the test (`tests/conftest.py`); a test of the refusal itself is marked `jev_refusal` (`tests/test_jev_safety_net_160.py`).
 3. **OpenAI, through Pydantic AI**: the existing G path and the document-learning branch produce structured proposals and then apply source checking. The graphs described here neither restrict OpenAI to generating extracts nor make JEV the only tool for every interpretive decision: further interpreting, classifying and verifying roles are also permitted, for documents and emails alike. Any new division of labour must be built in on the basis of targeted measurement; source checking, separate cost accounting and manual activation apply to every role. The Burr states are plain Pydantic models, not Pydantic AI.
 4. **OCR pipeline**: `jav/ocr.py` + `configs/ocr.json` — PDF without text → page image (pypdfium2,
    300 dpi) → tesseract word boxes (native tesseract on the machine; the Hungarian + English language packs taken from the old sidecar's Docker image
