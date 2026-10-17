@@ -10,7 +10,7 @@
 // and approves the budgets again.
 import { Fragment, useMemo, useState } from "react";
 import {
-  api, ApiError, type MailboxRequest, type WorkflowBudget, type WorkflowDraft, type WorkflowEstimate, type WorkflowSource,
+  api, ApiError, type Engine, type MailboxRequest, type WorkflowBudget, type WorkflowDraft, type WorkflowEstimate, type WorkflowSource,
   type WorkflowTemplate, type WorkflowTemplates, type WorkKind, type WorkSourceKind,
 } from "../../api";
 import { BrowseButton } from "../../components/BrowseButton";
@@ -21,6 +21,7 @@ import { DocumentsCreate } from "../DocumentsCreate";
 import { Mailbox, splitAccounts, toggleAccount } from "../Mailbox";
 import { PartyChoice, ReconcileCreate } from "../reconcile/ReconcileCreate";
 import { StatementPackageCreate } from "../StatementPackageCreate";
+import { ENGINE } from "../../labels";
 import { budgetText, PROVIDER } from "./labels";
 
 /** The work package kinds (source_kind) an existing package of a step's kind may have (as `jav/workflows.py`). */
@@ -161,18 +162,22 @@ interface StepDraft {
   source: WorkSourceKind; folder: string; recursive: boolean; onlyNew: boolean; files: string; packageId: string;
   packageName: string; accounts: string; folders: string; usePeriod: boolean; days: number; maxItems: number;
   budget: WorkflowBudget; estimate: WorkflowEstimate | null; estimating: boolean; error: string | null;
+  /** 160-D: the step's own AI engine; null: the application's when the step starts */
+  engine: Engine | null;
 }
 
 function draftFor(kind: WorkKind, conf: WorkflowTemplates): StepDraft {
   return {
     source: conf.kinds[kind].sources[0], folder: "", recursive: false, onlyNew: false, files: "", packageId: "", packageName: "",
     accounts: "", folders: "Inbox", usePeriod: true, days: 31, maxItems: 0, budget: {}, estimate: null, estimating: false, error: null,
+    engine: null,
   };
 }
 
-/** 147: a step of a repeated workflow, from the draft's source (none: the person gives it) and budget. */
-function draftFrom(kind: WorkKind, conf: WorkflowTemplates, src: WorkflowSource | null, budget: WorkflowBudget): StepDraft {
-  const d = { ...draftFor(kind, conf), budget: { ...budget } };
+/** 147: a step of a repeated workflow, from the draft's source (none: the person gives it), budget and (160-D) engine. */
+function draftFrom(kind: WorkKind, conf: WorkflowTemplates, src: WorkflowSource | null, budget: WorkflowBudget,
+  engine: Engine | null = null): StepDraft {
+  const d = { ...draftFor(kind, conf), budget: { ...budget }, engine };
   if (!src) return d;
   switch (src.kind) {
     case "folder": return { ...d, source: "folder", folder: src.folder ?? "", recursive: Boolean(src.recursive), onlyNew: Boolean(src.only_new) };
@@ -230,7 +235,9 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
   const [auto, setAuto] = useState(initial?.auto ?? true);
   const [drafts, setDrafts] = useState<Record<string, StepDraft>>(() =>
     Object.fromEntries(tpl.steps.map((s) => [s.id, initial?.steps[s.id]
-      ? draftFrom(s.kind, conf, initial.steps[s.id].source, initial.steps[s.id].budget) : draftFor(s.kind, conf)])));
+      ? draftFrom(s.kind, conf, initial.steps[s.id].source, initial.steps[s.id].budget, initial.steps[s.id].engine ?? null)
+      : draftFor(s.kind, conf)])));
+  const appEngine = useLoad("engine", api.engine).data?.engine ?? null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const periodOk = Boolean(start) && Boolean(end) && start <= end;
@@ -243,20 +250,25 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
   const missing = tpl.steps.filter((s) => !sources[s.id]).map((s) => stepTitle(s.id));
   const ready = party !== null && periodOk && !missing.length;
   const set = (id: string, patch: Partial<StepDraft>) => setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  // 160-D: only a paid step with its own source has an engine (a brought package keeps its settings)
+  const ownEngine = (kind: WorkKind, d: StepDraft) => PAID.includes(kind) && !["package", "none"].includes(d.source);
+  const engineText = (d: StepDraft) => (d.engine ? ENGINE[d.engine]
+    : t("as the application ({{engine}})", { engine: appEngine ? ENGINE[appEngine] : "…" }));
 
   async function estimate(id: string, kind: WorkKind) {
     const source = sources[id];
     if (!source) return;
     set(id, { estimating: true, error: null });
     try {
-      const est = await api.workflowEstimate({ kind, source, party_id: party?.id, period_start: start, period_end: end });
+      const engine = drafts[id].engine;
+      const est = await api.workflowEstimate({ kind, source, party_id: party?.id, period_start: start, period_end: end, engine });
       // the budget proposed: the estimate rounded up to the cent (a person can change it)
       const proposed = Object.fromEntries(Object.entries(est.usd).map(([p, v]) => [p, (Math.ceil(Number(v) * 100) / 100).toFixed(2)]));
       // 153 (review D3): merged into the draft as it is now, so a cap typed while the estimate ran stays (it was
       // overwritten by the proposal); an answer for a source changed meanwhile is dropped
-      const asked = JSON.stringify(source);
+      const asked = JSON.stringify([source, engine]);
       setDrafts((prev) => {
-        if (JSON.stringify(sourceOf(prev[id], [start, end])) !== asked) return { ...prev, [id]: { ...prev[id], estimating: false } };
+        if (JSON.stringify([sourceOf(prev[id], [start, end]), prev[id].engine]) !== asked) return { ...prev, [id]: { ...prev[id], estimating: false } };
         return { ...prev, [id]: { ...prev[id], estimate: est, estimating: false, budget: { ...proposed, ...prev[id].budget } } };
       });
     } catch (e) {
@@ -276,6 +288,7 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
         steps: Object.fromEntries(tpl.steps.map((s) => [s.id, {
           source: sources[s.id]!,
           budget: Object.fromEntries(Object.entries(drafts[s.id].budget).filter(([, v]) => v && Number(v) > 0)),
+          ...(ownEngine(s.kind, drafts[s.id]) && drafts[s.id].engine ? { engine: drafts[s.id].engine } : {}),
         }])),
       });
       onCreated(view.workflow.id);
@@ -297,8 +310,11 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
               <strong>{stepTitle(s.id)}</strong>
               {s.after?.length ? <span className="muted small"> · {t("starts once these are approved: {{steps}}", { steps: s.after.map(stepTitle).join(", ") })}</span> : null}
               <div className="small">{t(SOURCE_LABEL[drafts[s.id].source])}{sourceDetail(drafts[s.id], sources[s.id])}</div>
-              {PAID.includes(s.kind) && !["package", "none"].includes(drafts[s.id].source) ? (
-                <div className="small">{t("Budget for an automatic start: {{budget}}", { budget: budgetText(drafts[s.id].budget) })}</div>
+              {ownEngine(s.kind, drafts[s.id]) ? (
+                <>
+                  <div className="small">{t("AI engine: {{engine}}", { engine: engineText(drafts[s.id]) })}</div>
+                  <div className="small">{t("Budget for an automatic start: {{budget}}", { budget: budgetText(drafts[s.id].budget) })}</div>
+                </>
               ) : null}
             </li>
           ))}
@@ -330,7 +346,7 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
       </label>
       <label className="check"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> {t("Start the steps by themselves")}</label>
       {tpl.steps.map((s, i) => (
-        <StepEditor key={s.id} n={i + 1} title={stepTitle(s.id)} kind={s.kind} conf={conf} draft={drafts[s.id]}
+        <StepEditor key={s.id} n={i + 1} title={stepTitle(s.id)} kind={s.kind} conf={conf} draft={drafts[s.id]} appEngine={appEngine}
           after={(s.after ?? []).map(stepTitle)} onChange={(patch) => set(s.id, patch)}
           onEstimate={() => void estimate(s.id, s.kind)} canEstimate={Boolean(sources[s.id]) && (s.kind !== "statements" || Boolean(party))} />
       ))}
@@ -343,8 +359,8 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
   );
 }
 
-function StepEditor({ n, title, kind, conf, draft, after, onChange, onEstimate, canEstimate }: {
-  n: number; title: string; kind: WorkKind; conf: WorkflowTemplates; draft: StepDraft; after: string[];
+function StepEditor({ n, title, kind, conf, draft, appEngine, after, onChange, onEstimate, canEstimate }: {
+  n: number; title: string; kind: WorkKind; conf: WorkflowTemplates; draft: StepDraft; appEngine: Engine | null; after: string[];
   onChange: (patch: Partial<StepDraft>) => void; onEstimate: () => void; canEstimate: boolean;
 }) {
   useLocale();
@@ -387,6 +403,18 @@ function StepEditor({ n, title, kind, conf, draft, after, onChange, onEstimate, 
       ) : null}
       {draft.source === "mailbox" ? <MailboxSource draft={draft} onChange={touched} /> : null}
       {draft.source === "package" ? <PackageSource kind={kind} value={draft.packageId} onChange={(id, name) => touched({ packageId: id, packageName: name })} /> : null}
+      {paid ? (
+        <div className="wz-engine">
+          <span className="small">{t("AI engine")}</span>
+          {/* 160-D: a choice changes the run's budget, so it clears the estimate like a source change */}
+          <div className="segmented" role="radiogroup" aria-label={t("AI engine of {{step}}", { step: title })}>
+            {([null, "jev", "gpt"] as const).map((e) => (
+              <label key={e ?? "app"}><input type="radio" name={`wz-engine-${n}`} checked={draft.engine === e} onChange={() => touched({ engine: e })} />{" "}
+                {e ? ENGINE[e] : t("As the application ({{engine}})", { engine: appEngine ? ENGINE[appEngine] : "…" })}</label>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {paid ? (
         <div className="wz-budget">
           <span className="small">{t("Budget for an automatic start (USD)")}</span>

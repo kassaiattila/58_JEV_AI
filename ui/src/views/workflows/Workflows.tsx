@@ -10,7 +10,7 @@ import {
 import { PageHeader } from "../../components/PageHeader";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
-import { stepLabel, usdBudget } from "../../labels";
+import { ENGINE, stepLabel, usdBudget } from "../../labels";
 import { go, wpHash, type Route } from "../../route";
 import { budgetSum, budgetText, PROVIDER, sourceText, STEP_STATUS, stepMark, stepNote } from "./labels";
 import { NewWork } from "./NewWork";
@@ -220,6 +220,7 @@ function StepCard({ step, steps, open, isNext, onStart, onLink }: {
       ) : null}
       {step.status === "failed" && typeof step.note === "string" ? <div className="small warn-text">{step.note}</div> : null}
       {step.status === "nothing_new" && typeof step.note === "string" ? <div className="small muted">{stepNote(step.note)}</div> : null}
+      {step.engine ? <div className="small">{t("AI engine: {{engine}}", { engine: ENGINE[step.engine] })}</div> : null}
       {Object.keys(step.budget).length || over ? <div className="small">{t("Budget: {{budget}}", { budget: budgetText(step.budget) })}</div> : null}
       {over ? (
         <div className="wz-budget">

@@ -15,6 +15,7 @@ import { RunList } from "./Runs";
 import { AppearancePanel } from "./settings/AppearancePanel";
 import { BackupPanel } from "./settings/BackupPanel";
 import { DepsAuditPanel } from "./settings/DepsAuditPanel";
+import { EnginePanel } from "./settings/EnginePanel";
 import { FoldersPanel } from "./settings/FoldersPanel";
 import { LanguagePanel } from "./settings/LanguagePanel";
 import { PartiesPanel } from "./settings/PartiesPanel";
@@ -58,6 +59,7 @@ export function Settings({ section }: { section: SettingsSection }) {
           {current.key === "parties" ? <PartiesPanel /> : null}
           {current.key === "recipes" ? (
             <>
+              <EnginePanel />
               <RecipesPanel />
               <h2>{t("Bank files the system reads")}</h2>
               <BankFilesPanel />

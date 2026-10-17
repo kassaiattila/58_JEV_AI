@@ -14,6 +14,9 @@ export function tmap(source: Record<string, string>): Record<string, string> {
   return new Proxy(source, { get: (o, k) => (typeof k === "string" && typeof o[k] === "string" ? t(o[k]) : Reflect.get(o, k)) });
 }
 
+/** 160-D: the AI engine's short name (Settings › Processing, the workflow wizard and its control view). */
+export const ENGINE: Record<string, string> = tmap({ jev: "JEV and GPT", gpt: "GPT only" });
+
 export const RUN_STATUS: Record<string, string> = tmap({
   queued: "Sorban áll",
   running: "Fut",
