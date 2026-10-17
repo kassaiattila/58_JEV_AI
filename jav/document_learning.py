@@ -140,15 +140,13 @@ def propose(text: str, *, model, config: dict, run_id: str = "adhoc") -> Proposa
                          config_hash=config_hash,error=type(exc).__name__)
         raise
     usage = result.usage() if callable(result.usage) else result.usage
-    from jav.config import OPENAI_USD_PER_MTOK
-    price_key = result.response.model_name
+    from jav.config import openai_cost, openai_priced_model
+    actual = result.response.model_name
     requested = model.split(":",1)[-1] if isinstance(model,str) else str(getattr(model,"model_name",""))
-    if (price_key not in OPENAI_USD_PER_MTOK and requested in OPENAI_USD_PER_MTOK
-            and re.fullmatch(re.escape(requested)+r"-\d{4}-\d{2}-\d{2}",price_key)):
-        price_key = requested
-    price = OPENAI_USD_PER_MTOK.get(price_key) if provider == "openai" else None
-    cost = (round(((usage.input_tokens or 0)*price[0]+(usage.output_tokens or 0)*price[1])/1_000_000,6)
-            if price else 0.0 if provider == "test" else None)
+    # 167 (AI-12): the shared OpenAI price rule; a stand-in test model costs nothing, any other provider is unpriced
+    price_model = openai_priced_model(requested=requested, actual=actual) if provider == "openai" else None
+    charged = openai_cost(usage, requested=requested, actual=actual) if provider == "openai" else None
+    cost = float(charged) if charged is not None else 0.0 if provider == "test" else None
     store.ledger_add(run_id=run_id,step="generic_propose",provider=provider,model=result.response.model_name,
                      input_tokens=usage.input_tokens,output_tokens=usage.output_tokens,cost_usd=cost,
                      seconds=time.perf_counter()-started,config_hash=config_hash)
@@ -158,7 +156,7 @@ def propose(text: str, *, model, config: dict, run_id: str = "adhoc") -> Proposa
         method="pydantic_ai",points=result.output.points,generation={
             "model":result.response.model_name,"input_tokens":usage.input_tokens,"output_tokens":usage.output_tokens,
             "messages":json.loads(result.all_messages_json()),
-            "config_hash":config_hash,"cost_usd":cost,"price_model":price_key if price else None})
+            "config_hash":config_hash,"cost_usd":cost,"price_model":price_model})
 
 
 def propose_labels(text: str, config: dict) -> ProposalBatch:

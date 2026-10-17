@@ -35,7 +35,7 @@ from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from jav import cfg, store
-from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, OPENAI_USD_PER_MTOK, PROMPTS_DIR, load_prompt, openai_chat_model, openai_price
+from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, PROMPTS_DIR, load_prompt, openai_chat_model, openai_cost, openai_price
 from jav.runtime import calls
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
@@ -260,13 +260,6 @@ def get_agent() -> Agent[None, TaskOutput]:
                  retries=OPENAI_SETTINGS["retries"])
 
 
-def _price(actual: str | None) -> tuple[float, float] | None:
-    price = OPENAI_USD_PER_MTOK.get(OPENAI_MODEL)
-    if price is None or actual is None or not re.fullmatch(re.escape(OPENAI_MODEL) + r"(-\d{4}-\d{2}-\d{2})?", actual):
-        return None
-    return price
-
-
 def _physical(agent, prompt: str, *, run_id: str, limited: bool) -> calls.Outcome:
     t0 = time.perf_counter()
     kwargs: dict[str, Any] = {}
@@ -282,12 +275,12 @@ def _physical(agent, prompt: str, *, run_id: str, limited: bool) -> calls.Outcom
     usage = result.usage() if callable(result.usage) else result.usage
     in_tok, out_tok = usage.input_tokens or 0, usage.output_tokens or 0
     actual = getattr(getattr(result, "response", None), "model_name", None) or OPENAI_MODEL
-    price = _price(actual)
-    cost = None if price is None else round((in_tok * price[0] + out_tok * price[1]) / 1_000_000, 6)
+    cost = openai_cost(usage, requested=OPENAI_MODEL, actual=actual)  # 167 (AI-12): the shared price rule
     store.ledger_add(run_id=run_id, step="email_tasks", provider="openai", model=actual, input_tokens=in_tok, output_tokens=out_tok,
-                     cost_usd=cost, seconds=round(time.perf_counter() - t0, 3), config_hash=CONFIG_HASH)
+                     cost_usd=None if cost is None else float(cost), seconds=round(time.perf_counter() - t0, 3),
+                     config_hash=CONFIG_HASH)
     return calls.Outcome(response=result.output.model_dump(mode="json"), model=actual, input_tokens=in_tok, output_tokens=out_tok,
-                         cost_usd=None if cost is None else Decimal(str(cost)))
+                         cost_usd=cost)
 
 
 def extract(snap: dict[str, Any], *, intent_hint: dict[str, Any] | None, run_id: str) -> dict[str, Any]:

@@ -15,7 +15,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 import time
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -30,7 +29,7 @@ from pydantic_ai.usage import UsageLimits
 
 from jav import cfg, store, token_confidence
 from jav.runtime import calls
-from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, OPENAI_USD_PER_MTOK, load_prompt, openai_chat_model, openai_price
+from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, load_prompt, openai_chat_model, openai_cost, openai_price
 from jav.typepack import DEFAULT_KEY, TypePack, get as get_pack
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
@@ -104,14 +103,6 @@ def get_agent(pack_key: str = DEFAULT_KEY) -> Agent[None, BaseModel]:
 RUN_MAX_OUTPUT_TOKENS = 4000
 
 
-def _price_for(actual_model: str | None) -> tuple[float, float] | None:
-    """A price only if the response's model is the configured model (or its dated variant); otherwise unknown."""
-    price = OPENAI_USD_PER_MTOK.get(OPENAI_MODEL)
-    if price is None or actual_model is None or not re.fullmatch(re.escape(OPENAI_MODEL) + r"(-\d{4}-\d{2}-\d{2})?", actual_model):
-        return None
-    return price
-
-
 ROUNDS = 1 + int(OPENAI_SETTINGS["retries"])  # requests of one call: the first and Pydantic AI's validation retries
 
 
@@ -132,8 +123,7 @@ def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool,
     usage = result.usage() if callable(result.usage) else result.usage  # pydantic-ai: it was a method, newer versions have a property
     in_tok, out_tok = usage.input_tokens or 0, usage.output_tokens or 0
     actual = getattr(getattr(result, "response", None), "model_name", None) or OPENAI_MODEL
-    price = _price_for(actual)
-    cost = None if price is None else round((in_tok * price[0] + out_tok * price[1]) / 1_000_000, 6)
+    cost = openai_cost(usage, requested=OPENAI_MODEL, actual=actual)  # 167 (AI-12): the shared price rule
     store.ledger_add(
         run_id=run_id,
         step="extract_llm",
@@ -141,13 +131,13 @@ def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool,
         model=actual,
         input_tokens=in_tok,
         output_tokens=out_tok,
-        cost_usd=cost,
+        cost_usd=None if cost is None else float(cost),
         seconds=round(time.perf_counter() - t0, 3),
         config_hash=config_hash(pack),
     )
     details = getattr(getattr(result, "response", None), "provider_details", None) or {}
     return calls.Outcome(response=encode_answer(result.output.model_dump(mode="json"), details.get("logprobs")), model=actual,
-                         input_tokens=in_tok, output_tokens=out_tok, cost_usd=None if cost is None else Decimal(str(cost)))
+                         input_tokens=in_tok, output_tokens=out_tok, cost_usd=cost)
 
 
 def extract_scored(text: str, *, run_id: str = "adhoc", pack: TypePack | None = None) -> ScoredExtraction:
