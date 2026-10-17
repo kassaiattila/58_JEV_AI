@@ -48,6 +48,7 @@ from typesafe_sdk import Choice
 
 from jav import cfg, reconcile, reconcile_package, store
 from jav.adapters.jev import JevUnavailableError, get_adapter
+from jav.adapters.jev import disabled as jev_disabled
 from jav.candidates import trim_after_legal_form
 from jav.config import JEV_USD_PER_MTOK, RUNS_DIR
 from jav.runtime import calls
@@ -508,8 +509,10 @@ def run(wp_id: str, *, engines: Iterable[str], limits: dict[str, Decimal], max_l
         def ask(line: dict[str, Any], invoices: list[dict[str, Any]]) -> dict[str, Any]:
             facts = [option_facts(inv, line, rates) for inv in invoices]
             try:
-                return (ask_jev(line, invoices, facts, run_id=scope, use_cache=use_cache) if engine == "jev"
-                        else ask_gpt(line, invoices, facts, run_id=scope))
+                if engine == "jev":
+                    return ask_jev(line, invoices, facts, run_id=scope, use_cache=use_cache)
+                with jev_disabled():  # 160: the GPT engine cannot ask JEV, not even beside a JEV budget (`--engine both`)
+                    return ask_gpt(line, invoices, facts, run_id=scope)
             except (JevUnavailableError, calls.BudgetExceeded, calls.UncertainAttempt) as exc:
                 return {"options": [inv["id"] for inv in invoices], "measured": False, "error": f"{type(exc).__name__}: {exc}"}
             except Exception as exc:  # noqa: BLE001 - an OpenAI or schema error is recorded for this line, the run goes on
@@ -564,8 +567,11 @@ def golden(*, engines: Iterable[str], limits: dict[str, Decimal], use_cache: boo
             for case in cases:
                 line = _golden_line(case)
                 try:
-                    answer = (ask_jev(line, [], [], run_id=scope, use_cache=use_cache) if engine == "jev"
-                              else ask_gpt(line, [], [], run_id=scope))
+                    if engine == "jev":
+                        answer = ask_jev(line, [], [], run_id=scope, use_cache=use_cache)
+                    else:
+                        with jev_disabled():  # 160: the GPT engine cannot ask JEV
+                            answer = ask_gpt(line, [], [], run_id=scope)
                 except Exception as exc:  # noqa: BLE001 - JEV unavailable, the budget spent or an OpenAI error: recorded, the run goes on
                     answer = {"kind": None, "error": f"{type(exc).__name__}: {exc}"}
                 expected, got = case["expected"], answer.get("kind")
