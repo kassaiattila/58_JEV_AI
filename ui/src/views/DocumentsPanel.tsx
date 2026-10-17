@@ -3,11 +3,12 @@
 // 160-C S1 (decisions 163 D2, D3): a removal names the chosen person and needs a reason; removed items show behind a
 // switch, with who removed them, when and why, and can be restored.
 import { useState, type FormEvent } from "react";
-import { api, ApiError, getActor, type DsRow, type Workpackage } from "../api";
+import { api, ApiError, getActor, type AddSummary, type DsRow, type Workpackage } from "../api";
 import { DataTable } from "../components/DataTable";
 import { nameCell, NameModeSwitch } from "../components/NameCell";
 import { t, useLocale } from "../i18n";
 import { useNameMode } from "../names";
+import { AddDocuments, AddStatements, AddSummaryLine } from "./PackageAdd";
 
 /** 153 (review E): where the package was created from, by its kind; later additions may come from elsewhere. */
 export function createdFrom(wp: Workpackage): string {
@@ -29,6 +30,9 @@ export function DocumentsPanel({ wp, onChanged }: { wp: Workpackage; onChanged: 
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false); // 160-C S2
+  const [added, setAdded] = useState<AddSummary | null>(null);
+  const statements = wp.source_kind === "statements";
 
   async function act(call: () => Promise<unknown>) {
     setError(null);
@@ -58,10 +62,21 @@ export function DocumentsPanel({ wp, onChanged }: { wp: Workpackage; onChanged: 
 
   return (
     <section aria-label={t("A csomag iratai")} className="stage-stack">
-      <p className="muted small">{t("Created from: {{source}} · revision {{rev}} of the package", { source: createdFrom(wp), rev: wp.revision })}</p>
+      <div className="docs-head">
+        <p className="muted small">{t("Created from: {{source}} · revision {{rev}} of the package", { source: createdFrom(wp), rev: wp.revision })}</p>
+        {adding ? null : (
+          <button type="button" className="secondary small-btn" onClick={() => { setAdding(true); setRemoving(null); setAdded(null); }}>
+            {statements ? t("Add statements") : t("Add documents")}</button>
+        )}
+      </div>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
+      {adding && statements ? <AddStatements wp={wp} onCancel={() => setAdding(false)} onDone={() => { setAdding(false); onChanged(); }} /> : null}
+      {adding && !statements ? (
+        <AddDocuments wp={wp} onCancel={() => setAdding(false)} onDone={(s) => { setAdding(false); setAdded(s); onChanged(); }} />
+      ) : null}
+      {added ? <AddSummaryLine summary={added} /> : null}
       {removing ? (
-        <form className="form-row remove-form" onSubmit={submit} aria-label={t("Remove a document from the package")}>
+        <form className="form-row inline-form" onSubmit={submit} aria-label={t("Remove a document from the package")}>
           <label className="block grow">{t("Why remove “{{name}}”?", { name: removing.name })}
             {/* the form opens for this one answer */}
             <input value={reason} maxLength={500} required autoFocus onChange={(e) => setReason(e.target.value)}
@@ -90,7 +105,7 @@ export function DocumentsPanel({ wp, onChanged }: { wp: Workpackage; onChanged: 
             <a className="small" href={api.sourceUrl(wp.id, String(row.item_id))} target="_blank" rel="noreferrer">{t("Megnyitás")}</a>
             <a className="small" href={api.sourceUrl(wp.id, String(row.item_id))} download>{t("Letöltés")}</a>
             <button type="button" className="quiet small-btn" disabled={busy}
-              onClick={() => { setRemoving({ id: String(row.item_id), name: String(row.original_name ?? row.name ?? "") }); setReason(""); }}>
+              onClick={() => { setRemoving({ id: String(row.item_id), name: String(row.original_name ?? row.name ?? "") }); setReason(""); setAdding(false); }}>
               {t("Eltávolítás")}</button>
           </>
         ))} />

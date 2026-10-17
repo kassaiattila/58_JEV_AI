@@ -130,13 +130,14 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
           <button type="button" className={btn("apply")} data-run="apply" title={withSpend()}
             disabled={!readiness.ready || busy || active} onClick={() => start("apply")}><Icon name="play" />{t("Éles futás")}…{spend}</button>
           <button type="button" className={btn("rerun")} data-run="rerun" disabled={!last || !readiness.ready || busy || active}
-            title={withSpend(last ? t("A legutóbbi ({{mode}}) futás megismétlése ugyanezzel a bemenettel", { mode: MODE[last.mode].toLowerCase() }) : t("Még nincs megismételhető futás"))}
+            title={withSpend(last ? t("The last ({{mode}}) run again, on the package's documents as they are now", { mode: MODE[last.mode].toLowerCase() }) : t("Még nincs megismételhető futás"))}
             onClick={() => last && start(last.mode, true)}><Icon name="rerun" />{t("Újrafuttatás")}…{spend}</button>
         </div>
         <dl className="run-help small">
           <dt>{t("Próbafutás")}</dt><dd>{t("az eredmény megtekinthető és letölthető, de nem adható ki")}</dd>
           <dt>{t("Éles futás")}</dt><dd>{t("az eredményt ember hagyja jóvá az Eredmény szakaszban, nyitott teendő nélkül")}</dd>
-          <dt>{t("Újrafuttatás")}</dt><dd>{t("a legutóbbi futás megismétlése ugyanazzal a bemenettel, új futásként (például hiba, leállítás vagy a beállítások módosítása után)")}</dd>
+          {/* 160-C S2: a rerun takes the package as it is now, not the earlier run's input */}
+          <dt>{t("Újrafuttatás")}</dt><dd>{t("the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings")}</dd>
         </dl>
         {readiness.plan ? <RunPlanList plan={readiness.plan} budget={readiness.budget} /> : (
           <p className="muted small">

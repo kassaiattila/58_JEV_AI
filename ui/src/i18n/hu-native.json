@@ -1296,5 +1296,20 @@
   "removed from the package before the approval; not in the released result": "a jóváhagyás előtt kivették a csomagból; nincs a kiadott eredményben",
   "the file {{name}}": "a(z) {{name}} fájl",
   "{{n}} removed": "{{n}} kivéve",
-  "removed from the package; left out of the released result": "kivették a csomagból; a kiadott eredményből kimarad"
+  "removed from the package; left out of the released result": "kivették a csomagból; a kiadott eredményből kimarad",
+  "{{n}} new item(s) to process": "{{n}} új tétel vár feldolgozásra",
+  "A document already in the package is not added again, and a removed one is restored. The new documents wait for processing.": "A csomagban már meglévő irat nem kerül be újra, a kivett pedig visszaáll. Az új iratok feldolgozásra várnak.",
+  "Add documents": "Iratok hozzáadása",
+  "Add documents to the package": "Iratok hozzáadása a csomaghoz",
+  "Add statements": "Kivonatok hozzáadása",
+  "Add statements to the package": "Kivonatok hozzáadása a csomaghoz",
+  "Add {{n}} document(s)": "{{n}} irat hozzáadása",
+  "Add {{n}} statement(s) and {{m}} PDF(s)": "{{n}} kivonat és {{m}} PDF hozzáadása",
+  "Added: {{added}} · already in the package: {{already}} · restored: {{restored}}": "Hozzáadva: {{added}} · már a csomagban volt: {{already}} · visszaállítva: {{restored}}",
+  "Already processed in a live run of another package: {{names}}. Check that it is not counted twice.": "Egy másik csomag éles futása már feldolgozta: {{names}}. Nézd meg, hogy ne számítson kétszer.",
+  "Documents to add: their full paths, one per line": "A hozzáadandó iratok teljes útvonala, soronként egy",
+  "The files are surveyed for the package's own party and period; what the package already holds is not offered again.": "A fájlok felmérése a csomag saját gazdálkodójára és időszakára történik; amit a csomag már tartalmaz, azt nem ajánlja fel újra.",
+  "The last ({{mode}}) run again, on the package's documents as they are now": "A legutóbbi ({{mode}}) futás megismétlése a csomag mostani iratain",
+  "already in this package": "már ebben a csomagban van",
+  "the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings": "a legutóbbi futás megismétlése új futásként, a csomag összes mostani iratán (a hozzáadottakon is, a kivetteken nem), például hiba, leállítás vagy a beállítások módosítása után"
 }

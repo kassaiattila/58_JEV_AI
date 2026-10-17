@@ -577,9 +577,13 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 /* 160-C (decision 163 D7): items removed from the package, left out of the release: a second, quieter mark */
 .release-removed { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .release-line .release-removed .status { font-size: var(--fs-xs); font-weight: 500; }
-/* 160-C S1: the reason asked for a removal, above the package's documents; a removed item's name is muted */
-.remove-form { padding: var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--paper); }
-.remove-form .form-note { flex-basis: 100%; margin: 0; }
+/* 160-C: a form above the package's documents (the reason for a removal, documents or statements to add); a removed
+   item's name is muted */
+.inline-form { padding: var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--paper); }
+.inline-form .form-note { flex-basis: 100%; margin: 0; }
+.add-summary { margin: 0; font-variant-numeric: tabular-nums; }
+.docs-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.docs-head > p { margin: 0; min-width: 0; }
 .removed-name { display: inline-flex; align-items: baseline; gap: var(--sp-2); color: var(--muted); }
 /* 160-D: the AI engine of a run or a result: a fact, not a state, so a hairline frame with no state colour or accent */
 .engine-mark { display: inline-flex; align-items: center; font-size: var(--fs-xs); font-weight: 500; line-height: 18px;

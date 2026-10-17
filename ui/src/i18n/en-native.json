@@ -1295,5 +1295,20 @@
   "removed from the package before the approval; not in the released result": "removed from the package before the approval; not in the released result",
   "the file {{name}}": "the file {{name}}",
   "{{n}} removed": "{{n}} removed",
-  "removed from the package; left out of the released result": "removed from the package; left out of the released result"
+  "removed from the package; left out of the released result": "removed from the package; left out of the released result",
+  "{{n}} new item(s) to process": "{{n}} new item(s) to process",
+  "A document already in the package is not added again, and a removed one is restored. The new documents wait for processing.": "A document already in the package is not added again, and a removed one is restored. The new documents wait for processing.",
+  "Add documents": "Add documents",
+  "Add documents to the package": "Add documents to the package",
+  "Add statements": "Add statements",
+  "Add statements to the package": "Add statements to the package",
+  "Add {{n}} document(s)": "Add {{n}} document(s)",
+  "Add {{n}} statement(s) and {{m}} PDF(s)": "Add {{n}} statement(s) and {{m}} PDF(s)",
+  "Added: {{added}} · already in the package: {{already}} · restored: {{restored}}": "Added: {{added}} · already in the package: {{already}} · restored: {{restored}}",
+  "Already processed in a live run of another package: {{names}}. Check that it is not counted twice.": "Already processed in a live run of another package: {{names}}. Check that it is not counted twice.",
+  "Documents to add: their full paths, one per line": "Documents to add: their full paths, one per line",
+  "The files are surveyed for the package's own party and period; what the package already holds is not offered again.": "The files are surveyed for the package's own party and period; what the package already holds is not offered again.",
+  "The last ({{mode}}) run again, on the package's documents as they are now": "The last ({{mode}}) run again, on the package's documents as they are now",
+  "already in this package": "already in this package",
+  "the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings": "the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings"
 }

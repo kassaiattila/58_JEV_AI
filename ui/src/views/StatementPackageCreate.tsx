@@ -74,7 +74,7 @@ function SurveyTable({ survey, chosen, onToggle }: { survey: StatementPackageSur
         {survey.statements.map((r) => (
           <tr key={r.id} className={r.in_period ? undefined : "muted"}>
             <td>
-              <input type="checkbox" checked={chosen.has(r.id)} onChange={(e) => onToggle(r.id, e.target.checked)}
+              <input type="checkbox" checked={chosen.has(r.id)} disabled={r.in_package} onChange={(e) => onToggle(r.id, e.target.checked)}
                 aria-label={t("Choose {{title}} ({{currency}}), {{period}}", { title: r.title, currency: r.currency ?? "?", period: period(r) })} />
             </td>
             <td><strong>{r.institution}</strong> <span className="mono">{r.account ?? r.title}</span> {r.currency}</td>
@@ -83,6 +83,7 @@ function SurveyTable({ survey, chosen, onToggle }: { survey: StatementPackageSur
               <span title={r.file}>{r.file}</span>
               {r.companion ? <div className="small muted">{t("with its PDF statement")}</div> : null}
               <div className="small muted">{t("{{n}} lines", { n: r.lines })}</div>
+              {r.in_package ? <div className="small muted">{t("already in this package")}</div> : null}
             </td>
             <td>
               <span className={r.rank === "unchecked" ? "warn-text" : "ok"}>{RANK[r.rank] ?? r.rank}</span>
@@ -95,6 +96,55 @@ function SurveyTable({ survey, chosen, onToggle }: { survey: StatementPackageSur
         ))}
       </tbody>
     </table>
+  );
+}
+
+/** 140, 160-C S2: the survey's choices — the statements (select all / clear), the PDFs no export uses and the files that
+ *  could not be read; shared by a new statement package and by adding to one (what the package holds stays unticked). */
+export function SurveyChoices({ survey, chosen, setChosen }: {
+  survey: StatementPackageSurvey; chosen: Set<string>; setChosen: (next: Set<string>) => void;
+}) {
+  useLocale();
+  const toggle = (id: string, on: boolean) => {
+    const next = new Set(chosen);
+    if (on) next.add(id); else next.delete(id);
+    setChosen(next);
+  };
+  const open = survey.statements.filter((r) => !r.in_package).map((r) => r.id);
+  return (
+    <>
+      {survey.statements.length ? (
+        <>
+          <p className="small">
+            <button type="button" className="secondary small-btn" onClick={() => setChosen(new Set([...chosen, ...open]))}>{t("Select all")}</button>{" "}
+            <button type="button" className="secondary small-btn" onClick={() => setChosen(new Set([...chosen].filter((id) => !survey.statements.some((r) => r.id === id))))}>{t("Clear the selection")}</button>
+          </p>
+          <SurveyTable survey={survey} chosen={chosen} onToggle={toggle} />
+        </>
+      ) : <p className="muted small">{t("The files hold no bank export a profile can read.")}</p>}
+      {survey.pdfs.length ? (
+        <fieldset className="plain">
+          <legend>{t("PDF statements ({{n}})", { n: survey.pdfs.length })}</legend>
+          <p className="small muted">{t("A PDF is recognised in the run: a bank statement's data is extracted by AI within the run's budget; any other document stops with a to-do, without extraction.")}</p>
+          {survey.pdfs.map((p) => (
+            <label key={p.path} className="check">
+              <input type="checkbox" checked={chosen.has(p.path)} disabled={p.in_package} onChange={(e) => toggle(p.path, e.target.checked)}
+                aria-label={t("Choose {{file}}", { file: p.file })} />{" "}
+              <span className="mono">{p.file}</span>
+              {p.in_package ? <span className="muted"> · {t("already in this package")}</span>
+                : p.statement ? <span className="muted"> · {t("already in the store: {{statement}}", { statement: refText(p.statement) })}</span>
+                : p.in_store ? <span className="muted"> · {t("already processed, not as a statement")}</span> : null}
+            </label>
+          ))}
+        </fieldset>
+      ) : null}
+      {survey.skipped.length ? (
+        <details>
+          <summary className="small warn-text">{t("{{n}} file(s) could not be read as a statement", { n: survey.skipped.length })}</summary>
+          <ul className="small">{survey.skipped.map((s) => <li key={`${s.file}:${s.reason}`}><span className="mono">{s.file}</span>: {s.reason}</li>)}</ul>
+        </details>
+      ) : null}
+    </>
   );
 }
 
@@ -166,11 +216,6 @@ export function StatementPackageCreate({ onDone }: { onDone: (wpId: string) => v
     }
   }
 
-  const toggle = (id: string, on: boolean) => setChosen((prev) => {
-    const next = new Set(prev);
-    if (on) next.add(id); else next.delete(id);
-    return next;
-  });
   const nStatements = survey ? survey.statements.filter((r) => chosen.has(r.id)).length : 0;
   const nPdfs = survey ? survey.pdfs.filter((p) => chosen.has(p.path)).length : 0;
 
@@ -217,36 +262,7 @@ export function StatementPackageCreate({ onDone }: { onDone: (wpId: string) => v
       </button>
       {survey ? (
         <section className="rc-stack" aria-label={t("Survey")}>
-          {survey.statements.length ? (
-            <>
-              <p className="small">
-                <button type="button" className="secondary small-btn" onClick={() => setChosen(new Set([...chosen, ...survey.statements.map((r) => r.id)]))}>{t("Select all")}</button>{" "}
-                <button type="button" className="secondary small-btn" onClick={() => setChosen(new Set([...chosen].filter((id) => !survey.statements.some((r) => r.id === id))))}>{t("Clear the selection")}</button>
-              </p>
-              <SurveyTable survey={survey} chosen={chosen} onToggle={toggle} />
-            </>
-          ) : <p className="muted small">{t("The files hold no bank export a profile can read.")}</p>}
-          {survey.pdfs.length ? (
-            <fieldset className="plain">
-              <legend>{t("PDF statements ({{n}})", { n: survey.pdfs.length })}</legend>
-              <p className="small muted">{t("A PDF is recognised in the run: a bank statement's data is extracted by AI within the run's budget; any other document stops with a to-do, without extraction.")}</p>
-              {survey.pdfs.map((p) => (
-                <label key={p.path} className="check">
-                  <input type="checkbox" checked={chosen.has(p.path)} onChange={(e) => toggle(p.path, e.target.checked)}
-                    aria-label={t("Choose {{file}}", { file: p.file })} />{" "}
-                  <span className="mono">{p.file}</span>
-                  {p.statement ? <span className="muted"> · {t("already in the store: {{statement}}", { statement: refText(p.statement) })}</span>
-                    : p.in_store ? <span className="muted"> · {t("already processed, not as a statement")}</span> : null}
-                </label>
-              ))}
-            </fieldset>
-          ) : null}
-          {survey.skipped.length ? (
-            <details>
-              <summary className="small warn-text">{t("{{n}} file(s) could not be read as a statement", { n: survey.skipped.length })}</summary>
-              <ul className="small">{survey.skipped.map((s) => <li key={`${s.file}:${s.reason}`}><span className="mono">{s.file}</span>: {s.reason}</li>)}</ul>
-            </details>
-          ) : null}
+          <SurveyChoices survey={survey} chosen={chosen} setChosen={setChosen} />
           <details>
             <summary className="small">{t("{{party}}'s months now", { party: survey.party.name })}</summary>
             <PartyMonths partyId={survey.party.id} start={start} end={end} />

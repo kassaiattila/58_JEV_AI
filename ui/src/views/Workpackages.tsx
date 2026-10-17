@@ -56,7 +56,7 @@ export function CreateForm({ onDone, initialTemplate }: { onDone: (id: string) =
 
 const STAGE_ORDER = ["process", "review", "result"];
 const TRACK_TONE: Record<string, string> = {
-  running: "t-running", review: "t-todo", reconcile_pair: "t-todo", rerun: "t-failed", blocked: "t-failed",
+  running: "t-running", review: "t-todo", pending: "t-todo", reconcile_pair: "t-todo", rerun: "t-failed", blocked: "t-failed",
   done: "t-done", reconcile_approved: "t-done",
 };
 

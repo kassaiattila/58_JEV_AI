@@ -2,8 +2,9 @@
 // show behind a switch and can be restored; the approval of a run with removed items says so and sends the count it
 // showed. Artificial data, no service.
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api, type DsPage, type DsRow, type RunView, type Workpackage, type WorkpackageView } from "./api";
+import { setLanguage } from "./i18n";
 import { DocumentsPanel } from "./views/DocumentsPanel";
 import { ResultStage } from "./views/ResultStage";
 import { ReviewWorkspace } from "./views/ReviewWorkspace";
@@ -26,7 +27,9 @@ vi.mock("./components/DataTable", async () => {
   } };
 });
 
-afterEach(() => { vi.restoreAllMocks(); localStorage.clear(); });
+// the interface in English, so the tests read the source labels
+beforeEach(async () => { await setLanguage("en"); });
+afterEach(async () => { vi.restoreAllMocks(); localStorage.clear(); await setLanguage("hu"); });
 
 const WP = { id: "wp-1", name: "Invoices", source_kind: "manual", source_ref: null, revision: 3, status: "open", created_at: "",
   updated_at: "", items: [], assignment: null } as unknown as Workpackage;
@@ -42,8 +45,8 @@ it("a removal asks for a reason and sends it with the package's revision", async
   rows.current = [{ _key: "doc-1", item_id: "doc-1", name: "invoice.pdf", original_name: "invoice.pdf", _removed: false }];
   const remove = vi.spyOn(api, "removeItem").mockResolvedValue({ workpackage: WP });
   const { onChanged } = panel();
-  fireEvent.click(screen.getByRole("button", { name: "Eltávolítás" }));
-  const submit = screen.getByRole("button", { name: "Kivétel a csomagból" }) as HTMLButtonElement;
+  fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+  const submit = screen.getByRole("button", { name: "Remove from the package" }) as HTMLButtonElement;
   expect(submit.disabled).toBe(true); // no reason yet
   fireEvent.change(screen.getByRole("textbox"), { target: { value: "  a duplicate scan " } });
   expect(submit.disabled).toBe(false);
@@ -58,18 +61,18 @@ it("the switch asks for the removed items too, and a removed item offers only it
   const restore = vi.spyOn(api, "restoreItem").mockResolvedValue({ workpackage: WP });
   panel();
   expect(JSON.parse(screen.getByTestId("table").dataset.scope ?? "{}").removed).toBeUndefined();
-  fireEvent.click(screen.getByRole("checkbox", { name: /Kivett tételek is/ }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /Removed items too/ }));
   expect(JSON.parse(screen.getByTestId("table").dataset.scope ?? "{}").removed).toBe("1");
   const row = screen.getByTestId("row-doc-2");
   expect(row.querySelector("a")).toBeNull(); // the service does not serve a removed item's file
-  fireEvent.click(screen.getByRole("button", { name: "Visszaállítás" }));
+  fireEvent.click(screen.getByRole("button", { name: "Restore" }));
   await waitFor(() => expect(restore).toHaveBeenCalledWith("wp-1", "doc-2", 3));
 });
 
 it("the package says what it was created from by its kind", () => {
   rows.current = [];
   render(<DocumentsPanel wp={{ ...WP, source_kind: "statements" } as Workpackage} onChanged={() => {}} />);
-  expect(screen.getByText(/Létrehozva ebből: kivonatcsomag/)).toBeTruthy();
+  expect(screen.getByText(/Created from: a statement package/)).toBeTruthy();
 });
 
 it("the review list marks a removed item and does not count its to-dos as the run's work", async () => {
@@ -84,9 +87,9 @@ it("the review list marks a removed item and does not count its to-dos as the ru
   } as unknown as RunView);
   vi.spyOn(api, "item").mockReturnValue(new Promise(() => {}));
   render(<ReviewWorkspace wp={{ id: "wp-1" } as Workpackage} itemId="b" />);
-  await screen.findByText("1 nyitott teendő ebben a futásban");
-  const queue = screen.getByRole("navigation", { name: "Tételek" });
-  expect(queue.textContent).toContain("Kivéve");
+  await screen.findByText("Open to-dos in this run: 1");
+  const queue = screen.getByRole("navigation", { name: "Items" });
+  expect(queue.textContent).toContain("Removed");
 });
 
 const VIEW = { workpackage: { id: "wp-1" }, last_run: { run_id: "run-1" }, runs: 1 } as unknown as WorkpackageView;
@@ -108,4 +111,40 @@ it("the approval of a run with a removed item names it, leaves its to-dos out an
   fireEvent.click(button);
   fireEvent.click(button); // the approval needs two clicks
   await waitFor(() => expect(approve).toHaveBeenCalledWith("run-1", "v1", 1));
+});
+
+// --- S2: adding to an existing package ---------------------------------------------------------------------------
+
+it("adding documents sends the paths with the revision and shows the service's own counts", async () => {
+  rows.current = [];
+  const add = vi.spyOn(api, "addItems").mockResolvedValue({ added: { added: 1, already: 1, restored: 0,
+    processed_elsewhere: ["invoice_2.pdf"] } } as unknown as Awaited<ReturnType<typeof api.addItems>>);
+  const { onChanged } = panel();
+  fireEvent.click(screen.getByRole("button", { name: "Add documents" }));
+  fireEvent.change(screen.getByRole("textbox", { name: /Documents to add/ }), { target: { value: "C:/in/a.pdf\n\"C:/in/b.pdf\"\n" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add 2 document(s)" }));
+  await waitFor(() => expect(add).toHaveBeenCalledWith("wp-1", ["C:/in/a.pdf", "C:/in/b.pdf"], 3));
+  expect(await screen.findByText("Added: 1 · already in the package: 1 · restored: 0")).toBeTruthy();
+  expect(screen.getByText(/Already processed in a live run of another package: invoice_2.pdf/)).toBeTruthy();
+  expect(onChanged).toHaveBeenCalled();
+});
+
+it("a statement package grows through its survey, and what it holds cannot be ticked again", async () => {
+  rows.current = [];
+  const row = (id: string, inPackage: boolean) => ({ id, institution: "Example Bank", file: `${id}.xlsx`, companion: null, title: "Account",
+    account: "…1234", currency: "HUF", period_start: "2026-05-01", period_end: "2026-05-31", lines: 3, checks_ok: true,
+    balance_checked: true, rank: "code_checked", in_period: true, in_store: inPackage, owner: "package" as const, owner_party: null,
+    replaces: [], replaced_by: null, conflicts: [], chosen: !inPackage, in_package: inPackage });
+  vi.spyOn(api, "packageStatementSurvey").mockResolvedValue({ party: { id: "p-1", name: "Example Kft." }, period_start: "2026-05-01",
+    period_end: "2026-06-30", statements: [row("a".repeat(64), true), row("b".repeat(64), false)], pdfs: [], skipped: [] });
+  const add = vi.spyOn(api, "addPackageStatements").mockResolvedValue({} as Awaited<ReturnType<typeof api.addPackageStatements>>);
+  render(<DocumentsPanel wp={{ ...WP, source_kind: "statements" } as Workpackage} onChanged={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "Add statements" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "The statements' folder" }), { target: { value: "C:/bank" } });
+  fireEvent.click(screen.getByRole("button", { name: "Survey the files" }));
+  const boxes = await screen.findAllByRole("checkbox", { name: /^Choose/ });
+  expect((boxes[0] as HTMLInputElement).disabled).toBe(true);
+  expect((boxes[1] as HTMLInputElement).checked).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "Add 1 statement(s) and 0 PDF(s)" }));
+  await waitFor(() => expect(add).toHaveBeenCalledWith("wp-1", { paths: ["C:/bank"], expected_revision: 3, statements: ["b".repeat(64)], pdfs: [] }));
 });

@@ -552,9 +552,15 @@ export interface StatementSurveyRow {
   balance_checked: boolean; rank: string; in_period: boolean; in_store: boolean;
   owner: "package" | "none" | "other"; owner_party: { id: string; name: string } | null;
   replaces: StatementRef[]; replaced_by: StatementRef | null; conflicts: StatementRef[]; chosen: boolean;
+  in_package?: boolean; // 160-C S2: the package's own survey: the package already holds it
 }
 /** 140: a PDF of the surveyed files that no export uses: processed with type recognition and AI extraction. */
-export interface StatementSurveyPdf { path: string; file: string; sha256: string; in_store: boolean; statement: StatementRef | null; chosen: boolean }
+export interface StatementSurveyPdf {
+  path: string; file: string; sha256: string; in_store: boolean; statement: StatementRef | null; chosen: boolean;
+  in_package?: boolean; // 160-C S2
+}
+/** 160-C S2: what adding documents to a package did; `processed_elsewhere`: names a live run of another package processed. */
+export interface AddSummary { added: number; already: number; restored: number; processed_elsewhere: string[] }
 export interface StatementPackageSurvey {
   party: { id: string; name: string }; period_start: string; period_end: string;
   statements: StatementSurveyRow[]; pdfs: StatementSurveyPdf[]; skipped: { file: string; reason: string }[];
@@ -1011,6 +1017,14 @@ export const api = {
   renameWorkpackage: (id: string, name: string) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/rename`, { name }),
   deleteWorkpackage: (id: string) => request<{ deleted: string }>("POST", `/workpackages/${enc(id)}/delete`, {}),
   /** 160-C S1 (decision 163 D2): a removal needs a reason; the person is the chosen user (the `X-Actor` header). */
+  /** 160-C S2: documents added to an existing package; `added` says what happened (the service's own counts). */
+  addItems: (id: string, paths: string[], expected_revision: number) =>
+    request<WorkpackageView & { added: AddSummary }>("POST", `/workpackages/${enc(id)}/items`, { paths, expected_revision }),
+  /** 160-C S2: a statement package grows through its own survey (its party and period). */
+  packageStatementSurvey: (id: string, paths: string[]) =>
+    request<StatementPackageSurvey>("POST", `/workpackages/${enc(id)}/statements/survey`, { paths }),
+  addPackageStatements: (id: string, body: { paths: string[]; statements: string[]; pdfs: string[]; expected_revision: number }) =>
+    request<WorkpackageView>("POST", `/workpackages/${enc(id)}/statements/add`, body),
   removeItem: (id: string, itemId: string, expected_revision: number, reason: string) =>
     request<{ workpackage: Workpackage }>("POST", `/workpackages/${enc(id)}/items/${enc(itemId)}/remove`, { expected_revision, reason }),
   restoreItem: (id: string, itemId: string, expected_revision: number) =>
