@@ -44,7 +44,7 @@ FLOW_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"_detect_golden_gpt(_keys)?\.jsonl$|_detect_determinism_gpt\.jsonl$", "doc_detect_gpt"),
     (r"_email_golden_gpt\.jsonl$|_email_determinism_gpt\.jsonl$", "email_intent_gpt"),
     (r"_email_injection_probe_gpt\.jsonl$", "email_injection_probe_gpt"),
-    (r"_golden_G_nojev\.jsonl$|_determinism_G_n\d+_nojev\.jsonl$", "invoice_G_gpt"),
+    (r"_(golden|synthetic)_G_nojev\.jsonl$|_determinism_G_n\d+_nojev\.jsonl$", "invoice_G_gpt"),
     (r"_golden_S\.jsonl$|_determinism_S_n\d+\.jsonl$", "invoice_S"),
     (r"_golden_G\.jsonl$|_determinism_G_n\d+\.jsonl$", "invoice_G"),
     (r"_detect_golden\.jsonl$|_detect_determinism.*\.jsonl$", "doc_detect"),
@@ -377,6 +377,9 @@ def judgments_from_file(path: Path | str) -> list[Judgment]:
             for j in js:
                 j.run_no = seen[key]
         out.extend(js)
+    if "_synthetic_" in Path(path).name:  # 160-D: the invented cases, apart from the golden set's flow
+        for j in out:
+            j.flow = f"{j.flow} (synthetic)"
     return out
 
 
@@ -604,7 +607,7 @@ def report_markdown(paths: list[Path | str]) -> str:
     for flow in flows:
         fj = [j for j in js if j.flow == flow]
         fields_only = all(j.kind == "field" for j in fj if j.kind in ("choice", "field"))
-        edges = GPT_CAL_BIN_EDGES if flow.endswith("_gpt") else CAL_BIN_EDGES
+        edges = GPT_CAL_BIN_EDGES if "_gpt" in flow else CAL_BIN_EDGES
         for key in (("confidence",) if fields_only else ("top_prob", "confidence")):
             cal = calibration(fj, key=key, edges=edges)
             if cal["n"] == 0:

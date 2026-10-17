@@ -169,6 +169,20 @@ def test_report_has_the_gpt_sections(gpt_runs: dict[str, Path]):
     assert "**invoice_G_gpt · top_prob**" not in md  # a field's confidence and top probability are the same number
 
 
+def test_the_invented_cases_without_jev_are_a_flow_of_their_own(tmp_path: Path):
+    """The invented cases (`golden --synthetic`) have their truth written with them, so they are read too, but apart
+    from the golden set: a flow named `… (synthetic)`, with the GPT bins. A local list (`golden --cases`) is not read:
+    its expectations are reference values, so its score is an agreement, not an accuracy."""
+    row = {"case_id": "s1", "doc_type": "invoice_out", "flow_label": "invoice_out_G", "arm": "G", "run_no": 1,
+           "review_reasons": [], "scores": {"buyer_name": False}, "field_confidence": {"buyer_name": 0.99}}
+    path = _write(tmp_path / "20261017_000009_invoice_out_synthetic_G_nojev.jsonl", [row])
+    js = er.judgments_from_file(path)
+    assert er.flow_of(path) == "invoice_G_gpt" and {j.flow for j in js} == {"invoice_out_G_gpt (synthetic)"}
+    md = er.report_markdown([path])
+    assert "**invoice_out_G_gpt (synthetic) · confidence**" in md and "| 0.99–1.00 | 1 |" in md
+    assert er.flow_of(Path("20261017_000010_invoice_out_local_G_nojev.jsonl")) is None
+
+
 def test_default_inputs_include_the_latest_gpt_measurements(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     for name in ("20261001_detect_golden_gpt.jsonl", "20261002_detect_golden_gpt.jsonl", "20261002_golden_G_nojev.jsonl",
                  "20261002_email_golden_gpt.jsonl", "20261002_detect_golden.jsonl"):
