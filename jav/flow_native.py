@@ -120,6 +120,9 @@ def review_native(state: NativeState) -> NativeState:
     if publication.interpretation_outcome.status != "succeeded":
         reasons.append("native:interpretation:" + publication.interpretation_outcome.status)
     else:
+        # 160 (review AI-5): the GPT facts were published without JEV support because JEV did not answer
+        if (publication.interpretation_outcome.reason or "").startswith("jev_unavailable:"):
+            reasons.append(publication.interpretation_outcome.reason)
         interpretation = publication.interpretation
         if not interpretation.facts:
             reasons.append("native:no_facts")

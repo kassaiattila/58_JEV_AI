@@ -136,7 +136,7 @@ def interpret(*, work_run_id: str, item_id: str, graph_id: str, reading_id: str,
             response_sha256=response_sha, artifact_kind="native_cached_response", artifact_id=artifact_id,
             call_status="cached", cost_known=True, cost_usd=Decimal(0), replayed=True))
 
-    interpretation, failure = None, None
+    interpretation, failure, jev_reason = None, None, None
     try:
         ctx = calls.current()
         if ctx is None or ctx.budget_scope != work_run_id:
@@ -151,18 +151,23 @@ def interpret(*, work_run_id: str, item_id: str, graph_id: str, reading_id: str,
                 max_transfer_bytes=limits.max_transfer_bytes, max_output_tokens=limits.max_output_tokens,
                 receipt_observer=gpt_receipt)
             if jev:
-                from jav.adapters.jev import JevAdapter
-                interpretation = providers.verify_jev(delivery, interpretation, run_id=graph_id,
-                    isolated_store=store.active_path(), max_transfer_bytes=limits.max_transfer_bytes,
-                    adapter=JevAdapter(cache_dir=store.current_path().parent / "native" / "provider_cache"),
-                    use_cache=use_cache, receipt_observer=jev_receipt)
+                from jav.adapters.jev import JevAdapter, JevUnavailableError
+                try:
+                    interpretation = providers.verify_jev(delivery, interpretation, run_id=graph_id,
+                        isolated_store=store.active_path(), max_transfer_bytes=limits.max_transfer_bytes,
+                        adapter=JevAdapter(cache_dir=store.current_path().parent / "native" / "provider_cache"),
+                        use_cache=use_cache, receipt_observer=jev_receipt)
+                except JevUnavailableError as exc:
+                    # 160 (review AI-5): the paid GPT facts stay, without JEV support; the saved outcome carries the
+                    # `jev_unavailable:<reason>` to-do of the other flows, so a resume keeps it too
+                    jev_reason = f"jev_unavailable:{exc.reason}"
     except Exception as exc:
         # This is the explicit terminal application boundary. Keep only a safe
         # error class publicly; the existing call log retains private diagnostics.
         failure = exc
     receipts = _receipts(graph_id, replayed) + tuple(cached_refs)
     if failure is None:
-        outcome = Succeeded(receipt_refs=receipts)
+        outcome = Succeeded(receipt_refs=receipts, reason=jev_reason)
     elif any(r.call_status in {"reserved", "uncertain"} for r in receipts):
         outcome = Uncertain(receipt_refs=receipts, reason="Provider outcome is uncertain; automatic retry is disabled")
     elif isinstance(failure, InterpretationRejected):
