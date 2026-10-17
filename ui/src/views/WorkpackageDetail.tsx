@@ -140,12 +140,13 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
       </div>
       <div role="tabpanel" aria-label={labels[stage]}>
         {reconcile ? <ReconcileStages view={view} stage={stage} onChanged={wp.reload} /> : null}
-        {!reconcile && stage === "process" && route.start ? <StartConfirm view={view} mode={route.start.mode} rerun={route.start.rerun} onChanged={wp.reload} /> : null}
+        {!reconcile && stage === "process" && route.start ? <StartConfirm view={view} mode={route.start.mode} rerun={route.start.rerun} pending={route.start.pending} onChanged={wp.reload} /> : null}
         {!reconcile && stage === "process" && !route.start ? <ProcessStage view={view} onChanged={wp.reload} /> : null}
         {!reconcile && stage === "review" ? (
           view.runs ? (
             <>
-              <ReviewWorkspace wp={workpackage} itemId={route.itemId} onChanged={wp.reload} />
+              <ReviewWorkspace wp={workpackage} itemId={route.itemId} onChanged={wp.reload} currentRunId={view.current_run?.run_id}
+                openRuns={view.open_runs} />
               <details className="details mt">
                 <summary>{t("Iratok kezelése: megnyitás, letöltés, eltávolítás")}</summary>
                 <DocumentsPanel wp={workpackage} onChanged={wp.reload} />

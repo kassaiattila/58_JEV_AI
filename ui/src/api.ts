@@ -43,6 +43,7 @@ export interface RunRow {
   run_id: string; workpackage_id: string; workpackage_name: string; recipe_id: string; recipe_version: number; mode: "shadow" | "apply";
   status: string; approval: string | null; approved_by: string | null; actor: string; created_at: string; finished_at: string | null;
   items: number; items_done: number; open_reasons: number;
+  scope?: "pending" | null; // 160-C S3: a run over only the package's pending items
 }
 export interface WorkpackageView {
   workpackage: Workpackage; readiness: Readiness; titles?: Record<string, string>; next: NextStep; last_run: RunRow | null; runs: number;
@@ -57,6 +58,8 @@ export interface WorkpackageView {
   workflow?: WorkflowRef | null;
   /** 152: the older live runs a person can supersede, oldest first */
   supersedable?: SupersedableRun[];
+  /** 160-C S3: the open live runs (finished, not approved, not repeated by a later one), oldest first */
+  open_runs?: RunRow[];
 }
 /** 080: what a run of the package will do (the pre-start overview): documents by their path known in advance (S / G /
  *  type not known yet), emails, emails with a task proposal, whether Azure may be used and earlier JEV answers reused. */
@@ -72,6 +75,13 @@ export interface Readiness {
   budget: Record<string, string>; assignment_revision: number; input_hash: string;
   plan?: RunPlan; // 080
   assignment_default?: boolean; // 080: no saved settings yet; the default ones apply and are saved at start
+  /** 160-C S3: per mode, the run over only the pending items (when a run of that mode finished some items) */
+  supplement?: Partial<Record<"shadow" | "apply", Supplement>>;
+}
+/** 160-C S3: the run over only the package's pending items: their count, own blockers, budget, plan and input. */
+export interface Supplement {
+  items: number; ready: boolean; blockers: Blocker[]; warnings: Blocker[]; budget: Record<string, string>; plan: RunPlan;
+  input_hash: string;
 }
 export interface RecipeParam { allowed?: string[]; allowed_from?: string; default?: string }
 export interface Recipe {
@@ -274,6 +284,7 @@ export interface RunView {
   supersede?: SupersedeInfo | null; // 151: a later live run repeated this one; it can be superseded
   superseded?: { by: string; actor: string; at: string; reasons_closed: number } | null; // 151: who superseded it
   engine?: Engine | null; // 160-D: the AI engine the run ran with (absent from an older service)
+  removed_items?: string[]; // 160-C (decision 163 D7): items removed from the package, left out of the release
 }
 /** 151: the later live run that repeated this one, its own open to-dos that would close, and the human work done on it. */
 export interface SupersedeInfo { by: string; open_reasons: number; resolved_reasons: number; corrected_items: number }
@@ -551,9 +562,15 @@ export interface StatementSurveyRow {
   balance_checked: boolean; rank: string; in_period: boolean; in_store: boolean;
   owner: "package" | "none" | "other"; owner_party: { id: string; name: string } | null;
   replaces: StatementRef[]; replaced_by: StatementRef | null; conflicts: StatementRef[]; chosen: boolean;
+  in_package?: boolean; // 160-C S2: the package's own survey: the package already holds it
 }
 /** 140: a PDF of the surveyed files that no export uses: processed with type recognition and AI extraction. */
-export interface StatementSurveyPdf { path: string; file: string; sha256: string; in_store: boolean; statement: StatementRef | null; chosen: boolean }
+export interface StatementSurveyPdf {
+  path: string; file: string; sha256: string; in_store: boolean; statement: StatementRef | null; chosen: boolean;
+  in_package?: boolean; // 160-C S2
+}
+/** 160-C S2: what adding documents to a package did; `processed_elsewhere`: names a live run of another package processed. */
+export interface AddSummary { added: number; already: number; restored: number; processed_elsewhere: string[] }
 export interface StatementPackageSurvey {
   party: { id: string; name: string }; period_start: string; period_end: string;
   statements: StatementSurveyRow[]; pdfs: StatementSurveyPdf[]; skipped: { file: string; reason: string }[];
@@ -1009,8 +1026,19 @@ export const api = {
   restoreWorkpackage: (id: string) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/restore`, {}),
   renameWorkpackage: (id: string, name: string) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/rename`, { name }),
   deleteWorkpackage: (id: string) => request<{ deleted: string }>("POST", `/workpackages/${enc(id)}/delete`, {}),
-  removeItem: (id: string, itemId: string, expected_revision: number) =>
-    request<{ workpackage: Workpackage }>("POST", `/workpackages/${enc(id)}/items/${enc(itemId)}/remove`, { expected_revision }),
+  /** 160-C S1 (decision 163 D2): a removal needs a reason; the person is the chosen user (the `X-Actor` header). */
+  /** 160-C S2: documents added to an existing package; `added` says what happened (the service's own counts). */
+  addItems: (id: string, paths: string[], expected_revision: number) =>
+    request<WorkpackageView & { added: AddSummary }>("POST", `/workpackages/${enc(id)}/items`, { paths, expected_revision }),
+  /** 160-C S2: a statement package grows through its own survey (its party and period). */
+  packageStatementSurvey: (id: string, paths: string[]) =>
+    request<StatementPackageSurvey>("POST", `/workpackages/${enc(id)}/statements/survey`, { paths }),
+  addPackageStatements: (id: string, body: { paths: string[]; statements: string[]; pdfs: string[]; expected_revision: number }) =>
+    request<WorkpackageView>("POST", `/workpackages/${enc(id)}/statements/add`, body),
+  removeItem: (id: string, itemId: string, expected_revision: number, reason: string) =>
+    request<{ workpackage: Workpackage }>("POST", `/workpackages/${enc(id)}/items/${enc(itemId)}/remove`, { expected_revision, reason }),
+  restoreItem: (id: string, itemId: string, expected_revision: number) =>
+    request<{ workpackage: Workpackage }>("POST", `/workpackages/${enc(id)}/items/${enc(itemId)}/restore`, { expected_revision }),
   reviews: (id: string) =>
     request<{ items: { item_id: string; source_path: string; open_reasons: Reason[] }[]; open_reasons: number }>(
       "GET", `/workpackages/${enc(id)}/reviews`),
@@ -1019,7 +1047,7 @@ export const api = {
   saveWorkflow: (id: string, body: { recipe_id: string; params: Record<string, string>; expected_revision: number; note?: string }) =>
     request<{ assignment: Assignment }>("POST", `/workpackages/${enc(id)}/workflow`, body),
   readiness: (id: string) => request<Readiness>("GET", `/workpackages/${enc(id)}/workflow/readiness`),
-  start: (id: string, body: { mode: "shadow" | "apply"; expected_revision: number; input_hash: string; rerun_of?: string }) =>
+  start: (id: string, body: { mode: "shadow" | "apply"; expected_revision: number; input_hash: string; rerun_of?: string; scope?: "all" | "pending" }) =>
     request<{ run_id: string; deduped: boolean; status: string }>("POST", `/workpackages/${enc(id)}/workflow/start`, body),
   wpRuns: (id: string) => request<{ runs: Run[] }>("GET", `/workpackages/${enc(id)}/runs`),
   runs: () => request<{ runs: Run[] }>("GET", "/runs"),
@@ -1029,9 +1057,11 @@ export const api = {
   cancel: (runId: string) => request<{ status: string }>("POST", `/runs/${enc(runId)}/cancel`, {}),
   supersede: (runId: string) =>
     request<{ run_id: string; superseded_by: string; reasons_closed: number; status: string }>("POST", `/runs/${enc(runId)}/supersede`, {}),
-  /** 085: `reviewVersion` is the run view's `review_version` the approver saw; a correction saved since gives 409. */
-  approve: (runId: string, reviewVersion?: string) =>
-    request<RunView>("POST", `/runs/${enc(runId)}/approve`, reviewVersion ? { review_version: reviewVersion } : {}),
+  /** 085: `reviewVersion` is the run view's `review_version` the approver saw; a correction saved since gives 409.
+   *  160-C (decision 163 D7): `confirmRemoved` is the count of `removed_items` the approver saw (left out of the release). */
+  approve: (runId: string, reviewVersion?: string, confirmRemoved?: number) =>
+    request<RunView>("POST", `/runs/${enc(runId)}/approve`, {
+      ...(reviewVersion ? { review_version: reviewVersion } : {}), ...(confirmRemoved ? { confirm_removed: confirmRemoved } : {}) }),
   documentFormats: () => request<{ formats: DocumentFormat[]; native_limits: Record<string, unknown> }>("GET", "/document-formats"),
   item: (runId: string, itemId: string) => request<ItemResult | NativeItemResult>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}`),
   nativeSources: (runId: string, itemId: string, version: string, offset = 0) =>

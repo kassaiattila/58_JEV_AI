@@ -127,9 +127,13 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
     result."""
     run_id = scope["run_id"]
     with store.connect() as c:
-        row = c.execute("SELECT status, approval, input FROM runs WHERE run_id=?", (run_id,)).fetchone()
+        row = c.execute("SELECT status, approval, input, excluded_items, workpackage_id FROM runs WHERE run_id=?", (run_id,)).fetchone()
         if row is None:
             raise KeyError(run_id)
+        # 160-C (decision 163 D7): the items left out of the release (recorded at approval, until then the removed ones)
+        left_out = row["excluded_items"] if row["approval"] else c.execute(
+            "SELECT GROUP_CONCAT(item_id) FROM (SELECT item_id FROM workpackage_items WHERE workpackage_id=?"
+            " AND removed_revision IS NOT NULL ORDER BY item_id)", (row["workpackage_id"],)).fetchone()[0]
         corr = c.execute("SELECT COUNT(*), MAX(created_at) FROM run_item_corrections WHERE run_id=?", (run_id,)).fetchone()
         rsn: list[Any] = []
         subjects = [work.review_subject(i) for i in json.loads(row["input"])["items"]]
@@ -154,7 +158,8 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
         pairs = [[d["pair_key"], d["decision"], d["decided_at"]] for d in duplicates.decisions_for([i for k, i in subjects if k == "document"], c)]
     digest = hashlib.sha256(str(dec[1]).encode("utf-8")).hexdigest()[:16]
     paired = hashlib.sha256(json.dumps(pairs).encode("utf-8")).hexdigest()[:16] if pairs else ""
-    return "|".join(str(x) for x in (*corr, *rsn, dec[0], digest, *items, row["status"], row["approval"], native, paired))
+    return "|".join(str(x) for x in (*corr, *rsn, dec[0], digest, *items, row["status"], row["approval"], native, paired,
+                                     hashlib.sha256(str(left_out).encode("utf-8")).hexdigest()[:16]))
 
 
 def _calls_fingerprint(scope: dict[str, str]) -> str:
@@ -210,6 +215,7 @@ def _runs(scope: dict[str, str]) -> Rows:
         _col("workpackage_name", "Munkacsomag", link="workpackage"),
         _col("recipe_id", "Feldolgozás", "enum", labels="recipe"),
         _col("mode", "Mód", "enum", labels="mode"),
+        _col("scope", "Run scope", "enum", labels="run_scope"),  # 160-C S3: a run over only the pending items
         _col("status", "Állapot", "enum", labels="run_status", badge=True),
         _col("approval", "Jóváhagyás", "enum", labels="approval"),
         _col("approved_by", "Jóváhagyta", hidden=True),
@@ -327,10 +333,22 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
     ]
     open_by_subject = store.review_open_reasons_many([work.review_subject(i) for i in wp["items"]])
     owners = work_views.run_packages()  # 153: not another package's runs' to-dos
-    rows = [{"_key": i["item_id"], "_wp": wp["id"], "item_id": i["item_id"], **_name_fields(i, titles, names[i["item_id"]], choice),
+    rows = [{"_key": i["item_id"], "_wp": wp["id"], "_removed": False, "item_id": i["item_id"],
+             **_name_fields(i, titles, names[i["item_id"]], choice),
              "kind": i.get("kind") or "document", "source_path": i["source_path"], "sha256": i.get("sha256"),
              "added_revision": i.get("added_revision"),
              "open_reasons": len(work_views.own_reasons(open_by_subject[work.review_subject(i)], wp["id"], owners))} for i in wp["items"]]
+    if scope.get("removed") == "1":  # 160-C S1 (decision 163 D3): the removed items too, with who, when and why
+        removed = work.removed_items(wp["id"])
+        titles.update(work_views.item_titles(removed, work_views.package_root(wp)))
+        cols += [_col("removed_by", "Removed by"), _col("removed_at", "Removed at", "datetime"),
+                 _col("removed_reason", "Reason for removal")]
+        rows = [{**r, "removed_by": None, "removed_at": None, "removed_reason": None} for r in rows]
+        rows += [{"_key": i["item_id"], "_wp": wp["id"], "_removed": True, "item_id": i["item_id"],
+                  **_name_fields(i, titles, naming.NO_NAME, choice), "kind": i.get("kind") or "document",
+                  "source_path": i["source_path"], "sha256": i.get("sha256"), "added_revision": i.get("added_revision"),
+                  "open_reasons": None, "removed_by": i["removed_by"], "removed_at": i["removed_at"],
+                  "removed_reason": i["removed_reason"]} for i in removed]
     return cols, rows
 
 
@@ -742,7 +760,7 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("runs", "Futások", (), _runs, optional_scope=("workpackage_id",)),
     Dataset("workpackages", "Munkacsomagok", (), _workpackages, _workpackages_fingerprint, optional_scope=("include_archived", "owner"),
             natural_sort=(("created_at", True),), refresh_behind=True),
-    Dataset("workpackage_items", "Csomag tételei", ("workpackage_id",), _workpackage_items, optional_scope=("names",)),
+    Dataset("workpackage_items", "Csomag tételei", ("workpackage_id",), _workpackage_items, optional_scope=("names", "removed")),
     Dataset("run_items", "Futás tételei", ("run_id",), _run_items, _run_items_fingerprint, optional_scope=("names",)),
     Dataset("package_costs", "A csomag költsége", ("workpackage_id",), _package_costs),
     Dataset("emails", "Levelek", ("run_id",), _emails, _run_fingerprint),

@@ -1,11 +1,11 @@
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { api, type Alternative, type ItemResult, type Provenance, type RunItem, type Workpackage } from "../api";
+import { api, type Alternative, type ItemResult, type Provenance, type RunItem, type RunRow, type Workpackage } from "../api";
 import { DatasetPicker, runOption } from "../components/DatasetPicker";
 import { EngineMark } from "../components/EngineMark";
 import { NameModeSwitch, NameWarning } from "../components/NameCell";
 import { useDataset, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { FIELD, fieldLabel, fold, ITEM_STATUS, itemName } from "../labels";
+import { FIELD, fieldLabel, fold, ITEM_STATUS, itemName, when } from "../labels";
 import { useNameMode } from "../names";
 import { go, routeHash } from "../route";
 import { draftKey, getDraft, setField, useDraft } from "../review/drafts";
@@ -70,13 +70,16 @@ function useFitToScreen<T extends HTMLElement>() {
 }
 
 /** 153 (review): `onChanged` tells the package page that a to-do or a value changed, so its header and stage tabs
- *  follow (they kept the old count until the browser was reloaded). */
-export function ReviewWorkspace({ wp, itemId, onChanged }: { wp: Workpackage; itemId?: string; onChanged?: () => void }) {
+ *  follow (they kept the old count until the browser was reloaded). 160-C S3: the review opens on the run the package's
+ *  next step is about (`currentRunId`), and names the other open live runs that have to-dos (`openRuns`). */
+export function ReviewWorkspace({ wp, itemId, onChanged, currentRunId, openRuns }: {
+  wp: Workpackage; itemId?: string; onChanged?: () => void; currentRunId?: string; openRuns?: RunRow[];
+}) {
   useLocale();
   const gridRef = useFitToScreen<HTMLDivElement>();
   const latest = useDataset("runs", { workpackage_id: wp.id }, { limit: 1 });
   const [runId, setRunId] = useState<string | null>(null);
-  const chosen = runId ?? latest.data?.rows[0]?._key ?? null;
+  const chosen = runId ?? currentRunId ?? latest.data?.rows[0]?._key ?? null;
   const names = useNameMode();
   const view = useLoad(chosen ? `run:${chosen}:${names}` : null, () => api.run(chosen!, names));
   // 056 U1: the item list stays manageable even with several hundred items: filtering by name, only those with to-dos
@@ -93,7 +96,9 @@ export function ReviewWorkspace({ wp, itemId, onChanged }: { wp: Workpackage; it
 
   const run = view.data.run;
   const items = run.input.items;
-  const own = view.data.open_reasons;
+  // 160-C (decision 163 D7): an item removed from the package is not released, so its to-dos are not this run's work
+  const removed = new Set(view.data.removed_items ?? []);
+  const own = Object.fromEntries(Object.entries(view.data.open_reasons).filter(([item]) => !removed.has(item)));
   const earlier = view.data.earlier_open_reasons;
   const firstWithWork = items.find((i) => (own[i.item_id] ?? []).length > 0) ?? items[0];
   const selectedId = itemId ?? firstWithWork?.item_id;
@@ -124,6 +129,7 @@ export function ReviewWorkspace({ wp, itemId, onChanged }: { wp: Workpackage; it
         <NameModeSwitch />
         <span className="muted small kbd-help" title={keysHelp}>{keysHelp}</span>
       </div>
+      <OtherOpenRuns runs={(openRuns ?? []).filter((r) => r.run_id !== run.run_id && r.open_reasons > 0)} onPick={setRunId} />
       <div className="review-grid" ref={gridRef}>
         <nav className="queue" aria-label={t("Tételek")}>
           <div className="queue-filter">
@@ -146,7 +152,7 @@ export function ReviewWorkspace({ wp, itemId, onChanged }: { wp: Workpackage; it
               <QueueItem key={i.item_id} runId={run.run_id} itemId={i.item_id} name={shown(i)} active={i.item_id === selectedId}
                 tip={u?.unified ? t("Eredeti név: {{name}}", { name: original(i) }) : undefined}
                 warn={u?.state === "review" ? <NameWarning check={u.check} /> : null}
-                status={queueStatus(res, n)}
+                status={removed.has(i.item_id) ? t("Removed") : queueStatus(res, n)}
                 own={n} earlier={m} onClick={() => pick(i.item_id)} />
             );
           })}
@@ -162,6 +168,27 @@ export function ReviewWorkspace({ wp, itemId, onChanged }: { wp: Workpackage; it
         )}
       </div>
     </>
+  );
+}
+
+/** 160-C S3: the package's other open live runs with to-dos (a run over the pending items next to an earlier one), so
+ *  the review of one run does not hide the other's work; each can be opened here. */
+function OtherOpenRuns({ runs, onPick }: { runs: RunRow[]; onPick: (runId: string) => void }) {
+  useLocale();
+  if (!runs.length) return null;
+  return (
+    <div className="notice" role="region" aria-label={t("Other open live runs")}>
+      <p>{t("Another live run of the package is open with to-dos too; it is approved on its own.")}</p>
+      <ul className="plain">
+        {runs.map((r) => (
+          <li key={r.run_id}>
+            {t("Live run, {{when}}", { when: when(r.created_at) })}{r.scope === "pending" ? ` · ${t("Pending items only")}` : ""}
+            {" · "}{t("{{n}} open to-dos", { n: r.open_reasons })}{" "}
+            <button type="button" className="secondary small-btn" onClick={() => onPick(r.run_id)}>{t("Review it")}</button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

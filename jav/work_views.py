@@ -101,6 +101,9 @@ def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool |
         return step("running", f"Fut: {done}/{total}", "process", done=done, total=total)
     if status in ("failed", "cancelled"):
         return step("rerun", "Hibás vagy leállított futás: újrafuttatás", "process")
+    # 160-C S2: items added after the run come first: their processing may raise further to-dos (`work.pending_items`)
+    if wp.get("id") and (pending := len(work.pending_items(wp["id"], last_run["mode"]))):
+        return step("pending", f"{pending} new item(s) to process", "process", n=pending)
     if last_run.get("open_reasons"):
         if last_run["mode"] == "shadow":  # 150: a trial cannot be approved; its to-dos are information, the step is going live
             return step("go_live", "Próba kész: éles futás", "process", trial_reasons=last_run["open_reasons"])
@@ -116,8 +119,28 @@ def current_run(runs: list[dict[str, Any]]) -> dict[str, Any] | None:
     """153: the run the package's next step is about — the newest run, passing over runs a person stopped after it, so
     a later stopped run does not hide the to-dos or the approval of an earlier finished run (2026-10-13: a package with
     169 open to-dos on its live run offered "rerun" because two later runs had been stopped). A package whose runs were
-    all stopped still offers a rerun. `runs`: newest first (`work.run_rows`)."""
-    return next((r for r in runs if r["status"] != "cancelled"), runs[0] if runs else None)
+    all stopped still offers a rerun. `runs`: newest first (`work.run_rows`).
+
+    160-C S3: a queued or running run comes first (its progress); otherwise the OLDEST open live run
+    (`work.open_live_runs`), so a later run over the pending items, or a later trial, does not hide the to-dos or the
+    approval of an earlier live run."""
+    if not runs:
+        return None
+    if active := next((r for r in runs if r["status"] in ACTIVE), None):
+        return active
+    if any(r.get("mode") == "apply" and not r.get("approval") and r["status"] in work.SUPERSEDABLE for r in runs):
+        if open_ids := work.open_live_runs(runs[0]["workpackage_id"]):
+            return next(r for r in runs if r["run_id"] == open_ids[0])
+    return next((r for r in runs if r["status"] != "cancelled"), runs[0])
+
+
+def open_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """160-C S3: the package's open live runs (`work.open_live_runs`) as list rows, oldest first: the review shows
+    the other open runs' to-dos next to the current run's."""
+    if not runs:
+        return []
+    by_id = {r["run_id"]: r for r in runs}
+    return [by_id[i] for i in work.open_live_runs(runs[0]["workpackage_id"]) if i in by_id]
 
 
 def workpackage_view(wp_id: str) -> dict[str, Any]:
@@ -148,6 +171,7 @@ def _workpackage_view(wp_id: str) -> dict[str, Any]:
     current = current_run(runs)
     return jsonable({"workpackage": wp, "readiness": ready, "titles": item_titles(wp["items"], package_root(wp)), **extra,
                      "last_run": runs[0] if runs else None, "current_run": current, "runs": len(runs),
+                     "open_runs": open_runs(runs),  # 160-C S3: every open live run, the current one too
                      "next": next_step(wp, current, ready["ready"]), "workflow": _workflow_of(wp_id),
                      "supersedable": work.supersedable_runs(wp_id)})  # 152: older live runs a person can supersede
 
@@ -279,7 +303,9 @@ def _run_view(run_id: str, *, names: bool) -> dict[str, Any]:
                              "review_version": corrections.review_version(run_id),
                              # 151: the offer to supersede an older live run, or who superseded it
                              "supersede": work.supersede_info(run_id), "superseded": work.superseded(run_id),
-                             "engine": work.run_engine(run)}  # 160-D: the approval and the review show it
+                             "engine": work.run_engine(run),  # 160-D: the approval and the review show it
+                             # 160-C (decision 163 D7): items removed from the package, left out of the release
+                             "removed_items": work.excluded_items(run)}
     if names:
         from jav import naming
 

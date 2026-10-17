@@ -21,7 +21,6 @@
   "A jóváhagyáshoz válaszd ki a neved a fejlécben.": "To approve, select your name in the header.",
   "Az eredmény a megtekintés óta változott (valaki javított rajta). Nézd át újra, majd hagyd jóvá.": "The result changed after this page loaded (someone corrected it). Review it again, then approve.",
   "A legutóbbi ({{mode}}) futás megismétlése ugyanezzel a bemenettel": "Repeat the latest ({{mode}}) run with the same input",
-  "A legutóbbi futás ({{when}}) megismétlése ugyanazzal a bemenettel, új futásként.": "Repeats the latest run ({{when}}) with the same input, as a new run.",
   "A legutóbbi futás részletei": "Details of the latest run",
   "A lekötött összeg a lefutott hívások költsége, plusz a még le nem zárt hívások legrosszabb becslése.": "The committed amount is the cost of completed calls plus the worst-case estimate of calls still open.",
   "A levelek {{n}} PDF-csatolmánya még nincs a csomagban. Felvéve a következő futás a csatolmányok adatait is kinyeri.": "{{n}} PDF attachments of the emails are not yet in the package. Once added, the next run also extracts their data.",

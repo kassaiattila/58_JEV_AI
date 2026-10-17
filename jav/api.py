@@ -275,6 +275,11 @@ class Revision(_In):
     expected_revision: Annotated[int, Field(ge=0)]
 
 
+class RemoveItem(Revision):
+    """160-C S1 (decision 163 D2): the reason is required; the person is the request's actor."""
+    reason: Annotated[str, Field(min_length=1, max_length=500)]
+
+
 class StatementTableFile(_In):
     """136: a bank's tabular statement export (a workbook or a CSV file)."""
     path: Annotated[str, Field(min_length=1, max_length=1024)]
@@ -304,6 +309,7 @@ class StartRun(_In):
     expected_revision: Annotated[int, Field(ge=0)]
     input_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{16}$")]
     rerun_of: Annotated[str, Field(pattern=r"^run-[0-9a-f]{12}$")] | None = None  # 057: rerun
+    scope: Literal["all", "pending"] = "all"  # 160-C S3: "pending" = only the package's pending items
 
 
 class Empty(_In):
@@ -314,6 +320,8 @@ class Approve(_In):
     """085 (re-audit A01): `review_version` is the run view's `review_version` the approver saw; if a correction changed
     the result since, 409. Without it (the command line) the current result is approved."""
     review_version: str | None = Field(default=None, max_length=64)
+    # 160-C (decision 163 D7): how many removed items the approver saw (the run view's `removed_items`)
+    confirm_removed: int | None = Field(default=None, ge=0)
 
 
 class ResolveCall(_In):
@@ -373,6 +381,17 @@ class CreateStatementPackage(StatementPackageSources):
     name: Annotated[str, Field(min_length=1, max_length=200)]
     statements: Annotated[list[Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]], Field(max_length=2000)] = Field(default_factory=list)
     pdfs: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(max_length=500)] = Field(default_factory=list)
+
+
+class PackageStatementFiles(_In):
+    """160-C S2: more files for an existing statement package (its party and period are the package's own)."""
+    paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(min_length=1, max_length=500)]
+
+
+class AddPackageStatements(PackageStatementFiles):
+    statements: Annotated[list[Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]], Field(max_length=2000)] = Field(default_factory=list)
+    pdfs: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(max_length=500)] = Field(default_factory=list)
+    expected_revision: Annotated[int, Field(ge=0)]
 
 
 StepKey = Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]
@@ -915,10 +934,12 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         return {"deleted": wp_id}
 
     @app.post(r + "/workpackages/{wp_id}/items")
-    def add_items(wp_id: WpId, body: AddItems, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def add_items(wp_id: WpId, body: AddItems, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """160-C S2: documents added to an existing package, with what happened (`added`: added, already in the
+        package, restored, and those processed live in another package)."""
         paths = [checked_path(p, want_dir=False) for p in body.paths]
-        work.add_documents(wp_id, paths, expected_revision=body.expected_revision)
-        return work_views.workpackage_view(wp_id)
+        _wp, summary = work.add_to_package(wp_id, paths, expected_revision=body.expected_revision, actor=who)
+        return {**work_views.workpackage_view(wp_id), "added": summary}
 
     @app.post(r + "/workpackages/{wp_id}/attachments")
     def add_attachments(wp_id: WpId, body: Revision, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
@@ -963,6 +984,25 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                                       actor=who)
         return work_views.workpackage_view(sc["workpackage_id"])
 
+    @app.post(r + "/workpackages/{wp_id}/statements/survey")
+    def package_statement_survey(wp_id: WpId, body: PackageStatementFiles, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """160-C S2: the survey of more files for an existing statement package, with its party and period; what the
+        package already holds is marked (`in_package`). Nothing is written."""
+        from jav import statement_package
+
+        paths = [checked_path(p, want_dir=None) for p in body.paths]
+        return work_views.jsonable(statement_package.survey_for(wp_id, paths))
+
+    @app.post(r + "/workpackages/{wp_id}/statements/add")
+    def add_package_statements(wp_id: WpId, body: AddPackageStatements, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """160-C S2: the statements and PDFs ticked in the package's own survey, added to it and logged."""
+        from jav import statement_package
+
+        statement_package.add(wp_id, paths=[checked_path(p, want_dir=None) for p in body.paths], statements=body.statements,
+                              pdfs=[str(checked_path(p, want_dir=False)) for p in body.pdfs], expected_revision=body.expected_revision,
+                              actor=who)
+        return work_views.workpackage_view(wp_id)
+
     @app.post(r + "/workpackages/{wp_id}/statement-tables")
     def add_statement_tables(wp_id: WpId, body: AddStatementTables, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """136 (E4, DECISIONS 136): the chosen accounts of the export as the package's items, one statement each."""
@@ -970,8 +1010,14 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/items/{item_id}/remove")
-    def remove_item(wp_id: WpId, item_id: ItemId, body: Revision, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        work.remove_item(wp_id, item_id, expected_revision=body.expected_revision)
+    def remove_item(wp_id: WpId, item_id: ItemId, body: RemoveItem, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        work.remove_item(wp_id, item_id, expected_revision=body.expected_revision, actor=who, reason=body.reason)
+        return work_views.workpackage_view(wp_id)
+
+    @app.post(r + "/workpackages/{wp_id}/items/{item_id}/restore")
+    def restore_item(wp_id: WpId, item_id: ItemId, body: Revision, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """160-C S1: a removed item back in the package (it takes part in the next run)."""
+        work.restore_item(wp_id, item_id, expected_revision=body.expected_revision, actor=who)
         return work_views.workpackage_view(wp_id)
 
     def _item_source(wp_id: str, item_id: str) -> tuple[Path, bytes]:
@@ -1028,7 +1074,8 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/workpackages/{wp_id}/workflow/start")
     def start(wp_id: WpId, body: StartRun, who: Annotated[str, Depends(human_actor)]) -> JavJSONResponse:
         res = work.start_run(wp_id, mode=body.mode, expected_assignment_revision=body.expected_revision,
-                             input_hash=body.input_hash, actor=who, rerun_of=body.rerun_of)
+                             input_hash=body.input_hash, actor=who, rerun_of=body.rerun_of,
+                             scope=body.scope)
         run = work.get_run(res["run_id"])
         return JavJSONResponse({**res, "status": run["status"]}, status_code=200 if res["deduped"] else 201)
 
@@ -1064,7 +1111,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.post(r + "/runs/{run_id}/approve")
     def approve(run_id: RunId, body: Approve, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        work.approve_run(run_id, actor=who, review_version=body.review_version)
+        work.approve_run(run_id, actor=who, review_version=body.review_version, confirm_removed=body.confirm_removed)
         return work_views.run_view(run_id)
 
     @app.get(r + "/runs/{run_id}/results")

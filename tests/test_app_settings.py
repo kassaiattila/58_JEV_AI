@@ -75,7 +75,9 @@ def test_scan_creates_one_package_then_extends_it_without_readding_removed(env):
         assert again["new"] == 0 and again["workpackage"] == wp_id  # a file already seen is not taken in again
 
         removed = view["workpackage"]["items"][0]["item_id"]
-        c.post(f"/api/workpackages/{wp_id}/items/{removed}/remove", headers=HUMAN, json={"expected_revision": view["workpackage"]["revision"]})
+        r = c.post(f"/api/workpackages/{wp_id}/items/{removed}/remove", headers=HUMAN,
+                   json={"expected_revision": view["workpackage"]["revision"], "reason": "not needed"})  # 160-C: a reason is required
+        assert r.status_code == 200, r.text
         write_text_pdf(env["folder"] / "szamla_3.pdf", [line.replace("MINTA-2026-001", "MINTA-2026-003") for line in INVOICE_LINES])
         third = app_settings.scan(f["id"], now=LATER)
         assert third["new"] == 1 and third["workpackage"] == wp_id

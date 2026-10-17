@@ -91,3 +91,26 @@ def test_uncertain_calls_can_be_listed_and_resolved_from_the_cli(tmp_path: Path,
         row = calls.journal("r1")[0]
         assert (row["status"], row["cost_usd"], row["cost_known"]) == ("failed", "0.02", 1)
         assert _run(capsys, "calls-uncertain")["uncertain"] == []
+
+
+def test_cli_run_start_pending_takes_only_the_items_added_after_a_run(tmp_path: Path, capsys):
+    """160-C S3: `run-start --pending` starts a run over only the package's pending items."""
+    from jav import work
+
+    folder = tmp_path / "incoming"
+    folder.mkdir()
+    write_text_pdf(folder / "invoice.pdf", INVOICE_LINES)
+    later = tmp_path / "later.pdf"
+    write_text_pdf(later, [line.replace("MINTA-2026-001", "MINTA-2026-002") for line in INVOICE_LINES])
+    adapter = jev_mod.JevAdapter(client=FakeClient(), cache_dir=tmp_path / "cache", model="jev-1.13.0")
+    with store.use_store(tmp_path / "w.sqlite"), jev_mod.use_adapter(adapter):
+        wp = _run(capsys, "wp-create", str(folder), "--name", "Trial")
+        _run(capsys, "wp-assign", wp["id"], "invoice-extraction", "--arm", "S")
+        _run(capsys, "run-start", wp["id"], "--mode", "apply")
+        _run(capsys, "worker", "--once")
+        assert cli.main(["run-start", wp["id"], "--mode", "apply", "--pending"]) == 2
+        assert "No pending items" in capsys.readouterr().out
+        work.add_to_package(wp["id"], [later], expected_revision=work.get(wp["id"])["revision"], actor="cli")
+        started = _run(capsys, "run-start", wp["id"], "--mode", "apply", "--pending")
+        run = work.get_run(started["run_id"])
+        assert run["scope"] == "pending" and [Path(i["source_path"]).name for i in run["input"]["items"]] == ["later.pdf"]

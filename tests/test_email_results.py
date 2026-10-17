@@ -196,7 +196,8 @@ def test_attachments_can_be_added_to_an_older_mail_package(env):  # noqa: F811
     wp_id = res["workpackage"]
     wp = work.get(wp_id)
     doc = next(i for i in wp["items"] if i["kind"] == "document")
-    wp = work.remove_item(wp_id, doc["item_id"], expected_revision=wp["revision"])  # like a package from before 058
+    wp = work.remove_item(wp_id, doc["item_id"], expected_revision=wp["revision"], actor="test",  # like a package from before 058
+                          reason="pre-058 package")
     assert [p.name for p in mailbox.missing_attachments(wp)] == ["szamla.pdf"]
     wp = mailbox.add_attachments(wp_id, expected_revision=wp["revision"])
     assert mailbox.missing_attachments(wp) == [] and any(i.get("parent_item_id") for i in wp["items"])

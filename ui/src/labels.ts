@@ -356,6 +356,8 @@ const STEP_LABEL = tmap({
 export function stepLabel(code: string, params: Record<string, unknown> | undefined, fallback: string): string {
   if (code === "running") return t("Fut: {{done}}/{{total}}", { done: params?.done ?? 0, total: params?.total ?? 0 });
   if (code === "review") return t("Ellenőrzés: {{n}} teendő", { n: params?.n ?? 0 });
+  // 160-C S2: items added after the run wait for processing
+  if (code === "pending") return t("{{n}} new item(s) to process", { n: params?.n ?? 0 });
   // 150: after a trial with to-dos the step is going live; the trial's to-dos are only information
   if (code === "go_live" && params?.trial_reasons) return t("Trial finished: live run ({{n}} to-dos in the trial)", { n: params.trial_reasons });
   if (code === "reconcile_pair") return t("Pairing: {{n}} open lines", { n: params?.n ?? 0 });

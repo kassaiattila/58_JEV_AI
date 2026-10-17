@@ -11,7 +11,7 @@ export type SettingsSection = "mailboxes" | "folders" | "parties" | "recipes" | 
 export type ResultTable = "emails" | "tasks" | "documents" | "datapoints" | "line_items" | "utility" | "file_names" | "native_facts";
 
 /** 061: a confirmation page before a run is started (in the Processing section) */
-export interface StartRequest { mode: "shadow" | "apply"; rerun: boolean }
+export interface StartRequest { mode: "shadow" | "apply"; rerun: boolean; pending?: boolean } // 160-C S3: only the pending items
 
 export type Route =
   | { view: "workpackages"; wpId?: string; stage?: Stage; itemId?: string; table?: ResultTable; runId?: string; start?: StartRequest }
@@ -64,6 +64,7 @@ export function parseRoute(hash: string): Route {
       if (stage === "review" && parts[3]) r.itemId = parts[3];
       if (stage === "process" && parts[3] === "start") {
         r.start = { mode: params.get("mode") === "apply" ? "apply" : "shadow", rerun: params.get("rerun") === "1" };
+        if (params.get("pending") === "1") r.start.pending = true;
       }
       if (stage === "result") {
         if (RESULT_TABLES.includes(parts[3] as ResultTable)) r.table = parts[3] as ResultTable;
@@ -90,7 +91,7 @@ export function routeHash(r: Route): string {
       if (!r.stage) return `#/workpackages/${e(r.wpId)}`;
       let h = `#/workpackages/${e(r.wpId)}/${r.stage}`;
       if (r.stage === "review" && r.itemId) h += `/${e(r.itemId)}`;
-      if (r.stage === "process" && r.start) h += `/start?mode=${r.start.mode}${r.start.rerun ? "&rerun=1" : ""}`;
+      if (r.stage === "process" && r.start) h += `/start?mode=${r.start.mode}${r.start.rerun ? "&rerun=1" : ""}${r.start.pending ? "&pending=1" : ""}`;
       if (r.stage === "result") {
         if (r.table) h += `/${r.table}`;
         if (r.runId) h += `?run=${e(r.runId)}`;
