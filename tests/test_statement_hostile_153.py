@@ -19,7 +19,9 @@ import pytest
 
 from jav import statement_table as st
 
-PROFILES = {p["name"]: p for p in json.loads(Path("configs/statement_tables.json").read_text(encoding="utf-8"))["profiles"]}
+ROOT = Path(__file__).resolve().parents[1]
+PROFILES = {p["name"]: p for p in
+            json.loads((ROOT / "configs" / "statement_tables.json").read_text(encoding="utf-8"))["profiles"]}
 
 
 def _fast(fn, limit: float = 1.0):
