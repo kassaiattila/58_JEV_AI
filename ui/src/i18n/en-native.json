@@ -1256,5 +1256,6 @@
   "the live run has not finished yet": "the live run has not finished yet",
   "The theme: light, dark or as the system is set": "The theme: light, dark or as the system is set",
   "Python {{running}} is behind the latest patch of its line, {{latest}} ({{date}}).": "Python {{running}} is behind the latest patch of its line, {{latest}} ({{date}}).",
-  "The JEV question was not sent: this processing runs without JEV, on GPT only; check by hand": "The JEV question was not sent: this processing runs without JEV, on GPT only; check by hand"
+  "The JEV question was not sent: this processing runs without JEV, on GPT only; check by hand": "The JEV question was not sent: this processing runs without JEV, on GPT only; check by hand",
+  "GPT's confidence cannot be measured for this value: {{field}}; check by hand": "GPT's confidence cannot be measured for this value: {{field}}; check by hand"
 }

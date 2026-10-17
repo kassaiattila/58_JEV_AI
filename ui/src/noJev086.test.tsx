@@ -41,5 +41,7 @@ describe("086 processing without JEV", () => {
     expect(reasonText("intent:confidence_unavailable")).toMatch(/levél-szándék bizonyossága nem mérhető/);
     // 160: a JEV question asked anyway in processing without JEV is refused, not sent
     expect(reasonText("jev_unavailable:disabled")).toBe("A JEV-kérdés nem ment el, mert ez a feldolgozás JEV nélkül, csak GPT-vel fut; ellenőrizd kézzel");
+    // 160 (review AI-6): an accounting field whose GPT confidence cannot be measured
+    expect(reasonText("gpt:confidence_unavailable:invoice_number")).toMatch(/^A GPT bizonyossága nem mérhető ennél az értéknél: Számla.*; ellenőrizd kézzel$/);
   });
 });
