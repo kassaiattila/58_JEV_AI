@@ -67,6 +67,9 @@ Run them before a release, after updating dependencies, or when a sensitive area
 python -m jav.cli deps-audit                          # known vulnerabilities in the pinned Python and UI packages, and whether the Python runtime is behind its latest patch (needs network)
 pytest tests/ --cov=jav --cov-report=term-missing     # test coverage: which lines no test executes
 $env:JAV_HYPOTHESIS_EXAMPLES = "3000"; pytest tests/test_properties_067.py   # property-based tests with a deeper search
+$env:JAV_LEGACY_GOLDEN_TESTS = "1"; pytest tests/test_validators.py -k legacy   # the legacy golden set's expected invoice records through the validators
 ```
+
+The validator test in the suite runs on synthetic expected records. The legacy golden set's records (values read from real invoices) are read only when `JAV_LEGACY_GOLDEN_TESTS=1` is set; otherwise that test is skipped with this reason.
 
 The property-based tests (`tests/test_properties_067.py`) do not pin single examples; they state rules. For example: the check always accepts a valid tax number and always notices a single wrong digit in it. Another rule: the grand total stays a candidate whatever ID or date lines are placed next to it. The `hypothesis` library tries hundreds of generated inputs and, on failure, shows the smallest counterexample. The test suite runs 150 examples per test. The input limits (file size, page count, page-image pixels) are in the `input_limits` section of `configs/service.json`.
