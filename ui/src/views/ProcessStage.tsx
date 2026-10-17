@@ -11,8 +11,9 @@ import { Picker } from "../components/Picker";
 import { PackageCosts } from "./PackageCosts";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { applyPath, itemBudgetLines, MODE, PARAM_LABEL, paramShort, paramsText, PATH, pathOptions, planLines, providerName, RUN_STATUS, shownParams, shownValue, tmap, usdBudget, when, blockerText } from "../labels";
-import { go } from "../route";
+import { applyPath, itemBudgetLines, itemCountText, MODE, PARAM_LABEL, paramShort, paramsText, PATH, pathOptions, planLines, providerName, RUN_STATUS, shownParams, shownValue, tmap, usdBudget, when, blockerText } from "../labels";
+import { go, wpHash } from "../route";
+import { AddToPackage } from "./PackageAdd";
 import { paramExplanation, RecipeParamList, recipeDefaults, recipeTitle } from "./RecipeInfo";
 
 const ACTIVE = new Set(["queued", "running"]);
@@ -24,7 +25,7 @@ const spendMark = (cap: number) => (cap > 0 ? <span className="spend" aria-hidde
 const withSpend = (cap: number, title?: string) =>
   [title, cap > 0 ? t("Starts a run that can spend up to {{usd}}", { usd: usdBudget(cap) }) : ""].filter(Boolean).join(" · ") || undefined;
 
-export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
+export function ProcessStage({ view, adding = false, onChanged }: { view: WorkpackageView; adding?: boolean; onChanged: () => void }) {
   useLocale();
   const { workpackage: wp, readiness, last_run: last } = view;
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
@@ -106,6 +107,12 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
           <h2>{t("Futtatás")}</h2>
           {last ? <a className="small" href={`#/runs/${last.run_id}`}>{t("A legutóbbi futás részletei")}</a> : null}
         </div>
+        {/* 167: adding comes first, so the added documents' run (the pending items' button) is right below it; the
+            address holds the open form, so the package's actions menu can open it from any section */}
+        <AddToPackage wp={wp} open={adding} onChanged={onChanged}
+          onOpenChange={(open) => go({ view: "workpackages", wpId: wp.id, stage: "process", ...(open ? { add: true } : {}) })}
+          lead={<p className="muted small">{t("In the package: {{items}}", { items: itemCountText(wp.items) })}
+            {" · "}<a href={wpHash(wp.id, "review")}>{t("the list, opening and removal are in Review")}</a></p>} />
         {last ? (
           <div className="run-summary">
             <span className={`status s-${last.status}`}>{RUN_STATUS[last.status] ?? last.status}</span>

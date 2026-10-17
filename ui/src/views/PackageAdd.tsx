@@ -2,9 +2,10 @@
 // service says what happened — added, already in the package, restored, and the ones a live run of another package
 // has processed (counted by the service, never the size of the selection; the legacy V4 add-to-group pattern). A
 // statement package grows only through its own survey, with its own party and period.
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { api, ApiError, type AddSummary, type StatementPackageSurvey, type Workpackage } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
+import { Icon } from "../components/Icon";
 import { t, useLocale } from "../i18n";
 import { SurveyChoices } from "./StatementPackageCreate";
 
@@ -27,6 +28,32 @@ export function AddSummaryLine({ summary }: { summary: AddSummary }) {
           { names: summary.processed_elsewhere.join(", ") })}</p>
       ) : null}
     </div>
+  );
+}
+
+/** 167: the add action with its form and the service's counts, in one place for Processing (above the run buttons) and
+ *  Review's document list. `lead` is the text on the button's left; the caller owns whether the form is open (in
+ *  Processing the address does, so the actions menu can open it). A statement package grows through its survey. */
+export function AddToPackage({ wp, lead, open, onOpenChange, onChanged }: {
+  wp: Workpackage; lead: ReactNode; open: boolean; onOpenChange: (open: boolean) => void; onChanged: () => void;
+}) {
+  useLocale();
+  const [added, setAdded] = useState<AddSummary | null>(null);
+  const statements = wp.source_kind === "statements";
+  const close = () => onOpenChange(false);
+  return (
+    <>
+      <div className="docs-head">
+        {lead}
+        {open ? null : (
+          <button type="button" className="secondary small-btn" onClick={() => { setAdded(null); onOpenChange(true); }}>
+            <Icon name="plus" />{statements ? t("Add statements") : t("Add documents")}</button>
+        )}
+      </div>
+      {open && statements ? <AddStatements wp={wp} onCancel={close} onDone={() => { close(); onChanged(); }} /> : null}
+      {open && !statements ? <AddDocuments wp={wp} onCancel={close} onDone={(s) => { close(); setAdded(s); onChanged(); }} /> : null}
+      {added ? <AddSummaryLine summary={added} /> : null}
+    </>
   );
 }
 

@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.57",
+    "version": "1.0.58",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.58",
+        "date": "2026-10-17",
+        "note": "167: accept the Hungarian interface labels the user guide quotes for adding documents at the top of Processing (docs/guides/USER_GUIDE.md 6.3); ui/src/views/WorkpackageDetail.tsx has one Hungarian line fewer (the document list's title is English now)."
+      },
       {
         "version": "1.0.57",
         "date": "2026-10-16",
@@ -429,7 +434,7 @@
     "docs/flows/invoice/FLOW.md": 17,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 245,
+    "docs/guides/USER_GUIDE.md": 246,
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
@@ -730,7 +735,7 @@
     "ui/src/views/StartConfirm.tsx": 18,
     "ui/src/views/UtilityReport.tsx": 20,
     "ui/src/views/WorkpackageActions.tsx": 15,
-    "ui/src/views/WorkpackageDetail.tsx": 19,
+    "ui/src/views/WorkpackageDetail.tsx": 18,
     "ui/src/views/Workpackages.tsx": 5,
     "ui/src/views/bankFiles146.test.tsx": 12,
     "ui/src/views/reconcile/blockers153.test.tsx": 1,
