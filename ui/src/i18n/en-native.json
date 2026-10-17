@@ -1310,5 +1310,6 @@
   "The files are surveyed for the package's own party and period; what the package already holds is not offered again.": "The files are surveyed for the package's own party and period; what the package already holds is not offered again.",
   "The last ({{mode}}) run again, on the package's documents as they are now": "The last ({{mode}}) run again, on the package's documents as they are now",
   "already in this package": "already in this package",
-  "the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings": "the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings"
+  "the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings": "the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings",
+  "The package changed meanwhile. We refreshed the list: check it and try again.": "The package changed meanwhile. We refreshed the list: check it and try again."
 }

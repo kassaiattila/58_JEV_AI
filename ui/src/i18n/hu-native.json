@@ -1311,5 +1311,6 @@
   "The files are surveyed for the package's own party and period; what the package already holds is not offered again.": "A fájlok felmérése a csomag saját gazdálkodójára és időszakára történik; amit a csomag már tartalmaz, azt nem ajánlja fel újra.",
   "The last ({{mode}}) run again, on the package's documents as they are now": "A legutóbbi ({{mode}}) futás megismétlése a csomag mostani iratain",
   "already in this package": "már ebben a csomagban van",
-  "the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings": "a legutóbbi futás megismétlése új futásként, a csomag összes mostani iratán (a hozzáadottakon is, a kivetteken nem), például hiba, leállítás vagy a beállítások módosítása után"
+  "the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings": "a legutóbbi futás megismétlése új futásként, a csomag összes mostani iratán (a hozzáadottakon is, a kivetteken nem), például hiba, leállítás vagy a beállítások módosítása után",
+  "The package changed meanwhile. We refreshed the list: check it and try again.": "A csomag közben változott. Frissítettük a listát, nézd át és próbáld újra."
 }

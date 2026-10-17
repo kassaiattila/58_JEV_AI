@@ -11,7 +11,7 @@ import { SurveyChoices } from "./StatementPackageCreate";
 const pathsOf = (text: string) => text.split(/\r?\n/).map((s) => s.trim().replace(/^"|"$/g, "")).filter(Boolean);
 
 function failure(e: unknown): string {
-  if (e instanceof ApiError && e.status === 409) return t("A csomag közben változott. Frissítettük a listát, nézd át és próbáld újra.");
+  if (e instanceof ApiError && e.status === 409) return t("The package changed meanwhile. We refreshed the list: check it and try again.");
   return e instanceof ApiError ? e.message : String(e);
 }
 
@@ -58,7 +58,7 @@ export function AddDocuments({ wp, onDone, onCancel }: { wp: Workpackage; onDone
       </label>
       <BrowseButton kind="files" initial={paths[paths.length - 1]} onPick={(picked) => setFiles([...paths, ...picked].join("\n"))} />
       <button type="submit" className="secondary" disabled={busy || !paths.length}>{t("Add {{n}} document(s)", { n: paths.length })}</button>
-      <button type="button" className="quiet" onClick={onCancel}>{t("Mégse")}</button>
+      <button type="button" className="quiet" onClick={onCancel}>{t("Cancel")}</button>
       <p className="muted small form-note">{t("A document already in the package is not added again, and a removed one is restored. The new documents wait for processing.")}</p>
       {error ? <p className="notice error form-note" role="alert">{error}</p> : null}
     </form>
@@ -136,7 +136,7 @@ export function AddStatements({ wp, onDone, onCancel }: { wp: Workpackage; onDon
       <div className="button-row">
         <button type="button" className="secondary" disabled={busy || !paths.length} onClick={() => void read()}>
           {busy && !survey ? t("Reading…") : t("Survey the files")}</button>
-        <button type="button" className="quiet" onClick={onCancel}>{t("Mégse")}</button>
+        <button type="button" className="quiet" onClick={onCancel}>{t("Cancel")}</button>
       </div>
       {survey ? <SurveyChoices survey={survey} chosen={chosen} setChosen={setChosen} /> : null}
       {error ? <p className="notice error" role="alert">{error}</p> : null}
