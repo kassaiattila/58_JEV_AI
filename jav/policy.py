@@ -340,9 +340,10 @@ def apply_validation_policy(state: FlowState) -> None:
 
 def gpt_review_fields(pack_key: str) -> list[str]:
     """092: the fields whose GPT confidence can open a to-do: the accounting fields (scored, not informational, and the
-    high-stakes ones), in the pack's order."""
+    high-stakes ones), in the pack's order. 164: less the pack's `gpt_field_confidence.info_only` fields, whose GPT
+    confidence only shows (an outgoing invoice's buyer address)."""
     pack = get_pack(pack_key)
-    scope = set(pack.strict_scored) | set(pack.high_stakes)
+    scope = (set(pack.strict_scored) | set(pack.high_stakes)) - set(GPT_FIELD_CONFIDENCE.get("info_only", {}).get(pack_key, ()))
     return [f for f in pack.header_fields if f in scope]
 
 

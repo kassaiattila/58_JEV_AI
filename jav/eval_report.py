@@ -204,11 +204,14 @@ def _from_invoice_G_gpt(row: dict[str, Any]) -> list[Judgment]:
     out = []
     scores = row.get("scores") or {}
     flow = (row.get("flow_label") or "invoice_G") + "_gpt"
+    # 164: a field outside the pack's to-do fields (an address, `gpt_field_confidence.info_only`) only shows its value
+    to_do = set(policy.gpt_review_fields(row["doc_type"])) if row.get("doc_type") else None
     for field, conf in (row.get("field_confidence") or {}).items():
         if conf is None:
             continue
+        callsite = "invoice.gpt_field" if to_do is None or field in to_do else "invoice.gpt_field.info"
         out.append(Judgment(
-            flow=flow, case_id=row["case_id"], question=field, kind="field", callsite="invoice.gpt_field",
+            flow=flow, case_id=row["case_id"], question=field, kind="field", callsite=callsite,
             label=None, expected=None, correct=scores.get(field), confidence=float(conf), top_prob=float(conf),
             second_prob=None, p=None, route_recorded=row.get("route"), run_no=int(row.get("run_no", 1)), field=field,
             flagged=_field_flagged(row, field),
@@ -389,7 +392,9 @@ def judgments_from_file(path: Path | str) -> list[Judgment]:
 def band_of(j: Judgment) -> str:
     if j.kind == "noul":
         return policy.noul_band(j.p or 0.0, j.callsite)
-    if j.kind == "field":  # 160-D: below the review threshold the flow leaves a to-do on the field
+    if j.kind == "field":  # 160-D: below the review threshold the flow leaves a to-do on the field (164: not on .info)
+        if j.callsite.endswith(".info"):
+            return "auto"
         return "auto" if j.confidence is not None and j.confidence >= policy.GPT_FIELD_CONFIDENCE["review_below"] else "human"
     probs = None
     if j.top_prob is not None:

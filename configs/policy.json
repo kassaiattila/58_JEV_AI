@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.23.0",
+  "version": "1.24.0",
   "changelog": [
+   {
+    "version": "1.24.0",
+    "date": "2026-10-17",
+    "note": "164 (the owner's decision of 2026-10-17, after the GPT-only check measurement): gpt_field_confidence.info_only - per type pack, the accounting fields whose GPT confidence only shows (colour and filter) and opens no to-do on the G path without JEV. invoice_out: buyer_address, as an address is on a Hungarian invoice. On 43 real outgoing invoices the buyer address opened a to-do on every one, each on a value that agreed with the earlier result (a long text's token probability is lower as a whole). The pack's scoring, the JEV path and the text GPT is sent are unchanged; the threshold (review_below 0.98) is unchanged."
+   },
    {
     "version": "1.23.0",
     "date": "2026-10-12",
@@ -215,7 +220,8 @@
   "evidence": {},
   "failed_check": 0.5,
   "bands": {"confident": 0.98, "check": 0.5},
-  "review_below": 0.98
+  "review_below": 0.98,
+  "info_only": {"invoice_out": ["buyer_address"]}
  },
  "duplicates": {
   "families": {

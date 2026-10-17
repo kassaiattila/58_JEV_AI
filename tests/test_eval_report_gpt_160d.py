@@ -125,7 +125,9 @@ def test_gpt_field_confidence_is_a_judgment_with_the_field_score_as_truth(gpt_ru
     # a field without a measured confidence is not a judgment; the budget-skipped case has none
     assert set(by_field) == {"supplier_name", "net_total", "gross_total", "due_date", "buyer_address"}
     assert {j.kind for j in js} == {"field"} and {j.flow for j in js} == {"invoice_G_gpt"}
-    assert {j.callsite for j in js} == {"invoice.gpt_field"}
+    # 164: an address of a Hungarian invoice opens no GPT to-do, so it only shows (`.info`, never a to-do band)
+    assert {j.question for j in js if j.callsite == "invoice.gpt_field.info"} == {"buyer_address"}
+    assert {j.callsite for j in js if j.question != "buyer_address"} == {"invoice.gpt_field"}
     assert by_field["net_total"].correct is False and by_field["net_total"].flagged is True
     assert by_field["gross_total"].correct is False and by_field["gross_total"].flagged is False
     assert by_field["due_date"].correct is None and by_field["buyer_address"].correct is None
