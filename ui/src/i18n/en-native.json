@@ -1328,5 +1328,6 @@
   "item removed": "item removed",
   "item restored": "item restored",
   "items added": "items added",
-  "Run scope": "Run scope"
+  "Run scope": "Run scope",
+  "GPT's answer was cut off at its length limit, so nothing was extracted: the document is probably too long for one extraction; check it by hand": "GPT's answer was cut off at its length limit, so nothing was extracted: the document is probably too long for one extraction; check it by hand"
 }

@@ -25,6 +25,7 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic_ai import Agent, NativeOutput
 from pydantic_ai.models.openai import OpenAIChatModelSettings
+from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.usage import UsageLimits
 
 from jav import cfg, store, token_confidence
@@ -87,20 +88,47 @@ def config_hash(pack: TypePack) -> str:
     return cfg.combine(pack.config_hash, cfg.config_hash("gpt_extract"))
 
 
-@lru_cache(maxsize=None)
-def get_agent(pack_key: str = DEFAULT_KEY) -> Agent[None, BaseModel]:
-    pack = get_pack(pack_key)
-    model = openai_chat_model()
+class OutputTruncated(RuntimeError):
+    """167 (review AI-7): the answer stopped at its output cap (finish reason `length`), so its JSON is cut off. Asked
+    again, it would stop at the same place and be paid again, so it is not retried; the item gets the `llm:truncated`
+    to-do. Carries the cut answer's model and usage, for the ledger."""
+
+    def __init__(self, model_name: str | None, usage: Any) -> None:
+        super().__init__("the extraction's answer reached its output token cap and was cut off")
+        self.model_name = model_name
+        self.usage = usage
+
+
+class StopOnTruncation(WrapperModel):
+    """167 (review AI-7): the extraction's model, unchanged on the wire. An answer cut off at the output cap ends the
+    run at once (`OutputTruncated`), instead of Pydantic AI's validation retries, each a paid request that would be
+    cut off again."""
+
+    async def request(self, messages, model_settings, model_request_parameters):
+        response = await super().request(messages, model_settings, model_request_parameters)
+        if response.finish_reason == "length":
+            raise OutputTruncated(response.model_name, response.usage)
+        return response
+
+
+def build_agent(pack: TypePack, model) -> Agent[None, BaseModel]:
+    """The extraction agent of a pack over `model` (the configured OpenAI chat model in `get_agent`)."""
     # The legacy sidecar setting: reasoning none, temperature 0 (we measure non-determinism, we do not fight it)
     settings = OpenAIChatModelSettings(openai_reasoning_effort=OPENAI_SETTINGS["reasoning_effort"], temperature=OPENAI_SETTINGS["temperature"],
                                        openai_logprobs=True, openai_top_logprobs=TOP_LOGPROBS)
-    return Agent(model, output_type=NativeOutput(pack.llm_model()), instructions=instructions(pack), model_settings=settings,
-                 retries=OPENAI_SETTINGS["retries"])
+    return Agent(StopOnTruncation(model), output_type=NativeOutput(pack.llm_model()), instructions=instructions(pack),
+                 model_settings=settings, retries=OPENAI_SETTINGS["retries"])
 
 
-# In a worker run (040 K1) the output and the number of physical requests are actually limited, so the reserved
-# maximum is a guarantee.
-RUN_MAX_OUTPUT_TOKENS = 4000
+@lru_cache(maxsize=None)
+def get_agent(pack_key: str = DEFAULT_KEY) -> Agent[None, BaseModel]:
+    return build_agent(get_pack(pack_key), openai_chat_model())
+
+
+# In a worker run (040 K1) and a measurement (160) the output and the number of physical requests are actually limited,
+# so the reserved maximum is a guarantee. 167 (AI-7): the cap is configuration (`configs/gpt_extract.json`); its value
+# is part of the reuse key of earlier answers (`extract_scored`), so changing it asks every document again.
+RUN_MAX_OUTPUT_TOKENS = int(cfg.load("gpt_extract")["max_output_tokens"])
 
 
 ROUNDS = 1 + int(OPENAI_SETTINGS["retries"])  # requests of one call: the first and Pydantic AI's validation retries
@@ -108,13 +136,21 @@ ROUNDS = 1 + int(OPENAI_SETTINGS["retries"])  # requests of one call: the first 
 
 def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool, rounds: int = ROUNDS) -> calls.Outcome:
     """One `run_sync` (including Pydantic AI's validation retries, at most `rounds` requests in a worker run). Errors
-    go into the ledger too (F05)."""
+    go into the ledger too (F05); a cut-off answer (167) with its tokens and cost, since it was paid for."""
     t0 = time.perf_counter()
     kwargs: dict[str, Any] = {}
     if limited:
         kwargs = {"model_settings": {"max_tokens": RUN_MAX_OUTPUT_TOKENS}, "usage_limits": UsageLimits(request_limit=rounds)}
     try:
         result = agent.run_sync(prompt, **kwargs)
+    except OutputTruncated as exc:
+        actual = exc.model_name or OPENAI_MODEL
+        cost = openai_cost(exc.usage, requested=OPENAI_MODEL, actual=actual)
+        store.ledger_add(run_id=run_id, step="extract_llm", provider="openai", model=actual,
+                         input_tokens=getattr(exc.usage, "input_tokens", None), output_tokens=getattr(exc.usage, "output_tokens", None),
+                         cost_usd=None if cost is None else float(cost), seconds=round(time.perf_counter() - t0, 3),
+                         config_hash=config_hash(pack), error=type(exc).__name__)
+        raise
     except Exception as exc:
         store.ledger_add(run_id=run_id, step="extract_llm", provider="openai", model=OPENAI_MODEL, input_tokens=None,
                          output_tokens=None, cost_usd=None, seconds=round(time.perf_counter() - t0, 3),

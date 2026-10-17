@@ -158,11 +158,14 @@ def normalize_picks(state: FlowState) -> FlowState:
 
 @action.pydantic(reads=["text", "run_id", "doc_type", "needs_review", "review_reasons"], writes=["llm_output", "llm_token_p", "needs_review", "review_reasons"])
 def extract_llm(state: FlowState) -> FlowState:
-    from jav.extract_llm import extract_scored
+    from jav.extract_llm import OutputTruncated, extract_scored
 
     try:
         scored = extract_scored(state.text, run_id=state.run_id, pack=get_pack(state.doc_type))
         state.llm_output, state.llm_token_p = scored.output, scored.token_p  # 091: and its token probabilities
+    except OutputTruncated:  # 167 (AI-7): the answer was cut off at its output cap; not asked again, its own to-do
+        state.llm_output, state.llm_token_p = None, None
+        policy.require_review(state, "llm:truncated")
     except Exception as exc:  # noqa: BLE001 - an error is a review reason, not the end of the flow
         state.llm_output, state.llm_token_p = None, None
         policy.require_review(state, f"llm:failed:{type(exc).__name__}")

@@ -182,6 +182,8 @@ export function reasonText(code: string): string {
     // 160 (review AI-6): without JEV, an accounting field whose GPT answer carried no token probability
     case "gpt:confidence_unavailable": return t("GPT's confidence cannot be measured for this value: {{field}}; check by hand", { field: f });
     case "llm:required_missing": return t("Kötelező mező hiányzik: {{field}}", { field: f });
+    // 167 (review AI-7): GPT's answer stopped at its output cap; it is not asked again
+    case "llm:truncated": return t("GPT's answer was cut off at its length limit, so nothing was extracted: the document is probably too long for one extraction; check it by hand");
     case "money:separator_ambiguous": return t("Kétértelmű tizedesjel: {{field}}", { field: f });
     // 081: the S path's safety net: the picked number stands on the page only as a piece of a longer number
     case "money:token_cut": return t("A kiválasztott érték csak egy része az iraton nyomtatott számnak: {{field}}", { field: f });
