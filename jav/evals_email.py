@@ -252,9 +252,9 @@ def _print_probe_summary(rows: list[dict[str, Any]]) -> None:
               f"{sum(r['intent_flipped'] for r in rs)} | {sum(r['next_flow'] == 'human:suspicious' for r in rs)} |")
 
 
-def email_determinism(n: int = 3, limit: int | None = None) -> None:
+def email_determinism(n: int = 3, limit: int | None = None, *, jev: bool = True) -> None:
     """n repeated runs WITHOUT cache (no reading and no writing, the reference cache stays untouched): number of flips
-    per case, confidence spread. The real run-to-run variation."""
+    per case, confidence spread. The real run-to-run variation. `jev=False` (160-D): GPT recognises the intent."""
     from jav.adapters.jev import get_adapter
 
     cases = _cases(limit)
@@ -262,7 +262,7 @@ def email_determinism(n: int = 3, limit: int | None = None) -> None:
     with get_adapter().no_cache_write():
         for k in range(n):
             for case in cases:
-                per_case[case.case_id].append(_run_case(case, use_cache=False))
+                per_case[case.case_id].append(_run_case(case, use_cache=False, jev=jev))
             print(f"  {k + 1}/{n} kör kész")
     flips = 0
     level_flips = 0
@@ -289,7 +289,7 @@ def email_determinism(n: int = 3, limit: int | None = None) -> None:
     if score_stds:
         print(f"**Score-jelek (várható érték) szórása:** átlag {statistics.mean(score_stds):.4f}, max {max(score_stds):.4f}; szint-flip {level_flips}/{len(per_case)}")
     RUNS_DIR.mkdir(exist_ok=True)
-    out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_email_determinism.jsonl"
+    out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_email_determinism{'' if jev else '_gpt'}.jsonl"
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for rs in per_case.values() for r in rs) + "\n", encoding="utf-8")
     print(f"Nyers futások: {out}")
 
@@ -306,7 +306,8 @@ def _already_classified() -> set[str]:
         return {r["message_id"] for r in c.execute("SELECT message_id FROM emails WHERE intent IS NOT NULL")}
 
 
-def email_inbox(root: str | Path, *, limit: int | None = None, force: bool = False, use_cache: bool = True) -> list[dict[str, Any]]:
+def email_inbox(root: str | Path, *, limit: int | None = None, force: bool = False, use_cache: bool = True,
+                jev: bool = True) -> list[dict[str, Any]]:
     """Runs the `inbox/<mailbox>/<msgid>/` folders through the M3 graph (attachment detection too); resumable."""
     from jav.flow_email import run_email
 
@@ -320,7 +321,7 @@ def email_inbox(root: str | Path, *, limit: int | None = None, force: bool = Fal
     t0 = time.perf_counter()
     for i, folder in enumerate(todo, 1):
         try:
-            st = run_email(str(folder), use_cache=use_cache)
+            st = run_email(str(folder), use_cache=use_cache, jev=jev)
         except Exception as exc:  # noqa: BLE001 - one faulty email must not stop the walk
             print(f"  HIBA {folder.name}: {type(exc).__name__}: {exc}")
             continue

@@ -383,8 +383,11 @@ def print_golden_report(rows: list[dict[str, Any]], arm: str, pack: TypePack | N
 
 
 def determinism(
-    arm: str, n: int, run_one: Callable[..., FlowState], cases: list[GoldenCase] | None = None, type_key: str = DEFAULT_KEY
+    arm: str, n: int, run_one: Callable[..., FlowState], cases: list[GoldenCase] | None = None, type_key: str = DEFAULT_KEY,
+    *, jev: bool = True,
 ) -> list[dict[str, Any]]:
+    """n runs per case without the cache. `jev=False` (160-D): the G path checked by the code alone, its run file
+    named `_nojev` as the golden run's."""
     from jav.adapters.jev import get_adapter
 
     pack = get_pack(type_key)
@@ -396,10 +399,11 @@ def determinism(
         for case in cases:
             for run_no in range(1, n + 1):
                 t0 = time.perf_counter()
-                state = run_one(str(case.pdf), case.case_id, arm, run_no=run_no, tracker=False, use_cache=False, doc_type=type_key)
+                state = run_one(str(case.pdf), case.case_id, arm, run_no=run_no, tracker=False, use_cache=False, doc_type=type_key,
+                                jev=jev)
                 rows.append(_state_row(case, state, run_no, time.perf_counter() - t0, pack))
             print(f"  {case.case_id:40} {n} futás kész")
-    path = _dump_rows(rows, _run_name(type_key, f"determinism_{arm}_n{n}"))
+    path = _dump_rows(rows, _run_name(type_key, f"determinism_{arm}_n{n}" + ("" if jev else "_nojev")))
     print_determinism_report(rows, arm, n, pack)
     print(f"\nNyers futások: {path}")
     return rows

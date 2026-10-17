@@ -55,6 +55,36 @@ def _budget_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--budget-usd", help="160: hard OpenAI budget for the command; Azure is never called from here")
 
 
+def _engine_args(p: argparse.ArgumentParser, *, measurement: bool) -> None:
+    """160-D (plan F-csak-gpt Sz5): the AI engine of a command that asks AI; `--no-jev` stays as the alias of
+    `--engine gpt`. A processing command follows the application's AI engine when it names none, as a work package
+    does; a measurement measures JEV and GPT unless told otherwise, so that its run file says what it measured."""
+    default = "the application's AI engine" if not measurement else "jev (a measurement does not follow the application)"
+    p.add_argument("--engine", choices=["jev", "gpt"], default="jev" if measurement else None,
+                   help=f"160-D: jev = JEV and GPT, gpt = GPT only, without JEV (paid OpenAI calls); default: {default}")
+    p.add_argument("--no-jev", dest="engine", action="store_const", const="gpt", help="the same as --engine gpt")
+
+
+def _jev_on(args: argparse.Namespace) -> bool:
+    engine = args.engine
+    if engine is None:
+        from jav import app_settings
+
+        engine = app_settings.engine_default()
+    return engine == "jev"
+
+
+S_NEEDS_JEV = "The S path needs JEV (JEV chooses among the candidates the code finds): use --arm G, or --engine jev."
+
+
+def _s_without_jev(args: argparse.Namespace) -> bool:
+    """160-D: the S path without JEV is refused before anything runs."""
+    if args.arm == "S" and not _jev_on(args):
+        print(S_NEEDS_JEV)
+        return True
+    return False
+
+
 def cmd_candidates(args: argparse.Namespace) -> int:
     from jav.candidates import find_all, find_currencies
     from jav.pdf import read_document
@@ -131,9 +161,11 @@ def cmd_ocr_rekey(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     from jav.flow import run_one
 
+    if _s_without_jev(args):
+        return 2
     with _under_budget(args, "run"):
         state = run_one(args.pdf, case_id=args.case_id or "adhoc", arm=args.arm, tracker=not args.no_tracker,
-                        use_cache=not args.no_cache, doc_type=args.type)
+                        use_cache=not args.no_cache, doc_type=args.type, jev=_jev_on(args))
     print(f"\n=== {state.final_status} | route={state.route} | arm={state.arm} | type={state.doc_type}")
     if state.invoice:
         print(json.dumps(state.invoice.to_datapoints(), ensure_ascii=False, indent=2, default=str))
@@ -180,7 +212,7 @@ def cmd_detect(args: argparse.Namespace) -> int:
     from jav.flow_detect import run_detect
 
     with _under_budget(args, "detect"):
-        st = run_detect(args.pdf, tracker=args.tracker, use_cache=not args.no_cache)
+        st = run_detect(args.pdf, tracker=args.tracker, use_cache=not args.no_cache, jev=_jev_on(args))
     print(f"=== {st.final_status}  doc_id={st.doc_id[:12]}…  run_id={st.run_id}")
     if st.result:
         r = st.result
@@ -202,7 +234,7 @@ def cmd_detect_golden(args: argparse.Namespace) -> int:
     cases = evals_detect.load_case_file(args.cases) if args.cases else None
     # 122: a separate measurement store keeps the results, to-dos and call log of the measurement out of the work store
     with store.use_store(Path(args.store)) if args.store else contextlib.nullcontext():
-        rows = evals_detect.detect_golden(use_cache=not args.no_cache, jev=not args.no_jev, descriptions=not args.keys_only,
+        rows = evals_detect.detect_golden(use_cache=not args.no_cache, jev=_jev_on(args), descriptions=not args.keys_only,
                                           budget_usd=Decimal(args.budget_usd) if args.budget_usd else None, cases=cases,
                                           label="cases" if cases is not None else "golden")
     # 123: exit code 3 = the budget left cases without a result
@@ -213,7 +245,7 @@ def cmd_detect_determinism(args: argparse.Namespace) -> int:
     from jav.evals_detect import detect_determinism
 
     with _under_budget(args, "detect-determinism"):
-        detect_determinism(n=args.n, limit=args.limit)
+        detect_determinism(n=args.n, limit=args.limit, jev=_jev_on(args))
     return 0
 
 
@@ -227,7 +259,8 @@ def cmd_detect_corpus(args: argparse.Namespace) -> int:
         print_corpus_report(root)
     else:
         with _under_budget(args, "detect-corpus"):
-            detect_corpus(root, limit=args.limit, force=args.force, use_cache=not args.no_cache, redo_unknown=args.redo_unknown)
+            detect_corpus(root, limit=args.limit, force=args.force, use_cache=not args.no_cache, redo_unknown=args.redo_unknown,
+                          jev=_jev_on(args))
     return 0
 
 
@@ -357,8 +390,10 @@ def cmd_golden(args: argparse.Namespace) -> int:
             return 1
         if local:  # 151: a local list's expectations are reference values, so its score is an agreement
             print("Local cases: the scores compare with the list's reference values (agreement, not accuracy).")
+        if _s_without_jev(args):
+            return 2
         rows = evals.golden(args.arm, run_one, cases=cases, tracker=args.tracker, use_cache=not args.no_cache,
-                            type_key=args.type, jev=not args.no_jev,
+                            type_key=args.type, jev=_jev_on(args),
                             budget_usd=Decimal(args.budget_usd) if args.budget_usd else None,
                             jev_budget_usd=Decimal(jev_budget) if jev_budget else None,
                             label="local" if local else "synthetic" if synthetic else "golden")
@@ -370,8 +405,10 @@ def cmd_determinism(args: argparse.Namespace) -> int:
     from jav.evals import determinism
     from jav.flow import run_one
 
+    if _s_without_jev(args):
+        return 2
     with _under_budget(args, "determinism"):
-        determinism(args.arm, args.n, run_one, type_key=args.type)
+        determinism(args.arm, args.n, run_one, type_key=args.type, jev=_jev_on(args))
     return 0
 
 
@@ -379,7 +416,7 @@ def cmd_email(args: argparse.Namespace) -> int:
     from jav.flow_email import run_email
 
     with _under_budget(args, "email"):
-        st = run_email(args.folder, tracker=not args.no_tracker, use_cache=not args.no_cache)
+        st = run_email(args.folder, tracker=not args.no_tracker, use_cache=not args.no_cache, jev=_jev_on(args))
     r, m = st.result, st.message
     assert r is not None and m is not None
     print(f"=== {m.message_id} | {m.sender} | {m.subject!r}")
@@ -398,7 +435,7 @@ def cmd_email_golden(args: argparse.Namespace) -> int:
     from decimal import Decimal
 
     jev_budget = getattr(args, "jev_budget_usd", None)
-    email_golden(use_cache=not args.no_cache, limit=args.limit, jev=not args.no_jev,
+    email_golden(use_cache=not args.no_cache, limit=args.limit, jev=_jev_on(args),
                  budget_usd=Decimal(args.budget_usd) if args.budget_usd else None,
                  jev_budget_usd=Decimal(jev_budget) if jev_budget else None)
     return 0
@@ -411,7 +448,7 @@ def cmd_email_inbox(args: argparse.Namespace) -> int:
         print_inbox_report()
     else:
         with _under_budget(args, "email-inbox"):
-            email_inbox(args.root, limit=args.limit, force=args.force, use_cache=not args.no_cache)
+            email_inbox(args.root, limit=args.limit, force=args.force, use_cache=not args.no_cache, jev=_jev_on(args))
     return 0
 
 
@@ -731,7 +768,7 @@ def cmd_email_determinism(args: argparse.Namespace) -> int:
     from jav.evals_email import email_determinism
 
     with _under_budget(args, "email-determinism"):
-        email_determinism(n=args.n, limit=args.limit)
+        email_determinism(n=args.n, limit=args.limit, jev=_jev_on(args))
     return 0
 
 
@@ -740,7 +777,7 @@ def cmd_email_injection_probe(args: argparse.Namespace) -> int:
 
     from decimal import Decimal
 
-    email_injection_probe(limit=args.limit, use_cache=not args.no_cache, jev=not args.no_jev,
+    email_injection_probe(limit=args.limit, use_cache=not args.no_cache, jev=_jev_on(args),
                           budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
     return 0
 
@@ -776,6 +813,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-tracker", action="store_true")
     p.add_argument("--no-cache", action="store_true", help="Jev kérés-cache kihagyása (élő hívás)")
     _budget_args(p)
+    _engine_args(p, measurement=False)
     p.set_defaults(fn=cmd_run)
 
     p = sub.add_parser("detect", help="M1: egy dokumentum kategorizálása Jevvel")
@@ -783,14 +821,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--tracker", action="store_true")
     p.add_argument("--no-cache", action="store_true")
     _budget_args(p)
+    _engine_args(p, measurement=False)
     p.set_defaults(fn=cmd_detect)
 
     p = sub.add_parser("detect-golden", help="M1 golden: a régi doc-triage + doc-extract típus-címkéin")
     p.add_argument("--no-cache", action="store_true")
-    p.add_argument("--no-jev", action="store_true", help="086: GPT recognises the type (paid OpenAI calls)")
-    p.add_argument("--keys-only", action="store_true", help="086: with --no-jev, offer the types by their keys only")
+    _engine_args(p, measurement=True)  # 086: GPT recognises the type
+    p.add_argument("--keys-only", action="store_true", help="086: with --engine gpt, offer the types by their keys only")
     p.add_argument("--budget-usd", help="086/122: hard budget for the whole measurement, for the engine that answers "
-                                        "(OpenAI with --no-jev, JEV otherwise); the other providers and Azure get none")
+                                        "(OpenAI with --engine gpt, JEV otherwise); the other providers and Azure get none")
     p.add_argument("--cases", help="122: a local case list (JSON, outside git) instead of the golden set")
     p.add_argument("--store", help="122: a separate measurement store (results, to-dos and call log stay out of the work store)")
     p.set_defaults(fn=cmd_detect_golden)
@@ -799,6 +838,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--n", type=int, default=3)
     p.add_argument("--limit", type=int)
     _budget_args(p)
+    _engine_args(p, measurement=True)
     p.set_defaults(fn=cmd_detect_determinism)
 
     p = sub.add_parser("detect-corpus", help="M1 bejárás egy mappán (rekurzív), folytatható; riport típus × év")
@@ -809,6 +849,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--redo-unknown", action="store_true", help="csak az 'unknown' / bizonytalan dokumentumok újra")
     p.add_argument("--no-cache", action="store_true")
     _budget_args(p)
+    _engine_args(p, measurement=False)
     p.set_defaults(fn=cmd_detect_corpus)
 
     p = sub.add_parser("detect-sample", help="M1 kézi ellenőrző Markdown-minta a kategorizált korpuszból")
@@ -822,12 +863,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-tracker", action="store_true")
     p.add_argument("--no-cache", action="store_true")
     _budget_args(p)
+    _engine_args(p, measurement=False)
     p.set_defaults(fn=cmd_email)
 
     p = sub.add_parser("email-golden", help="M3 golden: a régi 96 esetes intent-golden (10_AIFLOW_V4) Jev-Choice-szal")
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--limit", type=int)
-    p.add_argument("--no-jev", action="store_true", help="089: GPT recognises the intent (paid OpenAI calls)")
+    _engine_args(p, measurement=True)  # 089: GPT recognises the intent
     p.add_argument("--budget-usd", help="089: hard OpenAI budget for the whole measurement")
     p.add_argument("--jev-budget-usd", help="127: hard JEV budget for the whole measurement; with either budget, a provider "
                                             "without one (Azure always) cannot be called")
@@ -840,6 +882,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--report-only", action="store_true", help="csak a store-riport, futtatás nélkül")
     _budget_args(p)
+    _engine_args(p, measurement=False)
     p.set_defaults(fn=cmd_email_inbox)
 
     p = sub.add_parser("email-ingest-server", help="M3: helyi fogadó a régi outlook_bridge.ps1 /ingest/email POST-jaihoz -> inbox/")
@@ -937,12 +980,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--n", type=int, default=3)
     p.add_argument("--limit", type=int)
     _budget_args(p)
+    _engine_args(p, measurement=True)
     p.set_defaults(fn=cmd_email_determinism)
 
     p = sub.add_parser("email-injection-probe", help="M3: beszúrt-utasítás (promptinjekció) szonda a golden levelek tiszta és elrontott változatain (runs/*_email_injection_probe.jsonl)")
     p.add_argument("--limit", type=int, default=8)
     p.add_argument("--no-cache", action="store_true")
-    p.add_argument("--no-jev", action="store_true", help="089: GPT answers the injection question (paid OpenAI calls)")
+    _engine_args(p, measurement=True)  # 089: GPT answers the injection question
     p.add_argument("--budget-usd", help="089: hard OpenAI budget for the whole probe (JEV and Azure get none)")
     p.set_defaults(fn=cmd_email_injection_probe)
 
@@ -985,7 +1029,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--type", default="invoice_hu", help=type_help)
     p.add_argument("--tracker", action="store_true")
     p.add_argument("--no-cache", action="store_true")
-    p.add_argument("--no-jev", action="store_true", help="086: the G path verified by the code alone (runs/*_golden_G_nojev.jsonl)")
+    _engine_args(p, measurement=True)  # 086: the G path verified by the code alone (runs/*_golden_G_nojev.jsonl)
     p.add_argument("--budget-usd", help="086: hard OpenAI budget for the whole measurement")
     p.add_argument("--jev-budget-usd", help="127: hard JEV budget for the whole measurement; with either budget, a provider "
                                             "without one (Azure always) cannot be called")
@@ -1001,6 +1045,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--n", type=int, default=5)
     p.add_argument("--type", default="invoice_hu", help=type_help)
     _budget_args(p)
+    _engine_args(p, measurement=True)
     p.set_defaults(fn=cmd_determinism)
 
     p = sub.add_parser("ocr", help="OCR-lánc: egy PDF felismert szövege és minőségjelei (gyorsítótárból, --force: újra), PDF nélkül a motor állapota")

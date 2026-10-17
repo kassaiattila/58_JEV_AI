@@ -59,7 +59,7 @@ def test_the_golden_command_runs_the_synthetic_cases_under_their_own_name(monkey
     monkeypatch.setattr(evals, "SYNTHETIC_DIR", tmp_path)
     monkeypatch.setattr(evals, "load_synthetic_cases", lambda type_key: ["case"])
     monkeypatch.setattr(evals, "golden", lambda *a, **k: got.update(k) or [])
-    args = argparse.Namespace(store=None, arm="S", tracker=False, no_cache=False, type="invoice_foreign", no_jev=False,
+    args = argparse.Namespace(store=None, arm="S", tracker=False, no_cache=False, type="invoice_foreign", engine="jev",
                               budget_usd=None, jev_budget_usd="0.02", synthetic=True)
     assert cli.cmd_golden(args) == 0
     assert got["cases"] == ["case"] and got["label"] == "synthetic" and got["jev_budget_usd"] == Decimal("0.02")
