@@ -141,7 +141,7 @@ agreement, not an accuracy.
    (`app_settings.engine_default`, an `app_options` row; JEV and GPT unless someone changes it) is the default of every new
    processing setting that does not name one (`work.default_params`, `engine_params`): a package without saved settings, a
    mailbox download's package, a watched folder's package, an assignment without `jev`. Saved settings and started runs keep
-   their own (a run freezes its settings when it starts); an assignment saved before 086 has no `jev` and stays JEV and GPT.
+   their own (a run freezes its settings when it starts); an assignment saved before the engine setting existed (recipes 1.9.0, 2026-10-02) has no `jev` and stays JEV and GPT.
 3. **OpenAI, through Pydantic AI**: the existing G path and the document-learning branch produce structured proposals and then apply source checking. The graphs described here neither restrict OpenAI to generating extracts nor make JEV the only tool for every interpretive decision: further interpreting, classifying and verifying roles are also permitted, for documents and emails alike. Any new division of labour must be built in on the basis of targeted measurement; source checking, separate cost accounting and manual activation apply to every role. The Burr states are plain Pydantic models, not Pydantic AI.
 4. **OCR pipeline**: `jav/ocr.py` + `configs/ocr.json` — PDF without text → page image (pypdfium2,
    300 dpi) → tesseract word boxes (native tesseract on the machine; the Hungarian + English language packs taken from the old sidecar's Docker image
