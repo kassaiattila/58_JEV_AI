@@ -156,7 +156,7 @@ def fetch(req: MailboxRequest, *, actor: str, runner: Runner | None = None, inbo
 
     def on_ingest(res: dict[str, Any], payload: dict[str, Any]) -> None:
         with lock:
-            stored.append({"folder": Path(res["folder"]), "status": res["status"], "subject": str(payload.get("subject") or "")[:120]})
+            stored.append({"folder": Path(res["folder"]), "status": res["status"]})  # 167 (S-6): no subject kept
 
     httpd = ingest_server.make_server(0, inbox_root=inbox_root or ingest_server.INBOX_ROOT, token=token, on_ingest=on_ingest)
     thread = threading.Thread(target=httpd.serve_forever, name="mail-ingest", daemon=True)

@@ -353,18 +353,19 @@ class _Handler(BaseHTTPRequestHandler):
             resp: dict[str, Any] = {"run_id": res["receipt"].get("run_id"), "deduped": res["status"] == "duplicate",
                                     "version": res["version"], "ocr_policy": payload.get("ocr_policy") or "auto",
                                     "message_dir": str(folder)}
-            subj = str(payload.get("subject") or "")[:60]
+            # 167 (review S-6): a log line names the message by its folder (a hash of its id), never by its subject: in a
+            # mailbox download this output is the worker's, kept unrotated in runs/dev/worker.log
             if self.run_flow and res["status"] != "duplicate":
                 try:
                     out = _run_flow(folder)
                     record_run(folder, out.get("run_id"))
                     resp.update(out)
-                    print(f"[mail] {folder.name}  {subj!r} v{res['version']} -> {out.get('intent')} -> {out.get('next_flow')}")
+                    print(f"[mail] {folder.name} v{res['version']} -> {out.get('intent')} -> {out.get('next_flow')}")
                 except Exception as exc:  # noqa: BLE001 - the bridge must not get a 500 because of one bad message
                     resp["error"] = f"{type(exc).__name__}: {exc}"
-                    print(f"[mail] {folder.name}  {subj!r} HIBA: {resp['error']}")
+                    print(f"[mail] {folder.name} v{res['version']} error: {type(exc).__name__}")  # its text may quote the mail
             else:
-                print(f"[mail] {folder.name}  {subj!r}  v{res['version']}{'  (már volt, változatlan)' if resp['deduped'] else ''}")
+                print(f"[mail] {folder.name} v{res['version']}{' (already stored, unchanged)' if resp['deduped'] else ''}")
             self._json(200, resp)
             return
         self._json(404, {"error": "not found", "path": path[:200]})
