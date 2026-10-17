@@ -638,7 +638,10 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
 
     from jav import reconcile_ai
 
-    engines = list(reconcile_ai.ENGINES) if args.engine == "both" else [args.engine]
+    # 160-D (Sz7): without --engine the proposals follow the application's AI engine (JEV and GPT: both engines, GPT
+    # only: GPT alone); the golden measurement asks both unless told, as every measurement does
+    engine = args.engine or ("both" if args.golden or _jev_on(args) else "gpt")
+    engines = list(reconcile_ai.ENGINES) if engine == "both" else [engine]
     limits = {}
     if args.jev_budget_usd:
         limits["jev"] = Decimal(args.jev_budget_usd)
@@ -940,7 +943,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("reconcile-ai", help="134: AI proposals (JEV / GPT) for a reconciliation package's lines; without a budget only the free estimate")
     p.add_argument("workpackage_id", nargs="?", help="the reconciliation package (wp-...); not with --golden")
-    p.add_argument("--engine", choices=["jev", "gpt", "both"], default="both")
+    p.add_argument("--engine", choices=["jev", "gpt", "both"],
+                   help="160-D: default: both with the application's JEV and GPT, gpt with GPT only; --golden: both")
+    p.add_argument("--no-jev", dest="engine", action="store_const", const="gpt", help="the same as --engine gpt")
     p.add_argument("--jev-budget-usd", help="the JEV sub-budget of the measurement (USD)")
     p.add_argument("--budget-usd", help="the OpenAI sub-budget of the measurement (USD)")
     p.add_argument("--max-lines", type=int, help="ask only the first N lines")

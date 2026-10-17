@@ -135,3 +135,48 @@ def test_a_determinism_without_jev_names_its_run_file(db, monkeypatch, tmp_path)
     evals.determinism("G", 2, Recorder(), jev=False)
     evals.determinism("G", 2, Recorder())
     assert names == ["determinism_G_n2_nojev", "determinism_G_n2"]
+
+
+# --- the reconciliation's AI (Sz7) ------------------------------------------------------------------------------------
+
+
+def _reconcile_run(monkeypatch):
+    from jav import reconcile_ai
+
+    rec = Recorder({"lines": 0, "counts": {}, "scope": "s", "usage": {}, "raw": None, "jev_config": "j", "gpt_config": "g"})
+    monkeypatch.setattr(reconcile_ai, "run", rec)
+    return rec
+
+
+def test_the_reconciliation_proposals_follow_the_applications_engine(db, monkeypatch, capsys):
+    rec = _reconcile_run(monkeypatch)
+    assert cli.main(["reconcile-ai", "wp-000000000000", "--budget-usd", "0.01"]) == 2  # JEV and GPT: JEV needs its budget
+    assert "no budget for: jev" in capsys.readouterr().out and rec.calls == []
+    app_settings.save_engine_default("gpt", actor="tester")
+    assert cli.main(["reconcile-ai", "wp-000000000000", "--budget-usd", "0.01"]) == 0
+    assert rec.calls[-1]["engines"] == ["gpt"]
+    assert cli.main(["reconcile-ai", "wp-000000000000", "--engine", "both", "--budget-usd", "0.01", "--jev-budget-usd", "0.01"]) == 0
+    assert rec.calls[-1]["engines"] == ["jev", "gpt"]
+
+
+def test_the_reconciliation_golden_measures_both_engines_unless_told(db, monkeypatch, capsys):
+    from jav import reconcile_ai
+
+    rec = Recorder({"cases": 0, "golden_version": "x", "jev_config": "j", "gpt_config": "g", "engines": {}, "scope": "s",
+                    "usage": {}, "raw": None})
+    monkeypatch.setattr(reconcile_ai, "golden", rec)
+    app_settings.save_engine_default("gpt", actor="tester")
+    assert cli.main(["reconcile-ai", "--golden"]) == 0
+    assert rec.calls[-1]["engines"] == ["jev", "gpt"]
+    assert cli.main(["reconcile-ai", "--golden", "--no-jev"]) == 0
+    assert rec.calls[-1]["engines"] == ["gpt"]
+
+
+def test_gpt_alone_never_makes_a_sure_ai_group():
+    """Decision 163 (F-csak-gpt D4): with GPT only the quick review has no "AI sure" group; a sure proposal needs both
+    engines to agree, so a confident GPT answer alone is still checked by a person."""
+    from jav import reconcile_review
+
+    line = {"id": "l1", "candidates": [], "allocated": None, "memo": "", "description": "",
+            "ai": {"gpt": {"kind": "retail_purchase", "kind_probability": 0.9999, "suggested_mark": "retail"}}}
+    assert reconcile_review._place(line, {}, 0.9)[0] == "ai_review"
