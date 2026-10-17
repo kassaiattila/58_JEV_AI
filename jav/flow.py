@@ -68,8 +68,9 @@ def _year_hint(path: str) -> int | None:
 # --- actions ---------------------------------------------------------------------------
 
 
-@action.pydantic(reads=["source_path", "read_path"], writes=["text", "lines", "page_count", "has_text_layer", "layout", "doc_id",
-                                                             "text_source", "source_layer_id"])
+@action.pydantic(reads=["source_path", "read_path", "needs_review", "review_reasons"],
+                 writes=["text", "lines", "page_count", "has_text_layer", "layout", "doc_id", "text_source", "source_layer_id",
+                         "needs_review", "review_reasons"])
 def load_pdf(state: FlowState) -> FlowState:
     from jav import source_layer
     from jav.pdf import read_pdf
@@ -84,6 +85,8 @@ def load_pdf(state: FlowState) -> FlowState:
     state.doc_id = _sha256(state.read_path or state.source_path)
     if pdf.has_text_layer:  # for a PDF without text the OCR step saves the layer
         state.source_layer_id = source_layer.save_from_pdftext(state.doc_id, pdf)
+        # 167 (AI-3): pages without a text layer of their own were neither read nor sent to OCR
+        policy.require_review(state, *policy.text_layer_coverage_reasons(pdf.page_count, pdf.pages_without_text))
     return state
 
 
@@ -456,7 +459,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
         ("save", "done", "route auto"), ("save", "needs_review", "különben"),
     ],
     "step_meta": {
-        "load_pdf": {"kind": "det", "note": "pdfplumber szó-szintű rekonstrukció, sha256 doc_id; szövegréteg-teszt; a szóréteg (szókeretek) mentése"},
+        "load_pdf": {"kind": "det", "note": "pdfplumber word-level reconstruction, sha256 doc_id; the text-layer test of the document and of each page (167: some pages without a text layer of their own are the pdf:pages_without_text to-do); the word layer (word boxes) is saved"},
         "ocr_pdf": {"kind": "det", "note": "szöveg nélküli PDF: oldalkép (pypdfium2) + tesseract szó-dobozok (natív / régi sidecar-kép) -> ugyanaz a sor- és cella-építés; a szóréteg mentése; lemez-gyorsítótár runs/ocr/; minőségjelek nyersen, gyenge OCR review-ok (policy ocr)"},
         "find_candidates": {"kind": "det", "note": "S-kar: determinisztikus, sorrendezett, maszkoló jelöltkeresők a csomag jelölt-profiljával (hu / intl): iban -> tax_id -> date -> invoice_number -> money; nevek/címek cellákon"},
         "jev_select": {"kind": "jev", "note": "S-kar: kötegelt Choice-kérések (parties / header / money) a csomag select-hívási helyéről, fókuszált state, none mindig opció, jelenlét-Noul mezőnként (jelölt nélkül is, a vizsgált nem kötelező mezőkre, csak meglévő kérésben)"},

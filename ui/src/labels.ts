@@ -190,6 +190,8 @@ export function reasonText(code: string): string {
     // 084: the shared date reader: the printed date's day and month can be read two ways ("04/12/2022")
     case "date:order_ambiguous": return t("A nap és a hónap sorrendje kétes: {{field}}", { field: f });
     case "ocr:partial_pages": return t("Nem minden oldal lett felismerve ({{pages}})", { pages: p[2] });
+    // 167 (review AI-3): pages without a text layer of their own in a document that has one: neither read nor recognised
+    case "pdf:pages_without_text": return t("Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document", { pages: p[2] });
     case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
     case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });
     case "ocr:low_conf_words": return t("Sok bizonytalan szó a felismerésben ({{p}})", { p: num(p[2]) });

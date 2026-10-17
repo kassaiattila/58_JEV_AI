@@ -6,7 +6,7 @@
 ## Phases and steps
 
 ### load
-- **load_pdf** _(det)_ — pdfplumber szó-szintű rekonstrukció, sha256 doc_id; szövegréteg-teszt; a szóréteg (szókeretek) mentése
+- **load_pdf** _(det)_ — pdfplumber word-level reconstruction, sha256 doc_id; the text-layer test of the document and of each page (167: some pages without a text layer of their own are the pdf:pages_without_text to-do); the word layer (word boxes) is saved
 - **ocr_pdf** _(det)_ — szöveg nélküli PDF: oldalkép (pypdfium2) + tesseract szó-dobozok (natív / régi sidecar-kép) -> ugyanaz a sor- és cella-építés; a szóréteg mentése; lemez-gyorsítótár runs/ocr/; minőségjelek nyersen, gyenge OCR review-ok (policy ocr)
 
 ### extract

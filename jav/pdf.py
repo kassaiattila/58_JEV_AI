@@ -91,6 +91,9 @@ class PdfText:
     # independent of them and unchanged.
     words: list[list[dict[str, Any]]] = field(default_factory=list)
     page_sizes: list[tuple[float, float]] = field(default_factory=list)
+    # 167 (review AI-3): the pages (1-based) whose own text fails the text-layer test, e.g. scans behind an
+    # electronically signed cover page; the whole document's test alone let them pass unread
+    pages_without_text: list[int] = field(default_factory=list)
 
 
 # PDFs with LaTeX/T1 fonts give the accent as a separate glyph in the text layer ("Bal´azs", "Vev˝o", "U¨gyvitel").
@@ -219,6 +222,15 @@ def text_layer_ok(text: str) -> bool:
     )
 
 
+def pages_without_text(layout: list[LineLayout], page_count: int) -> list[int]:
+    """167 (review AI-3): the pages (1-based) whose own lines fail the text-layer test (`text_layer_ok`, the same test
+    as the whole document's): a page with no text at all, or with only a stamp or a page number."""
+    by_page: dict[int, list[str]] = {}
+    for ln in layout:
+        by_page.setdefault(ln.page, []).append(ln.text)
+    return [p for p in range(1, page_count + 1) if not text_layer_ok("\n".join(by_page.get(p, [])))]
+
+
 def read_pdf(path: str | Path) -> PdfText:
     """The text layer with lines and cells. 077: pdfplumber runs in the isolated PDF reader (`jav/isolated_pdf.py`,
     time and memory limit: `PdfReaderLimit`; a parser error: `PdfReaderError`); the words are cleaned and laid out
@@ -247,6 +259,7 @@ def read_pdf(path: str | Path) -> PdfText:
     return PdfText(
         path=str(path), text=text, lines=lines, layout=layout, page_count=page_count, has_text_layer=has_text,
         text_source="pdf" if has_text else None, words=pages, page_sizes=sizes,
+        pages_without_text=pages_without_text(layout, page_count),
     )
 
 

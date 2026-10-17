@@ -224,6 +224,17 @@ def ocr_coverage_reasons(page_count: int | None, pages_ocr: int | None) -> list[
     return [f"ocr:partial_pages:{pages_ocr}/{page_count}"]
 
 
+def text_layer_coverage_reasons(page_count: int | None, pages_without_text: list[int] | None) -> list[str]:
+    """167 (review AI-3): in a document with a text layer, some pages (not all) have none of their own, e.g. scans
+    behind an electronically signed cover page. Those pages were neither read nor sent to OCR, so this is always a
+    visible to-do, like partial OCR (a fact, not a threshold). With no page of text the whole document goes to OCR
+    instead (`ocr_pdf`)."""
+    n = len(pages_without_text or [])
+    if not page_count or n == 0 or n >= page_count:
+        return []
+    return [f"pdf:pages_without_text:{n}/{page_count}"]
+
+
 def ocr_should_escalate(mean_conf: float | None, low_conf_ratio: float | None) -> bool:
     """Weak local OCR (below / above the policy's `ocr.escalate_*` thresholds) -> switch to the more accurate, paid
     engine (configs/ocr.json `escalation`); the decision is data, the signals stay raw in the state."""

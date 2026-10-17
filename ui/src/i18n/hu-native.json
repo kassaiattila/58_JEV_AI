@@ -1330,5 +1330,6 @@
   "item removed": "tétel kivétele",
   "item restored": "tétel visszaállítása",
   "items added": "tételek felvétele",
-  "GPT's answer was cut off at its length limit, so nothing was extracted: the document is probably too long for one extraction; check it by hand": "A GPT válasza a hosszkorlátnál megszakadt, ezért nem készült kivonat: az irat valószínűleg túl hosszú egyetlen kinyeréshez; ellenőrizd kézzel"
+  "GPT's answer was cut off at its length limit, so nothing was extracted: the document is probably too long for one extraction; check it by hand": "A GPT válasza a hosszkorlátnál megszakadt, ezért nem készült kivonat: az irat valószínűleg túl hosszú egyetlen kinyeréshez; ellenőrizd kézzel",
+  "Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document": "A saját szövegréteg nélküli oldalakat a rendszer nem olvasta be ({{pages}} oldal); nézd meg őket az iratban"
 }

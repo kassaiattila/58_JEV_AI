@@ -6,7 +6,7 @@
 ## Phases and steps
 
 ### load
-- **load_pdf** _(det)_ — pdfplumber szó-szintű rekonstrukció, sha256 doc_id, év-hint a mappából; szövegréteg-teszt
+- **load_pdf** _(det)_ — pdfplumber word-level reconstruction, sha256 doc_id, year hint from the folder; the text-layer test of the document and of each page (167: some pages without a text layer of their own are the pdf:pages_without_text to-do, kept open by the ocr_coverage producer)
 - **ocr_pdf** _(det)_ — szöveg nélküli PDF: OCR (jav/ocr.py: oldalkép + tesseract, natív / régi sidecar-kép, lemez-gyorsítótár) ugyanarra az elrendezésre; minőségjelek a state-ben
 
 ### classify
