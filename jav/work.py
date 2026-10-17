@@ -54,6 +54,9 @@ CREATE TABLE IF NOT EXISTS workpackage_items (
     removed_revision INTEGER,
     parent_item_id   TEXT,                     -- 058 K5.2: a levél csatolmányánál a levél tétele (a csatolmány eredete)
     instance    TEXT,                          -- source instance (jav/source_instances.py), relative path; NULL: none
+    removed_at  TEXT,                          -- 160-C S1: when, by whom and why the item was removed (NULL: in use)
+    removed_by  TEXT,
+    removed_reason TEXT,
     PRIMARY KEY (workpackage_id, item_id)
 );
 CREATE TABLE IF NOT EXISTS recipe_assignments (
@@ -135,6 +138,12 @@ def _migrate(conn) -> None:
     if rcols and "stopped_at" not in rcols:  # 160 (review R-4): a person stopped the run (it ends cancelled)
         conn.execute("ALTER TABLE runs ADD COLUMN stopped_at TEXT")
         conn.execute("ALTER TABLE runs ADD COLUMN stopped_by TEXT")
+    if rcols and "excluded_items" not in rcols:  # 160-C (decision 163 D7): items removed before the approval (JSON)
+        conn.execute("ALTER TABLE runs ADD COLUMN excluded_items TEXT")
+    if cols and "removed_at" not in cols:  # 160-C S1 (decision 163 D2): who removed an item, when and why
+        conn.execute("ALTER TABLE workpackage_items ADD COLUMN removed_at TEXT")
+        conn.execute("ALTER TABLE workpackage_items ADD COLUMN removed_by TEXT")
+        conn.execute("ALTER TABLE workpackage_items ADD COLUMN removed_reason TEXT")
 
 
 store.register_migration("work", _migrate)
@@ -454,13 +463,45 @@ def add_document(wp_id: str, path: Path, *, expected_revision: int) -> dict[str,
     return add_documents(wp_id, [path], expected_revision=expected_revision)
 
 
-def remove_item(wp_id: str, item_id: str, *, expected_revision: int) -> dict[str, Any]:
+def remove_item(wp_id: str, item_id: str, *, expected_revision: int, actor: str, reason: str) -> dict[str, Any]:
+    """160-C S1 (decision 163 D2, D3): a virtual removal by a named person with a reason, logged. The item stays out
+    of the package's next runs; a run already started keeps it in its frozen input, and `restore_item` brings it back."""
+    reason = reason.strip()
+    if not reason:
+        raise ValueError("a reason is required to remove an item")
     with store.connect() as c:
         _begin(c)
-        rev = _bump(c, wp_id, expected_revision)
-        c.execute("UPDATE workpackage_items SET removed_revision=? WHERE workpackage_id=? AND item_id=? AND removed_revision IS NULL",
-                  (rev, wp_id, item_id))
+        rev = _bump(c, wp_id, expected_revision)  # first: a stale page gets a conflict, not "not found"
+        if c.execute("SELECT 1 FROM workpackage_items WHERE workpackage_id=? AND item_id=? AND removed_revision IS NULL",
+                     (wp_id, item_id)).fetchone() is None:
+            raise KeyError(item_id)
+        c.execute("UPDATE workpackage_items SET removed_revision=?, removed_at=?, removed_by=?, removed_reason=?"
+                  " WHERE workpackage_id=? AND item_id=?", (rev, _now(), actor, reason, wp_id, item_id))
+        _event(c, wp_id, "item_remove", actor, {"item_id": item_id, "reason": reason})
     return get(wp_id)
+
+
+def restore_item(wp_id: str, item_id: str, *, expected_revision: int, actor: str) -> dict[str, Any]:
+    """160-C S1 (decision 163 D3): a removed item is back in the package, logged; it takes part in the next run."""
+    with store.connect() as c:
+        _begin(c)
+        _bump(c, wp_id, expected_revision)
+        if c.execute("SELECT 1 FROM workpackage_items WHERE workpackage_id=? AND item_id=? AND removed_revision IS NOT NULL",
+                     (wp_id, item_id)).fetchone() is None:
+            raise KeyError(item_id)
+        c.execute("UPDATE workpackage_items SET removed_revision=NULL, removed_at=NULL, removed_by=NULL, removed_reason=NULL"
+                  " WHERE workpackage_id=? AND item_id=?", (wp_id, item_id))
+        _event(c, wp_id, "item_restore", actor, {"item_id": item_id})
+    return get(wp_id)
+
+
+def removed_items(wp_id: str) -> list[dict[str, Any]]:
+    """160-C S1: the package's removed items with who removed them, when and why (shown behind a switch)."""
+    with store.connect() as c:
+        return [dict(r) for r in c.execute(
+            "SELECT item_id, kind, source_path, sha256, added_revision, parent_item_id, instance, removed_revision,"
+            " removed_at, removed_by, removed_reason FROM workpackage_items WHERE workpackage_id=? AND removed_revision IS NOT NULL"
+            " ORDER BY source_path", (wp_id,))]
 
 
 def folder_documents(folder: Path, *, suffixes: tuple[str, ...] = DOCUMENT_SUFFIXES, recursive: bool = False,
@@ -1109,6 +1150,7 @@ def get_run(run_id: str) -> dict[str, Any]:
     for k in ("recipe", "params", "input"):
         out[k] = json.loads(out[k])
     out["plan"] = json.loads(out["plan"]) if out.get("plan") else None  # 082: None for a run started before it was saved
+    out["excluded_items"] = json.loads(out["excluded_items"]) if out.get("excluded_items") else []
     out["items"] = items
     out["jobs"] = queue.counts(run_id=run_id)
     return out
@@ -1123,7 +1165,12 @@ def run_rows(wp_id: str | None = None) -> list[dict[str, Any]]:
            " (SELECT COUNT(*) FROM run_items i WHERE i.run_id=r.run_id) AS items_done,"
            # 153 (review B4): a range on the item flow ids `<run>:...` (';' follows ':'), so the index is used
            " (SELECT COUNT(*) FROM review_reasons x WHERE x.status='open' AND x.run_id >= r.run_id || ':'"
-           " AND x.run_id < r.run_id || ';') AS open_reasons"
+           " AND x.run_id < r.run_id || ';'"
+           # 160-C (decision 163 D7): not the to-dos of an item left out of the release (as `excluded_items` says)
+           " AND NOT EXISTS (SELECT 1 FROM workpackage_items wi WHERE r.approval IS NULL AND wi.workpackage_id=r.workpackage_id"
+           " AND wi.removed_revision IS NOT NULL AND x.run_id = r.run_id || ':' || substr(wi.item_id, 1, 16))"
+           " AND NOT EXISTS (SELECT 1 FROM json_each(COALESCE(r.excluded_items, '[]')) e WHERE r.approval IS NOT NULL"
+           " AND x.run_id = r.run_id || ':' || substr(e.value, 1, 16))) AS open_reasons"
            " FROM runs r JOIN workpackages w ON w.id=r.workpackage_id")
     args: tuple = ()
     if wp_id is not None:
@@ -1219,10 +1266,34 @@ def trial_runs(flow_run_ids: Iterable[str | None]) -> set[str]:
     return found
 
 
+def _removed_from_package(c: sqlite3.Connection, run: dict[str, Any]) -> list[str]:
+    """The run's input items that are removed from its package now, in input order."""
+    removed = {r["item_id"] for r in c.execute("SELECT item_id FROM workpackage_items WHERE workpackage_id=?"
+                                               " AND removed_revision IS NOT NULL", (run["workpackage_id"],))}
+    return [i["item_id"] for i in run["input"]["items"] if i["item_id"] in removed]
+
+
+def excluded_items(run: dict[str, Any]) -> list[str]:
+    """160-C (decision 163 D7): the run's items whose result is not released. For an approved run, those removed from
+    its package before the approval (recorded with it, so a later removal or restore changes nothing: decision 160
+    D1); for any other run, those removed now."""
+    if run.get("approval"):
+        return list(run.get("excluded_items") or [])
+    with store.connect() as c:
+        return _removed_from_package(c, run)
+
+
+def released_items(run: dict[str, Any]) -> list[dict[str, Any]]:
+    """160-C: the run's input items whose result counts (the input without `excluded_items`)."""
+    excluded = set(excluded_items(run))
+    return [i for i in run["input"]["items"] if i["item_id"] not in excluded]
+
+
 def open_reasons_for_run(run_id: str) -> int:
-    """The run's OWN open to-do reasons (the reasons raised under the items' flow identifiers)."""
+    """The run's OWN open to-do reasons (the reasons raised under the items' flow identifiers). 160-C: an item removed
+    from the package does not count; its result is not released (decision 163 D7)."""
     run = get_run(run_id)
-    return sum(len(s["run"]) for s in items_reasons(run_id, run["input"]["items"]).values())
+    return sum(len(s["run"]) for s in items_reasons(run_id, released_items(run)).values())
 
 
 def refresh_run_status(run_id: str) -> str:
@@ -1393,11 +1464,17 @@ def superseded(run_id: str) -> dict[str, Any] | None:
     return {"by": detail["superseded_by"], "actor": row["actor"], "at": row["created_at"], "reasons_closed": detail["reasons_closed"]}
 
 
-def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -> dict[str, Any]:
+def approve_run(run_id: str, *, actor: str, review_version: str | None = None,
+                confirm_removed: int | None = None) -> dict[str, Any]:
     """Approval of a live run: only with finished items and no open to-do; who approved it and when is recorded.
     `review_version` (085, re-audit A01): the version of the result the approver saw (`corrections.review_version`);
     if a correction changed it since, `RevisionConflict`. Checked and recorded in one transaction, so a correction
-    cannot slip between the check and the approval (and none is written after it: `corrections`)."""
+    cannot slip between the check and the approval (and none is written after it: `corrections`).
+
+    160-C (decision 163 D7): items removed from the package since the run started are left out of the approval: their
+    results are not released and their to-dos do not block it. Then the approver confirms how many were removed
+    (`confirm_removed`, the count shown); a missing or different count is `NotReady` (`removed_items`), so a removal
+    made after the page was loaded is never approved unseen. The left-out items are recorded with the approval."""
     from jav import corrections
 
     run = get_run(run_id)
@@ -1407,7 +1484,7 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -
     if status != "done":
         raise NotReady(f"run is {status}; approval needs a finished run without open review reasons")
     done = {i["item_id"] for i in get_run(run_id)["items"] if i["status"] == "done"}
-    if any(i["item_id"] not in done for i in run["input"]["items"]):  # 063: every input item has a finished result
+    if any(i["item_id"] not in done for i in released_items(run)):  # 063: every input item has a finished result
         raise NotReady("run has input items without a finished result")
     with store.connect() as c:
         _begin(c)
@@ -1418,7 +1495,14 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -
         latest = c.execute("SELECT status FROM runs WHERE run_id=?", (run_id,)).fetchone()
         if latest["status"] != "done":
             raise NotReady("The run is no longer ready for approval")
-        for item in run["input"]["items"]:
+        removed = _removed_from_package(c, run)
+        if removed and confirm_removed != len(removed):
+            raise NotReady(f"{len(removed)} of the run's items were removed from the package; their results are not "
+                           "released. Confirm the count to approve the rest.",
+                           [{"code": "removed_items", "message": "Items were removed from the package after the run started",
+                             "count": str(len(removed))}])
+        kept = [i for i in run["input"]["items"] if i["item_id"] not in set(removed)]
+        for item in kept:
             result = c.execute("SELECT status FROM run_items WHERE run_id=? AND item_id=?",
                                (run_id, item["item_id"])).fetchone()
             if result is None or result["status"] != "done":
@@ -1429,7 +1513,7 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -
                                 (subject_kind, subject_id)).fetchall()
             if any(is_own_reason(dict(reason), flow_run_id(run_id, item["item_id"])) for reason in reasons):
                 raise NotReady("The run still has open review reasons")
-        native_items = [i for i in run["input"]["items"] if native_results.native_item(run_id, i, c)]
+        native_items = [i for i in kept if native_results.native_item(run_id, i, c)]
         if native_items:
             if review_version is None:
                 raise RevisionConflict("Native approval requires the exact reviewed version")
@@ -1442,8 +1526,8 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None) -
                 native_results.verify_publication(publication, c=c)
         if review_version is not None and corrections.review_version(run_id, c) != review_version:
             raise RevisionConflict(f"the result of run {run_id} changed since it was reviewed; review it again")
-        c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=? WHERE run_id=? AND approval IS NULL"
-                  " AND status='done'", (actor, _now(), run_id))
+        c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=?, excluded_items=? WHERE run_id=?"
+                  " AND approval IS NULL AND status='done'", (actor, _now(), json.dumps(removed) if removed else None, run_id))
     approved = get_run(run_id)
     rule = package_rule(run["workpackage_id"])
     if rule is not None and rule.after_approval is not None and approved["approval"]:

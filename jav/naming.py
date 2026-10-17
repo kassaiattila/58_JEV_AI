@@ -412,7 +412,8 @@ def plan(run_id: str, *, path_budget: int | None = None) -> list[NamedCopy]:
 
     r = rules()
     run = work.get_run(run_id)
-    items = [i for i in run["input"]["items"] if i.get("kind") != "email"]
+    # 160-C: not the items removed from the package before the release (decision 163 D7)
+    items = [i for i in work.released_items(run) if i.get("kind") != "email"]
     records = {rec["item_id"]: rec for rec in datasets.run_records(run_id)}
     results = {x["item_id"]: x for x in run["items"]}
     others = [i for i in items if i["item_id"] not in records]

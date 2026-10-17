@@ -74,7 +74,7 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
     subjects = _email_subjects(run["input"]["items"])
     split = work.items_reasons(run_id, run["input"]["items"])  # 153 (review B3): one query, not one per item
     out = []
-    for item in run["input"]["items"]:
+    for item in work.released_items(run):  # 160-C: not the items removed from the package (decision 163 D7)
         if item.get("kind") == "email":
             continue
         dp = corrections.datapoints_row(run_id, item["item_id"])
@@ -109,7 +109,7 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
 def native_records(run_id: str) -> list[dict[str, Any]]:
     """Native review data, including empty or unsuccessful outcomes and original machine proposals."""
     return [{"file": Path(item["source_path"]).name, **corrections.item_result(run_id, item["item_id"])}
-            for item in work.get_run(run_id)["input"]["items"]
+            for item in work.released_items(work.get_run(run_id))
             if native_results.native_item(run_id, item)]
 
 
@@ -192,7 +192,7 @@ def email_records(run_id: str) -> list[dict[str, Any]]:
     from jav import emails, mailbox
 
     out = []
-    items = work.get_run(run_id)["input"]["items"]
+    items = work.released_items(work.get_run(run_id))  # 160-C: not the items removed from the package (decision 163 D7)
     split = work.items_reasons(run_id, [i for i in items if i.get("kind") == "email"])  # 153 (review B3): one query
     for item in items:
         if item.get("kind") != "email":

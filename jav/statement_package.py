@@ -393,7 +393,7 @@ def after_approval(run: dict[str, Any]) -> None:
     statements = {s["id"]: s for s in reconcile.statements()}
     done: set[str] = set()
     actor = run.get("approved_by") or run["actor"]
-    for item in run["input"]["items"]:
+    for item in work.released_items(run):  # 160-C: not a statement removed before the approval (decision 163 D7)
         st = statements.get(item["item_id"])
         if st is None:
             continue

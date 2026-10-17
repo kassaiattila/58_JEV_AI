@@ -275,6 +275,11 @@ class Revision(_In):
     expected_revision: Annotated[int, Field(ge=0)]
 
 
+class RemoveItem(Revision):
+    """160-C S1 (decision 163 D2): the reason is required; the person is the request's actor."""
+    reason: Annotated[str, Field(min_length=1, max_length=500)]
+
+
 class StatementTableFile(_In):
     """136: a bank's tabular statement export (a workbook or a CSV file)."""
     path: Annotated[str, Field(min_length=1, max_length=1024)]
@@ -314,6 +319,8 @@ class Approve(_In):
     """085 (re-audit A01): `review_version` is the run view's `review_version` the approver saw; if a correction changed
     the result since, 409. Without it (the command line) the current result is approved."""
     review_version: str | None = Field(default=None, max_length=64)
+    # 160-C (decision 163 D7): how many removed items the approver saw (the run view's `removed_items`)
+    confirm_removed: int | None = Field(default=None, ge=0)
 
 
 class ResolveCall(_In):
@@ -970,8 +977,14 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/items/{item_id}/remove")
-    def remove_item(wp_id: WpId, item_id: ItemId, body: Revision, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        work.remove_item(wp_id, item_id, expected_revision=body.expected_revision)
+    def remove_item(wp_id: WpId, item_id: ItemId, body: RemoveItem, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        work.remove_item(wp_id, item_id, expected_revision=body.expected_revision, actor=who, reason=body.reason)
+        return work_views.workpackage_view(wp_id)
+
+    @app.post(r + "/workpackages/{wp_id}/items/{item_id}/restore")
+    def restore_item(wp_id: WpId, item_id: ItemId, body: Revision, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """160-C S1: a removed item back in the package (it takes part in the next run)."""
+        work.restore_item(wp_id, item_id, expected_revision=body.expected_revision, actor=who)
         return work_views.workpackage_view(wp_id)
 
     def _item_source(wp_id: str, item_id: str) -> tuple[Path, bytes]:
@@ -1064,7 +1077,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.post(r + "/runs/{run_id}/approve")
     def approve(run_id: RunId, body: Approve, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        work.approve_run(run_id, actor=who, review_version=body.review_version)
+        work.approve_run(run_id, actor=who, review_version=body.review_version, confirm_removed=body.confirm_removed)
         return work_views.run_view(run_id)
 
     @app.get(r + "/runs/{run_id}/results")
