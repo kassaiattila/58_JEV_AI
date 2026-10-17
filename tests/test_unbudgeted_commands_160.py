@@ -118,3 +118,16 @@ def test_the_other_measurements_without_a_budget_use_earlier_answers_only(monkey
         evals.verifier_probe(type_key="invoice_foreign")
         evals_email.email_golden()
         assert all(s is not None and s.measurement and _budgets(s.budget_scope) == {} for s in scopes) and len(scopes) == 2
+
+
+def test_a_measurement_name_used_again_keeps_no_earlier_budget(tmp_path):
+    """Two measurements of the same name started within one second (the name carries the second) used to share the
+    budget rows: the one without a budget inherited the other's, and could spend. A rerun with the same budget still
+    continues the same scope, so it cannot spend the sub-budget twice."""
+    with store.use_store(tmp_path / "m.sqlite"):
+        with calls.measurement("measure-same", {"jev": Decimal("0.05")}) as first:
+            assert _budgets(first) == {"jev": Decimal("0.05")}
+        with calls.measurement("measure-same", {}) as second:
+            assert second != first and calls.current().budget_scope == second and _budgets(second) == {}
+        with calls.measurement("measure-same", {"jev": Decimal("0.05")}) as again:
+            assert again == first

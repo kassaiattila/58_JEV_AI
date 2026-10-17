@@ -161,11 +161,31 @@ def measurement(scope: str, limits: dict[str, Decimal]):
     """086: a paid measurement outside a work run, under a hard budget (the owner's sub-budget): every call reserves from
     `scope`'s budget and goes into the call log; a provider without a limit here cannot be called at all (e.g. no
     Azure escalation, no stray JEV call). 160 (review AI-8): with no limit at all, only earlier answers count (the JEV
-    cache); the commands and measurements that used to run outside the call log without a budget run so."""
+    cache); the commands and measurements that used to run outside the call log without a budget run so. A name used
+    again keeps its budget and what it has spent (a rerun cannot spend the sub-budget twice), unless the earlier use
+    budgeted a provider this one gives none: then the name gets a suffix, so that provider stays uncallable here. The
+    scope actually used is yielded."""
+    scope = _fresh_scope(scope, set(limits))
     for provider, limit in limits.items():
         set_budget(scope, provider, limit)
     with use_run(budget_scope=scope, measurement=True):
         yield scope
+
+
+def _fresh_scope(scope: str, providers: set[str]) -> str:
+    """`scope`, unless its budgets name a provider outside `providers`; then the first of `scope-2`, `scope-3`, ...
+    without a budget (160: two measurements of one name in the same second, the second without a budget, shared the
+    first one's JEV budget)."""
+    with store.connect() as c:
+        def budgeted(name: str) -> set[str]:
+            return {r[0] for r in c.execute("SELECT provider FROM budgets WHERE scope=?", (name,))}
+
+        if budgeted(scope) <= providers:
+            return scope
+        n = 2
+        while budgeted(f"{scope}-{n}"):
+            n += 1
+    return f"{scope}-{n}"
 
 
 NO_BUDGET_NOTE = ("No budget given: only earlier answers are used (the JEV cache), a live call is refused. A live call "
