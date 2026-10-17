@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "changelog": [
+   {
+    "version": "1.21.0",
+    "date": "2026-10-17",
+    "note": "168 (plan F-item-list-and-adding): package_item_state - each item of the package's item list reads approved, live, trial, running, failed, pending or removed, by the run whose result counts now (approved live > live > trial). activity_action items_remove and items_restore - several items removed or restored in one step."
+   },
    {
     "version": "1.20.0",
     "date": "2026-10-17",
@@ -117,6 +122,7 @@
   "item_status": {"done": "Lefutott", "failed": "Hibás", "cancelled": "Leállítva", "needs_review": "Teendő", "needs_ocr": "OCR kell"},
   "final_status": {"done": "Lezárva, teendő nélkül", "needs_review": "Teendő", "settled": "Teendő, rendezve", "needs_ocr": "OCR kell", "jev_unavailable": "JEV nem volt elérhető"},
   "mode": {"shadow": "Próba", "apply": "Éles"},
+  "package_item_state": {"approved": "Approved", "live": "Processed live", "trial": "Processed in a trial", "running": "Being processed", "failed": "Failed with an error", "pending": "Pending", "removed": "Removed"},
   "run_scope": {"pending": "Pending items only"},
   "approval": {"approved": "Jóváhagyva"},
   "wp_status": {"open": "Aktív", "archived": "Elrejtve"},
@@ -136,7 +142,7 @@
    "suspected:variant": "Suspected modified version", "suspected:undecidable": "Possible duplicate (a compared value is missing)"},
   "activity_action": {"archive": "csomag elrejtése", "restore": "csomag visszahozása", "rename": "csomag átnevezése",
    "delete": "csomag törlése", "owner": "felelős beállítása", "recipe": "feldolgozási beállítások mentése", "run_start": "futás indítása",
-   "run_approve": "futás jóváhagyása", "run_cancel": "futás leállítása", "run_supersede": "futás leváltása", "item_remove": "item removed", "item_restore": "item restored", "items_add": "items added","correction": "javítás", "reason_resolve": "teendő lezárása",
+   "run_approve": "futás jóváhagyása", "run_cancel": "futás leállítása", "run_supersede": "futás leváltása", "item_remove": "item removed", "item_restore": "item restored", "items_add": "items added", "items_remove": "items removed", "items_restore": "items restored","correction": "javítás", "reason_resolve": "teendő lezárása",
    "task_decision": "feladatjavaslat döntése", "task_done": "feladat elvégezve", "mailbox_pull": "postafiók-letöltés", "reconcile_scope": "egyeztetési kör beállítása", "reconcile_allocate": "egyeztetés: párosítás", "reconcile_reject": "egyeztetés: elutasítás", "reconcile_mark": "egyeztetés: nem kell számla", "reconcile_revoke": "egyeztetés: visszavonás"}
  },
  "cache_entries": 24,

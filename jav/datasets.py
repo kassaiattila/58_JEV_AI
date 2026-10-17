@@ -323,11 +323,16 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
     wp = work.get(scope["workpackage_id"])
     titles = work_views.item_titles(wp["items"], work_views.package_root(wp))
     names = naming.package_item_names(wp)
+    # 168 (plan F-item-list-and-adding): each item's state and the run whose result counts now (`work.item_states`)
     cols = [
         _col("name", "Tétel", link="review", names=choice),
         *_name_cols(),
-        _col("kind", "Fajta", "enum", labels="kind"),
+        _col("state", "State", "enum", labels="package_item_state", badge=True),
+        _col("run_mode", "Counted run", "enum", labels="mode", link="run"),
+        _col("run_at", "Run started", "datetime", link="run"),
+        _col("final_status", "Result", "enum", labels="final_status"),
         _col("open_reasons", "Nyitott teendő", "number", link="review", alert=True),
+        _col("kind", "Fajta", "enum", labels="kind", hidden=True),
         _col("added_revision", "Felvéve (verzió)", "number", hidden=True),
         _col("source_path", "Útvonal", hidden=True),
         _col("sha256", "Ujjlenyomat", "id", hidden=True),
@@ -335,19 +340,25 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
     ]
     open_by_subject = store.review_open_reasons_many([work.review_subject(i) for i in wp["items"]])
     owners = work_views.run_packages()  # 153: not another package's runs' to-dos
-    rows = [{"_key": i["item_id"], "_wp": wp["id"], "_removed": False, "item_id": i["item_id"],
-             **_name_fields(i, titles, names[i["item_id"]], choice),
-             "kind": i.get("kind") or "document", "source_path": i["source_path"], "sha256": i.get("sha256"),
-             "added_revision": i.get("added_revision"),
-             "open_reasons": len(work_views.own_reasons(open_by_subject[work.review_subject(i)], wp["id"], owners))} for i in wp["items"]]
+    states = work.item_states(wp["id"], wp["items"])
+    rows = []
+    for i in wp["items"]:
+        st = states[i["item_id"]]
+        reasons = len(work_views.own_reasons(open_by_subject[work.review_subject(i)], wp["id"], owners))
+        rows.append({"_key": i["item_id"], "_wp": wp["id"], "_removed": False, "_run": st["run_id"], "item_id": i["item_id"],
+                     **_name_fields(i, titles, names[i["item_id"]], choice), "state": st["state"], "run_mode": st["mode"],
+                     "run_at": st["run_at"], "final_status": shown_final(st["final_status"], reasons),
+                     "kind": i.get("kind") or "document", "source_path": i["source_path"], "sha256": i.get("sha256"),
+                     "added_revision": i.get("added_revision"), "open_reasons": reasons})
     if scope.get("removed") == "1":  # 160-C S1 (decision 163 D3): the removed items too, with who, when and why
         removed = work.removed_items(wp["id"])
         titles.update(work_views.item_titles(removed, work_views.package_root(wp)))
         cols += [_col("removed_by", "Removed by"), _col("removed_at", "Removed at", "datetime"),
                  _col("removed_reason", "Reason for removal")]
         rows = [{**r, "removed_by": None, "removed_at": None, "removed_reason": None} for r in rows]
-        rows += [{"_key": i["item_id"], "_wp": wp["id"], "_removed": True, "item_id": i["item_id"],
-                  **_name_fields(i, titles, naming.NO_NAME, choice), "kind": i.get("kind") or "document",
+        rows += [{"_key": i["item_id"], "_wp": wp["id"], "_removed": True, "_run": None, "item_id": i["item_id"],
+                  **_name_fields(i, titles, naming.NO_NAME, choice), "state": "removed", "run_mode": None, "run_at": None,
+                  "final_status": None, "kind": i.get("kind") or "document",
                   "source_path": i["source_path"], "sha256": i.get("sha256"), "added_revision": i.get("added_revision"),
                   "open_reasons": None, "removed_by": i["removed_by"], "removed_at": i["removed_at"],
                   "removed_reason": i["removed_reason"]} for i in removed]

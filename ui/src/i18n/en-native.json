@@ -1544,5 +1544,16 @@
   "Insufficient disk space for a source copy; free space and try again.": "Insufficient disk space for a source copy; free space and try again.",
   "GPT's answer was cut off at its length limit, so nothing was extracted: the document is probably too long for one extraction; check it by hand": "GPT's answer was cut off at its length limit, so nothing was extracted: the document is probably too long for one extraction; check it by hand",
   "Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document": "Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document",
-  "JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand": "JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand"
+  "JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand": "JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand",
+  "choose at least one item": "choose at least one item",
+  "Counted run": "Counted run",
+  "Run started": "Run started",
+  "Approved": "Approved",
+  "Processed live": "Processed live",
+  "Processed in a trial": "Processed in a trial",
+  "Being processed": "Being processed",
+  "Failed with an error": "Failed with an error",
+  "Pending": "Pending",
+  "items removed": "items removed",
+  "items restored": "items restored"
 }
