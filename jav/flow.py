@@ -7,8 +7,13 @@
                               ├─ code_verify ─┘                  │  (085: G without JEV)
                               └─ decide_route (LLM error)        │
                                                     validate ←───┘
-                                                    decide_route → save ─┬─ done
-                                                                         └─ needs_review
+                                                    decide_route → ground → save ─┬─ done
+                                                                                  └─ needs_review
+
+One run takes exactly one path: `arm` is S or G, chosen by the recipe or the measurement. There is no agreement gate
+between the two paths; the route (auto or review) comes from the policy (`jav/policy.py`, thresholds in
+`configs/policy.json`), the pack's required and high-stakes fields and the validators. `ground` (045) finds each
+field's source location on the word layer, in code, before the save.
 
 Typed Pydantic state (`FlowState`), `@action.pydantic` actions. Every AI call goes through the adapter layer
 (`jav.adapters`); the `run_id` is the backbone: the ledger, datapoints and review_queue refer to it. The review latch
@@ -466,7 +471,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
         "needs_ocr": {"kind": "terminal", "note": "szöveg nélküli PDF, és az OCR sem adott használható szöveget (vagy nincs OCR-motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja"},
     },
     "terminals": TERMINALS,
-    "doc_note": "M2 invoice - két kar egy gráfban (S = jelöltek + Jev Choice, G = gpt + Jev Noul); egyetértés = auto, eltérés = review. Típus-független: a típus-csomag (configs/types/<típus>.json: invoice_hu, invoice_foreign, a közmű-számlák) adja a mezőket, kérdéseket, promptot, validátorokat. Szöveg nélküli PDF-nél OCR-lépés (ocr_pdf) ugyanarra az elrendezésre. Minden AI-hívás az adapteren (cache + ledger + config_hash).",
+    "doc_note": "M2 invoice - one graph with two extraction paths, and every run takes exactly one of them (arm S: code candidates + JEV Choice; arm G: GPT extraction + JEV Noul verification, or the code's own source check without JEV). There is no agreement gate between the paths: the route (auto or review) comes from the policy's thresholds (configs/policy.json), the pack's required and high-stakes fields, the validators and the additive review latch. Type-independent: the type pack (configs/types/<type>.json: invoice_hu, invoice_foreign, the utility bills, ...) supplies the fields, questions, prompt and validators. A PDF without a text layer goes through the OCR step (ocr_pdf) onto the same layout. Every AI call goes through the adapter layer (cache + ledger + config_hash).",
 }
 
 
