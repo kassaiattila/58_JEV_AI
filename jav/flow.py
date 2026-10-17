@@ -34,6 +34,7 @@ from burr.integrations.pydantic import PydanticTypingSystem
 
 from jav import card_numbers, cfg, policy, store
 from jav.config import TRACKER_PROJECTS
+from jav.engine import with_engine
 from jav.models import FlowState
 from jav.typepack import DEFAULT_KEY, get as get_pack
 
@@ -170,7 +171,8 @@ def jev_verify(state: FlowState) -> FlowState:
     from jav.jev_verify import code_verdicts, verify
 
     try:
-        verdicts, call = verify(get_adapter(), state.layout, state.llm_output or {}, run_id=state.run_id, use_cache=state.use_cache, pack=get_pack(state.doc_type))
+        verdicts, call = verify(get_adapter(), state.layout, state.llm_output or {}, run_id=state.run_id, use_cache=state.use_cache,
+                                pack=get_pack(state.doc_type), layer=_word_layer(state))  # 160 (AI-9): the word layer too
     except JevUnavailableError as exc:  # without verification the extract cannot be accepted automatically
         # 085: the code's own source check and the required fields still count (before 085 they were dropped too)
         state.verdicts = code_verdicts(state.layout or [], state.llm_output or {}, pack=get_pack(state.doc_type),
@@ -513,7 +515,7 @@ def build_app(
         builder = builder.with_state(initial).with_entrypoint("load_pdf")
     if tracker:
         builder = builder.with_tracker("local", project=tracker_project(doc_type))
-    return builder.build()
+    return with_engine(builder, jev_on=jev).build()  # 160: without JEV, a JEV question is refused
 
 
 def run_one(

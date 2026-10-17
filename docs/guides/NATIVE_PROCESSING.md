@@ -148,7 +148,10 @@ percentage, date, time) conflicts with the meaning of its property and unit;
 a currency value claimed as a time quantity is one such conflict. A JEV support
 in the existing default band's `no` range (`native.support` in `policy.json`)
 opens a `native:fact:<n>:unsupported:<p>` to-do; the uncertain range does not,
-as on the PDF path. These checks preserve the original proposal and literal
+as on the PDF path. When JEV does not answer (no key, no budget left, a
+provider error), the GPT facts are published without support and the item gets
+a `jev_unavailable:<reason>` to-do, as in the other flows; the reason is kept
+with the saved outcome (160). These checks preserve the original proposal and literal
 match; they do not establish general semantic correctness or introduce a new
 threshold. Older saved interpretation hashes remain unchanged on reload, and
 earlier results are not re-checked automatically.

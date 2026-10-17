@@ -9,6 +9,9 @@ requires-python = ">=3.12"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "jev_refusal: the test checks the refusal of a JEV question in processing without JEV (160); without it the refusal fails the test",
+]
 
 [tool.ruff]
 target-version = "py312"

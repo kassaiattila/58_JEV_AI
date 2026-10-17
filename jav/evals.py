@@ -13,7 +13,6 @@ the admin read.
 
 from __future__ import annotations
 
-import contextlib
 import json
 import re
 import statistics
@@ -329,8 +328,9 @@ def golden(
     rows: list[dict[str, Any]] = []
     name = _run_name(type_key, f"{label}_{arm}" + ("" if jev else "_nojev"))
     limits = {p: b for p, b in (("openai", budget_usd), ("jev", jev_budget_usd)) if b is not None}
-    guard = (calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits) if limits
-             else contextlib.nullcontext())
+    if not limits:  # 160 (review AI-8): without a budget only earlier answers count, never an unbudgeted live call
+        print(calls.NO_BUDGET_NOTE)
+    guard = calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits)
     with guard:
         for case in cases:
             t0 = time.perf_counter()
@@ -543,9 +543,10 @@ def verifier_probe(cases: list[GoldenCase] | None = None, use_cache: bool = True
     """
     from jav.runtime import calls
 
-    guard = (calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{_run_name(type_key, 'verifier_probe')}",
-                               {"jev": jev_budget_usd}) if jev_budget_usd is not None else contextlib.nullcontext())
-    with guard:
+    limits = {"jev": jev_budget_usd} if jev_budget_usd is not None else {}
+    if not limits:  # 160 (review AI-8): without a budget only earlier answers count
+        print(calls.NO_BUDGET_NOTE)
+    with calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{_run_name(type_key, 'verifier_probe')}", limits):
         return _verifier_probe(cases, use_cache, type_key)
 
 

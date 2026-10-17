@@ -52,7 +52,7 @@ How it is built: [architecture](docs/ARCHITECTURE.md). How to use the workspace:
 uv venv --python 3.12 .venv; uv pip install -r requirements.lock   # details, OCR, keys: docs/guides/SETUP.md
 .\.venv\Scripts\Activate.ps1
 python -m jav.cli hooks-install        # data guard: checks before commit and push (once per clone)
-python -m jav.cli preflight            # tests (Python + UI) + contract lint + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
+python -m jav.cli preflight            # tests (Python + UI) + contract lint + engine matrix + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
 python smoke_test.py                   # keys + one live JEV call
 ```
 
@@ -72,8 +72,11 @@ python -m jav.cli ocr [<pdf>]                                      # without a P
 python -m jav.cli eval-report [runs/*.jsonl]                       # shared evaluation report from the raw runs, no model calls
 # golden, detect-golden and extract_cases with --budget-usd exit with code 3 when the budget left cases without a result;
 # golden and email-golden take a hard JEV budget with --jev-budget-usd (a provider without a budget cannot be called)
+# every command that can make paid calls (also run, detect, detect-corpus, email, email-inbox and the determinism ones)
+# needs the sub-budget for live calls: --jev-budget-usd, --budget-usd (OpenAI); Azure is never called from the command
+# line; without a budget only earlier answers count (the JEV cache) and a live call becomes a to-do
 python -m jav.cli store | admin | configs | flows --check | docs   # store, admin screen, config versions, contract lint, generated docs
-python -m jav.cli recipes | wp-create <folder> [--recursive] | wp-assign <wp> processing | wp-show <wp> | processing-migrate [--write]   # work packages and processing
+python -m jav.cli recipes | wp-create <folder> [--recursive] | wp-assign <wp> processing [--engine jev|gpt] | wp-show <wp> | processing-migrate [--write]   # work packages and processing
 python -m jav.cli run-start <wp> [--mode shadow|apply] | worker --once | run-show <run> | run-cancel <run> | run-approve <run> --actor <name>   # shadow = trial run, apply = live run
 cd ui; npm ci; npm run build; cd ..                               # build the UI (once, and after every ui/src change)
 .\scripts\dev.ps1 start | status | stop                          # UI + service: http://127.0.0.1:8930/ (endpoint list: /api/openapi.json) + worker

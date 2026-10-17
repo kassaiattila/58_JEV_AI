@@ -19,6 +19,9 @@ What it adds on top of the raw SDK:
 - **token cost**: according to the model's price list (`config.JEV_USD_PER_MTOK`); only input tokens are billed.
 - **config_hash**: the call site's config version (`jav/cfg.py`) in the ledger row, so that a measurement can be
   traced back.
+- **refusal without JEV** (160, plan F-csak-gpt): inside `disabled()` (a flow built without JEV runs every step in it,
+  `jav/engine.py`) every question is refused with `JevUnavailableError("disabled")` before the model probe, the cache
+  and the call log, so processing without JEV is a guarantee, not a convention.
 """
 
 from __future__ import annotations
@@ -36,6 +39,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
+from typing import NoReturn
 
 from typesafe_sdk import Choice, Noul, Score, SystemOneResponse, TypeSafeClient, TypeSafeError
 from pydantic import ValidationError
@@ -311,6 +315,8 @@ class JevAdapter:
         model: str | None = None,
         config_hash: str | None = None,
     ) -> JevResult:
+        if _disabled.get():
+            _refuse(request_id)
         model = model or self.model
         run_id = run_id or "adhoc"
         concrete = self.resolve_model(model, run_id=run_id)
@@ -370,6 +376,32 @@ class JevAdapter:
 
 
 _scoped_adapter: ContextVar[JevAdapter | None] = ContextVar("jev_scoped_adapter", default=None)
+_disabled: ContextVar[bool] = ContextVar("jev_disabled", default=False)
+
+
+@contextmanager
+def disabled():
+    """160 (plan F-csak-gpt): JEV is switched off inside (processing without JEV). Every question is refused before
+    anything happens: no model probe, no cache read (a cached answer is a JEV judgement too), no call-log reservation,
+    no ledger row (nothing was asked). The flows turn the refusal into the `jev_unavailable:disabled` to-do."""
+    token = _disabled.set(True)
+    try:
+        yield
+    finally:
+        _disabled.reset(token)
+
+
+def _refuse(request_id: str) -> NoReturn:
+    """The refusal inside `disabled()`. The tests replace it with a test failure (`tests/conftest.py`), so that a
+    forgotten JEV question in processing without JEV cannot hide behind the to-do it becomes in production."""
+    raise JevUnavailableError("disabled")
+
+
+class _RefusingAdapter(JevAdapter):
+    """What `get_adapter()` gives inside `disabled()`: it refuses even where a run installed its own adapter."""
+
+    def ask(self, request_id: str, *args, **kwargs) -> JevResult:
+        _refuse(request_id)
 
 
 class CacheOnlyAdapter(JevAdapter):
@@ -395,6 +427,8 @@ def _default_adapter() -> JevAdapter:
 
 
 def get_adapter() -> JevAdapter:
+    if _disabled.get():
+        return _RefusingAdapter()
     return _scoped_adapter.get() or _default_adapter()
 
 

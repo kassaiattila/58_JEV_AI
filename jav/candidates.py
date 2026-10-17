@@ -527,6 +527,17 @@ def find_invoice_numbers(lines: list[LineLayout], work: list[str], profile: Prof
 
 
 def find_money(lines: list[LineLayout], work: list[str], profile: Profile = HU, convention: Convention | None = None) -> list[Candidate]:
+    items = _money_items(lines, work, profile, convention)
+    if len(items) > profile.max_money_options:
+        # candidates of the summary lines (összesen / fizetendő / nettó / áfa / bruttó) come first, then document order
+        priority = [c for c in items if TOTAL_LINE_RE.search(lines[c.line_no - 1].text)]
+        rest = [c for c in items if c not in priority]
+        items = (priority + rest)[: profile.max_money_options]
+    return items
+
+
+def _money_items(lines: list[LineLayout], work: list[str], profile: Profile, convention: Convention | None) -> list[Candidate]:
+    """Every money candidate of the document, before `find_money` cuts the list to the profile's cap."""
     bucket = _Bucket("money")
     for i, ln in enumerate(lines):
         for m in profile.money_re.finditer(work[i]):
@@ -551,13 +562,7 @@ def find_money(lines: list[LineLayout], work: list[str], profile: Profile = HU, 
             if REVERSE_CHARGE_RE.search(ln.text):
                 bucket.add("0", "reverse charge", lines, i)
                 break
-    items = bucket.items()
-    if len(items) > profile.max_money_options:
-        # candidates of the summary lines (összesen / fizetendő / nettó / áfa / bruttó) come first, then document order
-        priority = [c for c in items if TOTAL_LINE_RE.search(lines[c.line_no - 1].text)]
-        rest = [c for c in items if c not in priority]
-        items = (priority + rest)[: profile.max_money_options]
-    return items
+    return bucket.items()
 
 
 # Quantity lines (utility bill itemisation / meter table): a unit or a meter label in the line
@@ -573,6 +578,11 @@ def find_quantities(lines: list[LineLayout], profile: Profile = HU, convention: 
     factor): the numbers of the quantity lines, normalised like the money candidates (`money_label`), but only from
     lines with a unit / meter label - so the request stays small and JEV chooses with the unit as context. 081: read
     whole by the shared number reader, with the document's notation (`convention`)."""
+    return _quantity_items(lines, convention)[:MAX_QUANTITY_OPTIONS]
+
+
+def _quantity_items(lines: list[LineLayout], convention: Convention | None) -> list[Candidate]:
+    """Every quantity candidate of the document, before `find_quantities` cuts the list."""
     bucket = _Bucket("money")
     hit = [bool(QUANTITY_LINE_RE.search(ln.text)) for ln in lines]
     for i, ln in enumerate(lines):
@@ -587,7 +597,25 @@ def find_quantities(lines: list[LineLayout], profile: Profile = HU, convention: 
             if parsed.value is None:
                 continue
             bucket.add(money_label(parsed.value), m.group(1), lines, i, ambiguous=parsed.ambiguous)
-    return bucket.items()[:MAX_QUANTITY_OPTIONS]
+    return bucket.items()
+
+
+def found_before_cut(kind: str, lines: list[LineLayout], profile: str | Profile | None = None) -> int | None:
+    """160 (review AI-2): how many distinct candidates a finder with its own cap found before it cut the list (money:
+    the profile's `max_money_options`; quantity: `MAX_QUANTITY_OPTIONS`); None for a kind without such a cap. The cut
+    list itself, and so what JEV is asked, does not change."""
+    prof = profile_of(profile)
+    work = [ln.text for ln in lines]
+    if kind == "money":
+        return len(_money_items(lines, work, prof, document_convention(work)))
+    if kind == "quantity":
+        return len(_quantity_items(lines, document_convention(work)))
+    return None
+
+
+def finder_cap(kind: str, profile: str | Profile | None = None) -> int | None:
+    """The cap a finder cuts its own list at (see `found_before_cut`); None for a kind without one."""
+    return {"money": profile_of(profile).max_money_options, "quantity": MAX_QUANTITY_OPTIONS}.get(kind)
 
 
 def find_currencies(lines: list[LineLayout], profile: str | Profile | None = None) -> list[str]:

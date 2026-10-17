@@ -338,8 +338,10 @@ def gpt_review_fields(pack_key: str) -> list[str]:
 def apply_gpt_confidence_policy(state: FlowState) -> None:
     """092 (the owner's decisions of 2026-10-02): on the G path without JEV, an accounting field GPT extracted with a
     token probability below `gpt_field_confidence.review_below` is a `gpt:low_conf:<field>:<p>` to-do. A field without
-    a value, without a token probability, or whose check already failed (it has its to-do) adds nothing; a run with JEV
-    never gets it (`state.jev`), not even when JEV does not answer and the code's own check stands in."""
+    a value, or whose check already failed (it has its to-do), adds nothing; a run with JEV never gets it (`state.jev`),
+    not even when JEV does not answer and the code's own check stands in. 160 (review AI-6): a field without a token
+    probability (an answer without log-probabilities) is a `gpt:confidence_unavailable:<field>` to-do; it used to pass
+    unchecked."""
     threshold = GPT_FIELD_CONFIDENCE.get("review_below")
     if state.jev or state.arm != "G" or threshold is None or state.invoice is None:
         return
@@ -349,9 +351,11 @@ def apply_gpt_confidence_policy(state: FlowState) -> None:
     values = state.invoice.to_datapoints(fields)
     for field in fields:
         token = ((state.llm_token_p or {}).get(field) or {}).get(measure)
-        if values.get(field) in (None, "", []) or field in failed or token is None:
+        if values.get(field) in (None, "", []) or field in failed:
             continue
-        if float(token) < float(threshold):
+        if token is None:
+            require_review(state, f"gpt:confidence_unavailable:{field}")
+        elif float(token) < float(threshold):
             require_review(state, f"gpt:low_conf:{field}:{float(token):.2f}")
 
 

@@ -9,6 +9,7 @@ from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
 from jav import native_processing, native_results, policy, store
+from jav.engine import with_engine
 from jav.native_contracts import NativeLimits, NATIVE_CAPABLE_SUFFIXES
 from jav.readers.pipeline import json_bytes
 
@@ -119,6 +120,9 @@ def review_native(state: NativeState) -> NativeState:
     if publication.interpretation_outcome.status != "succeeded":
         reasons.append("native:interpretation:" + publication.interpretation_outcome.status)
     else:
+        # 160 (review AI-5): the GPT facts were published without JEV support because JEV did not answer
+        if (publication.interpretation_outcome.reason or "").startswith("jev_unavailable:"):
+            reasons.append(publication.interpretation_outcome.reason)
         interpretation = publication.interpretation
         if not interpretation.facts:
             reasons.append("native:no_facts")
@@ -208,4 +212,4 @@ def build_app(*, work_run_id: str, item_id: str, graph_id: str, source_path: str
         builder = builder.with_state(initial).with_entrypoint("read_native")
     if tracker:
         builder = builder.with_tracker("local", project="jav_native")
-    return builder.build()
+    return with_engine(builder, jev_on=jev).build()  # 160: without JEV, a JEV question is refused

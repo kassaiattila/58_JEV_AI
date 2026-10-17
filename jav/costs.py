@@ -206,11 +206,16 @@ def run_usd(run_ids: list[str]) -> dict[str, Decimal]:
 
 def expected_providers(plan: dict[str, Any]) -> dict[str, str]:
     """What the pre-start overview (`work.run_plan`) said about each provider: `yes` (it will be called), `maybe` (it
-    may be called, e.g. a document whose type is not known yet may need GPT) or `no`."""
+    may be called, e.g. a document whose type is not known yet may need GPT) or `no`. 160 (plan F-csak-gpt, L3): a run
+    without JEV (`jev` false; an overview saved before 086 has no such key and had JEV) never calls JEV, and GPT
+    recognises every document's type and every email's intent."""
     paths = plan.get("paths") or {}
+    ai_items = bool(plan.get("documents") or plan.get("emails"))
+    jev = plan.get("jev", True)
     return {
-        "jev": "yes" if plan.get("documents") or plan.get("emails") else "no",
-        "openai": "yes" if paths.get("G") or plan.get("tasks_emails") else "maybe" if paths.get("unknown") else "no",
+        "jev": "yes" if jev and ai_items else "no",
+        "openai": "yes" if paths.get("G") or plan.get("tasks_emails") or (ai_items and not jev)
+                  else "maybe" if paths.get("unknown") else "no",
         "azure_di": "maybe" if plan.get("azure") else "no",
     }
 

@@ -34,7 +34,8 @@ def test_golden_with_a_jev_budget_runs_under_that_budget_only(monkeypatch, tmp_p
         assert _budgets(scopes[0]) == {"jev": "0.40"}
 
 
-def test_golden_without_any_budget_keeps_the_free_path(monkeypatch, tmp_path):
+def test_golden_without_any_budget_answers_from_earlier_answers_only(monkeypatch, tmp_path):
+    """160 (review AI-8): it used to run outside the call log, so a cache miss was an unbudgeted live call."""
     seen = []
     monkeypatch.setattr(evals, "load_cases", lambda type_key: [type("Case", (), {"pdf": tmp_path / "a.pdf", "case_id": "c1"})()])
     monkeypatch.setattr(evals, "_state_row", lambda case, state, run_no, seconds, pack: {"case_id": case.case_id})
@@ -47,7 +48,7 @@ def test_golden_without_any_budget_keeps_the_free_path(monkeypatch, tmp_path):
 
     with store.use_store(tmp_path / "g.sqlite"):
         evals.golden("S", run_one)
-    assert seen == [None]
+        assert len(seen) == 1 and seen[0].measurement and _budgets(seen[0].budget_scope) == {}
 
 
 def test_golden_command_passes_the_jev_budget(monkeypatch):
@@ -66,7 +67,8 @@ def test_the_verifier_probe_with_a_jev_budget_runs_under_that_budget_only(monkey
         evals.verifier_probe(type_key="invoice_foreign", jev_budget_usd=Decimal("0.05"))
         evals.verifier_probe(type_key="invoice_foreign")
         assert scopes[0] is not None and scopes[0].measurement and _budgets(scopes[0].budget_scope) == {"jev": "0.05"}
-        assert scopes[1] is None  # without a budget: the earlier, free path
+        # 160 (review AI-8): without a budget, earlier answers only (it used to run outside the call log)
+        assert scopes[1].measurement and _budgets(scopes[1].budget_scope) == {}
 
 
 def test_email_golden_with_a_jev_budget_runs_under_that_budget_only(monkeypatch, tmp_path):

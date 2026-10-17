@@ -52,6 +52,21 @@ def _no_live_gpt_choice():
 
 
 @pytest.fixture(autouse=True)
+def _no_jev_question_without_jev(request, monkeypatch):
+    """160 (plan F-csak-gpt, L4): a JEV question asked in processing without JEV fails the test. In production it is
+    refused and becomes the `jev_unavailable:disabled` to-do, which a test could overlook; a test of the refusal
+    itself is marked `jev_refusal`."""
+    if request.node.get_closest_marker("jev_refusal"):
+        return
+    from jav.adapters import jev
+
+    def fail(request_id):
+        pytest.fail(f"a JEV question ({request_id}) was asked in processing without JEV")
+
+    monkeypatch.setattr(jev, "_refuse", fail)
+
+
+@pytest.fixture(autouse=True)
 def _no_live_fx():
     """130: a test never asks the MNB rate service; a test that needs rates installs its own stand-in with
     `fx.use_transport`."""

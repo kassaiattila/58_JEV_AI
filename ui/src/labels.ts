@@ -176,6 +176,8 @@ export function reasonText(code: string): string {
     case "source:not_found": return t("A kinyert érték nem szerepel az iratban: {{field}}", { field: f });
     // 092: without JEV, an accounting field GPT is not sure enough of (below the policy's review_below)
     case "gpt:low_conf": return t("A GPT nem elég biztos az értékben: {{field}} (valószínűség {{p}})", { field: f, p: v });
+    // 160 (review AI-6): without JEV, an accounting field whose GPT answer carried no token probability
+    case "gpt:confidence_unavailable": return t("GPT's confidence cannot be measured for this value: {{field}}; check by hand", { field: f });
     case "llm:required_missing": return t("Kötelező mező hiányzik: {{field}}", { field: f });
     case "money:separator_ambiguous": return t("Kétértelmű tizedesjel: {{field}}", { field: f });
     // 081: the S path's safety net: the picked number stands on the page only as a piece of a longer number
@@ -272,6 +274,8 @@ export function reasonText(code: string): string {
   // 090: a field check's to-do names its field third (`validator:taxid.unrecognized:supplier_tax_id`)
   if (p[0] === "validator" && p.length === 3 && FIELD[p[2]]) return `${checkText(p[1] ?? "")}: ${fieldLabel(p[2])}`;
   if (p[0] === "validator") return checkText(p[1] ?? "", p.slice(2).join(":") || null);
+  // 160: in processing without JEV a JEV question asked anyway is refused before it is sent
+  if (code === "jev_unavailable:disabled") return t("The JEV question was not sent: this processing runs without JEV, on GPT only; check by hand");
   if (p[0] === "jev_unavailable") return t("A JEV nem volt elérhető ({{why}}); ellenőrizd kézzel", { why: p.slice(1).join(":") });
   if (p[0] === "llm" && p[1] === "failed") return t("A GPT-kivonat nem sikerült ({{why}})", { why: p[2] ?? "" });
   return code;
