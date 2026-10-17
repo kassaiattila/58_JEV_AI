@@ -323,6 +323,8 @@ def apply_verdict_policy(state: FlowState) -> None:
     for field in v.unsupported:
         if field not in skip:
             require_review(state, f"{unsupported}:{field}")
+    for field in v.omitted:  # 167 (AI-10): a list left out of the request to fit its size; its rows were never checked
+        require_review(state, f"jev:list_omitted:{field}")
     for field, flags in v.flags.items():
         if field in skip:
             continue

@@ -175,6 +175,8 @@ export function reasonText(code: string): string {
       return t("Nincs érték, pedig a jelöltlista le volt vágva: {{field}} ({{found}} jelöltből {{sent}} ment a modellnek)", { field: f, sent, found });
     }
     case "jev:unsupported": return t("A modell nem támasztja alá: {{field}}", { field: f });
+    // 167 (review AI-10): a list left out of the JEV verification so that the request fits its size limit
+    case "jev:list_omitted": return t("JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand", { field: f });
     // 085: processing without JEV: the extracted value is printed nowhere on the document (the code's own check)
     case "source:not_found": return t("A kinyert érték nem szerepel az iratban: {{field}}", { field: f });
     // 092: without JEV, an accounting field GPT is not sure enough of (below the policy's review_below)

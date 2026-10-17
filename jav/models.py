@@ -554,6 +554,8 @@ class JevVerdicts(BaseModel):
     model: str | None = None
     # 085: "code" = the code's own source check only (the G path without JEV, or after a JEV outage): no flags
     source: Literal["jev", "code"] = "jev"
+    # 167 (review AI-10): the list fields left out of the request to fit its size (their rows were never checked)
+    omitted: list[str] = Field(default_factory=list)
 
 
 class CheckResult(BaseModel):
