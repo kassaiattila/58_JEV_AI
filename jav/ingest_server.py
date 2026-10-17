@@ -43,6 +43,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+from jav import path_text
 from jav.config import BRIDGE_DATA_ROOT, OLD_DATA_ROOT, PROJECT_ROOT
 
 INBOX_ROOT = PROJECT_ROOT / "inbox"
@@ -94,9 +95,12 @@ def _inside_lexical(path: Path, root: Path) -> bool:
 def host_path(container_path: str) -> Path | None:
     """`/data/inbox/email/<acct>/<eid>/<file>` (container path) -> host file under a bridge `data/` root: first our own
     bridge root (048 T2, a download started from the local service), then the legacy project's `data/` folder (a bridge
-    running with the legacy settings). Only if the resolved path is inside the root and exists."""
+    running with the legacy settings). Only if the resolved path is inside the root and exists.
+    167 (review S-1): the rest after `/data/` must be a plain relative path by its text (`path_text.plain_relative`)
+    before it is joined or resolved: `/data///host/share/x.pdf` joined into a network path, and resolving it already
+    contacted the host."""
     m = _CONTAINER_DATA.match(container_path.replace("\\", "/"))
-    if not m:
+    if not m or not path_text.plain_relative(m.group(1)):
         return None
     for root in (BRIDGE_DATA_ROOT, OLD_DATA_ROOT):
         p = (root / m.group(1)).resolve()

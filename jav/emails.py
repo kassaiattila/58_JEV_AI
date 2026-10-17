@@ -23,6 +23,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from jav import path_text
 from jav.config import BRIDGE_DATA_ROOT, OLD_DATA_ROOT
 
 OLD_INTENT_GOLDEN = OLD_DATA_ROOT / "golden" / "email-intake-bare" / "intent-golden-s21.json"
@@ -151,9 +152,9 @@ def _allowed_attachment(path: Path, folder: Path) -> bool:
     project's `data/` root (040 K1, F01):
     an absolute or `..` path must not point outside these even after resolution. 153 (review C6): a network path
     (beginning with two backslashes or two slashes) or a drive-relative one is refused by its text first: resolving it
-    would already contact the host (an outgoing SMB connection, which can leak the Windows sign-in hash)."""
-    text = str(path)
-    if text.startswith(("\\\\", "//")) or (path.drive and not path.root):
+    would already contact the host (an outgoing SMB connection, which can leak the Windows sign-in hash). 167 (review
+    S-1): the rule is shared with the mail bridge's paths (`path_text.reaches_another_host`)."""
+    if path_text.reaches_another_host(str(path)):
         return False
     try:
         resolved = path.resolve()

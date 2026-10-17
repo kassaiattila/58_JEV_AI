@@ -175,7 +175,7 @@ The repository is private and has a single maintainer. Report security issues di
 
 | Protection | Code | Setting | Test |
 |---|---|---|---|
-| email receiver | `jav/ingest_server.py`: `_authorized()` (`Authorization: Bearer`, `hmac.compare_digest`), `_from_browser()`, `_read()` (`Content-Length` required, `MAX_BODY_BYTES` = 2 MB), `validate_payload()`, `safe_mailbox_dir()`, `host_path()`; `make_server()` binds only to `127.0.0.1` | `JAV_INGEST_TOKEN` or `--token`, otherwise `secrets.token_urlsafe(24)` | `tests/test_ingest_security.py` |
+| email receiver | `jav/ingest_server.py`: `_authorized()` (`Authorization: Bearer`, `hmac.compare_digest`), `_from_browser()`, `_read()` (`Content-Length` required, `MAX_BODY_BYTES` = 2 MB), `validate_payload()`, `safe_mailbox_dir()`, `host_path()` (167: an attachment path is refused by its text, before anything resolves it, unless the rest after `/data/` is a plain relative path; `jav/path_text.py`, whose network-path rule the email loader's `_allowed_attachment()` shares, so neither can start an outgoing SMB connection); `make_server()` binds only to `127.0.0.1` | `JAV_INGEST_TOKEN` or `--token`, otherwise `secrets.token_urlsafe(24)` | `tests/test_ingest_security.py`, `tests/test_container_path_167.py`, `tests/test_attachment_unc_153.py` |
 | mailbox download | `jav/mailbox.py` `fetch()`: one-time key, temporary receiver on a free port; `MailboxRequest` (`_ACCOUNT`, `_FOLDER` patterns, `extra="forbid"`) | – | `tests/test_mailbox.py` |
 
 **GitHub and backup:**
