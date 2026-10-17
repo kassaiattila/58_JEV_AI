@@ -867,6 +867,13 @@ def jev_off(r: dict[str, Any], params: dict[str, Any]) -> bool:
     return params.get("jev", (r.get("params", {}).get("jev") or {}).get("default", "on")) == "off"
 
 
+def run_engine(run: dict[str, Any]) -> str:
+    """160-D (plan F-csak-gpt L6, decision 160 D3): the AI engine a run ran with, from its frozen recipe and settings:
+    `gpt` (GPT only) when its `jev` setting is off, `jev` (JEV and GPT) otherwise, a recipe without the setting
+    included. The approval and the review show it with the results."""
+    return "gpt" if jev_off(run["recipe"], run["params"]) else "jev"
+
+
 def run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]]) -> dict[str, Decimal]:
     """The run's budget maximum: the sum of the items' budgets (per item kind, 058 K5.2).
 

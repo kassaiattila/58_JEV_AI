@@ -273,6 +273,7 @@ export interface RunView {
   review_version?: string; // 085: the version of the result shown; the approval sends it back
   supersede?: SupersedeInfo | null; // 151: a later live run repeated this one; it can be superseded
   superseded?: { by: string; actor: string; at: string; reasons_closed: number } | null; // 151: who superseded it
+  engine?: Engine | null; // 160-D: the AI engine the run ran with (absent from an older service)
 }
 /** 151: the later live run that repeated this one, its own open to-dos that would close, and the human work done on it. */
 export interface SupersedeInfo { by: string; open_reasons: number; resolved_reasons: number; corrected_items: number }
@@ -408,6 +409,9 @@ export interface ItemResult {
   duplicates?: DuplicatePair[];
   /** 139: the statement that replaced this one, the ones it replaced, and the undecided ones of the same days. */
   statements?: StatementRelation[];
+  /** 160-D: the AI engine of the run that produced the result shown; null for a statement read by code and for an
+   *  email intent taken from another run. */
+  engine?: Engine | null;
 }
 /** 139: one statement of the same account and days as this one: it replaced this one (`replaced_by`), this one replaced
  *  it (`replaces`), or neither, and a person chooses (`conflict`); `how`: by the rule of ranks or by a person. */

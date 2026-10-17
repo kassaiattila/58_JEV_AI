@@ -3,6 +3,7 @@
 // can be processed separately as documents.
 import { useEffect, useState } from "react";
 import { api, ApiError, type ItemResult, type RejectedTask } from "../api";
+import { EngineMark } from "../components/EngineMark";
 import { Icon } from "../components/Icon";
 import { Picker } from "../components/Picker";
 import { getLocale, t, useLocale } from "../i18n";
@@ -57,6 +58,7 @@ export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onCha
                   ? t("Kézzel javítva (a gép szerint: {{intent}})", { intent: intentLabel(r.machine_intent) })
                   : t("Kézzel megerősítve")}</div>
               ) : r.confidence != null ? <div className="small">{t("Modellbecslés: {{p}}%", { p: Math.round(r.confidence * 100) })}</div> : null}
+              {!r.corrected && data.engine ? <div className="mt-s"><EngineMark engine={data.engine} /></div> : null}
               <IntentEditor data={data} onChanged={onChanged} />
               <TasksPanel data={data} onChanged={onChanged} />
               <div className="small mt-s">{t("Javasolt következő lépés:")} <strong>{nextFlowText(r.next_flow)}</strong></div>

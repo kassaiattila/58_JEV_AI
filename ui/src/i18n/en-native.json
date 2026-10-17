@@ -1273,5 +1273,7 @@
   "as the application ({{engine}})": "as the application ({{engine}})",
   "As the application ({{engine}})": "As the application ({{engine}})",
   "AI engine: {{engine}}": "AI engine: {{engine}}",
-  "AI engine of {{step}}": "AI engine of {{step}}"
+  "AI engine of {{step}}": "AI engine of {{step}}",
+  "JEV recognised the type and the intent and chose or checked the values; GPT extracted where the type's path needs it.": "JEV recognised the type and the intent and chose or checked the values; GPT extracted where the type's path needs it.",
+  "GPT recognised the type and the intent and extracted the values; the code checked them against the document, JEV did not.": "GPT recognised the type and the intent and extracted the values; the code checked them against the document, JEV did not."
 }

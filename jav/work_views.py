@@ -278,7 +278,8 @@ def _run_view(run_id: str, *, names: bool) -> dict[str, Any]:
     extra: dict[str, Any] = {"costs": costs.plan_vs_actual(run_id),  # 082: planned and actual cost per provider
                              "review_version": corrections.review_version(run_id),
                              # 151: the offer to supersede an older live run, or who superseded it
-                             "supersede": work.supersede_info(run_id), "superseded": work.superseded(run_id)}
+                             "supersede": work.supersede_info(run_id), "superseded": work.superseded(run_id),
+                             "engine": work.run_engine(run)}  # 160-D: the approval and the review show it
     if names:
         from jav import naming
 

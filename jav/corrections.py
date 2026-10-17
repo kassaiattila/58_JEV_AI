@@ -465,8 +465,9 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
     if item is None:
         raise KeyError(item_id)
+    engine = work.run_engine(run)  # 160-D: the engine of the run that produced the result shown
     if native_results.native_item(run_id, item):  # 120: a continuing PDF too, by its publication
-        return _native_item_result(run, item)
+        return {**_native_item_result(run, item), "engine": engine}
     if item.get("kind") == "email":  # 048 T2: email item: no extraction or page image; shows the email and intent
         from jav import mailbox
 
@@ -475,10 +476,13 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
         # 058 K5.2: the email's attachments that ran as documents in the run (the UI refers to them)
         attachment_items = [{"item_id": i["item_id"], "filename": Path(i["source_path"]).name}
                             for i in run["input"]["items"] if i.get("parent_item_id") == item_id]
+        email = mailbox.email_item_view(item, work.flow_run_id(run_id, item_id), corr["fields"].get("intent"))
+        own = bool(email["result"] and email["result"]["from_this_run"])
         return {"run_id": run_id, "item_id": item_id, "kind": "email", "extraction": None, "correction": corr,
                 "effective": {}, "lists": {}, "checks": [], "provenance": {}, "source": None,
-                "attachment_items": attachment_items,
-                "email": mailbox.email_item_view(item, work.flow_run_id(run_id, item_id), corr["fields"].get("intent")),
+                "attachment_items": attachment_items, "email": email,
+                # an intent taken from another run was not produced with this run's settings
+                "engine": engine if own else None,
                 "open_reasons": reasons["run"], "earlier_open_reasons": reasons["earlier"]}
     dp = datapoints_row(run_id, item_id)
     corr = current(run_id, item_id)
@@ -501,7 +505,7 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
         # layer's page count is used
         n_pages = None
     return {"run_id": run_id, "item_id": item_id, "kind": "statement_table" if table else "document", "page_count": n_pages,
-            "extraction": dp, "correction": corr,
+            "extraction": dp, "correction": corr, "engine": None if table else engine,  # 136: a statement read by code
             "effective": effective, "lists": lists,
             # 081: the field kinds, so the UI shows amounts and quantities for editing the Hungarian way ("35,56")
             "kinds": {f: k for f, k in pack.fields.items() if k != "list"} if pack else {},

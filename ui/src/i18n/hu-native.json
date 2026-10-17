@@ -1274,5 +1274,7 @@
   "as the application ({{engine}})": "az alkalmazás szerint ({{engine}})",
   "As the application ({{engine}})": "Az alkalmazás szerint ({{engine}})",
   "AI engine: {{engine}}": "AI-motor: {{engine}}",
-  "AI engine of {{step}}": "{{step}}: AI-motor"
+  "AI engine of {{step}}": "{{step}}: AI-motor",
+  "JEV recognised the type and the intent and chose or checked the values; GPT extracted where the type's path needs it.": "A típust és a szándékot a JEV ismerte fel, és az értékeket ő választotta vagy ellenőrizte; a GPT ott nyert ki adatot, ahol a típus útja ezt kéri.",
+  "GPT recognised the type and the intent and extracted the values; the code checked them against the document, JEV did not.": "A típust és a szándékot a GPT ismerte fel, és ő nyerte ki az értékeket; ezeket a kód vetette össze az irattal, nem a JEV."
 }
