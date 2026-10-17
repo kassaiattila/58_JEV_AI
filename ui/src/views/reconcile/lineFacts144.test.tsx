@@ -115,10 +115,11 @@ describe("the documents' statement pane", () => {
     expect((container.querySelector("details.rc-asread") as HTMLDetailsElement).open).toBe(true);
     const current = container.querySelector("tr[aria-current='true']") as HTMLElement;
     expect(within(current).getByText("MEMO-5")).toBeTruthy();
-    expect(container.querySelectorAll(".rc-asread-table tbody tr")).toHaveLength(7);
+    await waitFor(() => expect(container.querySelectorAll(".rc-asread-table tbody tr")).toHaveLength(7));
     fireEvent.click(screen.getByRole("button", { name: "All 10 lines" }));
     // 153: waited for, as the other interface tests do (under the full check's load it once still showed the 7 rows)
-    await waitFor(() => expect(container.querySelectorAll(".rc-asread-table tbody tr")).toHaveLength(10));
+    // 167 (the flaky lineFacts144 test): the default second was not enough once while a backup ran beside the full check
+    await waitFor(() => expect(container.querySelectorAll(".rc-asread-table tbody tr")).toHaveLength(10), { timeout: 5000 });
     expect(screen.getByText(/Opening balance: 9,000\.00 HUF/)).toBeTruthy();
   });
 

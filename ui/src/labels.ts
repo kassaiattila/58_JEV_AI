@@ -175,6 +175,8 @@ export function reasonText(code: string): string {
       return t("Nincs érték, pedig a jelöltlista le volt vágva: {{field}} ({{found}} jelöltből {{sent}} ment a modellnek)", { field: f, sent, found });
     }
     case "jev:unsupported": return t("A modell nem támasztja alá: {{field}}", { field: f });
+    // 167 (review AI-10): a list left out of the JEV verification so that the request fits its size limit
+    case "jev:list_omitted": return t("JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand", { field: f });
     // 085: processing without JEV: the extracted value is printed nowhere on the document (the code's own check)
     case "source:not_found": return t("A kinyert érték nem szerepel az iratban: {{field}}", { field: f });
     // 092: without JEV, an accounting field GPT is not sure enough of (below the policy's review_below)
@@ -182,12 +184,16 @@ export function reasonText(code: string): string {
     // 160 (review AI-6): without JEV, an accounting field whose GPT answer carried no token probability
     case "gpt:confidence_unavailable": return t("GPT's confidence cannot be measured for this value: {{field}}; check by hand", { field: f });
     case "llm:required_missing": return t("Kötelező mező hiányzik: {{field}}", { field: f });
+    // 167 (review AI-7): GPT's answer stopped at its output cap; it is not asked again
+    case "llm:truncated": return t("GPT's answer was cut off at its length limit, so nothing was extracted: the document is probably too long for one extraction; check it by hand");
     case "money:separator_ambiguous": return t("Kétértelmű tizedesjel: {{field}}", { field: f });
     // 081: the S path's safety net: the picked number stands on the page only as a piece of a longer number
     case "money:token_cut": return t("A kiválasztott érték csak egy része az iraton nyomtatott számnak: {{field}}", { field: f });
     // 084: the shared date reader: the printed date's day and month can be read two ways ("04/12/2022")
     case "date:order_ambiguous": return t("A nap és a hónap sorrendje kétes: {{field}}", { field: f });
     case "ocr:partial_pages": return t("Nem minden oldal lett felismerve ({{pages}})", { pages: p[2] });
+    // 167 (review AI-3): pages without a text layer of their own in a document that has one: neither read nor recognised
+    case "pdf:pages_without_text": return t("Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document", { pages: p[2] });
     case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
     case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });
     case "ocr:low_conf_words": return t("Sok bizonytalan szó a felismerésben ({{p}})", { p: num(p[2]) });
@@ -325,6 +331,16 @@ export function numText(v: unknown, digits = 2): string {
   if (v === null || v === undefined || v === "") return "";
   const n = Number(v);
   return Number.isFinite(n) ? n.toLocaleString(getLocale(), { maximumFractionDigits: digits }) : String(v);
+}
+
+/** 167 (review 160 U-13): an amount in a table: always two decimals and grouped thousands, a four-digit one too
+ *  ("1 200,50", not "1200,5"); a non-number stays unchanged. */
+export function moneyText(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "";
+  const n = Number(v);
+  return Number.isFinite(n)
+    ? n.toLocaleString(getLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: "always" } as unknown as Intl.NumberFormatOptions)
+    : String(v);
 }
 
 /** 081: a stored amount or quantity ("35.56", "28000") in the editing form, the Hungarian way: a decimal comma and no

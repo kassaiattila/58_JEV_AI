@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 from jav.readers.contracts import ContractError, ParseAttempt, SourceBundle, canonical_bytes, read_bundle, verify_evidence
-from reader_samples import raw_evidence_payload, sample_bundles, synthetic_payloads
+from tests.reader_samples import raw_evidence_payload, sample_bundles, synthetic_payloads
 
 
 @pytest.fixture(autouse=True)

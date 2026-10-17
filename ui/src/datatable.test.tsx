@@ -154,6 +154,9 @@ describe("közös táblázat", () => {
     expect(linkOf({ ...COLS[0], link: "next" }, { ...row, _stage: "result" })).toBe("#/workpackages/wp-1/result");
     expect(linkOf({ ...COLS[0], link: "run" }, row)).toBe("#/runs/run-1");
     expect(cellText(COLS[1], "currency")).toBe("Pénznem");
+    // 167 (review 160 U-13): an amount always has two decimals and grouped thousands, a four-digit one too
+    expect(cellText(COLS[2], "1200.5")).toMatch(/^1\s200,50$/);
+    expect(cellText(COLS[2], "35")).toBe("35,00");
     expect(filterText({ col: "value", op: "gte", value: "12000" }, COLS[2])).toMatch(/^Érték ≥ 12\s000$/);
     expect(filterText({ col: "file", op: "contains", value: "elmu" }, COLS[0])).toBe("Irat tartalmazza „elmu”");
   });

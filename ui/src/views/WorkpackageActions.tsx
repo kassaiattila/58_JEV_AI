@@ -49,6 +49,12 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
       <Popover open={open} onClose={close} anchor={anchor} label={t("Csomag kezelése")} align="right" className="wp-actions">
         {mode === "menu" ? (
           <div className="menu-list">
+            {/* 167: adding leads to its form at the top of Processing (a reconciliation package has no documents) */}
+            {wp.source_kind === "reconcile" ? null : (
+              <button type="button" className="menu-item" onClick={() => { close(); go({ view: "workpackages", wpId: wp.id, stage: "process", add: true }); }}>
+                <Icon name="plus" />{wp.source_kind === "statements" ? t("Add statements") : t("Add documents")}
+              </button>
+            )}
             <button type="button" className="menu-item" onClick={() => setMode("rename")}><Icon name="edit" />{t("Átnevezés")}</button>
             {archived ? (
               <button type="button" className="menu-item" disabled={busy} onClick={() => void act(() => api.restoreWorkpackage(wp.id))}>

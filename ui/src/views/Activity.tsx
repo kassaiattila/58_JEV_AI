@@ -5,7 +5,7 @@ import { DataTable } from "../components/DataTable";
 import { PageHeader } from "../components/PageHeader";
 import { useActor } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { MODE, reasonText } from "../labels";
+import { fieldLabel, MODE, reasonText } from "../labels";
 import { go } from "../route";
 
 /** The local calendar day in YYYY-MM-DD form. */
@@ -25,6 +25,8 @@ export function activityDetail(action: string, detail: string | null | undefined
     case "run_start": return MODE[detail] ?? detail;
     case "run_approve": return t("jóváhagyva");
     case "recipe": return t(detail);
+    // 167 (review 153 E): the corrected fields by their labels
+    case "correction": return detail.split(",").map(fieldLabel).join(", ");
     default: return detail;
   }
 }

@@ -42,7 +42,10 @@ export function stageStatus(view: WorkpackageView): Record<Stage, string> {
     process: last ? `${MODE[last.mode]} · ${(RUN_STATUS[last.status] ?? last.status).toLowerCase()} · ${last.items_done}/${last.items}`
       : view.readiness.ready ? t("indítható") : t("nem indítható"),
     review: current ? (current.open_reasons ? t("{{n}} teendő", { n: current.open_reasons }) : t("nincs teendő")) : itemCountText(view.workpackage.items),
-    result: !current ? t("még nincs") : current.mode === "shadow" ? t("próba-eredmény") : current.approval ? t("kiadva") : t("jóváhagyásra vár"),
+    // 167: a stopped or failed live run waits for no approval (the release line says so too)
+    result: current && current.mode !== "shadow" && !current.approval && (current.status === "failed" || current.status === "cancelled")
+      ? t("cannot be approved")
+      : !current ? t("még nincs") : current.mode === "shadow" ? t("próba-eredmény") : current.approval ? t("kiadva") : t("jóváhagyásra vár"),
   };
 }
 
@@ -141,14 +144,15 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
       <div role="tabpanel" aria-label={labels[stage]}>
         {reconcile ? <ReconcileStages view={view} stage={stage} onChanged={wp.reload} /> : null}
         {!reconcile && stage === "process" && route.start ? <StartConfirm view={view} mode={route.start.mode} rerun={route.start.rerun} pending={route.start.pending} onChanged={wp.reload} /> : null}
-        {!reconcile && stage === "process" && !route.start ? <ProcessStage view={view} onChanged={wp.reload} /> : null}
+        {!reconcile && stage === "process" && !route.start ? <ProcessStage view={view} adding={!!route.add} onChanged={wp.reload} /> : null}
         {!reconcile && stage === "review" ? (
           view.runs ? (
             <>
               <ReviewWorkspace wp={workpackage} itemId={route.itemId} onChanged={wp.reload} currentRunId={view.current_run?.run_id}
                 openRuns={view.open_runs} />
               <details className="details mt">
-                <summary>{t("Iratok kezelése: megnyitás, letöltés, eltávolítás")}</summary>
+                {/* 167: the title names adding too (the owner did not find it behind "Manage documents") */}
+                <summary>{t("Documents: add, open, download, remove")}</summary>
                 <DocumentsPanel wp={workpackage} onChanged={wp.reload} />
               </details>
             </>

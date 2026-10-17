@@ -40,7 +40,7 @@ Types: `feat` (new capability), `fix` (bug), `refactor` (no behaviour change), `
 
 - **Language:** commit and tag messages are in English (since 2026-09-30). Earlier commits with Hungarian messages are not rewritten.
 - One commit is one logical change. Its tests and codebase documentation go into the same commit; internal working documents are updated locally, without a commit.
-- Before a commit: `python -m jav.cli preflight --skip-pytest` and the affected tests (`pytest tests/test_<x>.py`). Before a merge: the full `preflight`. The full check keeps the raw pytest output and a JUnit file of each run under `runs/preflight/<timestamp>/` (the latest 20); on a failure its summary names the folder, so an intermittent failure can still be looked up.
+- Before a commit: `python -m jav.cli preflight --skip-pytest` and the affected tests (`pytest tests/test_<x>.py`). Before a merge: the full `preflight`. The slowest tests (over about 5 s each: separate processes, long inputs) carry the `slow` marker, so a quick loop over many files can leave them out with `pytest tests/ -m "not slow"`; the full check always runs every test. The full check keeps the raw pytest output and a JUnit file of each run under `runs/preflight/<timestamp>/` (the latest 20); on a failure its summary names the folder, so an intermittent failure can still be looked up.
 - **Never in git:** `.env`, `runs/`, `store/`, `inbox/`, `data/`, OCR language data, real documents, emails or bank exports (the data guard blocks `.csv`, `.xml`, `.txt`, `.sta`, `.940` and `.camt`; a synthetic statement for a test is built at run time). New tests need **synthetic or anonymised** data. A test that needs check-digit patterns (tax number, IBAN) computes them at run time, or the made-up value goes onto the `allow` list in `configs/data_guard.json`; the data guard (§1) checks this before the commit.
 - Any further remote repository is added only after an explicit decision by the owner.
 
@@ -67,6 +67,9 @@ Run them before a release, after updating dependencies, or when a sensitive area
 python -m jav.cli deps-audit                          # known vulnerabilities in the pinned Python and UI packages, and whether the Python runtime is behind its latest patch (needs network)
 pytest tests/ --cov=jav --cov-report=term-missing     # test coverage: which lines no test executes
 $env:JAV_HYPOTHESIS_EXAMPLES = "3000"; pytest tests/test_properties_067.py   # property-based tests with a deeper search
+$env:JAV_LEGACY_GOLDEN_TESTS = "1"; pytest tests/test_validators.py -k legacy   # the legacy golden set's expected invoice records through the validators
 ```
+
+The validator test in the suite runs on synthetic expected records. The legacy golden set's records (values read from real invoices) are read only when `JAV_LEGACY_GOLDEN_TESTS=1` is set; otherwise that test is skipped with this reason.
 
 The property-based tests (`tests/test_properties_067.py`) do not pin single examples; they state rules. For example: the check always accepts a valid tax number and always notices a single wrong digit in it. Another rule: the grand total stays a candidate whatever ID or date lines are placed next to it. The `hypothesis` library tries hundreds of generated inputs and, on failure, shows the smallest counterexample. The test suite runs 150 examples per test. The input limits (file size, page count, page-image pixels) are in the `input_limits` section of `configs/service.json`.

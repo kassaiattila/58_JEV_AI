@@ -12,7 +12,7 @@ import pytest
 from jav import fact_checks, flow_native, native_results, policy, store, typepack, validators
 from jav.models import FlowState, InvoiceHU
 from jav.runtime import calls
-from native_fixtures_109 import runtime_source, synthetic_gpt
+from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
 BIRTH_NAME = "[Sz\u00fclet\u00e9si n\u00e9v]"
 DATE_MASK = "\u00e9\u00e9\u00e9\u00e9. hh. nn."

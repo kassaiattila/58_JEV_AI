@@ -32,6 +32,7 @@ from typing import Any
 from jav import cfg, source_instances, store, typepack
 from jav.native_contracts import DOCUMENT_SUFFIXES, NATIVE_SUFFIXES
 from jav.runtime import calls, queue
+from jav.user_messages import explained
 
 JOB_KIND = "run_item"
 
@@ -168,6 +169,11 @@ class RetiredRecipe(ValueError):
     """080: the recipe is kept only for old runs and assignments; it cannot be assigned again (in the UI: 422)."""
 
 
+class SourceChanged(ValueError):
+    """167 (review R-7): a document's copy had to be made again while it was added, and the original no longer has
+    the content first copied; nothing was added (in the UI: 422)."""
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -292,7 +298,7 @@ def recipe(recipe_id: str) -> dict[str, Any]:
     for r in recipes():
         if r["id"] == recipe_id:
             return r
-    raise ValueError(f"unknown recipe {recipe_id!r}")
+    raise explained(ValueError, "unknown recipe {{recipe_id}}", recipe_id=repr(recipe_id))
 
 
 def carried_params(r: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
@@ -330,12 +336,13 @@ def _validated_params(r: dict[str, Any], params: dict[str, Any]) -> dict[str, An
     out: dict[str, Any] = {}
     unknown = set(params) - set(r["params"])
     if unknown:
-        raise ValueError(f"unknown params: {sorted(unknown)}")
+        raise explained(ValueError, "unknown params: {{unknown}}", unknown=sorted(unknown))
     for name, spec in r["params"].items():
         value = params.get(name, spec.get("default"))
         allowed = spec.get("allowed") or (typepack.extractable_keys() if spec.get("allowed_from") == "typepacks" else None)
         if allowed is not None and value not in allowed:
-            raise ValueError(f"param {name}={value!r} not in {sorted(allowed)}")
+            raise explained(ValueError, "param {{name}}={{value}} not in {{allowed}}",
+                            name=name, value=repr(value), allowed=sorted(allowed))
         out[name] = value
     return out
 
@@ -347,7 +354,7 @@ def create_workpackage(*, name: str, source_kind: str, source_ref: str | None, o
     """`owner` (decision 065): the creator is responsible for the new package; a nameless (automated) creation has no
     owner."""
     if not name.strip():
-        raise ValueError("name required")
+        raise explained(ValueError, "name required")
     wp_id = f"wp-{uuid.uuid4().hex[:12]}"
     with store.connect() as c:
         c.execute("INSERT INTO workpackages(id, name, source_kind, source_ref, revision, created_at, updated_at, owner) VALUES (?,?,?,?,0,?,?,?)",
@@ -360,7 +367,8 @@ def _bump(c, wp_id: str, expected_revision: int) -> int:
     if row is None:
         raise KeyError(wp_id)
     if row["revision"] != expected_revision:
-        raise RevisionConflict(f"workpackage {wp_id} is at revision {row['revision']}, not {expected_revision}")
+        raise explained(RevisionConflict, "workpackage {{wp_id}} is at revision {{revision}}, not {{expected_revision}}",
+                        wp_id=wp_id, revision=row["revision"], expected_revision=expected_revision)
     c.execute("UPDATE workpackages SET revision=revision+1, updated_at=? WHERE id=?", (_now(), wp_id))
     return expected_revision + 1
 
@@ -418,11 +426,12 @@ def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revisio
         raise ValueError(f"unknown item kind: {', '.join(unknown)}")
     parents = {Path(k).resolve(): v for k, v in (parents or {}).items()}
     resolved: list[tuple[Path, str, str | None, str]] = []
+    made_again: list[str] = []
     try:
         for p, kind in entries:
             p = Path(p).resolve(strict=True)
             if not p.is_file():
-                raise ValueError(f"not a file: {p}")
+                raise explained(ValueError, "not a file: {{p}}", p=p)
             if kind in ("document", "statement_table"):
                 resolved.append((*_document_entry(p), kind))
             else:
@@ -430,6 +439,12 @@ def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revisio
         with store.connect() as c:
             _begin(c)
             rev = _bump(c, wp_id, expected_revision)
+            # 167 (review R-7): a shared copy may have been released since it was made (another package deleted, or
+            # another intake failed, while no item referred to it yet). `source_instances.release` deletes only under
+            # this write lock, so a copy present now stays until these items are recorded.
+            for n, (p, digest, instance, kind) in enumerate(resolved):
+                if instance and not source_instances.path_of(instance).is_file():
+                    resolved[n] = (p, digest, _copy_again(p, digest, made_again), kind)
             for p, digest, instance, kind in resolved:
                 c.execute("INSERT INTO workpackage_items(workpackage_id, item_id, kind, source_path, sha256, added_revision, parent_item_id, instance)"
                           " VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, item_id) DO UPDATE SET removed_revision=NULL,"
@@ -440,9 +455,23 @@ def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revisio
             if event is not None:
                 _event(c, wp_id, event[0], event[1], event[2])
     except BaseException:
-        source_instances.release(i for _p, _d, i, _k in resolved if i)
+        source_instances.release([i for _p, _d, i, _k in resolved if i] + made_again)
         raise
     return get(wp_id)
+
+
+def _copy_again(p: Path, digest: str, made: list[str]) -> str:
+    """167 (review R-7): the copy of a document being added was released before its item was recorded: it is made
+    again from the original, inside the intake's transaction (`made` collects it, for release if the intake fails).
+    An original that no longer has the content first copied is refused (`SourceChanged`)."""
+    try:
+        again, rel = source_instances.freeze(p, max_bytes=max_source_bytes())
+    except source_instances.InstanceTooLarge as exc:
+        raise explained(SourceChanged, "{{name}} changed while it was being added; add it again", name=p.name) from exc
+    made.append(rel)
+    if again != digest:
+        raise explained(SourceChanged, "{{name}} changed while it was being added; add it again", name=p.name)
+    return rel
 
 
 def add_statement_tables(wp_id: str, export: Path, keys: list[str], *, expected_revision: int) -> dict[str, Any]:
@@ -532,7 +561,7 @@ def remove_item(wp_id: str, item_id: str, *, expected_revision: int, actor: str,
     of the package's next runs; a run already started keeps it in its frozen input, and `restore_item` brings it back."""
     reason = reason.strip()
     if not reason:
-        raise ValueError("a reason is required to remove an item")
+        raise explained(ValueError, "a reason is required to remove an item")
     with store.connect() as c:
         _begin(c)
         rev = _bump(c, wp_id, expected_revision)  # first: a stale page gets a conflict, not "not found"
@@ -575,7 +604,7 @@ def folder_documents(folder: Path, *, suffixes: tuple[str, ...] = DOCUMENT_SUFFI
     not come back as new documents). A link pointing outside the folder is left out."""
     folder = Path(folder)
     if not folder.is_dir():
-        raise ValueError(f"folder does not exist: {folder}")
+        raise explained(ValueError, "folder does not exist: {{folder}}", folder=folder)
     root = folder.resolve(strict=True)
     skip = [Path(p).resolve() for p in exclude]
     found = root.rglob("*") if recursive else root.iterdir()
@@ -629,7 +658,7 @@ def create_from_files(paths: list[Path], *, name: str, owner: str | None = None)
     """Work package from the given files (possibly from several folders), in one revision step (040 K3: live trial,
     selection in the UI)."""
     if not paths:
-        raise ValueError("at least one file is required")
+        raise explained(ValueError, "at least one file is required")
     wp = create_workpackage(name=name, source_kind="manual", source_ref=None, owner=owner)
     return _fill_new(wp, lambda: add_documents(wp["id"], list(paths), expected_revision=0))
 
@@ -824,7 +853,7 @@ def restore_workpackage(wp_id: str, *, actor: str) -> dict[str, Any]:
 def rename_workpackage(wp_id: str, name: str, *, actor: str) -> dict[str, Any]:
     name = name.strip()
     if not name or len(name) > 200:
-        raise ValueError("name must be 1-200 characters")
+        raise explained(ValueError, "name must be 1-200 characters")
     return _set_wp(wp_id, "rename", actor, name=name)
 
 
@@ -843,8 +872,8 @@ def delete_workpackage(wp_id: str, *, actor: str) -> None:
         if row is None:
             raise KeyError(wp_id)
         if c.execute("SELECT 1 FROM runs WHERE workpackage_id=? LIMIT 1", (wp_id,)).fetchone() is not None:
-            raise NotReady("a work package with runs can only be archived",
-                           [{"code": "has_runs", "message": "A csomagnak van futása: csak elrejthető."}])
+            raise explained(NotReady, "a work package with runs can only be archived",
+                            [{"code": "has_runs", "message": "A csomagnak van futása: csak elrejthető."}])
         rows = c.execute("SELECT instance FROM workpackage_items WHERE workpackage_id=?", (wp_id,)).fetchall()
         for guard in _DELETE_GUARDS:  # 131: e.g. a reconciliation package with decisions is only hidden
             guard(c, wp_id)
@@ -880,7 +909,8 @@ def assign_recipe(wp_id: str, recipe_id: str, *, params: dict[str, Any], expecte
     application's."""
     r = recipe(recipe_id)
     if recipe_status(r) == "retired":
-        raise RetiredRecipe(f"recipe {recipe_id!r} is retired; assign {default_recipe()['id']!r} instead")
+        raise explained(RetiredRecipe, "recipe {{recipe_id}} is retired; assign {{id}} instead",
+                        recipe_id=repr(recipe_id), id=repr(default_recipe()["id"]))
     clean = _validated_params(r, {**engine_params(r), **params})
     with store.connect() as c:
         _begin(c)
@@ -894,7 +924,8 @@ def _insert_assignment(c, wp_id: str, r: dict[str, Any], params: dict[str, Any],
                        note: str | None) -> int:
     cur = c.execute("SELECT MAX(revision) m FROM recipe_assignments WHERE workpackage_id=?", (wp_id,)).fetchone()["m"] or 0
     if cur != expected_revision:
-        raise RevisionConflict(f"assignment of {wp_id} is at revision {cur}, not {expected_revision}")
+        raise explained(RevisionConflict, "assignment of {{wp_id}} is at revision {{cur}}, not {{expected_revision}}",
+                        wp_id=wp_id, cur=cur, expected_revision=expected_revision)
     c.execute("INSERT INTO recipe_assignments VALUES (?,?,?,?,?,?,?,?,?)",
               (wp_id, cur + 1, r["id"], r["version"], recipe_hash(r), _canon(params), actor, note, _now()))
     return cur + 1
@@ -1200,19 +1231,20 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
         if prev["workpackage_id"] != wp_id:
             raise ValueError("rerun_of belongs to another workpackage")
         if prev["status"] in ("queued", "running"):
-            raise ValueError("run is still active; stop it before rerunning")
+            raise explained(ValueError, "run is still active; stop it before rerunning")
     ready = readiness(wp_id, verify=True)
     if ready["assignment_revision"] != expected_assignment_revision:
-        raise RevisionConflict(f"assignment is at revision {ready['assignment_revision']}, not {expected_assignment_revision}")
+        raise explained(RevisionConflict, "assignment is at revision {{assignment_revision}}, not {{expected_assignment_revision}}",
+                        assignment_revision=ready["assignment_revision"], expected_assignment_revision=expected_assignment_revision)
     if scope == "pending":
         offer = ready.get("supplement", {}).get(mode)
         if offer is None or offer["input_hash"] != input_hash:
-            raise RevisionConflict("the package's pending items changed since the readiness check")
+            raise explained(RevisionConflict, "the package's pending items changed since the readiness check")
         ready = {**ready, **{k: offer[k] for k in ("ready", "blockers", "budget", "plan")}}
     elif ready["input_hash"] != input_hash:
-        raise RevisionConflict("workpackage input changed since readiness check")
+        raise explained(RevisionConflict, "workpackage input changed since readiness check")
     if not ready["ready"]:
-        raise NotReady("workpackage is not ready", ready["blockers"])
+        raise explained(NotReady, "workpackage is not ready", ready["blockers"])
     run_id = f"run-{uuid.uuid4().hex[:12]}"
     with store.connect() as c:
         _begin(c)
@@ -1226,7 +1258,7 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
         else:
             snapshot = _input_snapshot(wp)
         if (a["revision"] if a else 0) != expected_assignment_revision or _snapshot_hash(snapshot) != input_hash:
-            raise RevisionConflict("workpackage changed while the run was being started")
+            raise explained(RevisionConflict, "workpackage changed while the run was being started")
         if a is None:  # 080: the default settings the readiness check used are saved, in the starter's name
             d = default_recipe()
             # data (the assignment history, shown in the UI as written), not a label
@@ -1245,8 +1277,8 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
         existing = c.execute("SELECT run_id, input FROM runs WHERE dedup_key=?", (dedup,)).fetchone()
         if not existing and scope == "pending" and c.execute(
                 "SELECT 1 FROM runs WHERE workpackage_id=? AND status IN ('queued','running')", (wp_id,)).fetchone():
-            raise NotReady("another run of the package is still going; start the pending items after it",
-                           [{"code": "run_active", "message": "Another run of the package is still going."}])
+            raise explained(NotReady, "another run of the package is still going; start the pending items after it",
+                            [{"code": "run_active", "message": "Another run of the package is still going."}])
         if not existing:
             c.execute("INSERT INTO runs(run_id, workpackage_id, dedup_key, mode, assignment_revision, recipe_id, recipe_version, recipe_hash,"
                       " recipe, params, input, input_hash, status, actor, created_at, plan, scope) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'queued',?,?,?,?)",
@@ -1472,7 +1504,8 @@ def resolve_reason(reason_id: int, *, actor: str, resolution: dict[str, Any] | N
     if row is None:
         raise KeyError(reason_id)
     if row["status"] != "open":
-        raise RevisionConflict(f"review reason {reason_id} is already {row['status']}")
+        raise explained(RevisionConflict, "review reason {{reason_id}} is already {{status}}",
+                        reason_id=reason_id, status=row["status"])
     store.review_resolve(reason_id, actor=actor, resolution=resolution, note=note)
     owner = (row["run_id"] or "").split(":", 1)[0]
     run_status = None
@@ -1500,8 +1533,8 @@ def cancel_run(run_id: str, *, actor: str | None = None) -> dict[str, int]:
         if row is None:
             raise KeyError(run_id)
         if row["status"] not in STOPPABLE:
-            raise RevisionConflict(f"the run is {row['status']}: only a queued or running run can be stopped; "
-                                   "supersede a finished one instead")
+            raise explained(RevisionConflict, "the run is {{status}}: only a queued or running run can be stopped; supersede a finished one instead",
+                            status=row["status"])
         c.execute("UPDATE runs SET stopped_at=?, stopped_by=? WHERE run_id=?", (_now(), actor, run_id))
         if actor is not None:
             _event(c, row["workpackage_id"], "run_cancel", actor, {"run_id": run_id})
@@ -1597,7 +1630,7 @@ def supersede_run(run_id: str, *, actor: str) -> dict[str, Any]:
         _begin(c)
         by = _superseding_run(c, run) if _supersedable(c, run_id) else None
         if by is None:
-            raise NotReady("only an unapproved, finished live run that a later finished live run has repeated can be superseded")
+            raise explained(NotReady, "only an unapproved, finished live run that a later finished live run has repeated can be superseded")
         c.execute("UPDATE runs SET status='cancelled', finished_at=COALESCE(finished_at, ?) WHERE run_id=?", (_now(), run_id))
         closed = store.close_run_reasons(c, run_id, status="superseded")
         detail = {"run_id": run_id, "superseded_by": by, "reasons_closed": closed}
@@ -1632,13 +1665,14 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None,
 
     run = get_run(run_id)
     if run["mode"] != "apply":
-        raise ValueError("only apply runs can be approved")
+        raise explained(ValueError, "only apply runs can be approved")
     status = refresh_run_status(run_id)
     if status != "done":
-        raise NotReady(f"run is {status}; approval needs a finished run without open review reasons")
+        raise explained(NotReady, "run is {{status}}; approval needs a finished run without open review reasons",
+                        status=status)
     done = {i["item_id"] for i in get_run(run_id)["items"] if i["status"] == "done"}
     if any(i["item_id"] not in done for i in released_items(run)):  # 063: every input item has a finished result
-        raise NotReady("run has input items without a finished result")
+        raise explained(NotReady, "run has input items without a finished result")
     with store.connect() as c:
         _begin(c)
         from jav import native_results
@@ -1647,38 +1681,38 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None,
         # ran before it, so a run superseded or stopped in between ended both cancelled and approved)
         latest = c.execute("SELECT status FROM runs WHERE run_id=?", (run_id,)).fetchone()
         if latest["status"] != "done":
-            raise NotReady("The run is no longer ready for approval")
+            raise explained(NotReady, "The run is no longer ready for approval")
         removed = _removed_from_package(c, run)
         if removed and confirm_removed != len(removed):
-            raise NotReady(f"{len(removed)} of the run's items were removed from the package; their results are not "
-                           "released. Confirm the count to approve the rest.",
-                           [{"code": "removed_items", "message": "Items were removed from the package after the run started",
-                             "count": str(len(removed))}])
+            raise explained(NotReady, "{{removed}} of the run's items were removed from the package; their results are not released. Confirm the count to approve the rest.",
+                            [{"code": "removed_items", "message": "Items were removed from the package after the run started", "count": str(len(removed))}], removed=len(removed))
         kept = [i for i in run["input"]["items"] if i["item_id"] not in set(removed)]
         for item in kept:
             result = c.execute("SELECT status FROM run_items WHERE run_id=? AND item_id=?",
                                (run_id, item["item_id"])).fetchone()
             if result is None or result["status"] != "done":
-                raise NotReady("The run has an unfinished input item")
+                raise explained(NotReady, "The run has an unfinished input item")
             subject_kind, subject_id = review_subject(item)
-            reasons = c.execute("SELECT r.run_id FROM review_reasons r JOIN review_queue q ON q.id=r.review_id"
-                                " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open'",
+            # 167 (review R-10): the subject drives the join (`store.SUBJECT_REASONS`), not every open reason of the store
+            reasons = c.execute("SELECT r.run_id FROM " + store.SUBJECT_REASONS
+                                + " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open'",
                                 (subject_kind, subject_id)).fetchall()
             if any(is_own_reason(dict(reason), flow_run_id(run_id, item["item_id"])) for reason in reasons):
-                raise NotReady("The run still has open review reasons")
+                raise explained(NotReady, "The run still has open review reasons")
         native_items = [i for i in kept if native_results.native_item(run_id, i, c)]
         if native_items:
             if review_version is None:
-                raise RevisionConflict("Native approval requires the exact reviewed version")
+                raise explained(RevisionConflict, "Native approval requires the exact reviewed version")
             for item in native_items:
                 publication = native_results.get_publication(run_id, item["item_id"], c=c)
                 if publication is None or publication.interpretation_outcome.status != "succeeded":
-                    raise NotReady("Every native item needs a published successful interpretation")
+                    raise explained(NotReady, "Every native item needs a published successful interpretation")
                 if publication.reading.status not in {"complete", "partial"}:
-                    raise NotReady("The source reading is not suitable for approval")
+                    raise explained(NotReady, "The source reading is not suitable for approval")
                 native_results.verify_publication(publication, c=c)
         if review_version is not None and corrections.review_version(run_id, c) != review_version:
-            raise RevisionConflict(f"the result of run {run_id} changed since it was reviewed; review it again")
+            raise explained(RevisionConflict, "the result of run {{run_id}} changed since it was reviewed; review it again",
+                            run_id=run_id)
         c.execute("UPDATE runs SET approval='approved', approved_by=?, approved_at=?, excluded_items=? WHERE run_id=?"
                   " AND approval IS NULL AND status='done'", (actor, _now(), json.dumps(removed) if removed else None, run_id))
     approved = get_run(run_id)

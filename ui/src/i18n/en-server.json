@@ -347,5 +347,11 @@
   "Terminál": "Terminal",
   "Engedélyszám": "Authorisation code",
   "Árfolyam": "Exchange rate",
-  "Díj": "Fee"
+  "Díj": "Fee",
+  "Nyitott teendők": "Open to-dos",
+  "Forrás-levél": "Source email",
+  "Forrásszöveg": "Source text",
+  "Lista": "List",
+  "Teendő a mezőn": "To-do on the field",
+  "Teendő, rendezve": "To-dos settled"
 }

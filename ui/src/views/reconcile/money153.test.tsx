@@ -33,6 +33,23 @@ describe("153 a typed amount in Hungarian", () => {
   });
 });
 
+describe("167 a typed amount has at most two decimals and no lone 0 group (review 160 U-10)", () => {
+  it.each(["12,3456", "12,345", "0,125", "0.125"])("refuses %s in Hungarian", (typed) => {
+    expect(read(typed)).toBeNull();
+  });
+
+  it.each(["0,125", "0.125", "12.3456"])("refuses %s in English", async (typed) => {
+    await setLanguage("en");
+    expect(read(typed)).toBeNull();
+  });
+
+  it("still reads two decimals and grouped thousands", async () => {
+    expect(read("1.234,50")).toBe("1234.50");
+    await setLanguage("en");
+    expect(read("1,234.50")).toBe("1234.50");
+  });
+});
+
 describe("153 a typed amount in English", () => {
   it.each([["60.50", "60.50"], ["28,000", "28000.00"], ["12,345.67", "12345.67"], ["1,234,567", "1234567.00"]])("reads %s as %s", async (typed, want) => {
     await setLanguage("en");

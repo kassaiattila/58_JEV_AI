@@ -171,6 +171,12 @@ function Approval({ runId, onChanged, hasTable, tableVersion, onConflict }: {
         run.reload();
         return;
       }
+      if (err.status === 409 && err.code === "not_ready") {
+        // 167 (review 160 U-4): the run is not ready (an open to-do, an unfinished item): its reason, not a correction
+        setMsg({ error: true, text: t("The run cannot be approved: {{reason}}", { reason: err.message }) });
+        run.reload();
+        return;
+      }
       if (err.status === 409) {
         // 085: a correction was saved since this page loaded (e.g. in another tab): the new state has to be seen first;
         // 086: the table is loaded again, and the approval waits for it
@@ -186,13 +192,19 @@ function Approval({ runId, onChanged, hasTable, tableVersion, onConflict }: {
   }
 
   // 156: one line with the state's own mark; the approval is the solid main action only when it can be given
-  const state: ReleaseState = r.mode === "shadow" ? "trial" : r.approval ? "released" : r.status === "done" ? "ready" : open ? "todo" : "running";
+  // 167 (review 160 U-5): a stopped, failed or superseded live run is not "not finished": it cannot be approved at all
+  const state: ReleaseState = r.mode === "shadow" ? "trial" : r.approval ? "released" : r.status === "failed" ? "failed"
+    : r.status === "cancelled" ? (run.data.superseded ? "superseded" : "stopped")
+    : r.status === "done" ? "ready" : open ? "todo" : "running";
   const [label, detail] = {
     trial: [t("Trial result"), t("{{when}} · it can be viewed and downloaded but not released; a release needs a live run", { when: when(r.created_at) })],
     released: [t("Released"), t("approved by {{who}}, {{when}}", { who: r.approved_by, when: when(r.approved_at) })],
     ready: [t("Awaiting approval"), t("the live run has finished with no open to-dos")],
     todo: [t("{{n}} open to-dos", { n: open }), t("settle them in the Review section before the approval")],
     running: [t("Not finished"), t("the live run has not finished yet")],
+    stopped: [t("Stopped"), t("a person stopped the run; it cannot be approved — rerun it in Processing")],
+    failed: [t("Failed"), t("the run ended with an error; it cannot be approved — rerun it in Processing")],
+    superseded: [t("Superseded"), t("a later live run repeated it; it cannot be approved")],
   }[state];
   return (
     <div className="release-line" data-state={state}>
@@ -206,7 +218,7 @@ function Approval({ runId, onChanged, hasTable, tableVersion, onConflict }: {
             : t("removed from the package; left out of the released result")}</span>
         </span>
       ) : null}
-      {state === "trial" || state === "released" ? null : (
+      {state === "trial" || state === "released" || FINAL.has(state) ? null : (
         <ConfirmButton className={state === "ready" ? "primary" : "secondary"} disabled={busy || loading || state !== "ready"}
           onConfirm={() => void approve()}>{t("Jóváhagyás és kiadás")}</ConfirmButton>
       )}
@@ -215,6 +227,10 @@ function Approval({ runId, onChanged, hasTable, tableVersion, onConflict }: {
   );
 }
 
-type ReleaseState = "trial" | "released" | "ready" | "todo" | "running";
-// the state marks of DESIGN.md §4: a person has to act (orange), done (green), running (blue); a trial is neutral
-const RELEASE_MARK: Record<ReleaseState, string> = { trial: "", released: "s-done", ready: "s-review", todo: "s-needs_review", running: "s-running" };
+type ReleaseState = "trial" | "released" | "ready" | "todo" | "running" | "stopped" | "failed" | "superseded";
+// the state marks of DESIGN.md §4: a person has to act (orange), done (green), running (blue), an error (red); a trial
+// and a superseded run are neutral
+const RELEASE_MARK: Record<ReleaseState, string> = { trial: "", released: "s-done", ready: "s-review", todo: "s-needs_review",
+  running: "s-running", stopped: "s-cancelled", failed: "s-failed", superseded: "" };
+/** 167: the states a live run ends in without a release (it cannot be approved) */
+const FINAL = new Set<ReleaseState>(["stopped", "failed", "superseded"]);

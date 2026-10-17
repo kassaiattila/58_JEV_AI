@@ -4,10 +4,11 @@ my work packages"); a daily activity log per user ("My work today"). Synthetic d
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import itertools
+from datetime import datetime, timedelta, timezone
 from urllib.parse import unquote
 
-from jav import app_settings, store
+from jav import app_settings, store, work
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp
 
@@ -79,13 +80,18 @@ def test_owner_is_set_listed_filtered_and_logged(env):
     assert events == ["owner", "owner"]
 
 
-def test_today_activity_lists_only_the_persons_own_actions(env):
+def test_today_activity_lists_only_the_persons_own_actions(env, monkeypatch):
+    # 167 (review T-4): the actions are recorded from 11:00 UTC of a fixed day, a second apart, so a test run across
+    # midnight cannot put them on two days or the query on another one
+    seconds = itertools.count()
+    monkeypatch.setattr(work, "_now", lambda: (datetime(2026, 3, 16, 11, 0, tzinfo=timezone.utc)
+                                               + timedelta(seconds=next(seconds))).isoformat(timespec="seconds"))
+    day = datetime(2026, 3, 16, 11, 0, tzinfo=timezone.utc).astimezone().date().isoformat()
     c = env["client"]
     wp = _ready_wp(c, env["folder"])  # recipe assigned by: Teszt Elek (HUMAN)
     _users(c, "Minta Anna", "teszt.elek")
     c.post(f"/api/workpackages/{wp['id']}/owner", headers=ANNA, json={"owner": "Minta Anna"})
     run_id = _start(c, wp["id"], ANNA).json()["run_id"]
-    day = datetime.now(timezone.utc).astimezone().date().isoformat()
     res = c.post("/api/datasets/activity/query", json={"scope": {"actor": "Minta Anna", "day": day}}).json()
     actions = sorted(r["action"] for r in res["rows"])
     assert actions == ["owner", "run_start"]

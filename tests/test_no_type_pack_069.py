@@ -29,6 +29,13 @@ def test_category_without_type_pack_opens_a_task(tmp_path):
         assert [r["reason"] for r in store.review_open_reasons("document", "d2")] == ["detect:no_type_pack:unknown"]
 
 
+# A payment reminder's lines without accents (167, review T-3): the synthetic PDF's simple font has no accented letters,
+# so accented lines broke its text layer and sent the document to local OCR, which needs the Hungarian language data that
+# a clean copy lacks. The stand-in model below answers the same whatever the text says.
+REMINDER_LINES = ["Minta Kft.", "FIZETESI FELSZOLITAS", "Kerjuk, rendezze a lejart tartozast.",
+                  "Szamla sorszama: MINTA-2026-001", "Tartozas osszege: 12 500 Ft"]
+
+
 class ReminderClient:
     """Type detection says payment reminder (with high confidence); for any other question, the first option."""
 
@@ -47,8 +54,7 @@ class ReminderClient:
 def test_document_run_with_such_an_item_cannot_be_approved(tmp_path: Path):
     folder = tmp_path / "bejovo"
     folder.mkdir()
-    write_text_pdf(folder / "felszolitas.pdf", ["Minta Kft.", "FIZETÉSI FELSZÓLÍTÁS", "Kérjük, rendezze a lejárt tartozást.",
-                                                "Számla sorszáma: MINTA-2026-001", "Tartozás összege: 12 500 Ft"])
+    write_text_pdf(folder / "felszolitas.pdf", REMINDER_LINES)
     adapter = jev_mod.JevAdapter(client=ReminderClient(), cache_dir=tmp_path / "cache", model="jev-1.13.0")
     with store.use_store(tmp_path / "w.sqlite"), jev_mod.use_adapter(adapter):
         wp = work.create_from_folder(folder, name="Felszólítás")

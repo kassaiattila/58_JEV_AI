@@ -41,6 +41,7 @@ from jav import (app_settings, backup, bank_files, cfg, corrections, dates, deps
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
+from jav.user_messages import explained, message_fields
 
 API_VERSION = "1"
 UI_DIST = PROJECT_ROOT / "ui" / "dist"  # the UI build (040 K3); if present, the service serves it at the root
@@ -85,13 +86,13 @@ def checked_path(raw: str, *, want_dir: bool | None) -> Path:
     try:
         p = Path(raw).resolve(strict=True)
     except (OSError, RuntimeError) as exc:
-        raise ValueError(f"path does not exist: {Path(raw).name}") from exc
+        raise explained(ValueError, "path does not exist: {{name}}", name=Path(raw).name) from exc
     if paths_restricted() and not any(p == r or p.is_relative_to(r) for r in allowed_roots()):
-        raise ForbiddenPath("path is outside the allowed roots (configs/service.json)")
+        raise explained(ForbiddenPath, "path is outside the allowed roots (configs/service.json)")
     if want_dir and not p.is_dir():
-        raise ValueError(f"not a folder: {p.name}")
+        raise explained(ValueError, "not a folder: {{name}}", name=p.name)
     if want_dir is False and not p.is_file():
-        raise ValueError(f"not a file: {p.name}")
+        raise explained(ValueError, "not a file: {{name}}", name=p.name)
     return p
 
 
@@ -327,7 +328,8 @@ class Approve(_In):
 class ResolveCall(_In):
     """076: settling a paid call with an uncertain outcome by hand, as `calls-resolve` does."""
 
-    cost_usd: Decimal | None = Field(default=None, ge=0, le=Decimal("100"))  # None: unknown, the maximum stays committed
+    # None: unknown, the maximum stays committed; 167 (review R-9): the same cap as the settlement itself
+    cost_usd: Decimal | None = Field(default=None, ge=0, le=calls.MAX_SETTLED_COST_USD, allow_inf_nan=False)
     note: str = Field(min_length=3, max_length=500)
 
 
@@ -690,7 +692,7 @@ def human_actor(x_actor: Annotated[str, Header(max_length=256)]) -> str:
     recorded in the list's spelling)."""
     name = app_settings.canonical_user(_decode_actor(x_actor))
     if name is None:
-        raise UnknownUser("the actor is not in the user list (Settings > Users)")
+        raise explained(UnknownUser, "the actor is not in the user list (Settings > Users)")
     return name
 
 
@@ -700,7 +702,7 @@ def actor_unless_first_users(x_actor: Annotated[str | None, Header(max_length=25
     if not app_settings.users():
         return app_settings.canonical_user(_decode_actor(x_actor)) if x_actor else None
     if x_actor is None:
-        raise ValueError("X-Actor header is required to change the user list")
+        raise explained(ValueError, "X-Actor header is required to change the user list")
     return human_actor(x_actor)
 
 
@@ -735,15 +737,15 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.exception_handler(work.RevisionConflict)
     async def conflict(_request: Request, exc: work.RevisionConflict):
-        return _error(409, "revision_conflict", str(exc))
+        return _error(409, "revision_conflict", str(exc), **message_fields(exc))
 
     @app.exception_handler(work.NotReady)
     async def not_ready(_request: Request, exc: work.NotReady):
-        return _error(409, "not_ready", str(exc), blockers=exc.blockers)
+        return _error(409, "not_ready", str(exc), blockers=exc.blockers, **message_fields(exc))
 
     @app.exception_handler(reconcile_package.Locked)
     async def reconcile_locked(_request: Request, exc: reconcile_package.Locked):
-        return _error(422, "reconcile_locked", str(exc))  # 145: the UI names it in the display language
+        return _error(422, "reconcile_locked", str(exc), **message_fields(exc))  # 145: the UI names it in the display language
 
     @app.exception_handler(UnknownUser)
     async def unknown_user(_request: Request, exc: UnknownUser):
@@ -755,43 +757,43 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.exception_handler(app_settings.FolderOverlap)
     async def folder_overlap(_request: Request, exc: app_settings.FolderOverlap):
-        return _error(422, "folder_overlap", str(exc))  # 078: the UI names it in the display language
+        return _error(422, "folder_overlap", str(exc), **message_fields(exc))  # 078: the UI names it in the display language
 
     @app.exception_handler(app_settings.NoOutputFolder)
     async def no_output_folder(_request: Request, exc: app_settings.NoOutputFolder):
-        return _error(422, "no_output_folder", str(exc))
+        return _error(422, "no_output_folder", str(exc), **message_fields(exc))
 
     @app.exception_handler(numbers.AmbiguousNumber)
     async def ambiguous_number(_request: Request, exc: numbers.AmbiguousNumber):
         # 081: the UI asks for the Hungarian form ("28,50"); 153: and names the field
-        return _error(422, "ambiguous_number", str(exc), field=getattr(exc, "field", None))
+        return _error(422, "ambiguous_number", str(exc), field=getattr(exc, "field", None), **message_fields(exc))
 
     @app.exception_handler(dates.AmbiguousDate)
     async def ambiguous_date(_request: Request, exc: dates.AmbiguousDate):
         # 084: the UI asks for the year first ("2022-12-04"); 153: and names the field
-        return _error(422, "ambiguous_date", str(exc), field=getattr(exc, "field", None))
+        return _error(422, "ambiguous_date", str(exc), field=getattr(exc, "field", None), **message_fields(exc))
 
     @app.exception_handler(corrections.InvalidValue)
     async def invalid_value(_request: Request, exc: corrections.InvalidValue):
-        return _error(422, "invalid_value", str(exc), field=exc.field, kind=exc.kind)  # 153: the UI names the field
+        return _error(422, "invalid_value", str(exc), field=exc.field, kind=exc.kind, **message_fields(exc))  # 153: the UI names the field
 
     @app.exception_handler(local_picker.PickerBusy)
     async def picker_busy(_request: Request, exc: local_picker.PickerBusy):
-        return _error(409, "picker_busy", str(exc))
+        return _error(409, "picker_busy", str(exc), **message_fields(exc))
 
     @app.exception_handler(local_picker.PickerUnavailable)
     async def picker_unavailable(_request: Request, exc: local_picker.PickerUnavailable):
-        return _error(503, "picker_unavailable", str(exc))
+        return _error(503, "picker_unavailable", str(exc), **message_fields(exc))
 
     @app.exception_handler(mailbox.BridgeError)
     async def bridge_failed(_request: Request, exc: mailbox.BridgeError):
-        return _error(503, "mailbox_unavailable", str(exc))
+        return _error(503, "mailbox_unavailable", str(exc), **message_fields(exc))
 
     @app.exception_handler(ValueError)
     async def invalid(request: Request, exc: ValueError):
         log.warning("422 %s %s: %s", request.method, request.url.path, exc, exc_info=exc)
         extra = {"reason": exc.reason} if isinstance(exc, isolated_pdf.PdfReaderLimit) else {}
-        return _error(422, "invalid", str(exc), **extra)
+        return _error(422, "invalid", str(exc), **extra, **message_fields(exc))
 
     @app.exception_handler(OSError)
     async def unreadable(request: Request, exc: OSError):
@@ -819,7 +821,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
         pack = typepack.get(body.doc_type)
         if body.field not in pack.fields:
-            raise ValueError(f"not a field of {pack.key}: {body.field}")
+            raise explained(ValueError, "not a field of {{key}}: {{field}}", key=pack.key, field=body.field)
         reasons: list[str] = []
         text = body.text.strip()
         if pack.kind(body.field) == "money":  # a currency sign is natural in a selection ("1 071 880 Ft", "650 000,-")
@@ -867,7 +869,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/workpackages", status_code=201)
     def create_workpackage(body: CreateWorkpackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         if (body.folder is None) == (body.paths is None):
-            raise ValueError("give exactly one of folder or paths")
+            raise explained(ValueError, "give exactly one of folder or paths")
         if body.folder is not None:  # 065: the creator is the owner
             # 081: with the subfolders, the output folder of the named copies is left out
             out = app_settings.output_folder() if body.recursive else None
@@ -875,7 +877,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                                          recursive=body.recursive, exclude=[Path(out)] if out else [])
         else:
             if not body.name:
-                raise ValueError("name is required when creating from files")
+                raise explained(ValueError, "name is required when creating from files")
             wp = work.create_from_files([checked_path(p, want_dir=False) for p in body.paths], name=body.name, owner=who)
         return work_views.workpackage_view(wp["id"])
 
@@ -924,7 +926,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         if body.owner is not None:
             owner = app_settings.canonical_user(body.owner)
             if owner is None:
-                raise ValueError("unknown user: the owner must be in the user list")
+                raise explained(ValueError, "unknown user: the owner must be in the user list")
         work.set_owner(wp_id, owner, actor=who)
         return work_views.workpackage_view(wp_id)
 
@@ -1193,7 +1195,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         work.get_run(run_id)
         folder = app_settings.output_folder()
         if not folder:
-            raise app_settings.NoOutputFolder("no output folder is set (Settings > Work folders)")
+            raise explained(app_settings.NoOutputFolder, "no output folder is set (Settings > Work folders)")
         res = naming.write_to_folder(run_id, Path(folder))
         log.info("named copies of %s written by %s", run_id, who)
         return res
@@ -1317,7 +1319,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         elif body.action == "dismiss":
             parties.assign(body.kind, body.key, body.label, None, actor=who)
         elif body.party_id is None:
-            raise ValueError("assigning an identity needs a party")
+            raise explained(ValueError, "assigning an identity needs a party")
         else:
             parties.assign(body.kind, body.key, body.label, body.party_id, actor=who)
         return work_views.jsonable(party_views.overview())
@@ -1679,11 +1681,12 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.patch(r + "/mailbox/schedules/{schedule_id}")
     def mailbox_schedule_update(schedule_id: ScheduleId, body: UpdateSchedule,
                                 who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(mailbox.update_schedule(schedule_id, enabled=body.enabled, interval_min=body.interval_min))
+        return work_views.jsonable(mailbox.update_schedule(schedule_id, actor=who, enabled=body.enabled,
+                                                           interval_min=body.interval_min))
 
     @app.post(r + "/mailbox/schedules/{schedule_id}/delete")  # a POST with a JSON body, like the other deletions
     def mailbox_schedule_delete(schedule_id: ScheduleId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        mailbox.delete_schedule(schedule_id)
+        mailbox.delete_schedule(schedule_id, actor=who)
         return {"deleted": schedule_id}
 
     @app.api_route(r + "/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)

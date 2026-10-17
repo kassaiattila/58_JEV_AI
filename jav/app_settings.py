@@ -36,6 +36,7 @@ from pydantic import BaseModel, Field
 from jav import store, work
 from jav.native_contracts import DOCUMENT_SUFFIXES
 from jav.runtime import lock
+from jav.user_messages import explained
 
 log = logging.getLogger("jav.folders")
 
@@ -141,7 +142,7 @@ def save_users(names: list[str]) -> list[str]:
     if bad:
         raise ValueError("user names may contain letters, digits, space, dot, @ or hyphen (max 64): " + ", ".join(bad))
     if len(clean) > 200:
-        raise ValueError("at most 200 users")
+        raise explained(ValueError, "at most 200 users")
     with store.connect() as c:
         c.execute("DELETE FROM app_users")
         c.executemany("INSERT INTO app_users(name, created_at) VALUES (?,?)", [(n, _iso(_now())) for n in clean.values()])
@@ -182,14 +183,15 @@ def save_folders(items: list[WatchedFolder], *, check_dir: Callable[[str], Path]
     """Replaces the whole list (like the legacy V4 PUT). `check_dir`: the service's path check (under an allowed
     root, an existing folder) — on error nothing is saved. A folder that stays keeps its scan time and result."""
     if len(items) > 50:
-        raise ValueError("at most 50 watched folders")
+        raise explained(ValueError, "at most 50 watched folders")
     known = {f["id"]: f for f in folders()}
     out = output_folder()
     rows = []
     for f in items:
         p = check_dir(f.path)
         if out and _overlaps(p, Path(out)):  # 078: the watcher would take the named copies in again
-            raise FolderOverlap(f"a watched folder cannot overlap the output folder of the named copies: {p}")
+            raise explained(FolderOverlap, "a watched folder cannot overlap the output folder of the named copies: {{p}}",
+                            p=p)
         recipe_id, params = f.recipe_id or None, f.params
         if recipe_id is not None and work.recipe_status(work.recipe(recipe_id)) == "retired":  # unknown: ValueError → 422
             # 080: the UI no longer shows the folder's recipe, so a retired one is moved onto the default processing
@@ -371,13 +373,14 @@ def check_output_folder(p: Path) -> Path:
 
     p = p.resolve()
     if not p.is_dir():
-        raise ValueError(f"the output folder does not exist: {p}")
+        raise explained(ValueError, "the output folder does not exist: {{p}}", p=p)
     for f in folders():
         if _overlaps(p, Path(f["path"])):
-            raise FolderOverlap(f"the output folder cannot overlap the watched folder {f['name']!r}")
+            raise explained(FolderOverlap, "the output folder cannot overlap the watched folder {{name}}",
+                            name=repr(f["name"]))
     for internal in (PROJECT_ROOT / "store", PROJECT_ROOT / "inbox", PROJECT_ROOT / "runs"):
         if _overlaps(p, internal):
-            raise FolderOverlap("the output folder cannot overlap the application's own data folders (store, inbox, runs)")
+            raise explained(FolderOverlap, "the output folder cannot overlap the application's own data folders (store, inbox, runs)")
     return p
 
 
@@ -426,7 +429,8 @@ def engine_default() -> str:
 
 def save_engine_default(engine: str, *, actor: str) -> dict[str, Any]:
     if engine not in ENGINES:
-        raise ValueError(f"unknown engine {engine!r}; expected one of {list(ENGINES)}")
+        raise explained(ValueError, "unknown engine {{engine}}; expected one of {{engines}}",
+                        engine=repr(engine), engines=list(ENGINES))
     with store.connect() as c:
         c.execute("INSERT INTO app_options(key, value, actor, updated_at) VALUES (?,?,?,?) ON CONFLICT(key)"
                   " DO UPDATE SET value=excluded.value, actor=excluded.actor, updated_at=excluded.updated_at",

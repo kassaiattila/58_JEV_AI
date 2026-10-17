@@ -50,6 +50,7 @@ from typing import Any, Iterable
 
 from jav import cfg, corrections, grounding, parties, reconcile, reconcile_overview, store, typepack, work
 from jav.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
+from jav.user_messages import explained
 
 KIND = "reconcile"
 REVOKE_KINDS = ("allocation", "mark", "decision")
@@ -136,7 +137,7 @@ def _day(value: Any, what: str) -> date:
     try:
         return date.fromisoformat(str(value)[:10])
     except ValueError as exc:
-        raise PackageError(f"{what}: an ISO date is required") from exc
+        raise explained(PackageError, "{{what}}: an ISO date is required", what=what) from exc
 
 
 # --- the scope ---------------------------------------------------------------------------------------------------------
@@ -189,19 +190,20 @@ def _checked_party(party_id: str | None) -> str | None:
     try:
         return parties.get(party_id)["id"]
     except KeyError:
-        raise PackageError(f"no own party {party_id}") from None
+        raise explained(PackageError, "no own party {{party_id}}", party_id=party_id) from None
 
 
 def _checked_scope(keys: Iterable[str], period_start: Any, period_end: Any) -> tuple[list[str], str, str]:
     start, end = _day(period_start, "period_start"), _day(period_end, "period_end")
     if start > end:
-        raise PackageError("the period ends before it starts")
+        raise explained(PackageError, "the period ends before it starts")
     chosen = sorted(set(keys))
     if not chosen:
-        raise PackageError("choose at least one account or card")
+        raise explained(PackageError, "choose at least one account or card")
     known = {a["key"] for a in accounts()}
     if unknown := [k for k in chosen if k not in known]:
-        raise PackageError(f"neither a statement nor a registered account: {', '.join(unknown)}")
+        raise explained(PackageError, "neither a statement nor a registered account: {{unknown}}",
+                        unknown=", ".join(unknown))
     return chosen, start.isoformat(), end.isoformat()
 
 
@@ -222,7 +224,7 @@ def create(*, name: str, accounts: list[str], period_start: str, period_end: str
 def _package(wp_id: str) -> dict[str, Any]:
     wp = work.get(wp_id)
     if wp["source_kind"] != KIND:
-        raise PackageError("not a reconciliation package")
+        raise explained(PackageError, "not a reconciliation package")
     return wp
 
 
@@ -244,12 +246,14 @@ def set_scope(wp_id: str, *, accounts: list[str], period_start: str, period_end:
     party = _checked_party(party_id)
     scope(wp_id)
     if active := active_versions().get(wp_id):
-        raise Locked(f"the package's statement is approved (version {active['version']}); reopen it to change the scope")
+        raise explained(Locked, "the package's statement is approved (version {{version}}); reopen it to change the scope",
+                        version=active["version"])
     with store.connect() as c:
         store.begin_immediate(c)
         row = c.execute("SELECT revision FROM reconcile_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
         if row["revision"] != expected_revision:
-            raise work.RevisionConflict(f"the scope is at revision {row['revision']}, not {expected_revision}")
+            raise explained(work.RevisionConflict, "the scope is at revision {{revision}}, not {{expected_revision}}",
+                            revision=row["revision"], expected_revision=expected_revision)
         c.execute("UPDATE reconcile_scopes SET accounts=?, period_start=?, period_end=?, revision=revision+1, actor=?,"
                   " updated_at=?, party_id=? WHERE workpackage_id=?", (json.dumps(keys), start, end, actor, _now(), party, wp_id))
         c.execute("UPDATE workpackages SET source_ref=?, updated_at=? WHERE id=?", (f"{start}..{end}", _now(), wp_id))
@@ -841,7 +845,7 @@ def _write(read_state: list[Any], fn) -> Any:
     with store.connect() as c:
         store.begin_immediate(c)
         if _decision_state(c) != read_state:
-            raise work.RevisionConflict("another decision was recorded meanwhile; reload the package")
+            raise explained(work.RevisionConflict, "another decision was recorded meanwhile; reload the package")
         return fn(c)
 
 
@@ -851,7 +855,8 @@ def _write(read_state: list[Any], fn) -> Any:
 def _refuse_approved(wp_id: str) -> None:
     """145: an approved package takes no decision until its version is reopened."""
     if active := active_versions().get(wp_id):
-        raise Locked(f"the package's statement is approved (version {active['version']}); reopen it first")
+        raise explained(Locked, "the package's statement is approved (version {{version}}); reopen it first",
+                        version=active["version"])
 
 
 def _context(wp_id: str) -> dict[str, Any]:
@@ -873,8 +878,8 @@ def _unlocked(ctx: dict[str, Any], line_ids: Iterable[str]) -> None:
     """145: refuses a decision on a line of an approved statement (of any package)."""
     for lid in line_ids:
         if lock := ctx["locked"].get(lid):
-            raise Locked(f"the line is in version {lock['version']} of an approved statement ({lock['workpackage_id']});"
-                         " reopen it first")
+            raise explained(Locked, "the line is in version {{version}} of an approved statement ({{workpackage_id}}); reopen it first",
+                            version=lock["version"], workpackage_id=lock["workpackage_id"])
 
 
 def _scope_line(ctx: dict[str, Any], line_id: str) -> dict[str, Any]:
@@ -882,7 +887,7 @@ def _scope_line(ctx: dict[str, Any], line_id: str) -> dict[str, Any]:
     if line is None:
         raise KeyError(line_id)
     if line["statement_id"] not in ctx["scope_ids"]:
-        raise PackageError("the line is not in the package's scope")
+        raise explained(PackageError, "the line is not in the package's scope")
     return line
 
 
@@ -907,12 +912,12 @@ def _converted_groups(ctx: dict[str, Any], pairs: list[dict[str, Any]]) -> tuple
         invoices = [ctx["invoices"][str(p["invoice_doc_id"])] for p in group]
         if (ctx["paid_line"].get(lid) or any(ctx["paid_invoice"].get(i["id"]) for i in invoices)
                 or any(p.get("line_amount") or p.get("invoice_amount") for p in group)):
-            raise PackageError("a pair of two currencies is allocated only in whole")
+            raise explained(PackageError, "a pair of two currencies is allocated only in whole")
         if len({i.get("currency") for i in invoices}) > 1 or any(reconcile.meets(i, line) != "fx_bank" for i in invoices):
-            raise PackageError("a line pays several invoices of another currency only from a bank account, in one currency")
+            raise explained(PackageError, "a line pays several invoices of another currency only from a bank account, in one currency")
         relation, conversion = reconcile.convert_combined(invoices, line, ctx["snap"].get("fx_rates"))
         if conversion is None:
-            raise PackageError("a combined payment of another currency needs an exchange rate for every invoice")
+            raise explained(PackageError, "a combined payment of another currency needs an exchange rate for every invoice")
         needs_reason |= relation != "fx_within"
         for p, share in zip(group, reconcile.split_line(_money(line.get("amount")), conversion)):
             shares[(str(p["invoice_doc_id"]), lid)] = share
@@ -927,7 +932,7 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
     invoices of another currency together is split in the ratio of their converted amounts (`_converted_groups`)."""
     note = (note or "").strip() or None
     if not pairs:
-        raise PackageError("no pair to allocate")
+        raise explained(PackageError, "no pair to allocate")
     ctx = _context(wp_id)
     rows, needs_reason = [], False
     used_line: dict[str, Decimal] = defaultdict(Decimal)
@@ -942,19 +947,19 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
             raise KeyError(iid)
         line = _scope_line(ctx, lid)
         if not reconcile.pays(line, inv):  # 151: the engine's side rule (148), not a ban on the outgoing type
-            raise PackageError("the line is not on the invoice's side: incoming money pays an outgoing invoice, a payment an incoming one")
+            raise explained(PackageError, "the line is not on the invoice's side: incoming money pays an outgoing invoice, a payment an incoming one")
         _unlocked(ctx, [lid])
         if lid in ctx["marks"]:
-            raise PackageError("the line is marked as needing no invoice; revoke the mark first")
+            raise explained(PackageError, "the line is marked as needing no invoice; revoke the mark first")
         line_total, invoice_total = _money(line.get("amount")), _money(inv.get("amount"))
         if not line_total or line_total <= 0 or not invoice_total or invoice_total <= 0:
-            raise PackageError("the line or the invoice has no positive amount")
+            raise explained(PackageError, "the line or the invoice has no positive amount")
         line_rest = line_total - ctx["paid_line"].get(lid, Decimal(0)) - used_line[lid]
         invoice_rest = invoice_total - ctx["paid_invoice"].get(iid, Decimal(0)) - used_invoice[iid]
         if inv.get("currency") == line.get("currency"):
             given = {_money(p[k]) for k in ("line_amount", "invoice_amount") if p.get(k) not in (None, "")}
             if None in given or len(given) > 1:
-                raise PackageError("in one currency the line's and the invoice's share are one canonical amount")
+                raise explained(PackageError, "in one currency the line's and the invoice's share are one canonical amount")
             share = given.pop() if given else min(line_rest, invoice_rest)
             la = ia = share
             rest_after[("line", lid)] = line_rest - la
@@ -964,20 +969,20 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
         else:
             if (ctx["paid_line"].get(lid) or ctx["paid_invoice"].get(iid) or used_line[lid] or used_invoice[iid]
                     or p.get("line_amount") or p.get("invoice_amount")):
-                raise PackageError("a pair of two currencies is allocated only in whole")
+                raise explained(PackageError, "a pair of two currencies is allocated only in whole")
             if reconcile.meets(inv, line) is None:  # 137: a card purchase in the invoice's currency meets it too
-                raise PackageError("this line cannot pay an invoice of another currency")
+                raise explained(PackageError, "this line cannot pay an invoice of another currency")
             relation, _conv = reconcile.amount_relation(inv, line, ctx["snap"].get("fx_rates"))
             la, ia = line_total, invoice_total
             needs_reason |= relation not in ("fx_within", "equal")
         if la <= 0 or la > line_rest or ia > invoice_rest:
-            raise PackageError("the amount is over what the line or the invoice has left")
+            raise explained(PackageError, "the amount is over what the line or the invoice has left")
         used_line[lid] += la
         used_invoice[iid] += ia
         rows.append((iid, line["statement_id"], lid, str(la), str(ia)))
     needs_reason |= any(rest > 0 for rest in rest_after.values())
     if needs_reason and note is None:
-        raise PackageError("a split, or a pair outside the card band or without a rate, needs a reason")
+        raise explained(PackageError, "a split, or a pair outside the card band or without a rate, needs a reason")
 
     def write(c) -> list[dict[str, Any]]:
         now, ids = _now(), []
@@ -1016,7 +1021,7 @@ def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: s
     review page)."""
     note = (note or "").strip()
     if not note:
-        raise PackageError("a rejected pair needs a reason")
+        raise explained(PackageError, "a rejected pair needs a reason")
     ctx = _context(wp_id)
     inv = ctx["invoices"].get(invoice_doc_id)
     if inv is None:
@@ -1024,13 +1029,13 @@ def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: s
     line = _scope_line(ctx, line_id)
     _unlocked(ctx, [line_id])
     if any(a["invoice_id"] == invoice_doc_id and a["line_id"] == line_id for a in ctx["result"]["confirmed"]):
-        raise PackageError("the pair is allocated; revoke the allocation first")
+        raise explained(PackageError, "the pair is allocated; revoke the allocation first")
     key = reconcile.pair_key(invoice_doc_id, line_id)
 
     def write(c) -> dict[str, Any]:
         before = c.execute("SELECT run_id FROM reconcile_decisions WHERE pair_key=?", (key,)).fetchone()
         if before is not None and before["run_id"] and work.approved_runs([before["run_id"]]):
-            raise work.RevisionConflict("the pair was decided in an approved run; the decision is frozen")
+            raise explained(work.RevisionConflict, "the pair was decided in an approved run; the decision is frozen")
         c.execute("INSERT INTO reconcile_decisions(pair_key, invoice_doc_id, statement_doc_id, line_id, decision, signals,"
                   " amount_relation, run_id, actor, note, decided_at, workpackage_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
                   " ON CONFLICT(pair_key) DO UPDATE SET decision=excluded.decision, signals=excluded.signals,"
@@ -1050,7 +1055,7 @@ def mark(wp_id: str, line_ids: Iterable[str], *, category: str, note: str | None
     new mark replaces the line's earlier one."""
     ids = list(dict.fromkeys(line_ids))
     if not ids:
-        raise PackageError("no line to mark")
+        raise explained(PackageError, "no line to mark")
     return mark_each(wp_id, {lid: category for lid in ids}, note=note, actor=actor)
 
 
@@ -1059,19 +1064,19 @@ def mark_each(wp_id: str, marks: dict[str, str], *, note: str | None, actor: str
     suggestions differ), all or none; `basis` records the suggestion they came from (None: a person's own choice)."""
     note = (note or "").strip() or None
     if not marks:
-        raise PackageError("no line to mark")
+        raise explained(PackageError, "no line to mark")
     conf = _conf()
     for category in set(marks.values()):
         if category not in conf["line_marks"]:
-            raise PackageError(f"unknown reason: {category}")
+            raise explained(PackageError, "unknown reason: {{category}}", category=category)
         if category in conf["line_mark_note_required"] and note is None:
-            raise PackageError("this reason needs a note")
+            raise explained(PackageError, "this reason needs a note")
     ids = list(marks)
     ctx = _context(wp_id)
     lines = [_scope_line(ctx, lid) for lid in ids]
     _unlocked(ctx, ids)
     if any(ctx["paid_line"].get(lid) for lid in ids):
-        raise PackageError("a line has an allocation; revoke it first")
+        raise explained(PackageError, "a line has an allocation; revoke it first")
 
     def write(c) -> list[dict[str, Any]]:
         now, made = _now(), []
@@ -1094,14 +1099,14 @@ def unmark(wp_id: str, line_ids: Iterable[str], *, actor: str) -> int:
     undone at once); lines without a mark are skipped, but at least one must have one. Returns how many were revoked."""
     ids = list(dict.fromkeys(line_ids))
     if not ids:
-        raise PackageError("no line to unmark")
+        raise explained(PackageError, "no line to unmark")
     ctx = _context(wp_id)
     for lid in ids:
         _scope_line(ctx, lid)
     _unlocked(ctx, ids)
     marked = [ctx["marks"][lid]["id"] for lid in ids if lid in ctx["marks"]]
     if not marked:
-        raise PackageError("none of the lines is marked")
+        raise explained(PackageError, "none of the lines is marked")
 
     def write(c) -> int:
         now = _now()
@@ -1117,7 +1122,7 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
     """Revokes a decision on a line of the scope: an allocation or a mark (by id; the row stays, marked revoked), or a
     decision on a pair (`paid_by` / `not_this` by its pair key; a decision made on an approved run is frozen)."""
     if kind not in REVOKE_KINDS:
-        raise PackageError(f"unknown kind: {kind}")
+        raise explained(PackageError, "unknown kind: {{kind}}", kind=kind)
     ctx = _context(wp_id)
     note = (note or "").strip() or None
     table = {"allocation": "reconcile_allocations", "mark": "reconcile_line_marks"}.get(kind)
@@ -1133,7 +1138,7 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
         _scope_line(ctx, ctx["snap"].get("line_map", {}).get(row["line_id"], row["line_id"]))
     _unlocked(ctx, [row["line_id"], ctx["snap"].get("line_map", {}).get(row["line_id"], row["line_id"])])
     if kind == "decision" and row["run_id"] and work.approved_runs([row["run_id"]]):
-        raise work.RevisionConflict("the pair was decided in an approved run; the decision is frozen")
+        raise explained(work.RevisionConflict, "the pair was decided in an approved run; the decision is frozen")
 
     def write(c) -> None:
         if table == "reconcile_allocations":
@@ -1207,7 +1212,7 @@ def _scope_statement(wp_id: str, line_id: str) -> dict[str, Any]:
     if statement is None:
         raise KeyError(line_id)
     if statement["id"] not in set(snap["scope_statements"]):
-        raise PackageError("the line is not in the package's scope")
+        raise explained(PackageError, "the line is not in the package's scope")
     return statement
 
 
@@ -1298,8 +1303,8 @@ def _delete_guard(c, wp_id: str) -> None:
     to it)."""
     for table in ("reconcile_allocations", "reconcile_line_marks", "reconcile_decisions", "reconcile_versions"):
         if c.execute(f"SELECT 1 FROM {table} WHERE workpackage_id=? LIMIT 1", (wp_id,)).fetchone() is not None:
-            raise work.NotReady("a reconciliation package with decisions can only be archived",
-                                [{"code": "has_decisions", "message": "The package has decisions: it can only be hidden."}])
+            raise explained(work.NotReady, "a reconciliation package with decisions can only be archived",
+                            [{"code": "has_decisions", "message": "The package has decisions: it can only be hidden."}])
     c.execute("DELETE FROM reconcile_scopes WHERE workpackage_id=?", (wp_id,))
 
 

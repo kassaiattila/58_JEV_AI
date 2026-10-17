@@ -376,8 +376,24 @@ class VerifySite:
         def fit(budget: int | None) -> tuple[dict[str, Any], dict[str, Noul]]:
             return self._fit_budget(full_state, questions, lines, evidence, budget), questions
 
+        omitted: list[str] = []
+
+        def last_resort(_budget: int) -> tuple[dict[str, Any], dict[str, Noul]] | None:
+            """167 (review AI-10): the third fitting step, only after the request and its tighter retry were both too
+            large: no source lines, and the pack's lists (line items, transactions) left out of the extraction. The
+            questions do not change; each list left out is a to-do (`jev:list_omitted:<field>`), so its rows never
+            pass as checked. None: the extraction has no list to leave out."""
+            lists = [f for f in self.pack.list_fields if d.get(f)]
+            if not lists:
+                return None
+            omitted.extend(lists)
+            state = {k: v for k, v in full_state.items() if k != "source_lines"}
+            state["extraction"] = {k: v for k, v in d.items() if k not in lists}
+            return state, questions
+
         result, _, _ = ask_within_budget(
-            jev, self.request_id, fit, self.request_char_budget, self._size, run_id=run_id, use_cache=use_cache, config_hash=self.config_hash
+            jev, self.request_id, fit, self.request_char_budget, self._size, last_resort=last_resort, run_id=run_id,
+            use_cache=use_cache, config_hash=self.config_hash
         )
         response = result.response
 
@@ -390,7 +406,8 @@ class VerifySite:
                 flags.setdefault(field, {})[flag] = p
             else:
                 doc_flags[qid] = p
-        verdicts = JevVerdicts(flags=flags, doc_flags=doc_flags, unsupported=unsupported, model=getattr(response, "model", None))
+        verdicts = JevVerdicts(flags=flags, doc_flags=doc_flags, unsupported=unsupported, model=getattr(response, "model", None),
+                               omitted=omitted)
         return verdicts, result.call
 
 

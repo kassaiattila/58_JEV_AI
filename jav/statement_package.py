@@ -36,6 +36,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from jav import cfg, parties, reconcile, statement_months, statement_table, store, typepack, work
+from jav.user_messages import explained
 
 KIND = "statements"
 NOT_A_STATEMENT = "statements:not_a_statement"
@@ -76,17 +77,17 @@ def _day(value: Any, what: str) -> date:
     try:
         return date.fromisoformat(str(value)[:10])
     except ValueError as exc:
-        raise PackageError(f"{what}: an ISO date is required") from exc
+        raise explained(PackageError, "{{what}}: an ISO date is required", what=what) from exc
 
 
 def _checked(party_id: str, period_start: Any, period_end: Any) -> tuple[dict[str, Any], str, str]:
     try:
         party = parties.get(party_id)
     except KeyError:
-        raise PackageError(f"no own party {party_id}") from None
+        raise explained(PackageError, "no own party {{party_id}}", party_id=party_id) from None
     start, end = _day(period_start, "period_start"), _day(period_end, "period_end")
     if start > end:
-        raise PackageError("the period ends before it starts")
+        raise explained(PackageError, "the period ends before it starts")
     return party, start.isoformat(), end.isoformat()
 
 
@@ -157,7 +158,7 @@ def _sources(paths: Iterable[Path]) -> _Found:
             out.skipped.append({"file": p.name, "reason": "neither a statement export nor a PDF"})
     limit = int(cfg.load(statement_table.CONFIG)["limits"]["max_files"])
     if len(pdfs) > limit:
-        raise PackageError(f"more than {limit} PDF files")
+        raise explained(PackageError, "more than {{limit}} PDF files", limit=limit)
     read = {(a.source or {}).get("sha256") for r in out.readings for a in r.accounts}  # 141: the text statements
     read |= {(a.source or {}).get("companion", {}).get("sha256") for r in out.readings for a in r.accounts
              if (a.source or {}).get("companion")}
@@ -273,16 +274,17 @@ def _chosen(found: _Found, statements: list[str], pdfs: list[str]) -> tuple[list
     wanted = set(statements)
     ids = {statement_table.derived_id(r, a): (r, a) for r in found.readings for a in r.accounts}
     if missing := wanted - set(ids):
-        raise PackageError(f"{len(missing)} chosen statement(s) are no longer in the files; survey them again")
+        raise explained(PackageError, "{{missing}} chosen statement(s) are no longer in the files; survey them again",
+                        missing=len(missing))
     listed = {str(p): p for p in found.pdfs}
     picked = []
     for raw in pdfs:
         p = Path(raw).resolve()
         if str(p) not in listed:
-            raise PackageError(f"not a PDF of the survey: {p.name}")
+            raise explained(PackageError, "not a PDF of the survey: {{name}}", name=p.name)
         picked.append(p)
     if not wanted and not picked:
-        raise PackageError("choose at least one statement or PDF")
+        raise explained(PackageError, "choose at least one statement or PDF")
     entries: list[tuple[Path, str]] = []
     for r in found.readings:
         keys = [a.key for a in r.accounts if statement_table.derived_id(r, a) in wanted]
@@ -321,7 +323,8 @@ def add(wp_id: str, *, paths: list[Path], statements: list[str], pdfs: list[str]
     entries, wanted, picked = _chosen(_sources(paths), statements, pdfs)
     held = _held(wp_id)
     if dup := (wanted | {work.sha256_file(p) for p in picked}) & held:
-        raise PackageError(f"{len(dup)} chosen statement(s) or PDF(s) are already in the package; survey them again")
+        raise explained(PackageError, "{{dup}} chosen statement(s) or PDF(s) are already in the package; survey them again",
+                        dup=len(dup))
     return work.add_entries(wp_id, entries, expected_revision=expected_revision,
                             event=("statement_add", actor, {"statements": len(wanted), "pdfs": len(picked)}))
 
@@ -329,7 +332,7 @@ def add(wp_id: str, *, paths: list[Path], statements: list[str], pdfs: list[str]
 def _package(wp_id: str) -> dict[str, Any]:
     wp = work.get(wp_id)
     if wp["source_kind"] != KIND:
-        raise PackageError("not a statement package")
+        raise explained(PackageError, "not a statement package")
     return wp
 
 
@@ -373,7 +376,13 @@ def package_view(wp_id: str) -> dict[str, Any]:
                      "rank": statement_months.rank_name(st), "work_run": st.get("work_run"),
                      "replaced_by": res.replaced[sid].new if sid in res.replaced else None,
                      "replaces": sorted(old for old, rep in res.replaced.items() if rep.new == sid), "conflicts": conflicts})
-    return {"scope": sc, "statements": rows}
+    return {"scope": sc, "statements": sorted(rows, key=_in_order)}
+
+
+def _in_order(row: dict[str, Any]) -> tuple[bool, str, str, str]:
+    """167 (review 153 E): the statements by account and then in time; a statement not read yet comes last, by file
+    name. They were listed in the order they were added (by file name), so the months of several years interleaved."""
+    return (row.get("period_start") is None, row.get("account") or "", row.get("period_start") or "", row["file"])
 
 
 # --- in a run (the worker asks these through work.package_rule) ----------------------------------------------------------

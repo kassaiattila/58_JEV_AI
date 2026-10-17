@@ -49,6 +49,8 @@ describe("munkacsomag szakaszai", () => {
     expect(st.review).toBe("53 teendő");
     expect(st.result).toBe("próba-eredmény");
     expect(stageStatus(view({ last_run: { ...run, mode: "apply", status: "done", open_reasons: 0, approval: "approved" }, runs: 1 })).result).toBe("kiadva");
+    // 167: a stopped live run waits for no approval
+    expect(stageStatus(view({ last_run: { ...run, mode: "apply", status: "cancelled", open_reasons: 0, approval: null }, runs: 1 })).result).toBe("nem hagyható jóvá");
   });
 });
 

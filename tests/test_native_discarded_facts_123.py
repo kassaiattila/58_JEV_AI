@@ -12,7 +12,7 @@ from jav import flow_native, native_results, store
 from jav.readers.interpretation import DiscardedFact, Interpretation, ProposedExtraction, salvage
 from jav.readers.pipeline import digest, json_bytes
 from jav.runtime import calls
-from native_fixtures_109 import runtime_source, synthetic_gpt
+from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
 VALID = {"entity": "order", "property": "code", "value": "0012", "state": "stated",
          "citations": [{"occurrence_id": "o0", "element_id": "e0", "quote": "Order code: 0012"}]}

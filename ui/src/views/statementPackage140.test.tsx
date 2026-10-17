@@ -2,7 +2,7 @@
 // surveyed before it is made, and only the ticked statements and PDFs are sent; the package's page shows each item's
 // statement. Synthetic names and made-up accounts only; the local service is replaced by spies. Expectations use the
 // English interface; a separate check makes sure every new label has a Hungarian translation.
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   api, setActor, type OwnParty, type PartiesOverview, type PartyMonths, type StatementPackageSurvey, type StatementSurveyRow,
@@ -111,6 +111,20 @@ describe("a statement package is surveyed before it is made", () => {
     fireEvent.click(screen.getByRole("button", { name: "Survey the files" }));
     await screen.findByRole("table", { name: "Statements in the files" });
     fireEvent.change(screen.getByLabelText("The statements' folder"), { target: { value: "C:\\other" } });
+    expect(screen.queryByRole("table", { name: "Statements in the files" })).toBeNull();
+  });
+
+  it("drops a late survey answer when what is surveyed changed meanwhile (167, review 160 U-3)", async () => {
+    vi.spyOn(api, "parties").mockResolvedValue(OVERVIEW);
+    vi.spyOn(api, "partyMonths").mockResolvedValue(MONTHS);
+    let answer: (v: typeof SURVEY) => void = () => {};
+    vi.spyOn(api, "statementPackageSurvey").mockReturnValue(new Promise((r) => { answer = r; }));
+    render(<StatementPackageCreate onDone={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("radio", { name: /Example Kft\./ }));
+    fireEvent.change(screen.getByLabelText("The statements' folder"), { target: { value: "C:\\statements" } });
+    fireEvent.click(screen.getByRole("button", { name: "Survey the files" }));
+    fireEvent.change(screen.getByLabelText("The statements' folder"), { target: { value: "C:\\other" } });
+    await act(async () => { answer(SURVEY); });
     expect(screen.queryByRole("table", { name: "Statements in the files" })).toBeNull();
   });
 });

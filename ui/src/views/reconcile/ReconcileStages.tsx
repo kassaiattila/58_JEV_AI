@@ -126,7 +126,11 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
             {(parties.data?.parties ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         </label>
-        {accounts.data ? <AccountChecklist accounts={accounts.data.accounts} chosen={chosen} onChange={setChosen} partyId={partyId || null} /> : <p className="muted">{t("Loading…")}</p>}
+        {/* 167 (review 160 U-11): a failed load says so instead of "Loading…" for ever */}
+        {parties.error ? <p className="notice error small" role="alert">{parties.error.message}</p> : null}
+        {accounts.error ? <p className="notice error" role="alert">{accounts.error.message}</p>
+          : accounts.data ? <AccountChecklist accounts={accounts.data.accounts} chosen={chosen} onChange={setChosen} partyId={partyId || null} />
+          : <p className="muted">{t("Loading…")}</p>}
         <div className="rc-period">
           <label className="block">{t("Period from")}<input type="date" value={start} disabled={readOnly} onChange={(e) => setStart(e.target.value)} /></label>
           <label className="block">{t("to")}<input type="date" value={end} disabled={readOnly} onChange={(e) => setEnd(e.target.value)} /></label>

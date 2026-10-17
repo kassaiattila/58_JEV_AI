@@ -23,7 +23,8 @@ export function canonical(value: bigint): string {
   return `${sign}${whole}.${frac}`;
 }
 
-const GROUPED: Record<string, RegExp> = { ".": /^\d{1,3}(?:\.\d{3})+$/, ",": /^\d{1,3}(?:,\d{3})+$/ };
+// 167 (review 160 U-10): a group never starts with a lone 0 ("0,125" in English is not 125)
+const GROUPED: Record<string, RegExp> = { ".": /^[1-9]\d{0,2}(?:\.\d{3})+$/, ",": /^[1-9]\d{0,2}(?:,\d{3})+$/ };
 
 /** What a person types → a scaled integer; null when it is not a number or can be read two ways (153, review A1: the
  *  page dropped every point in Hungarian, so "60.50" became 6050 and a pair was saved a hundred times too large). The
@@ -33,6 +34,12 @@ const GROUPED: Record<string, RegExp> = { ".": /^\d{1,3}(?:\.\d{3})+$/, ",": /^\
  *  "1.234.567" in Hungarian), otherwise it reads two ways ("60.50" in Hungarian); with both marks the last one is the
  *  decimal mark ("12.345,67", "12,345.67"). Spaces group thousands. Only zeros read as zero either way. */
 export function parseInput(text: string | null | undefined): bigint | null {
+  // 167 (review 160 U-10): an amount has at most two decimals; the service refuses more, so the page does too
+  const value = readTyped(text);
+  return value !== null && value % 100n !== 0n ? null : value;
+}
+
+function readTyped(text: string | null | undefined): bigint | null {
   const s = (text ?? "").replace(/[\s  ]/g, "");
   if (!/^-?[\d.,]+$/.test(s) || !/\d/.test(s)) return null;
   if (!/[1-9]/.test(s)) return 0n;

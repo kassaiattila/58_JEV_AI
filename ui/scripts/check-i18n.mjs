@@ -67,6 +67,8 @@ export function serverKeys() {
   const keys = new Set();
   const py = fs.readFileSync(path.join(ROOT, "jav", "datasets.py"), "utf8");
   for (const m of py.matchAll(/_col\(\s*(?:f?"[^"]*"|[a-z_]+)\s*,\s*"([^"]+)"/g)) keys.add(m[1]);
+  // 167 (review 160 U-15): the export's fixed columns are (key, label, kind) triples (`_DOC_KEYS`, `_DP_KEYS`, `_LI_KEYS`)
+  for (const m of py.matchAll(/\(\s*"[a-z_]+"\s*,\s*"([^"]+)"\s*,\s*"(?:text|id|enum|number|date|datetime|money|bool)"\s*\)/g)) keys.add(m[1]);
   const ds = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "datasets.json"), "utf8"));
   for (const group of Object.values(ds.labels)) for (const v of Object.values(group)) keys.add(v);
   const fl = JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "field_labels.json"), "utf8"));

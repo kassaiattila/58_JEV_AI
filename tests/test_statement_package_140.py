@@ -287,6 +287,15 @@ def test_the_packages_view_shows_each_items_statement_state(db):
     assert all(s["account"] == "…6666" for s in view["statements"])
 
 
+def test_the_statements_are_listed_by_account_and_in_time_with_the_unread_last():
+    """167 (review 153 E): not in the order of their file names, which interleaved the months of several years."""
+    rows = [{"file": "a-2023-10.xlsx", "account": "…1111", "period_start": "2023-10-01"},
+            {"file": "b.pdf", "account": None, "period_start": None},
+            {"file": "c-2022-11.xlsx", "account": "…1111", "period_start": "2022-11-01"},
+            {"file": "d-2024-01.xlsx", "account": "…0000", "period_start": "2024-01-01"}]
+    assert [r["file"] for r in sorted(rows, key=sp._in_order)] == ["d-2024-01.xlsx", "c-2022-11.xlsx", "a-2023-10.xlsx", "b.pdf"]
+
+
 def test_a_package_with_its_scope_can_be_deleted_before_a_run(db):
     wp = _package(db, _party())
     work.delete_workpackage(wp, actor="tester")

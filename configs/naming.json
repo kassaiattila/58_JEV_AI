@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "naming",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "changelog": [
+   {
+    "version": "1.5.0",
+    "date": "2026-10-17",
+    "note": "167 (review AI-7): the llm:truncated to-do (GPT's extraction cut off at its output cap, nothing extracted) is about the whole document, like llm:failed: its copy goes to the review folder."
+   },
    {
     "version": "1.4.0",
     "date": "2026-10-10",
@@ -105,6 +110,7 @@
   "validator:parties": "kind:name",
   "jev:parties_swapped": "kind:name",
   "llm:failed": "*",
+  "llm:truncated": "*",
   "jev_unavailable": "*",
   "signal:prompt_injection": "*",
   "ocr:escalation_blocked": "*"

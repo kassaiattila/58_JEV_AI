@@ -134,7 +134,9 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
         {notice ? <p className="small ok" role="status">{notice}</p> : null}
       </section>
 
-      {shown ? <StatementTables statement={shown} /> : <p className="muted">{t("Loading…")}</p>}
+      {/* 167 (review 160 U-11): the approved version that failed to load says so */}
+      {shown ? <StatementTables statement={shown} /> : approved.error ? <p className="notice error" role="alert">{approved.error.message}</p>
+        : <p className="muted">{t("Loading…")}</p>}
 
       {earlier.length ? <EarlierVersions wpId={wpId} versions={earlier} /> : null}
     </div>

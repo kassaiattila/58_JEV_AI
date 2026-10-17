@@ -73,8 +73,9 @@ def _year_hint(path: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
-@action.pydantic(reads=["source_path", "read_path"],
-                 writes=["text", "lines", "layout", "page_count", "has_text_layer", "text_source", "doc_id", "year"])
+@action.pydantic(reads=["source_path", "read_path", "review_reasons"],
+                 writes=["text", "lines", "layout", "page_count", "has_text_layer", "text_source", "doc_id", "year",
+                         "review_reasons"])
 def load_pdf(state: DetectState) -> DetectState:
     from jav.pdf import read_pdf
 
@@ -83,6 +84,9 @@ def load_pdf(state: DetectState) -> DetectState:
     state.page_count, state.has_text_layer, state.text_source = pdf.page_count, pdf.has_text_layer, pdf.text_source
     state.doc_id = _sha256(state.read_path or state.source_path)
     state.year = _year_hint(state.source_path)
+    if pdf.has_text_layer:  # 167 (AI-3): pages without a text layer of their own were neither read nor sent to OCR
+        state.review_reasons = state.review_reasons + [
+            r for r in policy.text_layer_coverage_reasons(pdf.page_count, pdf.pages_without_text) if r not in state.review_reasons]
     return state
 
 
@@ -239,8 +243,8 @@ def save(state: DetectState) -> DetectState:
         # after a rerun the type is certain: detect's own earlier reasons (errors too) are obsolete; others' stay open
         store.review_close(subject_kind="document", subject_id=state.doc_id, producer="detect", run_id=state.run_id)
     # Partial OCR (F07): the type may be certain, but the skipped pages are still to-dos; a separate producer so that
-    # closing detect does not close it.
-    coverage = [x for x in state.review_reasons if x.startswith("ocr:partial_pages:")]
+    # closing detect does not close it. 167 (AI-3): so are the pages without a text layer of their own.
+    coverage = [x for x in state.review_reasons if x.startswith(("ocr:partial_pages:", "pdf:pages_without_text:"))]
     if coverage:
         store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id, producer="ocr_coverage", reasons=coverage)
     else:
@@ -280,7 +284,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
     "edges": [("load_pdf", "ocr_pdf", "nincs szövegréteg"), ("load_pdf", "detect"), ("ocr_pdf", "needs_ocr", "nincs OCR / nincs szöveg"), ("ocr_pdf", "detect", "OCR-szöveg"),
               ("detect", "save"), ("save", "done")],
     "step_meta": {
-        "load_pdf": {"kind": "det", "note": "pdfplumber szó-szintű rekonstrukció, sha256 doc_id, év-hint a mappából; szövegréteg-teszt"},
+        "load_pdf": {"kind": "det", "note": "pdfplumber word-level reconstruction, sha256 doc_id, year hint from the folder; the text-layer test of the document and of each page (167: scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do, kept open by the ocr_coverage producer)"},
         "ocr_pdf": {"kind": "det", "note": "szöveg nélküli PDF: OCR (jav/ocr.py: oldalkép + tesseract, natív / régi sidecar-kép, lemez-gyorsítótár) ugyanarra az elrendezésre; minőségjelek a state-ben"},
         "detect": {"kind": "jev", "note": "egy kérés, három ítélet: Choice doc_type (regiszter + unknown), Noul issuer_is_hungarian, Choice language; anchor-találatok feature-ként; utána részletes típus a kategória csomagjai közül (jav/detect_detail.py: régi horgony-pontszám, szükség esetén JEV Choice). Without JEV: the same three questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/detect_gpt.py); a failed call is a detect:gpt_failed to-do"},
         "save": {"kind": "store", "note": "documents tábla (részletes típus is; nyitva maradt részletes típus = detect_detail teendő; a típuscsomag nélküli kategória is); conf < policy.detect.low_confidence -> review_queue (okonként, additív), különben a detect saját korábbi okai zárulnak"},

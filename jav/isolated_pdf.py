@@ -389,24 +389,44 @@ def _send_last(conn: Connection, reply: tuple[str, Any]) -> None:
 # --- the requests (run in the helper; every setting is a parameter) ---------------------------------------------------
 
 
+def image_share(images: list[dict[str, Any]], bbox: tuple[float, float, float, float]) -> float:
+    """167 (review AI-3): the share of a page (`bbox`: x0, top, x1, bottom in points) its images cover: each image is
+    clipped to the page and the areas are summed, at most 1. A scan is one image over the whole page (about 1.0); a
+    logo is a small corner."""
+    x0, top, x1, bottom = bbox
+    area = (x1 - x0) * (bottom - top)
+    if area <= 0:
+        return 0.0
+    covered = 0.0
+    for im in images:
+        w = min(float(im["x1"]), x1) - max(float(im["x0"]), x0)
+        h = min(float(im["bottom"]), bottom) - max(float(im["top"]), top)
+        if w > 0 and h > 0:
+            covered += w * h
+    return round(min(1.0, covered / area), 4)
+
+
 def extract_words(path: str, *, max_pages: int, x_tolerance: float, y_tolerance: float
-                  ) -> tuple[int, list[tuple[float, float]], list[list[dict[str, Any]]] | None]:
-    """The raw words of the text layer, page by page (pdfplumber), and the page sizes. Over `max_pages` pages only the
-    page count comes back (words: None), without parsing the pages. Each page is closed after its words are taken:
-    pdfplumber otherwise keeps every parsed page in memory (measured: 35 pages 326 MB → 49 MB, the same words)."""
+                  ) -> tuple[int, list[tuple[float, float]], list[list[dict[str, Any]]] | None, list[float]]:
+    """The raw words of the text layer, page by page (pdfplumber), the page sizes and (167) the share of each page its
+    images cover (`image_share`). Over `max_pages` pages only the page count comes back (words: None), without parsing
+    the pages. Each page is closed after its words are taken: pdfplumber otherwise keeps every parsed page in memory
+    (measured: 35 pages 326 MB → 49 MB, the same words)."""
     import pdfplumber
 
     with pdfplumber.open(path) as doc:
         n_pages = len(doc.pages)
         if n_pages > max_pages:
-            return n_pages, [], None
+            return n_pages, [], None, []
         sizes: list[tuple[float, float]] = []
         pages: list[list[dict[str, Any]]] = []
+        shares: list[float] = []
         for page in doc.pages:
             sizes.append((float(page.width), float(page.height)))
             pages.append(page.extract_words(x_tolerance=x_tolerance, y_tolerance=y_tolerance, keep_blank_chars=False))
+            shares.append(image_share(page.images, tuple(float(v) for v in page.bbox)))
             page.close()
-    return n_pages, sizes, pages
+    return n_pages, sizes, pages, shares
 
 
 def page_sizes(path: str) -> list[tuple[float, float]] | None:

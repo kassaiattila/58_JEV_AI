@@ -150,7 +150,7 @@ def test_schedule_tick_enqueues_once_per_slot(tmp_path):
         assert len(mailbox.tick(now)) == 1
         assert mailbox.tick(now) == []  # no second job in the same time slot
         assert len(mailbox.tick(now + timedelta(minutes=61))) == 1
-        mailbox.update_schedule(sch["id"], enabled=False)
+        mailbox.update_schedule(sch["id"], actor="t", enabled=False)
         assert mailbox.tick(now + timedelta(days=1)) == []
         assert queue.counts() == {"queued": 2}
 
@@ -168,8 +168,8 @@ def test_scheduled_pull_runs_in_the_worker_and_records_the_outcome(env, monkeypa
 
     # Outlook not running: the error shows on the schedule, the worker does not stop, the job is not repeated
     monkeypatch.setattr(mailbox, "_subprocess_runner", lambda argv, t: (1, "", "Outlook must already be running."))
-    mailbox.update_schedule(sch["id"], enabled=False)
-    mailbox.update_schedule(sch["id"], enabled=True)  # switching on = due at once
+    mailbox.update_schedule(sch["id"], actor="t", enabled=False)
+    mailbox.update_schedule(sch["id"], actor="t", enabled=True)  # switching on = due at once
     assert mailbox.schedule(sch["id"])["next_at"] <= mailbox._utc()
     # 139: a time slot is named to the second and downloads once; switched on within the second of the first download,
     # the slot would be the same, so the second download is moved to a slot of its own (it failed when the run was fast)

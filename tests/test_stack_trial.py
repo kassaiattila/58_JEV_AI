@@ -75,6 +75,7 @@ def test_real_burr_flow_resumes_after_model_and_saves_only_once(tmp_path, monkey
         run_trial("detect", str(source), tmp_path, "same-run", adapter)
 
 
+@pytest.mark.slow  # 167: two Python processes per case, 10-16 s each
 @pytest.mark.parametrize("point,expected_calls", [
     ("before_action:detect", 1), ("after_wire", 2),
     ("after_action:detect", 1), ("before_action:save", 1), ("after_action:save", 1),

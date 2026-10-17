@@ -18,7 +18,7 @@ import re
 import pytest
 
 from jav.readers import pipeline
-from test_reader_visual_108 import pdf_with_catalog_entry
+from tests.test_reader_visual_108 import pdf_with_catalog_entry
 
 SIGNATURE = (b"<< /FT /Sig /T (Signature1) /V << /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached"
              b" /ByteRange [0 10 20 10] /Contents <00> >> >>")
@@ -70,7 +70,7 @@ def test_embedded_files_stay_unopened_and_the_reading_is_partial(tmp_path):
 
 
 def test_a_signature_annotation_cycle_is_a_visible_gap_not_a_corrupt_file(tmp_path):
-    from test_reader_visual_108 import write_text_pdf
+    from tests.test_reader_visual_108 import write_text_pdf
     import re
 
     path = write_text_pdf(tmp_path / "cycle.pdf", ["Synthetic PDF content"])

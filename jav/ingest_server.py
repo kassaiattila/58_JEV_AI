@@ -43,6 +43,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+from jav import path_text
 from jav.config import BRIDGE_DATA_ROOT, OLD_DATA_ROOT, PROJECT_ROOT
 
 INBOX_ROOT = PROJECT_ROOT / "inbox"
@@ -94,9 +95,12 @@ def _inside_lexical(path: Path, root: Path) -> bool:
 def host_path(container_path: str) -> Path | None:
     """`/data/inbox/email/<acct>/<eid>/<file>` (container path) -> host file under a bridge `data/` root: first our own
     bridge root (048 T2, a download started from the local service), then the legacy project's `data/` folder (a bridge
-    running with the legacy settings). Only if the resolved path is inside the root and exists."""
+    running with the legacy settings). Only if the resolved path is inside the root and exists.
+    167 (review S-1): the rest after `/data/` must be a plain relative path by its text (`path_text.plain_relative`)
+    before it is joined or resolved: `/data///host/share/x.pdf` joined into a network path, and resolving it already
+    contacted the host."""
     m = _CONTAINER_DATA.match(container_path.replace("\\", "/"))
-    if not m:
+    if not m or not path_text.plain_relative(m.group(1)):
         return None
     for root in (BRIDGE_DATA_ROOT, OLD_DATA_ROOT):
         p = (root / m.group(1)).resolve()
@@ -349,18 +353,19 @@ class _Handler(BaseHTTPRequestHandler):
             resp: dict[str, Any] = {"run_id": res["receipt"].get("run_id"), "deduped": res["status"] == "duplicate",
                                     "version": res["version"], "ocr_policy": payload.get("ocr_policy") or "auto",
                                     "message_dir": str(folder)}
-            subj = str(payload.get("subject") or "")[:60]
+            # 167 (review S-6): a log line names the message by its folder (a hash of its id), never by its subject: in a
+            # mailbox download this output is the worker's, kept unrotated in runs/dev/worker.log
             if self.run_flow and res["status"] != "duplicate":
                 try:
                     out = _run_flow(folder)
                     record_run(folder, out.get("run_id"))
                     resp.update(out)
-                    print(f"[mail] {folder.name}  {subj!r} v{res['version']} -> {out.get('intent')} -> {out.get('next_flow')}")
+                    print(f"[mail] {folder.name} v{res['version']} -> {out.get('intent')} -> {out.get('next_flow')}")
                 except Exception as exc:  # noqa: BLE001 - the bridge must not get a 500 because of one bad message
                     resp["error"] = f"{type(exc).__name__}: {exc}"
-                    print(f"[mail] {folder.name}  {subj!r} HIBA: {resp['error']}")
+                    print(f"[mail] {folder.name} v{res['version']} error: {type(exc).__name__}")  # its text may quote the mail
             else:
-                print(f"[mail] {folder.name}  {subj!r}  v{res['version']}{'  (már volt, változatlan)' if resp['deduped'] else ''}")
+                print(f"[mail] {folder.name} v{res['version']}{' (already stored, unchanged)' if resp['deduped'] else ''}")
             self._json(200, resp)
             return
         self._json(404, {"error": "not found", "path": path[:200]})

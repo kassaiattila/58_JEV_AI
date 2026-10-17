@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type ItemResult } from "./api";
 import { setLanguage } from "./i18n";
 import { draftKey, getDraft, resetDrafts, setField } from "./review/drafts";
-import { FieldPanel } from "./review/FieldPanel";
+import { FieldPanel, otherCandidates } from "./review/FieldPanel";
 import { classifyFields, initialFilter } from "./review/fieldFilter";
 
 const RUN = "run-000000000083";
@@ -106,6 +106,38 @@ describe("083 tick and cross at the field", () => {
   it("an approved run cannot be confirmed", () => {
     render(panel(result(), { readOnly: true }));
     expect((screen.getByRole("button", { name: "Bankszámlaszám: helyes" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("167 (review 153 E) the review panel's repeats and dead ends", () => {
+  it("a failed check whose to-do is listed above is not listed a second time", () => {
+    const res = result({
+      open_reasons: [{ id: 3, reason: "validator:dates.due_before_issue", producer: "flow", run_id: RUN, field: null }],
+      checks: [{ name: "date_order", ok: false, code: "dates.due_before_issue" }],
+    } as Partial<ItemResult>);
+    render(panel(res));
+    expect(screen.getAllByText("A fizetési határidő korábbi a kiállításnál")).toHaveLength(1);
+  });
+
+  it("a cross-field to-do makes its fields the ones to fix", () => {
+    const res = result({ open_reasons: [{ id: 3, reason: "validator:dates.due_before_issue", producer: "flow", run_id: RUN, field: null }] });
+    expect(classifyFields(["invoice_number", "issue_date", "due_date"], res, BANDS).fix).toEqual(["issue_date", "due_date"]);
+  });
+
+  it("a corrected field does not show the machine's confidence", () => {
+    const res = result();
+    res.provenance.supplier_name = { ...res.provenance.supplier_name, corrected: true } as typeof res.provenance.supplier_name;
+    const { container } = render(panel(res));
+    const rows = [...container.querySelectorAll("li.frow")];
+    const supplier = rows.find((li) => li.textContent?.includes("Szállító neve")) as HTMLElement;
+    expect(supplier.querySelector(".band")).toBeNull();
+    expect(supplier.textContent).toContain("javítva");
+  });
+
+  it("the other candidates leave out the one equal to the current value", () => {
+    const alts = [{ value: "Adattenger Kft.", p: 0.4 }, { value: "Adattenger Zrt.", p: 0.3 }, { value: null, p: null, machine: true }];
+    expect(otherCandidates(alts, "Adattenger Kft. ").map((a) => a.value)).toEqual(["Adattenger Zrt.", null]);
+    expect(otherCandidates(alts, "")).toHaveLength(3);
   });
 });
 

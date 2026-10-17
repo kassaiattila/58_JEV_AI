@@ -36,6 +36,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav import cfg, export, naming, reconcile, reconcile_package as rp, store, work
+from jav.user_messages import explained
 
 FORMAT = 1  # the statement's content layout; a new layout bumps it (a stored version keeps its own)
 INVOICE_RESULTS = ("paid", "partly_paid", "credited", "undecided", "no_payment_found", "not_covered")
@@ -155,12 +156,13 @@ def approve(wp_id: str, *, fingerprint: str, actor: str) -> dict[str, Any]:
     state = rp._decision_state()  # read before the statement: a decision recorded after it is a conflict
     view = current(wp_id)
     if active := view["approval"]["active"]:
-        raise rp.PackageError(f"version {active['version']} is approved; reopen it before approving again")
+        raise explained(rp.PackageError, "version {{version}} is approved; reopen it before approving again",
+                        version=active["version"])
     if view["blockers"]:
-        raise work.NotReady("the statement cannot be approved yet",
-                            [{"code": b["code"], "message": b["file"] or b["doc_id"][:12]} for b in view["blockers"]])
+        raise explained(work.NotReady, "the statement cannot be approved yet",
+                        [{"code": b["code"], "message": b["file"] or b["doc_id"][:12]} for b in view["blockers"]])
     if fingerprint != view["fingerprint"]:
-        raise work.RevisionConflict("the statement changed since it was shown; reload it and check it again")
+        raise explained(work.RevisionConflict, "the statement changed since it was shown; reload it and check it again")
     content, line_ids = view["statement"], [ln["id"] for ln in view["statement"]["lines"]]
 
     def write(c) -> int:
@@ -178,14 +180,14 @@ def reopen(wp_id: str, *, note: str, actor: str) -> dict[str, Any]:
     """Reopens the approved version with a reason: its lock goes, it stays as an earlier version."""
     note = (note or "").strip()
     if not note:
-        raise rp.PackageError("reopening needs a reason")
+        raise explained(rp.PackageError, "reopening needs a reason")
     rp.scope(wp_id)
     with store.connect() as c:
         store.begin_immediate(c)
         row = c.execute("SELECT id, version FROM reconcile_versions WHERE workpackage_id=? AND reopened_at IS NULL",
                         (wp_id,)).fetchone()
         if row is None:
-            raise rp.PackageError("the package has no approved statement to reopen")
+            raise explained(rp.PackageError, "the package has no approved statement to reopen")
         c.execute("UPDATE reconcile_versions SET reopened_by=?, reopened_at=?, reopen_note=? WHERE id=?",
                   (actor, _now(), note, row["id"]))
         work.record_event(c, wp_id, "reconcile_reopen", actor, {"version": row["version"], "note": note})
@@ -197,11 +199,12 @@ def accept_sources(wp_id: str, doc_ids: Iterable[str], *, actor: str) -> int:
     132): each must be such a blocker of the package; who and when is recorded. Returns how many were accepted."""
     ids = list(dict.fromkeys(doc_ids))
     if not ids:
-        raise rp.PackageError("no document to accept")
+        raise explained(rp.PackageError, "no document to accept")
     ws = rp.workspace(wp_id)
     blocking = {b["doc_id"] for b in ws["blockers"] if b["code"] == "source_no_run"}
     if unknown := [d for d in ids if d not in blocking]:
-        raise rp.PackageError(f"not a command-line source of this package: {', '.join(d[:12] for d in unknown)}")
+        raise explained(rp.PackageError, "not a command-line source of this package: {{items}}",
+                        items=", ".join((d[:12] for d in unknown)))
     snap, _sc = rp.scoped_snapshot(wp_id)
     results = {d["id"]: str(d.get("flow_run_id")) for d in [*snap["invoices"], *snap["statements"]]}
     with store.connect() as c:

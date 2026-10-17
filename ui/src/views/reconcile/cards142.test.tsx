@@ -116,6 +116,20 @@ describe("the cards of the pairing page (142)", () => {
     ]);
   });
 
+  it("a held Enter (key repeat) or one while saving accepts only once (167, review 160 U-6)", async () => {
+    vi.spyOn(api, "reconcileLocate").mockResolvedValue(located(lineId(1)));
+    let release: (v: typeof ws) => void = () => {};
+    const allocate = vi.spyOn(api, "reconcileAllocate").mockReturnValue(new Promise((r) => { release = r; }));
+    cards();
+    fireEvent.keyDown(window, { key: "Enter", repeat: true });
+    expect(allocate).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: "Enter" });
+    fireEvent.keyDown(window, { key: "Enter" }); // still saving the first one
+    expect(allocate).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Saving…")).toBeTruthy(); // 167 (review 153 E): a slow save says so
+    release(ws);
+  });
+
   it("lists the overdue invoice and the possible double payment under their chips", async () => {
     const locate = vi.spyOn(api, "reconcileLocate").mockResolvedValue(located(lineId(5)));
     cards();

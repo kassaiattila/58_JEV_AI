@@ -32,6 +32,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav import policy, reconcile, reconcile_package, work
+from jav.user_messages import explained
 
 GROUPS = ("sure_pairs", "earlier", "bank_category", "salary_rule", "ai_sure", "ai_review", "expects_invoice", "rest")
 ACTIONS = {"sure_pairs": "pair", "expects_invoice": "none", "rest": "none"}  # every other group marks a reason
@@ -144,15 +145,16 @@ def accept(wp_id: str, group: str, line_ids: Iterable[str], *, actor: str) -> in
     """A person accepts the group's suggestion for the given lines: all or none, and only lines still in the group
     (`work.RevisionConflict` otherwise: the view was stale). Returns how many lines were decided."""
     if group not in GROUPS:
-        raise ReviewError(f"unknown group {group!r}")
+        raise explained(ReviewError, "unknown group {{group}}", group=repr(group))
     if ACTIONS.get(group) == "none":
-        raise ReviewError(f"the {group} group has nothing to accept")
+        raise explained(ReviewError, "the {{group}} group has nothing to accept", group=group)
     ids = list(dict.fromkeys(line_ids))
     if not ids:
-        raise ReviewError("no line to accept")
+        raise explained(ReviewError, "no line to accept")
     current = {ln["id"]: ln for g in review(wp_id)["groups"] if g["id"] == group for ln in g["lines"]}
     if gone := [lid for lid in ids if lid not in current]:
-        raise work.RevisionConflict(f"{len(gone)} line(s) are no longer in this group: reload the quick review")
+        raise explained(work.RevisionConflict, "{{gone}} line(s) are no longer in this group: reload the quick review",
+                        gone=len(gone))
     if group == "sure_pairs":
         pairs = [{"invoice_doc_id": inv["id"], "line_id": lid} for lid in ids for inv in current[lid]["invoices"]]
         return len({row["line_id"] for row in reconcile_package.allocate(wp_id, pairs, note=None, actor=actor)})

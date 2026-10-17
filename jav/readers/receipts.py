@@ -5,15 +5,13 @@ are not log messages and do not imply that a returned proposal was accepted.
 """
 from __future__ import annotations
 
-from decimal import Decimal
-
 from pydantic import ValidationError
 from pydantic_ai import capture_run_messages
 from pydantic_ai.exceptions import UnexpectedModelBehavior
 from pydantic_ai.messages import ModelMessagesTypeAdapter, ModelResponse
 from pydantic_ai.usage import UsageLimits
 
-from jav.extract_llm import _price_for
+from jav.config import openai_cost
 from jav.runtime import calls
 
 
@@ -60,11 +58,7 @@ def run_gpt_once(agent, prompt: str, settings: dict, requested_model: str) -> ca
             usage = answer.usage() if callable(answer.usage) else answer.usage
             actual = getattr(getattr(answer, "response", None), "model_name", None) or requested_model
             proposal = answer.output.model_dump(mode="json")
-        price = _price_for(actual)
-        known_usage = not hasattr(usage, "has_values") or usage.has_values()
-        cost = None if price is None or not known_usage else (
-            Decimal(usage.input_tokens or 0) * Decimal(str(price[0]))
-            + Decimal(usage.output_tokens or 0) * Decimal(str(price[1]))) / Decimal(1_000_000)
+        cost = openai_cost(usage, requested=requested_model, actual=actual)  # 167 (AI-12): the shared price rule
         return calls.Outcome(response={"proposal": proposal, "actual_model": actual,
             "validation_error": failure,
             "provider_responses": ModelMessagesTypeAdapter.dump_python(responses, mode="json")},

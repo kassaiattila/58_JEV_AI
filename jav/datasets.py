@@ -260,6 +260,8 @@ def _workpackages(scope: dict[str, str]) -> Rows:
             for r in work_views.workpackage_list(include_archived=archived)]
     for r in rows:
         r.pop("next", None)
+        if r.get("source_kind") == "reconcile":  # 167 (review 153 E): its lines are not items; "0" read as empty
+            r["items"] = None
     if scope.get("owner"):  # 061: "Saját csomagjaim" (My packages) — the owner's name, case-insensitive
         who = " ".join(scope["owner"].split()).casefold()
         rows = [r for r in rows if (r.get("owner") or "").casefold() == who]
@@ -352,6 +354,12 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
+def shown_final(final_status: str | None, open_reasons: int) -> str | None:
+    """167 (review 153 E): an item that ended with to-dos and has none open now reads "to-dos settled", not "to-dos"
+    (the flow's own final status does not change when a person settles them)."""
+    return "settled" if final_status == "needs_review" and not open_reasons else final_status
+
+
 def _run_items(scope: dict[str, str]) -> Rows:
     from jav import naming
 
@@ -381,7 +389,8 @@ def _run_items(scope: dict[str, str]) -> Rows:
         split = splits[i["item_id"]]
         rows.append({"_key": i["item_id"], "_wp": run["workpackage_id"], "_run": run["run_id"], "item_id": i["item_id"],
                      **_name_fields(i, titles, names[i["item_id"]], choice), "kind": i.get("kind") or "document", "status": r.get("status"),
-                     "final_status": r.get("final_status"), "error": r.get("error"), "updated_at": r.get("updated_at"),
+                     "final_status": shown_final(r.get("final_status"), len(split["run"])), "error": r.get("error"),
+                     "updated_at": r.get("updated_at"),
                      # 150: the reasons left by trial runs are not counted (the review page hides them by default)
                      "open_reasons": len(split["run"]), "earlier_reasons": sum(not r["trial"] for r in split["earlier"]),
                      **_cost_fields(spent.items[i["item_id"]])})
@@ -516,8 +525,9 @@ _DP_KEYS = _DOC_KEYS[:3] + [("field", "Mező", "enum"), ("value", "Érték", "te
                             ("field_reason", "Teendő a mezőn", "enum")]
 _LI_KEYS = _DOC_KEYS[:3] + [("list", "Lista", "enum"), ("row", "Sor", "number"), ("page", "Oldal", "number")]
 _HIDDEN = {"item_id"}
+# 167 (review 153 E): the export's "igen" marks (corrected, a to-do on the field) are enumerated, so English shows "yes"
 _LABELS = {"final_status": "final_status", "place": "provenance", "field": "field", "list": "field", "doc_type": "doc_type",
-           "duplicate": "duplicate", "direction": "direction"}
+           "duplicate": "duplicate", "direction": "direction", "corrected": "yes", "field_reason": "yes"}
 
 
 def _fixed(keys: list[tuple[str, str, str]]) -> list[Column]:

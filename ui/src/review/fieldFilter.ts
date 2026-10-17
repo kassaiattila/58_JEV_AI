@@ -14,8 +14,17 @@ export const isConfirmed = (res: ItemResult, f: string) => Object.prototype.hasO
 
 /** The fields of each filter, in the given order. A corrected or confirmed field is not uncertain any more: a person
  *  has set or checked it. */
+/** 167 (review 153 E): a check across fields raises its to-do on the document; its fields are the ones to fix, so the
+ *  "to fix" filter reaches them (it showed 0 for a due date before the issue date). */
+const CROSS_FIELDS: Record<string, string[]> = {
+  "validator:dates.due_before_issue": ["issue_date", "due_date"],
+  "validator:dates.unparseable": ["issue_date", "due_date"],
+  "validator:totals.mismatch": ["net_total", "vat_total", "gross_total"],
+  "validator:totals.unparseable": ["net_total", "vat_total", "gross_total"],
+};
+
 export function classifyFields(fields: string[], res: ItemResult, bands: Bands): Record<FieldFilter, string[]> {
-  const withReason = new Set(res.open_reasons.map((r) => r.field).filter((f): f is string => Boolean(f)));
+  const withReason = new Set(res.open_reasons.flatMap((r) => (r.field ? [r.field] : CROSS_FIELDS[r.reason] ?? [])));
   const weak = (f: string) => {
     const p = res.provenance[f];
     const band = bandOf(p?.confidence, bandsFor(p, bands));

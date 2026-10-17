@@ -693,7 +693,7 @@ th:hover .th-filter, .th-filter:focus-visible, .th-filter[aria-expanded="true"] 
 /* 058: managing the work package (rename, hide, delete) */
 .menu-list { display: grid; gap: 2px; min-width: 260px; }
 .menu-item { background: none; border: 0; border-radius: 5px; padding: 9px 11px; text-align: left; display: flex; align-items: center; gap: 8px; font-weight: 500; }
-.menu-item:hover:not(:disabled) { background: var(--tint); color: var(--accent); box-shadow: inset 3px 0 var(--accent); }
+.menu-item:hover:not(:disabled) { background: var(--tint); color: var(--ink); } /* 167 (U-16): no side stripe, no accent */
 .menu-item.danger-text:hover:not(:disabled) { color: var(--error); background: var(--error-tint); } /* 157: no side stripe */
 .danger-text { color: var(--error); }
 .danger { background: var(--error); border: 1px solid var(--error); color: var(--error-ink); padding: 7px 14px; font-weight: 600; } /* 157: readable on the dark theme's light red */

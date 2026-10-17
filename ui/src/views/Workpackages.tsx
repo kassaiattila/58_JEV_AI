@@ -27,7 +27,7 @@ function WorkpackageList() {
         summary={t("Egy munkacsomag iratai együtt futnak: feldolgozás, ellenőrzés, eredmény. A „Következő lépés” oszlop megmutatja, hol tart.")}
         actions={<button type="button" className="primary" onClick={() => setCreating((v) => !v)} aria-expanded={creating}>{t("Új munkacsomag")}</button>} />
       {creating ? <CreateForm onDone={(id) => go({ view: "workpackages", wpId: id, stage: "process" })} /> : null}
-      <DataTable dataset="workpackages" label={t("Munkacsomagok")} onPage={(pg) => setCount(pg.total)} pollMs={10000}
+      <DataTable dataset="workpackages" label={t("Munkacsomagok")} onPage={(pg) => setCount(pg.matched)} pollMs={10000}
         scope={Object.keys(scope).length ? scope : undefined}
         toolbar={<>
           <label className="check small" title={actor ? undefined : t("Előbb válaszd ki a neved fent")}>

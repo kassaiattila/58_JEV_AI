@@ -15,8 +15,8 @@ from jav.readers import providers
 from jav.readers.interpretation import ProposedExtraction
 from jav.readers.interpretation import ground, source_view
 from jav.runtime import calls
-from native_fixtures_109 import runtime_source
-from native_fixtures_109 import synthetic_gpt
+from tests.native_fixtures_109 import runtime_source
+from tests.native_fixtures_109 import synthetic_gpt
 
 
 def workbook(*, rows=1, hyperlink=False):
@@ -168,7 +168,7 @@ def test_currency_cannot_silently_be_accepted_as_hours(tmp_path, monkeypatch, pr
 def test_legacy_interpretation_digest_does_not_gain_new_optional_fields(tmp_path, monkeypatch):
     from jav.readers.interpretation import Interpretation
     from jav.readers.pipeline import digest, json_bytes
-    from native_fixtures_109 import publish_runtime
+    from tests.native_fixtures_109 import publish_runtime
 
     with store.use_store(tmp_path / "native.sqlite"):
         _, ref = runtime_source(tmp_path, monkeypatch)

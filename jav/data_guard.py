@@ -197,6 +197,7 @@ class Guard:
     def __init__(self, conf: dict[str, Any], *, env_secrets: dict[str, str]) -> None:
         self.conf = conf
         self.patterns = {k: re.compile(v) for k, v in conf["patterns"].items()}
+        self.patterns["card_number"] = card_numbers.CARD  # 167 (review S-3): the masking's own pattern, not a copy
         self.key_patterns = [re.compile(p) for p in conf["api_key_patterns"]]
         self.allow = {k: {normalize(k, v) for v in vals} for k, vals in conf.get("allow", {}).items()}
         self.email_domains = {d.lower() for d in conf.get("email_domains_ok", [])}

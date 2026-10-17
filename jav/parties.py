@@ -38,6 +38,7 @@ from itertools import combinations
 from typing import Any, Callable, Iterable
 
 from jav import cfg, fact_checks, store
+from jav.user_messages import explained
 
 KINDS = ("tax", "name", "account")
 NAME_MAX = 200
@@ -144,20 +145,20 @@ def _joins(a: str, b: str) -> bool:
 
 def _canonical(kind: str, key: Any) -> str:
     if kind not in KINDS:
-        raise PartyError(f"unknown identity kind: {kind}")
+        raise explained(PartyError, "unknown identity kind: {{kind}}", kind=kind)
     if kind == "name":
         out = name_key(key)
     else:
         out = str(key or "").strip() or None
     if not out:
-        raise PartyError(f"an empty {kind} identity")
+        raise explained(PartyError, "an empty {{kind}} identity", kind=kind)
     return out
 
 
 def _name(value: str) -> str:
     name = " ".join(str(value or "").split())
     if not name or len(name) > NAME_MAX:
-        raise PartyError(f"a party's name is 1 to {NAME_MAX} characters")
+        raise explained(PartyError, "a party's name is 1 to {{name_max}} characters", name_max=NAME_MAX)
     return name
 
 
@@ -271,7 +272,7 @@ def release(kind: str, key: str, *, actor: str) -> None:
 def merge(source_id: str, target_id: str, *, actor: str) -> dict[str, Any]:
     """The source party's identities go to the target and the source is deleted; its users follow (`repoint`)."""
     if source_id == target_id:
-        raise PartyError("a party cannot be merged into itself")
+        raise explained(PartyError, "a party cannot be merged into itself")
     with store.connect() as c:
         store.begin_immediate(c)
         _exists(c, source_id)
@@ -291,7 +292,8 @@ def delete(party_id: str, *, actor: str) -> None:
         store.begin_immediate(c)
         _exists(c, party_id)
         if used := sum(count(c, party_id) for count, _repoint in _REFERENCES.values()):
-            raise PartyError(f"the party is used by {used} record(s); merge it into another one instead")
+            raise explained(PartyError, "the party is used by {{used}} record(s); merge it into another one instead",
+                            used=used)
         c.execute("DELETE FROM own_party_identities WHERE party_id=?", (party_id,))
         c.execute("DELETE FROM own_parties WHERE id=?", (party_id,))
 
@@ -302,21 +304,21 @@ def delete(party_id: str, *, actor: str) -> None:
 def _account_details(kind: str, bank: str | None, currencies: Iterable[str], valid_from: str | None,
                      valid_to: str | None) -> tuple[str, str | None, str, str | None, str | None]:
     if kind not in ACCOUNT_KINDS:
-        raise PartyError(f"an account is one of {', '.join(ACCOUNT_KINDS)}")
+        raise explained(PartyError, "an account is one of {{account_kinds}}", account_kinds=", ".join(ACCOUNT_KINDS))
     clean_bank = " ".join(str(bank or "").split()) or None
     if clean_bank and len(clean_bank) > BANK_MAX:
-        raise PartyError(f"a bank's name is at most {BANK_MAX} characters")
+        raise explained(PartyError, "a bank's name is at most {{bank_max}} characters", bank_max=BANK_MAX)
     codes = sorted({str(c).strip().upper() for c in currencies})
     if not codes or not all(re.fullmatch(r"[A-Z]{3}", c) for c in codes):
-        raise PartyError("an account books in one currency at least, each an ISO code of three letters")
+        raise explained(PartyError, "an account books in one currency at least, each an ISO code of three letters")
     days = []
     for value in (valid_from, valid_to):
         try:
             days.append(date.fromisoformat(value).isoformat() if value else None)
         except ValueError as exc:
-            raise PartyError("the days an account was open are ISO dates") from exc
+            raise explained(PartyError, "the days an account was open are ISO dates") from exc
     if days[0] and days[1] and days[0] > days[1]:
-        raise PartyError("the account is closed before it was opened")
+        raise explained(PartyError, "the account is closed before it was opened")
     return kind, clean_bank, json.dumps(codes), days[0], days[1]
 
 
@@ -339,7 +341,7 @@ def register_account(party_id: str, key: str, label: str, *, kind: str, currenci
         held = c.execute("SELECT p.name FROM own_party_identities i JOIN own_parties p ON p.id = i.party_id"
                          " WHERE i.kind='account' AND i.key=? AND i.party_id<>?", (canon, party_id)).fetchone()
         if held is not None:
-            raise PartyError(f"the account is {held['name']}'s; move it from there")
+            raise explained(PartyError, "the account is {{name}}'s; move it from there", name=held["name"])
         _put(c, "account", canon, label, party_id, actor)
         _put_account(c, canon, details, actor)
     return get(party_id)

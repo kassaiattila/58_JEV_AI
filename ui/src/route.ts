@@ -14,7 +14,8 @@ export type ResultTable = "emails" | "tasks" | "documents" | "datapoints" | "lin
 export interface StartRequest { mode: "shadow" | "apply"; rerun: boolean; pending?: boolean } // 160-C S3: only the pending items
 
 export type Route =
-  | { view: "workpackages"; wpId?: string; stage?: Stage; itemId?: string; table?: ResultTable; runId?: string; start?: StartRequest }
+  // 167: `add` opens the add form at the top of Processing (the package's actions menu leads there)
+  | { view: "workpackages"; wpId?: string; stage?: Stage; itemId?: string; table?: ResultTable; runId?: string; start?: StartRequest; add?: boolean }
   | { view: "run"; runId: string }
   /** 146: the workflows (the work packages of one job, chained): the list, the new work wizard, a control view */
   | { view: "workflows"; wfId?: string; create?: boolean; repeat?: string }
@@ -33,9 +34,19 @@ const OLD_DATASET: Record<string, ResultTable> = {
   documents: "documents", datapoints: "datapoints", line_items: "line_items", utility_cost: "utility", utility_sources: "utility",
 };
 
+/** 167 (review 160 U-12): a malformed escape in the address (a cut-off "%E0%A4") is kept as it is instead of throwing,
+ *  which used to take down the whole interface and the reload with it. */
+function decodePart(part: string): string {
+  try {
+    return decodeURIComponent(part);
+  } catch {
+    return part;
+  }
+}
+
 export function parseRoute(hash: string): Route {
   const [path, search = ""] = hash.replace(/^#\/?/, "").split("?", 2);
-  const parts = path.split("/").filter(Boolean).map(decodeURIComponent);
+  const parts = path.split("/").filter(Boolean).map(decodePart);
   const params = new URLSearchParams(search);
   switch (parts[0]) {
     case "settings":
@@ -66,6 +77,7 @@ export function parseRoute(hash: string): Route {
         r.start = { mode: params.get("mode") === "apply" ? "apply" : "shadow", rerun: params.get("rerun") === "1" };
         if (params.get("pending") === "1") r.start.pending = true;
       }
+      if (stage === "process" && parts[3] === "add") r.add = true;
       if (stage === "result") {
         if (RESULT_TABLES.includes(parts[3] as ResultTable)) r.table = parts[3] as ResultTable;
         if (params.get("run")) r.runId = params.get("run")!;
@@ -92,6 +104,7 @@ export function routeHash(r: Route): string {
       let h = `#/workpackages/${e(r.wpId)}/${r.stage}`;
       if (r.stage === "review" && r.itemId) h += `/${e(r.itemId)}`;
       if (r.stage === "process" && r.start) h += `/start?mode=${r.start.mode}${r.start.rerun ? "&rerun=1" : ""}${r.start.pending ? "&pending=1" : ""}`;
+      else if (r.stage === "process" && r.add) h += "/add";
       if (r.stage === "result") {
         if (r.table) h += `/${r.table}`;
         if (r.runId) h += `?run=${e(r.runId)}`;

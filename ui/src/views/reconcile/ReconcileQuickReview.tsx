@@ -84,7 +84,8 @@ export function ReconcileQuickReview({ wpId, readOnly, onWorkspace, onCards }: {
     <div className="rc-stack" aria-label={t("Quick review")}>
       <p className="small muted">{t("{{n}} line(s) to decide; {{quick}} of them are in a group you can accept at once.", { n: toDecide, quick: atOnce })}</p>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
-      {notice ? <p className="notice ok" role="status">{notice}</p> : null}
+      {/* 167 (review 153 E): a decision takes a few seconds on a large package; say that it is being saved */}
+      {busy ? <p className="muted small" role="status">{t("Saving…")}</p> : notice ? <p className="notice ok" role="status">{notice}</p> : null}
       {!toDecide ? <p className="notice ok">{t("Every line of the package is decided.")}</p> : null}
       {rv.groups.filter((g) => g.count).map((g) => (
         <GroupCard key={`${g.id}:${g.count}:${g.lines[0]?.id ?? ""}`} group={g} threshold={rv.threshold} readOnly={readOnly}

@@ -120,7 +120,8 @@ export function ReconcileCards({ ws, readOnly, onWorkspace, reload, onManual }: 
       e.preventDefault();
       const next = shown[e.key === "ArrowDown" || e.key === "j" ? Math.min(shown.length - 1, at + 1) : Math.max(0, at - 1)];
       if (next) { setFocus(next.id); if (shown.indexOf(next) >= limit) setLimit((n) => n + PAGE); }
-    } else if (e.key === "Enter" && !onButton && focused && !readOnly) {
+    } else if (e.key === "Enter" && !e.repeat && !busy && !onButton && focused && !readOnly) {
+      // 167 (review 160 U-6): a held key or a second Enter while saving would accept the next card too
       const plan = proposalPlan(focused, lineById, invoiceById);
       if (plan) { e.preventDefault(); void act(() => api.reconcileAllocate(wpId, toRequest(plan.pairs)), t("The proposal has been accepted.")); }
     } else if (e.key === "d" && focused) setDocs((v) => !(v ?? focused.flags.some((f) => CLARIFY.has(f))));
@@ -159,7 +160,8 @@ export function ReconcileCards({ ws, readOnly, onWorkspace, reload, onManual }: 
       {view === "overdue" ? <p className="small muted">{t("The statements show nothing about cash or another account: an invoice here had no payment found on the package's statements up to the day they cover it.")}</p> : null}
       {view === "double_payment" ? <p className="small muted">{t("Two or more transfers each look like the full payment of the same invoice. It may be a double payment, or the invoice of another month is missing.")}</p> : null}
       {error ? <p className="notice error" role="alert">{error}</p> : null}
-      {notice ? <p className="small ok" role="status">{notice}</p> : null}
+      {/* 167 (review 153 E): a decision takes a few seconds on a large package; say that it is being saved */}
+      {busy ? <p className="muted small" role="status">{t("Saving…")}</p> : notice ? <p className="small ok" role="status">{notice}</p> : null}
 
       <div className="rc-cards" aria-label={t("Cards")}>
         {shown.slice(0, limit).map((g) => (
