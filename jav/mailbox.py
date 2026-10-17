@@ -269,7 +269,9 @@ CREATE TABLE IF NOT EXISTS mailbox_schedules (
     last_status  TEXT,                         -- ok | error
     last_result  TEXT,                         -- JSON: a letöltés összesítője vagy a hibaüzenet
     created_at   TEXT NOT NULL,
-    updated_at   TEXT NOT NULL
+    updated_at   TEXT NOT NULL,
+    changed_by   TEXT,                         -- 167 (review S-5): who last changed it (the creator first)
+    changed_at   TEXT                          -- and when; updated_at also moves with every download
 );
 CREATE TABLE IF NOT EXISTS mailbox_pulls (
     id           TEXT PRIMARY KEY,
@@ -282,6 +284,17 @@ CREATE TABLE IF NOT EXISTS mailbox_pulls (
     finished_at  TEXT
 );
 """)
+
+
+def _add_change_columns(conn) -> None:
+    """167 (review S-5): who last changed a schedule, on a table created before."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(mailbox_schedules)")}
+    for col in ("changed_by", "changed_at"):
+        if cols and col not in cols:
+            conn.execute(f"ALTER TABLE mailbox_schedules ADD COLUMN {col} TEXT")
+
+
+store.register_migration("mailbox.schedule_changes", _add_change_columns)
 
 
 def _utc(dt: datetime | None = None) -> str:
@@ -320,12 +333,15 @@ def create_schedule(req: MailboxRequest, *, actor: str, interval_min: int = DEFA
     sid = f"mbx-{uuid.uuid4().hex[:10]}"
     now = _utc()
     with store.connect() as c:
-        c.execute("INSERT INTO mailbox_schedules(id, request, interval_min, enabled, actor, next_at, created_at, updated_at)"
-                  " VALUES (?,?,?,?,?,?,?,?)", (sid, req.model_dump_json(), interval_min, int(enabled), actor, now, now, now))
+        c.execute("INSERT INTO mailbox_schedules(id, request, interval_min, enabled, actor, next_at, created_at, updated_at,"
+                  " changed_by, changed_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                  (sid, req.model_dump_json(), interval_min, int(enabled), actor, now, now, now, actor, now))
     return schedule(sid)
 
 
-def update_schedule(schedule_id: str, *, enabled: bool | None = None, interval_min: int | None = None) -> dict[str, Any]:
+def update_schedule(schedule_id: str, *, actor: str, enabled: bool | None = None,
+                    interval_min: int | None = None) -> dict[str, Any]:
+    """167 (review S-5): `actor` is recorded as the one who last changed it, and logged."""
     cur = schedule(schedule_id)
     if interval_min is not None and not 15 <= interval_min <= 7 * 24 * 60:
         raise ValueError("interval_min must be between 15 minutes and 7 days")
@@ -335,16 +351,20 @@ def update_schedule(schedule_id: str, *, enabled: bool | None = None, interval_m
     nxt = _utc() if (enabled and not cur["enabled"]) else cur["next_at"]
     if interval_min is not None and cur["last_at"]:
         nxt = _utc(datetime.fromisoformat(cur["last_at"]) + timedelta(minutes=iv))
+    now = _utc()
     with store.connect() as c:
-        c.execute("UPDATE mailbox_schedules SET enabled=?, interval_min=?, next_at=?, updated_at=? WHERE id=?",
-                  (int(en), iv, nxt, _utc(), schedule_id))
+        c.execute("UPDATE mailbox_schedules SET enabled=?, interval_min=?, next_at=?, updated_at=?, changed_by=?, changed_at=?"
+                  " WHERE id=?", (int(en), iv, nxt, now, actor, now, schedule_id))
+    log.info("mailbox schedule %s changed by %s: enabled %s, every %d min", schedule_id, actor, bool(en), iv)
     return schedule(schedule_id)
 
 
-def delete_schedule(schedule_id: str) -> None:
+def delete_schedule(schedule_id: str, *, actor: str) -> None:
+    """167 (review S-5): the row is gone afterwards, so who deleted it is in the service log."""
     schedule(schedule_id)
     with store.connect() as c:
         c.execute("DELETE FROM mailbox_schedules WHERE id=?", (schedule_id,))
+    log.info("mailbox schedule %s deleted by %s", schedule_id, actor)
 
 
 def request_pull(req: MailboxRequest, *, actor: str, schedule_id: str | None = None,
