@@ -164,6 +164,8 @@ th:hover > .col-resizer::after { background: var(--line); }
 .s-waiting::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--faint); } /* 157: waits for earlier steps */
 .s-waiting { color: var(--muted); }
 .s-startable::before { background: var(--ink-2); } /* 157: ready to start; the start button carries the action */
+.s-warn::before { background: var(--warn); border-radius: 0; transform: rotate(45deg) scale(.85); } /* 160-C: off, nothing failed */
+.s-warn { color: var(--warn); }
 .plain { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 6px; font-size: 13px; }
 .blocker::before { content: "✕ "; color: var(--error); }
 .blocker:has(> details) { display: flex; gap: var(--sp-1); align-items: baseline; } /* 156: the mark stays beside a reason that opens */
@@ -485,7 +487,7 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .report-bar .picker { width: min(520px, 100%); }
 .list-table .picker-trigger { min-width: 88px; border-color: transparent; background: transparent; }
 .list-table .picker-trigger:hover { border-color: var(--line); }
-.dt-actions { display: inline-flex; gap: 6px; justify-content: flex-end; width: 100%; }
+.dt-actions { display: inline-flex; gap: 6px; justify-content: flex-end; align-items: center; width: 100%; } /* 160-C: a small button sits on the links' line */
 
 /* 057: unified page header, work package stages, settings */
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--sp-4); padding: var(--sp-5) 0 var(--sp-4); flex-wrap: wrap; }
@@ -572,6 +574,13 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .release-line .status { font-size: var(--fs-sm); font-weight: 600; }
 .release-detail { color: var(--muted); min-width: 0; font-variant-numeric: tabular-nums; }
 .release-line > button { margin-left: auto; }
+/* 160-C (decision 163 D7): items removed from the package, left out of the release: a second, quieter mark */
+.release-removed { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.release-line .release-removed .status { font-size: var(--fs-xs); font-weight: 500; }
+/* 160-C S1: the reason asked for a removal, above the package's documents; a removed item's name is muted */
+.remove-form { padding: var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--paper); }
+.remove-form .form-note { flex-basis: 100%; margin: 0; }
+.removed-name { display: inline-flex; align-items: baseline; gap: var(--sp-2); color: var(--muted); }
 /* 160-D: the AI engine of a run or a result: a fact, not a state, so a hairline frame with no state colour or accent */
 .engine-mark { display: inline-flex; align-items: center; font-size: var(--fs-xs); font-weight: 500; line-height: 18px;
   color: var(--ink-2); padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); white-space: nowrap; }

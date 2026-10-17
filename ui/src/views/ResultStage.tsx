@@ -150,7 +150,9 @@ function Approval({ runId, onChanged, hasTable, tableVersion, onConflict }: {
   const [busy, setBusy] = useState(false);
   if (!run.data) return null;
   const r = run.data.run;
-  const open = Object.values(run.data.open_reasons).reduce((n, x) => n + x.length, 0);
+  // 160-C (decision 163 D7): items removed from the package are left out of the release; their to-dos do not count
+  const removed = run.data.removed_items ?? [];
+  const open = Object.entries(run.data.open_reasons).reduce((n, [item, x]) => n + (removed.includes(item) ? 0 : x.length), 0);
   const loading = hasTable && tableVersion === undefined;
   const version = hasTable && tableVersion ? tableVersion : run.data.review_version;
 
@@ -158,12 +160,17 @@ function Approval({ runId, onChanged, hasTable, tableVersion, onConflict }: {
     setBusy(true);
     setMsg(null);
     try {
-      await api.approve(runId, version);
+      await api.approve(runId, version, removed.length);
       setMsg({ error: false, text: t("Jóváhagyva: az eredmény kiadható.") });
       run.reload();
       onChanged();
     } catch (e) {
       const err = e as ApiError;
+      if (err.status === 409 && err.blockers.some((b) => b.code === "removed_items")) {
+        setMsg({ error: true, text: t("Another item was removed from the package meanwhile. Check the count, then approve again.") });
+        run.reload();
+        return;
+      }
       if (err.status === 409) {
         // 085: a correction was saved since this page loaded (e.g. in another tab): the new state has to be seen first;
         // 086: the table is loaded again, and the approval waits for it
@@ -192,6 +199,13 @@ function Approval({ runId, onChanged, hasTable, tableVersion, onConflict }: {
       <span className={`status ${RELEASE_MARK[state]}`}>{label}</span>
       <span className="release-detail">{detail}</span>
       <EngineMark engine={run.data.engine} />
+      {removed.length && state !== "trial" ? (
+        <span className="release-removed">
+          <span className="status s-warn">{t("{{n}} removed", { n: removed.length })}</span>
+          <span className="release-detail">{state === "released" ? t("removed from the package before the approval; not in the released result")
+            : t("removed from the package; left out of the released result")}</span>
+        </span>
+      ) : null}
       {state === "trial" || state === "released" ? null : (
         <ConfirmButton className={state === "ready" ? "primary" : "secondary"} disabled={busy || loading || state !== "ready"}
           onConfirm={() => void approve()}>{t("Jóváhagyás és kiadás")}</ConfirmButton>

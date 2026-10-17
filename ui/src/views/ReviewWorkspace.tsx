@@ -93,7 +93,9 @@ export function ReviewWorkspace({ wp, itemId, onChanged }: { wp: Workpackage; it
 
   const run = view.data.run;
   const items = run.input.items;
-  const own = view.data.open_reasons;
+  // 160-C (decision 163 D7): an item removed from the package is not released, so its to-dos are not this run's work
+  const removed = new Set(view.data.removed_items ?? []);
+  const own = Object.fromEntries(Object.entries(view.data.open_reasons).filter(([item]) => !removed.has(item)));
   const earlier = view.data.earlier_open_reasons;
   const firstWithWork = items.find((i) => (own[i.item_id] ?? []).length > 0) ?? items[0];
   const selectedId = itemId ?? firstWithWork?.item_id;
@@ -146,7 +148,7 @@ export function ReviewWorkspace({ wp, itemId, onChanged }: { wp: Workpackage; it
               <QueueItem key={i.item_id} runId={run.run_id} itemId={i.item_id} name={shown(i)} active={i.item_id === selectedId}
                 tip={u?.unified ? t("Eredeti név: {{name}}", { name: original(i) }) : undefined}
                 warn={u?.state === "review" ? <NameWarning check={u.check} /> : null}
-                status={queueStatus(res, n)}
+                status={removed.has(i.item_id) ? t("Removed") : queueStatus(res, n)}
                 own={n} earlier={m} onClick={() => pick(i.item_id)} />
             );
           })}

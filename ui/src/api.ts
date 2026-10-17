@@ -274,6 +274,7 @@ export interface RunView {
   supersede?: SupersedeInfo | null; // 151: a later live run repeated this one; it can be superseded
   superseded?: { by: string; actor: string; at: string; reasons_closed: number } | null; // 151: who superseded it
   engine?: Engine | null; // 160-D: the AI engine the run ran with (absent from an older service)
+  removed_items?: string[]; // 160-C (decision 163 D7): items removed from the package, left out of the release
 }
 /** 151: the later live run that repeated this one, its own open to-dos that would close, and the human work done on it. */
 export interface SupersedeInfo { by: string; open_reasons: number; resolved_reasons: number; corrected_items: number }
@@ -1009,8 +1010,11 @@ export const api = {
   restoreWorkpackage: (id: string) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/restore`, {}),
   renameWorkpackage: (id: string, name: string) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/rename`, { name }),
   deleteWorkpackage: (id: string) => request<{ deleted: string }>("POST", `/workpackages/${enc(id)}/delete`, {}),
-  removeItem: (id: string, itemId: string, expected_revision: number) =>
-    request<{ workpackage: Workpackage }>("POST", `/workpackages/${enc(id)}/items/${enc(itemId)}/remove`, { expected_revision }),
+  /** 160-C S1 (decision 163 D2): a removal needs a reason; the person is the chosen user (the `X-Actor` header). */
+  removeItem: (id: string, itemId: string, expected_revision: number, reason: string) =>
+    request<{ workpackage: Workpackage }>("POST", `/workpackages/${enc(id)}/items/${enc(itemId)}/remove`, { expected_revision, reason }),
+  restoreItem: (id: string, itemId: string, expected_revision: number) =>
+    request<{ workpackage: Workpackage }>("POST", `/workpackages/${enc(id)}/items/${enc(itemId)}/restore`, { expected_revision }),
   reviews: (id: string) =>
     request<{ items: { item_id: string; source_path: string; open_reasons: Reason[] }[]; open_reasons: number }>(
       "GET", `/workpackages/${enc(id)}/reviews`),
@@ -1029,9 +1033,11 @@ export const api = {
   cancel: (runId: string) => request<{ status: string }>("POST", `/runs/${enc(runId)}/cancel`, {}),
   supersede: (runId: string) =>
     request<{ run_id: string; superseded_by: string; reasons_closed: number; status: string }>("POST", `/runs/${enc(runId)}/supersede`, {}),
-  /** 085: `reviewVersion` is the run view's `review_version` the approver saw; a correction saved since gives 409. */
-  approve: (runId: string, reviewVersion?: string) =>
-    request<RunView>("POST", `/runs/${enc(runId)}/approve`, reviewVersion ? { review_version: reviewVersion } : {}),
+  /** 085: `reviewVersion` is the run view's `review_version` the approver saw; a correction saved since gives 409.
+   *  160-C (decision 163 D7): `confirmRemoved` is the count of `removed_items` the approver saw (left out of the release). */
+  approve: (runId: string, reviewVersion?: string, confirmRemoved?: number) =>
+    request<RunView>("POST", `/runs/${enc(runId)}/approve`, {
+      ...(reviewVersion ? { review_version: reviewVersion } : {}), ...(confirmRemoved ? { confirm_removed: confirmRemoved } : {}) }),
   documentFormats: () => request<{ formats: DocumentFormat[]; native_limits: Record<string, unknown> }>("GET", "/document-formats"),
   item: (runId: string, itemId: string) => request<ItemResult | NativeItemResult>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}`),
   nativeSources: (runId: string, itemId: string, version: string, offset = 0) =>

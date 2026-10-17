@@ -495,7 +495,7 @@ The review works from the keyboard: when an item opens, the cursor is in its fir
 
 ### 7.9 Managing documents
 
-After a run, the expandable **Manage documents: open, download, remove** (*Iratok kezelése: megnyitás, letöltés, eltávolítás*) section sits below the workspace; before a run, it is the only content of Review. Each row has **Open** (*Megnyitás*) (in a new tab), **Download** and **Remove** (*Eltávolítás*). Removing needs two clicks (‘Sure? Click again’). It takes the item off the package's list; the file stays where it is, and the input of earlier runs does not change.
+After a run, the expandable **Manage documents: open, download, remove** (*Iratok kezelése: megnyitás, letöltés, eltávolítás*) section sits below the workspace; before a run, it is the only content of Review. Above the list, ‘Created from’ (*Létrehozva ebből*) says where the package was made from: a folder, a mailbox, a statement package, a file or files chosen by hand. Each row has **Open** (*Megnyitás*) (in a new tab), **Download** and **Remove** (*Eltávolítás*). **Remove** asks why (*Miért veszed ki?*): the reason is required, and the removal is recorded with your name (chosen at the top) and the time in the package's log. It takes the item off the package's list; the file stays where it is. The item stays out of the next runs, while a run already started keeps it. Tick **Removed items too** (*Kivett tételek is*) to see the removed items with who removed them, when and why; **Restore** (*Visszaállítás*) puts an item back, and it takes part in the next run again. In Review, a run's item list marks a removed item ‘Removed’ (*Kivéve*), and its to-dos are not counted as the run's open to-dos.
 
 ### 7.10 Word, Excel, text and CSV review
 
@@ -525,7 +525,8 @@ In **Result**, the **Native facts** table joins the existing PDF views. Its **So
 - **Approval:**
   - For a trial run, the interface states that the result cannot be released; that needs a live run.
   - For a live run, the **Approve and release** (*Jóváhagyás és kiadás*) button is active only once the run has finished and no to-dos are open; until then the interface tells you how many to-dos remain. The button needs two clicks.
-  - After approval, ‘Released: approved by …, …’ (*Kiadva: jóváhagyta …, …*) is shown. Approval locks the run's field corrections, intent corrections and task-proposal decisions; you can still mark an accepted task as ‘done’ (*elvégezve*). Approval cannot be undone from the interface. Downloads remain available afterwards.
+  - If an item was removed from the package after the run started (section 7.9), the line says how many (‘N removed’, *N kivéve*, with an amber mark): the approval leaves them out of the released result, and their to-dos do not count. If someone removes another item in the meantime, the approval is refused until you have seen the new count.
+  - After approval, ‘Released: approved by …, …’ (*Kiadva: jóváhagyta …, …*) is shown. An item removed or restored later does not change a released result. Approval locks the run's field corrections, intent corrections and task-proposal decisions; you can still mark an accepted task as ‘done’ (*elvégezve*). Approval cannot be undone from the interface. Downloads remain available afterwards.
 
 ## 9. My work today
 
