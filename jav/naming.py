@@ -513,10 +513,15 @@ def _manifest(rows: list[tuple[NamedCopy, str, str]]) -> bytes:
 
 def _shared_folder_paths(paths: list[str]) -> dict[str, str]:
     """153 (review C8): each original's path below the folder the originals share, not its full local path (the
-    manifest travels in a ZIP someone may pass on; the full path named the machine's folders and its user)."""
+    manifest travels in a ZIP someone may pass on; the full path named the machine's folders and its user).
+    167 (review S-4): a shared folder that is only a root (a drive, a network share, `/`) or the folder holding the
+    users' home folders names nothing worth keeping, and the path below it would name the user's folders: then, as on
+    several drives, only the file names."""
     try:
         base = os.path.commonpath([os.path.dirname(p) for p in paths]) if paths else ""
     except ValueError:  # on several drives: only the names
+        base = ""
+    if base and (Path(base).parent == Path(base) or Path(base) == Path.home().parent):
         base = ""
     return {p: os.path.relpath(p, base) if base else Path(p).name for p in paths}
 
