@@ -328,7 +328,8 @@ class Approve(_In):
 class ResolveCall(_In):
     """076: settling a paid call with an uncertain outcome by hand, as `calls-resolve` does."""
 
-    cost_usd: Decimal | None = Field(default=None, ge=0, le=Decimal("100"))  # None: unknown, the maximum stays committed
+    # None: unknown, the maximum stays committed; 167 (review R-9): the same cap as the settlement itself
+    cost_usd: Decimal | None = Field(default=None, ge=0, le=calls.MAX_SETTLED_COST_USD, allow_inf_nan=False)
     note: str = Field(min_length=3, max_length=500)
 
 
@@ -1680,11 +1681,12 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.patch(r + "/mailbox/schedules/{schedule_id}")
     def mailbox_schedule_update(schedule_id: ScheduleId, body: UpdateSchedule,
                                 who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(mailbox.update_schedule(schedule_id, enabled=body.enabled, interval_min=body.interval_min))
+        return work_views.jsonable(mailbox.update_schedule(schedule_id, actor=who, enabled=body.enabled,
+                                                           interval_min=body.interval_min))
 
     @app.post(r + "/mailbox/schedules/{schedule_id}/delete")  # a POST with a JSON body, like the other deletions
     def mailbox_schedule_delete(schedule_id: ScheduleId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        mailbox.delete_schedule(schedule_id)
+        mailbox.delete_schedule(schedule_id, actor=who)
         return {"deleted": schedule_id}
 
     @app.api_route(r + "/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)

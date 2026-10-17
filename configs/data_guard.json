@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "description": "Adatőr (070 terv 2.1 S-adatőr, jav/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
     "changelog": [
+      {
+        "version": "1.0.8",
+        "date": "2026-10-17",
+        "note": "167 (review S-3): the card number pattern moved to jav/card_numbers.py (CARD), so the masking and the guard share one pattern; it also takes groups separated by hyphens or dots, one kind per number, and 15-digit American Express numbers (first digits 34 or 37, Luhn). The allow list keeps its card_number entry."
+      },
       {
         "version": "1.0.7",
         "date": "2026-10-13",
@@ -103,8 +108,7 @@
     "iban": "(?<![0-9A-Za-z])[A-Z]{2}\\d{2}(?: ?[0-9A-Z]{4}){2,7}(?: ?[0-9A-Z]{1,4})?(?![0-9A-Za-z])",
     "bank_account": "(?<![0-9A-Za-z-])\\d{8}[- ]\\d{8}(?:[- ]\\d{8})?(?![0-9A-Za-z-])",
     "email": "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}",
-    "phone": "(?<![0-9A-Za-z+])(?:\\+36|0036|06)[ /.-]?(?:1|[2-9]\\d)[ /.-]?\\d{3}[ /.-]?\\d{3,4}(?![0-9A-Za-z])",
-    "card_number": "(?<!\\d)(?:\\d{16}|(?<!\\d )\\d{4} \\d{4} \\d{4} \\d{4})(?!\\d)"
+    "phone": "(?<![0-9A-Za-z+])(?:\\+36|0036|06)[ /.-]?(?:1|[2-9]\\d)[ /.-]?\\d{3}[ /.-]?\\d{3,4}(?![0-9A-Za-z])"
   },
   "api_key_patterns": [
     "\\bsk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}",

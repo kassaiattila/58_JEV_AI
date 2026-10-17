@@ -6,6 +6,7 @@ thresholds and provider adapters are not modified.
 """
 from __future__ import annotations
 
+import time
 from decimal import Decimal
 from contextlib import nullcontext
 from pathlib import Path
@@ -43,6 +44,29 @@ def _received_text(response: dict) -> str:
     parts = [part for message in response.get("provider_responses") or () for part in message.get("parts") or ()
              if part.get("part_kind") == "text"]
     return (parts[0].get("content") or "") if len(parts) == 1 else ""
+
+
+LEDGER_STEP = "reader_gpt"
+
+
+def _ledgered_gpt(agent, prompt: str, settings, model: str, *, run_id: str, config_hash: str, cache_key: str):
+    """167 (review R-8): one physical request, written to the ledger as every other AI call is, a failure too. A
+    received answer that failed validation is a row with its tokens and cost and the failure's type."""
+    from jav import store
+    t0 = time.perf_counter()
+    try:
+        out = run_gpt_once(agent, prompt, settings, model)
+    except Exception as exc:
+        store.ledger_add(run_id=run_id, step=LEDGER_STEP, provider="openai", model=model, input_tokens=None,
+                         output_tokens=None, cost_usd=None, seconds=round(time.perf_counter() - t0, 3),
+                         cache_key=cache_key, config_hash=config_hash, error=type(exc).__name__)
+        raise
+    failure = out.response.get("validation_error")
+    store.ledger_add(run_id=run_id, step=LEDGER_STEP, provider="openai", model=out.model, input_tokens=out.input_tokens,
+                     output_tokens=out.output_tokens, cost_usd=None if out.cost_usd is None else float(out.cost_usd),
+                     seconds=round(time.perf_counter() - t0, 3), cache_key=cache_key, config_hash=config_hash,
+                     error=failure["type"] if failure else None)
+    return out
 
 
 def gpt_response_format() -> dict:
@@ -96,6 +120,7 @@ def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_tr
         agent = Agent(openai_chat_model(), output_type=NativeOutput(ProposedExtraction, strict=True),
                       instructions=instructions, model_settings=settings, retries=0)
     completed = []
+    config_hash = digest(json_bytes({"instructions": instructions, "response_format": response_format}))[:16]
     for part in chunks:
         prompt = json_bytes(part).decode("utf-8")
         key = calls.answer_key("openai", OPENAI_MODEL, instructions, schema, prompt,
@@ -105,7 +130,8 @@ def extract_gpt(delivery: Delivery, *, run_id: str, isolated_store: Path, max_tr
             repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))
         result = calls.invoke(run_id=run_id, step_id=f"reader:gpt:{key}", provider="openai", model=OPENAI_MODEL,
             max_cost_usd=maximum, budget_scope=ctx.budget_scope, request_hash=key, reusable=True,
-            fn=lambda: run_gpt_once(agent, prompt, settings, OPENAI_MODEL))
+            fn=lambda: _ledgered_gpt(agent, prompt, settings, OPENAI_MODEL, run_id=run_id, config_hash=config_hash,
+                                     cache_key=key[:16]))
         if receipt_observer is not None:
             receipt_observer(result)
         discarded = ()
