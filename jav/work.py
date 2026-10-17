@@ -404,9 +404,12 @@ ITEM_KINDS = ("document", "email", "statement_table")
 
 
 def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revision: int,
-                parents: dict[Path, str] | None = None) -> dict[str, Any]:
+                parents: dict[Path, str] | None = None,
+                event: tuple[str, str, dict[str, Any]] | None = None) -> dict[str, Any]:
     """`add_items` for items of several kinds in one revision step (140: a statement package holds the statements read
-    from exports and the PDF statements together): (path, kind) pairs."""
+    from exports and the PDF statements together): (path, kind) pairs. `event` (160-C S2): (action, actor, detail)
+    written to the package's log in the same transaction. A removed item added again is restored (its removal's who,
+    when and why are cleared)."""
     if unknown := sorted({kind for _p, kind in entries if kind not in ITEM_KINDS}):
         raise ValueError(f"unknown item kind: {', '.join(unknown)}")
     parents = {Path(k).resolve(): v for k, v in (parents or {}).items()}
@@ -426,9 +429,12 @@ def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revisio
             for p, digest, instance, kind in resolved:
                 c.execute("INSERT INTO workpackage_items(workpackage_id, item_id, kind, source_path, sha256, added_revision, parent_item_id, instance)"
                           " VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, item_id) DO UPDATE SET removed_revision=NULL,"
+                          " removed_at=NULL, removed_by=NULL, removed_reason=NULL,"
                           " source_path=excluded.source_path, parent_item_id=COALESCE(workpackage_items.parent_item_id, excluded.parent_item_id),"
                           " instance=COALESCE(workpackage_items.instance, excluded.instance)",
                           (wp_id, digest, kind, str(p), digest, rev, parents.get(p), instance))
+            if event is not None:
+                _event(c, wp_id, event[0], event[1], event[2])
     except BaseException:
         source_instances.release(i for _p, _d, i, _k in resolved if i)
         raise
@@ -461,6 +467,60 @@ def _document_entry(p: Path) -> tuple[Path, str, str | None]:
 
 def add_document(wp_id: str, path: Path, *, expected_revision: int) -> dict[str, Any]:
     return add_documents(wp_id, [path], expected_revision=expected_revision)
+
+
+# 160-C S2: the packages whose items come from their own survey or have none; a person adds to them in their own way
+SURVEYED_KINDS = {"statements": "add statements to a statement package through its survey",
+                  "reconcile": "a reconciliation package has no documents"}
+
+
+def add_to_package(wp_id: str, paths: list[Path], *, expected_revision: int, actor: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """160-C S2: documents a person adds to an existing package, by content: a new one is added, one already in the
+    package changes nothing, and a removed one is restored. Only an actual change takes a revision step, and it is
+    logged (`items_add`) in the same transaction. Returns the package and what happened, with the names of the
+    documents a live run of another package has already processed (a warning: the same file may be counted twice
+    later, e.g. by the duplicate check or the reconciliation)."""
+    wp = get(wp_id)
+    if wp["source_kind"] in SURVEYED_KINDS:
+        raise ValueError(SURVEYED_KINDS[wp["source_kind"]])
+    files = list(dict.fromkeys(Path(p).resolve(strict=True) for p in paths))
+    digests = {p: sha256_file(p) for p in files}
+    with store.connect() as c:
+        state = {r["item_id"]: r["removed_revision"] for r in c.execute(
+            "SELECT item_id, removed_revision FROM workpackage_items WHERE workpackage_id=?", (wp_id,))}
+    seen: set[str] = set()
+    added, restored, already = [], [], 0
+    for p in files:
+        d = digests[p]
+        if d in seen:
+            continue
+        seen.add(d)
+        if d not in state:
+            added.append(p)
+        elif state[d] is not None:
+            restored.append(p)
+        else:
+            already += 1
+    summary = {"added": len(added), "already": already, "restored": len(restored)}
+    changed = added + restored
+    if changed:
+        wp = add_entries(wp_id, [(p, "document") for p in changed], expected_revision=expected_revision,
+                         event=("items_add", actor, summary))
+    elsewhere = _processed_live_elsewhere(wp_id, [digests[p] for p in changed])
+    return wp, {**summary, "processed_elsewhere": [p.name for p in changed if digests[p] in elsewhere]}
+
+
+def _processed_live_elsewhere(wp_id: str, digests: list[str]) -> set[str]:
+    """160-C S2: the content hashes among `digests` that a live run of another package has processed (`processed_live`,
+    without this package's own runs)."""
+    found: set[str] = set()
+    with store.connect() as c:
+        for i in range(0, len(digests), 500):
+            chunk = digests[i:i + 500]
+            found |= {r["item_id"] for r in c.execute(
+                "SELECT DISTINCT ri.item_id FROM run_items ri JOIN runs r ON r.run_id=ri.run_id WHERE r.mode='apply'"
+                f" AND ri.status='done' AND r.workpackage_id<>? AND ri.item_id IN ({','.join('?' * len(chunk))})", (wp_id, *chunk))}
+    return found
 
 
 def remove_item(wp_id: str, item_id: str, *, expected_revision: int, actor: str, reason: str) -> dict[str, Any]:
@@ -1181,6 +1241,16 @@ def run_rows(wp_id: str | None = None) -> list[dict[str, Any]]:
         if r["status"] == "needs_review" and not r["open_reasons"]:
             r["status"] = "done"
     return rows
+
+
+def pending_items(wp_id: str, mode: str) -> list[str]:
+    """160-C S2/S3 (pending item): the package's items in use that no run of the package in `mode` (shadow / apply)
+    has finished — a cancelled or superseded run does not count, a failed item stays pending. In package order."""
+    with store.connect() as c:
+        done = {r["item_id"] for r in c.execute(
+            "SELECT DISTINCT ri.item_id FROM run_items ri JOIN runs r ON r.run_id=ri.run_id WHERE r.workpackage_id=?"
+            " AND r.mode=? AND r.status<>'cancelled' AND ri.status='done'", (wp_id, mode))}
+    return [i["item_id"] for i in get(wp_id)["items"] if i["item_id"] not in done]
 
 
 def runs(wp_id: str) -> list[dict[str, Any]]:

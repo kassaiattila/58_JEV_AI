@@ -254,7 +254,22 @@ def create(*, name: str, party_id: str, period_start: Any, period_end: Any, path
     owns it (decision 065). A statement is named by its survey id, so one the files no longer hold is refused, and only
     a PDF the survey listed is taken."""
     party, start, end = _checked(party_id, period_start, period_end)
-    found = _sources(paths)
+    entries, wanted, picked = _chosen(_sources(paths), statements, pdfs)
+    folder = Path(paths[0]).resolve() if len(paths) == 1 and Path(paths[0]).is_dir() else None
+    wp = work.create_with_items(name=name, source_kind=KIND, source_ref=str(folder) if folder else None, owner=actor,
+                                entries=entries)
+    with store.connect() as c:
+        store.begin_immediate(c)
+        c.execute("INSERT INTO statement_scopes(workpackage_id, party_id, period_start, period_end, revision, actor, updated_at)"
+                  " VALUES (?,?,?,?,1,?,?)", (wp["id"], party["id"], start, end, actor, _now()))
+        work.record_event(c, wp["id"], "statement_scope", actor, {"party": party["id"], "period": [start, end],
+                                                                  "statements": len(wanted), "pdfs": len(picked)})
+    return scope(wp["id"])
+
+
+def _chosen(found: _Found, statements: list[str], pdfs: list[str]) -> tuple[list[tuple[Path, str]], set[str], list[Path]]:
+    """The items of the statements and PDFs a person ticked in the survey of `found`: a statement is named by its survey
+    id, so one the files no longer hold is refused, and only a PDF the survey listed is taken."""
     wanted = set(statements)
     ids = {statement_table.derived_id(r, a): (r, a) for r in found.readings for a in r.accounts}
     if missing := wanted - set(ids):
@@ -274,16 +289,41 @@ def create(*, name: str, party_id: str, period_start: Any, period_end: Any, path
         if keys:
             entries += [(p, "statement_table") for p in statement_table.derive(r, keys)]
     entries += [(p, "document") for p in dict.fromkeys(picked)]
-    folder = Path(paths[0]).resolve() if len(paths) == 1 and Path(paths[0]).is_dir() else None
-    wp = work.create_with_items(name=name, source_kind=KIND, source_ref=str(folder) if folder else None, owner=actor,
-                                entries=entries)
-    with store.connect() as c:
-        store.begin_immediate(c)
-        c.execute("INSERT INTO statement_scopes(workpackage_id, party_id, period_start, period_end, revision, actor, updated_at)"
-                  " VALUES (?,?,?,?,1,?,?)", (wp["id"], party["id"], start, end, actor, _now()))
-        work.record_event(c, wp["id"], "statement_scope", actor, {"party": party["id"], "period": [start, end],
-                                                                  "statements": len(wanted), "pdfs": len(picked)})
-    return scope(wp["id"])
+    return entries, wanted, picked
+
+
+def _held(wp_id: str) -> set[str]:
+    """The ids of the statements and PDFs in the package now (a removed one is not held: adding it restores it)."""
+    return {i["item_id"] for i in work.get(wp_id)["items"]}
+
+
+def survey_for(wp_id: str, paths: Iterable[Path]) -> dict[str, Any]:
+    """160-C S2: the survey of more files for an existing statement package, with the package's party and period;
+    `in_package` marks a statement or PDF the package already holds, and such a one is not proposed again."""
+    sc = scope(wp_id)
+    out = survey(paths, party_id=sc["party_id"], period_start=sc["period_start"], period_end=sc["period_end"])
+    held = _held(wp_id)
+    for row in out["statements"]:
+        row["in_package"] = row["id"] in held
+        row["chosen"] = row["chosen"] and not row["in_package"]
+    for pdf in out["pdfs"]:
+        pdf["in_package"] = pdf["sha256"] in held
+        pdf["chosen"] = pdf["chosen"] and not pdf["in_package"]
+    return {**out, "workpackage_id": wp_id}
+
+
+def add(wp_id: str, *, paths: list[Path], statements: list[str], pdfs: list[str], expected_revision: int,
+        actor: str) -> dict[str, Any]:
+    """160-C S2: the statements and PDFs a person ticked in the package's own survey (`survey_for`), added to it in
+    one revision step and logged (`statement_add`). One the package already holds is refused, so a stale survey
+    cannot add it twice."""
+    _package(wp_id)
+    entries, wanted, picked = _chosen(_sources(paths), statements, pdfs)
+    held = _held(wp_id)
+    if dup := (wanted | {work.sha256_file(p) for p in picked}) & held:
+        raise PackageError(f"{len(dup)} chosen statement(s) or PDF(s) are already in the package; survey them again")
+    return work.add_entries(wp_id, entries, expected_revision=expected_revision,
+                            event=("statement_add", actor, {"statements": len(wanted), "pdfs": len(picked)}))
 
 
 def _package(wp_id: str) -> dict[str, Any]:

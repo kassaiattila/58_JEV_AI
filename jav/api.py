@@ -382,6 +382,17 @@ class CreateStatementPackage(StatementPackageSources):
     pdfs: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(max_length=500)] = Field(default_factory=list)
 
 
+class PackageStatementFiles(_In):
+    """160-C S2: more files for an existing statement package (its party and period are the package's own)."""
+    paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(min_length=1, max_length=500)]
+
+
+class AddPackageStatements(PackageStatementFiles):
+    statements: Annotated[list[Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]], Field(max_length=2000)] = Field(default_factory=list)
+    pdfs: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(max_length=500)] = Field(default_factory=list)
+    expected_revision: Annotated[int, Field(ge=0)]
+
+
 StepKey = Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]
 Budget = dict[Literal["jev", "openai", "azure_di"], Annotated[str, Field(pattern=r"^\d{1,4}(\.\d{1,6})?$")]]
 
@@ -922,10 +933,12 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         return {"deleted": wp_id}
 
     @app.post(r + "/workpackages/{wp_id}/items")
-    def add_items(wp_id: WpId, body: AddItems, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def add_items(wp_id: WpId, body: AddItems, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """160-C S2: documents added to an existing package, with what happened (`added`: added, already in the
+        package, restored, and those processed live in another package)."""
         paths = [checked_path(p, want_dir=False) for p in body.paths]
-        work.add_documents(wp_id, paths, expected_revision=body.expected_revision)
-        return work_views.workpackage_view(wp_id)
+        _wp, summary = work.add_to_package(wp_id, paths, expected_revision=body.expected_revision, actor=who)
+        return {**work_views.workpackage_view(wp_id), "added": summary}
 
     @app.post(r + "/workpackages/{wp_id}/attachments")
     def add_attachments(wp_id: WpId, body: Revision, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
@@ -969,6 +982,25 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                                       statements=body.statements, pdfs=[str(checked_path(p, want_dir=False)) for p in body.pdfs],
                                       actor=who)
         return work_views.workpackage_view(sc["workpackage_id"])
+
+    @app.post(r + "/workpackages/{wp_id}/statements/survey")
+    def package_statement_survey(wp_id: WpId, body: PackageStatementFiles, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """160-C S2: the survey of more files for an existing statement package, with its party and period; what the
+        package already holds is marked (`in_package`). Nothing is written."""
+        from jav import statement_package
+
+        paths = [checked_path(p, want_dir=None) for p in body.paths]
+        return work_views.jsonable(statement_package.survey_for(wp_id, paths))
+
+    @app.post(r + "/workpackages/{wp_id}/statements/add")
+    def add_package_statements(wp_id: WpId, body: AddPackageStatements, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """160-C S2: the statements and PDFs ticked in the package's own survey, added to it and logged."""
+        from jav import statement_package
+
+        statement_package.add(wp_id, paths=[checked_path(p, want_dir=None) for p in body.paths], statements=body.statements,
+                              pdfs=[str(checked_path(p, want_dir=False)) for p in body.pdfs], expected_revision=body.expected_revision,
+                              actor=who)
+        return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/statement-tables")
     def add_statement_tables(wp_id: WpId, body: AddStatementTables, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:

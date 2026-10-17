@@ -101,6 +101,9 @@ def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool |
         return step("running", f"Fut: {done}/{total}", "process", done=done, total=total)
     if status in ("failed", "cancelled"):
         return step("rerun", "Hibás vagy leállított futás: újrafuttatás", "process")
+    # 160-C S2: items added after the run come first: their processing may raise further to-dos (`work.pending_items`)
+    if wp.get("id") and (pending := len(work.pending_items(wp["id"], last_run["mode"]))):
+        return step("pending", f"{pending} new item(s) to process", "process", n=pending)
     if last_run.get("open_reasons"):
         if last_run["mode"] == "shadow":  # 150: a trial cannot be approved; its to-dos are information, the step is going live
             return step("go_live", "Próba kész: éles futás", "process", trial_reasons=last_run["open_reasons"])

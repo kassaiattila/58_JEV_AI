@@ -196,6 +196,78 @@ def test_a_removed_items_open_to_dos_do_not_block_the_approval(env):
     assert work.run_rows(wp["id"])[0]["open_reasons"] == 0  # approved: left out as recorded, not as the package is now
 
 
+# --- S2: adding to an existing package ----------------------------------------------------------------------------
+
+
+def _new_pdf(env, name: str, number: str) -> Path:
+    path = env["root"] / "later" / name
+    path.parent.mkdir(exist_ok=True)
+    write_text_pdf(path, [line.replace("MINTA-2026-001", number) for line in INVOICE_LINES])
+    return path
+
+
+def test_adding_documents_reports_what_changed_and_is_logged(env):
+    c = env["client"]
+    wp = _package(c, env["folder"])
+    new = _new_pdf(env, "invoice_3.pdf", "MINTA-2026-003")
+    r = c.post(f"/api/workpackages/{wp['id']}/items", headers=HUMAN,
+               json={"paths": [str(new), str(env["folder"] / "invoice_1.pdf")], "expected_revision": wp["revision"]})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["added"] == {"added": 1, "already": 1, "restored": 0, "processed_elsewhere": []}
+    assert len(body["workpackage"]["items"]) == 3
+    event = work.workpackage_events(wp["id"])[-1]
+    assert (event["action"], event["actor"]) == ("items_add", "teszt.elek")
+    assert json.loads(event["detail"]) == {"added": 1, "already": 1, "restored": 0}
+    again = c.post(f"/api/workpackages/{wp['id']}/items", headers=HUMAN,
+                   json={"paths": [str(new)], "expected_revision": body["workpackage"]["revision"]}).json()
+    assert again["added"]["already"] == 1 and again["workpackage"]["revision"] == body["workpackage"]["revision"]  # no step
+
+
+def test_adding_a_removed_item_again_restores_it(env):
+    c = env["client"]
+    wp = _package(c, env["folder"])
+    item = next(i for i in wp["items"] if i["source_path"].endswith("invoice_1.pdf"))
+    removed = c.post(f"/api/workpackages/{wp['id']}/items/{item['item_id']}/remove", headers=HUMAN,
+                     json={"expected_revision": wp["revision"], "reason": "wrong month"}).json()["workpackage"]
+    r = c.post(f"/api/workpackages/{wp['id']}/items", headers=HUMAN,
+               json={"paths": [item["source_path"]], "expected_revision": removed["revision"]}).json()
+    assert r["added"] == {"added": 0, "already": 0, "restored": 1, "processed_elsewhere": []}
+    assert item["item_id"] in {i["item_id"] for i in r["workpackage"]["items"]}
+    assert all(row["_removed"] is False for row in _items(c, wp["id"], removed=True))
+
+
+def test_a_document_processed_live_in_another_package_is_named(env):
+    c = env["client"]
+    other = _package(c, env["folder"])
+    _assign(c, other["id"])
+    _start(c, other["id"])
+    worker.run_worker(once=True)
+    target = c.post("/api/workpackages", headers=HUMAN,
+                    json={"paths": [str(_new_pdf(env, "invoice_9.pdf", "MINTA-2026-009"))], "name": "Second"}).json()["workpackage"]
+    r = c.post(f"/api/workpackages/{target['id']}/items", headers=HUMAN,
+               json={"paths": [str(env["folder"] / "invoice_2.pdf")], "expected_revision": target["revision"]}).json()
+    assert r["added"]["added"] == 1 and r["added"]["processed_elsewhere"] == ["invoice_2.pdf"]  # a warning, not a refusal
+
+
+def test_after_a_run_new_items_are_the_packages_next_step(env):
+    c = env["client"]
+    wp = _package(c, env["folder"])
+    _assign(c, wp["id"])
+    _start(c, wp["id"])
+    worker.run_worker(once=True)
+    assert c.get(f"/api/workpackages/{wp['id']}").json()["next"]["code"] != "pending"
+    c.post(f"/api/workpackages/{wp['id']}/items", headers=HUMAN,
+           json={"paths": [str(_new_pdf(env, "invoice_4.pdf", "MINTA-2026-004"))], "expected_revision": work.get(wp["id"])["revision"]})
+    view = c.get(f"/api/workpackages/{wp['id']}").json()
+    assert (view["next"]["code"], view["next"]["stage"], view["next"]["params"]) == ("pending", "process", {"n": 1})
+    listed = next(r for r in c.post("/api/datasets/workpackages/query", json={"scope": {}, "query": {}}).json()["rows"]
+                  if r["_key"] == wp["id"])
+    assert listed["next_code"] == "pending"
+    assert work.pending_items(wp["id"], "apply") == [i["item_id"] for i in work.get(wp["id"])["items"]
+                                                     if i["source_path"].endswith("invoice_4.pdf")]
+
+
 def test_an_item_removed_after_the_approval_stays_in_the_released_result(env):
     c = env["client"]
     wp = _package(c, env["folder"])
