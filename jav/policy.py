@@ -225,10 +225,10 @@ def ocr_coverage_reasons(page_count: int | None, pages_ocr: int | None) -> list[
 
 
 def text_layer_coverage_reasons(page_count: int | None, pages_without_text: list[int] | None) -> list[str]:
-    """167 (review AI-3): in a document with a text layer, some pages (not all) have none of their own, e.g. scans
-    behind an electronically signed cover page. Those pages were neither read nor sent to OCR, so this is always a
-    visible to-do, like partial OCR (a fact, not a threshold). With no page of text the whole document goes to OCR
-    instead (`ocr_pdf`)."""
+    """167 (review AI-3): in a document with a text layer, some pages (not all) are scans without text of their own,
+    e.g. behind an electronically signed cover page (`pdf.pages_without_text`: no text and an image over most of the
+    page). Those pages were neither read nor sent to OCR, so this is always a visible to-do, like partial OCR. With no
+    page of text the whole document goes to OCR instead (`ocr_pdf`)."""
     n = len(pages_without_text or [])
     if not page_count or n == 0 or n >= page_count:
         return []

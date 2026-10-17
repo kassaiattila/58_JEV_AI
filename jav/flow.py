@@ -459,7 +459,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
         ("save", "done", "route auto"), ("save", "needs_review", "különben"),
     ],
     "step_meta": {
-        "load_pdf": {"kind": "det", "note": "pdfplumber word-level reconstruction, sha256 doc_id; the text-layer test of the document and of each page (167: some pages without a text layer of their own are the pdf:pages_without_text to-do); the word layer (word boxes) is saved"},
+        "load_pdf": {"kind": "det", "note": "pdfplumber word-level reconstruction, sha256 doc_id; the text-layer test of the document and of each page (167: scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do); the word layer (word boxes) is saved"},
         "ocr_pdf": {"kind": "det", "note": "szöveg nélküli PDF: oldalkép (pypdfium2) + tesseract szó-dobozok (natív / régi sidecar-kép) -> ugyanaz a sor- és cella-építés; a szóréteg mentése; lemez-gyorsítótár runs/ocr/; minőségjelek nyersen, gyenge OCR review-ok (policy ocr)"},
         "find_candidates": {"kind": "det", "note": "S-kar: determinisztikus, sorrendezett, maszkoló jelöltkeresők a csomag jelölt-profiljával (hu / intl): iban -> tax_id -> date -> invoice_number -> money; nevek/címek cellákon"},
         "jev_select": {"kind": "jev", "note": "S-kar: kötegelt Choice-kérések (parties / header / money) a csomag select-hívási helyéről, fókuszált state, none mindig opció, jelenlét-Noul mezőnként (jelölt nélkül is, a vizsgált nem kötelező mezőkre, csak meglévő kérésben)"},
