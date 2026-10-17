@@ -568,6 +568,7 @@
     "tests/test_docsgen_067.py": 1,
     "tests/test_document_guard_127.py": 1,
     "tests/test_document_injection_probe.py": 3,
+    "tests/test_email_export_167.py": 8,
     "tests/test_email_results.py": 18,
     "tests/test_email_signals.py": 4,
     "tests/test_email_tasks.py": 22,
