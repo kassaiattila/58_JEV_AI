@@ -168,6 +168,11 @@ class RetiredRecipe(ValueError):
     """080: the recipe is kept only for old runs and assignments; it cannot be assigned again (in the UI: 422)."""
 
 
+class SourceChanged(ValueError):
+    """167 (review R-7): a document's copy had to be made again while it was added, and the original no longer has
+    the content first copied; nothing was added (in the UI: 422)."""
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -418,6 +423,7 @@ def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revisio
         raise ValueError(f"unknown item kind: {', '.join(unknown)}")
     parents = {Path(k).resolve(): v for k, v in (parents or {}).items()}
     resolved: list[tuple[Path, str, str | None, str]] = []
+    made_again: list[str] = []
     try:
         for p, kind in entries:
             p = Path(p).resolve(strict=True)
@@ -430,6 +436,12 @@ def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revisio
         with store.connect() as c:
             _begin(c)
             rev = _bump(c, wp_id, expected_revision)
+            # 167 (review R-7): a shared copy may have been released since it was made (another package deleted, or
+            # another intake failed, while no item referred to it yet). `source_instances.release` deletes only under
+            # this write lock, so a copy present now stays until these items are recorded.
+            for n, (p, digest, instance, kind) in enumerate(resolved):
+                if instance and not source_instances.path_of(instance).is_file():
+                    resolved[n] = (p, digest, _copy_again(p, digest, made_again), kind)
             for p, digest, instance, kind in resolved:
                 c.execute("INSERT INTO workpackage_items(workpackage_id, item_id, kind, source_path, sha256, added_revision, parent_item_id, instance)"
                           " VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, item_id) DO UPDATE SET removed_revision=NULL,"
@@ -440,9 +452,23 @@ def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revisio
             if event is not None:
                 _event(c, wp_id, event[0], event[1], event[2])
     except BaseException:
-        source_instances.release(i for _p, _d, i, _k in resolved if i)
+        source_instances.release([i for _p, _d, i, _k in resolved if i] + made_again)
         raise
     return get(wp_id)
+
+
+def _copy_again(p: Path, digest: str, made: list[str]) -> str:
+    """167 (review R-7): the copy of a document being added was released before its item was recorded: it is made
+    again from the original, inside the intake's transaction (`made` collects it, for release if the intake fails).
+    An original that no longer has the content first copied is refused (`SourceChanged`)."""
+    try:
+        again, rel = source_instances.freeze(p, max_bytes=max_source_bytes())
+    except source_instances.InstanceTooLarge as exc:
+        raise SourceChanged(f"{p.name} changed while it was being added; add it again") from exc
+    made.append(rel)
+    if again != digest:
+        raise SourceChanged(f"{p.name} changed while it was being added; add it again")
+    return rel
 
 
 def add_statement_tables(wp_id: str, export: Path, keys: list[str], *, expected_revision: int) -> dict[str, Any]:
