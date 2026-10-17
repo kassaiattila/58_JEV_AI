@@ -101,6 +101,20 @@ describe("the new work wizard", () => {
 });
 
 describe("a workflow's control view", () => {
+  it("a double click on Start sends one request (167, review 160 U-7)", async () => {
+    vi.spyOn(api, "workflowView").mockResolvedValue(view());
+    let answer: (v: WorkflowView) => void = () => {};
+    const start = vi.spyOn(api, "startWorkflowStep").mockReturnValue(new Promise((r) => { answer = r; }));
+    render(<Workflows route={{ view: "workflows", wfId: "wf-00000000000a" }} />);
+    const button = await screen.findByRole("button", { name: "Start with this budget" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(start).toHaveBeenCalledTimes(1);
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    answer(view({ next: null }));
+    await waitFor(() => expect(start).toHaveBeenCalledTimes(1));
+  });
+
   it("shows the chain, what comes next, and starts a step with the budget a person gives", async () => {
     vi.spyOn(api, "workflowView").mockResolvedValue(view());
     const start = vi.spyOn(api, "startWorkflowStep").mockResolvedValue(view({ next: null }));

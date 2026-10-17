@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { DsColumn, DsFilter, DsPage, DsRow, DsScope, DsSort } from "../api";
 import { useDataset, useDebounced } from "../hooks";
 import { getLocale, t, useLocale } from "../i18n";
-import { fold, numText, tmap, when } from "../labels";
+import { fold, moneyText, numText, tmap, when } from "../labels";
 import { ColumnResizer, useColumnWidths } from "./ColumnResize";
 import { DownloadPanel } from "./DownloadPanel";
 import { Picker } from "./Picker";
@@ -76,7 +76,7 @@ export function cellText(col: DsColumn, v: unknown): string {
     const l = col.labels[String(v)];
     return l === undefined ? String(v) : t(l);
   }
-  if (col.kind === "money") return numText(v, 2);
+  if (col.kind === "money") return moneyText(v); // 167 (review 160 U-13)
   if (col.kind === "number" && col.percent) return `${numText(Math.round(Number(v) * 100), 0)} %`; // 062: probability
   if (col.kind === "number") return numText(v, 6);
   if (col.kind === "datetime") return when(String(v));
@@ -135,7 +135,8 @@ const OP_TEXT: Record<string, string> = tmap({ contains: "tartalmazza", eq: "=",
 export function filterText(f: DsFilter, col: DsColumn | undefined): string {
   const label = col ? t(col.label) : f.col;
   if (f.op === "empty" || f.op === "notempty") return `${label}: ${OP_TEXT[f.op]}`;
-  const show = (v: string) => (col ? cellText(col, v) || v : v);
+  // a filter's amount as the person gave it ("≥ 12 000"), not padded to a cell's two decimals
+  const show = (v: string) => (col ? (col.kind === "money" && !col.labels ? numText(v, 2) : cellText(col, v)) || v : v);
   if (f.op === "in") return `${label}: ${(Array.isArray(f.value) ? f.value : [f.value ?? ""]).map((v) => show(String(v))).join(", ")}`;
   const v = String(f.value ?? "").replace(/T99$/, "");
   return `${label} ${OP_TEXT[f.op]} ${f.op === "contains" ? `„${v}”` : show(v)}`;

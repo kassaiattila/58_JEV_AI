@@ -2,7 +2,7 @@
 // service says what happened — added, already in the package, restored, and the ones a live run of another package
 // has processed (counted by the service, never the size of the selection; the legacy V4 add-to-group pattern). A
 // statement package grows only through its own survey, with its own party and period.
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { api, ApiError, type AddSummary, type StatementPackageSurvey, type Workpackage } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
 import { Icon } from "../components/Icon";
@@ -104,13 +104,17 @@ export function AddStatements({ wp, onDone, onCancel }: { wp: Workpackage; onDon
   const lines = pathsOf(files);
   const paths = source === "folder" ? (folder.trim() ? [folder.trim()] : []) : lines;
   // any change to what is surveyed drops the survey: the ticks belong to the files as they were read
-  const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setSurvey(null); setChosen(new Set()); };
+  // 167 (review 160 U-3): a change also drops a survey still on its way (its late answer belongs to the files before)
+  const asked = useRef(0);
+  const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); asked.current += 1; setSurvey(null); setChosen(new Set()); };
 
   async function read() {
     setBusy(true);
     setError(null);
     try {
+      const my = ++asked.current;
       const s = await api.packageStatementSurvey(wp.id, paths);
+      if (my !== asked.current) return;
       setSurvey(s);
       setChosen(new Set([...s.statements.filter((r) => r.chosen).map((r) => r.id), ...s.pdfs.filter((p) => p.chosen).map((p) => p.path)]));
     } catch (err) {

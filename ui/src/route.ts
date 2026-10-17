@@ -34,9 +34,19 @@ const OLD_DATASET: Record<string, ResultTable> = {
   documents: "documents", datapoints: "datapoints", line_items: "line_items", utility_cost: "utility", utility_sources: "utility",
 };
 
+/** 167 (review 160 U-12): a malformed escape in the address (a cut-off "%E0%A4") is kept as it is instead of throwing,
+ *  which used to take down the whole interface and the reload with it. */
+function decodePart(part: string): string {
+  try {
+    return decodeURIComponent(part);
+  } catch {
+    return part;
+  }
+}
+
 export function parseRoute(hash: string): Route {
   const [path, search = ""] = hash.replace(/^#\/?/, "").split("?", 2);
-  const parts = path.split("/").filter(Boolean).map(decodeURIComponent);
+  const parts = path.split("/").filter(Boolean).map(decodePart);
   const params = new URLSearchParams(search);
   switch (parts[0]) {
     case "settings":

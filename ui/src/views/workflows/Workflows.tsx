@@ -3,7 +3,7 @@
 // and the package's next step, what needs a person first, the switch of the automatic chain, a step's start (with a new
 // budget when its run's estimate did not fit) and an existing package linked as a step. 147: a workflow is repeated for
 // the next period (the wizard opens filled in), and the two are linked both ways.
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   api, ApiError, type WorkflowBrief, type WorkflowBudget, type WorkflowRow, type WorkflowStep, type WorkflowView,
 } from "../../api";
@@ -12,7 +12,7 @@ import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { ENGINE, stepLabel, usdBudget } from "../../labels";
 import { go, wpHash, type Route } from "../../route";
-import { budgetSum, budgetText, PROVIDER, sourceText, STEP_STATUS, stepMark, stepNote } from "./labels";
+import { budgetSum, budgetText, centsUp, PROVIDER, sourceText, STEP_STATUS, stepMark, stepNote } from "./labels";
 import { NewWork } from "./NewWork";
 
 export function Workflows({ route }: { route: Extract<Route, { view: "workflows" }> }) {
@@ -107,13 +107,22 @@ function WorkflowControl({ wfId }: { wfId: string }) {
   useEffect(() => setView(null), [loaded.data]);
   const v = view && view.workflow.id === wfId ? view : loaded.data;
 
+  // 167 (review 160 U-7): one action at a time — a double click on Start sent two requests and left the second's error
+  const inFlight = useRef(false);
+  const [busy, setBusy] = useState(false);
   async function act(fn: () => Promise<WorkflowView>) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
     setError(null);
     try {
       setView(await fn());
       loaded.reload();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
     }
   }
 
@@ -127,10 +136,10 @@ function WorkflowControl({ wfId }: { wfId: string }) {
         summary={t("{{template}} · {{party}}, {{from}} – {{to}} · {{done}} of {{total}} steps done", {
           template: t(wf.template_title), party: wf.party, from: wf.period_start, to: wf.period_end, done: v.done, total: v.total })}
         actions={<>
-          <label className="check small"><input type="checkbox" checked={wf.auto} disabled={wf.status !== "open"}
+          <label className="check small"><input type="checkbox" checked={wf.auto} disabled={busy || wf.status !== "open"}
             onChange={(e) => void act(() => api.updateWorkflow(wf.id, { auto: e.target.checked }))} /> {t("Start the steps by themselves")}</label>
           <a className="button secondary small-btn" href={`#/workflows/${encodeURIComponent(wf.id)}/repeat`}>{t("Repeat for the next period")}</a>
-          <button type="button" className="secondary small-btn" onClick={() => void act(() => api.updateWorkflow(wf.id, { archived: wf.status === "open" }))}>
+          <button type="button" className="secondary small-btn" disabled={busy} onClick={() => void act(() => api.updateWorkflow(wf.id, { archived: wf.status === "open" }))}>
             {wf.status === "open" ? t("Archive") : t("Restore")}
           </button>
         </>} />
@@ -156,7 +165,7 @@ function WorkflowControl({ wfId }: { wfId: string }) {
             {/* 157: the step that needs a person first has a firm border and the view's one solid button */}
             <li className="wf-step" aria-current={v.next?.step === s.id ? "step" : undefined}>
               {/* 153 (review D3): a step that turns to another status gets a new form (a budget it now needs) */}
-              <StepCard key={`${s.id}:${s.status}`} step={s} steps={v.steps} open={wf.status === "open"} isNext={v.next?.step === s.id}
+              <StepCard key={`${s.id}:${s.status}`} step={s} steps={v.steps} open={wf.status === "open"} isNext={v.next?.step === s.id} busy={busy}
                 onStart={(budget) => void act(() => api.startWorkflowStep(wf.id, s.id, budget))}
                 onLink={(wpId) => void act(() => api.linkWorkflowStep(wf.id, s.id, wpId))} />
             </li>
@@ -192,8 +201,8 @@ function eventText(action: string, detail: Record<string, unknown>): string {
   return words[action] ? t(words[action]) : action;
 }
 
-function StepCard({ step, steps, open, isNext, onStart, onLink }: {
-  step: WorkflowStep; steps: WorkflowStep[]; open: boolean; isNext: boolean; onStart: (budget?: WorkflowBudget) => void;
+function StepCard({ step, steps, open, isNext, busy, onStart, onLink }: {
+  step: WorkflowStep; steps: WorkflowStep[]; open: boolean; isNext: boolean; busy: boolean; onStart: (budget?: WorkflowBudget) => void;
   onLink: (wpId: string) => void;
 }) {
   useLocale();
@@ -236,7 +245,7 @@ function StepCard({ step, steps, open, isNext, onStart, onLink }: {
       {canStart ? (
         <div className="button-row">
           <button type="button" className={isNext && step.status !== "waiting" ? "primary small-btn" : "secondary small-btn"}
-            title={spendNote} onClick={() => onStart(over ? clean(budget) : undefined)}>
+            title={spendNote} disabled={busy} onClick={() => onStart(over ? clean(budget) : undefined)}>
             {over ? t("Start with this budget") : step.status === "failed" ? t("Try again") : step.status === "waiting" ? t("Start now anyway") : t("Start")}
             {cap > 0 ? <span className="spend" aria-hidden="true">≤ {usdBudget(cap)}</span> : null}
           </button>
@@ -248,7 +257,7 @@ function StepCard({ step, steps, open, isNext, onStart, onLink }: {
 }
 
 function roundedUp(budget: WorkflowBudget): WorkflowBudget {
-  return Object.fromEntries(Object.entries(budget).map(([p, v]) => [p, (Math.ceil(Number(v) * 100) / 100).toFixed(2)]));
+  return Object.fromEntries(Object.entries(budget).map(([p, v]) => [p, centsUp(v)]));
 }
 
 function clean(budget: WorkflowBudget): WorkflowBudget {

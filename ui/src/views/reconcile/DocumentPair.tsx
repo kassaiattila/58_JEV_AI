@@ -111,7 +111,7 @@ function StatementAsRead({ statement, lineId, open }: { statement: ReconcileStat
   );
 }
 
-function StatementDoc({ wpId, line, found }: { wpId: string; line: ReconcileLine; found: ReconcileLocation | null }) {
+function StatementDoc({ wpId, line, found, error }: { wpId: string; line: ReconcileLine; found: ReconcileLocation | null; error?: string | null }) {
   useLocale();
   const [page, setPage] = useState(1);
   useEffect(() => { setPage(found?.page ?? 1); }, [found?.page, line.id]);
@@ -123,7 +123,9 @@ function StatementDoc({ wpId, line, found }: { wpId: string; line: ReconcileLine
   const original = found?.original ?? null;
   const file = image === "original" ? original?.file ?? null : found?.statement.file ?? line.file;
   let note: string | null = null;
-  if (src && found && !found.page) note = t("The line could not be found on the statement's pages; look for it by its date and amount.");
+  // 167 (review 160 U-11): the lookup of the line's place failed: say so, not an empty pane
+  if (error) note = t("The line's place on the statement could not be looked up: {{reason}}", { reason: error });
+  else if (src && found && !found.page) note = t("The line could not be found on the statement's pages; look for it by its date and amount.");
   else if (original?.state === "export") note = t("This statement was read from the bank's table or XML export, so it has no PDF page.");
   else if (original?.state === "missing") {
     note = t("The bank's PDF ({{file}}) is not in the package's source folder, or it changed since it was read.", { file: original.file ?? "–" });
@@ -159,7 +161,7 @@ export function DocumentPair({ wpId, line, invoice, opens }: {
   useEffect(() => { setInvoicePage(1); }, [invoice?.id]);
   return (
     <section className="rc-docs" aria-label={t("Documents")}>
-      {line ? <StatementDoc wpId={wpId} line={line} found={found} />
+      {line ? <StatementDoc wpId={wpId} line={line} found={found} error={found ? null : where.error?.message} />
         : <p className="muted small">{t("Select a statement line to see its statement.")}</p>}
       {invoice ? (
         <Doc title={t("Invoice")} file={invoice.file} open={opens[invoice.id]} page={invoicePage} setPage={setInvoicePage} />

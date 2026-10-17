@@ -120,7 +120,8 @@ export function ReconcileCards({ ws, readOnly, onWorkspace, reload, onManual }: 
       e.preventDefault();
       const next = shown[e.key === "ArrowDown" || e.key === "j" ? Math.min(shown.length - 1, at + 1) : Math.max(0, at - 1)];
       if (next) { setFocus(next.id); if (shown.indexOf(next) >= limit) setLimit((n) => n + PAGE); }
-    } else if (e.key === "Enter" && !onButton && focused && !readOnly) {
+    } else if (e.key === "Enter" && !e.repeat && !busy && !onButton && focused && !readOnly) {
+      // 167 (review 160 U-6): a held key or a second Enter while saving would accept the next card too
       const plan = proposalPlan(focused, lineById, invoiceById);
       if (plan) { e.preventDefault(); void act(() => api.reconcileAllocate(wpId, toRequest(plan.pairs)), t("The proposal has been accepted.")); }
     } else if (e.key === "d" && focused) setDocs((v) => !(v ?? focused.flags.some((f) => CLARIFY.has(f))));

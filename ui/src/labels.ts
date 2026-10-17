@@ -327,6 +327,16 @@ export function numText(v: unknown, digits = 2): string {
   return Number.isFinite(n) ? n.toLocaleString(getLocale(), { maximumFractionDigits: digits }) : String(v);
 }
 
+/** 167 (review 160 U-13): an amount in a table: always two decimals and grouped thousands, a four-digit one too
+ *  ("1 200,50", not "1200,5"); a non-number stays unchanged. */
+export function moneyText(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "";
+  const n = Number(v);
+  return Number.isFinite(n)
+    ? n.toLocaleString(getLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: "always" } as unknown as Intl.NumberFormatOptions)
+    : String(v);
+}
+
 /** 081: a stored amount or quantity ("35.56", "28000") in the editing form, the Hungarian way: a decimal comma and no
  *  grouping ("35,56"). The local service reads what is typed back by the same habit ("28.000" = 28 000). */
 export function editNumber(v: unknown): string {

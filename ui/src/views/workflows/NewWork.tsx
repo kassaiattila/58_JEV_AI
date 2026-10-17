@@ -22,7 +22,7 @@ import { Mailbox, splitAccounts, toggleAccount } from "../Mailbox";
 import { PartyChoice, ReconcileCreate } from "../reconcile/ReconcileCreate";
 import { StatementPackageCreate } from "../StatementPackageCreate";
 import { ENGINE } from "../../labels";
-import { budgetText, PROVIDER } from "./labels";
+import { budgetText, centsUp, mergeProposal, PROVIDER } from "./labels";
 
 /** The work package kinds (source_kind) an existing package of a step's kind may have (as `jav/workflows.py`). */
 const PACKAGE_KINDS: Record<WorkKind, string[]> = {
@@ -162,6 +162,8 @@ interface StepDraft {
   source: WorkSourceKind; folder: string; recursive: boolean; onlyNew: boolean; files: string; packageId: string;
   packageName: string; accounts: string; folders: string; usePeriod: boolean; days: number; maxItems: number;
   budget: WorkflowBudget; estimate: WorkflowEstimate | null; estimating: boolean; error: string | null;
+  /** 167 (review 160 U-9): the services whose budget the person typed here (a new estimate leaves them) */
+  typed: Record<string, boolean>;
   /** 160-D: the step's own AI engine; null: the application's when the step starts */
   engine: Engine | null;
 }
@@ -170,7 +172,7 @@ function draftFor(kind: WorkKind, conf: WorkflowTemplates): StepDraft {
   return {
     source: conf.kinds[kind].sources[0], folder: "", recursive: false, onlyNew: false, files: "", packageId: "", packageName: "",
     accounts: "", folders: "Inbox", usePeriod: true, days: 31, maxItems: 0, budget: {}, estimate: null, estimating: false, error: null,
-    engine: null,
+    engine: null, typed: {},
   };
 }
 
@@ -263,13 +265,13 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
       const engine = drafts[id].engine;
       const est = await api.workflowEstimate({ kind, source, party_id: party?.id, period_start: start, period_end: end, engine });
       // the budget proposed: the estimate rounded up to the cent (a person can change it)
-      const proposed = Object.fromEntries(Object.entries(est.usd).map(([p, v]) => [p, (Math.ceil(Number(v) * 100) / 100).toFixed(2)]));
+      const proposed = Object.fromEntries(Object.entries(est.usd).map(([p, v]) => [p, centsUp(v)]));
       // 153 (review D3): merged into the draft as it is now, so a cap typed while the estimate ran stays (it was
       // overwritten by the proposal); an answer for a source changed meanwhile is dropped
       const asked = JSON.stringify([source, engine]);
       setDrafts((prev) => {
         if (JSON.stringify([sourceOf(prev[id], [start, end]), prev[id].engine]) !== asked) return { ...prev, [id]: { ...prev[id], estimating: false } };
-        return { ...prev, [id]: { ...prev[id], estimate: est, estimating: false, budget: { ...proposed, ...prev[id].budget } } };
+        return { ...prev, [id]: { ...prev[id], estimate: est, estimating: false, budget: mergeProposal(prev[id].budget, proposed, prev[id].typed) } };
       });
     } catch (e) {
       set(id, { estimating: false, error: e instanceof ApiError ? e.message : String(e) });
@@ -421,7 +423,7 @@ function StepEditor({ n, title, kind, conf, draft, appEngine, after, onChange, o
           {(["jev", "openai", "azure_di"] as const).map((p) => (
             <label key={p} className="inline small">{PROVIDER[p]}
               <input type="number" min={0} max={1000} step={0.01} value={draft.budget[p] ?? ""} aria-label={t("{{provider}} budget of {{step}}", { provider: PROVIDER[p], step: title })}
-                onChange={(e) => onChange({ budget: { ...draft.budget, [p]: e.target.value } })} />
+                onChange={(e) => onChange({ budget: { ...draft.budget, [p]: e.target.value }, typed: { ...draft.typed, [p]: true } })} />
             </label>
           ))}
           <button type="button" className="secondary small-btn" disabled={!canEstimate || draft.estimating} onClick={onEstimate}>

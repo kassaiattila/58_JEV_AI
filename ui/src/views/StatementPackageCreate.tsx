@@ -5,7 +5,7 @@
 // recognition and AI extraction. A person ticks what goes in; the party's months show beside it. It replaces the
 // earlier "Bank statement from a table" (136, 137): an export of one file or a folder of exports is surveyed here too.
 // 146: which files a reader knows folds open under the introduction (the catalogue of `BankFiles.tsx`).
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, ApiError, type OwnParty, type StatementPackageSurvey, type StatementRef, type StatementSurveyRow } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
 import { useLoad } from "../hooks";
@@ -177,9 +177,11 @@ export function StatementPackageCreate({ onDone }: { onDone: (wpId: string) => v
   const periodOk = Boolean(start) && Boolean(end) && start <= end;
   const canSurvey = party !== null && periodOk && paths.length > 0;
 
-  // any change to what is surveyed drops the survey: the ticks belong to the files as they were read
+  // any change to what is surveyed drops the survey: the ticks belong to the files as they were read. 167 (review 160
+  // U-3): it also drops a survey still on its way, so a late answer for the party chosen before is not taken
+  const asked = useRef(0);
   function reset<T>(set: (v: T) => void) {
-    return (v: T) => { set(v); setSurvey(null); setChosen(new Set()); };
+    return (v: T) => { set(v); asked.current += 1; setSurvey(null); setChosen(new Set()); };
   }
 
   async function run() {
@@ -187,7 +189,9 @@ export function StatementPackageCreate({ onDone }: { onDone: (wpId: string) => v
     setBusy(true);
     setError(null);
     try {
+      const my = ++asked.current;
       const s = await api.statementPackageSurvey({ paths, party_id: party.id, period_start: start, period_end: end });
+      if (my !== asked.current) return;
       setSurvey(s);
       setChosen(new Set([...s.statements.filter((r) => r.chosen).map((r) => r.id), ...s.pdfs.filter((p) => p.chosen).map((p) => p.path)]));
     } catch (e) {

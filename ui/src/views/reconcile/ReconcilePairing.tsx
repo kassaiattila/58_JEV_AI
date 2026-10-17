@@ -236,6 +236,7 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
   useEffect(() => {
     if (!active) return;
     let live = true;
+    setFindError(null); // 167 (review 160 U-11): the previous line's failure does not carry over to this one
     const timer = window.setTimeout(() => {
       api.reconcileMatches(wpId, active).then((r) => {
         if (!live) return;
