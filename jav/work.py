@@ -1661,8 +1661,9 @@ def approve_run(run_id: str, *, actor: str, review_version: str | None = None,
             if result is None or result["status"] != "done":
                 raise NotReady("The run has an unfinished input item")
             subject_kind, subject_id = review_subject(item)
-            reasons = c.execute("SELECT r.run_id FROM review_reasons r JOIN review_queue q ON q.id=r.review_id"
-                                " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open'",
+            # 167 (review R-10): the subject drives the join (`store.SUBJECT_REASONS`), not every open reason of the store
+            reasons = c.execute("SELECT r.run_id FROM " + store.SUBJECT_REASONS
+                                + " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open'",
                                 (subject_kind, subject_id)).fetchall()
             if any(is_own_reason(dict(reason), flow_run_id(run_id, item["item_id"])) for reason in reasons):
                 raise NotReady("The run still has open review reasons")

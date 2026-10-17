@@ -134,6 +134,8 @@ CREATE TABLE IF NOT EXISTS review_queue (
     decided_at    TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_review_open ON review_queue(status, created_at);
+-- 167 (review R-10): the lookups by subject (the approval's re-check under its write lock, adding and closing reasons)
+CREATE INDEX IF NOT EXISTS ix_review_subject ON review_queue(subject_kind, subject_id, status);
 
 -- Okonkénti teendő (040 K1, F04): a review_queue.reasons JSON csak a nyitott okok tükre; a tétel akkor zárul,
 -- ha az utolsó nyitott oka is lezárult. producer = a felvevő lépés (detect, m2, email_intent, ...; 'legacy' = régi sor).
@@ -740,12 +742,18 @@ def review_resolve(reason_id: int, *, actor: str, resolution: dict[str, Any] | N
         _sync_review_item(c, int(row["review_id"]), closing_status="resolved")
 
 
+# 167 (review R-10): a subject's reasons, with the subject driving the join. Without table statistics SQLite started
+# from every open reason of the store (`ix_review_reasons_status_run`) and looked each one's item up; a CROSS JOIN keeps
+# `review_queue` in the outer loop, so both sides use their index (`ix_review_subject`, `ix_review_reasons_item`).
+SUBJECT_REASONS = "review_queue q CROSS JOIN review_reasons r ON r.review_id = q.id"
+
+
 def review_open_reasons(subject_kind: str, subject_id: str) -> list[dict[str, Any]]:
     """A subject's open reasons (id, reason, producer, run_id), in the order they were raised."""
     with connect() as c:
         return [dict(r) for r in c.execute(
-            "SELECT r.id, r.reason, r.producer, r.run_id FROM review_reasons r JOIN review_queue q ON q.id = r.review_id"
-            " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open' ORDER BY r.id", (subject_kind, subject_id))]
+            "SELECT r.id, r.reason, r.producer, r.run_id FROM " + SUBJECT_REASONS
+            + " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open' ORDER BY r.id", (subject_kind, subject_id))]
 
 
 def review_open_reasons_many(subjects: list[tuple[str, str]]) -> dict[tuple[str, str], list[dict[str, Any]]]:
@@ -762,9 +770,8 @@ def review_open_reasons_many(subjects: list[tuple[str, str]]) -> dict[tuple[str,
             for start in range(0, len(ids), 500):  # below SQLite's parameter limit
                 chunk = ids[start:start + 500]
                 for r in c.execute(
-                    "SELECT q.subject_id, r.id, r.reason, r.producer, r.run_id FROM review_reasons r"
-                    " JOIN review_queue q ON q.id = r.review_id"
-                    f" WHERE q.subject_kind=? AND q.subject_id IN ({','.join('?' * len(chunk))}) AND r.status='open'"
+                    "SELECT q.subject_id, r.id, r.reason, r.producer, r.run_id FROM " + SUBJECT_REASONS
+                    + f" WHERE q.subject_kind=? AND q.subject_id IN ({','.join('?' * len(chunk))}) AND r.status='open'"
                     " ORDER BY r.id", (kind, *chunk)):
                     row = dict(r)
                     out[(kind, row.pop("subject_id"))].append(row)
