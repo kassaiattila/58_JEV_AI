@@ -17,14 +17,25 @@ import { paramExplanation, RecipeParamList, recipeDefaults, recipeTitle } from "
 
 const ACTIVE = new Set(["queued", "running"]);
 
+// 155: every run spends from the same budget (a trial calls the same services as a live run), so each start button
+// carries the cap; a run that can spend nothing carries no mark
+const capOf = (budget: Record<string, string>) => Object.values(budget).reduce((s, v) => s + (Number(v) || 0), 0);
+const spendMark = (cap: number) => (cap > 0 ? <span className="spend" aria-hidden="true">≤ {usdBudget(cap)}</span> : null);
+const withSpend = (cap: number, title?: string) =>
+  [title, cap > 0 ? t("Starts a run that can spend up to {{usd}}", { usd: usdBudget(cap) }) : ""].filter(Boolean).join(" · ") || undefined;
+
 export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
   useLocale();
   const { workpackage: wp, readiness, last_run: last } = view;
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const active = last ? ACTIVE.has(last.status) : false;
+  // 160-C S3: the run the next step is about (a later trial or a run over the pending items does not hide an open
+  // live run): its rerun, and the mode of the pending items' run when they are next
+  const target = view.current_run ?? last;
   // 058: a single highlighted button — the one the package's next step asks for (the list and the header show it too)
-  const primary = { start: "shadow", go_live: "apply", rerun: "rerun" }[view.next.code as string] ?? null;
+  const primary = view.next.code === "pending" ? `pending-${target?.mode ?? "apply"}`
+    : ({ start: "shadow", go_live: "apply", rerun: "rerun" }[view.next.code as string] ?? null);
   const btn = (which: string) => (primary === which ? "primary" : "secondary");
   const recipes = useLoad("recipes", api.recipes);
 
@@ -78,13 +89,15 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
   }
 
   // 061: the button leads to the confirmation page; the start happens there
-  const start = (mode: "shadow" | "apply", rerun = false) => go({ view: "workpackages", wpId: wp.id, stage: "process", start: { mode, rerun } });
-  // 155: every run spends from the same budget (a trial calls the same services as a live run), so each start button
-  // carries the cap; a run that can spend nothing carries no mark
-  const cap = Object.values(readiness.budget).reduce((s, v) => s + (Number(v) || 0), 0);
-  const spend = cap > 0 ? <span className="spend" aria-hidden="true">≤ {usdBudget(cap)}</span> : null;
-  const spendNote = cap > 0 ? t("Starts a run that can spend up to {{usd}}", { usd: usdBudget(cap) }) : "";
-  const withSpend = (title?: string) => [title, spendNote].filter(Boolean).join(" · ") || undefined;
+  const start = (mode: "shadow" | "apply", rerun = false, pending = false) =>
+    go({ view: "workpackages", wpId: wp.id, stage: "process", start: { mode, rerun, ...(pending ? { pending } : {}) } });
+  const cap = capOf(readiness.budget);
+  const spend = spendMark(cap);
+  // 160-C S3: per mode, the run over only the pending items, with its own cap
+  const supplements = (["apply", "shadow"] as const).flatMap((m) => {
+    const s = readiness.supplement?.[m];
+    return s ? [{ mode: m, ...s }] : [];
+  });
 
   return (
     <div className="stage-grid">
@@ -124,20 +137,32 @@ export function ProcessStage({ view, onChanged }: { view: WorkpackageView; onCha
         ) : null}
         <OlderRunsOffer runs={view.supersedable ?? []} busy={busy || active} onSupersede={(id) => void supersede(id)} />
         <div className="button-row">
-          <button type="button" className={btn("shadow")} data-run="shadow" title={withSpend()} disabled={!readiness.ready || busy || active}
+          {supplements.map((s) => (
+            <button key={s.mode} type="button" className={btn(`pending-${s.mode}`)} data-run={`pending-${s.mode}`} title={withSpend(capOf(s.budget))}
+              disabled={!s.ready || busy || active} onClick={() => start(s.mode, false, true)}>
+              <Icon name={s.mode === "apply" ? "play" : "trial"} />
+              {s.mode === "apply" ? t("Live run, pending items only ({{n}})", { n: s.items }) : t("Trial run, pending items only ({{n}})", { n: s.items })}…
+              {spendMark(capOf(s.budget))}
+            </button>
+          ))}
+          <button type="button" className={btn("shadow")} data-run="shadow" title={withSpend(cap)} disabled={!readiness.ready || busy || active}
             onClick={() => start("shadow")}><Icon name="trial" />{t("Próbafutás")}…{spend}</button>
           {/* the live run is the consequential one: only its result can be released */}
-          <button type="button" className={btn("apply")} data-run="apply" title={withSpend()}
+          <button type="button" className={btn("apply")} data-run="apply" title={withSpend(cap)}
             disabled={!readiness.ready || busy || active} onClick={() => start("apply")}><Icon name="play" />{t("Éles futás")}…{spend}</button>
-          <button type="button" className={btn("rerun")} data-run="rerun" disabled={!last || !readiness.ready || busy || active}
-            title={withSpend(last ? t("The last ({{mode}}) run again, on the package's documents as they are now", { mode: MODE[last.mode].toLowerCase() }) : t("Még nincs megismételhető futás"))}
-            onClick={() => last && start(last.mode, true)}><Icon name="rerun" />{t("Újrafuttatás")}…{spend}</button>
+          <button type="button" className={btn("rerun")} data-run="rerun" disabled={!target || !readiness.ready || busy || active}
+            title={withSpend(cap, target ? t("Again as a new {{mode}} run, on the package's documents as they are now", { mode: MODE[target.mode].toLowerCase() }) : t("Még nincs megismételhető futás"))}
+            onClick={() => target && start(target.mode, true)}><Icon name="rerun" />{t("Újrafuttatás")}…{spend}</button>
         </div>
         <dl className="run-help small">
           <dt>{t("Próbafutás")}</dt><dd>{t("az eredmény megtekinthető és letölthető, de nem adható ki")}</dd>
           <dt>{t("Éles futás")}</dt><dd>{t("az eredményt ember hagyja jóvá az Eredmény szakaszban, nyitott teendő nélkül")}</dd>
           {/* 160-C S2: a rerun takes the package as it is now, not the earlier run's input */}
           <dt>{t("Újrafuttatás")}</dt><dd>{t("the last run again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not), for example after an error, a stop or a change of settings")}</dd>
+          {supplements.length ? <>
+            <dt>{t("Pending items only")}</dt>
+            <dd>{t("a new run over only the items no run of that kind has finished yet (added since, or failed); the earlier runs and their approval stay as they are, and its result is reviewed and approved on its own")}</dd>
+          </> : null}
         </dl>
         {readiness.plan ? <RunPlanList plan={readiness.plan} budget={readiness.budget} /> : (
           <p className="muted small">

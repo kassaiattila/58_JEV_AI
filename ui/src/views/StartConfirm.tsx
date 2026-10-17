@@ -1,7 +1,8 @@
 // Confirmation of starting a run (061 decision: the trial run, live run and rerun buttons do not start anything, but
 // lead to this page). It summarises what will start: mode, work package, the processing settings, number of items,
 // and (080, the pre-start overview) which services may be called, with the budget maximum and what for. A run can
-// only be started from here; Mégse (Cancel) goes back.
+// only be started from here; Mégse (Cancel) goes back. 160-C S3: the run over only the pending items shows their count,
+// budget and plan, and starts with their input.
 import { useState } from "react";
 import { api, ApiError, type WorkpackageView } from "../api";
 import { useLoad } from "../hooks";
@@ -12,8 +13,8 @@ import { paramValue, RunPlanList } from "./ProcessStage";
 
 const ACTIVE = new Set(["queued", "running"]);
 
-export function StartConfirm({ view, mode, rerun, onChanged }: {
-  view: WorkpackageView; mode: "shadow" | "apply"; rerun: boolean; onChanged: () => void;
+export function StartConfirm({ view, mode, rerun, pending = false, onChanged }: {
+  view: WorkpackageView; mode: "shadow" | "apply"; rerun: boolean; pending?: boolean; onChanged: () => void;
 }) {
   useLocale();
   const { workpackage: wp, last_run: last } = view;
@@ -22,6 +23,9 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
   // then, starting is disabled.
   const fresh = useLoad(`readiness:${wp.id}`, () => api.readiness(wp.id));
   const readiness = fresh.data ?? view.readiness;
+  // 160-C S3: the pending items' own count, blockers, budget, plan and input (gone once they were processed meanwhile)
+  const supplement = pending ? readiness.supplement?.[mode] : undefined;
+  const offer = pending ? supplement : readiness;
   const recipes = useLoad("recipes", api.recipes);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -33,16 +37,19 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
   const defaults: Record<string, string> = Object.fromEntries(Object.entries(recipe?.params ?? {}).map(([k, spec]) => [k, spec.default ?? ""]));
   const settings: Record<string, string> = { ...defaults, ...assignment?.params };
   const kinds = [...new Set(wp.items.map((i) => i.kind))];
-  // rerun: the mode and input of the latest run
-  const effectiveMode = rerun && last ? last.mode : mode;
-  const items = rerun && last ? last.items : readiness.counts.items;
+  // rerun: the mode of the run the package's next step is about (160-C S3), on the package's items as they are now
+  const target = view.current_run ?? last;
+  const effectiveMode = rerun && target ? target.mode : mode;
+  const items = supplement ? supplement.items : readiness.counts.items;
   const active = last ? ACTIVE.has(last.status) : false;
-  const budget = Object.entries(readiness.budget);
+  const budget = Object.entries(offer?.budget ?? {});
   const paid = budget.some(([, v]) => Number(v) > 0);
-  const blocked = !fresh.data || !readiness.ready || active || (rerun && !last);
+  const blocked = !fresh.data || !offer?.ready || active || (rerun && !target);
   const back = () => go({ view: "workpackages", wpId: wp.id, stage: "process" });
 
-  const title = rerun
+  const title = pending
+    ? effectiveMode === "apply" ? t("Confirm the live run on the pending items") : t("Confirm the trial run on the pending items")
+    : rerun
     ? t("Újrafuttatás megerősítése ({{mode}})", { mode: MODE[effectiveMode].toLowerCase() })
     : effectiveMode === "apply" ? t("Éles futás indításának megerősítése") : t("Próbafutás indításának megerősítése");
   const meaning = effectiveMode === "apply"
@@ -53,10 +60,10 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
     setBusy(true);
     setMsg(null);
     try {
-      const res = await api.start(wp.id, {
-        mode: effectiveMode, expected_revision: readiness.assignment_revision, input_hash: readiness.input_hash,
-        ...(rerun && last ? { rerun_of: last.run_id } : {}),
-      });
+      const res = await api.start(wp.id, supplement
+        ? { mode: effectiveMode, scope: "pending", expected_revision: readiness.assignment_revision, input_hash: supplement.input_hash }
+        : { mode: effectiveMode, expected_revision: readiness.assignment_revision, input_hash: readiness.input_hash,
+          ...(rerun && target ? { rerun_of: target.run_id } : {}) });
       go({ view: "run", runId: res.run_id });
     } catch (e) {
       const err = e as ApiError;
@@ -71,7 +78,9 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
   return (
     <section className="card wide start-confirm" aria-label={title}>
       <h2>{title}</h2>
-      <p>{meaning}{rerun && last ? ` ${t("A legutóbbi futás ({{when}}) megismétlése ugyanazzal a bemenettel, új futásként.", { when: when(last.created_at) })}` : ""}</p>
+      <p>{meaning}{pending
+        ? ` ${t("Only the items no run of this kind has finished yet (added since, or failed). The earlier runs and their approval stay as they are; this run's result is reviewed and approved on its own.")}`
+        : rerun && target ? ` ${t("The run of {{when}} again as a new run, on all the package's documents as they are now (the added ones too, the removed ones not).", { when: when(target.created_at) })}` : ""}</p>
       <dl className="confirm-list">
         <dt>{t("Munkacsomag")}</dt><dd>{wp.name}</dd>
         <dt>{t("Tételek")}</dt><dd>{t("{{n}} tétel", { n: items })}</dd>
@@ -95,13 +104,14 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
             : t("nem jár fizetős hívással")}</span>
         </dd>
       </dl>
-      {readiness.plan ? <RunPlanList plan={readiness.plan} budget={readiness.budget} /> : null}
-      {!readiness.ready ? (
-        <ul className="plain">{readiness.blockers.map((b, i) => <li key={i} className="blocker">{blockerText(b)}</li>)}</ul>
+      {offer?.plan ? <RunPlanList plan={offer.plan} budget={offer.budget} /> : null}
+      {offer && !offer.ready ? (
+        <ul className="plain">{offer.blockers.map((b, i) => <li key={i} className="blocker">{blockerText(b)}</li>)}</ul>
       ) : null}
-      {readiness.warnings.length ? (
-        <ul className="plain">{readiness.warnings.map((w, i) => <li key={i} className="warning">{blockerText(w)}</li>)}</ul>
+      {offer?.warnings.length ? (
+        <ul className="plain">{offer.warnings.map((w, i) => <li key={i} className="warning">{blockerText(w)}</li>)}</ul>
       ) : null}
+      {pending && fresh.data && !supplement ? <p className="notice">{t("No item is pending any more: there is nothing to start on its own.")}</p> : null}
       {active ? <p className="notice">{t("A csomagon éppen fut egy futás; új csak utána indítható.")}</p> : null}
       {!fresh.data ? (
         <p className="muted small" role="status">
@@ -110,7 +120,8 @@ export function StartConfirm({ view, mode, rerun, onChanged }: {
       ) : null}
       <div className="button-row">
         <button type="button" className="primary" disabled={blocked || busy} onClick={() => void confirm()}>
-          {busy ? t("Indítás…") : rerun ? t("Újrafuttatás indítása") : effectiveMode === "apply" ? t("Éles futás indítása") : t("Próbafutás indítása")}
+          {busy ? t("Indítás…") : pending ? t("Start on the pending items") : rerun ? t("Újrafuttatás indítása")
+            : effectiveMode === "apply" ? t("Éles futás indítása") : t("Próbafutás indítása")}
         </button>
         <button type="button" className="secondary" disabled={busy} onClick={back}>{t("Mégse")}</button>
       </div>

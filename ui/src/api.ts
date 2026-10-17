@@ -43,6 +43,7 @@ export interface RunRow {
   run_id: string; workpackage_id: string; workpackage_name: string; recipe_id: string; recipe_version: number; mode: "shadow" | "apply";
   status: string; approval: string | null; approved_by: string | null; actor: string; created_at: string; finished_at: string | null;
   items: number; items_done: number; open_reasons: number;
+  scope?: "pending" | null; // 160-C S3: a run over only the package's pending items
 }
 export interface WorkpackageView {
   workpackage: Workpackage; readiness: Readiness; titles?: Record<string, string>; next: NextStep; last_run: RunRow | null; runs: number;
@@ -57,6 +58,8 @@ export interface WorkpackageView {
   workflow?: WorkflowRef | null;
   /** 152: the older live runs a person can supersede, oldest first */
   supersedable?: SupersedableRun[];
+  /** 160-C S3: the open live runs (finished, not approved, not repeated by a later one), oldest first */
+  open_runs?: RunRow[];
 }
 /** 080: what a run of the package will do (the pre-start overview): documents by their path known in advance (S / G /
  *  type not known yet), emails, emails with a task proposal, whether Azure may be used and earlier JEV answers reused. */
@@ -72,6 +75,13 @@ export interface Readiness {
   budget: Record<string, string>; assignment_revision: number; input_hash: string;
   plan?: RunPlan; // 080
   assignment_default?: boolean; // 080: no saved settings yet; the default ones apply and are saved at start
+  /** 160-C S3: per mode, the run over only the pending items (when a run of that mode finished some items) */
+  supplement?: Partial<Record<"shadow" | "apply", Supplement>>;
+}
+/** 160-C S3: the run over only the package's pending items: their count, own blockers, budget, plan and input. */
+export interface Supplement {
+  items: number; ready: boolean; blockers: Blocker[]; warnings: Blocker[]; budget: Record<string, string>; plan: RunPlan;
+  input_hash: string;
 }
 export interface RecipeParam { allowed?: string[]; allowed_from?: string; default?: string }
 export interface Recipe {
@@ -1037,7 +1047,7 @@ export const api = {
   saveWorkflow: (id: string, body: { recipe_id: string; params: Record<string, string>; expected_revision: number; note?: string }) =>
     request<{ assignment: Assignment }>("POST", `/workpackages/${enc(id)}/workflow`, body),
   readiness: (id: string) => request<Readiness>("GET", `/workpackages/${enc(id)}/workflow/readiness`),
-  start: (id: string, body: { mode: "shadow" | "apply"; expected_revision: number; input_hash: string; rerun_of?: string }) =>
+  start: (id: string, body: { mode: "shadow" | "apply"; expected_revision: number; input_hash: string; rerun_of?: string; scope?: "all" | "pending" }) =>
     request<{ run_id: string; deduped: boolean; status: string }>("POST", `/workpackages/${enc(id)}/workflow/start`, body),
   wpRuns: (id: string) => request<{ runs: Run[] }>("GET", `/workpackages/${enc(id)}/runs`),
   runs: () => request<{ runs: Run[] }>("GET", "/runs"),
