@@ -46,6 +46,7 @@ from typing import IO, Any, Callable
 
 from jav import store
 from jav.runtime import lock
+from jav.user_messages import explained
 
 log = logging.getLogger("jav.calls")
 
@@ -573,7 +574,8 @@ def resolve_uncertain(invocation_id: int, *, cost_usd: Decimal | None, note: str
     `InvalidSettlement` and nothing changes."""
     if cost_usd is not None:
         if not cost_usd.is_finite() or cost_usd < 0 or cost_usd > MAX_SETTLED_COST_USD:
-            raise InvalidSettlement(f"a settled cost must be between 0 and {MAX_SETTLED_COST_USD} USD, not {cost_usd}")
+            raise explained(InvalidSettlement, "a settled cost must be between 0 and {{max_settled_cost_usd}} USD, not {{cost_usd}}",
+                            max_settled_cost_usd=MAX_SETTLED_COST_USD, cost_usd=cost_usd)
         cost_usd = cost_usd.copy_abs()  # -0 is stored as 0
     with store.connect() as c:
         settled = c.execute(
@@ -584,8 +586,9 @@ def resolve_uncertain(invocation_id: int, *, cost_usd: Decimal | None, note: str
             return
         row = c.execute("SELECT status FROM invocations WHERE id=?", (invocation_id,)).fetchone()
     if row is not None and row["status"] == "reserved":
-        raise NotUncertain(f"invocation {invocation_id} is still in progress (reserved); it cannot be settled by hand")
-    raise NotUncertain(f"invocation {invocation_id} is not uncertain")
+        raise explained(NotUncertain, "invocation {{invocation_id}} is still in progress (reserved); it cannot be settled by hand",
+                        invocation_id=invocation_id)
+    raise explained(NotUncertain, "invocation {{invocation_id}} is not uncertain", invocation_id=invocation_id)
 
 
 def uncertain_list() -> list[dict[str, Any]]:

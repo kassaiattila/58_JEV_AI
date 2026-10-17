@@ -41,7 +41,7 @@ from jav import (app_settings, backup, bank_files, cfg, corrections, dates, deps
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
-from jav.user_messages import message_fields
+from jav.user_messages import explained, message_fields
 
 API_VERSION = "1"
 UI_DIST = PROJECT_ROOT / "ui" / "dist"  # the UI build (040 K3); if present, the service serves it at the root
@@ -86,13 +86,13 @@ def checked_path(raw: str, *, want_dir: bool | None) -> Path:
     try:
         p = Path(raw).resolve(strict=True)
     except (OSError, RuntimeError) as exc:
-        raise ValueError(f"path does not exist: {Path(raw).name}") from exc
+        raise explained(ValueError, "path does not exist: {{name}}", name=Path(raw).name) from exc
     if paths_restricted() and not any(p == r or p.is_relative_to(r) for r in allowed_roots()):
-        raise ForbiddenPath("path is outside the allowed roots (configs/service.json)")
+        raise explained(ForbiddenPath, "path is outside the allowed roots (configs/service.json)")
     if want_dir and not p.is_dir():
-        raise ValueError(f"not a folder: {p.name}")
+        raise explained(ValueError, "not a folder: {{name}}", name=p.name)
     if want_dir is False and not p.is_file():
-        raise ValueError(f"not a file: {p.name}")
+        raise explained(ValueError, "not a file: {{name}}", name=p.name)
     return p
 
 
@@ -692,7 +692,7 @@ def human_actor(x_actor: Annotated[str, Header(max_length=256)]) -> str:
     recorded in the list's spelling)."""
     name = app_settings.canonical_user(_decode_actor(x_actor))
     if name is None:
-        raise UnknownUser("the actor is not in the user list (Settings > Users)")
+        raise explained(UnknownUser, "the actor is not in the user list (Settings > Users)")
     return name
 
 
@@ -702,7 +702,7 @@ def actor_unless_first_users(x_actor: Annotated[str | None, Header(max_length=25
     if not app_settings.users():
         return app_settings.canonical_user(_decode_actor(x_actor)) if x_actor else None
     if x_actor is None:
-        raise ValueError("X-Actor header is required to change the user list")
+        raise explained(ValueError, "X-Actor header is required to change the user list")
     return human_actor(x_actor)
 
 
@@ -821,7 +821,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
         pack = typepack.get(body.doc_type)
         if body.field not in pack.fields:
-            raise ValueError(f"not a field of {pack.key}: {body.field}")
+            raise explained(ValueError, "not a field of {{key}}: {{field}}", key=pack.key, field=body.field)
         reasons: list[str] = []
         text = body.text.strip()
         if pack.kind(body.field) == "money":  # a currency sign is natural in a selection ("1 071 880 Ft", "650 000,-")
@@ -869,7 +869,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/workpackages", status_code=201)
     def create_workpackage(body: CreateWorkpackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         if (body.folder is None) == (body.paths is None):
-            raise ValueError("give exactly one of folder or paths")
+            raise explained(ValueError, "give exactly one of folder or paths")
         if body.folder is not None:  # 065: the creator is the owner
             # 081: with the subfolders, the output folder of the named copies is left out
             out = app_settings.output_folder() if body.recursive else None
@@ -877,7 +877,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                                          recursive=body.recursive, exclude=[Path(out)] if out else [])
         else:
             if not body.name:
-                raise ValueError("name is required when creating from files")
+                raise explained(ValueError, "name is required when creating from files")
             wp = work.create_from_files([checked_path(p, want_dir=False) for p in body.paths], name=body.name, owner=who)
         return work_views.workpackage_view(wp["id"])
 
@@ -926,7 +926,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         if body.owner is not None:
             owner = app_settings.canonical_user(body.owner)
             if owner is None:
-                raise ValueError("unknown user: the owner must be in the user list")
+                raise explained(ValueError, "unknown user: the owner must be in the user list")
         work.set_owner(wp_id, owner, actor=who)
         return work_views.workpackage_view(wp_id)
 
@@ -1195,7 +1195,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         work.get_run(run_id)
         folder = app_settings.output_folder()
         if not folder:
-            raise app_settings.NoOutputFolder("no output folder is set (Settings > Work folders)")
+            raise explained(app_settings.NoOutputFolder, "no output folder is set (Settings > Work folders)")
         res = naming.write_to_folder(run_id, Path(folder))
         log.info("named copies of %s written by %s", run_id, who)
         return res
@@ -1319,7 +1319,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         elif body.action == "dismiss":
             parties.assign(body.kind, body.key, body.label, None, actor=who)
         elif body.party_id is None:
-            raise ValueError("assigning an identity needs a party")
+            raise explained(ValueError, "assigning an identity needs a party")
         else:
             parties.assign(body.kind, body.key, body.label, body.party_id, actor=who)
         return work_views.jsonable(party_views.overview())

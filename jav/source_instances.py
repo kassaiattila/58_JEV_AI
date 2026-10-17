@@ -36,6 +36,7 @@ from pathlib import Path
 
 from jav import store
 from jav.runtime import lock
+from jav.user_messages import explained
 
 CHUNK = 1 << 20
 SPACE_HEADROOM = 1 << 20
@@ -89,7 +90,7 @@ class InstanceStorageFull(ValueError):
 
 def _require_space(base: Path, required: int) -> None:
     if shutil.disk_usage(base).free < required + SPACE_HEADROOM:
-        raise InstanceStorageFull("Insufficient disk space for a source copy; free space and try again.")
+        raise explained(InstanceStorageFull, "Insufficient disk space for a source copy; free space and try again.")
 
 
 def _remove_lease(lease: Path) -> None:
@@ -111,7 +112,7 @@ def freeze(path: Path, *, max_bytes: int | None = None) -> tuple[str, str]:
         return _freeze(path, max_bytes=max_bytes)
     except OSError as exc:
         if exc.errno in (errno.ENOSPC, errno.EDQUOT) or getattr(exc, "winerror", None) in (39, 112):
-            raise InstanceStorageFull("Insufficient disk space for a source copy; free space and try again.") from exc
+            raise explained(InstanceStorageFull, "Insufficient disk space for a source copy; free space and try again.") from exc
         raise
 
 
@@ -120,7 +121,8 @@ def _freeze(path: Path, *, max_bytes: int | None) -> tuple[str, str]:
     base.mkdir(parents=True, exist_ok=True)
     size = path.stat().st_size
     if max_bytes is not None and size > max_bytes:
-        raise InstanceTooLarge(f"{path.name}: more than {max_bytes} bytes")
+        raise explained(InstanceTooLarge, "{{name}}: more than {{max_bytes}} bytes",
+                        name=path.name, max_bytes=max_bytes)
     _require_space(base, size)
     token = uuid.uuid4().hex
     lease = base / f".incoming-{token}.lock"
@@ -135,7 +137,8 @@ def _freeze(path: Path, *, max_bytes: int | None) -> tuple[str, str]:
                     for chunk in iter(lambda: src.read(CHUNK), b""):
                         copied += len(chunk)
                         if max_bytes is not None and copied > max_bytes:
-                            raise InstanceTooLarge(f"{path.name}: more than {max_bytes} bytes")
+                            raise explained(InstanceTooLarge, "{{name}}: more than {{max_bytes}} bytes",
+                                            name=path.name, max_bytes=max_bytes)
                         _require_space(base, len(chunk))
                         h.update(chunk)
                         view = memoryview(chunk)

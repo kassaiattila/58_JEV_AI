@@ -31,6 +31,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from jav import ingest_server, store, work
 from jav.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
+from jav.user_messages import explained
 
 log = logging.getLogger("jav.mailbox")
 
@@ -65,7 +66,7 @@ class MailboxRequest(BaseModel):
     def _accounts(cls, v: list[str]) -> list[str]:
         bad = [a for a in v if not _ACCOUNT.match(a.strip())]
         if bad:
-            raise ValueError(f"not e-mail addresses: {bad}")
+            raise explained(ValueError, "not e-mail addresses: {{bad}}", bad=bad)
         return [a.strip() for a in v]
 
     @field_validator("folders")
@@ -73,15 +74,15 @@ class MailboxRequest(BaseModel):
     def _folders(cls, v: list[str]) -> list[str]:
         bad = [f for f in v if not _FOLDER.match(f.strip())]
         if bad:
-            raise ValueError(f"invalid folder names: {bad}")
+            raise explained(ValueError, "invalid folder names: {{bad}}", bad=bad)
         return [f.strip() for f in v]
 
     @model_validator(mode="after")
     def _period(self) -> MailboxRequest:
         if (self.received_from is None) != (self.received_to is None):
-            raise ValueError("received_from and received_to go together")
+            raise explained(ValueError, "received_from and received_to go together")
         if self.received_from and self.received_to and self.received_from > self.received_to:
-            raise ValueError("received_from must not be after received_to")
+            raise explained(ValueError, "received_from must not be after received_to")
         if self.received_from is None and self.since_days is None:
             self.since_days = 1
         return self
@@ -327,9 +328,9 @@ def create_schedule(req: MailboxRequest, *, actor: str, interval_min: int = DEFA
                     enabled: bool = True) -> dict[str, Any]:
     """New schedule; the first download is due in the next worker cycle. A fixed date range makes no sense here."""
     if req.received_from is not None:
-        raise ValueError("a schedule reads the last N days; a fixed date range is for one-off fetches")
+        raise explained(ValueError, "a schedule reads the last N days; a fixed date range is for one-off fetches")
     if not 15 <= interval_min <= 7 * 24 * 60:
-        raise ValueError("interval_min must be between 15 minutes and 7 days")
+        raise explained(ValueError, "interval_min must be between 15 minutes and 7 days")
     sid = f"mbx-{uuid.uuid4().hex[:10]}"
     now = _utc()
     with store.connect() as c:
@@ -344,7 +345,7 @@ def update_schedule(schedule_id: str, *, actor: str, enabled: bool | None = None
     """167 (review S-5): `actor` is recorded as the one who last changed it, and logged."""
     cur = schedule(schedule_id)
     if interval_min is not None and not 15 <= interval_min <= 7 * 24 * 60:
-        raise ValueError("interval_min must be between 15 minutes and 7 days")
+        raise explained(ValueError, "interval_min must be between 15 minutes and 7 days")
     en = cur["enabled"] if enabled is None else enabled
     iv = cur["interval_min"] if interval_min is None else interval_min
     # due at once when switched on; when the frequency changes, the next time follows the new frequency
@@ -570,7 +571,7 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
     `corrections.review_version`)."""
     run = work.get_run(run_id)
     if run["approval"]:
-        raise work.RevisionConflict(f"run {run_id} is approved; task decisions are frozen")
+        raise explained(work.RevisionConflict, "run {{run_id}} is approved; task decisions are frozen", run_id=run_id)
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id and i.get("kind") == "email"), None)
     if item is None:
         raise KeyError(item_id)
@@ -583,7 +584,8 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
         c.execute("BEGIN IMMEDIATE")
         row = c.execute("SELECT approval FROM runs WHERE run_id=?", (run_id,)).fetchone()
         if row is not None and row["approval"]:
-            raise work.RevisionConflict(f"run {run_id} is approved; task decisions are frozen")
+            raise explained(work.RevisionConflict, "run {{run_id}} is approved; task decisions are frozen",
+                            run_id=run_id)
         store.email_task_decide(flow_id, index, decision=decision, actor=actor, note=note, c=c)
     view = task_view(flow_id, store.email_result(flow_id))
     if all(t["decision"] for t in view["tasks"]):
@@ -606,7 +608,8 @@ def mark_task_done(run_id: str, item_id: str, index: int, *, done: bool, actor: 
     if view is None or not 0 <= index < len(view["tasks"]):
         raise KeyError(f"task {index}")
     if not store.email_task_done(flow_id, index, actor=actor, done=done):
-        raise work.RevisionConflict(f"task {index} is not accepted; only an accepted task can be marked done")
+        raise explained(work.RevisionConflict, "task {{index}} is not accepted; only an accepted task can be marked done",
+                        index=index)
     return task_view(flow_id, store.email_result(flow_id))  # type: ignore[return-value]
 
 
