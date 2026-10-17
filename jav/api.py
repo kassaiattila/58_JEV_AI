@@ -393,6 +393,7 @@ class WorkflowSource(_In):
 class WorkflowStepInput(_In):
     source: WorkflowSource
     budget: Budget | None = None  # 146: the most an automatic start may reserve, per provider (USD)
+    engine: Literal["jev", "gpt"] | None = None  # 160-D: the step's own AI engine; None: the application's
 
 
 class CreateWorkflow(_In):
@@ -413,6 +414,7 @@ class WorkflowEstimate(_In):
     party_id: PartyId | None = None
     period_start: IsoDay | None = None
     period_end: IsoDay | None = None
+    engine: Literal["jev", "gpt"] | None = None  # 160-D: the step's own AI engine; None: the application's
 
 
 class StartWorkflowStep(_In):
@@ -1338,7 +1340,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def workflow_estimate(body: WorkflowEstimate) -> dict[str, Any]:
         return work_views.jsonable(workflows.estimate(kind=body.kind, source=workflow_source(body.source),
                                                       party_id=body.party_id, period_start=body.period_start,
-                                                      period_end=body.period_end))
+                                                      period_end=body.period_end, engine=body.engine))
 
     @app.get(r + "/workflows")
     def workflow_list(include_archived: bool = False) -> dict[str, Any]:
@@ -1346,7 +1348,8 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.post(r + "/workflows", status_code=201)
     def create_workflow(body: CreateWorkflow, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        steps = {sid: {"source": workflow_source(s.source), "budget": s.budget or {}} for sid, s in body.steps.items()}
+        steps = {sid: {"source": workflow_source(s.source), "budget": s.budget or {}, "engine": s.engine}
+                 for sid, s in body.steps.items()}
         return work_views.jsonable(workflows.create(template_id=body.template, party_id=body.party_id,
                                                     period_start=body.period_start, period_end=body.period_end,
                                                     steps=steps, actor=who, name=body.name, names=body.names,

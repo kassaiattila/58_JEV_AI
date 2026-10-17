@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS workflow_steps (
     run_id         TEXT,
     note           TEXT,               -- why it failed, waits for a budget (JSON estimate) or found nothing
     updated_at     TEXT NOT NULL,
+    engine         TEXT,               -- 160-D: jev | gpt, the step's own AI engine; NULL: the application's when it starts
     PRIMARY KEY (workflow_id, step)
 );
 CREATE INDEX IF NOT EXISTS ix_workflow_steps_wp ON workflow_steps(workpackage_id);
@@ -101,6 +102,9 @@ def _migrate(conn) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(workflows)")}
     if cols and "previous_id" not in cols:  # 147: a workflow repeated for the next period
         conn.execute("ALTER TABLE workflows ADD COLUMN previous_id TEXT")
+    step_cols = {r[1] for r in conn.execute("PRAGMA table_info(workflow_steps)")}
+    if step_cols and "engine" not in step_cols:  # 160-D: a step's own AI engine
+        conn.execute("ALTER TABLE workflow_steps ADD COLUMN engine TEXT")
 
 
 store.register_migration("workflows", _migrate)
@@ -209,6 +213,18 @@ def _budget(raw: dict[str, Any] | None) -> dict[str, str]:
     return out
 
 
+def _engine(kind: str, source: dict[str, Any], raw: Any) -> str | None:
+    """160-D: a step's own AI engine (None: the application's when the step starts). Only a step that makes and runs
+    its own package has one; a reconciliation's AI and a package a person brought keep their own settings."""
+    if raw is None:
+        return None
+    if raw not in work.ENGINE_JEV:
+        raise WorkflowError(f"unknown engine {raw!r}; expected one of {sorted(work.ENGINE_JEV)}")
+    if kind == "reconcile" or source["kind"] not in ("folder", "files", "mailbox"):
+        raise WorkflowError(f"a {kind} step with a {source['kind']!r} source has no engine of its own")
+    return str(raw)
+
+
 def _source(kind: str, raw: dict[str, Any] | None) -> dict[str, Any]:
     """A step's source as the wizard gave it, checked against the kind's allowed sources. A documents step's folder or
     files may take only the documents no live run has processed yet (`only_new`, 147)."""
@@ -278,7 +294,7 @@ def create(*, template_id: str, party_id: str, period_start: Any, period_end: An
             raise WorkflowError(f"step {sid!r} needs its source")
         source = _source(sdef["kind"], given["source"])
         step_name = ((names or {}).get(sid) or f"{title} · {_step_title(sdef)}").strip()[:200]
-        rows.append((sid, source, _budget(given.get("budget")), step_name))
+        rows.append((sid, source, _budget(given.get("budget")), step_name, _engine(sdef["kind"], source, given.get("engine"))))
     wf_id = f"wf-{uuid.uuid4().hex[:12]}"
     now = _now()
     with store.connect() as c:
@@ -287,12 +303,12 @@ def create(*, template_id: str, party_id: str, period_start: Any, period_end: An
                   " created_at, updated_at, previous_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                   (wf_id, t["id"], json.dumps(t, ensure_ascii=False), title[:200], party["id"], start, end, int(auto),
                    actor, now, now, previous))
-        for sid, source, budget, step_name in rows:
+        for sid, source, budget, step_name, engine in rows:
             linked = source["kind"] == "package"
             c.execute("INSERT INTO workflow_steps(workflow_id, step, source, budget, name, state, workpackage_id,"
-                      " updated_at) VALUES (?,?,?,?,?,?,?,?)",
+                      " updated_at, engine) VALUES (?,?,?,?,?,?,?,?,?)",
                       (wf_id, sid, json.dumps(source, ensure_ascii=False), json.dumps(budget), step_name,
-                       "linked" if linked else "waiting", source.get("workpackage_id"), now))
+                       "linked" if linked else "waiting", source.get("workpackage_id"), now, engine))
         _event(c, wf_id, None, "create", actor, {"template": t["id"], "party": party["id"], "period": [start, end],
                                                   "auto": bool(auto)} | ({"previous": previous} if previous else {}))
     if advance_now:
@@ -437,7 +453,8 @@ def view(wf_id: str) -> dict[str, Any]:
             note = json.loads(note)
         out_steps.append({"id": sdef["id"], "kind": sdef["kind"], "title": _step_title(sdef),
                           "kind_title": kinds[sdef["kind"]]["title"], "after": sdef.get("after", []),
-                          "source": _shown_source(st["source"]), "budget": st["budget"], "name": st["name"],
+                          "source": _shown_source(st["source"]), "budget": st["budget"], "engine": st.get("engine"),
+                          "name": st["name"],
                           "state": st["state"], "status": status, "done": done[sdef["id"]], "note": note,
                           "package": package, "run_id": st.get("run_id"), "pull_id": st.get("pull_id"),
                           "updated_at": st["updated_at"]})
@@ -554,7 +571,8 @@ def repeat_draft(wf_id: str) -> dict[str, Any]:
             "name": name.replace(wf["period_start"], period[0]).replace(wf["period_end"], period[1]) if named else None,
             "auto": wf["auto"], "previous": wf_id,
             "steps": {s["id"]: {"source": _repeated_source(s["kind"], steps[s["id"]]["source"], period, wf),
-                                "budget": steps[s["id"]]["budget"]} for s in wf["definition"]["steps"]}}
+                                "budget": steps[s["id"]]["budget"], "engine": steps[s["id"]].get("engine")}
+                      for s in wf["definition"]["steps"]}}
 
 
 # --- moving on ----------------------------------------------------------------------------------------------------------
@@ -766,10 +784,27 @@ def _poll_pull(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], act
         _start_run(wf, sdef, st, result["workpackage"], actor=actor)
 
 
+def _give_engine(wp_id: str, engine: str | None, *, actor: str) -> None:
+    """160-D: the step's own engine on its package (keeping the package's other settings), before the readiness check
+    sizes the run's budget. Without one the package keeps the engine it got: the application's when it was made, or
+    when the run starts for a package without saved settings."""
+    if engine is None:
+        return
+    a = work.current_assignment(wp_id)
+    r = work.recipe(a["recipe_id"]) if a else work.default_recipe()
+    want = work.engine_params(r, engine)
+    if not want or (a is not None and a["params"].get("jev") == want["jev"]):
+        return
+    kept = a["params"] if a else work.default_params(r, engine)
+    work.assign_recipe(wp_id, r["id"], params={**kept, **want}, expected_revision=a["revision"] if a else 0, actor=actor,
+                       note=f"workflow step: engine {engine}")
+
+
 def _start_run(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], wp_id: str, *, actor: str) -> None:
     """The package's live run, when its own estimate fits the step's budget; otherwise the step waits for a person."""
     step = sdef["id"]
     try:
+        _give_engine(wp_id, st.get("engine"), actor=actor)
         ready = work.readiness(wp_id)
         if not ready["ready"]:
             raise WorkflowError("; ".join(b["message"] for b in ready["blockers"]) or "the package cannot start")
@@ -836,9 +871,9 @@ def tick(now: float | None = None) -> int:
 # --- the wizard's estimate -----------------------------------------------------------------------------------------------
 
 
-def _per_item(kind: str) -> dict[str, Decimal]:
+def _per_item(kind: str, engine: str | None = None) -> dict[str, Decimal]:
     r = work.default_recipe()
-    return work.item_budget(r, work.default_params(r), kind)  # 160-D: with the application's engine
+    return work.item_budget(r, work.default_params(r, engine), kind)  # 160-D: the step's engine or the application's
 
 
 def _times(per: dict[str, Decimal], n: int) -> dict[str, str]:
@@ -846,7 +881,7 @@ def _times(per: dict[str, Decimal], n: int) -> dict[str, str]:
 
 
 def estimate(*, kind: str, source: dict[str, Any], party_id: str | None = None, period_start: Any = None,
-             period_end: Any = None) -> dict[str, Any]:
+             period_end: Any = None, engine: str | None = None) -> dict[str, Any]:
     """What a step would cost at most with the default processing: the items it would hold and the budget per provider
     (the recipe's item budget times the items). A mailbox's emails are counted only when a most is given; a step of an
     existing package or a reconciliation costs nothing here. With `only_new` the documents a live run has processed are
@@ -854,14 +889,15 @@ def estimate(*, kind: str, source: dict[str, Any], party_id: str | None = None, 
     src = _source(kind, source)
     if src["kind"] in ("package", "none"):
         return {"items": None, "usd": {}, "note": None}
+    engine = _engine(kind, src, engine)
     if src["kind"] == "mailbox":
         n = src["request"].get("max_items") or 0
-        per = _per_item("email")
+        per = _per_item("email", engine)
         return {"items": n or None, "usd": _times(per, n) if n else {}, "per_item": {p: str(v) for p, v in per.items()},
                 "note": "each email's PDF attachments add a document's budget"}
     if kind == "documents":
         files, left_out = _documents(src)
-        return {"items": len(files), "usd": _times(_per_item("document"), len(files)), "left_out": len(left_out),
+        return {"items": len(files), "usd": _times(_per_item("document", engine), len(files)), "left_out": len(left_out),
                 "note": None}
     # statements: the code reads the exports for free; a PDF no reader knows is extracted by AI
     start, end = _period(period_start, period_end)
@@ -869,5 +905,5 @@ def estimate(*, kind: str, source: dict[str, Any], party_id: str | None = None, 
     survey = statement_package.survey(paths, party_id=str(party_id), period_start=start, period_end=end)
     statements = sum(1 for s in survey["statements"] if s["chosen"])
     pdfs = sum(1 for p in survey["pdfs"] if p["chosen"])
-    return {"items": statements + pdfs, "usd": _times(_per_item("document"), pdfs), "statements": statements, "pdfs": pdfs,
+    return {"items": statements + pdfs, "usd": _times(_per_item("document", engine), pdfs), "statements": statements, "pdfs": pdfs,
             "note": None}

@@ -93,9 +93,9 @@ def test_a_repeat_draft_carries_the_sources_budgets_and_name_into_the_next_perio
     assert draft["name"] == "Example Kft. 2026-10-01 – 2026-10-31" and draft["previous"] == made["workflow"]["id"]
     steps = draft["steps"]
     assert steps["invoices"] == {"source": {"kind": "folder", "folder": str(invoices), "recursive": False, "only_new": True},
-                                 "budget": {"jev": "0.5"}}
+                                 "budget": {"jev": "0.5"}, "engine": None}  # 160-D: the application's engine
     assert steps["statements"]["source"] == {"kind": "folder", "folder": str(statements), "recursive": False}
-    assert steps["reconcile"] == {"source": {"kind": "none"}, "budget": {}}
+    assert steps["reconcile"] == {"source": {"kind": "none"}, "budget": {}, "engine": None}
     # a name of the person's own, without the period in it, is not guessed: the wizard proposes one
     other = _monthly(party, invoices, statements, name="Club accounts")
     assert wf.repeat_draft(other["workflow"]["id"])["name"] is None
