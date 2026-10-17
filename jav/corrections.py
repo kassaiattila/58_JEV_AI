@@ -42,6 +42,7 @@ from typing import Any
 from jav import (dates, duplicates, grounding, native_results, numbers, reconcile, source_layer, statement_months, store, typepack,
                  validators, work)
 from jav.native_contracts import Publication
+from jav.policy import reason_field
 
 store.register_schema("corrections", """
 CREATE TABLE IF NOT EXISTS run_item_corrections (
@@ -137,17 +138,6 @@ def current(run_id: str, item_id: str, c: sqlite3.Connection | None = None) -> d
                 "note": None, "created_at": None, "native_sources": {}, "result_version": None}
     return {**dict(row), "fields": json.loads(row["fields"]), "sources": json.loads(row["sources"] or "{}"),
             "confirmed": json.loads(row["confirmed"] or "{}"), "native_sources": json.loads(row["native_sources"] or "{}")}
-
-
-def reason_field(code: str, fields: set[str]) -> str | None:
-    """083: the simple field a to-do is about, or None when it is about the document (or a line item). The field stands
-    third in most codes (`pick:low_conf:payment_iban:0.53`) and first in a parse error (`meter_reading_start:unparseable`);
-    only a simple field of the item's type pack counts."""
-    parts = code.split(":")
-    for part in (parts[2] if len(parts) > 2 else None, parts[0]):
-        if part in fields:
-            return part
-    return None
 
 
 def _with_fields(reasons: list[dict[str, Any]], fields: set[str]) -> list[dict[str, Any]]:

@@ -232,6 +232,17 @@ def ocr_should_escalate(mean_conf: float | None, low_conf_ratio: float | None) -
     return low_conf_ratio is not None and low_conf_ratio > OCR.get("escalate_max_low_conf_ratio", 1.0)
 
 
+def reason_field(code: str, fields: set[str]) -> str | None:
+    """083: the simple field a to-do is about, or None when it is about the document (or a line item). The field stands
+    third in most codes (`pick:low_conf:payment_iban:0.53`) and first in a parse error (`meter_reading_start:unparseable`);
+    only a simple field of the item's type pack counts. 160-D: here, so the eval report reads it too."""
+    parts = code.split(":")
+    for part in (parts[2] if len(parts) > 2 else None, parts[0]):
+        if part in fields:
+            return part
+    return None
+
+
 def require_review(state: FlowState, *reasons: str) -> None:
     """Additive latch: `needs_review` only changes False -> True; the reasons accumulate deduplicated."""
     new = [r for r in reasons if r and r not in state.review_reasons]
