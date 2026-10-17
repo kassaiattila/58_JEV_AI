@@ -5,7 +5,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api, type DsPage, type DsRow, type RunView, type Workpackage, type WorkpackageView } from "./api";
 import { setLanguage } from "./i18n";
-import { DocumentsPanel } from "./views/DocumentsPanel";
+import { PackageItemsPanel } from "./views/PackageItems";
 import { ResultStage } from "./views/ResultStage";
 import { ReviewWorkspace } from "./views/ReviewWorkspace";
 
@@ -34,9 +34,12 @@ afterEach(async () => { vi.restoreAllMocks(); localStorage.clear(); await setLan
 const WP = { id: "wp-1", name: "Invoices", source_kind: "manual", source_ref: null, revision: 3, status: "open", created_at: "",
   updated_at: "", items: [], assignment: null } as unknown as Workpackage;
 
+// 168: the package's item list (the same in Processing and Review) takes the package's view
+const viewOf = (wp: Workpackage) => ({ workpackage: wp, readiness: {}, item_counts: {} } as unknown as WorkpackageView);
+
 function panel(): { onChanged: ReturnType<typeof vi.fn> } {
   const onChanged = vi.fn();
-  render(<DocumentsPanel wp={WP} onChanged={onChanged} />);
+  render(<PackageItemsPanel view={viewOf(WP)} onChanged={onChanged} />);
   return { onChanged };
 }
 
@@ -71,7 +74,7 @@ it("the switch asks for the removed items too, and a removed item offers only it
 
 it("the package says what it was created from by its kind", () => {
   rows.current = [];
-  render(<DocumentsPanel wp={{ ...WP, source_kind: "statements" } as Workpackage} onChanged={() => {}} />);
+  render(<PackageItemsPanel view={viewOf({ ...WP, source_kind: "statements" } as Workpackage)} onChanged={() => {}} />);
   expect(screen.getByText(/Created from: a statement package/)).toBeTruthy();
 });
 
@@ -117,13 +120,17 @@ it("the approval of a run with a removed item names it, leaves its to-dos out an
 
 it("adding documents sends the paths with the revision and shows the service's own counts", async () => {
   rows.current = [];
+  const file = (name: string) => ({ path: `C:/in/${name}`, name, folder: "", item_id: name.padEnd(64, "0"), state: "new" as const, elsewhere: false });
+  vi.spyOn(api, "previewItems").mockResolvedValue({ files: [file("a.pdf"), file("b.pdf")], folder: null,
+    counts: { new: 2, already: 0, removed: 0, repeated: 0, elsewhere: 0 }, others: { count: 0, names: [] } });
   const add = vi.spyOn(api, "addItems").mockResolvedValue({ added: { added: 1, already: 1, restored: 0,
     processed_elsewhere: ["invoice_2.pdf"] } } as unknown as Awaited<ReturnType<typeof api.addItems>>);
   const { onChanged } = panel();
-  fireEvent.click(screen.getByRole("button", { name: "Add documents" }));
+  fireEvent.click(screen.getByRole("button", { name: "Add files" }));
   fireEvent.change(screen.getByRole("textbox", { name: /Documents to add/ }), { target: { value: "C:/in/a.pdf\n\"C:/in/b.pdf\"\n" } });
-  fireEvent.click(screen.getByRole("button", { name: "Add 2 document(s)" }));
-  await waitFor(() => expect(add).toHaveBeenCalledWith("wp-1", ["C:/in/a.pdf", "C:/in/b.pdf"], 3));
+  fireEvent.click(screen.getByRole("button", { name: "Check what would be added" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Add 2 document(s)" }));
+  await waitFor(() => expect(add).toHaveBeenCalledWith("wp-1", { paths: ["C:/in/a.pdf", "C:/in/b.pdf"] }, 3, { exclude: [], restore: [] }));
   expect(await screen.findByText("Added: 1 · already in the package: 1 · restored: 0")).toBeTruthy();
   expect(screen.getByText(/Already processed in a live run of another package: invoice_2.pdf/)).toBeTruthy();
   expect(onChanged).toHaveBeenCalled();
@@ -138,7 +145,7 @@ it("a statement package grows through its survey, and what it holds cannot be ti
   vi.spyOn(api, "packageStatementSurvey").mockResolvedValue({ party: { id: "p-1", name: "Example Kft." }, period_start: "2026-05-01",
     period_end: "2026-06-30", statements: [row("a".repeat(64), true), row("b".repeat(64), false)], pdfs: [], skipped: [] });
   const add = vi.spyOn(api, "addPackageStatements").mockResolvedValue({} as Awaited<ReturnType<typeof api.addPackageStatements>>);
-  render(<DocumentsPanel wp={{ ...WP, source_kind: "statements" } as Workpackage} onChanged={() => {}} />);
+  render(<PackageItemsPanel view={viewOf({ ...WP, source_kind: "statements" } as Workpackage)} onChanged={() => {}} />);
   fireEvent.click(screen.getByRole("button", { name: "Add statements" }));
   fireEvent.change(screen.getByRole("textbox", { name: "The statements' folder" }), { target: { value: "C:/bank" } });
   fireEvent.click(screen.getByRole("button", { name: "Survey the files" }));

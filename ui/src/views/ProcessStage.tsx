@@ -2,6 +2,8 @@
 // editable when expanded; 080: there is one processing, so nothing to choose, only settings) and the package's runs.
 // The run's details (progress, cost, call log) are on the run's page. The run buttons do not start anything: they lead
 // to the confirmation page (061 decision, `StartConfirm`).
+// 168 (DECISIONS 168, the owner's choice "Run on top"): below the Run card the package's items (`PackageItems`), where
+// files and folders are added; while its add form is open, its own last step is the view's one solid button.
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError, type Recipe, type RecipeHelp, type RunPlan, type SupersedableRun, type WorkpackageView } from "../api";
 import { ConfirmButton } from "../components/ConfirmButton";
@@ -11,9 +13,10 @@ import { Picker } from "../components/Picker";
 import { PackageCosts } from "./PackageCosts";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { applyPath, itemBudgetLines, itemCountText, MODE, PARAM_LABEL, paramShort, paramsText, PATH, pathOptions, planLines, providerName, RUN_STATUS, shownParams, shownValue, tmap, usdBudget, when, blockerText } from "../labels";
-import { go, wpHash } from "../route";
-import { AddToPackage } from "./PackageAdd";
+import { applyPath, itemBudgetLines, MODE, PARAM_LABEL, paramShort, paramsText, PATH, pathOptions, planLines, providerName, RUN_STATUS, shownParams, shownValue, tmap, usdBudget, when, blockerText } from "../labels";
+import { go } from "../route";
+import { type AddSource } from "./PackageAdd";
+import { PackageItems } from "./PackageItems";
 import { paramExplanation, RecipeParamList, recipeDefaults, recipeTitle } from "./RecipeInfo";
 
 const ACTIVE = new Set(["queued", "running"]);
@@ -37,7 +40,8 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
   // 058: a single highlighted button — the one the package's next step asks for (the list and the header show it too)
   const primary = view.next.code === "pending" ? `pending-${target?.mode ?? "apply"}`
     : ({ start: "shadow", go_live: "apply", rerun: "rerun" }[view.next.code as string] ?? null);
-  const btn = (which: string) => (primary === which ? "primary" : "secondary");
+  const btn = (which: string) => (primary === which && !adding ? "primary" : "secondary");
+  const [source, setSource] = useState<AddSource>("files"); // 168: the add form's source (the address holds whether it is open)
   const recipes = useLoad("recipes", api.recipes);
 
   async function addAttachments() {
@@ -99,6 +103,15 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
     const s = readiness.supplement?.[m];
     return s ? [{ mode: m, ...s }] : [];
   });
+  // 168: the same buttons on the Run card and beside the item list's pending line (there never the solid one)
+  const pendingButtons = (cls: (mode: string) => string, where = "run") => supplements.map((s) => (
+    <button key={s.mode} type="button" className={cls(s.mode)} data-run={where === "run" ? `pending-${s.mode}` : undefined}
+      title={withSpend(capOf(s.budget))} disabled={!s.ready || busy || active} onClick={() => start(s.mode, false, true)}>
+      <Icon name={s.mode === "apply" ? "play" : "trial"} />
+      {s.mode === "apply" ? t("Live run, pending items only ({{n}})", { n: s.items }) : t("Trial run, pending items only ({{n}})", { n: s.items })}…
+      {spendMark(capOf(s.budget))}
+    </button>
+  ));
 
   return (
     <div className="stage-grid">
@@ -107,12 +120,6 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
           <h2>{t("Futtatás")}</h2>
           {last ? <a className="small" href={`#/runs/${last.run_id}`}>{t("A legutóbbi futás részletei")}</a> : null}
         </div>
-        {/* 167: adding comes first, so the added documents' run (the pending items' button) is right below it; the
-            address holds the open form, so the package's actions menu can open it from any section */}
-        <AddToPackage wp={wp} open={adding} onChanged={onChanged}
-          onOpenChange={(open) => go({ view: "workpackages", wpId: wp.id, stage: "process", ...(open ? { add: true } : {}) })}
-          lead={<p className="muted small">{t("In the package: {{items}}", { items: itemCountText(wp.items) })}
-            {" · "}<a href={wpHash(wp.id, "review")}>{t("the list, opening and removal are in Review")}</a></p>} />
         {last ? (
           <div className="run-summary">
             <span className={`status s-${last.status}`}>{RUN_STATUS[last.status] ?? last.status}</span>
@@ -144,14 +151,7 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
         ) : null}
         <OlderRunsOffer runs={view.supersedable ?? []} busy={busy || active} onSupersede={(id) => void supersede(id)} />
         <div className="button-row">
-          {supplements.map((s) => (
-            <button key={s.mode} type="button" className={btn(`pending-${s.mode}`)} data-run={`pending-${s.mode}`} title={withSpend(capOf(s.budget))}
-              disabled={!s.ready || busy || active} onClick={() => start(s.mode, false, true)}>
-              <Icon name={s.mode === "apply" ? "play" : "trial"} />
-              {s.mode === "apply" ? t("Live run, pending items only ({{n}})", { n: s.items }) : t("Trial run, pending items only ({{n}})", { n: s.items })}…
-              {spendMark(capOf(s.budget))}
-            </button>
-          ))}
+          {pendingButtons((m) => btn(`pending-${m}`))}
           <button type="button" className={btn("shadow")} data-run="shadow" title={withSpend(cap)} disabled={!readiness.ready || busy || active}
             onClick={() => start("shadow")}><Icon name="trial" />{t("Próbafutás")}…{spend}</button>
           {/* the live run is the consequential one: only its result can be released */}
@@ -179,6 +179,11 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
         )}
         {msg ? <p role="status" className={msg.error ? "notice error" : "notice"}>{msg.text}</p> : null}
       </section>
+
+      {/* 168: the address holds whether the add form is open, so the package's actions menu can open it */}
+      <PackageItems view={view} adding={adding ? source : null} onChanged={onChanged}
+        onAddingChange={(s) => { if (s) setSource(s); go({ view: "workpackages", wpId: wp.id, stage: "process", ...(s ? { add: true } : {}) }); }}
+        pendingAction={supplements.length ? <div className="button-row">{pendingButtons(() => "secondary", "items")}</div> : undefined} />
 
       <SettingsCard view={view} onChanged={onChanged} />
 

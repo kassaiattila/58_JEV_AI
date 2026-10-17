@@ -60,6 +60,8 @@ export interface WorkpackageView {
   supersedable?: SupersedableRun[];
   /** 160-C S3: the open live runs (finished, not approved, not repeated by a later one), oldest first */
   open_runs?: RunRow[];
+  /** 168: how many items are in each state (approved, live, trial, running, failed, pending) and how many were removed */
+  item_counts?: Partial<Record<"approved" | "live" | "trial" | "running" | "failed" | "pending" | "removed", number>>;
 }
 /** 080: what a run of the package will do (the pre-start overview): documents by their path known in advance (S / G /
  *  type not known yet), emails, emails with a task proposal, whether Azure may be used and earlier JEV answers reused. */
@@ -570,7 +572,21 @@ export interface StatementSurveyPdf {
   in_package?: boolean; // 160-C S2
 }
 /** 160-C S2: what adding documents to a package did; `processed_elsewhere`: names a live run of another package processed. */
-export interface AddSummary { added: number; already: number; restored: number; processed_elsewhere: string[] }
+export interface AddSummary {
+  added: number; already: number; restored: number; processed_elsewhere: string[];
+  left_out?: number; // 168: what the person unticked in the preview
+}
+/** 168: where the documents to add come from: given files, or a folder (with `recursive`, its subfolders too). */
+export type ItemSources = { paths: string[] } | { folder: string; recursive: boolean };
+/** 168: one file of the preview before adding, by content: new, already in the package, removed (restored only when
+ *  ticked) or repeated in the selection; `elsewhere` = processed in a live run of another package. */
+export interface PreviewFile {
+  path: string; name: string; folder: string; item_id: string; state: "new" | "already" | "removed" | "repeated"; elsewhere: boolean;
+}
+export interface ItemPreview {
+  files: PreviewFile[]; counts: Record<"new" | "already" | "removed" | "repeated" | "elsewhere", number>; folder: string | null;
+  others: { count: number; names: string[] };
+}
 export interface StatementPackageSurvey {
   party: { id: string; name: string }; period_start: string; period_end: string;
   statements: StatementSurveyRow[]; pdfs: StatementSurveyPdf[]; skipped: { file: string; reason: string }[];
@@ -1052,12 +1068,22 @@ export const api = {
   deleteWorkpackage: (id: string) => request<{ deleted: string }>("POST", `/workpackages/${enc(id)}/delete`, {}),
   /** 160-C S1 (decision 163 D2): a removal needs a reason; the person is the chosen user (the `X-Actor` header). */
   /** 160-C S2: documents added to an existing package; `added` says what happened (the service's own counts). */
-  addItems: (id: string, paths: string[], expected_revision: number) =>
-    request<WorkpackageView & { added: AddSummary }>("POST", `/workpackages/${enc(id)}/items`, { paths, expected_revision }),
-  /** 160-C S2: a statement package grows through its own survey (its party and period). */
-  packageStatementSurvey: (id: string, paths: string[]) =>
-    request<StatementPackageSurvey>("POST", `/workpackages/${enc(id)}/statements/survey`, { paths }),
-  addPackageStatements: (id: string, body: { paths: string[]; statements: string[]; pdfs: string[]; expected_revision: number }) =>
+  /** 168: what the person unticked in the preview stays out (`exclude`: new documents; `restore`: the only removed
+   *  ones to bring back). */
+  addItems: (id: string, sources: ItemSources, expected_revision: number, ticks?: { exclude: string[]; restore: string[] }) =>
+    request<WorkpackageView & { added: AddSummary }>("POST", `/workpackages/${enc(id)}/items`, { ...sources, ...ticks, expected_revision }),
+  /** 168: what adding the files or the folder would do, file by file; nothing is written. */
+  previewItems: (id: string, sources: ItemSources) =>
+    request<ItemPreview>("POST", `/workpackages/${enc(id)}/items/preview`, sources),
+  /** 168: several items removed with one reason, or restored, in one step. */
+  removeItems: (id: string, itemIds: string[], expected_revision: number, reason: string) =>
+    request<WorkpackageView>("POST", `/workpackages/${enc(id)}/items/remove`, { item_ids: itemIds, expected_revision, reason }),
+  restoreItems: (id: string, itemIds: string[], expected_revision: number) =>
+    request<WorkpackageView>("POST", `/workpackages/${enc(id)}/items/restore`, { item_ids: itemIds, expected_revision }),
+  /** 160-C S2: a statement package grows through its own survey (its party and period); 168: a folder's subfolders too. */
+  packageStatementSurvey: (id: string, paths: string[], recursive = false) =>
+    request<StatementPackageSurvey>("POST", `/workpackages/${enc(id)}/statements/survey`, { paths, recursive }),
+  addPackageStatements: (id: string, body: { paths: string[]; statements: string[]; pdfs: string[]; expected_revision: number; recursive?: boolean }) =>
     request<WorkpackageView>("POST", `/workpackages/${enc(id)}/statements/add`, body),
   removeItem: (id: string, itemId: string, expected_revision: number, reason: string) =>
     request<{ workpackage: Workpackage }>("POST", `/workpackages/${enc(id)}/items/${enc(itemId)}/remove`, { expected_revision, reason }),

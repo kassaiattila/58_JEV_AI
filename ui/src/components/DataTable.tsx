@@ -48,6 +48,8 @@ interface Props {
   defaultHidden?: string[];
   /** per-row actions (last column), e.g. removal */
   actions?: (row: DsRow) => ReactNode;
+  /** 168: actions on the selected rows (with `selectable`), shown beside the selection's count */
+  selectionActions?: (rows: DsRow[], clear: () => void) => ReactNode;
   actionsLabel?: string;
 }
 
@@ -420,6 +422,8 @@ export function DataTable(p: Props) {
             <span className="chip sel">{t("{{n}} kijelölt sor", { n: selectedKeys.length })}
               <button type="button" aria-label={t("Kijelölés törlése")} onClick={() => setSelection({})}>×</button></span>
           ) : null}
+          {selectedKeys.length && p.selectionActions
+            ? p.selectionActions((data?.rows ?? []).filter((r) => selection[r._key]), () => setSelection({})) : null}
         </div>
       ) : null}
       {page.error ? <p className="notice error" role="alert">{page.error.message}</p> : null}
