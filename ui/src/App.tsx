@@ -1,7 +1,7 @@
 // The frame of the workspace (057, decision of 2026-09-28): two main parts — Work packages (the daily work) and
 // Settings (mailboxes, work folders, users, appearance, language, system). The header shows the worker's status and
 // the user's name.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, setActor, USERS_EVENT } from "./api";
 import { useActor, useEvent, useHash, useLoad } from "./hooks";
 import { t, useLocale } from "./i18n";
@@ -27,7 +27,9 @@ const NAV = [
 ] as const;
 
 export function App() {
-  useLocale(); // on a language change the whole tree re-renders (the working copy is kept)
+  const language = useLocale(); // on a language change the whole tree re-renders (the working copy is kept)
+  // 167 (review 153 E): the browser tab's title follows the language too
+  useEffect(() => { document.title = t("JAV workspace"); }, [language]);
   const hash = useHash();
   const route = parseRoute(hash);
   // the run page and the old result addresses belong to Work packages

@@ -1477,5 +1477,10 @@
   "The line's place on the statement could not be looked up: {{reason}}": "The line's place on the statement could not be looked up: {{reason}}",
   "The local service did not answer within a minute; the view will try again.": "The local service did not answer within a minute; the view will try again.",
   "The filter of {{column}} can be read two ways: {{value}}. Write it as 1 234,50.": "The filter of {{column}} can be read two ways: {{value}}. Write it as 1 234,50.",
-  "The filter of {{column}} is not a number: {{value}}": "The filter of {{column}} is not a number: {{value}}"
+  "The filter of {{column}} is not a number: {{value}}": "The filter of {{column}} is not a number: {{value}}",
+  "An image has only page 1, not {{page}}": "An image has only page 1, not {{page}}",
+  "This kind of document ({{kind}}) has no page image; open the file itself": "This kind of document ({{kind}}) has no page image; open the file itself",
+  "Page {{page}} is out of range 1..{{count}}": "Page {{page}} is out of range 1..{{count}}",
+  "JAV workspace": "JAV workspace",
+  "cannot be approved": "cannot be approved"
 }

@@ -12,6 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from jav import isolated_pdf, pdf
+from jav.user_messages import explained
 
 IMAGE_TYPES = {".png": "PNG", ".jpg": "JPEG", ".jpeg": "JPEG"}
 
@@ -31,10 +32,21 @@ def render(path: Path, page: int, *, dpi: int = 144, data: bytes | None = None) 
     again, so the image shows exactly the content that was checked."""
     if path.suffix.lower() in IMAGE_TYPES:
         if page != 1:
-            raise BadPage(f"an image has only page 1, not {page}")
+            raise explained(BadPage, "An image has only page 1, not {{page}}", page=page)
         return data if data is not None else path.read_bytes()
+    head = data[:1024] if data is not None else _head(path)
+    if b"%PDF" not in head:
+        # 167 (review 153 E): a Word, Excel, text or statement file has no page image; PDFium's raw error said so badly
+        raise explained(BadPage, "This kind of document ({{kind}}) has no page image; open the file itself",
+                        kind=path.suffix.lower() or "?")
     result = isolated_pdf.run(isolated_pdf.render_page_png, kind="page_image", source=data if data is not None else str(path),
                               page=page, dpi=dpi, max_megapixels=pdf.input_limits().max_page_megapixels)
     if "page_count" in result:
-        raise BadPage(f"page {page} is out of range 1..{result['page_count']}")
+        raise explained(BadPage, "Page {{page}} is out of range 1..{{count}}", page=page, count=result["page_count"])
     return result["png"]
+
+
+def _head(path: Path) -> bytes:
+    """The first kilobyte of a file: a PDF's header may stand anywhere in it."""
+    with path.open("rb") as f:
+        return f.read(1024)

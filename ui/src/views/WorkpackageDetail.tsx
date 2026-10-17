@@ -42,7 +42,10 @@ export function stageStatus(view: WorkpackageView): Record<Stage, string> {
     process: last ? `${MODE[last.mode]} · ${(RUN_STATUS[last.status] ?? last.status).toLowerCase()} · ${last.items_done}/${last.items}`
       : view.readiness.ready ? t("indítható") : t("nem indítható"),
     review: current ? (current.open_reasons ? t("{{n}} teendő", { n: current.open_reasons }) : t("nincs teendő")) : itemCountText(view.workpackage.items),
-    result: !current ? t("még nincs") : current.mode === "shadow" ? t("próba-eredmény") : current.approval ? t("kiadva") : t("jóváhagyásra vár"),
+    // 167: a stopped or failed live run waits for no approval (the release line says so too)
+    result: current && current.mode !== "shadow" && !current.approval && (current.status === "failed" || current.status === "cancelled")
+      ? t("cannot be approved")
+      : !current ? t("még nincs") : current.mode === "shadow" ? t("próba-eredmény") : current.approval ? t("kiadva") : t("jóváhagyásra vár"),
   };
 }
 

@@ -126,6 +126,7 @@ describe("the cards of the pairing page (142)", () => {
     fireEvent.keyDown(window, { key: "Enter" });
     fireEvent.keyDown(window, { key: "Enter" }); // still saving the first one
     expect(allocate).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Saving…")).toBeTruthy(); // 167 (review 153 E): a slow save says so
     release(ws);
   });
 

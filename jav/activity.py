@@ -26,7 +26,7 @@ _SOURCES: tuple[tuple[str, str], ...] = (
                   " WHERE created_at >= ? AND created_at < ?"),
     ("run_approve", "SELECT approved_at at, approved_by actor, workpackage_id, run_id, approval detail FROM runs"
                     " WHERE approved_at >= ? AND approved_at < ?"),
-    ("correction", "SELECT k.created_at at, k.actor, r.workpackage_id, k.run_id, k.item_id detail"
+    ("correction", "SELECT k.created_at at, k.actor, r.workpackage_id, k.run_id, k.fields detail"
                    " FROM run_item_corrections k LEFT JOIN runs r ON r.run_id = k.run_id"
                    " WHERE k.created_at >= ? AND k.created_at < ?"),
     ("reason_resolve", "SELECT closed_at at, actor, NULL workpackage_id, run_id, reason detail FROM review_reasons"
@@ -91,5 +91,13 @@ def _detail(code: str, raw: Any) -> str | None:
             return None
         return req.get("mailbox") if isinstance(req, dict) else None
     if code == "correction":
-        return None  # the item id is a hash and says nothing; the run reference is enough
+        # 167 (review 153 E): which fields were corrected (their keys; the values never go here), so the row says what
+        # was done; the item id it showed before is a hash and said nothing
+        try:
+            fields = json.loads(raw)
+        except (TypeError, ValueError):
+            return None
+        if not isinstance(fields, dict):
+            return None
+        return ",".join(sorted(fields)) or None
     return str(raw)

@@ -160,7 +160,8 @@ export function ReconcileCards({ ws, readOnly, onWorkspace, reload, onManual }: 
       {view === "overdue" ? <p className="small muted">{t("The statements show nothing about cash or another account: an invoice here had no payment found on the package's statements up to the day they cover it.")}</p> : null}
       {view === "double_payment" ? <p className="small muted">{t("Two or more transfers each look like the full payment of the same invoice. It may be a double payment, or the invoice of another month is missing.")}</p> : null}
       {error ? <p className="notice error" role="alert">{error}</p> : null}
-      {notice ? <p className="small ok" role="status">{notice}</p> : null}
+      {/* 167 (review 153 E): a decision takes a few seconds on a large package; say that it is being saved */}
+      {busy ? <p className="muted small" role="status">{t("Saving…")}</p> : notice ? <p className="small ok" role="status">{notice}</p> : null}
 
       <div className="rc-cards" aria-label={t("Cards")}>
         {shown.slice(0, limit).map((g) => (

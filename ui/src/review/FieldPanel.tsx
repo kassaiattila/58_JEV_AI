@@ -123,6 +123,13 @@ export function sameText(reasons: Reason[]): [string, number][] {
   return [...out];
 }
 
+/** 167 (review 153 E): the other candidates of a field without the one equal to its current value (choosing it changed
+ *  nothing); the machine value's place stays, it is a place on the page, not a value. */
+export function otherCandidates(alternatives: Alternative[] | undefined, current: string): Alternative[] {
+  const now = current.trim();
+  return (alternatives ?? []).filter((a) => a.machine || !now || (a.value ?? a.quote ?? "").trim() !== now);
+}
+
 /** 053: the row number of a selection keyed `list[n]`, if it belongs to the given list. */
 export function rowOf(key: string | null, list: string): number | null {
   const m = key?.match(/^(.+)\[(\d+)\]$/);
@@ -305,6 +312,9 @@ export function FieldPanel(p: Props) {
   // 126: a duplicate to-do is decided in its own panel (the two documents side by side), not with "resolved"
   const isDuplicate = (r: Reason) => r.reason.startsWith("duplicate:");
   const documentReasons = result.open_reasons.filter((r) => (!r.field || !simpleFields.has(r.field)) && !isDuplicate(r));
+  // 167 (review 153 E): a failed check whose to-do is listed above with "Rendezve" is not listed a second time
+  const reasonTexts = new Set(documentReasons.map((r) => reasonText(r.reason)));
+  const shownChecks = failed.filter((c) => !reasonTexts.has(checkText(c.code, c.detail)));
   const earlierShown = visibleEarlier(result.earlier_open_reasons, showTrial);
   const earlierAt = (f: string) => earlierShown.filter((r) => r.field === f);
   const earlierDocument = earlierShown.filter((r) => (!r.field || !simpleFields.has(r.field)) && !isDuplicate(r));
@@ -334,9 +344,9 @@ export function FieldPanel(p: Props) {
       <DuplicatePanel result={result} readOnly={readOnly} onDecided={p.onResolved} />
       <StatementPanel result={result} readOnly={readOnly} onDecided={p.onResolved} />
 
-      {failed.length ? (
+      {shownChecks.length ? (
         <ul className="issues checks" aria-label={t("Ellenőrzések a mentett adaton")}>
-          {failed.map((c) => (
+          {shownChecks.map((c) => (
             <li key={c.name} className="issue">
               <span className="small">{checkText(c.code, c.detail)}{c.advisory ? ` — ${t("csak jelzés, nem teendő")}` : ""}</span>
               {Object.entries(c.rows ?? {}).flatMap(([f, rows]) => rows.map((n) => (
@@ -427,10 +437,13 @@ export function FieldPanel(p: Props) {
                   {edited ? <span className="badge">{t("mentetlen")}</span>
                     : isConfirmed(result, f) ? <span className="badge ok-badge" title={t("Egy ember ellenőrizte ezt az értéket.")}><Icon name="check" />{t("ellenőrizve")}</span>
                     : pv?.corrected ? <span className="badge">{t("javítva")}</span> : null}
-                  <span className="band" style={{ color: BAND_COLOR[band], borderColor: BAND_COLOR[band] }}
-                    title={confidenceTitle(pv)}>
-                    {pv?.confidence != null ? `${Math.round(pv.confidence * 100)}%` : "–"}
-                  </span>
+                  {/* 167 (review 153 E): the machine's confidence belongs to the machine's value, not to a person's correction */}
+                  {pv?.corrected ? null : (
+                    <span className="band" style={{ color: BAND_COLOR[band], borderColor: BAND_COLOR[band] }}
+                      title={confidenceTitle(pv)}>
+                      {pv?.confidence != null ? `${Math.round(pv.confidence * 100)}%` : "–"}
+                    </span>
+                  )}
                   <span className={`src ${pv?.status === "located" ? "src-ok" : pv?.status === "approximate" ? "src-approx" : "src-none"}`}
                     title={pv?.status === "located" ? t("Forrás: {{how}}", { how: pv.method === "manual" ? t("kézi kijelölés") : pv.method === "pick" ? t("a választott jelölt helye") : t("keresés") }) : UNLOCATED[pv?.status ?? "no_layer"]}>
                     {pv?.status === "located" ? "◉" : pv?.status === "approximate" ? "◎" : "○"}
@@ -481,10 +494,10 @@ export function FieldPanel(p: Props) {
                     : <div className="small muted">{result.kind === "statement_table"  // 136: the value is the table export's; there is no page image
                       ? t("Read by code from the bank's table export; this statement has no page image.") : UNLOCATED[prov?.status ?? "no_layer"]}{prov?.status === "approximate" && prov.quote ? ` ${t("A sor:")} „${prov.quote}”.` : ""}</div>}
                   {edited || pv?.corrected ? <div className="small muted">{t("Gépi érték:")} {machine[f] === null || machine[f] === undefined ? "–" : String(machine[f])}</div> : null}
-                  {prov?.alternatives?.length ? (
+                  {otherCandidates(prov?.alternatives, shown(f)).length ? (
                     <div className="alts">
                       <span className="small muted">{t("Más jelöltek:")}</span>
-                      {prov.alternatives.map((a, i) => (
+                      {otherCandidates(prov?.alternatives, shown(f)).map((a, i) => (
                         <button key={i} type="button" className="secondary small-btn" disabled={readOnly}
                           onClick={(e) => { e.stopPropagation(); p.onChooseAlternative(f, a); }}>
                           {a.machine ? t("gépi érték helye") : a.value ?? a.quote}{a.p != null ? ` · ${Math.round(a.p * 100)}%` : ""}

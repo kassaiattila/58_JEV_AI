@@ -260,6 +260,8 @@ def _workpackages(scope: dict[str, str]) -> Rows:
             for r in work_views.workpackage_list(include_archived=archived)]
     for r in rows:
         r.pop("next", None)
+        if r.get("source_kind") == "reconcile":  # 167 (review 153 E): its lines are not items; "0" read as empty
+            r["items"] = None
     if scope.get("owner"):  # 061: "Saját csomagjaim" (My packages) — the owner's name, case-insensitive
         who = " ".join(scope["owner"].split()).casefold()
         rows = [r for r in rows if (r.get("owner") or "").casefold() == who]
@@ -523,8 +525,9 @@ _DP_KEYS = _DOC_KEYS[:3] + [("field", "Mező", "enum"), ("value", "Érték", "te
                             ("field_reason", "Teendő a mezőn", "enum")]
 _LI_KEYS = _DOC_KEYS[:3] + [("list", "Lista", "enum"), ("row", "Sor", "number"), ("page", "Oldal", "number")]
 _HIDDEN = {"item_id"}
+# 167 (review 153 E): the export's "igen" marks (corrected, a to-do on the field) are enumerated, so English shows "yes"
 _LABELS = {"final_status": "final_status", "place": "provenance", "field": "field", "list": "field", "doc_type": "doc_type",
-           "duplicate": "duplicate", "direction": "direction"}
+           "duplicate": "duplicate", "direction": "direction", "corrected": "yes", "field_reason": "yes"}
 
 
 def _fixed(keys: list[tuple[str, str, str]]) -> list[Column]:

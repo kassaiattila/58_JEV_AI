@@ -59,3 +59,12 @@ def test_an_item_whose_to_dos_were_settled_reads_settled() -> None:
     assert shown_final("needs_review", 2) == "needs_review"
     assert shown_final("done", 0) == "done"
     assert shown_final(None, 0) is None
+
+
+def test_the_yes_marks_of_the_data_points_are_enumerated() -> None:
+    """167 (review 153 E): "igen" in the corrected and the to-do-on-the-field columns is translated like any label."""
+    from jav import datasets
+
+    cols = {c.key: c for c in datasets._fixed(datasets._DP_KEYS)}
+    assert cols["corrected"].labels == {"igen": "igen"}
+    assert cols["field_reason"].labels == {"igen": "igen"}

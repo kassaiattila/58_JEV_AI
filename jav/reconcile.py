@@ -1314,6 +1314,15 @@ def verified(validation: Any) -> bool:
                for name, codes in _conf()["verified_when"].items())
 
 
+_CONTROL = re.compile(r"[\x00-\x1f\x7f]+")
+
+
+def printable(value: Any) -> Any:
+    """167 (review 153 E): a name without the control characters a PDF's text layer may carry (a broken glyph read as
+    NUL), which the result table showed as they were; a run of them becomes one space. Other values stay as they are."""
+    return " ".join(_CONTROL.sub(" ", value).split()) if isinstance(value, str) else value
+
+
 def _latest(types: list[str]) -> list[dict[str, Any]]:
     """The latest result of every document of the given types, with the latest correction of its run item. A store
     without the work tables (a measurement store) has no run items and no corrections."""
@@ -1436,14 +1445,14 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
             statements.append(_statement(d))
         else:
             invoices.append({"id": d["doc_id"], "doc_type": d["doc_type"], "number": v.get(f["number"]),
-                             "supplier_name": v.get(f["supplier_name"]), "supplier_tax_id": v.get(f["supplier_tax_id"]),
+                             "supplier_name": printable(v.get(f["supplier_name"])), "supplier_tax_id": v.get(f["supplier_tax_id"]),
                              "payment_account": _first(v, f["payment_account"]), "payment_method": v.get(f["payment_method"]),
                              "references": [str(v[r]) for r in f["references"] if v.get(r) not in (None, "")],
                              "amount": _amount(v),
                              "currency": v.get(f["currency"]), "issue_date": v.get(f["issue_date"]),
                              "due_date": v.get(f["due_date"]), "duplicate": marks.get(d["doc_id"]),
                              **{k: v.get(f[k]) for k in ("fulfillment_date", "net_total", "vat_total")},  # 142: shown only
-                             "buyer_name": _first(v, f["buyer_name"]), "buyer_tax_id": _first(v, f["buyer_tax_id"]),
+                             "buyer_name": printable(_first(v, f["buyer_name"])), "buyer_tax_id": _first(v, f["buyer_tax_id"]),
                              "direction": parties.direction(res, d["doc_type"], v)[0], **_origin(d)})
     # 139 (DECISIONS 139): one valid statement per account, currency and day; a replaced statement's decisions move to
     # the same lines of the one replacing it, and what has no same line is left over (`left_over`)
