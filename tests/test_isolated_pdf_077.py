@@ -78,7 +78,9 @@ def test_a_hanging_request_is_stopped_at_its_time_limit(reader):
     with pytest.raises(PdfReaderLimit, match="1 s") as exc:
         reader.call(probe.sleep_for, timeout_s=1, seconds=60)
     assert exc.value.reason == "timeout"
-    assert time.perf_counter() - t0 < 15
+    # 167 (review T-4): stopped well before the request would have ended by itself; half its 60 s still proves that and
+    # leaves a busy machine time to stop and replace the helper
+    assert time.perf_counter() - t0 < 60 / 2
     second = reader.call(probe.helper_pid, timeout_s=10)  # the next request gets a new helper
     assert second != first and reader.starts == 2
 

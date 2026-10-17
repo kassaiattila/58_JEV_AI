@@ -6,7 +6,7 @@ import pytest
 from jav import flow_native, native_results, store
 from jav.runtime import calls
 from jav.runtime.worker import StatePersister
-from native_fixtures_109 import runtime_source, synthetic_gpt
+from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
 
 @pytest.fixture

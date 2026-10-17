@@ -13,7 +13,7 @@ from jav import store
 from jav.readers import pipeline, providers
 from jav.readers.pipeline import read_files
 from jav.runtime import calls
-from native_fixtures_109 import synthetic_gpt
+from tests.native_fixtures_109 import synthetic_gpt
 
 
 @pytest.fixture

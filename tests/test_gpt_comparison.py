@@ -9,7 +9,7 @@ def test_generative_burr_arm_resumes_without_repeating_gpt(tmp_path, monkeypatch
     from jav.experiments.stack_trial import DirectAdapter, run_trial
     from jav.pdf import PdfText
     from jav.models import LineLayout, CellLayout
-    from test_stack_trial import DetectClient
+    from tests.test_stack_trial import DetectClient
 
     source = tmp_path/'invoice.pdf'
     source.write_bytes(b'fixed source')

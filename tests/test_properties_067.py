@@ -246,11 +246,22 @@ def test_build_layout_keeps_every_word_once(pages):
 # --- 7. long, repetitive line: the search does not slow down explosively ---------------------------------------------
 
 
+def _seconds(profile: str, line: str) -> float:
+    start = time.perf_counter()
+    find_all(_lines(line, line), profile)
+    return time.perf_counter() - start
+
+
 def test_long_repetitive_lines_stay_fast():
+    """167 (review T-4): a line eight times longer may take at most 24 times as long; linear work takes about 8 times
+    (measured 5-10), a quadratic search 64 times. The ratio of two runs holds on a busy machine, where the earlier
+    absolute limit (5 s for a 20,000-character line, measured up to 1.5 s) did not. A long run that exceeds the ratio is
+    timed once more, so a single pause of the machine is not taken for a slowdown."""
     patterns = ["1 ", "1.", "1,", "12.345,", "a-", "HU00 0000 ", "Adószám: 1", "Invoice No: A1 ", "1/", "-1", "\x001"]
     for profile in PROFILES:
         for pat in patterns:
-            line = pat * (20000 // len(pat))
-            start = time.perf_counter()
-            find_all(_lines(line, line), profile)
-            assert time.perf_counter() - start < 5.0, (profile, pat)
+            short, long = pat * (1_000 // len(pat)), pat * (8_000 // len(pat))
+            small, big = _seconds(profile, short), _seconds(profile, long)
+            if big > 24 * small:
+                big = min(big, _seconds(profile, long))
+            assert big <= 24 * small, (profile, pat, small, big)

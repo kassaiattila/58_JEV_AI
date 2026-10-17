@@ -11,7 +11,7 @@ from decimal import Decimal
 from jav import flow_native, native_results, store
 from jav.adapters import jev as jev_mod
 from jav.runtime import calls
-from native_fixtures_109 import runtime_source, synthetic_gpt
+from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
 import pytest
 

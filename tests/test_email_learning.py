@@ -47,7 +47,7 @@ def test_manual_export_cannot_use_unreviewed_prediction(tmp_path):
 
 def test_burr_resume_uses_own_responses_and_rejects_drift(tmp_path):
     import json
-    from test_email_signals import FakeClient
+    from tests.test_email_signals import FakeClient
     from jav.adapters.jev import JevAdapter
     from jav.email_learning_runtime import run_email_learning
     client=FakeClient()
@@ -95,7 +95,7 @@ def test_tracking_url_cannot_hide_current_body_when_model_selects_none():
 
 def test_unresolved_external_attempt_is_not_retried(tmp_path):
     import json
-    from test_email_signals import FakeClient
+    from tests.test_email_signals import FakeClient
     from jav.adapters.jev import JevAdapter
     from jav.email_learning_runtime import run_email_learning
     class BrokenClient(FakeClient):
