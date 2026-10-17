@@ -24,7 +24,7 @@ from typesafe_sdk import Choice, Noul
 
 from jav import cfg
 from jav.adapters.jev import JevAdapter
-from jav.candidates import MAX_OPTIONS, candidate_lines, find_currencies, payment_method_lines, trim_after_legal_form
+from jav.candidates import MAX_OPTIONS, candidate_lines, find_currencies, finder_cap, found_before_cut, payment_method_lines, trim_after_legal_form
 from jav.candidates import TOTAL_LINE_RE as _TOTAL_LINE_RE
 from jav.dates import read_date
 from jav.jev_budget import ask_within_budget
@@ -237,6 +237,7 @@ class SelectSite:
         )
         response = result.response
         calls.append(result.call)
+        uncut: dict[str, int | None] = {}  # 160 (review AI-2): a finder's own cut, counted once per candidate kind
         for qid, q in questions.items():
             if not isinstance(q, Choice):
                 continue  # the presence Nouls are read under their field
@@ -251,8 +252,9 @@ class SelectSite:
             elif label is not None:
                 raw = label
             presence = response.nouls.get(qid + PRESENCE_SUFFIX) if qid + PRESENCE_SUFFIX in questions else None
-            # 076: distinct labels, as the options are (the Choice is keyed by label)
-            n_found = len({c.label for c in cands.get(self.field_kind[qid], [])}) if qid in self.field_kind else None
+            # 076: distinct labels, as the options are (the Choice is keyed by label); 160 (review AI-2): counted before
+            # the finder's own cut too (money, quantity), which used to hide from the cut-list to-do
+            n_found = self._found(self.field_kind[qid], lines, cands, uncut) if qid in self.field_kind else None
             picks[qid] = FieldPick(
                 field=qid,
                 label=label,
@@ -269,6 +271,17 @@ class SelectSite:
             presence = response.nouls.get(field + PRESENCE_SUFFIX) if field + PRESENCE_SUFFIX in questions else None
             if presence is not None:
                 picks[field] = picks[field].model_copy(update={"present_p": round(float(presence.noul), 4)})
+
+    def _found(self, kind: str, lines: list[LineLayout], cands: dict[str, list[Candidate]], uncut: dict[str, int | None]) -> int:
+        """The distinct candidates code found for a kind: the listed ones, or, when the list stands at its finder's cap,
+        the number the finder found before cutting it."""
+        listed = len({c.label for c in cands.get(kind, [])})
+        cap = finder_cap(kind, self.pack.candidate_profile)
+        if cap is None or listed < cap:
+            return listed
+        if kind not in uncut:
+            uncut[kind] = found_before_cut(kind, lines, self.pack.candidate_profile)
+        return max(listed, uncut[kind] or 0)
 
     def select_fields(
         self, jev: JevAdapter, lines: list[LineLayout], cands: dict[str, list[Candidate]], *, run_id: str = "adhoc", use_cache: bool = True

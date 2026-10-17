@@ -521,7 +521,8 @@ class FieldPick(BaseModel):
     present_p: float | None = None  # presence Noul P(the field is on the document), raw; threshold in the policy
     line_no: int | None = None  # line of the chosen candidate (from code, the Candidate): source reference for review
     # 076: the distinct candidates code found for the field; more than `n_options` means the list sent to JEV was cut
-    # (the cap of 250, or the request size budget), and `n_candidates - n_options` were skipped. None: not recorded
+    # (the cap of 250, the request size budget, or since 160 the finder's own cap: 100 amounts on a utility bill, 80
+    # quantities), and `n_candidates - n_options` were skipped. None: not recorded
     n_candidates: int | None = None
 
     @property
