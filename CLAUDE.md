@@ -65,6 +65,7 @@ python -m jav.cli preflight [--skip-pytest]      # session start: tests (Python 
 pytest tests/                                     # offline tests; a single test: pytest tests/test_emails.py -k next_flow
 python smoke_test.py                              # venv + keys + one live JEV call
 python -m jav.cli recall | golden --arm S|G [--synthetic] | determinism --arm S --n 5 | verifier-probe [--no-cache] [--type invoice_foreign]
+# 160: every command that can make paid calls needs --jev-budget-usd / --budget-usd (OpenAI) for a live call; without them only earlier answers count
 python -m jav.cli detect <pdf> | detect-golden | detect-determinism --n 3 | detect-corpus <folder> [--redo-unknown] | detect-sample <folder>
 python -m jav.cli email <folder> | email-golden | email-determinism --n 3 | email-inbox inbox/ | email-sample | email-injection-probe
 python -m jav.cli email-ingest-server --port 8931 --run   # receiver for scripts/outlook_bridge.ps1 (8901 = legacy Docker)

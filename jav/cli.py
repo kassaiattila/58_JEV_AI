@@ -25,9 +25,34 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 import jav  # noqa: F401  - sets up UTF-8 output
+
+
+@contextmanager
+def _under_budget(args: argparse.Namespace, name: str):
+    """160 (review AI-8): a command that can make paid calls runs under the owner's sub-budget only: `--jev-budget-usd`,
+    `--budget-usd` (OpenAI), Azure never. Without one only earlier answers count (the JEV cache): a live call is refused
+    and becomes the item's to-do, so a forgotten budget cannot spend."""
+    from datetime import datetime
+    from decimal import Decimal
+
+    from jav.runtime import calls
+
+    limits = {p: Decimal(v) for p, v in (("jev", getattr(args, "jev_budget_usd", None)),
+                                         ("openai", getattr(args, "budget_usd", None))) if v}
+    if not limits:
+        print(calls.NO_BUDGET_NOTE)
+    with calls.measurement(f"cli-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits):
+        yield
+
+
+def _budget_args(p: argparse.ArgumentParser) -> None:
+    """160: the sub-budgets of a command that can make paid calls (`_under_budget`)."""
+    p.add_argument("--jev-budget-usd", help="160: hard JEV budget for the command; without any budget only earlier answers count")
+    p.add_argument("--budget-usd", help="160: hard OpenAI budget for the command; Azure is never called from here")
 
 
 def cmd_candidates(args: argparse.Namespace) -> int:
@@ -106,7 +131,9 @@ def cmd_ocr_rekey(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     from jav.flow import run_one
 
-    state = run_one(args.pdf, case_id=args.case_id or "adhoc", arm=args.arm, tracker=not args.no_tracker, use_cache=not args.no_cache, doc_type=args.type)
+    with _under_budget(args, "run"):
+        state = run_one(args.pdf, case_id=args.case_id or "adhoc", arm=args.arm, tracker=not args.no_tracker,
+                        use_cache=not args.no_cache, doc_type=args.type)
     print(f"\n=== {state.final_status} | route={state.route} | arm={state.arm} | type={state.doc_type}")
     if state.invoice:
         print(json.dumps(state.invoice.to_datapoints(), ensure_ascii=False, indent=2, default=str))
@@ -152,7 +179,8 @@ def cmd_verifier_probe(args: argparse.Namespace) -> int:
 def cmd_detect(args: argparse.Namespace) -> int:
     from jav.flow_detect import run_detect
 
-    st = run_detect(args.pdf, tracker=args.tracker, use_cache=not args.no_cache)
+    with _under_budget(args, "detect"):
+        st = run_detect(args.pdf, tracker=args.tracker, use_cache=not args.no_cache)
     print(f"=== {st.final_status}  doc_id={st.doc_id[:12]}…  run_id={st.run_id}")
     if st.result:
         r = st.result
@@ -184,7 +212,8 @@ def cmd_detect_golden(args: argparse.Namespace) -> int:
 def cmd_detect_determinism(args: argparse.Namespace) -> int:
     from jav.evals_detect import detect_determinism
 
-    detect_determinism(n=args.n, limit=args.limit)
+    with _under_budget(args, "detect-determinism"):
+        detect_determinism(n=args.n, limit=args.limit)
     return 0
 
 
@@ -197,7 +226,8 @@ def cmd_detect_corpus(args: argparse.Namespace) -> int:
     if args.report_only:
         print_corpus_report(root)
     else:
-        detect_corpus(root, limit=args.limit, force=args.force, use_cache=not args.no_cache, redo_unknown=args.redo_unknown)
+        with _under_budget(args, "detect-corpus"):
+            detect_corpus(root, limit=args.limit, force=args.force, use_cache=not args.no_cache, redo_unknown=args.redo_unknown)
     return 0
 
 
@@ -340,14 +370,16 @@ def cmd_determinism(args: argparse.Namespace) -> int:
     from jav.evals import determinism
     from jav.flow import run_one
 
-    determinism(args.arm, args.n, run_one, type_key=args.type)
+    with _under_budget(args, "determinism"):
+        determinism(args.arm, args.n, run_one, type_key=args.type)
     return 0
 
 
 def cmd_email(args: argparse.Namespace) -> int:
     from jav.flow_email import run_email
 
-    st = run_email(args.folder, tracker=not args.no_tracker, use_cache=not args.no_cache)
+    with _under_budget(args, "email"):
+        st = run_email(args.folder, tracker=not args.no_tracker, use_cache=not args.no_cache)
     r, m = st.result, st.message
     assert r is not None and m is not None
     print(f"=== {m.message_id} | {m.sender} | {m.subject!r}")
@@ -378,7 +410,8 @@ def cmd_email_inbox(args: argparse.Namespace) -> int:
     if args.report_only:
         print_inbox_report()
     else:
-        email_inbox(args.root, limit=args.limit, force=args.force, use_cache=not args.no_cache)
+        with _under_budget(args, "email-inbox"):
+            email_inbox(args.root, limit=args.limit, force=args.force, use_cache=not args.no_cache)
     return 0
 
 
@@ -697,7 +730,8 @@ def cmd_eval_report(args: argparse.Namespace) -> int:
 def cmd_email_determinism(args: argparse.Namespace) -> int:
     from jav.evals_email import email_determinism
 
-    email_determinism(n=args.n, limit=args.limit)
+    with _under_budget(args, "email-determinism"):
+        email_determinism(n=args.n, limit=args.limit)
     return 0
 
 
@@ -741,12 +775,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--type", default="invoice_hu", help=type_help)
     p.add_argument("--no-tracker", action="store_true")
     p.add_argument("--no-cache", action="store_true", help="Jev kérés-cache kihagyása (élő hívás)")
+    _budget_args(p)
     p.set_defaults(fn=cmd_run)
 
     p = sub.add_parser("detect", help="M1: egy dokumentum kategorizálása Jevvel")
     p.add_argument("pdf")
     p.add_argument("--tracker", action="store_true")
     p.add_argument("--no-cache", action="store_true")
+    _budget_args(p)
     p.set_defaults(fn=cmd_detect)
 
     p = sub.add_parser("detect-golden", help="M1 golden: a régi doc-triage + doc-extract típus-címkéin")
@@ -762,6 +798,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("detect-determinism", help="M1: ismételt futások cache nélkül a detect-goldenen, típus-flipek és conf-szórás")
     p.add_argument("--n", type=int, default=3)
     p.add_argument("--limit", type=int)
+    _budget_args(p)
     p.set_defaults(fn=cmd_detect_determinism)
 
     p = sub.add_parser("detect-corpus", help="M1 bejárás egy mappán (rekurzív), folytatható; riport típus × év")
@@ -771,6 +808,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--report-only", action="store_true")
     p.add_argument("--redo-unknown", action="store_true", help="csak az 'unknown' / bizonytalan dokumentumok újra")
     p.add_argument("--no-cache", action="store_true")
+    _budget_args(p)
     p.set_defaults(fn=cmd_detect_corpus)
 
     p = sub.add_parser("detect-sample", help="M1 kézi ellenőrző Markdown-minta a kategorizált korpuszból")
@@ -783,6 +821,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("folder")
     p.add_argument("--no-tracker", action="store_true")
     p.add_argument("--no-cache", action="store_true")
+    _budget_args(p)
     p.set_defaults(fn=cmd_email)
 
     p = sub.add_parser("email-golden", help="M3 golden: a régi 96 esetes intent-golden (10_AIFLOW_V4) Jev-Choice-szal")
@@ -800,6 +839,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--force", action="store_true", help="a már kategorizált levelek is újra")
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--report-only", action="store_true", help="csak a store-riport, futtatás nélkül")
+    _budget_args(p)
     p.set_defaults(fn=cmd_email_inbox)
 
     p = sub.add_parser("email-ingest-server", help="M3: helyi fogadó a régi outlook_bridge.ps1 /ingest/email POST-jaihoz -> inbox/")
@@ -896,6 +936,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("email-determinism", help="M3: ismételt futások cache nélkül, intent-flipek és conf-szórás")
     p.add_argument("--n", type=int, default=3)
     p.add_argument("--limit", type=int)
+    _budget_args(p)
     p.set_defaults(fn=cmd_email_determinism)
 
     p = sub.add_parser("email-injection-probe", help="M3: beszúrt-utasítás (promptinjekció) szonda a golden levelek tiszta és elrontott változatain (runs/*_email_injection_probe.jsonl)")
@@ -959,6 +1000,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--arm", choices=["S", "G"], required=True)
     p.add_argument("--n", type=int, default=5)
     p.add_argument("--type", default="invoice_hu", help=type_help)
+    _budget_args(p)
     p.set_defaults(fn=cmd_determinism)
 
     p = sub.add_parser("ocr", help="OCR-lánc: egy PDF felismert szövege és minőségjelei (gyorsítótárból, --force: újra), PDF nélkül a motor állapota")

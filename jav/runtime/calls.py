@@ -160,11 +160,16 @@ def use_run(*, budget_scope: str | None, reuse: bool = False, measurement: bool 
 def measurement(scope: str, limits: dict[str, Decimal]):
     """086: a paid measurement outside a work run, under a hard budget (the owner's sub-budget): every call reserves from
     `scope`'s budget and goes into the call log; a provider without a limit here cannot be called at all (e.g. no
-    Azure escalation, no stray JEV call)."""
+    Azure escalation, no stray JEV call). 160 (review AI-8): with no limit at all, only earlier answers count (the JEV
+    cache); the commands and measurements that used to run outside the call log without a budget run so."""
     for provider, limit in limits.items():
         set_budget(scope, provider, limit)
     with use_run(budget_scope=scope, measurement=True):
         yield scope
+
+
+NO_BUDGET_NOTE = ("No budget given: only earlier answers are used (the JEV cache), a live call is refused. A live call "
+                  "needs the owner's sub-budget: --jev-budget-usd for JEV, --budget-usd for OpenAI.")
 
 
 def current() -> RunContext | None:
