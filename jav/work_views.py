@@ -128,7 +128,7 @@ def current_run(runs: list[dict[str, Any]]) -> dict[str, Any] | None:
         return None
     if active := next((r for r in runs if r["status"] in ACTIVE), None):
         return active
-    if any(r["mode"] == "apply" and not r["approval"] and r["status"] in work.SUPERSEDABLE for r in runs):
+    if any(r.get("mode") == "apply" and not r.get("approval") and r["status"] in work.SUPERSEDABLE for r in runs):
         if open_ids := work.open_live_runs(runs[0]["workpackage_id"]):
             return next(r for r in runs if r["run_id"] == open_ids[0])
     return next((r for r in runs if r["status"] != "cancelled"), runs[0])
