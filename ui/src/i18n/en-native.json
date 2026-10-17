@@ -1598,5 +1598,9 @@
   "{{n}} processed in a trial": "{{n}} processed in a trial",
   "{{n}} processed live": "{{n}} processed live",
   "{{n}} removed earlier": "{{n}} removed earlier",
-  "{{n}} repeated": "{{n}} repeated"
+  "{{n}} repeated": "{{n}} repeated",
+  "The package is empty.": "The package is empty.",
+  "Open document": "Open document",
+  "Download": "Download",
+  "Remove": "Remove"
 }

@@ -83,7 +83,7 @@ export function PackageItems({ view, adding, onAddingChange, onChanged, pendingA
       setReason("");
     } catch (e) {
       const err = e as ApiError;
-      setError(err.status === 409 ? t("A csomag közben változott. Frissítettük a listát, nézd át és próbáld újra.")
+      setError(err.status === 409 ? t("The package changed meanwhile. We refreshed the list: check it and try again.")
         : err.status === 422 && !getActor() ? t("Choose your name at the top first: a removal is recorded with it.") : err.message);
     } finally {
       setBusy(false);
@@ -143,14 +143,14 @@ export function PackageItems({ view, adding, onAddingChange, onChanged, pendingA
           </label>
           {/* a removal can be undone (restore), so it is not drawn as destructive */}
           <button type="submit" className="secondary" disabled={busy || !reason.trim()}>{t("Remove from the package")}</button>
-          <button type="button" className="quiet" onClick={() => { setRemoving(null); setReason(""); }}>{t("Mégse")}</button>
+          <button type="button" className="quiet" onClick={() => { setRemoving(null); setReason(""); }}>{t("Cancel")}</button>
           <p className="muted small form-note">{t("The file stays where it is. The item leaves the next runs; a run already started keeps it, and the item can be restored.")}</p>
         </form>
       ) : null}
       {/* the work package's revision is in the key: after a change the list reloads and the selection clears */}
       <DataTable key={`${wp.id}:${wp.revision}`} dataset="workpackage_items" label={t("The package's items")} selectable
         scope={{ workpackage_id: wp.id, names, ...(showRemoved ? { removed: "1" } : {}) }}
-        emptyText={t("A csomag üres.")} storageId="workpackage_items" maxHeight="50vh" cell={cell}
+        emptyText={t("The package is empty.")} storageId="workpackage_items" maxHeight="50vh" cell={cell}
         toolbar={<>
           <NameModeSwitch />
           <label className="check small"><input type="checkbox" checked={showRemoved} onChange={(e) => setShowRemoved(e.target.checked)} />
@@ -181,11 +181,11 @@ export function PackageItems({ view, adding, onAddingChange, onChanged, pendingA
             onClick={() => void act(() => api.restoreItem(wp.id, String(row.item_id), wp.revision))}>{t("Restore")}</button>
         ) : (
           <>
-            <a className="small" href={api.sourceUrl(wp.id, String(row.item_id))} target="_blank" rel="noreferrer">{t("Megnyitás")}</a>
-            <a className="small" href={api.sourceUrl(wp.id, String(row.item_id))} download>{t("Letöltés")}</a>
+            <a className="small" href={api.sourceUrl(wp.id, String(row.item_id))} target="_blank" rel="noreferrer">{t("Open document")}</a>
+            <a className="small" href={api.sourceUrl(wp.id, String(row.item_id))} download>{t("Download")}</a>
             <button type="button" className="quiet small-btn" disabled={busy}
               onClick={() => { setRemoving({ ids: [String(row.item_id)], name: String(row.original_name ?? row.name ?? "") }); setReason(""); close(); }}>
-              {t("Eltávolítás")}</button>
+              {t("Remove")}</button>
           </>
         ))} />
     </section>

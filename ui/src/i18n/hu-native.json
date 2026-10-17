@@ -1599,5 +1599,9 @@
   "{{n}} processed in a trial": "{{n}} próbában feldolgozva",
   "{{n}} processed live": "{{n}} élesben feldolgozva",
   "{{n}} removed earlier": "{{n}} korábban kivett",
-  "{{n}} repeated": "{{n}} ismétlődő"
+  "{{n}} repeated": "{{n}} ismétlődő",
+  "The package is empty.": "A csomag üres.",
+  "Open document": "Megnyitás",
+  "Download": "Letöltés",
+  "Remove": "Eltávolítás"
 }
