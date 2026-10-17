@@ -6,7 +6,7 @@
 ## Phases and steps
 
 ### load
-- **load_pdf** _(det)_ — pdfplumber szó-szintű rekonstrukció, sha256 doc_id; szövegréteg-teszt; a szóréteg (szókeretek) mentése
+- **load_pdf** _(det)_ — pdfplumber word-level reconstruction, sha256 doc_id; the text-layer test of the document and of each page (167: scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do); the word layer (word boxes) is saved
 - **ocr_pdf** _(det)_ — szöveg nélküli PDF: oldalkép (pypdfium2) + tesseract szó-dobozok (natív / régi sidecar-kép) -> ugyanaz a sor- és cella-építés; a szóréteg mentése; lemez-gyorsítótár runs/ocr/; minőségjelek nyersen, gyenge OCR review-ok (policy ocr)
 
 ### extract
@@ -35,7 +35,7 @@
 
 Terminal steps: done, needs_review, needs_ocr
 
-> M2 invoice - két kar egy gráfban (S = jelöltek + Jev Choice, G = gpt + Jev Noul); egyetértés = auto, eltérés = review. Típus-független: a típus-csomag (configs/types/<típus>.json: invoice_hu, invoice_foreign, a közmű-számlák) adja a mezőket, kérdéseket, promptot, validátorokat. Szöveg nélküli PDF-nél OCR-lépés (ocr_pdf) ugyanarra az elrendezésre. Minden AI-hívás az adapteren (cache + ledger + config_hash).
+> M2 invoice - one graph with two extraction paths, and every run takes exactly one of them (arm S: code candidates + JEV Choice; arm G: GPT extraction + JEV Noul verification, or the code's own source check without JEV). There is no agreement gate between the paths: the route (auto or review) comes from the policy's thresholds (configs/policy.json), the pack's required and high-stakes fields, the validators and the additive review latch. Type-independent: the type pack (configs/types/<type>.json: invoice_hu, invoice_foreign, the utility bills, ...) supplies the fields, questions, prompt and validators. A PDF without a text layer goes through the OCR step (ocr_pdf) onto the same layout. Every AI call goes through the adapter layer (cache + ledger + config_hash).
 
 ## Graph (Mermaid)
 

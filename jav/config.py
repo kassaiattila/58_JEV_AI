@@ -12,8 +12,9 @@ import json
 import logging
 import os
 import sys
-from decimal import Decimal
+from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 from typesafe_sdk import AsyncTypeSafeClient, RetryPolicy, TypeSafeClient
@@ -75,6 +76,29 @@ def openai_price(model: str) -> tuple[float, float]:
         return OPENAI_USD_PER_MTOK[model]
     except KeyError:
         raise UnpricedModelError(f"no price for {model!r} in configs/models.json openai.usd_per_mtok") from None
+
+
+def openai_priced_model(*, requested: str, actual: str | None) -> str | None:
+    """167 (review AI-12): the model whose configured price an answer is charged at: the answering model's own, else
+    the requested model's (a dated snapshot such as `gpt-5.4-mini-2026-03-17`, or any name without a price of its
+    own); None when neither has a price."""
+    for model in (actual, requested):
+        if model and model in OPENAI_USD_PER_MTOK:
+            return model
+    return None
+
+
+def openai_cost(usage: Any, *, requested: str, actual: str | None) -> Decimal | None:
+    """167 (review AI-12): the USD cost of one OpenAI answer, the one price rule of every caller: tokens × the price of
+    `openai_priced_model`, exact in Decimal, rounded to 0.000001 USD. None is an unknown cost: no configured price, or
+    a usage that reports nothing (no usage object, or a Pydantic AI usage without values). The ledger then records no
+    cost, and the call log keeps the call's reserved maximum committed (`jav/runtime/calls.py`)."""
+    model = openai_priced_model(requested=requested, actual=actual)
+    if model is None or usage is None or (hasattr(usage, "has_values") and not usage.has_values()):
+        return None
+    price_in, price_out = (Decimal(str(p)) for p in OPENAI_USD_PER_MTOK[model])
+    exact = (Decimal(usage.input_tokens or 0) * price_in + Decimal(usage.output_tokens or 0) * price_out) / Decimal(1_000_000)
+    return exact.quantize(Decimal("0.000001"), rounding=ROUND_HALF_EVEN)
 
 
 OPENAI_SETTINGS: dict = {"reasoning_effort": _MODELS["openai"].get("reasoning_effort", "none"), "temperature": float(_MODELS["openai"].get("temperature", 0.0)),

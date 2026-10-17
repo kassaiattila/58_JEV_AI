@@ -39,6 +39,10 @@ X_TOLERANCE = 1.5  # word boundary (pt) - the layout mode's default (3) glues wo
 Y_TOLERANCE = 3.0  # `top` difference of words belonging to one line (pt)
 COLUMN_GAP_CHARS = 2.5  # a gap wider than this many median character widths = column boundary
 COLUMN_GAP_MIN_PT = 10.0
+# 167 (review AI-3): a page without text of its own counts as a scan only when its images cover at least this share of
+# it: a scanned page is one image over the whole page, a logo in a corner is not a scan. On the owner's store
+# (2026-10-17) every page the text test alone flagged had a few characters and no image at all.
+MIN_SCAN_IMAGE_SHARE = 0.30
 
 
 class DocumentTooLarge(ValueError):
@@ -91,6 +95,11 @@ class PdfText:
     # independent of them and unchanged.
     words: list[list[dict[str, Any]]] = field(default_factory=list)
     page_sizes: list[tuple[float, float]] = field(default_factory=list)
+    # 167 (review AI-3): the scanned pages (1-based) without text of their own, e.g. behind an electronically signed
+    # cover page (the whole document's test alone let them pass unread), and the raw share of each page its images
+    # cover (`isolated_pdf.image_share`)
+    pages_without_text: list[int] = field(default_factory=list)
+    page_image_shares: list[float] = field(default_factory=list)
 
 
 # PDFs with LaTeX/T1 fonts give the accent as a separate glyph in the text layer ("Bal´azs", "Vev˝o", "U¨gyvitel").
@@ -219,6 +228,19 @@ def text_layer_ok(text: str) -> bool:
     )
 
 
+def pages_without_text(layout: list[LineLayout], page_count: int, image_shares: list[float]) -> list[int]:
+    """167 (review AI-3): the scanned pages (1-based) without text of their own: the page's lines fail the text-layer
+    test (`text_layer_ok`, the same test as the whole document's: no text, or only a stamp or a page number) AND its
+    images cover at least `MIN_SCAN_IMAGE_SHARE` of it. A blank page, or one with a few characters and no image, is not
+    a scan and does not count."""
+    by_page: dict[int, list[str]] = {}
+    for ln in layout:
+        by_page.setdefault(ln.page, []).append(ln.text)
+    return [p for p in range(1, page_count + 1)
+            if not text_layer_ok("\n".join(by_page.get(p, [])))
+            and (image_shares[p - 1] if p <= len(image_shares) else 0.0) >= MIN_SCAN_IMAGE_SHARE]
+
+
 def read_pdf(path: str | Path) -> PdfText:
     """The text layer with lines and cells. 077: pdfplumber runs in the isolated PDF reader (`jav/isolated_pdf.py`,
     time and memory limit: `PdfReaderLimit`; a parser error: `PdfReaderError`); the words are cleaned and laid out
@@ -228,8 +250,9 @@ def read_pdf(path: str | Path) -> PdfText:
     path = Path(path)
     check_document_size(path)
     max_pages = input_limits().max_document_pages
-    page_count, sizes, raw_pages = isolated_pdf.run(isolated_pdf.extract_words, kind="read", path=str(path),
-                                                    max_pages=max_pages, x_tolerance=X_TOLERANCE, y_tolerance=Y_TOLERANCE)
+    page_count, sizes, raw_pages, image_shares = isolated_pdf.run(
+        isolated_pdf.extract_words, kind="read", path=str(path), max_pages=max_pages, x_tolerance=X_TOLERANCE,
+        y_tolerance=Y_TOLERANCE)
     if raw_pages is None:
         raise DocumentTooLarge(f"{path.name}: {page_count} pages is over the {max_pages} page input limit "
                                "(configs/service.json)")
@@ -247,6 +270,7 @@ def read_pdf(path: str | Path) -> PdfText:
     return PdfText(
         path=str(path), text=text, lines=lines, layout=layout, page_count=page_count, has_text_layer=has_text,
         text_source="pdf" if has_text else None, words=pages, page_sizes=sizes,
+        pages_without_text=pages_without_text(layout, page_count, image_shares), page_image_shares=image_shares,
     )
 
 

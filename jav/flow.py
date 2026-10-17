@@ -7,8 +7,13 @@
                               ├─ code_verify ─┘                  │  (085: G without JEV)
                               └─ decide_route (LLM error)        │
                                                     validate ←───┘
-                                                    decide_route → save ─┬─ done
-                                                                         └─ needs_review
+                                                    decide_route → ground → save ─┬─ done
+                                                                                  └─ needs_review
+
+One run takes exactly one path: `arm` is S or G, chosen by the recipe or the measurement. There is no agreement gate
+between the two paths; the route (auto or review) comes from the policy (`jav/policy.py`, thresholds in
+`configs/policy.json`), the pack's required and high-stakes fields and the validators. `ground` (045) finds each
+field's source location on the word layer, in code, before the save.
 
 Typed Pydantic state (`FlowState`), `@action.pydantic` actions. Every AI call goes through the adapter layer
 (`jav.adapters`); the `run_id` is the backbone: the ledger, datapoints and review_queue refer to it. The review latch
@@ -63,8 +68,9 @@ def _year_hint(path: str) -> int | None:
 # --- actions ---------------------------------------------------------------------------
 
 
-@action.pydantic(reads=["source_path", "read_path"], writes=["text", "lines", "page_count", "has_text_layer", "layout", "doc_id",
-                                                             "text_source", "source_layer_id"])
+@action.pydantic(reads=["source_path", "read_path", "needs_review", "review_reasons"],
+                 writes=["text", "lines", "page_count", "has_text_layer", "layout", "doc_id", "text_source", "source_layer_id",
+                         "needs_review", "review_reasons"])
 def load_pdf(state: FlowState) -> FlowState:
     from jav import source_layer
     from jav.pdf import read_pdf
@@ -79,6 +85,8 @@ def load_pdf(state: FlowState) -> FlowState:
     state.doc_id = _sha256(state.read_path or state.source_path)
     if pdf.has_text_layer:  # for a PDF without text the OCR step saves the layer
         state.source_layer_id = source_layer.save_from_pdftext(state.doc_id, pdf)
+        # 167 (AI-3): pages without a text layer of their own were neither read nor sent to OCR
+        policy.require_review(state, *policy.text_layer_coverage_reasons(pdf.page_count, pdf.pages_without_text))
     return state
 
 
@@ -153,11 +161,14 @@ def normalize_picks(state: FlowState) -> FlowState:
 
 @action.pydantic(reads=["text", "run_id", "doc_type", "needs_review", "review_reasons"], writes=["llm_output", "llm_token_p", "needs_review", "review_reasons"])
 def extract_llm(state: FlowState) -> FlowState:
-    from jav.extract_llm import extract_scored
+    from jav.extract_llm import OutputTruncated, extract_scored
 
     try:
         scored = extract_scored(state.text, run_id=state.run_id, pack=get_pack(state.doc_type))
         state.llm_output, state.llm_token_p = scored.output, scored.token_p  # 091: and its token probabilities
+    except OutputTruncated:  # 167 (AI-7): the answer was cut off at its output cap; not asked again, its own to-do
+        state.llm_output, state.llm_token_p = None, None
+        policy.require_review(state, "llm:truncated")
     except Exception as exc:  # noqa: BLE001 - an error is a review reason, not the end of the flow
         state.llm_output, state.llm_token_p = None, None
         policy.require_review(state, f"llm:failed:{type(exc).__name__}")
@@ -448,7 +459,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
         ("save", "done", "route auto"), ("save", "needs_review", "különben"),
     ],
     "step_meta": {
-        "load_pdf": {"kind": "det", "note": "pdfplumber szó-szintű rekonstrukció, sha256 doc_id; szövegréteg-teszt; a szóréteg (szókeretek) mentése"},
+        "load_pdf": {"kind": "det", "note": "pdfplumber word-level reconstruction, sha256 doc_id; the text-layer test of the document and of each page (167: scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do); the word layer (word boxes) is saved"},
         "ocr_pdf": {"kind": "det", "note": "szöveg nélküli PDF: oldalkép (pypdfium2) + tesseract szó-dobozok (natív / régi sidecar-kép) -> ugyanaz a sor- és cella-építés; a szóréteg mentése; lemez-gyorsítótár runs/ocr/; minőségjelek nyersen, gyenge OCR review-ok (policy ocr)"},
         "find_candidates": {"kind": "det", "note": "S-kar: determinisztikus, sorrendezett, maszkoló jelöltkeresők a csomag jelölt-profiljával (hu / intl): iban -> tax_id -> date -> invoice_number -> money; nevek/címek cellákon"},
         "jev_select": {"kind": "jev", "note": "S-kar: kötegelt Choice-kérések (parties / header / money) a csomag select-hívási helyéről, fókuszált state, none mindig opció, jelenlét-Noul mezőnként (jelölt nélkül is, a vizsgált nem kötelező mezőkre, csak meglévő kérésben)"},
@@ -466,7 +477,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
         "needs_ocr": {"kind": "terminal", "note": "szöveg nélküli PDF, és az OCR sem adott használható szöveget (vagy nincs OCR-motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja"},
     },
     "terminals": TERMINALS,
-    "doc_note": "M2 invoice - két kar egy gráfban (S = jelöltek + Jev Choice, G = gpt + Jev Noul); egyetértés = auto, eltérés = review. Típus-független: a típus-csomag (configs/types/<típus>.json: invoice_hu, invoice_foreign, a közmű-számlák) adja a mezőket, kérdéseket, promptot, validátorokat. Szöveg nélküli PDF-nél OCR-lépés (ocr_pdf) ugyanarra az elrendezésre. Minden AI-hívás az adapteren (cache + ledger + config_hash).",
+    "doc_note": "M2 invoice - one graph with two extraction paths, and every run takes exactly one of them (arm S: code candidates + JEV Choice; arm G: GPT extraction + JEV Noul verification, or the code's own source check without JEV). There is no agreement gate between the paths: the route (auto or review) comes from the policy's thresholds (configs/policy.json), the pack's required and high-stakes fields, the validators and the additive review latch. Type-independent: the type pack (configs/types/<type>.json: invoice_hu, invoice_foreign, the utility bills, ...) supplies the fields, questions, prompt and validators. A PDF without a text layer goes through the OCR step (ocr_pdf) onto the same layout. Every AI call goes through the adapter layer (cache + ledger + config_hash).",
 }
 
 

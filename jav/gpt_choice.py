@@ -31,7 +31,7 @@ from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from jav import store
-from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_chat_model, openai_price
+from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_chat_model, openai_cost, openai_price
 from jav.models import JevCall
 from jav.runtime import calls
 
@@ -169,17 +169,14 @@ def _physical(agent, prompt: str, *, run_id: str, step: str, limits: Limits, lim
     in_tok, out_tok = usage.input_tokens or 0, usage.output_tokens or 0
     response = getattr(result, "response", None)
     actual = getattr(response, "model_name", None) or OPENAI_MODEL
-    from jav.extract_llm import _price_for  # the same price rule as the extraction (dated variant of the model)
-
-    price = _price_for(actual)
-    cost = None if price is None else round((in_tok * price[0] + out_tok * price[1]) / 1_000_000, 6)
+    cost = openai_cost(usage, requested=OPENAI_MODEL, actual=actual)  # 167 (AI-12): the shared price rule
     store.ledger_add(run_id=run_id, step=step, provider="openai", model=actual, input_tokens=in_tok, output_tokens=out_tok,
-                     cost_usd=cost, seconds=round(time.perf_counter() - t0, 3), config_hash=limits.config_hash)
+                     cost_usd=None if cost is None else float(cost), seconds=round(time.perf_counter() - t0, 3),
+                     config_hash=limits.config_hash)
     details = getattr(response, "provider_details", None) or {}
     saved = {"output": result.output.model_dump(mode="json"), "logprobs": details.get("logprobs"), "model": actual,
-             "input_tokens": in_tok, "output_tokens": out_tok, "cost_usd": cost}
-    return calls.Outcome(response=saved, model=actual, input_tokens=in_tok, output_tokens=out_tok,
-                         cost_usd=None if cost is None else Decimal(str(cost)))
+             "input_tokens": in_tok, "output_tokens": out_tok, "cost_usd": None if cost is None else float(cost)}
+    return calls.Outcome(response=saved, model=actual, input_tokens=in_tok, output_tokens=out_tok, cost_usd=cost)
 
 
 def max_cost_usd(request_id: str, instructions: str, prompt: str, fields: dict[str, list[str]], limits: Limits,

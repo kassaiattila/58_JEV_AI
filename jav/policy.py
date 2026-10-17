@@ -224,6 +224,17 @@ def ocr_coverage_reasons(page_count: int | None, pages_ocr: int | None) -> list[
     return [f"ocr:partial_pages:{pages_ocr}/{page_count}"]
 
 
+def text_layer_coverage_reasons(page_count: int | None, pages_without_text: list[int] | None) -> list[str]:
+    """167 (review AI-3): in a document with a text layer, some pages (not all) are scans without text of their own,
+    e.g. behind an electronically signed cover page (`pdf.pages_without_text`: no text and an image over most of the
+    page). Those pages were neither read nor sent to OCR, so this is always a visible to-do, like partial OCR. With no
+    page of text the whole document goes to OCR instead (`ocr_pdf`)."""
+    n = len(pages_without_text or [])
+    if not page_count or n == 0 or n >= page_count:
+        return []
+    return [f"pdf:pages_without_text:{n}/{page_count}"]
+
+
 def ocr_should_escalate(mean_conf: float | None, low_conf_ratio: float | None) -> bool:
     """Weak local OCR (below / above the policy's `ocr.escalate_*` thresholds) -> switch to the more accurate, paid
     engine (configs/ocr.json `escalation`); the decision is data, the signals stay raw in the state."""
@@ -312,6 +323,8 @@ def apply_verdict_policy(state: FlowState) -> None:
     for field in v.unsupported:
         if field not in skip:
             require_review(state, f"{unsupported}:{field}")
+    for field in v.omitted:  # 167 (AI-10): a list left out of the request to fit its size; its rows were never checked
+        require_review(state, f"jev:list_omitted:{field}")
     for field, flags in v.flags.items():
         if field in skip:
             continue

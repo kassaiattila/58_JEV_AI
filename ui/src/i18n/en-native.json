@@ -1541,5 +1541,8 @@
   "invocation {{invocation_id}} is still in progress (reserved); it cannot be settled by hand": "invocation {{invocation_id}} is still in progress (reserved); it cannot be settled by hand",
   "a settled cost must be between 0 and {{max_settled_cost_usd}} USD, not {{cost_usd}}": "a settled cost must be between 0 and {{max_settled_cost_usd}} USD, not {{cost_usd}}",
   "{{name}}: more than {{max_bytes}} bytes": "{{name}}: more than {{max_bytes}} bytes",
-  "Insufficient disk space for a source copy; free space and try again.": "Insufficient disk space for a source copy; free space and try again."
+  "Insufficient disk space for a source copy; free space and try again.": "Insufficient disk space for a source copy; free space and try again.",
+  "GPT's answer was cut off at its length limit, so nothing was extracted: the document is probably too long for one extraction; check it by hand": "GPT's answer was cut off at its length limit, so nothing was extracted: the document is probably too long for one extraction; check it by hand",
+  "Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document": "Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document",
+  "JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand": "JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand"
 }
