@@ -135,6 +135,9 @@ agreement, not an accuracy.
    JEV question asked anyway is refused before the model probe, the cache and the call log (`JevUnavailableError("disabled")`,
    the `jev_unavailable:disabled` to-do; `get_adapter()` refuses too, whatever adapter a run installed). In the tests the refusal
    fails the test (`tests/conftest.py`); a test of the refusal itself is marked `jev_refusal` (`tests/test_jev_safety_net_160.py`).
+   The engine matrix (`configs/engine_matrix.json`, checked by `jav/engine_matrix.py` in the preflight) lists every JEV call
+   site with its counterpart without JEV or a stated exception, and the tests that cover it; the paired tests
+   (`tests/test_paired_*_160.py`) run each flow with both engines.
 3. **OpenAI, through Pydantic AI**: the existing G path and the document-learning branch produce structured proposals and then apply source checking. The graphs described here neither restrict OpenAI to generating extracts nor make JEV the only tool for every interpretive decision: further interpreting, classifying and verifying roles are also permitted, for documents and emails alike. Any new division of labour must be built in on the basis of targeted measurement; source checking, separate cost accounting and manual activation apply to every role. The Burr states are plain Pydantic models, not Pydantic AI.
 4. **OCR pipeline**: `jav/ocr.py` + `configs/ocr.json` — PDF without text → page image (pypdfium2,
    300 dpi) → tesseract word boxes (native tesseract on the machine; the Hungarian + English language packs taken from the old sidecar's Docker image
@@ -185,7 +188,7 @@ needs one probe a day (an API key is required; offline, the resolution stored in
 
 - Session protocol: `CLAUDE.md` §2 and the [development guide](guides/DEVELOPMENT.md) §4; the hooks back it up
   (SessionStart / PreCompact / Stop / review). Session start: `python -m jav.cli preflight` (pytest + UI checks +
-  contract lint + configs + git state + data guard + language guard + Ruff ratchet + the local state snapshot, among
+  contract lint + engine matrix + configs + git state + data guard + language guard + Ruff ratchet + the local state snapshot, among
   others). Never copy state numbers anywhere by hand: refer to the generated state snapshot.
 - Designing a JEV question: `docs/JEV_PLAYBOOK.md` (facts from the docs, gap analysis per call site, checklist).
 - A new JEV question: config JSON + `build_questions` (registry reference `registry:<name>`), the `docs.typesafe.ai` cookbook, a test

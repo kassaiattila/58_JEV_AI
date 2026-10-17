@@ -52,7 +52,7 @@ How it is built: [architecture](docs/ARCHITECTURE.md). How to use the workspace:
 uv venv --python 3.12 .venv; uv pip install -r requirements.lock   # details, OCR, keys: docs/guides/SETUP.md
 .\.venv\Scripts\Activate.ps1
 python -m jav.cli hooks-install        # data guard: checks before commit and push (once per clone)
-python -m jav.cli preflight            # tests (Python + UI) + contract lint + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
+python -m jav.cli preflight            # tests (Python + UI) + contract lint + engine matrix + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
 python smoke_test.py                   # keys + one live JEV call
 ```
 

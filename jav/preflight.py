@@ -188,6 +188,11 @@ def preflight(*, skip_pytest: bool = False) -> int:
     lint = flow_lint_summary()
     results.append(("kontrakt-lint", all(ok for _, ok, _ in lint), ", ".join(f"{n}: {'PASS' if ok else f'FAIL({f})'}" for n, ok, f in lint)))
 
+    from jav import engine_matrix
+
+    ok, msg = engine_matrix.status()  # 160: every JEV call site has a counterpart without JEV or a stated exception
+    results.append(("engine matrix", ok, msg))
+
     rows = cfg.report()
     results.append(("konfigok", True, ", ".join(f"{r['name']} {r['version']} {r['hash'][:8]}" for r in rows)))
 

@@ -13,7 +13,7 @@ uv venv --python 3.12.15 .venv   # the latest 3.12 patch release; uv fetches it 
 uv pip install -r requirements.lock
 .\.venv\Scripts\Activate.ps1
 python -m jav.cli hooks-install      # data guard: a check before every commit and push; once per clone
-python -m jav.cli preflight          # tests (Python + UI) + contract lint + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
+python -m jav.cli preflight          # tests (Python + UI) + contract lint + engine matrix + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
 ```
 
 **Data guard.** `hooks-install` points git at the versioned hooks in `scripts/githooks/` (through `core.hooksPath`). From then on a check runs before every commit and push, and stops the operation if the lines going into git contain personal data or a key: for example a real-looking tax number, bank account number, email address or phone number, or a key from `.env`. It also stops the operation if an internal working document, a document file, an image or a database would go into git. Until the hooks are installed, the start-up check (`preflight`) reports a failure. `python -m jav.cli data-guard` reviews the files already under version control. The rules: [DEVELOPMENT §1](DEVELOPMENT.md).

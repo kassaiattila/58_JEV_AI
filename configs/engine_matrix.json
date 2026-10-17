@@ -1,0 +1,498 @@
+{
+  "meta": {
+    "name": "engine_matrix",
+    "version": "1.0.0",
+    "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-17",
+        "note": "160-B Sz0: first version, 26 call-site configs, 3 sites without a config, 5 experimental branches, 8 routing modules"
+      }
+    ]
+  },
+  "exception_kinds": {
+    "replaced": "Without JEV another path does the step; the reason names it.",
+    "skipped": "Without JEV the step is left out; the code's own checks stay.",
+    "measurement_only": "A measurement of JEV itself, or a comparison arm no flow calls; it means nothing without JEV.",
+    "experimental": "A learning or experimental branch outside the production flows."
+  },
+  "sites": {
+    "detect": {
+      "call_site": "detect",
+      "modules": [
+        "jav/detect.py"
+      ],
+      "gpt": {
+        "module": "jav/detect_gpt.py",
+        "function": "detect",
+        "config": "gpt_detect"
+      },
+      "tests": [
+        "tests/test_paired_recognition_160.py::test_the_type_and_the_detailed_type_are_recognised",
+        "tests/test_gpt_detect_086.py::test_detection_flow_without_jev_never_asks_jev"
+      ]
+    },
+    "detect_detail": {
+      "call_site": "detect_detail",
+      "modules": [
+        "jav/detect_detail.py"
+      ],
+      "gpt": {
+        "module": "jav/detect_gpt.py",
+        "function": "choose_detail",
+        "config": "gpt_detect"
+      },
+      "tests": [
+        "tests/test_paired_recognition_160.py::test_the_type_and_the_detailed_type_are_recognised",
+        "tests/test_gpt_detect_086.py::test_detail_choice_without_jev_uses_gpt_when_the_anchors_do_not_decide"
+      ]
+    },
+    "email_intent": {
+      "call_site": "email_intent",
+      "modules": [
+        "jav/intent.py"
+      ],
+      "gpt": {
+        "module": "jav/intent_gpt.py",
+        "function": "classify",
+        "config": "gpt_intent"
+      },
+      "tests": [
+        "tests/test_paired_recognition_160.py::test_the_intent_is_recognised_and_routed",
+        "tests/test_paired_recognition_160.py::test_a_suspected_injection_goes_to_a_person"
+      ]
+    },
+    "reconcile_line": {
+      "call_site": "reconcile_line",
+      "modules": [
+        "jav/reconcile_ai.py"
+      ],
+      "gpt": {
+        "module": "jav/reconcile_ai.py",
+        "function": "ask_gpt",
+        "config": "gpt_reconcile"
+      },
+      "tests": [
+        "tests/test_paired_reconcile_ai_160.py::test_an_incoming_lines_kind_is_proposed_by_either_engine",
+        "tests/test_paired_reconcile_ai_160.py::test_the_gpt_engine_cannot_ask_jev"
+      ]
+    },
+    "select": {
+      "call_site": "select",
+      "modules": [
+        "jav/jev_select.py"
+      ],
+      "exception": {
+        "kind": "replaced",
+        "reason": "The S path has no counterpart without JEV: it is refused, and the document runs on the G path, GPT's extraction verified by the code (086, the owner's decision of 2026-10-02)."
+      },
+      "tests": [
+        "tests/test_no_jev_085.py::test_s_path_is_refused_without_jev",
+        "tests/test_no_jev_switch_086.py::test_without_jev_the_extraction_stage_runs_on_the_g_path"
+      ]
+    },
+    "select_foreign": {
+      "call_site": "select_foreign",
+      "modules": [
+        "jav/jev_select.py"
+      ],
+      "exception": {
+        "kind": "replaced",
+        "reason": "The S path has no counterpart without JEV: it is refused, and the document runs on the G path, GPT's extraction verified by the code (086, the owner's decision of 2026-10-02)."
+      },
+      "tests": [
+        "tests/test_no_jev_085.py::test_s_path_is_refused_without_jev",
+        "tests/test_no_jev_switch_086.py::test_without_jev_the_extraction_stage_runs_on_the_g_path"
+      ]
+    },
+    "select_invoice_out": {
+      "call_site": "select_invoice_out",
+      "modules": [
+        "jav/jev_select.py"
+      ],
+      "exception": {
+        "kind": "replaced",
+        "reason": "The S path has no counterpart without JEV: it is refused, and the document runs on the G path, GPT's extraction verified by the code (086, the owner's decision of 2026-10-02)."
+      },
+      "tests": [
+        "tests/test_no_jev_085.py::test_s_path_is_refused_without_jev",
+        "tests/test_no_jev_switch_086.py::test_without_jev_the_extraction_stage_runs_on_the_g_path"
+      ]
+    },
+    "select_utility": {
+      "call_site": "select_utility",
+      "modules": [
+        "jav/jev_select.py"
+      ],
+      "exception": {
+        "kind": "replaced",
+        "reason": "The S path has no counterpart without JEV: it is refused, and the document runs on the G path, GPT's extraction verified by the code (086, the owner's decision of 2026-10-02)."
+      },
+      "tests": [
+        "tests/test_no_jev_085.py::test_s_path_is_refused_without_jev",
+        "tests/test_no_jev_switch_086.py::test_without_jev_the_extraction_stage_runs_on_the_g_path"
+      ]
+    },
+    "verify": {
+      "call_site": "verify",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_altalanos_szerzodesi_feltetelek": {
+      "call_site": "verify_altalanos_szerzodesi_feltetelek",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_belepo_jegy": {
+      "call_site": "verify_belepo_jegy",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_certificate": {
+      "call_site": "verify_certificate",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_csapatmenedzser_utasitas": {
+      "call_site": "verify_csapatmenedzser_utasitas",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_foreign": {
+      "call_site": "verify_foreign",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_id_document": {
+      "call_site": "verify_id_document",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_insurance_claim_form": {
+      "call_site": "verify_insurance_claim_form",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_invoice_out": {
+      "call_site": "verify_invoice_out",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_meeting_minutes": {
+      "call_site": "verify_meeting_minutes",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_meghivo": {
+      "call_site": "verify_meghivo",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_nav_certificate": {
+      "call_site": "verify_nav_certificate",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_nav_receipt": {
+      "call_site": "verify_nav_receipt",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_nav_tax_return": {
+      "call_site": "verify_nav_tax_return",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_statement_cib": {
+      "call_site": "verify_statement_cib",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_statement_erste": {
+      "call_site": "verify_statement_erste",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_terkep_adat": {
+      "call_site": "verify_terkep_adat",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_utility": {
+      "call_site": "verify_utility",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "reader_semantic_support": {
+      "modules": [
+        "jav/readers/providers.py",
+        "jav/native_processing.py"
+      ],
+      "exception": {
+        "kind": "skipped",
+        "reason": "Without JEV the native reader publishes GPT's facts without semantic support; the code's literal grounding and the content checks stay."
+      },
+      "tests": [
+        "tests/test_paired_native_160.py::test_the_native_facts_are_published_on_both_engines"
+      ]
+    },
+    "reader_field_selection": {
+      "modules": [
+        "jav/readers/providers.py"
+      ],
+      "exception": {
+        "kind": "measurement_only",
+        "reason": "The JEV-only comparison arm of the native reader (docs/guides/NATIVE_READERS.md); no flow calls it."
+      },
+      "tests": [
+        "tests/test_reader_providers.py::test_jev_selection_and_support_are_distinct_from_correctness"
+      ]
+    },
+    "verifier_probe": {
+      "modules": [
+        "jav/evals.py"
+      ],
+      "exception": {
+        "kind": "measurement_only",
+        "reason": "A calibration probe of the JEV verification itself; it means nothing without JEV."
+      },
+      "tests": [
+        "tests/test_measure_jev_budget_127.py::test_the_verifier_probe_with_a_jev_budget_runs_under_that_budget_only"
+      ]
+    },
+    "document_learning": {
+      "modules": [
+        "jav/learning_runtime.py",
+        "jav/learning_cli.py"
+      ],
+      "exception": {
+        "kind": "experimental",
+        "reason": "A learning or experimental branch outside the production flows (plan F-csak-gpt D7)."
+      },
+      "tests": [
+        "tests/test_evidence_learning.py::test_requested_amount_cannot_accept_a_tax_identifier_even_if_verifier_supports_it"
+      ]
+    },
+    "email_learning": {
+      "modules": [
+        "jav/email_learning_runtime.py"
+      ],
+      "exception": {
+        "kind": "experimental",
+        "reason": "A learning or experimental branch outside the production flows (plan F-csak-gpt D7)."
+      },
+      "tests": [
+        "tests/test_email_learning.py::test_evidence_keeps_offsets_and_missing_attachment_forces_review"
+      ]
+    },
+    "claim_assessment": {
+      "modules": [
+        "jav/claim_assessment.py"
+      ],
+      "exception": {
+        "kind": "experimental",
+        "reason": "A learning or experimental branch outside the production flows (plan F-csak-gpt D7)."
+      },
+      "tests": [
+        "tests/test_claim_assessment.py::test_source_packet_has_stable_identity_and_rejects_tampered_quote"
+      ]
+    },
+    "grounded_claims": {
+      "modules": [
+        "jav/grounded_claims.py"
+      ],
+      "exception": {
+        "kind": "experimental",
+        "reason": "A learning or experimental branch outside the production flows (plan F-csak-gpt D7)."
+      },
+      "tests": [
+        "tests/test_grounded_structure.py::test_provider_failure_preserves_claim_and_never_supports_it"
+      ]
+    },
+    "source_find": {
+      "modules": [
+        "jav/source_find.py"
+      ],
+      "exception": {
+        "kind": "experimental",
+        "reason": "A learning or experimental branch outside the production flows (plan F-csak-gpt D7)."
+      },
+      "tests": [
+        "tests/test_source_find.py::test_provider_failure_cannot_be_reported_as_absent_or_complete"
+      ]
+    }
+  },
+  "routing": {
+    "jav/flow.py": "the invoice flow: asks the select and verify call sites, turns a JEV failure into a to-do, and without JEV runs the G path with the code's check",
+    "jav/flow_detect.py": "the detection flow: asks detect and detect_detail, or GPT without JEV",
+    "jav/flow_email.py": "the email flow: asks email_intent, or GPT without JEV",
+    "jav/jev_budget.py": "fits a request to the call site's size budget and asks it once more on a token error",
+    "jav/engine.py": "switches JEV off in every step of a flow built without JEV",
+    "jav/evals.py": "the golden and determinism measurements of the invoice flow (and the verifier probe, a site of its own)",
+    "jav/evals_detect.py": "the detection measurements",
+    "jav/evals_email.py": "the email measurements"
+  }
+}
