@@ -180,6 +180,7 @@ def test_the_continuing_stage_asks_the_native_graph_for_local_ocr(monkeypatch):
     assert app == "app" and seen["ocr"] is True and seen["requested_arm"] == "G"
 
 
+@pytest.mark.slow
 def test_an_ocr_reading_has_its_own_identity_and_a_plain_reading_keeps_its_old_one(tmp_path, monkeypatch):
     import hashlib
     from jav import native_results

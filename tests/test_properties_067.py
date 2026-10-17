@@ -13,6 +13,7 @@ import time
 from datetime import date
 from decimal import Decimal
 
+import pytest
 from hypothesis import HealthCheck, given, settings, strategies as st
 
 from jav.candidates import MAX_QUANTITY_OPTIONS, find_all, profile_of
@@ -252,6 +253,7 @@ def _seconds(profile: str, line: str) -> float:
     return time.perf_counter() - start
 
 
+@pytest.mark.slow
 def test_long_repetitive_lines_stay_fast():
     """167 (review T-4): a line eight times longer may take at most 24 times as long; linear work takes about 8 times
     (measured 5-10), a quadratic search 64 times. The ratio of two runs holds on a busy machine, where the earlier

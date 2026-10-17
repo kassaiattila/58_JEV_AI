@@ -22,6 +22,7 @@ def isolated(tmp_path):
         yield tmp_path
 
 
+@pytest.mark.slow
 def test_a_new_reader_version_reuses_the_answer_for_unchanged_text(isolated, monkeypatch):
     path = isolated / "source.txt"
     path.write_text("Order code: 0012", encoding="utf-8")
