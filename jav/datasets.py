@@ -329,7 +329,7 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
         *_name_cols(),
         _col("state", "State", "enum", labels="package_item_state", badge=True),
         _col("run_mode", "Counted run", "enum", labels="mode", link="run"),
-        _col("run_at", "Run started", "datetime", link="run"),
+        _col("run_at", "Run started", "datetime", link="run", hidden=True),  # the mode says which run; its page has the time
         _col("final_status", "Result", "enum", labels="final_status"),
         _col("open_reasons", "Nyitott teendő", "number", link="review", alert=True),
         _col("kind", "Fajta", "enum", labels="kind", hidden=True),

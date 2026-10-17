@@ -223,3 +223,12 @@ def test_a_removed_item_reads_removed_behind_the_switch(env):
     c.post(f"/api/workpackages/{wp['id']}/items/{item}/remove", headers=HUMAN, json={"expected_revision": wp["revision"], "reason": "x"})
     by_id = {r["item_id"]: r for r in _items(c, wp["id"], removed=True)}
     assert by_id[item]["state"] == "removed" and by_id[wp["items"][1]["item_id"]]["state"] == "pending"
+
+
+def test_the_package_view_counts_the_items_by_state(env):
+    c = env["client"]
+    wp = _package(c, env["folder"])
+    assert c.get(f"/api/workpackages/{wp['id']}").json()["item_counts"] == {"pending": 2}
+    c.post(f"/api/workpackages/{wp['id']}/items/{wp['items'][0]['item_id']}/remove", headers=HUMAN,
+           json={"expected_revision": wp["revision"], "reason": "x"})
+    assert c.get(f"/api/workpackages/{wp['id']}").json()["item_counts"] == {"pending": 1, "removed": 1}
