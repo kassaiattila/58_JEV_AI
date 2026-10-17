@@ -260,7 +260,7 @@ def scan_result(*pages: dict) -> dict:
 def scan_run(tmp_path, monkeypatch):
     """A scanned PDF as a frozen run item, an in-process reader and GPT; Azure needs `keys` and a budget."""
     from jav import store
-    from native_fixtures_109 import runtime_source, synthetic_gpt
+    from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
     monkeypatch.setattr(ocr, "CACHE_DIR", tmp_path / "ocr-cache")
     with store.use_store(tmp_path / "native.sqlite"):

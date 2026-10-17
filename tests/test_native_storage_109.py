@@ -9,7 +9,7 @@ import pytest
 from jav.native_contracts import NativeItemResult, ReceiptRef, SourcePage
 from jav import native_results, store
 from jav.readers import pipeline
-from native_fixtures_109 import contract_examples, publish_runtime, runtime_source
+from tests.native_fixtures_109 import contract_examples, publish_runtime, runtime_source
 
 
 @pytest.fixture

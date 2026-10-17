@@ -74,6 +74,7 @@ def test_real_excel_preserves_empty_formula_and_hidden_state(tmp_path):
     delivery.verify()
 
 
+@pytest.mark.slow
 def test_real_word_order_headers_and_image_inventory(tmp_path):
     delivery = read_one(tmp_path, "document.docx", document_bytes())
     result = delivery.bundle.results[0]
@@ -88,6 +89,7 @@ def test_real_word_order_headers_and_image_inventory(tmp_path):
     delivery.verify()
 
 
+@pytest.mark.slow
 def test_same_file_from_folder_and_email_shares_bytes_not_occurrence(tmp_path):
     data = workbook_bytes()
     (tmp_path / "orders.xlsx").write_bytes(data)
@@ -196,6 +198,7 @@ def test_saved_metadata_cannot_request_unbounded_object_loading(tmp_path):
         Delivery.load(output)
 
 
+@pytest.mark.slow
 def test_large_embedded_image_does_not_consume_structural_evidence_budget(tmp_path):
     from docx import Document
     from PIL import Image

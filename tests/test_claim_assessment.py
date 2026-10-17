@@ -64,7 +64,7 @@ def test_structured_openai_and_independent_jev_keep_separate_answers(tmp_path):
 
 def test_resume_preserves_answers_without_new_calls_and_refuses_source_drift(tmp_path):
     from pydantic_ai.models.test import TestModel
-    from test_email_signals import FakeClient
+    from tests.test_email_signals import FakeClient
     from jav.adapters.jev import JevAdapter
     from jav.claim_assessment import run_assessment, load_config
     client = FakeClient()
@@ -90,7 +90,7 @@ def test_resume_preserves_answers_without_new_calls_and_refuses_source_drift(tmp
 @pytest.mark.parametrize('stage', ['openai', 'independent', 'review'])
 def test_uncertain_response_is_not_silently_reissued(tmp_path, stage):
     from pydantic_ai.models.test import TestModel
-    from test_email_signals import FakeClient
+    from tests.test_email_signals import FakeClient
     from jav.adapters.jev import JevAdapter
     from jav.claim_assessment import run_assessment, load_config
     client = FakeClient()
@@ -113,11 +113,16 @@ def test_bad_sources_fail_before_any_provider_call(tmp_path, mutation):
     from jav.claim_assessment import run_assessment, load_config
     case = sample()
     config = load_config()
-    if mutation == 'duplicate': case['sources'].append(case['sources'][0])
-    elif mutation == 'hash': case['sources'][0]['sha256'] = 'f'*64
-    elif mutation == 'budget': config['max_evidence_chars'] = 1
-    elif mutation == 'position': case['evidence'][0]['start'] = 2
-    else: case['sources'][0]['status'] = 'unread'
+    if mutation == 'duplicate':
+        case['sources'].append(case['sources'][0])
+    elif mutation == 'hash':
+        case['sources'][0]['sha256'] = 'f'*64
+    elif mutation == 'budget':
+        config['max_evidence_chars'] = 1
+    elif mutation == 'position':
+        case['evidence'][0]['start'] = 2
+    else:
+        case['sources'][0]['status'] = 'unread'
     # None client: any accidental provider access would raise a different error.
     with pytest.raises(ValueError):
         run_assessment(case=case, directory=tmp_path/'run', run_id='invalid', model=None, adapter=None, config=config)

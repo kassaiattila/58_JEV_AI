@@ -10,7 +10,7 @@ from jav import store, work
 from jav.adapters import jev as jev_mod
 from jav.runtime import worker
 from tests.pdfgen import write_text_pdf
-from tests.test_no_type_pack_069 import ReminderClient
+from tests.test_no_type_pack_069 import REMINDER_LINES, ReminderClient
 
 
 class CountingClient(ReminderClient):
@@ -32,11 +32,9 @@ def _run(folder: Path, name: str, jev_cache: str) -> None:
 
 
 def test_a_live_run_asks_the_type_detection_again(tmp_path):
-    lines = ["Minta Kft.", "FIZETÉSI FELSZÓLÍTÁS", "Kérjük, rendezze a lejárt tartozást.", "Számla sorszáma: MINTA-2026-001",
-             "Tartozás összege: 12 500 Ft"]
     for name in ("first", "second"):
         (tmp_path / name).mkdir()
-        write_text_pdf(tmp_path / name / "felszolitas.pdf", lines)
+        write_text_pdf(tmp_path / name / "felszolitas.pdf", REMINDER_LINES)  # read from its text layer, without OCR
     client = CountingClient()
     adapter = jev_mod.JevAdapter(client=client, cache_dir=tmp_path / "cache", model="jev-1.13.0")
     with store.use_store(tmp_path / "w.sqlite"), jev_mod.use_adapter(adapter):

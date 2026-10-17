@@ -11,6 +11,7 @@ requires-python = ">=3.12"
 testpaths = ["tests"]
 markers = [
     "jev_refusal: the test checks the refusal of a JEV question in processing without JEV (160); without it the refusal fails the test",
+    "slow: one of the slowest tests (over about 5 s); a quick loop may leave them out with -m \"not slow\", the full preflight runs them (167)",
 ]
 
 [tool.ruff]

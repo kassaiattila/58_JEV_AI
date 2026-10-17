@@ -14,6 +14,23 @@ from tests.pdfgen import write_text_pdf
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="Measured Windows reader boundary")
 
 
+def _missing_ocr_models() -> list[str]:
+    """The configured language models (`hun+eng`) absent from the local recogniser's folder. The models are local data,
+    never in git: a clean copy has none unless `JAV_TESSDATA_DIR` names a folder that holds them (167, review T-3)."""
+    from jav import cfg
+    from jav.ocr import tessdata_dir
+
+    folder = tessdata_dir()
+    return [f"{folder / lang}.traineddata" for lang in cfg.load("ocr")["tesseract"]["lang"].split("+")
+            if not (folder / f"{lang}.traineddata").is_file()]
+
+
+needs_local_ocr_models = pytest.mark.skipif(
+    bool(_missing_ocr_models()),
+    reason=f"local OCR language data missing: {', '.join(_missing_ocr_models())} (set JAV_TESSDATA_DIR to a folder"
+           " with the Hungarian and English models)")
+
+
 def picture_bytes(*, frames=1, format="PNG"):
     pictures = [Image.new("RGB", (600, 200), "white") for _ in range(frames)]
     for index, picture in enumerate(pictures):
@@ -208,14 +225,25 @@ def test_pdf_pixels_are_bounded_before_rendering(tmp_path):
     assert result.status == "resource_limited"
 
 
+@needs_local_ocr_models
 def test_real_local_recognition_returns_text_and_a_saved_region(tmp_path):
     from jav.readers.visual_ocr import LocalOCR
-    LocalOCR.discover()  # Missing installation must remain visible in this host acceptance test.
+    # A missing recogniser must remain visible in this host acceptance test; missing language data (local, never in
+    # git) skips it with the folder named.
+    LocalOCR.discover()
     result = pipeline.read_files([write_image(tmp_path)], ocr=True).bundle.results[0]
     text = " ".join(e.text for e in result.elements if e.text)
     assert "SYNTHETIC" in text
     regions = [e.locator.region for e in result.elements if e.text]
     assert regions and all(0 <= box[0] < box[2] <= 600 and 0 <= box[1] < box[3] <= 200 for box in regions)
+
+
+def test_the_language_data_check_follows_the_tessdata_setting(tmp_path, monkeypatch):
+    monkeypatch.setenv("JAV_TESSDATA_DIR", str(tmp_path))
+    assert [os.path.basename(p) for p in _missing_ocr_models()] == ["hun.traineddata", "eng.traineddata"]
+    (tmp_path / "hun.traineddata").write_bytes(b"synthetic")
+    (tmp_path / "eng.traineddata").write_bytes(b"synthetic")
+    assert _missing_ocr_models() == []
 
 
 def test_mixed_pdf_keeps_native_words_when_visual_recognition_fails(tmp_path, monkeypatch):

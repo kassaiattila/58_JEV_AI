@@ -9,6 +9,7 @@ its cache key, and the stored answer, stay the same. Synthetic lines only; no AI
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from typesafe_sdk import Choice
@@ -18,7 +19,9 @@ from jav.adapters.jev import JevUnavailableError
 from jav.jev_select import site_for
 from tests.test_ocr_utility import FakeJev, _line
 
-UTILITY_BUDGET = json.loads(open("configs/callsites/select_utility.json", encoding="utf-8").read())["request_char_budget"]
+ROOT = Path(__file__).resolve().parents[1]
+UTILITY_BUDGET = json.loads((ROOT / "configs" / "callsites" / "select_utility.json").read_text(encoding="utf-8"))[
+    "request_char_budget"]
 
 
 def _invoice_lines(n_money: int) -> list:
