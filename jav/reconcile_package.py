@@ -31,6 +31,13 @@ Rules (the owner's decisions of 2026-10-09):
   scope does not change, until a person reopens the version (`Locked`). A source from an evaluation on the command line
   stops blocking once a person accepts its result as a source (`reconcile_source_acceptances`). A statement whose
   balances do not check out is a warning, not a blocker (DECISIONS 132).
+- 169 (DECISIONS 169, the owner's choice "only from this reconciliation"): the package's inputs are listed like any
+  package's items (`statement_rows`, the invoices, `left_out_rows`). A person may leave a statement or an invoice out of
+  this package with a reason (`leave_out`, `reconcile_exclusions`) and restore it (`restore_left_out`): the document
+  stays in its own package and in every other reconciliation. Not while the package is approved, and not while a
+  pairing or a mark on a line of this package rests on it (revoke that first). A left-out statement leaves the scope; a
+  left-out invoice is excluded from this package's pairing (`reconcile.prepare`). Files are added to an existing
+  documents or statement package (`targets`), and processed there.
 
 Layer: UI/CLI → **this** (application operation) → `jav.reconcile` (the core and its store adapter) and `jav.work`
 (the package record and its log).
@@ -92,6 +99,20 @@ CREATE TABLE IF NOT EXISTS reconcile_source_acceptances (
     accepted_at    TEXT NOT NULL,
     PRIMARY KEY (doc_id, flow_run_id)
 );
+-- 169 (DECISIONS 169): a statement or an invoice a person left out of one reconciliation package, with a reason; a
+-- restoration keeps the row (restored_at), as a revoked allocation does
+CREATE TABLE IF NOT EXISTS reconcile_exclusions (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    workpackage_id TEXT NOT NULL,
+    doc_id         TEXT NOT NULL,
+    kind           TEXT NOT NULL,      -- statement | invoice
+    reason         TEXT NOT NULL,
+    actor          TEXT NOT NULL,
+    created_at     TEXT NOT NULL,
+    restored_by    TEXT,
+    restored_at    TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_reconcile_exclusions_wp ON reconcile_exclusions(workpackage_id, restored_at);
 """)
 
 
@@ -271,15 +292,28 @@ def _in_scope(st: dict[str, Any], sc: dict[str, Any]) -> bool:
     return any(sc["period_start"] <= str(ln.get("booking_date") or "")[:10] <= sc["period_end"] for ln in st["lines"])
 
 
+def left_out(wp_id: str, c=None) -> dict[str, dict[str, Any]]:
+    """169: the documents left out of the package and not restored: doc_id -> who, when, why and its kind."""
+    if c is None:
+        with store.connect() as own:
+            return left_out(wp_id, own)
+    return {r["doc_id"]: dict(r) for r in c.execute(
+        "SELECT doc_id, kind, reason, actor, created_at FROM reconcile_exclusions WHERE workpackage_id=? AND restored_at IS NULL"
+        " ORDER BY id", (wp_id,))}
+
+
 def scoped_snapshot(wp_id: str, *, fetch_rates: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
     """The store's snapshot with the package's scope: every statement stays for the amounts allocated so far, the
     proposal and the coverage take the scope's statements only; 138: the scope's registered accounts have to be
-    covered too, with or without a statement (`own_accounts`)."""
+    covered too, with or without a statement (`own_accounts`). 169: a statement left out of the package leaves the
+    scope, and the invoices left out are excluded from its pairing (`left_out`, `reconcile.prepare`)."""
     sc = scope(wp_id)
     snap = reconcile.snapshot(fetch_rates=fetch_rates)
+    gone = left_out(wp_id)
     own = [{"key": k, **{f: d[f] for f in ("kind", "currencies", "valid_from", "valid_to")}}
            for k, d in sorted(parties.accounts().items()) if k in sc["accounts"]]
-    return {**snap, "scope_statements": [st["id"] for st in snap["statements"] if _in_scope(st, sc)], "own_accounts": own}, sc
+    return {**snap, "scope_statements": [st["id"] for st in snap["statements"] if _in_scope(st, sc) and st["id"] not in gone],
+            "own_accounts": own, "left_out": sorted(gone)}, sc
 
 
 # --- the workspace -----------------------------------------------------------------------------------------------------
@@ -385,6 +419,7 @@ WORKSPACE_INPUTS: dict[str, str | None] = {
     "fx_rates": "MAX(fetched_at)",
     "reconcile_versions": "COUNT(reopened_at)",  # 145: an approval, a reopening
     "reconcile_source_acceptances": None,
+    "reconcile_exclusions": "COUNT(restored_at)",  # 169: a document left out, a restoration
     "own_parties":"(SELECT group_concat(id || ':' || name, '|') FROM own_parties)",
     "own_party_identities": "(SELECT group_concat(kind || ':' || key || ':' || COALESCE(party_id, '-'), '|') FROM own_party_identities)",
     "own_accounts": "(SELECT group_concat(key || ':' || kind || ':' || currencies || ':' || COALESCE(valid_from, '')"
@@ -561,9 +596,12 @@ def _workspace(wp_id: str) -> dict[str, Any]:
         w_start, w_end = reconcile.window(inv) if same else reconcile.fx_window(inv)
         if w_start <= end and w_end >= start:
             wanted.add(iid)
-    files = reconcile.file_names([*wanted, *(st["id"] for st in statements)])
+    gone = left_out(wp_id)  # 169: shown behind the switch, with who left them out, when and why
+    every_statement = {st["id"]: st for st in snap["statements"]}
+    gone_docs = [d for d in (invoices.get(i) or every_statement.get(i) for i in gone) if d is not None]
+    files = reconcile.file_names([*wanted, *(st["id"] for st in statements), *gone])
     docs = [*(invoices[i] for i in wanted if i in invoices), *statements]
-    approved = work.approved_runs(d.get("work_run") for d in docs)
+    approved = work.approved_runs(d.get("work_run") for d in [*docs, *gone_docs])
     accepted = accepted_sources()
     invoice_rows = []
     for iid in sorted(wanted, key=lambda i: (str(invoices[i].get("issue_date") or ""), i)):
@@ -587,6 +625,8 @@ def _workspace(wp_id: str) -> dict[str, Any]:
                              "checked_until": status.get(iid, {}).get("checked_until")})
     for ln in lines:
         ln["file"] = files.get(ln["statement_id"])
+    statement_rows = _statement_rows(statements, lines, files, approved, accepted)
+    left_out_rows = _left_out_rows(gone, invoices, every_statement, files, approved, accepted, who)
     coverage = []
     for key in sc["accounts"]:
         own = [st for st in statements if reconcile.statement_account(st) == key]
@@ -620,19 +660,60 @@ def _workspace(wp_id: str) -> dict[str, Any]:
             blockers.append({"code": UNFIT_BLOCKER[row["reason"]], "doc_id": row["invoice_id"], "file": row["invoice_file"],
                              "kind": "invoice"})
     return {"workpackage_id": wp_id, "scope": sc, "lines": lines, "invoices": invoice_rows, "coverage": coverage,
+            "statements": statement_rows, "left_out": left_out_rows,  # 169: the package's inputs
             "left_over": left_over, "unfit": unfit, "overview": reconcile_overview.build(lines, invoice_rows, result["repeats"]),
             "blockers": blockers, "warnings": warnings, "approval": approval(wp_id),
-            "line_marks": list(_conf()["line_marks"]), "open": _open_refs(docs),
+            "line_marks": list(_conf()["line_marks"]), "open": _open_refs([*docs, *gone_docs]),
             "counts": {"lines": dict(sorted(Counter(ln["state"] for ln in lines).items())),
                        "invoices": dict(sorted(Counter(str(r["state"]) for r in invoice_rows if r["own"]).items())),
                        "other_invoices": sum(1 for r in invoice_rows if not r["own"]),
-                       "open_lines": sum(1 for ln in lines if ln["state"] in OPEN_LINE_STATES)},
+                       "open_lines": sum(1 for ln in lines if ln["state"] in OPEN_LINE_STATES),
+                       # 169: the inputs by kind (the item list's tally)
+                       "statements": len(statement_rows), "own_invoices": sum(1 for r in invoice_rows if r["own"]),
+                       "left_out": len(left_out_rows)},
             "learned_names": result["learned_names"], "fx_tolerance": result["fx_tolerance"],
             "engine_version": reconcile.ENGINE_VERSION, "config_hash": reconcile.config_hash(),
             "decision_state": _decision_state()}
 
 
 OPEN_LINE_STATES = ("proposed", "amount_only", "partly_allocated", "open")  # a person still has to decide these
+
+
+def _statement_rows(statements: list[dict[str, Any]], lines: list[dict[str, Any]], files: dict[str, str],
+                    approved: set[str], accepted: set[tuple[str, str]]) -> list[dict[str, Any]]:
+    """169: the scope's statements as the package's inputs: the printed account, the period, whether the balances check
+    out, the source, and how many of its lines in the period there are, are open and carry a decision."""
+    by_statement: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for ln in lines:
+        by_statement[ln["statement_id"]].append(ln)
+    return [{"id": st["id"], "file": files.get(st["id"]), "account": st.get("account"), "account_key": reconcile.statement_account(st),
+             "statement_type": st.get("statement_type"), "currency": st.get("currency"),
+             "period_start": st.get("period_start"), "period_end": st.get("period_end"), "verified": bool(st.get("verified")),
+             "source": _source_state(st, approved, accepted), "lines": len(by_statement[st["id"]]),
+             "open_lines": sum(1 for ln in by_statement[st["id"]] if ln["state"] in OPEN_LINE_STATES),
+             "decided": sum(1 for ln in by_statement[st["id"]] if ln["allocations"] or ln["mark"])}
+            for st in statements]
+
+
+def _left_out_rows(gone: dict[str, dict[str, Any]], invoices: dict[str, dict[str, Any]], statements: dict[str, dict[str, Any]],
+                   files: dict[str, str], approved: set[str], accepted: set[tuple[str, str]], who: _Parties) -> list[dict[str, Any]]:
+    """169: the documents left out of the package, with who left them out, when and why, and the facts the item list
+    shows (a document the store no longer reads as an invoice or a live statement has its file name only)."""
+    out = []
+    for doc_id, ex in gone.items():
+        doc = invoices.get(doc_id) or statements.get(doc_id)
+        row: dict[str, Any] = {"id": doc_id, "kind": ex["kind"], "file": files.get(doc_id), "reason": ex["reason"],
+                               "actor": ex["actor"], "left_out_at": ex["created_at"],
+                               "source": _source_state(doc, approved, accepted) if doc else None}
+        if doc is not None and doc_id in invoices:
+            row |= {"number": doc.get("number"), "partner_name": reconcile.partner_name(doc), "amount": doc.get("amount"),
+                    "currency": doc.get("currency"), "issue_date": doc.get("issue_date"), "outgoing": reconcile.outgoing(doc),
+                    "party": who.of(doc_id), "own": who.own(doc_id)}
+        elif doc is not None:
+            row |= {"account": doc.get("account"), "currency": doc.get("currency"), "period_start": doc.get("period_start"),
+                    "period_end": doc.get("period_end")}
+        out.append(row)
+    return out
 
 
 # --- 143: the finder ---------------------------------------------------------------------------------------------------
@@ -837,6 +918,8 @@ def _decision_state(c=None) -> list[Any]:
     state.append(list(c.execute("SELECT COUNT(*), MAX(id), COUNT(reopened_at) FROM reconcile_versions").fetchone()))
     # 153 (review A3): a scope changed meanwhile (a line checked against the old one might now be outside it)
     state.append(list(c.execute("SELECT COUNT(*), SUM(revision) FROM reconcile_scopes").fetchone()))
+    # 169: a document left out or restored meanwhile (a pairing checked before might rest on one now left out)
+    state.append(list(c.execute("SELECT COUNT(*), COUNT(restored_at) FROM reconcile_exclusions").fetchone()))
     return state
 
 
@@ -869,6 +952,7 @@ def _context(wp_id: str) -> dict[str, Any]:
     prepared = reconcile.prepare(snap)
     return {"state": state, "snap": snap, "scope": sc, "result": result, "prepared": prepared,
             "scope_ids": set(snap["scope_statements"]), "invoices": {i["id"]: i for i in snap["invoices"]},
+            "left_out": set(snap["left_out"]),
             "paid_line": {k: Decimal(v) for k, v in result["paid"]["lines"].items()},
             "paid_invoice": {k: Decimal(v) for k, v in result["paid"]["invoices"].items()},
             "marks": {m["line_id"]: m for m in snap["marks"]}, "locked": locks(snap)}
@@ -945,6 +1029,8 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
         inv = ctx["invoices"].get(iid)
         if inv is None:
             raise KeyError(iid)
+        if iid in ctx["left_out"]:  # 169
+            raise explained(PackageError, "the invoice is left out of this reconciliation; restore it first")
         line = _scope_line(ctx, lid)
         if not reconcile.pays(line, inv):  # 151: the engine's side rule (148), not a ban on the outgoing type
             raise explained(PackageError, "the line is not on the invoice's side: incoming money pays an outgoing invoice, a payment an incoming one")
@@ -1152,6 +1238,99 @@ def revoke(wp_id: str, *, kind: str, ref: str, actor: str, note: str | None = No
     _write(ctx["state"], write)
 
 
+# --- 169: the package's inputs -----------------------------------------------------------------------------------------
+
+
+def leave_out(wp_id: str, doc_ids: Iterable[str], *, reason: str, actor: str) -> int:
+    """169 (DECISIONS 169): leaves statements or invoices of the package's inputs out of this package only, with a
+    reason, all or none; the documents stay in their own packages and in every other reconciliation. Refused while the
+    package is approved, and for a document a pairing or a mark on a line of this package rests on (revoke it first).
+    Returns how many were left out."""
+    ids = list(dict.fromkeys(doc_ids))
+    reason = (reason or "").strip()
+    if not ids:
+        raise explained(PackageError, "choose at least one document")
+    if not reason:
+        raise explained(PackageError, "give the reason for leaving it out")
+    _package(wp_id)
+    state = _decision_state()
+    _refuse_approved(wp_id)
+    ws = kept_workspace(wp_id)
+    kinds = {st["id"]: "statement" for st in ws["statements"]} | {r["id"]: "invoice" for r in ws["invoices"]}
+    for doc_id in ids:
+        if doc_id not in kinds:
+            raise explained(PackageError, "the document is not among the package's inputs")
+    line_ids = {ln["id"] for ln in ws["lines"]}
+    decided = {ln["statement_id"] for ln in ws["lines"] if ln["allocations"] or ln["mark"]}
+    decided |= {r["id"] for r in ws["invoices"]
+                if any(a["line_id"] in line_ids or a.get("workpackage_id") == wp_id for a in r["allocations"])}
+    if busy := [doc_id for doc_id in ids if doc_id in decided]:
+        files = reconcile.file_names(busy)
+        raise explained(PackageError, "pairings or marks of this package rest on {{files}}; revoke them first",
+                        files=", ".join(files.get(d, d) for d in busy))
+
+    def write(c) -> int:
+        now = _now()
+        for doc_id in ids:
+            c.execute("INSERT INTO reconcile_exclusions(workpackage_id, doc_id, kind, reason, actor, created_at) VALUES (?,?,?,?,?,?)",
+                      (wp_id, doc_id, kinds[doc_id], reason, actor, now))
+        work.record_event(c, wp_id, "reconcile_leave_out", actor, {"doc_ids": ids, "reason": reason})
+        return len(ids)
+    return _write(state, write)
+
+
+def restore_left_out(wp_id: str, doc_ids: Iterable[str], *, actor: str) -> int:
+    """169: takes documents left out of the package back into it, all or none (not while the package is approved).
+    Returns how many were restored."""
+    ids = list(dict.fromkeys(doc_ids))
+    if not ids:
+        raise explained(PackageError, "choose at least one document")
+    _package(wp_id)
+    state = _decision_state()
+    _refuse_approved(wp_id)
+    gone = left_out(wp_id)
+    for doc_id in ids:
+        if doc_id not in gone:
+            raise explained(PackageError, "the document is not left out of the package")
+
+    def write(c) -> int:
+        now = _now()
+        for doc_id in ids:
+            c.execute("UPDATE reconcile_exclusions SET restored_at=?, restored_by=? WHERE workpackage_id=? AND doc_id=?"
+                      " AND restored_at IS NULL", (now, actor, wp_id, doc_id))
+        work.record_event(c, wp_id, "reconcile_restore", actor, {"doc_ids": ids})
+        return len(ids)
+    return _write(state, write)
+
+
+def targets(wp_id: str) -> dict[str, Any]:
+    """169 (DECISIONS 168): the packages a file for this reconciliation can be added to, as it is processed there: the
+    open documents packages, those already giving the package documents first, and the statement packages of the
+    package's party (every one when it has none). Each with its item count and how many of this package's inputs come
+    from it."""
+    from jav import statement_package
+
+    sc = scope(wp_id)
+    ws = kept_workspace(wp_id)
+    giving = Counter(ref["workpackage_id"] for ref in (ws.get("open") or {}).values())
+    documents, statements = [], []
+    for wp in work.list_workpackages():
+        if wp["source_kind"] == KIND or wp["status"] != "open":
+            continue
+        entry = {"id": wp["id"], "name": wp["name"], "source_kind": wp["source_kind"], "items": wp["items"],
+                 "inputs": giving.get(wp["id"], 0), "updated_at": wp["updated_at"]}
+        if wp["source_kind"] != "statements":
+            documents.append(entry)
+            continue
+        st = statement_package.scope(wp["id"])
+        if sc.get("party_id") is None or st["party_id"] == sc["party_id"]:
+            statements.append({**entry, "party": st["party"], "period_start": st["period_start"], "period_end": st["period_end"]})
+    for rows in (documents, statements):
+        rows.sort(key=lambda e: e["updated_at"] or "", reverse=True)
+        rows.sort(key=lambda e: -e["inputs"])  # stable: the givers first, each group the latest changed first
+    return {"documents": documents, "statements": statements}
+
+
 # --- where a line stands on its statement page --------------------------------------------------------------------------
 
 
@@ -1306,6 +1485,7 @@ def _delete_guard(c, wp_id: str) -> None:
             raise explained(work.NotReady, "a reconciliation package with decisions can only be archived",
                             [{"code": "has_decisions", "message": "The package has decisions: it can only be hidden."}])
     c.execute("DELETE FROM reconcile_scopes WHERE workpackage_id=?", (wp_id,))
+    c.execute("DELETE FROM reconcile_exclusions WHERE workpackage_id=?", (wp_id,))  # 169: no decision refers to them
 
 
 work.register_delete_guard(_delete_guard)

@@ -8,6 +8,7 @@ import { t, useLocale } from "../../i18n";
 import { go, type Stage } from "../../route";
 import { AccountChecklist } from "./ReconcileCreate";
 import { ReconcileCards } from "./ReconcileCards";
+import { ReconcileInputs } from "./ReconcileInputs";
 import { ReconcilePairing } from "./ReconcilePairing";
 import { ReconcileQuickReview } from "./ReconcileQuickReview";
 import { ReconcileResult } from "./ReconcileResult";
@@ -59,6 +60,11 @@ export function ReconcileStages({ view, stage, onChanged }: { view: WorkpackageV
       ) : mode === "quick" ? (
         <ReconcileQuickReview wpId={wpId} readOnly={readOnly} onWorkspace={update} onCards={() => setMode("cards")} />
       ) : <ReconcileCards ws={ws} readOnly={readOnly} onWorkspace={update} reload={loaded.reload} onManual={(line) => setManual({ line })} />}
+      {/* 169 (DECISIONS 169): the same item list as in Preparation, as every package has it in Review (168) */}
+      <details className="details mt">
+        <summary>{t("The package's items: add, open, leave out")}</summary>
+        <ReconcileInputs ws={ws} readOnly={readOnly} onWorkspace={update} />
+      </details>
     </>
   );
 }
@@ -178,6 +184,9 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
           </table>
         </div>
       </section>
+
+      {/* 169 (DECISIONS 169): what the pairing takes — every package lists its items (168) */}
+      <ReconcileInputs ws={ws} readOnly={readOnly} onWorkspace={onWorkspace} />
 
       <LeftOver ws={ws} readOnly={readOnly} busy={busy}
         onRevoke={(r) => void act(() => api.reconcileRevoke(ws.workpackage_id, r.kind, r.ref), t("The decision has been revoked."))} />

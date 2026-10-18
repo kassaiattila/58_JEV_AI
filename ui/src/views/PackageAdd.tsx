@@ -61,9 +61,10 @@ const STATE_TEXT = tmap({
 const STATE_MARK: Record<PreviewFile["state"], string> = { new: "s-new", already: "s-held", removed: "s-removed", repeated: "s-held" };
 const tickable = (f: PreviewFile) => f.state === "new" || f.state === "removed";
 
-/** 168: documents added to the package in three steps; `source` is the button the person pressed (files or a folder). */
-export function AddDocuments({ wp, source: initial = "files", onDone, onCancel }: {
-  wp: Workpackage; source?: AddSource; onDone: (s: AddSummary) => void; onCancel: () => void;
+/** 168: documents added to the package in three steps; `source` is the button the person pressed (files or a folder).
+ *  169: `note` says what happens to them next (a reconciliation adds to another package, processed there). */
+export function AddDocuments({ wp, source: initial = "files", note, onDone, onCancel }: {
+  wp: Workpackage; source?: AddSource; note?: string; onDone: (s: AddSummary) => void; onCancel: () => void;
 }) {
   useLocale();
   const [source, setSource] = useState<AddSource>(initial);
@@ -156,7 +157,7 @@ export function AddDocuments({ wp, source: initial = "files", onDone, onCancel }
           <button type="submit" className="primary" disabled={busy || !chosen.length}>
             {chosen.length ? t("Add {{n}} document(s)", { n: chosen.length }) : t("Nothing to add")}</button>
           <button type="button" className="quiet" onClick={onCancel}>{t("Cancel")}</button>
-          <span className="muted small">{t("The new documents wait for processing: the run over the pending items starts from the Run card.")}</span>
+          <span className="muted small">{note ?? t("The new documents wait for processing: the run over the pending items starts from the Run card.")}</span>
         </div>
       ) : null}
     </form>

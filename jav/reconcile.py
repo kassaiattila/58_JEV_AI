@@ -121,6 +121,10 @@ person marked as needing no invoice (`reconcile_line_marks`) takes part in nothi
 **The finder** (143, DECISIONS 143): `compare` relates one line to one invoice for a person searching by hand, with
 every pair kept (the proposal's rules decide nothing there).
 
+**A document left out of one package** (169, DECISIONS 169): a reconciliation package's snapshot names the invoices a
+person left out of that package (`left_out`); they are excluded as `left_out_by_person`, so they are neither proposed
+nor counted as paid there, and an allocation on one shows as `invoice_left_out`. The store-wide snapshot has none.
+
 **What the overview needs** (142, DECISIONS 142, the reconciliation result's first part): two facts a person reads, not
 decisions.
 - `repeats`: the invoices two or more outgoing lines each look like the full payment of: allocated or proposed in full
@@ -495,9 +499,12 @@ def _amount_reason(value: Any) -> str | None:
 
 
 def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
-    """Sorts the invoices and the lines into eligible and excluded (with a reason code) before any pairing."""
+    """Sorts the invoices and the lines into eligible and excluded (with a reason code) before any pairing. 169: an
+    invoice a person left out of a reconciliation package (`left_out`, that package's snapshot only) is excluded as
+    `left_out_by_person`, before any other reason."""
     conf = _conf()
     currencies = set(conf["currencies"])
+    left_out = set(snapshot.get("left_out") or ())
     invoices = _ids(snapshot.get("invoices", []), "invoice")
     statements = _ids(snapshot.get("statements", []), "statement")
     payments = _payments(statements)
@@ -529,6 +536,8 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
             reason = "duplicate_copy"
         elif key in clashing:
             reason = "duplicate_undecided"
+        if key in left_out:
+            reason = "left_out_by_person"
         if reason:
             excluded.append({"kind": "invoice", "id": key, "reason": reason})
             if reason == "non_positive_amount" and money(str(inv["amount"])) < 0 and _supplier_key(inv):

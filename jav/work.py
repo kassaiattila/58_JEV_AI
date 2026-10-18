@@ -815,6 +815,18 @@ def list_workpackages(*, include_archived: bool = False) -> list[dict[str, Any]]
     return [dict(r) for r in rows]
 
 
+def run_briefs(runs: Iterable[str | None]) -> dict[str, dict[str, Any]]:
+    """169: each given run's mode, approval and start, and its package's id and name, in one query (a reconciliation
+    package's item list names where each input comes from)."""
+    ids = sorted({r for r in runs if r})
+    if not ids:
+        return {}
+    with store.connect() as c:
+        return {r["run_id"]: dict(r) for r in c.execute(
+            "SELECT r.run_id, r.mode, r.approval, r.created_at, r.workpackage_id, w.name AS workpackage_name FROM runs r"
+            f" JOIN workpackages w ON w.id = r.workpackage_id WHERE r.run_id IN ({','.join('?' * len(ids))})", ids)}
+
+
 def approved_runs(runs: Iterable[str | None]) -> set[str]:
     """The approved ones of the given runs (a document's source counts only from an approved run)."""
     ids = sorted({r for r in runs if r})

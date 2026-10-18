@@ -365,6 +365,80 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
+def _reconcile_inputs(scope: dict[str, str]) -> Rows:
+    """169 (DECISIONS 169): a reconciliation package's inputs as its item list: the scope's statements, then the
+    invoices its pairing may take (another party's only with `others`), each with the package and the run its result
+    comes from, whether it blocks the approval, and where it stands in the pairing; with `left_out`, the documents left
+    out of the package too, with who left them out, when and why. Read from the kept workspace."""
+    from jav import reconcile_package
+
+    ws = reconcile_package.kept_workspace(scope["workpackage_id"])
+    refs = ws.get("open") or {}
+    briefs = work.run_briefs(ref["run_id"] for ref in refs.values())
+    blocking = {b["doc_id"] for b in ws["blockers"] if str(b["code"]).startswith("source_")}
+    cols = [
+        _col("name", "Document", link="review"),
+        _col("kind", "Kind", "enum", labels="reconcile_input_kind"),
+        _col("subject", "Number or account"),
+        _col("partner", "Partner"),
+        _col("date", "Date or period"),
+        _col("amount", "Amount", "money"),
+        _col("currency", "Currency", hidden=True),
+        _col("party", "Party", hidden=scope.get("others") != "1"),
+        _col("package", "Package", link="workpackage"),
+        _col("source", "Counted run", "enum", labels="reconcile_input_source", link="run", badge=True),
+        _col("pairing", "In the pairing", "enum", labels="reconcile_invoice_state"),
+        _col("open_lines", "Open lines", "number", alert=True, hidden=True),  # a statement's only; Pairing shows its lines
+        _col("blocks", "Blocks the approval", "enum", labels="yes", hidden=True),  # the Preparation's blockers card lists them
+        _col("lines", "Lines in the period", "number", hidden=True),
+        _col("verified", "Balances check out", "enum", labels="yes", hidden=True),
+        _col("doc_id", "Document ID", "id", hidden=True),
+    ]
+
+    def common(doc_id: str, file: str | None, source: str | None) -> dict[str, Any]:
+        ref = refs.get(doc_id) or {}
+        brief = briefs.get(ref.get("run_id") or "") or {}
+        shown_source = (("live" if brief.get("mode") == "apply" else "trial") if source == "not_approved" else source)
+        return {"_key": doc_id, "_wp": ref.get("workpackage_id"), "_run": ref.get("run_id"), "_left_out": False,
+                "item_id": ref.get("item_id"), "doc_id": doc_id, "name": file or doc_id[:12],
+                "package": brief.get("workpackage_name"), "source": shown_source, "blocks": "igen" if doc_id in blocking else None}
+
+    def period(row: dict[str, Any]) -> str | None:
+        """A statement's period, its end without the year when it is the start's (the column stays narrow)."""
+        first, last = str(row.get("period_start") or "")[:10], str(row.get("period_end") or "")[:10]
+        if first[:5] and first[:5] == last[:5]:
+            last = last[5:]
+        return f"{first} – {last}" if first or last else None
+
+    rows = []
+    for st in sorted(ws.get("statements") or [], key=lambda s: (str(s.get("account") or ""), str(s.get("period_start") or ""))):
+        rows.append({**common(st["id"], st["file"], st["source"]), "kind": "statement", "subject": st.get("account"),
+                     "partner": None, "date": period(st), "amount": None, "currency": st.get("currency"),
+                     "party": (ws["scope"].get("party") or {}).get("name"), "pairing": None, "open_lines": st["open_lines"],
+                     "lines": st["lines"], "verified": "igen" if st["verified"] else None})
+    for inv in ws["invoices"]:
+        if not inv["own"] and scope.get("others") != "1":
+            continue
+        rows.append({**common(inv["id"], inv.get("file"), inv.get("source")), "kind": "outgoing" if inv.get("outgoing") else "incoming",
+                     "subject": inv.get("number"), "partner": inv.get("partner_name"), "date": inv.get("issue_date"),
+                     "amount": inv.get("amount"), "currency": inv.get("currency"), "party": (inv.get("party") or {}).get("name"),
+                     "pairing": inv.get("state"), "open_lines": None, "lines": None, "verified": None})
+    if scope.get("left_out") == "1":
+        cols += [_col("left_out_by", "Left out by"), _col("left_out_at", "Left out at", "datetime", hidden=True),
+                 _col("left_out_reason", "Reason for leaving it out")]
+        rows = [{**r, "left_out_by": None, "left_out_at": None, "left_out_reason": None} for r in rows]
+        for g in ws.get("left_out") or []:
+            invoice = g["kind"] == "invoice"
+            rows.append({**common(g["id"], g.get("file"), g.get("source")), "_left_out": True, "blocks": None,
+                         "kind": ("outgoing" if g.get("outgoing") else "incoming") if invoice else "statement",
+                         "subject": g.get("number") if invoice else g.get("account"), "partner": g.get("partner_name"),
+                         "date": g.get("issue_date") if invoice else period(g), "amount": g.get("amount"),
+                         "currency": g.get("currency"), "party": (g.get("party") or {}).get("name"), "pairing": None,
+                         "open_lines": None, "lines": None, "verified": None, "left_out_by": g["actor"],
+                         "left_out_at": g["left_out_at"], "left_out_reason": g["reason"]})
+    return cols, rows
+
+
 def shown_final(final_status: str | None, open_reasons: int) -> str | None:
     """167 (review 153 E): an item that ended with to-dos and has none open now reads "to-dos settled", not "to-dos"
     (the flow's own final status does not change when a person settles them)."""
@@ -782,6 +856,8 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("workpackages", "Munkacsomagok", (), _workpackages, _workpackages_fingerprint, optional_scope=("include_archived", "owner"),
             natural_sort=(("created_at", True),), refresh_behind=True),
     Dataset("workpackage_items", "Csomag tételei", ("workpackage_id",), _workpackage_items, optional_scope=("names", "removed")),
+    Dataset("reconcile_inputs", "A reconciliation's inputs", ("workpackage_id",), _reconcile_inputs,
+            optional_scope=("others", "left_out")),
     Dataset("run_items", "Futás tételei", ("run_id",), _run_items, _run_items_fingerprint, optional_scope=("names",)),
     Dataset("package_costs", "A csomag költsége", ("workpackage_id",), _package_costs),
     Dataset("emails", "Levelek", ("run_id",), _emails, _run_fingerprint),

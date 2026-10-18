@@ -118,13 +118,18 @@ def build(ws: dict[str, Any], name: str) -> dict[str, Any]:
     warnings += [{"code": "month_without_statement", "account": c["account"], "month": c["month"]}
                  for c in ws["coverage"] if not c["statements"]]
     sc = ws["scope"]
-    return {"format": FORMAT, "package": {"id": ws["workpackage_id"], "name": name},
-            "party": (sc.get("party") or {}).get("name"), "period": [sc["period_start"], sc["period_end"]],
-            "accounts": list(sc["accounts"]), "engine_version": ws.get("engine_version"), "config_hash": ws.get("config_hash"),
-            "invoices": invoices, "lines": out_lines, "warnings": warnings,
-            "counts": {"invoices": dict(sorted(Counter(i["result"] for i in invoices).items())),
-                       "lines": dict(sorted(Counter(ln["result"] for ln in out_lines).items())),
-                       "open_lines": ws["counts"]["open_lines"]}}
+    out = {"format": FORMAT, "package": {"id": ws["workpackage_id"], "name": name},
+           "party": (sc.get("party") or {}).get("name"), "period": [sc["period_start"], sc["period_end"]],
+           "accounts": list(sc["accounts"]), "engine_version": ws.get("engine_version"), "config_hash": ws.get("config_hash"),
+           "invoices": invoices, "lines": out_lines, "warnings": warnings,
+           "counts": {"invoices": dict(sorted(Counter(i["result"] for i in invoices).items())),
+                      "lines": dict(sorted(Counter(ln["result"] for ln in out_lines).items())),
+                      "open_lines": ws["counts"]["open_lines"]}}
+    # 169: what a person left out of the package, recorded with the version (only when there is any, so the
+    # fingerprint of a package without one stays as it was)
+    if left := ws.get("left_out"):
+        out["left_out"] = [{k: r.get(k) for k in ("id", "kind", "file", "reason", "actor", "left_out_at")} for r in left]
+    return out
 
 
 def current(wp_id: str) -> dict[str, Any]:
