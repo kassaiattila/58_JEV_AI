@@ -226,6 +226,8 @@ export function reasonText(code: string): string {
     // 140: a statement package (jav/statement_package.py)
     case "statements:not_a_statement": return t("This PDF is not a bank statement ({{type}}): the statement package extracts no data from it. Remove it from the package, or process it in a document package.", { type: docTypeLabel(p[2] ?? "") });
     case "statements:other_party": return t("The statement's account belongs to another own party, and it stayed there. If it is this package's party's, move it in Settings › Own parties.");
+    // 171 (plan 170, K20): the flow built no record from the document (`policy.decide`); until now the raw code showed
+    case "no_invoice:": return t("No data was extracted from the document, so it has no values to check or download; its other to-dos show why");
     case "parties:same_tax_id": return t("A szállító és a vevő adószáma azonos");
     case "parties:same_name": return t("A szállító és a vevő neve azonos");
     // 134: the supplier tax number is an own party's (jav/parties.py review_reasons)

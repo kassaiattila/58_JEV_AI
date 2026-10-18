@@ -1654,5 +1654,12 @@
   "{{n}} documents": "{{n}} documents",
   "{{n}} invoices of other parties": "{{n}} invoices of other parties",
   "{{n}} left out": "{{n}} left out",
-  "Left out of this package by a person": "Left out of this package by a person"
+  "Left out of this package by a person": "Left out of this package by a person",
+  "No data was extracted from the document, so it has no values to check or download; its other to-dos show why": "No data was extracted from the document, so it has no values to check or download; its other to-dos show why",
+  "reconciliation: command-line results accepted as sources": "reconciliation: command-line results accepted as sources",
+  "reconciliation: version approved": "reconciliation: version approved",
+  "reconciliation: approval reopened": "reconciliation: approval reopened",
+  "statement package: party and period set": "statement package: party and period set",
+  "statement package: bank account assigned to the party": "statement package: bank account assigned to the party",
+  "statement package: statements added": "statement package: statements added"
 }

@@ -1655,5 +1655,12 @@
   "{{n}} documents": "{{n}} irat",
   "{{n}} invoices of other parties": "{{n}} más gazdálkodó számlája",
   "{{n}} left out": "{{n}} kihagyva",
-  "Left out of this package by a person": "Egy személy kihagyta ebből az egyeztetésből"
+  "Left out of this package by a person": "Egy személy kihagyta ebből az egyeztetésből",
+  "No data was extracted from the document, so it has no values to check or download; its other to-dos show why": "Az iratból egyetlen adat sem lett kinyerve, ezért nincs ellenőrizhető vagy letölthető értéke; az okot az irat többi teendője mutatja",
+  "reconciliation: command-line results accepted as sources": "egyeztetés: parancssori eredmények elfogadása forrásként",
+  "reconciliation: version approved": "egyeztetés: változat jóváhagyása",
+  "reconciliation: approval reopened": "egyeztetés: jóváhagyás újranyitása",
+  "statement package: party and period set": "kivonatcsomag: gazdálkodó és időszak beállítása",
+  "statement package: bank account assigned to the party": "kivonatcsomag: bankszámla a gazdálkodóhoz rendelve",
+  "statement package: statements added": "kivonatcsomag: kivonatok felvétele"
 }
