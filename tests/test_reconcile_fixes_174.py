@@ -221,3 +221,23 @@ def test_m14_the_ai_preselection_takes_a_forint_bank_line_in_the_invoices_paymen
                "issue_date": "2026-05-01", "due_date": "2026-05-31", "doc_type": "invoice_foreign"}
     rates = {"EUR": {"2026-05-25": {"rate": "390.00", "rate_day": "2026-05-25", "source": "mnb"}}}
     assert [i["id"] for i in reconcile_ai.preselect(line, [invoice], rates)] == ["inv-eur"]
+
+
+def test_m15_the_finder_reads_the_kept_workspace_without_copying_it(tmp_path, monkeypatch) -> None:
+    """M-15 (the rest of review 153 B5): the finder copied the whole workspace on every line a person clicked; it only
+    reads it, so it reads the kept one. The kept workspace stays as it was."""
+    import copy
+
+    from jav import reconcile_package as rp, store
+    from tests.test_reconcile_finder_143 import _page
+
+    with store.use_store(tmp_path / "r.sqlite"):
+        wp_id, _ids, (t1, _t2, _t3) = _page()
+        before = copy.deepcopy(rp.kept_workspace(wp_id))
+
+        def no_copy(_wp_id):
+            raise AssertionError("a reader copied the whole workspace")
+
+        monkeypatch.setattr(rp, "workspace", no_copy)
+        assert rp.matches(wp_id, t1)["line_id"] == t1
+        assert rp.kept_workspace(wp_id) == before

@@ -774,8 +774,9 @@ def matches(wp_id: str, line_id: str) -> dict[str, Any]:
     """143 (DECISIONS 143): every invoice of the package's page compared with one of its lines (`reconcile.compare`,
     on what is left of both sides), with how it fits (`_fit`) and the days from its due date to the line's booking
     day: the engine's proposals first, then the other fitting ones by strength, then the rest by the nearest amount.
-    Raises KeyError for a line the page does not show."""
-    ws = workspace(wp_id)
+    Raises KeyError for a line the page does not show. 174 (review 160 M-15): it only reads the workspace, so it reads
+    the kept one; it copied the whole workspace on every line a person clicked."""
+    ws = kept_workspace(wp_id)
     line = next((ln for ln in ws["lines"] if ln["id"] == line_id), None)
     if line is None:
         raise KeyError(line_id)

@@ -622,7 +622,7 @@ def evaluate(wp_id: str) -> dict[str, Any]:
 
     An engine's failed answer counts as `failed` in both. Agreement with a person is measured here, not between the
     models (DECISIONS 134)."""
-    ws = reconcile_package.workspace(wp_id)
+    ws = reconcile_package.kept_workspace(wp_id)  # 174 (review 160 M-15): read only
     tally = {e: {"pays": Counter(), "kind": Counter()} for e in ENGINES}
     rows = []
     for ln in ws["lines"]:
