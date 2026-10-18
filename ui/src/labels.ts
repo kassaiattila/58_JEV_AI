@@ -85,6 +85,7 @@ const CHECK_TEXT: Record<string, string> = tmap({
   "closing.mismatch": "A nyitó egyenleg + tranzakciók nem adják ki a záró egyenleget",
   "closing.unparseable": "A nyitó vagy a záró egyenleg hiányzik / nem értelmezhető",
   "closing.amount_unparseable": "Egy tranzakció összege nem értelmezhető",
+  "closing.from_lines": "The balances were taken from the lines themselves (no total row)",  // 174 (review 160 M-12)
   "totals.mismatch": "Az összesített terhelés / jóváírás nem egyezik a tranzakciókkal",
   "totals.amount_unparseable": "Egy tranzakció összege nem értelmezhető",
   "totals.unparseable": "A nettó, ÁFA vagy bruttó összeg hiányzik",
@@ -222,6 +223,8 @@ export function reasonText(code: string): string {
     case "statement_table:unreadable_lines": return t("Some lines of the table export could not be read ({{n}}); they are left out of the statement", { n: p[2] ?? "" });
     case "statement_table:missing": return t("A required field is missing from the table export: {{field}}", { field: f });
     case "statement_table:balance_unchecked": return t("The balances cannot be checked: the export has none, and its PDF statement was not found next to it");
+    // 174 (review 160 M-12): balances taken from the lines, with no total row
+    case "statement_table:balance_from_lines": return t("The balances were taken from the export's own lines and it has no total row, so its first and last lines cannot be checked");
     case "statement_table:companion_mismatch": return t("The export and its PDF statement differ ({{n}}): a line is on one side only, or the PDF is of another account", { n: p[2] ?? "" });
     // 140: a statement package (jav/statement_package.py)
     case "statements:not_a_statement": return t("This PDF is not a bank statement ({{type}}): the statement package extracts no data from it. Remove it from the package, or process it in a document package.", { type: docTypeLabel(p[2] ?? "") });

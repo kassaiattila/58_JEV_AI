@@ -10,6 +10,10 @@
 // - 151: a bank line pays several invoices of one other currency together, all in whole; the service splits the
 //   line's forints in the ratio of their converted amounts. Outside the band it needs a reason; every invoice needs
 //   an exchange rate.
+// - 174 (review 160 M-3): a line set aside for its wording (a fee, interest or repayment word in its memo) can still be
+//   paired by hand, as the service allows; a line set aside for another reason cannot.
+// - 174 (review 160 M-4): a card purchase compared on its original amount (137) pairs one to one in whole; a different
+//   original amount needs a reason.
 import type { ReconcileAllocationPair, ReconcileCandidate, ReconcileInvoice, ReconcileLine } from "../../api";
 import { canonical, min, parseCanonical } from "./money";
 
@@ -23,6 +27,9 @@ export type Plan =
 
 export const rest = (x: { rest: string | null }): bigint => parseCanonical(x.rest) ?? 0n;
 
+/** The reasons a line is set aside that a person may still pair by hand (174, review 160 M-3). */
+const BY_HAND = new Set(["payment_kind_review"]);
+
 export function candidateOf(line: ReconcileLine, invoiceId: string): ReconcileCandidate | undefined {
   return line.candidates.find((c) => c.invoice_id === invoiceId);
 }
@@ -32,7 +39,7 @@ export function planPairing(lines: ReconcileLine[], invoices: ReconcileInvoice[]
   if (!lines.length || !invoices.length) return { ok: false, why: "nothing" };
   if (lines.length > 1 && invoices.length > 1) return { ok: false, why: "many_to_many" };
   if (lines.some((l) => l.state === "marked")) return { ok: false, why: "line_marked" };
-  if (lines.some((l) => l.state === "excluded")) return { ok: false, why: "line_excluded" };
+  if (lines.some((l) => l.state === "excluded" && !BY_HAND.has(l.excluded_reason ?? ""))) return { ok: false, why: "line_excluded" };
   if (lines.some((l) => rest(l) <= 0n)) return { ok: false, why: "line_settled" };
   if (invoices.some((i) => rest(i) <= 0n)) return { ok: false, why: "invoice_settled" };
   const currencies = new Set([...lines.map((l) => l.currency), ...invoices.map((i) => i.currency)]);
@@ -50,8 +57,9 @@ export function planPairing(lines: ReconcileLine[], invoices: ReconcileInvoice[]
     const [invoice] = invoices;
     const relation = lines.length === 1 && invoices.length === 1 ? candidateOf(line, invoice.id)?.amount_relation : undefined;
     const whole = parseCanonical(line?.allocated) === 0n && parseCanonical(invoice?.allocated) === 0n;
-    if (!relation || !["fx_within", "fx_outside", "no_rate"].includes(relation) || !whole) return { ok: false, why: "currency" };
-    return { ok: true, pairs: [{ line, invoice, amount: null }], converted: true, needsReason: relation !== "fx_within", exact: relation === "fx_within" };
+    if (!relation || !["fx_within", "fx_outside", "no_rate", "equal", "different"].includes(relation) || !whole) return { ok: false, why: "currency" };
+    const exact = relation === "fx_within" || relation === "equal";
+    return { ok: true, pairs: [{ line, invoice, amount: null }], converted: true, needsReason: !exact, exact };
   }
   const pairs: PlannedPair[] = [];
   if (lines.length === 1) {

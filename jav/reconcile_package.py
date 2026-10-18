@@ -1099,8 +1099,21 @@ def proposed_pairs(wp_id: str) -> list[dict[str, str]]:
     pairing here made the quick review pair the whole scope twice on every request."""
     _package(wp_id)
     _refuse_approved(wp_id)
-    return [{"invoice_doc_id": c["invoice_id"], "line_id": ln["id"]} for ln in kept_workspace(wp_id)["lines"] if not ln.get("locked")
-            for c in ln["candidates"] if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"]]
+    return sure_pairs(kept_workspace(wp_id)["lines"])
+
+
+def sure_pairs(lines: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """The unambiguous proposals of a workspace's lines (`proposed_pairs`). 174 (review 160 M-5): a combined payment's
+    invoices are all of them or none; one of them alone left a rest on the line, needed a reason, and the whole bulk
+    acceptance failed."""
+    out = []
+    for ln in lines:
+        if ln.get("locked"):
+            continue
+        sure = [c for c in ln["candidates"] if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"]]
+        ids = {c["invoice_id"] for c in sure}
+        out += [{"invoice_doc_id": c["invoice_id"], "line_id": ln["id"]} for c in sure if set(c.get("combined") or ()) <= ids]
+    return out
 
 
 def accept_proposed(wp_id: str, *, actor: str) -> int:

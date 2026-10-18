@@ -114,8 +114,11 @@ class Account:
     problems: list[str] = field(default_factory=list)
     source: dict[str, Any] | None = None  # 137: the export file (and its companion) this account was read from
     balances: str = "export"  # 137: where the balances come from: export (141: or the text statement itself) |
-    #                           companion | none (cannot be checked)
+    #                           companion | none (cannot be checked) | 174 (review 160 M-12): lines (taken from the
+    #                           lines themselves, with no total row: the first and last lines cannot be checked)
     companion_problems: list[str] = field(default_factory=list)  # 137: lines on one side only, another account
+    stored_key: str | None = None  # 174 (review 160 M-7): the key written into the statement file (so into its id) when
+    #                                `key` holds more (another month of the same account in a folder, `_read_folder`)
 
 
 @dataclass(frozen=True)
@@ -336,6 +339,9 @@ class _Block:
     total: list[str] | None = None
 
 
+TITLE_MAX = 200  # 174 (review 160 M-8): an account's printed title is short; a longer cell is never one
+
+
 def _blocks(rows: list[list[str]], profile: dict[str, Any]) -> list[_Block]:
     title_re = re.compile(profile["account_title"])
     totals = {_norm(t) for t in profile["total_row"]}
@@ -347,7 +353,9 @@ def _blocks(rows: list[list[str]], profile: dict[str, Any]) -> list[_Block]:
             continue
         if len(filled) == 1:
             in_table = False
-            if m := title_re.match(filled[0]):
+            # 174 (review 160 M-8): the title pattern takes quadratic time on a long cell of spaces (a 131 000-character
+            # CSV cell held the service's process for about 40 s), so only a cell of a title's length is tried
+            if len(filled[0]) <= TITLE_MAX and (m := title_re.match(filled[0])):
                 blocks.append(_Block(title=filled[0], name=m["name"].strip(), currency=m["currency"]))
             continue
         if not blocks:
@@ -422,6 +430,7 @@ def _account(block: _Block, summary: dict[str, str], occurrence: int, file_name:
             _with(lines[-1], fee=f"{_plain(abs(fee))} {block.currency}")
     iban = (summary.get("account_iban") or "").replace(" ", "") or None
     opening, closing = _money(summary.get("opening_balance")), _money(summary.get("closing_balance"))
+    printed = opening is not None and closing is not None
     if opening is None and balances and balances[0] is not None:
         opening = balances[0] - amounts[0]
     if closing is None and balances and balances[-1] is not None:
@@ -441,8 +450,11 @@ def _account(block: _Block, summary: dict[str, str], occurrence: int, file_name:
               "total_row": None if block.total is None else total == sum(amounts, Decimal(0)),
               "closing_balance": None if opening is None or closing is None else opening + sum(amounts, Decimal(0)) == closing}
     key = f"{iban}:{block.currency}" if iban else f"{block.title}#{occurrence}"
+    # 174 (review 160 M-12): balances taken from the lines themselves agree with them by construction, so without a
+    # total row nothing vouches for the first and last lines; the statement says so, and stays unverified
+    from_lines = not printed and block.total is None
     return Account(key=key, title=block.name, currency=block.currency, occurrence=occurrence, statement=statement,
-                   checks=checks, problems=problems)
+                   checks=checks, problems=problems, balances="lines" if from_lines else "export")
 
 
 def _accounts(blocks: list[_Block], file_name: str, profile: dict[str, Any]) -> list[Account]:
@@ -1192,6 +1204,11 @@ def _read_folder(folder: Path) -> Reading:
     accounts: dict[str, Account] = {}
     for r in readings:
         for a in r.accounts:
+            first = accounts.get(a.key)
+            if first is not None and first.statement.get("period_start") != a.statement.get("period_start"):
+                # 174 (review 160 M-7): another month of the same account (a table export's key holds no period): its
+                # key gets its period; its file keeps the key without it, so its id is the one it has read alone
+                a = replace(a, key=f"{a.key}:{a.statement.get('period_start') or ''}", stored_key=a.key)
             if a.key in accounts:
                 skipped.append({"file": r.file_name, "reason": f"the statement {a.title} is already in another file"})
             else:
@@ -1298,7 +1315,7 @@ def derived_bytes(reading: Reading, a: Account) -> bytes:
     source = a.source or {"file": reading.file_name, "sha256": reading.sha256, "repairs": reading.repairs}
     content = {"format": FORMAT, "version": FORMAT_VERSION, "profile": reading.profile, "institution": reading.institution,
                "source": {k: source[k] for k in ("file", "sha256", "repairs")},
-               "account": {"key": a.key, "title": a.title, "currency": a.currency, "occurrence": a.occurrence},
+               "account": {"key": a.stored_key or a.key, "title": a.title, "currency": a.currency, "occurrence": a.occurrence},
                "checks": a.checks, "problems": a.problems, "statement": a.statement}
     if a.source is not None and a.balances != "export":  # 137: a ledger export; its companion PDF and findings
         content |= {"companion": source.get("companion"), "balances": a.balances, "companion_problems": a.companion_problems}

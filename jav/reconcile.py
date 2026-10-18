@@ -369,8 +369,15 @@ def _number_in(value: Any, text: str) -> bool:
     s = _conf()["signals"]
     number, number_c = normalize(value), compact(value)
     return len(number_c) >= int(s["min_number_chars"]) and bool(
-        re.search(r"(?<![a-z0-9])" + re.escape(number) + r"(?![a-z0-9])", normalize(text))
+        _whole_word(number).search(normalize(text))
         or (len(number_c) >= int(s["min_compact_number_chars"]) and number_c in compact(text)))
+
+
+@lru_cache(maxsize=16384)
+def _whole_word(number: str) -> re.Pattern[str]:
+    """174 (review 160 M-10): a normalised number as a whole-word pattern, compiled once. `re` keeps 512 patterns, and
+    a pairing of 1 500 invoices compiled thousands again and again (54 % of its 27 s)."""
+    return re.compile(r"(?<![a-z0-9])" + re.escape(number) + r"(?![a-z0-9])")
 
 
 _DECIMAL = re.compile(r"-?\d+(?:\.\d+)?")

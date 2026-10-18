@@ -14,6 +14,10 @@ nothing.
 statement they cannot be checked: one `statement_table:balance_unchecked` to-do stands for the missing balances and the
 closing check that cannot run, and the statement stays unverified for the reconciliation. A line on one side only, or a
 PDF of another account, is a `statement_table:companion_mismatch:<n>` to-do.
+
+174 (review 160 M-12): a statement whose balances were taken from its own lines, with no total row, agrees with its
+closing check by construction: one `statement_table:balance_from_lines` to-do says so, its closing check is recorded as a
+notice (`closing.from_lines`), and the statement stays unverified for the reconciliation.
 """
 
 from __future__ import annotations
@@ -79,6 +83,11 @@ def check_table(state: TableState) -> TableState:
     record, reasons = pack.normalize(state.statement)
     policy.require_review(state, *reasons)
     results = run_all(record, pack.validators, doc_id=state.item_id, doc_type=DOC_TYPE)
+    if state.balances == "lines":  # 174 (review 160 M-12): the check holds by construction; it vouches for nothing
+        results = [r.model_copy(update={"ok": False, "advisory": True, "code": "closing.from_lines",
+                                        "detail": "the balances were taken from the lines; no total row"})
+                   if r.name == "closing_balance_check" else r for r in results]
+        policy.require_review(state, "statement_table:balance_from_lines")
     state.validation = [r.model_dump() for r in results]
     unchecked = state.balances == "none"  # 137: one to-do for the balances a ledger export lacks
     for r in results:
