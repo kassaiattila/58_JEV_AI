@@ -28,7 +28,7 @@ from typing import Any, Callable
 from burr.integrations.serde import pydantic as burr_pydantic
 
 from jav import app_settings, isolated_pdf, mailbox, pdf, store, work, workflows
-from jav.runtime import applog, calls, lock, pdf_status, persistence, queue
+from jav.runtime import applog, calls, flows, lock, pdf_status, persistence, queue
 from jav.runtime.persistence import ClosingSQLitePersister
 
 log = logging.getLogger("jav.worker")
@@ -115,9 +115,8 @@ def _attachment_reads(items: list[dict[str, Any]], email_item_id: str) -> dict[s
 
 
 def _flow_module(name: str):
-    from jav import flow, flow_detect, flow_email, flow_native, flow_statement_table  # deferred: heavy dependencies
-    return {"invoice": flow, "doc_detect": flow_detect, "email": flow_email, "native": flow_native,
-            "statement_table": flow_statement_table}[name]
+    """The module of a stored flow name (173: from the flow registry; imported on first use, heavy dependencies)."""
+    return flows.get(name).load()
 
 
 def arm_for(doc_type: str, preferred: str) -> str:
@@ -132,11 +131,13 @@ def _stages(recipe: dict[str, Any], params: dict[str, Any]) -> list[tuple[str, d
     """The recipe's stages: (flow, parameters). The `document` recipe (047 T1.3) has two stages: detection, then
     extraction of the detected detailed type; the second stage's parameters come from the first one's result
     (`_next_params`). 160 (review AI-4): the detection follows the run's JEV switch and its "earlier answers" setting
-    too, so a live run asks the detection again."""
-    if recipe["flow"] == "document":
-        return [("doc_detect", {k: params[k] for k in ("jev", "jev_cache") if k in params}), ("invoice", dict(params))]
-    if recipe["flow"] == "invoice" and "doc_type" in params:  # path from the type pack (auto or unsupported request)
-        return [("invoice", {**params, "arm": arm_for(params["doc_type"], _requested_arm(params))})]
+    too, so a live run asks the detection again. 173: the stages are the registry's (`flows`)."""
+    spec = flows.get(recipe["flow"])
+    if spec.stages:
+        detect, extract = spec.stages
+        return [(detect, {k: params[k] for k in ("jev", "jev_cache") if k in params}), (extract, dict(params))]
+    if spec.doc_type == "params" and "doc_type" in params:  # path from the type pack (auto or unsupported request)
+        return [(spec.name, {**params, "arm": arm_for(params["doc_type"], _requested_arm(params))})]
     return [(recipe["flow"], dict(params))]
 
 
@@ -154,37 +155,15 @@ def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app
            *, run_id: str | None = None, item: dict[str, Any] | None = None, recipe_hash: str | None = None):
     """`read_path`: where a document's bytes are read from (its source instance); the file name, the year hint and
     the stored path stay those of `source_path`, the original. `attachment_reads`: for an email, the source instances
-    of its attachments that are items of the package."""
-    mod = _flow_module(recipe["flow"])
-    if recipe["flow"] == "native":
-        if run_id is None or item is None or recipe_hash is None:
-            raise ValueError("Native processing requires the frozen run and item identities")
-        from jav.native_processing import estimate_limits
-
-        app = mod.build_app(work_run_id=run_id, item_id=item["item_id"], graph_id=app_id,
-                            source_path=source_path, read_path=read_path or source_path,
-                            original_name=Path(source_path).name, expected_sha256=item["sha256"],
-                            recipe_hash=recipe_hash, jev=not _jev_off(params),
-                            use_cache=reuse_answers(params), requested_arm=params.get("arm", "auto"),
-                            persister=persister, tracker=False, limits=estimate_limits(params),
-                            ocr=bool(params.get("native_ocr")), recognition=params.get("native_recognition"))
-    elif recipe["flow"] == "statement_table":  # 136: an account's statement from a tabular export, code only
-        if item is None:
-            raise ValueError("A statement table requires the frozen item identity")
-        app = mod.build_app(run_id=app_id, item_id=item["item_id"], source_path=source_path,
-                            read_path=read_path or source_path, expected_sha256=item["sha256"], persister=persister)
-    elif recipe["flow"] == "invoice":
-        # `jev_cache=live`: skip reading the JEV cache so every call goes through the log and the budget (live test)
-        app = mod.build_app(source_path, app_id, params["arm"], tracker=False, doc_type=params["doc_type"], run_id=app_id,
-                            persister=persister, use_cache=reuse_answers(params), read_path=read_path,
-                            jev=not _jev_off(params), detail_probabilities=params.get("detail_probabilities"))
-    elif recipe["flow"] == "email":  # 048 T2: the item is the email's `message.json`; the flow reads its folder
-        app = mod.build_app(source_dir=str(Path(source_path).parent), tracker=False, run_id=app_id, persister=persister,
-                            use_cache=reuse_answers(params), propose_tasks=params.get("tasks") == "propose",
-                            attachment_reads=attachment_reads, jev=not _jev_off(params))
-    else:
-        app = mod.build_app(source_path, tracker=False, run_id=app_id, persister=persister,
-                            use_cache=reuse_answers(params), read_path=read_path, jev=not _jev_off(params))
+    of its attachments that are items of the package. 173: each flow's way of building is its registry entry's."""
+    spec = flows.get(recipe["flow"])
+    if spec.build is None:
+        raise flows.UnknownFlow(f"the worker does not run the flow {spec.name!r}")
+    mod = spec.load()
+    app = spec.build(mod, flows.Build(params=params, source_path=source_path, app_id=app_id, persister=persister,
+                                      jev=not _jev_off(params), use_cache=reuse_answers(params), read_path=read_path,
+                                      attachment_reads=attachment_reads, run_id=run_id, item=item,
+                                      recipe_hash=recipe_hash))
     return app, mod.TERMINALS
 
 

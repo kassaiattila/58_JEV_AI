@@ -91,21 +91,16 @@ def last_golden_results() -> list[dict[str, Any]]:
 
 
 def flow_lint_targets() -> list[tuple[Any, Any]]:
-    """Every flow module with a live graph built for the contract lint (`flows`, the admin report)."""
-    from jav import flow, flow_detect, flow_email, flow_learning, flow_email_learning, flow_native, flow_statement_table
+    """Every flow module with a live graph built for the contract lint (`flows`, the admin report); 173: the flows
+    and their lint graphs come from the flow registry (`jav.runtime.flows`), in its order."""
+    from jav.runtime import flows
 
-    return [
-        (flow, flow.build_app("lint.pdf", "lint", "S", tracker=False)),
-        (flow_detect, flow_detect.build_app("lint.pdf", tracker=False)),
-        (flow_email, flow_email.build_app(source_dir="lint", tracker=False)),
-        (flow_learning, flow_learning.build_app()),
-        (flow_email_learning, flow_email_learning.build_app()),
-        (flow_native, flow_native.build_app(work_run_id="lint-native-run", item_id="0" * 64,
-            graph_id="lint-native-graph", source_path="lint.txt", read_path="lint.txt", original_name="lint.txt",
-            expected_sha256="0" * 64, recipe_hash="0" * 16, jev=False)),
-        (flow_statement_table, flow_statement_table.build_app(run_id="lint-statement-table", item_id="0" * 64,
-            source_path="lint.json", read_path="lint.json", expected_sha256="0" * 64)),
-    ]
+    targets = []
+    for spec in flows.specs():
+        if spec.lint is not None:
+            module = spec.load()
+            targets.append((module, spec.lint(module)))
+    return targets
 
 
 def flow_lint_summary() -> list[tuple[str, bool, int]]:

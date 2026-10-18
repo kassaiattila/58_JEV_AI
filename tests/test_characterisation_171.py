@@ -203,18 +203,22 @@ def test_the_run_fingerprint_is_this_string(db) -> None:
     assert datasets._result_fingerprint({"run_id": RUN}) == PIN_RUN_FINGERPRINT  # 172: a run's result table
 
 
-def test_the_run_fingerprint_does_not_see_reconciliation_decisions_or_statement_choices(db) -> None:
-    """Today's gap (plan 170, K20 second half): the run's datasets are not rebuilt after a reconciliation decision or a
-    statement choice on one of its documents, although the reviewed version changes. Fixing it is a deliberate change
-    that updates this test."""
+def test_the_run_fingerprint_sees_reconciliation_decisions_and_statement_choices(db) -> None:
+    """173 (deliberate, plan 170 K20 second half): a reconciliation decision or a statement choice on one of the run's
+    documents changes the reviewed version, so the run's datasets are rebuilt after it too (until 172 they were not). A
+    run without either keeps its earlier fingerprint (`test_the_run_fingerprint_is_this_string`)."""
     _run()
     before = datasets._run_fingerprint({"run_id": RUN})
     with store.connect() as c:
         c.execute("INSERT INTO reconcile_decisions(pair_key, invoice_doc_id, statement_doc_id, line_id, decision, actor, decided_at)"
                   " VALUES (?,?,?,?,?,?,?)", (f"{DOC_A}|line-1", DOC_A, DOC_C, "line-1", "paid_by", ACTOR, NOW))
+    paid = datasets._run_fingerprint({"run_id": RUN})
+    with store.connect() as c:
         c.execute("INSERT INTO statement_choices(pair_key, keep_doc_id, actor, decided_at) VALUES (?,?,?,?)",
                   (f"{DOC_B}|{DOC_C}", DOC_B, ACTOR, NOW))
-    assert datasets._run_fingerprint({"run_id": RUN}) == before
+    chosen = datasets._run_fingerprint({"run_id": RUN})
+    assert len({before, paid, chosen}) == 3
+    assert paid.startswith(before + "|") and chosen.startswith(before + "|")  # the earlier parts stay as they were
 
 
 # --- 4. the activity log ---------------------------------------------------------------------------------------------

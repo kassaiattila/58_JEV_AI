@@ -112,11 +112,13 @@ store.register_migration("workflows", _migrate)
 
 # 153 (review D1): a workflow names its own party and its steps' packages. A merge moves the party's workflows to the
 # party it was merged into, and a party a workflow names cannot be deleted (before, the workflow kept a deleted party's
-# id and every later step failed with "no own party").
-parties.register_reference(
-    "workflows",
-    count=lambda c, pid: c.execute("SELECT COUNT(*) FROM workflows WHERE party_id=?", (pid,)).fetchone()[0],
-    repoint=lambda c, old, new: c.execute("UPDATE workflows SET party_id=? WHERE party_id=?", (new, old)))
+# id and every later step failed with "no own party"). Registered by `register` (173).
+def _count_party(c, pid: str) -> int:
+    return c.execute("SELECT COUNT(*) FROM workflows WHERE party_id=?", (pid,)).fetchone()[0]
+
+
+def _repoint_party(c, old: str, new: str) -> None:
+    c.execute("UPDATE workflows SET party_id=? WHERE party_id=?", (new, old))
 
 
 PACKAGE_DELETED = "its package was deleted; start the step again"
@@ -140,7 +142,10 @@ def _delete_guard(c, wp_id: str) -> None:
         _event(c, s["workflow_id"], s["step"], "failed", auto_actor(s["actor"]), {"note": PACKAGE_DELETED, "workpackage_id": wp_id})
 
 
-work.register_delete_guard(_delete_guard)
+def register() -> None:
+    """173 (plan 170 E2): the delete guard of a workflow's packages and its party reference (`registrations.load_all`)."""
+    work.register_delete_guard(_delete_guard)
+    parties.register_reference("workflows", count=_count_party, repoint=_repoint_party)
 
 
 class WorkflowError(ValueError):

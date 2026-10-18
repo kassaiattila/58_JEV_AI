@@ -7,8 +7,16 @@ the other tests' logs went there too. While the tests run, the log folder is tem
 
 import pytest
 
-from jav import gpt_choice
+from jav import gpt_choice, registrations
 from jav.runtime import applog, calls
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _registrations():
+    """173 (plan 170 E2): the tests run with every registration the command line and the service make at start
+    (`registrations.load_all`: a package kind's rule, the delete guards, the party references)."""
+    registrations.load_all()
+    yield
 
 
 @pytest.fixture(autouse=True, scope="session")

@@ -122,6 +122,18 @@ def claim(worker: str, kinds: tuple[str, ...] | None = None) -> Job | None:
         return _job(c.execute("SELECT * FROM jobs WHERE id=?", (row["id"],)).fetchone())
 
 
+def claim_job(job_id: int, worker: str) -> Job | None:
+    """173 (plan 170, E0b): claims one given job while it is queued, even before its retry back-off has passed and
+    whether or not the queue is paused; None otherwise. The before/after replay settles its jobs one by one in a fixed
+    order on a copy of the store, so that two replays process the same items the same way."""
+    with store.connect() as c:
+        _begin(c)
+        if c.execute("UPDATE jobs SET status='claimed', claimed_by=?, claimed_at=? WHERE id=? AND status='queued'"
+                     " AND cancel_requested_at IS NULL", (worker, _ts(), job_id)).rowcount == 0:
+            return None
+        return _job(c.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone())
+
+
 def _transition(job_id: int, sql: str, params: tuple, result: str) -> str:
     """Shared transition: a job in a terminal state does not change, and its existing terminal state is returned."""
     with store.connect() as c:

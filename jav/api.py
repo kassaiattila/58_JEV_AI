@@ -757,6 +757,9 @@ def _max_source_bytes() -> int:
 
 def create_app(*, store_path: Path | None = None) -> FastAPI:
     """`store_path`: a store for this app instance (for tests); without it, the default `store/jav.sqlite`."""
+    from jav import registrations
+
+    registrations.load_all()  # 173 (plan 170 E2): the package rules, delete guards and party references
     s = settings()
     # 071 decision (2026-09-30): the clickable endpoint list (/api/docs) would load program code from an external host
     # onto the local address, so it is switched off; the machine-readable endpoint list (/api/openapi.json) stays

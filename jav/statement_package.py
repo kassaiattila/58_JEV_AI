@@ -54,10 +54,12 @@ CREATE TABLE IF NOT EXISTS statement_scopes (
     updated_at     TEXT NOT NULL
 );
 """)
-parties.register_reference(
-    "statement_package",
-    count=lambda c, pid: c.execute("SELECT COUNT(*) FROM statement_scopes WHERE party_id=?", (pid,)).fetchone()[0],
-    repoint=lambda c, old, new: c.execute("UPDATE statement_scopes SET party_id=? WHERE party_id=?", (new, old)))
+def _count_party(c, pid: str) -> int:
+    return c.execute("SELECT COUNT(*) FROM statement_scopes WHERE party_id=?", (pid,)).fetchone()[0]
+
+
+def _repoint_party(c, old: str, new: str) -> None:
+    c.execute("UPDATE statement_scopes SET party_id=? WHERE party_id=?", (new, old))
 
 
 class PackageError(ValueError):
@@ -476,8 +478,7 @@ def after_approval(run: dict[str, Any]) -> None:
                               {"account": key, "party": row["party_id"], "run_id": run["run_id"]})
 
 
-work.register_package_rule(KIND, work.PackageRule(after_detection=after_detection, after_item=after_item,
-                                                  after_approval=after_approval))
+RULE = work.PackageRule(after_detection=after_detection, after_item=after_item, after_approval=after_approval)
 
 
 def _delete_guard(c, wp_id: str) -> None:
@@ -485,8 +486,12 @@ def _delete_guard(c, wp_id: str) -> None:
     c.execute("DELETE FROM statement_scopes WHERE workpackage_id=?", (wp_id,))
 
 
-work.register_delete_guard(_delete_guard)
+def register() -> None:
+    """173 (plan 170 E2): the package kind's rule, its delete guard and its party reference (`registrations.load_all`)."""
+    work.register_package_rule(KIND, RULE)
+    work.register_delete_guard(_delete_guard)
+    parties.register_reference("statement_package", count=_count_party, repoint=_repoint_party)
 
 
-__all__ = ["KIND", "NOT_A_STATEMENT", "OTHER_PARTY", "PackageError", "after_detection", "after_item", "create",
-           "package_view", "scope", "survey"]
+__all__ = ["KIND", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "PackageError", "after_detection", "after_item", "create",
+           "package_view", "register", "scope", "survey"]

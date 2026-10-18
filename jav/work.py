@@ -31,7 +31,7 @@ from typing import Any
 
 from jav import cfg, source_instances, store, typepack
 from jav.native_contracts import DOCUMENT_SUFFIXES, NATIVE_SUFFIXES
-from jav.runtime import calls, queue
+from jav.runtime import calls, flows, queue
 from jav.user_messages import explained
 
 JOB_KIND = "run_item"
@@ -928,8 +928,9 @@ _DELETE_GUARDS: list[Callable[[sqlite3.Connection, str], None]] = []
 
 def register_delete_guard(fn: Callable[[sqlite3.Connection, str], None]) -> None:
     """131: a module with its own rows for a package (a reconciliation package's scope) checks a deletion inside its
-    transaction: it raises `NotReady` to refuse it, or deletes its rows."""
-    _DELETE_GUARDS.append(fn)
+    transaction: it raises `NotReady` to refuse it, or deletes its rows. 173: a repeated registration adds nothing."""
+    if fn not in _DELETE_GUARDS:
+        _DELETE_GUARDS.append(fn)
 
 
 def _set_wp(wp_id: str, action: str, actor: str, **fields: Any) -> dict[str, Any]:
@@ -1136,7 +1137,7 @@ def _run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str,
                 arms: list[str | None]) -> dict[str, Decimal]:
     out: dict[str, Decimal] = {}
     for i, arm in zip(items, arms, strict=True):
-        if flow_for(r, i) == "native":
+        if native_flow(r, i):
             from jav.native_processing import estimate_limits
 
             per = dict(estimate_limits(params).provider_limits_usd) if params.get("arm") != "S" else {}
@@ -1176,12 +1177,12 @@ def run_plan(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, An
     plan = {"documents": len(docs), "emails": emails, **({"statement_tables": tables} if tables else {}),  # 136: code, free
             "attachments": sum(1 for i, _a in docs if i.get("parent_item_id")), "paths": paths,
             "tasks_emails": emails if value("tasks") == "propose" else 0,
-            "azure": value("azure_ocr") == "on" and any(flow_for(r, i) != "native" for i, _a in docs),
+            "azure": value("azure_ocr") == "on" and any(not native_flow(r, i) for i, _a in docs),
             "jev_reuse": value("jev_cache") != "live",
             "arm": value("arm"),  # 082: with S chosen, a document on the G path has a type without a JEV path
             "jev": not jev_off(r, params)}  # 086: without JEV, GPT recognises the type and every document runs on G
     if r.get("flows_by_suffix"):
-        plan.update(native_documents=sum(flow_for(r, i) == "native" for i, _a in docs),
+        plan.update(native_documents=sum(native_flow(r, i) for i, _a in docs),
                     item_flows={i["item_id"]: flow_for(r, i) for i in items})
     return plan
 
@@ -1202,12 +1203,19 @@ def _item_arm(r: dict[str, Any], params: dict[str, Any], item: dict[str, Any], k
     """The item's path known in advance (S / G), or None if the type is not known before the run (065)."""
     from jav import typepack
 
-    flow = flow_for(r, item)
-    if flow == "native":
+    spec = flows.get(flow_for(r, item))
+    if spec.native:
         return "S" if params.get("arm") == "S" else "G"
-    doc_type = params.get("doc_type") if flow == "invoice" else known.get(item.get("sha256", "")) if flow == "document" else None
+    # 173: where the document type is known before the run is the flow's registry entry
+    doc_type = (params.get("doc_type") if spec.doc_type == "params"
+                else known.get(item.get("sha256", "")) if spec.doc_type == "detected" else None)
     arm = "G" if jev_off(r, params) else params.get("arm", "auto")  # 086: without JEV only the G path runs
     return typepack.resolve_arm(doc_type, arm) if doc_type in packs else None
+
+
+def native_flow(r: dict[str, Any], item: dict[str, Any]) -> bool:
+    """173: whether the item's flow takes its budget and path from the native reader's estimate (the flow registry)."""
+    return flows.get(flow_for(r, item)).native
 
 
 def flow_for(r: dict[str, Any], item: dict[str, Any] | str | None) -> str:
@@ -1274,9 +1282,9 @@ def _item_checks(r: dict[str, Any], params: dict[str, Any], items: list[dict[str
         found: list[tuple[str, dict[str, str]]] = []
         if i["kind"] not in r["input_kinds"] or p.suffix.lower() not in r.get("file_suffixes", [p.suffix.lower()]):
             found.append(("blocker", {"code": "unsupported_item", "message": f"The processing does not handle: {p.name}"}))
-        elif p.suffix.lower() in NATIVE_SUFFIXES and flow_for(r, i) != "native":
+        elif p.suffix.lower() in NATIVE_SUFFIXES and not native_flow(r, i):
             found.append(("blocker", {"code": "native_recipe_required", "message": f"Choose multi-format processing for: {p.name}"}))
-        if flow_for(r, i) == "native" and params.get("arm") == "S":
+        if native_flow(r, i) and params.get("arm") == "S":
             found.append(("blocker", {"code": "native_s_unsupported", "message": "Native documents require GPT extraction; the JEV-only path has no predefined field contract."}))
         if i.get("instance"):
             if not _instance_ok(i, verify=verify):
