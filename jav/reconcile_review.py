@@ -66,7 +66,8 @@ def _place(line: dict[str, Any], sure: dict[str, list[str]], threshold: float) -
     """The line's group and what the group suggests for it: the invoices of a sure pair or a reason."""
     if line["id"] in sure:
         return "sure_pairs", {"invoice_ids": sure[line["id"]]}
-    if line["candidates"] or _money(line.get("allocated")) > 0:
+    # 174 (review 160 M-16): a candidate among another own party's invoices (133) keeps the line for a person too
+    if line["candidates"] or line.get("other_candidates") or _money(line.get("allocated")) > 0:
         return "rest", {}
     if earlier := line.get("earlier_marks"):
         return "earlier", {"category": earlier[0]["category"]}  # the most frequent first (the workspace's order)

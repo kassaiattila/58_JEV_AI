@@ -241,3 +241,15 @@ def test_m15_the_finder_reads_the_kept_workspace_without_copying_it(tmp_path, mo
         monkeypatch.setattr(rp, "workspace", no_copy)
         assert rp.matches(wp_id, t1)["line_id"] == t1
         assert rp.kept_workspace(wp_id) == before
+
+
+def test_m16_the_quick_review_never_marks_a_line_another_own_partys_invoice_may_pay() -> None:
+    """M-16: a line whose only candidate was another own party's invoice (133) went on to the groups that mark it as
+    needing no invoice (an earlier reason of its partner, the bank's category, the salary rule, the AI); it stays with
+    the rest, for a person."""
+    from jav import reconcile_review
+
+    line = {"id": "line-1", "candidates": [], "allocated": "0", "other_candidates": [{"invoice_id": "inv-club", "party": "Club"}],
+            "earlier_marks": [{"category": "fee", "lines": 3}], "direction": "debit"}
+    assert reconcile_review._place(line, {}, 0.9) == ("rest", {})
+    assert reconcile_review._place({**line, "other_candidates": []}, {}, 0.9) == ("earlier", {"category": "fee"})
