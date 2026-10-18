@@ -928,8 +928,9 @@ _DELETE_GUARDS: list[Callable[[sqlite3.Connection, str], None]] = []
 
 def register_delete_guard(fn: Callable[[sqlite3.Connection, str], None]) -> None:
     """131: a module with its own rows for a package (a reconciliation package's scope) checks a deletion inside its
-    transaction: it raises `NotReady` to refuse it, or deletes its rows."""
-    _DELETE_GUARDS.append(fn)
+    transaction: it raises `NotReady` to refuse it, or deletes its rows. 173: a repeated registration adds nothing."""
+    if fn not in _DELETE_GUARDS:
+        _DELETE_GUARDS.append(fn)
 
 
 def _set_wp(wp_id: str, action: str, actor: str, **fields: Any) -> dict[str, Any]:

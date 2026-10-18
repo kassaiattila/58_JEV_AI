@@ -123,10 +123,14 @@ def _migrate(conn) -> None:
 
 
 store.register_migration("reconcile_package", _migrate)
-parties.register_reference(
-    "reconcile_package",
-    count=lambda c, pid: c.execute("SELECT COUNT(*) FROM reconcile_scopes WHERE party_id=?", (pid,)).fetchone()[0],
-    repoint=lambda c, old, new: c.execute("UPDATE reconcile_scopes SET party_id=? WHERE party_id=?", (new, old)))
+
+
+def _count_party(c, pid: str) -> int:
+    return c.execute("SELECT COUNT(*) FROM reconcile_scopes WHERE party_id=?", (pid,)).fetchone()[0]
+
+
+def _repoint_party(c, old: str, new: str) -> None:
+    c.execute("UPDATE reconcile_scopes SET party_id=? WHERE party_id=?", (new, old))
 
 
 class PackageError(ValueError):
@@ -1488,4 +1492,7 @@ def _delete_guard(c, wp_id: str) -> None:
     c.execute("DELETE FROM reconcile_exclusions WHERE workpackage_id=?", (wp_id,))  # 169: no decision refers to them
 
 
-work.register_delete_guard(_delete_guard)
+def register() -> None:
+    """173 (plan 170 E2): the package kind's delete guard and its party reference (`registrations.load_all`)."""
+    work.register_delete_guard(_delete_guard)
+    parties.register_reference("reconcile_package", count=_count_party, repoint=_repoint_party)

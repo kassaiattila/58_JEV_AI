@@ -862,6 +862,9 @@ def cmd_email_injection_probe(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from jav import registrations
+
+    registrations.load_all()  # 173 (plan 170 E2): every command, the worker included, with all the registrations
     ap = argparse.ArgumentParser(prog="jav", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     from jav.learning_cli import register as register_learning

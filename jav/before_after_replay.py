@@ -499,12 +499,13 @@ def running_snapshot(baseline: Path, work_dir: Path, out: Path, *, size: int = S
     (`live_calls`); the snapshot is written anyway, so that the call can be looked at."""
     from fastapi.testclient import TestClient
 
-    from jav import datasets, store
+    from jav import datasets, registrations, store
     from jav.adapters import jev
     from jav.api import create_app
     from jav.config import CACHE_DIR
     from jav.runtime import calls
 
+    registrations.load_all()  # 173 (plan 170 E2): the worker's registrations (a package kind's rule), as when it starts
     for path in (out, work_dir):
         before_after._outside_git(path)
     if out.exists():
