@@ -422,7 +422,7 @@ def _satisfied(st: dict[str, Any]) -> bool:
     return _live_run_approved(st["workpackage_id"])
 
 
-STATUS_BY_NEXT = {"running": "running", "review": "review", "approve": "approve", "done": "approved",
+STATUS_BY_NEXT = {"running": "running", "review": "review", "release": "approve", "done": "approved",
                   "reconcile_approved": "approved", "reconcile_pair": "pairing", "reconcile_result": "pairing",
                   "reconcile_empty": "pairing", "start": "attention", "blocked": "attention", "rerun": "attention",
                   "go_live": "attention", "empty": "attention"}

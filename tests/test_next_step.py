@@ -26,7 +26,8 @@ def test_rules_in_order():
     review = next_step(WP, _run(mode="apply", status="needs_review", open_reasons=187))
     assert review == {"code": "review", "label": "Ellenőrzés: 187 teendő", "stage": "review", "params": {"n": 187}}
     assert next_step(WP, _run())["code"] == "go_live"
-    assert next_step(WP, _run(mode="apply")) == {"code": "approve", "label": "Jóváhagyás", "stage": "result", "params": {}}
+    # 172: the package's Approve and release
+    assert next_step(WP, _run(mode="apply")) == {"code": "release", "label": "Jóváhagyás és kiadás", "stage": "result", "params": {}}
     assert next_step(WP, _run(mode="apply", approval="approved"))["stage"] == "result"
 
 

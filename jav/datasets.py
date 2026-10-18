@@ -3,7 +3,9 @@ the service delivers through one uniform query (`jav/tablequery.py`).
 
 A dataset has a name, a label, a mandatory scope (e.g. `run_id`), a row builder and — if it is expensive — a
 fingerprint. The UI draws only from the column description, so a new output needs no UI code (decision of
-2026-09-28: a generic data viewer, not a custom UI per output).
+2026-09-28: a generic data viewer, not a custom UI per output). 172: a result table takes exactly one of a run
+(`run_id`, the run's own result) and a package (`workpackage_id`, its current result: each item in use from the run
+whose result counts now, `result_parts`); the run's table is built as before.
 
 Cache: building a run's result tables is expensive (it recomputes the source locations of corrected fields; about 10 s
 for 49 documents), while paging and filtering send a new request at every step. So the rows are kept until the
@@ -71,10 +73,11 @@ class Dataset:
     optional_scope: tuple[str, ...] = ()
     natural_sort: tuple[tuple[str, bool], ...] = ()  # 062: (column, descending): row order when no sort is requested
     refresh_behind: bool = False  # 153: an outdated value is served at once and rebuilt in the background
+    one_of: tuple[str, ...] = ()  # 172: exactly one of these scope keys (a result table: a run or a package)
 
     def spec(self) -> dict[str, Any]:
         return {"name": self.name, "label": self.label, "scope": list(self.scope), "optional_scope": list(self.optional_scope),
-                "natural_sort": [{"col": c, "desc": d} for c, d in self.natural_sort]}
+                "one_of": list(self.one_of), "natural_sort": [{"col": c, "desc": d} for c, d in self.natural_sort]}
 
 
 def _labels(name: str) -> dict[str, str]:
@@ -162,6 +165,23 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
                                      hashlib.sha256(str(left_out).encode("utf-8")).hexdigest()[:16]))
 
 
+def _package_fingerprint(scope: dict[str, str]) -> str:
+    """172: the package's result tables change with the items in use and their order, with which run's result counts
+    for each item (and its tier), and with each counted run's own data (`_run_fingerprint`)."""
+    from jav import package_result
+
+    wp = work.get(scope["workpackage_id"])
+    counted = package_result.in_use(wp)
+    parts = [[i["item_id"], *((x.run_id, x.tier) if (x := counted.get(i["item_id"])) else ())] for i in wp["items"]]
+    runs = sorted({x.run_id for x in counted.values()})
+    return hashlib.sha256(json.dumps([parts, [_run_fingerprint({"run_id": r}) for r in runs]]).encode("utf-8")).hexdigest()
+
+
+def _result_fingerprint(scope: dict[str, str]) -> str:
+    """A result table's fingerprint: its run's, or for the package's current result, the package's (172)."""
+    return _run_fingerprint(scope) if "run_id" in scope else _package_fingerprint(scope)
+
+
 def _calls_fingerprint(scope: dict[str, str]) -> str:
     """082: also a call's settlement (a finished or a resolved uncertain call changes its state and cost)."""
     with store.connect() as c:
@@ -183,6 +203,7 @@ LIST_INPUTS: dict[str, str | None] = {
     "run_items": "SUM(status='done'), MAX(updated_at)",
     "review_reasons": "SUM(status='open'), MAX(closed_at)",
     "review_queue": "SUM(status='open')",
+    "package_versions": None,  # 172: a released version ends the "Approve and release" step (also one recorded afterwards)
 }
 
 
@@ -532,14 +553,69 @@ def _package_costs(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
+# --- a result table's scope: a run, or the package's current result (172) ---------------------------------------
+
+
+def result_parts(scope: dict[str, str]) -> list[tuple[dict[str, Any], frozenset[str] | None]]:
+    """The runs a result table reads, each with the items it gives (None: all the run's items). A run's table reads its
+    run; the package's current result reads, for each item in use, the run whose result counts now
+    (`package_result.in_use`), the runs in the order they were started."""
+    if "run_id" in scope:
+        return [(work.get_run(scope["run_id"]), None)]
+    from jav import package_result
+
+    by_run: dict[str, set[str]] = {}
+    for item, x in package_result.in_use(work.get(scope["workpackage_id"])).items():
+        by_run.setdefault(x.run_id, set()).add(item)
+    runs = sorted((work.get_run(r) for r in by_run), key=lambda r: (r["created_at"], r["run_id"]))
+    return [(r, frozenset(by_run[r["run_id"]])) for r in runs]
+
+
+def _merged(scope: dict[str, str], read: Callable[[str], list[dict[str, Any]]]) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+    """The records `read(run_id)` gives for the scope (`result_parts`), and the run each item's record came from. A
+    run's records keep their order; the package's follow its item order."""
+    records: list[dict[str, Any]] = []
+    run_of: dict[str, dict[str, Any]] = {}
+    for run, items in result_parts(scope):
+        for r in read(run["run_id"]):
+            if items is None or r["item_id"] in items:
+                records.append(r)
+                run_of[r["item_id"]] = run
+    if "workpackage_id" in scope:
+        order = {i["item_id"]: n for n, i in enumerate(work.get(scope["workpackage_id"])["items"])}
+        records.sort(key=lambda r: order.get(r["item_id"], len(order)))  # stable: an item's records keep their order
+    return records, run_of
+
+
+def result_records(scope: dict[str, str]) -> list[dict[str, Any]]:
+    """The effective data of the scope's documents (`run_records` of a run, or of each item's counted run)."""
+    return _merged(scope, run_records)[0]
+
+
+def _linker(scope: dict[str, str], run_of: dict[str, dict[str, Any]]) -> Callable[[str | None], dict[str, Any]]:
+    """A row's link fields by its item: its package, and the run its item's record came from (in the package's result,
+    a row without an item, such as a utility-cost cell, names no run)."""
+    if "run_id" in scope:
+        run = next(iter(run_of.values()), None) or work.get_run(scope["run_id"])
+        fixed = {"_wp": run["workpackage_id"], "_run": run["run_id"]}
+        return lambda _item: fixed
+    wp_id = scope["workpackage_id"]
+
+    def link(item_id: str | None) -> dict[str, Any]:
+        run = run_of.get(item_id) if item_id else None
+        return {"_wp": wp_id, "_run": run["run_id"] if run else None}
+
+    return link
+
+
 def _emails(scope: dict[str, str]) -> Rows:
     """058 K5.1: the run's emails — intent (with the manual correction), suggested next step, attachments, and how much
     of the email's text the recognition saw."""
     from jav import export
 
-    run = work.get_run(scope["run_id"])
     doc_types = _labels("doc_type")
-    records = export.email_records(run["run_id"])
+    records, run_of = _merged(scope, export.email_records)
+    link = _linker(scope, run_of)
     cols = [
         _col("subject", "Tárgy", link="item"),
         _col("sender", "Feladó"),
@@ -564,7 +640,7 @@ def _emails(scope: dict[str, str]) -> Rows:
         # 126: the type each attachment was processed as (`shown_type`), else the recognised one
         shown = [a.get("shown_type") or a.get("doc_type") for a in r["attachments"]]
         types = sorted({doc_types.get(x, x) for x in shown if x})
-        rows.append({"_key": r["item_id"], "_wp": run["workpackage_id"], "_run": run["run_id"], "item_id": r["item_id"],
+        rows.append({"_key": r["item_id"], **link(r["item_id"]), "item_id": r["item_id"],
                      "message_id": r["message_id"], "subject": r["subject"] or "(tárgy nélkül)", "sender": r["sender"],
                      "received_at": r["received_at"], "mailbox": r["mailbox"], "intent": r["intent"],
                      "machine_intent": r["machine_intent"], "confidence": r["confidence"],
@@ -579,7 +655,8 @@ def _email_tasks(scope: dict[str, str]) -> Rows:
     """058 K5.3: the task proposals, one per row, with the evidence and the human decision (only a person accepts)."""
     from jav import export
 
-    run = work.get_run(scope["run_id"])
+    records, run_of = _merged(scope, export.email_records)
+    link = _linker(scope, run_of)
     cols = [
         _col("subject", "Levél", link="item"),
         _col("action", "Akció", "enum", labels="task_action"),
@@ -594,8 +671,7 @@ def _email_tasks(scope: dict[str, str]) -> Rows:
         _col("done_by", "Elvégezte", hidden=True),
         _col("item_id", "Tétel-azonosító", "id", hidden=True),
     ]
-    rows = [{**t, "_key": f"{t['item_id']}:{t['index']}", "_wp": run["workpackage_id"], "_run": run["run_id"]}
-            for t in export.task_rows(export.email_records(run["run_id"]))]
+    rows = [{**t, "_key": f"{t['item_id']}:{t['index']}", **link(t["item_id"])} for t in export.task_rows(records)]
     return cols, rows
 
 
@@ -621,17 +697,26 @@ def _fixed(keys: list[tuple[str, str, str]]) -> list[Column]:
             for k, label, kind in keys]
 
 
-def _zip_rows(keys: list[str], rows: list[list[Any]], run: dict[str, Any], key_of: Callable[[dict[str, Any]], str]) -> list[dict[str, Any]]:
+def _zip_rows(keys: list[str], rows: list[list[Any]], link: Callable[[str | None], dict[str, Any]],
+              key_of: Callable[[dict[str, Any]], str]) -> list[dict[str, Any]]:
     out = []
     for row in rows:
         d = dict(zip(keys, row, strict=False))
-        d.update({"_run": run["run_id"], "_wp": run["workpackage_id"], "_key": key_of(d)})
+        to = link(d.get("item_id"))
+        d.update({"_run": to["_run"], "_wp": to["_wp"], "_key": key_of(d)})
         out.append(d)
     return out
 
 
-def _records(scope: dict[str, str]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    return work.get_run(scope["run_id"]), run_records(scope["run_id"])
+def _run_wp(to: dict[str, Any]) -> dict[str, Any]:
+    """The link fields in the order the record tables have always written them."""
+    return {"_run": to["_run"], "_wp": to["_wp"]}
+
+
+def _records(scope: dict[str, str]) -> tuple[Callable[[str | None], dict[str, Any]], list[dict[str, Any]]]:
+    """The scope's documents' effective data, and a row's link fields by its item (`_linker`)."""
+    records, run_of = _merged(scope, run_records)
+    return _linker(scope, run_of), records
 
 
 def run_records(run_id: str) -> list[dict[str, Any]]:
@@ -659,7 +744,7 @@ def _field_kind(kind: str | None) -> str:
 def _documents(scope: dict[str, str]) -> Rows:
     from jav import export
 
-    run, records = _records(scope)
+    link, records = _records(scope)
     head, rows = export.documents_table(records)
     kinds: dict[str, str] = {}
     for r in records:
@@ -673,23 +758,23 @@ def _documents(scope: dict[str, str]) -> Rows:
         cols = [replace(c, hidden=True) if c.key in ("duplicate", "duplicate_of") else c for c in cols]
     if not any(row[len(_DOC_KEYS) - 1] for row in rows):  # 147: shown only when a document is an invoice
         cols = [replace(c, hidden=True) if c.key == "direction" else c for c in cols]
-    return cols, _zip_rows([c.key for c in cols], rows, run, lambda d: d["item_id"])
+    return cols, _zip_rows([c.key for c in cols], rows, link, lambda d: d["item_id"])
 
 
 def _datapoints(scope: dict[str, str]) -> Rows:
     from jav import export
 
-    run, records = _records(scope)
+    link, records = _records(scope)
     _head, rows = export.datapoints_table(records)
     cols = _fixed(_DP_KEYS)
-    return cols, _zip_rows([c.key for c in cols], rows, run, lambda d: f"{d['item_id']}:{d['field']}")
+    return cols, _zip_rows([c.key for c in cols], rows, link, lambda d: f"{d['item_id']}:{d['field']}")
 
 
 def _native_facts(scope: dict[str, str]) -> Rows:
     from jav import export
 
-    run = work.get_run(scope["run_id"])
-    _head, records = export.native_facts_table(export.native_records(scope["run_id"]))
+    native, run_of = _merged(scope, export.native_records)
+    _head, records = export.native_facts_table(native)
     # 120: the readable source column is shown; the citation JSON and the constant correctness stay technical, and the
     # machine states get their everyday labels
     hidden = {"item_id", "fact_id", "result_version", "proposal", "reading_gaps", "source_citations", "correctness"}
@@ -697,13 +782,13 @@ def _native_facts(scope: dict[str, str]) -> Rows:
     cols = [_col(key, label, "enum" if key in states else "text", labels="native_state" if key in states else None,
                  hidden=key in hidden)
             for key, label in zip(export.NATIVE_COLUMNS, export.NATIVE_HEAD, strict=True)]
-    return cols, _zip_rows(list(export.NATIVE_COLUMNS), records, run, lambda row: f"{row['item_id']}:{row['fact_id']}")
+    return cols, _zip_rows(list(export.NATIVE_COLUMNS), records, _linker(scope, run_of), lambda row: f"{row['item_id']}:{row['fact_id']}")
 
 
 def _line_items(scope: dict[str, str]) -> Rows:
     from jav import export
 
-    run, records = _records(scope)
+    link, records = _records(scope)
     head, rows = export.line_items_table(records)
     extra = head[len(_LI_KEYS):]
     list_kinds: dict[str, str] = {}
@@ -714,7 +799,7 @@ def _line_items(scope: dict[str, str]) -> Rows:
             for c, k in lf.items():
                 list_kinds.setdefault(c, k)
     cols = _fixed(_LI_KEYS) + [_col(f"c:{c}", _column_label(c), _field_kind(list_kinds.get(c)), field=c) for c in extra]
-    return cols, _zip_rows([c.key for c in cols], rows, run, lambda d: f"{d['item_id']}:{d['list']}:{d['row']}")
+    return cols, _zip_rows([c.key for c in cols], rows, link, lambda d: f"{d['item_id']}:{d['list']}:{d['row']}")
 
 
 def _file_names(scope: dict[str, str]) -> Rows:
@@ -758,16 +843,17 @@ def _calls(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
-def _utility_report(scope: dict[str, str]) -> tuple[dict[str, Any], dict[str, Any]]:
+def _utility_report(scope: dict[str, str]) -> tuple[Callable[[str | None], dict[str, Any]], dict[str, Any]]:
     from jav import report_utility
 
-    run, records = _records(scope)
-    return run, report_utility.build(records)
+    link, records = _records(scope)
+    return link, report_utility.build(records)
 
 
 def _utility_cost(scope: dict[str, str]) -> Rows:
     """The monthly utility-cost grid in long form: consumption point × utility × month per row (pivotable in Excel)."""
-    run, rep = _utility_report(scope)
+    link, rep = _utility_report(scope)
+    to = link(None)
     cols = [
         _col("address", "Fogyasztási hely"),
         _col("utility", "Közmű", "enum"),
@@ -784,7 +870,7 @@ def _utility_cost(scope: dict[str, str]) -> Rows:
     rows = []
     for s_ in rep["series"]:
         for m, c in s_["cells"].items():
-            rows.append({"_key": f"{s_['address']}|{s_['utility']}|{m}", "_run": run["run_id"], "_wp": run["workpackage_id"],
+            rows.append({"_key": f"{s_['address']}|{s_['utility']}|{m}", "_run": to["_run"], "_wp": to["_wp"],
                          "address": s_["address"], "utility": s_["utility"], "month": m, "status": c["status"], "amount": c["amount"],
                          "consumption": c["consumption"], "unit": s_["consumption_unit"], "settlement": "igen" if c["settlement"] else None,
                          "summary_only": "igen" if s_["summary_only"] else None, "bills": len(c["sources"]),
@@ -794,7 +880,7 @@ def _utility_cost(scope: dict[str, str]) -> Rows:
 
 def _utility_sources(scope: dict[str, str]) -> Rows:
     """Source invoices of each utility-cost cell (the report's "Közmű-források" sheet): cell → document, page, sum."""
-    run, rep = _utility_report(scope)
+    link, rep = _utility_report(scope)
     cols = [
         _col("address", "Fogyasztási hely"),
         _col("utility", "Közmű", "enum"),
@@ -812,16 +898,16 @@ def _utility_sources(scope: dict[str, str]) -> Rows:
     for s_ in rep["series"]:
         for m, c in s_["cells"].items():
             for i, x in enumerate(c["sources"]):
-                rows.append({"_key": f"{s_['address']}|{s_['utility']}|{m}|{i}", "_run": run["run_id"], "_wp": run["workpackage_id"],
+                rows.append({"_key": f"{s_['address']}|{s_['utility']}|{m}|{i}", **_run_wp(link(x["item_id"])),
                              "address": s_["address"], "utility": s_["utility"], "month": m,
                              "status": "settlement" if x.get("settlement") else c["status"], "amount": x["amount"], "file": x["file"],
                              "page": x["page"], "field": x["field"], "corrected": "igen" if x["corrected"] else None,
                              "open_reasons": x["open_reasons"], "item_id": x["item_id"]})
     for u in rep["unplaced"]:
-        rows.append({"_key": f"unplaced|{u['item_id']}", "_run": run["run_id"], "_wp": run["workpackage_id"], "status": u["reason"],
+        rows.append({"_key": f"unplaced|{u['item_id']}", **_run_wp(link(u["item_id"])), "status": u["reason"],
                      "file": u["file"], "item_id": u["item_id"]})
     for d in rep.get("duplicates", []):
-        rows.append({"_key": f"duplicate|{d['item_id']}", "_run": run["run_id"], "_wp": run["workpackage_id"], "status": "duplicate",
+        rows.append({"_key": f"duplicate|{d['item_id']}", **_run_wp(link(d["item_id"])), "status": "duplicate",
                      "file": d["file"], "item_id": d["item_id"]})
     return cols, rows
 
@@ -851,6 +937,8 @@ def _mailbox_pulls(_scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
+RESULT_SCOPE = ("run_id", "workpackage_id")
+
 REGISTRY: dict[str, Dataset] = {d.name: d for d in [
     Dataset("runs", "Futások", (), _runs, optional_scope=("workpackage_id",)),
     Dataset("workpackages", "Munkacsomagok", (), _workpackages, _workpackages_fingerprint, optional_scope=("include_archived", "owner"),
@@ -860,14 +948,15 @@ REGISTRY: dict[str, Dataset] = {d.name: d for d in [
             optional_scope=("others", "left_out")),
     Dataset("run_items", "Futás tételei", ("run_id",), _run_items, _run_items_fingerprint, optional_scope=("names",)),
     Dataset("package_costs", "A csomag költsége", ("workpackage_id",), _package_costs),
-    Dataset("emails", "Levelek", ("run_id",), _emails, _run_fingerprint),
-    Dataset("email_tasks", "Feladatjavaslatok", ("run_id",), _email_tasks, _run_fingerprint),
-    Dataset("documents", "Iratok", ("run_id",), _documents, _run_fingerprint),
-    Dataset("datapoints", "Adatpontok", ("run_id",), _datapoints, _run_fingerprint),
-    Dataset("native_facts", "Native facts", ("run_id",), _native_facts, _run_fingerprint),
-    Dataset("line_items", "Tételsorok", ("run_id",), _line_items, _run_fingerprint),
-    Dataset("utility_cost", "Közmű-költség havonta", ("run_id",), _utility_cost, _run_fingerprint),
-    Dataset("utility_sources", "Közmű-költség forrásai", ("run_id",), _utility_sources, _run_fingerprint),
+    # 172: a result table is a run's, or the package's current result (each item from its counted run)
+    Dataset("emails", "Levelek", (), _emails, _result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("email_tasks", "Feladatjavaslatok", (), _email_tasks, _result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("documents", "Iratok", (), _documents, _result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("datapoints", "Adatpontok", (), _datapoints, _result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("native_facts", "Native facts", (), _native_facts, _result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("line_items", "Tételsorok", (), _line_items, _result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("utility_cost", "Közmű-költség havonta", (), _utility_cost, _result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("utility_sources", "Közmű-költség forrásai", (), _utility_sources, _result_fingerprint, one_of=RESULT_SCOPE),
     Dataset("file_names", "Fájlnevek", ("run_id",), _file_names, _run_fingerprint),
     Dataset("calls", "Hívásnapló", ("run_id",), _calls, _calls_fingerprint),
     Dataset("mailbox_pulls", "Postafiók-letöltések", (), _mailbox_pulls),
@@ -895,7 +984,9 @@ def _scope_of(ds: Dataset, scope: dict[str, str] | None) -> dict[str, str]:
     missing = [k for k in ds.scope if k not in scope]
     if missing:
         raise MissingScope(f"dataset {ds.name} needs scope: {', '.join(missing)}")
-    return {k: scope[k] for k in (*ds.scope, *ds.optional_scope) if k in scope}
+    if ds.one_of and sum(k in scope for k in ds.one_of) != 1:
+        raise MissingScope(f"dataset {ds.name} needs exactly one scope of: {', '.join(ds.one_of)}")
+    return {k: scope[k] for k in (*ds.scope, *ds.one_of, *ds.optional_scope) if k in scope}
 
 
 def rows(name: str, scope: dict[str, str] | None = None) -> Rows:
@@ -1004,17 +1095,24 @@ def query(name: str, scope: dict[str, str] | None, q: Query) -> dict[str, Any]:
     """086 (audit of 2026-10-02, N01): a run's table carries the version of the reviewed result it shows
     (`review_version`), so the approval names exactly what the approver saw. The version is read before the rows: the
     rows are never older than it (the cache is keyed by a fingerprint of the same corrections and decisions), and rows
-    newer than it make the approval fail with a conflict, the safe side."""
-    version = None
+    newer than it make the approval fail with a conflict, the safe side. 172: a table of the package's current result
+    carries the result's mark (`result_mark`) the same way, for Approve and release."""
+    version = mark = None
+    ds = get(name)
     if scope and scope.get("run_id"):
         from jav import corrections
 
         version = corrections.review_version(scope["run_id"])
+    elif ds.one_of and scope and scope.get("workpackage_id"):
+        from jav import package_release
+
+        mark = package_release.result_mark(scope["workpackage_id"])  # 172: what Approve and release names
     (cols, all_rows), refreshing = _rows(name, scope, stale_ok=True)
-    ds = get(name)
     page = {"dataset": ds.spec(), **run_query(cols, all_rows, q)}
     if version is not None:
         page["review_version"] = version
+    if mark is not None:
+        page["result_mark"] = mark
     if refreshing:
         page["refreshing"] = True  # 153: these are the last rows; newer ones are being built
     return work_views.jsonable(page)
@@ -1108,5 +1206,6 @@ def clear_cache() -> None:
         _cache.clear()
 
 
-__all__ = ["REGISTRY", "Dataset", "MissingScope", "UnknownDataset", "catalog", "clear_cache", "export_file", "export_rows",
-           "get", "query", "rows", "run_records", "wait_for_rebuilds", "warm_up"]
+__all__ = ["REGISTRY", "RESULT_SCOPE", "Dataset", "MissingScope", "UnknownDataset", "catalog", "clear_cache", "export_file",
+           "export_rows", "get", "query", "result_parts", "result_records", "rows", "run_records", "wait_for_rebuilds",
+           "warm_up"]

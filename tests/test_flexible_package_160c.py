@@ -384,7 +384,11 @@ def test_the_oldest_open_live_run_is_the_packages_current_one_and_the_others_sho
     _resolve(c, wp["id"], second)
     assert c.post(f"/api/runs/{second}/approve", json={}, headers=HUMAN).status_code == 200
     view = c.get(f"/api/workpackages/{wp['id']}").json()
-    assert view["next"]["code"] == "done" and view["open_runs"] == []
+    # 172: runs approved one by one (the way before v1.20.0) still need the package's release, which records a version
+    assert view["next"]["code"] == "release" and view["open_runs"] == []
+    mark = c.get(f"/api/workpackages/{wp['id']}/result").json()["mark"]
+    assert c.post(f"/api/workpackages/{wp['id']}/release", headers=HUMAN, json={"expected_mark": mark}).status_code == 200
+    assert c.get(f"/api/workpackages/{wp['id']}").json()["next"]["code"] == "done"
     approved = work.get_run(first)
     assert approved["approval"] == "approved" and len(approved["input"]["items"]) == 2  # untouched by the later run
     assert _exported_items(c, first) == {i["item_id"] for i in wp["items"]}

@@ -1,9 +1,9 @@
 // 160-C S1 (decisions 163 D2, D3, D7): removing a package's item names the person and needs a reason; removed items
-// show behind a switch and can be restored; the approval of a run with removed items says so and sends the count it
-// showed. Artificial data, no service.
+// show behind a switch and can be restored; the release of a package with removed items says so and sends the count
+// it showed (172: the package's Approve and release). Artificial data, no service.
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { api, type DsPage, type DsRow, type RunView, type Workpackage, type WorkpackageView } from "./api";
+import { api, type DsPage, type DsRow, type PackageResult, type RunView, type Workpackage, type WorkpackageView } from "./api";
 import { setLanguage } from "./i18n";
 import { PackageItemsPanel } from "./views/PackageItems";
 import { ResultStage } from "./views/ResultStage";
@@ -97,13 +97,16 @@ it("the review list marks a removed item and does not count its to-dos as the ru
 
 const VIEW = { workpackage: { id: "wp-1" }, last_run: { run_id: "run-1" }, runs: 1 } as unknown as WorkpackageView;
 
-it("the approval of a run with a removed item names it, leaves its to-dos out and sends the count", async () => {
+it("the release of a package with a removed item names it and sends the count", async () => {
+  // 172: the package's Approve and release (the run's own line has no approval)
   rows.current = [];
   vi.spyOn(api, "run").mockResolvedValue({ run: { run_id: "run-1", mode: "apply", status: "done", approval: null },
     tables: ["datapoints"], open_reasons: { "doc-1": [{ reason: "pick" }] }, review_version: "v1",
     removed_items: ["doc-1"] } as unknown as RunView);
-  vi.spyOn(api, "datasetQuery").mockResolvedValue({ rows: [], review_version: "v1" } as unknown as DsPage);
-  const approve = vi.spyOn(api, "approve").mockResolvedValue({} as RunView);
+  vi.spyOn(api, "packageResult").mockResolvedValue({ workpackage_id: "wp-1", mark: "m1", open_live_runs: ["run-1"], removed_items: 1,
+    blockers: [], state: "not_released", versions: [], tables: ["datapoints"],
+    items: [{ item_id: "doc-2", kind: "document", file: "b.pdf", tier: "live", run_id: "run-1", final_status: "done", released: false }] } as PackageResult);
+  const give = vi.spyOn(api, "releasePackage").mockResolvedValue({} as never);
   const { container } = render(<ResultStage view={VIEW} onChanged={() => {}} />);
   await waitFor(() => expect(container.querySelector(".release-line")).not.toBeNull());
   const line = container.querySelector(".release-line") as HTMLElement;
@@ -112,8 +115,8 @@ it("the approval of a run with a removed item names it, leaves its to-dos out an
   const button = line.querySelector("button") as HTMLButtonElement;
   await waitFor(() => expect(button.disabled).toBe(false));
   fireEvent.click(button);
-  fireEvent.click(button); // the approval needs two clicks
-  await waitFor(() => expect(approve).toHaveBeenCalledWith("run-1", "v1", 1));
+  fireEvent.click(button); // the release needs two clicks
+  await waitFor(() => expect(give).toHaveBeenCalledWith("wp-1", "m1", 1));
 });
 
 // --- S2: adding to an existing package ---------------------------------------------------------------------------

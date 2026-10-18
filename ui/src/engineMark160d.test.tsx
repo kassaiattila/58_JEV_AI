@@ -1,10 +1,11 @@
 // 160-D (plan F-csak-gpt Sz6, L6; decision 160 D3): which AI engine produced a result is shown with it. The engine is a
 // fact about the run, not a state: a neutral mark with no state colour and no accent, on the release line beside the
-// approval, on the review bar and beside an email's recognised intent. An intent taken from another run, and a view
-// from an older service, have no engine and show no mark. Artificial data, no service.
+// approval (172: the package's Approve and release, beside each open live run it approves), on the review bar and
+// beside an email's recognised intent. An intent taken from another run, and a view from an older service, have no
+// engine and show no mark. Artificial data, no service.
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type DsPage, type ItemResult, type RunView, type WorkpackageView } from "./api";
+import { api, setActor, type DsPage, type ItemResult, type PackageResult, type RunView, type WorkpackageView } from "./api";
 import { EngineMark } from "./components/EngineMark";
 import { setLanguage } from "./i18n";
 import { EmailReview } from "./review/EmailReview";
@@ -38,17 +39,22 @@ describe("the AI engine mark", () => {
   });
 });
 
-const VIEW = { workpackage: { id: "wp-1" }, last_run: { run_id: "run-1" }, runs: 1 } as unknown as WorkpackageView;
+const VIEW = { workpackage: { id: "wp-1", revision: 1 }, last_run: { run_id: "run-1" }, current_run: { run_id: "run-1", status: "done" },
+  runs: 1 } as unknown as WorkpackageView;
 
-function release(engine?: string | null) {
+function release(engine?: string | null, runId?: string) {
   vi.spyOn(api, "run").mockResolvedValue({ run: { run_id: "run-1", mode: "apply", status: "done", approval: null },
     tables: ["datapoints"], open_reasons: {}, review_version: "v1", ...(engine === undefined ? {} : { engine }) } as unknown as RunView);
-  vi.spyOn(api, "datasetQuery").mockResolvedValue({ rows: [], review_version: "v1" } as unknown as DsPage);
-  return render(<ResultStage view={VIEW} onChanged={() => {}} />).container;
+  vi.spyOn(api, "datasetQuery").mockResolvedValue({ rows: [], review_version: "v1", result_mark: "m1" } as unknown as DsPage);
+  vi.spyOn(api, "packageResult").mockResolvedValue({ workpackage_id: "wp-1", mark: "m1", open_live_runs: ["run-1"], removed_items: 0,
+    blockers: [], state: "not_released", versions: [], tables: ["datapoints"],
+    items: [{ item_id: "doc-1", kind: "document", file: "a.pdf", tier: "live", run_id: "run-1", final_status: "done", released: false }] } as PackageResult);
+  return render(<ResultStage view={VIEW} runId={runId} onChanged={() => {}} />).container;
 }
 
-describe("the approval shows the engine of the run it releases", () => {
-  it("a GPT only run carries its mark beside the approval", async () => {
+// 172: the package's Approve and release shows the engine of each open live run it approves; a run's own line shows its
+describe("the release shows the engine of the run it approves", () => {
+  it("a GPT only run carries its mark beside the release", async () => {
     const container = release("gpt");
     await waitFor(() => expect(container.querySelector(".release-line .engine-mark")).not.toBeNull());
     expect(container.querySelector(".release-line .engine-mark")?.textContent).toBe("AI engine: GPT only");
@@ -62,6 +68,11 @@ describe("the approval shows the engine of the run it releases", () => {
     const old = release();
     await waitFor(() => expect(old.querySelector(".release-line")).not.toBeNull());
     expect(old.querySelector(".engine-mark")).toBeNull();
+  });
+
+  it("a run's own line shows its engine", async () => {
+    const container = release("gpt", "run-1");
+    await waitFor(() => expect(container.querySelector(".release-line .engine-mark")?.textContent).toBe("AI engine: GPT only"));
   });
 });
 

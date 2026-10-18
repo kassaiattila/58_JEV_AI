@@ -20,6 +20,8 @@ interface Props {
   placeholder?: string;
   hideLabel?: boolean;
   limit?: number;
+  /** 172: options before the dataset's rows (e.g. the package's current result before its runs) */
+  extra?: PickerOption[];
 }
 
 export function DatasetPicker(p: Props) {
@@ -48,7 +50,7 @@ export function DatasetPicker(p: Props) {
   }, [p.dataset, scopeKey, debounced]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!p.value) { setSelected(null); return; }
+    if (!p.value || p.extra?.some((o) => o.value === p.value)) { setSelected(null); return; }
     const hit = rows.find((r) => p.toOption(r).value === p.value);
     if (hit) { setSelected({ value: p.value, row: hit }); return; }
     if (selected?.value === p.value) return;
@@ -59,8 +61,9 @@ export function DatasetPicker(p: Props) {
     return () => { alive = false; };
   }, [p.value, rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const options = rows.map(p.toOption);
-  const selectedLabel = selected ? (selected.row ? p.toOption(selected.row).label : selected.value) : undefined;
+  const options = [...(p.extra ?? []), ...rows.map(p.toOption)];
+  const fixed = p.extra?.find((o) => o.value === p.value);
+  const selectedLabel = fixed ? fixed.label : selected ? (selected.row ? p.toOption(selected.row).label : selected.value) : undefined;
   return (
     <Picker label={p.label} value={p.value} options={options} onChange={p.onChange} onSearch={setQ} loading={loading}
       selectedLabel={selectedLabel} placeholder={p.placeholder} hideLabel={p.hideLabel} more={more} />

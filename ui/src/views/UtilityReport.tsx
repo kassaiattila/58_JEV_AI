@@ -15,10 +15,12 @@ const statusText = (s: string) => STATUS[s] ?? "";
 export const huf = (v: string | null | undefined) =>
   v === null || v === undefined ? "" : Number(v).toLocaleString(getLocale(), { maximumFractionDigits: 2 });
 
-/** The monthly utility cost grid for one run, with the source invoices per cell (part of the Result section, 057). */
-export function UtilityPanel({ runId, wpId }: { runId: string; wpId: string }) {
+/** The monthly utility cost grid for one run, with the source invoices per cell (part of the Result section, 057).
+ *  172: without a run, of the package's current result (each item from its counted run). */
+export function UtilityPanel({ runId, wpId }: { runId?: string; wpId: string }) {
   useLocale();
-  const rep = useLoad(`utility:${runId}`, () => api.utilityCost(runId));
+  const rep = useLoad(runId ? `utility:${runId}` : `utility:package:${wpId}`,
+    () => (runId ? api.utilityCost(runId) : api.packageUtilityCost(wpId)));
   const [cell, setCell] = useState<{ key: string; month: string; data: UtilityCell } | null>(null);
   return (
     <section className="card wide" aria-label={t("Közmű-költség")}>

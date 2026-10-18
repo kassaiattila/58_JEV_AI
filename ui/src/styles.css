@@ -632,6 +632,12 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .engine-mark { display: inline-flex; align-items: center; font-size: var(--fs-xs); font-weight: 500; line-height: 18px;
   color: var(--ink-2); padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); white-space: nowrap; }
 .release-line > [role="status"] { flex-basis: 100%; }
+.release-line > a.small-btn { margin-left: auto; } /* 172: a run's line leads to the package's result, where it is approved */
+/* 172: the package's released versions — a quiet fold under the release line; each version's stored downloads */
+.release-versions > summary { cursor: pointer; width: fit-content; font-size: var(--fs-sm); font-weight: 500; color: var(--ink-2); }
+.release-versions > summary:hover { color: var(--ink); }
+.release-versions > .table { margin-top: var(--sp-2); width: auto; min-width: min(100%, 720px); }
+.release-files { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); }
 /* 078: the content-named copies above the File names table: the explanation, then the two actions, on one row */
 .named-copies { display: flex; gap: var(--sp-2) var(--sp-4); align-items: center; flex-wrap: wrap; }
 .named-copies > span:first-child { flex: 1 1 520px; color: var(--ink-2); text-wrap: pretty; }
