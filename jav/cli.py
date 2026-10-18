@@ -731,6 +731,31 @@ def cmd_before_after_snapshot(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_before_after_replay(args: argparse.Namespace) -> int:
+    """173 (plan 170, E0b): a sample of the backed-up store's items processed again on a fresh copy, from earlier
+    answers only (free: placeholder keys, closed network, no budget); exit code 3 if a replayed run made a live call."""
+    from jav import before_after, before_after_replay
+
+    try:
+        result = before_after_replay.running_snapshot(Path(args.baseline), Path(args.work), Path(args.out),
+                                                      size=args.size, jev_cache=Path(args.jev_cache) if args.jev_cache else None)
+    except before_after.SnapshotError as exc:
+        print(f"no replay: {exc}")
+        return 2
+    print(f"replayed: {result['units']} units, {result['items']} items, {result['strata']} strata "
+          f"({result['answered_strata']} with every earlier answer in the first round); {result['views']} views")
+    print(f"answers missing (a to-do instead of a call): {result['missing_answers']}; "
+          f"items ending as their original: {result['same_as_original']} of {result['items']}")
+    print(f"written: {args.out}")
+    if not result["passed"]:
+        print(f"GATE FAILED: {result['live_calls']} calls were not earlier answers")
+        for call in result["live"]:
+            print(f"- {call['source']}: {call['run_id']} {call['step']} {call['provider']} {call['status']}")
+        return 3
+    print("gate passed: no live call")
+    return 0
+
+
 def cmd_before_after_diff(args: argparse.Namespace) -> int:
     """171 (plan 170, E0): the views missing on one side or differing between two snapshots; exit code 1 if any."""
     from jav import before_after
@@ -1024,6 +1049,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-items", action="store_true", help="leave out the item results of every run (faster)")
     p.add_argument("--matches", action="store_true", help="also the proposed pairs of every reconciliation line (slow)")
     p.set_defaults(fn=cmd_before_after_snapshot)
+
+    p = sub.add_parser("before-after-replay", help="173: a sample of the backed-up store's items processed again on a fresh copy, "
+                                                   "from earlier answers only, for the before/after comparison (free)")
+    p.add_argument("baseline", help="a backup folder (python -m jav.cli backup) or a store file")
+    p.add_argument("--work", required=True, help="the folder of the fresh copy (replaced; outside git; the same for both replays)")
+    p.add_argument("--out", required=True, help="the replay file to write (JSON lines; personal data, outside git)")
+    p.add_argument("--size", type=int, default=150, help="about how many units to replay (default 150; every stratum at least once)")
+    p.add_argument("--jev-cache", help="the JEV answer cache to read (default: runs/cache)")
+    p.set_defaults(fn=cmd_before_after_replay)
 
     p = sub.add_parser("before-after-diff", help="171: the views that differ between two snapshots (exit code 1 if any)")
     p.add_argument("before")

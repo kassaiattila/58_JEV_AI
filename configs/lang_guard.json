@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.65",
+    "version": "1.0.66",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.66",
+        "date": "2026-10-18",
+        "note": "173: accept the Hungarian column of the replay-from-earlier-answers glossary entry (docs/GLOSSARY.md); lower ui/src/views/ResultStage.tsx to its current count (19 -> 17)."
+      },
       {
         "version": "1.0.65",
         "date": "2026-10-18",
@@ -459,7 +464,7 @@
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 278,
+    "docs/GLOSSARY.md": 279,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 9,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -762,7 +767,7 @@
     "ui/src/views/PackageCosts.tsx": 8,
     "ui/src/views/ProcessStage.tsx": 49,
     "ui/src/views/RecipeInfo.tsx": 14,
-    "ui/src/views/ResultStage.tsx": 19,
+    "ui/src/views/ResultStage.tsx": 17,
     "ui/src/views/ReviewWorkspace.tsx": 24,
     "ui/src/views/Runs.tsx": 42,
     "ui/src/views/Settings.tsx": 18,

@@ -56,6 +56,15 @@ Types: `feat` (new capability), `fix` (bug), `refactor` (no behaviour change), `
   - A difference is allowed only where the step announced one, and the handoff names it.
   - A snapshot holds personal data. The tool refuses to write it inside the repository, except under the ignored `store/`.
   - Two snapshots of the same copy taken with the same code are identical: that is the tool's own check.
+- **Replay from earlier answers** (free; `jav/before_after_replay.py`). A step that touches the processing itself (the flows, the worker, the checks) is also checked by processing again:
+  1. Before the step's first edit: `python -m jav.cli before-after-replay <backup folder> --work <folder> --out before.jsonl`.
+  2. After the step, the same command with `--out after.jsonl`, the same backup, the same work folder and on the same day (a few checks compare dates with today). Then `python -m jav.cli before-after-diff before.jsonl after.jsonl`.
+  - About 150 units are replayed (an email together with its attachments counts as one). They are chosen so that every stratum appears at least once: flow, item kind, package kind, trial or live run, engine, the path of the data points, native facts, end state, email tasks and cross-document to-dos. Each item goes through the worker's own processing in a replayed copy of its run, one after the other in the original order.
+  - Only earlier answers count: the JEV answer cache (`--jev-cache`, default `runs/cache`) and the call log's earlier GPT answers and Azure texts. The keys are placeholders, every HTTP request goes to a closed local port (checked before the replay starts), the exchange rate service is not asked, and the replayed runs have no budget. A question without an earlier answer therefore becomes a to-do, counted as "answers missing", never a call. The OCR cache and the operational log are copies in the work folder.
+  - The gate: the call log and the ledger of the replayed runs may hold earlier answers only. Otherwise the command exits with code 3 and lists the calls.
+  - The record holds each item's end state, its stored rows (data points, documents, to-dos in order, email result, native facts, ledger, call log) and its view, and each replayed run's views and tables, without times and process names.
+  - Run both replays from the main folder, not from a worktree: the replay reads the code root's untracked JEV and OCR caches, OCR language pack and mailbox folders. Do not edit Python code while a replay runs, because the processing imports modules late.
+  - Two replays of the same backup with the same code are identical: that is the tool's own check.
 
 ## 4. How a session runs
 
