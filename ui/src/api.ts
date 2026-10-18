@@ -653,7 +653,28 @@ export interface ReconcileOverview {
 export interface ReconcileOpen { workpackage_id: string; run_id: string; item_id: string; pages: number | null }
 export interface ReconcileCoverage { account: string; month: string; statements: number; verified: number }
 export interface ReconcileBlocker { code: string; doc_id: string; file: string | null; kind: "statement" | "invoice" }
-export interface ReconcileCounts { lines: Record<string, number>; invoices: Record<string, number>; open_lines: number; other_invoices?: number }
+export interface ReconcileCounts {
+  lines: Record<string, number>; invoices: Record<string, number>; open_lines: number; other_invoices?: number;
+  /** 169: the inputs by kind (the item list's tally) */
+  statements?: number; own_invoices?: number; left_out?: number;
+}
+/** 169: a statement of the scope as one of the package's inputs. */
+export interface ReconcileScopeStatement {
+  id: string; file: string | null; account: string | null; account_key: string; statement_type: string | null;
+  currency: string | null; period_start: string | null; period_end: string | null; verified: boolean; source: string;
+  lines: number; open_lines: number; decided: number;
+}
+/** 169: a document left out of the package, with who left it out, when and why. */
+export interface ReconcileLeftOutRow {
+  id: string; kind: "statement" | "invoice"; file: string | null; reason: string; actor: string; left_out_at: string;
+  source: string | null; number?: string | null; partner_name?: string | null; account?: string | null;
+}
+/** 169: a package a file for the reconciliation can be added to (it is processed there). */
+export interface ReconcileTarget {
+  id: string; name: string; source_kind: string; items: number; inputs: number; updated_at: string | null;
+  party?: { id: string; name: string }; period_start?: string; period_end?: string;
+}
+export interface ReconcileTargets { documents: ReconcileTarget[]; statements: ReconcileTarget[] }
 /** 139: a decision made on a line of a replaced statement that has no same line on the statement replacing it. */
 export interface ReconcileLeftOver {
   kind: "allocation" | "mark" | "decision"; ref: string; line_id: string; statement_id: string; replaced_by: string;
@@ -678,6 +699,7 @@ export interface ReconcileWorkspace {
   /** 145: what warns without blocking the approval (a statement whose balances do not check out), and the approval */
   warnings?: ReconcileBlocker[]; approval?: ReconcileApproval;
   coverage: ReconcileCoverage[]; blockers: ReconcileBlocker[]; line_marks: string[]; open: Record<string, ReconcileOpen>;
+  statements?: ReconcileScopeStatement[]; left_out?: ReconcileLeftOutRow[]; // 169: the package's inputs
   counts: ReconcileCounts; learned_names: unknown; fx_tolerance: unknown; engine_version: string; config_hash: string;
   overview?: ReconcileOverview; // 142: the cards of the pairing page
   decision_state?: unknown; // what the decisions read (145: the result reloads when it changes)
@@ -1022,6 +1044,12 @@ export const api = {
     request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/unmark`, { line_ids: lineIds }),
   reconcileRevoke: (wpId: string, kind: "allocation" | "mark" | "decision", ref: string, note?: string) =>
     request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/revoke`, { kind, ref, ...(note ? { note } : {}) }),
+  // 169: the package's inputs - leaving documents out of this package only, restoring them, where files are added
+  reconcileLeaveOut: (wpId: string, docIds: string[], reason: string) =>
+    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/leave-out`, { doc_ids: docIds, reason }),
+  reconcileRestoreLeftOut: (wpId: string, docIds: string[]) =>
+    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/restore-left-out`, { doc_ids: docIds }),
+  reconcileTargets: (wpId: string) => request<ReconcileTargets>("GET", `/workpackages/${enc(wpId)}/reconcile/targets`),
   reconcileLocate: (wpId: string, lineId: string) =>
     request<ReconcileLocation>("GET", `/workpackages/${enc(wpId)}/reconcile/locate?line_id=${enc(lineId)}`),
   reconcileMatches: (wpId: string, lineId: string) =>

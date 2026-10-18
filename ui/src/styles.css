@@ -594,6 +594,9 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .add-flow { display: grid; gap: var(--sp-3); }
 .add-flow .path-row .block { margin-bottom: 0; } /* the browse button and the switch stand level with the input */
 .add-flow .path-row .check { padding-bottom: var(--sp-2); }
+/* 169: which package a reconciliation's files go to, above that package's own add form (no frame of its own) */
+.add-target { display: grid; gap: var(--sp-3); }
+.add-target > .form-row .block { margin-bottom: 0; }
 .add-steps { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); margin: 0; padding: 0; list-style: none; font-size: var(--fs-xs); color: var(--muted); }
 .add-steps li { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .add-step-no { width: 20px; height: 20px; border-radius: var(--r-full); display: grid; place-items: center; font-weight: 600;

@@ -32,6 +32,7 @@ export const EXCLUDED: Record<string, string> = tmap({
   duplicate_copy: "Confirmed duplicate copy", duplicate_undecided: "Undecided duplicate", missing_booking_date: "No booking date",
   not_outgoing_payment: "Not an outgoing payment", own_account_transfer: "Transfer between own accounts",
   payment_kind_review: "Fee, interest, repayment or card settlement",
+  left_out_by_person: "Left out of this package by a person", // 169
 });
 
 /** The invoice's state in the pairing (jav/reconcile.py STATUSES). */

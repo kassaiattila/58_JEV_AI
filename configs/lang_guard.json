@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.63",
+    "version": "1.0.64",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.64",
+        "date": "2026-10-18",
+        "note": "169: accept the Hungarian column of the left-out document's glossary entry (docs/GLOSSARY.md) and the Hungarian interface labels the user guide quotes for a reconciliation package's item list, leaving documents out and adding files to another package (docs/guides/USER_GUIDE.md 5.3)."
+      },
       {
         "version": "1.0.63",
         "date": "2026-10-17",
@@ -449,7 +454,7 @@
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 271,
+    "docs/GLOSSARY.md": 272,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 9,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -459,7 +464,7 @@
     "docs/flows/invoice/FLOW.md": 15,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 249,
+    "docs/guides/USER_GUIDE.md": 252,
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
