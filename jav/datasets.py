@@ -388,8 +388,8 @@ def _reconcile_inputs(scope: dict[str, str]) -> Rows:
         _col("package", "Package", link="workpackage"),
         _col("source", "Counted run", "enum", labels="reconcile_input_source", link="run", badge=True),
         _col("pairing", "In the pairing", "enum", labels="reconcile_invoice_state"),
-        _col("open_lines", "Open lines", "number", alert=True),
-        _col("blocks", "Blocks the approval", "enum", labels="yes"),
+        _col("open_lines", "Open lines", "number", alert=True, hidden=True),  # a statement's only; Pairing shows its lines
+        _col("blocks", "Blocks the approval", "enum", labels="yes", hidden=True),  # the Preparation's blockers card lists them
         _col("lines", "Lines in the period", "number", hidden=True),
         _col("verified", "Balances check out", "enum", labels="yes", hidden=True),
         _col("doc_id", "Document ID", "id", hidden=True),
@@ -404,7 +404,10 @@ def _reconcile_inputs(scope: dict[str, str]) -> Rows:
                 "package": brief.get("workpackage_name"), "source": shown_source, "blocks": "igen" if doc_id in blocking else None}
 
     def period(row: dict[str, Any]) -> str | None:
+        """A statement's period, its end without the year when it is the start's (the column stays narrow)."""
         first, last = str(row.get("period_start") or "")[:10], str(row.get("period_end") or "")[:10]
+        if first[:5] and first[:5] == last[:5]:
+            last = last[5:]
         return f"{first} – {last}" if first or last else None
 
     rows = []
@@ -421,7 +424,7 @@ def _reconcile_inputs(scope: dict[str, str]) -> Rows:
                      "amount": inv.get("amount"), "currency": inv.get("currency"), "party": (inv.get("party") or {}).get("name"),
                      "pairing": inv.get("state"), "open_lines": None, "lines": None, "verified": None})
     if scope.get("left_out") == "1":
-        cols += [_col("left_out_by", "Left out by"), _col("left_out_at", "Left out at", "datetime"),
+        cols += [_col("left_out_by", "Left out by"), _col("left_out_at", "Left out at", "datetime", hidden=True),
                  _col("left_out_reason", "Reason for leaving it out")]
         rows = [{**r, "left_out_by": None, "left_out_at": None, "left_out_reason": None} for r in rows]
         for g in ws.get("left_out") or []:

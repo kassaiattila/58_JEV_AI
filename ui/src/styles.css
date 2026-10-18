@@ -430,6 +430,8 @@ body.dragging { cursor: col-resize; user-select: none; }
 .dt-table[data-dataset="workpackages"] th[data-col="name"] { min-width: 200px; }
 .dt-table[data-dataset="workpackages"] th[data-col="next_label"] { min-width: 168px; }
 .dt-table[data-dataset="workpackages"] th[data-col="source_kind"] { min-width: 112px; }
+/* 169: a reconciliation's inputs — a date is not broken inside (its period may wrap at the dash) */
+.dt-table[data-dataset="reconcile_inputs"] th[data-col="date"] { min-width: 96px; }
 .dt-table[data-dataset="workpackages"] th:is([data-col="recipe_id"], [data-col="owner"]) { min-width: 108px; }
 @media (max-width: 1400px) {
   .dt-table[data-dataset="workpackages"] th[data-col="name"] { min-width: 168px; }

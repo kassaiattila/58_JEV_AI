@@ -53,7 +53,7 @@ def test_the_inputs_are_the_scopes_statements_and_the_invoices_with_their_source
     statement, invoice = rows
     # the source package and its live run, which an approval has not released yet
     assert (statement["package"], statement["source"], statement["_wp"], statement["_run"]) == ("synthetic", "live", "wp-1", k2.RUN)
-    assert statement["date"] == "2026-03-01 – 2026-06-30" and statement["open_lines"] == 1
+    assert statement["date"] == "2026-03-01 – 06-30" and statement["open_lines"] == 1  # the same year once
     assert (invoice["subject"], invoice["partner"], invoice["amount"], invoice["pairing"]) == ("INV-0001", "Example Supplier Kft.", "100.00", "proposed")
     assert invoice["item_id"] == inv and invoice["blocks"] is None
     assert statement["blocks"] == "igen"  # an unapproved statement of the scope blocks the approval
