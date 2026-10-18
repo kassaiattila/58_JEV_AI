@@ -205,7 +205,7 @@ def accept_sources(wp_id: str, doc_ids: Iterable[str], *, actor: str) -> int:
     ids = list(dict.fromkeys(doc_ids))
     if not ids:
         raise explained(rp.PackageError, "no document to accept")
-    ws = rp.workspace(wp_id)
+    ws = rp.kept_workspace(wp_id)  # 174 (review 160 M-15): read only
     blocking = {b["doc_id"] for b in ws["blockers"] if b["code"] == "source_no_run"}
     if unknown := [d for d in ids if d not in blocking]:
         raise explained(rp.PackageError, "not a command-line source of this package: {{items}}",

@@ -190,13 +190,18 @@ def parse(response: bytes) -> list[tuple[date, str, int, Decimal]]:
 
 
 def plausible(rows: list[tuple[date, str, int, Decimal]], *, start: date, end: date, currencies: set[str],
-              previous: dict[str, Decimal]) -> None:
+              previous: dict[str, tuple[date, Decimal]]) -> None:
     """Refuses a response (`FxRefusedError`) with a rate outside the request, a non-positive rate or unit, two rates
     for one day, or a change of more than `max_day_change` from the previous published day (`previous`: the stored
-    rate per unit before `start`, per currency)."""
+    day and rate per unit before `start`, per currency).
+
+    174 (review 160 M-11): each rate is also held to the first known one (the stored day before, else the response's
+    first day): within `max_day_change` times the square root of the days since. Before, a drift built from allowed
+    daily steps passed (9 % a day took 400 Ft/EUR to 947 Ft/EUR within one response); a real move of weeks still does."""
     limit = Decimal(str(_conf()["max_day_change"]))
     seen: set[tuple[date, str]] = set()
-    last = dict(previous)
+    last = {currency: rate for currency, (_day, rate) in previous.items()}
+    anchor = dict(previous)
     for day, currency, unit, rate in sorted(rows):
         if currency not in currencies or not start <= day <= end:
             raise FxRefusedError(f"a rate outside the request: {currency} {day.isoformat()}")
@@ -209,6 +214,9 @@ def plausible(rows: list[tuple[date, str, int, Decimal]], *, start: date, end: d
         before = last.get(currency)
         if before is not None and abs(per_unit / before - 1) > limit:
             raise FxRefusedError(f"a day-to-day change above {limit}: {currency} {day.isoformat()}")
+        first_day, first = anchor.setdefault(currency, (day, per_unit))
+        if abs(per_unit / first - 1) > limit * Decimal(max(1, (day - first_day).days)).sqrt():
+            raise FxRefusedError(f"a change above the band since {first_day.isoformat()}: {currency} {day.isoformat()}")
         last[currency] = per_unit
 
 
@@ -238,13 +246,14 @@ def _stored(c, source: str, currencies: Iterable[str], start: date, end: date) -
     return {(r["currency"], r["day"]): Decimal(r["rate"]) / int(r["unit"]) for r in rows}
 
 
-def _previous(c, source: str, currencies: Iterable[str], before: date) -> dict[str, Decimal]:
+def _previous(c, source: str, currencies: Iterable[str], before: date) -> dict[str, tuple[date, Decimal]]:
+    """The latest stored day before `before` and its rate per unit, per currency."""
     out = {}
     for currency in currencies:
-        r = c.execute("SELECT unit, rate FROM fx_rates WHERE source=? AND currency=? AND day<? ORDER BY day DESC LIMIT 1",
+        r = c.execute("SELECT day, unit, rate FROM fx_rates WHERE source=? AND currency=? AND day<? ORDER BY day DESC LIMIT 1",
                       (source, currency, before.isoformat())).fetchone()
         if r is not None:
-            out[currency] = Decimal(r["rate"]) / int(r["unit"])
+            out[currency] = (date.fromisoformat(r["day"]), Decimal(r["rate"]) / int(r["unit"]))
     return out
 
 

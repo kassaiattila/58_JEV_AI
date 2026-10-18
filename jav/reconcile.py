@@ -19,8 +19,9 @@ the pairs by code, with no AI call, and says for every invoice how far the loade
 - Every exclusion has a reason code (`excluded`), so nothing drops out silently.
 
 The core (`propose`) is pure: it takes a snapshot (invoices, statements with their lines) and returns the proposal;
-`snapshot` builds one from the store's effective values (the latest result with its latest correction, as in
-`duplicates.documents`), and `scan` summarises it for the command line. Parameters are data (`configs/reconcile.json`);
+`snapshot` builds one from the store's effective values (174: each document's counted result, the package's current
+result across every package, with its latest correction, as in `duplicates.documents`; `package_result`), and `scan`
+summarises it for the command line. Parameters are data (`configs/reconcile.json`);
 the synthetic golden cases are `configs/golden_reconcile.json`.
 
 **A person's decision** (129, K2): a person confirms a pair (`paid_by`, "this line paid it") or rejects it with a reason
@@ -368,8 +369,15 @@ def _number_in(value: Any, text: str) -> bool:
     s = _conf()["signals"]
     number, number_c = normalize(value), compact(value)
     return len(number_c) >= int(s["min_number_chars"]) and bool(
-        re.search(r"(?<![a-z0-9])" + re.escape(number) + r"(?![a-z0-9])", normalize(text))
+        _whole_word(number).search(normalize(text))
         or (len(number_c) >= int(s["min_compact_number_chars"]) and number_c in compact(text)))
+
+
+@lru_cache(maxsize=16384)
+def _whole_word(number: str) -> re.Pattern[str]:
+    """174 (review 160 M-10): a normalised number as a whole-word pattern, compiled once. `re` keeps 512 patterns, and
+    a pairing of 1 500 invoices compiled thousands again and again (54 % of its 27 s)."""
+    return re.compile(r"(?<![a-z0-9])" + re.escape(number) + r"(?![a-z0-9])")
 
 
 _DECIMAL = re.compile(r"-?\d+(?:\.\d+)?")
@@ -1332,35 +1340,33 @@ def printable(value: Any) -> Any:
     return " ".join(_CONTROL.sub(" ", value).split()) if isinstance(value, str) else value
 
 
-def _latest(types: list[str]) -> list[dict[str, Any]]:
-    """The latest result of every document of the given types, with the latest correction of its run item. A store
-    without the work tables (a measurement store) has no run items and no corrections."""
+def _counted(types: list[str]) -> list[dict[str, Any]]:
+    """The counted result of every document of the given types, with the latest correction of its run item. 174 (plan
+    170 L2, decisions 160 D3/D4 and 170 K17): the package's current result across every package the document is in
+    (`package_result.counted_documents`); before, the store's latest result row, a later trial's too."""
     with store.connect() as c:
-        work = _has_table(c, "run_items")
-        item = ("ri.run_id AS work_run, ri.item_id" if work else "NULL AS work_run, NULL AS item_id")
-        join = (" LEFT JOIN run_items ri ON ri.flow_run_id = d.run_id AND ri.item_id = d.doc_id" if work else "")
-        rows = c.execute(
-            f"SELECT d.rowid AS seq, d.run_id AS flow_run_id, d.doc_id, d.doc_type, d.datapoints, d.validation, {item}"
-            " FROM datapoints d JOIN (SELECT doc_id, MAX(rowid) AS m FROM datapoints GROUP BY doc_id) l ON l.m = d.rowid"
-            f"{join} WHERE d.doc_type IN ({','.join('?' * len(types))}) ORDER BY d.rowid", types).fetchall()
-        # 154 (DECISIONS 154): the documents that came as an attachment of an email routed as suspicious
-        from jav.work import SUSPICIOUS_ATTACHMENT
+        return _documents(c, package_result.counted_documents(c), types)
 
-        suspicious = ({r["run_id"] for r in c.execute("SELECT DISTINCT run_id FROM review_reasons WHERE reason=?",
-                                                      (SUSPICIOUS_ATTACHMENT,))}
-                      if _has_table(c, "review_reasons") else set())
-        corrected: dict[tuple[str, str], dict[str, Any]] = {}
-        if work and _has_table(c, "run_item_corrections"):
-            for r in c.execute("SELECT c.run_id, c.item_id, c.fields FROM run_item_corrections c JOIN"
-                               " (SELECT run_id, item_id, MAX(revision) AS m FROM run_item_corrections GROUP BY run_id, item_id) l"
-                               " ON l.run_id = c.run_id AND l.item_id = c.item_id AND l.m = c.revision"):
-                corrected[(r["run_id"], r["item_id"])] = json.loads(r["fields"])
+
+def _documents(c, counted: dict[str, Any], types: list[str]) -> list[dict[str, Any]]:
+    """The documents of `counted` (`package_result.CountedDocument` by document) of the given types, in the order of
+    processing, with their effective values. A store without the work tables (a measurement store) has no run items
+    and no corrections."""
+    rows = package_result.result_rows(c, counted, "datapoints, validation", types=types)
+    # 154 (DECISIONS 154): the documents that came as an attachment of an email routed as suspicious
+    from jav.work import SUSPICIOUS_ATTACHMENT
+
+    suspicious = ({r["run_id"] for r in c.execute("SELECT DISTINCT run_id FROM review_reasons WHERE reason=?",
+                                                  (SUSPICIOUS_ATTACHMENT,))}
+                  if _has_table(c, "review_reasons") else set())
+    corrected = package_result.latest_corrections(c)
     out = []
     for r in rows:
-        values = package_result.effective_values(json.loads(r["datapoints"] or "{}"), corrected.get((r["work_run"], r["item_id"])))
+        x = counted[r["doc_id"]]
+        values = package_result.effective_values(json.loads(r["datapoints"] or "{}"), corrected.get((x.work_run, x.item_id)))
         out.append({"doc_id": r["doc_id"], "doc_type": r["doc_type"], "values": values, "validation": r["validation"],
-                    "seq": int(r["seq"]), "flow_run_id": r["flow_run_id"], "work_run": r["work_run"], "item_id": r["item_id"],
-                    "suspicious_source": r["flow_run_id"] in suspicious})
+                    "seq": int(r["seq"]), "flow_run_id": r["run_id"], "work_run": x.work_run, "item_id": x.item_id,
+                    "suspicious_source": r["run_id"] in suspicious})
     return out
 
 
@@ -1442,7 +1448,7 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
     f = conf["invoice_fields"]
     marks = _duplicate_marks()
     res = parties.resolver()
-    docs = _latest([*conf["invoice_types"], *conf["outgoing_types"], *conf["statement_types"]])
+    docs = _counted([*conf["invoice_types"], *conf["outgoing_types"], *conf["statement_types"]])
     if current is not None:
         docs = [d for d in docs if d["doc_id"] != current["doc_id"]]
         docs.append({**current, "seq": max((d["seq"] for d in docs), default=0) + 1})
@@ -1512,8 +1518,16 @@ def _masked(line: dict[str, Any]) -> dict[str, Any]:
 
 
 def statements() -> list[dict[str, Any]]:
-    """139: every stored statement in the snapshot's shape, a replaced one too (`jav/statement_months.py` decides)."""
-    return [_statement(d) for d in _latest(list(_conf()["statement_types"]))]
+    """139: every stored statement in the snapshot's shape, a replaced one too (`jav/statement_months.py` decides); 174:
+    each by its counted result."""
+    return [_statement(d) for d in _counted(list(_conf()["statement_types"]))]
+
+
+def run_statements(run_id: str) -> list[dict[str, Any]]:
+    """174 (plan 170 L2): the statements of one run's finished items, by that run's own results and corrections, whatever
+    counts now (the statement package's rule after an approval reads the approved run)."""
+    with store.connect() as c:
+        return [_statement(d) for d in _documents(c, package_result.run_documents(c, run_id), list(_conf()["statement_types"]))]
 
 
 def active_allocations(c=None) -> list[dict[str, Any]]:

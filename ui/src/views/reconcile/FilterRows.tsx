@@ -7,6 +7,7 @@ import {
   activeCount, NO_INVOICE_FILTERS, NO_LINE_FILTERS, NO_PARTY, supplierKey, type InvoiceFilters, type LineFilters,
 } from "./filters";
 import { INVOICE_STATE, KIND } from "./labels";
+import { parseInput } from "./money";
 import { groupByPartner, kinds } from "./partners";
 
 function counted<T>(items: T[], key: (x: T) => string | null | undefined, label: (k: string, x: T) => string): PickerOption[] {
@@ -22,14 +23,19 @@ function counted<T>(items: T[], key: (x: T) => string | null | undefined, label:
     .map(([value, s]) => ({ value, label: s.label, detail: String(s.n) }));
 }
 
+/** 174 (review 160 M-17): an amount the filter cannot read did nothing without a word; now it is marked and named. */
+const unreadable = (value: string) => value.trim() !== "" && parseInput(value) === null;
+
 function AmountRange({ min, max, onChange }: { min: string; max: string; onChange: (min: string, max: string) => void }) {
+  const [badMin, badMax] = [unreadable(min), unreadable(max)];
   return (
     <span className="rc-range">
       <input type="text" inputMode="decimal" className="amount" placeholder={t("Amount from")} aria-label={t("Amount from")} value={min}
-        onChange={(e) => onChange(e.target.value, max)} />
+        aria-invalid={badMin || undefined} onChange={(e) => onChange(e.target.value, max)} />
       <span aria-hidden="true">–</span>
       <input type="text" inputMode="decimal" className="amount" placeholder={t("Amount to")} aria-label={t("Amount to")} value={max}
-        onChange={(e) => onChange(min, e.target.value)} />
+        aria-invalid={badMax || undefined} onChange={(e) => onChange(min, e.target.value)} />
+      {badMin || badMax ? <span className="rc-range-note" role="status">{t("An amount cannot be read, so it does not filter.")}</span> : null}
     </span>
   );
 }

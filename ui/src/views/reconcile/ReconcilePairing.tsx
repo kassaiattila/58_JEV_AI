@@ -51,7 +51,7 @@ const REFUSAL: Record<Refusal, string> = tmap({
   nothing: "Select a statement line and an invoice.",
   many_to_many: "Select one line with one or more invoices, or one invoice with one or more lines.",
   line_marked: "A selected line is marked as needing no invoice; undo the mark first.",
-  line_excluded: "A selected line is left out of the pairing (an incoming payment, a fee or a transfer between own accounts).",
+  line_excluded: "A selected line is left out of the pairing (a transfer between own accounts, or a line without a usable amount, date or direction).",
   line_settled: "A selected line is already paired in full.",
   invoice_settled: "A selected invoice is already paid in full.",
   currency: "A line and an invoice of different currencies pair only one to one and in whole, when a conversion at the MNB rate relates them.",

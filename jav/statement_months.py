@@ -38,6 +38,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
+from difflib import SequenceMatcher
 from functools import lru_cache
 from typing import Any, Iterable
 
@@ -147,20 +148,63 @@ def _line_key(line: dict[str, Any]) -> tuple[Any, ...]:
                  str(line.get(f) or "") for f in _conf()["carry_over"])
 
 
-def match_lines(old: list[dict[str, Any]], new: list[dict[str, Any]]) -> tuple[dict[str, str], list[str]]:
-    """The old statement's lines on the new one: the same configured fields (booking day, amount, direction), repeated
-    lines in their order. Returns the map and the old lines without a same line."""
-    waiting: dict[tuple[Any, ...], list[str]] = defaultdict(list)
-    for line in new:
-        waiting[_line_key(line)].append(str(line["id"]))
-    mapped, left = {}, []
+def match_lines(old: list[dict[str, Any]], new: list[dict[str, Any]], *, strict: bool = False
+                ) -> tuple[dict[str, str], list[str]]:
+    """The old statement's lines on the new one: the same configured fields (booking day, amount, direction). Returns
+    the map and the old lines without a same line.
+
+    Repeated lines (the same day, amount and direction) were matched in their order. 174 (review 160 M-6): they follow
+    their partner and memo instead (`_text`, the closest first; ties in their order), so a decision made on ACME's line
+    does not move to BETA's. `strict` (moving decisions): an old repeated line whose texts tell nothing clear (another
+    new line of a different text is about as close) is left over, for a person to decide again; lines whose texts are
+    the same are interchangeable and keep their order. Without `strict` (whether two statements have the same lines)
+    only the counts matter."""
+    olds: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
+    news: dict[tuple[Any, ...], list[dict[str, Any]]] = defaultdict(list)
     for line in old:
-        free = waiting.get(_line_key(line))
-        if free:
-            mapped[str(line["id"])] = free.pop(0)
-        else:
-            left.append(str(line["id"]))
-    return mapped, left
+        olds[_line_key(line)].append(line)
+    for line in new:
+        news[_line_key(line)].append(line)
+    mapped, left = {}, []
+    for key, group in olds.items():
+        got = _match_group(group, news.get(key, []), strict)
+        mapped.update(got)
+        left += [str(line["id"]) for line in group if str(line["id"]) not in got]
+    order = {str(line["id"]): n for n, line in enumerate(old)}
+    return dict(sorted(mapped.items(), key=lambda kv: order[kv[0]])), sorted(left, key=order.__getitem__)
+
+
+CLOSE = 0.1  # 174: within this much of the best match, another line of a different text makes a repeated line unclear
+
+
+def _text(line: dict[str, Any]) -> str:
+    """What tells two lines of the same day, amount and direction apart: the partner, the memo and the account."""
+    from jav import reconcile
+
+    return " ".join(x for x in (reconcile.normalize(f"{line.get('counterparty_name') or ''} {line.get('memo') or ''}"
+                                                    f" {line.get('description') or ''}"),
+                                reconcile.account_key(line.get("counterparty_account")) or "") if x)
+
+
+def _match_group(olds: list[dict[str, Any]], news: list[dict[str, Any]], strict: bool) -> dict[str, str]:
+    """174: the lines of one key: the closest texts first, ties in their order (see `match_lines`)."""
+    if len(olds) == 1 and len(news) == 1:
+        return {str(olds[0]["id"]): str(news[0]["id"])}
+    if not news:
+        return {}
+    ot, nt = [_text(x) for x in olds], [_text(x) for x in news]
+    score = {(i, j): 1.0 if ot[i] == nt[j] else SequenceMatcher(None, ot[i], nt[j]).ratio()
+             for i in range(len(olds)) for j in range(len(news))}
+    taken_o, taken_n, out = set(), set(), {}
+    for (i, j) in sorted(score, key=lambda ij: (-score[ij], ij)):
+        if i in taken_o or j in taken_n:
+            continue
+        taken_o.add(i)
+        taken_n.add(j)
+        if strict and any(nt[k] != nt[j] and score[(i, k)] >= score[(i, j)] - CLOSE for k in range(len(news)) if k != j):
+            continue  # unclear: left over
+        out[str(olds[i]["id"])] = str(news[j]["id"])
+    return out
 
 
 def _same_lines(a: dict[str, Any], b: dict[str, Any]) -> bool:
@@ -252,7 +296,7 @@ def resolve(statements: list[dict[str, Any]], choices: dict[str, str | None], *,
             res.replaced[sid] = Replacement(sid, found[0], found[1])
     res.conflicts = sorted(p for p in undecided if p[0] not in res.replaced and p[1] not in res.replaced)
     for old_id, rep in sorted(res.replaced.items()):
-        mapped, left = match_lines(by_id[old_id].get("lines") or [], by_id[rep.new].get("lines") or [])
+        mapped, left = match_lines(by_id[old_id].get("lines") or [], by_id[rep.new].get("lines") or [], strict=True)
         res.line_map.update(mapped)
         res.orphans.update({lid: old_id for lid in left})
     return res
@@ -391,10 +435,12 @@ def item_view(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str,
 
     # 153 (review B6): only a stored statement has relations; a document of another kind returns before every stored
     # statement is built (0.10 s of each review page's 0.15-0.19 s, growing with the store; 102 s for a run's results)
+    # 174 (plan 170 L2): by the document's counted result, as `reconcile.statements` reads it
+    from jav import package_result
+
     with store.connect() as c:
-        row = c.execute("SELECT doc_type FROM datapoints WHERE doc_id=? ORDER BY created_at DESC, rowid DESC LIMIT 1",
-                        (item_id,)).fetchone()
-    if row is None or row["doc_type"] not in reconcile._conf()["statement_types"]:
+        rows = package_result.result_rows(c, package_result.counted_documents(c, [item_id]))
+    if not rows or rows[0]["doc_type"] not in reconcile._conf()["statement_types"]:
         return []
     every = reconcile.statements()
     by_id = {s["id"]: s for s in every}
@@ -420,7 +466,7 @@ def item_view(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str,
     for other, relation, how in related:
         st = by_id[other]
         old, new = (me, st) if relation == "replaced_by" else (st, me) if relation == "replaces" else (None, None)
-        carried = match_lines(old.get("lines") or [], new.get("lines") or []) if old and new else None
+        carried = match_lines(old.get("lines") or [], new.get("lines") or [], strict=True) if old and new else None
         choice = rows.get(pair_key(item_id, other))
         out.append({"other_doc_id": other, "other_file": files.get(other), "relation": relation, "how": how,
                     "other_run_id": st.get("work_run"), "other_item_id": st.get("item_id"),

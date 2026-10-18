@@ -266,15 +266,16 @@ def scope(wp_id: str) -> dict[str, Any]:
 
 def set_scope(wp_id: str, *, accounts: list[str], period_start: str, period_end: str, expected_revision: int,
               actor: str, party_id: str | None = None) -> dict[str, Any]:
-    """A changed scope and party; the decisions stay (they belong to the pairs). 145: not while approved."""
+    """A changed scope and party; the decisions stay (they belong to the pairs). 145: not while approved; 174 (review
+    160 M-13): checked inside the write transaction, so an approval made meanwhile is not overwritten."""
     keys, start, end = _checked_scope(accounts, period_start, period_end)
     party = _checked_party(party_id)
     scope(wp_id)
-    if active := active_versions().get(wp_id):
-        raise explained(Locked, "the package's statement is approved (version {{version}}); reopen it to change the scope",
-                        version=active["version"])
     with store.connect() as c:
         store.begin_immediate(c)
+        if active := active_versions(c).get(wp_id):
+            raise explained(Locked, "the package's statement is approved (version {{version}}); reopen it to change the scope",
+                            version=active["version"])
         row = c.execute("SELECT revision FROM reconcile_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
         if row["revision"] != expected_revision:
             raise explained(work.RevisionConflict, "the scope is at revision {{revision}}, not {{expected_revision}}",
@@ -408,7 +409,12 @@ WORKSPACE_INPUTS: dict[str, str | None] = {
     "run_item_corrections": None,
     "run_items": "SUM(status='done'), MAX(updated_at)",
     "documents": "SUM(page_count)",
-    "runs": "(SELECT group_concat(run_id || ':' || COALESCE(approval, ''), '|') FROM runs)",
+    # 174 (plan 170 L2): which result counts depends on a run's mode, approval and whether it was stopped, and on the
+    # items removed from a package (`package_result.counted_documents`)
+    "runs": "(SELECT group_concat(run_id || ':' || mode || ':' || (status = 'cancelled') || ':' || COALESCE(approval, ''), '|')"
+            " FROM runs)",
+    "workpackage_items": "(SELECT group_concat(workpackage_id || ':' || item_id || ':' || removed_revision, '|')"
+                         " FROM workpackage_items WHERE removed_revision IS NOT NULL)",
     "duplicate_decisions": "(SELECT group_concat(pair_key || ':' || decision || ':' || decided_at, '|') FROM duplicate_decisions)",
     "statement_choices": None,
     "reconcile_decisions": "(SELECT group_concat(pair_key || ':' || decision || ':' || decided_at, '|') FROM reconcile_decisions)",
@@ -768,8 +774,9 @@ def matches(wp_id: str, line_id: str) -> dict[str, Any]:
     """143 (DECISIONS 143): every invoice of the package's page compared with one of its lines (`reconcile.compare`,
     on what is left of both sides), with how it fits (`_fit`) and the days from its due date to the line's booking
     day: the engine's proposals first, then the other fitting ones by strength, then the rest by the nearest amount.
-    Raises KeyError for a line the page does not show."""
-    ws = workspace(wp_id)
+    Raises KeyError for a line the page does not show. 174 (review 160 M-15): it only reads the workspace, so it reads
+    the kept one; it copied the whole workspace on every line a person clicked."""
+    ws = kept_workspace(wp_id)
     line = next((ln for ln in ws["lines"] if ln["id"] == line_id), None)
     if line is None:
         raise KeyError(line_id)
@@ -1094,8 +1101,21 @@ def proposed_pairs(wp_id: str) -> list[dict[str, str]]:
     pairing here made the quick review pair the whole scope twice on every request."""
     _package(wp_id)
     _refuse_approved(wp_id)
-    return [{"invoice_doc_id": c["invoice_id"], "line_id": ln["id"]} for ln in kept_workspace(wp_id)["lines"] if not ln.get("locked")
-            for c in ln["candidates"] if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"]]
+    return sure_pairs(kept_workspace(wp_id)["lines"])
+
+
+def sure_pairs(lines: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """The unambiguous proposals of a workspace's lines (`proposed_pairs`). 174 (review 160 M-5): a combined payment's
+    invoices are all of them or none; one of them alone left a rest on the line, needed a reason, and the whole bulk
+    acceptance failed."""
+    out = []
+    for ln in lines:
+        if ln.get("locked"):
+            continue
+        sure = [c for c in ln["candidates"] if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"]]
+        ids = {c["invoice_id"] for c in sure}
+        out += [{"invoice_doc_id": c["invoice_id"], "line_id": ln["id"]} for c in sure if set(c.get("combined") or ()) <= ids]
+    return out
 
 
 def accept_proposed(wp_id: str, *, actor: str) -> int:

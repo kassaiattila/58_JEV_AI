@@ -192,6 +192,27 @@ def test_an_approved_live_run_gives_an_account_no_party_holds_to_the_packages_pa
     assert detail == {"account": OWN_KEY, "party": party, "run_id": run_id} and event["actor"] == "approver"
 
 
+def test_the_approval_reads_the_approved_runs_statements_not_a_later_reading(db):
+    """174 (plan 170 L2): the accounts come from the approved run's own statements. Before, the rule read the store's
+    latest reading of each statement, so a later command-line reading with another account gave that account."""
+    party = _party()
+    wp = _package(db, party)
+    run_id = _run_all(wp)
+    other = "99998887-77776666-55554444"
+    with store.connect() as c:
+        rows = c.execute("SELECT d.doc_id, d.doc_type, d.datapoints FROM datapoints d JOIN run_items ri"
+                         " ON ri.flow_run_id = d.run_id AND ri.item_id = d.doc_id WHERE ri.run_id = ?", (run_id,)).fetchall()
+    for r in rows:
+        store.insert_datapoints(run_id=f"cli-{r['doc_id'][:12]}", doc_id=r["doc_id"], doc_type=r["doc_type"], arm="S",
+                                datapoints={**json.loads(r["datapoints"]), "account_iban": None, "account_no": other},
+                                field_conf={}, validation=[], route="auto", review_reasons=[], final_status="done")
+    with store.connect() as c:
+        c.execute("UPDATE review_reasons SET status='resolved' WHERE substr(run_id, 1, ?) = ?", (len(run_id) + 1, run_id + ":"))
+    work.approve_run(run_id, actor="approver")
+    assert parties.resolver().account(OWN_KEY) == party
+    assert parties.resolver().account(reconcile.account_key(other)) is None
+
+
 def test_a_trial_run_assigns_no_account(db):
     party = _party()
     _run_all(_package(db, party), mode="shadow")

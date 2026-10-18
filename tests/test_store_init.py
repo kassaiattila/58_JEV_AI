@@ -102,3 +102,19 @@ def test_recreated_file_is_initialized(tmp_path):
     with store.use_store(db):
         with store.connect() as c:
             assert c.execute("SELECT COUNT(*) FROM review_queue").fetchone()[0] == 0
+
+
+def test_a_module_imported_within_a_session_gets_its_tables(tmp_path, monkeypatch):
+    """174: a page built on one shared connection (`store.session`) reached a module first imported meanwhile (the
+    reconciliation workspace's AI answers); the shared connection skipped the registry check, so its table was missing
+    ("no such table: reconcile_ai_proposals", when the reconciliation tests ran alone)."""
+    monkeypatch.setattr(store, "_EXTRA_SCHEMAS", dict(store._EXTRA_SCHEMAS))
+    with store.use_store(tmp_path / "late.sqlite"):
+        with store.session():
+            with store.connect() as c:
+                c.execute("SELECT 1")
+            store.register_schema("late_module_174", "CREATE TABLE IF NOT EXISTS late_table_174 (x INTEGER);")
+            with store.connect() as c:
+                c.execute("INSERT INTO late_table_174(x) VALUES (1)")
+        with store.connect() as c:
+            assert c.execute("SELECT COUNT(*) FROM late_table_174").fetchone()[0] == 1

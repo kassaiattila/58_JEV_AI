@@ -280,6 +280,12 @@ def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     path = path or _scoped_path.get() or STORE_PATH
     shared = _shared.get()
     if shared is not None and shared[0] == str(path):
+        # 174: a module first imported within the session registers its tables on import; the shared connection was
+        # set up before, so its schema runs again here (before, its tables were missing until the session ended)
+        registry = _registry_key()
+        if _initialized.get(shared[0], (None, None))[1] != registry:
+            _initialize(shared[1])
+            _initialized[shared[0]] = (shared[1].execute("PRAGMA schema_version").fetchone()[0], registry)
         try:
             yield shared[1]
             shared[1].commit()

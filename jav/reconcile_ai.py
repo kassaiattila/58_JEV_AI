@@ -133,10 +133,12 @@ def _money(value: Any) -> Decimal | None:
 
 
 def _payment(line: dict[str, Any]) -> dict[str, Any]:
-    """The line as the core's helpers take it: what is left of it to pair, its currency and statement type."""
+    """The line as the core's helpers take it: what is left of it to pair, its currency and statement type; 174 (review
+    160 M-14): and its booking day, the rate day of a forint bank line against another currency (149)."""
     rest = _money(line.get("rest"))  # 153 (review A6): a rest of zero is "0.00", not "" (a zero Decimal is falsy)
     return {"amount": "" if rest is None else str(rest), "currency": line.get("currency"), "statement_type": line.get("statement_type"),
-            "original_amount": line.get("original_amount"), "original_currency": line.get("original_currency")}  # 137
+            "original_amount": line.get("original_amount"), "original_currency": line.get("original_currency"),  # 137
+            "booking_date": line.get("booking_date")}
 
 
 def _left(invoice: dict[str, Any]) -> dict[str, Any]:
@@ -169,7 +171,7 @@ def preselect(line: dict[str, Any], invoices: Iterable[dict[str, Any]], rates: d
         how = reconcile.meets(inv, payment)
         if how is None:
             continue
-        start, end = reconcile.window(inv) if how == "same" else reconcile.fx_window(inv)
+        start, end = reconcile.pair_window(inv, payment)  # 174 (review 160 M-14): a bank line in the payment window (149)
         if not start <= booked <= end:
             continue
         if how == "same":
@@ -620,7 +622,7 @@ def evaluate(wp_id: str) -> dict[str, Any]:
 
     An engine's failed answer counts as `failed` in both. Agreement with a person is measured here, not between the
     models (DECISIONS 134)."""
-    ws = reconcile_package.workspace(wp_id)
+    ws = reconcile_package.kept_workspace(wp_id)  # 174 (review 160 M-15): read only
     tally = {e: {"pays": Counter(), "kind": Counter()} for e in ENGINES}
     rows = []
     for ln in ws["lines"]:
