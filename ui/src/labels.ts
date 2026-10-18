@@ -363,7 +363,7 @@ export function savedValues(fields: Record<string, unknown>, kinds: Record<strin
 
 const STEP_LABEL = tmap({
   empty: "Üres csomag", start: "Próbafutás indítása", blocked: "Nem indítható",
-  rerun: "Hibás vagy leállított futás: újrafuttatás", done: "Kiadva: eredmény letöltése", approve: "Jóváhagyás",
+  rerun: "Hibás vagy leállított futás: újrafuttatás", done: "Kiadva: eredmény letöltése", release: "Jóváhagyás és kiadás",
   go_live: "Próba rendben: éles futás",
   // 132: a reconciliation package's steps (jav/reconcile_package.py `next_step`)
   reconcile_empty: "No statement line in the scope", reconcile_result: "Reconciliation result",

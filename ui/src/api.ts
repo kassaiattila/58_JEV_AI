@@ -63,6 +63,26 @@ export interface WorkpackageView {
   /** 168: how many items are in each state (approved, live, trial, running, failed, pending) and how many were removed */
   item_counts?: Partial<Record<"approved" | "live" | "trial" | "running" | "failed" | "pending" | "removed", number>>;
 }
+/** 171/172 (plan 170 L1): the package's current result (each item from the run whose result counts now) and its
+ *  release. `mark` is what Approve and release names; `blockers` say why it cannot be given now. */
+export type PackageReleaseState = "not_released" | "released" | "partly_released" | "changed_since_release";
+export interface PackageResultItem {
+  item_id: string; kind: string | null; file: string; tier: "trial" | "live" | "approved" | null; run_id: string | null;
+  final_status: string | null; released: boolean;
+}
+export interface PackageBlocker { code: "run_not_ready" | "own_approval" | "nothing_to_release"; run_id?: string; status?: string; open_reasons?: number }
+export interface PackageVersionFile { name: string; media: string; rows: number; sha256: string }
+export interface PackageVersion {
+  version: number; mark: string; items: [string, string][]; runs: string[]; released_by: string; released_at: string;
+  /** DECISIONS 171: recorded afterwards for a package approved before v1.20.0 */
+  backfilled_at: string | null; files: PackageVersionFile[];
+}
+export interface PackageResult {
+  workpackage_id: string; items: PackageResultItem[]; mark: string; open_live_runs: string[]; removed_items: number;
+  blockers: PackageBlocker[]; state: PackageReleaseState; versions: PackageVersion[];
+  /** 172: the result views with data (as a run's `tables`) */
+  tables: string[];
+}
 /** 080: what a run of the package will do (the pre-start overview): documents by their path known in advance (S / G /
  *  type not known yet), emails, emails with a task proposal, whether Azure may be used and earlier JEV answers reused. */
 export interface RunPlan {
@@ -825,6 +845,8 @@ export interface DsPage {
   facets: Record<string, string[]>;
   /** 086 (audit N01): a run's table — the version of the reviewed result these rows show */
   review_version?: string;
+  /** 172: a table of the package's current result — the mark of the result these rows show (Approve and release) */
+  result_mark?: string;
   /** 153: the package list's last rows, served while newer ones are being built */
   refreshing?: boolean;
 }
@@ -1140,6 +1162,17 @@ export const api = {
   approve: (runId: string, reviewVersion?: string, confirmRemoved?: number) =>
     request<RunView>("POST", `/runs/${enc(runId)}/approve`, {
       ...(reviewVersion ? { review_version: reviewVersion } : {}), ...(confirmRemoved ? { confirm_removed: confirmRemoved } : {}) }),
+  /** 171/172: the package's current result and its release */
+  packageResult: (wpId: string) => request<PackageResult>("GET", `/workpackages/${enc(wpId)}/result`),
+  /** 172: Approve and release. `mark` is the result the person saw (a table's `result_mark`, else the view's);
+   *  `confirmRemoved` the count of items removed from the package that the release leaves out. */
+  releasePackage: (wpId: string, mark: string, confirmRemoved?: number) =>
+    request<{ version: PackageVersion; result: PackageResult }>("POST", `/workpackages/${enc(wpId)}/release`, {
+      expected_mark: mark, ...(confirmRemoved ? { confirm_removed: confirmRemoved } : {}) }),
+  packageVersionFileUrl: (wpId: string, version: number, name: string) =>
+    `/api/workpackages/${enc(wpId)}/versions/${version}/files/${enc(name)}`,
+  packageResultXlsxUrl: (wpId: string) => `/api/workpackages/${enc(wpId)}/result/export.xlsx`,
+  packageUtilityCost: (wpId: string) => request<UtilityReport>("GET", `/workpackages/${enc(wpId)}/result/utility-cost`),
   documentFormats: () => request<{ formats: DocumentFormat[]; native_limits: Record<string, unknown> }>("GET", "/document-formats"),
   item: (runId: string, itemId: string) => request<ItemResult | NativeItemResult>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}`),
   nativeSources: (runId: string, itemId: string, version: string, offset = 0) =>

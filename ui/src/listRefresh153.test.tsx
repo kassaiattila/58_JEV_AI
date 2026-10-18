@@ -54,7 +54,7 @@ describe("153 the package's tabs follow the current run", () => {
     } as unknown as WorkpackageView;
     const s = stageStatus(view);
     expect(s.review).toBe("169 teendő");
-    expect(s.result).toBe("jóváhagyásra vár");
+    expect(s.result).toBe("kiadásra vár"); // 172: the package's release
     expect(s.process).toMatch(/leállítva/); // the processing tab still says what happened last
   });
 });
