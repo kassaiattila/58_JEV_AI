@@ -1661,5 +1661,6 @@
   "reconciliation: approval reopened": "reconciliation: approval reopened",
   "statement package: party and period set": "statement package: party and period set",
   "statement package: bank account assigned to the party": "statement package: bank account assigned to the party",
-  "statement package: statements added": "statement package: statements added"
+  "statement package: statements added": "statement package: statements added",
+  "package: approved and released": "package: approved and released"
 }

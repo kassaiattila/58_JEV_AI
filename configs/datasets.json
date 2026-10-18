@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.23.0",
+  "version": "1.24.0",
   "changelog": [
+   {
+    "version": "1.24.0",
+    "date": "2026-10-18",
+    "note": "171 (plan 170 L1): activity_action package_release - approving and releasing a package (its open live runs approved together, a released package version recorded) appears in the activity log with a label."
+   },
    {
     "version": "1.23.0",
     "date": "2026-10-18",
@@ -160,7 +165,8 @@
    "reconcile_leave_out": "reconciliation: documents left out", "reconcile_restore": "reconciliation: documents restored",
    "reconcile_accept_sources": "reconciliation: command-line results accepted as sources", "reconcile_approve": "reconciliation: version approved",
    "reconcile_reopen": "reconciliation: approval reopened", "statement_scope": "statement package: party and period set",
-   "statement_account": "statement package: bank account assigned to the party", "statement_add": "statement package: statements added"}
+   "statement_account": "statement package: bank account assigned to the party", "statement_add": "statement package: statements added",
+   "package_release": "package: approved and released"}
  },
  "cache_entries": 24,
  "export_max_rows": 100000

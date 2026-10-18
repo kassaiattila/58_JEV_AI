@@ -87,3 +87,18 @@ def test_the_effective_values_are_the_machine_values_with_the_correction_over_th
     assert package_result.effective_values(None, None) == {}
     assert package_result.effective_values(machine, None) == machine
     assert package_result.effective_values(machine, {}) is not machine  # a new dict, the machine values stay as they are
+
+
+def test_a_package_of_500_items_and_three_runs_is_read_in_one_quick_query(db) -> None:
+    """Plan 160 S4 test list: the counted results of a large package come from one query, not one per item."""
+    import time
+
+    items = {f"{n:064x}": "done" for n in range(500)}
+    _run("run-trial", mode="shadow", at="2026-10-18T09:00:00+00:00", items=items)
+    _run("run-live", at="2026-10-18T10:00:00+00:00", items=dict(list(items.items())[:300]))
+    _run("run-approved", approved=True, at="2026-10-18T11:00:00+00:00", items=dict(list(items.items())[:100]))
+    started = time.perf_counter()
+    counted = package_result.counted_results(WP)
+    assert time.perf_counter() - started < 1.0
+    tiers = [r.tier for r in counted.values()]
+    assert len(counted) == 500 and (tiers.count("approved"), tiers.count("live"), tiers.count("trial")) == (100, 200, 200)

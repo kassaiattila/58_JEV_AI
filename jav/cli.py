@@ -750,6 +750,19 @@ def cmd_before_after_diff(args: argparse.Namespace) -> int:
     return 1
 
 
+def cmd_package_versions_backfill(args: argparse.Namespace) -> int:
+    """171 (DECISIONS 171): the first released version of every package approved before v1.20.0, recorded now from its
+    approved results and marked as recorded afterwards (idempotent; --dry-run writes nothing)."""
+    from jav import package_release
+
+    done = package_release.backfill(dry_run=args.dry_run)
+    for e in done:
+        print(f"{e['workpackage_id']}: {e['items']} items, approved by {e['released_by']} at {e['released_at']}"
+              + (f" -> version {e['version']}" if "version" in e else " (dry run)"))
+    print(f"packages: {len(done)}")
+    return 0
+
+
 def cmd_fx_rates(args: argparse.Namespace) -> int:
     """130: the stored MNB exchange rates (counts and the latest attempts, no rates printed); with --fetch FROM TO one
     request for the span. Free; only the dates and the currency codes leave the machine."""
@@ -1018,6 +1031,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--show", type=int, default=30, help="the number of differing views listed (default 30)")
     p.add_argument("--places", type=int, default=8, help="the differing places listed per view (default 8)")
     p.set_defaults(fn=cmd_before_after_diff)
+
+    p = sub.add_parser("package-versions-backfill", help="171: the first released version of every package approved before"
+                                                         " v1.20.0, recorded afterwards (idempotent)")
+    p.add_argument("--dry-run", action="store_true", help="list the packages, write nothing")
+    p.set_defaults(fn=cmd_package_versions_backfill)
 
     p = sub.add_parser("fx-rates", help="130: the stored MNB exchange rates (counts); --fetch FROM TO: fetch a span (free)")
     p.add_argument("--fetch", nargs=2, metavar=("FROM", "TO"), help="fetch the published days of the span (YYYY-MM-DD)")

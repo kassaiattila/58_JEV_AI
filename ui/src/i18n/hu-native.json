@@ -1662,5 +1662,6 @@
   "reconciliation: approval reopened": "egyeztetés: jóváhagyás újranyitása",
   "statement package: party and period set": "kivonatcsomag: gazdálkodó és időszak beállítása",
   "statement package: bank account assigned to the party": "kivonatcsomag: bankszámla a gazdálkodóhoz rendelve",
-  "statement package: statements added": "kivonatcsomag: kivonatok felvétele"
+  "statement package: statements added": "kivonatcsomag: kivonatok felvétele",
+  "package: approved and released": "csomag: jóváhagyás és kiadás"
 }

@@ -45,7 +45,7 @@ def test_every_activity_source_has_a_label() -> None:
     assert sorted({code for code, _sql in activity._SOURCES if code != "event"} - set(labels)) == []
 
 
-def test_the_six_new_labels() -> None:
+def test_the_new_labels() -> None:
     labels = datasets._labels("activity_action")
     assert labels["statement_scope"] == "statement package: party and period set"
     assert labels["statement_account"] == "statement package: bank account assigned to the party"
@@ -53,3 +53,4 @@ def test_the_six_new_labels() -> None:
     assert labels["reconcile_accept_sources"] == "reconciliation: command-line results accepted as sources"
     assert labels["reconcile_approve"] == "reconciliation: version approved"
     assert labels["reconcile_reopen"] == "reconciliation: approval reopened"
+    assert labels["package_release"] == "package: approved and released"  # 171 L1
