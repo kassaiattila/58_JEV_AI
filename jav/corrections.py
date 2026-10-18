@@ -39,7 +39,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from jav import (dates, duplicates, grounding, native_results, numbers, reconcile, source_layer, statement_months, store, typepack,
+from jav import (dates, duplicates, grounding, native_results, numbers, package_result, reconcile, source_layer, statement_months, store, typepack,
                  validators, work)
 from jav.native_contracts import Publication
 from jav.policy import reason_field
@@ -493,7 +493,7 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     machine = (dp or {}).get("datapoints") or {}
     layer = layer_for(dp)
     source = {"layer_id": layer.layer_id, "text_source": layer.text_source, "pages": [p.model_dump() for p in layer.pages]} if layer else None
-    effective = {**machine, **corr["fields"]}
+    effective = package_result.effective_values(machine, corr["fields"])
     pack = typepack.get(dp["doc_type"]) if dp else None
     lists = {f: {"columns": list_columns(pack, f, machine.get(f))} for f, k in pack.fields.items() if k == "list"} if pack else {}
     simple = {f for f, k in pack.fields.items() if k != "list"} if pack else set()
@@ -619,7 +619,7 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     odd = sorted(set(confirm) - simple)
     if odd:
         raise explained(ValueError, "only simple fields of {{key}} can be confirmed: {{odd}}", key=pack.key, odd=odd)
-    effective = {**(dp.get("datapoints") or {}), **fields}
+    effective = package_result.effective_values(dp.get("datapoints"), fields)
     # the earlier confirmations whose value did not change stay; the fields confirmed now are added with their value
     confirmed = {f: v for f, v in current(run_id, item_id)["confirmed"].items() if _same_value(effective.get(f), v)}
     confirmed.update({f: effective.get(f) for f in confirm})

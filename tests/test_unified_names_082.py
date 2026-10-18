@@ -64,7 +64,7 @@ def test_an_item_not_yet_processed_has_no_unified_name(env):
     assert {n.state for n in naming.package_item_names(work.get(wp["id"])).values()} == {"pending"}
 
 
-def test_the_package_takes_each_item_from_its_latest_finished_run(env):
+def test_the_package_takes_each_item_from_its_counted_run(env):  # 171: before, its latest finished run
     c = env["client"]
     wp, first_run = _run(c, env["folder"])
     first = _correct_first(c, wp, first_run)

@@ -155,7 +155,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import cfg, duplicates, fact_checks, fx, store
+from jav import cfg, duplicates, fact_checks, fx, package_result, store
 from jav.candidates import trim_after_legal_form
 from jav.models import account_key  # 156: shared with the candidate finder; callers keep using reconcile.account_key
 
@@ -1357,8 +1357,7 @@ def _latest(types: list[str]) -> list[dict[str, Any]]:
                 corrected[(r["run_id"], r["item_id"])] = json.loads(r["fields"])
     out = []
     for r in rows:
-        values = json.loads(r["datapoints"] or "{}")
-        values.update(corrected.get((r["work_run"], r["item_id"])) or {})
+        values = package_result.effective_values(json.loads(r["datapoints"] or "{}"), corrected.get((r["work_run"], r["item_id"])))
         out.append({"doc_id": r["doc_id"], "doc_type": r["doc_type"], "values": values, "validation": r["validation"],
                     "seq": int(r["seq"]), "flow_run_id": r["flow_run_id"], "work_run": r["work_run"], "item_id": r["item_id"],
                     "suspicious_source": r["flow_run_id"] in suspicious})

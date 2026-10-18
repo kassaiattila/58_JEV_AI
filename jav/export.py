@@ -29,7 +29,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from jav import card_numbers, cfg, corrections, duplicates, native_results, store, typepack, work
+from jav import card_numbers, cfg, corrections, duplicates, native_results, package_result, store, typepack, work
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
 SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
@@ -81,7 +81,7 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
         if dp is None:
             continue
         corr = corrections.current(run_id, item["item_id"])
-        effective = {**(dp.get("datapoints") or {}), **corr["fields"]}
+        effective = package_result.effective_values(dp.get("datapoints"), corr["fields"])
         prov = _item_provenance(run_id, item["item_id"], dp, corr)
         pack = typepack.get(dp["doc_type"])
         reasons = [r["reason"] for r in split[item["item_id"]]["run"]]

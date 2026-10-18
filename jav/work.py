@@ -1466,46 +1466,32 @@ def pending_items(wp_id: str, mode: str, wp: dict[str, Any] | None = None) -> li
     return [i["item_id"] for i in (wp or get(wp_id))["items"] if i["item_id"] not in done]
 
 
-def _counted_rank(row: Any) -> int:
-    """The S4 order of a finished item's result: approved live (2) > live (1) > trial (0)."""
-    if row["mode"] != "apply":
-        return 0
-    return 2 if row["approval"] == "approved" else 1
-
-
 def item_states(wp_id: str, items: Iterable[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """168 (plan F-item-list-and-adding; the rule of plan F-flexible work package S4): per item, its state in the package
-    and the run whose result counts now. The counted result is the latest finished one of an approved live run, else
-    of a live run, else of a trial run; a stopped or superseded run does not count. State: `approved` / `live` /
-    `trial` by that result; `running` while a queued or running run still has the item to do (the counted result
-    stays beside it); otherwise `failed` if a run failed it, else `pending`. One query for the whole package."""
+    and the run whose result counts now (`package_result.counted_results`, 171: the rule in one place): the latest
+    finished one of an approved live run, else of a live run, else of a trial run; a stopped or superseded run does not
+    count. State: `approved` / `live` / `trial` by that result; `running` while a queued or running run still has the
+    item to do (the counted result stays beside it); otherwise `failed` if a run failed it, else `pending`."""
+    from jav import package_result
+
     with store.connect() as c:
-        rows = c.execute(
-            "SELECT ri.item_id, ri.status, ri.final_status, r.run_id, r.mode, r.approval, r.created_at FROM run_items ri"
-            " JOIN runs r ON r.run_id=ri.run_id WHERE r.workpackage_id=? AND r.status<>'cancelled'"
-            " ORDER BY r.created_at, r.rowid", (wp_id,)).fetchall()
+        counted = package_result.counted_results(wp_id, c)
+        failed = {r["item_id"] for r in c.execute(
+            "SELECT DISTINCT ri.item_id FROM run_items ri JOIN runs r ON r.run_id=ri.run_id"
+            " WHERE r.workpackage_id=? AND r.status<>'cancelled' AND ri.status='failed'", (wp_id,))}
         active = [(r["run_id"], json.loads(r["input"])) for r in c.execute(
             "SELECT run_id, input FROM runs WHERE workpackage_id=? AND status IN ('queued', 'running')", (wp_id,))]
-    counted: dict[str, Any] = {}
-    failed: set[str] = set()
-    finished: set[tuple[str, str]] = set()
-    for r in rows:
-        if r["status"] == "done":
-            finished.add((r["run_id"], r["item_id"]))
-            best = counted.get(r["item_id"])
-            if best is None or _counted_rank(r) >= _counted_rank(best):  # in start order: the later of equals wins
-                counted[r["item_id"]] = r
-        elif r["status"] == "failed":
-            failed.add(r["item_id"])
+        finished = {(r["run_id"], r["item_id"]) for r in c.execute(
+            "SELECT ri.run_id, ri.item_id FROM run_items ri JOIN runs r ON r.run_id=ri.run_id"
+            " WHERE r.workpackage_id=? AND r.status IN ('queued', 'running') AND ri.status='done'", (wp_id,))}
     running = {i["item_id"] for run_id, given in active for i in given["items"] if (run_id, i["item_id"]) not in finished}
     out = {}
     for item in items:
         iid = item["item_id"]
         best = counted.get(iid)
-        state = ("running" if iid in running else ("trial", "live", "approved")[_counted_rank(best)] if best
-                 else "failed" if iid in failed else "pending")
-        out[iid] = {"state": state, "run_id": best["run_id"] if best else None, "mode": best["mode"] if best else None,
-                    "run_at": best["created_at"] if best else None, "final_status": best["final_status"] if best else None}
+        state = ("running" if iid in running else best.tier if best else "failed" if iid in failed else "pending")
+        out[iid] = {"state": state, "run_id": best.run_id if best else None, "mode": best.mode if best else None,
+                    "run_at": best.created_at if best else None, "final_status": best.final_status if best else None}
     return out
 
 
