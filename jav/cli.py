@@ -715,6 +715,41 @@ def cmd_statement_table(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_before_after_snapshot(args: argparse.Namespace) -> int:
+    """171 (plan 170, E0): the service's read views on a fresh copy of a backed-up store, written to a JSON-lines file
+    (free: no AI call, no network). The file holds personal data: keep it outside git."""
+    from jav import before_after
+
+    try:
+        counts = before_after.static_snapshot(Path(args.baseline), Path(args.work), Path(args.out),
+                                              items=not args.no_items, matches=args.matches)
+    except before_after.SnapshotError as exc:
+        print(f"no snapshot: {exc}")
+        return 2
+    print(f"views read: {sum(counts.values())} ({', '.join(f'{k} {v}' for k, v in sorted(counts.items()))})")
+    print(f"written: {args.out}")
+    return 0
+
+
+def cmd_before_after_diff(args: argparse.Namespace) -> int:
+    """171 (plan 170, E0): the views missing on one side or differing between two snapshots; exit code 1 if any."""
+    from jav import before_after
+
+    differences = before_after.diff(Path(args.before), Path(args.after), limit=args.places)
+    if not differences:
+        print("no difference")
+        return 0
+    for kind, counts in sorted(before_after.summary(differences).items()):
+        print(f"{kind}: {', '.join(f'{k} {v}' for k, v in sorted(counts.items()))}")
+    for d in differences[: args.show]:
+        print(f"- {d.key} [{d.kind}]")
+        for place in d.places:
+            print(f"    {place}")
+    if len(differences) > args.show:
+        print(f"... and {len(differences) - args.show} more views")
+    return 1
+
+
 def cmd_fx_rates(args: argparse.Namespace) -> int:
     """130: the stored MNB exchange rates (counts and the latest attempts, no rates printed); with --fetch FROM TO one
     request for the span. Free; only the dates and the currency codes leave the machine."""
@@ -967,6 +1002,22 @@ def main(argv: list[str] | None = None) -> int:
                                                " 141: also a statement printed as text (a CIB PDF or text export), a camt.053 XML statement or a folder of them")
     p.add_argument("file", help="the workbook (.xlsx), CSV, Excel 2003 XML, PDF or text file, or a folder")
     p.set_defaults(fn=cmd_statement_table)
+
+    p = sub.add_parser("before-after-snapshot", help="171: the service's read views on a fresh copy of a backed-up store, "
+                                                     "for the before/after comparison of a refactoring step (free)")
+    p.add_argument("baseline", help="a backup folder (python -m jav.cli backup) or a store file")
+    p.add_argument("--work", required=True, help="the folder of the fresh copy (replaced; outside git)")
+    p.add_argument("--out", required=True, help="the snapshot file to write (JSON lines; personal data, outside git)")
+    p.add_argument("--no-items", action="store_true", help="leave out the item results of every run (faster)")
+    p.add_argument("--matches", action="store_true", help="also the proposed pairs of every reconciliation line (slow)")
+    p.set_defaults(fn=cmd_before_after_snapshot)
+
+    p = sub.add_parser("before-after-diff", help="171: the views that differ between two snapshots (exit code 1 if any)")
+    p.add_argument("before")
+    p.add_argument("after")
+    p.add_argument("--show", type=int, default=30, help="the number of differing views listed (default 30)")
+    p.add_argument("--places", type=int, default=8, help="the differing places listed per view (default 8)")
+    p.set_defaults(fn=cmd_before_after_diff)
 
     p = sub.add_parser("fx-rates", help="130: the stored MNB exchange rates (counts); --fetch FROM TO: fetch a span (free)")
     p.add_argument("--fetch", nargs=2, metavar=("FROM", "TO"), help="fetch the published days of the span (YYYY-MM-DD)")
