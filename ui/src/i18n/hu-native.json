@@ -579,6 +579,7 @@
   "{{reason}} ({{n}} lines)": "{{reason}} ({{n}} tétel)",
   "Select the lines of the partner": "A partner tételeinek kijelölése",
   "Amount from": "Összeg ettől",
+  "An amount cannot be read, so it does not filter.": "Egy összeg nem olvasható, ezért nem szűr.",
   "Amount to": "Összeg eddig",
   "Filters of the lines": "A tételek szűrői",
   "Every partner": "Minden partner",

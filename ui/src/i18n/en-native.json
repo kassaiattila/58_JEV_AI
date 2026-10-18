@@ -579,6 +579,7 @@
   "{{reason}} ({{n}} lines)": "{{reason}} ({{n}} lines)",
   "Select the lines of the partner": "Select the lines of the partner",
   "Amount from": "Amount from",
+  "An amount cannot be read, so it does not filter.": "An amount cannot be read, so it does not filter.",
   "Amount to": "Amount to",
   "Filters of the lines": "Filters of the lines",
   "Every partner": "Every partner",
