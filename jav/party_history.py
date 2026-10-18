@@ -10,12 +10,13 @@ results and dropped: it flagged every invoice of some suppliers, including ones 
 
 The store is read only inside a worker run (`jav.runtime.calls.current()` with a budget scope): measurements and the
 command line keep giving results that do not depend on what the store holds. Each earlier document counts once, by
-its latest result of that type; the current document never counts.
+its counted result when that is of the same type (174, plan 170 L2: the package's current result across every package,
+`package_result.counted_documents`; before, its latest result of that type); the current document never counts.
 """
 
 from __future__ import annotations
 
-from jav import fact_checks, store
+from jav import fact_checks, package_result, store
 from jav.runtime import calls
 
 
@@ -35,13 +36,11 @@ def orientation(doc_id: str | None, doc_type: str | None, fields: tuple[str, str
         return None
     first, second = fields
     with store.connect() as c:
-        rows = c.execute(
-            "SELECT d.doc_id, json_extract(d.datapoints, '$.' || ?), json_extract(d.datapoints, '$.' || ?) FROM datapoints d"
-            " JOIN (SELECT doc_id, MAX(created_at) AS m FROM datapoints WHERE doc_type = ? GROUP BY doc_id) l"
-            " ON l.doc_id = d.doc_id AND l.m = d.created_at WHERE d.doc_type = ? AND d.doc_id != ?",
-            (first, second, doc_type, doc_type, doc_id or ""),
-        ).fetchall()
-    latest = {doc: (fact_checks.tax_party_key(a), fact_checks.tax_party_key(b)) for doc, a, b in rows}
+        counted = package_result.counted_documents(c)
+        counted.pop(doc_id or "", None)
+        rows = package_result.result_rows(c, counted, "json_extract(datapoints, '$.' || ?) AS a,"
+                                          " json_extract(datapoints, '$.' || ?) AS b", (first, second), types=[doc_type])
+    latest = {r["doc_id"]: (fact_checks.tax_party_key(r["a"]), fact_checks.tax_party_key(r["b"])) for r in rows}
     other = sum(1 for pair in latest.values() if pair == (keys[1], keys[0]))
     alike = sum(1 for pair in latest.values() if pair == keys)
     return other, alike

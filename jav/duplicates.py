@@ -30,7 +30,6 @@ again) are the pattern; no legacy code is imported.
 
 from __future__ import annotations
 
-import json
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -203,36 +202,26 @@ def enabled() -> bool:
     return ctx is not None and ctx.budget_scope is not None and not ctx.measurement
 
 
-def _has_table(c, name: str) -> bool:
-    return c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
-
-
 def documents(fields: Iterable[str] | None = None, types: Iterable[str] | None = None) -> list[Document]:
-    """Every invoice-like document's effective values: its latest result (of any type; a document re-read as another
-    type drops out), with the latest correction of the run item that produced it. 157: another check can ask for its
-    own fields and types (the own-tax scan of `jav/parties.py`); by default the duplicates' key fields and types."""
+    """Every invoice-like document's effective values: its counted result (of any type; a document re-read as another
+    type drops out), with the latest correction of the run item that produced it. 174 (plan 170 L2): the package's
+    current result across every package (`package_result.counted_documents`); before, the store's latest result row.
+    157: another check can ask for its own fields and types (the own-tax scan of `jav/parties.py`); by default the
+    duplicates' key fields and types."""
     fields = tuple(key_fields() if fields is None else fields)
     types = tuple(family_types() if types is None else types)
-    extracts = ", ".join("json_extract(d.datapoints, '$.' || ?)" for _ in fields)
+    extracts = ", ".join(f"json_extract(datapoints, '$.' || ?) AS f{i}" for i in range(len(fields)))
     with store.connect() as c:
-        rows = c.execute(
-            f"SELECT d.rowid AS seq, d.doc_id, d.doc_type, d.run_id AS flow_run_id, ri.run_id AS work_run, ri.item_id, {extracts}"
-            " FROM datapoints d JOIN (SELECT doc_id, MAX(rowid) AS m FROM datapoints GROUP BY doc_id) l ON l.m = d.rowid"
-            " LEFT JOIN run_items ri ON ri.flow_run_id = d.run_id AND ri.item_id = d.doc_id"
-            f" WHERE d.doc_type IN ({','.join('?' * len(types))}) ORDER BY d.rowid",
-            (*fields, *types)).fetchall()
-        corrected: dict[tuple[str, str], dict[str, Any]] = {}
-        if _has_table(c, "run_item_corrections"):
-            for r in c.execute("SELECT c.run_id, c.item_id, c.fields FROM run_item_corrections c JOIN"
-                               " (SELECT run_id, item_id, MAX(revision) AS m FROM run_item_corrections GROUP BY run_id, item_id) l"
-                               " ON l.run_id = c.run_id AND l.item_id = c.item_id AND l.m = c.revision"):
-                corrected[(r["run_id"], r["item_id"])] = json.loads(r["fields"])
+        counted = package_result.counted_documents(c)
+        rows = package_result.result_rows(c, counted, extracts, fields, types=types)
+        corrected = package_result.latest_corrections(c)
     out = []
     for r in rows:
-        values = {f: r[6 + i] for i, f in enumerate(fields)}
-        fix = corrected.get((r["work_run"], r["item_id"])) or {}
+        x = counted[r["doc_id"]]
+        values = {f: r[f"f{i}"] for i, f in enumerate(fields)}
+        fix = corrected.get((x.work_run, x.item_id)) or {}
         values = package_result.effective_values(values, {f: v for f, v in fix.items() if f in values})
-        out.append(Document(r["doc_id"], r["doc_type"], values, r["flow_run_id"], r["work_run"], r["item_id"], int(r["seq"])))
+        out.append(Document(r["doc_id"], r["doc_type"], values, r["run_id"], x.work_run, x.item_id, int(r["seq"])))
     return out
 
 

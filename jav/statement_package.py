@@ -454,14 +454,15 @@ def after_item(run: dict[str, Any], item: dict[str, Any]) -> list[str]:
 
 def after_approval(run: dict[str, Any]) -> None:
     """153 (decision of 2026-10-13, review A4): the accounts of an approved live run's statements that no party holds
-    go to the package's party, each with an event in the package's log (who approved, which run)."""
+    go to the package's party, each with an event in the package's log (who approved, which run). 174 (plan 170 L2):
+    the statements as that run read them; before, the store's latest reading of each, a later one's too."""
     if run["mode"] != "apply":
         return
     row = _scope_row(run["workpackage_id"])
     if row is None:
         return
     res = parties.resolver()
-    statements = {s["id"]: s for s in reconcile.statements()}
+    statements = {s["id"]: s for s in reconcile.run_statements(run["run_id"])}
     done: set[str] = set()
     actor = run.get("approved_by") or run["actor"]
     for item in work.released_items(run):  # 160-C: not a statement removed before the approval (decision 163 D7)

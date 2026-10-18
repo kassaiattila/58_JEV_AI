@@ -408,7 +408,12 @@ WORKSPACE_INPUTS: dict[str, str | None] = {
     "run_item_corrections": None,
     "run_items": "SUM(status='done'), MAX(updated_at)",
     "documents": "SUM(page_count)",
-    "runs": "(SELECT group_concat(run_id || ':' || COALESCE(approval, ''), '|') FROM runs)",
+    # 174 (plan 170 L2): which result counts depends on a run's mode, approval and whether it was stopped, and on the
+    # items removed from a package (`package_result.counted_documents`)
+    "runs": "(SELECT group_concat(run_id || ':' || mode || ':' || (status = 'cancelled') || ':' || COALESCE(approval, ''), '|')"
+            " FROM runs)",
+    "workpackage_items": "(SELECT group_concat(workpackage_id || ':' || item_id || ':' || removed_revision, '|')"
+                         " FROM workpackage_items WHERE removed_revision IS NOT NULL)",
     "duplicate_decisions": "(SELECT group_concat(pair_key || ':' || decision || ':' || decided_at, '|') FROM duplicate_decisions)",
     "statement_choices": None,
     "reconcile_decisions": "(SELECT group_concat(pair_key || ':' || decision || ':' || decided_at, '|') FROM reconcile_decisions)",
