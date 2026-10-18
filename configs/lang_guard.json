@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.66",
+    "version": "1.0.67",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.67",
+        "date": "2026-10-19",
+        "note": "174: accept the synthetic Revolut export's account title and statement heading in the reconciliation fixes' tests (tests/test_reconcile_fixes_174.py, two constants; document vocabulary)."
+      },
       {
         "version": "1.0.66",
         "date": "2026-10-18",
@@ -648,6 +653,7 @@
     "tests/test_quick_review_speed_149.py": 1,
     "tests/test_recipe_help.py": 1,
     "tests/test_reconcile_141.py": 2,
+    "tests/test_reconcile_fixes_174.py": 2,
     "tests/test_reconcile_review_147.py": 5,
     "tests/test_reconcile_statement_145.py": 10,
     "tests/test_registry_v2.py": 4,

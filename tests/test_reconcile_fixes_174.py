@@ -5,6 +5,9 @@ from __future__ import annotations
 
 from jav import reconcile
 
+ACCOUNT = "Személyes számla"  # the synthetic Revolut export's account title and statement heading (document vocabulary)
+HEADING = "Tranzakciókivonat"
+
 
 def test_m10_a_numbers_whole_word_pattern_is_compiled_once() -> None:
     """M-10: a pairing compared every invoice number with every line in its window and compiled the number's pattern
@@ -80,10 +83,10 @@ def test_m7_a_folders_monthly_exports_of_one_account_are_all_kept_and_their_ids_
     jan = t136._workbook(folder, name="statement_2026-01-01_2026-03-31_hu.xlsx")
     t136._workbook(folder, name="statement_2026-04-01_2026-06-30_hu.xlsx")
     reading = st.read(folder)
-    huf = [a for a in reading.accounts if (a.title, a.currency, a.occurrence) == ("Személyes számla", "HUF", 1)]
+    huf = [a for a in reading.accounts if (a.title, a.currency, a.occurrence) == (ACCOUNT, "HUF", 1)]
     assert sorted(a.statement["period_start"] for a in huf) == ["2026-01-01", "2026-04-01"]
     assert not [s for s in reading.skipped if "already in another file" in s["reason"]]
-    alone = next(a for a in st.read(jan).accounts if (a.title, a.currency, a.occurrence) == ("Személyes számla", "HUF", 1))
+    alone = next(a for a in st.read(jan).accounts if (a.title, a.currency, a.occurrence) == (ACCOUNT, "HUF", 1))
     first = next(a for a in huf if a.statement["period_start"] == "2026-01-01")
     assert st.derived_id(reading, first) == st.derived_id(st.read(jan), alone)
     assert json.loads(st.derived_bytes(reading, first))["account"]["key"] == t136.IBAN_HUF.replace(" ", "") + ":HUF"
@@ -98,9 +101,9 @@ def test_m8_a_very_long_cell_is_never_taken_for_an_account_title() -> None:
 
     profile = next(p for p in st._conf()["profiles"] if p["name"] == "revolut_consolidated_hu")
     started = time.perf_counter()
-    blocks = st._blocks([["a" + " " * 131_000 + "b"], ["Személyes számla (HUF)"]], profile)
+    blocks = st._blocks([["a" + " " * 131_000 + "b"], [f"{ACCOUNT} (HUF)"]], profile)
     assert time.perf_counter() - started < 0.5
-    assert [(b.name, b.currency) for b in blocks] == [("Személyes számla", "HUF")]
+    assert [(b.name, b.currency) for b in blocks] == [(ACCOUNT, "HUF")]
 
 
 def _rows_of(start: str, first: str, step: str, days: int, currency: str = "EUR") -> list:
@@ -140,7 +143,7 @@ def test_m11_a_drift_built_from_allowed_daily_steps_is_refused() -> None:
 def _csv_export(path, *, total: bool):
     from tests import test_statement_table_136 as t136
 
-    rows = [["Személyes számla (HUF)"], ["Tranzakciókivonat"], t136.HEADER, *t136.HUF_LINES]
+    rows = [[f"{ACCOUNT} (HUF)"], [HEADING], t136.HEADER, *t136.HUF_LINES]
     rows += [t136._total(t136.HUF_LINES)] if total else []
     path.write_text("\n".join(t136._as_csv(r) if len(r) > 1 else r[0] for r in rows) + "\n", encoding="utf-8")
     return path
@@ -170,7 +173,7 @@ def test_m12_such_a_statement_is_a_to_do_and_not_checked_coverage(tmp_path) -> N
     with store.use_store(tmp_path / "s.sqlite"):
         export = _csv_export(tmp_path / "bare.csv", total=False)
         wp = work.create_workpackage(name="Statements", source_kind="manual", source_ref=None)
-        wp = work.add_statement_tables(wp["id"], export, ["Személyes számla (HUF)#1"], expected_revision=wp["revision"])
+        wp = work.add_statement_tables(wp["id"], export, [f"{ACCOUNT} (HUF)#1"], expected_revision=wp["revision"])
         run_id = _run_all(wp["id"])
         item = work.get_run(run_id)["items"][0]
         reasons = {r["reason"] for r in work.item_reasons(run_id, item["item_id"])["run"]}
