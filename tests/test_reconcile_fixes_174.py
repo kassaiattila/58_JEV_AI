@@ -207,3 +207,17 @@ def test_m13_an_approval_that_lands_just_before_a_scope_change_stops_it(tmp_path
             rp.set_scope(wp_id, accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-05-31",
                          expected_revision=1, actor="t")
         assert rp.scope(wp_id)["revision"] == 1
+
+
+def test_m14_the_ai_preselection_takes_a_forint_bank_line_in_the_invoices_payment_window_at_its_booking_day() -> None:
+    """M-14: the AI's preselection checked a forint bank line against an invoice of another currency in the card
+    window around the issue date, and without the line's booking day, so the day's rate was never found; the engine
+    has used the payment window and the booking day's rate for such a line since 149."""
+    from jav import reconcile_ai
+
+    line = {"id": "line-1", "currency": "HUF", "statement_type": "bank_account", "booking_date": "2026-05-25",
+            "direction": "debit", "amount": "39000.00", "rest": "39000.00", "candidates": [], "rejected": []}
+    invoice = {"id": "inv-eur", "own": True, "currency": "EUR", "amount": "100.00", "rest": "100.00",
+               "issue_date": "2026-05-01", "due_date": "2026-05-31", "doc_type": "invoice_foreign"}
+    rates = {"EUR": {"2026-05-25": {"rate": "390.00", "rate_day": "2026-05-25", "source": "mnb"}}}
+    assert [i["id"] for i in reconcile_ai.preselect(line, [invoice], rates)] == ["inv-eur"]
