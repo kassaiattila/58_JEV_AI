@@ -108,7 +108,7 @@ def test_the_next_step_is_approve_and_release_until_a_version_holds_the_approval
     _assign(c, wp["id"])
     run_id = _live(c, wp["id"])
     nxt = c.get(f"/api/workpackages/{wp['id']}").json()["next"]
-    assert (nxt["code"], nxt["stage"], nxt["label"]) == ("release", "result", "Jóváhagyás és kiadás")
+    assert (nxt["code"], nxt["stage"]) == ("release", "result")  # its label: tests/test_next_step.py
     assert c.post(f"/api/runs/{run_id}/approve", json={}, headers=HUMAN).status_code == 200  # the way before v1.20.0
     assert c.get(f"/api/workpackages/{wp['id']}").json()["next"]["code"] == "release"  # approved, not released
     row = next(r for r in _query(c, "workpackages", {})["rows"] if r["id"] == wp["id"])
