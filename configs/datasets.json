@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.21.0",
+  "version": "1.22.0",
   "changelog": [
+   {
+    "version": "1.22.0",
+    "date": "2026-10-18",
+    "note": "169 (DECISIONS 169): a reconciliation package's item list (dataset reconcile_inputs) - reconcile_input_kind (statement, incoming or outgoing invoice), reconcile_input_source (the run its result comes from: approved, live, trial, accepted as a source, an evaluation on the command line) and reconcile_invoice_state (where an invoice stands in the pairing); activity_action reconcile_leave_out and reconcile_restore - documents left out of a reconciliation package and restored."
+   },
    {
     "version": "1.21.0",
     "date": "2026-10-17",
@@ -123,6 +128,9 @@
   "final_status": {"done": "Lezárva, teendő nélkül", "needs_review": "Teendő", "settled": "Teendő, rendezve", "needs_ocr": "OCR kell", "jev_unavailable": "JEV nem volt elérhető"},
   "mode": {"shadow": "Próba", "apply": "Éles"},
   "package_item_state": {"approved": "Approved", "live": "Processed live", "trial": "Processed in a trial", "running": "Being processed", "failed": "Failed with an error", "pending": "Pending", "removed": "Removed"},
+  "reconcile_input_kind": {"statement": "Statement", "incoming": "Incoming invoice", "outgoing": "Outgoing invoice"},
+  "reconcile_input_source": {"approved": "Approved", "live": "Processed live", "trial": "Processed in a trial", "accepted": "Accepted as a source", "no_run": "Evaluation on the command line"},
+  "reconcile_invoice_state": {"confirmed": "Paid", "credited": "Cancelled by a credit note", "proposed": "Proposed pair", "amount_only": "Same amount only", "partly_paid": "Partly paid", "amount_differs": "Related line, different amount", "rate_missing": "No exchange rate yet", "no_payment_found": "No payment found", "partly_covered": "Statements cover part of its period", "not_covered": "No statement for its period", "excluded": "Left out"},
   "run_scope": {"pending": "Pending items only"},
   "approval": {"approved": "Jóváhagyva"},
   "wp_status": {"open": "Aktív", "archived": "Elrejtve"},
@@ -143,7 +151,8 @@
   "activity_action": {"archive": "csomag elrejtése", "restore": "csomag visszahozása", "rename": "csomag átnevezése",
    "delete": "csomag törlése", "owner": "felelős beállítása", "recipe": "feldolgozási beállítások mentése", "run_start": "futás indítása",
    "run_approve": "futás jóváhagyása", "run_cancel": "futás leállítása", "run_supersede": "futás leváltása", "item_remove": "item removed", "item_restore": "item restored", "items_add": "items added", "items_remove": "items removed", "items_restore": "items restored","correction": "javítás", "reason_resolve": "teendő lezárása",
-   "task_decision": "feladatjavaslat döntése", "task_done": "feladat elvégezve", "mailbox_pull": "postafiók-letöltés", "reconcile_scope": "egyeztetési kör beállítása", "reconcile_allocate": "egyeztetés: párosítás", "reconcile_reject": "egyeztetés: elutasítás", "reconcile_mark": "egyeztetés: nem kell számla", "reconcile_revoke": "egyeztetés: visszavonás"}
+   "task_decision": "feladatjavaslat döntése", "task_done": "feladat elvégezve", "mailbox_pull": "postafiók-letöltés", "reconcile_scope": "egyeztetési kör beállítása", "reconcile_allocate": "egyeztetés: párosítás", "reconcile_reject": "egyeztetés: elutasítás", "reconcile_mark": "egyeztetés: nem kell számla", "reconcile_revoke": "egyeztetés: visszavonás",
+   "reconcile_leave_out": "reconciliation: documents left out", "reconcile_restore": "reconciliation: documents restored"}
  },
  "cache_entries": 24,
  "export_max_rows": 100000

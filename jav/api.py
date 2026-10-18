@@ -534,6 +534,15 @@ class ReconcileAcceptSources(_In):
     doc_ids: Annotated[list[DocId], Field(min_length=1, max_length=5000)]
 
 
+# 169 (DECISIONS 169): documents left out of a reconciliation package with a reason, and restored
+class ReconcileRestoreLeftOut(_In):
+    doc_ids: Annotated[list[DocId], Field(min_length=1, max_length=5000)]
+
+
+class ReconcileLeaveOut(ReconcileRestoreLeftOut):
+    reason: Annotated[str, Field(min_length=1, max_length=500)]
+
+
 # 133 (F-own-parties): the own parties (`jav/parties.py`, `jav/party_views.py`)
 class PartyIdentity(_In):
     kind: Literal["tax", "name", "account"]
@@ -1579,6 +1588,23 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         """DECISIONS 132: a person accepts command-line results as sources (who and when is recorded)."""
         reconcile_statement.accept_sources(wp_id, body.doc_ids, actor=who)
         return work_views.jsonable(reconcile_statement.current(wp_id))
+
+    @app.get(r + "/workpackages/{wp_id}/reconcile/targets")
+    def reconcile_targets(wp_id: WpId) -> dict[str, Any]:
+        """169: the documents and statement packages files for this reconciliation can be added to (and processed in)."""
+        return work_views.jsonable(reconcile_package.targets(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/leave-out")
+    def reconcile_leave_out(wp_id: WpId, body: ReconcileLeaveOut, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """169: statements or invoices left out of this package only, with a reason (they stay in their own packages)."""
+        reconcile_package.leave_out(wp_id, body.doc_ids, reason=body.reason, actor=who)
+        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/reconcile/restore-left-out")
+    def reconcile_restore_left_out(wp_id: WpId, body: ReconcileRestoreLeftOut,
+                                   who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        reconcile_package.restore_left_out(wp_id, body.doc_ids, actor=who)
+        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/approve")
     def reconcile_approve(wp_id: WpId, body: ReconcileApprove, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
