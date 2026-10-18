@@ -48,6 +48,14 @@ Types: `feat` (new capability), `fix` (bug), `refactor` (no behaviour change), `
 
 - The raw run and receipt of every new measurement record the **commit hash** and whether the working tree was clean. Live, paid measurements never start on a dirty working tree.
 - Experimental code must never be imported by the runtime. An experiment gets its own ID, recipe and receipt.
+- **Before/after comparison of a refactoring step** (free; `jav/before_after.py`). A step meant to change nothing visible is checked on a backed-up copy of the store:
+  1. Back up the store once: `python -m jav.cli backup --with-docs --copy-to <scratch folder>`. Every snapshot then reads a fresh copy of that backup, with its native readings and source copies, so the store in use is never touched.
+  2. Take the "before" snapshot with the code before the step, from a separate worktree of that commit (DEVELOPMENT §1 pitfall), so no edit made meanwhile is loaded: `python -m jav.cli before-after-snapshot <backup folder> --work <folder> --out before.jsonl`.
+  3. Take the "after" snapshot the same way with the new code, then compare: `python -m jav.cli before-after-diff before.jsonl after.jsonl` (exit code 1 if a view differs).
+  - The snapshot reads the local service's own read views in process: packages, items, runs, reviews and next steps, each run's item results (`--no-items` leaves them out), journal and downloads, every dataset behind a table, the reconciliation views, parties, workflows, and the activity log of each person and day. It makes no AI call and opens no network connection.
+  - A difference is allowed only where the step announced one, and the handoff names it.
+  - A snapshot holds personal data. The tool refuses to write it inside the repository, except under the ignored `store/`.
+  - Two snapshots of the same copy taken with the same code are identical: that is the tool's own check.
 
 ## 4. How a session runs
 

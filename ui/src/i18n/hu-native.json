@@ -1655,5 +1655,20 @@
   "{{n}} documents": "{{n}} irat",
   "{{n}} invoices of other parties": "{{n}} más gazdálkodó számlája",
   "{{n}} left out": "{{n}} kihagyva",
-  "Left out of this package by a person": "Egy személy kihagyta ebből az egyeztetésből"
+  "Left out of this package by a person": "Egy személy kihagyta ebből az egyeztetésből",
+  "No data was extracted from the document, so it has no values to check or download; its other to-dos show why": "Az iratból egyetlen adat sem lett kinyerve, ezért nincs ellenőrizhető vagy letölthető értéke; az okot az irat többi teendője mutatja",
+  "reconciliation: command-line results accepted as sources": "egyeztetés: parancssori eredmények elfogadása forrásként",
+  "reconciliation: version approved": "egyeztetés: változat jóváhagyása",
+  "reconciliation: approval reopened": "egyeztetés: jóváhagyás újranyitása",
+  "statement package: party and period set": "kivonatcsomag: gazdálkodó és időszak beállítása",
+  "statement package: bank account assigned to the party": "kivonatcsomag: bankszámla a gazdálkodóhoz rendelve",
+  "statement package: statements added": "kivonatcsomag: kivonatok felvétele",
+  "package: approved and released": "csomag: jóváhagyás és kiadás",
+  "another version of the package was released meanwhile; reload it": "Közben a csomag egy másik változatát adták ki; töltsd be újra",
+  "a reconciliation package is approved in its own statement": "Az egyeztetési csomagot a saját kimutatásánál kell jóváhagyni",
+  "the package's result changed since it was shown; reload it and check it again": "A csomag eredménye a megjelenítése óta megváltozott; töltsd be újra, és nézd át ismét",
+  "a live run of the package is not ready for approval": "A csomag egyik éles futása még nem hagyható jóvá",
+  "{{removed}} of the runs' items were removed from the package; their results are not released. Confirm the count to release the rest.": "A futások {{removed}} tételét kivették a csomagból; ezek eredménye nem kerül kiadásra. A többi kiadásához erősítsd meg a darabszámot.",
+  "the package has nothing new to release": "A csomagban nincs új kiadnivaló",
+  "the package's result changed during the release; release it again": "A csomag eredménye a kiadás közben megváltozott; add ki újra"
 }

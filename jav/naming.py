@@ -480,19 +480,22 @@ def run_item_names(run_id: str) -> dict[str, ItemName]:
 
 
 def package_item_names(wp: dict[str, Any]) -> dict[str, ItemName]:
-    """Every item of the package with its name from the latest run in which it finished. Runs are visited newest
-    first, and a run's names are computed only if it finished an item still without a name."""
+    """Every item of the package with its name from the run whose result counts now (171, plan 170 L1:
+    `package_result.counted_results`, so the item list's name and counting run come from the same run; before, the
+    name came from the latest run in which the item finished, a stopped one included). An item without a counted
+    result is pending. A run's names are computed once, for its counted items only."""
+    from jav import package_result
+
     out = {i["item_id"]: NO_NAME for i in wp["items"] if i.get("kind") == "email"}
     todo = {i["item_id"] for i in wp["items"]} - set(out)
-    for row in work.run_rows(wp["id"]):
-        if not todo:
-            break
-        finished = {r["item_id"] for r in work.get_run(row["run_id"])["items"] if r["status"] == "done"} & todo
-        if finished:
-            found = _names_of(row["run_id"], finished)
-            out.update(found)
-            todo -= set(found)
-    out.update(dict.fromkeys(todo, PENDING))
+    counted = package_result.counted_results(wp["id"])
+    by_run: dict[str, set[str]] = {}
+    for item_id in todo:
+        if item_id in counted:
+            by_run.setdefault(counted[item_id].run_id, set()).add(item_id)
+    for run_id, item_ids in sorted(by_run.items()):
+        out.update(_names_of(run_id, item_ids))
+    out.update(dict.fromkeys(todo - set(out), PENDING))
     return out
 
 

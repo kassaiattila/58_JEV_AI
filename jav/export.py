@@ -29,7 +29,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from jav import card_numbers, cfg, corrections, duplicates, native_results, store, typepack, work
+from jav import card_numbers, cfg, corrections, duplicates, native_results, package_result, store, typepack, work
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
 SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
@@ -81,7 +81,7 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
         if dp is None:
             continue
         corr = corrections.current(run_id, item["item_id"])
-        effective = {**(dp.get("datapoints") or {}), **corr["fields"]}
+        effective = package_result.effective_values(dp.get("datapoints"), corr["fields"])
         prov = _item_provenance(run_id, item["item_id"], dp, corr)
         pack = typepack.get(dp["doc_type"])
         reasons = [r["reason"] for r in split[item["item_id"]]["run"]]
@@ -459,16 +459,20 @@ def _utility_sheets(wb, report: dict[str, Any], used: set[str]) -> None:
 
 
 def xlsx_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> bytes:
+    records = run_records(run_id) if records is None else records
+    return workbook_bytes(records, email_records(run_id), native_records(run_id))
+
+
+def workbook_bytes(records: list[dict[str, Any]], mails: list[dict[str, Any]], native: list[dict[str, Any]]) -> bytes:
+    """The download workbook of documents, emails and native results (a run's, or a released package version's,
+    171: `jav/package_release.py`)."""
     from openpyxl import Workbook
 
     from jav import report_utility
 
-    records = run_records(run_id) if records is None else records
     wb = Workbook()
     wb.remove(wb.active)
     used: set[str] = set()
-    mails = email_records(run_id)
-    native = native_records(run_id)
     if native:
         head, rows = native_facts_table(native)
         _write_sheet(wb.create_sheet(_safe_sheet("Native facts", used)), head, rows)
@@ -563,4 +567,4 @@ def render(run_id: str, fmt: str, table: str = "documents") -> tuple[bytes, str,
 
 
 __all__ = ["TABLES", "csv_bytes", "datapoints_table", "documents_table", "email_records", "emails_table", "json_bytes",
-           "line_items_table", "render", "run_records", "xlsx_bytes"]
+           "line_items_table", "render", "run_records", "workbook_bytes", "xlsx_bytes"]

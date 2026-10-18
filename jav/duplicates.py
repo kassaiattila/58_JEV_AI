@@ -39,7 +39,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import cfg, fact_checks, store
+from jav import cfg, fact_checks, package_result, store
 from jav.runtime import calls
 from jav.user_messages import explained
 
@@ -231,7 +231,7 @@ def documents(fields: Iterable[str] | None = None, types: Iterable[str] | None =
     for r in rows:
         values = {f: r[6 + i] for i, f in enumerate(fields)}
         fix = corrected.get((r["work_run"], r["item_id"])) or {}
-        values.update({f: v for f, v in fix.items() if f in values})
+        values = package_result.effective_values(values, {f: v for f, v in fix.items() if f in values})
         out.append(Document(r["doc_id"], r["doc_type"], values, r["flow_run_id"], r["work_run"], r["item_id"], int(r["seq"])))
     return out
 

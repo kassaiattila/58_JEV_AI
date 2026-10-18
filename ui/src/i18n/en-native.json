@@ -1654,5 +1654,20 @@
   "{{n}} documents": "{{n}} documents",
   "{{n}} invoices of other parties": "{{n}} invoices of other parties",
   "{{n}} left out": "{{n}} left out",
-  "Left out of this package by a person": "Left out of this package by a person"
+  "Left out of this package by a person": "Left out of this package by a person",
+  "No data was extracted from the document, so it has no values to check or download; its other to-dos show why": "No data was extracted from the document, so it has no values to check or download; its other to-dos show why",
+  "reconciliation: command-line results accepted as sources": "reconciliation: command-line results accepted as sources",
+  "reconciliation: version approved": "reconciliation: version approved",
+  "reconciliation: approval reopened": "reconciliation: approval reopened",
+  "statement package: party and period set": "statement package: party and period set",
+  "statement package: bank account assigned to the party": "statement package: bank account assigned to the party",
+  "statement package: statements added": "statement package: statements added",
+  "package: approved and released": "package: approved and released",
+  "another version of the package was released meanwhile; reload it": "another version of the package was released meanwhile; reload it",
+  "a reconciliation package is approved in its own statement": "a reconciliation package is approved in its own statement",
+  "the package's result changed since it was shown; reload it and check it again": "the package's result changed since it was shown; reload it and check it again",
+  "a live run of the package is not ready for approval": "a live run of the package is not ready for approval",
+  "{{removed}} of the runs' items were removed from the package; their results are not released. Confirm the count to release the rest.": "{{removed}} of the runs' items were removed from the package; their results are not released. Confirm the count to release the rest.",
+  "the package has nothing new to release": "the package has nothing new to release",
+  "the package's result changed during the release; release it again": "the package's result changed during the release; release it again"
 }

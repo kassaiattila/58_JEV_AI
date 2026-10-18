@@ -36,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from jav import (app_settings, backup, bank_files, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
-                 parties, party_views, reconcile_package, reconcile_review, reconcile_statement, statement_months, store, version, work,
+                 package_release, parties, party_views, reconcile_package, reconcile_review, reconcile_statement, statement_months, store, version, work,
                  work_views, workflows)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
@@ -338,6 +338,13 @@ class StartRun(_In):
 
 class Empty(_In):
     pass
+
+
+class ReleasePackage(_In):
+    """171 (plan 170 L1): `expected_mark` is the package result view's `mark` the person saw; if the result changed
+    since, 409. `confirm_removed`: the view's `removed_items`, as for a run's approval."""
+    expected_mark: str = Field(min_length=1, max_length=64)
+    confirm_removed: int | None = Field(default=None, ge=0)
 
 
 class Approve(_In):
@@ -777,6 +784,10 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     async def not_ready(_request: Request, exc: work.NotReady):
         return _error(409, "not_ready", str(exc), blockers=exc.blockers, **message_fields(exc))
 
+    @app.exception_handler(package_release.ReleaseError)
+    async def release_refused(_request: Request, exc: package_release.ReleaseError):
+        return _error(422, "release_refused", str(exc), **message_fields(exc))  # 171: named in the display language
+
     @app.exception_handler(reconcile_package.Locked)
     async def reconcile_locked(_request: Request, exc: reconcile_package.Locked):
         return _error(422, "reconcile_locked", str(exc), **message_fields(exc))  # 145: the UI names it in the display language
@@ -1179,6 +1190,28 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     def approve(run_id: RunId, body: Approve, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         work.approve_run(run_id, actor=who, review_version=body.review_version, confirm_removed=body.confirm_removed)
         return work_views.run_view(run_id)
+
+    @app.get(r + "/workpackages/{wp_id}/result")
+    def package_result_view(wp_id: WpId) -> dict[str, Any]:
+        """171 (plan 170 L1): the package's current result per item, its mark, the open live runs and what blocks a
+        release, the release state and the released versions."""
+        return work_views.jsonable(package_release.view(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/release")
+    def release_package(wp_id: WpId, body: ReleasePackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """171 (plan 170 L1): Approve and release: the open live runs are approved and the next version recorded."""
+        version = package_release.release(wp_id, actor=who, expected_mark=body.expected_mark,
+                                          confirm_removed=body.confirm_removed)
+        return work_views.jsonable({"version": version, "result": package_release.view(wp_id)})
+
+    @app.get(r + "/workpackages/{wp_id}/versions/{version}/files/{name}")
+    def package_version_file(wp_id: WpId, version: Annotated[int, PathParam(ge=1, le=100000)],
+                             name: Literal["result.xlsx", "result.json", "documents.csv", "datapoints.csv",
+                                           "line_items.csv", "native_facts.csv"]) -> Response:
+        """171: a released version's download, the stored file itself (it never changes)."""
+        content, media, filename = package_release.version_file(wp_id, version, name)
+        return Response(content, media_type=media, headers={"Content-Disposition": attachment_header(filename),
+                                                            "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
     @app.get(r + "/runs/{run_id}/results")
     def results(run_id: RunId) -> dict[str, Any]:
