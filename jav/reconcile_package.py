@@ -266,15 +266,16 @@ def scope(wp_id: str) -> dict[str, Any]:
 
 def set_scope(wp_id: str, *, accounts: list[str], period_start: str, period_end: str, expected_revision: int,
               actor: str, party_id: str | None = None) -> dict[str, Any]:
-    """A changed scope and party; the decisions stay (they belong to the pairs). 145: not while approved."""
+    """A changed scope and party; the decisions stay (they belong to the pairs). 145: not while approved; 174 (review
+    160 M-13): checked inside the write transaction, so an approval made meanwhile is not overwritten."""
     keys, start, end = _checked_scope(accounts, period_start, period_end)
     party = _checked_party(party_id)
     scope(wp_id)
-    if active := active_versions().get(wp_id):
-        raise explained(Locked, "the package's statement is approved (version {{version}}); reopen it to change the scope",
-                        version=active["version"])
     with store.connect() as c:
         store.begin_immediate(c)
+        if active := active_versions(c).get(wp_id):
+            raise explained(Locked, "the package's statement is approved (version {{version}}); reopen it to change the scope",
+                            version=active["version"])
         row = c.execute("SELECT revision FROM reconcile_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
         if row["revision"] != expected_revision:
             raise explained(work.RevisionConflict, "the scope is at revision {{revision}}, not {{expected_revision}}",

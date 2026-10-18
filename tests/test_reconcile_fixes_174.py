@@ -179,3 +179,31 @@ def test_m12_such_a_statement_is_a_to_do_and_not_checked_coverage(tmp_path) -> N
         with store.connect() as c:
             validation = c.execute("SELECT validation FROM datapoints").fetchone()[0]
         assert reconcile.verified(json.loads(validation)) is False
+
+
+def test_m13_an_approval_that_lands_just_before_a_scope_change_stops_it(tmp_path, monkeypatch) -> None:
+    """M-13: the scope change checked for an approved version before its write transaction, so an approval made in
+    between was overwritten by the new scope. The check now runs inside the transaction."""
+    import pytest
+
+    from jav import reconcile_package as rp, store
+    from tests.test_reconcile_package_131 import OWN_KEY, _line, _package, _stmt
+
+    with store.use_store(tmp_path / "r.sqlite"):
+        _stmt("stmt", _line())
+        wp_id = _package()
+        real = store.begin_immediate
+
+        def approval_first(c):  # another person's approval commits just before this write begins
+            with store.connect() as other:
+                other.execute("INSERT INTO reconcile_versions(workpackage_id, version, content, fingerprint, line_ids,"
+                              " approved_by, approved_at) VALUES (?, 1, '{}', 'x', '[]', 'Approver', '2026-10-18T10:00:00+00:00')",
+                              (wp_id,))
+            monkeypatch.setattr(store, "begin_immediate", real)
+            real(c)
+
+        monkeypatch.setattr(store, "begin_immediate", approval_first)
+        with pytest.raises(rp.Locked):
+            rp.set_scope(wp_id, accounts=[OWN_KEY], period_start="2026-04-01", period_end="2026-05-31",
+                         expected_revision=1, actor="t")
+        assert rp.scope(wp_id)["revision"] == 1
