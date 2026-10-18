@@ -8,6 +8,7 @@ is the machine's value with the latest correction a person made over it. Until n
 reconciliation and the duplicate search each wrote these rules by hand.
 
 - `counted_results(wp_id)`: per item, the counted run, in one query (a window over the package's finished run items).
+- `in_use(wp)`: the same for the items in use only, in the package's item order (172: the package's result tables).
 - `effective_values(machine, correction)`: the one merge of a machine result and the fields a person corrected.
 """
 
@@ -66,6 +67,13 @@ def counted_results(wp_id: str, c: sqlite3.Connection | None = None) -> dict[str
         return read(c)
     with store.connect() as conn:
         return read(conn)
+
+
+def in_use(wp: Mapping[str, Any], c: sqlite3.Connection | None = None) -> dict[str, Counted]:
+    """172: the counted result of each item in use (`wp["items"]`), in the package's item order; an item removed from
+    the package, or one no run has finished, is left out."""
+    counted = counted_results(wp["id"], c)
+    return {i["item_id"]: counted[i["item_id"]] for i in wp["items"] if i["item_id"] in counted}
 
 
 def effective_values(machine: Mapping[str, Any] | None, correction: Mapping[str, Any] | None) -> dict[str, Any]:

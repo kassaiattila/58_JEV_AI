@@ -32,7 +32,10 @@ def test_catalog_lists_every_dataset_with_its_scope(env):
     by_name = {d["name"]: d for d in body["datasets"]}
     assert {"runs", "workpackages", "workpackage_items", "run_items", "documents", "datapoints", "line_items", "calls",
             "mailbox_pulls", "utility_cost", "utility_sources"} <= set(by_name)
-    assert by_name["datapoints"]["scope"] == ["run_id"] and by_name["runs"]["optional_scope"] == ["workpackage_id"]
+    assert by_name["runs"]["optional_scope"] == ["workpackage_id"]
+    # 172: a result table is a run's or the package's current result: exactly one of the two
+    assert by_name["datapoints"]["scope"] == [] and by_name["datapoints"]["one_of"] == ["run_id", "workpackage_id"]
+    assert by_name["file_names"]["scope"] == ["run_id"]
     assert by_name["workpackages"]["natural_sort"] == [{"col": "created_at", "desc": True}]  # 062: marked on the header
 
 

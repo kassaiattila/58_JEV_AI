@@ -110,10 +110,19 @@ def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool |
             return step("go_live", "Próba kész: éles futás", "process", trial_reasons=last_run["open_reasons"])
         return step("review", f"Ellenőrzés: {last_run['open_reasons']} teendő", "review", n=last_run["open_reasons"])
     if last_run["mode"] == "apply":
-        if last_run.get("approval"):
+        # 172 (plan 170 L1): the step is the package's Approve and release; an approval without a released version
+        # (the way before v1.20.0, or a release stopped after its approvals) still needs it
+        if last_run.get("approval") and not (wp.get("id") and _unreleased_approval(wp["id"])):
             return step("done", "Kiadva: eredmény letöltése", "result")
-        return step("approve", "Jóváhagyás", "result")
+        return step("release", "Jóváhagyás és kiadás", "result")
     return step("go_live", "Próba rendben: éles futás", "process")
+
+
+def _unreleased_approval(wp_id: str) -> bool:
+    from jav import package_release
+
+    with store.connect() as c:
+        return package_release.unreleased_approval(wp_id, c)
 
 
 def current_run(runs: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -265,31 +274,37 @@ def assignment_view(wp_id: str) -> dict[str, Any]:
                      "history": work.assignment_history(wp_id)})
 
 
-def result_tables(run_id: str) -> list[str]:
+def result_tables(run_id: str | None = None, *, workpackage_id: str | None = None) -> list[str]:
     """The meaningful views of the run's result (058): an empty view does not appear in the UI. Documents and data
     points if there is an extracted document; line items if there is an itemised list; utility cost if there is a
-    utility bill."""
+    utility bill. 172: also of the package's current result (`workpackage_id`), from each item's counted run; its file
+    names only when one run gives them all (the named copies are made per run)."""
     from jav import datasets, report_utility
 
-    records = datasets.run_records(run_id)
-    items = work.get_run(run_id)["input"]["items"]
+    scope = {"run_id": run_id} if run_id else {"workpackage_id": str(workpackage_id)}
+    parts = datasets.result_parts(scope)
+    records = datasets.result_records(scope)
+    shown = [(run["run_id"], i) for run, keep in parts for i in run["input"]["items"] if keep is None or i["item_id"] in keep]
+    items = [i for _run, i in shown]
     out = ["emails"] if any(i.get("kind") == "email" for i in items) else []  # 058 K5.1
     if out:  # 058 K5.3: task-proposal view if the run asked for proposals
         from jav import export
 
-        if export.task_rows(export.email_records(run_id)):
+        mails = [m for run, keep in parts for m in export.email_records(run["run_id"]) if keep is None or m["item_id"] in keep]
+        if export.task_rows(mails):
             out.append("tasks")
     out += ["documents", "datapoints"] if records else []
     from jav import native_results
     from jav.native_contracts import NATIVE_SUFFIXES
 
-    if any(native_results.native_item(run_id, i) for i in items):  # 120: a continuing PDF too
+    if any(native_results.native_item(r, i) for r, i in shown):  # 120: a continuing PDF too
         out.append("native_facts")
     if any(any(r.get("lists", {}).values()) for r in records):
         out.append("line_items")
     if report_utility.has_utility(records):
         out.append("utility")
-    if any(i.get("kind") != "email" and Path(i["source_path"]).suffix.lower() not in NATIVE_SUFFIXES for i in items):
+    if len(parts) == 1 and any(i.get("kind") != "email" and Path(i["source_path"]).suffix.lower() not in NATIVE_SUFFIXES
+                               for i in items):
         out.append("file_names")
     return out
 

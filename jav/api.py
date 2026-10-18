@@ -1194,8 +1194,27 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.get(r + "/workpackages/{wp_id}/result")
     def package_result_view(wp_id: WpId) -> dict[str, Any]:
         """171 (plan 170 L1): the package's current result per item, its mark, the open live runs and what blocks a
-        release, the release state and the released versions."""
-        return work_views.jsonable(package_release.view(wp_id))
+        release, the release state and the released versions. 172: and its meaningful result views (`tables`)."""
+        with store.session():
+            return work_views.jsonable({**package_release.view(wp_id),
+                                        "tables": work_views.result_tables(workpackage_id=wp_id)})
+
+    @app.get(r + "/workpackages/{wp_id}/result/export.xlsx")
+    def package_result_export(wp_id: WpId) -> Response:
+        """172: the package's current result as a workbook (each item from its counted run; a release stores its own)."""
+        content, filename = package_release.current_workbook(wp_id)
+        return Response(content, media_type=package_release.MEDIA["result.xlsx"],
+                        headers={"Content-Disposition": attachment_header(filename), "Cache-Control": "no-store",
+                                 "X-Content-Type-Options": "nosniff"})
+
+    @app.get(r + "/workpackages/{wp_id}/result/utility-cost")
+    def package_utility_cost(wp_id: WpId) -> dict[str, Any]:
+        """172: the utility-cost time series of the package's current result (as the run's report, 054 K4)."""
+        from jav import datasets, report_utility
+
+        work.get(wp_id)
+        return work_views.jsonable({"workpackage_id": wp_id,
+                                    **report_utility.build(datasets.result_records({"workpackage_id": wp_id}))})
 
     @app.post(r + "/workpackages/{wp_id}/release")
     def release_package(wp_id: WpId, body: ReleasePackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:

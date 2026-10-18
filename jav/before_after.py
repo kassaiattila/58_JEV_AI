@@ -6,9 +6,10 @@ After the step, a fresh copy of the same backup is read the same way with the ne
 view by view: a difference is allowed only where the step said it would change something.
 
 - `static_snapshot` reads a fresh copy of the backed-up store through `jav.api.create_app` (in process, no network,
-  no AI call) and writes one JSON line per view: the packages, their items, runs, reviews and next steps, every run's
-  item results, journal and downloads, the datasets behind the tables, the reconciliation views, the parties, the
-  workflows and the activity log of every person and day found in the store.
+  no AI call) and writes one JSON line per view: the packages, their items, runs, reviews and next steps, each
+  package's current result with its tables and downloads (172), every run's item results, journal and downloads, the
+  datasets behind the tables, the reconciliation views, the parties, the workflows and the activity log of every
+  person and day found in the store.
 - `diff` compares two snapshots and lists the views that are missing on one side or differ, with the first differing
   places inside each view.
 
@@ -46,6 +47,9 @@ VOLATILE_KEYS = frozenset({"refreshing"})
 _RUN_DATASETS = ("run_items", "emails", "email_tasks", "documents", "datapoints", "native_facts", "line_items",
                  "utility_cost", "utility_sources", "file_names", "calls")
 _EXPORT_TABLES = ("documents", "datapoints", "line_items", "native_facts")
+# 172: the result tables of a package's current result (each item from its counted run)
+_PACKAGE_DATASETS = ("emails", "email_tasks", "documents", "datapoints", "native_facts", "line_items", "utility_cost",
+                     "utility_sources")
 
 # The tables whose (actor, time) pairs give the persons and days of the activity log (`jav/activity.py` sources).
 _ACTIVITY_TIMES = (
@@ -228,8 +232,14 @@ def _views(reader: _Reader, store_path: Path, *, items: bool, matches: bool) -> 
         yield reader.dataset("runs", {"workpackage_id": wid})
         yield reader.dataset("workpackage_items", {"workpackage_id": wid, "removed": "1"})
         yield reader.dataset("package_costs", {"workpackage_id": wid})
+        yield g(f"workpackage/{wid}/result", f"/workpackages/{wid}/result")  # 171/172: its current result and release
         if wp.get("source_kind") == "reconcile":
             yield from _reconcile_views(reader, wid, matches=matches)
+        else:
+            yield g(f"workpackage/{wid}/result/export.xlsx", f"/workpackages/{wid}/result/export.xlsx", "xlsx")
+            yield g(f"workpackage/{wid}/result/utility-cost", f"/workpackages/{wid}/result/utility-cost")
+            for name in _PACKAGE_DATASETS:
+                yield reader.dataset(name, {"workpackage_id": wid})
     for rid in sorted(set(run_ids)):
         key, run = g(f"run/{rid}", f"/runs/{rid}")
         yield key, run

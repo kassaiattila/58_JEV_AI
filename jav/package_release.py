@@ -13,6 +13,8 @@ version recorded afterwards, marked as such (DECISIONS 171).
 - `release(wp_id, actor=, expected_mark=, confirm_removed=)`: approves the open live runs and records the next version.
 - `version_file(wp_id, version, name)`: a stored file of a released version.
 - `backfill()`: the first version of every package approved before (idempotent).
+- `result_mark(wp_id)`, `current_workbook(wp_id)`, `unreleased_approval(wp_id, c)` (172): the mark a result table's
+  page carries, the current result as a workbook, and whether the next step is Approve and release.
 
 A reconciliation package has no runs; it is approved in its own statement (`reconcile_statement.approve`, plan 170 L3
 brings the two together).
@@ -275,6 +277,39 @@ def release(wp_id: str, *, actor: str, expected_mark: str, confirm_removed: int 
                 files=files, c=c)
         work.record_event(c, wp_id, "package_release", actor, {"version": n, "items": len(releasable), "runs": approved})
     return next(v for v in view(wp_id)["versions"] if v["version"] == n)
+
+
+def result_mark(wp_id: str) -> str:
+    """172: the mark of the package's current result now (a page of the package's result table carries it, so Approve
+    and release names the result the person saw)."""
+    return _result(work.get(wp_id))[0]
+
+
+def current_workbook(wp_id: str) -> tuple[bytes, str]:
+    """172: (content, file name) of the package's current result as a workbook: each item in use from its counted run,
+    written as a released version's workbook is (an item of a trial too; only a release stores it)."""
+    wp = work.get(wp_id)
+    with store.session():
+        current = {item: x.run_id for item, x in package_result.in_use(wp).items()}
+        records, mails, native = _records(current)
+        content = export.workbook_bytes(records, mails, native)
+    return content, f"{wp_id}-result-{datetime.now().strftime('%Y%m%d-%H%M')}.xlsx"
+
+
+def unreleased_approval(wp_id: str, c: sqlite3.Connection) -> bool:
+    """172: whether a live run of the package was approved after its latest released version (or with none), as when
+    a run was approved the way before v1.20.0 or a release stopped after its approvals: the package's next step is
+    then Approve and release. A release records its version after the approvals, and a version recorded afterwards
+    carries the latest approval's time, so neither reads as unreleased."""
+    approved = c.execute("SELECT MAX(approved_at) FROM runs WHERE workpackage_id=? AND mode='apply' AND approval='approved'",
+                         (wp_id,)).fetchone()[0]
+    if approved is None:
+        return False
+    # a connection opened before this module was imported may not have the table yet: no version then
+    if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='package_versions'").fetchone() is None:
+        return True
+    released = c.execute("SELECT MAX(released_at) FROM package_versions WHERE workpackage_id=?", (wp_id,)).fetchone()[0]
+    return released is None or approved > released
 
 
 def _result(wp: dict[str, Any], c: sqlite3.Connection | None = None) -> tuple[str, dict[str, str], list[dict[str, Any]]]:
