@@ -220,6 +220,26 @@ def test_inside_offline_no_request_leaves_and_everything_is_put_back(tmp_path) -
     assert dict(os.environ) == environment and ocr.CACHE_DIR == cache
 
 
+def test_random_identifiers_repeat_per_item_inside_a_replay_only() -> None:
+    import uuid
+
+    from jav import native_results
+    from jav.readers import pipeline
+
+    real = uuid.uuid4
+    with before_after_replay._fixed_ids() as ids:
+        ids.item("run-a:item-1")
+        first = [uuid.uuid4(), native_results.uuid4(), pipeline.uuid4()]
+        ids.item("run-a:item-2")
+        other = uuid.uuid4()
+        ids.item("run-a:item-1")
+        again = [uuid.uuid4(), native_results.uuid4(), pipeline.uuid4()]
+    assert first == again and len(set(first)) == 3 and other not in first
+    assert all(u.version == 4 for u in first)
+    assert uuid.uuid4 is real and native_results.uuid4 is real and pipeline.uuid4 is real
+    assert uuid.uuid4() != uuid.uuid4()
+
+
 def test_the_queue_hands_over_one_given_job(tmp_path) -> None:
     with store.use_store(tmp_path / "q.sqlite"):
         first = queue.enqueue("run_item", run_id="r", payload={"n": 1}, dedup_key="a")

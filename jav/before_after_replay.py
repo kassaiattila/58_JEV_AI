@@ -19,6 +19,9 @@ written in the static snapshot's format, so `before-after-diff` compares two rep
   item's end state, its stored rows (data points,
   documents, to-dos, email result, native facts, ledger and call log) and its views, and each replayed run's views.
 - `live_calls` is the gate: every call of a replayed run that was not an earlier answer.
+- Random identifiers made while processing (a new native reading's intake, a temporary instance) come from a fixed
+  sequence per item during the replay (`_FixedIds`): a native document whose reading the backup lacks is read anew,
+  and its random intake identifier would otherwise change the reading's digest from one replay to the next.
 
 Two replays are comparable when they start from the same backup, the same JEV answer cache and the same work folder
 (stored paths name it), on the same day (a few checks compare dates with today).
@@ -33,6 +36,7 @@ import shutil
 import sqlite3
 import urllib.error
 import urllib.request
+import uuid
 from collections import defaultdict
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -209,6 +213,40 @@ def _no_rates(url: str, body: bytes, headers: dict[str, str], timeout: float) ->
     raise OSError("the before/after replay does not ask the exchange rate service")
 
 
+class _FixedIds:
+    """Random identifiers made while an item is processed (a new native reading's intake and folder, a temporary
+    instance) from a fixed sequence per item instead: two replays then make the same ones. `item` starts an item's
+    sequence, so that a change in one item does not shift another's."""
+
+    def __init__(self) -> None:
+        self.seed, self.count = "", 0
+
+    def item(self, seed: str) -> None:
+        self.seed, self.count = seed, 0
+
+    def __call__(self) -> uuid.UUID:
+        self.count += 1
+        return uuid.UUID(bytes=hashlib.sha256(f"replay:{self.seed}:{self.count}".encode()).digest()[:16], version=4)
+
+
+@contextmanager
+def _fixed_ids() -> Iterator[_FixedIds]:
+    """`uuid.uuid4` and the modules that imported it by name answer from `_FixedIds` inside; put back afterwards."""
+    from jav import native_results
+    from jav.readers import pipeline
+
+    ids = _FixedIds()
+    targets = [(uuid, "uuid4"), (native_results, "uuid4"), (pipeline, "uuid4")]
+    saved = [getattr(module, name) for module, name in targets]
+    try:
+        for module, name in targets:
+            setattr(module, name, ids)
+        yield ids
+    finally:
+        for (module, name), value in zip(targets, saved, strict=True):
+            setattr(module, name, value)
+
+
 @contextmanager
 def offline(work_dir: Path) -> Iterator[None]:
     """No provider can be reached inside: the keys are placeholders (a client can be built, so a question without an
@@ -284,11 +322,13 @@ def _replay(units: list[Unit]) -> None:
     for u in units:
         rid = replay_run_id(u.run_id)
         for item_id in u.item_ids:
-            jobs.append(queue.enqueue(work.JOB_KIND, run_id=rid, dedup_key=f"{rid}:{item_id}",
-                                      payload={"run_id": rid, "item_id": item_id}).id)
-    for job_id in jobs:
-        while (job := queue.claim_job(job_id, WORKER)) is not None:
-            worker.process(job)
+            jobs.append((f"{rid}:{item_id}", queue.enqueue(work.JOB_KIND, run_id=rid, dedup_key=f"{rid}:{item_id}",
+                                                           payload={"run_id": rid, "item_id": item_id}).id))
+    with _fixed_ids() as ids:
+        for seed, job_id in jobs:
+            ids.item(seed)
+            while (job := queue.claim_job(job_id, WORKER)) is not None:
+                worker.process(job)
 
 
 def live_calls(c: sqlite3.Connection, run_ids: list[str]) -> list[dict[str, Any]]:
