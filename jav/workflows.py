@@ -39,7 +39,8 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, app_settings, cfg, mailbox, parties, reconcile_package, statement_package, store, work
+from jav import (activity_kinds, app_settings, cfg, logic_packs, mailbox, parties, reconcile_package, statement_package,
+                 store, work)
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions a workflow's log records (`jav/activity_kinds.py`)
@@ -400,9 +401,9 @@ def _package_state(wp_id: str) -> tuple[bool, dict[str, Any] | None]:
         wp = work.get(wp_id)
     except KeyError:
         return False, None
-    if wp["source_kind"] == "reconcile":
-        approved = reconcile_package.approval(wp_id)["active"] is not None
-        return approved, reconcile_package.package_view(wp_id)["next"]
+    pack = logic_packs.of(wp["source_kind"])
+    if pack is not None and not pack.has_runs:  # 176: a logic pack without runs answers for itself
+        return pack.approved(wp_id), pack.next_step(wp_id)
     nxt = work_views.next_step(wp, work_views.current_run(work.run_rows(wp_id)))  # 153: a later stopped run hides nothing
     return _live_run_approved(wp_id), nxt
 
@@ -427,8 +428,9 @@ def _satisfied(st: dict[str, Any]) -> bool:
         kind = c.execute("SELECT source_kind FROM workpackages WHERE id=?", (st["workpackage_id"],)).fetchone()
     if kind is None:
         return False
-    if kind["source_kind"] == "reconcile":
-        return reconcile_package.approval(st["workpackage_id"])["active"] is not None
+    pack = logic_packs.of(kind["source_kind"])
+    if pack is not None and not pack.has_runs:  # 176: a reconciliation step: a version of it is approved
+        return pack.approved(st["workpackage_id"])
     return _live_run_approved(st["workpackage_id"])
 
 

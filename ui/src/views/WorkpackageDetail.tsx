@@ -9,34 +9,25 @@ import { Picker } from "../components/Picker";
 import { useEvent, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { itemCountText, MODE, RUN_STATUS, stepLabel, tmap, when } from "../labels";
+import { logicOf } from "../logic/registry";
 import { go, type Route, type Stage } from "../route";
 import { PackageItemsPanel } from "./PackageItems";
 import { ProcessStage } from "./ProcessStage";
 import { ResultStage } from "./ResultStage";
-import { StatementPackagePanel } from "./StatementPackagePanel";
 import { ReviewWorkspace } from "./ReviewWorkspace";
-import { ReconcileStages } from "./reconcile/ReconcileStages";
 import { StartConfirm } from "./StartConfirm";
 import { WorkpackageActions } from "./WorkpackageActions";
 
 const STAGE_LABEL = tmap({ process: "Feldolgozás", review: "Ellenőrzés", result: "Eredmény" }) as Record<Stage, string>;
-// 132: a reconciliation package's stages (it has no files and no runs: a scope, the pairing, the result)
-const RECONCILE_STAGE_LABEL = tmap({ process: "Preparation", review: "Pairing", result: "Result" }) as Record<Stage, string>;
 const ACTIVE = new Set(["queued", "running"]);
 
 export function stageStatus(view: WorkpackageView): Record<Stage, string> {
   const last = view.last_run;
   // 153: the to-dos and the approval are the current run's (a later run a person stopped does not hide them)
   const current = view.current_run ?? last;
-  if (view.reconcile) {
-    const { scope, counts, approval } = view.reconcile;
-    return {
-      process: t("{{n}} accounts, {{from}} – {{to}}", { n: scope.accounts.length, from: scope.period_start, to: scope.period_end }),
-      review: counts.open_lines ? t("{{n}} open lines", { n: counts.open_lines }) : t("no open line"),
-      // 145: the approved version, if any
-      result: approval?.active ? t("approved: version {{n}}", { n: approval.active.version }) : t("not approved yet"),
-    };
-  }
+  // 176: a logic pack without runs says where its own stages stand (a reconciliation: its scope, lines, approval)
+  const own = logicOf(view.workpackage?.source_kind)?.stages?.status(view);
+  if (own) return own;
   return {
     // 080: without saved settings the default processing settings apply, so readiness alone decides
     process: last ? `${MODE[last.mode]} · ${(RUN_STATUS[last.status] ?? last.status).toLowerCase()} · ${last.items_done}/${last.items}`
@@ -105,14 +96,14 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   const { workpackage, next, last_run: last } = view;
   const stage: Stage = route.stage ?? next.stage;
   const status = stageStatus(view);
-  const reconcile = workpackage.source_kind === "reconcile";
-  const labels = reconcile ? RECONCILE_STAGE_LABEL : STAGE_LABEL;
+  // 176: the logic pack the package runs (none for a plain processing kind); one without runs has its own stages
+  const logic = logicOf(workpackage.source_kind);
+  const own = logic?.stages;
+  const labels = own?.labels ?? STAGE_LABEL;
 
-  const summary: ReactNode = reconcile && view.reconcile ? (
-    t("Reconciliation of {{n}} accounts or cards, {{from}} – {{to}}", { n: view.reconcile.scope.accounts.length, from: view.reconcile.scope.period_start, to: view.reconcile.scope.period_end })
-  ) : (
+  const summary: ReactNode = own?.summary(view) ?? (
     <>
-      {view.statements ? `${t("Bank statements of {{party}}, {{from}} – {{to}}", { party: view.statements.scope.party.name, from: view.statements.scope.period_start, to: view.statements.scope.period_end })} · ` : null}
+      {logic?.summary?.(view) ?? null}
       {itemCountText(workpackage.items)}
       {last ? ` · ${t("utolsó futás: {{mode}}, {{when}}", { mode: MODE[last.mode].toLowerCase(), when: when(last.created_at) })}` : ` · ${t("még nem futott")}`}
     </>
@@ -144,10 +135,10 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
         ))}
       </div>
       <div role="tabpanel" aria-label={labels[stage]}>
-        {reconcile ? <ReconcileStages view={view} stage={stage} onChanged={wp.reload} /> : null}
-        {!reconcile && stage === "process" && route.start ? <StartConfirm view={view} mode={route.start.mode} rerun={route.start.rerun} pending={route.start.pending} onChanged={wp.reload} /> : null}
-        {!reconcile && stage === "process" && !route.start ? <ProcessStage view={view} adding={!!route.add} onChanged={wp.reload} /> : null}
-        {!reconcile && stage === "review" ? (
+        {own ? own.body(view, stage, wp.reload) : null}
+        {!own && stage === "process" && route.start ? <StartConfirm view={view} mode={route.start.mode} rerun={route.start.rerun} pending={route.start.pending} onChanged={wp.reload} /> : null}
+        {!own && stage === "process" && !route.start ? <ProcessStage view={view} adding={!!route.add} onChanged={wp.reload} /> : null}
+        {!own && stage === "review" ? (
           view.runs ? (
             <>
               <ReviewWorkspace wp={workpackage} itemId={route.itemId} onChanged={wp.reload} currentRunId={view.current_run?.run_id}
@@ -167,9 +158,9 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
             </>
           )
         ) : null}
-        {/* 140: a statement package's statements and its party's months, before and after its run */}
-        {!reconcile && stage === "result" && view.statements ? <StatementPackagePanel view={view.statements} /> : null}
-        {!reconcile && stage === "result" ? <ResultStage view={view} table={route.table} runId={route.runId} onChanged={wp.reload} /> : null}
+        {/* 140: what a logic pack shows above the result (a statement package: its statements and its party's months) */}
+        {!own && stage === "result" ? logic?.resultPanel?.(view) ?? null : null}
+        {!own && stage === "result" ? <ResultStage view={view} table={route.table} runId={route.runId} onChanged={wp.reload} /> : null}
       </div>
     </>
   );

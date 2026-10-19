@@ -11,7 +11,7 @@ Plain-language summary: four lists that were written out by hand in several plac
   version: each part present wraps the earlier ones, in the order registered.
 - The task kinds an email's task proposal may name (`configs/email_tasks.json` `actions`) and the decisions a person
   makes on a proposal.
-A logic package adds its own kinds the same way. The built-in ones are registered by the modules that own them; the
+A logic pack (`jav/logic_packs.py`) adds its own kinds the same way. The built-in ones are registered by the modules that own them; the
 registry loads those modules the first time a full list is read.
 """
 

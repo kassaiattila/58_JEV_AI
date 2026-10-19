@@ -29,13 +29,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, card_numbers, corrections, export, package_result, store, work
+from jav import activity_kinds, card_numbers, corrections, export, logic_packs, package_result, store, work
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
 activity_kinds.register_events("package", ("package_release",), __name__)
-
-KINDS_WITHOUT_RUNS = ("reconcile",)
 
 # The stored files of a version: (name, media type). The names are the download's file name suffixes.
 FILES = (("result.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
@@ -130,11 +128,12 @@ def view(wp_id: str) -> dict[str, Any]:
     """The package's current result and its release: per item the counted result (tier, run, final status, whether the
     latest version holds it), the mark, the open live runs with what blocks them, the state and the versions."""
     wp = work.get(wp_id)
+    has_runs = logic_packs.has_runs(wp["source_kind"])  # 176: a logic pack without runs is approved its own way
     with store.session(), store.connect() as c:
         counted = package_result.counted_results(wp_id, c)
         runs = {rid: work.get_run(rid) for rid in sorted({x.run_id for x in counted.values()})}
         reviewed = {rid: corrections.review_version(rid, c) for rid in runs}
-        open_runs = work.open_live_runs(wp_id) if wp["source_kind"] not in KINDS_WITHOUT_RUNS else []
+        open_runs = work.open_live_runs(wp_id) if has_runs else []
         versions = _versions(wp_id, c)
     releasable = _releasable(wp, counted, runs)
     latest = versions[0] if versions else None
@@ -148,7 +147,7 @@ def view(wp_id: str) -> dict[str, Any]:
             blockers.append({"code": "run_not_ready", "run_id": rid, "status": run["status"],
                              "open_reasons": work.open_reasons_for_run(rid)})
         removed += len(work.excluded_items(run))
-    if wp["source_kind"] in KINDS_WITHOUT_RUNS:
+    if not has_runs:
         blockers.append({"code": "own_approval"})
     elif not open_runs and (not releasable or releasable == released):
         blockers.append({"code": "nothing_to_release"})
@@ -248,8 +247,8 @@ def release(wp_id: str, *, actor: str, expected_mark: str, confirm_removed: int 
     if a later one fails, the earlier ones stay approved and no version is recorded; the next view shows it."""
     current = view(wp_id)
     wp = work.get(wp_id)
-    if wp["source_kind"] in KINDS_WITHOUT_RUNS:
-        raise explained(ReleaseError, "a reconciliation package is approved in its own statement")
+    if (pack := logic_packs.of(wp["source_kind"])) is not None and not pack.has_runs:
+        raise pack.release_refusal()  # 176: the logic pack says why (a reconciliation: in its own statement)
     if expected_mark != current["mark"]:
         raise explained(work.RevisionConflict, "the package's result changed since it was shown; reload it and check it again")
     if waiting := [b for b in current["blockers"] if b["code"] == "run_not_ready"]:
@@ -342,12 +341,13 @@ def backfill(*, dry_run: bool = False) -> list[dict[str, Any]]:
     """DECISIONS 171: every package with an approved live run and no released version gets its first version, recorded
     now from its approved results (the downloads as they are today), with the latest approver and approval time and
     the time it was recorded (`backfilled_at`). Idempotent: a package with a version is left as it is."""
+    without_runs = logic_packs.kinds_without_runs()  # 176: their logic packs' own approval
     with store.connect() as c:
         ids = [r[0] for r in c.execute(
             "SELECT DISTINCT r.workpackage_id FROM runs r JOIN workpackages w ON w.id=r.workpackage_id"
             " WHERE r.mode='apply' AND r.approval='approved' AND w.source_kind NOT IN (%s)"
             " AND NOT EXISTS (SELECT 1 FROM package_versions v WHERE v.workpackage_id=r.workpackage_id)"
-            " ORDER BY r.workpackage_id" % ",".join("?" * len(KINDS_WITHOUT_RUNS)), KINDS_WITHOUT_RUNS)]  # noqa: S608 - placeholders
+            " ORDER BY r.workpackage_id" % ",".join("?" * len(without_runs)), without_runs)]  # noqa: S608 - placeholders
     out = []
     for wp_id in ids:
         wp = work.get(wp_id)

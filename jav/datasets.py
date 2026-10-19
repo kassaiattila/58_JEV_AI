@@ -48,7 +48,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, cfg, costs, store, work, work_views
+from jav import activity_kinds, cfg, costs, logic_packs, store, work, work_views
 from jav.runtime import calls
 from jav.tablequery import Column, Query, run_query, select, shown
 
@@ -164,7 +164,7 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
         # 173 (plan 170, K20): so do a reconciliation decision and a statement choice, as in the reviewed version
         paid = [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile.decisions_for(documents, c)]
         chosen = [[d["pair_key"], d["keep_doc_id"], d["decided_at"]] for d in statement_months.choices_for(documents, c)]
-        # 175 (plan 170 E4): a decision kind a logic package registers (`jav/activity_kinds.py`) beyond the parts read
+        # 175 (plan 170 E4): a decision kind a logic pack registers (`jav/activity_kinds.py`) beyond the parts read
         # above; a run without any keeps its earlier fingerprint
         subject_ids = [i for _k, i in subjects]
         extra = [[k.name, found] for k in activity_kinds.decisions() if k.name not in _FINGERPRINTED
@@ -229,12 +229,11 @@ LIST_INPUTS: dict[str, str | None] = {
 def _workpackages_fingerprint(scope: dict[str, str]) -> str:
     """140: the package list is built again only when what it shows may have changed (measured: 1.5-3.1 s per query
     before, at every filter change and refresh, as each reconciliation package's next step built its workspace)."""
-    from jav import reconcile_package
-
-    # first: it makes sure the tables it reads are registered; 159: the list's own safety bound
-    reconciliation = reconcile_package.inputs_mark(keep_seconds=reconcile_package.LIST_KEEP_SECONDS)
+    # first: what the logic packs' own next steps read (a reconciliation's workspace; it makes sure the tables it
+    # reads are registered); 159: with the list's own safety bound. 176: from the logic packs
+    own = [pack.list_mark() for pack in logic_packs.packs() if pack.list_mark is not None]
     with store.connect() as c:
-        parts = [store.table_marks(c, LIST_INPUTS), reconciliation]
+        parts = [store.table_marks(c, LIST_INPUTS), *own]
     return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
 
 
@@ -300,8 +299,8 @@ def _workpackages(scope: dict[str, str]) -> Rows:
             for r in work_views.workpackage_list(include_archived=archived)]
     for r in rows:
         r.pop("next", None)
-        if r.get("source_kind") == "reconcile":  # 167 (review 153 E): its lines are not items; "0" read as empty
-            r["items"] = None
+        if not logic_packs.has_runs(r["source_kind"]):  # 167 (review 153 E): a reconciliation's lines are not
+            r["items"] = None                               # items; "0" read as empty
     if scope.get("owner"):  # 061: "Saját csomagjaim" (My packages) — the owner's name, case-insensitive
         who = " ".join(scope["owner"].split()).casefold()
         rows = [r for r in rows if (r.get("owner") or "").casefold() == who]

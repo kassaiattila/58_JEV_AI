@@ -10,18 +10,20 @@ import { DataTable } from "../components/DataTable";
 import { Icon } from "../components/Icon";
 import { nameCell, NameModeSwitch } from "../components/NameCell";
 import { t, useLocale } from "../i18n";
+import { logicOf } from "../logic/registry";
 import { useNameMode } from "../names";
 import { wpHash } from "../route";
 import { AddDocuments, AddStatements, AddSummaryLine, type AddSource } from "./PackageAdd";
 
 /** 153 (review E): where the package was created from, by its kind; later additions may come from elsewhere. */
 export function createdFrom(wp: Workpackage): string {
+  const own = logicOf(wp.source_kind)?.createdFrom; // 176: a logic pack names its own origin (a statement package)
+  if (own) return own(wp);
   const ref = wp.source_ref ?? "";
   const file = ref.split(/[\\/]/).pop() ?? ref;
   switch (wp.source_kind) {
     case "folder": return ref;
     case "mailbox": return t("mailbox {{name}}", { name: file });
-    case "statements": return t("a statement package");
     default: return ref ? t("the file {{name}}", { name: file }) : t("files chosen by hand");
   }
 }
@@ -69,7 +71,7 @@ export function PackageItems({ view, adding, onAddingChange, onChanged, pendingA
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<AddSummary | null>(null);
-  const statements = wp.source_kind === "statements";
+  const statements = logicOf(wp.source_kind)?.adds === "statements"; // 176: added through the package's own survey
   const removedCount = view.item_counts?.removed ?? 0;
   const supplements = Object.values(view.readiness.supplement ?? {});
   const pending = supplements.length ? Math.max(...supplements.map((s) => s?.items ?? 0)) : 0;

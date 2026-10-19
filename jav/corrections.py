@@ -102,7 +102,7 @@ def review_version(run_id: str, c: sqlite3.Connection | None = None) -> str:
 
     175 (plan 170 E4): the parts are the decision kinds of the activity registry (`jav/activity_kinds.py`), registered
     below in this order; each part present wraps the earlier ones, so a run without it keeps its earlier version, and a
-    logic package's own decision kind joins the same way."""
+    logic pack's own decision kind joins the same way."""
     if c is None:
         with store.connect() as own:
             return review_version(run_id, own)
