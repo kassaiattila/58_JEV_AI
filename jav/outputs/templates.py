@@ -19,8 +19,11 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any
 
-from jav import logic_packs, store, work
+from jav import activity_kinds, logic_packs, store, work
 from jav.outputs import builtin, contract, fill, samples
+
+# the package log's action of a person choosing a package's template (`jav/activity_kinds.py`)
+activity_kinds.register_events("package", ("output_template_choose",), __name__)
 
 BUILTIN = "builtin"
 STATES = ("draft", "active", "superseded", "retired")
@@ -237,6 +240,7 @@ def choose(wp_id: str, output: str, template: str | None, *, actor: str) -> dict
             c.execute("INSERT INTO output_template_choices(workpackage_id, output, template, chosen_by, chosen_at) VALUES (?,?,?,?,?)"
                       " ON CONFLICT(workpackage_id, output) DO UPDATE SET template=excluded.template, chosen_by=excluded.chosen_by,"
                       " chosen_at=excluded.chosen_at", (wp_id, output, template, actor, _now()))
+        work.record_event(c, wp_id, "output_template_choose", actor, {"output": output, "template": template})
     return choices(wp_id)
 
 
@@ -247,14 +251,20 @@ def builtin_version(output: str) -> str:
     return contract.spec(output)["builtin"]["version"]
 
 
-def render(data: contract.OutputData, wp_id: str | None = None) -> tuple[bytes, dict[str, str]]:
+def _chosen(c: Any, wp_id: str, output: str) -> Any:
+    ch = c.execute("SELECT template FROM output_template_choices WHERE workpackage_id=? AND output=?", (wp_id, output)).fetchone()
+    return _active(c, ch["template"]) if ch else None
+
+
+def render(data: contract.OutputData, wp_id: str | None = None, c: Any = None) -> tuple[bytes, dict[str, str]]:
     """The output's file made with the package's chosen template (the built-in one without a choice, or when the chosen
-    template was retired), and which template and version made it."""
+    template was retired), and which template and version made it; `c`: the caller's connection (in a transaction)."""
     if wp_id is not None:
-        with store.connect() as c:
-            ch = c.execute("SELECT template FROM output_template_choices WHERE workpackage_id=? AND output=?",
-                           (wp_id, data.output)).fetchone()
-            row = _active(c, ch["template"]) if ch else None
+        if c is not None:
+            row = _chosen(c, wp_id, data.output)
+        else:
+            with store.connect() as conn:
+                row = _chosen(conn, wp_id, data.output)
         if row is not None and row["output"] == data.output:
             return fill.fill(data, bytes(row["content"])), {"template": row["template"], "template_version": str(row["version"])}
     return builtin.render(data), {"template": BUILTIN, "template_version": builtin_version(data.output)}
