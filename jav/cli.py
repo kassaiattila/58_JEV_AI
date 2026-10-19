@@ -578,9 +578,9 @@ def cmd_deps_audit(args: argparse.Namespace) -> int:
 def cmd_duplicates(args: argparse.Namespace) -> int:
     """126: the duplicate invoices already in the store (read only; counts and kinds, no values), and with --write the
     one-off to-do on the later document of each undecided pair in runs not yet approved (DECISIONS 126). Free."""
-    from jav import duplicates
+    from jav import checks
 
-    result = duplicates.scan(write=args.write)
+    result = checks.get("duplicate_scan").run(write=args.write)
     print(f"documents compared: {result['documents']}")
     print(f"groups: {result['groups']} ({result['files']} files; sizes {result['group_sizes']})")
     print(f"pairs by kind: {result['pairs']}")
@@ -593,9 +593,9 @@ def cmd_duplicates(args: argparse.Namespace) -> int:
 def cmd_own_tax(args: argparse.Namespace) -> int:
     """157: the incoming invoices already in the store whose supplier tax number is an own party's (read only; counts
     only, no values), and with --write the one-off to-do of 134 on runs not yet approved. Free."""
-    from jav import parties
+    from jav import checks
 
-    result = parties.scan_own_tax(write=args.write)
+    result = checks.get("own_tax_scan").run(write=args.write)
     print(f"incoming invoices checked: {result['documents']}")
     print(f"an own party's tax number as the supplier's: {result['flagged']}")
     print(f"to-dos to open: {result['to_open']}; skipped: {result['skipped']}")

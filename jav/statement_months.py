@@ -359,11 +359,10 @@ def parse_reason(code: str) -> str | None:
 
 def review_reasons(current: dict[str, Any]) -> list[str]:
     """The overlap to-dos of the statement being processed (`current`: the snapshot's statement shape), against the
-    store's statements, in a worker run only: one per live statement it books the same days with, undecided."""
-    from jav import duplicates, reconcile
+    store's statements: one per live statement it books the same days with, undecided. It reads the store: the check
+    registry runs it in a worker run only (175, `jav/checks.py`)."""
+    from jav import reconcile
 
-    if not duplicates.enabled():
-        return []
     others = [s for s in reconcile.statements() if s["id"] != current["id"]]
     res = resolve([*others, current], choices())
     return sorted(reason(b if a == current["id"] else a) for a, b in res.conflicts if current["id"] in (a, b))

@@ -3,12 +3,14 @@
 The duplicate check (126) and the party-role history (121) read the store only in a worker run, so that a
 measurement's result does not depend on what the store holds. Both keyed on "a budget scope is set", which a budgeted
 measurement has too: in a separate measurement store, without the work tables, the duplicate check stopped every
-invoice with `no such table: run_items` (found by the free pre-estimate of round B).
+invoice with `no such table: run_items` (found by the free pre-estimate of round B). 175 (plan 170 E3): one gate in
+front of every check that reads the store (`jav/checks.py` `store_readable`).
 """
 
 from decimal import Decimal
 
-from jav import duplicates, party_history, store
+from jav import checks, policy, store
+from jav.models import InvoiceHU
 from jav.runtime import calls
 
 
@@ -22,15 +24,18 @@ def test_a_measurement_is_marked_as_one_and_a_worker_run_is_not(tmp_path):
 
 def test_the_store_is_read_in_a_worker_run_only(tmp_path):
     with store.use_store(tmp_path / "m.sqlite"):
-        assert not duplicates.enabled() and not party_history.enabled()  # the command line
+        assert not checks.store_readable()  # the command line
         with calls.measurement("measure-x", {"jev": Decimal("0.01")}):
-            assert not duplicates.enabled() and not party_history.enabled()
+            assert not checks.store_readable()
         with calls.use_run(budget_scope="run-x"):
-            assert duplicates.enabled() and party_history.enabled()
+            assert checks.store_readable()
+    readers = [c.name for stage in checks.STAGES for c in checks.stage(stage) if c.reads_store]
+    assert readers == ["party_orientation", "duplicate", "own_tax", "statement_overlap"]
 
 
 def test_a_measurement_in_a_fresh_store_gets_no_duplicate_to_do_and_does_not_fail(tmp_path):
-    fields = {"invoice_number": "INV-2026-001", "supplier_tax_id": "12121216-2-42", "supplier_name": "Minta Kft.",
-              "gross_total": "1270", "issue_date": "2026-01-05"}
+    record = InvoiceHU(invoice_number="INV-2026-001", supplier_tax_id="12121216-2-42", supplier_name="Minta Kft.",
+                       gross_total=Decimal("1270"), issue_date="2026-01-05")
     with store.use_store(tmp_path / "fresh.sqlite"), calls.measurement("measure-x", {"jev": Decimal("0.01")}):
-        assert duplicates.review_reasons("doc-1", "invoice_hu", fields) == []
+        assert checks.cross_document(checks.Subject("doc-1", "invoice_hu", record)) == []
+        assert policy.duplicate_check is checks.get("duplicate").run

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import corrections, reconcile, reconcile_package as rp, statement_months as sm, store, work
+from jav import checks, corrections, reconcile, reconcile_package as rp, statement_months as sm, store, work
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import OWN_KEY, _ids, _line, _line_row, _package, _stmt
 
@@ -122,7 +122,7 @@ def _pair_in_run(*, approved: bool = False) -> tuple[str, str]:
 def test_an_undecided_overlap_is_a_todo_in_a_worker_run_only(db):
     a, b = _pair_in_run()
     current = sm.current(b, "statement_table", {**k2._statement(_line(), FEE), "account_no": k2.OWN}, k2.VERIFIED)
-    assert sm.review_reasons(current) == []  # outside a worker run
+    assert checks.get("statement_overlap").reads_store and not checks.store_readable()  # outside a worker run (175)
     assert k2._in_run(lambda: sm.review_reasons(current)) == [f"statement:overlap:{a[:16]}"]
     assert sm.parse_reason(sm.reason(a)) == a[:16] and sm.parse_reason("duplicate:copy:abc") is None
     [view] = sm.item_view(b, store.review_open_reasons("document", b))
@@ -174,7 +174,7 @@ def test_the_policy_step_opens_the_todo_for_an_extracted_statement(db):
     state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", doc_type="statement_cib", doc_id=k2._id("now"))
     state.invoice = record
     state.validation = [CheckResult(**v) for v in k2.VERIFIED]
-    policy.apply_statement_policy(state)
+    policy.apply_cross_document_checks(state)
     assert state.review_reasons == []  # outside a worker run
-    k2._in_run(lambda: policy.apply_statement_policy(state))
+    k2._in_run(lambda: policy.apply_cross_document_checks(state))
     assert state.review_reasons == [f"statement:overlap:{k2._id('earlier')[:16]}"] and state.needs_review

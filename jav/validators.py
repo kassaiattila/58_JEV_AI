@@ -10,6 +10,9 @@ check is skipped if the field is empty. The Hungarian invoice's list gives the e
 A role-pair check names two fields: `{"check": "distinct_parties", "fields": [<first>, <second>]}` (120).
 121: `party_orientation` (same shape) compares the pair with the earlier documents of the same type; it needs the
 document's identifier and type (`run_checks(..., doc_id=, doc_type=)`) and runs only in a worker run.
+175 (plan 170 E3): each check is a record-stage entry of the check registry (`jav/checks.py`), registered below with
+what the pack's entry names (the whole record, one field, two fields); a check that reads other documents runs only
+where the registry's gate allows it.
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ from collections.abc import Iterable, Mapping
 from decimal import Decimal
 from typing import Any
 
-from jav import fact_checks, party_history, taxid
+from jav import checks, fact_checks, party_history, taxid
 from jav.models import CheckResult, InvoiceHU
 
 HU_TAXID_WEIGHTS = taxid.HU_WEIGHTS
@@ -256,13 +259,6 @@ def _statement_check(name: str):
     return check
 
 
-_RECORD_CHECKS = {"vat_consistency": vat_consistency, "date_order": date_order,
-                  "line_items_total": line_items_total, "line_items_arithmetic": line_items_arithmetic,
-                  **{n: _statement_check(n) for n in ("running_balance_check", "closing_balance_check", "totals_consistency", "period_dates")}}
-_FIELD_CHECKS = {"hu_tax_id": hu_tax_id, "tax_id": tax_id, "iban_check": iban_check}
-PAIR_CHECKS = frozenset({"distinct_parties", "party_orientation"})  # 120/121: checks naming two fields in `fields`
-
-
 def run_checks(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | list[dict[str, Any]], *, doc_id: str | None = None,
                doc_type: str | None = None) -> list[CheckResult]:
     """According to the type pack's `validators` list: record-level checks always; field-level ones on the field's
@@ -307,26 +303,71 @@ def party_orientation(inv: InvoiceHU, first: str, second: str, *, doc_id: str | 
 
 
 def _run_one(inv: InvoiceHU, spec: dict[str, Any], *, doc_id: str | None = None, doc_type: str | None = None) -> CheckResult | None:
-    check = spec["check"]
-    if check == "date_order":
-        return date_order(inv, optional=bool(spec.get("optional", False)))
-    if check in _RECORD_CHECKS:
-        return _RECORD_CHECKS[check](inv)
-    if check in PAIR_CHECKS:
-        first, second = spec["fields"]
-        if check == "party_orientation":
-            return party_orientation(inv, first, second, doc_id=doc_id, doc_type=doc_type)
-        return distinct_parties(inv, first, second)
+    """One entry of the pack's list through its record check (`jav/checks.py`); None when it does not apply, or when it
+    reads other documents outside a worker run."""
+    name = spec["check"]
+    try:
+        check = checks.get(name)
+    except checks.UnknownCheck:
+        check = None
+    if check is None or check.stage != "record":
+        raise ValueError(f"unknown check in the type pack: {name}")
+    if not checks.runs(check):
+        return None
+    return check.run(inv, spec, doc_id=doc_id, doc_type=doc_type)
+
+
+# --- the record checks (175, plan 170 E3: the record stage of the check registry) -----------------------------------
+
+def _whole(fn):
+    """A check of the whole record."""
+    return lambda inv, spec, **_: fn(inv)
+
+
+def _field(fn):
+    """A check of one field's value as text, named `<check>:<field>`; skipped with `optional: true` when the field is
+    empty."""
+    def run(inv: InvoiceHU, spec: dict[str, Any], **_: Any) -> CheckResult | None:
+        field = spec["field"]
+        value = inv.get_field(field)
+        if value is None and spec.get("optional", False):
+            return None
+        return fn(None if value is None else str(value), name=f"{spec['check']}:{field}")
+    return run
+
+
+def _format(inv: InvoiceHU, spec: dict[str, Any], **_: Any) -> CheckResult | None:
     field = spec["field"]
     value = inv.get_field(field)
     if value is None and spec.get("optional", False):
         return None
-    name = f"{check}:{field}"
-    if check == "format":
-        return format_check(value, spec["regex"], name=name)
-    if check in _FIELD_CHECKS:
-        return _FIELD_CHECKS[check](None if value is None else str(value), name=name)
-    raise ValueError(f"ismeretlen validátor a típus-csomagban: {check}")
+    return format_check(value, spec["regex"], name=f"format:{field}")
+
+
+def _distinct_parties(inv: InvoiceHU, spec: dict[str, Any], **_: Any) -> CheckResult | None:
+    first, second = spec["fields"]
+    return distinct_parties(inv, first, second)
+
+
+def _party_orientation(inv: InvoiceHU, spec: dict[str, Any], *, doc_id: str | None = None, doc_type: str | None = None) -> CheckResult | None:
+    first, second = spec["fields"]
+    return party_orientation(inv, first, second, doc_id=doc_id, doc_type=doc_type)
+
+
+def _date_order(inv: InvoiceHU, spec: dict[str, Any], **_: Any) -> CheckResult:
+    return date_order(inv, optional=bool(spec.get("optional", False)))
+
+
+for _name, _run in (("vat_consistency", _whole(vat_consistency)), ("date_order", _date_order),
+                    ("line_items_total", _whole(line_items_total)), ("line_items_arithmetic", _whole(line_items_arithmetic)),
+                    *((n, _whole(_statement_check(n))) for n in ("running_balance_check", "closing_balance_check",
+                                                                  "totals_consistency", "period_dates"))):
+    checks.register(checks.Check(_name, "record", _run, kind="record"))
+for _name, _fn in (("hu_tax_id", hu_tax_id), ("tax_id", tax_id), ("iban_check", iban_check)):
+    checks.register(checks.Check(_name, "record", _field(_fn), kind="field"))
+checks.register(checks.Check("format", "record", _format, kind="field"))
+checks.register(checks.Check("distinct_parties", "record", _distinct_parties, kind="pair"))  # 120
+checks.register(checks.Check("party_orientation", "record", _party_orientation, kind="pair", reads_store=True))  # 121
 
 
 def run_all(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | None = None, *, doc_id: str | None = None,

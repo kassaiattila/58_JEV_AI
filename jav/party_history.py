@@ -8,8 +8,8 @@ round, and on which it stood alike; `jav/validators.py` turns a clear majority t
 A position-based rule (the tax number below the other party's name or heading) was measured first on the stored
 results and dropped: it flagged every invoice of some suppliers, including ones the owner had confirmed as correct.
 
-The store is read only inside a worker run (`jav.runtime.calls.current()` with a budget scope): measurements and the
-command line keep giving results that do not depend on what the store holds. Each earlier document counts once, by
+The store is read only inside a worker run: measurements and the command line keep giving results that do not depend
+on what the store holds (175: the check registry's gate, `jav/checks.py`, in front of the `party_orientation` check). Each earlier document counts once, by
 its counted result when that is of the same type (174, plan 170 L2: the package's current result across every package,
 `package_result.counted_documents`; before, its latest result of that type); the current document never counts.
 """
@@ -17,19 +17,13 @@ its counted result when that is of the same type (174, plan 170 L2: the package'
 from __future__ import annotations
 
 from jav import fact_checks, package_result, store
-from jav.runtime import calls
-
-
-def enabled() -> bool:
-    ctx = calls.current()
-    # 127: a budgeted measurement has a budget scope too, but it is not a worker run
-    return ctx is not None and ctx.budget_scope is not None and not ctx.measurement
 
 
 def orientation(doc_id: str | None, doc_type: str | None, fields: tuple[str, str], values: tuple[object, object]) -> tuple[int, int] | None:
     """(the other way, alike): the earlier documents of `doc_type` naming the same two parties in `fields`, by the
-    tax-number key (`fact_checks.tax_party_key`). None when the store is not read here or a value has no key."""
-    if not enabled() or not doc_type:
+    tax-number key (`fact_checks.tax_party_key`). None without a type or when a value has no key. It reads the store:
+    the check registry calls it in a worker run only."""
+    if not doc_type:
         return None
     keys = tuple(fact_checks.tax_party_key(v) for v in values)
     if None in keys or keys[0] == keys[1]:

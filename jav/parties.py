@@ -567,13 +567,8 @@ def own_tax_reasons(doc_type: str | None, values: dict[str, Any], c=None) -> lis
 
 
 def review_reasons(doc_type: str | None, values: dict[str, Any]) -> list[str]:
-    """134: the own-tax check in a flow (`own_tax_reasons`). Read in a worker run only, as the duplicates, so a
-    measurement's result never depends on the store."""
-    from jav.runtime import calls
-
-    ctx = calls.current()
-    if ctx is None or ctx.budget_scope is None or ctx.measurement:
-        return []
+    """134: the own-tax check in a flow (`own_tax_reasons`). It reads the store: the check registry runs it in a worker
+    run only, as the duplicates, so a measurement's result never depends on the store (175, `jav/checks.py`)."""
     return own_tax_reasons(doc_type, values)
 
 
