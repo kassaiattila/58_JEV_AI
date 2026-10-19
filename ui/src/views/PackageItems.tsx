@@ -23,6 +23,7 @@ export function createdFrom(wp: Workpackage): string {
   const file = ref.split(/[\\/]/).pop() ?? ref;
   switch (wp.source_kind) {
     case "folder": return ref;
+    case "watch": return t("the watched folder {{path}}", { path: ref }); // 177: was "the file <folder>"
     case "mailbox": return t("mailbox {{name}}", { name: file });
     default: return ref ? t("the file {{name}}", { name: file }) : t("files chosen by hand");
   }

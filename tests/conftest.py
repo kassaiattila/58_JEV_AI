@@ -99,6 +99,30 @@ def _no_provider_keys(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _registered_todo_kinds(monkeypatch):
+    """177 (plan 170 E6; the owner's decision of 2026-10-19: the tests watch it, the store does not): every to-do a
+    processing step raises in a test is of a kind registered in `configs/todo_kinds.json`, so that the interface's
+    label test covers it. A reason a test writes itself (synthetic) is the test's own and is not checked."""
+    import sys
+
+    from jav import store, todo_kinds
+
+    real = store.review_enqueue
+    found: dict[str, str] = {}
+
+    def recording(**kwargs):
+        caller = sys._getframe(1).f_globals.get("__name__", "")
+        if not caller.startswith("tests"):
+            found.update(todo_kinds.unregistered(list(kwargs.get("reasons") or [])))
+        return real(**kwargs)
+
+    monkeypatch.setattr(store, "review_enqueue", recording)
+    yield
+    if found:
+        pytest.fail(f"to-dos of unregistered kinds (configs/todo_kinds.json): {sorted(found.values())}")
+
+
+@pytest.fixture(autouse=True)
 def _release_call_holders():
     """092: the holder locks a test's reservations took are let go after it, so that no lock file stays open in a
     temporary folder and no test inherits another's holder."""

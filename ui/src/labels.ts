@@ -178,6 +178,14 @@ export function reasonText(code: string): string {
     case "jev:unsupported": return t("A modell nem támasztja alá: {{field}}", { field: f });
     // 167 (review AI-10): a list left out of the JEV verification so that the request fits its size limit
     case "jev:list_omitted": return t("JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand", { field: f });
+    // 177 (plan 170 E6): the JEV verification's field and document flags (jav/policy.py); until now the raw code showed
+    case "jev:absence_wrong": return t("JEV: the field was left empty, though it is on the document: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:off_target": return t("JEV: the value belongs to another field: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:wrong_kind": return t("JEV: the value is not of this field's kind: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:incomplete": return t("JEV: the value seems cut short: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:parties_swapped": return t("JEV: the supplier and the buyer seem swapped ({{p}})", { p: num(p[2]) });
+    case "jev:line_items_missing_rows": return t("JEV: the document has line items the extracted list lacks ({{p}})", { p: num(p[2]) });
+    case "jev:line_items_extra_rows": return t("JEV: the extracted list has line items the document does not ({{p}})", { p: num(p[2]) });
     // 085: processing without JEV: the extracted value is printed nowhere on the document (the code's own check)
     case "source:not_found": return t("A kinyert érték nem szerepel az iratban: {{field}}", { field: f });
     // 092: without JEV, an accounting field GPT is not sure enough of (below the policy's review_below)
@@ -196,6 +204,8 @@ export function reasonText(code: string): string {
     // 167 (review AI-3): pages without a text layer of their own in a document that has one: neither read nor recognised
     case "pdf:pages_without_text": return t("Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document", { pages: p[2] });
     case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
+    // 177: the text recognition itself could not run (jav/flow.py, jav/flow_detect.py)
+    case "ocr:unavailable": return t("Text recognition could not run ({{why}}); look at the document by hand", { why: p[2] ?? "" });
     case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });
     case "ocr:low_conf_words": return t("Sok bizonytalan szó a felismerésben ({{p}})", { p: num(p[2]) });
     // 075: the Azure escalation of a weak scan did not run (jav/ocr.py escalation_review_reasons); 121: no route, failed call
@@ -208,6 +218,8 @@ export function reasonText(code: string): string {
     case "attachment:unreadable": return t("Egy PDF-csatolmány nem olvasható (sérült, túl nagy, vagy túllépte az olvasási időt vagy memóriát); a levél szándéka ettől még elkészült");
     // 154: an attachment of an email routed as suspicious (an injected instruction); processed, but a person looks first
     case "attachment:suspicious_email": return t("An attachment of an email marked as suspicious (it may carry a hidden instruction): check the document and the email before relying on it");
+    // 177: the email itself (the signal's yes band, policy email.signal_review)
+    case "signal:prompt_injection": return t("The email may carry an injected instruction ({{p}}): read it before acting on it", { p: num(p[2]) });
     // 126: a suspected duplicate invoice (jav/duplicates.py); decided in its own panel on the review page
     case "duplicate:copy": return t("Possible copy of an earlier document (same invoice number and supplier)");
     case "duplicate:variant": return t("Possible modified version of an earlier document (same invoice number and supplier, different values)");
@@ -238,6 +250,8 @@ export function reasonText(code: string): string {
     case "detect:low_conf": return t("Bizonytalan típusfelismerés: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
     case "detect:detail_open": return t("A részletes típus nem dönthető el (kategória: {{type}}); válaszd ki kézzel", { type: docTypeLabel(p[2]) });
     case "detect:no_type_pack": return t("Ehhez az irattípushoz nincs adatkinyerés ({{type}}); nézd meg kézzel", { type: docTypeLabel(p[2]) });
+    // 177: the recognition gave no result and named no reason of its own (jav/flow_detect.py)
+    case "detect:no_result": return t("Type recognition gave no result; choose the type by hand");
     // 090: the type / issuer cross-check in code (configs/policy.json detect_issuer): the type is kept
     case "detect:issuer_mismatch": return t("A típus ({{type}}) magyar kiállítót feltételez, de a felismerés szerint a kiállító nem magyar; ellenőrizd a típust", { type: docTypeLabel(p[2]) });
     case "detect_detail:low_conf": return t("Bizonytalan részletes típus: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
@@ -292,7 +306,19 @@ export function reasonText(code: string): string {
   if (code === "jev_unavailable:disabled") return t("The JEV question was not sent: this processing runs without JEV, on GPT only; check by hand");
   if (p[0] === "jev_unavailable") return t("A JEV nem volt elérhető ({{why}}); ellenőrizd kézzel", { why: p.slice(1).join(":") });
   if (p[0] === "llm" && p[1] === "failed") return t("A GPT-kivonat nem sikerült ({{why}})", { why: p[2] ?? "" });
+  // 177: an amount or a quantity of the record that cannot be read as a number (`<field>:unparseable:<raw>`, jav/models.py)
+  if (p[1] === "unparseable") return t("A number cannot be read: {{field}}", { field: fieldPathLabel(p[0]) });
+  // 177: a value the type pack does not allow for the field (`<field>:not_in_enum:<value>`, jav/models.py)
+  if (p[1] === "not_in_enum") return t("The value is not one the field allows: {{field}}", { field: fieldPathLabel(p[0]) });
   return code;
+}
+
+/** 177: a field of the record by its path: a list's row (`line_items[3].gross_amount`: the list, its row counted from
+ *  1, and its column), or a simple field. */
+function fieldPathLabel(path: string): string {
+  const m = path.match(/^(\w+)\[(\d+)\]\.(\w+)$/);
+  return m ? t("{{list}}, row {{row}}: {{column}}", { list: fieldLabel(m[1]), row: Number(m[2]) + 1, column: columnLabel(m[3]) })
+    : fieldLabel(path);
 }
 
 export function usd(v: string | number | null | undefined): string {

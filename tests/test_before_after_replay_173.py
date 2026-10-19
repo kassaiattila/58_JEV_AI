@@ -88,6 +88,7 @@ def test_a_replay_taken_twice_is_the_same_and_asks_no_one(processed) -> None:
     assert summary["units"] == 2 and summary["items"] == 2 and summary["missing_answers"] == 0
     assert summary["answered_strata"] == 1  # the first round's unit had its answers: the second added the other
     assert summary["same_as_original"] == 2
+    assert summary["unregistered_todos"] == {}  # 177: every replayed to-do is of a registered kind
     assert processed["client"].calls == asked
     assert (backup / "jav.sqlite").read_bytes() == stored
     assert store.STORE_PATH == default and dict(os.environ) == environment

@@ -365,6 +365,17 @@ def missing_answers(c: sqlite3.Connection, run_ids: list[str]) -> int:
                if _missing_answer(str(reason)))
 
 
+def unregistered_todos(c: sqlite3.Connection, run_ids: list[str]) -> dict[str, str]:
+    """177 (plan 170 E6): the to-dos of the replayed runs of a kind `configs/todo_kinds.json` does not register (kind
+    code -> the first such reason); the replay names them, the store accepts them (the owner's decision)."""
+    from jav import todo_kinds
+
+    reasons = [str(reason) for rid in run_ids
+               for (reason,) in c.execute("SELECT reason FROM review_reasons WHERE substr(run_id, 1, ?) = ?",
+                                          (len(rid) + 1, f"{rid}:"))]
+    return todo_kinds.unregistered(reasons)
+
+
 def _answered(c: sqlite3.Connection, unit: Unit) -> bool:
     """Whether every question of the replayed unit had an earlier answer (no to-do stands for a missing one)."""
     from jav import work
@@ -532,6 +543,7 @@ def running_snapshot(baseline: Path, work_dir: Path, out: Path, *, size: int = S
             rids = [replay_run_id(r) for r in dict.fromkeys(u.run_id for u in units)]
             with store.connect() as c:
                 found, missing, same = live_calls(c, rids), missing_answers(c, rids), _same_as_original(c, units)
+                unregistered = unregistered_todos(c, rids)
             gate = {"live_calls": len(found), "passed": not found}
             out.parent.mkdir(parents=True, exist_ok=True)
             with TestClient(create_app(store_path=copy), base_url=before_after.BASE_URL,
@@ -559,4 +571,4 @@ def running_snapshot(baseline: Path, work_dir: Path, out: Path, *, size: int = S
     return {"units": meta["units"], "items": meta["items"], "strata": meta["strata"],
             "answered_strata": meta["answered_strata"], "views": views,
             "live_calls": gate["live_calls"], "passed": gate["passed"], "missing_answers": missing,
-            "same_as_original": same, "live": found[:20]}
+            "same_as_original": same, "live": found[:20], "unregistered_todos": unregistered}

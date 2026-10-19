@@ -746,6 +746,8 @@ def cmd_before_after_replay(args: argparse.Namespace) -> int:
           f"({result['answered_strata']} with every earlier answer in the first round); {result['views']} views")
     print(f"answers missing (a to-do instead of a call): {result['missing_answers']}; "
           f"items ending as their original: {result['same_as_original']} of {result['items']}")
+    unregistered = result["unregistered_todos"]  # 177: named, not a gate (the owner's decision)
+    print(f"to-do kinds not in configs/todo_kinds.json: {', '.join(sorted(unregistered.values())) or 'none'}")
     print(f"written: {args.out}")
     if not result["passed"]:
         print(f"GATE FAILED: {result['live_calls']} calls were not earlier answers")
