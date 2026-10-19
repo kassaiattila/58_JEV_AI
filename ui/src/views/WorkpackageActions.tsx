@@ -8,8 +8,9 @@ import { t, useLocale } from "../i18n";
 import { logicOf } from "../logic/registry";
 import { go } from "../route";
 import { Icon } from "../components/Icon";
+import { ScopeForm, scopeEditable } from "./PackageScope";
 
-type Mode = "menu" | "rename" | "delete";
+type Mode = "menu" | "rename" | "delete" | "scope";
 
 export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
   useLocale();
@@ -59,6 +60,10 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
               </button>
             )}
             <button type="button" className="menu-item" onClick={() => setMode("rename")}><Icon name="edit" />{t("Átnevezés")}</button>
+            {/* 181: the party, period and role the email routing proposes the package for */}
+            {scopeEditable(view) ? (
+              <button type="button" className="menu-item" onClick={() => setMode("scope")}><Icon name="edit" />{t("Party, period and role…")}</button>
+            ) : null}
             {archived ? (
               <button type="button" className="menu-item" disabled={busy} onClick={() => void act(() => api.restoreWorkpackage(wp.id))}>
                 <Icon name="restore" />{t("Visszahozás a listába")}
@@ -75,6 +80,10 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
               <p className="small muted">{t("Végleges törlés csak futás nélküli csomagon lehetséges; ez a csomag elrejthető.")}</p>
             )}
           </div>
+        ) : mode === "scope" ? (
+          <ScopeForm view={view} busy={busy} onCancel={() => setMode("menu")}
+            onSave={(scope) => void act(() => api.setPackageScope(wp.id, scope))}
+            onClear={() => void act(() => api.clearPackageScope(wp.id))} />
         ) : mode === "rename" ? (
           <form className="create" onSubmit={(e) => { e.preventDefault(); void act(() => api.renameWorkpackage(wp.id, name.trim())); }}>
             <label className="block">{t("Új név")}

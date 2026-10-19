@@ -539,6 +539,17 @@ STEP = workflow_steps.StepKind("statements", __name__, (KIND,), start=workflow_s
                                estimate=workflow_estimate, needs=("party", "period"))
 
 
+# 181 (plan 170 L5): a statement package's party and period, and the role of the packages that collect bank statements
+# (`jav/package_scope.py`; registered by the finance domain)
+ROLE = "statements"
+
+
+def own_scope(wp_id: str) -> dict[str, Any]:
+    """The package's own scope: its party and period, collecting bank statements."""
+    sc = scope(wp_id)
+    return {"party_id": sc["party_id"], "period_start": sc["period_start"], "period_end": sc["period_end"], "role": ROLE}
+
+
 # 176 (plan 170 L3): the statement package as a logic pack (`jav/logic_packs.py`); 180 (plan 170 E7): registered by the
 # finance domain with its party reference (`count_party`, `repoint_party`; `jav/domains/finance.py`)
 LOGIC = logic_packs.LogicPack(
@@ -546,7 +557,7 @@ LOGIC = logic_packs.LogicPack(
     roles=(logic_packs.InputRole("statements", "own_items",
                                     "the party's bank statements and statement PDFs of the period, ticked in its survey"),),
     add_refusal="add statements to a statement package through its survey",
-    rule=RULE, delete_guard=_delete_guard, page=_page)
+    rule=RULE, delete_guard=_delete_guard, page=_page, scope=own_scope)
 
 
 

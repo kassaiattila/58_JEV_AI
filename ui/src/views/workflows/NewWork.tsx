@@ -218,16 +218,21 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
   onNext: () => void; onCreated: (wfId: string) => void;
 }) {
   useLocale();
-  const parties = useLoad("parties", api.parties);
+  // 181: the template asks only for what its steps' kinds need of the scope (the service's registry)
+  const needs = new Set(tpl.steps.flatMap((s) => conf.kinds[s.kind].needs));
+  const needParty = needs.has("party");
+  const needPeriod = needs.has("period");
+  const parties = useLoad(needParty ? "parties" : null, api.parties);
   const [partyId, setPartyId] = useState<string | null>(initial?.party_id ?? null);
   const party = parties.data?.parties.find((p) => p.id === partyId) ?? null;
-  const [[start, end], setPeriod] = useState<[string, string]>(() => (initial ? [initial.period_start, initial.period_end] : lastClosedMonth()));
+  const [[start, end], setPeriod] = useState<[string, string]>(() => (initial?.period_start
+    ? [initial.period_start, initial.period_end ?? initial.period_start] : lastClosedMonth()));
   const [name, setName] = useState(initial?.name ?? "");
   const [auto, setAuto] = useState(initial?.auto ?? true);
   const [drafts, setDrafts] = useState<Record<string, StepDraft>>(() =>
     Object.fromEntries(tpl.steps.map((s) => [s.id, initial?.steps[s.id]
       ? draftFrom(s.kind, conf, initial.steps[s.id].source, initial.steps[s.id].budget, initial.steps[s.id].engine ?? null)
-      : draftFor(s.kind, conf)])));
+      : { ...draftFor(s.kind, conf), usePeriod: needPeriod }])));
   const appEngine = useLoad("engine", api.engine).data?.engine ?? null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -236,10 +241,11 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
     const s = tpl.steps.find((x) => x.id === id)!;
     return t(s.title ?? conf.kinds[s.kind].title);
   };
-  const title = name.trim() || (party ? `${party.name} · ${t(tpl.title)} · ${start} – ${end}` : "");
+  const title = name.trim() || (needParty && !party ? ""
+    : [party?.name, t(tpl.title), needPeriod ? `${start} – ${end}` : null].filter(Boolean).join(" · "));
   const sources = Object.fromEntries(tpl.steps.map((s) => [s.id, sourceOf(drafts[s.id], [start, end])]));
   const missing = tpl.steps.filter((s) => !sources[s.id]).map((s) => stepTitle(s.id));
-  const ready = party !== null && periodOk && !missing.length;
+  const ready = (!needParty || party !== null) && (!needPeriod || periodOk) && !missing.length;
   const set = (id: string, patch: Partial<StepDraft>) => setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   // 160-D: only a paid step with its own source has an engine (a brought package keeps its settings)
   const ownEngine = (kind: WorkKind, d: StepDraft) => conf.kinds[kind].own_engine && !["package", "none"].includes(d.source);
@@ -268,12 +274,13 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
   }
 
   async function create() {
-    if (!party) return;
+    if (needParty && !party) return;
     setBusy(true);
     setError(null);
     try {
       const view = await api.createWorkflow({
-        template: tpl.id, party_id: party.id, period_start: start, period_end: end, name: title, auto,
+        template: tpl.id, ...(party ? { party_id: party.id } : {}), ...(needPeriod ? { period_start: start, period_end: end } : {}),
+        name: title, auto,
         ...(initial ? { previous: initial.previous } : {}),
         names: Object.fromEntries(tpl.steps.map((s) => [s.id, `${title} · ${stepTitle(s.id)}`])),
         steps: Object.fromEntries(tpl.steps.map((s) => [s.id, {
@@ -294,7 +301,7 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
     return (
       <div className="rc-stack" aria-label={t("Overview")}>
         <h3>{title}</h3>
-        <p className="small">{t("{{party}}, {{from}} – {{to}}", { party: party?.name ?? "?", from: start, to: end })}</p>
+        {needParty && needPeriod ? <p className="small">{t("{{party}}, {{from}} – {{to}}", { party: party?.name ?? "?", from: start, to: end })}</p> : null}
         <ol className="wz-overview">
           {tpl.steps.map((s) => (
             <li key={s.id}>
@@ -326,18 +333,21 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
     <div className="rc-stack" aria-label={t("Details")}>
       {parties.error ? <p className="notice error" role="alert">{parties.error.message}</p> : null}
       {initial ? <p className="notice small">{t("This repeats an earlier workflow for the next period. Check the period, the sources and the budgets: you approve them again here.")}</p> : null}
-      {parties.data ? <PartyChoice overview={parties.data} value={partyId} onPick={(p) => setPartyId(p.id)} anyParty /> : <p className="muted">{t("Loading…")}</p>}
-      <div className="rc-period">
-        <label className="block">{t("Period from")}<input type="date" value={start} onChange={(e) => setPeriod([e.target.value, end])} required /></label>
-        <label className="block">{t("to")}<input type="date" value={end} onChange={(e) => setPeriod([start, e.target.value])} required /></label>
-      </div>
-      {!periodOk && start && end ? <p className="small warn-text">{t("The period ends before it starts.")}</p> : null}
+      {!needParty ? null : parties.data ? <PartyChoice overview={parties.data} value={partyId} onPick={(p) => setPartyId(p.id)} anyParty />
+        : <p className="muted">{t("Loading…")}</p>}
+      {needPeriod ? (
+        <div className="rc-period">
+          <label className="block">{t("Period from")}<input type="date" value={start} onChange={(e) => setPeriod([e.target.value, end])} required /></label>
+          <label className="block">{t("to")}<input type="date" value={end} onChange={(e) => setPeriod([start, e.target.value])} required /></label>
+        </div>
+      ) : null}
+      {needPeriod && !periodOk && start && end ? <p className="small warn-text">{t("The period ends before it starts.")}</p> : null}
       <label className="block">{t("Name")} <span className="muted">{t("(optional: the party, the work and the period)")}</span>
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={200} placeholder={title} />
       </label>
       <label className="check"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> {t("Start the steps by themselves")}</label>
       {tpl.steps.map((s, i) => (
-        <StepEditor key={s.id} n={i + 1} title={stepTitle(s.id)} kind={s.kind} conf={conf} draft={drafts[s.id]} appEngine={appEngine}
+        <StepEditor key={s.id} n={i + 1} title={stepTitle(s.id)} kind={s.kind} conf={conf} draft={drafts[s.id]} appEngine={appEngine} hasPeriod={needPeriod}
           after={(s.after ?? []).map(stepTitle)} onChange={(patch) => set(s.id, patch)}
           onEstimate={() => void estimate(s.id, s.kind)} canEstimate={Boolean(sources[s.id]) && (!conf.kinds[s.kind].needs.includes("party") || Boolean(party))} />
       ))}
@@ -350,8 +360,8 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
   );
 }
 
-function StepEditor({ n, title, kind, conf, draft, appEngine, after, onChange, onEstimate, canEstimate }: {
-  n: number; title: string; kind: WorkKind; conf: WorkflowTemplates; draft: StepDraft; appEngine: Engine | null; after: string[];
+function StepEditor({ n, title, kind, conf, draft, appEngine, hasPeriod, after, onChange, onEstimate, canEstimate }: {
+  n: number; title: string; kind: WorkKind; conf: WorkflowTemplates; draft: StepDraft; appEngine: Engine | null; hasPeriod: boolean; after: string[];
   onChange: (patch: Partial<StepDraft>) => void; onEstimate: () => void; canEstimate: boolean;
 }) {
   useLocale();
@@ -392,7 +402,7 @@ function StepEditor({ n, title, kind, conf, draft, appEngine, after, onChange, o
           <BrowseButton kind="files" initial={lines(draft.files).at(-1)} onPick={(picked) => touched({ files: [...lines(draft.files), ...picked].join("\n") })} />
         </div>
       ) : null}
-      {draft.source === "mailbox" ? <MailboxSource draft={draft} onChange={touched} /> : null}
+      {draft.source === "mailbox" ? <MailboxSource draft={draft} hasPeriod={hasPeriod} onChange={touched} /> : null}
       {draft.source === "package" ? <PackageSource kinds={conf.kinds[kind].package_kinds} value={draft.packageId} onChange={(id, name) => touched({ packageId: id, packageName: name })} /> : null}
       {paid ? (
         <div className="wz-engine">
@@ -433,7 +443,7 @@ function StepEditor({ n, title, kind, conf, draft, appEngine, after, onChange, o
   );
 }
 
-function MailboxSource({ draft, onChange }: { draft: StepDraft; onChange: (patch: Partial<StepDraft>) => void }) {
+function MailboxSource({ draft, hasPeriod, onChange }: { draft: StepDraft; hasPeriod: boolean; onChange: (patch: Partial<StepDraft>) => void }) {
   useLocale();
   const known = useLoad("mailbox", api.mailbox);
   return (
@@ -457,8 +467,9 @@ function MailboxSource({ draft, onChange }: { draft: StepDraft; onChange: (patch
           <input type="number" min={0} max={10000} value={draft.maxItems} onChange={(e) => onChange({ maxItems: Number(e.target.value) })} />
         </label>
       </div>
-      <label className="check"><input type="checkbox" checked={draft.usePeriod} onChange={(e) => onChange({ usePeriod: e.target.checked })} /> {t("The emails received in the workflow's period")}</label>
-      {!draft.usePeriod ? (
+      {/* 181: a workflow without a period downloads by a number of days */}
+      {hasPeriod ? <label className="check"><input type="checkbox" checked={draft.usePeriod} onChange={(e) => onChange({ usePeriod: e.target.checked })} /> {t("The emails received in the workflow's period")}</label> : null}
+      {!draft.usePeriod || !hasPeriod ? (
         <label className="block">{t("Number of days")}
           <input type="number" min={1} max={3650} value={draft.days} onChange={(e) => onChange({ days: Number(e.target.value) })} />
         </label>

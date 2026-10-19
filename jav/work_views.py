@@ -165,7 +165,7 @@ def _workpackage_view(wp_id: str) -> dict[str, Any]:
     pack = logic_packs.of(wp["source_kind"])  # 176: the logic pack the pack runs, if any
     if pack is not None and not pack.has_runs:  # 131: a reconciliation pack has a scope, no files and no runs
         return jsonable({"workpackage": wp, "titles": {}, "last_run": None, "runs": 0, **pack.page(wp_id),
-                         "workflow": _workflow_of(wp_id)})
+                         "workflow": _workflow_of(wp_id), **_scope_of(wp)})
     ready = work.readiness(wp_id)
     runs = work.run_rows(wp_id)
     extra = {}
@@ -179,7 +179,8 @@ def _workpackage_view(wp_id: str) -> dict[str, Any]:
                      "last_run": runs[0] if runs else None, "current_run": current, "runs": len(runs),
                      "open_runs": open_runs(runs),  # 160-C S3: every open live run, the current one too
                      "next": next_step(wp, current, ready["ready"]), "workflow": _workflow_of(wp_id),
-                     "supersedable": work.supersedable_runs(wp_id)})  # 152: older live runs a person can supersede
+                     "supersedable": work.supersedable_runs(wp_id),  # 152: older live runs a person can supersede
+                     **_scope_of(wp)})
 
 
 def item_counts(wp: dict[str, Any]) -> dict[str, int]:
@@ -190,6 +191,14 @@ def item_counts(wp: dict[str, Any]) -> dict[str, int]:
         removed = c.execute("SELECT COUNT(*) FROM workpackage_items WHERE workpackage_id=? AND removed_revision IS NOT NULL",
                             (wp["id"],)).fetchone()[0]
     return {**dict(states), **({"removed": removed} if removed else {})}
+
+
+def _scope_of(wp: dict[str, Any]) -> dict[str, Any]:
+    """181: the package's scope (its party, period and role, `jav/package_scope.py`), only when it has one."""
+    from jav import package_scope
+
+    scope = package_scope.scope_of(wp["id"], kind=wp["source_kind"])
+    return {"scope": scope} if scope else {}
 
 
 def _workflow_of(wp_id: str) -> dict[str, Any] | None:

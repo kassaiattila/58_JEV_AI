@@ -77,6 +77,8 @@ class LogicPack:
       runs; for one without, its readiness, its next step and its own part.
     - `list_mark()`: its part of the package list's cache mark (what its next steps in the list read).
     - `outputs`: the outputs of its packages (178: `configs/outputs.json`; a template is chosen for each of them).
+    - `scope(wp_id)`: 181: its package's own scope ({party_id, period_start, period_end, role}, `jav/package_scope.py`),
+      which a person cannot replace; None: a person may give one.
     """
 
     kind: str
@@ -93,6 +95,7 @@ class LogicPack:
     list_next: Callable[[str], dict[str, Any]] | None = None
     list_mark: Callable[[], Any] | None = None
     outputs: tuple[str, ...] | None = None  # None: a processing package's (`processing_outputs`)
+    scope: Callable[[str], dict[str, Any]] | None = None
 
     def __post_init__(self) -> None:
         if self.kind in DATA_KINDS:

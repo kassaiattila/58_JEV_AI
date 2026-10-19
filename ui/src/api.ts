@@ -64,7 +64,17 @@ export interface WorkpackageView {
   open_runs?: RunRow[];
   /** 168: how many items are in each state (approved, live, trial, running, failed, pending) and how many were removed */
   item_counts?: Partial<Record<"approved" | "live" | "trial" | "running" | "failed" | "pending" | "removed", number>>;
+  /** 181: the package's scope (its party, period and role), when it has one */
+  scope?: PackageScope;
 }
+/** 181: what a work package belongs to and collects, and where that comes from: `own` (a person gave it), `logic_pack`
+ *  (a statement package's own) or `workflow` (its workflow step's). */
+export interface PackageScope {
+  party_id: string | null; party: string | null; period_start: string | null; period_end: string | null; role: string | null;
+  role_title: string | null; from: string; set_by?: string; set_at?: string;
+}
+/** 181: a package role: what a package collects (incoming invoices, outgoing invoices, bank statements). */
+export interface PackageRole { name: string; title: string; package_kinds: string[] }
 /** 171/172 (plan 170 L1): the package's current result (each item from the run whose result counts now) and its
  *  release. `mark` is what Approve and release names; `blockers` say why it cannot be given now. */
 export type PackageReleaseState = "not_released" | "released" | "partly_released" | "changed_since_release";
@@ -282,9 +292,10 @@ export interface WorkflowStep {
   package: { id: string; name: string | null; next: NextStep | null } | null; run_id: string | null; pull_id: string | null;
   updated_at: string;
 }
+/** 181: a workflow has a party and a period only when its steps need them (or they were given). */
 export interface WorkflowInfo {
-  id: string; template: string; template_title: string; name: string; party_id: string; party: string;
-  period_start: string; period_end: string; auto: boolean; status: "open" | "archived"; actor: string;
+  id: string; template: string; template_title: string; name: string; party_id: string | null; party: string | null;
+  period_start: string | null; period_end: string | null; auto: boolean; status: "open" | "archived"; actor: string;
   created_at: string; updated_at: string;
 }
 export interface WorkflowView {
@@ -320,10 +331,10 @@ export interface QuickReview {
   excluded: Record<string, { count: number; totals: Record<string, string>; lines: QuickReviewLine[] }>;
   decided: Record<string, number>;
 }
-export interface WorkflowBrief { id: string; name: string; period_start: string; period_end: string }
+export interface WorkflowBrief { id: string; name: string; period_start: string | null; period_end: string | null }
 /** 147: a workflow for the next period, as the wizard shows it filled in (a step without a source is asked for). */
 export interface WorkflowDraft {
-  template: string; party_id: string; period_start: string; period_end: string; name: string | null; auto: boolean;
+  template: string; party_id: string | null; period_start: string | null; period_end: string | null; name: string | null; auto: boolean;
   previous: string; steps: Record<string, { source: WorkflowSource | null; budget: WorkflowBudget; engine?: Engine | null }>;
 }
 export interface WorkflowRow extends WorkflowInfo {
@@ -332,7 +343,7 @@ export interface WorkflowRow extends WorkflowInfo {
 }
 export interface WorkflowRef { id: string; name: string; step: string; step_title: string }
 export interface CreateWorkflowBody {
-  template: string; party_id: string; period_start: string; period_end: string; name?: string; auto: boolean;
+  template: string; party_id?: string; period_start?: string; period_end?: string; name?: string; auto: boolean;
   names?: Record<string, string>; steps: Record<string, { source: WorkflowSource; budget?: WorkflowBudget; engine?: Engine | null }>;
   previous?: string;
 }
@@ -1262,6 +1273,12 @@ export const api = {
   users: () => request<{ users: string[] }>("GET", "/settings/users"),
   saveUsers: (users: string[]) => request<{ users: string[] }>("PUT", "/settings/users", { users }),
   setOwner: (id: string, owner: string | null) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/owner`, { owner }),
+  /** 181: the package roles a scope can name */
+  packageRoles: () => request<{ roles: PackageRole[] }>("GET", "/package-roles"),
+  /** 181: a person gives the package its scope (any part may be left out) or takes its own scope away */
+  setPackageScope: (id: string, scope: { party_id: string | null; period_start: string | null; period_end: string | null; role: string | null }) =>
+    request<WorkpackageView>("POST", `/workpackages/${enc(id)}/scope`, scope),
+  clearPackageScope: (id: string) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/scope/clear`, {}),
   folders: () => request<{ folders: WatchedFolder[]; roots: string[] }>("GET", "/settings/folders"),
   saveFolders: (folders: WatchedFolder[]) => request<{ folders: WatchedFolder[]; roots: string[] }>("PUT", "/settings/folders", {
     folders: folders.map(({ id, name, path, enabled, recursive, batch_mode, recipe_id, params, interval_min }) =>

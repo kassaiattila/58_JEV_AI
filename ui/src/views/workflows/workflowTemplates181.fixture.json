@@ -156,7 +156,8 @@
         {
           "id": "invoices",
           "kind": "documents",
-          "title": "Incoming invoices"
+          "title": "Incoming invoices",
+          "role": "incoming_invoices"
         },
         {
           "id": "statements",
@@ -210,7 +211,8 @@
         {
           "id": "invoices",
           "kind": "documents",
-          "title": "Incoming invoices from a folder"
+          "title": "Incoming invoices from a folder",
+          "role": "incoming_invoices"
         },
         {
           "id": "emails",

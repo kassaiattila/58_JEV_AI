@@ -46,10 +46,12 @@ def _routes() -> list[APIRoute]:
 
 # --- the addresses of the local service ---------------------------------------------------------------------------------
 
-ROUTE_COUNT = 147  # (method, path) pairs of 143 routes: the unknown-address answer has five methods
+ROUTE_COUNT = 150  # (method, path) pairs of 146 routes: the unknown-address answer has five methods
 # 178 (plan 170 L4): nine new addresses on purpose - the own output templates (list, upload, activate, retire, file,
 # preview), a package's choice of them (read, choose) and the utility cost's workbook (jav/api_outputs.py)
-ROUTE_TABLE = "988c40586c849285e33cac72d2b51444264a3b133c8f4887cb92819f4da4363a"
+# 181 (plan 170 L5): three more on purpose - the package roles, and a package's scope given and taken away
+# (`GET /api/package-roles`, `POST /api/workpackages/{wp_id}/scope`, `POST /api/workpackages/{wp_id}/scope/clear`)
+ROUTE_TABLE = "394641095d60f950ac6f08446e4deac080ee8555f3691f775a9cf52594f52b36"
 
 
 def test_the_service_has_these_addresses() -> None:
@@ -125,9 +127,11 @@ def test_the_page_of_a_folder_package_has_these_parts(db) -> None:
 def test_the_page_of_a_statement_package_has_these_parts(db) -> None:
     wp_id = _statement_package(db, _party())
     view = work_views.workpackage_view(wp_id)
-    assert _keys(view) == ["current_run", "item_counts", "last_run", "next", "open_runs", "readiness", "runs",
+    # 181: its scope (its own party and period, collecting bank statements) on purpose
+    assert _keys(view) == ["current_run", "item_counts", "last_run", "next", "open_runs", "readiness", "runs", "scope",
                            "statements", "supersedable", "titles", "workflow", "workpackage"]
     assert _keys(view["statements"]) == ["scope", "statements"]
+    assert (view["scope"]["role"], view["scope"]["from"]) == ("statements", "logic_pack")
     assert view["workpackage"]["source_kind"] == "statements"
 
 

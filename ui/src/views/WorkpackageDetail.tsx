@@ -13,6 +13,7 @@ import { logicOf } from "../logic/registry";
 import { go, type Route, type Stage } from "../route";
 import { PackageItemsPanel } from "./PackageItems";
 import { ProcessStage } from "./ProcessStage";
+import { scopeText } from "./PackageScope";
 import { ResultStage } from "./ResultStage";
 import { ReviewWorkspace } from "./ReviewWorkspace";
 import { StartConfirm } from "./StartConfirm";
@@ -113,6 +114,8 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
     <>{" · "}{t("Step {{step}} of the workflow", { step: t(view.workflow.step_title) })}{" "}
       <a href={`#/workflows/${encodeURIComponent(view.workflow.id)}`}>{view.workflow.name}</a></>
   ) : null;
+  // 181: the package's party, period and role (a statement package's own is on its summary already)
+  const scopeOf: ReactNode = view.scope && view.scope.from !== "logic_pack" ? <>{" · "}{scopeText(view.scope)}</> : null;
   // the next-step button; not needed if we are already on that stage's page
   const nextButton = next.stage !== stage || route.stage === undefined ? (
     <button type="button" className="primary" onClick={() => go({ view: "workpackages", wpId, stage: next.stage })}>{nextStepText(view)} →</button>
@@ -121,7 +124,7 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
   return (
     <>
       <PageHeader compact crumbs={[{ label: t("Munkacsomagok"), href: "#/workpackages" }]} title={workpackage.name}
-        summary={<>{summary}{workflowOf}</>}
+        summary={<>{summary}{scopeOf}{workflowOf}</>}
         actions={<><OwnerPicker view={view} onChanged={wp.reload} />{nextButton}<WorkpackageActions view={view} onChanged={wp.reload} /></>} />
       {workpackage.status === "archived" ? (
         <p className="notice">{t("Ez a csomag el van rejtve a listából; a futásai és az eredményei megmaradtak. Visszahozni a „Csomag kezelése” gombbal lehet.")}</p>
