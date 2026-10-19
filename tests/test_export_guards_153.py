@@ -8,6 +8,7 @@ was written as is, and the manifest that travels in a ZIP carried each original'
 from openpyxl import Workbook
 
 from jav import export, naming
+from jav.outputs import xlsx
 
 
 def test_the_csv_guards_its_header_and_a_formula_after_spaces():
@@ -19,7 +20,7 @@ def test_the_csv_guards_its_header_and_a_formula_after_spaces():
 
 def test_the_workbook_writes_its_header_as_text():
     wb = Workbook()
-    export._write_sheet(wb.active, ["=1+1", "Name"], [["=2+2", "x"]])
+    xlsx.write_table(wb.active, ["=1+1", "Name"], [["=2+2", "x"]])
     assert [c.data_type for c in wb.active[1]] == ["s", "s"] and [c.data_type for c in wb.active[2]] == ["s", "s"]
 
 

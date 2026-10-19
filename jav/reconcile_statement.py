@@ -19,7 +19,11 @@ its approval as an unchangeable version that locks its lines, and its download.
 - **The download** (`xlsx`, DECISIONS 145): an Excel workbook with two sheets, the invoices and the lines, each under a
   heading block naming the package, its party, period, accounts and version (or "draft"). The labels are data
   (`configs/reports.json` `reconcile_statement`; the column names of the fields from `configs/field_labels.json`), and
-  a text is never written as a formula (the run export's rule, `jav/export.py`).
+  a text is never written as a formula. Since 178 the statement is built as the output contract's data
+  (`statement_data`, `configs/outputs.json`) and laid out by the built-in template (`jav/outputs/builtin.py`); an
+  approved version's file is stored when it is approved and again when it is reopened (`reconcile_version_files`), and
+  its download returns the stored bytes. A version approved before 178 is made from its stored statement until
+  `backfill_files` (`reconcile-versions-backfill`) records its file.
 
 Nothing here calls an AI model or the network. Layer: UI/CLI → **this** (application operation) →
 `jav.reconcile_package` (the workspace, the decisions and the approval tables) and `jav.work` (the package and its log).
@@ -28,20 +32,37 @@ Nothing here calls an AI model or the network. Layer: UI/CLI → **this** (appli
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 from collections import Counter
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import activity_kinds, cfg, export, naming, reconcile, reconcile_package as rp, store, work
+from jav import activity_kinds, cfg, naming, reconcile, reconcile_package as rp, store, work
+from jav.outputs import builtin, contract
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
 activity_kinds.register_events("package", ("reconcile_approve", "reconcile_reopen", "reconcile_accept_sources"), __name__)
 
 FORMAT = 1  # the statement's content layout; a new layout bumps it (a stored version keeps its own)
+
+store.register_schema("reconcile_statement", """
+-- 178 (plan 170 L4): an approved version's download as it was made - when approved, and again when reopened (its
+-- heading then names it an earlier version) - so a later change of a label, the layout or a template never changes it
+CREATE TABLE IF NOT EXISTS reconcile_version_files (
+    version_id       INTEGER NOT NULL,   -- reconcile_versions.id
+    state            TEXT NOT NULL,      -- approved, earlier
+    name             TEXT NOT NULL,      -- the download's file name
+    template         TEXT NOT NULL,      -- builtin; an own template's identifier (planned: the second round of L4)
+    template_version TEXT NOT NULL,      -- the built-in template's version (configs/outputs.json); an own template's sha256
+    sha256           TEXT NOT NULL,
+    content          BLOB NOT NULL,
+    created_at       TEXT NOT NULL,
+    backfilled_at    TEXT,               -- recorded afterwards for a version approved or reopened before 178
+    PRIMARY KEY (version_id, state)
+);
+""")
 INVOICE_RESULTS = ("paid", "partly_paid", "credited", "undecided", "no_payment_found", "not_covered")
 LINE_RESULTS = ("paired", "partly_paired", "needs_no_invoice", "left_out", "open")
 # the engine's invoice state (jav/reconcile.py STATUSES) -> the result, when no allocation decides it
@@ -151,6 +172,10 @@ def approved_version(wp_id: str, n: int) -> dict[str, Any]:
         row = c.execute("SELECT * FROM reconcile_versions WHERE workpackage_id=? AND version=?", (wp_id, n)).fetchone()
     if row is None:
         raise KeyError(f"{wp_id} version {n}")
+    return _meta(row)
+
+
+def _meta(row: Any) -> dict[str, Any]:
     meta = {k: row[k] for k in ("version", "fingerprint", "approved_by", "approved_at", "reopened_by", "reopened_at", "reopen_note")}
     return {"statement": json.loads(row["content"]), **meta}
 
@@ -175,9 +200,11 @@ def approve(wp_id: str, *, fingerprint: str, actor: str) -> dict[str, Any]:
 
     def write(c) -> int:
         n = (c.execute("SELECT MAX(version) FROM reconcile_versions WHERE workpackage_id=?", (wp_id,)).fetchone()[0] or 0) + 1
-        c.execute("INSERT INTO reconcile_versions(workpackage_id, version, content, fingerprint, line_ids, approved_by, approved_at)"
-                  " VALUES (?,?,?,?,?,?,?)", (wp_id, n, json.dumps(content, ensure_ascii=False, default=str), fingerprint,
-                                              json.dumps(line_ids), actor, _now()))
+        cur = c.execute("INSERT INTO reconcile_versions(workpackage_id, version, content, fingerprint, line_ids, approved_by,"
+                        " approved_at) VALUES (?,?,?,?,?,?,?)", (wp_id, n, json.dumps(content, ensure_ascii=False, default=str),
+                                                                 fingerprint, json.dumps(line_ids), actor, _now()))
+        # 178: the version's file as approved, made from the statement as stored (the download read it so before)
+        _store_file(c, cur.lastrowid, _meta(c.execute("SELECT * FROM reconcile_versions WHERE id=?", (cur.lastrowid,)).fetchone()))
         work.record_event(c, wp_id, "reconcile_approve", actor, {"version": n, "fingerprint": fingerprint, "lines": len(line_ids)})
         return n
     n = rp._write(state, write)
@@ -198,6 +225,8 @@ def reopen(wp_id: str, *, note: str, actor: str) -> dict[str, Any]:
             raise explained(rp.PackageError, "the package has no approved statement to reopen")
         c.execute("UPDATE reconcile_versions SET reopened_by=?, reopened_at=?, reopen_note=? WHERE id=?",
                   (actor, _now(), note, row["id"]))
+        # 178: the version's file as an earlier one (its heading names who reopened it, when and why)
+        _store_file(c, row["id"], _meta(c.execute("SELECT * FROM reconcile_versions WHERE id=?", (row["id"],)).fetchone()))
         work.record_event(c, wp_id, "reconcile_reopen", actor, {"version": row["version"], "note": note})
     return rp.approval(wp_id)
 
@@ -273,40 +302,31 @@ def _line_table(st: dict[str, Any], lab: dict[str, Any]) -> tuple[list[str], lis
     return head, rows, kinds
 
 
-def _heading(st: dict[str, Any], state: str, lab: dict[str, Any]) -> list[tuple[str, str]]:
+def _values(st: dict[str, Any], state: str, lab: dict[str, Any]) -> tuple[contract.Value, ...]:
     h = lab["heading"]
-    return [(h["package"], st["package"]["name"]), (h["party"], st["party"] or ""), (h["period"], " – ".join(st["period"])),
-            (h["accounts"], ", ".join(st["accounts"])), (h["state"], state)]
+    return (contract.Value("package", h["package"], st["package"]["name"]), contract.Value("party", h["party"], st["party"] or ""),
+            contract.Value("period", h["period"], " – ".join(st["period"])),
+            contract.Value("accounts", h["accounts"], ", ".join(st["accounts"])), contract.Value("state", h["state"], state))
 
 
-def _sheet(ws: Any, heading: list[tuple[str, str]], head: list[str], rows: list[list[Any]], kinds: list[str | None]) -> None:
-    """A heading block, an empty row, then the table with its header frozen and filtered; a text is never a formula."""
-    from openpyxl.styles import Font, PatternFill
-    from openpyxl.utils import get_column_letter
+# 178 (plan 170 L4): the column keys of the statement's tables (`configs/outputs.json` `reconcile_statement`), in order
+INVOICE_COLUMNS = ("number", "supplier_name", "supplier_tax_id", "issue_date", "fulfillment_date", "due_date", "amount", "currency",
+                   "payment_method", "result", "allocated", "rest", "paid_on", "days_from_due", "overdue_days", "paid_by",
+                   "other_party", "source", "file")
+LINE_COLUMNS = ("booking_date", "value_date", "account", "direction", "amount", "currency", "original_amount", "original_currency",
+                "counterparty_name", "counterparty_account", "memo", "description", "result", "reason", "note", "allocated", "rest",
+                "pays", "statement_file", "statement_verified")
 
-    for label, value in heading:
-        ws.append([label, export._cell_value(value, None)])
-        ws.cell(ws.max_row, 1).font = Font(bold=True)
-    ws.append([])
-    top = ws.max_row + 1
-    ws.append(head)
-    for row in rows:
-        ws.append([export._cell_value(v, kinds[i] if i < len(kinds) else None) for i, v in enumerate(row)])
-    for row in ws.iter_rows():
-        for c in row:
-            if isinstance(c.value, str):
-                c.data_type = "s"  # text is never a formula (jav/export.py)
-            elif isinstance(c.value, Decimal):
-                c.number_format = "#,##0.00"
-    for c in ws[top]:
-        c.font = Font(bold=True)
-        c.fill = PatternFill("solid", fgColor="EEEEF2")
-    ws.freeze_panes = f"A{top + 1}"
-    if rows:
-        ws.auto_filter.ref = f"A{top}:{get_column_letter(len(head))}{top + len(rows)}"
-    for i, h in enumerate(head, 1):
-        width = max([len(str(h))] + [len(str(r[i - 1])) for r in rows[:200] if r[i - 1] is not None])
-        ws.column_dimensions[get_column_letter(i)].width = min(60, max(10, width + 2))
+
+def statement_data(st: dict[str, Any], state: str) -> contract.OutputData:
+    """178 (plan 170 L4): the statement's data as the output contract describes it (`reconcile_statement`): the heading's
+    values and the two tables, the invoices and the lines."""
+    lab = _labels()
+    tables = []
+    for key, title, columns, (head, rows, kinds) in (("invoices", lab["sheets"]["invoices"], INVOICE_COLUMNS, _invoice_table(st, lab)),
+                                                     ("lines", lab["sheets"]["lines"], LINE_COLUMNS, _line_table(st, lab))):
+        tables.append(contract.Table(key=key, title=title, columns=columns, head=tuple(head), kinds=tuple(kinds), rows=rows))
+    return contract.OutputData("reconcile_statement", _values(st, state, lab), tuple(tables))
 
 
 def _shown(stamp: str | None) -> str:
@@ -314,30 +334,74 @@ def _shown(stamp: str | None) -> str:
     return (stamp or "")[:16].replace("T", " ")
 
 
+def _file(st: dict[str, Any], state: str, suffix: str, lab: dict[str, Any]) -> tuple[bytes, str]:
+    slug = naming.safe_part(st["package"]["name"], limit=40) or st["package"]["id"]  # accents folded (078)
+    return builtin.render(statement_data(st, state)), f"{lab['file']['prefix']}-{slug}-{suffix}.xlsx"
+
+
+def _version_state(v: dict[str, Any]) -> str:
+    """An approved version's file state: `approved` while it holds, `earlier` once reopened."""
+    return "approved" if v["reopened_at"] is None else "earlier"
+
+
+def _version_file(v: dict[str, Any]) -> tuple[bytes, str]:
+    """An approved version's file made now from its stored statement (its heading names its state)."""
+    lab, n = _labels(), v["version"]
+    if v["reopened_at"] is None:
+        state = lab["heading"]["approved"].format(n=n, by=v["approved_by"], at=_shown(v["approved_at"]))
+    else:
+        state = lab["heading"]["earlier"].format(n=n, by=v["reopened_by"], at=_shown(v["reopened_at"]), note=v["reopen_note"] or "")
+    return _file(v["statement"], state, lab["file"]["version"].format(n=n), lab)
+
+
+def _store_file(c: Any, version_id: int, v: dict[str, Any], *, backfilled_at: str | None = None) -> None:
+    """178: records an approved version's file in its current state, in the caller's transaction."""
+    data, name = _version_file(v)
+    c.execute("INSERT INTO reconcile_version_files(version_id, state, name, template, template_version, sha256, content,"
+              " created_at, backfilled_at) VALUES (?,?,?,?,?,?,?,?,?)",
+              (version_id, _version_state(v), name, "builtin", contract.spec("reconcile_statement")["builtin"]["version"],
+               hashlib.sha256(data).hexdigest(), data, _now(), backfilled_at))
+
+
 def xlsx(wp_id: str, *, version: int | None = None) -> tuple[bytes, str]:
     """The statement as an Excel workbook (DECISIONS 145: invoices and lines on two sheets) and its file name: the
-    current draft, or an approved version as it was approved."""
-    from openpyxl import Workbook
-
+    current draft, or an approved version's file as it was stored when approved or reopened (178). A version approved
+    before 178 is made from its stored statement until `backfill_files` records its file."""
     lab = _labels()
     if version is None:
-        st, state, suffix = current(wp_id)["statement"], lab["heading"]["draft"], lab["file"]["draft"]
-    else:
-        v = approved_version(wp_id, version)
-        st, suffix = v["statement"], lab["file"]["version"].format(n=version)
-        if v["reopened_at"] is None:
-            state = lab["heading"]["approved"].format(n=version, by=v["approved_by"], at=_shown(v["approved_at"]))
-        else:
-            state = lab["heading"]["earlier"].format(n=version, by=v["reopened_by"], at=_shown(v["reopened_at"]),
-                                                     note=v["reopen_note"] or "")
-    heading = _heading(st, state, lab)
-    wb = Workbook()
-    used: set[str] = set()
-    first = wb.active
-    first.title = export._safe_sheet(lab["sheets"]["invoices"], used)
-    _sheet(first, heading, *_invoice_table(st, lab))
-    _sheet(wb.create_sheet(export._safe_sheet(lab["sheets"]["lines"], used)), heading, *_line_table(st, lab))
-    buf = io.BytesIO()
-    wb.save(buf)
-    slug = naming.safe_part(st["package"]["name"], limit=40) or st["package"]["id"]  # accents folded (078)
-    return buf.getvalue(), f"{lab['file']['prefix']}-{slug}-{suffix}.xlsx"
+        return _file(current(wp_id)["statement"], lab["heading"]["draft"], lab["file"]["draft"], lab)
+    v = approved_version(wp_id, version)
+    with store.connect() as c:
+        row = c.execute("SELECT f.content, f.name FROM reconcile_version_files f JOIN reconcile_versions r ON r.id=f.version_id"
+                        " WHERE r.workpackage_id=? AND r.version=? AND f.state=?", (wp_id, version, _version_state(v))).fetchone()
+    return (bytes(row["content"]), row["name"]) if row else _version_file(v)
+
+
+def version_files(wp_id: str, n: int) -> list[dict[str, Any]]:
+    """178: the stored files of an approved version (without their content), in the order they were recorded."""
+    with store.connect() as c:
+        rows = c.execute("SELECT f.state, f.name, f.template, f.template_version, f.sha256, f.created_at, f.backfilled_at"
+                         " FROM reconcile_version_files f JOIN reconcile_versions r ON r.id=f.version_id"
+                         " WHERE r.workpackage_id=? AND r.version=? ORDER BY f.created_at, f.rowid", (wp_id, n)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def backfill_files(*, dry_run: bool = False) -> list[dict[str, Any]]:
+    """178: every approved version without the file of its current state (approved or reopened before 178) gets it,
+    made now from its stored statement as the download made it, marked as recorded afterwards (`backfilled_at`).
+    Idempotent."""
+    with store.connect() as c:
+        ids = [r[0] for r in c.execute("SELECT id FROM reconcile_versions ORDER BY workpackage_id, version")]
+    out = []
+    for version_id in ids:
+        with store.connect() as c:
+            store.begin_immediate(c)
+            row = c.execute("SELECT * FROM reconcile_versions WHERE id=?", (version_id,)).fetchone()
+            v = _meta(row)
+            state = _version_state(v)
+            if c.execute("SELECT 1 FROM reconcile_version_files WHERE version_id=? AND state=?", (version_id, state)).fetchone():
+                continue
+            if not dry_run:
+                _store_file(c, version_id, v, backfilled_at=_now())
+        out.append({"workpackage_id": row["workpackage_id"], "version": row["version"], "state": state})
+    return out
