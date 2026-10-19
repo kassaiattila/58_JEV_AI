@@ -156,7 +156,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import cfg, duplicates, fact_checks, fx, package_result, store
+from jav import cfg, duplicates, fact_checks, fx, package_result, store, type_roles
 from jav.candidates import trim_after_legal_form
 from jav.models import account_key  # 156: shared with the candidate finder; callers keep using reconcile.account_key
 
@@ -462,7 +462,7 @@ def _payments(statements: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]
 
 def outgoing(invoice: dict[str, Any]) -> bool:
     """148: whether the invoice is an own party's outgoing invoice: its direction when known (147), else its type."""
-    return invoice["direction"] == "outgoing" if invoice.get("direction") else invoice.get("doc_type") in _conf()["outgoing_types"]
+    return invoice["direction"] == "outgoing" if invoice.get("direction") else type_roles.has(invoice.get("doc_type"), "outgoing_invoice")
 
 
 def pays(payment: dict[str, Any], invoice: dict[str, Any]) -> bool:
@@ -1419,8 +1419,7 @@ def _decision_rows(c=None) -> list[dict[str, Any]]:
 
 def handles(doc_type: str | None) -> bool:
     """Whether a document of this type takes part in the reconciliation as an incoming invoice or a statement."""
-    conf = _conf()
-    return doc_type in conf["invoice_types"] or doc_type in conf["statement_types"]
+    return type_roles.has(doc_type, "incoming_invoice") or type_roles.has(doc_type, "statement")
 
 
 def bank_rate_needs(invoices: list[dict[str, Any]], statements: list[dict[str, Any]]) -> set[tuple[str, date]]:
@@ -1448,14 +1447,14 @@ def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False
     f = conf["invoice_fields"]
     marks = _duplicate_marks()
     res = parties.resolver()
-    docs = _counted([*conf["invoice_types"], *conf["outgoing_types"], *conf["statement_types"]])
+    docs = _counted([*type_roles.types("incoming_invoice"), *type_roles.types("outgoing_invoice"), *type_roles.types("statement")])
     if current is not None:
         docs = [d for d in docs if d["doc_id"] != current["doc_id"]]
         docs.append({**current, "seq": max((d["seq"] for d in docs), default=0) + 1})
     invoices, statements = [], []
     for d in docs:
         v = d["values"]
-        if d["doc_type"] in conf["statement_types"]:
+        if type_roles.has(d["doc_type"], "statement"):
             statements.append(_statement(d))
         else:
             invoices.append({"id": d["doc_id"], "doc_type": d["doc_type"], "number": v.get(f["number"]),
@@ -1520,14 +1519,14 @@ def _masked(line: dict[str, Any]) -> dict[str, Any]:
 def statements() -> list[dict[str, Any]]:
     """139: every stored statement in the snapshot's shape, a replaced one too (`jav/statement_months.py` decides); 174:
     each by its counted result."""
-    return [_statement(d) for d in _counted(list(_conf()["statement_types"]))]
+    return [_statement(d) for d in _counted(list(type_roles.types("statement")))]
 
 
 def run_statements(run_id: str) -> list[dict[str, Any]]:
     """174 (plan 170 L2): the statements of one run's finished items, by that run's own results and corrections, whatever
     counts now (the statement package's rule after an approval reads the approved run)."""
     with store.connect() as c:
-        return [_statement(d) for d in _documents(c, package_result.run_documents(c, run_id), list(_conf()["statement_types"]))]
+        return [_statement(d) for d in _documents(c, package_result.run_documents(c, run_id), list(type_roles.types("statement")))]
 
 
 def active_allocations(c=None) -> list[dict[str, Any]]:

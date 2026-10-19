@@ -7,11 +7,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import cfg, store
+from jav import cfg, checks, store
 from jav.config import load_prompt
 from jav.document_learning import digest
 from jav.typepack import TypePack, KINDS, get, keys
-from jav.validators import _RECORD_CHECKS, _FIELD_CHECKS, PAIR_CHECKS
 
 
 class SampleRef(BaseModel):
@@ -80,15 +79,16 @@ def inspect_draft(draft: TypeDraft) -> dict:
     for name in (n for n in (pack.select_callsite,pack.verify_callsite) if n):
         if name not in draft.callsites:
             errors.append("missing_callsite:"+name)
+    record_checks = {c.name: c.kind for c in checks.stage("record")}  # 175: the check registry's record stage
     for validator in pack.validators:
         name = validator.get("check")
-        if name not in {*_RECORD_CHECKS, *_FIELD_CHECKS, *PAIR_CHECKS, "format"}:
+        if name not in record_checks:
             errors.append("unsupported_validator:"+str(name))
-        elif name in PAIR_CHECKS:
+        elif record_checks[name] == "pair":
             pair = validator.get("fields")
             if not isinstance(pair, list) or len(pair) != 2 or any(f not in fields for f in pair):
                 errors.append("unknown_validator_fields:"+str(pair))
-        elif name not in _RECORD_CHECKS and validator.get("field") not in fields:
+        elif record_checks[name] != "record" and validator.get("field") not in fields:
             errors.append("unknown_validator_field:"+str(validator.get("field")))
         if name == "format":
             try:

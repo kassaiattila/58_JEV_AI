@@ -496,10 +496,13 @@ def upsert_email_result(*, run_id: str, message_id: str, intent: str | None, int
                    folder if folder == "sent" else None))
 
 
+TASK_DECISIONS = ("accepted", "rejected")  # a person's decisions on an email's task proposal (175: the one list)
+
+
 def email_task_decide(run_id: str, index: int, *, decision: str, actor: str, note: str | None,
                       c: sqlite3.Connection | None = None) -> None:
     """`c` (086, audit N02): write inside the caller's transaction (which checks the approval first)."""
-    if decision not in ("accepted", "rejected"):
+    if decision not in TASK_DECISIONS:
         raise ValueError(f"unknown decision: {decision}")
     if c is None:
         with connect() as own:

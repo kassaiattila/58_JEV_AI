@@ -17,13 +17,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
 
-from jav import activity, corrections, datasets, duplicates, email_tasks, native_results, parties, policy, store, work
+from jav import activity, activity_kinds, checks, corrections, datasets, duplicates, email_tasks, native_results, parties, policy, store, work
 from jav.models import CheckResult, FlowState, InvoiceHU, JevVerdicts
-from jav.runtime import worker
+from jav.runtime import calls, worker
 
 RUN = "run-000000000171"
 WP = "wp-000000000171"
@@ -72,11 +73,22 @@ def _run(run_id: str = RUN, docs: tuple[str, ...] = (DOC_A, DOC_B), *, status: s
     ("G", ["verdict", "gpt_confidence", "validation", "duplicate", "party", "statement", "no_invoice"]),
 ])
 def test_decide_applies_its_policies_in_a_fixed_order(monkeypatch, arm, expected) -> None:
-    """Each policy step adds one marker reason; the markers come out in the order `policy.decide` calls the steps."""
-    for step in ("pick", "verdict", "gpt_confidence", "validation", "duplicate", "party", "statement"):
-        monkeypatch.setattr(policy, f"apply_{step}_policy", lambda state, step=step: policy.require_review(state, step))
+    """Each policy step adds one marker reason; the markers come out in the order `policy.decide` calls the steps.
+    175 (plan 170 E3): the steps are the decision and cross-document checks of the check registry (`jav/checks.py`);
+    the cross-document ones run in a worker run only, so the decision runs in one. The pinned order is unchanged."""
+    markers = {"pick": "pick", "verdict": "verdict", "gpt_confidence": "gpt_confidence", "validation": "validation",
+               "duplicate": "duplicate", "own_tax": "party", "statement_overlap": "statement"}
+    for check in checks.stage("decision"):
+        marker = markers.pop(check.name)
+        monkeypatch.setitem(checks._CHECKS, check.name,
+                            replace(check, run=lambda state, m=marker: policy.require_review(state, m)))
+    for check in checks.stage("cross_document"):
+        marker = markers.pop(check.name)
+        monkeypatch.setitem(checks._CHECKS, check.name, replace(check, run=lambda subject, m=marker: [m]))
+    assert markers == {}  # every step of the decision is a check
     state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm=arm)
-    assert policy.decide(state) == "human"
+    with calls.use_run(budget_scope=RUN):
+        assert policy.decide(state) == "human"
     assert state.review_reasons == expected
 
 
@@ -90,7 +102,7 @@ PIN_G_REASONS = [
 
 def test_a_g_path_decision_without_jev_lists_its_reasons_in_this_order(monkeypatch) -> None:
     """The real policy steps on one G-path record without JEV; only the store readers of the cross-document checks
-    (duplicates, own tax number) are stand-ins, as they read the store only in a worker run."""
+    (duplicates, own tax number) are stand-ins, and the decision runs in a worker run, the only place they run."""
     monkeypatch.setattr(duplicates, "review_reasons", lambda doc_id, doc_type, fields: [f"duplicate:copy:{DOC_C}"])
     monkeypatch.setattr(parties, "review_reasons", lambda doc_type, values: ["parties:own_tax_as_supplier"])
     state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", jev=False, doc_type="invoice_hu",
@@ -102,7 +114,8 @@ def test_a_g_path_decision_without_jev_lists_its_reasons_in_this_order(monkeypat
     state.validation = [CheckResult(name="totals_consistency", ok=False, code="totals.mismatch"),
                         CheckResult(name="iban:payment_iban", ok=False, code="iban.checksum"),
                         CheckResult(name="vat_rate", ok=False, code="vat.unusual", advisory=True)]
-    assert policy.decide(state) == "human"
+    with calls.use_run(budget_scope=RUN):
+        assert policy.decide(state) == "human"
     assert state.review_reasons == PIN_G_REASONS
 
 
@@ -225,9 +238,12 @@ def test_the_run_fingerprint_sees_reconciliation_decisions_and_statement_choices
 
 
 def test_the_activity_log_reads_these_sources() -> None:
-    assert [code for code, _sql in activity._SOURCES] == [
+    assert [s.code for s in activity_kinds.sources()] == [  # 175: the activity registry, in the same order
         "event", "recipe", "run_start", "run_approve", "correction", "reason_resolve", "task_decision", "task_done",
-        "mailbox_pull"]
+        "mailbox_pull",
+        # 175 (deliberate, the owner's decision of 2026-10-19): a person's duplicate decisions, statement choices and
+        # own workflow steps
+        "duplicate_decision", "statement_choice", "workflow"]
 
 
 PIN_ACTIVITY = [  # most recent first; another person's action is left out

@@ -38,8 +38,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import cfg, fact_checks, package_result, store
-from jav.runtime import calls
+from jav import cfg, fact_checks, package_result, store, type_roles
 from jav.user_messages import explained
 
 REASON = "duplicate"
@@ -78,12 +77,12 @@ def config_hash() -> str:
 
 
 def family(doc_type: str | None) -> str | None:
-    """The family of an invoice-like type; None for any other type."""
-    return next((name for name, types in _conf()["families"].items() if doc_type in types), None)
+    """The family of an invoice-like type; None for any other type (175: the type's role, `jav/type_roles.py`)."""
+    return type_roles.duplicate_family(doc_type)
 
 
 def family_types() -> list[str]:
-    return [t for types in _conf()["families"].values() for t in types]
+    return [t for types in type_roles.duplicate_families().values() for t in types]
 
 
 def key_fields() -> list[str]:
@@ -195,13 +194,6 @@ def pair_key(a: str, b: str) -> str:
 # --- the store --------------------------------------------------------------------------------------------------
 
 
-def enabled() -> bool:
-    """The store is read only inside a worker run, as in `party_history`."""
-    ctx = calls.current()
-    # 127: a budgeted measurement has a budget scope too, but it is not a worker run
-    return ctx is not None and ctx.budget_scope is not None and not ctx.measurement
-
-
 def documents(fields: Iterable[str] | None = None, types: Iterable[str] | None = None) -> list[Document]:
     """Every invoice-like document's effective values: its counted result (of any type; a document re-read as another
     type drops out), with the latest correction of the run item that produced it. 174 (plan 170 L2): the package's
@@ -244,9 +236,10 @@ def decisions_for(doc_ids: Iterable[str], c=None) -> list[dict[str, Any]]:
 
 
 def review_reasons(doc_id: str | None, doc_type: str | None, fields: dict[str, Any]) -> list[str]:
-    """The duplicate to-dos of the document being processed: against every earlier document in the store, in a worker
-    run only; a pair a person has already decided adds nothing."""
-    if not enabled() or not doc_id or family(doc_type) is None or number_key(fields.get(_conf()["number_field"])) is None:
+    """The duplicate to-dos of the document being processed: against every earlier document in the store; a pair a
+    person has already decided adds nothing. It reads the store: the check registry runs it in a worker run only
+    (175, `jav/checks.py`)."""
+    if not doc_id or family(doc_type) is None or number_key(fields.get(_conf()["number_field"])) is None:
         return []
     found = matches(Document(doc_id, doc_type or "", fields), documents())
     decided = {d["pair_key"] for d in decisions_for([doc_id])}

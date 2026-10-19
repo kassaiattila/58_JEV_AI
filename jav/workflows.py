@@ -39,8 +39,12 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from jav import app_settings, cfg, mailbox, parties, reconcile_package, statement_package, store, work
+from jav import activity_kinds, app_settings, cfg, mailbox, parties, reconcile_package, statement_package, store, work
 from jav.user_messages import explained
+
+# 175 (plan 170 E4): the actions a workflow's log records (`jav/activity_kinds.py`)
+activity_kinds.register_events("workflow", ("create", "update", "budget", "link", "pull", "pull_interrupted", "package", "run",
+                                            "needs_budget", "nothing_new", "left_out", "failed"), __name__)
 
 log = logging.getLogger(__name__)
 
@@ -328,6 +332,7 @@ def create(*, template_id: str, party_id: str, period_start: Any, period_end: An
 
 
 def _event(c, wf_id: str, step: str | None, action: str, actor: str, detail: dict[str, Any] | None = None) -> None:
+    activity_kinds.check_event("workflow", action)
     c.execute("INSERT INTO workflow_events(workflow_id, step, action, actor, detail, created_at) VALUES (?,?,?,?,?,?)",
               (wf_id, step, action, actor, json.dumps(detail or {}, ensure_ascii=False, default=str), _now()))
 

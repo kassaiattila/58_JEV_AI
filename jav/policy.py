@@ -14,7 +14,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any, Literal
 
-from jav import cfg
+from jav import cfg, checks, type_roles
 from jav.emails import Attachment
 from jav.intents import DOCUMENT_BEARING
 from jav.models import FlowState
@@ -94,7 +94,7 @@ def detail_direction(key: str | None, probabilities: dict[str, float] | None, di
     """149: whether the direction the own parties give an invoice settles its uncertain detailed type: `confirmed`
     (the type's side, `detect_detail.direction_sides`), `contradicted` (the side of the runner-up), or None when the
     uncertainty was not between an outgoing and an incoming pack, or the parties do not say."""
-    sides = {k: side for side, keys in DETECT_DETAIL.get("direction_sides", {}).items() for k in keys}
+    sides = {k: side for side in ("outgoing", "incoming") for k in type_roles.types(f"direction:{side}")}
     if not key or key not in sides or not probabilities:
         return None
     rivals = sorted(((p, k) for k, p in probabilities.items() if k not in (key, "none")), reverse=True)
@@ -136,7 +136,7 @@ def issuer_mismatch_reason(doc_type: str | None, detail_type: str | None, issuer
     decides there (an Upwork invoice of a Hungarian freelancer is `invoice_foreign`)."""
     if engine not in DETECT_ISSUER["engines"] or issuer_hu is None:
         return None
-    hungarian = set(DETECT_ISSUER["hungarian_types"])
+    hungarian = set(type_roles.types("hungarian_issuer"))
     claimed = detail_type if detail_type in hungarian else doc_type if doc_type in hungarian else None
     if claimed and noul_band(issuer_hu, f"detect.issuer_is_hungarian.{engine}") == "no":
         return f"detect:issuer_mismatch:{claimed}"
@@ -337,7 +337,8 @@ def apply_verdict_policy(state: FlowState) -> None:
         if reason:
             require_review(state, reason)
     if state.invoice is not None:
-        for field in required_for(state.doc_type):
+        # 175: in the pack's order (a set's order depended on the process's hash seed)
+        for field in get_pack(state.doc_type or DEFAULT_KEY).required:
             if state.invoice.get_field(field) is None:
                 require_review(state, f"llm:required_missing:{field}")
 
@@ -384,45 +385,63 @@ def apply_gpt_confidence_policy(state: FlowState) -> None:
             require_review(state, f"gpt:low_conf:{field}:{float(token):.2f}")
 
 
-def apply_duplicate_policy(state: FlowState) -> None:
+# --- the cross-document checks: they read the store, so the check registry runs them in a worker run only, and a
+# measurement's result never depends on what the store holds (175, plan 170 E3: `jav/checks.py`) ---------------------
+
+def duplicate_check(subject: checks.Subject) -> list[str]:
     """126 (backlog F-duplicate, the owner's decisions of 2026-10-07): an invoice-like document that is the same
-    invoice as an earlier one in the store gets a `duplicate:<kind>:<other>` to-do (`jav/duplicates.py`). The store is
-    read only in a worker run, so a measurement's result never depends on what the store holds."""
-    if state.invoice is None:
-        return
+    invoice as an earlier one in the store gets a `duplicate:<kind>:<other>` to-do (`jav/duplicates.py`)."""
     from jav import duplicates
 
-    fields = state.invoice.to_datapoints(tuple(duplicates.key_fields()))  # the stored form, as the earlier ones are
-    require_review(state, *duplicates.review_reasons(state.doc_id, state.doc_type, fields))
+    if subject.record is None or duplicates.family(subject.doc_type) is None:
+        return []
+    fields = subject.record.to_datapoints(tuple(duplicates.key_fields()))  # the stored form, as the earlier ones are
+    return duplicates.review_reasons(subject.doc_id, subject.doc_type, fields)
 
 
-def apply_party_policy(state: FlowState) -> None:
+def own_tax_check(subject: checks.Subject) -> list[str]:
     """134 (DECISIONS 134): an incoming invoice whose supplier tax number is an own party's, while the buyer's is
     another number or missing, gets a `parties:own_tax_as_supplier` to-do (`jav/parties.py`): the numbers are likely
-    swapped, or it is an outgoing invoice. Read in a worker run only, as the duplicates."""
-    if state.invoice is None:
-        return
+    swapped, or it is an outgoing invoice."""
+    if subject.record is None or not type_roles.has(subject.doc_type, "own_tax_check"):
+        return []
     from jav import parties, typepack
 
-    if state.doc_type not in parties.supplier_check_types():
-        return
-    values = state.invoice.to_datapoints(typepack.get(state.doc_type).record_fields)  # the stored form
-    require_review(state, *parties.review_reasons(state.doc_type, values))
+    values = subject.record.to_datapoints(typepack.get(subject.doc_type).record_fields)  # the stored form
+    return parties.review_reasons(subject.doc_type, values)
 
 
-def apply_statement_policy(state: FlowState) -> None:
+def statement_overlap_check(subject: checks.Subject) -> list[str]:
     """139 (DECISIONS 139): a statement that books the same days of an account as another one in the store, when
     neither replaces the other by the rule and no person has chosen, gets a `statement:overlap:<other>` to-do
-    (`jav/statement_months.py`). Read in a worker run only, as the duplicates."""
-    if state.invoice is None or not state.doc_id:
-        return
+    (`jav/statement_months.py`)."""
+    if subject.record is None or not subject.doc_id or not type_roles.has(subject.doc_type, "statement"):
+        return []
     from jav import statement_months, typepack
 
-    if state.doc_type not in cfg.load("reconcile")["statement_types"]:
-        return
-    values = state.invoice.to_datapoints(typepack.get(state.doc_type).record_fields)  # the stored form
-    current = statement_months.current(state.doc_id, state.doc_type, values, [v.model_dump() for v in state.validation])
-    require_review(state, *statement_months.review_reasons(current))
+    values = subject.record.to_datapoints(typepack.get(subject.doc_type).record_fields)  # the stored form
+    current = statement_months.current(subject.doc_id, subject.doc_type, values, subject.validation)
+    return statement_months.review_reasons(current)
+
+
+def apply_cross_document_checks(state: FlowState) -> None:
+    """The cross-document stage on the record being processed: each check's to-dos in the registry's order, nothing
+    outside a worker run."""
+    subject = checks.Subject(state.doc_id, state.doc_type, state.invoice, [v.model_dump() for v in state.validation])
+    for reasons in checks.cross_document(subject):
+        require_review(state, *reasons)
+
+
+def _duplicate_scan(*, write: bool = False) -> dict[str, Any]:
+    from jav import duplicates
+
+    return duplicates.scan(write=write)
+
+
+def _own_tax_scan(*, write: bool = False) -> dict[str, Any]:
+    from jav import parties
+
+    return parties.scan_own_tax(write=write)
 
 
 def reconcile_fx_tolerance() -> tuple[Decimal, Decimal]:
@@ -440,19 +459,29 @@ def reconcile_fx_bank_tolerance(basis: str) -> tuple[Decimal, Decimal]:
 
 
 def decide(state: FlowState) -> str:
-    """'auto' or 'human'. The latch already holds every reason; here we only sum up."""
-    if state.arm == "S":
-        apply_pick_policy(state)
-    else:
-        apply_verdict_policy(state)
-        apply_gpt_confidence_policy(state)
-    apply_validation_policy(state)
-    apply_duplicate_policy(state)
-    apply_party_policy(state)
-    apply_statement_policy(state)
+    """'auto' or 'human'. The latch already holds every earlier reason; here the decision's checks add theirs, in the
+    check registry's order (175, `jav/checks.py`): the path's own checks and the failed record checks, then the
+    cross-document checks (in a worker run only); a result without a record is a to-do."""
+    for check in checks.stage("decision"):
+        if not check.arms or state.arm in check.arms:
+            check.run(state)
+    apply_cross_document_checks(state)
     if state.invoice is None:
         require_review(state, "no_invoice")
     return "human" if state.needs_review else "auto"
+
+
+# The decision stage (the S path's picks; the G path's verdicts and GPT confidence; the failed record checks), the
+# cross-document stage and the after-save stage of the check registry, in the order they run.
+checks.register(checks.Check("pick", "decision", apply_pick_policy, arms=("S",)))
+checks.register(checks.Check("verdict", "decision", apply_verdict_policy, arms=("G",)))
+checks.register(checks.Check("gpt_confidence", "decision", apply_gpt_confidence_policy, arms=("G",)))
+checks.register(checks.Check("validation", "decision", apply_validation_policy))
+checks.register(checks.Check("duplicate", "cross_document", duplicate_check, reads_store=True))
+checks.register(checks.Check("own_tax", "cross_document", own_tax_check, reads_store=True))
+checks.register(checks.Check("statement_overlap", "cross_document", statement_overlap_check, reads_store=True))
+checks.register(checks.Check("duplicate_scan", "after_save", _duplicate_scan, producer="duplicates", opens="duplicate"))
+checks.register(checks.Check("own_tax_scan", "after_save", _own_tax_scan, producer="parties", opens="own_tax"))
 
 
 # --------------------------------------------------------------------------------------
@@ -460,7 +489,7 @@ def decide(state: FlowState) -> str:
 # --------------------------------------------------------------------------------------
 
 INTENT_HUMAN_MAX_CONF: float = band("email.intent")["choice_human_max_conf"]  # below: manual queue, whatever the label
-M2_TYPES = frozenset(_EMAIL["m2_types"])  # has / will have an M2 flow
+M2_TYPES = frozenset(type_roles.types("email_extraction"))  # has / will have an M2 flow
 INTENT_ROUTE: dict[str, str] = dict(_EMAIL["intent_route"])  # attachment-independent default per intent
 EMAIL_JEV_UNAVAILABLE_ROUTE: str = _EMAIL["jev_unavailable_route"]  # JEV did not answer -> manual queue
 EMAIL_SENT_ROUTE: str = _EMAIL["sent_route"]  # 149: a message we sent, without a document attachment

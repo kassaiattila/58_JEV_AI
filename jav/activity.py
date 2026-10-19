@@ -5,7 +5,9 @@ assignment, starting and approving a run, field correction (including correcting
 task-proposal decision, mailbox pull. Modelled on the legacy V4 "Mai munkám" view (which read one shared audit table).
 
 The day is the machine's local calendar day; timestamps are stored as UTC ISO strings, so the day bounds are converted
-to UTC. Names match case-insensitively (rows from before 061 may spell the author differently).
+to UTC. Names match case-insensitively (rows from before 061 may spell the author differently). 175 (plan 170 E4): the
+sources are entries of the activity registry (`jav/activity_kinds.py`), registered here in their order; a logic
+package adds its own the same way.
 """
 
 from __future__ import annotations
@@ -14,30 +16,42 @@ import json
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
 
-from jav import store
+from jav import activity_kinds, store
 
-# (action code, SQL): every query returns the columns (at, actor, workpackage_id, run_id, detail), bound by the day
-_SOURCES: tuple[tuple[str, str], ...] = (
-    ("event", "SELECT created_at at, actor, workpackage_id, NULL run_id, action detail FROM workpackage_events"
-              " WHERE created_at >= ? AND created_at < ?"),
-    ("recipe", "SELECT created_at at, actor, workpackage_id, NULL run_id, recipe_id detail FROM recipe_assignments"
-               " WHERE created_at >= ? AND created_at < ?"),
-    ("run_start", "SELECT created_at at, actor, workpackage_id, run_id, mode detail FROM runs"
-                  " WHERE created_at >= ? AND created_at < ?"),
-    ("run_approve", "SELECT approved_at at, approved_by actor, workpackage_id, run_id, approval detail FROM runs"
-                    " WHERE approved_at >= ? AND approved_at < ?"),
-    ("correction", "SELECT k.created_at at, k.actor, r.workpackage_id, k.run_id, k.fields detail"
-                   " FROM run_item_corrections k LEFT JOIN runs r ON r.run_id = k.run_id"
-                   " WHERE k.created_at >= ? AND k.created_at < ?"),
-    ("reason_resolve", "SELECT closed_at at, actor, NULL workpackage_id, run_id, reason detail FROM review_reasons"
-                       " WHERE status='resolved' AND closed_at >= ? AND closed_at < ?"),
-    ("task_decision", "SELECT d.decided_at at, d.actor, NULL workpackage_id, d.run_id, d.decision detail"
-                      " FROM email_task_decisions d WHERE d.decided_at >= ? AND d.decided_at < ?"),
-    ("task_done", "SELECT d.done_at at, d.done_by actor, NULL workpackage_id, d.run_id, NULL detail"
-                  " FROM email_task_decisions d WHERE d.done_at >= ? AND d.done_at < ?"),  # 062
-    ("mailbox_pull", "SELECT created_at at, actor, NULL workpackage_id, NULL run_id, request detail FROM mailbox_pulls"
-                     " WHERE created_at >= ? AND created_at < ?"),
-)
+# every query returns the columns (at, actor, workpackage_id, run_id, detail), bound by the day; a run, a correction
+# and a run's approval name the run itself, the others an item's flow id
+for _source in (
+    activity_kinds.Source("event", "SELECT created_at at, actor, workpackage_id, NULL run_id, action detail FROM workpackage_events"
+                                   " WHERE created_at >= ? AND created_at < ?", action_prefix=""),
+    activity_kinds.Source("recipe", "SELECT created_at at, actor, workpackage_id, NULL run_id, recipe_id detail FROM recipe_assignments"
+                                    " WHERE created_at >= ? AND created_at < ?"),
+    activity_kinds.Source("run_start", "SELECT created_at at, actor, workpackage_id, run_id, mode detail FROM runs"
+                                       " WHERE created_at >= ? AND created_at < ?", flow_run=False),
+    activity_kinds.Source("run_approve", "SELECT approved_at at, approved_by actor, workpackage_id, run_id, approval detail FROM runs"
+                                         " WHERE approved_at >= ? AND approved_at < ?", flow_run=False),
+    activity_kinds.Source("correction", "SELECT k.created_at at, k.actor, r.workpackage_id, k.run_id, k.fields detail"
+                                        " FROM run_item_corrections k LEFT JOIN runs r ON r.run_id = k.run_id"
+                                        " WHERE k.created_at >= ? AND k.created_at < ?", flow_run=False),
+    activity_kinds.Source("reason_resolve", "SELECT closed_at at, actor, NULL workpackage_id, run_id, reason detail FROM review_reasons"
+                                            " WHERE status='resolved' AND closed_at >= ? AND closed_at < ?"),
+    activity_kinds.Source("task_decision", "SELECT d.decided_at at, d.actor, NULL workpackage_id, d.run_id, d.decision detail"
+                                           " FROM email_task_decisions d WHERE d.decided_at >= ? AND d.decided_at < ?"),
+    activity_kinds.Source("task_done", "SELECT d.done_at at, d.done_by actor, NULL workpackage_id, d.run_id, NULL detail"
+                                       " FROM email_task_decisions d WHERE d.done_at >= ? AND d.done_at < ?"),  # 062
+    activity_kinds.Source("mailbox_pull", "SELECT created_at at, actor, NULL workpackage_id, NULL run_id, request detail FROM mailbox_pulls"
+                                          " WHERE created_at >= ? AND created_at < ?"),
+    # 175 (the owner's decision of 2026-10-19): a person's duplicate decisions, statement choices and own steps of a
+    # workflow (a step the workflow starts by itself is recorded for "<maker> (auto)", so it is not the person's)
+    activity_kinds.Source("duplicate_decision", "SELECT decided_at at, actor, NULL workpackage_id, run_id, decision detail"
+                                                " FROM duplicate_decisions WHERE decided_at >= ? AND decided_at < ?", flow_run=False),
+    activity_kinds.Source("statement_choice", "SELECT decided_at at, actor, NULL workpackage_id, run_id, NULL detail"
+                                              " FROM statement_choices WHERE decided_at >= ? AND decided_at < ?", flow_run=False),
+    activity_kinds.Source("workflow", "SELECT created_at at, actor, COALESCE(json_extract(detail, '$.workpackage_id'),"
+                                      " json_extract(detail, '$.workpackage')) workpackage_id, json_extract(detail, '$.run_id') run_id,"
+                                      " action detail FROM workflow_events WHERE created_at >= ? AND created_at < ?",
+                          flow_run=False, action_prefix="workflow_"),
+):
+    activity_kinds.register_source(_source)
 
 
 def day_bounds(day: str | None) -> tuple[str, str]:
@@ -64,17 +78,19 @@ def entries(actor: str, day: str | None = None) -> list[dict[str, Any]]:
         tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         names = {r["id"]: r["name"] for r in c.execute("SELECT id, name FROM workpackages")}
         run_wp = {r["run_id"]: r["workpackage_id"] for r in c.execute("SELECT run_id, workpackage_id FROM runs")}
-        for code, sql in _SOURCES:
-            table = sql.split(" FROM ", 1)[1].split()[0]
+        for source in activity_kinds.sources():
+            code = source.code
+            table = source.sql.split(" FROM ", 1)[1].split()[0]
             if table not in tables:  # the module's table does not exist yet (e.g. no mailbox pull so far)
                 continue
-            for r in c.execute(sql, (lo, hi)):
+            for r in c.execute(source.sql, (lo, hi)):
                 if not r["actor"] or " ".join(str(r["actor"]).split()).casefold() != who:
                     continue
-                run_id = r["run_id"] if code in ("run_start", "run_approve", "correction") else _flow_run(r["run_id"])
+                run_id = _flow_run(r["run_id"]) if source.flow_run else r["run_id"]
                 wp_id = r["workpackage_id"] or (run_wp.get(run_id) if run_id else None)
-                action = r["detail"] if code == "event" else code
-                out.append({"at": r["at"], "action": action, "detail": _detail(code, r["detail"]),
+                own_action = source.action_prefix is not None
+                action = f"{source.action_prefix}{r['detail']}" if own_action else code
+                out.append({"at": r["at"], "action": action, "detail": None if own_action else _detail(code, r["detail"]),
                             "workpackage_id": wp_id, "workpackage_name": names.get(wp_id) if wp_id else None, "run_id": run_id})
     out.sort(key=lambda e: e["at"], reverse=True)
     return out

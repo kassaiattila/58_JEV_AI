@@ -542,7 +542,7 @@ In **Result**, the **Native facts** table joins the existing PDF views. Its **So
 
 ## 9. My work today
 
-The **My work today** link in the header shows the selected person's actions for the day: processing settings, starting and approving runs, corrections, resolving to-dos, task-proposal decisions, package changes and mailbox downloads. In the ‘Day’ (*Nap*) field you can also pick an earlier day. The table columns are ‘Time’ (*Időpont*), ‘Action’ (*Művelet*), ‘Work package’, ‘Detail’ (*Részlet*) and ‘Run’ (*Futás*).
+The **My work today** link in the header shows the selected person's actions for the day: processing settings, starting and approving runs, corrections, resolving to-dos, task-proposal decisions, package changes, mailbox downloads, decisions on duplicate invoices, choices between statements of the same days, and the person's own steps in a workflow (a step the workflow starts by itself is not listed). In the ‘Day’ (*Nap*) field you can also pick an earlier day. The table columns are ‘Time’ (*Időpont*), ‘Action’ (*Művelet*), ‘Work package’, ‘Detail’ (*Részlet*) and ‘Run’ (*Futás*).
 
 ## 10. Settings
 

@@ -25,7 +25,7 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
-from jav import cfg, duplicates
+from jav import cfg, duplicates, type_roles
 
 CENT = Decimal("0.01")
 
@@ -99,8 +99,7 @@ def _s(d: Decimal | None) -> str | None:
 
 def has_utility(records: list[dict[str, Any]]) -> bool:
     """Whether the records include a utility invoice (058: only then does Result offer the utility cost view)."""
-    utilities = _conf()["utilities"]
-    return any((r.get("doc_type") or "") in utilities for r in records)
+    return any(type_roles.has(r.get("doc_type"), "utility") for r in records)
 
 
 def build(records: list[dict[str, Any]]) -> dict[str, Any]:

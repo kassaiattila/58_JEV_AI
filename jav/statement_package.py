@@ -35,8 +35,11 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import cfg, parties, reconcile, statement_months, statement_table, store, typepack, work
+from jav import activity_kinds, cfg, parties, reconcile, statement_months, statement_table, store, typepack, work
 from jav.user_messages import explained
+
+# 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
+activity_kinds.register_events("package", ("statement_scope", "statement_account", "statement_add"), __name__)
 
 KIND = "statements"
 NOT_A_STATEMENT = "statements:not_a_statement"

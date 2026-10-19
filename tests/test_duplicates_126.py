@@ -13,7 +13,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import corrections, duplicates, export, policy, report_utility, store, work
+from jav import checks, corrections, duplicates, export, policy, report_utility, store, work
 from jav.models import FlowState, InvoiceHU
 from jav.runtime import calls
 from tests import test_api
@@ -139,7 +139,11 @@ def test_every_family_type_is_a_type_pack():
 
 def test_outside_a_worker_run_the_store_is_not_read(db):
     _save("earlier", _inv())
-    assert duplicates.review_reasons(_id("now"), "invoice_hu", _inv()) == []
+    record = InvoiceHU(invoice_number="INV-2026/001", supplier_tax_id=A, supplier_name="Example Trading Ltd",
+                       issue_date="2026-09-01", gross_total=Decimal("1270.00"), currency="HUF")
+    subject = checks.Subject(_id("now"), "invoice_hu", record)
+    assert checks.get("duplicate").reads_store and checks.cross_document(subject) == []  # 175: the registry's gate
+    assert _in_run(lambda: checks.cross_document(subject)) == [[f"duplicate:copy:{_id('earlier')[:16]}"], [], []]
 
 
 def test_in_a_worker_run_an_earlier_copy_opens_a_to_do(db):
@@ -168,9 +172,9 @@ def test_the_policy_step_opens_the_to_do_and_sends_the_document_to_a_person(db):
     state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", doc_type="invoice_hu", doc_id=_id("now"))
     state.invoice = InvoiceHU(invoice_number="INV-2026/001", supplier_tax_id=A, supplier_name="Example Trading Ltd",
                               issue_date="2026-09-01", gross_total=Decimal("1270.00"), currency="HUF")
-    policy.apply_duplicate_policy(state)
+    policy.apply_cross_document_checks(state)
     assert state.review_reasons == []  # outside a worker run
-    _in_run(lambda: policy.apply_duplicate_policy(state))
+    _in_run(lambda: policy.apply_cross_document_checks(state))
     assert state.review_reasons == [f"duplicate:copy:{_id('earlier')[:16]}"] and state.needs_review
 
 

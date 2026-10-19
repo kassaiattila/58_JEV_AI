@@ -18,7 +18,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from jav import cfg, parties, reconcile, source_layer, statement_months, store, work
+from jav import cfg, parties, reconcile, source_layer, statement_months, store, type_roles, work
 
 
 def _holder_text(statement: dict[str, Any]) -> str:
@@ -42,7 +42,7 @@ def _span(values: list[str]) -> tuple[str | None, str | None]:
 def observations(snap: dict[str, Any] | None = None, *, holder_text: bool = True) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """The buyer side of every incoming invoice, and every own account with its statements (`parties.suggest`'s input)."""
     snap = snap if snap is not None else reconcile.snapshot()
-    outgoing = set(cfg.load("reconcile")["outgoing_types"])
+    outgoing = set(type_roles.types("outgoing_invoice"))
     invoices = [{"doc_id": i["id"], "name": i.get("buyer_name"), "tax_id": i.get("buyer_tax_id"),
                  "supplier_name": i.get("supplier_name"), "supplier_tax_id": i.get("supplier_tax_id"),
                  "issue_date": i.get("issue_date")} for i in snap["invoices"] if i.get("doc_type") not in outgoing]
@@ -240,7 +240,7 @@ def months(party_id: str, start: str | None = None, end: str | None = None, *, t
     for old_id, r in snap.get("replaced", {}).items():
         gone[(r["account"], str(r.get("currency") or ""))].append({"id": old_id, **r})
     r = parties.resolver()
-    invoices = [i for i in snap["invoices"] if i.get("doc_type") not in conf["outgoing_types"] and i.get("duplicate") != "copy"
+    invoices = [i for i in snap["invoices"] if not type_roles.has(i.get("doc_type"), "outgoing_invoice") and i.get("duplicate") != "copy"
                 and r.invoice(i.get("buyer_name"), i.get("buyer_tax_id"))[0] == party_id]
     approved = work.approved_runs([*(s.get("work_run") for sts in by_column.values() for s in sts),
                                    *(i.get("work_run") for i in invoices)])

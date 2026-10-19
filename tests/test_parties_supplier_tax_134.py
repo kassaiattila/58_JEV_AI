@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import parties, store
+from jav import checks, parties, policy, store
 from jav.runtime import calls
 
 BUYER, RAIL, SECOND, OTHER = "12121216-2-42", "13570008-1-13", "21357912-1-13", "12345676-2-41"
@@ -79,11 +79,12 @@ def _own():
 def test_an_own_partys_number_as_the_suppliers_opens_a_to_do_in_a_worker_run(db, doc_type, supplier_tax, buyer_tax, wanted):
     _own()
     values = {"supplier_tax_id": supplier_tax, "buyer_tax_id": buyer_tax}
-    assert parties.review_reasons(doc_type, values) == []  # outside a worker run the store is not read
+    own_tax = checks.get("own_tax")  # 175: the check registry's gate in front of it (`jav/checks.py`)
+    assert own_tax.reads_store and not checks.runs(own_tax)  # outside a worker run the store is not read
     with calls.use_run(budget_scope="run-000000000001"):
-        assert parties.review_reasons(doc_type, values) == wanted
+        assert checks.runs(own_tax) and parties.review_reasons(doc_type, values) == wanted
     with calls.measurement("measure-x", {}):
-        assert parties.review_reasons(doc_type, values) == []
+        assert not checks.runs(own_tax)
 
 
 def test_a_dismissed_number_opens_no_to_do(db):
@@ -93,7 +94,6 @@ def test_a_dismissed_number_opens_no_to_do(db):
 
 
 def test_the_flow_asks_the_check_for_incoming_invoice_types():
-    from jav import policy
-
     assert "invoice_hu" in parties.supplier_check_types() and "invoice_out" not in parties.supplier_check_types()
-    assert "apply_party_policy(state)" in open(policy.__file__, encoding="utf-8").read()
+    assert [c.name for c in checks.stage("cross_document")] == ["duplicate", "own_tax", "statement_overlap"]
+    assert checks.get("own_tax").run is policy.own_tax_check

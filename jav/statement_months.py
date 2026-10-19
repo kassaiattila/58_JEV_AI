@@ -42,7 +42,7 @@ from difflib import SequenceMatcher
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import cfg, store
+from jav import cfg, store, type_roles
 from jav.user_messages import explained
 
 REASON = "statement"
@@ -359,11 +359,10 @@ def parse_reason(code: str) -> str | None:
 
 def review_reasons(current: dict[str, Any]) -> list[str]:
     """The overlap to-dos of the statement being processed (`current`: the snapshot's statement shape), against the
-    store's statements, in a worker run only: one per live statement it books the same days with, undecided."""
-    from jav import duplicates, reconcile
+    store's statements: one per live statement it books the same days with, undecided. It reads the store: the check
+    registry runs it in a worker run only (175, `jav/checks.py`)."""
+    from jav import reconcile
 
-    if not duplicates.enabled():
-        return []
     others = [s for s in reconcile.statements() if s["id"] != current["id"]]
     res = resolve([*others, current], choices())
     return sorted(reason(b if a == current["id"] else a) for a, b in res.conflicts if current["id"] in (a, b))
@@ -440,7 +439,7 @@ def item_view(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str,
 
     with store.connect() as c:
         rows = package_result.result_rows(c, package_result.counted_documents(c, [item_id]))
-    if not rows or rows[0]["doc_type"] not in reconcile._conf()["statement_types"]:
+    if not rows or not type_roles.has(rows[0]["doc_type"], "statement"):
         return []
     every = reconcile.statements()
     by_id = {s["id"]: s for s in every}

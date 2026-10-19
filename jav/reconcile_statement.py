@@ -35,8 +35,11 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import cfg, export, naming, reconcile, reconcile_package as rp, store, work
+from jav import activity_kinds, cfg, export, naming, reconcile, reconcile_package as rp, store, work
 from jav.user_messages import explained
+
+# 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
+activity_kinds.register_events("package", ("reconcile_approve", "reconcile_reopen", "reconcile_accept_sources"), __name__)
 
 FORMAT = 1  # the statement's content layout; a new layout bumps it (a stored version keeps its own)
 INVOICE_RESULTS = ("paid", "partly_paid", "credited", "undecided", "no_payment_found", "not_covered")

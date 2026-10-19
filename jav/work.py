@@ -29,7 +29,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, source_instances, store, typepack
+from jav import activity_kinds, cfg, source_instances, store, typepack
 from jav.native_contracts import DOCUMENT_SUFFIXES, NATIVE_SUFFIXES
 from jav.runtime import calls, flows, queue
 from jav.user_messages import explained
@@ -841,7 +841,14 @@ def approved_runs(runs: Iterable[str | None]) -> set[str]:
 # The name and the hiding are not part of the run's input, so they do not bump the revision (runs and readiness stay).
 
 
+# 175 (plan 170 E4): the package log's own actions; the other modules register theirs (`jav/activity_kinds.py`)
+activity_kinds.register_events("package", ("rename", "owner", "archive", "restore", "delete", "items_add", "item_remove",
+                                           "items_remove", "item_restore", "items_restore", "run_cancel", "run_supersede"),
+                               __name__)
+
+
 def _event(c, wp_id: str, action: str, actor: str, detail: dict[str, Any] | None = None) -> None:
+    activity_kinds.check_event("package", action)  # an action no module registered is refused
     c.execute("INSERT INTO workpackage_events(workpackage_id, action, actor, detail, created_at) VALUES (?,?,?,?,?)",
               (wp_id, action, actor, _canon(detail) if detail else None, _now()))
 

@@ -39,7 +39,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from jav import (dates, duplicates, grounding, native_results, numbers, package_result, reconcile, source_layer, statement_months, store, typepack,
+from jav import (activity_kinds, dates, duplicates, grounding, native_results, numbers, package_result, reconcile, source_layer, statement_months, store, typepack,
                  validators, work)
 from jav.native_contracts import Publication
 from jav.policy import reason_field
@@ -98,33 +98,67 @@ def review_version(run_id: str, c: sqlite3.Connection | None = None) -> str:
 
     126: so are the duplicate decisions on pairs that include one of the run's documents; a run without any keeps its
     earlier version. 129: and so are the reconciliation decisions on pairs one of the run's documents is a side of.
-    139: and so are the choices between two statements of the same days that include one of the run's documents."""
+    139: and so are the choices between two statements of the same days that include one of the run's documents.
+
+    175 (plan 170 E4): the parts are the decision kinds of the activity registry (`jav/activity_kinds.py`), registered
+    below in this order; each part present wraps the earlier ones, so a run without it keeps its earlier version, and a
+    logic package's own decision kind joins the same way."""
     if c is None:
         with store.connect() as own:
             return review_version(run_id, own)
-    query = "SELECT item_id, MAX(revision) r FROM run_item_corrections WHERE run_id=? GROUP BY item_id ORDER BY item_id"
-    tasks_query = ("SELECT run_id, task_index, decision FROM email_task_decisions WHERE substr(run_id, 1, ?) = ?"
-                   " ORDER BY run_id, task_index")
-    prefix = f"{run_id}:"
-    rows = c.execute(query, (run_id,)).fetchall()
-    decisions = c.execute(tasks_query, (len(prefix), prefix)).fetchall()
-    native = native_results.version_parts(run_id, c)
     items = [r["item_id"] for r in c.execute("SELECT item_id FROM run_items WHERE run_id=?", (run_id,))]
-    pairs = duplicates.decisions_for(items, c)
-    paid = reconcile.decisions_for(items, c)
-    chosen = statement_months.choices_for(items, c)
-    payload: Any = [[r["item_id"], r["r"]] for r in rows]
-    if decisions:
-        payload = {"corrections": payload, "tasks": [[d["run_id"], d["task_index"], d["decision"]] for d in decisions]}
-    if native:
-        payload = {"review": payload, "native": native}
-    if pairs:
-        payload = {"result": payload, "duplicates": [[d["pair_key"], d["doc_id"], d["decision"], d["decided_at"]] for d in pairs]}
-    if paid:
-        payload = {"reviewed": payload, "reconcile": [[d["pair_key"], d["decision"], d["decided_at"]] for d in paid]}
-    if chosen:
-        payload = {"checked": payload, "statements": [[d["pair_key"], d["keep_doc_id"], d["decided_at"]] for d in chosen]}
+    payload: Any = None
+    for kind in activity_kinds.decisions():
+        rows = kind.rows(run_id, items, c)
+        if kind.wraps is None:
+            payload = rows
+        elif rows:
+            payload = {kind.wraps: payload, kind.name: rows}
     return hashlib.sha256(json.dumps(payload).encode("utf-8")).hexdigest()[:16]
+
+
+# --- the decisions a run's reviewed version is made of, in the order they nest (175, plan 170 E4) ---------------------
+
+def _correction_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
+    """The latest correction version of each item (confirmations included)."""
+    return [[r["item_id"], r["r"]] for r in c.execute(
+        "SELECT item_id, MAX(revision) r FROM run_item_corrections WHERE run_id=? GROUP BY item_id ORDER BY item_id", (run_id,))]
+
+
+def _task_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
+    """086: the decisions on an email's task proposals (the flow runs of a run are `<run_id>:<item_id>`)."""
+    prefix = f"{run_id}:"
+    return [[d["run_id"], d["task_index"], d["decision"]] for d in c.execute(
+        "SELECT run_id, task_index, decision FROM email_task_decisions WHERE substr(run_id, 1, ?) = ?"
+        " ORDER BY run_id, task_index", (len(prefix), prefix))]
+
+
+def _native_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
+    return native_results.version_parts(run_id, c)
+
+
+def _duplicate_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
+    """126: the duplicate decisions on pairs that include one of the run's documents."""
+    return [[d["pair_key"], d["doc_id"], d["decision"], d["decided_at"]] for d in duplicates.decisions_for(items, c)]
+
+
+def _reconcile_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
+    """129: the reconciliation decisions on pairs one of the run's documents is a side of."""
+    return [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile.decisions_for(items, c)]
+
+
+def _statement_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
+    """139: the choices between two statements of the same days that include one of the run's documents."""
+    return [[d["pair_key"], d["keep_doc_id"], d["decided_at"]] for d in statement_months.choices_for(items, c)]
+
+
+for _kind in (activity_kinds.DecisionKind("corrections", _correction_rows),
+              activity_kinds.DecisionKind("tasks", _task_rows, wraps="corrections"),
+              activity_kinds.DecisionKind("native", _native_rows, wraps="review"),
+              activity_kinds.DecisionKind("duplicates", _duplicate_rows, wraps="result"),
+              activity_kinds.DecisionKind("reconcile", _reconcile_rows, wraps="reviewed"),
+              activity_kinds.DecisionKind("statements", _statement_rows, wraps="checked")):
+    activity_kinds.register_decision(_kind)
 
 
 def current(run_id: str, item_id: str, c: sqlite3.Connection | None = None) -> dict[str, Any]:

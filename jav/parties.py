@@ -37,7 +37,7 @@ from difflib import SequenceMatcher
 from itertools import combinations
 from typing import Any, Callable, Iterable
 
-from jav import cfg, fact_checks, store
+from jav import cfg, fact_checks, store, type_roles
 from jav.user_messages import explained
 
 KINDS = ("tax", "name", "account")
@@ -458,7 +458,7 @@ def direction(res: Resolver, doc_type: str | None, values: dict[str, Any]) -> tu
     if s_side.tax_key and s_side.tax_key == b_side.tax_key and not s_side.by_tax:
         s_side.tax_key = b_side.tax_key = None  # another company's number on both sides is a copy: no evidence
     supplier, buyer = s_side.best(res), b_side.best(res)
-    if doc_type in conf["outgoing_types"] and (supplier or not buyer):
+    if type_roles.has(doc_type, "outgoing_invoice") and (supplier or not buyer):
         return "outgoing", supplier
     if supplier and buyer:
         if supplier != buyer:
@@ -539,8 +539,9 @@ def _supplier_tax_numbers(invoices: list[dict[str, Any]]) -> set[int]:
 
 
 def supplier_check_types() -> frozenset[str]:
-    """The incoming invoice types the supplier tax check looks at (`supplier_check.doc_types`)."""
-    return frozenset(_conf()["supplier_check"]["doc_types"])
+    """The incoming invoice types the supplier tax check looks at (`supplier_check.doc_types`; 175: the types' role,
+    `jav/type_roles.py`)."""
+    return frozenset(type_roles.types("own_tax_check"))
 
 
 OWN_TAX_REASON = "parties:own_tax_as_supplier"
@@ -566,13 +567,8 @@ def own_tax_reasons(doc_type: str | None, values: dict[str, Any], c=None) -> lis
 
 
 def review_reasons(doc_type: str | None, values: dict[str, Any]) -> list[str]:
-    """134: the own-tax check in a flow (`own_tax_reasons`). Read in a worker run only, as the duplicates, so a
-    measurement's result never depends on the store."""
-    from jav.runtime import calls
-
-    ctx = calls.current()
-    if ctx is None or ctx.budget_scope is None or ctx.measurement:
-        return []
+    """134: the own-tax check in a flow (`own_tax_reasons`). It reads the store: the check registry runs it in a worker
+    run only, as the duplicates, so a measurement's result never depends on the store (175, `jav/checks.py`)."""
     return own_tax_reasons(doc_type, values)
 
 

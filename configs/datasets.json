@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.24.0",
+  "version": "1.25.0",
   "changelog": [
+   {
+    "version": "1.25.0",
+    "date": "2026-10-19",
+    "note": "175 (the owner's decision of 2026-10-19): activity_action labels for the three new sources of the activity log: a duplicate decision, a choice between statements of the same days, and a person's own workflow steps (workflow_<action>)."
+   },
    {
     "version": "1.24.0",
     "date": "2026-10-18",
@@ -166,7 +171,21 @@
    "reconcile_accept_sources": "reconciliation: command-line results accepted as sources", "reconcile_approve": "reconciliation: version approved",
    "reconcile_reopen": "reconciliation: approval reopened", "statement_scope": "statement package: party and period set",
    "statement_account": "statement package: bank account assigned to the party", "statement_add": "statement package: statements added",
-   "package_release": "package: approved and released"}
+   "package_release": "package: approved and released",
+   "duplicate_decision": "duplicate invoice: decided",
+   "statement_choice": "statements of the same days: valid one chosen",
+   "workflow_create": "workflow: made",
+   "workflow_update": "workflow: changed",
+   "workflow_budget": "workflow: a step's budget changed",
+   "workflow_link": "workflow: an existing package linked",
+   "workflow_pull": "workflow: mailbox download queued",
+   "workflow_pull_interrupted": "workflow: mailbox download interrupted",
+   "workflow_package": "workflow: a step's package made",
+   "workflow_run": "workflow: a step's live run started",
+   "workflow_needs_budget": "workflow: a run's estimate is over the step's budget",
+   "workflow_nothing_new": "workflow: nothing new for a step",
+   "workflow_left_out": "workflow: documents a live run processed left out",
+   "workflow_failed": "workflow: a step did not start"}
  },
  "cache_entries": 24,
  "export_max_rows": 100000
