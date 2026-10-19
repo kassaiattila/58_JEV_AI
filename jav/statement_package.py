@@ -35,7 +35,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import activity_kinds, cfg, parties, reconcile, statement_months, statement_table, store, typepack, work
+from jav import activity_kinds, cfg, logic_packs, parties, reconcile, statement_months, statement_table, store, typepack, work
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
@@ -490,12 +490,25 @@ def _delete_guard(c, wp_id: str) -> None:
     c.execute("DELETE FROM statement_scopes WHERE workpackage_id=?", (wp_id,))
 
 
+def _page(wp_id: str) -> dict[str, Any]:
+    return {"statements": package_view(wp_id)}
+
+
+# 176 (plan 170 L3): the statement package as a logic pack (`jav/logic_packs.py`)
+LOGIC = logic_packs.LogicPack(
+    kind=KIND, module=__name__,
+    roles=(logic_packs.InputRole("statements", "own_items",
+                                    "the party's bank statements and statement PDFs of the period, ticked in its survey"),),
+    add_refusal="add statements to a statement package through its survey",
+    rule=RULE, delete_guard=_delete_guard, page=_page)
+
+
 def register() -> None:
-    """173 (plan 170 E2): the package kind's rule, its delete guard and its party reference (`registrations.load_all`)."""
-    work.register_package_rule(KIND, RULE)
-    work.register_delete_guard(_delete_guard)
+    """173 (plan 170 E2): the package kind's rule, its delete guard and its party reference (`registrations.load_all`).
+    176: the first two as a logic pack."""
+    logic_packs.register(LOGIC)
     parties.register_reference("statement_package", count=_count_party, repoint=_repoint_party)
 
 
-__all__ = ["KIND", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "PackageError", "after_detection", "after_item", "create",
-           "package_view", "register", "scope", "survey"]
+__all__ = ["KIND", "LOGIC", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "PackageError", "after_detection", "after_item",
+           "create", "package_view", "register", "scope", "survey"]

@@ -1,0 +1,125 @@
+"""The logic pack registry (176, plan 170 L3).
+
+Plain-language summary: the reconciliation package and the statement package are described once, in a registry, and the
+shared code asks it instead of naming them. These tests check the registry's rules (a plain processing kind is no logic
+package, every input role has a known source, a package without runs answers for its own approval), that a package of
+an unknown kind is refused instead of being treated as an ordinary one, that a kind's delete guard runs only for its
+own packages, and that the shared modules, the local service and the interface name no logic pack kind.
+
+Synthetic packages only; no AI call, no network.
+"""
+
+from __future__ import annotations
+
+import re
+import pytest
+
+from jav import logic_packs as lp, store, work, work_views
+from jav.config import PROJECT_ROOT
+
+
+@pytest.fixture
+def db(tmp_path):
+    with store.use_store(tmp_path / "l.sqlite"):
+        yield tmp_path
+
+
+@pytest.fixture
+def probe(monkeypatch):
+    """A registry with one made-up logic pack of runs (`probe`), apart from the registered ones."""
+    calls: list[str] = []
+    monkeypatch.setattr(lp, "_PACKS", dict(lp._PACKS))
+    lp.register(lp.LogicPack(kind="probe", module=__name__, roles=(lp.InputRole("documents", "own_items", "made up"),),
+                                delete_guard=lambda c, wp_id: calls.append(wp_id)))
+    return calls
+
+
+ROLE = (lp.InputRole("x", "own_items", "made up"),)
+
+
+def test_the_two_logic_packs_and_their_roles() -> None:
+    reconcile, statements = lp.of("reconcile"), lp.of("statements")
+    assert (reconcile.has_runs, statements.has_runs) == (False, True)
+    assert [(r.name, r.source) for r in reconcile.roles] == [("statements", "period"), ("invoices", "period")]
+    assert [(r.name, r.source) for r in statements.roles] == [("statements", "own_items")]
+    assert statements.rule is not None and reconcile.rule is None
+    assert lp.kinds_without_runs() == ("reconcile",)
+    assert all(lp.of(kind) is None and lp.has_runs(kind) for kind in lp.DATA_KINDS)
+
+
+def test_an_unknown_kind_is_refused() -> None:
+    with pytest.raises(lp.UnknownKind, match="load_all"):
+        lp.of("offer")
+    with pytest.raises(lp.UnknownKind):
+        lp.has_runs("offer")
+
+
+@pytest.mark.parametrize("make, message", [
+    (lambda: lp.LogicPack(kind="folder", module="m", roles=ROLE), "plain processing kind"),
+    (lambda: lp.LogicPack(kind="x", module="m", roles=()), "input role"),
+    (lambda: lp.LogicPack(kind="x", module="m", roles=(lp.InputRole("x", "somewhere", "?"),)), "input role"),
+    (lambda: lp.LogicPack(kind="x", module="m", roles=ROLE, has_runs=False), "without runs needs"),
+    (lambda: lp.LogicPack(kind="x", module="m", roles=ROLE, has_runs=False, rule=object(), page=dict,
+                             approved=bool, next_step=dict, list_next=dict, release_refusal=Exception), "no rule"),
+])
+def test_a_logic_pack_is_described_completely(make, message) -> None:
+    with pytest.raises(ValueError, match=message):
+        make()
+
+
+def test_a_kind_is_registered_once(monkeypatch) -> None:
+    monkeypatch.setattr(lp, "_PACKS", {})
+    one = lp.LogicPack(kind="x", module="a", roles=ROLE)
+    lp.register(one)
+    lp.register(one)  # the same again adds nothing
+    assert lp.packs() == [one]
+    with pytest.raises(ValueError, match="registered already by a"):
+        lp.register(lp.LogicPack(kind="x", module="b", roles=ROLE))
+
+
+def test_a_kinds_delete_guard_runs_for_its_own_packages_only(db, probe) -> None:
+    own = work.create_workpackage(name="probe", source_kind="probe", source_ref=None)
+    plain = work.create_workpackage(name="plain", source_kind="manual", source_ref=None)
+    work.delete_workpackage(plain["id"], actor="t")
+    work.delete_workpackage(own["id"], actor="t")
+    assert probe == [own["id"]]
+
+
+def test_a_package_of_an_unknown_kind_is_neither_shown_nor_deleted(db) -> None:
+    wp = work.create_workpackage(name="later", source_kind="offer", source_ref=None)
+    with pytest.raises(lp.UnknownKind):
+        work_views.workpackage_view(wp["id"])
+    with pytest.raises(lp.UnknownKind):
+        work.delete_workpackage(wp["id"], actor="t")
+    assert work.get(wp["id"])["name"] == "later"  # nothing was deleted
+
+
+# --- the shared code names no logic pack kind ---------------------------------------------------------------------------
+
+SHARED = ("jav/work.py", "jav/work_views.py", "jav/package_release.py", "jav/datasets.py", "jav/runtime/worker.py")
+# a comparison of a package's kind with a logic pack's kind ("reconcile", "statements")
+NAMED = re.compile(r"source_kind[\"'\]]*\)?\s*(==|!=|in|not in)\s*\(?[\"'](reconcile|statements)[\"']")
+
+
+@pytest.mark.parametrize("path", SHARED)
+def test_the_shared_code_asks_the_registry(path: str) -> None:
+    text = (PROJECT_ROOT / path).read_text(encoding="utf-8")
+    assert not NAMED.search(text), f"{path} names a logic pack kind: {NAMED.search(text).group(0)}"
+
+
+def test_the_workflows_ask_the_registry_for_a_packages_state() -> None:
+    """The package-level questions (is the step done, what is its next step) go through the registry; the step kinds
+    of `configs/workflows.json` (documents, emails, statements, reconcile) stay the workflow's own (plan 170 L5)."""
+    text = (PROJECT_ROOT / "jav/workflows.py").read_text(encoding="utf-8")
+    assert not NAMED.search(text)
+
+
+def test_the_service_has_the_addresses_of_every_logic_pack_in_its_own_module() -> None:
+    from jav import api
+
+    own = api.logic_routes()
+    assert list(own) == [p.kind for p in lp.packs()]
+    assert {fn.__module__ for fn in own.values()} == {"jav.api_statement_package", "jav.api_reconcile"}
+    text = (PROJECT_ROOT / "jav/api.py").read_text(encoding="utf-8")
+    assert not re.search(r"\breconcile_package\.|\bstatement_package\.|/reconcile|/statement-packages", text)
+

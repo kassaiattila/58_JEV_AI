@@ -9,6 +9,8 @@ line.
 
 What a module registers is its own `register()` function; a repeated call adds nothing. The tables a module needs are
 still registered on import (`store.register_schema`), because a module's tables only matter where the module is used.
+176 (plan 170 L3): the statement package and the reconciliation package register as logic packs
+(`jav/logic_packs.py`), with their rule and their delete guard; a workflow's delete guard is asked for every package.
 """
 
 from __future__ import annotations
@@ -17,8 +19,8 @@ _loaded = False
 
 
 def load_all() -> None:
-    """Every module's registrations: the statement package's rule and the delete guards and party references of the
-    statement package, the reconciliation package and the workflows. Once per process; a repeated call does nothing."""
+    """Every module's registrations: the statement package and the reconciliation package as logic packs, the
+    workflows' delete guard, and the party references of all three. Once per process; a repeated call does nothing."""
     global _loaded
     if _loaded:
         return

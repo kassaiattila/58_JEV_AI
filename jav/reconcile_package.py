@@ -55,7 +55,8 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import activity_kinds, cfg, corrections, grounding, parties, reconcile, reconcile_overview, store, typepack, work
+from jav import (activity_kinds, cfg, corrections, grounding, logic_packs, parties, reconcile, reconcile_overview, store,
+                 typepack, work)
 from jav.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.user_messages import explained
 
@@ -1343,11 +1344,12 @@ def targets(wp_id: str) -> dict[str, Any]:
     giving = Counter(ref["workpackage_id"] for ref in (ws.get("open") or {}).values())
     documents, statements = [], []
     for wp in work.list_workpackages():
-        if wp["source_kind"] == KIND or wp["status"] != "open":
+        # 176: not a package without runs (a reconciliation), where a file is not processed
+        if not logic_packs.has_runs(wp["source_kind"]) or wp["status"] != "open":
             continue
         entry = {"id": wp["id"], "name": wp["name"], "source_kind": wp["source_kind"], "items": wp["items"],
                  "inputs": giving.get(wp["id"], 0), "updated_at": wp["updated_at"]}
-        if wp["source_kind"] != "statements":
+        if wp["source_kind"] != statement_package.KIND:
             documents.append(entry)
             continue
         st = statement_package.scope(wp["id"])
@@ -1516,7 +1518,49 @@ def _delete_guard(c, wp_id: str) -> None:
     c.execute("DELETE FROM reconcile_exclusions WHERE workpackage_id=?", (wp_id,))  # 169: no decision refers to them
 
 
+def _page(wp_id: str) -> dict[str, Any]:
+    """The package's page (`work_views.workpackage_view`): its readiness, its next step and its own part."""
+    view = package_view(wp_id)
+    return {"readiness": view["readiness"], "next": view["next"],
+            "reconcile": {k: view[k] for k in ("scope", "counts", "coverage", "approval")}}
+
+
+def _approved(wp_id: str) -> bool:
+    """A workflow's reconciliation step is done when a version of the package's statement is approved."""
+    return approval(wp_id)["active"] is not None
+
+
+def _next(wp_id: str) -> dict[str, Any]:
+    return package_view(wp_id)["next"]
+
+
+def _list_next(wp_id: str) -> dict[str, Any]:
+    return package_view(wp_id, keep_seconds=LIST_KEEP_SECONDS)["next"]  # 159: with the list's own safety bound
+
+
+def _release_refusal() -> Exception:
+    from jav import package_release
+
+    return explained(package_release.ReleaseError, "a reconciliation package is approved in its own statement")
+
+
+def _list_mark() -> str:
+    return inputs_mark(keep_seconds=LIST_KEEP_SECONDS)  # 159: the list's own safety bound (its next steps use the same)
+
+
+# 176 (plan 170 L3): the reconciliation package as a logic pack (`jav/logic_packs.py`): no files and no runs;
+# its two input roles are the period's results in every package (DECISIONS 174, the package's current result)
+LOGIC = logic_packs.LogicPack(
+    kind=KIND, module=__name__,
+    roles=(logic_packs.InputRole("statements", "period", "the bank and card statements of the scope's accounts and period"),
+           logic_packs.InputRole("invoices", "period", "the invoices other packages processed, the own party's first")),
+    has_runs=False, add_refusal="a reconciliation package has no documents", release_refusal=_release_refusal,
+    delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next, list_next=_list_next,
+    list_mark=_list_mark)
+
+
 def register() -> None:
-    """173 (plan 170 E2): the package kind's delete guard and its party reference (`registrations.load_all`)."""
-    work.register_delete_guard(_delete_guard)
+    """173 (plan 170 E2): the package kind's delete guard and its party reference (`registrations.load_all`). 176: the
+    delete guard as part of the logic pack."""
+    logic_packs.register(LOGIC)
     parties.register_reference("reconcile_package", count=_count_party, repoint=_repoint_party)

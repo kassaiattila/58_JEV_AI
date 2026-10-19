@@ -29,7 +29,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, cfg, source_instances, store, typepack
+from jav import activity_kinds, cfg, logic_packs, source_instances, store, typepack
 from jav.native_contracts import DOCUMENT_SUFFIXES, NATIVE_SUFFIXES
 from jav.runtime import calls, flows, queue
 from jav.user_messages import explained
@@ -502,15 +502,13 @@ def add_document(wp_id: str, path: Path, *, expected_revision: int) -> dict[str,
     return add_documents(wp_id, [path], expected_revision=expected_revision)
 
 
-# 160-C S2: the packages whose items come from their own survey or have none; a person adds to them in their own way
-SURVEYED_KINDS = {"statements": "add statements to a statement package through its survey",
-                  "reconcile": "a reconciliation package has no documents"}
-
-
 def _addable(wp_id: str) -> dict[str, Any]:
+    """160-C S2: a package whose items come from its own survey, or that has none, is added to in its own way (176: its
+    logic pack says so)."""
     wp = get(wp_id)
-    if wp["source_kind"] in SURVEYED_KINDS:
-        raise ValueError(SURVEYED_KINDS[wp["source_kind"]])
+    pack = logic_packs.of(wp["source_kind"])
+    if pack is not None and pack.add_refusal:
+        raise ValueError(pack.add_refusal)
     return wp
 
 
@@ -861,8 +859,8 @@ def record_event(c, wp_id: str, action: str, actor: str, detail: dict[str, Any] 
 
 @dataclass(frozen=True)
 class PackageRule:
-    """140: what a package kind adds to the processing of its items, registered by the kind's module (the worker asks
-    it; the runtime never imports an application module).
+    """140: what a package kind adds to the processing of its items, registered by the kind's module as part of its
+    logic pack (176, `jav/logic_packs.py`; the worker asks it; the runtime never imports an application module).
 
     - `after_detection(run, item, detected)`: called once a document's type is recognised, before its extraction.
       None lets the item go on as in any package; a list stops it there, and its to-do reasons are raised on the item
@@ -877,18 +875,12 @@ class PackageRule:
     after_approval: Callable[[dict[str, Any]], None] | None = None
 
 
-_PACKAGE_RULES: dict[str, PackageRule] = {}
-
-
-def register_package_rule(source_kind: str, rule: PackageRule) -> None:
-    _PACKAGE_RULES[source_kind] = rule
-
-
 def package_rule(wp_id: str) -> PackageRule | None:
-    """The rule of the package's kind, if its module registered one."""
+    """The rule of the package's kind, if its logic pack has one."""
     with store.connect() as c:
         row = c.execute("SELECT source_kind FROM workpackages WHERE id=?", (wp_id,)).fetchone()
-    return _PACKAGE_RULES.get(row["source_kind"]) if row else None
+    pack = logic_packs.of(row["source_kind"]) if row else None
+    return pack.rule if pack is not None else None
 
 
 def raise_item_reasons(run_id: str, item: dict[str, Any], reasons: list[str], *, producer: str) -> None:
@@ -934,8 +926,10 @@ _DELETE_GUARDS: list[Callable[[sqlite3.Connection, str], None]] = []
 
 
 def register_delete_guard(fn: Callable[[sqlite3.Connection, str], None]) -> None:
-    """131: a module with its own rows for a package (a reconciliation package's scope) checks a deletion inside its
-    transaction: it raises `NotReady` to refuse it, or deletes its rows. 173: a repeated registration adds nothing."""
+    """131: a module with its own rows for a package checks a deletion inside its transaction: it raises `NotReady` to
+    refuse it, or deletes its rows. 173: a repeated registration adds nothing. 176: a guard for one kind of package (a
+    reconciliation package's scope) belongs to its logic pack; this one is asked for every package (a workflow's
+    step)."""
     if fn not in _DELETE_GUARDS:
         _DELETE_GUARDS.append(fn)
 
@@ -993,7 +987,10 @@ def delete_workpackage(wp_id: str, *, actor: str) -> None:
             raise explained(NotReady, "a work package with runs can only be archived",
                             [{"code": "has_runs", "message": "A csomagnak van futása: csak elrejthető."}])
         rows = c.execute("SELECT instance FROM workpackage_items WHERE workpackage_id=?", (wp_id,)).fetchall()
-        for guard in _DELETE_GUARDS:  # 131: e.g. a reconciliation package with decisions is only hidden
+        pack = logic_packs.of(row["source_kind"])  # 176: an unknown kind is refused, not deleted unguarded
+        if pack is not None and pack.delete_guard is not None:  # 131: a reconciliation with decisions is hidden
+            pack.delete_guard(c, wp_id)
+        for guard in _DELETE_GUARDS:  # 153: a package of an open workflow's step is hidden
             guard(c, wp_id)
         for table in ("workpackage_items", "recipe_assignments"):
             c.execute(f"DELETE FROM {table} WHERE workpackage_id=?", (wp_id,))

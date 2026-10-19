@@ -13,7 +13,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, store, typepack, work
+from jav import cfg, logic_packs, store, typepack, work
 from jav.runtime import calls, worker
 
 
@@ -160,12 +160,9 @@ def workpackage_view(wp_id: str) -> dict[str, Any]:
 
 def _workpackage_view(wp_id: str) -> dict[str, Any]:
     wp = work.get(wp_id)
-    if wp["source_kind"] == "reconcile":  # 131: a reconciliation package has a scope, no files and no runs
-        from jav import reconcile_package
-
-        view = reconcile_package.package_view(wp_id)
-        return jsonable({"workpackage": wp, "readiness": view["readiness"], "titles": {}, "last_run": None, "runs": 0,
-                         "next": view["next"], "reconcile": {k: view[k] for k in ("scope", "counts", "coverage", "approval")},
+    pack = logic_packs.of(wp["source_kind"])  # 176: the logic pack the pack runs, if any
+    if pack is not None and not pack.has_runs:  # 131: a reconciliation pack has a scope, no files and no runs
+        return jsonable({"workpackage": wp, "titles": {}, "last_run": None, "runs": 0, **pack.page(wp_id),
                          "workflow": _workflow_of(wp_id)})
     ready = work.readiness(wp_id)
     runs = work.run_rows(wp_id)
@@ -174,10 +171,8 @@ def _workpackage_view(wp_id: str) -> dict[str, Any]:
         from jav import mailbox
 
         extra["attachments_missing"] = len(mailbox.missing_attachments(wp))
-    if wp["source_kind"] == "statements":  # 140: the party, the period and each item's statement
-        from jav import statement_package
-
-        extra["statements"] = statement_package.package_view(wp_id)
+    if pack is not None and pack.page is not None:  # 140: a statement pack's party, period and statements
+        extra.update(pack.page(wp_id))
     current = current_run(runs)
     extra["item_counts"] = item_counts(wp)  # 168: the item list's tally
     return jsonable({"workpackage": wp, "readiness": ready, "titles": item_titles(wp["items"], package_root(wp)), **extra,
@@ -243,11 +238,9 @@ def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
         r["last_status"] = last["status"] if last else None
         r["last_activity"] = (last["finished_at"] or last["created_at"]) if last else r["created_at"]
         r["older_runs"] = 0
-        if wp["source_kind"] == "reconcile":  # 131: its own next step (pairing / result)
-            from jav import reconcile_package
-
-            # 159: with the list's own safety bound (its fingerprint uses the same)
-            r["next"] = reconcile_package.package_view(r["id"], keep_seconds=reconcile_package.LIST_KEEP_SECONDS)["next"]
+        pack = logic_packs.of(wp["source_kind"])
+        if pack is not None and not pack.has_runs:  # 131: its own next step (pairing / result); 176: its logic pack's
+            r["next"] = pack.list_next(r["id"])
             continue
         # 153: the owner could not tell from the list which packages had older live runs to supersede (152 shows them
         # on the package's page only)
