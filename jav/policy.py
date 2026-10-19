@@ -337,7 +337,8 @@ def apply_verdict_policy(state: FlowState) -> None:
         if reason:
             require_review(state, reason)
     if state.invoice is not None:
-        for field in required_for(state.doc_type):
+        # 175: in the pack's order (a set's order depended on the process's hash seed)
+        for field in get_pack(state.doc_type or DEFAULT_KEY).required:
             if state.invoice.get_field(field) is None:
                 require_review(state, f"llm:required_missing:{field}")
 
