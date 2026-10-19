@@ -54,8 +54,8 @@ CREATE TABLE IF NOT EXISTS reconcile_version_files (
     version_id       INTEGER NOT NULL,   -- reconcile_versions.id
     state            TEXT NOT NULL,      -- approved, earlier
     name             TEXT NOT NULL,      -- the download's file name
-    template         TEXT NOT NULL,      -- builtin; an own template's identifier (planned: the second round of L4)
-    template_version TEXT NOT NULL,      -- the built-in template's version (configs/outputs.json); an own template's sha256
+    template         TEXT NOT NULL,      -- builtin; an own template's identifier (178, jav/outputs/templates.py)
+    template_version TEXT NOT NULL,      -- the built-in template's version (configs/outputs.json); an own template's version number
     sha256           TEXT NOT NULL,
     content          BLOB NOT NULL,
     created_at       TEXT NOT NULL,
