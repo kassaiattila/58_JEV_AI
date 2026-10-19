@@ -263,8 +263,10 @@ function RunEngine({ runId }: { runId: string }) {
 }
 
 // the stored downloads of a version, by their file names, the workbook first (a CSV table only when it has rows)
-const FILE_LABEL: Record<string, string> = tmap({ "result.xlsx": "Excel", "documents.csv": "Documents (CSV)", "datapoints.csv": "Data points (CSV)",
-  "line_items.csv": "Line items (CSV)", "native_facts.csv": "Native facts (CSV)", "result.json": "JSON" });
+// 178: a release of a package with utility bills also stores the utility cost's workbook
+const FILE_LABEL: Record<string, string> = tmap({ "result.xlsx": "Excel", "utility_cost.xlsx": "Utility cost (Excel)",
+  "documents.csv": "Documents (CSV)", "datapoints.csv": "Data points (CSV)", "line_items.csv": "Line items (CSV)",
+  "native_facts.csv": "Native facts (CSV)", "result.json": "JSON" });
 const FILE_ORDER = Object.keys(FILE_LABEL);
 const fileRank = (name: string) => (FILE_ORDER.includes(name) ? FILE_ORDER.indexOf(name) : FILE_ORDER.length);
 
