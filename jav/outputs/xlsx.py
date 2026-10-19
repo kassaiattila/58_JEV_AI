@@ -67,8 +67,8 @@ def write_table(ws: Any, head: Sequence[str], rows: Sequence[Sequence[Any]], kin
         for label, value in heading:
             ws.append([label, cell_value(value, None)])
             ws.cell(ws.max_row, 1).font = Font(bold=True)
+        top = ws.max_row + 2  # 178: below the empty row (until 178 the empty row was styled, frozen and filtered as the header)
         ws.append([])
-        top = ws.max_row + 1
     ws.append(list(head))
     for row in rows:
         ws.append([cell_value(v, kinds[i] if kinds and i < len(kinds) else None) for i, v in enumerate(row)])
