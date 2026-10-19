@@ -59,7 +59,7 @@ export function RoutingStages({ view, stage, onChanged }: { view: WorkpackageVie
 
 function Sources({ view }: { view: RoutingView }) {
   return (
-    <section className="card rc-stack" aria-label={t("Email packages")}>
+    <section className="card wide rc-stack" aria-label={t("Email packages")}>
       <h3>{t("Email packages")}</h3>
       <p className="small muted">{t("The PDF attachments of these packages are routed: each is read in its email package, then proposed for the package of its party, period and role.")}</p>
       <ul>
@@ -92,9 +92,9 @@ function Decide({ wpId, view, onChanged }: { wpId: string; view: RoutingView; on
     }
   }
   return (
-    <section className="card rc-stack" aria-label={t("Routing")}>
-      <div className="button-row">
-        <h3 className="grow">{t("Documents to route")}</h3>
+    <section className="card wide rc-stack" aria-label={t("Routing")}>
+      <div className="card-head">
+        <h3>{t("Documents to route")}</h3>
         <button type="button" className={view.counts.clear ? "primary" : "secondary"} disabled={busy || !view.counts.clear}
           onClick={() => void act(() => api.routingAcceptClear(wpId))}>
           {t("Accept every clear proposal ({{n}})", { n: view.counts.clear })}
@@ -102,7 +102,8 @@ function Decide({ wpId, view, onChanged }: { wpId: string; view: RoutingView; on
       </div>
       {error ? <p className="notice error" role="alert">{error}</p> : null}
       {routable.length ? (
-        <table className="table compact" aria-label={t("Documents to route")}>
+        <div className="table-scroll">
+        <table className="table compact rt-table" aria-label={t("Documents to route")}>
           <thead><tr><th>{t("Document")}</th><th>{t("What it is")}</th><th>{t("Proposal")}</th><th>{t("Decision")}</th></tr></thead>
           <tbody>
             {routable.map((i) => (
@@ -120,7 +121,7 @@ function Decide({ wpId, view, onChanged }: { wpId: string; view: RoutingView; on
                     <ChooseTarget item={i} busy={busy} onPick={(target) => void act(() => api.routingAccept(wpId, [i.item_id], target))}
                       onCancel={() => setChoosing(null)} />
                   ) : (
-                    <span className="inline small">
+                    <span className="rt-actions small">
                       {i.proposal ? <button type="button" className="secondary small-btn" disabled={busy}
                         onClick={() => void act(() => api.routingAccept(wpId, [i.item_id]))}>{t("Accept")}</button> : null}
                       {i.placement.role ? <button type="button" className="secondary small-btn" disabled={busy} onClick={() => setChoosing(i.item_id)}>{t("Choose a package…")}</button> : null}
@@ -132,6 +133,7 @@ function Decide({ wpId, view, onChanged }: { wpId: string; view: RoutingView; on
             ))}
           </tbody>
         </table>
+        </div>
       ) : <p className="muted">{t("No attachment of these email packages is an invoice or a bank statement.")}</p>}
       {others.length ? (
         <details className="details">
@@ -197,10 +199,10 @@ function Routed({ view }: { view: RoutingView }) {
   for (const i of accepted) byTarget.set(i.decision!.target ?? "", [...(byTarget.get(i.decision!.target ?? "") ?? []), i]);
   const rejected = view.items.filter((i) => i.decision?.decision === "rejected").length;
   return (
-    <section className="card rc-stack" aria-label={t("Routed documents")}>
+    <section className="card wide rc-stack" aria-label={t("Routed documents")}>
       <h3>{t("Routed documents")}</h3>
       {accepted.length ? (
-        <table className="table compact" aria-label={t("Routed documents")}>
+        <table className="table compact rt-table rt-routed" aria-label={t("Routed documents")}>
           <thead><tr><th>{t("Package")}</th><th>{t("Documents")}</th></tr></thead>
           <tbody>
             {[...byTarget.entries()].map(([target, items]) => (

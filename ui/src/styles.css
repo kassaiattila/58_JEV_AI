@@ -552,6 +552,15 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 @media (max-width: 800px) { .param-row, .recipe-kv { grid-template-columns: 1fr; gap: 2px; } }
 /* 080: the paths compared (Settings › Processing) and the pre-start overview (run card, confirmation page) */
 .table-scroll { overflow-x: auto; max-width: 100%; }
+/* 181: the email routing's table: fixed column shares, a long file name, proposal or blocker wraps, the decision's
+   buttons stack */
+.rt-table { table-layout: fixed; width: 100%; }
+.rt-table th:nth-child(1) { width: 34%; } .rt-table th:nth-child(2) { width: 18%; }
+.rt-table th:nth-child(3) { width: 30%; } .rt-table th:nth-child(4) { width: 18%; }
+.rt-routed th:nth-child(1) { width: 40%; } .rt-routed th:nth-child(2) { width: 60%; }
+.rt-table td { overflow-wrap: anywhere; vertical-align: top; }
+.rt-table .status { white-space: normal; align-items: baseline; }
+.rt-actions { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-1); }
 .path-compare { width: 100%; max-width: 980px; border-collapse: collapse; font-size: var(--fs-sm); }
 .path-compare th, .path-compare td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line-soft); }
 .path-compare thead th { color: var(--muted); font-weight: 600; }
