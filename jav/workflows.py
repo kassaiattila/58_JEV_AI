@@ -828,8 +828,9 @@ def _context(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor
     def package(wp_id: str) -> None:  # 160 (review R-2): an interrupted start goes on with this package
         _set(wf_id, step, workpackage_id=wp_id)
 
+    packages = {sid: x.get("workpackage_id") for sid, x in _steps(wf_id).items()}
     return workflow_steps.StepStart(
-        workflow=wf, step=sdef, state=st, actor=actor, package=package,
+        workflow=wf, step=sdef, state=st, actor=actor, packages=packages, package=package,
         run=lambda wp_id: _start_run(wf, sdef, st, wp_id, actor=actor),
         made=lambda wp_id: _done(wf, step, actor, "package", state="started", workpackage_id=wp_id),
         nothing_new=lambda note: _done(wf, step, actor, "nothing_new", state="nothing_new", note=note),

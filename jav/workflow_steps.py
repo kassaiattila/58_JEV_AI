@@ -42,6 +42,8 @@ class StepStart:
     - `step`: the step's definition in the template (`id`, `kind`, `title`, `after`);
     - `state`: the step's stored row (`source`, `budget`, `name`, `engine`, `pull_id`);
     - `actor`: who the start is recorded for;
+    - `packages`: 181: every step's package by step id (None: none yet), so a step can take the packages of the steps
+      it waits for (the email routing);
     - `package(wp_id)`: notes the step's package as soon as it exists, so an interrupted start goes on with it (160,
       review R-2);
     - `run(wp_id)`: the package's live run when its estimate fits the step's budget, otherwise the step waits for a
@@ -58,6 +60,7 @@ class StepStart:
     step: Mapping[str, Any]
     state: Mapping[str, Any]
     actor: str
+    packages: Mapping[str, str | None]
     package: Callable[[str], None]
     run: Callable[[str], None]
     made: Callable[[str], None]

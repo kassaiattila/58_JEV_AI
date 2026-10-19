@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { DocumentsCreate } from "../views/DocumentsCreate";
 import { Mailbox } from "../views/Mailbox";
 import { ReconcileCreate } from "../views/reconcile/ReconcileCreate";
+import { RoutingCreate } from "../views/routing/Routing";
 import { StatementPackageCreate } from "../views/StatementPackageCreate";
 
 type Form = (onDone: (wpId: string) => void) => ReactNode;
@@ -15,6 +16,7 @@ const FORMS: Record<string, Form> = {
   emails: () => <Mailbox variant="pull" />,
   statements: (onDone) => <StatementPackageCreate onDone={onDone} />,
   reconcile: (onDone) => <ReconcileCreate onDone={onDone} />,
+  routing: (onDone) => <RoutingCreate onDone={onDone} />,  // 181
 };
 
 /** Whether the kind has a form of its own here. A one-step template's id is its kind's (checked by

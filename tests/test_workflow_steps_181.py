@@ -25,7 +25,8 @@ JAV = PROJECT_ROOT / "jav"
 
 _PROBE = """
 import json
-import jav.domains.email, jav.domains.finance, jav.mailbox, jav.reconcile_package, jav.statement_package, jav.workflows
+import jav.domains.email, jav.domains.finance, jav.email_routing, jav.mailbox, jav.reconcile_package, jav.statement_package
+import jav.workflows
 from jav import workflow_steps
 before = sorted(workflow_steps._KINDS)
 from jav import registrations
@@ -38,7 +39,7 @@ def test_importing_registers_no_step_kind_and_load_all_registers_each_from_its_o
     out = subprocess.run([sys.executable, "-c", _PROBE], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True,
                          encoding="utf-8")
     seen = json.loads(out.stdout.strip().splitlines()[-1])
-    assert seen == {"before": [], "after": ["statements", "reconcile", "documents", "emails"]}  # finance, workflows, email
+    assert seen == {"before": [], "after": ["statements", "reconcile", "documents", "emails", "routing"]}  # finance, workflows, email
 
 
 def test_every_template_kind_is_registered_and_nothing_more() -> None:
@@ -47,7 +48,7 @@ def test_every_template_kind_is_registered_and_nothing_more() -> None:
     assert set(kinds) == set(cfg.load("workflows")["kinds"])
     assert {k: v.module for k, v in kinds.items()} == {
         "documents": "jav.workflows", "emails": "jav.mailbox",
-        "statements": "jav.statement_package", "reconcile": "jav.reconcile_package"}
+        "statements": "jav.statement_package", "reconcile": "jav.reconcile_package", "routing": "jav.email_routing"}
 
 
 def test_a_one_step_templates_id_is_its_kind() -> None:
@@ -60,7 +61,7 @@ def test_the_registry_gives_what_the_hand_written_tables_gave() -> None:
     registrations.load_all()
     assert {k.kind: k.package_kinds for k in workflow_steps.kinds()} == {
         "documents": ("folder", "manual", "watch", "upload"), "emails": ("mailbox",),
-        "statements": ("statements",), "reconcile": ("reconcile",)}
+        "statements": ("statements",), "reconcile": ("reconcile",), "routing": ("email_routing",)}
     assert {k.kind for k in workflow_steps.kinds() if k.own_engine} == {"documents", "emails", "statements"}
     assert {k.kind for k in workflow_steps.kinds() if k.paid} == {"documents", "emails", "statements"}
     assert {k.kind for k in workflow_steps.kinds() if k.only_new} == {"documents"}

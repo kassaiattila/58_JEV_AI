@@ -7,7 +7,7 @@
       {
         "version": "1.1.0",
         "date": "2026-10-20",
-        "note": "181 (plan 170 L5): a step may name the role of its package (jav/package_scope.py): the incoming invoices steps collect incoming invoices, so the email routing proposes their packages for the party's and the period's emailed invoices. The step kinds come from their registry (jav/workflow_steps.py); what a template needs of the scope is what its steps' kinds need."
+        "note": "181 (plan 170 L5): the email routing: its kind (routing) and two templates, alone and after a mailbox download; neither needs a party or a period. A step may name the role of its package (jav/package_scope.py): the incoming invoices steps collect incoming invoices, so the email routing proposes their packages for the party's and the period's emailed invoices. The step kinds come from their registry (jav/workflow_steps.py); what a template needs of the scope is what its steps' kinds need."
       },
       {
         "version": "1.0.0",
@@ -53,6 +53,12 @@
       "sources": ["folder", "files", "package"],
       "cost": "Read by code, free; a PDF extracted by AI is paid."
     },
+    "routing": {
+      "title": "Email routing",
+      "description": "Each invoice, outgoing invoice and bank statement that arrived by email is proposed for the package of its party, period and role; you accept, reject or choose another package.",
+      "sources": ["none", "package"],
+      "cost": "Free: code only."
+    },
     "reconcile": {
       "title": "Reconciliation of statements and invoices",
       "description": "The party's statement lines are paired with its invoices; the result is a summary approved as a version.",
@@ -74,6 +80,23 @@
       "title": "Emails from a mailbox",
       "description": "One work package of a mailbox's new emails and their attachments.",
       "steps": [{"id": "emails", "kind": "emails"}]
+    },
+    {
+      "id": "routing",
+      "group": "documents",
+      "title": "Email routing",
+      "description": "One routing package over email packages already downloaded: their invoices, outgoing invoices and bank statements go to the packages they belong to.",
+      "steps": [{"id": "routing", "kind": "routing"}]
+    },
+    {
+      "id": "mailbox_routing",
+      "group": "documents",
+      "title": "From the mailbox to the packages",
+      "description": "The mailbox's new emails are downloaded and processed with their attachments; once they are approved, the routing proposes the package of each invoice, outgoing invoice and bank statement.",
+      "steps": [
+        {"id": "emails", "kind": "emails", "title": "Emails and their attachments"},
+        {"id": "routing", "kind": "routing", "title": "Routing", "after": ["emails"]}
+      ]
     },
     {
       "id": "statements",

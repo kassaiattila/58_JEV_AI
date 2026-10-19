@@ -69,14 +69,16 @@ def _steps(view: dict) -> dict[str, dict]:
 def test_the_templates_are_the_four_kinds_and_three_workflows_each_waiting_only_for_earlier_steps():
     conf = cfg.load("workflows")
     kinds = set(conf["kinds"])
-    assert kinds == {"documents", "emails", "statements", "reconcile"} == {k.kind for k in workflow_steps.kinds()}  # 181
+    # 181: the email routing is a fifth kind, with its own one-step template and a workflow after a mailbox download
+    assert kinds == {"documents", "emails", "statements", "reconcile", "routing"} == {k.kind for k in workflow_steps.kinds()}
     groups = {g["id"] for g in conf["groups"]}
     singles = [t for t in conf["templates"] if not wf.is_workflow(t)]
     assert sorted(t["steps"][0]["kind"] for t in singles) == sorted(kinds)
     chains = {t["id"]: [s["kind"] for s in t["steps"]] for t in conf["templates"] if wf.is_workflow(t)}
     assert chains == {"monthly_reconciliation": ["documents", "statements", "reconcile"],
                       "mailbox_reconciliation": ["emails", "statements", "reconcile"],
-                      "two_sources_reconciliation": ["documents", "emails", "statements", "reconcile"]}
+                      "two_sources_reconciliation": ["documents", "emails", "statements", "reconcile"],
+                      "mailbox_routing": ["emails", "routing"]}
     for t in conf["templates"]:
         assert t["group"] in groups
         seen: set[str] = set()

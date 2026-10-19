@@ -77,6 +77,23 @@
         "period"
       ]
     },
+    "routing": {
+      "title": "Email routing",
+      "description": "Each invoice, outgoing invoice and bank statement that arrived by email is proposed for the package of its party, period and role; you accept, reject or choose another package.",
+      "sources": [
+        "none",
+        "package"
+      ],
+      "cost": "Free: code only.",
+      "package_kinds": [
+        "email_routing"
+      ],
+      "paid": false,
+      "own_engine": false,
+      "only_new": false,
+      "subfolders": false,
+      "needs": []
+    },
     "reconcile": {
       "title": "Reconciliation of statements and invoices",
       "description": "The party's statement lines are paired with its invoices; the result is a summary approved as a version.",
@@ -120,6 +137,39 @@
         {
           "id": "emails",
           "kind": "emails"
+        }
+      ]
+    },
+    {
+      "id": "routing",
+      "group": "documents",
+      "title": "Email routing",
+      "description": "One routing package over email packages already downloaded: their invoices, outgoing invoices and bank statements go to the packages they belong to.",
+      "steps": [
+        {
+          "id": "routing",
+          "kind": "routing"
+        }
+      ]
+    },
+    {
+      "id": "mailbox_routing",
+      "group": "documents",
+      "title": "From the mailbox to the packages",
+      "description": "The mailbox's new emails are downloaded and processed with their attachments; once they are approved, the routing proposes the package of each invoice, outgoing invoice and bank statement.",
+      "steps": [
+        {
+          "id": "emails",
+          "kind": "emails",
+          "title": "Emails and their attachments"
+        },
+        {
+          "id": "routing",
+          "kind": "routing",
+          "title": "Routing",
+          "after": [
+            "emails"
+          ]
         }
       ]
     },

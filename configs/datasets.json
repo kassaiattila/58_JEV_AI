@@ -6,7 +6,7 @@
    {
     "version": "1.27.0",
     "date": "2026-10-20",
-    "note": "181 (plan 170 L5): activity_action labels of a package's scope given and removed (jav/package_scope.py)."
+    "note": "181 (plan 170 L5): activity_action labels of a package's scope given and removed (jav/package_scope.py) and of the email routing's decisions (jav/email_routing.py); source_kind label of the email routing package."
    },
    {
     "version": "1.26.0",
@@ -160,7 +160,7 @@
   "approval": {"approved": "Jóváhagyva"},
   "wp_status": {"open": "Aktív", "archived": "Elrejtve"},
   "kind": {"document": "Irat", "email": "Levél"},
-  "source_kind": {"folder": "mappa", "mailbox": "postafiók", "manual": "kézi válogatás", "watch": "figyelt mappa", "reconcile": "egyeztetés", "statements": "bankkivonatok"},
+  "source_kind": {"folder": "mappa", "mailbox": "postafiók", "manual": "kézi válogatás", "watch": "figyelt mappa", "reconcile": "egyeztetés", "statements": "bankkivonatok", "email_routing": "levél-becsatornázás"},
   "pull_status": {"queued": "Sorban áll", "running": "Fut", "ok": "Kész", "error": "Hibás"},
   "provenance": {"located": "pontos", "approximate": "közelítő", "ambiguous": "több helyen", "context_rejected": "más mező mellett", "not_found": "nem található", "no_value": "nincs érték", "no_layer": "nincs szóréteg", "error": "hiba", "list": "lista"},
   "utility_status": {"ok": "rendben", "missing": "hiányzik", "partial": "részleges", "overlap": "átfedés", "settlement": "elszámolás", "no_period": "nem vetíthető: nincs számlázási időszak", "no_amount": "nem vetíthető: nincs összeg", "duplicate": "ismétlődő számla (egyszer számít)"},
@@ -184,6 +184,8 @@
    "package_release": "package: approved and released",
    "output_template_choose": "output: template chosen",
    "scope_set": "package: party, period and role set", "scope_clear": "package: own party, period and role removed",
+   "routing_accept": "email routing: document routed", "routing_reject": "email routing: document not routed",
+   "routing_undo": "email routing: decision taken back",
    "duplicate_decision": "duplicate invoice: decided",
    "statement_choice": "statements of the same days: valid one chosen",
    "workflow_create": "workflow: made",

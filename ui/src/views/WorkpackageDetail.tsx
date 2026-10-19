@@ -14,6 +14,7 @@ import { go, type Route, type Stage } from "../route";
 import { PackageItemsPanel } from "./PackageItems";
 import { ProcessStage } from "./ProcessStage";
 import { scopeText } from "./PackageScope";
+import { RoutingOffer } from "./routing/Routing";
 import { ResultStage } from "./ResultStage";
 import { ReviewWorkspace } from "./ReviewWorkspace";
 import { StartConfirm } from "./StartConfirm";
@@ -163,6 +164,8 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
         ) : null}
         {/* 140: what a logic pack shows above the result (a statement package: its statements and its party's months) */}
         {!own && stage === "result" ? logic?.resultPanel?.(view) ?? null : null}
+        {/* 181: an email package offers the routing of its attachments */}
+        {!own && stage === "result" && view.routing_offer ? <RoutingOffer view={view} /> : null}
         {!own && stage === "result" ? <ResultStage view={view} table={route.table} runId={route.runId} onChanged={wp.reload} /> : null}
       </div>
     </>

@@ -8,7 +8,8 @@ here, in one call (`register`, from `registrations.load_all`):
 - the statement package and the reconciliation package as logic packs, each with the reference that keeps a party in
   use from being deleted (`jav/logic_packs.py`, `jav/parties.py`), and (181) as the statements and reconciliation steps
   of a workflow (`jav/workflow_steps.py`);
-- (181) the package roles: incoming invoices, outgoing invoices and bank statements (`jav/package_scope.py`);
+- (181) the package roles: incoming invoices, outgoing invoices and bank statements, and where an invoice or a
+  statement belongs (its role, party and day; `jav/package_scope.py`);
 - the finance parts of the downloads (`jav/outputs/parts.py`): the duplicate mark on a run's documents and its two
   columns, an invoice's direction, the utility cost's sheets, grand total and JSON section in the package's result,
   and the utility cost's own workbook.
@@ -105,6 +106,46 @@ def _statement(doc_type: str | None, direction: str | None) -> bool:
     return type_roles.has(doc_type, "statement")
 
 
+def _day(raw: Any) -> str | None:
+    """A stored date as an ISO day (a stored value is ISO; another form is read when it is sure)."""
+    from datetime import date
+
+    from jav import dates
+
+    if raw in (None, ""):
+        return None
+    try:
+        return date.fromisoformat(str(raw)[:10]).isoformat()
+    except ValueError:
+        found = dates.read_date(raw)
+        return found.value.isoformat() if found.value and not found.ambiguous else None
+
+
+def place_document(doc_type: str | None, values: dict[str, Any], cache: dict[str, Any]) -> Any:
+    """181: where a document belongs for the email routing (`package_scope.place`): a bank statement by its account's
+    own party, on its period's last day; an invoice by its two sides (`parties.direction`: incoming to the buyer,
+    outgoing from the supplier), on its fulfilment day, else its issue day. None for another kind of document."""
+    from jav import cfg, package_scope, parties, statement_package
+    from jav.models import account_key
+
+    if "finance:resolver" not in cache:  # the identities as they stand, read once per routing view
+        cache["finance:resolver"] = parties.resolver()
+    res = cache["finance:resolver"]
+    if type_roles.has(doc_type, "statement"):
+        key = account_key(values.get("account_iban") or values.get("account_no"))
+        party = res.account(key) if key else None
+        return package_scope.Placement(statement_package.ROLE, party, _day(values.get("period_end")) or _day(values.get("period_start")),
+                                       None, None if party else "unknown_party")
+    if not (type_roles.has(doc_type, "incoming_invoice") or type_roles.has(doc_type, "outgoing_invoice")):
+        return None
+    direction, party = parties.direction(res, doc_type, values)
+    role = next((r.name for r in _roles() if r.name != statement_package.ROLE and r.fits(doc_type, direction)), None)
+    problem = {"internal": "internal", "not_own": "not_own", "unclear": "unclear_direction"}.get(direction)
+    fields = cfg.load("reconcile")["invoice_fields"]
+    day = _day(values.get(fields["fulfillment_date"])) or _day(values.get(fields["issue_date"]))
+    return package_scope.Placement(role, party, day, direction, problem)
+
+
 def _roles() -> tuple[Any, ...]:
     from jav import package_scope, statement_package
 
@@ -132,8 +173,9 @@ def register() -> None:
     parties.register_reference("reconcile_package", count=reconcile_package.count_party, repoint=reconcile_package.repoint_party)
     workflow_steps.register(statement_package.STEP)  # 181: a workflow's statements and reconciliation steps
     workflow_steps.register(reconcile_package.STEP)
-    for role in _roles():  # 181: what a package collects
+    for role in _roles():  # 181: what a package collects, and where an emailed document belongs
         package_scope.register_role(role)
+    package_scope.register_reader("finance", place_document)
     parts.register_record_mark(parts.RecordMark("duplicate", __name__, duplicates.mark_records))
     parts.register_document_columns(parts.DocumentColumns("duplicate", __name__, DUPLICATE_COLUMNS, duplicates.column_values))
     parts.register_document_columns(parts.DocumentColumns("direction", __name__, DIRECTION_COLUMNS, parties.direction_values))

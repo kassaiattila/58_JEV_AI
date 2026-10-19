@@ -657,9 +657,10 @@ def _max_source_bytes() -> int:
 def logic_routes() -> dict[str, Callable[[FastAPI, str], None]]:
     """176 (plan 170 L3): the own addresses of each logic pack (`jav/logic_packs.py`), by its kind, each in its
     own module; `create_app` adds them in this order (a test checks that every registered logic pack has its own)."""
-    from jav import api_reconcile, api_statement_package
+    from jav import api_email_routing, api_reconcile, api_statement_package
 
-    return {"statements": api_statement_package.routes, "reconcile": api_reconcile.routes}
+    return {"statements": api_statement_package.routes, "reconcile": api_reconcile.routes,
+            "email_routing": api_email_routing.routes}  # 181
 
 
 def create_app(*, store_path: Path | None = None) -> FastAPI:

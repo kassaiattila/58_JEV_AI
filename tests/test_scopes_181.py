@@ -201,4 +201,5 @@ def test_a_statement_packages_scope_is_its_own(db) -> None:
 def test_every_step_kind_states_what_it_needs() -> None:
     registrations.load_all()
     assert {k.kind: k.needs for k in workflow_steps.kinds()} == {
-        "documents": (), "emails": (), "statements": ("party", "period"), "reconcile": ("party", "period")}
+        "documents": (), "emails": (), "statements": ("party", "period"), "reconcile": ("party", "period"),
+        "routing": ()}

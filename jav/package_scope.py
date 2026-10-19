@@ -15,7 +15,10 @@ can hold it.
 - `register_role(role)`, `role(name)`, `roles()`: the roles' registry; `register_source(name, fn)`: a source of scopes.
 - `scope_of(wp_id)`: the package's scope, with where it comes from (`own`, `logic_pack` or the source's name).
 - `set_scope(...)`, `clear_scope(...)`: a person's scope of a package (only one without a scope of its logic pack).
-- `fitting(role, party_id, day)`: the open packages whose scope fits a document (the email routing's targets).
+- `fitting(role, party_id, day)`: the open packages whose scope fits a document (the email routing's targets);
+  `scoped_packages()`: every open package with a scope, read once for many documents.
+- `register_reader(name, fn)`, `place(doc_type, values)`: where a document belongs (its role, party and day), as the
+  domains read it from its result (the finance domain: invoices by their two sides, statements by their account).
 
 Layer: business module. It reads the logic packs' registry and the packages (`jav/work.py`); the workflows register
 their source, so this module imports no application operation.
@@ -66,7 +69,22 @@ class Role:
     package_kinds: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class Placement:
+    """Where a document belongs, as a domain reads it from its result: its `role` (None: none of the roles), the own
+    party, the ISO `day` that places it in a period, the invoice's `direction` (`parties.direction`) and the `problem`
+    that keeps it from being placed by itself (`unknown_party`, `unclear_direction`, `internal`, `not_own`)."""
+
+    role: str | None
+    party_id: str | None
+    day: str | None
+    direction: str | None = None
+    problem: str | None = None
+
+
 _ROLES: dict[str, Role] = {}
+# the domains' readers of a document's place: name -> fn(doc_type, values, cache) -> Placement | None (another kind)
+_READERS: dict[str, Callable[[str | None, dict[str, Any], dict[str, Any]], Placement | None]] = {}
 # a source of scopes after a person's and the logic pack's: name -> fn(wp_id) -> scope or None
 _SOURCES: dict[str, Callable[[str], dict[str, Any] | None]] = {}
 
@@ -95,6 +113,25 @@ def register_source(name: str, fn: Callable[[str], dict[str, Any] | None]) -> No
     if known is not None and known is not fn:
         raise ValueError(f"scope source {name!r} is registered already")
     _SOURCES[name] = fn
+
+
+def register_reader(name: str, fn: Callable[[str | None, dict[str, Any], dict[str, Any]], Placement | None]) -> None:
+    """A domain's reader of where a document belongs; the same one again adds nothing."""
+    known = _READERS.get(name)
+    if known is not None and known is not fn:
+        raise ValueError(f"placement reader {name!r} is registered already")
+    _READERS[name] = fn
+
+
+def place(doc_type: str | None, values: dict[str, Any], cache: dict[str, Any] | None = None) -> Placement | None:
+    """Where a document of this type and these values belongs: the first reader's answer; None for a document no domain
+    places (a contract, say). `cache`: kept by the caller across many documents (a reader keeps its lookups there)."""
+    cache = {} if cache is None else cache
+    for fn in _READERS.values():
+        found = fn(doc_type, values, cache)
+        if found is not None:
+            return found
+    return None
 
 
 def _now() -> str:
@@ -189,22 +226,33 @@ def clear_scope(wp_id: str, *, actor: str) -> dict[str, Any] | None:
     return scope_of(wp_id, kind=wp["source_kind"])
 
 
-def fitting(role_name: str, party_id: str, day: str) -> list[dict[str, Any]]:
-    """The open packages whose scope fits a document: the same role and party, and the day within the period (a scope
-    without a period fits every day). The latest changed first."""
+def scoped_packages() -> list[dict[str, Any]]:
+    """Every open package that has a scope, with it: the latest changed first."""
     out = []
-    kinds = role(role_name).package_kinds
     for wp in work.list_workpackages():
-        if wp["status"] != "open" or wp["source_kind"] not in kinds:
+        if wp["status"] != "open" or not collects(wp["source_kind"]):
             continue
         sc = scope_of(wp["id"], kind=wp["source_kind"])
-        if not sc or sc["role"] != role_name or sc["party_id"] != party_id:
+        if sc:
+            out.append({"id": wp["id"], "name": wp["name"], "source_kind": wp["source_kind"], "items": wp["items"],
+                        "updated_at": wp["updated_at"], "scope": sc})
+    out.sort(key=lambda e: e["updated_at"] or "", reverse=True)
+    return out
+
+
+def fitting(role_name: str, party_id: str | None, day: str, *, among: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """The open packages whose scope fits a document: the same role and party, and the day within the period (a scope
+    without a period fits every day). The latest changed first. `among`: `scoped_packages()`, read once by a caller
+    asking for many documents."""
+    kinds = role(role_name).package_kinds
+    out = []
+    for wp in scoped_packages() if among is None else among:
+        sc = wp["scope"]
+        if wp["source_kind"] not in kinds or sc["role"] != role_name or sc["party_id"] != party_id:
             continue
         if sc["period_start"] and not (sc["period_start"] <= day <= (sc["period_end"] or day)):
             continue
-        out.append({"id": wp["id"], "name": wp["name"], "source_kind": wp["source_kind"], "items": wp["items"],
-                    "updated_at": wp["updated_at"], "scope": sc})
-    out.sort(key=lambda e: e["updated_at"] or "", reverse=True)
+        out.append(wp)
     return out
 
 
@@ -232,5 +280,6 @@ def register() -> None:
     work.register_delete_guard(_delete_guard)
 
 
-__all__ = ["Role", "ScopeRefused", "clear_scope", "collects", "count_party", "fitting", "register", "register_role", "register_source",
-           "repoint_party", "role", "roles", "scope_of", "set_scope"]
+__all__ = ["Placement", "Role", "ScopeRefused", "clear_scope", "collects", "count_party", "fitting", "place", "register",
+           "register_reader", "register_role", "register_source", "repoint_party", "role", "roles", "scope_of",
+           "scoped_packages", "set_scope"]

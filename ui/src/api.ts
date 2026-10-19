@@ -66,6 +66,30 @@ export interface WorkpackageView {
   item_counts?: Partial<Record<"approved" | "live" | "trial" | "running" | "failed" | "pending" | "removed", number>>;
   /** 181: the package's scope (its party, period and role), when it has one */
   scope?: PackageScope;
+  /** 181: an email routing package's attachments, proposals and decisions */
+  routing?: RoutingView;
+  /** 181: an email package offers the routing of its attachments (and names the routing packages that route it) */
+  routing_offer?: { attachments: number; routings: { id: string; name: string }[] };
+}
+/** 181: what keeps an attachment from being routed by itself. */
+export type RoutingBlocker = "no_result" | "unknown_party" | "unclear_direction" | "internal" | "not_own" | "no_day"
+  | "suspicious" | "sent_incoming";
+export interface RoutingEmail { item_id: string; subject: string | null; sender: string | null; received_at: string | null; folder: string | null }
+export interface RoutingNewPackage { name: string; party_id: string; period_start: string; period_end: string; role: string }
+/** 181: one attachment of a routing package: its email, its result, where it belongs, the proposal and the decision. */
+export interface RoutingItem {
+  item_id: string; file: string; package: string; email: RoutingEmail | null; doc_type: string | null; tier: string | null;
+  placement: { routable: boolean; role: string | null; role_title: string | null; party_id: string | null; party: string | null;
+    day: string | null; problem: RoutingBlocker | null };
+  proposal: { target: { id: string; name: string } | null; others: { id: string; name: string }[]; new: RoutingNewPackage | null } | null;
+  decision: { decision: "accepted" | "rejected"; target: string | null; target_name?: string | null; made: number; actor: string;
+    decided_at: string } | null;
+  /** whether the package it was accepted into still holds it */
+  held?: boolean | null;
+}
+export interface RoutingView {
+  sources: { id: string; name: string | null }[]; items: RoutingItem[];
+  counts: { attachments: number; routable: number; decided: number; blocked: number; clear: number; accepted: number };
 }
 /** 181: what a work package belongs to and collects, and where that comes from: `own` (a person gave it), `logic_pack`
  *  (a statement package's own) or `workflow` (its workflow step's). */
@@ -1273,6 +1297,13 @@ export const api = {
   users: () => request<{ users: string[] }>("GET", "/settings/users"),
   saveUsers: (users: string[]) => request<{ users: string[] }>("PUT", "/settings/users", { users }),
   setOwner: (id: string, owner: string | null) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/owner`, { owner }),
+  /** 181: an email routing package over email packages, and a person's decisions on its attachments */
+  createRoutingPackage: (body: { name: string; sources: string[] }) => request<WorkpackageView>("POST", "/email-routing/packages", body),
+  routingAccept: (wpId: string, items: string[], target?: string) =>
+    request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/accept`, target ? { items, target } : { items }),
+  routingAcceptClear: (wpId: string) => request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/accept-clear`, {}),
+  routingReject: (wpId: string, items: string[]) => request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/reject`, { items }),
+  routingUndo: (wpId: string, item: string) => request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/undo`, { item }),
   /** 181: the package roles a scope can name */
   packageRoles: () => request<{ roles: PackageRole[] }>("GET", "/package-roles"),
   /** 181: a person gives the package its scope (any part may be left out) or takes its own scope away */
