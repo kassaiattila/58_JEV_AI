@@ -115,8 +115,9 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
     <>{" · "}{t("Step {{step}} of the workflow", { step: t(view.workflow.step_title) })}{" "}
       <a href={`#/workflows/${encodeURIComponent(view.workflow.id)}`}>{view.workflow.name}</a></>
   ) : null;
-  // 181: the package's party, period and role (a statement package's own is on its summary already)
-  const scopeOf: ReactNode = view.scope && view.scope.from !== "logic_pack" ? <>{" · "}{scopeText(view.scope)}</> : null;
+  // 181: the party, period and role a person gave the package (a statement package's own is on its summary already, a
+  // workflow step's is the workflow's, linked on the same line)
+  const scopeOf: ReactNode = view.scope && view.scope.from === "own" ? <>{" · "}{scopeText(view.scope)}</> : null;
   // the next-step button; not needed if we are already on that stage's page
   const nextButton = next.stage !== stage || route.stage === undefined ? (
     <button type="button" className="primary" onClick={() => go({ view: "workpackages", wpId, stage: next.stage })}>{nextStepText(view)} →</button>
