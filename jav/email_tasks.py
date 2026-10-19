@@ -34,7 +34,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
-from jav import cfg, store
+from jav import activity_kinds, cfg, store
 from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, PROMPTS_DIR, load_prompt, openai_chat_model, openai_cost, openai_price
 from jav.runtime import calls
 
@@ -44,9 +44,10 @@ CFG = cfg.load("email_tasks")
 PROMPT_FILE = CFG["prompt_file"]
 # 067 (066 Á18): besides the settings, the content of the instruction file is also part of the identifier
 CONFIG_HASH = cfg.combine(cfg.config_hash("email_tasks"), cfg.file_digest(PROMPTS_DIR / PROMPT_FILE))
-ACTIONS = tuple(CFG["actions"])
-Action = Literal["review_invoice", "review_payment", "reply", "provide_document", "review_contract", "clarify", "review_information"]
-assert set(ACTIONS) == set(Action.__args__), "az akció-szótár és a kimeneti séma eltér"
+# 175 (plan 170 E4): the task kinds come from the settings only (`activity_kinds.task_kinds`); the answer's schema lists
+# them in the same order as the code's own list did, so its bytes (part of the reuse key of earlier answers) are unchanged
+ACTIONS = activity_kinds.task_kinds()
+Action = Literal[ACTIONS]  # type: ignore[valid-type]
 
 
 # --- GPT output (the structure of the legacy config/email_tasks/schema.json) --------------------------------------

@@ -29,8 +29,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from jav import card_numbers, corrections, export, package_result, store, work
+from jav import activity_kinds, card_numbers, corrections, export, package_result, store, work
 from jav.user_messages import explained
+
+# 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
+activity_kinds.register_events("package", ("package_release",), __name__)
 
 KINDS_WITHOUT_RUNS = ("reconcile",)
 

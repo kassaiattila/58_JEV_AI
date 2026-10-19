@@ -55,9 +55,13 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import cfg, corrections, grounding, parties, reconcile, reconcile_overview, store, typepack, work
+from jav import activity_kinds, cfg, corrections, grounding, parties, reconcile, reconcile_overview, store, typepack, work
 from jav.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.user_messages import explained
+
+# 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
+activity_kinds.register_events("package", ("reconcile_scope", "reconcile_allocate", "reconcile_reject", "reconcile_mark",
+                                           "reconcile_revoke", "reconcile_leave_out", "reconcile_restore"), __name__)
 
 KIND = "reconcile"
 REVOKE_KINDS = ("allocation", "mark", "decision")

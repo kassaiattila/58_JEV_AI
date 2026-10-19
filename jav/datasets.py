@@ -48,7 +48,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, costs, store, work, work_views
+from jav import activity_kinds, cfg, costs, store, work, work_views
 from jav.runtime import calls
 from jav.tablequery import Column, Query, run_query, select, shown
 
@@ -164,13 +164,24 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
         # 173 (plan 170, K20): so do a reconciliation decision and a statement choice, as in the reviewed version
         paid = [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile.decisions_for(documents, c)]
         chosen = [[d["pair_key"], d["keep_doc_id"], d["decided_at"]] for d in statement_months.choices_for(documents, c)]
+        # 175 (plan 170 E4): a decision kind a logic package registers (`jav/activity_kinds.py`) beyond the parts read
+        # above; a run without any keeps its earlier fingerprint
+        subject_ids = [i for _k, i in subjects]
+        extra = [[k.name, found] for k in activity_kinds.decisions() if k.name not in _FINGERPRINTED
+                 and (found := k.rows(run_id, subject_ids, c))]
     digest = hashlib.sha256(str(dec[1]).encode("utf-8")).hexdigest()[:16]
     paired = hashlib.sha256(json.dumps(pairs).encode("utf-8")).hexdigest()[:16] if pairs else ""
     parts = [*corr, *rsn, dec[0], digest, *items, row["status"], row["approval"], native, paired,
              hashlib.sha256(str(left_out).encode("utf-8")).hexdigest()[:16]]
     if paid or chosen:  # a run without either keeps its earlier fingerprint
         parts.append(hashlib.sha256(json.dumps([paid, chosen]).encode("utf-8")).hexdigest()[:16])
+    if extra:
+        parts.append(hashlib.sha256(json.dumps(extra).encode("utf-8")).hexdigest()[:16])
     return "|".join(str(x) for x in parts)
+
+
+# the decision kinds `_run_fingerprint` reads by itself (the built-in parts of the reviewed version)
+_FINGERPRINTED = frozenset({"corrections", "tasks", "native", "duplicates", "reconcile", "statements"})
 
 
 def _package_fingerprint(scope: dict[str, str]) -> str:

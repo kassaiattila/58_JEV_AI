@@ -22,7 +22,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import activity, checks, corrections, datasets, duplicates, email_tasks, native_results, parties, policy, store, work
+from jav import activity, activity_kinds, checks, corrections, datasets, duplicates, email_tasks, native_results, parties, policy, store, work
 from jav.models import CheckResult, FlowState, InvoiceHU, JevVerdicts
 from jav.runtime import calls, worker
 
@@ -238,7 +238,7 @@ def test_the_run_fingerprint_sees_reconciliation_decisions_and_statement_choices
 
 
 def test_the_activity_log_reads_these_sources() -> None:
-    assert [code for code, _sql in activity._SOURCES] == [
+    assert [s.code for s in activity_kinds.sources()] == [  # 175: the activity registry, in the same order
         "event", "recipe", "run_start", "run_approve", "correction", "reason_resolve", "task_decision", "task_done",
         "mailbox_pull"]
 

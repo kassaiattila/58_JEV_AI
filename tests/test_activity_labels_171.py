@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from jav import activity, datasets
+from jav import activity_kinds, datasets
 
 JAV = Path(__file__).resolve().parents[1] / "jav"
 
@@ -42,7 +42,7 @@ def test_every_recorded_package_event_has_an_activity_label() -> None:
 
 def test_every_activity_source_has_a_label() -> None:
     labels = datasets._labels("activity_action")
-    assert sorted({code for code, _sql in activity._SOURCES if code != "event"} - set(labels)) == []
+    assert sorted({s.code for s in activity_kinds.sources() if s.code != "event"} - set(labels)) == []
 
 
 def test_the_new_labels() -> None:

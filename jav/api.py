@@ -364,12 +364,12 @@ class ResolveCall(_In):
 
 
 class TaskDecision(_In):
-    decision: Literal["accepted", "rejected"]
+    decision: Literal[store.TASK_DECISIONS]  # type: ignore[valid-type]
     note: Text | None = None
 
 
 class DuplicateDecision(_In):
-    decision: Literal["copy", "variant", "different"]  # 126: copy, modified version, not the same invoice
+    decision: Literal[duplicates.DECISIONS]  # type: ignore[valid-type]  # 126: copy, modified version, not the same invoice
     note: Text | None = None
 
 
