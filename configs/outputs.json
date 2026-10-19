@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "name": "outputs",
+    "version": "1.0.0",
+    "description": "The output contract (178, plan 170 L4, jav/outputs/contract.py): each output a person downloads or a release stores, and the data it is filled with: its values (one value each, such as the package's name) and its tables, each column with its kind. A key is an English identifier (lowercase letters, digits and `_`); a person's own template (planned: the second round of L4) may use only the keys listed here. A table with `per` is one table for each document type, its columns the listed ones followed by the type pack's fields (`fields: type_pack`) or the columns of its lists' rows (`fields: type_pack_lists`); `months` adds one column per month, keyed `month_<yyyy>_<mm>`. Kinds: text, date, money and number (a decimal number; written as one when the text reads as one), count (a whole number), probability (between 0 and 1), flag (yes or empty), json (structured text). builtin: the layout of the built-in template, the one every download had until 178 (sheet per table; `heading`: the values as a block above every table; `min_width`: the narrowest column; `marks`: the fill colour of a marked cell). The column headers and sheet names of the built-in layout come from field_labels.json, reports.json and the code that builds the data.",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-10-19",
+        "note": "178 (plan 170 L4): first version, from the two downloads of today: a package's result (also a run's) and a reconciliation package's statement."
+      }
+    ]
+  },
+  "outputs": {
+    "package_result": {
+      "what": "The result of a package or of one of its runs: the native facts and readings, the emails and their tasks, the documents by type, their data points and line items, and the utility cost by month.",
+      "format": "xlsx",
+      "builtin": {"version": "1.0.0", "heading": false, "min_width": 8, "marks": {"missing": "F8D7DA", "overlap": "FFF3CD", "partial": "E2E3F3"}},
+      "values": {},
+      "tables": {
+        "native_facts": {"columns": {"file": "text", "item_id": "text", "fact_id": "text", "entity": "text", "property": "text", "effective_value": "text", "source": "text", "unit": "text", "role": "text", "related_entity": "text", "machine_state": "text", "machine_grounding": "text", "corrected": "flag", "confirmed": "flag", "source_citations": "json", "reading_status": "text", "reading_gaps": "json", "interpretation_status": "text", "correctness": "text", "result_version": "text", "proposal": "json"}},
+        "native_readings": {"columns": {"file": "text", "item_id": "text", "reading_status": "text", "interpretation_status": "text", "result_version": "text", "reading_details": "json"}},
+        "emails": {"columns": {"subject": "text", "sender": "text", "received_at": "date", "mailbox": "text", "intent": "text", "machine_intent": "text", "confidence": "probability", "corrected": "flag", "next_flow": "text", "attachments": "text", "body_status": "text", "body_chars": "count", "open_reasons": "text", "item_id": "text"}},
+        "tasks": {"columns": {"subject": "text", "action": "text", "title": "text", "due_date": "date", "assignee_hint": "text", "evidence": "text", "decision": "text", "decided_by": "text", "done_at": "date", "done_by": "text", "item_id": "text"}},
+        "documents": {"per": "doc_type", "fields": "type_pack", "columns": {"file": "text", "item_id": "text", "doc_type": "text", "arm": "text", "status": "text", "open_reasons": "text", "source_email": "text", "duplicate": "text", "duplicate_of": "text", "direction": "text"}},
+        "datapoints": {"columns": {"file": "text", "item_id": "text", "doc_type": "text", "field": "text", "value": "text", "page": "count", "quote": "text", "location": "text", "corrected": "flag", "field_todo": "flag"}},
+        "line_items": {"fields": "type_pack_lists", "columns": {"file": "text", "item_id": "text", "doc_type": "text", "list": "text", "row": "count", "page": "count", "value": "text"}},
+        "utility_cost": {"months": "money", "columns": {"address": "text", "utility": "text", "suppliers": "text", "summary_only": "flag", "total": "money"}},
+        "utility_sources": {"columns": {"address": "text", "utility": "text", "month": "text", "status": "text", "amount": "money", "file": "text", "item_id": "text", "page": "count", "field": "text", "corrected": "flag", "open_reasons": "text"}}
+      }
+    },
+    "reconcile_statement": {
+      "what": "A reconciliation package's statement: its own invoices and its statement lines, each with its result, under a heading naming the package, its party, period, accounts and version.",
+      "format": "xlsx",
+      "builtin": {"version": "1.1.0", "heading": true, "min_width": 10, "marks": {}},
+      "values": {"package": "text", "party": "text", "period": "text", "accounts": "text", "state": "text"},
+      "tables": {
+        "invoices": {"columns": {"number": "text", "supplier_name": "text", "supplier_tax_id": "text", "issue_date": "date", "fulfillment_date": "date", "due_date": "date", "amount": "money", "currency": "text", "payment_method": "text", "result": "text", "allocated": "money", "rest": "money", "paid_on": "date", "days_from_due": "number", "overdue_days": "number", "paid_by": "text", "other_party": "text", "source": "text", "file": "text"}},
+        "lines": {"columns": {"booking_date": "date", "value_date": "date", "account": "text", "direction": "text", "amount": "money", "currency": "text", "original_amount": "money", "original_currency": "text", "counterparty_name": "text", "counterparty_account": "text", "memo": "text", "description": "text", "result": "text", "reason": "text", "note": "text", "allocated": "money", "rest": "money", "pays": "text", "statement_file": "text", "statement_verified": "flag"}}
+      }
+    }
+  }
+}

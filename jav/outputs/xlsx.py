@@ -56,9 +56,9 @@ def cell_value(v: Any, kind: str | None) -> Any:
 
 
 def write_table(ws: Any, head: Sequence[str], rows: Sequence[Sequence[Any]], kinds: Sequence[str | None] | None = None, *,
-                heading: Sequence[tuple[str, Any]] = (), min_width: int = 8) -> None:
+                heading: Sequence[tuple[str, Any]] = (), min_width: int = 8) -> int:
     """Write a table on a sheet: an optional heading block of label and value rows with an empty row below it, then the
-    header row and the rows. `kinds` gives each column's kind (`money`, `number` or None)."""
+    header row and the rows. `kinds` gives each column's kind (`money`, `number` or None). Returns the header's row."""
     from openpyxl.styles import Font, PatternFill
     from openpyxl.utils import get_column_letter
 
@@ -87,3 +87,4 @@ def write_table(ws: Any, head: Sequence[str], rows: Sequence[Sequence[Any]], kin
     for i, h in enumerate(head, 1):
         width = max([len(str(h))] + [len(str(r[i - 1])) for r in rows[:WIDTH_ROWS] if i - 1 < len(r) and r[i - 1] is not None])
         ws.column_dimensions[get_column_letter(i)].width = min(WIDTH_MAX, max(min_width, width + 2))
+    return top

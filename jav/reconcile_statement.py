@@ -28,7 +28,6 @@ Nothing here calls an AI model or the network. Layer: UI/CLI → **this** (appli
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 from collections import Counter
 from datetime import datetime, timezone
@@ -36,7 +35,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav import activity_kinds, cfg, naming, reconcile, reconcile_package as rp, store, work
-from jav.outputs import xlsx as xlsx_writer
+from jav.outputs import builtin, contract
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
@@ -274,15 +273,31 @@ def _line_table(st: dict[str, Any], lab: dict[str, Any]) -> tuple[list[str], lis
     return head, rows, kinds
 
 
-def _heading(st: dict[str, Any], state: str, lab: dict[str, Any]) -> list[tuple[str, str]]:
+def _values(st: dict[str, Any], state: str, lab: dict[str, Any]) -> tuple[contract.Value, ...]:
     h = lab["heading"]
-    return [(h["package"], st["package"]["name"]), (h["party"], st["party"] or ""), (h["period"], " – ".join(st["period"])),
-            (h["accounts"], ", ".join(st["accounts"])), (h["state"], state)]
+    return (contract.Value("package", h["package"], st["package"]["name"]), contract.Value("party", h["party"], st["party"] or ""),
+            contract.Value("period", h["period"], " – ".join(st["period"])),
+            contract.Value("accounts", h["accounts"], ", ".join(st["accounts"])), contract.Value("state", h["state"], state))
 
 
-def _sheet(ws: Any, heading: list[tuple[str, str]], head: list[str], rows: list[list[Any]], kinds: list[str | None]) -> None:
-    """A heading block, an empty row, then the table with its header frozen and filtered (`jav/outputs/xlsx.py`)."""
-    xlsx_writer.write_table(ws, head, rows, kinds, heading=heading, min_width=10)
+# 178 (plan 170 L4): the column keys of the statement's tables (`configs/outputs.json` `reconcile_statement`), in order
+INVOICE_COLUMNS = ("number", "supplier_name", "supplier_tax_id", "issue_date", "fulfillment_date", "due_date", "amount", "currency",
+                   "payment_method", "result", "allocated", "rest", "paid_on", "days_from_due", "overdue_days", "paid_by",
+                   "other_party", "source", "file")
+LINE_COLUMNS = ("booking_date", "value_date", "account", "direction", "amount", "currency", "original_amount", "original_currency",
+                "counterparty_name", "counterparty_account", "memo", "description", "result", "reason", "note", "allocated", "rest",
+                "pays", "statement_file", "statement_verified")
+
+
+def statement_data(st: dict[str, Any], state: str) -> contract.OutputData:
+    """178 (plan 170 L4): the statement's data as the output contract describes it (`reconcile_statement`): the heading's
+    values and the two tables, the invoices and the lines."""
+    lab = _labels()
+    tables = []
+    for key, title, columns, (head, rows, kinds) in (("invoices", lab["sheets"]["invoices"], INVOICE_COLUMNS, _invoice_table(st, lab)),
+                                                     ("lines", lab["sheets"]["lines"], LINE_COLUMNS, _line_table(st, lab))):
+        tables.append(contract.Table(key=key, title=title, columns=columns, head=tuple(head), kinds=tuple(kinds), rows=rows))
+    return contract.OutputData("reconcile_statement", _values(st, state, lab), tuple(tables))
 
 
 def _shown(stamp: str | None) -> str:
@@ -293,8 +308,6 @@ def _shown(stamp: str | None) -> str:
 def xlsx(wp_id: str, *, version: int | None = None) -> tuple[bytes, str]:
     """The statement as an Excel workbook (DECISIONS 145: invoices and lines on two sheets) and its file name: the
     current draft, or an approved version as it was approved."""
-    from openpyxl import Workbook
-
     lab = _labels()
     if version is None:
         st, state, suffix = current(wp_id)["statement"], lab["heading"]["draft"], lab["file"]["draft"]
@@ -306,14 +319,5 @@ def xlsx(wp_id: str, *, version: int | None = None) -> tuple[bytes, str]:
         else:
             state = lab["heading"]["earlier"].format(n=version, by=v["reopened_by"], at=_shown(v["reopened_at"]),
                                                      note=v["reopen_note"] or "")
-    heading = _heading(st, state, lab)
-    wb = Workbook()
-    used: set[str] = set()
-    first = wb.active
-    first.title = xlsx_writer.safe_sheet(lab["sheets"]["invoices"], used)
-    _sheet(first, heading, *_invoice_table(st, lab))
-    _sheet(wb.create_sheet(xlsx_writer.safe_sheet(lab["sheets"]["lines"], used)), heading, *_line_table(st, lab))
-    buf = io.BytesIO()
-    wb.save(buf)
     slug = naming.safe_part(st["package"]["name"], limit=40) or st["package"]["id"]  # accents folded (078)
-    return buf.getvalue(), f"{lab['file']['prefix']}-{slug}-{suffix}.xlsx"
+    return builtin.render(statement_data(st, state)), f"{lab['file']['prefix']}-{slug}-{suffix}.xlsx"
