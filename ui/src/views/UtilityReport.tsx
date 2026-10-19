@@ -3,6 +3,8 @@
 // its source invoices (on click).
 import { useState } from "react";
 import { api, type UtilityCell, type UtilityReport } from "../api";
+import { Icon } from "../components/Icon";
+import { TemplateChoice } from "../components/TemplateChoice";
 import { useLoad } from "../hooks";
 import { getLocale, t, useLocale } from "../i18n";
 import { tmap } from "../labels";
@@ -24,7 +26,16 @@ export function UtilityPanel({ runId, wpId }: { runId?: string; wpId: string }) 
   const [cell, setCell] = useState<{ key: string; month: string; data: UtilityCell } | null>(null);
   return (
     <section className="card wide" aria-label={t("Közmű-költség")}>
-      <h2>{t("Közmű-költség havonta")}</h2>
+      <div className="card-head">
+        <h2>{t("Közmű-költség havonta")}</h2>
+        {/* 179 (DECISIONS 178): the package's utility cost as a workbook of its own, with the package's template */}
+        {runId ? null : (
+          <span className="button-row">
+            <TemplateChoice wpId={wpId} output="utility_cost" />
+            <a className="secondary dl-btn small-btn" href={api.packageUtilityCostXlsxUrl(wpId)} download><Icon name="download" />{t("Utility cost (Excel)")}</a>
+          </span>
+        )}
+      </div>
       {rep.error ? <p className="notice error" role="alert">{rep.error.message}</p> : null}
       {!rep.data ? <p className="muted">{t("Betöltés…")}</p> : <UtilityTable rep={rep.data} onCell={(key, month, data) => setCell({ key, month, data })} />}
       {cell ? <CellSources cell={cell} wpId={wpId} onClose={() => setCell(null)} /> : null}

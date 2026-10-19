@@ -845,3 +845,49 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .wf-card-head { display: flex; justify-content: space-between; gap: var(--sp-2); align-items: baseline; flex-wrap: wrap; }
 .wf-events { padding-left: 18px; }
 .wf-of { margin: 4px 0 8px; }
+/* 179 (plan 170 L4): own output templates - the chooser beside a download (its label quiet, the picker as wide as its
+   name), and the settings page: each output's versions as rows with their state marks, a check's problems by cell,
+   the markers in the code face, each with a quiet copy button */
+.template-choice { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.template-choice-label { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }
+.result-bar .template-choice .picker, .template-choice .picker { width: auto; }
+.result-actions { display: inline-flex; align-items: center; gap: var(--sp-2); margin-left: auto; flex: none; }
+/* with a chooser the result picker gives up a little width, so the row still fits a 1366 px screen */
+.result-bar:has(.template-choice) > .picker { width: min(380px, 28vw); }
+.template-uploaded span { display: block; }
+.template-choice .picker-trigger { min-width: 132px; max-width: 260px; }
+.template-output .picker-trigger { min-width: 240px; }
+.template-output-block { display: grid; gap: var(--sp-2); min-width: 0; }
+.template-output-block + .template-output-block { border-top: 1px solid var(--line-soft); padding-top: var(--sp-3); }
+.template-output-head { display: flex; align-items: baseline; gap: var(--sp-1) var(--sp-3); flex-wrap: wrap; }
+.template-output-head h3 { margin: 0; }
+.template-table { table-layout: fixed; }
+.template-table td { vertical-align: middle; overflow-wrap: anywhere; }
+.template-table .c-name { width: 22%; } .template-table .c-version { width: 9%; } .template-table .c-state { width: 10%; }
+.template-table .c-uploaded { width: 19%; } .template-table .c-check { width: 13%; } .template-table .c-files { width: 17%; }
+.template-table .c-actions { width: 10%; }
+.template-upload .form-row .block, .marker-filters .block { margin-bottom: 0; } /* level with the picker and the browse button */
+.template-upload .picker-label, .marker-filters .picker-label { color: var(--ink); font-weight: 600; } /* as the field labels beside them */
+.template-name > div { display: grid; gap: var(--sp-2); justify-items: start; }
+.template-actions { text-align: right; }
+.template-warnings > summary { cursor: pointer; width: fit-content; white-space: nowrap; }
+.template-warnings .plain { margin: var(--sp-2) 0 0; }
+.template-issues { margin: 0; }
+.template-issues li { display: flex; gap: var(--sp-1) var(--sp-2); align-items: baseline; flex-wrap: wrap; }
+.template-refused { display: grid; gap: var(--sp-2); }
+.template-refused p { margin: 0; }
+.marker-help > summary { cursor: pointer; width: fit-content; font-size: var(--fs-sm); font-weight: 500; color: var(--ink-2); }
+.marker-help > summary:hover { color: var(--ink); }
+.marker-help .plain { margin: var(--sp-2) 0 0; }
+.marker-help .mono { color: var(--ink); }
+.marker-scroll { max-height: 60vh; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); }
+.marker-table { border: 0; border-radius: 0; }
+.marker-table thead th { position: sticky; top: 0; z-index: 1; }
+.marker-table td { vertical-align: middle; }
+.marker-table .marker-group th { background: var(--paper); color: var(--ink); font-size: var(--fs-sm); font-weight: 600;
+  padding-top: var(--sp-3); border-bottom-color: var(--line); }
+.marker-extra { display: inline-flex; align-items: center; gap: var(--sp-1); margin-left: var(--sp-4); font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }
+.copyable { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
+.copyable code { font-size: var(--fs-xs); color: var(--ink); overflow-wrap: anywhere; }
+.copy-btn { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border-radius: var(--r-sm); flex: none; }
+.copy-btn .ico { width: 14px; height: 14px; }

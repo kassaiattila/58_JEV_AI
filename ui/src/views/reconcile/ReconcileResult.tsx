@@ -8,6 +8,7 @@ import {
 } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";
+import { TemplateChoice } from "../../components/TemplateChoice";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { when } from "../../labels";
@@ -71,9 +72,14 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
       <section className="card" aria-label={t("Approval")}>
         <div className="card-head">
           <h2>{t("Approval")}</h2>
-          <a className="secondary dl-btn small-btn" href={api.reconcileStatementXlsxUrl(wpId, active?.version)} download><Icon name="download" />
-            {active ? t("Download version {{n}} (Excel)", { n: active.version }) : t("Download the draft (Excel)")}
-          </a>
+          <span className="button-row">
+            {/* 179: the template of the draft's download and of the approval's stored file; an approved version's file is
+                stored, so it is chosen again only after a reopening */}
+            {active ? null : <TemplateChoice wpId={wpId} output="reconcile_statement" />}
+            <a className="secondary dl-btn small-btn" href={api.reconcileStatementXlsxUrl(wpId, active?.version)} download><Icon name="download" />
+              {active ? t("Download version {{n}} (Excel)", { n: active.version }) : t("Download the draft (Excel)")}
+            </a>
+          </span>
         </div>
         {active ? (
           <>
