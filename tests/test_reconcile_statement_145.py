@@ -238,10 +238,10 @@ def test_a_memo_that_looks_like_a_formula_is_written_as_text(db):
 
 
 def test_a_control_character_from_a_pdf_text_layer_does_not_fail_the_download(db):
-    from jav import export
+    from jav.outputs import xlsx
 
     # found on the real store: a supplier's name read with a broken glyph; the workbook format refuses it (any download)
-    assert export._cell_value("Issued by: Spoti\x0bAB", None) == "Issued by: Spoti AB"
+    assert xlsx.cell_value("Issued by: Spoti\x0bAB", None) == "Issued by: Spoti AB"
     _approved_sources("inv", "stmt")
     k2._save("inv", k2._invoice(supplier_name="Example\x07Supplier Kft."), run_id=k2.RUN)
     _stmt("stmt", _line(memo="INV-0001\x1f"), run_id=k2.RUN)

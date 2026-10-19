@@ -25,14 +25,13 @@ import json
 import re
 import threading
 from collections import OrderedDict
-from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
 from jav import card_numbers, cfg, corrections, duplicates, item_kinds, native_results, package_result, store, type_roles, typepack, work
+from jav.outputs import xlsx
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
-SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
 
 
 # --- the run's records ---------------------------------------------------------------------------------------
@@ -371,59 +370,6 @@ def csv_bytes(head: list[str], rows: list[list[Any]]) -> bytes:
 # --- XLSX ------------------------------------------------------------------------------------------------------
 
 
-def _safe_sheet(name: str, used: set[str]) -> str:
-    base = SHEET_BAD.sub("_", name)[:31] or "Lap"
-    out, n = base, 2
-    while out.casefold() in used:
-        suffix = f" ({n})"
-        out, n = base[: 31 - len(suffix)] + suffix, n + 1
-    used.add(out.casefold())
-    return out
-
-
-def _cell_value(v: Any, kind: str | None) -> Any:
-    if v is None:
-        return None
-    if kind in ("money", "number") and not isinstance(v, (dict, list)):
-        try:
-            return Decimal(str(v))
-        except InvalidOperation:
-            return _cell_text(str(v))
-    return v if isinstance(v, (int, float, Decimal)) and not isinstance(v, bool) else _cell_text(str(v))
-
-
-def _cell_text(s: str) -> str:
-    """145: a control character a PDF's text layer may carry (a broken glyph) is refused by the workbook format, and
-    openpyxl raised on it, failing the whole download; it becomes a space."""
-    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
-
-    return ILLEGAL_CHARACTERS_RE.sub(" ", s)
-
-
-def _write_sheet(ws, head: list[str], rows: list[list[Any]], kinds: list[str | None] | None = None) -> None:
-    from openpyxl.styles import Font, PatternFill
-    from openpyxl.utils import get_column_letter
-
-    ws.append(head)
-    for row in rows:
-        ws.append([_cell_value(v, kinds[i] if kinds and i < len(kinds) else None) for i, v in enumerate(row)])
-    for row in ws.iter_rows(min_row=1):  # 153 (review C8): the header row too
-        for c in row:
-            if isinstance(c.value, str):
-                c.data_type = "s"  # text is never a formula
-            elif isinstance(c.value, Decimal):
-                c.number_format = "#,##0.00"
-    for c in ws[1]:
-        c.font = Font(bold=True)
-        c.fill = PatternFill("solid", fgColor="EEEEF2")
-    ws.freeze_panes = "A2"
-    if rows:
-        ws.auto_filter.ref = ws.dimensions
-    for i, h in enumerate(head, 1):
-        width = max([len(str(h))] + [len(str(r[i - 1])) for r in rows[:200] if i - 1 < len(r) and r[i - 1] is not None])
-        ws.column_dimensions[get_column_letter(i)].width = min(60, max(8, width + 2))
-
-
 STATUS_FILL = {"missing": "F8D7DA", "overlap": "FFF3CD", "partial": "E2E3F3"}
 STATUS_TEXT = {"missing": "hiányzik", "overlap": "átfedés", "partial": "részleges", "ok": ""}
 
@@ -432,7 +378,7 @@ def _utility_sheets(wb, report: dict[str, Any], used: set[str]) -> None:
     from openpyxl.styles import PatternFill
 
     months = report["months"]
-    ws = wb.create_sheet(_safe_sheet("Közmű-költség", used))
+    ws = wb.create_sheet(xlsx.safe_sheet("Közmű-költség", used))
     head = ["Fogyasztási hely", "Közmű", "Szolgáltató", "Csak tájékoztató", "Összesen (bruttó)"] + months
     rows = []
     for s in report["series"]:
@@ -440,20 +386,20 @@ def _utility_sheets(wb, report: dict[str, Any], used: set[str]) -> None:
                     + [(s["cells"].get(m) or {}).get("amount") or STATUS_TEXT.get((s["cells"].get(m) or {}).get("status", ""), "")
                        for m in months])
     rows.append(["Mindösszesen (a tájékoztató sorok nélkül)", "", "", "", report["grand_total"]] + [""] * len(months))
-    _write_sheet(ws, head, rows, [None, None, None, None, "money"] + ["money"] * len(months))
+    xlsx.write_table(ws, head, rows, [None, None, None, None, "money"] + ["money"] * len(months))
     for r_i, s in enumerate(report["series"], start=2):
         for m_i, m in enumerate(months, start=len(head) - len(months) + 1):
             st = (s["cells"].get(m) or {}).get("status")
             if st in STATUS_FILL:
                 ws.cell(row=r_i, column=m_i).fill = PatternFill("solid", fgColor=STATUS_FILL[st])
-    src = wb.create_sheet(_safe_sheet("Közmű-források", used))
+    src = wb.create_sheet(xlsx.safe_sheet("Közmű-források", used))
     srows = [[s["address"], s["utility"], m, "elszámolás" if x.get("settlement") else c["status"], x["amount"], x["file"],
               x["item_id"], x["page"], x["field"], "igen" if x["corrected"] else "", x["open_reasons"] or ""]
              for s in report["series"] for m, c in s["cells"].items() for x in c["sources"]]
     srows += [[None, None, None, "nem vetíthető: " + u["reason"], None, u["file"], u["item_id"], None, None, "", ""] for u in report["unplaced"]]
     srows += [[None, None, None, f"ismétlődő (azonos: {d['same_as_file']})", None, d["file"], d["item_id"], None, None, "", ""]
               for d in report.get("duplicates", [])]
-    _write_sheet(src, ["Fogyasztási hely", "Közmű", "Hónap", "Állapot", "Összeg (hónapra jutó)", "Irat", "Tétel-azonosító",
+    xlsx.write_table(src, ["Fogyasztási hely", "Közmű", "Hónap", "Állapot", "Összeg (hónapra jutó)", "Irat", "Tétel-azonosító",
                        "Oldal", "Mező", "Javítva", "Nyitott teendők"], srows, [None] * 4 + ["money"])
 
 
@@ -474,20 +420,20 @@ def workbook_bytes(records: list[dict[str, Any]], mails: list[dict[str, Any]], n
     used: set[str] = set()
     if native:
         head, rows = native_facts_table(native)
-        _write_sheet(wb.create_sheet(_safe_sheet("Native facts", used)), head, rows)
-        _write_sheet(wb.create_sheet(_safe_sheet("Native readings", used)),
+        xlsx.write_table(wb.create_sheet(xlsx.safe_sheet("Native facts", used)), head, rows)
+        xlsx.write_table(wb.create_sheet(xlsx.safe_sheet("Native readings", used)),
                      ["Document", "Item identifier", "Reading status", "Interpretation status", "Result version", "Reading details"],
                      [[record["file"], record["item_id"], record["reading"]["status"],
                        record["interpretation_outcome"]["status"], record["result_version"],
                        json.dumps(record["reading"], ensure_ascii=False, sort_keys=True)] for record in native])
     if mails:  # 058 K5.1: the email items on their own sheet
         head, rows = emails_table(mails)
-        _write_sheet(wb.create_sheet(_safe_sheet("Levelek", used)), head, rows)
+        xlsx.write_table(wb.create_sheet(xlsx.safe_sheet("Levelek", used)), head, rows)
         tasks = task_rows(mails)
         if tasks:  # 058 K5.3: the task proposals on a separate sheet, with the decision
             actions = cfg.load("email_tasks")["actions"]
             decisions = {"accepted": "elfogadva", "rejected": "elvetve"}
-            _write_sheet(wb.create_sheet(_safe_sheet("Feladatok", used)),
+            xlsx.write_table(wb.create_sheet(xlsx.safe_sheet("Feladatok", used)),
                          ["Levél", "Akció", "Feladat", "Határidő", "Felelős", "Bizonyíték", "Döntés", "Döntött", "Elvégezve", "Elvégezte",
                           "Tétel-azonosító"],
                          [[t["subject"], actions.get(t["action"], t["action"]), t["title"], t["due_date"], t["assignee_hint"], t["evidence"],
@@ -500,9 +446,9 @@ def workbook_bytes(records: list[dict[str, Any]], mails: list[dict[str, Any]], n
     for doc_type in sorted({r["doc_type"] for r in records}):
         head, rows = documents_table(records, doc_type)
         kinds = next(r["kinds"] for r in records if r["doc_type"] == doc_type)
-        _write_sheet(wb.create_sheet(_safe_sheet(doc_type, used)), head, rows, [None] * len(DOC_HEAD) + [kinds.get(h) for h in head[len(DOC_HEAD):]])
+        xlsx.write_table(wb.create_sheet(xlsx.safe_sheet(doc_type, used)), head, rows, [None] * len(DOC_HEAD) + [kinds.get(h) for h in head[len(DOC_HEAD):]])
     head, rows = datapoints_table(records)
-    _write_sheet(wb.create_sheet(_safe_sheet("Adatpontok", used)), head, rows)
+    xlsx.write_table(wb.create_sheet(xlsx.safe_sheet("Adatpontok", used)), head, rows)
     head, rows = line_items_table(records)
     list_kinds: dict[str, str] = {}
     for r in records:
@@ -510,7 +456,7 @@ def workbook_bytes(records: list[dict[str, Any]], mails: list[dict[str, Any]], n
         for lf in pack.list_fields.values():
             for c, k in lf.items():
                 list_kinds.setdefault(c, k)
-    _write_sheet(wb.create_sheet(_safe_sheet("Tételsorok", used)), head, rows, [None] * 6 + [list_kinds.get(h) for h in head[6:]])
+    xlsx.write_table(wb.create_sheet(xlsx.safe_sheet("Tételsorok", used)), head, rows, [None] * 6 + [list_kinds.get(h) for h in head[6:]])
     _utility_sheets(wb, report_utility.build(records), used)
     buf = io.BytesIO()
     wb.save(buf)

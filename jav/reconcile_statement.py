@@ -35,7 +35,8 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import activity_kinds, cfg, export, naming, reconcile, reconcile_package as rp, store, work
+from jav import activity_kinds, cfg, naming, reconcile, reconcile_package as rp, store, work
+from jav.outputs import xlsx as xlsx_writer
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
@@ -280,33 +281,8 @@ def _heading(st: dict[str, Any], state: str, lab: dict[str, Any]) -> list[tuple[
 
 
 def _sheet(ws: Any, heading: list[tuple[str, str]], head: list[str], rows: list[list[Any]], kinds: list[str | None]) -> None:
-    """A heading block, an empty row, then the table with its header frozen and filtered; a text is never a formula."""
-    from openpyxl.styles import Font, PatternFill
-    from openpyxl.utils import get_column_letter
-
-    for label, value in heading:
-        ws.append([label, export._cell_value(value, None)])
-        ws.cell(ws.max_row, 1).font = Font(bold=True)
-    ws.append([])
-    top = ws.max_row + 1
-    ws.append(head)
-    for row in rows:
-        ws.append([export._cell_value(v, kinds[i] if i < len(kinds) else None) for i, v in enumerate(row)])
-    for row in ws.iter_rows():
-        for c in row:
-            if isinstance(c.value, str):
-                c.data_type = "s"  # text is never a formula (jav/export.py)
-            elif isinstance(c.value, Decimal):
-                c.number_format = "#,##0.00"
-    for c in ws[top]:
-        c.font = Font(bold=True)
-        c.fill = PatternFill("solid", fgColor="EEEEF2")
-    ws.freeze_panes = f"A{top + 1}"
-    if rows:
-        ws.auto_filter.ref = f"A{top}:{get_column_letter(len(head))}{top + len(rows)}"
-    for i, h in enumerate(head, 1):
-        width = max([len(str(h))] + [len(str(r[i - 1])) for r in rows[:200] if r[i - 1] is not None])
-        ws.column_dimensions[get_column_letter(i)].width = min(60, max(10, width + 2))
+    """A heading block, an empty row, then the table with its header frozen and filtered (`jav/outputs/xlsx.py`)."""
+    xlsx_writer.write_table(ws, head, rows, kinds, heading=heading, min_width=10)
 
 
 def _shown(stamp: str | None) -> str:
@@ -334,9 +310,9 @@ def xlsx(wp_id: str, *, version: int | None = None) -> tuple[bytes, str]:
     wb = Workbook()
     used: set[str] = set()
     first = wb.active
-    first.title = export._safe_sheet(lab["sheets"]["invoices"], used)
+    first.title = xlsx_writer.safe_sheet(lab["sheets"]["invoices"], used)
     _sheet(first, heading, *_invoice_table(st, lab))
-    _sheet(wb.create_sheet(export._safe_sheet(lab["sheets"]["lines"], used)), heading, *_line_table(st, lab))
+    _sheet(wb.create_sheet(xlsx_writer.safe_sheet(lab["sheets"]["lines"], used)), heading, *_line_table(st, lab))
     buf = io.BytesIO()
     wb.save(buf)
     slug = naming.safe_part(st["package"]["name"], limit=40) or st["package"]["id"]  # accents folded (078)

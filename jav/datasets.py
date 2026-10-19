@@ -1199,10 +1199,12 @@ def export_file(name: str, scope: dict[str, str] | None, q: Query, rows_mode: st
     elif fmt == "xlsx":
         from openpyxl import Workbook
 
+        from jav.outputs import xlsx as xlsx_writer
+
         wb = Workbook()
         ws = wb.active
-        ws.title = export._safe_sheet(ds.label, set())
-        export._write_sheet(ws, head, table, [c.kind if c.kind in ("money", "number") else None for c in cols])
+        ws.title = xlsx_writer.safe_sheet(ds.label, set())
+        xlsx_writer.write_table(ws, head, table, [c.kind if c.kind in ("money", "number") else None for c in cols])
         buf = io.BytesIO()
         wb.save(buf)
         data = buf.getvalue()
