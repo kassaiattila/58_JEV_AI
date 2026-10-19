@@ -2,7 +2,7 @@
 
 A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition (M1), invoice data extraction (M2) and email intent (M3) — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.22.1`** (2026-10-19). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.23.0`** (2026-10-19). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
@@ -26,7 +26,7 @@ The system reads invoices, other documents and emails. It recognises what type e
 | | **Reliable execution**: a durable job queue and a single background worker; resumption from the saved step; a call log and an up-front cost reservation for every paid call (a call sent without an answer counts as uncertain and is never repeated by itself); the cost of each item, run and work package per provider and model, with the run's total first; to-dos grouped by reason | Works on the worker path |
 | Review | **Workspace** in the browser: each package has three stages — Processing, Review and Result. To-dos are shown on the document's page image with boxed fields, alternative candidates and selection on the image; every field has a tick (correct, recorded as verified) and a cross (fix it), with a filter and keyboard navigation; field corrections are versioned. Hungarian and English, light and dark theme | Works |
 | | **Users and assignment**: "Who is working?", a package owner, "Only my work packages" and "My work today" | Works; choosing a name is not a login |
-| Results | **Reports and export**: Excel, CSV and JSON exports of documents, data points (with page and source text) and line items; a monthly utility-cost grid by point of consumption, showing missing, partial and overlapping months | Works |
+| Results | **Reports and export**: Excel, CSV and JSON exports of documents, data points (with page and source text) and line items; a monthly utility-cost grid by point of consumption, showing missing, partial and overlapping months, with its own Excel download; **own Excel templates** for a package's workbook, the utility cost and the reconciliation statement: uploaded in Settings, checked (no formulas, macros, links or unknown markers), versioned and previewed with made-up data, then chosen beside each download; a released or approved file is stored, never rebuilt | Works |
 | | **Unified data view**: one shared table for every list and result (search, per-column filters and sorting, paging, column picker, selection) and one download panel | Works |
 | | **Content-based file names**: copies of a run's documents under uniform names built from their data (date, type, partner, identifier; per-type rules), as a ZIP or into an output folder, with a manifest; the originals never change, and copies with an uncertain name go to a separate review subfolder; the item lists can show each document under its unified name | Works |
 | Operations | **Local service** shared by the UI and the command line; it listens on the local machine only and validates every input | Works |
