@@ -42,7 +42,7 @@ from difflib import SequenceMatcher
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import cfg, store
+from jav import cfg, store, type_roles
 from jav.user_messages import explained
 
 REASON = "statement"
@@ -440,7 +440,7 @@ def item_view(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str,
 
     with store.connect() as c:
         rows = package_result.result_rows(c, package_result.counted_documents(c, [item_id]))
-    if not rows or rows[0]["doc_type"] not in reconcile._conf()["statement_types"]:
+    if not rows or not type_roles.has(rows[0]["doc_type"], "statement"):
         return []
     every = reconcile.statements()
     by_id = {s["id"]: s for s in every}

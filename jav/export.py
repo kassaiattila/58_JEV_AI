@@ -29,7 +29,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from jav import card_numbers, cfg, corrections, duplicates, native_results, package_result, store, typepack, work
+from jav import card_numbers, cfg, corrections, duplicates, native_results, package_result, store, type_roles, typepack, work
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
 SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
@@ -283,8 +283,7 @@ def _directions(recs: list[dict[str, Any]]) -> list[str | None]:
     """147: an invoice's direction from the own parties (`parties.direction`); None for a document of another kind."""
     from jav import parties
 
-    conf = cfg.load("reconcile")
-    kinds = {*conf["invoice_types"], *conf["outgoing_types"]}
+    kinds = {*type_roles.types("incoming_invoice"), *type_roles.types("outgoing_invoice")}
     if not any(r["doc_type"] in kinds for r in recs):
         return [None] * len(recs)
     res = parties.resolver()

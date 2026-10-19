@@ -14,7 +14,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any, Literal
 
-from jav import cfg
+from jav import cfg, type_roles
 from jav.emails import Attachment
 from jav.intents import DOCUMENT_BEARING
 from jav.models import FlowState
@@ -94,7 +94,7 @@ def detail_direction(key: str | None, probabilities: dict[str, float] | None, di
     """149: whether the direction the own parties give an invoice settles its uncertain detailed type: `confirmed`
     (the type's side, `detect_detail.direction_sides`), `contradicted` (the side of the runner-up), or None when the
     uncertainty was not between an outgoing and an incoming pack, or the parties do not say."""
-    sides = {k: side for side, keys in DETECT_DETAIL.get("direction_sides", {}).items() for k in keys}
+    sides = {k: side for side in ("outgoing", "incoming") for k in type_roles.types(f"direction:{side}")}
     if not key or key not in sides or not probabilities:
         return None
     rivals = sorted(((p, k) for k, p in probabilities.items() if k not in (key, "none")), reverse=True)
@@ -136,7 +136,7 @@ def issuer_mismatch_reason(doc_type: str | None, detail_type: str | None, issuer
     decides there (an Upwork invoice of a Hungarian freelancer is `invoice_foreign`)."""
     if engine not in DETECT_ISSUER["engines"] or issuer_hu is None:
         return None
-    hungarian = set(DETECT_ISSUER["hungarian_types"])
+    hungarian = set(type_roles.types("hungarian_issuer"))
     claimed = detail_type if detail_type in hungarian else doc_type if doc_type in hungarian else None
     if claimed and noul_band(issuer_hu, f"detect.issuer_is_hungarian.{engine}") == "no":
         return f"detect:issuer_mismatch:{claimed}"
@@ -460,7 +460,7 @@ def decide(state: FlowState) -> str:
 # --------------------------------------------------------------------------------------
 
 INTENT_HUMAN_MAX_CONF: float = band("email.intent")["choice_human_max_conf"]  # below: manual queue, whatever the label
-M2_TYPES = frozenset(_EMAIL["m2_types"])  # has / will have an M2 flow
+M2_TYPES = frozenset(type_roles.types("email_extraction"))  # has / will have an M2 flow
 INTENT_ROUTE: dict[str, str] = dict(_EMAIL["intent_route"])  # attachment-independent default per intent
 EMAIL_JEV_UNAVAILABLE_ROUTE: str = _EMAIL["jev_unavailable_route"]  # JEV did not answer -> manual queue
 EMAIL_SENT_ROUTE: str = _EMAIL["sent_route"]  # 149: a message we sent, without a document attachment

@@ -38,7 +38,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import cfg, fact_checks, package_result, store
+from jav import cfg, fact_checks, package_result, store, type_roles
 from jav.runtime import calls
 from jav.user_messages import explained
 
@@ -78,12 +78,12 @@ def config_hash() -> str:
 
 
 def family(doc_type: str | None) -> str | None:
-    """The family of an invoice-like type; None for any other type."""
-    return next((name for name, types in _conf()["families"].items() if doc_type in types), None)
+    """The family of an invoice-like type; None for any other type (175: the type's role, `jav/type_roles.py`)."""
+    return type_roles.duplicate_family(doc_type)
 
 
 def family_types() -> list[str]:
-    return [t for types in _conf()["families"].values() for t in types]
+    return [t for types in type_roles.duplicate_families().values() for t in types]
 
 
 def key_fields() -> list[str]:
