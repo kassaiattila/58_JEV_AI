@@ -47,7 +47,7 @@ describe("181 the email routing package", () => {
     const items = [
       item("invoice.pdf"),
       item("sold.pdf", { email: { ...EMAIL, folder: "sent" }, placement: { ...item("x").placement, role: "outgoing_invoices", role_title: "Outgoing invoices" },
-        proposal: { target: null, others: [], new: { name: "Example Kft. · 2026-06 · Outgoing invoices", party_id: "party-00000000000a",
+        proposal: { target: null, others: [], new: { name: "Example Kft. · 2026-06 · Outgoing invoices", party: "Example Kft.", party_id: "party-00000000000a",
           period_start: "2026-06-01", period_end: "2026-06-30", role: "outgoing_invoices" } } }),
       item("odd.pdf", { placement: { ...item("x").placement, problem: "suspicious" }, proposal: null }),
       item("done.pdf", { proposal: null, decision: { decision: "accepted", target: "wp-00000000000t", target_name: "June incoming", made: 0,
@@ -69,7 +69,8 @@ describe("181 the email routing package", () => {
     const all = screen.getByRole("button", { name: "Accept every clear proposal (2)" });
     expect(all.className).toBe("primary");
     fireEvent.click(all);
-    await waitFor(() => expect(acceptClear).toHaveBeenCalledWith("wp-00000000000r"));
+    await waitFor(() => expect(acceptClear).toHaveBeenCalledWith("wp-00000000000r",
+      { incoming_invoices: "Incoming invoices", outgoing_invoices: "Outgoing invoices" }));
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
     fireEvent.click(within(row("odd.pdf")).getByRole("button", { name: "Do not route" }));
     await waitFor(() => expect(reject).toHaveBeenCalledWith("wp-00000000000r", ["id-odd.pdf"]));

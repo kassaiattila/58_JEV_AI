@@ -132,9 +132,9 @@ def test_each_emailed_document_is_placed_and_proposed(db) -> None:
     assert items["invoice.pdf"]["proposal"]["target"] == {"id": target["id"], "name": "June incoming"}
     assert items["invoice.pdf"]["email"]["subject"] == "About m1"
     assert items["sold.pdf"]["placement"]["role"] == "outgoing_invoices"
-    assert items["sold.pdf"]["proposal"]["new"] == {"name": "Example Kft. · 2026-06 · Outgoing invoices", "party_id": party,
-                                                    "period_start": "2026-06-01", "period_end": "2026-06-30",
-                                                    "role": "outgoing_invoices"}
+    assert items["sold.pdf"]["proposal"]["new"] == {"name": "Example Kft. · 2026-06 · Outgoing invoices", "party": "Example Kft.",
+                                                    "party_id": party, "period_start": "2026-06-01",
+                                                    "period_end": "2026-06-30", "role": "outgoing_invoices"}
     assert items["statement.pdf"]["placement"]["role"] == "statements" and items["statement.pdf"]["placement"]["day"] == "2026-06-30"
     assert not items["contract.pdf"]["placement"]["routable"] and items["contract.pdf"]["proposal"] is None
     assert {f: items[f]["placement"]["problem"] for f in ("unknown.pdf", "late.pdf", "odd.pdf", "bought.pdf")} == {
@@ -153,14 +153,15 @@ def test_accepting_adds_the_documents_and_makes_the_new_packages(db) -> None:
     _result(wp, ids["m4"], "invoice_hu", _invoice(buyer_tax_id="13570008-1-13", buyer_name="Someone Else Kft."))
     routing = email_routing.create(name="Routing", sources=[wp], actor="tester")["workpackage_id"]
     assert email_routing.LOGIC.next_step(routing)["code"] == "routing_decide"
-    view = email_routing.accept_clear(routing, actor="Example Person")
+    view = email_routing.accept_clear(routing, actor="Example Person", titles={"incoming_invoices": "Beérkező számlák"})
     items = _items(view)
-    # the two June invoices went into one new package of incoming invoices, with its scope
+    # the two June invoices went into one new package of incoming invoices, with its scope, named in the interface's language
     new_in = items["invoice.pdf"]["decision"]["target"]
     assert items["other.pdf"]["decision"]["target"] == new_in and items["invoice.pdf"]["decision"]["made"] == 1
     assert items["other.pdf"]["decision"]["made"] == 0
     package = work.get(new_in)
-    assert package["name"] == "Example Kft. · 2026-06 · Incoming invoices"
+    assert package["name"] == "Example Kft. · 2026-06 · Beérkező számlák"
+    assert work.get(items["sold.pdf"]["decision"]["target"])["name"] == "Example Kft. · 2026-06 · Outgoing invoices"
     assert {i["item_id"] for i in package["items"]} == {ids["m1"], ids["m2"]}
     scope = package_scope.scope_of(new_in)
     assert (scope["party_id"], scope["period_start"], scope["role"], scope["from"]) == (party, "2026-06-01", "incoming_invoices", "own")

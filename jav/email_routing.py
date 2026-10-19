@@ -209,10 +209,15 @@ def _proposal(placement: dict[str, Any], party_names: dict[str, str], among: lis
         return {"target": {"id": fits[0]["id"], "name": fits[0]["name"]},
                 "others": [{"id": f["id"], "name": f["name"]} for f in fits[1:]], "new": None}
     start, end = _month(placement["day"])
-    role = package_scope.role(placement["role"])
-    name = f"{party_names.get(placement['party_id'], placement['party_id'])} · {start[:7]} · {role.title}"
-    return {"target": None, "others": [], "new": {"name": name, "party_id": placement["party_id"], "period_start": start,
-                                                   "period_end": end, "role": placement["role"]}}
+    party = party_names.get(placement["party_id"], placement["party_id"])
+    return {"target": None, "others": [], "new": {"name": _new_name(party, start, package_scope.role(placement["role"]).title),
+                                                   "party": party, "party_id": placement["party_id"],
+                                                   "period_start": start, "period_end": end, "role": placement["role"]}}
+
+
+def _new_name(party: str, start: str, title: str) -> str:
+    """A new package's name: its party, its month and its role's title (in the interface's language when it gave one)."""
+    return f"{party} · {start[:7]} · {title}"
 
 
 def _decisions(wp_id: str) -> dict[str, dict[str, Any]]:
@@ -344,10 +349,12 @@ def _record(wp_id: str, item_id: str, decision: str, target: str | None, made: b
             work.record_event(c, wp_id, "routing_reject", actor, detail)
 
 
-def accept(wp_id: str, item_ids: list[str], *, actor: str, target: str | None = None) -> dict[str, Any]:
+def accept(wp_id: str, item_ids: list[str], *, actor: str, target: str | None = None,
+           titles: dict[str, str] | None = None) -> dict[str, Any]:
     """Accepts the proposals of the given attachments (or puts each into `target`, a person's choice): the document is
-    added to the package, or the proposed new package is made with it. An attachment with a blocker can only go to a
-    package a person chose. Returns the view."""
+    added to the package, or the proposed new package is made with it, named with its role's title in `titles` (the
+    interface's language) when given. An attachment with a blocker can only go to a package a person chose. Returns the
+    view."""
     rows = view(wp_id)["items"]
     files = {a["item_id"]: a for a in _attachments(sources_of(wp_id))}
     made_now: dict[tuple[str, str, str, str], str] = {}  # one new package per party, month and role in one call
@@ -370,7 +377,9 @@ def accept(wp_id: str, item_ids: list[str], *, actor: str, target: str | None = 
             _add(prop["target"]["id"], att, role, actor)
             _record(wp_id, item_id, "accepted", prop["target"]["id"], False, actor)
             continue
-        new = prop["new"]
+        new = dict(prop["new"])
+        if titles and titles.get(new["role"]):
+            new["name"] = _new_name(new["party"], new["period_start"], titles[new["role"]])[:200]
         key = (new["party_id"], new["period_start"], new["period_end"], new["role"])
         if key in made_now:
             _add(made_now[key], att, role, actor)
@@ -381,10 +390,10 @@ def accept(wp_id: str, item_ids: list[str], *, actor: str, target: str | None = 
     return view(wp_id)
 
 
-def accept_clear(wp_id: str, *, actor: str) -> dict[str, Any]:
+def accept_clear(wp_id: str, *, actor: str, titles: dict[str, str] | None = None) -> dict[str, Any]:
     """Accepts every proposal without a blocker that is not decided yet."""
     rows = view(wp_id)["items"]
-    return accept(wp_id, [r["item_id"] for r in rows if r["proposal"] and not r["decision"]], actor=actor)
+    return accept(wp_id, [r["item_id"] for r in rows if r["proposal"] and not r["decision"]], actor=actor, titles=titles)
 
 
 def reject(wp_id: str, item_ids: list[str], *, actor: str) -> dict[str, Any]:

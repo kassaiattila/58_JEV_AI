@@ -78,6 +78,9 @@ function Decide({ wpId, view, onChanged }: { wpId: string; view: RoutingView; on
   const [choosing, setChoosing] = useState<string | null>(null);
   const routable = view.items.filter((i) => i.placement.routable);
   const others = view.items.filter((i) => !i.placement.routable);
+  // a new package is named with its role's title in the interface's language
+  const titles = Object.fromEntries(routable.filter((i) => i.placement.role && i.placement.role_title)
+    .map((i) => [i.placement.role as string, t(i.placement.role_title as string)]));
   async function act(fn: () => Promise<unknown>) {
     setBusy(true);
     setError(null);
@@ -96,7 +99,7 @@ function Decide({ wpId, view, onChanged }: { wpId: string; view: RoutingView; on
       <div className="card-head">
         <h3>{t("Documents to route")}</h3>
         <button type="button" className={view.counts.clear ? "primary" : "secondary"} disabled={busy || !view.counts.clear}
-          onClick={() => void act(() => api.routingAcceptClear(wpId))}>
+          onClick={() => void act(() => api.routingAcceptClear(wpId, titles))}>
           {t("Accept every clear proposal ({{n}})", { n: view.counts.clear })}
         </button>
       </div>
@@ -123,7 +126,7 @@ function Decide({ wpId, view, onChanged }: { wpId: string; view: RoutingView; on
                   ) : (
                     <span className="rt-actions small">
                       {i.proposal ? <button type="button" className="secondary small-btn" disabled={busy}
-                        onClick={() => void act(() => api.routingAccept(wpId, [i.item_id]))}>{t("Accept")}</button> : null}
+                        onClick={() => void act(() => api.routingAccept(wpId, [i.item_id], undefined, titles))}>{t("Accept")}</button> : null}
                       {i.placement.role ? <button type="button" className="secondary small-btn" disabled={busy} onClick={() => setChoosing(i.item_id)}>{t("Choose a package…")}</button> : null}
                       <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void act(() => api.routingReject(wpId, [i.item_id]))}>{t("Do not route")}</button>
                     </span>
@@ -158,7 +161,9 @@ function ProposalCell({ item }: { item: RoutingItem }) {
       </span>
     );
   }
-  return <span className="status s-review">{t("New package: {{name}}", { name: p.new!.name })}</span>;
+  const n = p.new!;
+  const name = item.placement.role_title ? [n.party, n.period_start.slice(0, 7), t(item.placement.role_title)].join(" · ") : n.name;
+  return <span className="status s-review">{t("New package: {{name}}", { name })}</span>;
 }
 
 function DecisionMark({ item }: { item: RoutingItem }) {
