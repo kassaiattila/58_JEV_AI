@@ -1082,7 +1082,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.get(r + "/workpackages/{wp_id}/versions/{version}/files/{name}")
     def package_version_file(wp_id: WpId, version: Annotated[int, PathParam(ge=1, le=100000)],
                              name: Literal["result.xlsx", "result.json", "documents.csv", "datapoints.csv",
-                                           "line_items.csv", "native_facts.csv"]) -> Response:
+                                           "line_items.csv", "native_facts.csv", "utility_cost.xlsx"]) -> Response:
         """171: a released version's download, the stored file itself (it never changes)."""
         content, media, filename = package_release.version_file(wp_id, version, name)
         return Response(content, media_type=media, headers={"Content-Disposition": attachment_header(filename),
@@ -1334,6 +1334,12 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     for routes in logic_routes().values():
         routes(app, r)
+
+    # --- 178 (plan 170 L4): own output templates and a package's choice of them (jav/api_outputs.py) ---
+
+    from jav import api_outputs
+
+    api_outputs.routes(app, r)
 
     # --- 146: workflows (the work packages of one job, chained; jav/workflows.py) ---
 

@@ -49,7 +49,8 @@ class Table:
     """One table of an output's data. `key`: the contract's table; `part`: the document type of a table per type;
     `title`: the built-in layout's sheet name; `columns`: the column keys; `head`: the built-in layout's header;
     `kinds`: each column's writer kind (money, number or None); `rows`: the values in column order; `marks`: marked
-    cells, (row index, column index) -> mark (the utility grid's missing, overlap or partial month)."""
+    cells, (row index, column index) -> mark (the utility grid's missing, overlap or partial month); `footer`: rows
+    the built-in template writes below the rows (the utility cost's grand total; an own template takes the value)."""
 
     key: str
     title: str
@@ -59,6 +60,7 @@ class Table:
     rows: Sequence[Sequence[Any]]
     part: str | None = None
     marks: Mapping[tuple[int, int], str] = field(default_factory=dict)
+    footer: Sequence[Sequence[Any]] = ()
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,11 @@ class OutputData:
 
 def outputs() -> dict[str, Any]:
     return cfg.load("outputs")["outputs"]
+
+
+def templates() -> dict[str, Any]:
+    """The limits of an own template (its size, the made-up rows of a preview)."""
+    return cfg.load("outputs")["templates"]
 
 
 def spec(output: str) -> dict[str, Any]:

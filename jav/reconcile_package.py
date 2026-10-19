@@ -1556,7 +1556,7 @@ LOGIC = logic_packs.LogicPack(
            logic_packs.InputRole("invoices", "period", "the invoices other packages processed, the own party's first")),
     has_runs=False, add_refusal="a reconciliation package has no documents", release_refusal=_release_refusal,
     delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next, list_next=_list_next,
-    list_mark=_list_mark)
+    list_mark=_list_mark, outputs=("reconcile_statement",))
 
 
 def register() -> None:

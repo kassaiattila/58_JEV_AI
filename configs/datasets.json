@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.25.0",
+  "version": "1.26.0",
   "changelog": [
+   {
+    "version": "1.26.0",
+    "date": "2026-10-19",
+    "note": "178 (plan 170 L4): activity_action label of a package's output template chosen (jav/outputs/templates.py)."
+   },
    {
     "version": "1.25.0",
     "date": "2026-10-19",
@@ -172,6 +177,7 @@
    "reconcile_reopen": "reconciliation: approval reopened", "statement_scope": "statement package: party and period set",
    "statement_account": "statement package: bank account assigned to the party", "statement_add": "statement package: statements added",
    "package_release": "package: approved and released",
+   "output_template_choose": "output: template chosen",
    "duplicate_decision": "duplicate invoice: decided",
    "statement_choice": "statements of the same days: valid one chosen",
    "workflow_create": "workflow: made",

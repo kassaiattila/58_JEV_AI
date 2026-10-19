@@ -298,8 +298,13 @@ def documents_table(records: list[dict[str, Any]], doc_type: str | None = None) 
     return DOC_HEAD + fields, [_doc_row(r, d) + [r["fields"].get(f) for f in fields] for r, d in zip(recs, _directions(recs))]
 
 
+DATAPOINT_HEAD = ("Irat", "Tétel-azonosító", "Típus", "Mező", "Érték", "Oldal", "Forrásszöveg", "Hely", "Javítva", "Teendő a mezőn")
+LINE_HEAD = ("Irat", "Tétel-azonosító", "Típus", "Lista", "Sor", "Oldal")
+LIST_VALUE = "érték"  # the column of a list whose rows are single values
+
+
 def datapoints_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[Any]]]:
-    head = ["Irat", "Tétel-azonosító", "Típus", "Mező", "Érték", "Oldal", "Forrásszöveg", "Hely", "Javítva", "Teendő a mezőn"]
+    head = list(DATAPOINT_HEAD)
     rows = []
     for r in records:
         for f, v in r["fields"].items():
@@ -314,14 +319,14 @@ def line_items_table(records: list[dict[str, Any]]) -> tuple[list[str], list[lis
     for r in records:
         for rows in r["lists"].values():
             for row in rows:
-                cols += [c for c in (row if isinstance(row, dict) else {"érték": row}) if c not in cols]
-    head = ["Irat", "Tétel-azonosító", "Típus", "Lista", "Sor", "Oldal"] + cols
+                cols += [c for c in (row if isinstance(row, dict) else {LIST_VALUE: row}) if c not in cols]
+    head = list(LINE_HEAD) + cols
     out = []
     for r in records:
         for lst, rows in r["lists"].items():
             pages = r["row_pages"].get(lst) or []
             for i, row in enumerate(rows):
-                row = row if isinstance(row, dict) else {"érték": row}
+                row = row if isinstance(row, dict) else {LIST_VALUE: row}
                 out.append([r["file"], r["item_id"], r["doc_type"], lst, i + 1, pages[i] if i < len(pages) else None]
                            + [row.get(c) for c in cols])
     return head, out
@@ -371,6 +376,7 @@ def csv_bytes(head: list[str], rows: list[list[Any]]) -> bytes:
 
 
 STATUS_TEXT = {"missing": "hiányzik", "overlap": "átfedés", "partial": "részleges", "ok": ""}
+GRAND_TOTAL_LABEL = "Mindösszesen (a tájékoztató sorok nélkül)"
 
 # 178 (plan 170 L4): the column keys of the result's tables (`configs/outputs.json` `package_result`), in the order of
 # their headers
@@ -412,9 +418,10 @@ def _utility_tables(report: dict[str, Any]) -> list[contract.Table]:
             st = (s["cells"].get(m) or {}).get("status")
             if st in ("missing", "overlap", "partial"):
                 marks[(r_i, len(UTILITY_COLUMNS) + m_i)] = st
-    rows.append(["Mindösszesen (a tájékoztató sorok nélkül)", "", "", "", report["grand_total"]] + [""] * len(months))
+    footer = [[GRAND_TOTAL_LABEL, "", "", "", report["grand_total"]] + [""] * len(months)]
     series = _table("utility_cost", "Közmű-költség", UTILITY_COLUMNS + tuple(f"month_{m.replace('-', '_')}" for m in months),
-                    UTILITY_HEAD + tuple(months), rows, [None, None, None, None, "money"] + ["money"] * len(months), marks=marks)
+                    UTILITY_HEAD + tuple(months), rows, [None, None, None, None, "money"] + ["money"] * len(months), marks=marks,
+                    footer=footer)
     srows = [[s["address"], s["utility"], m, "elszámolás" if x.get("settlement") else c["status"], x["amount"], x["file"],
               x["item_id"], x["page"], x["field"], "igen" if x["corrected"] else "", x["open_reasons"] or ""]
              for s in report["series"] for m, c in s["cells"].items() for x in c["sources"]]
@@ -430,9 +437,11 @@ def xlsx_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> byte
     return workbook_bytes(records, email_records(run_id), native_records(run_id))
 
 
-def result_data(records: list[dict[str, Any]], mails: list[dict[str, Any]], native: list[dict[str, Any]]) -> contract.OutputData:
+def result_data(records: list[dict[str, Any]], mails: list[dict[str, Any]], native: list[dict[str, Any]],
+                values: tuple[contract.Value, ...] = ()) -> contract.OutputData:
     """178 (plan 170 L4): the result's data as the output contract describes it (`package_result`): the native facts and
-    readings, the emails and their tasks, the documents by type, the data points, the line items and the utility cost."""
+    readings, the emails and their tasks, the documents by type, the data points, the line items and the utility cost;
+    `values`: the package's (`package_values`). The grand total of the utility cost is a value too."""
     from jav import report_utility
 
     tables: list[contract.Table] = []
@@ -455,7 +464,7 @@ def result_data(records: list[dict[str, Any]], mails: list[dict[str, Any]], nati
                                    t["evidence"], decisions.get(t["decision"] or "", "vár döntésre"), t["decided_by"], t["done_at"],
                                    t["done_by"], t["item_id"]] for t in tasks]))
         if not records:  # emails only: no empty document sheet
-            return contract.OutputData("package_result", (), tuple(tables))
+            return contract.OutputData("package_result", values, tuple(tables))
     for doc_type in sorted({r["doc_type"] for r in records}):
         head, rows = documents_table(records, doc_type)
         kinds = next(r["kinds"] for r in records if r["doc_type"] == doc_type)
@@ -471,10 +480,38 @@ def result_data(records: list[dict[str, Any]], mails: list[dict[str, Any]], nati
         for lf in pack.list_fields.values():
             for c, k in lf.items():
                 list_kinds.setdefault(c, k)
-    tables.append(_table("line_items", "Tételsorok", LINE_COLUMNS + tuple("value" if c == "érték" else c for c in head[6:]), head, rows,
+    tables.append(_table("line_items", "Tételsorok", LINE_COLUMNS + tuple("value" if c == LIST_VALUE else c for c in head[6:]), head, rows,
                          [None] * 6 + [list_kinds.get(h) for h in head[6:]]))
-    tables += _utility_tables(report_utility.build(records))
-    return contract.OutputData("package_result", (), tuple(tables))
+    report = report_utility.build(records)
+    tables += _utility_tables(report)
+    return contract.OutputData("package_result", (*values, _grand_total(report)), tuple(tables))
+
+
+PERIOD_LABEL = "Időszak"
+
+
+def _grand_total(report: dict[str, Any]) -> contract.Value:
+    return contract.Value("grand_total", GRAND_TOTAL_LABEL, report["grand_total"])
+
+
+def package_values(wp: dict[str, Any], version: dict[str, Any] | None = None) -> tuple[contract.Value, ...]:
+    """178: the package's values of an output: its name, and for a released version its number, who released it and
+    when (empty for the current result)."""
+    v = version or {}
+    at = (v.get("released_at") or "")[:16].replace("T", " ")
+    return (contract.Value("package", "Csomag", wp["name"]), contract.Value("version", "Változat", str(v.get("version") or "")),
+            contract.Value("released_by", "Kiadta", v.get("released_by") or ""), contract.Value("released_at", "Kiadva", at))
+
+
+def utility_data(records: list[dict[str, Any]], values: tuple[contract.Value, ...] = ()) -> contract.OutputData:
+    """178 (DECISIONS 178): the utility cost as an output of its own (`utility_cost`): the grid by month and its sources,
+    the period (the first and the last month) and the grand total; `values`: the package's name."""
+    from jav import report_utility
+
+    report = report_utility.build(records)
+    months = report["months"]
+    period = contract.Value("period", PERIOD_LABEL, f"{months[0]} – {months[-1]}" if months else "")
+    return contract.OutputData("utility_cost", (*values[:1], period, _grand_total(report)), tuple(_utility_tables(report)))
 
 
 def workbook_bytes(records: list[dict[str, Any]], mails: list[dict[str, Any]], native: list[dict[str, Any]]) -> bytes:

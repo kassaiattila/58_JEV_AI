@@ -39,7 +39,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav import activity_kinds, cfg, naming, reconcile, reconcile_package as rp, store, work
-from jav.outputs import builtin, contract
+from jav.outputs import builtin, contract, templates
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
@@ -204,7 +204,8 @@ def approve(wp_id: str, *, fingerprint: str, actor: str) -> dict[str, Any]:
                         " approved_at) VALUES (?,?,?,?,?,?,?)", (wp_id, n, json.dumps(content, ensure_ascii=False, default=str),
                                                                  fingerprint, json.dumps(line_ids), actor, _now()))
         # 178: the version's file as approved, made from the statement as stored (the download read it so before)
-        _store_file(c, cur.lastrowid, _meta(c.execute("SELECT * FROM reconcile_versions WHERE id=?", (cur.lastrowid,)).fetchone()))
+        _store_file(c, cur.lastrowid, _meta(c.execute("SELECT * FROM reconcile_versions WHERE id=?", (cur.lastrowid,)).fetchone()),
+                    wp_id=wp_id)
         work.record_event(c, wp_id, "reconcile_approve", actor, {"version": n, "fingerprint": fingerprint, "lines": len(line_ids)})
         return n
     n = rp._write(state, write)
@@ -226,7 +227,10 @@ def reopen(wp_id: str, *, note: str, actor: str) -> dict[str, Any]:
         c.execute("UPDATE reconcile_versions SET reopened_by=?, reopened_at=?, reopen_note=? WHERE id=?",
                   (actor, _now(), note, row["id"]))
         # 178: the version's file as an earlier one (its heading names who reopened it, when and why)
-        _store_file(c, row["id"], _meta(c.execute("SELECT * FROM reconcile_versions WHERE id=?", (row["id"],)).fetchone()))
+        made = c.execute("SELECT template, template_version FROM reconcile_version_files WHERE version_id=? AND state='approved'",
+                         (row["id"],)).fetchone()
+        _store_file(c, row["id"], _meta(c.execute("SELECT * FROM reconcile_versions WHERE id=?", (row["id"],)).fetchone()),
+                    made=dict(made) if made else None)
         work.record_event(c, wp_id, "reconcile_reopen", actor, {"version": row["version"], "note": note})
     return rp.approval(wp_id)
 
@@ -334,9 +338,9 @@ def _shown(stamp: str | None) -> str:
     return (stamp or "")[:16].replace("T", " ")
 
 
-def _file(st: dict[str, Any], state: str, suffix: str, lab: dict[str, Any]) -> tuple[bytes, str]:
+def _named(st: dict[str, Any], state: str, suffix: str, lab: dict[str, Any]) -> tuple[contract.OutputData, str]:
     slug = naming.safe_part(st["package"]["name"], limit=40) or st["package"]["id"]  # accents folded (078)
-    return builtin.render(statement_data(st, state)), f"{lab['file']['prefix']}-{slug}-{suffix}.xlsx"
+    return statement_data(st, state), f"{lab['file']['prefix']}-{slug}-{suffix}.xlsx"
 
 
 def _version_state(v: dict[str, Any]) -> str:
@@ -344,23 +348,38 @@ def _version_state(v: dict[str, Any]) -> str:
     return "approved" if v["reopened_at"] is None else "earlier"
 
 
-def _version_file(v: dict[str, Any]) -> tuple[bytes, str]:
-    """An approved version's file made now from its stored statement (its heading names its state)."""
+def _version_data(v: dict[str, Any]) -> tuple[contract.OutputData, str]:
+    """An approved version's data from its stored statement (its heading names its state) and its file name."""
     lab, n = _labels(), v["version"]
     if v["reopened_at"] is None:
         state = lab["heading"]["approved"].format(n=n, by=v["approved_by"], at=_shown(v["approved_at"]))
     else:
         state = lab["heading"]["earlier"].format(n=n, by=v["reopened_by"], at=_shown(v["reopened_at"]), note=v["reopen_note"] or "")
-    return _file(v["statement"], state, lab["file"]["version"].format(n=n), lab)
+    return _named(v["statement"], state, lab["file"]["version"].format(n=n), lab)
 
 
-def _store_file(c: Any, version_id: int, v: dict[str, Any], *, backfilled_at: str | None = None) -> None:
-    """178: records an approved version's file in its current state, in the caller's transaction."""
-    data, name = _version_file(v)
+def _version_file(v: dict[str, Any]) -> tuple[bytes, str]:
+    """A version approved before 178 without a stored file: made now with the built-in template, as before."""
+    data, name = _version_data(v)
+    return builtin.render(data), name
+
+
+def _store_file(c: Any, version_id: int, v: dict[str, Any], *, wp_id: str | None = None, made: dict[str, str] | None = None,
+                backfilled_at: str | None = None) -> None:
+    """178: records an approved version's file in its current state, in the caller's transaction: with the package's
+    chosen template (`wp_id`), with a recorded one (`made`: a reopened version keeps its approval's), or the built-in."""
+    data, name = _version_data(v)
+    if made is not None:
+        content = templates.render_with(data, made["template"], made["template_version"])
+    elif wp_id is not None:
+        content, made = templates.render(data, wp_id, c)
+    else:
+        content, made = builtin.render(data), {"template": templates.BUILTIN,
+                                               "template_version": templates.builtin_version("reconcile_statement")}
     c.execute("INSERT INTO reconcile_version_files(version_id, state, name, template, template_version, sha256, content,"
               " created_at, backfilled_at) VALUES (?,?,?,?,?,?,?,?,?)",
-              (version_id, _version_state(v), name, "builtin", contract.spec("reconcile_statement")["builtin"]["version"],
-               hashlib.sha256(data).hexdigest(), data, _now(), backfilled_at))
+              (version_id, _version_state(v), name, made["template"], made["template_version"], hashlib.sha256(content).hexdigest(),
+               content, _now(), backfilled_at))
 
 
 def xlsx(wp_id: str, *, version: int | None = None) -> tuple[bytes, str]:
@@ -368,8 +387,9 @@ def xlsx(wp_id: str, *, version: int | None = None) -> tuple[bytes, str]:
     current draft, or an approved version's file as it was stored when approved or reopened (178). A version approved
     before 178 is made from its stored statement until `backfill_files` records its file."""
     lab = _labels()
-    if version is None:
-        return _file(current(wp_id)["statement"], lab["heading"]["draft"], lab["file"]["draft"], lab)
+    if version is None:  # 178: the draft with the package's chosen template
+        data, name = _named(current(wp_id)["statement"], lab["heading"]["draft"], lab["file"]["draft"], lab)
+        return templates.render(data, wp_id)[0], name
     v = approved_version(wp_id, version)
     with store.connect() as c:
         row = c.execute("SELECT f.content, f.name FROM reconcile_version_files f JOIN reconcile_versions r ON r.id=f.version_id"

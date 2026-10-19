@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from jav import activity_kinds, card_numbers, corrections, export, logic_packs, package_result, store, work
+from jav.outputs import templates
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
@@ -39,7 +40,8 @@ activity_kinds.register_events("package", ("package_release",), __name__)
 FILES = (("result.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
          ("result.json", "application/json"),
          ("documents.csv", "text/csv; charset=utf-8"), ("datapoints.csv", "text/csv; charset=utf-8"),
-         ("line_items.csv", "text/csv; charset=utf-8"), ("native_facts.csv", "text/csv; charset=utf-8"))
+         ("line_items.csv", "text/csv; charset=utf-8"), ("native_facts.csv", "text/csv; charset=utf-8"),
+         ("utility_cost.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))  # 178: with utility bills
 MEDIA = dict(FILES)
 
 STATES = ("not_released", "released", "partly_released", "changed_since_release")
@@ -69,6 +71,18 @@ CREATE TABLE IF NOT EXISTS package_version_files (
     PRIMARY KEY (version_id, name)
 );
 """)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    """178 (plan 170 L4): which template made a workbook of a version (NULL: a file no template makes, or a version
+    released before 178 - the built-in template)."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(package_version_files)")}
+    for col in ("template", "template_version"):
+        if cols and col not in cols:
+            conn.execute(f"ALTER TABLE package_version_files ADD COLUMN {col} TEXT")
+
+
+store.register_migration("package_release", _migrate)
 
 
 class ReleaseError(ValueError):
@@ -107,7 +121,7 @@ def _versions(wp_id: str, c: sqlite3.Connection) -> list[dict[str, Any]]:
     rows = c.execute("SELECT * FROM package_versions WHERE workpackage_id=? ORDER BY version DESC", (wp_id,)).fetchall()
     out = []
     for r in rows:
-        files = [dict(f) for f in c.execute("SELECT name, media, rows, sha256 FROM package_version_files"
+        files = [dict(f) for f in c.execute("SELECT name, media, rows, sha256, template, template_version FROM package_version_files"
                                             " WHERE version_id=? ORDER BY name", (r["id"],))]
         out.append({"version": r["version"], "mark": r["mark"], "items": [tuple(x) for x in json.loads(r["items"])],
                     "runs": json.loads(r["runs"]), "released_by": r["released_by"], "released_at": r["released_at"],
@@ -185,12 +199,19 @@ def _records(released: dict[str, str]) -> tuple[list[dict[str, Any]], list[dict[
     return sorted(records, key=order), sorted(mails, key=order), sorted(native, key=order)
 
 
-def _files(wp: dict[str, Any], meta: dict[str, Any], released: dict[str, str]) -> list[tuple[str, int, bytes]]:
-    """(name, rows, content) of every download of the version."""
+def _files(wp: dict[str, Any], meta: dict[str, Any], released: dict[str, str]) -> list[tuple[str, int, bytes, dict[str, str] | None]]:
+    """(name, rows, content, the template that made it) of every download of the version: the workbooks with the
+    package's chosen templates (178), the utility cost's only when the package has utility bills."""
     from jav import report_utility
 
     records, mails, native = _records(released)
-    files = [("result.xlsx", len(records) + len(mails) + len(native), export.workbook_bytes(records, mails, native))]
+    values = export.package_values(wp, meta)
+    result, made = templates.render(export.result_data(records, mails, native, values), wp["id"])
+    files: list[tuple[str, int, bytes, dict[str, str] | None]] = [("result.xlsx", len(records) + len(mails) + len(native), result, made)]
+    utility = export.utility_data(records, values)
+    if utility.tables[0].rows or utility.tables[1].rows:
+        content, made = templates.render(utility, wp["id"])
+        files.append(("utility_cost.xlsx", len(utility.tables[0].rows), content, made))
     runs = {}
     for run_id in sorted(set(released.values())):
         run = work.get_run(run_id)
@@ -205,12 +226,12 @@ def _files(wp: dict[str, Any], meta: dict[str, Any], released: dict[str, str]) -
         body["native_items"] = native
     body = card_numbers.mask_values(body)
     files.append(("result.json", len(records) + len(mails) + len(native),
-                  json.dumps(body, ensure_ascii=False, indent=1, default=str).encode("utf-8")))
+                  json.dumps(body, ensure_ascii=False, indent=1, default=str).encode("utf-8"), None))
     for table in ("documents", "datapoints", "line_items"):
         head, rows = export.TABLES[table](records)
-        files.append((f"{table}.csv", len(rows), export.csv_bytes(head, rows)))
+        files.append((f"{table}.csv", len(rows), export.csv_bytes(head, rows), None))
     head, rows = export.native_facts_table(native)
-    files.append(("native_facts.csv", len(rows), export.csv_bytes(head, rows)))
+    files.append(("native_facts.csv", len(rows), export.csv_bytes(head, rows), None))
     return files
 
 
@@ -220,7 +241,7 @@ def _next_version(wp_id: str) -> int:
 
 
 def _insert(wp: dict[str, Any], *, n: int, mark: str, released: dict[str, str], runs: list[str], actor: str, at: str,
-            backfilled_at: str | None, files: list[tuple[str, int, bytes]], c: sqlite3.Connection) -> int:
+            backfilled_at: str | None, files: list[tuple[str, int, bytes, dict[str, str] | None]], c: sqlite3.Connection) -> int:
     """Records version `n` with its rendered files, in the caller's write transaction; `RevisionConflict` if another
     version took the number meanwhile."""
     latest = c.execute("SELECT MAX(version) FROM package_versions WHERE workpackage_id=?", (wp["id"],)).fetchone()[0] or 0
@@ -229,9 +250,10 @@ def _insert(wp: dict[str, Any], *, n: int, mark: str, released: dict[str, str], 
     cur = c.execute("INSERT INTO package_versions(workpackage_id, version, mark, items, runs, released_by, released_at,"
                     " backfilled_at) VALUES (?,?,?,?,?,?,?,?)",
                     (wp["id"], n, mark, json.dumps(sorted(released.items())), json.dumps(runs), actor, at, backfilled_at))
-    for name, rows, content in files:
-        c.execute("INSERT INTO package_version_files(version_id, name, media, rows, sha256, content) VALUES (?,?,?,?,?,?)",
-                  (cur.lastrowid, name, MEDIA[name], rows, hashlib.sha256(content).hexdigest(), content))
+    for name, rows, content, made in files:
+        c.execute("INSERT INTO package_version_files(version_id, name, media, rows, sha256, content, template, template_version)"
+                  " VALUES (?,?,?,?,?,?,?,?)", (cur.lastrowid, name, MEDIA[name], rows, hashlib.sha256(content).hexdigest(), content,
+                                                (made or {}).get("template"), (made or {}).get("template_version")))
     return n
 
 
@@ -294,8 +316,19 @@ def current_workbook(wp_id: str) -> tuple[bytes, str]:
     with store.session():
         current = {item: x.run_id for item, x in package_result.in_use(wp).items()}
         records, mails, native = _records(current)
-        content = export.workbook_bytes(records, mails, native)
+        content, _made = templates.render(export.result_data(records, mails, native, export.package_values(wp)), wp_id)
     return content, f"{wp_id}-result-{datetime.now().strftime('%Y%m%d-%H%M')}.xlsx"
+
+
+def current_utility_workbook(wp_id: str) -> tuple[bytes, str]:
+    """178 (DECISIONS 178): (content, file name) of the utility cost of the package's current result, with the
+    package's chosen template."""
+    wp = work.get(wp_id)
+    with store.session():
+        current = {item: x.run_id for item, x in package_result.in_use(wp).items()}
+        records, _mails, _native = _records(current)
+        content, _made = templates.render(export.utility_data(records, export.package_values(wp)), wp_id)
+    return content, f"{wp_id}-utility-cost-{datetime.now().strftime('%Y%m%d-%H%M')}.xlsx"
 
 
 def unreleased_approval(wp_id: str, c: sqlite3.Connection) -> bool:
