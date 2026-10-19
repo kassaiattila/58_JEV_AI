@@ -12,7 +12,7 @@ import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { tmap } from "../labels";
 import { BankFilesInfo } from "./BankFiles";
-import { PartyChoice } from "./reconcile/ReconcileCreate";
+import { PartyChoice } from "../components/PartyChoice";
 import { MonthGrid } from "./settings/MonthStatus";
 
 /** The first day of the year of the last closed month and that month's last day, as the default period. */

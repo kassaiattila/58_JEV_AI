@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { api, ApiError, type WorkpackageView } from "../api";
 import { Popover } from "../components/Popover";
 import { t, useLocale } from "../i18n";
+import { logicOf } from "../logic/registry";
 import { go } from "../route";
 import { Icon } from "../components/Icon";
 
@@ -13,6 +14,7 @@ type Mode = "menu" | "rename" | "delete";
 export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView; onChanged: () => void }) {
   useLocale();
   const wp = view.workpackage;
+  const adds = logicOf(wp.source_kind)?.adds;
   const archived = wp.status === "archived";
   const anchor = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -49,10 +51,11 @@ export function WorkpackageActions({ view, onChanged }: { view: WorkpackageView;
       <Popover open={open} onClose={close} anchor={anchor} label={t("Csomag kezelése")} align="right" className="wp-actions">
         {mode === "menu" ? (
           <div className="menu-list">
-            {/* 167: adding leads to its form at the top of Processing (a reconciliation package has no documents) */}
-            {wp.source_kind === "reconcile" ? null : (
+            {/* 167: adding leads to its form at the top of Processing (176: unless the package's logic pack adds
+                nothing, as a reconciliation package has no documents) */}
+            {adds === "nothing" ? null : (
               <button type="button" className="menu-item" onClick={() => { close(); go({ view: "workpackages", wpId: wp.id, stage: "process", add: true }); }}>
-                <Icon name="plus" />{wp.source_kind === "statements" ? t("Add statements") : t("Add documents")}
+                <Icon name="plus" />{adds === "statements" ? t("Add statements") : t("Add documents")}
               </button>
             )}
             <button type="button" className="menu-item" onClick={() => setMode("rename")}><Icon name="edit" />{t("Átnevezés")}</button>

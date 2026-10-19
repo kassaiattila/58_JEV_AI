@@ -123,3 +123,15 @@ def test_the_service_has_the_addresses_of_every_logic_pack_in_its_own_module() -
     text = (PROJECT_ROOT / "jav/api.py").read_text(encoding="utf-8")
     assert not re.search(r"\breconcile_package\.|\bstatement_package\.|/reconcile|/statement-packages", text)
 
+def test_the_interface_has_an_entry_for_every_logic_pack() -> None:
+    text = (PROJECT_ROOT / "ui/src/logic/registry.tsx").read_text(encoding="utf-8")
+    entries = set(re.findall(r"^  (\w+): \{$", text, re.MULTILINE))
+    assert entries == {p.kind for p in lp.packs()}
+
+
+@pytest.mark.parametrize("path", ["ui/src/views/WorkpackageDetail.tsx", "ui/src/views/WorkpackageActions.tsx",
+                                  "ui/src/views/PackageItems.tsx"])
+def test_the_interface_asks_its_registry(path: str) -> None:
+    text = (PROJECT_ROOT / path).read_text(encoding="utf-8")
+    assert not re.search(r"source_kind\s*===?\s*\"(reconcile|statements)\"", text)
+    assert not re.search(r"case \"(reconcile|statements)\"", text)
