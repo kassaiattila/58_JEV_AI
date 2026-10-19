@@ -2,7 +2,7 @@
 
 A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition (M1), invoice data extraction (M2) and email intent (M3) — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.23.0`** (2026-10-19). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.24.0`** (2026-10-20). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
@@ -20,6 +20,7 @@ The system reads invoices, other documents and emails. It recognises what type e
 | | **OCR** for PDFs without a text layer: local Tesseract, with optional paid escalation to Azure Document Intelligence when the local result is weak. Azure is a processing setting and is paid from the run's budget | Works |
 | Email | **Email intent** (M3): 11 intents, attachment types and a suggested next step; PDF attachments are processed as documents of the same package | Works; real-world accuracy is not proven without a hand-labelled golden set |
 | | **Task proposals from emails**: GPT proposes a concrete task (action, deadline, assignee) with a verbatim quote; a code gate drops any proposal the quote does not support; only a person can accept one | Works; off by default |
+| | **Email routing**: each invoice, outgoing invoice and bank statement that arrived by email is proposed for the open work package of its own party, period and role (incoming invoices, outgoing invoices, bank statements), or a new one; a person accepts, chooses another package or leaves it unrouted, and a document that cannot be placed says why. Code only, no AI call; offered on an email package's result and as a workflow after a mailbox download | Works; new |
 | | **Mailbox download** from the Outlook running on the machine, by mailbox and period, once or on a schedule, with a free message-count preview; new emails become a work package | Works; needs desktop Outlook |
 | Work packages | **Work packages, processing settings and runs**: a package from a folder (optionally with its subfolders; folders and files can be chosen in the Windows picker), an upload, a mailbox or a watched folder; one processing that handles each item by its kind (type recognition, then extraction; email intent and attachments), with versioned settings and a pre-start overview of the services and budget; a readiness check; an idempotent start on a fixed input; trial and live runs; approval and release | Works |
 | | **Source instances**: an unchanging copy of every document added to a package, kept once per content; processing, the review page image and the named copies read this copy, so what a person checks is exactly what the result was made from, even if the original is later changed or deleted | Works |
