@@ -432,6 +432,17 @@ def resolver() -> Resolver:
 DIRECTIONS = ("incoming", "outgoing", "internal", "not_own", "unclear")
 
 
+def direction_values(records: list[dict[str, Any]]) -> list[tuple[str | None]]:
+    """147: the documents table's direction column of each record: an invoice's direction from the own parties
+    (`direction`); None for a document of another kind (180: the finance domain's column, `jav/domains/finance.py`;
+    until then in `jav/export.py`)."""
+    kinds = {*type_roles.types("incoming_invoice"), *type_roles.types("outgoing_invoice")}
+    if not any(r["doc_type"] in kinds for r in records):
+        return [(None,)] * len(records)
+    res = resolver()
+    return [(direction(res, r["doc_type"], r["fields"])[0] if r["doc_type"] in kinds else None,) for r in records]
+
+
 def direction(res: Resolver, doc_type: str | None, values: dict[str, Any]) -> tuple[str, str | None]:
     """147 (DECISIONS 147): an invoice's direction and the own party it is that direction for, from the identities on
     its two sides (the supplier read as the buyer is: tax number, name, a similar name), by the reconciliation's field

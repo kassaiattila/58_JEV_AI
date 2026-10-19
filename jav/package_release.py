@@ -30,19 +30,24 @@ from pathlib import Path
 from typing import Any
 
 from jav import activity_kinds, card_numbers, corrections, export, logic_packs, package_result, store, work
-from jav.outputs import templates
+from jav.outputs import parts, templates
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
 activity_kinds.register_events("package", ("package_release",), __name__)
 
-# The stored files of a version: (name, media type). The names are the download's file name suffixes.
-FILES = (("result.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-         ("result.json", "application/json"),
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+# The stored files of a version: (name, media type). The names are the download's file name suffixes. 178: a domain's
+# own output adds its workbook when it has rows (180: `jav/outputs/parts.py`, the utility cost's `utility_cost.xlsx`).
+FILES = (("result.xlsx", XLSX), ("result.json", "application/json"),
          ("documents.csv", "text/csv; charset=utf-8"), ("datapoints.csv", "text/csv; charset=utf-8"),
-         ("line_items.csv", "text/csv; charset=utf-8"), ("native_facts.csv", "text/csv; charset=utf-8"),
-         ("utility_cost.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))  # 178: with utility bills
+         ("line_items.csv", "text/csv; charset=utf-8"), ("native_facts.csv", "text/csv; charset=utf-8"))
 MEDIA = dict(FILES)
+
+
+def media(name: str) -> str:
+    """The media type of a version's stored file (an own output's file is a workbook)."""
+    return MEDIA.get(name, XLSX)
 
 STATES = ("not_released", "released", "partly_released", "changed_since_release")
 
@@ -201,17 +206,17 @@ def _records(released: dict[str, str]) -> tuple[list[dict[str, Any]], list[dict[
 
 def _files(wp: dict[str, Any], meta: dict[str, Any], released: dict[str, str]) -> list[tuple[str, int, bytes, dict[str, str] | None]]:
     """(name, rows, content, the template that made it) of every download of the version: the workbooks with the
-    package's chosen templates (178), the utility cost's only when the package has utility bills."""
-    from jav import report_utility
-
+    package's chosen templates (178), a domain's own output only when it says so (the utility cost's when the package
+    has utility bills; its row count is its first table's)."""
     records, mails, native = _records(released)
     values = export.package_values(wp, meta)
     result, made = templates.render(export.result_data(records, mails, native, values), wp["id"])
     files: list[tuple[str, int, bytes, dict[str, str] | None]] = [("result.xlsx", len(records) + len(mails) + len(native), result, made)]
-    utility = export.utility_data(records, values)
-    if utility.tables[0].rows or utility.tables[1].rows:
-        content, made = templates.render(utility, wp["id"])
-        files.append(("utility_cost.xlsx", len(utility.tables[0].rows), content, made))
+    for own in parts.own_outputs():
+        data = own.data(records, values)
+        if own.stored(data):
+            content, made = templates.render(data, wp["id"])
+            files.append((own.file, len(data.tables[0].rows), content, made))
     runs = {}
     for run_id in sorted(set(released.values())):
         run = work.get_run(run_id)
@@ -221,7 +226,7 @@ def _files(wp: dict[str, Any], meta: dict[str, Any], released: dict[str, str]) -
     body = {"workpackage_id": wp["id"], "name": wp["name"], **meta,
             "items": [{"item_id": item, "run_id": run} for item, run in sorted(released.items())], "runs": runs,
             "documents": [{k: v for k, v in r.items() if k != "kinds"} for r in records], "emails": mails,
-            "utility_cost": report_utility.build(records)}
+            **export.json_parts(records)}
     if native:
         body["native_items"] = native
     body = card_numbers.mask_values(body)
@@ -252,7 +257,7 @@ def _insert(wp: dict[str, Any], *, n: int, mark: str, released: dict[str, str], 
                     (wp["id"], n, mark, json.dumps(sorted(released.items())), json.dumps(runs), actor, at, backfilled_at))
     for name, rows, content, made in files:
         c.execute("INSERT INTO package_version_files(version_id, name, media, rows, sha256, content, template, template_version)"
-                  " VALUES (?,?,?,?,?,?,?,?)", (cur.lastrowid, name, MEDIA[name], rows, hashlib.sha256(content).hexdigest(), content,
+                  " VALUES (?,?,?,?,?,?,?,?)", (cur.lastrowid, name, media(name), rows, hashlib.sha256(content).hexdigest(), content,
                                                 (made or {}).get("template"), (made or {}).get("template_version")))
     return n
 
@@ -320,15 +325,16 @@ def current_workbook(wp_id: str) -> tuple[bytes, str]:
     return content, f"{wp_id}-result-{datetime.now().strftime('%Y%m%d-%H%M')}.xlsx"
 
 
-def current_utility_workbook(wp_id: str) -> tuple[bytes, str]:
-    """178 (DECISIONS 178): (content, file name) of the utility cost of the package's current result, with the
-    package's chosen template."""
+def current_output_workbook(wp_id: str, output: str) -> tuple[bytes, str]:
+    """178 (DECISIONS 178): (content, file name) of a domain's own output of the package's current result (the utility
+    cost), with the package's chosen template. `parts.UnknownOutput` for an output no domain registered."""
+    own = parts.own_output(output)
     wp = work.get(wp_id)
     with store.session():
         current = {item: x.run_id for item, x in package_result.in_use(wp).items()}
         records, _mails, _native = _records(current)
-        content, _made = templates.render(export.utility_data(records, export.package_values(wp)), wp_id)
-    return content, f"{wp_id}-utility-cost-{datetime.now().strftime('%Y%m%d-%H%M')}.xlsx"
+        content, _made = templates.render(own.data(records, export.package_values(wp)), wp_id)
+    return content, f"{wp_id}-{own.slug}-{datetime.now().strftime('%Y%m%d-%H%M')}.xlsx"
 
 
 def unreleased_approval(wp_id: str, c: sqlite3.Connection) -> bool:

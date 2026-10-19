@@ -130,11 +130,11 @@ def _migrate(conn) -> None:
 store.register_migration("reconcile_package", _migrate)
 
 
-def _count_party(c, pid: str) -> int:
+def count_party(c, pid: str) -> int:
     return c.execute("SELECT COUNT(*) FROM reconcile_scopes WHERE party_id=?", (pid,)).fetchone()[0]
 
 
-def _repoint_party(c, old: str, new: str) -> None:
+def repoint_party(c, old: str, new: str) -> None:
     c.execute("UPDATE reconcile_scopes SET party_id=? WHERE party_id=?", (new, old))
 
 
@@ -1548,7 +1548,8 @@ def _list_mark() -> str:
     return inputs_mark(keep_seconds=LIST_KEEP_SECONDS)  # 159: the list's own safety bound (its next steps use the same)
 
 
-# 176 (plan 170 L3): the reconciliation package as a logic pack (`jav/logic_packs.py`): no files and no runs;
+# 176 (plan 170 L3): the reconciliation package as a logic pack (`jav/logic_packs.py`; 180: registered by the finance
+# domain with its party reference, `count_party` and `repoint_party`, `jav/domains/finance.py`): no files and no runs;
 # its two input roles are the period's results in every package (DECISIONS 174, the package's current result)
 LOGIC = logic_packs.LogicPack(
     kind=KIND, module=__name__,
@@ -1558,9 +1559,3 @@ LOGIC = logic_packs.LogicPack(
     delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next, list_next=_list_next,
     list_mark=_list_mark, outputs=("reconcile_statement",))
 
-
-def register() -> None:
-    """173 (plan 170 E2): the package kind's delete guard and its party reference (`registrations.load_all`). 176: the
-    delete guard as part of the logic pack."""
-    logic_packs.register(LOGIC)
-    parties.register_reference("reconcile_package", count=_count_party, repoint=_repoint_party)

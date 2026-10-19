@@ -49,6 +49,7 @@ from pathlib import Path
 from typing import Any
 
 from jav import activity_kinds, cfg, costs, logic_packs, store, work, work_views
+from jav.outputs import parts
 from jav.runtime import calls
 from jav.tablequery import Column, Query, run_query, select, shown
 
@@ -696,9 +697,8 @@ def _email_tasks(scope: dict[str, str]) -> Rows:
 # the export tables (jav/export.py) by column key, in header order
 _DOC_KEYS = [("file", "Irat", "text"), ("item_id", "Tétel-azonosító", "id"), ("doc_type", "Típus", "enum"), ("arm", "Út", "enum"),
              ("final_status", "Állapot", "enum"), ("open_reasons", "Nyitott teendők", "text"),
-             ("source_email", "Forrás-levél", "text"),  # 058 K5.2: for an email attachment, the email's subject
-             ("duplicate", "Duplicate", "enum"), ("duplicate_of", "Duplicate of", "text"),  # 126: the duplicate mark
-             ("direction", "Direction", "enum")]  # 147: an invoice's direction from the own parties
+             ("source_email", "Forrás-levél", "text")]  # 058 K5.2: for an email attachment, the email's subject
+# 180 (plan 170 E7): a domain's columns follow these (`jav/outputs/parts.py`; the duplicate mark and the direction)
 _DP_KEYS = _DOC_KEYS[:3] + [("field", "Mező", "enum"), ("value", "Érték", "text"), ("page", "Oldal", "number"),
                             ("quote", "Forrásszöveg", "text"), ("place", "Hely", "enum"), ("corrected", "Javítva", "enum"),
                             ("field_reason", "Teendő a mezőn", "enum")]
@@ -706,7 +706,7 @@ _LI_KEYS = _DOC_KEYS[:3] + [("list", "Lista", "enum"), ("row", "Sor", "number"),
 _HIDDEN = {"item_id"}
 # 167 (review 153 E): the export's "igen" marks (corrected, a to-do on the field) are enumerated, so English shows "yes"
 _LABELS = {"final_status": "final_status", "place": "provenance", "field": "field", "list": "field", "doc_type": "doc_type",
-           "duplicate": "duplicate", "direction": "direction", "corrected": "yes", "field_reason": "yes"}
+           "corrected": "yes", "field_reason": "yes"}
 
 
 def _fixed(keys: list[tuple[str, str, str]]) -> list[Column]:
@@ -768,14 +768,16 @@ def _documents(scope: dict[str, str]) -> Rows:
     for r in records:
         for f, k in r["kinds"].items():
             kinds.setdefault(f, k)
-    fields = head[len(export.DOC_HEAD):]
-    cols = _fixed(_DOC_KEYS) + [_col(f"f:{f}", _field_label(f), _field_kind(kinds.get(f)), field=f) for f in fields]
+    fields = head[len(export.document_head()):]
+    cols = _fixed(_DOC_KEYS)
+    for part in parts.document_columns():  # 180: a domain's columns (126: the duplicate mark; 147: the direction)
+        first = len(cols)
+        # shown only when a row has a value in the part's first column (a document with a mark, an invoice)
+        shown = any(row[first] for row in rows)
+        cols += [_col(c.key, c.head, c.kind, hidden=not shown, labels=c.labels) for c in part.columns]
+    cols += [_col(f"f:{f}", _field_label(f), _field_kind(kinds.get(f)), field=f) for f in fields]
     if not any(r.get("source_email") for r in records):  # only meaningful in an email package: hidden otherwise
         cols = [replace(c, hidden=True) if c.key == "source_email" else c for c in cols]
-    if not any(export.duplicate_status(r.get("duplicate")) for r in records):  # 126: shown only when a document has a mark
-        cols = [replace(c, hidden=True) if c.key in ("duplicate", "duplicate_of") else c for c in cols]
-    if not any(row[len(_DOC_KEYS) - 1] for row in rows):  # 147: shown only when a document is an invoice
-        cols = [replace(c, hidden=True) if c.key == "direction" else c for c in cols]
     return cols, _zip_rows([c.key for c in cols], rows, link, lambda d: d["item_id"])
 
 

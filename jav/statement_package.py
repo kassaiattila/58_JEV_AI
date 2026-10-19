@@ -57,11 +57,11 @@ CREATE TABLE IF NOT EXISTS statement_scopes (
     updated_at     TEXT NOT NULL
 );
 """)
-def _count_party(c, pid: str) -> int:
+def count_party(c, pid: str) -> int:
     return c.execute("SELECT COUNT(*) FROM statement_scopes WHERE party_id=?", (pid,)).fetchone()[0]
 
 
-def _repoint_party(c, old: str, new: str) -> None:
+def repoint_party(c, old: str, new: str) -> None:
     c.execute("UPDATE statement_scopes SET party_id=? WHERE party_id=?", (new, old))
 
 
@@ -494,7 +494,8 @@ def _page(wp_id: str) -> dict[str, Any]:
     return {"statements": package_view(wp_id)}
 
 
-# 176 (plan 170 L3): the statement package as a logic pack (`jav/logic_packs.py`)
+# 176 (plan 170 L3): the statement package as a logic pack (`jav/logic_packs.py`); 180 (plan 170 E7): registered by the
+# finance domain with its party reference (`count_party`, `repoint_party`; `jav/domains/finance.py`)
 LOGIC = logic_packs.LogicPack(
     kind=KIND, module=__name__,
     roles=(logic_packs.InputRole("statements", "own_items",
@@ -503,12 +504,6 @@ LOGIC = logic_packs.LogicPack(
     rule=RULE, delete_guard=_delete_guard, page=_page)
 
 
-def register() -> None:
-    """173 (plan 170 E2): the package kind's rule, its delete guard and its party reference (`registrations.load_all`).
-    176: the first two as a logic pack."""
-    logic_packs.register(LOGIC)
-    parties.register_reference("statement_package", count=_count_party, repoint=_repoint_party)
-
 
 __all__ = ["KIND", "LOGIC", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "PackageError", "after_detection", "after_item",
-           "create", "package_view", "register", "scope", "survey"]
+           "count_party", "create", "package_view", "repoint_party", "scope", "survey"]

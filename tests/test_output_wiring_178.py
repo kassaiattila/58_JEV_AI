@@ -12,7 +12,7 @@ import io
 
 from openpyxl import Workbook, load_workbook
 
-from jav import export, store
+from jav import report_utility, store
 from jav import reconcile_statement as rs
 from jav.outputs import templates
 from tests import test_flexible_package_160c as fp
@@ -69,7 +69,7 @@ def test_a_template_is_uploaded_activated_chosen_and_used_by_the_download_and_th
     sheet = load_workbook(io.BytesIO(c.get(f"/api/workpackages/{wp['id']}/result/export.xlsx").content)).active
     assert sheet["A1"].value == f"Result of {wp['name']}" and sheet["A6"].value == "2 invoices"
     utility = c.get(f"/api/workpackages/{wp['id']}/result/utility-cost.xlsx")
-    titles = [t.title for t in export.utility_data([]).tables]  # the built-in template's two sheets
+    titles = [t.title for t in report_utility.output_data([]).tables]  # the built-in template's two sheets
     assert utility.status_code == 200 and load_workbook(io.BytesIO(utility.content)).sheetnames == titles
 
     released = _release(c, wp["id"])

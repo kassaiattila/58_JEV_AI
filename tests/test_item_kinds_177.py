@@ -11,6 +11,7 @@ from __future__ import annotations
 import pytest
 
 from jav import cfg, item_kinds as ik, logic_packs, mailbox, work, workflows
+from jav.domains import email as email_domain
 
 
 def test_the_three_item_kinds_and_what_each_means():
@@ -65,14 +66,15 @@ def test_every_package_kind_has_a_label():
 
 
 def test_the_email_domain_registers_its_rule_and_the_mailbox_page_part():
-    assert [(r.kind, r.name, r.module) for r in ik.rules()] == [("email", "suspicious_email_source", "jav.mailbox")]
+    # 180 (plan 170 E7): registered by the email domain module; the work stays in the mailbox module
+    assert [(r.kind, r.name, r.module) for r in ik.rules()] == [("email", "suspicious_email_source", "jav.domains.email")]
     assert ik.rules()[0].after_item is mailbox.mark_suspicious_source
-    assert ik.of("email").rules_from == ik.source("mailbox").page_from == "jav.mailbox"
+    assert ik.of("email").rules_from == ik.source("mailbox").page_from == "jav.domains.email"
 
 
 def test_asking_before_the_email_domain_registered_is_an_error(monkeypatch):
     monkeypatch.setattr(ik, "_REGISTERED", set())
-    with pytest.raises(ik.NotRegistered, match="jav.mailbox"):
+    with pytest.raises(ik.NotRegistered, match="jav.domains.email"):
         ik.rules()
     with pytest.raises(ik.NotRegistered):
         ik.page({"source_kind": "mailbox", "items": []})
@@ -81,12 +83,12 @@ def test_asking_before_the_email_domain_registered_is_an_error(monkeypatch):
 
 def test_a_rule_or_a_page_part_only_from_the_module_that_owes_it():
     rule = ik.ItemRule(kind="email", name="masik", module="jav.work", after_item=lambda run, item: False)
-    with pytest.raises(ValueError, match="come from jav.mailbox"):
+    with pytest.raises(ValueError, match="come from jav.domains.email"):
         ik.register_rule(rule)
     with pytest.raises(ValueError, match="comes from"):
         ik.register_page("folder", "jav.work", lambda wp: {})
     with pytest.raises(ValueError, match="registered already"):
-        ik.register_rule(ik.ItemRule(kind="email", name="suspicious_email_source", module="jav.mailbox",
+        ik.register_rule(ik.ItemRule(kind="email", name="suspicious_email_source", module="jav.domains.email",
                                      after_item=lambda run, item: False))
-    mailbox.register()  # the same registrations again add nothing
+    email_domain.register()  # the same registrations again add nothing (180: the email domain's, until then mailbox's)
     assert len(ik.rules()) == 1

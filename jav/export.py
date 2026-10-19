@@ -8,7 +8,9 @@ Tables:
 - `documents`: one row per document, with the type's fields (wide);
 - `datapoints`: one row per document × field: value, page, source text, location status, corrected, to-do on the field;
 - `line_items`: the rows of the itemised lists, with the page of each row.
-On top of these, the XLSX has a separate sheet per type and the utility cost report (`jav/report_utility.py`).
+On top of these, the XLSX has a separate sheet per type. 180 (plan 170 E7): the parts a domain adds - the duplicate mark
+and an invoice's direction as columns of the documents table, the utility cost's sheets and JSON section - come from
+the output parts registry (`jav/outputs/parts.py`, registered by `jav/domains/finance.py`); this module names no domain.
 
 Reuse: the legacy project's `orchestrator/framework/tabular.py` helpers (sheet-name cleaning, header formatting,
 BOM + CRLF CSV) and the formula guard of `ui/src/utils/csv.ts` are ported; the old database loader is not (we read
@@ -28,8 +30,8 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
-from jav import card_numbers, cfg, corrections, duplicates, item_kinds, native_results, package_result, store, type_roles, typepack, work
-from jav.outputs import builtin, contract
+from jav import card_numbers, cfg, corrections, item_kinds, native_results, package_result, store, typepack, work
+from jav.outputs import builtin, contract, parts
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
 
@@ -98,10 +100,8 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
             "open_reasons": reasons,
             "source_email": subjects.get(item.get("parent_item_id") or ""),
         })
-    # 126: the duplicate mark (a confirmed copy or modified version, a suspicion, the documents found different)
-    found = duplicates.marks({r["item_id"]: r["open_reasons"] for r in out})
-    for r in out:
-        r["duplicate"] = found.get(r["item_id"])
+    for part in parts.record_marks():  # 126: the duplicate mark (180: the finance domain's, `jav/domains/finance.py`)
+        part.mark(out)
     return out
 
 
@@ -259,34 +259,24 @@ def _field_reason(reasons: list[str], field: str) -> bool:
 
 # --- tables ----------------------------------------------------------------------------------------------------
 
-DOC_HEAD = ["Irat", "Tétel-azonosító", "Típus", "Út", "Állapot", "Nyitott teendők", "Forrás-levél", "Duplicate", "Duplicate of",
-            "Direction"]
+# the documents table's general columns; the columns a domain adds follow them (`document_head`, `document_columns`)
+DOC_HEAD = ["Irat", "Tétel-azonosító", "Típus", "Út", "Állapot", "Nyitott teendők", "Forrás-levél"]
 
 
-def duplicate_status(mark: dict[str, Any] | None) -> str | None:
-    """126: the duplicate mark as one value: `copy` / `variant` when a person confirmed it, `suspected:<kind>` while the
-    to-do is open; None without a mark (a pair found different has none)."""
-    if not mark or "status" not in mark:
-        return None
-    return f"suspected:{mark['kind']}" if mark["status"] == "suspected" else mark["status"]
+def document_head() -> list[str]:
+    """The documents table's fixed headers: the general ones, then each domain part's (180: the duplicate mark and the
+    direction, `jav/domains/finance.py`); the type's fields follow them."""
+    return DOC_HEAD + [c.head for part in parts.document_columns() for c in part.columns]
 
 
-def _doc_row(r: dict[str, Any], direction: str | None) -> list[Any]:
-    mark = r.get("duplicate")
-    status = duplicate_status(mark)
+def document_columns() -> tuple[str, ...]:
+    """The column keys of `document_head`, in the same order."""
+    return DOC_COLUMNS + tuple(c.key for part in parts.document_columns() for c in part.columns)
+
+
+def _doc_row(r: dict[str, Any]) -> list[Any]:
     return [r["file"], r["item_id"], r["doc_type"], r["arm"], r["final_status"], "; ".join(r["open_reasons"]),
-            r.get("source_email") or "", status, (mark or {}).get("other_file") if status else None, direction]
-
-
-def _directions(recs: list[dict[str, Any]]) -> list[str | None]:
-    """147: an invoice's direction from the own parties (`parties.direction`); None for a document of another kind."""
-    from jav import parties
-
-    kinds = {*type_roles.types("incoming_invoice"), *type_roles.types("outgoing_invoice")}
-    if not any(r["doc_type"] in kinds for r in recs):
-        return [None] * len(recs)
-    res = parties.resolver()
-    return [parties.direction(res, r["doc_type"], r["fields"])[0] if r["doc_type"] in kinds else None for r in recs]
+            r.get("source_email") or ""]
 
 
 def documents_table(records: list[dict[str, Any]], doc_type: str | None = None) -> tuple[list[str], list[list[Any]]]:
@@ -295,7 +285,10 @@ def documents_table(records: list[dict[str, Any]], doc_type: str | None = None) 
     fields: list[str] = []
     for r in recs:
         fields += [f for f in r["fields"] if f not in fields]
-    return DOC_HEAD + fields, [_doc_row(r, d) + [r["fields"].get(f) for f in fields] for r, d in zip(recs, _directions(recs))]
+    added = [part.values(recs) for part in parts.document_columns()]  # one value tuple per record, per part
+    rows = [_doc_row(r) + [v for values in added for v in values[i]] + [r["fields"].get(f) for f in fields]
+            for i, r in enumerate(recs)]
+    return document_head() + fields, rows
 
 
 DATAPOINT_HEAD = ("Irat", "Tétel-azonosító", "Típus", "Mező", "Érték", "Oldal", "Forrásszöveg", "Hely", "Javítva", "Teendő a mezőn")
@@ -375,9 +368,6 @@ def csv_bytes(head: list[str], rows: list[list[Any]]) -> bytes:
 # --- XLSX ------------------------------------------------------------------------------------------------------
 
 
-STATUS_TEXT = {"missing": "hiányzik", "overlap": "átfedés", "partial": "részleges", "ok": ""}
-GRAND_TOTAL_LABEL = "Mindösszesen (a tájékoztató sorok nélkül)"
-
 # 178 (plan 170 L4): the column keys of the result's tables (`configs/outputs.json` `package_result`), in the order of
 # their headers
 NATIVE_READING_COLUMNS = ("file", "item_id", "reading_status", "interpretation_status", "result_version", "reading_details")
@@ -388,48 +378,10 @@ TASK_COLUMNS = ("subject", "action", "title", "due_date", "assignee_hint", "evid
                 "item_id")
 TASK_HEAD = ("Levél", "Akció", "Feladat", "Határidő", "Felelős", "Bizonyíték", "Döntés", "Döntött", "Elvégezve", "Elvégezte",
              "Tétel-azonosító")
-DOC_COLUMNS = ("file", "item_id", "doc_type", "arm", "status", "open_reasons", "source_email", "duplicate", "duplicate_of", "direction")
+DOC_COLUMNS = ("file", "item_id", "doc_type", "arm", "status", "open_reasons", "source_email")
 DATAPOINT_COLUMNS = ("file", "item_id", "doc_type", "field", "value", "page", "quote", "location", "corrected", "field_todo")
 LINE_COLUMNS = ("file", "item_id", "doc_type", "list", "row", "page")
-UTILITY_COLUMNS = ("address", "utility", "suppliers", "summary_only", "total")
-UTILITY_HEAD = ("Fogyasztási hely", "Közmű", "Szolgáltató", "Csak tájékoztató", "Összesen (bruttó)")
-UTILITY_SOURCE_COLUMNS = ("address", "utility", "month", "status", "amount", "file", "item_id", "page", "field", "corrected",
-                          "open_reasons")
-UTILITY_SOURCE_HEAD = ("Fogyasztási hely", "Közmű", "Hónap", "Állapot", "Összeg (hónapra jutó)", "Irat", "Tétel-azonosító", "Oldal",
-                       "Mező", "Javítva", "Nyitott teendők")
-
-
-def _table(key: str, title: str, columns: tuple[str, ...], head: Any, rows: list[list[Any]],
-           kinds: list[str | None] | None = None, **extra: Any) -> contract.Table:
-    kinds = kinds or [None] * len(columns)
-    return contract.Table(key=key, title=title, columns=tuple(columns), head=tuple(head),
-                          kinds=tuple(contract.writer_kind(k) for k in kinds), rows=rows, **extra)
-
-
-def _utility_tables(report: dict[str, Any]) -> list[contract.Table]:
-    """The utility cost by month (a missing, overlapping or partly covered month marked) and its sources."""
-    months = report["months"]
-    rows, marks = [], {}
-    for r_i, s in enumerate(report["series"]):
-        rows.append([s["address"], s["utility"], ", ".join(s["suppliers"]), "igen" if s["summary_only"] else "", s["total"]]
-                    + [(s["cells"].get(m) or {}).get("amount") or STATUS_TEXT.get((s["cells"].get(m) or {}).get("status", ""), "")
-                       for m in months])
-        for m_i, m in enumerate(months):
-            st = (s["cells"].get(m) or {}).get("status")
-            if st in ("missing", "overlap", "partial"):
-                marks[(r_i, len(UTILITY_COLUMNS) + m_i)] = st
-    footer = [[GRAND_TOTAL_LABEL, "", "", "", report["grand_total"]] + [""] * len(months)]
-    series = _table("utility_cost", "Közmű-költség", UTILITY_COLUMNS + tuple(f"month_{m.replace('-', '_')}" for m in months),
-                    UTILITY_HEAD + tuple(months), rows, [None, None, None, None, "money"] + ["money"] * len(months), marks=marks,
-                    footer=footer)
-    srows = [[s["address"], s["utility"], m, "elszámolás" if x.get("settlement") else c["status"], x["amount"], x["file"],
-              x["item_id"], x["page"], x["field"], "igen" if x["corrected"] else "", x["open_reasons"] or ""]
-             for s in report["series"] for m, c in s["cells"].items() for x in c["sources"]]
-    srows += [[None, None, None, "nem vetíthető: " + u["reason"], None, u["file"], u["item_id"], None, None, "", ""] for u in report["unplaced"]]
-    srows += [[None, None, None, f"ismétlődő (azonos: {d['same_as_file']})", None, d["file"], d["item_id"], None, None, "", ""]
-              for d in report.get("duplicates", [])]
-    return [series, _table("utility_sources", "Közmű-források", UTILITY_SOURCE_COLUMNS, UTILITY_SOURCE_HEAD, srows,
-                           [None] * 4 + ["money"] + [None] * 6)]
+_table = contract.table
 
 
 def xlsx_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> bytes:
@@ -440,10 +392,9 @@ def xlsx_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> byte
 def result_data(records: list[dict[str, Any]], mails: list[dict[str, Any]], native: list[dict[str, Any]],
                 values: tuple[contract.Value, ...] = ()) -> contract.OutputData:
     """178 (plan 170 L4): the result's data as the output contract describes it (`package_result`): the native facts and
-    readings, the emails and their tasks, the documents by type, the data points, the line items and the utility cost;
-    `values`: the package's (`package_values`). The grand total of the utility cost is a value too."""
-    from jav import report_utility
-
+    readings, the emails and their tasks, the documents by type, the data points, the line items, then each domain's
+    result part (180: the utility cost's sheets and its grand total, `jav/domains/finance.py`); `values`: the package's
+    (`package_values`)."""
     tables: list[contract.Table] = []
     if native:
         head, rows = native_facts_table(native)
@@ -468,9 +419,10 @@ def result_data(records: list[dict[str, Any]], mails: list[dict[str, Any]], nati
     for doc_type in sorted({r["doc_type"] for r in records}):
         head, rows = documents_table(records, doc_type)
         kinds = next(r["kinds"] for r in records if r["doc_type"] == doc_type)
-        fields = head[len(DOC_HEAD):]
-        tables.append(_table("documents", doc_type, DOC_COLUMNS + tuple(fields), head, rows,
-                             [None] * len(DOC_HEAD) + [kinds.get(h) for h in fields], part=doc_type))
+        fixed = document_columns()
+        fields = head[len(fixed):]
+        tables.append(_table("documents", doc_type, fixed + tuple(fields), head, rows,
+                             [None] * len(fixed) + [kinds.get(h) for h in fields], part=doc_type))
     head, rows = datapoints_table(records)
     tables.append(_table("datapoints", "Adatpontok", DATAPOINT_COLUMNS, head, rows))
     head, rows = line_items_table(records)
@@ -482,16 +434,12 @@ def result_data(records: list[dict[str, Any]], mails: list[dict[str, Any]], nati
                 list_kinds.setdefault(c, k)
     tables.append(_table("line_items", "Tételsorok", LINE_COLUMNS + tuple("value" if c == LIST_VALUE else c for c in head[6:]), head, rows,
                          [None] * 6 + [list_kinds.get(h) for h in head[6:]]))
-    report = report_utility.build(records)
-    tables += _utility_tables(report)
-    return contract.OutputData("package_result", (*values, _grand_total(report)), tuple(tables))
-
-
-PERIOD_LABEL = "Időszak"
-
-
-def _grand_total(report: dict[str, Any]) -> contract.Value:
-    return contract.Value("grand_total", GRAND_TOTAL_LABEL, report["grand_total"])
+    added: list[contract.Value] = []
+    for part in parts.result_parts():
+        part_tables, part_values = part.data(records)
+        tables += part_tables
+        added += part_values
+    return contract.OutputData("package_result", (*values, *added), tuple(tables))
 
 
 def package_values(wp: dict[str, Any], version: dict[str, Any] | None = None) -> tuple[contract.Value, ...]:
@@ -501,17 +449,6 @@ def package_values(wp: dict[str, Any], version: dict[str, Any] | None = None) ->
     at = (v.get("released_at") or "")[:16].replace("T", " ")
     return (contract.Value("package", "Csomag", wp["name"]), contract.Value("version", "Változat", str(v.get("version") or "")),
             contract.Value("released_by", "Kiadta", v.get("released_by") or ""), contract.Value("released_at", "Kiadva", at))
-
-
-def utility_data(records: list[dict[str, Any]], values: tuple[contract.Value, ...] = ()) -> contract.OutputData:
-    """178 (DECISIONS 178): the utility cost as an output of its own (`utility_cost`): the grid by month and its sources,
-    the period (the first and the last month) and the grand total; `values`: the package's name."""
-    from jav import report_utility
-
-    report = report_utility.build(records)
-    months = report["months"]
-    period = contract.Value("period", PERIOD_LABEL, f"{months[0]} – {months[-1]}" if months else "")
-    return contract.OutputData("utility_cost", (*values[:1], period, _grand_total(report)), tuple(_utility_tables(report)))
 
 
 def workbook_bytes(records: list[dict[str, Any]], mails: list[dict[str, Any]], native: list[dict[str, Any]]) -> bytes:
@@ -524,7 +461,7 @@ def workbook_bytes(records: list[dict[str, Any]], mails: list[dict[str, Any]], n
 
 
 def _json_export(run_id: str, records: list[dict[str, Any]] | None = None) -> tuple[bytes, int]:
-    from jav import datasets, report_utility
+    from jav import datasets
 
     # Capture before every data read: an interleaved edit must make approval fail,
     # never give older exported values the version of an unseen correction.
@@ -538,13 +475,18 @@ def _json_export(run_id: str, records: list[dict[str, Any]] | None = None) -> tu
             "mode": run["mode"], "approval": run["approval"], "created_at": run["created_at"],
             "documents": [{k: v for k, v in r.items() if k != "kinds"} for r in records],
             "emails": email_records(run_id),
-            "utility_cost": report_utility.build(records)}
+            **json_parts(records)}
     native = native_records(run_id)
     if native:
         body["native_items"] = native
         body["review_version"] = review_version
     body = card_numbers.mask_values(body)  # 160 (review S-2): a native result, and data saved before the masking of 153
     return json.dumps(body, ensure_ascii=False, indent=1, default=str).encode("utf-8"), len(records)
+
+
+def json_parts(records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Each domain's section of a result's JSON, after its emails (180: the utility cost, `jav/domains/finance.py`)."""
+    return {part.json_key: part.json(records) for part in parts.result_parts()}
 
 
 def json_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> bytes:
@@ -568,5 +510,5 @@ def render(run_id: str, fmt: str, table: str = "documents") -> tuple[bytes, str,
     raise ValueError(f"unknown export format: {fmt}")
 
 
-__all__ = ["TABLES", "csv_bytes", "datapoints_table", "documents_table", "email_records", "emails_table", "json_bytes",
-           "line_items_table", "render", "run_records", "workbook_bytes", "xlsx_bytes"]
+__all__ = ["TABLES", "csv_bytes", "datapoints_table", "document_columns", "document_head", "documents_table", "email_records",
+           "emails_table", "json_bytes", "json_parts", "line_items_table", "render", "run_records", "workbook_bytes", "xlsx_bytes"]

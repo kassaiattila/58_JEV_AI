@@ -32,8 +32,17 @@ from jav import item_kinds
 DATA_KINDS = item_kinds.source_names()
 # where an input role's documents come from
 ROLE_SOURCES = ("own_items", "linked_package", "period", "master_data")
-# 178 (plan 170 L4): the outputs of a package that processes its items (`configs/outputs.json`)
-PROCESSING_OUTPUTS = ("package_result", "utility_cost")
+# 178 (plan 170 L4): the output every package that processes its items has (`configs/outputs.json`); 180: a domain's
+# own outputs follow it (`processing_outputs`)
+PACKAGE_RESULT = "package_result"
+
+
+def processing_outputs() -> tuple[str, ...]:
+    """The outputs of a package that processes its items: its result, then each domain's own output (180: the utility
+    cost, `jav/outputs/parts.py`)."""
+    from jav.outputs import parts
+
+    return (PACKAGE_RESULT, *(own.output for own in parts.own_outputs()))
 
 
 class UnknownKind(LookupError):
@@ -83,7 +92,7 @@ class LogicPack:
     next_step: Callable[[str], dict[str, Any]] | None = None
     list_next: Callable[[str], dict[str, Any]] | None = None
     list_mark: Callable[[], Any] | None = None
-    outputs: tuple[str, ...] = PROCESSING_OUTPUTS
+    outputs: tuple[str, ...] | None = None  # None: a processing package's (`processing_outputs`)
 
     def __post_init__(self) -> None:
         if self.kind in DATA_KINDS:
@@ -135,11 +144,11 @@ def kinds_without_runs() -> tuple[str, ...]:
 
 
 def outputs_of(kind: str) -> tuple[str, ...]:
-    """178: the outputs of a work package of this kind (a plain processing kind: the package result and the utility
-    cost)."""
+    """178: the outputs of a work package of this kind (a plain processing kind, or a logic pack naming none: the package
+    result and the domains' own outputs)."""
     pack = of(kind)
-    return pack.outputs if pack else PROCESSING_OUTPUTS
+    return pack.outputs if pack and pack.outputs is not None else processing_outputs()
 
 
-__all__ = ["DATA_KINDS", "PROCESSING_OUTPUTS", "ROLE_SOURCES", "InputRole", "LogicPack", "UnknownKind", "has_runs",
-           "kinds_without_runs", "of", "outputs_of", "packs", "register"]
+__all__ = ["DATA_KINDS", "PACKAGE_RESULT", "ROLE_SOURCES", "InputRole", "LogicPack", "UnknownKind", "has_runs",
+           "kinds_without_runs", "of", "outputs_of", "packs", "processing_outputs", "register"]

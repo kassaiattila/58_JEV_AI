@@ -16,7 +16,7 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.formatting.rule import CellIsRule
 from openpyxl.styles import Font, PatternFill
 
-from jav import export, store, work
+from jav import export, report_utility, store, work
 from jav import reconcile_statement as rs
 from jav.outputs import contract, fill, markers, samples, templates
 from tests import test_characterisation_178 as c178
@@ -179,11 +179,11 @@ def test_an_empty_table_takes_its_row_away_and_the_rows_below_move_up(db):
 def test_the_months_spread_to_the_right_with_their_names(db):
     wb = _one_sheet(A1="Place", B1="{{utility_cost.months:names}}", A2="{{utility_cost.address}}", B2="{{utility_cost.months}}",
                     A4="Grand total", B4="{{grand_total}}")
-    data = export.utility_data(c178._records(), export.package_values({"name": "April"}))
+    data = report_utility.output_data(c178._records(), export.package_values({"name": "April"}))  # 180: moved from export
     ws = load_workbook(io.BytesIO(fill.fill(data, _bytes(wb)))).active
     assert [ws.cell(1, c).value for c in range(2, 6)] == ["2026-01", "2026-02", "2026-03", "2026-04"]
     assert ws.cell(2, 1).value == "1111 Budapest, Minta utca 11" and ws.cell(2, 2).value == Decimal("10000.00")
-    assert ws.cell(2, 3).value == export.STATUS_TEXT["missing"]  # a missing month says so, as in the built-in template
+    assert ws.cell(2, 3).value == report_utility.STATUS_TEXT["missing"]  # a missing month says so, as in the built-in template
     assert ws.cell(4, 2).value == Decimal("31000.00") and ws.cell(4, 2).number_format == "#,##0.00"
 
 

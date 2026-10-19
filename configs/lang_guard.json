@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.77",
+    "version": "1.0.78",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.78",
+        "date": "2026-10-19",
+        "note": "180 (plan 170 E7): the utility cost's download labels moved with their tables from jav/export.py to jav/report_utility.py (document vocabulary; export lowered by the same 11 lines), and the glossary's two new entries (Domain module, Output part)."
+      },
       {
         "version": "1.0.77",
         "date": "2026-10-19",
@@ -519,7 +524,7 @@
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 288,
+    "docs/GLOSSARY.md": 290,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 9,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -567,7 +572,7 @@
     "jav/experiments/prepare_stack_trial.py": 3,
     "jav/experiments/pydantic_jev.py": 4,
     "jav/experiments/stack_trial.py": 1,
-    "jav/export.py": 24,
+    "jav/export.py": 13,
     "jav/extract_llm.py": 1,
     "jav/flow.py": 19,
     "jav/flow_detect.py": 10,
@@ -611,7 +616,7 @@
     "jav/prompts/viz_szamla_prompt.md": 21,
     "jav/prompts/viz_szamla_schema.json": 2,
     "jav/prompts/vizmuvek_szamla_prompt.md": 17,
-    "jav/report_utility.py": 2,
+    "jav/report_utility.py": 13,
     "jav/runtime/calls.py": 3,
     "jav/runtime/persistence.py": 2,
     "jav/runtime/worker.py": 1,

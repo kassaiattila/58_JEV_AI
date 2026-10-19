@@ -15,14 +15,15 @@ from decimal import Decimal
 from typing import Any
 
 from jav import cfg, typepack
-from jav.outputs import contract, markers as marker_names
+from jav.outputs import contract, markers as marker_names, parts
 
 DEFAULT_PART = "invoice_hu"
 SAMPLE_MONTHS = ("2026-01", "2026-02", "2026-03")
 
 
 def _fixed_labels(output: str) -> dict[str, dict[str, str]]:
-    """The built-in template's headers of the fixed columns, by table."""
+    """The built-in template's headers of the fixed columns, by table (180: a domain's own output and its result parts
+    give their own, `jav/outputs/parts.py`)."""
     from jav import export
     from jav import reconcile_statement as rs
 
@@ -31,16 +32,15 @@ def _fixed_labels(output: str) -> dict[str, dict[str, str]]:
         empty = {"invoices": [], "lines": []}
         return {"invoices": dict(zip(rs.INVOICE_COLUMNS, rs._invoice_table(empty, lab)[0])),
                 "lines": dict(zip(rs.LINE_COLUMNS, rs._line_table(empty, lab)[0]))}
-    utility = {"utility_cost": dict(zip(export.UTILITY_COLUMNS, export.UTILITY_HEAD)),
-               "utility_sources": dict(zip(export.UTILITY_SOURCE_COLUMNS, export.UTILITY_SOURCE_HEAD))}
-    if output == "utility_cost":
-        return utility
+    if output != "package_result":
+        return {t: dict(heads) for t, heads in parts.own_output(output).heads.items()}
+    added = {t: dict(heads) for part in parts.result_parts() for t, heads in part.heads.items()}
     return {"native_facts": dict(zip(export.NATIVE_COLUMNS, export.NATIVE_HEAD)),
             "native_readings": dict(zip(export.NATIVE_READING_COLUMNS, export.NATIVE_READING_HEAD)),
             "emails": dict(zip(export.EMAIL_COLUMNS, export.EMAIL_HEAD)), "tasks": dict(zip(export.TASK_COLUMNS, export.TASK_HEAD)),
-            "documents": dict(zip(export.DOC_COLUMNS, export.DOC_HEAD)),
+            "documents": dict(zip(export.document_columns(), export.document_head())),
             "datapoints": dict(zip(export.DATAPOINT_COLUMNS, export.DATAPOINT_HEAD)),
-            "line_items": {**dict(zip(export.LINE_COLUMNS, export.LINE_HEAD)), "value": export.LIST_VALUE}, **utility}
+            "line_items": {**dict(zip(export.LINE_COLUMNS, export.LINE_HEAD)), "value": export.LIST_VALUE}, **added}
 
 
 def _value_labels(output: str) -> dict[str, str]:
@@ -51,10 +51,9 @@ def _value_labels(output: str) -> dict[str, str]:
         h = rs._labels()["heading"]
         return {k: h[k] for k in ("package", "party", "period", "accounts", "state")}
     package = {v.key: v.label for v in export.package_values({"name": ""})}
-    total = export._grand_total({"grand_total": None}).label
-    if output == "utility_cost":
-        return {"package": package["package"], "period": export.PERIOD_LABEL, "grand_total": total}
-    return {**package, "grand_total": total}
+    if output != "package_result":  # a domain's own output: the package's name and its own values
+        return {"package": package["package"], **parts.own_output(output).value_labels}
+    return {**package, **{k: v for part in parts.result_parts() for k, v in part.value_labels.items()}}
 
 
 def field_label(field: str) -> str:
