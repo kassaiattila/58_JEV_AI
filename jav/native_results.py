@@ -15,7 +15,7 @@ from uuid import uuid4
 
 from pydantic import TypeAdapter
 
-from jav import store
+from jav import item_kinds, store
 from jav.native_contracts import (
     ArtifactRef, Failed, InterpretationOutcome, NativeCitation, NativeFact,
     NativeProgress, NativeSourceElement, NATIVE_CAPABLE_SUFFIXES, NATIVE_FALLBACK_SUFFIXES, NATIVE_SUFFIXES,
@@ -254,7 +254,7 @@ def _check_work(c, *, run_id, item_id, source_sha256, recipe_hash):
     if row is None or row["recipe_hash"] != recipe_hash:
         raise NativeIntegrityError("Publication does not match its frozen work run")
     items = [i for i in json.loads(row["input"])["items"] if i["item_id"] == item_id]
-    if len(items) != 1 or items[0]["sha256"] != source_sha256 or items[0]["kind"] != "document":
+    if len(items) != 1 or items[0]["sha256"] != source_sha256 or not item_kinds.of(items[0]).detected:
         raise NativeIntegrityError("Publication does not match its frozen work item")
     return row
 
@@ -320,8 +320,9 @@ def publish(*, run_id: str, item_id: str, source_sha256: str, recipe_hash: str,
 
 def native_item(run_id: str, item: Mapping, c=None) -> bool:
     """Whether an item's result is a native publication: a native format, or (120) a PDF that continued into the
-    native flow because its recognised type had no fitting type pack. The suffix alone no longer decides for a PDF."""
-    if item.get("kind") != "document":
+    native flow because its recognised type had no fitting type pack. The suffix alone no longer decides for a PDF.
+    177: only an item whose type is recognised from its content (a document, `jav/item_kinds.py`)."""
+    if not item_kinds.of(item).detected:
         return False
     suffix = Path(item["source_path"]).suffix.lower()
     if suffix in NATIVE_SUFFIXES:

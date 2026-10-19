@@ -35,7 +35,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import activity_kinds, cfg, logic_packs, parties, reconcile, statement_months, statement_table, store, typepack, work
+from jav import activity_kinds, cfg, item_kinds, logic_packs, parties, reconcile, statement_months, statement_table, store, typepack, work
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
@@ -417,7 +417,7 @@ def after_detection(run: dict[str, Any], item: dict[str, Any], detected: Any) ->
     """A document of the package goes on to its extraction only when recognised as a bank statement type; anything
     else stops here with a to-do (no extraction, no general facts). Without a detailed type the detection's own to-do
     stands for a bank statement no type pack reads."""
-    if item.get("kind") != "document":
+    if not item_kinds.of(item).detected:
         return None
     accepted = set(_conf()["accepted_parents"])
     key = _field(detected.get("detail"), "key")

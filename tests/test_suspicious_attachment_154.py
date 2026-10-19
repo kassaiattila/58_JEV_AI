@@ -68,10 +68,10 @@ def test_the_order_of_the_email_and_its_attachment_does_not_matter(env, monkeypa
         assert REASON not in _open(run_id, doc)
 
     close()
-    assert work.mark_suspicious_source(run, doc) is True  # the attachment processed after its email
+    assert mailbox.mark_suspicious_source(run, doc) is True  # the attachment processed after its email
     assert REASON in _open(run_id, doc)
     close()
-    assert work.mark_suspicious_source(run, mail) is False  # the email processed after its attachment
+    assert mailbox.mark_suspicious_source(run, mail) is False  # the email processed after its attachment
     assert REASON in _open(run_id, doc)
 
 

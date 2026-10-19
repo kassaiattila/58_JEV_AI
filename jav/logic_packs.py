@@ -25,8 +25,11 @@ import sqlite3
 from dataclasses import dataclass
 from typing import Any, Callable
 
-# the work package kinds (`workpackages.source_kind`) that only process their own documents and emails
-DATA_KINDS = ("folder", "upload", "mailbox", "manual", "watch")
+from jav import item_kinds
+
+# the work package kinds (`workpackages.source_kind`) that only process their own documents and emails: the source
+# kinds (177, `jav/item_kinds.py`)
+DATA_KINDS = item_kinds.source_names()
 # where an input role's documents come from
 ROLE_SOURCES = ("own_items", "linked_package", "period", "master_data")
 

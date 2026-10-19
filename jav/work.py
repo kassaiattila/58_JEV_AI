@@ -29,7 +29,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, cfg, logic_packs, source_instances, store, typepack
+from jav import activity_kinds, cfg, item_kinds, logic_packs, source_instances, store, typepack
 from jav.native_contracts import DOCUMENT_SUFFIXES, NATIVE_SUFFIXES
 from jav.runtime import calls, flows, queue
 from jav.user_messages import explained
@@ -407,12 +407,9 @@ def add_items(wp_id: str, paths: list[Path], *, kind: str, expected_revision: in
     A document is copied into the source instance store as it is added (`jav/source_instances.py`), and its
     fingerprint is that of the copied bytes; an email is hashed in place (it is already the system's own copy). If the
     intake fails, the copies made for it are released again."""
-    if kind not in ITEM_KINDS:
-        raise ValueError(f"unknown item kind: {kind}")
+    item_kinds.check([kind])  # 177: the registry knows the kinds (`UnknownItemKind`, a ValueError)
     return add_entries(wp_id, [(Path(p), kind) for p in paths], expected_revision=expected_revision, parents=parents)
 
-
-ITEM_KINDS = ("document", "email", "statement_table")
 
 
 def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revision: int,
@@ -422,8 +419,7 @@ def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revisio
     from exports and the PDF statements together): (path, kind) pairs. `event` (160-C S2): (action, actor, detail)
     written to the package's log in the same transaction. A removed item added again is restored (its removal's who,
     when and why are cleared)."""
-    if unknown := sorted({kind for _p, kind in entries if kind not in ITEM_KINDS}):
-        raise ValueError(f"unknown item kind: {', '.join(unknown)}")
+    item_kinds.check([kind for _p, kind in entries])
     parents = {Path(k).resolve(): v for k, v in (parents or {}).items()}
     resolved: list[tuple[Path, str, str | None, str]] = []
     made_again: list[str] = []
@@ -432,7 +428,7 @@ def add_entries(wp_id: str, entries: list[tuple[Path, str]], *, expected_revisio
             p = Path(p).resolve(strict=True)
             if not p.is_file():
                 raise explained(ValueError, "not a file: {{p}}", p=p)
-            if kind in ("document", "statement_table"):
+            if item_kinds.of(kind).copied:  # 177: a document and a table statement; an email is hashed in place
                 resolved.append((*_document_entry(p), kind))
             else:
                 resolved.append((p, sha256_file(p), None, kind))
@@ -891,37 +887,6 @@ def raise_item_reasons(run_id: str, item: dict[str, Any], reasons: list[str], *,
                              reasons=reasons, producer=producer)
 
 
-SUSPICIOUS_ATTACHMENT = "attachment:suspicious_email"  # 154 (DECISIONS 154)
-
-
-def suspicious_email(run_id: str, email_item_id: str) -> bool:
-    """154: whether the run's email item was routed by a signal (an injected instruction -> `human:suspicious`,
-    policy `email.signal_routes`)."""
-    from jav import policy
-
-    result = store.email_result(flow_run_id(run_id, email_item_id))
-    return bool(result) and result.get("next_flow") in set(policy.EMAIL_SIGNAL_ROUTES.values())
-
-
-def mark_suspicious_source(run: dict[str, Any], item: dict[str, Any]) -> bool:
-    """154 (DECISIONS 154): the attachments of an email routed as suspicious are processed but marked: each gets an
-    `attachment:suspicious_email` to-do in the run, so the run cannot be approved before a person has looked at it,
-    and a statement from it never replaces another by rule (`reconcile.statements`). Called after every item, so it
-    does not matter whether the email or its attachment is processed first. Returns whether this item got the to-do."""
-    run_id = run["run_id"]
-    if item.get("kind") == "email":
-        if suspicious_email(run_id, item["item_id"]):
-            for attachment in run["input"]["items"]:
-                if attachment.get("parent_item_id") == item["item_id"]:
-                    raise_item_reasons(run_id, attachment, [SUSPICIOUS_ATTACHMENT], producer="email_source")
-        return False
-    parent = item.get("parent_item_id")
-    if parent and suspicious_email(run_id, parent):
-        raise_item_reasons(run_id, item, [SUSPICIOUS_ATTACHMENT], producer="email_source")
-        return True
-    return False
-
-
 _DELETE_GUARDS: list[Callable[[sqlite3.Connection, str], None]] = []
 
 
@@ -1172,13 +1137,14 @@ def run_plan(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, An
     def value(name: str) -> Any:
         return params.get(name, (r.get("params", {}).get(name) or {}).get("default"))
 
-    docs = [(i, a) for i, a in zip(items, arms, strict=True) if i.get("kind") == "document"]
-    emails = sum(1 for i in items if i.get("kind") == "email")
+    docs = [(i, a) for i, a in zip(items, arms, strict=True) if item_kinds.of(i).detected]
     paths = {"S": 0, "G": 0, "unknown": 0}
     for _i, a in docs:
         paths[a if a in ("S", "G") else "unknown"] += 1
-    tables = sum(1 for i in items if i.get("kind") == "statement_table")
-    plan = {"documents": len(docs), "emails": emails, **({"statement_tables": tables} if tables else {}),  # 136: code, free
+    # 177: each item kind under its own key, in the registry's order (a table statement, 136: code, free, only if any)
+    counts = {k.plan_key: sum(1 for i in items if item_kinds.of(i) is k) for k in item_kinds.ITEM_KINDS}
+    emails = counts[item_kinds.of(item_kinds.EMAIL).plan_key]
+    plan = {**{k.plan_key: counts[k.plan_key] for k in item_kinds.ITEM_KINDS if k.plan_always or counts[k.plan_key]},
             "attachments": sum(1 for i, _a in docs if i.get("parent_item_id")), "paths": paths,
             "tasks_emails": emails if value("tasks") == "propose" else 0,
             "azure": value("azure_ocr") == "on" and any(not native_flow(r, i) for i, _a in docs),
@@ -1193,7 +1159,7 @@ def run_plan(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, An
 
 def _known_detail_types(items: list[dict[str, Any]]) -> dict[str, str]:
     """The detailed type of documents already detected (content hash → type), from the `documents` table (065)."""
-    ids = [i["sha256"] for i in items if i.get("kind") == "document" and i.get("sha256")]
+    ids = [i["sha256"] for i in items if item_kinds.of(i).detected and i.get("sha256")]
     out: dict[str, str] = {}
     with store.connect() as c:
         for k in range(0, len(ids), 500):
@@ -1223,9 +1189,10 @@ def native_flow(r: dict[str, Any], item: dict[str, Any]) -> bool:
 
 
 def flow_for(r: dict[str, Any], item: dict[str, Any] | str | None) -> str:
-    """Use the frozen source suffix for mixed documents, then the recipe's item-kind routing."""
+    """Use the frozen source suffix for mixed documents (177: an item whose type is recognised from its content), then
+    the recipe's item-kind routing."""
     kind = item.get("kind") if isinstance(item, dict) else item
-    if isinstance(item, dict) and kind == "document":
+    if isinstance(item, dict) and item_kinds.of(item).detected:
         suffix = Path(item["source_path"]).suffix.lower()
         routed = (r.get("flows_by_suffix") or {}).get(suffix)
         if routed:
@@ -1529,10 +1496,9 @@ def flow_run_id(run_id: str, item_id: str) -> str:
 
 def review_subject(item: dict[str, Any]) -> tuple[str, str]:
     """The subject of the item's to-dos: for a document, the content hash; for an email, the message identifier (= the
-    name of the email's folder, written by the receiver and used by the email flow, 048 T2)."""
-    if item.get("kind") == "email":
-        return "email", Path(item["source_path"]).parent.name
-    return "document", item["item_id"]
+    name of the email's folder, written by the receiver and used by the email flow, 048 T2). 177: the item kind's
+    (`jav/item_kinds.py`)."""
+    return item_kinds.of(item).subject(item)
 
 
 def is_own_reason(reason: dict[str, Any], own: str) -> bool:

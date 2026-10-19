@@ -22,14 +22,14 @@ import secrets
 import subprocess
 import threading
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from jav import ingest_server, store, work
+from jav import ingest_server, item_kinds, store, work
 from jav.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
 from jav.user_messages import explained
 
@@ -224,6 +224,56 @@ def add_attachments(wp_id: str, *, expected_revision: int) -> dict[str, Any]:
     item_of = {Path(i["source_path"]).resolve(): i["item_id"] for i in wp["items"] if i["kind"] == "email"}
     parents = {pdf: item_of[Path(msg).resolve()] for pdf, msg in pdf_attachments(mails).items() if pdf in missing}
     return work.add_items(wp_id, sorted(missing), kind="document", expected_revision=expected_revision, parents=parents)
+
+
+def _page(wp: Mapping[str, Any]) -> dict[str, Any]:
+    """058 K5.2: a mailbox package's part of its page: how many PDF attachments are not yet items (they can be added
+    later to a pre-058 email package)."""
+    return {"attachments_missing": len(missing_attachments(dict(wp)))}
+
+
+# --- an attachment of a suspicious email (154; 177: the email domain's rule, `jav/item_kinds.py`) ----------------------
+
+SUSPICIOUS_ATTACHMENT = "attachment:suspicious_email"  # 154 (DECISIONS 154)
+
+
+def suspicious_email(run_id: str, email_item_id: str) -> bool:
+    """154: whether the run's email item was routed by a signal (an injected instruction -> `human:suspicious`,
+    policy `email.signal_routes`)."""
+    from jav import policy
+
+    result = store.email_result(work.flow_run_id(run_id, email_item_id))
+    return bool(result) and result.get("next_flow") in set(policy.EMAIL_SIGNAL_ROUTES.values())
+
+
+def mark_suspicious_source(run: dict[str, Any], item: dict[str, Any]) -> bool:
+    """154 (DECISIONS 154): the attachments of an email routed as suspicious are processed but marked: each gets an
+    `attachment:suspicious_email` to-do in the run, so the run cannot be approved before a person has looked at it,
+    and a statement from it never replaces another by rule (`reconcile.statements`). Called after every item, so it
+    does not matter whether the email or its attachment is processed first. Returns whether this item got the to-do."""
+    run_id = run["run_id"]
+    if item.get("kind") == item_kinds.EMAIL:
+        if suspicious_email(run_id, item["item_id"]):
+            for attachment in run["input"]["items"]:
+                if attachment.get("parent_item_id") == item["item_id"]:
+                    work.raise_item_reasons(run_id, attachment, [SUSPICIOUS_ATTACHMENT], producer="email_source")
+        return False
+    parent = item.get("parent_item_id")
+    if parent and suspicious_email(run_id, parent):
+        work.raise_item_reasons(run_id, item, [SUSPICIOUS_ATTACHMENT], producer="email_source")
+        return True
+    return False
+
+
+_RULE = item_kinds.ItemRule(kind=item_kinds.EMAIL, name="suspicious_email_source", module=__name__,
+                            after_item=mark_suspicious_source)
+
+
+def register() -> None:
+    """177 (plan 170 E5, `registrations.load_all`): the email domain's rule run after every item of a run (an
+    attachment of a suspicious email gets a to-do) and the mailbox package's part of its page."""
+    item_kinds.register_rule(_RULE)
+    item_kinds.register_page("mailbox", __name__, _page)
 
 
 _SCHEDULED_ACTOR = re.compile(r"^ütemezés \((.+)\)$")

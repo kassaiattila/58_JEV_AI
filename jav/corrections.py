@@ -39,8 +39,8 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from jav import (activity_kinds, dates, duplicates, grounding, native_results, numbers, package_result, reconcile, source_layer, statement_months, store, typepack,
-                 validators, work)
+from jav import (activity_kinds, dates, duplicates, grounding, item_kinds, native_results, numbers, package_result, reconcile, source_layer, statement_months, store,
+                 typepack, validators, work)
 from jav.native_contracts import Publication
 from jav.policy import reason_field
 from jav.user_messages import explained
@@ -506,7 +506,7 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     engine = work.run_engine(run)  # 160-D: the engine of the run that produced the result shown
     if native_results.native_item(run_id, item):  # 120: a continuing PDF too, by its publication
         return {**_native_item_result(run, item), "engine": engine}
-    if item.get("kind") == "email":  # 048 T2: email item: no extraction or page image; shows the email and intent
+    if item.get("kind") == item_kinds.EMAIL:  # 048 T2: email item: no extraction or page image; shows the email and intent
         from jav import mailbox
 
         reasons = work.item_reasons(run_id, item_id, item)
@@ -535,15 +535,15 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     from jav import isolated_pdf, page_image
 
     src = work.source_file(item)  # the source instance if the item has one
-    table = item.get("kind") == "statement_table"  # 136: a statement read from a tabular export has no page image
+    kind = item_kinds.of(item)  # 136: a statement read from a tabular export has no page image (177: the kind says)
     try:
-        n_pages = page_image.page_count(src) if src.is_file() and not table else None
+        n_pages = page_image.page_count(src) if src.is_file() and kind.page_image else None
     except (OSError, RuntimeError, isolated_pdf.PdfReaderError, isolated_pdf.PdfReaderLimit):
         # a damaged PDF (in-process pypdfium: RuntimeError) or one over the isolated reader's limits (077): the word
         # layer's page count is used
         n_pages = None
-    return {"run_id": run_id, "item_id": item_id, "kind": "statement_table" if table else "document", "page_count": n_pages,
-            "extraction": dp, "correction": corr, "engine": None if table else engine,  # 136: a statement read by code
+    return {"run_id": run_id, "item_id": item_id, "kind": kind.name, "page_count": n_pages,
+            "extraction": dp, "correction": corr, "engine": None if kind.by_code else engine,  # 136: a statement read by code
             "effective": effective, "lists": lists,
             # 081: the field kinds, so the UI shows amounts and quantities for editing the Hungarian way ("35,56")
             "kinds": {f: k for f, k in pack.fields.items() if k != "list"} if pack else {},
@@ -621,7 +621,7 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     if run["approval"]:
         raise explained(work.RevisionConflict, "run {{run_id}} is approved; corrections are frozen", run_id=run_id)
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
-    if item is not None and item.get("kind") == "email":
+    if item is not None and item.get("kind") == item_kinds.EMAIL:
         if confirm:
             raise explained(ValueError, "fields cannot be confirmed on an email; correct its intent instead")
         return _save_email(run_id, item, fields=fields, expected_revision=expected_revision, actor=actor, note=note, sources=sources)

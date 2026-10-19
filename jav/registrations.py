@@ -11,6 +11,8 @@ What a module registers is its own `register()` function; a repeated call adds n
 still registered on import (`store.register_schema`), because a module's tables only matter where the module is used.
 176 (plan 170 L3): the statement package and the reconciliation package register as logic packs
 (`jav/logic_packs.py`), with their rule and their delete guard; a workflow's delete guard is asked for every package.
+177 (plan 170 E5): the email domain registers its rule run after every item (an attachment of a suspicious email) and
+the mailbox package's part of its page (`jav/item_kinds.py`).
 """
 
 from __future__ import annotations
@@ -20,13 +22,14 @@ _loaded = False
 
 def load_all() -> None:
     """Every module's registrations: the statement package and the reconciliation package as logic packs, the
-    workflows' delete guard, and the party references of all three. Once per process; a repeated call does nothing."""
+    workflows' delete guard, the party references of all three, and the email domain's item rule and page part. Once
+    per process; a repeated call does nothing."""
     global _loaded
     if _loaded:
         return
-    from jav import reconcile_package, statement_package, workflows
+    from jav import mailbox, reconcile_package, statement_package, workflows
 
-    for module in (statement_package, reconcile_package, workflows):
+    for module in (statement_package, reconcile_package, workflows, mailbox):
         module.register()
     _loaded = True
 
