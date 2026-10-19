@@ -15,7 +15,7 @@ from fastapi import Depends, FastAPI
 from pydantic import Field
 
 from jav import email_routing, work_views
-from jav.api import Empty, WpId, _In, human_actor
+from jav.api import WpId, _In, human_actor
 
 WpIdField = Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]  # a work package named in a request's body
 ItemId = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]  # an attachment: its content hash
@@ -27,7 +27,15 @@ class CreateRouting(_In):
     sources: Annotated[list[WpIdField], Field(min_length=1, max_length=50)]
 
 
-class RoutingItems(_In):
+# the roles' titles in the interface's language, for the names of the packages the routing makes
+Titles = dict[Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")], Annotated[str, Field(min_length=1, max_length=100)]]
+
+
+class RoutingTitles(_In):
+    titles: Titles | None = None
+
+
+class RoutingItems(RoutingTitles):
     """The attachments a decision is about and, when a person chooses it, the package they go to."""
     items: Annotated[list[ItemId], Field(min_length=1, max_length=500)]
     target: WpIdField | None = None
@@ -49,12 +57,12 @@ def routes(app: FastAPI, r: str) -> None:
     @app.post(r + "/workpackages/{wp_id}/routing/accept")
     def routing_accept(wp_id: WpId, body: RoutingItems, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """The attachments go to their proposed packages, or to the package a person chose."""
-        return work_views.jsonable(email_routing.accept(wp_id, body.items, actor=who, target=body.target))
+        return work_views.jsonable(email_routing.accept(wp_id, body.items, actor=who, target=body.target, titles=body.titles))
 
     @app.post(r + "/workpackages/{wp_id}/routing/accept-clear")
-    def routing_accept_clear(wp_id: WpId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def routing_accept_clear(wp_id: WpId, body: RoutingTitles, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """Every proposal without a blocker that is not decided yet."""
-        return work_views.jsonable(email_routing.accept_clear(wp_id, actor=who))
+        return work_views.jsonable(email_routing.accept_clear(wp_id, actor=who, titles=body.titles))
 
     @app.post(r + "/workpackages/{wp_id}/routing/reject")
     def routing_reject(wp_id: WpId, body: RoutingItems, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:

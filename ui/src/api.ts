@@ -75,7 +75,7 @@ export interface WorkpackageView {
 export type RoutingBlocker = "no_result" | "unknown_party" | "unclear_direction" | "internal" | "not_own" | "no_day"
   | "suspicious" | "sent_incoming";
 export interface RoutingEmail { item_id: string; subject: string | null; sender: string | null; received_at: string | null; folder: string | null }
-export interface RoutingNewPackage { name: string; party_id: string; period_start: string; period_end: string; role: string }
+export interface RoutingNewPackage { name: string; party: string; party_id: string; period_start: string; period_end: string; role: string }
 /** 181: one attachment of a routing package: its email, its result, where it belongs, the proposal and the decision. */
 export interface RoutingItem {
   item_id: string; file: string; package: string; email: RoutingEmail | null; doc_type: string | null; tier: string | null;
@@ -1299,9 +1299,11 @@ export const api = {
   setOwner: (id: string, owner: string | null) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/owner`, { owner }),
   /** 181: an email routing package over email packages, and a person's decisions on its attachments */
   createRoutingPackage: (body: { name: string; sources: string[] }) => request<WorkpackageView>("POST", "/email-routing/packages", body),
-  routingAccept: (wpId: string, items: string[], target?: string) =>
-    request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/accept`, target ? { items, target } : { items }),
-  routingAcceptClear: (wpId: string) => request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/accept-clear`, {}),
+  /** `titles`: the roles' titles in the interface's language, for the names of the packages the routing makes */
+  routingAccept: (wpId: string, items: string[], target?: string, titles?: Record<string, string>) =>
+    request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/accept`, { items, ...(target ? { target } : {}), ...(titles ? { titles } : {}) }),
+  routingAcceptClear: (wpId: string, titles?: Record<string, string>) =>
+    request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/accept-clear`, titles ? { titles } : {}),
   routingReject: (wpId: string, items: string[]) => request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/reject`, { items }),
   routingUndo: (wpId: string, item: string) => request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/undo`, { item }),
   /** 181: the package roles a scope can name */
