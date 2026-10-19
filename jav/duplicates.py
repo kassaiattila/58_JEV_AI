@@ -380,6 +380,34 @@ def marks(items: dict[str, list[str]]) -> dict[str, dict[str, Any]]:
     return out
 
 
+def mark_records(records: list[dict[str, Any]]) -> None:
+    """126: the duplicate mark on each document record of a run's result (`duplicate`; a confirmed copy or modified
+    version, a suspicion, the documents found different; None without one). 180 (plan 170 E7): the finance domain's
+    record mark (`jav/outputs/parts.py`), until then written in `jav/export.py`."""
+    found = marks({r["item_id"]: r["open_reasons"] for r in records})
+    for r in records:
+        r["duplicate"] = found.get(r["item_id"])
+
+
+def duplicate_status(mark: dict[str, Any] | None) -> str | None:
+    """126: the duplicate mark as one value: `copy` / `variant` when a person confirmed it, `suspected:<kind>` while the
+    to-do is open; None without a mark (a pair found different has none)."""
+    if not mark or "status" not in mark:
+        return None
+    return f"suspected:{mark['kind']}" if mark["status"] == "suspected" else mark["status"]
+
+
+def column_values(records: list[dict[str, Any]]) -> list[tuple[str | None, str | None]]:
+    """The documents table's two duplicate columns of each record: its mark (`duplicate_status`) and the other
+    document's file name while it has a mark (180: the finance domain's columns, `jav/domains/finance.py`)."""
+    out = []
+    for r in records:
+        mark = r.get("duplicate")
+        status = duplicate_status(mark)
+        out.append((status, (mark or {}).get("other_file") if status else None))
+    return out
+
+
 # --- the documents already in the store --------------------------------------------------------------------------
 
 
@@ -453,5 +481,6 @@ def scan(*, write: bool = False) -> dict[str, Any]:
             "group_sizes": sorted((len(g) for g in groups), reverse=True)}
 
 
-__all__ = ["DECISIONS", "KINDS", "Document", "Match", "classify", "decide", "documents", "family", "item_pairs", "marks",
-           "matches", "number_key", "parse_reason", "review_reasons", "same_invoice", "same_supplier", "scan"]
+__all__ = ["DECISIONS", "KINDS", "Document", "Match", "classify", "column_values", "decide", "documents", "duplicate_status",
+           "family", "item_pairs", "mark_records", "marks", "matches", "number_key", "parse_reason", "review_reasons",
+           "same_invoice", "same_supplier", "scan"]

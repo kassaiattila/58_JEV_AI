@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from jav import checks, parties, policy, store
+from jav import checks, parties, store
+from jav.domains import finance
 from jav.runtime import calls
 
 BUYER, RAIL, SECOND, OTHER = "12121216-2-42", "13570008-1-13", "21357912-1-13", "12345676-2-41"
@@ -96,4 +97,4 @@ def test_a_dismissed_number_opens_no_to_do(db):
 def test_the_flow_asks_the_check_for_incoming_invoice_types():
     assert "invoice_hu" in parties.supplier_check_types() and "invoice_out" not in parties.supplier_check_types()
     assert [c.name for c in checks.stage("cross_document")] == ["duplicate", "own_tax", "statement_overlap"]
-    assert checks.get("own_tax").run is policy.own_tax_check
+    assert checks.get("own_tax").run is finance.own_tax_check  # 180: the finance domain's

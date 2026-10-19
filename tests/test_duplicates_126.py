@@ -281,13 +281,14 @@ def test_another_supplier_with_the_same_number_counts_separately_in_the_report()
 def test_the_documents_table_shows_the_mark():
     record = {"item_id": "x", "file": "x.pdf", "doc_type": "invoice_hu", "arm": "S", "final_status": "done", "fields": {},
               "open_reasons": [], "duplicate": {"status": "copy", "other_file": "y.pdf", "different": []}}
+    fixed = export.document_head()  # 180: the general headers, then the finance domain's (the duplicate mark first)
     head, [row] = export.documents_table([record])
-    assert head[: len(export.DOC_HEAD)] == export.DOC_HEAD
-    assert (row[export.DOC_HEAD.index("Duplicate")], row[export.DOC_HEAD.index("Duplicate of")]) == ("copy", "y.pdf")
+    assert head[: len(fixed)] == fixed
+    assert (row[fixed.index("Duplicate")], row[fixed.index("Duplicate of")]) == ("copy", "y.pdf")
     record["duplicate"] = {"status": "suspected", "kind": "undecidable", "other_file": "y.pdf", "different": []}
-    assert export.documents_table([record])[1][0][export.DOC_HEAD.index("Duplicate")] == "suspected:undecidable"
+    assert export.documents_table([record])[1][0][fixed.index("Duplicate")] == "suspected:undecidable"
     record["duplicate"] = {"different": ["y"]}
-    assert export.documents_table([record])[1][0][export.DOC_HEAD.index("Duplicate of")] is None
+    assert export.documents_table([record])[1][0][fixed.index("Duplicate of")] is None
 
 
 # --- the pairs already in the store ------------------------------------------------------------------------------

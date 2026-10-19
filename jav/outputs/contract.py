@@ -92,6 +92,15 @@ def writer_kind(kind: str | None) -> str | None:
     return kind if kind in WRITER_KINDS else None
 
 
+def table(key: str, title: str, columns: Sequence[str], head: Sequence[str], rows: Sequence[Sequence[Any]],
+          kinds: Sequence[str | None] | None = None, **extra: Any) -> Table:
+    """A table of an output's data from its column keys, headers and rows; `kinds`: each column's contract kind (the
+    writer keeps money and number), none by default; `extra`: the table's part, marks or footer."""
+    kinds = kinds or [None] * len(columns)
+    return Table(key=key, title=title, columns=tuple(columns), head=tuple(head), kinds=tuple(writer_kind(k) for k in kinds),
+                 rows=rows, **extra)
+
+
 @cache
 def _list_columns() -> frozenset[str]:
     """Every column of every type pack's lists (the line items' dynamic columns)."""

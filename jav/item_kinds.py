@@ -15,11 +15,12 @@ is written here once, and the shared code asks this registry instead of naming t
 Code that handles an email itself (its view, the correction of its intent, its export sheet, its title, the mailbox)
 belongs to the email domain and names the kind by `EMAIL`.
 
-A module may add a rule that runs after every item of a run (`ItemRule`), and a part of a package's page for a source
-kind (`register_page`); both through its `register()`, called by `registrations.load_all`. Each kind names the module
-that owes them (`rules_from`, `page_from`): the email domain's rule that marks the attachments of a suspicious email,
-and the mailbox package's missing attachments (`jav/mailbox.py`). Asking for them before that module registered is an
-error (`NotRegistered`), so a process that missed `load_all` stops instead of skipping a safety rule.
+A domain may add a rule that runs after every item of a run (`ItemRule`), and a part of a package's page for a source
+kind (`register_page`); both through its domain module's `register()`, called by `registrations.load_all`. Each kind
+names the module that owes them (`rules_from`, `page_from`): the email domain's rule that marks the attachments of a
+suspicious email, and the mailbox package's missing attachments (180: `jav/domains/email.py`; the work itself in
+`jav/mailbox.py`). Asking for them before that module registered is an error (`NotRegistered`), so a process that
+missed `load_all` stops instead of skipping a safety rule.
 
 An item or a source of a kind the registry does not know is refused (`UnknownItemKind`, `UnknownSourceKind`).
 
@@ -123,7 +124,7 @@ ITEM_KINDS: tuple[ItemKind, ...] = (
              page_image=True, attachments=False, subject=_document_subject, plan_key="documents"),
     ItemKind(EMAIL, "a received message; its attachments are documents of the same package", copied=False,
              record=False, detected=False, page_image=False, attachments=True, subject=_email_subject,
-             plan_key="emails", rules_from="jav.mailbox"),
+             plan_key="emails", rules_from="jav.domains.email"),
     ItemKind(STATEMENT_TABLE, "one account's statement read from a bank's tabular export, by code (136)", copied=True,
              record=True, detected=False, page_image=False, attachments=False, subject=_document_subject,
              plan_key="statement_tables", plan_always=False, by_code=True),
@@ -132,7 +133,7 @@ ITEM_KINDS: tuple[ItemKind, ...] = (
 SOURCE_KINDS: tuple[SourceKind, ...] = (
     SourceKind("folder", "the documents of a folder", folder=True),
     SourceKind("upload", "uploaded files"),
-    SourceKind("mailbox", "the messages of a mailbox download, with their PDF attachments", page_from="jav.mailbox"),
+    SourceKind("mailbox", "the messages of a mailbox download, with their PDF attachments", page_from="jav.domains.email"),
     SourceKind("manual", "files chosen by hand, or the accounts of a bank's tabular export"),
     SourceKind("watch", "the new documents of a watched folder", folder=True),
 )

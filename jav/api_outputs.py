@@ -104,7 +104,7 @@ def routes(app: FastAPI, r: str) -> None:
     @app.get(r + "/workpackages/{wp_id}/result/utility-cost.xlsx")
     def package_utility_cost_xlsx(wp_id: WpId) -> Response:
         """178 (DECISIONS 178): the utility cost of the package's current result, with its chosen template."""
-        return _file(*package_release.current_utility_workbook(wp_id))
+        return _file(*package_release.current_output_workbook(wp_id, "utility_cost"))
 
 
 __all__ = ["routes"]

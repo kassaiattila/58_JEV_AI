@@ -13,25 +13,39 @@ still registered on import (`store.register_schema`), because a module's tables 
 (`jav/logic_packs.py`), with their rule and their delete guard; a workflow's delete guard is asked for every package.
 177 (plan 170 E5): the email domain registers its rule run after every item (an attachment of a suspicious email) and
 the mailbox package's part of its page (`jav/item_kinds.py`).
+180 (plan 170 E7): a domain's registrations are in its domain module (`jav/domains/`): the finance domain's checks,
+logic packs, party references and download parts, the email domain's item rule and page part. The check registry and
+the output parts registry call `load_all` themselves the first time they are read, so they are complete whichever
+module asks first.
 """
 
 from __future__ import annotations
 
+import importlib
+
 _loaded = False
+_loading = False
 
 
 def load_all() -> None:
-    """Every module's registrations: the statement package and the reconciliation package as logic packs, the
-    workflows' delete guard, the party references of all three, and the email domain's item rule and page part. Once
-    per process; a repeated call does nothing."""
-    global _loaded
-    if _loaded:
+    """Every registration: the finance domain's (its cross-document checks, the statement package and the
+    reconciliation package as logic packs with their party references, its parts of the downloads), the workflows'
+    delete guard and party reference, then the email domain's item rule and page part. Once per process; a repeated
+    or nested call does nothing."""
+    global _loaded, _loading
+    if _loaded or _loading:
         return
-    from jav import mailbox, reconcile_package, statement_package, workflows
+    _loading = True
+    try:
+        from jav import workflows
+        from jav.domains import DOMAINS
 
-    for module in (statement_package, reconcile_package, workflows, mailbox):
-        module.register()
-    _loaded = True
+        finance, email = (importlib.import_module(name) for name in DOMAINS)
+        for register in (finance.register, workflows.register, email.register):
+            register()
+        _loaded = True
+    finally:
+        _loading = False
 
 
 __all__ = ["load_all"]

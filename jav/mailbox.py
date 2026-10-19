@@ -226,13 +226,14 @@ def add_attachments(wp_id: str, *, expected_revision: int) -> dict[str, Any]:
     return work.add_items(wp_id, sorted(missing), kind="document", expected_revision=expected_revision, parents=parents)
 
 
-def _page(wp: Mapping[str, Any]) -> dict[str, Any]:
+def page_part(wp: Mapping[str, Any]) -> dict[str, Any]:
     """058 K5.2: a mailbox package's part of its page: how many PDF attachments are not yet items (they can be added
-    later to a pre-058 email package)."""
+    later to a pre-058 email package). 180: registered by the email domain (`jav/domains/email.py`)."""
     return {"attachments_missing": len(missing_attachments(dict(wp)))}
 
 
-# --- an attachment of a suspicious email (154; 177: the email domain's rule, `jav/item_kinds.py`) ----------------------
+# --- an attachment of a suspicious email (154; 177: the email domain's rule, `jav/item_kinds.py`; 180: registered by
+# `jav/domains/email.py`) --------------------------------------------------------------------------------------------
 
 SUSPICIOUS_ATTACHMENT = "attachment:suspicious_email"  # 154 (DECISIONS 154)
 
@@ -264,16 +265,6 @@ def mark_suspicious_source(run: dict[str, Any], item: dict[str, Any]) -> bool:
         return True
     return False
 
-
-_RULE = item_kinds.ItemRule(kind=item_kinds.EMAIL, name="suspicious_email_source", module=__name__,
-                            after_item=mark_suspicious_source)
-
-
-def register() -> None:
-    """177 (plan 170 E5, `registrations.load_all`): the email domain's rule run after every item of a run (an
-    attachment of a suspicious email gets a to-do) and the mailbox package's part of its page."""
-    item_kinds.register_rule(_RULE)
-    item_kinds.register_page("mailbox", __name__, _page)
 
 
 _SCHEDULED_ACTOR = re.compile(r"^ütemezés \((.+)\)$")

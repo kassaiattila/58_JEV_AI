@@ -385,44 +385,8 @@ def apply_gpt_confidence_policy(state: FlowState) -> None:
             require_review(state, f"gpt:low_conf:{field}:{float(token):.2f}")
 
 
-# --- the cross-document checks: they read the store, so the check registry runs them in a worker run only, and a
-# measurement's result never depends on what the store holds (175, plan 170 E3: `jav/checks.py`) ---------------------
-
-def duplicate_check(subject: checks.Subject) -> list[str]:
-    """126 (backlog F-duplicate, the owner's decisions of 2026-10-07): an invoice-like document that is the same
-    invoice as an earlier one in the store gets a `duplicate:<kind>:<other>` to-do (`jav/duplicates.py`)."""
-    from jav import duplicates
-
-    if subject.record is None or duplicates.family(subject.doc_type) is None:
-        return []
-    fields = subject.record.to_datapoints(tuple(duplicates.key_fields()))  # the stored form, as the earlier ones are
-    return duplicates.review_reasons(subject.doc_id, subject.doc_type, fields)
-
-
-def own_tax_check(subject: checks.Subject) -> list[str]:
-    """134 (DECISIONS 134): an incoming invoice whose supplier tax number is an own party's, while the buyer's is
-    another number or missing, gets a `parties:own_tax_as_supplier` to-do (`jav/parties.py`): the numbers are likely
-    swapped, or it is an outgoing invoice."""
-    if subject.record is None or not type_roles.has(subject.doc_type, "own_tax_check"):
-        return []
-    from jav import parties, typepack
-
-    values = subject.record.to_datapoints(typepack.get(subject.doc_type).record_fields)  # the stored form
-    return parties.review_reasons(subject.doc_type, values)
-
-
-def statement_overlap_check(subject: checks.Subject) -> list[str]:
-    """139 (DECISIONS 139): a statement that books the same days of an account as another one in the store, when
-    neither replaces the other by the rule and no person has chosen, gets a `statement:overlap:<other>` to-do
-    (`jav/statement_months.py`)."""
-    if subject.record is None or not subject.doc_id or not type_roles.has(subject.doc_type, "statement"):
-        return []
-    from jav import statement_months, typepack
-
-    values = subject.record.to_datapoints(typepack.get(subject.doc_type).record_fields)  # the stored form
-    current = statement_months.current(subject.doc_id, subject.doc_type, values, subject.validation)
-    return statement_months.review_reasons(current)
-
+# --- the cross-document checks: they read the store, so the check registry runs them in a worker run only (175, plan
+# 170 E3: `jav/checks.py`); 180 (plan 170 E7): the finance domain registers them (`jav/domains/finance.py`) -----------
 
 def apply_cross_document_checks(state: FlowState) -> None:
     """The cross-document stage on the record being processed: each check's to-dos in the registry's order, nothing
@@ -430,18 +394,6 @@ def apply_cross_document_checks(state: FlowState) -> None:
     subject = checks.Subject(state.doc_id, state.doc_type, state.invoice, [v.model_dump() for v in state.validation])
     for reasons in checks.cross_document(subject):
         require_review(state, *reasons)
-
-
-def _duplicate_scan(*, write: bool = False) -> dict[str, Any]:
-    from jav import duplicates
-
-    return duplicates.scan(write=write)
-
-
-def _own_tax_scan(*, write: bool = False) -> dict[str, Any]:
-    from jav import parties
-
-    return parties.scan_own_tax(write=write)
 
 
 def reconcile_fx_tolerance() -> tuple[Decimal, Decimal]:
@@ -471,17 +423,12 @@ def decide(state: FlowState) -> str:
     return "human" if state.needs_review else "auto"
 
 
-# The decision stage (the S path's picks; the G path's verdicts and GPT confidence; the failed record checks), the
-# cross-document stage and the after-save stage of the check registry, in the order they run.
+# The decision stage of the check registry (the S path's picks; the G path's verdicts and GPT confidence; the failed
+# record checks), in the order they run. 180: the cross-document and after-save stages are the finance domain's.
 checks.register(checks.Check("pick", "decision", apply_pick_policy, arms=("S",)))
 checks.register(checks.Check("verdict", "decision", apply_verdict_policy, arms=("G",)))
 checks.register(checks.Check("gpt_confidence", "decision", apply_gpt_confidence_policy, arms=("G",)))
 checks.register(checks.Check("validation", "decision", apply_validation_policy))
-checks.register(checks.Check("duplicate", "cross_document", duplicate_check, reads_store=True))
-checks.register(checks.Check("own_tax", "cross_document", own_tax_check, reads_store=True))
-checks.register(checks.Check("statement_overlap", "cross_document", statement_overlap_check, reads_store=True))
-checks.register(checks.Check("duplicate_scan", "after_save", _duplicate_scan, producer="duplicates", opens="duplicate"))
-checks.register(checks.Check("own_tax_scan", "after_save", _own_tax_scan, producer="parties", opens="own_tax"))
 
 
 # --------------------------------------------------------------------------------------

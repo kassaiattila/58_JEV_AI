@@ -52,8 +52,8 @@ def test_release_approves_the_open_live_run_and_keeps_its_downloads(env):
     assert r.status_code == 200, r.text
     version = r.json()["version"]
     assert version["version"] == 1 and version["runs"] == [run_id] and version["backfilled_at"] is None
-    # 178: the utility cost's workbook only with utility bills (these are invoices)
-    assert {name for f in version["files"] for name in [f["name"]]} == {n for n, _m in package_release.FILES} - {"utility_cost.xlsx"}
+    # 178: the utility cost's workbook only with utility bills (these are invoices); 180: not among the general files
+    assert {name for f in version["files"] for name in [f["name"]]} == {n for n, _m in package_release.FILES}
     assert work.get_run(run_id)["approval"] == "approved"
     after = r.json()["result"]
     assert after["state"] == "released" and {i["tier"] for i in after["items"]} == {"approved"}

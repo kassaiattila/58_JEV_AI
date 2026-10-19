@@ -9,7 +9,8 @@ front of every check that reads the store (`jav/checks.py` `store_readable`).
 
 from decimal import Decimal
 
-from jav import checks, policy, store
+from jav import checks, store
+from jav.domains import finance
 from jav.models import InvoiceHU
 from jav.runtime import calls
 
@@ -38,4 +39,4 @@ def test_a_measurement_in_a_fresh_store_gets_no_duplicate_to_do_and_does_not_fai
                        gross_total=Decimal("1270"), issue_date="2026-01-05")
     with store.use_store(tmp_path / "fresh.sqlite"), calls.measurement("measure-x", {"jev": Decimal("0.01")}):
         assert checks.cross_document(checks.Subject("doc-1", "invoice_hu", record)) == []
-        assert policy.duplicate_check is checks.get("duplicate").run
+        assert finance.duplicate_check is checks.get("duplicate").run  # 180: the finance domain's

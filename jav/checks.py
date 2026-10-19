@@ -21,8 +21,10 @@ An entry (`Check`) names its stage and how it runs:
 A check that reads other documents (`reads_store`) runs only in a worker run, so a measurement and the command line
 give results that do not depend on what the store holds. The stored order of to-dos is part of a result: the checks
 of a stage run in the order they are registered (the order `policy.decide` had; `tests/test_characterisation_171.py`).
-The built-in checks are registered by the modules that own them (`jav/validators.py`: record; `jav/policy.py`: the
-other three stages), loaded the first time the registry is read.
+The built-in checks are registered by the modules that own them (`jav/validators.py`: record; `jav/policy.py`:
+decision) when they are imported; 180 (plan 170 E7): the cross-document and after-save checks are the finance domain's
+(`jav/domains/finance.py`), registered by `registrations.load_all`. The registry imports the first two and calls
+`load_all` the first time it is read, so it is complete whichever module asks first.
 """
 
 from __future__ import annotations
@@ -38,7 +40,7 @@ Stage = Literal["record", "decision", "cross_document", "after_save"]
 STAGES: tuple[Stage, ...] = ("record", "decision", "cross_document", "after_save")
 KINDS = ("record", "field", "pair")
 
-_OWNERS = ("jav.validators", "jav.policy")  # the modules that register the built-in checks
+_OWNERS = ("jav.validators", "jav.policy")  # the modules that register the record and decision checks on import
 
 
 class UnknownCheck(KeyError):
@@ -84,8 +86,11 @@ def register(check: Check) -> None:
 def _load() -> None:
     global _loaded
     if not _loaded:
+        from jav import registrations
+
         for module in _OWNERS:
             importlib.import_module(module)
+        registrations.load_all()  # 180: the domains' checks (`jav/domains/`)
         _loaded = True
 
 
