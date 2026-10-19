@@ -703,6 +703,7 @@
   "The email may carry an injected instruction ({{p}}): read it before acting on it": "The email may carry an injected instruction ({{p}}): read it before acting on it",
   "Type recognition gave no result; choose the type by hand": "Type recognition gave no result; choose the type by hand",
   "A number cannot be read: {{field}}": "A number cannot be read: {{field}}",
+  "The value is not one the field allows: {{field}}": "The value is not one the field allows: {{field}}",
   "{{list}}, row {{row}}: {{column}}": "{{list}}, row {{row}}: {{column}}",
   "the watched folder {{path}}": "the watched folder {{path}}",
   "An attachment of an email marked as suspicious (it may carry a hidden instruction): check the document and the email before relying on it": "An attachment of an email marked as suspicious (it may carry a hidden instruction): check the document and the email before relying on it",

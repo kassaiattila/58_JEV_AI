@@ -20,7 +20,7 @@ describe("every to-do kind has a label (177)", () => {
   }
 });
 
-describe("the eleven kinds that showed their raw code until 177", () => {
+describe("the kinds that showed their raw code until 177", () => {
   it("the JEV verification's flags name the field and the probability", () => {
     expect(reasonText("jev:absence_wrong:invoice_number:0.85")).toBe("JEV szerint a mező üresen maradt, pedig szerepel az iraton: Számlaszám (0,85)");
     expect(reasonText("jev:off_target:net_total:0.81")).toBe("JEV szerint az érték egy másik mezőhöz tartozik: Nettó összeg (0,81)");
@@ -30,6 +30,7 @@ describe("the eleven kinds that showed their raw code until 177", () => {
   it("a number that cannot be read names its list row and column", () => {
     expect(reasonText("line_items[3].gross_amount:unparseable:'12,5x'")).toMatch(/^Nem értelmezhető szám: .+, 4\. sor: .+$/);
     expect(reasonText("meter_reading_end:unparseable:'abc'")).toMatch(/^Nem értelmezhető szám: /);
+    expect(reasonText("statement_type:not_in_enum:'Invented kind'")).toMatch(/^A mező értéke nincs a megengedett értékek között: /);
   });
   it("the suspicious email's own to-do", () => {
     expect(reasonText("signal:prompt_injection:1.00")).toBe("A levélben beszúrt utasítás lehet (1,00): olvasd el, mielőtt a levél alapján bármit teszel");

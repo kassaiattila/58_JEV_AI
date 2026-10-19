@@ -308,6 +308,8 @@ export function reasonText(code: string): string {
   if (p[0] === "llm" && p[1] === "failed") return t("A GPT-kivonat nem sikerült ({{why}})", { why: p[2] ?? "" });
   // 177: an amount or a quantity of the record that cannot be read as a number (`<field>:unparseable:<raw>`, jav/models.py)
   if (p[1] === "unparseable") return t("A number cannot be read: {{field}}", { field: fieldPathLabel(p[0]) });
+  // 177: a value the type pack does not allow for the field (`<field>:not_in_enum:<value>`, jav/models.py)
+  if (p[1] === "not_in_enum") return t("The value is not one the field allows: {{field}}", { field: fieldPathLabel(p[0]) });
   return code;
 }
 

@@ -703,6 +703,7 @@
   "The email may carry an injected instruction ({{p}}): read it before acting on it": "A levélben beszúrt utasítás lehet ({{p}}): olvasd el, mielőtt a levél alapján bármit teszel",
   "Type recognition gave no result; choose the type by hand": "A típusfelismerés nem adott eredményt; válaszd ki kézzel a típust",
   "A number cannot be read: {{field}}": "Nem értelmezhető szám: {{field}}",
+  "The value is not one the field allows: {{field}}": "A mező értéke nincs a megengedett értékek között: {{field}}",
   "{{list}}, row {{row}}: {{column}}": "{{list}}, {{row}}. sor: {{column}}",
   "the watched folder {{path}}": "a(z) {{path}} figyelt mappa",
   "An attachment of an email marked as suspicious (it may carry a hidden instruction): check the document and the email before relying on it": "Gyanúsnak jelölt levél melléklete (a levélben rejtett utasítás lehet): mielőtt elfogadod, nézd meg az iratot és a levelet",
