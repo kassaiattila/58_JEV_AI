@@ -23,9 +23,15 @@ sees (`status`) adds the package's own next step. `advance` moves the chain on; 
 (`repeat_draft`); a documents step may take only the documents no live run has processed yet (`only_new`), so the
 folder of a year's invoices does not bring last month's back. The two workflows are linked (`previous_id`).
 
-Layer: UI/CLI → **this** (application operation) → `jav.work`, `jav.statement_package`, `jav.reconcile_package`,
-`jav.mailbox`, `jav.parties` and `jav.work_views.next_step`. No AI call here: the runs it starts call them, within their
-budgets.
+181 (plan 170 L5 = plan 160-E S6): the step kinds come from a registry (`jav/workflow_steps.py`): which packages a
+step takes, how it starts, whether its source is fetched first, its engine, its repeat source, its estimate and what its
+package's next step means. This module registers the documents step (the plain processing of a folder or files); the
+email domain registers the emails step, the finance domain the statements and reconciliation steps. The workflow's
+code names none of them.
+
+Layer: UI/CLI → **this** (application operation) → `jav.work`, `jav.workflow_steps` (and through it the registered
+kinds' modules), `jav.mailbox`, `jav.parties` and `jav.work_views.next_step`. No AI call here: the runs it starts call
+them, within their budgets.
 """
 
 from __future__ import annotations
@@ -39,8 +45,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from jav import (activity_kinds, app_settings, cfg, logic_packs, mailbox, parties, reconcile_package, statement_package,
-                 store, work)
+from jav import activity_kinds, app_settings, cfg, logic_packs, mailbox, parties, store, work, workflow_steps
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions a workflow's log records (`jav/activity_kinds.py`)
@@ -51,9 +56,10 @@ log = logging.getLogger(__name__)
 
 CONFIG = "workflows"
 PROVIDERS = ("jev", "openai", "azure_di")  # the call log's providers (jav/runtime/calls.py)
-# the work package kinds (source_kind) an existing package of a step's kind may have
-PACKAGE_KINDS = {"documents": ("folder", "manual", "watch", "upload"), "emails": ("mailbox",),
-                 "statements": ("statements",), "reconcile": ("reconcile",)}
+# 181: the documents step's key in the templates and the work package kinds a package of it may have (the plain
+# processing of a folder, files or uploads; not a mailbox's)
+DOCUMENTS = "documents"
+DOCUMENT_PACKAGES = ("folder", "manual", "watch", "upload")
 OPEN_STATES = ("waiting", "pulling", "needs_budget", "failed")
 TICK_EVERY_S = 10.0
 # 153 (review D2): a start claimed this long ago and still not finished was interrupted (a service stopped while a
@@ -148,9 +154,11 @@ def _delete_guard(c, wp_id: str) -> None:
 
 
 def register() -> None:
-    """173 (plan 170 E2): the delete guard of a workflow's packages and its party reference (`registrations.load_all`)."""
+    """173 (plan 170 E2): the delete guard of a workflow's packages and its party reference (`registrations.load_all`).
+    181: the documents step kind."""
     work.register_delete_guard(_delete_guard)
     parties.register_reference("workflows", count=_count_party, repoint=_repoint_party)
+    workflow_steps.register(DOCUMENTS_STEP)
 
 
 class WorkflowError(ValueError):
@@ -171,6 +179,15 @@ def auto_actor(actor: str) -> str:
 
 def config() -> dict[str, Any]:
     return cfg.load(CONFIG)
+
+
+def templates_view() -> dict[str, Any]:
+    """The templates as the wizard reads them (`configs/workflows.json` without its meta), each kind with what its
+    registered step kind says (181: the packages it takes, whether it is paid, has its own engine, may leave out
+    processed documents or take the subfolders, and the scope it needs)."""
+    conf = {k: v for k, v in config().items() if k != "meta"}
+    described = workflow_steps.described()
+    return conf | {"kinds": {k: {**v, **described[k]} for k, v in conf["kinds"].items()}}
 
 
 def template(template_id: str) -> dict[str, Any]:
@@ -232,7 +249,7 @@ def _engine(kind: str, source: dict[str, Any], raw: Any) -> str | None:
     if raw not in work.ENGINE_JEV:
         raise explained(WorkflowError, "unknown engine {{raw}}; expected one of {{engine_jev}}",
                         raw=repr(raw), engine_jev=sorted(work.ENGINE_JEV))
-    if kind == "reconcile" or source["kind"] not in ("folder", "files", "mailbox"):
+    if not workflow_steps.of(kind).own_engine or source["kind"] not in workflow_steps.OWN_SOURCES:
         raise explained(WorkflowError, "a {{kind}} step with a {{kind2}} source has no engine of its own",
                         kind=kind, kind2=repr(source["kind"]))
     return str(raw)
@@ -245,7 +262,7 @@ def _source(kind: str, raw: dict[str, Any] | None) -> dict[str, Any]:
     src = raw.get("kind")
     if src not in config()["kinds"][kind]["sources"]:
         raise explained(WorkflowError, "a {{kind}} step takes no {{src}} source", kind=kind, src=repr(src))
-    only_new = {"only_new": bool(raw.get("only_new"))} if kind == "documents" else {}
+    only_new = {"only_new": bool(raw.get("only_new"))} if workflow_steps.of(kind).only_new else {}
     if raw.get("only_new") and not only_new:
         raise explained(WorkflowError, "only a documents step can leave out the documents a live run has processed")
     if src == "folder":
@@ -271,12 +288,18 @@ def _source(kind: str, raw: dict[str, Any] | None) -> dict[str, Any]:
     return {"kind": "none"}
 
 
+def package_kinds(kind: str) -> tuple[str, ...]:
+    """The work package kinds (source_kind) an existing package of a step of this kind may have (181: the registry's;
+    until then `PACKAGE_KINDS`)."""
+    return workflow_steps.of(kind).package_kinds
+
+
 def _check_package(kind: str, wp_id: str) -> None:
     try:
         wp = work.get(wp_id)
     except KeyError as exc:
         raise explained(WorkflowError, "no work package {{wp_id}}", wp_id=repr(wp_id)) from exc
-    if wp["source_kind"] not in PACKAGE_KINDS[kind]:
+    if wp["source_kind"] not in package_kinds(kind):
         raise explained(WorkflowError, "work package {{name}} is not of a {{kind}} step's kind",
                         name=repr(wp["name"]), kind=kind)
     with store.connect() as c:
@@ -434,10 +457,10 @@ def _satisfied(st: dict[str, Any]) -> bool:
     return _live_run_approved(st["workpackage_id"])
 
 
+# a processing package's next step and what it means for its step; a step kind adds its own package's (181)
 STATUS_BY_NEXT = {"running": "running", "review": "review", "release": "approve", "done": "approved",
-                  "reconcile_approved": "approved", "reconcile_pair": "pairing", "reconcile_result": "pairing",
-                  "reconcile_empty": "pairing", "start": "attention", "blocked": "attention", "rerun": "attention",
-                  "go_live": "attention", "empty": "attention"}
+                  "start": "attention", "blocked": "attention", "rerun": "attention", "go_live": "attention",
+                  "empty": "attention"}
 
 
 def _status(sdef: dict[str, Any], st: dict[str, Any], done: dict[str, bool]) -> tuple[str, Any]:
@@ -446,7 +469,8 @@ def _status(sdef: dict[str, Any], st: dict[str, Any], done: dict[str, bool]) -> 
         approved, nxt = _package_state(st["workpackage_id"])
         if nxt is None:
             return "missing", None
-        return ("approved" if approved else STATUS_BY_NEXT.get(nxt["code"], "attention")), nxt
+        statuses = {**STATUS_BY_NEXT, **workflow_steps.of(sdef["kind"]).statuses}
+        return ("approved" if approved else statuses.get(nxt["code"], "attention")), nxt
     if st["state"] == "waiting":
         return ("ready" if all(done.get(a) for a in sdef.get("after", [])) else "waiting"), None
     return st["state"], None  # starting, pulling, needs_budget, nothing_new, failed
@@ -548,25 +572,29 @@ def next_period(start: Any, end: Any) -> tuple[str, str]:
 
 
 def _package_source(kind: str, wp_id: str) -> dict[str, Any] | None:
-    """The source a linked package's step repeats from: the package's folder (a documents or statements package made
-    from one), nothing for a reconciliation; None when it cannot be told (the wizard asks for it)."""
-    if kind == "reconcile":
-        return {"kind": "none"}
+    """The source a linked package's step repeats from, by its kind (181: `StepKind.repeat_from`): the package's folder
+    (a documents or statements package made from one), nothing for a reconciliation; None when it cannot be told (the
+    wizard asks for it). A step that leaves out processed documents does so in its folder too."""
+    step = workflow_steps.of(kind)
+    src = step.repeat_from(wp_id) if step.repeat_from else None
+    if src is not None and src["kind"] == "folder" and step.only_new:
+        src = src | {"only_new": True}
+    return src
+
+
+def _repeat_from_folder(wp_id: str) -> dict[str, Any] | None:
+    """The documents step's repeat source: the folder its linked package was made from (a folder or watched one)."""
     try:
         wp = work.get(wp_id)
     except KeyError:
         return None
-    ref = wp.get("source_ref")
-    if kind in ("documents", "statements") and wp["source_kind"] in ("folder", "watch", "statements") and ref \
-            and Path(ref).is_dir():
-        return {"kind": "folder", "folder": ref, "recursive": False} | ({"only_new": True} if kind == "documents" else {})
-    return None
+    return workflow_steps.folder_source(wp, ("folder", "watch"))
 
 
 def _repeated_source(kind: str, source: dict[str, Any], period: tuple[str, str], wf: dict[str, Any]) -> dict[str, Any] | None:
     if source["kind"] == "package":
         return _package_source(kind, source["workpackage_id"])
-    if kind == "documents" and source["kind"] in ("folder", "files"):
+    if workflow_steps.of(kind).only_new and source["kind"] in ("folder", "files"):
         return source | {"only_new": True}  # last period's documents are not brought back
     if source["kind"] == "mailbox":
         req = dict(source["request"])
@@ -610,7 +638,7 @@ def advance(wf_id: str, *, actor: str) -> dict[str, Any]:
         steps = _steps(wf_id)
         st = steps[sdef["id"]]
         if st["state"] == "pulling":
-            _poll_pull(wf, sdef, st, actor)
+            _poll(wf, sdef, st, actor)
         elif st["state"] == "waiting" and wf["auto"] and all(_satisfied(steps[a]) for a in sdef.get("after", [])):
             _start(wf, sdef, actor=actor)
     return view(wf_id)
@@ -698,25 +726,8 @@ def _start(wf: dict[str, Any], sdef: dict[str, Any], *, actor: str, states: tupl
     if not _set(wf["id"], step, expect=states, state="starting", note=None):
         return  # another process has it, or it is past waiting
     st = _steps(wf["id"])[step]
-    source = st["source"]
     try:
-        if sdef["kind"] == "emails":
-            req = mailbox.MailboxRequest.model_validate(source["request"])
-            pull = mailbox.request_pull(req, actor=wf["actor"], dedup_key=f"workflow:{wf['id']}:{step}:{uuid.uuid4().hex[:8]}")
-            _done(wf, step, actor, "pull", state="pulling", pull_id=str(pull["id"]))
-        elif sdef["kind"] == "documents":
-            _start_documents(wf, sdef, st, actor=actor)
-        elif sdef["kind"] == "statements":
-            _start_statements(wf, sdef, st, actor=actor)
-        elif sdef["kind"] == "reconcile":
-            keys = [a["key"] for a in reconcile_package.accounts() if (a.get("party") or {}).get("id") == wf["party_id"]]
-            if not keys:
-                raise explained(WorkflowError, "the party has no account or card with a statement yet")
-            scope = reconcile_package.create(name=st["name"], accounts=keys, period_start=wf["period_start"],
-                                             period_end=wf["period_end"], actor=wf["actor"], party_id=wf["party_id"])
-            _done(wf, step, actor, "package", state="started", workpackage_id=scope["workpackage_id"])
-        else:
-            raise explained(WorkflowError, "unknown step kind {{kind}}", kind=repr(sdef["kind"]))
+        workflow_steps.of(sdef["kind"]).start(_context(wf, sdef, st, actor))  # 181: the kind's own start
     except Exception as exc:  # the step shows why; a person retries it
         log.warning("workflow %s step %s did not start: %s", wf["id"], step, exc)
         _done(wf, step, actor, "failed", state="failed", note=str(exc)[:1000])
@@ -740,71 +751,63 @@ def _documents(source: dict[str, Any]) -> tuple[list[Path], list[Path]]:
     return work.unprocessed(files) if source.get("only_new") else (files, [])
 
 
-def _start_documents(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], *, actor: str) -> None:
-    source, step = st["source"], sdef["id"]
+def _context(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: str) -> workflow_steps.StepStart:
+    """181: the workflow's shared operations for a step kind's start or fetch check, each recording its event."""
+    wf_id, step = wf["id"], sdef["id"]
+
+    def event(action: str, detail: dict[str, Any]) -> None:
+        with store.connect() as c:
+            store.begin_immediate(c)
+            _event(c, wf_id, step, action, actor, detail)
+
+    def package(wp_id: str) -> None:  # 160 (review R-2): an interrupted start goes on with this package
+        _set(wf_id, step, workpackage_id=wp_id)
+
+    return workflow_steps.StepStart(
+        workflow=wf, step=sdef, state=st, actor=actor, package=package,
+        run=lambda wp_id: _start_run(wf, sdef, st, wp_id, actor=actor),
+        made=lambda wp_id: _done(wf, step, actor, "package", state="started", workpackage_id=wp_id),
+        nothing_new=lambda note: _done(wf, step, actor, "nothing_new", state="nothing_new", note=note),
+        fetching=lambda fetch_id: _done(wf, step, actor, "pull", state="pulling", pull_id=fetch_id),
+        claim=lambda: _set(wf_id, step, expect=("pulling",), state="starting"),
+        failed=lambda note: _done(wf, step, actor, "failed", state="failed", note=note[:1000]),
+        event=event)
+
+
+def _poll(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: str) -> None:
+    """A step whose source is being fetched (a mailbox download) goes on once the fetch has finished (181: the kind's
+    own check)."""
+    kind = workflow_steps.of(sdef["kind"])
+    if kind.poll is not None:
+        kind.poll(_context(wf, sdef, st, actor))
+
+
+def _start_documents(ctx: workflow_steps.StepStart) -> None:
+    """The documents step: the folder's or the files' documents (only those no live run has processed, when asked)
+    become the step's package and its live run starts; none: the step found nothing new and keeps no empty package."""
+    source, wf = ctx.source, ctx.workflow
     files, left_out = _documents(source)
     wp = None
     if files and source["kind"] == "folder":
-        wp = work.create_from_folder(Path(source["folder"]), name=st["name"], owner=wf["actor"],
+        wp = work.create_from_folder(Path(source["folder"]), name=ctx.state["name"], owner=wf["actor"],
                                      recursive=source["recursive"], exclude=_exclude(source),
                                      only=files if left_out else None)
     elif files:
-        wp = work.create_from_files(files, name=st["name"], owner=wf["actor"])
+        wp = work.create_from_files(files, name=ctx.state["name"], owner=wf["actor"])
     if wp is None or not work.get(wp["id"])["items"]:
         if wp is not None:
-            work.delete_workpackage(wp["id"], actor=actor)
-        note = f"no new documents: {len(left_out)} already processed" if left_out else "no documents in the folder"
-        _done(wf, step, actor, "nothing_new", state="nothing_new", note=note)
+            work.delete_workpackage(wp["id"], actor=ctx.actor)
+        ctx.nothing_new(f"no new documents: {len(left_out)} already processed" if left_out else "no documents in the folder")
         return
-    _set(wf["id"], step, workpackage_id=wp["id"])  # 160 (review R-2): an interrupted start goes on with this package
+    ctx.package(wp["id"])
     if left_out:
-        with store.connect() as c:
-            store.begin_immediate(c)
-            _event(c, wf["id"], step, "left_out", actor, {"new": len(files), "left_out": len(left_out)})
-    _start_run(wf, sdef, st, wp["id"], actor=actor)
+        ctx.event("left_out", {"new": len(files), "left_out": len(left_out)})
+    ctx.run(wp["id"])
 
 
-def _start_statements(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], *, actor: str) -> None:
-    source = st["source"]
-    paths = [Path(source["folder"])] if source["kind"] == "folder" else [Path(p) for p in source["paths"]]
-    survey = statement_package.survey(paths, party_id=wf["party_id"], period_start=wf["period_start"],
-                                      period_end=wf["period_end"])
-    chosen = [s["id"] for s in survey["statements"] if s["chosen"]]
-    pdfs = [p["path"] for p in survey["pdfs"] if p["chosen"]]
-    if not chosen and not pdfs:
-        _done(wf, sdef["id"], actor, "nothing_new", state="nothing_new",
-              note=f"no new statement: {len(survey['statements'])} statement(s) and {len(survey['pdfs'])} PDF(s) "
-                   "are in the store or outside the period")
-        return
-    scope = statement_package.create(name=st["name"], party_id=wf["party_id"], period_start=wf["period_start"],
-                                     period_end=wf["period_end"], paths=paths, statements=chosen, pdfs=pdfs,
-                                     actor=wf["actor"])
-    _set(wf["id"], sdef["id"], workpackage_id=scope["workpackage_id"])  # 160 (review R-2), as for documents
-    _start_run(wf, sdef, st, scope["workpackage_id"], actor=actor)
-
-
-def _poll_pull(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], actor: str) -> None:
-    pull = mailbox.pull(st["pull_id"])
-    if pull["status"] in ("queued", "running"):
-        return
-    if not _set(wf["id"], sdef["id"], expect=("pulling",), state="starting"):
-        return
-    result = pull.get("result") or {}
-    if pull["status"] != "ok" and result.get("workpackage"):
-        # 160 (review R-1): an interrupted download packaged the emails that arrived; the step runs that package, and
-        # the error stays in its events (before, the step failed without the package and a restart found nothing new)
-        with store.connect() as c:
-            store.begin_immediate(c)
-            _event(c, wf["id"], sdef["id"], "pull_interrupted", actor,
-                   {"pull_id": st["pull_id"], "workpackage_id": result["workpackage"],
-                    "note": str(result.get("error") or pull["status"])[:1000]})
-        _start_run(wf, sdef, st, result["workpackage"], actor=actor)
-    elif pull["status"] != "ok":
-        _done(wf, sdef["id"], actor, "failed", state="failed", note=str(result.get("error") or pull["status"])[:1000])
-    elif not result.get("workpackage"):
-        _done(wf, sdef["id"], actor, "nothing_new", state="nothing_new", note="no new emails")
-    else:
-        _start_run(wf, sdef, st, result["workpackage"], actor=actor)
+# 181: the documents step, registered by `register`
+DOCUMENTS_STEP = workflow_steps.StepKind(DOCUMENTS, __name__, DOCUMENT_PACKAGES, start=_start_documents, only_new=True,
+                                         subfolders=True, repeat_from=_repeat_from_folder)
 
 
 def _give_engine(wp_id: str, engine: str | None, *, actor: str) -> None:
@@ -918,15 +921,14 @@ def estimate(*, kind: str, source: dict[str, Any], party_id: str | None = None, 
         per = _per_item("email", engine)
         return {"items": n or None, "usd": _times(per, n) if n else {}, "per_item": {p: str(v) for p, v in per.items()},
                 "note": "each email's PDF attachments add a document's budget"}
-    if kind == "documents":
+    own = workflow_steps.of(kind).estimate
+    if own is None:  # the documents are counted
         files, left_out = _documents(src)
         return {"items": len(files), "usd": _times(_per_item("document", engine), len(files)), "left_out": len(left_out),
                 "note": None}
-    # statements: the code reads the exports for free; a PDF no reader knows is extracted by AI
+    # 181: the kind's own count (the statements': the code reads the exports for free; a PDF no reader knows is
+    # extracted by AI), checked against the workflow's period first
     start, end = _period(period_start, period_end)
-    paths = [Path(src["folder"])] if src["kind"] == "folder" else [Path(p) for p in src["paths"]]
-    survey = statement_package.survey(paths, party_id=str(party_id), period_start=start, period_end=end)
-    statements = sum(1 for s in survey["statements"] if s["chosen"])
-    pdfs = sum(1 for p in survey["pdfs"] if p["chosen"])
-    return {"items": statements + pdfs, "usd": _times(_per_item("document", engine), pdfs), "statements": statements, "pdfs": pdfs,
-            "note": None}
+    counted = own(workflow_steps.paths_of(src), party_id=party_id, period_start=start, period_end=end)
+    paid = counted.pop("paid")
+    return {"items": counted.pop("items"), "usd": _times(_per_item("document", engine), paid), **counted, "note": None}

@@ -227,14 +227,31 @@ export interface BankFilesCatalogue {
   version: string; intro: string; read_by: Record<"code" | "ai", string>; checks: Record<string, string>;
   files: BankFile[]; not_read: string[]; labels: Record<string, string>;
 }
-/** 146: the new work wizard's templates (`configs/workflows.json`); texts are English source strings. */
-export type WorkKind = "documents" | "emails" | "statements" | "reconcile";
+/** 146: the new work wizard's templates (`configs/workflows.json`); texts are English source strings. 181: a step kind
+ * is any kind the service registered (`jav/workflow_steps.py`), so the interface names none. */
+export type WorkKind = string;
 export type WorkSourceKind = "folder" | "files" | "mailbox" | "package" | "none";
 export interface WorkflowTemplateStep { id: string; kind: WorkKind; title?: string; after?: string[] }
 export interface WorkflowTemplate { id: string; group: string; title: string; description: string; steps: WorkflowTemplateStep[] }
+/** A step kind as the wizard reads it: its texts from the templates, the rest from its registration (181). */
+export interface WorkflowKind {
+  title: string; description: string; sources: WorkSourceKind[]; cost: string;
+  /** the work package kinds an existing package of the step may have */
+  package_kinds: string[];
+  /** its run may call AI: a person approves its budget */
+  paid: boolean;
+  /** a step with its own folder, files or mailbox may have its own AI engine */
+  own_engine: boolean;
+  /** its folder or files may leave out the documents a live run has processed */
+  only_new: boolean;
+  /** its folder may include the subfolders */
+  subfolders: boolean;
+  /** the parts of the workflow's scope it needs */
+  needs: string[];
+}
 export interface WorkflowTemplates {
   intro: string; groups: { id: string; title: string; description: string }[];
-  kinds: Record<WorkKind, { title: string; description: string; sources: WorkSourceKind[]; cost: string }>;
+  kinds: Record<WorkKind, WorkflowKind>;
   templates: WorkflowTemplate[];
 }
 export interface WorkflowSource {

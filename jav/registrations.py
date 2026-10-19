@@ -17,6 +17,8 @@ the mailbox package's part of its page (`jav/item_kinds.py`).
 logic packs, party references and download parts, the email domain's item rule and page part. The check registry and
 the output parts registry call `load_all` themselves the first time they are read, so they are complete whichever
 module asks first.
+181 (plan 170 L5): the workflow step kinds (`jav/workflow_steps.py`): the workflows register the documents step, the
+finance domain the statements and reconciliation steps, the email domain the emails step.
 """
 
 from __future__ import annotations

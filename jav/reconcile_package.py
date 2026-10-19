@@ -56,7 +56,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav import (activity_kinds, cfg, corrections, grounding, logic_packs, parties, reconcile, reconcile_overview, store,
-                 typepack, work)
+                 typepack, work, workflow_steps)
 from jav.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.user_messages import explained
 
@@ -1546,6 +1546,34 @@ def _release_refusal() -> Exception:
 
 def _list_mark() -> str:
     return inputs_mark(keep_seconds=LIST_KEEP_SECONDS)  # 159: the list's own safety bound (its next steps use the same)
+
+
+# --- a workflow's reconciliation step (181, plan 170 L5; until then in `jav/workflows.py`) -------------------------
+
+
+def workflow_start(ctx: workflow_steps.StepStart) -> None:
+    """A workflow's reconciliation step: the reconciliation package of the party's accounts and cards with a statement
+    and the workflow's period; it has no run, so the step has started with it."""
+    wf = ctx.workflow
+    keys = [a["key"] for a in accounts() if (a.get("party") or {}).get("id") == wf["party_id"]]
+    if not keys:
+        raise explained(PackageError, "the party has no account or card with a statement yet")
+    made = create(name=ctx.state["name"], accounts=keys, period_start=wf["period_start"], period_end=wf["period_end"],
+                  actor=wf["actor"], party_id=wf["party_id"])
+    ctx.made(made["workpackage_id"])
+
+
+def workflow_repeat_from(wp_id: str) -> dict[str, Any]:
+    """A repeated reconciliation step takes no source: it is made for the next period's accounts again."""
+    return {"kind": "none"}
+
+
+# 181: the reconciliation step of a workflow (registered by the finance domain, `jav/domains/finance.py`): code only,
+# no engine; its package's next steps and what each means for the step
+STEP = workflow_steps.StepKind(
+    KIND, __name__, (KIND,), start=workflow_start, paid=False, own_engine=False, repeat_from=workflow_repeat_from,
+    needs=("party", "period"), statuses={"reconcile_approved": "approved", "reconcile_pair": "pairing",
+                                         "reconcile_result": "pairing", "reconcile_empty": "pairing"})
 
 
 # 176 (plan 170 L3): the reconciliation package as a logic pack (`jav/logic_packs.py`; 180: registered by the finance

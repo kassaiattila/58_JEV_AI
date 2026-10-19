@@ -6,7 +6,8 @@ here, in one call (`register`, from `registrations.load_all`):
   (134), a statement booking the same days as another one (139); and the two scans that open the same to-dos on the
   stored results (`jav/checks.py`);
 - the statement package and the reconciliation package as logic packs, each with the reference that keeps a party in
-  use from being deleted (`jav/logic_packs.py`, `jav/parties.py`);
+  use from being deleted (`jav/logic_packs.py`, `jav/parties.py`), and (181) as the statements and reconciliation steps
+  of a workflow (`jav/workflow_steps.py`);
 - the finance parts of the downloads (`jav/outputs/parts.py`): the duplicate mark on a run's documents and its two
   columns, an invoice's direction, the utility cost's sheets, grand total and JSON section in the package's result,
   and the utility cost's own workbook.
@@ -91,7 +92,7 @@ DIRECTION_COLUMNS = (parts.Column("direction", "Direction", "enum", "direction")
 
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
-    from jav import duplicates, logic_packs, parties, reconcile_package, report_utility, statement_package
+    from jav import duplicates, logic_packs, parties, reconcile_package, report_utility, statement_package, workflow_steps
 
     for check in CHECKS:
         checks.register(check)
@@ -99,6 +100,8 @@ def register() -> None:
     parties.register_reference("statement_package", count=statement_package.count_party, repoint=statement_package.repoint_party)
     logic_packs.register(reconcile_package.LOGIC)
     parties.register_reference("reconcile_package", count=reconcile_package.count_party, repoint=reconcile_package.repoint_party)
+    workflow_steps.register(statement_package.STEP)  # 181: a workflow's statements and reconciliation steps
+    workflow_steps.register(reconcile_package.STEP)
     parts.register_record_mark(parts.RecordMark("duplicate", __name__, duplicates.mark_records))
     parts.register_document_columns(parts.DocumentColumns("duplicate", __name__, DUPLICATE_COLUMNS, duplicates.column_values))
     parts.register_document_columns(parts.DocumentColumns("direction", __name__, DIRECTION_COLUMNS, parties.direction_values))

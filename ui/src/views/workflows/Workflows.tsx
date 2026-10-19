@@ -264,17 +264,16 @@ function clean(budget: WorkflowBudget): WorkflowBudget {
   return Object.fromEntries(Object.entries(budget).filter(([, v]) => v !== undefined && v !== "" && Number(v) >= 0));
 }
 
-const PACKAGE_KINDS: Record<string, string[]> = {
-  documents: ["folder", "manual", "watch", "upload"], emails: ["mailbox"], statements: ["statements"], reconcile: ["reconcile"],
-};
-
 function LinkPackage({ step, onLink }: { step: WorkflowStep; onLink: (wpId: string) => void }) {
   useLocale();
   const [open, setOpen] = useState(false);
   const [choice, setChoice] = useState("");
   const list = useLoad(open ? "workpackages-brief" : null, api.workpackagesBrief);  // 154: the name and the kind are enough
+  // 181: the packages a step of its kind takes, from the service's step kinds
+  const conf = useLoad(open ? "workflow-templates" : null, api.workflowTemplates);
   if (!open) return <button type="button" className="secondary small-btn" onClick={() => setOpen(true)}>{t("Use an existing package…")}</button>;
-  const options = (list.data?.workpackages ?? []).filter((w) => PACKAGE_KINDS[step.kind].includes(w.source_kind));
+  const kinds = conf.data?.kinds[step.kind]?.package_kinds ?? [];
+  const options = (list.data?.workpackages ?? []).filter((w) => kinds.includes(w.source_kind));
   return (
     <span className="inline small">
       <select value={choice} onChange={(e) => setChoice(e.target.value)} aria-label={t("Work package for {{step}}", { step: t(step.title) })}>

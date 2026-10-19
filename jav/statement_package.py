@@ -35,7 +35,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import activity_kinds, cfg, item_kinds, logic_packs, parties, reconcile, statement_months, statement_table, store, typepack, work
+from jav import (activity_kinds, cfg, item_kinds, logic_packs, parties, reconcile, statement_months, statement_table, store,
+                 typepack, work, workflow_steps)
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
@@ -494,6 +495,50 @@ def _page(wp_id: str) -> dict[str, Any]:
     return {"statements": package_view(wp_id)}
 
 
+# --- a workflow's statements step (181, plan 170 L5; until then in `jav/workflows.py`) ----------------------------
+
+
+def workflow_start(ctx: workflow_steps.StepStart) -> None:
+    """A workflow's statements step: the folder's or the files' statements of the workflow's party and period that the
+    store has not got yet become the step's statement package, and its live run starts within the step's budget;
+    nothing new: the step is done without a package."""
+    wf = ctx.workflow
+    paths = workflow_steps.paths_of(ctx.source)
+    found = survey(paths, party_id=wf["party_id"], period_start=wf["period_start"], period_end=wf["period_end"])
+    chosen = [s["id"] for s in found["statements"] if s["chosen"]]
+    pdfs = [p["path"] for p in found["pdfs"] if p["chosen"]]
+    if not chosen and not pdfs:
+        ctx.nothing_new(f"no new statement: {len(found['statements'])} statement(s) and {len(found['pdfs'])} PDF(s) "
+                        "are in the store or outside the period")
+        return
+    made = create(name=ctx.state["name"], party_id=wf["party_id"], period_start=wf["period_start"],
+                  period_end=wf["period_end"], paths=paths, statements=chosen, pdfs=pdfs, actor=wf["actor"])
+    ctx.package(made["workpackage_id"])  # 160 (review R-2): an interrupted start goes on with this package
+    ctx.run(made["workpackage_id"])
+
+
+def workflow_estimate(paths: list[Path], *, party_id: str | None, period_start: str, period_end: str) -> dict[str, Any]:
+    """The step's items: the statements the code reads (free) and the PDFs no reader knows (`paid`: extracted by AI)."""
+    found = survey(paths, party_id=str(party_id), period_start=period_start, period_end=period_end)
+    statements = sum(1 for s in found["statements"] if s["chosen"])
+    pdfs = sum(1 for p in found["pdfs"] if p["chosen"])
+    return {"items": statements + pdfs, "paid": pdfs, "statements": statements, "pdfs": pdfs}
+
+
+def workflow_repeat_from(wp_id: str) -> dict[str, Any] | None:
+    """A repeated statements step's source: the folder its statement package was surveyed from, if still there."""
+    try:
+        wp = work.get(wp_id)
+    except KeyError:
+        return None
+    return workflow_steps.folder_source(wp, (KIND,))
+
+
+# 181: the statements step of a workflow (registered by the finance domain, `jav/domains/finance.py`)
+STEP = workflow_steps.StepKind("statements", __name__, (KIND,), start=workflow_start, repeat_from=workflow_repeat_from,
+                               estimate=workflow_estimate, needs=("party", "period"))
+
+
 # 176 (plan 170 L3): the statement package as a logic pack (`jav/logic_packs.py`); 180 (plan 170 E7): registered by the
 # finance domain with its party reference (`count_party`, `repoint_party`; `jav/domains/finance.py`)
 LOGIC = logic_packs.LogicPack(
@@ -505,5 +550,5 @@ LOGIC = logic_packs.LogicPack(
 
 
 
-__all__ = ["KIND", "LOGIC", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "PackageError", "after_detection", "after_item",
+__all__ = ["KIND", "LOGIC", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "STEP", "PackageError", "after_detection", "after_item",
            "count_party", "create", "package_view", "repoint_party", "scope", "survey"]

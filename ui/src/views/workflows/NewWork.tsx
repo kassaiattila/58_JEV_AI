@@ -17,19 +17,12 @@ import { BrowseButton } from "../../components/BrowseButton";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { go } from "../../route";
-import { DocumentsCreate } from "../DocumentsCreate";
-import { Mailbox, splitAccounts, toggleAccount } from "../Mailbox";
+import { splitAccounts, toggleAccount } from "../Mailbox";
 import { PartyChoice } from "../../components/PartyChoice";
-import { ReconcileCreate } from "../reconcile/ReconcileCreate";
-import { StatementPackageCreate } from "../StatementPackageCreate";
+import { hasOwnForm, SingleForm } from "../../logic/steps";
 import { ENGINE } from "../../labels";
 import { budgetText, centsUp, mergeProposal, PROVIDER } from "./labels";
 
-/** The work package kinds (source_kind) an existing package of a step's kind may have (as `jav/workflows.py`). */
-const PACKAGE_KINDS: Record<WorkKind, string[]> = {
-  documents: ["folder", "manual", "watch", "upload"], emails: ["mailbox"], statements: ["statements"], reconcile: ["reconcile"],
-};
-const PAID: WorkKind[] = ["documents", "emails", "statements"];
 const SOURCE_LABEL: Record<WorkSourceKind, string> = {
   folder: "A folder", files: "Given files", mailbox: "A mailbox", package: "An existing work package",
   none: "Nothing: made from the earlier steps",
@@ -41,15 +34,6 @@ export function lastClosedMonth(today = new Date()): [string, string] {
   const last = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 0));
   return [first.toISOString().slice(0, 10), last.toISOString().slice(0, 10)];
 }
-
-function SingleForm({ kind, onDone }: { kind: WorkKind; onDone: (id: string) => void }) {
-  if (kind === "emails") return <Mailbox variant="pull" />;
-  if (kind === "statements") return <StatementPackageCreate onDone={onDone} />;
-  if (kind === "reconcile") return <ReconcileCreate onDone={onDone} />;
-  return <DocumentsCreate onDone={onDone} />;
-}
-
-const SINGLE: Record<string, WorkKind> = { documents: "documents", emails: "emails", statements: "statements", reconcile: "reconcile" };
 
 export function NewWork({ onPackage, onWorkflow, initialTemplate, initialGroup, repeatOf }: {
   onPackage: (wpId: string) => void; onWorkflow: (wfId: string) => void; initialTemplate?: string; initialGroup?: string;
@@ -64,7 +48,10 @@ export function NewWork({ onPackage, onWorkflow, initialTemplate, initialGroup, 
   const [chosen, setTemplateId] = useState<string | null>(initialTemplate ?? null);
   const templateId = repeatOf ? repeat.data?.template ?? null : chosen;
   const tpl = conf.data?.templates.find((x) => x.id === templateId) ?? null;
-  const single = templateId && SINGLE[templateId] && (!tpl || tpl.steps.length === 1) ? SINGLE[templateId] : null;
+  // 181: a one-step template opens its kind's own form (the kinds come from the service); before the templates have
+  // loaded, a template whose id is a kind with a form of its own opens that form at once, as before
+  const single = tpl ? (tpl.steps.length === 1 ? tpl.steps[0].kind : null)
+    : templateId && !repeatOf && hasOwnForm(templateId) ? templateId : null;
   const isWorkflow = Boolean(tpl && tpl.steps.length > 1);
   const labels = isWorkflow ? ["What is it for?", "Which work?", "Details", "Overview"] : ["What is it for?", "Which work?", "Details"];
 
@@ -85,6 +72,7 @@ export function NewWork({ onPackage, onWorkflow, initialTemplate, initialGroup, 
         ))}
       </ol>
       {conf.error && stage < 3 ? <p className="notice error" role="alert">{conf.error.message}</p> : null}
+      {stage >= 3 && !single && !conf.data && !conf.error && !repeatOf ? <p className="muted">{t("Loading…")}</p> : null}
       {repeat.error ? <p className="notice error" role="alert">{repeat.error.message}</p> : null}
       {repeatOf && !repeat.data && !repeat.error ? <p className="muted">{t("Loading…")}</p> : null}
       {stage === 1 ? (
@@ -254,7 +242,7 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
   const ready = party !== null && periodOk && !missing.length;
   const set = (id: string, patch: Partial<StepDraft>) => setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   // 160-D: only a paid step with its own source has an engine (a brought package keeps its settings)
-  const ownEngine = (kind: WorkKind, d: StepDraft) => PAID.includes(kind) && !["package", "none"].includes(d.source);
+  const ownEngine = (kind: WorkKind, d: StepDraft) => conf.kinds[kind].own_engine && !["package", "none"].includes(d.source);
   const engineText = (d: StepDraft) => (d.engine ? ENGINE[d.engine]
     : t("as the application ({{engine}})", { engine: appEngine ? ENGINE[appEngine] : "…" }));
 
@@ -351,7 +339,7 @@ function WorkflowSetup({ tpl, conf, overview, initial, onBack, onNext, onCreated
       {tpl.steps.map((s, i) => (
         <StepEditor key={s.id} n={i + 1} title={stepTitle(s.id)} kind={s.kind} conf={conf} draft={drafts[s.id]} appEngine={appEngine}
           after={(s.after ?? []).map(stepTitle)} onChange={(patch) => set(s.id, patch)}
-          onEstimate={() => void estimate(s.id, s.kind)} canEstimate={Boolean(sources[s.id]) && (s.kind !== "statements" || Boolean(party))} />
+          onEstimate={() => void estimate(s.id, s.kind)} canEstimate={Boolean(sources[s.id]) && (!conf.kinds[s.kind].needs.includes("party") || Boolean(party))} />
       ))}
       {missing.length ? <p className="small muted">{t("Still to give: {{steps}}", { steps: missing.join(", ") })}</p> : null}
       <div className="button-row">
@@ -368,7 +356,7 @@ function StepEditor({ n, title, kind, conf, draft, appEngine, after, onChange, o
 }) {
   useLocale();
   const sources = conf.kinds[kind].sources;
-  const paid = PAID.includes(kind) && !["package", "none"].includes(draft.source);
+  const paid = conf.kinds[kind].paid && !["package", "none"].includes(draft.source);
   const touched = (patch: Partial<StepDraft>) => onChange({ ...patch, estimate: null });
   return (
     <fieldset className="wz-step">
@@ -390,10 +378,10 @@ function StepEditor({ n, title, kind, conf, draft, appEngine, after, onChange, o
             </label>
             <BrowseButton kind="folder" initial={draft.folder} onPick={([p]) => touched({ folder: p })} />
           </div>
-          {kind === "documents" ? <label className="check"><input type="checkbox" checked={draft.recursive} onChange={(e) => touched({ recursive: e.target.checked })} /> {t("Include subfolders")}</label> : null}
+          {conf.kinds[kind].subfolders ? <label className="check"><input type="checkbox" checked={draft.recursive} onChange={(e) => touched({ recursive: e.target.checked })} /> {t("Include subfolders")}</label> : null}
         </>
       ) : null}
-      {kind === "documents" && (draft.source === "folder" || draft.source === "files") ? (
+      {conf.kinds[kind].only_new && (draft.source === "folder" || draft.source === "files") ? (
         <label className="check"><input type="checkbox" checked={draft.onlyNew} onChange={(e) => touched({ onlyNew: e.target.checked })} /> {t("Only the documents no live run has processed yet")}</label>
       ) : null}
       {draft.source === "files" ? (
@@ -405,7 +393,7 @@ function StepEditor({ n, title, kind, conf, draft, appEngine, after, onChange, o
         </div>
       ) : null}
       {draft.source === "mailbox" ? <MailboxSource draft={draft} onChange={touched} /> : null}
-      {draft.source === "package" ? <PackageSource kind={kind} value={draft.packageId} onChange={(id, name) => touched({ packageId: id, packageName: name })} /> : null}
+      {draft.source === "package" ? <PackageSource kinds={conf.kinds[kind].package_kinds} value={draft.packageId} onChange={(id, name) => touched({ packageId: id, packageName: name })} /> : null}
       {paid ? (
         <div className="wz-engine">
           <span className="small">{t("AI engine")}</span>
@@ -479,10 +467,10 @@ function MailboxSource({ draft, onChange }: { draft: StepDraft; onChange: (patch
   );
 }
 
-function PackageSource({ kind, value, onChange }: { kind: WorkKind; value: string; onChange: (id: string, name: string) => void }) {
+function PackageSource({ kinds, value, onChange }: { kinds: string[]; value: string; onChange: (id: string, name: string) => void }) {
   useLocale();
   const list = useLoad("workpackages-brief", api.workpackagesBrief);  // 154: the name and the kind are enough
-  const options = useMemo(() => (list.data?.workpackages ?? []).filter((w) => PACKAGE_KINDS[kind].includes(w.source_kind)), [list.data, kind]);
+  const options = useMemo(() => (list.data?.workpackages ?? []).filter((w) => kinds.includes(w.source_kind)), [list.data, kinds]);
   if (list.error) return <p className="notice error" role="alert">{list.error.message}</p>;
   return (
     <label className="block">{t("Work package")}

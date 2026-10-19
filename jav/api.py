@@ -1354,7 +1354,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.get(r + "/workflow-templates")
     def workflow_templates() -> dict[str, Any]:
-        return {k: v for k, v in workflows.config().items() if k != "meta"}
+        return workflows.templates_view()  # 181: each kind with its registered step kind
 
     @app.post(r + "/workflows/estimate")
     def workflow_estimate(body: WorkflowEstimate) -> dict[str, Any]:
