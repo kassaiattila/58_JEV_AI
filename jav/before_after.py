@@ -51,13 +51,17 @@ _EXPORT_TABLES = ("documents", "datapoints", "line_items", "native_facts")
 _PACKAGE_DATASETS = ("emails", "email_tasks", "documents", "datapoints", "native_facts", "line_items", "utility_cost",
                      "utility_sources")
 
-# The tables whose (actor, time) pairs give the persons and days of the activity log (`jav/activity.py` sources).
+# The tables whose (actor, time) pairs give the persons and days of the activity log (the sources of
+# `jav/activity_kinds.py`; a test checks that every registered source's table is here).
 _ACTIVITY_TIMES = (
     ("workpackage_events", "actor", "created_at"), ("recipe_assignments", "actor", "created_at"),
     ("runs", "actor", "created_at"), ("runs", "approved_by", "approved_at"),
     ("run_item_corrections", "actor", "created_at"), ("review_reasons", "actor", "closed_at"),
     ("email_task_decisions", "actor", "decided_at"), ("email_task_decisions", "done_by", "done_at"),
     ("mailbox_pulls", "actor", "created_at"),
+    # 175: a person's duplicate decisions, statement choices and own workflow steps
+    ("duplicate_decisions", "actor", "decided_at"), ("statement_choices", "actor", "decided_at"),
+    ("workflow_events", "actor", "created_at"),
 )
 
 
