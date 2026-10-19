@@ -18,6 +18,7 @@ import { DepsAuditPanel } from "./settings/DepsAuditPanel";
 import { EnginePanel } from "./settings/EnginePanel";
 import { FoldersPanel } from "./settings/FoldersPanel";
 import { LanguagePanel } from "./settings/LanguagePanel";
+import { OutputTemplatesPanel } from "./settings/OutputTemplatesPanel";
 import { PartiesPanel } from "./settings/PartiesPanel";
 import { UsersPanel } from "./settings/UsersPanel";
 import { VersionPanel } from "./settings/VersionPanel";
@@ -34,6 +35,8 @@ export const SETTINGS_SECTIONS: { key: SettingsSection; label: string; hint: str
   // 133: new labels have an English source (the Hungarian translation is in hu-native.json)
   { key: "parties", label: "Own parties", hint: "Whose money is reconciled: companies, associations and people, with their names, tax numbers and accounts" },
   { key: "recipes", label: "Feldolgozás", hint: "Hogyan dolgozza fel a rendszer az iratokat és a leveleket, mit jelentenek a beállítások, mennyibe kerülnek" },
+  // 179 (plan 170 L4, DECISIONS 178): own Excel templates of the downloads
+  { key: "outputs", label: "Output templates", hint: "Your own Excel templates for the downloads: upload, check, preview and make active; the markers to write in them" },
   { key: "users", label: "Felhasználók", hint: "A „Ki dolgozik?” választéka" },
   { key: "appearance", label: "Megjelenés", hint: "The theme: light, dark or as the system is set" },
   { key: "language", label: "Nyelv", hint: "A felület nyelve: magyar vagy angol" },
@@ -65,6 +68,7 @@ export function Settings({ section }: { section: SettingsSection }) {
               <BankFilesPanel />
             </>
           ) : null}
+          {current.key === "outputs" ? <OutputTemplatesPanel /> : null}
           {current.key === "users" ? <UsersPanel /> : null}
           {current.key === "appearance" ? <AppearancePanel /> : null}
           {current.key === "language" ? <LanguagePanel /> : null}

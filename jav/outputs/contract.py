@@ -3,8 +3,8 @@
 Plain-language summary: an output (a package's result, a reconciliation statement) is first built as data - its values
 and its tables, each column with a key and a kind - and only then laid out as a file. The contract lists, per output,
 the values, the tables and their columns a layout may use; the built-in layout (`jav/outputs/builtin.py`) writes every
-table as the downloads did until 178, and a person's own template (planned, the second round of L4) will be checked
-against the same list. A builder that emits a name the contract does not list fails here, so the contract stays the
+table as the downloads did until 178, and a person's own template (178, jav/outputs/templates.py) is checked against
+the same list. A builder that emits a name the contract does not list fails here, so the contract stays the
 truth about what an output holds.
 
 Dynamic parts: a table `per` document type takes the type pack's fields after its listed columns (`type_pack`), the line

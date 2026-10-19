@@ -12,6 +12,8 @@ export class ApiError extends Error {
     public blockers: Blocker[] = [],
     /** 153: the field a correction's value could not be read in, and its kind (money, number or date) */
     public detail: { field?: string | null; kind?: string | null } = {},
+    /** 179: a refused output template's check (`template_refused`), naming every problem */
+    public check: OutputTemplateCheck | null = null,
   ) {
     super(message);
   }
@@ -71,7 +73,8 @@ export interface PackageResultItem {
   final_status: string | null; released: boolean;
 }
 export interface PackageBlocker { code: "run_not_ready" | "own_approval" | "nothing_to_release"; run_id?: string; status?: string; open_reasons?: number }
-export interface PackageVersionFile { name: string; media: string; rows: number; sha256: string }
+/** 178: `template` and `template_version` name the template that made a workbook (null: before 178, the built-in). */
+export interface PackageVersionFile { name: string; media: string; rows: number; sha256: string; template?: string | null; template_version?: string | null }
 export interface PackageVersion {
   version: number; mark: string; items: [string, string][]; runs: string[]; released_by: string; released_at: string;
   /** DECISIONS 171: recorded afterwards for a package approved before v1.20.0 */
@@ -83,6 +86,42 @@ export interface PackageResult {
   /** 172: the result views with data (as a run's `tables`) */
   tables: string[];
 }
+/** 178/179 (plan 170 L4): the outputs a person may give an own Excel template. */
+export type OutputName = "package_result" | "utility_cost" | "reconcile_statement";
+/** One problem or warning of a template's check: its code, the sheet or cell (`Sheet!B4`), a detail. */
+export interface OutputTemplateIssue { code: string; where: string; detail: string }
+export interface OutputTemplateCheck {
+  output: OutputName; ok: boolean; problems: OutputTemplateIssue[]; warnings: OutputTemplateIssue[];
+  values: string[]; tables: Record<string, string[]>;
+}
+export type OutputTemplateState = "draft" | "active" | "superseded" | "retired";
+export interface OutputTemplateVersion {
+  template: string; output: OutputName; name: string; version: number; state: OutputTemplateState; file_name: string;
+  sha256: string; uploaded_by: string; uploaded_at: string; activated_by: string | null; activated_at: string | null;
+  retired_by: string | null; retired_at: string | null; check: OutputTemplateCheck; size: number | null;
+}
+/** A template with its versions, newest first; `active`: the active version's number. */
+export interface OutputTemplate {
+  template: string; output: OutputName; name: string; active: number | null; retired: boolean; versions: OutputTemplateVersion[];
+}
+/** 179: a marker to copy (`{{invoices.amount}}`), its label in the built-in template, its kind, its total's marker. */
+export interface OutputMarker { marker: string; label: string; kind: string; sum: string | null }
+/** A group of markers: the values (`table` null), or a table (`part`: the document type of a table per type). */
+export interface OutputMarkerGroup {
+  table: string | null; part: string | null; label: string | null; count: string | null;
+  months: { row: string; names: string } | null; rows: OutputMarker[];
+}
+export interface OutputTemplatesListing {
+  templates: OutputTemplate[];
+  outputs: Record<OutputName, { output: OutputName; what: string; markers: OutputMarkerGroup[] }>;
+}
+/** A package's choice per output: the chosen template (null: the built-in; `active` false: it was retired since, so
+ *  the built-in is used) and the active templates it can choose. */
+export interface PackageOutputChoice {
+  chosen: { template: string; chosen_by: string; chosen_at: string; active: boolean; name: string | null; version: number | null } | null;
+  templates: { template: string; name: string; version: number }[];
+}
+export interface PackageOutputChoices { workpackage_id: string; outputs: Partial<Record<OutputName, PackageOutputChoice>> }
 /** 080: what a run of the package will do (the pre-start overview): documents by their path known in advance (S / G /
  *  type not known yet), emails, emails with a task proposal, whether Azure may be used and earlier JEV answers reused. */
 export interface RunPlan {
@@ -980,7 +1019,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
   if (!res.ok) {
     const d = (data ?? {}) as { error?: string; message?: string; detail?: unknown; blockers?: Blocker[]; field?: string; kind?: string;
-      template?: string; params?: Record<string, string> };
+      template?: string; params?: Record<string, string>; check?: OutputTemplateCheck };
     const missingActor = Array.isArray(d.detail) && d.detail.some((x) => Array.isArray(x?.loc) && x.loc.includes("x-actor"));
     // 167 (review 160 U-1): a message the service wrote as a template is translated like the interface's own labels
     const message = missingActor ? t(NO_ACTOR) : d.error === "unknown_user" ? t(UNKNOWN_ACTOR)
@@ -989,7 +1028,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
       : Array.isArray(d.detail) ? t("The service refused a value: {{fields}}", { fields: refusedFields(d.detail) })
       : d.message ?? (typeof d.detail === "string" ? d.detail : `HTTP ${res.status}`);
     throw new ApiError(res.status, d.error ?? (res.status === 422 ? "invalid" : "error"), message, d.blockers ?? [],
-      { field: d.field ?? null, kind: d.kind ?? null });
+      { field: d.field ?? null, kind: d.kind ?? null }, d.check ?? null);
   }
   return data as T;
 }
@@ -1173,6 +1212,22 @@ export const api = {
     `/api/workpackages/${enc(wpId)}/versions/${version}/files/${enc(name)}`,
   packageResultXlsxUrl: (wpId: string) => `/api/workpackages/${enc(wpId)}/result/export.xlsx`,
   packageUtilityCost: (wpId: string) => request<UtilityReport>("GET", `/workpackages/${enc(wpId)}/result/utility-cost`),
+  /** 178: the utility cost of the package's current result as a workbook, with the package's chosen template */
+  packageUtilityCostXlsxUrl: (wpId: string) => `/api/workpackages/${enc(wpId)}/result/utility-cost.xlsx`,
+  /** 178/179 (plan 170 L4): own output templates, and a package's choice of them */
+  outputTemplates: () => request<OutputTemplatesListing>("GET", "/output-templates"),
+  /** the service reads the file the system's file picker chose (a template can be larger than a request); a refused
+   *  file gives 422 `template_refused` with the check (`ApiError.check`) */
+  uploadOutputTemplate: (body: { output: OutputName; name: string; path: string; template?: string }) =>
+    request<OutputTemplateVersion>("POST", "/output-templates", body),
+  activateOutputTemplate: (template: string, version: number) =>
+    request<OutputTemplateVersion>("POST", `/output-templates/${enc(template)}/versions/${version}/activate`, {}),
+  retireOutputTemplate: (template: string) => request<OutputTemplateVersion>("POST", `/output-templates/${enc(template)}/retire`, {}),
+  outputTemplateFileUrl: (template: string, version: number) => `/api/output-templates/${enc(template)}/versions/${version}/file`,
+  outputTemplatePreviewUrl: (template: string, version: number) => `/api/output-templates/${enc(template)}/versions/${version}/preview.xlsx`,
+  packageOutputTemplates: (wpId: string) => request<PackageOutputChoices>("GET", `/workpackages/${enc(wpId)}/output-templates`),
+  choosePackageOutputTemplate: (wpId: string, output: OutputName, template: string | null) =>
+    request<PackageOutputChoices>("PUT", `/workpackages/${enc(wpId)}/output-templates/${enc(output)}`, { template }),
   documentFormats: () => request<{ formats: DocumentFormat[]; native_limits: Record<string, unknown> }>("GET", "/document-formats"),
   item: (runId: string, itemId: string) => request<ItemResult | NativeItemResult>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}`),
   nativeSources: (runId: string, itemId: string, version: string, offset = 0) =>

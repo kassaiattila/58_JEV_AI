@@ -1,7 +1,7 @@
 """The output layer's addresses (178, plan 170 L4, DECISIONS 178): own templates and a package's choice of them.
 
-- `GET /output-templates`: every template with its versions, and every output's names with their labels (the markers
-  a template may use);
+- `GET /output-templates`: every template with its versions, and every output's names with their labels and (179) the
+  markers a template may use, ready to copy;
 - `POST /output-templates`: an upload, read by the service from a file the operating system's picker chose (the
   request carries its path, as adding documents does; a template can be larger than a request's body); checked, and
   stored as a draft version (422 `template_refused` with the check's problems when it has any);
@@ -61,8 +61,9 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.get(r + "/output-templates")
     def output_templates() -> dict[str, Any]:
+        # 179: with each output's markers ready to copy (the settings page's list)
         return work_views.jsonable({"templates": templates.listing(),
-                                    "outputs": {o: samples.labels(o) for o in contract.outputs()}})
+                                    "outputs": {o: samples.labels(o) | {"markers": samples.markers(o)} for o in contract.outputs()}})
 
     @app.post(r + "/output-templates", status_code=201)
     def upload_output_template(body: TemplateUpload, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:

@@ -15,6 +15,7 @@ import { UtilityPanel } from "./UtilityReport";
 import { Icon } from "../components/Icon";
 import { EngineMark } from "../components/EngineMark";
 import { ConfirmButton } from "../components/ConfirmButton";
+import { TemplateChoice } from "../components/TemplateChoice";
 
 const TABLES: { key: ResultTable; dataset: string }[] = [
   { key: "emails", dataset: "emails" },
@@ -121,9 +122,13 @@ function PackageResultStage({ view, table, onChanged }: { view: WorkpackageView;
       <div className="result-bar">
         <ResultPicker wpId={wp.id} table={current} />
         {available.length ? <ViewTabs available={available} current={current} onPick={nav} /> : null}
-        <span className="dt-spacer" />
         {data && available.length ? (
-          <a className="secondary dl-btn small-btn" href={xlsx} download><Icon name="download" />{t("Teljes Excel-csomag")}</a>
+          // 179: the package's template of this download, beside it (only when an own template can be chosen); the two
+          // stay together at the row's end
+          <span className="result-actions">
+            <TemplateChoice wpId={wp.id} output="package_result" />
+            <a className="secondary dl-btn small-btn" href={xlsx} download><Icon name="download" />{t("Teljes Excel-csomag")}</a>
+          </span>
         ) : null}
       </div>
       {result.error ? <p className="notice error" role="alert">{result.error.message}</p> : null}

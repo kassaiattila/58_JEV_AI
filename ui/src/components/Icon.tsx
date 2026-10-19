@@ -10,6 +10,7 @@ const PATHS = {
   file: "M6 3h8l4 4v14H6zM14 3v4h4M12 11v6M9 14h6", // 168: add files
   folder: "M3 6h6l2 2h10v11H3zM12 11v5M9.5 13.5h5", // 168: add a folder
   download: "M12 4v11M7 10l5 5 5-5M5 20h14",
+  copy: "M9 9h11v11H9zM15 9V4H4v11h5", // 179: copy a template's marker
   columns: "M4 5h16v14H4zM9.5 5v14M14.5 5v14",
   manage: "M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4",
   stop: "M7 7h10v10H7z",
