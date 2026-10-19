@@ -4,7 +4,7 @@
 // an existing package chosen as a step's source. The local service is replaced by spies; synthetic names only.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import workflowConfig from "../../../../configs/workflows.json";
+import workflowConfig from "./workflowTemplates181.fixture.json";  // 181: the service's templates
 import {
   api, setActor, type OwnParty, type PartiesOverview, type WorkflowDraft, type WorkflowTemplates, type WorkflowView,
   type WorkpackageBrief,

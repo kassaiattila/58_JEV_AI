@@ -4,7 +4,7 @@
 // control view carry. The local service is replaced by spies; synthetic names only.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import workflowConfig from "../../configs/workflows.json";
+import workflowConfig from "./views/workflows/workflowTemplates181.fixture.json";  // 181: the service's templates
 import { api, setActor, type OwnParty, type PartiesOverview, type WorkflowTemplates, type WorkflowView } from "./api";
 import { setLanguage } from "./i18n";
 import { EnginePanel } from "./views/settings/EnginePanel";

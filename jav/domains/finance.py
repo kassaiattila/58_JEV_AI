@@ -6,7 +6,10 @@ here, in one call (`register`, from `registrations.load_all`):
   (134), a statement booking the same days as another one (139); and the two scans that open the same to-dos on the
   stored results (`jav/checks.py`);
 - the statement package and the reconciliation package as logic packs, each with the reference that keeps a party in
-  use from being deleted (`jav/logic_packs.py`, `jav/parties.py`);
+  use from being deleted (`jav/logic_packs.py`, `jav/parties.py`), and (181) as the statements and reconciliation steps
+  of a workflow (`jav/workflow_steps.py`);
+- (181) the package roles: incoming invoices, outgoing invoices and bank statements, and where an invoice or a
+  statement belongs (its role, party and day; `jav/package_scope.py`);
 - the finance parts of the downloads (`jav/outputs/parts.py`): the duplicate mark on a run's documents and its two
   columns, an invoice's direction, the utility cost's sheets, grand total and JSON section in the package's result,
   and the utility cost's own workbook.
@@ -83,6 +86,74 @@ CHECKS = (
 )
 
 
+# --- 181 (plan 170 L5): the package roles the finance domain adds (`jav/package_scope.py`): what a package collects, the
+# documents that fit it (by their type and direction, `jav/parties.py` `direction`) and the packages that can hold it ---
+
+# the plain processing packages a person adds documents to (not a mailbox's)
+DOCUMENT_PACKAGES = ("folder", "manual", "watch", "upload")
+
+
+def _incoming(doc_type: str | None, direction: str | None) -> bool:
+    return type_roles.has(doc_type, "incoming_invoice") and direction == "incoming"
+
+
+def _outgoing(doc_type: str | None, direction: str | None) -> bool:
+    invoice = type_roles.has(doc_type, "incoming_invoice") or type_roles.has(doc_type, "outgoing_invoice")
+    return invoice and direction == "outgoing"
+
+
+def _statement(doc_type: str | None, direction: str | None) -> bool:
+    return type_roles.has(doc_type, "statement")
+
+
+def _day(raw: Any) -> str | None:
+    """A stored date as an ISO day (a stored value is ISO; another form is read when it is sure)."""
+    from datetime import date
+
+    from jav import dates
+
+    if raw in (None, ""):
+        return None
+    try:
+        return date.fromisoformat(str(raw)[:10]).isoformat()
+    except ValueError:
+        found = dates.read_date(raw)
+        return found.value.isoformat() if found.value and not found.ambiguous else None
+
+
+def place_document(doc_type: str | None, values: dict[str, Any], cache: dict[str, Any]) -> Any:
+    """181: where a document belongs for the email routing (`package_scope.place`): a bank statement by its account's
+    own party, on its period's last day; an invoice by its two sides (`parties.direction`: incoming to the buyer,
+    outgoing from the supplier), on its fulfilment day, else its issue day. None for another kind of document."""
+    from jav import cfg, package_scope, parties, statement_package
+    from jav.models import account_key
+
+    if "finance:resolver" not in cache:  # the identities as they stand, read once per routing view
+        cache["finance:resolver"] = parties.resolver()
+    res = cache["finance:resolver"]
+    if type_roles.has(doc_type, "statement"):
+        key = account_key(values.get("account_iban") or values.get("account_no"))
+        party = res.account(key) if key else None
+        return package_scope.Placement(statement_package.ROLE, party, _day(values.get("period_end")) or _day(values.get("period_start")),
+                                       None, None if party else "unknown_party")
+    if not (type_roles.has(doc_type, "incoming_invoice") or type_roles.has(doc_type, "outgoing_invoice")):
+        return None
+    direction, party = parties.direction(res, doc_type, values)
+    role = next((r.name for r in _roles() if r.name != statement_package.ROLE and r.fits(doc_type, direction)), None)
+    problem = {"internal": "internal", "not_own": "not_own", "unclear": "unclear_direction"}.get(direction)
+    fields = cfg.load("reconcile")["invoice_fields"]
+    day = _day(values.get(fields["fulfillment_date"])) or _day(values.get(fields["issue_date"]))
+    return package_scope.Placement(role, party, day, direction, problem)
+
+
+def _roles() -> tuple[Any, ...]:
+    from jav import package_scope, statement_package
+
+    return (package_scope.Role("incoming_invoices", __name__, "Incoming invoices", _incoming, DOCUMENT_PACKAGES),
+            package_scope.Role("outgoing_invoices", __name__, "Outgoing invoices", _outgoing, DOCUMENT_PACKAGES),
+            package_scope.Role(statement_package.ROLE, __name__, "Bank statements", _statement, (statement_package.KIND,)))
+
+
 # the documents table's finance columns after its general ones (126: the duplicate mark; 147: an invoice's direction),
 # with the built-in header and the data view's kind and label set
 DUPLICATE_COLUMNS = (parts.Column("duplicate", "Duplicate", "enum", "duplicate"), parts.Column("duplicate_of", "Duplicate of"))
@@ -91,7 +162,8 @@ DIRECTION_COLUMNS = (parts.Column("direction", "Direction", "enum", "direction")
 
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
-    from jav import duplicates, logic_packs, parties, reconcile_package, report_utility, statement_package
+    from jav import (duplicates, logic_packs, package_scope, parties, reconcile_package, report_utility, statement_package,
+                     workflow_steps)
 
     for check in CHECKS:
         checks.register(check)
@@ -99,6 +171,11 @@ def register() -> None:
     parties.register_reference("statement_package", count=statement_package.count_party, repoint=statement_package.repoint_party)
     logic_packs.register(reconcile_package.LOGIC)
     parties.register_reference("reconcile_package", count=reconcile_package.count_party, repoint=reconcile_package.repoint_party)
+    workflow_steps.register(statement_package.STEP)  # 181: a workflow's statements and reconciliation steps
+    workflow_steps.register(reconcile_package.STEP)
+    for role in _roles():  # 181: what a package collects, and where an emailed document belongs
+        package_scope.register_role(role)
+    package_scope.register_reader("finance", place_document)
     parts.register_record_mark(parts.RecordMark("duplicate", __name__, duplicates.mark_records))
     parts.register_document_columns(parts.DocumentColumns("duplicate", __name__, DUPLICATE_COLUMNS, duplicates.column_values))
     parts.register_document_columns(parts.DocumentColumns("direction", __name__, DIRECTION_COLUMNS, parties.direction_values))

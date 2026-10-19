@@ -1,0 +1,290 @@
+{
+  "intro": "Choose what the work is for, then the kind of work. A single kind makes one work package; a workflow makes the work packages of its steps for one own party and a period, starts each step when the steps it waits for are approved, and shows where the chain stands.",
+  "groups": [
+    {
+      "id": "documents",
+      "title": "Documents and emails",
+      "description": "Recognise documents and emails and extract their data."
+    },
+    {
+      "id": "bank",
+      "title": "Bank statements and reconciliation",
+      "description": "Bring in a party's bank statements, or pair their lines with invoices already processed."
+    },
+    {
+      "id": "monthly",
+      "title": "A whole period's work",
+      "description": "Workflows of several steps for one own party and a period: invoices, statements and their reconciliation, step by step."
+    }
+  ],
+  "kinds": {
+    "documents": {
+      "title": "Documents: extract their data",
+      "description": "Each document's type is recognised and its data extracted.",
+      "sources": [
+        "folder",
+        "files",
+        "package"
+      ],
+      "cost": "Paid: AI within the run's budget.",
+      "package_kinds": [
+        "folder",
+        "manual",
+        "watch",
+        "upload"
+      ],
+      "paid": true,
+      "own_engine": true,
+      "only_new": true,
+      "subfolders": true,
+      "needs": []
+    },
+    "emails": {
+      "title": "Emails from a mailbox",
+      "description": "The mailbox's new emails are downloaded; each email's intent is recognised and its PDF attachments are processed as documents.",
+      "sources": [
+        "mailbox",
+        "package"
+      ],
+      "cost": "Paid: AI within the run's budget.",
+      "package_kinds": [
+        "mailbox"
+      ],
+      "paid": true,
+      "own_engine": true,
+      "only_new": false,
+      "subfolders": false,
+      "needs": []
+    },
+    "statements": {
+      "title": "Bank statements",
+      "description": "One party's bank statements for a period: the banks' exports and the statements a reader knows are read by code; any other PDF statement is extracted by AI.",
+      "sources": [
+        "folder",
+        "files",
+        "package"
+      ],
+      "cost": "Read by code, free; a PDF extracted by AI is paid.",
+      "package_kinds": [
+        "statements"
+      ],
+      "paid": true,
+      "own_engine": true,
+      "only_new": false,
+      "subfolders": false,
+      "needs": [
+        "party",
+        "period"
+      ]
+    },
+    "routing": {
+      "title": "Email routing",
+      "description": "Each invoice, outgoing invoice and bank statement that arrived by email is proposed for the package of its party, period and role; you accept, reject or choose another package.",
+      "sources": [
+        "none",
+        "package"
+      ],
+      "cost": "Free: code only.",
+      "package_kinds": [
+        "email_routing"
+      ],
+      "paid": false,
+      "own_engine": false,
+      "only_new": false,
+      "subfolders": false,
+      "needs": []
+    },
+    "reconcile": {
+      "title": "Reconciliation of statements and invoices",
+      "description": "The party's statement lines are paired with its invoices; the result is a summary approved as a version.",
+      "sources": [
+        "none",
+        "package"
+      ],
+      "cost": "Free: code only.",
+      "package_kinds": [
+        "reconcile"
+      ],
+      "paid": false,
+      "own_engine": false,
+      "only_new": false,
+      "subfolders": false,
+      "needs": [
+        "party",
+        "period"
+      ]
+    }
+  },
+  "templates": [
+    {
+      "id": "documents",
+      "group": "documents",
+      "title": "Documents: extract their data",
+      "description": "One work package of a folder's documents or of the given files.",
+      "steps": [
+        {
+          "id": "documents",
+          "kind": "documents"
+        }
+      ]
+    },
+    {
+      "id": "emails",
+      "group": "documents",
+      "title": "Emails from a mailbox",
+      "description": "One work package of a mailbox's new emails and their attachments.",
+      "steps": [
+        {
+          "id": "emails",
+          "kind": "emails"
+        }
+      ]
+    },
+    {
+      "id": "routing",
+      "group": "documents",
+      "title": "Email routing",
+      "description": "One routing package over email packages already downloaded: their invoices, outgoing invoices and bank statements go to the packages they belong to.",
+      "steps": [
+        {
+          "id": "routing",
+          "kind": "routing"
+        }
+      ]
+    },
+    {
+      "id": "mailbox_routing",
+      "group": "documents",
+      "title": "From the mailbox to the packages",
+      "description": "The mailbox's new emails are downloaded and processed with their attachments; once they are approved, the routing proposes the package of each invoice, outgoing invoice and bank statement.",
+      "steps": [
+        {
+          "id": "emails",
+          "kind": "emails",
+          "title": "Emails and their attachments"
+        },
+        {
+          "id": "routing",
+          "kind": "routing",
+          "title": "Routing",
+          "after": [
+            "emails"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "statements",
+      "group": "bank",
+      "title": "Bank statements",
+      "description": "One work package of a party's bank statements for a period, surveyed before anything is stored.",
+      "steps": [
+        {
+          "id": "statements",
+          "kind": "statements"
+        }
+      ]
+    },
+    {
+      "id": "reconcile",
+      "group": "bank",
+      "title": "Reconciliation of statements and invoices",
+      "description": "One reconciliation package of a party and a period, on the invoices and statements already processed.",
+      "steps": [
+        {
+          "id": "reconcile",
+          "kind": "reconcile"
+        }
+      ]
+    },
+    {
+      "id": "monthly_reconciliation",
+      "group": "monthly",
+      "title": "Monthly reconciliation",
+      "description": "The incoming invoices of a folder and the bank statements are processed side by side; once both are approved, the reconciliation package is made for the party and the period.",
+      "steps": [
+        {
+          "id": "invoices",
+          "kind": "documents",
+          "title": "Incoming invoices",
+          "role": "incoming_invoices"
+        },
+        {
+          "id": "statements",
+          "kind": "statements",
+          "title": "Bank statements"
+        },
+        {
+          "id": "reconcile",
+          "kind": "reconcile",
+          "title": "Reconciliation",
+          "after": [
+            "invoices",
+            "statements"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mailbox_reconciliation",
+      "group": "monthly",
+      "title": "From the mailbox to the reconciliation",
+      "description": "The mailbox's new emails are downloaded and processed with their attachments, the bank statements side by side; once both are approved, the reconciliation package is made.",
+      "steps": [
+        {
+          "id": "emails",
+          "kind": "emails",
+          "title": "Emails and their attachments"
+        },
+        {
+          "id": "statements",
+          "kind": "statements",
+          "title": "Bank statements"
+        },
+        {
+          "id": "reconcile",
+          "kind": "reconcile",
+          "title": "Reconciliation",
+          "after": [
+            "emails",
+            "statements"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "two_sources_reconciliation",
+      "group": "monthly",
+      "title": "Monthly reconciliation with invoices from a folder and a mailbox",
+      "description": "Invoices come from a folder and from a mailbox, the bank statements side by side; once all three are approved, the reconciliation package is made.",
+      "steps": [
+        {
+          "id": "invoices",
+          "kind": "documents",
+          "title": "Incoming invoices from a folder",
+          "role": "incoming_invoices"
+        },
+        {
+          "id": "emails",
+          "kind": "emails",
+          "title": "Emails and their attachments"
+        },
+        {
+          "id": "statements",
+          "kind": "statements",
+          "title": "Bank statements"
+        },
+        {
+          "id": "reconcile",
+          "kind": "reconcile",
+          "title": "Reconciliation",
+          "after": [
+            "invoices",
+            "emails",
+            "statements"
+          ]
+        }
+      ]
+    }
+  ]
+}

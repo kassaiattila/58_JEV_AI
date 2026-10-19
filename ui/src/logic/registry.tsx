@@ -8,6 +8,7 @@ import { t } from "../i18n";
 import { tmap } from "../labels";
 import type { Stage } from "../route";
 import { ReconcileStages } from "../views/reconcile/ReconcileStages";
+import { routingStatus, routingSummary, RoutingStages } from "../views/routing/Routing";
 import { StatementPackagePanel } from "../views/StatementPackagePanel";
 
 export type LogicUi = {
@@ -51,6 +52,17 @@ export const LOGIC: Record<string, LogicUi> = {
         ? t("Reconciliation of {{n}} accounts or cards, {{from}} – {{to}}", { n: view.reconcile.scope.accounts.length, from: view.reconcile.scope.period_start, to: view.reconcile.scope.period_end })
         : null),
       body: (view, stage, onChanged) => <ReconcileStages view={view} stage={stage} onChanged={onChanged} />,
+    },
+  },
+  // 181: an email routing package routes its email packages' attachments; it has no documents and no runs of its own
+  email_routing: {
+    adds: "nothing",
+    createdFrom: () => t("an email routing package"),
+    stages: {
+      labels: tmap({ process: "Email packages", review: "Routing", result: "Routed" }) as Record<Stage, string>,
+      status: routingStatus,
+      summary: routingSummary,
+      body: (view, stage, onChanged) => <RoutingStages view={view} stage={stage} onChanged={onChanged} />,
     },
   },
   statements: {

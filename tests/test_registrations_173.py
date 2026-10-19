@@ -2,7 +2,8 @@
 
 Guarantees tested: importing the registering modules registers nothing; `load_all` registers the two logic packs
 (176: the statement package with its rule, the reconciliation package; each with its delete guard), the workflows'
-delete guard and the three party references, and a second call adds nothing; the command line, the local service and
+delete guard and (181) the package scopes' one, the four party references (181: the package scopes'), and a second
+call adds nothing; the command line, the local service and
 the before/after replay call it.
 """
 
@@ -19,7 +20,7 @@ from jav.config import PROJECT_ROOT
 _PROBE = """
 import json
 from jav import logic_packs, parties, work
-import jav.reconcile_package, jav.statement_package, jav.workflows
+import jav.email_routing, jav.package_scope, jav.reconcile_package, jav.statement_package, jav.workflows
 seen = lambda: {"packages": [p.kind for p in logic_packs.packs()], "guards": len(work._DELETE_GUARDS),
                 "references": sorted(parties._REFERENCES)}
 before = seen()
@@ -35,16 +36,16 @@ def test_importing_registers_nothing_and_load_all_registers_everything_once() ->
                          encoding="utf-8")
     seen = json.loads(out.stdout.strip().splitlines()[-1])
     assert seen["before"] == {"packages": [], "guards": 0, "references": []}
-    assert seen["after"] == {"packages": ["statements", "reconcile"], "guards": 1,
-                             "references": ["reconcile_package", "statement_package", "workflows"]}
+    assert seen["after"] == {"packages": ["statements", "reconcile", "email_routing"], "guards": 2,
+                             "references": ["package_scopes", "reconcile_package", "statement_package", "workflows"]}
 
 
 def test_in_this_process_everything_is_registered() -> None:
     registrations.load_all()  # the test session's own call (conftest) made it already; a repeat changes nothing
-    assert [p.kind for p in logic_packs.packs()] == ["statements", "reconcile"]
+    assert [p.kind for p in logic_packs.packs()] == ["statements", "reconcile", "email_routing"]  # 181: the routing
     assert logic_packs.of("statements").rule is not None
-    assert len(work._DELETE_GUARDS) == len(set(work._DELETE_GUARDS)) == 1
-    assert {"reconcile_package", "statement_package", "workflows"} <= set(parties._REFERENCES)
+    assert len(work._DELETE_GUARDS) == len(set(work._DELETE_GUARDS)) == 2  # 181: the package scopes' too
+    assert {"package_scopes", "reconcile_package", "statement_package", "workflows"} <= set(parties._REFERENCES)
 
 
 def test_the_entry_points_call_it() -> None:

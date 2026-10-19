@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import cfg, item_kinds as ik, logic_packs, mailbox, work, workflows
+from jav import cfg, item_kinds as ik, logic_packs, mailbox, work, workflow_steps
 from jav.domains import email as email_domain
 
 
@@ -51,8 +51,8 @@ def test_the_source_kinds_are_the_plain_processing_kinds():
 
 def test_a_workflow_step_takes_packages_of_known_kinds_only():
     known = set(ik.source_names()) | {p.kind for p in logic_packs.packs()}
-    for kinds in workflows.PACKAGE_KINDS.values():
-        assert set(kinds) <= known
+    for step in workflow_steps.kinds():  # 181: the step kinds' registry (until then `workflows.PACKAGE_KINDS`)
+        assert set(step.package_kinds) <= known
 
 
 # a package of this kind is never made (plan 170, 9.4: the kind is listed, nothing creates it); its label waits

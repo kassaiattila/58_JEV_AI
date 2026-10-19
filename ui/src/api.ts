@@ -64,7 +64,41 @@ export interface WorkpackageView {
   open_runs?: RunRow[];
   /** 168: how many items are in each state (approved, live, trial, running, failed, pending) and how many were removed */
   item_counts?: Partial<Record<"approved" | "live" | "trial" | "running" | "failed" | "pending" | "removed", number>>;
+  /** 181: the package's scope (its party, period and role), when it has one */
+  scope?: PackageScope;
+  /** 181: an email routing package's attachments, proposals and decisions */
+  routing?: RoutingView;
+  /** 181: an email package offers the routing of its attachments (and names the routing packages that route it) */
+  routing_offer?: { attachments: number; routings: { id: string; name: string }[] };
 }
+/** 181: what keeps an attachment from being routed by itself. */
+export type RoutingBlocker = "no_result" | "unknown_party" | "unclear_direction" | "internal" | "not_own" | "no_day"
+  | "suspicious" | "sent_incoming";
+export interface RoutingEmail { item_id: string; subject: string | null; sender: string | null; received_at: string | null; folder: string | null }
+export interface RoutingNewPackage { name: string; party_id: string; period_start: string; period_end: string; role: string }
+/** 181: one attachment of a routing package: its email, its result, where it belongs, the proposal and the decision. */
+export interface RoutingItem {
+  item_id: string; file: string; package: string; email: RoutingEmail | null; doc_type: string | null; tier: string | null;
+  placement: { routable: boolean; role: string | null; role_title: string | null; party_id: string | null; party: string | null;
+    day: string | null; problem: RoutingBlocker | null };
+  proposal: { target: { id: string; name: string } | null; others: { id: string; name: string }[]; new: RoutingNewPackage | null } | null;
+  decision: { decision: "accepted" | "rejected"; target: string | null; target_name?: string | null; made: number; actor: string;
+    decided_at: string } | null;
+  /** whether the package it was accepted into still holds it */
+  held?: boolean | null;
+}
+export interface RoutingView {
+  sources: { id: string; name: string | null }[]; items: RoutingItem[];
+  counts: { attachments: number; routable: number; decided: number; blocked: number; clear: number; accepted: number };
+}
+/** 181: what a work package belongs to and collects, and where that comes from: `own` (a person gave it), `logic_pack`
+ *  (a statement package's own) or `workflow` (its workflow step's). */
+export interface PackageScope {
+  party_id: string | null; party: string | null; period_start: string | null; period_end: string | null; role: string | null;
+  role_title: string | null; from: string; set_by?: string; set_at?: string;
+}
+/** 181: a package role: what a package collects (incoming invoices, outgoing invoices, bank statements). */
+export interface PackageRole { name: string; title: string; package_kinds: string[] }
 /** 171/172 (plan 170 L1): the package's current result (each item from the run whose result counts now) and its
  *  release. `mark` is what Approve and release names; `blockers` say why it cannot be given now. */
 export type PackageReleaseState = "not_released" | "released" | "partly_released" | "changed_since_release";
@@ -227,14 +261,31 @@ export interface BankFilesCatalogue {
   version: string; intro: string; read_by: Record<"code" | "ai", string>; checks: Record<string, string>;
   files: BankFile[]; not_read: string[]; labels: Record<string, string>;
 }
-/** 146: the new work wizard's templates (`configs/workflows.json`); texts are English source strings. */
-export type WorkKind = "documents" | "emails" | "statements" | "reconcile";
+/** 146: the new work wizard's templates (`configs/workflows.json`); texts are English source strings. 181: a step kind
+ * is any kind the service registered (`jav/workflow_steps.py`), so the interface names none. */
+export type WorkKind = string;
 export type WorkSourceKind = "folder" | "files" | "mailbox" | "package" | "none";
 export interface WorkflowTemplateStep { id: string; kind: WorkKind; title?: string; after?: string[] }
 export interface WorkflowTemplate { id: string; group: string; title: string; description: string; steps: WorkflowTemplateStep[] }
+/** A step kind as the wizard reads it: its texts from the templates, the rest from its registration (181). */
+export interface WorkflowKind {
+  title: string; description: string; sources: WorkSourceKind[]; cost: string;
+  /** the work package kinds an existing package of the step may have */
+  package_kinds: string[];
+  /** its run may call AI: a person approves its budget */
+  paid: boolean;
+  /** a step with its own folder, files or mailbox may have its own AI engine */
+  own_engine: boolean;
+  /** its folder or files may leave out the documents a live run has processed */
+  only_new: boolean;
+  /** its folder may include the subfolders */
+  subfolders: boolean;
+  /** the parts of the workflow's scope it needs */
+  needs: string[];
+}
 export interface WorkflowTemplates {
   intro: string; groups: { id: string; title: string; description: string }[];
-  kinds: Record<WorkKind, { title: string; description: string; sources: WorkSourceKind[]; cost: string }>;
+  kinds: Record<WorkKind, WorkflowKind>;
   templates: WorkflowTemplate[];
 }
 export interface WorkflowSource {
@@ -265,9 +316,10 @@ export interface WorkflowStep {
   package: { id: string; name: string | null; next: NextStep | null } | null; run_id: string | null; pull_id: string | null;
   updated_at: string;
 }
+/** 181: a workflow has a party and a period only when its steps need them (or they were given). */
 export interface WorkflowInfo {
-  id: string; template: string; template_title: string; name: string; party_id: string; party: string;
-  period_start: string; period_end: string; auto: boolean; status: "open" | "archived"; actor: string;
+  id: string; template: string; template_title: string; name: string; party_id: string | null; party: string | null;
+  period_start: string | null; period_end: string | null; auto: boolean; status: "open" | "archived"; actor: string;
   created_at: string; updated_at: string;
 }
 export interface WorkflowView {
@@ -303,10 +355,10 @@ export interface QuickReview {
   excluded: Record<string, { count: number; totals: Record<string, string>; lines: QuickReviewLine[] }>;
   decided: Record<string, number>;
 }
-export interface WorkflowBrief { id: string; name: string; period_start: string; period_end: string }
+export interface WorkflowBrief { id: string; name: string; period_start: string | null; period_end: string | null }
 /** 147: a workflow for the next period, as the wizard shows it filled in (a step without a source is asked for). */
 export interface WorkflowDraft {
-  template: string; party_id: string; period_start: string; period_end: string; name: string | null; auto: boolean;
+  template: string; party_id: string | null; period_start: string | null; period_end: string | null; name: string | null; auto: boolean;
   previous: string; steps: Record<string, { source: WorkflowSource | null; budget: WorkflowBudget; engine?: Engine | null }>;
 }
 export interface WorkflowRow extends WorkflowInfo {
@@ -315,7 +367,7 @@ export interface WorkflowRow extends WorkflowInfo {
 }
 export interface WorkflowRef { id: string; name: string; step: string; step_title: string }
 export interface CreateWorkflowBody {
-  template: string; party_id: string; period_start: string; period_end: string; name?: string; auto: boolean;
+  template: string; party_id?: string; period_start?: string; period_end?: string; name?: string; auto: boolean;
   names?: Record<string, string>; steps: Record<string, { source: WorkflowSource; budget?: WorkflowBudget; engine?: Engine | null }>;
   previous?: string;
 }
@@ -1245,6 +1297,19 @@ export const api = {
   users: () => request<{ users: string[] }>("GET", "/settings/users"),
   saveUsers: (users: string[]) => request<{ users: string[] }>("PUT", "/settings/users", { users }),
   setOwner: (id: string, owner: string | null) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/owner`, { owner }),
+  /** 181: an email routing package over email packages, and a person's decisions on its attachments */
+  createRoutingPackage: (body: { name: string; sources: string[] }) => request<WorkpackageView>("POST", "/email-routing/packages", body),
+  routingAccept: (wpId: string, items: string[], target?: string) =>
+    request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/accept`, target ? { items, target } : { items }),
+  routingAcceptClear: (wpId: string) => request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/accept-clear`, {}),
+  routingReject: (wpId: string, items: string[]) => request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/reject`, { items }),
+  routingUndo: (wpId: string, item: string) => request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/undo`, { item }),
+  /** 181: the package roles a scope can name */
+  packageRoles: () => request<{ roles: PackageRole[] }>("GET", "/package-roles"),
+  /** 181: a person gives the package its scope (any part may be left out) or takes its own scope away */
+  setPackageScope: (id: string, scope: { party_id: string | null; period_start: string | null; period_end: string | null; role: string | null }) =>
+    request<WorkpackageView>("POST", `/workpackages/${enc(id)}/scope`, scope),
+  clearPackageScope: (id: string) => request<WorkpackageView>("POST", `/workpackages/${enc(id)}/scope/clear`, {}),
   folders: () => request<{ folders: WatchedFolder[]; roots: string[] }>("GET", "/settings/folders"),
   saveFolders: (folders: WatchedFolder[]) => request<{ folders: WatchedFolder[]; roots: string[] }>("PUT", "/settings/folders", {
     folders: folders.map(({ id, name, path, enabled, recursive, batch_mode, recipe_id, params, interval_min }) =>

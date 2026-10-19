@@ -36,7 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from jav import (app_settings, backup, bank_files, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
-                 package_release, parties, party_views, statement_months, store, version, work, work_views, workflows)
+                 package_release, package_scope, parties, party_views, statement_months, store, version, work, work_views, workflows)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
@@ -407,9 +407,10 @@ class WorkflowStepInput(_In):
 
 class CreateWorkflow(_In):
     template: Annotated[str, Field(pattern=r"^[a-z_]{1,60}$")]
-    party_id: PartyId
-    period_start: IsoDay
-    period_end: IsoDay
+    # 181: the party and the period are needed only when the template's steps need them (`workflows.template_needs`)
+    party_id: PartyId | None = None
+    period_start: IsoDay | None = None
+    period_end: IsoDay | None = None
     name: Annotated[str, Field(max_length=200)] | None = None
     names: dict[StepKey, Annotated[str, Field(min_length=1, max_length=200)]] | None = None  # the steps' package names
     auto: bool = True
@@ -418,7 +419,7 @@ class CreateWorkflow(_In):
 
 
 class WorkflowEstimate(_In):
-    kind: Literal["documents", "emails", "statements", "reconcile"]
+    kind: Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]  # 181: a registered step kind (`jav/workflow_steps.py`)
     source: WorkflowSource
     party_id: PartyId | None = None
     period_start: IsoDay | None = None
@@ -496,6 +497,14 @@ class TaskDone(_In):
 
 class RenameWorkpackage(_In):
     name: Annotated[str, Field(min_length=1, max_length=200)]
+
+
+class SetPackageScope(_In):
+    """181: the party, the period and the role a person gives a package (`jav/package_scope.py`); any may be left out."""
+    party_id: PartyId | None = None
+    period_start: IsoDay | None = None
+    period_end: IsoDay | None = None
+    role: Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")] | None = None
 
 
 class SetOwner(_In):
@@ -648,9 +657,10 @@ def _max_source_bytes() -> int:
 def logic_routes() -> dict[str, Callable[[FastAPI, str], None]]:
     """176 (plan 170 L3): the own addresses of each logic pack (`jav/logic_packs.py`), by its kind, each in its
     own module; `create_app` adds them in this order (a test checks that every registered logic pack has its own)."""
-    from jav import api_reconcile, api_statement_package
+    from jav import api_email_routing, api_reconcile, api_statement_package
 
-    return {"statements": api_statement_package.routes, "reconcile": api_reconcile.routes}
+    return {"statements": api_statement_package.routes, "reconcile": api_reconcile.routes,
+            "email_routing": api_email_routing.routes}  # 181
 
 
 def create_app(*, store_path: Path | None = None) -> FastAPI:
@@ -859,6 +869,25 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     @app.post(r + "/workpackages/{wp_id}/rename")
     def rename_workpackage(wp_id: WpId, body: RenameWorkpackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         work.rename_workpackage(wp_id, body.name, actor=who)
+        return work_views.workpackage_view(wp_id)
+
+    @app.get(r + "/package-roles")
+    def package_roles() -> dict[str, Any]:
+        """181: the roles a package's scope can name, with the package kinds that can hold each."""
+        return {"roles": [{"name": x.name, "title": x.title, "package_kinds": list(x.package_kinds)}
+                          for x in package_scope.roles()]}
+
+    @app.post(r + "/workpackages/{wp_id}/scope")
+    def set_package_scope(wp_id: WpId, body: SetPackageScope, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """181: a person gives the package its party, period and role (recorded in its log)."""
+        package_scope.set_scope(wp_id, party_id=body.party_id, period_start=body.period_start, period_end=body.period_end,
+                                role_name=body.role, actor=who)
+        return work_views.workpackage_view(wp_id)
+
+    @app.post(r + "/workpackages/{wp_id}/scope/clear")
+    def clear_package_scope(wp_id: WpId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        """181: a person takes the package's own scope away (a scope of its workflow shows again)."""
+        package_scope.clear_scope(wp_id, actor=who)
         return work_views.workpackage_view(wp_id)
 
     @app.post(r + "/workpackages/{wp_id}/owner")
@@ -1354,7 +1383,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.get(r + "/workflow-templates")
     def workflow_templates() -> dict[str, Any]:
-        return {k: v for k, v in workflows.config().items() if k != "meta"}
+        return workflows.templates_view()  # 181: each kind with its registered step kind
 
     @app.post(r + "/workflows/estimate")
     def workflow_estimate(body: WorkflowEstimate) -> dict[str, Any]:

@@ -43,7 +43,7 @@ def test_the_two_logic_packs_and_their_roles() -> None:
     assert [(r.name, r.source) for r in reconcile.roles] == [("statements", "period"), ("invoices", "period")]
     assert [(r.name, r.source) for r in statements.roles] == [("statements", "own_items")]
     assert statements.rule is not None and reconcile.rule is None
-    assert lp.kinds_without_runs() == ("reconcile",)
+    assert lp.kinds_without_runs() == ("reconcile", "email_routing")  # 181: the email routing has none either
     assert all(lp.of(kind) is None and lp.has_runs(kind) for kind in lp.DATA_KINDS)
 
 
@@ -119,7 +119,7 @@ def test_the_service_has_the_addresses_of_every_logic_pack_in_its_own_module() -
 
     own = api.logic_routes()
     assert list(own) == [p.kind for p in lp.packs()]
-    assert {fn.__module__ for fn in own.values()} == {"jav.api_statement_package", "jav.api_reconcile"}
+    assert {fn.__module__ for fn in own.values()} == {"jav.api_statement_package", "jav.api_reconcile", "jav.api_email_routing"}
     text = (PROJECT_ROOT / "jav/api.py").read_text(encoding="utf-8")
     assert not re.search(r"\breconcile_package\.|\bstatement_package\.|/reconcile|/statement-packages", text)
 

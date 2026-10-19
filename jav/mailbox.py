@@ -29,7 +29,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from jav import ingest_server, item_kinds, store, work
+from jav import ingest_server, item_kinds, store, work, workflow_steps
 from jav.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
 from jav.user_messages import explained
 
@@ -512,6 +512,41 @@ def run_pull_job(payload: dict[str, Any], *, runner: Runner | None = None, inbox
             c.execute("UPDATE mailbox_schedules SET last_at=?, last_status=?, last_result=?, updated_at=? WHERE id=?",
                       (_utc(), status, body, _utc(), p["schedule_id"]))
     return {"status": status, **result}
+
+
+# --- a workflow's emails step (181, plan 170 L5; until then in `jav/workflows.py`) --------------------------------
+
+
+def workflow_start(ctx: workflow_steps.StepStart) -> None:
+    """A workflow's emails step: its mailbox download is queued (one per start), and the step waits for it."""
+    wf = ctx.workflow
+    req = MailboxRequest.model_validate(ctx.source["request"])
+    p = request_pull(req, actor=wf["actor"], dedup_key=f"workflow:{wf['id']}:{ctx.step['id']}:{uuid.uuid4().hex[:8]}")
+    ctx.fetching(str(p["id"]))
+
+
+def workflow_poll(ctx: workflow_steps.StepStart) -> None:
+    """Once the step's download has finished: its package's live run starts, or the step found nothing new, or failed.
+    160 (review R-1): an interrupted download packaged the emails that arrived; the step runs that package, and the
+    error stays in its events (before, the step failed without the package and a restart found nothing new)."""
+    p = pull(ctx.state["pull_id"])
+    if p["status"] in ("queued", "running") or not ctx.claim():
+        return
+    result = p.get("result") or {}
+    if p["status"] != "ok" and result.get("workpackage"):
+        ctx.event("pull_interrupted", {"pull_id": ctx.state["pull_id"], "workpackage_id": result["workpackage"],
+                                       "note": str(result.get("error") or p["status"])[:1000]})
+        ctx.run(result["workpackage"])
+    elif p["status"] != "ok":
+        ctx.failed(str(result.get("error") or p["status"]))
+    elif not result.get("workpackage"):
+        ctx.nothing_new("no new emails")
+    else:
+        ctx.run(result["workpackage"])
+
+
+# 181: the emails step of a workflow (registered by the email domain, `jav/domains/email.py`)
+STEP = workflow_steps.StepKind("emails", __name__, ("mailbox",), start=workflow_start, poll=workflow_poll)
 
 
 # --- email item on the review page (048 T2.3) --------------------------------------------------------------------

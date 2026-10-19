@@ -4,7 +4,7 @@
 // makes sure every text of the templates has a Hungarian translation.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import workflowConfig from "../../../../configs/workflows.json";
+import workflowConfig from "./workflowTemplates181.fixture.json";  // 181: the service's templates
 import {
   api, setActor, type OwnParty, type PartiesOverview, type WorkflowRow, type WorkflowTemplates, type WorkflowView,
 } from "../../api";

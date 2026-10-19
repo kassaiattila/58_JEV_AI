@@ -17,6 +17,10 @@ the mailbox package's part of its page (`jav/item_kinds.py`).
 logic packs, party references and download parts, the email domain's item rule and page part. The check registry and
 the output parts registry call `load_all` themselves the first time they are read, so they are complete whichever
 module asks first.
+181 (plan 170 L5): the workflow step kinds (`jav/workflow_steps.py`): the workflows register the documents step, the
+finance domain the statements and reconciliation steps, the email domain the emails step. The package scopes
+(`jav/package_scope.py`): the finance domain registers the package roles, the workflows a step's package's scope, the
+package scopes themselves their party reference and the removal of a deleted package's scope.
 """
 
 from __future__ import annotations
@@ -37,11 +41,11 @@ def load_all() -> None:
         return
     _loading = True
     try:
-        from jav import workflows
+        from jav import package_scope, workflows
         from jav.domains import DOMAINS
 
         finance, email = (importlib.import_module(name) for name in DOMAINS)
-        for register in (finance.register, workflows.register, email.register):
+        for register in (finance.register, workflows.register, package_scope.register, email.register):
             register()
         _loaded = True
     finally:

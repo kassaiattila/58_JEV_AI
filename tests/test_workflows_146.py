@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import cfg, mailbox, parties, statement_table as st, store, work, workflows as wf
+from jav import cfg, mailbox, parties, statement_table as st, store, work, workflow_steps, workflows as wf
 from jav.runtime import queue, worker
 from tests import test_statement_erste_137 as erste
 
@@ -69,14 +69,16 @@ def _steps(view: dict) -> dict[str, dict]:
 def test_the_templates_are_the_four_kinds_and_three_workflows_each_waiting_only_for_earlier_steps():
     conf = cfg.load("workflows")
     kinds = set(conf["kinds"])
-    assert kinds == {"documents", "emails", "statements", "reconcile"} == set(wf.PACKAGE_KINDS)
+    # 181: the email routing is a fifth kind, with its own one-step template and a workflow after a mailbox download
+    assert kinds == {"documents", "emails", "statements", "reconcile", "routing"} == {k.kind for k in workflow_steps.kinds()}
     groups = {g["id"] for g in conf["groups"]}
     singles = [t for t in conf["templates"] if not wf.is_workflow(t)]
     assert sorted(t["steps"][0]["kind"] for t in singles) == sorted(kinds)
     chains = {t["id"]: [s["kind"] for s in t["steps"]] for t in conf["templates"] if wf.is_workflow(t)}
     assert chains == {"monthly_reconciliation": ["documents", "statements", "reconcile"],
                       "mailbox_reconciliation": ["emails", "statements", "reconcile"],
-                      "two_sources_reconciliation": ["documents", "emails", "statements", "reconcile"]}
+                      "two_sources_reconciliation": ["documents", "emails", "statements", "reconcile"],
+                      "mailbox_routing": ["emails", "routing"]}
     for t in conf["templates"]:
         assert t["group"] in groups
         seen: set[str] = set()

@@ -8,7 +8,7 @@ import {
   api, setActor, type OwnParty, type PartiesOverview, type PartyMonths, type StatementPackageSurvey, type StatementSurveyRow,
   type WorkflowTemplates, type WorkpackageView,
 } from "../api";
-import workflowConfig from "../../../configs/workflows.json";
+import workflowConfig from "./workflows/workflowTemplates181.fixture.json";  // 181: the service's templates
 import hungarian from "../i18n/hu-native.json";
 import { setLanguage, t } from "../i18n";
 import { reasonText } from "../labels";
