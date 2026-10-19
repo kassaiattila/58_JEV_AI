@@ -32,6 +32,8 @@ from jav import item_kinds
 DATA_KINDS = item_kinds.source_names()
 # where an input role's documents come from
 ROLE_SOURCES = ("own_items", "linked_package", "period", "master_data")
+# 178 (plan 170 L4): the outputs of a package that processes its items (`configs/outputs.json`)
+PROCESSING_OUTPUTS = ("package_result", "utility_cost")
 
 
 class UnknownKind(LookupError):
@@ -65,6 +67,7 @@ class LogicPack:
     - `page(wp_id)`: its part of the package's page (`work_views.workpackage_view`): extra parts for a package with
       runs; for one without, its readiness, its next step and its own part.
     - `list_mark()`: its part of the package list's cache mark (what its next steps in the list read).
+    - `outputs`: the outputs of its packages (178: `configs/outputs.json`; a template is chosen for each of them).
     """
 
     kind: str
@@ -80,6 +83,7 @@ class LogicPack:
     next_step: Callable[[str], dict[str, Any]] | None = None
     list_next: Callable[[str], dict[str, Any]] | None = None
     list_mark: Callable[[], Any] | None = None
+    outputs: tuple[str, ...] = PROCESSING_OUTPUTS
 
     def __post_init__(self) -> None:
         if self.kind in DATA_KINDS:
@@ -130,5 +134,12 @@ def kinds_without_runs() -> tuple[str, ...]:
     return tuple(p.kind for p in _PACKS.values() if not p.has_runs)
 
 
-__all__ = ["DATA_KINDS", "ROLE_SOURCES", "InputRole", "LogicPack", "UnknownKind", "has_runs", "kinds_without_runs",
-           "of", "packs", "register"]
+def outputs_of(kind: str) -> tuple[str, ...]:
+    """178: the outputs of a work package of this kind (a plain processing kind: the package result and the utility
+    cost)."""
+    pack = of(kind)
+    return pack.outputs if pack else PROCESSING_OUTPUTS
+
+
+__all__ = ["DATA_KINDS", "PROCESSING_OUTPUTS", "ROLE_SOURCES", "InputRole", "LogicPack", "UnknownKind", "has_runs",
+           "kinds_without_runs", "of", "outputs_of", "packs", "register"]

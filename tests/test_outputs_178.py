@@ -48,7 +48,7 @@ def db(tmp_path):
 
 def test_every_name_of_the_contract_is_an_identifier_and_every_kind_is_known():
     outputs = contract.outputs()
-    assert set(outputs) == {"package_result", "reconcile_statement"}
+    assert set(outputs) == {"package_result", "utility_cost", "reconcile_statement"}
     for name, out in outputs.items():
         assert out["format"] == "xlsx" and out["what"]
         assert {"version", "heading", "min_width", "marks"} <= set(out["builtin"])

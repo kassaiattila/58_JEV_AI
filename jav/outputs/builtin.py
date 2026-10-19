@@ -27,7 +27,7 @@ def render(data: contract.OutputData) -> bytes:
     used: set[str] = set()
     for t in data.tables:
         ws = wb.create_sheet(xlsx.safe_sheet(t.title, used))
-        top = xlsx.write_table(ws, t.head, t.rows, t.kinds, heading=heading, min_width=layout["min_width"])
+        top = xlsx.write_table(ws, t.head, [*t.rows, *t.footer], t.kinds, heading=heading, min_width=layout["min_width"])
         for (r, c), mark in t.marks.items():
             ws.cell(row=top + 1 + r, column=c + 1).fill = PatternFill("solid", fgColor=layout["marks"][mark])
     buf = io.BytesIO()

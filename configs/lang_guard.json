@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.76",
+    "version": "1.0.77",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.77",
+        "date": "2026-10-19",
+        "note": "178 (L4, second round): accept the download labels the output contract's builders name (jav/export.py: the data points' and line items' headers, the package values and the grand total; document vocabulary) and the marker glossary entry (docs/GLOSSARY.md)."
+      },
       {
         "version": "1.0.76",
         "date": "2026-10-19",
@@ -514,7 +519,7 @@
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 287,
+    "docs/GLOSSARY.md": 288,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 9,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -562,7 +567,7 @@
     "jav/experiments/prepare_stack_trial.py": 3,
     "jav/experiments/pydantic_jev.py": 4,
     "jav/experiments/stack_trial.py": 1,
-    "jav/export.py": 23,
+    "jav/export.py": 24,
     "jav/extract_llm.py": 1,
     "jav/flow.py": 19,
     "jav/flow_detect.py": 10,
