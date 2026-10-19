@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.70",
+    "version": "1.0.71",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.71",
+        "date": "2026-10-19",
+        "note": "177: accept the Hungarian column of the item kind and source kind glossary entries (docs/GLOSSARY.md) and the Hungarian test data of tests/test_characterisation_177.py (an email's subject and an attachment's title as the workspace shows them)."
+      },
       {
         "version": "1.0.70",
         "date": "2026-10-19",
@@ -484,7 +489,7 @@
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 282,
+    "docs/GLOSSARY.md": 284,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 9,
     "docs/flows/doc_detect/FLOW.mmd": 3,
@@ -613,6 +618,7 @@
     "tests/test_candidates_127.py": 29,
     "tests/test_category_marks_140.py": 6,
     "tests/test_cfg.py": 1,
+    "tests/test_characterisation_177.py": 3,
     "tests/test_config_hash_067.py": 2,
     "tests/test_contract.py": 2,
     "tests/test_dashes_067.py": 2,

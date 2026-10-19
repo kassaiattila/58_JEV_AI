@@ -13,7 +13,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, logic_packs, store, typepack, work
+from jav import cfg, item_kinds, logic_packs, store, typepack, work
 from jav.runtime import calls, worker
 
 
@@ -47,8 +47,10 @@ def recipe_help() -> dict[str, Any]:
 
 
 def package_root(wp: dict[str, Any]) -> str | None:
-    """The folder a package was read from (a folder or a watched folder), for the subfolder titles (081)."""
-    return wp.get("source_ref") if wp.get("source_kind") in ("folder", "watch") else None
+    """The folder a package was read from (a folder or a watched folder), for the subfolder titles (081). 177: the
+    source kind says whether its reference is that folder (`jav/item_kinds.py`)."""
+    kind = wp.get("source_kind")
+    return wp.get("source_ref") if kind in item_kinds.source_names() and item_kinds.source(kind).folder else None
 
 
 def item_titles(items: list[dict[str, Any]], root: str | None = None) -> dict[str, str]:
@@ -59,12 +61,12 @@ def item_titles(items: list[dict[str, Any]], root: str | None = None) -> dict[st
     base = Path(root) if root else None
     for i in items:
         p = Path(i["source_path"])
-        if base and i.get("kind") != "email" and not i.get("parent_item_id") and p.parent != base and p.is_relative_to(base):
+        if base and item_kinds.of(i).record and not i.get("parent_item_id") and p.parent != base and p.is_relative_to(base):
             out[i["item_id"]] = p.relative_to(base).as_posix()
     from jav.emails import message_version
 
     for i in items:
-        if i.get("kind") != "email":
+        if i.get("kind") != item_kinds.EMAIL:
             continue
         m, status = message_version(i)  # 086 N04: the version the item was added with, not the latest
         if not m and status != "changed":
@@ -167,10 +169,8 @@ def _workpackage_view(wp_id: str) -> dict[str, Any]:
     ready = work.readiness(wp_id)
     runs = work.run_rows(wp_id)
     extra = {}
-    if wp["source_kind"] == "mailbox":  # 058 K5.2: PDF attachments can be added later to a pre-058 email package
-        from jav import mailbox
-
-        extra["attachments_missing"] = len(mailbox.missing_attachments(wp))
+    if pack is None:  # 177: the source kind's part (058 K5.2: a mailbox package's missing PDF attachments)
+        extra.update(item_kinds.page(wp))
     if pack is not None and pack.page is not None:  # 140: a statement pack's party, period and statements
         extra.update(pack.page(wp_id))
     current = current_run(runs)
@@ -279,7 +279,7 @@ def result_tables(run_id: str | None = None, *, workpackage_id: str | None = Non
     records = datasets.result_records(scope)
     shown = [(run["run_id"], i) for run, keep in parts for i in run["input"]["items"] if keep is None or i["item_id"] in keep]
     items = [i for _run, i in shown]
-    out = ["emails"] if any(i.get("kind") == "email" for i in items) else []  # 058 K5.1
+    out = ["emails"] if any(i.get("kind") == item_kinds.EMAIL for i in items) else []  # 058 K5.1
     if out:  # 058 K5.3: task-proposal view if the run asked for proposals
         from jav import export
 
@@ -296,7 +296,7 @@ def result_tables(run_id: str | None = None, *, workpackage_id: str | None = Non
         out.append("line_items")
     if report_utility.has_utility(records):
         out.append("utility")
-    if len(parts) == 1 and any(i.get("kind") != "email" and Path(i["source_path"]).suffix.lower() not in NATIVE_SUFFIXES
+    if len(parts) == 1 and any(item_kinds.of(i).record and Path(i["source_path"]).suffix.lower() not in NATIVE_SUFFIXES
                                for i in items):
         out.append("file_names")
     return out

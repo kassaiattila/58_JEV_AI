@@ -41,7 +41,7 @@ from datetime import date
 from pathlib import Path
 from typing import IO, Any
 
-from jav import cfg, store, work
+from jav import cfg, item_kinds, store, work
 
 log = logging.getLogger("jav.naming")
 
@@ -413,7 +413,7 @@ def plan(run_id: str, *, path_budget: int | None = None) -> list[NamedCopy]:
     r = rules()
     run = work.get_run(run_id)
     # 160-C: not the items removed from the package before the release (decision 163 D7)
-    items = [i for i in work.released_items(run) if i.get("kind") != "email"]
+    items = [i for i in work.released_items(run) if item_kinds.of(i).record]  # 177: an email gets no name
     records = {rec["item_id"]: rec for rec in datasets.run_records(run_id)}
     results = {x["item_id"]: x for x in run["items"]}
     others = [i for i in items if i["item_id"] not in records]
@@ -475,8 +475,8 @@ def _names_of(run_id: str, wanted: set[str] | None = None) -> dict[str, ItemName
 def run_item_names(run_id: str) -> dict[str, ItemName]:
     """Every item of the run with its unified name in this run."""
     items = work.get_run(run_id)["input"]["items"]
-    named = _names_of(run_id) if any(i.get("kind") != "email" for i in items) else {}
-    return {i["item_id"]: NO_NAME if i.get("kind") == "email" else named.get(i["item_id"], PENDING) for i in items}
+    named = _names_of(run_id) if any(item_kinds.of(i).record for i in items) else {}
+    return {i["item_id"]: named.get(i["item_id"], PENDING) if item_kinds.of(i).record else NO_NAME for i in items}
 
 
 def package_item_names(wp: dict[str, Any]) -> dict[str, ItemName]:
@@ -486,7 +486,7 @@ def package_item_names(wp: dict[str, Any]) -> dict[str, ItemName]:
     result is pending. A run's names are computed once, for its counted items only."""
     from jav import package_result
 
-    out = {i["item_id"]: NO_NAME for i in wp["items"] if i.get("kind") == "email"}
+    out = {i["item_id"]: NO_NAME for i in wp["items"] if not item_kinds.of(i).record}
     todo = {i["item_id"] for i in wp["items"]} - set(out)
     counted = package_result.counted_results(wp["id"])
     by_run: dict[str, set[str]] = {}

@@ -38,7 +38,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import cfg, fact_checks, package_result, store, type_roles
+from jav import cfg, fact_checks, item_kinds, package_result, store, type_roles
 from jav.user_messages import explained
 
 REASON = "duplicate"
@@ -279,7 +279,7 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor
     if run["approval"]:
         raise explained(work.RevisionConflict, "run {{run_id}} is approved; duplicate decisions are frozen",
                         run_id=run_id)
-    if not any(i["item_id"] == item_id and i.get("kind") != "email" for i in run["input"]["items"]):
+    if not any(i["item_id"] == item_id and item_kinds.of(i).record for i in run["input"]["items"]):
         raise KeyError(item_id)
     docs = {d.doc_id: d for d in documents() if d.doc_id in (item_id, other_doc_id)}
     if other_doc_id not in _file_names([other_doc_id]):

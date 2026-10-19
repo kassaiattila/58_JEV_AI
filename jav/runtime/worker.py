@@ -27,7 +27,7 @@ from typing import Any, Callable
 
 from burr.integrations.serde import pydantic as burr_pydantic
 
-from jav import app_settings, isolated_pdf, mailbox, pdf, store, work, workflows
+from jav import app_settings, isolated_pdf, item_kinds, mailbox, pdf, store, work, workflows
 from jav.runtime import applog, calls, flows, lock, pdf_status, persistence, queue
 from jav.runtime.persistence import ClosingSQLitePersister
 
@@ -227,7 +227,7 @@ def native_fallback(params: dict[str, Any], item: dict[str, Any], detect_state) 
     parameters, or None."""
     from jav.native_contracts import NATIVE_FALLBACK_SUFFIXES
 
-    if params.get("unknown_documents") != "facts" or item.get("kind") != "document":
+    if params.get("unknown_documents") != "facts" or not item_kinds.of(item).detected:  # 177: a document only
         return None
     if Path(item["source_path"]).suffix.lower() not in NATIVE_FALLBACK_SUFFIXES:
         return None
@@ -265,7 +265,7 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                 raise InstanceDamaged(f"the copy of {name} kept when it was added is missing or damaged")
             raise SourceChanged(f"{name} differs from the frozen input")
         read_path = str(src) if item.get("instance") else None
-        attachment_reads = _attachment_reads(run["input"]["items"], item_id) if item.get("kind") == "email" else None
+        attachment_reads = _attachment_reads(run["input"]["items"], item_id) if item_kinds.of(item).attachments else None
         persister = StatePersister(str(persister_path()))
         persister.initialize()
         rule = work.package_rule(run["workpackage_id"])  # 140: what the package's kind adds (a statement package)
@@ -307,8 +307,9 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                 if added := rule.after_item(run, item):
                     work.raise_item_reasons(run_id, item, added, producer="package_rule:item")
                     final = "needs_review"
-            if final is not None and work.mark_suspicious_source(run, item):  # 154: an attachment of a suspicious email
-                final = "needs_review"
+            for item_rule in item_kinds.rules():  # 177: e.g. 154, an attachment of a suspicious email (the email domain's)
+                if final is not None and item_rule.after_item(run, item):
+                    final = "needs_review"
         finally:
             persister.cleanup()
     except queue.JobCancelled:

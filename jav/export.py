@@ -29,7 +29,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from jav import card_numbers, cfg, corrections, duplicates, native_results, package_result, store, type_roles, typepack, work
+from jav import card_numbers, cfg, corrections, duplicates, item_kinds, native_results, package_result, store, type_roles, typepack, work
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
 SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
@@ -75,7 +75,7 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
     split = work.items_reasons(run_id, run["input"]["items"])  # 153 (review B3): one query, not one per item
     out = []
     for item in work.released_items(run):  # 160-C: not the items removed from the package (decision 163 D7)
-        if item.get("kind") == "email":
+        if not item_kinds.of(item).record:  # 177: an email has no document record
             continue
         dp = corrections.datapoints_row(run_id, item["item_id"])
         if dp is None:
@@ -193,9 +193,9 @@ def email_records(run_id: str) -> list[dict[str, Any]]:
 
     out = []
     items = work.released_items(work.get_run(run_id))  # 160-C: not the items removed from the package (decision 163 D7)
-    split = work.items_reasons(run_id, [i for i in items if i.get("kind") == "email"])  # 153 (review B3): one query
+    split = work.items_reasons(run_id, [i for i in items if i.get("kind") == item_kinds.EMAIL])  # 153 (review B3): one query
     for item in items:
-        if item.get("kind") != "email":
+        if item.get("kind") != item_kinds.EMAIL:
             continue
         path = Path(item["source_path"])
         msg, source_status = emails.message_version(item)  # 086 N04: the version the run processed, not the latest
