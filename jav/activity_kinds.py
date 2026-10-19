@@ -41,10 +41,13 @@ class UnknownEvent(ValueError):
 @dataclass(frozen=True)
 class Source:
     """Where "My work today" reads one kind of action: `sql` returns the columns (at, actor, workpackage_id, run_id,
-    detail) of the rows between two times; `flow_run`: the run column holds an item's flow id (`<run>:<item>`)."""
+    detail) of the rows between two times; `flow_run`: the run column holds an item's flow id (`<run>:<item>`);
+    `action_prefix`: the action is the detail column after this prefix (a log's own action, labelled as such), else the
+    source's code."""
     code: str
     sql: str
     flow_run: bool = True
+    action_prefix: str | None = None
 
 
 @dataclass(frozen=True)

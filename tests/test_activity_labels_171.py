@@ -42,7 +42,8 @@ def test_every_recorded_package_event_has_an_activity_label() -> None:
 
 def test_every_activity_source_has_a_label() -> None:
     labels = datasets._labels("activity_action")
-    assert sorted({s.code for s in activity_kinds.sources() if s.code != "event"} - set(labels)) == []
+    # a log's own actions are labelled by action (the package log here, the workflow log in tests/test_activity_kinds_175.py)
+    assert sorted({s.code for s in activity_kinds.sources() if s.action_prefix is None} - set(labels)) == []
 
 
 def test_the_new_labels() -> None:

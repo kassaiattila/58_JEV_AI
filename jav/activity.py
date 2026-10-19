@@ -22,7 +22,7 @@ from jav import activity_kinds, store
 # and a run's approval name the run itself, the others an item's flow id
 for _source in (
     activity_kinds.Source("event", "SELECT created_at at, actor, workpackage_id, NULL run_id, action detail FROM workpackage_events"
-                                   " WHERE created_at >= ? AND created_at < ?"),
+                                   " WHERE created_at >= ? AND created_at < ?", action_prefix=""),
     activity_kinds.Source("recipe", "SELECT created_at at, actor, workpackage_id, NULL run_id, recipe_id detail FROM recipe_assignments"
                                     " WHERE created_at >= ? AND created_at < ?"),
     activity_kinds.Source("run_start", "SELECT created_at at, actor, workpackage_id, run_id, mode detail FROM runs"
@@ -40,6 +40,16 @@ for _source in (
                                        " FROM email_task_decisions d WHERE d.done_at >= ? AND d.done_at < ?"),  # 062
     activity_kinds.Source("mailbox_pull", "SELECT created_at at, actor, NULL workpackage_id, NULL run_id, request detail FROM mailbox_pulls"
                                           " WHERE created_at >= ? AND created_at < ?"),
+    # 175 (the owner's decision of 2026-10-19): a person's duplicate decisions, statement choices and own steps of a
+    # workflow (a step the workflow starts by itself is recorded for "<maker> (auto)", so it is not the person's)
+    activity_kinds.Source("duplicate_decision", "SELECT decided_at at, actor, NULL workpackage_id, run_id, decision detail"
+                                                " FROM duplicate_decisions WHERE decided_at >= ? AND decided_at < ?", flow_run=False),
+    activity_kinds.Source("statement_choice", "SELECT decided_at at, actor, NULL workpackage_id, run_id, NULL detail"
+                                              " FROM statement_choices WHERE decided_at >= ? AND decided_at < ?", flow_run=False),
+    activity_kinds.Source("workflow", "SELECT created_at at, actor, COALESCE(json_extract(detail, '$.workpackage_id'),"
+                                      " json_extract(detail, '$.workpackage')) workpackage_id, json_extract(detail, '$.run_id') run_id,"
+                                      " action detail FROM workflow_events WHERE created_at >= ? AND created_at < ?",
+                          flow_run=False, action_prefix="workflow_"),
 ):
     activity_kinds.register_source(_source)
 
@@ -78,8 +88,9 @@ def entries(actor: str, day: str | None = None) -> list[dict[str, Any]]:
                     continue
                 run_id = _flow_run(r["run_id"]) if source.flow_run else r["run_id"]
                 wp_id = r["workpackage_id"] or (run_wp.get(run_id) if run_id else None)
-                action = r["detail"] if code == "event" else code
-                out.append({"at": r["at"], "action": action, "detail": _detail(code, r["detail"]),
+                own_action = source.action_prefix is not None
+                action = f"{source.action_prefix}{r['detail']}" if own_action else code
+                out.append({"at": r["at"], "action": action, "detail": None if own_action else _detail(code, r["detail"]),
                             "workpackage_id": wp_id, "workpackage_name": names.get(wp_id) if wp_id else None, "run_id": run_id})
     out.sort(key=lambda e: e["at"], reverse=True)
     return out

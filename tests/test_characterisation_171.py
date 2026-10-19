@@ -240,7 +240,10 @@ def test_the_run_fingerprint_sees_reconciliation_decisions_and_statement_choices
 def test_the_activity_log_reads_these_sources() -> None:
     assert [s.code for s in activity_kinds.sources()] == [  # 175: the activity registry, in the same order
         "event", "recipe", "run_start", "run_approve", "correction", "reason_resolve", "task_decision", "task_done",
-        "mailbox_pull"]
+        "mailbox_pull",
+        # 175 (deliberate, the owner's decision of 2026-10-19): a person's duplicate decisions, statement choices and
+        # own workflow steps
+        "duplicate_decision", "statement_choice", "workflow"]
 
 
 PIN_ACTIVITY = [  # most recent first; another person's action is left out
