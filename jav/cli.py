@@ -790,6 +790,18 @@ def cmd_package_versions_backfill(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reconcile_versions_backfill(args: argparse.Namespace) -> int:
+    """178 (plan 170 L4): the stored file of every approved reconciliation statement approved or reopened before 178,
+    made now from its stored statement as the download made it (idempotent; --dry-run writes nothing)."""
+    from jav import reconcile_statement
+
+    done = reconcile_statement.backfill_files(dry_run=args.dry_run)
+    for e in done:
+        print(f"{e['workpackage_id']} version {e['version']} ({e['state']})" + (" (dry run)" if args.dry_run else ""))
+    print(f"versions: {len(done)}")
+    return 0
+
+
 def cmd_fx_rates(args: argparse.Namespace) -> int:
     """130: the stored MNB exchange rates (counts and the latest attempts, no rates printed); with --fetch FROM TO one
     request for the span. Free; only the dates and the currency codes leave the machine."""
@@ -1075,6 +1087,11 @@ def main(argv: list[str] | None = None) -> int:
                                                          " v1.20.0, recorded afterwards (idempotent)")
     p.add_argument("--dry-run", action="store_true", help="list the packages, write nothing")
     p.set_defaults(fn=cmd_package_versions_backfill)
+
+    p = sub.add_parser("reconcile-versions-backfill", help="178: the stored file of every approved reconciliation statement"
+                                                           " approved or reopened before v1.23.0 (idempotent)")
+    p.add_argument("--dry-run", action="store_true", help="list the versions, write nothing")
+    p.set_defaults(fn=cmd_reconcile_versions_backfill)
 
     p = sub.add_parser("fx-rates", help="130: the stored MNB exchange rates (counts); --fetch FROM TO: fetch a span (free)")
     p.add_argument("--fetch", nargs=2, metavar=("FROM", "TO"), help="fetch the published days of the span (YYYY-MM-DD)")

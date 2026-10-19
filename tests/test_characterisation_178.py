@@ -165,15 +165,14 @@ STATEMENT_APPROVED_PARTS = {
 }
 
 
-def test_the_reconciliation_statement_is_written_as_before(db):
+def test_the_reconciliation_statement_is_written_as_before(db, monkeypatch):
     wp_id, _inv, _ids = _world()
     data, name = rs.xlsx(wp_id)
     assert name == "egyeztetes-April-tervezet.xlsx"
     assert _parts(data) == STATEMENT_DRAFT_PARTS
+    monkeypatch.setattr(rs, "_now", lambda: "2026-05-02T10:30:00+00:00")  # the heading shows when it was approved
     rs.approve(wp_id, fingerprint=rs.current(wp_id)["fingerprint"], actor="Reviewer")
-    with store.connect() as conn:  # the heading shows when it was approved: a fixed time
-        conn.execute("UPDATE reconcile_versions SET approved_at = ? WHERE workpackage_id = ?", ("2026-05-02T10:30:00+00:00", wp_id))
-    data, name = rs.xlsx(wp_id, version=1)
+    data, name = rs.xlsx(wp_id, version=1)  # 178: the file stored at the approval
     assert name == "egyeztetes-April-v1.xlsx"
     assert _parts(data) == STATEMENT_APPROVED_PARTS
 
