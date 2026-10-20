@@ -8,7 +8,9 @@ Plain-language summary: what the shared code does with emails beyond reading the
   attachments it offers;
 - (181) a workflow's emails step: the mailbox download, then its package's run (`jav/workflow_steps.py`);
 - (181) the email routing: a logic pack that proposes, for each emailed invoice, outgoing invoice and bank statement,
-  the package it belongs to, and its workflow step (`jav/email_routing.py`).
+  the package it belongs to, and its workflow step (`jav/email_routing.py`);
+- (185) its addresses of the local service beyond the email routing's own: the mailboxes, an email package's
+  attachments and the task proposals' decisions (`jav/api_mailbox.py`), named in `SERVICE`.
 
 The work itself stays in `jav/mailbox.py`.
 """
@@ -16,6 +18,10 @@ The work itself stays in `jav/mailbox.py`.
 from __future__ import annotations
 
 from typing import Any
+
+# 185 (plan G-full-move T1a): the module of the domain's addresses of the local service beyond its logic pack's own
+# (`LogicPack.service`); `jav.api.service_modules` adds it by name
+SERVICE = ("jav.api_mailbox",)
 
 
 def mailbox_page(wp: Any) -> dict[str, Any]:

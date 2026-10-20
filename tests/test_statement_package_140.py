@@ -92,7 +92,7 @@ def test_the_survey_shows_what_a_better_statement_would_replace(db):
     party = _party()
     old = db / "old"
     _export(old, "20260529", MAY)  # May without its PDF: unchecked, in the store
-    _run_all(work.create_from_statement_table(old, [f"{DIGITS}:HUF:2026-05-01"], name="Erste May", owner="tester")["id"])
+    _run_all(sp.create_from_statement_table(old, [f"{DIGITS}:HUF:2026-05-01"], name="Erste May", owner="tester")["id"])
     [stored] = reconcile.statements()
     survey = _survey(_folder(db / "new", may_pdf=True), party)
     may = _row(survey, "2026-05")
@@ -104,7 +104,7 @@ def test_a_statement_already_in_the_store_is_not_chosen_again(db):
     party = _party()
     folder = _folder(db, stray=False)
     keys = [a.key for a in st.read(folder).accounts]
-    _run_all(work.create_from_statement_table(folder, keys, name="Erste", owner="tester")["id"])
+    _run_all(sp.create_from_statement_table(folder, keys, name="Erste", owner="tester")["id"])
     survey = _survey(folder, party)
     assert all(r["in_store"] and not r["chosen"] and r["replaces"] == [] for r in survey["statements"])
 

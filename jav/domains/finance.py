@@ -12,7 +12,10 @@ here, in one call (`register`, from `registrations.load_all`):
   statement belongs (its role, party and day; `jav/package_scope.py`);
 - the finance parts of the downloads (`jav/outputs/parts.py`): the duplicate mark on a run's documents and its two
   columns, an invoice's direction, the utility cost's sheets, grand total and JSON section in the package's result,
-  and the utility cost's own workbook.
+  and the utility cost's own workbook;
+- (185) its addresses of the local service beyond its logic packs' own: the own parties (`jav/api_parties.py`) and the
+  bank files, a tabular export's accounts, the utility cost and the duplicate and statement decisions
+  (`jav/api_finance.py`), named in `SERVICE`.
 
 The check adapters below turn a document under check into the call of the module that does the work; the work itself
 stays in `jav/duplicates.py`, `jav/parties.py`, `jav/statement_months.py` and `jav/report_utility.py`.
@@ -24,6 +27,10 @@ from typing import Any
 
 from jav import checks, type_roles
 from jav.outputs import parts
+
+# 185 (plan G-full-move T1a): the modules of the domain's addresses of the local service beyond its logic packs' own
+# (`LogicPack.service`); `jav.api.service_modules` adds them by name
+SERVICE = ("jav.api_parties", "jav.api_finance")
 
 # --- the cross-document checks: they read the store, so the check registry runs them in a worker run only, and a
 # measurement's result never depends on what the store holds (175, plan 170 E3: `jav/checks.py`) ---------------------

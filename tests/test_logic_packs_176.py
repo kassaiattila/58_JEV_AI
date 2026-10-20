@@ -115,13 +115,24 @@ def test_the_workflows_ask_the_registry_for_a_packages_state() -> None:
 
 
 def test_the_service_has_the_addresses_of_every_logic_pack_in_its_own_module() -> None:
-    from jav import api
+    """185 (plan G-full-move T1a): each logic pack names its module (`LogicPack.service`); the service adds them first,
+    in the order the packs are registered, then each domain's others."""
+    import importlib
 
-    own = api.logic_routes()
-    assert list(own) == [p.kind for p in lp.packs()]
-    assert {fn.__module__ for fn in own.values()} == {"jav.api_statement_package", "jav.api_reconcile", "jav.api_email_routing"}
+    from jav import api
+    from jav.domains import DOMAINS
+
+    own = [p.service for p in lp.packs()]
+    assert own == ["jav.api_statement_package", "jav.api_reconcile", "jav.api_email_routing"]
+    domains = [name for d in DOMAINS for name in importlib.import_module(d).SERVICE]
+    assert domains == ["jav.api_parties", "jav.api_finance", "jav.api_mailbox"]
+    assert api.service_modules() == [*own, *domains]
+    assert all(callable(importlib.import_module(name).routes) for name in api.service_modules())
     text = (PROJECT_ROOT / "jav/api.py").read_text(encoding="utf-8")
     assert not re.search(r"\breconcile_package\.|\bstatement_package\.|/reconcile|/statement-packages", text)
+    # 185: nor a domain's other addresses (which modules it imports: `tests/test_domain_boundary_185.py`)
+    assert not re.search(r"\"/mailbox|\"/parties|\"/statement-tables|/utility-cost\"|\"/bank-files|/attachments\"|"
+                         r"/tasks/|/duplicates/|/statements/", text)
 
 def test_the_interface_has_an_entry_for_every_logic_pack() -> None:
     text = (PROJECT_ROOT / "ui/src/logic/registry.tsx").read_text(encoding="utf-8")

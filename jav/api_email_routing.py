@@ -2,7 +2,8 @@
 
 Plain-language summary: the addresses the interface uses to make a routing package over email packages and to decide
 its attachments: accept the proposals (one, several, or every clear one), put an attachment into a package a person
-chose, leave it unrouted, or take a decision back. `jav.api.create_app` adds them (`jav.api.logic_routes`).
+chose, leave it unrouted, or take a decision back. `jav.api.create_app` adds them (185: by its logic pack's
+`service`, `jav.api.service_modules`).
 
 Layer: UI/CLI (the local service) → `jav.email_routing`.
 """
