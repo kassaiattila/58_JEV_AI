@@ -167,13 +167,13 @@ def test_m12_balances_taken_from_the_lines_without_a_total_cannot_vouch_for_the_
 def test_m12_such_a_statement_is_a_to_do_and_not_checked_coverage(tmp_path) -> None:
     import json
 
-    from jav import reconcile, store, work
+    from jav import reconcile, statement_package, store, work
     from tests.test_flow_statement_table_136 import _run_all
 
     with store.use_store(tmp_path / "s.sqlite"):
         export = _csv_export(tmp_path / "bare.csv", total=False)
         wp = work.create_workpackage(name="Statements", source_kind="manual", source_ref=None)
-        wp = work.add_statement_tables(wp["id"], export, [f"{ACCOUNT} (HUF)#1"], expected_revision=wp["revision"])
+        wp = statement_package.add_statement_tables(wp["id"], export, [f"{ACCOUNT} (HUF)#1"], expected_revision=wp["revision"])
         run_id = _run_all(wp["id"])
         item = work.get_run(run_id)["items"][0]
         reasons = {r["reason"] for r in work.item_reasons(run_id, item["item_id"])["run"]}

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import reconcile, reconcile_package, statement_table as st, store, work
+from jav import reconcile, reconcile_package, statement_package, statement_table as st, store, work
 from jav.runtime import queue, worker
 from tests.test_statement_table_136 import IBAN_EUR, IBAN_HUF, _records, _workbook
 
@@ -27,7 +27,7 @@ def db(tmp_path):
 
 def _package(export: Path, keys: list[str]) -> dict:
     wp = work.create_workpackage(name="Statements", source_kind="manual", source_ref=None)
-    return work.add_statement_tables(wp["id"], export, keys, expected_revision=wp["revision"])
+    return statement_package.add_statement_tables(wp["id"], export, keys, expected_revision=wp["revision"])
 
 
 def _run_all(wp_id: str, mode: str = "apply") -> str:

@@ -11,7 +11,7 @@ import io
 
 from openpyxl import load_workbook
 
-from jav import export, mailbox
+from jav import email_export, export, mailbox
 from tests.test_audit_fixes_1002 import _reviewed_email
 from tests.test_mailbox import env  # noqa: F401 - `env` is a fixture
 
@@ -27,7 +27,7 @@ def test_an_email_run_has_its_emails_and_its_decided_tasks_on_their_own_sheets(e
     assert list(sheets) == ["Levelek", "Feladatok"]  # emails only: no document, datapoint or utility sheet
 
     head, *mails = sheets["Levelek"]
-    assert head == export.EMAIL_HEAD
+    assert head == email_export.EMAIL_HEAD
     by_subject = {row[0]: dict(zip(head, row)) for row in mails}
     assert sorted(by_subject) == ["Kérdés", "Számla 2026/09"]
     question = by_subject["Kérdés"]
@@ -46,5 +46,5 @@ def test_an_undecided_task_is_shown_as_waiting_and_a_rejected_one_as_rejected(en
     mailbox.decide_task(run_id, item["item_id"], 0, decision="rejected", actor="second reviewer")
     [task] = _sheets(run_id)["Feladatok"][1:]
     assert "elvetve" in task and "second reviewer" in task
-    rows = export.task_rows(export.email_records(run_id))
+    rows = email_export.task_rows(email_export.email_records(run_id))
     assert [(r["subject"], r["decision"], r["decided_by"]) for r in rows] == [("Kérdés", "rejected", "second reviewer")]

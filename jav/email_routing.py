@@ -505,7 +505,7 @@ LOGIC = logic_packs.LogicPack(
            logic_packs.InputRole("targets", "linked_package", "the open packages whose scope fits a document")),
     has_runs=False, add_refusal="a routing package has no documents of its own: it routes its email packages' attachments",
     release_refusal=_release_refusal, delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next,
-    list_next=_next, list_mark=_list_mark, outputs=())
+    list_next=_next, list_mark=_list_mark, outputs=(), service="jav.api_email_routing")
 
 
 # --- the workflow step -----------------------------------------------------------------------------------------------------

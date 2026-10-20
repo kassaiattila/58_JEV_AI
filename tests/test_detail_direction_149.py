@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import flow, parties, policy, store
+from jav import parties, policy, store  # 185: the direction rule is `parties.confirm_detail_by_direction`
 from jav.models import FlowState, InvoiceHU
 
 OWN_TAX = "28642099-2-42"
@@ -61,14 +61,14 @@ def _open() -> list[str]:
 
 def test_the_own_party_as_supplier_closes_the_uncertainty(db):
     _uncertain()
-    flow.confirm_detail_by_direction(_state(supplier_name="Sample Own Company Kft.", supplier_tax_id=OWN_TAX,
+    parties.confirm_detail_by_direction(_state(supplier_name="Sample Own Company Kft.", supplier_tax_id=OWN_TAX,
                                             buyer_name="Northwind Trading Ltd."))
     assert _open() == []
 
 
 def test_the_own_party_as_buyer_is_a_to_do_and_the_uncertainty_stays(db):
     _uncertain()
-    flow.confirm_detail_by_direction(_state(supplier_name="Northwind Trading Ltd.", buyer_name="Sample Own Company Kft.",
+    parties.confirm_detail_by_direction(_state(supplier_name="Northwind Trading Ltd.", buyer_name="Sample Own Company Kft.",
                                             buyer_tax_id=OWN_TAX))
     assert _open() == ["detect_detail:low_conf:invoice_out:0.55", "detect_detail:direction_mismatch:invoice_out:incoming"]
 
@@ -76,7 +76,7 @@ def test_the_own_party_as_buyer_is_a_to_do_and_the_uncertainty_stays(db):
 def test_the_type_alone_is_no_evidence(db):
     # neither side is an own party: the outgoing type would make it outgoing, but that would confirm itself
     _uncertain()
-    flow.confirm_detail_by_direction(_state(supplier_name="Somebody Kft.", buyer_name="Northwind Trading Ltd."))
+    parties.confirm_detail_by_direction(_state(supplier_name="Somebody Kft.", buyer_name="Northwind Trading Ltd."))
     assert _open() == ["detect_detail:low_conf:invoice_out:0.55"]
 
 
@@ -84,7 +84,7 @@ def test_without_the_detection_probabilities_nothing_changes(db):
     _uncertain()
     state = _state(supplier_name="Sample Own Company Kft.", supplier_tax_id=OWN_TAX, buyer_name="Northwind Trading Ltd.")
     state.detail_probabilities = {}
-    flow.confirm_detail_by_direction(state)
+    parties.confirm_detail_by_direction(state)
     assert _open() == ["detect_detail:low_conf:invoice_out:0.55"]
 
 

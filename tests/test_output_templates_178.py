@@ -189,7 +189,7 @@ def test_the_months_spread_to_the_right_with_their_names(db):
 
 def test_a_table_per_document_type_is_named_by_the_type(db):
     wb = _one_sheet(A1="{{invoice_hu.invoice_number}}", B1="{{invoice_hu.gross_total}}", A3="{{invoice_hu:count}}")
-    data = export.result_data(c178._records(), [], [])
+    data = export.result_data(c178._records(), {}, [])
     ws = load_workbook(io.BytesIO(fill.fill(data, _bytes(wb)))).active
     assert [ws.cell(r, 2).value for r in (1, 2)] == [Decimal("1270.00"), Decimal("1270")]
     assert ws["A4"].value == 2

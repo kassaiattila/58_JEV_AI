@@ -470,16 +470,6 @@ def _copy_again(p: Path, digest: str, made: list[str]) -> str:
     return rel
 
 
-def add_statement_tables(wp_id: str, export: Path, keys: list[str], *, expected_revision: int) -> dict[str, Any]:
-    """136 (E4, DECISIONS 136): the chosen accounts of a bank's tabular export as items of the package, one statement
-    file per account (`statement_table.derive`), read by code; the accounts not chosen are never written. The export
-    itself is not an item, so only the chosen accounts' lines are kept."""
-    from jav import statement_table
-
-    reading = statement_table.read(Path(export))
-    return add_items(wp_id, statement_table.derive(reading, keys), kind="statement_table", expected_revision=expected_revision)
-
-
 def _document_entry(p: Path) -> tuple[Path, str, str | None]:
     """(path, fingerprint, source instance) of a document being added. 085 (re-audit A03): a document over the input
     limit is not copied (it could fill the disk before any check); it is added with the fingerprint of the original
@@ -721,7 +711,7 @@ def create_from_folder(folder: Path, *, name: str | None = None, suffixes: tuple
         files = [p for p in files if p.resolve() in wanted]
     root = Path(folder).resolve(strict=True)
     wp = create_workpackage(name=name or root.name, source_kind="folder", source_ref=str(root), owner=owner)
-    return _fill_new(wp, lambda: add_documents(wp["id"], files, expected_revision=0)) if files else wp
+    return fill_new(wp, lambda: add_documents(wp["id"], files, expected_revision=0)) if files else wp
 
 
 def processed_live(digests: Iterable[str]) -> set[str]:
@@ -752,14 +742,7 @@ def create_from_files(paths: list[Path], *, name: str, owner: str | None = None)
     if not paths:
         raise explained(ValueError, "at least one file is required")
     wp = create_workpackage(name=name, source_kind="manual", source_ref=None, owner=owner)
-    return _fill_new(wp, lambda: add_documents(wp["id"], list(paths), expected_revision=0))
-
-
-def create_from_statement_table(export: Path, keys: list[str], *, name: str, owner: str | None = None) -> dict[str, Any]:
-    """136 (E4): a work package of the chosen accounts of a bank's tabular export, one statement item each
-    (`add_statement_tables`); the export's path is the package's source."""
-    wp = create_workpackage(name=name, source_kind="manual", source_ref=str(export), owner=owner)
-    return _fill_new(wp, lambda: add_statement_tables(wp["id"], export, keys, expected_revision=0))
+    return fill_new(wp, lambda: add_documents(wp["id"], list(paths), expected_revision=0))
 
 
 def create_with_items(*, name: str, source_kind: str, source_ref: str | None, owner: str | None,
@@ -767,12 +750,12 @@ def create_with_items(*, name: str, source_kind: str, source_ref: str | None, ow
     """140: a new package of its own kind filled with (path, kind) items in one revision step; a failed intake leaves
     no empty package behind."""
     wp = create_workpackage(name=name, source_kind=source_kind, source_ref=source_ref, owner=owner)
-    return _fill_new(wp, lambda: add_entries(wp["id"], entries, expected_revision=0))
+    return fill_new(wp, lambda: add_entries(wp["id"], entries, expected_revision=0))
 
 
-def _fill_new(wp: dict[str, Any], fill: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+def fill_new(wp: dict[str, Any], fill: Callable[[], dict[str, Any]]) -> dict[str, Any]:
     """063: fills the new package; if adding fails (e.g. a locked file), the empty package does not stay in the
-    list."""
+    list. 185: a domain's own way of filling a new package uses it too (`statement_package.create_from_statement_table`)."""
     try:
         return fill()
     except Exception:

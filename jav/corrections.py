@@ -34,12 +34,11 @@ import hashlib
 import json
 import re
 import sqlite3
-from pathlib import Path
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from jav import (activity_kinds, dates, duplicates, grounding, item_kinds, native_results, numbers, package_result, reconcile, source_layer, statement_months, store,
+from jav import (activity_kinds, dates, grounding, item_kinds, native_results, numbers, package_result, source_layer, store,
                  typepack, validators, work)
 from jav.native_contracts import Publication
 from jav.policy import reason_field
@@ -137,27 +136,11 @@ def _native_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[A
     return native_results.version_parts(run_id, c)
 
 
-def _duplicate_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
-    """126: the duplicate decisions on pairs that include one of the run's documents."""
-    return [[d["pair_key"], d["doc_id"], d["decision"], d["decided_at"]] for d in duplicates.decisions_for(items, c)]
-
-
-def _reconcile_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
-    """129: the reconciliation decisions on pairs one of the run's documents is a side of."""
-    return [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile.decisions_for(items, c)]
-
-
-def _statement_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
-    """139: the choices between two statements of the same days that include one of the run's documents."""
-    return [[d["pair_key"], d["keep_doc_id"], d["decided_at"]] for d in statement_months.choices_for(items, c)]
-
-
+# 185 (plan G-full-move T1d): the finance domain's parts (the duplicate, reconciliation and statement decisions) are
+# registered by its domain module after "native" (`jav/domains/finance.py` `DECISIONS`)
 for _kind in (activity_kinds.DecisionKind("corrections", _correction_rows),
               activity_kinds.DecisionKind("tasks", _task_rows, wraps="corrections"),
-              activity_kinds.DecisionKind("native", _native_rows, wraps="review"),
-              activity_kinds.DecisionKind("duplicates", _duplicate_rows, wraps="result"),
-              activity_kinds.DecisionKind("reconcile", _reconcile_rows, wraps="reviewed"),
-              activity_kinds.DecisionKind("statements", _statement_rows, wraps="checked")):
+              activity_kinds.DecisionKind("native", _native_rows, wraps="review")):
     activity_kinds.register_decision(_kind)
 
 
@@ -506,22 +489,8 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     engine = work.run_engine(run)  # 160-D: the engine of the run that produced the result shown
     if native_results.native_item(run_id, item):  # 120: a continuing PDF too, by its publication
         return {**_native_item_result(run, item), "engine": engine}
-    if item.get("kind") == item_kinds.EMAIL:  # 048 T2: email item: no extraction or page image; shows the email and intent
-        from jav import mailbox
-
-        reasons = work.item_reasons(run_id, item_id, item)
-        corr = current(run_id, item_id)
-        # 058 K5.2: the email's attachments that ran as documents in the run (the UI refers to them)
-        attachment_items = [{"item_id": i["item_id"], "filename": Path(i["source_path"]).name}
-                            for i in run["input"]["items"] if i.get("parent_item_id") == item_id]
-        email = mailbox.email_item_view(item, work.flow_run_id(run_id, item_id), corr["fields"].get("intent"))
-        own = bool(email["result"] and email["result"]["from_this_run"])
-        return {"run_id": run_id, "item_id": item_id, "kind": "email", "extraction": None, "correction": corr,
-                "effective": {}, "lists": {}, "checks": [], "provenance": {}, "source": None,
-                "attachment_items": attachment_items, "email": email,
-                # an intent taken from another run was not produced with this run's settings
-                "engine": engine if own else None,
-                "open_reasons": reasons["run"], "earlier_open_reasons": reasons["earlier"]}
+    if (own := item_kinds.handler(item)) is not None:  # 048 T2 (185: the email domain's): no extraction or page image
+        return own.result(run, item, engine)
     dp = datapoints_row(run_id, item_id)
     corr = current(run_id, item_id)
     machine = (dp or {}).get("datapoints") or {}
@@ -553,14 +522,15 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
             "source_file": {"copy": bool(item.get("instance")), "original": work.original_state(item, verify=True)},
             "open_reasons": _with_fields(reasons["run"], simple),
             "earlier_open_reasons": _with_fields(reasons["earlier"], simple),
-            # 126: the duplicate suspicions and decisions of the document, with the other document side by side
-            "duplicates": duplicates.item_pairs(item_id, reasons["run"] + reasons["earlier"]),
-            # 139: the statement that replaced this one, the ones it replaced, and the undecided ones of the same days
-            "statements": statement_months.item_view(item_id, reasons["run"] + reasons["earlier"])}
+            # 126, 139 (185: the finance domain's parts, `item_kinds.record_parts`): the document's duplicate pairs, and
+            # the statement that replaced this one, the ones it replaced and the undecided ones of the same days
+            **{part.name: part.build(item_id, reasons["run"] + reasons["earlier"]) for part in item_kinds.record_parts()}}
 
 
-def _insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected_revision: int, actor: str, note: str | None,
-                     sources: dict[str, list[int]] | None, confirmed: dict[str, Any] | None = None) -> None:
+def insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected_revision: int, actor: str, note: str | None,
+                    sources: dict[str, list[int]] | None, confirmed: dict[str, Any] | None = None) -> None:
+    """A new correction version, checked against the run's approval and the version the person saw, in one writing
+    transaction. 185: public, an item kind's own correction writes through it (`item_kinds.ItemHandler`)."""
     with store.connect() as c:
         c.commit()
         c.execute("BEGIN IMMEDIATE")
@@ -581,34 +551,6 @@ def _insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected
                    json.dumps(confirmed, ensure_ascii=False, sort_keys=True) if confirmed else None))
 
 
-EMAIL_FIELDS = ("intent",)  # 058 K5.1: an email's intent is correctable (the email is the source, not extracted)
-
-
-def _save_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], expected_revision: int, actor: str,
-                note: str | None, sources: dict[str, list[int]]) -> dict[str, Any]:
-    """Manual correction of an email's intent (versioned, like a document's fields). The corrected intent settles the
-    run's own intent to-dos (uncertain / unrecognised intent): the decision closes them; a to-do with another reason
-    (e.g. suspicious content) stays open."""
-    from jav import intents
-
-    unknown = sorted(set(fields) - set(EMAIL_FIELDS))
-    if unknown:
-        raise explained(ValueError, "only {{email_fields}} can be corrected on an email: {{unknown}}",
-                        email_fields=", ".join(EMAIL_FIELDS), unknown=unknown)
-    if sources:
-        raise explained(ValueError, "source selection is not supported for emails")
-    key = fields.get("intent")
-    if key is not None and key not in intents.BY_KEY:
-        raise explained(ValueError, "unknown intent: {{key}}", key=key)
-    item_id = item["item_id"]
-    _insert_revision(run_id, item_id, fields, expected_revision, actor, note, None)
-    if key is not None:
-        for r in work.item_reasons(run_id, item_id, item)["run"]:
-            if r["reason"].startswith("intent:"):
-                work.resolve_reason(r["id"], actor=actor, resolution={"intent": key}, note="a szándék kézzel javítva")
-    return current(run_id, item_id)
-
-
 def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision: int, actor: str,
          note: str | None = None, sources: dict[str, list[int]] | None = None, confirm: list[str] | None = None) -> dict[str, Any]:
     """Saves a new correction version. `fields` is the complete correction set (anything left out reverts to the machine
@@ -621,10 +563,9 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     if run["approval"]:
         raise explained(work.RevisionConflict, "run {{run_id}} is approved; corrections are frozen", run_id=run_id)
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
-    if item is not None and item.get("kind") == item_kinds.EMAIL:
-        if confirm:
-            raise explained(ValueError, "fields cannot be confirmed on an email; correct its intent instead")
-        return _save_email(run_id, item, fields=fields, expected_revision=expected_revision, actor=actor, note=note, sources=sources)
+    if item is not None and (own := item_kinds.handler(item)) is not None:  # 185: the email domain's correction
+        return own.correct(run_id, item, fields=fields, expected_revision=expected_revision, actor=actor, note=note,
+                           sources=sources, confirm=confirm)
     dp = datapoints_row(run_id, item_id)
     if dp is None:
         raise explained(work.NotReady, "item {{item_id_12}} has no extraction result in run {{run_id}}",
@@ -657,7 +598,7 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     # the earlier confirmations whose value did not change stay; the fields confirmed now are added with their value
     confirmed = {f: v for f, v in current(run_id, item_id)["confirmed"].items() if _same_value(effective.get(f), v)}
     confirmed.update({f: effective.get(f) for f in confirm})
-    _insert_revision(run_id, item_id, fields, expected_revision, actor, note, sources, confirmed)
+    insert_revision(run_id, item_id, fields, expected_revision, actor, note, sources, confirmed)
     if confirm:
         # the run's own to-dos on the confirmed fields, and (the owner's decision, 083) the earlier runs' to-dos on the same
         # fields of the same document: a person has now checked the field; the resolution names the run where it was

@@ -550,6 +550,26 @@ def own_scope(wp_id: str) -> dict[str, Any]:
     return {"party_id": sc["party_id"], "period_start": sc["period_start"], "period_end": sc["period_end"], "role": ROLE}
 
 
+# --- 136 (E4): a plain package of a bank's tabular export's chosen accounts, the statement package's forerunner (185,
+# plan G-full-move T1a: until then in `jav/work.py`) ---------------------------------------------------------------------
+
+
+def add_statement_tables(wp_id: str, export: Path, keys: list[str], *, expected_revision: int) -> dict[str, Any]:
+    """136 (E4, DECISIONS 136): the chosen accounts of a bank's tabular export as items of the package, one statement
+    file per account (`statement_table.derive`), read by code; the accounts not chosen are never written. The export
+    itself is not an item, so only the chosen accounts' lines are kept."""
+    reading = statement_table.read(Path(export))
+    return work.add_items(wp_id, statement_table.derive(reading, keys), kind="statement_table",
+                          expected_revision=expected_revision)
+
+
+def create_from_statement_table(export: Path, keys: list[str], *, name: str, owner: str | None = None) -> dict[str, Any]:
+    """136 (E4): a work package of the chosen accounts of a bank's tabular export, one statement item each
+    (`add_statement_tables`); the export's path is the package's source."""
+    wp = work.create_workpackage(name=name, source_kind="manual", source_ref=str(export), owner=owner)
+    return work.fill_new(wp, lambda: add_statement_tables(wp["id"], export, keys, expected_revision=0))
+
+
 # 176 (plan 170 L3): the statement package as a logic pack (`jav/logic_packs.py`); 180 (plan 170 E7): registered by the
 # finance domain with its party reference (`count_party`, `repoint_party`; `jav/domains/finance.py`)
 LOGIC = logic_packs.LogicPack(
@@ -557,9 +577,10 @@ LOGIC = logic_packs.LogicPack(
     roles=(logic_packs.InputRole("statements", "own_items",
                                     "the party's bank statements and statement PDFs of the period, ticked in its survey"),),
     add_refusal="add statements to a statement package through its survey",
-    rule=RULE, delete_guard=_delete_guard, page=_page, scope=own_scope)
+    rule=RULE, delete_guard=_delete_guard, page=_page, scope=own_scope, service="jav.api_statement_package")
 
 
 
-__all__ = ["KIND", "LOGIC", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "STEP", "PackageError", "after_detection", "after_item",
-           "count_party", "create", "package_view", "repoint_party", "scope", "survey"]
+__all__ = ["KIND", "LOGIC", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "STEP", "PackageError", "add_statement_tables",
+           "after_detection", "after_item", "count_party", "create", "create_from_statement_table", "package_view",
+           "repoint_party", "scope", "survey"]

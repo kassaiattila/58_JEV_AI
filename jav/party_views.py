@@ -274,3 +274,41 @@ def months(party_id: str, start: str | None = None, end: str | None = None, *, t
             "invoices": [{"month": m, **{k: c[k] for k in ("total", "approved", "not_approved", "no_run")}}
                          for m, c in per_month.items()],
             "summary": {**{s: states[s] for s in STATES if s != "none"}, "overlap": flags["overlap"], "break": flags["break"]}}
+
+
+def scan_own_tax(*, write: bool = False) -> dict[str, Any]:
+    """157 (backlog Q-own-tax-afterwards): the incoming invoices already in the store that the check would flag (read
+    only, counts only), and with `write` the same to-do the processing would open, once, under the flow run that
+    produced the document. A document whose result is not from a work run, or whose run is approved, is skipped (an
+    approved result never reopens), as in the duplicates' scan. 185 (plan G-full-move T1e): the finance domain's scan
+    (until then in `jav/parties.py`, which keeps the check itself, `own_tax_reasons`)."""
+    from jav import duplicates
+
+    check = cfg.load("parties")["supplier_check"]
+    docs = duplicates.documents((check["supplier_tax_field"], check["buyer_tax_field"]), parties.supplier_check_types())
+    with store.connect() as c:
+        approved = {r["run_id"] for r in c.execute("SELECT run_id FROM runs WHERE approval IS NOT NULL")}
+        flagged = [d for d in docs if parties.own_tax_reasons(d.doc_type, d.fields, c)]
+    already = {(subject, r["reason"], r["run_id"]) for (_kind, subject), rs in
+               store.review_open_reasons_many([("document", d.doc_id) for d in flagged]).items() for r in rs}
+    pending = []
+    skipped: Counter[str] = Counter()
+    for d in flagged:
+        if d.run_id is None:
+            skipped["no_work_run"] += 1
+        elif d.run_id in approved:
+            skipped["approved_run"] += 1
+        elif (d.doc_id, parties.OWN_TAX_REASON, d.flow_run_id) in already:
+            skipped["already_open"] += 1  # an earlier --write (or the processing) opened it
+        else:
+            pending.append(d)
+    written = 0
+    if write:
+        for d in pending:
+            store.review_enqueue(subject_kind="document", subject_id=d.doc_id, run_id=d.flow_run_id or "",
+                                 reasons=[parties.OWN_TAX_REASON], producer=parties.SCAN_PRODUCER)
+            written += 1
+        for run_id in sorted({d.run_id for d in pending if d.run_id}):
+            work.refresh_run_status(run_id)
+    return {"documents": len(docs), "flagged": len(flagged), "to_open": len(pending), "written": written,
+            "skipped": dict(sorted(skipped.items()))}

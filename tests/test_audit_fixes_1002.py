@@ -15,7 +15,7 @@ import json
 
 import pytest
 
-from jav import corrections, email_tasks, emails, export, ingest_server, mailbox, store, work, work_views
+from jav import corrections, email_export, email_tasks, emails, ingest_server, mailbox, store, work, work_views
 from jav.runtime import worker
 from tests.test_email_results import _fake_tasks
 from tests.test_mailbox import MAILS, REQ, FakeBridge, env  # noqa: F401 - `env` is a fixture
@@ -117,7 +117,7 @@ def test_an_approved_email_run_keeps_showing_the_email_it_processed(env, monkeyp
     shown = corrections.item_result(run_id, item["item_id"])["email"]
     assert (shown["subject"], shown["body"]) == (original["subject"], original["body"]) == ("Kérdés", "Mikor érkezik a szerződés?")
     assert shown["source_status"] == "earlier"  # the email changed later; this is the version the run processed
-    record = next(r for r in export.email_records(run_id) if r["item_id"] == item["item_id"])
+    record = next(r for r in email_export.email_records(run_id) if r["item_id"] == item["item_id"])
     assert record["subject"] == "Kérdés" and record["source_status"] == "earlier"
     assert work_views.item_titles(work.get_run(run_id)["input"]["items"])[item["item_id"]].startswith("Kérdés")
 

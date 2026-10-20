@@ -4,7 +4,7 @@ The interface wraps every other column at spaces only; without this mark one e-m
 whole result table past the screen (the e-mail table by 327 px at 1440 px).
 """
 
-from jav.datasets import _col
+from jav.datasets import col as _col  # 185: public, a domain's table uses it too
 
 
 def test_a_name_like_text_column_may_break_anywhere():

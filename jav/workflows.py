@@ -30,7 +30,7 @@ email domain registers the emails step, the finance domain the statements and re
 code names none of them.
 
 Layer: UI/CLI → **this** (application operation) → `jav.work`, `jav.workflow_steps` (and through it the registered
-kinds' modules), `jav.mailbox`, `jav.parties` and `jav.work_views.next_step`. No AI call here: the runs it starts call
+kinds' modules; 185: a domain's source kind, the mailbox's), `jav.parties` and `jav.work_views.next_step`. No AI call here: the runs it starts call
 them, within their budgets.
 """
 
@@ -45,7 +45,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from jav import (activity_kinds, app_settings, cfg, logic_packs, mailbox, package_scope, parties, scopes, store, work,
+from jav import (activity_kinds, app_settings, cfg, logic_packs, package_scope, parties, scopes, store, work,
                  workflow_steps)
 from jav.user_messages import explained
 
@@ -281,7 +281,7 @@ def _engine(kind: str, source: dict[str, Any], raw: Any) -> str | None:
     if raw not in work.ENGINE_JEV:
         raise explained(WorkflowError, "unknown engine {{raw}}; expected one of {{engine_jev}}",
                         raw=repr(raw), engine_jev=sorted(work.ENGINE_JEV))
-    if not workflow_steps.of(kind).own_engine or source["kind"] not in workflow_steps.OWN_SOURCES:
+    if not workflow_steps.of(kind).own_engine or source["kind"] not in workflow_steps.own_sources():
         raise explained(WorkflowError, "a {{kind}} step with a {{kind2}} source has no engine of its own",
                         kind=kind, kind2=repr(source["kind"]))
     return str(raw)
@@ -310,9 +310,8 @@ def _source(kind: str, raw: dict[str, Any] | None) -> dict[str, Any]:
             raise explained(WorkflowError, "{{missing}} file(s) do not exist, the first: {{missing_0}}",
                             missing=len(missing), missing_0=missing[0])
         return {"kind": "files", "paths": paths} | only_new
-    if src == "mailbox":
-        request = mailbox.MailboxRequest.model_validate(raw.get("request") or {})
-        return {"kind": "mailbox", "request": request.model_dump(mode="json")}
+    if (domain := workflow_steps.source_kind(src)) is not None:  # 185: a domain's (the email domain's mailbox)
+        return domain.check(raw)
     if src == "package":
         wp_id = str(raw.get("workpackage_id") or "")
         _check_package(kind, wp_id)
@@ -588,9 +587,8 @@ def _shown_source(source: dict[str, Any]) -> dict[str, Any]:
     if source["kind"] == "files":
         return {"kind": "files", "count": len(source["paths"]), "first": Path(source["paths"][0]).name,
                 "only_new": bool(source.get("only_new"))}
-    if source["kind"] == "mailbox":
-        req = source["request"]
-        return {"kind": "mailbox", "accounts": req.get("accounts"), "folders": req.get("folders")}
+    if (domain := workflow_steps.source_kind(source["kind"])) is not None:  # 185: a domain's source shows its own
+        return domain.shown(source)
     return source
 
 
@@ -652,17 +650,8 @@ def _repeated_source(kind: str, source: dict[str, Any], period: tuple[str, str] 
         return _package_source(kind, source["workpackage_id"])
     if workflow_steps.of(kind).only_new and source["kind"] in ("folder", "files"):
         return source | {"only_new": True}  # last period's documents are not brought back
-    if source["kind"] == "mailbox":
-        req = dict(source["request"])
-        if req.get("received_from") or req.get("received_to"):
-            own = (req.get("received_from"), req.get("received_to"))
-            if period is not None and own == (wf["period_start"], wf["period_end"]):
-                moved = period
-            else:  # its own range moves on (181: a workflow without a period gives no missing end)
-                first, last = own[0] or wf["period_start"], own[1] or wf["period_end"]
-                moved = next_period(first, last) if first and last else own
-            req["received_from"], req["received_to"] = moved
-        return {"kind": "mailbox", "request": req}  # a number of days stays as it is
+    if (domain := workflow_steps.source_kind(source["kind"])) is not None:  # 185: a mailbox's dates move on
+        return domain.repeated(source, period, wf)
     return source
 
 
@@ -984,11 +973,11 @@ def estimate(*, kind: str, source: dict[str, Any], party_id: str | None = None, 
     if src["kind"] in ("package", "none"):
         return {"items": None, "usd": {}, "note": None}
     engine = _engine(kind, src, engine)
-    if src["kind"] == "mailbox":
-        n = src["request"].get("max_items") or 0
-        per = _per_item("email", engine)
+    if (domain := workflow_steps.source_kind(src["kind"])) is not None:  # 185: a domain's source counts its items
+        n, item_kind, note = domain.count(src)
+        per = _per_item(item_kind, engine)
         return {"items": n or None, "usd": _times(per, n) if n else {}, "per_item": {p: str(v) for p, v in per.items()},
-                "note": "each email's PDF attachments add a document's budget"}
+                "note": note}
     own = workflow_steps.of(kind).estimate
     if own is None:  # the documents are counted
         files, left_out = _documents(src)

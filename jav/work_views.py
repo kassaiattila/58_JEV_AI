@@ -57,26 +57,14 @@ def item_titles(items: list[dict[str, Any]], root: str | None = None) -> dict[st
     """Readable item title for the UI (048 T2): for an email, the subject and the sender (the file name is always
     `message.json`). 081: a document in a subfolder of the package's folder (`root`) is titled with its path below
     that folder, so files with the same name in different subfolders stay apart."""
-    out, subjects = {}, {}
+    out = {}
     base = Path(root) if root else None
     for i in items:
         p = Path(i["source_path"])
         if base and item_kinds.of(i).record and not i.get("parent_item_id") and p.parent != base and p.is_relative_to(base):
             out[i["item_id"]] = p.relative_to(base).as_posix()
-    from jav.emails import message_version
-
-    for i in items:
-        if i.get("kind") != item_kinds.EMAIL:
-            continue
-        m, status = message_version(i)  # 086 N04: the version the item was added with, not the latest
-        if not m and status != "changed":
-            continue  # unreadable: the file name stays the title
-        subjects[i["item_id"]] = ("(a levél futáskori változata nem található)" if status == "changed"
-                                  else m.get("subject") or "(tárgy nélkül)")[:100]
-        out[i["item_id"]] = f"{subjects[i['item_id']]} — {m.get('sender_name') or m.get('sender') or '?'}"
-    for i in items:  # 058 K5.2: the attachment's origin in its name (which email it came from)
-        if i.get("parent_item_id") in subjects:
-            out[i["item_id"]] = f"{Path(i['source_path']).name} (a levél csatolmánya: {subjects[i['parent_item_id']]})"
+    for own in item_kinds.handlers():  # 185: an email's subject and sender, an attachment's email (`mailbox.item_titles`)
+        out.update(own.titles(items))
     return out
 
 
@@ -289,20 +277,18 @@ def result_tables(run_id: str | None = None, *, workpackage_id: str | None = Non
     points if there is an extracted document; line items if there is an itemised list; utility cost if there is a
     utility bill. 172: also of the package's current result (`workpackage_id`), from each item's counted run; its file
     names only when one run gives them all (the named copies are made per run)."""
-    from jav import datasets, report_utility
+    from jav import datasets
+    from jav.outputs import parts as output_parts
 
     scope = {"run_id": run_id} if run_id else {"workpackage_id": str(workpackage_id)}
     parts = datasets.result_parts(scope)
     records = datasets.result_records(scope)
     shown = [(run["run_id"], i) for run, keep in parts for i in run["input"]["items"] if keep is None or i["item_id"] in keep]
     items = [i for _run, i in shown]
-    out = ["emails"] if any(i.get("kind") == item_kinds.EMAIL for i in items) else []  # 058 K5.1
-    if out:  # 058 K5.3: task-proposal view if the run asked for proposals
-        from jav import export
-
-        mails = [m for run, keep in parts for m in export.email_records(run["run_id"]) if keep is None or m["item_id"] in keep]
-        if export.task_rows(mails):
-            out.append("tasks")
+    out = []
+    for part in output_parts.item_parts():  # 058 K5.1, K5.3 (185: an item kind's part): the emails and their tasks
+        if any(i.get("kind") == part.kind for i in items):
+            out += part.views([m for run, keep in parts for m in part.read(run["run_id"]) if keep is None or m["item_id"] in keep])
     out += ["documents", "datapoints"] if records else []
     from jav import native_results
     from jav.native_contracts import NATIVE_SUFFIXES
@@ -311,8 +297,7 @@ def result_tables(run_id: str | None = None, *, workpackage_id: str | None = Non
         out.append("native_facts")
     if any(any(r.get("lists", {}).values()) for r in records):
         out.append("line_items")
-    if report_utility.has_utility(records):
-        out.append("utility")
+    out += [part.view for part in output_parts.result_parts() if part.view and part.shown and part.shown(records)]  # the utility
     if len(parts) == 1 and any(item_kinds.of(i).record and Path(i["source_path"]).suffix.lower() not in NATIVE_SUFFIXES
                                for i in items):
         out.append("file_names")

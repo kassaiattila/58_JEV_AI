@@ -17,6 +17,7 @@ Long processing does not run here: the run goes into the work queue and the sepa
 
 from __future__ import annotations
 
+import importlib
 import json
 import logging
 import os
@@ -26,7 +27,7 @@ import unicodedata
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Annotated, Any, Callable, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import quote, unquote, urlsplit
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
@@ -35,8 +36,8 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from jav import (app_settings, backup, bank_files, cfg, corrections, dates, deps_audit, duplicates, isolated_pdf, local_picker, mailbox, numbers, policy,
-                 package_release, package_scope, parties, party_views, statement_months, store, version, work, work_views, workflows)
+from jav import (app_settings, backup, cfg, corrections, dates, deps_audit, isolated_pdf, local_picker, numbers, policy, package_release,
+                 package_scope, store, version, work, work_views, workflows)
 from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
 from jav.runtime import calls, lock, pdf_status, worker
 from jav.tablequery import Query as TableQuery
@@ -303,23 +304,6 @@ class RemoveItems(ItemIds):
     reason: Annotated[str, Field(min_length=1, max_length=500)]
 
 
-class StatementTableFile(_In):
-    """136: a bank's tabular statement export (a workbook or a CSV file)."""
-    path: Annotated[str, Field(min_length=1, max_length=1024)]
-
-
-class StatementTableAccounts(StatementTableFile):
-    keys: Annotated[list[Annotated[str, Field(min_length=1, max_length=300)]], Field(min_length=1, max_length=100)]
-
-
-class AddStatementTables(StatementTableAccounts):
-    expected_revision: Annotated[int, Field(ge=0)]
-
-
-class CreateFromStatementTable(StatementTableAccounts):
-    name: Annotated[str, Field(min_length=1, max_length=200)]
-
-
 class SaveWorkflow(_In):
     recipe_id: Annotated[str, Field(min_length=1, max_length=100)]
     params: dict[Annotated[str, Field(max_length=64)], Annotated[str, Field(max_length=200)]] = Field(default_factory=dict, max_length=20)
@@ -362,26 +346,10 @@ class ResolveCall(_In):
     note: str = Field(min_length=3, max_length=500)
 
 
-class TaskDecision(_In):
-    decision: Literal[store.TASK_DECISIONS]  # type: ignore[valid-type]
-    note: Text | None = None
-
-
-class DuplicateDecision(_In):
-    decision: Literal[duplicates.DECISIONS]  # type: ignore[valid-type]  # 126: copy, modified version, not the same invoice
-    note: Text | None = None
-
-
-class StatementChoice(_In):
-    keep: Literal["this", "other", "rule"]  # 139: which of two statements of the same days stays valid; rule: as ranked
-    note: Text | None = None
-
-
 IsoDay = Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
 
 
 PartyId = Annotated[str, Field(pattern=r"^party-[0-9a-f]{12}$")]  # 133: an own party (`jav/parties.py`)
-PartyName = Annotated[str, Field(min_length=1, max_length=200)]
 
 
 StepKey = Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]
@@ -389,12 +357,14 @@ Budget = dict[Literal["jev", "openai", "azure_di"], Annotated[str, Field(pattern
 
 
 class WorkflowSource(_In):
-    """146: a workflow step's source: a folder or files, a mailbox request, an existing work package, or none."""
-    kind: Literal["folder", "files", "mailbox", "package", "none"]
+    """146: a workflow step's source: a folder or files, an existing work package, none, or (185) a domain's source kind
+    (the email domain's mailbox request). Which kinds a step takes, and a domain kind's own check, are the workflow's
+    (`workflows._source`, `workflow_steps.SourceKind.check`)."""
+    kind: Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]
     folder: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
     recursive: bool = False
     paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(max_length=500)] | None = None
-    request: dict[str, Any] | None = None  # checked as a mailbox.MailboxRequest
+    request: dict[str, Any] | None = None  # a domain source kind's request, checked by its kind
     workpackage_id: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")] | None = None
     only_new: bool = False  # 147: a documents step takes only the documents no live run has processed yet
 
@@ -439,60 +409,6 @@ class UpdateWorkflow(_In):
     auto: bool | None = None
     name: Annotated[str, Field(min_length=1, max_length=200)] | None = None
     archived: bool | None = None
-
-
-# 133 (F-own-parties): the own parties (`jav/parties.py`, `jav/party_views.py`)
-class PartyIdentity(_In):
-    kind: Literal["tax", "name", "account"]
-    key: Annotated[str, Field(min_length=1, max_length=300)]
-    label: Annotated[str, Field(min_length=1, max_length=300)]
-
-
-class AcceptPartySuggestions(_In):
-    ids: Annotated[list[Annotated[str, Field(pattern=r"^[0-9a-f]{16}$")]], Field(min_length=1, max_length=200)]
-    names: dict[str, PartyName] = Field(default_factory=dict)  # by suggestion id: the name a person gave it
-
-
-class CreateParty(_In):
-    name: PartyName
-    identities: Annotated[list[PartyIdentity], Field(max_length=500)] = Field(default_factory=list)
-
-
-class RenameParty(_In):
-    name: PartyName
-
-
-class MergeParty(_In):
-    into: PartyId
-
-
-class SetPartyIdentity(PartyIdentity):
-    action: Literal["assign", "dismiss", "release"]  # give it to a party | no own party's | unassigned again
-    party_id: PartyId | None = None  # required for "assign"
-
-
-# 138 (DECISIONS 137): an own account or card registered with its details (`jav/parties.py` `own_accounts`)
-class AccountDetails(_In):
-    kind: Literal["account", "card"]
-    currencies: Annotated[list[Annotated[str, Field(pattern=r"^[A-Za-z]{3}$")]], Field(min_length=1, max_length=10)]
-    bank: Annotated[str, Field(max_length=100)] | None = None
-    valid_from: IsoDay | None = None  # the day it was opened; None: since its first statement
-    valid_to: IsoDay | None = None  # the day it was closed; None: still open
-
-
-class RegisterPartyAccount(AccountDetails):
-    number: Annotated[str, Field(min_length=1, max_length=80)]  # an IBAN or a domestic account number, as printed
-
-
-class SetPartyAccount(AccountDetails):
-    key: Annotated[str, Field(min_length=1, max_length=80)]  # the account's key (an identity of kind "account")
-
-
-Month = Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")]
-
-
-class TaskDone(_In):
-    done: bool
 
 
 class RenameWorkpackage(_In):
@@ -581,20 +497,6 @@ class ResolveNativeCitations(_In):
     citations: list[NativeCitationRequest] = Field(max_length=20)
 
 
-ScheduleId = Annotated[str, PathParam(pattern=r"^mbx-[0-9a-f]{10}$")]
-PullId = Annotated[str, PathParam(pattern=r"^pull-[0-9a-f]{10}$")]
-
-
-class CreateSchedule(_In):
-    request: mailbox.MailboxRequest
-    interval_min: Annotated[int, Field(ge=15, le=7 * 24 * 60)] = mailbox.DEFAULT_INTERVAL_MIN
-
-
-class UpdateSchedule(_In):
-    enabled: bool | None = None
-    interval_min: Annotated[int, Field(ge=15, le=7 * 24 * 60)] | None = None
-
-
 class NormalizeValue(_In):
     doc_type: Annotated[str, Field(min_length=1, max_length=64)]
     field: Annotated[str, Field(min_length=1, max_length=64)]
@@ -654,13 +556,17 @@ def _max_source_bytes() -> int:
     return work.max_source_bytes()
 
 
-def logic_routes() -> dict[str, Callable[[FastAPI, str], None]]:
-    """176 (plan 170 L3): the own addresses of each logic pack (`jav/logic_packs.py`), by its kind, each in its
-    own module; `create_app` adds them in this order (a test checks that every registered logic pack has its own)."""
-    from jav import api_email_routing, api_reconcile, api_statement_package
+def service_modules() -> list[str]:
+    """176 (plan 170 L3): the modules of each logic pack's own addresses (`LogicPack.service`), in the order the packs
+    are registered; 185 (plan G-full-move T1a): then the modules of each domain's other addresses (its domain module's
+    `SERVICE`). Each has a `routes(app, prefix)`; `create_app` adds them in this order, before the unknown address's
+    answer. A test checks that every registered logic pack names its own."""
+    from jav import logic_packs, registrations
+    from jav.domains import DOMAINS
 
-    return {"statements": api_statement_package.routes, "reconcile": api_reconcile.routes,
-            "email_routing": api_email_routing.routes}  # 181
+    registrations.load_all()
+    own = [pack.service for pack in logic_packs.packs() if pack.service]
+    return [*own, *(name for domain in DOMAINS for name in importlib.import_module(domain).SERVICE)]
 
 
 def create_app(*, store_path: Path | None = None) -> FastAPI:
@@ -737,10 +643,6 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     async def picker_unavailable(_request: Request, exc: local_picker.PickerUnavailable):
         return _error(503, "picker_unavailable", str(exc), **message_fields(exc))
 
-    @app.exception_handler(mailbox.BridgeError)
-    async def bridge_failed(_request: Request, exc: mailbox.BridgeError):
-        return _error(503, "mailbox_unavailable", str(exc), **message_fields(exc))
-
     @app.exception_handler(ValueError)
     async def invalid(request: Request, exc: ValueError):
         log.warning("422 %s %s: %s", request.method, request.url.path, exc, exc_info=exc)
@@ -804,11 +706,6 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         # recipe's title, although only the active processing is offered)
         return {"recipes": work_views.recipe_catalog(), "help": work_views.recipe_help(),
                 "titles": {r["id"]: r["title"] for r in work.recipes()}}
-
-    @app.get(r + "/bank-files")
-    def bank_files_catalogue() -> dict[str, Any]:
-        # 146: which bank files the system reads, and how (configs/bank_files.json with the readers' own configuration)
-        return {**bank_files.catalogue(), "labels": bank_files.labels()}
 
     @app.get(r + "/workpackages")
     def workpackages(include_archived: bool = False, brief: bool = False) -> dict[str, Any]:
@@ -944,33 +841,6 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         work.restore_items(wp_id, body.item_ids, expected_revision=body.expected_revision, actor=who)
         return work_views.workpackage_view(wp_id)
 
-    @app.post(r + "/workpackages/{wp_id}/attachments")
-    def add_attachments(wp_id: WpId, body: Revision, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """058 K5.2: the emails' PDF attachments go into the package as documents, pointing back to the email."""
-        mailbox.add_attachments(wp_id, expected_revision=body.expected_revision)
-        return work_views.workpackage_view(wp_id)
-
-    @app.post(r + "/statement-tables/survey")
-    def statement_table_survey(body: StatementTableFile, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """136 (E4): the accounts of a bank's tabular export with their line counts, dates and checks, for a person to
-        choose from; no lines or balances, nothing is stored. 137: or of every export in a folder (the Erste XML files
-        with their PDF statements), one statement per account and month."""
-        from jav import statement_table
-
-        return statement_table.survey(statement_table.read(checked_path(body.path, want_dir=None)))
-
-    @app.post(r + "/statement-tables/workpackage", status_code=201)
-    def create_from_statement_table(body: CreateFromStatementTable, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """136 (E4): a new package of the chosen accounts of the export; the creator is its owner (065)."""
-        wp = work.create_from_statement_table(checked_path(body.path, want_dir=None), body.keys, name=body.name, owner=who)
-        return work_views.workpackage_view(wp["id"])
-
-    @app.post(r + "/workpackages/{wp_id}/statement-tables")
-    def add_statement_tables(wp_id: WpId, body: AddStatementTables, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """136 (E4, DECISIONS 136): the chosen accounts of the export as the package's items, one statement each."""
-        work.add_statement_tables(wp_id, checked_path(body.path, want_dir=None), body.keys, expected_revision=body.expected_revision)
-        return work_views.workpackage_view(wp_id)
-
     @app.post(r + "/workpackages/{wp_id}/items/{item_id}/remove")
     def remove_item(wp_id: WpId, item_id: ItemId, body: RemoveItem, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         work.remove_item(wp_id, item_id, expected_revision=body.expected_revision, actor=who, reason=body.reason)
@@ -1092,15 +962,6 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                         headers={"Content-Disposition": attachment_header(filename), "Cache-Control": "no-store",
                                  "X-Content-Type-Options": "nosniff"})
 
-    @app.get(r + "/workpackages/{wp_id}/result/utility-cost")
-    def package_utility_cost(wp_id: WpId) -> dict[str, Any]:
-        """172: the utility-cost time series of the package's current result (as the run's report, 054 K4)."""
-        from jav import datasets, report_utility
-
-        work.get(wp_id)
-        return work_views.jsonable({"workpackage_id": wp_id,
-                                    **report_utility.build(datasets.result_records({"workpackage_id": wp_id}))})
-
     @app.post(r + "/workpackages/{wp_id}/release")
     def release_package(wp_id: WpId, body: ReleasePackage, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """171 (plan 170 L1): Approve and release: the open live runs are approved and the next version recorded."""
@@ -1201,14 +1062,6 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
         log.info("named copies of %s written by %s", run_id, who)
         return res
 
-    @app.get(r + "/runs/{run_id}/reports/utility-cost")
-    def utility_cost(run_id: RunId) -> dict[str, Any]:
-        """054 K4: utility-cost time series (consumption point + utility, monthly grid, with sources)."""
-        from jav import datasets, report_utility
-
-        work.get_run(run_id)
-        return work_views.jsonable({"run_id": run_id, **report_utility.build(datasets.run_records(run_id))})
-
     @app.get(r + "/runs/{run_id}/items/{item_id}")
     def item(run_id: RunId, item_id: ItemId) -> dict[str, Any]:
         return work_views.jsonable(corrections.item_result(run_id, item_id))
@@ -1267,102 +1120,11 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                              actor=who, note=body.note, sources=dict(body.sources) if body.sources else None, confirm=body.confirm)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
-    @app.post(r + "/runs/{run_id}/items/{item_id}/tasks/{index}/decision")
-    def task_decision(run_id: RunId, item_id: ItemId, index: Annotated[int, PathParam(ge=0, le=100)], body: TaskDecision,
-                      who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """058 K5.3: only a human accepts or rejects a task proposal."""
-        mailbox.decide_task(run_id, item_id, index, decision=body.decision, actor=who, note=body.note)
-        return work_views.jsonable(corrections.item_result(run_id, item_id))
+    # --- 176 (plan 170 L3): each logic pack's own addresses; 185 (plan G-full-move T1a): and each domain's others
+    # (`service_modules`) ---
 
-    @app.post(r + "/runs/{run_id}/items/{item_id}/tasks/{index}/done")
-    def task_done(run_id: RunId, item_id: ItemId, index: Annotated[int, PathParam(ge=0, le=100)], body: TaskDone,
-                  who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """062: mark an accepted task as done by hand (or undo that)."""
-        mailbox.mark_task_done(run_id, item_id, index, done=body.done, actor=who)
-        return work_views.jsonable(corrections.item_result(run_id, item_id))
-
-    @app.post(r + "/runs/{run_id}/items/{item_id}/duplicates/{other_doc_id}/decision")
-    def duplicate_decision(run_id: RunId, item_id: ItemId, other_doc_id: ItemId, body: DuplicateDecision,
-                           who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """126: only a human decides whether two documents are the same invoice; the pair's to-dos close."""
-        duplicates.decide(run_id, item_id, other_doc_id, decision=body.decision, actor=who, note=body.note)
-        return work_views.jsonable(corrections.item_result(run_id, item_id))
-
-    @app.post(r + "/runs/{run_id}/items/{item_id}/statements/{other_doc_id}/choice")
-    def statement_choice(run_id: RunId, item_id: ItemId, other_doc_id: ItemId, body: StatementChoice,
-                         who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """139: a person chooses which of two statements of the same days stays valid; the pair's to-dos close."""
-        keep = {"this": item_id, "other": other_doc_id, "rule": None}[body.keep]
-        statement_months.decide(run_id, item_id, other_doc_id, keep=keep, actor=who, note=body.note)
-        return work_views.jsonable(corrections.item_result(run_id, item_id))
-
-    # --- 133: the own parties (jav/parties.py): proposed from the data, rearranged by a person at any time ---
-    # every change answers with the whole overview, as the settings page shows it
-
-    @app.get(r + "/parties")
-    def own_parties() -> dict[str, Any]:
-        return work_views.jsonable(party_views.overview())
-
-    @app.post(r + "/parties/accept")
-    def accept_party_suggestions(body: AcceptPartySuggestions, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        party_views.accept(body.ids, names=body.names, actor=who)
-        return work_views.jsonable(party_views.overview())
-
-    @app.post(r + "/parties", status_code=201)
-    def create_party(body: CreateParty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        parties.create(body.name, identities=[(i.kind, i.key, i.label) for i in body.identities], actor=who)
-        return work_views.jsonable(party_views.overview())
-
-    @app.post(r + "/parties/identities")
-    def set_party_identity(body: SetPartyIdentity, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        if body.action == "release":
-            parties.release(body.kind, body.key, actor=who)
-        elif body.action == "dismiss":
-            parties.assign(body.kind, body.key, body.label, None, actor=who)
-        elif body.party_id is None:
-            raise explained(ValueError, "assigning an identity needs a party")
-        else:
-            parties.assign(body.kind, body.key, body.label, body.party_id, actor=who)
-        return work_views.jsonable(party_views.overview())
-
-    @app.post(r + "/parties/{party_id}/rename")
-    def rename_party(party_id: PartyId, body: RenameParty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        parties.rename(party_id, body.name, actor=who)
-        return work_views.jsonable(party_views.overview())
-
-    @app.post(r + "/parties/{party_id}/merge")
-    def merge_party(party_id: PartyId, body: MergeParty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        parties.merge(party_id, body.into, actor=who)
-        return work_views.jsonable(party_views.overview())
-
-    @app.post(r + "/parties/{party_id}/delete")
-    def delete_party(party_id: PartyId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        parties.delete(party_id, actor=who)
-        return work_views.jsonable(party_views.overview())
-
-    # 138: accounts and cards registered with their details, and a party's data month by month
-
-    @app.post(r + "/parties/{party_id}/accounts")
-    def register_party_account(party_id: PartyId, body: RegisterPartyAccount,
-                               who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(party_views.register_account(
-            party_id, body.number, kind=body.kind, currencies=body.currencies, bank=body.bank, valid_from=body.valid_from,
-            valid_to=body.valid_to, actor=who))
-
-    @app.post(r + "/parties/accounts/details")
-    def set_party_account(body: SetPartyAccount, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        parties.set_account(body.key, kind=body.kind, currencies=body.currencies, bank=body.bank, valid_from=body.valid_from,
-                            valid_to=body.valid_to, actor=who)
-        return work_views.jsonable(party_views.overview())
-
-    @app.get(r + "/parties/{party_id}/months")
-    def party_months(party_id: PartyId, start: Month | None = None, end: Month | None = None) -> dict[str, Any]:
-        return work_views.jsonable(party_views.months(party_id, start, end))
-
-    # --- 176 (plan 170 L3): each logic pack's own addresses (`logic_routes`) ---
-
-    for routes in logic_routes().values():
-        routes(app, r)
+    for name in service_modules():
+        importlib.import_module(name).routes(app, r)
 
     # --- 178 (plan 170 L4): own output templates and a package's choice of them (jav/api_outputs.py) ---
 
@@ -1534,45 +1296,6 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                              who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """Scan now (without waiting for the schedule)."""
         return work_views.jsonable(app_settings.scan(folder_id, actor=who))
-
-    # --- mailbox (048 T2): preview, download (run by the worker), schedule ---
-
-    @app.get(r + "/mailbox")
-    def mailbox_overview() -> dict[str, Any]:
-        from jav.config import OUTLOOK_BRIDGE_SCRIPT
-
-        return work_views.jsonable({"schedules": mailbox.schedules(), "pulls": mailbox.pulls(), "accounts": mailbox.known_accounts(),
-                                    "bridge_available": OUTLOOK_BRIDGE_SCRIPT.is_file(),
-                                    "defaults": {"interval_min": mailbox.DEFAULT_INTERVAL_MIN,
-                                                 "lookback_days": mailbox.DEFAULT_LOOKBACK_DAYS}})
-
-    @app.post(r + "/mailbox/count")
-    def mailbox_count(body: mailbox.MailboxRequest) -> dict[str, Any]:
-        """Free count preview (the legacy script's `-CountOnly` branch); Outlook must be running."""
-        return work_views.jsonable(mailbox.count(body))
-
-    @app.post(r + "/mailbox/pulls", status_code=202)
-    def mailbox_pull(body: mailbox.MailboxRequest, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(mailbox.request_pull(body, actor=who))
-
-    @app.get(r + "/mailbox/pulls/{pull_id}")
-    def mailbox_pull_status(pull_id: PullId) -> dict[str, Any]:
-        return work_views.jsonable(mailbox.pull(pull_id))
-
-    @app.post(r + "/mailbox/schedules", status_code=201)
-    def mailbox_schedule_create(body: CreateSchedule, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(mailbox.create_schedule(body.request, actor=who, interval_min=body.interval_min))
-
-    @app.patch(r + "/mailbox/schedules/{schedule_id}")
-    def mailbox_schedule_update(schedule_id: ScheduleId, body: UpdateSchedule,
-                                who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(mailbox.update_schedule(schedule_id, actor=who, enabled=body.enabled,
-                                                           interval_min=body.interval_min))
-
-    @app.post(r + "/mailbox/schedules/{schedule_id}/delete")  # a POST with a JSON body, like the other deletions
-    def mailbox_schedule_delete(schedule_id: ScheduleId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        mailbox.delete_schedule(schedule_id, actor=who)
-        return {"deleted": schedule_id}
 
     @app.api_route(r + "/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
     def unknown_api(rest: str):

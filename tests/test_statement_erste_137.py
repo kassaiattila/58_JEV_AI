@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import reconcile, statement_table as st, store, work
+from jav import reconcile, statement_package, statement_table as st, store, work
 from tests.test_flow_statement_table_136 import _run_all
 
 OWN = "11112223-33334444-55556666"  # made up, wrong check digits
@@ -176,7 +176,7 @@ def test_the_months_run_free_and_a_month_without_pdf_has_one_to_do(db):
     _export(folder, "20260529", MAY)
     _export(folder, "20260630", JUNE, pdf=PDF_JUNE)
     keys = [a.key for a in st.read(folder).accounts]
-    wp = work.create_from_statement_table(folder, keys, name="Erste 2026", owner="tester")
+    wp = statement_package.create_from_statement_table(folder, keys, name="Erste 2026", owner="tester")
     run_id = _run_all(wp["id"])
     paths = {i["item_id"]: Path(i["source_path"]).name for i in wp["items"]}
     statuses = {}
@@ -217,7 +217,7 @@ def test_a_card_purchase_pairs_with_the_dollar_invoice_on_its_original_amount(db
 
     folder = db / "erste"
     _export(folder, "20260630", JUNE, pdf=PDF_JUNE)
-    wp = work.create_from_statement_table(folder, [f"{DIGITS}:HUF:2026-06-01"], name="Erste 2026-06", owner="tester")
+    wp = statement_package.create_from_statement_table(folder, [f"{DIGITS}:HUF:2026-06-01"], name="Erste 2026-06", owner="tester")
     run_id = _run_all(wp["id"])
     work.approve_run(run_id, actor="tester")
     usd = k2._save("usd", {"invoice_number": "EC-0601", "supplier_name": "Example Cloud Inc.", "gross_total": "20.00",

@@ -3,7 +3,7 @@
 Plain-language summary: the addresses the interface uses to survey a folder's bank statements for a party and a
 period, to create a statement package of the ticked ones, and to survey and add more to an existing one. They moved
 here from `jav/api.py` as they were: the same paths, request models and answers. `jav.api.create_app` adds them
-(`jav.api.logic_routes`).
+(185: by its logic pack's `service`, `jav.api.service_modules`).
 
 Layer: UI/CLI (the local service) → `jav.statement_package`.
 """

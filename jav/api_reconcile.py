@@ -2,7 +2,8 @@
 
 Plain-language summary: the addresses the interface uses to build a reconciliation package, pair its lines with
 invoices, mark and revoke, and approve, reopen and download its statement. They moved here from `jav/api.py` as they
-were: the same paths, request models and answers. `jav.api.create_app` adds them (`jav.api.logic_routes`).
+were: the same paths, request models and answers. `jav.api.create_app` adds them (185: by its logic pack's
+`service`, `jav.api.service_modules`).
 
 Layer: UI/CLI (the local service) → `jav.reconcile_package`, `jav.reconcile_review`, `jav.reconcile_statement`.
 """

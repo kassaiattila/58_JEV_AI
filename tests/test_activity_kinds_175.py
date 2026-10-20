@@ -24,7 +24,7 @@ def test_every_action_the_package_log_records_is_registered_and_none_is_stale() 
 
 
 def test_every_package_event_and_activity_source_has_a_label() -> None:
-    labels = datasets._labels("activity_action")
+    labels = datasets.label_set("activity_action")
     assert sorted(set(activity_kinds.events("package")) - set(labels)) == []
     assert sorted({s.code for s in activity_kinds.sources() if s.action_prefix is None} - set(labels)) == []
     # a workflow's actions show in "My work today" too (the owner's decision of 2026-10-19)
@@ -59,7 +59,13 @@ def test_the_reviewed_version_is_made_of_these_decisions_in_this_order() -> None
     assert [(k.name, k.wraps) for k in kinds] == [
         ("corrections", None), ("tasks", "corrections"), ("native", "review"), ("duplicates", "result"),
         ("reconcile", "reviewed"), ("statements", "checked")]
-    assert {k.name for k in kinds} == datasets._FINGERPRINTED
+    # 185 (plan G-full-move T1d): the dataset fingerprint reads the shared parts itself, every other through the
+    # registry; the finance parts are the finance domain's, placed after the part they follow
+    assert datasets._FINGERPRINTED == {"corrections", "tasks", "native"}
+    from jav.domains import finance
+
+    assert [(k.name, after) for k, after in finance.DECISIONS] == [
+        ("duplicates", "native"), ("reconcile", "duplicates"), ("statements", "reconcile")]
 
 
 def test_a_decision_kind_a_logic_package_registers_joins_the_reviewed_version_and_the_fingerprint(db, monkeypatch) -> None:  # noqa: F811
@@ -86,10 +92,10 @@ def test_the_task_kinds_come_from_the_settings_in_the_schemas_order() -> None:
 
 
 def test_the_decisions_on_a_task_proposal_and_a_duplicate_pair_are_one_list_each() -> None:
-    from jav import api, duplicates
+    from jav import api_finance, api_mailbox, duplicates  # 185: the requests moved with their addresses
 
-    assert api.TaskDecision.model_fields["decision"].annotation.__args__ == store.TASK_DECISIONS == ("accepted", "rejected")
-    assert api.DuplicateDecision.model_fields["decision"].annotation.__args__ == duplicates.DECISIONS
+    assert api_mailbox.TaskDecision.model_fields["decision"].annotation.__args__ == store.TASK_DECISIONS == ("accepted", "rejected")
+    assert api_finance.DuplicateDecision.model_fields["decision"].annotation.__args__ == duplicates.DECISIONS
 
 
 def test_a_source_and_its_order(monkeypatch) -> None:

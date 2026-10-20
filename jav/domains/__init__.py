@@ -4,7 +4,8 @@ Plain-language summary: the framework is general; what it knows about invoices, 
 emails comes from a domain. A domain module holds only registrations: the checks, the logic packs, the rules run after
 an item, the parts of the downloads, each pointing at the code that does the work in its own module. The shared code
 asks the registries and never names a domain. `registrations.load_all()` calls each domain's `register()` once per
-process; importing a domain module registers nothing.
+process; importing a domain module registers nothing. 185: a domain module also names the modules of its addresses of
+the local service (`SERVICE`), which `jav.api.service_modules` adds.
 
 - `jav/domains/finance.py`: invoices, statements, the reconciliation and the utility cost;
 - `jav/domains/email.py`: emails and mailbox packages.

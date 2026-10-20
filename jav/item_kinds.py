@@ -22,6 +22,11 @@ suspicious email, and the mailbox package's missing attachments (180: `jav/domai
 `jav/mailbox.py`). Asking for them before that module registered is an error (`NotRegistered`), so a process that
 missed `load_all` stops instead of skipping a safety rule.
 
+185 (plan G-full-move T1e): a kind whose result is not a document record names the module that shows and corrects
+its items (`handler_from`, `ItemHandler`: the email domain's message, intent and tasks); a domain may add a part to a
+record item's result (`RecordPart`: the finance domain's duplicate pairs and statement replacements), so the shared
+review code names neither.
+
 An item or a source of a kind the registry does not know is refused (`UnknownItemKind`, `UnknownSourceKind`).
 
 Layer: business module (the registry; no rule of its own). It imports no application module.
@@ -76,6 +81,8 @@ class ItemKind:
     - `plan_key`: the key the pre-start overview counts it under (`work.run_plan`); `plan_always`: the key is there
       even at 0 (a statement table is counted only when there is one).
     - `rules_from`: the module that registers the rules run after its items (`ItemRule`), if any.
+    - `handler_from`: 185: the module that registers how one of its items is shown and corrected (`ItemHandler`), for a
+      kind whose result is not a document record.
     """
 
     name: str
@@ -90,6 +97,7 @@ class ItemKind:
     plan_always: bool = True
     by_code: bool = False
     rules_from: str | None = None
+    handler_from: str | None = None
 
 
 @dataclass(frozen=True)
@@ -119,12 +127,38 @@ class ItemRule:
     after_item: Callable[[dict[str, Any], dict[str, Any]], bool]
 
 
+@dataclass(frozen=True)
+class ItemHandler:
+    """185 (plan G-full-move T1e): how the review page shows and a person corrects an item of a kind whose result is
+    not a document record. `result(run, item, engine)`: the item's result as the page shows it; `correct(run_id, item,
+    *, fields, expected_revision, actor, note, sources, confirm)`: a person's correction, returning the new one;
+    `titles(items)`: the list's titles of its items and of their attachments (by item id); `parent_labels(items)`: the
+    label of each of its items an attachment came from, for the documents' source column (by item id)."""
+
+    kind: str
+    module: str
+    result: Callable[..., dict[str, Any]]
+    correct: Callable[..., dict[str, Any]]
+    titles: Callable[[list[dict[str, Any]]], dict[str, str]]
+    parent_labels: Callable[[list[dict[str, Any]]], dict[str, str]]
+
+
+@dataclass(frozen=True)
+class RecordPart:
+    """185 (plan G-full-move T1e): a part a domain adds to a record item's result, after the shared ones, in the order
+    registered: `build(item_id, reasons)` with the item's open to-dos (this run's, then the earlier runs')."""
+
+    name: str
+    module: str
+    build: Callable[[str, list[dict[str, Any]]], Any]
+
+
 ITEM_KINDS: tuple[ItemKind, ...] = (
     ItemKind(DOCUMENT, "a file whose type is recognised from its content", copied=True, record=True, detected=True,
              page_image=True, attachments=False, subject=_document_subject, plan_key="documents"),
     ItemKind(EMAIL, "a received message; its attachments are documents of the same package", copied=False,
              record=False, detected=False, page_image=False, attachments=True, subject=_email_subject,
-             plan_key="emails", rules_from="jav.domains.email"),
+             plan_key="emails", rules_from="jav.domains.email", handler_from="jav.domains.email"),
     ItemKind(STATEMENT_TABLE, "one account's statement read from a bank's tabular export, by code (136)", copied=True,
              record=True, detected=False, page_image=False, attachments=False, subject=_document_subject,
              plan_key="statement_tables", plan_always=False, by_code=True),
@@ -142,6 +176,8 @@ _ITEMS = {k.name: k for k in ITEM_KINDS}
 _SOURCES = {s.name: s for s in SOURCE_KINDS}
 _RULES: dict[str, ItemRule] = {}
 _PAGES: dict[str, Callable[[Mapping[str, Any]], dict[str, Any]]] = {}
+_HANDLERS: dict[str, ItemHandler] = {}
+_RECORD_PARTS: dict[str, RecordPart] = {}
 _REGISTERED: set[str] = set()
 
 
@@ -221,6 +257,51 @@ def page(wp: Mapping[str, Any]) -> dict[str, Any]:
     return part(wp) if part is not None else {}
 
 
-__all__ = ["DOCUMENT", "EMAIL", "ITEM_KINDS", "ItemKind", "ItemRule", "NotRegistered", "SOURCE_KINDS", "STATEMENT_TABLE",
-           "SourceKind", "UnknownItemKind", "UnknownSourceKind", "check", "names", "of", "page", "register_page",
+def register_handler(handler: ItemHandler) -> None:
+    """185: registers how an item of a kind is shown and corrected; only the module the kind names may."""
+    if of(handler.kind).handler_from != handler.module:
+        raise ValueError(f"the {handler.kind} kind's handler comes from {of(handler.kind).handler_from}")
+    known = _HANDLERS.get(handler.kind)
+    if known is not None and known != handler:
+        raise ValueError(f"the {handler.kind} kind's handler is registered already")
+    _HANDLERS[handler.kind] = handler
+    _REGISTERED.add(handler.module)
+
+
+def handler(item: Mapping[str, Any] | str) -> ItemHandler | None:
+    """185: how an item of a kind whose result is not a document record is shown and corrected; None for a record kind.
+    `NotRegistered` while the kind's module owes it."""
+    kind = of(item)
+    if kind.handler_from is None:
+        return None
+    _owed(kind.handler_from, f"{kind.name} item handler")
+    return _HANDLERS[kind.name]
+
+
+def handlers() -> list[ItemHandler]:
+    """185: every kind's handler, for each kind that names one (`NotRegistered` while its module owes it)."""
+    return [h for kind in ITEM_KINDS if (h := handler(kind.name)) is not None]
+
+
+def register_record_part(part: RecordPart) -> None:
+    """185: a domain's part of a record item's result; the same one again adds nothing, another of the same name is an
+    error."""
+    known = _RECORD_PARTS.get(part.name)
+    if known is not None and known != part:
+        raise ValueError(f"record part {part.name!r} is registered already by {known.module}")
+    _RECORD_PARTS[part.name] = part
+
+
+def record_parts() -> list[RecordPart]:
+    """185: the domains' parts of a record item's result, in the order registered; the registry completes itself the
+    first time it is read (`registrations.load_all`)."""
+    from jav import registrations
+
+    registrations.load_all()
+    return list(_RECORD_PARTS.values())
+
+
+__all__ = ["DOCUMENT", "EMAIL", "ITEM_KINDS", "ItemHandler", "ItemKind", "ItemRule", "NotRegistered", "RecordPart",
+           "SOURCE_KINDS", "STATEMENT_TABLE", "SourceKind", "UnknownItemKind", "UnknownSourceKind", "check", "handler", "handlers",
+           "names", "of", "page", "record_parts", "register_handler", "register_page", "register_record_part",
            "register_rule", "rules", "source", "source_names"]

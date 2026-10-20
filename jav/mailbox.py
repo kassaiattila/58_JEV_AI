@@ -30,6 +30,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from jav import ingest_server, item_kinds, store, work, workflow_steps
+from jav.runtime import job_kinds
 from jav.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
 from jav.user_messages import explained
 
@@ -438,6 +439,19 @@ def request_pull(req: MailboxRequest, *, actor: str, schedule_id: str | None = N
     return pull(pid)
 
 
+def process_pull_job(job: Any) -> str:
+    """The worker's mailbox download job (048 T2): the result or the error shows on the download and its schedule; the
+    job is always completed. 185 (plan G-full-move T1c): until then the worker's `process_pull`."""
+    from jav.runtime import queue
+
+    run_pull_job(job.payload)
+    return queue.complete(job.id)
+
+
+def abandon_pull_job(job: Any, error: str) -> None:
+    abandon_pull(job.payload["pull_id"], error)
+
+
 def abandon_pull(pull_id: str, error: str) -> None:
     """063: the worker left the download without a proper close (shutdown, unexpected error): closed as an error."""
     body = json.dumps({"error": error[:500]}, ensure_ascii=False)
@@ -559,8 +573,143 @@ def workflow_poll(ctx: workflow_steps.StepStart) -> None:
 # 181: the emails step of a workflow (registered by the email domain, `jav/domains/email.py`)
 STEP = workflow_steps.StepKind("emails", __name__, ("mailbox",), start=workflow_start, poll=workflow_poll)
 
+# --- 185 (plan G-full-move T1c): a mailbox download as a workflow step's source (`workflow_steps.SourceKind`; until
+# then in `jav/workflows.py`) ---------------------------------------------------------------------------------------
+
+
+def _checked_source(raw: Mapping[str, Any]) -> dict[str, Any]:
+    request = MailboxRequest.model_validate(raw.get("request") or {})
+    return {"kind": "mailbox", "request": request.model_dump(mode="json")}
+
+
+def _shown_source(source: Mapping[str, Any]) -> dict[str, Any]:
+    req = source["request"]
+    return {"kind": "mailbox", "accounts": req.get("accounts"), "folders": req.get("folders")}
+
+
+def _repeated_source(source: Mapping[str, Any], period: tuple[str, str] | None, wf: Mapping[str, Any]) -> dict[str, Any]:
+    """The download's received range moves on with the workflow's period, or by its own length; a number of days stays
+    as it is."""
+    from jav.workflows import next_period
+
+    req = dict(source["request"])
+    if req.get("received_from") or req.get("received_to"):
+        own = (req.get("received_from"), req.get("received_to"))
+        if period is not None and own == (wf["period_start"], wf["period_end"]):
+            moved = period
+        else:  # its own range moves on (181: a workflow without a period gives no missing end)
+            first, last = own[0] or wf["period_start"], own[1] or wf["period_end"]
+            moved = next_period(first, last) if first and last else own
+        req["received_from"], req["received_to"] = moved
+    return {"kind": "mailbox", "request": req}  # a number of days stays as it is
+
+
+def _counted_source(source: Mapping[str, Any]) -> tuple[int | None, str, str | None]:
+    """A mailbox's emails are counted only when a most is given."""
+    return source["request"].get("max_items") or 0, "email", "each email's PDF attachments add a document's budget"
+
+
+SOURCE = workflow_steps.SourceKind("mailbox", __name__, check=_checked_source, shown=_shown_source,
+                                   repeated=_repeated_source, count=_counted_source)
+
+# 185 (plan G-full-move T1c): the worker's kind of job for a download and its tick for the due schedules, registered by
+# the email domain (`jav/runtime/job_kinds.py`); each looks its function up when called, so a replaced one counts
+JOB = job_kinds.JobKind(PULL_JOB_KIND, __name__, process=lambda job: process_pull_job(job),
+                        abandon=lambda job, error: abandon_pull_job(job, error))
+TICK = job_kinds.Tick("mailbox.tick", __name__, lambda: tick())
+
 
 # --- email item on the review page (048 T2.3) --------------------------------------------------------------------
+
+EMAIL_FIELDS = ("intent",)  # 058 K5.1: an email's intent is correctable (the email is the source, not extracted)
+
+
+def item_titles(items: list[dict[str, Any]]) -> dict[str, str]:
+    """048 T2: an email's title in the item list is its subject and sender (the file name is always `message.json`);
+    058 K5.2: an attachment's title names the email it came from. 185 (plan G-full-move T1e): the email kind's handler
+    (until then in `jav/work_views.py` `item_titles`)."""
+    from jav.emails import message_version
+
+    out, subjects = {}, {}
+    for i in items:
+        if i.get("kind") != item_kinds.EMAIL:
+            continue
+        m, status = message_version(i)  # 086 N04: the version the item was added with, not the latest
+        if not m and status != "changed":
+            continue  # unreadable: the file name stays the title
+        subjects[i["item_id"]] = ("(a levél futáskori változata nem található)" if status == "changed"
+                                  else m.get("subject") or "(tárgy nélkül)")[:100]
+        out[i["item_id"]] = f"{subjects[i['item_id']]} — {m.get('sender_name') or m.get('sender') or '?'}"
+    for i in items:  # 058 K5.2: the attachment's origin in its name (which email it came from)
+        if i.get("parent_item_id") in subjects:
+            out[i["item_id"]] = f"{Path(i['source_path']).name} (a levél csatolmánya: {subjects[i['parent_item_id']]})"
+    return out
+
+
+def parent_labels(items: list[dict[str, Any]]) -> dict[str, str]:
+    """Subjects of the attachments' parent emails (only if the run has attachments), for the documents' source email
+    column. 185 (plan G-full-move T1e): the email kind's handler (until then in `jav/export.py` `_email_subjects`)."""
+    from jav.emails import message_version
+
+    parents = {i.get("parent_item_id") for i in items if i.get("parent_item_id")}
+    out = {}
+    for i in items:
+        if i["item_id"] in parents:
+            msg, status = message_version(i)  # 086 N04: the version the run processed
+            # data (a cell of the download), not a label
+            out[i["item_id"]] = ("(a levél futáskori változata nem található)" if status == "changed"
+                                 else msg.get("subject") or ("(tárgy nélkül)" if msg else "(a levél nem olvasható)"))
+    return out
+
+
+def email_item_result(run: dict[str, Any], item: dict[str, Any], engine: str | None) -> dict[str, Any]:
+    """048 T2: an email item's result on the review page: no extraction or page image; the email, its intent and its
+    tasks. 185 (plan G-full-move T1e): the email kind's handler (`item_kinds.ItemHandler`; until then in
+    `jav/corrections.py` `item_result`)."""
+    from jav import corrections
+
+    run_id, item_id = run["run_id"], item["item_id"]
+    reasons = work.item_reasons(run_id, item_id, item)
+    corr = corrections.current(run_id, item_id)
+    # 058 K5.2: the email's attachments that ran as documents in the run (the UI refers to them)
+    attachment_items = [{"item_id": i["item_id"], "filename": Path(i["source_path"]).name}
+                        for i in run["input"]["items"] if i.get("parent_item_id") == item_id]
+    email = email_item_view(item, work.flow_run_id(run_id, item_id), corr["fields"].get("intent"))
+    own = bool(email["result"] and email["result"]["from_this_run"])
+    return {"run_id": run_id, "item_id": item_id, "kind": "email", "extraction": None, "correction": corr,
+            "effective": {}, "lists": {}, "checks": [], "provenance": {}, "source": None,
+            "attachment_items": attachment_items, "email": email,
+            # an intent taken from another run was not produced with this run's settings
+            "engine": engine if own else None,
+            "open_reasons": reasons["run"], "earlier_open_reasons": reasons["earlier"]}
+
+
+def correct_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], expected_revision: int, actor: str,
+                  note: str | None, sources: dict[str, list[int]], confirm: list[str]) -> dict[str, Any]:
+    """Manual correction of an email's intent (versioned, like a document's fields). The corrected intent settles the
+    run's own intent to-dos (uncertain / unrecognised intent): the decision closes them; a to-do with another reason
+    (e.g. suspicious content) stays open. 185 (plan G-full-move T1e): the email kind's handler (until then
+    `jav/corrections.py` `_save_email`)."""
+    from jav import corrections, intents
+
+    if confirm:
+        raise explained(ValueError, "fields cannot be confirmed on an email; correct its intent instead")
+    unknown = sorted(set(fields) - set(EMAIL_FIELDS))
+    if unknown:
+        raise explained(ValueError, "only {{email_fields}} can be corrected on an email: {{unknown}}",
+                        email_fields=", ".join(EMAIL_FIELDS), unknown=unknown)
+    if sources:
+        raise explained(ValueError, "source selection is not supported for emails")
+    key = fields.get("intent")
+    if key is not None and key not in intents.BY_KEY:
+        raise explained(ValueError, "unknown intent: {{key}}", key=key)
+    item_id = item["item_id"]
+    corrections.insert_revision(run_id, item_id, fields, expected_revision, actor, note, None)
+    if key is not None:
+        for r in work.item_reasons(run_id, item_id, item)["run"]:
+            if r["reason"].startswith("intent:"):
+                work.resolve_reason(r["id"], actor=actor, resolution={"intent": key}, note="a szándék kézzel javítva")
+    return corrections.current(run_id, item_id)
 
 
 def intent_name(key: str | None) -> str | None:

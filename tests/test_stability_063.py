@@ -88,7 +88,7 @@ def test_worker_survives_unexpected_errors_in_ticks_and_pull_jobs(wp_env, monkey
 
     monkeypatch.setattr(mailbox, "tick", boom)
     monkeypatch.setattr(app_settings, "tick", boom)
-    monkeypatch.setattr(worker, "process_pull", boom)
+    monkeypatch.setattr(mailbox, "process_pull_job", boom)  # 185: the email domain's kind of job
     pull_job = queue.enqueue(mailbox.PULL_JOB_KIND, run_id=None, payload={"pull_id": "pull-x"}, dedup_key="p")
     info = worker.run_worker(once=True)
     assert info["results"].get("done") == 2  # both document items ran

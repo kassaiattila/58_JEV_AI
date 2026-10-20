@@ -6,7 +6,7 @@ document column now shows at most 2 lines, its source 3 and its value 4; no othe
 """
 
 from jav import datasets
-from jav.datasets import _col
+from jav.datasets import col as _col  # 185: public, a domain's table uses it too
 
 
 def test_a_column_can_limit_its_lines():
@@ -16,8 +16,8 @@ def test_a_column_can_limit_its_lines():
 
 def test_the_facts_table_limits_its_document_source_and_value_columns(monkeypatch):
     # the columns do not depend on the rows: an empty result, without a store
-    monkeypatch.setattr(datasets, "_merged", lambda _scope, _read: ([], {}))
-    monkeypatch.setattr(datasets, "_linker", lambda _scope, _run_of: lambda _item: {"_wp": None, "_run": None})
+    monkeypatch.setattr(datasets, "merged", lambda _scope, _read: ([], {}))
+    monkeypatch.setattr(datasets, "linker", lambda _scope, _run_of: lambda _item: {"_wp": None, "_run": None})
     cols, _rows = datasets._native_facts({"run_id": "run-000000000000"})
     clamp = {c.key: c.spec().get("clamp") for c in cols}
     assert {k: v for k, v in clamp.items() if v} == {"file": 2, "effective_value": 4, "source": 3}

@@ -41,14 +41,14 @@ def _reviewed_run(service) -> tuple[TestClient, dict, str]:
 def test_a01_correction_cannot_commit_after_a_concurrent_approval(service, monkeypatch):
     client, wp, run_id = _reviewed_run(service)
     item_id = wp["items"][0]["item_id"]
-    insert = corrections._insert_revision
+    insert = corrections.insert_revision
 
     def approve_in_between(*args, **kwargs):
         # another request approves the run after the correction's own approval check, before it writes
         assert work.approve_run(run_id, actor="teszt.elek")["approval"] == "approved"
         insert(*args, **kwargs)
 
-    monkeypatch.setattr(corrections, "_insert_revision", approve_in_between)
+    monkeypatch.setattr(corrections, "insert_revision", approve_in_between)
     r = client.post(f"/api/runs/{run_id}/items/{item_id}/correction", headers=HUMAN,
                     json={"fields": {"invoice_number": "CHANGED-AFTER-APPROVAL"}, "expected_revision": 0})
     assert r.status_code == 409, r.text

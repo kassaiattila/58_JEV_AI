@@ -70,7 +70,7 @@ def test_a_type_packs_fields_never_collide_with_the_fixed_columns():
 
 
 def test_the_builders_emit_only_what_the_contract_lists(db):
-    data = export.result_data(c178._records(), c178._mails(), [])
+    data = export.result_data(c178._records(), {"emails": c178._mails()}, [])
     contract.check(data)
     by_key = {(t.key, t.part): t for t in data.tables}
     assert list(by_key) == [("emails", None), ("tasks", None), ("documents", "invoice_hu"), ("documents", "villamos_energia_szamla"),

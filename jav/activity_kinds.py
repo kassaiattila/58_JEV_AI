@@ -12,7 +12,10 @@ Plain-language summary: four lists that were written out by hand in several plac
 - The task kinds an email's task proposal may name (`configs/email_tasks.json` `actions`) and the decisions a person
   makes on a proposal.
 A logic pack (`jav/logic_packs.py`) adds its own kinds the same way. The built-in ones are registered by the modules that own them; the
-registry loads those modules the first time a full list is read.
+registry loads those modules the first time a full list is read. 185 (plan G-full-move T1d): the shared modules only;
+a domain's kinds come from its domain module (`registrations.load_all`, which the registry calls too): the finance
+domain's duplicate, reconciliation and statement decisions, each placed after the part it follows (`after`), so the
+reviewed version nests them as before whichever registers first.
 """
 
 from __future__ import annotations
@@ -30,8 +33,7 @@ LOGS: tuple[Log, ...] = ("package", "workflow")
 
 # the modules that register the built-in kinds: the package log's writers, the workflow log, "My work today", the
 # reviewed version's parts
-_OWNERS = ("jav.work", "jav.statement_package", "jav.reconcile_package", "jav.reconcile_statement", "jav.package_release",
-           "jav.workflows", "jav.activity", "jav.corrections")
+_OWNERS = ("jav.work", "jav.package_release", "jav.workflows", "jav.activity", "jav.corrections")
 
 
 class UnknownEvent(ValueError):
@@ -66,11 +68,19 @@ _DECISIONS: dict[str, DecisionKind] = {}
 _loaded = False
 
 
+def _load_owners() -> None:
+    for module in _OWNERS:
+        importlib.import_module(module)
+
+
 def _load() -> None:
+    """The shared modules' kinds, then the domains' (185: `registrations.load_all`)."""
     global _loaded
     if not _loaded:
-        for module in _OWNERS:
-            importlib.import_module(module)
+        from jav import registrations
+
+        _load_owners()
+        registrations.load_all()
         _loaded = True
 
 
@@ -114,12 +124,27 @@ def sources() -> list[Source]:
 
 # --- the decisions on a run's results ----------------------------------------------------------------------------------
 
-def register_decision(kind: DecisionKind) -> None:
+def register_decision(kind: DecisionKind, *, after: str | None = None) -> None:
+    """A decision kind, last or (185) right after the part `after` (the shared modules' parts are loaded first, so a
+    domain's kind finds the part it follows). The same kind again adds nothing; another one of the same name is an
+    error."""
+    if after is not None and after not in _DECISIONS:
+        _load_owners()
     if kind.name in _DECISIONS:
+        if _DECISIONS[kind.name] == kind:
+            return
         raise ValueError(f"decision kind {kind.name} is registered twice")
     if (kind.wraps is None) != (not _DECISIONS):
         raise ValueError(f"decision kind {kind.name}: only the first part has no wrapping key")
-    _DECISIONS[kind.name] = kind
+    if after is None:
+        _DECISIONS[kind.name] = kind
+        return
+    if after not in _DECISIONS:
+        raise ValueError(f"decision kind {kind.name}: no part {after!r} to follow")
+    items = list(_DECISIONS.items())
+    items.insert([name for name, _k in items].index(after) + 1, (kind.name, kind))
+    _DECISIONS.clear()
+    _DECISIONS.update(items)
 
 
 def decisions() -> list[DecisionKind]:

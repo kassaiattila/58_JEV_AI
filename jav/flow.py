@@ -37,7 +37,7 @@ from burr.core import ApplicationBuilder, action, default, expr, when
 from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 
-from jav import card_numbers, cfg, policy, store
+from jav import card_numbers, cfg, checks, policy, store
 from jav.config import TRACKER_PROJECTS
 from jav.engine import with_engine
 from jav.models import FlowState
@@ -301,27 +301,6 @@ def ground(state: FlowState) -> FlowState:
     return state
 
 
-def confirm_detail_by_direction(state: FlowState) -> None:
-    """149: the detection's detailed type was uncertain between an outgoing and an incoming pack; the direction the
-    own parties give the extracted invoice settles it (`policy.detail_direction`). The parties alone decide here: the
-    outgoing type is evidence in `parties.direction`, and would confirm itself. A match closes the detailed type's
-    uncertainty to-do, a contradiction is a to-do of its own; anything else is left as it was."""
-    if state.invoice is None or not state.detail_probabilities:
-        return
-    from jav import parties
-
-    direction = parties.direction(parties.resolver(), None, state.invoice.model_dump())[0]
-    verdict = policy.detail_direction(state.doc_type, state.detail_probabilities, direction)
-    if verdict == "confirmed":
-        for kind in ("low_conf", "second_option"):
-            store.review_close(subject_kind="document", subject_id=state.doc_id, producer="detect_detail",
-                               reason_prefix=f"detect_detail:{kind}:{state.doc_type}:", run_id=state.run_id)
-    elif verdict == "contradicted":
-        store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id,
-                             producer="detect_detail_direction",
-                             reasons=[f"detect_detail:direction_mismatch:{state.doc_type}:{direction}"])
-
-
 @action.pydantic(
     reads=["run_id", "doc_id", "doc_type", "arm", "source_path", "has_text_layer", "text_source", "page_count", "invoice", "picks", "verdicts",
            "validation", "route", "review_reasons", "needs_review", "provenance", "source_layer_id", "detail_probabilities"],
@@ -384,7 +363,7 @@ def save(state: FlowState) -> FlowState:
             producer=f"m2:{state.arm}",
             payload={"arm": state.arm, "doc_type": state.doc_type, "datapoints": state.invoice.to_datapoints(pack.record_fields) if state.invoice else None},
         )
-    confirm_detail_by_direction(state)
+    checks.saved(state)  # 149 (185: the finance domain's check, `parties.confirm_detail_by_direction`)
     return state
 
 
@@ -500,7 +479,8 @@ def build_app(
     the run resumes at the next step. Without it, the earlier behaviour: a new identifier, no persistence.
     `read_path`: the document's bytes are read from here (its source instance); everything else uses `source_path`.
     `jev=False` (085): processing without JEV: only the G path, verified by the code alone (`code_verify`).
-    `detail_probabilities` (149): the detection's answer on the detailed type, for `confirm_detail_by_direction`."""
+    `detail_probabilities` (149): the detection's answer on the detailed type, for the saved stage's direction check
+    (`parties.confirm_detail_by_direction`)."""
     pack = get_pack(doc_type)  # unknown type pack -> error right here, not in the middle of the graph
     if arm not in pack.arms:
         raise ValueError(f"a(z) {doc_type} típus-csomag csak ezekkel a karokkal fut: {', '.join(pack.arms)} (kért: {arm})")

@@ -3,8 +3,8 @@
 Plain-language summary: what the shared code does with invoices and bank statements beyond reading them is registered
 here, in one call (`register`, from `registrations.load_all`):
 - the cross-document checks, in the order they run: a duplicate invoice (126), an own tax number as the supplier's
-  (134), a statement booking the same days as another one (139); and the two scans that open the same to-dos on the
-  stored results (`jav/checks.py`);
+  (134), a statement booking the same days as another one (139); the two scans that open the same to-dos on the
+  stored results; and (185) the saved stage's direction check of an uncertain detailed type (149; `jav/checks.py`);
 - the statement package and the reconciliation package as logic packs, each with the reference that keeps a party in
   use from being deleted (`jav/logic_packs.py`, `jav/parties.py`), and (181) as the statements and reconciliation steps
   of a workflow (`jav/workflow_steps.py`);
@@ -12,7 +12,12 @@ here, in one call (`register`, from `registrations.load_all`):
   statement belongs (its role, party and day; `jav/package_scope.py`);
 - the finance parts of the downloads (`jav/outputs/parts.py`): the duplicate mark on a run's documents and its two
   columns, an invoice's direction, the utility cost's sheets, grand total and JSON section in the package's result,
-  and the utility cost's own workbook.
+  and the utility cost's own workbook;
+- (185) its tables on the interface: a reconciliation's inputs, the utility cost's grid and sources
+  (`jav/finance_datasets.py`);
+- (185) its addresses of the local service beyond its logic packs' own: the own parties (`jav/api_parties.py`) and the
+  bank files, a tabular export's accounts, the utility cost and the duplicate and statement decisions
+  (`jav/api_finance.py`), named in `SERVICE`.
 
 The check adapters below turn a document under check into the call of the module that does the work; the work itself
 stays in `jav/duplicates.py`, `jav/parties.py`, `jav/statement_months.py` and `jav/report_utility.py`.
@@ -22,8 +27,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav import checks, type_roles
+from jav import activity_kinds, checks, item_kinds, type_roles
 from jav.outputs import parts
+
+# 185 (plan G-full-move T1a): the modules of the domain's addresses of the local service beyond its logic packs' own
+# (`LogicPack.service`); `jav.api.service_modules` adds them by name
+SERVICE = ("jav.api_parties", "jav.api_finance")
 
 # --- the cross-document checks: they read the store, so the check registry runs them in a worker run only, and a
 # measurement's result never depends on what the store holds (175, plan 170 E3: `jav/checks.py`) ---------------------
@@ -65,6 +74,31 @@ def statement_overlap_check(subject: checks.Subject) -> list[str]:
     return statement_months.review_reasons(current)
 
 
+# --- 185 (plan G-full-move T1d): the finance decisions a run's reviewed version is made of (`jav/activity_kinds.py`),
+# each after the part it follows, as they always nested; until 185 in `jav/corrections.py` -----------------------------
+
+
+def duplicate_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
+    """126: the duplicate decisions on pairs that include one of the run's documents."""
+    from jav import duplicates
+
+    return [[d["pair_key"], d["doc_id"], d["decision"], d["decided_at"]] for d in duplicates.decisions_for(items, c)]
+
+
+def reconcile_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
+    """129: the reconciliation decisions on pairs one of the run's documents is a side of."""
+    from jav import reconcile
+
+    return [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile.decisions_for(items, c)]
+
+
+def statement_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
+    """139: the choices between two statements of the same days that include one of the run's documents."""
+    from jav import statement_months
+
+    return [[d["pair_key"], d["keep_doc_id"], d["decided_at"]] for d in statement_months.choices_for(items, c)]
+
+
 def duplicate_scan(*, write: bool = False) -> dict[str, Any]:
     from jav import duplicates
 
@@ -72,9 +106,16 @@ def duplicate_scan(*, write: bool = False) -> dict[str, Any]:
 
 
 def own_tax_scan(*, write: bool = False) -> dict[str, Any]:
+    from jav import party_views  # 185: the scan is the finance domain's (`parties` keeps the check)
+
+    return party_views.scan_own_tax(write=write)
+
+
+def direction_check(state: Any) -> None:
+    """149 (185: the saved stage): the own parties' direction settles an uncertain detailed type (`jav/parties.py`)."""
     from jav import parties
 
-    return parties.scan_own_tax(write=write)
+    parties.confirm_detail_by_direction(state)
 
 
 CHECKS = (
@@ -83,6 +124,8 @@ CHECKS = (
     checks.Check("statement_overlap", "cross_document", statement_overlap_check, reads_store=True),
     checks.Check("duplicate_scan", "after_save", duplicate_scan, producer="duplicates", opens="duplicate"),
     checks.Check("own_tax_scan", "after_save", own_tax_scan, producer="parties", opens="own_tax"),
+    # 185 (plan G-full-move T1f): as before, in every flow (until then the extraction flow's own code)
+    checks.Check("detail_direction", "saved", direction_check),
 )
 
 
@@ -154,6 +197,31 @@ def _roles() -> tuple[Any, ...]:
             package_scope.Role(statement_package.ROLE, __name__, "Bank statements", _statement, (statement_package.KIND,)))
 
 
+def duplicate_pairs(item_id: str, reasons: list[dict[str, Any]]) -> Any:
+    """126: the duplicate suspicions and decisions of the document, with the other document side by side."""
+    from jav import duplicates
+
+    return duplicates.item_pairs(item_id, reasons)
+
+
+def statement_replacements(item_id: str, reasons: list[dict[str, Any]]) -> Any:
+    """139: the statement that replaced this one, the ones it replaced, and the undecided ones of the same days."""
+    from jav import statement_months
+
+    return statement_months.item_view(item_id, reasons)
+
+
+# 185 (plan G-full-move T1e): the finance parts of a record item's result, in the order the review page always had them
+RECORD_PARTS = (item_kinds.RecordPart("duplicates", __name__, duplicate_pairs),
+                item_kinds.RecordPart("statements", __name__, statement_replacements))
+
+DECISIONS = (
+    (activity_kinds.DecisionKind("duplicates", duplicate_rows, wraps="result"), "native"),
+    (activity_kinds.DecisionKind("reconcile", reconcile_rows, wraps="reviewed"), "duplicates"),
+    (activity_kinds.DecisionKind("statements", statement_rows, wraps="checked"), "reconcile"),
+)
+
+
 # the documents table's finance columns after its general ones (126: the duplicate mark; 147: an invoice's direction),
 # with the built-in header and the data view's kind and label set
 DUPLICATE_COLUMNS = (parts.Column("duplicate", "Duplicate", "enum", "duplicate"), parts.Column("duplicate_of", "Duplicate of"))
@@ -162,11 +230,16 @@ DIRECTION_COLUMNS = (parts.Column("direction", "Direction", "enum", "direction")
 
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
-    from jav import (duplicates, logic_packs, package_scope, parties, reconcile_package, report_utility, statement_package,
-                     workflow_steps)
+    from jav import (datasets, duplicates, finance_datasets, logic_packs, package_scope, parties, reconcile_package,
+                     report_utility, statement_package, workflow_steps)
 
     for check in CHECKS:
         checks.register(check)
+    for kind, after in DECISIONS:  # 185: the reviewed version's finance parts
+        activity_kinds.register_decision(kind, after=after)
+    for part in RECORD_PARTS:  # 185: the finance parts of a document's result on the review page
+        item_kinds.register_record_part(part)
+    from jav import reconcile_statement  # 185: its package log events (until then the activity registry's own) and labels
     logic_packs.register(statement_package.LOGIC)
     parties.register_reference("statement_package", count=statement_package.count_party, repoint=statement_package.repoint_party)
     logic_packs.register(reconcile_package.LOGIC)
@@ -181,7 +254,12 @@ def register() -> None:
     parts.register_document_columns(parts.DocumentColumns("direction", __name__, DIRECTION_COLUMNS, parties.direction_values))
     parts.register_result_part(parts.ResultPart("utility_cost", __name__, report_utility.result_part, "utility_cost",
                                                  report_utility.build, heads=report_utility.HEADS,
-                                                 value_labels=report_utility.RESULT_VALUE_LABELS))
+                                                 value_labels=report_utility.RESULT_VALUE_LABELS,
+                                                 view="utility", shown=report_utility.has_utility))  # 185: its result view
+    parts.register_output_labels(parts.OutputLabels("reconcile_statement", __name__, reconcile_statement.sample_heads,
+                                                    reconcile_statement.sample_values))  # 185: for a template's preview
+    for dataset, after in finance_datasets.DATASETS:  # 185: its tables on the interface
+        datasets.register(dataset, after=after, module=__name__)
     parts.register_own_output(parts.OwnOutput("utility_cost", __name__, "utility_cost.xlsx", "utility-cost",
                                               report_utility.output_data, report_utility.has_rows, heads=report_utility.HEADS,
                                               value_labels=report_utility.OUTPUT_VALUE_LABELS))

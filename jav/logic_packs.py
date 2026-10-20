@@ -79,6 +79,8 @@ class LogicPack:
     - `outputs`: the outputs of its packages (178: `configs/outputs.json`; a template is chosen for each of them).
     - `scope(wp_id)`: 181: its package's own scope ({party_id, period_start, period_end, role}, `jav/package_scope.py`),
       which a person cannot replace; None: a person may give one.
+    - `service`: 185: the module of its own addresses of the local service, by name (a module with a
+      `routes(app, prefix)`; `jav.api.service_modules`), so this registry imports no service code.
     """
 
     kind: str
@@ -96,6 +98,7 @@ class LogicPack:
     list_mark: Callable[[], Any] | None = None
     outputs: tuple[str, ...] | None = None  # None: a processing package's (`processing_outputs`)
     scope: Callable[[str], dict[str, Any]] | None = None
+    service: str | None = None
 
     def __post_init__(self) -> None:
         if self.kind in DATA_KINDS:

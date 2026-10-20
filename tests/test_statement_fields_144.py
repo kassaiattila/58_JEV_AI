@@ -195,14 +195,14 @@ def test_a_later_reading_of_the_same_statement_replaces_the_earlier_with_its_dec
 
 
 def test_the_survey_offers_a_new_reading_of_a_stored_statement_in_its_place(tmp_path):
-    from jav import parties, statement_package as sp, store, work
+    from jav import parties, statement_package as sp, store
     from tests.test_flow_statement_table_136 import _run_all
 
     with store.use_store(tmp_path / "s.sqlite"):
         party = parties.create("Example Kft.", identities=[], actor="tester")["id"]
         old = tmp_path / "old"
         erste._export(old, "20260630", erste.JUNE, pdf=erste.PDF_JUNE)
-        _run_all(work.create_from_statement_table(old, [f"{erste.DIGITS}:HUF:2026-06-01"], name="Erste June", owner="tester")["id"])
+        _run_all(sp.create_from_statement_table(old, [f"{erste.DIGITS}:HUF:2026-06-01"], name="Erste June", owner="tester")["id"])
         [stored] = reconcile.statements()
         pdf = list(erste.PDF_JUNE)  # the same month, the reader now keeps the authorisation code too
         at = pdf.index("Kártyaszám - Tr.időpont   999999xxxxxx9999 - 2026.05.31") + 1

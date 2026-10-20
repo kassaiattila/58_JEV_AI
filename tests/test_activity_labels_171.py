@@ -36,18 +36,18 @@ def test_the_scan_finds_the_package_events() -> None:
 
 
 def test_every_recorded_package_event_has_an_activity_label() -> None:
-    labels = datasets._labels("activity_action")
+    labels = datasets.label_set("activity_action")
     assert sorted(_recorded_actions() - set(labels)) == []
 
 
 def test_every_activity_source_has_a_label() -> None:
-    labels = datasets._labels("activity_action")
+    labels = datasets.label_set("activity_action")
     # a log's own actions are labelled by action (the package log here, the workflow log in tests/test_activity_kinds_175.py)
     assert sorted({s.code for s in activity_kinds.sources() if s.action_prefix is None} - set(labels)) == []
 
 
 def test_the_new_labels() -> None:
-    labels = datasets._labels("activity_action")
+    labels = datasets.label_set("activity_action")
     assert labels["statement_scope"] == "statement package: party and period set"
     assert labels["statement_account"] == "statement package: bank account assigned to the party"
     assert labels["statement_add"] == "statement package: statements added"
