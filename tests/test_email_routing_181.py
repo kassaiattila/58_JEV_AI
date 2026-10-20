@@ -153,14 +153,14 @@ def test_accepting_adds_the_documents_and_makes_the_new_packages(db) -> None:
     _result(wp, ids["m4"], "invoice_hu", _invoice(buyer_tax_id="13570008-1-13", buyer_name="Someone Else Kft."))
     routing = email_routing.create(name="Routing", sources=[wp], actor="tester")["workpackage_id"]
     assert email_routing.LOGIC.next_step(routing)["code"] == "routing_decide"
-    view = email_routing.accept_clear(routing, actor="Example Person", titles={"incoming_invoices": "Beérkező számlák"})
+    view = email_routing.accept_clear(routing, actor="Example Person", titles={"incoming_invoices": "Eingangsrechnungen"})
     items = _items(view)
     # the two June invoices went into one new package of incoming invoices, with its scope, named in the interface's language
     new_in = items["invoice.pdf"]["decision"]["target"]
     assert items["other.pdf"]["decision"]["target"] == new_in and items["invoice.pdf"]["decision"]["made"] == 1
     assert items["other.pdf"]["decision"]["made"] == 0
     package = work.get(new_in)
-    assert package["name"] == "Example Kft. · 2026-06 · Beérkező számlák"
+    assert package["name"] == "Example Kft. · 2026-06 · Eingangsrechnungen"
     assert work.get(items["sold.pdf"]["decision"]["target"])["name"] == "Example Kft. · 2026-06 · Outgoing invoices"
     assert {i["item_id"] for i in package["items"]} == {ids["m1"], ids["m2"]}
     scope = package_scope.scope_of(new_in)
