@@ -449,12 +449,14 @@ def plan(run_id: str, *, path_budget: int | None = None) -> list[NamedCopy]:
 class ItemName:
     """An item's unified name for the item lists. `state`: `ready`, `review` (the name is uncertain: its copy would go
     to the review folder, `check` says why), `pending` (the item has not been processed yet, so it has no name) or
-    `none` (an email: it has no file name of its own). `run_id`: the run the name comes from."""
+    `none` (an email: it has no file name of its own). `run_id`: the run the name comes from. `reasons` (183): the codes
+    `check` is made of, so that the interface can say why in its own language."""
 
     unified: str | None
     state: str
     check: str | None = None
     run_id: str | None = None
+    reasons: tuple[str, ...] = ()
 
 
 PENDING = ItemName(None, "pending")
@@ -468,7 +470,8 @@ def _names_of(run_id: str, wanted: set[str] | None = None) -> dict[str, ItemName
     for copy in plan(run_id):
         if (wanted is not None and copy.item_id not in wanted) or any(r.startswith("not_done:") for r in copy.reasons):
             continue
-        out[copy.item_id] = ItemName(copy.filename, copy.status, reason_text(copy.reasons) or None, run_id)
+        out[copy.item_id] = ItemName(copy.filename, copy.status, reason_text(copy.reasons) or None, run_id,
+                                     tuple(copy.reasons))
     return out
 
 

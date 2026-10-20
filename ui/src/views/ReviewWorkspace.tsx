@@ -151,7 +151,7 @@ export function ReviewWorkspace({ wp, itemId, onChanged, currentRunId, openRuns 
             return (
               <QueueItem key={i.item_id} runId={run.run_id} itemId={i.item_id} name={shown(i)} active={i.item_id === selectedId}
                 tip={u?.unified ? t("Eredeti név: {{name}}", { name: original(i) }) : undefined}
-                warn={u?.state === "review" ? <NameWarning check={u.check} /> : null}
+                warn={u?.state === "review" ? <NameWarning check={u.check} reasons={u.reasons} /> : null}
                 status={removed.has(i.item_id) ? t("Removed") : queueStatus(res, n)}
                 own={n} earlier={m} onClick={() => pick(i.item_id)} />
             );

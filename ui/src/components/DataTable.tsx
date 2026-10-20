@@ -475,7 +475,12 @@ export function DataTable(p: Props) {
                     const c = cell.column.columnDef.meta as DsColumn | undefined;
                     return (
                       <td key={cell.id} data-col={cell.column.id} data-wrap={c?.wrap} className={c && NUMERIC.has(c.kind) ? "num" : undefined}>
-                        {c ? <Cell col={c} row={row.original} custom={p.cell} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        {c?.clamp ? (
+                          // 183: at most this many lines; the full value is the tooltip
+                          <div className="dt-clamp" style={{ WebkitLineClamp: c.clamp }} title={cellText(c, row.original[c.key])}>
+                            <Cell col={c} row={row.original} custom={p.cell} />
+                          </div>
+                        ) : c ? <Cell col={c} row={row.original} custom={p.cell} /> : flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     );
                   })}
