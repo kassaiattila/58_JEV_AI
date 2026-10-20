@@ -131,12 +131,16 @@ class ItemRule:
 class ItemHandler:
     """185 (plan G-full-move T1e): how the review page shows and a person corrects an item of a kind whose result is
     not a document record. `result(run, item, engine)`: the item's result as the page shows it; `correct(run_id, item,
-    *, fields, expected_revision, actor, note, sources, confirm)`: a person's correction, returning the new one."""
+    *, fields, expected_revision, actor, note, sources, confirm)`: a person's correction, returning the new one;
+    `titles(items)`: the list's titles of its items and of their attachments (by item id); `parent_labels(items)`: the
+    label of each of its items an attachment came from, for the documents' source column (by item id)."""
 
     kind: str
     module: str
     result: Callable[..., dict[str, Any]]
     correct: Callable[..., dict[str, Any]]
+    titles: Callable[[list[dict[str, Any]]], dict[str, str]]
+    parent_labels: Callable[[list[dict[str, Any]]], dict[str, str]]
 
 
 @dataclass(frozen=True)
@@ -274,6 +278,11 @@ def handler(item: Mapping[str, Any] | str) -> ItemHandler | None:
     return _HANDLERS[kind.name]
 
 
+def handlers() -> list[ItemHandler]:
+    """185: every kind's handler, for each kind that names one (`NotRegistered` while its module owes it)."""
+    return [h for kind in ITEM_KINDS if (h := handler(kind.name)) is not None]
+
+
 def register_record_part(part: RecordPart) -> None:
     """185: a domain's part of a record item's result; the same one again adds nothing, another of the same name is an
     error."""
@@ -293,6 +302,6 @@ def record_parts() -> list[RecordPart]:
 
 
 __all__ = ["DOCUMENT", "EMAIL", "ITEM_KINDS", "ItemHandler", "ItemKind", "ItemRule", "NotRegistered", "RecordPart",
-           "SOURCE_KINDS", "STATEMENT_TABLE", "SourceKind", "UnknownItemKind", "UnknownSourceKind", "check", "handler",
+           "SOURCE_KINDS", "STATEMENT_TABLE", "SourceKind", "UnknownItemKind", "UnknownSourceKind", "check", "handler", "handlers",
            "names", "of", "page", "record_parts", "register_handler", "register_page", "register_record_part",
            "register_rule", "rules", "source", "source_names"]

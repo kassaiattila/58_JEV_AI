@@ -15,7 +15,11 @@ Four kinds of part, each listed in the order it was registered (the order the do
 - `ResultPart`: tables and values added to the package's result (the utility cost's sheets and its grand total), and
   a section of the result's JSON; the labels of its tables' columns and of its values for a template's marker list;
 - `OwnOutput`: an output of a processing package besides its result (the utility cost's workbook); a release stores
-  its file only when `stored` says so, with its first table's rows as its row count.
+  its file only when `stored` says so, with its first table's rows as its row count;
+- `ItemPart` (185): an item kind's part of a result, before the documents (the emails and their tasks): its rows of a
+  run, its tables, its section of the result's JSON and the result views of the interface it adds;
+- `OutputLabels` (185): the built-in headers and value labels of an output a logic pack makes on its own (the
+  reconciliation statement), for a template's marker list and preview.
 
 Every part names the output contract's keys (`configs/outputs.json`); `jav/outputs/contract.py` still checks the built
 data. The registry completes itself the first time it is read (`registrations.load_all`), as the check registry does.
@@ -69,6 +73,36 @@ class ResultPart:
     json: Callable[[Records], Any]
     heads: Mapping[str, Mapping[str, str]] = field(default_factory=dict)  # table -> column -> built-in header
     value_labels: Mapping[str, str] = field(default_factory=dict)
+    view: str | None = None  # 185: the result view of the interface it adds when `shown(records)` (the utility cost)
+    shown: Callable[[Records], bool] | None = None
+
+
+@dataclass(frozen=True)
+class ItemPart:
+    """185 (plan G-full-move T1e): an item kind's part of a result, written before the documents. `kind`: the item
+    kind; `read(run_id)`: its rows of a run, each with its `item_id`; `data(rows)`: its tables; `json_key`: its section
+    of the result's JSON (the rows); `views(rows)`: the result views of the interface it adds; `heads`: its tables'
+    built-in headers."""
+
+    name: str
+    module: str
+    kind: str
+    read: Callable[[str], Records]
+    data: Callable[[Records], tuple[contract.Table, ...]]
+    json_key: str
+    views: Callable[[Records], list[str]]
+    heads: Mapping[str, Mapping[str, str]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class OutputLabels:
+    """185 (plan G-full-move T1e): the built-in headers (`heads()`: table -> column -> header) and value labels
+    (`values()`) of an output a logic pack makes on its own."""
+
+    output: str
+    module: str
+    heads: Callable[[], Mapping[str, Mapping[str, str]]]
+    values: Callable[[], Mapping[str, str]]
 
 
 @dataclass(frozen=True)
@@ -91,6 +125,8 @@ _MARKS: dict[str, RecordMark] = {}
 _COLUMNS: dict[str, DocumentColumns] = {}
 _RESULT: dict[str, ResultPart] = {}
 _OWN: dict[str, OwnOutput] = {}
+_ITEMS: dict[str, ItemPart] = {}
+_LABELS: dict[str, OutputLabels] = {}
 
 
 def _add(table: dict[str, Any], name: str, part: Any) -> None:
@@ -119,6 +155,14 @@ def register_own_output(part: OwnOutput) -> None:
     _add(_OWN, part.output, part)
 
 
+def register_item_part(part: ItemPart) -> None:
+    _add(_ITEMS, part.name, part)
+
+
+def register_output_labels(part: OutputLabels) -> None:
+    _add(_LABELS, part.output, part)
+
+
 def _load() -> None:
     from jav import registrations
 
@@ -145,6 +189,16 @@ def own_outputs() -> list[OwnOutput]:
     return list(_OWN.values())
 
 
+def item_parts() -> list[ItemPart]:
+    _load()
+    return list(_ITEMS.values())
+
+
+def output_labels(output: str) -> OutputLabels | None:
+    _load()
+    return _LABELS.get(output)
+
+
 def own_output(output: str) -> OwnOutput:
     _load()
     try:
@@ -153,6 +207,7 @@ def own_output(output: str) -> OwnOutput:
         raise UnknownOutput(f"no domain registered the output {output!r}") from None
 
 
-__all__ = ["Column", "DocumentColumns", "OwnOutput", "RecordMark", "ResultPart", "UnknownOutput", "document_columns",
-           "own_output", "own_outputs", "record_marks", "register_document_columns", "register_own_output",
+__all__ = ["Column", "DocumentColumns", "ItemPart", "OutputLabels", "OwnOutput", "RecordMark", "ResultPart", "UnknownOutput",
+           "document_columns", "item_parts", "output_labels", "own_output", "own_outputs", "record_marks",
+           "register_document_columns", "register_item_part", "register_output_labels", "register_own_output",
            "register_record_mark", "register_result_part", "result_parts"]

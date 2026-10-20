@@ -25,19 +25,15 @@ def _fixed_labels(output: str) -> dict[str, dict[str, str]]:
     """The built-in template's headers of the fixed columns, by table (180: a domain's own output and its result parts
     give their own, `jav/outputs/parts.py`)."""
     from jav import export
-    from jav import reconcile_statement as rs
 
-    if output == "reconcile_statement":
-        lab = rs._labels()
-        empty = {"invoices": [], "lines": []}
-        return {"invoices": dict(zip(rs.INVOICE_COLUMNS, rs._invoice_table(empty, lab)[0])),
-                "lines": dict(zip(rs.LINE_COLUMNS, rs._line_table(empty, lab)[0]))}
+    if (own := parts.output_labels(output)) is not None:  # 185: a logic pack's own output (the reconciliation statement)
+        return {t: dict(heads) for t, heads in own.heads().items()}
     if output != "package_result":
         return {t: dict(heads) for t, heads in parts.own_output(output).heads.items()}
     added = {t: dict(heads) for part in parts.result_parts() for t, heads in part.heads.items()}
     return {"native_facts": dict(zip(export.NATIVE_COLUMNS, export.NATIVE_HEAD)),
             "native_readings": dict(zip(export.NATIVE_READING_COLUMNS, export.NATIVE_READING_HEAD)),
-            "emails": dict(zip(export.EMAIL_COLUMNS, export.EMAIL_HEAD)), "tasks": dict(zip(export.TASK_COLUMNS, export.TASK_HEAD)),
+            **{t: dict(heads) for part in parts.item_parts() for t, heads in part.heads.items()},  # 185: the emails
             "documents": dict(zip(export.document_columns(), export.document_head())),
             "datapoints": dict(zip(export.DATAPOINT_COLUMNS, export.DATAPOINT_HEAD)),
             "line_items": {**dict(zip(export.LINE_COLUMNS, export.LINE_HEAD)), "value": export.LIST_VALUE}, **added}
@@ -45,11 +41,9 @@ def _fixed_labels(output: str) -> dict[str, dict[str, str]]:
 
 def _value_labels(output: str) -> dict[str, str]:
     from jav import export
-    from jav import reconcile_statement as rs
 
-    if output == "reconcile_statement":
-        h = rs._labels()["heading"]
-        return {k: h[k] for k in ("package", "party", "period", "accounts", "state")}
+    if (own := parts.output_labels(output)) is not None:  # 185: a logic pack's own output
+        return dict(own.values())
     package = {v.key: v.label for v in export.package_values({"name": ""})}
     if output != "package_result":  # a domain's own output: the package's name and its own values
         return {"package": package["package"], **parts.own_output(output).value_labels}

@@ -230,7 +230,7 @@ def register() -> None:
         activity_kinds.register_decision(kind, after=after)
     for part in RECORD_PARTS:  # 185: the finance parts of a document's result on the review page
         item_kinds.register_record_part(part)
-    from jav import reconcile_statement  # noqa: F401 - 185: its package log events (until then the activity registry's own)
+    from jav import reconcile_statement  # 185: its package log events (until then the activity registry's own) and labels
     logic_packs.register(statement_package.LOGIC)
     parties.register_reference("statement_package", count=statement_package.count_party, repoint=statement_package.repoint_party)
     logic_packs.register(reconcile_package.LOGIC)
@@ -245,7 +245,10 @@ def register() -> None:
     parts.register_document_columns(parts.DocumentColumns("direction", __name__, DIRECTION_COLUMNS, parties.direction_values))
     parts.register_result_part(parts.ResultPart("utility_cost", __name__, report_utility.result_part, "utility_cost",
                                                  report_utility.build, heads=report_utility.HEADS,
-                                                 value_labels=report_utility.RESULT_VALUE_LABELS))
+                                                 value_labels=report_utility.RESULT_VALUE_LABELS,
+                                                 view="utility", shown=report_utility.has_utility))  # 185: its result view
+    parts.register_output_labels(parts.OutputLabels("reconcile_statement", __name__, reconcile_statement.sample_heads,
+                                                    reconcile_statement.sample_values))  # 185: for a template's preview
     for dataset, after in finance_datasets.DATASETS:  # 185: its tables on the interface
         datasets.register(dataset, after=after, module=__name__)
     parts.register_own_output(parts.OwnOutput("utility_cost", __name__, "utility_cost.xlsx", "utility-cost",

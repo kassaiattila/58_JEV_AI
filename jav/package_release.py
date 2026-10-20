@@ -194,35 +194,39 @@ def release_summary(wp_id: str) -> dict[str, Any] | None:
 
 # --- rendering a version -----------------------------------------------------------------------------------------
 
-def _records(released: dict[str, str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-    """The documents, emails and native results of the released items, each from the run it came from."""
+def _records(released: dict[str, str]) -> tuple[list[dict[str, Any]], dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
+    """The documents, each item kind's part (185: by its name; the emails) and native results of the released items,
+    each from the run it came from."""
     from jav import datasets
 
     by_run: dict[str, set[str]] = {}
     for item, run_id in released.items():
         by_run.setdefault(run_id, set()).add(item)
     records: list[dict[str, Any]] = []
-    mails: list[dict[str, Any]] = []
+    rows: dict[str, list[dict[str, Any]]] = {part.name: [] for part in parts.item_parts()}
     native: list[dict[str, Any]] = []
     for run_id, items in sorted(by_run.items()):
         records += [r for r in datasets.run_records(run_id) if r["item_id"] in items]
-        mails += [m for m in export.email_records(run_id) if m["item_id"] in items]
+        for part in parts.item_parts():
+            rows[part.name] += [m for m in part.read(run_id) if m["item_id"] in items]
         native += [n for n in export.native_records(run_id) if n["item_id"] in items]
 
     def order(r: dict[str, Any]) -> tuple[str, str]:
         return (str(r.get("file") or r.get("subject") or ""), r["item_id"])
 
-    return sorted(records, key=order), sorted(mails, key=order), sorted(native, key=order)
+    return (sorted(records, key=order), {name: sorted(found, key=order) for name, found in rows.items()},
+            sorted(native, key=order))
 
 
 def _files(wp: dict[str, Any], meta: dict[str, Any], released: dict[str, str]) -> list[tuple[str, int, bytes, dict[str, str] | None]]:
     """(name, rows, content, the template that made it) of every download of the version: the workbooks with the
     package's chosen templates (178), a domain's own output only when it says so (the utility cost's when the package
     has utility bills; its row count is its first table's)."""
-    records, mails, native = _records(released)
+    records, items, native = _records(released)
     values = export.package_values(wp, meta)
-    result, made = templates.render(export.result_data(records, mails, native, values), wp["id"])
-    files: list[tuple[str, int, bytes, dict[str, str] | None]] = [("result.xlsx", len(records) + len(mails) + len(native), result, made)]
+    result, made = templates.render(export.result_data(records, items, native, values), wp["id"])
+    count = len(records) + sum(len(found) for found in items.values()) + len(native)
+    files: list[tuple[str, int, bytes, dict[str, str] | None]] = [("result.xlsx", count, result, made)]
     for own in parts.own_outputs():
         data = own.data(records, values)
         if own.stored(data):
@@ -236,12 +240,13 @@ def _files(wp: dict[str, Any], meta: dict[str, Any], released: dict[str, str]) -
         runs[run_id]["review_version"] = corrections.review_version(run_id)
     body = {"workpackage_id": wp["id"], "name": wp["name"], **meta,
             "items": [{"item_id": item, "run_id": run} for item, run in sorted(released.items())], "runs": runs,
-            "documents": [{k: v for k, v in r.items() if k != "kinds"} for r in records], "emails": mails,
+            "documents": [{k: v for k, v in r.items() if k != "kinds"} for r in records],
+            **{part.json_key: items[part.name] for part in parts.item_parts()},  # 185: the emails
             **export.json_parts(records)}
     if native:
         body["native_items"] = native
     body = card_numbers.mask_values(body)
-    files.append(("result.json", len(records) + len(mails) + len(native),
+    files.append(("result.json", count,
                   json.dumps(body, ensure_ascii=False, indent=1, default=str).encode("utf-8"), None))
     for table in ("documents", "datapoints", "line_items"):
         head, rows = export.TABLES[table](records)
@@ -331,8 +336,8 @@ def current_workbook(wp_id: str) -> tuple[bytes, str]:
     wp = work.get(wp_id)
     with store.session():
         current = {item: x.run_id for item, x in package_result.in_use(wp).items()}
-        records, mails, native = _records(current)
-        content, _made = templates.render(export.result_data(records, mails, native, export.package_values(wp)), wp_id)
+        records, items, native = _records(current)
+        content, _made = templates.render(export.result_data(records, items, native, export.package_values(wp)), wp_id)
     return content, f"{wp_id}-result-{datetime.now().strftime('%Y%m%d-%H%M')}.xlsx"
 
 

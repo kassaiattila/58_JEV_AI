@@ -126,12 +126,12 @@ MAILS_ONLY_PARTS = {
 
 
 def test_the_result_workbook_is_written_as_before(db):
-    data = export.workbook_bytes(_records(), _mails(), [])
+    data = export.workbook_bytes(_records(), {"emails": _mails()}, [])  # 185: by the item part's name
     assert _parts(data) == RESULT_PARTS
 
 
 def test_an_emails_only_workbook_is_written_as_before(db):
-    data = export.workbook_bytes([], _mails(), [])
+    data = export.workbook_bytes([], {"emails": _mails()}, [])
     assert _parts(data) == MAILS_ONLY_PARTS
 
 

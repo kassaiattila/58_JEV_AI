@@ -314,6 +314,21 @@ def _values(st: dict[str, Any], state: str, lab: dict[str, Any]) -> tuple[contra
 
 
 # 178 (plan 170 L4): the column keys of the statement's tables (`configs/outputs.json` `reconcile_statement`), in order
+def sample_heads() -> dict[str, dict[str, str]]:
+    """185 (plan G-full-move T1e): the built-in headers of the statement's tables, for a template's marker list and
+    preview (`jav/outputs/samples.py`, through `parts.OutputLabels`; until then read there by name)."""
+    lab = _labels()
+    empty: dict[str, Any] = {"invoices": [], "lines": []}
+    return {"invoices": dict(zip(INVOICE_COLUMNS, _invoice_table(empty, lab)[0])),
+            "lines": dict(zip(LINE_COLUMNS, _line_table(empty, lab)[0]))}
+
+
+def sample_values() -> dict[str, str]:
+    """185: the labels of the statement's values."""
+    h = _labels()["heading"]
+    return {k: h[k] for k in ("package", "party", "period", "accounts", "state")}
+
+
 INVOICE_COLUMNS = ("number", "supplier_name", "supplier_tax_id", "issue_date", "fulfillment_date", "due_date", "amount", "currency",
                    "payment_method", "result", "allocated", "rest", "paid_on", "days_from_due", "overdue_days", "paid_by",
                    "other_party", "source", "file")

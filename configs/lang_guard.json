@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.82",
+    "version": "1.0.83",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.83",
+        "date": "2026-10-20",
+        "note": "185 (plan G-full-move T1e): the email sheets' Hungarian headers and texts moved from jav/export.py to jav/email_export.py, and an email's and an attachment's titles from jav/work_views.py and jav/export.py to jav/mailbox.py (the email domain's); the total is unchanged (document and interface vocabulary)."
+      },
       {
         "version": "1.0.82",
         "date": "2026-10-20",
@@ -575,6 +580,7 @@
     "jav/devstate.py": 7,
     "jav/docsgen.py": 48,
     "jav/email_datasets.py": 37,
+    "jav/email_export.py": 5,
     "jav/email_learning.py": 1,
     "jav/email_review.py": 4,
     "jav/email_tasks.py": 4,
@@ -593,7 +599,7 @@
     "jav/experiments/prepare_stack_trial.py": 3,
     "jav/experiments/pydantic_jev.py": 4,
     "jav/experiments/stack_trial.py": 1,
-    "jav/export.py": 13,
+    "jav/export.py": 6,
     "jav/extract_llm.py": 1,
     "jav/finance_datasets.py": 23,
     "jav/flow.py": 19,
@@ -609,7 +615,7 @@
     "jav/lang_guard.py": 1,
     "jav/learning_cli.py": 13,
     "jav/legacy_import.py": 4,
-    "jav/mailbox.py": 12,
+    "jav/mailbox.py": 17,
     "jav/models.py": 10,
     "jav/ocr.py": 5,
     "jav/pdf.py": 8,
@@ -652,7 +658,7 @@
     "jav/version.py": 1,
     "jav/work.py": 22,
     "jav/work_cli.py": 57,
-    "jav/work_views.py": 11,
+    "jav/work_views.py": 8,
     "pyproject.toml": 5,
     "requirements.txt": 9,
     "scripts/analyze_long_trial.py": 1,

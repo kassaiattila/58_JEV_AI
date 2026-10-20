@@ -624,6 +624,44 @@ TICK = job_kinds.Tick("mailbox.tick", __name__, lambda: tick())
 EMAIL_FIELDS = ("intent",)  # 058 K5.1: an email's intent is correctable (the email is the source, not extracted)
 
 
+def item_titles(items: list[dict[str, Any]]) -> dict[str, str]:
+    """048 T2: an email's title in the item list is its subject and sender (the file name is always `message.json`);
+    058 K5.2: an attachment's title names the email it came from. 185 (plan G-full-move T1e): the email kind's handler
+    (until then in `jav/work_views.py` `item_titles`)."""
+    from jav.emails import message_version
+
+    out, subjects = {}, {}
+    for i in items:
+        if i.get("kind") != item_kinds.EMAIL:
+            continue
+        m, status = message_version(i)  # 086 N04: the version the item was added with, not the latest
+        if not m and status != "changed":
+            continue  # unreadable: the file name stays the title
+        subjects[i["item_id"]] = ("(a levél futáskori változata nem található)" if status == "changed"
+                                  else m.get("subject") or "(tárgy nélkül)")[:100]
+        out[i["item_id"]] = f"{subjects[i['item_id']]} — {m.get('sender_name') or m.get('sender') or '?'}"
+    for i in items:  # 058 K5.2: the attachment's origin in its name (which email it came from)
+        if i.get("parent_item_id") in subjects:
+            out[i["item_id"]] = f"{Path(i['source_path']).name} (a levél csatolmánya: {subjects[i['parent_item_id']]})"
+    return out
+
+
+def parent_labels(items: list[dict[str, Any]]) -> dict[str, str]:
+    """Subjects of the attachments' parent emails (only if the run has attachments), for the documents' source email
+    column. 185 (plan G-full-move T1e): the email kind's handler (until then in `jav/export.py` `_email_subjects`)."""
+    from jav.emails import message_version
+
+    parents = {i.get("parent_item_id") for i in items if i.get("parent_item_id")}
+    out = {}
+    for i in items:
+        if i["item_id"] in parents:
+            msg, status = message_version(i)  # 086 N04: the version the run processed
+            # data (a cell of the download), not a label
+            out[i["item_id"]] = ("(a levél futáskori változata nem található)" if status == "changed"
+                                 else msg.get("subject") or ("(tárgy nélkül)" if msg else "(a levél nem olvasható)"))
+    return out
+
+
 def email_item_result(run: dict[str, Any], item: dict[str, Any], engine: str | None) -> dict[str, Any]:
     """048 T2: an email item's result on the review page: no extraction or page image; the email, its intent and its
     tasks. 185 (plan G-full-move T1e): the email kind's handler (`item_kinds.ItemHandler`; until then in

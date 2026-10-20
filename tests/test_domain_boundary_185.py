@@ -26,7 +26,7 @@ FINANCE = frozenset({
     "domains.finance",
 })
 EMAIL = frozenset({
-    "api_email_routing", "api_mailbox", "email_datasets", "email_learning", "email_learning_runtime", "email_review", "email_routing", "email_tasks",
+    "api_email_routing", "api_mailbox", "email_datasets", "email_export", "email_learning", "email_learning_runtime", "email_review", "email_routing", "email_tasks",
     "emails", "flow_email", "flow_email_learning", "ingest_server", "intent", "intent_gpt", "intents", "mailbox",
     "domains.email",
 })
@@ -47,10 +47,7 @@ LASTING = {
 
 # 185: what the move (T1) still has to take away; an entry leaves this list with its step
 TEMPORARY = {
-    ("export", "emails"), ("export", "mailbox"),
-    ("outputs.samples", "reconcile_statement"),
     ("parties", "duplicates"),
-    ("work_views", "emails"), ("work_views", "report_utility"),
 }
 
 

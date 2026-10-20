@@ -7,7 +7,7 @@ mailbox downloads (048 T2). Two label sets are the domain's too: the intents' na
 They moved here from `jav/datasets.py` as they were: the same columns, rows and order. The email domain module
 registers them (`jav/domains/email.py`), and the data view asks its registry.
 
-Layer: application operation (a read view) → `jav.export`, `jav.mailbox`, `jav.intents`.
+Layer: application operation (a read view) → `jav.email_export`, `jav.mailbox`, `jav.intents`.
 """
 
 from __future__ import annotations
@@ -21,10 +21,10 @@ from jav.datasets import Rows, col
 def emails(scope: dict[str, str]) -> Rows:
     """058 K5.1: the run's emails — intent (with the manual correction), suggested next step, attachments, and how much
     of the email's text the recognition saw."""
-    from jav import export
+    from jav import email_export
 
     doc_types = datasets.label_set("doc_type")
-    records, run_of = datasets.merged(scope, export.email_records)
+    records, run_of = datasets.merged(scope, email_export.email_records)
     link = datasets.linker(scope, run_of)
     cols = [
         col("subject", "Tárgy", link="item"),
@@ -63,9 +63,9 @@ def emails(scope: dict[str, str]) -> Rows:
 
 def email_tasks(scope: dict[str, str]) -> Rows:
     """058 K5.3: the task proposals, one per row, with the evidence and the human decision (only a person accepts)."""
-    from jav import export
+    from jav import email_export
 
-    records, run_of = datasets.merged(scope, export.email_records)
+    records, run_of = datasets.merged(scope, email_export.email_records)
     link = datasets.linker(scope, run_of)
     cols = [
         col("subject", "Levél", link="item"),
@@ -81,7 +81,7 @@ def email_tasks(scope: dict[str, str]) -> Rows:
         col("done_by", "Elvégezte", hidden=True),
         col("item_id", "Tétel-azonosító", "id", hidden=True),
     ]
-    rows = [{**t, "_key": f"{t['item_id']}:{t['index']}", **link(t["item_id"])} for t in export.task_rows(records)]
+    rows = [{**t, "_key": f"{t['item_id']}:{t['index']}", **link(t["item_id"])} for t in email_export.task_rows(records)]
     return cols, rows
 
 

@@ -27,6 +27,7 @@ import json
 import re
 import threading
 from collections import OrderedDict
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -72,7 +73,7 @@ def _item_provenance(run_id: str, item_id: str, dp: dict[str, Any], corr: dict[s
 
 def _run_records(run_id: str) -> list[dict[str, Any]]:
     run = work.get_run(run_id)
-    subjects = _email_subjects(run["input"]["items"])
+    subjects = _parent_labels(run["input"]["items"])
     split = work.items_reasons(run_id, run["input"]["items"])  # 153 (review B3): one query, not one per item
     out = []
     for item in work.released_items(run):  # 160-C: not the items removed from the package (decision 163 D7)
@@ -168,89 +169,13 @@ def native_facts_table(records: list[dict[str, Any]]) -> tuple[list[str], list[l
     return list(NATIVE_HEAD), rows
 
 
-def _email_subjects(items: list[dict[str, Any]]) -> dict[str, str]:
-    """Subjects of the attachments' parent emails (only if the run has attachments)."""
-    from jav.emails import message_version
-
-    parents = {i.get("parent_item_id") for i in items if i.get("parent_item_id")}
-    out = {}
-    for i in items:
-        if i["item_id"] in parents:
-            msg, status = message_version(i)  # 086 N04: the version the run processed
-            # data (a cell of the download), not a label
-            out[i["item_id"]] = ("(a levél futáskori változata nem található)" if status == "changed"
-                                 else msg.get("subject") or ("(tárgy nélkül)" if msg else "(a levél nem olvasható)"))
+def _parent_labels(items: list[dict[str, Any]]) -> dict[str, str]:
+    """The label of each item an attachment came from (185: its kind's handler, the email's subject; until then
+    `_email_subjects`)."""
+    out: dict[str, str] = {}
+    for own in item_kinds.handlers():
+        out.update(own.parent_labels(items))
     return out
-
-
-def email_records(run_id: str) -> list[dict[str, Any]]:
-    """058 K5.1: the run's email items: the email's data, the recognised intent with the manual correction, the
-    suggested next step (computed in code from the corrected intent), the recognition of the attachments, and how much
-    of the email text the recognition saw. For an old run without its own result row, the email's latest result
-    (`from_this_run=False`)."""
-    from jav import emails, mailbox
-
-    out = []
-    items = work.released_items(work.get_run(run_id))  # 160-C: not the items removed from the package (decision 163 D7)
-    split = work.items_reasons(run_id, [i for i in items if i.get("kind") == item_kinds.EMAIL])  # 153 (review B3): one query
-    for item in items:
-        if item.get("kind") != item_kinds.EMAIL:
-            continue
-        path = Path(item["source_path"])
-        msg, source_status = emails.message_version(item)  # 086 N04: the version the run processed, not the latest
-        raw, own = mailbox.email_result_for(work.flow_run_id(run_id, item["item_id"]), path.parent.name)
-        corr = corrections.current(run_id, item["item_id"])
-        res = mailbox.effective_email_result(raw, corr["fields"].get("intent")) if raw is not None else {}
-        body = (raw or {}).get("body") if own else None
-        if not body:
-            body = emails.body_coverage(emails.EmailMessage(message_id=path.parent.name, body=msg.get("body") or ""))
-        sender = msg.get("sender_name") or ""
-        if msg.get("sender"):
-            sender = f"{sender} <{msg['sender']}>" if sender else msg["sender"]
-        out.append({"item_id": item["item_id"], "message_id": path.parent.name, "subject": msg.get("subject") or "",
-                    "sender": sender, "received_at": msg.get("received_at"), "mailbox": msg.get("mailbox"),
-                    "intent": res.get("intent"), "machine_intent": res.get("machine_intent"), "confidence": res.get("confidence"),
-                    "corrected": bool(res.get("corrected")), "next_flow": res.get("next_flow"),
-                    "attachments": res.get("attachments") or [], "from_this_run": own, "body": body,
-                    "open_reasons": [r["reason"] for r in split[item["item_id"]]["run"]],
-                    "tasks": mailbox.task_view(work.flow_run_id(run_id, item["item_id"]), raw) if own else None,
-                    "source_status": source_status})
-    return out
-
-
-def task_rows(mails: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """058 K5.3: the task proposals, one per row (with the email, the evidence and the human decision)."""
-    out = []
-    for m in mails:
-        for t in (m.get("tasks") or {}).get("tasks") or []:
-            d = t.get("decision") or {}
-            out.append({"item_id": m["item_id"], "subject": m["subject"], "index": t["index"], "action": t["action"], "title": t["title"],
-                        "due_date": t.get("due_date"), "assignee_hint": t.get("assignee_hint"),
-                        "evidence": " | ".join(e["quote"] for e in t.get("evidence") or []),
-                        "decision": d.get("decision"), "decided_by": d.get("actor"), "decided_at": d.get("decided_at"),
-                        "done_by": d.get("done_by"), "done_at": d.get("done_at")})  # 062: manual "done" mark
-    return out
-
-
-EMAIL_HEAD = ["Tárgy", "Feladó", "Érkezett", "Postafiók", "Szándék", "Gépi szándék", "Valószínűség", "Javítva",
-              "Javasolt következő lépés", "Csatolmányok", "Levél szövege", "Levél hossza (karakter)", "Nyitott teendők", "Tétel-azonosító"]
-
-
-def emails_table(records: list[dict[str, Any]]) -> tuple[list[str], list[list[Any]]]:
-    """The email table with Hungarian captions (intent, next step, the part of the text seen, attachment type)."""
-    from jav import mailbox
-
-    flows = mailbox.next_flow_labels()
-    body = cfg.load("datasets")["labels"]["body_status"]
-    doc_types = cfg.load("field_labels")["doc_types"]
-    shown = lambda a: a.get("shown_type") or a.get("doc_type")  # noqa: E731 - 126: the type the document was processed as
-    att = lambda a: f"{a.get('filename')} ({doc_types.get(shown(a), shown(a)) or a.get('status') or '–'})"  # noqa: E731
-    rows = [[r["subject"], r["sender"], r["received_at"], r["mailbox"], mailbox.intent_name(r["intent"]),
-             mailbox.intent_name(r["machine_intent"]), r["confidence"], "igen" if r["corrected"] else "",
-             flows.get(r["next_flow"] or "", r["next_flow"]), ", ".join(att(a) for a in r["attachments"]),
-             body.get(r["body"]["status"], r["body"]["status"]), r["body"]["chars"], "; ".join(r["open_reasons"]), r["item_id"]]
-            for r in records]
-    return EMAIL_HEAD, rows
 
 
 def _field_reason(reasons: list[str], field: str) -> bool:
@@ -372,29 +297,28 @@ def csv_bytes(head: list[str], rows: list[list[Any]]) -> bytes:
 # their headers
 NATIVE_READING_COLUMNS = ("file", "item_id", "reading_status", "interpretation_status", "result_version", "reading_details")
 NATIVE_READING_HEAD = ("Document", "Item identifier", "Reading status", "Interpretation status", "Result version", "Reading details")
-EMAIL_COLUMNS = ("subject", "sender", "received_at", "mailbox", "intent", "machine_intent", "confidence", "corrected", "next_flow",
-                 "attachments", "body_status", "body_chars", "open_reasons", "item_id")
-TASK_COLUMNS = ("subject", "action", "title", "due_date", "assignee_hint", "evidence", "decision", "decided_by", "done_at", "done_by",
-                "item_id")
-TASK_HEAD = ("Levél", "Akció", "Feladat", "Határidő", "Felelős", "Bizonyíték", "Döntés", "Döntött", "Elvégezve", "Elvégezte",
-             "Tétel-azonosító")
 DOC_COLUMNS = ("file", "item_id", "doc_type", "arm", "status", "open_reasons", "source_email")
 DATAPOINT_COLUMNS = ("file", "item_id", "doc_type", "field", "value", "page", "quote", "location", "corrected", "field_todo")
 LINE_COLUMNS = ("file", "item_id", "doc_type", "list", "row", "page")
 _table = contract.table
 
 
+def item_rows(run_id: str) -> dict[str, list[dict[str, Any]]]:
+    """185 (plan G-full-move T1e): each item kind's part of the run's result (the emails), by its name."""
+    return {part.name: part.read(run_id) for part in parts.item_parts()}
+
+
 def xlsx_bytes(run_id: str, records: list[dict[str, Any]] | None = None) -> bytes:
     records = run_records(run_id) if records is None else records
-    return workbook_bytes(records, email_records(run_id), native_records(run_id))
+    return workbook_bytes(records, item_rows(run_id), native_records(run_id))
 
 
-def result_data(records: list[dict[str, Any]], mails: list[dict[str, Any]], native: list[dict[str, Any]],
+def result_data(records: list[dict[str, Any]], items: Mapping[str, list[dict[str, Any]]], native: list[dict[str, Any]],
                 values: tuple[contract.Value, ...] = ()) -> contract.OutputData:
     """178 (plan 170 L4): the result's data as the output contract describes it (`package_result`): the native facts and
-    readings, the emails and their tasks, the documents by type, the data points, the line items, then each domain's
-    result part (180: the utility cost's sheets and its grand total, `jav/domains/finance.py`); `values`: the package's
-    (`package_values`)."""
+    readings, each item kind's part (185: `items`, by the part's name; the emails and their tasks, `jav/email_export.py`),
+    the documents by type, the data points, the line items, then each domain's result part (180: the utility cost's
+    sheets and its grand total, `jav/domains/finance.py`); `values`: the package's (`package_values`)."""
     tables: list[contract.Table] = []
     if native:
         head, rows = native_facts_table(native)
@@ -403,19 +327,12 @@ def result_data(records: list[dict[str, Any]], mails: list[dict[str, Any]], nati
                              [[record["file"], record["item_id"], record["reading"]["status"],
                                record["interpretation_outcome"]["status"], record["result_version"],
                                json.dumps(record["reading"], ensure_ascii=False, sort_keys=True)] for record in native]))
-    if mails:  # 058 K5.1: the email items on their own sheet
-        head, rows = emails_table(mails)
-        tables.append(_table("emails", "Levelek", EMAIL_COLUMNS, head, rows))
-        tasks = task_rows(mails)
-        if tasks:  # 058 K5.3: the task proposals on a separate sheet, with the decision
-            actions = cfg.load("email_tasks")["actions"]
-            decisions = {"accepted": "elfogadva", "rejected": "elvetve"}
-            tables.append(_table("tasks", "Feladatok", TASK_COLUMNS, TASK_HEAD,
-                                 [[t["subject"], actions.get(t["action"], t["action"]), t["title"], t["due_date"], t["assignee_hint"],
-                                   t["evidence"], decisions.get(t["decision"] or "", "vár döntésre"), t["decided_by"], t["done_at"],
-                                   t["done_by"], t["item_id"]] for t in tasks]))
-        if not records:  # emails only: no empty document sheet
-            return contract.OutputData("package_result", values, tuple(tables))
+    lead = [(part, items.get(part.name) or []) for part in parts.item_parts()]
+    for part, rows in lead:  # 058 K5.1, K5.3: the email items and their tasks on their own sheets
+        if rows:
+            tables += part.data(rows)
+    if any(rows for _part, rows in lead) and not records:  # emails only: no empty document sheet
+        return contract.OutputData("package_result", values, tuple(tables))
     for doc_type in sorted({r["doc_type"] for r in records}):
         head, rows = documents_table(records, doc_type)
         kinds = next(r["kinds"] for r in records if r["doc_type"] == doc_type)
@@ -451,10 +368,10 @@ def package_values(wp: dict[str, Any], version: dict[str, Any] | None = None) ->
             contract.Value("released_by", "Kiadta", v.get("released_by") or ""), contract.Value("released_at", "Kiadva", at))
 
 
-def workbook_bytes(records: list[dict[str, Any]], mails: list[dict[str, Any]], native: list[dict[str, Any]]) -> bytes:
+def workbook_bytes(records: list[dict[str, Any]], items: Mapping[str, list[dict[str, Any]]], native: list[dict[str, Any]]) -> bytes:
     """The download workbook of documents, emails and native results (a run's, or a released package version's,
     171: `jav/package_release.py`), in the built-in layout (178: `jav/outputs/builtin.py`)."""
-    return builtin.render(result_data(records, mails, native))
+    return builtin.render(result_data(records, items, native))
 
 
 # --- JSON ------------------------------------------------------------------------------------------------------
@@ -474,7 +391,7 @@ def _json_export(run_id: str, records: list[dict[str, Any]] | None = None) -> tu
     body = {"run_id": run_id, "recipe_id": run["recipe_id"], "recipe_version": run["recipe_version"], "params": run["params"],
             "mode": run["mode"], "approval": run["approval"], "created_at": run["created_at"],
             "documents": [{k: v for k, v in r.items() if k != "kinds"} for r in records],
-            "emails": email_records(run_id),
+            **{part.json_key: part.read(run_id) for part in parts.item_parts()},  # 185: the emails
             **json_parts(records)}
     native = native_records(run_id)
     if native:
@@ -510,5 +427,5 @@ def render(run_id: str, fmt: str, table: str = "documents") -> tuple[bytes, str,
     raise ValueError(f"unknown export format: {fmt}")
 
 
-__all__ = ["TABLES", "csv_bytes", "datapoints_table", "document_columns", "document_head", "documents_table", "email_records",
-           "emails_table", "json_bytes", "json_parts", "line_items_table", "render", "run_records", "workbook_bytes", "xlsx_bytes"]
+__all__ = ["TABLES", "csv_bytes", "datapoints_table", "document_columns", "document_head", "documents_table", "item_rows",
+           "json_bytes", "json_parts", "line_items_table", "render", "result_data", "run_records", "workbook_bytes", "xlsx_bytes"]
