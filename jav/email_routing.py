@@ -9,9 +9,11 @@ party, with a day), it proposes the open package whose scope fits it (the same r
 `jav/package_scope.py`), or a new package for the party, the day's calendar month and the role. A person accepts the
 proposals (one by one, or every clear one at once), rejects them or chooses another package. Accepting adds the
 document to the package; its run is started by a person, or by the workflow within its approved budget. An attachment
-the routing cannot place by itself is a blocker: no result yet, no own party, an unclear direction (or an invoice
-between two own parties), no date, a suspicious email, or an incoming invoice in a sent email. A document of another
-kind (a contract, say) is only listed. The routing package is done when every attachment it can route is decided.
+the routing cannot place by itself is a blocker: not read yet, read but without data (183), no own party, an unclear
+direction (or an invoice between two own parties), no date, or a suspicious email. An incoming invoice in a sent email
+(a forwarded one) is proposed with a note (183; DECISIONS 183). A document of another kind (a contract, say) is only
+listed, by its result's type or, without data points, by its recognised type (183). The routing package is done when
+every attachment it can route is decided.
 
 Code only, no AI call; the placement of a document is the domains' (`package_scope.place`).
 
@@ -59,8 +61,9 @@ CREATE TABLE IF NOT EXISTS email_routing_decisions (
 """)
 
 # what keeps an attachment from being routed by itself (the interface names each)
-BLOCKERS = ("no_result", "unknown_party", "unclear_direction", "internal", "not_own", "no_day", "suspicious",
-            "sent_incoming")
+BLOCKERS = ("no_result", "no_data", "unknown_party", "unclear_direction", "internal", "not_own", "no_day", "suspicious")
+# what a person should know about a proposal that does not keep it from being accepted (183)
+NOTES = ("sent_incoming",)
 
 
 class RoutingError(ValueError):
@@ -155,7 +158,12 @@ def _file_of(item: dict[str, Any]) -> str:
 
 def _results(c: sqlite3.Connection, doc_ids: list[str]) -> dict[str, dict[str, Any]]:
     """Each attachment's counted result (`jav/package_result.py`): its type, its effective values, its tier and whether
-    it came from a suspicious email (154: the attachment's to-do)."""
+    it came from a suspicious email (154: the attachment's to-do); `data`: it has data points.
+
+    183 (the first real trial): an attachment the type recognition read but that left no data points (a document of
+    an unknown kind goes the facts way; an invoice whose data could not be read) has no counted result. It is given its
+    recognised type (the detailed one if decided), without values, so that it is placed by its kind and not reported
+    as not read yet."""
     from jav.mailbox import SUSPICIOUS_ATTACHMENT
 
     counted = package_result.counted_documents(c, doc_ids)
@@ -169,7 +177,14 @@ def _results(c: sqlite3.Connection, doc_ids: list[str]) -> dict[str, dict[str, A
         values = package_result.effective_values(json.loads(r["datapoints"] or "{}"),
                                                  corrected.get((x.work_run, x.item_id)))
         out[r["doc_id"]] = {"doc_type": r["doc_type"], "values": values, "tier": x.tier,
-                            "suspicious": r["run_id"] in suspicious}
+                            "suspicious": r["run_id"] in suspicious, "data": True}
+    rest = [d for d in doc_ids if d not in out]
+    for start in range(0, len(rest), 400):  # below SQLite's parameter limit
+        part = rest[start:start + 400]
+        for r in c.execute("SELECT doc_id, doc_type, detail_type, last_run_id FROM documents"
+                           f" WHERE doc_id IN ({','.join('?' * len(part))})", part):
+            out[r["doc_id"]] = {"doc_type": r["detail_type"] or r["doc_type"], "values": {}, "tier": None,
+                                "suspicious": r["last_run_id"] in suspicious, "data": False}
     return out
 
 
@@ -181,22 +196,32 @@ def _month(day: str) -> tuple[str, str]:
 
 
 def _placement(att: dict[str, Any], result: dict[str, Any] | None, cache: dict[str, Any]) -> dict[str, Any]:
-    """Where an attachment belongs (role, party, day) and what keeps it from being routed by itself; `routable`: it is
-    a document of a role at all (another kind is only listed)."""
+    """Where an attachment belongs (role, party, day), what keeps it from being routed by itself and what a person
+    should know about it (`note`); `routable`: it is a document of a role at all (another kind is only listed).
+
+    183 (DECISIONS 183): read without data points, a kind no role takes is only listed; an invoice, a statement or an
+    unrecognised kind is a `no_data` blocker (its to-dos in its email package say why). An incoming invoice in a sent
+    email is proposed, noted `sent_incoming` (a forwarded invoice; it was a blocker)."""
+    nowhere = {"role": None, "party_id": None, "day": None, "note": None}
     if result is None:
-        return {"routable": True, "role": None, "party_id": None, "day": None, "problem": "no_result"}
+        return {"routable": True, **nowhere, "problem": "no_result"}
     found = package_scope.place(result["doc_type"], result["values"], cache)
+    if not result["data"]:
+        if found is None and result["doc_type"] is not None:
+            return {"routable": False, **nowhere, "problem": None}
+        return {"routable": True, **nowhere, "role": found.role if found else None,
+                "problem": "suspicious" if result["suspicious"] else "no_data"}
     if found is None:
-        return {"routable": False, "role": None, "party_id": None, "day": None, "problem": None}
+        return {"routable": False, **nowhere, "problem": None}
     problem = found.problem
-    folder = (att.get("email") or {}).get("folder")
     if problem is None and result["suspicious"]:
         problem = "suspicious"
-    if problem is None and folder == "sent" and found.direction == "incoming":
-        problem = "sent_incoming"  # a sent email carries what the own party sends
     if problem is None and found.day is None:
         problem = "no_day"
-    return {"routable": True, "role": found.role, "party_id": found.party_id, "day": found.day, "problem": problem}
+    folder = (att.get("email") or {}).get("folder")
+    note = "sent_incoming" if folder == "sent" and found.direction == "incoming" else None
+    return {"routable": True, "role": found.role, "party_id": found.party_id, "day": found.day, "problem": problem,
+            "note": note}
 
 
 def _proposal(placement: dict[str, Any], party_names: dict[str, str], among: list[dict[str, Any]]) -> dict[str, Any] | None:

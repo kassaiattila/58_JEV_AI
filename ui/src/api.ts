@@ -73,16 +73,19 @@ export interface WorkpackageView {
   /** 181: an email package offers the routing of its attachments (and names the routing packages that route it) */
   routing_offer?: { attachments: number; routings: { id: string; name: string }[] };
 }
-/** 181: what keeps an attachment from being routed by itself. */
-export type RoutingBlocker = "no_result" | "unknown_party" | "unclear_direction" | "internal" | "not_own" | "no_day"
-  | "suspicious" | "sent_incoming";
+/** 181: what keeps an attachment from being routed by itself (183: `no_data` new; an incoming invoice in a sent email
+ * is a note instead). */
+export type RoutingBlocker = "no_result" | "no_data" | "unknown_party" | "unclear_direction" | "internal" | "not_own" | "no_day"
+  | "suspicious";
+/** 183: what a person should know about a proposal: an incoming invoice in a sent email (a forwarded one). */
+export type RoutingNote = "sent_incoming";
 export interface RoutingEmail { item_id: string; subject: string | null; sender: string | null; received_at: string | null; folder: string | null }
 export interface RoutingNewPackage { name: string; party: string; party_id: string; period_start: string; period_end: string; role: string }
 /** 181: one attachment of a routing package: its email, its result, where it belongs, the proposal and the decision. */
 export interface RoutingItem {
   item_id: string; file: string; package: string; email: RoutingEmail | null; doc_type: string | null; tier: string | null;
   placement: { routable: boolean; role: string | null; role_title: string | null; party_id: string | null; party: string | null;
-    day: string | null; problem: RoutingBlocker | null };
+    day: string | null; problem: RoutingBlocker | null; note?: RoutingNote | null };
   proposal: { target: { id: string; name: string } | null; others: { id: string; name: string }[]; new: RoutingNewPackage | null } | null;
   decision: { decision: "accepted" | "rejected"; target: string | null; target_name?: string | null; made: number; actor: string;
     decided_at: string } | null;
