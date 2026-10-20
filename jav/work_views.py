@@ -180,7 +180,7 @@ def _workpackage_view(wp_id: str) -> dict[str, Any]:
                      "open_runs": open_runs(runs),  # 160-C S3: every open live run, the current one too
                      "next": next_step(wp, current, ready["ready"]), "workflow": _workflow_of(wp_id),
                      "supersedable": work.supersedable_runs(wp_id),  # 152: older live runs a person can supersede
-                     **_scope_of(wp)})
+                     **_scope_of(wp), **_release_of(wp_id)})
 
 
 def item_counts(wp: dict[str, Any]) -> dict[str, int]:
@@ -191,6 +191,14 @@ def item_counts(wp: dict[str, Any]) -> dict[str, int]:
         removed = c.execute("SELECT COUNT(*) FROM workpackage_items WHERE workpackage_id=? AND removed_revision IS NOT NULL",
                             (wp["id"],)).fetchone()[0]
     return {**dict(states), **({"removed": removed} if removed else {})}
+
+
+def _release_of(wp_id: str) -> dict[str, Any]:
+    """181: a released package's release state and latest version (the stage bar's result), only when it has one."""
+    from jav import package_release
+
+    summary = package_release.release_summary(wp_id)
+    return {"release": summary} if summary else {}
 
 
 def _scope_of(wp: dict[str, Any]) -> dict[str, Any]:

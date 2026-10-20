@@ -1936,5 +1936,8 @@
   "levél-becsatornázás": "levél-becsatornázás",
   "Route the attachments": "Csatolmányok becsatornázása",
   "Routed by:": "Becsatornázza:",
-  "{{n}} document(s) of this package came as an email's attachment. The routing proposes the package each invoice, outgoing invoice and bank statement belongs to.": "A csomag {{n}} irata levél csatolmányaként érkezett. A becsatornázás minden számlának, kimenő számlának és bankkivonatnak javasolja a csomagot, ahová tartozik."
+  "{{n}} document(s) of this package came as an email's attachment. The routing proposes the package each invoice, outgoing invoice and bank statement belongs to.": "A csomag {{n}} irata levél csatolmányaként érkezett. A becsatornázás minden számlának, kimenő számlának és bankkivonatnak javasolja a csomagot, ahová tartozik.",
+  "released": "kiadva",
+  "partly released": "részben kiadva",
+  "changed since the release": "a kiadás óta változott"
 }
