@@ -41,13 +41,11 @@ KIND = "email_routing"
 # the actions this module records in a routing package's log (`jav/activity_kinds.py`)
 activity_kinds.register_events("package", ("routing_accept", "routing_reject", "routing_undo"), __name__)
 
+# 186 (plan G-full-move T2b): the email packages whose attachments it routes are its scope's further part `emails` (its
+# input role's name) in the shared scope store (`jav/package_scope.py`)
+EMAILS = "emails"
+
 store.register_schema("email_routing", """
-CREATE TABLE IF NOT EXISTS email_routing_scopes (
-    workpackage_id TEXT PRIMARY KEY,
-    sources        TEXT NOT NULL,      -- JSON: the email packages whose attachments it routes
-    actor          TEXT NOT NULL,
-    created_at     TEXT NOT NULL
-);
 CREATE TABLE IF NOT EXISTS email_routing_decisions (
     workpackage_id TEXT NOT NULL,
     item_id        TEXT NOT NULL,      -- the attachment (its content hash)
@@ -59,6 +57,19 @@ CREATE TABLE IF NOT EXISTS email_routing_decisions (
     PRIMARY KEY (workpackage_id, item_id)
 );
 """)
+
+
+
+def _older_scope(row: dict[str, Any]) -> dict[str, Any]:
+    """186: a row of the older own scope table (181-185) as the shared scope keeps it."""
+    return {"workpackage_id": row["workpackage_id"], "party_id": None, "period_start": None, "period_end": None,
+            "role": None, "parts": {EMAILS: json.loads(row["sources"])}, "revision": 1, "set_by": row["actor"],
+            "set_at": row["created_at"]}
+
+
+# 186: an older store's `email_routing_scopes` is copied into the shared scope store once
+store.register_migration("email_routing_scope",
+                         lambda conn: package_scope.copy_older(conn, "email_routing_scopes", _older_scope))
 
 # what keeps an attachment from being routed by itself (the interface names each)
 BLOCKERS = ("no_result", "no_data", "unknown_party", "unclear_direction", "internal", "not_own", "no_day", "suspicious")
@@ -98,17 +109,15 @@ def create(*, name: str, sources: list[str], actor: str) -> dict[str, Any]:
     wp = work.create_workpackage(name=name, source_kind=KIND, source_ref=None, owner=actor)
     with store.connect() as c:
         store.begin_immediate(c)
-        c.execute("INSERT INTO email_routing_scopes(workpackage_id, sources, actor, created_at) VALUES (?,?,?,?)",
-                  (wp["id"], json.dumps(chosen), actor, _now()))
+        package_scope.save(c, wp["id"], parts={EMAILS: chosen}, actor=actor)
     return {"workpackage_id": wp["id"], "sources": chosen}
 
 
 def sources_of(wp_id: str) -> list[str]:
-    with store.connect() as c:
-        row = c.execute("SELECT sources FROM email_routing_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
+    row = package_scope.stored(wp_id)
     if row is None:
         raise KeyError(wp_id)
-    return json.loads(row["sources"])
+    return row["parts"][EMAILS]
 
 
 # --- what each attachment is -----------------------------------------------------------------------------------------------
@@ -450,9 +459,11 @@ def offer(wp: dict[str, Any]) -> dict[str, Any]:
     if not attachments:
         return {}
     with store.connect() as c:
-        rows = c.execute("SELECT s.workpackage_id, s.sources, w.name FROM email_routing_scopes s"
-                         " JOIN workpackages w ON w.id = s.workpackage_id ORDER BY s.created_at").fetchall()
-    routings = [{"id": r["workpackage_id"], "name": r["name"]} for r in rows if wp["id"] in json.loads(r["sources"])]
+        rows = c.execute("SELECT s.workpackage_id, s.parts, w.name FROM workpackage_scopes s"
+                         " JOIN workpackages w ON w.id = s.workpackage_id WHERE w.source_kind = ? ORDER BY s.set_at",
+                         (KIND,)).fetchall()
+    routings = [{"id": r["workpackage_id"], "name": r["name"]} for r in rows
+                if wp["id"] in json.loads(r["parts"]).get(EMAILS, [])]
     return {"routing_offer": {"attachments": attachments, "routings": routings}}
 
 
@@ -491,8 +502,7 @@ def _page(wp_id: str) -> dict[str, Any]:
 
 
 def _delete_guard(c: sqlite3.Connection, wp_id: str) -> None:
-    c.execute("DELETE FROM email_routing_decisions WHERE workpackage_id=?", (wp_id,))
-    c.execute("DELETE FROM email_routing_scopes WHERE workpackage_id=?", (wp_id,))
+    c.execute("DELETE FROM email_routing_decisions WHERE workpackage_id=?", (wp_id,))  # 186: the scope is the shared one's
 
 
 def _release_refusal() -> Exception:

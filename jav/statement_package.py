@@ -35,8 +35,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import (activity_kinds, cfg, item_kinds, logic_packs, parties, reconcile, statement_months, statement_table, store,
-                 typepack, work, workflow_steps)
+from jav import (activity_kinds, cfg, item_kinds, logic_packs, package_scope, parties, reconcile, statement_months,
+                 statement_table, store, typepack, work, workflow_steps)
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
@@ -47,23 +47,18 @@ NOT_A_STATEMENT = "statements:not_a_statement"
 OTHER_PARTY = "statements:other_party"
 DOC_TYPE = "statement_table"
 
-store.register_schema("statement_package", """
-CREATE TABLE IF NOT EXISTS statement_scopes (
-    workpackage_id TEXT PRIMARY KEY,
-    party_id       TEXT NOT NULL,      -- the own party (jav.parties) whose statements the package holds
-    period_start   TEXT NOT NULL,      -- ISO date
-    period_end     TEXT NOT NULL,      -- ISO date, inclusive
-    revision       INTEGER NOT NULL DEFAULT 1,
-    actor          TEXT NOT NULL,
-    updated_at     TEXT NOT NULL
-);
-""")
-def count_party(c, pid: str) -> int:
-    return c.execute("SELECT COUNT(*) FROM statement_scopes WHERE party_id=?", (pid,)).fetchone()[0]
+
+def _older_scope(row: dict[str, Any]) -> dict[str, Any]:
+    """186: a row of the older own scope table (140-185) as the shared scope keeps it."""
+    return {"workpackage_id": row["workpackage_id"], "party_id": row["party_id"], "period_start": row["period_start"],
+            "period_end": row["period_end"], "role": ROLE, "parts": {}, "revision": row["revision"],
+            "set_by": row["actor"], "set_at": row["updated_at"]}
 
 
-def repoint_party(c, old: str, new: str) -> None:
-    c.execute("UPDATE statement_scopes SET party_id=? WHERE party_id=?", (new, old))
+# 186 (plan G-full-move T2b): the package's party and period are in the shared scope store (`jav/package_scope.py`); an
+# older store's `statement_scopes` is copied there once
+store.register_migration("statement_package_scope",
+                         lambda conn: package_scope.copy_older(conn, "statement_scopes", _older_scope))
 
 
 class PackageError(ValueError):
@@ -285,8 +280,7 @@ def create(*, name: str, party_id: str, period_start: Any, period_end: Any, path
                                 entries=entries)
     with store.connect() as c:
         store.begin_immediate(c)
-        c.execute("INSERT INTO statement_scopes(workpackage_id, party_id, period_start, period_end, revision, actor, updated_at)"
-                  " VALUES (?,?,?,?,1,?,?)", (wp["id"], party["id"], start, end, actor, _now()))
+        package_scope.save(c, wp["id"], party_id=party["id"], period_start=start, period_end=end, role=ROLE, actor=actor)
         work.record_event(c, wp["id"], "statement_scope", actor, {"party": party["id"], "period": [start, end],
                                                                   "statements": len(wanted), "pdfs": len(picked)})
     return scope(wp["id"])
@@ -362,22 +356,16 @@ def _package(wp_id: str) -> dict[str, Any]:
     return wp
 
 
-def _scope_row(wp_id: str) -> dict[str, Any] | None:
-    with store.connect() as c:
-        row = c.execute("SELECT * FROM statement_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
-    return dict(row) if row else None
-
-
 def scope(wp_id: str) -> dict[str, Any]:
     _package(wp_id)
-    row = _scope_row(wp_id)
+    row = package_scope.stored(wp_id)
     if row is None:
         raise KeyError(wp_id)
     names = {p["id"]: p["name"] for p in parties.parties()}
     return {"workpackage_id": wp_id, "party_id": row["party_id"],
             "party": {"id": row["party_id"], "name": names.get(row["party_id"], row["party_id"])},
             "period_start": row["period_start"], "period_end": row["period_end"], "revision": row["revision"],
-            "updated_at": row["updated_at"]}
+            "updated_at": row["set_at"]}
 
 
 def package_view(wp_id: str) -> dict[str, Any]:
@@ -444,7 +432,7 @@ def after_item(run: dict[str, Any], item: dict[str, Any]) -> list[str]:
     key = reconcile.statement_account(st)
     if key.startswith("doc:"):  # no account printed: nothing to assign
         return []
-    row = _scope_row(run["workpackage_id"])
+    row = package_scope.stored(run["workpackage_id"])
     if row is None:
         return []
     party_id = row["party_id"]
@@ -462,7 +450,7 @@ def after_approval(run: dict[str, Any]) -> None:
     the statements as that run read them; before, the store's latest reading of each, a later one's too."""
     if run["mode"] != "apply":
         return
-    row = _scope_row(run["workpackage_id"])
+    row = package_scope.stored(run["workpackage_id"])
     if row is None:
         return
     res = parties.resolver()
@@ -484,11 +472,6 @@ def after_approval(run: dict[str, Any]) -> None:
 
 
 RULE = work.PackageRule(after_detection=after_detection, after_item=after_item, after_approval=after_approval)
-
-
-def _delete_guard(c, wp_id: str) -> None:
-    """A statement package is deleted like any package (only without runs); its scope goes with it."""
-    c.execute("DELETE FROM statement_scopes WHERE workpackage_id=?", (wp_id,))
 
 
 def _page(wp_id: str) -> dict[str, Any]:
@@ -571,16 +554,14 @@ def create_from_statement_table(export: Path, keys: list[str], *, name: str, own
 
 
 # 176 (plan 170 L3): the statement package as a logic pack (`jav/logic_packs.py`); 180 (plan 170 E7): registered by the
-# finance domain with its party reference (`count_party`, `repoint_party`; `jav/domains/finance.py`)
+# finance domain (`jav/domains/finance.py`); 186: its scope's party reference and deletion are the shared scope's
 LOGIC = logic_packs.LogicPack(
     kind=KIND, module=__name__,
     roles=(logic_packs.InputRole("statements", "own_items",
                                     "the party's bank statements and statement PDFs of the period, ticked in its survey"),),
     add_refusal="add statements to a statement package through its survey",
-    rule=RULE, delete_guard=_delete_guard, page=_page, scope=own_scope, service="jav.api_statement_package")
-
+    rule=RULE, page=_page, scope=own_scope, service="jav.api_statement_package")
 
 
 __all__ = ["KIND", "LOGIC", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "STEP", "PackageError", "add_statement_tables",
-           "after_detection", "after_item", "count_party", "create", "create_from_statement_table", "package_view",
-           "repoint_party", "scope", "survey"]
+           "after_detection", "after_item", "create", "create_from_statement_table", "package_view", "scope", "survey"]

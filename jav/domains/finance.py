@@ -5,9 +5,9 @@ here, in one call (`register`, from `registrations.load_all`):
 - the cross-document checks, in the order they run: a duplicate invoice (126), an own tax number as the supplier's
   (134), a statement booking the same days as another one (139); the two scans that open the same to-dos on the
   stored results; and (185) the saved stage's direction check of an uncertain detailed type (149; `jav/checks.py`);
-- the statement package and the reconciliation package as logic packs, each with the reference that keeps a party in
-  use from being deleted (`jav/logic_packs.py`, `jav/parties.py`), and (181) as the statements and reconciliation steps
-  of a workflow (`jav/workflow_steps.py`);
+- the statement package and the reconciliation package as logic packs (`jav/logic_packs.py`; 186: their scopes, with
+  the reference that keeps a party in use from being deleted, are in the shared scope store, `jav/package_scope.py`),
+  and (181) as the statements and reconciliation steps of a workflow (`jav/workflow_steps.py`);
 - (181) the package roles: incoming invoices, outgoing invoices and bank statements, and where an invoice or a
   statement belongs (its role, party and day; `jav/package_scope.py`);
 - the finance parts of the downloads (`jav/outputs/parts.py`): the duplicate mark on a run's documents and its two
@@ -240,10 +240,8 @@ def register() -> None:
     for part in RECORD_PARTS:  # 185: the finance parts of a document's result on the review page
         item_kinds.register_record_part(part)
     from jav import reconcile_statement  # 185: its package log events (until then the activity registry's own) and labels
-    logic_packs.register(statement_package.LOGIC)
-    parties.register_reference("statement_package", count=statement_package.count_party, repoint=statement_package.repoint_party)
+    logic_packs.register(statement_package.LOGIC)  # 186: their scopes' party reference is the shared scope's
     logic_packs.register(reconcile_package.LOGIC)
-    parties.register_reference("reconcile_package", count=reconcile_package.count_party, repoint=reconcile_package.repoint_party)
     workflow_steps.register(statement_package.STEP)  # 181: a workflow's statements and reconciliation steps
     workflow_steps.register(reconcile_package.STEP)
     for role in _roles():  # 181: what a package collects, and where an emailed document belongs

@@ -198,7 +198,7 @@ def test_a_routing_package_needs_an_email_package_and_refuses_documents(db) -> N
         work.add_to_package(routing, [db / "inbox" / "office" / "m1" / "invoice.pdf"], expected_revision=0, actor="tester")
     work.delete_workpackage(routing, actor="tester")
     with store.connect() as c:
-        assert c.execute("SELECT COUNT(*) FROM email_routing_scopes").fetchone()[0] == 0
+        assert c.execute("SELECT COUNT(*) FROM workpackage_scopes").fetchone()[0] == 0  # 186: the shared scope
 
 
 def test_an_email_package_offers_its_routing_and_names_the_routing_packages(db) -> None:

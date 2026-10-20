@@ -291,7 +291,7 @@ def test_a_package_with_decisions_is_only_hidden(db):
     empty = _package(name="empty")
     work.delete_workpackage(empty, actor="t")
     with store.connect() as c:
-        assert c.execute("SELECT COUNT(*) FROM reconcile_scopes").fetchone()[0] == 0
+        assert c.execute("SELECT COUNT(*) FROM workpackage_scopes").fetchone()[0] == 0  # 186: the shared scope
     used = _package(name="used")
     rp.mark(used, [lid], category="private", note=None, actor="t")
     with pytest.raises(work.NotReady):
