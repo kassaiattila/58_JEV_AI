@@ -4,12 +4,34 @@
 import { useId, type ReactNode } from "react";
 import type { DsColumn, DsRow } from "../api";
 import { t, useLocale } from "../i18n";
+import { fieldLabel } from "../labels";
 import { setNameMode, useNameMode } from "../names";
 import { linkOf } from "./DataTable";
 
-/** The mark on an uncertain unified name: its copy would go to the review folder; the reason is in the label. */
-export function NameWarning({ check }: { check: string | null | undefined }) {
-  const label = check ? t("Ellenőrzendő név: {{why}}", { why: check }) : t("Ellenőrzendő név");
+// 183: the reasons of an uncertain name (`jav/naming.py` `reason_text`'s codes) in the interface's language
+const REASON: Record<string, () => string> = {
+  type: () => t("the type is unknown or uncertain"),
+  not_done: () => t("the item's processing did not finish"),
+  source_changed: () => t("the source file changed or is missing; it cannot be copied"),
+};
+
+/** 183: why a unified name is uncertain, from its reasons' codes; an unknown code is shown as it is. */
+export function nameCheckText(reasons: readonly string[]): string {
+  return reasons.map((code) => {
+    const [kind, ...rest] = code.split(":");
+    const field = rest.join(":");
+    if (code === "todo:*") return t("an open to-do about the whole document");
+    if (kind === "missing") return t("missing: {{field}}", { field: fieldLabel(field) });
+    if (kind === "todo") return t("open to-do: {{field}}", { field: fieldLabel(field) });
+    return REASON[kind]?.() ?? code;
+  }).join("; ");
+}
+
+/** The mark on an uncertain unified name: its copy would go to the review folder; the reason is in the label (183:
+ *  written from the reasons' codes when the service gives them, else the service's text). */
+export function NameWarning({ check, reasons }: { check: string | null | undefined; reasons?: readonly string[] | null }) {
+  const why = reasons?.length ? nameCheckText(reasons) : check;
+  const label = why ? t("Ellenőrzendő név: {{why}}", { why }) : t("Ellenőrzendő név");
   return <span className="name-warn" role="img" aria-label={label} title={label}>⚠</span>;
 }
 
@@ -24,7 +46,7 @@ export function nameCell(col: DsColumn, row: DsRow): ReactNode | undefined {
   const tip = unified
     ? t("Eredeti név: {{name}}", { name: String(row.original_name ?? "") })
     : row.name_state === "pending" ? t("Még nincs egységes név: a tétel még nem futott le.") : undefined;
-  const warn = unified && row.name_state === "review" ? <NameWarning check={row._name_check as string | null} /> : null;
+  const warn = unified && row.name_state === "review" ? <NameWarning check={row._name_check as string | null} reasons={row._name_reasons as string[] | undefined} /> : null;
   const href = linkOf(col, row);
   const body = href ? <a href={href} title={tip}>{text}</a> : <span title={tip}>{text}</span>;
   return <>{warn}{body}</>;

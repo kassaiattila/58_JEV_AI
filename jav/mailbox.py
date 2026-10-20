@@ -88,7 +88,9 @@ class MailboxRequest(BaseModel):
         return self
 
     def label(self) -> str:
-        period = (f"{self.received_from}–{self.received_to}" if self.received_from else f"utolsó {self.since_days} nap")
+        """The download in one line (the package's stored source, the logs). 183: English; the interface writes it in
+        its own language from the request (`page_part`'s `mailbox_request`)."""
+        period = (f"{self.received_from}–{self.received_to}" if self.received_from else f"last {self.since_days} days")
         return f"{', '.join(self.accounts)} · {', '.join(self.folders)} · {period}"
 
 
@@ -228,8 +230,17 @@ def add_attachments(wp_id: str, *, expected_revision: int) -> dict[str, Any]:
 
 def page_part(wp: Mapping[str, Any]) -> dict[str, Any]:
     """058 K5.2: a mailbox package's part of its page: how many PDF attachments are not yet items (they can be added
-    later to a pre-058 email package). 180: registered by the email domain (`jav/domains/email.py`)."""
-    return {"attachments_missing": len(missing_attachments(dict(wp)))}
+    later to a pre-058 email package). 180: registered by the email domain (`jav/domains/email.py`). 183: the request
+    of the download that made it (None if no recorded download did), so that the interface names its source in its own
+    language instead of the stored label."""
+    return {"attachments_missing": len(missing_attachments(dict(wp))), "mailbox_request": _request_of(wp["id"])}
+
+
+def _request_of(wp_id: str) -> dict[str, Any] | None:
+    with store.connect() as c:
+        row = c.execute("SELECT request FROM mailbox_pulls WHERE status='ok' AND json_extract(result, '$.workpackage')=?"
+                        " ORDER BY created_at DESC LIMIT 1", (wp_id,)).fetchone()
+    return json.loads(row["request"]) if row else None
 
 
 # --- an attachment of a suspicious email (154; 177: the email domain's rule, `jav/item_kinds.py`; 180: registered by

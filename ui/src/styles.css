@@ -424,6 +424,8 @@ body.dragging { cursor: col-resize; user-select: none; }
    that one such value cannot widen the whole table */
 .dt-table td { padding: 7px var(--sp-2); height: 36px; overflow-wrap: break-word; }
 .dt-table td[data-wrap="anywhere"] { overflow-wrap: anywhere; } /* 156: the dataset marks its name-like columns */
+/* 183: a column that limits its lines (the number is set on the element); the full value is the tooltip */
+.dt-clamp { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
 .dt-table td.num, .dt-table td .status, .dt-table td .count-alert { white-space: nowrap; }
 /* the work-package list (155): the name leads the row; the other columns get just the room their values need, so
    the default columns fit 1440 px (and 1366 px) without sideways scrolling */

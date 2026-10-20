@@ -33,7 +33,9 @@ Column `extra` for the UI: `link` = link target (`run`, `workpackage`, `reviews`
 from the row's `_wp`, `_run`, `_stage` and `item_id` fields (`next`: the stage of the package's next step). `names`
 (082, on the name column of an item list): which name the column shows (`original` or `unified`, the scope key `names`).
 `wrap` (156): `anywhere` on a name-like text column (a name, a file name, a path, an e-mail address), whose long
-unbroken value may break inside a word; every other column wraps at spaces only.
+unbroken value may break inside a word; every other column wraps at spaces only. `clamp` (183): the most lines a cell
+of the column shows; the full value is its tooltip (the facts table's document, source and value, which made its rows
+five to eight lines tall).
 """
 
 from __future__ import annotations
@@ -350,10 +352,12 @@ def _name_cols() -> list[Column]:
 
 def _name_fields(item: dict[str, Any], titles: dict[str, str], name: Any, choice: str) -> dict[str, Any]:
     """The name fields of one row: `name` follows the choice (an item without a unified name keeps its original
-    name), `_name_check` says why a unified name is uncertain (for the UI's warning mark; not a column)."""
+    name), `_name_check` says why a unified name is uncertain (for the UI's warning mark; not a column), and (183)
+    `_name_reasons` the same as codes, which the UI writes in its own language."""
     original = _item_name(item, titles)
     return {"name": name.unified if choice == "unified" and name.unified else original, "original_name": original,
-            "unified_name": name.unified, "name_state": name.state, "_name_check": name.check}
+            "unified_name": name.unified, "name_state": name.state, "_name_check": name.check,
+            "_name_reasons": list(name.reasons)}
 
 
 def _workpackage_items(scope: dict[str, str]) -> Rows:
@@ -799,8 +803,10 @@ def _native_facts(scope: dict[str, str]) -> Rows:
     # machine states get their everyday labels
     hidden = {"item_id", "fact_id", "result_version", "proposal", "reading_gaps", "source_citations", "correctness"}
     states = {"machine_state", "machine_grounding", "reading_status", "interpretation_status", "correctness"}
+    # 183: a document's long file name repeats in each of its facts' rows; it, the source and the value keep a row short
+    lines = {"file": 2, "source": 3, "effective_value": 4}
     cols = [_col(key, label, "enum" if key in states else "text", labels="native_state" if key in states else None,
-                 hidden=key in hidden)
+                 hidden=key in hidden, **({"clamp": lines[key]} if key in lines else {}))
             for key, label in zip(export.NATIVE_COLUMNS, export.NATIVE_HEAD, strict=True)]
     return cols, _zip_rows(list(export.NATIVE_COLUMNS), records, _linker(scope, run_of), lambda row: f"{row['item_id']}:{row['fact_id']}")
 

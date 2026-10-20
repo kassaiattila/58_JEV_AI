@@ -72,6 +72,8 @@ export interface WorkpackageView {
   routing?: RoutingView;
   /** 181: an email package offers the routing of its attachments (and names the routing packages that route it) */
   routing_offer?: { attachments: number; routings: { id: string; name: string }[] };
+  /** 183: a mailbox package: the request of the download that made it (null if no recorded download did) */
+  mailbox_request?: MailboxRequest | null;
 }
 /** 181: what keeps an attachment from being routed by itself (183: `no_data` new; an incoming invoice in a sent email
  * is a note instead). */
@@ -421,7 +423,7 @@ export interface CostTotal { usd: string; calls: number; failed: number; held_us
 export interface RunCostView { run_id: string; plan_saved: boolean; plan: RunPlan | null; providers: ProviderCost[]; total: CostTotal }
 /** 082: an item's unified name. `state`: ready / review (uncertain, `check` says why) / pending (not processed yet) /
  *  none (an email has no file name of its own). */
-export interface ItemName { unified: string | null; state: "ready" | "review" | "pending" | "none"; check: string | null; run_id: string | null }
+export interface ItemName { unified: string | null; state: "ready" | "review" | "pending" | "none"; check: string | null; run_id: string | null; reasons?: string[] }
 export interface UtilitySource {
   item_id: string; file: string; amount: string; page: number | null; field: string; corrected: boolean; open_reasons: number;
   settlement?: boolean;
@@ -925,6 +927,7 @@ export interface DsColumn {
   percent?: boolean; // 062: a probability between 0 and 1, shown as a percentage
   names?: "original" | "unified"; // 082: the name column of an item list shows this name
   wrap?: "anywhere"; // 156: a name-like value (a file name, a path, an e-mail address) may break inside a word
+  clamp?: number; // 183: the most lines a cell shows; the full value is its tooltip
 }
 export type FilterOp = "contains" | "eq" | "neq" | "in" | "gte" | "lte" | "empty" | "notempty";
 export interface DsFilter { col: string; op: FilterOp; value?: string | string[] | null }

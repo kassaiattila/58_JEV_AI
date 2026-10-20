@@ -129,4 +129,4 @@ def test_the_run_view_carries_the_names_for_the_review_queue_only_when_asked(env
     first = _correct_first(c, wp, run_id)
     assert "names" not in c.get(f"/api/runs/{run_id}").json()
     names = c.get(f"/api/runs/{run_id}", params={"names": "unified"}).json()["names"]
-    assert names[first] == {"unified": READY, "state": "ready", "check": None, "run_id": run_id}
+    assert names[first] == {"unified": READY, "state": "ready", "check": None, "run_id": run_id, "reasons": []}  # 183: reasons

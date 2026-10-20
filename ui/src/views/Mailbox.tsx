@@ -8,7 +8,7 @@ import { DataTable } from "../components/DataTable";
 import { Picker } from "../components/Picker";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { intervals, intervalText, when } from "../labels";
+import { intervals, intervalText, mailboxLabel, when } from "../labels";
 
 export function pullSummary(p: Pick<MailboxPull, "status" | "result">): string {
   const r = p.result;
@@ -82,7 +82,9 @@ export function Mailbox({ variant = "settings" }: { variant?: "pull" | "settings
     try {
       if (kind === "count") {
         setPreview(null);
-        setPreview(await api.mailboxCount(req()));
+        const r = req();
+        // 183: the label in the interface's language, from the request counted (the service's is English)
+        setPreview({ ...(await api.mailboxCount(r)), label: mailboxLabel(r) });
       } else if (kind === "pull") {
         await api.mailboxPull(req());
         setMsg({ kind: "ok", text: t("A letöltés sorba került; a feldolgozó futtatja. Az új levelekből munkacsomag lesz, a listában megjelenik (a letöltési napló a Beállítások › Postafiókok alatt).") });
@@ -189,9 +191,9 @@ export function Mailbox({ variant = "settings" }: { variant?: "pull" | "settings
           <tbody>
             {d.schedules.map((s) => (
               <tr key={s.id}>
-                <td>{s.label}</td>
+                <td>{mailboxLabel(s.request)}</td>
                 <td>
-                  <Picker label={t("Gyakoriság: {{label}}", { label: s.label })} hideLabel compact value={String(s.interval_min)}
+                  <Picker label={t("Gyakoriság: {{label}}", { label: mailboxLabel(s.request) })} hideLabel compact value={String(s.interval_min)}
                     options={intervals().map(([m, label]) => ({ value: String(m), label }))}
                     onChange={(v) => void api.updateSchedule(s.id, { interval_min: Number(v) }).then(data.reload, (err) => setMsg({ kind: "error", text: err.message }))} />
                 </td>

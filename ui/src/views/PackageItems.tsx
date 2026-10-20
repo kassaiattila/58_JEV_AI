@@ -5,18 +5,20 @@
 // Before 168 this was the document list of Review (057; 160-C S1: a removal names the chosen person and needs a reason;
 // removed items show behind a switch, with who removed them, when and why, and can be restored).
 import { useState, type FormEvent, type ReactNode } from "react";
-import { api, ApiError, getActor, type AddSummary, type DsRow, type Workpackage, type WorkpackageView } from "../api";
+import { api, ApiError, getActor, type AddSummary, type DsRow, type MailboxRequest, type Workpackage, type WorkpackageView } from "../api";
 import { DataTable } from "../components/DataTable";
 import { Icon } from "../components/Icon";
 import { nameCell, NameModeSwitch } from "../components/NameCell";
 import { t, useLocale } from "../i18n";
+import { mailboxLabel } from "../labels";
 import { logicOf } from "../logic/registry";
 import { useNameMode } from "../names";
 import { wpHash } from "../route";
 import { AddDocuments, AddStatements, AddSummaryLine, type AddSource } from "./PackageAdd";
 
-/** 153 (review E): where the package was created from, by its kind; later additions may come from elsewhere. */
-export function createdFrom(wp: Workpackage): string {
+/** 153 (review E): where the package was created from, by its kind; later additions may come from elsewhere. 183: a
+ *  mailbox package is named from the request of the download that made it, in the interface's language. */
+export function createdFrom(wp: Workpackage, request?: MailboxRequest | null): string {
   const own = logicOf(wp.source_kind)?.createdFrom; // 176: a logic pack names its own origin (a statement package)
   if (own) return own(wp);
   const ref = wp.source_ref ?? "";
@@ -24,7 +26,7 @@ export function createdFrom(wp: Workpackage): string {
   switch (wp.source_kind) {
     case "folder": return ref;
     case "watch": return t("the watched folder {{path}}", { path: ref }); // 177: was "the file <folder>"
-    case "mailbox": return t("mailbox {{name}}", { name: file });
+    case "mailbox": return t("mailbox {{name}}", { name: request ? mailboxLabel(request) : file });
     default: return ref ? t("the file {{name}}", { name: file }) : t("files chosen by hand");
   }
 }
@@ -125,7 +127,7 @@ export function PackageItems({ view, adding, onAddingChange, onChanged, pendingA
           </div>
         )}
       </div>
-      <p className="muted small">{t("Created from: {{source}} · revision {{rev}} of the package", { source: createdFrom(wp), rev: wp.revision })}</p>
+      <p className="muted small">{t("Created from: {{source}} · revision {{rev}} of the package", { source: createdFrom(wp, view.mailbox_request), rev: wp.revision })}</p>
       {adding && statements ? <AddStatements wp={wp} source={adding} onCancel={close} onDone={() => { close(); onChanged(); }} /> : null}
       {adding && !statements ? <AddDocuments wp={wp} source={adding} onCancel={close} onDone={(s) => { close(); setAdded(s); onChanged(); }} /> : null}
       {added ? <AddSummaryLine summary={added} /> : null}
