@@ -42,7 +42,7 @@ export function stageStatus(view: WorkpackageView): Record<Stage, string> {
     // version holds the approval (the next step says Approve and release until then)
     result: current && current.mode !== "shadow" && !current.approval && (current.status === "failed" || current.status === "cancelled")
       ? t("cannot be approved")
-      // 181: a trial after a release does not hide the release (backlog J-szakaszsáv-kiadott-próba)
+      // 181: a trial after a release does not hide the release (backlog J-szakaszsav-kiadott-proba)
       : !current ? t("még nincs") : current.mode === "shadow" ? (view.release ? RELEASE_STATE[view.release.state] : t("próba-eredmény"))
         : current.approval && view.next?.code !== "release" ? t("kiadva") : t("awaiting release"),
   };

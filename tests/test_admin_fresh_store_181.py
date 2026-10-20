@@ -1,4 +1,4 @@
-"""181 (backlog J-preflight-friss-tár): the state snapshot of a fresh store.
+"""181 (backlog J-preflight-friss-tar): the state snapshot of a fresh store.
 
 A process that never loaded the work package module (the start-up check's state snapshot) has no runs table in a
 fresh store, and the snapshot's count of open to-dos by the kind of run that raised them failed there (`no such

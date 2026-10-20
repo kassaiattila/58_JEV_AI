@@ -157,7 +157,7 @@ def test_a_reconciliation_package_is_released_in_its_own_statement(env):
 
 
 def test_a_released_packages_page_carries_its_release_for_the_stage_bar(env):
-    """181 (backlog J-szakaszsáv-kiadott-próba): the package's page says its release state and latest version, so a
+    """181 (backlog J-szakaszsav-kiadott-proba): the package's page says its release state and latest version, so a
     trial run after a release no longer reads as only a trial result on the stage bar; a package never released has
     none."""
     c = env["client"]

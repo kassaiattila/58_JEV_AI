@@ -1,4 +1,4 @@
-// 181 (backlog J-szakaszsáv-kiadott-próba): the stage bar's result says a released package's release state, also when
+// 181 (backlog J-szakaszsav-kiadott-proba): the stage bar's result says a released package's release state, also when
 // its latest run is a trial; a package never released still reads as a trial result. Synthetic values only.
 import { beforeEach, describe, expect, it } from "vitest";
 import type { RunRow, WorkpackageView } from "../api";
