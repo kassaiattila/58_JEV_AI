@@ -959,7 +959,8 @@ def _mailbox_pulls(_scope: dict[str, str]) -> Rows:
         rows.append({"_key": p["id"], "_wp": res.get("workpackage"), "created_at": p["created_at"], "label": p["label"],
                      "status": p["status"], "new": res.get("new"), "changed": res.get("changed"), "duplicate": res.get("duplicate"),
                      "workpackage": res.get("workpackage"), "actor": p["actor"], "error": res.get("error"),
-                     "finished_at": p.get("finished_at")})
+                     "finished_at": p.get("finished_at"),
+                     "_request": p["request"]})  # 183: the interface writes the label in its own language from it
     return cols, rows
 
 

@@ -10,7 +10,7 @@ import { DataTable } from "../components/DataTable";
 import { Icon } from "../components/Icon";
 import { nameCell, NameModeSwitch } from "../components/NameCell";
 import { t, useLocale } from "../i18n";
-import { mailboxLabel } from "../labels";
+import { mailboxLabel, storedMailboxLabel } from "../labels";
 import { logicOf } from "../logic/registry";
 import { useNameMode } from "../names";
 import { wpHash } from "../route";
@@ -26,7 +26,7 @@ export function createdFrom(wp: Workpackage, request?: MailboxRequest | null): s
   switch (wp.source_kind) {
     case "folder": return ref;
     case "watch": return t("the watched folder {{path}}", { path: ref }); // 177: was "the file <folder>"
-    case "mailbox": return t("mailbox {{name}}", { name: request ? mailboxLabel(request) : file });
+    case "mailbox": return t("mailbox {{name}}", { name: request ? mailboxLabel(request) : storedMailboxLabel(file) });
     default: return ref ? t("the file {{name}}", { name: file }) : t("files chosen by hand");
   }
 }

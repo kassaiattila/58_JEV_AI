@@ -13,14 +13,14 @@ it("writes the reasons in the interface's language", async () => {
   await setLanguage("en");
   expect(nameCheckText(["missing:invoice_number", "type", "todo:*", "odd:code"]))
     .toBe(`missing: ${fieldLabel("invoice_number")}; the type is unknown or uncertain; an open to-do about the whole document; odd:code`);
-  render(<NameWarning check="hiányzik: Számla sorszáma" reasons={["todo:issue_date"]} />);
+  render(<NameWarning check="hianyzik: Szamla sorszama" reasons={["todo:issue_date"]} />);
   expect(screen.getByLabelText(`Name to check: open to-do: ${fieldLabel("issue_date")}`)).toBeTruthy();
   await setLanguage("hu");
-  expect(nameCheckText(["missing:invoice_number"])).toBe(`hiányzik: ${fieldLabel("invoice_number")}`);
+  expect(nameCheckText(["missing:invoice_number"])).toBe(`hi\u00e1nyzik: ${fieldLabel("invoice_number")}`);
 });
 
 it("without codes it shows the service's text", async () => {
   await setLanguage("en");
-  render(<NameWarning check="hiányzik: Számla sorszáma" />);
-  expect(screen.getByLabelText("Name to check: hiányzik: Számla sorszáma")).toBeTruthy();
+  render(<NameWarning check="hianyzik: Szamla sorszama" />);
+  expect(screen.getByLabelText("Name to check: hianyzik: Szamla sorszama")).toBeTruthy();
 });

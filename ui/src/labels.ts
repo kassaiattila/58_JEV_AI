@@ -56,6 +56,14 @@ export function mailboxLabel(r: MailboxRequest): string {
   return [r.accounts.join(", "), (r.folders?.length ? r.folders : ["Inbox"]).join(", "), period].join(" · ");
 }
 
+/** 183: a stored download label (a mailbox package's source when no recorded download made it) with its last-days
+ *  period in the interface's language; the service wrote it in Hungarian before 183 and in English since. */
+export function storedMailboxLabel(label: string): string {
+  // the Hungarian period is matched with the accented letter escaped (stored data, not interface text)
+  return label.replace(/(?:utols\u00f3 (\d+) nap|last (\d+) days)$/, (_m, hu: string | undefined, en: string | undefined) =>
+    t("last {{n}} days", { n: Number(hu ?? en) }));
+}
+
 export const fieldLabel = (f: string) => FIELD[f] ?? f;
 export const docTypeLabel = (d: string) => DOC_TYPE[d] ?? d;
 

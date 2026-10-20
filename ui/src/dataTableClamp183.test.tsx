@@ -1,4 +1,4 @@
-// 183 (backlog Q-ténytábla-magas-sorok): a column that limits its lines shows at most that many lines of a cell, with
+// 183 (backlog Q-tenytabla-magas-sorok): a column that limits its lines shows at most that many lines of a cell, with
 // the full value as the cell's tooltip; another column is drawn as before. Artificial data, no service.
 import { render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";

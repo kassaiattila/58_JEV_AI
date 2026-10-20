@@ -1,6 +1,6 @@
 """183 (backlog N-angol-felulet-maradek): a mailbox package's source is named in the interface's language.
 
-A download's label ("<mailbox> · <folders> · <period>") was put together in Hungarian in code ("utolsó 7 nap") and
+A download's label ("<mailbox> · <folders> · <period>") was put together in Hungarian in code (the last N days) and
 stored as the package's source, so the English interface showed it in Hungarian. The label is English now, and a
 mailbox package's page part gives the request of the download that made it, from which the interface writes the
 source in its own language; a package no recorded download made has none (its stored source is shown as before).
@@ -32,3 +32,13 @@ def test_a_mailbox_packages_page_gives_the_request_of_the_download_that_made_it(
 def test_a_package_no_recorded_download_made_has_no_request(env):  # noqa: F811
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=env["inbox"])
     assert mailbox.page_part(work.get(res["workpackage"]))["mailbox_request"] is None
+
+
+def test_the_downloads_list_gives_each_rows_request_beside_its_label(env, monkeypatch):  # noqa: F811
+    from jav import datasets
+
+    monkeypatch.setattr(ingest_server, "INBOX_ROOT", env["inbox"])
+    monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
+    mailbox.request_pull(REQ, actor="teszt")
+    _cols, rows = datasets._mailbox_pulls({})
+    assert rows[0]["label"] == REQ.label() and rows[0]["_request"] == REQ.model_dump(mode="json")

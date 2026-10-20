@@ -1,4 +1,4 @@
-"""183 (backlog Q-ténytábla-magas-sorok): a column may say the most lines a cell shows; the full value stays its tooltip.
+"""183 (backlog Q-tenytabla-magas-sorok): a column may say the most lines a cell shows; the full value stays its tooltip.
 
 The facts table repeated a document's long file name in every row of its facts, and a narrow column broke it into five
 to eight lines (64 of 129 rows taller than four lines at 1366 px, 61 of them by the file name, 6 by the source). Its
