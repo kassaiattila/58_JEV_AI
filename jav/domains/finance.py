@@ -13,6 +13,8 @@ here, in one call (`register`, from `registrations.load_all`):
 - the finance parts of the downloads (`jav/outputs/parts.py`): the duplicate mark on a run's documents and its two
   columns, an invoice's direction, the utility cost's sheets, grand total and JSON section in the package's result,
   and the utility cost's own workbook;
+- (185) its tables on the interface: a reconciliation's inputs, the utility cost's grid and sources
+  (`jav/finance_datasets.py`);
 - (185) its addresses of the local service beyond its logic packs' own: the own parties (`jav/api_parties.py`) and the
   bank files, a tabular export's accounts, the utility cost and the duplicate and statement decisions
   (`jav/api_finance.py`), named in `SERVICE`.
@@ -169,8 +171,8 @@ DIRECTION_COLUMNS = (parts.Column("direction", "Direction", "enum", "direction")
 
 def register() -> None:
     """Every registration of the finance domain, in the order the shared code lists them (`registrations.load_all`)."""
-    from jav import (duplicates, logic_packs, package_scope, parties, reconcile_package, report_utility, statement_package,
-                     workflow_steps)
+    from jav import (datasets, duplicates, finance_datasets, logic_packs, package_scope, parties, reconcile_package,
+                     report_utility, statement_package, workflow_steps)
 
     for check in CHECKS:
         checks.register(check)
@@ -189,6 +191,8 @@ def register() -> None:
     parts.register_result_part(parts.ResultPart("utility_cost", __name__, report_utility.result_part, "utility_cost",
                                                  report_utility.build, heads=report_utility.HEADS,
                                                  value_labels=report_utility.RESULT_VALUE_LABELS))
+    for dataset, after in finance_datasets.DATASETS:  # 185: its tables on the interface
+        datasets.register(dataset, after=after, module=__name__)
     parts.register_own_output(parts.OwnOutput("utility_cost", __name__, "utility_cost.xlsx", "utility-cost",
                                               report_utility.output_data, report_utility.has_rows, heads=report_utility.HEADS,
                                               value_labels=report_utility.OUTPUT_VALUE_LABELS))

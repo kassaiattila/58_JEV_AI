@@ -83,25 +83,18 @@ class Dataset:
                 "one_of": list(self.one_of), "natural_sort": [{"col": c, "desc": d} for c, d in self.natural_sort]}
 
 
-def _labels(name: str) -> dict[str, str]:
+def label_set(name: str) -> dict[str, str]:
     if name == "field":
         return cfg.load("field_labels")["fields"]
     if name == "doc_type":
         return cfg.load("field_labels")["doc_types"]
     if name == "recipe":
         return {r["id"]: r["title"] for r in work.recipes()}
-    if name == "intent":  # 058 K5.1: the names of the email intents, from the registry
-        from jav import intents
-
-        return {k: v.display_name for k, v in intents.BY_KEY.items()}
-    if name == "task_action":  # 058 K5.3: the Hungarian names of the task actions
-        return dict(cfg.load("email_tasks")["actions"])
     if name == "provider":  # 082: the providers by the names the interface uses
         return dict(PROVIDER_NAMES)
-    if name == "next_flow":
-        from jav import mailbox
-
-        return mailbox.next_flow_labels()
+    _complete()
+    if name in _LABEL_SETS:  # 185: a domain's own (the email intents' names, the task actions, the next steps)
+        return dict(_LABEL_SETS[name].read())
     return cfg.load("datasets")["labels"][name]
 
 
@@ -117,10 +110,10 @@ def _column_label(c: str) -> str:
 _NAME_LIKE = frozenset({"name", "unified_name", "original_name", "file", "filename", "original", "source_path", "sender"})
 
 
-def _col(key: str, label: str, kind: str = "text", *, labels: str | None = None, hidden: bool = False, **extra: Any) -> Column:
+def col(key: str, label: str, kind: str = "text", *, labels: str | None = None, hidden: bool = False, **extra: Any) -> Column:
     if key in _NAME_LIKE and kind == "text":
         extra.setdefault("wrap", "anywhere")
-    return Column(key, label, kind, hidden=hidden, labels=_labels(labels) if labels else None, extra=extra)  # type: ignore[arg-type]
+    return Column(key, label, kind, hidden=hidden, labels=label_set(labels) if labels else None, extra=extra)  # type: ignore[arg-type]
 
 
 # --- fingerprint -----------------------------------------------------------------------------------------------
@@ -199,7 +192,7 @@ def _package_fingerprint(scope: dict[str, str]) -> str:
     return hashlib.sha256(json.dumps([parts, [_run_fingerprint({"run_id": r}) for r in runs]]).encode("utf-8")).hexdigest()
 
 
-def _result_fingerprint(scope: dict[str, str]) -> str:
+def result_fingerprint(scope: dict[str, str]) -> str:
     """A result table's fingerprint: its run's, or for the package's current result, the package's (172)."""
     return _run_fingerprint(scope) if "run_id" in scope else _package_fingerprint(scope)
 
@@ -253,23 +246,23 @@ def _runs(scope: dict[str, str]) -> Rows:
     if wp_id:
         work.get(wp_id)  # unknown package: 404
     cols = [
-        _col("created_at", "Indítva", "datetime", link="run"),
-        _col("workpackage_name", "Munkacsomag", link="workpackage"),
-        _col("recipe_id", "Feldolgozás", "enum", labels="recipe"),
-        _col("mode", "Mód", "enum", labels="mode"),
-        _col("scope", "Run scope", "enum", labels="run_scope"),  # 160-C S3: a run over only the pending items
-        _col("status", "Állapot", "enum", labels="run_status", badge=True),
-        _col("approval", "Jóváhagyás", "enum", labels="approval"),
-        _col("approved_by", "Jóváhagyta", hidden=True),
-        _col("items_done", "Lefutott tétel", "number"),
-        _col("items", "Tétel", "number"),
-        _col("open_reasons", "Nyitott teendő", "number", alert=True),
-        _col("cost_usd", "Költség (USD)", "number"),
-        _col("actor", "Indította", hidden=True),
-        _col("finished_at", "Befejeződött", "datetime", hidden=True),
-        _col("run_id", "Futás-azonosító", "id", hidden=True, link="run"),
+        col("created_at", "Indítva", "datetime", link="run"),
+        col("workpackage_name", "Munkacsomag", link="workpackage"),
+        col("recipe_id", "Feldolgozás", "enum", labels="recipe"),
+        col("mode", "Mód", "enum", labels="mode"),
+        col("scope", "Run scope", "enum", labels="run_scope"),  # 160-C S3: a run over only the pending items
+        col("status", "Állapot", "enum", labels="run_status", badge=True),
+        col("approval", "Jóváhagyás", "enum", labels="approval"),
+        col("approved_by", "Jóváhagyta", hidden=True),
+        col("items_done", "Lefutott tétel", "number"),
+        col("items", "Tétel", "number"),
+        col("open_reasons", "Nyitott teendő", "number", alert=True),
+        col("cost_usd", "Költség (USD)", "number"),
+        col("actor", "Indította", hidden=True),
+        col("finished_at", "Befejeződött", "datetime", hidden=True),
+        col("run_id", "Futás-azonosító", "id", hidden=True, link="run"),
     ]
-    titles = _labels("recipe")  # 058: the recipe's title (translated by the UI), not its code name
+    titles = label_set("recipe")  # 058: the recipe's title (translated by the UI), not its code name
     runs = work.run_rows(wp_id)
     spent = costs.run_usd([r["run_id"] for r in runs])  # 082: the known actual cost of each run
     rows = [{**r, "_key": r["run_id"], "_run": r["run_id"], "_wp": r["workpackage_id"],
@@ -280,22 +273,22 @@ def _runs(scope: dict[str, str]) -> Rows:
 def _workpackages(scope: dict[str, str]) -> Rows:
     archived = scope.get("include_archived") == "1"  # 058: hidden packages only on request
     cols = [
-        _col("name", "Név", link="workpackage"),
-        *([_col("status", "Csomag", "enum", labels="wp_status", badge=True)] if archived else []),
-        _col("next_label", "Következő lépés", link="next"),
-        _col("last_status", "Utolsó futás", "enum", labels="run_status", badge=True),
-        _col("items", "Tétel", "number"),  # 058: document or email
-        _col("open_reasons", "Nyitott teendő", "number", link="reviews", alert=True),
-        _col("open_reasons_all", "Nyitott teendő a korábbi futásokkal", "number", hidden=True),
-        _col("older_runs", "Older runs to supersede", "number", link="process", alert=True),  # 153
-        _col("source_kind", "Forrás", "enum", labels="source_kind"),
-        _col("recipe_id", "Feldolgozás", "enum", labels="recipe"),
-        _col("owner", "Felelős"),  # 061
-        _col("last_activity", "Utolsó tevékenység", "datetime"),
-        _col("created_at", "Létrehozva", "datetime"),  # 062: visible, because this is the list's default order
-        _col("source_ref", "Forrás helye", hidden=True),
-        _col("next_code", "Lépés kódja", "enum", hidden=True),
-        _col("id", "Azonosító", "id", hidden=True),
+        col("name", "Név", link="workpackage"),
+        *([col("status", "Csomag", "enum", labels="wp_status", badge=True)] if archived else []),
+        col("next_label", "Következő lépés", link="next"),
+        col("last_status", "Utolsó futás", "enum", labels="run_status", badge=True),
+        col("items", "Tétel", "number"),  # 058: document or email
+        col("open_reasons", "Nyitott teendő", "number", link="reviews", alert=True),
+        col("open_reasons_all", "Nyitott teendő a korábbi futásokkal", "number", hidden=True),
+        col("older_runs", "Older runs to supersede", "number", link="process", alert=True),  # 153
+        col("source_kind", "Forrás", "enum", labels="source_kind"),
+        col("recipe_id", "Feldolgozás", "enum", labels="recipe"),
+        col("owner", "Felelős"),  # 061
+        col("last_activity", "Utolsó tevékenység", "datetime"),
+        col("created_at", "Létrehozva", "datetime"),  # 062: visible, because this is the list's default order
+        col("source_ref", "Forrás helye", hidden=True),
+        col("next_code", "Lépés kódja", "enum", hidden=True),
+        col("id", "Azonosító", "id", hidden=True),
     ]
     rows = [{**r, "_key": r["id"], "_wp": r["id"], "_run": r["last_run_id"], "_stage": r["next"]["stage"],
              "next_label": r["next"]["label"], "next_code": r["next"]["code"], "_next_params": r["next"]["params"]}
@@ -315,13 +308,13 @@ def _activity(scope: dict[str, str]) -> Rows:
     from jav import activity
 
     cols = [
-        _col("at", "Időpont", "datetime"),
-        _col("action", "Művelet", "enum", labels="activity_action"),
-        _col("workpackage_name", "Munkacsomag", link="workpackage"),
-        _col("detail", "Részlet"),
-        _col("run_id", "Futás", "id", link="run"),
+        col("at", "Időpont", "datetime"),
+        col("action", "Művelet", "enum", labels="activity_action"),
+        col("workpackage_name", "Munkacsomag", link="workpackage"),
+        col("detail", "Részlet"),
+        col("run_id", "Futás", "id", link="run"),
     ]
-    titles = _labels("recipe")  # 062: the recipe's title (translated by the UI), not its code name
+    titles = label_set("recipe")  # 062: the recipe's title (translated by the UI), not its code name
     rows = [{**e, "detail": titles.get(e["detail"], e["detail"]) if e["action"] == "recipe" else e["detail"],
              "_key": f"{e['at']}|{e['action']}|{n}", "_wp": e["workpackage_id"], "_run": e["run_id"]}
             for n, e in enumerate(activity.entries(scope["actor"], scope.get("day") or None))]
@@ -345,9 +338,9 @@ def _name_choice(scope: dict[str, str]) -> str:
 
 def _name_cols() -> list[Column]:
     """082: the unified and the original name as columns that can be added, and the state of the unified name."""
-    return [_col("unified_name", "Egységes név", hidden=True, link="review"),
-            _col("original_name", "Eredeti név", hidden=True),
-            _col("name_state", "Egységes név állapota", "enum", labels="name_state", hidden=True)]
+    return [col("unified_name", "Egységes név", hidden=True, link="review"),
+            col("original_name", "Eredeti név", hidden=True),
+            col("name_state", "Egységes név állapota", "enum", labels="name_state", hidden=True)]
 
 
 def _name_fields(item: dict[str, Any], titles: dict[str, str], name: Any, choice: str) -> dict[str, Any]:
@@ -369,18 +362,18 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
     names = naming.package_item_names(wp)
     # 168 (plan F-item-list-and-adding): each item's state and the run whose result counts now (`work.item_states`)
     cols = [
-        _col("name", "Tétel", link="review", names=choice),
+        col("name", "Tétel", link="review", names=choice),
         *_name_cols(),
-        _col("state", "State", "enum", labels="package_item_state", badge=True),
-        _col("run_mode", "Counted run", "enum", labels="mode", link="run"),
-        _col("run_at", "Run started", "datetime", link="run", hidden=True),  # the mode says which run; its page has the time
-        _col("final_status", "Result", "enum", labels="final_status"),
-        _col("open_reasons", "Nyitott teendő", "number", link="review", alert=True),
-        _col("kind", "Fajta", "enum", labels="kind", hidden=True),
-        _col("added_revision", "Felvéve (verzió)", "number", hidden=True),
-        _col("source_path", "Útvonal", hidden=True),
-        _col("sha256", "Ujjlenyomat", "id", hidden=True),
-        _col("item_id", "Tétel-azonosító", "id", hidden=True),
+        col("state", "State", "enum", labels="package_item_state", badge=True),
+        col("run_mode", "Counted run", "enum", labels="mode", link="run"),
+        col("run_at", "Run started", "datetime", link="run", hidden=True),  # the mode says which run; its page has the time
+        col("final_status", "Result", "enum", labels="final_status"),
+        col("open_reasons", "Nyitott teendő", "number", link="review", alert=True),
+        col("kind", "Fajta", "enum", labels="kind", hidden=True),
+        col("added_revision", "Felvéve (verzió)", "number", hidden=True),
+        col("source_path", "Útvonal", hidden=True),
+        col("sha256", "Ujjlenyomat", "id", hidden=True),
+        col("item_id", "Tétel-azonosító", "id", hidden=True),
     ]
     open_by_subject = store.review_open_reasons_many([work.review_subject(i) for i in wp["items"]])
     owners = work_views.run_packages()  # 153: not another package's runs' to-dos
@@ -397,8 +390,8 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
     if scope.get("removed") == "1":  # 160-C S1 (decision 163 D3): the removed items too, with who, when and why
         removed = work.removed_items(wp["id"])
         titles.update(work_views.item_titles(removed, work_views.package_root(wp)))
-        cols += [_col("removed_by", "Removed by"), _col("removed_at", "Removed at", "datetime"),
-                 _col("removed_reason", "Reason for removal")]
+        cols += [col("removed_by", "Removed by"), col("removed_at", "Removed at", "datetime"),
+                 col("removed_reason", "Reason for removal")]
         rows = [{**r, "removed_by": None, "removed_at": None, "removed_reason": None} for r in rows]
         rows += [{"_key": i["item_id"], "_wp": wp["id"], "_removed": True, "_run": None, "item_id": i["item_id"],
                   **_name_fields(i, titles, naming.NO_NAME, choice), "state": "removed", "run_mode": None, "run_at": None,
@@ -406,80 +399,6 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
                   "source_path": i["source_path"], "sha256": i.get("sha256"), "added_revision": i.get("added_revision"),
                   "open_reasons": None, "removed_by": i["removed_by"], "removed_at": i["removed_at"],
                   "removed_reason": i["removed_reason"]} for i in removed]
-    return cols, rows
-
-
-def _reconcile_inputs(scope: dict[str, str]) -> Rows:
-    """169 (DECISIONS 169): a reconciliation package's inputs as its item list: the scope's statements, then the
-    invoices its pairing may take (another party's only with `others`), each with the package and the run its result
-    comes from, whether it blocks the approval, and where it stands in the pairing; with `left_out`, the documents left
-    out of the package too, with who left them out, when and why. Read from the kept workspace."""
-    from jav import reconcile_package
-
-    ws = reconcile_package.kept_workspace(scope["workpackage_id"])
-    refs = ws.get("open") or {}
-    briefs = work.run_briefs(ref["run_id"] for ref in refs.values())
-    blocking = {b["doc_id"] for b in ws["blockers"] if str(b["code"]).startswith("source_")}
-    cols = [
-        _col("name", "Document", link="review"),
-        _col("kind", "Kind", "enum", labels="reconcile_input_kind"),
-        _col("subject", "Number or account"),
-        _col("partner", "Partner"),
-        _col("date", "Date or period"),
-        _col("amount", "Amount", "money"),
-        _col("currency", "Currency", hidden=True),
-        _col("party", "Party", hidden=scope.get("others") != "1"),
-        _col("package", "Package", link="workpackage"),
-        _col("source", "Counted run", "enum", labels="reconcile_input_source", link="run", badge=True),
-        _col("pairing", "In the pairing", "enum", labels="reconcile_invoice_state"),
-        _col("open_lines", "Open lines", "number", alert=True, hidden=True),  # a statement's only; Pairing shows its lines
-        _col("blocks", "Blocks the approval", "enum", labels="yes", hidden=True),  # the Preparation's blockers card lists them
-        _col("lines", "Lines in the period", "number", hidden=True),
-        _col("verified", "Balances check out", "enum", labels="yes", hidden=True),
-        _col("doc_id", "Document ID", "id", hidden=True),
-    ]
-
-    def common(doc_id: str, file: str | None, source: str | None) -> dict[str, Any]:
-        ref = refs.get(doc_id) or {}
-        brief = briefs.get(ref.get("run_id") or "") or {}
-        shown_source = (("live" if brief.get("mode") == "apply" else "trial") if source == "not_approved" else source)
-        return {"_key": doc_id, "_wp": ref.get("workpackage_id"), "_run": ref.get("run_id"), "_left_out": False,
-                "item_id": ref.get("item_id"), "doc_id": doc_id, "name": file or doc_id[:12],
-                "package": brief.get("workpackage_name"), "source": shown_source, "blocks": "igen" if doc_id in blocking else None}
-
-    def period(row: dict[str, Any]) -> str | None:
-        """A statement's period, its end without the year when it is the start's (the column stays narrow)."""
-        first, last = str(row.get("period_start") or "")[:10], str(row.get("period_end") or "")[:10]
-        if first[:5] and first[:5] == last[:5]:
-            last = last[5:]
-        return f"{first} – {last}" if first or last else None
-
-    rows = []
-    for st in sorted(ws.get("statements") or [], key=lambda s: (str(s.get("account") or ""), str(s.get("period_start") or ""))):
-        rows.append({**common(st["id"], st["file"], st["source"]), "kind": "statement", "subject": st.get("account"),
-                     "partner": None, "date": period(st), "amount": None, "currency": st.get("currency"),
-                     "party": (ws["scope"].get("party") or {}).get("name"), "pairing": None, "open_lines": st["open_lines"],
-                     "lines": st["lines"], "verified": "igen" if st["verified"] else None})
-    for inv in ws["invoices"]:
-        if not inv["own"] and scope.get("others") != "1":
-            continue
-        rows.append({**common(inv["id"], inv.get("file"), inv.get("source")), "kind": "outgoing" if inv.get("outgoing") else "incoming",
-                     "subject": inv.get("number"), "partner": inv.get("partner_name"), "date": inv.get("issue_date"),
-                     "amount": inv.get("amount"), "currency": inv.get("currency"), "party": (inv.get("party") or {}).get("name"),
-                     "pairing": inv.get("state"), "open_lines": None, "lines": None, "verified": None})
-    if scope.get("left_out") == "1":
-        cols += [_col("left_out_by", "Left out by"), _col("left_out_at", "Left out at", "datetime", hidden=True),
-                 _col("left_out_reason", "Reason for leaving it out")]
-        rows = [{**r, "left_out_by": None, "left_out_at": None, "left_out_reason": None} for r in rows]
-        for g in ws.get("left_out") or []:
-            invoice = g["kind"] == "invoice"
-            rows.append({**common(g["id"], g.get("file"), g.get("source")), "_left_out": True, "blocks": None,
-                         "kind": ("outgoing" if g.get("outgoing") else "incoming") if invoice else "statement",
-                         "subject": g.get("number") if invoice else g.get("account"), "partner": g.get("partner_name"),
-                         "date": g.get("issue_date") if invoice else period(g), "amount": g.get("amount"),
-                         "currency": g.get("currency"), "party": (g.get("party") or {}).get("name"), "pairing": None,
-                         "open_lines": None, "lines": None, "verified": None, "left_out_by": g["actor"],
-                         "left_out_at": g["left_out_at"], "left_out_reason": g["reason"]})
     return cols, rows
 
 
@@ -498,16 +417,16 @@ def _run_items(scope: dict[str, str]) -> Rows:
     results = {r["item_id"]: r for r in run["items"]}
     names = naming.run_item_names(run["run_id"])
     cols = [
-        _col("name", "Tétel", link="review", names=choice),
+        col("name", "Tétel", link="review", names=choice),
         *_name_cols(),
-        _col("kind", "Fajta", "enum", labels="kind", hidden=True),
-        _col("status", "Futás", "enum", labels="item_status", badge=True),
-        _col("final_status", "Eredmény", "enum", labels="final_status"),
-        _col("open_reasons", "Teendő", "number", link="review", alert=True),
-        _col("earlier_reasons", "Korábbi teendő", "number", hidden=True),
-        _col("error", "Hiba", hidden=True),
-        _col("updated_at", "Frissítve", "datetime", hidden=True),
-        _col("item_id", "Tétel-azonosító", "id", hidden=True),
+        col("kind", "Fajta", "enum", labels="kind", hidden=True),
+        col("status", "Futás", "enum", labels="item_status", badge=True),
+        col("final_status", "Eredmény", "enum", labels="final_status"),
+        col("open_reasons", "Teendő", "number", link="review", alert=True),
+        col("earlier_reasons", "Korábbi teendő", "number", hidden=True),
+        col("error", "Hiba", hidden=True),
+        col("updated_at", "Frissítve", "datetime", hidden=True),
+        col("item_id", "Tétel-azonosító", "id", hidden=True),
     ]
     spent = costs.run_costs(run["run_id"])
     cols += _cost_cols(spent)
@@ -544,10 +463,10 @@ def _cost_cols(spent: costs.RunCosts) -> list[Column]:
         name = PROVIDER_NAMES.get(x.provider, x.provider)
         return f"{name} · {x.model} (USD)" if models[x.provider] > 1 else f"{name} (USD)"
 
-    per_model = [_col(_cost_key(x), label(x), "number", model=x.model) for x in shown]
-    return [*per_model, _col("cost_total", "Költség összesen (USD)", "number"),
-            _col("cost_reused", "Korábbi válaszból (db)", "number", hidden=True),
-            _col("cost_held", "Lefoglalt, ismeretlen kimenetelű (USD)", "number", hidden=not spent.held_usd)]
+    per_model = [col(_cost_key(x), label(x), "number", model=x.model) for x in shown]
+    return [*per_model, col("cost_total", "Költség összesen (USD)", "number"),
+            col("cost_reused", "Korábbi válaszból (db)", "number", hidden=True),
+            col("cost_held", "Lefoglalt, ismeretlen kimenetelű (USD)", "number", hidden=not spent.held_usd)]
 
 
 def _cost_fields(item: costs.Summary) -> dict[str, Any]:
@@ -559,14 +478,14 @@ def _package_costs(scope: dict[str, str]) -> Rows:
     """082: the package's cost over all its runs, one row per provider and model."""
     pkg = costs.package_costs(scope["workpackage_id"])
     cols = [
-        _col("provider", "AI-szolgáltató", "enum", labels="provider"),
-        _col("model", "Modell"),
-        _col("calls", "Fizetős hívás", "number"),
-        _col("failed", "Ebből sikertelen", "number", hidden=not any(x.failed for x in pkg.lines)),
-        _col("reused", "Korábbi válaszból", "number"),
-        _col("usd", "Költség (USD)", "number"),
-        _col("held_usd", "Lefoglalt, ismeretlen kimenetelű (USD)", "number", hidden=not pkg.held_usd),
-        _col("runs", "Futás", "number"),
+        col("provider", "AI-szolgáltató", "enum", labels="provider"),
+        col("model", "Modell"),
+        col("calls", "Fizetős hívás", "number"),
+        col("failed", "Ebből sikertelen", "number", hidden=not any(x.failed for x in pkg.lines)),
+        col("reused", "Korábbi válaszból", "number"),
+        col("usd", "Költség (USD)", "number"),
+        col("held_usd", "Lefoglalt, ismeretlen kimenetelű (USD)", "number", hidden=not pkg.held_usd),
+        col("runs", "Futás", "number"),
     ]
     used = {(x.provider, x.model): sum(1 for r in pkg.runs if any((y.provider, y.model) == (x.provider, x.model) for y in r.lines))
             for x in pkg.lines}
@@ -594,7 +513,7 @@ def result_parts(scope: dict[str, str]) -> list[tuple[dict[str, Any], frozenset[
     return [(r, frozenset(by_run[r["run_id"]])) for r in runs]
 
 
-def _merged(scope: dict[str, str], read: Callable[[str], list[dict[str, Any]]]) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+def merged(scope: dict[str, str], read: Callable[[str], list[dict[str, Any]]]) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
     """The records `read(run_id)` gives for the scope (`result_parts`), and the run each item's record came from. A
     run's records keep their order; the package's follow its item order."""
     records: list[dict[str, Any]] = []
@@ -612,10 +531,10 @@ def _merged(scope: dict[str, str], read: Callable[[str], list[dict[str, Any]]]) 
 
 def result_records(scope: dict[str, str]) -> list[dict[str, Any]]:
     """The effective data of the scope's documents (`run_records` of a run, or of each item's counted run)."""
-    return _merged(scope, run_records)[0]
+    return merged(scope, run_records)[0]
 
 
-def _linker(scope: dict[str, str], run_of: dict[str, dict[str, Any]]) -> Callable[[str | None], dict[str, Any]]:
+def linker(scope: dict[str, str], run_of: dict[str, dict[str, Any]]) -> Callable[[str | None], dict[str, Any]]:
     """A row's link fields by its item: its package, and the run its item's record came from (in the package's result,
     a row without an item, such as a utility-cost cell, names no run)."""
     if "run_id" in scope:
@@ -629,73 +548,6 @@ def _linker(scope: dict[str, str], run_of: dict[str, dict[str, Any]]) -> Callabl
         return {"_wp": wp_id, "_run": run["run_id"] if run else None}
 
     return link
-
-
-def _emails(scope: dict[str, str]) -> Rows:
-    """058 K5.1: the run's emails — intent (with the manual correction), suggested next step, attachments, and how much
-    of the email's text the recognition saw."""
-    from jav import export
-
-    doc_types = _labels("doc_type")
-    records, run_of = _merged(scope, export.email_records)
-    link = _linker(scope, run_of)
-    cols = [
-        _col("subject", "Tárgy", link="item"),
-        _col("sender", "Feladó"),
-        _col("received_at", "Érkezett", "datetime"),
-        _col("mailbox", "Postafiók", hidden=True),
-        _col("intent", "Szándék", "enum", labels="intent"),
-        _col("confidence", "Valószínűség", "number", percent=True),
-        _col("corrected", "Javítva", "enum", labels="yes"),
-        _col("machine_intent", "Gépi szándék", "enum", labels="intent", hidden=True),
-        _col("next_flow", "Javasolt következő lépés", "enum", labels="next_flow"),
-        _col("attachments", "Csatolmány", "number"),
-        _col("attachment_types", "Csatolmányok típusa"),
-        _col("body_status", "Levél szövege", "enum", labels="body_status"),
-        _col("body_chars", "Levél hossza (karakter)", "number", hidden=True),
-        _col("tasks", "Feladatjavaslat", "number", hidden=not any(r.get("tasks") for r in records)),
-        _col("open_reasons", "Nyitott teendő", "number", link="item", alert=True),
-        _col("message_id", "Levél-azonosító", "id", hidden=True),
-        _col("item_id", "Tétel-azonosító", "id", hidden=True),
-    ]
-    rows = []
-    for r in records:
-        # 126: the type each attachment was processed as (`shown_type`), else the recognised one
-        shown = [a.get("shown_type") or a.get("doc_type") for a in r["attachments"]]
-        types = sorted({doc_types.get(x, x) for x in shown if x})
-        rows.append({"_key": r["item_id"], **link(r["item_id"]), "item_id": r["item_id"],
-                     "message_id": r["message_id"], "subject": r["subject"] or "(tárgy nélkül)", "sender": r["sender"],
-                     "received_at": r["received_at"], "mailbox": r["mailbox"], "intent": r["intent"],
-                     "machine_intent": r["machine_intent"], "confidence": r["confidence"],
-                     "corrected": "igen" if r["corrected"] else None, "next_flow": r["next_flow"],
-                     "attachments": len(r["attachments"]), "attachment_types": ", ".join(types) or None,
-                     "body_status": r["body"]["status"], "body_chars": r["body"]["chars"], "open_reasons": len(r["open_reasons"]),
-                     "tasks": len((r.get("tasks") or {}).get("tasks") or []) or None})
-    return cols, rows
-
-
-def _email_tasks(scope: dict[str, str]) -> Rows:
-    """058 K5.3: the task proposals, one per row, with the evidence and the human decision (only a person accepts)."""
-    from jav import export
-
-    records, run_of = _merged(scope, export.email_records)
-    link = _linker(scope, run_of)
-    cols = [
-        _col("subject", "Levél", link="item"),
-        _col("action", "Akció", "enum", labels="task_action"),
-        _col("title", "Feladat"),
-        _col("due_date", "Határidő", "date"),
-        _col("assignee_hint", "Felelős"),
-        _col("evidence", "Bizonyíték"),
-        _col("decision", "Döntés", "enum", labels="task_decision"),
-        _col("decided_by", "Döntött", hidden=True),
-        _col("decided_at", "Döntés ideje", "datetime", hidden=True),
-        _col("done_at", "Elvégezve", "datetime"),  # 062: manual "done" on an accepted task
-        _col("done_by", "Elvégezte", hidden=True),
-        _col("item_id", "Tétel-azonosító", "id", hidden=True),
-    ]
-    rows = [{**t, "_key": f"{t['item_id']}:{t['index']}", **link(t["item_id"])} for t in export.task_rows(records)]
-    return cols, rows
 
 
 # the export tables (jav/export.py) by column key, in header order
@@ -715,7 +567,7 @@ _LABELS = {"final_status": "final_status", "place": "provenance", "field": "fiel
 
 def _fixed(keys: list[tuple[str, str, str]]) -> list[Column]:
     """The fixed columns of the export; the document's name links to the item's review view."""
-    return [_col(k, label, kind, hidden=k in _HIDDEN, labels=_LABELS.get(k), **({"link": "review"} if k == "file" else {}))
+    return [col(k, label, kind, hidden=k in _HIDDEN, labels=_LABELS.get(k), **({"link": "review"} if k == "file" else {}))
             for k, label, kind in keys]
 
 
@@ -730,15 +582,15 @@ def _zip_rows(keys: list[str], rows: list[list[Any]], link: Callable[[str | None
     return out
 
 
-def _run_wp(to: dict[str, Any]) -> dict[str, Any]:
+def run_wp(to: dict[str, Any]) -> dict[str, Any]:
     """The link fields in the order the record tables have always written them."""
     return {"_run": to["_run"], "_wp": to["_wp"]}
 
 
-def _records(scope: dict[str, str]) -> tuple[Callable[[str | None], dict[str, Any]], list[dict[str, Any]]]:
-    """The scope's documents' effective data, and a row's link fields by its item (`_linker`)."""
-    records, run_of = _merged(scope, run_records)
-    return _linker(scope, run_of), records
+def linked_records(scope: dict[str, str]) -> tuple[Callable[[str | None], dict[str, Any]], list[dict[str, Any]]]:
+    """The scope's documents' effective data, and a row's link fields by its item (`linker`)."""
+    records, run_of = merged(scope, run_records)
+    return linker(scope, run_of), records
 
 
 def run_records(run_id: str) -> list[dict[str, Any]]:
@@ -766,7 +618,7 @@ def _field_kind(kind: str | None) -> str:
 def _documents(scope: dict[str, str]) -> Rows:
     from jav import export
 
-    link, records = _records(scope)
+    link, records = linked_records(scope)
     head, rows = export.documents_table(records)
     kinds: dict[str, str] = {}
     for r in records:
@@ -778,8 +630,8 @@ def _documents(scope: dict[str, str]) -> Rows:
         first = len(cols)
         # shown only when a row has a value in the part's first column (a document with a mark, an invoice)
         shown = any(row[first] for row in rows)
-        cols += [_col(c.key, c.head, c.kind, hidden=not shown, labels=c.labels) for c in part.columns]
-    cols += [_col(f"f:{f}", _field_label(f), _field_kind(kinds.get(f)), field=f) for f in fields]
+        cols += [col(c.key, c.head, c.kind, hidden=not shown, labels=c.labels) for c in part.columns]
+    cols += [col(f"f:{f}", _field_label(f), _field_kind(kinds.get(f)), field=f) for f in fields]
     if not any(r.get("source_email") for r in records):  # only meaningful in an email package: hidden otherwise
         cols = [replace(c, hidden=True) if c.key == "source_email" else c for c in cols]
     return cols, _zip_rows([c.key for c in cols], rows, link, lambda d: d["item_id"])
@@ -788,7 +640,7 @@ def _documents(scope: dict[str, str]) -> Rows:
 def _datapoints(scope: dict[str, str]) -> Rows:
     from jav import export
 
-    link, records = _records(scope)
+    link, records = linked_records(scope)
     _head, rows = export.datapoints_table(records)
     cols = _fixed(_DP_KEYS)
     return cols, _zip_rows([c.key for c in cols], rows, link, lambda d: f"{d['item_id']}:{d['field']}")
@@ -797,7 +649,7 @@ def _datapoints(scope: dict[str, str]) -> Rows:
 def _native_facts(scope: dict[str, str]) -> Rows:
     from jav import export
 
-    native, run_of = _merged(scope, export.native_records)
+    native, run_of = merged(scope, export.native_records)
     _head, records = export.native_facts_table(native)
     # 120: the readable source column is shown; the citation JSON and the constant correctness stay technical, and the
     # machine states get their everyday labels
@@ -805,16 +657,16 @@ def _native_facts(scope: dict[str, str]) -> Rows:
     states = {"machine_state", "machine_grounding", "reading_status", "interpretation_status", "correctness"}
     # 183: a document's long file name repeats in each of its facts' rows; it, the source and the value keep a row short
     lines = {"file": 2, "source": 3, "effective_value": 4}
-    cols = [_col(key, label, "enum" if key in states else "text", labels="native_state" if key in states else None,
+    cols = [col(key, label, "enum" if key in states else "text", labels="native_state" if key in states else None,
                  hidden=key in hidden, **({"clamp": lines[key]} if key in lines else {}))
             for key, label in zip(export.NATIVE_COLUMNS, export.NATIVE_HEAD, strict=True)]
-    return cols, _zip_rows(list(export.NATIVE_COLUMNS), records, _linker(scope, run_of), lambda row: f"{row['item_id']}:{row['fact_id']}")
+    return cols, _zip_rows(list(export.NATIVE_COLUMNS), records, linker(scope, run_of), lambda row: f"{row['item_id']}:{row['fact_id']}")
 
 
 def _line_items(scope: dict[str, str]) -> Rows:
     from jav import export
 
-    link, records = _records(scope)
+    link, records = linked_records(scope)
     head, rows = export.line_items_table(records)
     extra = head[len(_LI_KEYS):]
     list_kinds: dict[str, str] = {}
@@ -824,7 +676,7 @@ def _line_items(scope: dict[str, str]) -> Rows:
         for lf in typepack.get(r["doc_type"]).list_fields.values():
             for c, k in lf.items():
                 list_kinds.setdefault(c, k)
-    cols = _fixed(_LI_KEYS) + [_col(f"c:{c}", _column_label(c), _field_kind(list_kinds.get(c)), field=c) for c in extra]
+    cols = _fixed(_LI_KEYS) + [col(f"c:{c}", _column_label(c), _field_kind(list_kinds.get(c)), field=c) for c in extra]
     return cols, _zip_rows([c.key for c in cols], rows, link, lambda d: f"{d['item_id']}:{d['list']}:{d['row']}")
 
 
@@ -835,12 +687,12 @@ def _file_names(scope: dict[str, str]) -> Rows:
 
     run = work.get_run(scope["run_id"])
     cols = [
-        _col("filename", "Új fájlnév", link="review"),
-        _col("status", "Mappa", "enum", labels="naming_status", badge=True),
-        _col("why", "Miért ellenőrzendő"),
-        _col("original", "Eredeti fájlnév"),
-        _col("doc_type", "Típus", "enum", labels="doc_type"),
-        _col("item_id", "Tétel-azonosító", "id", hidden=True),
+        col("filename", "Új fájlnév", link="review"),
+        col("status", "Mappa", "enum", labels="naming_status", badge=True),
+        col("why", "Miért ellenőrzendő"),
+        col("original", "Eredeti fájlnév"),
+        col("doc_type", "Típus", "enum", labels="doc_type"),
+        col("item_id", "Tétel-azonosító", "id", hidden=True),
     ]
     rows = [{"_key": c.item_id, "_wp": run["workpackage_id"], "_run": run["run_id"], "item_id": c.item_id,
              "filename": c.filename, "status": c.status, "why": naming.reason_text(c.reasons) or None, "original": c.original,
@@ -851,16 +703,16 @@ def _file_names(scope: dict[str, str]) -> Rows:
 def _calls(scope: dict[str, str]) -> Rows:
     work.get_run(scope["run_id"])
     cols = [
-        _col("created_at", "Időpont", "datetime"),
-        _col("step", "Lépés"),
-        _col("provider", "Szolgáltató", "enum"),
-        _col("model_actual", "Modell", "enum"),
-        _col("status", "Állapot", "enum"),
-        _col("cost_usd", "Költség (USD)", "number"),
-        _col("max_cost_usd", "Lefoglalt (USD)", "number", hidden=True),
-        _col("input_tokens", "Bemeneti token", "number", hidden=True),
-        _col("error", "Hiba", hidden=True),
-        _col("step_id", "Lépés (teljes)", "id", hidden=True),
+        col("created_at", "Időpont", "datetime"),
+        col("step", "Lépés"),
+        col("provider", "Szolgáltató", "enum"),
+        col("model_actual", "Modell", "enum"),
+        col("status", "Állapot", "enum"),
+        col("cost_usd", "Költség (USD)", "number"),
+        col("max_cost_usd", "Lefoglalt (USD)", "number", hidden=True),
+        col("input_tokens", "Bemeneti token", "number", hidden=True),
+        col("error", "Hiba", hidden=True),
+        col("step_id", "Lépés (teljes)", "id", hidden=True),
     ]
     rows = [{**{k: c.get(k) for k in ("created_at", "provider", "model_actual", "status", "cost_usd", "max_cost_usd",
                                       "input_tokens", "error", "step_id")},
@@ -869,124 +721,23 @@ def _calls(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
-def _utility_report(scope: dict[str, str]) -> tuple[Callable[[str | None], dict[str, Any]], dict[str, Any]]:
-    from jav import report_utility
-
-    link, records = _records(scope)
-    return link, report_utility.build(records)
-
-
-def _utility_cost(scope: dict[str, str]) -> Rows:
-    """The monthly utility-cost grid in long form: consumption point × utility × month per row (pivotable in Excel)."""
-    link, rep = _utility_report(scope)
-    to = link(None)
-    cols = [
-        _col("address", "Fogyasztási hely"),
-        _col("utility", "Közmű", "enum"),
-        _col("month", "Hónap", "date"),
-        _col("status", "Állapot", "enum", labels="utility_status"),
-        _col("amount", "Összeg (bruttó, a hónapra jutó)", "money"),
-        _col("consumption", "Fogyasztás", "number"),
-        _col("unit", "Egység", "enum", hidden=True),
-        _col("settlement", "Elszámoló számla", "enum", labels="yes", hidden=True),
-        _col("summary_only", "Csak tájékoztató", "enum", labels="yes"),
-        _col("bills", "Forrásszámla", "number"),
-        _col("suppliers", "Szolgáltató", hidden=True),
-    ]
-    rows = []
-    for s_ in rep["series"]:
-        for m, c in s_["cells"].items():
-            rows.append({"_key": f"{s_['address']}|{s_['utility']}|{m}", "_run": to["_run"], "_wp": to["_wp"],
-                         "address": s_["address"], "utility": s_["utility"], "month": m, "status": c["status"], "amount": c["amount"],
-                         "consumption": c["consumption"], "unit": s_["consumption_unit"], "settlement": "igen" if c["settlement"] else None,
-                         "summary_only": "igen" if s_["summary_only"] else None, "bills": len(c["sources"]),
-                         "suppliers": ", ".join(s_["suppliers"])})
-    return cols, rows
-
-
-def _utility_sources(scope: dict[str, str]) -> Rows:
-    """Source invoices of each utility-cost cell (the report's "Közmű-források" sheet): cell → document, page, sum."""
-    link, rep = _utility_report(scope)
-    cols = [
-        _col("address", "Fogyasztási hely"),
-        _col("utility", "Közmű", "enum"),
-        _col("month", "Hónap", "date"),
-        _col("status", "Állapot", "enum", labels="utility_status"),
-        _col("amount", "Összeg (a hónapra jutó)", "money"),
-        _col("file", "Irat", link="review"),
-        _col("page", "Oldal", "number"),
-        _col("field", "Mező", "enum", labels="field"),
-        _col("corrected", "Javítva", "enum", labels="yes"),
-        _col("open_reasons", "Nyitott teendő", "number", alert=True),
-        _col("item_id", "Tétel-azonosító", "id", hidden=True),
-    ]
-    rows = []
-    for s_ in rep["series"]:
-        for m, c in s_["cells"].items():
-            for i, x in enumerate(c["sources"]):
-                rows.append({"_key": f"{s_['address']}|{s_['utility']}|{m}|{i}", **_run_wp(link(x["item_id"])),
-                             "address": s_["address"], "utility": s_["utility"], "month": m,
-                             "status": "settlement" if x.get("settlement") else c["status"], "amount": x["amount"], "file": x["file"],
-                             "page": x["page"], "field": x["field"], "corrected": "igen" if x["corrected"] else None,
-                             "open_reasons": x["open_reasons"], "item_id": x["item_id"]})
-    for u in rep["unplaced"]:
-        rows.append({"_key": f"unplaced|{u['item_id']}", **_run_wp(link(u["item_id"])), "status": u["reason"],
-                     "file": u["file"], "item_id": u["item_id"]})
-    for d in rep.get("duplicates", []):
-        rows.append({"_key": f"duplicate|{d['item_id']}", **_run_wp(link(d["item_id"])), "status": "duplicate",
-                     "file": d["file"], "item_id": d["item_id"]})
-    return cols, rows
-
-
-def _mailbox_pulls(_scope: dict[str, str]) -> Rows:
-    from jav import mailbox
-
-    cols = [
-        _col("created_at", "Indítva", "datetime"),
-        _col("label", "Postafiók / időszak"),
-        _col("status", "Állapot", "enum", labels="pull_status", badge=True),
-        _col("new", "Új levél", "number"),
-        _col("changed", "Változott", "number", hidden=True),
-        _col("duplicate", "Már megvolt", "number", hidden=True),
-        _col("workpackage", "Munkacsomag", "id", link="workpackage"),
-        _col("actor", "Indította"),
-        _col("error", "Hiba"),
-        _col("finished_at", "Befejeződött", "datetime", hidden=True),
-    ]
-    rows = []
-    for p in mailbox.pulls(limit=cfg.load("datasets")["export_max_rows"]):
-        res = p.get("result") or {}
-        rows.append({"_key": p["id"], "_wp": res.get("workpackage"), "created_at": p["created_at"], "label": p["label"],
-                     "status": p["status"], "new": res.get("new"), "changed": res.get("changed"), "duplicate": res.get("duplicate"),
-                     "workpackage": res.get("workpackage"), "actor": p["actor"], "error": res.get("error"),
-                     "finished_at": p.get("finished_at"),
-                     "_request": p["request"]})  # 183: the interface writes the label in its own language from it
-    return cols, rows
-
-
 RESULT_SCOPE = ("run_id", "workpackage_id")
 
 REGISTRY: dict[str, Dataset] = {d.name: d for d in [
+    # 185 (plan G-full-move T1b): the shared tables; a domain's own are registered by its domain module (`register`)
     Dataset("runs", "Futások", (), _runs, optional_scope=("workpackage_id",)),
     Dataset("workpackages", "Munkacsomagok", (), _workpackages, _workpackages_fingerprint, optional_scope=("include_archived", "owner"),
             natural_sort=(("created_at", True),), refresh_behind=True),
     Dataset("workpackage_items", "Csomag tételei", ("workpackage_id",), _workpackage_items, optional_scope=("names", "removed")),
-    Dataset("reconcile_inputs", "A reconciliation's inputs", ("workpackage_id",), _reconcile_inputs,
-            optional_scope=("others", "left_out")),
     Dataset("run_items", "Futás tételei", ("run_id",), _run_items, _run_items_fingerprint, optional_scope=("names",)),
     Dataset("package_costs", "A csomag költsége", ("workpackage_id",), _package_costs),
     # 172: a result table is a run's, or the package's current result (each item from its counted run)
-    Dataset("emails", "Levelek", (), _emails, _result_fingerprint, one_of=RESULT_SCOPE),
-    Dataset("email_tasks", "Feladatjavaslatok", (), _email_tasks, _result_fingerprint, one_of=RESULT_SCOPE),
-    Dataset("documents", "Iratok", (), _documents, _result_fingerprint, one_of=RESULT_SCOPE),
-    Dataset("datapoints", "Adatpontok", (), _datapoints, _result_fingerprint, one_of=RESULT_SCOPE),
-    Dataset("native_facts", "Native facts", (), _native_facts, _result_fingerprint, one_of=RESULT_SCOPE),
-    Dataset("line_items", "Tételsorok", (), _line_items, _result_fingerprint, one_of=RESULT_SCOPE),
-    Dataset("utility_cost", "Közmű-költség havonta", (), _utility_cost, _result_fingerprint, one_of=RESULT_SCOPE),
-    Dataset("utility_sources", "Közmű-költség forrásai", (), _utility_sources, _result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("documents", "Iratok", (), _documents, result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("datapoints", "Adatpontok", (), _datapoints, result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("native_facts", "Native facts", (), _native_facts, result_fingerprint, one_of=RESULT_SCOPE),
+    Dataset("line_items", "Tételsorok", (), _line_items, result_fingerprint, one_of=RESULT_SCOPE),
     Dataset("file_names", "Fájlnevek", ("run_id",), _file_names, _run_fingerprint),
     Dataset("calls", "Hívásnapló", ("run_id",), _calls, _calls_fingerprint),
-    Dataset("mailbox_pulls", "Postafiók-letöltések", (), _mailbox_pulls),
     Dataset("activity", "Tevékenységnapló", ("actor",), _activity, optional_scope=("day",)),
 ]}
 
@@ -1000,7 +751,53 @@ BUILD_WAIT_SECONDS = 60.0  # 158: how long a request with no rows waits for thei
 _log = logging.getLogger("jav.datasets")
 
 
+@dataclass(frozen=True)
+class LabelSet:
+    """185 (plan G-full-move T1b): a domain's set of value labels for a column (`col(..., labels=name)`), read when a
+    table is built."""
+    name: str
+    module: str
+    read: Callable[[], dict[str, str]]
+
+
+_LABEL_SETS: dict[str, LabelSet] = {}
+_complete_lock = threading.Lock()
+
+
+def _complete() -> None:
+    """The registry completes itself the first time it is read (`registrations.load_all`), as the check registry does."""
+    from jav import registrations
+
+    registrations.load_all()
+
+
+def register(dataset: Dataset, *, after: str, module: str) -> None:
+    """185 (plan G-full-move T1b): a domain's table, placed after the table `after` in the catalogue (the order the
+    interface lists them in); the same one again adds nothing, another one of the same name is an error."""
+    known = REGISTRY.get(dataset.name)
+    if known is not None:
+        if known != dataset:
+            raise ValueError(f"dataset {dataset.name!r} is registered already ({module} gave another)")
+        return
+    with _complete_lock:
+        names = list(REGISTRY)
+        if after not in names:
+            raise ValueError(f"dataset {dataset.name!r} ({module}): no dataset {after!r} to follow")
+        items = list(REGISTRY.items())
+        items.insert(names.index(after) + 1, (dataset.name, dataset))
+        REGISTRY.clear()
+        REGISTRY.update(items)
+
+
+def register_labels(labels: LabelSet) -> None:
+    known = _LABEL_SETS.get(labels.name)
+    if known is not None and known != labels:
+        raise ValueError(f"label set {labels.name!r} is registered already by {known.module}")
+    _LABEL_SETS[labels.name] = labels
+
+
 def get(name: str) -> Dataset:
+    _complete()
     if name not in REGISTRY:
         raise UnknownDataset(name)
     return REGISTRY[name]
@@ -1103,6 +900,7 @@ def _refreshes_behind(key: tuple) -> bool:
 
 def _warm_names() -> list[str]:
     """The datasets the service builds when it starts: those served outdated, in their default scope."""
+    _complete()
     return [ds.name for ds in REGISTRY.values() if ds.refresh_behind and ds.fingerprint is not None]
 
 
@@ -1226,6 +1024,7 @@ def export_file(name: str, scope: dict[str, str] | None, q: Query, rows_mode: st
 
 
 def catalog() -> list[dict[str, Any]]:
+    _complete()
     return [d.spec() for d in REGISTRY.values()]
 
 
@@ -1235,6 +1034,7 @@ def clear_cache() -> None:
         _cache.clear()
 
 
-__all__ = ["REGISTRY", "RESULT_SCOPE", "Dataset", "MissingScope", "UnknownDataset", "catalog", "clear_cache", "export_file",
-           "export_rows", "get", "query", "result_parts", "result_records", "rows", "run_records", "wait_for_rebuilds",
-           "warm_up"]
+__all__ = ["REGISTRY", "RESULT_SCOPE", "Dataset", "LabelSet", "MissingScope", "Rows", "UnknownDataset", "catalog", "clear_cache",
+           "col", "export_file", "export_rows", "get", "label_set", "linked_records", "linker", "merged", "query", "register",
+           "register_labels", "result_fingerprint", "result_parts", "result_records", "rows", "run_records", "run_wp",
+           "wait_for_rebuilds", "warm_up"]

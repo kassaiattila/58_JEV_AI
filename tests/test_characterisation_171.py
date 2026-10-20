@@ -184,9 +184,9 @@ def test_the_reviewed_version_nests_its_parts_in_this_shape(db, monkeypatch) -> 
 # 172 (deliberate): a result table is a run's or the package's current result; for a run, `_result_fingerprint` is
 # the run's own (`_run_fingerprint`, pinned below)
 PIN_FINGERPRINTS = {
-    "run_items": "_run_items_fingerprint", "emails": "_result_fingerprint", "email_tasks": "_result_fingerprint",
-    "documents": "_result_fingerprint", "datapoints": "_result_fingerprint", "native_facts": "_result_fingerprint",
-    "line_items": "_result_fingerprint", "utility_cost": "_result_fingerprint", "utility_sources": "_result_fingerprint",
+    "run_items": "_run_items_fingerprint", "emails": "result_fingerprint", "email_tasks": "result_fingerprint",
+    "documents": "result_fingerprint", "datapoints": "result_fingerprint", "native_facts": "result_fingerprint",
+    "line_items": "result_fingerprint", "utility_cost": "result_fingerprint", "utility_sources": "result_fingerprint",
     "file_names": "_run_fingerprint", "calls": "_calls_fingerprint",
 }
 # corrections (count, latest) | to-dos (count, open, latest id, latest close) | task decisions (count, digest) |
@@ -199,6 +199,7 @@ def test_a_run_dataset_is_cached_by_store_name_and_scope(db) -> None:
     assert datasets._key("documents", {"run_id": RUN}) == (str(store.active_path()), "documents", (("run_id", RUN),))
     assert datasets._key("run_items", {"run_id": RUN, "names": "content"}) == (
         str(store.active_path()), "run_items", (("names", "content"), ("run_id", RUN)))
+    datasets.catalog()  # 185: complete with the domains' tables (`registrations.load_all`)
     assert {d.name: getattr(d.fingerprint, "__name__", None) for d in datasets.REGISTRY.values()
             if "run_id" in (*d.scope, *d.one_of)} == PIN_FINGERPRINTS
 
@@ -213,7 +214,7 @@ def test_the_run_fingerprint_is_this_string(db) -> None:
     store.review_enqueue(subject_kind="document", subject_id=DOC_A, run_id=work.flow_run_id(RUN, DOC_A),
                          reasons=["validator:totals.mismatch"], producer="invoice")
     assert datasets._run_fingerprint({"run_id": RUN}) == PIN_RUN_FINGERPRINT
-    assert datasets._result_fingerprint({"run_id": RUN}) == PIN_RUN_FINGERPRINT  # 172: a run's result table
+    assert datasets.result_fingerprint({"run_id": RUN}) == PIN_RUN_FINGERPRINT  # 172: a run's result table
 
 
 def test_the_run_fingerprint_sees_reconciliation_decisions_and_statement_choices(db) -> None:

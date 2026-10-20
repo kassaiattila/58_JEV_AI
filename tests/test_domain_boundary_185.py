@@ -20,13 +20,13 @@ JAV = PROJECT_ROOT / "jav"
 
 # the modules each domain is made of (its domain module registers them; `jav/domains/`)
 FINANCE = frozenset({
-    "api_finance", "api_parties", "api_reconcile", "api_statement_package", "bank_files", "duplicates", "flow_statement_table", "fx", "party_views",
+    "api_finance", "api_parties", "api_reconcile", "api_statement_package", "bank_files", "finance_datasets", "duplicates", "flow_statement_table", "fx", "party_views",
     "reconcile", "reconcile_ai", "reconcile_overview", "reconcile_package", "reconcile_review", "reconcile_statement",
     "report_utility", "statement_months", "statement_original", "statement_package", "statement_table",
     "domains.finance",
 })
 EMAIL = frozenset({
-    "api_email_routing", "api_mailbox", "email_learning", "email_learning_runtime", "email_review", "email_routing", "email_tasks",
+    "api_email_routing", "api_mailbox", "email_datasets", "email_learning", "email_learning_runtime", "email_review", "email_routing", "email_tasks",
     "emails", "flow_email", "flow_email_learning", "ingest_server", "intent", "intent_gpt", "intents", "mailbox",
     "domains.email",
 })
@@ -49,8 +49,7 @@ LASTING = {
 TEMPORARY = {
     ("corrections", "duplicates"), ("corrections", "intents"), ("corrections", "mailbox"), ("corrections", "reconcile"),
     ("corrections", "statement_months"),
-    ("datasets", "duplicates"), ("datasets", "intents"), ("datasets", "mailbox"), ("datasets", "reconcile"),
-    ("datasets", "reconcile_package"), ("datasets", "report_utility"), ("datasets", "statement_months"),
+    ("datasets", "duplicates"), ("datasets", "reconcile"), ("datasets", "statement_months"),
     ("export", "emails"), ("export", "mailbox"),
     ("outputs.samples", "reconcile_statement"),
     ("parties", "duplicates"),

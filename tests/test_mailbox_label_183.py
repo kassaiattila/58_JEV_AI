@@ -35,10 +35,10 @@ def test_a_package_no_recorded_download_made_has_no_request(env):  # noqa: F811
 
 
 def test_the_downloads_list_gives_each_rows_request_beside_its_label(env, monkeypatch):  # noqa: F811
-    from jav import datasets
+    from jav import email_datasets
 
     monkeypatch.setattr(ingest_server, "INBOX_ROOT", env["inbox"])
     monkeypatch.setattr(mailbox, "_subprocess_runner", FakeBridge(MAILS))
     mailbox.request_pull(REQ, actor="teszt")
-    _cols, rows = datasets._mailbox_pulls({})
+    _cols, rows = email_datasets.mailbox_pulls({})  # 185: the email domain's table
     assert rows[0]["label"] == REQ.label() and rows[0]["_request"] == REQ.model_dump(mode="json")

@@ -9,6 +9,8 @@ Plain-language summary: what the shared code does with emails beyond reading the
 - (181) a workflow's emails step: the mailbox download, then its package's run (`jav/workflow_steps.py`);
 - (181) the email routing: a logic pack that proposes, for each emailed invoice, outgoing invoice and bank statement,
   the package it belongs to, and its workflow step (`jav/email_routing.py`);
+- (185) its tables on the interface: the emails, their task proposals and the mailbox downloads, and the label sets
+  of the intents, the task actions and the next steps (`jav/email_datasets.py`);
 - (185) its addresses of the local service beyond the email routing's own: the mailboxes, an email package's
   attachments and the task proposals' decisions (`jav/api_mailbox.py`), named in `SERVICE`.
 
@@ -34,7 +36,7 @@ def mailbox_page(wp: Any) -> dict[str, Any]:
 
 def register() -> None:
     """Every registration of the email domain (`registrations.load_all`)."""
-    from jav import email_routing, item_kinds, logic_packs, mailbox, workflow_steps
+    from jav import datasets, email_datasets, email_routing, item_kinds, logic_packs, mailbox, workflow_steps
 
     item_kinds.register_rule(item_kinds.ItemRule(kind=item_kinds.EMAIL, name="suspicious_email_source", module=__name__,
                                                  after_item=mailbox.mark_suspicious_source))
@@ -42,6 +44,10 @@ def register() -> None:
     workflow_steps.register(mailbox.STEP)  # 181: a workflow's emails step
     logic_packs.register(email_routing.LOGIC)  # 181: the email routing and its workflow step
     workflow_steps.register(email_routing.STEP)
+    for dataset, after in email_datasets.DATASETS:  # 185: its tables and label sets on the interface
+        datasets.register(dataset, after=after, module=__name__)
+    for labels in email_datasets.LABELS:
+        datasets.register_labels(labels)
 
 
 __all__ = ["mailbox_page", "register"]

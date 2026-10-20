@@ -24,7 +24,7 @@ def test_every_action_the_package_log_records_is_registered_and_none_is_stale() 
 
 
 def test_every_package_event_and_activity_source_has_a_label() -> None:
-    labels = datasets._labels("activity_action")
+    labels = datasets.label_set("activity_action")
     assert sorted(set(activity_kinds.events("package")) - set(labels)) == []
     assert sorted({s.code for s in activity_kinds.sources() if s.action_prefix is None} - set(labels)) == []
     # a workflow's actions show in "My work today" too (the owner's decision of 2026-10-19)
