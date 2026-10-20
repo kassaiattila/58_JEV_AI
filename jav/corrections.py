@@ -39,7 +39,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from jav import (activity_kinds, dates, duplicates, grounding, item_kinds, native_results, numbers, package_result, reconcile, source_layer, statement_months, store,
+from jav import (activity_kinds, dates, duplicates, grounding, item_kinds, native_results, numbers, package_result, source_layer, statement_months, store,
                  typepack, validators, work)
 from jav.native_contracts import Publication
 from jav.policy import reason_field
@@ -137,27 +137,11 @@ def _native_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[A
     return native_results.version_parts(run_id, c)
 
 
-def _duplicate_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
-    """126: the duplicate decisions on pairs that include one of the run's documents."""
-    return [[d["pair_key"], d["doc_id"], d["decision"], d["decided_at"]] for d in duplicates.decisions_for(items, c)]
-
-
-def _reconcile_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
-    """129: the reconciliation decisions on pairs one of the run's documents is a side of."""
-    return [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile.decisions_for(items, c)]
-
-
-def _statement_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]:
-    """139: the choices between two statements of the same days that include one of the run's documents."""
-    return [[d["pair_key"], d["keep_doc_id"], d["decided_at"]] for d in statement_months.choices_for(items, c)]
-
-
+# 185 (plan G-full-move T1d): the finance domain's parts (the duplicate, reconciliation and statement decisions) are
+# registered by its domain module after "native" (`jav/domains/finance.py` `DECISIONS`)
 for _kind in (activity_kinds.DecisionKind("corrections", _correction_rows),
               activity_kinds.DecisionKind("tasks", _task_rows, wraps="corrections"),
-              activity_kinds.DecisionKind("native", _native_rows, wraps="review"),
-              activity_kinds.DecisionKind("duplicates", _duplicate_rows, wraps="result"),
-              activity_kinds.DecisionKind("reconcile", _reconcile_rows, wraps="reviewed"),
-              activity_kinds.DecisionKind("statements", _statement_rows, wraps="checked")):
+              activity_kinds.DecisionKind("native", _native_rows, wraps="review")):
     activity_kinds.register_decision(_kind)
 
 

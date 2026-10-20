@@ -47,9 +47,7 @@ LASTING = {
 
 # 185: what the move (T1) still has to take away; an entry leaves this list with its step
 TEMPORARY = {
-    ("corrections", "duplicates"), ("corrections", "intents"), ("corrections", "mailbox"), ("corrections", "reconcile"),
-    ("corrections", "statement_months"),
-    ("datasets", "duplicates"), ("datasets", "reconcile"), ("datasets", "statement_months"),
+    ("corrections", "duplicates"), ("corrections", "intents"), ("corrections", "mailbox"), ("corrections", "statement_months"),
     ("export", "emails"), ("export", "mailbox"),
     ("outputs.samples", "reconcile_statement"),
     ("parties", "duplicates"),

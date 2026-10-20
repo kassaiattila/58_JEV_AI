@@ -59,7 +59,13 @@ def test_the_reviewed_version_is_made_of_these_decisions_in_this_order() -> None
     assert [(k.name, k.wraps) for k in kinds] == [
         ("corrections", None), ("tasks", "corrections"), ("native", "review"), ("duplicates", "result"),
         ("reconcile", "reviewed"), ("statements", "checked")]
-    assert {k.name for k in kinds} == datasets._FINGERPRINTED
+    # 185 (plan G-full-move T1d): the dataset fingerprint reads the shared parts itself, every other through the
+    # registry; the finance parts are the finance domain's, placed after the part they follow
+    assert datasets._FINGERPRINTED == {"corrections", "tasks", "native"}
+    from jav.domains import finance
+
+    assert [(k.name, after) for k, after in finance.DECISIONS] == [
+        ("duplicates", "native"), ("reconcile", "duplicates"), ("statements", "reconcile")]
 
 
 def test_a_decision_kind_a_logic_package_registers_joins_the_reviewed_version_and_the_fingerprint(db, monkeypatch) -> None:  # noqa: F811

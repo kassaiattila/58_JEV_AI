@@ -190,9 +190,12 @@ PIN_FINGERPRINTS = {
     "file_names": "_run_fingerprint", "calls": "_calls_fingerprint",
 }
 # corrections (count, latest) | to-dos (count, open, latest id, latest close) | task decisions (count, digest) |
-# items (count, latest update) | status | approval | native parts | duplicate decisions digest | left-out items digest
+# items (count, latest update) | status | approval | native parts | left-out items digest | the other decision kinds'
+# digest (only when there is one). 185 (plan G-full-move T1d, deliberate): the duplicate decisions are no longer a slot
+# of their own before the left-out digest but one of the other decision kinds read through the registry; the
+# fingerprint is the in-memory key of a run's tables only (nothing stored names it), so they are built once again
 PIN_RUN_FINGERPRINT = ("1|2026-10-08T10:00:00+00:00|1|1|1|None|0|dc937b59892604f5|2|2026-10-08T10:02:00+00:00|needs_review"
-                       "|None|[]|787f7d3a2ec11a26|dc937b59892604f5")
+                       "|None|[]|dc937b59892604f5|65a1e77ecab9a74f")
 
 
 def test_a_run_dataset_is_cached_by_store_name_and_scope(db) -> None:

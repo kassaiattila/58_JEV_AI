@@ -152,32 +152,22 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
         from jav import native_results
 
         native = native_results.version_parts(run_id, c)
-        from jav import duplicates, reconcile, statement_months
-
-        documents = [i for k, i in subjects if k == "document"]
-        # 126: a duplicate decision on a pair with one of the run's documents changes its mark
-        pairs = [[d["pair_key"], d["decision"], d["decided_at"]] for d in duplicates.decisions_for(documents, c)]
-        # 173 (plan 170, K20): so do a reconciliation decision and a statement choice, as in the reviewed version
-        paid = [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile.decisions_for(documents, c)]
-        chosen = [[d["pair_key"], d["keep_doc_id"], d["decided_at"]] for d in statement_months.choices_for(documents, c)]
-        # 175 (plan 170 E4): a decision kind a logic pack registers (`jav/activity_kinds.py`) beyond the parts read
-        # above; a run without any keeps its earlier fingerprint
+        # 126, 173 (plan 170, K20), 175 (plan 170 E4): every other decision kind of the reviewed version
+        # (`jav/activity_kinds.py`: a duplicate decision, a reconciliation decision, a statement choice, a logic pack's
+        # own) on one of the run's items; 185 (plan G-full-move T1d): read through the registry, none by name
         subject_ids = [i for _k, i in subjects]
         extra = [[k.name, found] for k in activity_kinds.decisions() if k.name not in _FINGERPRINTED
                  and (found := k.rows(run_id, subject_ids, c))]
     digest = hashlib.sha256(str(dec[1]).encode("utf-8")).hexdigest()[:16]
-    paired = hashlib.sha256(json.dumps(pairs).encode("utf-8")).hexdigest()[:16] if pairs else ""
-    parts = [*corr, *rsn, dec[0], digest, *items, row["status"], row["approval"], native, paired,
+    parts = [*corr, *rsn, dec[0], digest, *items, row["status"], row["approval"], native,
              hashlib.sha256(str(left_out).encode("utf-8")).hexdigest()[:16]]
-    if paid or chosen:  # a run without either keeps its earlier fingerprint
-        parts.append(hashlib.sha256(json.dumps([paid, chosen]).encode("utf-8")).hexdigest()[:16])
-    if extra:
+    if extra:  # a run without any keeps the fingerprint of its other parts
         parts.append(hashlib.sha256(json.dumps(extra).encode("utf-8")).hexdigest()[:16])
     return "|".join(str(x) for x in parts)
 
 
-# the decision kinds `_run_fingerprint` reads by itself (the built-in parts of the reviewed version)
-_FINGERPRINTED = frozenset({"corrections", "tasks", "native", "duplicates", "reconcile", "statements"})
+# the decision kinds `_run_fingerprint` reads by itself (the shared parts of the reviewed version)
+_FINGERPRINTED = frozenset({"corrections", "tasks", "native"})
 
 
 def _package_fingerprint(scope: dict[str, str]) -> str:

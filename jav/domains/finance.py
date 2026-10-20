@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav import checks, type_roles
+from jav import activity_kinds, checks, type_roles
 from jav.outputs import parts
 
 # 185 (plan G-full-move T1a): the modules of the domain's addresses of the local service beyond its logic packs' own
@@ -72,6 +72,31 @@ def statement_overlap_check(subject: checks.Subject) -> list[str]:
     values = subject.record.to_datapoints(typepack.get(subject.doc_type).record_fields)  # the stored form
     current = statement_months.current(subject.doc_id, subject.doc_type, values, subject.validation)
     return statement_months.review_reasons(current)
+
+
+# --- 185 (plan G-full-move T1d): the finance decisions a run's reviewed version is made of (`jav/activity_kinds.py`),
+# each after the part it follows, as they always nested; until 185 in `jav/corrections.py` -----------------------------
+
+
+def duplicate_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
+    """126: the duplicate decisions on pairs that include one of the run's documents."""
+    from jav import duplicates
+
+    return [[d["pair_key"], d["doc_id"], d["decision"], d["decided_at"]] for d in duplicates.decisions_for(items, c)]
+
+
+def reconcile_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
+    """129: the reconciliation decisions on pairs one of the run's documents is a side of."""
+    from jav import reconcile
+
+    return [[d["pair_key"], d["decision"], d["decided_at"]] for d in reconcile.decisions_for(items, c)]
+
+
+def statement_rows(run_id: str, items: list[str], c: Any) -> list[Any]:
+    """139: the choices between two statements of the same days that include one of the run's documents."""
+    from jav import statement_months
+
+    return [[d["pair_key"], d["keep_doc_id"], d["decided_at"]] for d in statement_months.choices_for(items, c)]
 
 
 def duplicate_scan(*, write: bool = False) -> dict[str, Any]:
@@ -163,6 +188,13 @@ def _roles() -> tuple[Any, ...]:
             package_scope.Role(statement_package.ROLE, __name__, "Bank statements", _statement, (statement_package.KIND,)))
 
 
+DECISIONS = (
+    (activity_kinds.DecisionKind("duplicates", duplicate_rows, wraps="result"), "native"),
+    (activity_kinds.DecisionKind("reconcile", reconcile_rows, wraps="reviewed"), "duplicates"),
+    (activity_kinds.DecisionKind("statements", statement_rows, wraps="checked"), "reconcile"),
+)
+
+
 # the documents table's finance columns after its general ones (126: the duplicate mark; 147: an invoice's direction),
 # with the built-in header and the data view's kind and label set
 DUPLICATE_COLUMNS = (parts.Column("duplicate", "Duplicate", "enum", "duplicate"), parts.Column("duplicate_of", "Duplicate of"))
@@ -176,6 +208,9 @@ def register() -> None:
 
     for check in CHECKS:
         checks.register(check)
+    for kind, after in DECISIONS:  # 185: the reviewed version's finance parts
+        activity_kinds.register_decision(kind, after=after)
+    from jav import reconcile_statement  # noqa: F401 - 185: its package log events (until then the activity registry's own)
     logic_packs.register(statement_package.LOGIC)
     parties.register_reference("statement_package", count=statement_package.count_party, repoint=statement_package.repoint_party)
     logic_packs.register(reconcile_package.LOGIC)
