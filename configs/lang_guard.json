@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.80",
+    "version": "1.0.81",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.81",
+        "date": "2026-10-20",
+        "note": "185 (plan G-full-move T1b): the tables of the finance and the email domain moved with their Hungarian column labels from jav/datasets.py to jav/finance_datasets.py and jav/email_datasets.py (interface vocabulary; datasets lowered by the same 60 lines)."
+      },
       {
         "version": "1.0.80",
         "date": "2026-10-20",
@@ -558,12 +563,13 @@
     "jav/contract.py": 12,
     "jav/corrections.py": 2,
     "jav/data_guard.py": 29,
-    "jav/datasets.py": 143,
+    "jav/datasets.py": 83,
     "jav/dates.py": 9,
     "jav/detect.py": 1,
     "jav/detect_detail.py": 2,
     "jav/devstate.py": 7,
     "jav/docsgen.py": 48,
+    "jav/email_datasets.py": 37,
     "jav/email_learning.py": 1,
     "jav/email_review.py": 4,
     "jav/email_tasks.py": 4,
@@ -584,6 +590,7 @@
     "jav/experiments/stack_trial.py": 1,
     "jav/export.py": 13,
     "jav/extract_llm.py": 1,
+    "jav/finance_datasets.py": 23,
     "jav/flow.py": 19,
     "jav/flow_detect.py": 10,
     "jav/flow_email.py": 9,
