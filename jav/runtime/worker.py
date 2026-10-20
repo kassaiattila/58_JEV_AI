@@ -27,8 +27,8 @@ from typing import Any, Callable
 
 from burr.integrations.serde import pydantic as burr_pydantic
 
-from jav import app_settings, isolated_pdf, item_kinds, mailbox, pdf, store, work, workflows
-from jav.runtime import applog, calls, flows, lock, pdf_status, persistence, queue
+from jav import app_settings, isolated_pdf, item_kinds, pdf, store, work, workflows
+from jav.runtime import applog, calls, flows, job_kinds, lock, pdf_status, persistence, queue
 from jav.runtime.persistence import ClosingSQLitePersister
 
 log = logging.getLogger("jav.worker")
@@ -346,12 +346,6 @@ def _prune_state(app_id: str) -> None:
         log.exception("could not prune the saved state of %s", app_id)
 
 
-def process_pull(job: queue.Job) -> str:
-    """Scheduled mailbox download (048 T2): the result / error shows on the schedule; the job is always completed."""
-    mailbox.run_pull_job(job.payload)
-    return queue.complete(job.id)
-
-
 def startup() -> dict[str, int]:
     """Start-up: settles interrupted claims and marks unsettled paid calls. The result of an item that became dead or
     cancelled shows on the run too (063: otherwise the run's item would be left without a result)."""
@@ -367,15 +361,16 @@ def startup() -> dict[str, int]:
 
 
 def _settle_abandoned(job: queue.Job, status: str, error: str) -> None:
-    """Settles the job's owner when the job ended without normal processing: the run's item or the download."""
+    """Settles the job's owner when the job ended without normal processing: the run's item, or (185) what a domain's
+    kind of job names (`jav/runtime/job_kinds.py`; the email domain's mailbox download)."""
     if job.kind == work.JOB_KIND:
         run_id, item_id = job.payload["run_id"], job.payload["item_id"]
         work.record_item_result(run_id, item_id, status=status, flow_run_id=work.flow_run_id(run_id, item_id), error=error[:300])
         if PRUNE_FINISHED_STATE:
             _prune_state(work.flow_run_id(run_id, item_id))
         work.refresh_run_status(run_id)
-    elif job.kind == mailbox.PULL_JOB_KIND:
-        mailbox.abandon_pull(job.payload["pull_id"], error)
+    elif (own := job_kinds.of(job.kind)) is not None:
+        own.abandon(job, error)
 
 
 def _fail_unexpected(job: queue.Job, exc: Exception) -> str:
@@ -429,18 +424,19 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
                 stop_path().unlink(missing_ok=True)
                 info["stopped"] = True
                 break
-            # 048 T2: a download job for each due mailbox schedule; 057: scan the watched work folders that are due.
-            # 063: a scheduler error does not stop the worker (the error is logged and retried in the next round).
-            # 146: the workflows' automatic chain moves on (at most every workflows.TICK_EVERY_S)
-            for name, tick in (("mailbox.tick", mailbox.tick), ("folders.tick", app_settings.tick),
-                               ("workflows.tick", workflows.tick)):
+            # 048 T2: a download job for each due mailbox schedule (185: a domain's tick, `jav/runtime/job_kinds.py`);
+            # 057: scan the watched work folders that are due. 063: a scheduler error does not stop the worker (the
+            # error is logged and retried in the next round). 146: the workflows' automatic chain moves on (at most
+            # every workflows.TICK_EVERY_S)
+            for name, tick in ((*((t.name, t.run) for t in job_kinds.ticks()), ("folders.tick", app_settings.tick),
+                                ("workflows.tick", workflows.tick))):
                 try:
                     tick()
                 except Exception:  # noqa: BLE001 - operational safety net, logged
                     log.exception("%s failed", name)
                     info["errors"] += 1
             try:
-                job = queue.claim(worker, kinds=(work.JOB_KIND, mailbox.PULL_JOB_KIND))
+                job = queue.claim(worker, kinds=(work.JOB_KIND, *(k.kind for k in job_kinds.kinds())))
             except Exception:  # noqa: BLE001 - e.g. a store locked for long: wait, then try again
                 log.exception("claim failed")
                 info["errors"] += 1
@@ -454,7 +450,8 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
                 time.sleep(idle_sleep_s)
                 continue
             try:
-                res = process_pull(job) if job.kind == mailbox.PULL_JOB_KIND else process(job)
+                own = job_kinds.of(job.kind)
+                res = own.process(job) if own is not None else process(job)
             except Exception as exc:  # noqa: BLE001 - operational safety net: the job is closed, the loop carries on
                 log.exception("job %s (%s) failed unexpectedly", job.id, job.kind)
                 info["errors"] += 1

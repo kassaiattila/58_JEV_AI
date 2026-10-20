@@ -15,6 +15,10 @@ that raises an error fails the step with that error, as before; the workflow cat
 A kind the registry does not know is refused (`UnknownStepKind`): a process that missed `load_all` stops instead of
 starting nothing.
 
+185 (plan G-full-move T1c): a step's source is a folder, chosen files, an existing package or none, or a kind a domain
+adds (`SourceKind`; the email domain's mailbox download): how it is checked, shown, moved on to the next period and
+counted for the estimate is the source kind's own.
+
 Layer: business module (the registry; no rule of its own). The modules that register are application operations; this
 module imports none of them.
 """
@@ -26,8 +30,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-# the source kinds a step makes its own package from, so its run may have its own AI engine (160-D)
-OWN_SOURCES = ("folder", "files", "mailbox")
+# the shared source kinds a step makes its own package from, so its run may have its own AI engine (160-D); 185: a
+# domain's source kind adds itself (`SourceKind.own`, `own_sources`)
+SHARED_OWN_SOURCES = ("folder", "files")
 
 
 class UnknownStepKind(LookupError):
@@ -139,6 +144,47 @@ def kinds() -> list[StepKind]:
     return list(_KINDS.values())
 
 
+@dataclass(frozen=True)
+class SourceKind:
+    """185 (plan G-full-move T1c): a kind of a step's source a domain adds to the shared ones.
+
+    - `check(raw)`: the source as stored, from what the wizard gave (a named error for a bad one);
+    - `shown(source)`: what a workflow's view shows of it;
+    - `repeated(source, period, workflow)`: its source for the next period (`period`: the next period, or None);
+    - `count(source)`: the items it would bring at most (None: unknown), their item kind and a note, for the estimate;
+    - `own`: a step makes its own package from it, so its run may have its own AI engine (160-D).
+    """
+
+    kind: str
+    module: str
+    check: Callable[[Mapping[str, Any]], dict[str, Any]]
+    shown: Callable[[Mapping[str, Any]], dict[str, Any]]
+    repeated: Callable[[Mapping[str, Any], tuple[str, str] | None, Mapping[str, Any]], dict[str, Any]]
+    count: Callable[[Mapping[str, Any]], tuple[int | None, str, str | None]]
+    own: bool = True
+
+
+_SOURCES: dict[str, SourceKind] = {}
+
+
+def register_source(kind: SourceKind) -> None:
+    """Registers a domain's source kind; the same one again adds nothing, another one of the same kind is an error."""
+    known = _SOURCES.get(kind.kind)
+    if known is not None and known != kind:
+        raise ValueError(f"source kind {kind.kind!r} is registered already by {known.module}")
+    _SOURCES[kind.kind] = kind
+
+
+def source_kind(name: str) -> SourceKind | None:
+    """A domain's source kind; None for a shared one (a folder, files, a package, none)."""
+    return _SOURCES.get(name)
+
+
+def own_sources() -> tuple[str, ...]:
+    """The source kinds a step makes its own package from: the shared ones, then each domain's that does."""
+    return (*SHARED_OWN_SOURCES, *(k.kind for k in _SOURCES.values() if k.own))
+
+
 def paths_of(source: Mapping[str, Any]) -> list[Path]:
     """The paths of a folder or files source (a folder is one path)."""
     return [Path(source["folder"])] if source["kind"] == "folder" else [Path(p) for p in source["paths"]]
@@ -160,5 +206,5 @@ def described() -> dict[str, dict[str, Any]]:
                      "only_new": k.only_new, "subfolders": k.subfolders, "needs": list(k.needs)} for k in _KINDS.values()}
 
 
-__all__ = ["OWN_SOURCES", "StepKind", "StepStart", "UnknownStepKind", "described", "folder_source", "kinds", "of",
-           "paths_of", "register"]
+__all__ = ["SHARED_OWN_SOURCES", "SourceKind", "StepKind", "StepStart", "UnknownStepKind", "described", "folder_source",
+           "kinds", "of", "own_sources", "paths_of", "register", "register_source", "source_kind"]

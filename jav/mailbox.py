@@ -30,6 +30,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from jav import ingest_server, item_kinds, store, work, workflow_steps
+from jav.runtime import job_kinds
 from jav.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
 from jav.user_messages import explained
 
@@ -438,6 +439,19 @@ def request_pull(req: MailboxRequest, *, actor: str, schedule_id: str | None = N
     return pull(pid)
 
 
+def process_pull_job(job: Any) -> str:
+    """The worker's mailbox download job (048 T2): the result or the error shows on the download and its schedule; the
+    job is always completed. 185 (plan G-full-move T1c): until then the worker's `process_pull`."""
+    from jav.runtime import queue
+
+    run_pull_job(job.payload)
+    return queue.complete(job.id)
+
+
+def abandon_pull_job(job: Any, error: str) -> None:
+    abandon_pull(job.payload["pull_id"], error)
+
+
 def abandon_pull(pull_id: str, error: str) -> None:
     """063: the worker left the download without a proper close (shutdown, unexpected error): closed as an error."""
     body = json.dumps({"error": error[:500]}, ensure_ascii=False)
@@ -558,6 +572,51 @@ def workflow_poll(ctx: workflow_steps.StepStart) -> None:
 
 # 181: the emails step of a workflow (registered by the email domain, `jav/domains/email.py`)
 STEP = workflow_steps.StepKind("emails", __name__, ("mailbox",), start=workflow_start, poll=workflow_poll)
+
+# --- 185 (plan G-full-move T1c): a mailbox download as a workflow step's source (`workflow_steps.SourceKind`; until
+# then in `jav/workflows.py`) ---------------------------------------------------------------------------------------
+
+
+def _checked_source(raw: Mapping[str, Any]) -> dict[str, Any]:
+    request = MailboxRequest.model_validate(raw.get("request") or {})
+    return {"kind": "mailbox", "request": request.model_dump(mode="json")}
+
+
+def _shown_source(source: Mapping[str, Any]) -> dict[str, Any]:
+    req = source["request"]
+    return {"kind": "mailbox", "accounts": req.get("accounts"), "folders": req.get("folders")}
+
+
+def _repeated_source(source: Mapping[str, Any], period: tuple[str, str] | None, wf: Mapping[str, Any]) -> dict[str, Any]:
+    """The download's received range moves on with the workflow's period, or by its own length; a number of days stays
+    as it is."""
+    from jav.workflows import next_period
+
+    req = dict(source["request"])
+    if req.get("received_from") or req.get("received_to"):
+        own = (req.get("received_from"), req.get("received_to"))
+        if period is not None and own == (wf["period_start"], wf["period_end"]):
+            moved = period
+        else:  # its own range moves on (181: a workflow without a period gives no missing end)
+            first, last = own[0] or wf["period_start"], own[1] or wf["period_end"]
+            moved = next_period(first, last) if first and last else own
+        req["received_from"], req["received_to"] = moved
+    return {"kind": "mailbox", "request": req}  # a number of days stays as it is
+
+
+def _counted_source(source: Mapping[str, Any]) -> tuple[int | None, str, str | None]:
+    """A mailbox's emails are counted only when a most is given."""
+    return source["request"].get("max_items") or 0, "email", "each email's PDF attachments add a document's budget"
+
+
+SOURCE = workflow_steps.SourceKind("mailbox", __name__, check=_checked_source, shown=_shown_source,
+                                   repeated=_repeated_source, count=_counted_source)
+
+# 185 (plan G-full-move T1c): the worker's kind of job for a download and its tick for the due schedules, registered by
+# the email domain (`jav/runtime/job_kinds.py`); each looks its function up when called, so a replaced one counts
+JOB = job_kinds.JobKind(PULL_JOB_KIND, __name__, process=lambda job: process_pull_job(job),
+                        abandon=lambda job, error: abandon_pull_job(job, error))
+TICK = job_kinds.Tick("mailbox.tick", __name__, lambda: tick())
 
 
 # --- email item on the review page (048 T2.3) --------------------------------------------------------------------

@@ -357,12 +357,14 @@ Budget = dict[Literal["jev", "openai", "azure_di"], Annotated[str, Field(pattern
 
 
 class WorkflowSource(_In):
-    """146: a workflow step's source: a folder or files, a mailbox request, an existing work package, or none."""
-    kind: Literal["folder", "files", "mailbox", "package", "none"]
+    """146: a workflow step's source: a folder or files, an existing work package, none, or (185) a domain's source kind
+    (the email domain's mailbox request). Which kinds a step takes, and a domain kind's own check, are the workflow's
+    (`workflows._source`, `workflow_steps.SourceKind.check`)."""
+    kind: Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]
     folder: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
     recursive: bool = False
     paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(max_length=500)] | None = None
-    request: dict[str, Any] | None = None  # checked as a mailbox.MailboxRequest
+    request: dict[str, Any] | None = None  # a domain source kind's request, checked by its kind
     workpackage_id: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")] | None = None
     only_new: bool = False  # 147: a documents step takes only the documents no live run has processed yet
 

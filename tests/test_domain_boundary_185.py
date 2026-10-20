@@ -53,9 +53,7 @@ TEMPORARY = {
     ("export", "emails"), ("export", "mailbox"),
     ("outputs.samples", "reconcile_statement"),
     ("parties", "duplicates"),
-    ("runtime.worker", "mailbox"),
     ("work_views", "emails"), ("work_views", "report_utility"),
-    ("workflows", "mailbox"),
 }
 
 
