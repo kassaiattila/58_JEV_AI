@@ -4,19 +4,25 @@
 // cannot place by itself shows why (an amber mark); a document of another kind is only listed. Its stages: the email
 // packages it routes, the routing itself, and what went where.
 import { useMemo, useState } from "react";
-import { api, ApiError, type RoutingBlocker, type RoutingItem, type RoutingView, type WorkpackageView } from "../../api";
+import { api, ApiError, type RoutingBlocker, type RoutingItem, type RoutingNote, type RoutingView, type WorkpackageView } from "../../api";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
+import { docTypeLabel } from "../../labels";
 import { go, type Stage } from "../../route";
 
 export const BLOCKER: Record<RoutingBlocker, string> = {
   no_result: "Not processed yet: its email package's run has not read it",
+  no_data: "Read, but it has no data: see its to-dos in its email package",
   unknown_party: "No own party: neither its buyer nor its supplier is an own party's",
   unclear_direction: "Unclear whether it is incoming or outgoing",
   internal: "An invoice between two own parties: choose its package",
   not_own: "Neither side is an own party",
   no_day: "No date to place it in a period",
   suspicious: "It came with a suspicious email",
+};
+
+// 183 (DECISIONS 183): shown under a proposal; it does not keep the proposal from being accepted
+const NOTE: Record<RoutingNote, string> = {
   sent_incoming: "An incoming invoice in a sent email",
 };
 
@@ -141,7 +147,7 @@ function Decide({ wpId, view, onChanged }: { wpId: string; view: RoutingView; on
       {others.length ? (
         <details className="details">
           <summary>{t("Attachments of another kind ({{n}})", { n: others.length })}</summary>
-          <ul className="small">{others.map((i) => <li key={i.item_id}>{i.file}{i.doc_type ? ` · ${i.doc_type}` : ""} <span className="muted">{emailText(i)}</span></li>)}</ul>
+          <ul className="small">{others.map((i) => <li key={i.item_id}>{i.file}{i.doc_type ? ` · ${docTypeLabel(i.doc_type)}` : ""} <span className="muted">{emailText(i)}</span></li>)}</ul>
         </details>
       ) : null}
     </section>
@@ -153,17 +159,21 @@ function ProposalCell({ item }: { item: RoutingItem }) {
   if (item.placement.problem) return <span className="status s-warn">{t(BLOCKER[item.placement.problem])}</span>;
   const p = item.proposal;
   if (!p) return <span className="muted">—</span>;
+  const note = item.placement.note ? <div className="small muted">{t(NOTE[item.placement.note])}</div> : null;
   if (p.target) {
     return (
-      <span className="status s-review">
-        <a href={`#/workpackages/${encodeURIComponent(p.target.id)}`}>{p.target.name}</a>
-        {p.others.length ? <span className="muted"> {t("(+{{n}} more)", { n: p.others.length })}</span> : null}
-      </span>
+      <>
+        <span className="status s-review">
+          <a href={`#/workpackages/${encodeURIComponent(p.target.id)}`}>{p.target.name}</a>
+          {p.others.length ? <span className="muted"> {t("(+{{n}} more)", { n: p.others.length })}</span> : null}
+        </span>
+        {note}
+      </>
     );
   }
   const n = p.new!;
   const name = item.placement.role_title ? [n.party, n.period_start.slice(0, 7), t(item.placement.role_title)].join(" · ") : n.name;
-  return <span className="status s-review">{t("New package: {{name}}", { name })}</span>;
+  return <><span className="status s-review">{t("New package: {{name}}", { name })}</span>{note}</>;
 }
 
 function DecisionMark({ item }: { item: RoutingItem }) {

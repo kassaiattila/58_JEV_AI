@@ -1926,6 +1926,7 @@
   "work package {{name}} has no email": "A(z) {{name}} munkacsomagban nincs levél",
   "work package {{name}} is hidden": "A(z) {{name}} munkacsomag el van rejtve",
   "Not processed yet: its email package's run has not read it": "Még nincs feldolgozva: a levélcsomag futása még nem olvasta be",
+  "Read, but it has no data: see its to-dos in its email package": "Beolvasva, de nincsenek adatai: lásd a teendőit a levélcsomagban",
   "No own party: neither its buyer nor its supplier is an own party's": "Nincs saját gazdálkodó: sem a vevője, sem a szállítója nem saját",
   "Unclear whether it is incoming or outgoing": "Nem egyértelmű, hogy bejövő vagy kimenő",
   "An invoice between two own parties: choose its package": "Két saját gazdálkodó közötti számla: válassz neki csomagot",

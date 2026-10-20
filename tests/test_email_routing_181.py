@@ -5,8 +5,8 @@ Guarantees tested:
   outgoing one from a sent email (its supplier's), a bank statement by its account; a contract is only listed;
 - the proposal is the open package whose scope fits (role, party, the day in its period), else a new package for the
   party, the day's month and the role;
-- what cannot be placed is a blocker with its reason (no result, no own party, a suspicious email, an incoming invoice in
-  a sent email);
+- what cannot be placed is a blocker with its reason (no result, no own party, a suspicious email); since 183 an
+  incoming invoice in a sent email is proposed with a note (`tests/test_email_routing_183.py`);
 - accepting adds the document to the package or makes the new package with its scope; one new package per party,
   month and role in one acceptance; rejecting and undoing are recorded in the package's log; the package is done once
   every routable document is decided; a workflow's routing step routes the email packages of the steps it waits for.
@@ -128,7 +128,8 @@ def test_each_emailed_document_is_placed_and_proposed(db) -> None:
     items = _items(view)
     assert items["invoice.pdf"]["placement"] | {"party": None} == {"routable": True, "role": "incoming_invoices",
                                                                   "role_title": "Incoming invoices", "party_id": party,
-                                                                  "party": None, "day": "2026-06-08", "problem": None}
+                                                                  "party": None, "day": "2026-06-08", "problem": None,
+                                                                  "note": None}  # 183: the note
     assert items["invoice.pdf"]["proposal"]["target"] == {"id": target["id"], "name": "June incoming"}
     assert items["invoice.pdf"]["email"]["subject"] == "About m1"
     assert items["sold.pdf"]["placement"]["role"] == "outgoing_invoices"
@@ -138,8 +139,10 @@ def test_each_emailed_document_is_placed_and_proposed(db) -> None:
     assert items["statement.pdf"]["placement"]["role"] == "statements" and items["statement.pdf"]["placement"]["day"] == "2026-06-30"
     assert not items["contract.pdf"]["placement"]["routable"] and items["contract.pdf"]["proposal"] is None
     assert {f: items[f]["placement"]["problem"] for f in ("unknown.pdf", "late.pdf", "odd.pdf", "bought.pdf")} == {
-        "unknown.pdf": "not_own", "late.pdf": "no_result", "odd.pdf": "suspicious", "bought.pdf": "sent_incoming"}
-    assert view["counts"] == {"attachments": 8, "routable": 7, "decided": 0, "blocked": 4, "clear": 3, "accepted": 0}
+        "unknown.pdf": "not_own", "late.pdf": "no_result", "odd.pdf": "suspicious", "bought.pdf": None}
+    # 183 (DECISIONS 183): an incoming invoice in a sent email is proposed, with a note (it was a blocker)
+    assert items["bought.pdf"]["placement"]["note"] == "sent_incoming" and items["bought.pdf"]["proposal"]["target"]["id"] == target["id"]
+    assert view["counts"] == {"attachments": 8, "routable": 7, "decided": 0, "blocked": 3, "clear": 4, "accepted": 0}
     assert view["sources"] == [{"id": wp, "name": "Office mailbox"}]
 
 

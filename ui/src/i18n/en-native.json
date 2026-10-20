@@ -1925,6 +1925,7 @@
   "work package {{name}} has no email": "work package {{name}} has no email",
   "work package {{name}} is hidden": "work package {{name}} is hidden",
   "Not processed yet: its email package's run has not read it": "Not processed yet: its email package's run has not read it",
+  "Read, but it has no data: see its to-dos in its email package": "Read, but it has no data: see its to-dos in its email package",
   "No own party: neither its buyer nor its supplier is an own party's": "No own party: neither its buyer nor its supplier is an own party's",
   "Unclear whether it is incoming or outgoing": "Unclear whether it is incoming or outgoing",
   "An invoice between two own parties: choose its package": "An invoice between two own parties: choose its package",
