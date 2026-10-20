@@ -1935,5 +1935,8 @@
   "levél-becsatornázás": "email routing",
   "Route the attachments": "Route the attachments",
   "Routed by:": "Routed by:",
-  "{{n}} document(s) of this package came as an email's attachment. The routing proposes the package each invoice, outgoing invoice and bank statement belongs to.": "{{n}} document(s) of this package came as an email's attachment. The routing proposes the package each invoice, outgoing invoice and bank statement belongs to."
+  "{{n}} document(s) of this package came as an email's attachment. The routing proposes the package each invoice, outgoing invoice and bank statement belongs to.": "{{n}} document(s) of this package came as an email's attachment. The routing proposes the package each invoice, outgoing invoice and bank statement belongs to.",
+  "released": "released",
+  "partly released": "partly released",
+  "changed since the release": "changed since the release"
 }

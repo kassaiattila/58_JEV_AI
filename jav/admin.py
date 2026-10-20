@@ -153,6 +153,11 @@ def reasons_by_run_kind() -> dict[str, int]:
     out = {"live": 0, "trial": 0, "no_run": 0}
     kind = {"apply": "live", "shadow": "trial"}
     with store.connect() as c:
+        # 181 (backlog J-preflight-friss-tar): a fresh store of a process that never loaded the work packages has no
+        # runs table; every open reason then counts as raised without a run
+        if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='runs'").fetchone() is None:
+            out["no_run"] = c.execute("SELECT COUNT(*) FROM review_reasons WHERE status='open'").fetchone()[0]
+            return out
         for r in c.execute("SELECT x.mode, COUNT(*) AS n FROM review_reasons r LEFT JOIN runs x"
                            " ON x.run_id = substr(r.run_id, 1, instr(r.run_id || ':', ':') - 1)"
                            " WHERE r.status='open' GROUP BY x.mode"):

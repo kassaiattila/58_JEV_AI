@@ -66,6 +66,8 @@ export interface WorkpackageView {
   item_counts?: Partial<Record<"approved" | "live" | "trial" | "running" | "failed" | "pending" | "removed", number>>;
   /** 181: the package's scope (its party, period and role), when it has one */
   scope?: PackageScope;
+  /** 181: a released package's release state and latest version (the stage bar's result) */
+  release?: { state: PackageReleaseState; version: number };
   /** 181: an email routing package's attachments, proposals and decisions */
   routing?: RoutingView;
   /** 181: an email package offers the routing of its attachments (and names the routing packages that route it) */

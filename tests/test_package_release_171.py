@@ -154,3 +154,20 @@ def test_a_reconciliation_package_is_released_in_its_own_statement(env):
     assert {b["code"] for b in view["blockers"]} == {"own_approval"} and view["state"] == "not_released"
     r = env["client"].post(f"/api/workpackages/{wp_id}/release", headers=HUMAN, json={"expected_mark": view["mark"]})
     assert r.status_code == 422 and r.json()["error"] == "release_refused"
+
+
+def test_a_released_packages_page_carries_its_release_for_the_stage_bar(env):
+    """181 (backlog J-szakaszsav-kiadott-proba): the package's page says its release state and latest version, so a
+    trial run after a release no longer reads as only a trial result on the stage bar; a package never released has
+    none."""
+    c = env["client"]
+    wp = _package(c, env["folder"])
+    _assign(c, wp["id"])
+    _live(c, wp["id"])
+    assert "release" not in c.get(f"/api/workpackages/{wp['id']}").json()
+    assert _release(c, wp["id"]).status_code == 200
+    assert c.get(f"/api/workpackages/{wp['id']}").json()["release"] == {"state": "released", "version": 1}
+    _start(c, wp["id"], mode="shadow")  # a trial after the release
+    worker.run_worker(once=True)
+    page = c.get(f"/api/workpackages/{wp['id']}").json()
+    assert page["current_run"]["mode"] == "shadow" and page["release"] == {"state": "released", "version": 1}

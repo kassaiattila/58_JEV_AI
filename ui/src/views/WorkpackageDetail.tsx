@@ -21,6 +21,9 @@ import { StartConfirm } from "./StartConfirm";
 import { WorkpackageActions } from "./WorkpackageActions";
 
 const STAGE_LABEL = tmap({ process: "Feldolgozás", review: "Ellenőrzés", result: "Eredmény" }) as Record<Stage, string>;
+// 181: a released package's release state on the stage bar, as its release line says it
+const RELEASE_STATE = tmap({ released: "released", partly_released: "partly released",
+  changed_since_release: "changed since the release", not_released: "awaiting release" });
 const ACTIVE = new Set(["queued", "running"]);
 
 export function stageStatus(view: WorkpackageView): Record<Stage, string> {
@@ -39,7 +42,8 @@ export function stageStatus(view: WorkpackageView): Record<Stage, string> {
     // version holds the approval (the next step says Approve and release until then)
     result: current && current.mode !== "shadow" && !current.approval && (current.status === "failed" || current.status === "cancelled")
       ? t("cannot be approved")
-      : !current ? t("még nincs") : current.mode === "shadow" ? t("próba-eredmény")
+      // 181: a trial after a release does not hide the release (backlog J-szakaszsav-kiadott-proba)
+      : !current ? t("még nincs") : current.mode === "shadow" ? (view.release ? RELEASE_STATE[view.release.state] : t("próba-eredmény"))
         : current.approval && view.next?.code !== "release" ? t("kiadva") : t("awaiting release"),
   };
 }

@@ -15,6 +15,7 @@ version recorded afterwards, marked as such (DECISIONS 171).
 - `backfill()`: the first version of every package approved before (idempotent).
 - `result_mark(wp_id)`, `current_workbook(wp_id)`, `unreleased_approval(wp_id, c)` (172): the mark a result table's
   page carries, the current result as a workbook, and whether the next step is Approve and release.
+- `release_summary(wp_id)` (181): a released package's state and latest version, for the package's stage bar.
 
 A reconciliation package has no runs; it is approved in its own statement (`reconcile_statement.approve`, plan 170 L3
 brings the two together).
@@ -179,6 +180,16 @@ def view(wp_id: str) -> dict[str, Any]:
             "open_live_runs": open_runs, "reviewed": {rid: reviewed[rid] for rid in open_runs if rid in reviewed},
             "removed_items": removed, "blockers": blockers,
             "state": _state(latest, releasable, in_use), "versions": versions}
+
+
+def release_summary(wp_id: str) -> dict[str, Any] | None:
+    """181: a released package's release state and latest version, for its page's stage bar (a trial run after a
+    release no longer reads as only a trial result there); None for a package never released (one query then)."""
+    with store.connect() as c:
+        if c.execute("SELECT 1 FROM package_versions WHERE workpackage_id=? LIMIT 1", (wp_id,)).fetchone() is None:
+            return None
+    current = view(wp_id)
+    return {"state": current["state"], "version": current["versions"][0]["version"]}
 
 
 # --- rendering a version -----------------------------------------------------------------------------------------
