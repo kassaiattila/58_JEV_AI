@@ -20,7 +20,9 @@ PACKS = sorted(p.stem for p in (cfg.path_of("policy").parent / "types").glob("*.
 
 
 def test_the_stages_and_their_order() -> None:
-    assert checks.STAGES == ("record", "decision", "cross_document", "after_save")
+    assert checks.STAGES == ("record", "decision", "cross_document", "after_save", "saved")
+    # 185 (plan G-full-move T1f): the extraction flow's direction rule, as before in every flow
+    assert [(c.name, c.reads_store) for c in checks.stage("saved")] == [("detail_direction", False)]
     assert [c.name for c in checks.stage("decision")] == ["pick", "verdict", "gpt_confidence", "validation"]
     assert [c.arms for c in checks.stage("decision")] == [("S",), ("G",), ("G",), ()]
     assert [c.name for c in checks.stage("cross_document")] == ["duplicate", "own_tax", "statement_overlap"]
@@ -94,7 +96,7 @@ def test_the_registry_is_complete_whichever_module_asks_first() -> None:
     import sys
 
     code = ("from jav import checks; print(len(checks.stage('record')), len(checks.stage('decision')),"
-            " len(checks.stage('cross_document')), len(checks.stage('after_save')))")
+            " len(checks.stage('cross_document')), len(checks.stage('after_save')), len(checks.stage('saved')))")
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True,
                          cwd=Path(__file__).resolve().parents[1]).stdout.split()
     assert out == [str(len(checks.stage(s))) for s in checks.STAGES]

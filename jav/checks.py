@@ -16,7 +16,10 @@ An entry (`Check`) names its stage and how it runs:
 - decision: `run(state)` adds its to-dos to the flow state; `arms` names the paths it runs on (S or G);
 - cross-document: `run(subject)` returns its to-dos for the document (`Subject`);
 - after-save: `run(write=...)` scans the stored results and returns counts; `producer` names who opens its to-dos and
-  `opens` the cross-document check whose to-do it opens.
+  `opens` the cross-document check whose to-do it opens;
+- saved (185, plan G-full-move T1f): `run(state)` looks at a document's flow state once its record is saved (the
+  finance domain's: the own parties' direction settles an uncertain detailed type between an outgoing and an incoming
+  invoice, 149; until 185 the extraction flow's own code). As before, it runs in every flow, not only in a worker run.
 
 A check that reads other documents (`reads_store`) runs only in a worker run, so a measurement and the command line
 give results that do not depend on what the store holds. The stored order of to-dos is part of a result: the checks
@@ -36,8 +39,8 @@ from typing import Any, Literal
 
 from jav.runtime import calls
 
-Stage = Literal["record", "decision", "cross_document", "after_save"]
-STAGES: tuple[Stage, ...] = ("record", "decision", "cross_document", "after_save")
+Stage = Literal["record", "decision", "cross_document", "after_save", "saved"]
+STAGES: tuple[Stage, ...] = ("record", "decision", "cross_document", "after_save", "saved")
 KINDS = ("record", "field", "pair")
 
 _OWNERS = ("jav.validators", "jav.policy")  # the modules that register the record and decision checks on import
@@ -120,10 +123,17 @@ def runs(check: Check) -> bool:
     return not check.reads_store or store_readable()
 
 
+def saved(state: Any) -> None:
+    """185 (plan G-full-move T1f): each check of the saved stage on a document's flow state, in order."""
+    for check in stage("saved"):
+        if runs(check):
+            check.run(state)
+
+
 def cross_document(subject: Subject) -> list[list[str]]:
     """Each cross-document check's to-dos for the document, in order (one list per check that ran)."""
     return [list(check.run(subject)) for check in stage("cross_document") if runs(check)]
 
 
-__all__ = ["Check", "KINDS", "STAGES", "Stage", "Subject", "UnknownCheck", "cross_document", "get", "register", "runs",
+__all__ = ["Check", "KINDS", "STAGES", "Stage", "Subject", "UnknownCheck", "cross_document", "get", "register", "runs", "saved",
            "stage", "store_readable"]

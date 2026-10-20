@@ -583,6 +583,28 @@ def review_reasons(doc_type: str | None, values: dict[str, Any]) -> list[str]:
     return own_tax_reasons(doc_type, values)
 
 
+def confirm_detail_by_direction(state: Any) -> None:
+    """149: the detection's detailed type was uncertain between an outgoing and an incoming pack; the direction the
+    own parties give the extracted invoice settles it (`policy.detail_direction`). The parties alone decide here: the
+    outgoing type is evidence in `direction`, and would confirm itself. A match closes the detailed type's uncertainty
+    to-do, a contradiction is a to-do of its own; anything else is left as it was. 185 (plan G-full-move T1f): the
+    finance domain's check of the saved stage (`jav/checks.py`; until then in `jav/flow.py`)."""
+    if state.invoice is None or not state.detail_probabilities:
+        return
+    from jav import policy
+
+    found = direction(resolver(), None, state.invoice.model_dump())[0]
+    verdict = policy.detail_direction(state.doc_type, state.detail_probabilities, found)
+    if verdict == "confirmed":
+        for kind in ("low_conf", "second_option"):
+            store.review_close(subject_kind="document", subject_id=state.doc_id, producer="detect_detail",
+                               reason_prefix=f"detect_detail:{kind}:{state.doc_type}:", run_id=state.run_id)
+    elif verdict == "contradicted":
+        store.review_enqueue(subject_kind="document", subject_id=state.doc_id, run_id=state.run_id,
+                             producer="detect_detail_direction",
+                             reasons=[f"detect_detail:direction_mismatch:{state.doc_type}:{found}"])
+
+
 def suggest(invoices: Iterable[dict[str, Any]], accounts: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """What the data proposes beside the parties already there.
 

@@ -3,8 +3,8 @@
 Plain-language summary: what the shared code does with invoices and bank statements beyond reading them is registered
 here, in one call (`register`, from `registrations.load_all`):
 - the cross-document checks, in the order they run: a duplicate invoice (126), an own tax number as the supplier's
-  (134), a statement booking the same days as another one (139); and the two scans that open the same to-dos on the
-  stored results (`jav/checks.py`);
+  (134), a statement booking the same days as another one (139); the two scans that open the same to-dos on the
+  stored results; and (185) the saved stage's direction check of an uncertain detailed type (149; `jav/checks.py`);
 - the statement package and the reconciliation package as logic packs, each with the reference that keeps a party in
   use from being deleted (`jav/logic_packs.py`, `jav/parties.py`), and (181) as the statements and reconciliation steps
   of a workflow (`jav/workflow_steps.py`);
@@ -111,12 +111,21 @@ def own_tax_scan(*, write: bool = False) -> dict[str, Any]:
     return party_views.scan_own_tax(write=write)
 
 
+def direction_check(state: Any) -> None:
+    """149 (185: the saved stage): the own parties' direction settles an uncertain detailed type (`jav/parties.py`)."""
+    from jav import parties
+
+    parties.confirm_detail_by_direction(state)
+
+
 CHECKS = (
     checks.Check("duplicate", "cross_document", duplicate_check, reads_store=True),
     checks.Check("own_tax", "cross_document", own_tax_check, reads_store=True),
     checks.Check("statement_overlap", "cross_document", statement_overlap_check, reads_store=True),
     checks.Check("duplicate_scan", "after_save", duplicate_scan, producer="duplicates", opens="duplicate"),
     checks.Check("own_tax_scan", "after_save", own_tax_scan, producer="parties", opens="own_tax"),
+    # 185 (plan G-full-move T1f): as before, in every flow (until then the extraction flow's own code)
+    checks.Check("detail_direction", "saved", direction_check),
 )
 
 
