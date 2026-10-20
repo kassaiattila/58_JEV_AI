@@ -583,43 +583,6 @@ def review_reasons(doc_type: str | None, values: dict[str, Any]) -> list[str]:
     return own_tax_reasons(doc_type, values)
 
 
-def scan_own_tax(*, write: bool = False) -> dict[str, Any]:
-    """157 (backlog Q-own-tax-afterwards): the incoming invoices already in the store that the check would flag (read
-    only, counts only), and with `write` the same to-do the processing would open, once, under the flow run that
-    produced the document. A document whose result is not from a work run, or whose run is approved, is skipped (an
-    approved result never reopens), as in the duplicates' scan."""
-    from jav import duplicates, work
-
-    check = _conf()["supplier_check"]
-    docs = duplicates.documents((check["supplier_tax_field"], check["buyer_tax_field"]), supplier_check_types())
-    with store.connect() as c:
-        approved = {r["run_id"] for r in c.execute("SELECT run_id FROM runs WHERE approval IS NOT NULL")}
-        flagged = [d for d in docs if own_tax_reasons(d.doc_type, d.fields, c)]
-    already = {(subject, r["reason"], r["run_id"]) for (_kind, subject), rs in
-               store.review_open_reasons_many([("document", d.doc_id) for d in flagged]).items() for r in rs}
-    pending = []
-    skipped: Counter[str] = Counter()
-    for d in flagged:
-        if d.run_id is None:
-            skipped["no_work_run"] += 1
-        elif d.run_id in approved:
-            skipped["approved_run"] += 1
-        elif (d.doc_id, OWN_TAX_REASON, d.flow_run_id) in already:
-            skipped["already_open"] += 1  # an earlier --write (or the processing) opened it
-        else:
-            pending.append(d)
-    written = 0
-    if write:
-        for d in pending:
-            store.review_enqueue(subject_kind="document", subject_id=d.doc_id, run_id=d.flow_run_id or "",
-                                 reasons=[OWN_TAX_REASON], producer=SCAN_PRODUCER)
-            written += 1
-        for run_id in sorted({d.run_id for d in pending if d.run_id}):
-            work.refresh_run_status(run_id)
-    return {"documents": len(docs), "flagged": len(flagged), "to_open": len(pending), "written": written,
-            "skipped": dict(sorted(skipped.items()))}
-
-
 def suggest(invoices: Iterable[dict[str, Any]], accounts: Iterable[dict[str, Any]]) -> dict[str, Any]:
     """What the data proposes beside the parties already there.
 

@@ -106,9 +106,9 @@ def duplicate_scan(*, write: bool = False) -> dict[str, Any]:
 
 
 def own_tax_scan(*, write: bool = False) -> dict[str, Any]:
-    from jav import parties
+    from jav import party_views  # 185: the scan is the finance domain's (`parties` keeps the check)
 
-    return parties.scan_own_tax(write=write)
+    return party_views.scan_own_tax(write=write)
 
 
 CHECKS = (

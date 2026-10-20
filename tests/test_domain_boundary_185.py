@@ -45,10 +45,8 @@ LASTING = {
     "policy": "the routing rules of every flow are one module with their thresholds (CLAUDE.md §6)",
 }
 
-# 185: what the move (T1) still has to take away; an entry leaves this list with its step
-TEMPORARY = {
-    ("parties", "duplicates"),
-}
+# 185: what the move (T1) still had to take away; an entry left this list with its step (empty since T1e)
+TEMPORARY: set[tuple[str, str]] = set()
 
 
 def _module(path: Path) -> str:
