@@ -621,6 +621,58 @@ TICK = job_kinds.Tick("mailbox.tick", __name__, lambda: tick())
 
 # --- email item on the review page (048 T2.3) --------------------------------------------------------------------
 
+EMAIL_FIELDS = ("intent",)  # 058 K5.1: an email's intent is correctable (the email is the source, not extracted)
+
+
+def email_item_result(run: dict[str, Any], item: dict[str, Any], engine: str | None) -> dict[str, Any]:
+    """048 T2: an email item's result on the review page: no extraction or page image; the email, its intent and its
+    tasks. 185 (plan G-full-move T1e): the email kind's handler (`item_kinds.ItemHandler`; until then in
+    `jav/corrections.py` `item_result`)."""
+    from jav import corrections
+
+    run_id, item_id = run["run_id"], item["item_id"]
+    reasons = work.item_reasons(run_id, item_id, item)
+    corr = corrections.current(run_id, item_id)
+    # 058 K5.2: the email's attachments that ran as documents in the run (the UI refers to them)
+    attachment_items = [{"item_id": i["item_id"], "filename": Path(i["source_path"]).name}
+                        for i in run["input"]["items"] if i.get("parent_item_id") == item_id]
+    email = email_item_view(item, work.flow_run_id(run_id, item_id), corr["fields"].get("intent"))
+    own = bool(email["result"] and email["result"]["from_this_run"])
+    return {"run_id": run_id, "item_id": item_id, "kind": "email", "extraction": None, "correction": corr,
+            "effective": {}, "lists": {}, "checks": [], "provenance": {}, "source": None,
+            "attachment_items": attachment_items, "email": email,
+            # an intent taken from another run was not produced with this run's settings
+            "engine": engine if own else None,
+            "open_reasons": reasons["run"], "earlier_open_reasons": reasons["earlier"]}
+
+
+def correct_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], expected_revision: int, actor: str,
+                  note: str | None, sources: dict[str, list[int]], confirm: list[str]) -> dict[str, Any]:
+    """Manual correction of an email's intent (versioned, like a document's fields). The corrected intent settles the
+    run's own intent to-dos (uncertain / unrecognised intent): the decision closes them; a to-do with another reason
+    (e.g. suspicious content) stays open. 185 (plan G-full-move T1e): the email kind's handler (until then
+    `jav/corrections.py` `_save_email`)."""
+    from jav import corrections, intents
+
+    if confirm:
+        raise explained(ValueError, "fields cannot be confirmed on an email; correct its intent instead")
+    unknown = sorted(set(fields) - set(EMAIL_FIELDS))
+    if unknown:
+        raise explained(ValueError, "only {{email_fields}} can be corrected on an email: {{unknown}}",
+                        email_fields=", ".join(EMAIL_FIELDS), unknown=unknown)
+    if sources:
+        raise explained(ValueError, "source selection is not supported for emails")
+    key = fields.get("intent")
+    if key is not None and key not in intents.BY_KEY:
+        raise explained(ValueError, "unknown intent: {{key}}", key=key)
+    item_id = item["item_id"]
+    corrections.insert_revision(run_id, item_id, fields, expected_revision, actor, note, None)
+    if key is not None:
+        for r in work.item_reasons(run_id, item_id, item)["run"]:
+            if r["reason"].startswith("intent:"):
+                work.resolve_reason(r["id"], actor=actor, resolution={"intent": key}, note="a szándék kézzel javítva")
+    return corrections.current(run_id, item_id)
+
 
 def intent_name(key: str | None) -> str | None:
     """The intent's Hungarian name from the registry (the key itself for an unknown key)."""

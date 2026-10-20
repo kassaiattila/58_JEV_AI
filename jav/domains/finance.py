@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from jav import activity_kinds, checks, type_roles
+from jav import activity_kinds, checks, item_kinds, type_roles
 from jav.outputs import parts
 
 # 185 (plan G-full-move T1a): the modules of the domain's addresses of the local service beyond its logic packs' own
@@ -188,6 +188,24 @@ def _roles() -> tuple[Any, ...]:
             package_scope.Role(statement_package.ROLE, __name__, "Bank statements", _statement, (statement_package.KIND,)))
 
 
+def duplicate_pairs(item_id: str, reasons: list[dict[str, Any]]) -> Any:
+    """126: the duplicate suspicions and decisions of the document, with the other document side by side."""
+    from jav import duplicates
+
+    return duplicates.item_pairs(item_id, reasons)
+
+
+def statement_replacements(item_id: str, reasons: list[dict[str, Any]]) -> Any:
+    """139: the statement that replaced this one, the ones it replaced, and the undecided ones of the same days."""
+    from jav import statement_months
+
+    return statement_months.item_view(item_id, reasons)
+
+
+# 185 (plan G-full-move T1e): the finance parts of a record item's result, in the order the review page always had them
+RECORD_PARTS = (item_kinds.RecordPart("duplicates", __name__, duplicate_pairs),
+                item_kinds.RecordPart("statements", __name__, statement_replacements))
+
 DECISIONS = (
     (activity_kinds.DecisionKind("duplicates", duplicate_rows, wraps="result"), "native"),
     (activity_kinds.DecisionKind("reconcile", reconcile_rows, wraps="reviewed"), "duplicates"),
@@ -210,6 +228,8 @@ def register() -> None:
         checks.register(check)
     for kind, after in DECISIONS:  # 185: the reviewed version's finance parts
         activity_kinds.register_decision(kind, after=after)
+    for part in RECORD_PARTS:  # 185: the finance parts of a document's result on the review page
+        item_kinds.register_record_part(part)
     from jav import reconcile_statement  # noqa: F401 - 185: its package log events (until then the activity registry's own)
     logic_packs.register(statement_package.LOGIC)
     parties.register_reference("statement_package", count=statement_package.count_party, repoint=statement_package.repoint_party)

@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.81",
+    "version": "1.0.82",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.82",
+        "date": "2026-10-20",
+        "note": "185 (plan G-full-move T1e): an email item's intent correction moved with its Hungarian resolution note from jav/corrections.py to jav/mailbox.py (the email domain's handler); corrections lowered by the same line."
+      },
       {
         "version": "1.0.81",
         "date": "2026-10-20",
@@ -561,7 +566,7 @@
     "jav/cli.py": 70,
     "jav/config.py": 5,
     "jav/contract.py": 12,
-    "jav/corrections.py": 2,
+    "jav/corrections.py": 1,
     "jav/data_guard.py": 29,
     "jav/datasets.py": 83,
     "jav/dates.py": 9,
@@ -604,7 +609,7 @@
     "jav/lang_guard.py": 1,
     "jav/learning_cli.py": 13,
     "jav/legacy_import.py": 4,
-    "jav/mailbox.py": 11,
+    "jav/mailbox.py": 12,
     "jav/models.py": 10,
     "jav/ocr.py": 5,
     "jav/pdf.py": 8,

@@ -6,6 +6,7 @@ Plain-language summary: what the shared code does with emails beyond reading the
   so the run cannot be approved before a person has looked at it (`jav/item_kinds.py`);
 - the mailbox package's part of its page: how many PDF attachments are not yet items, and (181) the routing of its
   attachments it offers;
+- (185) how the review page shows an email item and a person corrects its intent (`mailbox.email_item_result`, `correct_email`);
 - (181) a workflow's emails step: the mailbox download, then its package's run (`jav/workflow_steps.py`);
 - (181) the email routing: a logic pack that proposes, for each emailed invoice, outgoing invoice and bank statement,
   the package it belongs to, and its workflow step (`jav/email_routing.py`);
@@ -44,6 +45,9 @@ def register() -> None:
     item_kinds.register_rule(item_kinds.ItemRule(kind=item_kinds.EMAIL, name="suspicious_email_source", module=__name__,
                                                  after_item=mailbox.mark_suspicious_source))
     item_kinds.register_page("mailbox", __name__, mailbox_page)
+    # 185: how the review page shows an email item, and a person corrects its intent
+    item_kinds.register_handler(item_kinds.ItemHandler(kind=item_kinds.EMAIL, module=__name__, result=mailbox.email_item_result,
+                                                       correct=mailbox.correct_email))
     workflow_steps.register(mailbox.STEP)  # 181: a workflow's emails step
     workflow_steps.register_source(mailbox.SOURCE)  # 185: a mailbox download as a step's source
     logic_packs.register(email_routing.LOGIC)  # 181: the email routing and its workflow step
