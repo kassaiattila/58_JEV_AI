@@ -297,6 +297,7 @@ export interface PackageOutputChoices { workpackage_id: string; outputs: Partial
 export interface RunPlan {
   documents: number; emails: number; attachments: number; paths: { S: number; G: number; unknown: number };
   tasks_emails: number; text_emails?: number; azure: boolean; jev_reuse: boolean;  // 190: text_emails
+  text_tables?: number;  // 192: the emails' table attachments read as a part of a quote request (only while any)
   arm?: string; // 082: the chosen path (with S, a document on the G path has a type without a JEV path)
   jev?: boolean; // 086: false = processing without JEV (GPT recognises the type, every document on the G path)
   statement_tables?: number; // 136: statements from a bank's table export, read by code (free)

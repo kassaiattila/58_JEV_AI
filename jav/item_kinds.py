@@ -165,6 +165,20 @@ class ItemPart:
     build: Callable[[dict[str, Any], dict[str, Any]], Any]
 
 
+@dataclass(frozen=True)
+class ItemExtra:
+    """192 (plan F-quote-package B6c): units of a parameter-bound budget extra an item of a kind carries, as its domain
+    counts them (`count(item)`: an email's table attachments, each one extraction of a quote request's part). The
+    recipe's `param_item_usd` row of the extra kind `extra` prices one unit; the run's plan names their sum `plan_key`
+    while there are any."""
+
+    kind: str
+    extra: str
+    plan_key: str
+    module: str
+    count: Callable[[dict[str, Any]], int]
+
+
 ITEM_KINDS: tuple[ItemKind, ...] = (
     ItemKind(DOCUMENT, "a file whose type is recognised from its content", copied=True, record=True, detected=True,
              page_image=True, attachments=False, subject=_document_subject, plan_key="documents"),
@@ -190,6 +204,7 @@ _RULES: dict[str, ItemRule] = {}
 _PAGES: dict[str, Callable[[Mapping[str, Any]], dict[str, Any]]] = {}
 _HANDLERS: dict[str, ItemHandler] = {}
 _ITEM_PARTS: dict[tuple[str, str], ItemPart] = {}
+_ITEM_EXTRAS: dict[tuple[str, str], ItemExtra] = {}
 _RECORD_PARTS: dict[str, RecordPart] = {}
 _REGISTERED: set[str] = set()
 
@@ -314,6 +329,23 @@ def register_item_part(part: ItemPart) -> None:
     _ITEM_PARTS[(part.kind, part.name)] = part
 
 
+def register_item_extra(extra: ItemExtra) -> None:
+    """192: a domain's budget extra counted on an item kind; the same one again adds nothing, another of the same extra
+    kind for the same item kind is an error."""
+    known = _ITEM_EXTRAS.get((extra.kind, extra.extra))
+    if known is not None and known != extra:
+        raise ValueError(f"item extra {extra.extra!r} of {extra.kind!r} items is registered already by {known.module}")
+    _ITEM_EXTRAS[(extra.kind, extra.extra)] = extra
+
+
+def item_extras(kind: str) -> list[ItemExtra]:
+    """192: the budget extras counted on an item kind, in the order registered (`registrations.load_all` first)."""
+    from jav import registrations
+
+    registrations.load_all()
+    return [e for (k, _name), e in _ITEM_EXTRAS.items() if k == kind]
+
+
 def item_parts(kind: str) -> list[ItemPart]:
     """192: the domains' parts of an item kind's result, in the order registered (`registrations.load_all` first)."""
     from jav import registrations
@@ -331,7 +363,7 @@ def record_parts() -> list[RecordPart]:
     return list(_RECORD_PARTS.values())
 
 
-__all__ = ["DOCUMENT", "EMAIL", "ITEM_KINDS", "ItemHandler", "ItemKind", "ItemPart", "ItemRule", "NotRegistered",
+__all__ = ["DOCUMENT", "EMAIL", "ITEM_KINDS", "ItemExtra", "ItemHandler", "ItemKind", "ItemPart", "ItemRule", "NotRegistered",
            "RecordPart",
            "SOURCE_KINDS", "STATEMENT_TABLE", "SourceKind", "UnknownItemKind", "UnknownSourceKind", "check", "handler", "handlers",
            "names", "of", "page", "record_parts", "register_handler", "register_page", "register_record_part",

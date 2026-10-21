@@ -2237,5 +2237,6 @@
   "The quote has no line yet: add one below.": "The quote has no line yet: add one below.",
   "Start a quote from this email": "Start a quote from this email",
   "Start another quote from this email": "Start another quote from this email",
-  "Data extraction from the email and its attachments ({{what}})": "Data extraction from the email and its attachments ({{what}})"
+  "Data extraction from the email and its attachments ({{what}})": "Data extraction from the email and its attachments ({{what}})",
+  "{{n}} table attachment(s): a request list attached to a quote request is read with it": "{{n}} table attachment(s): a request list attached to a quote request is read with it"
 }

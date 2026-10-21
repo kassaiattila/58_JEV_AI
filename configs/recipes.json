@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "recipes",
-  "version": "1.14.0",
+  "version": "1.15.0",
   "changelog": [
+   {
+    "version": "1.15.0",
+    "date": "2026-10-21",
+    "note": "192 (plan F-quote-package B6c, the owner's decision): with email_text extract, a quote request email's table attachments (an Excel or CSV request list) are read too, each as a part of the email's request in its follow-up (not an item of its own); each table attachment of an email reserves 0.03 USD OpenAI (the email_table extra beside the email's own, counted by the email domain), spent only on a quote request's list."
+   },
    {
     "version": "1.14.0",
     "date": "2026-10-21",
@@ -219,6 +224,14 @@
      "param": "email_text",
      "value": "extract",
      "kind": "email",
+     "usd": {
+      "openai": "0.03"
+     }
+    },
+    {
+     "param": "email_text",
+     "value": "extract",
+     "kind": "email_table",
      "usd": {
       "openai": "0.03"
      }
@@ -529,6 +542,14 @@
      "param": "email_text",
      "value": "extract",
      "kind": "email",
+     "usd": {
+      "openai": "0.03"
+     }
+    },
+    {
+     "param": "email_text",
+     "value": "extract",
+     "kind": "email_table",
      "usd": {
       "openai": "0.03"
      }

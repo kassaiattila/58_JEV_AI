@@ -622,6 +622,8 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
       plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
       // 190: the extraction of a quote request written in the email itself (spent only on such emails)
       (plan.text_emails ?? 0) > 0 && t("{{n}} email(s): a quote request written in the email is read from its text", { n: plan.text_emails }),
+      // 192: an Excel or CSV request list attached to a quote request email (spent only on such a list)
+      (plan.text_tables ?? 0) > 0 && t("{{n}} table attachment(s): a request list attached to a quote request is read with it", { n: plan.text_tables }),
     ])}.`);
   } else if (amount("openai") > 0) {
     out.push(`${head("openai")}: ${join([
@@ -632,6 +634,8 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
       plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
       // 190: the extraction of a quote request written in the email itself (spent only on such emails)
       (plan.text_emails ?? 0) > 0 && t("{{n}} email(s): a quote request written in the email is read from its text", { n: plan.text_emails }),
+      // 192: an Excel or CSV request list attached to a quote request email (spent only on such a list)
+      (plan.text_tables ?? 0) > 0 && t("{{n}} table attachment(s): a request list attached to a quote request is read with it", { n: plan.text_tables }),
     ])}.`);
   } else if (plan.documents || plan.emails) {
     out.push(plan.documents ? t("OpenAI: nem hívódik, minden irat az S-úton fut.") : t("OpenAI: nem hívódik."));

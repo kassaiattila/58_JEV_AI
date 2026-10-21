@@ -15,6 +15,7 @@ message, no work package. Outlook must be running on the machine (`-ExistingOutl
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import re
@@ -717,6 +718,24 @@ def intent_name(key: str | None) -> str | None:
     from jav import intents
 
     return (intents.BY_KEY[key].display_name if key in intents.BY_KEY else key) if key else None
+
+
+def table_attachments(item: dict[str, Any]) -> int:
+    """192 (B6c): how many table attachments (Excel, CSV) an email item has, each read as a part of a quote request in
+    the email's follow-up (counted for the run's budget; cached by the message file and its time)."""
+    path = Path(item["source_path"])
+    try:
+        return _message_tables(str(path), path.stat().st_mtime_ns)
+    except OSError:
+        return 0
+
+
+@functools.lru_cache(maxsize=4096)
+def _message_tables(message_json: str, _mtime_ns: int) -> int:
+    from jav import emails, text_document
+
+    msg = emails.load_message_dir(Path(message_json).parent)
+    return sum(1 for a in msg.attachments if a.path and text_document.input_kind(a.path) == "table")
 
 
 def reads_text(next_flow: str | None) -> bool:
