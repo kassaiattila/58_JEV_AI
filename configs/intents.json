@@ -1,7 +1,7 @@
 {
  "meta": {
   "name": "intents",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "changelog": [
    {
     "version": "1.0.0",
@@ -17,6 +17,11 @@
     "version": "2.1.0",
     "date": "2026-10-08",
     "note": "127 (5th group, round B): own data replaced (069 decision): two examples (system_notification, social_network_notification) no longer carry the user's name or user name. Only `examples` changed; GPT sees `what` and `not_for` only, so its instructions are unchanged. New cache keys for the JEV intent question: the email baseline is re-measured on the JEV side."
+   },
+   {
+    "version": "2.2.0",
+    "date": "2026-10-21",
+    "note": "190 (plan 189 A2e, F-IT-quote-request D2): new intent quote_request (the sender asks us for a price quote), document-bearing (a request form or list may be attached); its route is the quote request's data extraction (policy.json email.intent_route). Its examples are not taken from the invented golden set (configs/golden_quotes.json). A new option for every intent question: the intent golden set (96) and the 13 invented emails are re-measured (paid, the A2 sub-budget)."
    }
   ]
  },
@@ -133,6 +138,19 @@
     "Senior Project Manager: MOL Group and bp hired roles"
    ],
    "document_bearing": false
+  },
+  {
+   "key": "quote_request",
+   "display_name": "Ajánlatkérés",
+   "parent": "human_correspondence",
+   "what": "The sender ASKS US FOR A PRICE QUOTE (árajánlat, ajánlat, quotation): a customer or a prospect names the goods or services it wants priced, usually with quantities, in the email itself or in an attached request form or list, and asks us to send an offer.",
+   "not_for": "Accepting, chasing or commenting on an offer we already sent, or asking for its delivery (business_correspondence). Reporting a fault or asking for help (business_correspondence). A supplier's newsletter or offer made TO us (newsletter_marketing). An invoice or a payment request (szamlakuldes).",
+   "examples": [
+    "Ajánlatot kérnénk szerverbővítésre",
+    "Kérőív csatolva - kérjük az árajánlatot",
+    "Quote request: network upgrade"
+   ],
+   "document_bearing": true
   },
   {
    "key": "business_correspondence",

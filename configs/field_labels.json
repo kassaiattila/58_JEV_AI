@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "field_labels",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "changelog": [
+   {
+    "version": "1.7.0",
+    "date": "2026-10-21",
+    "note": "190 (plan 189 A2e): the Hungarian names of the quote request's fields and its type."
+   },
    {
     "version": "1.6.0",
     "date": "2026-10-11",
@@ -96,7 +101,7 @@
   "customer_address": "Felhasználó címe",
   "customer_code": "Ügyfélkód",
   "customer_id": "Felhasználó azonosító",
-  "customer_name": "Felhasználó neve",
+  "customer_name": "Ajánlatkérő neve",
   "date": "Dátum",
   "distribution_licensee": "Elosztói engedélyes",
   "document_kind": "Irat fajtája",
@@ -156,7 +161,14 @@
   "total_tax": "Összes adó",
   "valid_until": "Érvényes eddig",
   "venue": "Rendezvény helyszíne",
-  "venue_room": "Terem"
+  "venue_room": "Terem",
+  "customer_tax_number": "Ajánlatkérő adószáma",
+  "contact_name": "Kapcsolattartó",
+  "contact_email": "Kapcsolattartó e-mail-címe",
+  "contact_phone": "Kapcsolattartó telefonszáma",
+  "deadline": "Ajánlattételi határidő",
+  "reference": "Ajánlatkérés hivatkozási száma",
+  "requested_items": "Kért tételek"
  },
  "columns": {
   "booking_date": "Könyvelés",
@@ -226,6 +238,7 @@
   "payment_reminder": "Fizetési felszólítás",
   "performance_certificate": "Teljesítésigazolás",
   "proforma_invoice": "Díjbekérő",
+  "quote_request": "Ajánlatkérés",
   "receipt": "Nyugta, bizonylat",
   "statement_cib": "Bankszámlakivonat (CIB)",
   "statement_erste": "Bankszámlakivonat (Erste)",

@@ -14,10 +14,12 @@ const PLAN: RunPlan = { documents: 2, emails: 1, attachments: 0, paths: { S: 0, 
 
 describe("086 processing without JEV", () => {
   it("switched off, there is no JEV budget and the type and intent recognition get an OpenAI budget", () => {
-    const settings = { arm: "auto", azure_ocr: "off", tasks: "off" };
+    const settings = { arm: "auto", azure_ocr: "off", tasks: "off", email_text: "off" };
     expect(itemBudget(RECIPE, { ...settings, jev: "on" }, "document")).toEqual({ jev: 0.07, openai: 0.15 });
     expect(itemBudget(RECIPE, { ...settings, jev: "off" }, "document")).toEqual({ openai: 0.22 });
     expect(itemBudget(RECIPE, { ...settings, jev: "off" }, "email")).toEqual({ openai: 0.07 });
+    // 190: with the extraction of a quote request written in the email (the default), one more GPT request
+    expect(itemBudget(RECIPE, { ...settings, email_text: "extract", jev: "off" }, "email").openai).toBeCloseTo(0.1, 6);
     expect(itemBudget(RECIPE, { ...settings, jev: "off" }, "statement_table")).toEqual({});
     expect(itemBudgetLines(RECIPE, { ...settings, jev: "off" })).toEqual([
       "táblázatos kivonatonként: nincs", "levelenként: OpenAI legfeljebb 0,07 USD", "PDF-iratonként: OpenAI legfeljebb 0,22 USD"]);

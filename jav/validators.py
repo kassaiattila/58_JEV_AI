@@ -8,6 +8,8 @@ Which checks run: the type pack's `validators` list (the legacy `rules.json` `na
 `fields`, as data): `{"check": <name>, "field": <field>, "optional": true, "regex": ...}`. An `optional`
 check is skipped if the field is empty. The Hungarian invoice's list gives the earlier `run_all` behaviour unchanged.
 A role-pair check names two fields: `{"check": "distinct_parties", "fields": [<first>, <second>]}` (120).
+190 (plan 189 A2c): a list field's rows are checked by its name: how many there are (`list_rows`), whether the named
+columns have a value in every row (`list_values`) and whether a quantity column is above zero (`list_positive`).
 121: `party_orientation` (same shape) compares the pair with the earlier documents of the same type; it needs the
 document's identifier and type (`run_checks(..., doc_id=, doc_type=)`) and runs only in a worker run.
 175 (plan 170 E3): each check is a record-stage entry of the check registry (`jav/checks.py`), registered below with
@@ -245,6 +247,43 @@ def line_items_arithmetic(inv: DocumentRecord) -> CheckResult:
     return CheckResult(name="line_items_arithmetic", ok=True, code="lines.arithmetic_ok")
 
 
+def _list_rows(inv: DocumentRecord, field: str) -> list[Any]:
+    value = inv.get_field(field) if field != "line_items" else [li.model_dump() for li in inv.line_items]
+    return value if isinstance(value, list) else []
+
+
+def _cell(row: Any, column: str) -> Any:
+    return row.get(column) if isinstance(row, dict) else None
+
+
+def list_rows(inv: DocumentRecord, field: str, minimum: int = 1) -> CheckResult:
+    """190 (plan 189 A2c): a list field has at least `minimum` rows (a quote request asks for at least one item)."""
+    n = len(_list_rows(inv, field))
+    if n >= minimum:
+        return CheckResult(name=f"list_rows:{field}", ok=True, code="lines.count_ok", detail=f"rows={n}")
+    return CheckResult(name=f"list_rows:{field}", ok=False, code="lines.too_few", detail=f"rows={n} min={minimum}")
+
+
+def list_values(inv: DocumentRecord, field: str, columns: Iterable[str]) -> CheckResult:
+    """190: every row of a list field has a value in each of `columns`; a row without one is named `line N: <column>`,
+    numbered from 1, as the line-item checks name theirs."""
+    missing = [f"line {i}: {c}" for i, row in enumerate(_list_rows(inv, field), start=1) for c in columns
+               if _cell(row, c) in (None, "")]
+    if missing:
+        return CheckResult(name=f"list_values:{field}", ok=False, code="lines.value_missing", detail="; ".join(missing))
+    return CheckResult(name=f"list_values:{field}", ok=True, code="lines.values_ok")
+
+
+def list_positive(inv: DocumentRecord, field: str, columns: Iterable[str]) -> CheckResult:
+    """190: in every row of a list field each of `columns` (a quantity) is a number above zero; an empty value is the
+    concern of `list_values`, not of this check."""
+    bad = [f"line {i}: {c}={_cell(row, c)}" for i, row in enumerate(_list_rows(inv, field), start=1) for c in columns
+           if isinstance(_cell(row, c), Decimal) and _cell(row, c) <= 0]
+    if bad:
+        return CheckResult(name=f"list_positive:{field}", ok=False, code="lines.not_positive", detail="; ".join(bad))
+    return CheckResult(name=f"list_positive:{field}", ok=True, code="lines.positive_ok")
+
+
 def _statement_check(name: str):
     """047: the legacy statement rules (`jav/legacy_validation.py`, a faithful port of the legacy rules.json) on the
     whole record: running balance, closing balance, debit/credit totals, transactions within the period."""
@@ -366,6 +405,14 @@ for _name, _run in (("vat_consistency", _whole(vat_consistency)), ("date_order",
 for _name, _fn in (("hu_tax_id", hu_tax_id), ("tax_id", tax_id), ("iban_check", iban_check)):
     checks.register(checks.Check(_name, "record", _field(_fn), kind="field"))
 checks.register(checks.Check("format", "record", _format, kind="field"))
+# 190: the checks of any list field, by the field's name (`{"check": "list_rows", "field": <list>, "min": 1}`,
+# `{"check": "list_values" | "list_positive", "field": <list>, "columns": [...]}`)
+checks.register(checks.Check("list_rows", "record", lambda inv, spec, **_: list_rows(inv, spec["field"], int(spec.get("min", 1))),
+                             kind="field"))
+checks.register(checks.Check("list_values", "record", lambda inv, spec, **_: list_values(inv, spec["field"], spec["columns"]),
+                             kind="field"))
+checks.register(checks.Check("list_positive", "record",
+                             lambda inv, spec, **_: list_positive(inv, spec["field"], spec["columns"]), kind="field"))
 checks.register(checks.Check("distinct_parties", "record", _distinct_parties, kind="pair"))  # 120
 checks.register(checks.Check("party_orientation", "record", _party_orientation, kind="pair", reads_store=True))  # 121
 

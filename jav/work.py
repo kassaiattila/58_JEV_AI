@@ -1130,6 +1130,7 @@ def run_plan(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, An
     plan = {**{k.plan_key: counts[k.plan_key] for k in item_kinds.ITEM_KINDS if k.plan_always or counts[k.plan_key]},
             "attachments": sum(1 for i, _a in docs if i.get("parent_item_id")), "paths": paths,
             "tasks_emails": emails if value("tasks") == "propose" else 0,
+            "text_emails": emails if value("email_text") == "extract" else 0,  # 190: a quote request in the email
             "azure": value("azure_ocr") == "on" and any(not native_flow(r, i) for i, _a in docs),
             "jev_reuse": value("jev_cache") != "live",
             "arm": value("arm"),  # 082: with S chosen, a document on the G path has a type without a JEV path

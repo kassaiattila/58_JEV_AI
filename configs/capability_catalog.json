@@ -1,8 +1,9 @@
 {
   "meta": {
     "name": "capability_catalog",
-    "version": "1.0.0",
-    "changelog": [{"version":"1.0.0","date":"2026-09-22","note":"Unified deterministic capability discovery and coverage checks"}]
+    "version": "1.1.0",
+    "changelog": [{"version":"1.0.0","date":"2026-09-22","note":"Unified deterministic capability discovery and coverage checks"},
+                  {"version":"1.1.0","date":"2026-10-21","note":"190 (plan 189 A2e): the quote request's type pack and intent (quote_request)"}]
   },
   "purpose": "Deterministic discovery and coverage checks; not a semantic recognition guarantee",
   "document_registry": "configs/doc_types.json",
@@ -26,6 +27,7 @@
     "nav_receipt",
     "nav_tax_return",
     "proforma_invoice",
+    "quote_request",
     "statement_cib",
     "statement_erste",
     "terkep_adat",
@@ -41,6 +43,7 @@
     "megrendeles_statusz_ertesites",
     "newsletter_marketing",
     "other",
+    "quote_request",
     "social_network_notification",
     "sportesemeny_tamogatas",
     "system_notification",

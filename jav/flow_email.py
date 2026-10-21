@@ -14,6 +14,10 @@
 - `save`: `emails` table (the latest per email) and `email_results` (the run's own row, with the part of the email text
   that was seen, 058 K5.1); uncertain intent -> review_queue (per reason, additive), certain -> its own earlier reasons
   are closed.
+- 190 (plan 189 A2f, the owner's decision of 2026-10-21): when the route is a data extraction (`m2:<type>`) whose type
+  pack reads text (the quote request) and the recipe's `email_text` setting asks for it, `route` names a follow-up:
+  the extraction flow on the email's own text (`emails.document_text`), which the worker runs as the item's next stage;
+  `save` ties that document (its id is the text's digest) to the email.
 """
 
 from __future__ import annotations
@@ -27,8 +31,8 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav import policy, store
-from jav.emails import DOC_EXTS, EmailMessage, body_coverage, load_message_dir
+from jav import policy, store, text_document, typepack
+from jav.emails import DOC_EXTS, EmailMessage, body_coverage, document_text, load_message_dir
 from jav.engine import with_engine
 from jav.intent import IntentResult
 
@@ -56,6 +60,10 @@ class EmailState(BaseModel):
     # an attachment's resolved path -> its verified source instance (the worker supplies it for the attachments that are
     # items of the package); such an attachment is read from the instance, any other from its path
     attachment_reads: dict[str, str] = Field(default_factory=dict)
+    # 190: whether the recipe asks for the email's own text to be extracted when its route is a text-reading type pack,
+    # and the follow-up stage named for the worker: {"flow": <flow>, "params": {"doc_type", "source_text"}}
+    extract_text: bool = False
+    follow_up: dict | None = None
 
 
 @action.pydantic(reads=["source_dir", "message"], writes=["message"])
@@ -159,7 +167,7 @@ def _intent_gpt(state: EmailState) -> EmailState:
     return state
 
 
-@action.pydantic(reads=["message", "result"], writes=["next_flow"])
+@action.pydantic(reads=["message", "result", "extract_text"], writes=["next_flow", "follow_up"])
 def route(state: EmailState) -> EmailState:
     assert state.message is not None
     if state.message.folder == "sent":  # 149: its attachments decide
@@ -171,7 +179,18 @@ def route(state: EmailState) -> EmailState:
     state.next_flow = policy.email_next_flow(
         state.result.intent, state.result.confidence, state.message.attachments, state.result.probabilities, state.result.signals
     )
+    state.follow_up = text_follow_up(state.message, state.next_flow) if state.extract_text else None
     return state
+
+
+def text_follow_up(msg: EmailMessage, next_flow: str) -> dict | None:
+    """190: the extraction of the email's own text, when its route is a data extraction whose type pack reads text and
+    the email has text of its own; None otherwise (an invoice's route extracts its attachment, not the email)."""
+    kind, _, key = next_flow.partition(":")
+    if kind != "m2" or key not in typepack.keys() or "text" not in typepack.get(key).inputs:
+        return None
+    text = document_text(msg)
+    return {"flow": "invoice", "params": {"doc_type": key, "source_text": text}} if text else None
 
 
 @action.pydantic(reads=["message", "result", "next_flow", "run_id", "propose_tasks", "review_reasons"], writes=["tasks", "review_reasons"])
@@ -209,10 +228,15 @@ def tasks(state: EmailState) -> EmailState:
     return state
 
 
-@action.pydantic(reads=["message", "result", "next_flow", "uncertain", "run_id", "review_reasons", "tasks", "jev"], writes=["final_status"])
+@action.pydantic(reads=["message", "result", "next_flow", "uncertain", "run_id", "review_reasons", "tasks", "jev", "follow_up",
+                         "source_dir"], writes=["final_status"])
 def save(state: EmailState) -> EmailState:
     msg, r = state.message, state.result
     assert msg is not None
+    if state.follow_up:  # 190: the email's own text as a document of the email (the extraction fills in the rest)
+        text = state.follow_up["params"]["source_text"]
+        store.upsert_document(doc_id=text_document.text_digest(text), source_email=msg.message_id, run_id=state.run_id,
+                              source_path=str(Path(state.source_dir) / "message.json") if state.source_dir else msg.message_id)
     store.upsert_email(
         message_id=msg.message_id, mailbox=msg.mailbox, sender=msg.sender, subject=msg.subject, received_at=msg.received_at,
         body_excerpt=(r.body_clean if r else msg.body)[:600],
@@ -283,9 +307,9 @@ CONTRACT = {  # the graph declaration: FLOW.md + Mermaid + lint come from it (ja
         "load_message": {"kind": "det", "note": "inbox/<mailbox>/<msgid>/message.json + fájlok, vagy kész EmailMessage (golden)"},
         "classify_attachments": {"kind": "flow", "note": "minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only; olvashatatlan PDF -> unreadable + teendő (attachment:unreadable), a levél tovább fut"},
         "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: the same questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/intent_gpt.py); a failed call is an intent:gpt_failed to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own). A sent message (folder = sent, 149) is not asked: no call, no to-do"},
-        "route": {"kind": "det", "note": "policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés. A sent message (149): policy.email_sent_route, its attachments' types, else archive:sent"},
+        "route": {"kind": "det", "note": "policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés. A sent message (149): policy.email_sent_route, its attachments' types, else archive:sent. 190: a route to a type pack that reads text (the quote request), with the recipe's email_text setting on, names the follow-up stage: the extraction flow on the email's own text"},
         "tasks": {"kind": "llm", "note": "feladatjavaslat (GPT, a régi email-actions v1.3.0 utasítása) + kódos bizonyíték-kapu; csak ha a recept kéri, archiválandó levélen nem; javaslat -> teendő (ember fogadja el). Not for a sent message (149)"},
-        "save": {"kind": "store", "note": "emails + email_results (a futás sora, a feladatjavaslat is); bizonytalan intent / javaslat -> review_queue (additív), különben a korábbi tétel zárul"},
+        "save": {"kind": "store", "note": "emails + email_results (a futás sora, a feladatjavaslat is); bizonytalan intent / javaslat -> review_queue (additív), különben a korábbi tétel zárul; 190: the email's own text as a document tied to the email (documents.source_email), when a follow-up extracts it"},
         "done": {"kind": "terminal", "note": "szándék + next_flow mentve"},
     },
     "terminals": TERMINALS,
@@ -305,16 +329,18 @@ def build_app(
     propose_tasks: bool = False,
     attachment_reads: dict[str, str] | None = None,
     jev: bool = True,
+    extract_text: bool = False,
 ) -> Application:
     """`run_id` + `persister` (048 T2): when run from the worker, durable state persistence and resumption under the
     same ID. `attachment_reads`: the source instances to read the package's attachment items from. `jev=False` (086,
     089): GPT recognises the intent, and there is no attachment recognition here: the PDF attachments are items of the
-    package and are recognised there, by GPT."""
+    package and are recognised there, by GPT. `extract_text` (190): the recipe's `email_text` setting is on, so a route to
+    a text-reading type pack names the extraction of the email's own text as the follow-up stage."""
     stem = (message.message_id if message else source_dir or "email").replace(":", "-").replace("\\", "/").rstrip("/").rsplit("/", 1)[-1][:32]
     run_id = run_id or f"email-{stem}-{uuid.uuid4().hex[:8]}"
     initial = EmailState(source_dir=source_dir, message=message, run_id=run_id, use_cache=use_cache,
                          detect_attachments=detect_attachments and jev, jev=jev,
-                         propose_tasks=propose_tasks, attachment_reads=attachment_reads or {})
+                         propose_tasks=propose_tasks, attachment_reads=attachment_reads or {}, extract_text=extract_text)
     b = (
         ApplicationBuilder()
         .with_typing(PydanticTypingSystem(EmailState))

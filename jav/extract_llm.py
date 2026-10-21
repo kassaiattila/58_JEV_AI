@@ -83,6 +83,12 @@ def instructions(pack: TypePack) -> str:
     return "\n\n".join(p for p in parts if p)
 
 
+def source_prefix(pack: TypePack) -> str:
+    """190 (plan 189 A2d): the words before the source text in the request: the pack's own (`source_prefix`), or the
+    invoice PDF's of every pack before 190, so their requests stay the same."""
+    return pack.source_prefix if pack.source_prefix is not None else USER_PREFIX
+
+
 def config_hash(pack: TypePack) -> str:
     """The identifier in the ledger: the pack and the shared extraction block."""
     return cfg.combine(pack.config_hash, cfg.config_hash("gpt_extract"))
@@ -186,7 +192,7 @@ def extract_scored(text: str, *, run_id: str = "adhoc", pack: TypePack | None = 
     pack = pack or get_pack(DEFAULT_KEY)
     factory = _agent_factory.get()
     agent = factory(pack) if factory is not None else get_agent(pack.key)
-    prompt = USER_PREFIX + text
+    prompt = source_prefix(pack) + text
     ctx = calls.current()
     if ctx is None:
         output, token_p = decode_answer(_physical(agent, prompt, run_id=run_id, pack=pack, limited=False).response)

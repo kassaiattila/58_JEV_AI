@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "doc_types",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "changelog": [
+   {
+    "version": "2.3.0",
+    "date": "2026-10-21",
+    "note": "190 (plan 189 A2e; the owner's decision of 2026-10-21 'a new document type too'): new type quote_request in a new family request_like: a customer's request for a price quote, as a form or a list; other.not_for names it. A new option for every detection question: the type golden set is re-measured (paid, the A2 sub-budget)."
+   },
    {
     "version": "2.2.0",
     "date": "2026-10-08",
@@ -45,7 +50,8 @@
   "contract_like": "Agreements and the confirmations of their performance.",
   "bank_like": "Bank and card account statements.",
   "official_like": "Certificates, attestations and tax authority forms.",
-  "other": "Tickets, unclassified or unreadable documents."
+  "other": "Tickets, unclassified or unreadable documents.",
+  "request_like": "Requests customers send us: requests for a price quote."
  },
  "types": [
   {
@@ -458,10 +464,42 @@
    "flows": []
   },
   {
+   "key": "quote_request",
+   "parent": "request_like",
+   "what": "Request for a price quote (árajánlatkérés, ajánlatkérés, ajánlatkérő ív, kérőív, igénylista, request for quotation, RFQ): a CUSTOMER lists the goods or services it wants priced, with quantities, often with its own details and a deadline for the quote, and asks the recipient for an offer.",
+   "not_for": "An offer or quote that names prices for the recipient (other). An order placed after a quote, or a delivery note (other). An invoice or a pro forma invoice (invoice_hu / proforma_invoice).",
+   "examples": [
+    "Ajánlatkérő ív: megnevezés, mennyiség, mértékegység, határidő",
+    "Igénylista egy árajánlathoz",
+    "Request for quotation: item, quantity, unit"
+   ],
+   "required_any": [
+    "ajánlatkér",
+    "árajánlatot kér",
+    "ajánlatot kér",
+    "kérőív",
+    "igénylista",
+    "request for (a )?quot",
+    "\brfq\b"
+   ],
+   "supporting": [
+    "mennyiség",
+    "határidő",
+    "megnevezés",
+    "quantity",
+    "deadline"
+   ],
+   "excluders": [
+    "számla sorszáma|számlaszám",
+    "áfa összesen|bruttó összesen"
+   ],
+   "flows": []
+  },
+  {
    "key": "other",
    "parent": "other",
    "what": "A readable business document that is none of the listed types: letter, offer / quote (ajánlat, árajánlat), delivery note (szállítólevél), meeting minutes, map data, presentation, form, marketing material, ID document.",
-   "not_for": "Anything that fits a listed type even loosely. Unreadable or garbled text (unknown).",
+   "not_for": "Anything that fits a listed type even loosely. A customer's request for a quote (quote_request). Unreadable or garbled text (unknown).",
    "examples": [
     "Árajánlat / ajánlat not yet accepted",
     "Szállítólevél, jegyzőkönyv, meghívó",
@@ -497,6 +535,7 @@
   "terkep_adat": "other",
   "id_document": "other",
   "insurance_claim_form": "other",
-  "csapatmenedzser_utasitas": "other"
+  "csapatmenedzser_utasitas": "other",
+  "quote_request": "quote_request"
  }
 }

@@ -16,7 +16,9 @@ it("distinguishes active recipes with visible names and independent recipe versi
   render(<RecipesPanel />);
   expect(await screen.findByRole("heading", { name: "PDF-ek \u00e9s levelek feldolgoz\u00e1sa" })).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Dokumentumok feldolgoz\u00e1sa — PDF, Word, Excel, TXT, CSV" })).toBeTruthy();
-  expect(screen.getAllByText("Receptverzi\u00f3: 2")).toHaveLength(2);
+  // 190: the processing is at version 3 (its email_text setting), the multi-format processing still at 2
+  expect(screen.getAllByText("Receptverzi\u00f3: 3")).toHaveLength(1);
+  expect(screen.getAllByText("Receptverzi\u00f3: 2")).toHaveLength(1);
 });
 
 it("keeps email explanations out of the document-only recipe and explains its native path", async () => {

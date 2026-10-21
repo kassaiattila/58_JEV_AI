@@ -587,13 +587,15 @@ class FlowState(BaseModel):
     use_cache: bool = True  # False when measuring determinism
     jev: bool = True  # 085: False = processing without JEV (the G path with the code's own check)
     detail_probabilities: dict[str, float] = Field(default_factory=dict)  # 149: the detection's detailed-type answer
+    # 190 (plan 189 A2b): a document given as text (an email's own text), read by `load_text` instead of the file
+    source_text: str | None = None
     # pdf
     text: str = ""
     lines: list[str] = Field(default_factory=list)
     layout: list[LineLayout] = Field(default_factory=list)
     page_count: int = 0
     has_text_layer: bool = False
-    text_source: str | None = None  # "pdf" (text layer) | "ocr" (jav/ocr.py) | None (no usable text -> needs_ocr)
+    text_source: str | None = None  # "pdf" (text layer) | "ocr" (jav/ocr.py) | "text" (190) | None (no usable text -> needs_ocr)
     ocr_conf: float | None = None  # OCR mean word confidence (0-1), raw; threshold in the `ocr` block of policy.json
     ocr_low_conf_ratio: float | None = None  # share of weak (< 60) words
     ocr_engine: str | None = None  # native / docker / azure_di (the text's source, if OCR)

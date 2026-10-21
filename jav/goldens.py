@@ -10,7 +10,8 @@ Where the golden sets come from:
 - the data points: every type pack with cases in the legacy golden manifest or among the synthetic cases
   (`configs/golden_synthetic.json`), on each of its paths (S, G); they follow from the type packs, so nothing is
   registered by hand;
-- the type recognition and the email intent: the two flows' golden sets, described here;
+- the type recognition and the email intent: the two flows' golden sets, described here; 190: the quote request's
+  invented emails, their intent and the requests read from them (`jav/evals_quotes.py`);
 - a logic pack: the golden sets it names in its registration (`LogicPack.goldens`), as the reconciliation does.
 
 A golden set is measured by the same function its own command calls, with the same arguments
@@ -104,7 +105,8 @@ class Outcome:
     - `cases`: the cases measured; `answered`: those with a result (the rest had no earlier answer, ran out of budget
       or failed);
     - `right` of `scored`: the judgements as expected, counted in `unit`: "fields" (a type pack's scored fields without
-      the informational ones, as in the golden report's total) or "cases" (one judgement per case);
+      the informational ones, as in the golden report's total), "cases" (one judgement per case) or "judgements" (190:
+      the quote requests' fields, numbers of items and item quantities);
     - `refused`: why the set was not measured as asked (nothing was run); `error`: why its measurement broke off;
     - `failures`: the cases a code-only golden set got wrong, with what differed.
     """
@@ -252,11 +254,49 @@ def _measure_intents(options: Options) -> Outcome:
                                                   jev_budget_usd=options.jev_budget_usd))
 
 
+def _count_quote_intents() -> int:
+    from jav import evals_quotes
+
+    return evals_quotes.count_intents()
+
+
+def _measure_quote_intents(options: Options) -> Outcome:
+    from jav import evals_quotes
+
+    return _case_outcome(evals_quotes.quote_intents(use_cache=options.use_cache, jev=options.jev,
+                                                    budget_usd=options.budget_usd, jev_budget_usd=options.jev_budget_usd))
+
+
+def _count_quote_requests() -> int:
+    from jav import evals_quotes
+
+    return evals_quotes.count_requests()
+
+
+def _measure_quote_requests(options: Options) -> Outcome:
+    from jav import evals_quotes
+
+    rows = evals_quotes.quote_requests(use_cache=options.use_cache, jev=options.jev, budget_usd=options.budget_usd,
+                                       jev_budget_usd=options.jev_budget_usd)
+    right, scored = evals_quotes.judgements(rows)
+    return Outcome(cases=len(rows), answered=sum(1 for r in rows if r.get("score")), right=right, scored=scored,
+                   unit="judgements")
+
+
 FLOW_GOLDENS = (
     Golden(key="types", layer="type", owner="doc_detect", what="the document type recognition on the legacy golden "
            "documents", engines=ENGINES, count=_count_types, measure=_measure_types, module=__name__),
     Golden(key="intents", layer="intent", owner="email_intent", what="the email intent on the legacy golden emails",
            engines=ENGINES, count=_count_intents, measure=_measure_intents, module=__name__),
+    # 190 (plan 189 A2g): the quote request's invented golden set (configs/golden_quotes.json, jav/evals_quotes.py)
+    Golden(key="quotes:intents", layer="intent", owner="email_intent", what="the email intent on the invented quote "
+           "request emails", engines=ENGINES, count=_count_quote_intents, measure=_measure_quote_intents, module=__name__),
+)
+# 190: the quote requests read from the same emails, with the type packs' data points (the registry's layer order)
+QUOTE_GOLDENS = (
+    Golden(key="quotes:requests", layer="datapoints", owner="quote_request", what="the quote requests read from the "
+           "invented emails' text and attachments", engines=ENGINES, count=_count_quote_requests,
+           measure=_measure_quote_requests, module=__name__),
 )
 
 
@@ -269,7 +309,7 @@ def sets() -> list[Golden]:
     from jav import logic_packs, registrations
 
     registrations.load_all()
-    return [*datapoint_goldens(), *FLOW_GOLDENS, *(g for pack in logic_packs.packs() for g in pack.goldens)]
+    return [*datapoint_goldens(), *QUOTE_GOLDENS, *FLOW_GOLDENS, *(g for pack in logic_packs.packs() for g in pack.goldens)]
 
 
 def get(key: str) -> Golden:
@@ -425,5 +465,5 @@ def latest_results(runs_dir: Path | None = None) -> dict[str, dict[str, Any]]:
     return latest
 
 
-__all__ = ["ENGINES", "FLOW_GOLDENS", "LAYERS", "Golden", "Options", "Outcome", "Result", "Round", "RoundRefused",
+__all__ = ["ENGINES", "FLOW_GOLDENS", "LAYERS", "QUOTE_GOLDENS", "Golden", "Options", "Outcome", "Result", "Round", "RoundRefused",
            "UnknownGolden", "datapoint_goldens", "get", "latest_results", "measure_round", "select", "sets"]

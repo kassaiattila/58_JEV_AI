@@ -10,7 +10,10 @@ Processing one item:
 2. the recipe's flow (`flow`) is built with the same identifier (`<run_id>:<item_id[:16]>`) and a durable state
    persister, so after a restart it resumes from the next step;
 3. after every step, check for a cancellation request (`queue.check_cancellation`);
-4. provider calls stay within the run's budget (`calls.use_run(budget_scope=run_id)`).
+4. provider calls stay within the run's budget (`calls.use_run(budget_scope=run_id)`);
+5. 190 (plan 189 A2f): a stage whose final state names a follow-up (`follow_up`: a flow and its parameters, e.g. the
+   extraction of an email's own text) runs it as the item's next stage, under `<identifier>-<flow>`; the follow-up's
+   to-dos are raised on the item too, so they are this run's own and hold back its approval.
 """
 
 from __future__ import annotations
@@ -141,6 +144,17 @@ def _stages(recipe: dict[str, Any], params: dict[str, Any]) -> list[tuple[str, d
     return [(recipe["flow"], dict(params))]
 
 
+# 190: settings whose default the frozen recipe gives when the run's settings lack it (an assignment saved before the
+# setting existed), as the run's budget counts them (`work.item_budget`); a run started before the setting has a frozen
+# recipe without it, and keeps the earlier behaviour
+FILLED_SETTINGS = ("email_text",)
+
+
+def _with_defaults(recipe: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    defaults = {k: ((recipe.get("params") or {}).get(k) or {}).get("default") for k in FILLED_SETTINGS}
+    return {**{k: v for k, v in defaults.items() if v is not None}, **params}
+
+
 def _requested_arm(params: dict[str, Any]) -> str:
     """086: without JEV only the G path runs, whatever path was asked for."""
     return "G" if _jev_off(params) else params.get("arm", "auto")
@@ -249,6 +263,31 @@ def native_fallback(params: dict[str, Any], item: dict[str, Any], detect_state) 
     return {**out, "native_recognition": recognition} if recognition else out
 
 
+def _follow_up(state, run_params: dict[str, Any]) -> tuple[str, dict[str, Any]] | None:
+    """190: the follow-up stage a finished stage names (`follow_up` in its final state): (flow, the run's settings with
+    the follow-up's own parameters), with the path of the parameters' type pack (the requested one if the pack has it,
+    as for a detected document; without JEV the G path)."""
+    follow = state.get("follow_up") if state is not None else None
+    if not follow:
+        return None
+    params = {**run_params, **follow["params"]}
+    if "doc_type" in params:
+        params["arm"] = arm_for(params["doc_type"], _requested_arm(params))
+    return follow["flow"], params
+
+
+def _after_follow_up(run_id: str, item: dict[str, Any], final: str, follow_state, flow_name: str) -> str:
+    """190: the item's status after its follow-up: the follow-up's to-dos are raised on the item (the follow-up's
+    document is not an item of the package, so its to-dos would neither show nor hold back the approval), and an item
+    whose follow-up did not finish cleanly needs review."""
+    reasons = list(follow_state.get("review_reasons") or []) if follow_state is not None else []
+    status = follow_state.get("final_status") if follow_state is not None else None
+    if status != "done" and not reasons:
+        reasons = [f"follow_up:{status or 'unfinished'}"]
+    work.raise_item_reasons(run_id, item, reasons, producer=f"follow_up:{flow_name}")
+    return "needs_review" if reasons and final == "done" else final
+
+
 def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) -> str:
     """Processes one claimed job and returns its resulting state. `after_step`: test hook (fault injection)."""
     run_id, item_id = job.payload["run_id"], job.payload["item_id"]
@@ -271,7 +310,8 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
         rule = work.package_rule(run["workpackage_id"])  # 140: what the package's kind adds (a statement package)
         try:
             # 058 K5.2: a recipe handling several item kinds (email + attachment) chooses the flow per kind
-            stages = _stages({**run["recipe"], "flow": work.flow_for(run["recipe"], item)}, run["params"])
+            run_params = _with_defaults(run["recipe"], run["params"])  # 190: as the run's budget counts them
+            stages = _stages({**run["recipe"], "flow": work.flow_for(run["recipe"], item)}, run_params)
             final, state = None, None
             for n, (flow_name, params) in enumerate(stages):
                 stage_id = app_id if n == len(stages) - 1 else f"{app_id}-{flow_name}"
@@ -303,6 +343,13 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                     open_type = [r for r in detected.get("detail_reasons") or [] if not str(r).startswith("detect:no_type_pack")]
                     if final == "done" and (detected.get("uncertain") or open_type or detected.get("review_reasons")):
                         final = "needs_review"
+            follow = _follow_up(state, run_params) if final is not None else None
+            if follow is not None:  # 190: e.g. the extraction of an email's own text after its intent
+                flow_name, params = follow
+                follow_state = _run_stage({**run["recipe"], "flow": flow_name}, params, item["source_path"],
+                                          f"{app_id}-{flow_name}", persister, run_id=run_id, job_id=job.id,
+                                          after_step=after_step, item=item, recipe_hash=run["recipe_hash"])
+                final = _after_follow_up(run_id, item, final, follow_state, flow_name)
             if rule and rule.after_item and final is not None:  # 140: e.g. the statement's account and its party
                 if added := rule.after_item(run, item):
                     work.raise_item_reasons(run_id, item, added, producer="package_rule:item")

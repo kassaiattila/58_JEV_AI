@@ -2,6 +2,7 @@ flowchart TD
   subgraph ph_load["load"]
     load_pdf["load_pdf (det)"]
     ocr_pdf["ocr_pdf (det)"]
+    load_text["load_text (det)"]
   end
   subgraph ph_extract["extract"]
     find_candidates["find_candidates (det)"]
@@ -27,6 +28,9 @@ flowchart TD
     needs_review["needs_review (terminal)"]
     needs_ocr["needs_ocr (terminal)"]
   end
+  load_text -->|empty text| decide_route
+  load_text -->|S-kar| find_candidates
+  load_text -->|G-kar| extract_llm
   load_pdf -->|nincs szövegréteg| ocr_pdf
   load_pdf -->|S-kar| find_candidates
   load_pdf -->|G-kar| extract_llm

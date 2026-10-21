@@ -1948,5 +1948,21 @@
   "released": "kiadva",
   "partly released": "részben kiadva",
   "changed since the release": "a kiadás óta változott",
-  "the decision was changed meanwhile; reload the page": "Közben megváltozott a döntés; töltsd be újra az oldalt"
+  "the decision was changed meanwhile; reload the page": "Közben megváltozott a döntés; töltsd be újra az oldalt",
+  "The text given as the document is empty, so nothing was extracted from it": "Az iratként kapott szöveg üres, ezért nem volt mit kinyerni belőle",
+  "A list has fewer rows than it should (for example, no requested item at all)": "A listában a vártnál kevesebb sor van (például egyetlen kért tétel sincs)",
+  "A list row lacks a value it needs": "Egy listasorból hiányzik egy szükséges érték",
+  "A quantity in a list row is zero or less": "Egy listasor mennyisége nulla vagy kevesebb",
+  "JEV: the document has rows of this list that the extraction lacks: {{field}} ({{p}})": "JEV szerint az iraton a lista olyan sora is szerepel, amely a kinyertből hiányzik: {{field}} ({{p}})",
+  "JEV: the extracted list has rows the document does not: {{field}} ({{p}})": "JEV szerint a kinyert listában olyan sor is van, amely nincs az iraton: {{field}} ({{p}})",
+  "Quote requests from the email's text": "Ajánlatkérés a levél szövegéből",
+  "extracted (GPT + JEV)": "kinyerve (GPT + JEV)",
+  "A quote request written in the email itself is extracted from its text (GPT + JEV, about 0.006 USD per such email, at most 0.03 USD reserved per email)": "A levél szövegében írt ajánlatkérés kinyerése (GPT + JEV, ilyen levelenként kb. 0,006 USD, levelenként legfeljebb 0,03 USD keretből)",
+  "The email's own text is not extracted; its attachments still are": "A levél saját szövegéből nincs kinyerés; a csatolmányokból továbbra is van",
+  "An item's follow-up step did not finish cleanly ({{status}}); look at the item by hand": "A tétel utólagos lépése nem zárult le rendben ({{status}}); nézd meg kézzel a tételt",
+  "not extracted": "nincs kinyerés",
+  "Whether a quote request written in the email itself is extracted from the email's text: the customer, the contact, the deadline and the requested items. Only on emails whose intent is a quote request.": "Kinyerje-e a rendszer a levél szövegében írt ajánlatkérést: az ajánlatkérőt, a kapcsolattartót, a határidőt és a kért tételeket. Csak az ajánlatkérő szándékú leveleken hat.",
+  "The email's own text (its sender, date and subject, without the quoted earlier messages) is extracted like a document: GPT reads it, JEV checks it, and what is uncertain becomes a to-do of the email. About 0.006 USD per such email; every email reserves at most 0.03 USD OpenAI for it, spent only on quote requests. This is the default.": "A levél saját szövege (feladója, dátuma és tárgya, az idézett korábbi levelek nélkül) iratként fut: a GPT kiolvassa, a JEV ellenőrzi, és ami bizonytalan, a levél teendője lesz. Ilyen levelenként kb. 0,006 USD; minden levél legfeljebb 0,03 USD OpenAI-keretet foglal rá, de csak az ajánlatkéréseken költ. Ez az alapbeállítás.",
+  "The email's own text is not extracted. A request form or list attached to the email is still processed as a document.": "A levél saját szövegéből nincs kinyerés. A levélhez csatolt kérőív vagy igénylista iratként továbbra is feldolgozódik.",
+  "{{n}} email(s): a quote request written in the email is read from its text": "{{n}} levél: a szövegében írt ajánlatkérés kiolvasása"
 }

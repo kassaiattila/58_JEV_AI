@@ -118,6 +118,10 @@ const CHECK_TEXT: Record<string, string> = tmap({
   "lines.total_mismatch": "A tételek összege nem egyezik a számla végösszegével",
   "lines.incomplete": "Tételsoron hiányzik az összeg, ezért a tételösszeg nem ellenőrizhető",
   "lines.arithmetic_mismatch": "Tételsoron a mennyiség × egységár vagy a nettó + ÁFA nem adja ki a sor összegét",
+  // 190: the checks of any list field by its name (jav/validators.py list_rows, list_values, list_positive)
+  "lines.too_few": "A list has fewer rows than it should (for example, no requested item at all)",
+  "lines.value_missing": "A list row lacks a value it needs",
+  "lines.not_positive": "A quantity in a list row is zero or less",
   // 120: the role-pair check (jav/fact_checks.py); written with codepoints for the language guard
   "parties.same_entity": "Ugyanaz a szerepl\u0151 k\u00e9t k\u00fcl\u00f6nb\u00f6z\u0151 szerepben",
   // 121: the pair against the earlier documents of the same type (jav/party_history.py)
@@ -137,7 +141,8 @@ export function checkText(code: string, detail?: string | null): string {
   if (code.startsWith("lines.") && detail) {
     // 053 T3: a line-item check may name several rows; for the line-item total, the difference (line-item sum −
     // invoice total) per side
-    const rows = [...detail.matchAll(/\bline (\d+)\b/g)].map((m) => m[1]);
+    // 190: a row named twice (two of its values) is listed once
+    const rows = [...new Set([...detail.matchAll(/\bline (\d+)\b/g)].map((m) => m[1]))];
     const diffs = [...detail.matchAll(/\b(net|gross): sum-total=([-\d.]+)/g)]
       .map((m) => t(m[1] === "net" ? "nettó: eltérés {{diff}}" : "bruttó: eltérés {{diff}}", { diff: num(m[2]) }));
     const extra = [rows.length ? t("{{rows}}. sor", { rows: rows.join("., ") }) : "", ...diffs].filter(Boolean).join("; ");
@@ -200,6 +205,9 @@ export function reasonText(code: string): string {
     case "jev:incomplete": return t("JEV: the value seems cut short: {{field}} ({{p}})", { field: f, p: v });
     case "jev:parties_swapped": return t("JEV: the supplier and the buyer seem swapped ({{p}})", { p: num(p[2]) });
     case "jev:line_items_missing_rows": return t("JEV: the document has line items the extracted list lacks ({{p}})", { p: num(p[2]) });
+    // 190: the per-list questions a verification call site may name (`list_nouls`), the list as the field
+    case "jev:missing_rows": return t("JEV: the document has rows of this list that the extraction lacks: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:extra_rows": return t("JEV: the extracted list has rows the document does not: {{field}} ({{p}})", { field: f, p: v });
     case "jev:line_items_extra_rows": return t("JEV: the extracted list has line items the document does not ({{p}})", { p: num(p[2]) });
     // 085: processing without JEV: the extracted value is printed nowhere on the document (the code's own check)
     case "source:not_found": return t("A kinyert érték nem szerepel az iratban: {{field}}", { field: f });
@@ -219,6 +227,10 @@ export function reasonText(code: string): string {
     // 167 (review AI-3): pages without a text layer of their own in a document that has one: neither read nor recognised
     case "pdf:pages_without_text": return t("Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document", { pages: p[2] });
     case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
+    // 190: a document given as text (an email's own text) had no text at all (jav/flow.py load_text)
+    // 190: an item's follow-up stage (the extraction of an email's own text) ended without a to-do of its own
+    case `follow_up:${p[1] ?? ""}`: return t("An item's follow-up step did not finish cleanly ({{status}}); look at the item by hand", { status: p[1] ?? "" });
+    case "text:empty": return t("The text given as the document is empty, so nothing was extracted from it");
     // 177: the text recognition itself could not run (jav/flow.py, jav/flow_detect.py)
     case "ocr:unavailable": return t("Text recognition could not run ({{why}}); look at the document by hand", { why: p[2] ?? "" });
     case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });
@@ -464,7 +476,8 @@ export const intentLabel = (key: string | null | undefined): string => (key ? IN
 /** Labels of the processing settings (058; 080: the path by what it does, the owner's decision of 2026-10-01): a short
  *  value without code names; the long explanation is in the settings editor and on Settings › Processing. */
 export const PARAM_LABEL: Record<string, string> = tmap({ path: "Feldolgozási út", arm: "Út", doc_type: "Irattípus", jev_cache: "Korábbi válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés", jev: "JEV használata",
-  unknown_documents: "Ismeretlen PDF-ek" });  // 120
+  unknown_documents: "Ismeretlen PDF-ek",  // 120
+  email_text: "Quote requests from the email's text" });  // 190
 const PARAM_SHORT: Record<string, string> = tmap({
   "jev:on": "bekapcsolva",
   "jev:off": "kikapcsolva — csak GPT (OpenAI)",
@@ -486,12 +499,15 @@ const PARAM_SHORT: Record<string, string> = tmap({
   // 120: a text PDF without a fitting type pack (written with codepoints for the language guard)
   "unknown_documents:facts": "\u00e1ltal\u00e1nos adatjavaslat (GPT + JEV)",
   "unknown_documents:review": "meg\u00e1ll, k\u00e9zi ellen\u0151rz\u00e9s",
+  // 190: the extraction of a quote request written in the email itself (the owner's decision of 2026-10-21: on)
+  "email_text:extract": "extracted (GPT + JEV)",
+  "email_text:off": "not extracted",
 });
 /** 080: the item kind a setting acts on (the path, Azure and the document type on documents, task proposals on
  *  emails); a setting not listed acts on every item. With the package's item kinds known, a setting that cannot act on
  *  any of them is not shown. */
 const PARAM_KIND: Record<string, string> = { arm: "document", azure_ocr: "document", doc_type: "document", tasks: "email",
-  unknown_documents: "document" };
+  unknown_documents: "document", email_text: "email" };
 export const paramApplies = (k: string, kinds?: string[]): boolean => !kinds?.length || !PARAM_KIND[k] || kinds.includes(PARAM_KIND[k]);
 /** 089 (the owner's decision of 2026-10-02): a setting that only counts while another setting has a given value.
  *  Without JEV (086) every document runs on the G path, so the documents' path does not count. A missing value counts
@@ -593,6 +609,8 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
       plan.documents > 0 && t("{{n}} irat típusfelismerése és adatkinyerése a G-úton, kódos ellenőrzéssel", { n: plan.documents }),
       plan.emails > 0 && t("{{n}} levél szándékfelismerése", { n: plan.emails }),  // 089: by GPT without JEV
       plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
+      // 190: the extraction of a quote request written in the email itself (spent only on such emails)
+      (plan.text_emails ?? 0) > 0 && t("{{n}} email(s): a quote request written in the email is read from its text", { n: plan.text_emails }),
     ])}.`);
   } else if (amount("openai") > 0) {
     out.push(`${head("openai")}: ${join([
@@ -601,6 +619,8 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
         : t("{{n}} irat a G-úton", { n: plan.paths.G })),
       plan.paths.unknown > 0 && t("{{n}} még ismeretlen típusú irat, ha a felismert típus a G-utat kéri", { n: plan.paths.unknown }),
       plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
+      // 190: the extraction of a quote request written in the email itself (spent only on such emails)
+      (plan.text_emails ?? 0) > 0 && t("{{n}} email(s): a quote request written in the email is read from its text", { n: plan.text_emails }),
     ])}.`);
   } else if (plan.documents || plan.emails) {
     out.push(plan.documents ? t("OpenAI: nem hívódik, minden irat az S-úton fut.") : t("OpenAI: nem hívódik."));

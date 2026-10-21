@@ -57,8 +57,11 @@ def test_without_jev_a_document_has_no_jev_budget_and_an_openai_budget_for_recog
 
 
 def test_without_jev_an_email_has_no_jev_budget_only_openai_for_the_gpt_intent():
-    off = work.item_budget(_recipe(), {"arm": "auto", "jev": "off", "tasks": "off"}, "email")
+    off = work.item_budget(_recipe(), {"arm": "auto", "jev": "off", "tasks": "off", "email_text": "off"}, "email")
     assert off == {"openai": Decimal("0.07")}  # 089: GPT recognises the intent (tests/test_gpt_intent_089.py)
+    # 190: with the extraction of a quote request written in the email (the default), one more GPT request
+    text = work.item_budget(_recipe(), {"arm": "auto", "jev": "off", "tasks": "off"}, "email")
+    assert text == {"openai": Decimal("0.10")}
 
 
 def test_without_jev_a_known_s_type_document_is_planned_on_the_g_path(isolated):

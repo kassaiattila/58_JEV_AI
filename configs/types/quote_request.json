@@ -1,0 +1,54 @@
+{
+ "meta": {
+  "name": "type:quote_request",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-21",
+    "note": "190 (plan 189 A2e, DECISIONS 189): a customer's request for a price quote, from an email's own text, a request form (PDF) or a request list (Excel, CSV); G path only. The fields are the request's (customer, contact, deadline, reference, requested items), not those of any one trade: the price list and the quote belong to the quote's logic pack (A3, A4). Its own verification call site asks no invoice question; each requested item list is asked about missing and extra rows."
+   }
+  ]
+ },
+ "document": "A customer's request for a price quote (árajánlatkérés): the customer, its contact, the deadline for the quote and the requested items with their quantities",
+ "golden_type_key": "quote_request",
+ "candidate_profile": "intl",
+ "arms": ["G"],
+ "default_arm": "G",
+ "inputs": ["pdf", "text", "table"],
+ "parent": "quote_request",
+ "auto_detect": true,
+ "detect": {
+  "required_any": ["ajánlatkér", "árajánlat", "ajánlatot", "kérőív", "igénylista", "request for (a )?quot", "\\brfq\\b"],
+  "supporting": ["mennyiség", "határidő", "megnevezés", "quantity", "deadline", "tétel"],
+  "excluders": ["számla sorszáma|számlaszám", "áfa összesen|bruttó összesen"]
+ },
+ "prompt_file": "quote_request_prompt.md",
+ "schema_file": "quote_request_schema.json",
+ "source_prefix": "SOURCE TEXT of the request (an email's own text, a request form or a request list; one line per printed line or table row, columns three spaces apart):\n\n",
+ "select_callsite": null,
+ "verify_callsite": "verify_quote_request",
+ "fields": {
+  "customer_name": "name",
+  "customer_tax_number": "tax_id",
+  "contact_name": "text",
+  "contact_email": "text",
+  "contact_phone": "text",
+  "deadline": "date",
+  "reference": "text",
+  "requested_items": "list"
+ },
+ "list_fields": {
+  "requested_items": {"description": "text", "quantity": "number", "unit": "text"}
+ },
+ "scored_fields": ["customer_name", "customer_tax_number", "contact_name", "contact_email", "contact_phone", "deadline", "reference"],
+ "informational_fields": [],
+ "required": ["customer_name"],
+ "high_stakes": [],
+ "validators": [
+  {"check": "tax_id", "field": "customer_tax_number", "optional": true},
+  {"check": "list_rows", "field": "requested_items", "min": 1},
+  {"check": "list_values", "field": "requested_items", "columns": ["description", "quantity"]},
+  {"check": "list_positive", "field": "requested_items", "columns": ["quantity"]}
+ ]
+}

@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "recipes",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "changelog": [
+   {
+    "version": "1.14.0",
+    "date": "2026-10-21",
+    "note": "190 (plan 189 A2f; the owner's decision of 2026-10-21 'a setting, on by default'): the email_text setting of the processing (version 3) and email-intent (version 5) recipes. extract (the default): an email whose route is a data extraction whose type pack reads text (the quote request) also gets the extraction of its own text, as the item's follow-up stage; each email reserves 0.03 USD OpenAI for it (one request of the extraction; about 0.006 USD is spent on such an email, nothing on the others). off: no extraction from the email's text. A run started before keeps no extraction (its frozen recipe has no such setting)."
+   },
    {
     "version": "1.13.0",
     "date": "2026-10-10",
@@ -78,7 +83,7 @@
  "recipes": [
   {
    "id": "processing",
-   "version": 2,
+   "version": 3,
    "status": "active",
    "title": "Feldolgozás",
    "description": "A csomag minden tételét a fajtája szerint dolgozza fel: a PDF-iraton felismeri a típust, majd a felismert típus mezőit nyeri ki kódos ellenőrzéssel; a levélen felismeri a szándékot, a PDF-csatolmányait iratként dolgozza fel, és kérésre feladatot javasol. Ami bizonytalan vagy nem dönthető el, teendő lesz.",
@@ -133,6 +138,13 @@
       "propose"
      ],
      "default": "off"
+    },
+    "email_text": {
+     "allowed": [
+      "extract",
+      "off"
+     ],
+     "default": "extract"
     },
     "azure_ocr": {
      "allowed": [
@@ -201,6 +213,14 @@
      "kind": "email",
      "usd": {
       "openai": "0.006"
+     }
+    },
+    {
+     "param": "email_text",
+     "value": "extract",
+     "kind": "email",
+     "usd": {
+      "openai": "0.03"
      }
     },
     {
@@ -423,7 +443,7 @@
   },
   {
    "id": "email-intent",
-   "version": 4,
+   "version": 5,
    "title": "Levelek szándékának felismerése",
    "description": "A postafiókból letöltött levelek szándékának felismerése (pl. számla érkezett, kérdés, egyéb); a PDF-csatolmányok a levél csomagjában iratként futnak: típusfelismerés, majd a felismert típus adatainak kinyerése. Ami bizonytalan, teendő lesz.",
    "steps": [
@@ -476,6 +496,13 @@
      ],
      "default": "off"
     },
+    "email_text": {
+     "allowed": [
+      "extract",
+      "off"
+     ],
+     "default": "extract"
+    },
     "azure_ocr": {
      "allowed": [
       "on",
@@ -496,6 +523,14 @@
      "kind": "email",
      "usd": {
       "openai": "0.006"
+     }
+    },
+    {
+     "param": "email_text",
+     "value": "extract",
+     "kind": "email",
+     "usd": {
+      "openai": "0.03"
      }
     },
     {
