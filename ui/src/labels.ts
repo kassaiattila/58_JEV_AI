@@ -71,10 +71,14 @@ export const docTypeLabel = (d: string) => DOC_TYPE[d] ?? d;
 const COLUMN: Record<string, string> = tmap(fieldLabels.columns);
 export const columnLabel = (c: string) => COLUMN[c] ?? c.split("=").pop() ?? c;
 
-/** The suggested next step of an email (the service's route code, 048 T2). */
-export function nextFlowText(code: string | null | undefined): string {
+/** The suggested next step of an email (the service's route code, 048 T2). 192 (backlog Q-m2-label-text): `readsText`
+ *  (the service's `next_flow_reads_text`): the type reads the email's own text too, so the step names the email. */
+export function nextFlowText(code: string | null | undefined, readsText = false): string {
   if (!code) return "–";
   const [kind, what] = code.split(":");
+  if (kind === "m2" && what !== "needs_ocr" && readsText) {
+    return t("Data extraction from the email and its attachments ({{what}})", { what: docTypeLabel(what) });
+  }
   if (kind === "m2") return what === "needs_ocr" ? t("Csatolmány: szövegfelismerés kell") : t("Adatkinyerés a csatolmányból ({{what}})", { what: docTypeLabel(what) });
   if (kind === "m1") return t("Csatolmány: típusfelismerés");
   const archive = tmap({ payment_proof: "fizetési igazolás", calendar: "naptár", order_status: "rendelés állapota",
@@ -618,6 +622,8 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
       plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
       // 190: the extraction of a quote request written in the email itself (spent only on such emails)
       (plan.text_emails ?? 0) > 0 && t("{{n}} email(s): a quote request written in the email is read from its text", { n: plan.text_emails }),
+      // 192: an Excel or CSV request list attached to a quote request email (spent only on such a list)
+      (plan.text_tables ?? 0) > 0 && t("{{n}} table attachment(s): a request list attached to a quote request is read with it", { n: plan.text_tables }),
     ])}.`);
   } else if (amount("openai") > 0) {
     out.push(`${head("openai")}: ${join([
@@ -628,6 +634,8 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
       plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
       // 190: the extraction of a quote request written in the email itself (spent only on such emails)
       (plan.text_emails ?? 0) > 0 && t("{{n}} email(s): a quote request written in the email is read from its text", { n: plan.text_emails }),
+      // 192: an Excel or CSV request list attached to a quote request email (spent only on such a list)
+      (plan.text_tables ?? 0) > 0 && t("{{n}} table attachment(s): a request list attached to a quote request is read with it", { n: plan.text_tables }),
     ])}.`);
   } else if (plan.documents || plan.emails) {
     out.push(plan.documents ? t("OpenAI: nem hívódik, minden irat az S-úton fut.") : t("OpenAI: nem hívódik."));

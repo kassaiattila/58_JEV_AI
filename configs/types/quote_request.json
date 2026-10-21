@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "type:quote_request",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
+   {
+    "version": "1.1.0",
+    "date": "2026-10-21",
+    "note": "192 (plan F-quote-package B6b, the owner's decision, DECISIONS 192): a request arrives in parts (the email's text, an attached form or list), each read on its own, and one part often lacks what another has. Its gaps are notes, not to-dos: required_review false (a missing customer is an advisory check) and the three list checks advisory (review false); the quote package judges the gaps on the whole request. A doubt about a value that is there (the tax number's check, a JEV flag) stays a to-do. The requests sent to the models are unchanged."
+   },
    {
     "version": "1.0.0",
     "date": "2026-10-21",
@@ -44,11 +49,12 @@
  "scored_fields": ["customer_name", "customer_tax_number", "contact_name", "contact_email", "contact_phone", "deadline", "reference"],
  "informational_fields": [],
  "required": ["customer_name"],
+ "required_review": false,
  "high_stakes": [],
  "validators": [
   {"check": "tax_id", "field": "customer_tax_number", "optional": true},
-  {"check": "list_rows", "field": "requested_items", "min": 1},
-  {"check": "list_values", "field": "requested_items", "columns": ["description", "quantity"]},
-  {"check": "list_positive", "field": "requested_items", "columns": ["quantity"]}
+  {"check": "list_rows", "field": "requested_items", "min": 1, "review": false},
+  {"check": "list_values", "field": "requested_items", "columns": ["description", "quantity"], "review": false},
+  {"check": "list_positive", "field": "requested_items", "columns": ["quantity"], "review": false}
  ]
 }

@@ -1,9 +1,19 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.92",
+    "version": "1.0.94",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.94",
+        "date": "2026-10-21",
+        "note": "192 (plan F-quote-package B6a, B6c): test data - the service's Hungarian next-step label in tests/test_quote_email_part_192.py and the invented Hungarian request list in tests/test_quote_table_part_192.py."
+      },
+      {
+        "version": "1.0.93",
+        "date": "2026-10-21",
+        "note": "192 (plan F-quote-package B6a): the Hungarian name of the next step of a type that reads the email's own text too, in the service's next-step label set (jav/mailbox.py next_flow_labels; that label set is Hungarian and translated by the interface)."
+      },
       {
         "version": "1.0.92",
         "date": "2026-10-21",
@@ -664,7 +674,7 @@
     "jav/lang_guard.py": 1,
     "jav/learning_cli.py": 13,
     "jav/legacy_import.py": 4,
-    "jav/mailbox.py": 17,
+    "jav/mailbox.py": 18,
     "jav/models.py": 10,
     "jav/ocr.py": 5,
     "jav/pdf.py": 8,
@@ -787,6 +797,8 @@
     "tests/test_processing_080.py": 4,
     "tests/test_properties_067.py": 12,
     "tests/test_quick_review_speed_149.py": 1,
+    "tests/test_quote_email_part_192.py": 2,
+    "tests/test_quote_table_part_192.py": 1,
     "tests/test_recipe_help.py": 1,
     "tests/test_reconcile_141.py": 2,
     "tests/test_reconcile_fixes_174.py": 2,

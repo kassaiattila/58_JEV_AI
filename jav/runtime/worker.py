@@ -276,6 +276,17 @@ def _follow_up(state, run_params: dict[str, Any]) -> tuple[str, dict[str, Any]] 
     return follow["flow"], params
 
 
+def _attachment_follow_ups(state, run_params: dict[str, Any]) -> list[tuple[str, dict[str, Any], str, str]]:
+    """192 (B6c): the follow-ups on an email's table attachments (`attachment_follow_ups`): (flow, its settings, the
+    attachment's path, its stage), each on the path of its type pack like the text's follow-up."""
+    out = []
+    for follow in (state.get("attachment_follow_ups") if state is not None else None) or []:
+        params = {**run_params, **follow["params"]}
+        params["arm"] = arm_for(params["doc_type"], _requested_arm(params))
+        out.append((follow["flow"], params, follow["source_path"], follow["stage"]))
+    return out
+
+
 def _after_follow_up(run_id: str, item: dict[str, Any], final: str, follow_state, flow_name: str) -> str:
     """190: the item's status after its follow-up: the follow-up's to-dos are raised on the item (the follow-up's
     document is not an item of the package, so its to-dos would neither show nor hold back the approval), and an item
@@ -350,6 +361,12 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                                           f"{app_id}-{flow_name}", persister, run_id=run_id, job_id=job.id,
                                           after_step=after_step, item=item, recipe_hash=run["recipe_hash"])
                 final = _after_follow_up(run_id, item, final, follow_state, flow_name)
+            for flow_name, params, source_path, stage in (_attachment_follow_ups(state, run_params) if final is not None else []):
+                # 192 (B6c): an email's table attachment as a part of its request (an Excel or CSV request list)
+                follow_state = _run_stage({**run["recipe"], "flow": flow_name}, params, source_path, f"{app_id}-{stage}",
+                                          persister, run_id=run_id, job_id=job.id, after_step=after_step, item=item,
+                                          recipe_hash=run["recipe_hash"])
+                final = _after_follow_up(run_id, item, final, follow_state, stage)
             if rule and rule.after_item and final is not None:  # 140: e.g. the statement's account and its party
                 if added := rule.after_item(run, item):
                     work.raise_item_reasons(run_id, item, added, producer="package_rule:item")

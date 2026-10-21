@@ -138,11 +138,12 @@ def test_a_quote_request_email_gets_its_text_extracted_and_its_to_dos(env):
 
 
 def test_its_to_dos_are_the_emails_and_hold_back_the_approval(env, monkeypatch):
-    monkeypatch.setitem(OUT, "requested_items", [])  # nothing extracted: the list check's to-do
+    # 192 (DECISIONS 192): a part's gap (no item) is a note now; a doubt about a value that is there is the to-do
+    monkeypatch.setitem(OUT, "customer_tax_number", "12345678-1-12")  # fails the tax number's check digit
     wp_id = _package(env)
     run_id, item = _run(wp_id)
     reasons = [r["reason"] for r in work.item_reasons(run_id, item["item_id"], item)["run"]]
-    assert "validator:lines.too_few:requested_items" in reasons
+    assert any(r.startswith("validator:") and r.endswith(":customer_tax_number") for r in reasons)
     run_item = next(i for i in work.get_run(run_id)["items"] if i["item_id"] == item["item_id"])
     assert run_item["final_status"] == "needs_review"
     with pytest.raises(work.NotReady, match="open review reasons"):

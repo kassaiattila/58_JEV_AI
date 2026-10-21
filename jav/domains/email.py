@@ -54,6 +54,9 @@ def register() -> None:
     item_kinds.register_rule(item_kinds.ItemRule(kind=item_kinds.EMAIL, name="suspicious_email_source", module=__name__,
                                                  after_item=mailbox.mark_suspicious_source))
     item_kinds.register_page("mailbox", __name__, mailbox_page)
+    # 192 (B6c): an email's table attachments, each one extraction of a quote request's part, in the run's budget
+    item_kinds.register_item_extra(item_kinds.ItemExtra(kind=item_kinds.EMAIL, extra="email_table", plan_key="text_tables",
+                                                        module=__name__, count=mailbox.table_attachments))
     # 185: how the review page shows an email item, and a person corrects its intent
     item_kinds.register_handler(item_kinds.ItemHandler(kind=item_kinds.EMAIL, module=__name__, result=mailbox.email_item_result,
                                                        correct=mailbox.correct_email, titles=mailbox.item_titles,

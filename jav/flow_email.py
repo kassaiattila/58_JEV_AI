@@ -18,6 +18,9 @@
   pack reads text (the quote request) and the recipe's `email_text` setting asks for it, `route` names a follow-up:
   the extraction flow on the email's own text (`emails.document_text`), which the worker runs as the item's next stage;
   `save` ties that document (its id is the text's digest) to the email.
+- 192 (plan F-quote-package B6c, the owner's decision): when that type pack reads tables too, `route` also names a
+  follow-up on each of the email's table attachments (an Excel or CSV request list, `table_follow_ups`), read as a part
+  of the email's request in stages `invoice-a<n>`, not as an item of its own.
 """
 
 from __future__ import annotations
@@ -64,6 +67,9 @@ class EmailState(BaseModel):
     # and the follow-up stage named for the worker: {"flow": <flow>, "params": {"doc_type", "source_text"}}
     extract_text: bool = False
     follow_up: dict | None = None
+    # 192 (B6c): the follow-ups on the email's table attachments (an Excel or CSV request list), each read by the same
+    # type pack as a part of the email's request: [{"flow", "stage", "source_path", "name", "params": {"doc_type"}}]
+    attachment_follow_ups: list[dict] = Field(default_factory=list)
 
 
 @action.pydantic(reads=["source_dir", "message"], writes=["message"])
@@ -167,7 +173,7 @@ def _intent_gpt(state: EmailState) -> EmailState:
     return state
 
 
-@action.pydantic(reads=["message", "result", "extract_text"], writes=["next_flow", "follow_up"])
+@action.pydantic(reads=["message", "result", "extract_text"], writes=["next_flow", "follow_up", "attachment_follow_ups"])
 def route(state: EmailState) -> EmailState:
     assert state.message is not None
     if state.message.folder == "sent":  # 149: its attachments decide
@@ -180,6 +186,7 @@ def route(state: EmailState) -> EmailState:
         state.result.intent, state.result.confidence, state.message.attachments, state.result.probabilities, state.result.signals
     )
     state.follow_up = text_follow_up(state.message, state.next_flow) if state.extract_text else None
+    state.attachment_follow_ups = table_follow_ups(state.message, state.next_flow) if state.extract_text else []
     return state
 
 
@@ -191,6 +198,18 @@ def text_follow_up(msg: EmailMessage, next_flow: str) -> dict | None:
         return None
     text = document_text(msg)
     return {"flow": "invoice", "params": {"doc_type": key, "source_text": text}} if text else None
+
+
+def table_follow_ups(msg: EmailMessage, next_flow: str) -> list[dict]:
+    """192 (B6c, the owner's decision): the extraction of each of the email's table attachments (an Excel or CSV
+    request list), when its route is a data extraction whose type pack reads tables; read as a part of the email's
+    request, not as an item of its own. Each names its stage (`invoice-a<n>`, after the text's `invoice`)."""
+    kind, _, key = next_flow.partition(":")
+    if kind != "m2" or key not in typepack.keys() or "table" not in typepack.get(key).inputs:
+        return []
+    tables = [a for a in msg.attachments if a.path and text_document.input_kind(a.path) == "table"]
+    return [{"flow": "invoice", "stage": f"invoice-a{n}", "source_path": a.path, "name": a.filename,
+             "params": {"doc_type": key}} for n, a in enumerate(tables, 1)]
 
 
 @action.pydantic(reads=["message", "result", "next_flow", "run_id", "propose_tasks", "review_reasons"], writes=["tasks", "review_reasons"])
@@ -307,7 +326,7 @@ CONTRACT = {  # the graph declaration: FLOW.md + Mermaid + lint come from it (ja
         "load_message": {"kind": "det", "note": "inbox/<mailbox>/<msgid>/message.json + fájlok, vagy kész EmailMessage (golden)"},
         "classify_attachments": {"kind": "flow", "note": "minden PDF-csatolmányon az M1 doc_detect gráf (a levél run_id-je alatt: <run_id>-doc_detect), eredmény a csatolmányra + documents.source_email; kép -> unsupported, névből ismert -> name_only; olvashatatlan PDF -> unreadable + teendő (attachment:unreadable), a levél tovább fut"},
         "intent": {"kind": "jev", "note": "egy kérés: Choice intent (11 szándék, a küldő célja) + 4 Noul jel; tisztított törzs + kód-oldali feature-ök a state-ben. Without JEV: the same questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/intent_gpt.py); a failed call is an intent:gpt_failed to-do (and no attachment recognition in this flow: the attachments are recognised as items of their own). A sent message (folder = sent, 149) is not asked: no call, no to-do"},
-        "route": {"kind": "det", "note": "policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés. A sent message (149): policy.email_sent_route, its attachments' types, else archive:sent. 190: a route to a type pack that reads text (the quote request), with the recipe's email_text setting on, names the follow-up stage: the extraction flow on the email's own text"},
+        "route": {"kind": "det", "note": "policy.email_next_flow: conf küszöb -> csatolmány M1-típusa -> szándékonkénti alapértelmezés. A sent message (149): policy.email_sent_route, its attachments' types, else archive:sent. 190: a route to a type pack that reads text (the quote request), with the recipe's email_text setting on, names the follow-up stage: the extraction flow on the email's own text; 192: and one on each table attachment when the pack reads tables"},
         "tasks": {"kind": "llm", "note": "feladatjavaslat (GPT, a régi email-actions v1.3.0 utasítása) + kódos bizonyíték-kapu; csak ha a recept kéri, archiválandó levélen nem; javaslat -> teendő (ember fogadja el). Not for a sent message (149)"},
         "save": {"kind": "store", "note": "emails + email_results (a futás sora, a feladatjavaslat is); bizonytalan intent / javaslat -> review_queue (additív), különben a korábbi tétel zárul; 190: the email's own text as a document tied to the email (documents.source_email), when a follow-up extracts it"},
         "done": {"kind": "terminal", "note": "szándék + next_flow mentve"},

@@ -146,7 +146,7 @@ function PackageResultStage({ view, table, onChanged }: { view: WorkpackageView;
           label={TABLE_LABEL[spec.key]} selectable onPage={(page) => setShown({ table: tableId, mark: page.result_mark })}
           storageId={`result-${spec.dataset}`} defaultHidden={DEFAULT_HIDDEN[spec.dataset]}
           // proposed next step in the chosen language (the local service gives the code; search uses the Hungarian label)
-          cell={spec.key === "emails" ? (col, row) => (col.key === "next_flow" ? nextFlowText(row.next_flow as string | null) : undefined) : undefined}
+          cell={spec.key === "emails" ? (col, row) => (col.key === "next_flow" ? nextFlowText(row.next_flow as string | null, row.next_flow_reads_text === true) : undefined) : undefined}
           downloadExtras={<a className="small" href={xlsx} download>{t("The package's current result in one workbook (every table)")}</a>} />
       ) : null}
     </div>
@@ -335,7 +335,7 @@ function RunResult({ view, table, runId }: { view: WorkpackageView; table?: Resu
       {current === "file_names" ? <NamedCopiesBar runId={runId} /> : null}
       {available.length ? <DataTable key={`${spec.dataset}:${runId}`} dataset={spec.dataset} scope={{ run_id: runId }} label={TABLE_LABEL[spec.key]} selectable
         storageId={`result-${spec.dataset}`} defaultHidden={DEFAULT_HIDDEN[spec.dataset]}
-        cell={spec.key === "emails" ? (col, row) => (col.key === "next_flow" ? nextFlowText(row.next_flow as string | null) : undefined) : undefined}
+        cell={spec.key === "emails" ? (col, row) => (col.key === "next_flow" ? nextFlowText(row.next_flow as string | null, row.next_flow_reads_text === true) : undefined) : undefined}
         downloadExtras={<a className="small" href={api.exportUrl(runId, "xlsx")} download>{t("A futás teljes Excel-csomagja (minden tábla és a közmű-költség)")}</a>} /> : null}
     </div>
   );

@@ -122,6 +122,22 @@ def _document_part(c: sqlite3.Connection, kind: str, item: dict[str, Any], count
     return Part(kind, name, item["item_id"], got[0], package_result.effective_values(got[1], correction))
 
 
+def _table_parts(c: sqlite3.Connection, flow_run_id: str) -> list[Part]:
+    """192 (B6c): the email's table attachments read in its follow-up (stages `<flow>-invoice-a<n>`), in their order,
+    each named by its file."""
+    prefix = f"{flow_run_id}-{TEXT_STAGE}-a"
+    rows = c.execute("SELECT d.run_id, d.doc_id, d.datapoints, m.source_path FROM datapoints d LEFT JOIN documents m"
+                     " ON m.doc_id = d.doc_id WHERE d.doc_type=? AND substr(d.run_id, 1, ?) = ?",
+                     (TYPE, len(prefix), prefix)).fetchall()
+
+    def stage(row: Any) -> int:  # the attachment's number in its email
+        n = row["run_id"][len(prefix):]
+        return int(n) if n.isdigit() else 0
+
+    return [Part("attachment", str(r["source_path"] or "").replace("\\", "/").rsplit("/", 1)[-1], None, r["doc_id"],
+                 json.loads(r["datapoints"] or "{}")) for r in sorted(rows, key=stage)]
+
+
 def _email(c: sqlite3.Connection, counted: package_result.Counted) -> tuple[dict[str, Any], str | None]:
     """The email's stored result and its intent as it counts now (a person's correction over the machine's)."""
     row = c.execute("SELECT e.message_id, e.intent, m.subject, m.sender, m.received_at FROM email_results e"
@@ -155,6 +171,7 @@ def read(wp_id: str, item_id: str) -> Request:
             email, intent = _email(c, own)
             text = _values(c, f"{own.flow_run_id}-{TEXT_STAGE}")
             parts = [Part("email_text", email.get("subject") or "", None, text[0], text[1])] if text else []
+            parts += _table_parts(c, own.flow_run_id)  # 192 (B6c): an Excel or CSV request list read in the follow-up
             for attachment in wp["items"]:
                 if attachment.get("parent_item_id") == item_id:
                     part = _document_part(c, "attachment", attachment, counted.get(attachment["item_id"]))

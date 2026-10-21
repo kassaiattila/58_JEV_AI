@@ -162,6 +162,12 @@ export interface QuoteDraftView {
   price_list: { price_list: string; name: string; version: number; state: string; items: QuoteListItem[] } | null;
   proposal_newer: boolean;
 }
+/** 192 (B6a): an email's quote request (`jav/quote_package.py` `email_part`): the request, what it lacks as a whole,
+ *  the quotes already made from it and the item a quote starts from. */
+export interface QuoteEmailPart {
+  request: QuoteRequest; gaps: { code: QuoteBlockerCode; message: string }[]; quotes: { id: string; name: string }[];
+  source: { workpackage_id: string; item_id: string };
+}
 /** A request a quote can start from, with the quotes already made from it. */
 export interface QuoteRequestCandidate {
   workpackage_id: string; workpackage_name: string; item_id: string; kind: "email" | "document"; title: string;
@@ -291,6 +297,7 @@ export interface PackageOutputChoices { workpackage_id: string; outputs: Partial
 export interface RunPlan {
   documents: number; emails: number; attachments: number; paths: { S: number; G: number; unknown: number };
   tasks_emails: number; text_emails?: number; azure: boolean; jev_reuse: boolean;  // 190: text_emails
+  text_tables?: number;  // 192: the emails' table attachments read as a part of a quote request (only while any)
   arm?: string; // 082: the chosen path (with S, a document on the G path has a type without a JEV path)
   jev?: boolean; // 086: false = processing without JEV (GPT recognises the type, every document on the G path)
   statement_tables?: number; // 136: statements from a bank's table export, read by code (free)
@@ -605,6 +612,7 @@ export interface EmailItem {
   body_coverage?: { status: "full" | "shortened" | "capped"; chars: number; own_chars: number; seen_chars: number; seen_lines: number;
     quoted_removed: boolean };
   result: { intent: string | null; intent_label: string | null; confidence: number | null; next_flow: string | null;
+    next_flow_reads_text?: boolean; // 192: the next step reads the email's own text too
     // 126: shown_type = the type the attachment was processed as (e.g. a foreign receipt as a foreign invoice)
     attachments: { filename: string; doc_type?: string | null; shown_type?: string | null; status?: string | null }[]; from_this_run: boolean;
     signals: Record<string, number>; corrected?: boolean; machine_intent?: string | null;
@@ -652,6 +660,8 @@ export interface MailboxSchedule {
 export interface ItemResult {
   run_id: string; item_id: string; kind?: "document" | "email" | "statement_table"; email?: EmailItem; page_count?: number | null; extraction: Extraction | null; correction: Correction;
   attachment_items?: { item_id: string; filename: string }[]; // 058 K5.2: the email's attachments that ran as documents
+  /** 192: what other domains add to this kind's item (`jav/item_kinds.py` item parts), by name */
+  parts?: { quote_request?: QuoteEmailPart };
   effective: Record<string, unknown>; open_reasons: Reason[]; earlier_open_reasons: Reason[];
   provenance: Record<string, Provenance>;
   lists?: Record<string, { columns: ListColumn[] }>; checks?: Check[];

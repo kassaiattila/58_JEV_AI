@@ -1085,6 +1085,32 @@ def run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, 
     return _run_budget(r, params, items, _item_arms(r, params, items))
 
 
+def _item_extras(r: dict[str, Any], params: dict[str, Any], item: dict[str, Any]) -> list[tuple[Any, int]]:
+    """192 (B6c): the budget extras the domains count on the item that the recipe's settings price now: (extra, its
+    units on the item)."""
+    return [(e, n) for e in item_kinds.item_extras(item.get("kind") or "")
+            if _extras(r, params, e.extra) and (n := e.count(item))]
+
+
+def _extra_counts(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]]) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for i in items:
+        for e, n in _item_extras(r, params, i):
+            out[e.plan_key] = out.get(e.plan_key, 0) + n
+    return out
+
+
+def _extras(r: dict[str, Any], params: dict[str, Any], kind: str) -> dict[str, Decimal]:
+    """192: the parameter-bound extras of a kind that is no item (an email's table attachment), without a base budget."""
+    out: dict[str, Decimal] = {}
+    for extra in r.get("param_item_usd") or []:
+        value = params.get(extra["param"], (r.get("params", {}).get(extra["param"]) or {}).get("default"))
+        if value == extra["value"] and extra.get("kind") == kind:
+            for provider, v in extra["usd"].items():
+                out[provider] = out.get(provider, Decimal(0)) + Decimal(v)
+    return out
+
+
 def _run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]],
                 arms: list[str | None]) -> dict[str, Decimal]:
     out: dict[str, Decimal] = {}
@@ -1095,6 +1121,10 @@ def _run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str,
             per = dict(estimate_limits(params).provider_limits_usd) if params.get("arm") != "S" else {}
         else:
             per = item_budget(r, params, i.get("kind"), arm=arm)
+            # 192 (B6c): what the domains count on the item (an email's table attachments), each unit priced
+            for extra, n in _item_extras(r, params, i):
+                for provider, v in _extras(r, params, extra.extra).items():
+                    per[provider] = per.get(provider, Decimal(0)) + v * n
         if arm == "S":
             per.pop("openai", None)
         for provider, v in per.items():
@@ -1131,6 +1161,8 @@ def run_plan(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, An
             "attachments": sum(1 for i, _a in docs if i.get("parent_item_id")), "paths": paths,
             "tasks_emails": emails if value("tasks") == "propose" else 0,
             "text_emails": emails if value("email_text") == "extract" else 0,  # 190: a quote request in the email
+            # 192 (B6c): what the domains count on the items as a budget extra (an email's table attachments), while any
+            **_extra_counts(r, params, items),
             "azure": value("azure_ocr") == "on" and any(not native_flow(r, i) for i, _a in docs),
             "jev_reuse": value("jev_cache") != "live",
             "arm": value("arm"),  # 082: with S chosen, a document on the G path has a type without a JEV path

@@ -21,7 +21,7 @@ from jav.datasets import Rows, col
 def emails(scope: dict[str, str]) -> Rows:
     """058 K5.1: the run's emails — intent (with the manual correction), suggested next step, attachments, and how much
     of the email's text the recognition saw."""
-    from jav import email_export
+    from jav import email_export, mailbox
 
     doc_types = datasets.label_set("doc_type")
     records, run_of = datasets.merged(scope, email_export.email_records)
@@ -55,6 +55,8 @@ def emails(scope: dict[str, str]) -> Rows:
                      "received_at": r["received_at"], "mailbox": r["mailbox"], "intent": r["intent"],
                      "machine_intent": r["machine_intent"], "confidence": r["confidence"],
                      "corrected": "igen" if r["corrected"] else None, "next_flow": r["next_flow"],
+                     # 192: no column of its own; the interface names such a next step by it
+                     "next_flow_reads_text": mailbox.reads_text(r["next_flow"]),
                      "attachments": len(r["attachments"]), "attachment_types": ", ".join(types) or None,
                      "body_status": r["body"]["status"], "body_chars": r["body"]["chars"], "open_reasons": len(r["open_reasons"]),
                      "tasks": len((r.get("tasks") or {}).get("tasks") or []) or None})

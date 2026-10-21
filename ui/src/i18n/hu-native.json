@@ -2235,5 +2235,9 @@
   "The quote names no customer: fill in the customer": "Az ajánlat nem nevez meg ajánlatkérőt: töltsd ki",
   "the match failed": "a párosítás nem sikerült",
   "Show this version": "Megnézem",
-  "The quote has no line yet: add one below.": "Az ajánlatnak még nincs sora: vegyél fel egyet lent."
+  "The quote has no line yet: add one below.": "Az ajánlatnak még nincs sora: vegyél fel egyet lent.",
+  "Start a quote from this email": "Ajánlat indítása ebből a levélből",
+  "Start another quote from this email": "Még egy ajánlat indítása ebből a levélből",
+  "Data extraction from the email and its attachments ({{what}})": "Adatkinyerés a levélből és a csatolmányokból ({{what}})",
+  "{{n}} table attachment(s): a request list attached to a quote request is read with it": "{{n}} táblázatos csatolmány: az ajánlatkéréshez csatolt kért tétellista is kiolvasásra kerül"
 }
