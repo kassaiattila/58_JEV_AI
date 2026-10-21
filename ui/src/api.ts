@@ -720,11 +720,14 @@ export interface ReconcileLine extends ReconcileLineDetails {  // 144: with the 
 }
 
 // --- 145: the reconciliation result (jav/reconcile_statement.py) ------------------------------------------------------
-export interface ReconcileVersionMeta {
+/** 192: a logic pack's own approved version (`jav/package_release.py` `own_approval`; the reconciliation and the quote) */
+export interface OwnVersion {
   version: number; fingerprint: string; approved_by: string; approved_at: string;
   reopened_by: string | null; reopened_at: string | null; reopen_note: string | null;
 }
-export interface ReconcileApproval { active: ReconcileVersionMeta | null; versions: ReconcileVersionMeta[] }
+export interface OwnApproval { active: OwnVersion | null; versions: OwnVersion[] }
+export type ReconcileVersionMeta = OwnVersion;
+export type ReconcileApproval = OwnApproval;
 export type ReconcileInvoiceResult = "paid" | "partly_paid" | "credited" | "undecided" | "no_payment_found" | "not_covered";
 export type ReconcileLineResult = "paired" | "partly_paired" | "needs_no_invoice" | "left_out" | "open";
 export interface ReconcileStatementInvoice {

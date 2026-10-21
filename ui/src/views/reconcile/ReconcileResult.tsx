@@ -4,14 +4,14 @@
 // earlier versions. The service computes and checks everything (jav/reconcile_statement.py); this page shows it.
 import { useEffect, useMemo, useState } from "react";
 import {
-  api, ApiError, type ReconcileStatement, type ReconcileStatementCurrent, type ReconcileVersionMeta, type ReconcileWorkspace,
+  api, ApiError, type ReconcileStatement, type ReconcileStatementCurrent, type ReconcileWorkspace,
 } from "../../api";
+import { ApprovalPanel, EarlierVersions } from "../../components/ApprovalPanel";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";
 import { TemplateChoice } from "../../components/TemplateChoice";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
-import { when } from "../../labels";
 import { INVOICE_RESULT, LINE_RESULT, MARK, EXCLUDED, warningText } from "./labels";
 import { BlockerList } from "./BlockerList";
 import { show } from "./money";
@@ -33,19 +33,18 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [note, setNote] = useState("");
 
-  async function act(fn: () => Promise<ReconcileStatementCurrent>, done: string) {
-    if (busy) return;
+  async function act(fn: () => Promise<ReconcileStatementCurrent>, done: string): Promise<boolean> {
+    if (busy) return false;
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
       setCurrent(await fn());
       setNotice(done);
-      setNote("");
       reloadWorkspace(); // the locks and the next step follow the approval
       onChanged();
+      return true;
     } catch (e) {
       if (e instanceof ApiError && e.status === 409 && e.code === "revision_conflict") {
         setError(t("The reconciliation changed since it was shown; it has been reloaded. Check it and try again."));
@@ -54,6 +53,7 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
         setError(t("The reconciliation cannot be approved yet: see what blocks it."));
         loaded.reload();
       } else setError(e instanceof ApiError ? e.message : String(e));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -65,69 +65,38 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
   const shown: ReconcileStatement | null = active ? (approved.data?.statement ?? null) : current.statement;
   const accept = current.blockers.filter((b) => b.code === "source_no_run").map((b) => b.doc_id);
   const changed = active !== null && active.fingerprint !== current.fingerprint;
-  const earlier = current.approval.versions.filter((v) => v.reopened_at);
 
   return (
     <div className="rc-stack">
-      <section className="card" aria-label={t("Approval")}>
-        <div className="card-head">
-          <h2>{t("Approval")}</h2>
-          <span className="button-row">
-            {/* 179: the template of the draft's download and of the approval's stored file; an approved version's file is
-                stored, so it is chosen again only after a reopening */}
-            {active ? null : <TemplateChoice wpId={wpId} output="reconcile_statement" />}
-            <a className="secondary dl-btn small-btn" href={api.reconcileStatementXlsxUrl(wpId, active?.version)} download><Icon name="download" />
-              {active ? t("Download version {{n}} (Excel)", { n: active.version }) : t("Download the draft (Excel)")}
-            </a>
-          </span>
-        </div>
-        {active ? (
-          <>
-            <p className="notice ok-box">
-              {t("Approved: version {{n}}, by {{who}}, {{when}}.", { n: active.version, who: active.approved_by, when: when(active.approved_at) })}
-            </p>
-            <p className="muted small">{t("The decisions on its lines are locked in every package. To change one, reopen the approval with a reason; this version stays as an earlier one.")}</p>
-            {changed ? <p className="notice warn small" role="status">{t("The data has changed since the approval (for example a document was processed again). The approved version stays as it was; reopen it to approve the current state.")}</p> : null}
-            {archived ? null : (
-              <div className="rc-reopen">
-                <label className="block">{t("Reason for reopening")}
-                  <input type="text" value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} />
-                </label>
-                <ConfirmButton className="secondary" disabled={busy || !note.trim()}
-                  onConfirm={() => void act(() => api.reconcileReopen(wpId, note.trim()), t("The approval has been reopened; the decisions can be changed again."))}>
-                  {t("Reopen")}
-                </ConfirmButton>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <p className="muted small">{t("Not approved yet. The approval records the summary below as an unchangeable version and locks the decisions on its lines. Open lines do not block it; the summary lists them.")}</p>
-            {current.blockers.length ? (
-              <>
-                <h3>{t("What blocks the approval")}</h3>
-                <BlockerList blockers={current.blockers} />
-                {accept.length && !archived ? (
-                  <div className="rc-accept">
-                    <p className="muted small">{t("A document processed on the command line belongs to no run. You can accept its current result as a source; your name and the time are recorded.")}</p>
-                    <ConfirmButton className="secondary" disabled={busy}
-                      onConfirm={() => void act(() => api.reconcileAcceptSources(wpId, accept), t("The documents have been accepted as sources."))}>
-                      {t("Accept {{n}} command-line documents as sources", { n: accept.length })}
-                    </ConfirmButton>
-                  </div>
-                ) : null}
-              </>
-            ) : <p className="small ok">{t("Nothing blocks the approval.")}</p>}
-            {archived ? null : (
-              <ConfirmButton className={current.blockers.length > 0 ? "secondary" : "primary"} disabled={busy || current.blockers.length > 0}
-                onConfirm={() => void act(() => api.reconcileApprove(wpId, current.fingerprint), t("The reconciliation has been approved."))}>
-                {current.statement.counts.open_lines
-                  ? t("Approve the reconciliation ({{n}} open lines listed)", { n: current.statement.counts.open_lines })
-                  : t("Approve the reconciliation")}
-              </ConfirmButton>
-            )}
-          </>
-        )}
+      {/* 192: the approval is the shared element of a logic pack's own versions (components/ApprovalPanel.tsx) */}
+      <ApprovalPanel approval={current.approval} archived={archived} busy={busy}
+        tools={<>
+          {/* 179: the template of the draft's download and of the approval's stored file; an approved version's file is
+              stored, so it is chosen again only after a reopening */}
+          {active ? null : <TemplateChoice wpId={wpId} output="reconcile_statement" />}
+          <a className="secondary dl-btn small-btn" href={api.reconcileStatementXlsxUrl(wpId, active?.version)} download><Icon name="download" />
+            {active ? t("Download version {{n}} (Excel)", { n: active.version }) : t("Download the draft (Excel)")}
+          </a>
+        </>}
+        lockedText={t("The decisions on its lines are locked in every package. To change one, reopen the approval with a reason; this version stays as an earlier one.")}
+        changedText={changed ? t("The data has changed since the approval (for example a document was processed again). The approved version stays as it was; reopen it to approve the current state.") : null}
+        pendingText={t("Not approved yet. The approval records the summary below as an unchangeable version and locks the decisions on its lines. Open lines do not block it; the summary lists them.")}
+        blockers={current.blockers.length ? <BlockerList blockers={current.blockers} /> : null}
+        clearing={accept.length && !archived ? (
+          <div className="rc-accept">
+            <p className="muted small">{t("A document processed on the command line belongs to no run. You can accept its current result as a source; your name and the time are recorded.")}</p>
+            <ConfirmButton className="secondary" disabled={busy}
+              onConfirm={() => void act(() => api.reconcileAcceptSources(wpId, accept), t("The documents have been accepted as sources."))}>
+              {t("Accept {{n}} command-line documents as sources", { n: accept.length })}
+            </ConfirmButton>
+          </div>
+        ) : null}
+        approveLabel={current.statement.counts.open_lines
+          ? t("Approve the reconciliation ({{n}} open lines listed)", { n: current.statement.counts.open_lines })
+          : t("Approve the reconciliation")}
+        onApprove={() => void act(() => api.reconcileApprove(wpId, current.fingerprint), t("The reconciliation has been approved."))}
+        onReopen={(note) => act(() => api.reconcileReopen(wpId, note), t("The approval has been reopened; the decisions can be changed again."))}
+        error={error} notice={notice}>
         {current.warnings.length ? (
           <>
             <h3>{t("Warnings")}</h3>
@@ -136,15 +105,14 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
             </ul>
           </>
         ) : null}
-        {error ? <p className="notice error" role="alert">{error}</p> : null}
-        {notice ? <p className="small ok" role="status">{notice}</p> : null}
-      </section>
+      </ApprovalPanel>
 
       {/* 167 (review 160 U-11): the approved version that failed to load says so */}
       {shown ? <StatementTables statement={shown} /> : approved.error ? <p className="notice error" role="alert">{approved.error.message}</p>
         : <p className="muted">{t("Loading…")}</p>}
 
-      {earlier.length ? <EarlierVersions wpId={wpId} versions={earlier} /> : null}
+      <EarlierVersions versions={current.approval.versions}
+        action={(v) => <a href={api.reconcileStatementXlsxUrl(wpId, v.version)} download>{t("Download (Excel)")}</a>} />
     </div>
   );
 }
@@ -221,21 +189,3 @@ function StatementTables({ statement: st }: { statement: ReconcileStatement }) {
   );
 }
 
-/** The reopened versions, each downloadable as it was approved. */
-function EarlierVersions({ wpId, versions }: { wpId: string; versions: ReconcileVersionMeta[] }) {
-  useLocale();
-  return (
-    <section className="card" aria-label={t("Earlier versions")}>
-      <h2>{t("Earlier versions")}</h2>
-      <ul className="plain">
-        {versions.map((v) => (
-          <li key={v.version} className="small">
-            {t("Version {{n}}: approved by {{who}}, {{when}}; reopened by {{by}}, {{at}}: {{note}}",
-              { n: v.version, who: v.approved_by, when: when(v.approved_at), by: v.reopened_by ?? "", at: when(v.reopened_at), note: v.reopen_note ?? "" })}
-            {" "}<a href={api.reconcileStatementXlsxUrl(wpId, v.version)} download>{t("Download (Excel)")}</a>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
