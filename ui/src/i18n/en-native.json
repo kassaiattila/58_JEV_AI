@@ -1947,5 +1947,6 @@
   "released": "released",
   "partly released": "partly released",
   "changed since the release": "changed since the release",
-  "the decision was changed meanwhile; reload the page": "the decision was changed meanwhile; reload the page"
+  "the decision was changed meanwhile; reload the page": "the decision was changed meanwhile; reload the page",
+  "The text given as the document is empty, so nothing was extracted from it": "The text given as the document is empty, so nothing was extracted from it"
 }

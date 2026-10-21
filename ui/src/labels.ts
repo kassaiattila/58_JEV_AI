@@ -219,6 +219,8 @@ export function reasonText(code: string): string {
     // 167 (review AI-3): pages without a text layer of their own in a document that has one: neither read nor recognised
     case "pdf:pages_without_text": return t("Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document", { pages: p[2] });
     case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
+    // 190: a document given as text (an email's own text) had no text at all (jav/flow.py load_text)
+    case "text:empty": return t("The text given as the document is empty, so nothing was extracted from it");
     // 177: the text recognition itself could not run (jav/flow.py, jav/flow_detect.py)
     case "ocr:unavailable": return t("Text recognition could not run ({{why}}); look at the document by hand", { why: p[2] ?? "" });
     case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });

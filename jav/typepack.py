@@ -16,6 +16,9 @@ What the pack contains (a mirror of the legacy 10_AIFLOW_V4 `types/<key>/` pack,
   list per field) - the labelled text finder (`candidates.find_labelled_text`) yields candidates from it, JEV chooses;
 - `prompt_note` (122): instructions added after the prompt file on the G path, so a variant pack (the pro forma
   invoice) reuses another pack's verbatim prompt without copying it (`jav.extract_llm.instructions`);
+- `inputs` (190, plan 189 A2b): the kinds of input the pack takes: `pdf` (the default, every pack before 190), `text`
+  (an email's own text or a text file) and `table` (an Excel or CSV file), each laid out as lines by
+  `jav.text_document`;
 - `extends` (2026-09-20): a base pack (`configs/types/_base/<name>.json`, e.g. the legacy `_shared/utility_bill_hu`),
   whose fields, lists, validators and schema file are placed before the child's (the legacy `extends` semantics:
   base + child); a base pack is not a runnable type on its own (it has no prompt), and `keys()` does not list it.
@@ -42,6 +45,7 @@ CANDIDATE_KIND_OF = {  # field kind -> candidate kind (S path); others: no candi
 }
 DEFAULT_KEY = "invoice_hu"
 BASE_PREFIX = "_base/"
+INPUTS = ("pdf", "text", "table")  # 190: the input kinds a pack may take (`jav.text_document`)
 
 
 class TypePack(BaseModel):
@@ -61,6 +65,7 @@ class TypePack(BaseModel):
     verify_callsite: str
     arms: tuple[str, ...] = ("S", "G")  # the paths runnable with the pack
     default_arm: str | None = None  # 053 T3: pack's path for an `auto` recipe (utility: G, it also yields line items)
+    inputs: tuple[str, ...] = ("pdf",)  # 190: what the pack reads (`jav.text_document.INPUTS`)
     parent: str | None = None  # 047: the coarse detection category (configs/doc_types.json) of this detailed type
     auto_detect: bool = True  # 047: may detection pick it (no for types that were dependent in the legacy project too)
     detect: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # 047: legacy detect.json keyword lists
@@ -244,6 +249,9 @@ def get(key: str = DEFAULT_KEY) -> TypePack:
     default_arm = inherit("default_arm")
     if default_arm is not None and default_arm not in arms:
         raise ValueError(f"{key}.default_arm: {default_arm} nem a csomag kara ({', '.join(arms)})")
+    inputs = tuple(inherit("inputs", ["pdf"]))
+    if not inputs or set(inputs) - set(INPUTS):
+        raise ValueError(f"{key}.inputs: one or more of {', '.join(INPUTS)} (given: {', '.join(inputs) or 'none'})")
     # 067 (066 Á18): the identifier covers the type JSON(s) and the contents of the G path's prompt and schema files
     type_names = [f"type:{key}", *([f"type:{BASE_PREFIX}{extends}"] if extends else [])]
     prompt_files = [data["prompt_file"], *([base["schema_file"]] if base.get("schema_file") else []), data["schema_file"]]
@@ -262,6 +270,7 @@ def get(key: str = DEFAULT_KEY) -> TypePack:
         verify_callsite=inherit("verify_callsite"),
         arms=arms,
         default_arm=default_arm,
+        inputs=inputs,
         parent=inherit("parent"),
         auto_detect=bool(inherit("auto_detect", True)),
         detect={k: tuple(v) for k, v in dict(inherit("detect", {})).items()},
@@ -311,4 +320,4 @@ def reload() -> None:
     _merged_schema.cache_clear()
 
 
-__all__ = ["KINDS", "CANDIDATE_KIND_OF", "DEFAULT_KEY", "BASE_PREFIX", "TypePack", "get", "keys", "resolve_arm", "reload"]
+__all__ = ["KINDS", "CANDIDATE_KIND_OF", "DEFAULT_KEY", "BASE_PREFIX", "INPUTS", "TypePack", "get", "keys", "resolve_arm", "reload"]

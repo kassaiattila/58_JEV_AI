@@ -8,6 +8,7 @@
 ### load
 - **load_pdf** _(det)_ — pdfplumber word-level reconstruction, sha256 doc_id; the text-layer test of the document and of each page (167: scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do); the word layer (word boxes) is saved
 - **ocr_pdf** _(det)_ — szöveg nélküli PDF: oldalkép (pypdfium2) + tesseract szó-dobozok (natív / régi sidecar-kép) -> ugyanaz a sor- és cella-építés; a szóréteg mentése; lemez-gyorsítótár runs/ocr/; minőségjelek nyersen, gyenge OCR review-ok (policy ocr)
+- **load_text** _(det)_ — 190: a pack that reads text or tables: an email's own text (the text's digest is the doc_id) or a text / table file (the table through the isolated native reader), laid out by the PDF reader's line and cell builder (three spaces = a column); no word layer; an empty text is a text:empty to-do
 
 ### extract
 - **find_candidates** _(det)_ — S-kar: determinisztikus, sorrendezett, maszkoló jelöltkeresők a csomag jelölt-profiljával (hu / intl): iban -> tax_id -> date -> invoice_number -> money; nevek/címek cellákon
@@ -44,6 +45,7 @@ flowchart TD
   subgraph ph_load["load"]
     load_pdf["load_pdf (det)"]
     ocr_pdf["ocr_pdf (det)"]
+    load_text["load_text (det)"]
   end
   subgraph ph_extract["extract"]
     find_candidates["find_candidates (det)"]
@@ -69,6 +71,9 @@ flowchart TD
     needs_review["needs_review (terminal)"]
     needs_ocr["needs_ocr (terminal)"]
   end
+  load_text -->|empty text| decide_route
+  load_text -->|S-kar| find_candidates
+  load_text -->|G-kar| extract_llm
   load_pdf -->|nincs szövegréteg| ocr_pdf
   load_pdf -->|S-kar| find_candidates
   load_pdf -->|G-kar| extract_llm

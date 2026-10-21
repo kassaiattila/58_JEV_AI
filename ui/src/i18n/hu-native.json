@@ -1948,5 +1948,6 @@
   "released": "kiadva",
   "partly released": "részben kiadva",
   "changed since the release": "a kiadás óta változott",
-  "the decision was changed meanwhile; reload the page": "Közben megváltozott a döntés; töltsd be újra az oldalt"
+  "the decision was changed meanwhile; reload the page": "Közben megváltozott a döntés; töltsd be újra az oldalt",
+  "The text given as the document is empty, so nothing was extracted from it": "Az iratként kapott szöveg üres, ezért nem volt mit kinyerni belőle"
 }

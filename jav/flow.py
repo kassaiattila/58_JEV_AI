@@ -2,6 +2,7 @@
 
     load_pdf ─┬─ ocr_pdf ─── needs_ocr                       (no text layer; OCR unavailable / returned no text)
               │     ├─────────────────────────────┐          (OCR text: same route as a text layer)
+    load_text ┤     │                             │          (190: a text or table input, laid out like a PDF)
               ├─ find_candidates → jev_select → normalize_picks ─┐        [S]
               └─ extract_llm ─┬─ jev_verify ──┬─ normalize_llm ──┤        [G]
                               ├─ code_verify ─┘                  │  (085: G without JEV)
@@ -23,6 +24,10 @@ The graph is type-independent: the type pack of `state.doc_type` (`jav/typepack.
 supplies the field list, the candidate profile, the call sites, the prompt / schema, the validators and the required /
 high-stakes fields. Every pack in `configs/types/` runs on it, e.g. `invoice_hu` (Hungarian invoice), `invoice_foreign`
 (foreign invoice, ported on 2026-09-20) and the utility-bill packs.
+
+190 (plan 189 A2b): a pack whose `inputs` name `text` or `table` also reads a document given as text (an email's own
+text, `source_text`) or a text or table file; such a run enters at `load_text` instead of `load_pdf`, and from there
+on the graph is the same. A PDF's run is unchanged.
 """
 
 from __future__ import annotations
@@ -90,6 +95,28 @@ def load_pdf(state: FlowState) -> FlowState:
         state.source_layer_id = source_layer.save_from_pdftext(state.doc_id, pdf)
         # 167 (AI-3): pages without a text layer of their own were neither read nor sent to OCR
         policy.require_review(state, *policy.text_layer_coverage_reasons(pdf.page_count, pdf.pages_without_text))
+    return state
+
+
+@action.pydantic(reads=["source_path", "read_path", "source_text", "needs_review", "review_reasons"],
+                 writes=["text", "lines", "page_count", "has_text_layer", "layout", "doc_id", "text_source",
+                         "needs_review", "review_reasons"])
+def load_text(state: FlowState) -> FlowState:
+    """190 (plan 189 A2b): a document given as text (`source_text`, an email's own text; its identity is the text's
+    digest) or a text or table file (its identity is the file's digest, as a PDF's), laid out by the PDF reader's line
+    and cell builder (`jav.text_document`). No word layer. An empty text has nothing to extract: a `text:empty` to-do,
+    straight to the decision."""
+    from jav import text_document
+
+    if state.source_text is not None:
+        doc, state.doc_id = text_document.layout_text(state.source_text), text_document.text_digest(state.source_text)
+    else:
+        path = state.read_path or state.source_path
+        doc, state.doc_id = text_document.layout_text(text_document.read_file(path), path=path), _sha256(path)
+    state.text, state.lines, state.layout = doc.text, doc.lines, doc.layout
+    state.page_count, state.has_text_layer, state.text_source = doc.page_count, doc.has_text_layer, doc.text_source
+    if doc.text_source is None:
+        policy.require_review(state, "text:empty")
     return state
 
 
@@ -397,6 +424,9 @@ def needs_ocr(state: FlowState) -> FlowState:
 
 
 TRANSITIONS = [
+    ("load_text", "decide_route", expr("text_source is None")),
+    ("load_text", "find_candidates", when(arm="S")),
+    ("load_text", "extract_llm", when(arm="G")),
     ("load_pdf", "ocr_pdf", when(has_text_layer=False)),
     ("load_pdf", "find_candidates", when(arm="S")),
     ("load_pdf", "extract_llm", when(arm="G")),
@@ -423,7 +453,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
     "name": "invoice",
     "phases": ["load", "extract", "normalize", "decide", "persist", "terminal"],
     "steps": [
-        ("load_pdf", "load"), ("ocr_pdf", "load"),
+        ("load_pdf", "load"), ("ocr_pdf", "load"), ("load_text", "load"),
         ("find_candidates", "extract"), ("jev_select", "extract"), ("extract_llm", "extract"), ("jev_verify", "extract"), ("code_verify", "extract"),
         ("normalize_picks", "normalize"), ("normalize_llm", "normalize"),
         ("validate", "decide"), ("decide_route", "decide"),
@@ -431,6 +461,8 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
         ("done", "terminal"), ("needs_review", "terminal"), ("needs_ocr", "terminal"),
     ],
     "edges": [
+        ("load_text", "decide_route", "empty text"), ("load_text", "find_candidates", "S-kar"),
+        ("load_text", "extract_llm", "G-kar"),
         ("load_pdf", "ocr_pdf", "nincs szövegréteg"), ("load_pdf", "find_candidates", "S-kar"), ("load_pdf", "extract_llm", "G-kar"),
         ("ocr_pdf", "needs_ocr", "nincs OCR / nincs szöveg"), ("ocr_pdf", "find_candidates", "S-kar"), ("ocr_pdf", "extract_llm", "G-kar"),
         ("find_candidates", "jev_select"), ("jev_select", "normalize_picks"), ("normalize_picks", "validate"),
@@ -442,6 +474,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
     ],
     "step_meta": {
         "load_pdf": {"kind": "det", "note": "pdfplumber word-level reconstruction, sha256 doc_id; the text-layer test of the document and of each page (167: scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do); the word layer (word boxes) is saved"},
+        "load_text": {"kind": "det", "note": "190: a pack that reads text or tables: an email's own text (the text's digest is the doc_id) or a text / table file (the table through the isolated native reader), laid out by the PDF reader's line and cell builder (three spaces = a column); no word layer; an empty text is a text:empty to-do"},
         "ocr_pdf": {"kind": "det", "note": "szöveg nélküli PDF: oldalkép (pypdfium2) + tesseract szó-dobozok (natív / régi sidecar-kép) -> ugyanaz a sor- és cella-építés; a szóréteg mentése; lemez-gyorsítótár runs/ocr/; minőségjelek nyersen, gyenge OCR review-ok (policy ocr)"},
         "find_candidates": {"kind": "det", "note": "S-kar: determinisztikus, sorrendezett, maszkoló jelöltkeresők a csomag jelölt-profiljával (hu / intl): iban -> tax_id -> date -> invoice_number -> money; nevek/címek cellákon"},
         "jev_select": {"kind": "jev", "note": "S-kar: kötegelt Choice-kérések (parties / header / money) a csomag select-hívási helyéről, fókuszált state, none mindig opció, jelenlét-Noul mezőnként (jelölt nélkül is, a vizsgált nem kötelező mezőkre, csak meglévő kérésben)"},
@@ -476,27 +509,35 @@ def new_run_id(case_id: str, arm: str, run_no: int) -> str:
 def build_app(
     source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, doc_type: str = DEFAULT_KEY,
     *, run_id: str | None = None, persister=None, read_path: str | None = None, jev: bool = True,
-    detail_probabilities: dict[str, float] | None = None,
+    detail_probabilities: dict[str, float] | None = None, source_text: str | None = None,
 ) -> Application:
     """`persister` (040 K1, supplied by the worker): durable state persistence after every step; with the same `run_id`
     the run resumes at the next step. Without it, the earlier behaviour: a new identifier, no persistence.
     `read_path`: the document's bytes are read from here (its source instance); everything else uses `source_path`.
     `jev=False` (085): processing without JEV: only the G path, verified by the code alone (`code_verify`).
     `detail_probabilities` (149): the detection's answer on the detailed type, for the saved stage's direction check
-    (`parties.confirm_detail_by_direction`)."""
+    (`parties.confirm_detail_by_direction`). `source_text` (190): the document is this text (an email's own text), not
+    the file; a text or table file is read as text too. Either needs a pack that takes that input (`inputs`)."""
+    from jav import text_document
+
     pack = get_pack(doc_type)  # unknown type pack -> error right here, not in the middle of the graph
+    kind = "text" if source_text is not None else text_document.input_kind(source_path)
+    if kind not in pack.inputs:
+        raise ValueError(f"the {doc_type} type pack does not read {kind} input (it reads: {', '.join(pack.inputs)})")
+    entry = "load_pdf" if kind == "pdf" else "load_text"
     if arm not in pack.arms:
         raise ValueError(f"a(z) {doc_type} típus-csomag csak ezekkel a karokkal fut: {', '.join(pack.arms)} (kért: {arm})")
     if not jev and arm != "G":
         raise ValueError(f"without JEV only the G path runs (requested: {arm})")
     run_id = run_id or new_run_id(case_id, arm, run_no)
     initial = FlowState(source_path=source_path, read_path=read_path, case_id=case_id, arm=arm, run_no=run_no, run_id=run_id,
-                        use_cache=use_cache, doc_type=doc_type, jev=jev, detail_probabilities=detail_probabilities or {})
+                        use_cache=use_cache, doc_type=doc_type, jev=jev, detail_probabilities=detail_probabilities or {},
+                        source_text=source_text)
     builder = (
         ApplicationBuilder()
         .with_typing(PydanticTypingSystem(FlowState))
         .with_actions(
-            load_pdf, ocr_pdf, find_candidates, jev_select, normalize_picks, extract_llm, jev_verify, code_verify, normalize_llm,
+            load_pdf, ocr_pdf, load_text, find_candidates, jev_select, normalize_picks, extract_llm, jev_verify, code_verify, normalize_llm,
             validate, decide_route, ground, save, done, needs_review, needs_ocr,
         )
         .with_transitions(*TRANSITIONS)
@@ -504,9 +545,9 @@ def build_app(
     )
     if persister is not None:
         builder = (builder.initialize_from(persister, resume_at_next_action=True, default_state=initial.model_dump(),
-                                           default_entrypoint="load_pdf").with_state_persister(persister))
+                                           default_entrypoint=entry).with_state_persister(persister))
     else:
-        builder = builder.with_state(initial).with_entrypoint("load_pdf")
+        builder = builder.with_state(initial).with_entrypoint(entry)
     if tracker:
         builder = builder.with_tracker("local", project=tracker_project(doc_type))
     return with_engine(builder, jev_on=jev).build()  # 160: without JEV, a JEV question is refused
