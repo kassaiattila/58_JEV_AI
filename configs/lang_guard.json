@@ -7,7 +7,7 @@
       {
         "version": "1.0.88",
         "date": "2026-10-21",
-        "note": "190 (plan 189 A2e, A2f): the quote request's document vocabulary (its type pack's keywords, its prompt's Hungarian terms, the detection type, the intent and the field labels) and the Hungarian labels its tests read (tests/test_quote_request_190.py, tests/test_email_text_follow_up_190.py, ui/src/listChecks190.test.ts, ui/src/emailText190.test.ts)."
+        "note": "190 (plan 189 A2e, A2f): the quote request's document vocabulary (its type pack's keywords, its prompt's Hungarian terms, the detection type, the intent and the field labels) and the Hungarian labels its tests read (tests/test_quote_request_190.py, tests/test_email_text_follow_up_190.py, tests/test_evals_quotes_190.py, ui/src/listChecks190.test.ts, ui/src/emailText190.test.ts)."
       },
       {
         "version": "1.0.87",
@@ -733,6 +733,7 @@
     "tests/test_emails.py": 14,
     "tests/test_encoding_guard.py": 3,
     "tests/test_eval_report.py": 1,
+    "tests/test_evals_quotes_190.py": 2,
     "tests/test_flow_statement_table_136.py": 2,
     "tests/test_gpt_reuse_090.py": 2,
     "tests/test_handoff_guard.py": 2,

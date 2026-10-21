@@ -39,6 +39,7 @@ LASTING = {
     "evals": "a measurement: the golden runs of every flow",
     "evals_detect": "a measurement: the golden runs of every flow",
     "evals_email": "a measurement: the golden runs of every flow",
+    "evals_quotes": "a measurement: the quote request's golden runs (the email flow, the detection and the extraction)",
     "eval_report": "a measurement: the report of every golden run",
     "before_after": "a measurement: the before/after snapshot reads every view",
     "before_after_replay": "a measurement: the replay processes every kind of item",
