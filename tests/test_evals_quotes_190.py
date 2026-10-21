@@ -124,3 +124,21 @@ def test_the_intents_are_counted_against_the_expected_ones(tmp_path, monkeypatch
 def test_the_expected_dates_are_dates():
     assert CASES["q01_hu_office_body"].expected.request.deadline == date(2026, 10, 16)
     assert CASES["q01_hu_office_body"].expected.request.items[0].quantity == Decimal("5")
+
+
+def test_the_legacy_intent_golden_set_counts_an_unanswered_email_without_a_result(tmp_path, monkeypatch):
+    """190: with a new intent every question is new; a round without a budget has no earlier answer, and an email
+    without one is a row without a result (it stopped the whole set with an assertion before)."""
+    from jav import evals_email, store
+    from jav.adapters import jev as jev_mod
+    from jav.emails import EmailMessage, GoldenEmail
+    from tests.test_email_signals import FakeClient
+
+    case = GoldenEmail(case_id="c1", expected="other", source="t", message=EmailMessage(message_id="golden:c1", subject="s", body="b"))
+    monkeypatch.setattr(evals_email, "_cases", lambda limit=None: [case])
+    monkeypatch.setattr(evals_email, "RUNS_DIR", tmp_path)
+    adapter = jev_mod.JevAdapter(client=FakeClient(), cache_dir=tmp_path / "cache", model="jev-1.13.0")
+    with store.use_store(tmp_path / "e.sqlite"), jev_mod.use_adapter(adapter):
+        rows = evals_email.email_golden()
+    assert [(r["got"], r["engine"]) for r in rows] == [(None, "jev")]
+    assert goldens._case_outcome(rows).without_result == 1

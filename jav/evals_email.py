@@ -43,12 +43,12 @@ def _run_case(case: GoldenEmail, *, use_cache: bool, jev: bool = True) -> dict[s
     st = run_email(message=case.message.model_copy(deep=True), use_cache=use_cache, detect_attachments=False, jev=jev)
     r = st.result
     if r is None:  # 089: without JEV a failed GPT call (e.g. the measurement's budget ran out) is a row, not a crash
-        assert not jev, st.review_reasons
+        # 190: with JEV too: a question without an earlier answer in a round without a budget, or one over the budget
         return {"case_id": case.case_id, "source": case.source, "expected": case.expected, "got": None, "confidence": 0.0,
                 "signals": {}, "scores": {}, "next_flow": st.next_flow, "review_reasons": list(st.review_reasons), "top3": {},
                 "parent": None, "parent_prob": None, "n_attachments": len(case.message.attachments), "cached": False,
                 "cost_usd": 0.0, "input_tokens": None, "seconds": round(time.perf_counter() - t0, 2), "run_id": st.run_id,
-                "engine": "gpt", "measured": None}
+                "engine": "jev" if jev else "gpt", "measured": None}
     return {
         "case_id": case.case_id, "source": case.source, "expected": case.expected, "got": r.intent,
         "confidence": round(r.confidence, 4), "signals": r.signals, "scores": {k: s.model_dump() for k, s in r.scores.items()},
