@@ -173,11 +173,38 @@ def _count_quotes() -> int:
     return sum(1 for c in quote_golden.load().cases if c.expected.quote is not None)
 
 
+def _count_matches() -> int:
+    from jav import quote_golden
+
+    return sum(len(c.expected.matches) for c in quote_golden.load().cases)
+
+
+def _measure_matches(options: goldens.Options) -> goldens.Outcome:
+    """B4b: the invented requested items matched with the round's engine; without a budget, earlier answers only. A
+    right item is one marked as expected; one a person would resolve (flagged), a missed and a silently wrong one are
+    counted apart in the printed report."""
+    from jav import quote_match
+
+    budget, refused = options.answering_budget("the quote matches")
+    if refused:
+        return goldens.Outcome(refused=refused)
+    limits = {quote_match.PROVIDERS[options.engine]: budget} if budget is not None else {}
+    g = quote_match.golden(engine=options.engine, limits=limits, use_cache=options.use_cache,
+                           **({} if limits else {"earlier_only": True}))
+    quote_match.print_golden(g)
+    answered = g["items"] - g["tally"].get("failed", 0)
+    return goldens.Outcome(cases=g["items"], answered=answered, right=g["tally"].get("right", 0), scored=answered,
+                           unit="items")
+
+
 # B4a: the quote package's golden sets, measured by the shared measurement command (`jav/goldens.py`)
 GOLDENS = (
     goldens.Golden(key=f"{KIND}:lines", layer="logic_pack", owner=KIND, engines=(), module=__name__,
                    what="the invented quotes' lines and totals priced by code from their expected matches "
                         "(configs/golden_quotes.json)", count=_count_quotes, measure=_measure_lines),
+    goldens.Golden(key=f"{KIND}:matches", layer="logic_pack", owner=KIND, engines=goldens.ENGINES, module=__name__,
+                   what="the price list item proposed for each invented requested item: sure, to check or not listed "
+                        "(configs/golden_quotes.json)", count=_count_matches, measure=_measure_matches),
 )
 
 LOGIC = logic_packs.LogicPack(

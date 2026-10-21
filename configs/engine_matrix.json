@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.3",
+        "date": "2026-10-21",
+        "note": "191 (plan F-quote-package B4b): the quote match call site, with GPT's same questions as its counterpart without JEV"
+      },
       {
         "version": "1.0.2",
         "date": "2026-10-21",
@@ -71,6 +76,21 @@
       "tests": [
         "tests/test_paired_recognition_160.py::test_the_intent_is_recognised_and_routed",
         "tests/test_paired_recognition_160.py::test_a_suspected_injection_goes_to_a_person"
+      ]
+    },
+    "quote_match": {
+      "call_site": "quote_match",
+      "modules": [
+        "jav/quote_match.py"
+      ],
+      "gpt": {
+        "module": "jav/quote_match.py",
+        "function": "ask_gpt",
+        "config": "gpt_quote_match"
+      },
+      "tests": [
+        "tests/test_quote_match_191.py::test_the_gpt_engine_asks_the_same_questions",
+        "tests/test_quote_match_191.py::test_the_gpt_engine_cannot_ask_jev"
       ]
     },
     "reconcile_line": {

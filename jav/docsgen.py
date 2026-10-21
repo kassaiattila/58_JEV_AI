@@ -122,6 +122,10 @@ def code_hashes(name: str) -> dict[str, str]:
         from jav import reconcile_ai
 
         return {"reconcile_line": reconcile_ai.jev_hash()}
+    if name == "quote_match":  # 191: the quote's price list match
+        from jav import quote_match
+
+        return {"quote_match": quote_match.jev_hash()}
     from jav import typepack
     from jav.jev_select import site_for as select_site
     from jav.jev_verify import site_for as verify_site
@@ -177,6 +181,11 @@ def _q_rows(name: str, data: dict[str, Any]) -> list[str]:
         for key, q in data["questions"].items():
             crit = q["criteria"]
             crit_s = "the preselected invoices (code, at most `preselect.max_options`) + `none`" if isinstance(crit, str) else ", ".join(crit)
+            rows.append(f"| `{key}` | {q['kind']} | {q['instructions'][:140]}… | {crit_s} |")
+    elif name == "quote_match":  # 191: the price list's items are the options, built per request by code
+        for key, q in data["questions"].items():
+            crit_s = ("the price list's items (code, name, unit, group; at most `state.max_options`) + `none`"
+                      if key == "item" else ", ".join(q["criteria"]))
             rows.append(f"| `{key}` | {q['kind']} | {q['instructions'][:140]}… | {crit_s} |")
     elif name.startswith("select"):
         for rid, r in data["requests"].items():
