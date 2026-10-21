@@ -14,7 +14,10 @@ pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows Job Object read
     ("time", "resource_limit"), ("memory", "resource_limit"), ("output", "resource_limit"),
 ])
 def test_enforced_process_boundaries(operation, code):
-    limits = DEFAULT_LIMITS.model_copy(update={"wall_seconds": 4, "memory_bytes": 256_000_000})
+    # 189 (backlog T-flaky-reader-isolation): the wall time counts from the reader's start, so under load (the tests in
+    # several processes) a 4 s limit ended the network probe before it reached the network; only the time probe needs it
+    wall_seconds = 4 if operation == "time" else 60
+    limits = DEFAULT_LIMITS.model_copy(update={"wall_seconds": wall_seconds, "memory_bytes": 256_000_000})
     with pytest.raises(ReadFailure) as caught:
         run(b"synthetic", "sample.txt", limits, probe=operation)
     assert caught.value.code == code
