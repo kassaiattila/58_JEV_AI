@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.2",
+        "date": "2026-10-21",
+        "note": "190 (plan 189 A2e): the quote request's verification call site, with the code's own source check as its counterpart without JEV"
+      },
       {
         "version": "1.0.1",
         "date": "2026-10-18",
@@ -277,6 +282,20 @@
       },
       "tests": [
         "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_quote_request": {
+      "call_site": "verify_quote_request",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check with GPT's token confidence on the scored fields (jav/policy.py apply_gpt_confidence_policy); the list questions have no counterpart: the list checks of the pack's validators stand in"
+      },
+      "tests": [
+        "tests/test_quote_request_190.py::test_without_jev_the_code_checks_the_request"
       ]
     },
     "verify_meghivo": {

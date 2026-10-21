@@ -125,8 +125,9 @@ def test_a_pdf_is_not_a_text_file(tmp_path):
 # --- the type pack's switch -----------------------------------------------------------------------------------------
 
 
-def test_every_existing_pack_reads_pdf_only():
-    assert {k: typepack.get(k).inputs for k in typepack.keys()} == dict.fromkeys(typepack.keys(), ("pdf",))
+def test_every_pack_before_the_quote_request_reads_pdf_only():
+    keys = [k for k in typepack.keys() if k != "quote_request"]  # 190 (A2e): the first pack that reads text
+    assert {k: typepack.get(k).inputs for k in keys} == dict.fromkeys(keys, ("pdf",))
 
 
 def test_an_unknown_input_kind_is_refused(monkeypatch):

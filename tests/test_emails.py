@@ -9,11 +9,11 @@ from jav.intents import BY_KEY, DOCUMENT_BEARING, INTENT_KEYS, OTHER, choice_cri
 
 
 def test_registry_consistent():
-    assert OTHER in INTENT_KEYS and len(INTENT_KEYS) == 11
+    assert OTHER in INTENT_KEYS and len(INTENT_KEYS) == 12  # 190: the quote request joined the 11 legacy intents
     crit = choice_criteria()
     assert set(crit) == set(INTENT_KEYS)
     assert all(len(v["what"]) > 40 and v["not_for"] for v in crit.values())  # v2: structured criterion
-    assert DOCUMENT_BEARING == {"szamlakuldes", "fizetesi_visszaigazolas"}
+    assert DOCUMENT_BEARING == {"szamlakuldes", "fizetesi_visszaigazolas", "quote_request"}
     assert BY_KEY["szamlakuldes"].display_name == "Számlaküldés"
 
 

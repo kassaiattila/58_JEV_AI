@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.24.0",
+  "version": "1.25.0",
   "changelog": [
+   {
+    "version": "1.25.0",
+    "date": "2026-10-21",
+    "note": "190 (plan 189 A2e): the quote request. email.intent_route: quote_request -> m2:quote_request (the quote request's data extraction, from the email's own text or its request form); email.m2_types: quote_request, so an attached request form decides the route like an invoice does."
+   },
    {
     "version": "1.24.0",
     "date": "2026-10-17",
@@ -175,10 +180,12 @@
    "invoice_foreign",
    "invoice_hu",
    "proforma_invoice",
+   "quote_request",
    "receipt",
    "utility_bill_hu"
   ],
   "intent_route": {
+   "quote_request": "m2:quote_request",
    "szamlakuldes": "human:fetch_document",
    "fizetesi_visszaigazolas": "archive:payment_proof",
    "business_correspondence": "human:inbox",

@@ -8,7 +8,7 @@ request (the reuse key of an earlier answer: instructions, the answer's schema, 
 of its JEV verification request (the JEV cache key: the state and the questions), on a synthetic document built from
 the pack's own fields.
 
-Pinned on `952c2b5` (v1.28.1 + 189). A deliberate change to a pack, its prompt, its schema or its verification call
+Pinned on `952c2b5` (v1.28.1 + 189); the quote request's pack (190, A2e) when it was added. A deliberate change to a pack, its prompt, its schema or its verification call
 site changes its fingerprint too, and needs that pack's paid golden run anyway. Synthetic values only; no model call.
 """
 
@@ -46,6 +46,7 @@ GPT_KEYS = {
     "statement_cib": "e363a04424b0cbfc", "statement_erste": "a1945247a3e0a671", "terkep_adat": "239ce7fc9be46b0d",
     "villamos_energia_szamla": "4d5873be63e21fb7", "viz_szamla": "7010f2c0cb3c2db5",
     "vizmuvek_szamla": "8b607daa57d74606",
+    "quote_request": "026aa29aa98ab0be",  # 190 (A2e): the new pack, pinned when it was added
 }
 JEV_KEYS = {
     "altalanos_szerzodesi_feltetelek": "9aca1d3bc4265e76", "belepo_jegy": "e667b3f8f487207e",
@@ -58,6 +59,7 @@ JEV_KEYS = {
     "statement_cib": "c9fdc78dc8dc1e97", "statement_erste": "004233b10aedc4f5", "terkep_adat": "cfba1c8adb79e75b",
     "villamos_energia_szamla": "985ca0f22575a6d4", "viz_szamla": "71ed6531db577f64",
     "vizmuvek_szamla": "4dcef8aafebc6084",
+    "quote_request": "c3cb7a88278eca49",  # 190 (A2e)
 }
 
 

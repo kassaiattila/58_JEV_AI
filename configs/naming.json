@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "naming",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "changelog": [
+   {
+    "version": "1.6.0",
+    "date": "2026-10-21",
+    "note": "190 (plan 189 A2e): the quote request (type pack and detection type quote_request): its deadline (the only date of the record, a filler when missing) and the customer; the reference is often missing, so it is not part of the name."
+   },
    {
     "version": "1.5.0",
     "date": "2026-10-17",
@@ -88,6 +93,7 @@
   "meeting_minutes": {"token": "JEGYZOKONYV", "pattern": "{meeting_date}_{@type}_{organization_name}_{meeting_type}"},
   "csapatmenedzser_utasitas": {"token": "UTASITAS", "pattern": "{date}_{@type}_{issuing_body}_{subject}"},
   "altalanos_szerzodesi_feltetelek": {"token": "ASZF", "pattern": "{effective_date}_{@type}_{seller_name}_{document_title}"},
+  "quote_request": {"token": "AJANLATKERES", "pattern": "{@date}_{@type}_{customer_name}"},
   "insurance_claim_form": {"token": "KARBEJELENTO", "pattern": "{@date}_{@type}_{insurer}_{policy_number|form_code}"},
   "terkep_adat": {"token": "TERKEP", "pattern": "{@date}_{@type}_{map_source}_{area_name}"},
   "utility_bill_hu": {"token": "KOZMU"},

@@ -1,0 +1,65 @@
+{
+ "meta": {
+  "name": "verify_quote_request",
+  "version": "1.0.0",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-21",
+    "note": "190 (plan 189 A2e): the G-path verification of a quote request. It inherits `verify` for the shared document guard and the request size budget, but its own question texts (nouls) replace the invoice's: they name a request, it asks no invoice question (document_nouls empty), and the requested items are asked about missing and extra rows (list_nouls)."
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_quote_request",
+ "document": "A customer's request for a price quote: an email's own text, a request form or a request list",
+ "own_glossary": true,
+ "glossary": "Document type: a customer's request for a price quote, sent to a company that sells goods and services. The customer is the party that asks; the company the request is addressed to is never the customer. Field names are English identifiers; the request's text is verbatim, Hungarian or English. An email's text starts with its From, Date and Subject lines; a table's rows are lines, their cells three spaces apart.",
+ "glossary_in_state": false,
+ "field_specs": {
+  "customer_name": "the organisation that asks for the quote, with its legal form (a private person's name when no organisation asks); never the company the request is addressed to",
+  "customer_tax_number": "the tax number (adószám, VAT number) of the customer that asks for the quote",
+  "contact_name": "the person who asks for the quote, or who is named as the contact (kapcsolattartó)",
+  "contact_email": "the contact's email address (the sender's address on the From line when none other is printed)",
+  "contact_phone": "the contact's phone number",
+  "deadline": "the date by which the customer wants the quote, ISO format (counted from the request's own date when it is given relative to it); not a delivery or installation date",
+  "reference": "the customer's own reference for the request (tender, project, purchase request or RFQ number)",
+  "requested_items": "the items the customer asks a price for now, each with its description, quantity and unit"
+ },
+ "incomplete_fields": ["customer_name", "contact_name", "contact_email"],
+ "wrong_kind_fields": ["customer_tax_number", "contact_phone", "reference"],
+ "document_nouls": [],
+ "list_nouls": ["missing_rows", "extra_rows"],
+ "nouls": {
+  "absence_wrong": {
+   "question": "The extraction left the field described in `field_spec` EMPTY (`extracted_field` is null). Look at `source_lines`: does the request state a value that should have been extracted for this field?",
+   "true": "the request states a value for this field, so leaving it empty is wrong",
+   "false": "the request does not state such a value, so empty is correct"
+  },
+  "off_target": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Is this value actually a DIFFERENT field's value in this request (for example the addressed company's own name placed into customer_name, a delivery date placed into deadline, a phone number placed into reference, the sender's colleague placed into contact_name)?",
+   "true": "the value belongs to another field; it is wrongly placed here",
+   "false": "the value is the correct value for this field"
+  },
+  "wrong_kind": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Look at what the request prints around it. Is this value actually a DIFFERENT KIND of number or identifier that merely looks similar - for example a phone number where a tax number is expected, a tax number or a postcode where a phone number is expected, or a date, an amount or a quantity where a reference is expected - rather than what `field_spec` describes?",
+   "true": "the value is a different kind of number or identifier, not this field's value",
+   "false": "the value is indeed this field's value"
+  },
+  "incomplete": {
+   "question": "`extracted_field` was extracted for the field described in `field_spec`; it is printed on the lines in `printed_on`. Is the extracted value a truncated or partial form of what is printed (a missing legal form such as Kft. / Bt. / Zrt., a missing part of a name, a missing part of an email address)?",
+   "true": "the printed value is longer or more complete than the extracted value",
+   "false": "the extracted value is the complete printed value (formatting differences do not count)"
+  },
+  "missing_rows": {
+   "question": "Compare `extraction[list_field]` (the list described in `list_spec`) with what the customer asks for in `source_lines`. Does the request ask for at least one item that is ABSENT from that list? Items of a quoted earlier message, or already delivered, are not asked for.",
+   "true": "at least one requested item is missing from the extracted list",
+   "false": "every requested item is in the extracted list"
+  },
+  "extra_rows": {
+   "question": "Compare `extraction[list_field]` (the list described in `list_spec`) with what the customer asks for in `source_lines`. Does that list contain a row that the customer does NOT ask a price for now (for example an item of a quoted earlier message, a signature line, a total, a note, or one item split into two rows)?",
+   "true": "the extracted list contains a row that is not a requested item",
+   "false": "every extracted row is an item the customer asks for"
+  }
+ }
+}

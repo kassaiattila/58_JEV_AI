@@ -40,8 +40,8 @@ def _site(monkeypatch, **changes) -> VerifySite:
     return VerifySite(typepack.get("meeting_minutes"))
 
 
-def test_every_existing_call_site_asks_the_three_invoice_questions_and_none_per_list():
-    for key in typepack.keys():
+def test_every_call_site_before_the_quote_request_asks_the_three_invoice_questions_and_none_per_list():
+    for key in (k for k in typepack.keys() if k != "quote_request"):  # 190 (A2e): its own questions
         site = site_for(key)
         assert site.document_nouls == DOCUMENT_NOULS and site.list_nouls == (), key
 
@@ -88,4 +88,4 @@ def test_the_source_words_are_the_packs_own_or_the_invoice_pdfs():
     assert extract_llm.source_prefix(pack) == extract_llm.USER_PREFIX
     own = pack.model_copy(update={"source_prefix": "SOURCE TEXT of the request:\n\n"})
     assert extract_llm.source_prefix(own) == "SOURCE TEXT of the request:\n\n"
-    assert all(typepack.get(k).source_prefix is None for k in typepack.keys())
+    assert all(typepack.get(k).source_prefix is None for k in typepack.keys() if k != "quote_request")

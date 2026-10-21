@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "customer_name": { "type": ["string", "null"], "description": "The organisation asking for the quote, with its legal form; a private person's name when no organisation asks" },
+    "customer_tax_number": { "type": ["string", "null"], "description": "The customer's tax number, as printed" },
+    "contact_name": { "type": ["string", "null"], "description": "The person who asks, or the named contact" },
+    "contact_email": { "type": ["string", "null"], "description": "The contact's email address; otherwise the sender's address on the From line" },
+    "contact_phone": { "type": ["string", "null"], "description": "The contact's phone number, as printed" },
+    "deadline": { "type": ["string", "null"], "description": "The date by which the quote is wanted, ISO YYYY-MM-DD; a relative deadline counted from the request's own date" },
+    "reference": { "type": ["string", "null"], "description": "The customer's own reference for the request (tender, project, RFQ number)" },
+    "requested_items": {
+      "type": "array",
+      "description": "Every item the customer asks a price for now, in the order written",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "description": { "type": ["string", "null"], "description": "The item as written, without its quantity" },
+          "quantity": { "type": ["number", "null"], "description": "How many, as a number (written numbers too)" },
+          "unit": { "type": ["string", "null"], "description": "The unit as the request gives it" }
+        },
+        "required": ["description", "quantity", "unit"]
+      }
+    }
+  },
+  "required": ["customer_name", "customer_tax_number", "contact_name", "contact_email", "contact_phone", "deadline", "reference", "requested_items"]
+}
