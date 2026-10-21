@@ -238,9 +238,9 @@ def _measure_types(options: Options) -> Outcome:
 
 
 def _count_intents() -> int:
-    from jav.emails import load_old_golden
+    from jav import evals_email
 
-    return len(load_old_golden())
+    return evals_email.count_cases()
 
 
 def _measure_intents(options: Options) -> Outcome:
