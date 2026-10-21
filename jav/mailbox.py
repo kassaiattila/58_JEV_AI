@@ -29,7 +29,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from jav import ingest_server, item_kinds, store, work, workflow_steps
+from jav import decisions, ingest_server, item_kinds, store, work, workflow_steps
 from jav.runtime import job_kinds
 from jav.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
 from jav.user_messages import explained
@@ -788,23 +788,39 @@ def effective_email_result(res: dict[str, Any], corrected_intent: str | None) ->
     return out
 
 
+# 187 (plan G-full-move T2c): a person's decisions on an email's task proposals, in the shared decision journal
+TASK_KIND = "email_task"
+decisions.register(decisions.Kind(TASK_KIND, ("decide", "done", "undone"), __name__))
+
+
+def _task_key(flow_run_id: str, index: int) -> str:
+    return f"{flow_run_id}#{index}"
+
+
 def task_view(flow_run_id: str, raw: dict[str, Any] | None) -> dict[str, Any] | None:
-    """058 K5.3: the task proposal with its decisions (None = the run did not ask for proposals)."""
+    """058 K5.3: the task proposal with its decisions (None = the run did not ask for proposals). 187: each task's
+    `decision_state`, which the page sends back with a change."""
     tasks = (raw or {}).get("tasks")
     if not tasks:
         return None
-    decisions = store.email_task_decisions(flow_run_id)
-    items = [{**t, "index": n, "decision": decisions.get(n)} for n, t in enumerate(tasks.get("tasks") or [])]
+    decided = store.email_task_decisions(flow_run_id)
+    proposed = tasks.get("tasks") or []
+    with store.connect() as c:
+        state = decisions.states(c, TASK_KIND, [_task_key(flow_run_id, n) for n in range(len(proposed))])
+    items = [{**t, "index": n, "decision": decided.get(n), "decision_state": state[_task_key(flow_run_id, n)]}
+             for n, t in enumerate(proposed)]
     return {"status": tasks.get("status"), "reason": tasks.get("reason"), "error": tasks.get("error"), "tasks": items,
             "rejected": tasks.get("rejected") or []}
 
 
-def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: str, note: str | None = None) -> dict[str, Any]:
+def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: str, note: str | None = None,
+                expected_state: int | None = None) -> dict[str, Any]:
     """A human decision on a task proposal (accept / reject). Once every proposal of the message is decided, the run's
     own "proposal awaits decision" to-do is resolved (the decisions go into the resolution). Frozen on an approved
     run: 086 (audit of 2026-10-02, N02) the writing transaction checks the approval again, so a decision checked before
     a concurrent approval is refused instead of being written after it (the decisions are part of the approved result,
-    `corrections.review_version`)."""
+    `corrections.review_version`). 187: the change goes into the decision journal in the same transaction (before, a
+    changed decision overwrote the earlier one with nothing kept), and a stale `expected_state` is refused."""
     run = work.get_run(run_id)
     if run["approval"]:
         raise explained(work.RevisionConflict, "run {{run_id}} is approved; task decisions are frozen", run_id=run_id)
@@ -815,14 +831,16 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
     view = task_view(flow_id, store.email_result(flow_id))
     if view is None or not 0 <= index < len(view["tasks"]):
         raise KeyError(f"task {index}")
+    key = _task_key(flow_id, index)
     with store.connect() as c:
-        c.commit()
-        c.execute("BEGIN IMMEDIATE")
-        row = c.execute("SELECT approval FROM runs WHERE run_id=?", (run_id,)).fetchone()
-        if row is not None and row["approval"]:
+        store.begin_immediate(c)
+        if decisions.run_approved(c, run_id):
             raise explained(work.RevisionConflict, "run {{run_id}} is approved; task decisions are frozen",
                             run_id=run_id)
+        decisions.check(c, TASK_KIND, key, expected_state)
         store.email_task_decide(flow_id, index, decision=decision, actor=actor, note=note, c=c)
+        decisions.record(c, TASK_KIND, key, "decide", actor=actor, value={"decision": decision}, note=note,
+                         workpackage_id=run["workpackage_id"], run_id=run_id)
     view = task_view(flow_id, store.email_result(flow_id))
     if all(t["decision"] for t in view["tasks"]):
         summary = {"decisions": [{"index": t["index"], "decision": t["decision"]["decision"]} for t in view["tasks"]]}
@@ -832,9 +850,11 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
     return view
 
 
-def mark_task_done(run_id: str, item_id: str, index: int, *, done: bool, actor: str) -> dict[str, Any]:
+def mark_task_done(run_id: str, item_id: str, index: int, *, done: bool, actor: str,
+                   expected_state: int | None = None) -> dict[str, Any]:
     """062 (decision of 2026-09-29): an accepted task can be marked done by hand, and the mark can be withdrawn. The
-    task happens in the real world, so it can be marked even on an approved run; a rejected or undecided task cannot."""
+    task happens in the real world, so it can be marked even on an approved run; a rejected or undecided task cannot.
+    187: in one transaction with its journal row, under the page's `expected_state`."""
     run = work.get_run(run_id)
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id and i.get("kind") == "email"), None)
     if item is None:
@@ -843,9 +863,15 @@ def mark_task_done(run_id: str, item_id: str, index: int, *, done: bool, actor: 
     view = task_view(flow_id, store.email_result(flow_id))
     if view is None or not 0 <= index < len(view["tasks"]):
         raise KeyError(f"task {index}")
-    if not store.email_task_done(flow_id, index, actor=actor, done=done):
-        raise explained(work.RevisionConflict, "task {{index}} is not accepted; only an accepted task can be marked done",
-                        index=index)
+    key = _task_key(flow_id, index)
+    with store.connect() as c:
+        store.begin_immediate(c)
+        decisions.check(c, TASK_KIND, key, expected_state)
+        if not store.email_task_done(flow_id, index, actor=actor, done=done, c=c):
+            raise explained(work.RevisionConflict, "task {{index}} is not accepted; only an accepted task can be marked done",
+                            index=index)
+        decisions.record(c, TASK_KIND, key, "done" if done else "undone", actor=actor,
+                         workpackage_id=run["workpackage_id"], run_id=run_id)
     return task_view(flow_id, store.email_result(flow_id))  # type: ignore[return-value]
 
 

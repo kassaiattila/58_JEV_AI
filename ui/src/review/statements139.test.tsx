@@ -16,7 +16,7 @@ const relation = (over: Partial<StatementRelation> = {}): StatementRelation => (
   other_doc_id: OTHER, other_file: "export-2026-04.json", relation: "conflict", how: null, other_run_id: "run-000000000002",
   other_item_id: OTHER, other_workpackage_id: "wp-000000000002", period: ["2026-04-01", "2026-04-30"],
   other_period: ["2026-04-01", "2026-04-30"], rank: "code_checked", other_rank: "code_checked", lines: 12, other_lines: 13,
-  carried: null, left_over: null, reason_id: 7, kept: null, decided_by: null, decided_at: null, ...over,
+  carried: null, left_over: null, reason_id: 7, kept: null, decided_by: null, decided_at: null, decision_state: 5, ...over,
 });
 const result = (statements: StatementRelation[]) => ({ run_id: "run-000000000001", item_id: "a".repeat(64), statements }) as unknown as ItemResult;
 
@@ -34,7 +34,7 @@ describe("the statements of the same days on the review page", () => {
     expect(screen.queryByRole("button", { name: "By the rule" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "The other one is valid" }));
     await waitFor(() => expect(onDecided).toHaveBeenCalled());
-    expect(choose).toHaveBeenCalledWith("run-000000000001", "a".repeat(64), OTHER, "other");
+    expect(choose).toHaveBeenCalledWith("run-000000000001", "a".repeat(64), OTHER, "other", 5);  // 187: the state it read
   });
 
   it("says what replaced the statement, how many lines carried over, and offers the rule back after a choice", () => {

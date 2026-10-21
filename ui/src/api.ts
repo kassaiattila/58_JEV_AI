@@ -500,6 +500,8 @@ export interface EmailTask {
   decision: { decision: "accepted" | "rejected"; actor: string; decided_at: string; done_by?: string | null; done_at?: string | null } | null;
   /** 062: how many identical proposals were merged into it (within one email). */
   merged?: number;
+  /** 187: the decision's state, sent back with a change (`jav/decisions.py`). */
+  decision_state?: number;
 }
 /** A proposal dropped by the evidence check in code; since 062 with its content and the part that failed (for earlier
  *  runs, only the reason). */
@@ -554,6 +556,8 @@ export interface StatementRelation {
   rank: string; other_rank: string; lines: number; other_lines: number;
   carried: number | null; left_over: number | null; reason_id: number | null;
   kept: string | null; decided_by: string | null; decided_at: string | null;
+  /** 187: the choice's state, sent back with a change (`jav/decisions.py`). */
+  decision_state?: number;
 }
 export type StatementKeep = "this" | "other" | "rule";
 /** 126: the code's kind of a suspected duplicate and a person's decision on the pair. */
@@ -565,6 +569,8 @@ export interface DuplicatePair {
   kind: DuplicateKind; reason_id: number | null; repeat: boolean;
   fields: { field: string; value: unknown; other_value: unknown; differs: boolean; missing: boolean }[];
   decision: DuplicateDecision | null; decided_by: string | null; decided_at: string | null;
+  /** 187: the decision's state, sent back with a change (`jav/decisions.py`). */
+  decision_state?: number;
 }
 /** 131: the payment method (an invoice payable by cheque, a line through a cheque payment app) and a name learnt from an
  * earlier confirmed pair also tie a line to an invoice. */
@@ -1129,14 +1135,18 @@ export const api = {
     request<{ paths: string[] }>("POST", "/local/pick-files", { title, ...(initial ? { initial } : {}) }),
   createFromFiles: (paths: string[], name: string) =>
     request<{ workpackage: Workpackage; readiness: Readiness }>("POST", "/workpackages", { paths, name }),
-  decideTask: (runId: string, itemId: string, index: number, decision: "accepted" | "rejected") =>
-    request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/decision`, { decision }),
+  /** 187: `expectedState` is the task's `decision_state` as the page read it (a change on a stale page is a 409). */
+  decideTask: (runId: string, itemId: string, index: number, decision: "accepted" | "rejected", expectedState?: number) =>
+    request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/decision`,
+      { decision, ...(expectedState !== undefined ? { expected_state: expectedState } : {}) }),
   /** 126: a person's decision on a suspected duplicate pair (copy, modified version, not the same invoice). */
-  decideDuplicate: (runId: string, itemId: string, otherDocId: string, decision: DuplicateDecision) =>
-    request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/duplicates/${enc(otherDocId)}/decision`, { decision }),
+  decideDuplicate: (runId: string, itemId: string, otherDocId: string, decision: DuplicateDecision, expectedState?: number) =>
+    request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/duplicates/${enc(otherDocId)}/decision`,
+      { decision, ...(expectedState !== undefined ? { expected_state: expectedState } : {}) }),
   /** 139: which of two statements of the same days stays valid (this one, the other one, or the rule of ranks). */
-  chooseStatement: (runId: string, itemId: string, otherDocId: string, keep: StatementKeep) =>
-    request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/statements/${enc(otherDocId)}/choice`, { keep }),
+  chooseStatement: (runId: string, itemId: string, otherDocId: string, keep: StatementKeep, expectedState?: number) =>
+    request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/statements/${enc(otherDocId)}/choice`,
+      { keep, ...(expectedState !== undefined ? { expected_state: expectedState } : {}) }),
   // 131–132: the reconciliation package; every decision returns the recomputed workspace
   reconcileAccounts: () => request<{ accounts: ReconcileAccount[] }>("GET", "/reconcile/accounts"),
   /** 136: the accounts of a bank's tabular statement export (no lines or balances); a package of the chosen ones. */
@@ -1206,8 +1216,9 @@ export const api = {
   partyMonths: (id: string, start?: string, end?: string) =>
     request<PartyMonths>("GET", `/parties/${enc(id)}/months${start && end ? `?start=${enc(start)}&end=${enc(end)}` : ""}`),
   /** 062: the accepted task marked as done by hand (or unmarked). */
-  markTaskDone: (runId: string, itemId: string, index: number, done: boolean) =>
-    request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/done`, { done }),
+  markTaskDone: (runId: string, itemId: string, index: number, done: boolean, expectedState?: number) =>
+    request<ItemResult>("POST", `/runs/${enc(runId)}/items/${enc(itemId)}/tasks/${index}/done`,
+      { done, ...(expectedState !== undefined ? { expected_state: expectedState } : {}) }),
   addAttachments: (id: string, expected_revision: number) =>
     request<WorkpackageView>("POST", `/workpackages/${enc(id)}/attachments`, { expected_revision }),
   // 058: hiding (the runs and the results are kept), restoring, renaming; deletion only for a package without runs

@@ -38,7 +38,7 @@ from decimal import Decimal
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import cfg, fact_checks, item_kinds, package_result, store, type_roles
+from jav import cfg, decisions, fact_checks, item_kinds, package_result, store, type_roles
 from jav.user_messages import explained
 
 REASON = "duplicate"
@@ -264,11 +264,18 @@ def _file_names(doc_ids: Iterable[str]) -> dict[str, str]:
     return {r["doc_id"]: Path(r["source_path"] or "").name for r in rows}
 
 
-def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor: str, note: str | None = None) -> dict[str, Any]:
+# 187 (plan G-full-move T2c): a person's decisions on a pair of documents, in the shared decision journal
+DECISION_KIND = "duplicate"
+decisions.register(decisions.Kind(DECISION_KIND, ("decide",), __name__))
+
+
+def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor: str, note: str | None = None,
+           expected_state: int | None = None) -> dict[str, Any]:
     """A person's decision on a pair, made on a run's item: `copy`, `variant` (a modified version) or `different` (not
     the same invoice). One decision per pair; it may be changed until the run it was made in is approved. The pair's
     open to-dos close on both documents. Frozen on an approved run (`work.RevisionConflict`), checked again in the
-    writing transaction, as the task decisions are."""
+    writing transaction, as the task decisions are. 187: the change goes into the decision journal in the same
+    transaction (the pair's row keeps only the latest), and a stale `expected_state` is refused."""
     from jav import work
 
     if decision not in DECISIONS:
@@ -289,21 +296,22 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor
     key = pair_key(item_id, other_doc_id)
     with store.connect() as c:
         store.begin_immediate(c)
-        row = c.execute("SELECT approval FROM runs WHERE run_id=?", (run_id,)).fetchone()
-        if row is not None and row["approval"]:
+        if decisions.run_approved(c, run_id):
             raise explained(work.RevisionConflict, "run {{run_id}} is approved; duplicate decisions are frozen",
                             run_id=run_id)
         before = c.execute("SELECT run_id FROM duplicate_decisions WHERE pair_key=?", (key,)).fetchone()
-        if before is not None and before["run_id"] != run_id:
-            owner = c.execute("SELECT approval FROM runs WHERE run_id=?", (before["run_id"],)).fetchone()
-            if owner is not None and owner["approval"]:
-                raise explained(work.RevisionConflict, "the pair was decided in an approved run; the decision is frozen")
+        if decisions.decided_in_approved_run(c, before["run_id"] if before else None, run_id):
+            raise explained(work.RevisionConflict, "the pair was decided in an approved run; the decision is frozen")
+        decisions.check(c, DECISION_KIND, key, expected_state)
+        at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         c.execute("INSERT INTO duplicate_decisions(pair_key, doc_id, other_doc_id, decision, suggested, run_id, actor, note, decided_at)"
                   # a changed decision keeps the pair's direction: the repeat stays the document the to-do stood on
                   " VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(pair_key) DO UPDATE SET decision=excluded.decision,"
                   " suggested=excluded.suggested, run_id=excluded.run_id, actor=excluded.actor, note=excluded.note,"
                   " decided_at=excluded.decided_at",
-                  (key, item_id, other_doc_id, decision, suggested, run_id, actor, note, datetime.now(timezone.utc).isoformat(timespec="seconds")))
+                  (key, item_id, other_doc_id, decision, suggested, run_id, actor, note, at))
+        decisions.record(c, DECISION_KIND, key, "decide", actor=actor, value={"decision": decision, "suggested": suggested},
+                         note=note, workpackage_id=run["workpackage_id"], run_id=run_id, at=at)
     resolution = {"duplicate": decision, "pair": key}
     for subject, other in ((item_id, other_doc_id), (other_doc_id, item_id)):
         for r in store.review_open_reasons("document", subject):
@@ -337,6 +345,7 @@ def item_pairs(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str
     with store.connect() as c:
         packages = {r["run_id"]: r["workpackage_id"] for r in c.execute(
             f"SELECT run_id, workpackage_id FROM runs WHERE run_id IN ({','.join('?' * len(runs))})", runs)} if runs else {}
+        state = decisions.states(c, DECISION_KIND, [pair_key(item_id, o) for o in others])  # 187: sent back with a change
     out = []
     for other, base in others.items():
         mine, theirs = docs.get(item_id), docs.get(other)
@@ -348,7 +357,8 @@ def item_pairs(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str
                     "other_item_id": theirs.item_id if theirs else None,
                     "other_workpackage_id": packages.get(theirs.run_id) if theirs and theirs.run_id else None, "kind": kind[0], "reason_id": base["reason_id"],
                     "fields": rows, "decision": d["decision"] if d else None, "decided_by": d["actor"] if d else None,
-                    "decided_at": d["decided_at"] if d else None, "repeat": (d["doc_id"] == item_id) if d else True})
+                    "decided_at": d["decided_at"] if d else None, "repeat": (d["doc_id"] == item_id) if d else True,
+                    "decision_state": state[pair_key(item_id, other)]})
     return sorted(out, key=lambda p: (p["decision"] is not None, p["other_file"] or ""))
 
 

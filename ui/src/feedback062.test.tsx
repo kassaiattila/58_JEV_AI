@@ -45,7 +45,7 @@ describe("062 felület-javítások", () => {
     const done = vi.spyOn(api, "markTaskDone").mockResolvedValue({} as ItemResult);
     const task = (decision: EmailTask["decision"]): EmailTask => ({
       index: 0, action: "provide_document", title: "Számla beküldése", due_date: null, assignee_hint: null,
-      evidence: [{ pointer: "/messages/0/body", quote: "várjuk a számládat" }], decision,
+      evidence: [{ pointer: "/messages/0/body", quote: "várjuk a számládat" }], decision, decision_state: 2,
     });
     const mail = (decision: EmailTask["decision"]): ItemResult => ({
       run_id: "run-000000000001", item_id: "a".repeat(64), kind: "email", extraction: null, source: null, provenance: {}, open_reasons: [],
@@ -57,12 +57,12 @@ describe("062 felület-javítások", () => {
     const accepted = { decision: "accepted" as const, actor: "Minta Anna", decided_at: "2026-09-29T08:00:00Z" };
     const { unmount } = render(<EmailReview data={mail(accepted)} onChanged={() => {}} />);
     await userEvent.click(screen.getByRole("button", { name: "Elvégezve" }));
-    expect(done).toHaveBeenCalledWith("run-000000000001", "a".repeat(64), 0, true);
+    expect(done).toHaveBeenCalledWith("run-000000000001", "a".repeat(64), 0, true, 2);  // 187: with the state it read
     unmount();
     render(<EmailReview data={mail({ ...accepted, done_by: "Minta Anna", done_at: "2026-09-29T09:00:00Z" })} onChanged={() => {}} />);
     expect(screen.getByText(/Elvégezte: Minta Anna/)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Elvégzés visszavonása" }));
-    expect(done).toHaveBeenLastCalledWith("run-000000000001", "a".repeat(64), 0, false);
+    expect(done).toHaveBeenLastCalledWith("run-000000000001", "a".repeat(64), 0, false, 2);
     render(<EmailReview data={mail(null)} onChanged={() => {}} />);
     expect(screen.queryAllByRole("button", { name: "Elvégezve" })).toHaveLength(0); // without a decision it cannot be marked done
   });

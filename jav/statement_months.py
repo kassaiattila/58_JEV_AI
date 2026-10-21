@@ -42,7 +42,7 @@ from difflib import SequenceMatcher
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import cfg, store, type_roles
+from jav import cfg, decisions, store, type_roles
 from jav.user_messages import explained
 
 REASON = "statement"
@@ -368,10 +368,18 @@ def review_reasons(current: dict[str, Any]) -> list[str]:
     return sorted(reason(b if a == current["id"] else a) for a, b in res.conflicts if current["id"] in (a, b))
 
 
-def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, actor: str, note: str | None = None) -> dict[str, Any]:
+# 187 (plan G-full-move T2c): a person's choices on a pair of statements, in the shared decision journal
+CHOICE_KIND = "statement_choice"
+decisions.register(decisions.Kind(CHOICE_KIND, ("choose",), __name__))
+
+
+def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, actor: str, note: str | None = None,
+           expected_state: int | None = None) -> dict[str, Any]:
     """A person's choice on a pair of statements made on a run's item: which one stays valid (`keep`: one of the two;
     None: the rule decides again). Possible until the run is approved, as the duplicate decisions; the pair's overlap
-    to-dos close on both documents."""
+    to-dos close on both documents. 187: a pair whose latest choice was made in another run that is approved by now is
+    frozen, as a duplicate decision is (before, a later choice changed that run's reviewed version); the change goes
+    into the decision journal, and a stale `expected_state` is refused."""
     from jav import reconcile, work
 
     if other_doc_id == item_id:
@@ -391,14 +399,21 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, ac
     if _group(a) != _group(b) or not overlaps(dates(a.get("period_start"), a.get("period_end")),
                                               dates(b.get("period_start"), b.get("period_end"))):
         raise explained(ChoiceError, "the two statements do not book the same days of one account")
+    key = pair_key(item_id, other_doc_id)
     with store.connect() as c:
         store.begin_immediate(c)
-        row = c.execute("SELECT approval FROM runs WHERE run_id=?", (run_id,)).fetchone()
-        if row is not None and row["approval"]:
+        if decisions.run_approved(c, run_id):
             raise explained(work.RevisionConflict, "run {{run_id}} is approved; its statement choices are frozen",
                             run_id=run_id)
+        before = c.execute("SELECT run_id FROM statement_choices WHERE pair_key=? ORDER BY seq DESC LIMIT 1", (key,)).fetchone()
+        if decisions.decided_in_approved_run(c, before["run_id"] if before else None, run_id):
+            raise explained(work.RevisionConflict, "the pair was decided in an approved run; the decision is frozen")
+        decisions.check(c, CHOICE_KIND, key, expected_state)
+        at = _now()
         c.execute("INSERT INTO statement_choices(pair_key, keep_doc_id, run_id, actor, note, decided_at) VALUES (?,?,?,?,?,?)",
-                  (pair_key(item_id, other_doc_id), keep, run_id, actor, note, _now()))
+                  (key, keep, run_id, actor, note, at))
+        decisions.record(c, CHOICE_KIND, key, "choose", actor=actor, value={"keep": keep}, note=note,
+                         workpackage_id=run["workpackage_id"], run_id=run_id, at=at)
     resolution = {"statement_choice": keep, "pair": pair_key(item_id, other_doc_id)}
     for subject, other in ((item_id, other_doc_id), (other_doc_id, item_id)):
         for r in store.review_open_reasons("document", subject):
@@ -460,6 +475,8 @@ def item_view(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str,
     with store.connect() as c:
         packages = {r["run_id"]: r["workpackage_id"] for r in c.execute(
             f"SELECT run_id, workpackage_id FROM runs WHERE run_id IN ({','.join('?' * len(runs))})", runs)} if runs else {}
+    with store.connect() as c:
+        state = decisions.states(c, CHOICE_KIND, [pair_key(item_id, o) for o, _r, _h in related])  # 187: sent back
     me = by_id[item_id]
     out = []
     for other, relation, how in related:
@@ -477,5 +494,6 @@ def item_view(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str,
                     "carried": len(carried[0]) if carried else None, "left_over": len(carried[1]) if carried else None,
                     "reason_id": next((rid for p, rid in todo.items() if other.startswith(p)), None),
                     "kept": choice["keep_doc_id"] if choice else None,
-                    "decided_by": choice["actor"] if choice else None, "decided_at": choice["decided_at"] if choice else None})
+                    "decided_by": choice["actor"] if choice else None, "decided_at": choice["decided_at"] if choice else None,
+                    "decision_state": state[pair_key(item_id, other)]})
     return out

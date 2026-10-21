@@ -22,7 +22,7 @@ from fastapi import Depends, FastAPI
 from pydantic import Field
 
 from jav import bank_files, corrections, datasets, duplicates, report_utility, statement_months, statement_package, work, work_views
-from jav.api import ItemId, RunId, Text, WpId, _In, checked_path, human_actor
+from jav.api import DecisionState, ItemId, RunId, Text, WpId, _In, checked_path, human_actor
 
 
 class StatementTableFile(_In):
@@ -45,11 +45,13 @@ class CreateFromStatementTable(StatementTableAccounts):
 class DuplicateDecision(_In):
     decision: Literal[duplicates.DECISIONS]  # type: ignore[valid-type]  # 126: copy, modified version, not the same invoice
     note: Text | None = None
+    expected_state: DecisionState | None = None  # 187: the pair's `decision_state` as the page read it
 
 
 class StatementChoice(_In):
     keep: Literal["this", "other", "rule"]  # 139: which of two statements of the same days stays valid; rule: as ranked
     note: Text | None = None
+    expected_state: DecisionState | None = None
 
 
 def routes(app: FastAPI, r: str) -> None:
@@ -100,7 +102,8 @@ def routes(app: FastAPI, r: str) -> None:
     def duplicate_decision(run_id: RunId, item_id: ItemId, other_doc_id: ItemId, body: DuplicateDecision,
                            who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """126: only a human decides whether two documents are the same invoice; the pair's to-dos close."""
-        duplicates.decide(run_id, item_id, other_doc_id, decision=body.decision, actor=who, note=body.note)
+        duplicates.decide(run_id, item_id, other_doc_id, decision=body.decision, actor=who, note=body.note,
+                          expected_state=body.expected_state)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/statements/{other_doc_id}/choice")
@@ -108,7 +111,8 @@ def routes(app: FastAPI, r: str) -> None:
                          who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """139: a person chooses which of two statements of the same days stays valid; the pair's to-dos close."""
         keep = {"this": item_id, "other": other_doc_id, "rule": None}[body.keep]
-        statement_months.decide(run_id, item_id, other_doc_id, keep=keep, actor=who, note=body.note)
+        statement_months.decide(run_id, item_id, other_doc_id, keep=keep, actor=who, note=body.note,
+                                expected_state=body.expected_state)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
 

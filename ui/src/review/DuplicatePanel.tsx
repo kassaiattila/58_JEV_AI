@@ -56,7 +56,7 @@ export function DuplicatePanel({ result, readOnly, onDecided }: Props) {
     setPending(p.other_doc_id);
     setError(null);
     try {
-      await api.decideDuplicate(result.run_id, result.item_id, p.other_doc_id, decision);
+      await api.decideDuplicate(result.run_id, result.item_id, p.other_doc_id, decision, p.decision_state);
     } catch (e) {
       setError(t("The decision could not be saved: {{reason}}", { reason: e instanceof ApiError ? e.message : String(e) }));
     } finally {
