@@ -490,7 +490,10 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     if native_results.native_item(run_id, item):  # 120: a continuing PDF too, by its publication
         return {**_native_item_result(run, item), "engine": engine}
     if (own := item_kinds.handler(item)) is not None:  # 048 T2 (185: the email domain's): no extraction or page image
-        return own.result(run, item, engine)
+        result = own.result(run, item, engine)
+        # 192: what other domains add to this kind's item (the quote request under an email), by name
+        parts = {p.name: built for p in item_kinds.item_parts(item["kind"]) if (built := p.build(run, item)) is not None}
+        return {**result, "parts": parts} if parts else result
     dp = datapoints_row(run_id, item_id)
     corr = current(run_id, item_id)
     machine = (dp or {}).get("datapoints") or {}

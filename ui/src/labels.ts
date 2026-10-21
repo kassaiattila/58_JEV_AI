@@ -71,10 +71,14 @@ export const docTypeLabel = (d: string) => DOC_TYPE[d] ?? d;
 const COLUMN: Record<string, string> = tmap(fieldLabels.columns);
 export const columnLabel = (c: string) => COLUMN[c] ?? c.split("=").pop() ?? c;
 
-/** The suggested next step of an email (the service's route code, 048 T2). */
-export function nextFlowText(code: string | null | undefined): string {
+/** The suggested next step of an email (the service's route code, 048 T2). 192 (backlog Q-m2-label-text): `readsText`
+ *  (the service's `next_flow_reads_text`): the type reads the email's own text too, so the step names the email. */
+export function nextFlowText(code: string | null | undefined, readsText = false): string {
   if (!code) return "–";
   const [kind, what] = code.split(":");
+  if (kind === "m2" && what !== "needs_ocr" && readsText) {
+    return t("Data extraction from the email and its attachments ({{what}})", { what: docTypeLabel(what) });
+  }
   if (kind === "m2") return what === "needs_ocr" ? t("Csatolmány: szövegfelismerés kell") : t("Adatkinyerés a csatolmányból ({{what}})", { what: docTypeLabel(what) });
   if (kind === "m1") return t("Csatolmány: típusfelismerés");
   const archive = tmap({ payment_proof: "fizetési igazolás", calendar: "naptár", order_status: "rendelés állapota",

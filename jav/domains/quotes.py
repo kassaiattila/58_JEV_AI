@@ -7,7 +7,8 @@ is configuration and needs no registration. What the domain adds to the shared c
 (`register`, from `registrations.load_all`):
 - (B3) the quote package as a logic pack, started from a request (`jav/quote_package.py`), and its kind of work in the
   new work wizard (`jav/workflow_steps.py`);
-- (B4c) the worker's job that makes a quote's proposal (`jav/quote_proposal.py`, `jav/runtime/job_kinds.py`).
+- (B4c) the worker's job that makes a quote's proposal (`jav/quote_proposal.py`, `jav/runtime/job_kinds.py`);
+- (192, B6a) the quote request under its email in a mailbox package (`jav/item_kinds.py` item part).
 The seller's price lists (B2) are a store of the domain's own with addresses of the local service (`SERVICE`).
 
 The work itself stays in the domain's own modules (`MODULES`): the price lists (`jav/price_lists.py`,
@@ -30,11 +31,12 @@ MODULES = frozenset({"api_price_lists", "api_quote_package", "price_lists", "quo
 
 def register() -> None:
     """Every registration of the quotes domain (`registrations.load_all`): the quote package and its kind of work."""
-    from jav import logic_packs, quote_package, quote_proposal, workflow_steps
+    from jav import item_kinds, logic_packs, quote_package, quote_proposal, workflow_steps
     from jav.runtime import job_kinds
 
     logic_packs.register(quote_package.LOGIC)
     workflow_steps.register(quote_package.STEP)
+    item_kinds.register_item_part(quote_package.EMAIL_PART)  # 192 B6a: the request under its email
     job_kinds.register(quote_proposal.JOB)  # B4c: the worker's proposal job
 
 

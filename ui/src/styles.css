@@ -1018,3 +1018,8 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .quote-totals-wait { margin: 0 0 0 auto; }
 .quote-document { display: grid; gap: var(--sp-3); }
 .quote-doc-lines td .small { display: block; }
+/* 192 (B6a): the quote request under its email: its heading and its start button on one line, then its data */
+.quote-on-email { display: grid; gap: var(--sp-2); border-top: 1px solid var(--line-soft); }
+.quote-on-email-head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.quote-on-email-head h3 { margin: 0; }
+.quote-on-email .table { font-size: var(--fs-xs); }

@@ -233,9 +233,16 @@ function RequestPanel({ view }: { view: QuoteView }) {
   );
 }
 
-function RequestData({ request: r }: { request: QuoteRequest }) {
+/** The request's fields with the part each came from, its items and its parts (192: under its email too, `compact`:
+ *  a part named by its kind, an attachment by its file, as the email's page shows the rest beside it). */
+export function RequestData({ request: r, compact = false }: { request: QuoteRequest; compact?: boolean }) {
   useLocale();
-  const from = (n: number | undefined | null) => (n === undefined || n === null ? "" : `${partKind(r.parts[n])}: ${r.parts[n].name}`);
+  const from = (n: number | undefined | null) => {
+    if (n === undefined || n === null) return "";
+    const p = r.parts[n];
+    if (compact) return p.kind === "email_text" ? partKind(p) : p.name || partKind(p);
+    return `${partKind(p)}: ${p.name}`;
+  };
   return (
     <>
       <table className="table compact quote-fields" aria-label={t("The request's data")}>

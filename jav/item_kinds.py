@@ -153,6 +153,18 @@ class RecordPart:
     build: Callable[[str, list[dict[str, Any]]], Any]
 
 
+@dataclass(frozen=True)
+class ItemPart:
+    """192 (plan F-quote-package B6a): a part a domain adds to the result of another kind's item (the quotes domain's
+    request under an email): `build(run, item)` returns it, or None when the item has none; the parts present go under
+    the result's `parts`, by name. The item's own domain names no other domain this way."""
+
+    name: str
+    module: str
+    kind: str
+    build: Callable[[dict[str, Any], dict[str, Any]], Any]
+
+
 ITEM_KINDS: tuple[ItemKind, ...] = (
     ItemKind(DOCUMENT, "a file whose type is recognised from its content", copied=True, record=True, detected=True,
              page_image=True, attachments=False, subject=_document_subject, plan_key="documents"),
@@ -177,6 +189,7 @@ _SOURCES = {s.name: s for s in SOURCE_KINDS}
 _RULES: dict[str, ItemRule] = {}
 _PAGES: dict[str, Callable[[Mapping[str, Any]], dict[str, Any]]] = {}
 _HANDLERS: dict[str, ItemHandler] = {}
+_ITEM_PARTS: dict[tuple[str, str], ItemPart] = {}
 _RECORD_PARTS: dict[str, RecordPart] = {}
 _REGISTERED: set[str] = set()
 
@@ -292,6 +305,23 @@ def register_record_part(part: RecordPart) -> None:
     _RECORD_PARTS[part.name] = part
 
 
+def register_item_part(part: ItemPart) -> None:
+    """192: a domain's part of an item kind's result; the same one again adds nothing, another of the same name for the
+    same kind is an error."""
+    known = _ITEM_PARTS.get((part.kind, part.name))
+    if known is not None and known != part:
+        raise ValueError(f"item part {part.name!r} of {part.kind!r} items is registered already by {known.module}")
+    _ITEM_PARTS[(part.kind, part.name)] = part
+
+
+def item_parts(kind: str) -> list[ItemPart]:
+    """192: the domains' parts of an item kind's result, in the order registered (`registrations.load_all` first)."""
+    from jav import registrations
+
+    registrations.load_all()
+    return [p for (k, _name), p in _ITEM_PARTS.items() if k == kind]
+
+
 def record_parts() -> list[RecordPart]:
     """185: the domains' parts of a record item's result, in the order registered; the registry completes itself the
     first time it is read (`registrations.load_all`)."""
@@ -301,7 +331,8 @@ def record_parts() -> list[RecordPart]:
     return list(_RECORD_PARTS.values())
 
 
-__all__ = ["DOCUMENT", "EMAIL", "ITEM_KINDS", "ItemHandler", "ItemKind", "ItemRule", "NotRegistered", "RecordPart",
+__all__ = ["DOCUMENT", "EMAIL", "ITEM_KINDS", "ItemHandler", "ItemKind", "ItemPart", "ItemRule", "NotRegistered",
+           "RecordPart",
            "SOURCE_KINDS", "STATEMENT_TABLE", "SourceKind", "UnknownItemKind", "UnknownSourceKind", "check", "handler", "handlers",
            "names", "of", "page", "record_parts", "register_handler", "register_page", "register_record_part",
            "register_rule", "rules", "source", "source_names"]

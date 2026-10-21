@@ -719,6 +719,17 @@ def intent_name(key: str | None) -> str | None:
     return (intents.BY_KEY[key].display_name if key in intents.BY_KEY else key) if key else None
 
 
+def reads_text(next_flow: str | None) -> bool:
+    """192 (backlog Q-m2-label-text): whether the email's next step extracts data from the email's own text too (its
+    type pack reads text: the quote request), so its name says so."""
+    from jav import typepack
+
+    if not next_flow or not next_flow.startswith("m2:"):
+        return False
+    key = next_flow.split(":", 1)[1]
+    return key in typepack.keys() and "text" in typepack.get(key).inputs
+
+
 def next_flow_labels() -> dict[str, str]:
     """Hungarian names of the proposed next steps (058 K5.1): the fixed codes from `configs/datasets.json`, and "data
     extraction from the attachment" per type, with the document type's name. The UI translates the same with its own
@@ -727,7 +738,9 @@ def next_flow_labels() -> dict[str, str]:
 
     out = dict(cfg.load("datasets")["labels"]["next_flow"])
     for key, name in cfg.load("field_labels")["doc_types"].items():
-        out[f"m2:{key}"] = f"Adatkinyerés a csatolmányból ({name})"
+        # 192 (backlog Q-m2-label-text): a type that reads the email's own text too says so (the quote request)
+        out[f"m2:{key}"] = (f"Adatkinyerés a levélből és a csatolmányokból ({name})" if reads_text(f"m2:{key}")
+                            else f"Adatkinyerés a csatolmányból ({name})")
     return out
 
 
@@ -785,6 +798,7 @@ def effective_email_result(res: dict[str, Any], corrected_intent: str | None) ->
                    next_flow=policy.email_next_flow(corrected_intent, 1.0, atts, {corrected_intent: 1.0}, signals))
     elif corrected_intent:
         out["corrected"] = True  # a person confirmed the machine intent
+    out["next_flow_reads_text"] = reads_text(out["next_flow"])  # 192: its name says the email's text is read too
     return out
 
 

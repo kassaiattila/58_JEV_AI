@@ -16,6 +16,8 @@ page where a person composes the quote from the proposal and approves it as a ve
 - `create(name, source, item_id)`: a quote package naming its request (the shared package scope's `request` part);
 - `view(wp_id)`, `next_step(wp_id)`: the request, its source, the active price lists and the gaps, the proposal, the
   draft and its approval; the next step.
+- `email_part(run, item)` (192, B6a): an email item's quote request, its gaps as a whole and the quotes made from it,
+  shown under the email in its mailbox package (`EMAIL_PART`, an item part of the shared registry).
 
 Layer: application operation of the quotes domain over the work packages, the scopes and the quote request.
 """
@@ -25,7 +27,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav import (app_settings, goldens, logic_packs, package_release, package_scope, price_lists, quote_draft,
+from jav import (app_settings, goldens, item_kinds, logic_packs, package_release, package_scope, price_lists, quote_draft,
                  quote_proposal, quote_request, store, work, workflow_steps)
 from jav.tablequery import fold
 from jav.user_messages import explained
@@ -105,6 +107,29 @@ def _blocker(code: str, message: str) -> dict[str, str]:
     return {"code": code, "message": message}
 
 
+def request_gaps(request: quote_request.Request) -> list[dict[str, str]]:
+    """What the whole request lacks for a quote (a part's own gap is only a note, DECISIONS 192)."""
+    gaps = []
+    if not request.fields.get("customer_name"):
+        gaps.append(_blocker("quote:no_customer", "The request names no customer"))
+    if not request.items:
+        gaps.append(_blocker("quote:no_items", "The request names no item"))
+    return gaps
+
+
+def email_part(run: dict[str, Any], item: dict[str, Any]) -> dict[str, Any] | None:
+    """192 (B6a): the quote request of an email item as its package counts it now, with what it lacks as a whole and
+    the quotes already made from it; None for an email that is no quote request."""
+    wp_id = run["workpackage_id"]
+    try:
+        request = quote_request.read(wp_id, item["item_id"])
+    except quote_request.RequestNotFound:
+        return None
+    return {"request": request.as_dict(), "gaps": request_gaps(request),
+            "quotes": _quotes_by_request().get((wp_id, item["item_id"]), []),
+            "source": {"workpackage_id": wp_id, "item_id": item["item_id"]}}
+
+
 def view(wp_id: str) -> dict[str, Any]:
     """The package's own part of its page: its request put together (None when it can no longer be read), where it came
     from, the active price lists and the gaps that keep the quote from being made."""
@@ -124,10 +149,7 @@ def view(wp_id: str) -> dict[str, Any]:
     if request is None:
         blockers.append(_blocker("quote:request_missing", "The request can no longer be read"))
     else:
-        if not request.fields.get("customer_name"):
-            blockers.append(_blocker("quote:no_customer", "The request names no customer"))
-        if not request.items:
-            blockers.append(_blocker("quote:no_items", "The request names no item"))
+        blockers.extend(request_gaps(request))
     if not lists:
         blockers.append(_blocker("quote:no_price_list", "There is no active price list"))
     # B4c: the latest proposal, and the cap a new one would reserve with the application's engine
@@ -248,6 +270,9 @@ def _workflow_start(_ctx: workflow_steps.StepStart) -> None:
     raise explained(WorkflowError, "a quote is started from its request, not as a workflow's step")
 
 
+# 192 (B6a): the quote request under its email in a mailbox package
+EMAIL_PART = item_kinds.ItemPart("quote_request", __name__, item_kinds.EMAIL, email_part)
+
 STEP = workflow_steps.StepKind(KIND, __name__, (KIND,), start=_workflow_start, paid=False, own_engine=False,
                                repeat_from=lambda _wp_id: {"kind": "none"},
                                statuses={"quote_request_missing": "attention", "quote_request_check": "review",
@@ -256,4 +281,5 @@ STEP = workflow_steps.StepKind(KIND, __name__, (KIND,), start=_workflow_start, p
                                          "quote_approved": "approved"})
 
 
-__all__ = ["KIND", "LOGIC", "REQUEST", "STEP", "QuoteError", "candidates", "create", "next_step", "request_of", "view"]
+__all__ = ["EMAIL_PART", "KIND", "LOGIC", "REQUEST", "STEP", "QuoteError", "candidates", "create", "email_part", "next_step",
+           "request_gaps", "request_of", "view"]

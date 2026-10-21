@@ -3,6 +3,7 @@
 // can be processed separately as documents.
 import { useEffect, useState } from "react";
 import { api, ApiError, type ItemResult, type RejectedTask } from "../api";
+import { ITEM_PARTS } from "../logic/registry";
 import { EngineMark } from "../components/EngineMark";
 import { Icon } from "../components/Icon";
 import { Picker } from "../components/Picker";
@@ -61,10 +62,15 @@ export function EmailReview({ data, onChanged, wpId }: { data: ItemResult; onCha
               {!r.corrected && data.engine ? <div className="mt-s"><EngineMark engine={data.engine} /></div> : null}
               <IntentEditor data={data} onChanged={onChanged} />
               <TasksPanel data={data} onChanged={onChanged} />
-              <div className="small mt-s">{t("Javasolt következő lépés:")} <strong>{nextFlowText(r.next_flow)}</strong></div>
+              <div className="small mt-s">{t("Javasolt következő lépés:")} <strong>{nextFlowText(r.next_flow, r.next_flow_reads_text)}</strong></div>
               {!r.from_this_run ? <p className="notice small mt-s">{t("Ez az eredmény egy későbbi futásból való ugyanerről a levélről.")}</p> : null}
             </div>
           ) : <p className="muted pad-s">{t("A levelet ez a futás még nem dolgozta fel.")}</p>}
+          {/* 192: what other domains add under the email (the quote request read from it), by the registry */}
+          {Object.entries(data.parts ?? {}).map(([name, value]) => {
+            const shown = ITEM_PARTS[name];
+            return shown ? <div key={name}>{shown(value)}</div> : null;
+          })}
           {r && r.attachments.length ? (
             <div className="pad-s">
               <div className="muted small">{t("Csatolmányok felismerése")}</div>

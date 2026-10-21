@@ -3,11 +3,12 @@
 // (`jav/logic_packs.py`). The package's page, its menu and its item list ask this registry instead of naming the
 // kind; a package of a plain processing kind (a folder, a mailbox, chosen files) has no entry.
 import type { ReactNode } from "react";
-import type { Workpackage, WorkpackageView } from "../api";
+import type { QuoteEmailPart, Workpackage, WorkpackageView } from "../api";
 import { t } from "../i18n";
 import { tmap } from "../labels";
 import type { Stage } from "../route";
 import { quoteStatus, QuoteStages, quoteSummary } from "../views/quotes/Quote";
+import { QuoteOnEmail } from "../views/quotes/QuoteOnEmail";
 import { ReconcileStages } from "../views/reconcile/ReconcileStages";
 import { routingStatus, routingSummary, RoutingStages } from "../views/routing/Routing";
 import { StatementPackagePanel } from "../views/StatementPackagePanel";
@@ -92,3 +93,9 @@ export const LOGIC: Record<string, LogicUi> = {
 export function logicOf(kind: string | undefined): LogicUi | undefined {
   return kind && Object.prototype.hasOwnProperty.call(LOGIC, kind) ? LOGIC[kind] : undefined;
 }
+
+/** 192 (plan F-quote-package B6a): how an item part another domain adds to an item's result is shown, by its name
+ *  (`jav/item_kinds.py` item parts): the quote request under its email. */
+export const ITEM_PARTS: Record<string, (value: unknown) => ReactNode> = {
+  quote_request: (value) => <QuoteOnEmail part={value as QuoteEmailPart} />,
+};
