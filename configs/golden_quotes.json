@@ -1,0 +1,1423 @@
+{
+ "meta": {
+  "name": "golden_quotes",
+  "version": "1.0.0",
+  "description": "Invented IT quote requests (189, plan F-IT-quote-request A1): emails to an invented IT company selling hardware, licences and services, its price list, and for each email the expected result: its intent, the request's data and requested items, the match of each item to the price list (or the blocker when none or more than one fits) and the quote the code computes from the price list. Every name, address, tax number and phone number is invented; the tax numbers, phone numbers and email domains are on the data guard's allow lists. The attachments are written when a case is laid out (`jav/quote_golden.py`): a PDF from `rows` (three spaces separate the columns, `jav/synthetic_pdf.py`), an Excel sheet from `table`. Quote rules: a line's net amount is the unit price times the quantity, less a price list discount, rounded to whole forints; the VAT is the price list's rate on the net total, rounded to whole forints. The items' `written` text is informative (scored by a person's acceptance); quantity, unit and the matched item are scored exactly. Built by the measurer, so a result on them is measured on its own examples.",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-21",
+    "note": "189 (the owner's decisions of 2026-10-21): 13 emails, 10 requests and 3 that are not, 3 in English; 6 requests in the body, 4 in an attached form (2 PDF, 2 Excel); 24 price list items in three categories, a 5% volume discount on hardware from 10 pieces."
+   }
+  ]
+ },
+ "seller": {
+  "name": "Minta IT Megoldások Kft.",
+  "tax_number": "12121216-2-42",
+  "email": "ajanlat@minta.hu",
+  "phone": "+36 1 234 5678",
+  "address": "1111 Budapest, Teszt utca 1."
+ },
+ "price_list": {
+  "columns": {
+   "sku": "Cikkszám",
+   "name": "Megnevezés",
+   "unit": "Egység",
+   "unit_price": "Nettó egységár",
+   "category": "Kategória"
+  },
+  "version": "2026-10",
+  "currency": "HUF",
+  "vat_percent": "27",
+  "discounts": [
+   {
+    "category": "hardware",
+    "min_quantity": "10",
+    "percent": "5"
+   }
+  ],
+  "items": [
+   {
+    "sku": "HW-NB-14P",
+    "name": "Laptop 14 colos Pro (i7, 16 GB RAM, 512 GB SSD)",
+    "unit": "db",
+    "unit_price": "489000",
+    "category": "hardware"
+   },
+   {
+    "sku": "HW-NB-15B",
+    "name": "Laptop 15 colos Business (i5, 16 GB RAM, 512 GB SSD)",
+    "unit": "db",
+    "unit_price": "379000",
+    "category": "hardware"
+   },
+   {
+    "sku": "HW-MON-24",
+    "name": "Monitor 24 colos Full HD IPS",
+    "unit": "db",
+    "unit_price": "54900",
+    "category": "hardware"
+   },
+   {
+    "sku": "HW-MON-27",
+    "name": "Monitor 27 colos QHD IPS, USB-C",
+    "unit": "db",
+    "unit_price": "119000",
+    "category": "hardware"
+   },
+   {
+    "sku": "HW-DOCK-USBC",
+    "name": "USB-C dokkoló (2 kijelző, 100 W töltés)",
+    "unit": "db",
+    "unit_price": "64500",
+    "category": "hardware"
+   },
+   {
+    "sku": "HW-KB-MS",
+    "name": "Vezeték nélküli billentyűzet és egér szett",
+    "unit": "szett",
+    "unit_price": "14900",
+    "category": "hardware"
+   },
+   {
+    "sku": "HW-HS-USB",
+    "name": "USB headset zajszűrős mikrofonnal",
+    "unit": "db",
+    "unit_price": "18900",
+    "category": "hardware"
+   },
+   {
+    "sku": "HW-PRN-MFP",
+    "name": "Multifunkciós lézernyomtató (A4, duplex, hálózati)",
+    "unit": "db",
+    "unit_price": "159000",
+    "category": "hardware"
+   },
+   {
+    "sku": "HW-NAS-4",
+    "name": "NAS-tároló, 4 lemezhelyes (lemezek nélkül)",
+    "unit": "db",
+    "unit_price": "289000",
+    "category": "hardware"
+   },
+   {
+    "sku": "HW-HDD-8T",
+    "name": "NAS merevlemez 8 TB",
+    "unit": "db",
+    "unit_price": "89900",
+    "category": "hardware"
+   },
+   {
+    "sku": "HW-UPS-1500",
+    "name": "Szünetmentes tápegység 1500 VA",
+    "unit": "db",
+    "unit_price": "129000",
+    "category": "hardware"
+   },
+   {
+    "sku": "HW-SW-24",
+    "name": "Hálózati switch, 24 port, gigabites, menedzselhető",
+    "unit": "db",
+    "unit_price": "98500",
+    "category": "hardware"
+   },
+   {
+    "sku": "HW-AP-WIFI6",
+    "name": "Wi-Fi 6 hozzáférési pont, mennyezeti",
+    "unit": "db",
+    "unit_price": "52900",
+    "category": "hardware"
+   },
+   {
+    "sku": "LIC-M365-BP",
+    "name": "Microsoft 365 Business Premium (1 felhasználó, 1 év)",
+    "unit": "felhasználó/év",
+    "unit_price": "89400",
+    "category": "licence"
+   },
+   {
+    "sku": "LIC-M365-BS",
+    "name": "Microsoft 365 Business Standard (1 felhasználó, 1 év)",
+    "unit": "felhasználó/év",
+    "unit_price": "46800",
+    "category": "licence"
+   },
+   {
+    "sku": "LIC-WIN-PRO",
+    "name": "Windows 11 Pro frissítés",
+    "unit": "db",
+    "unit_price": "79900",
+    "category": "licence"
+   },
+   {
+    "sku": "LIC-AV-BIZ",
+    "name": "Végpontvédelem (vírusirtó), üzleti, 1 eszköz, 1 év",
+    "unit": "eszköz/év",
+    "unit_price": "9900",
+    "category": "licence"
+   },
+   {
+    "sku": "LIC-BACKUP-1T",
+    "name": "Felhőmentés 1 TB, 1 év",
+    "unit": "év",
+    "unit_price": "59000",
+    "category": "licence"
+   },
+   {
+    "sku": "SRV-INST-PC",
+    "name": "Számítógép telepítése és beállítása, adatátvitellel",
+    "unit": "db",
+    "unit_price": "19500",
+    "category": "service"
+   },
+   {
+    "sku": "SRV-INST-NET",
+    "name": "Hálózat kiépítése és beállítása a helyszínen",
+    "unit": "óra",
+    "unit_price": "16000",
+    "category": "service"
+   },
+   {
+    "sku": "SRV-SUPPORT-M",
+    "name": "Távoli támogatás, havi átalány (legfeljebb 10 felhasználó)",
+    "unit": "hónap",
+    "unit_price": "65000",
+    "category": "service"
+   },
+   {
+    "sku": "SRV-ONSITE-H",
+    "name": "Helyszíni rendszergazdai munka",
+    "unit": "óra",
+    "unit_price": "14000",
+    "category": "service"
+   },
+   {
+    "sku": "SRV-TRAIN",
+    "name": "Felhasználói oktatás, csoportos, 2 óra",
+    "unit": "alkalom",
+    "unit_price": "45000",
+    "category": "service"
+   },
+   {
+    "sku": "SRV-DELIVERY",
+    "name": "Kiszállítás Budapesten és Pest megyében",
+    "unit": "alkalom",
+    "unit_price": "9500",
+    "category": "service"
+   }
+  ]
+ },
+ "cases": [
+  {
+   "id": "q01_hu_office_body",
+   "language": "hu",
+   "why": "A new office in the body of the email: hardware, its installation and a licence per user; the deadline is a printed date, the customer's tax number is in the signature.",
+   "message": {
+    "message_id": "quote-golden-q01_hu_office_body",
+    "sender": "kovacs.anna@pelda.hu",
+    "sender_name": "Kovács Anna",
+    "subject": "Árajánlatkérés – irodai gépek",
+    "received_at": "2026-10-05T09:12:00+02:00",
+    "body": "Tisztelt Hölgyem/Uram!\n\nÚj irodát nyitunk, ezért árajánlatot kérnénk az alábbiakra:\n- 5 db 15 colos üzleti laptop (i5, 16 GB RAM)\n- 5 db 24 colos monitor\n- 5 szett vezeték nélküli billentyűzet és egér\n- a gépek telepítése és beállítása (5 gép)\n- Microsoft 365 Business Standard előfizetés 5 felhasználóra, egy évre\n\nAz ajánlatot legkésőbb 2026. október 16-ig kérnénk, mert a hónap végén szeretnénk beköltözni.\n\nÜdvözlettel:\nKovács Anna\nirodavezető\nPélda Könyvelő Bt.\nAdószám: 12345676-2-41\nTel.: 06-30-123-4567\n",
+    "attachments": []
+   },
+   "expected": {
+    "intent": "quote_request",
+    "request": {
+     "customer_name": "Példa Könyvelő Bt.",
+     "customer_tax_number": "12345676-2-41",
+     "contact_name": "Kovács Anna",
+     "contact_email": "kovacs.anna@pelda.hu",
+     "contact_phone": "06-30-123-4567",
+     "deadline": "2026-10-16",
+     "reference": null,
+     "items": [
+      {
+       "written": "5 db 15 colos üzleti laptop (i5, 16 GB RAM)",
+       "quantity": "5",
+       "unit": "db"
+      },
+      {
+       "written": "5 db 24 colos monitor",
+       "quantity": "5",
+       "unit": "db"
+      },
+      {
+       "written": "5 szett vezeték nélküli billentyűzet és egér",
+       "quantity": "5",
+       "unit": "szett"
+      },
+      {
+       "written": "a gépek telepítése és beállítása (5 gép)",
+       "quantity": "5",
+       "unit": "db"
+      },
+      {
+       "written": "Microsoft 365 Business Standard előfizetés 5 felhasználóra, egy évre",
+       "quantity": "5",
+       "unit": "felhasználó/év"
+      }
+     ]
+    },
+    "matches": [
+     {
+      "item": 0,
+      "sku": "HW-NB-15B"
+     },
+     {
+      "item": 1,
+      "sku": "HW-MON-24"
+     },
+     {
+      "item": 2,
+      "sku": "HW-KB-MS"
+     },
+     {
+      "item": 3,
+      "sku": "SRV-INST-PC"
+     },
+     {
+      "item": 4,
+      "sku": "LIC-M365-BS"
+     }
+    ],
+    "quote": {
+     "lines": [
+      {
+       "item": 0,
+       "sku": "HW-NB-15B",
+       "quantity": "5",
+       "unit": "db",
+       "unit_price": "379000",
+       "discount_percent": "0",
+       "net": "1895000"
+      },
+      {
+       "item": 1,
+       "sku": "HW-MON-24",
+       "quantity": "5",
+       "unit": "db",
+       "unit_price": "54900",
+       "discount_percent": "0",
+       "net": "274500"
+      },
+      {
+       "item": 2,
+       "sku": "HW-KB-MS",
+       "quantity": "5",
+       "unit": "szett",
+       "unit_price": "14900",
+       "discount_percent": "0",
+       "net": "74500"
+      },
+      {
+       "item": 3,
+       "sku": "SRV-INST-PC",
+       "quantity": "5",
+       "unit": "db",
+       "unit_price": "19500",
+       "discount_percent": "0",
+       "net": "97500"
+      },
+      {
+       "item": 4,
+       "sku": "LIC-M365-BS",
+       "quantity": "5",
+       "unit": "felhasználó/év",
+       "unit_price": "46800",
+       "discount_percent": "0",
+       "net": "234000"
+      }
+     ],
+     "net_total": "2575500",
+     "vat_total": "695385",
+     "gross_total": "3270885"
+    }
+   }
+  },
+  {
+   "id": "q02_hu_list_xlsx",
+   "language": "hu",
+   "why": "The items are in an attached Excel request list, the body names the reference and the deadline; twelve pieces of hardware earn the volume discount.",
+   "message": {
+    "message_id": "quote-golden-q02_hu_list_xlsx",
+    "sender": "beszerzes@minta.hu",
+    "sender_name": "Nagy Péter",
+    "subject": "Ajánlatkérés BSZ-2026-118 – fejlesztői munkaállomások",
+    "received_at": "2026-10-06T14:30:00+02:00",
+    "body": "Jó napot kívánok!\n\nCsatoltan küldöm a BSZ-2026-118 számú beszerzési igényünket (igenylista.xlsx). Kérjük, a tételekre adjanak árajánlatot 2026. november 15-ig, szállítással együtt.\n\nKöszönöm,\nNagy Péter\nbeszerzési vezető\nMinta Gyártó Zrt.\n13570008-1-13\n",
+    "attachments": [
+     {
+      "filename": "igenylista.xlsx",
+      "format": "xlsx",
+      "sheet": "Igénylista",
+      "table": [
+       [
+        "Ssz.",
+        "Megnevezés",
+        "Mennyiség",
+        "Mennyiségi egység",
+        "Megjegyzés"
+       ],
+       [
+        1,
+        "Laptop 14 colos, nagy teljesítményű (i7, 16 GB)",
+        12,
+        "db",
+        "fejlesztőknek"
+       ],
+       [
+        2,
+        "27 colos monitor USB-C csatlakozással",
+        12,
+        "db",
+        ""
+       ],
+       [
+        3,
+        "USB-C dokkoló két kijelzőhöz",
+        12,
+        "db",
+        ""
+       ],
+       [
+        4,
+        "Windows 11 Pro frissítés",
+        4,
+        "db",
+        "a régi gépekre"
+       ],
+       [
+        5,
+        "Vírusirtó (végpontvédelem), 1 év",
+        12,
+        "eszköz",
+        ""
+       ],
+       [
+        6,
+        "Kiszállítás (Budapest)",
+        1,
+        "alkalom",
+        ""
+       ]
+      ]
+     }
+    ]
+   },
+   "expected": {
+    "intent": "quote_request",
+    "request": {
+     "customer_name": "Minta Gyártó Zrt.",
+     "customer_tax_number": "13570008-1-13",
+     "contact_name": "Nagy Péter",
+     "contact_email": "beszerzes@minta.hu",
+     "contact_phone": null,
+     "deadline": "2026-11-15",
+     "reference": "BSZ-2026-118",
+     "items": [
+      {
+       "written": "Laptop 14 colos, nagy teljesítményű (i7, 16 GB)",
+       "quantity": "12",
+       "unit": "db"
+      },
+      {
+       "written": "27 colos monitor USB-C csatlakozással",
+       "quantity": "12",
+       "unit": "db"
+      },
+      {
+       "written": "USB-C dokkoló két kijelzőhöz",
+       "quantity": "12",
+       "unit": "db"
+      },
+      {
+       "written": "Windows 11 Pro frissítés",
+       "quantity": "4",
+       "unit": "db"
+      },
+      {
+       "written": "Vírusirtó (végpontvédelem), 1 év",
+       "quantity": "12",
+       "unit": "eszköz/év"
+      },
+      {
+       "written": "Kiszállítás (Budapest)",
+       "quantity": "1",
+       "unit": "alkalom"
+      }
+     ]
+    },
+    "matches": [
+     {
+      "item": 0,
+      "sku": "HW-NB-14P"
+     },
+     {
+      "item": 1,
+      "sku": "HW-MON-27"
+     },
+     {
+      "item": 2,
+      "sku": "HW-DOCK-USBC"
+     },
+     {
+      "item": 3,
+      "sku": "LIC-WIN-PRO"
+     },
+     {
+      "item": 4,
+      "sku": "LIC-AV-BIZ"
+     },
+     {
+      "item": 5,
+      "sku": "SRV-DELIVERY"
+     }
+    ],
+    "quote": {
+     "lines": [
+      {
+       "item": 0,
+       "sku": "HW-NB-14P",
+       "quantity": "12",
+       "unit": "db",
+       "unit_price": "489000",
+       "discount_percent": "5",
+       "net": "5574600"
+      },
+      {
+       "item": 1,
+       "sku": "HW-MON-27",
+       "quantity": "12",
+       "unit": "db",
+       "unit_price": "119000",
+       "discount_percent": "5",
+       "net": "1356600"
+      },
+      {
+       "item": 2,
+       "sku": "HW-DOCK-USBC",
+       "quantity": "12",
+       "unit": "db",
+       "unit_price": "64500",
+       "discount_percent": "5",
+       "net": "735300"
+      },
+      {
+       "item": 3,
+       "sku": "LIC-WIN-PRO",
+       "quantity": "4",
+       "unit": "db",
+       "unit_price": "79900",
+       "discount_percent": "0",
+       "net": "319600"
+      },
+      {
+       "item": 4,
+       "sku": "LIC-AV-BIZ",
+       "quantity": "12",
+       "unit": "eszköz/év",
+       "unit_price": "9900",
+       "discount_percent": "0",
+       "net": "118800"
+      },
+      {
+       "item": 5,
+       "sku": "SRV-DELIVERY",
+       "quantity": "1",
+       "unit": "alkalom",
+       "unit_price": "9500",
+       "discount_percent": "0",
+       "net": "9500"
+      }
+     ],
+     "net_total": "8114400",
+     "vat_total": "2190888",
+     "gross_total": "10305288"
+    }
+   }
+  },
+  {
+   "id": "q03_en_monitors_body",
+   "language": "en",
+   "why": "An English request in the body, quantities written as '2 x'; delivery is a service line of its own.",
+   "message": {
+    "message_id": "quote-golden-q03_en_monitors_body",
+    "sender": "john.smith@example.com",
+    "sender_name": "John Smith",
+    "subject": "Request for quotation – monitors and printer",
+    "received_at": "2026-10-07T10:05:00+02:00",
+    "body": "Hello,\n\nCould you please send us a quotation for the following:\n- 2 x 27-inch QHD monitors with USB-C\n- 2 x USB headsets with noise-cancelling microphone\n- 1 x multifunction laser printer (A4, duplex, network)\n- delivery to our Budapest office\n\nWe need the quotation by 23 October 2026.\n\nBest regards,\nJohn Smith\nOffice Manager\nExample Consulting Kft.\n+36 20 000 1234\n",
+    "attachments": []
+   },
+   "expected": {
+    "intent": "quote_request",
+    "request": {
+     "customer_name": "Example Consulting Kft.",
+     "customer_tax_number": null,
+     "contact_name": "John Smith",
+     "contact_email": "john.smith@example.com",
+     "contact_phone": "+36 20 000 1234",
+     "deadline": "2026-10-23",
+     "reference": null,
+     "items": [
+      {
+       "written": "2 x 27-inch QHD monitors with USB-C",
+       "quantity": "2",
+       "unit": "db"
+      },
+      {
+       "written": "2 x USB headsets with noise-cancelling microphone",
+       "quantity": "2",
+       "unit": "db"
+      },
+      {
+       "written": "1 x multifunction laser printer (A4, duplex, network)",
+       "quantity": "1",
+       "unit": "db"
+      },
+      {
+       "written": "delivery to our Budapest office",
+       "quantity": "1",
+       "unit": "alkalom"
+      }
+     ]
+    },
+    "matches": [
+     {
+      "item": 0,
+      "sku": "HW-MON-27"
+     },
+     {
+      "item": 1,
+      "sku": "HW-HS-USB"
+     },
+     {
+      "item": 2,
+      "sku": "HW-PRN-MFP"
+     },
+     {
+      "item": 3,
+      "sku": "SRV-DELIVERY"
+     }
+    ],
+    "quote": {
+     "lines": [
+      {
+       "item": 0,
+       "sku": "HW-MON-27",
+       "quantity": "2",
+       "unit": "db",
+       "unit_price": "119000",
+       "discount_percent": "0",
+       "net": "238000"
+      },
+      {
+       "item": 1,
+       "sku": "HW-HS-USB",
+       "quantity": "2",
+       "unit": "db",
+       "unit_price": "18900",
+       "discount_percent": "0",
+       "net": "37800"
+      },
+      {
+       "item": 2,
+       "sku": "HW-PRN-MFP",
+       "quantity": "1",
+       "unit": "db",
+       "unit_price": "159000",
+       "discount_percent": "0",
+       "net": "159000"
+      },
+      {
+       "item": 3,
+       "sku": "SRV-DELIVERY",
+       "quantity": "1",
+       "unit": "alkalom",
+       "unit_price": "9500",
+       "discount_percent": "0",
+       "net": "9500"
+      }
+     ],
+     "net_total": "444300",
+     "vat_total": "119961",
+     "gross_total": "564261"
+    }
+   }
+  },
+  {
+   "id": "q04_hu_network_pdf",
+   "language": "hu",
+   "why": "A PDF request form with the customer's data and the items in columns; the deadline is relative to the day the email arrived (10 days after 2026-10-12).",
+   "message": {
+    "message_id": "quote-golden-q04_hu_network_pdf",
+    "sender": "it@pelda.hu",
+    "sender_name": "Szabó Gábor",
+    "subject": "Ajánlatkérés hálózatfelújításra",
+    "received_at": "2026-10-12T08:47:00+02:00",
+    "body": "Kedves Partnerünk!\n\nA raktárunk hálózatának felújításához kérünk ajánlatot; a részleteket a csatolt kérőív tartalmazza. Az ajánlatra 10 napon belül lenne szükségünk.\n\nKöszönettel:\nSzabó Gábor\nPelda Logisztika Kft.\n",
+    "attachments": [
+     {
+      "filename": "keroiv_halozat.pdf",
+      "format": "pdf",
+      "rows": [
+       "AJÁNLATKÉRŐ ÍV – HÁLÓZATFELÚJÍTÁS",
+       "Ajánlatkérő:   Pelda Logisztika Kft.",
+       "Adószám:   16694855-2-42",
+       "Kapcsolattartó:   Szabó Gábor, it@pelda.hu",
+       "Telephely:   2222 Mintaváros, Raktár utca 5.",
+       "",
+       "Tétel   Mennyiség   Egység",
+       "Switch, 24 port, menedzselhető   1   db",
+       "Wi-Fi 6 AP, mennyezeti   4   db",
+       "Szünetmentes táp, 1500 VA   1   db",
+       "Hálózatkiépítés (becslés)   16   óra",
+       "",
+       "Kiállítva: 2026.10.12."
+      ]
+     }
+    ]
+   },
+   "expected": {
+    "intent": "quote_request",
+    "request": {
+     "customer_name": "Pelda Logisztika Kft.",
+     "customer_tax_number": "16694855-2-42",
+     "contact_name": "Szabó Gábor",
+     "contact_email": "it@pelda.hu",
+     "contact_phone": null,
+     "deadline": "2026-10-22",
+     "reference": null,
+     "items": [
+      {
+       "written": "Switch, 24 port, menedzselhető",
+       "quantity": "1",
+       "unit": "db"
+      },
+      {
+       "written": "Wi-Fi 6 AP, mennyezeti",
+       "quantity": "4",
+       "unit": "db"
+      },
+      {
+       "written": "Szünetmentes táp, 1500 VA",
+       "quantity": "1",
+       "unit": "db"
+      },
+      {
+       "written": "Hálózatkiépítés (becslés)",
+       "quantity": "16",
+       "unit": "óra"
+      }
+     ]
+    },
+    "matches": [
+     {
+      "item": 0,
+      "sku": "HW-SW-24"
+     },
+     {
+      "item": 1,
+      "sku": "HW-AP-WIFI6"
+     },
+     {
+      "item": 2,
+      "sku": "HW-UPS-1500"
+     },
+     {
+      "item": 3,
+      "sku": "SRV-INST-NET"
+     }
+    ],
+    "quote": {
+     "lines": [
+      {
+       "item": 0,
+       "sku": "HW-SW-24",
+       "quantity": "1",
+       "unit": "db",
+       "unit_price": "98500",
+       "discount_percent": "0",
+       "net": "98500"
+      },
+      {
+       "item": 1,
+       "sku": "HW-AP-WIFI6",
+       "quantity": "4",
+       "unit": "db",
+       "unit_price": "52900",
+       "discount_percent": "0",
+       "net": "211600"
+      },
+      {
+       "item": 2,
+       "sku": "HW-UPS-1500",
+       "quantity": "1",
+       "unit": "db",
+       "unit_price": "129000",
+       "discount_percent": "0",
+       "net": "129000"
+      },
+      {
+       "item": 3,
+       "sku": "SRV-INST-NET",
+       "quantity": "16",
+       "unit": "óra",
+       "unit_price": "16000",
+       "discount_percent": "0",
+       "net": "256000"
+      }
+     ],
+     "net_total": "695100",
+     "vat_total": "187677",
+     "gross_total": "882777"
+    }
+   }
+  },
+  {
+   "id": "q05_hu_backup_unknown_item",
+   "language": "hu",
+   "why": "One requested item (a tablet) is not in the price list: it gets no price, and the quote has a blocker for it.",
+   "message": {
+    "message_id": "quote-golden-q05_hu_backup_unknown_item",
+    "sender": "toth.eszter@example.hu",
+    "sender_name": "Tóth Eszter",
+    "subject": "Árajánlat kérése – adatmentés",
+    "received_at": "2026-10-13T11:20:00+02:00",
+    "body": "Szia!\n\nSzeretnénk rendbe tenni az adatmentést. Kérnék ajánlatot egy 4 lemezes NAS-ra 4 db 8 TB-os lemezzel, egy évre 1 TB felhőmentésre, és ha lehet, 2 db iPad tabletre is a raktárosoknak.\n\nKöszi,\nTóth Eszter\nTeszt Építő Kft.\n",
+    "attachments": []
+   },
+   "expected": {
+    "intent": "quote_request",
+    "request": {
+     "customer_name": "Teszt Építő Kft.",
+     "customer_tax_number": null,
+     "contact_name": "Tóth Eszter",
+     "contact_email": "toth.eszter@example.hu",
+     "contact_phone": null,
+     "deadline": null,
+     "reference": null,
+     "items": [
+      {
+       "written": "egy 4 lemezes NAS",
+       "quantity": "1",
+       "unit": "db"
+      },
+      {
+       "written": "4 db 8 TB-os lemez",
+       "quantity": "4",
+       "unit": "db"
+      },
+      {
+       "written": "egy évre 1 TB felhőmentés",
+       "quantity": "1",
+       "unit": "év"
+      },
+      {
+       "written": "2 db iPad tablet",
+       "quantity": "2",
+       "unit": "db"
+      }
+     ]
+    },
+    "matches": [
+     {
+      "item": 0,
+      "sku": "HW-NAS-4"
+     },
+     {
+      "item": 1,
+      "sku": "HW-HDD-8T"
+     },
+     {
+      "item": 2,
+      "sku": "LIC-BACKUP-1T"
+     },
+     {
+      "item": 3,
+      "sku": null,
+      "blocker": "not_in_price_list"
+     }
+    ],
+    "quote": {
+     "lines": [
+      {
+       "item": 0,
+       "sku": "HW-NAS-4",
+       "quantity": "1",
+       "unit": "db",
+       "unit_price": "289000",
+       "discount_percent": "0",
+       "net": "289000"
+      },
+      {
+       "item": 1,
+       "sku": "HW-HDD-8T",
+       "quantity": "4",
+       "unit": "db",
+       "unit_price": "89900",
+       "discount_percent": "0",
+       "net": "359600"
+      },
+      {
+       "item": 2,
+       "sku": "LIC-BACKUP-1T",
+       "quantity": "1",
+       "unit": "év",
+       "unit_price": "59000",
+       "discount_percent": "0",
+       "net": "59000"
+      }
+     ],
+     "net_total": "707600",
+     "vat_total": "191052",
+     "gross_total": "898652"
+    }
+   }
+  },
+  {
+   "id": "q06_hu_support_reply",
+   "language": "hu",
+   "why": "A reply with the earlier message quoted below it: only the new text asks for a quote; the laptops in the quoted part are not requested.",
+   "message": {
+    "message_id": "quote-golden-q06_hu_support_reply",
+    "sender": "varga.julia@minta.hu",
+    "sender_name": "Varga Júlia",
+    "subject": "Re: Bemutatkozó egyeztetés",
+    "received_at": "2026-10-14T16:02:00+02:00",
+    "body": "Kedves Gábor!\n\nKöszönjük a tegnapi egyeztetést! A megbeszéltek szerint kérnénk ajánlatot havi távoli támogatásra 12 hónapra, és 2 alkalom csoportos felhasználói oktatásra.\n\nÜdvözlettel:\nVarga Júlia\nMinta Egyesület\n\n-----Original Message-----\nFeladó: Kiss Gábor <ajanlat@minta.hu>\nElküldve: 2026. október 12. 9:15\nTárgy: Bemutatkozó egyeztetés\n\nKedves Júlia!\n\nAhogy telefonon említette, később 10 laptop cseréje is szóba jöhet; erre majd külön visszatérünk.\n\nÜdvözlettel:\nKiss Gábor\n",
+    "attachments": []
+   },
+   "expected": {
+    "intent": "quote_request",
+    "request": {
+     "customer_name": "Minta Egyesület",
+     "customer_tax_number": null,
+     "contact_name": "Varga Júlia",
+     "contact_email": "varga.julia@minta.hu",
+     "contact_phone": null,
+     "deadline": null,
+     "reference": null,
+     "items": [
+      {
+       "written": "havi távoli támogatás 12 hónapra",
+       "quantity": "12",
+       "unit": "hónap"
+      },
+      {
+       "written": "2 alkalom csoportos felhasználói oktatás",
+       "quantity": "2",
+       "unit": "alkalom"
+      }
+     ]
+    },
+    "matches": [
+     {
+      "item": 0,
+      "sku": "SRV-SUPPORT-M"
+     },
+     {
+      "item": 1,
+      "sku": "SRV-TRAIN"
+     }
+    ],
+    "quote": {
+     "lines": [
+      {
+       "item": 0,
+       "sku": "SRV-SUPPORT-M",
+       "quantity": "12",
+       "unit": "hónap",
+       "unit_price": "65000",
+       "discount_percent": "0",
+       "net": "780000"
+      },
+      {
+       "item": 1,
+       "sku": "SRV-TRAIN",
+       "quantity": "2",
+       "unit": "alkalom",
+       "unit_price": "45000",
+       "discount_percent": "0",
+       "net": "90000"
+      }
+     ],
+     "net_total": "870000",
+     "vat_total": "234900",
+     "gross_total": "1104900"
+    }
+   }
+  },
+  {
+   "id": "q07_en_rfq_xlsx",
+   "language": "en",
+   "why": "An English request with an attached Excel list in English units ('pcs', 'sets', 'users'); twenty pieces of hardware earn the volume discount, the licences and the service do not.",
+   "message": {
+    "message_id": "quote-golden-q07_en_rfq_xlsx",
+    "sender": "procurement@example.com",
+    "sender_name": "Emma Brown",
+    "subject": "RFQ 2026-044 – laptops for new staff",
+    "received_at": "2026-10-15T09:40:00+02:00",
+    "body": "Dear Sir or Madam,\n\nPlease find attached our requirements list for RFQ 2026-044. We would appreciate your quotation by 1 December 2026, including installation.\n\nKind regards,\nEmma Brown\nProcurement\nExample Trading Kft.\nVAT number: 17533966-2-43\n",
+    "attachments": [
+     {
+      "filename": "requirements.xlsx",
+      "format": "xlsx",
+      "sheet": "RFQ 2026-044",
+      "table": [
+       [
+        "Item",
+        "Description",
+        "Qty",
+        "Unit"
+       ],
+       [
+        1,
+        "Business laptop, 15-inch, i5, 16 GB RAM",
+        20,
+        "pcs"
+       ],
+       [
+        2,
+        "24-inch Full HD monitor",
+        20,
+        "pcs"
+       ],
+       [
+        3,
+        "Wireless keyboard and mouse set",
+        20,
+        "sets"
+       ],
+       [
+        4,
+        "Microsoft 365 Business Premium, annual licence",
+        20,
+        "users"
+       ],
+       [
+        5,
+        "Installation and setup per computer",
+        20,
+        "pcs"
+       ]
+      ]
+     }
+    ]
+   },
+   "expected": {
+    "intent": "quote_request",
+    "request": {
+     "customer_name": "Example Trading Kft.",
+     "customer_tax_number": "17533966-2-43",
+     "contact_name": "Emma Brown",
+     "contact_email": "procurement@example.com",
+     "contact_phone": null,
+     "deadline": "2026-12-01",
+     "reference": "RFQ 2026-044",
+     "items": [
+      {
+       "written": "Business laptop, 15-inch, i5, 16 GB RAM",
+       "quantity": "20",
+       "unit": "db"
+      },
+      {
+       "written": "24-inch Full HD monitor",
+       "quantity": "20",
+       "unit": "db"
+      },
+      {
+       "written": "Wireless keyboard and mouse set",
+       "quantity": "20",
+       "unit": "szett"
+      },
+      {
+       "written": "Microsoft 365 Business Premium, annual licence",
+       "quantity": "20",
+       "unit": "felhasználó/év"
+      },
+      {
+       "written": "Installation and setup per computer",
+       "quantity": "20",
+       "unit": "db"
+      }
+     ]
+    },
+    "matches": [
+     {
+      "item": 0,
+      "sku": "HW-NB-15B"
+     },
+     {
+      "item": 1,
+      "sku": "HW-MON-24"
+     },
+     {
+      "item": 2,
+      "sku": "HW-KB-MS"
+     },
+     {
+      "item": 3,
+      "sku": "LIC-M365-BP"
+     },
+     {
+      "item": 4,
+      "sku": "SRV-INST-PC"
+     }
+    ],
+    "quote": {
+     "lines": [
+      {
+       "item": 0,
+       "sku": "HW-NB-15B",
+       "quantity": "20",
+       "unit": "db",
+       "unit_price": "379000",
+       "discount_percent": "5",
+       "net": "7201000"
+      },
+      {
+       "item": 1,
+       "sku": "HW-MON-24",
+       "quantity": "20",
+       "unit": "db",
+       "unit_price": "54900",
+       "discount_percent": "5",
+       "net": "1043100"
+      },
+      {
+       "item": 2,
+       "sku": "HW-KB-MS",
+       "quantity": "20",
+       "unit": "szett",
+       "unit_price": "14900",
+       "discount_percent": "5",
+       "net": "283100"
+      },
+      {
+       "item": 3,
+       "sku": "LIC-M365-BP",
+       "quantity": "20",
+       "unit": "felhasználó/év",
+       "unit_price": "89400",
+       "discount_percent": "0",
+       "net": "1788000"
+      },
+      {
+       "item": 4,
+       "sku": "SRV-INST-PC",
+       "quantity": "20",
+       "unit": "db",
+       "unit_price": "19500",
+       "discount_percent": "0",
+       "net": "390000"
+      }
+     ],
+     "net_total": "10705200",
+     "vat_total": "2890404",
+     "gross_total": "13595604"
+    }
+   }
+  },
+  {
+   "id": "q08_hu_words_pdf",
+   "language": "hu",
+   "why": "A PDF list whose quantities are written in words ('Tíz darab', 'Egy szett', 'Fél nap … (4 óra)'); ten headsets are just enough for the volume discount.",
+   "message": {
+    "message_id": "quote-golden-q08_hu_words_pdf",
+    "sender": "kiss.balazs@pelda.hu",
+    "sender_name": "Kiss Balázs",
+    "subject": "ajánlatkérés",
+    "received_at": "2026-10-16T13:10:00+02:00",
+    "body": "Üdvözlöm!\n\nMellékelve küldöm, mire kérnénk ajánlatot. Ha kérdés van, hívjon nyugodtan.\n\nKiss Balázs\nPélda Iroda Kft.\n+36 20 000 1234\n",
+    "attachments": [
+     {
+      "filename": "igenyek.pdf",
+      "format": "pdf",
+      "rows": [
+       "Példa Iroda Kft. – igények",
+       "Adószám: 21357912-1-13",
+       "",
+       "1. Tíz darab USB-s headset zajszűrős mikrofonnal (ügyfélszolgálatra)",
+       "2. Egy szett vezeték nélküli billentyűzet és egér a vezetőnek",
+       "3. Fél nap helyszíni rendszergazdai munka (4 óra) a beüzemeléshez",
+       "",
+       "Az ajánlatot 2026. október 30-ig kérjük."
+      ]
+     }
+    ]
+   },
+   "expected": {
+    "intent": "quote_request",
+    "request": {
+     "customer_name": "Példa Iroda Kft.",
+     "customer_tax_number": "21357912-1-13",
+     "contact_name": "Kiss Balázs",
+     "contact_email": "kiss.balazs@pelda.hu",
+     "contact_phone": "+36 20 000 1234",
+     "deadline": "2026-10-30",
+     "reference": null,
+     "items": [
+      {
+       "written": "Tíz darab USB-s headset zajszűrős mikrofonnal",
+       "quantity": "10",
+       "unit": "db"
+      },
+      {
+       "written": "Egy szett vezeték nélküli billentyűzet és egér",
+       "quantity": "1",
+       "unit": "szett"
+      },
+      {
+       "written": "Fél nap helyszíni rendszergazdai munka (4 óra)",
+       "quantity": "4",
+       "unit": "óra"
+      }
+     ]
+    },
+    "matches": [
+     {
+      "item": 0,
+      "sku": "HW-HS-USB"
+     },
+     {
+      "item": 1,
+      "sku": "HW-KB-MS"
+     },
+     {
+      "item": 2,
+      "sku": "SRV-ONSITE-H"
+     }
+    ],
+    "quote": {
+     "lines": [
+      {
+       "item": 0,
+       "sku": "HW-HS-USB",
+       "quantity": "10",
+       "unit": "db",
+       "unit_price": "18900",
+       "discount_percent": "5",
+       "net": "179550"
+      },
+      {
+       "item": 1,
+       "sku": "HW-KB-MS",
+       "quantity": "1",
+       "unit": "szett",
+       "unit_price": "14900",
+       "discount_percent": "0",
+       "net": "14900"
+      },
+      {
+       "item": 2,
+       "sku": "SRV-ONSITE-H",
+       "quantity": "4",
+       "unit": "óra",
+       "unit_price": "14000",
+       "discount_percent": "0",
+       "net": "56000"
+      }
+     ],
+     "net_total": "250450",
+     "vat_total": "67622",
+     "gross_total": "318072"
+    }
+   }
+  },
+  {
+   "id": "q09_hu_short_body",
+   "language": "hu",
+   "why": "A terse request in the body without a deadline; 'Windows 11 Pro licenc' is the price list's upgrade item.",
+   "message": {
+    "message_id": "quote-golden-q09_hu_short_body",
+    "sender": "molnar.tamas@example.hu",
+    "sender_name": "Molnár Tamás",
+    "subject": "árajánlat",
+    "received_at": "2026-10-19T07:55:00+02:00",
+    "body": "Sziasztok!\n\n3 db 15 colos laptopot és 3 Windows 11 Pro licencet kérnénk, kérlek, küldjetek rá árajánlatot.\n\nÜdv,\nMolnár Tamás\nTeszt Kereskedés Bt.\n",
+    "attachments": []
+   },
+   "expected": {
+    "intent": "quote_request",
+    "request": {
+     "customer_name": "Teszt Kereskedés Bt.",
+     "customer_tax_number": null,
+     "contact_name": "Molnár Tamás",
+     "contact_email": "molnar.tamas@example.hu",
+     "contact_phone": null,
+     "deadline": null,
+     "reference": null,
+     "items": [
+      {
+       "written": "3 db 15 colos laptop",
+       "quantity": "3",
+       "unit": "db"
+      },
+      {
+       "written": "3 Windows 11 Pro licenc",
+       "quantity": "3",
+       "unit": "db"
+      }
+     ]
+    },
+    "matches": [
+     {
+      "item": 0,
+      "sku": "HW-NB-15B"
+     },
+     {
+      "item": 1,
+      "sku": "LIC-WIN-PRO"
+     }
+    ],
+    "quote": {
+     "lines": [
+      {
+       "item": 0,
+       "sku": "HW-NB-15B",
+       "quantity": "3",
+       "unit": "db",
+       "unit_price": "379000",
+       "discount_percent": "0",
+       "net": "1137000"
+      },
+      {
+       "item": 1,
+       "sku": "LIC-WIN-PRO",
+       "quantity": "3",
+       "unit": "db",
+       "unit_price": "79900",
+       "discount_percent": "0",
+       "net": "239700"
+      }
+     ],
+     "net_total": "1376700",
+     "vat_total": "371709",
+     "gross_total": "1748409"
+    }
+   }
+  },
+  {
+   "id": "q10_hu_ambiguous_monitor",
+   "language": "hu",
+   "why": "The monitor's size is not decided: two price list items fit, so the match is a person's decision and the quote has a blocker for it until then.",
+   "message": {
+    "message_id": "quote-golden-q10_hu_ambiguous_monitor",
+    "sender": "feher.dora@minta.hu",
+    "sender_name": "Fehér Dóra",
+    "subject": "Árajánlatkérés nyomtatóra és monitorokra",
+    "received_at": "2026-10-20T10:30:00+02:00",
+    "body": "Kedves Partnerünk!\n\nAz alapítvány irodájába kérnénk ajánlatot egy hálózati multifunkciós nyomtatóra és 2 db monitorra. A monitorok méretét még nem döntöttük el.\n\nKöszönettel:\nFehér Dóra\nMinta Alapítvány\n",
+    "attachments": []
+   },
+   "expected": {
+    "intent": "quote_request",
+    "request": {
+     "customer_name": "Minta Alapítvány",
+     "customer_tax_number": null,
+     "contact_name": "Fehér Dóra",
+     "contact_email": "feher.dora@minta.hu",
+     "contact_phone": null,
+     "deadline": null,
+     "reference": null,
+     "items": [
+      {
+       "written": "egy hálózati multifunkciós nyomtató",
+       "quantity": "1",
+       "unit": "db"
+      },
+      {
+       "written": "2 db monitor",
+       "quantity": "2",
+       "unit": "db"
+      }
+     ]
+    },
+    "matches": [
+     {
+      "item": 0,
+      "sku": "HW-PRN-MFP"
+     },
+     {
+      "item": 1,
+      "sku": null,
+      "blocker": "ambiguous",
+      "candidates": [
+       "HW-MON-24",
+       "HW-MON-27"
+      ]
+     }
+    ],
+    "quote": {
+     "lines": [
+      {
+       "item": 0,
+       "sku": "HW-PRN-MFP",
+       "quantity": "1",
+       "unit": "db",
+       "unit_price": "159000",
+       "discount_percent": "0",
+       "net": "159000"
+      }
+     ],
+     "net_total": "159000",
+     "vat_total": "42930",
+     "gross_total": "201930"
+    }
+   }
+  },
+  {
+   "id": "n01_hu_acceptance",
+   "language": "hu",
+   "why": "Not a request: the customer accepts an earlier quote and asks for delivery.",
+   "message": {
+    "message_id": "quote-golden-n01_hu_acceptance",
+    "sender": "beszerzes@minta.hu",
+    "sender_name": "Nagy Péter",
+    "subject": "Re: Ajánlat BSZ-2026-118",
+    "received_at": "2026-10-08T15:45:00+02:00",
+    "body": "Jó napot kívánok!\n\nKöszönjük a BSZ-2026-118 számú beszerzésre adott ajánlatukat, elfogadjuk. Kérjük, a számlát a Minta Gyártó Zrt. nevére állítsák ki, a szállítást november első hetében kérnénk.\n\nÜdvözlettel:\nNagy Péter\n",
+    "attachments": []
+   },
+   "expected": {
+    "intent": "business_correspondence"
+   }
+  },
+  {
+   "id": "n02_en_vendor_newsletter",
+   "language": "en",
+   "why": "Not a request: a distributor's newsletter offering a discount to us; it names products and an offer.",
+   "message": {
+    "message_id": "quote-golden-n02_en_vendor_newsletter",
+    "sender": "news@example.net",
+    "sender_name": "Example Distribution",
+    "subject": "Special offer: 20% off 27-inch monitors this week",
+    "received_at": "2026-10-09T06:00:00+02:00",
+    "body": "Dear Partner,\n\nThis week only: 20% off all 27-inch QHD monitors and USB-C docking stations. Order before Sunday to get the discount.\n\nPrices and stock: see our partner portal.\n\nYou receive this newsletter as a registered reseller. To unsubscribe, reply with UNSUBSCRIBE.\n",
+    "attachments": []
+   },
+   "expected": {
+    "intent": "newsletter_marketing"
+   }
+  },
+  {
+   "id": "n03_hu_printer_fault",
+   "language": "hu",
+   "why": "Not a request: a customer reports a printer fault and asks for help today.",
+   "message": {
+    "message_id": "quote-golden-n03_hu_printer_fault",
+    "sender": "kovacs.anna@pelda.hu",
+    "sender_name": "Kovács Anna",
+    "subject": "Nem nyomtat a nyomtató",
+    "received_at": "2026-10-17T08:20:00+02:00",
+    "body": "Szia Gábor!\n\nReggel óta nem nyomtat a hálózati nyomtató, a kijelzőn „papírelakadás” látszik, de nincs bent papír. Tudnátok ma segíteni?\n\nKöszi,\nAnna\n",
+    "attachments": []
+   },
+   "expected": {
+    "intent": "business_correspondence"
+   }
+  }
+ ]
+}
