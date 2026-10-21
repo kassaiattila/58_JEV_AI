@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.89",
+    "version": "1.0.90",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.90",
+        "date": "2026-10-21",
+        "note": "191 (plan F-quote-package B2): the Hungarian headers a price list file's columns are known by (configs/price_lists.json, document vocabulary)."
+      },
       {
         "version": "1.0.89",
         "date": "2026-10-21",
@@ -549,6 +554,7 @@
     "configs/models.json": 5,
     "configs/naming.json": 26,
     "configs/policy.json": 3,
+    "configs/price_lists.json": 5,
     "configs/recipe_help.json": 49,
     "configs/recipes.json": 52,
     "configs/reports.json": 54,

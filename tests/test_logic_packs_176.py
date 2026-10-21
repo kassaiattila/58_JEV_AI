@@ -125,7 +125,7 @@ def test_the_service_has_the_addresses_of_every_logic_pack_in_its_own_module() -
     own = [p.service for p in lp.packs()]
     assert own == ["jav.api_statement_package", "jav.api_reconcile", "jav.api_email_routing"]
     domains = [name for d in DOMAINS for name in importlib.import_module(d).SERVICE]
-    assert domains == ["jav.api_parties", "jav.api_finance", "jav.api_mailbox"]
+    assert domains == ["jav.api_parties", "jav.api_finance", "jav.api_mailbox", "jav.api_price_lists"]  # 191: quotes
     assert api.service_modules() == [*own, *domains]
     assert all(callable(importlib.import_module(name).routes) for name in api.service_modules())
     text = (PROJECT_ROOT / "jav/api.py").read_text(encoding="utf-8")

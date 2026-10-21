@@ -162,7 +162,7 @@ function UploadCard({ again, onDone, onCancel, onStart }: {
       onDone(t("Uploaded: {{name}}, version {{n}}, as a draft. Download its preview to check it, then make it active.", { name: v.name, n: v.version }));
     } catch (e) {
       const err = e as ApiError;
-      if (err.code === "template_refused" && err.check) setRefused(err.check);
+      if (err.code === "template_refused" && err.check && "output" in err.check) setRefused(err.check);
       else setMsg({ error: true, text: err.code === "forbidden_path" ? t("The chosen place is not among the allowed places.") : err.message });
     } finally {
       setBusy(false);
