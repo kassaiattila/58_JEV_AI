@@ -50,6 +50,7 @@ from typing import Any
 
 from jav import cfg, doc_scope, source_instances, store
 from jav.config import PROJECT_ROOT
+from jav.digest import file_sha256 as _sha256
 
 KEEP = 7
 STATUS_FILE = "backup-status.json"
@@ -366,14 +367,6 @@ def _check_required(required: set[str], safe: set[str], dest_root: Path) -> tupl
         else:
             missing.append(rel)
     return preserved, missing
-
-
-def _sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def _write_status(root: Path, data: dict[str, Any]) -> None:

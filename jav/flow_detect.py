@@ -8,7 +8,6 @@ adapter (cache + ledger).
 
 from __future__ import annotations
 
-import hashlib
 import re
 import uuid
 from pathlib import Path
@@ -56,14 +55,6 @@ class DetectState(BaseModel):
     final_status: str | None = None
 
 
-def _sha256(path: str) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
-
-
 def _year_hint(path: str) -> int | None:
     parts = Path(path).parts
     for part in reversed(parts[:-1]):  # a folder name (e.g. Bejövő/2023/...) takes precedence
@@ -77,16 +68,13 @@ def _year_hint(path: str) -> int | None:
                  writes=["text", "lines", "layout", "page_count", "has_text_layer", "text_source", "doc_id", "year",
                          "review_reasons"])
 def load_pdf(state: DetectState) -> DetectState:
-    from jav.pdf import read_pdf
+    from jav import pdf_input
 
-    pdf = read_pdf(state.read_path or state.source_path)
+    pdf, state.doc_id, coverage = pdf_input.read_source(state.source_path, state.read_path)
     state.text, state.lines, state.layout = pdf.text, pdf.lines, pdf.layout
     state.page_count, state.has_text_layer, state.text_source = pdf.page_count, pdf.has_text_layer, pdf.text_source
-    state.doc_id = _sha256(state.read_path or state.source_path)
     state.year = _year_hint(state.source_path)
-    if pdf.has_text_layer:  # 167 (AI-3): pages without a text layer of their own were neither read nor sent to OCR
-        state.review_reasons = state.review_reasons + [
-            r for r in policy.text_layer_coverage_reasons(pdf.page_count, pdf.pages_without_text) if r not in state.review_reasons]
+    state.review_reasons = state.review_reasons + [r for r in coverage if r not in state.review_reasons]
     return state
 
 
@@ -95,17 +83,15 @@ def load_pdf(state: DetectState) -> DetectState:
                          "review_reasons"])
 def ocr_pdf(state: DetectState) -> DetectState:
     """PDF without text: OCR (jav/ocr.py, cached) onto the same layout; no engine / no text -> `needs_ocr`."""
-    from jav.ocr import (AZURE_PROVIDER, OcrUnavailableError, azure_alias, escalation_review_reasons,
-                         ocr_with_escalation)
+    from jav import pdf_input
+    from jav.ocr import AZURE_PROVIDER, escalation_review_reasons
 
-    try:
-        with azure_alias(state.source_path if state.read_path else None, state.doc_id):
-            pdf, _escalated = ocr_with_escalation(state.read_path or state.source_path, page_count=state.page_count)
-    except OcrUnavailableError as exc:
-        state.review_reasons = state.review_reasons + [f"ocr:unavailable:{type(exc).__name__}"]
+    recognised = pdf_input.recognise(state.source_path, state.read_path, state.doc_id, state.page_count)
+    if recognised.pdf is None:
+        state.review_reasons = state.review_reasons + [recognised.unavailable]
         return state
+    pdf, signals = recognised.pdf, recognised.signals
     state.text, state.lines, state.layout, state.text_source = pdf.text, pdf.lines, pdf.layout, pdf.text_source
-    signals = pdf.ocr or {}
     state.ocr_conf, state.ocr_low_conf_ratio = signals.get("mean_conf"), signals.get("low_conf_ratio")
     # 124: an Azure text cached before 123 has no kept original, so it names nothing and is not taken over
     state.ocr_recognition = signals.get("recognition_sha256") if signals.get("engine") == AZURE_PROVIDER else None

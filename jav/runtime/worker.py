@@ -18,7 +18,6 @@ Processing one item:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import socket
@@ -33,6 +32,7 @@ from burr.integrations.serde import pydantic as burr_pydantic
 from jav import app_settings, isolated_pdf, item_kinds, pdf, store, work, workflows
 from jav.runtime import applog, calls, flows, job_kinds, lock, pdf_status, persistence, queue
 from jav.runtime.persistence import ClosingSQLitePersister
+from jav.digest import file_sha256 as _sha256_file
 
 log = logging.getLogger("jav.worker")
 
@@ -93,14 +93,6 @@ class StatePersister(ClosingSQLitePersister):
             f"INSERT INTO {self.table_name} (partition_key, app_id, sequence_id, position, state, status) VALUES (?, ?, ?, ?, ?, ?)",
             (partition_key, app_id, sequence_id, position, json_state, status))
         self.connection.commit()
-
-
-def _sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def _attachment_reads(items: list[dict[str, Any]], email_item_id: str) -> dict[str, str]:

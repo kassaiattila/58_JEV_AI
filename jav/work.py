@@ -33,6 +33,7 @@ from jav.native_contracts import DOCUMENT_SUFFIXES, NATIVE_SUFFIXES
 from jav.runtime import calls, flows, queue
 from jav.user_messages import explained
 from jav.clock import utc_stamp as _now
+from jav.digest import file_sha256 as sha256_file
 
 JOB_KIND = "run_item"
 
@@ -184,14 +185,6 @@ def _pinned_run(c: sqlite3.Connection, run_id: str) -> bool:
 
 
 store.set_pinned_run_check(_pinned_run)
-
-
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def max_source_bytes() -> int:

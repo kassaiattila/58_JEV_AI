@@ -37,6 +37,7 @@ from pathlib import Path
 from jav import store
 from jav.runtime import lock
 from jav.user_messages import explained
+from jav.digest import file_sha256 as sha256_file
 
 CHUNK = 1 << 20
 SPACE_HEADROOM = 1 << 20
@@ -62,14 +63,6 @@ def path_of(rel: str) -> Path:
     if not _REL.match(rel):
         raise ValueError(f"not a source instance path: {rel!r}")
     return root() / rel
-
-
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(CHUNK), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def intact(path: Path, sha256: str) -> bool:

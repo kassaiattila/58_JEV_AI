@@ -32,7 +32,6 @@ on the graph is the same. A PDF's run is unchanged.
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import re
 import uuid
@@ -48,6 +47,7 @@ from jav.engine import with_engine
 from jav.models import FlowState
 from jav.runtime import persistence
 from jav.typepack import DEFAULT_KEY, get as get_pack
+from jav.digest import file_sha256 as _sha256
 
 TERMINALS = ["done", "needs_review", "needs_ocr"]
 PARTITION = "invoice"  # partition of the durable state store (066 Á08: the worker finds the saved state by it)
@@ -58,14 +58,6 @@ TRACKER_PROJECT = TRACKER_PROJECTS.get("invoice_hu", "jav_invoice_hu")  # legacy
 
 def tracker_project(doc_type: str) -> str:
     return TRACKER_PROJECTS.get(doc_type, TRACKER_PROJECTS.get("invoice", "jav_invoice"))
-
-
-def _sha256(path: str) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def _year_hint(path: str) -> int | None:
@@ -80,21 +72,18 @@ def _year_hint(path: str) -> int | None:
                  writes=["text", "lines", "page_count", "has_text_layer", "layout", "doc_id", "text_source", "source_layer_id",
                          "needs_review", "review_reasons"])
 def load_pdf(state: FlowState) -> FlowState:
-    from jav import source_layer
-    from jav.pdf import read_pdf
+    from jav import pdf_input, source_layer
 
-    pdf = read_pdf(state.read_path or state.source_path)
+    pdf, state.doc_id, coverage = pdf_input.read_source(state.source_path, state.read_path)
     state.text = pdf.text
     state.lines = pdf.lines
     state.layout = pdf.layout
     state.page_count = pdf.page_count
     state.has_text_layer = pdf.has_text_layer
     state.text_source = pdf.text_source
-    state.doc_id = _sha256(state.read_path or state.source_path)
     if pdf.has_text_layer:  # for a PDF without text the OCR step saves the layer
         state.source_layer_id = source_layer.save_from_pdftext(state.doc_id, pdf)
-        # 167 (AI-3): pages without a text layer of their own were neither read nor sent to OCR
-        policy.require_review(state, *policy.text_layer_coverage_reasons(pdf.page_count, pdf.pages_without_text))
+        policy.require_review(state, *coverage)
     return state
 
 
@@ -129,22 +118,20 @@ def ocr_pdf(state: FlowState) -> FlowState:
     """PDF without text: OCR (jav/ocr.py, with a disk cache) -> the same layout (lines, cells) as for a text layer.
     The OCR quality signals go into the state raw; weak OCR raises reviews per the policy's `ocr` thresholds. No
     engine / no usable text: `text_source` stays None -> `needs_ocr` terminal (the flow does not crash)."""
-    from jav.ocr import OcrUnavailableError, azure_alias, escalation_review_reasons, ocr_with_escalation
+    from jav import pdf_input, source_layer
+    from jav.ocr import escalation_review_reasons
 
-    try:
-        with azure_alias(state.source_path if state.read_path else None, state.doc_id):
-            pdf, escalated = ocr_with_escalation(state.read_path or state.source_path, page_count=state.page_count)
-    except OcrUnavailableError as exc:
-        policy.require_review(state, f"ocr:unavailable:{type(exc).__name__}")
+    recognised = pdf_input.recognise(state.source_path, state.read_path, state.doc_id, state.page_count)
+    if recognised.pdf is None:
+        policy.require_review(state, recognised.unavailable)
         return state
+    pdf, signals = recognised.pdf, recognised.signals
     state.text, state.lines, state.layout = pdf.text, pdf.lines, pdf.layout
     state.text_source = pdf.text_source
-    signals = pdf.ocr or {}
     state.ocr_conf = signals.get("mean_conf")
     state.ocr_low_conf_ratio = signals.get("low_conf_ratio")
     state.ocr_engine = signals.get("engine")
-    state.ocr_escalated = escalated
-    from jav import source_layer
+    state.ocr_escalated = recognised.escalated
 
     state.source_layer_id = source_layer.save_from_pdftext(state.doc_id, pdf) if pdf.text_source else None
     if pdf.text_source is None:
