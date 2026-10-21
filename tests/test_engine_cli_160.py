@@ -104,7 +104,7 @@ def test_one_email_takes_the_engine(db, monkeypatch, capsys):
 
 
 def test_the_m2_flow_on_one_pdf_takes_the_engine(db, monkeypatch, capsys):
-    state = SimpleNamespace(final_status="done", route=None, arm="G", doc_type="invoice_hu", invoice=None, picks={},
+    state = SimpleNamespace(final_status="done", route=None, arm="G", doc_type="invoice_hu", record=None, picks={},
                             verdicts=None, validation=[], review_reasons=[], jev_calls=[], run_id="r", doc_id="d" * 64)
     rec = Recorder(state)
     monkeypatch.setattr(flow, "run_one", rec)
