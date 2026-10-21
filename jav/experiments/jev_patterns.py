@@ -171,7 +171,8 @@ def main() -> None:
     for pattern in ("structure", "pair", "hierarchy"):
         first = [r for r in rows if r["pattern"]==pattern and r["repeat"]==0]
         def decision(r):
-            if pattern=="structure": return [(b["source_lines"],b["kind"]) for b in r["result"]["blocks"]]
+            if pattern=="structure":
+                return [(b["source_lines"],b["kind"]) for b in r["result"]["blocks"]]
             return r["result"]["outcome" if pattern=="pair" else "label"]
         flips=sum(decision(r)!=decision(ref) for ref in first for r in rows
                   if r["pattern"]==pattern and r["case_id"]==ref["case_id"] and r["repeat"]>0)

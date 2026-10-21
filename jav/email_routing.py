@@ -30,13 +30,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
 from jav import (activity_kinds, decisions, logic_packs, package_result, package_scope, source_instances, store, work,
                  workflow_steps)
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 KIND = "email_routing"
 # the actions this module records in a routing package's log (`jav/activity_kinds.py`)
@@ -80,10 +81,6 @@ NOTES = ("sent_incoming",)
 
 class RoutingError(ValueError):
     """A routing request that cannot be met: no email package, an unknown attachment, a target that cannot take it."""
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 # --- making one ---------------------------------------------------------------------------------------------------------

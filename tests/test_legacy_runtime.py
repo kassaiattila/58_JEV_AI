@@ -11,7 +11,8 @@ def test_legacy_burr_preserves_nested_records_and_replays_without_providers(tmp_
     cfg=read(PROJECT_ROOT/'configs/experiments/legacy_extraction.json')
     calls=[]
     def generate(pack,text,rid):
-        calls.append('gpt');return fixture
+        calls.append('gpt')
+        return fixture
     def ask(step,state,questions,rid):
         calls.append('jev')
         return SystemOneResponse.model_validate({'model':'jev-1.13.0','usage':{'input_tokens':10,'output_tokens':10},'answers':

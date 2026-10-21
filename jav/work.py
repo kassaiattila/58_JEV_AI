@@ -24,7 +24,6 @@ import sqlite3
 import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -33,6 +32,8 @@ from jav import activity_kinds, cfg, item_kinds, logic_packs, source_instances, 
 from jav.native_contracts import DOCUMENT_SUFFIXES, NATIVE_SUFFIXES
 from jav.runtime import calls, flows, queue
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
+from jav.digest import file_sha256 as sha256_file
 
 JOB_KIND = "run_item"
 
@@ -174,10 +175,6 @@ class SourceChanged(ValueError):
     the content first copied; nothing was added (in the UI: 422)."""
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
-
-
 def _pinned_run(c: sqlite3.Connection, run_id: str) -> bool:
     """066 Á06 (decision of 2026-09-29): the to-do reasons of a live run that is not yet approved and not cancelled are
     pinned (another run does not take them over or close them); a trial run's reason is still carried by the latest
@@ -188,14 +185,6 @@ def _pinned_run(c: sqlite3.Connection, run_id: str) -> bool:
 
 
 store.set_pinned_run_check(_pinned_run)
-
-
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def max_source_bytes() -> int:

@@ -14,7 +14,6 @@ JEV sees the CLEANED body verbatim (Hungarian as is).
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from dataclasses import dataclass
@@ -25,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from jav import path_text
 from jav.config import BRIDGE_DATA_ROOT, OLD_DATA_ROOT
+from jav.digest import file_sha256 as _file_sha256
 
 OLD_INTENT_GOLDEN = OLD_DATA_ROOT / "golden" / "email-intake-bare" / "intent-golden-s21.json"
 DOC_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".tif", ".tiff"}
@@ -212,10 +212,6 @@ def load_message_dir(folder: str | Path) -> EmailMessage:
         attachments=atts,
         folder="sent" if meta.get("folder") == "sent" else "inbox",
     )
-
-
-def _file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def message_version(item: dict[str, Any]) -> tuple[dict[str, Any], str]:

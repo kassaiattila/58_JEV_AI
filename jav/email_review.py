@@ -17,7 +17,8 @@ def write(path,value):
 
 
 def make_review(case,candidate,directory):
-    directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
+    directory=Path(directory)
+    directory.mkdir(parents=True,exist_ok=True)
     parts=['<!doctype html><meta charset="utf-8"><title>Email ellenőrzés</title>',
            '<style>body{max-width:1000px;margin:3em auto;font:16px system-ui}pre{white-space:pre-wrap;overflow-wrap:anywhere}section{border-top:1px solid #aaa;margin-top:2em}</style>',
            '<h1>Teljes helyi forrás és kézi ellenőrzés</h1>',
@@ -26,7 +27,8 @@ def make_review(case,candidate,directory):
     for s in case['sources']:
         parts.append('<section><h2>'+html.escape(s['id']+' — '+s['status'])+'</h2><pre>'+html.escape(s['text'])+'</pre></section>')
     parts.append('<section><h2>Gépi jelölt és bizonyítékhelyek</h2><pre>'+html.escape(json.dumps(candidate,ensure_ascii=False,indent=2))+'</pre></section>')
-    with (directory/'review.html').open('x',encoding='utf-8') as f:f.write('\n'.join(parts))
+    with (directory/'review.html').open('x',encoding='utf-8') as f:
+        f.write('\n'.join(parts))
     write(directory/'label-template.json',dict(case_id=case['case_id'],case_sha256=canonical_hash(case),
         reviewer='',intent='',rationale='',evidence=[dict(source_id='body',start=0,end=0,quote='')]))
 
@@ -43,11 +45,14 @@ def main():
     a=p.parse_args()
     case=next(c for c in read(a.inputs) if c['case_id']==a.case)
     candidate=read(a.result)['candidate']
-    if candidate['case_sha256']!=canonical_hash(case):raise ValueError('result does not belong to source')
-    if a.command=='view':make_review(case,candidate,a.out)
+    if candidate['case_sha256']!=canonical_hash(case):
+        raise ValueError('result does not belong to source')
+    if a.command=='view':
+        make_review(case,candidate,a.out)
     elif a.command=='label':
         label=read(a.label)
-        if label['case_sha256']!=canonical_hash(case) or label['case_id']!=a.case:raise ValueError('label source mismatch')
+        if label['case_sha256']!=canonical_hash(case) or label['case_id']!=a.case:
+            raise ValueError('label source mismatch')
         checked=review_record(case,**{k:label[k] for k in ['intent','reviewer','rationale','evidence']},human_confirmed=a.confirm_human)
         write(a.out,checked)
     else:
@@ -55,4 +60,5 @@ def main():
     print(str(a.out))
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    main()

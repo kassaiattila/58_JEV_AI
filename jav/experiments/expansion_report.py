@@ -33,7 +33,10 @@ def main(expected_documents=12, suffix=''):
         for step,provider,model,cost,seconds,error in rows:
             assert error is None and cost is not None
             key = ('email' if 'emails' in path.parts else 'document')+'/'+provider
-            item = costs[key]; item['calls']+=1;item['usd']+=cost;item['seconds']+=seconds
+            item = costs[key]
+            item['calls']+=1
+            item['usd']+=cost
+            item['seconds']+=seconds
             models[provider+'/'+str(model)]+=1
     for row in costs.values():
         row['usd']=round(row['usd'],6)
@@ -71,7 +74,8 @@ def main(expected_documents=12, suffix=''):
     providers={}
     for p,row in usage.items():
         assert row['reserved']==row['logged'] and row['errors']==0
-        old=prior['providers'][p]; recorded=round(old['recorded_usd']+row['usd'],6)
+        old=prior['providers'][p]
+        recorded=round(old['recorded_usd']+row['usd'],6)
         providers[p]={'successful_calls':old['successful_calls']+row['logged'],'recorded_usd':recorded,
             'authorized_usd':5,'uncertain_attempts':old['uncertain_attempts'],
             'uncertainty_reserve_usd':old['uncertainty_reserve_usd'],

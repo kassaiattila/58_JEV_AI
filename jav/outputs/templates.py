@@ -16,11 +16,11 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
-from datetime import datetime, timezone
 from typing import Any
 
 from jav import activity_kinds, decisions, logic_packs, store, work
 from jav.outputs import builtin, contract, fill, samples
+from jav.clock import utc_stamp as _now
 
 # the package log's action of a person choosing a package's template (`jav/activity_kinds.py`)
 activity_kinds.register_events("package", ("output_template_choose",), __name__)
@@ -75,10 +75,6 @@ class TemplateNotFound(KeyError):
 
 class TemplateStateError(ValueError):
     """The template or version is not in a state that allows this (a retired template chosen, a draft retired)."""
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _view(row: Any) -> dict[str, Any]:

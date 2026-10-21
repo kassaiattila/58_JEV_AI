@@ -127,11 +127,16 @@ def run(split,limit=None,version='v2'):
         write(stage/'code.json',dict(sha256=code_hash()))
         for p in (PROJECT_ROOT/'jav').rglob('*.py'):
             target=stage/'source_snapshot'/p.relative_to(PROJECT_ROOT)
-            target.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,target)
-    adapter,budget=services(); splits=read(ROOT/'splits.json');count=0
+            target.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copy2(p,target)
+    adapter,budget=services()
+    splits=read(ROOT/'splits.json')
+    count=0
     for c in cases:
-        cid=c['case_id']; dest=stage/(cid+'.json')
-        if splits[cid]['split']!=split or dest.exists(): continue
+        cid=c['case_id']
+        dest=stage/(cid+'.json')
+        if splits[cid]['split']!=split or dest.exists():
+            continue
         baseline_record=None
         previous=ROOT/'v1'/(cid+'.json')
         if version!='v1' and previous.exists():
@@ -146,7 +151,8 @@ def run(split,limit=None,version='v2'):
         print(cid,result['baseline']['intent'],'->',result['result']['intent'],
               result['result']['coverage']['review_reasons'],budget.usage(),flush=True)
         count+=1
-        if limit and count>=limit: break
+        if limit and count>=limit:
+            break
     write(ROOT/('usage-'+version+'-'+split+'-'+str(budget.usage()['jev']['reserved'])+'.json'),budget.usage())
 
 

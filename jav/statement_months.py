@@ -36,7 +36,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from difflib import SequenceMatcher
 from functools import lru_cache
@@ -44,6 +44,7 @@ from typing import Any, Iterable
 
 from jav import cfg, decisions, store, type_roles
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 REASON = "statement"
 OVERLAP = "overlap"
@@ -341,10 +342,6 @@ def choice_rows(c=None) -> list[dict[str, Any]]:
 
 def choices(c=None) -> dict[str, str | None]:
     return {r["pair_key"]: r["keep_doc_id"] for r in choice_rows(c)}
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def reason(other_doc_id: str) -> str:

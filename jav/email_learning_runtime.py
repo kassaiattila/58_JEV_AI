@@ -24,7 +24,8 @@ class EmailLearningService:
         aid=run_id+':'+key
         saved=store.load_artifact('email_exchange',aid)
         if saved:
-            if saved['request']!=request: raise ValueError('recorded request mismatch')
+            if saved['request']!=request:
+                raise ValueError('recorded request mismatch')
             return SystemOneResponse.model_validate(saved['response']),JevCall.model_validate(saved['call'])
         if store.load_artifact('email_exchange_started',aid):
             raise RuntimeError('unresolved external attempt; no automatic retry')
@@ -32,7 +33,8 @@ class EmailLearningService:
         result=self.adapter.ask(key,state,questions,run_id=run_id,use_cache=False,config_hash=config_hash)
         store.save_artifact('email_exchange',aid,dict(request=request,response=result.response.model_dump(mode='json'),
                                                      call=result.call.model_dump(mode='json')))
-        if self.fault: self.fault('after_exchange:'+key)
+        if self.fault:
+            self.fault('after_exchange:'+key)
         return result.response,result.call
 
     def classify_baseline_jev(self,*,run_id):
@@ -45,7 +47,8 @@ class EmailLearningService:
     def scan_jev(self,*,run_id):
         searches={}
         for source in self.case['sources']:
-            if source['status']!='read': continue
+            if source['status']!='read':
+                continue
             def ask(step,state,questions):
                 return self.ask(source['id']+':'+step,state,questions,run_id,canonical_hash(self.config))[0]
             query=self.config['query']+' Source role: '+source['kind']+'.'
@@ -68,13 +71,16 @@ class EmailLearningService:
     def candidate(self,baseline,result):
         msg=EmailMessage.model_validate(self.case['message'])
         reasons=list(result['coverage']['review_reasons'])
-        if baseline['intent']!=result['intent']: reasons.append('baseline_evidence_disagreement')
+        if baseline['intent']!=result['intent']:
+            reasons.append('baseline_evidence_disagreement')
         reasons+=policy.email_signal_reasons(result['signals'])
         for key,value in result['extra_signals'].items():
             reason=policy.noul_review_reason('evidence',key,value,'email.signal')
-            if reason: reasons.append(reason)
+            if reason:
+                reasons.append(reason)
         route=policy.email_next_flow(result['intent'],result['confidence'],msg.attachments,result['probabilities'],result['signals'])
-        if route.startswith('human:'): reasons.append('policy:'+route)
+        if route.startswith('human:'):
+            reasons.append('policy:'+route)
         return dict(case_id=self.case['case_id'],case_sha256=canonical_hash(self.case),status='unreviewed',
             baseline=baseline,prediction=result,review_reasons=sorted(set(reasons)) or ['control_sample'],
             suggested_route=route,route_executed=False,correctness='not_established',gold_label=None,
@@ -85,7 +91,8 @@ def run_email_learning(*,case,directory,run_id,adapter,config,halt_after=None,fa
     validate_case(case)
     if not run_id or adapter.model in ('jev-latest','jev-stable') or not adapter.model.startswith('jev-'):
         raise ValueError('run ID and concrete JEV model required')
-    directory=Path(directory); directory.mkdir(parents=True,exist_ok=True)
+    directory=Path(directory)
+    directory.mkdir(parents=True,exist_ok=True)
     identity=dict(case_sha256=canonical_hash(case),config=config,baseline_hash=CONFIG_HASH,
                   registry=cfg.load('intents'),model=adapter.model,code_sha256=code_hash(),baseline_record=baseline_record)
     if baseline_record is not None and (baseline_record['case_sha256']!=canonical_hash(case) or

@@ -51,7 +51,7 @@ import json
 import threading
 import time
 from collections import Counter, OrderedDict, defaultdict
-from datetime import date, datetime, timezone
+from datetime import date
 from decimal import Decimal
 from typing import Any, Iterable
 
@@ -59,6 +59,7 @@ from jav import (activity_kinds, cfg, corrections, decisions, goldens, grounding
                  package_scope, parties, reconcile, reconcile_overview, store, typepack, work, workflow_steps)
 from jav.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
 activity_kinds.register_events("package", ("reconcile_scope", "reconcile_allocate", "reconcile_reject", "reconcile_mark",
@@ -125,10 +126,6 @@ class PackageError(ValueError):
 class Locked(PackageError):
     """145: a decision on a line of an approved statement, or a change of an approved package's scope; the version has
     to be reopened first (422, code `reconcile_locked`)."""
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _conf() -> dict[str, Any]:

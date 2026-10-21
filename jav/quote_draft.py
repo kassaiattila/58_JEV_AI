@@ -31,7 +31,6 @@ import hashlib
 import json
 import sqlite3
 import uuid
-from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -41,6 +40,7 @@ from jav import (activity_kinds, cfg, decisions, numbers, package_release, price
                  quote_request, store, work)
 from jav.typepack import get as get_pack
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 KIND = "quote_draft"  # the decision kind: one draft per quote package, keyed by the package
 CHECK_MARKS = ("check", "failed")  # the proposal's marks a person confirms before the approval (DECISIONS 192)
@@ -99,10 +99,6 @@ class DraftIn(_In):
     version: Annotated[int, Field(ge=1)]
     header: dict[str, Annotated[str | None, Field(max_length=2000)]]
     lines: list[LineIn]
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def header_fields() -> tuple[str, ...]:

@@ -32,13 +32,14 @@ import json
 import re
 import uuid
 from collections import Counter, defaultdict
-from datetime import date, datetime, timezone
+from datetime import date
 from difflib import SequenceMatcher
 from itertools import combinations
 from typing import Any, Callable, Iterable
 
 from jav import cfg, fact_checks, store, type_roles
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 KINDS = ("tax", "name", "account")
 NAME_MAX = 200
@@ -82,10 +83,6 @@ BANK_MAX = 100
 
 class PartyError(ValueError):
     """A request the own parties cannot take: an empty name, an unknown kind, a party still in use."""
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _conf() -> dict[str, Any]:

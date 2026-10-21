@@ -909,8 +909,8 @@ def find_all(
     out["name"] = find_names(lines, prof)
     out["address"] = find_addresses(lines, prof)
     out["quantity"] = find_quantities(lines, prof, convention)
-    for field, labels in (text_labels or {}).items():
-        out[f"text:{field}"] = find_labelled_text(lines, field, labels)
+    for key, labels in (text_labels or {}).items():
+        out[f"text:{key}"] = find_labelled_text(lines, key, labels)
     return out
 
 

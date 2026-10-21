@@ -243,11 +243,17 @@ def main():
     p.add_argument('command', choices=['prepare','generate','probes','usage','validate'])
     p.add_argument('--limit',type=int)
     args = p.parse_args()
-    if args.command == 'prepare': prepare()
-    elif args.command == 'generate': generate(args.limit)
-    elif args.command == 'probes': probes()
-    elif args.command == 'validate': validate(); print('protected evidence unchanged')
-    else: print(json.dumps(TrialBudget(OUT).usage(),indent=2))
+    if args.command == 'prepare':
+        prepare()
+    elif args.command == 'generate':
+        generate(args.limit)
+    elif args.command == 'probes':
+        probes()
+    elif args.command == 'validate':
+        validate()
+        print('protected evidence unchanged')
+    else:
+        print(json.dumps(TrialBudget(OUT).usage(),indent=2))
 
 
 if __name__ == '__main__':

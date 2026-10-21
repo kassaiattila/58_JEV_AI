@@ -39,7 +39,6 @@ import time
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from decimal import ROUND_CEILING, Decimal
 from pathlib import Path
 from typing import IO, Any, Callable
@@ -47,6 +46,7 @@ from typing import IO, Any, Callable
 from jav import store
 from jav.runtime import lock
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 log = logging.getLogger("jav.calls")
 
@@ -137,10 +137,6 @@ class Result:
     invocation_id: int
     replayed: bool
     reused_from: int | None = None  # 090: the earlier call whose answer was reused (another run, the same question)
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @dataclass(frozen=True)

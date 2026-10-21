@@ -34,7 +34,9 @@ def _evidence(source,start,end):
 
 def body_anchors(source,limit=1800):
     """Exact positions of the first meaningful text spans; URLs/padding do not use up the character limit."""
-    text=source['text'];out=[];used=0
+    text=source['text']
+    out=[]
+    used=0
     for line in re.finditer(r'[^\r\n]+',text):
         cursor=line.start()
         urls=list(re.finditer(r'<https?[^>]*>|https?://\S+',line.group()))
@@ -44,9 +46,11 @@ def body_anchors(source,limit=1800):
             if any(ch.isalnum() for ch in piece):
                 right=min(start,cursor+limit-used)
                 if right>cursor:
-                    out.append(_evidence(source,cursor,right));used+=right-cursor
+                    out.append(_evidence(source,cursor,right))
+                    used+=right-cursor
             cursor=end
-            if used>=limit:return out
+            if used>=limit:
+                return out
     return out
 
 
@@ -56,7 +60,9 @@ def build_evidence_state(case, searches, *, max_chars=7500):
     st=build_state(msg)
     # The old cleaned view gets no hidden priority; explicit original excerpts instead.
     st['body_lines']=[]
-    evidence=[]; omitted=[]; size=0
+    evidence=[]
+    omitted=[]
+    size=0
     body=next(s for s in case['sources'] if s['id']=='body')
     # The sender's short current opening is always kept, together with the quote boundary.
     if body['text']:
@@ -74,7 +80,8 @@ def build_evidence_state(case, searches, *, max_chars=7500):
             if size+len(e['quote'])>max_chars:
                 omitted.append({k:e[k] for k in ('source_id','start','end')})
             else:
-                evidence.append(e); size+=len(e['quote'])
+                evidence.append(e)
+                size+=len(e['quote'])
     reasons=[s['id']+':'+s['status'] for s in case['sources'] if s['status']!='read']
     reasons += ['no_selected_evidence:'+s['id'] for s in case['sources']
                 if s['status']=='read' and s['text'].strip() and not searches.get(s['id'],{}).get('candidates')]
@@ -101,24 +108,29 @@ def build_evidence_state(case, searches, *, max_chars=7500):
 
 def group_splits(cases):
     """Transitive groups by sender, normalised thread subject and identical text/file stay together."""
-    groups=[{c['case_id']} for c in cases]; seen={}
+    groups=[{c['case_id']} for c in cases]
+    seen={}
     for c in cases:
-        m=c['message']; subject=re.sub(r'^(?:(?:re|fw|fwd|aw|wg|vá)\s*:\s*)+','',m['subject'].lower()).strip()
+        m=c['message']
+        subject=re.sub(r'^(?:(?:re|fw|fwd|aw|wg|vá)\s*:\s*)+','',m['subject'].lower()).strip()
         keys=[('sender',(m.get('sender') or '').lower()),('subject',subject)]
         keys += [('content',s.get('file_sha256') or s['sha256']) for s in c['sources'] if s['text'] or s.get('file_sha256')]
         for key in keys:
-            if not key[1]: continue
+            if not key[1]:
+                continue
             group=next(g for g in groups if c['case_id'] in g)
             if key in seen:
                 other=next(g for g in groups if seen[key] in g)
                 if group is not other:
-                    group.update(other); groups.remove(other)
+                    group.update(other)
+                    groups.remove(other)
             seen[key]=c['case_id']
     out={}
     for group in groups:
         group_id=digest('|'.join(sorted(group)))
         split='holdout' if int(group_id[:8],16)%3==0 else 'development'
-        for cid in group: out[cid]=dict(group_id=group_id,split=split)
+        for cid in group:
+            out[cid]=dict(group_id=group_id,split=split)
     return out
 
 

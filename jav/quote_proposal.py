@@ -27,6 +27,7 @@ from typing import Any
 from jav import app_settings, cfg, price_lists, quote_match, quote_request, store
 from jav.runtime import calls, job_kinds
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 JOB_KIND = "quote_propose"
 STATES = ("queued", "running", "done", "failed")
@@ -55,10 +56,6 @@ CREATE TABLE IF NOT EXISTS quote_proposals (
 
 class ProposalRefused(ValueError):
     """A proposal that cannot be asked: no readable request, no requested item, no active price list, or too many."""
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def settings() -> dict[str, Any]:

@@ -219,10 +219,12 @@ def replay(root):
     for item in cases:
         cid=item['case']['case_id']
         path=root/item['domain']/(cid+'.json')
-        if not path.exists(): continue
+        if not path.exists():
+            continue
         actual=run_assessment(case=item['case'],directory=root/item['domain']/cid,run_id=cid,
                               model=NoModel(),adapter=NoAdapter(),config=config)
-        if actual != read(path): raise AssertionError('terminal result changed')
+        if actual != read(path):
+            raise AssertionError('terminal result changed')
         replayed.append(cid)
     write(root/'replay.json', {'exact_cases':replayed,'external_calls':0,'method':'no callable external model or adapter'})
     print('Exact terminal replay:',len(replayed),'External calls: 0',flush=True)
@@ -235,13 +237,17 @@ def main():
     parser.add_argument('--domain',choices=['document','email'],default='document')
     parser.add_argument('--split',choices=['development','holdout'],default='development')
     args=parser.parse_args()
-    if args.command=='prepare': prepare(args.root)
+    if args.command=='prepare':
+        prepare(args.root)
     elif args.command=='validate':
         validate(args.root,require_approval=False)
         print('Frozen inputs and historical evidence unchanged.')
-    elif args.command=='report': report(args.root)
-    elif args.command=='replay': replay(args.root)
-    else: run(args.root,args.domain,args.split)
+    elif args.command=='report':
+        report(args.root)
+    elif args.command=='replay':
+        replay(args.root)
+    else:
+        run(args.root,args.domain,args.split)
 
 
 if __name__=='__main__':

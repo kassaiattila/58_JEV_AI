@@ -31,7 +31,7 @@ Layer: UI/CLI → **this** (application operation) → `jav.statement_table`, `j
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -61,13 +61,9 @@ store.register_migration("statement_package_scope",
                          lambda conn: package_scope.copy_older(conn, "statement_scopes", _older_scope))
 
 
-class PackageError(ValueError):
+class StatementPackageError(ValueError):
     """A request the statement package refuses (an unknown party, a wrong period, an empty choice, a statement the files
     no longer hold); the interface shows the message (422)."""
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _conf() -> dict[str, Any]:
@@ -78,17 +74,17 @@ def _day(value: Any, what: str) -> date:
     try:
         return date.fromisoformat(str(value)[:10])
     except ValueError as exc:
-        raise explained(PackageError, "{{what}}: an ISO date is required", what=what) from exc
+        raise explained(StatementPackageError, "{{what}}: an ISO date is required", what=what) from exc
 
 
 def _checked(party_id: str, period_start: Any, period_end: Any) -> tuple[dict[str, Any], str, str]:
     try:
         party = parties.get(party_id)
     except KeyError:
-        raise explained(PackageError, "no own party {{party_id}}", party_id=party_id) from None
+        raise explained(StatementPackageError, "no own party {{party_id}}", party_id=party_id) from None
     start, end = _day(period_start, "period_start"), _day(period_end, "period_end")
     if start > end:
-        raise explained(PackageError, "the period ends before it starts")
+        raise explained(StatementPackageError, "the period ends before it starts")
     return party, start.isoformat(), end.isoformat()
 
 
@@ -177,7 +173,7 @@ def _sources(paths: Iterable[Path]) -> _Found:
             out.skipped.append({"file": p.name, "reason": "neither a statement export nor a PDF"})
     limit = int(cfg.load(statement_table.CONFIG)["limits"]["max_files"])
     if len(pdfs) > limit:
-        raise explained(PackageError, "more than {{limit}} PDF files", limit=limit)
+        raise explained(StatementPackageError, "more than {{limit}} PDF files", limit=limit)
     read = {(a.source or {}).get("sha256") for r in out.readings for a in r.accounts}  # 141: the text statements
     read |= {(a.source or {}).get("companion", {}).get("sha256") for r in out.readings for a in r.accounts
              if (a.source or {}).get("companion")}
@@ -292,17 +288,17 @@ def _chosen(found: _Found, statements: list[str], pdfs: list[str]) -> tuple[list
     wanted = set(statements)
     ids = {statement_table.derived_id(r, a): (r, a) for r in found.readings for a in r.accounts}
     if missing := wanted - set(ids):
-        raise explained(PackageError, "{{missing}} chosen statement(s) are no longer in the files; survey them again",
+        raise explained(StatementPackageError, "{{missing}} chosen statement(s) are no longer in the files; survey them again",
                         missing=len(missing))
     listed = {str(p): p for p in found.pdfs}
     picked = []
     for raw in pdfs:
         p = Path(raw).resolve()
         if str(p) not in listed:
-            raise explained(PackageError, "not a PDF of the survey: {{name}}", name=p.name)
+            raise explained(StatementPackageError, "not a PDF of the survey: {{name}}", name=p.name)
         picked.append(p)
     if not wanted and not picked:
-        raise explained(PackageError, "choose at least one statement or PDF")
+        raise explained(StatementPackageError, "choose at least one statement or PDF")
     entries: list[tuple[Path, str]] = []
     for r in found.readings:
         keys = [a.key for a in r.accounts if statement_table.derived_id(r, a) in wanted]
@@ -343,7 +339,7 @@ def add(wp_id: str, *, paths: list[Path], statements: list[str], pdfs: list[str]
     entries, wanted, picked = _chosen(_sources(expand_folders(paths, recursive=recursive)), statements, pdfs)
     held = _held(wp_id)
     if dup := (wanted | {work.sha256_file(p) for p in picked}) & held:
-        raise explained(PackageError, "{{dup}} chosen statement(s) or PDF(s) are already in the package; survey them again",
+        raise explained(StatementPackageError, "{{dup}} chosen statement(s) or PDF(s) are already in the package; survey them again",
                         dup=len(dup))
     return work.add_entries(wp_id, entries, expected_revision=expected_revision,
                             event=("statement_add", actor, {"statements": len(wanted), "pdfs": len(picked)}))
@@ -352,7 +348,7 @@ def add(wp_id: str, *, paths: list[Path], statements: list[str], pdfs: list[str]
 def _package(wp_id: str) -> dict[str, Any]:
     wp = work.get(wp_id)
     if wp["source_kind"] != KIND:
-        raise explained(PackageError, "not a statement package")
+        raise explained(StatementPackageError, "not a statement package")
     return wp
 
 
@@ -563,5 +559,5 @@ LOGIC = logic_packs.LogicPack(
     rule=RULE, page=_page, scope=own_scope, service="jav.api_statement_package")
 
 
-__all__ = ["KIND", "LOGIC", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "STEP", "PackageError", "add_statement_tables",
+__all__ = ["KIND", "LOGIC", "NOT_A_STATEMENT", "OTHER_PARTY", "RULE", "STEP", "StatementPackageError", "add_statement_tables",
            "after_detection", "after_item", "create", "create_from_statement_table", "package_view", "scope", "survey"]

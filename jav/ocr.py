@@ -45,6 +45,7 @@ from jav.adapters import azure_di
 from jav.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, OLD_DATA_ROOT, PROJECT_ROOT
 from jav.models import LineLayout
 from jav.pdf import PdfText, build_layout, text_layer_ok
+from jav.digest import file_sha256 as _sha256
 
 log = logging.getLogger("jav.ocr")
 
@@ -487,14 +488,6 @@ def line_tolerance(pages: list[list[dict[str, Any]]]) -> float:
 
 
 # --- cache + entry point -------------------------------------------------------------------------
-
-
-def _sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def cache_key(path: Path, eng: str) -> str:
