@@ -97,7 +97,9 @@ function ProposalPanel({ wpId, view, onChanged }: { wpId: string; view: QuoteVie
     <section className="card wide rc-stack quote-proposal" aria-label={t("Proposal from the price list")}>
       <div className="card-head">
         <h3>{t("Proposal from the price list")}</h3>
-        <button type="button" className="primary" disabled={busy || active || view.blockers.length > 0}
+        {/* the view's one solid action while there is no usable proposal; once there is one, composing the quote is next */}
+        <button type="button" className={!p || p.state === "failed" || p.stale ? "primary" : "secondary"}
+          disabled={busy || active || view.blockers.length > 0}
           title={cap > 0 ? t("Asks the AI about {{n}} item(s) and can spend up to {{usd}}", { n: view.proposal_cap.items, usd: usdBudget(cap) }) : undefined}
           onClick={() => void ask()}>
           {p ? t("Ask for a new proposal") : t("Ask for the proposal")}

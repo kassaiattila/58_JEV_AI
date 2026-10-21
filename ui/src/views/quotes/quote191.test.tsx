@@ -113,13 +113,16 @@ describe("the quote package (191)", () => {
     await waitFor(() => expect(ask).toHaveBeenCalledWith("wp-000000000193"));
     await waitFor(() => expect(changed).toHaveBeenCalled());
     rerender(<QuoteStages view={view({ ...READY, proposal: PROPOSAL })} stage="review" onChanged={changed} />);
-    expect(screen.getByRole("button", { name: "Ask for a new proposal" })).toBeTruthy();
+    // a stale proposal is asked again as the view's main action; a current one leaves that to composing the quote
+    expect(screen.getByRole("button", { name: "Ask for a new proposal" }).className).toContain("primary");
     expect(screen.getByText("the request or the price list changed since").className).toContain("s-warn");
     const rows = within(screen.getByRole("table", { name: "Proposed lines" })).getAllByRole("row").slice(1);
     expect(within(rows[0]).getByText("sure").className).toContain("s-done");
     expect(within(rows[1]).getByText("to check").className).toContain("s-review");
     expect(within(rows[1]).getByText("HW-MON-27")).toBeTruthy();
     expect(within(rows[2]).getByText("not in the price list").className).toContain("s-warn");
+    rerender(<QuoteStages view={view({ ...READY, proposal: { ...PROPOSAL, stale: false } })} stage="review" onChanged={changed} />);
+    expect(screen.getByRole("button", { name: "Ask for a new proposal" }).className).toContain("secondary");
   });
 
   it("does not ask while a gap is open, and asks the page again while the proposal is being made", () => {
