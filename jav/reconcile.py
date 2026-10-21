@@ -1691,3 +1691,10 @@ def golden_score() -> dict[str, Any]:
     cases = golden_cases()
     failures = {c["id"]: p for c in cases if (p := check_case(c))}
     return {"passed": len(cases) - len(failures), "total": len(cases), "failures": failures}
+
+
+def print_golden_score(score: dict[str, Any]) -> None:
+    """The report of `golden_score()`: the cases passed, then what differed in each failed one."""
+    print(f"golden cases: {score['passed']}/{score['total']}")
+    for case, problems in score["failures"].items():
+        print(f"  {case}: " + "; ".join(problems))

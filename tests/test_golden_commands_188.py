@@ -68,7 +68,7 @@ def credit_kinds_call(engine: str, limits: dict[str, Decimal], *,
 
 CREDIT_RESULT = {"cases": 2, "golden_version": "1.0.0", "jev_config": "j", "gpt_config": "g", "scope": "s",
                  "usage": {}, "raw": "runs/x_credit_kinds_golden.jsonl",
-                 "engines": {"jev": {"cases": 2, "right": 1, "failed": 0, "by_kind": {}, "confusions": {}}}}
+                 "engines": {e: {"cases": 2, "right": 1, "failed": 0, "by_kind": {}, "confusions": {}} for e in ("jev", "gpt")}}
 
 
 @pytest.mark.parametrize(("argv", "expected"), [

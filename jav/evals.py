@@ -61,6 +61,23 @@ def load_cases(type_key: str = DEFAULT_KEY) -> list[GoldenCase]:
     return cases
 
 
+def count_cases(type_key: str = DEFAULT_KEY) -> int:
+    """188: the number of the legacy manifest's cases for one type that `load_cases` can read (`jav/goldens.py`): their
+    expected file holds a `datapoints` record. The packs converted from legacy types (047) keep their expected values
+    without it, so they have none yet; 0 without the legacy project."""
+    if not GOLDEN_MANIFEST.exists():
+        return 0
+    wanted = get_pack(type_key).golden_type_key
+    manifest = json.loads(GOLDEN_MANIFEST.read_text(encoding="utf-8"))
+    count = 0
+    for c in manifest.get("cases", []):
+        if c.get("type_key") != wanted:
+            continue
+        expected = GOLDEN_EXPECTED_DIR / c.get("expected_ref", f"expected/{c['id'].split('/', 1)[1]}.json")
+        count += expected.exists() and "datapoints" in json.loads(expected.read_text(encoding="utf-8"))
+    return count
+
+
 SYNTHETIC_DIR = RUNS_DIR / "synthetic_golden"
 
 

@@ -48,6 +48,7 @@ Types: `feat` (new capability), `fix` (bug), `refactor` (no behaviour change), `
 ## 3. Measurements and reproducibility
 
 - The raw run and receipt of every new measurement record the **commit hash** and whether the working tree was clean. Live, paid measurements never start on a dirty working tree.
+- **Every golden set with one command** (free): `python -m jav.cli measure --store <copy of the store>` measures each golden set from earlier answers, the way its own command does (`measure --list` names them; a selector picks some, for example `datapoints:invoice_hu` or `reconcile`). The receipt `runs/<stamp>_measure.jsonl` records the commit, whether the working tree was clean and one line per set; the sets' own reports are in `runs/<stamp>_measure.log`. A paid round names exactly one set, with its sub-budget. Without `--store` the measured results go into the work store, as with the sets' own commands.
 - Experimental code must never be imported by the runtime. An experiment gets its own ID, recipe and receipt.
 - **Before/after comparison of a refactoring step** (free; `jav/before_after.py`). A step meant to change nothing visible is checked on a backed-up copy of the store:
   1. Back up the store once: `python -m jav.cli backup --with-docs --copy-to <scratch folder>`. Every snapshot then reads a fresh copy of that backup, with its native readings and source copies, so the store in use is never touched.

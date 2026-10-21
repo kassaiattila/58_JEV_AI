@@ -547,13 +547,20 @@ def _golden_line(case: dict[str, Any]) -> dict[str, Any]:
             **{k: case[k] for k in ("counterparty_name", "description", "memo") if case.get(k)}}
 
 
-def golden(*, engines: Iterable[str], limits: dict[str, Decimal], use_cache: bool = True, out_dir: Path = RUNS_DIR) -> dict[str, Any]:
+def golden(*, engines: Iterable[str], limits: dict[str, Decimal], use_cache: bool = True, out_dir: Path = RUNS_DIR,
+           earlier_only: bool = False) -> dict[str, Any]:
     """158: the incoming kind question on the invented lines of `configs/golden_credit_kinds.json`, per engine, under the
     owner's sub-budget (`limits` per provider; an engine without one is refused before any call). The raw answers go to
     `runs/<stamp>_credit_kinds_golden.jsonl`; nothing is stored. The score is against labels written for this
-    measurement, not against a person's decisions on real lines."""
+    measurement, not against a person's decisions on real lines. 188: `earlier_only` (the shared measurement command,
+    `jav/goldens.py`) measures without a budget: only earlier answers count (160), and a line without one is a failed
+    answer."""
     engines = [e for e in ENGINES if e in set(engines)]
-    if missing := [e for e in engines if PROVIDERS[e] not in limits]:
+    if earlier_only:
+        if limits:
+            raise ValueError("earlier answers only take no budget")
+        print(calls.NO_BUDGET_NOTE)
+    elif missing := [e for e in engines if PROVIDERS[e] not in limits]:
         raise ValueError(f"no budget for: {', '.join(missing)}")
     cases = cfg.load("golden_credit_kinds")["cases"]
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -589,6 +596,18 @@ def golden(*, engines: Iterable[str], limits: dict[str, Decimal], use_cache: boo
                              "confusions": dict(confusions.most_common())}
     return {"scope": scope, "raw": str(raw), "cases": len(cases), "engines": score, "usage": calls.budget_usage(scope),
             "golden_version": cfg.load("golden_credit_kinds")["meta"]["version"], "jev_config": jev_hash(), "gpt_config": gpt_hash()}
+
+
+def print_golden(g: dict[str, Any]) -> None:
+    """The report of `golden()`: per engine the right answers, by kind, and what differed (counts only)."""
+    print(f"golden cases: {g['cases']} (golden {g['golden_version']}, config jev {g['jev_config']}, gpt {g['gpt_config']})")
+    for engine, s in g["engines"].items():
+        kinds = ", ".join(f"{k} {t['right']}/{t['cases']}" for k, t in s["by_kind"].items())
+        print(f"{engine}: {s['right']}/{s['cases']} as labelled, failed {s['failed']}; {kinds}")
+        if s["confusions"]:
+            print(f"  {engine} differs: " + ", ".join(f"{k} x{n}" for k, n in s["confusions"].items()))
+    print(f"budget scope {g['scope']}: {g['usage']}")
+    print(f"raw answers: {g['raw']}")
 
 
 def _pays_outcome(answer: dict[str, Any], paid: set[str], marked: bool) -> str:

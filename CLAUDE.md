@@ -65,6 +65,7 @@ python -m jav.cli preflight [--skip-pytest]      # session start: tests (Python 
 pytest tests/                                     # offline tests; a single test: pytest tests/test_emails.py -k next_flow
 python smoke_test.py                              # venv + keys + one live JEV call
 python -m jav.cli recall | golden --arm S|G [--synthetic] | determinism --arm S --n 5 | verifier-probe [--no-cache] [--type invoice_foreign]
+python -m jav.cli measure [<golden set> ...] [--list] [--store <copy>]   # 188: every golden set with one command (jav/goldens.py); free from earlier answers, a paid round names one set
 # 160: every command that can make paid calls needs --jev-budget-usd / --budget-usd (OpenAI) for a live call; without them only earlier answers count
 # 160-D: every command that asks AI takes --engine jev|gpt (--no-jev = gpt); a processing command follows the application's engine, a measurement defaults to jev
 python -m jav.cli detect <pdf> | detect-golden | detect-determinism --n 3 | detect-corpus <folder> [--redo-unknown] | detect-sample <folder>

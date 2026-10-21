@@ -4,6 +4,7 @@
   recall                      candidate recall on the golden set (no API) - the ceiling of the S path
   run <pdf> --arm S|G         runs one invoice through the Burr graph
   golden --arm S|G            golden eval for one path
+  measure [golden ...] [--list]   188: every golden set with one command (data points, types, intents, logic packs)
   determinism --arm S --n 5   repeated runs, per-field agreement (no cache)
   store                       store statistics
   detect <pdf> | detect-golden | detect-determinism --n 3 | detect-corpus <folder> | detect-sample <folder>
@@ -404,6 +405,31 @@ def cmd_golden(args: argparse.Namespace) -> int:
     return 3 if report_budget_skips(rows) else 0
 
 
+def cmd_measure(args: argparse.Namespace) -> int:
+    """188 (plan 185 T3a): every golden set with one command (`jav/goldens.py`): the type packs' data points, the type
+    recognition, the email intent and the logic packs' golden sets, each as its own command measures it. Without a
+    budget only earlier answers count (free); a paid measurement names exactly one golden set. Exit code: 1 a set broke
+    off or a code-only set failed a case, 3 a case without a result, 2 nothing measured or refused."""
+    from decimal import Decimal
+
+    from jav import goldens
+
+    if args.list:
+        for g in goldens.sets():
+            print(f"{g.key:44} {g.layer:10} {'/'.join(g.engines) or 'code':8} {g.count():4} cases  {g.what}")
+        return 0
+    try:
+        options = goldens.Options(engine=args.engine, use_cache=not args.no_cache,
+                                  jev_budget_usd=Decimal(args.jev_budget_usd) if args.jev_budget_usd else None,
+                                  budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
+        result = goldens.measure_round(goldens.select(args.golden), options,
+                                       store_path=Path(args.store) if args.store else None)
+    except (goldens.UnknownGolden, goldens.RoundRefused) as exc:
+        print(exc)
+        return 2
+    return result.exit_code
+
+
 def cmd_determinism(args: argparse.Namespace) -> int:
     from jav.evals import determinism
     from jav.flow import run_one
@@ -612,9 +638,7 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
 
     if args.golden:
         score = reconcile.golden_score()
-        print(f"golden cases: {score['passed']}/{score['total']}")
-        for case, problems in score["failures"].items():
-            print(f"  {case}: " + "; ".join(problems))
+        reconcile.print_golden_score(score)
         return 0 if not score["failures"] else 1
     r = reconcile.scan()
     print(f"statements: {r['statements']} (verified by their balances: {r['verified_statements']}), lines: {r['lines']}")
@@ -656,14 +680,7 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
         except ValueError as exc:
             print(f"{exc} (jev: --jev-budget-usd, gpt: --budget-usd)")
             return 2
-        print(f"golden cases: {g['cases']} (golden {g['golden_version']}, config jev {g['jev_config']}, gpt {g['gpt_config']})")
-        for engine, s in g["engines"].items():
-            kinds = ", ".join(f"{k} {t['right']}/{t['cases']}" for k, t in s["by_kind"].items())
-            print(f"{engine}: {s['right']}/{s['cases']} as labelled, failed {s['failed']}; {kinds}")
-            if s["confusions"]:
-                print(f"  {engine} differs: " + ", ".join(f"{k} x{n}" for k, n in s["confusions"].items()))
-        print(f"budget scope {g['scope']}: {g['usage']}")
-        print(f"raw answers: {g['raw']}")
+        reconcile_ai.print_golden(g)
         return 0
     if not args.workpackage_id:
         print("a reconciliation package (wp-...) is needed, or --golden")
@@ -1277,6 +1294,17 @@ def main(argv: list[str] | None = None) -> int:
                                    "named <type>_local_<arm> and its scores are an agreement, not an accuracy")
     p.add_argument("--store", help="122: a separate measurement store (results, to-dos and call log stay out of the work store)")
     p.set_defaults(fn=cmd_golden)
+
+    p = sub.add_parser("measure", help="188: every golden set with one command (data points, types, intents, logic "
+                                       "packs); without a budget only earlier answers count")
+    p.add_argument("golden", nargs="*", help="golden sets by key or its first parts (datapoints:invoice_hu, types, "
+                                             "reconcile); none: every golden set")
+    p.add_argument("--list", action="store_true", help="list the golden sets with their case counts, measure nothing")
+    p.add_argument("--no-cache", action="store_true", help="ask again (live calls; needs a budget)")
+    _engine_args(p, measurement=True)
+    _budget_args(p)
+    p.add_argument("--store", help="122: a separate measurement store (results, to-dos and call log stay out of the work store)")
+    p.set_defaults(fn=cmd_measure)
 
     p = sub.add_parser("determinism")
     p.add_argument("--arm", choices=["S", "G"], required=True)

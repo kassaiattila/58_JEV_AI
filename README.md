@@ -63,6 +63,7 @@ In a fresh clone, without the legacy project (`10_AIFLOW_V4`) and its golden set
 
 ```powershell
 python -m jav.cli run <pdf> --arm S|G [--type invoice_foreign]      # one invoice through the flow, saved to the store
+python -m jav.cli measure [<golden set> ...] [--list] [--store <copy>]   # every golden set with one command (data points, types, intents, logic packs); free from earlier answers; receipt runs/*_measure.jsonl
 python -m jav.cli golden --arm S|G [--type <pack>] [--no-cache]    # golden-set run (runs/*_golden_*.jsonl; needs the legacy project's golden set)
 python -m jav.cli golden --arm S --type <pack> --synthetic         # the invented cases of configs/golden_synthetic.json (runs/*_synthetic_*.jsonl)
 python -m jav.cli golden --arm S --type <pack> --cases <file> --store <copy>   # a local case list with reference values (runs/*_local_*.jsonl; agreement, not accuracy)
