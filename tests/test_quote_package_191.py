@@ -125,7 +125,7 @@ def test_a_quote_package_names_its_request_and_its_gaps(env, tmp_path):
     _price_list(tmp_path)
     view = quote_package.view(quote["id"])
     assert view["blockers"] == [] and [p["name"] for p in view["price_lists"]] == ["Invented 2026"]
-    assert quote_package.next_step(quote["id"]) == {"code": "quote_compose", "label": "Compose the quote", "stage": "review"}
+    assert quote_package.next_step(quote["id"]) == {"code": "quote_propose", "label": "Ask for the proposal", "stage": "review"}
     assert not logic_packs.of("quote").approved(quote["id"])
     # the email it came from shows which quotes were made from it
     assert quote_package.candidates()[0]["quotes"] == [{"id": quote["id"], "name": quote["name"]}]

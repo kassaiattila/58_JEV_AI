@@ -1,0 +1,14 @@
+{
+  "meta": {
+    "name": "quotes",
+    "version": "1.0.0",
+    "description": "The quote package's settings (191, plan F-quote-package B4c, jav/quote_proposal.py). proposal: a person asks for the quote's proposal on the package's page and the worker matches each requested item with the active price list, with the application's AI engine; max_item_usd is the budget reserved per requested item and provider (the button shows the sum as the proposal's cost cap; a call reserves its worst case first, measured 2026-10-21 on the invented golden set: at most 0.0015 USD JEV and 0.024 USD OpenAI per item reserved, at most 0.00015 and 0.002 spent); max_items: the most requested items one proposal asks about.",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-21", "note": "191 (plan F-quote-package B4c): the proposal's budget per requested item (JEV 0.003 USD, OpenAI 0.03 USD) and its most items (200)."}
+    ]
+  },
+  "proposal": {
+    "max_item_usd": {"jev": "0.003", "openai": "0.03"},
+    "max_items": 200
+  }
+}

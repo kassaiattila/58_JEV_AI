@@ -427,6 +427,7 @@ const STEP_LABEL = tmap({
   routing_empty: "Nothing to route", routing_done: "Routed",
   // 191: a quote package's steps (jav/quote_package.py `_next_of`)
   quote_request_missing: "The request cannot be read", quote_compose: "Compose the quote",
+  quote_propose: "Ask for the proposal", quote_proposing: "The proposal is being made", // B4c
 });
 
 /** The package's next step in the chosen language (057): from the service's code and parameters; for an unknown code,

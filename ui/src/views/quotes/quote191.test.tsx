@@ -4,7 +4,7 @@
 // local service is replaced by spies; invented names only.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type QuoteRequestCandidate, type QuoteView, type WorkpackageView } from "../../api";
+import { api, setActor, type QuoteProposal, type QuoteRequestCandidate, type QuoteView, type WorkpackageView } from "../../api";
 import { setLanguage } from "../../i18n";
 import { LOGIC } from "../../logic/registry";
 import { hasOwnForm } from "../../logic/steps";
@@ -33,6 +33,25 @@ const QUOTE: QuoteView = {
   },
   source: { workpackage_id: "wp-000000000191", item_id: "item-1", workpackage_name: "Invented mailbox" },
   price_lists: [], blockers: [{ code: "quote:no_price_list", message: "There is no active price list" }],
+  proposal: null, proposal_cap: { engine: "jev", items: 1, usd: { jev: "0.003" } },
+};
+
+const READY: QuoteView = {
+  ...QUOTE, blockers: [],
+  price_lists: [{ price_list: "pl-0123456789", name: "Invented 2026", version: 2, currency: "HUF", vat_percent: "27", items: 24,
+                  discounts: [], fingerprint: "f" }],
+  proposal_cap: { engine: "jev", items: 2, usd: { jev: "0.006" } },
+};
+
+const PROPOSAL: QuoteProposal = {
+  state: "done", engine: "jev", price_list: "pl-0123456789", version: 2, requested_by: "Synthetic reviewer",
+  requested_at: "2026-11-02T10:00:00+00:00", finished_at: "2026-11-02T10:00:05+00:00", error: null, limits: { jev: "0.006" },
+  stale: true,
+  lines: [
+    { row: 0, description: "24 inch monitor", quantity: "3", unit: "pc", answer: { mark: "sure", sku: "HW-MON-24", candidates: ["HW-MON-24"], method: "jev" } },
+    { row: 1, description: "2 monitors", quantity: "2", unit: "pc", answer: { mark: "check", sku: "HW-MON-24", candidates: ["HW-MON-24", "HW-MON-27"], method: "jev" } },
+    { row: 2, description: "2 tablets", quantity: "2", unit: "pc", answer: { mark: "not_listed", sku: null, candidates: [], method: "jev" } },
+  ],
 };
 
 function view(quote: QuoteView): WorkpackageView {
@@ -81,6 +100,42 @@ describe("the quote package (191)", () => {
     expect(screen.getByText(QUOTE_BLOCKER["quote:no_price_list"])).toBeTruthy();
     expect(screen.getByRole("link", { name: "Settings › Price lists" }).getAttribute("href")).toBe("#/settings/prices");
     expect(screen.getByRole("link", { name: "in Invented mailbox" }).getAttribute("href")).toBe("#/workpackages/wp-000000000191");
+  });
+
+  it("asks for the proposal with its cost cap, and shows each line's mark and other candidates", async () => {
+    const ask = vi.spyOn(api, "requestQuoteProposal").mockResolvedValue({ ...PROPOSAL, state: "queued", lines: [] });
+    const changed = vi.fn();
+    const { rerender } = render(<QuoteStages view={view(READY)} stage="review" onChanged={changed} />);
+    const button = screen.getByRole("button", { name: "Ask for the proposal" });
+    expect(button.className).toContain("primary");
+    expect(button.querySelector(".spend")?.textContent).toBe("≤ 0.0060 USD"); // a cap below a cent keeps its digits
+    fireEvent.click(button);
+    await waitFor(() => expect(ask).toHaveBeenCalledWith("wp-000000000193"));
+    await waitFor(() => expect(changed).toHaveBeenCalled());
+    rerender(<QuoteStages view={view({ ...READY, proposal: PROPOSAL })} stage="review" onChanged={changed} />);
+    expect(screen.getByRole("button", { name: "Ask for a new proposal" })).toBeTruthy();
+    expect(screen.getByText("the request or the price list changed since").className).toContain("s-warn");
+    const rows = within(screen.getByRole("table", { name: "Proposed lines" })).getAllByRole("row").slice(1);
+    expect(within(rows[0]).getByText("sure").className).toContain("s-done");
+    expect(within(rows[1]).getByText("to check").className).toContain("s-review");
+    expect(within(rows[1]).getByText("HW-MON-27")).toBeTruthy();
+    expect(within(rows[2]).getByText("not in the price list").className).toContain("s-warn");
+  });
+
+  it("does not ask while a gap is open, and asks the page again while the proposal is being made", () => {
+    vi.useFakeTimers();
+    try {
+      const changed = vi.fn();
+      render(<QuoteStages view={view({ ...READY, proposal: { ...PROPOSAL, state: "running", lines: [] } })} stage="review" onChanged={changed} />);
+      expect(screen.getByRole("button", { name: "Ask for a new proposal" })).toHaveProperty("disabled", true);
+      vi.advanceTimersByTime(4100);
+      expect(changed).toHaveBeenCalledTimes(2);
+      cleanup();
+      render(<QuoteStages view={view(QUOTE)} stage="review" onChanged={changed} />);
+      expect(screen.getByRole("button", { name: "Ask for the proposal" })).toHaveProperty("disabled", true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("says a request that can no longer be read", () => {

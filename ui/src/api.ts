@@ -96,10 +96,25 @@ export interface QuotePriceList {
   price_list: string; name: string; version: number; currency: string; vat_percent: string; items: number;
   discounts: PriceRule[]; fingerprint: string;
 }
+/** 191 B4c: a requested item's proposed price list item: its mark (sure, to check, not listed; null when it failed),
+ *  the item, the likely candidates, how it was decided (code, jev, gpt). */
+export interface QuoteMatchAnswer {
+  mark: "sure" | "check" | "not_listed" | null; sku?: string | null; probability?: number | null; candidates?: string[];
+  method?: "code" | "jev" | "gpt"; engine?: "jev" | "gpt"; error?: string | null;
+}
+export interface QuoteProposalLine { row: number; description?: string | null; quantity?: string | number | null; unit?: string | null; answer: QuoteMatchAnswer }
+export interface QuoteProposal {
+  state: "queued" | "running" | "done" | "failed"; engine: "jev" | "gpt"; price_list: string; version: number;
+  requested_by: string; requested_at: string; finished_at: string | null; error: string | null;
+  limits: Record<string, string>; lines: QuoteProposalLine[]; stale: boolean;
+}
 export interface QuoteView {
   request: QuoteRequest | null;
   source: { workpackage_id: string; item_id: string; workpackage_name: string | null } | null;
   price_lists: QuotePriceList[]; blockers: { code: QuoteBlockerCode; message: string }[];
+  proposal: QuoteProposal | null;
+  /** what a new proposal reserves with the application's engine: provider -> USD */
+  proposal_cap: { engine: "jev" | "gpt"; items: number; usd: Record<string, string> };
 }
 /** A request a quote can start from, with the quotes already made from it. */
 export interface QuoteRequestCandidate {
@@ -1382,6 +1397,8 @@ export const api = {
   quoteRequests: (q?: string) => request<{ requests: QuoteRequestCandidate[] }>("GET", `/quote-requests${q ? `?q=${enc(q)}` : ""}`),
   createQuotePackage: (body: { name: string; source: string; item_id: string }) =>
     request<{ workpackage_id: string }>("POST", "/quote-packages", body),
+  /** 191 B4c: queues the quote's proposal (the worker makes it) */
+  requestQuoteProposal: (wpId: string) => request<QuoteProposal>("POST", `/workpackages/${enc(wpId)}/quote/proposal`, {}),
   /** 191 (plan F-quote-package B2): the seller's price lists; an upload is read by the service from the path the
    *  system's file picker chose, and a refused file gives 422 `price_list_refused` with the check (`ApiError.check`) */
   priceLists: () => request<PriceListsListing>("GET", "/price-lists"),

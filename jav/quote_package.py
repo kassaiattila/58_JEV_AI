@@ -23,7 +23,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav import goldens, logic_packs, package_scope, price_lists, quote_request, store, work, workflow_steps
+from jav import (app_settings, goldens, logic_packs, package_scope, price_lists, quote_proposal, quote_request, store, work,
+                 workflow_steps)
 from jav.tablequery import fold
 from jav.user_messages import explained
 
@@ -127,9 +128,14 @@ def view(wp_id: str) -> dict[str, Any]:
             blockers.append(_blocker("quote:no_items", "The request names no item"))
     if not lists:
         blockers.append(_blocker("quote:no_price_list", "There is no active price list"))
+    # B4c: the latest proposal, and the cap a new one would reserve with the application's engine
+    engine = app_settings.engine_default()
+    n_items = len(request.items) if request else 0
     return {"request": request.as_dict() if request else None,
             "source": {**ref, "workpackage_name": source_name} if ref else None,
-            "price_lists": lists, "blockers": blockers}
+            "price_lists": lists, "blockers": blockers, "proposal": quote_proposal.current(wp_id),
+            "proposal_cap": {"engine": engine, "items": n_items,
+                             "usd": {k: str(v) for k, v in quote_proposal.cap(n_items, engine).items()}}}
 
 
 def _next_of(current: dict[str, Any]) -> dict[str, Any]:
@@ -138,6 +144,11 @@ def _next_of(current: dict[str, Any]) -> dict[str, Any]:
     if current["blockers"]:
         return {"code": "quote_request_check", "label": "Check the request", "stage": "process",
                 "params": {"n": len(current["blockers"])}}
+    proposal = current.get("proposal")
+    if proposal is None or proposal["state"] == "failed":
+        return {"code": "quote_propose", "label": "Ask for the proposal", "stage": "review"}
+    if proposal["state"] in ("queued", "running"):
+        return {"code": "quote_proposing", "label": "The proposal is being made", "stage": "review"}
     return {"code": "quote_compose", "label": "Compose the quote", "stage": "review"}
 
 
@@ -213,7 +224,8 @@ LOGIC = logic_packs.LogicPack(
            logic_packs.InputRole("price_list", "master_data", "the seller's active price list")),
     has_runs=False, add_refusal="a quote package has no documents of its own: its request stays in its package",
     release_refusal=_release_refusal, page=_page, approved=_approved, next_step=next_step, list_next=next_step,
-    list_mark=price_lists.mark, outputs=(), service="jav.api_quote_package", goldens=GOLDENS)
+    list_mark=lambda: (price_lists.mark(), quote_proposal.mark()), outputs=(), service="jav.api_quote_package",
+    goldens=GOLDENS)
 
 
 def _workflow_start(_ctx: workflow_steps.StepStart) -> None:
@@ -225,6 +237,7 @@ def _workflow_start(_ctx: workflow_steps.StepStart) -> None:
 STEP = workflow_steps.StepKind(KIND, __name__, (KIND,), start=_workflow_start, paid=False, own_engine=False,
                                repeat_from=lambda _wp_id: {"kind": "none"},
                                statuses={"quote_request_missing": "attention", "quote_request_check": "review",
+                                         "quote_propose": "review", "quote_proposing": "review",
                                          "quote_compose": "review"})
 
 

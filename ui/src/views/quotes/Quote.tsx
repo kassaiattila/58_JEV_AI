@@ -5,12 +5,12 @@
 // with the next steps of the plan), and its approval.
 import { useEffect, useState } from "react";
 import {
-  api, ApiError, type QuoteBlockerCode, type QuoteRequest, type QuoteRequestCandidate, type QuoteRequestPart,
-  type QuoteView, type WorkpackageView,
+  api, ApiError, type QuoteBlockerCode, type QuoteMatchAnswer, type QuoteProposal, type QuoteRequest,
+  type QuoteRequestCandidate, type QuoteRequestPart, type QuoteView, type WorkpackageView,
 } from "../../api";
 import { Picker } from "../../components/Picker";
 import { t, useLocale } from "../../i18n";
-import { fieldLabel, numText, when } from "../../labels";
+import { fieldLabel, numText, usdBudget, when } from "../../labels";
 import type { Stage } from "../../route";
 
 export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
@@ -42,17 +42,121 @@ export function quoteSummary(view: WorkpackageView): string | null {
   return customer ? t("Quote for {{customer}}: {{title}}", { customer, title: r.title }) : t("Quote: {{title}}", { title: r.title });
 }
 
-export function QuoteStages({ view, stage }: { view: WorkpackageView; stage: Stage; onChanged: () => void }) {
+export function QuoteStages({ view, stage, onChanged }: { view: WorkpackageView; stage: Stage; onChanged: () => void }) {
   useLocale();
   const q = view.quote;
   if (!q) return <p className="muted">{t("Loading…")}</p>;
   if (stage === "process") return <RequestPanel view={q} />;
+  if (stage === "review") return <ProposalPanel wpId={view.workpackage.id} view={q} onChanged={onChanged} />;
   return (
-    <section className="card wide rc-stack" aria-label={stage === "review" ? t("The quote") : t("Approval")}>
-      <h3>{stage === "review" ? t("The quote") : t("Approval")}</h3>
-      {q.blockers.length ? <Gaps view={q} /> : null}
-      <p className="muted">{t("Composing and approving the quote come with the next step of the development; until then the request is checked on the Request stage.")}</p>
+    <section className="card wide rc-stack" aria-label={t("Approval")}>
+      <h3>{t("Approval")}</h3>
+      <p className="muted">{t("Approving the quote comes with the next step of the development.")}</p>
     </section>
+  );
+}
+
+// 191 B4c: a proposed line's mark (DESIGN.md §4): sure green, to check a person's turn (orange), not listed off (amber)
+const MARK: Record<string, { cls: string; label: string }> = {
+  sure: { cls: "s-done", label: "sure" }, check: { cls: "s-review", label: "to check" },
+  not_listed: { cls: "s-warn", label: "not in the price list" },
+};
+const STATE: Record<QuoteProposal["state"], { cls: string; label: string }> = {
+  queued: { cls: "s-queued", label: "queued" }, running: { cls: "s-running", label: "being made" },
+  done: { cls: "s-done", label: "made" }, failed: { cls: "s-failed", label: "failed" },
+};
+const capOf = (usd: Record<string, string>) => Object.values(usd).reduce((s, v) => s + (Number(v) || 0), 0);
+
+/** The proposal: each requested item with the price list item proposed for it, asked by a person and made by the
+ *  worker; while it is queued or being made the page asks again every two seconds. */
+function ProposalPanel({ wpId, view, onChanged }: { wpId: string; view: QuoteView; onChanged: () => void }) {
+  useLocale();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const p = view.proposal;
+  const active = p?.state === "queued" || p?.state === "running";
+  useEffect(() => {
+    if (!active) return undefined;
+    const timer = window.setInterval(onChanged, 2000);
+    return () => window.clearInterval(timer);
+  }, [active, onChanged]);
+  const cap = capOf(view.proposal_cap.usd);
+  async function ask() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.requestQuoteProposal(wpId);
+      onChanged();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="card wide rc-stack quote-proposal" aria-label={t("Proposal from the price list")}>
+      <div className="card-head">
+        <h3>{t("Proposal from the price list")}</h3>
+        <button type="button" className="primary" disabled={busy || active || view.blockers.length > 0}
+          title={cap > 0 ? t("Asks the AI about {{n}} item(s) and can spend up to {{usd}}", { n: view.proposal_cap.items, usd: usdBudget(cap) }) : undefined}
+          onClick={() => void ask()}>
+          {p ? t("Ask for a new proposal") : t("Ask for the proposal")}
+          {cap > 0 ? <span className="spend" aria-hidden="true">≤ {usdBudget(cap)}</span> : null}
+        </button>
+      </div>
+      {view.blockers.length ? <Gaps view={view} /> : null}
+      {p ? (
+        <p className="small">
+          <span className={`status ${STATE[p.state].cls}`}>{t(STATE[p.state].label)}</span>{" "}
+          <span className="muted tnum">
+            {[p.engine === "gpt" ? t("GPT only") : "JEV", t("price list version {{n}}", { n: p.version }),
+              when(p.finished_at ?? p.requested_at)].join(" · ")}
+          </span>
+          {p.stale ? <>{" "}<span className="status s-warn">{t("the request or the price list changed since")}</span></> : null}
+          {p.error ? <span className="error-text"> {p.error}</span> : null}
+        </p>
+      ) : (
+        <p className="small muted">{t("The system proposes a price list item for each requested item; code prices the lines. You review and change every line before the quote is approved.")}</p>
+      )}
+      {p && p.lines.length ? <ProposalLines lines={p.lines} /> : null}
+      {error ? <p className="notice error" role="alert">{error}</p> : null}
+    </section>
+  );
+}
+
+function ProposalLines({ lines }: { lines: QuoteProposal["lines"] }) {
+  useLocale();
+  return (
+    <table className="table compact quote-proposal-lines" aria-label={t("Proposed lines")}>
+      <thead>
+        <tr>
+          <th>{t("Requested item")}</th><th className="num">{t("Quantity")}</th><th>{t("Proposed price list item")}</th>
+          <th>{t("Mark")}</th><th>{t("Other candidates")}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {lines.map((line) => (
+          <tr key={line.row}>
+            <td>{line.description ?? "—"}</td>
+            <td className="num tnum">{line.quantity === null || line.quantity === undefined ? "—" : `${numText(line.quantity, 4)} ${line.unit ?? ""}`.trim()}</td>
+            <td>{line.answer.sku ? <code className="mono">{line.answer.sku}</code> : <span className="muted">—</span>}</td>
+            <td><MarkCell answer={line.answer} /></td>
+            <td className="muted small">{(line.answer.candidates ?? []).filter((c) => c !== line.answer.sku).join(", ")}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function MarkCell({ answer }: { answer: QuoteMatchAnswer }) {
+  useLocale();
+  if (answer.error || !answer.mark) return <span className="status s-failed" title={answer.error ?? undefined}>{t("failed")}</span>;
+  const m = MARK[answer.mark];
+  return (
+    <span className={`status ${m.cls}`} title={answer.method === "code" ? t("the item code is written in the request") : undefined}>
+      {t(m.label)}{answer.method === "code" ? ` · ${t("by its code")}` : ""}
+    </span>
   );
 }
 
