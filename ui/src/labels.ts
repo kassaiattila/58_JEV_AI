@@ -118,6 +118,10 @@ const CHECK_TEXT: Record<string, string> = tmap({
   "lines.total_mismatch": "A tételek összege nem egyezik a számla végösszegével",
   "lines.incomplete": "Tételsoron hiányzik az összeg, ezért a tételösszeg nem ellenőrizhető",
   "lines.arithmetic_mismatch": "Tételsoron a mennyiség × egységár vagy a nettó + ÁFA nem adja ki a sor összegét",
+  // 190: the checks of any list field by its name (jav/validators.py list_rows, list_values, list_positive)
+  "lines.too_few": "A list has fewer rows than it should (for example, no requested item at all)",
+  "lines.value_missing": "A list row lacks a value it needs",
+  "lines.not_positive": "A quantity in a list row is zero or less",
   // 120: the role-pair check (jav/fact_checks.py); written with codepoints for the language guard
   "parties.same_entity": "Ugyanaz a szerepl\u0151 k\u00e9t k\u00fcl\u00f6nb\u00f6z\u0151 szerepben",
   // 121: the pair against the earlier documents of the same type (jav/party_history.py)
@@ -137,7 +141,8 @@ export function checkText(code: string, detail?: string | null): string {
   if (code.startsWith("lines.") && detail) {
     // 053 T3: a line-item check may name several rows; for the line-item total, the difference (line-item sum −
     // invoice total) per side
-    const rows = [...detail.matchAll(/\bline (\d+)\b/g)].map((m) => m[1]);
+    // 190: a row named twice (two of its values) is listed once
+    const rows = [...new Set([...detail.matchAll(/\bline (\d+)\b/g)].map((m) => m[1]))];
     const diffs = [...detail.matchAll(/\b(net|gross): sum-total=([-\d.]+)/g)]
       .map((m) => t(m[1] === "net" ? "nettó: eltérés {{diff}}" : "bruttó: eltérés {{diff}}", { diff: num(m[2]) }));
     const extra = [rows.length ? t("{{rows}}. sor", { rows: rows.join("., ") }) : "", ...diffs].filter(Boolean).join("; ");

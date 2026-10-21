@@ -19,6 +19,10 @@ What the pack contains (a mirror of the legacy 10_AIFLOW_V4 `types/<key>/` pack,
 - `inputs` (190, plan 189 A2b): the kinds of input the pack takes: `pdf` (the default, every pack before 190), `text`
   (an email's own text or a text file) and `table` (an Excel or CSV file), each laid out as lines by
   `jav.text_document`;
+- `plain_list_items` (190, plan 189 A2c): a list of plain values (`"items": {"type": "string"}` in the schema) becomes a
+  list of such values in the G path's output model; without it (every pack before 190) it became a list of empty
+  objects, so GPT could never fill it (the meeting minutes' attendees and agenda items). Off by default, so the
+  existing requests stay as they are; a pack turns it on with its paid golden run;
 - `extends` (2026-09-20): a base pack (`configs/types/_base/<name>.json`, e.g. the legacy `_shared/utility_bill_hu`),
   whose fields, lists, validators and schema file are placed before the child's (the legacy `extends` semantics:
   base + child); a base pack is not a runnable type on its own (it has no prompt), and `keys()` does not list it.
@@ -66,6 +70,7 @@ class TypePack(BaseModel):
     arms: tuple[str, ...] = ("S", "G")  # the paths runnable with the pack
     default_arm: str | None = None  # 053 T3: pack's path for an `auto` recipe (utility: G, it also yields line items)
     inputs: tuple[str, ...] = ("pdf",)  # 190: what the pack reads (`jav.text_document.INPUTS`)
+    plain_list_items: bool = False  # 190: a list of plain values is such a list in the output model, not empty objects
     parent: str | None = None  # 047: the coarse detection category (configs/doc_types.json) of this detailed type
     auto_detect: bool = True  # 047: may detection pick it (no for types that were dependent in the legacy project too)
     detect: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # 047: legacy detect.json keyword lists
@@ -150,7 +155,7 @@ class TypePack(BaseModel):
             from jav.models import InvoiceLLM
 
             return InvoiceLLM
-        return _model_from_schema(self.key, self.schema_files)
+        return _model_from_schema(self.key, self.schema_files, self.plain_list_items)
 
 
 def _read_schema(name: str) -> dict[str, Any]:
@@ -171,17 +176,26 @@ def _merged_schema(files: tuple[str, ...]) -> dict[str, Any]:
     return {"type": "object", "additionalProperties": False, "properties": props, "required": required}
 
 
-def _py_type(prop: dict[str, Any], name: str, owner: str) -> Any:
-    types = prop.get("type", ["string", "null"])
-    if isinstance(types, str):
-        types = [types]
-    if "array" in types:
-        item_schema = prop.get("items", {})
-        item_model = _sub_model(f"{owner}_{name}_item", item_schema)
-        return list[item_model]  # type: ignore[valid-type]
+def _scalar(types: list[str]) -> Any:
     base = [t for t in types if t != "null"]
     t = base[0] if base else "string"
     return {"string": str, "number": float, "integer": int, "boolean": bool}.get(t, str) | None  # type: ignore[return-value]
+
+
+def _types(schema: dict[str, Any]) -> list[str]:
+    types = schema.get("type", ["string", "null"])
+    return [types] if isinstance(types, str) else list(types)
+
+
+def _py_type(prop: dict[str, Any], name: str, owner: str, plain_lists: bool = False) -> Any:
+    types = _types(prop)
+    if "array" in types:
+        item_schema = prop.get("items", {})
+        if plain_lists and "object" not in _types(item_schema) and "properties" not in item_schema:
+            return list[_scalar(_types(item_schema))]  # type: ignore[misc]
+        item_model = _sub_model(f"{owner}_{name}_item", item_schema)
+        return list[item_model]  # type: ignore[valid-type]
+    return _scalar(types)
 
 
 def _sub_model(name: str, schema: dict[str, Any]) -> type[BaseModel]:
@@ -192,14 +206,15 @@ def _sub_model(name: str, schema: dict[str, Any]) -> type[BaseModel]:
 
 
 @lru_cache(maxsize=None)
-def _model_from_schema(key: str, schema_files: tuple[str, ...]) -> type[BaseModel]:
+def _model_from_schema(key: str, schema_files: tuple[str, ...], plain_lists: bool = False) -> type[BaseModel]:
     schema = _merged_schema(schema_files)
     fields: dict[str, Any] = {}
     for prop_name, prop in schema["properties"].items():
+        py_type = _py_type(prop, prop_name, f"LLM_{key}", plain_lists)
         if prop.get("type") == "array":
-            fields[prop_name] = (_py_type(prop, prop_name, f"LLM_{key}"), Field(default_factory=list, description=prop.get("description")))
+            fields[prop_name] = (py_type, Field(default_factory=list, description=prop.get("description")))
         else:
-            fields[prop_name] = (_py_type(prop, prop_name, f"LLM_{key}"), Field(default=None, description=prop.get("description")))
+            fields[prop_name] = (py_type, Field(default=None, description=prop.get("description")))
     model = create_model(f"LLM_{key}", __config__=ConfigDict(extra="forbid"), **fields)
     model.__doc__ = f"{key} kivonata a régi schema.json-ból generálva ({', '.join(schema_files)}); minden mező nullable, pénz decimális string ponttal, dátum ISO."
     return model
@@ -271,6 +286,7 @@ def get(key: str = DEFAULT_KEY) -> TypePack:
         arms=arms,
         default_arm=default_arm,
         inputs=inputs,
+        plain_list_items=bool(inherit("plain_list_items", False)),
         parent=inherit("parent"),
         auto_detect=bool(inherit("auto_detect", True)),
         detect={k: tuple(v) for k, v in dict(inherit("detect", {})).items()},

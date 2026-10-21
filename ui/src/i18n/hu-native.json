@@ -1949,5 +1949,8 @@
   "partly released": "részben kiadva",
   "changed since the release": "a kiadás óta változott",
   "the decision was changed meanwhile; reload the page": "Közben megváltozott a döntés; töltsd be újra az oldalt",
-  "The text given as the document is empty, so nothing was extracted from it": "Az iratként kapott szöveg üres, ezért nem volt mit kinyerni belőle"
+  "The text given as the document is empty, so nothing was extracted from it": "Az iratként kapott szöveg üres, ezért nem volt mit kinyerni belőle",
+  "A list has fewer rows than it should (for example, no requested item at all)": "A listában a vártnál kevesebb sor van (például egyetlen kért tétel sincs)",
+  "A list row lacks a value it needs": "Egy listasorból hiányzik egy szükséges érték",
+  "A quantity in a list row is zero or less": "Egy listasor mennyisége nulla vagy kevesebb"
 }
