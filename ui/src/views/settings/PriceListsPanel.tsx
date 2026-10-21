@@ -440,7 +440,7 @@ function RulesEditor({ detail, currencies, onSaved }: {
               ) : null}
             </tbody>
           </table>
-          <p className="muted small">{t("A line of the category from the quantity on costs the percent less; of several rules, the one with the largest quantity reached counts.")}</p>
+          <p className="muted small">{t("A line of the category from the quantity on costs the percent less; of the rules a line reaches, the largest discount counts.")}</p>
         </>
       )}
       <div className="button-row">

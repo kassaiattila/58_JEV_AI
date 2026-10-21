@@ -23,7 +23,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav import logic_packs, package_scope, price_lists, quote_request, store, work, workflow_steps
+from jav import goldens, logic_packs, package_scope, price_lists, quote_request, store, work, workflow_steps
 from jav.tablequery import fold
 from jav.user_messages import explained
 
@@ -160,13 +160,33 @@ def _release_refusal() -> Exception:
     return explained(work.NotReady, "a quote package has no run result to release: its quote is approved on its own page")
 
 
+def _measure_lines(_options: goldens.Options) -> goldens.Outcome:
+    """B4a: the invented quotes priced from their expected matches; code only, free."""
+    from jav import quote_golden, quote_pricing
+
+    return quote_pricing.measure_golden(quote_golden.load())
+
+
+def _count_quotes() -> int:
+    from jav import quote_golden
+
+    return sum(1 for c in quote_golden.load().cases if c.expected.quote is not None)
+
+
+# B4a: the quote package's golden sets, measured by the shared measurement command (`jav/goldens.py`)
+GOLDENS = (
+    goldens.Golden(key=f"{KIND}:lines", layer="logic_pack", owner=KIND, engines=(), module=__name__,
+                   what="the invented quotes' lines and totals priced by code from their expected matches "
+                        "(configs/golden_quotes.json)", count=_count_quotes, measure=_measure_lines),
+)
+
 LOGIC = logic_packs.LogicPack(
     kind=KIND, module=__name__,
     roles=(logic_packs.InputRole(REQUEST, "linked_package", "the quote request: an email or a document read as one"),
            logic_packs.InputRole("price_list", "master_data", "the seller's active price list")),
     has_runs=False, add_refusal="a quote package has no documents of its own: its request stays in its package",
     release_refusal=_release_refusal, page=_page, approved=_approved, next_step=next_step, list_next=next_step,
-    list_mark=price_lists.mark, outputs=(), service="jav.api_quote_package")
+    list_mark=price_lists.mark, outputs=(), service="jav.api_quote_package", goldens=GOLDENS)
 
 
 def _workflow_start(_ctx: workflow_steps.StepStart) -> None:

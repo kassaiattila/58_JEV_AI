@@ -1966,7 +1966,6 @@
   "The email's own text is not extracted. A request form or list attached to the email is still processed as a document.": "A levél saját szövegéből nincs kinyerés. A levélhez csatolt kérőív vagy igénylista iratként továbbra is feldolgozódik.",
   "{{n}} email(s): a quote request written in the email is read from its text": "{{n}} levél: a szövegében írt ajánlatkérés kiolvasása",
   "A column the price list needs is missing:": "Hiányzik egy oszlop, amely az árlistához kell:",
-  "A line of the category from the quantity on costs the percent less; of several rules, the one with the largest quantity reached counts.": "A kategória egy sora a megadott mennyiségtől a megadott százalékkal olcsóbb; több szabály közül az számít, amelynek a mennyiségét a sor a legnagyobb mértékben eléri.",
   "A new version keeps the list's rules, currency and VAT rate; a stored version never changes.": "Az új változat megtartja a lista szabályait, pénznemét és áfakulcsát; egy tárolt változat soha nem változik.",
   "A price list is an Excel or CSV file with one row per item: its code, name, unit and net unit price, and its category if it has one. The rules that lower a price, the currency and the VAT rate are set here, not in the file. A quote is priced from a list's active version and records which version it was.": "Az árlista egy Excel- vagy CSV-fájl, tételenként egy sorral: cikkszám, megnevezés, egység és nettó egységár, és ha van, a kategória. Az árat csökkentő szabályokat, a pénznemet és az áfakulcsot itt kell megadni, nem a fájlban. Az ajánlat a lista éles változatából kap árat, és rögzíti, melyik változatból.",
   "A rule was left out, because the new file has no item of its category:": "Egy szabály kimaradt, mert az új fájlban nincs tétel a kategóriájából:",
@@ -2105,5 +2104,6 @@
   "a quote package has no run result to release: its quote is approved on its own page": "Az ajánlatcsomagnak nincs kiadható futási eredménye: az ajánlatot a saját oldalán kell jóváhagyni",
   "a quote is started from its request, not as a workflow's step": "az ajánlat a kéréséből indul, nem egy munkafolyamat lépéseként",
   "a quote package has no documents of its own: its request stays in its package": "Az ajánlatcsomagnak nincsenek saját iratai: a kérése a saját csomagjában marad",
-  "ajánlat": "ajánlat"
+  "ajánlat": "ajánlat",
+  "A line of the category from the quantity on costs the percent less; of the rules a line reaches, the largest discount counts.": "A kategória egy sora a megadott mennyiségtől a megadott százalékkal olcsóbb; a sor által elért szabályok közül a legnagyobb kedvezmény számít."
 }

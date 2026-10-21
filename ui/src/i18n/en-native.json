@@ -1965,7 +1965,6 @@
   "The email's own text is not extracted. A request form or list attached to the email is still processed as a document.": "The email's own text is not extracted. A request form or list attached to the email is still processed as a document.",
   "{{n}} email(s): a quote request written in the email is read from its text": "{{n}} email(s): a quote request written in the email is read from its text",
   "A column the price list needs is missing:": "A column the price list needs is missing:",
-  "A line of the category from the quantity on costs the percent less; of several rules, the one with the largest quantity reached counts.": "A line of the category from the quantity on costs the percent less; of several rules, the one with the largest quantity reached counts.",
   "A new version keeps the list's rules, currency and VAT rate; a stored version never changes.": "A new version keeps the list's rules, currency and VAT rate; a stored version never changes.",
   "A price list is an Excel or CSV file with one row per item: its code, name, unit and net unit price, and its category if it has one. The rules that lower a price, the currency and the VAT rate are set here, not in the file. A quote is priced from a list's active version and records which version it was.": "A price list is an Excel or CSV file with one row per item: its code, name, unit and net unit price, and its category if it has one. The rules that lower a price, the currency and the VAT rate are set here, not in the file. A quote is priced from a list's active version and records which version it was.",
   "A rule was left out, because the new file has no item of its category:": "A rule was left out, because the new file has no item of its category:",
@@ -2104,5 +2103,6 @@
   "a quote package has no run result to release: its quote is approved on its own page": "a quote package has no run result to release: its quote is approved on its own page",
   "a quote is started from its request, not as a workflow's step": "a quote is started from its request, not as a workflow's step",
   "a quote package has no documents of its own: its request stays in its package": "a quote package has no documents of its own: its request stays in its package",
-  "ajánlat": "quote"
+  "ajánlat": "quote",
+  "A line of the category from the quantity on costs the percent less; of the rules a line reaches, the largest discount counts.": "A line of the category from the quantity on costs the percent less; of the rules a line reaches, the largest discount counts."
 }
