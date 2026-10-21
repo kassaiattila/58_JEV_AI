@@ -202,4 +202,4 @@ def test_every_step_kind_states_what_it_needs() -> None:
     registrations.load_all()
     assert {k.kind: k.needs for k in workflow_steps.kinds()} == {
         "documents": (), "emails": (), "statements": ("party", "period"), "reconcile": ("party", "period"),
-        "routing": ()}
+        "routing": (), "quote": ()}  # 191: a quote needs neither

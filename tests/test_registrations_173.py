@@ -36,13 +36,13 @@ def test_importing_registers_nothing_and_load_all_registers_everything_once() ->
                          encoding="utf-8")
     seen = json.loads(out.stdout.strip().splitlines()[-1])
     assert seen["before"] == {"packages": [], "guards": 0, "references": []}
-    assert seen["after"] == {"packages": ["statements", "reconcile", "email_routing"], "guards": 2,
+    assert seen["after"] == {"packages": ["statements", "reconcile", "email_routing", "quote"], "guards": 2,
                              "references": ["package_scopes", "workflows"]}  # 186: one for every package scope
 
 
 def test_in_this_process_everything_is_registered() -> None:
     registrations.load_all()  # the test session's own call (conftest) made it already; a repeat changes nothing
-    assert [p.kind for p in logic_packs.packs()] == ["statements", "reconcile", "email_routing"]  # 181: the routing
+    assert [p.kind for p in logic_packs.packs()] == ["statements", "reconcile", "email_routing", "quote"]  # 181, 191
     assert logic_packs.of("statements").rule is not None
     assert len(work._DELETE_GUARDS) == len(set(work._DELETE_GUARDS)) == 2  # 181: the package scopes' too
     assert {"package_scopes", "workflows"} <= set(parties._REFERENCES)  # 186: the logic packs' scopes are the shared one's

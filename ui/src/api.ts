@@ -75,6 +75,37 @@ export interface WorkpackageView {
   routing_offer?: { attachments: number; routings: { id: string; name: string }[] };
   /** 183: a mailbox package: the request of the download that made it (null if no recorded download did) */
   mailbox_request?: MailboxRequest | null;
+  /** 191: a quote package's request, where it came from, the active price lists and its gaps */
+  quote?: QuoteView;
+}
+/** 191 (plan F-quote-package B3): one part of a quote request: the email's own text, an attachment, or a document. */
+export interface QuoteRequestPart {
+  kind: "email_text" | "attachment" | "document"; name: string; item_id: string | null; doc_id: string;
+  values: Record<string, unknown>;
+}
+/** A requested item as read (the stored quantity is text, "3"). */
+export interface QuoteRequestedItem { description?: string | null; quantity?: string | number | null; unit?: string | null }
+/** A quote request put together from its parts: each header field with the part it came from (`sources`). */
+export interface QuoteRequest {
+  workpackage_id: string; item_id: string; kind: "email" | "document"; title: string; sender: string | null;
+  received_at: string | null; parts: QuoteRequestPart[]; fields: Record<string, unknown>; sources: Record<string, number>;
+  items: QuoteRequestedItem[]; items_from: number | null;
+}
+export type QuoteBlockerCode = "quote:request_missing" | "quote:no_customer" | "quote:no_items" | "quote:no_price_list";
+export interface QuotePriceList {
+  price_list: string; name: string; version: number; currency: string; vat_percent: string; items: number;
+  discounts: PriceRule[]; fingerprint: string;
+}
+export interface QuoteView {
+  request: QuoteRequest | null;
+  source: { workpackage_id: string; item_id: string; workpackage_name: string | null } | null;
+  price_lists: QuotePriceList[]; blockers: { code: QuoteBlockerCode; message: string }[];
+}
+/** A request a quote can start from, with the quotes already made from it. */
+export interface QuoteRequestCandidate {
+  workpackage_id: string; workpackage_name: string; item_id: string; kind: "email" | "document"; title: string;
+  sender: string | null; received_at: string | null; customer_name: string | null; items: number;
+  quotes: { id: string; name: string }[];
 }
 /** 181: what keeps an attachment from being routed by itself (183: `no_data` new; an incoming invoice in a sent email
  * is a note instead). */
@@ -1347,6 +1378,10 @@ export const api = {
   packageUtilityCost: (wpId: string) => request<UtilityReport>("GET", `/workpackages/${enc(wpId)}/result/utility-cost`),
   /** 178: the utility cost of the package's current result as a workbook, with the package's chosen template */
   packageUtilityCostXlsxUrl: (wpId: string) => `/api/workpackages/${enc(wpId)}/result/utility-cost.xlsx`,
+  /** 191 (plan F-quote-package B3): the requests a quote can start from (searched by the service), and a quote package */
+  quoteRequests: (q?: string) => request<{ requests: QuoteRequestCandidate[] }>("GET", `/quote-requests${q ? `?q=${enc(q)}` : ""}`),
+  createQuotePackage: (body: { name: string; source: string; item_id: string }) =>
+    request<{ workpackage_id: string }>("POST", "/quote-packages", body),
   /** 191 (plan F-quote-package B2): the seller's price lists; an upload is read by the service from the path the
    *  system's file picker chose, and a refused file gives 422 `price_list_refused` with the check (`ApiError.check`) */
   priceLists: () => request<PriceListsListing>("GET", "/price-lists"),

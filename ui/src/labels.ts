@@ -425,6 +425,8 @@ const STEP_LABEL = tmap({
   reconcile_empty: "No statement line in the scope", reconcile_result: "Reconciliation result",
   // 181: an email routing package's steps (jav/email_routing.py `_next`)
   routing_empty: "Nothing to route", routing_done: "Routed",
+  // 191: a quote package's steps (jav/quote_package.py `_next_of`)
+  quote_request_missing: "The request cannot be read", quote_compose: "Compose the quote",
 });
 
 /** The package's next step in the chosen language (057): from the service's code and parameters; for an unknown code,
@@ -439,6 +441,7 @@ export function stepLabel(code: string, params: Record<string, unknown> | undefi
   if (code === "reconcile_pair") return t("Pairing: {{n}} open lines", { n: params?.n ?? 0 });
   if (code === "reconcile_approved") return t("Approved: version {{n}}", { n: params?.version ?? "" }); // 145
   if (code === "routing_decide") return t("Route the documents: {{n}} to decide", { n: params?.n ?? 0 }); // 181
+  if (code === "quote_request_check") return t("Check the request: {{n}} gap(s)", { n: params?.n ?? 0 }); // 191
   return Object.prototype.hasOwnProperty.call(STEP_LABEL, code) ? STEP_LABEL[code] : fallback;
 }
 

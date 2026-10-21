@@ -497,6 +497,21 @@ def active(price_list: str) -> PriceList | None:
     return _model(row) if row is not None else None
 
 
+def active_lists() -> list[dict[str, Any]]:
+    """The active version of every list a quote can be priced from, newest list first: its identifier, name, version,
+    currency, VAT rate, items and rules (191, B3)."""
+    with store.connect() as c:
+        rows = c.execute("SELECT * FROM price_lists WHERE state='active' ORDER BY id DESC").fetchall()
+    return [{k: v[k] for k in ("price_list", "name", "version", "currency", "vat_percent", "items", "discounts", "fingerprint")}
+            for v in map(_view, rows)]
+
+
+def mark() -> tuple[Any, ...]:
+    """What changes when a list is added, changed, activated or retired (a quote package's list mark)."""
+    with store.connect() as c:
+        return tuple(c.execute("SELECT COUNT(*), MAX(made_at), MAX(activated_at), MAX(retired_at) FROM price_lists").fetchone())
+
+
 def content(price_list: str, version: int) -> tuple[bytes, str]:
     """The file a version was read from, and its file name."""
     with store.connect() as c:
@@ -549,5 +564,5 @@ def retire(price_list: str, *, actor: str) -> dict[str, Any]:
 
 
 __all__ = ["CONFIG", "KEYS", "STATES", "Discount", "Item", "PriceList", "PriceListNotFound", "PriceListRefused",
-           "PriceListStateError", "activate", "active", "add", "change_settings", "config", "content", "detail", "get",
-           "listing", "read", "retire", "version"]
+           "PriceListStateError", "activate", "active", "active_lists", "add", "change_settings", "config", "content",
+           "detail", "get", "listing", "mark", "read", "retire", "version"]

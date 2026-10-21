@@ -8,8 +8,8 @@ each of the 10 requests the way the processing reads them: the email's own text 
 was read with the expected request: the customer, its tax number, the contact's name, email and phone, the deadline,
 the customer's reference, the number of requested items and each item's quantity. The text and the attachments of
 one email are put together field by field (the first value found, the email's text first; the items from an
-attachment that has rows, else from the text); how a quote puts them together is the logic pack's (A4). Each
-request PDF's detected type is reported too.
+attachment that has rows, else from the text); 191: the quote package puts them together by the same rule, one
+function for both (`jav/quote_request.py` `merged`). Each request PDF's detected type is reported too.
 
 Raw rows: `runs/<stamp>_quote_intents.jsonl` and `runs/<stamp>_quote_requests.jsonl`. Budget (160): without one only
 earlier answers count; a paid round measures one of the two parts, under the owner's sub-budget.
@@ -32,6 +32,7 @@ from typing import Any
 from jav import quote_golden
 from jav.config import RUNS_DIR
 from jav.evals import field_equal
+from jav.quote_request import merged
 
 TYPE = "quote_request"
 TEXT_FIELDS = ("customer_name", "contact_name", "reference")
@@ -118,18 +119,6 @@ def field_right(field: str, got: Any, expected: Any) -> bool:
     from jav.typepack import get as get_pack
 
     return field_equal(field, got, expected, get_pack(TYPE).kind(field))
-
-
-def merged(readings: list[dict[str, Any]]) -> dict[str, Any]:
-    """The email's readings put together for the comparison: each header field's first value (the email's text
-    first, then its attachments in order); the items of the first attachment that has rows, else the text's."""
-    from jav.typepack import get as get_pack
-
-    pack = get_pack(TYPE)
-    out: dict[str, Any] = {f: next((r[f] for r in readings if r.get(f) not in (None, "")), None) for f in pack.header_fields}
-    with_rows = [r for r in readings[1:] if r.get("requested_items")] or readings[:1]
-    out["requested_items"] = (with_rows[0].get("requested_items") or []) if with_rows else []
-    return out
 
 
 def score(got: dict[str, Any], expected: quote_golden.Request) -> dict[str, Any]:
