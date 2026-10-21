@@ -13,7 +13,8 @@ The seller's price lists (B2) are a store of the domain's own with addresses of 
 The work itself stays in the domain's own modules (`MODULES`): the price lists (`jav/price_lists.py`,
 `jav/api_price_lists.py`), the request read from its parts (`jav/quote_request.py`), the pricing (`jav/quote_pricing.py`), the
 match with the price list (`jav/quote_match.py`), the quote package
-(`jav/quote_package.py`, `jav/api_quote_package.py`) and the invented golden set (`jav/quote_golden.py`).
+(`jav/quote_package.py`, `jav/api_quote_package.py`), the quote's draft and approval (`jav/quote_draft.py`, 192) and
+the invented golden set (`jav/quote_golden.py`).
 """
 
 from __future__ import annotations
@@ -22,8 +23,8 @@ from __future__ import annotations
 # `jav.api.service_modules` adds them by name
 SERVICE = ("jav.api_price_lists",)
 # the modules the domain is made of; the shared code imports none of them (`tests/test_domain_boundary_185.py`)
-MODULES = frozenset({"api_price_lists", "api_quote_package", "price_lists", "quote_golden", "quote_package",
-                     "quote_match", "quote_pricing", "quote_proposal", "quote_request",
+MODULES = frozenset({"api_price_lists", "api_quote_package", "price_lists", "quote_draft", "quote_golden",
+                     "quote_package", "quote_match", "quote_pricing", "quote_proposal", "quote_request",
                      "domains.quotes"})
 
 

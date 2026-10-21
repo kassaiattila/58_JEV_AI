@@ -860,8 +860,7 @@ def active_versions(c=None) -> dict[str, dict[str, Any]]:
 
 def approval(wp_id: str, c=None) -> dict[str, Any]:
     """A package's approval: its active version (None while it has none) and every version, the latest first."""
-    versions = package_release.own_versions(wp_id, c)
-    return {"active": next((v for v in versions if v["reopened_at"] is None), None), "versions": versions}
+    return package_release.own_approval(wp_id, c)
 
 
 def locks(snap: dict[str, Any] | None = None, c=None) -> dict[str, dict[str, Any]]:

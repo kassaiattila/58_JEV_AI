@@ -25,9 +25,10 @@ its content as the person approved it (the reconciliation: its statement), the f
 it and when, what it locks while it holds, and its files in the state they were made in (approved; earlier once a
 person reopened it with a reason). The logic pack decides what it approves, what blocks it and what a lock refuses;
 this module numbers and stores the versions and their files (`record_own`, `reopen_own`, `store_own_files`) and reads
-them back (`own_versions`, `own_version`, `active_own`, `own_files`, `own_file`, `own_missing_files`). The release view
-of a package lists its released results only, so a logic pack's own versions show in its own page as before. An older
-store's own version tables of a logic pack are copied in once (`copy_older_own`, registered by the logic pack).
+them back (`own_versions`, `own_version`, `own_approval`, `active_own`, `own_files`, `own_file`, `own_missing_files`).
+The release view of a package lists its released results only, so a logic pack's own versions show in its own page as
+before. An older store's own version tables of a logic pack are copied in once (`copy_older_own`, registered by the
+logic pack).
 """
 
 from __future__ import annotations
@@ -490,6 +491,13 @@ def own_version(wp_id: str, n: int, c: sqlite3.Connection | None = None) -> dict
     if row is None:
         raise KeyError(f"{wp_id} version {n}")
     return {"content": json.loads(row["content"]), **_own_meta(row)}
+
+
+def own_approval(wp_id: str, c: sqlite3.Connection | None = None) -> dict[str, Any]:
+    """A logic pack's approval of its package (192: one view for the reconciliation and the quote): its active version
+    (None while it has none) and every version, the latest first."""
+    versions = own_versions(wp_id, c)
+    return {"active": next((v for v in versions if v["reopened_at"] is None), None), "versions": versions}
 
 
 def active_own(c: sqlite3.Connection | None = None) -> dict[str, dict[str, Any]]:
