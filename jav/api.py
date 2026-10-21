@@ -246,6 +246,8 @@ DatasetName = Annotated[str, PathParam(pattern=r"^[a-z_]{1,40}$")]
 WfId = Annotated[str, PathParam(pattern=r"^wf-[0-9a-f]{12}$")]  # 146: a workflow
 StepId = Annotated[str, PathParam(pattern=r"^[a-z_]{1,40}$")]  # 146: a workflow step
 Text = Annotated[str, Field(max_length=2000)]
+# 187: a decision's state as its page read it (`jav/decisions.py`); a change on a stale page is a 409
+DecisionState = Annotated[int, Field(ge=0)]
 
 
 class _In(BaseModel):

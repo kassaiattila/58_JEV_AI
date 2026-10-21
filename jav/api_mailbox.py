@@ -21,7 +21,7 @@ from fastapi import Path as PathParam
 from pydantic import Field
 
 from jav import corrections, mailbox, store, work_views
-from jav.api import Empty, ItemId, Revision, RunId, Text, WpId, _error, _In, human_actor
+from jav.api import DecisionState, Empty, ItemId, Revision, RunId, Text, WpId, _error, _In, human_actor
 from jav.user_messages import message_fields
 
 ScheduleId = Annotated[str, PathParam(pattern=r"^mbx-[0-9a-f]{10}$")]
@@ -31,10 +31,12 @@ PullId = Annotated[str, PathParam(pattern=r"^pull-[0-9a-f]{10}$")]
 class TaskDecision(_In):
     decision: Literal[store.TASK_DECISIONS]  # type: ignore[valid-type]
     note: Text | None = None
+    expected_state: DecisionState | None = None  # 187: the task's `decision_state` as the page read it
 
 
 class TaskDone(_In):
     done: bool
+    expected_state: DecisionState | None = None
 
 
 class CreateSchedule(_In):
@@ -64,14 +66,15 @@ def routes(app: FastAPI, r: str) -> None:
     def task_decision(run_id: RunId, item_id: ItemId, index: Annotated[int, PathParam(ge=0, le=100)], body: TaskDecision,
                       who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """058 K5.3: only a human accepts or rejects a task proposal."""
-        mailbox.decide_task(run_id, item_id, index, decision=body.decision, actor=who, note=body.note)
+        mailbox.decide_task(run_id, item_id, index, decision=body.decision, actor=who, note=body.note,
+                            expected_state=body.expected_state)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/tasks/{index}/done")
     def task_done(run_id: RunId, item_id: ItemId, index: Annotated[int, PathParam(ge=0, le=100)], body: TaskDone,
                   who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """062: mark an accepted task as done by hand (or undo that)."""
-        mailbox.mark_task_done(run_id, item_id, index, done=body.done, actor=who)
+        mailbox.mark_task_done(run_id, item_id, index, done=body.done, actor=who, expected_state=body.expected_state)
         return work_views.jsonable(corrections.item_result(run_id, item_id))
 
     # --- mailbox (048 T2): preview, download (run by the worker), schedule ---

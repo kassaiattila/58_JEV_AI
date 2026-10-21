@@ -60,7 +60,7 @@ export function StatementPanel({ result, readOnly, onDecided }: Props) {
     setPending(r.other_doc_id);
     setError(null);
     try {
-      await api.chooseStatement(result.run_id, result.item_id, r.other_doc_id, keep);
+      await api.chooseStatement(result.run_id, result.item_id, r.other_doc_id, keep, r.decision_state);
     } catch (e) {
       setError(t("The choice could not be saved: {{reason}}", { reason: e instanceof ApiError ? e.message : String(e) }));
     } finally {

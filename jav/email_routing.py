@@ -34,7 +34,8 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, logic_packs, package_result, package_scope, source_instances, store, work, workflow_steps
+from jav import (activity_kinds, decisions, logic_packs, package_result, package_scope, source_instances, store, work,
+                 workflow_steps)
 from jav.user_messages import explained
 
 KIND = "email_routing"
@@ -254,6 +255,15 @@ def _new_name(party: str, start: str, title: str) -> str:
     return f"{party} · {start[:7]} · {title}"
 
 
+# 187 (plan G-full-move T2c): a person's decisions on a routing package's attachments, in the shared decision journal
+ROUTING_KIND = "email_routing"
+decisions.register(decisions.Kind(ROUTING_KIND, ("accept", "reject", "undo"), __name__))
+
+
+def _key(wp_id: str, item_id: str) -> str:
+    return f"{wp_id}#{item_id}"
+
+
 def _decisions(wp_id: str) -> dict[str, dict[str, Any]]:
     with store.connect() as c:
         return {r["item_id"]: dict(r) for r in c.execute(
@@ -270,6 +280,7 @@ def view(wp_id: str) -> dict[str, Any]:
     atts = _attachments(sources)
     with store.connect() as c:
         results = _results(c, [a["item_id"] for a in atts]) if atts else {}
+        state = decisions.states(c, ROUTING_KIND, [_key(wp_id, a["item_id"]) for a in atts])  # 187: sent back
     party_names = {p["id"]: p["name"] for p in parties.parties()}
     decided = _decisions(wp_id)
     held = _held(atts, decided)
@@ -288,7 +299,7 @@ def view(wp_id: str) -> dict[str, Any]:
                                                "role_title": role.title if role else None},
                      "proposal": _proposal(placement, party_names, among) if placement["routable"] and not dec else None,
                      "decision": dec | {"target_name": names.get(dec["target"])} if dec else None,
-                     "held": held.get(a["item_id"])})
+                     "held": held.get(a["item_id"]), "decision_state": state[_key(wp_id, a["item_id"])]})
     routable = [r for r in rows if r["placement"]["routable"]]
     counts = {"attachments": len(rows), "routable": len(routable),
               "decided": sum(1 for r in routable if r["decision"]),
@@ -369,29 +380,53 @@ def _make(new: dict[str, Any], att: dict[str, Any], actor: str) -> str:
     return wp["id"]
 
 
+def _stale(row: dict[str, Any], expected_states: dict[str, int] | None) -> None:
+    """187: the page's state of the attachment's decision must still hold (an attachment it sent none for is not
+    compared)."""
+    want = (expected_states or {}).get(row["item_id"])
+    if want is not None and want != row["decision_state"]:
+        raise explained(work.RevisionConflict, "the decision was changed meanwhile; reload the page")
+
+
 def _record(wp_id: str, item_id: str, decision: str, target: str | None, made: bool, actor: str) -> None:
+    """187 (survey 186, bug 2): the attachment must still be undecided inside the writing transaction; before, a second
+    acceptance overwrote the first one's decision. The service runs a package's changes one at a time
+    (`decisions.one_at_a_time`), so this refuses only a change made outside it."""
     with store.connect() as c:
         store.begin_immediate(c)
+        if c.execute("SELECT 1 FROM email_routing_decisions WHERE workpackage_id=? AND item_id=?", (wp_id, item_id)).fetchone():
+            raise explained(work.RevisionConflict, "the decision was changed meanwhile; reload the page")
+        at = _now()
         c.execute("INSERT INTO email_routing_decisions(workpackage_id, item_id, decision, target, made, actor, decided_at)"
-                  " VALUES (?,?,?,?,?,?,?) ON CONFLICT(workpackage_id, item_id) DO UPDATE SET decision=excluded.decision,"
-                  " target=excluded.target, made=excluded.made, actor=excluded.actor, decided_at=excluded.decided_at",
-                  (wp_id, item_id, decision, target, int(made), actor, _now()))
+                  " VALUES (?,?,?,?,?,?,?)", (wp_id, item_id, decision, target, int(made), actor, at))
         detail = {"item_id": item_id, "target": target, "made": made}
         if decision == "accepted":
             work.record_event(c, wp_id, "routing_accept", actor, detail)
         else:
             work.record_event(c, wp_id, "routing_reject", actor, detail)
+        decisions.record(c, ROUTING_KIND, _key(wp_id, item_id), "accept" if decision == "accepted" else "reject",
+                         actor=actor, value={"target": target, "made": made}, workpackage_id=wp_id, at=at)
 
 
 def accept(wp_id: str, item_ids: list[str], *, actor: str, target: str | None = None,
-           titles: dict[str, str] | None = None) -> dict[str, Any]:
+           titles: dict[str, str] | None = None, expected_states: dict[str, int] | None = None) -> dict[str, Any]:
     """Accepts the proposals of the given attachments (or puts each into `target`, a person's choice): the document is
     added to the package, or the proposed new package is made with it, named with its role's title in `titles` (the
     interface's language) when given. An attachment with a blocker can only go to a package a person chose. Returns the
-    view."""
+    view. 187: one change of the package at a time, and a stale state in `expected_states` is refused before anything
+    is added or made."""
+    with decisions.one_at_a_time(ROUTING_KIND, wp_id):
+        _accept(wp_id, item_ids, actor=actor, target=target, titles=titles, expected_states=expected_states)
+    return view(wp_id)
+
+
+def _accept(wp_id: str, item_ids: list[str], *, actor: str, target: str | None, titles: dict[str, str] | None,
+            expected_states: dict[str, int] | None) -> None:
     rows = view(wp_id)["items"]
     files = {a["item_id"]: a for a in _attachments(sources_of(wp_id))}
     made_now: dict[tuple[str, str, str, str], str] = {}  # one new package per party, month and role in one call
+    for item_id in dict.fromkeys(item_ids):
+        _stale(_row(rows, item_id), expected_states)
     for item_id in dict.fromkeys(item_ids):
         r = _row(rows, item_id)
         if r["decision"] is not None:
@@ -421,7 +456,6 @@ def accept(wp_id: str, item_ids: list[str], *, actor: str, target: str | None = 
         else:
             made_now[key] = _make(new, att, actor)
             _record(wp_id, item_id, "accepted", made_now[key], True, actor)
-    return view(wp_id)
 
 
 def accept_clear(wp_id: str, *, actor: str, titles: dict[str, str] | None = None) -> dict[str, Any]:
@@ -430,22 +464,27 @@ def accept_clear(wp_id: str, *, actor: str, titles: dict[str, str] | None = None
     return accept(wp_id, [r["item_id"] for r in rows if r["proposal"] and not r["decision"]], actor=actor, titles=titles)
 
 
-def reject(wp_id: str, item_ids: list[str], *, actor: str) -> dict[str, Any]:
+def reject(wp_id: str, item_ids: list[str], *, actor: str, expected_states: dict[str, int] | None = None) -> dict[str, Any]:
     """The attachments are not routed (decided: they stay only in their email package)."""
-    rows = view(wp_id)["items"]
-    for item_id in dict.fromkeys(item_ids):
-        r = _row(rows, item_id)
-        if r["decision"] is None:
-            _record(wp_id, item_id, "rejected", None, False, actor)
+    with decisions.one_at_a_time(ROUTING_KIND, wp_id):
+        rows = view(wp_id)["items"]
+        for item_id in dict.fromkeys(item_ids):
+            _stale(_row(rows, item_id), expected_states)
+        for item_id in dict.fromkeys(item_ids):
+            r = _row(rows, item_id)
+            if r["decision"] is None:
+                _record(wp_id, item_id, "rejected", None, False, actor)
     return view(wp_id)
 
 
-def undo(wp_id: str, item_id: str, *, actor: str) -> dict[str, Any]:
+def undo(wp_id: str, item_id: str, *, actor: str, expected_state: int | None = None) -> dict[str, Any]:
     """A decision is taken back; an accepted document stays in its package (a person removes it there if it should go)."""
-    with store.connect() as c:
+    with decisions.one_at_a_time(ROUTING_KIND, wp_id), store.connect() as c:
         store.begin_immediate(c)
+        decisions.check(c, ROUTING_KIND, _key(wp_id, item_id), expected_state)
         if c.execute("DELETE FROM email_routing_decisions WHERE workpackage_id=? AND item_id=?", (wp_id, item_id)).rowcount:
             work.record_event(c, wp_id, "routing_undo", actor, {"item_id": item_id})
+            decisions.record(c, ROUTING_KIND, _key(wp_id, item_id), "undo", actor=actor, workpackage_id=wp_id)
     return view(wp_id)
 
 

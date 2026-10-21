@@ -356,7 +356,7 @@ describe("postafiók és levél-tétel (048 T2)", () => {
         attachments: [], result: { intent: "business_correspondence", intent_label: null, confidence: 0.9, next_flow: "human:inbox",
           attachments: [], from_this_run: true, signals: {} },
         tasks: { status: "proposed", tasks: [{ index: 0, action: "reply", title: "Válasz a szerződés érkezéséről", due_date: null, assignee_hint: null,
-          evidence: [{ pointer: "/messages/0/body", quote: "Mikor érkezik a szerződés?" }], decision: null }],
+          evidence: [{ pointer: "/messages/0/body", quote: "Mikor érkezik a szerződés?" }], decision: null, decision_state: 0 }],
           rejected: [{ code: "task_evidence_failed", index: 1, details: ["field_value_not_in_source_quote"] }] } },
     };
     render(<EmailReview data={mail} onChanged={onChanged} />);
@@ -365,7 +365,7 @@ describe("postafiók és levél-tétel (048 T2)", () => {
     expect(screen.getByText(/„Mikor érkezik a szerződés\?”/)).toBeTruthy();
     expect(screen.getByText(/1 javaslat kiesett a bizonyíték-ellenőrzésen/)).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Elfogadás" }));
-    expect(decide).toHaveBeenCalledWith(RUN, ITEM, 0, "accepted");
+    expect(decide).toHaveBeenCalledWith(RUN, ITEM, 0, "accepted", 0);  // 187: with the state it read
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
   });
 

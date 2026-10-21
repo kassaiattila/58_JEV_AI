@@ -50,7 +50,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, cfg, costs, logic_packs, store, work, work_views
+from jav import activity_kinds, cfg, costs, decisions, logic_packs, store, work, work_views
 from jav.outputs import parts
 from jav.runtime import calls
 from jav.tablequery import Column, Query, run_query, select, shown
@@ -158,11 +158,14 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
         subject_ids = [i for _k, i in subjects]
         extra = [[k.name, found] for k in activity_kinds.decisions() if k.name not in _FINGERPRINTED
                  and (found := k.rows(run_id, subject_ids, c))]
+        journal = decisions.run_state(c, run_id)  # 187: e.g. a task's done mark, which the parts above leave out
     digest = hashlib.sha256(str(dec[1]).encode("utf-8")).hexdigest()[:16]
     parts = [*corr, *rsn, dec[0], digest, *items, row["status"], row["approval"], native,
              hashlib.sha256(str(left_out).encode("utf-8")).hexdigest()[:16]]
     if extra:  # a run without any keeps the fingerprint of its other parts
         parts.append(hashlib.sha256(json.dumps(extra).encode("utf-8")).hexdigest()[:16])
+    if journal:  # likewise a run without a journaled decision (every run before 187)
+        parts.append(f"j{journal}")
     return "|".join(str(x) for x in parts)
 
 

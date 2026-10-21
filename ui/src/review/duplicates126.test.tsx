@@ -10,7 +10,7 @@ import { DuplicatePanel } from "./DuplicatePanel";
 const OTHER = "a".repeat(64);
 const pair = (over: Partial<DuplicatePair> = {}): DuplicatePair => ({
   other_doc_id: OTHER, other_file: "earlier.pdf", other_run_id: "run-000000000001", other_item_id: OTHER,
-  other_workpackage_id: "wp-000000000001", kind: "variant", reason_id: 7, repeat: true, decision: null, decided_by: null, decided_at: null,
+  other_workpackage_id: "wp-000000000001", kind: "variant", reason_id: 7, repeat: true, decision: null, decided_by: null, decided_at: null, decision_state: 4,
   fields: [
     { field: "invoice_number", value: "INV-1", other_value: "INV-1", differs: false, missing: false },
     { field: "gross_total", value: "1270.50", other_value: "1300.00", differs: true, missing: false },
@@ -52,7 +52,7 @@ describe("suspected duplicate invoices (126)", () => {
     expect(buttons).toHaveLength(3);
     fireEvent.click(buttons[2]); // not the same invoice
     await waitFor(() => expect(done).toHaveBeenCalled());
-    expect(decide).toHaveBeenCalledWith("run-000000000002", "b".repeat(64), OTHER, "different");
+    expect(decide).toHaveBeenCalledWith("run-000000000002", "b".repeat(64), OTHER, "different", 4);  // 187: the state it read
   });
 
   it("shows a decision, and no buttons on an approved run", () => {

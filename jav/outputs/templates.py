@@ -19,7 +19,7 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any
 
-from jav import activity_kinds, logic_packs, store, work
+from jav import activity_kinds, decisions, logic_packs, store, work
 from jav.outputs import builtin, contract, fill, samples
 
 # the package log's action of a person choosing a package's template (`jav/activity_kinds.py`)
@@ -204,12 +204,22 @@ def outputs_for(wp: dict[str, Any]) -> tuple[str, ...]:
     return logic_packs.outputs_of(wp["source_kind"])
 
 
+# 187 (plan G-full-move T2c): a person's template choices of a package's outputs, in the shared decision journal
+CHOICE_KIND = "output_template"
+decisions.register(decisions.Kind(CHOICE_KIND, ("choose",), __name__))
+
+
+def _choice_key(wp_id: str, output: str) -> str:
+    return f"{wp_id}#{output}"
+
+
 def choices(wp_id: str) -> dict[str, Any]:
     """Per output of the package: the chosen template (None: the built-in), whether it is still active, and the
-    active templates it can choose."""
+    active templates it can choose; 187: the choice's `decision_state`, which the page sends back with a change."""
     wp = work.get(wp_id)
     with store.connect() as c:
         chosen = {r["output"]: dict(r) for r in c.execute("SELECT * FROM output_template_choices WHERE workpackage_id=?", (wp_id,))}
+        state = decisions.states(c, CHOICE_KIND, [_choice_key(wp_id, o) for o in outputs_for(wp)])
     active = {}
     for t in listing():
         if t["active"] is not None:
@@ -220,17 +230,19 @@ def choices(wp_id: str) -> dict[str, Any]:
         live = next((a for a in active.get(output, []) if ch and a["template"] == ch["template"]), None)
         out[output] = {"chosen": ch and {"template": ch["template"], "chosen_by": ch["chosen_by"], "chosen_at": ch["chosen_at"],
                                          "active": live is not None, "name": live and live["name"], "version": live and live["version"]},
-                       "templates": active.get(output, [])}
+                       "templates": active.get(output, []), "decision_state": state[_choice_key(wp_id, output)]}
     return {"workpackage_id": wp_id, "outputs": out}
 
 
-def choose(wp_id: str, output: str, template: str | None, *, actor: str) -> dict[str, Any]:
-    """Chooses the template of a package's output (None: the built-in template); the template must be active."""
+def choose(wp_id: str, output: str, template: str | None, *, actor: str, expected_state: int | None = None) -> dict[str, Any]:
+    """Chooses the template of a package's output (None: the built-in template); the template must be active. 187: in
+    the decision journal, under the page's `expected_state`."""
     wp = work.get(wp_id)
     if output not in outputs_for(wp):
         raise TemplateStateError(f"a package of this kind has no output {output}")
     with store.connect() as c:
         store.begin_immediate(c)
+        decisions.check(c, CHOICE_KIND, _choice_key(wp_id, output), expected_state)
         if template is None:
             c.execute("DELETE FROM output_template_choices WHERE workpackage_id=? AND output=?", (wp_id, output))
         else:
@@ -241,6 +253,8 @@ def choose(wp_id: str, output: str, template: str | None, *, actor: str) -> dict
                       " ON CONFLICT(workpackage_id, output) DO UPDATE SET template=excluded.template, chosen_by=excluded.chosen_by,"
                       " chosen_at=excluded.chosen_at", (wp_id, output, template, actor, _now()))
         work.record_event(c, wp_id, "output_template_choose", actor, {"output": output, "template": template})
+        decisions.record(c, CHOICE_KIND, _choice_key(wp_id, output), "choose", actor=actor, value={"template": template},
+                         workpackage_id=wp_id)
     return choices(wp_id)
 
 

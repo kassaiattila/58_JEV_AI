@@ -60,10 +60,10 @@ def test_a_pairing_that_still_fits_is_not_listed(package):
 def test_a_scope_changed_between_the_read_and_the_write_is_a_conflict(package, monkeypatch):
     real_write = rp._write
 
-    def scope_changed_meanwhile(state, fn):
+    def scope_changed_meanwhile(state, fn, **kwargs):
         with store.connect() as c:
             c.execute("UPDATE workpackage_scopes SET revision = revision + 1 WHERE workpackage_id=?", (package["wp"],))
-        return real_write(state, fn)
+        return real_write(state, fn, **kwargs)
 
     monkeypatch.setattr(rp, "_write", scope_changed_meanwhile)
     with pytest.raises(work.RevisionConflict):

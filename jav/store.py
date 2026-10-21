@@ -127,7 +127,8 @@ CREATE TABLE IF NOT EXISTS email_results (
     folder        TEXT                       -- 149: 'sent' for a message read from the Sent Items folder, else NULL
 );
 
--- 058 K5.3: emberi döntés a feladatjavaslatról (javaslatonként; a legutóbbi döntés érvényes, a korábbi a naplóban)
+-- 058 K5.3: a person's decision on a task proposal (one per proposal, the latest counts; 187: every change is also
+-- in the decision journal, jav/decisions.py)
 CREATE TABLE IF NOT EXISTS email_task_decisions (
     run_id        TEXT NOT NULL,             -- a levél folyamat-azonosítója (email_results.run_id)
     task_index    INTEGER NOT NULL,
@@ -549,12 +550,15 @@ def _email_task_decide(c: sqlite3.Connection, run_id: str, index: int, *, decisi
               " done_at=CASE WHEN excluded.decision='accepted' THEN done_at END", (run_id, index, decision, actor, note, _now()))
 
 
-def email_task_done(run_id: str, index: int, *, actor: str, done: bool) -> bool:
-    """062: marks an accepted task as done (or undoes it); False if the task is not accepted."""
-    with connect() as c:
-        cur = c.execute("UPDATE email_task_decisions SET done_by=?, done_at=? WHERE run_id=? AND task_index=? AND decision='accepted'",
-                        (actor if done else None, _now() if done else None, run_id, index))
-        return cur.rowcount == 1
+def email_task_done(run_id: str, index: int, *, actor: str, done: bool, c: sqlite3.Connection | None = None) -> bool:
+    """062: marks an accepted task as done (or undoes it); False if the task is not accepted. `c` (187): inside the
+    caller's transaction, with its journal row."""
+    if c is None:
+        with connect() as own:
+            return email_task_done(run_id, index, actor=actor, done=done, c=own)
+    cur = c.execute("UPDATE email_task_decisions SET done_by=?, done_at=? WHERE run_id=? AND task_index=? AND decision='accepted'",
+                    (actor if done else None, _now() if done else None, run_id, index))
+    return cur.rowcount == 1
 
 
 def email_task_decisions(run_id: str) -> dict[int, dict[str, Any]]:

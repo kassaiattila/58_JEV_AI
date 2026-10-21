@@ -140,8 +140,9 @@ function TasksPanel({ data, onChanged }: { data: ItemResult; onChanged: () => vo
     setBusy(index);
     setError(null);
     try {
-      if (decision === "done" || decision === "undone") await api.markTaskDone(data.run_id, data.item_id, index, decision === "done");
-      else await api.decideTask(data.run_id, data.item_id, index, decision);
+      const state = tv.tasks.find((x) => x.index === index)?.decision_state;
+      if (decision === "done" || decision === "undone") await api.markTaskDone(data.run_id, data.item_id, index, decision === "done", state);
+      else await api.decideTask(data.run_id, data.item_id, index, decision, state);
       onChanged();
     } catch (e) {
       setError((e as ApiError).message);
