@@ -19,6 +19,11 @@ from jav.config import STORE_PATH
 
 SCHEMA_VERSION = 1
 _scoped_path: ContextVar[Path | None] = ContextVar("jav_scoped_store", default=None)
+_read_only: ContextVar[bool] = ContextVar("jav_read_only_store", default=False)
+
+
+class StoreMissing(FileNotFoundError):
+    """A read-only look (`read_only`) at a store that does not exist yet, e.g. in a fresh clone before the first run."""
 
 
 @contextmanager
@@ -29,6 +34,20 @@ def use_store(path: Path):
         yield
     finally:
         _scoped_path.reset(token)
+
+
+@contextmanager
+def read_only() -> Iterator[None]:
+    """187 (backlog: the live-store check): every `connect()` in the block opens the store read-only and runs neither the
+    schema nor the migrations. The state snapshot reads the real store with the code of the checked-out branch while
+    the service may still run the released code; before this, a branch's data migration (186: the shared package
+    scopes) already ran on the real store at the first start-up check. A missing store is not created
+    (`StoreMissing`), and a write in the block fails (`sqlite3.OperationalError`)."""
+    token = _read_only.set(True)
+    try:
+        yield
+    finally:
+        _read_only.reset(token)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS artifacts (
@@ -278,6 +297,16 @@ def session() -> Iterator[None]:
 def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     # resolved at call time so that tests can redirect it (monkeypatch jav.store.STORE_PATH)
     path = path or _scoped_path.get() or STORE_PATH
+    if _read_only.get():  # 187: before the shared connection, which may run the schema and the migrations
+        if not path.is_file():
+            raise StoreMissing(f"no store at {path}")
+        conn = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True, timeout=30)
+        conn.row_factory = sqlite3.Row
+        try:
+            yield conn
+        finally:
+            conn.close()
+        return
     shared = _shared.get()
     if shared is not None and shared[0] == str(path):
         # 174: a module first imported within the session registers its tables on import; the shared connection was

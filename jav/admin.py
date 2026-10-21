@@ -112,6 +112,13 @@ def flow_lint_summary() -> list[tuple[str, bool, int]]:
 
 
 def admin_report() -> str:
+    """187 (backlog: the live-store check): the store is only read (`store.read_only`), so the report never runs the
+    checked-out code's schema or migrations on it, and a store that does not exist yet is not created."""
+    with store.read_only():
+        return _report(store.current_path().is_file())
+
+
+def _report(have_store: bool) -> str:
     L: list[str] = ["# jav admin - keretrendszer-állapot", ""]
     L += ["## Konfigok (configs/, `config_hash` a ledgerben)", "", "| konfig | verzió | hash |", "|---|---|---|"]
     for r in cfg.report():
@@ -123,27 +130,35 @@ def admin_report() -> str:
     L += ["## Burr-kontraktok (lint)", ""]
     for name, ok, fails in flow_lint_summary():
         L.append(f"- {name}: {'PASS' if ok else f'FAIL ({fails} ellenőrzés)'}")
-    st = store.stats()
-    L += ["", "## Adattár (store/jav.sqlite)", "",
-          f"- documents {st['documents']} · datapoints {st['datapoints']} · emails {st['emails']} · ledger {st['ledger']} · golden_labels {st['golden_labels']}",
-          f"- review_queue nyitott: **{st['review_open']}**",
-          "- ledger szolgáltatónként: " + "; ".join(f"{r['provider']}: {r['n']} hívás, {r['cached']} cache, ${r['usd']:.4f}" for r in st["ledger_by_provider"]),
-          "- doc_type eloszlás: " + ", ".join(f"{r['doc_type']}×{r['n']}" for r in st["doc_types"][:8]),
-          "- intent eloszlás: " + (", ".join(f"{r['intent']}×{r['n']}" for r in st.get("intents", [])[:8]) or "-"), ""]
-    L += ["## Utolsó golden-eredmény flow-nként (runs/)", "", "| flow | fájl | eset | pontos | review / < 0,6 |", "|---|---|---|---|---|"]
+    no_store = "- no store yet (the first run creates it)"
+    L += ["", "## Adattár (store/jav.sqlite)", ""]
+    if have_store:
+        st = store.stats()
+        L += [f"- documents {st['documents']} · datapoints {st['datapoints']} · emails {st['emails']} · ledger {st['ledger']} · golden_labels {st['golden_labels']}",
+              f"- review_queue nyitott: **{st['review_open']}**",
+              "- ledger szolgáltatónként: " + "; ".join(f"{r['provider']}: {r['n']} hívás, {r['cached']} cache, ${r['usd']:.4f}" for r in st["ledger_by_provider"]),
+              "- doc_type eloszlás: " + ", ".join(f"{r['doc_type']}×{r['n']}" for r in st["doc_types"][:8]),
+              "- intent eloszlás: " + (", ".join(f"{r['intent']}×{r['n']}" for r in st.get("intents", [])[:8]) or "-")]
+    else:
+        L.append(no_store)
+    L += ["", "## Utolsó golden-eredmény flow-nként (runs/)", "", "| flow | fájl | eset | pontos | review / < 0,6 |", "|---|---|---|---|---|"]
     for g in last_golden_results():
         skipped = g.get("skipped_failed")
         note = f" (newer failed run skipped: {skipped['file']}, {skipped['reason']})" if skipped else ""
         L.append(f"| {g['flow']} | {g['file']}{note} | {g['n']} | {score_text(g['ok'], g['scored'])} | {g['review']} |")
-    with store.connect() as c:
-        rq = [dict(r) for r in c.execute("SELECT subject_kind, reasons FROM review_queue WHERE status='open'")]
-    kinds = Counter(r["subject_kind"] for r in rq)
-    reasons = Counter(json.loads(r["reasons"])[0].split(":")[0] if r["reasons"] else "?" for r in rq)
-    by_kind = reasons_by_run_kind()
-    L += ["", "## Nyitott review-sor", "", f"- alany szerint: {dict(kinds) or '-'}", f"- fő ok szerint: {dict(reasons) or '-'}",
-          f"- open reasons by the kind of run that raised them: live {by_kind['live']} · trial {by_kind['trial']}"
-          f" · without a run {by_kind['no_run']}", "",
-          "Parancsok: `configs`, `flows [--check]`, `docs`, `store`, golden / determinism / email-golden / detect-golden (README).", ""]
+    L += ["", "## Nyitott review-sor", ""]
+    if have_store:
+        with store.connect() as c:
+            rq = [dict(r) for r in c.execute("SELECT subject_kind, reasons FROM review_queue WHERE status='open'")]
+        kinds = Counter(r["subject_kind"] for r in rq)
+        reasons = Counter(json.loads(r["reasons"])[0].split(":")[0] if r["reasons"] else "?" for r in rq)
+        by_kind = reasons_by_run_kind()
+        L += [f"- alany szerint: {dict(kinds) or '-'}", f"- fő ok szerint: {dict(reasons) or '-'}",
+              f"- open reasons by the kind of run that raised them: live {by_kind['live']} · trial {by_kind['trial']}"
+              f" · without a run {by_kind['no_run']}"]
+    else:
+        L.append(no_store)
+    L += ["", "Parancsok: `configs`, `flows [--check]`, `docs`, `store`, golden / determinism / email-golden / detect-golden (README).", ""]
     return "\n".join(L)
 
 
