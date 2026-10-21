@@ -28,7 +28,7 @@ from jav.candidates import MAX_OPTIONS, candidate_lines, find_currencies, finder
 from jav.candidates import TOTAL_LINE_RE as _TOTAL_LINE_RE
 from jav.dates import read_date
 from jav.jev_budget import ask_within_budget
-from jav.models import Candidate, FieldPick, InvoiceHU, JevCall, LineLayout
+from jav.models import Candidate, FieldPick, DocumentRecord, JevCall, LineLayout
 from jav.numbers import is_whole_token
 from jav.policy import NONE_LABEL, presence_probe_fields
 from jav.typepack import CANDIDATE_KIND_OF, TypePack
@@ -295,7 +295,7 @@ class SelectSite:
     # --- normalisation ----------------------------------------------------------------------
 
     def picks_to_invoice(self, picks: dict[str, FieldPick], cands: dict[str, list[Candidate]],
-                         lines: list[LineLayout] | None = None) -> tuple[InvoiceHU, list[str]]:
+                         lines: list[LineLayout] | None = None) -> tuple[DocumentRecord, list[str]]:
         """Label -> typed value by the pack's field kinds. `none` -> None. Consistency reasons from code (not JEV).
         081: an amount or a quantity whose printed number is flagged gets a to-do; with the document's `lines`, so does
         one whose printed form on its line is only a piece of a longer number (`money:token_cut`, the safety net
@@ -305,7 +305,7 @@ class SelectSite:
         values: dict[str, Any] = {}
         extra: dict[str, Any] = {}
         flagged: dict[str, str | None] = {}  # 154: an amount not read for certain -> its separator to-do (if any)
-        own = set(InvoiceHU.model_fields) - {"extra", "line_items"}
+        own = set(DocumentRecord.model_fields) - {"extra", "line_items"}
         for field, kind in self.pack.fields.items():
             if kind == "list":
                 continue  # 053: the S path does not read itemised lists (line items go the G path)
@@ -344,7 +344,7 @@ class SelectSite:
             reasons = [r for r in reasons if r not in drop]
         # 120: one party in two roles is checked on both paths by the type pack's `distinct_parties` validator
         # (it replaces the S-path-only `parties:same_*` reasons of earlier runs).
-        return InvoiceHU(**values, extra=extra), reasons
+        return DocumentRecord(**values, extra=extra), reasons
 
 
 @lru_cache(maxsize=None)
@@ -422,7 +422,7 @@ def select_fields(
 
 
 def picks_to_invoice(picks: dict[str, FieldPick], cands: dict[str, list[Candidate]], pack: TypePack | None = None,
-                     lines: list[LineLayout] | None = None) -> tuple[InvoiceHU, list[str]]:
+                     lines: list[LineLayout] | None = None) -> tuple[DocumentRecord, list[str]]:
     site = _DEFAULT if pack is None else site_for(pack.key)
     return site.picks_to_invoice(picks, cands, lines)
 

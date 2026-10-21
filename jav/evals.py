@@ -265,13 +265,13 @@ def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True
 def _score_state(state: FlowState, expected: dict[str, Any], pack: TypePack) -> dict[str, bool | None]:
     """The legacy contract: a key MISSING from the golden set is not scored (None); an explicit null means the field
     must be empty (e.g. the legacy `real_ms` case has no supplier_country key)."""
-    got = state.invoice.to_datapoints(pack.record_fields) if state.invoice else {}
-    return {f: (field_equal(f, got.get(f), expected.get(f), pack.kind(f)) if state.invoice and f in expected else None) for f in pack.scored_fields}
+    got = state.record.to_datapoints(pack.record_fields) if state.record else {}
+    return {f: (field_equal(f, got.get(f), expected.get(f), pack.kind(f)) if state.record and f in expected else None) for f in pack.scored_fields}
 
 
 def _score_state_lenient(state: FlowState, expected: dict[str, Any], pack: TypePack) -> dict[str, bool | None]:
-    got = state.invoice.to_datapoints(pack.record_fields) if state.invoice else {}
-    return {f: (field_equal_lenient(f, got.get(f), expected.get(f), pack.kind(f)) if state.invoice and f in expected else None) for f in pack.scored_fields}
+    got = state.record.to_datapoints(pack.record_fields) if state.record else {}
+    return {f: (field_equal_lenient(f, got.get(f), expected.get(f), pack.kind(f)) if state.record and f in expected else None) for f in pack.scored_fields}
 
 
 def _state_row(case: GoldenCase, state: FlowState, run_no: int, seconds: float, pack: TypePack) -> dict[str, Any]:
@@ -300,7 +300,7 @@ def _state_row(case: GoldenCase, state: FlowState, run_no: int, seconds: float, 
         "final_status": state.final_status,
         "route": state.route,
         "review_reasons": state.review_reasons,
-        "datapoints": state.invoice.to_datapoints(pack.record_fields) if state.invoice else None,
+        "datapoints": state.record.to_datapoints(pack.record_fields) if state.record else None,
         "scores": _score_state(state, case.expected, pack),
         "scores_lenient": _score_state_lenient(state, case.expected, pack),  # OCR-tolerant (accent-insensitive) second score
         "text_source": state.text_source,

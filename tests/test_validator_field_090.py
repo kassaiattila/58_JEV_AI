@@ -7,7 +7,7 @@ Synthetic data only.
 """
 
 from jav import corrections, policy
-from jav.models import CheckResult, FlowState, InvoiceHU
+from jav.models import CheckResult, FlowState, DocumentRecord
 from jav.validators import run_checks
 
 
@@ -16,7 +16,7 @@ def _state(*checks: CheckResult) -> FlowState:
 
 
 def test_a_failed_field_check_names_its_field():
-    [check] = run_checks(InvoiceHU(supplier_tax_id="12345"), ({"check": "tax_id", "field": "supplier_tax_id"},))
+    [check] = run_checks(DocumentRecord(supplier_tax_id="12345"), ({"check": "tax_id", "field": "supplier_tax_id"},))
     assert not check.ok and check.code == "taxid.unrecognized"
     state = _state(check)
     policy.apply_validation_policy(state)

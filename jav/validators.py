@@ -1,4 +1,4 @@
-"""Deterministic business checks on the normalised `InvoiceHU`.
+"""Deterministic business checks on the normalised `DocumentRecord`.
 
 Semantic port of the validators in 10_AIFLOW_V4 `sidecar/app/validate/service.py` (lines 137-285).
 The legacy code was byte-for-byte on par with the n8n JS validator (float tricks, V8 Date.parse); that is not
@@ -23,7 +23,7 @@ from decimal import Decimal
 from typing import Any
 
 from jav import checks, fact_checks, party_history, taxid
-from jav.models import CheckResult, InvoiceHU
+from jav.models import CheckResult, DocumentRecord
 
 HU_TAXID_WEIGHTS = taxid.HU_WEIGHTS
 # space, TAB, NBSP, hyphen - routine in printed/PDF bank details
@@ -32,7 +32,7 @@ _IBAN_SHAPE = re.compile(r"^[A-Z]{2}[0-9]{2}[A-Z0-9]+$")
 _DIGITS_FULL = re.compile(r"^[0-9]+$")
 
 
-def vat_consistency(inv: InvoiceHU) -> CheckResult:
+def vat_consistency(inv: DocumentRecord) -> CheckResult:
     """|net + VAT - gross| <= tolerance. HUF: whole forints, tolerance 1; otherwise 2 decimals, tolerance 0.02."""
     if inv.net_total is None or inv.vat_total is None or inv.gross_total is None:
         return CheckResult(
@@ -81,7 +81,7 @@ def confirmed_by_sum(values: Mapping[str, Any], flagged: Iterable[str],
     return confirmed
 
 
-def date_order(inv: InvoiceHU, optional: bool = False) -> CheckResult:
+def date_order(inv: DocumentRecord, optional: bool = False) -> CheckResult:
     """`optional=True` (in the pack's `validators` list): a missing due date is no error - e-tickets / card invoices
     often have none."""
     if optional and inv.issue_date is not None and inv.due_date is None:
@@ -169,7 +169,7 @@ def format_check(value: object, regex: str, name: str = "format") -> CheckResult
     return CheckResult(name=name, ok=False, code="format.mismatch", detail=f"{s[:40]!r} !~ {regex}")
 
 
-def _tolerance(inv: InvoiceHU, n: int) -> Decimal:
+def _tolerance(inv: DocumentRecord, n: int) -> Decimal:
     """Sum tolerance: for HUF, 2 Ft or half a forint per item (per-line rounding), otherwise 0.02 / 0.005 per item."""
     if (inv.currency or "HUF").upper() == "HUF":
         return max(Decimal("2"), Decimal("0.5") * n)
@@ -180,7 +180,7 @@ def _rows(lines: list[int]) -> str:
     return ", ".join(f"line {i}" for i in lines)
 
 
-def line_items_total(inv: InvoiceHU) -> CheckResult:
+def line_items_total(inv: DocumentRecord) -> CheckResult:
     """053 T3.2: the sum of the items = the header's total (net and gross separately). It is enough if one side is
     complete and matches (on the long water lists the per-line net is often missing, the gross is complete). No items is
     no error (the code + JEV path does not read items). The wrong / incomplete line is numbered from 1 in `detail`
@@ -221,7 +221,7 @@ def _vat_fraction(rate: str | None) -> Decimal | None:
     return v / 100 if v > 1 else v
 
 
-def line_items_arithmetic(inv: InvoiceHU) -> CheckResult:
+def line_items_arithmetic(inv: DocumentRecord) -> CheckResult:
     """053 T3.2: per line, quantity × unit price ≈ net, and net × (1 + VAT rate) ≈ gross; tolerance max(1 unit, 1 %).
     Only among filled-in values; where the unit price means something else (MOHU), the pack does not request this
     check."""
@@ -248,7 +248,7 @@ def line_items_arithmetic(inv: InvoiceHU) -> CheckResult:
 def _statement_check(name: str):
     """047: the legacy statement rules (`jav/legacy_validation.py`, a faithful port of the legacy rules.json) on the
     whole record: running balance, closing balance, debit/credit totals, transactions within the period."""
-    def check(inv: InvoiceHU) -> CheckResult:
+    def check(inv: DocumentRecord) -> CheckResult:
         from jav import legacy_validation
         from jav.models import _plain
 
@@ -259,7 +259,7 @@ def _statement_check(name: str):
     return check
 
 
-def run_checks(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | list[dict[str, Any]], *, doc_id: str | None = None,
+def run_checks(inv: DocumentRecord, validators: tuple[dict[str, Any], ...] | list[dict[str, Any]], *, doc_id: str | None = None,
                doc_type: str | None = None) -> list[CheckResult]:
     """According to the type pack's `validators` list: record-level checks always; field-level ones on the field's
     value, skipped with `optional: true` if the field is empty (the `optional` semantics of the legacy `named` list).
@@ -276,7 +276,7 @@ def run_checks(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | list[dic
     return results
 
 
-def distinct_parties(inv: InvoiceHU, first: str, second: str) -> CheckResult | None:
+def distinct_parties(inv: DocumentRecord, first: str, second: str) -> CheckResult | None:
     """120: two role fields must not name one party (`jav.fact_checks.same_party`). The to-do stands at the second
     field; the detail names only the fields, never their values. Skipped when either field is empty."""
     a, b = inv.get_field(first), inv.get_field(second)
@@ -288,7 +288,7 @@ def distinct_parties(inv: InvoiceHU, first: str, second: str) -> CheckResult | N
     return CheckResult(name=name, ok=True, code="parties.ok")
 
 
-def party_orientation(inv: InvoiceHU, first: str, second: str, *, doc_id: str | None, doc_type: str | None) -> CheckResult | None:
+def party_orientation(inv: DocumentRecord, first: str, second: str, *, doc_id: str | None, doc_type: str | None) -> CheckResult | None:
     """121: the pair against the earlier documents of the same type (`jav/party_history.py`). The to-do stands at the
     second field; the detail holds counts only. Skipped outside a worker run, for a missing value, or when no earlier
     document names the same two parties."""
@@ -302,7 +302,7 @@ def party_orientation(inv: InvoiceHU, first: str, second: str, *, doc_id: str | 
     return CheckResult(name=name, ok=True, code="parties.orientation_ok")
 
 
-def _run_one(inv: InvoiceHU, spec: dict[str, Any], *, doc_id: str | None = None, doc_type: str | None = None) -> CheckResult | None:
+def _run_one(inv: DocumentRecord, spec: dict[str, Any], *, doc_id: str | None = None, doc_type: str | None = None) -> CheckResult | None:
     """One entry of the pack's list through its record check (`jav/checks.py`); None when it does not apply, or when it
     reads other documents outside a worker run."""
     name = spec["check"]
@@ -327,7 +327,7 @@ def _whole(fn):
 def _field(fn):
     """A check of one field's value as text, named `<check>:<field>`; skipped with `optional: true` when the field is
     empty."""
-    def run(inv: InvoiceHU, spec: dict[str, Any], **_: Any) -> CheckResult | None:
+    def run(inv: DocumentRecord, spec: dict[str, Any], **_: Any) -> CheckResult | None:
         field = spec["field"]
         value = inv.get_field(field)
         if value is None and spec.get("optional", False):
@@ -336,7 +336,7 @@ def _field(fn):
     return run
 
 
-def _format(inv: InvoiceHU, spec: dict[str, Any], **_: Any) -> CheckResult | None:
+def _format(inv: DocumentRecord, spec: dict[str, Any], **_: Any) -> CheckResult | None:
     field = spec["field"]
     value = inv.get_field(field)
     if value is None and spec.get("optional", False):
@@ -344,17 +344,17 @@ def _format(inv: InvoiceHU, spec: dict[str, Any], **_: Any) -> CheckResult | Non
     return format_check(value, spec["regex"], name=f"format:{field}")
 
 
-def _distinct_parties(inv: InvoiceHU, spec: dict[str, Any], **_: Any) -> CheckResult | None:
+def _distinct_parties(inv: DocumentRecord, spec: dict[str, Any], **_: Any) -> CheckResult | None:
     first, second = spec["fields"]
     return distinct_parties(inv, first, second)
 
 
-def _party_orientation(inv: InvoiceHU, spec: dict[str, Any], *, doc_id: str | None = None, doc_type: str | None = None) -> CheckResult | None:
+def _party_orientation(inv: DocumentRecord, spec: dict[str, Any], *, doc_id: str | None = None, doc_type: str | None = None) -> CheckResult | None:
     first, second = spec["fields"]
     return party_orientation(inv, first, second, doc_id=doc_id, doc_type=doc_type)
 
 
-def _date_order(inv: InvoiceHU, spec: dict[str, Any], **_: Any) -> CheckResult:
+def _date_order(inv: DocumentRecord, spec: dict[str, Any], **_: Any) -> CheckResult:
     return date_order(inv, optional=bool(spec.get("optional", False)))
 
 
@@ -370,7 +370,7 @@ checks.register(checks.Check("distinct_parties", "record", _distinct_parties, ki
 checks.register(checks.Check("party_orientation", "record", _party_orientation, kind="pair", reads_store=True))  # 121
 
 
-def run_all(inv: InvoiceHU, validators: tuple[dict[str, Any], ...] | None = None, *, doc_id: str | None = None,
+def run_all(inv: DocumentRecord, validators: tuple[dict[str, Any], ...] | None = None, *, doc_id: str | None = None,
             doc_type: str | None = None) -> list[CheckResult]:
     """Default: the list of the Hungarian invoice's type pack (= the legacy rules.json `named`: vat_consistency,
     date_order always; tax number / IBAN only if there is a value). For another type, pass the pack's `validators`

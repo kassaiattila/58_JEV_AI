@@ -116,7 +116,7 @@ def prepare():
                 if flow=="invoice" and arm=="sdk":
                     chunks = partition_layout(state.layout)
                     inputs.append(dict(case_id=case["case_id"],text=state.text,layout=[r.model_dump() for r in state.layout],
-                                       invoice=state.invoice.model_dump(mode="json"),doc_type=state.doc_type,
+                                       invoice=state.record.model_dump(mode="json"),doc_type=state.doc_type,
                                        source_sha256=case["sha256"],structure_chunks=len(chunks)))
                 print("baseline",run_id,state.final_status,flush=True)
     write(OUT/"baseline.json",rows)

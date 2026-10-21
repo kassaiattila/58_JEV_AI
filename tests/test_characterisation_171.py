@@ -23,7 +23,7 @@ from decimal import Decimal
 import pytest
 
 from jav import activity, activity_kinds, checks, corrections, datasets, duplicates, email_tasks, native_results, parties, policy, store, work
-from jav.models import CheckResult, FlowState, InvoiceHU, JevVerdicts
+from jav.models import CheckResult, FlowState, DocumentRecord, JevVerdicts
 from jav.runtime import calls, worker
 
 RUN = "run-000000000171"
@@ -107,7 +107,7 @@ def test_a_g_path_decision_without_jev_lists_its_reasons_in_this_order(monkeypat
     monkeypatch.setattr(parties, "review_reasons", lambda doc_type, values: ["parties:own_tax_as_supplier"])
     state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", jev=False, doc_type="invoice_hu",
                       doc_id=DOC_A)
-    state.invoice = InvoiceHU(supplier_name="Example Supplier Kft.", invoice_number="INV-0001", currency="HUF",
+    state.record = DocumentRecord(supplier_name="Example Supplier Kft.", invoice_number="INV-0001", currency="HUF",
                               gross_total=Decimal("1270.00"), payment_iban="HU00 0000 0000 0000 0000 0000 0000")
     state.verdicts = JevVerdicts(source="code", unsupported=["supplier_name", "buyer_address"])
     state.llm_token_p = {"invoice_number": {"joint": 0.5}, "currency": {"joint": 0.99}, "gross_total": {"joint": 0.97}}

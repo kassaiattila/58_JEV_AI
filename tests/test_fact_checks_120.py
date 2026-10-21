@@ -10,7 +10,7 @@ from decimal import Decimal
 import pytest
 
 from jav import fact_checks, flow_native, native_results, policy, store, typepack, validators
-from jav.models import FlowState, InvoiceHU
+from jav.models import FlowState, DocumentRecord
 from jav.runtime import calls
 from tests.native_fixtures_109 import runtime_source, synthetic_gpt
 
@@ -103,7 +103,7 @@ def test_a_jev_no_band_answer_opens_a_to_do_with_the_existing_band(tmp_path, mon
 
 
 def nav(**extra):
-    return InvoiceHU(extra={"document_title": "Igazol\u00e1s", "taxpayer_name": "Minta Anna", **extra})
+    return DocumentRecord(extra={"document_title": "Igazol\u00e1s", "taxpayer_name": "Minta Anna", **extra})
 
 
 @pytest.mark.parametrize("employer,same", [
@@ -131,7 +131,7 @@ def test_an_authority_cannot_silently_stand_as_the_employer(employer, same):
     ("DE123456789", "de 123 456 789", True),
 ])
 def test_one_tax_number_cannot_belong_to_both_parties(supplier, buyer, same):
-    checks = validators.run_checks(InvoiceHU(supplier_tax_id=supplier, buyer_tax_id=buyer),
+    checks = validators.run_checks(DocumentRecord(supplier_tax_id=supplier, buyer_tax_id=buyer),
                                    [{"check": "distinct_parties", "fields": ["supplier_tax_id", "buyer_tax_id"]}])
     assert (not checks[0].ok) == same
 

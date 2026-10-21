@@ -56,7 +56,7 @@ def run(case_file: Path, *, arm: str, jev: bool, budget_usd: Decimal, out_dir: P
             except Exception as exc:  # noqa: BLE001 - a failed case is a row of the measurement, not its end
                 row.update(error=f"{type(exc).__name__}: {exc}")
             else:
-                record = st.invoice.model_dump(mode="json") if st.invoice is not None else None
+                record = st.record.model_dump(mode="json") if st.record is not None else None
                 row.update(run_id=st.run_id, values=record, needs_review=st.needs_review,
                            review_reasons=list(st.review_reasons), final_status=st.final_status)
             rows.append(row)

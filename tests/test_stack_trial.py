@@ -164,11 +164,11 @@ def test_invoice_write_then_crash_replays_without_duplicate_datapoints(tmp_path,
         run_trial("invoice", str(source), tmp_path, "invoice-run", adapter, fault=fault)
     calls = client.calls
     state = run_trial("invoice", str(source), tmp_path, "invoice-run", adapter)
-    assert state.invoice is not None
+    assert state.record is not None
     from datetime import date
     from decimal import Decimal
-    assert state.invoice.issue_date == date(2026, 1, 1)
-    assert isinstance(state.invoice.net_total, Decimal)
+    assert state.record.issue_date == date(2026, 1, 1)
+    assert isinstance(state.record.net_total, Decimal)
     assert client.calls == calls
     with store.use_store(tmp_path / "business.sqlite"):
         stats = store.stats()

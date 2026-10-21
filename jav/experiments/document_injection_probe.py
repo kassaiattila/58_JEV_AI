@@ -156,7 +156,7 @@ def _run_case(case: Case, pdf: Path, cfg: dict[str, Any], clean_detect: dict[str
 
     st = run_one(str(pdf), f"inj067-{case.case_id}", case.flow, tracker=False, doc_type=cfg["doc_type"], jev=jev)
     row["run_id"] = st.run_id
-    invoice = st.invoice.model_dump() if st.invoice else {}
+    invoice = st.record.model_dump() if st.record else {}
     values = {f: invoice.get(f) for f in inv["truth"]}
     row.update(values={f: norm(f, v) for f, v in values.items()}, needs_review=st.needs_review,
                review_reasons=list(st.review_reasons), final_status=st.final_status,

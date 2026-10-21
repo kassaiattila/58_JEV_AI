@@ -336,10 +336,10 @@ def apply_verdict_policy(state: FlowState) -> None:
         reason = noul_review_reason("jev", flag, p, "invoice.verify")
         if reason:
             require_review(state, reason)
-    if state.invoice is not None:
+    if state.record is not None:
         # 175: in the pack's order (a set's order depended on the process's hash seed)
         for field in get_pack(state.doc_type or DEFAULT_KEY).required:
-            if state.invoice.get_field(field) is None:
+            if state.record.get_field(field) is None:
                 require_review(state, f"llm:required_missing:{field}")
 
 
@@ -369,12 +369,12 @@ def apply_gpt_confidence_policy(state: FlowState) -> None:
     probability (an answer without log-probabilities) is a `gpt:confidence_unavailable:<field>` to-do; it used to pass
     unchecked."""
     threshold = GPT_FIELD_CONFIDENCE.get("review_below")
-    if state.jev or state.arm != "G" or threshold is None or state.invoice is None:
+    if state.jev or state.arm != "G" or threshold is None or state.record is None:
         return
     measure = GPT_FIELD_CONFIDENCE["measure"]
     failed = {c.name.split(":", 1)[1] for c in state.validation if not c.ok and ":" in c.name}
     fields = gpt_review_fields(state.doc_type)
-    values = state.invoice.to_datapoints(fields)
+    values = state.record.to_datapoints(fields)
     for field in fields:
         token = ((state.llm_token_p or {}).get(field) or {}).get(measure)
         if values.get(field) in (None, "", []) or field in failed:
@@ -391,7 +391,7 @@ def apply_gpt_confidence_policy(state: FlowState) -> None:
 def apply_cross_document_checks(state: FlowState) -> None:
     """The cross-document stage on the record being processed: each check's to-dos in the registry's order, nothing
     outside a worker run."""
-    subject = checks.Subject(state.doc_id, state.doc_type, state.invoice, [v.model_dump() for v in state.validation])
+    subject = checks.Subject(state.doc_id, state.doc_type, state.record, [v.model_dump() for v in state.validation])
     for reasons in checks.cross_document(subject):
         require_review(state, *reasons)
 
@@ -418,7 +418,7 @@ def decide(state: FlowState) -> str:
         if not check.arms or state.arm in check.arms:
             check.run(state)
     apply_cross_document_checks(state)
-    if state.invoice is None:
+    if state.record is None:
         require_review(state, "no_invoice")
     return "human" if state.needs_review else "auto"
 

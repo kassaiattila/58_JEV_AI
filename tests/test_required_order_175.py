@@ -13,16 +13,16 @@ import sys
 from pathlib import Path
 
 from jav import policy
-from jav.models import FlowState, InvoiceHU, JevVerdicts
+from jav.models import FlowState, DocumentRecord, JevVerdicts
 from jav.typepack import get as get_pack
 
 ROOT = Path(__file__).resolve().parents[1]
 _CODE = """
 import json
 from jav import policy
-from jav.models import FlowState, InvoiceHU, JevVerdicts
+from jav.models import FlowState, DocumentRecord, JevVerdicts
 state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", doc_type="statement_cib")
-state.invoice = InvoiceHU()
+state.record = DocumentRecord()
 state.verdicts = JevVerdicts(source="code")
 policy.apply_verdict_policy(state)
 print(json.dumps(state.review_reasons))
@@ -31,7 +31,7 @@ print(json.dumps(state.review_reasons))
 
 def _missing(doc_type: str) -> list[str]:
     state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", doc_type=doc_type)
-    state.invoice = InvoiceHU()
+    state.record = DocumentRecord()
     state.verdicts = JevVerdicts(source="code")
     policy.apply_verdict_policy(state)
     return state.review_reasons

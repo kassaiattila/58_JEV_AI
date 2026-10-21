@@ -43,7 +43,7 @@ CALLSITES: dict[str, dict[str, Any]] = {
     "select": {
         "steps": ["parties", "header", "money"], "registry": None, "flow": "invoice / jev_select (S-kar, típus-csomag: invoice_hu)", "state_fn": "jav.jev_select._select_request",
         "consumers": {
-            "*": "FieldPick mezőnként: label -> InvoiceHU; policy invoice.pick sáv (human 0,60) alatt review, a csomag high_stakes mezőinél invoice.pick.high_stakes sáv; a csomag required mezői none -> review",
+            "*": "FieldPick mezőnként: label -> DocumentRecord; policy invoice.pick sáv (human 0,60) alatt review, a csomag high_stakes mezőinél invoice.pick.high_stakes sáv; a csomag required mezői none -> review",
         },
     },
     "verify": {
@@ -55,7 +55,7 @@ CALLSITES: dict[str, dict[str, Any]] = {
     "select_foreign": {
         "steps": ["foreign_parties", "foreign_header", "foreign_money"], "registry": None, "flow": "invoice / jev_select (S-kar, típus-csomag: invoice_foreign)", "state_fn": "jav.jev_select._select_request",
         "consumers": {
-            "*": "FieldPick mezőnként: label -> InvoiceHU (supplier_country is); a csomag required (invoice_number, gross_total) és high_stakes mezői; a policy sávjai a magyar számláéval azonosak",
+            "*": "FieldPick mezőnként: label -> DocumentRecord (supplier_country is); a csomag required (invoice_number, gross_total) és high_stakes mezői; a policy sávjai a magyar számláéval azonosak",
             "supplier_country": "Choice ISO-kódok közül (a szállító címe / adószám-előtagja alapján) - következtetett mező, jelölt nélkül",
             "currency": "a számlázási pénznem (a HUF adóbevallási átváltás informatív, nem pénznem)",
         },
@@ -71,7 +71,7 @@ CALLSITES: dict[str, dict[str, Any]] = {
         "flow": "invoice / jev_select (S-kar, típus-csomagok: villamos_energia_szamla, foldgaz_szamla, viz_szamla, mohu_szamla, vizmuvek_szamla, csatorna_szamla - mind extends _base/utility_bill_hu; OCR-szöveg)",
         "state_fn": "jav.jev_select._select_request",
         "consumers": {
-            "*": "FieldPick mezőnként: label -> InvoiceHU (+ extra: a csomag további mezői); EGY kérdéskészlet a hat csomag unió-mezőire, minden csomag csak a saját mezőit kérdezi; number fajta = a szám-jelöltek közül (mennyiség, mérőállás), text fajta = címkés szöveg-jelöltek (text_labels)",
+            "*": "FieldPick mezőnként: label -> DocumentRecord (+ extra: a csomag további mezői); EGY kérdéskészlet a hat csomag unió-mezőire, minden csomag csak a saját mezőit kérdezi; number fajta = a szám-jelöltek közül (mennyiség, mérőállás), text fajta = címkés szöveg-jelöltek (text_labels)",
             "payment_method": "zárt Choice (postai csekk / csoportos beszedés / átutalás / elektronikus / ...), a header kérésben",
             "reading_method": "zárt Choice (Leol / Becs / Dikt / EII / none), a meter kérésben",
             "currency": "zárt Choice (HUF / EUR / none), a money kérésben",

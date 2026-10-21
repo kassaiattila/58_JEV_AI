@@ -11,7 +11,7 @@ from decimal import Decimal
 
 from jav import checks, store
 from jav.domains import finance
-from jav.models import InvoiceHU
+from jav.models import DocumentRecord
 from jav.runtime import calls
 
 
@@ -35,7 +35,7 @@ def test_the_store_is_read_in_a_worker_run_only(tmp_path):
 
 
 def test_a_measurement_in_a_fresh_store_gets_no_duplicate_to_do_and_does_not_fail(tmp_path):
-    record = InvoiceHU(invoice_number="INV-2026-001", supplier_tax_id="12121216-2-42", supplier_name="Minta Kft.",
+    record = DocumentRecord(invoice_number="INV-2026-001", supplier_tax_id="12121216-2-42", supplier_name="Minta Kft.",
                        gross_total=Decimal("1270"), issue_date="2026-01-05")
     with store.use_store(tmp_path / "fresh.sqlite"), calls.measurement("measure-x", {"jev": Decimal("0.01")}):
         assert checks.cross_document(checks.Subject("doc-1", "invoice_hu", record)) == []

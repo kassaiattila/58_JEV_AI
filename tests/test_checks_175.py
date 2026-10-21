@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from jav import cfg, checks, duplicates, parties, validators
-from jav.models import CheckResult, InvoiceHU
+from jav.models import CheckResult, DocumentRecord
 from jav.runtime import calls
 from jav.typepack import get as get_pack
 
@@ -45,7 +45,7 @@ def test_every_check_a_type_pack_names_is_a_record_check_of_its_shape(key) -> No
 
 
 def test_an_unknown_check_or_one_of_another_stage_in_a_pack_is_an_error() -> None:
-    inv = InvoiceHU()
+    inv = DocumentRecord()
     with pytest.raises(ValueError, match="unknown check in the type pack: vibes"):
         validators.run_checks(inv, [{"check": "vibes", "field": "currency", "optional": True}])
     with pytest.raises(ValueError, match="unknown check in the type pack: duplicate"):
@@ -78,14 +78,14 @@ def test_a_check_that_reads_the_store_runs_in_a_worker_run_only(monkeypatch) -> 
     checks.register(checks.Check("elsewhere", "cross_document", lambda subject: seen.append("cross") or ["x:y"],
                                  reads_store=True))
     subject = checks.Subject("doc-1", "invoice_hu", None)
-    assert validators.run_checks(InvoiceHU(), [{"check": "history"}]) == []
+    assert validators.run_checks(DocumentRecord(), [{"check": "history"}]) == []
     assert checks.cross_document(subject) == []
     with calls.measurement("measure-x", {}):
-        assert validators.run_checks(InvoiceHU(), [{"check": "history"}]) == []
+        assert validators.run_checks(DocumentRecord(), [{"check": "history"}]) == []
         assert checks.cross_document(subject) == []
     assert seen == []
     with calls.use_run(budget_scope="run-x"):
-        assert [r.code for r in validators.run_checks(InvoiceHU(), [{"check": "history"}])] == ["history.ok"]
+        assert [r.code for r in validators.run_checks(DocumentRecord(), [{"check": "history"}])] == ["history.ok"]
         assert checks.cross_document(subject) == [[], [], [], ["x:y"]]  # the built-in ones: nothing without a record
     assert seen == ["record", "cross"]
 

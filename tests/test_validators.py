@@ -9,34 +9,34 @@ from decimal import Decimal
 import pytest
 
 from jav.config import GOLDEN_EXPECTED_DIR, GOLDEN_MANIFEST
-from jav.models import InvoiceHU, InvoiceLLM, llm_to_invoice
+from jav.models import DocumentRecord, InvoiceLLM, llm_to_invoice
 from jav.validators import date_order, hu_tax_id, iban_check, run_all, vat_consistency
 
 
 def test_vat_consistency_huf_tolerance():
-    inv = InvoiceHU(currency="HUF", net_total=Decimal("100000"), vat_total=Decimal("27000"), gross_total=Decimal("127001"))
+    inv = DocumentRecord(currency="HUF", net_total=Decimal("100000"), vat_total=Decimal("27000"), gross_total=Decimal("127001"))
     assert vat_consistency(inv).code == "totals.ok"
     inv.gross_total = Decimal("127002")
     assert vat_consistency(inv).code == "totals.mismatch"
 
 
 def test_vat_consistency_eur_tolerance():
-    inv = InvoiceHU(currency="EUR", net_total=Decimal("100.00"), vat_total=Decimal("27.00"), gross_total=Decimal("127.02"))
+    inv = DocumentRecord(currency="EUR", net_total=Decimal("100.00"), vat_total=Decimal("27.00"), gross_total=Decimal("127.02"))
     assert vat_consistency(inv).code == "totals.ok"
     inv.gross_total = Decimal("127.03")
     assert vat_consistency(inv).code == "totals.mismatch"
 
 
 def test_vat_consistency_missing():
-    assert vat_consistency(InvoiceHU(net_total=Decimal("1"))).code == "totals.unparseable"
+    assert vat_consistency(DocumentRecord(net_total=Decimal("1"))).code == "totals.unparseable"
 
 
 def test_date_order():
-    inv = InvoiceHU(issue_date=date(2022, 2, 10), due_date=date(2022, 2, 18))
+    inv = DocumentRecord(issue_date=date(2022, 2, 10), due_date=date(2022, 2, 18))
     assert date_order(inv).code == "dates.ok"
     inv.due_date = date(2022, 2, 1)
     assert date_order(inv).code == "dates.due_before_issue"
-    assert date_order(InvoiceHU(issue_date=date(2022, 2, 10))).code == "dates.unparseable"
+    assert date_order(DocumentRecord(issue_date=date(2022, 2, 10))).code == "dates.unparseable"
 
 
 @pytest.mark.parametrize(

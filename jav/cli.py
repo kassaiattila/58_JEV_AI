@@ -171,8 +171,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         state = run_one(args.pdf, case_id=args.case_id or "adhoc", arm=args.arm, tracker=not args.no_tracker,
                         use_cache=not args.no_cache, doc_type=args.type, jev=_jev_on(args))
     print(f"\n=== {state.final_status} | route={state.route} | arm={state.arm} | type={state.doc_type}")
-    if state.invoice:
-        print(json.dumps(state.invoice.to_datapoints(), ensure_ascii=False, indent=2, default=str))
+    if state.record:
+        print(json.dumps(state.record.to_datapoints(), ensure_ascii=False, indent=2, default=str))
     if state.picks:
         print("\n--- picks")
         for f, p in state.picks.items():

@@ -22,7 +22,7 @@ from typesafe_sdk import Choice, Noul
 
 from jav import cfg, policy, typepack
 from jav.candidates import find_all, find_currencies
-from jav.models import HEADER_FIELDS, SCORED_FIELDS, CellLayout, FieldPick, FlowState, InvoiceHU, LineLayout, record_from_llm
+from jav.models import HEADER_FIELDS, SCORED_FIELDS, CellLayout, FieldPick, FlowState, DocumentRecord, LineLayout, record_from_llm
 
 
 def _line(no: int, *cells: tuple[str, float]) -> LineLayout:
@@ -178,12 +178,12 @@ def test_validators_are_pack_driven():
     from jav.validators import run_all
 
     fo = typepack.get("invoice_foreign")
-    inv = InvoiceHU(currency="EUR", supplier_country="IE", issue_date=date(2022, 11, 2), due_date=date(2022, 12, 2), gross_total=Decimal("108.38"))
+    inv = DocumentRecord(currency="EUR", supplier_country="IE", issue_date=date(2022, 11, 2), due_date=date(2022, 12, 2), gross_total=Decimal("108.38"))
     codes = {c.name: c.code for c in run_all(inv, fo.validators)}
     assert codes == {"date_order": "dates.ok", "format:currency": "format.ok", "format:supplier_country": "format.ok"}  # no VAT equation (reverse charge), no IBAN
     inv.supplier_country = "Ireland"
     assert {c.code for c in run_all(inv, fo.validators)} >= {"format.mismatch"}
-    hu_codes = [c.name for c in run_all(InvoiceHU(currency="HUF", net_total=Decimal(1), vat_total=Decimal(0), gross_total=Decimal(1), issue_date=date(2022, 1, 1), due_date=date(2022, 1, 2)))]
+    hu_codes = [c.name for c in run_all(DocumentRecord(currency="HUF", net_total=Decimal(1), vat_total=Decimal(0), gross_total=Decimal(1), issue_date=date(2022, 1, 1), due_date=date(2022, 1, 2)))]
     # the legacy list is unchanged (optional tax number / IBAN skipped when empty); 053: no line items, no item error
     assert hu_codes == ["vat_consistency", "date_order", "line_items_total", "line_items_arithmetic"]
 

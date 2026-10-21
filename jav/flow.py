@@ -41,10 +41,13 @@ from jav import card_numbers, cfg, checks, policy, store
 from jav.config import TRACKER_PROJECTS
 from jav.engine import with_engine
 from jav.models import FlowState
+from jav.runtime import persistence
 from jav.typepack import DEFAULT_KEY, get as get_pack
 
 TERMINALS = ["done", "needs_review", "needs_ocr"]
 PARTITION = "invoice"  # partition of the durable state store (066 Á08: the worker finds the saved state by it)
+# 188 (plan 185 T3b): the record was `invoice` in the state; a state saved before is read under `record`
+persistence.rename_saved_keys(PARTITION, {"invoice": "record"})
 TRACKER_PROJECT = TRACKER_PROJECTS.get("invoice_hu", "jav_invoice_hu")  # legacy; per type: `tracker_project(doc_type)`
 
 
@@ -149,12 +152,12 @@ def jev_select(state: FlowState) -> FlowState:
     return state
 
 
-@action.pydantic(reads=["layout", "picks", "candidates", "doc_type", "needs_review", "review_reasons"], writes=["invoice", "needs_review", "review_reasons"])
+@action.pydantic(reads=["layout", "picks", "candidates", "doc_type", "needs_review", "review_reasons"], writes=["record", "needs_review", "review_reasons"])
 def normalize_picks(state: FlowState) -> FlowState:
     from jav.jev_select import picks_to_invoice
 
     inv, reasons = picks_to_invoice(state.picks, state.candidates, pack=get_pack(state.doc_type), lines=state.layout)
-    state.invoice = inv
+    state.record = inv
     policy.require_review(state, *reasons)
     return state
 
@@ -214,7 +217,7 @@ def _word_layer(state: FlowState):
     return source_layer.load(state.source_layer_id) if state.source_layer_id else None
 
 
-@action.pydantic(reads=["layout", "llm_output", "doc_type", "needs_review", "review_reasons"], writes=["invoice", "needs_review", "review_reasons"])
+@action.pydantic(reads=["layout", "llm_output", "doc_type", "needs_review", "review_reasons"], writes=["record", "needs_review", "review_reasons"])
 def normalize_llm(state: FlowState) -> FlowState:
     from jav.dates import document_date_order
     from jav.numbers import document_convention
@@ -225,23 +228,23 @@ def normalize_llm(state: FlowState) -> FlowState:
     convention = document_convention(texts)
     inv, reasons = get_pack(state.doc_type).normalize(state.llm_output or {}, convention=convention,
                                                       date_order=document_date_order(texts))
-    state.invoice = inv
+    state.record = inv
     policy.require_review(state, *reasons)
     return state
 
 
-@action.pydantic(reads=["invoice", "doc_type", "doc_id"], writes=["validation"])
+@action.pydantic(reads=["record", "doc_type", "doc_id"], writes=["validation"])
 def validate(state: FlowState) -> FlowState:
     from jav.validators import run_all
 
     # 121: the document's identity, for the checks that compare it with earlier documents (party_orientation)
-    state.validation = (run_all(state.invoice, get_pack(state.doc_type).validators, doc_id=state.doc_id, doc_type=state.doc_type)
-                        if state.invoice else [])
+    state.validation = (run_all(state.record, get_pack(state.doc_type).validators, doc_id=state.doc_id, doc_type=state.doc_type)
+                        if state.record else [])
     return state
 
 
 @action.pydantic(
-    reads=["arm", "picks", "verdicts", "validation", "invoice", "doc_type", "doc_id", "jev", "llm_token_p", "needs_review",
+    reads=["arm", "picks", "verdicts", "validation", "record", "doc_type", "doc_id", "jev", "llm_token_p", "needs_review",
            "review_reasons"],
     writes=["route", "needs_review", "review_reasons"],
 )
@@ -265,7 +268,7 @@ def _gpt_confidence(state: FlowState) -> None:
                                      "token": token_p.get(measure) if token_p else None, "failed_check": f in failed}
 
 
-@action.pydantic(reads=["arm", "doc_type", "source_layer_id", "picks", "candidates", "invoice", "verdicts", "llm_token_p", "validation"],
+@action.pydantic(reads=["arm", "doc_type", "source_layer_id", "picks", "candidates", "record", "verdicts", "llm_token_p", "validation"],
                  writes=["provenance"])
 def ground(state: FlowState) -> FlowState:
     """045: per-field source location on the word layer (code, no AI call). S path: the chosen candidate on its own
@@ -276,7 +279,7 @@ def ground(state: FlowState) -> FlowState:
 
     pack = get_pack(state.doc_type)
     fields = {f: pack.kind(f) for f in pack.header_fields}
-    values = state.invoice.to_datapoints(pack.header_fields) if state.invoice is not None else {}
+    values = state.record.to_datapoints(pack.header_fields) if state.record is not None else {}
     try:
         layer = source_layer.load(state.source_layer_id) if state.source_layer_id else None
         if state.arm == "S":
@@ -291,8 +294,8 @@ def ground(state: FlowState) -> FlowState:
             state.provenance = grounding.ground_values(layer, fields=fields, values=values, confidence=conf)
             if state.verdicts is not None and state.verdicts.source == "code":
                 _gpt_confidence(state)
-        if state.invoice is not None and pack.list_fields:  # 053: locations of the line-item list rows
-            record = state.invoice.to_datapoints(pack.record_fields)
+        if state.record is not None and pack.list_fields:  # 053: locations of the line-item list rows
+            record = state.record.to_datapoints(pack.record_fields)
             lists = {f: record.get(f) or [] for f in pack.list_fields}
             state.provenance.update(grounding.ground_lists(layer, lists=lists, kinds={f: dict(v) for f, v in pack.list_fields.items()}))
     except Exception as exc:  # noqa: BLE001 - source location is auxiliary; saving the result must not depend on it
@@ -302,7 +305,7 @@ def ground(state: FlowState) -> FlowState:
 
 
 @action.pydantic(
-    reads=["run_id", "doc_id", "doc_type", "arm", "source_path", "has_text_layer", "text_source", "page_count", "invoice", "picks", "verdicts",
+    reads=["run_id", "doc_id", "doc_type", "arm", "source_path", "has_text_layer", "text_source", "page_count", "record", "picks", "verdicts",
            "validation", "route", "review_reasons", "needs_review", "provenance", "source_layer_id", "detail_probabilities"],
     writes=[],
 )
@@ -319,7 +322,7 @@ def save(state: FlowState) -> FlowState:
         run_id=state.run_id,
     )
     store.review_close(subject_kind="document", subject_id=state.doc_id, producer=policy.OCR_REVIEW_PRODUCER, run_id=state.run_id)  # 066: there is text now
-    if state.invoice is not None:
+    if state.record is not None:
         rec_conf = None
         evidence = None
         if state.arm == "S":
@@ -342,7 +345,7 @@ def save(state: FlowState) -> FlowState:
             doc_type=state.doc_type,
             arm=state.arm,
             # 153 (review C4): a full card number is never saved (a card statement processed as a document)
-            datapoints=card_numbers.mask_values(state.invoice.to_datapoints(pack.record_fields)),
+            datapoints=card_numbers.mask_values(state.record.to_datapoints(pack.record_fields)),
             field_conf=field_conf,
             validation=[v.model_dump() for v in state.validation],
             route=state.route,
@@ -361,7 +364,7 @@ def save(state: FlowState) -> FlowState:
             run_id=state.run_id,
             reasons=state.review_reasons,
             producer=f"m2:{state.arm}",
-            payload={"arm": state.arm, "doc_type": state.doc_type, "datapoints": state.invoice.to_datapoints(pack.record_fields) if state.invoice else None},
+            payload={"arm": state.arm, "doc_type": state.doc_type, "datapoints": state.record.to_datapoints(pack.record_fields) if state.record else None},
         )
     checks.saved(state)  # 149 (185: the finance domain's check, `parties.confirm_detail_by_direction`)
     return state
