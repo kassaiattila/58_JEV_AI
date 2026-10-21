@@ -39,7 +39,8 @@ def score_targets(group,points):
     return rows
 
 def summarize(stage, final=False):
-    assertions=[]; targets=[]
+    assertions=[]
+    targets=[]
     for group in gold['groups']:
         suffix='-probes.json' if stage=='baseline-v2' else '.json'
         path=OUT/stage/(group['id']+suffix)
@@ -51,7 +52,8 @@ def summarize(stage, final=False):
         if final and (OUT/'repair-v2'/(group['id']+'.json')).exists():
             gen=read(OUT/'repair-v2'/(group['id']+'.json'))['generated']['points']
         for label,p in zip(group['points'],checked):
-            expected=label['expected']; actual=p['verification']['status']
+            expected=label['expected']
+            actual=p['verification']['status']
             assertions.append(dict(group_id=group['id'],name=p['proposal']['name'],
                 provenance=group['provenance'],expected=expected,actual=actual,exact=expected==actual,
                 false_support=expected!='supported' and actual=='supported'))
@@ -69,7 +71,8 @@ def summarize(stage, final=False):
         missing_fields=len(missing),missing_correctly_omitted=sum(r['absent_correct'] for r in missing),
         real_statuses=dict(Counter(r['actual'] for r in real)))
 
-coverage=[];points=[]
+coverage=[]
+points=[]
 for cid in ('expanded-048','expanded-049','expanded-059'):
     d=read(OUT/'baseline-v2'/(cid+'.json'))
     coverage.append({'case_id':cid,**d['coverage']})

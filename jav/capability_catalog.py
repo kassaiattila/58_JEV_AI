@@ -36,9 +36,11 @@ def build_catalog():
     spec=_read(spec_path)
     doc_path=PROJECT_ROOT/spec['document_registry']
     intent_path=PROJECT_ROOT/spec['intent_registry']
-    registry=_read(doc_path); intents=_read(intent_path)['intents']
+    registry=_read(doc_path)
+    intents=_read(intent_path)['intents']
     # 136: the inventory of the extractable types; a code-only pack (a statement read from a table export) is not one
-    core=set(typepack.extractable_keys()); legacy=set(legacy_packs.keys())
+    core=set(typepack.extractable_keys())
+    legacy=set(legacy_packs.keys())
     expected=set(spec['expected_document_keys'])
     # 047 T1.1: all 23 types are full packs; the 15 legacy copies stay as sources (hash check), each has a pack
     if core != expected or not legacy <= core or set(registry['old_type_map']) != expected:
@@ -52,16 +54,20 @@ def build_catalog():
     hashes={}
     def track(path):
         hashes[path.relative_to(PROJECT_ROOT).as_posix()]=hashlib.sha256(path.read_bytes()).hexdigest()
-    for p in (spec_path,doc_path,intent_path):track(p)
+    for p in (spec_path,doc_path,intent_path):
+        track(p)
     documents=[]
     for key in sorted(expected):
         broad=registry['old_type_map'][key]
-        if broad not in categories:raise ValueError('unknown broad category: '+key)
+        if broad not in categories:
+            raise ValueError('unknown broad category: '+key)
         category=categories[broad]
         if key in core:
-            pack=typepack.get(key);schema=pack.schema()
+            pack=typepack.get(key)
+            schema=pack.schema()
             sources=[PROJECT_ROOT/spec['processing_sources']['core']/(key+'.json')]
-            if pack.extends:sources.append(PROJECT_ROOT/spec['processing_sources']['core']/'_base'/(pack.extends+'.json'))
+            if pack.extends:
+                sources.append(PROJECT_ROOT/spec['processing_sources']['core']/'_base'/(pack.extends+'.json'))
             sources += [PROMPTS_DIR/n for n in pack.schema_files]+[PROMPTS_DIR/pack.prompt_file]
             processing={'mode':'typepack','runtime':'jav.flow','arms':list(pack.arms),'explicit_type_supported':True,
                         'automatic_routing_enabled':None,'routing_note':'not inferred from pack existence',
@@ -75,15 +81,20 @@ def build_catalog():
                         'field_kinds':pack.fields,'text_labels':pack.text_labels}
             active=key not in spec['legacy_pending_document_keys']
         else:
-            pack=legacy_packs.load(key);schema=pack['schema'];folder=PROJECT_ROOT/spec['processing_sources']['legacy']/key
+            pack=legacy_packs.load(key)
+            schema=pack['schema']
+            folder=PROJECT_ROOT/spec['processing_sources']['legacy']/key
             sources=[folder/'manifest.json']+[folder/n for n in pack['manifest']['files']]
             processing={'mode':'explicit_type_candidate','runtime':'jav.legacy_runtime.run_pack',
                         'explicit_type_supported':True,'automatic_routing_enabled':False}
             recognition={'broad_key':broad,'criteria':{k:category[k] for k in ('what','not_for','examples')},
                          'anchors_scope':'detailed_legacy_pack','legacy_detect':_read(folder/'detect.json')}
-            validation={'rules':pack['rules']};active=pack['manifest']['legacy_catalog_active']
-            if active != (key not in spec['legacy_pending_document_keys']):raise ValueError('legacy status mismatch')
-        for p in sources:track(p)
+            validation={'rules':pack['rules']}
+            active=pack['manifest']['legacy_catalog_active']
+            if active != (key not in spec['legacy_pending_document_keys']):
+                raise ValueError('legacy status mismatch')
+        for p in sources:
+            track(p)
         documents.append({'key':key,'legacy_catalog_active':active,'recognition':recognition,
             'processing':processing,'schema':schema,'datapoints':datapoints(schema),
             'validation':validation,'sources':[p.relative_to(PROJECT_ROOT).as_posix() for p in sources]})
@@ -97,14 +108,17 @@ def build_catalog():
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path)
-    args=parser.parse_args(); catalog=build_catalog()
+    args=parser.parse_args()
+    catalog=build_catalog()
     if args.output:
         args.output.parent.mkdir(parents=True,exist_ok=True)
-        with args.output.open('x',encoding='utf-8') as f:json.dump(catalog,f,ensure_ascii=False,indent=2)
+        with args.output.open('x',encoding='utf-8') as f:
+            json.dump(catalog,f,ensure_ascii=False,indent=2)
     print(json.dumps({'documents':len(catalog['documents']),
         'datapoint_paths':sum(len(d['datapoints']) for d in catalog['documents']),
         'active_intents':len(catalog['intents']),'retired_intents':len(catalog['retired_intent_keys']),
         'external_calls':0,'output':str(args.output) if args.output else None}))
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    main()

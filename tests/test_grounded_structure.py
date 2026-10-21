@@ -81,7 +81,8 @@ def test_layout_and_config_protect_pages_headers_and_tabular_rows():
 def test_wrapped_left_cell_can_join_but_next_full_row_remains_protected():
     def row(no, cells, page=1):
         return LineLayout(no=no, page=page, text="   ".join(c.text for c in cells), cells=cells)
-    cells = lambda values: [CellLayout(text=t, x0=a, x1=b) for t,a,b in values]
+    def cells(values):
+        return [CellLayout(text=t, x0=a, x1=b) for t,a,b in values]
     rows = [row(1, cells([("Product with long",10,180),("2",240,250),("100",300,320)])),
             row(2, cells([("A1",10,25),("description",55,140)])),
             row(3, cells([("Other product",10,160),("1",240,250),("50",300,320)]))]

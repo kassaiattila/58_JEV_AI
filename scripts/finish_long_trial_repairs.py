@@ -8,7 +8,8 @@ root=OUT/'repair-v2'
 snapshot('repair-v2')
 group=next(g for g in read(OUT/'gold.json')['groups'] if g['id']=='expanded-048-amount-roles')
 prior=read(OUT/'repair-v1'/(group['id']+'.json'))
-source=cases[group['case_id']]['text'];spans=group['ranges']
+source=cases[group['case_id']]['text']
+spans=group['ranges']
 bundle=build_bundle(source,spans,source_sha256=digest(source))
 config=read(OUT/'repair-v1/config.json')|{'expand_exact_context':True}
 write(root/'config.json',config)

@@ -27,7 +27,8 @@ def run_pack(*, key, text, directory, run_id, config, generate, ask, halt_after=
     pack=load(key)
     identity={'key':key,'source_sha256':canonical_hash(text),'pack':pack['manifest'],'config':config,
               'runtime_sha256':canonical_hash(Path(__file__).read_text(encoding='utf-8'))}
-    directory=Path(directory); directory.mkdir(parents=True,exist_ok=True)
+    directory=Path(directory)
+    directory.mkdir(parents=True,exist_ok=True)
     with closing(sqlite3.connect(directory/'worker.sqlite',timeout=0)) as lock:
         lock.execute('BEGIN IMMEDIATE')
         with store.use_store(directory/'business.sqlite'):
@@ -35,7 +36,8 @@ def run_pack(*, key, text, directory, run_id, config, generate, ask, halt_after=
             def stage(name,fn):
                 sid=run_id+':'+name
                 saved=store.load_artifact('legacy_stage',sid)
-                if saved is not None: return saved
+                if saved is not None:
+                    return saved
                 if store.load_artifact('legacy_started',sid) is not None:
                     raise RuntimeError('unresolved external call: '+name)
                 store.save_artifact('legacy_started',sid,{'identity':canonical_hash(identity)})
@@ -77,4 +79,5 @@ def run_pack(*, key, text, directory, run_id, config, generate, ask, halt_after=
                      .with_state_persister(persister).build())
                 _,_,state=app.run(halt_after=halt_after or ['done'])
                 return state.get_all()
-            finally: persister.cleanup()
+            finally:
+                persister.cleanup()

@@ -201,4 +201,5 @@ def main():
     {'prepare':prepare,'run':run,'replay':replay}[a.command](a.root)
 
 
-if __name__=='__main__': main()
+if __name__=='__main__':
+    main()

@@ -54,7 +54,8 @@ for cid, total, water, sewer, invoice in amounts:
                        'supported' if kind=='corrected' else 'review_required',unit='HUF')],
                 [{'name':'current_payable','role':'current collection-summary amount payable after considering all amendments or contradictions; omit if unresolved'}],suffix)
 
-c = cases['expanded-043']; t=c['text']
+c = cases['expanded-043']
+t=c['text']
 bankpoints = [
     point('closing_balance','closing balance of the EUR account','265,86','ZÁRÓ EGYENLEG:   265,86',unit='EUR'),
     point('available_balance','available balance of the EUR account','265,86','ELÉRHETŐ EGYENLEG:   265,86',unit='EUR'),
@@ -64,7 +65,8 @@ bankpoints = [
     point('missing_invoice','invoice number for the bank account statement','INV-NOT-STATED-030','BANKSZÁMLA KIVONAT','unsupported')]
 add(c['case_id'],'bank-roles-boundary',[(0,len(t))],bankpoints,
     [{'name':p['proposal']['name'],'role':p['proposal']['role']} for p in (bankpoints[0],bankpoints[1],bankpoints[3],bankpoints[5])])
-c=cases['expanded-005'];t=c['text']
+c=cases['expanded-005']
+t=c['text']
 add(c['case_id'],'receipt-repeated-missing',[(0,len(t))],
     [point('receipt_total','total receipt amount','97.13','TOTAL AMOUNT:   $97.13',unit='USD'),
      point('amount_due','amount due as literally stated on this receipt','97.13','Amount due   97.13',unit='USD'),
