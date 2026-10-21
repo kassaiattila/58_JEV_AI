@@ -15,6 +15,9 @@ pydantic-evals
 
 # PDF szövegréteg
 pdfplumber
+# 188: published advisories (pillow: eight CVE-2026-112xxx; certifi: PYSEC-2026-4320)
+pillow>=13.0.0
+certifi>=2026.10.19
 
 # Offline tesztek
 pytest
