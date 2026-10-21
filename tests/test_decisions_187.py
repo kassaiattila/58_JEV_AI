@@ -381,3 +381,13 @@ def test_revoking_a_pair_rechecks_the_runs_approval_inside_the_transaction(db, m
         rp.revoke(wp, kind="decision", ref=key, actor="reviewer")
     with store.connect() as c:
         assert c.execute("SELECT run_id FROM reconcile_decisions WHERE pair_key=?", (key,)).fetchone()["run_id"] == k2.RUN
+
+
+def test_a_download_carries_no_decision_state(env, monkeypatch) -> None:  # noqa: F811
+    """The state is for a page to send back; the run's JSON download of the emails has no page."""
+    from jav import email_export
+
+    run_id, item = _reviewed_email(env, monkeypatch)
+    assert "decision_state" in _task(run_id, item["item_id"])
+    [mail] = [m for m in email_export.email_records(run_id) if m["item_id"] == item["item_id"]]
+    assert mail["tasks"]["tasks"] and all("decision_state" not in t for t in mail["tasks"]["tasks"])

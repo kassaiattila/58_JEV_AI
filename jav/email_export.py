@@ -49,7 +49,8 @@ def email_records(run_id: str) -> list[dict[str, Any]]:
                     "corrected": bool(res.get("corrected")), "next_flow": res.get("next_flow"),
                     "attachments": res.get("attachments") or [], "from_this_run": own, "body": body,
                     "open_reasons": [r["reason"] for r in split[item["item_id"]]["run"]],
-                    "tasks": mailbox.task_view(work.flow_run_id(run_id, item["item_id"]), raw) if own else None,
+                    "tasks": (mailbox.task_view(work.flow_run_id(run_id, item["item_id"]), raw, with_state=False)
+                              if own else None),
                     "source_status": source_status})
     return out
 

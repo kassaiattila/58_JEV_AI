@@ -797,18 +797,19 @@ def _task_key(flow_run_id: str, index: int) -> str:
     return f"{flow_run_id}#{index}"
 
 
-def task_view(flow_run_id: str, raw: dict[str, Any] | None) -> dict[str, Any] | None:
+def task_view(flow_run_id: str, raw: dict[str, Any] | None, *, with_state: bool = True) -> dict[str, Any] | None:
     """058 K5.3: the task proposal with its decisions (None = the run did not ask for proposals). 187: each task's
-    `decision_state`, which the page sends back with a change."""
+    `decision_state`, which the page sends back with a change (`with_state=False`: a download, which has no page)."""
     tasks = (raw or {}).get("tasks")
     if not tasks:
         return None
     decided = store.email_task_decisions(flow_run_id)
     proposed = tasks.get("tasks") or []
-    with store.connect() as c:
-        state = decisions.states(c, TASK_KIND, [_task_key(flow_run_id, n) for n in range(len(proposed))])
-    items = [{**t, "index": n, "decision": decided.get(n), "decision_state": state[_task_key(flow_run_id, n)]}
-             for n, t in enumerate(proposed)]
+    items = [{**t, "index": n, "decision": decided.get(n)} for n, t in enumerate(proposed)]
+    if with_state:
+        with store.connect() as c:
+            state = decisions.states(c, TASK_KIND, [_task_key(flow_run_id, n) for n in range(len(proposed))])
+        items = [{**t, "decision_state": state[_task_key(flow_run_id, t["index"])]} for t in items]
     return {"status": tasks.get("status"), "reason": tasks.get("reason"), "error": tasks.get("error"), "tasks": items,
             "rejected": tasks.get("rejected") or []}
 
