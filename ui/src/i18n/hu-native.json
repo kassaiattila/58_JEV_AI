@@ -1952,5 +1952,7 @@
   "The text given as the document is empty, so nothing was extracted from it": "Az iratként kapott szöveg üres, ezért nem volt mit kinyerni belőle",
   "A list has fewer rows than it should (for example, no requested item at all)": "A listában a vártnál kevesebb sor van (például egyetlen kért tétel sincs)",
   "A list row lacks a value it needs": "Egy listasorból hiányzik egy szükséges érték",
-  "A quantity in a list row is zero or less": "Egy listasor mennyisége nulla vagy kevesebb"
+  "A quantity in a list row is zero or less": "Egy listasor mennyisége nulla vagy kevesebb",
+  "JEV: the document has rows of this list that the extraction lacks: {{field}} ({{p}})": "JEV szerint az iraton a lista olyan sora is szerepel, amely a kinyertből hiányzik: {{field}} ({{p}})",
+  "JEV: the extracted list has rows the document does not: {{field}} ({{p}})": "JEV szerint a kinyert listában olyan sor is van, amely nincs az iraton: {{field}} ({{p}})"
 }

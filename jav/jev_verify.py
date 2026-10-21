@@ -9,7 +9,9 @@ Division of labour:
 
 Call site object (`VerifySite`): the type pack's `verify_callsite` (`verify.json` for the Hungarian invoice,
 `verify_foreign.json` for the foreign one; the latter inherits the Noul questions via the `inherits` key, only its field
-descriptions are its own). The module-level names (FIELD_SPECS, build_questions, verify, ...) point to the Hungarian
+descriptions are its own). 190 (plan 189 A2d): the call site names its document-level questions (`document_nouls`;
+without the key the three invoice questions, so every existing call site asks what it asked) and the questions asked
+of each list field of the pack (`list_nouls`, e.g. missing and extra rows; none without the key). The module-level names (FIELD_SPECS, build_questions, verify, ...) point to the Hungarian
 invoice's call site (compatibility).
 """
 
@@ -236,6 +238,10 @@ def find_evidence(
     return hits[:4]
 
 
+# 190: the document-level questions of a call site that does not name its own (every call site before 190)
+DOCUMENT_NOULS = ("parties_swapped", "line_items_missing_rows", "line_items_extra_rows")
+
+
 def _as_dict(llm: BaseModel | dict[str, Any]) -> dict[str, Any]:
     return llm if isinstance(llm, dict) else llm.model_dump()
 
@@ -268,6 +274,11 @@ class VerifySite:
         self.incomplete_fields = tuple(data["incomplete_fields"])
         self.wrong_kind_fields = tuple(data["wrong_kind_fields"])
         self.nouls: dict[str, dict[str, str]] = data["nouls"]
+        self.document_nouls: tuple[str, ...] = tuple(data.get("document_nouls", DOCUMENT_NOULS))  # 190
+        self.list_nouls: tuple[str, ...] = tuple(data.get("list_nouls", ()))  # 190: asked of each list field
+        unknown = [n for n in (*self.document_nouls, *self.list_nouls) if n not in self.nouls]
+        if unknown:
+            raise ValueError(f"callsite:{self.callsite}: no question text for {unknown}")
         self.intl = pack.candidate_profile != "hu"
         # the glossary once, in the state (not in every Noul's instruction): for a pack with many fields (utility: ~30
         # fields × 3 questions) the request would otherwise exceed JEV's token limit (max_tokens_exceeded); unchanged
@@ -331,7 +342,10 @@ class VerifySite:
                 q[f"{field}__wrong_kind"] = self._noul("wrong_kind", **data)
             if field in self.incomplete_fields:
                 q[f"{field}__incomplete"] = self._noul("incomplete", **data)
-        for name in ("parties_swapped", "line_items_missing_rows", "line_items_extra_rows"):
+        for field in self.pack.list_fields:  # 190: `<list>__<question>`, a flag of the list field
+            for name in self.list_nouls:
+                q[f"{field}__{name}"] = self._noul(name, list_field=field, list_spec=self.field_specs.get(field, field))
+        for name in self.document_nouls:
             q[name] = self._noul(name)
         return q
 

@@ -19,6 +19,8 @@ What the pack contains (a mirror of the legacy 10_AIFLOW_V4 `types/<key>/` pack,
 - `inputs` (190, plan 189 A2b): the kinds of input the pack takes: `pdf` (the default, every pack before 190), `text`
   (an email's own text or a text file) and `table` (an Excel or CSV file), each laid out as lines by
   `jav.text_document`;
+- `source_prefix` (190, plan 189 A2d): the words that introduce the source text in the G path's request; without it
+  (every pack before 190) "SOURCE TEXT extracted from the invoice PDF ...", so a quote request is not called an invoice;
 - `plain_list_items` (190, plan 189 A2c): a list of plain values (`"items": {"type": "string"}` in the schema) becomes a
   list of such values in the G path's output model; without it (every pack before 190) it became a list of empty
   objects, so GPT could never fill it (the meeting minutes' attendees and agenda items). Off by default, so the
@@ -63,6 +65,7 @@ class TypePack(BaseModel):
     prompt_file: str
     schema_file: str
     prompt_note: str | None = None  # 122: added after the prompt file (a variant pack reusing another pack's prompt)
+    source_prefix: str | None = None  # 190: the words before the source text in the G request (None: the invoice PDF's)
     base_schema_file: str | None = None  # the base pack's schema (the start of the fields), with `extends`
     extends: str | None = None
     select_callsite: str | None  # None: no S path (047: packs converted from legacy types, G path only)
@@ -279,6 +282,7 @@ def get(key: str = DEFAULT_KEY) -> TypePack:
         prompt_file=data["prompt_file"],
         schema_file=data["schema_file"],
         prompt_note=data.get("prompt_note"),
+        source_prefix=data.get("source_prefix"),
         base_schema_file=base.get("schema_file"),
         extends=extends,
         select_callsite=inherit("select_callsite"),

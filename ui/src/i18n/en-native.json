@@ -1951,5 +1951,7 @@
   "The text given as the document is empty, so nothing was extracted from it": "The text given as the document is empty, so nothing was extracted from it",
   "A list has fewer rows than it should (for example, no requested item at all)": "A list has fewer rows than it should (for example, no requested item at all)",
   "A list row lacks a value it needs": "A list row lacks a value it needs",
-  "A quantity in a list row is zero or less": "A quantity in a list row is zero or less"
+  "A quantity in a list row is zero or less": "A quantity in a list row is zero or less",
+  "JEV: the document has rows of this list that the extraction lacks: {{field}} ({{p}})": "JEV: the document has rows of this list that the extraction lacks: {{field}} ({{p}})",
+  "JEV: the extracted list has rows the document does not: {{field}} ({{p}})": "JEV: the extracted list has rows the document does not: {{field}} ({{p}})"
 }

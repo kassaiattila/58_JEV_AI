@@ -7,7 +7,7 @@
       {
         "version": "1.0.2",
         "date": "2026-10-21",
-        "note": "190 (plan 189 A2b): `text:empty`, a document given as text (an email's own text) that has no text at all."
+        "note": "190 (plan 189 A2b, A2d): `text:empty`, a document given as text (an email's own text) that has no text at all; `jev:missing_rows` and `jev:extra_rows`, the per-list questions a verification call site may name."
       },
       {
         "version": "1.0.1",
@@ -39,6 +39,8 @@
     {"code": "jev:parties_swapped", "shape": "jev:parties_swapped:<p>", "owners": ["jav/policy.py"], "what": "JEV: the supplier and the buyer seem swapped", "example": "jev:parties_swapped:0.88"},
     {"code": "jev:line_items_missing_rows", "shape": "jev:line_items_missing_rows:<p>", "owners": ["jav/policy.py"], "what": "JEV: line items of the document are missing from the extraction", "example": "jev:line_items_missing_rows:0.79"},
     {"code": "jev:line_items_extra_rows", "shape": "jev:line_items_extra_rows:<p>", "owners": ["jav/policy.py"], "what": "JEV: the extraction has line items the document does not", "example": "jev:line_items_extra_rows:0.72"},
+    {"code": "jev:missing_rows", "shape": "jev:missing_rows:<list>:<p>", "owners": ["jav/policy.py"], "what": "JEV: the document has rows of the list that the extraction lacks (a call site's per-list question, 190)", "example": "jev:missing_rows:requested_items:0.81"},
+    {"code": "jev:extra_rows", "shape": "jev:extra_rows:<list>:<p>", "owners": ["jav/policy.py"], "what": "JEV: the extracted list has rows the document does not (a call site's per-list question, 190)", "example": "jev:extra_rows:requested_items:0.77"},
     {"code": "source:not_found", "shape": "source:not_found:<field>", "owners": ["jav/policy.py"], "what": "without JEV: the extracted value is printed nowhere on the document", "example": "source:not_found:invoice_number"},
     {"code": "gpt:low_conf", "shape": "gpt:low_conf:<field>:<p>", "owners": ["jav/policy.py"], "what": "without JEV: GPT is not sure enough of an accounting field", "example": "gpt:low_conf:gross_total:0.74"},
     {"code": "gpt:confidence_unavailable", "shape": "gpt:confidence_unavailable:<field>", "owners": ["jav/policy.py"], "what": "without JEV: GPT's answer carried no token probability for the field", "example": "gpt:confidence_unavailable:gross_total"},

@@ -97,6 +97,7 @@ A call site ([glossary](../GLOSSARY.md)) is a point in a flow where JEV is asked
 
 - The `select_callsite` and `verify_callsite` fields of a type pack name the call sites it uses.
 - A `verify_<key>.json` inherits the shared error questions through `"inherits": "verify"`, and mainly adds the type's field descriptions (`field_specs`), glossary and request-size budget. The verification call sites of the types taken over from the legacy project were built this way (`jav/typepack_convert.py`).
+- 190: a verification call site names its document-level questions (`document_nouls`; without the key the three invoice questions: swapped parties, missing and extra line items) and the questions asked of each list field of the pack (`list_nouls`, each sent with the list's name as `list_field`; none without the key). A question named there needs its text under `nouls`. A call site that does not inherit `verify` writes its own question texts, so a document that is not an invoice is not asked about an invoice's parties. A pack's `source_prefix` names the words before the source text in the GPT request (without it: the invoice PDF's).
 - `request_char_budget` and `option_context_max` make up the request-size budget ([glossary](../GLOSSARY.md)): for an oversized request, the code trims first the text, then the descriptions, and finally the number of candidates.
 
 ## 5. Type packs (`configs/types/`)

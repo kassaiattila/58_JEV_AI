@@ -205,6 +205,9 @@ export function reasonText(code: string): string {
     case "jev:incomplete": return t("JEV: the value seems cut short: {{field}} ({{p}})", { field: f, p: v });
     case "jev:parties_swapped": return t("JEV: the supplier and the buyer seem swapped ({{p}})", { p: num(p[2]) });
     case "jev:line_items_missing_rows": return t("JEV: the document has line items the extracted list lacks ({{p}})", { p: num(p[2]) });
+    // 190: the per-list questions a verification call site may name (`list_nouls`), the list as the field
+    case "jev:missing_rows": return t("JEV: the document has rows of this list that the extraction lacks: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:extra_rows": return t("JEV: the extracted list has rows the document does not: {{field}} ({{p}})", { field: f, p: v });
     case "jev:line_items_extra_rows": return t("JEV: the extracted list has line items the document does not ({{p}})", { p: num(p[2]) });
     // 085: processing without JEV: the extracted value is printed nowhere on the document (the code's own check)
     case "source:not_found": return t("A kinyert érték nem szerepel az iratban: {{field}}", { field: f });
