@@ -89,6 +89,7 @@ def test_an_answer_is_marked_with_the_default_bands(monkeypatch, dist, listed, s
     monkeypatch.setattr(quote_match, "get_adapter", lambda: jev)
     answer = quote_match.match(REQUESTED, [], PRICES, engine="jev", run_id="t")
     assert (answer["mark"], answer["candidates"], answer["method"]) == (mark, candidates, "jev")
+    assert (answer["sku"] is None) is (mark == "not_listed")  # a line not listed proposes no item, its choice stays apart
     assert len(jev.asked) == 1
 
 

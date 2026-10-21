@@ -49,6 +49,8 @@ def test_the_proposal_is_queued_with_its_cap_and_made_by_the_worker(env, tmp_pat
     line = done["lines"][0]
     assert line["description"] == "24 colos monitor" and line["answer"]["mark"] in ("sure", "check", "not_listed")
     assert line["answer"]["engine"] == "jev"
+    if line["answer"]["sku"]:  # the proposed item's name from the price list version the proposal used
+        assert line["answer"]["name"] == price_lists.version(pl, 1).item(line["answer"]["sku"]).name
     assert quote_package.next_step(quote)["code"] == "quote_compose"
     # a new active price list version makes the proposal stale; asking again replaces it
     price_lists.change_settings(pl, 1, discounts=[{"category": "hardware", "min_quantity": "10", "percent": "5"}],

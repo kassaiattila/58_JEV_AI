@@ -139,7 +139,11 @@ function ProposalLines({ lines }: { lines: QuoteProposal["lines"] }) {
           <tr key={line.row}>
             <td>{line.description ?? "—"}</td>
             <td className="num tnum">{line.quantity === null || line.quantity === undefined ? "—" : `${numText(line.quantity, 4)} ${line.unit ?? ""}`.trim()}</td>
-            <td>{line.answer.sku ? <code className="mono">{line.answer.sku}</code> : <span className="muted">—</span>}</td>
+            <td>
+              {line.answer.sku ? (
+                <span className="quote-item"><code className="mono">{line.answer.sku}</code>{line.answer.name ? <span>{line.answer.name}</span> : null}</span>
+              ) : <span className="muted">—</span>}
+            </td>
             <td><MarkCell answer={line.answer} /></td>
             <td className="muted small">{(line.answer.candidates ?? []).filter((c) => c !== line.answer.sku).join(", ")}</td>
           </tr>

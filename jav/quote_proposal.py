@@ -186,6 +186,10 @@ def current(wp_id: str) -> dict[str, Any] | None:
                                "error")}
     out["limits"] = json.loads(row["limits"])
     out["lines"] = json.loads(row["lines"]) if row["lines"] else []
+    if out["lines"]:  # each proposed item's name from the price list version the proposal used
+        names = {i.sku: i.name for i in price_lists.version(row["price_list"], row["version"]).items}
+        for line in out["lines"]:
+            line["answer"]["name"] = names.get(line["answer"].get("sku") or "")
     out["usage"] = json.loads(row["usage"]) if row["usage"] else None
     stale = False
     if row["state"] == "done":

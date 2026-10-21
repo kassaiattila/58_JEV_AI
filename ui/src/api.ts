@@ -99,7 +99,7 @@ export interface QuotePriceList {
 /** 191 B4c: a requested item's proposed price list item: its mark (sure, to check, not listed; null when it failed),
  *  the item, the likely candidates, how it was decided (code, jev, gpt). */
 export interface QuoteMatchAnswer {
-  mark: "sure" | "check" | "not_listed" | null; sku?: string | null; probability?: number | null; candidates?: string[];
+  mark: "sure" | "check" | "not_listed" | null; sku?: string | null; name?: string | null; probability?: number | null; candidates?: string[];
   method?: "code" | "jev" | "gpt"; engine?: "jev" | "gpt"; error?: string | null;
 }
 export interface QuoteProposalLine { row: number; description?: string | null; quantity?: string | number | null; unit?: string | null; answer: QuoteMatchAnswer }

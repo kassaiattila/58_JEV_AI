@@ -932,3 +932,7 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .price-items-table { border: 0; border-radius: 0; }
 .price-items-table thead th { position: sticky; top: 0; z-index: 1; }
 .price-items-table code { font-size: var(--fs-xs); color: var(--ink); }
+
+/* 191 (plan F-quote-package B4c): a proposed line's price list item: its code above its name */
+.quote-item { display: grid; gap: 2px; }
+.quote-item code { font-size: var(--fs-xs); color: var(--muted); }

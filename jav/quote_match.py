@@ -152,9 +152,11 @@ def _judged(items: list[price_lists.Item], choice: str | None, dist: dict[str, f
     cand = _site()["candidates"]
     candidates = [k for k, p in sorted(distribution.items(), key=lambda kv: -kv[1])
                   if k != NONE and p >= float(cand["min_probability"])][: int(cand["max"])]
-    return {"mark": mark, "sku": sku, "probability": distribution.get(sku) if sku else None, "confidence": round(confidence, 4),
-            "listed": round(listed, 4), "specific": round(specific, 4), "candidates": candidates,
-            "distribution": distribution}
+    # a line marked not listed proposes no item; the model's choice stays beside it (`choice`)
+    proposed = None if mark == "not_listed" else sku
+    return {"mark": mark, "sku": proposed, "choice": sku, "probability": distribution.get(sku) if sku else None,
+            "confidence": round(confidence, 4), "listed": round(listed, 4), "specific": round(specific, 4),
+            "candidates": candidates, "distribution": distribution}
 
 
 def ask_jev(requested: dict[str, Any], context: list[str], items: list[price_lists.Item], *, run_id: str,
