@@ -20,7 +20,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import datasets, export, store, typepack
+from jav import datasets, export, package_release, store, typepack
 from jav import reconcile_statement as rs
 from jav.datasets import Column
 from jav.tablequery import Query
@@ -171,6 +171,7 @@ def test_the_reconciliation_statement_is_written_as_before(db, monkeypatch):
     assert name == "egyeztetes-April-tervezet.xlsx"
     assert _parts(data) == STATEMENT_DRAFT_PARTS
     monkeypatch.setattr(rs, "_now", lambda: "2026-05-02T10:30:00+00:00")  # the heading shows when it was approved
+    monkeypatch.setattr(package_release, "_now", lambda: "2026-05-02T10:30:00+00:00")  # 186: the shared version store's time
     rs.approve(wp_id, fingerprint=rs.current(wp_id)["fingerprint"], actor="Reviewer")
     data, name = rs.xlsx(wp_id, version=1)  # 178: the file stored at the approval
     assert name == "egyeztetes-April-v1.xlsx"

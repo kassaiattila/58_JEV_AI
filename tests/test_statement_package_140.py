@@ -321,7 +321,7 @@ def test_a_package_with_its_scope_can_be_deleted_before_a_run(db):
     wp = _package(db, _party())
     work.delete_workpackage(wp, actor="tester")
     with store.connect() as c:
-        assert c.execute("SELECT COUNT(*) FROM statement_scopes").fetchone()[0] == 0
+        assert c.execute("SELECT COUNT(*) FROM workpackage_scopes").fetchone()[0] == 0  # 186: the shared scope
 
 
 def test_a_partys_merge_moves_its_statement_packages(db):

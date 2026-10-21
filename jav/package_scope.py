@@ -20,12 +20,20 @@ can hold it.
 - `register_reader(name, fn)`, `place(doc_type, values)`: where a document belongs (its role, party and day), as the
   domains read it from its result (the finance domain: invoices by their two sides, statements by their account).
 
+186 (plan G-full-move T2b): one store for every package's scope, a person's and a logic pack's alike. A logic pack
+keeps its package's scope here (`save` in its own write transaction, `stored`): the party, the period and the role in
+their columns, its further parts beside them (a reconciliation's accounts, a routing package's email packages), and
+one revision step per change, so a person's stale change is refused (`work.RevisionConflict`). The one party reference,
+the deletion with the package and the cache marks therefore cover every logic pack. An older store's own scope table
+of a logic pack is copied here once (`copy_older`, registered by the logic pack's module).
+
 Layer: business module. It reads the logic packs' registry and the packages (`jav/work.py`); the workflows register
 their source, so this module imports no application operation.
 """
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -46,14 +54,35 @@ CREATE TABLE IF NOT EXISTS workpackage_scopes (
     period_end     TEXT,               -- ISO date, inclusive
     role           TEXT,               -- a registered package role
     set_by         TEXT NOT NULL,
-    set_at         TEXT NOT NULL
+    set_at         TEXT NOT NULL,
+    parts          TEXT NOT NULL DEFAULT '{}',  -- 186: JSON, a logic pack's further parts ({name: value})
+    revision       INTEGER NOT NULL DEFAULT 1   -- 186: one step per change
 );
 """)
+
+_COLUMNS = ("workpackage_id", "party_id", "period_start", "period_end", "role", "set_by", "set_at", "parts", "revision")
+
+
+def _shared_columns(conn: sqlite3.Connection) -> None:
+    """186: an older store's scope table (181-185) gets the further parts and the revision."""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(workpackage_scopes)")}
+    if cols and "parts" not in cols:
+        conn.execute("ALTER TABLE workpackage_scopes ADD COLUMN parts TEXT NOT NULL DEFAULT '{}'")
+    if cols and "revision" not in cols:
+        conn.execute("ALTER TABLE workpackage_scopes ADD COLUMN revision INTEGER NOT NULL DEFAULT 1")
+
+
+store.register_migration("package_scope", _shared_columns)
 
 
 class ScopeRefused(ValueError):
     """A scope that cannot be given to the package: an unknown role, a role the package's kind cannot hold, a package
     whose logic pack has a scope of its own, or a refused party or period."""
+
+
+class ScopeCopyError(RuntimeError):
+    """186: an older store's scope of a package found in two places; the copy stops instead of losing one of them (the
+    store is restored from its backup or the two rows are settled by hand)."""
 
 
 @dataclass(frozen=True)
@@ -147,14 +176,80 @@ def _shown(scope: dict[str, Any], origin: str) -> dict[str, Any]:
     return out
 
 
-def _own(wp_id: str, c: sqlite3.Connection | None = None) -> dict[str, Any] | None:
-    sql = "SELECT * FROM workpackage_scopes WHERE workpackage_id=?"
-    if c is not None:
-        row = c.execute(sql, (wp_id,)).fetchone()
+# --- 186: the one store of a package's scope ---------------------------------------------------------------------------
+
+
+def stored(wp_id: str, c: sqlite3.Connection | None = None) -> dict[str, Any] | None:
+    """The package's stored scope (a person's or its logic pack's): {party_id, period_start, period_end, role, parts,
+    revision, set_by, set_at}; None when it has none. `c`: an open connection (inside a write transaction)."""
+    if c is None:
+        with store.connect() as own:
+            return stored(wp_id, own)
+    row = c.execute(f"SELECT {', '.join(_COLUMNS)} FROM workpackage_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
+    if row is None:
+        return None
+    return {k: (json.loads(row[k]) if k == "parts" else row[k]) for k in _COLUMNS if k != "workpackage_id"}
+
+
+def save(c: sqlite3.Connection, wp_id: str, *, party_id: str | None = None, period_start: str | None = None,
+         period_end: str | None = None, role: str | None = None, parts: dict[str, Any] | None = None, actor: str,
+         expected_revision: int | None = None) -> dict[str, Any]:
+    """The package's whole scope, in the caller's write transaction (its own checks and its log entry go with it): a new
+    one at revision 1, a changed one a revision further. `expected_revision`: the revision the person changed (a
+    different one is `work.RevisionConflict`); None: the latest write counts. The values are the caller's, checked."""
+    row = c.execute("SELECT revision FROM workpackage_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
+    if expected_revision is not None and (row["revision"] if row else 0) != expected_revision:
+        raise explained(work.RevisionConflict, "the scope is at revision {{revision}}, not {{expected_revision}}",
+                        revision=row["revision"] if row else 0, expected_revision=expected_revision)
+    values = (party_id, period_start, period_end, role, actor, _now(), json.dumps(parts or {}, ensure_ascii=False))
+    if row is None:
+        c.execute("INSERT INTO workpackage_scopes(workpackage_id, party_id, period_start, period_end, role, set_by, set_at,"
+                  " parts, revision) VALUES (?,?,?,?,?,?,?,?,1)", (wp_id, *values))
     else:
-        with store.connect() as conn:
-            row = conn.execute(sql, (wp_id,)).fetchone()
-    return dict(row) if row else None
+        c.execute("UPDATE workpackage_scopes SET party_id=?, period_start=?, period_end=?, role=?, set_by=?, set_at=?,"
+                  " parts=?, revision=revision+1 WHERE workpackage_id=?", (*values, wp_id))
+    return stored(wp_id, c) or {}
+
+
+def remove(c: sqlite3.Connection, wp_id: str) -> bool:
+    """The package's scope taken away, in the caller's write transaction; whether it had one."""
+    return c.execute("DELETE FROM workpackage_scopes WHERE workpackage_id=?", (wp_id,)).rowcount > 0
+
+
+def copy_older(conn: sqlite3.Connection, table: str, convert: Callable[[dict[str, Any]], dict[str, Any]]) -> None:
+    """186: an older store's own scope table of a logic pack (133-185), copied into the shared one once, in one write
+    transaction checked again inside it, so two processes starting at once copy it once. `convert(row)`: the older
+    row's {workpackage_id, party_id, period_start, period_end, role, parts, revision, set_by, set_at}. The older table
+    keeps its rows, read by nothing (left for one release); a scope deleted afterwards does not come back. A package
+    that already has a scope here stops the copy (`ScopeCopyError`). Registered by the logic pack's module as one of
+    its migrations (`store.register_migration`), so it runs once that module is loaded."""
+    key = f"scope_copy:{table}"
+
+    def pending() -> bool:
+        if conn.execute("SELECT 1 FROM meta WHERE key=?", (key,)).fetchone() is not None:
+            return False
+        return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone() is not None
+
+    if not pending():
+        return
+    conn.commit()
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        if pending():
+            _shared_columns(conn)
+            for row in conn.execute(f"SELECT * FROM {table} ORDER BY workpackage_id").fetchall():
+                new = convert(dict(row))
+                if conn.execute("SELECT 1 FROM workpackage_scopes WHERE workpackage_id=?",
+                                (new["workpackage_id"],)).fetchone() is not None:
+                    raise ScopeCopyError(f"the scope of package {new['workpackage_id']} is in {table} and in the shared"
+                                         " scope table already; settle the two rows by hand or restore the backup")
+                conn.execute(f"INSERT INTO workpackage_scopes({', '.join(_COLUMNS)}) VALUES ({', '.join('?' * len(_COLUMNS))})",
+                             tuple(json.dumps(new[k], ensure_ascii=False) if k == "parts" else new[k] for k in _COLUMNS))
+            conn.execute("INSERT INTO meta(key, value) VALUES (?, ?)", (key, _now()))
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
 
 
 def collects(kind: str) -> bool:
@@ -162,19 +257,26 @@ def collects(kind: str) -> bool:
     return any(kind in r.package_kinds for r in _ROLES.values())
 
 
+def _own_scope(kind: str) -> bool:
+    """Whether a package of this kind has its logic pack's own scope (a person cannot give or take one)."""
+    pack = logic_packs.of(kind)
+    return pack is not None and pack.scope is not None
+
+
 def scope_of(wp_id: str, *, kind: str | None = None) -> dict[str, Any] | None:
     """The package's scope and where it comes from, or None (also for a package of a kind no role can be held by: a
-    mailbox's, a reconciliation). `kind`: the package's kind, when the caller has it."""
+    mailbox's, a reconciliation). `kind`: the package's kind, when the caller has it. 186: a logic pack's own scope
+    comes first (it is in the same store as a person's, and a person can give none to such a package)."""
     if kind is None:
         kind = work.get(wp_id)["source_kind"]
     if not collects(kind):
         return None
-    own = _own(wp_id)
-    if own is not None:
-        return _shown(own, "own") | {"set_by": own["set_by"], "set_at": own["set_at"]}
     pack = logic_packs.of(kind)
     if pack is not None and pack.scope is not None:
         return _shown(pack.scope(wp_id), "logic_pack")
+    own = stored(wp_id)
+    if own is not None:
+        return _shown(own, "own") | {"set_by": own["set_by"], "set_at": own["set_at"]}
     for name, fn in _SOURCES.items():
         found = fn(wp_id)
         if found is not None:
@@ -207,22 +309,21 @@ def set_scope(wp_id: str, *, party_id: str | None, period_start: str | None, per
     scope = _check(wp, party_id, period_start, period_end, role_name)
     with store.connect() as c:
         store.begin_immediate(c)
-        c.execute("INSERT INTO workpackage_scopes(workpackage_id, party_id, period_start, period_end, role, set_by, set_at)"
-                  " VALUES (?,?,?,?,?,?,?) ON CONFLICT(workpackage_id) DO UPDATE SET party_id=excluded.party_id,"
-                  " period_start=excluded.period_start, period_end=excluded.period_end, role=excluded.role,"
-                  " set_by=excluded.set_by, set_at=excluded.set_at",
-                  (wp_id, scope["party_id"], scope["period_start"], scope["period_end"], scope["role"], actor, _now()))
+        save(c, wp_id, party_id=scope["party_id"], period_start=scope["period_start"], period_end=scope["period_end"],
+             role=scope["role"], actor=actor)
         work.record_event(c, wp_id, "scope_set", actor, scope)
     return scope_of(wp_id, kind=wp["source_kind"]) or {}
 
 
 def clear_scope(wp_id: str, *, actor: str) -> dict[str, Any] | None:
-    """A person takes the package's own scope away (a scope of its workflow shows again)."""
+    """A person takes the package's own scope away (a scope of its workflow shows again). 186: a logic pack's own scope
+    stays (it is in the same store; a person never gave it)."""
     wp = work.get(wp_id)
-    with store.connect() as c:
-        store.begin_immediate(c)
-        if c.execute("DELETE FROM workpackage_scopes WHERE workpackage_id=?", (wp_id,)).rowcount:
-            work.record_event(c, wp_id, "scope_clear", actor, {})
+    if not _own_scope(wp["source_kind"]):
+        with store.connect() as c:
+            store.begin_immediate(c)
+            if remove(c, wp_id):
+                work.record_event(c, wp_id, "scope_clear", actor, {})
     return scope_of(wp_id, kind=wp["source_kind"])
 
 
@@ -260,6 +361,7 @@ def fitting(role_name: str, party_id: str | None, day: str, *, among: list[dict[
 
 
 def count_party(c: sqlite3.Connection, pid: str) -> int:
+    """186: every package's scope, a logic pack's too (until then each logic pack counted its own)."""
     return c.execute("SELECT COUNT(*) FROM workpackage_scopes WHERE party_id=?", (pid,)).fetchone()[0]
 
 
@@ -268,8 +370,9 @@ def repoint_party(c: sqlite3.Connection, old: str, new: str) -> None:
 
 
 def _delete_guard(c: sqlite3.Connection, wp_id: str) -> None:
-    """A deleted package's scope goes with it."""
-    c.execute("DELETE FROM workpackage_scopes WHERE workpackage_id=?", (wp_id,))
+    """A deleted package's scope goes with it (186: a logic pack's too; inside the deleting transaction, so a logic
+    pack's guard that refuses the deletion keeps it)."""
+    remove(c, wp_id)
 
 
 def register() -> None:
@@ -280,6 +383,6 @@ def register() -> None:
     work.register_delete_guard(_delete_guard)
 
 
-__all__ = ["Placement", "Role", "ScopeRefused", "clear_scope", "collects", "count_party", "fitting", "place", "register",
-           "register_reader", "register_role", "register_source", "repoint_party", "role", "roles", "scope_of",
-           "scoped_packages", "set_scope"]
+__all__ = ["Placement", "Role", "ScopeCopyError", "ScopeRefused", "clear_scope", "collects", "copy_older", "count_party",
+           "fitting", "place", "register", "register_reader", "register_role", "register_source", "remove", "repoint_party",
+           "role", "roles", "save", "scope_of", "scoped_packages", "set_scope", "stored"]

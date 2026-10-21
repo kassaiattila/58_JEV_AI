@@ -27,7 +27,7 @@ Rules (the owner's decisions of 2026-10-09):
 - 143 (DECISIONS 143): the finder of the two lists (`matches`) compares the selected line with every invoice of the
   page in code - name, invoice number, account, amount, timing - and orders them by how they fit; it decides nothing.
 - 145 (DECISIONS 132, 145; the result, `jav/reconcile_statement.py`): the approved versions of a package's statement
-  (`reconcile_versions`) lock their lines: no decision on them is made or revoked in any package, and the package's
+  (186: the package's own versions in the shared version store, `jav/package_release.py`) lock their lines: no decision on them is made or revoked in any package, and the package's
   scope does not change, until a person reopens the version (`Locked`). A source from an evaluation on the command line
   stops blocking once a person accepts its result as a source (`reconcile_source_acceptances`). A statement whose
   balances do not check out is a warning, not a blocker (DECISIONS 132).
@@ -55,8 +55,8 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import (activity_kinds, cfg, corrections, grounding, logic_packs, parties, reconcile, reconcile_overview, store,
-                 typepack, work, workflow_steps)
+from jav import (activity_kinds, cfg, corrections, grounding, logic_packs, package_release, package_scope, parties,
+                 reconcile, reconcile_overview, store, typepack, work, workflow_steps)
 from jav.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.user_messages import explained
 
@@ -67,33 +67,14 @@ activity_kinds.register_events("package", ("reconcile_scope", "reconcile_allocat
 KIND = "reconcile"
 REVOKE_KINDS = ("allocation", "mark", "decision")
 
+# 186 (plan G-full-move T2b): the package's scope (its own accounts as the further part `accounts`, the period and the
+# party; NULL: every invoice is the package's) is in the shared scope store (`jav/package_scope.py`)
+# 186 (plan G-full-move T2d): an approved, unchangeable version of a package's statement (`jav/reconcile_statement.py`)
+# is the package's own version in the shared version store (`jav/package_release.py`), with the lines it locks while it
+# is not reopened; an older store's `reconcile_versions` and `reconcile_version_files` are copied there once
+store.register_migration("reconcile_package_versions",
+                         lambda conn: package_release.copy_older_own(conn, "reconcile_versions", "reconcile_version_files"))
 store.register_schema("reconcile_package", """
-CREATE TABLE IF NOT EXISTS reconcile_scopes (
-    workpackage_id TEXT PRIMARY KEY,
-    accounts       TEXT NOT NULL,      -- JSON: the own account keys (reconcile.statement_account)
-    period_start   TEXT NOT NULL,      -- ISO date
-    period_end     TEXT NOT NULL,      -- ISO date, inclusive
-    revision       INTEGER NOT NULL DEFAULT 1,
-    actor          TEXT NOT NULL,
-    updated_at     TEXT NOT NULL,
-    party_id       TEXT                -- 133: the own party (jav.parties); NULL: every invoice is the package's
-);
--- 145: an approved, unchangeable version of a package's statement (jav/reconcile_statement.py); while it is not
--- reopened, its lines are locked
-CREATE TABLE IF NOT EXISTS reconcile_versions (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    workpackage_id TEXT NOT NULL,
-    version        INTEGER NOT NULL,
-    content        TEXT NOT NULL,      -- JSON: the statement as approved
-    fingerprint    TEXT NOT NULL,      -- sha256 of the content
-    line_ids       TEXT NOT NULL,      -- JSON: the statement's lines, locked while the version is not reopened
-    approved_by    TEXT NOT NULL,
-    approved_at    TEXT NOT NULL,
-    reopened_by    TEXT,
-    reopened_at    TEXT,
-    reopen_note    TEXT,
-    UNIQUE (workpackage_id, version)
-);
 -- 145 (DECISIONS 132): a person accepted a document's result from an evaluation on the command line as a source; a
 -- later result of the document needs a new acceptance
 CREATE TABLE IF NOT EXISTS reconcile_source_acceptances (
@@ -121,21 +102,19 @@ CREATE INDEX IF NOT EXISTS ix_reconcile_exclusions_wp ON reconcile_exclusions(wo
 """)
 
 
-def _migrate(conn) -> None:
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(reconcile_scopes)")}
-    if cols and "party_id" not in cols:  # 133: a package is one own party's
-        conn.execute("ALTER TABLE reconcile_scopes ADD COLUMN party_id TEXT")
+ACCOUNTS = "accounts"  # 186: the scope's further part, the own account keys (`reconcile.statement_account`)
 
 
-store.register_migration("reconcile_package", _migrate)
+def _older_scope(row: dict[str, Any]) -> dict[str, Any]:
+    """186: a row of the older own scope table (131-185; before 133 without a party) as the shared scope keeps it."""
+    return {"workpackage_id": row["workpackage_id"], "party_id": row.get("party_id"), "period_start": row["period_start"],
+            "period_end": row["period_end"], "role": None, "parts": {ACCOUNTS: json.loads(row["accounts"])},
+            "revision": row["revision"], "set_by": row["actor"], "set_at": row["updated_at"]}
 
 
-def count_party(c, pid: str) -> int:
-    return c.execute("SELECT COUNT(*) FROM reconcile_scopes WHERE party_id=?", (pid,)).fetchone()[0]
-
-
-def repoint_party(c, old: str, new: str) -> None:
-    c.execute("UPDATE reconcile_scopes SET party_id=? WHERE party_id=?", (new, old))
+# 186: an older store's `reconcile_scopes` is copied into the shared scope store once
+store.register_migration("reconcile_package_scope",
+                         lambda conn: package_scope.copy_older(conn, "reconcile_scopes", _older_scope))
 
 
 class PackageError(ValueError):
@@ -245,8 +224,8 @@ def create(*, name: str, accounts: list[str], period_start: str, period_end: str
     wp = work.create_workpackage(name=name, source_kind=KIND, source_ref=f"{start}..{end}", owner=actor)
     with store.connect() as c:
         store.begin_immediate(c)
-        c.execute("INSERT INTO reconcile_scopes(workpackage_id, accounts, period_start, period_end, revision, actor, updated_at,"
-                  " party_id) VALUES (?,?,?,?,1,?,?,?)", (wp["id"], json.dumps(keys), start, end, actor, _now(), party))
+        package_scope.save(c, wp["id"], party_id=party, period_start=start, period_end=end, parts={ACCOUNTS: keys},
+                           actor=actor)
         work.record_event(c, wp["id"], "reconcile_scope", actor, {"accounts": len(keys), "period": [start, end], "party": party})
     return scope(wp["id"])
 
@@ -260,12 +239,11 @@ def _package(wp_id: str) -> dict[str, Any]:
 
 def scope(wp_id: str) -> dict[str, Any]:
     _package(wp_id)
-    with store.connect() as c:
-        row = c.execute("SELECT * FROM reconcile_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
+    row = package_scope.stored(wp_id)
     if row is None:
         raise KeyError(wp_id)
-    return {"workpackage_id": wp_id, "accounts": json.loads(row["accounts"]), "period_start": row["period_start"],
-            "period_end": row["period_end"], "revision": row["revision"], "updated_at": row["updated_at"],
+    return {"workpackage_id": wp_id, "accounts": row["parts"][ACCOUNTS], "period_start": row["period_start"],
+            "period_end": row["period_end"], "revision": row["revision"], "updated_at": row["set_at"],
             "party_id": row["party_id"], "party": _party_ref(row["party_id"], _party_names())}
 
 
@@ -281,12 +259,8 @@ def set_scope(wp_id: str, *, accounts: list[str], period_start: str, period_end:
         if active := active_versions(c).get(wp_id):
             raise explained(Locked, "the package's statement is approved (version {{version}}); reopen it to change the scope",
                             version=active["version"])
-        row = c.execute("SELECT revision FROM reconcile_scopes WHERE workpackage_id=?", (wp_id,)).fetchone()
-        if row["revision"] != expected_revision:
-            raise explained(work.RevisionConflict, "the scope is at revision {{revision}}, not {{expected_revision}}",
-                            revision=row["revision"], expected_revision=expected_revision)
-        c.execute("UPDATE reconcile_scopes SET accounts=?, period_start=?, period_end=?, revision=revision+1, actor=?,"
-                  " updated_at=?, party_id=? WHERE workpackage_id=?", (json.dumps(keys), start, end, actor, _now(), party, wp_id))
+        package_scope.save(c, wp_id, party_id=party, period_start=start, period_end=end, parts={ACCOUNTS: keys}, actor=actor,
+                           expected_revision=expected_revision)
         c.execute("UPDATE workpackages SET source_ref=?, updated_at=? WHERE id=?", (f"{start}..{end}", _now(), wp_id))
         work.record_event(c, wp_id, "reconcile_scope", actor, {"accounts": len(keys), "period": [start, end], "party": party})
     return scope(wp_id)
@@ -425,14 +399,15 @@ WORKSPACE_INPUTS: dict[str, str | None] = {
     "reconcile_decisions": "(SELECT group_concat(pair_key || ':' || decision || ':' || decided_at, '|') FROM reconcile_decisions)",
     "reconcile_allocations": "COUNT(revoked_at)",
     "reconcile_line_marks": "COUNT(revoked_at)",
-    "reconcile_scopes": "(SELECT group_concat(workpackage_id || ':' || revision, '|') FROM reconcile_scopes)",
+    # 186: the scopes are in the shared store; a reconciliation's changes in place show by their revision
+    "workpackage_scopes": "(SELECT group_concat(workpackage_id || ':' || revision, '|') FROM workpackage_scopes)",
     # an answer is replaced in place (one row per line and engine), possibly within the same second: its content counts
     "reconcile_ai_proposals": "(SELECT group_concat(line_id || ':' || engine || ':' || COALESCE(pays, '') || ':'"
                               " || COALESCE(kind, '') || ':' || COALESCE(error, '') || ':' || COALESCE(options, '') || ':'"
                               " || COALESCE(asked_line_id, '') || ':' || COALESCE(config_hash, '') || ':' || created_at, '|')"
                               " FROM reconcile_ai_proposals)",  # 147: the version of the question shows (stale answers)
     "fx_rates": "MAX(fetched_at)",
-    "reconcile_versions": "COUNT(reopened_at)",  # 145: an approval, a reopening
+    "package_versions": "COUNT(reopened_at)",  # 145: an approval, a reopening (186: the shared version store)
     "reconcile_source_acceptances": None,
     "reconcile_exclusions": "COUNT(restored_at)",  # 169: a document left out, a restoration
     "own_parties":"(SELECT group_concat(id || ':' || name, '|') FROM own_parties)",
@@ -877,26 +852,15 @@ def _source_state(doc: dict[str, Any], approved: set[str], accepted: set[tuple[s
 # --- 145: approved versions and accepted sources ---------------------------------------------------------------------
 
 
-def _version_meta(r: Any) -> dict[str, Any]:
-    return {k: r[k] for k in ("version", "fingerprint", "approved_by", "approved_at", "reopened_by", "reopened_at", "reopen_note")}
-
-
 def active_versions(c=None) -> dict[str, dict[str, Any]]:
-    """The approved versions not reopened, per package, with the lines they lock."""
-    if c is None:
-        with store.connect() as own:
-            return active_versions(own)
-    return {r["workpackage_id"]: {**_version_meta(r), "line_ids": json.loads(r["line_ids"])}
-            for r in c.execute("SELECT * FROM reconcile_versions WHERE reopened_at IS NULL ORDER BY id")}
+    """The approved versions not reopened, per package, with the lines they lock (186: the shared version store's)."""
+    return {wp_id: {**{k: v for k, v in found.items() if k != "locks"}, "line_ids": found["locks"]}
+            for wp_id, found in package_release.active_own(c).items()}
 
 
 def approval(wp_id: str, c=None) -> dict[str, Any]:
     """A package's approval: its active version (None while it has none) and every version, the latest first."""
-    if c is None:
-        with store.connect() as own:
-            return approval(wp_id, own)
-    versions = [_version_meta(r) for r in c.execute(
-        "SELECT * FROM reconcile_versions WHERE workpackage_id=? ORDER BY version DESC", (wp_id,))]
+    versions = package_release.own_versions(wp_id, c)
     return {"active": next((v for v in versions if v["reopened_at"] is None), None), "versions": versions}
 
 
@@ -931,9 +895,11 @@ def _decision_state(c=None) -> list[Any]:
     for table in ("reconcile_allocations", "reconcile_line_marks"):
         state.append(list(c.execute(f"SELECT COUNT(*), MAX(id), COUNT(revoked_at) FROM {table}").fetchone()))
     state.append(list(c.execute("SELECT COUNT(*), MAX(decided_at) FROM reconcile_decisions").fetchone()))
-    state.append(list(c.execute("SELECT COUNT(*), MAX(id), COUNT(reopened_at) FROM reconcile_versions").fetchone()))
+    state.append(list(c.execute("SELECT COUNT(*), MAX(id), COUNT(reopened_at) FROM package_versions"
+                                " WHERE content IS NOT NULL").fetchone()))  # 186: the logic packs' own versions
     # 153 (review A3): a scope changed meanwhile (a line checked against the old one might now be outside it)
-    state.append(list(c.execute("SELECT COUNT(*), SUM(revision) FROM reconcile_scopes").fetchone()))
+    state.append(list(c.execute("SELECT COUNT(*), SUM(s.revision) FROM workpackage_scopes s JOIN workpackages w"
+                                " ON w.id = s.workpackage_id WHERE w.source_kind = ?", (KIND,)).fetchone()))
     # 169: a document left out or restored meanwhile (a pairing checked before might rest on one now left out)
     state.append(list(c.execute("SELECT COUNT(*), COUNT(restored_at) FROM reconcile_exclusions").fetchone()))
     return state
@@ -1510,11 +1476,10 @@ def next_step(ws: dict[str, Any]) -> dict[str, Any]:
 def _delete_guard(c, wp_id: str) -> None:
     """A reconciliation package with decisions made in it, or (145) an approved version, can only be hidden (they refer
     to it)."""
-    for table in ("reconcile_allocations", "reconcile_line_marks", "reconcile_decisions", "reconcile_versions"):
+    for table in ("reconcile_allocations", "reconcile_line_marks", "reconcile_decisions", "package_versions"):
         if c.execute(f"SELECT 1 FROM {table} WHERE workpackage_id=? LIMIT 1", (wp_id,)).fetchone() is not None:
             raise explained(work.NotReady, "a reconciliation package with decisions can only be archived",
                             [{"code": "has_decisions", "message": "The package has decisions: it can only be hidden."}])
-    c.execute("DELETE FROM reconcile_scopes WHERE workpackage_id=?", (wp_id,))
     c.execute("DELETE FROM reconcile_exclusions WHERE workpackage_id=?", (wp_id,))  # 169: no decision refers to them
 
 
@@ -1577,8 +1542,8 @@ STEP = workflow_steps.StepKind(
 
 
 # 176 (plan 170 L3): the reconciliation package as a logic pack (`jav/logic_packs.py`; 180: registered by the finance
-# domain with its party reference, `count_party` and `repoint_party`, `jav/domains/finance.py`): no files and no runs;
-# its two input roles are the period's results in every package (DECISIONS 174, the package's current result)
+# domain, `jav/domains/finance.py`; 186: its scope's party reference and deletion are the shared scope's): no files and
+# no runs; its two input roles are the period's results in every package (DECISIONS 174, the package's current result)
 LOGIC = logic_packs.LogicPack(
     kind=KIND, module=__name__,
     roles=(logic_packs.InputRole("statements", "period", "the bank and card statements of the scope's accounts and period"),

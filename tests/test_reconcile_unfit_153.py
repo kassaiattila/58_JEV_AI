@@ -62,7 +62,7 @@ def test_a_scope_changed_between_the_read_and_the_write_is_a_conflict(package, m
 
     def scope_changed_meanwhile(state, fn):
         with store.connect() as c:
-            c.execute("UPDATE reconcile_scopes SET revision = revision + 1 WHERE workpackage_id=?", (package["wp"],))
+            c.execute("UPDATE workpackage_scopes SET revision = revision + 1 WHERE workpackage_id=?", (package["wp"],))
         return real_write(state, fn)
 
     monkeypatch.setattr(rp, "_write", scope_changed_meanwhile)
