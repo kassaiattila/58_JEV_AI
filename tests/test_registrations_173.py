@@ -37,7 +37,7 @@ def test_importing_registers_nothing_and_load_all_registers_everything_once() ->
     seen = json.loads(out.stdout.strip().splitlines()[-1])
     assert seen["before"] == {"packages": [], "guards": 0, "references": []}
     assert seen["after"] == {"packages": ["statements", "reconcile", "email_routing"], "guards": 2,
-                             "references": ["package_scopes", "reconcile_package", "statement_package", "workflows"]}
+                             "references": ["package_scopes", "workflows"]}  # 186: one for every package scope
 
 
 def test_in_this_process_everything_is_registered() -> None:
@@ -45,7 +45,8 @@ def test_in_this_process_everything_is_registered() -> None:
     assert [p.kind for p in logic_packs.packs()] == ["statements", "reconcile", "email_routing"]  # 181: the routing
     assert logic_packs.of("statements").rule is not None
     assert len(work._DELETE_GUARDS) == len(set(work._DELETE_GUARDS)) == 2  # 181: the package scopes' too
-    assert {"package_scopes", "reconcile_package", "statement_package", "workflows"} <= set(parties._REFERENCES)
+    assert {"package_scopes", "workflows"} <= set(parties._REFERENCES)  # 186: the logic packs' scopes are the shared one's
+    assert not {"reconcile_package", "statement_package"} & set(parties._REFERENCES)
 
 
 def test_the_entry_points_call_it() -> None:
