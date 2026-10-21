@@ -57,7 +57,7 @@ export function CreateForm({ onDone, initialTemplate }: { onDone: (id: string) =
 const STAGE_ORDER = ["process", "review", "result"];
 const TRACK_TONE: Record<string, string> = {
   running: "t-running", review: "t-todo", pending: "t-todo", reconcile_pair: "t-todo", rerun: "t-failed", blocked: "t-failed",
-  done: "t-done", reconcile_approved: "t-done",
+  done: "t-done", reconcile_approved: "t-done", quote_approved: "t-done",
 };
 
 /** 155: where the package stands on its way — Processing · Review · Result — as three short segments before the next
