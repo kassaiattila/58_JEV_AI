@@ -199,3 +199,95 @@ def test_a_statement_choice_is_journaled_and_a_stale_one_refused(db) -> None:
     sm.decide(k2.RUN, a, b, keep=None, actor="reviewer", expected_state=view["decision_state"])
     rows = decisions.history(sm.CHOICE_KIND, sm.pair_key(a, b))
     assert [(r["value"], r["actor"]) for r in rows] == [({"keep": a}, "reviewer"), ({"keep": None}, "reviewer")]
+
+
+# --- the email routing and a package's template choice ----------------------------------------------------------
+
+
+@pytest.fixture()
+def routing_db(tmp_path):
+    from jav import registrations
+
+    registrations.load_all()
+    with store.use_store(tmp_path / "s.sqlite"):
+        yield tmp_path
+
+
+def _routing(root):
+    from jav import email_routing
+    from tests import test_email_routing_181 as r181
+
+    r181._party()
+    wp, ids = r181._mailbox(root, {"m1": ("invoice.pdf", "inbox")})
+    r181._result(wp, ids["m1"], "invoice_hu", r181._invoice())
+    return email_routing.create(name="Routing", sources=[wp], actor="tester")["workpackage_id"], ids["m1"]
+
+
+def test_two_acceptances_at_once_make_one_package_and_one_decision(routing_db, monkeypatch) -> None:
+    """Bug 2 of the survey (186): two acceptances of one proposal at the same time both made a new package, and the
+    later one overwrote the first one's decision."""
+    import contextvars
+
+    from jav import email_routing
+
+    routing, item = _routing(routing_db)
+    real_make = email_routing._make
+    made: list[str] = []
+
+    def slow_make(*args, **kwargs):  # the second request arrives while the first is making its package
+        made.append(real_make(*args, **kwargs))
+        time.sleep(0.2)
+        return made[-1]
+
+    monkeypatch.setattr(email_routing, "_make", slow_make)
+    errors: list[BaseException] = []
+
+    def accept() -> None:
+        try:
+            email_routing.accept(routing, [item], actor="tester")
+        except BaseException as exc:  # noqa: BLE001 - the test reports it below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=contextvars.copy_context().run, args=(accept,)) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert errors == [] and len(made) == 1
+    assert [e["action"] for e in work.workpackage_events(routing)] == ["routing_accept"]
+    [row] = decisions.history(email_routing.ROUTING_KIND, f"{routing}#{item}")
+    assert (row["action"], row["value"]) == ("accept", {"target": made[0], "made": True})
+
+
+def test_a_routing_decision_from_a_stale_page_is_refused(routing_db) -> None:
+    from jav import email_routing
+
+    routing, item = _routing(routing_db)
+    [row] = email_routing.view(routing)["items"]
+    seen = row["decision_state"]
+    email_routing.reject(routing, [item], actor="tester", expected_states={item: seen})
+    with pytest.raises(work.RevisionConflict):
+        email_routing.accept(routing, [item], actor="stale tab", expected_states={item: seen})
+    with pytest.raises(work.RevisionConflict):
+        email_routing.undo(routing, item, actor="stale tab", expected_state=seen)
+    [row] = email_routing.view(routing)["items"]
+    assert row["decision"]["decision"] == "rejected"
+    email_routing.undo(routing, item, actor="tester", expected_state=row["decision_state"])
+    assert [r["action"] for r in decisions.history(email_routing.ROUTING_KIND, f"{routing}#{item}")] == ["reject", "undo"]
+    with pytest.raises(work.RevisionConflict):  # a write outside the service's one-at-a-time order is refused too
+        email_routing._record(routing, item, "rejected", None, False, "a")
+        email_routing._record(routing, item, "accepted", None, False, "b")
+
+
+def test_a_template_choice_is_journaled_and_a_stale_one_refused(routing_db) -> None:
+    from jav.outputs import templates
+
+    wp = work.create_workpackage(name="Invoices", source_kind="manual", source_ref=None, owner="tester")["id"]
+    output = next(iter(templates.choices(wp)["outputs"]))
+    assert templates.choices(wp)["outputs"][output]["decision_state"] == 0
+    after = templates.choose(wp, output, None, actor="tester", expected_state=0)
+    with pytest.raises(work.RevisionConflict):
+        templates.choose(wp, output, None, actor="stale tab", expected_state=0)
+    assert after["outputs"][output]["decision_state"] > 0
+    [row] = decisions.history(templates.CHOICE_KIND, f"{wp}#{output}")
+    assert (row["action"], row["value"], row["workpackage_id"]) == ("choose", {"template": None}, wp)

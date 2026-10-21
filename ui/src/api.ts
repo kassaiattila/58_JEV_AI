@@ -93,6 +93,8 @@ export interface RoutingItem {
     decided_at: string } | null;
   /** whether the package it was accepted into still holds it */
   held?: boolean | null;
+  /** 187: the decision's state, sent back with a change (`jav/decisions.py`). */
+  decision_state?: number;
 }
 export interface RoutingView {
   sources: { id: string; name: string | null }[]; items: RoutingItem[];
@@ -161,6 +163,8 @@ export interface OutputTemplatesListing {
 export interface PackageOutputChoice {
   chosen: { template: string; chosen_by: string; chosen_at: string; active: boolean; name: string | null; version: number | null } | null;
   templates: { template: string; name: string; version: number }[];
+  /** 187: the choice's state, sent back with a change (`jav/decisions.py`). */
+  decision_state?: number;
 }
 export interface PackageOutputChoices { workpackage_id: string; outputs: Partial<Record<OutputName, PackageOutputChoice>> }
 /** 080: what a run of the package will do (the pre-start overview): documents by their path known in advance (S / G /
@@ -1297,8 +1301,9 @@ export const api = {
   outputTemplateFileUrl: (template: string, version: number) => `/api/output-templates/${enc(template)}/versions/${version}/file`,
   outputTemplatePreviewUrl: (template: string, version: number) => `/api/output-templates/${enc(template)}/versions/${version}/preview.xlsx`,
   packageOutputTemplates: (wpId: string) => request<PackageOutputChoices>("GET", `/workpackages/${enc(wpId)}/output-templates`),
-  choosePackageOutputTemplate: (wpId: string, output: OutputName, template: string | null) =>
-    request<PackageOutputChoices>("PUT", `/workpackages/${enc(wpId)}/output-templates/${enc(output)}`, { template }),
+  choosePackageOutputTemplate: (wpId: string, output: OutputName, template: string | null, expectedState?: number) =>
+    request<PackageOutputChoices>("PUT", `/workpackages/${enc(wpId)}/output-templates/${enc(output)}`,
+      { template, ...(expectedState !== undefined ? { expected_state: expectedState } : {}) }),
   documentFormats: () => request<{ formats: DocumentFormat[]; native_limits: Record<string, unknown> }>("GET", "/document-formats"),
   item: (runId: string, itemId: string) => request<ItemResult | NativeItemResult>("GET", `/runs/${enc(runId)}/items/${enc(itemId)}`),
   nativeSources: (runId: string, itemId: string, version: string, offset = 0) =>
@@ -1319,12 +1324,16 @@ export const api = {
   /** 181: an email routing package over email packages, and a person's decisions on its attachments */
   createRoutingPackage: (body: { name: string; sources: string[] }) => request<WorkpackageView>("POST", "/email-routing/packages", body),
   /** `titles`: the roles' titles in the interface's language, for the names of the packages the routing makes */
-  routingAccept: (wpId: string, items: string[], target?: string, titles?: Record<string, string>) =>
-    request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/accept`, { items, ...(target ? { target } : {}), ...(titles ? { titles } : {}) }),
+  /** 187: `states`, each attachment's `decision_state` as the page read it (a change on a stale page is a 409). */
+  routingAccept: (wpId: string, items: string[], target?: string, titles?: Record<string, string>, states?: Record<string, number>) =>
+    request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/accept`,
+      { items, ...(target ? { target } : {}), ...(titles ? { titles } : {}), ...(states ? { expected_states: states } : {}) }),
   routingAcceptClear: (wpId: string, titles?: Record<string, string>) =>
     request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/accept-clear`, titles ? { titles } : {}),
-  routingReject: (wpId: string, items: string[]) => request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/reject`, { items }),
-  routingUndo: (wpId: string, item: string) => request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/undo`, { item }),
+  routingReject: (wpId: string, items: string[], states?: Record<string, number>) =>
+    request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/reject`, { items, ...(states ? { expected_states: states } : {}) }),
+  routingUndo: (wpId: string, item: string, state?: number) =>
+    request<RoutingView>("POST", `/workpackages/${enc(wpId)}/routing/undo`, { item, ...(state !== undefined ? { expected_state: state } : {}) }),
   /** 181: the package roles a scope can name */
   packageRoles: () => request<{ roles: PackageRole[] }>("GET", "/package-roles"),
   /** 181: a person gives the package its scope (any part may be left out) or takes its own scope away */

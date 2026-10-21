@@ -26,6 +26,11 @@ const NOTE: Record<RoutingNote, string> = {
   sent_incoming: "An incoming invoice in a sent email",
 };
 
+/** 187: the attachment's decision state as this page read it, sent back with a change. */
+function stateOf(item: RoutingItem): Record<string, number> | undefined {
+  return item.decision_state === undefined ? undefined : { [item.item_id]: item.decision_state };
+}
+
 function emailText(item: RoutingItem): string {
   const e = item.email;
   if (!e) return "";
@@ -124,17 +129,17 @@ function Decide({ wpId, view, onChanged }: { wpId: string; view: RoutingView; on
                   {i.decision ? (
                     <span className="inline small">
                       <DecisionMark item={i} />
-                      <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void act(() => api.routingUndo(wpId, i.item_id))}>{t("Undo")}</button>
+                      <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void act(() => api.routingUndo(wpId, i.item_id, i.decision_state))}>{t("Undo")}</button>
                     </span>
                   ) : choosing === i.item_id ? (
-                    <ChooseTarget item={i} busy={busy} onPick={(target) => void act(() => api.routingAccept(wpId, [i.item_id], target))}
+                    <ChooseTarget item={i} busy={busy} onPick={(target) => void act(() => api.routingAccept(wpId, [i.item_id], target, undefined, stateOf(i)))}
                       onCancel={() => setChoosing(null)} />
                   ) : (
                     <span className="rt-actions small">
                       {i.proposal ? <button type="button" className="secondary small-btn" disabled={busy}
-                        onClick={() => void act(() => api.routingAccept(wpId, [i.item_id], undefined, titles))}>{t("Accept")}</button> : null}
+                        onClick={() => void act(() => api.routingAccept(wpId, [i.item_id], undefined, titles, stateOf(i)))}>{t("Accept")}</button> : null}
                       {i.placement.role ? <button type="button" className="secondary small-btn" disabled={busy} onClick={() => setChoosing(i.item_id)}>{t("Choose a package…")}</button> : null}
-                      <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void act(() => api.routingReject(wpId, [i.item_id]))}>{t("Do not route")}</button>
+                      <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void act(() => api.routingReject(wpId, [i.item_id], stateOf(i)))}>{t("Do not route")}</button>
                     </span>
                   )}
                 </td>

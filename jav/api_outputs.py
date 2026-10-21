@@ -23,7 +23,7 @@ from fastapi.responses import Response
 from pydantic import Field
 
 from jav import package_release, work_views
-from jav.api import Empty, WpId, _error, _In, attachment_header, checked_path, human_actor
+from jav.api import DecisionState, Empty, WpId, _error, _In, attachment_header, checked_path, human_actor
 from jav.outputs import contract, samples, templates
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -41,6 +41,7 @@ class TemplateUpload(_In):
 
 class TemplateChoice(_In):
     template: Annotated[str | None, Field(pattern=r"^tpl-[0-9a-f]{10}$")] = None
+    expected_state: DecisionState | None = None  # 187: the choice's `decision_state` as the page read it
 
 
 def _file(content: bytes, name: str) -> Response:
@@ -99,7 +100,7 @@ def routes(app: FastAPI, r: str) -> None:
     @app.put(r + "/workpackages/{wp_id}/output-templates/{output}")
     def choose_output_template(wp_id: WpId, output: OutputName, body: TemplateChoice,
                                who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(templates.choose(wp_id, output, body.template, actor=who))
+        return work_views.jsonable(templates.choose(wp_id, output, body.template, actor=who, expected_state=body.expected_state))
 
     @app.get(r + "/workpackages/{wp_id}/result/utility-cost.xlsx")
     def package_utility_cost_xlsx(wp_id: WpId) -> Response:

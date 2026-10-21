@@ -30,7 +30,7 @@ export function TemplateChoice({ wpId, output }: { wpId: string; output: OutputN
     setBusy(true);
     setError(null);
     try {
-      await api.choosePackageOutputTemplate(wpId, output, value === BUILTIN ? null : value);
+      await api.choosePackageOutputTemplate(wpId, output, value === BUILTIN ? null : value, choice?.decision_state);
       data.reload();
     } catch (e) {
       setError((e as ApiError).message);

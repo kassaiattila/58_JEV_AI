@@ -140,7 +140,7 @@ describe("Settings › Output templates (179)", () => {
 
 const choices = (over: Partial<PackageOutputChoices["outputs"]["package_result"]> = {}): PackageOutputChoices => ({
   workpackage_id: "wp-000000000001",
-  outputs: { package_result: { chosen: null, templates: [{ template: "tpl-0123456789", name: "Board report", version: 2 }], ...over },
+  outputs: { package_result: { chosen: null, templates: [{ template: "tpl-0123456789", name: "Board report", version: 2 }], decision_state: 3, ...over },
     utility_cost: { chosen: null, templates: [] } },
 });
 
@@ -160,10 +160,10 @@ describe("the template chooser next to a download (179)", () => {
     expect(trigger.textContent).toContain("Built-in");
     fireEvent.click(trigger);
     fireEvent.click(screen.getByRole("option", { name: /Board report/ }));
-    await waitFor(() => expect(choose).toHaveBeenCalledWith("wp-000000000001", "package_result", "tpl-0123456789"));
+    await waitFor(() => expect(choose).toHaveBeenCalledWith("wp-000000000001", "package_result", "tpl-0123456789", 3));  // 187: with the state it read
     fireEvent.click(screen.getByRole("button", { name: /Template of the download/ }));
     fireEvent.click(screen.getByRole("option", { name: /Built-in/ }));
-    await waitFor(() => expect(choose).toHaveBeenLastCalledWith("wp-000000000001", "package_result", null));
+    await waitFor(() => expect(choose).toHaveBeenLastCalledWith("wp-000000000001", "package_result", null, 3));
   });
 
   it("says when the chosen template was retired and the built-in one is used", async () => {

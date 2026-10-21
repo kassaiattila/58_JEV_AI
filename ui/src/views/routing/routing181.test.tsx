@@ -15,7 +15,7 @@ function item(file: string, over: Partial<RoutingItem> = {}): RoutingItem {
     item_id: `id-${file}`, file, package: "wp-00000000000m", email: EMAIL, doc_type: "invoice_hu", tier: "approved",
     placement: { routable: true, role: "incoming_invoices", role_title: "Incoming invoices", party_id: "party-00000000000a",
       party: "Example Kft.", day: "2026-06-08", problem: null },
-    proposal: { target: { id: "wp-00000000000t", name: "June incoming" }, others: [], new: null }, decision: null, ...over,
+    proposal: { target: { id: "wp-00000000000t", name: "June incoming" }, others: [], new: null }, decision: null, decision_state: 0, ...over,
   };
 }
 
@@ -73,6 +73,6 @@ describe("181 the email routing package", () => {
       { incoming_invoices: "Incoming invoices", outgoing_invoices: "Outgoing invoices" }));
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
     fireEvent.click(within(row("odd.pdf")).getByRole("button", { name: "Do not route" }));
-    await waitFor(() => expect(reject).toHaveBeenCalledWith("wp-00000000000r", ["id-odd.pdf"]));
+    await waitFor(() => expect(reject).toHaveBeenCalledWith("wp-00000000000r", ["id-odd.pdf"], { "id-odd.pdf": 0 }));  // 187: with the state it read
   });
 });
