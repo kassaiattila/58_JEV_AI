@@ -8,7 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError, setActor, type QuoteDraftView, type QuoteView, type WorkpackageView } from "../../api";
 import { setLanguage } from "../../i18n";
 import { stepLabel } from "../../labels";
-import { quoteStatus, QuoteStages } from "./Quote";
+import { QuoteStages } from "./Quote";
+import { quoteStatus } from "./quoteStatus";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });

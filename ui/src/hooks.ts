@@ -184,6 +184,38 @@ export function useDebounced<T>(value: T, ms = 250): T {
   return v;
 }
 
+/** A failed request in words: the service's own message, or the error's. */
+export const errorText = (e: unknown): string => (e instanceof ApiError ? e.message : String(e));
+
+/** 195 (plan G-tidy R6; DECISIONS 195): the action behind a page's buttons - one at a time, the busy state that
+ *  disables them, then an error or a notice of what was done. The logic packs' pages (the reconciliation, the routing,
+ *  the quote) each wrote this by hand; a page keeps its own small wrapper for what follows a success (`then`) and its
+ *  own words for a failure (`failed`, e.g. a conflict that reloads the page). `run` answers whether the action went
+ *  through; a second action while one is running is not started. */
+export function useAction() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  async function run<T>(fn: () => Promise<T>, opts: { then?: (result: T) => void; done?: string; failed?: (e: unknown) => string } = {}): Promise<boolean> {
+    if (busy) return false;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await fn();
+      opts.then?.(result);
+      if (opts.done) setNotice(opts.done);
+      return true;
+    } catch (e) {
+      setError(opts.failed ? opts.failed(e) : errorText(e));
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+  return { busy, error, notice, run, setError, setNotice };
+}
+
 /** The statuses of an active (queued or running) run. */
 export const ACTIVE_RUN = new Set(["queued", "running"]);
 

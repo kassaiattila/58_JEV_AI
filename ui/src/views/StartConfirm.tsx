@@ -5,6 +5,7 @@
 // budget and plan, and starts with their input.
 import { useState } from "react";
 import { api, ApiError, type WorkpackageView } from "../api";
+import { BlockerList } from "../components/BlockerList";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { blockerText, MODE, PARAM_LABEL, providerName, shownParams, shownValue, usdBudget, when } from "../labels";
@@ -106,10 +107,10 @@ export function StartConfirm({ view, mode, rerun, pending = false, onChanged }: 
       </dl>
       {offer?.plan ? <RunPlanList plan={offer.plan} budget={offer.budget} /> : null}
       {offer && !offer.ready ? (
-        <ul className="plain">{offer.blockers.map((b, i) => <li key={i} className="blocker">{blockerText(b)}</li>)}</ul>
+        <BlockerList items={offer.blockers.map((b, i) => ({ key: String(i), content: blockerText(b) }))} />
       ) : null}
       {offer?.warnings.length ? (
-        <ul className="plain">{offer.warnings.map((w, i) => <li key={i} className="warning">{blockerText(w)}</li>)}</ul>
+        <BlockerList items={offer.warnings.map((w, i) => ({ key: String(i), warning: true, content: blockerText(w) }))} />
       ) : null}
       {pending && fresh.data && !supplement ? <p className="notice">{t("No item is pending any more: there is nothing to start on its own.")}</p> : null}
       {active ? <p className="notice">{t("A csomagon éppen fut egy futás; új csak utána indítható.")}</p> : null}

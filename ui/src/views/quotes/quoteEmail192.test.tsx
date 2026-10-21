@@ -40,10 +40,10 @@ function mail(part: QuoteEmailPart | null): ItemResult {
 }
 
 describe("the quote request under its email (192)", () => {
-  it("is shown on the email's page through the item part registry", () => {
+  it("is shown on the email's page through the item part registry", async () => {
     expect(Object.keys(ITEM_PARTS)).toEqual(["quote_request"]);
     render(<EmailReview data={mail(PART)} onChanged={() => {}} wpId="wp-000000000191" />);
-    const part = screen.getByRole("region", { name: "Quote request" });
+    const part = await screen.findByRole("region", { name: "Quote request" }); // 195: the part loads on first use
     expect(part.textContent).toContain("Invented Buyer Ltd");
     expect(part.textContent).toContain("read from list.pdf"); // the items came from the attachment, named by its file
     expect(screen.getByText("The request has what a quote needs.")).toBeTruthy();
@@ -58,17 +58,17 @@ describe("the quote request under its email (192)", () => {
   it("starts a quote named by the customer and opens it", async () => {
     const create = vi.spyOn(api, "createQuotePackage").mockResolvedValue({ workpackage_id: "wp-000000000196" });
     render(<EmailReview data={mail(PART)} onChanged={() => {}} />);
-    const button = screen.getByRole("button", { name: "Start a quote from this email" });
+    const button = await screen.findByRole("button", { name: "Start a quote from this email" });
     expect(button.className).toContain("primary");
     fireEvent.click(button);
     await waitFor(() => expect(create).toHaveBeenCalledWith({ name: "Quote: Invented Buyer Ltd", source: "wp-000000000191", item_id: "item-1" }));
     await waitFor(() => expect(window.location.hash).toBe("#/workpackages/wp-000000000196/review"));
   });
 
-  it("says what the whole request lacks, and links the quotes already made from it", () => {
+  it("says what the whole request lacks, and links the quotes already made from it", async () => {
     const lacking: QuoteEmailPart = { ...PART, gaps: [{ code: "quote:no_items", message: "" }], quotes: [{ id: "wp-000000000197", name: "Earlier quote" }] };
     render(<EmailReview data={mail(lacking)} onChanged={() => {}} />);
-    expect(screen.getByText("The request names no item: neither the email's text nor an attachment has one").className).toContain("s-review");
+    expect((await screen.findByText("The request names no item: neither the email's text nor an attachment has one")).className).toContain("s-review");
     expect(screen.getByRole("link", { name: "Earlier quote" }).getAttribute("href")).toBe("#/workpackages/wp-000000000197/review");
     expect(screen.getByRole("button", { name: "Start another quote from this email" }).className).toContain("secondary");
   });

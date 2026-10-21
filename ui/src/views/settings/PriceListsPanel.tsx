@@ -9,6 +9,7 @@ import {
   api, ApiError, type OutputTemplateIssue, type OutputTemplateState, type PriceList, type PriceListCheck,
   type PriceListColumn, type PriceListDetail, type PriceListVersion, type PriceListsListing, type PriceRule,
 } from "../../api";
+import { BlockerList } from "../../components/BlockerList";
 import { BrowseButton } from "../../components/BrowseButton";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";
@@ -69,17 +70,13 @@ const whereText = (where: string) => {
 function Issues({ items, warning }: { items: OutputTemplateIssue[]; warning?: boolean }) {
   useLocale();
   return (
-    <ul className="plain template-issues">
-      {items.map((p, i) => (
-        <li key={`${p.code}:${p.where}:${i}`} className={warning ? "warning" : "blocker"}>
-          {p.where ? <span className="tnum">{whereText(p.where)}</span> : null}
-          <span>{priceIssueText(p.code)}</span>
-          {/* a missing column by its name; a code from the file (an item code, a sheet) in the code face */}
-          {p.code === "missing_column" ? <strong>{columnName(p.detail as PriceListColumn)}</strong>
-            : p.detail && p.code !== "unreadable" ? <span className="mono muted">{p.detail}</span> : null}
-        </li>
-      ))}
-    </ul>
+    <BlockerList parts items={items.map((p, i) => ({ key: `${p.code}:${p.where}:${i}`, warning, content: <>
+        {p.where ? <span className="tnum">{whereText(p.where)}</span> : null}
+        <span>{priceIssueText(p.code)}</span>
+        {/* a missing column by its name; a code from the file (an item code, a sheet) in the code face */}
+        {p.code === "missing_column" ? <strong>{columnName(p.detail as PriceListColumn)}</strong>
+          : p.detail && p.code !== "unreadable" ? <span className="mono muted">{p.detail}</span> : null}
+      </> }))} />
   );
 }
 

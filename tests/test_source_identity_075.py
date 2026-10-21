@@ -13,7 +13,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, store, work
+from jav import api, api_workpackages, store, work
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 
@@ -66,7 +66,7 @@ def test_missing_source_is_a_conflict(served):
 
 def test_oversized_source_is_not_read_into_memory(served, monkeypatch):
     source, client, base = served
-    monkeypatch.setattr(api, "_max_source_bytes", lambda: 10)  # smaller than the synthetic PDF
+    monkeypatch.setattr(api_workpackages, "_max_source_bytes", lambda: 10)  # smaller than the synthetic PDF
     read = []
     monkeypatch.setattr(type(source), "read_bytes", lambda self: read.append(self) or b"")
     assert client.get(f"{base}/source").status_code == 409

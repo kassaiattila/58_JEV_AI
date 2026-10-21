@@ -10,9 +10,12 @@ import { useMemo, useRef, useState, type FormEvent } from "react";
 import { api, ApiError, type AddSummary, type ItemPreview, type ItemSources, type PreviewFile, type StatementPackageSurvey,
   type Workpackage } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
+import { lazyPage } from "../components/LazyPage";
 import { t, useLocale } from "../i18n";
 import { tmap } from "../labels";
-import { SurveyChoices } from "./StatementPackageCreate";
+
+// 195 (plan G-tidy R5): a statement package's survey loads with the statement pages
+const SurveyChoices = lazyPage(() => import("./StatementPackageCreate").then((m) => m.SurveyChoices));
 
 export type AddSource = "files" | "folder";
 

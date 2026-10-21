@@ -58,6 +58,7 @@ Types: `feat` (new capability), `fix` (bug), `refactor` (no behaviour change), `
   - A difference is allowed only where the step announced one, and the handoff names it.
   - A snapshot holds personal data. The tool refuses to write it inside the repository, except under the ignored `store/`.
   - Two snapshots of the same copy taken with the same code are identical: that is the tool's own check.
+  - A snapshot taken in a worktree reads email attachments only from the message's own folder and under that worktree's own mail bridge folder (`jav/config.py` `BRIDGE_DATA_ROOT`, `inbox/.bridge/data/`, the attachment rule of `jav/emails.py`), which a worktree lacks. An email package's `attachments_missing` is therefore 0 there and the true count in the main folder (195). Compare such views between snapshots taken in the same kind of folder.
 - **Replay from earlier answers** (free; `jav/before_after_replay.py`). A step that touches the processing itself (the flows, the worker, the checks) is also checked by processing again:
   1. Before the step's first edit: `python -m jav.cli before-after-replay <backup folder> --work <folder> --out before.jsonl`.
   2. After the step, the same command with `--out after.jsonl`, the same backup, the same work folder and on the same day (a few checks compare dates with today). Then `python -m jav.cli before-after-diff before.jsonl after.jsonl`.

@@ -673,7 +673,7 @@ The names offered by **Who is working?**. Add a new name with the ‘New name’
   - confidence bands (`confidence_bands`, 0.9 and 0.5 by default), backup (`backup`: time, number of copies kept, `max_age_hours`) and folder restriction (`restrict_paths`, `JAV_API_ROOTS`): `configs/service.json`;
   - Hungarian names of fields and document types: `configs/field_labels.json`; email intents: `configs/intents.json`; task-proposal actions: `configs/email_tasks.json`.
 - **Data stored in the browser** (per viewer, not stored in the database): name `jav.actor`, language `jav.ui-language`, appearance `jav.appearance`, column visibility `jav.table.<table>.cols`, column widths `jav.table.<table>.widths` (a line list: `jav.table.list.<field>.widths`), the image/panel ratio `jav.review.split` (on the line-list tab `jav.review.split.list`); the working copy, per tab: `jav.drafts` (sessionStorage).
-- **Source code:** the interface is in `ui/src/` (views: `views/`, review: `review/`, labels: `labels.ts`, English translation: `i18n/en-*.json`); the service is `jav/api.py`, the table columns are in `jav/datasets.py`, the next step in `jav/work_views.py`. Structure: [architecture](../ARCHITECTURE.md), section 8.
+- **Source code:** the interface is in `ui/src/` (views: `views/`, review: `review/`, labels: `labels.ts`, English translation: `i18n/en-*.json`); the service is `jav/api.py` with its endpoint modules `jav/api_*.py`, the table columns are in `jav/datasets.py`, the next step in `jav/work_views.py`. Structure: [architecture](../ARCHITECTURE.md), section 8.
 - **Main labels in Hungarian** (the interface's default language):
 
 | English | Hungarian |

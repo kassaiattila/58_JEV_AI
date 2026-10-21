@@ -46,7 +46,7 @@ describe("081 package from a folder", () => {
     const onDone = vi.fn();
     const user = userEvent.setup();
     render(<CreateForm onDone={onDone} initialTemplate="documents" />);
-    const sub = screen.getByRole("checkbox", { name: "Almappák is" }) as HTMLInputElement;
+    const sub = await screen.findByRole("checkbox", { name: "Almappák is" }) as HTMLInputElement; // 195: the form loads on first use
     expect(sub.checked).toBe(false);
     await user.click(screen.getByRole("button", { name: "Tallózás…" }));
     await waitFor(() => expect((screen.getByLabelText("Mappa teljes útvonala") as HTMLInputElement).value).toBe("C:\\szamlak"));
@@ -60,7 +60,7 @@ describe("081 package from a folder", () => {
     vi.spyOn(api, "pickFiles").mockResolvedValue({ paths: ["C:\\a\\1.pdf", "C:\\b\\2.pdf"] });
     const user = userEvent.setup();
     render(<CreateForm onDone={vi.fn()} initialTemplate="documents" />);
-    await user.click(screen.getByRole("radio", { name: "Megadott fájlok" }));
+    await user.click(await screen.findByRole("radio", { name: "Megadott fájlok" }));
     const box = screen.getByLabelText("Fájlok teljes útvonala, soronként egy") as HTMLTextAreaElement;
     await user.type(box, "C:\\a\\1.pdf");
     await user.click(screen.getByRole("button", { name: "Tallózás…" }));

@@ -14,9 +14,11 @@ import { ApprovalPanel, EarlierVersions } from "../../components/ApprovalPanel";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";
 import { Picker, type PickerOption } from "../../components/Picker";
-import { getLocale, t, useLocale } from "../../i18n";
+import { errorText, useAction } from "../../hooks";
+import { t, useLocale } from "../../i18n";
 import { fieldLabel, numText, when } from "../../labels";
 import { wpHash } from "../../route";
+import { amountText } from "./quoteStatus";
 
 export const QUOTE_LINE_BLOCKER: Record<QuoteDraftBlockerCode, string> = {
   "quote:line_no_item": "No item: choose a price list item, or give a price of your own with a note",
@@ -39,15 +41,6 @@ const EDITED = ["quantity", "unit_price", "discount_percent", "description", "un
 type Edited = (typeof EDITED)[number];
 type Line = QuoteDraftView["lines"][number];
 
-/** An amount in the quote's currency: forints whole, others to cents (as the pricing rounds), grouped. */
-export function amountText(v: string | null | undefined, currency: string | null): string {
-  if (v === null || v === undefined || v === "") return "";
-  const n = Number(v);
-  const digits = currency === "HUF" ? 0 : 2;
-  return Number.isFinite(n)
-    ? n.toLocaleString(getLocale(), { minimumFractionDigits: digits, maximumFractionDigits: Math.max(digits, 2), useGrouping: "always" } as unknown as Intl.NumberFormatOptions)
-    : String(v);
-}
 const quantityText = (v: unknown) => (v === null || v === undefined || v === "" ? "" : numText(v, 4));
 const requestedText = (r: QuoteDraftLine["requested"]) =>
   r ? [r.description, [quantityText(r.quantity), r.unit].filter(Boolean).join(" ")].filter(Boolean).join(" · ") : "";
@@ -487,31 +480,18 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged }: {
   useLocale();
   const [dv, setDv] = useState<QuoteDraftView>(view.draft);
   useEffect(() => setDv(view.draft), [view.draft]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const { busy, error, notice, run, setError } = useAction();
   const [shown, setShown] = useState<{ n: number; quote: QuoteApproved } | null>(null);
-  async function act(fn: () => Promise<QuoteDraftView>, done: string): Promise<boolean> {
-    if (busy) return false;
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      setDv(await fn());
-      setNotice(done);
+  const act = (fn: () => Promise<QuoteDraftView>, done: string) => run(fn, {
+    then: (next) => { setDv(next); onChanged(); },
+    done,
+    failed: (e) => {
+      if (!(e instanceof ApiError && e.status === 409)) return errorText(e);
       onChanged();
-      return true;
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        setError(e.code === "not_ready" ? t("The quote cannot be approved yet: see what blocks it.")
-          : t("The quote changed since it was shown; it has been reloaded. Check it and try again."));
-        onChanged();
-      } else setError(e instanceof ApiError ? e.message : String(e));
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
+      return e.code === "not_ready" ? t("The quote cannot be approved yet: see what blocks it.")
+        : t("The quote changed since it was shown; it has been reloaded. Check it and try again.");
+    },
+  });
   const lineNo = (id: string | null) => (id ? dv.lines.findIndex((l) => l.id === id) + 1 : 0);
   const blockers = !dv.draft
     ? <p className="small">{t("The quote has not been composed yet.")} <a href={wpHash(wpId, "review")}>{t("Compose it in Quote")}</a></p>

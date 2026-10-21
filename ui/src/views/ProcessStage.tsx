@@ -6,6 +6,7 @@
 // files and folders are added; while its add form is open, its own last step is the view's one solid button.
 import { useEffect, useMemo, useState } from "react";
 import { api, ApiError, type Recipe, type RecipeHelp, type RunPlan, type SupersedableRun, type WorkpackageView } from "../api";
+import { BlockerList } from "../components/BlockerList";
 import { ConfirmButton } from "../components/ConfirmButton";
 import { DataTable } from "../components/DataTable";
 import { Icon } from "../components/Icon";
@@ -139,15 +140,12 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
             {" "}<button type="button" className="secondary small-btn" disabled={busy || active} onClick={() => void addAttachments()}><Icon name="plus" />{t("Csatolmányok felvétele")}</button></p>
         ) : null}
         {!readiness.ready ? (
-          <ul className="plain">{readiness.blockers.map((b, i) => <li key={i} className="blocker">{blockerText(b)}</li>)}</ul>
+          <BlockerList items={readiness.blockers.map((b, i) => ({ key: String(i), content: blockerText(b) }))} />
         ) : null}
         {readiness.warnings.length ? (
-          <ul className="plain">{readiness.warnings.map((w, i) => (
-            <li key={i} className="warning">{blockerText(w)}
-              {w.code === "recipe_changed" || w.code === "recipe_retired" ? <> <button type="button" className="secondary small-btn" disabled={busy || active || !recipes.data}
-                onClick={() => void refreshAssignment()}><Icon name="rerun" />{t("Átállítás a mostani feldolgozásra")}</button></> : null}
-            </li>))}
-          </ul>
+          <BlockerList items={readiness.warnings.map((w, i) => ({ key: String(i), warning: true, content: <>{blockerText(w)}
+            {w.code === "recipe_changed" || w.code === "recipe_retired" ? <> <button type="button" className="secondary small-btn" disabled={busy || active || !recipes.data}
+              onClick={() => void refreshAssignment()}><Icon name="rerun" />{t("Átállítás a mostani feldolgozásra")}</button></> : null}</> }))} />
         ) : null}
         <OlderRunsOffer runs={view.supersedable ?? []} busy={busy || active} onSupersede={(id) => void supersede(id)} />
         <div className="button-row">
