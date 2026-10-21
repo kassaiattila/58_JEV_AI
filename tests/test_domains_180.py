@@ -23,7 +23,7 @@ JAV = PROJECT_ROOT / "jav"
 
 _PROBE = """
 import json
-import jav.domains.email, jav.domains.finance
+import jav.domains.email, jav.domains.finance, jav.domains.quotes
 from jav import checks, item_kinds, logic_packs
 from jav.outputs import parts
 seen = lambda: {"checks": sorted(checks._CHECKS), "packs": sorted(logic_packs._PACKS), "rules": sorted(item_kinds._RULES),
@@ -49,7 +49,7 @@ def test_importing_a_domain_registers_nothing_and_load_all_registers_it() -> Non
 
 def test_the_domains_and_their_registrations_in_order() -> None:
     registrations.load_all()  # the test session's call (conftest) made it already; a repeat adds nothing
-    assert DOMAINS == ("jav.domains.finance", "jav.domains.email")
+    assert DOMAINS == ("jav.domains.finance", "jav.domains.email", "jav.domains.quotes")  # 191: the quotes
     assert [c.name for c in checks.stage("cross_document")] == ["duplicate", "own_tax", "statement_overlap"]
     assert {c.name: c.run.__module__ for c in checks.stage("after_save")} == {"duplicate_scan": "jav.domains.finance",
                                                                              "own_tax_scan": "jav.domains.finance"}

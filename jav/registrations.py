@@ -26,30 +26,39 @@ package scopes themselves their party reference and the removal of a deleted pac
 from __future__ import annotations
 
 import importlib
+from typing import Any, Callable
 
 _loaded = False
 _loading = False
 
 
+def order(domains: list[Any]) -> list[Callable[[], None]]:
+    """The register calls in their order (191: any number of domains): the first domain's, the shared ones (the
+    workflows, the package scopes), then each further domain's in `DOMAINS` order. The registries keep the order they
+    were given (party references, step kinds, logic packs), and this is the finance-workflows-email order of 180."""
+    from jav import package_scope, workflows
+
+    first, *others = domains
+    return [first.register, workflows.register, package_scope.register, *(domain.register for domain in others)]
+
+
 def load_all() -> None:
     """Every registration: the finance domain's (its cross-document checks, the statement package and the
     reconciliation package as logic packs with their party references, its parts of the downloads), the workflows'
-    delete guard and party reference, then the email domain's item rule and page part. Once per process; a repeated
-    or nested call does nothing."""
+    delete guard and party reference, then the email domain's item rule and page part, then (191) the quotes
+    domain's. Once per process; a repeated or nested call does nothing."""
     global _loaded, _loading
     if _loaded or _loading:
         return
     _loading = True
     try:
-        from jav import package_scope, workflows
         from jav.domains import DOMAINS
 
-        finance, email = (importlib.import_module(name) for name in DOMAINS)
-        for register in (finance.register, workflows.register, package_scope.register, email.register):
+        for register in order([importlib.import_module(name) for name in DOMAINS]):
             register()
         _loaded = True
     finally:
         _loading = False
 
 
-__all__ = ["load_all"]
+__all__ = ["load_all", "order"]

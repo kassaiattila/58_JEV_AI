@@ -12,25 +12,17 @@ No AI call, no store: the modules are read as syntax trees.
 from __future__ import annotations
 
 import ast
+import importlib
 from pathlib import Path
 
 from jav.config import PROJECT_ROOT
+from jav.domains import DOMAINS
 
 JAV = PROJECT_ROOT / "jav"
 
-# the modules each domain is made of (its domain module registers them; `jav/domains/`)
-FINANCE = frozenset({
-    "api_finance", "api_parties", "api_reconcile", "api_statement_package", "bank_files", "finance_datasets", "duplicates", "flow_statement_table", "fx", "party_views",
-    "reconcile", "reconcile_ai", "reconcile_overview", "reconcile_package", "reconcile_review", "reconcile_statement",
-    "report_utility", "statement_months", "statement_original", "statement_package", "statement_table",
-    "domains.finance",
-})
-EMAIL = frozenset({
-    "api_email_routing", "api_mailbox", "email_datasets", "email_export", "email_learning", "email_learning_runtime", "email_review", "email_routing", "email_tasks",
-    "emails", "flow_email", "flow_email_learning", "ingest_server", "intent", "intent_gpt", "intents", "mailbox",
-    "domains.email",
-})
-DOMAIN = FINANCE | EMAIL
+# the modules each domain is made of; 191 (plan F-quote-package B1): as its domain module names them (`MODULES`)
+MODULES = {name: importlib.import_module(name).MODULES for name in DOMAINS}
+DOMAIN = frozenset().union(*MODULES.values())
 
 # shared modules that may import a domain's modules for good: each names every domain at once by its nature
 LASTING = {
@@ -87,3 +79,10 @@ def test_a_shared_module_imports_a_domain_only_where_the_move_has_not_reached_ye
 def test_every_listed_module_exists() -> None:
     for name in DOMAIN | set(LASTING):
         assert (JAV / (name.replace(".", "/") + ".py")).is_file(), name
+
+
+def test_each_domain_names_its_own_module_and_no_module_is_in_two_domains() -> None:
+    for name, modules in MODULES.items():
+        assert name.removeprefix("jav.") in modules, name
+    assert sum(len(modules) for modules in MODULES.values()) == len(DOMAIN)
+    assert not DOMAIN & set(LASTING)

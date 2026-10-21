@@ -33,6 +33,14 @@ from jav.outputs import parts
 # 185 (plan G-full-move T1a): the modules of the domain's addresses of the local service beyond its logic packs' own
 # (`LogicPack.service`); `jav.api.service_modules` adds them by name
 SERVICE = ("jav.api_parties", "jav.api_finance")
+# 191 (plan F-quote-package B1): the modules the domain is made of (until 191 listed in the boundary test); the shared
+# code imports none of them (`tests/test_domain_boundary_185.py`)
+MODULES = frozenset({
+    "api_finance", "api_parties", "api_reconcile", "api_statement_package", "bank_files", "duplicates",
+    "finance_datasets", "flow_statement_table", "fx", "party_views", "reconcile", "reconcile_ai", "reconcile_overview",
+    "reconcile_package", "reconcile_review", "reconcile_statement", "report_utility", "statement_months",
+    "statement_original", "statement_package", "statement_table", "domains.finance",
+})
 
 # --- the cross-document checks: they read the store, so the check registry runs them in a worker run only, and a
 # measurement's result never depends on what the store holds (175, plan 170 E3: `jav/checks.py`) ---------------------
