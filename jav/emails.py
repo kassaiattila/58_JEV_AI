@@ -138,6 +138,19 @@ def clean_body(text: str, *, max_chars: int = MAX_BODY_CHARS) -> str:
     return body[:max_chars]
 
 
+def document_text(msg: EmailMessage) -> str:
+    """190 (plan 189 A2f): the email as a document for a type pack that reads text (a quote request written in the
+    email): its From, Date and Subject lines, then its own text without the quoted earlier messages (`clean_body`, up to
+    the bridge's own limit), so the extraction sees who asks and when (a deadline may be relative to the date). Empty
+    when the email has no own text, so that nothing is extracted from a subject alone."""
+    body = clean_body(msg.body, max_chars=BRIDGE_BODY_LIMIT)
+    if not body.strip():
+        return ""
+    sender = f"{msg.sender_name} <{msg.sender}>" if msg.sender_name and msg.sender else (msg.sender or msg.sender_name or "")
+    head = [f"From: {sender}" if sender else "", f"Date: {msg.received_at}" if msg.received_at else "", f"Subject: {msg.subject}"]
+    return "\n".join([*(h for h in head if h), "", body])
+
+
 def sender_domain(sender: str | None) -> str | None:
     if not sender or "@" not in sender:
         return None

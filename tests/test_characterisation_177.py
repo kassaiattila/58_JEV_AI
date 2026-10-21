@@ -84,10 +84,10 @@ def test_the_pre_start_overview_counts_each_kind(isolated):
     items = work.get(m["wp"]["id"])["items"]
     plan = work.run_plan(work.recipe("processing"), {}, items, [None] * len(items))
     assert plan == {"documents": 3, "emails": 1, "statement_tables": 1, "attachments": 1,
-                    "paths": {"S": 0, "G": 0, "unknown": 3}, "tasks_emails": 0, "azure": True, "jev_reuse": True,
-                    "arm": "auto", "jev": True}
-    assert list(plan) == ["documents", "emails", "statement_tables", "attachments", "paths", "tasks_emails", "azure",
-                          "jev_reuse", "arm", "jev"]
+                    "paths": {"S": 0, "G": 0, "unknown": 3}, "tasks_emails": 0, "text_emails": 1, "azure": True,
+                    "jev_reuse": True, "arm": "auto", "jev": True}  # 190: text_emails
+    assert list(plan) == ["documents", "emails", "statement_tables", "attachments", "paths", "tasks_emails", "text_emails",
+                          "azure", "jev_reuse", "arm", "jev"]
     no_table = [i for i in items if i["kind"] != "statement_table"]
     assert "statement_tables" not in work.run_plan(work.recipe("processing"), {}, no_table, [None] * len(no_table))
     multi = work.recipe("multi-format-processing")

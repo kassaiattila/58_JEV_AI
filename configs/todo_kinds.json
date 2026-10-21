@@ -7,7 +7,7 @@
       {
         "version": "1.0.2",
         "date": "2026-10-21",
-        "note": "190 (plan 189 A2b, A2d): `text:empty`, a document given as text (an email's own text) that has no text at all; `jev:missing_rows` and `jev:extra_rows`, the per-list questions a verification call site may name."
+        "note": "190 (plan 189 A2b, A2d): `text:empty`, a document given as text (an email's own text) that has no text at all; `jev:missing_rows` and `jev:extra_rows`, the per-list questions a verification call site may name; `follow_up:*`, an item's follow-up stage that ended without its own to-do but not cleanly (A2f)."
       },
       {
         "version": "1.0.1",
@@ -54,6 +54,7 @@
     {"code": "*:not_in_enum", "shape": "<field>:not_in_enum:<value>", "owners": ["jav/models.py"], "what": "a field's value is not one its type pack allows", "example": "statement_type:not_in_enum:'Invented kind'"},
     {"code": "ocr:partial_pages", "shape": "ocr:partial_pages:<pages>", "owners": ["jav/flow_detect.py", "jav/policy.py"], "what": "not every page was recognised", "example": "ocr:partial_pages:2/3"},
     {"code": "ocr:no_text", "shape": "ocr:no_text", "owners": ["jav/flow.py", "jav/flow_detect.py"], "what": "no text could be read from the document", "example": "ocr:no_text"},
+    {"code": "follow_up:*", "shape": "follow_up:<status>", "owners": ["jav/runtime/worker.py"], "what": "an item's follow-up stage (the extraction of an email's own text, 190) ended without its own to-do but not cleanly", "example": "follow_up:needs_ocr"},
     {"code": "text:empty", "shape": "text:empty", "owners": ["jav/flow.py"], "what": "a document given as text (an email's own text) is empty", "example": "text:empty"},
     {"code": "ocr:low_confidence", "shape": "ocr:low_confidence:<p>", "owners": ["jav/policy.py"], "what": "weak text recognition", "example": "ocr:low_confidence:0.61"},
     {"code": "ocr:low_conf_words", "shape": "ocr:low_conf_words:<share>", "owners": ["jav/policy.py"], "what": "many uncertain words in the recognition", "example": "ocr:low_conf_words:0.34"},

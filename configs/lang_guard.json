@@ -7,7 +7,7 @@
       {
         "version": "1.0.88",
         "date": "2026-10-21",
-        "note": "190 (plan 189 A2e): the quote request's document vocabulary (its type pack's keywords, its prompt's Hungarian terms, the detection type, the intent and the field labels) and the Hungarian labels its tests read (tests/test_quote_request_190.py, ui/src/listChecks190.test.ts)."
+        "note": "190 (plan 189 A2e, A2f): the quote request's document vocabulary (its type pack's keywords, its prompt's Hungarian terms, the detection type, the intent and the field labels) and the Hungarian labels its tests read (tests/test_quote_request_190.py, tests/test_email_text_follow_up_190.py, ui/src/listChecks190.test.ts, ui/src/emailText190.test.ts)."
       },
       {
         "version": "1.0.87",
@@ -831,6 +831,7 @@
     "ui/src/dateReading084.test.tsx": 15,
     "ui/src/deps075.test.tsx": 3,
     "ui/src/detailDirection149.test.tsx": 1,
+    "ui/src/emailText190.test.ts": 1,
     "ui/src/errorboundary066.test.tsx": 7,
     "ui/src/feedback062.test.tsx": 26,
     "ui/src/fieldVerdict083.test.tsx": 24,

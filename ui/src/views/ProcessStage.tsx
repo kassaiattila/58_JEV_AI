@@ -208,6 +208,9 @@ const PARAM_VALUE: Record<string, string> = tmap({
   // 120 (the owner's decision of 2026-10-06; codepoints for the language guard)
   "unknown_documents:facts": "PDF, amelynek t\u00edpus\u00e1hoz nincs illeszked\u0151 t\u00edpusle\u00edr\u00e1s: \u00e1ltal\u00e1nos, forr\u00e1shoz k\u00f6t\u00f6tt adatjavaslatok (GPT + JEV; a szkennelt iratot helyi sz\u00f6vegfelismer\u00e9ssel, teend\u0151vel); a felismert t\u00edpus \u00e9s bizonytalans\u00e1ga megmarad",
   "unknown_documents:review": "Az ilyen PDF feldolgoz\u00e1sa meg\u00e1ll, \u00e9s teend\u0151t kap (kor\u00e1bbi viselked\u00e9s)",
+  // 190: a quote request written in the email itself
+  "email_text:extract": "A quote request written in the email itself is extracted from its text (GPT + JEV, about 0.006 USD per such email, at most 0.03 USD reserved per email)",
+  "email_text:off": "The email's own text is not extracted; its attachments still are",
   "jev:on": "Bekapcsolva: a JEV ismeri fel a típust és a levél szándékát, és választ vagy ellenőriz az adatkinyerésnél",
   "jev:off": "Kikapcsolva: csak GPT (OpenAI) — típusfelismerés, adatkinyerés és levélszándék GPT-vel, kódos ellenőrzéssel",
   // 090: the processing path (the documents' path and the use of JEV as one choice)

@@ -135,7 +135,9 @@ def test_pdf_attachment_becomes_a_linked_document_and_runs_with_the_email_recipe
     assert mail["kind"] == "email" and "parent_item_id" not in mail
     ready = work.readiness(wp["id"])
     assert ready["ready"], ready["blockers"]
-    assert ready["budget"] == {"jev": Decimal("0.17"), "openai": Decimal("0.15"), "azure_di": Decimal("0.02")}  # 2 emails × 0.05 + 1 attachment; 075: Azure for the attachment
+    # 2 emails × 0.05 + 1 attachment; 075: Azure for the attachment; 190: 2 emails × 0.03 for the extraction of a quote
+    # request written in the email
+    assert ready["budget"] == {"jev": Decimal("0.17"), "openai": Decimal("0.21"), "azure_di": Decimal("0.02")}
     work.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=1, actor="t")
     ready = work.readiness(wp["id"])
     run_id = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
@@ -232,7 +234,8 @@ def test_task_proposals_go_through_the_gate_and_only_a_human_accepts_them(env, m
     wp_id = res["workpackage"]
     work.assign_recipe(wp_id, "processing", params={"tasks": "propose"}, expected_revision=1, actor="t")
     ready = work.readiness(wp_id)
-    assert ready["budget"]["openai"] == Decimal("0.012")  # 2 emails × 0.006 USD (the task-proposal budget)
+    # 2 emails × 0.006 USD (the task-proposal budget) + 2 × 0.03 USD (190: the extraction of the email's own text)
+    assert ready["budget"]["openai"] == Decimal("0.072")
     run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
     worker.run_worker(once=True)
     by_subject = {corrections.item_result(run_id, i["item_id"])["email"]["subject"]: i for i in work.get_run(run_id)["input"]["items"]}

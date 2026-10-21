@@ -228,6 +228,8 @@ export function reasonText(code: string): string {
     case "pdf:pages_without_text": return t("Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document", { pages: p[2] });
     case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
     // 190: a document given as text (an email's own text) had no text at all (jav/flow.py load_text)
+    // 190: an item's follow-up stage (the extraction of an email's own text) ended without a to-do of its own
+    case `follow_up:${p[1] ?? ""}`: return t("An item's follow-up step did not finish cleanly ({{status}}); look at the item by hand", { status: p[1] ?? "" });
     case "text:empty": return t("The text given as the document is empty, so nothing was extracted from it");
     // 177: the text recognition itself could not run (jav/flow.py, jav/flow_detect.py)
     case "ocr:unavailable": return t("Text recognition could not run ({{why}}); look at the document by hand", { why: p[2] ?? "" });
@@ -474,7 +476,8 @@ export const intentLabel = (key: string | null | undefined): string => (key ? IN
 /** Labels of the processing settings (058; 080: the path by what it does, the owner's decision of 2026-10-01): a short
  *  value without code names; the long explanation is in the settings editor and on Settings › Processing. */
 export const PARAM_LABEL: Record<string, string> = tmap({ path: "Feldolgozási út", arm: "Út", doc_type: "Irattípus", jev_cache: "Korábbi válaszok", tasks: "Feladatjavaslat", azure_ocr: "Azure-felismerés", jev: "JEV használata",
-  unknown_documents: "Ismeretlen PDF-ek" });  // 120
+  unknown_documents: "Ismeretlen PDF-ek",  // 120
+  email_text: "Quote requests from the email's text" });  // 190
 const PARAM_SHORT: Record<string, string> = tmap({
   "jev:on": "bekapcsolva",
   "jev:off": "kikapcsolva — csak GPT (OpenAI)",
@@ -496,12 +499,15 @@ const PARAM_SHORT: Record<string, string> = tmap({
   // 120: a text PDF without a fitting type pack (written with codepoints for the language guard)
   "unknown_documents:facts": "\u00e1ltal\u00e1nos adatjavaslat (GPT + JEV)",
   "unknown_documents:review": "meg\u00e1ll, k\u00e9zi ellen\u0151rz\u00e9s",
+  // 190: the extraction of a quote request written in the email itself (the owner's decision of 2026-10-21: on)
+  "email_text:extract": "extracted (GPT + JEV)",
+  "email_text:off": "not extracted",
 });
 /** 080: the item kind a setting acts on (the path, Azure and the document type on documents, task proposals on
  *  emails); a setting not listed acts on every item. With the package's item kinds known, a setting that cannot act on
  *  any of them is not shown. */
 const PARAM_KIND: Record<string, string> = { arm: "document", azure_ocr: "document", doc_type: "document", tasks: "email",
-  unknown_documents: "document" };
+  unknown_documents: "document", email_text: "email" };
 export const paramApplies = (k: string, kinds?: string[]): boolean => !kinds?.length || !PARAM_KIND[k] || kinds.includes(PARAM_KIND[k]);
 /** 089 (the owner's decision of 2026-10-02): a setting that only counts while another setting has a given value.
  *  Without JEV (086) every document runs on the G path, so the documents' path does not count. A missing value counts
@@ -603,6 +609,8 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
       plan.documents > 0 && t("{{n}} irat típusfelismerése és adatkinyerése a G-úton, kódos ellenőrzéssel", { n: plan.documents }),
       plan.emails > 0 && t("{{n}} levél szándékfelismerése", { n: plan.emails }),  // 089: by GPT without JEV
       plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
+      // 190: the extraction of a quote request written in the email itself (spent only on such emails)
+      (plan.text_emails ?? 0) > 0 && t("{{n}} email(s): a quote request written in the email is read from its text", { n: plan.text_emails }),
     ])}.`);
   } else if (amount("openai") > 0) {
     out.push(`${head("openai")}: ${join([
@@ -611,6 +619,8 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
         : t("{{n}} irat a G-úton", { n: plan.paths.G })),
       plan.paths.unknown > 0 && t("{{n}} még ismeretlen típusú irat, ha a felismert típus a G-utat kéri", { n: plan.paths.unknown }),
       plan.tasks_emails > 0 && t("{{n}} levél feladatjavaslata", { n: plan.tasks_emails }),
+      // 190: the extraction of a quote request written in the email itself (spent only on such emails)
+      (plan.text_emails ?? 0) > 0 && t("{{n}} email(s): a quote request written in the email is read from its text", { n: plan.text_emails }),
     ])}.`);
   } else if (plan.documents || plan.emails) {
     out.push(plan.documents ? t("OpenAI: nem hívódik, minden irat az S-úton fut.") : t("OpenAI: nem hívódik."));

@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.12.0",
+    "version": "1.13.0",
     "changelog": [
+      {
+        "version": "1.13.0",
+        "date": "2026-10-21",
+        "note": "190: email_text, the extraction of a quote request written in the email itself."
+      },
       {
         "version": "1.12.0",
         "date": "2026-10-06",
@@ -192,6 +197,13 @@
       "options": {
         "off": "Nincs feladatjavaslat. A levél szándékának felismerése és a csatolmányok feldolgozása így is megtörténik. Ez az alapbeállítás.",
         "propose": "A GPT levelenként javaslatot tesz. A kód ellenőrzi, hogy a javaslat minden idézete szó szerint szerepel-e a levélben; elfogadni csak ember tud. Archiválandó levélen nem fut. Levelenként többlet OpenAI-költséggel jár."
+      }
+    },
+    "email_text": {
+      "help": "Whether a quote request written in the email itself is extracted from the email's text: the customer, the contact, the deadline and the requested items. Only on emails whose intent is a quote request.",
+      "options": {
+        "extract": "The email's own text (its sender, date and subject, without the quoted earlier messages) is extracted like a document: GPT reads it, JEV checks it, and what is uncertain becomes a to-do of the email. About 0.006 USD per such email; every email reserves at most 0.03 USD OpenAI for it, spent only on quote requests. This is the default.",
+        "off": "The email's own text is not extracted. A request form or list attached to the email is still processed as a document."
       }
     },
     "azure_ocr": {

@@ -1953,5 +1953,15 @@
   "A list row lacks a value it needs": "A list row lacks a value it needs",
   "A quantity in a list row is zero or less": "A quantity in a list row is zero or less",
   "JEV: the document has rows of this list that the extraction lacks: {{field}} ({{p}})": "JEV: the document has rows of this list that the extraction lacks: {{field}} ({{p}})",
-  "JEV: the extracted list has rows the document does not: {{field}} ({{p}})": "JEV: the extracted list has rows the document does not: {{field}} ({{p}})"
+  "JEV: the extracted list has rows the document does not: {{field}} ({{p}})": "JEV: the extracted list has rows the document does not: {{field}} ({{p}})",
+  "Quote requests from the email's text": "Quote requests from the email's text",
+  "extracted (GPT + JEV)": "extracted (GPT + JEV)",
+  "A quote request written in the email itself is extracted from its text (GPT + JEV, about 0.006 USD per such email, at most 0.03 USD reserved per email)": "A quote request written in the email itself is extracted from its text (GPT + JEV, about 0.006 USD per such email, at most 0.03 USD reserved per email)",
+  "The email's own text is not extracted; its attachments still are": "The email's own text is not extracted; its attachments still are",
+  "An item's follow-up step did not finish cleanly ({{status}}); look at the item by hand": "An item's follow-up step did not finish cleanly ({{status}}); look at the item by hand",
+  "not extracted": "not extracted",
+  "Whether a quote request written in the email itself is extracted from the email's text: the customer, the contact, the deadline and the requested items. Only on emails whose intent is a quote request.": "Whether a quote request written in the email itself is extracted from the email's text: the customer, the contact, the deadline and the requested items. Only on emails whose intent is a quote request.",
+  "The email's own text (its sender, date and subject, without the quoted earlier messages) is extracted like a document: GPT reads it, JEV checks it, and what is uncertain becomes a to-do of the email. About 0.006 USD per such email; every email reserves at most 0.03 USD OpenAI for it, spent only on quote requests. This is the default.": "The email's own text (its sender, date and subject, without the quoted earlier messages) is extracted like a document: GPT reads it, JEV checks it, and what is uncertain becomes a to-do of the email. About 0.006 USD per such email; every email reserves at most 0.03 USD OpenAI for it, spent only on quote requests. This is the default.",
+  "The email's own text is not extracted. A request form or list attached to the email is still processed as a document.": "The email's own text is not extracted. A request form or list attached to the email is still processed as a document.",
+  "{{n}} email(s): a quote request written in the email is read from its text": "{{n}} email(s): a quote request written in the email is read from its text"
 }

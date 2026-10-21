@@ -353,5 +353,14 @@
   "Forrásszöveg": "Source text",
   "Lista": "List",
   "Teendő a mezőn": "To-do on the field",
-  "Teendő, rendezve": "To-dos settled"
+  "Teendő, rendezve": "To-dos settled",
+  "Ajánlatkérés": "Quote request",
+  "Ajánlatkérés hivatkozási száma": "Quote request reference",
+  "Ajánlatkérő adószáma": "Requesting customer's tax number",
+  "Ajánlatkérő neve": "Requesting customer",
+  "Ajánlattételi határidő": "Quote deadline",
+  "Kapcsolattartó": "Contact",
+  "Kapcsolattartó e-mail-címe": "Contact email",
+  "Kapcsolattartó telefonszáma": "Contact phone",
+  "Kért tételek": "Requested items"
 }

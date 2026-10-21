@@ -88,7 +88,8 @@ def _build_invoice(mod: ModuleType, b: Build) -> Any:
     # `jev_cache=live` (use_cache False): skip reading the JEV cache so every call goes through the log and the budget
     return mod.build_app(b.source_path, b.app_id, b.params["arm"], tracker=False, doc_type=b.params["doc_type"],
                          run_id=b.app_id, persister=b.persister, use_cache=b.use_cache, read_path=b.read_path,
-                         jev=b.jev, detail_probabilities=b.params.get("detail_probabilities"))
+                         jev=b.jev, detail_probabilities=b.params.get("detail_probabilities"),
+                         source_text=b.params.get("source_text"))  # 190: a follow-up on an email's own text
 
 
 def _build_detect(mod: ModuleType, b: Build) -> Any:
@@ -100,7 +101,8 @@ def _build_email(mod: ModuleType, b: Build) -> Any:
     # 048 T2: the item is the email's `message.json`; the flow reads its folder
     return mod.build_app(source_dir=str(Path(b.source_path).parent), tracker=False, run_id=b.app_id,
                          persister=b.persister, use_cache=b.use_cache, propose_tasks=b.params.get("tasks") == "propose",
-                         attachment_reads=b.attachment_reads, jev=b.jev)
+                         attachment_reads=b.attachment_reads, jev=b.jev,
+                         extract_text=b.params.get("email_text") == "extract")  # 190: a run before the setting: off
 
 
 def _build_native(mod: ModuleType, b: Build) -> Any:
