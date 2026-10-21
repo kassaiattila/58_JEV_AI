@@ -166,6 +166,8 @@ th:hover > .col-resizer::after { background: var(--line); }
 .s-startable::before { background: var(--ink-2); } /* 157: ready to start; the start button carries the action */
 .s-warn::before { background: var(--warn); border-radius: 0; transform: rotate(45deg) scale(.85); } /* 160-C: off, nothing failed */
 .s-warn { color: var(--warn); }
+.status.long { display: inline-flex; align-items: flex-start; white-space: normal; } /* 192: a mark with a sentence wraps */
+.status.long::before { margin-top: 5px; }
 .plain { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 6px; font-size: 13px; }
 .blocker::before { content: "✕ "; color: var(--error); }
 .blocker:has(> details) { display: flex; gap: var(--sp-1); align-items: baseline; } /* 156: the mark stays beside a reason that opens */
@@ -936,3 +938,83 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 /* 191 (plan F-quote-package B4c): a proposed line's price list item: its code above its name */
 .quote-item { display: grid; gap: 2px; }
 .quote-item code { font-size: var(--fs-xs); color: var(--muted); }
+
+/* 192 (plan F-quote-package B5): the quote composed beside its request. The request on the left, its items numbered;
+   each quote line carries the same number (a to-do one in the to-do colour), the requested words under its item, and
+   the totals close the lines like a ledger: the gross total under a double rule. */
+.quote-compose { display: grid; grid-template-columns: minmax(232px, 272px) minmax(0, 1fr); gap: var(--sp-4); align-items: start; }
+.quote-compose .card { margin: 0; }
+.quote-side { position: sticky; top: var(--sp-3); gap: var(--sp-2); max-width: none; max-height: calc(100vh - 2 * var(--sp-3));
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.quote-side h3, .quote-side h4 { margin: 0; }
+.quote-side h4 { font-size: var(--fs-xs); font-weight: 600; color: var(--ink-2); margin-top: var(--sp-2); }
+.quote-side-title { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+.quote-side .muted.small { margin: 0; }
+.quote-facts { display: grid; gap: var(--sp-2); margin: var(--sp-1) 0 0; }
+.quote-facts > div { display: grid; gap: 2px; min-width: 0; }
+.quote-facts dt { color: var(--muted); font-size: var(--fs-xs); }
+.quote-facts dd { margin: 0; overflow-wrap: anywhere; }
+.quote-facts-wide { grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: var(--sp-4); }
+.quote-asked { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.quote-asked li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: var(--sp-2); align-items: baseline;
+  padding: var(--sp-1); border-radius: var(--r-sm); font-size: var(--fs-xs); }
+.quote-asked li.hot { background: var(--tint); }
+.quote-ref { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 var(--sp-1); border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm); background: var(--paper); color: var(--ink-2); font-size: var(--fs-xs); font-weight: 500;
+  font-variant-numeric: tabular-nums; }
+.quote-ref.own { border-style: dashed; color: var(--muted); }
+.quote-line.open .quote-ref { border-color: var(--todo-line); background: var(--todo-tint); color: var(--todo); }
+
+.quote-draft { gap: var(--sp-3); min-width: 0; }
+.quote-draft-title { display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap; min-width: 0; }
+.quote-warnings { display: grid; gap: var(--sp-2); }
+.quote-warnings li { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.quote-head { border-top: 1px solid var(--line-soft); border-bottom: 1px solid var(--line-soft); }
+.quote-head > summary { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-3); padding: var(--sp-2) 0;
+  cursor: pointer; list-style: none; }
+.quote-head > summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; border-radius: var(--r-sm); }
+.quote-head > summary::-webkit-details-marker { display: none; }
+.quote-head-sum { font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quote-head-open { flex: none; font-size: var(--fs-xs); color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px; }
+.quote-head[open] > summary { border-bottom: 1px solid var(--line-soft); }
+.quote-head[open] .quote-head-open { color: var(--muted); }
+.quote-head-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 var(--sp-3); padding: var(--sp-3) 0 var(--sp-1); }
+.quote-head-fields .block { margin-bottom: var(--sp-2); min-width: 0; }
+.quote-head-fields .block input { padding: 6px var(--sp-2); }
+.quote-note-field { grid-column: 1 / -1; }
+.quote-lines { table-layout: fixed; }
+.quote-lines col.c-ref { width: 40px; }
+.quote-lines col.c-qty { width: 76px; }
+.quote-lines col.c-unit { width: 88px; }
+.quote-lines col.c-price { width: 104px; }
+.quote-lines col.c-disc { width: 64px; }
+.quote-lines col.c-net { width: 104px; }
+.quote-lines col.c-act { width: 44px; }
+.quote-lines tbody tr:last-child td { border-bottom: 1px solid var(--grid); }
+.quote-lines tbody:last-child tr:last-child td { border-bottom: 0; }
+.quote-lines .quote-line > tr:not(:last-child) td { border-bottom: 0; }
+.quote-lines .num-input { width: 100%; padding: 4px 6px; }
+.text-input { width: 100%; border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: 4px 6px; background: var(--paper);
+  font-size: var(--fs-sm); color: var(--ink); }
+.text-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.quote-item-cell { display: grid; gap: var(--sp-1); min-width: 0; }
+.quote-line-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); font-size: var(--fs-xs); }
+.quote-line-meta code { font-size: var(--fs-xs); color: var(--muted); }
+.quote-asked-line { font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.quote-issue { font-size: var(--fs-xs); color: var(--todo); }
+.quote-own-price { display: block; margin-top: 2px; font-size: var(--fs-xs); color: var(--ink-2); }
+.quote-lines td.quote-net { line-height: 28px; }
+.quote-actions { text-align: right; }
+.quote-note-row td { padding-top: 0; }
+.quote-foot { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-4); }
+.quote-totals { display: grid; gap: var(--sp-1); margin: 0 0 0 auto; min-width: 300px; }
+.quote-totals > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-6); font-size: var(--fs-sm); }
+.quote-totals dt { color: var(--muted); }
+.quote-totals dd { margin: 0; font-variant-numeric: tabular-nums; }
+.quote-totals .gross { margin-top: var(--sp-1); padding-top: var(--sp-2); border-top: 3px double var(--line-strong); }
+.quote-totals .gross dt { color: var(--ink); font-weight: 600; }
+.quote-totals .gross dd { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -0.01em; }
+.quote-totals-wait { margin: 0 0 0 auto; }
+.quote-document { display: grid; gap: var(--sp-3); }
+.quote-doc-lines td .small { display: block; }

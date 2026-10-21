@@ -9,6 +9,7 @@ rounded once; the gross total is their sum. In forints the rounding is to whole 
 editor records the note, B5); such a line says so, and a line outside the list always has a price of its own.
 
 - `price(lines, price_list)`: the priced quote; `PricingError` when a line cannot be priced;
+- `price_line(line, price_list)`, `totals(lines, price_list)`: one line, and the totals of priced lines (192, the editor);
 - `measure_golden(golden)`: the invented golden set's quotes priced from their matches (the quote package's code-only
   golden set `quote:lines` in the shared measurement command).
 
@@ -17,6 +18,7 @@ Layer: business module of the quotes domain; pure code, no store, no AI call.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
@@ -113,13 +115,24 @@ def _line(line: LineInput, prices: price_lists.PriceList, unit: Decimal) -> Pric
                       discount_from=source, net=net)
 
 
+def price_line(line: LineInput, prices: price_lists.PriceList) -> PricedLine:
+    """One line priced on its own (192, B5: the editor prices each line, so a line that cannot be priced yet does not
+    hide the others); `PricingError` when it cannot be priced."""
+    return _line(line, prices, rounding_unit(prices.currency))
+
+
+def totals(lines: Iterable[PricedLine], prices: price_lists.PriceList) -> tuple[Decimal, Decimal, Decimal]:
+    """(net, VAT, gross) of priced lines: the VAT is the list's rate on the net total, rounded once."""
+    net = sum((p.net for p in lines), Decimal(0))
+    vat = _round(net * prices.vat_percent / HUNDRED, rounding_unit(prices.currency))
+    return net, vat, net + vat
+
+
 def price(lines: list[LineInput], prices: price_lists.PriceList) -> PricedQuote:
-    unit = rounding_unit(prices.currency)
-    priced = tuple(_line(line, prices, unit) for line in lines)
-    net = sum((p.net for p in priced), Decimal(0))
-    vat = _round(net * prices.vat_percent / HUNDRED, unit)
+    priced = tuple(price_line(line, prices) for line in lines)
+    net, vat, gross = totals(priced, prices)
     return PricedQuote(lines=priced, currency=prices.currency, vat_percent=prices.vat_percent, net_total=net,
-                       vat_total=vat, gross_total=net + vat, price_list=prices.price_list, version=prices.version,
+                       vat_total=vat, gross_total=gross, price_list=prices.price_list, version=prices.version,
                        fingerprint=prices.fingerprint)
 
 

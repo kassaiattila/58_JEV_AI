@@ -20,6 +20,12 @@ const CANDIDATE: QuoteRequestCandidate = {
   items: 1, quotes: [{ id: "wp-000000000192", name: "Earlier quote" }],
 };
 
+// 192: a quote without a draft yet
+const NO_DRAFT: QuoteView["draft"] = {
+  draft: null, state: 0, approval: { active: null, versions: [] }, approved: null, lines: [], totals: null, currency: null,
+  vat_percent: null, blockers: [], warnings: [], fingerprint: null, price_list: null, proposal_newer: false,
+};
+
 const QUOTE: QuoteView = {
   request: {
     workpackage_id: "wp-000000000191", item_id: "item-1", kind: "email", title: "Request for monitors", sender: "buyer@example.com",
@@ -33,7 +39,7 @@ const QUOTE: QuoteView = {
   },
   source: { workpackage_id: "wp-000000000191", item_id: "item-1", workpackage_name: "Invented mailbox" },
   price_lists: [], blockers: [{ code: "quote:no_price_list", message: "There is no active price list" }],
-  proposal: null, proposal_cap: { engine: "jev", items: 1, usd: { jev: "0.003" } },
+  proposal: null, proposal_cap: { engine: "jev", items: 1, usd: { jev: "0.003" } }, draft: NO_DRAFT,
 };
 
 const READY: QuoteView = {

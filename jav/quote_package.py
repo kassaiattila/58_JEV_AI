@@ -8,12 +8,14 @@ processing stays in that package; the quote reads its counted result, put togeth
 attachments (`jav/quote_request.py`), as the reconciliation reads the statements' results. Its gaps are judged on the
 whole request: no customer, no requested item, no active price list, or a request that can no longer be read.
 
-This step (B3) makes the package and shows its request; the proposal of the quote's lines (B4) and the page where a
-person changes and approves the quote (B5) come next, so a quote is not approved yet.
+B3 made the package and shows its request; B4 proposes the quote's lines (`jav/quote_proposal.py`); B5 (192) is the
+page where a person composes the quote from the proposal and approves it as a version of the package's own
+(`jav/quote_draft.py`).
 
 - `candidates(q)`: the requests a quote can start from, each with the quotes already made from it;
 - `create(name, source, item_id)`: a quote package naming its request (the shared package scope's `request` part);
-- `view(wp_id)`, `next_step(wp_id)`: the request, its source, the active price lists and the gaps; the next step.
+- `view(wp_id)`, `next_step(wp_id)`: the request, its source, the active price lists and the gaps, the proposal, the
+  draft and its approval; the next step.
 
 Layer: application operation of the quotes domain over the work packages, the scopes and the quote request.
 """
@@ -23,8 +25,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav import (app_settings, goldens, logic_packs, package_scope, price_lists, quote_proposal, quote_request, store, work,
-                 workflow_steps)
+from jav import (app_settings, goldens, logic_packs, package_release, package_scope, price_lists, quote_draft,
+                 quote_proposal, quote_request, store, work, workflow_steps)
 from jav.tablequery import fold
 from jav.user_messages import explained
 
@@ -135,15 +137,25 @@ def view(wp_id: str) -> dict[str, Any]:
             "source": {**ref, "workpackage_name": source_name} if ref else None,
             "price_lists": lists, "blockers": blockers, "proposal": quote_proposal.current(wp_id),
             "proposal_cap": {"engine": engine, "items": n_items,
-                             "usd": {k: str(v) for k, v in quote_proposal.cap(n_items, engine).items()}}}
+                             "usd": {k: str(v) for k, v in quote_proposal.cap(n_items, engine).items()}},
+            "draft": quote_draft.view(wp_id)}  # B5: the quote as a person composes it, and its approval
 
 
 def _next_of(current: dict[str, Any]) -> dict[str, Any]:
+    draft = current["draft"]
+    if active := draft["approval"]["active"]:
+        return {"code": "quote_approved", "label": f"Approved: version {active['version']}", "stage": "result",
+                "params": {"version": active["version"]}}
     if current["request"] is None:
         return {"code": "quote_request_missing", "label": "The request cannot be read", "stage": "process"}
     if current["blockers"]:
         return {"code": "quote_request_check", "label": "Check the request", "stage": "process",
                 "params": {"n": len(current["blockers"])}}
+    if draft["draft"] is not None:  # B5: the draft is composed, then approved
+        if draft["blockers"]:
+            return {"code": "quote_compose", "label": "Compose the quote", "stage": "review",
+                    "params": {"n": len(draft["blockers"])}}
+        return {"code": "quote_approve", "label": "Approve the quote", "stage": "result"}
     proposal = current.get("proposal")
     if proposal is None or proposal["state"] == "failed":
         return {"code": "quote_propose", "label": "Ask for the proposal", "stage": "review"}
@@ -163,8 +175,9 @@ def _page(wp_id: str) -> dict[str, Any]:
             "quote": current}
 
 
-def _approved(_wp_id: str) -> bool:
-    return False  # B5: the approval of the quote
+def _approved(wp_id: str) -> bool:
+    """A workflow's quote step is done when a version of the package's quote is approved (B5)."""
+    return package_release.own_approval(wp_id)["active"] is not None
 
 
 def _release_refusal() -> Exception:
@@ -223,9 +236,10 @@ LOGIC = logic_packs.LogicPack(
     roles=(logic_packs.InputRole(REQUEST, "linked_package", "the quote request: an email or a document read as one"),
            logic_packs.InputRole("price_list", "master_data", "the seller's active price list")),
     has_runs=False, add_refusal="a quote package has no documents of its own: its request stays in its package",
-    release_refusal=_release_refusal, page=_page, approved=_approved, next_step=next_step, list_next=next_step,
-    list_mark=lambda: (price_lists.mark(), quote_proposal.mark()), outputs=(), service="jav.api_quote_package",
-    goldens=GOLDENS)
+    release_refusal=_release_refusal, delete_guard=quote_draft.delete_guard, page=_page, approved=_approved,
+    next_step=next_step, list_next=next_step,
+    list_mark=lambda: (price_lists.mark(), quote_proposal.mark(), quote_draft.mark()), outputs=(),
+    service="jav.api_quote_package", goldens=GOLDENS)
 
 
 def _workflow_start(_ctx: workflow_steps.StepStart) -> None:
@@ -238,7 +252,8 @@ STEP = workflow_steps.StepKind(KIND, __name__, (KIND,), start=_workflow_start, p
                                repeat_from=lambda _wp_id: {"kind": "none"},
                                statuses={"quote_request_missing": "attention", "quote_request_check": "review",
                                          "quote_propose": "review", "quote_proposing": "review",
-                                         "quote_compose": "review"})
+                                         "quote_compose": "review", "quote_approve": "review",
+                                         "quote_approved": "approved"})
 
 
 __all__ = ["KIND", "LOGIC", "REQUEST", "STEP", "QuoteError", "candidates", "create", "next_step", "request_of", "view"]

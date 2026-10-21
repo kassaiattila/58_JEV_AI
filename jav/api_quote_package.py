@@ -4,22 +4,30 @@
   a quote request, in any package), newest first, each with the quotes already made from it;
 - `POST /quote-packages`: a quote package from one of them (422 when the item is no quote request);
 - `POST /workpackages/{id}/quote/proposal`: queues the quote's proposal for the worker (B4c; 422 when it cannot be
-  asked: no readable request, no item, no active price list).
+  asked: no readable request, no item, no active price list);
+- (192, B5) `POST /workpackages/{id}/quote/draft/start`: the quote's draft from the proposal or the requested items;
+  `PUT /workpackages/{id}/quote/draft`: the draft after a change (409 from a stale page, 422 for a number that cannot
+  be read or an item the price list does not have); `POST .../quote/approve` (409 when it changed or is not ready),
+  `POST .../quote/reopen` (422 without a reason), each returning the draft's view; `GET .../quote/versions/{n}`: an
+  approved version as it was approved (404 without one). `jav.quote_draft` answers a package that is not a quote's
+  with 404 itself.
 
 The package's own part of its page comes with the work package's view (`LogicPack.page`).
 
-Layer: UI/CLI gateway → `jav.quote_package` (application operation of the quotes domain).
+Layer: UI/CLI gateway → `jav.quote_package`, `jav.quote_proposal`, `jav.quote_draft` (application operations of the
+quotes domain).
 """
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, FastAPI
+from fastapi import Path as PathParam
 from fastapi import Query as QueryParam
 from pydantic import Field
 
-from jav import quote_package, quote_proposal, work, work_views
+from jav import quote_draft, quote_package, quote_proposal, work, work_views
 from jav.api import Empty, WpId, _In, human_actor
 
 
@@ -27,6 +35,30 @@ class QuotePackageIn(_In):
     name: Annotated[str, Field(min_length=1, max_length=200)]
     source: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]
     item_id: Annotated[str, Field(min_length=1, max_length=128)]
+
+
+class QuoteDraftStartIn(_In):
+    source: Literal["proposal", "request"]
+    expected_state: Annotated[int, Field(ge=0)]
+    replace: bool = False
+
+
+class QuoteDraftIn(_In):
+    draft: quote_draft.DraftIn
+    expected_state: Annotated[int, Field(ge=0)]
+
+
+class QuoteApproveIn(_In):
+    fingerprint: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+
+
+class QuoteReopenIn(_In):
+    note: Annotated[str, Field(max_length=2000)]
+
+
+def _quote(wp_id: str) -> None:
+    if work.get(wp_id)["source_kind"] != quote_package.KIND:  # an unknown package: 404
+        raise KeyError(wp_id)
 
 
 def routes(app: FastAPI, r: str) -> None:
@@ -42,9 +74,30 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/workpackages/{wp_id}/quote/proposal", status_code=202)
     def request_quote_proposal(wp_id: WpId, _body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        if work.get(wp_id)["source_kind"] != quote_package.KIND:  # an unknown package: 404
-            raise KeyError(wp_id)
+        _quote(wp_id)
         return work_views.jsonable(quote_proposal.request(wp_id, actor=who))
+
+    @app.post(r + "/workpackages/{wp_id}/quote/draft/start")
+    def start_quote_draft(wp_id: WpId, body: QuoteDraftStartIn, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(quote_draft.start(wp_id, source=body.source, actor=who,
+                                                     expected_state=body.expected_state, replace=body.replace))
+
+    @app.put(r + "/workpackages/{wp_id}/quote/draft")
+    def save_quote_draft(wp_id: WpId, body: QuoteDraftIn, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(quote_draft.save(wp_id, body.draft, actor=who, expected_state=body.expected_state))
+
+    @app.post(r + "/workpackages/{wp_id}/quote/approve")
+    def approve_quote(wp_id: WpId, body: QuoteApproveIn, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        quote_draft.approve(wp_id, fingerprint=body.fingerprint, actor=who)
+        return work_views.jsonable(quote_draft.view(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/quote/reopen")
+    def reopen_quote(wp_id: WpId, body: QuoteReopenIn, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        return work_views.jsonable(quote_draft.reopen(wp_id, note=body.note, actor=who))
+
+    @app.get(r + "/workpackages/{wp_id}/quote/versions/{version}")
+    def quote_version(wp_id: WpId, version: Annotated[int, PathParam(ge=1, le=100000)]) -> dict[str, Any]:
+        return work_views.jsonable(quote_draft.approved_version(wp_id, version))
 
 
 __all__ = ["routes"]

@@ -115,6 +115,52 @@ export interface QuoteView {
   proposal: QuoteProposal | null;
   /** what a new proposal reserves with the application's engine: provider -> USD */
   proposal_cap: { engine: "jev" | "gpt"; items: number; usd: Record<string, string> };
+  /** 192 (B5): the quote as a person composes it, and its approval */
+  draft: QuoteDraftView;
+}
+/** 192 (plan F-quote-package B5): a quote line as stored: the page's parts (`QuoteLineIn`) and the service's (its
+ *  requested item, the proposal's mark and candidates, who confirmed its item). */
+export type QuoteLineMark = "sure" | "check" | "not_listed" | "failed";
+export interface QuoteLineIn {
+  id: string | null; sku: string | null; description: string | null; unit: string | null; quantity: string | null;
+  unit_price: string | null; discount_percent: string | null; note: string | null; checked: boolean;
+}
+export interface QuoteDraftLine extends QuoteLineIn {
+  id: string; row: number | null; requested: { description: string | null; quantity: unknown; unit: string | null } | null;
+  checked_by: string | null; checked_at: string | null; mark: QuoteLineMark | null; proposed_sku: string | null;
+  candidates: string[];
+}
+/** A line priced by code (`jav/quote_pricing.py`): amounts as canonical text. */
+export interface QuotePricedLine {
+  sku: string | null; name: string; quantity: string; unit: string; list_price: string | null; unit_price: string;
+  manual_price: boolean; discount_percent: string; discount_from: "rule" | "manual" | null; net: string;
+}
+export interface QuoteDraftIn { price_list: string; version: number; header: Record<string, string | null>; lines: QuoteLineIn[] }
+export interface QuoteDraftContent extends Omit<QuoteDraftIn, "lines"> {
+  lines: QuoteDraftLine[]; started_from: "proposal" | "request"; request_key: string; proposal_at: string | null;
+}
+export type QuoteDraftBlockerCode = "quote:line_no_item" | "quote:line_no_description" | "quote:line_unknown_item"
+  | "quote:line_no_quantity" | "quote:line_unchecked" | "quote:line_note_missing" | "quote:no_lines" | "quote:no_customer";
+export type QuoteDraftWarningCode = "quote:price_list_superseded" | "quote:request_changed" | "quote:request_missing";
+export interface QuoteListItem { sku: string; name: string; unit: string; unit_price: string; category: string | null }
+export interface QuoteTotals { net: string; vat: string; gross: string }
+/** The quote as an approval records it (`jav/quote_draft.py` `_content`). */
+export interface QuoteApproved {
+  header: Record<string, string | null>; totals: QuoteTotals | null; currency: string; vat_percent: string;
+  lines: (Partial<Omit<QuotePricedLine, "sku" | "name">> & { id: string; row: number | null; requested: QuoteDraftLine["requested"];
+    mark: QuoteLineMark | null; note: string | null; checked_by: string | null; sku: string | null; name: string | null })[];
+  price_list: { price_list: string; name: string; version: number; fingerprint: string };
+  request: { workpackage_id?: string; item_id?: string; title: string | null; key: string };
+}
+export interface QuoteDraftView {
+  draft: QuoteDraftContent | null; state: number; approval: OwnApproval; approved: QuoteApproved | null;
+  lines: (QuoteDraftLine & { priced: QuotePricedLine | null })[];
+  totals: QuoteTotals | null; currency: string | null; vat_percent: string | null;
+  blockers: { code: QuoteDraftBlockerCode; line: string | null; row: number | null }[];
+  warnings: { code: QuoteDraftWarningCode; version?: number | null }[];
+  fingerprint: string | null;
+  price_list: { price_list: string; name: string; version: number; state: string; items: QuoteListItem[] } | null;
+  proposal_newer: boolean;
 }
 /** A request a quote can start from, with the quotes already made from it. */
 export interface QuoteRequestCandidate {
@@ -720,11 +766,14 @@ export interface ReconcileLine extends ReconcileLineDetails {  // 144: with the 
 }
 
 // --- 145: the reconciliation result (jav/reconcile_statement.py) ------------------------------------------------------
-export interface ReconcileVersionMeta {
+/** 192: a logic pack's own approved version (`jav/package_release.py` `own_approval`; the reconciliation and the quote) */
+export interface OwnVersion {
   version: number; fingerprint: string; approved_by: string; approved_at: string;
   reopened_by: string | null; reopened_at: string | null; reopen_note: string | null;
 }
-export interface ReconcileApproval { active: ReconcileVersionMeta | null; versions: ReconcileVersionMeta[] }
+export interface OwnApproval { active: OwnVersion | null; versions: OwnVersion[] }
+export type ReconcileVersionMeta = OwnVersion;
+export type ReconcileApproval = OwnApproval;
 export type ReconcileInvoiceResult = "paid" | "partly_paid" | "credited" | "undecided" | "no_payment_found" | "not_covered";
 export type ReconcileLineResult = "paired" | "partly_paired" | "needs_no_invoice" | "left_out" | "open";
 export interface ReconcileStatementInvoice {
@@ -1399,6 +1448,16 @@ export const api = {
     request<{ workpackage_id: string }>("POST", "/quote-packages", body),
   /** 191 B4c: queues the quote's proposal (the worker makes it) */
   requestQuoteProposal: (wpId: string) => request<QuoteProposal>("POST", `/workpackages/${enc(wpId)}/quote/proposal`, {}),
+  /** 192 B5: the quote's draft started, saved after a change (with the state the page read), approved and reopened */
+  startQuoteDraft: (wpId: string, body: { source: "proposal" | "request"; expected_state: number; replace?: boolean }) =>
+    request<QuoteDraftView>("POST", `/workpackages/${enc(wpId)}/quote/draft/start`, body),
+  saveQuoteDraft: (wpId: string, draft: QuoteDraftIn, expectedState: number) =>
+    request<QuoteDraftView>("PUT", `/workpackages/${enc(wpId)}/quote/draft`, { draft, expected_state: expectedState }),
+  approveQuote: (wpId: string, fingerprint: string) =>
+    request<QuoteDraftView>("POST", `/workpackages/${enc(wpId)}/quote/approve`, { fingerprint }),
+  reopenQuote: (wpId: string, note: string) => request<QuoteDraftView>("POST", `/workpackages/${enc(wpId)}/quote/reopen`, { note }),
+  quoteVersion: (wpId: string, version: number) =>
+    request<OwnVersion & { quote: QuoteApproved }>("GET", `/workpackages/${enc(wpId)}/quote/versions/${version}`),
   /** 191 (plan F-quote-package B2): the seller's price lists; an upload is read by the service from the path the
    *  system's file picker chose, and a refused file gives 422 `price_list_refused` with the check (`ApiError.check`) */
   priceLists: () => request<PriceListsListing>("GET", "/price-lists"),

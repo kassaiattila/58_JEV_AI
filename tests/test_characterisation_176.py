@@ -46,7 +46,7 @@ def _routes() -> list[APIRoute]:
 
 # --- the addresses of the local service ---------------------------------------------------------------------------------
 
-ROUTE_COUNT = 165  # (method, path) pairs of 161 routes: the unknown-address answer has five methods
+ROUTE_COUNT = 170  # (method, path) pairs of 166 routes: the unknown-address answer has five methods
 # 178 (plan 170 L4): nine new addresses on purpose - the own output templates (list, upload, activate, retire, file,
 # preview), a package's choice of them (read, choose) and the utility cost's workbook (jav/api_outputs.py)
 # 181 (plan 170 L5): three more on purpose - the package roles, and a package's scope given and taken away
@@ -57,7 +57,9 @@ ROUTE_COUNT = 165  # (method, path) pairs of 161 routes: the unknown-address ans
 # list, upload, a version, its settings, activate, retire, its file); B3: two more, the quote package's
 # (`jav/api_quote_package.py`: the requests a quote can start from, a quote package); B4c: one more, a quote's
 # proposal queued for the worker
-ROUTE_TABLE = "806cc002b824bc2eb34452544fb3990d799d5eab9058684b29f5aed5cf50bd39"
+# 192 (plan F-quote-package B5): five more on purpose - a quote's draft started and saved, its approval, its reopening
+# and an approved version (`jav/api_quote_package.py`)
+ROUTE_TABLE = "62d0edfb8eb16f9dcfeacf0e0d0867d7e42632aa0371b2e8485d2e9023343249"
 
 
 def test_the_service_has_these_addresses() -> None:

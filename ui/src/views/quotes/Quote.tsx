@@ -1,8 +1,8 @@
 // 191 (plan F-quote-package B3; DECISIONS 191): the quote package. The owner asked that the quote can be chosen as a
 // kind of work, as the reconciliation or the data extraction can. It starts from a quote request already processed: an
 // email (its own text and its attachments, put together field by field) or a document read as one, in any package.
-// Its stages: the request with its gaps, the quote (its lines proposed from the price list and changed by a person come
-// with the next steps of the plan), and its approval.
+// Its stages: the request with its gaps, the quote (its lines proposed from the price list, then composed by a person
+// beside the request, 192: QuoteEditor.tsx), and its approval as a version of the package's own.
 import { useEffect, useState } from "react";
 import {
   api, ApiError, type QuoteBlockerCode, type QuoteMatchAnswer, type QuoteProposal, type QuoteRequest,
@@ -12,6 +12,7 @@ import { Picker } from "../../components/Picker";
 import { t, useLocale } from "../../i18n";
 import { fieldLabel, numText, usdBudget, when } from "../../labels";
 import type { Stage } from "../../route";
+import { amountText, QuoteApprovalStage, QuoteCompose } from "./QuoteEditor";
 
 export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
   "quote:request_missing": "The request can no longer be read: it was removed from its package, or it is no longer read as a quote request",
@@ -27,11 +28,21 @@ const partKind = (p: QuoteRequestPart) =>
 export function quoteStatus(view: WorkpackageView): Record<Stage, string> | null {
   const q = view.quote;
   if (!q) return null;
+  const d = q.draft;
+  const active = d.approval.active;
+  let review = q.blockers.length ? t("{{n}} gap(s) to clear first", { n: q.blockers.length }) : t("ready to compose");
+  if (active) review = t("approved");
+  else if (d.draft) review = d.blockers.length ? t("{{n}} line(s), {{m}} to settle", { n: d.lines.length, m: d.blockers.length })
+    : t("{{n}} line(s), ready", { n: d.lines.length });
+  let result = t("not approved yet");
+  if (active) result = t("approved: version {{n}}", { n: active.version });
+  else if (d.totals && !d.blockers.length) {
+    result = t("{{gross}} {{currency}} gross, to approve", { gross: amountText(d.totals.gross, d.currency), currency: d.currency ?? "" });
+  }
   return {
     process: q.request ? t("{{n}} part(s), {{m}} requested item(s)", { n: q.request.parts.length, m: q.request.items.length })
       : t("the request cannot be read"),
-    review: q.blockers.length ? t("{{n}} gap(s) to clear first", { n: q.blockers.length }) : t("ready to compose"),
-    result: t("not approved yet"),
+    review, result,
   };
 }
 
@@ -46,14 +57,14 @@ export function QuoteStages({ view, stage, onChanged }: { view: WorkpackageView;
   useLocale();
   const q = view.quote;
   if (!q) return <p className="muted">{t("Loading…")}</p>;
+  const wpId = view.workpackage.id;
   if (stage === "process") return <RequestPanel view={q} />;
-  if (stage === "review") return <ProposalPanel wpId={view.workpackage.id} view={q} onChanged={onChanged} />;
-  return (
-    <section className="card wide rc-stack" aria-label={t("Approval")}>
-      <h3>{t("Approval")}</h3>
-      <p className="muted">{t("Approving the quote comes with the next step of the development.")}</p>
-    </section>
-  );
+  if (stage === "review") {
+    // 192: once the quote has a draft (or a version), it is composed beside the request
+    return q.draft.draft || q.draft.approval.active ? <QuoteCompose wpId={wpId} view={q} onChanged={onChanged} />
+      : <ProposalPanel wpId={wpId} view={q} onChanged={onChanged} />;
+  }
+  return <QuoteApprovalStage wpId={wpId} view={q} archived={view.workpackage.status === "archived"} onChanged={onChanged} />;
 }
 
 // 191 B4c: a proposed line's mark (DESIGN.md §4): sure green, to check a person's turn (orange), not listed off (amber)
@@ -81,11 +92,11 @@ function ProposalPanel({ wpId, view, onChanged }: { wpId: string; view: QuoteVie
     return () => window.clearInterval(timer);
   }, [active, onChanged]);
   const cap = capOf(view.proposal_cap.usd);
-  async function ask() {
+  async function run(fn: () => Promise<unknown>) {
     setBusy(true);
     setError(null);
     try {
-      await api.requestQuoteProposal(wpId);
+      await fn();
       onChanged();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : String(e));
@@ -93,18 +104,29 @@ function ProposalPanel({ wpId, view, onChanged }: { wpId: string; view: QuoteVie
       setBusy(false);
     }
   }
+  const ask = () => run(() => api.requestQuoteProposal(wpId));
+  // 192: the quote's draft from the finished proposal, or from the requested items alone
+  const start = (source: "proposal" | "request") => run(() => api.startQuoteDraft(wpId, { source, expected_state: view.draft.state }));
+  const usable = p?.state === "done" && !p.stale;
   return (
     <section className="card wide rc-stack quote-proposal" aria-label={t("Proposal from the price list")}>
       <div className="card-head">
         <h3>{t("Proposal from the price list")}</h3>
-        {/* the view's one solid action while there is no usable proposal; once there is one, composing the quote is next */}
-        <button type="button" className={!p || p.state === "failed" || p.stale ? "primary" : "secondary"}
-          disabled={busy || active || view.blockers.length > 0}
-          title={cap > 0 ? t("Asks the AI about {{n}} item(s) and can spend up to {{usd}}", { n: view.proposal_cap.items, usd: usdBudget(cap) }) : undefined}
-          onClick={() => void ask()}>
-          {p ? t("Ask for a new proposal") : t("Ask for the proposal")}
-          {cap > 0 ? <span className="spend" aria-hidden="true">≤ {usdBudget(cap)}</span> : null}
-        </button>
+        <span className="button-row">
+          {/* the view's one solid action: asking while there is no usable proposal, then composing the quote from it */}
+          <button type="button" className={!p || p.state === "failed" || p.stale ? "primary" : "secondary"}
+            disabled={busy || active || view.blockers.length > 0}
+            title={cap > 0 ? t("Asks the AI about {{n}} item(s) and can spend up to {{usd}}", { n: view.proposal_cap.items, usd: usdBudget(cap) }) : undefined}
+            onClick={() => void ask()}>
+            {p ? t("Ask for a new proposal") : t("Ask for the proposal")}
+            {cap > 0 ? <span className="spend" aria-hidden="true">≤ {usdBudget(cap)}</span> : null}
+          </button>
+          {usable ? (
+            <button type="button" className="primary" disabled={busy || view.blockers.length > 0} onClick={() => void start("proposal")}>
+              {t("Compose the quote from the proposal")}
+            </button>
+          ) : null}
+        </span>
       </div>
       {view.blockers.length ? <Gaps view={view} /> : null}
       {p ? (
@@ -121,6 +143,12 @@ function ProposalPanel({ wpId, view, onChanged }: { wpId: string; view: QuoteVie
         <p className="small muted">{t("The system proposes a price list item for each requested item; code prices the lines. You review and change every line before the quote is approved.")}</p>
       )}
       {p && p.lines.length ? <ProposalLines lines={p.lines} /> : null}
+      {!usable && !view.blockers.length ? (
+        <p className="small muted">
+          {t("You can also compose the quote without a proposal: each requested item becomes a line whose item you choose.")}{" "}
+          <button type="button" className="quiet small-btn" disabled={busy} onClick={() => void start("request")}>{t("Start without a proposal")}</button>
+        </p>
+      ) : null}
       {error ? <p className="notice error" role="alert">{error}</p> : null}
     </section>
   );

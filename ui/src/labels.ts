@@ -428,6 +428,7 @@ const STEP_LABEL = tmap({
   // 191: a quote package's steps (jav/quote_package.py `_next_of`)
   quote_request_missing: "The request cannot be read", quote_compose: "Compose the quote",
   quote_propose: "Ask for the proposal", quote_proposing: "The proposal is being made", // B4c
+  quote_approve: "Approve the quote", // 192 B5
 });
 
 /** The package's next step in the chosen language (057): from the service's code and parameters; for an unknown code,
@@ -443,6 +444,8 @@ export function stepLabel(code: string, params: Record<string, unknown> | undefi
   if (code === "reconcile_approved") return t("Approved: version {{n}}", { n: params?.version ?? "" }); // 145
   if (code === "routing_decide") return t("Route the documents: {{n}} to decide", { n: params?.n ?? 0 }); // 181
   if (code === "quote_request_check") return t("Check the request: {{n}} gap(s)", { n: params?.n ?? 0 }); // 191
+  if (code === "quote_compose" && params?.n) return t("Compose the quote: {{n}} to settle", { n: params.n }); // 192
+  if (code === "quote_approved") return t("Approved: version {{n}}", { n: params?.version ?? "" }); // 192
   return Object.prototype.hasOwnProperty.call(STEP_LABEL, code) ? STEP_LABEL[code] : fallback;
 }
 
