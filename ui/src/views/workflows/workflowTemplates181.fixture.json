@@ -12,6 +12,11 @@
       "description": "Bring in a party's bank statements, or pair their lines with invoices already processed."
     },
     {
+      "id": "quotes",
+      "title": "Quotes",
+      "description": "Make a quote from a customer's request already processed, priced from your price list."
+    },
+    {
       "id": "monthly",
       "title": "A whole period's work",
       "description": "Workflows of several steps for one own party and a period: invoices, statements and their reconciliation, step by step."
@@ -113,6 +118,22 @@
         "party",
         "period"
       ]
+    },
+    "quote": {
+      "title": "Quote from a request",
+      "description": "A quote request already processed (an email with its attachments, or a document) is put together; the quote is made from it and your active price list.",
+      "sources": [
+        "package"
+      ],
+      "cost": "Free to make; the proposal of the quote's lines will call AI within its budget.",
+      "package_kinds": [
+        "quote"
+      ],
+      "paid": false,
+      "own_engine": false,
+      "only_new": false,
+      "subfolders": false,
+      "needs": []
     }
   },
   "templates": [
@@ -194,6 +215,18 @@
         {
           "id": "reconcile",
           "kind": "reconcile"
+        }
+      ]
+    },
+    {
+      "id": "quote",
+      "group": "quotes",
+      "title": "Quote from a request",
+      "description": "One quote package from a customer's quote request: an email or a document already processed and read as one.",
+      "steps": [
+        {
+          "id": "quote",
+          "kind": "quote"
         }
       ]
     },

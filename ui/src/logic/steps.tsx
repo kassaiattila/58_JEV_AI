@@ -5,6 +5,7 @@
 import type { ReactNode } from "react";
 import { DocumentsCreate } from "../views/DocumentsCreate";
 import { Mailbox } from "../views/Mailbox";
+import { QuoteCreate } from "../views/quotes/Quote";
 import { ReconcileCreate } from "../views/reconcile/ReconcileCreate";
 import { RoutingCreate } from "../views/routing/Routing";
 import { StatementPackageCreate } from "../views/StatementPackageCreate";
@@ -17,6 +18,7 @@ const FORMS: Record<string, Form> = {
   statements: (onDone) => <StatementPackageCreate onDone={onDone} />,
   reconcile: (onDone) => <ReconcileCreate onDone={onDone} />,
   routing: (onDone) => <RoutingCreate onDone={onDone} />,  // 181
+  quote: (onDone) => <QuoteCreate onDone={onDone} />,  // 191
 };
 
 /** Whether the kind has a form of its own here. A one-step template's id is its kind's (checked by

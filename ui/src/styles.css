@@ -902,3 +902,37 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .copyable code { font-size: var(--fs-xs); color: var(--ink); overflow-wrap: anywhere; }
 .copy-btn { display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0; border-radius: var(--r-sm); flex: none; }
 .copy-btn .ico { width: 14px; height: 14px; }
+
+/* 191 (plan F-quote-package B2): the price lists (Settings): the upload as the output templates', a list's versions
+   as one table, the opened version's rules and items */
+.price-currency .picker-trigger { min-width: 112px; }
+.form-row .price-vat { flex: 0 0 128px; }
+.template-upload .price-vat, .price-settings .price-vat { margin-bottom: 0; }
+.template-upload .price-currency .picker-label, .price-settings .price-currency .picker-label { color: var(--ink); font-weight: 600; }
+.price-table { table-layout: fixed; }
+.price-table td { vertical-align: middle; overflow-wrap: anywhere; }
+.price-table .c-version { width: 11%; } .price-table .c-state { width: 12%; } .price-table .c-change { width: 24%; }
+.price-table .c-count { width: 8%; } .price-table .c-uploaded { width: 19%; } .price-table .c-actions { width: 18%; }
+.price-table tr.row-selected td { background: var(--run-tint); }
+.price-table .template-actions { white-space: nowrap; }
+.price-version { display: grid; gap: var(--sp-4); }
+.price-version > .card-head { margin-bottom: 0; }
+.price-version-title { display: flex; align-items: baseline; gap: var(--sp-1) var(--sp-3); flex-wrap: wrap; min-width: 0; }
+.price-version-title a { font-size: var(--fs-xs); }
+.price-settings, .price-items { display: grid; gap: var(--sp-3); min-width: 0; }
+.price-items { border-top: 1px solid var(--line-soft); padding-top: var(--sp-4); }
+.price-settings .form-row { margin: 0; }
+.table.price-rules { width: auto; justify-self: start; } /* a grid item would stretch to the card's width */
+.price-rules td { vertical-align: middle; }
+.price-rules .picker { width: 220px; }
+.num-input { width: 96px; text-align: right; border: 1px solid var(--line-strong); border-radius: var(--r-md); padding: 5px 8px;
+  background: var(--paper); font-size: var(--fs-sm); }
+.num-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.price-search { max-width: 360px; margin-bottom: 0; }
+.price-items-table { border: 0; border-radius: 0; }
+.price-items-table thead th { position: sticky; top: 0; z-index: 1; }
+.price-items-table code { font-size: var(--fs-xs); color: var(--ink); }
+
+/* 191 (plan F-quote-package B4c): a proposed line's price list item: its code above its name */
+.quote-item { display: grid; gap: 2px; }
+.quote-item code { font-size: var(--fs-xs); color: var(--muted); }

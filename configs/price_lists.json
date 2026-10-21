@@ -1,0 +1,25 @@
+{
+  "meta": {
+    "name": "price_lists",
+    "version": "1.1.0",
+    "description": "Price lists (191, plan F-quote-package B2, jav/price_lists.py): how an uploaded price list (Excel or CSV) is read, and (B4a, jav/quote_pricing.py) how a quote's amounts are rounded: rounding gives, per currency, the unit a line's net amount and the VAT are rounded to (half up), default for any other currency. columns: each column the price list needs, whether it must be there, and the headers it is known by, in Hungarian and English (document vocabulary: compared after lower-casing, with the spaces collapsed and a trailing colon or a bracketed note such as the currency left out). The header row is the first row within header_rows that names every required column. max_bytes, max_items: the limits of an upload. currency: the currencies offered on the settings page and the default one; vat_percent: the default VAT rate of a new list. The rules that change a price (a volume discount) are set on the settings page, not here and not in the file (DECISIONS 191); max_rules limits them.",
+    "changelog": [
+      {"version": "1.1.0", "date": "2026-10-21", "note": "191 (plan F-quote-package B4a): the rounding of a quote's amounts: in forints to whole forints (the 189 A1 judgement), in any other currency to cents."},
+      {"version": "1.0.0", "date": "2026-10-21", "note": "191 (plan F-quote-package B2): first version: the five columns (item code, name, unit, net unit price, category), the limits, HUF and 27% as the defaults."}
+    ]
+  },
+  "columns": {
+    "sku": {"required": true, "headers": ["cikkszám", "cikkszam", "cikk szám", "termékkód", "termékszám", "kód", "azonosító", "sku", "item code", "item number", "item no", "code", "part number", "product code"]},
+    "name": {"required": true, "headers": ["megnevezés", "megnevezes", "név", "termék", "termék neve", "termék megnevezése", "leírás", "name", "item", "item name", "product", "product name", "description"]},
+    "unit": {"required": true, "headers": ["egység", "egyseg", "mennyiségi egység", "mértékegység", "me", "unit", "uom", "unit of measure"]},
+    "unit_price": {"required": true, "headers": ["nettó egységár", "netto egysegar", "egységár", "nettó ár", "ár", "listaár", "nettó listaár", "unit price", "net unit price", "price", "net price", "list price"]},
+    "category": {"required": false, "headers": ["kategória", "kategoria", "csoport", "termékcsoport", "category", "group", "product group"]}
+  },
+  "header_rows": 20,
+  "max_bytes": 5000000,
+  "max_items": 10000,
+  "max_rules": 50,
+  "currency": {"default": "HUF", "offered": ["HUF", "EUR", "USD"]},
+  "vat_percent": "27",
+  "rounding": {"HUF": "1", "default": "0.01"}
+}

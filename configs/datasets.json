@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.27.0",
+  "version": "1.28.0",
   "changelog": [
+   {
+    "version": "1.28.0",
+    "date": "2026-10-21",
+    "note": "191 (plan F-quote-package B3): source_kind label of the quote package."
+   },
    {
     "version": "1.27.0",
     "date": "2026-10-20",
@@ -160,7 +165,7 @@
   "approval": {"approved": "Jóváhagyva"},
   "wp_status": {"open": "Aktív", "archived": "Elrejtve"},
   "kind": {"document": "Irat", "email": "Levél"},
-  "source_kind": {"folder": "mappa", "mailbox": "postafiók", "manual": "kézi válogatás", "watch": "figyelt mappa", "reconcile": "egyeztetés", "statements": "bankkivonatok", "email_routing": "levél-becsatornázás"},
+  "source_kind": {"folder": "mappa", "mailbox": "postafiók", "manual": "kézi válogatás", "watch": "figyelt mappa", "reconcile": "egyeztetés", "statements": "bankkivonatok", "email_routing": "levél-becsatornázás", "quote": "ajánlat"},
   "pull_status": {"queued": "Sorban áll", "running": "Fut", "ok": "Kész", "error": "Hibás"},
   "provenance": {"located": "pontos", "approximate": "közelítő", "ambiguous": "több helyen", "context_rejected": "más mező mellett", "not_found": "nem található", "no_value": "nincs érték", "no_layer": "nincs szóréteg", "error": "hiba", "list": "lista"},
   "utility_status": {"ok": "rendben", "missing": "hiányzik", "partial": "részleges", "overlap": "átfedés", "settlement": "elszámolás", "no_period": "nem vetíthető: nincs számlázási időszak", "no_amount": "nem vetíthető: nincs összeg", "duplicate": "ismétlődő számla (egyszer számít)"},

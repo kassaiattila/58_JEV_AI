@@ -28,6 +28,13 @@ from typing import Any
 # 185 (plan G-full-move T1a): the module of the domain's addresses of the local service beyond its logic pack's own
 # (`LogicPack.service`); `jav.api.service_modules` adds it by name
 SERVICE = ("jav.api_mailbox",)
+# 191 (plan F-quote-package B1): the modules the domain is made of (until 191 listed in the boundary test); the shared
+# code imports none of them (`tests/test_domain_boundary_185.py`)
+MODULES = frozenset({
+    "api_email_routing", "api_mailbox", "email_datasets", "email_export", "email_learning", "email_learning_runtime",
+    "email_review", "email_routing", "email_tasks", "emails", "flow_email", "flow_email_learning", "ingest_server",
+    "intent", "intent_gpt", "intents", "mailbox", "domains.email",
+})
 
 
 def mailbox_page(wp: Any) -> dict[str, Any]:

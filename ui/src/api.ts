@@ -12,8 +12,9 @@ export class ApiError extends Error {
     public blockers: Blocker[] = [],
     /** 153: the field a correction's value could not be read in, and its kind (money, number or date) */
     public detail: { field?: string | null; kind?: string | null } = {},
-    /** 179: a refused output template's check (`template_refused`), naming every problem */
-    public check: OutputTemplateCheck | null = null,
+    /** 179: a refused output template's check (`template_refused`), naming every problem; 191: or a refused price
+     *  list's (`price_list_refused`) */
+    public check: OutputTemplateCheck | PriceListCheck | null = null,
   ) {
     super(message);
   }
@@ -74,6 +75,52 @@ export interface WorkpackageView {
   routing_offer?: { attachments: number; routings: { id: string; name: string }[] };
   /** 183: a mailbox package: the request of the download that made it (null if no recorded download did) */
   mailbox_request?: MailboxRequest | null;
+  /** 191: a quote package's request, where it came from, the active price lists and its gaps */
+  quote?: QuoteView;
+}
+/** 191 (plan F-quote-package B3): one part of a quote request: the email's own text, an attachment, or a document. */
+export interface QuoteRequestPart {
+  kind: "email_text" | "attachment" | "document"; name: string; item_id: string | null; doc_id: string;
+  values: Record<string, unknown>;
+}
+/** A requested item as read (the stored quantity is text, "3"). */
+export interface QuoteRequestedItem { description?: string | null; quantity?: string | number | null; unit?: string | null }
+/** A quote request put together from its parts: each header field with the part it came from (`sources`). */
+export interface QuoteRequest {
+  workpackage_id: string; item_id: string; kind: "email" | "document"; title: string; sender: string | null;
+  received_at: string | null; parts: QuoteRequestPart[]; fields: Record<string, unknown>; sources: Record<string, number>;
+  items: QuoteRequestedItem[]; items_from: number | null;
+}
+export type QuoteBlockerCode = "quote:request_missing" | "quote:no_customer" | "quote:no_items" | "quote:no_price_list";
+export interface QuotePriceList {
+  price_list: string; name: string; version: number; currency: string; vat_percent: string; items: number;
+  discounts: PriceRule[]; fingerprint: string;
+}
+/** 191 B4c: a requested item's proposed price list item: its mark (sure, to check, not listed; null when it failed),
+ *  the item, the likely candidates, how it was decided (code, jev, gpt). */
+export interface QuoteMatchAnswer {
+  mark: "sure" | "check" | "not_listed" | null; sku?: string | null; name?: string | null; probability?: number | null; candidates?: string[];
+  method?: "code" | "jev" | "gpt"; engine?: "jev" | "gpt"; error?: string | null;
+}
+export interface QuoteProposalLine { row: number; description?: string | null; quantity?: string | number | null; unit?: string | null; answer: QuoteMatchAnswer }
+export interface QuoteProposal {
+  state: "queued" | "running" | "done" | "failed"; engine: "jev" | "gpt"; price_list: string; version: number;
+  requested_by: string; requested_at: string; finished_at: string | null; error: string | null;
+  limits: Record<string, string>; lines: QuoteProposalLine[]; stale: boolean;
+}
+export interface QuoteView {
+  request: QuoteRequest | null;
+  source: { workpackage_id: string; item_id: string; workpackage_name: string | null } | null;
+  price_lists: QuotePriceList[]; blockers: { code: QuoteBlockerCode; message: string }[];
+  proposal: QuoteProposal | null;
+  /** what a new proposal reserves with the application's engine: provider -> USD */
+  proposal_cap: { engine: "jev" | "gpt"; items: number; usd: Record<string, string> };
+}
+/** A request a quote can start from, with the quotes already made from it. */
+export interface QuoteRequestCandidate {
+  workpackage_id: string; workpackage_name: string; item_id: string; kind: "email" | "document"; title: string;
+  sender: string | null; received_at: string | null; customer_name: string | null; items: number;
+  quotes: { id: string; name: string }[];
 }
 /** 181: what keeps an attachment from being routed by itself (183: `no_data` new; an incoming invoice in a sent email
  * is a note instead). */
@@ -157,6 +204,32 @@ export interface OutputMarkerGroup {
 export interface OutputTemplatesListing {
   templates: OutputTemplate[];
   outputs: Record<OutputName, { output: OutputName; what: string; markers: OutputMarkerGroup[] }>;
+}
+/** 191 (plan F-quote-package B2): the columns of a price list file (`configs/price_lists.json`). */
+export type PriceListColumn = "sku" | "name" | "unit" | "unit_price" | "category";
+/** A price list file's or settings' check: its problems and warnings (where: `Sheet!5`, or `rule 2`), the sheet read,
+ *  the header found per column, the number of items and their categories. */
+export interface PriceListCheck {
+  ok: boolean; problems: OutputTemplateIssue[]; warnings: OutputTemplateIssue[]; sheet: string | null;
+  columns: Partial<Record<PriceListColumn, string>>; items: number; categories: string[];
+}
+/** A rule that lowers a price: a line of the category from the quantity on costs the percent less (stored numbers as
+ *  text, "10", "2.5"). */
+export interface PriceRule { category: string; min_quantity: string; percent: string }
+export interface PriceListVersion {
+  price_list: string; name: string; version: number; state: OutputTemplateState; change: "upload" | "settings";
+  based_on: number | null; currency: string; vat_percent: string; fingerprint: string; file_name: string; sha256: string;
+  made_by: string; made_at: string; activated_by: string | null; activated_at: string | null; retired_by: string | null;
+  retired_at: string | null; items: number; discounts: PriceRule[]; check: PriceListCheck;
+}
+export interface PriceListItem { sku: string; name: string; unit: string; unit_price: string; category: string | null }
+/** A version with its items, and the categories its rules may name. */
+export interface PriceListDetail extends PriceListVersion { item_rows: PriceListItem[]; categories: string[] }
+/** A price list with its versions, newest first; `active`: the active version's number. */
+export interface PriceList { price_list: string; name: string; active: number | null; retired: boolean; versions: PriceListVersion[] }
+export interface PriceListsListing {
+  price_lists: PriceList[]; currencies: string[]; currency: string; vat_percent: string;
+  columns: Record<PriceListColumn, { required: boolean; headers: string[] }>;
 }
 /** A package's choice per output: the chosen template (null: the built-in; `active` false: it was retired since, so
  *  the built-in is used) and the active templates it can choose. */
@@ -1110,7 +1183,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
   if (!res.ok) {
     const d = (data ?? {}) as { error?: string; message?: string; detail?: unknown; blockers?: Blocker[]; field?: string; kind?: string;
-      template?: string; params?: Record<string, string>; check?: OutputTemplateCheck };
+      template?: string; params?: Record<string, string>; check?: OutputTemplateCheck | PriceListCheck };
     const missingActor = Array.isArray(d.detail) && d.detail.some((x) => Array.isArray(x?.loc) && x.loc.includes("x-actor"));
     // 167 (review 160 U-1): a message the service wrote as a template is translated like the interface's own labels
     const message = missingActor ? t(NO_ACTOR) : d.error === "unknown_user" ? t(UNKNOWN_ACTOR)
@@ -1320,6 +1393,26 @@ export const api = {
   packageUtilityCost: (wpId: string) => request<UtilityReport>("GET", `/workpackages/${enc(wpId)}/result/utility-cost`),
   /** 178: the utility cost of the package's current result as a workbook, with the package's chosen template */
   packageUtilityCostXlsxUrl: (wpId: string) => `/api/workpackages/${enc(wpId)}/result/utility-cost.xlsx`,
+  /** 191 (plan F-quote-package B3): the requests a quote can start from (searched by the service), and a quote package */
+  quoteRequests: (q?: string) => request<{ requests: QuoteRequestCandidate[] }>("GET", `/quote-requests${q ? `?q=${enc(q)}` : ""}`),
+  createQuotePackage: (body: { name: string; source: string; item_id: string }) =>
+    request<{ workpackage_id: string }>("POST", "/quote-packages", body),
+  /** 191 B4c: queues the quote's proposal (the worker makes it) */
+  requestQuoteProposal: (wpId: string) => request<QuoteProposal>("POST", `/workpackages/${enc(wpId)}/quote/proposal`, {}),
+  /** 191 (plan F-quote-package B2): the seller's price lists; an upload is read by the service from the path the
+   *  system's file picker chose, and a refused file gives 422 `price_list_refused` with the check (`ApiError.check`) */
+  priceLists: () => request<PriceListsListing>("GET", "/price-lists"),
+  uploadPriceList: (body: { name: string; path: string; price_list?: string; currency?: string; vat_percent?: string }) =>
+    request<PriceListVersion>("POST", "/price-lists", body),
+  priceListVersion: (priceList: string, version: number) =>
+    request<PriceListDetail>("GET", `/price-lists/${enc(priceList)}/versions/${version}`),
+  /** the rules, the currency and the VAT rate as a new draft version (409 `price_list_state` when nothing changes) */
+  changePriceListSettings: (priceList: string, version: number, body: { discounts: PriceRule[]; currency: string; vat_percent: string }) =>
+    request<PriceListVersion>("POST", `/price-lists/${enc(priceList)}/versions/${version}/settings`, body),
+  activatePriceList: (priceList: string, version: number) =>
+    request<PriceListVersion>("POST", `/price-lists/${enc(priceList)}/versions/${version}/activate`, {}),
+  retirePriceList: (priceList: string) => request<PriceListVersion>("POST", `/price-lists/${enc(priceList)}/retire`, {}),
+  priceListFileUrl: (priceList: string, version: number) => `/api/price-lists/${enc(priceList)}/versions/${version}/file`,
   /** 178/179 (plan 170 L4): own output templates, and a package's choice of them */
   outputTemplates: () => request<OutputTemplatesListing>("GET", "/output-templates"),
   /** the service reads the file the system's file picker chose (a template can be larger than a request); a refused

@@ -43,7 +43,7 @@ def test_the_two_logic_packs_and_their_roles() -> None:
     assert [(r.name, r.source) for r in reconcile.roles] == [("statements", "period"), ("invoices", "period")]
     assert [(r.name, r.source) for r in statements.roles] == [("statements", "own_items")]
     assert statements.rule is not None and reconcile.rule is None
-    assert lp.kinds_without_runs() == ("reconcile", "email_routing")  # 181: the email routing has none either
+    assert lp.kinds_without_runs() == ("reconcile", "email_routing", "quote")  # 181: the routing has none; 191: the quote
     assert all(lp.of(kind) is None and lp.has_runs(kind) for kind in lp.DATA_KINDS)
 
 
@@ -123,9 +123,9 @@ def test_the_service_has_the_addresses_of_every_logic_pack_in_its_own_module() -
     from jav.domains import DOMAINS
 
     own = [p.service for p in lp.packs()]
-    assert own == ["jav.api_statement_package", "jav.api_reconcile", "jav.api_email_routing"]
+    assert own == ["jav.api_statement_package", "jav.api_reconcile", "jav.api_email_routing", "jav.api_quote_package"]
     domains = [name for d in DOMAINS for name in importlib.import_module(d).SERVICE]
-    assert domains == ["jav.api_parties", "jav.api_finance", "jav.api_mailbox"]
+    assert domains == ["jav.api_parties", "jav.api_finance", "jav.api_mailbox", "jav.api_price_lists"]  # 191: quotes
     assert api.service_modules() == [*own, *domains]
     assert all(callable(importlib.import_module(name).routes) for name in api.service_modules())
     text = (PROJECT_ROOT / "jav/api.py").read_text(encoding="utf-8")

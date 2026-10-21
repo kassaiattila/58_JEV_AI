@@ -7,6 +7,7 @@ import type { Workpackage, WorkpackageView } from "../api";
 import { t } from "../i18n";
 import { tmap } from "../labels";
 import type { Stage } from "../route";
+import { quoteStatus, QuoteStages, quoteSummary } from "../views/quotes/Quote";
 import { ReconcileStages } from "../views/reconcile/ReconcileStages";
 import { routingStatus, routingSummary, RoutingStages } from "../views/routing/Routing";
 import { StatementPackagePanel } from "../views/StatementPackagePanel";
@@ -63,6 +64,17 @@ export const LOGIC: Record<string, LogicUi> = {
       status: routingStatus,
       summary: routingSummary,
       body: (view, stage, onChanged) => <RoutingStages view={view} stage={stage} onChanged={onChanged} />,
+    },
+  },
+  // 191 (plan F-quote-package B3): a quote package reads its request in the package it came from; no files, no runs
+  quote: {
+    adds: "nothing",
+    createdFrom: () => t("a quote request"),
+    stages: {
+      labels: tmap({ process: "Request", review: "Quote", result: "Approval" }) as Record<Stage, string>,
+      status: quoteStatus,
+      summary: quoteSummary,
+      body: (view, stage, onChanged) => <QuoteStages view={view} stage={stage} onChanged={onChanged} />,
     },
   },
   statements: {

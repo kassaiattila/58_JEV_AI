@@ -20,6 +20,7 @@ import { FoldersPanel } from "./settings/FoldersPanel";
 import { LanguagePanel } from "./settings/LanguagePanel";
 import { OutputTemplatesPanel } from "./settings/OutputTemplatesPanel";
 import { PartiesPanel } from "./settings/PartiesPanel";
+import { PriceListsPanel } from "./settings/PriceListsPanel";
 import { UsersPanel } from "./settings/UsersPanel";
 import { VersionPanel } from "./settings/VersionPanel";
 import { PdfProtectionPanel } from "./settings/PdfProtectionPanel";
@@ -37,6 +38,8 @@ export const SETTINGS_SECTIONS: { key: SettingsSection; label: string; hint: str
   { key: "recipes", label: "Feldolgozás", hint: "Hogyan dolgozza fel a rendszer az iratokat és a leveleket, mit jelentenek a beállítások, mennyibe kerülnek" },
   // 179 (plan 170 L4, DECISIONS 178): own Excel templates of the downloads
   { key: "outputs", label: "Output templates", hint: "Your own Excel templates for the downloads: upload, check, preview and make active; the markers to write in them" },
+  // 191 (plan F-quote-package B2): the seller's price lists a quote is priced from
+  { key: "prices", label: "Price lists", hint: "The price lists quotes are priced from: upload, check and make active; the volume discounts, the currency and the VAT rate" },
   { key: "users", label: "Felhasználók", hint: "A „Ki dolgozik?” választéka" },
   { key: "appearance", label: "Megjelenés", hint: "The theme: light, dark or as the system is set" },
   { key: "language", label: "Nyelv", hint: "A felület nyelve: magyar vagy angol" },
@@ -69,6 +72,7 @@ export function Settings({ section }: { section: SettingsSection }) {
             </>
           ) : null}
           {current.key === "outputs" ? <OutputTemplatesPanel /> : null}
+          {current.key === "prices" ? <PriceListsPanel /> : null}
           {current.key === "users" ? <UsersPanel /> : null}
           {current.key === "appearance" ? <AppearancePanel /> : null}
           {current.key === "language" ? <LanguagePanel /> : null}

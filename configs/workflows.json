@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "workflows",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "146 (backlog F-package-kind-chooser; DECISIONS 146): the workflow templates the new work wizard offers, as data. A template's steps are kinds of work package (documents, emails, statements, reconcile) in order; a step may wait for others (`after`). A one-step template is today's kind of package and makes no workflow; a template of several steps makes a workflow of one own party and a period, whose steps start by themselves (a live run) once the steps they wait for are approved, a paid step only within the budget a person approved in the wizard (jav/workflows.py). Texts are English; the interface translates them (ui/src/i18n/hu-native.json).",
     "changelog": [
+      {
+        "version": "1.2.0",
+        "date": "2026-10-21",
+        "note": "191 (plan F-quote-package B3, DECISIONS 191): the quote as a kind of work, in a group of its own: one quote package from a quote request already processed (an email or a document read as one), the owner's request that the quote can be chosen as the reconciliation or the data extraction can. It needs no party or period and is started from its own form only, not as a workflow's step."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-20",
@@ -27,6 +32,11 @@
       "id": "bank",
       "title": "Bank statements and reconciliation",
       "description": "Bring in a party's bank statements, or pair their lines with invoices already processed."
+    },
+    {
+      "id": "quotes",
+      "title": "Quotes",
+      "description": "Make a quote from a customer's request already processed, priced from your price list."
     },
     {
       "id": "monthly",
@@ -64,6 +74,12 @@
       "description": "The party's statement lines are paired with its invoices; the result is a summary approved as a version.",
       "sources": ["none", "package"],
       "cost": "Free: code only."
+    },
+    "quote": {
+      "title": "Quote from a request",
+      "description": "A quote request already processed (an email with its attachments, or a document) is put together; the quote is made from it and your active price list.",
+      "sources": ["package"],
+      "cost": "Free to make; the proposal of the quote's lines will call AI within its budget."
     }
   },
   "templates": [
@@ -111,6 +127,13 @@
       "title": "Reconciliation of statements and invoices",
       "description": "One reconciliation package of a party and a period, on the invoices and statements already processed.",
       "steps": [{"id": "reconcile", "kind": "reconcile"}]
+    },
+    {
+      "id": "quote",
+      "group": "quotes",
+      "title": "Quote from a request",
+      "description": "One quote package from a customer's quote request: an email or a document already processed and read as one.",
+      "steps": [{"id": "quote", "kind": "quote"}]
     },
     {
       "id": "monthly_reconciliation",
