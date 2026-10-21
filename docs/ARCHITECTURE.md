@@ -115,6 +115,8 @@ sets a logic pack names in its registration (`LogicPack.goldens`; the reconcilia
 Each set is measured by its own command's function with the same arguments, so the raw run files stay as they were;
 without a budget only earlier answers count, and a paid round names one set. A round writes its sets' reports into
 `runs/<stamp>_measure.log` and a receipt with the commit and one line per set into `runs/<stamp>_measure.jsonl`.
+189: the coming quote request logic pack's golden set is invented (`configs/golden_quotes.json`, read and laid out
+as mailbox folders by `jav/quote_golden.py`); it joins the shared command when the logic pack registers it.
 
 ## 2. The five planes
 

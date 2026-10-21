@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.86",
+    "version": "1.0.87",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.87",
+        "date": "2026-10-21",
+        "note": "189 (plan F-IT-quote-request A1): the invented quote requests and price list (configs/golden_quotes.json, document vocabulary and test data: 142 lines) and the Hungarian column of the quote request and price list glossary entries (docs/GLOSSARY.md)."
+      },
       {
         "version": "1.0.86",
         "date": "2026-10-21",
@@ -491,6 +496,7 @@
     "configs/experiments/pydantic_jev.json": 3,
     "configs/experiments/source_find_cases.json": 6,
     "configs/field_labels.json": 179,
+    "configs/golden_quotes.json": 142,
     "configs/golden_reconcile.json": 9,
     "configs/golden_synthetic.json": 120,
     "configs/grounding.json": 1,
@@ -564,7 +570,7 @@
     "configs/types/vizmuvek_szamla.json": 29,
     "docs/ARCHITECTURE.md": 11,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 296,
+    "docs/GLOSSARY.md": 298,
     "docs/SECURITY.md": 2,
     "docs/flows/doc_detect/FLOW.md": 9,
     "docs/flows/doc_detect/FLOW.mmd": 3,
