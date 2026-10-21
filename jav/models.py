@@ -4,7 +4,7 @@ Two layers:
 - `InvoiceLLM` / `LineItemLLM`: a 1:1 mirror of the legacy invoice_hu/schema.json (nullable strings, money as a
   decimal STRING with a dot, date as an ISO string). The generative model returns this, and it is what we compare
   with the golden JSON.
-- `InvoiceHU` / `LineItem`: the normalised layer (`Decimal`, `date`) consumed by validators, policy and evals.
+- `DocumentRecord` / `LineItem`: the normalised layer (`Decimal`, `date`) consumed by validators, policy and evals.
   The conversion (`llm_to_invoice`) is the only place where a parse error becomes review reasons instead of an
   exception.
 
@@ -19,7 +19,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from jav.dates import DateOrder, read_date
 from jav.numbers import Convention, Kind, NumberRead, read_number
@@ -233,9 +233,11 @@ class LineItem(BaseModel):
     extra: dict[str, object] = Field(default_factory=dict)
 
 
-class InvoiceHU(BaseModel):
-    """Normalised invoice record, shared by the type packs (the name is inherited from the Hungarian invoice; the
-    foreign invoice uses it too, with `supplier_country`, and the pack fields of further types go into `extra`)."""
+class DocumentRecord(BaseModel):
+    """The normalised record of a document's data points, shared by the type packs: the invoice fields as its own
+    fields (most packs are invoices; the foreign invoice adds `supplier_country`), every other field of a pack in
+    `extra`, and the line items. 188 (plan 185 T3b): named `InvoiceHU` before, after the Hungarian invoice it began
+    with."""
 
     supplier_name: str | None = None
     supplier_tax_id: str | None = None
@@ -285,9 +287,6 @@ class InvoiceHU(BaseModel):
             for li in self.line_items
         ]
         return out
-
-
-InvoiceRecord = InvoiceHU  # type-neutral name for the same record
 
 
 def _plain(value: object) -> object:
@@ -429,7 +428,7 @@ def _list_value(field: str, raw: object, item_kinds: dict[str, str], enums: dict
 
 def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fields: dict[str, dict[str, str]] | None = None,
                     enums: dict[str, list[Any]] | None = None, origin: Origin = "llm",
-                    convention: Convention | None = None, date_order: DateOrder | None = None) -> tuple[InvoiceHU, list[str]]:
+                    convention: Convention | None = None, date_order: DateOrder | None = None) -> tuple[DocumentRecord, list[str]]:
     """Generative extract (a dict following the type pack's schema) -> normalised record by the pack's field kinds.
     Known attributes of the record are set directly, further pack fields go into `extra`. A parse error is not an
     exception but review reasons. 047: a `list` field uses the item description in `list_fields`; a violated
@@ -452,7 +451,7 @@ def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fie
         items.append(LineItem(**known, extra=extra))
     values: dict[str, object] = {}
     extra_fields: dict[str, object] = {}
-    own = set(InvoiceHU.model_fields) - {"extra", "line_items"}
+    own = set(DocumentRecord.model_fields) - {"extra", "line_items"}
     for field, kind in fields.items():
         if kind == "list" and field == "line_items":
             continue  # the invoice line items take the record's own `line_items` path (above), not twice
@@ -467,10 +466,10 @@ def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fie
             values[field] = value
         else:
             extra_fields[field] = value
-    return InvoiceHU(**values, extra=extra_fields, line_items=items), reasons
+    return DocumentRecord(**values, extra=extra_fields, line_items=items), reasons
 
 
-def llm_to_invoice(llm: InvoiceLLM) -> tuple[InvoiceHU, list[str]]:
+def llm_to_invoice(llm: InvoiceLLM) -> tuple[DocumentRecord, list[str]]:
     """LLM layer -> normalised layer (Hungarian invoice). A parse error is not an exception but review reasons."""
     from jav.typepack import get
 
@@ -610,7 +609,9 @@ class FlowState(BaseModel):
     llm_token_p: dict[str, dict[str, float | int]] | None = None
     verdicts: JevVerdicts | None = None
     # shared
-    invoice: InvoiceHU | None = None
+    # 188 (plan 185 T3b): `invoice` before; a state saved under the old key is still read (also
+    # `jav/runtime/persistence.py`, for the saved flow states)
+    record: DocumentRecord | None = Field(default=None, validation_alias=AliasChoices("record", "invoice"))
     validation: list[CheckResult] = Field(default_factory=list)
     needs_review: bool = False
     review_reasons: list[str] = Field(default_factory=list)

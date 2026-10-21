@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 
 from jav import corrections, typepack, work
-from jav.models import InvoiceHU, LineItem
+from jav.models import DocumentRecord, LineItem
 from jav.runtime import worker
 from jav.validators import line_items_arithmetic, line_items_total, run_checks
 
@@ -18,8 +18,8 @@ def _li(**kw) -> LineItem:
                        for k, v in kw.items()})
 
 
-def _inv(items, **totals) -> InvoiceHU:
-    return InvoiceHU(currency=totals.pop("currency", "HUF"), line_items=items,
+def _inv(items, **totals) -> DocumentRecord:
+    return DocumentRecord(currency=totals.pop("currency", "HUF"), line_items=items,
                      **{k: Decimal(v) for k, v in totals.items()})
 
 

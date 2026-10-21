@@ -14,7 +14,7 @@ from decimal import Decimal
 import pytest
 
 from jav import checks, corrections, duplicates, export, policy, report_utility, store, work
-from jav.models import FlowState, InvoiceHU
+from jav.models import FlowState, DocumentRecord
 from jav.runtime import calls
 from tests import test_api
 
@@ -139,7 +139,7 @@ def test_every_family_type_is_a_type_pack():
 
 def test_outside_a_worker_run_the_store_is_not_read(db):
     _save("earlier", _inv())
-    record = InvoiceHU(invoice_number="INV-2026/001", supplier_tax_id=A, supplier_name="Example Trading Ltd",
+    record = DocumentRecord(invoice_number="INV-2026/001", supplier_tax_id=A, supplier_name="Example Trading Ltd",
                        issue_date="2026-09-01", gross_total=Decimal("1270.00"), currency="HUF")
     subject = checks.Subject(_id("now"), "invoice_hu", record)
     assert checks.get("duplicate").reads_store and checks.cross_document(subject) == []  # 175: the registry's gate
@@ -170,7 +170,7 @@ def test_a_correction_of_an_earlier_document_is_its_value(db):
 def test_the_policy_step_opens_the_to_do_and_sends_the_document_to_a_person(db):
     _save("earlier", _inv())
     state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", doc_type="invoice_hu", doc_id=_id("now"))
-    state.invoice = InvoiceHU(invoice_number="INV-2026/001", supplier_tax_id=A, supplier_name="Example Trading Ltd",
+    state.record = DocumentRecord(invoice_number="INV-2026/001", supplier_tax_id=A, supplier_name="Example Trading Ltd",
                               issue_date="2026-09-01", gross_total=Decimal("1270.00"), currency="HUF")
     policy.apply_cross_document_checks(state)
     assert state.review_reasons == []  # outside a worker run

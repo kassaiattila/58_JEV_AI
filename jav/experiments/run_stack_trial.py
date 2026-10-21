@@ -42,7 +42,7 @@ def score_result(flow, result, label):
                 "actual": actual, "expected": label["doc_type"],
                 "label_ambiguous": label["doc_type"] is None}
     pack = get_pack(label["doc_type"])
-    actual = result.invoice.to_datapoints(tuple(pack.fields)) if result.invoice else {}
+    actual = result.record.to_datapoints(tuple(pack.fields)) if result.record else {}
     checks = {k: field_equal(k, actual.get(k), v, pack.kind(k)) for k, v in label["invoice"].items()}
     lines = line_scorer()(label["line_items"], actual.get("line_items"))
     return {"correct": all(checks.values()), "automatic": result.route == "auto",

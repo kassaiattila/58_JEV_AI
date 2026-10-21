@@ -172,7 +172,7 @@ def test_the_policy_step_opens_the_todo_for_an_extracted_statement(db):
     values = {**k2._statement(_line(), FEE), "account_no": k2.OWN}
     record, _reasons = typepack.get("statement_cib").normalize(values)
     state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", doc_type="statement_cib", doc_id=k2._id("now"))
-    state.invoice = record
+    state.record = record
     state.validation = [CheckResult(**v) for v in k2.VERIFIED]
     policy.apply_cross_document_checks(state)
     assert state.review_reasons == []  # outside a worker run

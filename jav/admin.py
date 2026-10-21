@@ -90,6 +90,24 @@ def last_golden_results() -> list[dict[str, Any]]:
     return out
 
 
+def golden_set_lines() -> list[str]:
+    """188: every registered golden set with its latest result from the shared measurement command's receipts
+    (`jav/goldens.py`), so a logic pack's golden set shows next to the type packs'."""
+    from jav import goldens
+
+    latest = goldens.latest_results()
+    lines = ["| golden set | cases | as expected | without a result | receipt (commit) |", "|---|---|---|---|---|"]
+    for g in goldens.sets():
+        r = latest.get(g.key)
+        if r is None:
+            lines.append(f"| {g.key} | - | not measured with `measure` yet | - | - |")
+            continue
+        tree = "" if r.get("clean") else ", uncommitted changes"
+        lines.append(f"| {g.key} | {r['cases']} | {score_text(r['right'], r['scored'])} {r['unit']} | "
+                     f"{r['cases'] - r['answered']} | {r['receipt']} ({r.get('commit')}{tree}, {r.get('engine')}) |")
+    return lines
+
+
 def flow_lint_targets() -> list[tuple[Any, Any]]:
     """Every flow module with a live graph built for the contract lint (`flows`, the admin report); 173: the flows
     and their lint graphs come from the flow registry (`jav.runtime.flows`), in its order."""
@@ -146,6 +164,7 @@ def _report(have_store: bool) -> str:
         skipped = g.get("skipped_failed")
         note = f" (newer failed run skipped: {skipped['file']}, {skipped['reason']})" if skipped else ""
         L.append(f"| {g['flow']} | {g['file']}{note} | {g['n']} | {score_text(g['ok'], g['scored'])} | {g['review']} |")
+    L += ["", "## Every golden set, latest shared measurement (`measure`, runs/*_measure.jsonl)", "", *golden_set_lines()]
     L += ["", "## Nyitott review-sor", ""]
     if have_store:
         with store.connect() as c:

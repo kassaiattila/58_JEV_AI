@@ -16,12 +16,32 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any
 
+from burr.core import State
 from burr.core.persistence import SQLitePersister
 
 TABLE = "burr_state"
 
 
 BUSY_TIMEOUT_S = 30  # same as the main store's (jav/store.py)
+
+# 188 (plan 185 T3b): a flow's state keys renamed after states were saved under its partition (old -> new)
+_RENAMED: dict[str, dict[str, str]] = {}
+
+
+def rename_saved_keys(partition: str, renamed: dict[str, str]) -> None:
+    """A flow's state keys renamed since states were saved under its partition (registered by the flow on import): a
+    saved state is read under the new names (`ClosingSQLitePersister.load`), because Burr reads back only the keys
+    its state model names, so an item interrupted before the rename resumes as it was."""
+    _RENAMED.setdefault(partition, {}).update(renamed)
+
+
+def _renamed(partition: str, state: State) -> State:
+    renamed = _RENAMED.get(partition)
+    values = state.get_all()
+    if not renamed or not set(renamed) & set(values):
+        return state
+    # a state that has the new key too keeps it
+    return State({renamed.get(k, k): v for k, v in values.items() if not (k in renamed and renamed[k] in values)})
 
 
 class ClosingSQLitePersister(SQLitePersister):
@@ -39,6 +59,14 @@ class ClosingSQLitePersister(SQLitePersister):
             connection = sqlite3.connect(db_path, **{"timeout": BUSY_TIMEOUT_S, **(connect_kwargs or {})})
             connection.execute("PRAGMA journal_mode=WAL")
         super().__init__(db_path, table_name, serde_kwargs, connect_kwargs, connection=connection)
+
+    def load(self, partition_key: str | None, app_id: str | None, sequence_id: int | None = None, **kwargs: Any):
+        """Burr's load, with the keys a flow renamed read under their new names (188, `rename_saved_keys`)."""
+        data = super().load(partition_key, app_id, sequence_id, **kwargs)
+        if data is None:
+            return None
+        partition = partition_key if partition_key is not None else self.PARTITION_KEY_DEFAULT
+        return {**data, "state": _renamed(partition, data["state"])}
 
     def cleanup(self) -> None:
         super().cleanup()

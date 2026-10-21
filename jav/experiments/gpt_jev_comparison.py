@@ -29,13 +29,13 @@ def without_jev(state):
     from jav.validators import run_all
     baseline = state.model_copy(deep=True)
     pack = get_pack(state.doc_type)
-    baseline.invoice, reasons = record_from_llm(state.llm_output or {}, pack.fields)
+    baseline.record, reasons = record_from_llm(state.llm_output or {}, pack.fields)
     baseline.verdicts = None
     policy.require_review(baseline, *reasons)
     for field in pack.required:
-        if baseline.invoice.get_field(field) is None:
+        if baseline.record.get_field(field) is None:
             policy.require_review(baseline, 'llm:required_missing:'+field)
-    baseline.validation = run_all(baseline.invoice, pack.validators)
+    baseline.validation = run_all(baseline.record, pack.validators)
     policy.apply_validation_policy(baseline)
     baseline.route = 'human' if baseline.needs_review else 'auto'
     return baseline

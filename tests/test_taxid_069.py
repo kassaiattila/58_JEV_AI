@@ -8,7 +8,7 @@ The survey (the extracted results in the local store, forms only): Hungarian tax
 import pytest
 
 from jav import taxid
-from jav.models import InvoiceHU, normalize_tax_id
+from jav.models import DocumentRecord, normalize_tax_id
 from jav.typepack import get as get_pack
 from jav.validators import run_all, tax_id
 
@@ -62,14 +62,14 @@ def test_label_and_prefix_are_stripped(raw, clean):
 
 
 def test_foreign_invoice_checks_both_parties():
-    inv = InvoiceHU(supplier_tax_id="+36 1 234 5678", buyer_tax_id="HU12121216", invoice_number="X-1")
+    inv = DocumentRecord(supplier_tax_id="+36 1 234 5678", buyer_tax_id="HU12121216", invoice_number="X-1")
     results = {r.name: r for r in run_all(inv, get_pack("invoice_foreign").validators)}
     assert results["tax_id:supplier_tax_id"].code == "taxid.unrecognized" and not results["tax_id:supplier_tax_id"].ok
     assert results["tax_id:buyer_tax_id"].ok
 
 
 def test_hungarian_invoice_checks_the_buyer_too():
-    inv = InvoiceHU(supplier_tax_id="12121216-2-42", buyer_tax_id="Adószám: 12345")
+    inv = DocumentRecord(supplier_tax_id="12121216-2-42", buyer_tax_id="Adószám: 12345")
     results = {r.name: r for r in run_all(inv, get_pack("invoice_hu").validators)}
     assert results["tax_id:buyer_tax_id"].code == "taxid.unrecognized"
 

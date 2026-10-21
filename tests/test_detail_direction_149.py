@@ -16,7 +16,7 @@ from __future__ import annotations
 import pytest
 
 from jav import parties, policy, store  # 185: the direction rule is `parties.confirm_detail_by_direction`
-from jav.models import FlowState, InvoiceHU
+from jav.models import FlowState, DocumentRecord
 
 OWN_TAX = "28642099-2-42"
 SURE = {"invoice_hu": 0.29, "invoice_out": 0.70, "none": 0.01}
@@ -52,7 +52,7 @@ def _uncertain(doc_id: str = "d1") -> None:
 
 def _state(**invoice) -> FlowState:
     return FlowState(source_path="invoice.pdf", case_id="c", arm="G", run_id="run-a:item-1", doc_id="d1", doc_type="invoice_out",
-                     detail_probabilities=SURE, invoice=InvoiceHU(**invoice))
+                     detail_probabilities=SURE, invoice=DocumentRecord(**invoice))
 
 
 def _open() -> list[str]:

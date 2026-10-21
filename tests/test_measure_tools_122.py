@@ -86,7 +86,7 @@ def test_extraction_on_a_case_list_uses_the_expected_pack_and_a_budget(tmp_path,
 
     def fake_run_one(source_path, case_id, arm, **kw):
         seen.append((case_id, arm, kw["doc_type"], kw["jev"]))
-        return SimpleNamespace(run_id="r1", invoice=None, needs_review=True, review_reasons=["x"], final_status="done")
+        return SimpleNamespace(run_id="r1", record=None, needs_review=True, review_reasons=["x"], final_status="done")
 
     monkeypatch.setattr(flow, "run_one", fake_run_one)
     rows = extract_cases.run(path, arm="G", jev=False, budget_usd=Decimal("0.03"), out_dir=tmp_path)

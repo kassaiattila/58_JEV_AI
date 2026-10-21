@@ -589,11 +589,11 @@ def confirm_detail_by_direction(state: Any) -> None:
     outgoing type is evidence in `direction`, and would confirm itself. A match closes the detailed type's uncertainty
     to-do, a contradiction is a to-do of its own; anything else is left as it was. 185 (plan G-full-move T1f): the
     finance domain's check of the saved stage (`jav/checks.py`; until then in `jav/flow.py`)."""
-    if state.invoice is None or not state.detail_probabilities:
+    if state.record is None or not state.detail_probabilities:
         return
     from jav import policy
 
-    found = direction(resolver(), None, state.invoice.model_dump())[0]
+    found = direction(resolver(), None, state.record.model_dump())[0]
     verdict = policy.detail_direction(state.doc_type, state.detail_probabilities, found)
     if verdict == "confirmed":
         for kind in ("low_conf", "second_option"):

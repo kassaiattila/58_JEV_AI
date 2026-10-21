@@ -20,7 +20,7 @@ from decimal import Decimal
 import pytest
 
 from jav import cli, corrections, datasets, policy, reconcile, store, work, work_views
-from jav.models import CheckResult, FlowState, InvoiceHU
+from jav.models import CheckResult, FlowState, DocumentRecord
 from jav.runtime import calls
 from tests import test_api
 
@@ -167,7 +167,7 @@ def test_the_processing_opens_no_reconciliation_to_do(db):
     stmt = _id("stmt")
     values = _statement()
     state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", doc_type="statement_cib", doc_id=stmt)
-    state.invoice = InvoiceHU(currency="HUF", extra={k: v for k, v in values.items() if k != "currency"})
+    state.record = DocumentRecord(currency="HUF", extra={k: v for k, v in values.items() if k != "currency"})
     state.validation = [CheckResult(**v) for v in VERIFIED]
     _in_run(lambda: policy.decide(state))
     assert not [r for r in state.review_reasons if r.startswith("reconcile:")]

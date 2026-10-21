@@ -61,6 +61,23 @@ def load_cases(type_key: str = DEFAULT_KEY) -> list[GoldenCase]:
     return cases
 
 
+def count_cases(type_key: str = DEFAULT_KEY) -> int:
+    """188: the number of the legacy manifest's cases for one type that `load_cases` can read (`jav/goldens.py`): their
+    expected file holds a `datapoints` record. The packs converted from legacy types (047) keep their expected values
+    without it, so they have none yet; 0 without the legacy project."""
+    if not GOLDEN_MANIFEST.exists():
+        return 0
+    wanted = get_pack(type_key).golden_type_key
+    manifest = json.loads(GOLDEN_MANIFEST.read_text(encoding="utf-8"))
+    count = 0
+    for c in manifest.get("cases", []):
+        if c.get("type_key") != wanted:
+            continue
+        expected = GOLDEN_EXPECTED_DIR / c.get("expected_ref", f"expected/{c['id'].split('/', 1)[1]}.json")
+        count += expected.exists() and "datapoints" in json.loads(expected.read_text(encoding="utf-8"))
+    return count
+
+
 SYNTHETIC_DIR = RUNS_DIR / "synthetic_golden"
 
 
@@ -248,13 +265,13 @@ def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True
 def _score_state(state: FlowState, expected: dict[str, Any], pack: TypePack) -> dict[str, bool | None]:
     """The legacy contract: a key MISSING from the golden set is not scored (None); an explicit null means the field
     must be empty (e.g. the legacy `real_ms` case has no supplier_country key)."""
-    got = state.invoice.to_datapoints(pack.record_fields) if state.invoice else {}
-    return {f: (field_equal(f, got.get(f), expected.get(f), pack.kind(f)) if state.invoice and f in expected else None) for f in pack.scored_fields}
+    got = state.record.to_datapoints(pack.record_fields) if state.record else {}
+    return {f: (field_equal(f, got.get(f), expected.get(f), pack.kind(f)) if state.record and f in expected else None) for f in pack.scored_fields}
 
 
 def _score_state_lenient(state: FlowState, expected: dict[str, Any], pack: TypePack) -> dict[str, bool | None]:
-    got = state.invoice.to_datapoints(pack.record_fields) if state.invoice else {}
-    return {f: (field_equal_lenient(f, got.get(f), expected.get(f), pack.kind(f)) if state.invoice and f in expected else None) for f in pack.scored_fields}
+    got = state.record.to_datapoints(pack.record_fields) if state.record else {}
+    return {f: (field_equal_lenient(f, got.get(f), expected.get(f), pack.kind(f)) if state.record and f in expected else None) for f in pack.scored_fields}
 
 
 def _state_row(case: GoldenCase, state: FlowState, run_no: int, seconds: float, pack: TypePack) -> dict[str, Any]:
@@ -283,7 +300,7 @@ def _state_row(case: GoldenCase, state: FlowState, run_no: int, seconds: float, 
         "final_status": state.final_status,
         "route": state.route,
         "review_reasons": state.review_reasons,
-        "datapoints": state.invoice.to_datapoints(pack.record_fields) if state.invoice else None,
+        "datapoints": state.record.to_datapoints(pack.record_fields) if state.record else None,
         "scores": _score_state(state, case.expected, pack),
         "scores_lenient": _score_state_lenient(state, case.expected, pack),  # OCR-tolerant (accent-insensitive) second score
         "text_source": state.text_source,

@@ -12,7 +12,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from jav import data_guard, validators
-from jav.models import InvoiceHU
+from jav.models import DocumentRecord
 from tests.test_properties_067 import hu_account
 
 GOOD_16 = "1000000130000003"
@@ -63,7 +63,7 @@ def test_the_data_guard_uses_the_same_rule():
 
 
 def test_a_wrong_account_on_an_invoice_is_a_failed_check():
-    inv = InvoiceHU(payment_iban="1234567812345678")
+    inv = DocumentRecord(payment_iban="1234567812345678")
     results = validators.run_checks(inv, [{"check": "iban_check", "field": "payment_iban", "optional": True}])
     assert [(r.ok, r.code) for r in results] == [(False, "account.hu_checksum")]
 

@@ -14,7 +14,7 @@ from decimal import Decimal
 import pytest
 
 from jav import fact_checks, party_history, policy, store, typepack, validators
-from jav.models import FlowState, InvoiceHU
+from jav.models import FlowState, DocumentRecord
 from jav.runtime import calls
 
 A, A_EU, B, C = "12121216-2-42", "HU12121216", "13570008-1-13", "12345676-2-41"  # made up (data guard allow list)
@@ -34,7 +34,7 @@ def _earlier(doc_id: str, supplier: str, buyer: str, doc_type: str = "invoice_hu
 
 
 def _check(supplier: str, buyer: str, *, doc_id: str = "doc-now", doc_type: str = "invoice_hu", in_run: bool = True):
-    inv = InvoiceHU(supplier_tax_id=supplier, buyer_tax_id=buyer)
+    inv = DocumentRecord(supplier_tax_id=supplier, buyer_tax_id=buyer)
     if not in_run:
         return validators.run_checks(inv, CHECK, doc_id=doc_id, doc_type=doc_type)
     calls.set_budget("run-now", "jev", Decimal("0.01"))
