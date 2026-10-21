@@ -41,7 +41,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import activity_kinds, cfg, naming, package_release, reconcile, reconcile_package as rp, store, work
+from jav import activity_kinds, cfg, decisions, naming, package_release, reconcile, reconcile_package as rp, store, work
 from jav.outputs import builtin, contract, templates
 from jav.user_messages import explained
 
@@ -209,9 +209,10 @@ def reopen(wp_id: str, *, note: str, actor: str) -> dict[str, Any]:
     return rp.approval(wp_id)
 
 
-def accept_sources(wp_id: str, doc_ids: Iterable[str], *, actor: str) -> int:
+def accept_sources(wp_id: str, doc_ids: Iterable[str], *, actor: str, expected_state: int | None = None) -> int:
     """Accepts the current results of source documents from an evaluation on the command line as sources (DECISIONS
-    132): each must be such a blocker of the package; who and when is recorded. Returns how many were accepted."""
+    132): each must be such a blocker of the package; who and when is recorded. Returns how many were accepted. 187: a
+    newly accepted result goes into the decision journal (one accepted before, in any package, stays as it was)."""
     ids = list(dict.fromkeys(doc_ids))
     if not ids:
         raise explained(rp.PackageError, "no document to accept")
@@ -224,10 +225,12 @@ def accept_sources(wp_id: str, doc_ids: Iterable[str], *, actor: str) -> int:
     results = {d["id"]: str(d.get("flow_run_id")) for d in [*snap["invoices"], *snap["statements"]]}
     with store.connect() as c:
         store.begin_immediate(c)
+        decisions.check_package(c, wp_id, rp.DECISION_KINDS, expected_state)
         now = _now()
         for d in ids:
-            c.execute("INSERT OR IGNORE INTO reconcile_source_acceptances(doc_id, flow_run_id, workpackage_id, actor, accepted_at)"
-                      " VALUES (?,?,?,?,?)", (d, results[d], wp_id, actor, now))
+            if c.execute("INSERT OR IGNORE INTO reconcile_source_acceptances(doc_id, flow_run_id, workpackage_id, actor, accepted_at)"
+                         " VALUES (?,?,?,?,?)", (d, results[d], wp_id, actor, now)).rowcount:
+                decisions.record(c, rp.SOURCE_KIND, f"{d}#{results[d]}", "accept", actor=actor, workpackage_id=wp_id, at=now)
         work.record_event(c, wp_id, "reconcile_accept_sources", actor, {"documents": ids})
     return len(ids)
 

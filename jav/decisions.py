@@ -14,6 +14,8 @@ one place.
 - `state(c, kind, key)`, `states(c, kind, keys)`: a decision's state, the id of its latest journal row (0 before
   any); `check(c, kind, key, expected)`: a state other than the one the page read is `work.RevisionConflict`.
 - `run_state(c, run_id)`: the latest journal row of any decision made on a run (0: none), for the run's cache marks.
+- `package_state(c, workpackage_id, kinds)`, `check_package(...)`: the same for every decision of the given kinds in a
+  package, for a page that changes many decisions of one package (a reconciliation).
 - `history(kind, key)`: every journal row of a decision, oldest first.
 - `run_approved(c, run_id)`, `decided_in_approved_run(c, earlier_run_id, run_id)`: the shared checks inside the write
   transaction; the caller raises its own message.
@@ -130,6 +132,19 @@ def check(c: sqlite3.Connection, kind: str, key: str, expected: int | None) -> N
         raise explained(work.RevisionConflict, "the decision was changed meanwhile; reload the page")
 
 
+def package_state(c: sqlite3.Connection, workpackage_id: str, kinds: Iterable[str]) -> int:
+    wanted = sorted(set(kinds))
+    row = c.execute(f"SELECT MAX(id) FROM decision_journal WHERE workpackage_id=? AND kind IN ({','.join('?' * len(wanted))})",
+                    (workpackage_id, *wanted)).fetchone()
+    return int(row[0] or 0)
+
+
+def check_package(c: sqlite3.Connection, workpackage_id: str, kinds: Iterable[str], expected: int | None) -> None:
+    """The page's state of the package's decisions must still hold (None: nothing is compared)."""
+    if expected is not None and package_state(c, workpackage_id, kinds) != expected:
+        raise explained(work.RevisionConflict, "the decision was changed meanwhile; reload the page")
+
+
 def run_state(c: sqlite3.Connection, run_id: str) -> int:
     row = c.execute("SELECT MAX(id) FROM decision_journal WHERE run_id=?", (run_id,)).fetchone()
     return int(row[0] or 0)
@@ -173,5 +188,5 @@ def one_at_a_time(kind: str, scope: str) -> Iterator[None]:
         yield
 
 
-__all__ = ["Kind", "check", "decided_in_approved_run", "history", "kinds", "one_at_a_time", "record", "register",
-           "run_approved", "run_state", "state", "states"]
+__all__ = ["Kind", "check", "check_package", "decided_in_approved_run", "history", "kinds", "one_at_a_time",
+           "package_state", "record", "register", "run_approved", "run_state", "state", "states"]

@@ -291,3 +291,93 @@ def test_a_template_choice_is_journaled_and_a_stale_one_refused(routing_db) -> N
     assert after["outputs"][output]["decision_state"] > 0
     [row] = decisions.history(templates.CHOICE_KIND, f"{wp}#{output}")
     assert (row["action"], row["value"], row["workpackage_id"]) == ("choose", {"template": None}, wp)
+
+
+# --- the reconciliation's decisions -------------------------------------------------------------------------------
+
+
+def _reconciliation():
+    from tests import test_reconcile_k2_129 as k2
+    from tests.test_reconcile_package_131 import _ids, _line, _package, _stmt
+
+    inv = k2._save("inv", k2._invoice())
+    stmt = _stmt("stmt", _line(), _line(amount="50.00", memo="Fee"))
+    pay, fee = _ids(stmt, _line(), _line(amount="50.00", memo="Fee"))
+    return _package(), inv, pay, fee
+
+
+def test_every_reconciliation_decision_goes_into_the_journal(db) -> None:
+    from jav import reconcile_package as rp
+
+    wp, inv, pay, fee = _reconciliation()
+    assert rp.page(wp)["journal_state"] == 0
+    [alloc] = rp.allocate(wp, [{"invoice_doc_id": inv, "line_id": pay}], note=None, actor="reviewer", expected_state=0)
+    [m] = rp.mark(wp, [fee], category="fee", note=None, actor="reviewer", expected_state=rp.journal_state(wp))
+    rp.unmark(wp, [fee], actor="reviewer")
+    rp.revoke(wp, kind="allocation", ref=str(alloc["id"]), actor="reviewer", note="wrong")
+    rp.reject(wp, inv, pay, note="not this one", actor="reviewer")
+    rp.revoke(wp, kind="decision", ref=reconcile_pair(inv, pay), actor="reviewer")
+    rp.leave_out(wp, [inv], reason="not ours", actor="reviewer")
+    rp.restore_left_out(wp, [inv], actor="reviewer")
+    with store.connect() as c:
+        rows = [(r["kind"], r["action"]) for r in c.execute("SELECT kind, action FROM decision_journal WHERE workpackage_id=?"
+                                                             " ORDER BY id", (wp,))]
+    assert rows == [("reconcile_allocation", "allocate"), ("reconcile_mark", "mark"), ("reconcile_mark", "revoke"),
+                    ("reconcile_allocation", "revoke"), ("reconcile_pair", "reject"), ("reconcile_pair", "revoke"),
+                    ("reconcile_exclusion", "leave_out"), ("reconcile_exclusion", "restore")]
+    [first, second] = decisions.history(rp.ALLOCATION_KIND, pay)
+    assert first["value"] == {"allocation_id": alloc["id"], "invoice_doc_id": inv, "line_amount": "100.00",
+                              "invoice_amount": "100.00"} and (second["action"], second["note"]) == ("revoke", "wrong")
+    assert decisions.history(rp.MARK_KIND, fee)[0]["value"]["mark_id"] == m["id"]
+    assert rp.page(wp)["journal_state"] == decisions.history(rp.EXCLUSION_KIND, f"{wp}#{inv}")[-1]["id"]
+
+
+def reconcile_pair(invoice: str, line: str) -> str:
+    from jav import reconcile
+
+    return reconcile.pair_key(invoice, line)
+
+
+def test_a_reconciliation_decision_from_a_stale_page_is_refused(db) -> None:
+    from jav import reconcile_package as rp
+
+    wp, inv, pay, fee = _reconciliation()
+    seen = rp.page(wp)["journal_state"]
+    rp.mark(wp, [fee], category="fee", note=None, actor="other tab", expected_state=seen)
+    with pytest.raises(work.RevisionConflict, match="changed meanwhile"):
+        rp.allocate(wp, [{"invoice_doc_id": inv, "line_id": pay}], note=None, actor="stale tab", expected_state=seen)
+    assert rp.workspace(wp)["lines"][0]["allocations"] == []
+    c = TestClient(api.create_app(store_path=store.active_path()), base_url="http://127.0.0.1:8930")
+    body = {"pairs": [{"invoice_doc_id": inv, "line_id": pay}], "expected_state": seen}
+    r = c.post(f"/api/workpackages/{wp}/reconcile/allocate", json=body, headers=HUMAN)
+    assert r.status_code == 409 and r.json()["error"] == "revision_conflict"
+    now = c.get(f"/api/workpackages/{wp}/reconcile").json()["journal_state"]
+    r = c.post(f"/api/workpackages/{wp}/reconcile/allocate", json={**body, "expected_state": now}, headers=HUMAN)
+    assert r.status_code == 200 and r.json()["journal_state"] > now
+
+
+def test_revoking_a_pair_rechecks_the_runs_approval_inside_the_transaction(db, monkeypatch) -> None:
+    """Before, the frozen check ran before the write transaction, so a run approved in between was missed."""
+    from jav import reconcile_package as rp
+    from tests import test_reconcile_k2_129 as k2
+
+    wp, inv, pay, _fee = _reconciliation()
+    k2._run(k2.RUN, [])
+    key = reconcile_pair(inv, pay)
+    with store.connect() as c:
+        c.execute("INSERT INTO reconcile_decisions(pair_key, invoice_doc_id, statement_doc_id, line_id, decision, run_id,"
+                  " actor, decided_at) VALUES (?,?,?,?,?,?,?,?)",
+                  (key, inv, k2._id("stmt"), pay, "not_this", k2.RUN, "t", "2026-04-21T10:00:00+00:00"))
+    rp.clear_cache()
+    real_write = rp._write
+
+    def approved_meanwhile(state, fn, **kwargs):
+        with store.connect() as c:
+            c.execute("UPDATE runs SET approval='approved' WHERE run_id=?", (k2.RUN,))
+        return real_write(state, fn, **kwargs)
+
+    monkeypatch.setattr(rp, "_write", approved_meanwhile)
+    with pytest.raises(work.RevisionConflict, match="frozen"):
+        rp.revoke(wp, kind="decision", ref=key, actor="reviewer")
+    with store.connect() as c:
+        assert c.execute("SELECT run_id FROM reconcile_decisions WHERE pair_key=?", (key,)).fetchone()["run_id"] == k2.RUN

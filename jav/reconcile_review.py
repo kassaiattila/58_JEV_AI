@@ -142,7 +142,7 @@ def review(wp_id: str) -> dict[str, Any]:
             "decided": dict(sorted(decided.items()))}
 
 
-def accept(wp_id: str, group: str, line_ids: Iterable[str], *, actor: str) -> int:
+def accept(wp_id: str, group: str, line_ids: Iterable[str], *, actor: str, expected_state: int | None = None) -> int:
     """A person accepts the group's suggestion for the given lines: all or none, and only lines still in the group
     (`work.RevisionConflict` otherwise: the view was stale). Returns how many lines were decided."""
     if group not in GROUPS:
@@ -158,6 +158,8 @@ def accept(wp_id: str, group: str, line_ids: Iterable[str], *, actor: str) -> in
                         gone=len(gone))
     if group == "sure_pairs":
         pairs = [{"invoice_doc_id": inv["id"], "line_id": lid} for lid in ids for inv in current[lid]["invoices"]]
-        return len({row["line_id"] for row in reconcile_package.allocate(wp_id, pairs, note=None, actor=actor)})
-    reconcile_package.mark_each(wp_id, {lid: current[lid]["category"] for lid in ids}, note=None, actor=actor, basis=group)
+        return len({row["line_id"] for row in reconcile_package.allocate(wp_id, pairs, note=None, actor=actor,
+                                                                          expected_state=expected_state)})
+    reconcile_package.mark_each(wp_id, {lid: current[lid]["category"] for lid in ids}, note=None, actor=actor, basis=group,
+                                expected_state=expected_state)
     return len(ids)

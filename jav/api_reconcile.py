@@ -18,7 +18,7 @@ from fastapi.responses import Response
 from pydantic import Field
 
 from jav import reconcile_package, reconcile_review, reconcile_statement, work_views
-from jav.api import Empty, IsoDay, PartyId, Text, WpId, _error, _In, attachment_header, human_actor
+from jav.api import DecisionState, Empty, IsoDay, PartyId, Text, WpId, _error, _In, attachment_header, human_actor
 from jav.user_messages import message_fields
 
 # 131 (F-reconciliation E1): the reconciliation package (`jav/reconcile_package.py`)
@@ -50,34 +50,40 @@ class AllocationPair(_In):
     invoice_amount: Money | None = None
 
 
-class ReconcileAllocate(_In):
+class Decided(_In):
+    """187: the state of the package's decisions as the page read it (`journal_state`); a change on a stale page is a
+    409. A request without it is not compared."""
+    expected_state: DecisionState | None = None
+
+
+class ReconcileAllocate(Decided):
     pairs: Annotated[list[AllocationPair], Field(min_length=1, max_length=200)]
     note: Text | None = None  # required for a split or a converted pair outside the card band
 
 
-class ReconcileReject(_In):
+class ReconcileReject(Decided):
     invoice_doc_id: DocId
     line_id: LineId
     note: Annotated[str, Field(min_length=1, max_length=2000)]
 
 
-class ReconcileMark(_In):
+class ReconcileMark(Decided):
     line_ids: Annotated[list[LineId], Field(min_length=1, max_length=5000)]  # 132: several lines in one step
     category: Annotated[str, Field(min_length=1, max_length=40)]  # configs/reconcile.json line_marks
     note: Text | None = None
 
 
-class QuickReviewAccept(_In):
+class QuickReviewAccept(Decided):
     """147: a person accepts a quick review group's suggestion for these of its lines."""
     group: Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]
     line_ids: Annotated[list[LineId], Field(min_length=1, max_length=5000)]
 
 
-class ReconcileUnmark(_In):
+class ReconcileUnmark(Decided):
     line_ids: Annotated[list[LineId], Field(min_length=1, max_length=5000)]  # 135: a partner's lines undone in one step
 
 
-class ReconcileRevoke(_In):
+class ReconcileRevoke(Decided):
     kind: Literal["allocation", "mark", "decision"]
     ref: Annotated[str, Field(min_length=1, max_length=200)]  # an allocation's or a mark's id, or a decision's pair key
     note: Text | None = None
@@ -92,17 +98,21 @@ class ReconcileReopen(_In):
     note: Annotated[str, Field(min_length=1, max_length=2000)]
 
 
-class ReconcileAcceptSources(_In):
+class ReconcileAcceptSources(Decided):
     doc_ids: Annotated[list[DocId], Field(min_length=1, max_length=5000)]
 
 
 # 169 (DECISIONS 169): documents left out of a reconciliation package with a reason, and restored
-class ReconcileRestoreLeftOut(_In):
+class ReconcileRestoreLeftOut(Decided):
     doc_ids: Annotated[list[DocId], Field(min_length=1, max_length=5000)]
 
 
 class ReconcileLeaveOut(ReconcileRestoreLeftOut):
     reason: Annotated[str, Field(min_length=1, max_length=500)]
+
+
+def _statement(wp_id: str) -> dict[str, Any]:
+    return {**reconcile_statement.current(wp_id), "journal_state": reconcile_package.journal_state(wp_id)}
 
 
 def routes(app: FastAPI, r: str) -> None:
@@ -126,40 +136,43 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.get(r + "/workpackages/{wp_id}/reconcile")
     def reconcile_workspace(wp_id: WpId) -> dict[str, Any]:
-        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
+        return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/scope")
     def reconcile_scope(wp_id: WpId, body: SetReconcileScope, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         reconcile_package.set_scope(wp_id, accounts=body.accounts, period_start=body.period_start, period_end=body.period_end,
                                     expected_revision=body.expected_revision, actor=who, party_id=body.party_id)
-        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
+        return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/refresh")
     def reconcile_refresh(wp_id: WpId, body: Empty, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """Recomputes with the missing MNB rates fetched (only dates and currency codes leave the machine)."""
         reconcile_package.refresh(wp_id)
-        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
+        return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/allocate")
     def reconcile_allocate(wp_id: WpId, body: ReconcileAllocate, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        reconcile_package.allocate(wp_id, [p.model_dump() for p in body.pairs], note=body.note, actor=who)
-        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
+        reconcile_package.allocate(wp_id, [p.model_dump() for p in body.pairs], note=body.note,
+                                   actor=who, expected_state=body.expected_state)
+        return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/accept-proposed")
-    def reconcile_accept_proposed(wp_id: WpId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+    def reconcile_accept_proposed(wp_id: WpId, body: Decided, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """Every unambiguous proposal at once (proposed, the only candidate, a statement whose balances check out)."""
-        reconcile_package.accept_proposed(wp_id, actor=who)
-        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
+        reconcile_package.accept_proposed(wp_id, actor=who, expected_state=body.expected_state)
+        return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/reject")
     def reconcile_reject(wp_id: WpId, body: ReconcileReject, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        reconcile_package.reject(wp_id, body.invoice_doc_id, body.line_id, note=body.note, actor=who)
-        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
+        reconcile_package.reject(wp_id, body.invoice_doc_id, body.line_id, note=body.note, actor=who,
+                                 expected_state=body.expected_state)
+        return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/mark")
     def reconcile_mark(wp_id: WpId, body: ReconcileMark, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        reconcile_package.mark(wp_id, body.line_ids, category=body.category, note=body.note, actor=who)
-        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
+        reconcile_package.mark(wp_id, body.line_ids, category=body.category, note=body.note, actor=who,
+                               expected_state=body.expected_state)
+        return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.get(r + "/workpackages/{wp_id}/reconcile/quick-review")
     def reconcile_quick_review(wp_id: WpId) -> dict[str, Any]:
@@ -171,15 +184,15 @@ def routes(app: FastAPI, r: str) -> None:
                                       who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """147: a group's suggestion accepted for the given lines (only those still in the group, all or none); the
         review and the workspace after it."""
-        n = reconcile_review.accept(wp_id, body.group, body.line_ids, actor=who)
+        n = reconcile_review.accept(wp_id, body.group, body.line_ids, actor=who, expected_state=body.expected_state)
         return {"accepted": n, "review": work_views.jsonable(reconcile_review.review(wp_id)),
-                "workspace": work_views.jsonable(reconcile_package.kept_workspace(wp_id))}
+                "workspace": work_views.jsonable(reconcile_package.page(wp_id))}
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/unmark")
     def reconcile_unmark(wp_id: WpId, body: ReconcileUnmark, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """135: the needs-no-invoice marks of several lines undone in one step."""
-        reconcile_package.unmark(wp_id, body.line_ids, actor=who)
-        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
+        reconcile_package.unmark(wp_id, body.line_ids, actor=who, expected_state=body.expected_state)
+        return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.get(r + "/workpackages/{wp_id}/reconcile/locate")
     def reconcile_locate(wp_id: WpId, line_id: Annotated[str, Query(pattern=LINE_ID)]) -> dict[str, Any]:
@@ -201,25 +214,26 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/revoke")
     def reconcile_revoke(wp_id: WpId, body: ReconcileRevoke, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        reconcile_package.revoke(wp_id, kind=body.kind, ref=body.ref, actor=who, note=body.note)
-        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
+        reconcile_package.revoke(wp_id, kind=body.kind, ref=body.ref, actor=who, note=body.note,
+                                 expected_state=body.expected_state)
+        return work_views.jsonable(reconcile_package.page(wp_id))
 
     # --- 145: the result - the statement, its approval as a version that locks its lines, its download ---
 
     @app.get(r + "/workpackages/{wp_id}/reconcile/statement")
     def reconcile_statement_view(wp_id: WpId, version: Annotated[int | None, Query(ge=1, le=100000)] = None) -> dict[str, Any]:
-        """The statement as it stands now (with its fingerprint, blockers, warnings and the approval), or an approved
-        version as it was approved."""
+        """The statement as it stands now (with its fingerprint, blockers, warnings and the approval; 187: and the state
+        of the package's decisions), or an approved version as it was approved."""
         if version is not None:
             return work_views.jsonable(reconcile_statement.approved_version(wp_id, version))
-        return work_views.jsonable(reconcile_statement.current(wp_id))
+        return work_views.jsonable(_statement(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/accept-sources")
     def reconcile_accept_sources(wp_id: WpId, body: ReconcileAcceptSources,
                                  who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """DECISIONS 132: a person accepts command-line results as sources (who and when is recorded)."""
-        reconcile_statement.accept_sources(wp_id, body.doc_ids, actor=who)
-        return work_views.jsonable(reconcile_statement.current(wp_id))
+        reconcile_statement.accept_sources(wp_id, body.doc_ids, actor=who, expected_state=body.expected_state)
+        return work_views.jsonable(_statement(wp_id))
 
     @app.get(r + "/workpackages/{wp_id}/reconcile/targets")
     def reconcile_targets(wp_id: WpId) -> dict[str, Any]:
@@ -229,14 +243,14 @@ def routes(app: FastAPI, r: str) -> None:
     @app.post(r + "/workpackages/{wp_id}/reconcile/leave-out")
     def reconcile_leave_out(wp_id: WpId, body: ReconcileLeaveOut, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
         """169: statements or invoices left out of this package only, with a reason (they stay in their own packages)."""
-        reconcile_package.leave_out(wp_id, body.doc_ids, reason=body.reason, actor=who)
-        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
+        reconcile_package.leave_out(wp_id, body.doc_ids, reason=body.reason, actor=who, expected_state=body.expected_state)
+        return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/restore-left-out")
     def reconcile_restore_left_out(wp_id: WpId, body: ReconcileRestoreLeftOut,
                                    who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        reconcile_package.restore_left_out(wp_id, body.doc_ids, actor=who)
-        return work_views.jsonable(reconcile_package.kept_workspace(wp_id))
+        reconcile_package.restore_left_out(wp_id, body.doc_ids, actor=who, expected_state=body.expected_state)
+        return work_views.jsonable(reconcile_package.page(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/reconcile/approve")
     def reconcile_approve(wp_id: WpId, body: ReconcileApprove, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:

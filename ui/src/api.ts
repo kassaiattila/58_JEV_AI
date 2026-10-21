@@ -822,6 +822,8 @@ export interface ReconcileUnfit {
 }
 export interface ReconcileWorkspace {
   workpackage_id: string; scope: ReconcileScope; lines: ReconcileLine[]; invoices: ReconcileInvoice[];
+  /** 187: the state of the package's decisions in the decision journal (`jav/decisions.py`), sent back with a change. */
+  journal_state?: number;
   left_over?: ReconcileLeftOver[];
   unfit?: ReconcileUnfit[];
   /** 145: what warns without blocking the approval (a statement whose balances do not check out), and the approval */
@@ -1061,6 +1063,25 @@ function refusedFields(detail: unknown[]): string {
   return [...new Set(names)].join(", ") || "?";
 }
 
+/** 187: each reconciliation package's journal state (`journal_state`) as this page last read it. Every decision of the
+ *  package sends it back, so the service refuses a decision made on a page that is stale by now (409; the shared
+ *  decision handler, `jav/decisions.py`). Another browser tab keeps its own. */
+const reconcileSeen = new Map<string, number>();
+
+function seen<T>(wpId: string, answer: Promise<T>): Promise<T> {
+  return answer.then((v) => {
+    const got = v as { journal_state?: unknown; workspace?: { journal_state?: unknown } } | null;
+    const state = typeof got?.journal_state === "number" ? got.journal_state : got?.workspace?.journal_state;
+    if (typeof state === "number") reconcileSeen.set(wpId, state);
+    return v;
+  });
+}
+
+function withState(wpId: string, body: Record<string, unknown>): Record<string, unknown> {
+  const state = reconcileSeen.get(wpId);
+  return state === undefined ? body : { ...body, expected_state: state };
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
   const actor = getActor();
@@ -1160,41 +1181,51 @@ export const api = {
     request<WorkpackageView>("POST", "/statement-packages", body),
   createReconcilePackage: (body: { name: string; accounts: string[]; period_start: string; period_end: string; party_id?: string | null }) =>
     request<WorkpackageView>("POST", "/reconcile/packages", body),
-  reconcileWorkspace: (wpId: string) => request<ReconcileWorkspace>("GET", `/workpackages/${enc(wpId)}/reconcile`),
+  reconcileWorkspace: (wpId: string) => seen(wpId, request<ReconcileWorkspace>("GET", `/workpackages/${enc(wpId)}/reconcile`)),
   setReconcileScope: (wpId: string, body: { accounts: string[]; period_start: string; period_end: string; expected_revision: number; party_id?: string | null }) =>
-    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/scope`, body),
-  reconcileRefresh: (wpId: string) => request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/refresh`, {}),
+    seen(wpId, request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/scope`, body)),
+  reconcileRefresh: (wpId: string) => seen(wpId, request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/refresh`, {})),
+  // 187: every decision of the package sends back its journal state as this page last read it (`withState`)
   reconcileAllocate: (wpId: string, pairs: ReconcileAllocationPair[], note?: string) =>
-    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/allocate`, { pairs, ...(note ? { note } : {}) }),
-  reconcileAcceptProposed: (wpId: string) => request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/accept-proposed`, {}),
+    seen(wpId, request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/allocate`,
+      withState(wpId, { pairs, ...(note ? { note } : {}) }))),
+  reconcileAcceptProposed: (wpId: string) =>
+    seen(wpId, request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/accept-proposed`, withState(wpId, {}))),
   reconcileQuickReview: (wpId: string) => request<QuickReview>("GET", `/workpackages/${enc(wpId)}/reconcile/quick-review`),
   reconcileQuickAccept: (wpId: string, group: QuickReviewGroupId, lineIds: string[]) =>
-    request<{ accepted: number; review: QuickReview; workspace: ReconcileWorkspace }>("POST",
-      `/workpackages/${enc(wpId)}/reconcile/quick-review/accept`, { group, line_ids: lineIds }),
+    seen(wpId, request<{ accepted: number; review: QuickReview; workspace: ReconcileWorkspace }>("POST",
+      `/workpackages/${enc(wpId)}/reconcile/quick-review/accept`, withState(wpId, { group, line_ids: lineIds }))),
   reconcileReject: (wpId: string, invoiceDocId: string, lineId: string, note: string) =>
-    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/reject`, { invoice_doc_id: invoiceDocId, line_id: lineId, note }),
+    seen(wpId, request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/reject`,
+      withState(wpId, { invoice_doc_id: invoiceDocId, line_id: lineId, note }))),
   reconcileMark: (wpId: string, lineIds: string[], category: string, note?: string) =>
-    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/mark`, { line_ids: lineIds, category, ...(note ? { note } : {}) }),
+    seen(wpId, request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/mark`,
+      withState(wpId, { line_ids: lineIds, category, ...(note ? { note } : {}) }))),
   reconcileUnmark: (wpId: string, lineIds: string[]) =>
-    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/unmark`, { line_ids: lineIds }),
+    seen(wpId, request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/unmark`, withState(wpId, { line_ids: lineIds }))),
   reconcileRevoke: (wpId: string, kind: "allocation" | "mark" | "decision", ref: string, note?: string) =>
-    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/revoke`, { kind, ref, ...(note ? { note } : {}) }),
+    seen(wpId, request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/revoke`,
+      withState(wpId, { kind, ref, ...(note ? { note } : {}) }))),
   // 169: the package's inputs - leaving documents out of this package only, restoring them, where files are added
   reconcileLeaveOut: (wpId: string, docIds: string[], reason: string) =>
-    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/leave-out`, { doc_ids: docIds, reason }),
+    seen(wpId, request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/leave-out`,
+      withState(wpId, { doc_ids: docIds, reason }))),
   reconcileRestoreLeftOut: (wpId: string, docIds: string[]) =>
-    request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/restore-left-out`, { doc_ids: docIds }),
+    seen(wpId, request<ReconcileWorkspace>("POST", `/workpackages/${enc(wpId)}/reconcile/restore-left-out`,
+      withState(wpId, { doc_ids: docIds }))),
   reconcileTargets: (wpId: string) => request<ReconcileTargets>("GET", `/workpackages/${enc(wpId)}/reconcile/targets`),
   reconcileLocate: (wpId: string, lineId: string) =>
     request<ReconcileLocation>("GET", `/workpackages/${enc(wpId)}/reconcile/locate?line_id=${enc(lineId)}`),
   reconcileMatches: (wpId: string, lineId: string) =>
     request<ReconcileMatches>("GET", `/workpackages/${enc(wpId)}/reconcile/matches?line_id=${enc(lineId)}`),
   // 145: the result - the statement, its approval as a version that locks its lines, reopening, accepted sources
-  reconcileStatement: (wpId: string) => request<ReconcileStatementCurrent>("GET", `/workpackages/${enc(wpId)}/reconcile/statement`),
+  reconcileStatement: (wpId: string) =>
+    seen(wpId, request<ReconcileStatementCurrent>("GET", `/workpackages/${enc(wpId)}/reconcile/statement`)),
   reconcileStatementVersion: (wpId: string, version: number) =>
     request<ReconcileStatementVersion>("GET", `/workpackages/${enc(wpId)}/reconcile/statement?version=${version}`),
   reconcileAcceptSources: (wpId: string, docIds: string[]) =>
-    request<ReconcileStatementCurrent>("POST", `/workpackages/${enc(wpId)}/reconcile/accept-sources`, { doc_ids: docIds }),
+    seen(wpId, request<ReconcileStatementCurrent>("POST", `/workpackages/${enc(wpId)}/reconcile/accept-sources`,
+      withState(wpId, { doc_ids: docIds }))),
   reconcileApprove: (wpId: string, fingerprint: string) =>
     request<ReconcileStatementCurrent>("POST", `/workpackages/${enc(wpId)}/reconcile/approve`, { fingerprint }),
   reconcileReopen: (wpId: string, note: string) =>
