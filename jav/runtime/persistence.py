@@ -19,6 +19,8 @@ from typing import Any
 from burr.core import State
 from burr.core.persistence import SQLitePersister
 
+from jav import store
+
 TABLE = "burr_state"
 
 
@@ -58,6 +60,7 @@ class ClosingSQLitePersister(SQLitePersister):
         if own:
             connection = sqlite3.connect(db_path, **{"timeout": BUSY_TIMEOUT_S, **(connect_kwargs or {})})
             connection.execute("PRAGMA journal_mode=WAL")
+            store.tune(connection)  # 189: the test suite's setting; the application keeps SQLite's own
         super().__init__(db_path, table_name, serde_kwargs, connect_kwargs, connection=connection)
 
     def load(self, partition_key: str | None, app_id: str | None, sequence_id: int | None = None, **kwargs: Any):
