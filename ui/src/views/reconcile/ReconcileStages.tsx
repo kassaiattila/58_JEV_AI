@@ -3,6 +3,7 @@
 // recomputed workspace, which replaces it (no periodic reloading of the whole page, the legacy weakness).
 import { useEffect, useState } from "react";
 import { api, ApiError, type ReconcileLeftOver, type ReconcileUnfit, type ReconcileWorkspace, type WorkpackageView } from "../../api";
+import { BlockerList } from "../../components/BlockerList";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { go, type Stage } from "../../route";
@@ -12,8 +13,7 @@ import { ReconcileInputs } from "./ReconcileInputs";
 import { ReconcilePairing } from "./ReconcilePairing";
 import { ReconcileQuickReview } from "./ReconcileQuickReview";
 import { ReconcileResult } from "./ReconcileResult";
-import { EXCLUDED, INVOICE_STATE, LINE_STATE, MARK, warningText } from "./labels";
-import { BlockerList } from "./BlockerList";
+import { blockerItems, EXCLUDED, INVOICE_STATE, LINE_STATE, MARK, warningText } from "./labels";
 import { show } from "./money";
 import "./reconcile.css";
 
@@ -198,7 +198,7 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
         {ws.blockers.length ? (
           <>
             <p className="muted small">{t("Pairing can start now; the reconciliation can only be approved once every source document comes from an approved run.")}</p>
-            <BlockerList blockers={ws.blockers} />
+            <BlockerList small items={blockerItems(ws.blockers)} />
           </>
         ) : <p className="small ok">{t("Nothing: every source document comes from an approved run.")}</p>}
         {ws.warnings?.length ? (

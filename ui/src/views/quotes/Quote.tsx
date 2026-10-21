@@ -8,6 +8,7 @@ import {
   api, ApiError, type QuoteBlockerCode, type QuoteMatchAnswer, type QuoteProposal, type QuoteRequest,
   type QuoteRequestCandidate, type QuoteRequestPart, type QuoteView, type WorkpackageView,
 } from "../../api";
+import { BlockerList } from "../../components/BlockerList";
 import { Picker } from "../../components/Picker";
 import { t, useLocale } from "../../i18n";
 import { fieldLabel, numText, usdBudget, when } from "../../labels";
@@ -168,9 +169,8 @@ function MarkCell({ answer }: { answer: QuoteMatchAnswer }) {
 function Gaps({ view }: { view: QuoteView }) {
   useLocale();
   return (
-    <ul className="plain template-issues" aria-label={t("Gaps")}>
-      {view.blockers.map((b) => <li key={b.code} className="blocker"><span>{t(QUOTE_BLOCKER[b.code] ?? b.message)}</span></li>)}
-    </ul>
+    <BlockerList parts label={t("Gaps")}
+      items={view.blockers.map((b) => ({ key: b.code, content: <span>{t(QUOTE_BLOCKER[b.code] ?? b.message)}</span> }))} />
   );
 }
 

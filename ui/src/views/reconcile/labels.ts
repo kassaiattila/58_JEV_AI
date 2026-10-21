@@ -4,6 +4,7 @@ import type {
   ReconcileBlocker, ReconcileFlag, ReconcileFx, ReconcileGroupKind, ReconcileInvoiceResult, ReconcileLineResult, ReconcileLineState, ReconcileList,
   ReconcileRelation, ReconcileSignal, ReconcileWarning,
 } from "../../api";
+import { groupedBlockers } from "../../components/BlockerList";
 import { getLocale, t } from "../../i18n";
 import { tmap } from "../../labels";
 
@@ -128,11 +129,10 @@ export function blockerGroupText(code: string, n: number): string {
   }
 }
 
-/** 153 (review): the blockers by reason, in the order each reason first occurs. */
-export function blockerGroups(blockers: ReconcileBlocker[]): { code: string; items: ReconcileBlocker[] }[] {
-  const groups = new Map<string, ReconcileBlocker[]>();
-  for (const b of blockers) groups.set(b.code, [...(groups.get(b.code) ?? []), b]);
-  return [...groups].map(([code, items]) => ({ code, items }));
+/** 153 (review): the approval's blockers by reason, in the order each reason first occurs: a reason of several
+ *  documents is one line with its count, its documents below it (195: the shared blocker list). */
+export function blockerItems(blockers: ReconcileBlocker[]) {
+  return groupedBlockers(blockers, (b) => b.code, (b) => ({ key: `${b.code}:${b.doc_id}`, content: blockerText(b) }), blockerGroupText);
 }
 
 export function blockerText(b: ReconcileBlocker): string {

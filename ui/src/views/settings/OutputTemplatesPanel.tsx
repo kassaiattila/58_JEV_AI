@@ -10,6 +10,7 @@ import {
   api, ApiError, type OutputMarkerGroup, type OutputName, type OutputTemplate, type OutputTemplateCheck,
   type OutputTemplateIssue, type OutputTemplateState, type OutputTemplateVersion,
 } from "../../api";
+import { BlockerList } from "../../components/BlockerList";
 import { BrowseButton } from "../../components/BrowseButton";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";
@@ -57,15 +58,11 @@ export function issueText(code: string): string {
 function Issues({ items, warning }: { items: OutputTemplateIssue[]; warning?: boolean }) {
   useLocale();
   return (
-    <ul className="plain template-issues">
-      {items.map((p, i) => (
-        <li key={`${p.code}:${p.where}:${i}`} className={warning ? "warning" : "blocker"}>
-          {p.where ? <span className="mono">{p.where}</span> : null}
-          <span>{issueText(p.code)}</span>
-          <IssueDetail issue={p} />
-        </li>
-      ))}
-    </ul>
+    <BlockerList parts items={items.map((p, i) => ({ key: `${p.code}:${p.where}:${i}`, warning, content: <>
+        {p.where ? <span className="mono">{p.where}</span> : null}
+        <span>{issueText(p.code)}</span>
+        <IssueDetail issue={p} />
+      </> }))} />
   );
 }
 
