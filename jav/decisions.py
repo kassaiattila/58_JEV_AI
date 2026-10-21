@@ -37,11 +37,11 @@ import threading
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from jav import store, work
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 store.register_schema("decisions", """
 CREATE TABLE IF NOT EXISTS decision_journal (
@@ -85,10 +85,6 @@ def register(kind: Kind) -> None:
 def kinds() -> list[Kind]:
     """In the order they were registered."""
     return list(_KINDS.values())
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def record(c: sqlite3.Connection, kind: str, key: str, action: str, *, actor: str, value: Any = None,

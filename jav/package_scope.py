@@ -37,11 +37,11 @@ import json
 import sqlite3
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any
 
 from jav import activity_kinds, logic_packs, scopes, store, work
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 # 181: the actions this module records in a package's log (`jav/activity_kinds.py`)
 activity_kinds.register_events("package", ("scope_set", "scope_clear"), __name__)
@@ -161,10 +161,6 @@ def place(doc_type: str | None, values: dict[str, Any], cache: dict[str, Any] | 
         if found is not None:
             return found
     return None
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _shown(scope: dict[str, Any], origin: str) -> dict[str, Any]:

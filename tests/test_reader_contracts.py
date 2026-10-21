@@ -6,7 +6,7 @@ import socket
 import pytest
 from pydantic import ValidationError
 
-from jav.readers.contracts import ContractError, ParseAttempt, SourceBundle, canonical_bytes, read_bundle, verify_evidence
+from jav.readers.contracts import SourceContractError, ParseAttempt, SourceBundle, canonical_bytes, read_bundle, verify_evidence
 from tests.reader_samples import raw_evidence_payload, sample_bundles, synthetic_payloads
 
 
@@ -82,7 +82,7 @@ def test_manifest_rejects_false_completeness_and_broken_references(mutation):
         next(item for item in manifest["occurrences"] if item["occurrence_id"] == "missing")["issues"] = []
     else:
         manifest["inventories"][0]["expected_children"] = None
-    with pytest.raises((ValidationError, ContractError)):
+    with pytest.raises((ValidationError, SourceContractError)):
         read_bundle(json.dumps(value).encode())
 
 
@@ -102,7 +102,7 @@ def test_result_rejects_broken_structural_or_source_links(mutation):
         result["elements"][1]["locator"]["cell"] = "B2"
     else:
         result["raw_evidence"]["reader_key"] = "b" * 64
-    with pytest.raises((ValidationError, ContractError)):
+    with pytest.raises((ValidationError, SourceContractError)):
         read_bundle(json.dumps(value).encode())
 
 
@@ -130,7 +130,7 @@ def test_model_is_deeply_immutable_and_result_changes_invalidate_digest():
 @pytest.mark.parametrize("payload", [b"{}" * 1_100_000, b'[' * 1100 + b']' * 1100, b'{"schema_version":NaN}'],
                          ids=["oversize", "too_deep", "non_finite"])
 def test_external_input_limits_are_named_errors(payload):
-    with pytest.raises(ContractError):
+    with pytest.raises(SourceContractError):
         read_bundle(payload)
 
 
@@ -167,12 +167,12 @@ def test_evidence_loading_checks_source_and_payload_without_rereading():
     evidence = raw_evidence_payload(result, name)
     verify_evidence(result.raw_evidence, source, evidence)
     for altered_source, altered_evidence in [(source + b" ", evidence), (source, evidence + b" ")]:
-        with pytest.raises(ContractError):
+        with pytest.raises(SourceContractError):
             verify_evidence(result.raw_evidence, altered_source, altered_evidence)
 
 
 def test_duplicate_json_keys_are_not_silently_discarded():
-    with pytest.raises(ContractError):
+    with pytest.raises(SourceContractError):
         read_bundle(b'{"schema_version":"a","schema_version":"b"}')
 
 

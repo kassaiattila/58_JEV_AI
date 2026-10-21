@@ -36,13 +36,14 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from jav import activity_kinds, card_numbers, corrections, export, logic_packs, package_result, store, work
 from jav.outputs import parts, templates
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
 activity_kinds.register_events("package", ("package_release",), __name__)
@@ -156,10 +157,6 @@ store.register_migration("package_release", _migrate)
 
 class ReleaseError(ValueError):
     """The package cannot be released this way (a reconciliation package, nothing new to release)."""
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 # --- the package's result and its mark ---------------------------------------------------------------------------

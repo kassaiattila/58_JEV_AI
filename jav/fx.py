@@ -28,12 +28,13 @@ import contextvars
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any, Callable, Iterable, Iterator
 from xml.sax.saxutils import escape
 
 from jav import cfg, store
+from jav.clock import utc_now as _now
 
 Transport = Callable[[str, bytes, dict[str, str], float], bytes]
 _SOAP_NS = "http://schemas.xmlsoap.org/soap/envelope/"
@@ -86,10 +87,6 @@ def _conf() -> dict[str, Any]:
 
 def config_hash() -> str:
     return cfg.config_hash("fx")
-
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 # --- the transport (a test installs a stand-in) --------------------------------------------------------------------

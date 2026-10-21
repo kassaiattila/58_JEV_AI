@@ -37,13 +37,13 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import Counter
-from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Iterable
 
 from jav import activity_kinds, cfg, decisions, naming, package_release, reconcile, reconcile_package as rp, store, work
 from jav.outputs import builtin, contract, templates
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
 activity_kinds.register_events("package", ("reconcile_approve", "reconcile_reopen", "reconcile_accept_sources"), __name__)
@@ -66,10 +66,6 @@ _INVOICE_FACTS = ("number", "supplier_name", "supplier_tax_id", "issue_date", "f
 _LINE_FACTS = ("account", "statement_type", "currency", "booking_date", "value_date", "direction", "amount",
                "original_amount", "original_currency", "counterparty_name", "counterparty_account", "memo", "description",
                "bank_reference", "card_number", "purchase_date", "file", "statement_verified")
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _money(value: Any) -> Decimal | None:

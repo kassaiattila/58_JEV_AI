@@ -37,6 +37,7 @@ from jav import store, work
 from jav.native_contracts import DOCUMENT_SUFFIXES
 from jav.runtime import lock
 from jav.user_messages import explained
+from jav.clock import utc_now as _now
 
 log = logging.getLogger("jav.folders")
 
@@ -92,10 +93,6 @@ SUFFIXES = DOCUMENT_SUFFIXES
 OUTPUT_FOLDER_KEY = "output_folder"
 SETTLE_S = 10  # a file modified more recently than this may still be being written: it waits for the next scan
 DEFAULT_INTERVAL_MIN = 15
-
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 def _iso(t: datetime) -> str:

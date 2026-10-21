@@ -26,7 +26,7 @@ Label = Annotated[str, Field(min_length=1, max_length=512)]
 Text = Annotated[str, Field(max_length=100_000)]
 
 
-class ContractError(ValueError):
+class SourceContractError(ValueError):
     """External source-contract data exceeded a bound or was not valid JSON."""
 
 
@@ -402,9 +402,9 @@ class EvidenceRef(ContractModel):
 def verify_evidence(reference: EvidenceRef, source: bytes, evidence: bytes) -> None:
     """Check already bounded bytes; never invoke a parser to recreate evidence."""
     if hashlib.sha256(source).hexdigest() != reference.source_sha256:
-        raise ContractError("Frozen source content does not match the evidence reference")
+        raise SourceContractError("Frozen source content does not match the evidence reference")
     if len(evidence) != reference.byte_size or hashlib.sha256(evidence).hexdigest() != reference.sha256:
-        raise ContractError("Frozen raw evidence does not match its reference")
+        raise SourceContractError("Frozen raw evidence does not match its reference")
 
 
 class ParsedDocument(ContractModel):
@@ -505,7 +505,7 @@ class SourceBundle(ContractModel):
         """Expose received but unattempted content instead of implying success."""
         occurrence = next((item for item in self.manifest.occurrences if item.occurrence_id == occurrence_id), None)
         if occurrence is None:
-            raise ContractError("Unknown source occurrence")
+            raise SourceContractError("Unknown source occurrence")
         if occurrence.acquisition in ("missing", "excluded"):
             return "unavailable"
         attempts = [result for result in self.results if result.attempt.occurrence_id == occurrence_id]
@@ -531,28 +531,28 @@ class Parser(Protocol):
 def read_bundle(payload: bytes) -> SourceBundle:
     """Validate a bounded external envelope before exposing its structured data."""
     if len(payload) > MAX_CONTRACT_BYTES:
-        raise ContractError("Source contract exceeds the byte bound")
+        raise SourceContractError("Source contract exceeds the byte bound")
 
     def reject_constant(value: str) -> None:
-        raise ContractError(f"Non-finite JSON value: {value}")
+        raise SourceContractError(f"Non-finite JSON value: {value}")
 
     def unique_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
         value = dict(pairs)
         if len(value) != len(pairs):
-            raise ContractError("Duplicate JSON keys are ambiguous")
+            raise SourceContractError("Duplicate JSON keys are ambiguous")
         return value
 
     try:
         value = json.loads(payload.decode("utf-8"), parse_constant=reject_constant, object_pairs_hook=unique_keys)
     except (ValueError, UnicodeError, RecursionError) as exc:
-        raise ContractError("Source contract is not bounded UTF-8 JSON") from exc
+        raise SourceContractError("Source contract is not bounded UTF-8 JSON") from exc
     pending = [(value, 0)]
     visited = 0
     while pending:
         item, depth = pending.pop()
         visited += 1
         if visited > MAX_CONTRACT_NODES or depth > MAX_CONTRACT_DEPTH:
-            raise ContractError("Source contract exceeds the shape bound")
+            raise SourceContractError("Source contract exceeds the shape bound")
         if isinstance(item, dict):
             pending.extend((child, depth + 1) for child in item.values())
         elif isinstance(item, list):

@@ -123,9 +123,9 @@ def test_the_owner_of_each_account_is_shown(db):
 
 def test_the_survey_refuses_a_wrong_party_or_period(db):
     folder = _folder(db)
-    with pytest.raises(sp.PackageError):
+    with pytest.raises(sp.StatementPackageError):
         _survey(folder, "party-000000000000")
-    with pytest.raises(sp.PackageError):
+    with pytest.raises(sp.StatementPackageError):
         _survey(folder, _party(), start="2026-07-01", end="2026-06-30")
 
 
@@ -154,11 +154,11 @@ def test_creating_refuses_an_empty_choice_or_a_statement_the_files_no_longer_hol
     folder = _folder(db)
     args = {"name": "x", "party_id": party, "period_start": "2026-05-01", "period_end": "2026-06-30", "paths": [folder],
             "actor": "tester"}
-    with pytest.raises(sp.PackageError):
+    with pytest.raises(sp.StatementPackageError):
         sp.create(statements=[], pdfs=[], **args)
-    with pytest.raises(sp.PackageError):
+    with pytest.raises(sp.StatementPackageError):
         sp.create(statements=["0" * 64], pdfs=[], **args)
-    with pytest.raises(sp.PackageError):  # only a PDF the survey listed
+    with pytest.raises(sp.StatementPackageError):  # only a PDF the survey listed
         sp.create(statements=[], pdfs=[str(folder / "pdf" / f"20260630_{DIGITS}_S.pdf")], **args)
     assert work.list_workpackages() == []
 

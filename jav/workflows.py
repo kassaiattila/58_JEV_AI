@@ -48,6 +48,7 @@ from typing import Any
 from jav import (activity_kinds, app_settings, cfg, logic_packs, package_scope, parties, scopes, store, work,
                  workflow_steps)
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 # 175 (plan 170 E4): the actions a workflow's log records (`jav/activity_kinds.py`)
 activity_kinds.register_events("workflow", ("create", "update", "budget", "link", "pull", "pull_interrupted", "package", "run",
@@ -202,10 +203,6 @@ def register() -> None:
 
 class WorkflowError(ValueError):
     """A workflow request that cannot be met: an unknown template, step or source, or a step in the wrong state."""
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def auto_actor(actor: str) -> str:

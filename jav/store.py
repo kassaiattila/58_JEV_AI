@@ -11,11 +11,11 @@ import json
 import sqlite3
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterator
 
 from jav.config import STORE_PATH
+from jav.clock import utc_stamp as _now
 
 SCHEMA_VERSION = 1
 _scoped_path: ContextVar[Path | None] = ContextVar("jav_scoped_store", default=None)
@@ -229,10 +229,6 @@ def register_migration(name: str, fn: Any) -> None:
 def register_schema(name: str, ddl: str) -> None:
     """A module's own tables (e.g. jav.runtime.queue); runs idempotently when connecting (CREATE ... IF NOT EXISTS)."""
     _EXTRA_SCHEMAS[name] = ddl
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _json(v: Any) -> str:

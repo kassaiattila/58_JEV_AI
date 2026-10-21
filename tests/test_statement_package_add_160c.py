@@ -48,7 +48,7 @@ def test_the_packages_survey_marks_what_it_holds_and_the_add_takes_the_rest(db):
     assert len(wp["items"]) == len(before["items"]) + 1 and june["id"] in {i["item_id"] for i in wp["items"]}
     event = work.workpackage_events(wp_id)[-1]
     assert (event["action"], event["actor"], json.loads(event["detail"])) == ("statement_add", "tester", {"statements": 1, "pdfs": 0})
-    with pytest.raises(sp.PackageError, match="already"):
+    with pytest.raises(sp.StatementPackageError, match="already"):
         sp.add(wp_id, paths=[folder], statements=[june["id"]], pdfs=[], expected_revision=wp["revision"], actor="tester")
 
 

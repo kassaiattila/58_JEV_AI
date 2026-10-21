@@ -24,7 +24,6 @@ import sqlite3
 import uuid
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -33,6 +32,7 @@ from jav import activity_kinds, cfg, item_kinds, logic_packs, source_instances, 
 from jav.native_contracts import DOCUMENT_SUFFIXES, NATIVE_SUFFIXES
 from jav.runtime import calls, flows, queue
 from jav.user_messages import explained
+from jav.clock import utc_stamp as _now
 
 JOB_KIND = "run_item"
 
@@ -172,10 +172,6 @@ class RetiredRecipe(ValueError):
 class SourceChanged(ValueError):
     """167 (review R-7): a document's copy had to be made again while it was added, and the original no longer has
     the content first copied; nothing was added (in the UI: 422)."""
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _pinned_run(c: sqlite3.Connection, run_id: str) -> bool:

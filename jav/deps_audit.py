@@ -23,11 +23,12 @@ import shutil
 import subprocess
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from jav.config import PROJECT_ROOT
+from jav.clock import utc_now as _now
 
 STATUS_PATH = PROJECT_ROOT / "runs" / "deps-audit.json"
 MAX_AGE_DAYS = 7
@@ -45,10 +46,6 @@ class Finding:
     advisory: str
     severity: str | None = None
     fix: str | None = None
-
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 def _pip_audit_cmd() -> list[str] | None:

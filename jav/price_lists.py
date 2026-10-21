@@ -24,7 +24,6 @@ import io
 import json
 import re
 import secrets
-from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import PurePath
 from typing import Any
@@ -33,6 +32,7 @@ from pydantic import BaseModel, ConfigDict
 
 from jav import cfg, store
 from jav.numbers import AmbiguousNumber, read_input
+from jav.clock import utc_stamp as _now
 
 CONFIG = "price_lists"
 STATES = ("draft", "active", "superseded", "retired")
@@ -126,10 +126,6 @@ class PriceListStateError(ValueError):
 
 def config() -> dict[str, Any]:
     return cfg.load(CONFIG)
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _problem(code: str, where: str = "", detail: str = "") -> dict[str, str]:
