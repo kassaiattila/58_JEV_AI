@@ -67,6 +67,7 @@ Every text pair above reaches at least 4.5:1 contrast in both themes (the lowest
 - **Small text and figures.** `<small>` is 12 px like `.small` (the browser's own “smaller” gave 10.8 px). A date or an amount outside a table cell takes `.tnum` (tabular figures in the text face), never `.mono`.
 - **Links drawn as buttons** (`a.primary`, `a.secondary`) keep the button's look: no underline, and no accent text on hover.
 - **Confidence colours on the page image.** Confident green, to check orange (a person's to-do), likely wrong red, entered by a person blue, unknown grey. The scanned page stays white paper in the dark theme too, so its frames keep the light-theme values there.
+- **Where a style lives** (195). A page's own stylesheet (`reconcile.css`, `parties.css`, `native.css`) loads with the page, since the rarely used pages load on first use; a class two kinds of page share (the stacked cards `.rc-stack`, the period fields `.rc-period`) belongs in `ui/src/styles.css`, at its end when it used to follow a page's rules, so that the order of the rules stays as it was.
 
 ## 5. Tables
 

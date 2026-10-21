@@ -4,6 +4,7 @@
 // service (the list column shows the same).
 import { useEffect, useState, type ReactNode } from "react";
 import { api, ApiError, USERS_EVENT, type WorkpackageView } from "../api";
+import { lazyPage } from "../components/LazyPage";
 import { PageHeader } from "../components/PageHeader";
 import { Picker } from "../components/Picker";
 import { useEvent, useLoad } from "../hooks";
@@ -14,12 +15,13 @@ import { go, type Route, type Stage } from "../route";
 import { PackageItemsPanel } from "./PackageItems";
 import { ProcessStage } from "./ProcessStage";
 import { scopeText } from "./PackageScope";
-import { RoutingOffer } from "./routing/Routing";
 import { ResultStage } from "./ResultStage";
 import { ReviewWorkspace } from "./ReviewWorkspace";
 import { StartConfirm } from "./StartConfirm";
 import { WorkpackageActions } from "./WorkpackageActions";
 
+// 195 (plan G-tidy R5): the routing offer (a mailbox package's result) loads with the routing pages
+const RoutingOffer = lazyPage(() => import("./routing/Routing").then((m) => m.RoutingOffer));
 const STAGE_LABEL = tmap({ process: "Feldolgozás", review: "Ellenőrzés", result: "Eredmény" }) as Record<Stage, string>;
 // 181: a released package's release state on the stage bar, as its release line says it
 const RELEASE_STATE = tmap({ released: "released", partly_released: "partly released",

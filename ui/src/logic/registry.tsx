@@ -5,13 +5,19 @@
 import type { ReactNode } from "react";
 import type { QuoteEmailPart, Workpackage, WorkpackageView } from "../api";
 import { t } from "../i18n";
+import { lazyPage } from "../components/LazyPage";
 import { tmap } from "../labels";
 import type { Stage } from "../route";
-import { quoteStatus, QuoteStages, quoteSummary } from "../views/quotes/Quote";
-import { QuoteOnEmail } from "../views/quotes/QuoteOnEmail";
-import { ReconcileStages } from "../views/reconcile/ReconcileStages";
-import { routingStatus, routingSummary, RoutingStages } from "../views/routing/Routing";
-import { StatementPackagePanel } from "../views/StatementPackagePanel";
+import { quoteStatus, quoteSummary } from "../views/quotes/quoteStatus";
+import { routingStatus, routingSummary } from "../views/routing/routingStatus";
+
+// 195 (plan G-tidy R5): a logic pack's own pages load when a package of its kind is first opened; its status lines
+// and summary, which the package list shows too, are in small modules of their own
+const QuoteOnEmail = lazyPage(() => import("../views/quotes/QuoteOnEmail").then((m) => m.QuoteOnEmail));
+const QuoteStages = lazyPage(() => import("../views/quotes/Quote").then((m) => m.QuoteStages));
+const ReconcileStages = lazyPage(() => import("../views/reconcile/ReconcileStages").then((m) => m.ReconcileStages));
+const RoutingStages = lazyPage(() => import("../views/routing/Routing").then((m) => m.RoutingStages));
+const StatementPackagePanel = lazyPage(() => import("../views/StatementPackagePanel").then((m) => m.StatementPackagePanel));
 
 export type LogicUi = {
   /** A package without runs shows its own stages instead of Processing, Review and Result. */

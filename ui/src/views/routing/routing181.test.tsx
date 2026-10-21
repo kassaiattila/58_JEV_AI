@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, setActor, type RoutingItem, type RoutingView, type WorkpackageView } from "../../api";
 import { setLanguage } from "../../i18n";
 import { logicOf } from "../../logic/registry";
-import { RoutingStages, routingStatus } from "./Routing";
+import { RoutingStages } from "./Routing";
+import { routingStatus } from "./routingStatus";
 
 const EMAIL = { item_id: "e1", subject: "June invoice", sender: "billing@example.com", received_at: "2026-06-20T10:00:00", folder: "inbox" };
 

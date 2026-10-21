@@ -12,7 +12,7 @@ import { Picker } from "../../components/Picker";
 import { t, useLocale } from "../../i18n";
 import { fieldLabel, numText, usdBudget, when } from "../../labels";
 import type { Stage } from "../../route";
-import { amountText, QuoteApprovalStage, QuoteCompose } from "./QuoteEditor";
+import { QuoteApprovalStage, QuoteCompose } from "./QuoteEditor";
 
 export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
   "quote:request_missing": "The request can no longer be read: it was removed from its package, or it is no longer read as a quote request",
@@ -23,35 +23,6 @@ export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
 
 const partKind = (p: QuoteRequestPart) =>
   ({ email_text: t("the email's text"), attachment: t("attachment"), document: t("document") })[p.kind] ?? p.kind;
-
-/** The stages' status lines and the package's summary (`ui/src/logic/registry.tsx`). */
-export function quoteStatus(view: WorkpackageView): Record<Stage, string> | null {
-  const q = view.quote;
-  if (!q) return null;
-  const d = q.draft;
-  const active = d.approval.active;
-  let review = q.blockers.length ? t("{{n}} gap(s) to clear first", { n: q.blockers.length }) : t("ready to compose");
-  if (active) review = t("approved");
-  else if (d.draft) review = d.blockers.length ? t("{{n}} line(s), {{m}} to settle", { n: d.lines.length, m: d.blockers.length })
-    : t("{{n}} line(s), ready", { n: d.lines.length });
-  let result = t("not approved yet");
-  if (active) result = t("approved: version {{n}}", { n: active.version });
-  else if (d.totals && !d.blockers.length) {
-    result = t("{{gross}} {{currency}} gross, to approve", { gross: amountText(d.totals.gross, d.currency), currency: d.currency ?? "" });
-  }
-  return {
-    process: q.request ? t("{{n}} part(s), {{m}} requested item(s)", { n: q.request.parts.length, m: q.request.items.length })
-      : t("the request cannot be read"),
-    review, result,
-  };
-}
-
-export function quoteSummary(view: WorkpackageView): string | null {
-  const r = view.quote?.request;
-  if (!r) return view.quote ? t("Quote from a request that can no longer be read") : null;
-  const customer = r.fields.customer_name ? String(r.fields.customer_name) : null;
-  return customer ? t("Quote for {{customer}}: {{title}}", { customer, title: r.title }) : t("Quote: {{title}}", { title: r.title });
-}
 
 export function QuoteStages({ view, stage, onChanged }: { view: WorkpackageView; stage: Stage; onChanged: () => void }) {
   useLocale();

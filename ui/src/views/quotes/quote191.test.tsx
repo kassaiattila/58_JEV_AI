@@ -9,7 +9,8 @@ import { setLanguage } from "../../i18n";
 import { LOGIC } from "../../logic/registry";
 import { hasOwnForm } from "../../logic/steps";
 import { stepLabel } from "../../labels";
-import { QUOTE_BLOCKER, QuoteCreate, quoteStatus, QuoteStages } from "./Quote";
+import { QUOTE_BLOCKER, QuoteCreate, QuoteStages } from "./Quote";
+import { quoteStatus } from "./quoteStatus";
 
 beforeEach(async () => { await setLanguage("en"); setActor("Synthetic reviewer"); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });

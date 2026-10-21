@@ -43,22 +43,6 @@ function placementText(item: RoutingItem): string {
   return [p.role_title ? t(p.role_title) : null, p.party, p.day].filter(Boolean).join(" · ");
 }
 
-/** The stages' status line and the package's summary (`ui/src/logic/registry.tsx`). */
-export function routingStatus(view: WorkpackageView): Record<Stage, string> | null {
-  const r = view.routing;
-  if (!r) return null;
-  return {
-    process: t("{{n}} email package(s), {{m}} attachment(s)", { n: r.sources.length, m: r.counts.attachments }),
-    review: r.counts.routable - r.counts.decided ? t("{{n}} to decide", { n: r.counts.routable - r.counts.decided }) : t("every document decided"),
-    result: t("{{n}} routed", { n: r.counts.accepted }),
-  };
-}
-
-export function routingSummary(view: WorkpackageView): string | null {
-  const r = view.routing;
-  return r ? t("Routing of {{n}} email package(s): {{m}} document(s) to route", { n: r.sources.length, m: r.counts.routable }) : null;
-}
-
 export function RoutingStages({ view, stage, onChanged }: { view: WorkpackageView; stage: Stage; onChanged: () => void }) {
   useLocale();
   const r = view.routing;

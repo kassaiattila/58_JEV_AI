@@ -1,0 +1,45 @@
+// 195 (plan G-tidy R5): a quote package's status lines and summary, which the package list and the package's page
+// show for every quote package, apart from the quote's pages, which load only when one is opened
+// (`ui/src/logic/registry.tsx`). The amount's form is shared with the quote's editor.
+import type { WorkpackageView } from "../../api";
+import { getLocale, t } from "../../i18n";
+import type { Stage } from "../../route";
+
+/** An amount in the quote's currency: forints whole, others to cents (as the pricing rounds), grouped. */
+export function amountText(v: string | null | undefined, currency: string | null): string {
+  if (v === null || v === undefined || v === "") return "";
+  const n = Number(v);
+  const digits = currency === "HUF" ? 0 : 2;
+  return Number.isFinite(n)
+    ? n.toLocaleString(getLocale(), { minimumFractionDigits: digits, maximumFractionDigits: Math.max(digits, 2), useGrouping: "always" } as unknown as Intl.NumberFormatOptions)
+    : String(v);
+}
+
+/** The stages' status lines and the package's summary (`ui/src/logic/registry.tsx`). */
+export function quoteStatus(view: WorkpackageView): Record<Stage, string> | null {
+  const q = view.quote;
+  if (!q) return null;
+  const d = q.draft;
+  const active = d.approval.active;
+  let review = q.blockers.length ? t("{{n}} gap(s) to clear first", { n: q.blockers.length }) : t("ready to compose");
+  if (active) review = t("approved");
+  else if (d.draft) review = d.blockers.length ? t("{{n}} line(s), {{m}} to settle", { n: d.lines.length, m: d.blockers.length })
+    : t("{{n}} line(s), ready", { n: d.lines.length });
+  let result = t("not approved yet");
+  if (active) result = t("approved: version {{n}}", { n: active.version });
+  else if (d.totals && !d.blockers.length) {
+    result = t("{{gross}} {{currency}} gross, to approve", { gross: amountText(d.totals.gross, d.currency), currency: d.currency ?? "" });
+  }
+  return {
+    process: q.request ? t("{{n}} part(s), {{m}} requested item(s)", { n: q.request.parts.length, m: q.request.items.length })
+      : t("the request cannot be read"),
+    review, result,
+  };
+}
+
+export function quoteSummary(view: WorkpackageView): string | null {
+  const r = view.quote?.request;
+  if (!r) return view.quote ? t("Quote from a request that can no longer be read") : null;
+  const customer = r.fields.customer_name ? String(r.fields.customer_name) : null;
+  return customer ? t("Quote for {{customer}}: {{title}}", { customer, title: r.title }) : t("Quote: {{title}}", { title: r.title });
+}

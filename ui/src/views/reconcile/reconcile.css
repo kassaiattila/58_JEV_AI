@@ -3,8 +3,6 @@
    156 (redesign): no side stripes — a state is a small mark in its own colour before its label (DESIGN.md §4), a
    selected row or card has a firm border; amounts use tabular figures in the text face, not monospace; no label below
    12 px and no uppercase micro-labels. */
-.rc-stack { display: grid; gap: var(--sp-4); }
-.rc-stack .card { max-width: none; margin: 0; }
 .rc-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
 .rc-toolbar .spacer { flex: 1 1 auto; }
 .rc-toolbar input[type="search"], .rc-pane-head input[type="search"] {
@@ -107,8 +105,6 @@
 
 .rc-accounts { display: grid; gap: 6px; }
 .rc-accounts label { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; align-items: start; cursor: pointer; }
-.rc-period { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
-.rc-period input[type="date"] { border: 1px solid var(--line); border-radius: var(--r-md); padding: 6px 8px; background: var(--paper); }
 .rc-cov td { text-align: center; font-variant-numeric: tabular-nums; }
 .rc-cov td.ok { color: var(--ok); }
 .rc-cov td.warn { color: var(--warn); }
@@ -253,4 +249,3 @@
 .rc-qr-lines td.rc-qr-memo { max-width: 28em; overflow-wrap: anywhere; }
 .rc-qr-lines td.rc-qr-num { white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* 156: a button standing alone in a card keeps its own width (a grid item would stretch across the card) */
-.rc-stack .card > button { justify-self: start; }

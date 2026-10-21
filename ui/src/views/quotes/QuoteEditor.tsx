@@ -14,9 +14,10 @@ import { ApprovalPanel, EarlierVersions } from "../../components/ApprovalPanel";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";
 import { Picker, type PickerOption } from "../../components/Picker";
-import { getLocale, t, useLocale } from "../../i18n";
+import { t, useLocale } from "../../i18n";
 import { fieldLabel, numText, when } from "../../labels";
 import { wpHash } from "../../route";
+import { amountText } from "./quoteStatus";
 
 export const QUOTE_LINE_BLOCKER: Record<QuoteDraftBlockerCode, string> = {
   "quote:line_no_item": "No item: choose a price list item, or give a price of your own with a note",
@@ -39,15 +40,6 @@ const EDITED = ["quantity", "unit_price", "discount_percent", "description", "un
 type Edited = (typeof EDITED)[number];
 type Line = QuoteDraftView["lines"][number];
 
-/** An amount in the quote's currency: forints whole, others to cents (as the pricing rounds), grouped. */
-export function amountText(v: string | null | undefined, currency: string | null): string {
-  if (v === null || v === undefined || v === "") return "";
-  const n = Number(v);
-  const digits = currency === "HUF" ? 0 : 2;
-  return Number.isFinite(n)
-    ? n.toLocaleString(getLocale(), { minimumFractionDigits: digits, maximumFractionDigits: Math.max(digits, 2), useGrouping: "always" } as unknown as Intl.NumberFormatOptions)
-    : String(v);
-}
 const quantityText = (v: unknown) => (v === null || v === undefined || v === "" ? "" : numText(v, 4));
 const requestedText = (r: QuoteDraftLine["requested"]) =>
   r ? [r.description, [quantityText(r.quantity), r.unit].filter(Boolean).join(" ")].filter(Boolean).join(" · ") : "";

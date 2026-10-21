@@ -7,15 +7,18 @@ import { useActor, useEvent, useHash, useLoad } from "./hooks";
 import { t, useLocale } from "./i18n";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LanguageSwitch } from "./components/LanguageSwitch";
+import { lazyPage } from "./components/LazyPage";
 import { Picker } from "./components/Picker";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { parseRoute } from "./route";
-import { Activity } from "./views/Activity";
-import { LegacyResult } from "./views/LegacyResult";
 import { RunDetail } from "./views/Runs";
-import { Settings } from "./views/Settings";
 import { Workpackages } from "./views/Workpackages";
-import { Workflows } from "./views/workflows/Workflows";
+
+// 195 (plan G-tidy R5): the pages away from the daily work load when they are first opened
+const Activity = lazyPage(() => import("./views/Activity").then((m) => m.Activity));
+const LegacyResult = lazyPage(() => import("./views/LegacyResult").then((m) => m.LegacyResult));
+const Settings = lazyPage(() => import("./views/Settings").then((m) => m.Settings));
+const Workflows = lazyPage(() => import("./views/workflows/Workflows").then((m) => m.Workflows));
 
 // the label is the Hungarian source, translated at render time (058: the rail is wide enough for the label to fit
 // without hyphenation)

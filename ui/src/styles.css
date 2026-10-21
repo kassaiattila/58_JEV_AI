@@ -1023,3 +1023,12 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .quote-on-email-head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .quote-on-email-head h3 { margin: 0; }
 .quote-on-email .table { font-size: var(--fs-xs); }
+/* 195 (plan G-tidy R5): the stacked cards and the period fields, shared by the reconciliation, the routing, the quote,
+   the statement package, the bank files, the new work wizard and a package's scope. They stood in reconcile.css, which
+   every page had while all the styles were one file; now that the reconciliation's styles load with its pages, they
+   are here, after every other shared rule, as they were after them before. */
+.rc-stack { display: grid; gap: var(--sp-4); }
+.rc-stack .card { max-width: none; margin: 0; }
+.rc-stack .card > button { justify-self: start; }
+.rc-period { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.rc-period input[type="date"] { border: 1px solid var(--line); border-radius: var(--r-md); padding: 6px 8px; background: var(--paper); }

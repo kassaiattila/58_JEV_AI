@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { DataTable, linkOf } from "../components/DataTable";
+import { lazyPage } from "../components/LazyPage";
 import { PageHeader } from "../components/PageHeader";
 import { useActor } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { RUN_STATUS, stepLabel } from "../labels";
 import { go, type Route } from "../route";
 import { WorkpackageDetail } from "./WorkpackageDetail";
-import { NewWork } from "./workflows/NewWork";
+
+// 195 (plan G-tidy R5): the new work wizard and its forms load when it is first opened
+const NewWork = lazyPage(() => import("./workflows/NewWork").then((m) => m.NewWork));
 
 export function Workpackages({ route }: { route: Extract<Route, { view: "workpackages" }> }) {
   if (route.wpId) return <WorkpackageDetail route={route} wpId={route.wpId} />;
