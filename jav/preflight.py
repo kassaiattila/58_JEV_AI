@@ -1,6 +1,7 @@
 """Session-start check in one command (`python -m jav.cli preflight`), without API calls.
 
-Steps: pytest (subprocess) → type check and tests of the UI (`ui/`, if installed) → Burr contract lint → config
+Steps: pytest (subprocess; 189: in several processes with pytest-xdist) and, at the same time, the type check and tests
+of the UI (`ui/`, if installed) → Burr contract lint → config
 versions + hash → handoff freshness (docs/handoffs/, only a notice since 040) → git state → data guard (071) →
 language guard (073) → dependency audit age and findings (075) → Ruff ratchet (`pyproject.toml` `max_findings`) → regeneration of `docs/STATE.md` (the control
 screen, written to a file). Exit code 0 = everything green. The session protocol (CLAUDE.md §2) asks for this first;
@@ -9,11 +10,14 @@ the handoff only references STATE.md, it does not copy it.
 
 from __future__ import annotations
 
+import importlib.util
+import os
 import re
 import shutil
 import subprocess
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -30,6 +34,18 @@ _NUM = re.compile(r"^(\d{3})-\d{4}-\d{2}-\d{2}-handoff\.md$")
 PREFLIGHT_RUNS = PROJECT_ROOT / "runs" / "preflight"
 KEEP_LOGS = 20
 _LOG_DIR = re.compile(r"^\d{8}_\d{6}$")
+# 189: pytest-xdist runs the tests in this many processes at most (the full suite took 30 min in one, under 5 in six)
+MAX_TEST_WORKERS = 6
+SLOWEST_SHOWN = 25  # the slowest tests listed in the raw output, so a new time sink shows
+
+
+def parallel_workers() -> int:
+    """189: how many processes run the tests at once: every core but two (the UI checks run beside them), at most
+    `MAX_TEST_WORKERS`; 0 means one process, as before (pytest-xdist not installed, or too few cores to gain)."""
+    if importlib.util.find_spec("xdist") is None:
+        return 0
+    workers = min(MAX_TEST_WORKERS, (os.cpu_count() or 1) - 2)
+    return workers if workers >= 2 else 0
 
 
 def log_folder() -> Path:
@@ -44,8 +60,12 @@ def run_pytest(folder: Path | None = None) -> tuple[bool, str]:
     an intermittent failure could not be identified from the summary line alone). 092 (audit T1): the raw output and a
     JUnit file are kept under `runs/preflight/<timestamp>/` (the latest `KEEP_LOGS`); a failure names the folder."""
     folder = folder or log_folder()
+    workers = parallel_workers()
+    # 189: in several processes, each free test going to the first idle one, and with the slowest tests listed
+    parallel = ["-n", str(workers), "--dist", "worksteal"] if workers else []
     r = subprocess.run(
-        [sys.executable, "-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider", "-rfE", f"--junitxml={folder / 'junit.xml'}"],
+        [sys.executable, "-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider", "-rfE", *parallel,
+         f"--durations={SLOWEST_SHOWN}", f"--junitxml={folder / 'junit.xml'}"],
         cwd=PROJECT_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
     (folder / "pytest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")
@@ -114,6 +134,15 @@ def run_ui_checks(folder: Path | None = None) -> tuple[bool, str] | None:
     return r.returncode == 0, summary
 
 
+def run_tests(folder: Path) -> tuple[tuple[bool, str], tuple[bool, str] | None]:
+    """189: pytest and the UI checks at the same time (both are subprocesses, each waited for in its own thread), their
+    raw outputs in the same folder: (pytest's result, the UI's result or None when it is not installed)."""
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        tests = pool.submit(run_pytest, folder)
+        ui = pool.submit(run_ui_checks, folder)
+        return tests.result(), ui.result()
+
+
 def latest_handoff() -> tuple[Path | None, int]:
     files = sorted((p for p in HANDOFFS.glob("*-handoff.md") if _NUM.match(p.name)), key=lambda p: p.name)
     return (files[-1], int(_NUM.match(files[-1].name).group(1))) if files else (None, 0)
@@ -179,10 +208,8 @@ def preflight(*, skip_pytest: bool = False) -> int:
     results: list[tuple[str, bool, str]] = []
 
     if not skip_pytest:
-        folder = log_folder()
-        ok, summary = run_pytest(folder)
+        (ok, summary), ui = run_tests(log_folder())
         results.append(("pytest", ok, summary))
-        ui = run_ui_checks(folder)
         results.append(("felület", ui[0], ui[1]) if ui else ("felület", True, "kihagyva (ui/node_modules nincs telepítve)"))
 
     lint = flow_lint_summary()

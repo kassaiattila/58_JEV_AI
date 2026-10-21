@@ -21,6 +21,18 @@ SCHEMA_VERSION = 1
 _scoped_path: ContextVar[Path | None] = ContextVar("jav_scoped_store", default=None)
 _read_only: ContextVar[bool] = ContextVar("jav_read_only_store", default=False)
 
+# 189: how firmly SQLite puts a write on disk before it returns (`PRAGMA synchronous`). None keeps SQLite's own setting,
+# which the application uses. The test suite sets "OFF" (tests/conftest.py): its stores are temporary files, so a write
+# lost in a crash costs nothing there, while waiting for the disk took about a third of the suite's time.
+SYNCHRONOUS: str | None = None
+
+
+def tune(conn: sqlite3.Connection) -> None:
+    """Applies `SYNCHRONOUS` to a connection that writes: the store's own, and the process state's
+    (`jav/runtime/persistence.py`)."""
+    if SYNCHRONOUS is not None:
+        conn.execute(f"PRAGMA synchronous={SYNCHRONOUS}")
+
 
 class StoreMissing(FileNotFoundError):
     """A read-only look (`read_only`) at a store that does not exist yet, e.g. in a fresh clone before the first run."""
@@ -326,6 +338,7 @@ def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), timeout=30)
     conn.row_factory = sqlite3.Row
+    tune(conn)
     try:
         key = str(path)
         registry = _registry_key()

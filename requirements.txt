@@ -24,6 +24,8 @@ pytest
 # Véletlenszerű bemenetes (tulajdonság-alapú) tesztek és lefedettség-mérés (067)
 hypothesis
 pytest-cov
+# 189: the full check runs the tests in several processes (jav/preflight.py)
+pytest-xdist
 
 # A `burr` tracker-UI CLI importálja, de a tracking extrák nem húzzák be
 loguru

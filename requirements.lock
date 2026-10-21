@@ -12,6 +12,7 @@ coverage==7.16.2
 cryptography==50.0.1
 defusedxml==0.7.1
 et-xmlfile==2.0.0
+execnet==2.1.2
 fastapi==0.141.1
 fastapi-pagination==0.16.0
 fastapi-utils==0.8.0
@@ -52,6 +53,7 @@ pygments==2.21.0
 pypdfium2==5.13.0
 pytest==9.1.1
 pytest-cov==7.1.0
+pytest-xdist==3.8.0
 python-docx==1.2.0
 python-dotenv==1.2.3
 pyyaml==6.0.3

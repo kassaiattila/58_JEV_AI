@@ -20,6 +20,17 @@ def _registrations():
 
 
 @pytest.fixture(autouse=True, scope="session")
+def _no_disk_flush():
+    """189: the tests' stores are temporary files, so SQLite need not wait for the disk after a write (`store.tune`).
+    Creating a store with its schema took about 0.55 s, mostly that wait, and nearly every test creates one."""
+    from jav import store
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(store, "SYNCHRONOUS", "OFF")
+        yield
+
+
+@pytest.fixture(autouse=True, scope="session")
 def _no_ops_log(tmp_path_factory):
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(applog, "LOG_DIR", tmp_path_factory.mktemp("logs"))
