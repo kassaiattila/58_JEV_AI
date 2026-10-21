@@ -13,6 +13,7 @@ import {
   type ReconcileLine, type ReconcileList, type ReconcileWorkspace,
 } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { errorText, useAction } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { DocumentPair } from "./DocumentPair";
 import { Fact, LineFacts } from "./LineFacts";
@@ -74,9 +75,7 @@ export function ReconcileCards({ ws, readOnly, onWorkspace, reload, onManual }: 
   const [limit, setLimit] = useState(PAGE);
   const [focus, setFocus] = useState<string | null>(null);
   const [docs, setDocs] = useState<boolean | null>(null); // null: by itself (open when the selected card asks for a look)
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const { busy, error, notice, run } = useAction();
 
   const lineById = useMemo(() => new Map(ws.lines.map((l) => [l.id, l])), [ws.lines]);
   const invoiceById = useMemo(() => new Map(ws.invoices.map((i) => [i.id, i])), [ws.invoices]);
@@ -90,25 +89,14 @@ export function ReconcileCards({ ws, readOnly, onWorkspace, reload, onManual }: 
   useEffect(() => { if (!shown.some((g) => g.id === focus)) setFocus(shown[0]?.id ?? null); }, [shown, focus]);
   useEffect(() => { setDocs(null); }, [focus]);
 
-  async function act(fn: () => Promise<ReconcileWorkspace>, done?: string) {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      onWorkspace(await fn());
-      if (done) setNotice(done);
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        setError(t("Someone decided meanwhile; the lists have been reloaded. Check the card and try again."));
-        reload();
-      } else if (e instanceof ApiError && e.code === "reconcile_locked") {
-        setError(t("This line is in an approved reconciliation; reopen that approval first."));
-      } else setError(t("The decision could not be saved: {{reason}}", { reason: e instanceof ApiError ? e.message : String(e) }));
-    } finally {
-      setBusy(false);
+  const act = (fn: () => Promise<ReconcileWorkspace>, done?: string) => run(fn, { then: onWorkspace, done, failed: (e) => {
+    if (e instanceof ApiError && e.status === 409) {
+      reload();
+      return t("Someone decided meanwhile; the lists have been reloaded. Check the card and try again.");
     }
-  }
+    if (e instanceof ApiError && e.code === "reconcile_locked") return t("This line is in an approved reconciliation; reopen that approval first.");
+    return t("The decision could not be saved: {{reason}}", { reason: errorText(e) });
+  } });
 
   const focused = shown.find((g) => g.id === focus) ?? null;
   const keys = useRef<(e: KeyboardEvent) => void>(() => {});
@@ -180,7 +168,7 @@ export function ReconcileCards({ ws, readOnly, onWorkspace, reload, onManual }: 
   );
 }
 
-type Act = (fn: () => Promise<ReconcileWorkspace>, done?: string) => Promise<void>;
+type Act = (fn: () => Promise<ReconcileWorkspace>, done?: string) => Promise<unknown>;
 
 function GroupCard({ group: g, lines, invoices, facts, ws, focused, docs, readOnly, busy, act, onFocus, onDocs, onManual }: {
   group: ReconcileGroup; lines: Map<string, ReconcileLine>; invoices: Map<string, ReconcileInvoice>;

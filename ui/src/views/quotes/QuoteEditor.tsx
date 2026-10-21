@@ -14,6 +14,7 @@ import { ApprovalPanel, EarlierVersions } from "../../components/ApprovalPanel";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";
 import { Picker, type PickerOption } from "../../components/Picker";
+import { errorText, useAction } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { fieldLabel, numText, when } from "../../labels";
 import { wpHash } from "../../route";
@@ -479,31 +480,18 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged }: {
   useLocale();
   const [dv, setDv] = useState<QuoteDraftView>(view.draft);
   useEffect(() => setDv(view.draft), [view.draft]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const { busy, error, notice, run, setError } = useAction();
   const [shown, setShown] = useState<{ n: number; quote: QuoteApproved } | null>(null);
-  async function act(fn: () => Promise<QuoteDraftView>, done: string): Promise<boolean> {
-    if (busy) return false;
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      setDv(await fn());
-      setNotice(done);
+  const act = (fn: () => Promise<QuoteDraftView>, done: string) => run(fn, {
+    then: (next) => { setDv(next); onChanged(); },
+    done,
+    failed: (e) => {
+      if (!(e instanceof ApiError && e.status === 409)) return errorText(e);
       onChanged();
-      return true;
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        setError(e.code === "not_ready" ? t("The quote cannot be approved yet: see what blocks it.")
-          : t("The quote changed since it was shown; it has been reloaded. Check it and try again."));
-        onChanged();
-      } else setError(e instanceof ApiError ? e.message : String(e));
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
+      return e.code === "not_ready" ? t("The quote cannot be approved yet: see what blocks it.")
+        : t("The quote changed since it was shown; it has been reloaded. Check it and try again.");
+    },
+  });
   const lineNo = (id: string | null) => (id ? dv.lines.findIndex((l) => l.id === id) + 1 : 0);
   const blockers = !dv.draft
     ? <p className="small">{t("The quote has not been composed yet.")} <a href={wpHash(wpId, "review")}>{t("Compose it in Quote")}</a></p>

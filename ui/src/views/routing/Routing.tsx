@@ -4,8 +4,8 @@
 // cannot place by itself shows why (an amber mark); a document of another kind is only listed. Its stages: the email
 // packages it routes, the routing itself, and what went where.
 import { useMemo, useState } from "react";
-import { api, ApiError, type RoutingBlocker, type RoutingItem, type RoutingNote, type RoutingView, type WorkpackageView } from "../../api";
-import { useLoad } from "../../hooks";
+import { api, type RoutingBlocker, type RoutingItem, type RoutingNote, type RoutingView, type WorkpackageView } from "../../api";
+import { useAction, useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { docTypeLabel } from "../../labels";
 import { go, type Stage } from "../../route";
@@ -68,27 +68,14 @@ function Sources({ view }: { view: RoutingView }) {
 
 function Decide({ wpId, view, onChanged }: { wpId: string; view: RoutingView; onChanged: () => void }) {
   useLocale();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
   const [choosing, setChoosing] = useState<string | null>(null);
   const routable = view.items.filter((i) => i.placement.routable);
   const others = view.items.filter((i) => !i.placement.routable);
   // a new package is named with its role's title in the interface's language
   const titles = Object.fromEntries(routable.filter((i) => i.placement.role && i.placement.role_title)
     .map((i) => [i.placement.role as string, t(i.placement.role_title as string)]));
-  async function act(fn: () => Promise<unknown>) {
-    setBusy(true);
-    setError(null);
-    try {
-      await fn();
-      setChoosing(null);
-      onChanged();
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const act = (fn: () => Promise<unknown>) => run(fn, { then: () => { setChoosing(null); onChanged(); } });
   return (
     <section className="card wide rc-stack" aria-label={t("Routing")}>
       <div className="card-head">
@@ -229,22 +216,12 @@ export function RoutingCreate({ onDone }: { onDone: (wpId: string) => void }) {
   const list = useLoad("workpackages-brief", api.workpackagesBrief);
   const [chosen, setChosen] = useState<string[]>([]);
   const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
   const mailboxes = (list.data?.workpackages ?? []).filter((w) => w.source_kind === "mailbox");
-  async function submit() {
-    setBusy(true);
-    setError(null);
-    try {
-      const names = mailboxes.filter((w) => chosen.includes(w.id)).map((w) => w.name);
-      const view = await api.createRoutingPackage({ name: name.trim() || t("Routing: {{names}}", { names: names.join(", ") }).slice(0, 200), sources: chosen });
-      onDone(view.workpackage.id);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const submit = () => run(() => {
+    const names = mailboxes.filter((w) => chosen.includes(w.id)).map((w) => w.name);
+    return api.createRoutingPackage({ name: name.trim() || t("Routing: {{names}}", { names: names.join(", ") }).slice(0, 200), sources: chosen });
+  }, { then: (view) => onDone(view.workpackage.id) });
   return (
     <form className="create rc-stack" aria-label={t("New email routing package")} onSubmit={(e) => { e.preventDefault(); if (chosen.length) void submit(); }}>
       <p className="muted small">{t("The routing proposes, for every invoice, outgoing invoice and bank statement that arrived by email, the package of its party, period and role. It processes no file and calls no AI service.")}</p>
@@ -273,22 +250,11 @@ export function RoutingCreate({ onDone }: { onDone: (wpId: string) => void }) {
  *  one click; the routing packages already made for it are linked. */
 export function RoutingOffer({ view }: { view: WorkpackageView }) {
   useLocale();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
   const offer = view.routing_offer;
   if (!offer) return null;
-  async function start() {
-    setBusy(true);
-    setError(null);
-    try {
-      const made = await api.createRoutingPackage({ name: t("Routing: {{names}}", { names: view.workpackage.name }).slice(0, 200), sources: [view.workpackage.id] });
-      go({ view: "workpackages", wpId: made.workpackage.id, stage: "review" });
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const start = () => run(() => api.createRoutingPackage({ name: t("Routing: {{names}}", { names: view.workpackage.name }).slice(0, 200), sources: [view.workpackage.id] }),
+    { then: (made) => go({ view: "workpackages", wpId: made.workpackage.id, stage: "review" }) });
   return (
     <section className="card rc-stack" aria-label={t("Email routing")}>
       <div className="button-row">

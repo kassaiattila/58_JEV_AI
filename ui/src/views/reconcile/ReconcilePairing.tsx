@@ -26,6 +26,7 @@ import {
   type ReconcileMatch, type ReconcileWorkspace,
 } from "../../api";
 import { ConfirmButton } from "../../components/ConfirmButton";
+import { errorText, useAction } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { tmap } from "../../labels";
 import { DocumentPair } from "./DocumentPair";
@@ -114,9 +115,7 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
   const [selInvoices, setSelInvoices] = useState<string[]>([]);
   const [mode, setMode] = useState<Mode>(null);
   const [showDocs, setShowDocs] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const { busy, error, notice, run } = useAction();
   // 143: the service's comparison of the active line with every invoice, in its order (the fitting ones first)
   const [found, setFound] = useState<{ lineId: string; matches: Map<string, ReconcileMatch> } | null>(null);
   const [findError, setFindError] = useState<string | null>(null);
@@ -198,29 +197,23 @@ export function ReconcilePairing({ ws, readOnly, onWorkspace, reload, initialLin
     return group ? [...sel, ...group.filter((g) => !sel.includes(g))] : [...sel, id];
   });
 
-  async function act(fn: () => Promise<ReconcileWorkspace>, opts: { advance?: boolean; done?: string } = {}) {
-    if (busy) return;
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      const next = await fn();
+  const act = (fn: () => Promise<ReconcileWorkspace>, opts: { advance?: boolean; done?: string } = {}) => run(fn, {
+    then: (next) => {
       if (opts.advance) advanceFrom.current = Math.max(0, visible.findIndex((l) => l.id === active));
       setSelInvoices([]);
       setMode(null);
       onWorkspace(next);
-      if (opts.done) setNotice(opts.done);
-    } catch (e) {
+    },
+    done: opts.done,
+    failed: (e) => {
       if (e instanceof ApiError && e.status === 409) {
-        setError(t("Someone decided meanwhile; the lists have been reloaded and your selection kept. Check it and try again."));
         reload();
-      } else if (e instanceof ApiError && e.code === "reconcile_locked") {
-        setError(t("This line is in an approved reconciliation; reopen that approval first."));
-      } else setError(t("The decision could not be saved: {{reason}}", { reason: e instanceof ApiError ? e.message : String(e) }));
-    } finally {
-      setBusy(false);
-    }
-  }
+        return t("Someone decided meanwhile; the lists have been reloaded and your selection kept. Check it and try again.");
+      }
+      if (e instanceof ApiError && e.code === "reconcile_locked") return t("This line is in an approved reconciliation; reopen that approval first.");
+      return t("The decision could not be saved: {{reason}}", { reason: errorText(e) });
+    },
+  });
 
   function pair() {
     if (readOnly || !plan.ok) return;

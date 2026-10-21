@@ -8,7 +8,7 @@ import { useState, type FormEvent } from "react";
 import { api, ApiError, getActor, type AddSummary, type DsRow, type ReconcileTarget, type ReconcileWorkspace } from "../../api";
 import { DataTable } from "../../components/DataTable";
 import { Icon } from "../../components/Icon";
-import { useLoad } from "../../hooks";
+import { useAction, useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { wpHash } from "../../route";
 import { AddDocuments, AddStatements, AddSummaryLine } from "../PackageAdd";
@@ -104,26 +104,18 @@ export function ReconcileInputs({ ws, readOnly, onWorkspace }: {
   const [added, setAdded] = useState<{ target: ReconcileTarget; summary: AddSummary | null } | null>(null);
   const [leaving, setLeaving] = useState<{ ids: string[]; name: string } | null>(null);
   const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAction();
   const leftOut = ws.counts.left_out ?? 0;
   const others = ws.scope.party_id ? ws.counts.other_invoices ?? 0 : 0;
 
-  async function act(call: () => Promise<ReconcileWorkspace>) {
-    setError(null);
-    setBusy(true);
-    try {
-      onWorkspace(await call());
-      setLeaving(null);
-      setReason("");
-    } catch (e) {
+  const act = (call: () => Promise<ReconcileWorkspace>) => run(call, {
+    then: (next) => { onWorkspace(next); setLeaving(null); setReason(""); },
+    failed: (e) => {
       const err = e as ApiError;
-      setError(err.status === 409 ? t("Someone changed the package meanwhile; it has been reloaded.")
-        : err.status === 422 && !getActor() ? t("Choose your name at the top first: the change is recorded with it.") : err.message);
-    } finally {
-      setBusy(false);
-    }
-  }
+      return err.status === 409 ? t("Someone changed the package meanwhile; it has been reloaded.")
+        : err.status === 422 && !getActor() ? t("Choose your name at the top first: the change is recorded with it.") : err.message;
+    },
+  });
 
   function submit(e: FormEvent) {
     e.preventDefault();

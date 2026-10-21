@@ -11,7 +11,7 @@ import { BlockerList } from "../../components/BlockerList";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";
 import { TemplateChoice } from "../../components/TemplateChoice";
-import { useLoad } from "../../hooks";
+import { errorText, useAction, useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { blockerItems, INVOICE_RESULT, LINE_RESULT, MARK, EXCLUDED, warningText } from "./labels";
 import { show } from "./money";
@@ -30,34 +30,22 @@ export function ReconcileResult({ ws, archived, onChanged, reloadWorkspace }: {
   const active = current?.approval.active ?? null;
   const approved = useLoad(active ? `reconcile-version:${wpId}:${active.version}` : null,
     () => api.reconcileStatementVersion(wpId, active!.version));
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const { busy, error, notice, run } = useAction();
 
-  async function act(fn: () => Promise<ReconcileStatementCurrent>, done: string): Promise<boolean> {
-    if (busy) return false;
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      setCurrent(await fn());
-      setNotice(done);
+  const act = (fn: () => Promise<ReconcileStatementCurrent>, done: string) => run(fn, {
+    then: (next) => {
+      setCurrent(next);
       reloadWorkspace(); // the locks and the next step follow the approval
       onChanged();
-      return true;
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409 && e.code === "revision_conflict") {
-        setError(t("The reconciliation changed since it was shown; it has been reloaded. Check it and try again."));
-        loaded.reload();
-      } else if (e instanceof ApiError && e.status === 409 && e.code === "not_ready") {
-        setError(t("The reconciliation cannot be approved yet: see what blocks it."));
-        loaded.reload();
-      } else setError(e instanceof ApiError ? e.message : String(e));
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  }
+    },
+    done,
+    failed: (e) => {
+      if (!(e instanceof ApiError && e.status === 409 && (e.code === "revision_conflict" || e.code === "not_ready"))) return errorText(e);
+      loaded.reload();
+      return e.code === "revision_conflict" ? t("The reconciliation changed since it was shown; it has been reloaded. Check it and try again.")
+        : t("The reconciliation cannot be approved yet: see what blocks it.");
+    },
+  });
 
   if (!current) {
     return loaded.error ? <p className="notice error" role="alert">{loaded.error.message}</p> : <p className="muted">{t("Loading…")}</p>;

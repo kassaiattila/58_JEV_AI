@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError, type ReconcileLeftOver, type ReconcileUnfit, type ReconcileWorkspace, type WorkpackageView } from "../../api";
 import { BlockerList } from "../../components/BlockerList";
-import { useLoad } from "../../hooks";
+import { errorText, useAction, useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { go, type Stage } from "../../route";
 import { AccountChecklist } from "./ReconcileCreate";
@@ -91,30 +91,17 @@ export function ReconcilePrepare({ ws, readOnly, onWorkspace, reload }: StagePro
   const [chosen, setChosen] = useState<string[]>(ws.scope.accounts);
   const [start, setStart] = useState(ws.scope.period_start);
   const [end, setEnd] = useState(ws.scope.period_end);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const { busy, error, notice, run } = useAction();
   const dirty = chosen.slice().sort().join("|") !== ws.scope.accounts.slice().sort().join("|")
     || start !== ws.scope.period_start || end !== ws.scope.period_end || partyId !== (ws.scope.party_id ?? "");
   const months = [...new Set(ws.coverage.map((c) => c.month))];
   const byKey = new Map((accounts.data?.accounts ?? []).map((a) => [a.key, a]));
 
-  async function act(fn: () => Promise<ReconcileWorkspace>, done?: string) {
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      onWorkspace(await fn());
-      if (done) setNotice(done);
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        setError(t("Someone changed the scope meanwhile; it has been reloaded."));
-        reload();
-      } else setError(e instanceof ApiError ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const act = (fn: () => Promise<ReconcileWorkspace>, done?: string) => run(fn, { then: onWorkspace, done, failed: (e) => {
+    if (!(e instanceof ApiError && e.status === 409)) return errorText(e);
+    reload();
+    return t("Someone changed the scope meanwhile; it has been reloaded.");
+  } });
 
   return (
     <div className="rc-stack">
