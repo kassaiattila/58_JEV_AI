@@ -81,6 +81,9 @@ class TypePack(BaseModel):
     scored_fields: tuple[str, ...]
     informational_fields: tuple[str, ...] = ()
     required: tuple[str, ...] = ()
+    # 192 (DECISIONS 192): False: a missing required field is a note (an advisory check), not a to-do; for a type read
+    # as one part of a larger whole that is judged elsewhere (a quote request's parts, judged by its quote package)
+    required_review: bool = True
     high_stakes: tuple[str, ...] = ()
     validators: tuple[dict[str, Any], ...] = ()
     text_labels: dict[str, tuple[str, ...]] = Field(default_factory=dict)  # `text`-kind field -> label regexes (finder)
@@ -298,6 +301,7 @@ def get(key: str = DEFAULT_KEY) -> TypePack:
         scored_fields=lists["scored_fields"],
         informational_fields=lists["informational_fields"],
         required=lists["required"],
+        required_review=bool(inherit("required_review", True)),
         high_stakes=lists["high_stakes"],
         validators=validators,
         text_labels=text_labels,

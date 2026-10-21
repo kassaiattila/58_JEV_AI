@@ -17,7 +17,7 @@ from typing import Any, Literal
 from jav import cfg, checks, type_roles
 from jav.emails import Attachment
 from jav.intents import DOCUMENT_BEARING
-from jav.models import FlowState
+from jav.models import CheckResult, FlowState
 from jav.typepack import DEFAULT_KEY, get as get_pack
 
 _CFG = cfg.load("policy")
@@ -337,10 +337,16 @@ def apply_verdict_policy(state: FlowState) -> None:
         if reason:
             require_review(state, reason)
     if state.record is not None:
+        pack = get_pack(state.doc_type or DEFAULT_KEY)
         # 175: in the pack's order (a set's order depended on the process's hash seed)
-        for field in get_pack(state.doc_type or DEFAULT_KEY).required:
-            if state.record.get_field(field) is None:
+        for field in pack.required:
+            if state.record.get_field(field) is not None:
+                continue
+            if pack.required_review:
                 require_review(state, f"llm:required_missing:{field}")
+            else:  # 192: a part of a whole judged elsewhere: the gap is shown, but opens no to-do
+                state.validation.append(CheckResult(name=f"required:{field}", ok=False, code="required_missing",
+                                                    advisory=True))
 
 
 def apply_validation_policy(state: FlowState) -> None:
