@@ -189,7 +189,7 @@ def test_m13_an_approval_that_lands_just_before_a_scope_change_stops_it(tmp_path
     between was overwritten by the new scope. The check now runs inside the transaction."""
     import pytest
 
-    from jav import reconcile_package as rp, store
+    from jav import package_release, reconcile_package as rp, store
     from tests.test_reconcile_package_131 import OWN_KEY, _line, _package, _stmt
 
     with store.use_store(tmp_path / "r.sqlite"):
@@ -199,9 +199,7 @@ def test_m13_an_approval_that_lands_just_before_a_scope_change_stops_it(tmp_path
 
         def approval_first(c):  # another person's approval commits just before this write begins
             with store.connect() as other:
-                other.execute("INSERT INTO reconcile_versions(workpackage_id, version, content, fingerprint, line_ids,"
-                              " approved_by, approved_at) VALUES (?, 1, '{}', 'x', '[]', 'Approver', '2026-10-18T10:00:00+00:00')",
-                              (wp_id,))
+                package_release.record_own(other, wp_id, content={}, fingerprint="x", locks=[], actor="Approver")
             monkeypatch.setattr(store, "begin_immediate", real)
             real(c)
 

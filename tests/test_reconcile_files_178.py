@@ -57,14 +57,14 @@ def test_reopening_stores_the_earlier_file_as_the_download_built_it(db):
     assert [f["state"] for f in rs.version_files(wp_id, 1)] == ["approved", "earlier"]
     assert _parts(earlier) != _parts(approved)  # the heading names it an earlier version
     with store.connect() as c:
-        c.execute("DELETE FROM reconcile_version_files")
+        c.execute("DELETE FROM package_version_files WHERE state IN ('approved', 'earlier')")
     assert _parts(rs.xlsx(wp_id, version=1)[0]) == _parts(earlier)  # the same file the download built before 178
 
 
 def test_a_version_approved_before_178_is_rebuilt_until_its_file_is_recorded(db):
     wp_id = _approved()
     with store.connect() as c:
-        c.execute("DELETE FROM reconcile_version_files")  # as a version approved before 178
+        c.execute("DELETE FROM package_version_files WHERE state IN ('approved', 'earlier')")  # as a version approved before 178
     rebuilt = rs.xlsx(wp_id, version=1)[0]
     assert rs.version_files(wp_id, 1) == []  # a download writes nothing
     assert rs.backfill_files(dry_run=True) == [{"workpackage_id": wp_id, "version": 1, "state": "approved"}]
@@ -79,7 +79,7 @@ def test_a_version_approved_before_178_is_rebuilt_until_its_file_is_recorded(db)
 def test_the_command_records_the_missing_files(db, capsys):
     wp_id = _approved()
     with store.connect() as c:
-        c.execute("DELETE FROM reconcile_version_files")
+        c.execute("DELETE FROM package_version_files WHERE state IN ('approved', 'earlier')")
     assert cli.main(["reconcile-versions-backfill", "--dry-run"]) == 0
     assert f"{wp_id} version 1 (approved) (dry run)" in capsys.readouterr().out
     assert cli.main(["reconcile-versions-backfill"]) == 0
