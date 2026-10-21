@@ -9,7 +9,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import api, cli, store
+from jav import api_system, cli, store
 from jav.runtime import calls
 
 
@@ -56,8 +56,8 @@ def test_a_negative_settlement_can_no_longer_free_budget_for_a_dearer_call(tmp_p
 def test_the_service_and_the_settlement_share_one_cap():
     assert calls.MAX_SETTLED_COST_USD == Decimal("100")
     with pytest.raises(ValueError):
-        api.ResolveCall(cost_usd=calls.MAX_SETTLED_COST_USD + Decimal("0.01"), note="too dear")
-    assert api.ResolveCall(cost_usd=calls.MAX_SETTLED_COST_USD, note="at the cap").cost_usd == Decimal("100")
+        api_system.ResolveCall(cost_usd=calls.MAX_SETTLED_COST_USD + Decimal("0.01"), note="too dear")
+    assert api_system.ResolveCall(cost_usd=calls.MAX_SETTLED_COST_USD, note="at the cap").cost_usd == Decimal("100")
 
 
 @pytest.mark.parametrize("cost", ["-5", "NaN", "abc", "1E+9"])
