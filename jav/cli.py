@@ -441,9 +441,35 @@ def cmd_type_propose(args: argparse.Namespace) -> int:
         print(exc)
         return 2
     type_teaching.print_proposal(report)
+    if args.shapes:
+        print("\nThe written forms of the development half's expected values (a letter `a`, a digit `d`):")
+        for field, shapes in type_teaching.expected_shapes(args.family).items():
+            print(f"  {field}: " + ", ".join(f"{s} ({n})" for s, n in shapes.items()))
     if args.out:
         Path(args.out).write_text(json.dumps(report, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
         print(f"\nWritten: {args.out}")
+    return 0
+
+
+def cmd_type_candidate(args: argparse.Namespace) -> int:
+    """197 (plan 197 K2b): the candidate type pack of an edited draft (`jav/type_teaching.py`): its pack, prompt, schema
+    and verification call site, never picked by detection; then the shared registries' entries to add by hand. Exit
+    code 2: no such draft, or a pack of that name that is not its candidate."""
+    from pydantic import ValidationError
+
+    from jav import type_teaching
+    from jav.config import PROJECT_ROOT
+
+    try:
+        draft = type_teaching.load_draft(args.key)
+        paths = type_teaching.write_candidate(draft)
+    except (type_teaching.TeachingError, ValidationError) as exc:
+        print(exc)
+        return 2
+    print("Written:\n" + "\n".join(f"  {p.relative_to(PROJECT_ROOT).as_posix()}" for p in paths))
+    entries = type_teaching.registry_entries(draft)
+    print("\nAdd by hand, each in its file's own layout:\n" + "\n".join(f"  - {e}" for e in entries) if entries
+          else "\nThe shared registries know the candidate already.")
     return 0
 
 
@@ -1328,7 +1354,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("family", help="a family of configs/golden_facts.json (a type pack's key)")
     p.add_argument("--min-documents", type=int, default=3, help="the fewest development documents a name recurs in")
     p.add_argument("--out", help="write the proposal as JSON (names and counts only)")
+    p.add_argument("--shapes", action="store_true", help="also the written forms of the development half's expected "
+                                                         "values (letters and digits masked)")
     p.set_defaults(fn=cmd_type_propose)
+
+    p = sub.add_parser("type-candidate", help="197: a taught type's candidate pack from its edited draft "
+                                              "(configs/type_drafts/<key>.json); never detected, no AI call")
+    p.add_argument("key", help="the draft's key")
+    p.set_defaults(fn=cmd_type_candidate)
 
     p = sub.add_parser("determinism")
     p.add_argument("--arm", choices=["S", "G"], required=True)

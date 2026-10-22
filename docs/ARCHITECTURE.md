@@ -127,7 +127,11 @@ Teaching a type (197, plan 197 K2) starts from such a family: `python -m jav.cli
 (`jav/type_teaching.py`) reads the development half's measured facts (read only, no AI call) and proposes the names
 that recur in at least three of its documents as fields, with their counts and a kind (a date when every value is
 exactly one date); code joins only one name's spellings and a bilingual label's first part, never synonyms, and no
-value is printed or kept.
+value is printed or kept (`--shapes`: the written forms of the development half's labels, letters and digits masked).
+A person writes the draft (`configs/type_drafts/<key>.json`); `type-candidate <key>` makes its candidate pack the way
+the legacy converter made the converted packs (pack, prompt, schema, a verification site that inherits `verify`),
+never picked by detection, and lists the shared registries' entries still missing; `measure taught:<key>` measures
+the candidate on the family's evaluation half only, on the G path.
 
 ## 2. The five planes
 

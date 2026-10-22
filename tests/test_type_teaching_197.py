@@ -81,3 +81,116 @@ def test_the_facts_come_from_the_latest_measurement_and_a_missing_one_is_refused
     report = json.loads(out.read_text(encoding="utf-8"))
     assert (report["documents"], [f["key"] for f in report["fields"]]) == (2, ["sor"])
     assert "Z-" not in out.read_text(encoding="utf-8")  # names and counts only, no value
+
+
+# --- K2b-c: the draft, its candidate pack and its golden set ------------------------------------------------------------
+
+
+DRAFT = {
+    "meta": {"name": "type_draft:demo_taught", "version": "0.1.0", "changelog": [{"version": "0.1.0", "date": "2026-10-22", "note": "test"}]},
+    "key": "demo_taught", "label": "Demó (tanított)", "family": "demo", "parent": "ticket",
+    "document": "A demo ticket with an issue date",
+    "fields": [{"key": "ticket_id", "label": "Jegyazonosító", "kind": "text", "meaning": "the ticket's id"},
+               {"key": "issued", "label": "Kiállítva", "kind": "date", "meaning": "the day it was issued"},
+               {"key": "price", "label": "Ár", "kind": "money", "meaning": "the price", "scored": False}],
+}
+
+
+def _draft(**change):
+    return type_teaching.TaughtDraft.model_validate({**DRAFT, **change})
+
+
+@pytest.mark.parametrize("change", [
+    {"fields": [DRAFT["fields"][0], DRAFT["fields"][0]]},                        # a key twice
+    {"fields": [{**DRAFT["fields"][0], "kind": "list"}]},                        # a list is not taught yet
+    {"fields": [{**DRAFT["fields"][2]}]},                                        # nothing scored
+    {"key": "Demo Taught"},                                                      # not an identifier
+])
+def test_a_draft_that_cannot_make_a_pack_is_refused(change):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        _draft(**change)
+
+
+def test_the_candidate_is_never_detected_and_measured_only_by_its_own_key():
+    from datetime import date
+
+    files = type_teaching.candidate(_draft(), today=date(2026, 10, 22))
+    pack, site = files["pack"], files["callsite"]
+    assert (pack["auto_detect"], pack["golden_type_key"], pack["arms"], pack["parent"]) == (False, "demo_taught", ["G"], "ticket")
+    assert pack["scored_fields"] == ["ticket_id", "issued"] and pack["meta"]["taught"]["state"] == "candidate"
+    assert (site["inherits"], site["field_specs"]["issued"]) == ("verify", "the day it was issued")
+    assert "- `issued`: the day it was issued. Write it as an ISO date (YYYY-MM-DD)." in files["prompt"]
+    assert "Write it as a decimal number" in files["prompt"] and files["prompt"].startswith("<!--")
+    assert files["schema"]["properties"]["price"]["type"] == ["string", "null"]
+
+
+def test_a_candidate_is_written_but_a_pack_that_is_not_one_is_never_overwritten(tmp_path):
+    dirs = {"types_dir": tmp_path, "callsites_dir": tmp_path, "prompts_dir": tmp_path}
+    paths = type_teaching.write_candidate(_draft(), **dirs)
+    assert [p.name for p in paths] == ["demo_taught.json", "verify_demo_taught.json", "demo_taught_prompt.md",
+                                       "demo_taught_schema.json"]
+    type_teaching.write_candidate(_draft(document="A demo ticket"), **dirs)  # still the draft's candidate: replaced
+    assert json.loads(paths[0].read_text(encoding="utf-8"))["document"] == "A demo ticket"
+    paths[0].write_text(json.dumps({"meta": {"name": "type:demo_taught", "version": "1.0.0"}}), encoding="utf-8")
+    with pytest.raises(type_teaching.TeachingError):
+        type_teaching.write_candidate(_draft(), **dirs)
+
+
+def test_the_registry_checklist_names_only_what_is_missing(tmp_path):
+    for rel, data in (("configs/field_labels.json", {"fields": {"ticket_id": "Jegyazonosító", "issued": "Kelt"},
+                                                     "doc_types": {}, "by_type": {}}),
+                      ("configs/capability_catalog.json", {"expected_document_keys": [], "legacy_pending_document_keys": []}),
+                      ("configs/doc_types.json", {"old_type_map": {}}), ("configs/engine_matrix.json", {"sites": {}})):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(json.dumps(data), encoding="utf-8")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_request_keys_190.py").write_text("", encoding="utf-8")
+    todo = type_teaching.registry_entries(_draft(), root=tmp_path)
+    assert len(todo) == 7  # its name, a new field (price), its own name of a shared one (issued), and four registries
+    assert any('"by_type": {"demo_taught": {"issued": "Kiállítva"}}' in t for t in todo)
+    labels = {"fields": {"ticket_id": "Jegyazonosító", "issued": "Kelt", "price": "Ár"},
+              "doc_types": {"demo_taught": "Demó (tanított)"}, "by_type": {"demo_taught": {"issued": "Kiállítva"}}}
+    (tmp_path / "configs" / "field_labels.json").write_text(json.dumps(labels), encoding="utf-8")
+    (tmp_path / "configs" / "capability_catalog.json").write_text(json.dumps(
+        {"expected_document_keys": ["demo_taught"], "legacy_pending_document_keys": ["demo_taught"]}), encoding="utf-8")
+    (tmp_path / "configs" / "doc_types.json").write_text(json.dumps({"old_type_map": {"demo_taught": "ticket"}}), encoding="utf-8")
+    (tmp_path / "configs" / "engine_matrix.json").write_text(json.dumps({"sites": {"verify_demo_taught": {}}}), encoding="utf-8")
+    (tmp_path / "tests" / "test_request_keys_190.py").write_text('"demo_taught": "a",\n"demo_taught": "b",\n', encoding="utf-8")
+    assert type_teaching.registry_entries(_draft(), root=tmp_path) == []
+
+
+def test_the_taught_tickets_files_are_what_its_draft_makes():
+    """The generated files are edited through the draft only: they are exactly what the draft makes, on its date."""
+    from datetime import date
+
+    draft = type_teaching.load_draft("belepo_jegy_taught")
+    files = type_teaching.candidate(draft, today=date(2026, 10, 22))
+    paths = type_teaching.candidate_paths(draft.key)
+    for name in ("pack", "callsite", "schema"):
+        assert json.loads(paths[name].read_text(encoding="utf-8")) == files[name], name
+    assert paths["prompt"].read_text(encoding="utf-8") == files["prompt"]
+    assert type_teaching.registry_entries(draft) == []  # registered everywhere
+
+
+def test_a_taught_candidate_is_measured_on_its_familys_evaluation_half_only(monkeypatch):
+    from jav import evals_facts, goldens
+    from jav.evals import GoldenCase
+
+    def fact_case(name, half):
+        return evals_facts.FactCase(case=GoldenCase(case_id=name, pdf=None, expected={}, expected_valid=True,
+                                                    type_key="belepo_jegy"), sha256=name * 64, half=half)
+
+    monkeypatch.setattr(evals_facts, "cases", lambda family: [fact_case("a", "development"), fact_case("b", "evaluation")])
+    golden = goldens.get("taught:belepo_jegy_taught")
+    assert (golden.layer, golden.owner, golden.count()) == ("datapoints", "belepo_jegy_taught", 1)
+    seen = {}
+
+    def fake_golden(arm, run_one, *, cases, type_key, label, **_kw):
+        seen.update(arm=arm, cases=[(c.case_id, c.type_key) for c in cases], type_key=type_key, label=label)
+        return []
+
+    monkeypatch.setattr("jav.evals.golden", fake_golden)
+    golden.measure(goldens.Options(engine="gpt"))
+    assert seen == {"arm": "G", "cases": [("b", "belepo_jegy_taught")], "type_key": "belepo_jegy_taught", "label": "taught"}

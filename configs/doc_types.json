@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "doc_types",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "changelog": [
+   {
+    "version": "2.3.1",
+    "date": "2026-10-22",
+    "note": "197 (plan 197 K2b): the taught ticket candidate (belepo_jegy_taught) in the category map, under the ticket. Not a detection option: the candidate is never picked (auto_detect false), so no detection question changes."
+   },
    {
     "version": "2.3.0",
     "date": "2026-10-21",
@@ -527,6 +532,7 @@
   "statement_erste": "bank_statement",
   "altalanos_szerzodesi_feltetelek": "contract",
   "belepo_jegy": "ticket",
+  "belepo_jegy_taught": "ticket",
   "certificate": "certificate",
   "nav_certificate": "certificate",
   "nav_tax_return": "tax_return",

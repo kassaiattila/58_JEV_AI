@@ -326,6 +326,48 @@ def fact_goldens() -> list[Golden]:
     return [g for g in (_fact_golden(family) for family in evals_facts.families()) if g.count()]
 
 
+# 197 (plan 197 K2c): a taught type's candidate pack on its family's evaluation half only (its draft learnt from the
+# development half), on the G path, scored as the data point golden sets are
+
+
+def _taught_golden(key: str) -> Golden:
+    from dataclasses import replace
+
+    from jav import evals, evals_facts, type_teaching
+
+    family = type_teaching.load_draft(key).family
+
+    def cases() -> list:
+        return [replace(fc.case, type_key=key) for fc in evals_facts.cases(family) if fc.half == "evaluation"]
+
+    def count() -> int:
+        try:
+            return len(cases())
+        except OSError:
+            return 0
+
+    def measure(options: Options) -> Outcome:
+        from jav.flow import run_one
+
+        rows = evals.golden("G", run_one, cases=cases(), tracker=False, use_cache=options.use_cache, type_key=key,
+                            jev=options.jev, budget_usd=options.budget_usd, jev_budget_usd=options.jev_budget_usd,
+                            label="taught")
+        return _datapoint_outcome(rows, key)
+
+    return Golden(key=f"taught:{key}", layer="datapoints", owner=key,
+                  what=f"the taught candidate {key} on the {family} family's evaluation half, on the G path",
+                  engines=ENGINES, count=count, measure=measure, module=__name__)
+
+
+def taught_goldens() -> list[Golden]:
+    """Every taught draft whose candidate pack exists."""
+    from jav import type_teaching, typepack
+
+    packs = set(typepack.keys())
+    return [g for g in (_taught_golden(p.stem) for p in sorted(type_teaching.DRAFTS_DIR.glob("*.json")) if p.stem in packs)
+            if g.count()]
+
+
 # --- the registry ------------------------------------------------------------------------------------------------------
 
 
@@ -335,7 +377,7 @@ def sets() -> list[Golden]:
     from jav import logic_packs, registrations
 
     registrations.load_all()
-    return [*datapoint_goldens(), *QUOTE_GOLDENS, *fact_goldens(), *FLOW_GOLDENS,
+    return [*datapoint_goldens(), *QUOTE_GOLDENS, *fact_goldens(), *taught_goldens(), *FLOW_GOLDENS,
             *(g for pack in logic_packs.packs() for g in pack.goldens)]
 
 

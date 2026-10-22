@@ -1,0 +1,57 @@
+{
+ "meta": {
+  "name": "type:belepo_jegy_taught",
+  "version": "0.1.0",
+  "changelog": [
+   {
+    "version": "0.1.0",
+    "date": "2026-10-22",
+    "note": "197 (plan 197 K2): taught from the belepo_jegy family's development half (configs/type_drafts/belepo_jegy_taught.json, version 0.1.0); a candidate: detection never picks it (auto_detect false); measured on the family's evaluation half only."
+   }
+  ],
+  "taught": {
+   "family": "belepo_jegy",
+   "draft": "configs/type_drafts/belepo_jegy_taught.json",
+   "state": "candidate"
+  }
+ },
+ "document": "An admission ticket to an event (a match or a concert) with the event, its time and place, the ticket holder and the holder's seat",
+ "golden_type_key": "belepo_jegy_taught",
+ "candidate_profile": "intl",
+ "arms": [
+  "G"
+ ],
+ "parent": "ticket",
+ "auto_detect": false,
+ "prompt_file": "belepo_jegy_taught_prompt.md",
+ "schema_file": "belepo_jegy_taught_schema.json",
+ "select_callsite": null,
+ "verify_callsite": "verify_belepo_jegy_taught",
+ "fields": {
+  "ticket_id": "text",
+  "holder_name": "name",
+  "event_name": "text",
+  "event_datetime": "text",
+  "venue": "text",
+  "birth_place": "text",
+  "birth_date": "date",
+  "card_number": "text",
+  "gate": "text",
+  "sector": "text",
+  "row": "text",
+  "seat": "text"
+ },
+ "scored_fields": [
+  "ticket_id",
+  "event_name",
+  "event_datetime",
+  "venue",
+  "gate",
+  "sector",
+  "row",
+  "seat"
+ ],
+ "informational_fields": [],
+ "required": [],
+ "validators": []
+}

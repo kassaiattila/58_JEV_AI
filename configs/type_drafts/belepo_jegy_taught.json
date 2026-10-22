@@ -1,0 +1,32 @@
+{
+ "meta": {
+  "name": "type_draft:belepo_jegy_taught",
+  "version": "0.1.0",
+  "changelog": [
+   {
+    "version": "0.1.0",
+    "date": "2026-10-22",
+    "note": "197 (plan 197 K2): the ticket taught from its development half alone: the fields from `type-propose belepo_jegy` (the fact names that recur, the synonyms joined by hand), their meanings and written forms from the development half's labels (`type-propose --shapes`); the legacy pack's prompt and descriptions were not used. Measured on the evaluation half."
+   }
+  ]
+ },
+ "key": "belepo_jegy_taught",
+ "label": "Belépőjegy (tanított jelölt)",
+ "family": "belepo_jegy",
+ "parent": "ticket",
+ "document": "An admission ticket to an event (a match or a concert) with the event, its time and place, the ticket holder and the holder's seat",
+ "fields": [
+  {"key": "ticket_id", "label": "Jegyazonosító", "kind": "text", "meaning": "the ticket's own identifier, the number printed as its id (azonosító)", "names": ["azonosító"]},
+  {"key": "holder_name", "label": "Tulajdonos neve", "kind": "name", "meaning": "the name of the person the ticket is issued to (név)", "scored": false, "names": ["név"]},
+  {"key": "event_name", "label": "Esemény neve", "kind": "text", "meaning": "the event the ticket admits to, as printed: the match's two teams with the dash between them, or the concert's title (mérkőzés, meccs, párharc, párosítás)", "names": ["mérkőzés", "meccs", "párharc", "párosítás"]},
+  {"key": "event_datetime", "label": "Esemény időpontja", "kind": "text", "meaning": "the event's date and starting time, written as YYYY-MM-DDTHH:MM (időpont, dátum és idő)", "names": ["időpont", "dátum és idő"]},
+  {"key": "venue", "label": "Rendezvény helyszíne", "kind": "text", "meaning": "the name of the stadium, arena or hall where the event is held, as printed (helyszín); not its address", "names": ["helyszín"]},
+  {"key": "birth_place", "label": "Születési hely", "kind": "text", "meaning": "the ticket holder's place of birth (születési hely)", "scored": false, "names": ["születési hely"]},
+  {"key": "birth_date", "label": "Születési dátum", "kind": "date", "meaning": "the ticket holder's date of birth (születési idő)", "scored": false, "names": ["születési idő"]},
+  {"key": "card_number", "label": "Kártyaszám", "kind": "text", "meaning": "the number of the holder's club or fan card printed on the ticket (kártyaszám)", "scored": false, "names": ["kártyaszám"]},
+  {"key": "gate", "label": "Kapu", "kind": "text", "meaning": "the entrance gate exactly as printed in the ticket's gate field (Kapu/Gate), with every word and gate number of that field, not only its first part", "names": ["kapu/csoport", "Kapu/Gate"]},
+  {"key": "sector", "label": "Szektor", "kind": "text", "meaning": "the sector as printed in the ticket's sector field (Szektor/Sector), with its mark and the word that follows the mark", "names": ["szektor", "Szektor/Sector"]},
+  {"key": "row", "label": "Sor", "kind": "text", "meaning": "the row number within the sector (Sor/Row)", "names": ["sor", "Sor/Row"]},
+  {"key": "seat", "label": "Szék", "kind": "text", "meaning": "the seat number within the row (Szék/Seat)", "names": ["szék", "Szék/Seat"]}
+ ]
+}

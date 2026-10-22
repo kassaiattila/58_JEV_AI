@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.98",
+    "version": "1.0.99",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.99",
+        "date": "2026-10-22",
+        "note": "197 (plan 197 K2b-c): document vocabulary and test data accepted - the taught ticket candidate's type name (configs/field_labels.json 189 -> 190), its draft's Hungarian labels and the fact names it joins (configs/type_drafts/belepo_jegy_taught.json 10), the same names in the candidate's prompt, schema and verification site made from it (jav/prompts/belepo_jegy_taught_prompt.md 9, jav/prompts/belepo_jegy_taught_schema.json 9, configs/callsites/verify_belepo_jegy_taught.json 9), the invented Hungarian labels of its tests (tests/test_type_teaching_197.py 7 -> 15); 6082 -> 6128."
+      },
       {
         "version": "1.0.98",
         "date": "2026-10-22",
@@ -521,6 +526,7 @@
     "configs/callsites/verify.json": 17,
     "configs/callsites/verify_altalanos_szerzodesi_feltetelek.json": 4,
     "configs/callsites/verify_belepo_jegy.json": 2,
+    "configs/callsites/verify_belepo_jegy_taught.json": 9,
     "configs/callsites/verify_certificate.json": 2,
     "configs/callsites/verify_csapatmenedzser_utasitas.json": 2,
     "configs/callsites/verify_foreign.json": 7,
@@ -551,7 +557,7 @@
     "configs/experiments/matter_cases.json": 2,
     "configs/experiments/pydantic_jev.json": 3,
     "configs/experiments/source_find_cases.json": 6,
-    "configs/field_labels.json": 189,
+    "configs/field_labels.json": 190,
     "configs/golden_quotes.json": 142,
     "configs/golden_reconcile.json": 9,
     "configs/golden_synthetic.json": 120,
@@ -601,6 +607,7 @@
     "configs/reports.json": 54,
     "configs/service.json": 7,
     "configs/statement_tables.json": 81,
+    "configs/type_drafts/belepo_jegy_taught.json": 10,
     "configs/types/_base/utility_bill_hu.json": 3,
     "configs/types/altalanos_szerzodesi_feltetelek.json": 16,
     "configs/types/belepo_jegy.json": 10,
@@ -705,6 +712,8 @@
     "jav/preflight.py": 14,
     "jav/prompts/altalanos_szerzodesi_feltetelek_prompt.md": 1,
     "jav/prompts/belepo_jegy_prompt.md": 7,
+    "jav/prompts/belepo_jegy_taught_prompt.md": 9,
+    "jav/prompts/belepo_jegy_taught_schema.json": 9,
     "jav/prompts/csapatmenedzser_utasitas_prompt.md": 1,
     "jav/prompts/csapatmenedzser_utasitas_schema.json": 5,
     "jav/prompts/csatorna_szamla_prompt.md": 19,
@@ -858,7 +867,7 @@
     "tests/test_tablequery.py": 9,
     "tests/test_taxid_069.py": 5,
     "tests/test_trial_todos_150.py": 1,
-    "tests/test_type_teaching_197.py": 7,
+    "tests/test_type_teaching_197.py": 15,
     "tests/test_typepack.py": 6,
     "tests/test_typepack_lists.py": 3,
     "tests/test_unified_names_082.py": 1,

@@ -4,7 +4,8 @@ from jav.capability_catalog import build_catalog
 def test_catalog_covers_legacy_types_nested_datapoints_and_active_intents():
     catalog=build_catalog()
     docs={d['key']:d for d in catalog['documents']}
-    assert len(docs)==25  # 122: the pro forma invoice pack joined the 23; 190: the quote request
+    assert len(docs)==26  # 122: the pro forma invoice pack joined the 23; 190: the quote request; 197: the taught ticket
+    assert docs['belepo_jegy_taught']['legacy_catalog_active'] is False  # 197: a candidate, never detected
     assert len(catalog['intents'])==12  # 190: the quote request joined the 11 legacy intents
     assert len(catalog['retired_intent_keys'])==5
     assert sum(d['legacy_catalog_active'] for d in docs.values())==22
