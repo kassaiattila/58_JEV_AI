@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "outputs",
-    "version": "1.1.0",
-    "description": "The output contract (178, plan 170 L4, jav/outputs/contract.py): each output a person downloads or a release stores, and the data it is filled with: its values (one value each, such as the package's name) and its tables, each column with its kind. A key is an English identifier (lowercase letters, digits and `_`); a person's own template (planned: the second round of L4) may use only the keys listed here. A table with `per` is one table for each document type, its columns the listed ones followed by the type pack's fields (`fields: type_pack`) or the columns of its lists' rows (`fields: type_pack_lists`); `months` adds one column per month, keyed `month_<yyyy>_<mm>`. Kinds: text, date, money and number (a decimal number; written as one when the text reads as one), count (a whole number), probability (between 0 and 1), flag (yes or empty), json (structured text). builtin: the layout of the built-in template, the one every download had until 178 (sheet per table; `heading`: the values as a block above every table; `min_width`: the narrowest column; `marks`: the fill colour of a marked cell). A table's `footer` rows (the utility cost's grand total) are written by the built-in template only; an own template takes the value (`grand_total`). templates: the limits of an own template (its size, the made-up rows of a preview). The column headers and sheet names of the built-in layout come from field_labels.json, reports.json and the code that builds the data.",
+    "version": "1.2.0",
+    "description": "The output contract (178, plan 170 L4, jav/outputs/contract.py): each output a person downloads or a release stores, and the data it is filled with: its values (one value each, such as the package's name) and its tables, each column with its kind. A key is an English identifier (lowercase letters, digits and `_`); a person's own template (planned: the second round of L4) may use only the keys listed here. A table with `per` is one table for each document type, its columns the listed ones followed by the type pack's fields (`fields: type_pack`) or the columns of its lists' rows (`fields: type_pack_lists`); `months` adds one column per month, keyed `month_<yyyy>_<mm>`. Kinds: text, date, money and number (a decimal number; written as one when the text reads as one), count (a whole number), probability (between 0 and 1), flag (yes or empty), json (structured text). builtin: the layout of the built-in template, the one every download had until 178 (sheet per table; `heading`: the values as a block above every table; `min_width`: the narrowest column; `marks`: the fill colour of a marked cell). A table's `footer` rows (the utility cost's grand total) are written by the built-in template only; an own template takes the value (`grand_total`). templates: the limits of an own template (its size, the made-up rows of a preview) and (196) the fields a Word template may hold (`word_fields`: page numbers, dates, links and references; any other field, a calculation (`=`) above all, refuses the template). The column headers and sheet names of the built-in layout come from field_labels.json, reports.json and the code that builds the data.",
     "changelog": [
+      {
+        "version": "1.2.0",
+        "date": "2026-10-22",
+        "note": "196 (plan F-Word-output W1): an output may be a Word document (`format: docx`, jav/outputs/docx.py); the fields a Word template may hold."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-19",
@@ -290,6 +295,8 @@
   },
   "templates": {
     "max_bytes": 5000000,
-    "sample_rows": 3
+    "sample_rows": 3,
+    "word_fields": ["PAGE", "NUMPAGES", "SECTIONPAGES", "SECTION", "DATE", "TIME", "CREATEDATE", "SAVEDATE", "PRINTDATE",
+                    "HYPERLINK", "PAGEREF", "REF", "NOTEREF", "STYLEREF", "SEQ", "TOC"]
   }
 }

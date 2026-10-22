@@ -842,6 +842,7 @@
     "tests/test_users.py": 13,
     "tests/test_verify_structured.py": 5,
     "tests/test_version_071.py": 2,
+    "tests/test_word_output_196.py": 20,
     "tests/test_work.py": 11,
     "tests/test_work_cli.py": 5,
     "ui/index.html": 1,
