@@ -955,6 +955,8 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .quote-facts dt { color: var(--muted); font-size: var(--fs-xs); }
 .quote-facts dd { margin: 0; overflow-wrap: anywhere; }
 .quote-facts-wide { grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: var(--sp-4); }
+/* 196: the reply letter's text, read and changed before it is accepted */
+.quote-letter-body { resize: vertical; line-height: 1.5; min-height: 240px; }
 .quote-asked { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .quote-asked li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: var(--sp-2); align-items: baseline;
   padding: var(--sp-1); border-radius: var(--r-sm); font-size: var(--fs-xs); }

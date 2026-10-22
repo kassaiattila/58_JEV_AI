@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.95",
+    "version": "1.0.96",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.96",
+        "date": "2026-10-22",
+        "note": "196 (plan F-Word-output W1-W3): document vocabulary and test data accepted - the built-in quote and reply letter texts (configs/quote_documents.json 25), the Hungarian letters the language estimate counts (jav/quote_document.py 1), the invented injection probe of the letter's golden set (jav/quote_letter.py 3), the invented Hungarian documents and letters of the tests (tests/test_word_output_196.py 20, tests/test_quote_document_196.py 11, tests/test_quote_letter_196.py 21); 5967 -> 6048."
+      },
       {
         "version": "1.0.95",
         "date": "2026-10-22",
@@ -580,6 +585,7 @@
     "configs/naming.json": 26,
     "configs/policy.json": 3,
     "configs/price_lists.json": 5,
+    "configs/quote_documents.json": 25,
     "configs/recipe_help.json": 49,
     "configs/recipes.json": 52,
     "configs/reports.json": 54,
@@ -711,6 +717,8 @@
     "jav/prompts/viz_szamla_prompt.md": 21,
     "jav/prompts/viz_szamla_schema.json": 2,
     "jav/prompts/vizmuvek_szamla_prompt.md": 17,
+    "jav/quote_document.py": 1,
+    "jav/quote_letter.py": 3,
     "jav/report_utility.py": 13,
     "jav/runtime/calls.py": 3,
     "jav/runtime/persistence.py": 2,
@@ -804,7 +812,9 @@
     "tests/test_processing_080.py": 4,
     "tests/test_properties_067.py": 12,
     "tests/test_quick_review_speed_149.py": 1,
+    "tests/test_quote_document_196.py": 11,
     "tests/test_quote_email_part_192.py": 2,
+    "tests/test_quote_letter_196.py": 21,
     "tests/test_quote_table_part_192.py": 1,
     "tests/test_recipe_help.py": 1,
     "tests/test_reconcile_141.py": 2,
@@ -842,6 +852,7 @@
     "tests/test_users.py": 13,
     "tests/test_verify_structured.py": 5,
     "tests/test_version_071.py": 2,
+    "tests/test_word_output_196.py": 20,
     "tests/test_work.py": 11,
     "tests/test_work_cli.py": 5,
     "ui/index.html": 1,

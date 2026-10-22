@@ -1,0 +1,98 @@
+{
+  "meta": {
+    "name": "quote_documents",
+    "version": "1.2.0",
+    "description": "The quote's documents (196, plan F-Word-output, DECISIONS 196, jav/quote_document.py): the built-in Word template of an approved quote in Hungarian and English, and how the quote's language is estimated. language: the request's subject and requested items are scored by code, never by a model: each Hungarian accented letter and each listed Hungarian word counts for Hungarian, each listed English word for English; English wins only with a higher score, so a request with nothing to go by is Hungarian (`default`). A person changes the language on the quote's page. quote: the built-in template's texts per language (document vocabulary: the Hungarian ones stay Hungarian), its table's columns in order with their widths, the page (A4), the page number's text around it, and the file name's prefix; a line of the heading whose value is empty is left out. labels: the Hungarian labels of the output's values and of its one column the built-in table does not show (the settings page's marker list). The numbers are written by code (jav/outputs/docx.py). letter (196, W3, jav/quote_letter.py): the reply letter's frame per language: the greeting (with the contact's name, or without one), the paragraph the letter has while GPT has written none (or its paragraph failed the code's check), the line with the totals (the `quote` output's values as markers, written by code), the closing, the subject (`Re: ` and the request's subject, or the fallback without one) and the letter file's name prefix. A person reads and changes the whole body before the letter file can be downloaded.",
+    "changelog": [
+      {"version": "1.0.0", "date": "2026-10-22", "note": "196 (plan F-Word-output W2): the built-in quote template in Hungarian and English, the language estimate."},
+      {"version": "1.1.0", "date": "2026-10-22", "note": "196 (plan F-Word-output W3): the reply letter's frame in Hungarian and English."},
+      {"version": "1.2.0", "date": "2026-10-22", "note": "196 (W4, the live trial): the totals line no longer says the quotation is attached, since GPT's paragraph says it (11/11 in the trial); the frame's own paragraph says it instead."}
+    ]
+  },
+  "language": {
+    "default": "hu",
+    "languages": ["hu", "en"],
+    "hints": {
+      "hu": ["és", "az", "db", "darab", "kérünk", "kérnénk", "kérem", "szeretnénk", "ajánlat", "ajánlatot", "árajánlat", "részére", "tisztelt", "köszönettel", "üdvözlettel", "egy", "nekünk", "irodába", "szállítás", "licenc", "telepítés"],
+      "en": ["the", "and", "please", "quote", "quotation", "request", "we", "our", "would", "could", "you", "for", "with", "pcs", "piece", "pieces", "delivery", "office", "licence", "license", "regards", "need"]
+    }
+  },
+  "labels": {
+    "package": "Munkacsomag", "version": "Változat", "state": "Állapot (piszkozat)", "language": "Nyelv",
+    "quote_date": "Kelt", "approved_by": "Jóváhagyta", "customer_name": "Ajánlatkérő", "customer_tax_number": "Adószám",
+    "contact_name": "Kapcsolattartó", "contact_email": "Kapcsolattartó e-mail", "contact_phone": "Kapcsolattartó telefon",
+    "deadline": "Kért határidő", "reference": "Hivatkozás", "note": "Megjegyzés", "request_title": "A kérés tárgya",
+    "price_list": "Árlista", "currency": "Pénznem", "vat_percent": "ÁFA (%)", "net_total": "Nettó összesen",
+    "vat_total": "ÁFA összesen", "gross_total": "Bruttó összesen", "list_price": "Listaár"
+  },
+  "quote": {
+    "columns": ["position", "name", "sku", "quantity", "unit", "unit_price", "discount_percent", "net"],
+    "widths_cm": {"position": 0.6, "name": 4.6, "sku": 2.3, "quantity": 1.4, "unit": 2.4, "unit_price": 2.0,
+                  "discount_percent": 1.5, "net": 2.2},
+    "page": {"width_cm": 21.0, "height_cm": 29.7, "margin_cm": 2.0},
+    "hu": {
+      "title": "Árajánlat",
+      "draft": "Piszkozat",
+      "date": "Kelt",
+      "reference": "Hivatkozás",
+      "customer": "Ajánlatkérő",
+      "tax_number": "Adószám",
+      "contact": "Kapcsolattartó",
+      "email": "E-mail",
+      "phone": "Telefon",
+      "deadline": "Kért határidő",
+      "heads": {"position": "#", "name": "Megnevezés", "sku": "Cikkszám", "quantity": "Menny.", "unit": "Egység",
+                "unit_price": "Egységár", "discount_percent": "Kedv. (%)", "net": "Nettó"},
+      "net_total": "Nettó összesen",
+      "vat_total": "ÁFA ({{vat_percent}} %)",
+      "gross_total": "Bruttó összesen",
+      "note": "Megjegyzés",
+      "version": "{{version}}. változat",
+      "page": ["", ". oldal"],
+      "file": "arajanlat"
+    },
+    "en": {
+      "title": "Quotation",
+      "draft": "Draft",
+      "date": "Date",
+      "reference": "Reference",
+      "customer": "Customer",
+      "tax_number": "Tax number",
+      "contact": "Contact",
+      "email": "Email",
+      "phone": "Phone",
+      "deadline": "Requested by",
+      "heads": {"position": "#", "name": "Description", "sku": "Item no.", "quantity": "Qty", "unit": "Unit",
+                "unit_price": "Unit price", "discount_percent": "Disc. (%)", "net": "Net"},
+      "net_total": "Net total",
+      "vat_total": "VAT ({{vat_percent}}%)",
+      "gross_total": "Gross total",
+      "note": "Note",
+      "version": "Version {{version}}",
+      "page": ["Page ", ""],
+      "file": "quotation"
+    }
+  },
+  "letter": {
+    "hu": {
+      "greeting": "Tisztelt {{contact_name}}!",
+      "greeting_none": "Tisztelt Hölgyem/Uram!",
+      "fallback": "Köszönjük ajánlatkérését; árajánlatunkat mellékelten küldjük.",
+      "totals": "Ajánlatunk bruttó végösszege {{gross_total}} {{currency}} (nettó {{net_total}} {{currency}} + ÁFA).",
+      "closing": "Üdvözlettel:",
+      "subject_reply": "Re: {{request_title}}",
+      "subject_none": "Árajánlat",
+      "file": "valaszlevel"
+    },
+    "en": {
+      "greeting": "Dear {{contact_name}},",
+      "greeting_none": "Dear Sir or Madam,",
+      "fallback": "Thank you for your request; please find our quotation attached.",
+      "totals": "The total of our quotation is {{gross_total}} {{currency}} gross ({{net_total}} {{currency}} net).",
+      "closing": "Kind regards,",
+      "subject_reply": "Re: {{request_title}}",
+      "subject_none": "Quotation",
+      "file": "reply"
+    }
+  }
+}

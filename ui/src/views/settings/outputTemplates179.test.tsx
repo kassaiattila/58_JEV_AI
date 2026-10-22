@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   api, ApiError, setActor, type OutputMarkerGroup, type OutputTemplate, type OutputTemplateCheck, type OutputTemplateVersion,
-  type OutputTemplatesListing, type PackageOutputChoices,
+  type OutputName, type OutputTemplatesListing, type PackageOutputChoices,
 } from "../../api";
 import { TemplateChoice } from "../../components/TemplateChoice";
 import { setLanguage } from "../../i18n";
@@ -37,8 +37,10 @@ const GROUPS: OutputMarkerGroup[] = [
 ];
 
 function listing(templates: OutputTemplate[]): OutputTemplatesListing {
-  const out = (o: "package_result" | "utility_cost" | "reconcile_statement") => ({ output: o, what: "", markers: o === "package_result" ? GROUPS : [] });
-  return { templates, outputs: { package_result: out("package_result"), utility_cost: out("utility_cost"), reconcile_statement: out("reconcile_statement") } };
+  const out = (o: OutputName) => ({ output: o, what: "", format: o === "quote" ? "docx" as const : "xlsx" as const,
+    markers: o === "package_result" ? GROUPS : [] });
+  return { templates, outputs: { package_result: out("package_result"), utility_cost: out("utility_cost"),
+    reconcile_statement: out("reconcile_statement"), quote: out("quote") } };
 }
 
 const board = (versions: OutputTemplateVersion[]): OutputTemplate => ({
@@ -60,7 +62,7 @@ describe("Settings › Output templates (179)", () => {
     expect(within(rows[1]).getByRole("button", { name: "Retire" })).toBeTruthy();
     expect(within(rows[0]).getByRole("link", { name: "Preview (made-up data)" }).getAttribute("href"))
       .toBe("/api/output-templates/tpl-0123456789/versions/2/preview.xlsx");
-    expect(screen.getAllByText("No own template: the built-in template makes this download.")).toHaveLength(2);
+    expect(screen.getAllByText("No own template: the built-in template makes this download.")).toHaveLength(3); // 196: and the quote
   });
 
   it("names every problem of a refused upload with its cell, and stores nothing", async () => {
@@ -190,5 +192,21 @@ describe("the template chooser next to a download (179)", () => {
     await waitFor(() => expect(run).toHaveBeenCalled());
     expect(screen.queryByRole("link", { name: "Utility cost (Excel)" })).toBeNull();
     expect(load).not.toHaveBeenCalled();
+  });
+});
+
+describe("Settings › Output templates: a Word template (196)", () => {
+  it("previews a quote's template as a Word document and names a Word template's problems", async () => {
+    const offer = version({ template: "tpl-00000000aa", output: "quote", name: "Our offer", state: "active", file_name: "offer.docx",
+      check: { ...CHECK, output: "quote" } });
+    vi.spyOn(api, "outputTemplates").mockResolvedValue(listing([{ template: "tpl-00000000aa", output: "quote", name: "Our offer",
+      active: 1, retired: false, versions: [offer] }]));
+    render(<OutputTemplatesPanel />);
+    await screen.findByText("Our offer");
+    expect(screen.getByRole("link", { name: "Preview (made-up data)" }).getAttribute("href"))
+      .toBe("/api/output-templates/tpl-00000000aa/versions/1/preview.docx");
+    expect(issueText("not_docx")).toBe("The file is not a Word document (.docx).");
+    expect(issueText("field")).toContain("A template holds no calculation");
+    expect(issueText("attached_template")).toContain("removed");
   });
 });

@@ -6,7 +6,8 @@
   request carries its path, as adding documents does; a template can be larger than a request's body); checked, and
   stored as a draft version (422 `template_refused` with the check's problems when it has any);
 - `POST /output-templates/{template}/versions/{n}/activate`, `POST /output-templates/{template}/retire`;
-- `GET /output-templates/{template}/versions/{n}/file` and `/preview.xlsx` (filled with made-up data);
+- `GET /output-templates/{template}/versions/{n}/file` and `/preview.xlsx` (filled with made-up data; 196: a Word
+  template's `/preview.docx`, each file with its own media type);
 - `GET /workpackages/{id}/output-templates` and `PUT /workpackages/{id}/output-templates/{output}`: the choice;
 - `GET /workpackages/{id}/result/utility-cost.xlsx`: the utility cost of the package's current result.
 
@@ -45,7 +46,8 @@ class TemplateChoice(_In):
 
 
 def _file(content: bytes, name: str) -> Response:
-    return Response(content, media_type=XLSX, headers={"Content-Disposition": attachment_header(name), "Cache-Control": "no-store",
+    media = package_release.DOCX if name.lower().endswith(".docx") else XLSX  # 196: a Word template's file
+    return Response(content, media_type=media, headers={"Content-Disposition": attachment_header(name), "Cache-Control": "no-store",
                                                        "X-Content-Type-Options": "nosniff"})
 
 
@@ -64,7 +66,9 @@ def routes(app: FastAPI, r: str) -> None:
     def output_templates() -> dict[str, Any]:
         # 179: with each output's markers ready to copy (the settings page's list)
         return work_views.jsonable({"templates": templates.listing(),
-                                    "outputs": {o: samples.labels(o) | {"markers": samples.markers(o)} for o in contract.outputs()}})
+                                    "outputs": {o: samples.labels(o) | {"markers": samples.markers(o),  # 196: its format
+                                                                        "format": contract.spec(o)["format"]}
+                                                for o in contract.outputs()}})
 
     @app.post(r + "/output-templates", status_code=201)
     def upload_output_template(body: TemplateUpload, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
@@ -90,6 +94,7 @@ def routes(app: FastAPI, r: str) -> None:
         return _file(*templates.content(template, version))
 
     @app.get(r + "/output-templates/{template}/versions/{version}/preview.xlsx")
+    @app.get(r + "/output-templates/{template}/versions/{version}/preview.docx")  # 196: a Word template's
     def output_template_preview(template: TemplateId, version: Version) -> Response:
         return _file(*templates.preview(template, version))
 

@@ -48,10 +48,11 @@ def db(tmp_path):
 
 def test_every_name_of_the_contract_is_an_identifier_and_every_kind_is_known():
     outputs = contract.outputs()
-    assert set(outputs) == {"package_result", "utility_cost", "reconcile_statement"}
+    assert set(outputs) == {"package_result", "utility_cost", "reconcile_statement", "quote"}  # 196: the quote
     for name, out in outputs.items():
-        assert out["format"] == "xlsx" and out["what"]
-        assert {"version", "heading", "min_width", "marks"} <= set(out["builtin"])
+        assert out["format"] in ("xlsx", "docx") and out["what"]  # 196: a Word output
+        layout = {"version", "heading", "min_width", "marks"} if out["format"] == "xlsx" else {"version"}
+        assert layout <= set(out["builtin"])
         for key, kind in out["values"].items():
             assert contract.KEY.match(key) and kind in contract.KINDS, (name, key)
         for table, spec in out["tables"].items():

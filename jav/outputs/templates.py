@@ -19,7 +19,7 @@ import secrets
 from typing import Any
 
 from jav import activity_kinds, decisions, logic_packs, store, work
-from jav.outputs import builtin, contract, fill, samples
+from jav.outputs import builtin, contract, docx, fill, samples
 from jav.clock import utc_stamp as _now
 
 # the package log's action of a person choosing a package's template (`jav/activity_kinds.py`)
@@ -27,6 +27,23 @@ activity_kinds.register_events("package", ("output_template_choose",), __name__)
 
 BUILTIN = "builtin"
 STATES = ("draft", "active", "superseded", "retired")
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+def engine(output: str) -> Any:
+    """196: the check and the filling of the output's file format (`configs/outputs.json` `format`): a Word
+    document's (`jav/outputs/docx.py`) or a workbook's (`jav/outputs/fill.py`)."""
+    return docx if contract.spec(output)["format"] == "docx" else fill
+
+
+def media(output: str) -> str:
+    """196: the media type of the output's file."""
+    return docx.MEDIA if contract.spec(output)["format"] == "docx" else XLSX
+
+
+def extension(output: str) -> str:
+    """196: the file name suffix of the output's file (`.docx`, `.xlsx`)."""
+    return "." + contract.spec(output)["format"]
 
 store.register_schema("output_templates", """
 -- 178 (plan 170 L4): a person's own template of an output, each uploaded file a version; the bytes never change
@@ -94,7 +111,7 @@ def add(output: str, name: str, file_name: str, content: bytes, *, actor: str, t
     name = (name or "").strip()
     if not name:
         raise ValueError("a template needs a name")
-    check = fill.check(output, content).as_dict()
+    check = engine(output).check(output, content).as_dict()
     if not check["ok"]:
         raise TemplateRefused(check)
     with store.connect() as c:
@@ -190,7 +207,7 @@ def preview(template: str, version: int) -> tuple[bytes, str]:
     v = get(template, version)
     data, file_name = content(template, version)
     parts = tuple(name for name in v["check"]["tables"] if name not in contract.spec(v["output"])["tables"]) or (samples.DEFAULT_PART,)
-    return fill.fill(samples.data(v["output"], parts), data), f"preview-{file_name}"
+    return engine(v["output"]).fill(samples.data(v["output"], parts), data), f"preview-{file_name}"
 
 
 # --- the choice per package -----------------------------------------------------------------------------------------
@@ -276,7 +293,8 @@ def render(data: contract.OutputData, wp_id: str | None = None, c: Any = None) -
             with store.connect() as conn:
                 row = _chosen(conn, wp_id, data.output)
         if row is not None and row["output"] == data.output:
-            return fill.fill(data, bytes(row["content"])), {"template": row["template"], "template_version": str(row["version"])}
+            made = {"template": row["template"], "template_version": str(row["version"])}
+            return engine(data.output).fill(data, bytes(row["content"])), made
     return builtin.render(data), {"template": BUILTIN, "template_version": builtin_version(data.output)}
 
 
@@ -284,4 +302,4 @@ def render_with(data: contract.OutputData, template: str, version: str) -> bytes
     """The output's file made with a recorded template version (a reopened statement keeps its approval's template)."""
     if template == BUILTIN:
         return builtin.render(data)
-    return fill.fill(data, content(template, int(version))[0])
+    return engine(data.output).fill(data, content(template, int(version))[0])

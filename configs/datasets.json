@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.29.0",
+  "version": "1.30.0",
   "changelog": [
+   {
+    "version": "1.30.0",
+    "date": "2026-10-22",
+    "note": "196 (plan F-Word-output W3): the activity_action label of a quote's reply letter accepted (jav/quote_letter.py)."
+   },
    {
     "version": "1.29.0",
     "date": "2026-10-21",
@@ -193,6 +198,7 @@
    "statement_account": "statement package: bank account assigned to the party", "statement_add": "statement package: statements added",
    "package_release": "package: approved and released",
    "quote_approve": "quote: version approved", "quote_reopen": "quote: approval reopened",
+   "quote_letter_accept": "quote: reply letter accepted",
    "output_template_choose": "output: template chosen",
    "scope_set": "package: party, period and role set", "scope_clear": "package: own party, period and role removed",
    "routing_accept": "email routing: document routed", "routing_reject": "email routing: document not routed",

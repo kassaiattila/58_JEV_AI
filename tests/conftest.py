@@ -71,6 +71,19 @@ def _no_live_gpt_choice():
 
 
 @pytest.fixture(autouse=True)
+def _no_live_quote_letter():
+    """196: a test never asks OpenAI for a reply letter's paragraph (a paid call); a test that needs one installs its
+    own stand-in with `quote_letter.use_agent_factory`."""
+    from jav import quote_letter
+
+    def refuse(output_model, instructions):
+        raise AssertionError("a test tried a live GPT call (jav/quote_letter.py); install a stand-in with use_agent_factory")
+
+    with quote_letter.use_agent_factory(refuse):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def _no_jev_question_without_jev(request, monkeypatch):
     """160 (plan F-csak-gpt, L4): a JEV question asked in processing without JEV fails the test. In production it is
     refused and becomes the `jev_unavailable:disabled` to-do, which a test could overlook; a test of the refusal

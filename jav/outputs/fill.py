@@ -181,7 +181,7 @@ def check(output: str, data: bytes) -> TemplateCheck:
 # --- the filling ----------------------------------------------------------------------------------------------------
 
 
-def _decimal(value: Any) -> Decimal | None:
+def as_decimal(value: Any) -> Decimal | None:
     if isinstance(value, bool) or value is None:
         return None
     try:
@@ -200,7 +200,7 @@ def _typed(value: Any, kind: str) -> Any:
     if kind == "count":
         return value if isinstance(value, int) and not isinstance(value, bool) else xlsx.cell_value(value, "number")
     if kind == "probability":
-        number = _decimal(value)
+        number = as_decimal(value)
         return float(number) if number is not None else xlsx.cell_value(value, None)
     if kind == "date" and isinstance(value, str) and ISO_DATE.match(value):
         return date.fromisoformat(value)
@@ -212,7 +212,7 @@ def _shown(value: Any, kind: str) -> str:
     never the machine's regional settings)."""
     if value is None:
         return ""
-    if kind == "money" and (number := _decimal(value)) is not None:
+    if kind == "money" and (number := as_decimal(value)) is not None:
         return f"{number:,.2f}".replace(",", " ").replace(".", ",")
     return str(value)
 
@@ -229,10 +229,16 @@ def _put(cell: Any, value: Any, kind: str) -> None:
 
 
 @dataclass
-class _Data:
+class Lookup:
+    """An output's data by name, for its markers (shared with the Word filler, `jav/outputs/docx.py`)."""
+
     output: str
     values: dict[str, Any]
     tables: dict[str, contract.Table]
+
+    @classmethod
+    def of(cls, data: contract.OutputData) -> Lookup:
+        return cls(data.output, {v.key: v.value for v in data.values}, {t.part or t.key: t for t in data.tables})
 
     def table(self, name: str) -> contract.Table | None:
         return self.tables.get(name)
@@ -255,7 +261,7 @@ class _Data:
         if t is not None:
             i = t.columns.index(m.column) if m.column in t.columns else None
             for row in t.rows if i is not None else ():
-                number = _decimal(row[i]) if i < len(row) else None
+                number = as_decimal(row[i]) if i < len(row) else None
                 total += number if number is not None else 0
         return total
 
@@ -308,7 +314,7 @@ def _text(text: str, found: list[markers.Marker], value_of: Any) -> str:
     return markers.ANY.sub(lambda g: value_of(by_text[g.group(0)]) if g.group(0) in by_text else g.group(0), text)
 
 
-def _fill_singles(ws: Any, cells: list[tuple[Any, str, list[markers.Marker]]], rows: dict[int, str], d: _Data) -> None:
+def _fill_singles(ws: Any, cells: list[tuple[Any, str, list[markers.Marker]]], rows: dict[int, str], d: Lookup) -> None:
     for c, text, found in cells:
         if c.row in rows:
             continue
@@ -322,7 +328,7 @@ def _fill_singles(ws: Any, cells: list[tuple[Any, str, list[markers.Marker]]], r
             c.data_type = "s"
 
 
-def _fill_row(ws: Any, r: int, cells: list[tuple[Any, str, list[markers.Marker]]], d: _Data, name: str) -> None:
+def _fill_row(ws: Any, r: int, cells: list[tuple[Any, str, list[markers.Marker]]], d: Lookup, name: str) -> None:
     t = d.table(name)
     n = len(t.rows) if t else 0
     if n == 0:
@@ -359,7 +365,7 @@ def _fill_row(ws: Any, r: int, cells: list[tuple[Any, str, list[markers.Marker]]
 def fill(data: contract.OutputData, template: bytes) -> bytes:
     """The output's workbook from the template. TemplateError when the template does not fill (checked when stored)."""
     contract.check(data)
-    d = _Data(data.output, {v.key: v.value for v in data.values}, {t.part or t.key: t for t in data.tables})
+    d = Lookup.of(data)
     wb = _load(template)
     for ws in wb.worksheets:
         rows, cells = _scan(ws, data.output, None)

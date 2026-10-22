@@ -4,7 +4,9 @@
 // Every change is saved at once (the page sends the draft with the state it read; a stale page is refused and
 // reloaded); code prices every line. A line says what it was asked for (the requested item's number and words), its
 // state mark, and in words what still holds the approval; a line the proposal marked "to check" is confirmed or changed
-// by a person (the owner's choice). The approval is the shared element of a logic pack's own versions.
+// by a person (the owner's choice). The approval is the shared element of a logic pack's own versions. 196: the quote's
+// documents' language is chosen with its header; the draft and each approved version download as a Word document (the
+// built-in template, or the package's own one chosen beside the download).
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   api, ApiError, type QuoteApproved, type QuoteDraftBlockerCode, type QuoteDraftIn, type QuoteDraftLine,
@@ -14,10 +16,12 @@ import { ApprovalPanel, EarlierVersions } from "../../components/ApprovalPanel";
 import { ConfirmButton } from "../../components/ConfirmButton";
 import { Icon } from "../../components/Icon";
 import { Picker, type PickerOption } from "../../components/Picker";
+import { TemplateChoice } from "../../components/TemplateChoice";
 import { errorText, useAction } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { fieldLabel, numText, when } from "../../labels";
 import { wpHash } from "../../route";
+import { QuoteLetterCard } from "./QuoteLetter";
 import { amountText } from "./quoteStatus";
 
 export const QUOTE_LINE_BLOCKER: Record<QuoteDraftBlockerCode, string> = {
@@ -45,6 +49,8 @@ const quantityText = (v: unknown) => (v === null || v === undefined || v === "" 
 const requestedText = (r: QuoteDraftLine["requested"]) =>
   r ? [r.description, [quantityText(r.quantity), r.unit].filter(Boolean).join(" ")].filter(Boolean).join(" · ") : "";
 const needsNote = (l: QuoteLineIn) => l.sku === null || l.unit_price !== null || l.discount_percent !== null;
+// 196: each language by its own name, as the interface's language switch names them
+const LANGUAGE_NAMES: Record<string, string> = { hu: "Magyar", en: "English" };
 
 /** What a line shows while it has no price or discount of a person's own: the list's price, the rule's discount. */
 type Shown = Record<string, { unit_price: string; discount_percent: string }>;
@@ -52,7 +58,7 @@ type Shown = Record<string, { unit_price: string; discount_percent: string }>;
 function sent(draft: NonNullable<QuoteDraftView["draft"]>, edits: Record<string, Partial<Record<Edited, string>>>,
   header: Record<string, string>, shown: Shown): QuoteDraftIn {
   return {
-    price_list: draft.price_list, version: draft.version,
+    price_list: draft.price_list, version: draft.version, language: draft.language ?? null,
     header: { ...draft.header, ...Object.fromEntries(Object.entries(header).map(([k, v]) => [k, v.trim() || null])) },
     lines: draft.lines.map((l) => {
       const e = edits[l.id] ?? {};
@@ -208,6 +214,10 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
           {t("Approved: version {{n}}, by {{who}}, {{when}}.", { n: locked.version, who: locked.approved_by, when: when(locked.approved_at) })}{" "}
           <a href={wpHash(wpId, "result")}>{t("To change it, reopen it in Approval.")}</a>
         </p>
+        <p>
+          <a className="secondary dl-btn small-btn" href={api.quoteVersionDocxUrl(wpId, locked.version)} download><Icon name="download" />
+            {t("Download version {{n}} (Word)", { n: locked.version })}</a>
+        </p>
         {dv.approved ? <QuoteDocument quote={dv.approved} /> : null}
       </section>
     );
@@ -286,6 +296,13 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
               onBlur={() => { if (f in latest.current.header) void save(); }} />
           </label>
         ))}
+        {/* 196: the language of the Word document and the reply letter, estimated from the request (a service
+            older than 196 names none) */}
+        {dv.languages?.length ? (
+          <Picker label={t("Language of the quote's documents")} value={dv.language ?? dv.languages[0]} disabled={saving}
+            options={dv.languages.map((l) => ({ value: l, label: LANGUAGE_NAMES[l] ?? l }))}
+            onChange={(v) => void save((d) => ({ ...d, language: v }))} />
+        ) : null}
       </div>
       </details>
       {general.length ? (
@@ -399,6 +416,13 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
         </button>
         <Totals totals={dv.totals} currency={currency} vat={dv.vat_percent} />
       </div>
+      {dv.totals ? (
+        <div className="button-row">
+          <TemplateChoice wpId={wpId} output="quote" />
+          <a className="secondary dl-btn small-btn" href={api.quoteDraftDocxUrl(wpId)} download><Icon name="download" />
+            {t("Download the draft (Word)")}</a>
+        </div>
+      ) : null}
       <p className="small muted">
         {dv.price_list ? t("Priced from the price list {{name}}, version {{n}}; {{currency}}, VAT {{vat}}%", {
           name: dv.price_list.name, n: dv.price_list.version, currency: currency ?? "", vat: numText(dv.vat_percent, 2),
@@ -509,6 +533,18 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged }: {
   return (
     <div className="rc-stack">
       <ApprovalPanel approval={dv.approval} archived={archived} busy={busy}
+        tools={<>
+          {/* 196: the template of the draft's download and of the approval's stored Word document; an approved
+              version's document is stored, so it is chosen again only after a reopening */}
+          {dv.approval.active ? null : <TemplateChoice wpId={wpId} output="quote" />}
+          {dv.approval.active ? (
+            <a className="secondary dl-btn small-btn" href={api.quoteVersionDocxUrl(wpId, dv.approval.active.version)} download>
+              <Icon name="download" />{t("Download version {{n}} (Word)", { n: dv.approval.active.version })}</a>
+          ) : dv.totals ? (
+            <a className="secondary dl-btn small-btn" href={api.quoteDraftDocxUrl(wpId)} download>
+              <Icon name="download" />{t("Download the draft (Word)")}</a>
+          ) : null}
+        </>}
         lockedText={t("The quote is not changed while this version stands. To change it, reopen the approval with a reason; this version stays as an earlier one.")}
         pendingText={t("Not approved yet. The approval records the quote below, with the price list version it is priced from, as an unchangeable version.")}
         blockers={blockers}
@@ -522,6 +558,8 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged }: {
           <QuoteDocument quote={doc} />
         </section>
       ) : null}
+      {/* 196: the approved version's reply letter */}
+      {dv.approval.active && view.letter ? <QuoteLetterCard wpId={wpId} letter={view.letter} archived={archived} onChanged={onChanged} /> : null}
       {shown ? (
         <section className="card wide" aria-label={t("Version {{n}}", { n: shown.n })}>
           <div className="card-head">
@@ -533,9 +571,12 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged }: {
       ) : null}
       <EarlierVersions versions={dv.approval.versions}
         action={(v) => (
-          <button type="button" className="quiet small-btn" onClick={() => void api.quoteVersion(wpId, v.version)
-            .then((r) => setShown({ n: v.version, quote: r.quote }))
-            .catch((e) => setError(e instanceof ApiError ? e.message : String(e)))}>{t("Show this version")}</button>
+          <>
+            <button type="button" className="quiet small-btn" onClick={() => void api.quoteVersion(wpId, v.version)
+              .then((r) => setShown({ n: v.version, quote: r.quote }))
+              .catch((e) => setError(e instanceof ApiError ? e.message : String(e)))}>{t("Show this version")}</button>
+            <a href={api.quoteVersionDocxUrl(wpId, v.version)} download>{t("Download (Word)")}</a>
+          </>
         )} />
     </div>
   );

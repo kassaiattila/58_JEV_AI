@@ -28,7 +28,7 @@ import json
 from typing import Any
 
 from jav import (app_settings, goldens, item_kinds, logic_packs, package_release, package_scope, price_lists, quote_draft,
-                 quote_proposal, quote_request, store, work, workflow_steps)
+                 quote_letter, quote_proposal, quote_request, store, work, workflow_steps)
 from jav.tablequery import fold
 from jav.user_messages import explained
 
@@ -160,7 +160,8 @@ def view(wp_id: str) -> dict[str, Any]:
             "price_lists": lists, "blockers": blockers, "proposal": quote_proposal.current(wp_id),
             "proposal_cap": {"engine": engine, "items": n_items,
                              "usd": {k: str(v) for k, v in quote_proposal.cap(n_items, engine).items()}},
-            "draft": quote_draft.view(wp_id)}  # B5: the quote as a person composes it, and its approval
+            "draft": quote_draft.view(wp_id),  # B5: the quote as a person composes it, and its approval
+            "letter": quote_letter.view(wp_id)}  # 196: the approved version's reply letter
 
 
 def _next_of(current: dict[str, Any]) -> dict[str, Any]:
@@ -243,6 +244,24 @@ def _measure_matches(options: goldens.Options) -> goldens.Outcome:
                            unit="items")
 
 
+def _count_letters() -> int:
+    return len(quote_letter.golden_cases())
+
+
+def _measure_letters(options: goldens.Options) -> goldens.Outcome:
+    """196 W4: each invented request's reply letter paragraph asked of GPT and checked by code; without a budget,
+    earlier answers only."""
+    budget, refused = options.answering_budget("the reply letters")
+    if refused:
+        return goldens.Outcome(refused=refused)
+    limits = {"openai": budget} if budget is not None else {}
+    g = quote_letter.golden(limits=limits, use_cache=options.use_cache, **({} if limits else {"earlier_only": True}))
+    quote_letter.print_golden(g)
+    answered = g["cases"] - g["tally"].get("failed", 0)
+    return goldens.Outcome(cases=g["cases"], answered=answered, right=g["tally"].get("right", 0), scored=answered,
+                           unit="cases")
+
+
 # B4a: the quote package's golden sets, measured by the shared measurement command (`jav/goldens.py`)
 GOLDENS = (
     goldens.Golden(key=f"{KIND}:lines", layer="logic_pack", owner=KIND, engines=(), module=__name__,
@@ -251,6 +270,11 @@ GOLDENS = (
     goldens.Golden(key=f"{KIND}:matches", layer="logic_pack", owner=KIND, engines=goldens.ENGINES, module=__name__,
                    what="the price list item proposed for each invented requested item: sure, to check or not listed "
                         "(configs/golden_quotes.json)", count=_count_matches, measure=_measure_matches),
+    # 196 W4: GPT only (JEV writes no text)
+    goldens.Golden(key=f"{KIND}:letters", layer="logic_pack", owner=KIND, engines=("gpt",), module=__name__,
+                   what="the reply letter's paragraph GPT writes for each invented request and an injection probe: it "
+                        "passes the code's check (no number, link, address) in the request's language", count=_count_letters,
+                   measure=_measure_letters),
 )
 
 LOGIC = logic_packs.LogicPack(
@@ -260,7 +284,8 @@ LOGIC = logic_packs.LogicPack(
     has_runs=False, add_refusal="a quote package has no documents of its own: its request stays in its package",
     release_refusal=_release_refusal, delete_guard=quote_draft.delete_guard, page=_page, approved=_approved,
     next_step=next_step, list_next=next_step,
-    list_mark=lambda: (price_lists.mark(), quote_proposal.mark(), quote_draft.mark()), outputs=(),
+    list_mark=lambda: (price_lists.mark(), quote_proposal.mark(), quote_draft.mark(), quote_letter.mark()),
+    outputs=("quote",),  # 196: the approved quote's Word document (`jav/quote_document.py`)
     service="jav.api_quote_package", goldens=GOLDENS)
 
 
