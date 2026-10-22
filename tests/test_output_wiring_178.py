@@ -12,7 +12,7 @@ import io
 
 from openpyxl import Workbook, load_workbook
 
-from jav import report_utility, store
+from jav import package_release, report_utility, store
 from jav import reconcile_statement as rs
 from jav.outputs import templates
 from tests import test_flexible_package_160c as fp
@@ -97,13 +97,13 @@ def test_a_reconciliation_is_approved_with_its_chosen_template_and_reopened_with
         templates.choose(wp_id, "reconcile_statement", v["template"], actor="Reviewer")
         assert load_workbook(io.BytesIO(rs.xlsx(wp_id)[0]))["Statement"]["A1"].value.startswith("Reconciliation of April")
         rs.approve(wp_id, fingerprint=rs.current(wp_id)["fingerprint"], actor="Reviewer")
-        assert [(f["state"], f["template"], f["template_version"]) for f in rs.version_files(wp_id, 1)] == [
+        assert [(f["state"], f["template"], f["template_version"]) for f in package_release.own_files(wp_id, 1)] == [
             ("approved", v["template"], "1")]
         v2 = templates.add("reconcile_statement", "Ours", "ours-2.xlsx", _statement_template(), actor="Reviewer",
                            template=v["template"])
         templates.activate(v2["template"], 2, actor="Reviewer")
         rs.reopen(wp_id, note="a payment was missed", actor="Reviewer")
-        assert [(f["state"], f["template_version"]) for f in rs.version_files(wp_id, 1)] == [("approved", "1"), ("earlier", "1")]
+        assert [(f["state"], f["template_version"]) for f in package_release.own_files(wp_id, 1)] == [("approved", "1"), ("earlier", "1")]
         assert load_workbook(io.BytesIO(rs.xlsx(wp_id, version=1)[0]))["Statement"]["A1"].value.startswith("Reconciliation of")
 
 

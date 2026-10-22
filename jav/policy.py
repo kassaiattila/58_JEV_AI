@@ -192,10 +192,6 @@ def high_stakes_for(doc_type: str) -> frozenset[str]:
     return frozenset(get_pack(doc_type).high_stakes)
 
 
-def required_for(doc_type: str) -> frozenset[str]:
-    return frozenset(get_pack(doc_type).required)
-
-
 OCR: dict[str, float] = {k: float(v) for k, v in _CFG.get("ocr", {}).items()}  # v1.6.0: OCR quality thresholds
 
 

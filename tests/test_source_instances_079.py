@@ -93,7 +93,7 @@ def test_the_fingerprint_is_taken_from_the_copied_bytes(env, monkeypatch):
     write_text_pdf(extra, INVOICE_LINES[:3])
     calls_ = []
     monkeypatch.setattr(work, "sha256_file", lambda p: calls_.append(p) or "0" * 64)  # a separate hashing pass is not used
-    wp = work.add_document(env["wp"]["id"], extra, expected_revision=env["wp"]["revision"])
+    wp = work.add_documents(env["wp"]["id"], [extra], expected_revision=env["wp"]["revision"])
     item = next(i for i in wp["items"] if Path(i["source_path"]).name == "extra.pdf")
     assert item["sha256"] == _sha(extra.read_bytes()) and not calls_
 

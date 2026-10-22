@@ -11,7 +11,6 @@ from datetime import date, datetime
 from email import policy
 from email.parser import BytesParser
 import hashlib
-from html.parser import HTMLParser
 from io import BytesIO, StringIO
 import json
 from pathlib import PurePosixPath
@@ -268,25 +267,6 @@ def image(data: bytes, reading: Reading, *, recognise: bool = False):
             reading.issue("needs_ocr", "Original image frame retained; OCR has not run", identity)
             if recognise:
                 raster(reading, picture, element_id=identity, kind="image", page=index + 1)
-
-
-class InertHTML(HTMLParser):
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self.pieces = []
-        self.hidden = 0
-
-    def handle_starttag(self, tag, attrs):
-        if tag in ("script", "style"):
-            self.hidden += 1
-
-    def handle_endtag(self, tag):
-        if tag in ("script", "style"):
-            self.hidden = max(0, self.hidden - 1)
-
-    def handle_data(self, data):
-        if not self.hidden:
-            self.pieces.append(data)
 
 
 def read(data: bytes, filename: str, limits: ReadLimits, *, recognise: bool = False) -> dict:

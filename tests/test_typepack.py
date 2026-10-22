@@ -54,7 +54,7 @@ def _foreign_lines() -> list[LineLayout]:
 def test_packs_load_and_hu_pack_equals_legacy_constants():
     hu = typepack.get("invoice_hu")
     assert hu.header_fields == HEADER_FIELDS and hu.scored_fields == SCORED_FIELDS and hu.informational_fields == ("payment_iban",)
-    assert set(hu.required) == {"buyer_name", "gross_total", "invoice_number", "supplier_name"} == set(policy.required_for("invoice_hu"))
+    assert set(hu.required) == {"buyer_name", "gross_total", "invoice_number", "supplier_name"}
     assert set(hu.high_stakes) == {"amount_due", "due_date", "gross_total", "payment_iban", "supplier_tax_id"} == set(policy.high_stakes_for("invoice_hu"))
     assert [v["check"] for v in hu.validators] == ["vat_consistency", "date_order", "tax_id", "tax_id", "iban_check",
                                                    "line_items_total", "line_items_arithmetic", "distinct_parties",
@@ -200,7 +200,7 @@ def test_policy_uses_pack_required_and_high_stakes():
     policy.apply_pick_policy(st)
     assert "pick:none:gross_total" in st.review_reasons and "pick:none:buyer_name" not in st.review_reasons
     assert any(r.startswith("pick:high_stakes_conf:due_date") for r in st.review_reasons)
-    assert "buyer_name" in policy.required_for("invoice_hu")
+    assert "buyer_name" in typepack.get("invoice_hu").required
 
 
 def test_golden_compare_by_kind_and_case_loader_filters_type():

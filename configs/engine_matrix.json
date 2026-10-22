@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.7",
+        "date": "2026-10-22",
+        "note": "204 (R1c): the native reader's JEV-only field-selection arm removed; no flow or measurement called it, only its test."
+      },
       {
         "version": "1.0.6",
         "date": "2026-10-22",
@@ -469,18 +474,6 @@
       },
       "tests": [
         "tests/test_paired_native_160.py::test_the_native_facts_are_published_on_both_engines"
-      ]
-    },
-    "reader_field_selection": {
-      "modules": [
-        "jav/readers/providers.py"
-      ],
-      "exception": {
-        "kind": "measurement_only",
-        "reason": "The JEV-only comparison arm of the native reader (docs/guides/NATIVE_READERS.md); no flow calls it."
-      },
-      "tests": [
-        "tests/test_reader_providers.py::test_jev_selection_and_support_are_distinct_from_correctness"
       ]
     },
     "verifier_probe": {

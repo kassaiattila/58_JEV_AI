@@ -384,11 +384,6 @@ def xlsx(wp_id: str, *, version: int | None = None) -> tuple[bytes, str]:
     return (stored["content"], stored["name"]) if stored else _version_file(v)
 
 
-def version_files(wp_id: str, n: int) -> list[dict[str, Any]]:
-    """178: the stored files of an approved version (without their content), in the order they were recorded."""
-    return package_release.own_files(wp_id, n)
-
-
 def backfill_files(*, dry_run: bool = False) -> list[dict[str, Any]]:
     """178: every approved version without the file of its current state (approved or reopened before 178) gets it,
     made now from its stored statement as the download made it, marked as recorded afterwards (`backfilled_at`).

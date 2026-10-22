@@ -43,9 +43,9 @@ def test_revision_conflict_on_stale_edit(isolated):
     wp = work.create_from_folder(_folder(isolated), name="x")
     extra = isolated / "uj.pdf"
     extra.write_bytes(b"%PDF uj")
-    work.add_document(wp["id"], extra, expected_revision=1)
+    work.add_documents(wp["id"], [extra], expected_revision=1)
     with pytest.raises(work.RevisionConflict):
-        work.add_document(wp["id"], extra, expected_revision=1)  # changed meanwhile: rejection, not a silent overwrite
+        work.add_documents(wp["id"], [extra], expected_revision=1)  # changed meanwhile: rejection, not a silent overwrite
 
 
 def test_assignment_validates_params_and_revision(isolated):
@@ -135,7 +135,7 @@ def test_start_run_refuses_a_change_between_its_check_and_the_snapshot(isolated,
 
     def readiness_then_concurrent_edit(wp_id, **kw):
         out = real(wp_id, **kw)
-        work.add_document(wp_id, extra, expected_revision=work.get(wp_id)["revision"])
+        work.add_documents(wp_id, [extra], expected_revision=work.get(wp_id)["revision"])
         return out
 
     monkeypatch.setattr(work_readiness, "readiness", readiness_then_concurrent_edit)

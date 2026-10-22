@@ -10,7 +10,7 @@ from jav import store
 from jav.config import OPENAI_MODEL
 from jav.readers.interpretation import ProposedExtraction, ground
 from jav.readers.pipeline import read_files
-from jav.readers.providers import extract_gpt, select_jev, verify_jev
+from jav.readers.providers import extract_gpt, verify_jev
 from jav.readers.receipts import InterpretationRejected
 from jav.runtime import calls
 
@@ -166,12 +166,9 @@ class FakeJev:
         return SimpleNamespace(response=SimpleNamespace(answers=answers, model="jev-test"), cached=False)
 
 
-def test_jev_selection_and_support_are_distinct_from_correctness(source, tmp_path):
+def test_jev_support_is_distinct_from_correctness(source, tmp_path):
     path = tmp_path / "trial.sqlite"
     with store.use_store(path), calls.measurement("jev-arms", {"jev": Decimal("0.1")}):
-        selected = select_jev(source, {"code": "order identifier"}, entity="order", run_id="trial",
-                              isolated_store=path, adapter=FakeJev())
-        assert selected.facts[0].proposal.value == "0007"
         initial = ground(source, proposed(), provider="offline", model="fixture", execution="synthetic_test")
         verified = verify_jev(source, initial, run_id="trial", isolated_store=path, adapter=FakeJev())
     assert verified.facts[0].semantic_support == 0.8

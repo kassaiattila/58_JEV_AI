@@ -394,10 +394,6 @@ def _document_entry(p: Path) -> tuple[Path, str, str | None]:
     return p, sha256_file(p), None
 
 
-def add_document(wp_id: str, path: Path, *, expected_revision: int) -> dict[str, Any]:
-    return add_documents(wp_id, [path], expected_revision=expected_revision)
-
-
 def _addable(wp_id: str) -> dict[str, Any]:
     """160-C S2: a package whose items come from its own survey, or that has none, is added to in its own way (176: its
     logic pack says so)."""

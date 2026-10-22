@@ -49,7 +49,7 @@ def _delete_meanwhile(monkeypatch, wp_id: str, then=None) -> None:
 def test_a_deletion_between_the_copy_and_the_record_does_not_leave_the_item_without_its_copy(env, monkeypatch):
     rel = env["old"]["items"][0]["instance"]
     _delete_meanwhile(monkeypatch, env["old"]["id"])
-    wp = work.add_document(env["target"]["id"], env["shared"], expected_revision=0)
+    wp = work.add_documents(env["target"]["id"], [env["shared"]], expected_revision=0)
     item = wp["items"][0]
     assert item["instance"] == rel
     assert source_instances.intact(source_instances.path_of(rel), item["sha256"])
@@ -63,7 +63,7 @@ def test_an_original_changed_before_the_copy_is_made_again_is_refused(env, monke
 
     _delete_meanwhile(monkeypatch, env["old"]["id"], then=change)
     with pytest.raises(work.SourceChanged):
-        work.add_document(env["target"]["id"], env["shared"], expected_revision=0)
+        work.add_documents(env["target"]["id"], [env["shared"]], expected_revision=0)
     assert work.get(env["target"]["id"])["items"] == []
     assert source_instances.files() == []  # neither the old copy nor a copy of the changed file is left behind
 
@@ -74,6 +74,6 @@ def test_an_add_without_interference_copies_once(env, monkeypatch):
     seen = []
     real = source_instances.freeze
     monkeypatch.setattr(source_instances, "freeze", lambda path, **kw: seen.append(path) or real(path, **kw))
-    wp = work.add_document(env["target"]["id"], other, expected_revision=0)
+    wp = work.add_documents(env["target"]["id"], [other], expected_revision=0)
     assert seen == [other.resolve()]
     assert wp["items"][0]["sha256"] == hashlib.sha256(other.read_bytes()).hexdigest()
