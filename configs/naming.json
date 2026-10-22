@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "naming",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "changelog": [
+   {
+    "version": "1.7.0",
+    "date": "2026-10-22",
+    "note": "197 (K2b): the taught ticket candidate (belepo_jegy_taught) is named as the ticket is."
+   },
    {
     "version": "1.6.0",
     "date": "2026-10-21",
@@ -89,6 +94,7 @@
   "certificate": {"token": "IGAZOLAS", "pattern": "{issue_date}_{@type}_{issuer}_{holder_name}"},
   "id_document": {"token": "OKMANY", "pattern": "{valid_until}_{@type}_{holder_name}_{document_kind}"},
   "belepo_jegy": {"token": "BELEPO", "pattern": "{event_datetime:date}_{@type}_{event_name}_{ticket_id}"},
+  "belepo_jegy_taught": {"token": "BELEPO", "pattern": "{event_datetime:date}_{@type}_{event_name}_{ticket_id}"},
   "meghivo": {"token": "MEGHIVO", "pattern": "{event_datetime:date}_{@type}_{organizer}_{event_name}"},
   "meeting_minutes": {"token": "JEGYZOKONYV", "pattern": "{meeting_date}_{@type}_{organization_name}_{meeting_type}"},
   "csapatmenedzser_utasitas": {"token": "UTASITAS", "pattern": "{date}_{@type}_{issuing_body}_{subject}"},

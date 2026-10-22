@@ -1,0 +1,37 @@
+{
+ "meta": {
+  "name": "verify_belepo_jegy_taught",
+  "version": "0.1.0",
+  "changelog": [
+   {
+    "version": "0.1.0",
+    "date": "2026-10-22",
+    "note": "197 (plan 197 K2): taught from the belepo_jegy family's development half (configs/type_drafts/belepo_jegy_taught.json, version 0.1.0); a candidate: detection never picks it (auto_detect false); measured on the family's evaluation half only."
+   }
+  ]
+ },
+ "inherits": "verify",
+ "request_id": "verify_belepo_jegy_taught",
+ "document": "An admission ticket to an event (a match or a concert) with the event, its time and place, the ticket holder and the holder's seat",
+ "glossary": "Document type: An admission ticket to an event (a match or a concert) with the event, its time and place, the ticket holder and the holder's seat. Field names are English identifiers; the document text is verbatim, usually Hungarian.",
+ "glossary_in_state": true,
+ "request_char_budget": 110000,
+ "field_specs": {
+  "ticket_id": "the ticket's own identifier, the number printed as its id (azonosító)",
+  "holder_name": "the name of the person the ticket is issued to (név)",
+  "event_name": "the event the ticket admits to, as printed: the match's two teams with the dash between them, or the concert's title (mérkőzés, meccs, párharc, párosítás)",
+  "event_datetime": "the event's date and starting time, written as YYYY-MM-DDTHH:MM (időpont, dátum és idő)",
+  "venue": "the name of the stadium, arena or hall where the event is held, as printed (helyszín); not its address",
+  "birth_place": "the ticket holder's place of birth (születési hely)",
+  "birth_date": "the ticket holder's date of birth (születési idő)",
+  "card_number": "the number of the holder's club or fan card printed on the ticket (kártyaszám)",
+  "gate": "the entrance gate exactly as printed in the ticket's gate field (Kapu/Gate), with every word and gate number of that field, not only its first part",
+  "sector": "the sector as printed in the ticket's sector field (Szektor/Sector), with its mark and the word that follows the mark",
+  "row": "the row number within the sector (Sor/Row)",
+  "seat": "the seat number within the row (Szék/Seat)"
+ },
+ "incomplete_fields": [
+  "holder_name"
+ ],
+ "wrong_kind_fields": []
+}

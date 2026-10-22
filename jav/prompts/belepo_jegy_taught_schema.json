@@ -1,0 +1,90 @@
+{
+ "type": "object",
+ "additionalProperties": false,
+ "properties": {
+  "ticket_id": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the ticket's own identifier, the number printed as its id (azonosító)"
+  },
+  "holder_name": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the name of the person the ticket is issued to (név)"
+  },
+  "event_name": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the event the ticket admits to, as printed: the match's two teams with the dash between them, or the concert's title (mérkőzés, meccs, párharc, párosítás)"
+  },
+  "event_datetime": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the event's date and starting time, written as YYYY-MM-DDTHH:MM (időpont, dátum és idő)"
+  },
+  "venue": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the name of the stadium, arena or hall where the event is held, as printed (helyszín); not its address"
+  },
+  "birth_place": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the ticket holder's place of birth (születési hely)"
+  },
+  "birth_date": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the ticket holder's date of birth (születési idő)"
+  },
+  "card_number": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the number of the holder's club or fan card printed on the ticket (kártyaszám)"
+  },
+  "gate": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the entrance gate exactly as printed in the ticket's gate field (Kapu/Gate), with every word and gate number of that field, not only its first part"
+  },
+  "sector": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the sector as printed in the ticket's sector field (Szektor/Sector), with its mark and the word that follows the mark"
+  },
+  "row": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the row number within the sector (Sor/Row)"
+  },
+  "seat": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "the seat number within the row (Szék/Seat)"
+  }
+ }
+}

@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.4",
+        "date": "2026-10-22",
+        "note": "197 (plan 197 K2b): the taught ticket candidate's verification site, as the converted packs'"
+      },
       {
         "version": "1.0.3",
         "date": "2026-10-21",
@@ -194,6 +199,20 @@
     },
     "verify_belepo_jegy": {
       "call_site": "verify_belepo_jegy",
+      "modules": [
+        "jav/jev_verify.py"
+      ],
+      "gpt": {
+        "module": "jav/jev_verify.py",
+        "function": "code_verdicts",
+        "note": "the code's own source check (the word layer too) with GPT's token confidence on the accounting fields (jav/policy.py apply_gpt_confidence_policy)"
+      },
+      "tests": [
+        "tests/test_paired_extraction_160.py::test_a_value_printed_nowhere_is_flagged_on_both_engines"
+      ]
+    },
+    "verify_belepo_jegy_taught": {
+      "call_site": "verify_belepo_jegy_taught",
       "modules": [
         "jav/jev_verify.py"
       ],

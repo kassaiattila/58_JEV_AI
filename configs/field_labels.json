@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "field_labels",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "changelog": [
+   {
+    "version": "1.9.0",
+    "date": "2026-10-22",
+    "note": "197 (plan 197 K2b): the name of the taught ticket candidate (belepo_jegy_taught); its fields use the shared names."
+   },
    {
     "version": "1.8.0",
     "date": "2026-10-22",
@@ -223,6 +228,7 @@
   "altalanos_szerzodesi_feltetelek": "Általános szerződési feltételek",
   "bank_statement": "Bankszámlakivonat",
   "belepo_jegy": "Belépőjegy",
+  "belepo_jegy_taught": "Belépőjegy (tanított jelölt)",
   "certificate": "Igazolás, tanúsítvány",
   "contract": "Szerződés",
   "csapatmenedzser_utasitas": "Csapatmenedzseri utasítás",

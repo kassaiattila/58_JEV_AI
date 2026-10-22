@@ -8,7 +8,8 @@ request (the reuse key of an earlier answer: instructions, the answer's schema, 
 of its JEV verification request (the JEV cache key: the state and the questions), on a synthetic document built from
 the pack's own fields.
 
-Pinned on `952c2b5` (v1.28.1 + 189); the quote request's pack (190, A2e) when it was added. A deliberate change to a pack, its prompt, its schema or its verification call
+Pinned on `952c2b5` (v1.28.1 + 189); the quote request's pack (190, A2e) when it was added. 197: the taught ticket candidate
+(plan 197 K2b) when it was made. A deliberate change to a pack, its prompt, its schema or its verification call
 site changes its fingerprint too, and needs that pack's paid golden run anyway. Synthetic values only; no model call.
 """
 
@@ -37,6 +38,7 @@ G_PACKS = sorted(k for k in typepack.keys() if "G" in typepack.get(k).arms)
 # the first 16 hexadecimal digits of each request's fingerprint on `952c2b5`
 GPT_KEYS = {
     "altalanos_szerzodesi_feltetelek": "e9bd2b0f4dee424c", "belepo_jegy": "d16cc14923fe14d8",
+    "belepo_jegy_taught": "b0d2b8ee2c2ee5f8",  # 197 (plan 197 K2b): the taught candidate, when it was made
     "certificate": "daf2c5cad78a84c2", "csapatmenedzser_utasitas": "6e26cf8577171283",
     "csatorna_szamla": "1433e992cc9866fa", "foldgaz_szamla": "ea19eccc8c6e98fe", "id_document": "70329e3284675e30",
     "insurance_claim_form": "3793871b03708dfc", "invoice_foreign": "ff38e123caafdafa",
@@ -50,6 +52,7 @@ GPT_KEYS = {
 }
 JEV_KEYS = {
     "altalanos_szerzodesi_feltetelek": "9aca1d3bc4265e76", "belepo_jegy": "e667b3f8f487207e",
+    "belepo_jegy_taught": "a04fc9ebdf3e3a9a",  # 197: the taught candidate, when it was made
     "certificate": "25525f4a1e88e086", "csapatmenedzser_utasitas": "0fc3a27c2635489b",
     "csatorna_szamla": "84442fb2aa7592ec", "foldgaz_szamla": "120d22b35532e292", "id_document": "a97c56f172b35b29",
     "insurance_claim_form": "d5eaa9b215e079b6", "invoice_foreign": "221e7b3e9901a0ff",
