@@ -133,6 +133,14 @@ the legacy converter made the converted packs (pack, prompt, schema, a verificat
 never picked by detection, and lists the shared registries' entries still missing; `measure taught:<key>:evaluation` measures
 the candidate on the family's evaluation half, on the G path (`taught:<key>:development`: on its own development half,
 an in-sample check before the evaluation; a draft is corrected from that half only).
+Detection picks a pack only by a person's command (199): `type-activate <key> [--replace <pack>]` and
+`type-withdraw <key> [--restore]` turn the pack's own detection switch (`auto_detect`) as a new version with a
+changelog line, and the files stay for the earlier results. A taught pack is turned on only with the latest shared
+measurement of its evaluation half on a clean working tree, every case answered, on the files it has now (the legacy
+activation gate); the result is shown and no threshold decides. `--replace` turns the family's pack it takes over off
+in the same step, and `--restore` turns that one back on. A pack without detection anchors is turned on only as its
+family's one pack, because next to another the anchor score would pick it without a question. The capability
+catalog reads whether a type is active from the same switch.
 
 ## 2. The five planes
 

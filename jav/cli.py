@@ -473,6 +473,48 @@ def cmd_type_candidate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _print_switches(switched: list) -> None:  # list[type_teaching.Switch]
+    from jav import cfg
+
+    for s in switched:
+        line = f"{s.key} {s.version}: {'on' if s.detected else 'off'}"
+        m = cfg.load(f"type:{s.key}")["meta"].get("taught", {}).get("measured") if s.detected else None
+        if m:
+            line += f" (its evaluation half: {m['right']}/{m['scored']} {m['unit']}, {m['receipt']} at {m['commit']})"
+        print(line)
+    print("\nThe running service and worker see it after they restart. Next: python -m jav.cli docs, and the family's "
+          "golden runs on a clean working tree.")
+
+
+def cmd_type_activate(args: argparse.Namespace) -> int:
+    """199 (plan 197 K2d): detection may pick a type pack in its family from now on (`jav/type_teaching.py`); a taught
+    pack only with a clean, complete measurement of its evaluation half on its current files. Exit code 2: refused,
+    nothing written."""
+    from jav import type_teaching
+
+    try:
+        switched = type_teaching.activate(args.key, replace=args.replace)
+    except type_teaching.TeachingError as exc:
+        print(exc)
+        return 2
+    _print_switches(switched)
+    return 0
+
+
+def cmd_type_withdraw(args: argparse.Namespace) -> int:
+    """199 (plan 197 K2d): detection no longer picks a type pack; its files stay for its earlier results. Exit code 2:
+    refused, nothing written."""
+    from jav import type_teaching
+
+    try:
+        switched = type_teaching.withdraw(args.key, restore=args.restore)
+    except type_teaching.TeachingError as exc:
+        print(exc)
+        return 2
+    _print_switches(switched)
+    return 0
+
+
 def cmd_determinism(args: argparse.Namespace) -> int:
     from jav.evals import determinism
     from jav.flow import run_one
@@ -1362,6 +1404,17 @@ def main(argv: list[str] | None = None) -> int:
                                               "(configs/type_drafts/<key>.json); never detected, no AI call")
     p.add_argument("key", help="the draft's key")
     p.set_defaults(fn=cmd_type_candidate)
+
+    p = sub.add_parser("type-activate", help="199: detection may pick a type pack in its family (a taught one only "
+                                             "with a measurement of its evaluation half); no AI call")
+    p.add_argument("key", help="the type pack's key")
+    p.add_argument("--replace", help="the family's pack it takes over; detection no longer picks that one")
+    p.set_defaults(fn=cmd_type_activate)
+
+    p = sub.add_parser("type-withdraw", help="199: detection no longer picks a type pack; its files stay; no AI call")
+    p.add_argument("key", help="the type pack's key")
+    p.add_argument("--restore", action="store_true", help="turn the pack it replaced back on")
+    p.set_defaults(fn=cmd_type_withdraw)
 
     p = sub.add_parser("determinism")
     p.add_argument("--arm", choices=["S", "G"], required=True)

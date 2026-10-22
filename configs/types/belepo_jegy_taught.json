@@ -1,18 +1,31 @@
 {
  "meta": {
   "name": "type:belepo_jegy_taught",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "changelog": [
    {
     "version": "0.1.0",
     "date": "2026-10-22",
     "note": "197 (plan 197 K2): taught from the belepo_jegy family's development half (configs/type_drafts/belepo_jegy_taught.json, version 0.1.0); a candidate: detection never picks it (auto_detect false); measured on the family's evaluation half only."
+   },
+   {
+    "version": "0.2.0",
+    "date": "2026-10-22",
+    "note": "type-activate (plan 197 K2d): on; detection may pick it in the ticket family, instead of belepo_jegy; its evaluation half: 40/40 fields (20261022_081601_measure.jsonl, d5adfe8)"
    }
   ],
   "taught": {
    "family": "belepo_jegy",
    "draft": "configs/type_drafts/belepo_jegy_taught.json",
-   "state": "candidate"
+   "state": "active",
+   "measured": {
+    "receipt": "20261022_081601_measure.jsonl",
+    "commit": "d5adfe8",
+    "right": 40,
+    "scored": 40,
+    "unit": "fields"
+   },
+   "replaces": "belepo_jegy"
   }
  },
  "document": "An admission ticket to an event (a match or a concert) with the event, its time and place, the ticket holder and the holder's seat",
@@ -22,7 +35,7 @@
   "G"
  ],
  "parent": "ticket",
- "auto_detect": false,
+ "auto_detect": true,
  "prompt_file": "belepo_jegy_taught_prompt.md",
  "schema_file": "belepo_jegy_taught_schema.json",
  "select_callsite": null,

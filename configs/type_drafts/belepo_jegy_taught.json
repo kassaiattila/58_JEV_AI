@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "type_draft:belepo_jegy_taught",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "changelog": [
+   {
+    "version": "0.2.0",
+    "date": "2026-10-22",
+    "note": "199 (plan 197 K2d): the type is detected now (type-activate); its name no longer says candidate. The pack's files are unchanged."
+   },
    {
     "version": "0.1.0",
     "date": "2026-10-22",
@@ -11,7 +16,7 @@
   ]
  },
  "key": "belepo_jegy_taught",
- "label": "Belépőjegy (tanított jelölt)",
+ "label": "Belépőjegy (tanított)",
  "family": "belepo_jegy",
  "parent": "ticket",
  "document": "An admission ticket to an event (a match or a concert) with the event, its time and place, the ticket holder and the holder's seat",
