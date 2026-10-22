@@ -22,10 +22,10 @@ from fastapi import Depends, FastAPI
 from pydantic import Field
 
 from jav import bank_files, corrections, datasets, duplicates, report_utility, statement_months, statement_package, work, work_runs, work_views
-from jav.api import DecisionState, ItemId, RunId, Text, WpId, _In, checked_path, human_actor
+from jav.service_shared import DecisionState, In, ItemId, RunId, Text, WpId, checked_path, human_actor
 
 
-class StatementTableFile(_In):
+class StatementTableFile(In):
     """136: a bank's tabular statement export (a workbook or a CSV file)."""
     path: Annotated[str, Field(min_length=1, max_length=1024)]
 
@@ -42,13 +42,13 @@ class CreateFromStatementTable(StatementTableAccounts):
     name: Annotated[str, Field(min_length=1, max_length=200)]
 
 
-class DuplicateDecision(_In):
+class DuplicateDecision(In):
     decision: Literal[duplicates.DECISIONS]  # type: ignore[valid-type]  # 126: copy, modified version, not the same invoice
     note: Text | None = None
     expected_state: DecisionState | None = None  # 187: the pair's `decision_state` as the page read it
 
 
-class StatementChoice(_In):
+class StatementChoice(In):
     keep: Literal["this", "other", "rule"]  # 139: which of two statements of the same days stays valid; rule: as ranked
     note: Text | None = None
     expected_state: DecisionState | None = None

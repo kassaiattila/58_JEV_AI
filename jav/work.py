@@ -97,6 +97,9 @@ CREATE TABLE IF NOT EXISTS runs (
     finished_at TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_runs_wp ON runs(workpackage_id, created_at);
+-- 204 (R1i): a package's removed items only; the run list leaves their to-dos out (`work_runs.run_rows`), and without it
+-- read every item of the package for each open to-do (10.4 s for one run of 10,000 items, 0.014 s with it)
+CREATE INDEX IF NOT EXISTS ix_workpackage_items_removed ON workpackage_items(workpackage_id) WHERE removed_revision IS NOT NULL;
 -- 058: a csomag elrejtése, visszahozása, átnevezése és törlése (ki, mikor, mit); a törölt csomag nyoma is itt marad
 -- 058: a forrásfájl ujjlenyomata méret + módosítási idő szerint megjegyezve (a csomag megnyitása ne hasheljen újra
 -- minden fájlt); az indítás és a feldolgozó mindig teljesen ellenőriz
@@ -128,28 +131,24 @@ CREATE TABLE IF NOT EXISTS run_items (
 
 
 def _migrate(conn) -> None:
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(workpackage_items)")}
-    if cols and "parent_item_id" not in cols:  # 058 K5.2: the attachment points to its email
-        conn.execute("ALTER TABLE workpackage_items ADD COLUMN parent_item_id TEXT")
-    if cols and "instance" not in cols:  # source instance: the unchanging copy made when the item was added
-        conn.execute("ALTER TABLE workpackage_items ADD COLUMN instance TEXT")
-    wcols = {r[1] for r in conn.execute("PRAGMA table_info(workpackages)")}
-    if wcols and "owner" not in wcols:  # 061: the person responsible for the package (a name from the name list)
-        conn.execute("ALTER TABLE workpackages ADD COLUMN owner TEXT")
-    rcols = {r[1] for r in conn.execute("PRAGMA table_info(runs)")}
-    if rcols and "plan" not in rcols:  # 082: the pre-start overview (`run_plan`), compared with the actual calls
-        conn.execute("ALTER TABLE runs ADD COLUMN plan TEXT")
-    if rcols and "stopped_at" not in rcols:  # 160 (review R-4): a person stopped the run (it ends cancelled)
-        conn.execute("ALTER TABLE runs ADD COLUMN stopped_at TEXT")
-        conn.execute("ALTER TABLE runs ADD COLUMN stopped_by TEXT")
-    if rcols and "excluded_items" not in rcols:  # 160-C (decision 163 D7): items removed before the approval (JSON)
-        conn.execute("ALTER TABLE runs ADD COLUMN excluded_items TEXT")
-    if rcols and "scope" not in rcols:  # 160-C S3: NULL = every item in use, 'pending' = only the pending items
-        conn.execute("ALTER TABLE runs ADD COLUMN scope TEXT")
-    if cols and "removed_at" not in cols:  # 160-C S1 (decision 163 D2): who removed an item, when and why
-        conn.execute("ALTER TABLE workpackage_items ADD COLUMN removed_at TEXT")
-        conn.execute("ALTER TABLE workpackage_items ADD COLUMN removed_by TEXT")
-        conn.execute("ALTER TABLE workpackage_items ADD COLUMN removed_reason TEXT")
+    store.add_columns(conn, "workpackage_items", {
+        "parent_item_id": "TEXT",  # 058 K5.2: the attachment points to its email
+        "instance": "TEXT",  # source instance: the unchanging copy made when the item was added
+        # 160-C S1 (decision 163 D2): who removed an item, when and why
+        "removed_at": "TEXT", "removed_by": "TEXT", "removed_reason": "TEXT",
+    })
+    # 061: the person responsible for the package (a name from the name list)
+    store.add_columns(conn, "workpackages", {"owner": "TEXT"})
+    store.add_columns(conn, "runs", {
+        "plan": "TEXT",  # 082: the pre-start overview (`run_plan`), compared with the actual calls
+        "stopped_at": "TEXT", "stopped_by": "TEXT",  # 160 (review R-4): a person stopped the run (it ends cancelled)
+        "excluded_items": "TEXT",  # 160-C (decision 163 D7): items removed before the approval (JSON)
+        "scope": "TEXT",  # 160-C S3: NULL = every item in use, 'pending' = only the pending items
+    })
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='runs'").fetchone():
+        # 204 (R1i): a run's state without its row, which holds the frozen input (`work_runs.refresh_run_status`): the
+        # columns lie after it, so reading one walked the whole input (31 ms in a run of 100,000 items, 0.014 ms here)
+        conn.execute("CREATE INDEX IF NOT EXISTS ix_runs_state ON runs(run_id, status, stopped_at, finished_at)")
 
 
 store.register_migration("work", _migrate)
@@ -392,10 +391,6 @@ def _document_entry(p: Path) -> tuple[Path, str, str | None]:
         except source_instances.InstanceTooLarge:  # it grew past the limit while it was copied: added without a copy
             pass
     return p, sha256_file(p), None
-
-
-def add_document(wp_id: str, path: Path, *, expected_revision: int) -> dict[str, Any]:
-    return add_documents(wp_id, [path], expected_revision=expected_revision)
 
 
 def _addable(wp_id: str) -> dict[str, Any]:

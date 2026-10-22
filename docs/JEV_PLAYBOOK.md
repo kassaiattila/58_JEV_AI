@@ -117,7 +117,7 @@ The 15 type-specific call sites: `verify_altalanos_szerzodesi_feltetelek` (gener
 
 ### 4.6 Outside the catalogue
 
-The learning branches (`jav/learning_runtime.py`, `jav/email_learning_runtime.py`) and the experiments (`jav/experiments/`, settings in `configs/experiments/`) call the same `ask()` with their own question sets. They are measured separately and are not part of the call-site catalogue.
+The stand-alone measurement tools (`jav/experiments/`, for example the injected-instruction probe with `configs/experiments/document_injection.json`) run the production call sites; they add no question set of their own.
 
 ## 5. Policy thresholds (`configs/policy.json`)
 

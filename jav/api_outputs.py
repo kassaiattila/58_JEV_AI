@@ -24,7 +24,7 @@ from fastapi.responses import Response
 from pydantic import Field
 
 from jav import package_release, work_views
-from jav.api import DecisionState, Empty, WpId, _error, _In, attachment_header, checked_path, human_actor
+from jav.service_shared import DecisionState, Empty, In, WpId, attachment_header, checked_path, error, human_actor
 from jav.outputs import contract, samples, templates
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -33,14 +33,14 @@ OutputName = Annotated[str, PathParam(pattern=r"^[a-z_]{1,40}$")]
 Version = Annotated[int, PathParam(ge=1, le=100000)]
 
 
-class TemplateUpload(_In):
+class TemplateUpload(In):
     output: Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]
     name: Annotated[str, Field(min_length=1, max_length=120)]
     path: Annotated[str, Field(min_length=1, max_length=2000)]
     template: Annotated[str | None, Field(pattern=r"^tpl-[0-9a-f]{10}$")] = None
 
 
-class TemplateChoice(_In):
+class TemplateChoice(In):
     template: Annotated[str | None, Field(pattern=r"^tpl-[0-9a-f]{10}$")] = None
     expected_state: DecisionState | None = None  # 187: the choice's `decision_state` as the page read it
 
@@ -56,11 +56,11 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.exception_handler(templates.TemplateRefused)
     async def template_refused(_request: Request, exc: templates.TemplateRefused):
-        return _error(422, "template_refused", str(exc), check=exc.check)
+        return error(422, "template_refused", str(exc), check=exc.check)
 
     @app.exception_handler(templates.TemplateStateError)
     async def template_state(_request: Request, exc: templates.TemplateStateError):
-        return _error(409, "template_state", str(exc))
+        return error(409, "template_state", str(exc))
 
     @app.get(r + "/output-templates")
     def output_templates() -> dict[str, Any]:

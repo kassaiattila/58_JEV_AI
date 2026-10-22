@@ -16,7 +16,7 @@ import io
 import pytest
 from openpyxl import load_workbook
 
-from jav import cli, store
+from jav import package_release, cli, store
 from jav import reconcile_statement as rs
 from tests.test_characterisation_178 import _parts
 from tests.test_reconcile_statement_145 import _world
@@ -37,7 +37,7 @@ def _approved() -> str:
 def test_the_approved_file_is_stored_and_a_later_label_change_leaves_it(db, monkeypatch):
     wp_id = _approved()
     stored, name = rs.xlsx(wp_id, version=1)
-    files = rs.version_files(wp_id, 1)
+    files = package_release.own_files(wp_id, 1)
     assert [(f["state"], f["name"], f["template"], f["template_version"], f["backfilled_at"]) for f in files] == [
         ("approved", name, "builtin", "1.1.0", None)]
     assert files[0]["sha256"] == hashlib.sha256(stored).hexdigest()
@@ -54,7 +54,7 @@ def test_reopening_stores_the_earlier_file_as_the_download_built_it(db):
     approved = rs.xlsx(wp_id, version=1)[0]
     rs.reopen(wp_id, note="a payment was missed", actor="Reviewer")
     earlier, _name = rs.xlsx(wp_id, version=1)
-    assert [f["state"] for f in rs.version_files(wp_id, 1)] == ["approved", "earlier"]
+    assert [f["state"] for f in package_release.own_files(wp_id, 1)] == ["approved", "earlier"]
     assert _parts(earlier) != _parts(approved)  # the heading names it an earlier version
     with store.connect() as c:
         c.execute("DELETE FROM package_version_files WHERE state IN ('approved', 'earlier')")
@@ -66,11 +66,11 @@ def test_a_version_approved_before_178_is_rebuilt_until_its_file_is_recorded(db)
     with store.connect() as c:
         c.execute("DELETE FROM package_version_files WHERE state IN ('approved', 'earlier')")  # as a version approved before 178
     rebuilt = rs.xlsx(wp_id, version=1)[0]
-    assert rs.version_files(wp_id, 1) == []  # a download writes nothing
+    assert package_release.own_files(wp_id, 1) == []  # a download writes nothing
     assert rs.backfill_files(dry_run=True) == [{"workpackage_id": wp_id, "version": 1, "state": "approved"}]
-    assert rs.version_files(wp_id, 1) == []
+    assert package_release.own_files(wp_id, 1) == []
     assert rs.backfill_files() == [{"workpackage_id": wp_id, "version": 1, "state": "approved"}]
-    files = rs.version_files(wp_id, 1)
+    files = package_release.own_files(wp_id, 1)
     assert [f["state"] for f in files] == ["approved"] and files[0]["backfilled_at"]
     assert _parts(rs.xlsx(wp_id, version=1)[0]) == _parts(rebuilt)
     assert rs.backfill_files() == []  # idempotent
@@ -83,4 +83,4 @@ def test_the_command_records_the_missing_files(db, capsys):
     assert cli.main(["reconcile-versions-backfill", "--dry-run"]) == 0
     assert f"{wp_id} version 1 (approved) (dry run)" in capsys.readouterr().out
     assert cli.main(["reconcile-versions-backfill"]) == 0
-    assert "versions: 1" in capsys.readouterr().out and len(rs.version_files(wp_id, 1)) == 1
+    assert "versions: 1" in capsys.readouterr().out and len(package_release.own_files(wp_id, 1)) == 1

@@ -31,7 +31,7 @@ from collections import Counter, defaultdict
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import policy, reconcile, reconcile_package, work
+from jav import policy, reconcile, reconcile_package, values, work
 from jav.user_messages import explained
 
 GROUPS = ("sure_pairs", "earlier", "bank_category", "salary_rule", "ai_sure", "ai_review", "expects_invoice", "rest")
@@ -49,7 +49,7 @@ class ReviewError(ValueError):
 def _money(value: Any) -> Decimal:
     """A stored amount, or zero when there is none (153, review A6: by the shared reader; "NaN" or an exponent counted
     before, "12,5" read as zero without a word)."""
-    return reconcile.decimal_or_none(value) or Decimal(0)
+    return values.stored_decimal(value) or Decimal(0)
 
 
 def _answers(line: dict[str, Any]) -> dict[str, dict[str, Any]]:

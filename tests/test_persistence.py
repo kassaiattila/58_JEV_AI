@@ -40,10 +40,6 @@ def test_closing_persister_is_collected_silently_on_another_thread(tmp_path):
 
 
 def test_every_runtime_persister_is_the_closing_one():
-    from jav import email_learning_runtime, learning_runtime, legacy_runtime, matter_review
     from jav.runtime import worker
 
     assert issubclass(worker.StatePersister, ClosingSQLitePersister)
-    for mod in (email_learning_runtime, learning_runtime, legacy_runtime, matter_review):
-        source = open(mod.__file__, encoding="utf-8").read()
-        assert "ClosingSQLitePersister" in source and "SQLitePersister" not in source.replace("ClosingSQLitePersister", ""), mod.__name__

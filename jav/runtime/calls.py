@@ -76,6 +76,8 @@ CREATE TABLE IF NOT EXISTS invocations (
 );
 CREATE INDEX IF NOT EXISTS ix_invocations_step ON invocations(run_id, step_id);
 CREATE INDEX IF NOT EXISTS ix_invocations_scope ON invocations(budget_scope, provider);
+-- 204 (R1i): the reservation's look for an overrun in its budget (`_reserve`) is one lookup, not a read of its every call
+CREATE INDEX IF NOT EXISTS ix_invocations_scope_note ON invocations(budget_scope, provider, note);
 CREATE TABLE IF NOT EXISTS budgets (
     scope       TEXT NOT NULL,
     provider    TEXT NOT NULL,
@@ -89,9 +91,7 @@ CREATE TABLE IF NOT EXISTS budgets (
 
 def _add_holder_column(conn) -> None:
     """092: the holder column on a call log created before it."""
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(invocations)")}
-    if cols and "holder" not in cols:
-        conn.execute("ALTER TABLE invocations ADD COLUMN holder TEXT")
+    store.add_columns(conn, "invocations", {"holder": "TEXT"})
 
 
 store.register_migration("runtime.calls.holder", _add_holder_column)

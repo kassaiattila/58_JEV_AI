@@ -7,11 +7,12 @@ checks the input's structure (unknown field = rejection). The limits are in `con
 
 The endpoint names follow the calls of V4's `businessWorkflowApi.ts` (`workflow`, `readiness`, `start`, `runs`). The
 business rules live in `jav.work` and `jav.corrections`; the service only translates them to HTTP. This module holds
-the gateway itself: the request checks, the shared input types and actor rules, the error translation, and
-`create_app`. The endpoints live in modules by theme (195, plan G-tidy R4: `jav/api_workpackages.py`, `api_runs.py`,
-`api_results.py`, `api_items.py`, `api_workflows.py`, `api_system.py`, `api_settings.py`) and in the logic packs' and
-domains' own modules; each has a `routes(app, prefix)`, and `create_app` adds them in a fixed order (`route_modules`).
-The status codes:
+the gateway itself: the request checks, the error translation, and `create_app`. The endpoints live in modules by theme
+(195, plan G-tidy R4: `jav/api_workpackages.py`, `api_runs.py`, `api_results.py`, `api_items.py`, `api_workflows.py`,
+`api_system.py`, `api_settings.py`) and in the logic packs' and domains' own modules; each has a `routes(app, prefix)`,
+and `create_app` adds them in a fixed order (`route_modules`). 204 (R1g): the shared input types, the actor rules, the
+path check and the error answer's shape are in `jav/service_shared.py`, which every module of addresses imports instead
+of this one. The status codes:
 
   404 unknown id · 409 revision conflict / cannot be started / cannot be approved · 413 body too large ·
   415 not JSON · 422 invalid input · 403 foreign origin or folder not allowed
@@ -23,80 +24,29 @@ Long processing does not run here: the run goes into the work queue and the sepa
 from __future__ import annotations
 
 import importlib
-import json
 import logging
-import os
 import re
-import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi import Path as PathParam
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 from starlette.routing import BaseRoute
 
 from jav import (app_settings, cfg, corrections, dates, isolated_pdf, local_picker, numbers, policy, package_release, store,
                  version, work, work_views)
-from jav.config import OLD_DATA_ROOT, PROJECT_ROOT
+from jav.config import PROJECT_ROOT
 from jav.runtime import lock, pdf_status, worker
+from jav.service_shared import ForbiddenPath, In, JavJSONResponse, UnknownUser, error, settings
 from jav.user_messages import explained, message_fields
 
 API_VERSION = "1"
 UI_DIST = PROJECT_ROOT / "ui" / "dist"  # the UI build (040 K3); if present, the service serves it at the root
 LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 log = logging.getLogger("jav.api")
-
-
-def settings() -> dict[str, Any]:
-    return cfg.load("service")
-
-
-class UnknownUser(PermissionError):
-    """061: the user list is not empty and the given actor is not on it."""
-
-
-class ForbiddenPath(PermissionError):
-    """The requested folder or file is not under the allowed root folders."""
-
-
-def paths_restricted() -> bool:
-    """061 decision: by default (`configs/service.json`) there is no folder restriction (any existing local folder /
-    file may be given); with `restrict_paths: true`, or if the key is missing, only under the allowed roots."""
-    return bool(settings().get("restrict_paths", True))
-
-
-def allowed_roots() -> list[Path]:
-    """The allowed roots; an empty list when unrestricted (the UI then lists no locations)."""
-    s = settings()
-    if not paths_restricted():
-        return []
-    roots = [PROJECT_ROOT / r for r in s["allowed_roots"]]
-    if s.get("allow_legacy_data_root"):
-        roots.append(OLD_DATA_ROOT)
-    extra = os.environ.get(s.get("extra_roots_env", ""), "")
-    roots += [Path(p) for p in extra.split(os.pathsep) if p.strip()]
-    return [r.resolve() for r in roots if r.exists()]
-
-
-def checked_path(raw: str, *, want_dir: bool | None) -> Path:
-    """The path, resolved (following links), is an existing folder / file (`want_dir` None: either); when restricted,
-    under one of the allowed roots."""
-    try:
-        p = Path(raw).resolve(strict=True)
-    except (OSError, RuntimeError) as exc:
-        raise explained(ValueError, "path does not exist: {{name}}", name=Path(raw).name) from exc
-    if paths_restricted() and not any(p == r or p.is_relative_to(r) for r in allowed_roots()):
-        raise explained(ForbiddenPath, "path is outside the allowed roots (configs/service.json)")
-    if want_dir and not p.is_dir():
-        raise explained(ValueError, "not a folder: {{name}}", name=p.name)
-    if want_dir is False and not p.is_file():
-        raise explained(ValueError, "not a file: {{name}}", name=p.name)
-    return p
 
 
 # --- responses and errors ------------------------------------------------------------------------------
@@ -111,17 +61,6 @@ class _UiFiles(StaticFiles):
         if str(full_path).endswith(".html"):
             response.headers["Cache-Control"] = "no-cache"
         return response
-
-
-class JavJSONResponse(JSONResponse):
-    """The same JSON shape as the command line (`work_views.jsonable`): money as `Decimal` text, not floating point."""
-
-    def render(self, content: Any) -> bytes:
-        return json.dumps(content, ensure_ascii=False, default=str, separators=(",", ":")).encode("utf-8")
-
-
-def _error(status: int, code: str, message: str, **extra: Any) -> JavJSONResponse:
-    return JavJSONResponse({"error": code, "message": message, **extra}, status_code=status)
 
 
 def _origin(value: str) -> str:
@@ -202,18 +141,18 @@ class _Guard:
         headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope["headers"]}
         host = urlsplit("//" + headers.get("host", "")).hostname or ""
         if host not in self.allowed_hosts:
-            return await _error(403, "forbidden_host", "requests are accepted only for the local host")(scope, receive, send)
+            return await error(403, "forbidden_host", "requests are accepted only for the local host")(scope, receive, send)
         origin = headers.get("origin")
         # 066 Á34: exact match (scheme, host, port): our own address or the configured dev UI; no other local port
         if origin is not None and _origin(origin) not in self.dev_origins | {_origin("http://" + headers.get("host", ""))}:
-            return await _error(403, "forbidden_origin", "requests from other sites are refused")(scope, receive, send)
+            return await error(403, "forbidden_origin", "requests from other sites are refused")(scope, receive, send)
         if scope["method"] in ("POST", "PUT", "PATCH", "DELETE"):
             ctype = headers.get("content-type", "").split(";")[0].strip().lower()
             if ctype != "application/json":
-                return await _error(415, "unsupported_media_type", "the request body must be JSON")(scope, receive, send)
+                return await error(415, "unsupported_media_type", "the request body must be JSON")(scope, receive, send)
             length = headers.get("content-length")
             if length is not None and (not length.isdigit() or int(length) > self.max_body):
-                return await _error(413, "too_large", f"the request body is limited to {self.max_body} bytes")(scope, receive, send)
+                return await error(413, "too_large", f"the request body is limited to {self.max_body} bytes")(scope, receive, send)
         # The body is read up front, with a limit (chunked transfer has no Content-Length either), then replayed.
         chunks: list[bytes] = []
         size = 0
@@ -225,7 +164,7 @@ class _Guard:
             chunks.append(message.get("body", b""))
             size += len(chunks[-1])
             if size > self.max_body:
-                return await _error(413, "too_large", f"the request body is limited to {self.max_body} bytes")(scope, receive, send)
+                return await error(413, "too_large", f"the request body is limited to {self.max_body} bytes")(scope, receive, send)
             more = message.get("more_body", False)
         body = b"".join(chunks)
         replayed = False
@@ -242,76 +181,11 @@ class _Guard:
 
 # --- input schemas --------------------------------------------------------------------------------------
 
-WpId = Annotated[str, PathParam(pattern=r"^wp-[0-9a-f]{12}$")]
-RunId = Annotated[str, PathParam(pattern=r"^run-[0-9a-f]{12}$")]
-ItemId = Annotated[str, PathParam(pattern=r"^[0-9a-f]{64}$")]
-Text = Annotated[str, Field(max_length=2000)]
-# 187: a decision's state as its page read it (`jav/decisions.py`); a change on a stale page is a 409
-DecisionState = Annotated[int, Field(ge=0)]
 
-
-class _In(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-
-class Revision(_In):
-    expected_revision: Annotated[int, Field(ge=0)]
-
-
-class Empty(_In):
-    pass
-
-
-IsoDay = Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
-
-
-PartyId = Annotated[str, Field(pattern=r"^party-[0-9a-f]{12}$")]  # 133: an own party (`jav/parties.py`)
-
-
-class NormalizeValue(_In):
+class NormalizeValue(In):
     doc_type: Annotated[str, Field(min_length=1, max_length=64)]
     field: Annotated[str, Field(min_length=1, max_length=64)]
     text: Annotated[str, Field(max_length=1000)]
-
-
-_ACTOR_RE = app_settings.ACTOR_RE  # 066 Á25: the same rule as the user list
-
-
-def _decode_actor(raw: str) -> str:
-    """The actor's name arrives URL-encoded (an HTTP header cannot carry arbitrary accented letters, e.g. "ő"); it is
-    checked after decoding."""
-    name = unquote(raw).strip()
-    if not _ACTOR_RE.match(name):
-        raise HTTPException(status_code=422, detail="X-Actor: 1-64 letters, digits, space, dot, @ or hyphen")
-    return name
-
-
-def attachment_header(filename: str) -> str:
-    """Download header for any file name (066 Á22): an ASCII fallback (accents stripped, unsafe characters as `_`) and
-    the exact name in UTF-8 (RFC 5987). The header is Latin-1, so an accented name used to cause an error (422)."""
-    ascii_name = unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
-    ascii_name = re.sub(r"[^A-Za-z0-9._-]+", "_", ascii_name) or "export"
-    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename, safe='')}"
-
-
-def human_actor(x_actor: Annotated[str, Header(max_length=256)]) -> str:
-    """For a human decision (approval, correction, closing a to-do, starting a run, recipe, changing a package) the
-    actor is mandatory: the `X-Actor` header. 061: if the user list is not empty, the name must be on it (it is
-    recorded in the list's spelling)."""
-    name = app_settings.canonical_user(_decode_actor(x_actor))
-    if name is None:
-        raise explained(UnknownUser, "the actor is not in the user list (Settings > Users)")
-    return name
-
-
-def actor_unless_first_users(x_actor: Annotated[str | None, Header(max_length=256)] = None) -> str | None:
-    """066 Á35: writing the user list requires an actor who is on the list; the first fill-in (empty list) may be done
-    without an actor."""
-    if not app_settings.users():
-        return app_settings.canonical_user(_decode_actor(x_actor)) if x_actor else None
-    if x_actor is None:
-        raise explained(ValueError, "X-Actor header is required to change the user list")
-    return human_actor(x_actor)
 
 
 # --- application ----------------------------------------------------------------------------------------
@@ -384,63 +258,63 @@ def _add_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(KeyError)
     async def not_found(request: Request, exc: KeyError):
         log.warning("404 %s %s: %r", request.method, request.url.path, exc, exc_info=exc)
-        return _error(404, "not_found", f"unknown id: {exc.args[0] if exc.args else ''}")
+        return error(404, "not_found", f"unknown id: {exc.args[0] if exc.args else ''}")
 
     @app.exception_handler(work.RevisionConflict)
     async def conflict(_request: Request, exc: work.RevisionConflict):
-        return _error(409, "revision_conflict", str(exc), **message_fields(exc))
+        return error(409, "revision_conflict", str(exc), **message_fields(exc))
 
     @app.exception_handler(work.NotReady)
     async def not_ready(_request: Request, exc: work.NotReady):
-        return _error(409, "not_ready", str(exc), blockers=exc.blockers, **message_fields(exc))
+        return error(409, "not_ready", str(exc), blockers=exc.blockers, **message_fields(exc))
 
     @app.exception_handler(package_release.ReleaseError)
     async def release_refused(_request: Request, exc: package_release.ReleaseError):
-        return _error(422, "release_refused", str(exc), **message_fields(exc))  # 171: named in the display language
+        return error(422, "release_refused", str(exc), **message_fields(exc))  # 171: named in the display language
 
     @app.exception_handler(UnknownUser)
     async def unknown_user(_request: Request, exc: UnknownUser):
-        return _error(403, "unknown_user", str(exc))
+        return error(403, "unknown_user", str(exc))
 
     @app.exception_handler(ForbiddenPath)
     async def forbidden_path(_request: Request, exc: ForbiddenPath):
-        return _error(403, "forbidden_path", str(exc))
+        return error(403, "forbidden_path", str(exc))
 
     @app.exception_handler(app_settings.FolderOverlap)
     async def folder_overlap(_request: Request, exc: app_settings.FolderOverlap):
-        return _error(422, "folder_overlap", str(exc), **message_fields(exc))  # 078: the UI names it in the display language
+        return error(422, "folder_overlap", str(exc), **message_fields(exc))  # 078: the UI names it in the display language
 
     @app.exception_handler(app_settings.NoOutputFolder)
     async def no_output_folder(_request: Request, exc: app_settings.NoOutputFolder):
-        return _error(422, "no_output_folder", str(exc), **message_fields(exc))
+        return error(422, "no_output_folder", str(exc), **message_fields(exc))
 
     @app.exception_handler(numbers.AmbiguousNumber)
     async def ambiguous_number(_request: Request, exc: numbers.AmbiguousNumber):
         # 081: the UI asks for the Hungarian form ("28,50"); 153: and names the field
-        return _error(422, "ambiguous_number", str(exc), field=getattr(exc, "field", None), **message_fields(exc))
+        return error(422, "ambiguous_number", str(exc), field=getattr(exc, "field", None), **message_fields(exc))
 
     @app.exception_handler(dates.AmbiguousDate)
     async def ambiguous_date(_request: Request, exc: dates.AmbiguousDate):
         # 084: the UI asks for the year first ("2022-12-04"); 153: and names the field
-        return _error(422, "ambiguous_date", str(exc), field=getattr(exc, "field", None), **message_fields(exc))
+        return error(422, "ambiguous_date", str(exc), field=getattr(exc, "field", None), **message_fields(exc))
 
     @app.exception_handler(corrections.InvalidValue)
     async def invalid_value(_request: Request, exc: corrections.InvalidValue):
-        return _error(422, "invalid_value", str(exc), field=exc.field, kind=exc.kind, **message_fields(exc))  # 153: the UI names the field
+        return error(422, "invalid_value", str(exc), field=exc.field, kind=exc.kind, **message_fields(exc))  # 153: the UI names the field
 
     @app.exception_handler(local_picker.PickerBusy)
     async def picker_busy(_request: Request, exc: local_picker.PickerBusy):
-        return _error(409, "picker_busy", str(exc), **message_fields(exc))
+        return error(409, "picker_busy", str(exc), **message_fields(exc))
 
     @app.exception_handler(local_picker.PickerUnavailable)
     async def picker_unavailable(_request: Request, exc: local_picker.PickerUnavailable):
-        return _error(503, "picker_unavailable", str(exc), **message_fields(exc))
+        return error(503, "picker_unavailable", str(exc), **message_fields(exc))
 
     @app.exception_handler(ValueError)
     async def invalid(request: Request, exc: ValueError):
         log.warning("422 %s %s: %s", request.method, request.url.path, exc, exc_info=exc)
         extra = {"reason": exc.reason} if isinstance(exc, isolated_pdf.PdfReaderLimit) else {}
-        return _error(422, "invalid", str(exc), **extra, **message_fields(exc))
+        return error(422, "invalid", str(exc), **extra, **message_fields(exc))
 
     @app.exception_handler(OSError)
     async def unreadable(request: Request, exc: OSError):
@@ -448,7 +322,7 @@ def _add_error_handlers(app: FastAPI) -> None:
         # traceback goes to the log
         log.warning("OSError %s %s: %s", request.method, request.url.path, exc, exc_info=exc)
         name = Path(exc.filename).name if getattr(exc, "filename", None) else ""
-        return _error(422, "unreadable", f"A fájl nem olvasható{': ' + name if name else ''} ({type(exc).__name__}).")
+        return error(422, "unreadable", f"A fájl nem olvasható{': ' + name if name else ''} ({type(exc).__name__}).")
 
 
 def create_app(*, store_path: Path | None = None) -> FastAPI:
@@ -512,7 +386,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     @app.api_route(r + "/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
     def unknown_api(rest: str):
-        return _error(404, "not_found", "unknown endpoint")
+        return error(404, "not_found", "unknown endpoint")
 
     if UI_DIST.is_dir():  # the UI: on the same address, so there is no separate server and no cross-origin call
         app.mount("/", _UiFiles(directory=UI_DIST, html=True), name="ui")

@@ -46,7 +46,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator
 
 from typesafe_sdk import Choice
 
-from jav import cfg, reconcile, reconcile_package, store
+from jav import cfg, reconcile, reconcile_package, store, values
 from jav.adapters.jev import JevUnavailableError, get_adapter
 from jav.adapters.jev import disabled as jev_disabled
 from jav.candidates import trim_after_legal_form
@@ -90,11 +90,7 @@ CREATE TABLE IF NOT EXISTS reconcile_ai_proposals (
 
 
 def _migrate(conn: Any) -> None:
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(reconcile_ai_proposals)")}
-    if cols and "asked_line_id" not in cols:  # 136
-        conn.execute("ALTER TABLE reconcile_ai_proposals ADD COLUMN asked_line_id TEXT")
-    if cols and "kind_question" not in cols:  # 158
-        conn.execute("ALTER TABLE reconcile_ai_proposals ADD COLUMN kind_question TEXT")
+    store.add_columns(conn, "reconcile_ai_proposals", {"asked_line_id": "TEXT", "kind_question": "TEXT"})  # 136, 158
 
 
 store.register_migration("reconcile_ai", _migrate)
@@ -154,7 +150,7 @@ def preselect(line: dict[str, Any], invoices: Iterable[dict[str, Any]], rates: d
     card line, by the conversion), in the invoice's payment window, within `amount_share` of what is left of the line or
     among the code's candidates; the code's candidates first, then the nearest amounts; at most `max_options`."""
     p = _site()["preselect"]
-    rest, booked = _money(line.get("rest")), reconcile._date(line.get("booking_date"))
+    rest, booked = _money(line.get("rest")), values.stored_day(line.get("booking_date"))
     if not rest or booked is None:
         return []
     payment = _payment(line)
@@ -164,7 +160,7 @@ def preselect(line: dict[str, Any], invoices: Iterable[dict[str, Any]], rates: d
     ranked = []
     for inv in invoices:
         left = _money(inv.get("rest"))
-        if not inv.get("own") or not left or inv["id"] in rejected or reconcile._date(inv.get("issue_date")) is None:
+        if not inv.get("own") or not left or inv["id"] in rejected or values.stored_day(inv.get("issue_date")) is None:
             continue
         if not reconcile.pays(line, inv):  # 158 (a 154 finding): a debit pays an incoming invoice, a credit an outgoing one
             continue
@@ -217,8 +213,8 @@ def option_facts(invoice: dict[str, Any], line: dict[str, Any], rates: dict[str,
         facts["amount"] = (f"{amount}: about {conv['converted']} {line.get('currency')} at the MNB rate of {conv['rate_day']}; "
                            f"the line is {Decimal(conv['deviation']) * 100:+.1f}% from it" if conv
                            else f"{amount}: no exchange rate known for its issue date")
-    issue, booked = reconcile._date(invoice.get("issue_date")), reconcile._date(line.get("booking_date"))
-    due = reconcile._date(invoice.get("due_date")) or issue
+    issue, booked = values.stored_day(invoice.get("issue_date")), values.stored_day(line.get("booking_date"))
+    due = values.stored_day(invoice.get("due_date")) or issue
     if issue and booked and due:
         days = (booked - issue).days
         if days < 0:

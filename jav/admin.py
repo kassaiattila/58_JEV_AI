@@ -11,15 +11,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, config, contract, store
+from jav import cfg, config, contract, store, values
 from jav.config import PROJECT_ROOT, RUNS_DIR
 from jav.typepack import LEGACY_DOC_TYPE
 
 STATE_PATH = PROJECT_ROOT / "docs" / "STATE.md"  # generated state snapshot; the handoff links to it, never copies it
-
-
-def _rows(path: Path) -> list[dict[str, Any]]:
-    return [json.loads(ln) for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
 
 
 def score_text(ok: int, scored: int) -> str:
@@ -64,7 +60,7 @@ def last_golden_results() -> list[dict[str, Any]]:
         latest_by_type: dict[str, tuple[Path, list[dict[str, Any]]]] = {}
         failed_newer: dict[str, tuple[Path, str]] = {}
         for p in sorted(RUNS_DIR.glob(f"*_golden_{arm}.jsonl")):
-            rows = _rows(p)
+            rows = values.json_lines(p)
             if not rows:
                 continue
             doc_type = rows[0].get("doc_type", LEGACY_DOC_TYPE)
@@ -85,7 +81,7 @@ def last_golden_results() -> list[dict[str, Any]]:
     for flow, pat, exp, got in (("doc_detect", "*_detect_golden.jsonl", "expected", "got"), ("email_intent", "*_email_golden.jsonl", "expected", "got")):
         p = _latest(pat)
         if p:
-            rows = [r for r in _rows(p) if r.get(got) is not None]
+            rows = [r for r in values.json_lines(p) if r.get(got) is not None]
             out.append({"flow": flow, "file": p.name, "n": len(rows), "ok": sum(r[exp] == r[got] for r in rows), "scored": len(rows),
                         "review": sum((r.get("confidence") or 0) < _low_conf(flow) for r in rows)})
     return out

@@ -16,17 +16,17 @@ from fastapi import Depends, FastAPI, Query
 from pydantic import Field
 
 from jav import work_readiness, work_recipes, work_runs, work_views
-from jav.api import Empty, JavJSONResponse, RunId, Text, WpId, _In, human_actor
+from jav.service_shared import Empty, In, JavJSONResponse, RunId, Text, WpId, human_actor
 
 
-class SaveWorkflow(_In):
+class SaveWorkflow(In):
     recipe_id: Annotated[str, Field(min_length=1, max_length=100)]
     params: dict[Annotated[str, Field(max_length=64)], Annotated[str, Field(max_length=200)]] = Field(default_factory=dict, max_length=20)
     expected_revision: Annotated[int, Field(ge=0)]
     note: Text | None = None
 
 
-class StartRun(_In):
+class StartRun(In):
     mode: Literal["shadow", "apply"] = "shadow"
     expected_revision: Annotated[int, Field(ge=0)]
     input_hash: Annotated[str, Field(pattern=r"^[0-9a-f]{16}$")]
@@ -34,7 +34,7 @@ class StartRun(_In):
     scope: Literal["all", "pending"] = "all"  # 160-C S3: "pending" = only the package's pending items
 
 
-class Approve(_In):
+class Approve(In):
     """085 (re-audit A01): `review_version` is the run view's `review_version` the approver saw; if a correction changed
     the result since, 409. Without it (the command line) the current result is approved."""
     review_version: str | None = Field(default=None, max_length=64)

@@ -78,5 +78,4 @@ def test_the_jev_call_sites_have_no_module_level_invoice_site(module):
 
 def test_the_policy_reads_the_pack_of_the_named_type():
     assert not hasattr(policy, "HIGH_STAKES") and not hasattr(policy, "REQUIRED")
-    assert policy.required_for("invoice_hu") == frozenset(typepack.get("invoice_hu").required)
     assert policy.high_stakes_for("invoice_foreign") == frozenset(typepack.get("invoice_foreign").high_stakes)

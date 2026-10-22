@@ -13,8 +13,10 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any
+
+from jav.values import stored_decimal
 
 SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
 HEADER_FILL = "EEEEF2"
@@ -48,10 +50,8 @@ def cell_value(v: Any, kind: str | None) -> Any:
     if v is None:
         return None
     if kind in ("money", "number") and not isinstance(v, (dict, list)):
-        try:
-            return Decimal(str(v))
-        except InvalidOperation:
-            return cell_text(str(v))
+        number = stored_decimal(v)  # 204 (R1d): "NaN", "Infinity" or an exponent stays text, as in the reconciliation
+        return number if number is not None else cell_text(str(v))
     return v if isinstance(v, (int, float, Decimal)) and not isinstance(v, bool) else cell_text(str(v))
 
 

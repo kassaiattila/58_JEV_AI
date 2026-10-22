@@ -7,7 +7,6 @@ remain separate claims. Importing this module performs no persistence or calls.
 from __future__ import annotations
 
 from decimal import Decimal
-from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
@@ -39,12 +38,6 @@ NATIVE_SUFFIXES = tuple(item.suffix for item in DOCUMENT_FORMATS if item.flow ==
 # 120: a document flow item that may continue into the native flow when its type has no fitting type pack
 NATIVE_FALLBACK_SUFFIXES = (".pdf",)
 NATIVE_CAPABLE_SUFFIXES = NATIVE_SUFFIXES + NATIVE_FALLBACK_SUFFIXES
-
-
-def format_for(path: str | Path) -> DocumentFormat | None:
-    """Return the single shared format registration, without reading the file."""
-    suffix = Path(path).suffix.lower()
-    return next((item for item in DOCUMENT_FORMATS if item.suffix == suffix), None)
 
 
 ReadingStatus = Literal["not_attempted", "complete", "partial", "unsupported", "password_required",

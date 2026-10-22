@@ -21,18 +21,18 @@ from fastapi import Path as PathParam
 from pydantic import Field
 
 from jav import backup, deps_audit, jev_version, work_runs, work_views
-from jav.api import Empty, Text, _In, human_actor, settings
+from jav.service_shared import Empty, In, Text, human_actor, settings
 from jav.runtime import calls, worker
 
 log = logging.getLogger("jav.api")
 
 
-class ResolveReason(_In):
+class ResolveReason(In):
     resolution: dict[Annotated[str, Field(max_length=64)], Any] | None = Field(default=None, max_length=50)
     note: Text | None = None
 
 
-class ResolveCall(_In):
+class ResolveCall(In):
     """076: settling a paid call with an uncertain outcome by hand, as `calls-resolve` does."""
 
     # None: unknown, the maximum stays committed; 167 (review R-9): the same cap as the settlement itself

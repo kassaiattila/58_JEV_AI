@@ -147,14 +147,13 @@ A type pack ([glossary](../GLOSSARY.md)) holds all the type-specific data needed
 
 ## 6. Experiments (`configs/experiments/`)
 
-Settings and synthetic cases for finished and ongoing capability trials: claim assessment, source finding, injected instructions, learning branches and the like. Their format is not uniform: some have a `meta` block, others use a top-level `version` field. Neither the `configs` list nor the shared hash covers them; the experiment code records its own source fingerprints in the raw run. They are read by the experiment code (`jav/experiments/`) and by a few learning or trial modules run from separate commands (`jav/document_learning.py`, `jav/document_chunks.py`, `jav/claim_assessment.py`, `jav/source_find.py`); the local service and the worker do not read them. Changing them therefore has no effect on work-package runs. A paid trial needs a pre-approved sub-budget (some files also set their own cost cap, for example `budget_usd`), and case descriptions may only use synthetic or anonymised data.
+The synthetic cases of the injected-instruction probe (`document_injection.json`); the other September trial settings were removed with their experiments in 204. Neither the `configs` list nor the shared hash covers the folder; the probe records its own source fingerprints in the raw run. Only the probe (`jav/experiments/document_injection_probe.py`) reads it; the local service and the worker do not. Changing it therefore has no effect on work-package runs. A paid trial needs a pre-approved sub-budget (some files also set their own cost cap, for example `budget_usd`), and case descriptions may only use synthetic or anonymised data.
 
 ## 7. Legacy type copies (`configs/legacy_types/`)
 
 A verbatim copy, per type, of the legacy project's type folders: schema, instruction, rules, detection keywords and the old descriptor. Alongside them is a `manifest.json` with the source path and the sha256 of every file. Some folders also contain `fixtures/synth_*.json`; these are purely synthetic samples. They are read by:
 
 - `jav/legacy_packs.py`: checks the fingerprints on loading and raises an error on a mismatch;
-- `jav/legacy_runtime.py`: the learning branch's extraction, following the old schema;
 - `jav/capability_catalog.py`: coverage;
 - `jav/typepack_convert.py`: the one-off converter that built the corresponding type packs and verification call sites from them.
 

@@ -156,7 +156,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
-from jav import cfg, duplicates, fact_checks, fx, package_result, store, type_roles
+from jav import cfg, duplicates, fact_checks, fx, package_result, store, type_roles, values
 from jav.candidates import trim_after_legal_form
 from jav.models import account_key  # 156: shared with the candidate finder; callers keep using reconcile.account_key
 
@@ -223,12 +223,10 @@ CREATE INDEX IF NOT EXISTS ix_reconcile_line_marks_line ON reconcile_line_marks(
 
 
 def _migrate(conn) -> None:
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(reconcile_decisions)")}
-    if cols and "workpackage_id" not in cols:  # 131: a rejection made in a reconciliation package (not on a run)
-        conn.execute("ALTER TABLE reconcile_decisions ADD COLUMN workpackage_id TEXT")
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(reconcile_line_marks)")}
-    if cols and "basis" not in cols:  # 147: the suggestion a mark accepted in the quick review came from
-        conn.execute("ALTER TABLE reconcile_line_marks ADD COLUMN basis TEXT")
+    # 131: a rejection made in a reconciliation package (not on a run)
+    store.add_columns(conn, "reconcile_decisions", {"workpackage_id": "TEXT"})
+    # 147: the suggestion a mark accepted in the quick review came from
+    store.add_columns(conn, "reconcile_line_marks", {"basis": "TEXT"})
 
 
 store.register_migration("reconcile", _migrate)
@@ -380,17 +378,6 @@ def _whole_word(number: str) -> re.Pattern[str]:
     return re.compile(r"(?<![a-z0-9])" + re.escape(number) + r"(?![a-z0-9])")
 
 
-_DECIMAL = re.compile(r"-?\d+(?:\.\d+)?")
-
-
-def decimal_or_none(value: Any) -> Decimal | None:
-    """153 (review A6): a stored amount ("1234.50", "-12.5", any number of decimals) as a finite Decimal; None for
-    anything else ("NaN", "Infinity", "1E+3", "12,5", empty). The reconciliation views each had their own reader: some
-    took "NaN" or an exponent, one read "12,5" as zero."""
-    text = str(value) if value is not None else ""
-    return Decimal(text) if _DECIMAL.fullmatch(text) else None
-
-
 def money(value: Any) -> Decimal:
     """Only a canonical decimal string ("1234.5", "-10"); a separator is never guessed and nothing is rounded."""
     if not isinstance(value, str) or not _MONEY.fullmatch(value):
@@ -402,13 +389,6 @@ def money(value: Any) -> Decimal:
     if not amount.is_finite():
         raise ValueError("finite amount required")
     return amount
-
-
-def _date(value: Any) -> date | None:
-    try:
-        return date.fromisoformat(str(value)[:10]) if value else None
-    except ValueError:
-        return None
 
 
 def line_id(statement_id: str, line: dict[str, Any], occurrence: int = 0) -> str:
@@ -538,7 +518,7 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
         reason = _amount_reason(inv.get("amount"))
         if inv.get("currency") not in currencies:
             reason = "unsupported_currency"
-        if not _date(inv.get("issue_date")):
+        if not values.stored_day(inv.get("issue_date")):
             reason = "missing_issue_date"
         if inv.get("duplicate") == "copy":
             reason = "duplicate_copy"
@@ -556,7 +536,7 @@ def prepare(snapshot: dict[str, Any]) -> dict[str, Any]:
         reason = _amount_reason(pay.get("amount"))
         if pay.get("currency") not in currencies:
             reason = "unsupported_currency"
-        if not _date(pay.get("booking_date")):
+        if not values.stored_day(pay.get("booking_date")):
             reason = "missing_booking_date"
         if pay.get("direction") not in ("debit", "credit"):
             reason = "not_outgoing_payment"
@@ -584,11 +564,11 @@ def _credited(prepared: dict[str, Any], paid_invoice: dict[str, Decimal]) -> dic
     decides."""
     out: dict[str, str] = {}
     for cid, note in sorted(prepared["credit_notes"].items()):
-        issued, amount = _date(note.get("issue_date")), -money(str(note["amount"]))
+        issued, amount = values.stored_day(note.get("issue_date")), -money(str(note["amount"]))
         matches = [iid for iid, inv in sorted(prepared["invoices"].items())
                    if iid not in out and _supplier_key(inv) == _supplier_key(note)
                    and inv.get("currency") == note.get("currency") and money(str(inv["amount"])) == amount
-                   and issued is not None and _date(inv["issue_date"]) <= issued]
+                   and issued is not None and values.stored_day(inv["issue_date"]) <= issued]
         if len(matches) == 1 and not paid_invoice.get(matches[0]):
             out[matches[0]] = cid
     return out
@@ -665,8 +645,8 @@ def _settled(snapshot: dict[str, Any], prepared: dict[str, Any]) -> Settled:
 def window(invoice: dict[str, Any]) -> tuple[date, date]:
     """The days a payment of the invoice is searched in."""
     w = _conf()["window"]
-    issue = _date(invoice["issue_date"])
-    end = _date(invoice.get("due_date")) or issue
+    issue = values.stored_day(invoice["issue_date"])
+    end = values.stored_day(invoice.get("due_date")) or issue
     return issue - timedelta(days=int(w["days_before_issue"])), max(end, issue) + timedelta(days=int(w["days_after_due"]))
 
 
@@ -733,8 +713,8 @@ def strength(invoice: dict[str, Any], payment: dict[str, Any], found: list[str],
     after it). An order and a reason for a person, not a threshold. 143: a pair outside the invoice's payment window
     (`in_window` False, only the finder compares one) gets no timing weight."""
     w = _conf()["strength"]
-    issue, booked = _date(invoice.get("issue_date")), _date(payment.get("booking_date"))
-    due = _date(invoice.get("due_date")) or issue
+    issue, booked = values.stored_day(invoice.get("issue_date")), values.stored_day(payment.get("booking_date"))
+    due = values.stored_day(invoice.get("due_date")) or issue
     days = (booked - issue).days if issue and booked else None
     by_due = bool(issue and booked and due and issue <= booked <= max(due, issue) + timedelta(days=int(w["grace_days"])))
     score = sum(int(w["signals"].get(s, 0)) for s in found) + int(w["amount"].get(relation or "", 0))
@@ -784,8 +764,8 @@ def fx_bank_capable(payment: dict[str, Any]) -> bool:
 def bank_rate_days(invoice: dict[str, Any], payment: dict[str, Any]) -> list[tuple[str, date]]:
     """149: the days whose MNB rate a forint bank line is compared at, in the order of `fx.bank.rate_days`: the
     invoice's fulfilment day (its issue day when none was read) and the line's booking day."""
-    days = {"fulfillment": _date(invoice.get("fulfillment_date")) or _date(invoice.get("issue_date")),
-            "booking": _date(payment.get("booking_date"))}
+    days = {"fulfillment": values.stored_day(invoice.get("fulfillment_date")) or values.stored_day(invoice.get("issue_date")),
+            "booking": values.stored_day(payment.get("booking_date"))}
     return [(basis, day) for basis in _conf()["fx"]["bank"]["rate_days"] if (day := days.get(basis))]
 
 
@@ -827,13 +807,13 @@ def pair_window(invoice: dict[str, Any], payment: dict[str, Any]) -> tuple[date,
 def fx_window(invoice: dict[str, Any]) -> tuple[date, date]:
     """The days a card payment of the invoice is searched in: around its issue date (the day of the purchase)."""
     w = _conf()["fx"]["window"]
-    issue = _date(invoice["issue_date"])
+    issue = values.stored_day(invoice["issue_date"])
     return issue - timedelta(days=int(w["days_before_issue"])), issue + timedelta(days=int(w["days_after_issue"]))
 
 
 def rate_need(invoice: dict[str, Any]) -> tuple[str, date] | None:
     """The (currency, day) whose rate a card pair of the invoice needs: its currency on its issue date."""
-    issue = _date(invoice.get("issue_date"))
+    issue = values.stored_day(invoice.get("issue_date"))
     currency = invoice.get("currency")
     if not issue or not currency or currency == _conf()["fx"]["line_currency"]:
         return None
@@ -960,8 +940,8 @@ def compare(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple
     found = signals(invoice, payment, learned, common)
     relation, conversion = amount_relation(invoice, payment, rates)
     how = meets(invoice, payment)
-    span = pair_window(invoice, payment) if _date(invoice.get("issue_date")) else None
-    booked = _date(payment.get("booking_date"))
+    span = pair_window(invoice, payment) if values.stored_day(invoice.get("issue_date")) else None
+    booked = values.stored_day(payment.get("booking_date"))
     in_window = bool(span and booked and span[0] <= booked <= span[1])
     mine, theirs = account_key(invoice.get("payment_account")), account_key(payment.get("counterparty_account"))
     difference = None
@@ -1006,7 +986,7 @@ def coverage(statements: dict[str, dict[str, Any]]) -> dict[tuple[str, str], lis
     for st in statements.values():
         key = (statement_account(st), str(st.get("currency")))
         periods.setdefault(key, [])
-        start, end = _date(st.get("period_start")), _date(st.get("period_end"))
+        start, end = values.stored_day(st.get("period_start")), values.stored_day(st.get("period_end"))
         if st.get("verified") and start and end and start <= end:
             periods[key].append((start, end))
     return {k: merge_periods(v) for k, v in periods.items()}
@@ -1108,12 +1088,12 @@ def _repeats(prepared: dict[str, Any], candidates: list[dict[str, Any]], confirm
         tied = {}
         for pid in by_amount.get((str(inv.get("currency")), whole), []):
             pay = prepared["payments"][pid]
-            booked = _date(pay["booking_date"])
+            booked = values.stored_day(pay["booking_date"])
             if (pid in paid_by or (iid, pid) in rejected or allocated_to[pid] - {iid} or elsewhere(pid, iid)
                     or not booked or not start <= booked <= end or not pays(pay, inv)):
                 continue
             found = signals(inv, pay, learned, common)
-            early = (booked - issued).days < -unnamed_days if (issued := _date(inv.get("issue_date"))) else False
+            early = (booked - issued).days < -unnamed_days if (issued := values.stored_day(inv.get("issue_date"))) else False
             if found and (NAMED_SIGNALS & set(found) or not early):  # 141: an unnamed line well before the issue paid another month
                 tied[pid] = found
         lines = sorted(paid_by | set(tied))
@@ -1152,7 +1132,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
         if pid in paid_lines or pid in marked or pay_whole["statement_id"] not in scope:
             continue
         pay = {**pay_whole, "amount": str(rest_line[pid])}
-        booked = _date(pay["booking_date"])
+        booked = values.stored_day(pay["booking_date"])
         for iid, inv_whole, inv, pay_span, card_span in open_invoices:
             if not (pay_span[0] <= booked <= pay_span[1] or card_span[0] <= booked <= card_span[1]):
                 continue  # 151: in neither window this line could be searched in
@@ -1229,14 +1209,14 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     def covered(key: tuple[str, str], start: date, end: date) -> str | None:
         """How far the account covers the window, within the days it was open (None: closed for the whole window)."""
         acct = registered.get(key[0]) or {}
-        opened, closed = _date(acct.get("valid_from")), _date(acct.get("valid_to"))
+        opened, closed = values.stored_day(acct.get("valid_from")), values.stored_day(acct.get("valid_to"))
         start, end = max(start, opened) if opened else start, min(end, closed) if closed else end
         return covered_by(periods[key], start, end) if start <= end else None
 
     def covered_until(key: tuple[str, str], start: date) -> date | None:
         """142: the last day the account covers without a gap from `start` (date.max: nothing to cover after it closed)."""
         acct = registered.get(key[0]) or {}
-        opened, closed = _date(acct.get("valid_from")), _date(acct.get("valid_to"))
+        opened, closed = values.stored_day(acct.get("valid_from")), values.stored_day(acct.get("valid_to"))
         if closed and closed < start:
             return date.max
         start = max(start, opened) if opened else start
@@ -1257,7 +1237,7 @@ def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
             if outgoing(inv):  # 149: an outgoing one is paid into a forint bank account, in its payment window
                 cover += [c for key in sorted(bank_accounts - card_accounts) if (c := covered(key, start, end)) is not None]
                 keys += sorted(bank_accounts - card_accounts)
-        issued = _date(inv.get("issue_date"))
+        issued = values.stored_day(inv.get("issue_date"))
         untils = [covered_until(key, issued) for key in keys] if issued else []
         checked = None if not untils or None in untils else min(u for u in untils if u is not None)
         if iid in paid_invoices:
@@ -1354,7 +1334,7 @@ def _documents(c, counted: dict[str, Any], types: list[str]) -> list[dict[str, A
     and no corrections."""
     rows = package_result.result_rows(c, counted, "datapoints, validation", types=types)
     # 154 (DECISIONS 154): the documents that came as an attachment of an email routed as suspicious
-    from jav.mailbox import SUSPICIOUS_ATTACHMENT
+    from jav.todo_kinds import SUSPICIOUS_ATTACHMENT
 
     suspicious = ({r["run_id"] for r in c.execute("SELECT DISTINCT run_id FROM review_reasons WHERE reason=?",
                                                   (SUSPICIOUS_ATTACHMENT,))}
@@ -1431,8 +1411,8 @@ def bank_rate_needs(invoices: list[dict[str, Any]], statements: list[dict[str, A
     if not banks or not foreign:
         return set()
     needs = {(str(inv["currency"]), day) for inv in foreign
-             if (day := _date(inv.get("fulfillment_date")) or _date(inv.get("issue_date")))}
-    days = {day for s in banks for ln in s.get("lines") or [] if (day := _date(ln.get("booking_date")))}
+             if (day := values.stored_day(inv.get("fulfillment_date")) or values.stored_day(inv.get("issue_date")))}
+    days = {day for s in banks for ln in s.get("lines") or [] if (day := values.stored_day(ln.get("booking_date")))}
     return needs | {(cur, day) for cur in {str(inv["currency"]) for inv in foreign} for day in days}
 
 

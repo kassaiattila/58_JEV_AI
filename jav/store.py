@@ -235,6 +235,33 @@ def register_schema(name: str, ddl: str) -> None:
     _EXTRA_SCHEMAS[name] = ddl
 
 
+def add_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> list[str]:
+    """204 (R1e): the additive column migration each module wrote by hand. Every column of `columns` (name -> its SQL
+    definition word for word, e.g. "TEXT NOT NULL DEFAULT '{}'") missing from `table` is added in the given order; a
+    column already there is left as it is, and so is a table that does not exist. Idempotent, so it can run on any
+    connection (`register_migration`). 063: the service and the worker may start at the same time after an update, and
+    the other one may add the same column between the look and the ALTER; SQLite's "duplicate column name" then means
+    the column is there, any other error is raised. Returns the columns this call added."""
+    for name in (table, *columns):
+        if not name.isidentifier():
+            raise ValueError(f"not a plain SQL name: {name!r}")
+    present = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+    if not present:
+        return []
+    added: list[str] = []
+    for name, definition in columns.items():
+        if name in present:
+            continue
+        try:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name" not in str(exc):
+                raise
+            continue
+        added.append(name)
+    return added
+
+
 def _json(v: Any) -> str:
     return json.dumps(v, ensure_ascii=False, default=str)
 
@@ -270,7 +297,8 @@ def _initialize(conn: sqlite3.Connection) -> None:
         _run_migrations(conn)
     except sqlite3.OperationalError as exc:
         # 063: the service and the worker may start at the same time after an update; if the other one has added the
-        # same column meanwhile, the second round finds nothing left to do (the migrations skip existing columns)
+        # same column meanwhile, the second round finds nothing left to do (the migrations skip existing columns; 204:
+        # `add_columns` already skips such a column itself, this round stays for a migration written otherwise)
         if "duplicate column name" not in str(exc):
             raise
         conn.rollback()
@@ -375,33 +403,20 @@ def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
 
 def _migrate(conn: sqlite3.Connection) -> None:
     """Additive column migrations on an existing store (CREATE TABLE IF NOT EXISTS does not add columns)."""
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(ledger)")}
-    if "config_hash" not in cols:
-        conn.execute("ALTER TABLE ledger ADD COLUMN config_hash TEXT")
-    if "error" not in cols:
-        conn.execute("ALTER TABLE ledger ADD COLUMN error TEXT")
-    dcols = {r[1] for r in conn.execute("PRAGMA table_info(datapoints)")}
-    if "record_conf" not in dcols:
-        conn.execute("ALTER TABLE datapoints ADD COLUMN record_conf REAL")
-    if "evidence" not in dcols:
-        conn.execute("ALTER TABLE datapoints ADD COLUMN evidence TEXT")
-    if "provenance" not in dcols:  # 045: per-field source location (page, boxes, alternatives)
-        conn.execute("ALTER TABLE datapoints ADD COLUMN provenance TEXT")
-    if "source_layer_id" not in dcols:  # 045: which word layer the boxes refer to
-        conn.execute("ALTER TABLE datapoints ADD COLUMN source_layer_id TEXT")
-    tcols = {r[1] for r in conn.execute("PRAGMA table_info(email_task_decisions)")}
-    for col in ("done_by", "done_at"):  # 062: manual "done" mark on an accepted task
-        if tcols and col not in tcols:
-            conn.execute(f"ALTER TABLE email_task_decisions ADD COLUMN {col} TEXT")
-    ecols = {r[1] for r in conn.execute("PRAGMA table_info(email_results)")}
-    if ecols and "tasks" not in ecols:  # 058 K5.3: the task proposal next to the email result
-        conn.execute("ALTER TABLE email_results ADD COLUMN tasks TEXT")
-    if ecols and "folder" not in ecols:  # 149: a sent message has no intent; the result says why
-        conn.execute("ALTER TABLE email_results ADD COLUMN folder TEXT")
-    doc_cols = {r[1] for r in conn.execute("PRAGMA table_info(documents)")}
-    for col, typ in (("detail_type", "TEXT"), ("detail_conf", "REAL"), ("detail_method", "TEXT")):  # 047 T1.2: detailed type
-        if col not in doc_cols:
-            conn.execute(f"ALTER TABLE documents ADD COLUMN {col} {typ}")
+    add_columns(conn, "ledger", {"config_hash": "TEXT", "error": "TEXT"})
+    add_columns(conn, "datapoints", {
+        "record_conf": "REAL", "evidence": "TEXT",
+        "provenance": "TEXT",  # 045: per-field source location (page, boxes, alternatives)
+        "source_layer_id": "TEXT",  # 045: which word layer the boxes refer to
+    })
+    # 062: manual "done" mark on an accepted task
+    add_columns(conn, "email_task_decisions", {"done_by": "TEXT", "done_at": "TEXT"})
+    add_columns(conn, "email_results", {
+        "tasks": "TEXT",  # 058 K5.3: the task proposal next to the email result
+        "folder": "TEXT",  # 149: a sent message has no intent; the result says why
+    })
+    # 047 T1.2: detailed type
+    add_columns(conn, "documents", {"detail_type": "TEXT", "detail_conf": "REAL", "detail_method": "TEXT"})
     # Take over the reasons of old review items (no per-reason rows); a closed item's reasons get the item's status.
     legacy = conn.execute(
         "SELECT q.id, q.reasons, q.status, q.run_id, q.created_at, q.decided_at FROM review_queue q"

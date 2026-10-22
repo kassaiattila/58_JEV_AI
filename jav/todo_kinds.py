@@ -21,6 +21,10 @@ from functools import cache
 
 from jav import cfg
 
+# 204 (R1j): raised by the mailbox (email), read by the reconciliation (finance) and the email routing; a shared code,
+# so neither domain imports the other for it
+SUSPICIOUS_ATTACHMENT = "attachment:suspicious_email"  # 154 (DECISIONS 154)
+
 
 @dataclass(frozen=True)
 class TodoKind:

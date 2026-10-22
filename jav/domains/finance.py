@@ -20,7 +20,8 @@ here, in one call (`register`, from `registrations.load_all`):
   (`jav/api_finance.py`), named in `SERVICE`.
 
 The check adapters below turn a document under check into the call of the module that does the work; the work itself
-stays in `jav/duplicates.py`, `jav/parties.py`, `jav/statement_months.py` and `jav/report_utility.py`.
+stays in `jav/duplicates.py`, `jav/parties.py`, `jav/statement_months.py` and `jav/report_utility.py`. 204: the
+reconciliation's golden sets in the shared measurement are described in `jav/reconcile_goldens.py`, named in `GOLDENS`.
 """
 
 from __future__ import annotations
@@ -39,10 +40,13 @@ COMMANDS = ("jav.finance_cli",)
 # code imports none of them (`tests/test_domain_boundary_185.py`)
 MODULES = frozenset({
     "api_finance", "api_parties", "api_reconcile", "api_statement_package", "bank_files", "duplicates", "finance_cli",
-    "finance_datasets", "flow_statement_table", "fx", "party_views", "reconcile", "reconcile_ai", "reconcile_overview",
-    "reconcile_package", "reconcile_review", "reconcile_statement", "report_utility", "statement_months",
-    "statement_original", "statement_package", "statement_table", "domains.finance",
+    "finance_datasets", "flow_statement_table", "fx", "party_views", "reconcile", "reconcile_ai", "reconcile_goldens",
+    "reconcile_overview", "reconcile_package", "reconcile_review", "reconcile_statement", "report_utility",
+    "statement_months", "statement_original", "statement_package", "statement_table", "domains.finance",
 })
+# 204 (plan G-process-core R1h): the modules of the domain's golden sets (the reconciliation's), by name; the shared measurement
+# command imports them (`jav.goldens.logic_pack_goldens`), so the reconciliation imports no measurement code
+GOLDENS = ("jav.reconcile_goldens",)
 
 # --- the cross-document checks: they read the store, so the check registry runs them in a worker run only, and a
 # measurement's result never depends on what the store holds (175, plan 170 E3: `jav/checks.py`) ---------------------

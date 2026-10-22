@@ -18,7 +18,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from jav import cfg, parties, reconcile, source_layer, statement_months, store, type_roles, work, work_runs
+from jav import cfg, parties, reconcile, source_layer, statement_months, store, type_roles, values, work, work_runs
 
 
 def _holder_text(statement: dict[str, Any]) -> str:
@@ -149,13 +149,6 @@ def _bounds(month: str) -> tuple[date, date]:
     return date(y, m, 1), following - timedelta(days=1)
 
 
-def _day(value: Any) -> date | None:
-    try:
-        return date.fromisoformat(str(value)[:10]) if value else None
-    except ValueError:
-        return None
-
-
 def _balance(value: Any) -> Decimal | None:
     try:
         return reconcile.money(str(value)) if value not in (None, "") else None
@@ -184,7 +177,7 @@ def _column(statements: list[dict[str, Any]], opened: date | None, closed: date 
     139: the statements are the valid ones; an overlap is two a person still has to choose between, and `replaced`
     names the statements of the month another one replaced."""
     dated = sorted(((s, a, b) for s in statements
-                    if (a := _day(s.get("period_start"))) and (b := _day(s.get("period_end"))) and a <= b),
+                    if (a := values.stored_day(s.get("period_start"))) and (b := values.stored_day(s.get("period_end"))) and a <= b),
                    key=lambda t: (t[1], t[2], t[0]["id"]))
     overlaps: set[str] = set()
     breaks: set[str] = set()
@@ -250,9 +243,9 @@ def months(party_id: str, start: str | None = None, end: str | None = None, *, t
         seen = {cur for key, cur in by_column if key == ident["key"]}
         for currency in sorted(seen | set((details or {}).get("currencies") or [])):
             sts = by_column.get((ident["key"], currency), [])
-            first = min((d for s in sts if (d := _day(s.get("period_start")))), default=None)
-            opened = _day((details or {}).get("valid_from")) or first
-            closed = _day((details or {}).get("valid_to"))
+            first = min((d for s in sts if (d := values.stored_day(s.get("period_start")))), default=None)
+            opened = values.stored_day((details or {}).get("valid_from")) or first
+            closed = values.stored_day((details or {}).get("valid_to"))
             card = any(s.get("statement_type") in conf["fx"]["statement_types"] for s in sts)
             columns.append({"key": ident["key"], "currency": currency, "label": ident["label"],
                             "kind": (details or {}).get("kind") or ("card" if card else "account"),

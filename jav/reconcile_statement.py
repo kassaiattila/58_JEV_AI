@@ -40,7 +40,7 @@ from collections import Counter
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import activity_kinds, cfg, decisions, naming, package_release, reconcile, reconcile_package as rp, store, work
+from jav import activity_kinds, cfg, decisions, naming, package_release, reconcile_package as rp, store, values, work
 from jav.outputs import builtin, contract, templates
 from jav.user_messages import explained
 from jav.clock import utc_stamp as _now
@@ -68,10 +68,6 @@ _LINE_FACTS = ("account", "statement_type", "currency", "booking_date", "value_d
                "bank_reference", "card_number", "purchase_date", "file", "statement_verified")
 
 
-def _money(value: Any) -> Decimal | None:
-    return reconcile.decimal_or_none(value)  # 153 (review A6): one reader for the stored amounts
-
-
 def fingerprint(content: dict[str, Any]) -> str:
     return hashlib.sha256(json.dumps(content, sort_keys=True, ensure_ascii=False, default=str).encode("utf-8")).hexdigest()
 
@@ -80,7 +76,7 @@ def fingerprint(content: dict[str, Any]) -> str:
 
 
 def _invoice_result(row: dict[str, Any]) -> str:
-    amount, allocated = _money(row.get("amount")), _money(row.get("allocated")) or Decimal(0)
+    amount, allocated = values.stored_decimal(row.get("amount")), values.stored_decimal(row.get("allocated")) or Decimal(0)
     if row.get("state") == "credited":
         return "credited"
     if row.get("state") == "confirmed" or (amount is not None and allocated >= amount > 0):
@@ -382,11 +378,6 @@ def xlsx(wp_id: str, *, version: int | None = None) -> tuple[bytes, str]:
     v = approved_version(wp_id, version)
     stored = package_release.own_file(wp_id, version, _version_state(v))
     return (stored["content"], stored["name"]) if stored else _version_file(v)
-
-
-def version_files(wp_id: str, n: int) -> list[dict[str, Any]]:
-    """178: the stored files of an approved version (without their content), in the order they were recorded."""
-    return package_release.own_files(wp_id, n)
 
 
 def backfill_files(*, dry_run: bool = False) -> list[dict[str, Any]]:

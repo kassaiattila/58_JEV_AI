@@ -311,31 +311,49 @@ def open_reasons_for_run(run_id: str) -> int:
     return sum(len(s["run"]) for s in items_reasons(run_id, released_items(run)).values())
 
 
+# 204 (R1i): the planner takes the run's primary key (one row), whose lookup reads the row past its frozen input
+_RUN_STATE = "INDEXED BY ix_runs_state"
+
+
 @store.one_connection
 def refresh_run_status(run_id: str) -> str:
-    """The run's status from the queue and the to-dos: running → failed / needs review / done."""
-    run = get_run(run_id)
-    jobs = run["jobs"]
-    # 063: an item without a job (an interrupted start) is pending too — until then the run cannot be "done"
-    missing = max(0, len(run["input"]["items"]) - sum(jobs.values()))
-    pending = jobs.get("queued", 0) + jobs.get("claimed", 0) + missing
-    if run["status"] == "cancelled":
+    """The run's status from the queue and the to-dos: running → failed / needs review / done.
+
+    204 (R1i): read from which states the run's jobs are in (`queue.states`), not from every item and job of the run
+    (`get_run`). The worker refreshes the status after each item, so each item cost more than the one before: 31 ms per
+    refresh in a synthetic run of 10,000 items. The run's size is read only once none of its jobs is queued or claimed
+    (an item without a job, and the run's own open to-dos). The run's state is read and written through its index
+    (`ix_runs_state`): its row holds the frozen input before those columns, and an unchanged status is not written."""
+    with store.connect() as c:
+        row = c.execute(f"SELECT status, stopped_at FROM runs {_RUN_STATE} WHERE run_id=?", (run_id,)).fetchone()
+    if row is None:
+        raise KeyError(run_id)
+    jobs = queue.states(run_id=run_id)
+    pending = bool(jobs & {"queued", "claimed"})
+    if not pending and row["status"] != "cancelled":
+        # 063: an item without a job (an interrupted start) is pending too — until then the run cannot be "done"
+        with store.connect() as c:
+            items = c.execute("SELECT json_array_length(input, '$.items') FROM runs WHERE run_id=?", (run_id,)).fetchone()[0]
+        pending = items > sum(queue.counts(run_id=run_id).values())
+    if row["status"] == "cancelled":
         status = "cancelled"
     elif pending:
-        status = "running" if (jobs.get("claimed") or any(v for k, v in jobs.items() if k in ("done", "dead"))) else "queued"
-    elif run.get("stopped_at"):  # 160 (review R-4): a person's stop ends as stopped, whatever an earlier item did
+        status = "running" if jobs & {"claimed", "done", "dead"} else "queued"
+    elif row["stopped_at"]:  # 160 (review R-4): a person's stop ends as stopped, whatever an earlier item did
         status = "cancelled"
-    elif jobs.get("dead"):
+    elif "dead" in jobs:
         status = "failed"
-    elif jobs.get("cancelled"):
+    elif "cancelled" in jobs:
         status = "cancelled"
     else:
         status = "needs_review" if open_reasons_for_run(run_id) else "done"
     with store.connect() as c:
-        # 066 Á32: a run cancelled between computing and writing stays cancelled (condition in the write, not before)
-        c.execute("UPDATE runs SET status=?, finished_at=CASE WHEN ? IN ('queued','running') THEN NULL ELSE COALESCE(finished_at, ?) END"
-                  " WHERE run_id=? AND (status <> 'cancelled' OR ? = 'cancelled')", (status, status, _now(), run_id, status))
-        return c.execute("SELECT status FROM runs WHERE run_id=?", (run_id,)).fetchone()["status"]
+        # 066 Á32: a run cancelled between computing and writing stays cancelled (condition in the write, not before);
+        # 204: a write that would change nothing is left out (the status and whether it has finished are as they would be)
+        c.execute(f"UPDATE runs {_RUN_STATE} SET status=?1, finished_at=CASE WHEN ?1 IN ('queued','running') THEN NULL"
+                  " ELSE COALESCE(finished_at, ?2) END WHERE run_id=?3 AND (status <> 'cancelled' OR ?1 = 'cancelled')"
+                  " AND NOT (status = ?1 AND (finished_at IS NULL) = (?1 IN ('queued','running')))", (status, _now(), run_id))
+        return c.execute(f"SELECT status FROM runs {_RUN_STATE} WHERE run_id=?", (run_id,)).fetchone()["status"]
 
 
 @store.one_connection

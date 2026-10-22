@@ -6,7 +6,9 @@ an item, the parts of the downloads, each pointing at the code that does the wor
 asks the registries and never names a domain. `registrations.load_all()` calls each domain's `register()` once per
 process; importing a domain module registers nothing. 185: a domain module also names the modules of its addresses of
 the local service (`SERVICE`), which `jav.api.service_modules` adds. 191: a domain module names the modules it is made
-of (`MODULES`), and any number of domains can register.
+of (`MODULES`), and any number of domains can register. 204: a domain module names the modules of its golden sets
+(`GOLDENS`; a domain without any names none, as with `COMMANDS`), which the shared measurement command imports by name
+(`jav.goldens.logic_pack_goldens`), so a domain's business modules never import the measurement layer.
 
 - `jav/domains/finance.py`: invoices, statements, the reconciliation and the utility cost;
 - `jav/domains/email.py`: emails and mailbox packages;

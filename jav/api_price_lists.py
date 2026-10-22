@@ -24,7 +24,7 @@ from fastapi.responses import Response
 from pydantic import Field
 
 from jav import price_lists, work_views
-from jav.api import Empty, _error, _In, attachment_header, checked_path, human_actor
+from jav.service_shared import Empty, In, attachment_header, checked_path, error, human_actor
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 PriceListId = Annotated[str, PathParam(pattern=r"^pl-[0-9a-f]{10}$")]
@@ -32,7 +32,7 @@ Version = Annotated[int, PathParam(ge=1, le=100000)]
 Number = Annotated[str, Field(min_length=1, max_length=20)]
 
 
-class PriceListUpload(_In):
+class PriceListUpload(In):
     name: Annotated[str, Field(min_length=1, max_length=120)]
     path: Annotated[str, Field(min_length=1, max_length=2000)]
     price_list: Annotated[str | None, Field(pattern=r"^pl-[0-9a-f]{10}$")] = None
@@ -40,13 +40,13 @@ class PriceListUpload(_In):
     vat_percent: Number | None = None
 
 
-class Rule(_In):
+class Rule(In):
     category: Annotated[str, Field(min_length=1, max_length=120)]
     min_quantity: Number
     percent: Number
 
 
-class PriceListSettings(_In):
+class PriceListSettings(In):
     discounts: Annotated[list[Rule], Field(max_length=200)]
     currency: Annotated[str, Field(min_length=1, max_length=3)]
     vat_percent: Number
@@ -63,11 +63,11 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.exception_handler(price_lists.PriceListRefused)
     async def price_list_refused(_request: Request, exc: price_lists.PriceListRefused):
-        return _error(422, "price_list_refused", str(exc), check=exc.check)
+        return error(422, "price_list_refused", str(exc), check=exc.check)
 
     @app.exception_handler(price_lists.PriceListStateError)
     async def price_list_state(_request: Request, exc: price_lists.PriceListStateError):
-        return _error(409, "price_list_state", str(exc))
+        return error(409, "price_list_state", str(exc))
 
     @app.get(r + "/price-lists")
     def price_list_listing() -> dict[str, Any]:

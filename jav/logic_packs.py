@@ -70,6 +70,11 @@ class LogicPack:
       released the shared way (`release_refusal()`: the error that says why, `package_release.ReleaseError`).
     - `add_refusal`: why the shared adding of documents refuses the package (it adds in its own way); None: it adds
       like any package.
+    - `take_files(wp_id, paths, *, expected_revision, actor)`: 204 (R1j): adds files to one of its packages in its own
+      way (the pair of `add_refusal`), so another domain (the email routing) adds through this registry instead of
+      importing the pack's module.
+    - `create_with_files(*, name, paths, scope, actor)`: 204 (R1j): makes one of its packages from files and a scope
+      ({party_id, period_start, period_end}); returns the new package's id.
     - `rule`: what it adds to the processing of its items (`work.PackageRule`, asked by the worker).
     - `delete_guard(c, wp_id)`: checks a deletion of one of its packages inside the deleting transaction: raises
       `work.NotReady` to refuse it, or deletes its own rows.
@@ -81,8 +86,10 @@ class LogicPack:
       which a person cannot replace; None: a person may give one.
     - `service`: 185: the module of its own addresses of the local service, by name (a module with a
       `routes(app, prefix)`; `jav.api.service_modules`), so this registry imports no service code.
-    - `goldens`: 188: its golden sets (`jav.goldens.Golden`, named `<kind>:<name>`), measured by the shared measurement
-      command like a type pack's.
+
+    188: a logic pack's golden sets (named `<kind>:<name>`) are measured by the shared measurement command like a type
+    pack's; 204 (plan G-process-core R1h): its domain names the module that describes them (`GOLDENS` in `jav/domains/`, read by
+    `jav/goldens.py`), so the pack's own module never imports the measurement layer.
     """
 
     kind: str
@@ -90,6 +97,8 @@ class LogicPack:
     roles: tuple[InputRole, ...]
     has_runs: bool = True
     add_refusal: str | None = None
+    take_files: Callable[..., Any] | None = None
+    create_with_files: Callable[..., str] | None = None
     release_refusal: Callable[[], Exception] | None = None
     rule: Any = None
     delete_guard: Callable[[sqlite3.Connection, str], None] | None = None
@@ -101,13 +110,8 @@ class LogicPack:
     outputs: tuple[str, ...] | None = None  # None: a processing package's (`processing_outputs`)
     scope: Callable[[str], dict[str, Any]] | None = None
     service: str | None = None
-    goldens: tuple[Any, ...] = ()
 
     def __post_init__(self) -> None:
-        for golden in self.goldens:
-            if golden.layer != "logic_pack" or golden.owner != self.kind or not golden.key.startswith(f"{self.kind}:"):
-                raise ValueError(f"logic pack {self.kind!r}: its golden set {golden.key!r} must be a logic pack's, "
-                                 f"owned by it and named {self.kind}:<name>")
         if self.kind in DATA_KINDS:
             raise ValueError(f"{self.kind!r} is a plain processing kind, not a logic pack")
         if not self.roles or any(r.source not in ROLE_SOURCES for r in self.roles):

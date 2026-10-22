@@ -18,24 +18,24 @@ from fastapi import Path as PathParam
 from pydantic import Field
 
 from jav import app_settings, work_views
-from jav.api import Empty, _In, actor_unless_first_users, allowed_roots, checked_path, human_actor
+from jav.service_shared import Empty, In, actor_unless_first_users, allowed_roots, checked_path, human_actor
 
 log = logging.getLogger("jav.api")
 
 
-class SaveUsers(_In):
+class SaveUsers(In):
     users: Annotated[list[Annotated[str, Field(max_length=64)]], Field(max_length=200)]
 
 
-class SaveFolders(_In):
+class SaveFolders(In):
     folders: Annotated[list[app_settings.WatchedFolder], Field(max_length=50)]
 
 
-class SaveOutputFolder(_In):
+class SaveOutputFolder(In):
     path: str | None = Field(default=None, max_length=1024)  # empty: no output folder
 
 
-class SaveEngine(_In):
+class SaveEngine(In):
     engine: Literal["jev", "gpt"]  # 160-D: JEV and GPT | GPT only (app_settings.ENGINES)
 
 

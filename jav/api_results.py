@@ -23,7 +23,7 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import Field
 
 from jav import app_settings, corrections, package_release, store, work_runs, work_views
-from jav.api import Empty, RunId, WpId, _In, attachment_header, human_actor
+from jav.service_shared import Empty, In, RunId, WpId, attachment_header, human_actor
 from jav.tablequery import Query as TableQuery
 from jav.user_messages import explained
 
@@ -33,7 +33,7 @@ log = logging.getLogger("jav.api")
 DatasetName = Annotated[str, PathParam(pattern=r"^[a-z_]{1,40}$")]
 
 
-class ReleasePackage(_In):
+class ReleasePackage(In):
     """171 (plan 170 L1): `expected_mark` is the package result view's `mark` the person saw; if the result changed
     since, 409. `confirm_removed`: the view's `removed_items`, as for a run's approval."""
     expected_mark: str = Field(min_length=1, max_length=64)
@@ -43,7 +43,7 @@ class ReleasePackage(_In):
 _ScopeMap = Annotated[dict[Annotated[str, Field(max_length=64)], Annotated[str, Field(max_length=200)]], Field(max_length=5)]
 
 
-class DatasetQuery(_In):
+class DatasetQuery(In):
     """056 U1: uniform list request (scope + search, filters, sorting, paging)."""
     scope: _ScopeMap = Field(default_factory=dict)
     query: TableQuery = Field(default_factory=TableQuery)

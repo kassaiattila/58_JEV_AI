@@ -13,7 +13,7 @@ from typing import Any
 
 from jav.policy import INTENT_HUMAN_MAX_CONF  # 066 Á38: the threshold comes from the policy
 from jav.config import RUNS_DIR
-from jav import store
+from jav import store, values
 from jav.emails import EmailMessage, GoldenEmail, iter_inbox, load_old_golden
 from jav.intents import INTENT_KEYS
 
@@ -300,8 +300,8 @@ def email_determinism(n: int = 3, limit: int | None = None, *, jev: bool = True)
     print(f"Nyers futások: {out}")
 
 
-def load_rows(path: str | Path) -> list[dict[str, Any]]:
-    return [json.loads(ln) for ln in Path(path).read_text(encoding="utf-8").splitlines() if ln.strip()]
+def load_rows(path: Path | str) -> list[dict[str, Any]]:
+    return values.json_lines(path)
 
 
 # --- live inbox walk (after fetching from Outlook) -------------------------------------------

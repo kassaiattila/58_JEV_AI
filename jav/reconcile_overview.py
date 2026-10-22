@@ -21,11 +21,9 @@ the package's workspace (`jav/reconcile_package.py`) and the engine's `repeats`,
 
 from __future__ import annotations
 
-from datetime import date
-from decimal import Decimal
 from typing import Any
 
-from jav import reconcile
+from jav import values
 
 KINDS = ("proposed", "paired", "line_only", "invoice_only", "credited", "marked", "excluded")
 LISTS = ("to_decide", "line_without_invoice", "invoice_without_payment", "overdue", "late", "double_payment", "clarify",
@@ -35,20 +33,9 @@ OPEN_LINE_STATES = ("proposed", "amount_only", "partly_allocated", "open")
 CLARIFY = ("several_candidates", "amount_differs", "statement_unverified", "double_payment", "rest_left")
 
 
-def _day(value: Any) -> date | None:
-    try:
-        return date.fromisoformat(str(value)[:10]) if value else None
-    except ValueError:
-        return None
-
-
-def _money(value: Any) -> Decimal | None:
-    return reconcile.decimal_or_none(value)  # 153 (review A6): one reader for the stored amounts
-
-
 def days_from_due(line: dict[str, Any], invoice: dict[str, Any]) -> int | None:
     """The days from the invoice's due date to the line's booking day (positive: late), None without both."""
-    due, booked = _day(invoice.get("due_date")), _day(line.get("booking_date"))
+    due, booked = values.stored_day(invoice.get("due_date")), values.stored_day(line.get("booking_date"))
     return (booked - due).days if due and booked else None
 
 
@@ -94,12 +81,12 @@ def _pairs(lines: list[dict[str, Any]], invoices: dict[str, dict[str, Any]],
         inv = invoices.get(r["invoice_id"])
         if inv is None:
             continue
-        anchor = _day(inv.get("due_date")) or _day(inv.get("issue_date"))
+        anchor = values.stored_day(inv.get("due_date")) or values.stored_day(inv.get("issue_date"))
         for lid in r["line_ids"]:
             ln = by_line.get(lid)
             if ln is None or lid in r["paid_by"]:
                 continue
-            booked = _day(ln.get("booking_date"))
+            booked = values.stored_day(ln.get("booking_date"))
             distance = abs((booked - anchor).days) if booked and anchor else 10**6
             if lid not in nearest or (distance, r["invoice_id"]) < nearest[lid]:
                 nearest[lid] = (distance, r["invoice_id"])
@@ -113,11 +100,11 @@ def _invoice_facts(inv: dict[str, Any], pairs: list[dict[str, Any]], lines: dict
     """An invoice's payment timing: the day of its last allocated or proposed payment and its days from the due date,
     and the days it is overdue with no payment found by the day its statements are checked until."""
     paying = [p for p in pairs if p["invoice_id"] == inv["id"] and p["state"] in ("allocated", "proposed")]
-    days = [d for p in paying if (d := _day(lines[p["line_id"]].get("booking_date")))]
+    days = [d for p in paying if (d := values.stored_day(lines[p["line_id"]].get("booking_date")))]
     paid_on = max(days) if days else None
-    due = _day(inv.get("due_date"))
-    rest = _money(inv.get("rest"))
-    checked = _day(inv.get("checked_until"))
+    due = values.stored_day(inv.get("due_date"))
+    rest = values.stored_decimal(inv.get("rest"))
+    checked = values.stored_day(inv.get("checked_until"))
     open_rest = (inv.get("own") is not False and inv.get("state") not in ("confirmed", "credited", "excluded")
                  and rest is not None and rest > 0 and not any(p["state"] == "proposed" for p in paying))
     overdue = (checked - due).days if open_rest and due and checked and due < checked else None

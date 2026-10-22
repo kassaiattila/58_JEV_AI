@@ -18,8 +18,9 @@ The work itself stays in the domain's own modules (`MODULES`): the price lists (
 `jav/api_price_lists.py`), the request read from its parts (`jav/quote_request.py`), the pricing (`jav/quote_pricing.py`), the
 match with the price list (`jav/quote_match.py`), the quote package
 (`jav/quote_package.py`, `jav/api_quote_package.py`), the quote's draft and approval (`jav/quote_draft.py`, 192), its
-Word document and reply letter (`jav/quote_document.py`, `jav/quote_letter.py`, 196) and the invented golden set
-(`jav/quote_golden.py`).
+Word document and reply letter (`jav/quote_document.py`, `jav/quote_letter.py`, 196), the invented golden set
+(`jav/quote_golden.py`) and (204) the quote package's golden sets in the shared measurement (`jav/quote_goldens.py`,
+named in `GOLDENS`).
 """
 
 from __future__ import annotations
@@ -29,8 +30,11 @@ from __future__ import annotations
 SERVICE = ("jav.api_price_lists",)
 # the modules the domain is made of; the shared code imports none of them (`tests/test_domain_boundary_185.py`)
 MODULES = frozenset({"api_price_lists", "api_quote_package", "price_lists", "quote_document", "quote_draft",
-                     "quote_golden", "quote_letter", "quote_package", "quote_match", "quote_pricing", "quote_proposal",
-                     "quote_request", "domains.quotes"})
+                     "quote_golden", "quote_goldens", "quote_letter", "quote_package", "quote_match", "quote_pricing",
+                     "quote_proposal", "quote_request", "domains.quotes"})
+# 204 (plan G-process-core R1h): the modules of the domain's golden sets (the quote package's), by name; the shared measurement
+# command imports them (`jav.goldens.logic_pack_goldens`), so the quote package imports no measurement code
+GOLDENS = ("jav.quote_goldens",)
 
 
 def register() -> None:

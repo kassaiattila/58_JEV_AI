@@ -1,10 +1,11 @@
 """188 (plan 185 T3a): every golden set in one registry, measured by one command (`measure`, `jav/goldens.py`).
 
 The data point golden sets come from the type packs, the type recognition and the email intent golden sets are the
-two flows', and a logic pack names its own in its registration (the reconciliation: the pairs proposed by code and the
-incoming money kinds). Each golden set is measured by the same function its own command calls, with the same
-arguments (`tests/test_golden_commands_188.py`). Without a budget only earlier answers count; a paid measurement names
-exactly one golden set. One round writes one receipt (with the commit) and one log of the sets' own reports.
+two flows', and a logic pack's come from its domain's measurement module (the reconciliation: the pairs proposed by
+code and the incoming money kinds; until 204 named in the logic pack's registration). Each golden set is measured by
+the same function its own command calls, with the same arguments (`tests/test_golden_commands_188.py`). Without a
+budget only earlier answers count; a paid measurement names exactly one golden set. One round writes one receipt (with
+the commit) and one log of the sets' own reports.
 
 Stand-in measuring functions only: no case is run and no call is made.
 """
@@ -16,7 +17,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import cli, evals, evals_detect, evals_email, goldens, logic_packs, reconcile, reconcile_ai
+from jav import cli, evals, evals_detect, evals_email, goldens, reconcile, reconcile_ai, reconcile_goldens
 from tests.test_golden_commands_188 import (CREDIT_RESULT, credit_kinds_call, detect_call, email_call, golden_call,
                                             record)
 
@@ -83,7 +84,8 @@ def test_the_flows_and_the_reconciliation_have_their_golden_sets():
     assert by_key["types"].layer == "type" and by_key["intents"].layer == "intent"
     assert by_key["reconcile:pairs"].engines == ()  # code only, always free
     assert by_key["reconcile:credit_kinds"].engines == ("jev", "gpt")
-    assert [g.key for g in logic_packs.of("reconcile").goldens] == ["reconcile:pairs", "reconcile:credit_kinds"]
+    # 204 (R1h): described by the finance domain's measurement module, no longer by the logic pack's registration
+    assert [g.key for g in reconcile_goldens.GOLDENS] == ["reconcile:pairs", "reconcile:credit_kinds"]
     assert {by_key[k].layer for k in ("reconcile:pairs", "reconcile:credit_kinds")} == {"logic_pack"}
 
 
@@ -93,12 +95,19 @@ def test_the_order_is_data_points_then_the_flows_then_the_logic_packs():
     assert len(set(keys())) == len(keys())
 
 
-def test_a_logic_pack_golden_set_must_be_named_after_the_pack():
-    golden = goldens.Golden(key="other:x", layer="logic_pack", owner="other", what="w", engines=(),
+@pytest.mark.parametrize(("key", "owner", "layer"), [
+    ("other:x", "other", "logic_pack"),  # no such logic pack
+    ("other:x", "reconcile", "logic_pack"),  # not named after its pack
+    ("reconcile:x", "reconcile", "type"),  # not a logic pack's
+])
+def test_a_logic_pack_golden_set_must_be_named_after_the_pack(monkeypatch, key, owner, layer):
+    """204 (R1h): until 204 the logic pack refused such a golden set in its registration; the registry now refuses to
+    list one from a domain's measurement module."""
+    golden = goldens.Golden(key=key, layer=layer, owner=owner, what="w", engines=(),
                             count=lambda: 1, measure=lambda options: goldens.Outcome(), module=__name__)
-    with pytest.raises(ValueError, match="reconcile"):
-        logic_packs.LogicPack(kind="reconcile_test", module=__name__,
-                              roles=(logic_packs.InputRole("x", "period", "x"),), goldens=(golden,))
+    monkeypatch.setattr(reconcile_goldens, "GOLDENS", (*reconcile_goldens.GOLDENS, golden))
+    with pytest.raises(ValueError, match=f"jav.reconcile_goldens: its golden set '{key}'"):
+        goldens.sets()
 
 
 def test_a_golden_set_needs_a_known_layer_and_engines():

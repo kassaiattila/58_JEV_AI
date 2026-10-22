@@ -96,7 +96,7 @@ python -m jav.capability_catalog                  # deterministic inventory of t
   - `jav/flow.py` (M2, S and G paths, type-agnostic; the type pack is `configs/types/<type>.json` + `jav/typepack.py`, inheritance via `extends`);
   - `jav/flow_detect.py` (M1);
   - `jav/flow_email.py` (M3, calls M1 on the attachments);
-  - `flow_learning.py`, `flow_email_learning.py` (learning branches);
+  - `jav/flow_native.py` (native reading of non-PDF inputs: interpretation, publication, review; resumable);
   - `jav/flow_statement_table.py` (136: an account's statement from a bank's tabular export, code only).
 - **S path (S arm):** code finds candidates (`candidates.py`), a JEV Choice picks one, with a presence Noul per field (`jev_select.py`). **G path (G arm):** GPT extraction (`extract_llm.py`) + JEV Noul verification (`jev_verify.py`). A run takes one path (`arm` = S or G, chosen by the recipe or the eval); an agreement gate comparing the two paths is not built — the planned second opinion (H-065: the G path only on documents the S path left with to-dos) is the first combination. The safety net is `validators.py`.
 - **Every JEV call** goes through `ask()` in `jav/adapters/jev.py`: request-hash cache keyed by the concrete model version, RetryPolicy, ledger, cost. An SDK error raises `JevUnavailableError`. Flows never call the SDK directly.
@@ -110,7 +110,7 @@ python -m jav.capability_catalog                  # deterministic inventory of t
   - `corrections.py`: run_item_corrections; `reconcile_ai.py`: reconcile_ai_proposals; `duplicates.py`: duplicate_decisions; `statement_months.py`: statement_choices; `package_scope.py`: workpackage_scopes (186: every package's scope, a logic pack's too); `reconcile.py`: reconcile_decisions · reconcile_allocations · reconcile_line_marks; `reconcile_package.py`: reconcile_source_acceptances · reconcile_exclusions; `package_release.py`: package_versions · package_version_files (186: a logic pack's own versions too, the reconciliation's approved statements); `fx.py`: fx_rates · fx_fetches; `source_layer.py`: source_layers; `legacy_import.py`: legacy_results; `parties.py`: own_parties · own_party_identities · own_accounts; `workflows.py`: workflows · workflow_steps · workflow_events.
 
   Burr state: `store/burr_state.sqlite` (thinned out by `burr-prune`). Backups: `store/backups/` (daily, `configs/service.json` `backup`). The golden sets stay in the legacy project and are only referenced.
-- **Evals:** `evals*.py`, shared report `eval_report.py`; raw runs in `runs/*.jsonl`. Experiments: `jav/experiments/` + `configs/experiments/`.
+- **Evals:** `evals*.py`, shared report `eval_report.py`; raw runs in `runs/*.jsonl`. Three stand-alone measurement tools: `jav/experiments/` (JEV estimate, extraction on a case list, injection probe); the September experiments and learning branches were removed in 204 (local tag `archive/kiserletek-204`).
 - **Email input** (both paths write `inbox/<mailbox>/<msgid>/message.json`):
   - from the UI or a schedule: `jav/mailbox.py` → `scripts/mail_bridge_call.ps1` → `scripts/outlook_bridge.ps1` (148: ported from the legacy project; the Inbox, its direct subfolders and Sent Items) → a temporary receiver with a one-time token (`jav/ingest_server.py`) → a new work package with the email intent recipe (no paid run starts by itself);
   - standalone: `scripts/outlook_bridge.ps1` → `python -m jav.cli email-ingest-server` (`jav/ingest_server.py`).

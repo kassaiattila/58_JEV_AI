@@ -55,8 +55,8 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Iterable
 
-from jav import (activity_kinds, cfg, corrections, decisions, goldens, grounding, logic_packs, package_release,
-                 package_scope, parties, reconcile, reconcile_overview, store, typepack, work, workflow_steps)
+from jav import (activity_kinds, cfg, corrections, decisions, grounding, logic_packs, package_release, package_scope,
+                 parties, reconcile, reconcile_overview, store, typepack, values, work, workflow_steps)
 from jav.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.user_messages import explained
 from jav.clock import utc_stamp as _now
@@ -132,16 +132,9 @@ def _conf() -> dict[str, Any]:
     return dict(cfg.load("reconcile"))
 
 
-def _iso(value: Any) -> date | None:
-    try:
-        return date.fromisoformat(str(value)[:10]) if value else None
-    except ValueError:
-        return None
-
-
 def _day(value: Any, what: str) -> date:
     try:
-        return date.fromisoformat(str(value)[:10])
+        return values.iso_day(value)
     except ValueError as exc:
         raise explained(PackageError, "{{what}}: an ISO date is required", what=what) from exc
 
@@ -579,7 +572,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     wanted = {c["invoice_id"] for lid in line_ids for c in by_line.get(lid, [])}
     wanted |= {s["invoice_id"] for lid in line_ids for s in shares_line.get(lid, [])}
     for iid, inv in invoices.items():
-        if status.get(iid, {}).get("status") == "excluded" or _iso(inv.get("issue_date")) is None:
+        if status.get(iid, {}).get("status") == "excluded" or values.stored_day(inv.get("issue_date")) is None:
             continue
         same = str(inv.get("currency")) in currencies
         if not same and not (cards and reconcile.rate_need(inv)):
@@ -1599,51 +1592,15 @@ STEP = workflow_steps.StepKind(
                                          "reconcile_result": "pairing", "reconcile_empty": "pairing"})
 
 
-def _measure_pairs(options: goldens.Options) -> goldens.Outcome:
-    """As `reconcile --golden` measures them: code only, free."""
-    score = reconcile.golden_score()
-    reconcile.print_golden_score(score)
-    return goldens.Outcome(cases=score["total"], answered=score["total"], right=score["passed"], scored=score["total"],
-                           failures=tuple(f"{case}: {'; '.join(p)}" for case, p in score["failures"].items()))
-
-
-def _measure_credit_kinds(options: goldens.Options) -> goldens.Outcome:
-    """As `reconcile-ai --golden` measures them, with the round's engine; without a budget from earlier answers only."""
-    from jav import reconcile_ai
-
-    budget, refused = options.answering_budget("the incoming money kinds")
-    if refused:
-        return goldens.Outcome(refused=refused)
-    limits = {reconcile_ai.PROVIDERS[options.engine]: budget} if budget is not None else {}
-    g = reconcile_ai.golden(engines=[options.engine], limits=limits, use_cache=options.use_cache,
-                            **({} if limits else {"earlier_only": True}))
-    reconcile_ai.print_golden(g)
-    s = g["engines"][options.engine]
-    answered = s["cases"] - s["failed"]
-    return goldens.Outcome(cases=s["cases"], answered=answered, right=s["right"], scored=answered)
-
-
-# 188 (plan 185 T3a): the reconciliation's golden sets, measured by the shared measurement command (`jav/goldens.py`)
-GOLDENS = (
-    goldens.Golden(key=f"{KIND}:pairs", layer="logic_pack", owner=KIND, engines=(), module=__name__,
-                   what="the pairs, exclusions and statuses the code proposes on the synthetic reconciliation cases "
-                        "(configs/golden_reconcile.json)",
-                   count=lambda: len(cfg.load("golden_reconcile")["cases"]), measure=_measure_pairs),
-    goldens.Golden(key=f"{KIND}:credit_kinds", layer="logic_pack", owner=KIND, engines=goldens.ENGINES,
-                   module=__name__, what="the kind of incoming money on the invented statement lines "
-                                         "(configs/golden_credit_kinds.json)",
-                   count=lambda: len(cfg.load("golden_credit_kinds")["cases"]), measure=_measure_credit_kinds),
-)
-
-
 # 176 (plan 170 L3): the reconciliation package as a logic pack (`jav/logic_packs.py`; 180: registered by the finance
 # domain, `jav/domains/finance.py`; 186: its scope's party reference and deletion are the shared scope's): no files and
-# no runs; its two input roles are the period's results in every package (DECISIONS 174, the package's current result)
+# no runs; its two input roles are the period's results in every package (DECISIONS 174, the package's current result);
+# 204 (R1h): its golden sets are the finance domain's measurement module's (`jav/reconcile_goldens.py`)
 LOGIC = logic_packs.LogicPack(
     kind=KIND, module=__name__,
     roles=(logic_packs.InputRole("statements", "period", "the bank and card statements of the scope's accounts and period"),
            logic_packs.InputRole("invoices", "period", "the invoices other packages processed, the own party's first")),
     has_runs=False, add_refusal="a reconciliation package has no documents", release_refusal=_release_refusal,
     delete_guard=_delete_guard, page=_page, approved=_approved, next_step=_next, list_next=_list_next,
-    list_mark=_list_mark, outputs=("reconcile_statement",), service="jav.api_reconcile", goldens=GOLDENS)
+    list_mark=_list_mark, outputs=("reconcile_statement",), service="jav.api_reconcile")
 

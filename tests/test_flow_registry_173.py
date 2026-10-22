@@ -41,7 +41,7 @@ def test_the_worker_loads_each_module_from_the_registry() -> None:
 
 def test_the_contract_lint_takes_every_flow_in_the_order_reported_so_far() -> None:
     assert [module.CONTRACT["name"] for module, _app in admin.flow_lint_targets()] == [
-        "invoice", "doc_detect", "email_intent", "document_learning", "email_learning", "native", "statement_table"]
+        "invoice", "doc_detect", "email_intent", "native", "statement_table"]
 
 
 def test_an_unknown_flow_name_is_a_named_error() -> None:

@@ -3,7 +3,7 @@ catches errors."""
 
 import copy
 
-from jav import contract, flow, flow_detect, flow_email, flow_learning, flow_native
+from jav import contract, flow, flow_detect, flow_email, flow_native
 
 
 def _apps():
@@ -11,7 +11,6 @@ def _apps():
         (flow, flow.build_app("lint.pdf", "lint", "S", tracker=False, doc_type="invoice_hu")),
         (flow_detect, flow_detect.build_app("lint.pdf", tracker=False)),
         (flow_email, flow_email.build_app(source_dir="lint", tracker=False)),
-        (flow_learning, flow_learning.build_app()),
         (flow_native, flow_native.build_app(work_run_id="lint-native-run", item_id="0" * 64,
             graph_id="lint-native-graph", source_path="lint.txt", read_path="lint.txt", original_name="lint.txt",
             expected_sha256="0" * 64, recipe_hash="0" * 16, jev=False)),

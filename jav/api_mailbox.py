@@ -21,30 +21,30 @@ from fastapi import Path as PathParam
 from pydantic import Field
 
 from jav import corrections, mailbox, store, work_views
-from jav.api import DecisionState, Empty, ItemId, Revision, RunId, Text, WpId, _error, _In, human_actor
+from jav.service_shared import DecisionState, Empty, In, ItemId, Revision, RunId, Text, WpId, error, human_actor
 from jav.user_messages import message_fields
 
 ScheduleId = Annotated[str, PathParam(pattern=r"^mbx-[0-9a-f]{10}$")]
 PullId = Annotated[str, PathParam(pattern=r"^pull-[0-9a-f]{10}$")]
 
 
-class TaskDecision(_In):
+class TaskDecision(In):
     decision: Literal[store.TASK_DECISIONS]  # type: ignore[valid-type]
     note: Text | None = None
     expected_state: DecisionState | None = None  # 187: the task's `decision_state` as the page read it
 
 
-class TaskDone(_In):
+class TaskDone(In):
     done: bool
     expected_state: DecisionState | None = None
 
 
-class CreateSchedule(_In):
+class CreateSchedule(In):
     request: mailbox.MailboxRequest
     interval_min: Annotated[int, Field(ge=15, le=7 * 24 * 60)] = mailbox.DEFAULT_INTERVAL_MIN
 
 
-class UpdateSchedule(_In):
+class UpdateSchedule(In):
     enabled: bool | None = None
     interval_min: Annotated[int, Field(ge=15, le=7 * 24 * 60)] | None = None
 
@@ -54,7 +54,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.exception_handler(mailbox.BridgeError)
     async def bridge_failed(_request: Request, exc: mailbox.BridgeError):
-        return _error(503, "mailbox_unavailable", str(exc), **message_fields(exc))
+        return error(503, "mailbox_unavailable", str(exc), **message_fields(exc))
 
     @app.post(r + "/workpackages/{wp_id}/attachments")
     def add_attachments(wp_id: WpId, body: Revision, _who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
