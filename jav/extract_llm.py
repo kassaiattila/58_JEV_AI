@@ -23,7 +23,8 @@ from functools import lru_cache
 from typing import Any
 
 from pydantic import BaseModel
-from pydantic_ai import Agent, NativeOutput
+from pydantic_ai import Agent, NativeOutput, capture_run_messages
+from pydantic_ai.messages import ModelResponse
 from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.models.wrapper import WrapperModel
 from pydantic_ai.usage import UsageLimits
@@ -148,14 +149,21 @@ def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool,
     if limited:
         kwargs = {"model_settings": {"max_tokens": RUN_MAX_OUTPUT_TOKENS}, "usage_limits": UsageLimits(request_limit=rounds)}
     try:
-        result = agent.run_sync(prompt, **kwargs)
+        with capture_run_messages() as messages:
+            result = agent.run_sync(prompt, **kwargs)
     except OutputTruncated as exc:
         actual = exc.model_name or OPENAI_MODEL
-        cost = openai_cost(exc.usage, requested=OPENAI_MODEL, actual=actual)
-        store.ledger_add(run_id=run_id, step="extract_llm", provider="openai", model=actual,
-                         input_tokens=getattr(exc.usage, "input_tokens", None), output_tokens=getattr(exc.usage, "output_tokens", None),
-                         cost_usd=None if cost is None else float(cost), seconds=round(time.perf_counter() - t0, 3),
-                         config_hash=config_hash(pack), error=type(exc).__name__)
+        # 202: the cut-off answer and every earlier answer of the run (a validation retry) were paid for
+        usages = [m.usage for m in messages if isinstance(m, ModelResponse)] + [exc.usage]
+        costs = [openai_cost(u, requested=OPENAI_MODEL, actual=actual) for u in usages]
+        cost = None if any(c is None for c in costs) else sum(costs, Decimal(0))
+        in_tok = sum(getattr(u, "input_tokens", 0) or 0 for u in usages)
+        out_tok = sum(getattr(u, "output_tokens", 0) or 0 for u in usages)
+        store.ledger_add(run_id=run_id, step="extract_llm", provider="openai", model=actual, input_tokens=in_tok,
+                         output_tokens=out_tok, cost_usd=None if cost is None else float(cost),
+                         seconds=round(time.perf_counter() - t0, 3), config_hash=config_hash(pack), error=type(exc).__name__)
+        if cost is not None:  # its certain cost settles the call (`calls.known_outcome`)
+            exc.known_outcome = calls.Outcome(response=None, model=actual, input_tokens=in_tok, output_tokens=out_tok, cost_usd=cost)
         raise
     except Exception as exc:
         store.ledger_add(run_id=run_id, step="extract_llm", provider="openai", model=OPENAI_MODEL, input_tokens=None,

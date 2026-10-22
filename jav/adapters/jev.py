@@ -289,7 +289,12 @@ class JevAdapter:
         seconds_box: list[float] = []
 
         def physical() -> calls.Outcome:
-            response, seconds = self._sdk_live(request_id, state, questions, model=model, run_id=run_id, config_hash=config_hash)
+            try:
+                response, seconds = self._sdk_live(request_id, state, questions, model=model, run_id=run_id, config_hash=config_hash)
+            except JevUnavailableError as exc:
+                if TOKEN_LIMIT_MARK in (exc.reason or ""):  # 202: refused as too large, before any processing: costs 0
+                    exc.known_outcome = calls.Outcome(response=None, model=model, cost_usd=Decimal(0))
+                raise
             seconds_box.append(seconds)
             in_tok = getattr(getattr(response, "usage", None), "input_tokens", None)
             cost = None if in_tok is None else (Decimal(in_tok) * Decimal(str(JEV_USD_PER_MTOK)) / Decimal(1_000_000)).quantize(Decimal("0.000001"))
