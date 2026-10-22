@@ -117,6 +117,8 @@ export interface QuoteView {
   proposal_cap: { engine: "jev" | "gpt"; items: number; usd: Record<string, string> };
   /** 192 (B5): the quote as a person composes it, and its approval */
   draft: QuoteDraftView;
+  /** 196: the approved version's reply letter (absent from a service older than 196) */
+  letter?: QuoteLetterView;
 }
 /** 192 (plan F-quote-package B5): a quote line as stored: the page's parts (`QuoteLineIn`) and the service's (its
  *  requested item, the proposal's mark and candidates, who confirmed its item). */
@@ -168,6 +170,13 @@ export interface QuoteDraftView {
   proposal_newer: boolean;
   /** 196: the language of the quote's documents, and the languages it can be */
   language: string | null; languages: string[];
+}
+/** 196 (plan F-Word-output W3): the reply letter of the approved version (`jav/quote_letter.py` `view`): GPT's
+ *  paragraph and its state, the code's check of it, the body to accept, the accepted one, and the cap of asking GPT. */
+export interface QuoteLetterView {
+  version: number | null; state: "queued" | "running" | "done" | "failed" | null; paragraph: string | null;
+  problems: string[]; error: string | null; body: string | null; accepted: { body: string; by: string; at: string } | null;
+  decision_state: number; to: string | null; subject: string | null; cap: Record<string, string>; usage: unknown;
 }
 /** 192 (B6a): an email's quote request (`jav/quote_package.py` `email_part`): the request, what it lacks as a whole,
  *  the quotes already made from it and the item a quote starts from. */
@@ -1478,6 +1487,11 @@ export const api = {
   /** 196: the quote as a Word document: the draft's (marked as a draft) and an approved version's as it was stored */
   quoteDraftDocxUrl: (wpId: string) => `/api/workpackages/${enc(wpId)}/quote/draft/quote.docx`,
   quoteVersionDocxUrl: (wpId: string, version: number) => `/api/workpackages/${enc(wpId)}/quote/versions/${version}/quote.docx`,
+  /** 196 W3: the reply letter: GPT's paragraph asked, the body accepted (with the state the page read), the letter file */
+  requestQuoteLetterParagraph: (wpId: string) => request<QuoteLetterView>("POST", `/workpackages/${enc(wpId)}/quote/letter/paragraph`, {}),
+  acceptQuoteLetter: (wpId: string, body: string, expectedState: number) =>
+    request<QuoteLetterView>("PUT", `/workpackages/${enc(wpId)}/quote/letter`, { body, expected_state: expectedState }),
+  quoteLetterEmlUrl: (wpId: string, version: number) => `/api/workpackages/${enc(wpId)}/quote/versions/${version}/letter.eml`,
   /** 191 (plan F-quote-package B2): the seller's price lists; an upload is read by the service from the path the
    *  system's file picker chose, and a refused file gives 422 `price_list_refused` with the check (`ApiError.check`) */
   priceLists: () => request<PriceListsListing>("GET", "/price-lists"),

@@ -4,7 +4,7 @@
 // invented names only.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setActor, type QuoteDraftView, type QuoteView, type WorkpackageView } from "../../api";
+import { api, setActor, type QuoteDraftView, type QuoteLetterView, type QuoteView, type WorkpackageView } from "../../api";
 import { setLanguage } from "../../i18n";
 import { QuoteStages } from "./Quote";
 
@@ -38,8 +38,9 @@ const QUOTE: QuoteView = {
   price_lists: [], blockers: [], proposal: null, proposal_cap: { engine: "jev", items: 1, usd: { jev: "0.003" } }, draft: DRAFT,
 };
 
-function view(draft: QuoteDraftView): WorkpackageView {
-  return { workpackage: { id: "wp-000000000196", name: "Quote", source_kind: "quote", status: "active" }, quote: { ...QUOTE, draft } } as unknown as WorkpackageView;
+function view(draft: QuoteDraftView, letter?: QuoteLetterView): WorkpackageView {
+  return { workpackage: { id: "wp-000000000196", name: "Quote", source_kind: "quote", status: "active" },
+    quote: { ...QUOTE, draft, ...(letter ? { letter } : {}) } } as unknown as WorkpackageView;
 }
 
 describe("the quote's Word document (196)", () => {
@@ -76,5 +77,43 @@ describe("the quote's Word document (196)", () => {
       .toBe("/api/workpackages/wp-000000000196/quote/versions/2/quote.docx");
     const earlier = screen.getAllByRole("link", { name: "Download (Word)" }).map((a) => a.getAttribute("href"));
     expect(earlier).toContain("/api/workpackages/wp-000000000196/quote/versions/1/quote.docx");
+  });
+});
+
+const APPROVED: QuoteDraftView = {
+  ...DRAFT, approval: { active: VERSION, versions: [VERSION] },
+  approved: { header: { customer_name: "Invented Buyer Ltd" }, totals: DRAFT.totals, currency: "HUF", vat_percent: "27", lines: [],
+    price_list: { price_list: "pl-0123456789", name: "Invented 2026", version: 1, fingerprint: "p" }, request: { title: null, key: "k" } },
+};
+const LETTER: QuoteLetterView = {
+  version: 1, state: null, paragraph: null, problems: [], error: null, body: "Dear Sir or Madam,\n\nThank you.\n", accepted: null,
+  decision_state: 0, to: "buyer@example.com", subject: "Re: Request for monitors", cap: { openai: "0.02" }, usage: null,
+};
+
+describe("the reply letter (196)", () => {
+  it("asks GPT for the paragraph under its cap and accepts the body the person read", async () => {
+    const ask = vi.spyOn(api, "requestQuoteLetterParagraph").mockResolvedValue({ ...LETTER, state: "queued" });
+    const accept = vi.spyOn(api, "acceptQuoteLetter").mockResolvedValue({ ...LETTER, accepted: { body: LETTER.body!, by: "x", at: "2026-10-22T10:00:00Z" } });
+    render(<QuoteStages view={view(APPROVED, LETTER)} stage="result" onChanged={() => {}} />);
+    expect(screen.getByText("buyer@example.com")).toBeTruthy();
+    expect(screen.getByText("Re: Request for monitors")).toBeTruthy();
+    const button = screen.getByRole("button", { name: /Ask GPT for the paragraph/ });
+    expect(button.textContent).toContain("≤");
+    fireEvent.click(button);
+    await waitFor(() => expect(ask).toHaveBeenCalledWith("wp-000000000196"));
+    const text = screen.getByRole("textbox", { name: "The letter's text" });
+    fireEvent.change(text, { target: { value: "Dear Sir or Madam,\n\nThank you.\n\nAnna" } });
+    fireEvent.click(screen.getByRole("button", { name: "Accept the letter" }));
+    await waitFor(() => expect(accept).toHaveBeenCalledWith("wp-000000000196", "Dear Sir or Madam,\n\nThank you.\n\nAnna", 0));
+    expect(screen.queryByRole("link", { name: "Download the letter (Outlook)" })).toBeNull();
+  });
+
+  it("says why GPT's paragraph is not used and downloads an accepted letter", () => {
+    const accepted = { ...LETTER, state: "done" as const, problems: ["number"], accepted: { body: LETTER.body!, by: "Synthetic reviewer", at: "2026-10-22T10:00:00Z" } };
+    render(<QuoteStages view={view(APPROVED, accepted)} stage="result" onChanged={() => {}} />);
+    expect(screen.getByText("GPT's paragraph is not used: it holds a number").className).toContain("s-warn");
+    expect(screen.getByRole("link", { name: "Download the letter (Outlook)" }).getAttribute("href"))
+      .toBe("/api/workpackages/wp-000000000196/quote/versions/1/letter.eml");
+    expect((screen.getByRole("button", { name: "Accept the letter" }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

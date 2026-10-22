@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.95",
+    "version": "1.0.96",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.96",
+        "date": "2026-10-22",
+        "note": "196 (plan F-Word-output W1-W3): document vocabulary and test data accepted - the built-in quote and reply letter texts (configs/quote_documents.json 25), the Hungarian letters the language estimate counts (jav/quote_document.py 1), the invented Hungarian documents and letters of the tests (tests/test_word_output_196.py 20, tests/test_quote_document_196.py 11, tests/test_quote_letter_196.py 19); 5967 -> 6043."
+      },
       {
         "version": "1.0.95",
         "date": "2026-10-22",
@@ -580,7 +585,7 @@
     "configs/naming.json": 26,
     "configs/policy.json": 3,
     "configs/price_lists.json": 5,
-    "configs/quote_documents.json": 20,
+    "configs/quote_documents.json": 25,
     "configs/recipe_help.json": 49,
     "configs/recipes.json": 52,
     "configs/reports.json": 54,
@@ -808,6 +813,7 @@
     "tests/test_quick_review_speed_149.py": 1,
     "tests/test_quote_document_196.py": 11,
     "tests/test_quote_email_part_192.py": 2,
+    "tests/test_quote_letter_196.py": 19,
     "tests/test_quote_table_part_192.py": 1,
     "tests/test_recipe_help.py": 1,
     "tests/test_reconcile_141.py": 2,

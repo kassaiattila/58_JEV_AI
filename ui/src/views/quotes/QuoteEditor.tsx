@@ -21,6 +21,7 @@ import { errorText, useAction } from "../../hooks";
 import { t, useLocale } from "../../i18n";
 import { fieldLabel, numText, when } from "../../labels";
 import { wpHash } from "../../route";
+import { QuoteLetterCard } from "./QuoteLetter";
 import { amountText } from "./quoteStatus";
 
 export const QUOTE_LINE_BLOCKER: Record<QuoteDraftBlockerCode, string> = {
@@ -557,6 +558,8 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged }: {
           <QuoteDocument quote={doc} />
         </section>
       ) : null}
+      {/* 196: the approved version's reply letter */}
+      {dv.approval.active && view.letter ? <QuoteLetterCard wpId={wpId} letter={view.letter} archived={archived} onChanged={onChanged} /> : null}
       {shown ? (
         <section className="card wide" aria-label={t("Version {{n}}", { n: shown.n })}>
           <div className="card-head">

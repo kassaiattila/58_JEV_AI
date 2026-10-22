@@ -12,7 +12,10 @@
   approved version as it was approved (404 without one). `jav.quote_draft` answers a package that is not a quote's
   with 404 itself.
 - (196) `GET .../quote/versions/{n}/quote.docx`: an approved version's Word document as it was stored;
-  `GET .../quote/draft/quote.docx`: the draft's, marked as a draft (422 while a line is not priced).
+  `GET .../quote/draft/quote.docx`: the draft's, marked as a draft (422 while a line is not priced);
+  `GET .../quote/letter`: the reply letter of the approved version (`jav.quote_letter`); `POST .../quote/letter/paragraph`:
+  queues GPT's paragraph for the worker (422 without an approved version); `PUT .../quote/letter`: the body a person
+  accepts (409 from a stale page); `GET .../quote/versions/{n}/letter.eml`: the letter file (422 before it is accepted).
 
 The package's own part of its page comes with the work package's view (`LogicPack.page`).
 
@@ -30,7 +33,7 @@ from fastapi import Query as QueryParam
 from fastapi.responses import Response
 from pydantic import Field
 
-from jav import package_release, quote_draft, quote_package, quote_proposal, work, work_views
+from jav import package_release, quote_draft, quote_letter, quote_package, quote_proposal, work, work_views
 from jav.api import Empty, WpId, _In, attachment_header, human_actor
 
 
@@ -57,6 +60,11 @@ class QuoteApproveIn(_In):
 
 class QuoteReopenIn(_In):
     note: Annotated[str, Field(max_length=2000)]
+
+
+class QuoteLetterIn(_In):
+    body: Annotated[str, Field(max_length=20000)]
+    expected_state: Annotated[int, Field(ge=0)]
 
 
 def _quote(wp_id: str) -> None:
@@ -111,6 +119,27 @@ def routes(app: FastAPI, r: str) -> None:
     def quote_draft_docx(wp_id: WpId) -> Response:
         content, name = quote_draft.draft_docx(wp_id)
         return Response(content, media_type=package_release.DOCX, headers={"Content-Disposition": attachment_header(name)})
+
+    @app.get(r + "/workpackages/{wp_id}/quote/letter")
+    def quote_letter_view(wp_id: WpId) -> dict[str, Any]:
+        _quote(wp_id)
+        return work_views.jsonable(quote_letter.view(wp_id))
+
+    @app.post(r + "/workpackages/{wp_id}/quote/letter/paragraph", status_code=202)
+    def request_quote_letter(wp_id: WpId, _body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        _quote(wp_id)
+        return work_views.jsonable(quote_letter.request(wp_id, actor=who))
+
+    @app.put(r + "/workpackages/{wp_id}/quote/letter")
+    def accept_quote_letter(wp_id: WpId, body: QuoteLetterIn, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
+        _quote(wp_id)
+        return work_views.jsonable(quote_letter.accept(wp_id, body.body, actor=who, expected_state=body.expected_state))
+
+    @app.get(r + "/workpackages/{wp_id}/quote/versions/{version}/letter.eml")
+    def quote_letter_eml(wp_id: WpId, version: Annotated[int, PathParam(ge=1, le=100000)]) -> Response:
+        _quote(wp_id)
+        content, name = quote_letter.eml(wp_id, version)
+        return Response(content, media_type="message/rfc822", headers={"Content-Disposition": attachment_header(name)})
 
 
 __all__ = ["routes"]

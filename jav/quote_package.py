@@ -28,7 +28,7 @@ import json
 from typing import Any
 
 from jav import (app_settings, goldens, item_kinds, logic_packs, package_release, package_scope, price_lists, quote_draft,
-                 quote_proposal, quote_request, store, work, workflow_steps)
+                 quote_letter, quote_proposal, quote_request, store, work, workflow_steps)
 from jav.tablequery import fold
 from jav.user_messages import explained
 
@@ -160,7 +160,8 @@ def view(wp_id: str) -> dict[str, Any]:
             "price_lists": lists, "blockers": blockers, "proposal": quote_proposal.current(wp_id),
             "proposal_cap": {"engine": engine, "items": n_items,
                              "usd": {k: str(v) for k, v in quote_proposal.cap(n_items, engine).items()}},
-            "draft": quote_draft.view(wp_id)}  # B5: the quote as a person composes it, and its approval
+            "draft": quote_draft.view(wp_id),  # B5: the quote as a person composes it, and its approval
+            "letter": quote_letter.view(wp_id)}  # 196: the approved version's reply letter
 
 
 def _next_of(current: dict[str, Any]) -> dict[str, Any]:
@@ -260,7 +261,7 @@ LOGIC = logic_packs.LogicPack(
     has_runs=False, add_refusal="a quote package has no documents of its own: its request stays in its package",
     release_refusal=_release_refusal, delete_guard=quote_draft.delete_guard, page=_page, approved=_approved,
     next_step=next_step, list_next=next_step,
-    list_mark=lambda: (price_lists.mark(), quote_proposal.mark(), quote_draft.mark()),
+    list_mark=lambda: (price_lists.mark(), quote_proposal.mark(), quote_draft.mark(), quote_letter.mark()),
     outputs=("quote",),  # 196: the approved quote's Word document (`jav/quote_document.py`)
     service="jav.api_quote_package", goldens=GOLDENS)
 
