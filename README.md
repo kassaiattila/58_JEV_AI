@@ -2,7 +2,7 @@
 
 A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition (M1), invoice data extraction (M2) and email intent (M3) — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.30.0`** (2026-10-22). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.31.0`** (2026-10-22). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
@@ -35,7 +35,8 @@ The system reads invoices, other documents and emails. It recognises what type e
 | Operations | **Local service** shared by the UI and the command line; it listens on the local machine only and validates every input | Works |
 | | **Operations**: a verified daily backup with an optional second location, persistent logs, thinning of the flow-state store and a weekly dependency audit; the System page shows the running version, the worker, the backup and the audit | Works |
 | | **Repository safeguards**: a data guard before every commit and push, so that personal data, keys, internal working documents and document files cannot get into git | Works |
-| Learning | **Learning branches**: source-anchored data-point candidates and draft type packs for new document types | Experimental |
+| Learning | **Teaching a document type**: field proposals from the general facts of a held-out family's development documents, an edited draft from which code makes the type pack, a measurement on documents the draft has not seen, and turning the type on or off by command (a taught type only with that measurement) | Works on one family (the admission ticket: 40/40 fields on its unseen half); one layout of one issuer |
+| | **Learning branches**: source-anchored data-point candidates and draft type packs for new document types | Experimental |
 | Measurement | Golden-set runs, determinism runs, a shared evaluation report and a cost ledger | Works; the golden sets live in the legacy project |
 
 How it is built: [architecture](docs/ARCHITECTURE.md). How to use the workspace: [user guide](docs/guides/USER_GUIDE.md).
@@ -66,6 +67,8 @@ In a fresh clone, without the legacy project (`10_AIFLOW_V4`) and its golden set
 ```powershell
 python -m jav.cli run <pdf> --arm S|G [--type invoice_foreign]      # one invoice through the flow, saved to the store
 python -m jav.cli measure [<golden set> ...] [--list] [--store <copy>]   # every golden set with one command (data points, types, intents, logic packs); free from earlier answers; receipt runs/*_measure.jsonl
+python -m jav.cli type-propose <family> | type-candidate <key>     # teaching a type: field proposals from a held-out family's facts | the candidate pack of an edited draft
+python -m jav.cli type-activate <key> [--replace <pack>] | type-withdraw <key> [--restore]   # turn a type pack's detection on or off (no AI call)
 python -m jav.cli golden --arm S|G [--type <pack>] [--no-cache]    # golden-set run (runs/*_golden_*.jsonl; needs the legacy project's golden set)
 python -m jav.cli golden --arm S --type <pack> --synthetic         # the invented cases of configs/golden_synthetic.json (runs/*_synthetic_*.jsonl)
 python -m jav.cli golden --arm S --type <pack> --cases <file> --store <copy>   # a local case list with reference values (runs/*_local_*.jsonl; agreement, not accuracy)
