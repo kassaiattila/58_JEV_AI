@@ -22,10 +22,10 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from datetime import date, timedelta
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
-from jav import cfg, duplicates, type_roles
+from jav import cfg, duplicates, type_roles, values
 from jav.outputs import contract
 
 CENT = Decimal("0.01")
@@ -62,22 +62,6 @@ def split_by_month(start: date, end: date, amount: Decimal) -> dict[str, Decimal
         running += share
     out[months[-1]] = (amount - running).quantize(CENT, ROUND_HALF_UP)
     return out
-
-
-def _dec(v: Any) -> Decimal | None:
-    if v in (None, ""):
-        return None
-    try:
-        return Decimal(str(v))
-    except InvalidOperation:
-        return None
-
-
-def _date(v: Any) -> date | None:
-    try:
-        return date.fromisoformat(str(v)) if v else None
-    except ValueError:
-        return None
 
 
 def _fold(s: str) -> str:
@@ -117,8 +101,8 @@ def build(records: list[dict[str, Any]]) -> dict[str, Any]:
         if u is None:
             continue
         f = r.get("fields") or {}
-        start, end = _date(f.get(start_f)), _date(f.get(end_f))
-        amount_field = next((a for a in conf["amount_fields"] if _dec(f.get(a)) is not None), None)
+        start, end = values.stored_day(f.get(start_f)), values.stored_day(f.get(end_f))
+        amount_field = next((a for a in conf["amount_fields"] if values.stored_decimal(f.get(a)) is not None), None)
         raw_addr = next((str(f[a]) for a in conf["address_fields"] if f.get(a)), None)
         base = {"item_id": r["item_id"], "file": r.get("file"), "doc_type": r["doc_type"]}
         if start is None or end is None or end < start:
@@ -132,9 +116,9 @@ def build(records: list[dict[str, Any]]) -> dict[str, Any]:
         cons_field = u.get("consumption_field")
         mark = r.get("duplicate") or {}
         bills.append({**base, "addr": key_addr, "utility": u["label"], "summary_only": bool(u.get("summary_only")),
-                      "unit": u.get("unit"), "start": start, "end": end, "amount": _dec(f.get(amount_field)),
+                      "unit": u.get("unit"), "start": start, "end": end, "amount": values.stored_decimal(f.get(amount_field)),
                       "amount_field": amount_field, "page": (r.get("pages") or {}).get(amount_field),
-                      "consumption": _dec(f.get(cons_field)) if cons_field else None,
+                      "consumption": values.stored_decimal(f.get(cons_field)) if cons_field else None,
                       "supplier": f.get("supplier_name"), "fields": f, "corrected": amount_field in (r.get("corrected") or []),
                       "open_reasons": len(r.get("open_reasons") or []),
                       "confirmed": mark.get("status") if mark.get("status") in ("copy", "variant") else None,

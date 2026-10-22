@@ -56,7 +56,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from jav import (activity_kinds, cfg, corrections, decisions, goldens, grounding, logic_packs, package_release,
-                 package_scope, parties, reconcile, reconcile_overview, store, typepack, work, workflow_steps)
+                 package_scope, parties, reconcile, reconcile_overview, store, typepack, values, work, workflow_steps)
 from jav.statement_table import LINE_DETAILS  # 144: a code reader's facts beyond the money
 from jav.user_messages import explained
 from jav.clock import utc_stamp as _now
@@ -132,16 +132,9 @@ def _conf() -> dict[str, Any]:
     return dict(cfg.load("reconcile"))
 
 
-def _iso(value: Any) -> date | None:
-    try:
-        return date.fromisoformat(str(value)[:10]) if value else None
-    except ValueError:
-        return None
-
-
 def _day(value: Any, what: str) -> date:
     try:
-        return date.fromisoformat(str(value)[:10])
+        return values.iso_day(value)
     except ValueError as exc:
         raise explained(PackageError, "{{what}}: an ISO date is required", what=what) from exc
 
@@ -579,7 +572,7 @@ def _workspace(wp_id: str) -> dict[str, Any]:
     wanted = {c["invoice_id"] for lid in line_ids for c in by_line.get(lid, [])}
     wanted |= {s["invoice_id"] for lid in line_ids for s in shares_line.get(lid, [])}
     for iid, inv in invoices.items():
-        if status.get(iid, {}).get("status") == "excluded" or _iso(inv.get("issue_date")) is None:
+        if status.get(iid, {}).get("status") == "excluded" or values.stored_day(inv.get("issue_date")) is None:
             continue
         same = str(inv.get("currency")) in currencies
         if not same and not (cards and reconcile.rate_need(inv)):

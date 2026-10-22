@@ -10,18 +10,17 @@ from decimal import Decimal
 
 import pytest
 
-from jav import reconcile, reconcile_ai, reconcile_overview, reconcile_review, reconcile_statement, statement_table as st
+from jav import reconcile_ai, reconcile_review, statement_table as st, values
 
 
 @pytest.mark.parametrize("text", ["NaN", "Infinity", "1E+3", "12,5", "", None, "abc"])
 def test_a_stored_amount_that_is_no_plain_decimal_is_none(text):
-    assert reconcile.decimal_or_none(text) is None
-    assert reconcile_overview._money(text) is None and reconcile_statement._money(text) is None
+    assert values.stored_decimal(text) is None  # 204 (R1d): the shared reader of every reconciliation view
     assert reconcile_review._money(text) == Decimal(0)  # the review's sums take a missing amount as zero, as before
 
 
 def test_a_plain_stored_amount_is_read_exactly():
-    assert [reconcile.decimal_or_none(v) for v in ("1234.50", "-12.5", "0.00", "1.2345", 7)] == [
+    assert [values.stored_decimal(v) for v in ("1234.50", "-12.5", "0.00", "1.2345", 7)] == [
         Decimal("1234.50"), Decimal("-12.5"), Decimal("0.00"), Decimal("1.2345"), Decimal(7)]
 
 

@@ -23,10 +23,11 @@ import zipfile
 from copy import copy
 from dataclasses import dataclass, field
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from typing import Any
 
 from jav.outputs import contract, markers, xlsx
+from jav.values import stored_decimal
 
 ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DATE_FORMAT = "yyyy-mm-dd"
@@ -181,15 +182,6 @@ def check(output: str, data: bytes) -> TemplateCheck:
 # --- the filling ----------------------------------------------------------------------------------------------------
 
 
-def as_decimal(value: Any) -> Decimal | None:
-    if isinstance(value, bool) or value is None:
-        return None
-    try:
-        return Decimal(str(value))
-    except InvalidOperation:
-        return None
-
-
 def _typed(value: Any, kind: str) -> Any:
     """A value as its cell holds it, by its kind: a decimal number for money and number, a whole number for a count,
     a date for an ISO date, text otherwise (a number stays a number)."""
@@ -200,7 +192,7 @@ def _typed(value: Any, kind: str) -> Any:
     if kind == "count":
         return value if isinstance(value, int) and not isinstance(value, bool) else xlsx.cell_value(value, "number")
     if kind == "probability":
-        number = as_decimal(value)
+        number = stored_decimal(value)
         return float(number) if number is not None else xlsx.cell_value(value, None)
     if kind == "date" and isinstance(value, str) and ISO_DATE.match(value):
         return date.fromisoformat(value)
@@ -212,7 +204,7 @@ def _shown(value: Any, kind: str) -> str:
     never the machine's regional settings)."""
     if value is None:
         return ""
-    if kind == "money" and (number := as_decimal(value)) is not None:
+    if kind == "money" and (number := stored_decimal(value)) is not None:
         return f"{number:,.2f}".replace(",", " ").replace(".", ",")
     return str(value)
 
@@ -261,7 +253,7 @@ class Lookup:
         if t is not None:
             i = t.columns.index(m.column) if m.column in t.columns else None
             for row in t.rows if i is not None else ():
-                number = as_decimal(row[i]) if i < len(row) else None
+                number = stored_decimal(row[i]) if i < len(row) else None
                 total += number if number is not None else 0
         return total
 

@@ -23,7 +23,6 @@ recorded run left without a to-do (`Judgment.flagged`), for every flow whose row
 
 from __future__ import annotations
 
-import json
 import re
 import statistics
 from collections import defaultdict
@@ -32,7 +31,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Literal
 
-from jav import policy
+from jav import policy, values
 from jav.config import RUNS_DIR
 from jav.typepack import LEGACY_DOC_TYPE
 
@@ -103,7 +102,7 @@ def is_determinism(path: Path | str) -> bool:
 
 
 def load_rows(path: Path | str) -> list[dict[str, Any]]:
-    return [json.loads(ln) for ln in Path(path).read_text(encoding="utf-8").splitlines() if ln.strip()]
+    return values.json_lines(path)
 
 
 def _budget_skipped(row: dict[str, Any]) -> bool:

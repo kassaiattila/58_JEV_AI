@@ -45,7 +45,8 @@ from decimal import Decimal
 from typing import Any
 
 from jav.outputs import contract, markers
-from jav.outputs.fill import ISO_DATE, Lookup, TemplateCheck, TemplateError, as_decimal
+from jav.outputs.fill import ISO_DATE, Lookup, TemplateCheck, TemplateError
+from jav.values import stored_decimal
 
 MEDIA = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -316,7 +317,7 @@ def shown(value: Any, kind: str, language: str = "hu") -> str:
     if value is None:
         return ""
     english = language == "en"
-    if kind in ("money", "number", "count") and (n := as_decimal(value)) is not None:
+    if kind in ("money", "number", "count") and (n := stored_decimal(value)) is not None:
         return _number(n, money=kind == "money", english=english)
     if kind == "date" and isinstance(value, str) and ISO_DATE.match(value):
         d = date.fromisoformat(value)

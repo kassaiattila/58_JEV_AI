@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from jav import fx, reconcile, store
+from jav import fx, reconcile, store, values
 from tests import test_reconcile_k2_129 as k2
 from tests.test_fx_130 import Service
 
@@ -136,7 +136,7 @@ def test_a_view_reads_the_stored_rates_and_never_fetches(db):
     pair = _pair(stmt)  # the test setup refuses any request: nothing was fetched
     assert (pair["amount_relation"], pair.get("fx")) == ("no_rate", None)
     with fx.use_transport(Service(RATES)):
-        fx.ensure([("USD", reconcile._date("2026-04-01"))])
+        fx.ensure([("USD", values.stored_day("2026-04-01"))])
     pair = _pair(stmt)
     assert pair["amount_relation"] == "fx_within" and pair["fx"]["converted"] == "6523.60"
 
@@ -145,7 +145,7 @@ def test_an_earlier_confirmation_settles_a_card_pair(db):
     stmt = _documents()
     inv = k2._save("inv", _usd_invoice(), run_id=k2.RUN, doc_type="invoice_foreign")
     with fx.use_transport(Service(RATES)):
-        fx.ensure([("USD", reconcile._date("2026-04-01"))])
+        fx.ensure([("USD", values.stored_day("2026-04-01"))])
     k2._decide(inv, stmt, _line_id(stmt), run_id=k2.RUN)  # a decision of the retired review page panel (129-136)
     result = reconcile.propose(reconcile.snapshot())
     assert {s["invoice_id"]: s["status"] for s in result["invoices"]} == {inv: "confirmed"} and result["candidates"] == []

@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from jav import (activity_kinds, cfg, item_kinds, logic_packs, package_scope, parties, reconcile, statement_months,
-                 statement_table, store, typepack, work, work_runs, workflow_steps)
+                 statement_table, store, typepack, values, work, work_runs, workflow_steps)
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
@@ -72,7 +72,7 @@ def _conf() -> dict[str, Any]:
 
 def _day(value: Any, what: str) -> date:
     try:
-        return date.fromisoformat(str(value)[:10])
+        return values.iso_day(value)
     except ValueError as exc:
         raise explained(StatementPackageError, "{{what}}: an ISO date is required", what=what) from exc
 

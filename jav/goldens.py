@@ -44,6 +44,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+from jav import values
 from jav.config import RUNS_DIR
 
 LAYERS = ("datapoints", "type", "intent", "logic_pack")
@@ -536,7 +537,7 @@ def latest_results(runs_dir: Path | None = None) -> dict[str, dict[str, Any]]:
     runs_dir = runs_dir or RUNS_DIR
     latest: dict[str, dict[str, Any]] = {}
     for path in sorted(runs_dir.glob(f"*_{RECEIPT}.jsonl")):
-        rows = [json.loads(x) for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+        rows = values.json_lines(path)
         if not rows or rows[0].get("receipt") != RECEIPT:
             continue
         head = rows[0]

@@ -42,7 +42,7 @@ from difflib import SequenceMatcher
 from functools import lru_cache
 from typing import Any, Iterable
 
-from jav import cfg, decisions, store, type_roles
+from jav import cfg, decisions, store, type_roles, values
 from jav.user_messages import explained
 from jav.clock import utc_stamp as _now
 
@@ -109,16 +109,9 @@ def rank(statement: dict[str, Any]) -> int:
     return len(ranks) - 1
 
 
-def _day(value: Any) -> date | None:
-    try:
-        return date.fromisoformat(str(value)[:10]) if value else None
-    except ValueError:
-        return None
-
-
 def dates(start: Any, end: Any) -> tuple[date, date] | None:
     """A statement's period as days; None without both days or with the end before the start."""
-    a, b = _day(start), _day(end)
+    a, b = values.stored_day(start), values.stored_day(end)
     return (a, b) if a and b and a <= b else None
 
 
