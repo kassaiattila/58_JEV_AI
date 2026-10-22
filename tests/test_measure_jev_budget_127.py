@@ -29,7 +29,7 @@ def test_golden_with_a_jev_budget_runs_under_that_budget_only(monkeypatch, tmp_p
         return type("State", (), {"final_status": "done", "route": "auto"})()
 
     with store.use_store(tmp_path / "g.sqlite"):
-        evals.golden("S", run_one, jev_budget_usd=Decimal("0.40"))
+        evals.golden("S", run_one, type_key="invoice_hu", jev_budget_usd=Decimal("0.40"))
         assert len(scopes) == 1 and scopes[0].startswith("measure-")
         assert _budgets(scopes[0]) == {"jev": "0.40"}
 
@@ -47,7 +47,7 @@ def test_golden_without_any_budget_answers_from_earlier_answers_only(monkeypatch
         return type("State", (), {"final_status": "done", "route": "auto"})()
 
     with store.use_store(tmp_path / "g.sqlite"):
-        evals.golden("S", run_one)
+        evals.golden("S", run_one, type_key="invoice_hu")
         assert len(seen) == 1 and seen[0].measurement and _budgets(seen[0].budget_scope) == {}
 
 

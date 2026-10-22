@@ -35,7 +35,7 @@ def db(tmp_path: Path):
 def text_pack(monkeypatch):
     """The meeting minutes' pack, as if it read text too (no existing pack does)."""
     pack = typepack.get("meeting_minutes").model_copy(update={"inputs": ("pdf", "text")})
-    monkeypatch.setattr(flow, "get_pack", lambda key=typepack.DEFAULT_KEY: pack if key == pack.key else typepack.get(key))
+    monkeypatch.setattr(flow, "get_pack", lambda key: pack if key == pack.key else typepack.get(key))
     return pack
 
 

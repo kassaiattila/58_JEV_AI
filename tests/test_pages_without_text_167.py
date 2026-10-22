@@ -152,16 +152,16 @@ def isolated(tmp_path: Path):
 
 def test_the_extraction_flow_raises_the_to_do(isolated):
     with patch("jav.pdf.read_pdf", return_value=_pdf_text([2, 3])), patch("jav.source_layer.save_from_pdftext", return_value="layer"):
-        state = invoice_load(FlowState(source_path=str(isolated), case_id="t", arm="S"))
+        state = invoice_load(FlowState(doc_type="invoice_hu", source_path=str(isolated), case_id="t", arm="S"))
     assert state.needs_review and "pdf:pages_without_text:2/3" in state.review_reasons
 
 
 def test_an_ordinary_document_and_a_scan_raise_nothing_here(isolated):
     with patch("jav.pdf.read_pdf", return_value=_pdf_text([])), patch("jav.source_layer.save_from_pdftext", return_value="layer"):
-        state = invoice_load(FlowState(source_path=str(isolated), case_id="t", arm="S"))
+        state = invoice_load(FlowState(doc_type="invoice_hu", source_path=str(isolated), case_id="t", arm="S"))
     assert not state.needs_review and state.review_reasons == []
     with patch("jav.pdf.read_pdf", return_value=_pdf_text([1, 2, 3], has_text=False)):
-        state = invoice_load(FlowState(source_path=str(isolated), case_id="t", arm="S"))
+        state = invoice_load(FlowState(doc_type="invoice_hu", source_path=str(isolated), case_id="t", arm="S"))
     assert state.review_reasons == []  # the whole document goes to OCR (ocr_pdf), which has its own to-dos
 
 

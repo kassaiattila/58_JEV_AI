@@ -78,6 +78,9 @@ def _jev_on(args: argparse.Namespace) -> bool:
     return engine == "jev"
 
 
+REFERENCE_TYPE = "invoice_hu"
+"""202: the `--type` default of the commands that measure or run one type pack: the reference flow (the shared code
+itself names the type everywhere)."""
 S_NEEDS_JEV = "The S path needs JEV (JEV chooses among the candidates the code finds): use --arm G, or --engine jev."
 
 
@@ -1080,23 +1083,23 @@ def main(argv: list[str] | None = None) -> int:
 
     from jav.typepack import keys as pack_keys
 
-    type_help = "típus-csomag (configs/types/<típus>.json): " + " | ".join(pack_keys()) + " (alap: invoice_hu)"
+    type_help = "típus-csomag (configs/types/<típus>.json): " + " | ".join(pack_keys()) + f" (alap: {REFERENCE_TYPE})"
 
     p = sub.add_parser("candidates")
     p.add_argument("pdf")
     p.add_argument("--lines", action="store_true", help="a rekonstruált sorok kiírása is")
-    p.add_argument("--type", default="invoice_hu", help=type_help)
+    p.add_argument("--type", default=REFERENCE_TYPE, help=type_help)
     p.set_defaults(fn=cmd_candidates)
 
     p = sub.add_parser("recall")
-    p.add_argument("--type", default="invoice_hu", help=type_help)
+    p.add_argument("--type", default=REFERENCE_TYPE, help=type_help)
     p.set_defaults(fn=cmd_recall)
 
     p = sub.add_parser("run")
     p.add_argument("pdf")
     p.add_argument("--arm", choices=["S", "G"], default="S")
     p.add_argument("--case-id", default=None)
-    p.add_argument("--type", default="invoice_hu", help=type_help)
+    p.add_argument("--type", default=REFERENCE_TYPE, help=type_help)
     p.add_argument("--no-tracker", action="store_true")
     p.add_argument("--no-cache", action="store_true", help="Jev kérés-cache kihagyása (élő hívás)")
     _budget_args(p)
@@ -1376,13 +1379,13 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("verifier-probe", help="Jev-ellenőrző kalibrációs szonda a golden kivonatokon (OpenAI nélkül); nyers futás runs/*_verifier_probe.jsonl")
     p.add_argument("--no-cache", action="store_true")
-    p.add_argument("--type", default="invoice_hu", help=type_help)
+    p.add_argument("--type", default=REFERENCE_TYPE, help=type_help)
     p.add_argument("--jev-budget-usd", help="127: hard JEV budget for the whole probe (no other provider can be called)")
     p.set_defaults(fn=cmd_verifier_probe)
 
     p = sub.add_parser("golden", help="M2 golden egy karra és típus-csomagra (runs/[<típus>_]golden_<kar>.jsonl)")
     p.add_argument("--arm", choices=["S", "G"], required=True)
-    p.add_argument("--type", default="invoice_hu", help=type_help)
+    p.add_argument("--type", default=REFERENCE_TYPE, help=type_help)
     p.add_argument("--tracker", action="store_true")
     p.add_argument("--no-cache", action="store_true")
     _engine_args(p, measurement=True)  # 086: the G path verified by the code alone (runs/*_golden_G_nojev.jsonl)
@@ -1435,7 +1438,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("determinism")
     p.add_argument("--arm", choices=["S", "G"], required=True)
     p.add_argument("--n", type=int, default=5)
-    p.add_argument("--type", default="invoice_hu", help=type_help)
+    p.add_argument("--type", default=REFERENCE_TYPE, help=type_help)
     _budget_args(p)
     _engine_args(p, measurement=True)
     p.set_defaults(fn=cmd_determinism)

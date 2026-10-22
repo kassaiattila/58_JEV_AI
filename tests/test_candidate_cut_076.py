@@ -14,6 +14,7 @@ from jav.adapters.jev import JevAdapter
 from jav.candidates import MAX_OPTIONS, Candidate
 from jav.jev_select import select_fields
 from jav.models import FieldPick, FlowState
+from jav.typepack import get as get_pack
 from tests.test_select_presence import LINES, FakeClient, _cands
 
 
@@ -27,7 +28,7 @@ def test_found_and_sent_candidates_are_counted_and_the_cut_is_visible(tmp_path: 
     client = FakeClient(pick_none={"issue_date"})
     jev = JevAdapter(client=client, cache_dir=tmp_path / "cache", model="jev-1.13.0")
     with store.use_store(tmp_path / "t.sqlite"):
-        picks, _ = select_fields(jev, LINES, cands, run_id="r")
+        picks, _ = select_fields(jev, LINES, cands, pack=get_pack("invoice_hu"), run_id="r")
 
     p = picks["issue_date"]
     assert p.n_candidates == MAX_OPTIONS + 12
@@ -39,7 +40,7 @@ def test_found_and_sent_candidates_are_counted_and_the_cut_is_visible(tmp_path: 
 
 
 def _state(**picks: FieldPick) -> FlowState:
-    return FlowState(source_path="x.pdf", case_id="c", arm="S", picks=picks)
+    return FlowState(doc_type="invoice_hu", source_path="x.pdf", case_id="c", arm="S", picks=picks)
 
 
 def test_none_on_a_cut_list_opens_its_own_to_do():

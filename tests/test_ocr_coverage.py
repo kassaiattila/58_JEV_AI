@@ -24,7 +24,7 @@ def test_policy_coverage_reason():
 
 def test_invoice_ocr_step_marks_partial_pages():
     with patch("jav.ocr.ocr_with_escalation", return_value=(_partial(12), False)):
-        state = invoice_ocr(FlowState(source_path="synthetic.pdf", case_id="t", arm="S", page_count=13))
+        state = invoice_ocr(FlowState(doc_type="invoice_hu", source_path="synthetic.pdf", case_id="t", arm="S", page_count=13))
     assert state.needs_review and "ocr:partial_pages:12/13" in state.review_reasons
 
 
@@ -36,7 +36,7 @@ def test_detect_ocr_step_marks_partial_pages():
 
 def test_full_coverage_adds_nothing():
     with patch("jav.ocr.ocr_with_escalation", return_value=(_partial(13), False)):
-        state = invoice_ocr(FlowState(source_path="synthetic.pdf", case_id="t", arm="S", page_count=13))
+        state = invoice_ocr(FlowState(doc_type="invoice_hu", source_path="synthetic.pdf", case_id="t", arm="S", page_count=13))
     assert not any(r.startswith("ocr:partial_pages") for r in state.review_reasons)
 
 

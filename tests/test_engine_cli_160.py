@@ -132,8 +132,8 @@ def test_a_determinism_without_jev_names_its_run_file(db, monkeypatch, tmp_path)
     monkeypatch.setattr(evals, "_dump_rows", lambda rows, name: names.append(name) or tmp_path / name)
     monkeypatch.setattr(evals, "print_determinism_report", lambda *a, **k: None)
     monkeypatch.setattr(evals, "load_cases", lambda type_key: [])
-    evals.determinism("G", 2, Recorder(), jev=False)
-    evals.determinism("G", 2, Recorder())
+    evals.determinism("G", 2, Recorder(), type_key="invoice_hu", jev=False)
+    evals.determinism("G", 2, Recorder(), type_key="invoice_hu")
     assert names == ["determinism_G_n2_nojev", "determinism_G_n2"]
 
 

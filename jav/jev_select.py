@@ -8,9 +8,8 @@ distracts it. Within one request the questions are independent and run in parall
 Language: the instructions and criterion descriptions are in English (in the JSON); the state and the Choice option
 keys are the verbatim/normalised source value (code copies the chosen value).
 
-Call-site object (`SelectSite`): the question set of one type pack + its `config_hash`. The module-level names
-(GLOSSARY, INSTRUCTIONS, build_choice, select_fields, picks_to_invoice, ...) point to the Hungarian invoice call site
-(compatibility); for other types use `site_for(pack)`.
+Call-site object (`SelectSite`): the question set of one type pack + its `config_hash` (`site_for(pack_key)`). The
+module-level `select_fields` and `picks_to_invoice` take the pack explicitly (202: no Hungarian invoice default).
 """
 
 from __future__ import annotations
@@ -194,6 +193,9 @@ class SelectSite:
         run_id: str,
         use_cache: bool,
     ) -> None:
+        """State: `{"document": <the pack's document description>, "lines": ["Lnn: <line>", ...]}`: the candidate lines
+        of the request's family (± 1); for the parties request also the top 45% of the document (and the bottom lines
+        if the pack says so), for the money request the payment-method lines."""
         # one call site can serve several packs (utility round): only this pack's fields
         fields = [f for f in self.requests[request_id]["fields"] if f in self.pack.fields]
         questions: dict[str, Choice | Noul] = {}
@@ -381,51 +383,16 @@ def field_confidence(picks: dict[str, FieldPick]) -> dict[str, float | None]:
     return {f: effective_conf(p) for f, p in picks.items()}
 
 
-# --- compatible module-level names: the Hungarian invoice call site ---------------------------------------------
-
-_DEFAULT = site_for("invoice_hu")
-CONFIG_HASH = _DEFAULT.config_hash
-GLOSSARY: str = _DEFAULT.glossary
-FIELD_KIND: dict[str, str] = _DEFAULT.field_kind
-INSTRUCTIONS: dict[str, str] = _DEFAULT.instructions
-PRESENCE_TEMPLATE: str = _DEFAULT.presence_template
-PRESENCE_WHAT: dict[str, str] = _DEFAULT.presence_what
-CURRENCY_CRITERIA: dict[str, str] = dict(_DEFAULT.extra["currency"]["criteria"])
-CURRENCY_INSTRUCTION: str = _DEFAULT.extra["currency"]["instructions"]
-PAYMENT_METHOD_CRITERIA: dict[str, str] = dict(_DEFAULT.extra["payment_method"]["criteria"])
-PAYMENT_METHOD_INSTRUCTION: str = _DEFAULT.extra["payment_method"]["instructions"]
-REQUEST_FIELDS: dict[str, list[str]] = {rid: list(r["fields"]) for rid, r in _DEFAULT.requests.items()}
-REQUEST_KINDS: dict[str, list[str]] = {rid: list(r["kinds"]) for rid, r in _DEFAULT.requests.items()}
-REQUEST_ORDER: tuple[str, ...] = _DEFAULT.request_order
-
-
-def build_choice(field: str, cands: list[Candidate]) -> Choice:
-    return _DEFAULT.build_choice(field, cands)
-
-
-def build_presence(field: str) -> Noul:
-    return _DEFAULT.build_presence(field)
-
-
-def _select_request(*args: Any, **kwargs: Any) -> None:
-    """State: `{"document": <the pack's document description>, "lines": ["Lnn: <line>", ...]}`: the candidate lines of
-    the request's family (± 1); for the parties request also the top 45% of the document (and the bottom lines if the
-    pack says so), for the money request the payment-method lines."""
-    return _DEFAULT._select_request(*args, **kwargs)
-
-
 def select_fields(
-    jev: JevAdapter, lines: list[LineLayout], cands: dict[str, list[Candidate]], *, run_id: str = "adhoc", use_cache: bool = True, pack: TypePack | None = None
+    jev: JevAdapter, lines: list[LineLayout], cands: dict[str, list[Candidate]], *, pack: TypePack, run_id: str = "adhoc", use_cache: bool = True
 ) -> tuple[dict[str, FieldPick], list[JevCall]]:
-    site = _DEFAULT if pack is None else site_for(pack.key)
-    return site.select_fields(jev, lines, cands, run_id=run_id, use_cache=use_cache)
+    return site_for(pack.key).select_fields(jev, lines, cands, run_id=run_id, use_cache=use_cache)
 
 
-def picks_to_invoice(picks: dict[str, FieldPick], cands: dict[str, list[Candidate]], pack: TypePack | None = None,
+def picks_to_invoice(picks: dict[str, FieldPick], cands: dict[str, list[Candidate]], pack: TypePack,
                      lines: list[LineLayout] | None = None) -> tuple[DocumentRecord, list[str]]:
-    site = _DEFAULT if pack is None else site_for(pack.key)
-    return site.picks_to_invoice(picks, cands, lines)
+    return site_for(pack.key).picks_to_invoice(picks, cands, lines)
 
 
-__all__ = ["GLOSSARY", "PRESENCE_WHAT", "SelectSite", "site_for", "build_choice", "build_presence", "effective_conf", "record_conf", "field_confidence",
+__all__ = ["SelectSite", "site_for", "effective_conf", "record_conf", "field_confidence",
            "picks_to_invoice", "select_fields", "find_currencies", "CANDIDATE_KIND_OF"]

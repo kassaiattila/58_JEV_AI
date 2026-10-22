@@ -102,7 +102,7 @@ def test_the_golden_measurement_without_a_budget_uses_earlier_answers_only(monke
         return type("State", (), {"final_status": "done", "route": "auto"})()
 
     with store.use_store(tmp_path / "g.sqlite"):
-        evals.golden("S", run_one)
+        evals.golden("S", run_one, type_key="invoice_hu")
         assert seen[0].measurement and _budgets(seen[0].budget_scope) == {}
 
 

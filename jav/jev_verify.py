@@ -11,8 +11,8 @@ Call site object (`VerifySite`): the type pack's `verify_callsite` (`verify.json
 `verify_foreign.json` for the foreign one; the latter inherits the Noul questions via the `inherits` key, only its field
 descriptions are its own). 190 (plan 189 A2d): the call site names its document-level questions (`document_nouls`;
 without the key the three invoice questions, so every existing call site asks what it asked) and the questions asked
-of each list field of the pack (`list_nouls`, e.g. missing and extra rows; none without the key). The module-level names (FIELD_SPECS, build_questions, verify, ...) point to the Hungarian
-invoice's call site (compatibility).
+of each list field of the pack (`list_nouls`, e.g. missing and extra rows; none without the key). The module-level
+`build_questions` and `verify` take the pack explicitly (202: no Hungarian invoice default).
 """
 
 from __future__ import annotations
@@ -144,13 +144,11 @@ def _candidate_hits(kind: str, value: str, cands: dict[str, list[Candidate]] | N
 
 
 def find_evidence(
-    field: str, value: str, lines: list[LineLayout], cands: dict[str, list[Candidate]] | None = None, kind: str | None = None, *, intl: bool = False,
+    field: str, value: str, lines: list[LineLayout], cands: dict[str, list[Candidate]] | None = None, *, kind: str, intl: bool = False,
     convention: Convention | None = None,
 ) -> list[str]:
     """Deterministic, tolerant matching: on which lines the extracted value appears. `kind` is the type pack's field
-    kind (default: inferred from the Hungarian invoice's fields)."""
-    if kind is None:
-        kind = get_pack("invoice_hu").kind(field)
+    kind."""
     hits: list[str] = _candidate_hits(kind, value, cands)
     if hits:
         return hits[:4]
@@ -463,25 +461,14 @@ def _printed_on_layer(unsupported: list[str], values: dict[str, Any], layer: Sou
     return [f for f in unsupported if not grounding.printed(layer, pack.kind(f), values.get(f))]
 
 
-# --- compatible module-level names: the Hungarian invoice's call site -------------------------------------------
-
-_DEFAULT = site_for("invoice_hu")
-CONFIG_HASH = _DEFAULT.config_hash
-FIELD_SPECS: dict[str, str] = _DEFAULT.field_specs
-INCOMPLETE_FIELDS = _DEFAULT.incomplete_fields
-WRONG_KIND_FIELDS = _DEFAULT.wrong_kind_fields
-
-
-def build_questions(llm: BaseModel | dict[str, Any], evidence: dict[str, list[str]], pack: TypePack | None = None) -> dict[str, Noul]:
-    site = _DEFAULT if pack is None else site_for(pack.key)
-    return site.build_questions(llm, evidence)
+def build_questions(llm: BaseModel | dict[str, Any], evidence: dict[str, list[str]], *, pack: TypePack) -> dict[str, Noul]:
+    return site_for(pack.key).build_questions(llm, evidence)
 
 
 def verify(
-    jev: JevAdapter, lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, run_id: str = "adhoc", use_cache: bool = True,
-    pack: TypePack | None = None, layer: SourceLayer | None = None,
+    jev: JevAdapter, lines: list[LineLayout], llm: BaseModel | dict[str, Any], *, pack: TypePack, run_id: str = "adhoc",
+    use_cache: bool = True, layer: SourceLayer | None = None,
 ) -> tuple[JevVerdicts, JevCall]:
     """State: `{"document", "source_lines": ["Lnn: <line>", ...], "extraction": <the extract as a dict>,
     "evidence": {field: [lines]}}` - the whole document, because the verification questions may refer to any field."""
-    site = _DEFAULT if pack is None else site_for(pack.key)
-    return site.verify(jev, lines, llm, run_id=run_id, use_cache=use_cache, layer=layer)
+    return site_for(pack.key).verify(jev, lines, llm, run_id=run_id, use_cache=use_cache, layer=layer)

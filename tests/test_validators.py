@@ -10,6 +10,7 @@ import pytest
 
 from jav.config import GOLDEN_EXPECTED_DIR, GOLDEN_MANIFEST
 from jav.models import DocumentRecord, InvoiceLLM, llm_to_invoice
+from jav.typepack import get as get_pack
 from jav.validators import date_order, hu_tax_id, iban_check, run_all, vat_consistency
 
 
@@ -98,7 +99,7 @@ SYNTHETIC_EXPECTED = {
 def _core_results(expected: dict) -> tuple[dict, list[str]]:
     dp = {k: v for k, v in expected["datapoints"].items() if k != "line_items"}
     inv, reasons = llm_to_invoice(InvoiceLLM(**dp))
-    return {r.name: r for r in run_all(inv)}, reasons
+    return {r.name: r for r in run_all(inv, get_pack("invoice_hu").validators)}, reasons
 
 
 def _assert_passes_core_validators(name: str, expected: dict) -> None:

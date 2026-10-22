@@ -46,14 +46,13 @@ from jav.config import TRACKER_PROJECTS
 from jav.engine import with_engine
 from jav.models import FlowState
 from jav.runtime import persistence
-from jav.typepack import DEFAULT_KEY, get as get_pack
+from jav.typepack import get as get_pack
 from jav.digest import file_sha256 as _sha256
 
 TERMINALS = ["done", "needs_review", "needs_ocr"]
 PARTITION = "invoice"  # partition of the durable state store (066 Á08: the worker finds the saved state by it)
 # 188 (plan 185 T3b): the record was `invoice` in the state; a state saved before is read under `record`
 persistence.rename_saved_keys(PARTITION, {"invoice": "record"})
-TRACKER_PROJECT = TRACKER_PROJECTS.get("invoice_hu", "jav_invoice_hu")  # legacy; per type: `tracker_project(doc_type)`
 
 
 def tracker_project(doc_type: str) -> str:
@@ -494,8 +493,8 @@ def new_run_id(case_id: str, arm: str, run_no: int) -> str:
 
 
 def build_app(
-    source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, doc_type: str = DEFAULT_KEY,
-    *, run_id: str | None = None, persister=None, read_path: str | None = None, jev: bool = True,
+    source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, *, doc_type: str,
+    run_id: str | None = None, persister=None, read_path: str | None = None, jev: bool = True,
     detail_probabilities: dict[str, float] | None = None, source_text: str | None = None,
 ) -> Application:
     """`persister` (040 K1, supplied by the worker): durable state persistence after every step; with the same `run_id`
@@ -541,7 +540,7 @@ def build_app(
 
 
 def run_one(
-    source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, doc_type: str = DEFAULT_KEY,
+    source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, *, doc_type: str,
     jev: bool = True, source_text: str | None = None,
 ) -> FlowState:
     """`jev=False` (086): the G path verified by the code alone. `source_text` (190): the document is this text."""

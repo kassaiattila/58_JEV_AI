@@ -213,6 +213,12 @@ class InvoiceLLM(BaseModel):
     amount_due: str | None = None
 
 
+HAND_WRITTEN_OUTPUT: dict[str, type[BaseModel]] = {"invoice_hu": InvoiceLLM}
+"""202: the type packs whose G-path output model is written by hand (`TypePack.llm_model`). The output schema is part of
+the GPT request; the model generated from the Hungarian invoice's schema file differs from `InvoiceLLM` in its field
+descriptions and titles, so replacing it would change every request and need a paid re-measurement."""
+
+
 # --------------------------------------------------------------------------------------
 # Normalised layer
 # --------------------------------------------------------------------------------------
@@ -583,7 +589,7 @@ class FlowState(BaseModel):
     run_no: int = 1
     run_id: str = ""  # the backbone: ledger, datapoints and review_queue all refer to it
     doc_id: str = ""  # sha256 of the file content
-    doc_type: str = "invoice_hu"
+    doc_type: str  # the type pack (202: always named; every saved state carries it)
     use_cache: bool = True  # False when measuring determinism
     jev: bool = True  # 085: False = processing without JEV (the G path with the code's own check)
     detail_probabilities: dict[str, float] = Field(default_factory=dict)  # 149: the detection's detailed-type answer

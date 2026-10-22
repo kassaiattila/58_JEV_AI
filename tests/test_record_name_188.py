@@ -23,7 +23,7 @@ RECORD = {"supplier_name": "Example Ltd", "invoice_number": "INV-1", "issue_date
 
 def old_state(app_id: str) -> State:
     """A state as the code before the rename saved it: the record under `invoice`."""
-    values = FlowState(source_path="x.pdf", case_id="c", arm="S", run_id=app_id, doc_id="d" * 64).model_dump(mode="json")
+    values = FlowState(doc_type="invoice_hu", source_path="x.pdf", case_id="c", arm="S", run_id=app_id, doc_id="d" * 64).model_dump(mode="json")
     values.pop("record")
     return State({**values, "invoice": RECORD})
 
@@ -56,14 +56,14 @@ def test_another_flows_saved_state_keeps_its_keys(tmp_path):
 
 
 def test_a_state_model_still_reads_the_old_name():
-    state = FlowState.model_validate({"source_path": "x.pdf", "case_id": "c", "arm": "S", "invoice": RECORD})
+    state = FlowState.model_validate({"source_path": "x.pdf", "case_id": "c", "arm": "S", "doc_type": "invoice_hu", "invoice": RECORD})
     assert state.record is not None and state.record.invoice_number == "INV-1"
 
 
 def test_an_item_interrupted_before_the_rename_resumes_with_its_record(tmp_path):
     p = persister(tmp_path)
     p.save(flow.PARTITION, "app-3", 3, "normalize_picks", old_state("app-3"), "completed")
-    app = flow.build_app("x.pdf", "c", "S", tracker=False, run_id="app-3", persister=p)
+    app = flow.build_app("x.pdf", "c", "S", tracker=False, doc_type="invoice_hu", run_id="app-3", persister=p)
     action, _, state = app.step()
     assert action.name == "validate"
     assert state.data.record is not None and state.data.record.invoice_number == "INV-1"

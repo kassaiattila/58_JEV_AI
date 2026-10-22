@@ -17,6 +17,7 @@ from jav import policy, store
 from jav.adapters.jev import JevAdapter
 from jav.jev_select import field_confidence, select_fields
 from jav.models import FieldPick, FlowState
+from jav.typepack import get as get_pack
 from tests.test_select_presence import LINES, FakeClient, _cands
 
 
@@ -24,7 +25,7 @@ def test_no_candidate_field_gets_a_presence_question_in_an_existing_request(tmp_
     client = FakeClient(nouls={"payment_iban__present": 0.93})
     jev = JevAdapter(client=client, cache_dir=tmp_path / "cache", model="jev-1.13.0")
     with store.use_store(tmp_path / "t.sqlite"):  # the call log goes into the test's own store
-        picks, calls = select_fields(jev, LINES, _cands(), run_id="r")
+        picks, calls = select_fields(jev, LINES, _cands(), pack=get_pack("invoice_hu"), run_id="r")
 
     money = next(r for r in client.requests if "gross_total" in r["questions"])
     assert isinstance(money["questions"]["payment_iban__present"], Noul) and "payment_iban" not in money["questions"]
@@ -40,7 +41,7 @@ def test_present_but_no_candidate_opens_a_task():
     def pick(field: str, p: float) -> FieldPick:
         return FieldPick(field=field, label=None, confidence=None, present_p=p, n_options=0, request_id="money")
 
-    st = FlowState(source_path="x.pdf", case_id="c", arm="S",
+    st = FlowState(doc_type="invoice_hu", source_path="x.pdf", case_id="c", arm="S",
                    picks={"payment_iban": pick("payment_iban", 0.93), "vat_total": pick("vat_total", 0.08), "net_total": pick("net_total", 0.5)})
     policy.apply_pick_policy(st)
     assert st.review_reasons == ["pick:present_no_candidates:payment_iban:0.93"]  # absent and uncertain: no reason

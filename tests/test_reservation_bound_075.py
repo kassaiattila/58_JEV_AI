@@ -68,7 +68,7 @@ def test_openai_client_does_not_retry_on_its_own(monkeypatch):
         agent_cache.cache_clear()
     try:
         assert config.OPENAI_SETTINGS["sdk_max_retries"] == 0
-        assert extract_llm.get_agent().model.client.max_retries == 0
+        assert extract_llm.get_agent("invoice_hu").model.client.max_retries == 0
         assert email_tasks.get_agent().model.client.max_retries == 0
     finally:
         for agent_cache in (extract_llm.get_agent, email_tasks.get_agent):

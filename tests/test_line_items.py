@@ -176,7 +176,7 @@ def test_advisory_check_is_marked_and_does_not_open_review():
     assert not adv.ok and adv.advisory
     [blocking] = run_checks(_inv(items), ({"check": "line_items_arithmetic"},))
     assert not blocking.advisory
-    state = FlowState(source_path="x.pdf", case_id="c", arm="G", validation=[adv])
+    state = FlowState(doc_type="invoice_hu", source_path="x.pdf", case_id="c", arm="G", validation=[adv])
     policy.apply_validation_policy(state)
     assert not state.needs_review
     state.validation = [blocking]

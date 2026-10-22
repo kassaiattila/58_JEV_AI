@@ -18,8 +18,9 @@ from typesafe_sdk import Choice, Noul, SystemOneResponse
 
 from jav import cfg, policy, store
 from jav.adapters.jev import JevAdapter
-from jav.jev_select import PRESENCE_WHAT, build_presence, effective_conf, record_conf, select_fields
+from jav.jev_select import effective_conf, record_conf, select_fields, site_for
 from jav.models import Candidate, CellLayout, FieldPick, FlowState, LineLayout
+from jav.typepack import get as get_pack
 
 
 class FakeClient:
@@ -71,18 +72,18 @@ def test_select_json_has_presence_block():
     assert d["meta"]["version"] >= "1.1.0"
     assert "{what}" in d["presence_template"]
     assert set(d["presence_what"]) == set(d["instructions"])  # a presence question next to every Choice field
-    assert set(PRESENCE_WHAT) == set(d["instructions"])
+    assert set(site_for("invoice_hu").presence_what) == set(d["instructions"])
 
 
 def test_presence_noul_is_batched_with_the_choice(isolated: Path):
     client = FakeClient(nouls={"supplier_tax_id__present": 0.95, "buyer_tax_id__present": 0.1})
     jev = JevAdapter(client=client, cache_dir=isolated / "cache", model="jev-1.13.0")
-    picks, calls = select_fields(jev, LINES, _cands(), run_id="r")
+    picks, calls = select_fields(jev, LINES, _cands(), pack=get_pack("invoice_hu"), run_id="r")
 
     parties = next(r for r in client.requests if "supplier_tax_id" in r["questions"])
     assert isinstance(parties["questions"]["supplier_tax_id__present"], Noul)
     assert "supplier_address__present" not in parties["questions"]  # no candidate -> no Choice, no presence question
-    q = build_presence("supplier_tax_id")
+    q = site_for("invoice_hu").build_presence("supplier_tax_id")
     assert "SUPPLIER" in q.instructions and "Lnn" in q.instructions
 
     p = picks["supplier_tax_id"]
@@ -109,7 +110,7 @@ def test_effective_and_record_confidence():
 
 
 def test_presence_policy_reasons():
-    st = FlowState(source_path="x.pdf", case_id="c", arm="S", picks={
+    st = FlowState(doc_type="invoice_hu", source_path="x.pdf", case_id="c", arm="S", picks={
         "supplier_tax_id": FieldPick(field="supplier_tax_id", label="12345678-1-42", confidence=0.9, present_p=0.2, n_options=2, request_id="r"),
         "invoice_number": FieldPick(field="invoice_number", label=None, confidence=0.9, present_p=0.9, n_options=3, request_id="r"),
         "due_date": FieldPick(field="due_date", label=None, confidence=0.9, present_p=0.5, n_options=2, request_id="r"),  # uncertain band: no reason

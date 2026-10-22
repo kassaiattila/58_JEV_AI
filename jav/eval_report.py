@@ -34,6 +34,7 @@ from typing import Any, Callable, Literal
 
 from jav import policy
 from jav.config import RUNS_DIR
+from jav.typepack import LEGACY_DOC_TYPE
 
 # score: conf / top_prob read as for a Choice, the label is the level; field (160-D): a GPT field's confidence
 Kind = Literal["choice", "noul", "score", "field"]
@@ -139,7 +140,7 @@ def _from_invoice_S(row: dict[str, Any]) -> list[Judgment]:
     scores = row.get("scores") or {}
     expected_present = row.get("expected_present") or {}
     flow = row.get("flow_label") or "invoice_S"  # a separate flow per type pack (invoice_S = Hungarian, invoice_foreign_S = foreign invoice)
-    high_stakes = policy.high_stakes_for(row.get("doc_type"))
+    high_stakes = policy.high_stakes_for(row.get("doc_type") or LEGACY_DOC_TYPE)  # a row before the type was recorded
     for field, pick in (row.get("picks") or {}).items():
         top, second = _top2(pick.get("top3"))
         if pick.get("confidence") is None:  # 069 (Á11): no candidates means no Choice judgment, only (possibly) a presence judgment
@@ -313,8 +314,8 @@ def _from_verify_probe(row: dict[str, Any]) -> list[Judgment]:
     variant, target = row["variant"], row["target"]
     t_flag, _, t_field = target.partition(":")
     case_id = f"{row['case_id']}/{variant}"
-    doc_type = row.get("doc_type", "invoice_hu")
-    flow = "invoice_verify_probe" if doc_type == "invoice_hu" else f"{doc_type}_verify_probe"
+    doc_type = row.get("doc_type", LEGACY_DOC_TYPE)
+    flow = "invoice_verify_probe" if doc_type == LEGACY_DOC_TYPE else f"{doc_type}_verify_probe"  # the earlier flow name
 
     def noul(question: str, p: float, field: str | None, expected: str | None) -> Judgment:
         label = "yes" if p >= 0.5 else "no"

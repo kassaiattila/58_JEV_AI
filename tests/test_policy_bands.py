@@ -16,7 +16,7 @@ from jav.models import FieldPick, FlowState, JevVerdicts
 
 
 def _state(arm: str = "S", **kw) -> FlowState:
-    return FlowState(source_path="x.pdf", case_id="c", arm=arm, **kw)
+    return FlowState(source_path="x.pdf", case_id="c", arm=arm, **{"doc_type": "invoice_hu", **kw})
 
 
 def _pick(field: str, conf: float, probs: dict[str, float] | None = None, label: str | None = "v") -> FieldPick:

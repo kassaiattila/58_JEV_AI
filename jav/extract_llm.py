@@ -31,7 +31,7 @@ from pydantic_ai.usage import UsageLimits
 from jav import cfg, store, token_confidence
 from jav.runtime import calls
 from jav.config import OPENAI_MODEL, OPENAI_SETTINGS, load_prompt, openai_chat_model, openai_cost, openai_price
-from jav.typepack import DEFAULT_KEY, TypePack, get as get_pack
+from jav.typepack import TypePack, get as get_pack
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
@@ -127,7 +127,7 @@ def build_agent(pack: TypePack, model) -> Agent[None, BaseModel]:
 
 
 @lru_cache(maxsize=None)
-def get_agent(pack_key: str = DEFAULT_KEY) -> Agent[None, BaseModel]:
+def get_agent(pack_key: str) -> Agent[None, BaseModel]:
     return build_agent(get_pack(pack_key), openai_chat_model())
 
 
@@ -182,14 +182,13 @@ def _physical(agent, prompt: str, *, run_id: str, pack: TypePack, limited: bool,
                          input_tokens=in_tok, output_tokens=out_tok, cost_usd=cost)
 
 
-def extract_scored(text: str, *, run_id: str = "adhoc", pack: TypePack | None = None) -> ScoredExtraction:
+def extract_scored(text: str, *, pack: TypePack, run_id: str = "adhoc") -> ScoredExtraction:
     """The extract (with the keys of the pack's schema) and its token probabilities; the call goes into the ledger
     (tokens, cost, time, errors too).
 
     In a worker run it goes through the call log and the budget: an up-front reservation for the worst case, the saved
     answer on a repeat, and no automatic new paid request after an earlier attempt with an uncertain outcome.
     """
-    pack = pack or get_pack(DEFAULT_KEY)
     factory = _agent_factory.get()
     agent = factory(pack) if factory is not None else get_agent(pack.key)
     prompt = source_prefix(pack) + text
@@ -219,6 +218,6 @@ def extract_scored(text: str, *, run_id: str = "adhoc", pack: TypePack | None = 
     return ScoredExtraction(output=output, token_p=token_p)
 
 
-def extract(text: str, *, run_id: str = "adhoc", pack: TypePack | None = None) -> dict[str, Any]:
+def extract(text: str, *, pack: TypePack, run_id: str = "adhoc") -> dict[str, Any]:
     """The extract as a dict (with the keys of the pack's schema), without the probabilities (`extract_scored`)."""
     return extract_scored(text, run_id=run_id, pack=pack).output

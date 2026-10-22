@@ -143,7 +143,7 @@ def test_the_flow_gives_a_cut_off_answer_its_own_to_do(isolated):
     agent = _CutOff()
     calls.set_budget("run-f", "openai", Decimal("1"))
     with extract_llm.use_agent_factory(lambda p: agent), calls.use_run(budget_scope="run-f"):
-        state = extract_step(FlowState(source_path="synthetic.pdf", case_id="t", arm="G", run_id="run-f",
+        state = extract_step(FlowState(doc_type="invoice_hu", source_path="synthetic.pdf", case_id="t", arm="G", run_id="run-f",
                                        text="Invoice number: MINTA-1"))
     assert state.llm_output is None and state.needs_review
     assert "llm:truncated" in state.review_reasons
