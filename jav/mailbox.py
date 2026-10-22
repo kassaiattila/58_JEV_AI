@@ -30,7 +30,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from jav import decisions, ingest_server, item_kinds, store, work, workflow_steps
+from jav import decisions, ingest_server, item_kinds, store, work, work_recipes, work_runs, workflow_steps
 from jav.runtime import job_kinds
 from jav.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
 from jav.user_messages import explained
@@ -256,7 +256,7 @@ def suspicious_email(run_id: str, email_item_id: str) -> bool:
     policy `email.signal_routes`)."""
     from jav import policy
 
-    result = store.email_result(work.flow_run_id(run_id, email_item_id))
+    result = store.email_result(work_runs.flow_run_id(run_id, email_item_id))
     return bool(result) and result.get("next_flow") in set(policy.EMAIL_SIGNAL_ROUTES.values())
 
 
@@ -294,9 +294,9 @@ def _workpackage(req: MailboxRequest, messages: list[Path], *, actor: str) -> di
     wp = work.create_workpackage(name=name, source_kind="mailbox", source_ref=req.label(), owner=owner_of(actor))
     wp = work.add_items(wp["id"], messages, kind="email", expected_revision=0)
     wp = add_attachments(wp["id"], expected_revision=wp["revision"])  # 058 K5.2: plus the PDF attachments
-    r = work.default_recipe()  # 080: one processing; on an email, intent + attachments
+    r = work_recipes.default_recipe()  # 080: one processing; on an email, intent + attachments
     # the recipe's defaults; 160-D: the application's engine (`assign_recipe` fills what is not named)
-    work.assign_recipe(wp["id"], r["id"], params={}, expected_revision=0, actor=actor,
+    work_recipes.assign_recipe(wp["id"], r["id"], params={}, expected_revision=0, actor=actor,
                        note="postafiók-letöltés után automatikusan (a futtatás kézi)")
     return work.get(wp["id"])
 
@@ -670,12 +670,12 @@ def email_item_result(run: dict[str, Any], item: dict[str, Any], engine: str | N
     from jav import corrections
 
     run_id, item_id = run["run_id"], item["item_id"]
-    reasons = work.item_reasons(run_id, item_id, item)
+    reasons = work_runs.item_reasons(run_id, item_id, item)
     corr = corrections.current(run_id, item_id)
     # 058 K5.2: the email's attachments that ran as documents in the run (the UI refers to them)
     attachment_items = [{"item_id": i["item_id"], "filename": Path(i["source_path"]).name}
                         for i in run["input"]["items"] if i.get("parent_item_id") == item_id]
-    email = email_item_view(item, work.flow_run_id(run_id, item_id), corr["fields"].get("intent"))
+    email = email_item_view(item, work_runs.flow_run_id(run_id, item_id), corr["fields"].get("intent"))
     own = bool(email["result"] and email["result"]["from_this_run"])
     return {"run_id": run_id, "item_id": item_id, "kind": "email", "extraction": None, "correction": corr,
             "effective": {}, "lists": {}, "checks": [], "provenance": {}, "source": None,
@@ -707,9 +707,9 @@ def correct_email(run_id: str, item: dict[str, Any], *, fields: dict[str, Any], 
     item_id = item["item_id"]
     corrections.insert_revision(run_id, item_id, fields, expected_revision, actor, note, None)
     if key is not None:
-        for r in work.item_reasons(run_id, item_id, item)["run"]:
+        for r in work_runs.item_reasons(run_id, item_id, item)["run"]:
             if r["reason"].startswith("intent:"):
-                work.resolve_reason(r["id"], actor=actor, resolution={"intent": key}, note="a szándék kézzel javítva")
+                work_runs.resolve_reason(r["id"], actor=actor, resolution={"intent": key}, note="a szándék kézzel javítva")
     return corrections.current(run_id, item_id)
 
 
@@ -855,13 +855,13 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
     a concurrent approval is refused instead of being written after it (the decisions are part of the approved result,
     `corrections.review_version`). 187: the change goes into the decision journal in the same transaction (before, a
     changed decision overwrote the earlier one with nothing kept), and a stale `expected_state` is refused."""
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     if run["approval"]:
         raise explained(work.RevisionConflict, "run {{run_id}} is approved; task decisions are frozen", run_id=run_id)
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id and i.get("kind") == "email"), None)
     if item is None:
         raise KeyError(item_id)
-    flow_id = work.flow_run_id(run_id, item_id)
+    flow_id = work_runs.flow_run_id(run_id, item_id)
     view = task_view(flow_id, store.email_result(flow_id))
     if view is None or not 0 <= index < len(view["tasks"]):
         raise KeyError(f"task {index}")
@@ -878,9 +878,9 @@ def decide_task(run_id: str, item_id: str, index: int, *, decision: str, actor: 
     view = task_view(flow_id, store.email_result(flow_id))
     if all(t["decision"] for t in view["tasks"]):
         summary = {"decisions": [{"index": t["index"], "decision": t["decision"]["decision"]} for t in view["tasks"]]}
-        for r in work.item_reasons(run_id, item_id, item)["run"]:
+        for r in work_runs.item_reasons(run_id, item_id, item)["run"]:
             if r["reason"].startswith("tasks:proposed"):
-                work.resolve_reason(r["id"], actor=actor, resolution=summary, note="minden feladatjavaslatról döntöttek")
+                work_runs.resolve_reason(r["id"], actor=actor, resolution=summary, note="minden feladatjavaslatról döntöttek")
     return view
 
 
@@ -889,11 +889,11 @@ def mark_task_done(run_id: str, item_id: str, index: int, *, done: bool, actor: 
     """062 (decision of 2026-09-29): an accepted task can be marked done by hand, and the mark can be withdrawn. The
     task happens in the real world, so it can be marked even on an approved run; a rejected or undecided task cannot.
     187: in one transaction with its journal row, under the page's `expected_state`."""
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id and i.get("kind") == "email"), None)
     if item is None:
         raise KeyError(item_id)
-    flow_id = work.flow_run_id(run_id, item_id)
+    flow_id = work_runs.flow_run_id(run_id, item_id)
     view = task_view(flow_id, store.email_result(flow_id))
     if view is None or not 0 <= index < len(view["tasks"]):
         raise KeyError(f"task {index}")

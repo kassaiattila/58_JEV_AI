@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import email_tasks, evals_email, flow_email, gpt_choice, intent_gpt, store, work
+from jav import email_tasks, evals_email, flow_email, gpt_choice, intent_gpt, store, work_readiness, work_recipes
 from jav.adapters import jev as jev_mod
 from jav.emails import Attachment, EmailMessage, GoldenEmail
 from jav.intents import INTENT_KEYS
@@ -157,8 +157,8 @@ def test_without_jev_the_task_proposal_runs_on_the_gpt_intent(isolated, monkeypa
 
 
 def test_without_jev_an_email_gets_an_openai_budget_for_the_intent():
-    r = work.recipe("processing")
-    off = work.item_budget(r, {"arm": "auto", "jev": "off", "tasks": "off"}, "email")
+    r = work_recipes.recipe("processing")
+    off = work_readiness.item_budget(r, {"arm": "auto", "jev": "off", "tasks": "off"}, "email")
     assert set(off) == {"openai"} and off["openai"] > Decimal("0")
 
 
@@ -169,7 +169,7 @@ def test_the_email_budget_covers_the_worst_case_reservation():
     state = intent_gpt.build_state(msg)
     worst = gpt_choice.max_cost_usd("email_intent", intent_gpt.intent_instructions(), json.dumps(state, ensure_ascii=False),
                                     intent_gpt.fields(), intent_gpt.LIMITS)
-    budget = work.item_budget(work.recipe("processing"), {"arm": "auto", "jev": "off", "tasks": "off"}, "email")["openai"]
+    budget = work_readiness.item_budget(work_recipes.recipe("processing"), {"arm": "auto", "jev": "off", "tasks": "off"}, "email")["openai"]
     assert worst <= budget, (worst, budget)
 
 

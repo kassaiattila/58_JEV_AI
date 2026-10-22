@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import parties, store, work, workflows as wf
+from jav import parties, store, work_runs, workflows as wf
 from tests.test_workflow_references_153 import MONTH, erste
 from tests.test_workflows_146 import _steps, db  # noqa: F401 - the fixture is used by name
 
@@ -40,14 +40,14 @@ def _packages_and_runs(name: str) -> tuple[int, int]:
 def test_a_restarted_step_goes_on_with_the_package_it_made(db, monkeypatch, stop_after):  # noqa: F811
     wf_id = _workflow(db, parties.create("Example R Kft.", identities=[], actor="t")["id"])
     name = _steps(wf.view(wf_id))["invoices"]["name"]
-    original = work.start_run
+    original = work_runs.start_run
 
     def stopped(*args, **kwargs):  # the process stops before the run is made, or right after it
         if stop_after == "run":
             original(*args, **kwargs)
         raise KeyboardInterrupt
 
-    monkeypatch.setattr(work, "start_run", stopped)
+    monkeypatch.setattr(work_runs, "start_run", stopped)
     with pytest.raises(KeyboardInterrupt):
         wf.advance(wf_id, actor="t")
     monkeypatch.undo()

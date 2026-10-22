@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import cli, store
+from jav import cli, cli_options, store
 from jav.runtime import calls
 
 KEY = calls.answer_key("openai", "gpt-test", "instructions", "schema", "document text")
@@ -86,7 +86,7 @@ def test_a_measurement_without_calls_reports_nothing(isolated, capsys):
 @pytest.mark.parametrize(("no_cache", "reuse"), [(False, True), (True, False)])
 def test_a_command_reuses_unless_told_to_ask_again(isolated, no_cache, reuse):
     args = argparse.Namespace(no_cache=no_cache, jev_budget_usd=None, budget_usd=None)
-    with cli._under_budget(args, "detect"):
+    with cli_options.under_budget(args, "detect"):
         assert calls.current().reuse is reuse and calls.current().measurement
 
 

@@ -26,7 +26,6 @@ DOMAIN = frozenset().union(*MODULES.values())
 
 # shared modules that may import a domain's modules for good: each names every domain at once by its nature
 LASTING = {
-    "cli": "the command line: one command per operation, a domain's commands among them",
     "docsgen": "writes the generated documents of every flow",
     "evals": "a measurement: the golden runs of every flow",
     "evals_detect": "a measurement: the golden runs of every flow",

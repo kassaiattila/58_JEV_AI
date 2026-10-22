@@ -10,7 +10,7 @@ live > trial; a stopped or superseded run does not count). Synthetic PDFs, a fak
 import json
 from pathlib import Path
 
-from jav import store, work
+from jav import store, work, work_runs
 from jav.runtime import worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 from tests import test_flexible_package_160c as fp
@@ -205,8 +205,8 @@ def test_a_stopped_run_does_not_count_and_a_running_or_failed_item_says_so(env):
     run_id = _start(c, wp["id"])["run_id"]
     assert {r["state"] for r in _states(c, wp["id"]).values()} == {"running"}
     first, second = (i["item_id"] for i in wp["items"])
-    work.record_item_result(run_id, first, status="failed", error="synthetic")
-    work.record_item_result(run_id, second, status="done", final_status="auto_approved")
+    work_runs.record_item_result(run_id, first, status="failed", error="synthetic")
+    work_runs.record_item_result(run_id, second, status="done", final_status="auto_approved")
     with store.connect() as conn:
         conn.execute("UPDATE runs SET status='failed' WHERE run_id=?", (run_id,))
     by_id = {r["item_id"]: r for r in _items(c, wp["id"])}

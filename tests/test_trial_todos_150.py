@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import datasets, store, work, work_views
+from jav import datasets, store, work, work_readiness, work_recipes, work_runs, work_views
 from jav.work_views import next_step
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
@@ -37,18 +37,18 @@ def runs(tmp_path: Path):
         folder.mkdir()
         write_text_pdf(folder / "doc.pdf", INVOICE_LINES)
         wp = work.create_from_folder(folder, name="Synthetic package")
-        work.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=0, actor="t")
-        ready = work.readiness(wp["id"])
+        work_recipes.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=0, actor="t")
+        ready = work_readiness.readiness(wp["id"])
         start = {"expected_assignment_revision": 1, "input_hash": ready["input_hash"], "actor": "t"}
-        trial = work.start_run(wp["id"], mode="shadow", **start)["run_id"]
-        live = work.start_run(wp["id"], mode="apply", **start)["run_id"]
-        item = work.get_run(live)["input"]["items"][0]["item_id"]
+        trial = work_runs.start_run(wp["id"], mode="shadow", **start)["run_id"]
+        live = work_runs.start_run(wp["id"], mode="apply", **start)["run_id"]
+        item = work_runs.get_run(live)["input"]["items"][0]["item_id"]
 
         def raise_reason(run_id: str, reason: str, producer: str) -> None:
             store.review_enqueue(subject_kind="document", subject_id=item, run_id=run_id, reasons=[reason], producer=producer)
 
-        raise_reason(work.flow_run_id(trial, item), "detect:low_conf:invoice_hu", "detect")
-        raise_reason(work.flow_run_id(live, item), "validator:tax_number", "m2")
+        raise_reason(work_runs.flow_run_id(trial, item), "detect:low_conf:invoice_hu", "detect")
+        raise_reason(work_runs.flow_run_id(live, item), "validator:tax_number", "m2")
         raise_reason("old-measurement-S-r1", "pick:seller_name", "legacy")  # a command-line measurement: no run
         yield {"wp": wp["id"], "trial": trial, "live": live, "item": item}
 

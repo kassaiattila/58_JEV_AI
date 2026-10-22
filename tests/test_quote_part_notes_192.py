@@ -8,7 +8,7 @@ its to-dos as before. Synthetic emails, a stand-in JEV and GPT; no paid call.
 
 from __future__ import annotations
 
-from jav import typepack, work
+from jav import typepack, work_runs
 from jav.models import DocumentRecord, FlowState, JevVerdicts
 from jav.policy import apply_validation_policy, apply_verdict_policy
 from tests import test_email_text_follow_up_190 as follow
@@ -47,13 +47,13 @@ def test_an_email_whose_text_names_no_item_is_not_held_back(env, monkeypatch):
     monkeypatch.setitem(OUT, "requested_items", [])  # the items would be in an attachment
     wp_id = _package(env)
     run_id, item = _run(wp_id)
-    assert work.item_reasons(run_id, item["item_id"], item)["run"] == []
-    assert work.approve_run(run_id, actor="t")["approval"] == "approved"
+    assert work_runs.item_reasons(run_id, item["item_id"], item)["run"] == []
+    assert work_runs.approve_run(run_id, actor="t")["approval"] == "approved"
 
 
 def test_a_doubt_about_a_value_the_text_has_stays_a_to_do_of_the_email(env, monkeypatch):
     monkeypatch.setitem(OUT, "customer_tax_number", "12345678-1-12")  # fails the tax number's check digit
     wp_id = _package(env)
     run_id, item = _run(wp_id)
-    reasons = [r["reason"] for r in work.item_reasons(run_id, item["item_id"], item)["run"]]
+    reasons = [r["reason"] for r in work_runs.item_reasons(run_id, item["item_id"], item)["run"]]
     assert any(r.startswith("validator:") and r.endswith(":customer_tax_number") for r in reasons)

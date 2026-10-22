@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import admin, work
+from jav import admin, work_readiness, work_recipes
 from jav.runtime import flows, worker
 
 STORED_NAMES = ("invoice", "doc_detect", "email", "native", "statement_table")  # in the frozen recipes of every run
@@ -20,11 +20,11 @@ def _routed(recipe: dict) -> set[str]:
     kinds = {k: {"kind": k, "source_path": f"C:/synthetic/item{suffix}"}
              for k, suffix in (("document", ".pdf"), ("email", ".json"), ("statement_table", ".csv"))}
     names = {recipe["flow"], *(recipe.get("flows") or {}).values(), *(recipe.get("flows_by_suffix") or {}).values()}
-    return names | {work.flow_for(recipe, item) for item in kinds.values()}
+    return names | {work_readiness.flow_for(recipe, item) for item in kinds.values()}
 
 
 def test_every_flow_a_recipe_routes_to_is_registered_under_its_stored_name() -> None:
-    for recipe in work.recipes():
+    for recipe in work_recipes.recipes():
         for name in _routed(recipe):
             spec = flows.get(name)
             for stage in spec.stages or (name,):
@@ -51,7 +51,7 @@ def test_an_unknown_flow_name_is_a_named_error() -> None:
 
 def test_only_the_native_flow_takes_its_budget_and_path_from_the_reader() -> None:
     assert [s.name for s in flows.specs() if s.native] == ["native"]
-    recipe = next(r for r in work.recipes() if r.get("flows_by_suffix"))
+    recipe = next(r for r in work_recipes.recipes() if r.get("flows_by_suffix"))
     office = {"item_id": "a" * 64, "kind": "document", "source_path": "C:/synthetic/a.docx", "sha256": "a" * 64}
-    plan = work.run_plan(recipe, {"arm": "S"}, [office], arms=["S"])
+    plan = work_readiness.run_plan(recipe, {"arm": "S"}, [office], arms=["S"])
     assert plan["native_documents"] == 1 and plan["azure"] is False

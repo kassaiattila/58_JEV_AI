@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, emails, ingest_server, mailbox, store, work
+from jav import app_settings, emails, ingest_server, mailbox, store, work, work_readiness, work_recipes, work_runs
 from jav.adapters import jev as jev_mod
 from jav.runtime import queue, worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
@@ -35,13 +35,13 @@ def wp_env(tmp_path: Path):
     write_text_pdf(folder / "szamla_2.pdf", [line.replace("MINTA-2026-001", "MINTA-2026-002") for line in INVOICE_LINES])
     with store.use_store(tmp_path / "w.sqlite"), jev_mod.use_adapter(adapter):
         wp = work.create_from_folder(folder, name="Mesterséges számlák")
-        work.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "S", "doc_type": "invoice_hu"}, expected_revision=0, actor="t")
+        work_recipes.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "S", "doc_type": "invoice_hu"}, expected_revision=0, actor="t")
         yield {"wp": wp, "tmp": tmp_path}
 
 
 def _start(wp_id: str, mode: str = "shadow") -> str:
-    r = work.readiness(wp_id)
-    return work.start_run(wp_id, mode=mode, expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")["run_id"]
+    r = work_readiness.readiness(wp_id)
+    return work_runs.start_run(wp_id, mode=mode, expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")["run_id"]
 
 
 # --- work queue: orphaned claims on restart -----------------------------------------------------------------------
@@ -94,7 +94,7 @@ def test_worker_survives_unexpected_errors_in_ticks_and_pull_jobs(wp_env, monkey
     assert info["results"].get("done") == 2  # both document items ran
     assert info["errors"] >= 3  # the two scheduler errors and the download error were logged and did not stop it
     assert queue.get(pull_job.id).status == "dead"  # the faulty job is not retried forever
-    assert work.get_run(run_id)["status"] in ("done", "needs_review")
+    assert work_runs.get_run(run_id)["status"] in ("done", "needs_review")
 
 
 def test_dead_orphan_item_is_recorded_as_failed(wp_env):
@@ -104,10 +104,10 @@ def test_dead_orphan_item_is_recorded_as_failed(wp_env):
         c.execute("UPDATE jobs SET attempts=? WHERE id=?", (queue.ORPHAN_MAX_ATTEMPTS - 1, job.id))
     info = worker.startup()
     assert info["orphans_dead"] == 1 and info["orphans_requeued"] == 0
-    item = next(i for i in work.get_run(run_id)["items"] if i["item_id"] == job.payload["item_id"])
+    item = next(i for i in work_runs.get_run(run_id)["items"] if i["item_id"] == job.payload["item_id"])
     assert item["status"] == "failed" and "orphaned" in item["error"]
     worker.run_worker(once=True)  # the other item runs; the run closes as failed (the dead item is visible)
-    assert work.get_run(run_id)["status"] == "failed"
+    assert work_runs.get_run(run_id)["status"] == "failed"
 
 
 # --- starting and approving runs ------------------------------------------------------------------------------------
@@ -118,14 +118,14 @@ def test_half_started_run_is_repaired_by_retry_and_cannot_be_approved_meanwhile(
     run_id = _start(wp_id, mode="apply")
     with store.connect() as c:  # the start was interrupted after the run row was written: no jobs
         c.execute("DELETE FROM jobs WHERE run_id=?", (run_id,))
-    assert work.refresh_run_status(run_id) == "queued"  # not "done": the items have not run yet
+    assert work_runs.refresh_run_status(run_id) == "queued"  # not "done": the items have not run yet
     with pytest.raises(work.NotReady):
-        work.approve_run(run_id, actor="t")
-    again = work.start_run(wp_id, mode="apply", expected_assignment_revision=1, input_hash=work.readiness(wp_id)["input_hash"], actor="t")
+        work_runs.approve_run(run_id, actor="t")
+    again = work_runs.start_run(wp_id, mode="apply", expected_assignment_revision=1, input_hash=work_readiness.readiness(wp_id)["input_hash"], actor="t")
     assert again == {"run_id": run_id, "deduped": True}
     assert queue.counts(run_id=run_id).get("queued") == 2  # the repeated start filled in the missing jobs
     worker.run_worker(once=True)
-    assert work.get_run(run_id)["status"] in ("done", "needs_review")
+    assert work_runs.get_run(run_id)["status"] in ("done", "needs_review")
 
 
 # --- mailbox download -----------------------------------------------------------------------------------------------

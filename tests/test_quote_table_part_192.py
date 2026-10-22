@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from jav import quote_request, store, work
+from jav import quote_request, store, work, work_readiness, work_recipes, work_runs
 from tests import test_email_text_follow_up_190 as follow
 from tests.test_email_text_follow_up_190 import _package, _run
 
@@ -34,7 +34,7 @@ def test_a_table_attachment_is_read_as_a_part_of_the_request(env, tmp_path, monk
     wp_id = _package(env)
     assert [i["kind"] for i in work.get(wp_id)["items"]] == ["email"]  # the list is no item of its own
     run_id, item = _run(wp_id)
-    own = work.flow_run_id(run_id, item["item_id"])
+    own = work_runs.flow_run_id(run_id, item["item_id"])
     with store.connect() as c:
         stages = [r[0] for r in c.execute("SELECT run_id FROM datapoints WHERE doc_type='quote_request' ORDER BY run_id")]
     assert stages == [f"{own}-invoice", f"{own}-invoice-a1"]
@@ -43,7 +43,7 @@ def test_a_table_attachment_is_read_as_a_part_of_the_request(env, tmp_path, monk
     assert request.items_from == 1  # the items of the first attachment that has rows
     # the stand-in GPT answers the text's values for the list too: the list does not support them, a doubt, so a to-do
     # of the email; a gap of the list (no customer in a list) would be only a note
-    reasons = work.item_reasons(run_id, item["item_id"], item)["run"]
+    reasons = work_runs.item_reasons(run_id, item["item_id"], item)["run"]
     assert reasons and {r["producer"] for r in reasons} == {"follow_up:invoice-a1"}
     assert all(r["reason"].startswith("jev:unsupported:") for r in reasons)
 
@@ -51,10 +51,10 @@ def test_a_table_attachment_is_read_as_a_part_of_the_request(env, tmp_path, monk
 def test_the_run_reserves_the_extraction_for_each_table_attachment(env, tmp_path, monkeypatch):
     _with_list(tmp_path, monkeypatch)
     wp_id = _package(env)
-    ready = work.readiness(wp_id)
-    a = work.current_assignment(wp_id)
-    recipe = work.recipe(a["recipe_id"])
-    email = work.item_budget(recipe, a["params"], "email")  # the email's own budget, its text's extraction with it
+    ready = work_readiness.readiness(wp_id)
+    a = work_recipes.current_assignment(wp_id)
+    recipe = work_recipes.recipe(a["recipe_id"])
+    email = work_readiness.item_budget(recipe, a["params"], "email")  # the email's own budget, its text's extraction with it
     assert ready["plan"]["text_tables"] == 1
     assert ready["budget"]["openai"] == email["openai"] + Decimal("0.03")
 
@@ -62,10 +62,10 @@ def test_the_run_reserves_the_extraction_for_each_table_attachment(env, tmp_path
 def test_with_the_setting_off_no_table_is_read(env, tmp_path, monkeypatch):
     _with_list(tmp_path, monkeypatch)
     wp_id = _package(env)
-    a = work.current_assignment(wp_id)
-    work.assign_recipe(wp_id, a["recipe_id"], params={**a["params"], "email_text": "off"}, expected_revision=a["revision"],
+    a = work_recipes.current_assignment(wp_id)
+    work_recipes.assign_recipe(wp_id, a["recipe_id"], params={**a["params"], "email_text": "off"}, expected_revision=a["revision"],
                        actor="t")
-    assert "text_tables" not in work.readiness(wp_id)["plan"]
+    assert "text_tables" not in work_readiness.readiness(wp_id)["plan"]
     _run(wp_id)
     with store.connect() as c:
         assert c.execute("SELECT COUNT(*) FROM datapoints").fetchone()[0] == 0

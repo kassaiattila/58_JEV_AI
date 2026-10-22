@@ -95,7 +95,7 @@ def test_uncertain_calls_can_be_listed_and_resolved_from_the_cli(tmp_path: Path,
 
 def test_cli_run_start_pending_takes_only_the_items_added_after_a_run(tmp_path: Path, capsys):
     """160-C S3: `run-start --pending` starts a run over only the package's pending items."""
-    from jav import work
+    from jav import work, work_runs
 
     folder = tmp_path / "incoming"
     folder.mkdir()
@@ -112,5 +112,5 @@ def test_cli_run_start_pending_takes_only_the_items_added_after_a_run(tmp_path: 
         assert "No pending items" in capsys.readouterr().out
         work.add_to_package(wp["id"], [later], expected_revision=work.get(wp["id"])["revision"], actor="cli")
         started = _run(capsys, "run-start", wp["id"], "--mode", "apply", "--pending")
-        run = work.get_run(started["run_id"])
+        run = work_runs.get_run(started["run_id"])
         assert run["scope"] == "pending" and [Path(i["source_path"]).name for i in run["input"]["items"]] == ["later.pdf"]

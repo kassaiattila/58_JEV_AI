@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, app_settings, fx, mailbox, store, work
+from jav import api, app_settings, fx, mailbox, store, work, work_runs
 from jav import reconcile_package as rp
 from jav import workflows as wf
 from tests import test_reconcile_k2_129 as k2
@@ -111,7 +111,7 @@ def test_a_package_is_linked_to_a_workflow_step_of_its_kind(client, tmp_path):
     view = _ok(client.post(f"/api/workflows/{wf_id}/steps/invoices/link", headers=HUMAN, json={"workpackage_id": docs["id"]}))
     step = next(s for s in view["steps"] if s["id"] == "invoices")
     assert (step["state"], step["package"]["id"]) == ("linked", docs["id"])
-    assert wf.workflow_of(docs["id"])["id"] == wf_id and work.run_rows(docs["id"]) == []  # linking starts no run
+    assert wf.workflow_of(docs["id"])["id"] == wf_id and work_runs.run_rows(docs["id"]) == []  # linking starts no run
     again = client.post(f"/api/workflows/{wf_id}/steps/invoices/link", headers=HUMAN, json={"workpackage_id": docs["id"]})
     assert again.status_code == 422
 

@@ -5,7 +5,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import corrections, typepack, work
+from jav import corrections, typepack, work_readiness, work_recipes
 from jav.models import DocumentRecord, LineItem
 from jav.runtime import worker
 from jav.validators import line_items_arithmetic, line_items_total, run_checks
@@ -133,13 +133,13 @@ def test_utility_packs_prefer_the_gpt_arm_and_invoice_keeps_code_arm():
 
 def test_recipes_default_to_the_recommended_arm_with_budget():
     for rid in ("invoice-extraction", "document-processing"):
-        r = work.recipe(rid)
+        r = work_recipes.recipe(rid)
         assert r["params"]["arm"]["default"] == "auto" and "auto" in r["params"]["arm"]["allowed"]
-        assert work.item_budget(r, {"arm": "auto"})["openai"] > 0  # the G path fits too
+        assert work_readiness.item_budget(r, {"arm": "auto"})["openai"] > 0  # the G path fits too
 
 
 def test_invoice_extraction_stage_resolves_auto_arm():
-    r = work.recipe("invoice-extraction")
+    r = work_recipes.recipe("invoice-extraction")
     [(flow, params)] = worker._stages(r, {"arm": "auto", "doc_type": "mohu_szamla"})
     assert flow == "invoice" and params["arm"] == "G"
 

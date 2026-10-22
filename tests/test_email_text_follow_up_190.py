@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, Score, SystemOneResponse
 
-from jav import emails, extract_llm, ingest_server, mailbox, store, text_document, work
+from jav import emails, extract_llm, ingest_server, mailbox, store, text_document, work, work_readiness, work_recipes, work_runs
 from jav.adapters import jev as jev_mod
 from jav.emails import EmailMessage
 from jav.flow_email import text_follow_up
@@ -77,16 +77,16 @@ def _package(env) -> str:
 
 
 def _revision(wp_id: str) -> int:
-    a = work.current_assignment(wp_id)
+    a = work_recipes.current_assignment(wp_id)
     return a["revision"] if a else 0
 
 
 def _run(wp_id: str, mode: str = "apply") -> tuple[str, dict]:
-    ready = work.readiness(wp_id)
-    run_id = work.start_run(wp_id, mode=mode, expected_assignment_revision=_revision(wp_id), input_hash=ready["input_hash"],
+    ready = work_readiness.readiness(wp_id)
+    run_id = work_runs.start_run(wp_id, mode=mode, expected_assignment_revision=_revision(wp_id), input_hash=ready["input_hash"],
                             actor="t")["run_id"]
     worker.run_worker(once=True)
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     return run_id, run["input"]["items"][0]
 
 
@@ -118,7 +118,7 @@ def test_only_a_route_to_a_text_reading_pack_names_a_follow_up():
 def test_a_quote_request_email_gets_its_text_extracted_and_its_to_dos(env):
     wp_id = _package(env)
     run_id, item = _run(wp_id)
-    own = work.flow_run_id(run_id, item["item_id"])
+    own = work_runs.flow_run_id(run_id, item["item_id"])
     result = store.email_result(own)
     assert result["intent"] == "quote_request" and result["next_flow"] == "m2:quote_request"
     text = emails.document_text(emails.load_message_dir(Path(item["source_path"]).parent))
@@ -130,11 +130,11 @@ def test_a_quote_request_email_gets_its_text_extracted_and_its_to_dos(env):
     assert [tuple(p) for p in points] == [(f"{own}-invoice", "quote_request", "G")]
     # the stand-in GPT left the tax number, the phone and the reference out; the stand-in JEV calls nothing wrong, so
     # the code's checks are what remain: every item has a description and a positive quantity
-    run_item = next(i for i in work.get_run(run_id)["items"] if i["item_id"] == item["item_id"])
-    assert work.item_reasons(run_id, item["item_id"], item)["run"] == []
+    run_item = next(i for i in work_runs.get_run(run_id)["items"] if i["item_id"] == item["item_id"])
+    assert work_runs.item_reasons(run_id, item["item_id"], item)["run"] == []
     assert (run_item["status"], run_item["final_status"]) == ("done", "done")
     assert any("requested_items__missing_rows" in r for r in env["client"].requests)  # the verification was asked
-    assert work.approve_run(run_id, actor="t")["approval"] == "approved"
+    assert work_runs.approve_run(run_id, actor="t")["approval"] == "approved"
 
 
 def test_its_to_dos_are_the_emails_and_hold_back_the_approval(env, monkeypatch):
@@ -142,32 +142,32 @@ def test_its_to_dos_are_the_emails_and_hold_back_the_approval(env, monkeypatch):
     monkeypatch.setitem(OUT, "customer_tax_number", "12345678-1-12")  # fails the tax number's check digit
     wp_id = _package(env)
     run_id, item = _run(wp_id)
-    reasons = [r["reason"] for r in work.item_reasons(run_id, item["item_id"], item)["run"]]
+    reasons = [r["reason"] for r in work_runs.item_reasons(run_id, item["item_id"], item)["run"]]
     assert any(r.startswith("validator:") and r.endswith(":customer_tax_number") for r in reasons)
-    run_item = next(i for i in work.get_run(run_id)["items"] if i["item_id"] == item["item_id"])
+    run_item = next(i for i in work_runs.get_run(run_id)["items"] if i["item_id"] == item["item_id"])
     assert run_item["final_status"] == "needs_review"
     with pytest.raises(work.NotReady, match="open review reasons"):
-        work.approve_run(run_id, actor="t")
+        work_runs.approve_run(run_id, actor="t")
 
 
 def test_with_the_setting_off_the_text_is_not_extracted(env):
     wp_id = _package(env)
-    a = work.current_assignment(wp_id)
-    work.assign_recipe(wp_id, a["recipe_id"], params={**a["params"], "email_text": "off"}, expected_revision=a["revision"],
+    a = work_recipes.current_assignment(wp_id)
+    work_recipes.assign_recipe(wp_id, a["recipe_id"], params={**a["params"], "email_text": "off"}, expected_revision=a["revision"],
                        actor="t")
     run_id, item = _run(wp_id)
     with store.connect() as c:
         assert c.execute("SELECT COUNT(*) FROM datapoints").fetchone()[0] == 0
-    assert store.email_result(work.flow_run_id(run_id, item["item_id"]))["next_flow"] == "m2:quote_request"
+    assert store.email_result(work_runs.flow_run_id(run_id, item["item_id"]))["next_flow"] == "m2:quote_request"
 
 
 def test_every_email_reserves_the_extraction_while_the_setting_is_on():
-    r = next(x for x in work.recipes() if x["id"] == "processing")
-    on = work.item_budget(r, {"email_text": "extract"}, "email")
-    off = work.item_budget(r, {"email_text": "off"}, "email")
+    r = next(x for x in work_recipes.recipes() if x["id"] == "processing")
+    on = work_readiness.item_budget(r, {"email_text": "extract"}, "email")
+    off = work_readiness.item_budget(r, {"email_text": "off"}, "email")
     assert on["openai"] - off.get("openai", Decimal(0)) == Decimal("0.03") and on["jev"] == off["jev"]
-    assert work.item_budget(r, {}, "email") == on  # an older assignment counts with the default (on)
-    assert work.item_budget(r, {}, "document") == work.item_budget(r, {"email_text": "off"}, "document")
+    assert work_readiness.item_budget(r, {}, "email") == on  # an older assignment counts with the default (on)
+    assert work_readiness.item_budget(r, {}, "document") == work_readiness.item_budget(r, {"email_text": "off"}, "document")
 
 
 def test_a_run_started_before_the_setting_extracts_nothing():

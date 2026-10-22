@@ -15,7 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, corrections, item_kinds, work
+from jav import cfg, corrections, item_kinds, work_runs
 from jav.outputs import contract
 
 
@@ -27,14 +27,14 @@ def email_records(run_id: str) -> list[dict[str, Any]]:
     from jav import emails, mailbox
 
     out = []
-    items = work.released_items(work.get_run(run_id))  # 160-C: not the items removed from the package (decision 163 D7)
-    split = work.items_reasons(run_id, [i for i in items if i.get("kind") == item_kinds.EMAIL])  # 153 (review B3): one query
+    items = work_runs.released_items(work_runs.get_run(run_id))  # 160-C: not the items removed from the package (decision 163 D7)
+    split = work_runs.items_reasons(run_id, [i for i in items if i.get("kind") == item_kinds.EMAIL])  # 153 (review B3): one query
     for item in items:
         if item.get("kind") != item_kinds.EMAIL:
             continue
         path = Path(item["source_path"])
         msg, source_status = emails.message_version(item)  # 086 N04: the version the run processed, not the latest
-        raw, own = mailbox.email_result_for(work.flow_run_id(run_id, item["item_id"]), path.parent.name)
+        raw, own = mailbox.email_result_for(work_runs.flow_run_id(run_id, item["item_id"]), path.parent.name)
         corr = corrections.current(run_id, item["item_id"])
         res = mailbox.effective_email_result(raw, corr["fields"].get("intent")) if raw is not None else {}
         body = (raw or {}).get("body") if own else None
@@ -49,7 +49,7 @@ def email_records(run_id: str) -> list[dict[str, Any]]:
                     "corrected": bool(res.get("corrected")), "next_flow": res.get("next_flow"),
                     "attachments": res.get("attachments") or [], "from_this_run": own, "body": body,
                     "open_reasons": [r["reason"] for r in split[item["item_id"]]["run"]],
-                    "tasks": (mailbox.task_view(work.flow_run_id(run_id, item["item_id"]), raw, with_state=False)
+                    "tasks": (mailbox.task_view(work_runs.flow_run_id(run_id, item["item_id"]), raw, with_state=False)
                               if own else None),
                     "source_status": source_status})
     return out

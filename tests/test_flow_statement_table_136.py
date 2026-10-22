@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import reconcile, reconcile_package, statement_package, statement_table as st, store, work
+from jav import reconcile, reconcile_package, statement_package, statement_table as st, store, work, work_readiness, work_runs
 from jav.runtime import queue, worker
 from tests.test_statement_table_136 import IBAN_EUR, IBAN_HUF, _records, _workbook
 
@@ -31,9 +31,9 @@ def _package(export: Path, keys: list[str]) -> dict:
 
 
 def _run_all(wp_id: str, mode: str = "apply") -> str:
-    ready = work.readiness(wp_id)
+    ready = work_readiness.readiness(wp_id)
     assert ready["ready"], ready["blockers"]
-    run_id = work.start_run(wp_id, mode=mode, expected_assignment_revision=ready["assignment_revision"],
+    run_id = work_runs.start_run(wp_id, mode=mode, expected_assignment_revision=ready["assignment_revision"],
                             input_hash=ready["input_hash"], actor="tester")["run_id"]
     while (job := queue.claim("statement-test")) is not None:
         worker.process(job)
@@ -61,10 +61,10 @@ def test_only_the_chosen_accounts_are_written_once_each(db):
 def test_the_package_runs_free_and_its_statements_are_read_like_extracted_ones(db):
     wp = _package(_workbook(db), [HUF, EUR])
     assert [i["kind"] for i in wp["items"]] == ["statement_table", "statement_table"]
-    ready = work.readiness(wp["id"])
+    ready = work_readiness.readiness(wp["id"])
     assert ready["plan"]["statement_tables"] == 2 and not any(ready["budget"].values())
     run_id = _run_all(wp["id"])
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     assert run["status"] == "done" and {i["final_status"] for i in run["items"]} == {"done"}
     with store.connect() as c:
         rows = c.execute("SELECT d.doc_type, d.arm, d.datapoints, o.doc_type AS coarse FROM datapoints d"
@@ -72,7 +72,7 @@ def test_the_package_runs_free_and_its_statements_are_read_like_extracted_ones(d
     assert {(r["doc_type"], r["arm"], r["coarse"]) for r in rows} == {("statement_table", "code", "bank_statement")}
     huf = next(json.loads(r["datapoints"]) for r in rows if json.loads(r["datapoints"])["currency"] == "HUF")
     assert huf["opening_balance"] == "10000" and len(huf["transactions"]) == 4  # the store's money form
-    work.approve_run(run_id, actor="tester")
+    work_runs.approve_run(run_id, actor="tester")
     package = reconcile_package.create(name="Pairing", accounts=[reconcile.account_key(IBAN_HUF.replace(" ", ""))],
                                        period_start="2026-01-01", period_end="2026-03-31", actor="tester")["workpackage_id"]
     ws = reconcile_package.workspace(package)
@@ -89,9 +89,9 @@ def test_a_failed_check_and_an_unreadable_line_are_to_dos(db):
             r[3] = "n/a"
     wp = _package(_workbook(db, rows), [HUF])
     run_id = _run_all(wp["id"])
-    item = work.get_run(run_id)["items"][0]
+    item = work_runs.get_run(run_id)["items"][0]
     assert item["final_status"] == "needs_review"
-    reasons = {r["reason"] for r in work.item_reasons(run_id, item["item_id"])["run"]}
+    reasons = {r["reason"] for r in work_runs.item_reasons(run_id, item["item_id"])["run"]}
     assert "statement_table:unreadable_lines:1" in reasons
     assert any(r.startswith("validator:balance.") or r.startswith("validator:closing.") for r in reasons)
 
@@ -101,7 +101,7 @@ def test_a_statement_file_changed_after_it_was_added_fails(db):
     item = wp["items"][0]
     copy = work.source_file(item)
     copy.write_bytes(copy.read_bytes().replace(b"10000.00", b"10001.00"))
-    ready = work.readiness(wp["id"])
+    ready = work_readiness.readiness(wp["id"])
     assert not ready["ready"] and {b["code"] for b in ready["blockers"]} == {"instance_damaged"}
 
 

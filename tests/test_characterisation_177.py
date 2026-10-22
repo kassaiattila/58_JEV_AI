@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import mailbox, naming, native_results, store, work, work_views
+from jav import mailbox, naming, native_results, store, work, work_readiness, work_recipes, work_runs, work_views
 from jav.runtime import worker
 
 
@@ -74,25 +74,25 @@ def test_an_unknown_item_kind_is_refused(isolated):
 
 def test_whose_todos_an_items_todos_are(isolated):
     m = _mixed(isolated)
-    assert work.review_subject(m["mail"]) == ("email", "level")  # the message's folder name
+    assert work_runs.review_subject(m["mail"]) == ("email", "level")  # the message's folder name
     for key in ("pdf", "sheet", "table", "attachment"):
-        assert work.review_subject(m[key]) == ("document", m[key]["item_id"])
+        assert work_runs.review_subject(m[key]) == ("document", m[key]["item_id"])
 
 
 def test_the_pre_start_overview_counts_each_kind(isolated):
     m = _mixed(isolated)
     items = work.get(m["wp"]["id"])["items"]
-    plan = work.run_plan(work.recipe("processing"), {}, items, [None] * len(items))
+    plan = work_readiness.run_plan(work_recipes.recipe("processing"), {}, items, [None] * len(items))
     assert plan == {"documents": 3, "emails": 1, "statement_tables": 1, "attachments": 1,
                     "paths": {"S": 0, "G": 0, "unknown": 3}, "tasks_emails": 0, "text_emails": 1, "azure": True,
                     "jev_reuse": True, "arm": "auto", "jev": True}  # 190: text_emails
     assert list(plan) == ["documents", "emails", "statement_tables", "attachments", "paths", "tasks_emails", "text_emails",
                           "azure", "jev_reuse", "arm", "jev"]
     no_table = [i for i in items if i["kind"] != "statement_table"]
-    assert "statement_tables" not in work.run_plan(work.recipe("processing"), {}, no_table, [None] * len(no_table))
-    multi = work.recipe("multi-format-processing")
+    assert "statement_tables" not in work_readiness.run_plan(work_recipes.recipe("processing"), {}, no_table, [None] * len(no_table))
+    multi = work_recipes.recipe("multi-format-processing")
     docs = [i for i in items if i["kind"] == "document"]
-    plan = work.run_plan(multi, {}, docs, [None] * len(docs))
+    plan = work_readiness.run_plan(multi, {}, docs, [None] * len(docs))
     assert plan["native_documents"] == 1
     assert plan["item_flows"] == {m["pdf"]["item_id"]: "document", m["sheet"]["item_id"]: "native",
                                   m["attachment"]["item_id"]: "document"}
@@ -100,13 +100,13 @@ def test_the_pre_start_overview_counts_each_kind(isolated):
 
 def test_the_flow_of_each_kind_and_suffix_routing_only_for_a_document(isolated):
     m = _mixed(isolated)
-    processing, multi = work.recipe("processing"), work.recipe("multi-format-processing")
-    assert [work.flow_for(processing, m[k]) for k in ("pdf", "sheet", "table", "mail")] == \
+    processing, multi = work_recipes.recipe("processing"), work_recipes.recipe("multi-format-processing")
+    assert [work_readiness.flow_for(processing, m[k]) for k in ("pdf", "sheet", "table", "mail")] == \
         ["document", "document", "statement_table", "email"]
-    assert work.flow_for(multi, m["sheet"]) == "native"
+    assert work_readiness.flow_for(multi, m["sheet"]) == "native"
     table_xlsx = {**m["table"], "source_path": str(Path(m["table"]["source_path"]).with_suffix(".xlsx"))}
-    assert work.flow_for(multi, table_xlsx) == multi["flow"]  # a table statement is not routed by its suffix
-    assert work.flow_for(processing, "email") == "email"  # by the kind's name alone
+    assert work_readiness.flow_for(multi, table_xlsx) == multi["flow"]  # a table statement is not routed by its suffix
+    assert work_readiness.flow_for(processing, "email") == "email"  # by the kind's name alone
 
 
 def test_only_a_document_is_read_as_a_native_file(isolated):

@@ -48,7 +48,7 @@ def test_source_release_preserves_frozen_run_reference(tmp_path):
 
 
 def test_tampered_native_artifact_blocks_approval_and_cached_result(tmp_path):
-    from jav import datasets, work
+    from jav import datasets, work_runs
     from jav.tablequery import Query
 
     with store.use_store(tmp_path / "damaged.sqlite"):
@@ -63,7 +63,7 @@ def test_tampered_native_artifact_blocks_approval_and_cached_result(tmp_path):
         assert not report["ok"] and report["store_ok"] and report["removed"] == []
         assert (Path(report["dir"]) / "damaged.sqlite").is_file()
         with pytest.raises(ValueError):
-            work.approve_run(rid, actor="reviewer", review_version=version)
-        assert work.get_run(rid)["approval"] is None
+            work_runs.approve_run(rid, actor="reviewer", review_version=version)
+        assert work_runs.get_run(rid)["approval"] is None
         with pytest.raises(ValueError):
             datasets.query("native_facts", {"run_id": rid}, Query())

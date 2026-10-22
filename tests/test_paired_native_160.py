@@ -54,7 +54,7 @@ def test_the_native_facts_are_published_on_both_engines(isolated, monkeypatch, e
 @pytest.mark.parametrize("engine", ENGINES)
 def test_a_multi_format_run_finishes_on_both_engines(isolated, monkeypatch, engine):
     """Through the worker: the run's budget names only the engine's providers, and the item is not failed."""
-    from jav import work
+    from jav import work, work_readiness, work_recipes, work_runs
     from jav.readers import native, pipeline
     from jav.runtime import worker
 
@@ -65,13 +65,13 @@ def test_a_multi_format_run_finishes_on_both_engines(isolated, monkeypatch, engi
     source = isolated / "order.txt"
     source.write_text("😀 Order code: 0012\n", encoding="utf-8")
     wp = work.create_from_files([source], name="Native")
-    work.assign_recipe(wp["id"], "multi-format-processing", params={"jev": "on" if engine == "jev" else "off"},
+    work_recipes.assign_recipe(wp["id"], "multi-format-processing", params={"jev": "on" if engine == "jev" else "off"},
                        expected_revision=0, actor="t")
-    ready = work.readiness(wp["id"])
-    run_id = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"],
+    ready = work_readiness.readiness(wp["id"])
+    run_id = work_runs.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"],
                             actor="t")["run_id"]
     assert calls.has_budget(run_id, "jev") is (engine == "jev") and calls.has_budget(run_id, "openai")
     assert worker.run_worker(once=True)["results"] == {"done": 1}
-    (item,) = work.get_run(run_id)["items"]
+    (item,) = work_runs.get_run(run_id)["items"]
     assert item["final_status"] in ("done", "needs_review")
     assert (client.calls > 0) is (engine == "jev")

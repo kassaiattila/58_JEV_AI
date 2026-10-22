@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import email_routing, logic_packs, package_scope, parties, registrations, store, work, workflow_steps
+from jav import email_routing, logic_packs, package_scope, parties, registrations, store, work, work_runs, workflow_steps
 from jav.mailbox import SUSPICIOUS_ATTACHMENT
 from jav.models import account_key
 
@@ -73,7 +73,7 @@ def _mailbox(root: Path, mails: dict[str, tuple[str, str]]) -> tuple[str, dict[s
 def _result(wp_id: str, doc_id: str, doc_type: str, values: dict, *, suspicious: bool = False) -> None:
     """A finished live run of the email package that read the attachment (as the worker would store it)."""
     run_id = f"run-{doc_id[:12]}"
-    flow = work.flow_run_id(run_id, doc_id)
+    flow = work_runs.flow_run_id(run_id, doc_id)
     with store.connect() as c:
         c.execute("INSERT INTO runs(run_id, workpackage_id, dedup_key, mode, assignment_revision, recipe_id, recipe_version,"
                   " recipe_hash, recipe, params, input, input_hash, status, approval, actor, created_at)"

@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, reconcile, reconcile_package as rp, store, work
+from jav import api, reconcile, reconcile_package as rp, store, work, work_runs
 from tests import test_reconcile_k2_129 as k2
 from tests.test_supersede_runs_151 import runs  # noqa: F401 - the shared fixture: one package, an older and a newer live run
 
@@ -26,10 +26,10 @@ def test_a_run_with_an_unfinished_input_item_is_not_approved(runs, monkeypatch):
         with store.connect() as c:
             c.execute("UPDATE review_reasons SET status='resolved'")
             c.execute("UPDATE run_items SET status='failed' WHERE run_id=? AND item_id=?", (runs["newer"], runs["items"][0]))
-        monkeypatch.setattr(work, "refresh_run_status", lambda run_id: "done")  # as if its status said otherwise
+        monkeypatch.setattr(work_runs, "refresh_run_status", lambda run_id: "done")  # as if its status said otherwise
         with pytest.raises(work.NotReady):
-            work.approve_run(runs["newer"], actor="teszt.elek")
-        assert work.get_run(runs["newer"])["approval"] is None
+            work_runs.approve_run(runs["newer"], actor="teszt.elek")
+        assert work_runs.get_run(runs["newer"])["approval"] is None
 
 
 # --- the reconciliation's money guards -------------------------------------------------------------------------------------

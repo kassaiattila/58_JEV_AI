@@ -3,7 +3,7 @@
 Nothing new is stored: the view is read from what every paid call already leaves behind.
 
 - The call log (`invocations`, `jav/runtime/calls.py`): every paid call of a run (its budget scope) with its provider,
-  model, state and cost. A document flow's call carries the item's flow identifier (`<run>:<item16>`, `work.flow_run_id`);
+  model, state and cost. A document flow's call carries the item's flow identifier (`<run>:<item16>`, `work_runs.flow_run_id`);
   an Azure recognition carries the run and the document's fingerprint in its step (`azure_di:ocr:<sha16>`), and a
   document's identifier is its content fingerprint.
 - The ledger (`ledger`): also the questions answered from an earlier answer (an earlier JEV answer, the text of an
@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
-from jav import store, work
+from jav import store, work, work_runs
 from jav.runtime import calls
 
 AZURE_STEP = "azure_di:ocr:"
@@ -151,7 +151,7 @@ def _collect(run_id: str) -> dict[str | None, dict[tuple[str, str], Line]]:
 
 def run_costs(run_id: str) -> RunCosts:
     """The run's cost per item (every item of the run, an item without calls with no lines) and in total."""
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     by_short = {i["item_id"][:16]: i["item_id"] for i in run["input"]["items"]}
     out = RunCosts(run_id=run_id, items={i: Summary() for i in by_short.values()})
     other: dict[tuple[str, str], Line] = {}
@@ -180,7 +180,7 @@ def package_costs(wp_id: str) -> PackageCosts:
     """The package's cost over all its runs."""
     work.get(wp_id)  # unknown package: KeyError
     runs = []
-    for r in work.run_rows(wp_id):
+    for r in work_runs.run_rows(wp_id):
         total = run_total(r["run_id"])
         runs.append(RunTotal(total.lines, run_id=r["run_id"], created_at=r["created_at"], mode=r["mode"], status=r["status"]))
     out = PackageCosts(workpackage_id=wp_id, runs=runs)
@@ -205,7 +205,7 @@ def run_usd(run_ids: list[str]) -> dict[str, Decimal]:
 
 
 def expected_providers(plan: dict[str, Any]) -> dict[str, str]:
-    """What the pre-start overview (`work.run_plan`) said about each provider: `yes` (it will be called), `maybe` (it
+    """What the pre-start overview (`work_readiness.run_plan`) said about each provider: `yes` (it will be called), `maybe` (it
     may be called, e.g. a document whose type is not known yet may need GPT) or `no`. 160 (plan F-csak-gpt, L3): a run
     without JEV (`jev` false; an overview saved before 086 has no such key and had JEV) never calls JEV, and GPT
     recognises every document's type and every email's intent."""
@@ -225,7 +225,7 @@ def plan_vs_actual(run_id: str) -> dict[str, Any]:
     calls and cost (models included). `unexpected`: the provider was called although the overview did not count on it.
     A run started before the overview was saved (`plan_saved` false) shows the actual part only. `total`: the run's
     actual cost over every provider (083), with the reserved amount of the calls without a known cost kept apart."""
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     plan = run.get("plan")
     expected = expected_providers(plan) if plan else {}
     budget = calls.budget_usage(run_id)["providers"]

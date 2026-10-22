@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import parties, reconcile, statement_package as sp, statement_table as st, store, work
+from jav import parties, reconcile, statement_package as sp, statement_table as st, store, work, work_readiness, work_runs
 from jav.runtime import queue, worker
 from tests import test_api
 from tests.test_flow_statement_table_136 import _run_all
@@ -180,12 +180,12 @@ def test_an_approved_live_run_gives_an_account_no_party_holds_to_the_packages_pa
     party = _party()
     wp = _package(db, party)
     run_id = _run_all(wp)
-    assert work.get_run(run_id)["status"] in ("done", "needs_review")  # May's unchecked balances stay its own to-do
+    assert work_runs.get_run(run_id)["status"] in ("done", "needs_review")  # May's unchecked balances stay its own to-do
     assert parties.resolver().account(OWN_KEY) is None
     assert not [e for e in work.workpackage_events(wp) if e["action"] == "statement_account"]
     with store.connect() as c:  # a person closes the run's to-dos, then approves it
         c.execute("UPDATE review_reasons SET status='resolved' WHERE substr(run_id, 1, ?) = ?", (len(run_id) + 1, run_id + ":"))
-    work.approve_run(run_id, actor="approver")
+    work_runs.approve_run(run_id, actor="approver")
     assert parties.resolver().account(OWN_KEY) == party
     event = next(e for e in work.workpackage_events(wp) if e["action"] == "statement_account")
     detail = json.loads(event["detail"]) if isinstance(event["detail"], str) else event["detail"]
@@ -208,7 +208,7 @@ def test_the_approval_reads_the_approved_runs_statements_not_a_later_reading(db)
                                 field_conf={}, validation=[], route="auto", review_reasons=[], final_status="done")
     with store.connect() as c:
         c.execute("UPDATE review_reasons SET status='resolved' WHERE substr(run_id, 1, ?) = ?", (len(run_id) + 1, run_id + ":"))
-    work.approve_run(run_id, actor="approver")
+    work_runs.approve_run(run_id, actor="approver")
     assert parties.resolver().account(OWN_KEY) == party
     assert parties.resolver().account(reconcile.account_key(other)) is None
 
@@ -224,10 +224,10 @@ def test_another_partys_account_is_a_to_do_and_stays_where_it_is(db):
     parties.assign("account", OWN_KEY, OWN, other, actor="tester")
     run_id = _run_all(_package(db, party))
     assert parties.resolver().account(OWN_KEY) == other
-    reasons = {r["reason"] for item in work.get_run(run_id)["items"]
-               for r in work.item_reasons(run_id, item["item_id"])["run"]}
+    reasons = {r["reason"] for item in work_runs.get_run(run_id)["items"]
+               for r in work_runs.item_reasons(run_id, item["item_id"])["run"]}
     assert f"statements:other_party:{other}" in reasons
-    assert all(item["final_status"] == "needs_review" for item in work.get_run(run_id)["items"])
+    assert all(item["final_status"] == "needs_review" for item in work_runs.get_run(run_id)["items"])
 
 
 def _fake_stages(monkeypatch, detail: str | None, coarse: str) -> list[str]:
@@ -254,19 +254,19 @@ def _run_pdf(db: Path, monkeypatch, detail: str | None, coarse: str) -> tuple[st
     wp = sp.create(name="PDF", party_id=party, period_start="2026-05-01", period_end="2026-06-30", paths=[pdf],
                    statements=[], pdfs=[survey["pdfs"][0]["path"]], actor="tester")["workpackage_id"]
     flows = _fake_stages(monkeypatch, detail, coarse)
-    ready = work.readiness(wp)
-    run_id = work.start_run(wp, mode="apply", expected_assignment_revision=0, input_hash=ready["input_hash"],
+    ready = work_readiness.readiness(wp)
+    run_id = work_runs.start_run(wp, mode="apply", expected_assignment_revision=0, input_hash=ready["input_hash"],
                             actor="tester")["run_id"]
     while (job := queue.claim("statement-package-test")) is not None:
         worker.process(job)
-    [item] = work.get_run(run_id)["items"]
+    [item] = work_runs.get_run(run_id)["items"]
     return run_id, flows, item
 
 
 def test_a_pdf_that_is_not_a_bank_statement_stops_after_its_type_with_a_to_do(db, monkeypatch):
     run_id, flows, item = _run_pdf(db, monkeypatch, "invoice_hu", "invoice_hu")
     assert flows == ["doc_detect"] and item["final_status"] == "needs_review"
-    reasons = [r["reason"] for r in work.item_reasons(run_id, item["item_id"])["run"]]
+    reasons = [r["reason"] for r in work_runs.item_reasons(run_id, item["item_id"])["run"]]
     assert reasons == ["statements:not_a_statement:invoice_hu"]
 
 
@@ -285,8 +285,8 @@ def test_the_same_pdf_in_an_ordinary_package_is_not_stopped(db, monkeypatch):
     pdf.write_text("a PDF", encoding="utf-8")
     wp = work.create_from_files([pdf], name="Files")
     flows = _fake_stages(monkeypatch, "invoice_hu", "invoice_hu")
-    ready = work.readiness(wp["id"])
-    work.start_run(wp["id"], mode="apply", expected_assignment_revision=0, input_hash=ready["input_hash"], actor="tester")
+    ready = work_readiness.readiness(wp["id"])
+    work_runs.start_run(wp["id"], mode="apply", expected_assignment_revision=0, input_hash=ready["input_hash"], actor="tester")
     while (job := queue.claim("statement-package-test")) is not None:
         worker.process(job)
     assert flows == ["doc_detect", "invoice"]

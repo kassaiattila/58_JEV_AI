@@ -330,7 +330,7 @@ def resolve_arm(doc_type: str, preferred: str) -> str:
     """The type's actual path: the requested path if the pack supports it; otherwise the pack's first path (047: packs
     converted from legacy types run with the G path only). `auto` (053 T3): the pack's recommended path
     (`default_arm`), failing that its first path. The shared rule of the worker (`runtime/worker.arm_for`) and of the
-    run's budget reservation (`work.run_budget`, 065)."""
+    run's budget reservation (`work_readiness.run_budget`, 065)."""
     pack = get(doc_type)
     if preferred == "auto":
         return pack.default_arm or pack.arms[0]

@@ -7,7 +7,7 @@ unexpected. Synthetic call-log rows, no paid call.
 
 from decimal import Decimal
 
-from jav import costs, work
+from jav import costs, work_runs
 from tests import test_api, test_cost_view_082
 from tests.test_api import HUMAN, _start
 
@@ -25,7 +25,7 @@ def _run_without_jev(c, folder) -> tuple[str, str]:
 
 def test_a_run_without_jev_expects_openai_and_not_jev(env):
     run_id, item = _run_without_jev(env["client"], env["folder"])
-    assert work.get_run(run_id)["plan"]["jev"] is False
+    assert work_runs.get_run(run_id)["plan"]["jev"] is False
     test_cost_view_082._call(run_id, item, "openai", "gpt-4.1-mini", cost="0.001000")
     rows = {r["provider"]: r for r in costs.plan_vs_actual(run_id)["providers"]}
     assert rows["openai"]["expected"] == "yes" and not rows["openai"]["unexpected"]

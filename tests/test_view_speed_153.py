@@ -12,7 +12,7 @@ import sqlite3
 
 import pytest
 
-from jav import store, work, work_views
+from jav import store, work_readiness, work_runs, work_views
 from tests.test_supersede_runs_151 import runs  # noqa: F401 - the shared fixture: one package, an older and a newer live run
 
 
@@ -43,7 +43,7 @@ def test_a_view_opens_one_connection(runs, connections, view):  # noqa: F811
             work_views.run_list(None)
             work_views.run_list(runs["wp"])
         else:
-            work.readiness(runs["wp"])
+            work_readiness.readiness(runs["wp"])
     assert len(connections) <= (2 if view == "run_list" else 1), connections
 
 
@@ -51,9 +51,9 @@ def test_a_runs_open_to_dos_count_only_its_own_items(runs):  # noqa: F811
     """The range `<run>:` .. `<run>;` takes the run's item flow ids only, not a run whose id starts the same."""
     with store.use_store(runs["db"]):
         longer = runs["older"] + "0"  # an id that extends the older run's id
-        store.review_enqueue(subject_kind="document", subject_id="x", run_id=work.flow_run_id(longer, "abc"),
+        store.review_enqueue(subject_kind="document", subject_id="x", run_id=work_runs.flow_run_id(longer, "abc"),
                              reasons=["pick:seller_name"], producer="m2")
-        rows = {r["run_id"]: r["open_reasons"] for r in work.run_rows(runs["wp"])}
+        rows = {r["run_id"]: r["open_reasons"] for r in work_runs.run_rows(runs["wp"])}
         assert rows == {runs["older"]: 2, runs["newer"]: 1}
         with store.connect() as c:
             plan = " ".join(r["detail"] for r in c.execute(

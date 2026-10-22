@@ -20,7 +20,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import Response
 from pydantic import Field
 
-from jav import app_settings, local_picker, package_scope, work, work_views
+from jav import app_settings, local_picker, package_scope, work, work_recipes, work_views
 from jav.api import Empty, IsoDay, ItemId, PartyId, Revision, WpId, _In, checked_path, human_actor
 from jav.user_messages import explained
 
@@ -105,7 +105,7 @@ def routes(app: FastAPI, r: str) -> None:
         # 063: recipe explanations; 080: the titles of every recipe (an old run or a package not yet migrated shows its
         # recipe's title, although only the active processing is offered)
         return {"recipes": work_views.recipe_catalog(), "help": work_views.recipe_help(),
-                "titles": {r["id"]: r["title"] for r in work.recipes()}}
+                "titles": {r["id"]: r["title"] for r in work_recipes.recipes()}}
 
     @app.get(r + "/workpackages")
     def workpackages(include_archived: bool = False, brief: bool = False) -> dict[str, Any]:

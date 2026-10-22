@@ -15,7 +15,7 @@ from typing import Annotated, Any, Literal
 from fastapi import Depends, FastAPI, Query
 from pydantic import Field
 
-from jav import work, work_views
+from jav import work_readiness, work_recipes, work_runs, work_views
 from jav.api import Empty, JavJSONResponse, RunId, Text, WpId, _In, human_actor
 
 
@@ -53,20 +53,20 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/workpackages/{wp_id}/workflow")
     def save_workflow(wp_id: WpId, body: SaveWorkflow, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        work.assign_recipe(wp_id, body.recipe_id, params=dict(body.params), expected_revision=body.expected_revision,
+        work_recipes.assign_recipe(wp_id, body.recipe_id, params=dict(body.params), expected_revision=body.expected_revision,
                            actor=who, note=body.note)
         return work_views.assignment_view(wp_id)
 
     @app.get(r + "/workpackages/{wp_id}/workflow/readiness")
     def readiness(wp_id: WpId) -> dict[str, Any]:
-        return work_views.jsonable(work.readiness(wp_id))
+        return work_views.jsonable(work_readiness.readiness(wp_id))
 
     @app.post(r + "/workpackages/{wp_id}/workflow/start")
     def start(wp_id: WpId, body: StartRun, who: Annotated[str, Depends(human_actor)]) -> JavJSONResponse:
-        res = work.start_run(wp_id, mode=body.mode, expected_assignment_revision=body.expected_revision,
+        res = work_runs.start_run(wp_id, mode=body.mode, expected_assignment_revision=body.expected_revision,
                              input_hash=body.input_hash, actor=who, rerun_of=body.rerun_of,
                              scope=body.scope)
-        run = work.get_run(res["run_id"])
+        run = work_runs.get_run(res["run_id"])
         return JavJSONResponse({**res, "status": run["status"]}, status_code=200 if res["deduped"] else 201)
 
     @app.get(r + "/workpackages/{wp_id}/runs")
@@ -90,16 +90,16 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.post(r + "/runs/{run_id}/cancel")
     def cancel(run_id: RunId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        work.get_run(run_id)
-        return {"run_id": run_id, "jobs": work.cancel_run(run_id, actor=who), "status": work.get_run(run_id)["status"]}
+        work_runs.get_run(run_id)
+        return {"run_id": run_id, "jobs": work_runs.cancel_run(run_id, actor=who), "status": work_runs.get_run(run_id)["status"]}
 
     @app.post(r + "/runs/{run_id}/supersede")
     def supersede(run_id: RunId, body: Empty, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        """151: a person supersedes an older live run that a later live run has repeated (`work.supersede_run`)."""
-        out = work.supersede_run(run_id, actor=who)
-        return {**out, "status": work.get_run(run_id)["status"]}
+        """151: a person supersedes an older live run that a later live run has repeated (`work_runs.supersede_run`)."""
+        out = work_runs.supersede_run(run_id, actor=who)
+        return {**out, "status": work_runs.get_run(run_id)["status"]}
 
     @app.post(r + "/runs/{run_id}/approve")
     def approve(run_id: RunId, body: Approve, who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        work.approve_run(run_id, actor=who, review_version=body.review_version, confirm_removed=body.confirm_removed)
+        work_runs.approve_run(run_id, actor=who, review_version=body.review_version, confirm_removed=body.confirm_removed)
         return work_views.run_view(run_id)

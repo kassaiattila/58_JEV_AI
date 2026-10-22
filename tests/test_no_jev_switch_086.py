@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import detect_gpt, extract_llm, flow_email, store, typepack, work
+from jav import detect_gpt, extract_llm, flow_email, store, typepack, work, work_readiness, work_recipes, work_runs
 from jav.adapters import jev as jev_mod
 from jav.emails import Attachment, EmailMessage
 from jav.runtime import calls, worker
@@ -37,7 +37,7 @@ def isolated(tmp_path: Path):
 
 
 def _recipe():
-    return work.recipe("processing")
+    return work_recipes.recipe("processing")
 
 
 # --- the setting and the budget ---------------------------------------------------------------------------
@@ -50,17 +50,17 @@ def test_the_processing_has_a_jev_switch_on_by_default():
 
 def test_without_jev_a_document_has_no_jev_budget_and_an_openai_budget_for_recognition_too():
     r = _recipe()
-    on = work.item_budget(r, {"arm": "auto", "azure_ocr": "off"}, "document")
-    off = work.item_budget(r, {"arm": "auto", "azure_ocr": "off", "jev": "off"}, "document")
+    on = work_readiness.item_budget(r, {"arm": "auto", "azure_ocr": "off"}, "document")
+    off = work_readiness.item_budget(r, {"arm": "auto", "azure_ocr": "off", "jev": "off"}, "document")
     assert "jev" in on and "jev" not in off
     assert off["openai"] == on["openai"] + Decimal("0.07")  # the two GPT type questions (worst case)
 
 
 def test_without_jev_an_email_has_no_jev_budget_only_openai_for_the_gpt_intent():
-    off = work.item_budget(_recipe(), {"arm": "auto", "jev": "off", "tasks": "off", "email_text": "off"}, "email")
+    off = work_readiness.item_budget(_recipe(), {"arm": "auto", "jev": "off", "tasks": "off", "email_text": "off"}, "email")
     assert off == {"openai": Decimal("0.07")}  # 089: GPT recognises the intent (tests/test_gpt_intent_089.py)
     # 190: with the extraction of a quote request written in the email (the default), one more GPT request
-    text = work.item_budget(_recipe(), {"arm": "auto", "jev": "off", "tasks": "off"}, "email")
+    text = work_readiness.item_budget(_recipe(), {"arm": "auto", "jev": "off", "tasks": "off"}, "email")
     assert text == {"openai": Decimal("0.10")}
 
 
@@ -73,9 +73,9 @@ def test_without_jev_a_known_s_type_document_is_planned_on_the_g_path(isolated):
     store.upsert_document(doc_id=item["sha256"], source_path=item["source_path"], has_text=True, page_count=1, year=2026,
                           doc_type="invoice_hu", detail_type="invoice_hu", run_id="earlier")  # detected earlier: an S type
     r, params = _recipe(), {"arm": "S", "jev": "off", "azure_ocr": "off"}
-    plan = work.run_plan(r, params, wp["items"])
+    plan = work_readiness.run_plan(r, params, wp["items"])
     assert plan["paths"] == {"S": 0, "G": 1, "unknown": 0} and plan["jev"] is False
-    budget = work.run_budget(r, params, wp["items"])
+    budget = work_readiness.run_budget(r, params, wp["items"])
     assert "jev" not in budget and budget["openai"] > 0
 
 
@@ -84,7 +84,7 @@ def test_with_jev_the_plan_says_so(isolated):
     folder.mkdir()
     write_text_pdf(folder / "szamla.pdf", INVOICE_LINES)
     wp = work.create_from_folder(folder, name="Proba")
-    assert work.run_plan(_recipe(), {"arm": "auto"}, wp["items"])["jev"] is True
+    assert work_readiness.run_plan(_recipe(), {"arm": "auto"}, wp["items"])["jev"] is True
 
 
 # --- the worker's stages ----------------------------------------------------------------------------------
@@ -104,13 +104,13 @@ def test_without_jev_a_whole_document_runs_with_gpt_only(tmp_path):
     with store.use_store(tmp_path / "w.sqlite"), jev_mod.use_adapter(_NoJev()), detect_gpt.use_agent_factory(_detector), \
             extract_llm.use_agent_factory(lambda pack: _FakeExtractor(pack, GOOD)):
         wp = work.create_from_folder(folder, name="JEV nelkul")
-        work.assign_recipe(wp["id"], "processing", params={"arm": "auto", "jev": "off", "azure_ocr": "off"},
+        work_recipes.assign_recipe(wp["id"], "processing", params={"arm": "auto", "jev": "off", "azure_ocr": "off"},
                            expected_revision=0, actor="t")
-        r = work.readiness(wp["id"])
-        run_id = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")["run_id"]
+        r = work_readiness.readiness(wp["id"])
+        run_id = work_runs.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")["run_id"]
         assert not calls.has_budget(run_id, "jev") and calls.has_budget(run_id, "openai")
         info = worker.run_worker(once=True)
-        run = work.get_run(run_id)
+        run = work_runs.get_run(run_id)
         assert info["results"] == {"done": 1}, run["items"]
         assert run["items"][0]["final_status"] in ("done", "needs_review")
         providers = {j["provider"] for j in calls.scope_journal(run_id)}

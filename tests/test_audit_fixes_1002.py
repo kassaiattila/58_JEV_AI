@@ -15,7 +15,7 @@ import json
 
 import pytest
 
-from jav import corrections, email_export, email_tasks, emails, ingest_server, mailbox, store, work, work_views
+from jav import corrections, email_export, email_tasks, emails, ingest_server, mailbox, store, work, work_readiness, work_recipes, work_runs, work_views
 from jav.runtime import worker
 from tests.test_email_results import _fake_tasks
 from tests.test_mailbox import MAILS, REQ, FakeBridge, env  # noqa: F401 - `env` is a fixture
@@ -25,16 +25,16 @@ def _reviewed_email(env, monkeypatch):  # noqa: F811 - the fixture's value
     monkeypatch.setattr(email_tasks, "extract", _fake_tasks)
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
-    work.assign_recipe(wp_id, "processing", params={"tasks": "propose"}, expected_revision=1, actor="t")
-    ready = work.readiness(wp_id)
-    run_id = work.start_run(wp_id, mode="apply", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
+    work_recipes.assign_recipe(wp_id, "processing", params={"tasks": "propose"}, expected_revision=1, actor="t")
+    ready = work_readiness.readiness(wp_id)
+    run_id = work_runs.start_run(wp_id, mode="apply", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
     worker.run_worker(once=True)
-    item = next(i for i in work.get_run(run_id)["input"]["items"]
+    item = next(i for i in work_runs.get_run(run_id)["input"]["items"]
                 if corrections.item_result(run_id, i["item_id"])["email"]["subject"] == "Kérdés")
     mailbox.decide_task(run_id, item["item_id"], 0, decision="accepted", actor="t")
-    for i in work.get_run(run_id)["input"]["items"]:
-        for reason in work.item_reasons(run_id, i["item_id"], i)["run"]:
-            work.resolve_reason(reason["id"], actor="t", resolution=None, note="Synthetic review")
+    for i in work_runs.get_run(run_id)["input"]["items"]:
+        for reason in work_runs.item_reasons(run_id, i["item_id"], i)["run"]:
+            work_runs.resolve_reason(reason["id"], actor="t", resolution=None, note="Synthetic review")
     return run_id, item
 
 
@@ -47,8 +47,8 @@ def test_a_changed_task_decision_changes_the_review_version(env, monkeypatch):  
     mailbox.decide_task(run_id, item["item_id"], 0, decision="rejected", actor="second reviewer")
     assert corrections.review_version(run_id) != seen
     with pytest.raises(work.RevisionConflict):
-        work.approve_run(run_id, actor="first reviewer", review_version=seen)
-    assert work.get_run(run_id)["approval"] is None
+        work_runs.approve_run(run_id, actor="first reviewer", review_version=seen)
+    assert work_runs.get_run(run_id)["approval"] is None
 
 
 def test_a_run_without_task_decisions_keeps_its_review_version(env, monkeypatch):  # noqa: F811
@@ -70,14 +70,14 @@ def test_a_task_decision_cannot_be_written_after_a_concurrent_approval(env, monk
 
     def approve_after_the_check(*args, **kwargs):  # the approval lands between the first check and the write
         if not approved:
-            approved.append(work.approve_run(run_id, actor="other reviewer")["approval"])
+            approved.append(work_runs.approve_run(run_id, actor="other reviewer")["approval"])
         return real(*args, **kwargs)
 
     monkeypatch.setattr(mailbox, "task_view", approve_after_the_check)
     with pytest.raises(work.RevisionConflict):
         mailbox.decide_task(run_id, item["item_id"], 0, decision="rejected", actor="t")
     assert approved == ["approved"]
-    flow_id = work.flow_run_id(run_id, item["item_id"])
+    flow_id = work_runs.flow_run_id(run_id, item["item_id"])
     assert store.email_task_decisions(flow_id)[0]["decision"] == "accepted"  # the approved decision stands
 
 
@@ -95,7 +95,7 @@ def test_a_result_table_carries_the_version_it_shows(env, monkeypatch):  # noqa:
     newer = datasets.query("emails", {"run_id": run_id}, Query())
     assert newer["review_version"] == corrections.review_version(run_id) != page["review_version"]
     with pytest.raises(work.RevisionConflict):  # the version of the table seen before the change is not approved
-        work.approve_run(run_id, actor="t", review_version=page["review_version"])
+        work_runs.approve_run(run_id, actor="t", review_version=page["review_version"])
     assert "review_version" not in datasets.query("workpackages", None, Query())
 
 
@@ -112,14 +112,14 @@ def _reingest_changed(env):  # noqa: F811
 def test_an_approved_email_run_keeps_showing_the_email_it_processed(env, monkeypatch):  # noqa: F811
     run_id, item = _reviewed_email(env, monkeypatch)
     original = corrections.item_result(run_id, item["item_id"])["email"]
-    work.approve_run(run_id, actor="t", review_version=corrections.review_version(run_id))
+    work_runs.approve_run(run_id, actor="t", review_version=corrections.review_version(run_id))
     _reingest_changed(env)
     shown = corrections.item_result(run_id, item["item_id"])["email"]
     assert (shown["subject"], shown["body"]) == (original["subject"], original["body"]) == ("Kérdés", "Mikor érkezik a szerződés?")
     assert shown["source_status"] == "earlier"  # the email changed later; this is the version the run processed
     record = next(r for r in email_export.email_records(run_id) if r["item_id"] == item["item_id"])
     assert record["subject"] == "Kérdés" and record["source_status"] == "earlier"
-    assert work_views.item_titles(work.get_run(run_id)["input"]["items"])[item["item_id"]].startswith("Kérdés")
+    assert work_views.item_titles(work_runs.get_run(run_id)["input"]["items"])[item["item_id"]].startswith("Kérdés")
 
 
 def test_a_missing_email_version_is_reported_not_replaced(env, monkeypatch):  # noqa: F811

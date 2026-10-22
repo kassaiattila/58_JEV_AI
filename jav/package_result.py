@@ -29,7 +29,7 @@ from jav import store
 TIERS = ("measurement", "trial", "live", "approved")  # in rising order; a measurement: a command-line result (174)
 
 # The tier of a finished run item: approved live (2) > live (1) > trial (0). Of equal tiers the run started later
-# counts, and of runs started at the same moment the one stored later (the order `work.item_states` used since 168).
+# counts, and of runs started at the same moment the one stored later (the order `work_runs.item_states` used since 168).
 _COUNTED = """
 SELECT item_id, final_status, flow_run_id, run_id, mode, approval, created_at FROM (
     SELECT ri.item_id, ri.final_status, ri.flow_run_id, r.run_id, r.mode, r.approval, r.created_at,

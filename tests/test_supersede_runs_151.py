@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, store, work, work_views
+from jav import api, store, work, work_readiness, work_recipes, work_runs, work_views
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 
@@ -20,9 +20,9 @@ def _finish(run_id: str) -> None:
     """Marks every job and item of the run finished (the worker is not run: the reasons are raised directly)."""
     with store.connect() as c:
         c.execute("UPDATE jobs SET status='done' WHERE run_id=?", (run_id,))
-    for i in work.get_run(run_id)["input"]["items"]:
-        work.record_item_result(run_id, i["item_id"], status="done")
-    work.refresh_run_status(run_id)
+    for i in work_runs.get_run(run_id)["input"]["items"]:
+        work_runs.record_item_result(run_id, i["item_id"], status="done")
+    work_runs.refresh_run_status(run_id)
 
 
 @pytest.fixture()
@@ -35,16 +35,16 @@ def runs(tmp_path: Path):
         write_text_pdf(folder / "a.pdf", INVOICE_LINES)
         write_text_pdf(folder / "b.pdf", [line.replace("MINTA-2026-001", "MINTA-2026-002") for line in INVOICE_LINES])
         wp = work.create_from_folder(folder, name="Synthetic package")
-        work.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=0, actor="t")
-        ready = work.readiness(wp["id"])
+        work_recipes.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=0, actor="t")
+        ready = work_readiness.readiness(wp["id"])
         start = {"expected_assignment_revision": 1, "input_hash": ready["input_hash"], "actor": "t"}
-        older = work.start_run(wp["id"], mode="apply", **start)["run_id"]
+        older = work_runs.start_run(wp["id"], mode="apply", **start)["run_id"]
         _finish(older)
-        newer = work.start_run(wp["id"], mode="apply", rerun_of=older, **start)["run_id"]
-        items = [i["item_id"] for i in work.get_run(older)["input"]["items"]]
+        newer = work_runs.start_run(wp["id"], mode="apply", rerun_of=older, **start)["run_id"]
+        items = [i["item_id"] for i in work_runs.get_run(older)["input"]["items"]]
 
         def raise_reason(run_id: str, item: str, reason: str) -> None:
-            store.review_enqueue(subject_kind="document", subject_id=item, run_id=work.flow_run_id(run_id, item),
+            store.review_enqueue(subject_kind="document", subject_id=item, run_id=work_runs.flow_run_id(run_id, item),
                                  reasons=[reason], producer="m2")
 
         raise_reason(older, items[0], "pick:seller_name")
@@ -63,15 +63,15 @@ def _open(run_id: str) -> list[str]:
 
 
 def test_an_older_live_run_offers_superseding_by_the_later_one(runs):
-    offer = work.supersede_info(runs["older"])
+    offer = work_runs.supersede_info(runs["older"])
     assert offer == {"by": runs["newer"], "open_reasons": 2, "resolved_reasons": 0, "corrected_items": 0}
-    assert work.supersede_info(runs["newer"]) is None  # nothing later covers the latest run
+    assert work_runs.supersede_info(runs["newer"]) is None  # nothing later covers the latest run
 
 
 def test_superseding_closes_only_the_older_runs_reasons(runs):
-    out = work.supersede_run(runs["older"], actor="teszt.elek")
+    out = work_runs.supersede_run(runs["older"], actor="teszt.elek")
     assert out == {"run_id": runs["older"], "superseded_by": runs["newer"], "reasons_closed": 2}
-    assert work.get_run(runs["older"])["status"] == "cancelled"
+    assert work_runs.get_run(runs["older"])["status"] == "cancelled"
     assert _open(runs["older"]) == []
     assert _open(runs["newer"]) == ["pick:seller_name"]  # the later run's own reason stays open
     with store.connect() as c:
@@ -86,7 +86,7 @@ def test_superseding_closes_only_the_older_runs_reasons(runs):
 def test_the_later_runs_page_no_longer_lists_the_superseded_reasons(runs):
     before = work_views.run_view(runs["newer"])["earlier_open_reasons"]
     assert sum(len(v) for v in before.values()) == 2
-    work.supersede_run(runs["older"], actor="teszt.elek")
+    work_runs.supersede_run(runs["older"], actor="teszt.elek")
     after = work_views.run_view(runs["newer"])
     assert after["earlier_open_reasons"] == {}
     assert after["supersede"] is None
@@ -102,32 +102,32 @@ def test_human_work_on_the_older_run_is_reported_before_superseding(runs):
         c.execute("INSERT INTO run_item_corrections(run_id, item_id, revision, fields, actor, created_at)"
                   " VALUES (?,?,1,'{}','teszt.elek','2026-10-12T00:00:00+00:00')", (runs["older"], item))
         rid = c.execute("SELECT id FROM review_reasons WHERE status='open' AND run_id=?",
-                        (work.flow_run_id(runs["older"], item),)).fetchone()["id"]
-    work.resolve_reason(rid, actor="teszt.elek", resolution=None, note="fine")
-    offer = work.supersede_info(runs["older"])
+                        (work_runs.flow_run_id(runs["older"], item),)).fetchone()["id"]
+    work_runs.resolve_reason(rid, actor="teszt.elek", resolution=None, note="fine")
+    offer = work_runs.supersede_info(runs["older"])
     assert offer["corrected_items"] == 1 and offer["resolved_reasons"] == 1 and offer["open_reasons"] == 1
 
 
 def test_only_an_unapproved_finished_live_run_with_a_later_cover_can_be_superseded(runs):
-    trial = work.start_run(runs["wp"], mode="shadow", **runs["start"])["run_id"]
+    trial = work_runs.start_run(runs["wp"], mode="shadow", **runs["start"])["run_id"]
     _finish(trial)
-    assert work.supersede_info(trial) is None  # the latest run: nothing later covers it (200: trials, test_supersede_trial_200)
+    assert work_runs.supersede_info(trial) is None  # the latest run: nothing later covers it (200: trials, test_supersede_trial_200)
     with pytest.raises(work.NotReady):
-        work.supersede_run(trial, actor="t")
+        work_runs.supersede_run(trial, actor="t")
     with store.connect() as c:  # the later run still running: it covers nothing yet
         c.execute("UPDATE runs SET status='running' WHERE run_id=?", (runs["newer"],))
-    assert work.supersede_info(runs["older"]) is None
+    assert work_runs.supersede_info(runs["older"]) is None
     with store.connect() as c:  # the later run cancelled: it covers nothing either
         c.execute("UPDATE runs SET status='cancelled' WHERE run_id=?", (runs["newer"],))
-    assert work.supersede_info(runs["older"]) is None
+    assert work_runs.supersede_info(runs["older"]) is None
     with pytest.raises(work.NotReady):
-        work.supersede_run(runs["older"], actor="t")
+        work_runs.supersede_run(runs["older"], actor="t")
     with store.connect() as c:
         c.execute("UPDATE runs SET status='done' WHERE run_id=?", (runs["newer"],))
         c.execute("UPDATE runs SET approval='approved', approved_by='t' WHERE run_id=?", (runs["older"],))
-    assert work.supersede_info(runs["older"]) is None  # an approved run stays
+    assert work_runs.supersede_info(runs["older"]) is None  # an approved run stays
     with pytest.raises(work.NotReady):
-        work.supersede_run(runs["older"], actor="t")
+        work_runs.supersede_run(runs["older"], actor="t")
 
 
 def test_a_later_run_on_fewer_items_does_not_supersede(runs):
@@ -136,7 +136,7 @@ def test_a_later_run_on_fewer_items_does_not_supersede(runs):
         snapshot = json.loads(row["input"])
         snapshot["items"] = snapshot["items"][:1]
         c.execute("UPDATE runs SET input=? WHERE run_id=?", (json.dumps(snapshot), runs["newer"]))
-    assert work.supersede_info(runs["older"]) is None
+    assert work_runs.supersede_info(runs["older"]) is None
 
 
 def test_the_service_supersedes_in_the_persons_name(runs):

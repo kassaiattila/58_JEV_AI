@@ -8,7 +8,7 @@ import itertools
 from datetime import datetime, timedelta, timezone
 from urllib.parse import unquote
 
-from jav import app_settings, store, work
+from jav import app_settings, store, work, work_recipes, work_runs
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp
 
@@ -84,8 +84,12 @@ def test_today_activity_lists_only_the_persons_own_actions(env, monkeypatch):
     # 167 (review T-4): the actions are recorded from 11:00 UTC of a fixed day, a second apart, so a test run across
     # midnight cannot put them on two days or the query on another one
     seconds = itertools.count()
-    monkeypatch.setattr(work, "_now", lambda: (datetime(2026, 3, 16, 11, 0, tzinfo=timezone.utc)
-                                               + timedelta(seconds=next(seconds))).isoformat(timespec="seconds"))
+
+    def clock() -> str:
+        return (datetime(2026, 3, 16, 11, 0, tzinfo=timezone.utc) + timedelta(seconds=next(seconds))).isoformat(timespec="seconds")
+
+    for module in (work, work_recipes, work_runs):  # 202: the package's, the recipe's and the run's records each keep their own clock
+        monkeypatch.setattr(module, "_now", clock)
     day = datetime(2026, 3, 16, 11, 0, tzinfo=timezone.utc).astimezone().date().isoformat()
     c = env["client"]
     wp = _ready_wp(c, env["folder"])  # recipe assigned by: Teszt Elek (HUMAN)

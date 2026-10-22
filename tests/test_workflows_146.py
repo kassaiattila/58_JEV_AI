@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import cfg, mailbox, parties, statement_table as st, store, work, workflow_steps, workflows as wf
+from jav import cfg, mailbox, parties, statement_table as st, store, work, work_readiness, work_runs, workflow_steps, workflows as wf
 from jav.runtime import queue, worker
 from tests import test_statement_erste_137 as erste
 
@@ -135,7 +135,7 @@ def test_a_steps_package_must_be_of_its_kind_and_of_no_other_workflow(db):
     made = wf.create(template_id="monthly_reconciliation", party_id=party, period_start=MONTH[0], period_end=MONTH[1],
                      steps=base, actor="tester", auto=False)
     assert _steps(made)["invoices"]["state"] == "linked" and wf.workflow_of(docs["id"])["id"] == made["workflow"]["id"]
-    assert work.run_rows(docs["id"]) == []  # the chain starts no run on a package a person brought
+    assert work_runs.run_rows(docs["id"]) == []  # the chain starts no run on a package a person brought
     with pytest.raises(wf.WorkflowError, match="already belongs to a workflow"):
         wf.create(template_id="monthly_reconciliation", party_id=party, period_start=MONTH[0], period_end=MONTH[1],
                   steps=base, actor="tester", advance_now=False)
@@ -154,16 +154,16 @@ def test_the_monthly_reconciliation_runs_its_steps_waits_for_a_budget_and_makes_
     steps = _steps(made)
     # the invoices would cost money and no budget was approved: the package is made, its run waits for a person
     assert steps["invoices"]["state"] == steps["invoices"]["status"] == "needs_budget"
-    assert steps["invoices"]["package"]["id"] and work.run_rows(steps["invoices"]["package"]["id"]) == []
+    assert steps["invoices"]["package"]["id"] and work_runs.run_rows(steps["invoices"]["package"]["id"]) == []
     assert set(steps["invoices"]["note"]["over"]) and steps["invoices"]["note"]["budget"] == {}
     # the statements are read by code for free: their live run started at once
     assert steps["statements"]["state"] == "started" and steps["statements"]["status"] == "running"
-    assert work.get_run(steps["statements"]["run_id"])["mode"] == "apply"
+    assert work_runs.get_run(steps["statements"]["run_id"])["mode"] == "apply"
     assert made["next"] == {"step": "invoices", "status": "needs_budget"}
     _process_all()  # only the statements' items are queued
     view = wf.view(wf_id)
     assert _steps(view)["statements"]["status"] == "approve"
-    work.approve_run(steps["statements"]["run_id"], actor="tester")
+    work_runs.approve_run(steps["statements"]["run_id"], actor="tester")
     assert wf.tick(now=1e9) == 1  # the reconciliation still waits for the invoices
     view = wf.view(wf_id)
     assert _steps(view)["statements"]["status"] == "approved" and _steps(view)["reconcile"]["status"] == "waiting"
@@ -173,7 +173,7 @@ def test_the_monthly_reconciliation_runs_its_steps_waits_for_a_budget_and_makes_
     view = wf.start_step(wf_id, "invoices", actor="Example Person", budget=budget)
     inv = _steps(view)["invoices"]
     assert inv["state"] == "started" and inv["budget"] == {p: str(Decimal(v)) for p, v in budget.items()}
-    assert work.get_run(inv["run_id"])["actor"] == "Example Person"
+    assert work_runs.get_run(inv["run_id"])["actor"] == "Example Person"
     _approve_by_hand(inv["run_id"])
     assert wf.tick(now=1e9) == 0  # throttled
     assert wf.tick(now=2e9) == 1
@@ -253,7 +253,7 @@ def test_the_mailbox_step_waits_for_its_download_then_runs_its_package(db, monke
     view = wf.advance(wf_id, actor="tester (auto)")
     emails = _steps(view)["emails"]
     assert emails["state"] == "started" and emails["package"]["id"] == package["id"]
-    assert work.get_run(emails["run_id"])["actor"] == "tester (auto)"
+    assert work_runs.get_run(emails["run_id"])["actor"] == "tester (auto)"
 
 
 def test_a_download_without_new_emails_is_nothing_new_and_a_failed_one_shows_its_error(db, monkeypatch):
@@ -292,8 +292,8 @@ def test_a_linked_package_counts_when_its_live_run_is_approved(db):
     view = wf.link(wf_id, "invoices", docs["id"], actor="tester")
     inv = _steps(view)["invoices"]
     assert inv["state"] == "linked" and inv["status"] == "attention" and not inv["done"]  # no run yet: a person starts it
-    ready = work.readiness(docs["id"])
-    run_id = work.start_run(docs["id"], mode="apply", expected_assignment_revision=ready["assignment_revision"],
+    ready = work_readiness.readiness(docs["id"])
+    run_id = work_runs.start_run(docs["id"], mode="apply", expected_assignment_revision=ready["assignment_revision"],
                             input_hash=ready["input_hash"], actor="tester")["run_id"]
     _approve_by_hand(run_id)
     assert _steps(wf.view(wf_id))["invoices"]["done"]

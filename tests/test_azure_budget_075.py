@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import ocr, store, work
+from jav import ocr, store, work_readiness, work_recipes
 from jav.pdf import PdfText
 from jav.runtime import calls
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
@@ -120,11 +120,11 @@ def test_command_line_call_is_ledgered(azure_env):
 
 
 def test_recipe_switch_sets_the_azure_item_budget():
-    r = work.recipe("document-processing")
-    on = work.item_budget(r, {"arm": "auto", "azure_ocr": "on"}, "document")
-    off = work.item_budget(r, {"arm": "auto", "azure_ocr": "off"}, "document")
-    legacy = work.item_budget(r, {"arm": "auto"}, "document")  # an assignment made before the switch existed
+    r = work_recipes.recipe("document-processing")
+    on = work_readiness.item_budget(r, {"arm": "auto", "azure_ocr": "on"}, "document")
+    off = work_readiness.item_budget(r, {"arm": "auto", "azure_ocr": "off"}, "document")
+    legacy = work_readiness.item_budget(r, {"arm": "auto"}, "document")  # an assignment made before the switch existed
     assert on["azure_di"] == Decimal("0.02") and "azure_di" not in off and legacy["azure_di"] == Decimal("0.02")
-    email = work.recipe("email-intent")
-    assert "azure_di" not in work.item_budget(email, {"arm": "auto", "azure_ocr": "on"}, "email")
-    assert work.item_budget(email, {"arm": "auto", "azure_ocr": "on"}, "document")["azure_di"] == Decimal("0.02")
+    email = work_recipes.recipe("email-intent")
+    assert "azure_di" not in work_readiness.item_budget(email, {"arm": "auto", "azure_ocr": "on"}, "email")
+    assert work_readiness.item_budget(email, {"arm": "auto", "azure_ocr": "on"}, "document")["azure_di"] == Decimal("0.02")

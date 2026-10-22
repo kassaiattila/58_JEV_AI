@@ -12,7 +12,7 @@ import argparse
 import json
 from pathlib import Path
 
-from jav import cfg, cli, evals, store, typepack
+from jav import cfg, evals, measure_cli, store, typepack
 from jav.adapters import jev as jev_mod
 from jav.jev_select import site_for
 from jav.jev_verify import VerifySite
@@ -92,7 +92,7 @@ def test_a_local_case_list_is_measured_apart(tmp_path, monkeypatch):
     monkeypatch.setattr(evals, "golden", golden)
     args = argparse.Namespace(store=None, arm="S", tracker=False, no_cache=False, type="invoice_out", engine="jev",
                               budget_usd=None, jev_budget_usd="0.20", synthetic=False, cases=str(listing))
-    assert cli.cmd_golden(args) == 0
+    assert measure_cli.cmd_golden(args) == 0
     assert seen["label"] == "local" and [c.case_id for c in seen["cases"]] == ["a"]
 
 

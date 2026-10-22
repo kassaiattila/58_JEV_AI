@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, corrections, datasets, emails, intent, mailbox, store, work, work_views
+from jav import api, corrections, datasets, emails, intent, mailbox, store, work, work_readiness, work_recipes, work_runs, work_views
 from jav.emails import EmailMessage
 from jav.runtime import worker
 from tests.test_mailbox import MAILS, REQ, FakeBridge, env  # noqa: F401 - pytest fixture
@@ -22,10 +22,10 @@ HUMAN = {"X-Actor": "teszt.elek"}
 def _email_run(env) -> tuple[str, str, list[dict]]:  # noqa: F811 - the fixture's name
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
-    ready = work.readiness(wp_id)
-    run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="t")["run_id"]
+    ready = work_readiness.readiness(wp_id)
+    run_id = work_runs.start_run(wp_id, mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="t")["run_id"]
     worker.run_worker(once=True)
-    return wp_id, run_id, work.get_run(run_id)["input"]["items"]
+    return wp_id, run_id, work_runs.get_run(run_id)["input"]["items"]
 
 
 # --- the part of the email text that was seen -----------------------------------------------------------------
@@ -49,15 +49,15 @@ def test_body_coverage_full_shortened_and_capped():
 
 def test_email_result_is_kept_per_run_and_not_overwritten(env):  # noqa: F811
     wp_id, run_id, items = _email_run(env)
-    first = {i["item_id"]: store.email_result(work.flow_run_id(run_id, i["item_id"])) for i in items}
+    first = {i["item_id"]: store.email_result(work_runs.flow_run_id(run_id, i["item_id"])) for i in items}
     assert all(r and r["intent"] and r["body"]["status"] == "full" for r in first.values())
-    ready = work.readiness(wp_id)
-    second = work.start_run(wp_id, mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="t",
+    ready = work_readiness.readiness(wp_id)
+    second = work_runs.start_run(wp_id, mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="t",
                             rerun_of=run_id)["run_id"]
     worker.run_worker(once=True)
     for i in items:  # the new run gets its own row, the old one is kept
-        assert store.email_result(work.flow_run_id(run_id, i["item_id"])) == first[i["item_id"]]
-        assert store.email_result(work.flow_run_id(second, i["item_id"])) is not None
+        assert store.email_result(work_runs.flow_run_id(run_id, i["item_id"])) == first[i["item_id"]]
+        assert store.email_result(work_runs.flow_run_id(second, i["item_id"])) is not None
     view = corrections.item_result(run_id, items[0]["item_id"])["email"]
     assert view["result"]["from_this_run"] is True and view["body_coverage"]["status"] == "full"
 
@@ -100,8 +100,8 @@ def test_intent_correction_is_versioned_and_reroutes(env):  # noqa: F811
 def test_intent_correction_over_http_closes_only_intent_reasons(env, tmp_path):  # noqa: F811
     _wp, run_id, items = _email_run(env)
     item_id = items[0]["item_id"]
-    message_id = work.review_subject(items[0])[1]
-    store.review_enqueue(subject_kind="email", subject_id=message_id, run_id=work.flow_run_id(run_id, item_id),
+    message_id = work_runs.review_subject(items[0])[1]
+    store.review_enqueue(subject_kind="email", subject_id=message_id, run_id=work_runs.flow_run_id(run_id, item_id),
                          reasons=["intent:low_conf:szamlakuldes:0.41", "signal:prompt_injection:0.80"], producer="email_intent")
     c = TestClient(api.create_app(store_path=store.active_path()), base_url="http://127.0.0.1:8930")
     r = c.post(f"/api/runs/{run_id}/items/{item_id}/correction", json={"fields": {"intent": "szamlakuldes"}, "expected_revision": 0},
@@ -133,14 +133,14 @@ def test_pdf_attachment_becomes_a_linked_document_and_runs_with_the_email_recipe
     doc = next(i for i in wp["items"] if i["kind"] == "document")
     mail = next(i for i in wp["items"] if i["item_id"] == doc["parent_item_id"])
     assert mail["kind"] == "email" and "parent_item_id" not in mail
-    ready = work.readiness(wp["id"])
+    ready = work_readiness.readiness(wp["id"])
     assert ready["ready"], ready["blockers"]
     # 2 emails × 0.05 + 1 attachment; 075: Azure for the attachment; 190: 2 emails × 0.03 for the extraction of a quote
     # request written in the email
     assert ready["budget"] == {"jev": Decimal("0.17"), "openai": Decimal("0.21"), "azure_di": Decimal("0.02")}
-    work.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=1, actor="t")
-    ready = work.readiness(wp["id"])
-    run_id = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
+    work_recipes.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=1, actor="t")
+    ready = work_readiness.readiness(wp["id"])
+    run_id = work_runs.start_run(wp["id"], mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
     info = worker.run_worker(once=True)
     assert info["results"] == {"done": 3}, info
     assert corrections.datapoints_row(run_id, doc["item_id"]) is not None  # document extraction ran on the attachment
@@ -149,7 +149,7 @@ def test_pdf_attachment_becomes_a_linked_document_and_runs_with_the_email_recipe
     cols, rows = datasets.rows("documents", {"run_id": run_id})
     assert rows[0]["source_email"] == "Szeptemberi számla csatolva"  # the origin of the attachment
     assert not next(c for c in cols if c.key == "source_email").hidden
-    titles = work_views.item_titles(work.get_run(run_id)["input"]["items"])
+    titles = work_views.item_titles(work_runs.get_run(run_id)["input"]["items"])
     assert titles[doc["item_id"]] == "szamla.pdf (a levél csatolmánya: Szeptemberi számla csatolva)"
 
 
@@ -161,9 +161,9 @@ def test_attachment_detection_inside_the_email_flow_stays_in_the_run(env, monkey
     monkeypatch.setattr(policy, "choice_needs_review", lambda *a, **k: True)  # every judgment is uncertain: there should be a to-do
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge([_mail_with_pdf(env), MAILS[1]]), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
-    work.assign_recipe(wp_id, "processing", params={"arm": "S"}, expected_revision=1, actor="t")
-    ready = work.readiness(wp_id)
-    run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
+    work_recipes.assign_recipe(wp_id, "processing", params={"arm": "S"}, expected_revision=1, actor="t")
+    ready = work_readiness.readiness(wp_id)
+    run_id = work_runs.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
     worker.run_worker(once=True)
     with store.connect() as c:
         ledger_runs = {r["run_id"] for r in c.execute("SELECT DISTINCT run_id FROM ledger")}
@@ -182,13 +182,13 @@ def test_the_email_flow_reads_the_attachment_from_its_source_instance(env):  # n
     doc = next(i for i in wp["items"] if i["kind"] == "document")
     original = Path(doc["source_path"])
     original.write_bytes(original.read_bytes().replace(b"MINTA", b"ALTER"))  # changed after it was added
-    work.assign_recipe(wp_id, "processing", params={"arm": "S"}, expected_revision=1, actor="t")
-    ready = work.readiness(wp_id)
+    work_recipes.assign_recipe(wp_id, "processing", params={"arm": "S"}, expected_revision=1, actor="t")
+    ready = work_readiness.readiness(wp_id)
     assert ready["ready"] and {w["code"] for w in ready["warnings"]} == {"original_changed"}
-    run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
+    run_id = work_runs.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
     info = worker.run_worker(once=True)
     assert info["results"] == {"done": 3}, info
-    result = store.email_result(work.flow_run_id(run_id, doc["parent_item_id"]))
+    result = store.email_result(work_runs.flow_run_id(run_id, doc["parent_item_id"]))
     pdf = next(a for a in result["attachments"] if a["filename"] == "szamla.pdf")
     assert pdf["doc_id"] == doc["sha256"] and pdf["status"] == "done"  # the kept copy, not the changed original
 
@@ -232,19 +232,19 @@ def test_task_proposals_go_through_the_gate_and_only_a_human_accepts_them(env, m
     monkeypatch.setattr(email_tasks, "extract", _fake_tasks)
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
-    work.assign_recipe(wp_id, "processing", params={"tasks": "propose"}, expected_revision=1, actor="t")
-    ready = work.readiness(wp_id)
+    work_recipes.assign_recipe(wp_id, "processing", params={"tasks": "propose"}, expected_revision=1, actor="t")
+    ready = work_readiness.readiness(wp_id)
     # 2 emails × 0.006 USD (the task-proposal budget) + 2 × 0.03 USD (190: the extraction of the email's own text)
     assert ready["budget"]["openai"] == Decimal("0.072")
-    run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
+    run_id = work_runs.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
     worker.run_worker(once=True)
-    by_subject = {corrections.item_result(run_id, i["item_id"])["email"]["subject"]: i for i in work.get_run(run_id)["input"]["items"]}
+    by_subject = {corrections.item_result(run_id, i["item_id"])["email"]["subject"]: i for i in work_runs.get_run(run_id)["input"]["items"]}
     items = {"EID-0001": by_subject["Számla 2026/09"], "EID-0002": by_subject["Kérdés"]}
     question = corrections.item_result(run_id, items["EID-0002"]["item_id"])["email"]["tasks"]
     assert [t["title"] for t in question["tasks"]] == ["Válasz a szerződés érkezéséről"]  # the one with the invented due date was dropped
     assert question["rejected"][0]["details"] == ["field_value_not_in_source_quote"]
     assert corrections.item_result(run_id, items["EID-0001"]["item_id"])["email"]["tasks"]["tasks"] == []
-    reasons = [r["reason"] for r in work.item_reasons(run_id, items["EID-0002"]["item_id"], items["EID-0002"])["run"]]
+    reasons = [r["reason"] for r in work_runs.item_reasons(run_id, items["EID-0002"]["item_id"], items["EID-0002"])["run"]]
     assert "tasks:proposed:1" in reasons  # the proposal awaits a person's decision
     assert "tasks" in work_views.result_tables(run_id)
     rows = datasets.rows("email_tasks", {"run_id": run_id})[1]
@@ -255,7 +255,7 @@ def test_task_proposals_go_through_the_gate_and_only_a_human_accepts_them(env, m
     assert c.post(url, json={"decision": "accepted"}).status_code == 422  # no decision without an author
     r = c.post(url, json={"decision": "accepted"}, headers=HUMAN)
     assert r.status_code == 200 and r.json()["email"]["tasks"]["tasks"][0]["decision"]["decision"] == "accepted"
-    left = [x["reason"] for x in work.item_reasons(run_id, items["EID-0002"]["item_id"], items["EID-0002"])["run"]]
+    left = [x["reason"] for x in work_runs.item_reasons(run_id, items["EID-0002"]["item_id"], items["EID-0002"])["run"]]
     assert not any(x.startswith("tasks:") for x in left)  # every proposal was decided: the to-do is closed
     assert c.post(url.replace("/tasks/0/", "/tasks/5/"), json={"decision": "rejected"}, headers=HUMAN).status_code == 404
 
@@ -290,14 +290,14 @@ def test_task_proposal_failure_becomes_a_todo_and_archived_mail_is_skipped(env, 
     monkeypatch.setitem(policy.INTENT_ROUTE, "szamlakuldes", "archive")  # the fake JEV sees everything as invoice sending
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
-    work.assign_recipe(wp_id, "processing", params={"tasks": "propose"}, expected_revision=1, actor="t")
-    ready = work.readiness(wp_id)
-    run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
+    work_recipes.assign_recipe(wp_id, "processing", params={"tasks": "propose"}, expected_revision=1, actor="t")
+    ready = work_readiness.readiness(wp_id)
+    run_id = work_runs.start_run(wp_id, mode="shadow", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
     worker.run_worker(once=True)
-    views = [corrections.item_result(run_id, i["item_id"])["email"]["tasks"] for i in work.get_run(run_id)["input"]["items"]]
+    views = [corrections.item_result(run_id, i["item_id"])["email"]["tasks"] for i in work_runs.get_run(run_id)["input"]["items"]]
     assert {v["status"] for v in views} <= {"skipped", "error"}
-    for i, v in zip(work.get_run(run_id)["input"]["items"], views):
-        reasons = [r["reason"] for r in work.item_reasons(run_id, i["item_id"], i)["run"]]
+    for i, v in zip(work_runs.get_run(run_id)["input"]["items"], views):
+        reasons = [r["reason"] for r in work_runs.item_reasons(run_id, i["item_id"], i)["run"]]
         if v["status"] == "error":
             assert "tasks:failed:RuntimeError" in reasons
         else:
@@ -311,9 +311,9 @@ def test_finished_email_item_is_not_rerun_after_a_crash_before_completion(env, m
     """The worker stops after the email is finished but before the queue entry is closed: on restart it must return the
     saved final state. Previously it looked for the email flow under a different partition from the one it saved to."""
     _wp, run_id, items = _email_run(env)
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     email_item = next(i for i in items if i["kind"] == "email")
-    app_id = work.flow_run_id(run_id, email_item["item_id"])
+    app_id = work_runs.flow_run_id(run_id, email_item["item_id"])
     monkeypatch.setattr(worker, "_build", lambda *a, **k: (_ for _ in ()).throw(AssertionError("újrafutott")))
     persister = worker.StatePersister(str(worker.persister_path()))
     persister.initialize()

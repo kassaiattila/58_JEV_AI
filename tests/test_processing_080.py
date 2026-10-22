@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, store, work, work_views
+from jav import app_settings, store, work, work_readiness, work_recipes, work_runs, work_views
 
 
 @pytest.fixture()
@@ -40,11 +40,11 @@ def _email(tmp_path: Path, name: str = "level") -> Path:
 
 def test_catalogue_offers_only_the_active_processing(isolated):
     assert [r["id"] for r in work_views.recipe_catalog()] == ["processing", "multi-format-processing"]
-    assert work.default_recipe()["id"] == "processing"
-    status = {r["id"]: r.get("status", "active") for r in work.recipes()}
+    assert work_recipes.default_recipe()["id"] == "processing"
+    status = {r["id"]: r.get("status", "active") for r in work_recipes.recipes()}
     assert status == {"processing": "active", "multi-format-processing": "active", "invoice-extraction": "internal",
                       "document-processing": "retired", "email-intent": "retired"}
-    p = work.recipe("processing")
+    p = work_recipes.recipe("processing")
     assert p["flows"] == {"email": "email", "document": "document", "statement_table": "statement_table"}  # 136: + tables
     assert set(p["input_kinds"]) == {"email", "document", "statement_table"}
     assert set(p["params"]) == {"arm", "jev_cache", "tasks", "azure_ocr", "jev", "unknown_documents", "email_text"}  # 086: + jev; 120; 190
@@ -53,16 +53,16 @@ def test_catalogue_offers_only_the_active_processing(isolated):
 def test_retired_recipe_cannot_be_assigned_but_internal_can(isolated):
     wp = work.create_from_folder(_docs(isolated), name="x")
     with pytest.raises(work.RetiredRecipe):
-        work.assign_recipe(wp["id"], "document-processing", params={}, expected_revision=0, actor="t")
+        work_recipes.assign_recipe(wp["id"], "document-processing", params={}, expected_revision=0, actor="t")
     with pytest.raises(ValueError):  # a named error, but still a ValueError (the service answers 422)
-        work.assign_recipe(wp["id"], "email-intent", params={}, expected_revision=0, actor="t")
-    a = work.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "S"}, expected_revision=0, actor="t")
+        work_recipes.assign_recipe(wp["id"], "email-intent", params={}, expected_revision=0, actor="t")
+    a = work_recipes.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "S"}, expected_revision=0, actor="t")
     assert a["recipe_id"] == "invoice-extraction"
 
 
 def test_package_without_assignment_is_ready_with_the_default_settings(isolated):
     wp = work.create_from_folder(_docs(isolated), name="x")
-    r = work.readiness(wp["id"])
+    r = work_readiness.readiness(wp["id"])
     assert r["ready"] and r["blockers"] == [] and r["assignment_default"] is True and r["assignment_revision"] == 0
     # two documents of unknown type: the worst case (G path) is reserved; 0.07 JEV + 0.15 OpenAI + 0.02 Azure each
     assert r["budget"] == {"jev": Decimal("0.14"), "openai": Decimal("0.30"), "azure_di": Decimal("0.04")}
@@ -71,22 +71,22 @@ def test_package_without_assignment_is_ready_with_the_default_settings(isolated)
 
 def test_empty_package_still_blocks(isolated):
     wp = work.create_workpackage(name="üres", source_kind="manual", source_ref=None)
-    assert {b["code"] for b in work.readiness(wp["id"])["blockers"]} == {"no_items"}
+    assert {b["code"] for b in work_readiness.readiness(wp["id"])["blockers"]} == {"no_items"}
 
 
 def test_start_without_assignment_pins_the_default_settings(isolated):
     wp = work.create_from_folder(_docs(isolated), name="x")
-    r = work.readiness(wp["id"])
-    res = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=0, input_hash=r["input_hash"], actor="Anna")
-    a = work.current_assignment(wp["id"])
+    r = work_readiness.readiness(wp["id"])
+    res = work_runs.start_run(wp["id"], mode="shadow", expected_assignment_revision=0, input_hash=r["input_hash"], actor="Anna")
+    a = work_recipes.current_assignment(wp["id"])
     assert a["revision"] == 1 and a["recipe_id"] == "processing" and a["actor"] == "Anna"
     assert a["params"] == {"arm": "auto", "jev_cache": "reuse", "tasks": "off", "azure_ocr": "on", "jev": "on", "unknown_documents": "facts",
                            "email_text": "extract"}  # 190
     assert a["note"]
-    run = work.get_run(res["run_id"])
+    run = work_runs.get_run(res["run_id"])
     assert run["recipe_id"] == "processing" and run["assignment_revision"] == 1
     with pytest.raises(work.RevisionConflict):  # a second start with the old revision does not assign again
-        work.start_run(wp["id"], mode="shadow", expected_assignment_revision=0, input_hash=r["input_hash"], actor="Anna")
+        work_runs.start_run(wp["id"], mode="shadow", expected_assignment_revision=0, input_hash=r["input_hash"], actor="Anna")
 
 
 def test_plan_counts_kinds_paths_and_reasons(isolated):
@@ -96,8 +96,8 @@ def test_plan_counts_kinds_paths_and_reasons(isolated):
     store.upsert_document(doc_id=second["sha256"], source_path=second["source_path"], detail_type="mohu_szamla")  # G
     mail = _email(isolated)
     work.add_items(wp["id"], [mail], kind="email", expected_revision=work.get(wp["id"])["revision"])
-    work.assign_recipe(wp["id"], "processing", params={"tasks": "propose", "azure_ocr": "off"}, expected_revision=0, actor="t")
-    r = work.readiness(wp["id"])
+    work_recipes.assign_recipe(wp["id"], "processing", params={"tasks": "propose", "azure_ocr": "off"}, expected_revision=0, actor="t")
+    r = work_readiness.readiness(wp["id"])
     assert r["plan"] == {"documents": 3, "emails": 1, "attachments": 0, "paths": {"S": 1, "G": 1, "unknown": 1},
                          "tasks_emails": 1, "text_emails": 1,  # 190: the email's text, should it be a quote request
                          "azure": False, "jev_reuse": True, "arm": "auto",  # 082: the chosen path
@@ -109,11 +109,11 @@ def test_plan_counts_kinds_paths_and_reasons(isolated):
 
 def _assign_raw(wp_id: str, recipe_id: str, params: dict) -> None:
     """An old assignment as the store holds it (a retired recipe can no longer be assigned through `assign_recipe`)."""
-    r = work.recipe(recipe_id)
+    r = work_recipes.recipe(recipe_id)
     with store.connect() as c:
         rev = (c.execute("SELECT MAX(revision) m FROM recipe_assignments WHERE workpackage_id=?", (wp_id,)).fetchone()["m"] or 0) + 1
         c.execute("INSERT INTO recipe_assignments VALUES (?,?,?,?,?,?,?,?,?)",
-                  (wp_id, rev, recipe_id, r["version"], work.recipe_hash(r), json.dumps(params), "régi", None, "2026-09-28T10:00:00"))
+                  (wp_id, rev, recipe_id, r["version"], work_recipes.recipe_hash(r), json.dumps(params), "régi", None, "2026-09-28T10:00:00"))
 
 
 def test_retired_assignment_warns_and_migration_moves_every_package(isolated):
@@ -126,23 +126,23 @@ def test_retired_assignment_warns_and_migration_moves_every_package(isolated):
         wp = work.create_from_folder(_docs(isolated / name), name=name)
         _assign_raw(wp["id"], recipe_id, params)
         wps[name] = wp["id"]
-    assert "recipe_retired" in {w["code"] for w in work.readiness(wps["irat"])["warnings"]}
+    assert "recipe_retired" in {w["code"] for w in work_readiness.readiness(wps["irat"])["warnings"]}
 
-    planned = work.migrate_assignments(write=False)
+    planned = work_recipes.migrate_assignments(write=False)
     assert sorted(p["workpackage_id"] for p in planned) == sorted([wps["szamla"], wps["irat"], wps["level"]])
-    assert work.current_assignment(wps["irat"])["recipe_id"] == "document-processing"  # a dry run changes nothing
+    assert work_recipes.current_assignment(wps["irat"])["recipe_id"] == "document-processing"  # a dry run changes nothing
 
-    done = work.migrate_assignments(write=True)
+    done = work_recipes.migrate_assignments(write=True)
     assert len(done) == 3
-    szamla = work.current_assignment(wps["szamla"])
+    szamla = work_recipes.current_assignment(wps["szamla"])
     assert szamla["recipe_id"] == "processing" and szamla["revision"] == 2 and szamla["actor"] == "rendszer"
     assert szamla["params"] == {"arm": "S", "jev_cache": "reuse", "tasks": "off", "azure_ocr": "off", "jev": "on", "unknown_documents": "facts", "email_text": "extract"}  # the type is dropped
     assert "invoice_hu" in szamla["note"]
-    assert work.current_assignment(wps["irat"])["params"] == {"arm": "auto", "jev_cache": "live", "tasks": "off", "azure_ocr": "on", "jev": "on", "unknown_documents": "facts", "email_text": "extract"}
-    assert work.current_assignment(wps["level"])["params"]["tasks"] == "propose"
-    assert work.current_assignment(wps["uj"])["revision"] == 1  # already on the active recipe: untouched
-    assert work.readiness(wps["irat"])["warnings"] == []
-    assert work.migrate_assignments(write=True) == []  # repeatable
+    assert work_recipes.current_assignment(wps["irat"])["params"] == {"arm": "auto", "jev_cache": "live", "tasks": "off", "azure_ocr": "on", "jev": "on", "unknown_documents": "facts", "email_text": "extract"}
+    assert work_recipes.current_assignment(wps["level"])["params"]["tasks"] == "propose"
+    assert work_recipes.current_assignment(wps["uj"])["revision"] == 1  # already on the active recipe: untouched
+    assert work_readiness.readiness(wps["irat"])["warnings"] == []
+    assert work_recipes.migrate_assignments(write=True) == []  # repeatable
 
 
 def test_migration_moves_watched_folders_off_retired_recipes(isolated):
@@ -169,10 +169,10 @@ def test_cli_lists_every_status_and_migrates_on_request(isolated, capsys):
     assert cli.main(["processing-migrate", "--json"]) == 0
     dry = json.loads(capsys.readouterr().out)
     assert not dry["written"] and [p["workpackage_id"] for p in dry["packages"]] == [wp["id"]]
-    assert work.current_assignment(wp["id"])["recipe_id"] == "email-intent"
+    assert work_recipes.current_assignment(wp["id"])["recipe_id"] == "email-intent"
     assert cli.main(["processing-migrate", "--write"]) == 0
     assert "1 package(s)" in capsys.readouterr().out
-    assert work.current_assignment(wp["id"])["recipe_id"] == "processing"
+    assert work_recipes.current_assignment(wp["id"])["recipe_id"] == "processing"
 
 
 def test_service_offers_active_processing_and_knows_every_title(isolated):

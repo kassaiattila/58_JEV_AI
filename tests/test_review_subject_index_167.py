@@ -9,7 +9,7 @@ the join (`store.SUBJECT_REASONS`).
 import inspect
 import sqlite3
 
-from jav import store, work
+from jav import store, work_runs
 
 OPEN_REASONS = ("SELECT r.id, r.run_id FROM " + store.SUBJECT_REASONS
                 + " WHERE q.subject_kind=? AND q.subject_id=? AND r.status='open' ORDER BY r.id")
@@ -53,7 +53,7 @@ def test_the_lookups_still_answer_the_same(tmp_path):
 
 
 def test_the_approval_rechecks_through_the_subject_first_join():
-    source = " ".join(inspect.getsource(work.approve_run).split())
+    source = " ".join(inspect.getsource(work_runs.approve_run).split())
     assert '"SELECT r.run_id FROM " + store.SUBJECT_REASONS' in source
     assert "JOIN review_queue" not in source
 

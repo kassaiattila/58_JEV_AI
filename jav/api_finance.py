@@ -21,7 +21,7 @@ from typing import Annotated, Any, Literal
 from fastapi import Depends, FastAPI
 from pydantic import Field
 
-from jav import bank_files, corrections, datasets, duplicates, report_utility, statement_months, statement_package, work, work_views
+from jav import bank_files, corrections, datasets, duplicates, report_utility, statement_months, statement_package, work, work_runs, work_views
 from jav.api import DecisionState, ItemId, RunId, Text, WpId, _In, checked_path, human_actor
 
 
@@ -95,7 +95,7 @@ def routes(app: FastAPI, r: str) -> None:
     @app.get(r + "/runs/{run_id}/reports/utility-cost")
     def utility_cost(run_id: RunId) -> dict[str, Any]:
         """054 K4: utility-cost time series (consumption point + utility, monthly grid, with sources)."""
-        work.get_run(run_id)
+        work_runs.get_run(run_id)
         return work_views.jsonable({"run_id": run_id, **report_utility.build(datasets.run_records(run_id))})
 
     @app.post(r + "/runs/{run_id}/items/{item_id}/duplicates/{other_doc_id}/decision")

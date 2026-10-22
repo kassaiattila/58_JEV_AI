@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from jav import emails, ingest_server, mailbox, store, work
+from jav import emails, ingest_server, mailbox, store, work, work_readiness, work_runs
 from jav.adapters import jev as jev_mod
 from jav.config import BRIDGE_ROOT, OLD_PROJECT_ROOT
 from jav.runtime import worker
@@ -120,17 +120,17 @@ def test_fetch_creates_a_workpackage_of_fresh_mail_only(env):
 def test_email_recipe_runs_in_the_worker(env):
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
-    ready = work.readiness(wp_id)
+    ready = work_readiness.readiness(wp_id)
     assert ready["ready"], ready["blockers"]
-    run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="t")["run_id"]
+    run_id = work_runs.start_run(wp_id, mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="t")["run_id"]
     info = worker.run_worker(once=True)
     assert info["results"] == {"done": 2}, info
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     assert {i["status"] for i in run["items"]} == {"done"}
     with store.connect() as c:
         rows = c.execute("SELECT message_id, intent, run_id FROM emails").fetchall()
     assert len(rows) == 2 and all(r["intent"] for r in rows)
-    assert {r["run_id"] for r in rows} == {work.flow_run_id(run_id, i["item_id"]) for i in work.get(wp_id)["items"]}
+    assert {r["run_id"] for r in rows} == {work_runs.flow_run_id(run_id, i["item_id"]) for i in work.get(wp_id)["items"]}
 
 
 # --- scheduling (048 T2.2) -----------------------------------------------------------------------------------
@@ -164,7 +164,7 @@ def test_scheduled_pull_runs_in_the_worker_and_records_the_outcome(env, monkeypa
     after = mailbox.schedule(sch["id"])
     assert after["last_status"] == "ok" and after["last_result"]["new"] == 2 and after["last_result"]["workpackage"]
     wp = work.get(after["last_result"]["workpackage"])
-    assert wp["assignment"]["actor"] == "ütemezés (teszt)" and not work.runs(wp["id"])  # no paid run started
+    assert wp["assignment"]["actor"] == "ütemezés (teszt)" and not work_runs.runs(wp["id"])  # no paid run started
 
     # Outlook not running: the error shows on the schedule, the worker does not stop, the job is not repeated
     monkeypatch.setattr(mailbox, "_subprocess_runner", lambda argv, t: (1, "", "Outlook must already be running."))
@@ -216,8 +216,8 @@ def test_service_endpoints(tmp_path, monkeypatch):
     with store.use_store(db), jev_mod.use_adapter(adapter):
         worker.run_worker(once=True)
         wp_id = mailbox.pull(pull["id"])["result"]["workpackage"]
-        ready = work.readiness(wp_id)
-        run_id = work.start_run(wp_id, mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="t")["run_id"]
+        ready = work_readiness.readiness(wp_id)
+        run_id = work_runs.start_run(wp_id, mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="t")["run_id"]
         worker.run_worker(once=True)
         item_id = work.get(wp_id)["items"][0]["item_id"]
     got = c.get(f"/api/mailbox/pulls/{pull['id']}").json()

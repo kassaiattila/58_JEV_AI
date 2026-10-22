@@ -289,7 +289,7 @@ def test_posix_helper_acknowledges_only_an_applied_memory_limit(monkeypatch, suc
 
 
 def test_strict_limit_failure_is_final_in_the_actual_worker(tmp_path, monkeypatch):
-    from jav import store, work
+    from jav import store, work, work_readiness, work_recipes, work_runs
     from jav.runtime import worker
     from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
@@ -300,14 +300,14 @@ def test_strict_limit_failure_is_final_in_the_actual_worker(tmp_path, monkeypatc
     monkeypatch.setattr(isolated_pdf, "settings", lambda: settings)
     with store.use_store(tmp_path / "test.sqlite"):
         package = work.create_from_folder(folder, name="Synthetic protection check")
-        work.assign_recipe(package["id"], "invoice-extraction", params={"arm": "S", "doc_type": "invoice_hu"},
+        work_recipes.assign_recipe(package["id"], "invoice-extraction", params={"arm": "S", "doc_type": "invoice_hu"},
                            expected_revision=0, actor="test")
-        ready = work.readiness(package["id"])
-        run = work.start_run(package["id"], mode="shadow", expected_assignment_revision=1,
+        ready = work_readiness.readiness(package["id"])
+        run = work_runs.start_run(package["id"], mode="shadow", expected_assignment_revision=1,
                              input_hash=ready["input_hash"], actor="test")
         result = worker.run_worker(once=True)
         assert result["results"] == {"dead": 1}
-        item = work.get_run(run["run_id"])["items"][0]
+        item = work_runs.get_run(run["run_id"])["items"][0]
         assert item["status"] == "failed"
         assert item["error"].startswith("PdfReaderLimit:")
         assert "memory limit is disabled" in item["error"]

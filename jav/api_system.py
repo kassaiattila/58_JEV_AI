@@ -20,7 +20,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav import backup, deps_audit, jev_version, work, work_views
+from jav import backup, deps_audit, jev_version, work_runs, work_views
 from jav.api import Empty, Text, _In, human_actor, settings
 from jav.runtime import calls, worker
 
@@ -48,7 +48,7 @@ def routes(app: FastAPI, r: str) -> None:
     @app.post(r + "/review-reasons/{reason_id}/resolve")
     def resolve_reason(reason_id: Annotated[int, PathParam(ge=1)], body: ResolveReason,
                        who: Annotated[str, Depends(human_actor)]) -> dict[str, Any]:
-        return work.resolve_reason(reason_id, actor=who, resolution=body.resolution, note=body.note)
+        return work_runs.resolve_reason(reason_id, actor=who, resolution=body.resolution, note=body.note)
 
     # --- worker ---
 

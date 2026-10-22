@@ -29,7 +29,7 @@ from typing import Any, Callable
 
 from burr.integrations.serde import pydantic as burr_pydantic
 
-from jav import app_settings, isolated_pdf, item_kinds, pdf, store, work, workflows
+from jav import app_settings, isolated_pdf, item_kinds, pdf, store, work, work_readiness, work_runs, workflows
 from jav.runtime import applog, calls, flows, job_kinds, lock, pdf_status, persistence, queue
 from jav.runtime.persistence import ClosingSQLitePersister
 from jav.digest import file_sha256 as _sha256_file
@@ -137,7 +137,7 @@ def _stages(recipe: dict[str, Any], params: dict[str, Any]) -> list[tuple[str, d
 
 
 # 190: settings whose default the frozen recipe gives when the run's settings lack it (an assignment saved before the
-# setting existed), as the run's budget counts them (`work.item_budget`); a run started before the setting has a frozen
+# setting existed), as the run's budget counts them (`work_readiness.item_budget`); a run started before the setting has a frozen
 # recipe without it, and keeps the earlier behaviour
 FILLED_SETTINGS = ("email_text",)
 
@@ -294,9 +294,9 @@ def _after_follow_up(run_id: str, item: dict[str, Any], final: str, follow_state
 def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) -> str:
     """Processes one claimed job and returns its resulting state. `after_step`: test hook (fault injection)."""
     run_id, item_id = job.payload["run_id"], job.payload["item_id"]
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     item = next(i for i in run["input"]["items"] if i["item_id"] == item_id)
-    app_id = work.flow_run_id(run_id, item_id)
+    app_id = work_runs.flow_run_id(run_id, item_id)
     try:
         # an item with a source instance is read from it (a change to the original does not matter); without one, from
         # the original, which must still be the content that was added
@@ -314,7 +314,7 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
         try:
             # 058 K5.2: a recipe handling several item kinds (email + attachment) chooses the flow per kind
             run_params = _with_defaults(run["recipe"], run["params"])  # 190: as the run's budget counts them
-            stages = _stages({**run["recipe"], "flow": work.flow_for(run["recipe"], item)}, run_params)
+            stages = _stages({**run["recipe"], "flow": work_readiness.flow_for(run["recipe"], item)}, run_params)
             final, state = None, None
             for n, (flow_name, params) in enumerate(stages):
                 stage_id = app_id if n == len(stages) - 1 else f"{app_id}-{flow_name}"
@@ -339,7 +339,7 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
                                    attachment_reads=attachment_reads, item=item, recipe_hash=run["recipe_hash"])
                 final = state.get("final_status")
                 if continued:  # the facts exist now: "no extraction for this type" no longer holds
-                    kind, subject = work.review_subject(item)
+                    kind, subject = work_runs.review_subject(item)
                     store.review_close(subject_kind=kind, subject_id=subject, reason_prefix="detect:no_type_pack",
                                        run_id=f"{app_id}-doc_detect")
                     # the type's own uncertainty stays a to-do beside the facts
@@ -369,27 +369,27 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
         finally:
             persister.cleanup()
     except queue.JobCancelled:
-        work.record_item_result(run_id, item_id, status="cancelled", flow_run_id=app_id)
+        work_runs.record_item_result(run_id, item_id, status="cancelled", flow_run_id=app_id)
         result = queue.finish_cancelled(job.id)
     except SourceChanged as exc:
-        work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=f"{exc.code}: {applog.redact(str(exc))}")
+        work_runs.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=f"{exc.code}: {applog.redact(str(exc))}")
         result = queue.fail(job.id, f"{exc.code}: {applog.redact(str(exc))}", max_attempts=1, backoff_s=0)
     except (pdf.DocumentTooLarge, isolated_pdf.PdfReaderLimit) as exc:
         # 077: a retry would hit the same limit (a timeout would hold the worker for as long again): final at once
         log.warning("item %s of %s is over a document limit: %s", item_id, run_id, exc)
-        work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=error_text(exc, limit=300))
+        work_runs.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=error_text(exc, limit=300))
         result = queue.fail(job.id, error_text(exc), max_attempts=1, backoff_s=0)
     except Exception as exc:  # noqa: BLE001 - every other error is item-level; the queue's attempt limit decides
         log.exception("item %s of %s failed", item_id, run_id)  # 063: full traceback to the log (item: 300 chars)
-        work.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=error_text(exc, limit=300))
+        work_runs.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=error_text(exc, limit=300))
         result = queue.fail(job.id, error_text(exc), max_attempts=int(run["recipe"].get("max_attempts", 2)),
                             backoff_s=BACKOFF_S)
     else:
-        work.record_item_result(run_id, item_id, status="done", final_status=final, flow_run_id=app_id)
+        work_runs.record_item_result(run_id, item_id, status="done", final_status=final, flow_run_id=app_id)
         result = queue.complete(job.id)
     if result in queue.TERMINAL and PRUNE_FINISHED_STATE:
         _prune_state(app_id)
-    work.refresh_run_status(run_id)
+    work_runs.refresh_run_status(run_id)
     return result
 
 
@@ -421,10 +421,10 @@ def _settle_abandoned(job: queue.Job, status: str, error: str) -> None:
     kind of job names (`jav/runtime/job_kinds.py`; the email domain's mailbox download)."""
     if job.kind == work.JOB_KIND:
         run_id, item_id = job.payload["run_id"], job.payload["item_id"]
-        work.record_item_result(run_id, item_id, status=status, flow_run_id=work.flow_run_id(run_id, item_id), error=error[:300])
+        work_runs.record_item_result(run_id, item_id, status=status, flow_run_id=work_runs.flow_run_id(run_id, item_id), error=error[:300])
         if PRUNE_FINISHED_STATE:
-            _prune_state(work.flow_run_id(run_id, item_id))
-        work.refresh_run_status(run_id)
+            _prune_state(work_runs.flow_run_id(run_id, item_id))
+        work_runs.refresh_run_status(run_id)
     elif (own := job_kinds.of(job.kind)) is not None:
         own.abandon(job, error)
 

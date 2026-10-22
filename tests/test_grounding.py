@@ -91,7 +91,7 @@ def test_manual_selection_is_validated():
 
 
 def test_flow_run_saves_provenance(tmp_path: Path):
-    from jav import work
+    from jav import work, work_readiness, work_recipes, work_runs
     from jav.adapters import jev as jev_mod
     from jav.runtime import worker
     from tests.test_runtime_worker import FakeClient
@@ -102,9 +102,9 @@ def test_flow_run_saves_provenance(tmp_path: Path):
     adapter = jev_mod.JevAdapter(client=FakeClient(), cache_dir=tmp_path / "cache", model="jev-1.13.0")
     with store.use_store(tmp_path / "w.sqlite"), jev_mod.use_adapter(adapter):
         wp = work.create_from_folder(folder, name="x")
-        work.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "S"}, expected_revision=0, actor="t")
-        r = work.readiness(wp["id"])
-        work.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")
+        work_recipes.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "S"}, expected_revision=0, actor="t")
+        r = work_readiness.readiness(wp["id"])
+        work_runs.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")
         worker.run_worker(once=True)
         with store.connect() as c:
             row = c.execute("SELECT datapoints, provenance FROM datapoints").fetchone()

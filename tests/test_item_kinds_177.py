@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import cfg, item_kinds as ik, logic_packs, mailbox, work, workflow_steps
+from jav import cfg, item_kinds as ik, logic_packs, mailbox, work_recipes, workflow_steps
 from jav.domains import email as email_domain
 
 
@@ -35,7 +35,7 @@ def test_an_unknown_item_kind_is_refused():
 
 
 def test_every_recipe_routes_only_registered_item_kinds():
-    for r in work.recipes():
+    for r in work_recipes.recipes():
         assert set(r.get("input_kinds") or []) <= set(ik.names()), r["id"]
         assert set(r.get("flows") or {}) <= set(ik.names()), r["id"]
 

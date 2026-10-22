@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, source_instances, store, work  # noqa: F401  (app_settings: its tables, read by readiness)
+from jav import app_settings, source_instances, store, work, work_readiness  # noqa: F401  (app_settings: its tables, read by readiness)
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 
@@ -53,7 +53,7 @@ def test_a_deletion_between_the_copy_and_the_record_does_not_leave_the_item_with
     item = wp["items"][0]
     assert item["instance"] == rel
     assert source_instances.intact(source_instances.path_of(rel), item["sha256"])
-    codes = [b["code"] for b in work.readiness(wp["id"], verify=True)["blockers"]]
+    codes = [b["code"] for b in work_readiness.readiness(wp["id"], verify=True)["blockers"]]
     assert "instance_damaged" not in codes
 
 
