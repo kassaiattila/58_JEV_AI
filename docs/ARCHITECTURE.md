@@ -163,7 +163,10 @@ catalog reads whether a type is active from the same switch.
    with `uncertain_review: true`. Because of the request-hash cache, the same (concrete model version, state, questions) gives the same answer
    for $0; the alias (`jev-latest`) is resolved with a probe (`runs/cache/_model_versions.json`, 24 h TTL). If JEV still
    does not answer after the SDK retries, the adapter writes a ledger entry (`error`) and raises `JevUnavailableError`; the flows turn this
-   into a `jev_unavailable:<reason>` review (M1/M3 `final_status = jev_unavailable`) instead of crashing. Processing without JEV
+   into a `jev_unavailable:<reason>` review (M1/M3 `final_status = jev_unavailable`) instead of crashing. A request refused
+   for the token limit (`max_tokens_exceeded`) is remembered under its key and the concrete version that refused it
+   (`runs/cache/too_large/`, 200); it is refused again without a call, with the same reason, so the request-size frame
+   (`jav/jev_budget.py`) goes on to its tighter request at once and a free round can answer it. Processing without JEV
    is a guarantee (160, `jav/engine.py`): a flow application built with `jev=False` runs every step inside `jev.disabled()`, so a
    JEV question asked anyway is refused before the model probe, the cache and the call log (`JevUnavailableError("disabled")`,
    the `jev_unavailable:disabled` to-do; `get_adapter()` refuses too, whatever adapter a run installed). In the tests the refusal
