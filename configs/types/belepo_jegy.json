@@ -1,12 +1,17 @@
 {
  "meta": {
   "name": "type:belepo_jegy",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "changelog": [
    {
     "version": "1.0.0",
     "date": "2026-09-28",
     "note": "047 T1.1: a régi típus-másolatból átalakítva (jav/typepack_convert.py); séma és prompt verbatim; csak G-kar"
+   },
+   {
+    "version": "1.1.0",
+    "date": "2026-10-22",
+    "note": "type-activate (plan 197 K2d): off; replaced by belepo_jegy_taught, detection no longer picks it; its files stay for its earlier results"
    }
   ],
   "source": {
@@ -28,7 +33,7 @@
   "G"
  ],
  "parent": "ticket",
- "auto_detect": true,
+ "auto_detect": false,
  "detect": {
   "required_any": [
    "jegy azonosít",

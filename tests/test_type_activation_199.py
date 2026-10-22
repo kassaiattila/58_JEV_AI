@@ -25,6 +25,15 @@ DAY = date(2026, 10, 22)
 def packs(tmp_path, monkeypatch):
     folder = tmp_path / "types"
     shutil.copytree(cfg.TYPES_DIR, folder)
+    # the starting state of the tests, whatever the real packs' switches are: the converted pack on, the taught one a
+    # candidate
+    for key, on, version in ((OLD, True, "1.0.0"), (KEY, False, "0.1.0")):
+        data = _pack(folder, key)
+        data["auto_detect"], data["meta"]["version"] = on, version
+        if "taught" in data["meta"]:
+            data["meta"]["taught"] = {"family": OLD, "draft": f"configs/type_drafts/{KEY}.json", "state": "candidate"}
+        (folder / f"{key}.json").write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8",
+                                            newline="\n")
     monkeypatch.setattr(cfg, "TYPES_DIR", folder)
     cfg.reload()
     typepack.reload()

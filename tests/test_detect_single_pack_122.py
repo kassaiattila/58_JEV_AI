@@ -44,7 +44,7 @@ def test_a_receipt_that_does_not_fit_the_narrower_pack_stays_open():
 
 
 def test_every_category_with_one_narrower_pack_is_checked():
-    for broad, pack in (("ticket", "belepo_jegy"), ("contract", "altalanos_szerzodesi_feltetelek"),
+    for broad, pack in (("ticket", "belepo_jegy_taught"), ("contract", "altalanos_szerzodesi_feltetelek"),
                         ("tax_return", "nav_tax_return")):
         jev = FakeJev(pack, 0.9)
         r = detect_detail.resolve(broad, "synthetic text", jev=jev, run_id="t", issuer_hu=0.9)

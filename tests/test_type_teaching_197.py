@@ -171,13 +171,14 @@ def test_the_taught_tickets_files_are_what_its_draft_makes():
     draft = type_teaching.load_draft("belepo_jegy_taught")
     files = type_teaching.candidate(draft, today=date(2026, 10, 22))
     paths = type_teaching.candidate_paths(draft.key)
-    for name in ("callsite", "schema"):
-        assert json.loads(paths[name].read_text(encoding="utf-8")) == files[name], name
+    assert json.loads(paths["schema"].read_text(encoding="utf-8")) == files["schema"]
     assert paths["prompt"].read_text(encoding="utf-8") == files["prompt"]
+    site = json.loads(paths["callsite"].read_text(encoding="utf-8"))
+    assert {k: v for k, v in site.items() if k != "meta"} == {k: v for k, v in files["callsite"].items() if k != "meta"}
     pack, made = json.loads(paths["pack"].read_text(encoding="utf-8")), files["pack"]
     assert {k: v for k, v in pack.items() if k not in ("meta", "auto_detect")} == {
         k: v for k, v in made.items() if k not in ("meta", "auto_detect")}
-    assert pack["meta"]["changelog"][0] == made["meta"]["changelog"][0]
+    assert [pack["meta"]["changelog"][0][k] for k in ("version", "date")] == [made["meta"]["changelog"][0][k] for k in ("version", "date")]
     assert {k: pack["meta"]["taught"][k] for k in ("family", "draft")} == {k: made["meta"]["taught"][k] for k in ("family", "draft")}
     assert type_teaching.registry_entries(draft) == []  # registered everywhere
 

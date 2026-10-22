@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "field_labels",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "changelog": [
+   {
+    "version": "1.10.0",
+    "date": "2026-10-22",
+    "note": "199 (plan 197 K2d): the taught ticket (belepo_jegy_taught) is detected now; its name no longer says candidate."
+   },
    {
     "version": "1.9.0",
     "date": "2026-10-22",
@@ -228,7 +233,7 @@
   "altalanos_szerzodesi_feltetelek": "Általános szerződési feltételek",
   "bank_statement": "Bankszámlakivonat",
   "belepo_jegy": "Belépőjegy",
-  "belepo_jegy_taught": "Belépőjegy (tanított jelölt)",
+  "belepo_jegy_taught": "Belépőjegy (tanított)",
   "certificate": "Igazolás, tanúsítvány",
   "contract": "Szerződés",
   "csapatmenedzser_utasitas": "Csapatmenedzseri utasítás",

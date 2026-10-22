@@ -358,7 +358,7 @@ def _taught_golden(key: str, half: str = "evaluation") -> Golden:
 
     own = " (its own training examples: an in-sample check)" if half == "development" else ""
     return Golden(key=f"taught:{key}:{half}", layer="datapoints", owner=key,
-                  what=f"the taught candidate {key} on the {family} family's {half} half{own}, on the G path",
+                  what=f"the taught type {key} on the {family} family's {half} half{own}, on the G path",
                   engines=ENGINES, count=count, measure=measure, module=__name__)
 
 
