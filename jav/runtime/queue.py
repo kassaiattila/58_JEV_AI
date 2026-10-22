@@ -278,3 +278,16 @@ def counts(*, run_id: str | None = None) -> dict[str, int]:
         rows = c.execute("SELECT status, COUNT(*) n FROM jobs" + (" WHERE run_id=?" if run_id else "") + " GROUP BY status",
                          (run_id,) if run_id else ()).fetchall()
     return {r["status"]: r["n"] for r in rows}
+
+
+STATES = ("queued", "claimed", "done", "dead", "cancelled")
+_HAS_STATE = ", ".join(f"EXISTS (SELECT 1 FROM jobs WHERE run_id=?1 AND status='{s}') AS {s}" for s in STATES)
+
+
+def states(*, run_id: str) -> set[str]:
+    """204 (R1i): the states the run's jobs are in, one lookup per state in the run index (`ix_jobs_run`), where
+    `counts` counts every job of the run. The run's status is refreshed after each of its items, so counting made each
+    item cost more than the one before."""
+    with store.connect() as c:
+        row = c.execute("SELECT " + _HAS_STATE, (run_id,)).fetchone()
+    return {s for s in STATES if row[s]}

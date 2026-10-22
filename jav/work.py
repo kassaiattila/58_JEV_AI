@@ -97,6 +97,9 @@ CREATE TABLE IF NOT EXISTS runs (
     finished_at TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_runs_wp ON runs(workpackage_id, created_at);
+-- 204 (R1i): a package's removed items only; the run list leaves their to-dos out (`work_runs.run_rows`), and without it
+-- read every item of the package for each open to-do (10.4 s for one run of 10,000 items, 0.014 s with it)
+CREATE INDEX IF NOT EXISTS ix_workpackage_items_removed ON workpackage_items(workpackage_id) WHERE removed_revision IS NOT NULL;
 -- 058: a csomag elrejtése, visszahozása, átnevezése és törlése (ki, mikor, mit); a törölt csomag nyoma is itt marad
 -- 058: a forrásfájl ujjlenyomata méret + módosítási idő szerint megjegyezve (a csomag megnyitása ne hasheljen újra
 -- minden fájlt); az indítás és a feldolgozó mindig teljesen ellenőriz
@@ -142,6 +145,10 @@ def _migrate(conn) -> None:
         "excluded_items": "TEXT",  # 160-C (decision 163 D7): items removed before the approval (JSON)
         "scope": "TEXT",  # 160-C S3: NULL = every item in use, 'pending' = only the pending items
     })
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='runs'").fetchone():
+        # 204 (R1i): a run's state without its row, which holds the frozen input (`work_runs.refresh_run_status`): the
+        # columns lie after it, so reading one walked the whole input (31 ms in a run of 100,000 items, 0.014 ms here)
+        conn.execute("CREATE INDEX IF NOT EXISTS ix_runs_state ON runs(run_id, status, stopped_at, finished_at)")
 
 
 store.register_migration("work", _migrate)
