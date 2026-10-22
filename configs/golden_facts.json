@@ -1,0 +1,32 @@
+{
+ "meta": {
+  "name": "golden_facts",
+  "version": "1.0.0",
+  "description": "197 (plan 197 K1, jav/evals_facts.py): the general facts (the native reader's source-bound facts, without a type pack) measured on a held-out family's labelled documents. A family names a type pack whose legacy golden cases are used with the pack withheld: the documents go straight to the general facts, and the pack's scored fields are looked for among the facts by value (the same comparison as the data point golden sets). The documents are split into a development and an evaluation half by the sha256 of the file, fixed before any measurement: sorted, alternately, the same file always in the same half (a file repeated in the manifest is one document). The development half is what a taught type may learn from (K2); the evaluation half is what it is measured on.",
+  "changelog": [
+   {
+    "version": "1.0.0",
+    "date": "2026-10-22",
+    "note": "197 (DECISIONS 197): the ticket (belepo_jegy), 10 distinct documents of its 11 legacy cases, 5 + 5."
+   }
+  ]
+ },
+ "families": {
+  "belepo_jegy": {
+   "development": [
+    "15d0ef05985a2fda5a9d98176ca3ee3e44ff92211d6a73f94858e9d19a61264e",
+    "6931148f2fb5aa3b36366b699df4dc82333d0d2b325c13c9df538e57409e4d4e",
+    "94ae6d663bf2d021babfa308adca0832730e11f4336d78d70aba92900f1a4d69",
+    "a376bd4aade3529ed416043537497c00ef76f21aef30b8a1ea1dd269cf08cb9f",
+    "d939fb55d9dec3701f0ff53585148d1e0bba9a46b3425412ac521222dfb8857a"
+   ],
+   "evaluation": [
+    "35f617b589570e6162a02e5cb0f8e567ffd11a26cf15329404f002f5209f52a4",
+    "806130e855e1d6dad15261117fb31f1f3b249ca24ba11b27483ecc3d12281eae",
+    "9b669c04ac2a3e268bb9fa44720127f9ab6d1dec262c0e4aa8314e23b1763f03",
+    "c2a003a82b5a7a762ba166d871f868c26fecfd81562366ab6c5e26f52fdeb50a",
+    "fab025808481fadcbe02da47041ff6873cdc94f5a6d3f26bd648426720b07c12"
+   ]
+  }
+ }
+}

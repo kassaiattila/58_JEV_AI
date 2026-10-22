@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.96",
+    "version": "1.0.97",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.97",
+        "date": "2026-10-22",
+        "note": "197 (plan 197 K0): document vocabulary and test data accepted - the quote request's own name for a shared field and its changelog line (configs/field_labels.json 187 -> 189), the invented names of the tests of a type's own field names (tests/test_field_names_197.py 13, ui/src/fieldNames197.test.tsx 10); 6048 -> 6073."
+      },
       {
         "version": "1.0.96",
         "date": "2026-10-22",
@@ -541,7 +546,7 @@
     "configs/experiments/matter_cases.json": 2,
     "configs/experiments/pydantic_jev.json": 3,
     "configs/experiments/source_find_cases.json": 6,
-    "configs/field_labels.json": 187,
+    "configs/field_labels.json": 189,
     "configs/golden_quotes.json": 142,
     "configs/golden_reconcile.json": 9,
     "configs/golden_synthetic.json": 120,
@@ -780,6 +785,7 @@
     "tests/test_encoding_guard.py": 3,
     "tests/test_eval_report.py": 1,
     "tests/test_evals_quotes_190.py": 2,
+    "tests/test_field_names_197.py": 13,
     "tests/test_flow_statement_table_136.py": 2,
     "tests/test_gpt_reuse_090.py": 2,
     "tests/test_handoff_guard.py": 2,
@@ -886,6 +892,7 @@
     "ui/src/emailText190.test.ts": 1,
     "ui/src/errorboundary066.test.tsx": 7,
     "ui/src/feedback062.test.tsx": 26,
+    "ui/src/fieldNames197.test.tsx": 10,
     "ui/src/fieldVerdict083.test.tsx": 24,
     "ui/src/folderBrowse081.test.tsx": 15,
     "ui/src/gptTodo092.test.ts": 1,

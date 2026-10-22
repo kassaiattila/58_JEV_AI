@@ -64,7 +64,13 @@ export function storedMailboxLabel(label: string): string {
     t("last {{n}} days", { n: Number(hu ?? en) }));
 }
 
-export const fieldLabel = (f: string) => FIELD[f] ?? f;
+/** 197: a type's own name for a shared field (the quote request's customer is the requester). */
+const BY_TYPE = fieldLabels.by_type as Record<string, Record<string, string> | undefined>;
+/** A field's name; with the document's type, that type's own name when it has one. */
+export const fieldLabel = (f: string, docType?: string | null) => {
+  const own = docType ? BY_TYPE[docType]?.[f] : undefined;
+  return own ? t(own) : FIELD[f] ?? f;
+};
 export const docTypeLabel = (d: string) => DOC_TYPE[d] ?? d;
 
 /** A column of a line list (and the enumerated values: `column=value`). For an unknown name, the name itself. */

@@ -14,7 +14,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
-from jav import cfg, typepack
+from jav import cfg, field_names, typepack
 from jav.outputs import contract, markers as marker_names, parts
 
 DEFAULT_PART = "invoice_hu"
@@ -50,9 +50,10 @@ def _value_labels(output: str) -> dict[str, str]:
     return {**package, **{k: v for part in parts.result_parts() for k, v in part.value_labels.items()}}
 
 
-def field_label(field: str) -> str:
+def field_label(field: str, doc_type: str | None = None) -> str:
+    """A field's or a list column's name; 197: a type's own name for a shared field (`field_names`)."""
     names = cfg.load("field_labels")
-    return names["fields"].get(field) or names["columns"].get(field) or field
+    return field_names.field_label(field, doc_type) if field in names["fields"] else names["columns"].get(field) or field
 
 
 def labels(output: str) -> dict[str, Any]:
@@ -96,7 +97,7 @@ def markers(output: str) -> list[dict[str, Any]]:
             rows = [_row(name, c, fixed[c], marker_names.column_kind(output, key, part, c)) for c in table["columns"]]
             if table.get("fields") == "type_pack":
                 pack = typepack.get(part)
-                rows += [_row(name, f, field_label(f), marker_names.column_kind(output, key, part, f))
+                rows += [_row(name, f, field_label(f, part), marker_names.column_kind(output, key, part, f))
                          for f in pack.header_fields if f not in table["columns"]]
             elif table.get("fields") == "type_pack_lists":  # a plain list's items (`*`) are the `value` column
                 rows += [_row(name, c, field_label(c), marker_names.column_kind(output, key, None, c))
@@ -137,7 +138,7 @@ def data(output: str, parts: tuple[str, ...] = (DEFAULT_PART,)) -> contract.Outp
                 pack = typepack.get(part)
                 for f in pack.header_fields:
                     columns[f] = pack.kind(f) if pack.kind(f) in ("money", "number", "date") else "text"
-                    heads[f] = field_label(f)
+                    heads[f] = field_label(f, part)
             elif t.get("fields") == "type_pack_lists":
                 for p in parts:
                     for lf in typepack.get(p).list_fields.values():

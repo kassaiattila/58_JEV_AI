@@ -376,7 +376,8 @@ function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPre
     : Object.fromEntries(Object.entries(data.provenance).filter(([, v]) => v.status !== "list"));
   const labelOf = (k: string) => {
     const m = k.match(/^(.+)\[(\d+)\]$/);
-    return m ? t("{{field}}: {{n}}. sor", { field: fieldLabel(m[1]), n: m[2] }) : fieldLabel(k);
+    const type = data.extraction?.doc_type;  // 197: the type's own names
+    return m ? t("{{field}}: {{n}}. sor", { field: fieldLabel(m[1], type), n: m[2] }) : fieldLabel(k, type);
   };
   const chooseAlternative = (f: string, a: Alternative) => {
     const value = a.machine ? String(machine[f] ?? "") : String(a.value ?? a.quote ?? "");
@@ -407,7 +408,7 @@ function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPre
         <div className="viewer-stack">
           <p className="notice small">{t("Ehhez az irathoz nincs szóréteg (korábbi futás vagy régi OCR-eredmény), ezért a mezők helye nem keretezhető és a mezőre nem ugrik. Lapozni lehet; a keretekhez futtasd újra a receptet (a helyi OCR a szóhelyeket pótolja).")}</p>
           <PageViewer pageUrl={(n) => api.pageUrl(wpId, itemId, n)} pages={[]} pageCount={data.page_count} prov={{}} activeField={null}
-            focusRequest={0} colorOf={colorOf} labelOf={fieldLabel} onPickField={activate} onChooseAlternative={chooseAlternative}
+            focusRequest={0} colorOf={colorOf} labelOf={labelOf} onPickField={activate} onChooseAlternative={chooseAlternative}
             selectMode={false} words={null} selected={[]} onSelect={() => {}} />
         </div>
       ))}

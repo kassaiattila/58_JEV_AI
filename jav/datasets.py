@@ -50,7 +50,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, cfg, costs, decisions, logic_packs, store, work, work_views
+from jav import activity_kinds, cfg, costs, decisions, field_names, logic_packs, store, work, work_views
 from jav.outputs import parts
 from jav.runtime import calls
 from jav.tablequery import Column, Query, run_query, select, shown
@@ -96,10 +96,6 @@ def label_set(name: str) -> dict[str, str]:
     if name in _LABEL_SETS:  # 185: a domain's own (the email intents' names, the task actions, the next steps)
         return dict(_LABEL_SETS[name].read())
     return cfg.load("datasets")["labels"][name]
-
-
-def _field_label(f: str) -> str:
-    return cfg.load("field_labels")["fields"].get(f, f)
 
 
 def _column_label(c: str) -> str:
@@ -624,7 +620,9 @@ def _documents(scope: dict[str, str]) -> Rows:
         # shown only when a row has a value in the part's first column (a document with a mark, an invoice)
         shown = any(row[first] for row in rows)
         cols += [col(c.key, c.head, c.kind, hidden=not shown, labels=c.labels) for c in part.columns]
-    cols += [col(f"f:{f}", _field_label(f), _field_kind(kinds.get(f)), field=f) for f in fields]
+    # 197: a field of one type only reads as that type's own name (the quote request's customer is the requester)
+    cols += [col(f"f:{f}", field_names.field_label(f, field_names.shared_type(f, records)), _field_kind(kinds.get(f)),
+                 field=f) for f in fields]
     if not any(r.get("source_email") for r in records):  # only meaningful in an email package: hidden otherwise
         cols = [replace(c, hidden=True) if c.key == "source_email" else c for c in cols]
     return cols, _zip_rows([c.key for c in cols], rows, link, lambda d: d["item_id"])

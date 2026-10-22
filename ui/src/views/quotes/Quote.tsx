@@ -11,9 +11,10 @@ import {
 import { BlockerList } from "../../components/BlockerList";
 import { Picker } from "../../components/Picker";
 import { t, useLocale } from "../../i18n";
-import { fieldLabel, numText, usdBudget, when } from "../../labels";
+import { numText, usdBudget, when } from "../../labels";
 import type { Stage } from "../../route";
 import { QuoteApprovalStage, QuoteCompose } from "./QuoteEditor";
+import { quoteFieldLabel as fieldLabel } from "./quoteStatus";
 
 export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
   "quote:request_missing": "The request can no longer be read: it was removed from its package, or it is no longer read as a quote request",

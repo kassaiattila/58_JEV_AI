@@ -19,10 +19,10 @@ import { Picker, type PickerOption } from "../../components/Picker";
 import { TemplateChoice } from "../../components/TemplateChoice";
 import { errorText, useAction } from "../../hooks";
 import { t, useLocale } from "../../i18n";
-import { fieldLabel, numText, when } from "../../labels";
+import { numText, when } from "../../labels";
 import { wpHash } from "../../route";
 import { QuoteLetterCard } from "./QuoteLetter";
-import { amountText } from "./quoteStatus";
+import { amountText, quoteFieldLabel as fieldLabel } from "./quoteStatus";
 
 export const QUOTE_LINE_BLOCKER: Record<QuoteDraftBlockerCode, string> = {
   "quote:line_no_item": "No item: choose a price list item, or give a price of your own with a note",

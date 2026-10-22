@@ -26,7 +26,7 @@ export function activityDetail(action: string, detail: string | null | undefined
     case "run_approve": return t("jóváhagyva");
     case "recipe": return t(detail);
     // 167 (review 153 E): the corrected fields by their labels
-    case "correction": return detail.split(",").map(fieldLabel).join(", ");
+    case "correction": return detail.split(",").map((f) => fieldLabel(f)).join(", ");
     default: return detail;
   }
 }
