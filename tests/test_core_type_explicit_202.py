@@ -4,7 +4,8 @@ Plain-language summary: the Hungarian invoice was the first reference flow, and 
 whenever a caller named no type. These tests keep that from coming back: no function of the shared code has a type pack
 as its default, the type pack loader needs a key, and the JEV call sites have no module-level Hungarian invoice site.
 Old data saved before the type was recorded is read through one named constant (`LEGACY_DOC_TYPE`), never as a
-processing default. The command line keeps the reference flow as its `--type` default, named in one place.
+processing default. The command line keeps the reference flow as its `--type` default, named in one place
+(`cli_options.REFERENCE_TYPE`).
 
 No AI call, no store: the modules are read as syntax trees.
 """
@@ -22,14 +23,12 @@ from jav.config import PROJECT_ROOT
 
 JAV = PROJECT_ROOT / "jav"
 
-# the command line names the reference flow as the default of its `--type` option (one place, `cli.REFERENCE_TYPE`);
 # experiments are not runtime code
-SKIP = {"cli.py"}
 SKIP_DIRS = {"experiments", "__pycache__"}
 
 
 def _shared_files() -> list[Path]:
-    return [p for p in sorted(JAV.rglob("*.py")) if p.name not in SKIP and not SKIP_DIRS & set(p.relative_to(JAV).parts)]
+    return [p for p in sorted(JAV.rglob("*.py")) if not SKIP_DIRS & set(p.relative_to(JAV).parts)]
 
 
 def _type_defaults(path: Path, keys: set[str]) -> list[str]:

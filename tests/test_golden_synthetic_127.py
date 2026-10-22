@@ -8,7 +8,7 @@ value (the free coverage check of the paid measurement); the command runs them u
 import argparse
 from decimal import Decimal
 
-from jav import cfg, cli, evals
+from jav import cfg, evals, measure_cli
 from jav.candidates import find_all
 from jav.pdf import read_pdf
 from jav.typepack import get as get_pack
@@ -61,7 +61,7 @@ def test_the_golden_command_runs_the_synthetic_cases_under_their_own_name(monkey
     monkeypatch.setattr(evals, "golden", lambda *a, **k: got.update(k) or [])
     args = argparse.Namespace(store=None, arm="S", tracker=False, no_cache=False, type="invoice_foreign", engine="jev",
                               budget_usd=None, jev_budget_usd="0.02", synthetic=True)
-    assert cli.cmd_golden(args) == 0
+    assert measure_cli.cmd_golden(args) == 0
     assert got["cases"] == ["case"] and got["label"] == "synthetic" and got["jev_budget_usd"] == Decimal("0.02")
     monkeypatch.setattr(evals, "load_synthetic_cases", lambda type_key: [])
-    assert cli.cmd_golden(args) == 1
+    assert measure_cli.cmd_golden(args) == 1

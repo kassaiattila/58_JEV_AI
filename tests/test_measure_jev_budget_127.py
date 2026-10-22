@@ -7,7 +7,7 @@ sub-budget. With a JEV budget only, OpenAI and Azure get none, so they cannot be
 import argparse
 from decimal import Decimal
 
-from jav import cli, evals, evals_email, store
+from jav import evals, evals_email, measure_cli, store
 from jav.runtime import calls
 
 
@@ -56,7 +56,7 @@ def test_golden_command_passes_the_jev_budget(monkeypatch):
     monkeypatch.setattr(evals, "golden", lambda *a, **k: got.update(k) or [])
     args = argparse.Namespace(store=None, arm="S", tracker=False, no_cache=False, type="invoice_hu", engine="jev",
                               budget_usd=None, jev_budget_usd="0.40")
-    assert cli.cmd_golden(args) == 0
+    assert measure_cli.cmd_golden(args) == 0
     assert got["jev_budget_usd"] == Decimal("0.40") and got["budget_usd"] is None
 
 
