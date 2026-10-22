@@ -34,7 +34,6 @@ from jav.typepack import CANDIDATE_KIND_OF, TypePack
 from jav.typepack import get as get_pack
 
 PRESENCE_SUFFIX = "__present"  # question id of the presence Noul: <field>__present
-_DEFAULT_DOCUMENT = "Hungarian supplier invoice, selected lines (Lnn = line number)"
 
 
 def _what(field: str) -> str:
@@ -55,7 +54,7 @@ class SelectSite:
         # question's instructions (never in the state, where the document text itself is)
         self.document_guard: str | None = cfg_data.get("document_guard")
         self.none_desc: str = cfg_data["none_description"]
-        self.document: str = cfg_data.get("document", _DEFAULT_DOCUMENT)
+        self.document: str = cfg_data["document"]
         self.field_kind: dict[str, str] = dict(cfg_data["field_kind"])
         self.instructions: dict[str, str] = dict(cfg_data["instructions"])
         self.presence_template: str = cfg_data["presence_template"]
@@ -68,9 +67,8 @@ class SelectSite:
         self.request_char_budget: int | None = cfg_data.get("request_char_budget")
         self.requests: dict[str, dict[str, Any]] = {rid: dict(r) for rid, r in cfg_data["requests"].items()}
         self.request_order: tuple[str, ...] = tuple(self.requests)
-        # the request an extra question belongs to (default: the money request; select.json v1.1.2 has no `request` key)
-        money_rid = next((rid for rid in self.requests if rid.endswith("money")), self.request_order[-1])
-        self.extra_request: dict[str, str] = {key: q.get("request", money_rid) for key, q in self.extra.items()}
+        # the request an extra question belongs to (202: stated by the call site)
+        self.extra_request: dict[str, str] = {key: q["request"] for key, q in self.extra.items()}
         # an extra question that fills a pack field (currency, payment_method, reading_method...) is asked only if the
         # field is in the pack; an extra question marked `field: false` (not a field, only a signal) always goes
         self.extra_fields_known: set[str] = {key for key, q in self.extra.items() if q.get("field", True)}
@@ -107,16 +105,13 @@ class SelectSite:
     def _lines_for(self, request_id: str, lines: list[LineLayout], cands: dict[str, list[Candidate]]) -> set[int]:
         r = self.requests[request_id]
         idx = candidate_lines(lines, cands, list(r["kinds"]), margin=1)
-        extra_lines = r.get("extra_lines")
-        base = request_id.split("_")[-1]  # parties / header / money (without the foreign_ prefix)
-        if extra_lines is None and base == "parties":
-            extra_lines = {"top_fraction": 0.45}  # select.json v1.1.2 behaviour: the top 45% (the parties block)
+        extra_lines = r.get("extra_lines")  # 202: the lines a request takes besides its candidates' are stated, never named
         if extra_lines:
             if extra_lines.get("top_fraction"):
                 idx |= set(range(0, max(1, int(len(lines) * float(extra_lines["top_fraction"])))))
             if extra_lines.get("bottom_lines"):
                 idx |= set(range(max(0, len(lines) - int(extra_lines["bottom_lines"])), len(lines)))
-        if base == "money":
+        if r.get("payment_method_lines"):
             idx |= set(payment_method_lines(lines))
         return idx
 
@@ -193,9 +188,9 @@ class SelectSite:
         run_id: str,
         use_cache: bool,
     ) -> None:
-        """State: `{"document": <the pack's document description>, "lines": ["Lnn: <line>", ...]}`: the candidate lines
-        of the request's family (± 1); for the parties request also the top 45% of the document (and the bottom lines
-        if the pack says so), for the money request the payment-method lines."""
+        """State: `{"document": <the call site's document description>, "lines": ["Lnn: <line>", ...]}`: the candidate
+        lines of the request's kinds (± 1), and the lines the call site states for the request (`extra_lines`: a top
+        fraction, bottom lines; `payment_method_lines`)."""
         # one call site can serve several packs (utility round): only this pack's fields
         fields = [f for f in self.requests[request_id]["fields"] if f in self.pack.fields]
         questions: dict[str, Choice | Noul] = {}

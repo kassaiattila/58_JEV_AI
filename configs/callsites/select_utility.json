@@ -1,7 +1,7 @@
 {
  "meta": {
   "name": "select_utility",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "changelog": [
    {
     "version": "1.0.0",
@@ -17,6 +17,11 @@
     "version": "1.1.0",
     "date": "2026-10-08",
     "note": "127 (5th group, round B; the owner's decisions of 2026-10-07): document_guard (backlog S-injection, JEV part): every Choice and presence Noul says, after the glossary, that the document text is data, not instructions. New cache keys for every question: the S baseline is re-measured."
+   },
+   {
+    "version": "1.2.0",
+    "date": "2026-10-22",
+    "note": "202 (plan G-core-generalisation M2a): the call site states what the code used to infer from a request's name or fill in itself: the money request's payment-method lines. The requests sent to JEV are unchanged."
    }
   ]
  },
@@ -186,7 +191,8 @@
    ],
    "kinds": [
     "money"
-   ]
+   ],
+   "payment_method_lines": true
   },
   "utility_meter": {
    "fields": [

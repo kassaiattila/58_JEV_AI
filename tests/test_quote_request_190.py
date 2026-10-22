@@ -19,7 +19,7 @@ from typesafe_sdk import Noul
 from jav import detect_detail, doc_types, extract_llm, flow, intents, naming, policy, store, text_document, typepack
 from jav.adapters import jev as jev_mod
 from jav.emails import Attachment
-from jav.jev_verify import DOCUMENT_NOULS, site_for
+from jav.jev_verify import site_for
 from jav.models import JevCall
 from tests.test_no_jev_085 import _FakeAgent
 
@@ -111,7 +111,7 @@ def test_the_verification_asks_no_invoice_question_and_asks_the_items_list():
     site = site_for(KEY)
     assert site.document_nouls == () and site.list_nouls == ("missing_rows", "extra_rows")
     questions = site.build_questions({f: None for f in typepack.get(KEY).header_fields}, {})
-    assert not set(DOCUMENT_NOULS) & set(questions)
+    assert not set(site_for("invoice_hu").document_nouls) & set(questions)
     assert {"requested_items__missing_rows", "requested_items__extra_rows"} <= set(questions)
     texts = " ".join(str(q.instructions) for q in questions.values()).casefold()
     assert "invoice" not in texts and "supplier" not in texts
