@@ -31,6 +31,28 @@ def _no_disk_flush():
 
 
 @pytest.fixture(autouse=True, scope="session")
+def _commit_read_once():
+    """203: a service records the repository's commit when it is built (`version.commit_info`: two git calls, about
+    75 ms), and the tests build one about 450 times while the commit stays the same. The repository's own commit is read
+    once; a look at another folder, and a test that replaces the function, are unaffected."""
+    from jav import version
+
+    real = version.commit_info
+    seen: dict[str, str | bool | None] = {}
+
+    def once(root=None):
+        if root is not None:
+            return real(root)
+        if not seen:
+            seen.update(real())
+        return dict(seen)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(version, "commit_info", once)
+        yield
+
+
+@pytest.fixture(autouse=True, scope="session")
 def _no_ops_log(tmp_path_factory):
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(applog, "LOG_DIR", tmp_path_factory.mktemp("logs"))
