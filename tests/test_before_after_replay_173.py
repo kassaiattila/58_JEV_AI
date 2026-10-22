@@ -40,7 +40,8 @@ class FakeClient:
 
 
 def _versions(cache: Path) -> None:
-    """The alias resolution as the work cache keeps it; long expired, so the replay must use it without a probe."""
+    """The alias resolution as the work cache keeps it; long expired, so the replay must use it without a probe (200: with
+    the configured model pinned the replay needs no resolution; the file stays for an alias configuration)."""
     cache.mkdir(parents=True, exist_ok=True)
     (cache / jev_mod.MODEL_VERSIONS_FILE).write_text(json.dumps(
         {"jev-latest": {"model": "jev-1.13.0", "resolved_at": "2026-01-01T00:00:00+00:00"}}), encoding="utf-8")
@@ -58,7 +59,8 @@ def processed(tmp_path: Path, monkeypatch):
     write_text_pdf(folder / "invoice_1.pdf", INVOICE_LINES)
     write_text_pdf(folder / "invoice_2.pdf", [line.replace("MINTA-2026-001", "MINTA-2026-002") for line in INVOICE_LINES])
     live = tmp_path / "live" / "jav.sqlite"
-    adapter = jev_mod.JevAdapter(client=client, cache_dir=cache, model="jev-1.13.0")
+    # 200: the answers under the configured model's key, which the replay reads (a pinned version since then)
+    adapter = jev_mod.JevAdapter(client=client, cache_dir=cache)
     with store.use_store(live), jev_mod.use_adapter(adapter):
         wp = work.create_from_folder(folder, name="Synthetic invoices")
         work.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "S", "doc_type": "invoice_hu"},
