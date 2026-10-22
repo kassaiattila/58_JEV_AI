@@ -187,3 +187,40 @@ def test_the_service_answers_the_letter(quote, tmp_path):
         with quote_letter.use_agent_factory(lambda model, instructions: _Agent("Köszönjük megkeresését.")):
             queued = c.post(f"/api/workpackages/{wp_id}/quote/letter/paragraph", headers=human, json={})
         assert queued.status_code == 202 and queued.json()["state"] == "queued"
+
+
+# --- the golden set (W4) ---------------------------------------------------------------------------------------------
+
+
+class _ByLanguage:
+    """A GPT stand-in writing a clean paragraph in the language the prompt names."""
+
+    def run_sync(self, prompt, **_kw):
+        text = ("Thank you for your request; please find our quotation for the office equipment attached."
+                if '"language": "English"' in prompt else
+                "Köszönjük megkeresését; mellékelten küldjük az irodai eszközökre szóló árajánlatunkat.")
+        return SimpleNamespace(output=quote_letter.Paragraph(paragraph=text), usage=SimpleNamespace(input_tokens=600, output_tokens=40),
+                               response=SimpleNamespace(model_name="gpt-5.4-mini"))
+
+
+def test_the_golden_set_is_every_invented_request_with_a_quote_and_the_injection_probe():
+    from jav import quote_golden
+
+    cases = quote_letter.golden_cases()
+    expected = [c.id for c in quote_golden.load().cases if c.expected.request is not None and c.expected.quote is not None]
+    assert [c["id"] for c in cases] == [*expected, "probe_injection_hu"]
+    assert {c["language"] for c in cases} == {"hu", "en"}
+    assert all(c["lines"] and c["requested"] for c in cases)
+
+
+def test_the_golden_set_judges_each_paragraph_by_the_codes_check_and_its_language(tmp_path):
+    from jav import store
+
+    with store.use_store(tmp_path / "g.sqlite"), quote_letter.use_agent_factory(lambda m, i: _ByLanguage()):
+        g = quote_letter.golden(limits={"openai": quote_letter.Decimal("0.5")}, out_dir=tmp_path)
+        assert g["tally"] == {"right": g["cases"]} and g["usage"]["committed_usd"] > 0
+        again = quote_letter.golden(limits={}, earlier_only=True, out_dir=tmp_path)  # free: the earlier answers
+        assert again["tally"] == {"right": g["cases"]}
+    with store.use_store(tmp_path / "empty.sqlite"):
+        none = quote_letter.golden(limits={}, earlier_only=True, out_dir=tmp_path)
+    assert none["tally"] == {"failed": g["cases"]}  # without a budget nothing new is asked

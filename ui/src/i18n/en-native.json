@@ -2281,5 +2281,13 @@
   "Accept the letter": "Accept the letter",
   "Download the letter (Outlook)": "Download the letter (Outlook)",
   "Changed since it was accepted: accept it again to download this text.": "Changed since it was accepted: accept it again to download this text.",
-  "Accepted by {{who}}, {{when}}.": "Accepted by {{who}}, {{when}}."
+  "Accepted by {{who}}, {{when}}.": "Accepted by {{who}}, {{when}}.",
+  "quote: reply letter accepted": "quote: reply letter accepted",
+  "the quote has no language {{language}}": "the quote has no language {{language}}",
+  "the quote has a line that is not priced yet": "the quote has a line that is not priced yet",
+  "the quote has no approved version; the letter answers with an approved one": "the quote has no approved version; the letter answers with an approved one",
+  "GPT's paragraph is asked only under a budget": "GPT's paragraph is asked only under a budget",
+  "the letter has no text": "the letter has no text",
+  "the letter is longer than {{n}} characters": "the letter is longer than {{n}} characters",
+  "the letter of version {{n}} has not been accepted yet": "the letter of version {{n}} has not been accepted yet"
 }

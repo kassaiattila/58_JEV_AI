@@ -2282,5 +2282,13 @@
   "Accept the letter": "A levél elfogadása",
   "Download the letter (Outlook)": "A levél letöltése (Outlook)",
   "Changed since it was accepted: accept it again to download this text.": "Az elfogadás óta módosult: fogadd el újra, hogy ez a szöveg legyen letölthető.",
-  "Accepted by {{who}}, {{when}}.": "Elfogadta: {{who}}, {{when}}."
+  "Accepted by {{who}}, {{when}}.": "Elfogadta: {{who}}, {{when}}.",
+  "quote: reply letter accepted": "ajánlat: válaszlevél elfogadva",
+  "the quote has no language {{language}}": "az ajánlatnak nincs ilyen nyelve: {{language}}",
+  "the quote has a line that is not priced yet": "az ajánlatban van még árazatlan sor",
+  "the quote has no approved version; the letter answers with an approved one": "az ajánlatnak nincs jóváhagyott változata; a levél egy jóváhagyott változattal válaszol",
+  "GPT's paragraph is asked only under a budget": "a GPT-bekezdést csak keret mellett lehet kérni",
+  "the letter has no text": "a levélnek nincs szövege",
+  "the letter is longer than {{n}} characters": "a levél hosszabb {{n}} karakternél",
+  "the letter of version {{n}} has not been accepted yet": "a(z) {{n}}. változat levelét még nem fogadták el"
 }

@@ -244,6 +244,24 @@ def _measure_matches(options: goldens.Options) -> goldens.Outcome:
                            unit="items")
 
 
+def _count_letters() -> int:
+    return len(quote_letter.golden_cases())
+
+
+def _measure_letters(options: goldens.Options) -> goldens.Outcome:
+    """196 W4: each invented request's reply letter paragraph asked of GPT and checked by code; without a budget,
+    earlier answers only."""
+    budget, refused = options.answering_budget("the reply letters")
+    if refused:
+        return goldens.Outcome(refused=refused)
+    limits = {"openai": budget} if budget is not None else {}
+    g = quote_letter.golden(limits=limits, use_cache=options.use_cache, **({} if limits else {"earlier_only": True}))
+    quote_letter.print_golden(g)
+    answered = g["cases"] - g["tally"].get("failed", 0)
+    return goldens.Outcome(cases=g["cases"], answered=answered, right=g["tally"].get("right", 0), scored=answered,
+                           unit="cases")
+
+
 # B4a: the quote package's golden sets, measured by the shared measurement command (`jav/goldens.py`)
 GOLDENS = (
     goldens.Golden(key=f"{KIND}:lines", layer="logic_pack", owner=KIND, engines=(), module=__name__,
@@ -252,6 +270,11 @@ GOLDENS = (
     goldens.Golden(key=f"{KIND}:matches", layer="logic_pack", owner=KIND, engines=goldens.ENGINES, module=__name__,
                    what="the price list item proposed for each invented requested item: sure, to check or not listed "
                         "(configs/golden_quotes.json)", count=_count_matches, measure=_measure_matches),
+    # 196 W4: GPT only (JEV writes no text)
+    goldens.Golden(key=f"{KIND}:letters", layer="logic_pack", owner=KIND, engines=("gpt",), module=__name__,
+                   what="the reply letter's paragraph GPT writes for each invented request and an injection probe: it "
+                        "passes the code's check (no number, link, address) in the request's language", count=_count_letters,
+                   measure=_measure_letters),
 )
 
 LOGIC = logic_packs.LogicPack(
