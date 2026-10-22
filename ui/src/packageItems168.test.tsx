@@ -116,6 +116,8 @@ it("several selected items are removed with one reason, and selected removed one
   fireEvent.change(screen.getByRole("textbox", { name: "Why remove these items (2)?" }), { target: { value: " the wrong folder " } });
   fireEvent.click(submit);
   await waitFor(() => expect(remove).toHaveBeenCalledWith("wp-1", ["a", "b"], 5, "the wrong folder"));
+  // 203: the buttons stay disabled until the removal has finished; under load a click before that was lost
+  await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
   fireEvent.click(screen.getByRole("button", { name: "Restore 1" }));
   await waitFor(() => expect(restore).toHaveBeenCalledWith("wp-1", ["c"], 5));
   expect(onChanged).toHaveBeenCalledTimes(2);
