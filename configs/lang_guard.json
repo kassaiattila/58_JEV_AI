@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.104",
+    "version": "1.0.105",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.105",
+        "date": "2026-10-22",
+        "note": "202 (plan G-core-generalisation M3c): no new Hungarian line; the interface's service client's (ui/src/api.ts, 7) moved with their code to ui/src/api/client.ts (5: the person-working messages, translation keys) and ui/src/api/system.ts (2)."
+      },
       {
         "version": "1.0.104",
         "date": "2026-10-22",
@@ -914,7 +919,8 @@
     "ui/scripts/check-i18n.mjs": 15,
     "ui/src/App.tsx": 13,
     "ui/src/actor066.test.tsx": 3,
-    "ui/src/api.ts": 7,
+    "ui/src/api/client.ts": 5,
+    "ui/src/api/system.ts": 2,
     "ui/src/attachment078.test.ts": 2,
     "ui/src/audit1002.test.tsx": 4,
     "ui/src/audit1002N06.test.tsx": 16,
