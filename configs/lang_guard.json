@@ -7,7 +7,7 @@
       {
         "version": "1.0.96",
         "date": "2026-10-22",
-        "note": "196 (plan F-Word-output W1-W3): document vocabulary and test data accepted - the built-in quote and reply letter texts (configs/quote_documents.json 25), the Hungarian letters the language estimate counts (jav/quote_document.py 1), the invented injection probe of the letter's golden set (jav/quote_letter.py 3), the invented Hungarian documents and letters of the tests (tests/test_word_output_196.py 20, tests/test_quote_document_196.py 11, tests/test_quote_letter_196.py 20); 5967 -> 6047."
+        "note": "196 (plan F-Word-output W1-W3): document vocabulary and test data accepted - the built-in quote and reply letter texts (configs/quote_documents.json 25), the Hungarian letters the language estimate counts (jav/quote_document.py 1), the invented injection probe of the letter's golden set (jav/quote_letter.py 3), the invented Hungarian documents and letters of the tests (tests/test_word_output_196.py 20, tests/test_quote_document_196.py 11, tests/test_quote_letter_196.py 21); 5967 -> 6048."
       },
       {
         "version": "1.0.95",
@@ -814,7 +814,7 @@
     "tests/test_quick_review_speed_149.py": 1,
     "tests/test_quote_document_196.py": 11,
     "tests/test_quote_email_part_192.py": 2,
-    "tests/test_quote_letter_196.py": 20,
+    "tests/test_quote_letter_196.py": 21,
     "tests/test_quote_table_part_192.py": 1,
     "tests/test_recipe_help.py": 1,
     "tests/test_reconcile_141.py": 2,

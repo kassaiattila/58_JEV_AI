@@ -1,11 +1,12 @@
 {
   "meta": {
     "name": "quote_documents",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "The quote's documents (196, plan F-Word-output, DECISIONS 196, jav/quote_document.py): the built-in Word template of an approved quote in Hungarian and English, and how the quote's language is estimated. language: the request's subject and requested items are scored by code, never by a model: each Hungarian accented letter and each listed Hungarian word counts for Hungarian, each listed English word for English; English wins only with a higher score, so a request with nothing to go by is Hungarian (`default`). A person changes the language on the quote's page. quote: the built-in template's texts per language (document vocabulary: the Hungarian ones stay Hungarian), its table's columns in order with their widths, the page (A4), the page number's text around it, and the file name's prefix; a line of the heading whose value is empty is left out. labels: the Hungarian labels of the output's values and of its one column the built-in table does not show (the settings page's marker list). The numbers are written by code (jav/outputs/docx.py). letter (196, W3, jav/quote_letter.py): the reply letter's frame per language: the greeting (with the contact's name, or without one), the paragraph the letter has while GPT has written none (or its paragraph failed the code's check), the line with the totals (the `quote` output's values as markers, written by code), the closing, the subject (`Re: ` and the request's subject, or the fallback without one) and the letter file's name prefix. A person reads and changes the whole body before the letter file can be downloaded.",
     "changelog": [
       {"version": "1.0.0", "date": "2026-10-22", "note": "196 (plan F-Word-output W2): the built-in quote template in Hungarian and English, the language estimate."},
-      {"version": "1.1.0", "date": "2026-10-22", "note": "196 (plan F-Word-output W3): the reply letter's frame in Hungarian and English."}
+      {"version": "1.1.0", "date": "2026-10-22", "note": "196 (plan F-Word-output W3): the reply letter's frame in Hungarian and English."},
+      {"version": "1.2.0", "date": "2026-10-22", "note": "196 (W4, the live trial): the totals line no longer says the quotation is attached, since GPT's paragraph says it (11/11 in the trial); the frame's own paragraph says it instead."}
     ]
   },
   "language": {
@@ -76,8 +77,8 @@
     "hu": {
       "greeting": "Tisztelt {{contact_name}}!",
       "greeting_none": "Tisztelt Hölgyem/Uram!",
-      "fallback": "Köszönjük ajánlatkérését, amelyre örömmel küldjük árajánlatunkat.",
-      "totals": "Ajánlatunk bruttó végösszege {{gross_total}} {{currency}} (nettó {{net_total}} {{currency}} + ÁFA). Az árajánlatot mellékelten küldjük.",
+      "fallback": "Köszönjük ajánlatkérését; árajánlatunkat mellékelten küldjük.",
+      "totals": "Ajánlatunk bruttó végösszege {{gross_total}} {{currency}} (nettó {{net_total}} {{currency}} + ÁFA).",
       "closing": "Üdvözlettel:",
       "subject_reply": "Re: {{request_title}}",
       "subject_none": "Árajánlat",
@@ -86,8 +87,8 @@
     "en": {
       "greeting": "Dear {{contact_name}},",
       "greeting_none": "Dear Sir or Madam,",
-      "fallback": "Thank you for your request; we are pleased to send you our quotation.",
-      "totals": "The total of our quotation is {{gross_total}} {{currency}} gross ({{net_total}} {{currency}} net). Please find the quotation attached.",
+      "fallback": "Thank you for your request; please find our quotation attached.",
+      "totals": "The total of our quotation is {{gross_total}} {{currency}} gross ({{net_total}} {{currency}} net).",
       "closing": "Kind regards,",
       "subject_reply": "Re: {{request_title}}",
       "subject_none": "Quotation",

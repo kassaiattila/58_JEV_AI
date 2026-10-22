@@ -65,6 +65,7 @@ def test_the_frame_greets_by_name_writes_the_totals_by_code_and_closes():
     body = quote_letter.compose(content, package="Office", n=1, paragraph=None)
     assert body.startswith("Tisztelt Minta Anna!\n\nKöszönjük ajánlatkérését")
     assert "bruttó végösszege 209 169 HUF (nettó 164 700 HUF + ÁFA)" in body and body.endswith("Üdvözlettel:\n")
+    assert body.count("mellékelten küldjük") == 1  # W4: said once, by the paragraph, not again by the totals line
     assert quote_letter.subject(content) == "Re: Ajánlatkérés monitorokra"
     english = {**content, "language": "en", "header": {}, "request": {"title": "RE: monitors"}}
     body = quote_letter.compose(english, package="Office", n=1, paragraph="Thank you for asking us.")
