@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.103",
+    "version": "1.0.104",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.104",
+        "date": "2026-10-22",
+        "note": "202 (plan G-core-generalisation M3): no new Hungarian line, only lines that moved with their code. The command line's help and messages left jav/cli.py (70) for jav/cli_options.py (1), jav/email_cli.py (6), jav/maintenance_cli.py (38) and jav/measure_cli.py (25); jav/work.py (22 -> 10) gave its recipes' (2), readiness' (5) and runs' (5) lines to jav/work_recipes.py, jav/work_readiness.py and jav/work_runs.py. Their translation is backlog N-angol B2."
+      },
       {
         "version": "1.0.103",
         "date": "2026-10-22",
@@ -677,7 +682,7 @@
     "jav/backup.py": 2,
     "jav/candidates.py": 66,
     "jav/cfg.py": 3,
-    "jav/cli.py": 70,
+    "jav/cli_options.py": 1,
     "jav/config.py": 5,
     "jav/contract.py": 12,
     "jav/corrections.py": 1,
@@ -688,6 +693,7 @@
     "jav/detect_detail.py": 2,
     "jav/devstate.py": 7,
     "jav/docsgen.py": 48,
+    "jav/email_cli.py": 6,
     "jav/email_datasets.py": 37,
     "jav/email_export.py": 5,
     "jav/email_learning.py": 1,
@@ -725,6 +731,8 @@
     "jav/learning_cli.py": 13,
     "jav/legacy_import.py": 4,
     "jav/mailbox.py": 18,
+    "jav/maintenance_cli.py": 38,
+    "jav/measure_cli.py": 25,
     "jav/models.py": 10,
     "jav/ocr.py": 5,
     "jav/pdf.py": 8,
@@ -771,8 +779,11 @@
     "jav/typepack_convert.py": 4,
     "jav/validators.py": 1,
     "jav/version.py": 1,
-    "jav/work.py": 22,
+    "jav/work.py": 10,
     "jav/work_cli.py": 57,
+    "jav/work_readiness.py": 5,
+    "jav/work_recipes.py": 2,
+    "jav/work_runs.py": 5,
     "jav/work_views.py": 8,
     "pyproject.toml": 5,
     "requirements.txt": 9,
