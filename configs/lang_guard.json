@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.102",
+    "version": "1.0.103",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.103",
+        "date": "2026-10-22",
+        "note": "202 (plan G-core-generalisation M2): the S call site test's document vocabulary (tests/test_callsite_declared_202.py, 5): the payment-method line the candidate finder recognises only in Hungarian, and an invented terms-and-conditions document's printed lines."
+      },
       {
         "version": "1.0.102",
         "date": "2026-10-22",
@@ -785,6 +790,7 @@
     "tests/test_azure_budget_075.py": 1,
     "tests/test_backup_docs_070.py": 4,
     "tests/test_bank_files_146.py": 6,
+    "tests/test_callsite_declared_202.py": 5,
     "tests/test_candidates.py": 28,
     "tests/test_candidates_065.py": 5,
     "tests/test_candidates_066.py": 3,

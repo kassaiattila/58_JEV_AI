@@ -10,7 +10,7 @@ Division of labour:
 Call site object (`VerifySite`): the type pack's `verify_callsite` (`verify.json` for the Hungarian invoice,
 `verify_foreign.json` for the foreign one; the latter inherits the Noul questions via the `inherits` key, only its field
 descriptions are its own). 190 (plan 189 A2d): the call site names its document-level questions (`document_nouls`;
-without the key the three invoice questions, so every existing call site asks what it asked) and the questions asked
+202: `verify.json` states the three invoice questions, which every other call site inherits) and the questions asked
 of each list field of the pack (`list_nouls`, e.g. missing and extra rows; none without the key). The module-level
 `build_questions` and `verify` take the pack explicitly (202: no Hungarian invoice default).
 """
@@ -253,9 +253,6 @@ def find_evidence(
 
 
 # 190: the document-level questions of a call site that does not name its own (every call site before 190)
-DOCUMENT_NOULS = ("parties_swapped", "line_items_missing_rows", "line_items_extra_rows")
-
-
 def _as_dict(llm: BaseModel | dict[str, Any]) -> dict[str, Any]:
     return llm if isinstance(llm, dict) else llm.model_dump()
 
@@ -282,13 +279,13 @@ class VerifySite:
         # 067 (066 Á18): the pack's identity (type JSON + instruction + schema) is included for the default pack too
         self.config_hash = cfg.combine(cfg.config_hash(*names), pack.config_hash)
         self.request_id: str = data.get("request_id", "verify")
-        self.document: str = data.get("document", "Hungarian supplier invoice")
+        self.document: str = data["document"]
         self.glossary: str = data["glossary"] if own_glossary else select_site_for(pack.key).glossary
         self.field_specs: dict[str, str] = dict(data["field_specs"])
         self.incomplete_fields = tuple(data["incomplete_fields"])
         self.wrong_kind_fields = tuple(data["wrong_kind_fields"])
         self.nouls: dict[str, dict[str, str]] = data["nouls"]
-        self.document_nouls: tuple[str, ...] = tuple(data.get("document_nouls", DOCUMENT_NOULS))  # 190
+        self.document_nouls: tuple[str, ...] = tuple(data["document_nouls"])  # 190; 202: stated (verify.json's are inherited)
         self.list_nouls: tuple[str, ...] = tuple(data.get("list_nouls", ()))  # 190: asked of each list field
         unknown = [n for n in (*self.document_nouls, *self.list_nouls) if n not in self.nouls]
         if unknown:

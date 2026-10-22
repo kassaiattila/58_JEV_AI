@@ -15,9 +15,10 @@ from types import SimpleNamespace
 import pytest
 
 from jav import cfg, extract_llm, policy, typepack
-from jav.jev_verify import DOCUMENT_NOULS, VerifySite, site_for
+from jav.jev_verify import VerifySite, site_for
 from jav.models import FlowState, JevVerdicts, LineLayout
 
+INVOICE_DOCUMENT_NOULS = ("parties_swapped", "line_items_missing_rows", "line_items_extra_rows")  # verify.json's, inherited
 LIST_NOULS = {
     "missing_rows": {"question": "Is a row of `list_field` printed but absent?", "true": "a row is missing", "false": "none is"},
     "extra_rows": {"question": "Is a row of `list_field` not printed?", "true": "a row is extra", "false": "none is"},
@@ -43,7 +44,7 @@ def _site(monkeypatch, **changes) -> VerifySite:
 def test_every_call_site_before_the_quote_request_asks_the_three_invoice_questions_and_none_per_list():
     for key in (k for k in typepack.keys() if k != "quote_request"):  # 190 (A2e): its own questions
         site = site_for(key)
-        assert site.document_nouls == DOCUMENT_NOULS and site.list_nouls == (), key
+        assert site.document_nouls == INVOICE_DOCUMENT_NOULS and site.list_nouls == (), key
 
 
 def test_a_call_site_names_its_own_document_and_list_questions(monkeypatch):
@@ -52,7 +53,7 @@ def test_a_call_site_names_its_own_document_and_list_questions(monkeypatch):
     lists = typepack.get("meeting_minutes").list_fields
     assert sorted(q for q in questions if "__" in q and q.split("__")[0] in lists) == sorted(
         f"{f}__{n}" for f in lists for n in ("extra_rows", "missing_rows"))
-    assert not set(DOCUMENT_NOULS) & set(questions)
+    assert not set(INVOICE_DOCUMENT_NOULS) & set(questions)
     sent = questions["resolutions__missing_rows"].instructions
     assert sent["list_field"] == "resolutions" and sent["question"] == LIST_NOULS["missing_rows"]["question"]
 

@@ -1,7 +1,7 @@
 {
  "meta": {
   "name": "select_invoice_out",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "changelog": [
    {
     "version": "1.1.0",
@@ -12,6 +12,11 @@
     "version": "1.0.0",
     "date": "2026-10-12",
     "note": "151 (backlog F-outgoing-invoice-S-path; DECISIONS 151): the S path's questions for an outgoing invoice, on the pattern of select_foreign with the roles turned round: the SUPPLIER is the issuer, our own company; the BUYER is the customer, Hungarian or foreign (an EU VAT number). Hungarian and English layouts (Issuer / Kiallito, Customer / Vevo, two columns sharing lines with the invoice details), 'Szamlaszam' followed by a short code as the invoice number, the delivery date as the fulfilment date, a foreign billing currency with a VAT summary converted into HUF (a tax-reporting conversion, not the totals), an invoicing service named in the footer that is neither party, E-AAC / AAM / reverse charge as a VAT of 0. No own data: every example value is invented."
+   },
+   {
+    "version": "1.2.0",
+    "date": "2026-10-22",
+    "note": "202 (plan G-core-generalisation M2a): the call site states what the code used to infer from a request's name or fill in itself: the money request's payment-method lines. The requests sent to JEV are unchanged."
    }
   ]
  },
@@ -104,7 +109,8 @@
    "kinds": [
     "money",
     "iban"
-   ]
+   ],
+   "payment_method_lines": true
   }
  },
  "presence_template": "Is the {what} printed anywhere in the lines shown (Lnn = line number)? Answer yes only if the value itself is visible in the shown lines; a label without a value, or a value that belongs to the other party, does not count.",
