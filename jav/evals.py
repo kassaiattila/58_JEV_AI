@@ -27,13 +27,9 @@ from typing import Any, Callable, Iterable
 from jav.config import GOLDEN_EXPECTED_DIR, GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
 from jav.dates import read_date
 from jav.models import Candidate, FlowState, money_label, normalize_tax_id
-from jav.typepack import CANDIDATE_KIND_OF, DEFAULT_KEY, TypePack
+from jav.typepack import CANDIDATE_KIND_OF, LEGACY_DOC_TYPE, TypePack
 from jav.typepack import get as get_pack
 
-_HU = get_pack(DEFAULT_KEY)
-INFORMATIONAL_FIELDS = _HU.informational_fields
-STRICT_SCORED = _HU.strict_scored
-FIELD_KIND = {f: CANDIDATE_KIND_OF[k] for f, k in _HU.fields.items() if k in CANDIDATE_KIND_OF}  # legacy name (field -> candidate kind, hu)
 
 
 @dataclass
@@ -42,10 +38,10 @@ class GoldenCase:
     pdf: Path
     expected: dict[str, Any]  # datapoints
     expected_valid: bool
-    type_key: str = DEFAULT_KEY
+    type_key: str
 
 
-def load_cases(type_key: str = DEFAULT_KEY) -> list[GoldenCase]:
+def load_cases(type_key: str) -> list[GoldenCase]:
     """The legacy manifest's cases for one type (by the pack's `golden_type_key`)."""
     pack = get_pack(type_key)
     manifest = json.loads(GOLDEN_MANIFEST.read_text(encoding="utf-8"))
@@ -71,7 +67,7 @@ def _expected_values(exp: dict[str, Any], fields: Iterable[str]) -> dict[str, An
     return {f: exp[f] for f in fields if f in exp}
 
 
-def count_cases(type_key: str = DEFAULT_KEY) -> int:
+def count_cases(type_key: str) -> int:
     """188: the number of the legacy manifest's cases for one type that `load_cases` can read (`jav/goldens.py`): their
     expected file holds a value of one of the pack's fields. 197: the packs converted from legacy types (047) keep their
     expected values without a `datapoints` record, and count too; 0 without the legacy project."""
@@ -92,7 +88,7 @@ def count_cases(type_key: str = DEFAULT_KEY) -> int:
 SYNTHETIC_DIR = RUNS_DIR / "synthetic_golden"
 
 
-def load_case_file(path: Path, type_key: str = DEFAULT_KEY) -> list[GoldenCase]:
+def load_case_file(path: Path, type_key: str) -> list[GoldenCase]:
     """151: a local case list (`{"cases": [{"case_id", "path", "expected"}]}`), kept outside git because it names real
     documents, as for the type recognition (122, `evals_detect.load_case_file`). The expectations are the measurer's
     reference values (for example another path's results, which makes the score an agreement, not an accuracy); a
@@ -102,7 +98,7 @@ def load_case_file(path: Path, type_key: str = DEFAULT_KEY) -> list[GoldenCase]:
                        type_key=type_key) for c in data["cases"] if Path(c["path"]).exists()]
 
 
-def load_synthetic_cases(type_key: str = DEFAULT_KEY, out_dir: Path = SYNTHETIC_DIR) -> list[GoldenCase]:
+def load_synthetic_cases(type_key: str, out_dir: Path = SYNTHETIC_DIR) -> list[GoldenCase]:
     """127: the synthetic golden cases of one type (`configs/golden_synthetic.json`): each case's single-page PDF is
     written from its rows into `out_dir` (outside git); it is scored only on the fields its `expected` names. Kept apart
     from the legacy golden sets, so their results stay comparable."""
@@ -120,7 +116,7 @@ def load_synthetic_cases(type_key: str = DEFAULT_KEY, out_dir: Path = SYNTHETIC_
 
 
 def _flow_label(type_key: str, arm: str) -> str:
-    return f"invoice_{arm}" if type_key == DEFAULT_KEY else f"{type_key}_{arm}"
+    return f"invoice_{arm}" if type_key == LEGACY_DOC_TYPE else f"{type_key}_{arm}"  # the earlier flow name
 
 
 def _run_name(type_key: str, base: str) -> str:
@@ -132,7 +128,7 @@ def _run_name(type_key: str, base: str) -> str:
 
     from jav.ocr import ENGINE_ENV
 
-    name = base if type_key == DEFAULT_KEY else f"{type_key}_{base}"
+    name = base if type_key == LEGACY_DOC_TYPE else f"{type_key}_{base}"
     forced = os.environ.get(ENGINE_ENV)
     return f"{forced}_{name}" if forced else name
 
@@ -168,11 +164,10 @@ def _norm_date(v: Any) -> str:
     return d.isoformat() if d else str(v).strip()
 
 
-def field_equal(field: str, got: Any, expected: Any, kind: str | None = None) -> bool:
-    """Comparison by the field's KIND (the legacy contract); without `kind`, taken from the Hungarian invoice pack."""
+def field_equal(field: str, got: Any, expected: Any, kind: str) -> bool:
+    """Comparison by the field's KIND (the legacy contract; the type pack's `kind(field)`)."""
     if got is None or expected is None:
         return got is None and expected is None
-    kind = kind or _HU.kind(field)
     if kind in ("money", "number"):
         return _norm_money(got) == _norm_money(expected)
     if kind == "tax_id":
@@ -186,7 +181,7 @@ def field_equal(field: str, got: Any, expected: Any, kind: str | None = None) ->
     return _norm_name(got) == _norm_name(expected)
 
 
-def field_in_candidates(field: str, expected: Any, cands: list[Candidate], kind: str | None = None) -> bool:
+def field_in_candidates(field: str, expected: Any, cands: list[Candidate], kind: str) -> bool:
     return any(field_equal(field, c.label, expected, kind) for c in cands)
 
 
@@ -200,21 +195,20 @@ def _fold_ocr(v: Any) -> str:
     return " ".join(_PUNCT_ALL.sub(" ", str(v).translate(_ACCENT_FOLD)).split()).casefold()
 
 
-def field_equal_lenient(field: str, got: Any, expected: Any, kind: str | None = None) -> bool:
+def field_equal_lenient(field: str, got: Any, expected: Any, kind: str) -> bool:
     """Strict equality OR - for text kinds (name, address, text) - OCR-tolerant equality (ignoring accents, case and
     punctuation). The second, informational score for OCR-text types: how much of the error is only OCR accent noise."""
     if field_equal(field, got, expected, kind):
         return True
     if got is None or expected is None:
         return False
-    kind = kind or _HU.kind(field)
     return kind in ("name", "address", "text") and _fold_ocr(got) == _fold_ocr(expected)
 
 
 # --- candidate recall (offline, no API) ------------------------------------------------
 
 
-def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True, type_key: str = DEFAULT_KEY) -> dict[str, tuple[int, int]]:
+def candidate_recall(cases: list[GoldenCase] | None = None, verbose: bool = True, *, type_key: str) -> dict[str, tuple[int, int]]:
     from jav.candidates import find_all, find_currencies
     from jav.pdf import read_document
 
@@ -342,7 +336,7 @@ def _dump_rows(rows: list[dict[str, Any]], name: str) -> Path:
 
 def golden(
     arm: str, run_one: Callable[..., FlowState], cases: list[GoldenCase] | None = None, tracker: bool = False, use_cache: bool = True,
-    type_key: str = DEFAULT_KEY, *, jev: bool = True, budget_usd: Decimal | None = None,
+    *, type_key: str, jev: bool = True, budget_usd: Decimal | None = None,
     jev_budget_usd: Decimal | None = None, label: str = "golden",
 ) -> list[dict[str, Any]]:
     """`jev=False` (086): the G path verified by the code alone (no JEV question). `budget_usd`: a hard OpenAI budget
@@ -372,8 +366,7 @@ def golden(
     return rows
 
 
-def print_golden_report(rows: list[dict[str, Any]], arm: str, pack: TypePack | None = None) -> None:
-    pack = pack or get_pack(rows[0].get("doc_type", DEFAULT_KEY) if rows else DEFAULT_KEY)
+def print_golden_report(rows: list[dict[str, Any]], arm: str, pack: TypePack) -> None:
     scored = [r for r in rows if r["datapoints"] is not None]
     print(f"\n### Golden - {pack.key} {arm}-kar ({len(scored)}/{len(rows)} eset kivonatolva)\n")
     print("| mező | pontosság | n | átlag conf (S) / max flag (G) |\n|---|---|---|---|")
@@ -411,8 +404,8 @@ def print_golden_report(rows: list[dict[str, Any]], arm: str, pack: TypePack | N
 
 
 def determinism(
-    arm: str, n: int, run_one: Callable[..., FlowState], cases: list[GoldenCase] | None = None, type_key: str = DEFAULT_KEY,
-    *, jev: bool = True,
+    arm: str, n: int, run_one: Callable[..., FlowState], cases: list[GoldenCase] | None = None, *, type_key: str,
+    jev: bool = True,
 ) -> list[dict[str, Any]]:
     """n runs per case without the cache. `jev=False` (160-D): the G path checked by the code alone, its run file
     named `_nojev` as the golden run's."""
@@ -437,8 +430,7 @@ def determinism(
     return rows
 
 
-def print_determinism_report(rows: list[dict[str, Any]], arm: str, n: int, pack: TypePack | None = None) -> None:
-    pack = pack or get_pack(rows[0].get("doc_type", DEFAULT_KEY) if rows else DEFAULT_KEY)
+def print_determinism_report(rows: list[dict[str, Any]], arm: str, n: int, pack: TypePack) -> None:
     by_case: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in rows:
         by_case[r["case_id"]].append(r)
@@ -564,7 +556,7 @@ def probe_summary(rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     return out
 
 
-def verifier_probe(cases: list[GoldenCase] | None = None, use_cache: bool = True, type_key: str = DEFAULT_KEY,
+def verifier_probe(cases: list[GoldenCase] | None = None, use_cache: bool = True, *, type_key: str,
                    jev_budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
     """Runs the JEV verifier on the golden EXPECTED extract (perfect) and on deliberately broken variants of it.
 

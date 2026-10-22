@@ -9,6 +9,7 @@ from typesafe_sdk import Choice, SystemOneResponse
 from jav import store
 from jav.adapters.jev import JevAdapter, JevUnavailableError
 from jav.runtime import calls
+from jav.typepack import get as get_pack
 
 
 class FakeClient:
@@ -109,7 +110,7 @@ def test_gpt_failure_is_ledgered_outside_run_context(isolated):
     """F05: a failed call of the normal GPT extract is also recorded in the ledger (with unknown cost, not zero)."""
     from jav import extract_llm
     with extract_llm.use_agent_factory(lambda pack: _FailingAgent()), pytest.raises(TimeoutError):
-        extract_llm.extract("szöveg", run_id="g1")
+        extract_llm.extract("szöveg", pack=get_pack("invoice_hu"), run_id="g1")
     rows = store.ledger_for_run("g1")
     assert len(rows) == 1 and rows[0]["error"] == "TimeoutError" and rows[0]["cost_usd"] is None
 
@@ -118,7 +119,7 @@ def test_gpt_failure_in_run_context_keeps_reservation(isolated):
     from jav import extract_llm
     calls.set_budget("wp", "openai", Decimal("1"))
     with calls.use_run(budget_scope="wp"), extract_llm.use_agent_factory(lambda pack: _FailingAgent()), pytest.raises(TimeoutError):
-        extract_llm.extract("szöveg", run_id="g2")
+        extract_llm.extract("szöveg", pack=get_pack("invoice_hu"), run_id="g2")
     row = calls.journal("g2")[0]
     # 085 (re-audit A04): a provider timeout may have been processed, so the call is uncertain, not failed
     assert row["status"] == "uncertain" and row["provider"] == "openai"
@@ -143,7 +144,7 @@ def test_unpriced_model_is_refused_under_a_budget(isolated, monkeypatch):
     calls.set_budget("wp", "openai", Decimal("1"))
     with calls.use_run(budget_scope="wp"), extract_llm.use_agent_factory(lambda pack: _MustNotRun()):
         with pytest.raises(UnpricedModelError):
-            extract_llm.extract("szöveg", run_id="u1")
+            extract_llm.extract("szöveg", pack=get_pack("invoice_hu"), run_id="u1")
         with pytest.raises(UnpricedModelError):
             email_tasks.extract({"messages": [{"message_id": "m1", "subject": "x", "body": "y"}]}, intent_hint=None, run_id="u2")
     assert calls.journal("u1") == [] and calls.journal("u2") == []

@@ -21,7 +21,7 @@ def _picked(raw: str, label: str) -> tuple[Decimal | None, list[str]]:
     cand = Candidate(kind="money", label=label, raw=raw, line_no=1, context="L01", ambiguous=True)
     picks = {"vat_total": FieldPick(field="vat_total", label=label, raw=raw, confidence=0.9, n_options=1,
                                     request_id="money")}
-    inv, reasons = site_for("invoice_out").picks_to_invoice(picks, {"money": [cand]})
+    inv, reasons = site_for("invoice_out").picks_to_record(picks, {"money": [cand]})
     return inv.vat_total, reasons
 
 

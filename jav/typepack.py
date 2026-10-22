@@ -49,7 +49,10 @@ CANDIDATE_KIND_OF = {  # field kind -> candidate kind (S path); others: no candi
     "name": "name", "tax_id": "tax_id", "date": "date", "money": "money", "iban": "iban", "invoice_number": "invoice_number", "address": "address",
     "number": "quantity",  # kWh, m3, MJ, meter reading: numbers of unit/meter-labelled rows (candidates.find_quantities)
 }
-DEFAULT_KEY = "invoice_hu"
+LEGACY_DOC_TYPE = "invoice_hu"
+"""202: the type of the first reference flow, for old data only. Rows, raw runs and file names saved before the type was
+recorded name no type, and all of them were Hungarian invoices. Never a processing default: the shared code always
+takes the type explicitly."""
 BASE_PREFIX = "_base/"
 INPUTS = ("pdf", "text", "table")  # 190: the input kinds a pack may take (`jav.text_document`)
 
@@ -138,10 +141,6 @@ class TypePack(BaseModel):
         accuracy)."""
         return tuple(f for f in self.scored_fields if f not in self.informational_fields)
 
-    @property
-    def is_default(self) -> bool:
-        return self.key == DEFAULT_KEY
-
     # --- schema / prompt -------------------------------------------------------------------
 
     @property
@@ -154,13 +153,13 @@ class TypePack(BaseModel):
         return _merged_schema(self.schema_files)
 
     def llm_model(self) -> type[BaseModel]:
-        """The G path's output model. For the Hungarian invoice, the hand-written `InvoiceLLM` (a 1:1 mirror of the
-        legacy schema, referenced by tests); for other types, a model generated from the legacy schema.json (base +
-        child) (`extra="forbid"`, every field nullable)."""
-        if self.is_default:
-            from jav.models import InvoiceLLM
+        """The G path's output model: the pack's hand-written model if it has one (`models.HAND_WRITTEN_OUTPUT`), else a
+        model generated from the legacy schema.json (base + child) (`extra="forbid"`, every field nullable)."""
+        from jav.models import HAND_WRITTEN_OUTPUT
 
-            return InvoiceLLM
+        hand_written = HAND_WRITTEN_OUTPUT.get(self.key)
+        if hand_written is not None:
+            return hand_written
         return _model_from_schema(self.key, self.schema_files, self.plain_list_items)
 
 
@@ -236,7 +235,7 @@ def _dedup(*lists: list[Any]) -> tuple[Any, ...]:
 
 
 @lru_cache(maxsize=None)
-def get(key: str = DEFAULT_KEY) -> TypePack:
+def get(key: str) -> TypePack:
     """The type pack, loaded and checked (`FileNotFoundError` if there is no such type pack). With `extends`, the base
     pack's fields / lists / validators / schema are merged in before the child's; `config_hash` covers both."""
     data = cfg.load(f"type:{key}")
@@ -344,4 +343,4 @@ def reload() -> None:
     _merged_schema.cache_clear()
 
 
-__all__ = ["KINDS", "CANDIDATE_KIND_OF", "DEFAULT_KEY", "BASE_PREFIX", "INPUTS", "TypePack", "get", "keys", "resolve_arm", "reload"]
+__all__ = ["KINDS", "CANDIDATE_KIND_OF", "LEGACY_DOC_TYPE", "BASE_PREFIX", "INPUTS", "TypePack", "get", "keys", "resolve_arm", "reload"]

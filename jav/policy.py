@@ -18,7 +18,7 @@ from jav import cfg, checks, type_roles
 from jav.emails import Attachment
 from jav.intents import DOCUMENT_BEARING
 from jav.models import CheckResult, FlowState
-from jav.typepack import DEFAULT_KEY, get as get_pack
+from jav.typepack import get as get_pack
 
 _CFG = cfg.load("policy")
 _EMAIL = _CFG["email"]
@@ -185,18 +185,15 @@ AUTO_MIN_CONF_HIGH_STAKES: float = band("invoice.pick.high_stakes")["choice_huma
 REVIEW_FLAG_P: float = band("invoice.verify")["noul_yes_min"]  # G path: Noul P(yes) for an error flag, review from here
 DETECT_LOW_CONFIDENCE: float = band("detect.doc_type")["choice_human_max_conf"]  # M1: uncertain below it; still saved
 
-# Type-dependent lists: from the type pack (the Hungarian invoice's as a legacy module constant; for other types use
-# `high_stakes_for` / `required_for`)
-HIGH_STAKES = frozenset(get_pack(DEFAULT_KEY).high_stakes)
-REQUIRED = frozenset(get_pack(DEFAULT_KEY).required)  # the legacy rules.json `required` list
+# Type-dependent lists: from the named type's pack (202: no Hungarian invoice module constant)
 
 
-def high_stakes_for(doc_type: str | None) -> frozenset[str]:
-    return frozenset(get_pack(doc_type or DEFAULT_KEY).high_stakes)
+def high_stakes_for(doc_type: str) -> frozenset[str]:
+    return frozenset(get_pack(doc_type).high_stakes)
 
 
-def required_for(doc_type: str | None) -> frozenset[str]:
-    return frozenset(get_pack(doc_type or DEFAULT_KEY).required)
+def required_for(doc_type: str) -> frozenset[str]:
+    return frozenset(get_pack(doc_type).required)
 
 
 OCR: dict[str, float] = {k: float(v) for k, v in _CFG.get("ocr", {}).items()}  # v1.6.0: OCR quality thresholds
@@ -337,7 +334,7 @@ def apply_verdict_policy(state: FlowState) -> None:
         if reason:
             require_review(state, reason)
     if state.record is not None:
-        pack = get_pack(state.doc_type or DEFAULT_KEY)
+        pack = get_pack(state.doc_type)
         # 175: in the pack's order (a set's order depended on the process's hash seed)
         for field in pack.required:
             if state.record.get_field(field) is not None:

@@ -20,6 +20,7 @@ import pytest
 
 from jav import extract_llm, gpt_choice, store
 from jav.runtime import calls
+from jav.typepack import get as get_pack
 from tests.test_gpt_extract_logprobs_091 import _LogprobAgent
 from tests.test_no_jev_085 import GOOD
 
@@ -108,7 +109,7 @@ def test_the_extraction_sends_one_request_only_when_lean(isolated, budget, reque
         return agents[-1]
 
     with extract_llm.use_agent_factory(factory), calls.use_run(budget_scope="run-a"):
-        extract_llm.extract_scored("Synthetic invoice text.", run_id="run-a")
+        extract_llm.extract_scored("Synthetic invoice text.", pack=get_pack("invoice_hu"), run_id="run-a")
     assert agents[0].limits == [request_limit]
 
 

@@ -12,7 +12,7 @@ from jav.validators import run_checks
 
 
 def _state(*checks: CheckResult) -> FlowState:
-    return FlowState(source_path="x.pdf", case_id="c", arm="G", validation=list(checks))
+    return FlowState(doc_type="invoice_hu", source_path="x.pdf", case_id="c", arm="G", validation=list(checks))
 
 
 def test_a_failed_field_check_names_its_field():

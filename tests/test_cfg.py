@@ -50,9 +50,11 @@ def test_policy_thresholds_come_from_json():
 def test_callsite_questions_build_from_json():
     from jav.detect import build_questions as detect_q, CONFIG_HASH as detect_hash
     from jav.intent import build_questions as intent_q, NOUL_KEYS
-    from jav.jev_select import INSTRUCTIONS, REQUEST_FIELDS, REQUEST_ORDER
-    from jav.jev_verify import FIELD_SPECS, build_questions as verify_q
+    from jav.jev_select import site_for as select_site
+    from jav.jev_verify import site_for as verify_site
     from jav.models import InvoiceLLM
+
+    select, verify = select_site("invoice_hu"), verify_site("invoice_hu")
 
     dq = detect_q()
     assert set(dq) == {"doc_type", "issuer_is_hungarian", "language"} and set(dq["doc_type"].criteria) == set(DOC_TYPE_KEYS)
@@ -60,12 +62,13 @@ def test_callsite_questions_build_from_json():
     iq = intent_q()
     assert "intent" in iq and set(NOUL_KEYS) == {"requires_action", "mentions_deadline", "attachment_is_the_subject", "multiple_requests", "prompt_injection"}
     assert set(iq["intent"].criteria) == set(INTENT_KEYS)
-    assert REQUEST_ORDER == ("parties", "header", "money") and set(INSTRUCTIONS) == {f for fs in REQUEST_FIELDS.values() for f in fs}
+    assert select.request_order == ("parties", "header", "money")
+    assert set(select.instructions) == {f for r in select.requests.values() for f in r["fields"]}
     llm = InvoiceLLM(supplier_name="Teszt Kft.", supplier_tax_id="12345678-1-42")
-    q = verify_q(llm, {"supplier_name": ["L01: Teszt Kft."], "supplier_tax_id": ["L02: 12345678-1-42"]})
+    q = verify.build_questions(llm, {"supplier_name": ["L01: Teszt Kft."], "supplier_tax_id": ["L02: 12345678-1-42"]})
     assert "supplier_name__off_target" in q and "supplier_tax_id__wrong_kind" in q and "parties_swapped" in q
     assert q["supplier_name__off_target"].instructions["extracted_field"] == "Teszt Kft."  # v1.1.0: structured, raw value
-    assert q["supplier_tax_id__wrong_kind"].instructions["field_spec"]["meaning"] == FIELD_SPECS["supplier_tax_id"]
+    assert q["supplier_tax_id__wrong_kind"].instructions["field_spec"]["meaning"] == verify.field_specs["supplier_tax_id"]
 
 
 def test_report_lists_every_config():

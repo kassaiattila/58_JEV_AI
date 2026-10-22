@@ -14,7 +14,7 @@ import pytest
 
 from jav import typepack
 from jav.candidates import trim_after_legal_form
-from jav.jev_select import picks_to_invoice
+from jav.jev_select import picks_to_record
 from jav.models import FieldPick, normalize_value
 
 
@@ -62,5 +62,5 @@ def test_the_selection_path_trims_the_chosen_name():
     pack = typepack.get("invoice_hu")
     label = "Minta Kft. Mobil es szamitastechnikai szakuzlet"
     picks = {"supplier_name": FieldPick(field="supplier_name", label=label, confidence=0.8, n_options=2, request_id="r")}
-    invoice, _reasons = picks_to_invoice(picks, {}, pack)
+    invoice, _reasons = picks_to_record(picks, {}, pack)
     assert invoice.supplier_name == "Minta Kft."

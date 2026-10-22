@@ -86,7 +86,7 @@ def test_decide_applies_its_policies_in_a_fixed_order(monkeypatch, arm, expected
         marker = markers.pop(check.name)
         monkeypatch.setitem(checks._CHECKS, check.name, replace(check, run=lambda subject, m=marker: [m]))
     assert markers == {}  # every step of the decision is a check
-    state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm=arm)
+    state = FlowState(doc_type="invoice_hu", source_path="synthetic.pdf", case_id="synthetic", arm=arm)
     with calls.use_run(budget_scope=RUN):
         assert policy.decide(state) == "human"
     assert state.review_reasons == expected

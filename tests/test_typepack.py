@@ -54,12 +54,13 @@ def _foreign_lines() -> list[LineLayout]:
 def test_packs_load_and_hu_pack_equals_legacy_constants():
     hu = typepack.get("invoice_hu")
     assert hu.header_fields == HEADER_FIELDS and hu.scored_fields == SCORED_FIELDS and hu.informational_fields == ("payment_iban",)
-    assert set(hu.required) == {"buyer_name", "gross_total", "invoice_number", "supplier_name"} == set(policy.REQUIRED)
-    assert set(hu.high_stakes) == {"amount_due", "due_date", "gross_total", "payment_iban", "supplier_tax_id"} == set(policy.HIGH_STAKES)
+    assert set(hu.required) == {"buyer_name", "gross_total", "invoice_number", "supplier_name"} == set(policy.required_for("invoice_hu"))
+    assert set(hu.high_stakes) == {"amount_due", "due_date", "gross_total", "payment_iban", "supplier_tax_id"} == set(policy.high_stakes_for("invoice_hu"))
     assert [v["check"] for v in hu.validators] == ["vat_consistency", "date_order", "tax_id", "tax_id", "iban_check",
                                                    "line_items_total", "line_items_arithmetic", "distinct_parties",
                                                    "distinct_parties", "party_orientation"]  # 053 T3.2 line items; 069 both parties' tax numbers; 120 one party in two roles; 121 the pair against earlier documents
-    assert hu.candidate_profile == "hu" and hu.is_default and hu.llm_model().__name__ == "InvoiceLLM"
+    assert hu.candidate_profile == "hu" and hu.llm_model().__name__ == "InvoiceLLM"  # 202: its hand-written model, by the table
+    assert typepack.get("invoice_foreign").llm_model().__name__ == "LLM_invoice_foreign"
     fo = typepack.get("invoice_foreign")
     assert fo.candidate_profile == "intl" and fo.select_callsite == "select_foreign" and fo.verify_callsite == "verify_foreign"
     assert fo.header_fields == tuple(fo.schema()["properties"]) [:-1] or "line_items" not in fo.header_fields  # the schema's order
@@ -140,7 +141,7 @@ def test_select_foreign_site_builds_country_and_currency_questions():
     assert site_for("invoice_hu").config_hash == cfg.combine(cfg.config_hash("callsite:select"), typepack.get("invoice_hu").config_hash)
 
 
-def test_select_foreign_picks_to_invoice_by_kind():
+def test_select_foreign_picks_to_record_by_kind():
     from jav.jev_select import site_for
     from jav.models import Candidate
 
@@ -152,7 +153,7 @@ def test_select_foreign_picks_to_invoice_by_kind():
         "issue_date": FieldPick(field="issue_date", label="2022-11-02", confidence=0.9, n_options=3, request_id="foreign_header"),
     }
     cands = {"money": [Candidate(kind="money", label="108.38", raw="108,38", line_no=6, context="L06")]}
-    inv, reasons = site.picks_to_invoice(picks, cands)
+    inv, reasons = site.picks_to_record(picks, cands)
     assert inv.supplier_country == "IE" and inv.currency == "EUR" and inv.gross_total == Decimal("108.38") and inv.issue_date == date(2022, 11, 2)
     assert reasons == [] and inv.net_total is None
 
@@ -183,7 +184,8 @@ def test_validators_are_pack_driven():
     assert codes == {"date_order": "dates.ok", "format:currency": "format.ok", "format:supplier_country": "format.ok"}  # no VAT equation (reverse charge), no IBAN
     inv.supplier_country = "Ireland"
     assert {c.code for c in run_all(inv, fo.validators)} >= {"format.mismatch"}
-    hu_codes = [c.name for c in run_all(DocumentRecord(currency="HUF", net_total=Decimal(1), vat_total=Decimal(0), gross_total=Decimal(1), issue_date=date(2022, 1, 1), due_date=date(2022, 1, 2)))]
+    hu_codes = [c.name for c in run_all(DocumentRecord(currency="HUF", net_total=Decimal(1), vat_total=Decimal(0), gross_total=Decimal(1), issue_date=date(2022, 1, 1), due_date=date(2022, 1, 2)),
+                                        typepack.get("invoice_hu").validators)]
     # the legacy list is unchanged (optional tax number / IBAN skipped when empty); 053: no line items, no item error
     assert hu_codes == ["vat_consistency", "date_order", "line_items_total", "line_items_arithmetic"]
 
@@ -198,7 +200,7 @@ def test_policy_uses_pack_required_and_high_stakes():
     policy.apply_pick_policy(st)
     assert "pick:none:gross_total" in st.review_reasons and "pick:none:buyer_name" not in st.review_reasons
     assert any(r.startswith("pick:high_stakes_conf:due_date") for r in st.review_reasons)
-    assert policy.required_for("invoice_hu") == policy.REQUIRED and "buyer_name" in policy.REQUIRED
+    assert "buyer_name" in policy.required_for("invoice_hu")
 
 
 def test_golden_compare_by_kind_and_case_loader_filters_type():

@@ -92,7 +92,7 @@ def test_the_guard_never_goes_into_the_state(tmp_path: Path, monkeypatch: pytest
     lines = [LineLayout(no=1, page=1, text="Teszt Kft."), LineLayout(no=2, page=1, text="Adószám: 12345678-1-42")]
     cands = {"tax_id": [Candidate(kind="tax_id", label="12345678-1-42", raw="12345678-1-42", line_no=2, context="L02")],
              "name": [Candidate(kind="name", label="Teszt Kft.", raw="Teszt Kft.", line_no=1, context="L01")]}
-    select_fields(jev, lines, cands, run_id="r")
+    select_fields(jev, lines, cands, pack=get_pack("invoice_hu"), run_id="r")
     assert client.requests
     for req in client.requests:
         assert _guard() not in json.dumps(req["state"], ensure_ascii=False)

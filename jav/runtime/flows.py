@@ -84,7 +84,7 @@ def specs() -> list[FlowSpec]:
 
 # --- how each flow is built ---------------------------------------------------------------------------------------
 
-def _build_invoice(mod: ModuleType, b: Build) -> Any:
+def _build_extraction(mod: ModuleType, b: Build) -> Any:
     # `jev_cache=live` (use_cache False): skip reading the JEV cache so every call goes through the log and the budget
     return mod.build_app(b.source_path, b.app_id, b.params["arm"], tracker=False, doc_type=b.params["doc_type"],
                          run_id=b.app_id, persister=b.persister, use_cache=b.use_cache, read_path=b.read_path,
@@ -140,7 +140,7 @@ def _lint_statement_table(mod: ModuleType) -> Any:
                          read_path="lint.json", expected_sha256="0" * 64)
 
 
-register(FlowSpec("invoice", "jav.flow", _build_invoice, lambda m: m.build_app("lint.pdf", "lint", "S", tracker=False),
+register(FlowSpec("invoice", "jav.flow", _build_extraction, lambda m: m.build_app("lint.pdf", "lint", "S", tracker=False, doc_type="invoice_hu"),
                   doc_type="params"))
 register(FlowSpec("doc_detect", "jav.flow_detect", _build_detect, lambda m: m.build_app("lint.pdf", tracker=False)))
 register(FlowSpec("email", "jav.flow_email", _build_email, lambda m: m.build_app(source_dir="lint", tracker=False)))

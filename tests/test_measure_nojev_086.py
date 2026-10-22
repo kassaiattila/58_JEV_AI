@@ -75,5 +75,5 @@ def test_golden_without_jev_asks_the_flow_for_the_code_check_and_names_the_run(m
         return type("State", (), {"final_status": "done", "route": "auto"})()
 
     with store.use_store(tmp_path / "g.sqlite"):
-        evals.golden("G", run_one, jev=False, budget_usd=Decimal("0.60"))
+        evals.golden("G", run_one, type_key="invoice_hu", jev=False, budget_usd=Decimal("0.60"))
     assert seen == [False] and names == ["golden_G_nojev"]

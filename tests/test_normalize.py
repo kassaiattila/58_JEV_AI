@@ -7,12 +7,13 @@ import pytest
 
 from jav.models import (
     InvoiceLLM,
-    llm_to_invoice,
     money_label,
     normalize_date,
     normalize_tax_id,
     parse_money,
+    record_from_llm,
 )
+from jav.typepack import get as get_pack
 
 
 @pytest.mark.parametrize(
@@ -84,7 +85,7 @@ def test_normalize_tax_id(raw, expected):
     assert normalize_tax_id(raw) == expected
 
 
-def test_llm_to_invoice_collects_reasons_instead_of_raising():
+def test_the_llm_layer_to_the_record_collects_reasons_instead_of_raising():
     llm = InvoiceLLM(
         supplier_name="  Szintetikus   Szállító Kft. ",
         supplier_tax_id="12121216242",
@@ -95,7 +96,7 @@ def test_llm_to_invoice_collects_reasons_instead_of_raising():
         vat_total="27000",
         gross_total="abc",
     )
-    inv, reasons = llm_to_invoice(llm)
+    inv, reasons = record_from_llm(llm.model_dump(), get_pack("invoice_hu").fields)
     assert inv.supplier_name == "Szintetikus Szállító Kft."
     assert inv.supplier_tax_id == "12121216-2-42"
     assert inv.issue_date == date(2026, 1, 5)

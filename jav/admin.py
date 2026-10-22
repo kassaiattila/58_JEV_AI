@@ -13,6 +13,7 @@ from typing import Any
 
 from jav import cfg, config, contract, store
 from jav.config import PROJECT_ROOT, RUNS_DIR
+from jav.typepack import LEGACY_DOC_TYPE
 
 STATE_PATH = PROJECT_ROOT / "docs" / "STATE.md"  # generated state snapshot; the handoff links to it, never copies it
 
@@ -66,7 +67,7 @@ def last_golden_results() -> list[dict[str, Any]]:
             rows = _rows(p)
             if not rows:
                 continue
-            doc_type = rows[0].get("doc_type", "invoice_hu")
+            doc_type = rows[0].get("doc_type", LEGACY_DOC_TYPE)
             if any(r.get("datapoints") is not None for r in rows):
                 latest_by_type[doc_type] = (p, rows)
                 failed_newer.pop(doc_type, None)

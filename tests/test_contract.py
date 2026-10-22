@@ -8,7 +8,7 @@ from jav import contract, flow, flow_detect, flow_email, flow_learning, flow_nat
 
 def _apps():
     return [
-        (flow, flow.build_app("lint.pdf", "lint", "S", tracker=False)),
+        (flow, flow.build_app("lint.pdf", "lint", "S", tracker=False, doc_type="invoice_hu")),
         (flow_detect, flow_detect.build_app("lint.pdf", tracker=False)),
         (flow_email, flow_email.build_app(source_dir="lint", tracker=False)),
         (flow_learning, flow_learning.build_app()),

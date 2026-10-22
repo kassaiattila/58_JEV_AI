@@ -90,18 +90,20 @@ def test_verify_config_is_structured():
 def test_build_questions_structured_instructions():
     """The instruction is an object (sde_cascade pattern): field_spec {name, meaning}, extracted_field raw, printed_on,
     question, glossary; 127: the document guard as `rule`."""
-    from jav.jev_verify import FIELD_SPECS, build_questions
-    from jav.jev_select import GLOSSARY
+    from jav.jev_select import site_for as select_site
+    from jav.jev_verify import site_for as verify_site
+
+    site = verify_site("invoice_hu")
     from jav.models import InvoiceLLM
 
     llm = InvoiceLLM(supplier_name="Teszt Kft.", supplier_tax_id="12345678-1-42", net_total="1000")
     evidence = {"supplier_name": ["L01: Teszt Kft."], "supplier_tax_id": ["L02: Adószám: 12345678-1-42"]}
-    q = build_questions(llm, evidence)
+    q = site.build_questions(llm, evidence)
     ot = q["supplier_name__off_target"].instructions
     assert isinstance(ot, dict) and set(ot) == {"glossary", "rule", "field_spec", "extracted_field", "printed_on", "question"}
-    assert ot["field_spec"] == {"name": "supplier_name", "meaning": FIELD_SPECS["supplier_name"]}
+    assert ot["field_spec"] == {"name": "supplier_name", "meaning": site.field_specs["supplier_name"]}
     assert ot["extracted_field"] == "Teszt Kft." and ot["printed_on"] == ["L01: Teszt Kft."]  # raw value, not repr
-    assert ot["glossary"] == GLOSSARY and "`printed_on`" in ot["question"]
+    assert ot["glossary"] == select_site("invoice_hu").glossary and "`printed_on`" in ot["question"]
     assert q["supplier_name__off_target"].criteria == {"true": "the value belongs to another field; it is wrongly placed here",
                                                        "false": "the value is the correct value for this field"}
     wk = q["supplier_tax_id__wrong_kind"].instructions

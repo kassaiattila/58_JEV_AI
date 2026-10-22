@@ -41,7 +41,7 @@ CALLSITES: dict[str, dict[str, Any]] = {
         },
     },
     "select": {
-        "steps": ["parties", "header", "money"], "registry": None, "flow": "invoice / jev_select (S-kar, típus-csomag: invoice_hu)", "state_fn": "jav.jev_select._select_request",
+        "steps": ["parties", "header", "money"], "registry": None, "flow": "invoice / jev_select (S-kar, típus-csomag: invoice_hu)", "state_fn": "jav.jev_select.SelectSite._select_request",
         "consumers": {
             "*": "FieldPick mezőnként: label -> DocumentRecord; policy invoice.pick sáv (human 0,60) alatt review, a csomag high_stakes mezőinél invoice.pick.high_stakes sáv; a csomag required mezői none -> review",
         },
@@ -53,7 +53,7 @@ CALLSITES: dict[str, dict[str, Any]] = {
         },
     },
     "select_foreign": {
-        "steps": ["foreign_parties", "foreign_header", "foreign_money"], "registry": None, "flow": "invoice / jev_select (S-kar, típus-csomag: invoice_foreign)", "state_fn": "jav.jev_select._select_request",
+        "steps": ["foreign_parties", "foreign_header", "foreign_money"], "registry": None, "flow": "invoice / jev_select (S-kar, típus-csomag: invoice_foreign)", "state_fn": "jav.jev_select.SelectSite._select_request",
         "consumers": {
             "*": "FieldPick mezőnként: label -> DocumentRecord (supplier_country is); a csomag required (invoice_number, gross_total) és high_stakes mezői; a policy sávjai a magyar számláéval azonosak",
             "supplier_country": "Choice ISO-kódok közül (a szállító címe / adószám-előtagja alapján) - következtetett mező, jelölt nélkül",
@@ -69,7 +69,7 @@ CALLSITES: dict[str, dict[str, Any]] = {
     "select_utility": {
         "steps": ["utility_parties", "utility_header", "utility_money", "utility_meter"], "registry": None,
         "flow": "invoice / jev_select (S-kar, típus-csomagok: villamos_energia_szamla, foldgaz_szamla, viz_szamla, mohu_szamla, vizmuvek_szamla, csatorna_szamla - mind extends _base/utility_bill_hu; OCR-szöveg)",
-        "state_fn": "jav.jev_select._select_request",
+        "state_fn": "jav.jev_select.SelectSite._select_request",
         "consumers": {
             "*": "FieldPick mezőnként: label -> DocumentRecord (+ extra: a csomag további mezői); EGY kérdéskészlet a hat csomag unió-mezőire, minden csomag csak a saját mezőit kérdezi; number fajta = a szám-jelöltek közül (mennyiség, mérőállás), text fajta = címkés szöveg-jelöltek (text_labels)",
             "payment_method": "zárt Choice (postai csekk / csoportos beszedés / átutalás / elektronikus / ...), a header kérésben",
@@ -160,11 +160,20 @@ def _ledger_stats(steps: list[str]) -> list[dict[str, Any]]:
 
 
 def _state_doc(dotted: str) -> str:
-    mod_name, fn_name = dotted.rsplit(".", 1)
+    """The docstring of a module's function or of a class's method (`module.Class.method`), else the module's last
+    paragraph."""
     import importlib
 
-    mod = importlib.import_module(mod_name)
-    fn = getattr(mod, fn_name, None)
+    parts = dotted.split(".")
+    for cut in range(len(parts) - 1, 0, -1):  # the longest importable module prefix
+        try:
+            mod = importlib.import_module(".".join(parts[:cut]))
+            break
+        except ModuleNotFoundError:
+            continue
+    fn: object | None = mod
+    for name in parts[cut:]:
+        fn = getattr(fn, name, None)
     doc = (inspect.getdoc(fn) or "").strip() if fn else ""
     mod_doc = (inspect.getdoc(mod) or "").strip()
     return doc or mod_doc.split("\n\n")[-1]

@@ -417,13 +417,8 @@ checks.register(checks.Check("distinct_parties", "record", _distinct_parties, ki
 checks.register(checks.Check("party_orientation", "record", _party_orientation, kind="pair", reads_store=True))  # 121
 
 
-def run_all(inv: DocumentRecord, validators: tuple[dict[str, Any], ...] | None = None, *, doc_id: str | None = None,
+def run_all(inv: DocumentRecord, validators: tuple[dict[str, Any], ...], *, doc_id: str | None = None,
             doc_type: str | None = None) -> list[CheckResult]:
-    """Default: the list of the Hungarian invoice's type pack (= the legacy rules.json `named`: vat_consistency,
-    date_order always; tax number / IBAN only if there is a value). For another type, pass the pack's `validators`
-    list."""
-    if validators is None:
-        from jav.typepack import get
-
-        validators = get("invoice_hu").validators
+    """The type pack's `validators` list (for the Hungarian invoice the legacy rules.json `named`: vat_consistency,
+    date_order always; tax number / IBAN only if there is a value)."""
     return run_checks(inv, validators, doc_id=doc_id, doc_type=doc_type)

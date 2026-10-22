@@ -5,7 +5,7 @@ Two layers:
   decimal STRING with a dot, date as an ISO string). The generative model returns this, and it is what we compare
   with the golden JSON.
 - `DocumentRecord` / `LineItem`: the normalised layer (`Decimal`, `date`) consumed by validators, policy and evals.
-  The conversion (`llm_to_invoice`) is the only place where a parse error becomes review reasons instead of an
+  The conversion (`record_from_llm`, by the type pack's field kinds) is the only place where a parse error becomes review reasons instead of an
   exception.
 
 JEV's raw output (`FieldPick.probabilities`, `JevVerdicts.flags`) is stored unchanged; the thresholds live only in
@@ -211,6 +211,12 @@ class InvoiceLLM(BaseModel):
     payment_method: str | None = None
     order_number: str | None = None
     amount_due: str | None = None
+
+
+HAND_WRITTEN_OUTPUT: dict[str, type[BaseModel]] = {"invoice_hu": InvoiceLLM}
+"""202: the type packs whose G-path output model is written by hand (`TypePack.llm_model`). The output schema is part of
+the GPT request; the model generated from the Hungarian invoice's schema file differs from `InvoiceLLM` in its field
+descriptions and titles, so replacing it would change every request and need a paid re-measurement."""
 
 
 # --------------------------------------------------------------------------------------
@@ -469,13 +475,6 @@ def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fie
     return DocumentRecord(**values, extra=extra_fields, line_items=items), reasons
 
 
-def llm_to_invoice(llm: InvoiceLLM) -> tuple[DocumentRecord, list[str]]:
-    """LLM layer -> normalised layer (Hungarian invoice). A parse error is not an exception but review reasons."""
-    from jav.typepack import get
-
-    return record_from_llm(llm.model_dump(), get("invoice_hu").fields)
-
-
 # --------------------------------------------------------------------------------------
 # PDF layout (word-level reconstruction: lines and column cells)
 # --------------------------------------------------------------------------------------
@@ -583,7 +582,7 @@ class FlowState(BaseModel):
     run_no: int = 1
     run_id: str = ""  # the backbone: ledger, datapoints and review_queue all refer to it
     doc_id: str = ""  # sha256 of the file content
-    doc_type: str = "invoice_hu"
+    doc_type: str  # the type pack (202: always named; every saved state carries it)
     use_cache: bool = True  # False when measuring determinism
     jev: bool = True  # 085: False = processing without JEV (the G path with the code's own check)
     detail_probabilities: dict[str, float] = Field(default_factory=dict)  # 149: the detection's detailed-type answer
