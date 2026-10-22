@@ -70,6 +70,11 @@ class LogicPack:
       released the shared way (`release_refusal()`: the error that says why, `package_release.ReleaseError`).
     - `add_refusal`: why the shared adding of documents refuses the package (it adds in its own way); None: it adds
       like any package.
+    - `take_files(wp_id, paths, *, expected_revision, actor)`: 204 (R1j): adds files to one of its packages in its own
+      way (the pair of `add_refusal`), so another domain (the email routing) adds through this registry instead of
+      importing the pack's module.
+    - `create_with_files(*, name, paths, scope, actor)`: 204 (R1j): makes one of its packages from files and a scope
+      ({party_id, period_start, period_end}); returns the new package's id.
     - `rule`: what it adds to the processing of its items (`work.PackageRule`, asked by the worker).
     - `delete_guard(c, wp_id)`: checks a deletion of one of its packages inside the deleting transaction: raises
       `work.NotReady` to refuse it, or deletes its own rows.
@@ -92,6 +97,8 @@ class LogicPack:
     roles: tuple[InputRole, ...]
     has_runs: bool = True
     add_refusal: str | None = None
+    take_files: Callable[..., Any] | None = None
+    create_with_files: Callable[..., str] | None = None
     release_refusal: Callable[[], Exception] | None = None
     rule: Any = None
     delete_guard: Callable[[sqlite3.Connection, str], None] | None = None

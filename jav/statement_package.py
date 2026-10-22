@@ -549,13 +549,33 @@ def create_from_statement_table(export: Path, keys: list[str], *, name: str, own
     return work.fill_new(wp, lambda: add_statement_tables(wp["id"], export, keys, expected_revision=0))
 
 
+def take_files(wp_id: str, paths: list[Path], *, expected_revision: int, actor: str) -> None:
+    """204 (R1j): adds files to a statement package the way its survey would tick them (the email routing's adding,
+    through the logic pack registry)."""
+    found = survey_for(wp_id, paths)
+    add(wp_id, paths=list(paths), statements=[s["id"] for s in found["statements"] if s["chosen"]],
+        pdfs=[p["path"] for p in found["pdfs"] if p["chosen"]], expected_revision=expected_revision, actor=actor)
+
+
+def create_with_files(*, name: str, paths: list[Path], scope: dict[str, Any], actor: str) -> str:
+    """204 (R1j): a new statement package of the scope's party and period from files, ticked as its survey would
+    tick them; returns its id."""
+    found = survey(paths, party_id=scope["party_id"], period_start=scope["period_start"], period_end=scope["period_end"])
+    made = create(name=name, party_id=scope["party_id"], period_start=scope["period_start"],
+                  period_end=scope["period_end"], paths=list(paths),
+                  statements=[s["id"] for s in found["statements"] if s["chosen"]],
+                  pdfs=[p["path"] for p in found["pdfs"] if p["chosen"]], actor=actor)
+    return made["workpackage_id"]
+
+
 # 176 (plan 170 L3): the statement package as a logic pack (`jav/logic_packs.py`); 180 (plan 170 E7): registered by the
 # finance domain (`jav/domains/finance.py`); 186: its scope's party reference and deletion are the shared scope's
 LOGIC = logic_packs.LogicPack(
     kind=KIND, module=__name__,
     roles=(logic_packs.InputRole("statements", "own_items",
                                     "the party's bank statements and statement PDFs of the period, ticked in its survey"),),
-    add_refusal="add statements to a statement package through its survey",
+    add_refusal="add statements to a statement package through its survey", take_files=take_files,
+    create_with_files=create_with_files,
     rule=RULE, page=_page, scope=own_scope, service="jav.api_statement_package")
 
 

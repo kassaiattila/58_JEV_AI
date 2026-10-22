@@ -30,7 +30,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from jav import decisions, ingest_server, item_kinds, store, work, work_recipes, work_runs, workflow_steps
+from jav import (decisions, ingest_server, item_kinds, store, todo_kinds, work, work_recipes, work_runs,
+                 workflow_steps)
 from jav.runtime import job_kinds
 from jav.config import BRIDGE_ROOT, OUTLOOK_BRIDGE_SCRIPT, PROJECT_ROOT
 from jav.user_messages import explained
@@ -248,7 +249,7 @@ def _request_of(wp_id: str) -> dict[str, Any] | None:
 # --- an attachment of a suspicious email (154; 177: the email domain's rule, `jav/item_kinds.py`; 180: registered by
 # `jav/domains/email.py`) --------------------------------------------------------------------------------------------
 
-SUSPICIOUS_ATTACHMENT = "attachment:suspicious_email"  # 154 (DECISIONS 154)
+SUSPICIOUS_ATTACHMENT = todo_kinds.SUSPICIOUS_ATTACHMENT  # 154 (DECISIONS 154); 204: the shared code
 
 
 def suspicious_email(run_id: str, email_item_id: str) -> bool:

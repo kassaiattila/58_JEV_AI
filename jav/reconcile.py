@@ -1334,7 +1334,7 @@ def _documents(c, counted: dict[str, Any], types: list[str]) -> list[dict[str, A
     and no corrections."""
     rows = package_result.result_rows(c, counted, "datapoints, validation", types=types)
     # 154 (DECISIONS 154): the documents that came as an attachment of an email routed as suspicious
-    from jav.mailbox import SUSPICIOUS_ATTACHMENT
+    from jav.todo_kinds import SUSPICIOUS_ATTACHMENT
 
     suspicious = ({r["run_id"] for r in c.execute("SELECT DISTINCT run_id FROM review_reasons WHERE reason=?",
                                                   (SUSPICIOUS_ATTACHMENT,))}

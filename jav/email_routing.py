@@ -171,7 +171,7 @@ def _results(c: sqlite3.Connection, doc_ids: list[str]) -> dict[str, dict[str, A
     an unknown kind goes the facts way; an invoice whose data could not be read) has no counted result. It is given its
     recognised type (the detailed one if decided), without values, so that it is placed by its kind and not reported
     as not read yet."""
-    from jav.mailbox import SUSPICIOUS_ATTACHMENT
+    from jav.todo_kinds import SUSPICIOUS_ATTACHMENT
 
     counted = package_result.counted_documents(c, doc_ids)
     rows = package_result.result_rows(c, counted, "datapoints")
@@ -339,9 +339,8 @@ def _row(rows: list[dict[str, Any]], item_id: str) -> dict[str, Any]:
 
 
 def _add(target: str, att: dict[str, Any], role: str | None, actor: str) -> None:
-    """Adds the attachment to an existing package: the statement package's own way, any other the shared way."""
-    from jav import statement_package
-
+    """Adds the attachment to an existing package: a logic pack that adds in its own way through its registry entry
+    (the statement package, 204: without importing it), any other the shared way."""
     wp = work.get(target)
     if wp["status"] != "open":
         raise explained(RoutingError, "work package {{name}} is hidden", name=repr(wp["name"]))
@@ -349,28 +348,23 @@ def _add(target: str, att: dict[str, Any], role: str | None, actor: str) -> None
         raise explained(RoutingError, "work package {{name}} cannot collect {{role}}", name=repr(wp["name"]),
                         role=package_scope.role(role).title)
     path = Path(att["path"])
-    if wp["source_kind"] == statement_package.KIND:
-        found = statement_package.survey_for(target, [path])
-        statement_package.add(target, paths=[path], statements=[s["id"] for s in found["statements"] if s["chosen"]],
-                              pdfs=[p["path"] for p in found["pdfs"] if p["chosen"]], expected_revision=wp["revision"],
-                              actor=actor)
+    pack = logic_packs.of(wp["source_kind"])
+    if pack is not None and pack.take_files is not None:
+        pack.take_files(target, [path], expected_revision=wp["revision"], actor=actor)
     else:
         work.add_to_package(target, [path], expected_revision=wp["revision"], actor=actor)
 
 
 def _make(new: dict[str, Any], att: dict[str, Any], actor: str) -> str:
-    """Makes the proposed new package with the attachment, and gives it its scope."""
-    from jav import statement_package
-
+    """Makes the proposed new package with the attachment, and gives it its scope: a role collected by a logic pack
+    that makes its packages in its own way (the statement package) through its registry entry, any other the shared
+    way."""
     path = Path(att["path"])
-    if new["role"] == statement_package.ROLE:
-        found = statement_package.survey([path], party_id=new["party_id"], period_start=new["period_start"],
-                                         period_end=new["period_end"])
-        made = statement_package.create(name=new["name"], party_id=new["party_id"], period_start=new["period_start"],
-                                        period_end=new["period_end"], paths=[path],
-                                        statements=[s["id"] for s in found["statements"] if s["chosen"]],
-                                        pdfs=[p["path"] for p in found["pdfs"] if p["chosen"]], actor=actor)
-        return made["workpackage_id"]
+    scope = {"party_id": new["party_id"], "period_start": new["period_start"], "period_end": new["period_end"]}
+    for kind in package_scope.role(new["role"]).package_kinds:
+        pack = logic_packs.of(kind)
+        if pack is not None and pack.create_with_files is not None:
+            return pack.create_with_files(name=new["name"], paths=[path], scope=scope, actor=actor)
     wp = work.create_from_files([path], name=new["name"], owner=actor)
     package_scope.set_scope(wp["id"], party_id=new["party_id"], period_start=new["period_start"],
                             period_end=new["period_end"], role_name=new["role"], actor=actor)
