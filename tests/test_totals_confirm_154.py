@@ -30,7 +30,7 @@ def _totals(net: tuple[str, str, bool], vat: tuple[str, str, bool], gross: tuple
     for no, (field, (label, raw, flagged)) in enumerate({"net_total": net, "vat_total": vat, "gross_total": gross}.items(), 1):
         picks[field] = _pick(field, label, raw)
         cands.append(Candidate(kind="money", label=label, raw=raw, line_no=no, context=f"L{no:02d}", ambiguous=flagged))
-    _, reasons = site_for("invoice_out").picks_to_invoice(picks, {"money": cands})
+    _, reasons = site_for("invoice_out").picks_to_record(picks, {"money": cands})
     return [r for r in reasons if r.startswith("money:separator_ambiguous")]
 
 
@@ -64,7 +64,7 @@ def test_a_missing_total_confirms_nothing():
     picks = {"vat_total": _pick("vat_total", "486", "486.00"), "net_total": _pick("net_total", "1800", "1,800.00")}
     cands = [Candidate(kind="money", label="486", raw="486.00", line_no=1, context="L01", ambiguous=True),
              Candidate(kind="money", label="1800", raw="1,800.00", line_no=2, context="L02", ambiguous=False)]
-    _, reasons = site_for("invoice_out").picks_to_invoice(picks, {"money": cands})
+    _, reasons = site_for("invoice_out").picks_to_record(picks, {"money": cands})
     assert "money:separator_ambiguous:vat_total:'486.00'" in reasons
 
 

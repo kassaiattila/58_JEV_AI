@@ -5,7 +5,7 @@ Two layers:
   decimal STRING with a dot, date as an ISO string). The generative model returns this, and it is what we compare
   with the golden JSON.
 - `DocumentRecord` / `LineItem`: the normalised layer (`Decimal`, `date`) consumed by validators, policy and evals.
-  The conversion (`llm_to_invoice`) is the only place where a parse error becomes review reasons instead of an
+  The conversion (`record_from_llm`, by the type pack's field kinds) is the only place where a parse error becomes review reasons instead of an
   exception.
 
 JEV's raw output (`FieldPick.probabilities`, `JevVerdicts.flags`) is stored unchanged; the thresholds live only in
@@ -473,13 +473,6 @@ def record_from_llm(data: dict[str, object], fields: dict[str, str], *, list_fie
         else:
             extra_fields[field] = value
     return DocumentRecord(**values, extra=extra_fields, line_items=items), reasons
-
-
-def llm_to_invoice(llm: InvoiceLLM) -> tuple[DocumentRecord, list[str]]:
-    """LLM layer -> normalised layer (Hungarian invoice). A parse error is not an exception but review reasons."""
-    from jav.typepack import get
-
-    return record_from_llm(llm.model_dump(), get("invoice_hu").fields)
 
 
 # --------------------------------------------------------------------------------------

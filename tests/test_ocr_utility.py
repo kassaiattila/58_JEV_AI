@@ -255,7 +255,7 @@ def test_select_utility_asks_only_pack_fields_and_closed_extras():
     assert "reading_method" not in asked.get("utility_meter", set()) and "payment_method" in asked["utility_header"] and "currency" in asked["utility_money"]
     assert "service_description" in asked["utility_meter"] and "consumption_kwh" not in asked.get("utility_meter", set())  # not a pack field
     assert not any(f in picks for f in ("consumption_kwh", "distribution_licensee", "tariff"))
-    inv, reasons = site.picks_to_invoice(picks, cands)
+    inv, reasons = site.picks_to_record(picks, cands)
     assert inv.extra["service_description"] == "Hulladékgazdálkodási közszolgáltatás" and inv.payment_method == "Postai számlabefizetési megbízás"
     assert inv.amount_due == Decimal("3266") and reasons == []
     desc = site.build_choice("supplier_name", cands["name"]).criteria
@@ -270,7 +270,7 @@ def test_select_utility_number_field_from_quantity_candidates():
     cands = cand.find_all(lines, v.candidate_profile, text_labels=v.text_labels)
     picks, _ = site_for("villamos_energia_szamla").select_fields(FakeJev(), lines, cands, run_id="t")
     assert picks["consumption_kwh"].label == "882" and picks["consumption_kwh"].n_options >= 1
-    inv, _ = site_for("villamos_energia_szamla").picks_to_invoice(picks, cands)
+    inv, _ = site_for("villamos_energia_szamla").picks_to_record(picks, cands)
     assert inv.extra["consumption_kwh"] == Decimal("882")
 
 

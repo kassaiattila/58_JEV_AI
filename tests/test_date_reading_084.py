@@ -321,7 +321,7 @@ def test_a_picked_ambiguous_date_gets_a_to_do_on_the_s_path():
     cand = Candidate(kind="date", label="2022-04-12", raw="04/12/2022", line_no=1, context="L01", ambiguous=True)
     picks = {"issue_date": FieldPick(field="issue_date", label="2022-04-12", raw="04/12/2022", confidence=0.9, n_options=1,
                                      request_id="dates")}
-    inv, reasons = site_for("invoice_foreign").picks_to_invoice(picks, {"date": [cand]}, lines)
+    inv, reasons = site_for("invoice_foreign").picks_to_record(picks, {"date": [cand]}, lines)
     assert inv.issue_date == date(2022, 4, 12)
     assert "date:order_ambiguous:issue_date:'04/12/2022'" in reasons
 

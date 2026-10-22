@@ -230,7 +230,7 @@ def test_a_picked_amount_that_is_a_piece_of_a_longer_number_gets_a_to_do():
     lines = _lines("Megnevezés   Nettó érték", "Billzone   28,000.00   7,560.00")
     cut = Candidate(kind="money", label="28", raw="28,00", line_no=2, context="L02")
     picks = {"net_total": FieldPick(field="net_total", label="28", raw="28,00", confidence=0.9, n_options=1, request_id="money")}
-    inv, reasons = site_for("invoice_hu").picks_to_invoice(picks, {"money": [cut]}, lines)
+    inv, reasons = site_for("invoice_hu").picks_to_record(picks, {"money": [cut]}, lines)
     assert inv.net_total == Decimal("28")
     assert "money:token_cut:net_total:'28,00'" in reasons
 
@@ -242,7 +242,7 @@ def test_a_whole_picked_amount_passes_the_safety_net():
     lines = _lines("Megnevezés   Nettó érték", "Billzone   28,000.00   7,560.00")
     whole = Candidate(kind="money", label="28000", raw="28,000.00", line_no=2, context="L02")
     picks = {"net_total": FieldPick(field="net_total", label="28000", raw="28,000.00", confidence=0.9, n_options=1, request_id="money")}
-    _inv, reasons = site_for("invoice_hu").picks_to_invoice(picks, {"money": [whole]}, lines)
+    _inv, reasons = site_for("invoice_hu").picks_to_record(picks, {"money": [whole]}, lines)
     assert not [r for r in reasons if r.startswith("money:")]
 
 

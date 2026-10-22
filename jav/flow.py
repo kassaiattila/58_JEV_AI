@@ -167,9 +167,9 @@ def jev_select(state: FlowState) -> FlowState:
 
 @action.pydantic(reads=["layout", "picks", "candidates", "doc_type", "needs_review", "review_reasons"], writes=["record", "needs_review", "review_reasons"])
 def normalize_picks(state: FlowState) -> FlowState:
-    from jav.jev_select import picks_to_invoice
+    from jav.jev_select import picks_to_record
 
-    inv, reasons = picks_to_invoice(state.picks, state.candidates, pack=get_pack(state.doc_type), lines=state.layout)
+    inv, reasons = picks_to_record(state.picks, state.candidates, pack=get_pack(state.doc_type), lines=state.layout)
     state.record = inv
     policy.require_review(state, *reasons)
     return state
@@ -478,7 +478,7 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/co
         "needs_ocr": {"kind": "terminal", "note": "szöveg nélküli PDF, és az OCR sem adott használható szöveget (vagy nincs OCR-motor): documents has_text=0; teendő (felvevő `ocr`, ocr:*), a szöveges mentés zárja"},
     },
     "terminals": TERMINALS,
-    "doc_note": "M2 invoice - one graph with two extraction paths, and every run takes exactly one of them (arm S: code candidates + JEV Choice; arm G: GPT extraction + JEV Noul verification, or the code's own source check without JEV). There is no agreement gate between the paths: the route (auto or review) comes from the policy's thresholds (configs/policy.json), the pack's required and high-stakes fields, the validators and the additive review latch. Type-independent: the type pack (configs/types/<type>.json: invoice_hu, invoice_foreign, the utility bills, ...) supplies the fields, questions, prompt and validators. A PDF without a text layer goes through the OCR step (ocr_pdf) onto the same layout. Every AI call goes through the adapter layer (cache + ledger + config_hash).",
+    "doc_note": "M2 data-point extraction - one graph with two extraction paths, and every run takes exactly one of them (arm S: code candidates + JEV Choice; arm G: GPT extraction + JEV Noul verification, or the code's own source check without JEV). There is no agreement gate between the paths: the route (auto or review) comes from the policy's thresholds (configs/policy.json), the pack's required and high-stakes fields, the validators and the additive review latch. Type-independent: the type pack (configs/types/<type>.json: invoice_hu, invoice_foreign, the utility bills, ...) supplies the fields, questions, prompt and validators. A PDF without a text layer goes through the OCR step (ocr_pdf) onto the same layout. Every AI call goes through the adapter layer (cache + ledger + config_hash).",
 }
 
 

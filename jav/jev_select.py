@@ -9,7 +9,7 @@ Language: the instructions and criterion descriptions are in English (in the JSO
 keys are the verbatim/normalised source value (code copies the chosen value).
 
 Call-site object (`SelectSite`): the question set of one type pack + its `config_hash` (`site_for(pack_key)`). The
-module-level `select_fields` and `picks_to_invoice` take the pack explicitly (202: no Hungarian invoice default).
+module-level `select_fields` and `picks_to_record` take the pack explicitly (202: no Hungarian invoice default).
 """
 
 from __future__ import annotations
@@ -296,7 +296,7 @@ class SelectSite:
 
     # --- normalisation ----------------------------------------------------------------------
 
-    def picks_to_invoice(self, picks: dict[str, FieldPick], cands: dict[str, list[Candidate]],
+    def picks_to_record(self, picks: dict[str, FieldPick], cands: dict[str, list[Candidate]],
                          lines: list[LineLayout] | None = None) -> tuple[DocumentRecord, list[str]]:
         """Label -> typed value by the pack's field kinds. `none` -> None. Consistency reasons from code (not JEV).
         081: an amount or a quantity whose printed number is flagged gets a to-do; with the document's `lines`, so does
@@ -389,10 +389,10 @@ def select_fields(
     return site_for(pack.key).select_fields(jev, lines, cands, run_id=run_id, use_cache=use_cache)
 
 
-def picks_to_invoice(picks: dict[str, FieldPick], cands: dict[str, list[Candidate]], pack: TypePack,
+def picks_to_record(picks: dict[str, FieldPick], cands: dict[str, list[Candidate]], pack: TypePack,
                      lines: list[LineLayout] | None = None) -> tuple[DocumentRecord, list[str]]:
-    return site_for(pack.key).picks_to_invoice(picks, cands, lines)
+    return site_for(pack.key).picks_to_record(picks, cands, lines)
 
 
 __all__ = ["SelectSite", "site_for", "effective_conf", "record_conf", "field_confidence",
-           "picks_to_invoice", "select_fields", "find_currencies", "CANDIDATE_KIND_OF"]
+           "picks_to_record", "select_fields", "find_currencies", "CANDIDATE_KIND_OF"]

@@ -141,7 +141,7 @@ def test_select_foreign_site_builds_country_and_currency_questions():
     assert site_for("invoice_hu").config_hash == cfg.combine(cfg.config_hash("callsite:select"), typepack.get("invoice_hu").config_hash)
 
 
-def test_select_foreign_picks_to_invoice_by_kind():
+def test_select_foreign_picks_to_record_by_kind():
     from jav.jev_select import site_for
     from jav.models import Candidate
 
@@ -153,7 +153,7 @@ def test_select_foreign_picks_to_invoice_by_kind():
         "issue_date": FieldPick(field="issue_date", label="2022-11-02", confidence=0.9, n_options=3, request_id="foreign_header"),
     }
     cands = {"money": [Candidate(kind="money", label="108.38", raw="108,38", line_no=6, context="L06")]}
-    inv, reasons = site.picks_to_invoice(picks, cands)
+    inv, reasons = site.picks_to_record(picks, cands)
     assert inv.supplier_country == "IE" and inv.currency == "EUR" and inv.gross_total == Decimal("108.38") and inv.issue_date == date(2022, 11, 2)
     assert reasons == [] and inv.net_total is None
 
