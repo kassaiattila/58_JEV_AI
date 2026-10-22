@@ -81,8 +81,7 @@ def _job(row, deduped: bool = False) -> Job:
 
 
 def _begin(c) -> None:
-    c.commit()  # commit the schema initialisation done by connect before our own write transaction
-    c.execute("BEGIN IMMEDIATE")
+    store.begin_immediate(c)
 
 
 def enqueue(kind: str, *, run_id: str | None, payload: dict[str, Any], dedup_key: str | None = None,

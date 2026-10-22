@@ -13,6 +13,7 @@ import sqlite3
 import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, ParamSpec, TypeVar
 
@@ -313,30 +314,49 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         fn(conn)
 
 
-# the session's store, its connection and the thread that opened it (203: a library that copies the caller's context
-# into its own thread brings the session along, but the connection belongs to the thread that opened it)
-_shared: ContextVar[tuple[str, sqlite3.Connection, int] | None] = ContextVar("jav_shared_connection", default=None)
+def _schema_statements(script: str) -> Iterator[str]:
+    """207: a schema script's statements one by one (`executescript` commits first, `execute` takes one statement)."""
+    start = 0
+    for end, char in enumerate(script):
+        if char == ";" and sqlite3.complete_statement(script[start:end + 1]):
+            yield script[start:end + 1]
+            start = end + 1
 
 
-def _own_session() -> tuple[str, sqlite3.Connection, int] | None:
+@dataclass
+class _Session:
+    """The session's store, its connection and the thread that opened it (203: a library that copies the caller's
+    context into its own thread brings the session along, but the connection belongs to the thread that opened it).
+    207: `savepoints` counts the blocks open inside an enclosing block's transaction."""
+    path: str
+    conn: sqlite3.Connection
+    thread: int
+    savepoints: int = 0
+
+
+_shared: ContextVar[_Session | None] = ContextVar("jav_shared_connection", default=None)
+
+
+def _own_session() -> _Session | None:
     """The session's connection if this thread opened it; another thread opens its own."""
     shared = _shared.get()
-    return shared if shared is not None and shared[2] == threading.get_ident() else None
+    return shared if shared is not None and shared.thread == threading.get_ident() else None
 
 
 @contextmanager
 def session() -> Iterator[None]:
     """One connection for all `connect()` calls in the block on the same store (061: instead of the per-element
-    open/close connections of the list views and the result assembly; one open-close costs ~3 ms). The inner
-    `connect()` blocks commit, and roll back on error, just as with a standalone connection. When nested, the outer
-    connection is kept. It is not shared between threads (the connection belongs to the thread that opened it): on
-    another thread, even with the context copied, `connect()` opens its own, and a session there its own (203)."""
+    open/close connections of the list views and the result assembly; one open-close costs ~3 ms). An inner
+    `connect()` block entered outside a transaction commits, and rolls back on error, just as with a standalone
+    connection; one entered inside an enclosing block's transaction is part of it (207, see `connect`). When nested,
+    the outer connection is kept. It is not shared between threads (the connection belongs to the thread that opened
+    it): on another thread, even with the context copied, `connect()` opens its own, and a session there its own (203)."""
     if _own_session() is not None or _read_only.get():  # 203: a read-only connection is never shared
         yield
         return
     path = _scoped_path.get() or STORE_PATH
     with connect(path) as conn:
-        token = _shared.set((str(path), conn, threading.get_ident()))
+        token = _shared.set(_Session(str(path), conn, threading.get_ident()))
         try:
             yield
         finally:
@@ -346,7 +366,8 @@ def session() -> Iterator[None]:
 def one_connection(operation: Callable[P, R]) -> Callable[P, R]:
     """203: runs the operation in one `session()`. The test suite opened about 74 000 connections, each open and close
     a few milliseconds on Windows, most of them inside a few operations that opened one per small query (an item in the
-    worker: 35). Each step still commits, or rolls back on error, at the end of its own `connect()` block."""
+    worker: 35). Each step still commits, or rolls back on error, at the end of its own `connect()` block, unless it
+    runs inside an enclosing block's transaction (207)."""
 
     @functools.wraps(operation)
     def in_one_connection(*args: P.args, **kwargs: P.kwargs) -> R:
@@ -371,19 +392,8 @@ def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
             conn.close()
         return
     shared = _own_session()
-    if shared is not None and shared[0] == str(path):
-        # 174: a module first imported within the session registers its tables on import; the shared connection was
-        # set up before, so its schema runs again here (before, its tables were missing until the session ended)
-        registry = _registry_key()
-        if _initialized.get(shared[0], (None, None))[1] != registry:
-            _initialize(shared[1])
-            _initialized[shared[0]] = (shared[1].execute("PRAGMA schema_version").fetchone()[0], registry)
-        try:
-            yield shared[1]
-            shared[1].commit()
-        except BaseException:
-            shared[1].rollback()
-            raise
+    if shared is not None and shared.path == str(path):
+        yield from _shared_block(shared)
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), timeout=30)
@@ -399,6 +409,53 @@ def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
         conn.commit()
     finally:
         conn.close()
+
+
+def _shared_block(shared: _Session) -> Iterator[sqlite3.Connection]:
+    """A `connect()` block on the session's connection. Entered outside a transaction, it commits at its end and rolls
+    back on error, as a block of its own connection does.
+
+    207 (plan G-process-core R1k): entered inside an enclosing block's transaction (the run start reads the package
+    under its write lock), it is a savepoint of that transaction. Committing at its end used to end the enclosing
+    transaction and its lock in the middle of the enclosing block: another writer could change what that block had
+    checked, and a later error could no longer undo what it had written before. Its own error undoes only its own part,
+    as before 203, when such a block had a connection of its own."""
+    conn = shared.conn
+    # 174: a module first imported within the session registers its tables on import; the shared connection was set up
+    # before, so its schema runs again here (before, its tables were missing until the session ended)
+    registry = _registry_key()
+    if _initialized.get(shared.path, (None, None))[1] != registry:
+        if conn.in_transaction:
+            # 207: the set-up commits (`executescript`, the migrations), so inside a transaction only the tables are
+            # made, as part of it; the full set-up runs in the next block entered outside a transaction
+            for ddl in (_SCHEMA, *_EXTRA_SCHEMAS.values()):
+                for statement in _schema_statements(ddl):
+                    conn.execute(statement)
+        else:
+            _initialize(conn)
+            _initialized[shared.path] = (conn.execute("PRAGMA schema_version").fetchone()[0], registry)
+    if not conn.in_transaction:
+        try:
+            yield conn
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+        return
+    shared.savepoints += 1
+    name = f"jav_block_{shared.savepoints}"
+    conn.execute(f"SAVEPOINT {name}")
+    try:
+        yield conn
+    except BaseException:
+        if conn.in_transaction:  # an error SQLite answered by rolling back the whole transaction left no savepoint
+            conn.execute(f"ROLLBACK TO {name}")
+            conn.execute(f"RELEASE {name}")
+        raise
+    else:
+        conn.execute(f"RELEASE {name}")
+    finally:
+        shared.savepoints -= 1
 
 
 def _migrate(conn: sqlite3.Connection) -> None:
@@ -438,8 +495,7 @@ def save_artifact(kind: str, artifact_id: str, payload: dict) -> None:
     """Immutable run/evaluation record; an identical repeat is allowed, overwriting is not."""
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, allow_nan=False)
     with connect() as c:
-        c.commit()  # Commit the schema/meta initialisation done by connect before our own transaction.
-        c.execute("BEGIN IMMEDIATE")
+        begin_immediate(c)
         previous = c.execute("SELECT payload FROM artifacts WHERE kind=? AND artifact_id=?", (kind, artifact_id)).fetchone()
         if previous:
             if previous["payload"] != encoded:
@@ -694,7 +750,12 @@ def table_marks(c: sqlite3.Connection, spec: dict[str, str | None]) -> list[Any]
 def begin_immediate(c: sqlite3.Connection) -> None:
     """Write lock at the start of the block, before the first read (066 Á32): this way read–decide–write does not
     interleave even between two parallel calls. Any work not yet committed is committed first (like the end of a
-    `connect()` block)."""
+    `connect()` block). 207: in a block nested inside an enclosing block's transaction it does nothing: committing
+    there would end the enclosing transaction and its lock, and that transaction already holds the write lock (it was
+    begun by this function or by a write; a deferred read transaction that writes later fails rather than interleaves)."""
+    shared = _own_session()
+    if shared is not None and shared.conn is c and shared.savepoints:
+        return
     if c.in_transaction:
         c.commit()
     c.execute("BEGIN IMMEDIATE")

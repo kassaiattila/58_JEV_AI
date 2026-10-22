@@ -435,7 +435,7 @@ def save_native(run_id: str, item_id: str, *, values: dict[str, str | None], nat
         raise explained(ValueError, "Native values exceed the supported text limit")
     confirmed_now = set(confirm or [])
     with store.connect() as c:
-        c.execute("BEGIN IMMEDIATE")
+        store.begin_immediate(c)
         run = c.execute("SELECT approval, input FROM runs WHERE run_id=?", (run_id,)).fetchone()
         if run is None:
             raise KeyError(run_id)
@@ -532,8 +532,7 @@ def insert_revision(run_id: str, item_id: str, fields: dict[str, Any], expected_
     """A new correction version, checked against the run's approval and the version the person saw, in one writing
     transaction. 185: public, an item kind's own correction writes through it (`item_kinds.ItemHandler`)."""
     with store.connect() as c:
-        c.commit()
-        c.execute("BEGIN IMMEDIATE")
+        store.begin_immediate(c)
         # 085 (re-audit A01): the approval is checked again in the writing transaction; a correction checked before a
         # concurrent approval must not be written after it
         run = c.execute("SELECT approval FROM runs WHERE run_id=?", (run_id,)).fetchone()
