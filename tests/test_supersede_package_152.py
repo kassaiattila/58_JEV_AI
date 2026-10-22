@@ -14,8 +14,8 @@ from tests.test_supersede_runs_151 import runs  # noqa: F401 - the shared fixtur
 
 def test_the_package_lists_the_older_run_with_its_offer(runs):  # noqa: F811
     (row,) = work.supersedable_runs(runs["wp"])
-    assert row == {"run_id": runs["older"], "created_at": work.get_run(runs["older"])["created_at"], "by": runs["newer"],
-                   "open_reasons": 2, "resolved_reasons": 0, "corrected_items": 0}
+    assert row == {"run_id": runs["older"], "mode": "apply", "created_at": work.get_run(runs["older"])["created_at"],
+                   "by": runs["newer"], "open_reasons": 2, "resolved_reasons": 0, "corrected_items": 0}
     assert work_views.workpackage_view(runs["wp"])["supersedable"] == [row]
 
 

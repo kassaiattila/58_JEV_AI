@@ -85,10 +85,13 @@ export function RunDetail({ runId }: { runId: string }) {
           <a className="secondary dl-btn" href={`${wpBase}/result?run=${encodeURIComponent(run.run_id)}`}>{run.mode === "apply" && !run.approval ? t("Eredmény és jóváhagyás") : t("Eredmény")}</a>
         </div>} />
       {msg ? <p role="status" className={msg.error ? "notice error" : "notice"}>{msg.text}</p> : null}
-      {view.data.superseded ? <p className="notice">{t("Superseded by a later live run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.",
-        { who: view.data.superseded.actor, when: when(view.data.superseded.at), n: view.data.superseded.reasons_closed })}{" "}
+      {view.data.superseded ? <p className="notice">{run.mode === "shadow"
+        ? t("Superseded by a later run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.",
+          { who: view.data.superseded.actor, when: when(view.data.superseded.at), n: view.data.superseded.reasons_closed })
+        : t("Superseded by a later live run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.",
+          { who: view.data.superseded.actor, when: when(view.data.superseded.at), n: view.data.superseded.reasons_closed })}{" "}
         <a href={`#/runs/${encodeURIComponent(view.data.superseded.by)}`}>{t("The later run")}</a></p> : null}
-      {view.data.supersede ? <SupersedeOffer offer={view.data.supersede} busy={busy} onConfirm={() => void supersede()} /> : null}
+      {view.data.supersede ? <SupersedeOffer offer={view.data.supersede} trial={run.mode === "shadow"} busy={busy} onConfirm={() => void supersede()} /> : null}
       {run.approval ? <p className="notice ok-box">{t("Kiadva: jóváhagyta {{who}}, {{when}}.", { who: run.approved_by, when: when(run.approved_at) })}</p> : null}
       {ownTotal ? <p className="notice">{t("{{n}} nyitott teendő.", { n: ownTotal })} <a href={`${wpBase}/review`}>{t("Ellenőrzés")}</a></p> : null}
 
@@ -131,14 +134,17 @@ function humanWorkOnRun(r: number, c: number): string {
     : t("On this run {{c}} documents were corrected by hand; they stay with this run and are not carried over to the later one.", { c });
 }
 
-export function SupersedeOffer({ offer, busy, onConfirm }: { offer: SupersedeInfo; busy: boolean; onConfirm: () => void }) {
+/** 200 (decision of 2026-10-22): an older trial run with open to-dos too (`trial`), repeated by a later run of either
+ *  kind; a trial is never approved, so the offer does not speak of an approval. */
+export function SupersedeOffer({ offer, trial = false, busy, onConfirm }: { offer: SupersedeInfo; trial?: boolean; busy: boolean; onConfirm: () => void }) {
   useLocale();
   const human = offer.resolved_reasons + offer.corrected_items > 0;
   return (
     <div className="notice" role="region" aria-label={t("Superseding the run")}>
-      <p>{t("A later live run processed the same documents again.")}{" "}
+      <p>{trial ? t("A later run processed the same documents again.") : t("A later live run processed the same documents again.")}{" "}
         <a href={`#/runs/${encodeURIComponent(offer.by)}`}>{t("The later run")}</a></p>
-      <p>{t("Superseding keeps this run as a stopped run and closes its {{n}} open to-dos; it cannot be approved afterwards.", { n: offer.open_reasons })}</p>
+      <p>{trial ? t("Superseding keeps this trial run as a stopped run and closes its {{n}} open to-dos.", { n: offer.open_reasons })
+        : t("Superseding keeps this run as a stopped run and closes its {{n}} open to-dos; it cannot be approved afterwards.", { n: offer.open_reasons })}</p>
       {human ? <p className="error-text">{humanWorkOnRun(offer.resolved_reasons, offer.corrected_items)}</p> : null}
       <ConfirmButton className="secondary" disabled={busy} onConfirm={onConfirm}>{t("Supersede")}</ConfirmButton>
     </div>

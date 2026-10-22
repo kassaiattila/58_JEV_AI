@@ -1519,7 +1519,7 @@
   "run has input items without a finished result": "A futás egyes tételei még nem futottak le",
   "run is {{status}}; approval needs a finished run without open review reasons": "A futás állapota {{status}}; jóváhagyni csak lefutott, nyitott teendő nélküli futást lehet",
   "only apply runs can be approved": "Csak éles futás hagyható jóvá",
-  "only an unapproved, finished live run that a later finished live run has repeated can be superseded": "Csak olyan jóvá nem hagyott, lefutott éles futás váltható le, amelyet egy későbbi lefutott éles futás megismételt",
+  "only a finished run that a later finished run has repeated can be superseded: an unapproved live run, or a trial run with open to-dos": "Csak olyan lefutott futás váltható le, amelyet egy későbbi lefutott futás megismételt: jóvá nem hagyott éles futás, vagy nyitott teendős próbafutás",
   "the run is {{status}}: only a queued or running run can be stopped; supersede a finished one instead": "A futás állapota {{status}}: csak sorban álló vagy futó futás állítható le; a lefutottat váltsd le",
   "review reason {{reason_id}} is already {{status}}": "A(z) {{reason_id}} teendő már {{status}}",
   "another run of the package is still going; start the pending items after it": "A csomag egy másik futása még tart; a függő tételeket utána indítsd",
@@ -2291,5 +2291,11 @@
   "the letter has no text": "a levélnek nincs szövege",
   "the letter is longer than {{n}} characters": "a levél hosszabb {{n}} karakternél",
   "the letter of version {{n}} has not been accepted yet": "a(z) {{n}}. változat levelét még nem fogadták el",
-  "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them": "Saját Excel- és Word-sablonok a letöltésekhez: feltöltés, ellenőrzés, előnézet és élesítés; a beléjük írható jelölők"
+  "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them": "Saját Excel- és Word-sablonok a letöltésekhez: feltöltés, ellenőrzés, előnézet és élesítés; a beléjük írható jelölők",
+  "A later run processed the same documents again.": "Egy újabb futás ugyanezeket az iratokat újra feldolgozta.",
+  "Superseding keeps this trial run as a stopped run and closes its {{n}} open to-dos.": "Leváltáskor ez a próbafutás leállítottként megmarad, {{n}} nyitott teendője lezárul.",
+  "Superseded by a later run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.": "Leváltotta egy újabb futás ugyanezekkel az iratokkal ({{who}}, {{when}}); {{n}} nyitott teendő lezárva.",
+  "Older runs": "Régebbi futások",
+  "{{n}} older run(s) were repeated by a later run on the same documents. Superseding stops them and closes their {{m}} open to-dos; a superseded live run cannot be approved afterwards.": "{{n}} régebbi futást egy újabb futás megismételt ugyanezekkel az iratokkal. A leváltás leállítja őket és lezárja {{m}} nyitott teendőjüket; a leváltott éles futás utána nem hagyható jóvá.",
+  "Trial run, {{when}}": "Próbafutás, {{when}}"
 }
