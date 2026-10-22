@@ -436,6 +436,7 @@ def _warnings(stored: dict[str, Any], prices: price_lists.PriceList, req: quote_
     return out
 
 
+@store.one_connection
 def view(wp_id: str) -> dict[str, Any]:
     """The package's draft (None before one is started) with each line priced (`priced` None while it cannot be), the
     totals (None until every line is priced), what holds the approval, the warnings, the draft's state (the page sends

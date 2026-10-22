@@ -14,10 +14,15 @@ import os
 import sys
 from decimal import ROUND_HALF_EVEN, Decimal
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from dotenv import load_dotenv
-from typesafe_sdk import AsyncTypeSafeClient, RetryPolicy, TypeSafeClient
+
+if TYPE_CHECKING:
+    # 203: the SDK and its HTTP library are loaded when a client is built, not with the package. Every module of the
+    # application imports this one, the isolated reader process too, which then spent about 0.5 s of its 1.1 s start
+    # loading network code it must not use.
+    from typesafe_sdk import AsyncTypeSafeClient, RetryPolicy, TypeSafeClient
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ENV_FILE = PROJECT_ROOT / ".env"
@@ -154,6 +159,7 @@ def build_retry_policy() -> RetryPolicy:
     that nothing was sent may retry; a lost response must reach the durable call log as an uncertain outcome.
     """
     import httpx2
+    from typesafe_sdk import RetryPolicy
 
     def not_sent(error: BaseException) -> bool:
         cause = error.__cause__
@@ -193,6 +199,8 @@ def make_client(**kwargs: object) -> TypeSafeClient:
         with make_client() as client:
             client.system_one(...)
     """
+    from typesafe_sdk import TypeSafeClient
+
     guard_sdk_logging()
     kwargs.setdefault("api_key", get_api_key())
     kwargs.setdefault("timeout", JEV_TIMEOUT_S)
@@ -202,6 +210,8 @@ def make_client(**kwargs: object) -> TypeSafeClient:
 
 def make_async_client(**kwargs: object) -> AsyncTypeSafeClient:
     """Asynchronous TypeSafe client with the project key."""
+    from typesafe_sdk import AsyncTypeSafeClient
+
     guard_sdk_logging()
     kwargs.setdefault("api_key", get_api_key())
     kwargs.setdefault("timeout", JEV_TIMEOUT_S)

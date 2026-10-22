@@ -480,6 +480,7 @@ def save_native(run_id: str, item_id: str, *, values: dict[str, str | None], nat
     return current(run_id, item_id)
 
 
+@store.one_connection
 def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     """The result of one item: the machine data, the correction and the two merged (the correction wins)."""
     run = work_runs.get_run(run_id)

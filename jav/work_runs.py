@@ -19,6 +19,7 @@ from jav.clock import utc_stamp as _now
 from jav import work, work_readiness, work_recipes
 
 
+@store.one_connection
 def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input_hash: str, actor: str,
               rerun_of: str | None = None, scope: str = "all") -> dict[str, Any]:
     """Idempotent start with a pinned input: one queue job per item, with a run-level cost budget.
@@ -113,6 +114,7 @@ def _ensure_run_work(run_id: str, items: list[dict[str, Any]], budget: dict[str,
                       payload={"run_id": run_id, "item_id": item["item_id"]})
 
 
+@store.one_connection
 def get_run(run_id: str) -> dict[str, Any]:
     with store.connect() as c:
         row = c.execute("SELECT * FROM runs WHERE run_id=?", (run_id,)).fetchone()
@@ -301,6 +303,7 @@ def released_items(run: dict[str, Any]) -> list[dict[str, Any]]:
     return [i for i in run["input"]["items"] if i["item_id"] not in excluded]
 
 
+@store.one_connection
 def open_reasons_for_run(run_id: str) -> int:
     """The run's OWN open to-do reasons (the reasons raised under the items' flow identifiers). 160-C: an item removed
     from the package does not count; its result is not released (decision 163 D7)."""
@@ -308,6 +311,7 @@ def open_reasons_for_run(run_id: str) -> int:
     return sum(len(s["run"]) for s in items_reasons(run_id, released_items(run)).values())
 
 
+@store.one_connection
 def refresh_run_status(run_id: str) -> str:
     """The run's status from the queue and the to-dos: running → failed / needs review / done."""
     run = get_run(run_id)
@@ -334,6 +338,7 @@ def refresh_run_status(run_id: str) -> str:
         return c.execute("SELECT status FROM runs WHERE run_id=?", (run_id,)).fetchone()["status"]
 
 
+@store.one_connection
 def resolve_reason(reason_id: int, *, actor: str, resolution: dict[str, Any] | None, note: str | None) -> dict[str, Any]:
     """Human resolution of one to-do reason, then a refresh of the owning run's status (058: after the last reason is
     closed the run is "done", and the list badge does not stay at "needs review"). A reason from an earlier
@@ -500,6 +505,7 @@ def superseded(run_id: str) -> dict[str, Any] | None:
     return {"by": detail["superseded_by"], "actor": row["actor"], "at": row["created_at"], "reasons_closed": detail["reasons_closed"]}
 
 
+@store.one_connection
 def approve_run(run_id: str, *, actor: str, review_version: str | None = None,
                 confirm_removed: int | None = None) -> dict[str, Any]:
     """Approval of a live run: only with finished items and no open to-do; who approved it and when is recorded.

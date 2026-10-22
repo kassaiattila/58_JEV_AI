@@ -291,6 +291,7 @@ def _after_follow_up(run_id: str, item: dict[str, Any], final: str, follow_state
     return "needs_review" if reasons and final == "done" else final
 
 
+@store.one_connection
 def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) -> str:
     """Processes one claimed job and returns its resulting state. `after_step`: test hook (fault injection)."""
     run_id, item_id = job.payload["run_id"], job.payload["item_id"]

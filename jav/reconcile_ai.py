@@ -489,6 +489,7 @@ def _save(wp_id: str, line: dict[str, Any], engine: str, answer: dict[str, Any],
                    answer.get("kind_question") or kind_question(line)))
 
 
+@store.one_connection
 def run(wp_id: str, *, engines: Iterable[str], limits: dict[str, Decimal], max_lines: int | None = None,
         use_cache: bool = True, redo: bool = False, stale: bool = False, incoming_only: bool = False,
         out_dir: Path = RUNS_DIR) -> dict[str, Any]:

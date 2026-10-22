@@ -149,6 +149,7 @@ def _day(value: Any, what: str) -> date:
 # --- the scope ---------------------------------------------------------------------------------------------------------
 
 
+@store.one_connection
 def accounts() -> list[dict[str, Any]]:
     """The own accounts and cards to choose a package's scope from: those the store has statements of and, 138, those
     registered with a party without a statement yet: the account key, the printed account, the statement kinds and
@@ -213,6 +214,7 @@ def _checked_scope(keys: Iterable[str], period_start: Any, period_end: Any) -> t
     return chosen, start.isoformat(), end.isoformat()
 
 
+@store.one_connection
 def create(*, name: str, accounts: list[str], period_start: str, period_end: str, actor: str,
            party_id: str | None = None) -> dict[str, Any]:
     """A new reconciliation package with its scope and own party; the creator owns it (decision 065)."""
@@ -283,6 +285,7 @@ def left_out(wp_id: str, c=None) -> dict[str, dict[str, Any]]:
         " ORDER BY id", (wp_id,))}
 
 
+@store.one_connection
 def scoped_snapshot(wp_id: str, *, fetch_rates: bool = False) -> tuple[dict[str, Any], dict[str, Any]]:
     """The store's snapshot with the package's scope: every statement stays for the amounts allocated so far, the
     proposal and the coverage take the scope's statements only; 138: the scope's registered accounts have to be
@@ -477,6 +480,7 @@ def kept_workspace(wp_id: str, *, keep_seconds: int = KEEP_SECONDS) -> dict[str,
     return built
 
 
+@store.one_connection
 def _workspace(wp_id: str) -> dict[str, Any]:
     """Everything the pairing page shows: the scope's lines (in the period) and the invoices they may pay, each with
     its state, the amount allocated and left, its allocations and candidates, its partner and the reasons given earlier
@@ -950,6 +954,7 @@ def _refuse_approved(wp_id: str) -> None:
                         version=active["version"])
 
 
+@store.one_connection
 def _context(wp_id: str) -> dict[str, Any]:
     """What a decision reads; 145: an approved package takes no decision until its version is reopened."""
     _package(wp_id)
@@ -1016,6 +1021,7 @@ def _converted_groups(ctx: dict[str, Any], pairs: list[dict[str, Any]]) -> tuple
     return shares, needs_reason
 
 
+@store.one_connection
 def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor: str,
              expected_state: int | None = None) -> list[dict[str, Any]]:
     """Allocations of lines to invoices in one step (all or none). A pair without an amount takes what both sides have
@@ -1164,6 +1170,7 @@ def reject(wp_id: str, invoice_doc_id: str, line_id: str, *, note: str, actor: s
     return _write(ctx["state"], write, wp_id=wp_id, expected_state=expected_state)
 
 
+@store.one_connection
 def mark(wp_id: str, line_ids: Iterable[str], *, category: str, note: str | None, actor: str,
          expected_state: int | None = None) -> list[dict[str, Any]]:
     """'Needs no invoice' with its reason (`configs/reconcile.json` `line_marks`) for one or more lines in one step,
@@ -1175,6 +1182,7 @@ def mark(wp_id: str, line_ids: Iterable[str], *, category: str, note: str | None
     return mark_each(wp_id, {lid: category for lid in ids}, note=note, actor=actor, expected_state=expected_state)
 
 
+@store.one_connection
 def mark_each(wp_id: str, marks: dict[str, str], *, note: str | None, actor: str, basis: str | None = None,
               expected_state: int | None = None) -> list[dict[str, Any]]:
     """147: several lines marked in one step, each with its own reason (the quick review accepts a group whose lines'
