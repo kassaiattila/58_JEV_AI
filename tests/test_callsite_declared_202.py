@@ -17,7 +17,7 @@ import copy
 import pytest
 
 from jav import cfg, jev_select, jev_verify
-from jav.models import LineLayout
+from jav.models import CellLayout, LineLayout
 from jav.typepack import get as get_pack
 
 SELECT_SITES = ("select", "select_foreign", "select_invoice_out", "select_utility")
@@ -88,3 +88,44 @@ def test_a_non_invoice_type_inherits_the_invoice_document_questions_visibly():
     site = jev_verify.site_for("altalanos_szerzodesi_feltetelek")
     assert "document_nouls" not in cfg.load("callsite:verify_altalanos_szerzodesi_feltetelek")
     assert site.document_nouls == ("parties_swapped", "line_items_missing_rows", "line_items_extra_rows")
+
+
+def test_a_type_without_an_s_path_gets_one_from_configuration_alone(monkeypatch, tmp_path):
+    """After M2a a new type's S path needs no code: its type pack names an S call site, and the call site says its
+    questions, its requests and their lines. Shown on the terms and conditions' pack with an invented call site and a
+    stand-in JEV; whether such a path is good enough is a measurement on the type's golden set (M2c)."""
+    from typesafe_sdk import Choice
+
+    from jav import store
+    from jav.adapters.jev import JevAdapter
+    from jav.candidates import find_all
+    from tests.test_select_presence import FakeClient
+
+    monkeypatch.setattr(store, "STORE_PATH", tmp_path / "t.sqlite")
+    pack = get_pack("altalanos_szerzodesi_feltetelek").model_copy(update={"select_callsite": "select_terms_test", "arms": ("S", "G")})
+    fields = {"seller_name": "name", "effective_date": "date"}
+    site_config = {
+        "glossary": "Terms and conditions glossary: hatályos = in force from.",
+        "none_description": "the {what} is not among the options",
+        "document": "General terms and conditions, selected lines (Lnn = line number)",
+        "field_kind": dict(fields),
+        "instructions": {f: f"Which option is the document's {f.replace('_', ' ')}?" for f in fields},
+        "presence_template": "Is the {what} printed on the document?",
+        "presence_what": {f: f.replace("_", " ") for f in fields},
+        "extra_questions": {},
+        "requests": {"issuer": {"fields": ["seller_name"], "kinds": ["name"], "extra_lines": {"top_fraction": 0.5}},
+                     "validity": {"fields": ["effective_date"], "kinds": ["date"]}},
+    }
+    monkeypatch.setattr(cfg, "load", lambda name: site_config if name == "callsite:select_terms_test" else REAL_LOAD(name))
+    lines = [LineLayout(no=i, page=1, text=t, cells=[CellLayout(text=t, x0=30, x1=300)]) for i, t in enumerate(
+        ["Általános Szerződési Feltételek", "Példa Szolgáltató Kft.", "1. Hatály", "Hatályos: 2025.03.01-től"], 1)]
+    client = FakeClient()  # it chooses each question's first option
+    site = jev_select.SelectSite(pack)
+    cands = find_all(lines, pack.candidate_profile, text_labels=pack.text_labels)
+    picks, _calls = site.select_fields(JevAdapter(client=client, cache_dir=tmp_path / "cache", model="jev-1.13.0"), lines, cands, run_id="r")
+    record, _reasons = site.picks_to_record(picks, cands, lines)
+    assert [r["state"]["document"] for r in client.requests] == [site_config["document"]] * 2
+    assert all(isinstance(r["questions"][f], Choice) for r, f in zip(client.requests, fields))
+    assert str(record.get_field("effective_date")) == "2025-03-01"
+    assert record.get_field("seller_name") == cands["name"][0].label
+    assert "Példa Szolgáltató Kft." in {c.label for c in cands["name"]}
