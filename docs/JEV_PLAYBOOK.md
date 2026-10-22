@@ -1,6 +1,6 @@
 # JEV playbook: model facts, call sites and question design
 
-**Valid from:** 2026-09-20 · **Fully refreshed:** 2026-09-30, against the code and the live pages of docs.typesafe.ai · **Model:** `jev-1.13.0` (behind the `jev-latest` alias)
+**Valid from:** 2026-09-20 · **Fully refreshed:** 2026-09-30, against the code and the live pages of docs.typesafe.ai · **Model:** `jev-1.14.0`, pinned since 200 (until 2026-10-22: `jev-1.13.0` behind the `jev-latest` alias)
 
 ## Plain-language summary
 
@@ -17,7 +17,7 @@ JEV is the TypeSafe model that answers narrow, typed questions about a document 
 | rate limits | 100K tokens per second and 40 requests per second for jev-1.13.0; "adjusting dynamically" and may change without notice; over the limit → `429` ([Models](https://docs.typesafe.ai/models)). The 2026-09-17 docs said 250k tokens/s and 1,200 requests/min. | The SDK retries with backoff; our explicit `RetryPolicy` is in `configs/models.json` (`jev.retry`). |
 | input | text only: a string, a JSON object or an array of text values | Scans are turned into text first (OCR, `jav/ocr.py`). |
 | language | "English is the primary training language"; other languages "are handled but not equally well; test on your own content" ([Models](https://docs.typesafe.ai/models)) | Only our own golden sets show that a Hungarian or German verbatim state works, and only for the measured model version. |
-| alias | `jev-latest` and `jev-preview` both point to `jev-1.13.0`; an alias moves when a new release ships; the response's `model` field reports the version that answered | The cache key and the ledger use the concrete version (section 2). |
+| alias | an alias moves when a new release ships (`jev-latest` went from `jev-1.13.0` to `jev-1.14.0` on 2026-10-22 without notice); versioned IDs are accepted; the response's `model` field reports the version that answered | Since 200 the configured model is the concrete `jev-1.14.0`; `jev-latest` is only looked at (`jav/jev_version.py`). The cache key and the ledger use the concrete version (section 2). |
 | model list | `GET /v1/models` lists only the aliases; versioned IDs such as `jev-1.13.0` are accepted anyway | The adapter resolves the alias with a small probe request (section 2). |
 | customisation | no fine-tuning; answers are shaped through the state, the instructions, the criteria and code composition | This matches our "configuration as data" rule: questions live in JSON files. |
 | SDK logging | `TYPESAFE_LOG_LEVEL=debug` logs the request body unredacted | `guard_sdk_logging()` in `jav/config.py` lowers the SDK log to WARNING unless `JAV_ALLOW_SDK_DEBUG=1` is set. Since v1.1.0 the service and worker logs, and the stored item errors, mask every key, token and password from the environment and `.env` (`jav/runtime/applog.py`), the exception chain included. |

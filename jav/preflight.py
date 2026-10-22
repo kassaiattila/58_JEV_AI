@@ -3,7 +3,8 @@
 Steps: pytest (subprocess; 189: in several processes with pytest-xdist) and, at the same time, the type check and tests
 of the UI (`ui/`, if installed) → Burr contract lint → config
 versions + hash → handoff freshness (docs/handoffs/, only a notice since 040) → git state → data guard (071) →
-language guard (073) → dependency audit age and findings (075) → Ruff ratchet (`pyproject.toml` `max_findings`) → regeneration of `docs/STATE.md` (the control
+language guard (073) → dependency audit age and findings (075) → the pinned JEV version against the provider's moving
+name (200, a notice) → Ruff ratchet (`pyproject.toml` `max_findings`) → regeneration of `docs/STATE.md` (the control
 screen, written to a file). Exit code 0 = everything green. The session protocol (CLAUDE.md §2) asks for this first;
 the handoff only references STATE.md, it does not copy it.
 """
@@ -239,6 +240,11 @@ def preflight(*, skip_pytest: bool = False) -> int:
 
     ok, msg = deps_audit.verdict(deps_audit.status())
     results.append(("dependency audit", ok, msg))
+
+    from jav import jev_version
+
+    ok, msg = jev_version.verdict(jev_version.status())  # 200: a newer version is a notice, the pinned one answers
+    results.append(("JEV version", ok, msg))
 
     found = devstate.ruff_findings()
     ok, msg = devstate.lint_verdict(found[0] if found else None, devstate.lint_limit())

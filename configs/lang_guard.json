@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.101",
+    "version": "1.0.102",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.102",
+        "date": "2026-10-22",
+        "note": "200 (the pinned JEV version): the user guide names the System page's new card by its Hungarian labels (docs/guides/USER_GUIDE.md), and its test checks the card's Hungarian wording (ui/src/jevVersion200.test.tsx, 6)."
+      },
       {
         "version": "1.0.101",
         "date": "2026-10-22",
@@ -607,7 +612,7 @@
     "configs/legacy_types/statement_erste/prompt.md": 1,
     "configs/legacy_types/terkep_adat/detect.json": 4,
     "configs/legacy_types/terkep_adat/prompt.md": 1,
-    "configs/models.json": 5,
+    "configs/models.json": 4,
     "configs/naming.json": 26,
     "configs/policy.json": 3,
     "configs/price_lists.json": 5,
@@ -656,7 +661,7 @@
     "docs/flows/invoice/FLOW.md": 15,
     "docs/flows/invoice/FLOW.mmd": 3,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 252,
+    "docs/guides/USER_GUIDE.md": 253,
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
@@ -927,6 +932,7 @@
     "ui/src/hooks.ts": 3,
     "ui/src/i18n.test.tsx": 7,
     "ui/src/jevPath082.test.tsx": 3,
+    "ui/src/jevVersion200.test.tsx": 3,
     "ui/src/labels.ts": 140,
     "ui/src/layout.test.tsx": 49,
     "ui/src/listChecks190.test.ts": 3,

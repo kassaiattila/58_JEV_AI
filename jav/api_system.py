@@ -1,12 +1,13 @@
 """The to-dos' and the system's addresses of the local service (195, plan G-tidy R4; until then in `jav/api.py`).
 
 Plain-language summary: closing a to-do, and the addresses of the system page: the worker's state and stopping it, the
-last dependency audit, the store backup's state and a backup now, and the paid calls with an uncertain outcome, listed
-and settled by hand. They moved here from `jav/api.py` as they were: the same paths, request models and answers, in the
-same order. `jav.api.create_app` adds this module after the workflows' one.
+last dependency audit, the pinned JEV version against the provider's moving name (200), the store backup's state and a
+backup now, and the paid calls with an uncertain outcome, listed and settled by hand. They moved here from `jav/api.py`
+as they were: the same paths, request models and answers, in the same order. `jav.api.create_app` adds this module
+after the workflows' one.
 
-Layer: UI/CLI (the local service) → `jav.work`, `jav.backup`, `jav.deps_audit`, `jav.runtime.calls`,
-`jav.runtime.worker`.
+Layer: UI/CLI (the local service) → `jav.work`, `jav.backup`, `jav.deps_audit`, `jav.jev_version`,
+`jav.runtime.calls`, `jav.runtime.worker`.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi import Path as PathParam
 from pydantic import Field
 
-from jav import backup, deps_audit, work, work_views
+from jav import backup, deps_audit, jev_version, work, work_views
 from jav.api import Empty, Text, _In, human_actor, settings
 from jav.runtime import calls, worker
 
@@ -66,6 +67,12 @@ def routes(app: FastAPI, r: str) -> None:
     @app.get(r + "/system/deps-audit")
     def deps_audit_status() -> dict[str, Any]:
         return work_views.jsonable({"status": deps_audit.status(), "max_age_days": deps_audit.MAX_AGE_DAYS})
+
+    # --- the pinned JEV version (200): the moving name's last look; the look itself runs with the daily backup ---
+
+    @app.get(r + "/system/jev-version")
+    def jev_version_status() -> dict[str, Any]:
+        return work_views.jsonable(jev_version.status())
 
     # --- store backup (064): status of the latest backup, and backup now ---
 

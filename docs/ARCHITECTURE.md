@@ -161,7 +161,11 @@ catalog reads whether a type is active from the same switch.
    thresholds only into `policy.json`: a named band set per call site (`band_for`), Noul no / uncertain / yes,
    Choice auto / uncertain / human (confidence threshold + gap to the second option); the `uncertain` band triggers review only
    with `uncertain_review: true`. Because of the request-hash cache, the same (concrete model version, state, questions) gives the same answer
-   for $0; the alias (`jev-latest`) is resolved with a probe (`runs/cache/_model_versions.json`, 24 h TTL). If JEV still
+   for $0; since 200 the configured model is a concrete version (`configs/models.json` `jev.model`, `jev-1.14.0`), so
+   the answers do not change by themselves; the provider's moving name (`jev.watch_alias`, `jev-latest`) is only resolved
+   with a probe by the daily backup (`runs/cache/_model_versions.json`, 24 h TTL; `jav/jev_version.py`), and the
+   start-up check and the System page say when it points to a newer version (switching is a decision with a
+   measurement). An alias still works as the model and is resolved the same way. If JEV still
    does not answer after the SDK retries, the adapter writes a ledger entry (`error`) and raises `JevUnavailableError`; the flows turn this
    into a `jev_unavailable:<reason>` review (M1/M3 `final_status = jev_unavailable`) instead of crashing. A request refused
    for the token limit (`max_tokens_exceeded`) is remembered under its key and the concrete version that refused it

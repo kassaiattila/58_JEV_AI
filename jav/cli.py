@@ -331,6 +331,21 @@ def _refresh_deps_audit() -> None:
         logging.getLogger("jav.backup").info("dependency audit: %s", deps_audit.verdict(deps_audit.status())[1])
 
 
+def _refresh_jev_version() -> None:
+    """200: the daily backup looks where JEV's moving name points (one tiny probe a day); a failure never fails the
+    backup. The pinned version keeps answering; a newer one is only reported (`jav/jev_version.py`)."""
+    import logging
+
+    from jav import jev_version
+
+    try:
+        st = jev_version.refresh()
+    except Exception:  # noqa: BLE001 - the look is a side task of the backup; logged with its traceback
+        logging.getLogger("jav.backup").exception("JEV version look failed")
+        return
+    logging.getLogger("jav.backup").info("JEV version: %s", jev_version.verdict(st)[1])
+
+
 def cmd_backup(args: argparse.Namespace) -> int:
     from jav import backup
     from jav.runtime import applog
@@ -339,6 +354,7 @@ def cmd_backup(args: argparse.Namespace) -> int:
         applog.setup("backup")
         m = backup.scheduled()
         _refresh_deps_audit()
+        _refresh_jev_version()
     else:
         m = backup.backup(out_root=Path(args.out) if args.out else None, with_burr=args.with_burr, keep=args.keep,
                           copy_to=Path(args.copy_to) if args.copy_to else None, with_docs=args.with_docs)

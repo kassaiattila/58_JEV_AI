@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.5",
+        "date": "2026-10-22",
+        "note": "200 (the pinned JEV version): jav/jev_version.py resolves the provider's moving name with the adapter's model probe; it asks no judgement, so it is a routing module"
+      },
       {
         "version": "1.0.4",
         "date": "2026-10-22",
@@ -557,6 +562,7 @@
     "jav/evals.py": "the golden and determinism measurements of the invoice flow (and the verifier probe, a site of its own)",
     "jav/evals_detect.py": "the detection measurements",
     "jav/evals_email.py": "the email measurements",
-    "jav/before_after_replay.py": "the before/after replay: runs the existing processing with an adapter that reads the JEV answer cache; it asks nothing itself, and a question without an earlier answer is refused for want of a budget"
+    "jav/before_after_replay.py": "the before/after replay: runs the existing processing with an adapter that reads the JEV answer cache; it asks nothing itself, and a question without an earlier answer is refused for want of a budget",
+    "jav/jev_version.py": "the pinned JEV version: resolves the provider's moving name (jev-latest) with the adapter's model probe for the daily look; it asks no judgement, and processing without JEV never calls it"
   }
 }

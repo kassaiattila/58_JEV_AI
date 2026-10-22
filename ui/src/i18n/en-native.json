@@ -2296,5 +2296,12 @@
   "Superseded by a later run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.": "Superseded by a later run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.",
   "Older runs": "Older runs",
   "{{n}} older run(s) were repeated by a later run on the same documents. Superseding stops them and closes their {{m}} open to-dos; a superseded live run cannot be approved afterwards.": "{{n}} older run(s) were repeated by a later run on the same documents. Superseding stops them and closes their {{m}} open to-dos; a superseded live run cannot be approved afterwards.",
-  "Trial run, {{when}}": "Trial run, {{when}}"
+  "Trial run, {{when}}": "Trial run, {{when}}",
+  "JEV version": "JEV version",
+  "The model is not pinned: {{pinned}} follows the provider's latest version.": "The model is not pinned: {{pinned}} follows the provider's latest version.",
+  "Which JEV version is the latest has not been looked up yet; the daily backup does it.": "Which JEV version is the latest has not been looked up yet; the daily backup does it.",
+  "A newer JEV version is out: {{latest}} ({{when}}). The system keeps asking {{pinned}}; switching is a decision with a measurement.": "A newer JEV version is out: {{latest}} ({{when}}). The system keeps asking {{pinned}}; switching is a decision with a measurement.",
+  "The latest JEV version was last looked up {{days}} days ago ({{when}}).": "The latest JEV version was last looked up {{days}} days ago ({{when}}).",
+  "The system asks {{pinned}}; it is the latest version too ({{when}}).": "The system asks {{pinned}}; it is the latest version too ({{when}}).",
+  "The daily backup looks once a day which version the provider's latest name points to; the system asks the pinned version only.": "The daily backup looks once a day which version the provider's latest name points to; the system asks the pinned version only."
 }

@@ -1,7 +1,7 @@
 {
  "meta": {
   "name": "models",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "changelog": [
    {
     "version": "1.0.0",
@@ -27,12 +27,18 @@
     "version": "1.4.0",
     "date": "2026-09-30",
     "note": "075 (repeated security audit, S01; Azure recipe switch): azure_di.usd_per_page for the up-front reservation and the call log; here and not in configs/ocr.json, whose hash is part of every OCR cache key"
+   },
+   {
+    "version": "1.5.0",
+    "date": "2026-10-22",
+    "note": "200 (the owner's decision of 2026-10-22): jev.model pinned to jev-1.14.0, the version the moving name jev-latest resolved to since 2026-10-22 05:17 UTC (its answers and cache keys are unchanged); jev.watch_alias = jev-latest, only looked at (the daily backup, jav/jev_version.py), so a newer version is reported and taken only by a decision with a measurement."
    }
   ]
  },
  "jev": {
-  "model": "jev-latest",
-  "note": "jev-latest = jev-1.13.0 (2026-09); a models.list() csak aliasokat ad, a konkrét verzió a válasz model mezője - az adapter szondával oldja fel (runs/cache/_model_versions.json); korlátok: docs.typesafe.ai/model-jaggedness/jev-1.13.md",
+  "model": "jev-1.14.0",
+  "watch_alias": "jev-latest",
+  "note": "200: pinned to a concrete version (docs.typesafe.ai/models: versioned IDs are accepted; pin when thresholds are tuned against a version). The moving name jev-latest is only resolved by the daily look (runs/cache/_model_versions.json); jev-1.13.0 answered until 2026-10-22, its limits: docs.typesafe.ai/model-jaggedness/jev-1.13.md",
   "timeout_s": 90.0,
   "usd_per_mtok_input": 0.042,
   "usd_per_mtok_output": 0.0,
