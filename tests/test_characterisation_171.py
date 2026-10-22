@@ -22,7 +22,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import activity, activity_kinds, checks, corrections, datasets, duplicates, email_tasks, native_results, parties, policy, store, work
+from jav import activity, activity_kinds, checks, corrections, datasets, duplicates, email_tasks, native_results, parties, policy, store, work_readiness, work_recipes, work_runs
 from jav.models import CheckResult, FlowState, DocumentRecord, JevVerdicts
 from jav.runtime import calls, worker
 
@@ -62,7 +62,7 @@ def _run(run_id: str = RUN, docs: tuple[str, ...] = (DOC_A, DOC_B), *, status: s
                    ACTOR, "2026-10-08T10:01:00+00:00"))
         for d in docs:
             c.execute("INSERT INTO run_items(run_id, item_id, status, final_status, flow_run_id, updated_at) VALUES (?,?,?,?,?,?)",
-                      (run_id, d, "done", "needs_review", work.flow_run_id(run_id, d), "2026-10-08T10:02:00+00:00"))
+                      (run_id, d, "done", "needs_review", work_runs.flow_run_id(run_id, d), "2026-10-08T10:02:00+00:00"))
 
 
 # --- 1. the order of a decision's to-do reasons ----------------------------------------------------------------------
@@ -214,7 +214,7 @@ def test_the_run_fingerprint_is_this_string(db) -> None:
                   (RUN, DOC_A, 1, json.dumps({"invoice_number": "INV-0002"}), ACTOR, NOW))
         c.execute("INSERT INTO duplicate_decisions(pair_key, doc_id, other_doc_id, decision, actor, decided_at) VALUES (?,?,?,?,?,?)",
                   (f"{DOC_A}|{DOC_C}", DOC_A, DOC_C, "copy", ACTOR, NOW))
-    store.review_enqueue(subject_kind="document", subject_id=DOC_A, run_id=work.flow_run_id(RUN, DOC_A),
+    store.review_enqueue(subject_kind="document", subject_id=DOC_A, run_id=work_runs.flow_run_id(RUN, DOC_A),
                          reasons=["validator:totals.mismatch"], producer="invoice")
     assert datasets._run_fingerprint({"run_id": RUN}) == PIN_RUN_FINGERPRINT
     assert datasets.result_fingerprint({"run_id": RUN}) == PIN_RUN_FINGERPRINT  # 172: a run's result table
@@ -273,10 +273,10 @@ def test_a_day_of_activity_in_this_order_and_shape(db) -> None:
         c.execute("INSERT INTO run_item_corrections(run_id, item_id, revision, fields, actor, created_at) VALUES (?,?,?,?,?,?)",
                   (RUN, DOC_A, 1, json.dumps({"net_total": "1000", "invoice_number": "INV-1"}), ACTOR, "2026-10-08T10:03:00+00:00"))
         c.execute("INSERT INTO review_queue(subject_kind, subject_id, run_id, reasons, created_at) VALUES (?,?,?,?,?)",
-                  ("document", DOC_A, work.flow_run_id(RUN, DOC_A), "[]", NOW))
+                  ("document", DOC_A, work_runs.flow_run_id(RUN, DOC_A), "[]", NOW))
         review_id = c.execute("SELECT MAX(id) FROM review_queue").fetchone()[0]
         c.execute("INSERT INTO review_reasons(review_id, reason, producer, run_id, status, actor, created_at, closed_at)"
-                  " VALUES (?,?,?,?,?,?,?,?)", (review_id, "validator:totals.mismatch", "invoice", work.flow_run_id(RUN, DOC_A),
+                  " VALUES (?,?,?,?,?,?,?,?)", (review_id, "validator:totals.mismatch", "invoice", work_runs.flow_run_id(RUN, DOC_A),
                                                 "resolved", ACTOR, NOW, "2026-10-08T10:04:00+00:00"))
         c.execute("INSERT INTO email_task_decisions(run_id, task_index, decision, actor, decided_at, done_by, done_at)"
                   " VALUES (?,?,?,?,?,?,?)", (f"{RUN}:{DOC_B}", 0, "accepted", ACTOR, "2026-10-08T10:06:00+00:00", ACTOR,
@@ -330,8 +330,8 @@ PIN_ROUTES = {
 
 
 def test_each_recipe_routes_each_item_kind_to_this_flow() -> None:
-    routed = {r["id"]: {k: work.flow_for(r, item) for k, item in _ITEMS.items() if item["kind"] in r["input_kinds"]}
-              for r in work.recipes()}
+    routed = {r["id"]: {k: work_readiness.flow_for(r, item) for k, item in _ITEMS.items() if item["kind"] in r["input_kinds"]}
+              for r in work_recipes.recipes()}
     assert routed == PIN_ROUTES
 
 
@@ -358,19 +358,19 @@ PIN_STAGES = {
 def test_each_recipe_runs_these_stages() -> None:
     params = {"arm": "auto", "jev": "on", "jev_cache": "reuse", "tasks": "propose", "unknown_documents": "review"}
     stages = {}
-    for r in work.recipes():
+    for r in work_recipes.recipes():
         for k, item in _ITEMS.items():
             if item["kind"] not in r["input_kinds"]:
                 continue
             own = {p: v for p, v in params.items() if p in (r.get("params") or {})}
             if r["flow"] == "invoice":
                 own["doc_type"] = "invoice_hu"
-            stages[f"{r['id']}:{k}"] = worker._stages({**r, "flow": work.flow_for(r, item)}, own)
+            stages[f"{r['id']}:{k}"] = worker._stages({**r, "flow": work_readiness.flow_for(r, item)}, own)
     assert stages == PIN_STAGES
 
 
 def test_a_run_without_jev_takes_the_g_path_and_earlier_answers_are_the_default() -> None:
-    recipe = next(r for r in work.recipes() if r["id"] == "invoice-extraction")
+    recipe = next(r for r in work_recipes.recipes() if r["id"] == "invoice-extraction")
     assert worker._stages(recipe, {"arm": "S", "jev": "off", "doc_type": "invoice_hu"}) == [
         ("invoice", {"arm": "G", "jev": "off", "doc_type": "invoice_hu"})]
     assert worker.reuse_answers({}) is True

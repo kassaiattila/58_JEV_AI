@@ -5,7 +5,7 @@ import json
 import pytest
 from openpyxl import load_workbook
 
-from jav import corrections, datasets, export, native_results, store, work, work_views
+from jav import corrections, datasets, export, native_results, store, work, work_runs, work_views
 from jav.readers import native, pipeline
 from jav.tablequery import Query
 from tests.test_native_review_api_109 import published_run
@@ -77,8 +77,8 @@ def test_json_export_interleaved_correction_cannot_approve_unseen_values(tmp_pat
         assert body["native_items"][0]["native_facts"][0]["effective_value"] == expected
         assert current["native_facts"][0]["effective_value"] == "00456"
         with pytest.raises(work.RevisionConflict):
-            work.approve_run(rid, actor="reader-of-export", review_version=body["review_version"])
-        assert work.get_run(rid)["approval"] is None
+            work_runs.approve_run(rid, actor="reader-of-export", review_version=body["review_version"])
+        assert work_runs.get_run(rid)["approval"] is None
         with store.connect() as connection:
             assert connection.execute("SELECT COUNT(*) FROM invocations").fetchone()[0] == 0
 

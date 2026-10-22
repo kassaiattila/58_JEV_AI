@@ -9,7 +9,7 @@ import json
 
 import pytest
 
-from jav import package_result, store, work
+from jav import package_result, store, work_runs
 
 WP = "wp-000000000172"
 OTHER = "wp-000000000173"
@@ -39,7 +39,7 @@ def _run(run_id: str, *, mode: str = "apply", approved: bool = False, status: st
         for item, item_status in items.items():
             c.execute("INSERT INTO run_items(run_id, item_id, status, final_status, flow_run_id, updated_at) VALUES (?,?,?,?,?,?)",
                       (run_id, item, item_status, "auto_approved" if item_status == "done" else None,
-                       work.flow_run_id(run_id, item), at))
+                       work_runs.flow_run_id(run_id, item), at))
 
 
 def _counted() -> dict[str, tuple[str, str]]:
@@ -77,7 +77,7 @@ def test_the_counted_result_carries_its_run_and_final_status(db) -> None:
     _run("run-live", at="2026-10-18T10:00:00+00:00", items={A: "done"})
     counted = package_result.counted_results(WP)[A]
     assert (counted.run_id, counted.mode, counted.approval, counted.created_at, counted.final_status, counted.flow_run_id) == (
-        "run-live", "apply", None, "2026-10-18T10:00:00+00:00", "auto_approved", work.flow_run_id("run-live", A))
+        "run-live", "apply", None, "2026-10-18T10:00:00+00:00", "auto_approved", work_runs.flow_run_id("run-live", A))
 
 
 def test_the_effective_values_are_the_machine_values_with_the_correction_over_them() -> None:

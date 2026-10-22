@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import store, work
+from jav import store, work, work_readiness, work_recipes, work_runs
 from jav.adapters import jev as jev_mod
 from jav.detect import DetectResult
 from jav.flow_detect import DetectState, _resolve_detail, save
@@ -59,14 +59,14 @@ def test_document_run_with_such_an_item_cannot_be_approved(tmp_path: Path):
     with store.use_store(tmp_path / "w.sqlite"), jev_mod.use_adapter(adapter):
         wp = work.create_from_folder(folder, name="Felszólítás")
         # 120: with the unknown-document setting off, the earlier stop and the blocked approval hold
-        work.assign_recipe(wp["id"], "processing", params={"arm": "S", "unknown_documents": "review"},
+        work_recipes.assign_recipe(wp["id"], "processing", params={"arm": "S", "unknown_documents": "review"},
                            expected_revision=0, actor="t")
-        r = work.readiness(wp["id"])
-        run_id = work.start_run(wp["id"], mode="apply", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")["run_id"]
+        r = work_readiness.readiness(wp["id"])
+        run_id = work_runs.start_run(wp["id"], mode="apply", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")["run_id"]
         assert worker.run_worker(once=True)["results"] == {"done": 1}
-        item = work.get_run(run_id)["items"][0]
+        item = work_runs.get_run(run_id)["items"][0]
         assert item["final_status"] == "needs_review"
         assert [x["reason"] for x in store.review_open_reasons("document", item["item_id"])] == ["detect:no_type_pack:payment_reminder"]
-        assert work.refresh_run_status(run_id) == "needs_review"
+        assert work_runs.refresh_run_status(run_id) == "needs_review"
         with pytest.raises(work.NotReady):
-            work.approve_run(run_id, actor="t")
+            work_runs.approve_run(run_id, actor="t")

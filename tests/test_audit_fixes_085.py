@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from typesafe_sdk import TypeSafeAPITimeoutError
 
-from jav import api, backup, cfg, corrections, source_instances, store, work
+from jav import api, backup, cfg, corrections, source_instances, store, work, work_runs
 from jav.adapters.jev import JevUnavailableError
 from jav.runtime import calls, worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
@@ -29,9 +29,9 @@ def _reviewed_run(service) -> tuple[TestClient, dict, str]:
     wp = _ready_wp(client, service["folder"])
     run_id = _start(client, wp["id"]).json()["run_id"]
     worker.run_worker(once=True)
-    for item in work.get_run(run_id)["input"]["items"]:
-        for reason in work.item_reasons(run_id, item["item_id"], item)["run"]:
-            work.resolve_reason(reason["id"], actor="teszt.elek", resolution=None, note="synthetic review")
+    for item in work_runs.get_run(run_id)["input"]["items"]:
+        for reason in work_runs.item_reasons(run_id, item["item_id"], item)["run"]:
+            work_runs.resolve_reason(reason["id"], actor="teszt.elek", resolution=None, note="synthetic review")
     return client, wp, run_id
 
 
@@ -45,14 +45,14 @@ def test_a01_correction_cannot_commit_after_a_concurrent_approval(service, monke
 
     def approve_in_between(*args, **kwargs):
         # another request approves the run after the correction's own approval check, before it writes
-        assert work.approve_run(run_id, actor="teszt.elek")["approval"] == "approved"
+        assert work_runs.approve_run(run_id, actor="teszt.elek")["approval"] == "approved"
         insert(*args, **kwargs)
 
     monkeypatch.setattr(corrections, "insert_revision", approve_in_between)
     r = client.post(f"/api/runs/{run_id}/items/{item_id}/correction", headers=HUMAN,
                     json={"fields": {"invoice_number": "CHANGED-AFTER-APPROVAL"}, "expected_revision": 0})
     assert r.status_code == 409, r.text
-    assert work.get_run(run_id)["approval"] == "approved"
+    assert work_runs.get_run(run_id)["approval"] == "approved"
     assert corrections.current(run_id, item_id)["fields"].get("invoice_number") != "CHANGED-AFTER-APPROVAL"
 
 
@@ -66,7 +66,7 @@ def test_a01_approval_is_bound_to_the_reviewed_version(service):
     # the reviewer's page still shows the state before that correction: approving it is refused
     r = client.post(f"/api/runs/{run_id}/approve", headers=HUMAN, json={"review_version": seen})
     assert r.status_code == 409, r.text
-    assert work.get_run(run_id)["approval"] is None
+    assert work_runs.get_run(run_id)["approval"] is None
     now = client.get(f"/api/runs/{run_id}").json()["review_version"]
     assert now != seen
     r = client.post(f"/api/runs/{run_id}/approve", headers=HUMAN, json={"review_version": now})
@@ -78,7 +78,7 @@ def test_a01_approval_without_a_version_still_works(service):
     """The command line approves the current state (it shows no earlier view to compare with)."""
     client, _wp, run_id = _reviewed_run(service)
     assert client.post(f"/api/runs/{run_id}/approve", headers=HUMAN, json={}).status_code == 200
-    assert work.get_run(run_id)["approval"] == "approved"
+    assert work_runs.get_run(run_id)["approval"] == "approved"
 
 
 # --- A02: verified source copies in the backup ----------------------------------------------------------

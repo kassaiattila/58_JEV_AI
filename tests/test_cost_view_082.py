@@ -10,7 +10,7 @@ import json
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from jav import costs, ocr, store, work
+from jav import costs, ocr, store, work, work_runs
 from jav.config import AZURE_DI_MODEL
 from jav.runtime import calls
 from tests import test_api
@@ -22,7 +22,7 @@ env = test_api.env
 def _call(run_id, item_id, provider, model, *, status="succeeded", cost=None, max_cost="0.010000", step=None):
     """One call-log row as the call log writes it: a document flow's call carries the item's flow identifier; an
     Azure recognition carries the run and the document's fingerprint in its step."""
-    flow = run_id if provider == "azure_di" else work.flow_run_id(run_id, item_id)
+    flow = run_id if provider == "azure_di" else work_runs.flow_run_id(run_id, item_id)
     step = step or (f"azure_di:ocr:{item_id[:16]}" if provider == "azure_di" else f"{provider}:{status}:{cost}:{model}")
     with store.connect() as c:
         attempt = c.execute("SELECT COUNT(*) FROM invocations WHERE run_id=? AND step_id=?", (flow, step)).fetchone()[0] + 1
@@ -34,7 +34,7 @@ def _call(run_id, item_id, provider, model, *, status="succeeded", cost=None, ma
 
 def _reused(run_id, item_id, provider="jev", model="jev-1.13.0", n=1, suffix=""):
     for _ in range(n):
-        store.ledger_add(run_id=f"{work.flow_run_id(run_id, item_id)}{suffix}", step="detect", provider=provider, model=model,
+        store.ledger_add(run_id=f"{work_runs.flow_run_id(run_id, item_id)}{suffix}", step="detect", provider=provider, model=model,
                          input_tokens=None, output_tokens=None, cost_usd=0.0, seconds=0.0, cached=True)
 
 
@@ -77,7 +77,7 @@ def test_the_package_adds_up_every_run(env):
     c = env["client"]
     wp, first, a, b = _queued_run(c, env["folder"])
     _call(first, a, "jev", "jev-1.13.0", cost="0.002000")
-    work.cancel_run(first, actor="teszt.elek")
+    work_runs.cancel_run(first, actor="teszt.elek")
     ready = c.get(f"/api/workpackages/{wp['id']}/workflow/readiness").json()
     second = c.post(f"/api/workpackages/{wp['id']}/workflow/start", headers=test_api.HUMAN, json={
         "mode": "apply", "expected_revision": ready["assignment_revision"], "input_hash": ready["input_hash"], "rerun_of": first}).json()["run_id"]
@@ -95,7 +95,7 @@ def test_the_package_adds_up_every_run(env):
 
 def test_the_pre_start_overview_is_saved_with_the_run_and_compared_with_the_actual_calls(env):
     wp, run_id, a, b = _queued_run(env["client"], env["folder"])
-    plan = work.get_run(run_id)["plan"]
+    plan = work_runs.get_run(run_id)["plan"]
     assert plan["paths"] == {"S": 2, "G": 0, "unknown": 0} and plan["documents"] == 2  # the invoice type is given, path S
     _call(run_id, a, "jev", "jev-1.13.0", cost="0.002000")
     _call(run_id, a, "openai", "gpt-4.1-mini", cost="0.001000")

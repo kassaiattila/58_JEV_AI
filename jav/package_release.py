@@ -40,7 +40,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, card_numbers, corrections, export, logic_packs, package_result, store, work
+from jav import activity_kinds, card_numbers, corrections, export, logic_packs, package_result, store, work, work_runs
 from jav.outputs import parts, templates
 from jav.user_messages import explained
 from jav.clock import utc_stamp as _now
@@ -173,7 +173,7 @@ def _releasable(wp: dict[str, Any], counted: dict[str, package_result.Counted],
         best = counted.get(item["item_id"])
         if best is None or best.tier != "approved":
             continue
-        if item["item_id"] in set(work.excluded_items(runs[best.run_id])):  # removed before that run's approval
+        if item["item_id"] in set(work_runs.excluded_items(runs[best.run_id])):  # removed before that run's approval
             continue
         out[item["item_id"]] = best.run_id
     return out
@@ -217,9 +217,9 @@ def view(wp_id: str) -> dict[str, Any]:
     has_runs = logic_packs.has_runs(wp["source_kind"])  # 176: a logic pack without runs is approved its own way
     with store.session(), store.connect() as c:
         counted = package_result.counted_results(wp_id, c)
-        runs = {rid: work.get_run(rid) for rid in sorted({x.run_id for x in counted.values()})}
+        runs = {rid: work_runs.get_run(rid) for rid in sorted({x.run_id for x in counted.values()})}
         reviewed = {rid: corrections.review_version(rid, c) for rid in runs}
-        open_runs = work.open_live_runs(wp_id) if has_runs else []
+        open_runs = work_runs.open_live_runs(wp_id) if has_runs else []
         versions = _versions(wp_id, c)
     releasable = _releasable(wp, counted, runs)
     latest = versions[0] if versions else None
@@ -228,11 +228,11 @@ def view(wp_id: str) -> dict[str, Any]:
     blockers = []
     removed = 0
     for rid in open_runs:
-        run = work.get_run(rid)
-        if run["status"] != "done":  # kept current when a to-do is settled (`work.resolve_reason`)
+        run = work_runs.get_run(rid)
+        if run["status"] != "done":  # kept current when a to-do is settled (`work_runs.resolve_reason`)
             blockers.append({"code": "run_not_ready", "run_id": rid, "status": run["status"],
-                             "open_reasons": work.open_reasons_for_run(rid)})
-        removed += len(work.excluded_items(run))
+                             "open_reasons": work_runs.open_reasons_for_run(rid)})
+        removed += len(work_runs.excluded_items(run))
     if not has_runs:
         blockers.append({"code": "own_approval"})
     elif not open_runs and (not releasable or releasable == released):
@@ -301,7 +301,7 @@ def _files(wp: dict[str, Any], meta: dict[str, Any], released: dict[str, str]) -
             files.append((own.file, len(data.tables[0].rows), content, made))
     runs = {}
     for run_id in sorted(set(released.values())):
-        run = work.get_run(run_id)
+        run = work_runs.get_run(run_id)
         runs[run_id] = {k: run.get(k) for k in ("recipe_id", "recipe_version", "params", "mode", "approval",
                                                   "approved_by", "approved_at")}
         runs[run_id]["review_version"] = corrections.review_version(run_id)
@@ -353,7 +353,7 @@ def release(wp_id: str, *, actor: str, expected_mark: str, confirm_removed: int 
     `expected_mark`: the mark of the result the person saw (`view`); a different one is `RevisionConflict`. Every open
     live run must be finished without open to-dos (`work.NotReady` otherwise, before any approval). Items removed from
     the package since a run started are left out, and the person confirms their count (`confirm_removed`), as for a
-    run's approval. Each run is approved in its own transaction (`work.approve_run`, with the reviewed version shown):
+    run's approval. Each run is approved in its own transaction (`work_runs.approve_run`, with the reviewed version shown):
     if a later one fails, the earlier ones stay approved and no version is recorded; the next view shows it."""
     current = view(wp_id)
     wp = work.get(wp_id)
@@ -370,9 +370,9 @@ def release(wp_id: str, *, actor: str, expected_mark: str, confirm_removed: int 
                           "count": str(current["removed_items"])}], removed=current["removed_items"])
     approved = []
     for rid in current["open_live_runs"]:
-        run = work.get_run(rid)
-        work.approve_run(rid, actor=actor, review_version=current["reviewed"].get(rid),
-                         confirm_removed=len(work.excluded_items(run)) or None)
+        run = work_runs.get_run(rid)
+        work_runs.approve_run(rid, actor=actor, review_version=current["reviewed"].get(rid),
+                         confirm_removed=len(work_runs.excluded_items(run)) or None)
         approved.append(rid)
     wp = work.get(wp_id)
     with store.session():
@@ -442,7 +442,7 @@ def _result(wp: dict[str, Any], c: sqlite3.Connection | None = None) -> tuple[st
         with store.connect() as own:
             return _result(wp, own)
     counted = package_result.counted_results(wp["id"], c)
-    runs = {rid: work.get_run(rid) for rid in sorted({x.run_id for x in counted.values()})}
+    runs = {rid: work_runs.get_run(rid) for rid in sorted({x.run_id for x in counted.values()})}
     mark = _mark(wp, counted, {rid: corrections.review_version(rid, c) for rid in runs})
     return mark, _releasable(wp, counted, runs), _versions(wp["id"], c)
 
@@ -634,7 +634,7 @@ def backfill(*, dry_run: bool = False) -> list[dict[str, Any]]:
             mark, releasable, versions = _result(wp)
             if versions or not releasable:
                 continue
-            runs = {rid: work.get_run(rid) for rid in set(releasable.values())}
+            runs = {rid: work_runs.get_run(rid) for rid in set(releasable.values())}
             last = max(runs.values(), key=lambda r: (r["approved_at"] or "", r["run_id"]))
             entry = {"workpackage_id": wp_id, "items": len(releasable), "released_by": last["approved_by"],
                      "released_at": last["approved_at"]}

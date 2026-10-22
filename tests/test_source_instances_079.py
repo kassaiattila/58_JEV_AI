@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, backup, corrections, flow_detect, ocr, source_instances, store, work
+from jav import api, backup, corrections, flow_detect, ocr, source_instances, store, work, work_readiness, work_recipes, work_runs
 from jav.adapters import jev as jev_mod
 from jav.runtime import worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
@@ -39,13 +39,13 @@ def env(tmp_path: Path):
     db = tmp_path / "w.sqlite"
     with store.use_store(db), jev_mod.use_adapter(adapter):
         wp = work.create_from_folder(folder, name="Synthetic invoices")
-        work.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "S", "doc_type": "invoice_hu"}, expected_revision=0, actor="t")
+        work_recipes.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "S", "doc_type": "invoice_hu"}, expected_revision=0, actor="t")
         yield {"wp": work.get(wp["id"]), "client": client, "tmp": tmp_path, "folder": folder, "db": db}
 
 
 def _start(wp_id: str) -> str:
-    r = work.readiness(wp_id)
-    return work.start_run(wp_id, mode="shadow", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")["run_id"]
+    r = work_readiness.readiness(wp_id)
+    return work_runs.start_run(wp_id, mode="shadow", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")["run_id"]
 
 
 def _swap_in_place(path: Path) -> bytes:
@@ -141,7 +141,7 @@ def test_the_worker_processes_the_instance_when_the_original_changes_or_disappea
     with store.connect() as c:
         rows = {r["doc_id"]: r["source_path"] for r in c.execute("SELECT doc_id, source_path FROM documents")}
     assert rows == {i["item_id"]: i["source_path"] for i in env["wp"]["items"]}  # the original path is what is stored
-    assert work.get_run(run_id)["status"] in ("done", "needs_review")
+    assert work_runs.get_run(run_id)["status"] in ("done", "needs_review")
 
 
 def test_the_model_request_is_the_same_as_from_the_original_path(env):
@@ -166,7 +166,7 @@ def test_an_item_without_instance_follows_the_old_rule(env):
     Path(env["wp"]["items"][0]["source_path"]).write_bytes(b"%PDF changed")
     info = worker.run_worker(once=True)
     assert info["results"] == {"dead": 1, "done": 1}
-    failed = [i for i in work.get_run(run_id)["items"] if i["status"] == "failed"]
+    failed = [i for i in work_runs.get_run(run_id)["items"] if i["status"] == "failed"]
     assert len(failed) == 1 and failed[0]["error"].startswith("source_changed")
 
 
@@ -175,7 +175,7 @@ def test_a_damaged_instance_is_refused(env):
     work.source_file(env["wp"]["items"][0]).write_bytes(b"%PDF damaged")
     info = worker.run_worker(once=True)
     assert info["results"] == {"dead": 1, "done": 1}
-    failed = [i for i in work.get_run(run_id)["items"] if i["status"] == "failed"]
+    failed = [i for i in work_runs.get_run(run_id)["items"] if i["status"] == "failed"]
     assert len(failed) == 1 and failed[0]["error"].startswith("instance_damaged")
 
 
@@ -186,7 +186,7 @@ def test_a_changed_or_missing_original_is_a_warning_not_a_blocker(env):
     first, second = (Path(i["source_path"]) for i in env["wp"]["items"])
     first.write_bytes(b"%PDF-1.4 changed, other size")
     second.unlink()
-    r = work.readiness(env["wp"]["id"])
+    r = work_readiness.readiness(env["wp"]["id"])
     assert r["ready"] and not r["blockers"]
     assert {w["code"] for w in r["warnings"]} >= {"original_changed", "original_missing"}
 
@@ -195,7 +195,7 @@ def test_a_damaged_or_missing_instance_blocks_the_start(env):
     first, second = env["wp"]["items"]
     work.source_file(first).write_bytes(b"%PDF-1.4 damaged, other size")
     work.source_file(second).unlink()
-    r = work.readiness(env["wp"]["id"])
+    r = work_readiness.readiness(env["wp"]["id"])
     assert not r["ready"] and [b["code"] for b in r["blockers"]] == ["instance_damaged", "instance_damaged"]
 
 
@@ -204,7 +204,7 @@ def test_readiness_without_instances_is_unchanged(env):
     first, second = (Path(i["source_path"]) for i in env["wp"]["items"])
     first.write_bytes(b"%PDF changed")
     second.unlink()
-    assert {b["code"] for b in work.readiness(env["wp"]["id"])["blockers"]} == {"source_changed", "source_missing"}
+    assert {b["code"] for b in work_readiness.readiness(env["wp"]["id"])["blockers"]} == {"source_changed", "source_missing"}
 
 
 # --- viewing, the item view and the named copies --------------------------------------------------------------------

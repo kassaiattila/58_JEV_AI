@@ -12,7 +12,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import duplicates, package_result, party_history, reconcile, store, work
+from jav import duplicates, package_result, party_history, reconcile, store, work, work_runs
 from jav.runtime import calls
 
 WP, OTHER = "wp-000000000174", "wp-000000000175"
@@ -52,11 +52,11 @@ def _run(run_id: str, results: dict[str, dict | None], *, mode: str = "apply", a
                    "approved" if approved else None, "Reviewer One", at))
         for name in results:
             c.execute("INSERT INTO run_items(run_id, item_id, status, final_status, flow_run_id, updated_at) VALUES (?,?,?,?,?,?)",
-                      (run_id, _id(name), item_status, "done", work.flow_run_id(run_id, _id(name)), at))
+                      (run_id, _id(name), item_status, "done", work_runs.flow_run_id(run_id, _id(name)), at))
     for name, values in results.items():
         _item(wp, name)
         if values is not None:
-            _save(name, values, flow=work.flow_run_id(run_id, _id(name)), doc_type=doc_type)
+            _save(name, values, flow=work_runs.flow_run_id(run_id, _id(name)), doc_type=doc_type)
 
 
 def _save(name: str, values: dict, *, flow: str, doc_type: str = "invoice_hu") -> None:

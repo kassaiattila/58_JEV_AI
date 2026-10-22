@@ -13,7 +13,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from jav import cfg, item_kinds, logic_packs, store, typepack, work
+from jav import cfg, item_kinds, logic_packs, store, typepack, work, work_readiness, work_recipes, work_runs
 from jav.runtime import calls, worker
 
 
@@ -26,12 +26,12 @@ def recipe_catalog(*, every_status: bool = False) -> list[dict[str, Any]]:
     """The recipes the UI offers (080: only the active processing; internal and retired recipes are not offered;
     `every_status`: all of them, for the command line): the choices taken from the type packs (`allowed_from`)
     expanded into an `allowed` list. 160-D: the engine's default is the application's, as for a package without saved
-    settings (`work.default_params`)."""
+    settings (`work_recipes.default_params`)."""
     out = []
-    for r in work.recipes() if every_status else work.active_recipes():
+    for r in work_recipes.recipes() if every_status else work_recipes.active_recipes():
         params = {k: ({**spec, "allowed": sorted(typepack.extractable_keys())} if spec.get("allowed_from") == "typepacks" else spec)
                   for k, spec in r["params"].items()}
-        if engine := work.engine_params(r):
+        if engine := work_recipes.engine_params(r):
             params["jev"] = {**params["jev"], "default": engine["jev"]}
         out.append({**r, "params": params})
     return jsonable(out)
@@ -92,8 +92,8 @@ def next_step(wp: dict[str, Any], last_run: dict[str, Any] | None, ready: bool |
         return step("running", f"Fut: {done}/{total}", "process", done=done, total=total)
     if status in ("failed", "cancelled"):
         return step("rerun", "Hibás vagy leállított futás: újrafuttatás", "process")
-    # 160-C S2: items added after the run come first: their processing may raise further to-dos (`work.pending_items`)
-    if wp.get("id") and (pending := len(work.pending_items(wp["id"], last_run["mode"]))):
+    # 160-C S2: items added after the run come first: their processing may raise further to-dos (`work_runs.pending_items`)
+    if wp.get("id") and (pending := len(work_runs.pending_items(wp["id"], last_run["mode"]))):
         return step("pending", f"{pending} new item(s) to process", "process", n=pending)
     if last_run.get("open_reasons"):
         if last_run["mode"] == "shadow":  # 150: a trial cannot be approved; its to-dos are information, the step is going live
@@ -119,28 +119,28 @@ def current_run(runs: list[dict[str, Any]]) -> dict[str, Any] | None:
     """153: the run the package's next step is about — the newest run, passing over runs a person stopped after it, so
     a later stopped run does not hide the to-dos or the approval of an earlier finished run (2026-10-13: a package with
     169 open to-dos on its live run offered "rerun" because two later runs had been stopped). A package whose runs were
-    all stopped still offers a rerun. `runs`: newest first (`work.run_rows`).
+    all stopped still offers a rerun. `runs`: newest first (`work_runs.run_rows`).
 
     160-C S3: a queued or running run comes first (its progress); otherwise the OLDEST open live run
-    (`work.open_live_runs`), so a later run over the pending items, or a later trial, does not hide the to-dos or the
+    (`work_runs.open_live_runs`), so a later run over the pending items, or a later trial, does not hide the to-dos or the
     approval of an earlier live run."""
     if not runs:
         return None
     if active := next((r for r in runs if r["status"] in ACTIVE), None):
         return active
-    if any(r.get("mode") == "apply" and not r.get("approval") and r["status"] in work.SUPERSEDABLE for r in runs):
-        if open_ids := work.open_live_runs(runs[0]["workpackage_id"]):
+    if any(r.get("mode") == "apply" and not r.get("approval") and r["status"] in work_runs.SUPERSEDABLE for r in runs):
+        if open_ids := work_runs.open_live_runs(runs[0]["workpackage_id"]):
             return next(r for r in runs if r["run_id"] == open_ids[0])
     return next((r for r in runs if r["status"] != "cancelled"), runs[0])
 
 
 def open_runs(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """160-C S3: the package's open live runs (`work.open_live_runs`) as list rows, oldest first: the review shows
+    """160-C S3: the package's open live runs (`work_runs.open_live_runs`) as list rows, oldest first: the review shows
     the other open runs' to-dos next to the current run's."""
     if not runs:
         return []
     by_id = {r["run_id"]: r for r in runs}
-    return [by_id[i] for i in work.open_live_runs(runs[0]["workpackage_id"]) if i in by_id]
+    return [by_id[i] for i in work_runs.open_live_runs(runs[0]["workpackage_id"]) if i in by_id]
 
 
 def workpackage_view(wp_id: str) -> dict[str, Any]:
@@ -154,8 +154,8 @@ def _workpackage_view(wp_id: str) -> dict[str, Any]:
     if pack is not None and not pack.has_runs:  # 131: a reconciliation pack has a scope, no files and no runs
         return jsonable({"workpackage": wp, "titles": {}, "last_run": None, "runs": 0, **pack.page(wp_id),
                          "workflow": _workflow_of(wp_id), **_scope_of(wp)})
-    ready = work.readiness(wp_id)
-    runs = work.run_rows(wp_id)
+    ready = work_readiness.readiness(wp_id)
+    runs = work_runs.run_rows(wp_id)
     extra = {}
     if pack is None:  # 177: the source kind's part (058 K5.2: a mailbox package's missing PDF attachments)
         extra.update(item_kinds.page(wp))
@@ -167,14 +167,14 @@ def _workpackage_view(wp_id: str) -> dict[str, Any]:
                      "last_run": runs[0] if runs else None, "current_run": current, "runs": len(runs),
                      "open_runs": open_runs(runs),  # 160-C S3: every open live run, the current one too
                      "next": next_step(wp, current, ready["ready"]), "workflow": _workflow_of(wp_id),
-                     "supersedable": work.supersedable_runs(wp_id),  # 152: older live runs a person can supersede
+                     "supersedable": work_runs.supersedable_runs(wp_id),  # 152: older live runs a person can supersede
                      **_scope_of(wp), **_release_of(wp_id)})
 
 
 def item_counts(wp: dict[str, Any]) -> dict[str, int]:
-    """168 (plan F-item-list-and-adding): how many of the package's items are in each state (`work.item_states`), and
+    """168 (plan F-item-list-and-adding): how many of the package's items are in each state (`work_runs.item_states`), and
     how many were removed; a state without items is left out."""
-    states = Counter(s["state"] for s in work.item_states(wp["id"], wp["items"]).values())
+    states = Counter(s["state"] for s in work_runs.item_states(wp["id"], wp["items"]).values())
     with store.connect() as c:
         removed = c.execute("SELECT COUNT(*) FROM workpackage_items WHERE workpackage_id=? AND removed_revision IS NOT NULL",
                             (wp["id"],)).fetchone()[0]
@@ -231,12 +231,12 @@ def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
     # all to-dos open on the documents (including earlier runs') — for information; the list shows the latest run's;
     # one query for all items of all packages (061: instead of a connection per item)
     open_by_subject = store.review_open_reasons_many(
-        [work.review_subject(i) for wp in packages.values() for i in wp["items"]])
+        [work_runs.review_subject(i) for wp in packages.values() for i in wp["items"]])
     owners = run_packages()  # 153: not another package's runs' to-dos
     for r in rows:
         wp = packages[r["id"]]
-        runs = work.run_rows(r["id"])
-        r["open_reasons_all"] = sum(len(own_reasons(open_by_subject[work.review_subject(i)], r["id"], owners)) for i in wp["items"])
+        runs = work_runs.run_rows(r["id"])
+        r["open_reasons_all"] = sum(len(own_reasons(open_by_subject[work_runs.review_subject(i)], r["id"], owners)) for i in wp["items"])
         last = runs[0] if runs else None
         current = current_run(runs)  # 153: the to-dos and the next step of the run a later stopped run does not hide
         r["open_reasons"] = current["open_reasons"] if current else 0
@@ -249,7 +249,7 @@ def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
             continue
         # 153: the owner could not tell from the list which packages had older live runs to supersede (152 shows them
         # on the package's page only)
-        r["older_runs"] = len(work.supersedable_runs(r["id"]))
+        r["older_runs"] = len(work_runs.supersedable_runs(r["id"]))
         # without a run we do not check readiness (expensive); the step is then "start"
         r["next"] = next_step(wp, current)
     return jsonable(rows)
@@ -258,18 +258,18 @@ def _workpackage_list(*, include_archived: bool) -> list[dict[str, Any]]:
 def workpackage_reviews(wp_id: str) -> dict[str, Any]:
     """The open to-do reasons of the package's items, per item (the UI's To-dos tab)."""
     wp = work.get(wp_id)
-    open_by_subject = store.review_open_reasons_many([work.review_subject(i) for i in wp["items"]])
+    open_by_subject = store.review_open_reasons_many([work_runs.review_subject(i) for i in wp["items"]])
     owners = run_packages()  # 153: not another package's runs' to-dos
     items = [{"item_id": i["item_id"], "source_path": i["source_path"],
-              "open_reasons": own_reasons(open_by_subject[work.review_subject(i)], wp_id, owners)} for i in wp["items"]]
+              "open_reasons": own_reasons(open_by_subject[work_runs.review_subject(i)], wp_id, owners)} for i in wp["items"]]
     return jsonable({"workpackage_id": wp_id, "items": items,
                      "open_reasons": sum(len(i["open_reasons"]) for i in items)})
 
 
 def assignment_view(wp_id: str) -> dict[str, Any]:
     work.get(wp_id)  # KeyError for an unknown package
-    return jsonable({"workpackage_id": wp_id, "assignment": work.current_assignment(wp_id),
-                     "history": work.assignment_history(wp_id)})
+    return jsonable({"workpackage_id": wp_id, "assignment": work_recipes.current_assignment(wp_id),
+                     "history": work_recipes.assignment_history(wp_id)})
 
 
 def result_tables(run_id: str | None = None, *, workpackage_id: str | None = None) -> list[str]:
@@ -309,25 +309,25 @@ def run_view(run_id: str, *, names: bool = False) -> dict[str, Any]:
     open on the documents (`earlier_open_reasons`, for information only, they do not block approval). `names` (082):
     also the items' unified names in this run (`jav/naming.py` `run_item_names`) — only on request, because the
     run's page polls this view while the run is going. `review_version` (085): the version of the result shown, which
-    the approval sends back (`work.approve_run`). 153 (review B2): one connection for the whole view; a run of 468
+    the approval sends back (`work_runs.approve_run`). 153 (review B2): one connection for the whole view; a run of 468
     documents took 1.6 s on every poll, as each item's native check opened its own."""
     with store.session():
         return _run_view(run_id, names=names)
 
 
 def _run_view(run_id: str, *, names: bool) -> dict[str, Any]:
-    run = work.get_run(run_id)
-    split = work.items_reasons(run_id, run["input"]["items"])
+    run = work_runs.get_run(run_id)
+    split = work_runs.items_reasons(run_id, run["input"]["items"])
     titles = item_titles(run["input"]["items"], package_root(work.get(run["workpackage_id"])))
     from jav import corrections, costs
 
     extra: dict[str, Any] = {"costs": costs.plan_vs_actual(run_id),  # 082: planned and actual cost per provider
                              "review_version": corrections.review_version(run_id),
                              # 151: the offer to supersede an older live run, or who superseded it
-                             "supersede": work.supersede_info(run_id), "superseded": work.superseded(run_id),
-                             "engine": work.run_engine(run),  # 160-D: the approval and the review show it
+                             "supersede": work_runs.supersede_info(run_id), "superseded": work_runs.superseded(run_id),
+                             "engine": work_readiness.run_engine(run),  # 160-D: the approval and the review show it
                              # 160-C (decision 163 D7): items removed from the package, left out of the release
-                             "removed_items": work.excluded_items(run)}
+                             "removed_items": work_runs.excluded_items(run)}
     if names:
         from jav import naming
 
@@ -342,15 +342,15 @@ def run_list(wp_id: str | None = None, *, limit: int = 50) -> list[dict[str, Any
     with store.session():  # 153 (review B4): one connection for the list, not one per run
         if wp_id is not None:
             work.get(wp_id)
-            return jsonable(work.runs(wp_id))
+            return jsonable(work_runs.runs(wp_id))
         with store.connect() as c:
             ids = [r["run_id"] for r in c.execute("SELECT run_id FROM runs ORDER BY created_at DESC, rowid DESC LIMIT ?", (limit,))]
-        return jsonable([work.get_run(i) for i in ids])
+        return jsonable([work_runs.get_run(i) for i in ids])
 
 
 def run_journal(run_id: str) -> dict[str, Any]:
     """The run's call log (physical model calls, cost) — in the UI it is visible only when expanded."""
-    work.get_run(run_id)
+    work_runs.get_run(run_id)
     return jsonable({"run_id": run_id, "calls": calls.scope_journal(run_id), "budget": calls.budget_usage(run_id)})
 
 

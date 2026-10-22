@@ -50,7 +50,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from jav import activity_kinds, cfg, costs, decisions, field_names, logic_packs, store, work, work_views
+from jav import activity_kinds, cfg, costs, decisions, field_names, logic_packs, store, work, work_recipes, work_runs, work_views
 from jav.outputs import parts
 from jav.runtime import calls
 from jav.tablequery import Column, Query, run_query, select, shown
@@ -89,7 +89,7 @@ def label_set(name: str) -> dict[str, str]:
     if name == "doc_type":
         return cfg.load("field_labels")["doc_types"]
     if name == "recipe":
-        return {r["id"]: r["title"] for r in work.recipes()}
+        return {r["id"]: r["title"] for r in work_recipes.recipes()}
     if name == "provider":  # 082: the providers by the names the interface uses
         return dict(PROVIDER_NAMES)
     _complete()
@@ -132,7 +132,7 @@ def _run_fingerprint(scope: dict[str, str]) -> str:
             " AND removed_revision IS NOT NULL ORDER BY item_id)", (row["workpackage_id"],)).fetchone()[0]
         corr = c.execute("SELECT COUNT(*), MAX(created_at) FROM run_item_corrections WHERE run_id=?", (run_id,)).fetchone()
         rsn: list[Any] = []
-        subjects = [work.review_subject(i) for i in json.loads(row["input"])["items"]]
+        subjects = [work_runs.review_subject(i) for i in json.loads(row["input"])["items"]]
         for kind in sorted({k for k, _ in subjects}):
             ids = sorted({i for k, i in subjects if k == kind})
             for start in range(0, len(ids), 500):  # stays under the SQLite parameter limit
@@ -252,7 +252,7 @@ def _runs(scope: dict[str, str]) -> Rows:
         col("run_id", "Futás-azonosító", "id", hidden=True, link="run"),
     ]
     titles = label_set("recipe")  # 058: the recipe's title (translated by the UI), not its code name
-    runs = work.run_rows(wp_id)
+    runs = work_runs.run_rows(wp_id)
     spent = costs.run_usd([r["run_id"] for r in runs])  # 082: the known actual cost of each run
     rows = [{**r, "_key": r["run_id"], "_run": r["run_id"], "_wp": r["workpackage_id"],
              "recipe": titles.get(r["recipe_id"], r["recipe_id"]), "cost_usd": spent[r["run_id"]]} for r in runs]
@@ -349,7 +349,7 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
     wp = work.get(scope["workpackage_id"])
     titles = work_views.item_titles(wp["items"], work_views.package_root(wp))
     names = naming.package_item_names(wp)
-    # 168 (plan F-item-list-and-adding): each item's state and the run whose result counts now (`work.item_states`)
+    # 168 (plan F-item-list-and-adding): each item's state and the run whose result counts now (`work_runs.item_states`)
     cols = [
         col("name", "Tétel", link="review", names=choice),
         *_name_cols(),
@@ -364,13 +364,13 @@ def _workpackage_items(scope: dict[str, str]) -> Rows:
         col("sha256", "Ujjlenyomat", "id", hidden=True),
         col("item_id", "Tétel-azonosító", "id", hidden=True),
     ]
-    open_by_subject = store.review_open_reasons_many([work.review_subject(i) for i in wp["items"]])
+    open_by_subject = store.review_open_reasons_many([work_runs.review_subject(i) for i in wp["items"]])
     owners = work_views.run_packages()  # 153: not another package's runs' to-dos
-    states = work.item_states(wp["id"], wp["items"])
+    states = work_runs.item_states(wp["id"], wp["items"])
     rows = []
     for i in wp["items"]:
         st = states[i["item_id"]]
-        reasons = len(work_views.own_reasons(open_by_subject[work.review_subject(i)], wp["id"], owners))
+        reasons = len(work_views.own_reasons(open_by_subject[work_runs.review_subject(i)], wp["id"], owners))
         rows.append({"_key": i["item_id"], "_wp": wp["id"], "_removed": False, "_run": st["run_id"], "item_id": i["item_id"],
                      **_name_fields(i, titles, names[i["item_id"]], choice), "state": st["state"], "run_mode": st["mode"],
                      "run_at": st["run_at"], "final_status": shown_final(st["final_status"], reasons),
@@ -401,7 +401,7 @@ def _run_items(scope: dict[str, str]) -> Rows:
     from jav import naming
 
     choice = _name_choice(scope)
-    run = work.get_run(scope["run_id"])
+    run = work_runs.get_run(scope["run_id"])
     titles = work_views.item_titles(run["input"]["items"], work_views.package_root(work.get(run["workpackage_id"])))
     results = {r["item_id"]: r for r in run["items"]}
     names = naming.run_item_names(run["run_id"])
@@ -420,7 +420,7 @@ def _run_items(scope: dict[str, str]) -> Rows:
     spent = costs.run_costs(run["run_id"])
     cols += _cost_cols(spent)
     rows = []
-    splits = work.items_reasons(run["run_id"], run["input"]["items"])
+    splits = work_runs.items_reasons(run["run_id"], run["input"]["items"])
     for i in run["input"]["items"]:
         r = results.get(i["item_id"]) or {}
         split = splits[i["item_id"]]
@@ -492,13 +492,13 @@ def result_parts(scope: dict[str, str]) -> list[tuple[dict[str, Any], frozenset[
     run; the package's current result reads, for each item in use, the run whose result counts now
     (`package_result.in_use`), the runs in the order they were started."""
     if "run_id" in scope:
-        return [(work.get_run(scope["run_id"]), None)]
+        return [(work_runs.get_run(scope["run_id"]), None)]
     from jav import package_result
 
     by_run: dict[str, set[str]] = {}
     for item, x in package_result.in_use(work.get(scope["workpackage_id"])).items():
         by_run.setdefault(x.run_id, set()).add(item)
-    runs = sorted((work.get_run(r) for r in by_run), key=lambda r: (r["created_at"], r["run_id"]))
+    runs = sorted((work_runs.get_run(r) for r in by_run), key=lambda r: (r["created_at"], r["run_id"]))
     return [(r, frozenset(by_run[r["run_id"]])) for r in runs]
 
 
@@ -527,7 +527,7 @@ def linker(scope: dict[str, str], run_of: dict[str, dict[str, Any]]) -> Callable
     """A row's link fields by its item: its package, and the run its item's record came from (in the package's result,
     a row without an item, such as a utility-cost cell, names no run)."""
     if "run_id" in scope:
-        run = next(iter(run_of.values()), None) or work.get_run(scope["run_id"])
+        run = next(iter(run_of.values()), None) or work_runs.get_run(scope["run_id"])
         fixed = {"_wp": run["workpackage_id"], "_run": run["run_id"]}
         return lambda _item: fixed
     wp_id = scope["workpackage_id"]
@@ -676,7 +676,7 @@ def _file_names(scope: dict[str, str]) -> Rows:
     the review folder, and why (`jav/naming.py`)."""
     from jav import naming
 
-    run = work.get_run(scope["run_id"])
+    run = work_runs.get_run(scope["run_id"])
     cols = [
         col("filename", "Új fájlnév", link="review"),
         col("status", "Mappa", "enum", labels="naming_status", badge=True),
@@ -692,7 +692,7 @@ def _file_names(scope: dict[str, str]) -> Rows:
 
 
 def _calls(scope: dict[str, str]) -> Rows:
-    work.get_run(scope["run_id"])
+    work_runs.get_run(scope["run_id"])
     cols = [
         col("created_at", "Időpont", "datetime"),
         col("step", "Lépés"),

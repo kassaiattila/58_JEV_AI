@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import checks, corrections, reconcile, reconcile_package as rp, statement_months as sm, store, work
+from jav import checks, corrections, reconcile, reconcile_package as rp, statement_months as sm, store, work, work_runs
 from tests import test_reconcile_k2_129 as k2
 from tests.test_reconcile_package_131 import OWN_KEY, _ids, _line, _line_row, _package, _stmt
 
@@ -114,7 +114,7 @@ def _pair_in_run(*, approved: bool = False) -> tuple[str, str]:
                  validation=k2.VERIFIED)
     b = k2._save("b", {**k2._statement(_line(), FEE), "account_no": k2.OWN}, run_id=k2.RUN, doc_type="statement_table",
                  validation=k2.VERIFIED)
-    store.review_enqueue(subject_kind="document", subject_id=b, run_id=work.flow_run_id(k2.RUN, b), reasons=[sm.reason(a)],
+    store.review_enqueue(subject_kind="document", subject_id=b, run_id=work_runs.flow_run_id(k2.RUN, b), reasons=[sm.reason(a)],
                          producer="statement_table")
     return a, b
 

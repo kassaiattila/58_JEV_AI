@@ -14,7 +14,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import app_settings, mailbox, store, work, workflows as wf
+from jav import app_settings, mailbox, store, work, work_recipes, work_runs, workflows as wf
 from tests import test_api, test_workflows_146
 from tests.test_api import HUMAN
 from tests.test_workflows_146 import MONTH, _invoices, _party, _statements
@@ -39,7 +39,7 @@ def _monthly(db, *, engine: str | None = None, auto: bool = True) -> dict:
 
 
 def _run_params(view: dict, step: str) -> dict:
-    return work.get_run(_steps(view)[step]["run_id"])["params"]
+    return work_runs.get_run(_steps(view)[step]["run_id"])["params"]
 
 
 def test_a_step_with_gpt_only_runs_its_package_without_jev(db):
@@ -47,7 +47,7 @@ def test_a_step_with_gpt_only_runs_its_package_without_jev(db):
     inv = _steps(made)["invoices"]
     assert inv["engine"] == "gpt" and inv["state"] == "started"
     assert _run_params(made, "invoices")["jev"] == "off"
-    assert work.current_assignment(inv["package"]["id"])["params"]["jev"] == "off"
+    assert work_recipes.current_assignment(inv["package"]["id"])["params"]["jev"] == "off"
 
 
 def test_a_step_without_its_own_engine_follows_the_application_when_it_starts(db):
@@ -75,7 +75,7 @@ def test_a_mailbox_steps_engine_reaches_its_downloaded_package(db, monkeypatch):
                             "statements": {"source": {"kind": "folder", "folder": str(db)}},
                             "reconcile": {"source": {"kind": "none"}}}, actor="tester")
     package = work.create_from_files(sorted(_invoices(db / "mail").iterdir()), name="Mail", owner="tester")
-    work.assign_recipe(package["id"], "processing", params={"jev": "on", "jev_cache": "live"}, expected_revision=0, actor="tester")
+    work_recipes.assign_recipe(package["id"], "processing", params={"jev": "on", "jev_cache": "live"}, expected_revision=0, actor="tester")
     pulls["p1"] = {"id": "p1", "status": "ok", "result": {"workpackage": package["id"]}}
     view = wf.advance(made["workflow"]["id"], actor="tester (auto)")
     params = _run_params(view, "emails")

@@ -19,7 +19,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import cli, corrections, datasets, policy, reconcile, store, work, work_views
+from jav import cli, corrections, datasets, policy, reconcile, store, work_runs, work_views
 from jav.models import CheckResult, FlowState, DocumentRecord
 from jav.runtime import calls
 from tests import test_api
@@ -72,12 +72,12 @@ def _run(run_id: str, names: list[str], *, approved: bool = False) -> None:
                    "needs_review", "approved" if approved else None, "t", NOW))
         for i in items:
             c.execute("INSERT INTO run_items(run_id, item_id, status, final_status, flow_run_id, updated_at) VALUES (?,?,?,?,?,?)",
-                      (run_id, i["item_id"], "done", "done", work.flow_run_id(run_id, i["item_id"]), NOW))
+                      (run_id, i["item_id"], "done", "done", work_runs.flow_run_id(run_id, i["item_id"]), NOW))
 
 
 def _save(name: str, fields: dict, *, run_id: str | None = None, doc_type: str = "invoice_hu", validation=None) -> str:
     doc = _id(name)
-    flow = work.flow_run_id(run_id, doc) if run_id else f"cli-{name}"
+    flow = work_runs.flow_run_id(run_id, doc) if run_id else f"cli-{name}"
     store.upsert_document(doc_id=doc, source_path=f"C:/synthetic/{name}.pdf", has_text=True, page_count=1, year=2026,
                           doc_type=doc_type, run_id=flow)
     store.insert_datapoints(run_id=flow, doc_id=doc, doc_type=doc_type, arm="G", datapoints=fields, field_conf={},

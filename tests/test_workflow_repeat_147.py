@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import parties, store, work, workflows as wf
+from jav import parties, store, work, work_readiness, work_runs, workflows as wf
 
 SEPT = ("2026-09-01", "2026-09-30")
 
@@ -42,11 +42,11 @@ def _processed(paths: list[Path], *, mode: str = "apply", status: str = "done") 
     """A run of `mode` over the files whose items the worker has finished (no AI: their results are recorded by hand,
     as the worker records them)."""
     wp = work.create_from_files(paths, name="Earlier", owner="tester")
-    ready = work.readiness(wp["id"])
-    run_id = work.start_run(wp["id"], mode=mode, expected_assignment_revision=ready["assignment_revision"],
+    ready = work_readiness.readiness(wp["id"])
+    run_id = work_runs.start_run(wp["id"], mode=mode, expected_assignment_revision=ready["assignment_revision"],
                             input_hash=ready["input_hash"], actor="tester")["run_id"]
     for item in work.get(wp["id"])["items"]:
-        work.record_item_result(run_id, item["item_id"], status=status)
+        work_runs.record_item_result(run_id, item["item_id"], status=status)
     return run_id
 
 

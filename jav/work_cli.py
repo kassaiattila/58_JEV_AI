@@ -42,19 +42,19 @@ def _usd(v: Decimal | str | None) -> str:
 
 def cmd_recipes(args):
     """080: every recipe with its status (the UI offers only the active one; `internal` is for the command line)."""
-    from jav import work, work_views
+    from jav import work_recipes, work_views
     rows = work_views.recipe_catalog(every_status=True)
-    text = "\n".join(f"- {r['id']} v{r['version']} [{work.recipe_status(r)}]: {r['title']} — {r['description']}" for r in rows)
+    text = "\n".join(f"- {r['id']} v{r['version']} [{work_recipes.recipe_status(r)}]: {r['title']} — {r['description']}" for r in rows)
     return _out(args, rows, text)
 
 
 def cmd_processing_migrate(args):
     """080: moves every package and watched folder still on an internal or retired recipe onto the default processing,
     keeping its settings. Without --write it only lists them."""
-    from jav import app_settings, work
-    packages = work.migrate_assignments(write=args.write)
+    from jav import app_settings, work_recipes
+    packages = work_recipes.migrate_assignments(write=args.write)
     folders = app_settings.migrate_folder_recipes(write=args.write)
-    target, verb = work.default_recipe()["id"], "moved" if args.write else "would move"
+    target, verb = work_recipes.default_recipe()["id"], "moved" if args.write else "would move"
     lines = [f"{verb}: {p['workpackage_id']}  {p['from']} {p['from_params']} -> {target} {p['params']}" for p in packages]
     lines += [f"{verb}: watched folder {f['id']} ({f['name']})  {f['from']} -> {target} {f['params']}" for f in folders]
     lines.append(f"{len(packages)} package(s), {len(folders)} watched folder(s)" + ("" if args.write else "; run with --write to apply"))
@@ -111,9 +111,9 @@ def cmd_wp_show(args):
 def cmd_wp_assign(args):
     """160 (plan F-csak-gpt, L2): a reassignment of the same recipe keeps the settings it does not name (it used to
     reset them to the recipe's defaults, so a package without JEV silently got JEV back)."""
-    from jav import work
-    current = work.current_assignment(args.wp)
-    r = work.recipe(args.recipe)
+    from jav import work_recipes
+    current = work_recipes.current_assignment(args.wp)
+    r = work_recipes.recipe(args.recipe)
     kept = current["params"] if current and current["recipe_id"] == args.recipe else {}
     named = {k: v for k, v in {"arm": args.arm, "doc_type": args.doc_type, "jev_cache": args.jev_cache}.items() if v is not None}
     if args.engine is not None:
@@ -122,14 +122,14 @@ def cmd_wp_assign(args):
             return 2
         named["jev"] = "off" if args.engine == "gpt" else "on"
     params = {**{k: v for k, v in kept.items() if k in r["params"]}, **named}
-    a = work.assign_recipe(args.wp, args.recipe, params=params, expected_revision=current["revision"] if current else 0,
+    a = work_recipes.assign_recipe(args.wp, args.recipe, params=params, expected_revision=current["revision"] if current else 0,
                            actor=args.actor, note=args.note)
     return _out(args, a, f"Hozzárendelve: {a['recipe_id']} {a['params']} (hozzárendelés {a['revision']})")
 
 
 def cmd_run_start(args):
-    from jav import work
-    ready = work.readiness(args.wp)
+    from jav import work_readiness, work_runs
+    ready = work_readiness.readiness(args.wp)
     offer = ready
     if args.pending:  # 160-C S3: only the pending items, with their own budget and input
         offer = ready.get("supplement", {}).get(args.mode)
@@ -140,7 +140,7 @@ def cmd_run_start(args):
     if not offer["ready"]:
         print("Nem indítható:\n" + "\n".join(f"  - {b['message']}" for b in offer["blockers"]))
         return 2
-    res = work.start_run(args.wp, mode=args.mode, expected_assignment_revision=ready["assignment_revision"],
+    res = work_runs.start_run(args.wp, mode=args.mode, expected_assignment_revision=ready["assignment_revision"],
                          input_hash=offer["input_hash"], actor=args.actor, scope="pending" if args.pending else "all")
     note = "(már létezett, ugyanaz a futás)" if res["deduped"] else "(új; a feldolgozó futtatja: python -m jav.cli worker)"
     return _out(args, res, f"Futás: {res['run_id']} {note}")
@@ -176,9 +176,9 @@ def cmd_run_show(args):
 
 
 def cmd_run_cancel(args):
-    from jav import work
+    from jav import work, work_runs
     try:
-        res = work.cancel_run(args.run)
+        res = work_runs.cancel_run(args.run)
     except work.RevisionConflict as exc:  # 160 (review R-3): a finished run is superseded, not stopped
         print(exc)
         return 2
@@ -186,8 +186,8 @@ def cmd_run_cancel(args):
 
 
 def cmd_run_approve(args):
-    from jav import work
-    run = work.approve_run(args.run, actor=args.actor, review_version=args.review_version)
+    from jav import work_runs
+    run = work_runs.approve_run(args.run, actor=args.actor, review_version=args.review_version)
     return _out(args, run, f"Jóváhagyva: {run['run_id']} ({run['approved_by']})")
 
 

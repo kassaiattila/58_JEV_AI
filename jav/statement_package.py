@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from jav import (activity_kinds, cfg, item_kinds, logic_packs, package_scope, parties, reconcile, statement_months,
-                 statement_table, store, typepack, work, workflow_steps)
+                 statement_table, store, typepack, work, work_runs, workflow_steps)
 from jav.user_messages import explained
 
 # 175 (plan 170 E4): the actions this module records in the package log (`jav/activity_kinds.py`)
@@ -453,7 +453,7 @@ def after_approval(run: dict[str, Any]) -> None:
     statements = {s["id"]: s for s in reconcile.run_statements(run["run_id"])}
     done: set[str] = set()
     actor = run.get("approved_by") or run["actor"]
-    for item in work.released_items(run):  # 160-C: not a statement removed before the approval (decision 163 D7)
+    for item in work_runs.released_items(run):  # 160-C: not a statement removed before the approval (decision 163 D7)
         st = statements.get(item["item_id"])
         if st is None:
             continue

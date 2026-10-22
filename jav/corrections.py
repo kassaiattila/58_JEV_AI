@@ -39,7 +39,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from jav import (activity_kinds, dates, grounding, item_kinds, native_results, numbers, package_result, source_layer, store,
-                 typepack, validators, work)
+                 typepack, validators, work, work_readiness, work_runs)
 from jav.native_contracts import Publication
 from jav.policy import reason_field
 from jav.user_messages import explained
@@ -381,7 +381,7 @@ def _native_item_result(run: dict[str, Any], item: dict[str, Any]) -> dict[str, 
     from jav.native_contracts import NativeItemResult
 
     run_id, item_id = run["run_id"], item["item_id"]
-    reasons = work.item_reasons(run_id, item_id, item)
+    reasons = work_runs.item_reasons(run_id, item_id, item)
     with store.connect() as c:
         c.execute("BEGIN")
         version = review_version(run_id, c)
@@ -482,11 +482,11 @@ def save_native(run_id: str, item_id: str, *, values: dict[str, str | None], nat
 
 def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     """The result of one item: the machine data, the correction and the two merged (the correction wins)."""
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
     if item is None:
         raise KeyError(item_id)
-    engine = work.run_engine(run)  # 160-D: the engine of the run that produced the result shown
+    engine = work_readiness.run_engine(run)  # 160-D: the engine of the run that produced the result shown
     if native_results.native_item(run_id, item):  # 120: a continuing PDF too, by its publication
         return {**_native_item_result(run, item), "engine": engine}
     if (own := item_kinds.handler(item)) is not None:  # 048 T2 (185: the email domain's): no extraction or page image
@@ -503,7 +503,7 @@ def item_result(run_id: str, item_id: str) -> dict[str, Any]:
     pack = typepack.get(dp["doc_type"]) if dp else None
     lists = {f: {"columns": list_columns(pack, f, machine.get(f))} for f, k in pack.fields.items() if k == "list"} if pack else {}
     simple = {f for f, k in pack.fields.items() if k != "list"} if pack else set()
-    reasons = work.item_reasons(run_id, item_id)
+    reasons = work_runs.item_reasons(run_id, item_id)
     from jav import isolated_pdf, page_image
 
     src = work.source_file(item)  # the source instance if the item has one
@@ -562,7 +562,7 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     document's open to-dos on them are resolved (this run's and the earlier runs')."""
     sources = dict(sources or {})
     confirm = list(dict.fromkeys(confirm or []))
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     if run["approval"]:
         raise explained(work.RevisionConflict, "run {{run_id}} is approved; corrections are frozen", run_id=run_id)
     item = next((i for i in run["input"]["items"] if i["item_id"] == item_id), None)
@@ -605,11 +605,11 @@ def save(run_id: str, item_id: str, *, fields: dict[str, Any], expected_revision
     if confirm:
         # the run's own to-dos on the confirmed fields, and (the owner's decision, 083) the earlier runs' to-dos on the same
         # fields of the same document: a person has now checked the field; the resolution names the run where it was
-        reasons = work.item_reasons(run_id, item_id, item)
+        reasons = work_runs.item_reasons(run_id, item_id, item)
         for r in reasons["run"] + reasons["earlier"]:
             f = reason_field(r["reason"], simple)
             if f in confirm:
-                work.resolve_reason(r["id"], actor=actor, note="field checked by hand",
+                work_runs.resolve_reason(r["id"], actor=actor, note="field checked by hand",
                                     resolution={"field": f, "verdict": "confirmed", "value": confirmed[f], "run_id": run_id,
                                                 "revision": expected_revision + 1})
     return current(run_id, item_id)

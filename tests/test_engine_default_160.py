@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import app_settings, emails, ingest_server, mailbox, store, work, workflows as wf
+from jav import app_settings, emails, ingest_server, mailbox, store, work, work_readiness, work_recipes, work_runs, workflows as wf
 from tests import test_api
 from tests.test_api import HUMAN, INVOICE_LINES, write_text_pdf
 from tests.test_mailbox import MAILS, REQ, FakeBridge
@@ -38,10 +38,10 @@ def _package(folder: Path, name: str = "Engine") -> str:
 
 
 def _start(wp_id: str) -> dict:
-    ready = work.readiness(wp_id)
-    res = work.start_run(wp_id, mode="shadow", expected_assignment_revision=ready["assignment_revision"],
+    ready = work_readiness.readiness(wp_id)
+    res = work_runs.start_run(wp_id, mode="shadow", expected_assignment_revision=ready["assignment_revision"],
                          input_hash=ready["input_hash"], actor="tester")
-    return work.get_run(res["run_id"])
+    return work_runs.get_run(res["run_id"])
 
 
 # --- the setting itself -------------------------------------------------------------------------------------------
@@ -67,51 +67,51 @@ def test_an_unknown_engine_is_refused(db):
 
 def test_a_package_without_saved_settings_follows_the_application(db):
     wp = _package(db / "in")
-    assert work.readiness(wp)["plan"]["jev"] is True
+    assert work_readiness.readiness(wp)["plan"]["jev"] is True
     app_settings.save_engine_default("gpt", actor="tester")
-    ready = work.readiness(wp)
+    ready = work_readiness.readiness(wp)
     assert ready["assignment_default"] is True and ready["plan"]["jev"] is False
     assert "jev" not in ready["budget"] and ready["budget"]["openai"] > 0
     run = _start(wp)  # starting the run saves the settings it used: GPT only
     assert run["params"]["jev"] == "off"
-    assert work.current_assignment(wp)["params"]["jev"] == "off"
+    assert work_recipes.current_assignment(wp)["params"]["jev"] == "off"
 
 
 def test_an_assignment_that_does_not_name_the_engine_takes_the_applications(db):
     app_settings.save_engine_default("gpt", actor="tester")
     wp = _package(db / "in")
-    a = work.assign_recipe(wp, "processing", params={"jev_cache": "live"}, expected_revision=0, actor="tester")
+    a = work_recipes.assign_recipe(wp, "processing", params={"jev_cache": "live"}, expected_revision=0, actor="tester")
     assert a["params"]["jev"] == "off" and a["params"]["jev_cache"] == "live"
-    named = work.assign_recipe(wp, "processing", params={"jev": "on"}, expected_revision=a["revision"], actor="tester")
+    named = work_recipes.assign_recipe(wp, "processing", params={"jev": "on"}, expected_revision=a["revision"], actor="tester")
     assert named["params"]["jev"] == "on"  # a named engine wins over the application's
 
 
 def test_saved_settings_and_runs_keep_their_own_engine(db):
     wp = _package(db / "in")
-    work.assign_recipe(wp, "processing", params={"jev": "on"}, expected_revision=0, actor="tester")
+    work_recipes.assign_recipe(wp, "processing", params={"jev": "on"}, expected_revision=0, actor="tester")
     run = _start(wp)
     app_settings.save_engine_default("gpt", actor="tester")
-    assert work.current_assignment(wp)["params"]["jev"] == "on"
-    assert work.readiness(wp)["plan"]["jev"] is True
-    assert work.get_run(run["run_id"])["params"]["jev"] == "on"
+    assert work_recipes.current_assignment(wp)["params"]["jev"] == "on"
+    assert work_readiness.readiness(wp)["plan"]["jev"] is True
+    assert work_runs.get_run(run["run_id"])["params"]["jev"] == "on"
 
 
 def test_an_assignment_saved_before_the_engine_setting_stays_jev_and_gpt(db):
     """Before 086 an assignment had no `jev` setting; those runs used JEV, and the application's setting does not
     reinterpret them."""
     wp = _package(db / "in")
-    work.assign_recipe(wp, "processing", params={"jev": "on"}, expected_revision=0, actor="tester")
+    work_recipes.assign_recipe(wp, "processing", params={"jev": "on"}, expected_revision=0, actor="tester")
     with store.connect() as c:  # the shape of an old assignment: every setting except the engine
         c.execute("UPDATE recipe_assignments SET params=? WHERE workpackage_id=?",
                   ('{"arm":"auto","azure_ocr":"on","jev_cache":"reuse","tasks":"off","unknown_documents":"facts"}', wp))
     app_settings.save_engine_default("gpt", actor="tester")
-    assert work.readiness(wp)["plan"]["jev"] is True
+    assert work_readiness.readiness(wp)["plan"]["jev"] is True
 
 
 def test_a_recipe_without_the_engine_setting_is_unaffected(db):
     app_settings.save_engine_default("gpt", actor="tester")
     wp = _package(db / "in")
-    a = work.assign_recipe(wp, "invoice-extraction", params={}, expected_revision=0, actor="tester")
+    a = work_recipes.assign_recipe(wp, "invoice-extraction", params={}, expected_revision=0, actor="tester")
     assert "jev" not in a["params"]
 
 

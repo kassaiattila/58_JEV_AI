@@ -22,7 +22,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav import corrections, email_tasks, store, work
+from jav import corrections, email_tasks, store, work, work_readiness, work_recipes, work_runs
 from jav.config import OLD_PROJECT_ROOT, PROJECT_ROOT
 from jav.emails import body_coverage, load_message_dir
 from jav.runtime import worker
@@ -56,7 +56,7 @@ def _ledger_cost(prefix: str) -> Decimal:
 
 def _item_rows(variant: str, run_id: str) -> list[dict[str, Any]]:
     out = []
-    for i in work.get_run(run_id)["input"]["items"]:
+    for i in work_runs.get_run(run_id)["input"]["items"]:
         res = corrections.item_result(run_id, i["item_id"])
         email = res["email"]
         tv = email.get("tasks") or {}
@@ -72,13 +72,13 @@ def run_ab(paths: list[Path]) -> tuple[str, str, list[dict[str, Any]]]:
     wp = work.create_workpackage(name="K5.3 mérés — 47 valódi levél (feladatjavaslat)", source_kind="manual", source_ref=None)
     wp = work.add_items(wp["id"], paths, kind="email", expected_revision=0)
     # 080: the email recipe is retired; the processing runs emails the same way
-    work.assign_recipe(wp["id"], "processing", params={"tasks": "propose"}, expected_revision=0, actor="K5.3 mérés",
+    work_recipes.assign_recipe(wp["id"], "processing", params={"tasks": "propose"}, expected_revision=0, actor="K5.3 mérés",
                        note="058 K5.3 mérés (részkeret 0,30 + 0,10 USD)")
-    ready = work.readiness(wp["id"], verify=True)
-    run_a = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="K5.3 mérés")["run_id"]
+    ready = work_readiness.readiness(wp["id"], verify=True)
+    run_a = work_runs.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="K5.3 mérés")["run_id"]
     worker.run_worker(once=True)
-    ready = work.readiness(wp["id"], verify=True)
-    run_b = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="K5.3 mérés",
+    ready = work_readiness.readiness(wp["id"], verify=True)
+    run_b = work_runs.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"], actor="K5.3 mérés",
                            rerun_of=run_a)["run_id"]
     worker.run_worker(once=True)
     return run_a, run_b, _item_rows("A", run_a) + _item_rows("B", run_b)

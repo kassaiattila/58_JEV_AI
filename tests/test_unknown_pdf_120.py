@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import corrections, export, store, work
+from jav import corrections, export, store, work, work_readiness, work_recipes, work_runs
 from jav.adapters import jev as jev_mod
 from jav.readers import providers
 from jav.readers.interpretation import ProposedExtraction
@@ -81,12 +81,12 @@ def run_package(tmp_path, monkeypatch, *, broad, recipe="processing", params=Non
     monkeypatch.setattr(providers, "extract_gpt", lambda *a, **kw: extract(*a, agent=agent, **kw))
     with jev_mod.use_adapter(adapter):
         wp = work.create_from_folder(folder, name="Unknown documents")
-        work.assign_recipe(wp["id"], recipe, params=params or {}, expected_revision=0, actor="t")
-        ready = work.readiness(wp["id"])
-        run_id = work.start_run(wp["id"], mode="apply", expected_assignment_revision=1,
+        work_recipes.assign_recipe(wp["id"], recipe, params=params or {}, expected_revision=0, actor="t")
+        ready = work_readiness.readiness(wp["id"])
+        run_id = work_runs.start_run(wp["id"], mode="apply", expected_assignment_revision=1,
                                 input_hash=ready["input_hash"], actor="t")["run_id"]
         assert worker.run_worker(once=True)["results"] == {"done": 1}
-    item = work.get_run(run_id)["items"][0]
+    item = work_runs.get_run(run_id)["items"][0]
     reasons = [r["reason"] for r in store.review_open_reasons("document", item["item_id"])]
     return run_id, item, reasons, agent
 
@@ -103,7 +103,7 @@ def test_a_type_without_a_pack_yields_source_bound_facts(isolated, monkeypatch):
     with store.connect() as c:  # the recognised type is kept as it was
         assert c.execute("SELECT doc_type FROM documents WHERE doc_id=?", (item["item_id"],)).fetchone()[0] == "payment_reminder"
     with pytest.raises(work.RevisionConflict):  # the native approval path: it needs the exact reviewed version
-        work.approve_run(run_id, actor="t")
+        work_runs.approve_run(run_id, actor="t")
 
 
 def test_other_without_a_fitting_pack_keeps_its_type_to_do_beside_the_facts(isolated, monkeypatch):
@@ -131,7 +131,7 @@ def test_the_review_setting_keeps_the_earlier_stop(isolated, monkeypatch):
 
 @pytest.mark.parametrize("recipe", ["processing", "multi-format-processing"])
 def test_both_document_recipes_default_to_general_facts(recipe):
-    assert work.recipe(recipe)["params"]["unknown_documents"] == {"allowed": ["facts", "review"], "default": "facts"}
+    assert work_recipes.recipe(recipe)["params"]["unknown_documents"] == {"allowed": ["facts", "review"], "default": "facts"}
 
 
 @pytest.mark.parametrize("detect,expected", [

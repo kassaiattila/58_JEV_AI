@@ -6,7 +6,7 @@ fake JEV client."""
 
 from pathlib import Path
 
-from jav import store, work
+from jav import store, work, work_readiness, work_recipes, work_runs
 from jav.adapters import jev as jev_mod
 from jav.runtime import worker
 from tests.pdfgen import write_text_pdf
@@ -24,10 +24,10 @@ class CountingClient(ReminderClient):
 
 def _run(folder: Path, name: str, jev_cache: str) -> None:
     wp = work.create_from_folder(folder, name=name)
-    work.assign_recipe(wp["id"], "processing", params={"arm": "S", "unknown_documents": "review", "jev_cache": jev_cache},
+    work_recipes.assign_recipe(wp["id"], "processing", params={"arm": "S", "unknown_documents": "review", "jev_cache": jev_cache},
                        expected_revision=0, actor="t")
-    r = work.readiness(wp["id"])
-    work.start_run(wp["id"], mode="apply", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")
+    r = work_readiness.readiness(wp["id"])
+    work_runs.start_run(wp["id"], mode="apply", expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")
     assert worker.run_worker(once=True)["results"] == {"done": 1}
 
 

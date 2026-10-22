@@ -18,7 +18,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any
 
-from jav import cfg, parties, reconcile, source_layer, statement_months, store, type_roles, work
+from jav import cfg, parties, reconcile, source_layer, statement_months, store, type_roles, work, work_runs
 
 
 def _holder_text(statement: dict[str, Any]) -> str:
@@ -309,6 +309,6 @@ def scan_own_tax(*, write: bool = False) -> dict[str, Any]:
                                  reasons=[parties.OWN_TAX_REASON], producer=parties.SCAN_PRODUCER)
             written += 1
         for run_id in sorted({d.run_id for d in pending if d.run_id}):
-            work.refresh_run_status(run_id)
+            work_runs.refresh_run_status(run_id)
     return {"documents": len(docs), "flagged": len(flagged), "to_open": len(pending), "written": written,
             "skipped": dict(sorted(skipped.items()))}

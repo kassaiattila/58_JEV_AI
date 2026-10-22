@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Noul
 
-from jav import flow_detect, store, work
+from jav import flow_detect, store, work, work_readiness, work_recipes, work_runs
 from jav.adapters import jev as jev_mod
 from jav.adapters.jev import JevUnavailableError
 from jav.runtime import calls, worker
@@ -77,13 +77,13 @@ def test_a_flow_without_jev_turns_a_forgotten_question_into_a_to_do(env, monkeyp
 def test_a_run_without_jev_turns_a_forgotten_question_into_a_to_do(env, monkeypatch):
     monkeypatch.setattr("jav.detect_gpt.detect", _forgetful_gpt_detect)
     wp = work.create_from_folder(env["pdf"].parent, name="Without JEV")
-    work.assign_recipe(wp["id"], "processing", params={"jev": "off", "azure_ocr": "off"}, expected_revision=0, actor="t")
-    ready = work.readiness(wp["id"])
-    run_id = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=ready["assignment_revision"],
+    work_recipes.assign_recipe(wp["id"], "processing", params={"jev": "off", "azure_ocr": "off"}, expected_revision=0, actor="t")
+    ready = work_readiness.readiness(wp["id"])
+    run_id = work_runs.start_run(wp["id"], mode="shadow", expected_assignment_revision=ready["assignment_revision"],
                             input_hash=ready["input_hash"], actor="t")["run_id"]
     assert worker.run_worker(once=True)["processed"] == 1
-    run = work.get_run(run_id)
-    reasons = work.items_reasons(run_id, run["input"]["items"])
+    run = work_runs.get_run(run_id)
+    reasons = work_runs.items_reasons(run_id, run["input"]["items"])
     assert any(r["reason"] == "jev_unavailable:disabled" for s in reasons.values() for r in s["run"])
     assert env["client"].calls == 0 and "jev" not in calls.budget_usage(run_id)["providers"]
 

@@ -14,7 +14,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, corrections, datasets, decisions, mailbox, store, work
+from jav import api, corrections, datasets, decisions, mailbox, store, work, work_runs
 from tests.test_audit_fixes_1002 import _reviewed_email
 from tests.test_mailbox import env  # noqa: F401 - `env` is a fixture
 
@@ -91,11 +91,11 @@ def test_a_changed_task_decision_keeps_the_earlier_one(env, monkeypatch) -> None
     state = _task(run_id, item["item_id"])["decision_state"]
     mailbox.decide_task(run_id, item["item_id"], 0, decision="rejected", actor="second", note="not ours",
                         expected_state=state)
-    key = f"{work.flow_run_id(run_id, item['item_id'])}#0"
+    key = f"{work_runs.flow_run_id(run_id, item['item_id'])}#0"
     rows = decisions.history(mailbox.TASK_KIND, key)
     assert [(r["action"], r["value"], r["actor"], r["note"]) for r in rows] == [
         ("decide", {"decision": "accepted"}, "t", None), ("decide", {"decision": "rejected"}, "second", "not ours")]
-    assert rows[0]["run_id"] == run_id and rows[0]["workpackage_id"] == work.get_run(run_id)["workpackage_id"]
+    assert rows[0]["run_id"] == run_id and rows[0]["workpackage_id"] == work_runs.get_run(run_id)["workpackage_id"]
     assert _task(run_id, item["item_id"])["decision_state"] == rows[-1]["id"]
 
 
@@ -123,14 +123,14 @@ def test_the_done_mark_is_journaled_and_changes_the_runs_cache_mark_not_its_revi
     mailbox.mark_task_done(run_id, item["item_id"], 0, done=True, actor="t")
     assert corrections.review_version(run_id) == version
     assert datasets._run_fingerprint({"run_id": run_id}) != mark
-    key = f"{work.flow_run_id(run_id, item['item_id'])}#0"
+    key = f"{work_runs.flow_run_id(run_id, item['item_id'])}#0"
     assert [r["action"] for r in decisions.history(mailbox.TASK_KIND, key)] == ["decide", "done"]
 
 
 def test_a_refused_change_writes_no_journal_row(env, monkeypatch) -> None:  # noqa: F811
     run_id, item = _reviewed_email(env, monkeypatch)
     mailbox.decide_task(run_id, item["item_id"], 0, decision="rejected", actor="t")
-    key = f"{work.flow_run_id(run_id, item['item_id'])}#0"
+    key = f"{work_runs.flow_run_id(run_id, item['item_id'])}#0"
     before = decisions.history(mailbox.TASK_KIND, key)
     with pytest.raises(work.RevisionConflict, match="not accepted"):
         mailbox.mark_task_done(run_id, item["item_id"], 0, done=True, actor="t")

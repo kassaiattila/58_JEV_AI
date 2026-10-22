@@ -4,14 +4,14 @@ explanatory text, the service delivers them alongside the recipes, and they do n
 
 from fastapi.testclient import TestClient
 
-from jav import api, cfg, work, work_views
+from jav import api, cfg, work_recipes, work_views
 
 
 def test_every_recipe_param_and_option_is_explained():
     help_ = work_views.recipe_help()
-    for r in work.active_recipes():  # 080: only the offered processing needs a "when" text
+    for r in work_recipes.active_recipes():  # 080: only the offered processing needs a "when" text
         assert help_["recipes"][r["id"]]["when"].strip(), r["id"]
-    for r in work.recipes():
+    for r in work_recipes.recipes():
         for name, spec in r["params"].items():
             p = help_["params"][name]
             assert p["help"].strip(), name
@@ -21,7 +21,7 @@ def test_every_recipe_param_and_option_is_explained():
 
 def test_help_is_separate_from_the_recipe_fingerprint():
     # the explanation is not part of the recipe: the fingerprint recorded at assignment stays unchanged
-    for r in work.recipes():
+    for r in work_recipes.recipes():
         assert "help" not in r and "when" not in r
     assert cfg.load("recipe_help")["meta"]["name"] == "recipe_help"
 

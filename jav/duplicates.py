@@ -43,7 +43,7 @@ from jav.user_messages import explained
 
 REASON = "duplicate"
 PRODUCER = "duplicates"  # the producer of the to-dos opened by `scan`; the flow's own ones are the M2 step's
-PREFIX = 16  # the other document's id prefix in the to-do (the length the flow identifiers use, `work.flow_run_id`)
+PREFIX = 16  # the other document's id prefix in the to-do (the length the flow identifiers use, `work_runs.flow_run_id`)
 KINDS = ("copy", "variant", "undecidable")
 DECISIONS = ("copy", "variant", "different")
 _NUMBER = re.compile(r"-?\d+(?:\.\d+)?")
@@ -276,13 +276,13 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor
     open to-dos close on both documents. Frozen on an approved run (`work.RevisionConflict`), checked again in the
     writing transaction, as the task decisions are. 187: the change goes into the decision journal in the same
     transaction (the pair's row keeps only the latest), and a stale `expected_state` is refused."""
-    from jav import work
+    from jav import work, work_runs
 
     if decision not in DECISIONS:
         raise explained(DecisionError, "unknown duplicate decision: {{decision}}", decision=decision)
     if other_doc_id == item_id:
         raise explained(DecisionError, "a document is not a duplicate of itself")
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     if run["approval"]:
         raise explained(work.RevisionConflict, "run {{run_id}} is approved; duplicate decisions are frozen",
                         run_id=run_id)
@@ -317,7 +317,7 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor
         for r in store.review_open_reasons("document", subject):
             parsed = parse_reason(r["reason"])
             if parsed is not None and other.startswith(parsed[1]):
-                work.resolve_reason(r["id"], actor=actor, resolution=resolution, note=note)
+                work_runs.resolve_reason(r["id"], actor=actor, resolution=resolution, note=note)
     return next(d for d in decisions_for([item_id]) if d["pair_key"] == key)
 
 
@@ -452,7 +452,7 @@ def scan(*, write: bool = False) -> dict[str, Any]:
     """The pairs already in the store (read only, no values printed), and with `write` the same to-do the processing
     would open, on the later processed document of each undecided pair, under the flow run that produced it. A document
     whose result is not from a work run, or whose run is approved, is skipped (an approved result never reopens)."""
-    from jav import work
+    from jav import work_runs
 
     docs = documents()
     groups = _groups(docs)
@@ -485,7 +485,7 @@ def scan(*, write: bool = False) -> dict[str, Any]:
                                  reasons=reasons, producer=PRODUCER)
             written += len(reasons)
         for run_id in sorted({doc.run_id for doc, _ in pending.values() if doc.run_id}):
-            work.refresh_run_status(run_id)
+            work_runs.refresh_run_status(run_id)
     return {"documents": len(docs), "groups": len(groups), "files": sum(len(g) for g in groups), "pairs": dict(sorted(kinds.items())),
             "to_open": sum(len(r) for _, r in pending.values()), "written": written, "skipped": dict(sorted(skipped.items())),
             "group_sizes": sorted((len(g) for g in groups), reverse=True)}

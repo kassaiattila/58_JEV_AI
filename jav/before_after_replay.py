@@ -93,7 +93,7 @@ def _owner(flow_id: str, flow_ids: set[str]) -> str | None:
 def _facts(c: sqlite3.Connection, flow_ids: set[str]) -> dict[str, dict[str, set[str]]]:
     """Per item flow identifier: the paths of its data points, its cross-document to-do producers, email tasks and
     native facts."""
-    from jav import work
+    from jav import work_runs
 
     facts: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
     for run_id, arm in c.execute("SELECT run_id, arm FROM datapoints"):
@@ -107,7 +107,7 @@ def _facts(c: sqlite3.Connection, flow_ids: set[str]) -> dict[str, dict[str, set
             facts[own]["tasks"].add("tasks")
     if c.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'native_outcomes'").fetchone():
         for run_id, item_id in c.execute("SELECT run_id, item_id FROM native_outcomes"):
-            if (own := work.flow_run_id(str(run_id), str(item_id))) in flow_ids:
+            if (own := work_runs.flow_run_id(str(run_id), str(item_id))) in flow_ids:
                 facts[own]["native"].add("native")
     return facts
 
@@ -151,7 +151,7 @@ def sample(c: sqlite3.Connection, size: int = SAMPLE_SIZE, *, answered: set[tupl
     item): an older run's questions were asked in an earlier wording, and a changed question has a new key in the
     answer cache, so its earlier answers no longer count (173: of the 128 replayed items of runs before 2026-10-10, 106
     had an answer missing; of the 24 later ones, 1). `answered`: only these strata get units beyond their first."""
-    from jav import work
+    from jav import work_readiness, work_runs
 
     runs = c.execute("SELECT r.run_id, r.mode, r.recipe, r.params, r.input, w.source_kind FROM runs r"
                      " LEFT JOIN workpackages w ON w.id = r.workpackage_id"
@@ -165,15 +165,15 @@ def sample(c: sqlite3.Connection, size: int = SAMPLE_SIZE, *, answered: set[tupl
         for n, unit in _units(json.loads(run["input"])["items"]):
             if (run["run_id"], unit[0]["item_id"]) in ended:
                 candidates.append((dict(run), n, unit))
-    flow_ids = {work.flow_run_id(run["run_id"], unit[0]["item_id"]) for run, _, unit in candidates}
+    flow_ids = {work_runs.flow_run_id(run["run_id"], unit[0]["item_id"]) for run, _, unit in candidates}
     facts = _facts(c, flow_ids)
     groups: dict[tuple[str, ...], list[Unit]] = defaultdict(list)
     position: dict[Unit, tuple[int, int]] = {}
     for order, (run, n, unit) in enumerate(candidates):
         head = unit[0]
         recipe, params = json.loads(run["recipe"]), json.loads(run["params"] or "{}")
-        fact = facts.get(work.flow_run_id(run["run_id"], head["item_id"]), {})
-        stratum = (work.flow_for(recipe, head), str(head.get("kind") or "-"), str(run["source_kind"] or "-"), run["mode"],
+        fact = facts.get(work_runs.flow_run_id(run["run_id"], head["item_id"]), {})
+        stratum = (work_readiness.flow_for(recipe, head), str(head.get("kind") or "-"), str(run["source_kind"] or "-"), run["mode"],
                    "gpt" if params.get("jev") == "off" else "jev", "+".join(sorted(fact.get("arms", ()))) or "-",
                    "native" if fact.get("native") else "-", ended[(run["run_id"], head["item_id"])],
                    "tasks" if fact.get("tasks") else "-", "+".join(sorted(fact.get("cross", ()))) or "-")
@@ -378,11 +378,11 @@ def unregistered_todos(c: sqlite3.Connection, run_ids: list[str]) -> dict[str, s
 
 def _answered(c: sqlite3.Connection, unit: Unit) -> bool:
     """Whether every question of the replayed unit had an earlier answer (no to-do stands for a missing one)."""
-    from jav import work
+    from jav import work_runs
 
     rid = replay_run_id(unit.run_id)
     for item_id in unit.item_ids:
-        fid = work.flow_run_id(rid, item_id)
+        fid = work_runs.flow_run_id(rid, item_id)
         for (reason,) in c.execute("SELECT reason FROM review_reasons WHERE run_id = ? OR substr(run_id, 1, ?) = ?",
                                    (fid, len(fid) + 1, f"{fid}-")):
             if _missing_answer(str(reason)):
@@ -402,9 +402,9 @@ def _clean(value: Any) -> Any:
 
 def _rows(c: sqlite3.Connection, run_id: str, item: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     """The item's stored rows, by its flow identifier and its stages (explicit columns, without times and row ids)."""
-    from jav import work
+    from jav import work_runs
 
-    fid = work.flow_run_id(run_id, item["item_id"])
+    fid = work_runs.flow_run_id(run_id, item["item_id"])
     own = "({col} = ? OR substr({col}, 1, ?) = ?)"
     args = (fid, len(fid) + 1, f"{fid}-")
 

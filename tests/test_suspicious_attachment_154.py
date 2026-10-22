@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from jav import mailbox, policy, reconcile, statement_months as sm, store, work
+from jav import mailbox, policy, reconcile, statement_months as sm, store, work, work_readiness, work_recipes, work_runs
 from jav.runtime import worker
 from tests.test_email_results import _mail_with_pdf
 from tests.test_mailbox import MAILS, REQ, FakeBridge, env  # noqa: F401 - pytest fixture
@@ -26,18 +26,18 @@ def _run(env, monkeypatch, *, suspicious: bool) -> tuple[str, dict, dict]:  # no
         monkeypatch.setattr(policy, "email_next_flow", lambda *a, **k: "human:suspicious")
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge([_mail_with_pdf(env), MAILS[1]]), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
-    work.assign_recipe(wp_id, "processing", params={"arm": "S"}, expected_revision=1, actor="t")
-    ready = work.readiness(wp_id)
-    run_id = work.start_run(wp_id, mode="apply", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
+    work_recipes.assign_recipe(wp_id, "processing", params={"arm": "S"}, expected_revision=1, actor="t")
+    ready = work_readiness.readiness(wp_id)
+    run_id = work_runs.start_run(wp_id, mode="apply", expected_assignment_revision=2, input_hash=ready["input_hash"], actor="t")["run_id"]
     worker.run_worker(once=True)
-    items = work.get_run(run_id)["input"]["items"]
+    items = work_runs.get_run(run_id)["input"]["items"]
     doc = next(i for i in items if i["kind"] == "document")
     return run_id, doc, next(i for i in items if i["item_id"] == doc["parent_item_id"])
 
 
 def _open(run_id: str, item: dict) -> list[str]:
-    kind, subject = work.review_subject(item)
-    own = work.flow_run_id(run_id, item["item_id"])
+    kind, subject = work_runs.review_subject(item)
+    own = work_runs.flow_run_id(run_id, item["item_id"])
     return [r["reason"] for r in store.review_open_reasons(kind, subject) if r.get("run_id") == own]
 
 
@@ -49,7 +49,7 @@ def test_an_attachment_of_a_suspicious_email_is_processed_and_gets_a_todo(env, m
     assert REASON in _open(run_id, doc)
     assert REASON not in _open(run_id, mail)  # the email has its own to-do from the signal route
     with pytest.raises(work.NotReady):
-        work.approve_run(run_id, actor="reviewer")
+        work_runs.approve_run(run_id, actor="reviewer")
 
 
 def test_an_attachment_of_an_ordinary_email_gets_no_such_todo(env, monkeypatch):  # noqa: F811
@@ -59,12 +59,12 @@ def test_an_attachment_of_an_ordinary_email_gets_no_such_todo(env, monkeypatch):
 
 def test_the_order_of_the_email_and_its_attachment_does_not_matter(env, monkeypatch):  # noqa: F811
     run_id, doc, mail = _run(env, monkeypatch, suspicious=True)
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
 
     def close() -> None:
-        kind, subject = work.review_subject(doc)
+        kind, subject = work_runs.review_subject(doc)
         store.review_close(subject_kind=kind, subject_id=subject, reason_prefix=REASON,
-                           run_id=work.flow_run_id(run_id, doc["item_id"]))
+                           run_id=work_runs.flow_run_id(run_id, doc["item_id"]))
         assert REASON not in _open(run_id, doc)
 
     close()
@@ -101,7 +101,7 @@ def test_the_snapshot_marks_a_statement_from_a_suspicious_email(env, monkeypatch
     k2._run(k2.RUN, ["mailed", "clean"])
     mailed = k2._save("mailed", k2._statement(), run_id=k2.RUN, doc_type="statement_table", validation=k2.VERIFIED)
     clean = k2._save("clean", k2._statement(), run_id=k2.RUN, doc_type="statement_table", validation=k2.VERIFIED)
-    store.review_enqueue(subject_kind="document", subject_id=mailed, run_id=work.flow_run_id(k2.RUN, mailed),
+    store.review_enqueue(subject_kind="document", subject_id=mailed, run_id=work_runs.flow_run_id(k2.RUN, mailed),
                          reasons=[REASON], producer="email_source")
     flags = {s["id"]: s["suspicious_source"] for s in reconcile.statements()}
     assert flags == {mailed: True, clean: False}

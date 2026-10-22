@@ -46,7 +46,7 @@ from pathlib import Path
 from typing import Any
 
 from jav import (activity_kinds, app_settings, cfg, logic_packs, package_scope, parties, scopes, store, work,
-                 workflow_steps)
+                 work_readiness, work_recipes, work_runs, workflow_steps)
 from jav.user_messages import explained
 from jav.clock import utc_stamp as _now
 
@@ -275,9 +275,9 @@ def _engine(kind: str, source: dict[str, Any], raw: Any) -> str | None:
     its own package has one; a reconciliation's AI and a package a person brought keep their own settings."""
     if raw is None:
         return None
-    if raw not in work.ENGINE_JEV:
+    if raw not in work_recipes.ENGINE_JEV:
         raise explained(WorkflowError, "unknown engine {{raw}}; expected one of {{engine_jev}}",
-                        raw=repr(raw), engine_jev=sorted(work.ENGINE_JEV))
+                        raw=repr(raw), engine_jev=sorted(work_recipes.ENGINE_JEV))
     if not workflow_steps.of(kind).own_engine or source["kind"] not in workflow_steps.own_sources():
         raise explained(WorkflowError, "a {{kind}} step with a {{kind2}} source has no engine of its own",
                         kind=kind, kind2=repr(source["kind"]))
@@ -478,19 +478,19 @@ def _package_state(wp_id: str) -> tuple[bool, dict[str, Any] | None]:
     pack = logic_packs.of(wp["source_kind"])
     if pack is not None and not pack.has_runs:  # 176: a logic pack without runs answers for itself
         return pack.approved(wp_id), pack.next_step(wp_id)
-    nxt = work_views.next_step(wp, work_views.current_run(work.run_rows(wp_id)))  # 153: a later stopped run hides nothing
+    nxt = work_views.next_step(wp, work_views.current_run(work_runs.run_rows(wp_id)))  # 153: a later stopped run hides nothing
     return _live_run_approved(wp_id), nxt
 
 
 def _live_run_approved(wp_id: str) -> bool:
     """Whether the package has an approved live run and no other live run still going or open (160-C S3: a run over
-    the pending items next to an earlier live run waiting for review; `work.open_live_runs`)."""
+    the pending items next to an earlier live run waiting for review; `work_runs.open_live_runs`)."""
     with store.connect() as c:  # 153: a live run a person stopped later does not undo an approved one
         rows = c.execute("SELECT approval, status FROM runs WHERE workpackage_id=? AND mode='apply' AND status != 'cancelled'",
                          (wp_id,)).fetchall()
     if not any(r["approval"] for r in rows) or any(not r["approval"] and r["status"] in ("queued", "running") for r in rows):
         return False
-    return not work.open_live_runs(wp_id)
+    return not work_runs.open_live_runs(wp_id)
 
 
 def _satisfied(st: dict[str, Any]) -> bool:
@@ -868,13 +868,13 @@ def _give_engine(wp_id: str, engine: str | None, *, actor: str) -> None:
     when the run starts for a package without saved settings."""
     if engine is None:
         return
-    a = work.current_assignment(wp_id)
-    r = work.recipe(a["recipe_id"]) if a else work.default_recipe()
-    want = work.engine_params(r, engine)
+    a = work_recipes.current_assignment(wp_id)
+    r = work_recipes.recipe(a["recipe_id"]) if a else work_recipes.default_recipe()
+    want = work_recipes.engine_params(r, engine)
     if not want or (a is not None and a["params"].get("jev") == want["jev"]):
         return
-    kept = a["params"] if a else work.default_params(r, engine)
-    work.assign_recipe(wp_id, r["id"], params={**kept, **want}, expected_revision=a["revision"] if a else 0, actor=actor,
+    kept = a["params"] if a else work_recipes.default_params(r, engine)
+    work_recipes.assign_recipe(wp_id, r["id"], params={**kept, **want}, expected_revision=a["revision"] if a else 0, actor=actor,
                        note=f"workflow step: engine {engine}")
 
 
@@ -883,7 +883,7 @@ def _start_run(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], wp_
     step = sdef["id"]
     try:
         _give_engine(wp_id, st.get("engine"), actor=actor)
-        ready = work.readiness(wp_id)
+        ready = work_readiness.readiness(wp_id)
         if not ready["ready"]:
             raise WorkflowError("; ".join(b["message"] for b in ready["blockers"]) or "the package cannot start")
         budget = _steps(wf["id"])[step]["budget"]
@@ -894,7 +894,7 @@ def _start_run(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], wp_
             _done(wf, step, actor, "needs_budget", state="needs_budget", workpackage_id=wp_id,
                   note=json.dumps(note))
             return
-        res = work.start_run(wp_id, mode="apply", expected_assignment_revision=ready["assignment_revision"],
+        res = work_runs.start_run(wp_id, mode="apply", expected_assignment_revision=ready["assignment_revision"],
                              input_hash=ready["input_hash"], actor=actor)
         _done(wf, step, actor, "run", state="started", workpackage_id=wp_id, run_id=res["run_id"])
     except Exception as exc:
@@ -950,8 +950,8 @@ def tick(now: float | None = None) -> int:
 
 
 def _per_item(kind: str, engine: str | None = None) -> dict[str, Decimal]:
-    r = work.default_recipe()
-    return work.item_budget(r, work.default_params(r, engine), kind)  # 160-D: the step's engine or the application's
+    r = work_recipes.default_recipe()
+    return work_readiness.item_budget(r, work_recipes.default_params(r, engine), kind)  # 160-D: the step's engine or the application's
 
 
 def _times(per: dict[str, Decimal], n: int) -> dict[str, str]:

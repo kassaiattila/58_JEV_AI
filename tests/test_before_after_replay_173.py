@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import before_after, before_after_replay, store, work
+from jav import before_after, before_after_replay, store, work, work_readiness, work_recipes, work_runs
 from jav.adapters import jev as jev_mod
 from jav.runtime import queue, worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
@@ -63,13 +63,13 @@ def processed(tmp_path: Path, monkeypatch):
     adapter = jev_mod.JevAdapter(client=client, cache_dir=cache)
     with store.use_store(live), jev_mod.use_adapter(adapter):
         wp = work.create_from_folder(folder, name="Synthetic invoices")
-        work.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "S", "doc_type": "invoice_hu"},
+        work_recipes.assign_recipe(wp["id"], "invoice-extraction", params={"arm": "S", "doc_type": "invoice_hu"},
                            expected_revision=0, actor="t")
-        ready = work.readiness(wp["id"])
-        run_id = work.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"],
+        ready = work_readiness.readiness(wp["id"])
+        run_id = work_runs.start_run(wp["id"], mode="shadow", expected_assignment_revision=1, input_hash=ready["input_hash"],
                                 actor="t")["run_id"]
         assert worker.run_worker(once=True)["processed"] == 2
-        original = {i["item_id"]: i["final_status"] for i in work.get_run(run_id)["items"]}
+        original = {i["item_id"]: i["final_status"] for i in work_runs.get_run(run_id)["items"]}
     backup = tmp_path / "backup" / "20261018-120000"
     backup.mkdir(parents=True)
     shutil.copyfile(live, backup / "jav.sqlite")
@@ -165,7 +165,7 @@ def _seed(path: Path) -> dict[str, str]:
                 for item in items:
                     c.execute("INSERT INTO run_items(run_id, item_id, status, final_status, flow_run_id, updated_at)"
                               " VALUES (?,?,?,?,?,?)", (run_id, item["item_id"], "done", "done",
-                                                        work.flow_run_id(run_id, item["item_id"]), created))
+                                                        work_runs.flow_run_id(run_id, item["item_id"]), created))
 
             run("run-000000000001", a["id"], "shadow", "done", invoice,
                 [{"item_id": f"doc-{n:02d}", "kind": "document", "source_path": f"C:/x/{n}.pdf", "sha256": "s"}

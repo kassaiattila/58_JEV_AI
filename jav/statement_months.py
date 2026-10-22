@@ -377,13 +377,13 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, ac
     to-dos close on both documents. 187: a pair whose latest choice was made in another run that is approved by now is
     frozen, as a duplicate decision is (before, a later choice changed that run's reviewed version); the change goes
     into the decision journal, and a stale `expected_state` is refused."""
-    from jav import reconcile, work
+    from jav import reconcile, work, work_runs
 
     if other_doc_id == item_id:
         raise explained(ChoiceError, "a statement does not overlap itself")
     if keep not in (None, item_id, other_doc_id):
         raise explained(ChoiceError, "the statement kept must be one of the pair")
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     if run["approval"]:
         raise explained(work.RevisionConflict, "run {{run_id}} is approved; its statement choices are frozen",
                         run_id=run_id)
@@ -416,7 +416,7 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, keep: str | None, ac
         for r in store.review_open_reasons("document", subject):
             prefix = parse_reason(r["reason"])
             if prefix is not None and other.startswith(prefix):
-                work.resolve_reason(r["id"], actor=actor, resolution=resolution, note=note)
+                work_runs.resolve_reason(r["id"], actor=actor, resolution=resolution, note=note)
     return next(r for r in choice_rows() if r["pair_key"] == pair_key(item_id, other_doc_id))
 
 

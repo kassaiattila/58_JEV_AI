@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from jav import grounding, source_layer, store, typepack, work
+from jav import grounding, source_layer, store, typepack, work_runs
 
 KEEP_METHODS = ("pick", "pick_line", "manual")
 
@@ -43,7 +43,7 @@ def reground_provenance(layer: source_layer.SourceLayer | None, old: dict[str, d
 
 def reground_run(run_id: str) -> dict[str, int]:
     """Recomputes the source locations of all items in a run. Returns: item count, boxed fields before / after."""
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     counts = {"items": 0, "located_before": 0, "located_after": 0, "rows": 0, "rows_located": 0}
     with store.connect() as c:  # read all rows first: loading the word layer opens its own connection (no nesting)
         rows = [(it, dict(r)) for it in run["items"] if it.get("flow_run_id")

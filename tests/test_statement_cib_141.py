@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import parties, reconcile, statement_package as sp, statement_table as st, store, work
+from jav import parties, reconcile, statement_package as sp, statement_table as st, store, work_runs
 from tests.test_flow_statement_table_136 import _run_all
 
 GIRO = "11112223-33334444-55556666"  # made up, wrong check digits
@@ -228,13 +228,13 @@ def test_a_statement_package_reads_the_cib_pdfs_by_code_and_extracts_none(db):
     view = sp.create(name="Example statements", party_id=party, period_start="2026-01-01", period_end="2026-12-31",
                      paths=[folder], statements=[r["id"] for r in rows], pdfs=[], actor="tester")
     run_id = _run_all(view["workpackage_id"])
-    assert work.get_run(run_id)["status"] == "done"
+    assert work_runs.get_run(run_id)["status"] == "done"
     saved = sorted((s for s in reconcile.statements()), key=lambda s: s["period_start"])
     assert [(s["period_start"], s["verified"], len(s["lines"])) for s in saved] == [("2026-05-01", True, 5),
                                                                                       ("2026-06-01", True, 1)]
     assert {reconcile.statement_account(s) for s in saved} == {DIGITS}
     assert parties.resolver().account(DIGITS) is None  # 153: the account goes to the party when the run is approved
-    work.approve_run(run_id, actor="tester")
+    work_runs.approve_run(run_id, actor="tester")
     assert parties.resolver().account(DIGITS) == party
     with store.connect() as c:
         assert c.execute("SELECT COUNT(*) FROM invocations").fetchone()[0] == 0  # no AI call

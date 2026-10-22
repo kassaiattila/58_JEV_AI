@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, corrections, native_results, store, work
+from jav import api, corrections, native_results, store, work, work_readiness, work_recipes, work_runs
 from jav.native_contracts import Failed, Succeeded
 from jav.readers.interpretation import Citation, ProposedExtraction, ProposedFact, ground
 from jav.runtime import queue
@@ -18,11 +18,11 @@ def published_run(root: Path, *, outcome=None, empty=False, name="source.txt", c
     source.parent.mkdir(parents=True, exist_ok=True)
     source.write_bytes(content if content is not None else b"Reference: 00123\nCorrected: 00456\nPartner: Example\n")
     wp = work.create_from_files([source], name="Synthetic native review")
-    work.assign_recipe(wp["id"], "multi-format-processing", params={"jev": "off"}, expected_revision=0, actor="reviewer")
-    ready = work.readiness(wp["id"])
-    rid = work.start_run(wp["id"], mode="apply", expected_assignment_revision=1,
+    work_recipes.assign_recipe(wp["id"], "multi-format-processing", params={"jev": "off"}, expected_revision=0, actor="reviewer")
+    ready = work_readiness.readiness(wp["id"])
+    rid = work_runs.start_run(wp["id"], mode="apply", expected_assignment_revision=1,
                          input_hash=ready["input_hash"], actor="reviewer")["run_id"]
-    item = work.get_run(rid)["input"]["items"][0]
+    item = work_runs.get_run(rid)["input"]["items"][0]
     reading = native_results.prepare_reading(work.source_file(item), original_name=source.name, expected_sha256=item["sha256"])
     delivery = native_results.load_reading(reading.reading_id)
     result = next(result for result in delivery.bundle.results if result.elements)
@@ -33,12 +33,12 @@ def published_run(root: Path, *, outcome=None, empty=False, name="source.txt", c
     interpretation = ground(delivery, proposal, provider="openai", model="synthetic-native-model", execution="synthetic_test")
     outcome = outcome or Succeeded()
     publication = native_results.publish(run_id=rid, item_id=item["item_id"], source_sha256=item["sha256"],
-        recipe_hash=work.get_run(rid)["recipe_hash"], reading_id=reading.reading_id,
+        recipe_hash=work_runs.get_run(rid)["recipe_hash"], reading_id=reading.reading_id,
         outcome=outcome, interpretation=interpretation if outcome.status == "succeeded" else None)
     job = queue.claim("native-synthetic")
     queue.complete(job.id)
-    work.record_item_result(rid, item["item_id"], status="done", final_status="done", flow_run_id=work.flow_run_id(rid, item["item_id"]))
-    work.refresh_run_status(rid)
+    work_runs.record_item_result(rid, item["item_id"], status="done", final_status="done", flow_run_id=work_runs.flow_run_id(rid, item["item_id"]))
+    work_runs.refresh_run_status(rid)
     return rid, item, publication, cite
 
 
@@ -94,10 +94,10 @@ def test_correction_keeps_proposal_requires_current_revision_and_result(native_e
     assert env["client"].post(url + "/correction", headers=HUMAN, json=payload).status_code == 409
     assert corrections.current(rid, iid)["fields"][fact["fact_id"]] == "00456"
     with pytest.raises(work.RevisionConflict):
-        work.approve_run(rid, actor="reviewer", review_version=original["review_version"])
+        work_runs.approve_run(rid, actor="reviewer", review_version=original["review_version"])
     with pytest.raises(work.RevisionConflict):
-        work.approve_run(rid, actor="reviewer")
-    work.approve_run(rid, actor="reviewer", review_version=corrections.review_version(rid))
+        work_runs.approve_run(rid, actor="reviewer")
+    work_runs.approve_run(rid, actor="reviewer", review_version=corrections.review_version(rid))
     payload.update(expected_revision=1, expected_result_version=original["result_version"])
     assert env["client"].post(url + "/correction", headers=HUMAN, json=payload).status_code == 409
 
@@ -120,7 +120,7 @@ def test_unpublished_and_failed_native_items_cannot_be_approved(tmp_path):
         result = corrections.item_result(rid, item["item_id"])
         assert result["result_ready"] and result["interpretation"] is None and result["native_facts"] == []
         with pytest.raises(work.NotReady):
-            work.approve_run(rid, actor="reviewer", review_version=result["review_version"])
+            work_runs.approve_run(rid, actor="reviewer", review_version=result["review_version"])
 
 
 def test_empty_success_remains_distinct_from_failure(tmp_path):
@@ -138,9 +138,9 @@ def test_unpublished_item_never_uses_pdf_reader_or_approves(tmp_path, monkeypatc
         source = tmp_path / "pending.txt"
         source.write_text("Synthetic pending input", encoding="utf-8")
         wp = work.create_from_files([source], name="Pending")
-        work.assign_recipe(wp["id"], "multi-format-processing", params={"jev": "off"}, expected_revision=0, actor="reviewer")
-        ready = work.readiness(wp["id"])
-        rid = work.start_run(wp["id"], mode="apply", expected_assignment_revision=1,
+        work_recipes.assign_recipe(wp["id"], "multi-format-processing", params={"jev": "off"}, expected_revision=0, actor="reviewer")
+        ready = work_readiness.readiness(wp["id"])
+        rid = work_runs.start_run(wp["id"], mode="apply", expected_assignment_revision=1,
             input_hash=ready["input_hash"], actor="reviewer")["run_id"]
         item = wp["items"][0]
         monkeypatch.setattr(page_image, "page_count", lambda *_a, **_k: pytest.fail("Native GET reached PDF reader"))
@@ -151,9 +151,9 @@ def test_unpublished_item_never_uses_pdf_reader_or_approves(tmp_path, monkeypatc
         with pytest.raises(work.NotReady):
             corrections.native_publication(rid, item["item_id"])
         queue.complete(queue.claim("synthetic-finished-without-result").id)
-        work.record_item_result(rid, item["item_id"], status="done", final_status="done")
+        work_runs.record_item_result(rid, item["item_id"], status="done", final_status="done")
         with pytest.raises(work.NotReady):
-            work.approve_run(rid, actor="reviewer", review_version=result["review_version"])
+            work_runs.approve_run(rid, actor="reviewer", review_version=result["review_version"])
 
 
 def test_value_change_drops_only_that_confirmation(native_env):
@@ -189,7 +189,7 @@ def test_partial_reading_stays_partial_after_human_confirmation_and_approval(tmp
         rid, item, publication, _cite = published_run(tmp_path, name="partial.docx", content=source.getvalue())
         assert publication.reading.status == "partial"
         store.review_enqueue(subject_kind="document", subject_id=item["item_id"],
-            run_id=work.flow_run_id(rid, item["item_id"]), producer="native", reasons=["native:reading:partial"])
+            run_id=work_runs.flow_run_id(rid, item["item_id"]), producer="native", reasons=["native:reading:partial"])
         fact = native_results.machine_facts(publication)[0]
         corrections.save_native(rid, item["item_id"], values={}, native_sources={}, confirm=[fact.fact_id],
             expected_revision=0, expected_result_version=publication.result_version, actor="reviewer")
@@ -197,10 +197,10 @@ def test_partial_reading_stays_partial_after_human_confirmation_and_approval(tmp
         assert result["native_facts"][0]["confirmed"] and result["reading"]["status"] == "partial"
         assert result["open_reasons"]
         with pytest.raises(work.NotReady):
-            work.approve_run(rid, actor="reviewer", review_version=result["review_version"])
+            work_runs.approve_run(rid, actor="reviewer", review_version=result["review_version"])
         for reason in result["open_reasons"]:
-            work.resolve_reason(reason["id"], actor="reviewer", resolution={"accepted_gap": True}, note="Reviewed missing content")
-        work.approve_run(rid, actor="reviewer", review_version=corrections.review_version(rid))
+            work_runs.resolve_reason(reason["id"], actor="reviewer", resolution={"accepted_gap": True}, note="Reviewed missing content")
+        work_runs.approve_run(rid, actor="reviewer", review_version=corrections.review_version(rid))
         result = corrections.item_result(rid, item["item_id"])
         assert result["reading"]["status"] == "partial"
         assert result["interpretation"]["correctness"] == "not_established"

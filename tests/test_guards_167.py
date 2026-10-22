@@ -16,7 +16,7 @@ from datetime import date
 
 import pytest
 
-from jav import fx, parties, reconcile, store, work
+from jav import fx, parties, reconcile, store, work, work_runs
 from jav import reconcile_package as rp
 from jav import reconcile_statement as rs
 from tests import test_reconcile_k2_129 as k2
@@ -39,7 +39,7 @@ def _fail_item(c, run_id: str, item: str) -> None:
 
 
 def _reopen_reason(c, run_id: str, item: str) -> None:
-    c.execute("UPDATE review_reasons SET status='open' WHERE run_id=?", (work.flow_run_id(run_id, item),))
+    c.execute("UPDATE review_reasons SET status='open' WHERE run_id=?", (work_runs.flow_run_id(run_id, item),))
 
 
 MEANWHILE = {  # what changes between the check before the lock and the one under it, and the refusal it gets
@@ -54,7 +54,7 @@ def test_the_approval_checks_the_run_again_under_its_lock(runs, monkeypatch, mea
     run_id, item = runs["newer"], runs["items"][0]
     with store.use_store(runs["db"]):
         _close_reasons(run_id)
-        real_refresh, real_begin = work.refresh_run_status, work._begin
+        real_refresh, real_begin = work_runs.refresh_run_status, work._begin
         armed: list[str] = []
 
         def refresh(rid: str) -> str:
@@ -68,14 +68,14 @@ def test_the_approval_checks_the_run_again_under_its_lock(runs, monkeypatch, mea
                 armed.clear()
                 MEANWHILE[meanwhile][0](c, run_id, item)
 
-        monkeypatch.setattr(work, "refresh_run_status", refresh)
+        monkeypatch.setattr(work_runs, "refresh_run_status", refresh)
         monkeypatch.setattr(work, "_begin", begin)
         if meanwhile is None:  # nothing changes: the stand-ins alone do not stop the approval
-            assert work.approve_run(run_id, actor="teszt.elek")["approval"] == "approved"
+            assert work_runs.approve_run(run_id, actor="teszt.elek")["approval"] == "approved"
             return
         with pytest.raises(work.NotReady, match=MEANWHILE[meanwhile][1]):
-            work.approve_run(run_id, actor="teszt.elek")
-        assert work.get_run(run_id)["approval"] is None
+            work_runs.approve_run(run_id, actor="teszt.elek")
+        assert work_runs.get_run(run_id)["approval"] is None
 
 
 # --- the reconciliation's currency and freeze guards -----------------------------------------------------------------------

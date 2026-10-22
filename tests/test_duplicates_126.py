@@ -13,7 +13,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import checks, corrections, duplicates, export, policy, report_utility, store, work
+from jav import checks, corrections, duplicates, export, policy, report_utility, store, work, work_runs
 from jav.models import FlowState, DocumentRecord
 from jav.runtime import calls
 from tests import test_api
@@ -50,12 +50,12 @@ def _run(run_id: str, names: list[str], *, approved: bool = False) -> None:
                    "needs_review", "approved" if approved else None, "t", NOW))
         for i in items:
             c.execute("INSERT INTO run_items(run_id, item_id, status, final_status, flow_run_id, updated_at) VALUES (?,?,?,?,?,?)",
-                      (run_id, i["item_id"], "done", "done", work.flow_run_id(run_id, i["item_id"]), NOW))
+                      (run_id, i["item_id"], "done", "done", work_runs.flow_run_id(run_id, i["item_id"]), NOW))
 
 
 def _save(name: str, fields: dict, *, run_id: str | None = None, doc_type: str = "invoice_hu") -> str:
     doc = _id(name)
-    flow = work.flow_run_id(run_id, doc) if run_id else f"cli-{name}"
+    flow = work_runs.flow_run_id(run_id, doc) if run_id else f"cli-{name}"
     store.upsert_document(doc_id=doc, source_path=f"C:/synthetic/{name}.pdf", has_text=True, page_count=1, year=2026,
                           doc_type=doc_type, run_id=flow)
     store.insert_datapoints(run_id=flow, doc_id=doc, doc_type=doc_type, arm="S", datapoints=fields, field_conf={},
@@ -185,7 +185,7 @@ def _pair_in_run(*, approved=False):
     _run("run-1", ["earlier", "now"], approved=approved)
     earlier = _save("earlier", _inv(), run_id="run-1")
     now = _save("now", _inv(date="2026-09-02"), run_id="run-1")
-    store.review_enqueue(subject_kind="document", subject_id=now, run_id=work.flow_run_id("run-1", now),
+    store.review_enqueue(subject_kind="document", subject_id=now, run_id=work_runs.flow_run_id("run-1", now),
                          reasons=[f"duplicate:variant:{earlier[:16]}"], producer="m2:S")
     return earlier, now
 
@@ -311,8 +311,8 @@ def test_scan_lists_the_pairs_and_opens_the_to_dos_once_on_runs_not_yet_approved
     wrote = duplicates.scan(write=True)
     assert wrote["written"] == 1
     [reason] = store.review_open_reasons("document", a2)
-    assert reason["reason"] == f"duplicate:copy:{a1[:16]}" and reason["run_id"] == work.flow_run_id("run-1", a2)
-    assert work.item_reasons("run-1", a2)["run"]  # the run's own to-do: it blocks the approval until decided
+    assert reason["reason"] == f"duplicate:copy:{a1[:16]}" and reason["run_id"] == work_runs.flow_run_id("run-1", a2)
+    assert work_runs.item_reasons("run-1", a2)["run"]  # the run's own to-do: it blocks the approval until decided
     again = duplicates.scan(write=True)
     assert len(store.review_open_reasons("document", a2)) == 1
     assert (again["to_open"], again["written"], again["skipped"]["already_open"]) == (0, 0, 1)  # counted as open, not to open
@@ -335,8 +335,8 @@ def test_the_worker_flags_a_second_copy_and_the_service_records_the_decision(env
     wp = _ready_wp(c, env["folder"])
     run_id = _start(c, wp["id"]).json()["run_id"]
     worker.run_worker(once=True)
-    items = work.get_run(run_id)["input"]["items"]
-    flagged = {i["item_id"]: [r["reason"] for r in work.item_reasons(run_id, i["item_id"], i)["run"] if r["reason"].startswith("duplicate:")]
+    items = work_runs.get_run(run_id)["input"]["items"]
+    flagged = {i["item_id"]: [r["reason"] for r in work_runs.item_reasons(run_id, i["item_id"], i)["run"] if r["reason"].startswith("duplicate:")]
                for i in items}
     [(repeat, [reason])] = [(k, v) for k, v in flagged.items() if v]
     kind, prefix = duplicates.parse_reason(reason)

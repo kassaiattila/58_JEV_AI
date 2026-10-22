@@ -7,7 +7,7 @@ gets its first version recorded afterwards. Synthetic PDFs, a fake JEV client, n
 
 import hashlib
 
-from jav import package_release, store, work
+from jav import package_release, store, work, work_runs
 from jav.runtime import worker
 from tests import test_flexible_package_160c as fp
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
@@ -54,7 +54,7 @@ def test_release_approves_the_open_live_run_and_keeps_its_downloads(env):
     assert version["version"] == 1 and version["runs"] == [run_id] and version["backfilled_at"] is None
     # 178: the utility cost's workbook only with utility bills (these are invoices); 180: not among the general files
     assert {name for f in version["files"] for name in [f["name"]]} == {n for n, _m in package_release.FILES}
-    assert work.get_run(run_id)["approval"] == "approved"
+    assert work_runs.get_run(run_id)["approval"] == "approved"
     after = r.json()["result"]
     assert after["state"] == "released" and {i["tier"] for i in after["items"]} == {"approved"}
     assert all(i["released"] for i in after["items"])
@@ -141,7 +141,7 @@ def test_a_package_approved_before_gets_its_first_version_afterwards(env):
     assert view["state"] == "released"
     version = view["versions"][0]
     assert version["backfilled_at"] and version["runs"] == [] and version["released_by"] == HUMAN["X-Actor"]
-    assert version["released_at"] == work.get_run(run_id)["approved_at"]
+    assert version["released_at"] == work_runs.get_run(run_id)["approved_at"]
     assert package_release.backfill() == []  # idempotent
 
 

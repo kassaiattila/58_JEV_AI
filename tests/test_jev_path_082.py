@@ -5,7 +5,7 @@ choice is not "JEV only": the pre-start overview carries the chosen path, so tha
 and the help says the same. Synthetic PDFs, no paid calls.
 """
 
-from jav import cfg, typepack, work
+from jav import cfg, typepack, work_readiness
 from tests import test_api
 from tests.test_api import HUMAN
 
@@ -20,7 +20,7 @@ def test_with_s_chosen_a_type_without_a_jev_path_is_planned_on_the_g_path_with_a
     r = c.post(f"/api/workpackages/{wp['id']}/workflow", headers=HUMAN, json={
         "recipe_id": "invoice-extraction", "params": {"arm": "S", "doc_type": "nav_receipt"}, "expected_revision": 0, "note": "S"})
     assert r.status_code == 200, r.text
-    ready = work.readiness(wp["id"])
+    ready = work_readiness.readiness(wp["id"])
     assert ready["plan"]["arm"] == "S" and ready["plan"]["paths"] == {"S": 0, "G": 2, "unknown": 0}
     assert ready["budget"]["openai"] > 0  # GPT runs there, within the run's OpenAI budget
 

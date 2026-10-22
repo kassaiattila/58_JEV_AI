@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import datasets, store, work, work_views, workflows
+from jav import datasets, store, work_runs, work_views, workflows
 from jav.tablequery import Column, Query
 from tests.test_supersede_runs_151 import runs  # noqa: F401 - the shared fixture: one package, an older and a newer live run
 
@@ -128,7 +128,7 @@ def test_the_list_counts_the_older_runs_to_supersede(runs):  # noqa: F811
         column = next(c for c in datasets.query("workpackages", None, Query())["columns"] if c["key"] == "older_runs")
         assert column["link"] == "process" and column["alert"] is True and not column.get("hidden")
         assert _row(runs["wp"])["older_runs"] == 1
-        work.supersede_run(runs["older"], actor="teszt.elek")
+        work_runs.supersede_run(runs["older"], actor="teszt.elek")
         assert _row(runs["wp"])["older_runs"] == 0
 
 
@@ -137,7 +137,7 @@ def _stop(run_id: str) -> None:
     fixture's runs have finished, so the run is put back to running first)."""
     with store.connect() as c:
         c.execute("UPDATE runs SET status='running' WHERE run_id=?", (run_id,))
-    work.cancel_run(run_id, actor="teszt.elek")
+    work_runs.cancel_run(run_id, actor="teszt.elek")
 
 
 def test_a_later_stopped_run_does_not_hide_the_earlier_live_runs_to_dos(runs):  # noqa: F811

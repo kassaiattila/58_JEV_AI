@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, store, work
+from jav import api, store, work, work_runs
 from jav.adapters import jev as jev_mod
 from jav.runtime import worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
@@ -122,7 +122,7 @@ def test_a_removed_item_stays_out_of_the_next_run_and_a_finished_run_keeps_it(en
            json={"expected_revision": work.get(wp["id"])["revision"], "reason": "not ours"})
     ready = c.get(f"/api/workpackages/{wp['id']}/workflow/readiness").json()
     assert ready["counts"]["items"] == 1
-    finished = work.get_run(run_id)
+    finished = work_runs.get_run(run_id)
     assert {i["item_id"] for i in finished["input"]["items"]} == {i["item_id"] for i in wp["items"]}
     assert {i["item_id"] for i in finished["items"]} == {i["item_id"] for i in wp["items"]}
 
@@ -185,16 +185,16 @@ def test_a_removed_items_open_to_dos_do_not_block_the_approval(env):
     c.post(f"/api/workpackages/{wp['id']}/items/{blocked}/restore", headers=HUMAN,
            json={"expected_revision": work.get(wp["id"])["revision"]})
     assert c.post(f"/api/runs/{run_id}/approve", json={}, headers=HUMAN).status_code == 409  # restored: they count again
-    assert work.run_rows(wp["id"])[0]["open_reasons"] > 0
+    assert work_runs.run_rows(wp["id"])[0]["open_reasons"] > 0
     c.post(f"/api/workpackages/{wp['id']}/items/{blocked}/remove", headers=HUMAN,
            json={"expected_revision": work.get(wp["id"])["revision"], "reason": "not an invoice"})
-    assert work.run_rows(wp["id"])[0]["open_reasons"] == 0  # the run list counts what the approval needs
+    assert work_runs.run_rows(wp["id"])[0]["open_reasons"] == 0  # the run list counts what the approval needs
     approved = c.post(f"/api/runs/{run_id}/approve", json={"confirm_removed": 1}, headers=HUMAN)
     assert approved.status_code == 200, approved.text
-    assert work.get_run(run_id)["excluded_items"] == [blocked]
+    assert work_runs.get_run(run_id)["excluded_items"] == [blocked]
     c.post(f"/api/workpackages/{wp['id']}/items/{blocked}/restore", headers=HUMAN,
            json={"expected_revision": work.get(wp["id"])["revision"]})
-    assert work.run_rows(wp["id"])[0]["open_reasons"] == 0  # approved: left out as recorded, not as the package is now
+    assert work_runs.run_rows(wp["id"])[0]["open_reasons"] == 0  # approved: left out as recorded, not as the package is now
 
 
 # --- S2: adding to an existing package ----------------------------------------------------------------------------
@@ -265,7 +265,7 @@ def test_after_a_run_new_items_are_the_packages_next_step(env):
     listed = next(r for r in c.post("/api/datasets/workpackages/query", json={"scope": {}, "query": {}}).json()["rows"]
                   if r["_key"] == wp["id"])
     assert listed["next_code"] == "pending"
-    assert work.pending_items(wp["id"], "apply") == [i["item_id"] for i in work.get(wp["id"])["items"]
+    assert work_runs.pending_items(wp["id"], "apply") == [i["item_id"] for i in work.get(wp["id"])["items"]
                                                      if i["source_path"].endswith("invoice_4.pdf")]
 
 
@@ -311,12 +311,12 @@ def test_a_run_over_the_pending_items_takes_only_them_with_their_own_budget(env)
                json={"mode": "apply", "scope": "pending", "expected_revision": ready["assignment_revision"],
                      "input_hash": sup["input_hash"]})
     assert r.status_code == 201, r.text
-    run = work.get_run(r.json()["run_id"])
+    run = work_runs.get_run(r.json()["run_id"])
     assert [i["item_id"] for i in run["input"]["items"]] == [new] and run["scope"] == "pending"
     worker.run_worker(once=True)
-    assert [i["item_id"] for i in work.get_run(run["run_id"])["items"]] == [new]
-    assert len(work.get_run(first)["items"]) == 2  # the first run is untouched
-    assert work.pending_items(wp["id"], "apply") == []
+    assert [i["item_id"] for i in work_runs.get_run(run["run_id"])["items"]] == [new]
+    assert len(work_runs.get_run(first)["items"]) == 2  # the first run is untouched
+    assert work_runs.pending_items(wp["id"], "apply") == []
     assert "apply" not in c.get(f"/api/workpackages/{wp['id']}/workflow/readiness").json().get("supplement", {})
 
 
@@ -389,7 +389,7 @@ def test_the_oldest_open_live_run_is_the_packages_current_one_and_the_others_sho
     mark = c.get(f"/api/workpackages/{wp['id']}/result").json()["mark"]
     assert c.post(f"/api/workpackages/{wp['id']}/release", headers=HUMAN, json={"expected_mark": mark}).status_code == 200
     assert c.get(f"/api/workpackages/{wp['id']}").json()["next"]["code"] == "done"
-    approved = work.get_run(first)
+    approved = work_runs.get_run(first)
     assert approved["approval"] == "approved" and len(approved["input"]["items"]) == 2  # untouched by the later run
     assert _exported_items(c, first) == {i["item_id"] for i in wp["items"]}
 

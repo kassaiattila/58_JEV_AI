@@ -33,7 +33,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from jav import store, work
+from jav import store, work, work_recipes
 from jav.native_contracts import DOCUMENT_SUFFIXES
 from jav.runtime import lock
 from jav.user_messages import explained
@@ -190,10 +190,10 @@ def save_folders(items: list[WatchedFolder], *, check_dir: Callable[[str], Path]
             raise explained(FolderOverlap, "a watched folder cannot overlap the output folder of the named copies: {{p}}",
                             p=p)
         recipe_id, params = f.recipe_id or None, f.params
-        if recipe_id is not None and work.recipe_status(work.recipe(recipe_id)) == "retired":  # unknown: ValueError → 422
+        if recipe_id is not None and work_recipes.recipe_status(work_recipes.recipe(recipe_id)) == "retired":  # unknown: ValueError → 422
             # 080: the UI no longer shows the folder's recipe, so a retired one is moved onto the default processing
             # (keeping its settings) instead of making the whole list unsavable
-            recipe_id, params = work.default_recipe()["id"], work.carried_params(work.default_recipe(), params)
+            recipe_id, params = work_recipes.default_recipe()["id"], work_recipes.carried_params(work_recipes.default_recipe(), params)
         fid = f.id if f.id in known else f"wf-{uuid.uuid4().hex[:10]}"
         prev = known.get(fid)
         name = " ".join(f.name.split()) or p.name
@@ -210,13 +210,13 @@ def save_folders(items: list[WatchedFolder], *, check_dir: Callable[[str], Path]
 
 def migrate_folder_recipes(*, write: bool) -> list[dict[str, Any]]:
     """080: watched folders set to a retired recipe move onto the default processing, keeping their settings (like
-    `work.migrate_assignments`). Without `write` it only lists them; repeatable."""
-    target = work.default_recipe()
+    `work_recipes.migrate_assignments`). Without `write` it only lists them; repeatable."""
+    target = work_recipes.default_recipe()
     out = []
     for f in folders():
-        if not f["recipe_id"] or work.recipe_status(work.recipe(f["recipe_id"])) != "retired":
+        if not f["recipe_id"] or work_recipes.recipe_status(work_recipes.recipe(f["recipe_id"])) != "retired":
             continue
-        params = work.carried_params(target, f["params"])
+        params = work_recipes.carried_params(target, f["params"])
         out.append({"id": f["id"], "name": f["name"], "from": f["recipe_id"], "params": params})
         if write:
             with store.connect() as c:
@@ -314,12 +314,12 @@ def _scan(folder: dict[str, Any], now: datetime, actor: str) -> dict[str, Any]:
                     c.execute("INSERT INTO watched_packages(folder_id, bucket, workpackage_id) VALUES (?,?,?) ON CONFLICT(folder_id, bucket)"
                               " DO UPDATE SET workpackage_id=excluded.workpackage_id", (folder["id"], bucket, wp_id))
                 if folder["recipe_id"]:  # 080: without one, the package runs with the default processing settings
-                    r = work.recipe(folder["recipe_id"])
-                    if work.recipe_status(r) == "retired":  # not migrated yet (e.g. restored from a backup)
-                        r, params = work.default_recipe(), work.carried_params(work.default_recipe(), folder["params"])
+                    r = work_recipes.recipe(folder["recipe_id"])
+                    if work_recipes.recipe_status(r) == "retired":  # not migrated yet (e.g. restored from a backup)
+                        r, params = work_recipes.default_recipe(), work_recipes.carried_params(work_recipes.default_recipe(), folder["params"])
                     else:
                         params = folder["params"]
-                    work.assign_recipe(wp_id, r["id"], params=params, expected_revision=0, actor=actor, note="figyelt mappa")
+                    work_recipes.assign_recipe(wp_id, r["id"], params=params, expected_revision=0, actor=actor, note="figyelt mappa")
             wp = work.get(wp_id)
             work.add_documents(wp_id, fresh, expected_revision=wp["revision"])
         _mark_seen(folder["id"], files)  # 063: "seen" only after a successful intake
@@ -419,7 +419,7 @@ def engine_setting() -> dict[str, Any]:
 
 
 def engine_default() -> str:
-    """The engine of every new processing setting that does not name one (`work.default_params`); saved settings and
+    """The engine of every new processing setting that does not name one (`work_recipes.default_params`); saved settings and
     runs keep their own."""
     return engine_setting()["engine"]
 

@@ -7,7 +7,7 @@ confirmation lasts while the field's value stays the same. Each to-do carries th
 UI can show it at the field. Synthetic documents and a fake JEV, no paid calls.
 """
 
-from jav import store, work
+from jav import store, work_runs
 from jav.runtime import worker
 from tests import test_api
 from tests.test_api import HUMAN, _ready_wp, _start
@@ -22,7 +22,7 @@ def _item(env, reasons):
     run_id = _start(c, wp["id"]).json()["run_id"]
     worker.run_worker(once=True)
     item_id = wp["items"][0]["item_id"]
-    store.review_enqueue(subject_kind="document", subject_id=item_id, run_id=work.flow_run_id(run_id, item_id),
+    store.review_enqueue(subject_kind="document", subject_id=item_id, run_id=work_runs.flow_run_id(run_id, item_id),
                          reasons=reasons, producer="test083")
     return c, run_id, item_id, f"/api/runs/{run_id}/items/{item_id}"
 

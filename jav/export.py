@@ -31,7 +31,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from jav import card_numbers, cfg, corrections, item_kinds, native_results, package_result, store, typepack, work
+from jav import card_numbers, cfg, corrections, item_kinds, native_results, package_result, store, typepack, work_runs
 from jav.outputs import builtin, contract, parts
 
 NUMBER = re.compile(r"^-?\d[\d\s.,]*$")
@@ -72,11 +72,11 @@ def _item_provenance(run_id: str, item_id: str, dp: dict[str, Any], corr: dict[s
 
 
 def _run_records(run_id: str) -> list[dict[str, Any]]:
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     subjects = _parent_labels(run["input"]["items"])
-    split = work.items_reasons(run_id, run["input"]["items"])  # 153 (review B3): one query, not one per item
+    split = work_runs.items_reasons(run_id, run["input"]["items"])  # 153 (review B3): one query, not one per item
     out = []
-    for item in work.released_items(run):  # 160-C: not the items removed from the package (decision 163 D7)
+    for item in work_runs.released_items(run):  # 160-C: not the items removed from the package (decision 163 D7)
         if not item_kinds.of(item).record:  # 177: an email has no document record
             continue
         dp = corrections.datapoints_row(run_id, item["item_id"])
@@ -109,7 +109,7 @@ def _run_records(run_id: str) -> list[dict[str, Any]]:
 def native_records(run_id: str) -> list[dict[str, Any]]:
     """Native review data, including empty or unsuccessful outcomes and original machine proposals."""
     return [{"file": Path(item["source_path"]).name, **corrections.item_result(run_id, item["item_id"])}
-            for item in work.released_items(work.get_run(run_id))
+            for item in work_runs.released_items(work_runs.get_run(run_id))
             if native_results.native_item(run_id, item)]
 
 
@@ -383,7 +383,7 @@ def _json_export(run_id: str, records: list[dict[str, Any]] | None = None) -> tu
     # Capture before every data read: an interleaved edit must make approval fail,
     # never give older exported values the version of an unseen correction.
     review_version = corrections.review_version(run_id)
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     native_run = any(native_results.native_item(run_id, item) for item in run["input"]["items"])
     # Caller-supplied rows have no bound version. A native or mixed export must
     # reload them after the version capture, using the versioned dataset cache.

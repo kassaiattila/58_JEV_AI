@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, SystemOneResponse
 
-from jav import ocr, store, work
+from jav import ocr, store, work, work_readiness, work_recipes, work_runs
 from jav.adapters import jev as jev_mod
 from jav.runtime import queue, worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
@@ -49,9 +49,9 @@ def _run(tmp_path: Path, *, recipe: str, params: dict, lines: list[str], client:
     write_text_pdf(folder / "irat.pdf", lines)
     with jev_mod.use_adapter(adapter):
         wp = work.create_from_folder(folder, name="Mesterséges irat")
-        work.assign_recipe(wp["id"], recipe, params=params, expected_revision=0, actor="t")
-        r = work.readiness(wp["id"])
-        run_id = work.start_run(wp["id"], mode=mode, expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")["run_id"]
+        work_recipes.assign_recipe(wp["id"], recipe, params=params, expected_revision=0, actor="t")
+        r = work_readiness.readiness(wp["id"])
+        run_id = work_runs.start_run(wp["id"], mode=mode, expected_assignment_revision=1, input_hash=r["input_hash"], actor="t")["run_id"]
         worker.process(queue.claim("t", kinds=(work.JOB_KIND,)))
     return run_id
 
@@ -65,42 +65,42 @@ def isolated(tmp_path: Path):
 def test_text_less_document_blocks_approval_with_an_ocr_reason(isolated, monkeypatch):
     monkeypatch.setattr(ocr, "ocr_with_escalation", _no_ocr)
     run_id = _run(isolated, recipe="invoice-extraction", params={"arm": "S", "doc_type": "invoice_hu"}, lines=[], client=Client())
-    item = work.get_run(run_id)["items"][0]
+    item = work_runs.get_run(run_id)["items"][0]
     assert item["final_status"] == "needs_ocr"
-    own = work.items_reasons(run_id, work.get_run(run_id)["input"]["items"])[item["item_id"]]["run"]
+    own = work_runs.items_reasons(run_id, work_runs.get_run(run_id)["input"]["items"])[item["item_id"]]["run"]
     assert any(r["reason"].startswith("ocr:") for r in own)
-    assert work.refresh_run_status(run_id) == "needs_review"
+    assert work_runs.refresh_run_status(run_id) == "needs_review"
     with pytest.raises(work.NotReady):
-        work.approve_run(run_id, actor="t")
+        work_runs.approve_run(run_id, actor="t")
 
 
 def test_text_less_document_in_document_recipe_blocks_approval(isolated, monkeypatch):
     monkeypatch.setattr(ocr, "ocr_with_escalation", _no_ocr)
     run_id = _run(isolated, recipe="processing", params={"arm": "S"}, lines=[], client=Client())
-    assert work.refresh_run_status(run_id) == "needs_review"
+    assert work_runs.refresh_run_status(run_id) == "needs_review"
     with pytest.raises(work.NotReady):
-        work.approve_run(run_id, actor="t")
+        work_runs.approve_run(run_id, actor="t")
 
 
 def test_detect_stage_reasons_belong_to_the_run(isolated):
     run_id = _run(isolated, recipe="processing", params={"arm": "S"}, lines=INVOICE_LINES, client=Client(type_conf=0.40))
-    run = work.get_run(run_id)
-    split = work.items_reasons(run_id, run["input"]["items"])[run["items"][0]["item_id"]]
+    run = work_runs.get_run(run_id)
+    split = work_runs.items_reasons(run_id, run["input"]["items"])[run["items"][0]["item_id"]]
     assert any(r["reason"].startswith("detect:low_conf:") for r in split["run"])
     assert not split["earlier"]
     assert all(r["run_id"].startswith(run["items"][0]["flow_run_id"]) for r in split["run"])
-    assert work.refresh_run_status(run_id) == "needs_review"
+    assert work_runs.refresh_run_status(run_id) == "needs_review"
     with pytest.raises(work.NotReady):
-        work.approve_run(run_id, actor="t")
+        work_runs.approve_run(run_id, actor="t")
 
 
 def test_reason_of_another_item_with_a_similar_prefix_is_not_the_runs():
-    own = work.flow_run_id("run-abc", "0123456789abcdef-extra")
-    assert work.is_own_reason({"run_id": own}, own)
-    assert work.is_own_reason({"run_id": f"{own}-doc_detect"}, own)
-    assert not work.is_own_reason({"run_id": f"{own}x"}, own)
-    assert not work.is_own_reason({"run_id": "run-older:0123456789abcdef"}, own)
-    assert not work.is_own_reason({"run_id": None}, own)
+    own = work_runs.flow_run_id("run-abc", "0123456789abcdef-extra")
+    assert work_runs.is_own_reason({"run_id": own}, own)
+    assert work_runs.is_own_reason({"run_id": f"{own}-doc_detect"}, own)
+    assert not work_runs.is_own_reason({"run_id": f"{own}x"}, own)
+    assert not work_runs.is_own_reason({"run_id": "run-older:0123456789abcdef"}, own)
+    assert not work_runs.is_own_reason({"run_id": None}, own)
 
 
 # --- Á06 (decision of 2026-09-29): the reason of an unapproved live run does not move away -------------------------
@@ -118,26 +118,26 @@ def _two_runs(tmp_path: Path, first_mode: str, *, second_client: Client | None =
         with jev_mod.use_adapter(adapter):
             if not runs:
                 wp = work.create_from_folder(folder, name="Mesterséges irat")
-                work.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=0, actor="t")
-            r = work.readiness(wp["id"])
-            runs.append(work.start_run(wp["id"], mode=mode, expected_assignment_revision=1, input_hash=r["input_hash"], actor="t",
+                work_recipes.assign_recipe(wp["id"], "processing", params={"arm": "S"}, expected_revision=0, actor="t")
+            r = work_readiness.readiness(wp["id"])
+            runs.append(work_runs.start_run(wp["id"], mode=mode, expected_assignment_revision=1, input_hash=r["input_hash"], actor="t",
                                        **({"rerun_of": runs[-1]} if runs else {}))["run_id"])
             worker.process(queue.claim("t", kinds=(work.JOB_KIND,)))
-    item_id = work.get_run(runs[0])["input"]["items"][0]["item_id"]
+    item_id = work_runs.get_run(runs[0])["input"]["items"][0]["item_id"]
     return runs[0], runs[1], item_id
 
 
 def _own(run_id: str, item_id: str) -> list[str]:
-    return [r["reason"] for r in work.item_reasons(run_id, item_id)["run"]]
+    return [r["reason"] for r in work_runs.item_reasons(run_id, item_id)["run"]]
 
 
 def test_later_run_does_not_take_over_the_reason_of_an_unapproved_live_run(isolated):
     live, later, item = _two_runs(isolated, "apply")
     assert any(r.startswith("detect:low_conf:") for r in _own(live, item))
     assert any(r.startswith("detect:low_conf:") for r in _own(later, item))
-    assert work.refresh_run_status(live) == "needs_review"
+    assert work_runs.refresh_run_status(live) == "needs_review"
     with pytest.raises(work.NotReady):
-        work.approve_run(live, actor="t")
+        work_runs.approve_run(live, actor="t")
 
 
 def test_later_confident_run_does_not_close_the_reason_of_an_unapproved_live_run(isolated):
@@ -145,7 +145,7 @@ def test_later_confident_run_does_not_close_the_reason_of_an_unapproved_live_run
     assert not any(r.startswith("detect:low_conf:") for r in _own(later, item))
     assert any(r.startswith("detect:low_conf:") for r in _own(live, item))
     with pytest.raises(work.NotReady):
-        work.approve_run(live, actor="t")
+        work_runs.approve_run(live, actor="t")
 
 
 def test_trial_run_reason_still_moves_to_the_latest_run(isolated):

@@ -41,7 +41,7 @@ from datetime import date
 from pathlib import Path
 from typing import IO, Any
 
-from jav import cfg, item_kinds, store, work
+from jav import cfg, item_kinds, store, work, work_runs
 
 log = logging.getLogger("jav.naming")
 
@@ -411,13 +411,13 @@ def plan(run_id: str, *, path_budget: int | None = None) -> list[NamedCopy]:
     from jav import datasets
 
     r = rules()
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     # 160-C: not the items removed from the package before the release (decision 163 D7)
-    items = [i for i in work.released_items(run) if item_kinds.of(i).record]  # 177: an email gets no name
+    items = [i for i in work_runs.released_items(run) if item_kinds.of(i).record]  # 177: an email gets no name
     records = {rec["item_id"]: rec for rec in datasets.run_records(run_id)}
     results = {x["item_id"]: x for x in run["items"]}
     others = [i for i in items if i["item_id"] not in records]
-    splits = work.items_reasons(run_id, others) if others else {}
+    splits = work_runs.items_reasons(run_id, others) if others else {}
     types = _detected_types([i["item_id"] for i in others])
     used: set[str] = set()
     out = []
@@ -477,7 +477,7 @@ def _names_of(run_id: str, wanted: set[str] | None = None) -> dict[str, ItemName
 
 def run_item_names(run_id: str) -> dict[str, ItemName]:
     """Every item of the run with its unified name in this run."""
-    items = work.get_run(run_id)["input"]["items"]
+    items = work_runs.get_run(run_id)["input"]["items"]
     named = _names_of(run_id) if any(item_kinds.of(i).record for i in items) else {}
     return {i["item_id"]: named.get(i["item_id"], PENDING) if item_kinds.of(i).record else NO_NAME for i in items}
 
@@ -564,7 +564,7 @@ def write_zip(run_id: str, fh: IO[bytes]) -> dict[str, int]:
 
 
 def zip_name(run_id: str) -> str:
-    run = work.get_run(run_id)
+    run = work_runs.get_run(run_id)
     return f"{safe_part(work.get(run['workpackage_id'])['name'], limit=60) or 'csomag'}_{run_id}.zip"
 
 
@@ -575,7 +575,7 @@ def write_to_folder(run_id: str, root: Path) -> dict[str, Any]:
 
     r = rules()
     root = app_settings.check_output_folder(root)
-    base = f"{safe_part(work.get(work.get_run(run_id)['workpackage_id'])['name'], limit=60) or 'csomag'}_{run_id}"
+    base = f"{safe_part(work.get(work_runs.get_run(run_id)['workpackage_id'])['name'], limit=60) or 'csomag'}_{run_id}"
     # the names are fitted before anything is created (4: room for the subfolder's own "__NN"), so a too long output
     # path leaves no empty subfolder behind
     copies = plan(run_id, path_budget=r.path_max_chars - len(str(root / base)) - 4 - 1)

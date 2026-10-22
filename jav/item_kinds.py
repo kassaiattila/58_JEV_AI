@@ -77,8 +77,8 @@ class ItemKind:
     - `page_image`: its result is shown on the pages of its file (a statement read from a table has none).
     - `attachments`: its attachments are items of the same run, and its flow reads them (an email's PDFs).
     - `by_code`: it is read by code alone, so its result names no AI engine (a statement read from a table, 136).
-    - `subject(item)`: the subject of its to-dos (`work.review_subject`).
-    - `plan_key`: the key the pre-start overview counts it under (`work.run_plan`); `plan_always`: the key is there
+    - `subject(item)`: the subject of its to-dos (`work_runs.review_subject`).
+    - `plan_key`: the key the pre-start overview counts it under (`work_readiness.run_plan`); `plan_always`: the key is there
       even at 0 (a statement table is counted only when there is one).
     - `rules_from`: the module that registers the rules run after its items (`ItemRule`), if any.
     - `handler_from`: 185: the module that registers how one of its items is shown and corrected (`ItemHandler`), for a
