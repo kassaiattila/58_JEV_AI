@@ -2290,5 +2290,6 @@
   "GPT's paragraph is asked only under a budget": "a GPT-bekezdést csak keret mellett lehet kérni",
   "the letter has no text": "a levélnek nincs szövege",
   "the letter is longer than {{n}} characters": "a levél hosszabb {{n}} karakternél",
-  "the letter of version {{n}} has not been accepted yet": "a(z) {{n}}. változat levelét még nem fogadták el"
+  "the letter of version {{n}} has not been accepted yet": "a(z) {{n}}. változat levelét még nem fogadták el",
+  "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them": "Saját Excel- és Word-sablonok a letöltésekhez: feltöltés, ellenőrzés, előnézet és élesítés; a beléjük írható jelölők"
 }

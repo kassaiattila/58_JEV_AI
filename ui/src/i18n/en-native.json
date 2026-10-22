@@ -2289,5 +2289,6 @@
   "GPT's paragraph is asked only under a budget": "GPT's paragraph is asked only under a budget",
   "the letter has no text": "the letter has no text",
   "the letter is longer than {{n}} characters": "the letter is longer than {{n}} characters",
-  "the letter of version {{n}} has not been accepted yet": "the letter of version {{n}} has not been accepted yet"
+  "the letter of version {{n}} has not been accepted yet": "the letter of version {{n}} has not been accepted yet",
+  "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them": "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them"
 }
