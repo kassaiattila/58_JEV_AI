@@ -1,4 +1,4 @@
-"""The quote package's golden sets in the shared measurement command (204, plan 204 R1h; until 204 in
+"""The quote package's golden sets in the shared measurement command (204, plan G-process-core R1h; until 204 in
 `jav/quote_package.py` and `jav/quote_pricing.py`).
 
 Plain-language summary: the quote package has three golden sets, built on the invented quote requests

@@ -83,7 +83,7 @@ class LogicPack:
       `routes(app, prefix)`; `jav.api.service_modules`), so this registry imports no service code.
 
     188: a logic pack's golden sets (named `<kind>:<name>`) are measured by the shared measurement command like a type
-    pack's; 204 (plan 204 R1h): its domain names the module that describes them (`GOLDENS` in `jav/domains/`, read by
+    pack's; 204 (plan G-process-core R1h): its domain names the module that describes them (`GOLDENS` in `jav/domains/`, read by
     `jav/goldens.py`), so the pack's own module never imports the measurement layer.
     """
 

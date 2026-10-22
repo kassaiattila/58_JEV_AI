@@ -1,4 +1,4 @@
-"""204 (plan 204 R1h): a domain's golden sets are described beside its business modules, not inside them.
+"""204 (plan G-process-core R1h): a domain's golden sets are described beside its business modules, not inside them.
 
 Plain-language summary: a golden set is a list of cases whose right answer is known in advance, and the shared
 measurement command (`measure`) measures every one of them. Until 204 the reconciliation and the quote package described

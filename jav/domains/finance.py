@@ -44,7 +44,7 @@ MODULES = frozenset({
     "reconcile_overview", "reconcile_package", "reconcile_review", "reconcile_statement", "report_utility",
     "statement_months", "statement_original", "statement_package", "statement_table", "domains.finance",
 })
-# 204 (plan 204 R1h): the modules of the domain's golden sets (the reconciliation's), by name; the shared measurement
+# 204 (plan G-process-core R1h): the modules of the domain's golden sets (the reconciliation's), by name; the shared measurement
 # command imports them (`jav.goldens.logic_pack_goldens`), so the reconciliation imports no measurement code
 GOLDENS = ("jav.reconcile_goldens",)
 

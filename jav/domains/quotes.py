@@ -32,7 +32,7 @@ SERVICE = ("jav.api_price_lists",)
 MODULES = frozenset({"api_price_lists", "api_quote_package", "price_lists", "quote_document", "quote_draft",
                      "quote_golden", "quote_goldens", "quote_letter", "quote_package", "quote_match", "quote_pricing",
                      "quote_proposal", "quote_request", "domains.quotes"})
-# 204 (plan 204 R1h): the modules of the domain's golden sets (the quote package's), by name; the shared measurement
+# 204 (plan G-process-core R1h): the modules of the domain's golden sets (the quote package's), by name; the shared measurement
 # command imports them (`jav.goldens.logic_pack_goldens`), so the quote package imports no measurement code
 GOLDENS = ("jav.quote_goldens",)
 

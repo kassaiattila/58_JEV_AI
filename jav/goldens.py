@@ -384,7 +384,7 @@ def taught_goldens() -> list[Golden]:
 
 
 def measurement_modules() -> list[str]:
-    """204 (plan 204 R1h): the domains' measurement modules, by name (each domain module's `GOLDENS`, as `jav.cli`
+    """204 (plan G-process-core R1h): the domains' measurement modules, by name (each domain module's `GOLDENS`, as `jav.cli`
     reads its `COMMANDS`; a domain without golden sets names none), in the domains' order."""
     from jav.domains import DOMAINS
 

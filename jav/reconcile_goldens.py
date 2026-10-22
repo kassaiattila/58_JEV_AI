@@ -1,4 +1,4 @@
-"""The reconciliation's golden sets in the shared measurement command (204, plan 204 R1h; until 204 in
+"""The reconciliation's golden sets in the shared measurement command (204, plan G-process-core R1h; until 204 in
 `jav/reconcile_package.py`).
 
 Plain-language summary: the reconciliation has two golden sets, lists of cases whose right answer is known in advance:
