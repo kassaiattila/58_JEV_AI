@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 from jav.config import GOLDEN_EXPECTED_DIR, GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
 from jav.dates import read_date
@@ -55,26 +55,37 @@ def load_cases(type_key: str = DEFAULT_KEY) -> list[GoldenCase]:
             continue
         name = c["id"].split("/", 1)[1]
         pdf = OLD_PROJECT_ROOT / c["input_ref"].lstrip("/")
-        expected_path = GOLDEN_EXPECTED_DIR / c.get("expected_ref", f"expected/{name}.json")
-        exp = json.loads(expected_path.read_text(encoding="utf-8"))
-        cases.append(GoldenCase(case_id=name, pdf=pdf, expected=exp["datapoints"], expected_valid=exp.get("expected_valid", True), type_key=type_key))
+        exp = json.loads((GOLDEN_EXPECTED_DIR / c.get("expected_ref", f"expected/{name}.json")).read_text(encoding="utf-8"))
+        values = _expected_values(exp, pack.fields)
+        if "datapoints" in exp or values:  # as `count_cases` counts them
+            cases.append(GoldenCase(case_id=name, pdf=pdf, expected=values, expected_valid=exp.get("expected_valid", True),
+                                    type_key=type_key))
     return cases
+
+
+def _expected_values(exp: dict[str, Any], fields: Iterable[str]) -> dict[str, Any]:
+    """A case's expected values: its `datapoints` record, or (197, plan 197 K0) the flat record of a pack converted from
+    a legacy type (047: the ticket and the general terms), whose keys are the pack's own fields."""
+    if "datapoints" in exp:
+        return exp["datapoints"]
+    return {f: exp[f] for f in fields if f in exp}
 
 
 def count_cases(type_key: str = DEFAULT_KEY) -> int:
     """188: the number of the legacy manifest's cases for one type that `load_cases` can read (`jav/goldens.py`): their
-    expected file holds a `datapoints` record. The packs converted from legacy types (047) keep their expected values
-    without it, so they have none yet; 0 without the legacy project."""
+    expected file holds a value of one of the pack's fields. 197: the packs converted from legacy types (047) keep their
+    expected values without a `datapoints` record, and count too; 0 without the legacy project."""
     if not GOLDEN_MANIFEST.exists():
         return 0
-    wanted = get_pack(type_key).golden_type_key
+    pack = get_pack(type_key)
     manifest = json.loads(GOLDEN_MANIFEST.read_text(encoding="utf-8"))
     count = 0
     for c in manifest.get("cases", []):
-        if c.get("type_key") != wanted:
+        if c.get("type_key") != pack.golden_type_key:
             continue
         expected = GOLDEN_EXPECTED_DIR / c.get("expected_ref", f"expected/{c['id'].split('/', 1)[1]}.json")
-        count += expected.exists() and "datapoints" in json.loads(expected.read_text(encoding="utf-8"))
+        exp = json.loads(expected.read_text(encoding="utf-8")) if expected.exists() else {}
+        count += "datapoints" in exp or bool(_expected_values(exp, pack.fields))
     return count
 
 

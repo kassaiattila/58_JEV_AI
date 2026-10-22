@@ -46,12 +46,14 @@ def test_a_type_pack_with_golden_cases_has_a_golden_set_on_each_of_its_paths():
 
 
 def test_only_the_legacy_cases_the_data_point_measurement_reads_are_counted(monkeypatch, tmp_path):
-    """The packs converted from legacy types keep their expected values without the `datapoints` record, which the
-    data point measurement cannot read (its own command fails on them too): they make no golden set."""
+    """The packs converted from legacy types keep their expected values without the `datapoints` record. 197 (plan 197
+    K0): the data point measurement reads that flat record by the pack's own fields, so they count too; a record with
+    none of the pack's fields does not."""
     (tmp_path / "expected").mkdir()
     cases = [("doc-extract/a", "invoice_hu", {"datapoints": {"invoice_number": "1"}}),
              ("doc-extract/b", "invoice_hu", {"datapoints": {"invoice_number": "2"}}),
              ("doc-extract/c", "belepo_jegy", {"seat": "12"}),
+             ("doc-extract/e", "belepo_jegy", {"no_such_field": "x"}),
              ("doc-extract/d", "viz_szamla", {"datapoints": {}})]
     for case_id, _, expected in cases:
         name = case_id.split("/", 1)[1]
@@ -61,7 +63,9 @@ def test_only_the_legacy_cases_the_data_point_measurement_reads_are_counted(monk
                         encoding="utf-8")
     monkeypatch.setattr(evals, "GOLDEN_MANIFEST", manifest)
     monkeypatch.setattr(evals, "GOLDEN_EXPECTED_DIR", tmp_path)
-    assert [COUNT_CASES(t) for t in ("invoice_hu", "belepo_jegy", "viz_szamla", "foldgaz_szamla")] == [2, 0, 1, 0]
+    assert [COUNT_CASES(t) for t in ("invoice_hu", "belepo_jegy", "viz_szamla", "foldgaz_szamla")] == [2, 1, 1, 0]
+    [seat] = evals.load_cases("belepo_jegy")  # the record without a field of the pack is left out, as counted
+    assert (seat.case_id, seat.expected, seat.expected_valid) == ("c", {"seat": "12"}, True)
     monkeypatch.setattr(evals, "GOLDEN_MANIFEST", tmp_path / "missing.json")
     assert COUNT_CASES("invoice_hu") == 0
 
