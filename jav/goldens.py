@@ -163,10 +163,14 @@ class Golden:
 
 
 def _datapoint_outcome(rows: list[dict[str, Any]], type_key: str) -> Outcome:
+    """200: a case the budget refused has no result even when it returned data points (the S path goes on with every
+    field empty when JEV is refused), as the golden command reports it (`eval_report.budget_skips`)."""
+    from jav.eval_report import budget_skips
     from jav.typepack import get as get_pack
 
     strict = get_pack(type_key).strict_scored
-    with_result = [r for r in rows if r.get("datapoints") is not None]
+    skipped = set(budget_skips(rows))
+    with_result = [r for r in rows if r.get("datapoints") is not None and str(r.get("case_id")) not in skipped]
     vals = [r["scores"][f] for r in with_result for f in strict if r["scores"].get(f) is not None]
     return Outcome(cases=len(rows), answered=len(with_result), right=sum(vals), scored=len(vals), unit="fields")
 
@@ -398,14 +402,20 @@ def _matches(key: str, selector: str) -> bool:
 def select(selectors: Iterable[str]) -> list[Golden]:
     """The golden sets a selector names, in the registry's order: a selector is a key or its first parts
     (`datapoints:invoice_hu` = both paths, with the synthetic cases; `reconcile` = the reconciliation's sets). No
-    selector: every golden set."""
+    selector: every golden set. 200: a whole key names its own set alone, even when it is also the first parts of a
+    longer key (`datapoints:invoice_hu:S` is not `datapoints:invoice_hu:S:synthetic`), so a paid round can name it."""
     selectors = list(selectors)
     every = sets()
     if not selectors:
         return every
-    if unknown := [s for s in selectors if not any(_matches(g.key, s) for g in every)]:
+    keys = {g.key for g in every}
+
+    def names(key: str, selector: str) -> bool:
+        return key == selector if selector in keys else _matches(key, selector)
+
+    if unknown := [s for s in selectors if not any(names(g.key, s) for g in every)]:
         raise UnknownGolden(f"no golden set named {', '.join(unknown)} (python -m jav.cli measure --list)")
-    return [g for g in every if any(_matches(g.key, s) for s in selectors)]
+    return [g for g in every if any(names(g.key, s) for s in selectors)]
 
 
 # --- a round -----------------------------------------------------------------------------------------------------------

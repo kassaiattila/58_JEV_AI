@@ -1383,7 +1383,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("measure", help="188: every golden set with one command (data points, types, intents, logic "
                                        "packs); without a budget only earlier answers count")
     p.add_argument("golden", nargs="*", help="golden sets by key or its first parts (datapoints:invoice_hu, types, "
-                                             "reconcile); none: every golden set")
+                                             "reconcile); a whole key names its own set alone; none: every golden set")
     p.add_argument("--list", action="store_true", help="list the golden sets with their case counts, measure nothing")
     p.add_argument("--no-cache", action="store_true", help="ask again (live calls; needs a budget)")
     _engine_args(p, measurement=True)
