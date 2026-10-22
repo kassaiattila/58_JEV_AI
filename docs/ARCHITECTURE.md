@@ -123,6 +123,11 @@ type pack's legacy golden documents with the pack withheld (`configs/golden_fact
 pack's scored fields are looked for among the facts by value, a repeated file is one document, and the documents are
 split into a development and an evaluation half fixed before any measurement; the documents take the native graph's
 reading and interpretation, are not published and open no to-do.
+Teaching a type (197, plan 197 K2) starts from such a family: `python -m jav.cli type-propose <family>`
+(`jav/type_teaching.py`) reads the development half's measured facts (read only, no AI call) and proposes the names
+that recur in at least three of its documents as fields, with their counts and a kind (a date when every value is
+exactly one date); code joins only one name's spellings and a bilingual label's first part, never synonyms, and no
+value is printed or kept.
 
 ## 2. The five planes
 

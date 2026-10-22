@@ -430,6 +430,23 @@ def cmd_measure(args: argparse.Namespace) -> int:
     return result.exit_code
 
 
+def cmd_type_propose(args: argparse.Namespace) -> int:
+    """197 (plan 197 K2): field proposals for teaching a type, from a held-out family's development half's general facts
+    (`jav/type_teaching.py`); no AI call, names and counts only. Exit code 2: the half has no measured facts."""
+    from jav import type_teaching
+
+    try:
+        report = type_teaching.proposal_report(args.family, min_documents=args.min_documents)
+    except (type_teaching.TeachingError, KeyError) as exc:
+        print(exc)
+        return 2
+    type_teaching.print_proposal(report)
+    if args.out:
+        Path(args.out).write_text(json.dumps(report, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        print(f"\nWritten: {args.out}")
+    return 0
+
+
 def cmd_determinism(args: argparse.Namespace) -> int:
     from jav.evals import determinism
     from jav.flow import run_one
@@ -1305,6 +1322,13 @@ def main(argv: list[str] | None = None) -> int:
     _budget_args(p)
     p.add_argument("--store", help="122: a separate measurement store (results, to-dos and call log stay out of the work store)")
     p.set_defaults(fn=cmd_measure)
+
+    p = sub.add_parser("type-propose", help="197: field proposals for teaching a type from a held-out family's "
+                                            "development half's general facts (no AI call)")
+    p.add_argument("family", help="a family of configs/golden_facts.json (a type pack's key)")
+    p.add_argument("--min-documents", type=int, default=3, help="the fewest development documents a name recurs in")
+    p.add_argument("--out", help="write the proposal as JSON (names and counts only)")
+    p.set_defaults(fn=cmd_type_propose)
 
     p = sub.add_parser("determinism")
     p.add_argument("--arm", choices=["S", "G"], required=True)

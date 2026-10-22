@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.97",
+    "version": "1.0.98",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.98",
+        "date": "2026-10-22",
+        "note": "197 (plan 197 K2a): document vocabulary and test data accepted - two Hungarian fact names the field proposal names as examples (jav/type_teaching.py 2), the invented Hungarian fact names of its tests (tests/test_type_teaching_197.py 7); 6073 -> 6082."
+      },
       {
         "version": "1.0.97",
         "date": "2026-10-22",
@@ -732,6 +737,7 @@
     "jav/synthetic_pdf.py": 3,
     "jav/tablequery.py": 6,
     "jav/taxid.py": 3,
+    "jav/type_teaching.py": 2,
     "jav/typepack.py": 8,
     "jav/typepack_convert.py": 4,
     "jav/validators.py": 1,
@@ -852,6 +858,7 @@
     "tests/test_tablequery.py": 9,
     "tests/test_taxid_069.py": 5,
     "tests/test_trial_todos_150.py": 1,
+    "tests/test_type_teaching_197.py": 7,
     "tests/test_typepack.py": 6,
     "tests/test_typepack_lists.py": 3,
     "tests/test_unified_names_082.py": 1,
