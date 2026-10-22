@@ -141,7 +141,7 @@ def test_a_candidate_is_written_but_a_pack_that_is_not_one_is_never_overwritten(
 def test_the_registry_checklist_names_only_what_is_missing(tmp_path):
     for rel, data in (("configs/field_labels.json", {"fields": {"ticket_id": "Jegyazonosító", "issued": "Kelt"},
                                                      "doc_types": {}, "by_type": {}}),
-                      ("configs/capability_catalog.json", {"expected_document_keys": [], "legacy_pending_document_keys": []}),
+                      ("configs/capability_catalog.json", {"expected_document_keys": []}),
                       ("configs/doc_types.json", {"old_type_map": {}}), ("configs/engine_matrix.json", {"sites": {}}),
                       ("configs/naming.json", {"types": {}})):
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -154,8 +154,8 @@ def test_the_registry_checklist_names_only_what_is_missing(tmp_path):
     labels = {"fields": {"ticket_id": "Jegyazonosító", "issued": "Kelt", "price": "Ár"},
               "doc_types": {"demo_taught": "Demó (tanított)"}, "by_type": {"demo_taught": {"issued": "Kiállítva"}}}
     (tmp_path / "configs" / "field_labels.json").write_text(json.dumps(labels), encoding="utf-8")
-    (tmp_path / "configs" / "capability_catalog.json").write_text(json.dumps(
-        {"expected_document_keys": ["demo_taught"], "legacy_pending_document_keys": ["demo_taught"]}), encoding="utf-8")
+    (tmp_path / "configs" / "capability_catalog.json").write_text(json.dumps({"expected_document_keys": ["demo_taught"]}),
+                                                               encoding="utf-8")
     (tmp_path / "configs" / "doc_types.json").write_text(json.dumps({"old_type_map": {"demo_taught": "ticket"}}), encoding="utf-8")
     (tmp_path / "configs" / "engine_matrix.json").write_text(json.dumps({"sites": {"verify_demo_taught": {}}}), encoding="utf-8")
     (tmp_path / "configs" / "naming.json").write_text(json.dumps({"types": {"demo_taught": {}}}), encoding="utf-8")
@@ -164,15 +164,21 @@ def test_the_registry_checklist_names_only_what_is_missing(tmp_path):
 
 
 def test_the_taught_tickets_files_are_what_its_draft_makes():
-    """The generated files are edited through the draft only: they are exactly what the draft makes, on its date."""
+    """The generated files are edited through the draft only: they are exactly what the draft makes, on its date; a
+    detection switch (199, K2d) adds only its version records and turns `auto_detect`."""
     from datetime import date
 
     draft = type_teaching.load_draft("belepo_jegy_taught")
     files = type_teaching.candidate(draft, today=date(2026, 10, 22))
     paths = type_teaching.candidate_paths(draft.key)
-    for name in ("pack", "callsite", "schema"):
+    for name in ("callsite", "schema"):
         assert json.loads(paths[name].read_text(encoding="utf-8")) == files[name], name
     assert paths["prompt"].read_text(encoding="utf-8") == files["prompt"]
+    pack, made = json.loads(paths["pack"].read_text(encoding="utf-8")), files["pack"]
+    assert {k: v for k, v in pack.items() if k not in ("meta", "auto_detect")} == {
+        k: v for k, v in made.items() if k not in ("meta", "auto_detect")}
+    assert pack["meta"]["changelog"][0] == made["meta"]["changelog"][0]
+    assert {k: pack["meta"]["taught"][k] for k in ("family", "draft")} == {k: made["meta"]["taught"][k] for k in ("family", "draft")}
     assert type_teaching.registry_entries(draft) == []  # registered everywhere
 
 

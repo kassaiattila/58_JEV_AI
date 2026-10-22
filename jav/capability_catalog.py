@@ -79,7 +79,7 @@ def build_catalog():
                 'anchors':{k:list(v) for k,v in pack.detect.items()} if pack.detect else {k:category.get(k,[]) for k in ('required_any','supporting','excluders')}}
             validation={'validators':list(pack.validators),'required_fields':list(pack.required),
                         'field_kinds':pack.fields,'text_labels':pack.text_labels}
-            active=key not in spec['legacy_pending_document_keys']
+            active=pack.auto_detect  # 199: the pack's own detection switch (type-activate / type-withdraw)
         else:
             pack=legacy_packs.load(key)
             schema=pack['schema']
@@ -91,8 +91,6 @@ def build_catalog():
                          'anchors_scope':'detailed_legacy_pack','legacy_detect':_read(folder/'detect.json')}
             validation={'rules':pack['rules']}
             active=pack['manifest']['legacy_catalog_active']
-            if active != (key not in spec['legacy_pending_document_keys']):
-                raise ValueError('legacy status mismatch')
         for p in sources:
             track(p)
         documents.append({'key':key,'legacy_catalog_active':active,'recognition':recognition,

@@ -1,10 +1,11 @@
 {
   "meta": {
     "name": "capability_catalog",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "changelog": [{"version":"1.0.0","date":"2026-09-22","note":"Unified deterministic capability discovery and coverage checks"},
                   {"version":"1.1.0","date":"2026-10-21","note":"190 (plan 189 A2e): the quote request's type pack and intent (quote_request)"},
-                  {"version":"1.2.0","date":"2026-10-22","note":"197 (plan 197 K2b): the taught ticket candidate (belepo_jegy_taught), extractable, not active (never detected)"}]
+                  {"version":"1.2.0","date":"2026-10-22","note":"197 (plan 197 K2b): the taught ticket candidate (belepo_jegy_taught), extractable, not active (never detected)"},
+                  {"version":"1.3.0","date":"2026-10-22","note":"199 (plan 197 K2d): a type is active when its pack's detection switch is on (auto_detect); the hand-kept list of the types not detected is gone"}]
   },
   "purpose": "Deterministic discovery and coverage checks; not a semantic recognition guarantee",
   "document_registry": "configs/doc_types.json",
@@ -50,12 +51,6 @@
     "sportesemeny_tamogatas",
     "system_notification",
     "szamlakuldes"
-  ],
-  "legacy_pending_document_keys": [
-    "belepo_jegy_taught",
-    "csapatmenedzser_utasitas",
-    "meghivo",
-    "terkep_adat"
   ],
   "retired_intent_keys": [
     "invoice",
