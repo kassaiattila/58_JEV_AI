@@ -142,13 +142,14 @@ def test_the_registry_checklist_names_only_what_is_missing(tmp_path):
     for rel, data in (("configs/field_labels.json", {"fields": {"ticket_id": "Jegyazonosító", "issued": "Kelt"},
                                                      "doc_types": {}, "by_type": {}}),
                       ("configs/capability_catalog.json", {"expected_document_keys": [], "legacy_pending_document_keys": []}),
-                      ("configs/doc_types.json", {"old_type_map": {}}), ("configs/engine_matrix.json", {"sites": {}})):
+                      ("configs/doc_types.json", {"old_type_map": {}}), ("configs/engine_matrix.json", {"sites": {}}),
+                      ("configs/naming.json", {"types": {}})):
         (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / rel).write_text(json.dumps(data), encoding="utf-8")
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests" / "test_request_keys_190.py").write_text("", encoding="utf-8")
     todo = type_teaching.registry_entries(_draft(), root=tmp_path)
-    assert len(todo) == 7  # its name, a new field (price), its own name of a shared one (issued), and four registries
+    assert len(todo) == 8  # its name, a new field (price), its own name of a shared one (issued), and five registries
     assert any('"by_type": {"demo_taught": {"issued": "Kiállítva"}}' in t for t in todo)
     labels = {"fields": {"ticket_id": "Jegyazonosító", "issued": "Kelt", "price": "Ár"},
               "doc_types": {"demo_taught": "Demó (tanított)"}, "by_type": {"demo_taught": {"issued": "Kiállítva"}}}
@@ -157,6 +158,7 @@ def test_the_registry_checklist_names_only_what_is_missing(tmp_path):
         {"expected_document_keys": ["demo_taught"], "legacy_pending_document_keys": ["demo_taught"]}), encoding="utf-8")
     (tmp_path / "configs" / "doc_types.json").write_text(json.dumps({"old_type_map": {"demo_taught": "ticket"}}), encoding="utf-8")
     (tmp_path / "configs" / "engine_matrix.json").write_text(json.dumps({"sites": {"verify_demo_taught": {}}}), encoding="utf-8")
+    (tmp_path / "configs" / "naming.json").write_text(json.dumps({"types": {"demo_taught": {}}}), encoding="utf-8")
     (tmp_path / "tests" / "test_request_keys_190.py").write_text('"demo_taught": "a",\n"demo_taught": "b",\n', encoding="utf-8")
     assert type_teaching.registry_entries(_draft(), root=tmp_path) == []
 
@@ -194,3 +196,8 @@ def test_a_taught_candidate_is_measured_on_its_familys_evaluation_half_only(monk
     monkeypatch.setattr("jav.evals.golden", fake_golden)
     golden.measure(goldens.Options(engine="gpt"))
     assert seen == {"arm": "G", "cases": [("b", "belepo_jegy_taught")], "type_key": "belepo_jegy_taught", "label": "taught"}
+    # its own development half, an in-sample check named as such
+    own = goldens.get("taught:belepo_jegy_taught:development")
+    assert "in-sample" in own.what and own.count() == 1
+    own.measure(goldens.Options(engine="gpt"))
+    assert (seen["cases"], seen["label"]) == ([("a", "belepo_jegy_taught")], "taught_development")

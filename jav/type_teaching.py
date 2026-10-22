@@ -337,6 +337,7 @@ def registry_entries(draft: TaughtDraft, root: Path = PROJECT_ROOT) -> list[str]
         return json.loads((root / rel).read_text(encoding="utf-8"))
 
     labels, catalog = read("configs/field_labels.json"), read("configs/capability_catalog.json")
+    named = draft.key in read("configs/naming.json")["types"]
     shared, own_names = labels["fields"], labels.get("by_type", {}).get(draft.key, {})
     new = {f.key: f.label for f in draft.fields if f.key not in shared}
     own = {f.key: f.label for f in draft.fields
@@ -351,6 +352,7 @@ def registry_entries(draft: TaughtDraft, root: Path = PROJECT_ROOT) -> list[str]
            f'configs/capability_catalog.json "expected_document_keys" and "legacy_pending_document_keys" (not detected): '
            f'"{draft.key}"' if not {draft.key} <= set(catalog["expected_document_keys"]) & set(
                catalog["legacy_pending_document_keys"]) else None,
+           f'configs/naming.json "types": "{draft.key}": its file-name token and pattern' if not named else None,
            f'configs/engine_matrix.json "sites": "verify_{draft.key}" as the other converted packs\' verification sites'
            if f"verify_{draft.key}" not in read("configs/engine_matrix.json")["sites"] else None,
            f'tests/test_request_keys_190.py GPT_KEYS and JEV_KEYS: "{draft.key}" (its fingerprints, as the test computes '
