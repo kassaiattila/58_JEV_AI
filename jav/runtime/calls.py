@@ -443,8 +443,7 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
     marked `LEAN_NOTE`."""
     me, note = holder(), None
     with store.connect() as c:
-        c.commit()
-        c.execute("BEGIN IMMEDIATE")
+        store.begin_immediate(c)
         prior = c.execute("SELECT id, attempt, status FROM invocations WHERE run_id=? AND step_id=? ORDER BY attempt",
                           (run_id, step_id)).fetchall()
         for p in prior:
@@ -554,8 +553,7 @@ def recover_uncertain() -> int:
     the normal path. 092: only the reservations of processes that have stopped; a running process (e.g. a command-line
     measurement waiting for its answer) closes its own calls. Returns the number of reservations that became uncertain."""
     with store.connect() as c:
-        c.commit()
-        c.execute("BEGIN IMMEDIATE")
+        store.begin_immediate(c)
         live = sorted(r["holder"] for r in c.execute(
             "SELECT DISTINCT holder FROM invocations WHERE status IN ('reserved','uncertain') AND holder IS NOT NULL")
             if _holder_alive(r["holder"]))

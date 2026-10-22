@@ -214,7 +214,7 @@ def cleanup_partials(candidates: Iterable[PartialCopy], *, dry_run: bool = True,
                     result[candidate.name] = "recent"
                     continue
                 with store.connect() as conn:
-                    conn.execute("BEGIN IMMEDIATE")
+                    store.begin_immediate(conn)
                     referenced = conn.execute(
                         "SELECT 1 FROM workpackage_items WHERE instance=? OR source_path=? COLLATE NOCASE LIMIT 1",
                         (candidate.name, str(path)),
@@ -240,7 +240,7 @@ def release(rels: Iterable[str]) -> list[str]:
     more; returns the deleted relative paths."""
     removed = []
     with store.connect() as c:
-        c.execute("BEGIN IMMEDIATE")
+        store.begin_immediate(c)
         run_refs = set()
         if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='runs'").fetchone():
             for row in c.execute("SELECT input FROM runs"):
