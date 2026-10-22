@@ -130,7 +130,7 @@ exactly one date); code joins only one name's spellings and a bilingual label's 
 value is printed or kept (`--shapes`: the written forms of the development half's labels, letters and digits masked).
 A person writes the draft (`configs/type_drafts/<key>.json`); `type-candidate <key>` makes its candidate pack the way
 the legacy converter made the converted packs (pack, prompt, schema, a verification site that inherits `verify`),
-never picked by detection, and lists the shared registries' entries still missing; `measure taught:<key>` measures
+never picked by detection, and lists the shared registries' entries still missing; `measure taught:<key>:evaluation` measures
 the candidate on the family's evaluation half, on the G path (`taught:<key>:development`: on its own development half,
 an in-sample check before the evaluation; a draft is corrected from that half only).
 

@@ -327,8 +327,9 @@ def fact_goldens() -> list[Golden]:
 
 
 # 197 (plan 197 K2c): a taught type's candidate pack on its family's evaluation half (its draft learnt from the
-# development half), on the G path, scored as the data point golden sets are; `:development` measures it on its own
-# development half, an in-sample check before the evaluation (a draft is corrected from that half only)
+# development half), on the G path, scored as the data point golden sets are: `taught:<key>:evaluation`, and
+# `taught:<key>:development` on its own development half, an in-sample check before the evaluation (a draft is
+# corrected from that half only); each half is named, so one selector never names both
 
 
 def _taught_golden(key: str, half: str = "evaluation") -> Golden:
@@ -356,7 +357,7 @@ def _taught_golden(key: str, half: str = "evaluation") -> Golden:
         return _datapoint_outcome(rows, key)
 
     own = " (its own training examples: an in-sample check)" if half == "development" else ""
-    return Golden(key=f"taught:{key}" + ("" if half == "evaluation" else f":{half}"), layer="datapoints", owner=key,
+    return Golden(key=f"taught:{key}:{half}", layer="datapoints", owner=key,
                   what=f"the taught candidate {key} on the {family} family's {half} half{own}, on the G path",
                   engines=ENGINES, count=count, measure=measure, module=__name__)
 

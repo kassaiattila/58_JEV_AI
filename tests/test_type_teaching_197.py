@@ -185,7 +185,7 @@ def test_a_taught_candidate_is_measured_on_its_familys_evaluation_half_only(monk
                                                     type_key="belepo_jegy"), sha256=name * 64, half=half)
 
     monkeypatch.setattr(evals_facts, "cases", lambda family: [fact_case("a", "development"), fact_case("b", "evaluation")])
-    golden = goldens.get("taught:belepo_jegy_taught")
+    golden = goldens.get("taught:belepo_jegy_taught:evaluation")
     assert (golden.layer, golden.owner, golden.count()) == ("datapoints", "belepo_jegy_taught", 1)
     seen = {}
 
@@ -199,5 +199,6 @@ def test_a_taught_candidate_is_measured_on_its_familys_evaluation_half_only(monk
     # its own development half, an in-sample check named as such
     own = goldens.get("taught:belepo_jegy_taught:development")
     assert "in-sample" in own.what and own.count() == 1
+    assert [g.key for g in goldens.select(["taught:belepo_jegy_taught:evaluation"])] == [golden.key]  # one set
     own.measure(goldens.Options(engine="gpt"))
     assert (seen["cases"], seen["label"]) == ([("a", "belepo_jegy_taught")], "taught_development")
