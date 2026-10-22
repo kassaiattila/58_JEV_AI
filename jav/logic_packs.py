@@ -81,8 +81,10 @@ class LogicPack:
       which a person cannot replace; None: a person may give one.
     - `service`: 185: the module of its own addresses of the local service, by name (a module with a
       `routes(app, prefix)`; `jav.api.service_modules`), so this registry imports no service code.
-    - `goldens`: 188: its golden sets (`jav.goldens.Golden`, named `<kind>:<name>`), measured by the shared measurement
-      command like a type pack's.
+
+    188: a logic pack's golden sets (named `<kind>:<name>`) are measured by the shared measurement command like a type
+    pack's; 204 (plan 204 R1h): its domain names the module that describes them (`GOLDENS` in `jav/domains/`, read by
+    `jav/goldens.py`), so the pack's own module never imports the measurement layer.
     """
 
     kind: str
@@ -101,13 +103,8 @@ class LogicPack:
     outputs: tuple[str, ...] | None = None  # None: a processing package's (`processing_outputs`)
     scope: Callable[[str], dict[str, Any]] | None = None
     service: str | None = None
-    goldens: tuple[Any, ...] = ()
 
     def __post_init__(self) -> None:
-        for golden in self.goldens:
-            if golden.layer != "logic_pack" or golden.owner != self.kind or not golden.key.startswith(f"{self.kind}:"):
-                raise ValueError(f"logic pack {self.kind!r}: its golden set {golden.key!r} must be a logic pack's, "
-                                 f"owned by it and named {self.kind}:<name>")
         if self.kind in DATA_KINDS:
             raise ValueError(f"{self.kind!r} is a plain processing kind, not a logic pack")
         if not self.roles or any(r.source not in ROLE_SOURCES for r in self.roles):

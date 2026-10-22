@@ -10,8 +10,8 @@ editor records the note, B5); such a line says so, and a line outside the list a
 
 - `price(lines, price_list)`: the priced quote; `PricingError` when a line cannot be priced;
 - `price_line(line, price_list)`, `totals(lines, price_list)`: one line, and the totals of priced lines (192, the editor);
-- `measure_golden(golden)`: the invented golden set's quotes priced from their matches (the quote package's code-only
-  golden set `quote:lines` in the shared measurement command).
+- `golden_price_list(golden)`: the invented golden set's price list as a version; 204 (R1h): its quotes are priced and
+  compared in the quotes domain's measurement module (`jav/quote_goldens.py`, the code-only golden set `quote:lines`).
 
 Layer: business module of the quotes domain; pure code, no store, no AI call.
 """
@@ -151,28 +151,5 @@ def golden_price_list(golden: Any) -> price_lists.PriceList:
         fingerprint="golden")
 
 
-def measure_golden(golden: Any):
-    """Each invented request's expected matches priced by `price`, compared with its expected quote: every line's item,
-    quantity, unit, unit price, discount and net amount, and the three totals. One judgement per case."""
-    from jav import goldens
-
-    prices = golden_price_list(golden)
-    cases = [c for c in golden.cases if c.expected.quote is not None]
-    failures = []
-    for case in cases:
-        exp = case.expected
-        lines = [LineInput(sku=m.sku, quantity=exp.request.items[m.item].quantity) for m in exp.matches if m.sku]
-        got = price(lines, prices)
-        want = [(x.sku, x.quantity, x.unit, x.unit_price, x.discount_percent, x.net) for x in exp.quote.lines]
-        have = [(x.sku, x.quantity, x.unit, x.unit_price, x.discount_percent, x.net) for x in got.lines]
-        totals = (got.net_total, got.vat_total, got.gross_total) == (exp.quote.net_total, exp.quote.vat_total,
-                                                                    exp.quote.gross_total)
-        if have != want or not totals:
-            failures.append(f"{case.id}: lines {have} != {want}" if have != want else f"{case.id}: totals differ")
-    print(f"quote:lines - {len(cases) - len(failures)}/{len(cases)} invented quotes priced as expected")
-    return goldens.Outcome(cases=len(cases), answered=len(cases), right=len(cases) - len(failures), scored=len(cases),
-                           failures=tuple(failures))
-
-
-__all__ = ["LineInput", "PricedLine", "PricedQuote", "PricingError", "golden_price_list", "measure_golden", "price",
-           "rounding_unit", "rule_discount"]
+__all__ = ["LineInput", "PricedLine", "PricedQuote", "PricingError", "golden_price_list", "price", "rounding_unit",
+           "rule_discount"]

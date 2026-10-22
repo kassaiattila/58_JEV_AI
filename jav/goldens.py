@@ -12,7 +12,9 @@ Where the golden sets come from:
   registered by hand;
 - the type recognition and the email intent: the two flows' golden sets, described here; 190: the quote request's
   invented emails, their intent and the requests read from them (`jav/evals_quotes.py`);
-- a logic pack: the golden sets it names in its registration (`LogicPack.goldens`), as the reconciliation does;
+- a logic pack: the golden sets of its domain's measurement modules, which the domain module names (`GOLDENS`, 204),
+  as the reconciliation's and the quote's (`jav/reconcile_goldens.py`, `jav/quote_goldens.py`); this registry imports
+  them by name, so a logic pack's own module never imports the measurement layer;
 - 197: the general facts of a held-out family (`configs/golden_facts.json`, `jav/evals_facts.py`): a type pack's
   legacy golden documents with the pack withheld, as a document of an unknown type continues.
 
@@ -29,12 +31,14 @@ A round writes the sets' own reports into one log (`runs/<stamp>_measure.log`) a
 (`runs/<stamp>_measure.jsonl`: the commit, whether the working tree was clean and the options, then one line per set
 with its counts and the raw run files it wrote), and prints one line per set.
 
-Layer: business module (the registry and the round); the measuring functions are imported where they run.
+Layer: business module (the registry and the round); the measuring functions are imported where they run, a domain's
+measurement module by its name (204, as `jav.api.service_modules` adds a domain's service modules).
 """
 
 from __future__ import annotations
 
 import contextlib
+import importlib
 import json
 import time
 import traceback
@@ -376,17 +380,47 @@ def taught_goldens() -> list[Golden]:
     return [g for g in (_taught_golden(k, half) for k in keys for half in ("development", "evaluation")) if g.count()]
 
 
+# --- the logic packs' golden sets, from the domains' measurement modules -----------------------------------------------
+
+
+def measurement_modules() -> list[str]:
+    """204 (plan 204 R1h): the domains' measurement modules, by name (each domain module's `GOLDENS`, as `jav.cli`
+    reads its `COMMANDS`; a domain without golden sets names none), in the domains' order."""
+    from jav.domains import DOMAINS
+
+    return [name for domain in DOMAINS for name in getattr(importlib.import_module(domain), "GOLDENS", ())]
+
+
+def logic_pack_goldens() -> list[Golden]:
+    """The golden sets of the domains' measurement modules (204; until then each logic pack named its own in its
+    registration, so its module imported this registry), in their logic packs' registration order as before. Each is a
+    logic pack's, owned by a registered pack and named `<kind>:<name>`, or the registry refuses to list."""
+    from jav import logic_packs, registrations
+
+    registrations.load_all()
+    order = {pack.kind: i for i, pack in enumerate(logic_packs.packs())}
+    found: list[Golden] = []
+    for name in measurement_modules():
+        for golden in importlib.import_module(name).GOLDENS:
+            owned = golden.owner in order and golden.key.startswith(f"{golden.owner}:")
+            if golden.layer != "logic_pack" or not owned:
+                raise ValueError(f"{name}: its golden set {golden.key!r} must be a registered logic pack's, owned by "
+                                 "it and named <kind>:<name>")
+            found.append(golden)
+    return sorted(found, key=lambda g: order[g.owner])
+
+
 # --- the registry ------------------------------------------------------------------------------------------------------
 
 
 def sets() -> list[Golden]:
     """Every golden set: the type packs' data points, the two flows', then the logic packs' in their registration
     order."""
-    from jav import logic_packs, registrations
+    from jav import registrations
 
     registrations.load_all()
     return [*datapoint_goldens(), *QUOTE_GOLDENS, *fact_goldens(), *taught_goldens(), *FLOW_GOLDENS,
-            *(g for pack in logic_packs.packs() for g in pack.goldens)]
+            *logic_pack_goldens()]
 
 
 def get(key: str) -> Golden:
@@ -549,4 +583,5 @@ def latest_results(runs_dir: Path | None = None) -> dict[str, dict[str, Any]]:
 
 
 __all__ = ["ENGINES", "FLOW_GOLDENS", "LAYERS", "QUOTE_GOLDENS", "Golden", "Options", "Outcome", "Result", "Round", "RoundRefused",
-           "UnknownGolden", "datapoint_goldens", "get", "latest_results", "measure_round", "select", "sets"]
+           "UnknownGolden", "datapoint_goldens", "get", "latest_results", "logic_pack_goldens", "measure_round",
+           "measurement_modules", "select", "sets"]
