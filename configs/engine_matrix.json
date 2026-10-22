@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.6",
+        "date": "2026-10-22",
+        "note": "204 (R1b, the owner's decision to archive every experimental and learning branch): the five learning sites (document_learning, email_learning, claim_assessment, grounded_claims, source_find) and the now unused `experimental` exception kind removed; their code is in the local tag archive/kiserletek-204."
+      },
       {
         "version": "1.0.5",
         "date": "2026-10-22",
@@ -39,8 +44,7 @@
   "exception_kinds": {
     "replaced": "Without JEV another path does the step; the reason names it.",
     "skipped": "Without JEV the step is left out; the code's own checks stay.",
-    "measurement_only": "A measurement of JEV itself, or a comparison arm no flow calls; it means nothing without JEV.",
-    "experimental": "A learning or experimental branch outside the production flows."
+    "measurement_only": "A measurement of JEV itself, or a comparison arm no flow calls; it means nothing without JEV."
   },
   "sites": {
     "detect": {
@@ -489,67 +493,6 @@
       },
       "tests": [
         "tests/test_measure_jev_budget_127.py::test_the_verifier_probe_with_a_jev_budget_runs_under_that_budget_only"
-      ]
-    },
-    "document_learning": {
-      "modules": [
-        "jav/learning_runtime.py",
-        "jav/learning_cli.py"
-      ],
-      "exception": {
-        "kind": "experimental",
-        "reason": "A learning or experimental branch outside the production flows (plan F-csak-gpt D7)."
-      },
-      "tests": [
-        "tests/test_evidence_learning.py::test_requested_amount_cannot_accept_a_tax_identifier_even_if_verifier_supports_it"
-      ]
-    },
-    "email_learning": {
-      "modules": [
-        "jav/email_learning_runtime.py"
-      ],
-      "exception": {
-        "kind": "experimental",
-        "reason": "A learning or experimental branch outside the production flows (plan F-csak-gpt D7)."
-      },
-      "tests": [
-        "tests/test_email_learning.py::test_evidence_keeps_offsets_and_missing_attachment_forces_review"
-      ]
-    },
-    "claim_assessment": {
-      "modules": [
-        "jav/claim_assessment.py"
-      ],
-      "exception": {
-        "kind": "experimental",
-        "reason": "A learning or experimental branch outside the production flows (plan F-csak-gpt D7)."
-      },
-      "tests": [
-        "tests/test_claim_assessment.py::test_source_packet_has_stable_identity_and_rejects_tampered_quote"
-      ]
-    },
-    "grounded_claims": {
-      "modules": [
-        "jav/grounded_claims.py"
-      ],
-      "exception": {
-        "kind": "experimental",
-        "reason": "A learning or experimental branch outside the production flows (plan F-csak-gpt D7)."
-      },
-      "tests": [
-        "tests/test_grounded_structure.py::test_provider_failure_preserves_claim_and_never_supports_it"
-      ]
-    },
-    "source_find": {
-      "modules": [
-        "jav/source_find.py"
-      ],
-      "exception": {
-        "kind": "experimental",
-        "reason": "A learning or experimental branch outside the production flows (plan F-csak-gpt D7)."
-      },
-      "tests": [
-        "tests/test_source_find.py::test_provider_failure_cannot_be_reported_as_absent_or_complete"
       ]
     }
   },

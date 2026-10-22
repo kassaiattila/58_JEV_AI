@@ -1,1 +1,1 @@
-"""Isolated capability trials; they never switch over the production flows."""
+"""Stand-alone measurement tools (204: the September trials were archived); they never switch over the production flows."""

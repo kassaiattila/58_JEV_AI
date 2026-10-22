@@ -33,9 +33,8 @@ COMMANDS = ("jav.email_cli",)
 # 191 (plan F-quote-package B1): the modules the domain is made of (until 191 listed in the boundary test); the shared
 # code imports none of them (`tests/test_domain_boundary_185.py`)
 MODULES = frozenset({
-    "api_email_routing", "api_mailbox", "email_cli", "email_datasets", "email_export", "email_learning", "email_learning_runtime",
-    "email_review", "email_routing", "email_tasks", "emails", "flow_email", "flow_email_learning", "ingest_server",
-    "intent", "intent_gpt", "intents", "mailbox", "domains.email",
+    "api_email_routing", "api_mailbox", "email_cli", "email_datasets", "email_export", "email_routing", "email_tasks",
+    "emails", "flow_email", "ingest_server", "intent", "intent_gpt", "intents", "mailbox", "domains.email",
 })
 
 

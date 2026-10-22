@@ -81,16 +81,8 @@ def build_catalog():
                         'field_kinds':pack.fields,'text_labels':pack.text_labels}
             active=pack.auto_detect  # 199: the pack's own detection switch (type-activate / type-withdraw)
         else:
-            pack=legacy_packs.load(key)
-            schema=pack['schema']
-            folder=PROJECT_ROOT/spec['processing_sources']['legacy']/key
-            sources=[folder/'manifest.json']+[folder/n for n in pack['manifest']['files']]
-            processing={'mode':'explicit_type_candidate','runtime':'jav.legacy_runtime.run_pack',
-                        'explicit_type_supported':True,'automatic_routing_enabled':False}
-            recognition={'broad_key':broad,'criteria':{k:category[k] for k in ('what','not_for','examples')},
-                         'anchors_scope':'detailed_legacy_pack','legacy_detect':_read(folder/'detect.json')}
-            validation={'rules':pack['rules']}
-            active=pack['manifest']['legacy_catalog_active']
+            # 204: the legacy-pack runner is archived; every catalogued type runs from its converted type pack
+            raise ValueError('no type pack for catalogued type: '+key)
         for p in sources:
             track(p)
         documents.append({'key':key,'legacy_catalog_active':active,'recognition':recognition,

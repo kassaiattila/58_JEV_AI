@@ -94,11 +94,3 @@ def test_the_extraction_charges_an_unlisted_answering_model_at_the_requested_pri
     assert out.cost_usd == _expected()
     assert store.ledger_for_run("r-x")[0]["cost_usd"] == pytest.approx(float(_expected()))
 
-
-def test_the_provider_generation_charges_by_the_same_rule(isolated):
-    from jav.provider_generation import generate
-
-    raw = generate(_Agent("synthetic-unlisted-model", {"x": 1}), "synthetic", run_id="r-g", step="gen",
-                   model_name=OPENAI_MODEL, config_hash="h")
-    assert raw["model"] == "synthetic-unlisted-model"
-    assert store.ledger_for_run("r-g")[0]["cost_usd"] == pytest.approx(float(_expected()))

@@ -7,7 +7,7 @@ flow has one entry here, and those places read it. Nothing else changes: every r
 frozen recipe, so the names stay exactly as they are.
 
 An entry (`FlowSpec`) names the module that holds the flow, how the worker builds its graph for one item (`build`; a
-learning flow the worker does not run has none), how the contract lint builds a graph to compare with the contract
+flow made of stages has none), how the contract lint builds a graph to compare with the contract
 (`lint`), whether the flow takes its budget and path from the native reader's estimate (`native`), where an item's
 document type is known before the run (`doc_type`: the recipe's settings or an earlier detection), and, for a recipe
 flow made of stages, its stages in order (`stages`).
@@ -144,8 +144,6 @@ register(FlowSpec("invoice", "jav.flow", _build_extraction, lambda m: m.build_ap
                   doc_type="params"))
 register(FlowSpec("doc_detect", "jav.flow_detect", _build_detect, lambda m: m.build_app("lint.pdf", tracker=False)))
 register(FlowSpec("email", "jav.flow_email", _build_email, lambda m: m.build_app(source_dir="lint", tracker=False)))
-register(FlowSpec("document_learning", "jav.flow_learning", lint=lambda m: m.build_app()))
-register(FlowSpec("email_learning", "jav.flow_email_learning", lint=lambda m: m.build_app()))
 register(FlowSpec("native", "jav.flow_native", _build_native, _lint_native, native=True))
 register(FlowSpec("statement_table", "jav.flow_statement_table", _build_statement_table, _lint_statement_table))
 # 047 T1.3: the `document` recipe flow: detection, then extraction of the detected detailed type (worker `_stages`)
