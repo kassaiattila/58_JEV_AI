@@ -547,15 +547,16 @@ export interface RunView {
   names?: Record<string, ItemName>; // 082: the items' unified names (only when asked for)
   costs?: RunCostView; // 082: planned and actual cost per provider
   review_version?: string; // 085: the version of the result shown; the approval sends it back
-  supersede?: SupersedeInfo | null; // 151: a later live run repeated this one; it can be superseded
+  supersede?: SupersedeInfo | null; // 151: a later live run repeated this one; it can be superseded (200: a trial run too)
   superseded?: { by: string; actor: string; at: string; reasons_closed: number } | null; // 151: who superseded it
   engine?: Engine | null; // 160-D: the AI engine the run ran with (absent from an older service)
   removed_items?: string[]; // 160-C (decision 163 D7): items removed from the package, left out of the release
 }
 /** 151: the later live run that repeated this one, its own open to-dos that would close, and the human work done on it. */
 export interface SupersedeInfo { by: string; open_reasons: number; resolved_reasons: number; corrected_items: number }
-/** 152: an older live run of a package that a person can supersede, with the offer of its own page */
-export interface SupersedableRun extends SupersedeInfo { run_id: string; created_at: string }
+/** 152: an older live run of a package that a person can supersede, with the offer of its own page. 200: an older trial
+ *  run with open to-dos too; `mode` says which (absent from an older service: a live run). */
+export interface SupersedableRun extends SupersedeInfo { run_id: string; created_at: string; mode?: "apply" | "shadow" }
 /** 082: one provider of a run — what the pre-start overview expected (yes / maybe / no; null for an older run), the
  *  budget, the paid calls (failed among them, still open), the known cost, the reserved maximum of the calls without a
  *  known cost, the answers reused from earlier, the models; `unexpected`: called although the overview did not count

@@ -232,18 +232,25 @@ function humanWorkLeft(r: number, c: number): string {
     : t("{{c}} hand-corrected documents stay with it and are not carried over", { c });
 }
 
+/** 200 (decision of 2026-10-22): older trial runs with open to-dos too; the wording names the runs' kinds only when a
+ *  trial is among them, so a list of live runs reads as before. */
 export function OlderRunsOffer({ runs, busy, onSupersede }: { runs: SupersedableRun[]; busy: boolean; onSupersede: (runId: string) => void }) {
   useLocale();
   if (!runs.length) return null;
   const open = runs.reduce((n, r) => n + r.open_reasons, 0);
+  const trials = runs.some((r) => r.mode === "shadow");
   return (
-    <div className="notice" role="region" aria-label={t("Older live runs")}>
-      <p>{t("{{n}} older live run(s) were repeated by a later live run on the same documents. Superseding stops them and closes their {{m}} open to-dos; they cannot be approved afterwards.",
-        { n: runs.length, m: open })}</p>
+    <div className="notice" role="region" aria-label={trials ? t("Older runs") : t("Older live runs")}>
+      <p>{trials
+        ? t("{{n}} older run(s) were repeated by a later run on the same documents. Superseding stops them and closes their {{m}} open to-dos; a superseded live run cannot be approved afterwards.",
+          { n: runs.length, m: open })
+        : t("{{n}} older live run(s) were repeated by a later live run on the same documents. Superseding stops them and closes their {{m}} open to-dos; they cannot be approved afterwards.",
+          { n: runs.length, m: open })}</p>
       <ul className="plain">
         {runs.map((r) => (
           <li key={r.run_id}>
-            <a href={`#/runs/${encodeURIComponent(r.run_id)}`}>{t("Live run, {{when}}", { when: when(r.created_at) })}</a>
+            <a href={`#/runs/${encodeURIComponent(r.run_id)}`}>{r.mode === "shadow" ? t("Trial run, {{when}}", { when: when(r.created_at) })
+              : t("Live run, {{when}}", { when: when(r.created_at) })}</a>
             {" · "}{t("{{n}} open to-dos", { n: r.open_reasons })}
             {r.resolved_reasons + r.corrected_items > 0 ? <span className="error-text">{" · "}{humanWorkLeft(r.resolved_reasons, r.corrected_items)}</span> : null}{" "}
             <ConfirmButton className="secondary small-btn" disabled={busy} onConfirm={() => onSupersede(r.run_id)}>{t("Supersede")}</ConfirmButton>

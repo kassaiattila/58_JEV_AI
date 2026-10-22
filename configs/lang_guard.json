@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.100",
+    "version": "1.0.101",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.101",
+        "date": "2026-10-22",
+        "note": "200: test data. The trial run's supersede offer is checked against its Hungarian UI wording (ui/src/supersedeTrial200.test.tsx, 9), as the 151/152 tests are; a ticket's printed Hungarian lines evidence its event time (tests/test_datetime_evidence_200.py, 6)."
+      },
       {
         "version": "1.0.100",
         "date": "2026-10-22",
@@ -789,6 +794,7 @@
     "tests/test_data_guard_071.py": 25,
     "tests/test_datasets.py": 8,
     "tests/test_date_reading_084.py": 6,
+    "tests/test_datetime_evidence_200.py": 6,
     "tests/test_detect.py": 4,
     "tests/test_detect_detail.py": 4,
     "tests/test_devstate.py": 3,
@@ -955,6 +961,7 @@
     "ui/src/styles.css": 1,
     "ui/src/supersedePackage152.test.tsx": 6,
     "ui/src/supersedeRuns151.test.tsx": 6,
+    "ui/src/supersedeTrial200.test.tsx": 9,
     "ui/src/todoKinds177.test.ts": 11,
     "ui/src/trialTodos150.test.tsx": 2,
     "ui/src/uifixes073.test.tsx": 8,

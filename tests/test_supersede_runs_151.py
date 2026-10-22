@@ -111,7 +111,7 @@ def test_human_work_on_the_older_run_is_reported_before_superseding(runs):
 def test_only_an_unapproved_finished_live_run_with_a_later_cover_can_be_superseded(runs):
     trial = work.start_run(runs["wp"], mode="shadow", **runs["start"])["run_id"]
     _finish(trial)
-    assert work.supersede_info(trial) is None  # a trial run pins nothing
+    assert work.supersede_info(trial) is None  # the latest run: nothing later covers it (200: trials, test_supersede_trial_200)
     with pytest.raises(work.NotReady):
         work.supersede_run(trial, actor="t")
     with store.connect() as c:  # the later run still running: it covers nothing yet

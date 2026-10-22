@@ -1518,7 +1518,7 @@
   "run has input items without a finished result": "run has input items without a finished result",
   "run is {{status}}; approval needs a finished run without open review reasons": "run is {{status}}; approval needs a finished run without open review reasons",
   "only apply runs can be approved": "only apply runs can be approved",
-  "only an unapproved, finished live run that a later finished live run has repeated can be superseded": "only an unapproved, finished live run that a later finished live run has repeated can be superseded",
+  "only a finished run that a later finished run has repeated can be superseded: an unapproved live run, or a trial run with open to-dos": "only a finished run that a later finished run has repeated can be superseded: an unapproved live run, or a trial run with open to-dos",
   "the run is {{status}}: only a queued or running run can be stopped; supersede a finished one instead": "the run is {{status}}: only a queued or running run can be stopped; supersede a finished one instead",
   "review reason {{reason_id}} is already {{status}}": "review reason {{reason_id}} is already {{status}}",
   "another run of the package is still going; start the pending items after it": "another run of the package is still going; start the pending items after it",
@@ -2290,5 +2290,11 @@
   "the letter has no text": "the letter has no text",
   "the letter is longer than {{n}} characters": "the letter is longer than {{n}} characters",
   "the letter of version {{n}} has not been accepted yet": "the letter of version {{n}} has not been accepted yet",
-  "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them": "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them"
+  "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them": "Your own Excel and Word templates for the downloads: upload, check, preview and make active; the markers to write in them",
+  "A later run processed the same documents again.": "A later run processed the same documents again.",
+  "Superseding keeps this trial run as a stopped run and closes its {{n}} open to-dos.": "Superseding keeps this trial run as a stopped run and closes its {{n}} open to-dos.",
+  "Superseded by a later run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.": "Superseded by a later run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.",
+  "Older runs": "Older runs",
+  "{{n}} older run(s) were repeated by a later run on the same documents. Superseding stops them and closes their {{m}} open to-dos; a superseded live run cannot be approved afterwards.": "{{n}} older run(s) were repeated by a later run on the same documents. Superseding stops them and closes their {{m}} open to-dos; a superseded live run cannot be approved afterwards.",
+  "Trial run, {{when}}": "Trial run, {{when}}"
 }

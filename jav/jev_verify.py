@@ -115,6 +115,20 @@ def _readings(token: str) -> list[Decimal]:
 
 
 CANDIDATE_KIND = {"name": "name", "address": "address", "iban": "iban"}  # field kind -> candidate kind (multi-line)
+_ISO_DATETIME = re.compile(r"\s*(\d{4}-\d{2}-\d{2})[T ](\d{1,2}):(\d{2})(?::\d{2})?\s*")
+
+
+def _datetime_hits(value: str, lines: list[LineLayout]) -> list[str]:
+    """200 (Q-belepo-idopont-jev): a text value in the ISO date-time form (a field whose meaning asks for the date and
+    time normalised, e.g. a ticket's event time) is evidenced by a line printing the same date in any form (the shared
+    date reader) and the same hour and minute ("21:00", "21.00"); the time alone or the date alone is not."""
+    m = _ISO_DATETIME.fullmatch(value)
+    target = read_date(m.group(1)).value if m else None
+    if m is None or target is None:
+        return []
+    time_rx = re.compile(rf"(?<!\d)0?{int(m.group(2))}[:.]{m.group(3)}(?!\d)")
+    return [f"L{ln.no:02d}: {ln.text}" for ln in lines
+            if time_rx.search(ln.text) and any(target in (h.value, h.alt) for h in find_dates_in(ln.text))]
 
 
 def _candidate_hits(kind: str, value: str, cands: dict[str, list[Candidate]] | None) -> list[str]:
@@ -229,6 +243,8 @@ def find_evidence(
             # 054: OCR confusions (lower-case L / capital I / vertical bar for 1, O for 0) - on both sides
             ocr_target = _ocr_fold(target)
             hits = [f"L{ln.no:02d}: {ln.text}" for ln, folded in joined if _whole(ocr_target, _ocr_fold(folded))]
+        if not hits and kind == "text":
+            hits = _datetime_hits(value, lines)  # 200: a normalised date and time, printed in another form
         if not hits and kind == "address":
             # address: comma-separated / multi-line, parts on separate lines; accepted if at least half of them occur
             parts = [_fold(p) for p in re.split(r"[,;]", value) if len(_fold(p)) >= 4]

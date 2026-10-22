@@ -1670,15 +1670,17 @@ def cancel_run(run_id: str, *, actor: str | None = None) -> dict[str, int]:
     return out
 
 
-SUPERSEDABLE = ("needs_review", "done", "failed")  # a finished live run (151)
+SUPERSEDABLE = ("needs_review", "done", "failed")  # a finished run (151; 200: a trial run too)
 
 
 def _superseding_run(c: sqlite3.Connection, run: dict[str, Any]) -> str | None:
     """151: the latest LATER live run of the same package that has finished (to-dos raised, not cancelled) and has
-    every item of `run` among its own items; None if there is none."""
+    every item of `run` among its own items; None if there is none. 200: a trial run is superseded by a later run of
+    either kind, since a trial result is only viewed; a live run only by a later live run."""
     items = {i["item_id"] for i in run["input"]["items"]}
     rows = c.execute("SELECT r.run_id, r.input FROM runs r, runs o WHERE o.run_id=? AND r.workpackage_id=o.workpackage_id"
-                     " AND r.mode='apply' AND r.status IN ('needs_review','done') AND (r.created_at, r.rowid) > (o.created_at, o.rowid)"
+                     " AND (r.mode='apply' OR o.mode='shadow') AND r.status IN ('needs_review','done')"
+                     " AND (r.created_at, r.rowid) > (o.created_at, o.rowid)"
                      " ORDER BY r.created_at DESC, r.rowid DESC", (run["run_id"],)).fetchall()
     for r in rows:
         if items <= {i["item_id"] for i in json.loads(r["input"])["items"]}:
@@ -1687,8 +1689,12 @@ def _superseding_run(c: sqlite3.Connection, run: dict[str, Any]) -> str | None:
 
 
 def _supersedable(c: sqlite3.Connection, run_id: str) -> bool:
+    """151: an unapproved, finished live run. 200 (decision of 2026-10-22): a finished trial run too, while it has open
+    reasons, since closing them is all superseding does for a trial."""
     row = c.execute("SELECT mode, approval, status FROM runs WHERE run_id=?", (run_id,)).fetchone()
-    return row is not None and row["mode"] == "apply" and row["approval"] is None and row["status"] in SUPERSEDABLE
+    if row is None or row["approval"] is not None or row["status"] not in SUPERSEDABLE:
+        return False
+    return row["mode"] == "apply" or (row["mode"] == "shadow" and _own_reason_count(c, run_id, "open") > 0)
 
 
 def _own_reason_count(c: sqlite3.Connection, run_id: str, status: str) -> int:
@@ -1701,7 +1707,8 @@ def supersede_info(run_id: str) -> dict[str, Any] | None:
     """151: whether a person can supersede this run, and what the confirmation shows: the later live run that processed
     the same items again (`by`), the run's own open reasons that would close, and the human work done on it (closed
     reasons, corrected items), which stays with this run and is not carried over. None if it cannot be superseded:
-    a trial, an approved or an active run, or no later finished live run covers its items."""
+    an approved or an active run, a trial run without open reasons (200), or no later finished run covers its items
+    (`_superseding_run`)."""
     from jav import corrections  # noqa: F401 - registers the corrections table
 
     run = get_run(run_id)
@@ -1730,15 +1737,17 @@ def open_live_runs(wp_id: str) -> list[str]:
 
 def supersedable_runs(wp_id: str) -> list[dict[str, Any]]:
     """152: the package's older live runs a person can supersede, oldest first, each with the offer of its own page
-    (`supersede_info`) and its start, so the package's processing section can offer them too."""
+    (`supersede_info`) and its start, so the package's processing section can offer them too. 200: older trial runs
+    with open reasons too, each with its `mode`."""
     with store.connect() as c:
-        rows = c.execute("SELECT run_id, created_at FROM runs WHERE workpackage_id=? AND mode='apply' AND approval IS NULL"
-                         " AND status IN (?, ?, ?) ORDER BY created_at, rowid", (wp_id, *SUPERSEDABLE)).fetchall()
+        rows = c.execute("SELECT run_id, mode, created_at FROM runs WHERE workpackage_id=? AND mode IN ('apply','shadow')"
+                         " AND approval IS NULL AND status IN (?, ?, ?) ORDER BY created_at, rowid",
+                         (wp_id, *SUPERSEDABLE)).fetchall()
     out = []
     for row in rows:
         info = supersede_info(row["run_id"])
         if info is not None:
-            out.append({"run_id": row["run_id"], "created_at": row["created_at"], **info})
+            out.append({"run_id": row["run_id"], "mode": row["mode"], "created_at": row["created_at"], **info})
     return out
 
 
@@ -1746,13 +1755,15 @@ def supersede_run(run_id: str, *, actor: str) -> dict[str, Any]:
     """151 (decision of 2026-10-12): a person supersedes an older live run that a later live run has repeated. The run
     is kept as cancelled, its own open reasons close as `superseded` (they stay in the store), and the package's event
     log records who did it and which run superseded it. Checked and done in one transaction; `NotReady` if the run
-    cannot be superseded (see `supersede_info`). The pin of 066 stays: no run closes another run's reasons by itself."""
+    cannot be superseded (see `supersede_info`). The pin of 066 stays: no run closes another run's reasons by itself.
+    200 (decision of 2026-10-22): an older trial run with open reasons too, repeated by a later run of either kind."""
     run = get_run(run_id)
     with store.connect() as c:
         _begin(c)
         by = _superseding_run(c, run) if _supersedable(c, run_id) else None
         if by is None:
-            raise explained(NotReady, "only an unapproved, finished live run that a later finished live run has repeated can be superseded")
+            raise explained(NotReady, "only a finished run that a later finished run has repeated can be superseded: "
+                                      "an unapproved live run, or a trial run with open to-dos")
         c.execute("UPDATE runs SET status='cancelled', finished_at=COALESCE(finished_at, ?) WHERE run_id=?", (_now(), run_id))
         closed = store.close_run_reasons(c, run_id, status="superseded")
         detail = {"run_id": run_id, "superseded_by": by, "reasons_closed": closed}

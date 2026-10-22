@@ -122,6 +122,14 @@ def test_selection_by_key_or_by_its_first_parts():
         goldens.select(["datapoints:invoice"])  # a part of a key's part is not a selection
 
 
+def test_a_whole_key_names_its_own_set_alone():
+    """200 (M-jev-114): a whole key is not also the first parts of a longer key, so a paid round can name the legacy
+    S path alone; the shorter selector still names both."""
+    assert [g.key for g in goldens.select(["datapoints:invoice_hu:S"])] == ["datapoints:invoice_hu:S"]
+    assert [g.key for g in goldens.select(["datapoints:invoice_hu:S:synthetic"])] == ["datapoints:invoice_hu:S:synthetic"]
+    goldens._check(goldens.select(["datapoints:invoice_hu:S"]), goldens.Options(jev_budget_usd=Decimal("0.01")))
+
+
 # --- the same call as the set's own command ---------------------------------------------------------------------------
 
 
@@ -221,6 +229,19 @@ def test_a_data_point_outcome_counts_the_scored_fields_of_the_cases_with_a_resul
     outcome = goldens.get("datapoints:invoice_hu:S").measure(goldens.Options())
     # the informational bank account is not scored, as in the golden report's total; a field the case leaves out neither
     assert (outcome.cases, outcome.answered, outcome.right, outcome.scored, outcome.unit) == (2, 1, 1, 2, "fields")
+    assert outcome.without_result == 1
+
+
+def test_an_s_path_case_the_budget_refused_has_no_result(monkeypatch):
+    """200 (M-jev-114): the S path still returns data points when JEV is refused for the budget (every field empty),
+    so such a case was counted as answered and wrong; the budget left it without a result, as the golden command
+    reports it (`eval_report.budget_skips`)."""
+    rows = [{"case_id": "a", "datapoints": {"x": 1}, "scores": {"invoice_number": True, "gross_total": True}},
+            {"case_id": "b", "datapoints": {"invoice_number": None}, "scores": {"invoice_number": False, "gross_total": False},
+             "review_reasons": ["jev_unavailable:budget_exceeded", "validator:totals.unparseable"]}]
+    record(monkeypatch, evals, "golden", rows)
+    outcome = goldens.get("datapoints:invoice_hu:S").measure(goldens.Options())
+    assert (outcome.cases, outcome.answered, outcome.right, outcome.scored) == (2, 1, 2, 2)
     assert outcome.without_result == 1
 
 
