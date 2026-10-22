@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, cfg, cli, store, work
+from jav import api, cfg, cli, service_shared, store, work
 from jav.adapters import jev as jev_mod
 from jav.runtime import lock, worker
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
@@ -263,7 +263,8 @@ def test_schema_rejects_unknown_fields_and_bad_ids(env):
 
 def restrict_paths(monkeypatch) -> None:
     """Switches the folder restriction on (off by default since 061: the owner allowed any existing folder)."""
-    monkeypatch.setattr(api, "settings", lambda: {**cfg.load("service"), "restrict_paths": True})
+    # 204 (R1g): the folder check reads the service settings in `jav/service_shared.py`
+    monkeypatch.setattr(service_shared, "settings", lambda: {**cfg.load("service"), "restrict_paths": True})
 
 
 def test_folder_outside_allowed_roots_is_refused(env, tmp_path, monkeypatch):

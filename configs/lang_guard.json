@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.107",
+    "version": "1.0.108",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.108",
+        "date": "2026-10-22",
+        "note": "204 (R1g): moved, not gained - the actor and download-header helpers moved with their four lines (three comments naming a review item of 066, one naming an accented letter as an example) from jav/api.py (9 -> 5) to the new jav/service_shared.py (4); the total stays the same."
+      },
       {
         "version": "1.0.107",
         "date": "2026-10-22",
@@ -679,7 +684,7 @@
     "jav/activity.py": 2,
     "jav/adapters/jev.py": 9,
     "jav/admin.py": 15,
-    "jav/api.py": 9,
+    "jav/api.py": 5,
     "jav/api_settings.py": 1,
     "jav/api_system.py": 1,
     "jav/app_settings.py": 6,
@@ -760,6 +765,7 @@
     "jav/runtime/calls.py": 3,
     "jav/runtime/persistence.py": 2,
     "jav/runtime/worker.py": 1,
+    "jav/service_shared.py": 4,
     "jav/store.py": 27,
     "jav/synthetic_pdf.py": 3,
     "jav/tablequery.py": 6,

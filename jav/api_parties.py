@@ -18,34 +18,34 @@ from fastapi import Depends, FastAPI, Query
 from pydantic import Field
 
 from jav import parties, party_views, work_views
-from jav.api import Empty, IsoDay, PartyId, _In, human_actor
+from jav.service_shared import Empty, In, IsoDay, PartyId, human_actor
 from jav.user_messages import explained
 
 PartyName = Annotated[str, Field(min_length=1, max_length=200)]
 
 
 # 133 (F-own-parties): the own parties (`jav/parties.py`, `jav/party_views.py`)
-class PartyIdentity(_In):
+class PartyIdentity(In):
     kind: Literal["tax", "name", "account"]
     key: Annotated[str, Field(min_length=1, max_length=300)]
     label: Annotated[str, Field(min_length=1, max_length=300)]
 
 
-class AcceptPartySuggestions(_In):
+class AcceptPartySuggestions(In):
     ids: Annotated[list[Annotated[str, Field(pattern=r"^[0-9a-f]{16}$")]], Field(min_length=1, max_length=200)]
     names: dict[str, PartyName] = Field(default_factory=dict)  # by suggestion id: the name a person gave it
 
 
-class CreateParty(_In):
+class CreateParty(In):
     name: PartyName
     identities: Annotated[list[PartyIdentity], Field(max_length=500)] = Field(default_factory=list)
 
 
-class RenameParty(_In):
+class RenameParty(In):
     name: PartyName
 
 
-class MergeParty(_In):
+class MergeParty(In):
     into: PartyId
 
 
@@ -55,7 +55,7 @@ class SetPartyIdentity(PartyIdentity):
 
 
 # 138 (DECISIONS 137): an own account or card registered with its details (`jav/parties.py` `own_accounts`)
-class AccountDetails(_In):
+class AccountDetails(In):
     kind: Literal["account", "card"]
     currencies: Annotated[list[Annotated[str, Field(pattern=r"^[A-Za-z]{3}$")]], Field(min_length=1, max_length=10)]
     bank: Annotated[str, Field(max_length=100)] | None = None

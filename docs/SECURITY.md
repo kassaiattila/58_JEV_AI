@@ -140,7 +140,7 @@ The repository is private and has a single maintainer. Report security issues di
 
 ## Technical details
 
-**Local service** (`jav/api.py`, settings: `configs/service.json` 1.8.0):
+**Local service** (`jav/api.py`; the input types, the actor and path checks: `jav/service_shared.py`; settings: `configs/service.json` 1.8.0):
 
 | Protection | Code | Setting | Test |
 |---|---|---|---|
@@ -148,7 +148,7 @@ The repository is private and has a single maintainer. Report security issues di
 | host name (`Host`) | `_Guard`: `allowed_hosts` ∩ `LOOPBACK`, otherwise 403 `forbidden_host` | `allowed_hosts` | `tests/test_api.py::test_foreign_host_and_origin_are_refused` |
 | origin (`Origin`) | `_Guard`, `_origin()`: exact scheme + host + port, otherwise 403 `forbidden_origin` | `dev_origins` | `tests/test_api.py::test_origin_must_match_the_service_or_the_dev_ui_exactly` |
 | JSON only, body size | `_Guard`: `POST/PUT/PATCH/DELETE` only as `application/json` (415); the body is read up front against the limit (413) | `max_body_bytes` = 262144 | `tests/test_api.py::test_body_must_be_json_and_bounded` |
-| structure | `_In` (`extra="forbid"`), `WpId`, `RunId`, `ItemId`, `Text` (2000 characters) | – | `tests/test_api.py::test_schema_rejects_unknown_fields_and_bad_ids` |
+| structure | `In` (`extra="forbid"`), `WpId`, `RunId`, `ItemId`, `Text` (2000 characters) | – | `tests/test_api.py::test_schema_rejects_unknown_fields_and_bad_ids` |
 | actor | `human_actor`, `actor_unless_first_users`, `X-Actor` header (URL-encoded), `app_settings.ACTOR_RE`; unknown name: 403 `unknown_user` | **Users** list | `tests/test_users.py`, `tests/test_api.py::test_actor_may_carry_accents_when_url_encoded` |
 | source document | `_item_source()`: the file is read once and its full `sha256` must match the item's on every request (since v1.1.0; before, a fingerprint memoised by size and modification time was trusted), otherwise 409; the source and the page image are made from exactly the verified bytes | – | `tests/test_api.py::test_item_source_is_served_only_for_unchanged_items`, `tests/test_source_identity_075.py` |
 | folder restriction | `checked_path()` (`resolve(strict=True)`), `allowed_roots()`, 403 `forbidden_path` | `restrict_paths` (false), `allowed_roots`, `allow_legacy_data_root`, `JAV_API_ROOTS` | `tests/test_api.py::test_folder_outside_allowed_roots_is_refused`, `::test_any_existing_folder_is_accepted_without_restriction` |

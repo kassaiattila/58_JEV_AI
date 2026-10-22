@@ -16,13 +16,13 @@ from fastapi import Depends, FastAPI
 from pydantic import Field
 
 from jav import email_routing, work_views
-from jav.api import DecisionState, WpId, _In, human_actor
+from jav.service_shared import DecisionState, In, WpId, human_actor
 
 WpIdField = Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]  # a work package named in a request's body
 ItemId = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]  # an attachment: its content hash
 
 
-class CreateRouting(_In):
+class CreateRouting(In):
     """A routing package over email packages."""
     name: Annotated[str, Field(min_length=1, max_length=200)]
     sources: Annotated[list[WpIdField], Field(min_length=1, max_length=50)]
@@ -32,7 +32,7 @@ class CreateRouting(_In):
 Titles = dict[Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")], Annotated[str, Field(min_length=1, max_length=100)]]
 
 
-class RoutingTitles(_In):
+class RoutingTitles(In):
     titles: Titles | None = None
 
 
@@ -44,7 +44,7 @@ class RoutingItems(RoutingTitles):
     expected_states: dict[ItemId, DecisionState] | None = None
 
 
-class RoutingItem(_In):
+class RoutingItem(In):
     item: ItemId
     expected_state: DecisionState | None = None
 

@@ -16,9 +16,9 @@ from fastapi import Depends, FastAPI
 from pydantic import Field
 
 from jav import statement_package, work_views
-from jav.api import IsoDay, PartyId, WpId, _In, checked_path, human_actor
+from jav.service_shared import In, IsoDay, PartyId, WpId, checked_path, human_actor
 
-class StatementPackageSources(_In):
+class StatementPackageSources(In):
     """140: a statement package's party, period and files (one folder, or files: exports and PDFs)."""
     paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(min_length=1, max_length=500)]
     party_id: PartyId
@@ -32,7 +32,7 @@ class CreateStatementPackage(StatementPackageSources):
     pdfs: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(max_length=500)] = Field(default_factory=list)
 
 
-class PackageStatementFiles(_In):
+class PackageStatementFiles(In):
     """160-C S2: more files for an existing statement package (its party and period are the package's own); 168: with
     `recursive`, a folder's subfolders too."""
     paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(min_length=1, max_length=500)]

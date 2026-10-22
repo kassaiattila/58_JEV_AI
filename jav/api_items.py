@@ -17,14 +17,14 @@ from fastapi import Depends, FastAPI, Query
 from pydantic import Field
 
 from jav import corrections, work_views
-from jav.api import ItemId, RunId, Text, _In, human_actor
+from jav.service_shared import In, ItemId, RunId, Text, human_actor
 
 
 _Cell = Annotated[str, Field(max_length=500)] | int | None
 _Row = Annotated[dict[Annotated[str, Field(max_length=64)], _Cell], Field(max_length=50)]
 
 
-class SaveCorrection(_In):
+class SaveCorrection(In):
     # 048: an itemised list = a list of rows (item field -> value) or a list of plain values; the kind-based check is in
     # `jav.corrections` (that is where the rows' content is compared with the pack's item description)
     fields: dict[Annotated[str, Field(max_length=64)], _Cell | Annotated[list[_Row | _Cell], Field(max_length=2000)]] = Field(max_length=100)
@@ -37,13 +37,13 @@ class SaveCorrection(_In):
     confirm: list[Annotated[str, Field(max_length=64)]] | None = Field(default=None, max_length=100)
 
 
-class NativeCitationRequest(_In):
+class NativeCitationRequest(In):
     occurrence_id: str = Field(min_length=1, max_length=256)
     element_id: str = Field(min_length=1, max_length=256)
     quote: str = Field(min_length=1, max_length=10000)
 
 
-class SaveNativeCorrection(_In):
+class SaveNativeCorrection(In):
     kind: Literal["native"]
     values: dict[Annotated[str, Field(max_length=256)], Annotated[str, Field(max_length=100000)] | None] = Field(max_length=200)
     native_sources: dict[Annotated[str, Field(max_length=256)], Annotated[list[NativeCitationRequest], Field(max_length=20)]] = Field(default_factory=dict, max_length=200)
@@ -53,7 +53,7 @@ class SaveNativeCorrection(_In):
     note: Text | None = None
 
 
-class ResolveNativeCitations(_In):
+class ResolveNativeCitations(In):
     expected_result_version: str = Field(pattern=r"^[0-9a-f]{64}$")
     citations: list[NativeCitationRequest] = Field(max_length=20)
 

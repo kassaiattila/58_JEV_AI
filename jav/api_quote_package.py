@@ -34,35 +34,35 @@ from fastapi.responses import Response
 from pydantic import Field
 
 from jav import package_release, quote_draft, quote_letter, quote_package, quote_proposal, work, work_views
-from jav.api import Empty, WpId, _In, attachment_header, human_actor
+from jav.service_shared import Empty, In, WpId, attachment_header, human_actor
 
 
-class QuotePackageIn(_In):
+class QuotePackageIn(In):
     name: Annotated[str, Field(min_length=1, max_length=200)]
     source: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]
     item_id: Annotated[str, Field(min_length=1, max_length=128)]
 
 
-class QuoteDraftStartIn(_In):
+class QuoteDraftStartIn(In):
     source: Literal["proposal", "request"]
     expected_state: Annotated[int, Field(ge=0)]
     replace: bool = False
 
 
-class QuoteDraftIn(_In):
+class QuoteDraftIn(In):
     draft: quote_draft.DraftIn
     expected_state: Annotated[int, Field(ge=0)]
 
 
-class QuoteApproveIn(_In):
+class QuoteApproveIn(In):
     fingerprint: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 
 
-class QuoteReopenIn(_In):
+class QuoteReopenIn(In):
     note: Annotated[str, Field(max_length=2000)]
 
 
-class QuoteLetterIn(_In):
+class QuoteLetterIn(In):
     body: Annotated[str, Field(max_length=20000)]
     expected_state: Annotated[int, Field(ge=0)]
 

@@ -18,7 +18,7 @@ from fastapi import Path as PathParam
 from pydantic import Field
 
 from jav import work_views, workflows
-from jav.api import IsoDay, PartyId, _In, checked_path, human_actor
+from jav.service_shared import In, IsoDay, PartyId, checked_path, human_actor
 
 
 WfId = Annotated[str, PathParam(pattern=r"^wf-[0-9a-f]{12}$")]  # 146: a workflow
@@ -29,7 +29,7 @@ StepKey = Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]
 Budget = dict[Literal["jev", "openai", "azure_di"], Annotated[str, Field(pattern=r"^\d{1,4}(\.\d{1,6})?$")]]
 
 
-class WorkflowSource(_In):
+class WorkflowSource(In):
     """146: a workflow step's source: a folder or files, an existing work package, none, or (185) a domain's source kind
     (the email domain's mailbox request). Which kinds a step takes, and a domain kind's own check, are the workflow's
     (`workflows._source`, `workflow_steps.SourceKind.check`)."""
@@ -42,13 +42,13 @@ class WorkflowSource(_In):
     only_new: bool = False  # 147: a documents step takes only the documents no live run has processed yet
 
 
-class WorkflowStepInput(_In):
+class WorkflowStepInput(In):
     source: WorkflowSource
     budget: Budget | None = None  # 146: the most an automatic start may reserve, per provider (USD)
     engine: Literal["jev", "gpt"] | None = None  # 160-D: the step's own AI engine; None: the application's
 
 
-class CreateWorkflow(_In):
+class CreateWorkflow(In):
     template: Annotated[str, Field(pattern=r"^[a-z_]{1,60}$")]
     # 181: the party and the period are needed only when the template's steps need them (`workflows.template_needs`)
     party_id: PartyId | None = None
@@ -61,7 +61,7 @@ class CreateWorkflow(_In):
     previous: Annotated[str, Field(pattern=r"^wf-[0-9a-f]{12}$")] | None = None  # 147: the workflow this one repeats
 
 
-class WorkflowEstimate(_In):
+class WorkflowEstimate(In):
     kind: Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]  # 181: a registered step kind (`jav/workflow_steps.py`)
     source: WorkflowSource
     party_id: PartyId | None = None
@@ -70,15 +70,15 @@ class WorkflowEstimate(_In):
     engine: Literal["jev", "gpt"] | None = None  # 160-D: the step's own AI engine; None: the application's
 
 
-class StartWorkflowStep(_In):
+class StartWorkflowStep(In):
     budget: Budget | None = None  # a person's new budget for the step (recorded)
 
 
-class LinkWorkflowStep(_In):
+class LinkWorkflowStep(In):
     workpackage_id: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")]
 
 
-class UpdateWorkflow(_In):
+class UpdateWorkflow(In):
     auto: bool | None = None
     name: Annotated[str, Field(min_length=1, max_length=200)] | None = None
     archived: bool | None = None

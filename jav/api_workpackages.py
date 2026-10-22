@@ -21,14 +21,14 @@ from fastapi.responses import Response
 from pydantic import Field
 
 from jav import app_settings, local_picker, package_scope, work, work_recipes, work_views
-from jav.api import Empty, IsoDay, ItemId, PartyId, Revision, WpId, _In, checked_path, human_actor
+from jav.service_shared import Empty, In, IsoDay, ItemId, PartyId, Revision, WpId, checked_path, human_actor
 from jav.user_messages import explained
 
 
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 
 
-class CreateWorkpackage(_In):
+class CreateWorkpackage(In):
     """Exactly one of: `folder` (the folder's PDFs; with `recursive`, 081, those of its subfolders too) or `paths`
     (given files, possibly from several folders; then `name` is required)."""
     folder: Annotated[str, Field(min_length=1, max_length=1024)] | None = None
@@ -37,13 +37,13 @@ class CreateWorkpackage(_In):
     recursive: bool = False
 
 
-class PickRequest(_In):
+class PickRequest(In):
     """081: the picker's window title (in the display language) and where it opens (a folder, or a file's folder)."""
     title: Annotated[str, Field(max_length=200)] | None = None
     initial: Annotated[str, Field(max_length=1024)] | None = None
 
 
-class ItemSources(_In):
+class ItemSources(In):
     """168 (plan F-item-list-and-adding): exactly one of the given files (`paths`) or a folder's documents (`folder`;
     with `recursive` its subfolders' too, without the output folder of the named copies)."""
     paths: Annotated[list[Annotated[str, Field(min_length=1, max_length=1024)]], Field(min_length=1, max_length=500)] | None = None
@@ -73,11 +73,11 @@ class RemoveItems(ItemIds):
     reason: Annotated[str, Field(min_length=1, max_length=500)]
 
 
-class RenameWorkpackage(_In):
+class RenameWorkpackage(In):
     name: Annotated[str, Field(min_length=1, max_length=200)]
 
 
-class SetPackageScope(_In):
+class SetPackageScope(In):
     """181: the party, the period and the role a person gives a package (`jav/package_scope.py`); any may be left out."""
     party_id: PartyId | None = None
     period_start: IsoDay | None = None
@@ -85,7 +85,7 @@ class SetPackageScope(_In):
     role: Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")] | None = None
 
 
-class SetOwner(_In):
+class SetOwner(In):
     """061: the package's owner (a name from the user list); None: no owner."""
     owner: Annotated[str, Field(min_length=1, max_length=64)] | None
 

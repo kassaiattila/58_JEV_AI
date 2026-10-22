@@ -18,7 +18,8 @@ from fastapi.responses import Response
 from pydantic import Field
 
 from jav import reconcile_package, reconcile_review, reconcile_statement, work_views
-from jav.api import DecisionState, Empty, IsoDay, PartyId, Text, WpId, _error, _In, attachment_header, human_actor
+from jav.service_shared import (DecisionState, Empty, In, IsoDay, PartyId, Text, WpId, attachment_header, error,
+                                human_actor)
 from jav.user_messages import message_fields
 
 # 131 (F-reconciliation E1): the reconciliation package (`jav/reconcile_package.py`)
@@ -28,7 +29,7 @@ LineId = Annotated[str, Field(pattern=LINE_ID)]  # the statement line's stable i
 Money = Annotated[str, Field(pattern=r"^\d{1,12}(\.\d{1,2})?$")]  # a canonical amount, never a guessed separator
 
 
-class ReconcileScope(_In):
+class ReconcileScope(In):
     accounts: Annotated[list[Annotated[str, Field(min_length=1, max_length=80)]], Field(min_length=1, max_length=50)]
     period_start: IsoDay
     period_end: IsoDay
@@ -43,14 +44,14 @@ class SetReconcileScope(ReconcileScope):
     expected_revision: Annotated[int, Field(ge=1)]
 
 
-class AllocationPair(_In):
+class AllocationPair(In):
     invoice_doc_id: DocId
     line_id: LineId
     line_amount: Money | None = None  # None: what both sides have left (one currency) or both whole (two currencies)
     invoice_amount: Money | None = None
 
 
-class Decided(_In):
+class Decided(In):
     """187: the state of the package's decisions as the page read it (`journal_state`); a change on a stale page is a
     409. A request without it is not compared."""
     expected_state: DecisionState | None = None
@@ -90,11 +91,11 @@ class ReconcileRevoke(Decided):
 
 
 # 145 (F-reconciliation E3b): the result (`jav/reconcile_statement.py`)
-class ReconcileApprove(_In):
+class ReconcileApprove(In):
     fingerprint: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]  # the statement the person saw
 
 
-class ReconcileReopen(_In):
+class ReconcileReopen(In):
     note: Annotated[str, Field(min_length=1, max_length=2000)]
 
 
@@ -120,7 +121,7 @@ def routes(app: FastAPI, r: str) -> None:
 
     @app.exception_handler(reconcile_package.Locked)
     async def reconcile_locked(_request: Request, exc: reconcile_package.Locked):
-        return _error(422, "reconcile_locked", str(exc), **message_fields(exc))  # 145: the UI names it in the display language
+        return error(422, "reconcile_locked", str(exc), **message_fields(exc))  # 145: the UI names it in the display language
 
     # --- 131: the reconciliation package (jav/reconcile_package.py): a scope, two lists, decisions per pair ---
 

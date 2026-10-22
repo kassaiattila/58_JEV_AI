@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from jav import api, app_settings, local_picker, store, work, work_views
+from jav import api, app_settings, local_picker, service_shared, store, work, work_views
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 BASE = "http://127.0.0.1:8930"
@@ -190,8 +190,8 @@ def test_pick_endpoint_cancel_busy_and_unavailable(client, monkeypatch):
 def test_a_picked_folder_outside_the_allowed_roots_is_refused_when_restricted(client, tree, tmp_path, monkeypatch):
     elsewhere = tmp_path / "mashol"
     elsewhere.mkdir()
-    monkeypatch.setattr(api, "paths_restricted", lambda: True)
-    monkeypatch.setattr(api, "allowed_roots", lambda: [tree.resolve()])
+    monkeypatch.setattr(service_shared, "paths_restricted", lambda: True)  # 204 (R1g): the folder check's module
+    monkeypatch.setattr(service_shared, "allowed_roots", lambda: [tree.resolve()])
     monkeypatch.setattr(local_picker, "_run", _FakeRunner([elsewhere.as_posix()]))
     r = client.post("/api/local/pick-folder", json={})
     assert r.status_code == 403 and r.json()["error"] == "forbidden_path"
