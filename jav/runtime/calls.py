@@ -265,6 +265,18 @@ def outcome_unknown(exc: BaseException) -> bool:
     return not names & NOT_SENT and bool(names & OUTCOME_UNKNOWN)
 
 
+def known_outcome(exc: BaseException) -> Outcome | None:
+    """202 (backlog Q-elutasitott-hivas-foglalas, the owner's decision of 2026-10-22): the certain cost of a failed
+    call, which its caller attached to the error as `known_outcome` (an `Outcome` with `cost_usd`): a request the
+    provider refused without processing it costs 0, an answer cut off at its output cap costs the tokens it used.
+    None when nothing in the chain carries one; the call's maximum then stays committed."""
+    for e in _chain(exc):
+        out = getattr(e, "known_outcome", None)
+        if isinstance(out, Outcome) and out.cost_usd is not None:
+            return out
+    return None
+
+
 def _error_text(exc: BaseException) -> str:
     """The class names of the chain (`JevUnavailableError<-TypeSafeAPITimeoutError<-ReadTimeout`), for the log."""
     return "<-".join(type(e).__name__ for e in _chain(exc))[:200]
@@ -498,9 +510,18 @@ def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_c
         if status == "uncertain":
             log.warning("call %s/%s may have been processed (%s); its maximum stays reserved until settled by hand",
                         run_id, step_id, _error_text(exc))
+        # 202: a definite failure whose cost is certain is settled at that cost, not at its reserved maximum
+        known = known_outcome(exc) if status == "failed" else None
         with store.connect() as c:
-            c.execute(f"UPDATE invocations SET status=?, error=?, finished_at=? WHERE id=? AND status IN {_OPEN}",
-                      (status, _error_text(exc), _now(), inv_id))
+            if known is None:
+                c.execute(f"UPDATE invocations SET status=?, error=?, finished_at=? WHERE id=? AND status IN {_OPEN}",
+                          (status, _error_text(exc), _now(), inv_id))
+            else:
+                overrun = known.cost_usd > max_cost_usd
+                c.execute("UPDATE invocations SET status=?, error=?, model_actual=?, input_tokens=?, output_tokens=?,"
+                          f" cost_usd=?, cost_known=1, note=COALESCE(?, note), finished_at=? WHERE id=? AND status IN {_OPEN}",
+                          (status, _error_text(exc), known.model, known.input_tokens, known.output_tokens,
+                           str(known.cost_usd), OVERRUN_NOTE if overrun else None, _now(), inv_id))
         raise
     # 066 Á30: cost and tokens are saved with the response too, so that recovery after a shutdown can close it exactly
     store.save_artifact(RESPONSE_KIND, str(inv_id), {"response": out.response, "model": out.model, "input_tokens": out.input_tokens,
