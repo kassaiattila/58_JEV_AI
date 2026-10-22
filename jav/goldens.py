@@ -12,7 +12,9 @@ Where the golden sets come from:
   registered by hand;
 - the type recognition and the email intent: the two flows' golden sets, described here; 190: the quote request's
   invented emails, their intent and the requests read from them (`jav/evals_quotes.py`);
-- a logic pack: the golden sets it names in its registration (`LogicPack.goldens`), as the reconciliation does.
+- a logic pack: the golden sets it names in its registration (`LogicPack.goldens`), as the reconciliation does;
+- 197: the general facts of a held-out family (`configs/golden_facts.json`, `jav/evals_facts.py`): a type pack's
+  legacy golden documents with the pack withheld, as a document of an unknown type continues.
 
 A golden set is measured by the same function its own command calls, with the same arguments
 (`tests/test_golden_commands_188.py`), so the raw run files, their names and the reports stay comparable with the
@@ -106,7 +108,8 @@ class Outcome:
       or failed);
     - `right` of `scored`: the judgements as expected, counted in `unit`: "fields" (a type pack's scored fields without
       the informational ones, as in the golden report's total), "cases" (one judgement per case) or "judgements" (190:
-      the quote requests' fields, numbers of items and item quantities);
+      the quote requests' fields, numbers of items and item quantities) or "values" (197: the expected values found
+      among the general facts);
     - `refused`: why the set was not measured as asked (nothing was run); `error`: why its measurement broke off;
     - `failures`: the cases a code-only golden set got wrong, with what differed.
     """
@@ -300,6 +303,29 @@ QUOTE_GOLDENS = (
 )
 
 
+# 197 (plan 197 K1): the general facts of each held-out family, with the data points (the registry's layer order)
+
+
+def _fact_golden(family: str) -> Golden:
+    from jav import evals_facts
+
+    def measure(options: Options) -> Outcome:
+        rows = evals_facts.measure(family, jev=options.jev, use_cache=options.use_cache, budget_usd=options.budget_usd,
+                                   jev_budget_usd=options.jev_budget_usd)
+        t = evals_facts.totals(rows)
+        return Outcome(cases=t["documents"], answered=t["answered"], right=t["found"], scored=t["expected"], unit="values")
+
+    return Golden(key=f"facts:{family}", layer="datapoints", owner="native",
+                  what=f"the general facts of {family}'s legacy golden documents, its type pack withheld",
+                  engines=ENGINES, count=lambda: evals_facts.count(family), measure=measure, module=__name__)
+
+
+def fact_goldens() -> list[Golden]:
+    from jav import evals_facts
+
+    return [g for g in (_fact_golden(family) for family in evals_facts.families()) if g.count()]
+
+
 # --- the registry ------------------------------------------------------------------------------------------------------
 
 
@@ -309,7 +335,8 @@ def sets() -> list[Golden]:
     from jav import logic_packs, registrations
 
     registrations.load_all()
-    return [*datapoint_goldens(), *QUOTE_GOLDENS, *FLOW_GOLDENS, *(g for pack in logic_packs.packs() for g in pack.goldens)]
+    return [*datapoint_goldens(), *QUOTE_GOLDENS, *fact_goldens(), *FLOW_GOLDENS,
+            *(g for pack in logic_packs.packs() for g in pack.goldens)]
 
 
 def get(key: str) -> Golden:

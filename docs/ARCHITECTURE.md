@@ -117,6 +117,12 @@ without a budget only earlier answers count, and a paid round names one set. A r
 `runs/<stamp>_measure.log` and a receipt with the commit and one line per set into `runs/<stamp>_measure.jsonl`.
 189: the coming quote request logic pack's golden set is invented (`configs/golden_quotes.json`, read and laid out
 as mailbox folders by `jav/quote_golden.py`); it joins the shared command when the logic pack registers it.
+197: the packs converted from legacy types count with their flat expected records (the ticket's 11 cases, the general
+terms' 10), and `facts:<family>` measures the general facts (the native path's source-bound facts, no type pack) on a
+type pack's legacy golden documents with the pack withheld (`configs/golden_facts.json`, `jav/evals_facts.py`): the
+pack's scored fields are looked for among the facts by value, a repeated file is one document, and the documents are
+split into a development and an evaluation half fixed before any measurement; the documents take the native graph's
+reading and interpretation, are not published and open no to-do.
 
 ## 2. The five planes
 
