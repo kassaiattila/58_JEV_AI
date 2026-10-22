@@ -65,11 +65,8 @@ _COLUMNS = ("workpackage_id", "party_id", "period_start", "period_end", "role", 
 
 def _shared_columns(conn: sqlite3.Connection) -> None:
     """186: an older store's scope table (181-185) gets the further parts and the revision."""
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(workpackage_scopes)")}
-    if cols and "parts" not in cols:
-        conn.execute("ALTER TABLE workpackage_scopes ADD COLUMN parts TEXT NOT NULL DEFAULT '{}'")
-    if cols and "revision" not in cols:
-        conn.execute("ALTER TABLE workpackage_scopes ADD COLUMN revision INTEGER NOT NULL DEFAULT 1")
+    store.add_columns(conn, "workpackage_scopes", {"parts": "TEXT NOT NULL DEFAULT '{}'",
+                                                   "revision": "INTEGER NOT NULL DEFAULT 1"})
 
 
 store.register_migration("package_scope", _shared_columns)

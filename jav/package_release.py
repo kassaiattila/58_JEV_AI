@@ -145,14 +145,8 @@ def _file_states(conn: sqlite3.Connection) -> None:
 def _migrate(conn: sqlite3.Connection) -> None:
     """178 (plan 170 L4): which template made a workbook of a version (NULL: a file no template makes, or a version
     released before 178 - the built-in template). 186: a logic pack's own versions, and the files' state."""
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(package_version_files)")}
-    for col in ("template", "template_version"):
-        if cols and col not in cols:
-            conn.execute(f"ALTER TABLE package_version_files ADD COLUMN {col} TEXT")
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(package_versions)")}
-    for col in _VERSION_COLUMNS:
-        if cols and col not in cols:
-            conn.execute(f"ALTER TABLE package_versions ADD COLUMN {col} TEXT")
+    store.add_columns(conn, "package_version_files", {"template": "TEXT", "template_version": "TEXT"})
+    store.add_columns(conn, "package_versions", dict.fromkeys(_VERSION_COLUMNS, "TEXT"))
     _file_states(conn)
 
 

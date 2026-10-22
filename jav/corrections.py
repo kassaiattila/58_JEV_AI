@@ -59,15 +59,11 @@ CREATE TABLE IF NOT EXISTS run_item_corrections (
 
 
 def _migrate(conn) -> None:
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(run_item_corrections)")}
-    if cols and "sources" not in cols:  # 045: field -> ids of the words selected on the image
-        conn.execute("ALTER TABLE run_item_corrections ADD COLUMN sources TEXT")
-    if cols and "confirmed" not in cols:  # 083: field -> the value a person confirmed
-        conn.execute("ALTER TABLE run_item_corrections ADD COLUMN confirmed TEXT")
-    if cols and "native_sources" not in cols:
-        conn.execute("ALTER TABLE run_item_corrections ADD COLUMN native_sources TEXT")
-    if cols and "result_version" not in cols:
-        conn.execute("ALTER TABLE run_item_corrections ADD COLUMN result_version TEXT")
+    store.add_columns(conn, "run_item_corrections", {
+        "sources": "TEXT",  # 045: field -> ids of the words selected on the image
+        "confirmed": "TEXT",  # 083: field -> the value a person confirmed
+        "native_sources": "TEXT", "result_version": "TEXT",
+    })
 
 
 store.register_migration("corrections", _migrate)

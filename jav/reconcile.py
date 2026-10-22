@@ -223,12 +223,10 @@ CREATE INDEX IF NOT EXISTS ix_reconcile_line_marks_line ON reconcile_line_marks(
 
 
 def _migrate(conn) -> None:
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(reconcile_decisions)")}
-    if cols and "workpackage_id" not in cols:  # 131: a rejection made in a reconciliation package (not on a run)
-        conn.execute("ALTER TABLE reconcile_decisions ADD COLUMN workpackage_id TEXT")
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(reconcile_line_marks)")}
-    if cols and "basis" not in cols:  # 147: the suggestion a mark accepted in the quick review came from
-        conn.execute("ALTER TABLE reconcile_line_marks ADD COLUMN basis TEXT")
+    # 131: a rejection made in a reconciliation package (not on a run)
+    store.add_columns(conn, "reconcile_decisions", {"workpackage_id": "TEXT"})
+    # 147: the suggestion a mark accepted in the quick review came from
+    store.add_columns(conn, "reconcile_line_marks", {"basis": "TEXT"})
 
 
 store.register_migration("reconcile", _migrate)

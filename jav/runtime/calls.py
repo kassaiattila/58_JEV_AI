@@ -89,9 +89,7 @@ CREATE TABLE IF NOT EXISTS budgets (
 
 def _add_holder_column(conn) -> None:
     """092: the holder column on a call log created before it."""
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(invocations)")}
-    if cols and "holder" not in cols:
-        conn.execute("ALTER TABLE invocations ADD COLUMN holder TEXT")
+    store.add_columns(conn, "invocations", {"holder": "TEXT"})
 
 
 store.register_migration("runtime.calls.holder", _add_holder_column)

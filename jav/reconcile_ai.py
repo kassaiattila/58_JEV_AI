@@ -90,11 +90,7 @@ CREATE TABLE IF NOT EXISTS reconcile_ai_proposals (
 
 
 def _migrate(conn: Any) -> None:
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(reconcile_ai_proposals)")}
-    if cols and "asked_line_id" not in cols:  # 136
-        conn.execute("ALTER TABLE reconcile_ai_proposals ADD COLUMN asked_line_id TEXT")
-    if cols and "kind_question" not in cols:  # 158
-        conn.execute("ALTER TABLE reconcile_ai_proposals ADD COLUMN kind_question TEXT")
+    store.add_columns(conn, "reconcile_ai_proposals", {"asked_line_id": "TEXT", "kind_question": "TEXT"})  # 136, 158
 
 
 store.register_migration("reconcile_ai", _migrate)

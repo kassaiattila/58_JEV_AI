@@ -148,14 +148,9 @@ def _general_scope(conn) -> None:
 
 
 def _migrate(conn) -> None:
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(workflows)")}
-    if cols and "previous_id" not in cols:  # 147: a workflow repeated for the next period
-        conn.execute("ALTER TABLE workflows ADD COLUMN previous_id TEXT")
-    if cols:
-        _general_scope(conn)
-    step_cols = {r[1] for r in conn.execute("PRAGMA table_info(workflow_steps)")}
-    if step_cols and "engine" not in step_cols:  # 160-D: a step's own AI engine
-        conn.execute("ALTER TABLE workflow_steps ADD COLUMN engine TEXT")
+    store.add_columns(conn, "workflows", {"previous_id": "TEXT"})  # 147: a workflow repeated for the next period
+    _general_scope(conn)  # a missing table has no required party, so nothing is rebuilt
+    store.add_columns(conn, "workflow_steps", {"engine": "TEXT"})  # 160-D: a step's own AI engine
 
 
 store.register_migration("workflows", _migrate)

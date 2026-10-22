@@ -343,10 +343,7 @@ CREATE TABLE IF NOT EXISTS mailbox_pulls (
 
 def _add_change_columns(conn) -> None:
     """167 (review S-5): who last changed a schedule, on a table created before."""
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(mailbox_schedules)")}
-    for col in ("changed_by", "changed_at"):
-        if cols and col not in cols:
-            conn.execute(f"ALTER TABLE mailbox_schedules ADD COLUMN {col} TEXT")
+    store.add_columns(conn, "mailbox_schedules", {"changed_by": "TEXT", "changed_at": "TEXT"})
 
 
 store.register_migration("mailbox.schedule_changes", _add_change_columns)
