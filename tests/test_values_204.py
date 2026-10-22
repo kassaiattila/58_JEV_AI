@@ -43,8 +43,8 @@ def test_a_plain_amount_or_a_finite_number_is_read_exactly():
 
 def test_json_lines_skip_blank_lines(tmp_path):
     path = tmp_path / "rows.jsonl"
-    path.write_text('{"a": 1}\n\n  \n{"b": "é"}\n', encoding="utf-8")
-    assert values.json_lines(path) == [{"a": 1}, {"b": "é"}]
+    path.write_text('{"a": 1}\n\n  \n{"b": "ø"}\n', encoding="utf-8")
+    assert values.json_lines(path) == [{"a": 1}, {"b": "ø"}]
 
 
 def test_the_utility_report_takes_no_nan_as_an_amount():
@@ -59,6 +59,6 @@ def test_the_utility_report_takes_no_nan_as_an_amount():
 
 
 def test_an_output_cell_shows_no_nan_as_a_number():
-    assert fill.as_decimal("NaN") is None and fill._shown("NaN", "money") == "NaN"
+    assert fill._shown("NaN", "money") == "NaN" and fill._shown("1234.5", "money") == "1 234,50"
     assert xlsx.cell_value("NaN", "money") == "NaN"
     assert xlsx.cell_value("1234.50", "money") == Decimal("1234.50")
