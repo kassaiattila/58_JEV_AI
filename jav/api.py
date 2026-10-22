@@ -38,6 +38,7 @@ from fastapi import Path as PathParam
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.routing import BaseRoute
 
 from jav import (app_settings, cfg, corrections, dates, isolated_pdf, local_picker, numbers, policy, package_release, store,
                  version, work, work_views)
@@ -343,6 +344,38 @@ def route_modules() -> list[str]:
     return [*SHARED_BEFORE, *service_modules(), *SHARED_AFTER]
 
 
+# 203: the theme modules' finished routes and the error answers they add, per module list and prefix. FastAPI analyses
+# every endpoint's signature when it is added (about 4 ms each, some 170 of them); the service builds its app once, but
+# the test suite built one per test, about 450 times. An endpoint never refers to the app it was added to (a test
+# checks), so the same route objects serve every app, and each app keeps its own store, settings and start-up state.
+_THEME_ROUTES: dict[tuple[tuple[str, ...], str], tuple[list[BaseRoute], dict[Any, Any]]] = {}
+
+
+def _new_app() -> FastAPI:
+    # 071 decision (2026-09-30): the clickable endpoint list (/api/docs) would load program code from an external host
+    # onto the local address, so it is switched off; the machine-readable endpoint list (/api/openapi.json) stays
+    return FastAPI(title="JAV helyi szolgáltatás", version=API_VERSION, default_response_class=JavJSONResponse,
+                   docs_url=None, openapi_url="/api/openapi.json", redoc_url=None)
+
+
+def _add_theme_routes(app: FastAPI, prefix: str) -> None:
+    """Adds every `route_modules` module's routes and error answers to `app`, built on a throwaway app of the same
+    settings the first time. The routes keep that app as their dependency-override source, so `app.dependency_overrides`
+    does not reach them (nothing uses it)."""
+    key = (tuple(route_modules()), prefix)
+    if key not in _THEME_ROUTES:
+        scratch = _new_app()
+        start, handlers = len(scratch.router.routes), dict(scratch.exception_handlers)
+        for name in key[0]:
+            importlib.import_module(name).routes(scratch, prefix)
+        added = {exc: h for exc, h in scratch.exception_handlers.items() if handlers.get(exc) is not h}
+        _THEME_ROUTES[key] = (scratch.router.routes[start:], added)
+    routes, added = _THEME_ROUTES[key]
+    app.router.routes.extend(routes)
+    for exc, handler in added.items():
+        app.add_exception_handler(exc, handler)
+
+
 def _add_error_handlers(app: FastAPI) -> None:
     """The named errors of the business modules translated into answers (the status codes in the module's docstring)."""
 
@@ -424,10 +457,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
 
     registrations.load_all()  # 173 (plan 170 E2): the package rules, delete guards and party references
     s = settings()
-    # 071 decision (2026-09-30): the clickable endpoint list (/api/docs) would load program code from an external host
-    # onto the local address, so it is switched off; the machine-readable endpoint list (/api/openapi.json) stays
-    app = FastAPI(title="JAV helyi szolgáltatás", version=API_VERSION, default_response_class=JavJSONResponse,
-                  docs_url=None, openapi_url="/api/openapi.json", redoc_url=None)
+    app = _new_app()
 
     if store_path is not None:
         @app.middleware("http")
@@ -478,8 +508,7 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
                     "worker": pdf_status.worker_status(store.current_path(), running=lock.is_held(worker.lock_path())),
                 }}
 
-    for name in route_modules():  # 195 (plan G-tidy R4): every other address, by theme
-        importlib.import_module(name).routes(app, r)
+    _add_theme_routes(app, r)  # 195 (plan G-tidy R4): every other address, by theme; 203: built once per process
 
     @app.api_route(r + "/{rest:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"], include_in_schema=False)
     def unknown_api(rest: str):
