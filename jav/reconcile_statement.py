@@ -142,6 +142,7 @@ def build(ws: dict[str, Any], name: str) -> dict[str, Any]:
     return out
 
 
+@store.one_connection
 def current(wp_id: str) -> dict[str, Any]:
     """The package's statement as it stands now, its fingerprint, what blocks its approval, its warnings and the
     package's approval (`reconcile_package.approval`)."""

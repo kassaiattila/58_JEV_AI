@@ -7,17 +7,21 @@ Simple function API, no ORM: every writer function is one transaction.
 
 from __future__ import annotations
 
+import functools
 import json
 import sqlite3
+import threading
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, ParamSpec, TypeVar
 
 from jav.config import STORE_PATH
 from jav.clock import utc_stamp as _now
 
 SCHEMA_VERSION = 1
+P = ParamSpec("P")
+R = TypeVar("R")
 _scoped_path: ContextVar[Path | None] = ContextVar("jav_scoped_store", default=None)
 _read_only: ContextVar[bool] = ContextVar("jav_read_only_store", default=False)
 
@@ -281,7 +285,15 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         fn(conn)
 
 
-_shared: ContextVar[tuple[str, sqlite3.Connection] | None] = ContextVar("jav_shared_connection", default=None)
+# the session's store, its connection and the thread that opened it (203: a library that copies the caller's context
+# into its own thread brings the session along, but the connection belongs to the thread that opened it)
+_shared: ContextVar[tuple[str, sqlite3.Connection, int] | None] = ContextVar("jav_shared_connection", default=None)
+
+
+def _own_session() -> tuple[str, sqlite3.Connection, int] | None:
+    """The session's connection if this thread opened it; another thread opens its own."""
+    shared = _shared.get()
+    return shared if shared is not None and shared[2] == threading.get_ident() else None
 
 
 @contextmanager
@@ -289,17 +301,31 @@ def session() -> Iterator[None]:
     """One connection for all `connect()` calls in the block on the same store (061: instead of the per-element
     open/close connections of the list views and the result assembly; one open-close costs ~3 ms). The inner
     `connect()` blocks commit, and roll back on error, just as with a standalone connection. When nested, the outer
-    connection is kept; it cannot be shared between threads (the connection belongs to the thread that opened it)."""
-    if _shared.get() is not None:
+    connection is kept. It is not shared between threads (the connection belongs to the thread that opened it): on
+    another thread, even with the context copied, `connect()` opens its own, and a session there its own (203)."""
+    if _own_session() is not None or _read_only.get():  # 203: a read-only connection is never shared
         yield
         return
     path = _scoped_path.get() or STORE_PATH
     with connect(path) as conn:
-        token = _shared.set((str(path), conn))
+        token = _shared.set((str(path), conn, threading.get_ident()))
         try:
             yield
         finally:
             _shared.reset(token)
+
+
+def one_connection(operation: Callable[P, R]) -> Callable[P, R]:
+    """203: runs the operation in one `session()`. The test suite opened about 74 000 connections, each open and close
+    a few milliseconds on Windows, most of them inside a few operations that opened one per small query (an item in the
+    worker: 35). Each step still commits, or rolls back on error, at the end of its own `connect()` block."""
+
+    @functools.wraps(operation)
+    def in_one_connection(*args: P.args, **kwargs: P.kwargs) -> R:
+        with session():
+            return operation(*args, **kwargs)
+
+    return in_one_connection
 
 
 @contextmanager
@@ -316,7 +342,7 @@ def connect(path: Path | None = None) -> Iterator[sqlite3.Connection]:
         finally:
             conn.close()
         return
-    shared = _shared.get()
+    shared = _own_session()
     if shared is not None and shared[0] == str(path):
         # 174: a module first imported within the session registers its tables on import; the shared connection was
         # set up before, so its schema runs again here (before, its tables were missing until the session ended)

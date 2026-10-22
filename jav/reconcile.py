@@ -1436,6 +1436,7 @@ def bank_rate_needs(invoices: list[dict[str, Any]], statements: list[dict[str, A
     return needs | {(cur, day) for cur in {str(inv["currency"]) for inv in foreign} for day in days}
 
 
+@store.one_connection
 def snapshot(current: dict[str, Any] | None = None, *, fetch_rates: bool = False) -> dict[str, Any]:
     """The store's effective invoices and statements, the people's decisions and the exchange rates a card pair needs,
     as a snapshot for `propose`. `current` (doc_id, doc_type, values, validation): the document being processed, in

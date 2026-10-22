@@ -335,6 +335,7 @@ def _check_package(kind: str, wp_id: str) -> None:
             raise explained(WorkflowError, "work package {{name}} already belongs to a workflow", name=repr(wp["name"]))
 
 
+@store.one_connection
 def create(*, template_id: str, party_id: str | None, period_start: Any, period_end: Any,
            steps: dict[str, dict[str, Any]], actor: str, name: str | None = None, names: dict[str, str] | None = None,
            auto: bool = True, advance_now: bool = True, previous: str | None = None) -> dict[str, Any]:
@@ -527,6 +528,7 @@ def _status(sdef: dict[str, Any], st: dict[str, Any], done: dict[str, bool]) -> 
     return st["state"], None  # starting, pulling, needs_budget, nothing_new, failed
 
 
+@store.one_connection
 def view(wf_id: str) -> dict[str, Any]:
     """The control view: the workflow, its steps in order with their state, package and next step, what needs a person
     first, and the latest events."""
@@ -679,6 +681,7 @@ def repeat_draft(wf_id: str) -> dict[str, Any]:
 # --- moving on ----------------------------------------------------------------------------------------------------------
 
 
+@store.one_connection
 def advance(wf_id: str, *, actor: str) -> dict[str, Any]:
     """Moves the chain on: a finished mailbox download gets its package and run; a waiting step whose steps it waits for
     are done starts (only while the workflow's chain is automatic). Idempotent; each start is claimed first."""

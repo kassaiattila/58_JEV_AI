@@ -260,6 +260,7 @@ def _canon(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
 
 
+@store.one_connection
 def create_workpackage(*, name: str, source_kind: str, source_ref: str | None, owner: str | None = None) -> dict[str, Any]:
     """`owner` (decision 065): the creator is responsible for the new package; a nameless (automated) creation has no
     owner."""
@@ -610,6 +611,7 @@ def folder_contents(folder: Path, *, suffixes: tuple[str, ...] = DOCUMENT_SUFFIX
     return files, others
 
 
+@store.one_connection
 def create_from_folder(folder: Path, *, name: str | None = None, suffixes: tuple[str, ...] = DOCUMENT_SUFFIXES,
                        owner: str | None = None, recursive: bool = False, exclude: Iterable[Path] = (),
                        only: Iterable[Path] | None = None) -> dict[str, Any]:
@@ -674,6 +676,7 @@ def fill_new(wp: dict[str, Any], fill: Callable[[], dict[str, Any]]) -> dict[str
         raise
 
 
+@store.one_connection
 def get(wp_id: str) -> dict[str, Any]:
     with store.connect() as c:
         row = c.execute("SELECT * FROM workpackages WHERE id=?", (wp_id,)).fetchone()
