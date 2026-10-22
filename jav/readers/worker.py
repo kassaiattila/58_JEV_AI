@@ -6,18 +6,26 @@ import json
 from pathlib import Path
 import sys
 
-# -I removes caller-controlled import paths; this trusted checkout is explicit. 153 (review F2): the packages are the
-# parent interpreter's (its first argument), so a second checkout or a worktree without its own `.venv` reads too;
-# without it, the checkout's own `.venv`, as before.
 CHECKOUT = Path(__file__).resolve().parents[2]
-DEPENDENCIES = Path(sys.argv[1]) if len(sys.argv) > 1 else CHECKOUT / ".venv" / "Lib" / "site-packages"
-sys.path.insert(0, str(DEPENDENCIES))
-sys.path.insert(0, str(CHECKOUT))
 
 
-def install_policy():
+def install_paths() -> Path:
+    """Puts the trusted checkout and its packages on the import path; returns the packages' folder.
+
+    -I removes caller-controlled import paths; this trusted checkout is explicit. 153 (review F2): the packages are the
+    parent interpreter's (its first argument), so a second checkout or a worktree without its own `.venv` reads too;
+    without it, the checkout's own `.venv`, as before. 204: only the reader process runs this, never an import of the
+    module (the worker's start-up preload imports every module).
+    """
+    dependencies = Path(sys.argv[1]) if len(sys.argv) > 1 else CHECKOUT / ".venv" / "Lib" / "site-packages"
+    sys.path.insert(0, str(dependencies))
+    sys.path.insert(0, str(CHECKOUT))
+    return dependencies
+
+
+def install_policy(dependencies: Path):
     import os
-    library_roots = [Path(sys.base_prefix, "Lib").resolve(), DEPENDENCIES.resolve()]
+    library_roots = [Path(sys.base_prefix, "Lib").resolve(), dependencies.resolve()]
 
     def audit(event, args):
         if event.startswith(("socket.", "subprocess.", "ctypes.")) or event in {
@@ -40,7 +48,7 @@ def install_policy():
     sys.addaudithook(audit)
 
 
-def main():
+def main(dependencies: Path):
     # The parent assigns the Job Object before releasing this bounded request.
     request_bytes = sys.stdin.buffer.read(12_000_000)
     request = json.loads(request_bytes)
@@ -59,7 +67,7 @@ def main():
     limits = ReadLimits.model_validate(request["limits"])
     Image.MAX_IMAGE_PIXELS = limits.image_pixels
     try:
-        install_policy()
+        install_policy(dependencies)
         probe = request.get("probe")
         if probe == "network":
             socket.socket()
@@ -96,7 +104,8 @@ def main():
 
 
 if __name__ == "__main__":
+    _dependencies = install_paths()
     try:
-        main()
+        main(_dependencies)
     except ModuleNotFoundError:
         sys.stdout.buffer.write(b'{"failure":{"status":"unsupported","code":"unsupported","message":"Required reader dependency is not installed"}}')
