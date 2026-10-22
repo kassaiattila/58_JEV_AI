@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "field_labels",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "changelog": [
+   {
+    "version": "1.8.0",
+    "date": "2026-10-22",
+    "note": "197 (plan 197 K0): a type's own name for a shared field (`by_type`). The quote request's customer is the requester; the shared name of `customer_name` is again the utility bills' \"Felhasználó neve\", which 1.7.0 had overwritten for every type."
+   },
    {
     "version": "1.7.0",
     "date": "2026-10-21",
@@ -101,7 +106,7 @@
   "customer_address": "Felhasználó címe",
   "customer_code": "Ügyfélkód",
   "customer_id": "Felhasználó azonosító",
-  "customer_name": "Ajánlatkérő neve",
+  "customer_name": "Felhasználó neve",
   "date": "Dátum",
   "distribution_licensee": "Elosztói engedélyes",
   "document_kind": "Irat fajtája",
@@ -250,5 +255,10 @@
   "villamos_energia_szamla": "Villamosenergia-számla",
   "viz_szamla": "Vízszámla (Díjbeszedő-összesítő)",
   "vizmuvek_szamla": "Ivóvízszámla (Vízművek)"
+ },
+ "by_type": {
+  "quote_request": {
+   "customer_name": "Ajánlatkérő neve"
+  }
  }
 }

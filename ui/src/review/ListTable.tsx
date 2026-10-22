@@ -31,6 +31,7 @@ export function fromRows(rows: ListRow[], columns: ListColumn[]): CorrectionValu
 
 interface Props {
   field: string;
+  docType?: string | null; // 197: the document's type names the list
   columns: ListColumn[];
   rows: ListRow[];
   badRows: number[]; // numbered from 1 (this is how the checks mark them)
@@ -73,7 +74,7 @@ export function ListTable(p: Props) {
   return (
     <div className="list-view">
       <div className="list-head">
-        <strong>{fieldLabel(field)}</strong>
+        <strong>{fieldLabel(field, p.docType)}</strong>
         <span className="muted small">{t("{{n}} sor", { n: rows.length })}</span>
         {p.edited ? <span className="badge">{t("mentetlen")}</span> : p.corrected ? <span className="badge">{t("javítva")}</span> : null}
         <span className="spacer" />
@@ -106,7 +107,7 @@ export function ListTable(p: Props) {
                   onFocus={() => p.onRowPick?.(i + 1)} onClick={() => p.onRowPick?.(i + 1)}>
                   <td className="num muted">{i + 1}</td>
                   {columns.map((c) => {
-                    const label = t("{{n}}. sor: {{col}}", { n: i + 1, col: simple ? fieldLabel(field) : columnLabel(c.name) });
+                    const label = t("{{n}}. sor: {{col}}", { n: i + 1, col: simple ? fieldLabel(field, p.docType) : columnLabel(c.name) });
                     const v = r[c.name] ?? "";
                     return (
                       <td key={c.name}>

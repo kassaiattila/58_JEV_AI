@@ -11,7 +11,7 @@ import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState }
 import { api, ApiError, getActor, NO_ACTOR, type Alternative, type CorrectionValue, type ItemResult, type Provenance, type Reason } from "../api";
 import { Icon } from "../components/Icon";
 import { t, useLocale } from "../i18n";
-import { checkText, editNumber, fieldLabel, reasonText, savedValues, tmap } from "../labels";
+import { checkText, editNumber, fieldLabel as sharedLabel, reasonText, savedValues, tmap } from "../labels";
 import { clearDraft, draftKey, isDirty, rebaseDraft, revertField, setField, setList, settleDraft, useDraft, type Draft } from "./drafts";
 import { useResolve } from "./useResolve";
 import { DuplicatePanel } from "./DuplicatePanel";
@@ -138,6 +138,7 @@ export function rowOf(key: string | null, list: string): number | null {
 
 export function FieldPanel(p: Props) {
   const { result, fields, bandOf, activeField, onActivate, selection, selectMode, readOnly } = p;
+  const fieldLabel = (f: string) => sharedLabel(f, result.extraction?.doc_type);  // 197: the type's own name
   useLocale();
   const key = draftKey(result.run_id, result.item_id);
   const draft = useDraft(key);
@@ -372,7 +373,7 @@ export function FieldPanel(p: Props) {
       ) : null}
 
       {tab !== "fields" ? (
-        <ListTable field={tab} columns={lists[tab].columns} rows={listRows(tab)}
+        <ListTable field={tab} docType={result.extraction?.doc_type} columns={lists[tab].columns} rows={listRows(tab)}
           badRows={(result.checks ?? []).flatMap((c) => (c.ok ? [] : c.rows?.[tab] ?? []))} focusRow={focusRow}
           activeRow={rowOf(activeField, tab)} onRowPick={(n) => p.onRowPick?.(tab, n)}
           edited={draft?.lists?.[tab] !== undefined} corrected={Boolean(result.provenance[tab]?.corrected)} readOnly={readOnly}
