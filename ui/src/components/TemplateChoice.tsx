@@ -14,6 +14,7 @@ const hint = (o: OutputName) => ({
   package_result: t("The full Excel package and the package's next release are made with this template."),
   utility_cost: t("The utility cost's workbook and the package's next release are made with this template."),
   reconcile_statement: t("The draft's download and the approval's stored file are made with this template."),
+  quote: t("The draft's Word document and the one the approval stores are made with this template."),  // 196
 })[o];
 
 export function TemplateChoice({ wpId, output }: { wpId: string; output: OutputName }) {

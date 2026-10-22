@@ -11,6 +11,8 @@
   `POST .../quote/reopen` (422 without a reason), each returning the draft's view; `GET .../quote/versions/{n}`: an
   approved version as it was approved (404 without one). `jav.quote_draft` answers a package that is not a quote's
   with 404 itself.
+- (196) `GET .../quote/versions/{n}/quote.docx`: an approved version's Word document as it was stored;
+  `GET .../quote/draft/quote.docx`: the draft's, marked as a draft (422 while a line is not priced).
 
 The package's own part of its page comes with the work package's view (`LogicPack.page`).
 
@@ -25,10 +27,11 @@ from typing import Annotated, Any, Literal
 from fastapi import Depends, FastAPI
 from fastapi import Path as PathParam
 from fastapi import Query as QueryParam
+from fastapi.responses import Response
 from pydantic import Field
 
-from jav import quote_draft, quote_package, quote_proposal, work, work_views
-from jav.api import Empty, WpId, _In, human_actor
+from jav import package_release, quote_draft, quote_package, quote_proposal, work, work_views
+from jav.api import Empty, WpId, _In, attachment_header, human_actor
 
 
 class QuotePackageIn(_In):
@@ -98,6 +101,16 @@ def routes(app: FastAPI, r: str) -> None:
     @app.get(r + "/workpackages/{wp_id}/quote/versions/{version}")
     def quote_version(wp_id: WpId, version: Annotated[int, PathParam(ge=1, le=100000)]) -> dict[str, Any]:
         return work_views.jsonable(quote_draft.approved_version(wp_id, version))
+
+    @app.get(r + "/workpackages/{wp_id}/quote/versions/{version}/quote.docx")
+    def quote_version_docx(wp_id: WpId, version: Annotated[int, PathParam(ge=1, le=100000)]) -> Response:
+        content, name = quote_draft.version_docx(wp_id, version)
+        return Response(content, media_type=package_release.DOCX, headers={"Content-Disposition": attachment_header(name)})
+
+    @app.get(r + "/workpackages/{wp_id}/quote/draft/quote.docx")
+    def quote_draft_docx(wp_id: WpId) -> Response:
+        content, name = quote_draft.draft_docx(wp_id)
+        return Response(content, media_type=package_release.DOCX, headers={"Content-Disposition": attachment_header(name)})
 
 
 __all__ = ["routes"]

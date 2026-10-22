@@ -19,6 +19,8 @@ is not changed, and reopening it needs a reason.
   and fingerprint, the price list it is priced from and the approval;
 - `start(wp_id, source, actor, expected_state, replace)`, `save(wp_id, draft, actor, expected_state)`;
 - `approve(wp_id, fingerprint, actor)`, `reopen(wp_id, note, actor)`, `approved_version(wp_id, n)`;
+- (196) the quote's documents' language (estimated from the request at the start, changed by a person) and its Word
+  document: stored at the approval (`jav/quote_document.py`), `version_docx(wp_id, n)`, `draft_docx(wp_id)`;
 - `delete_guard(c, wp_id)`, `mark()`: for the quote package's logic pack.
 
 Layer: application operation of the quotes domain over the decision journal, the package versions, the price lists,
@@ -36,8 +38,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from jav import (activity_kinds, cfg, decisions, numbers, package_release, price_lists, quote_pricing, quote_proposal,
-                 quote_request, store, work)
+from jav import (activity_kinds, cfg, decisions, numbers, package_release, price_lists, quote_document, quote_pricing,
+                 quote_proposal, quote_request, store, work)
 from jav.typepack import get as get_pack
 from jav.user_messages import explained
 from jav.clock import utc_stamp as _now
@@ -99,6 +101,7 @@ class DraftIn(_In):
     version: Annotated[int, Field(ge=1)]
     header: dict[str, Annotated[str | None, Field(max_length=2000)]]
     lines: list[LineIn]
+    language: Annotated[str | None, Field(pattern=r"^[a-z]{2}$")] = None  # 196: the quote's documents' language
 
 
 def header_fields() -> tuple[str, ...]:
@@ -242,7 +245,8 @@ def start(wp_id: str, *, source: Literal["proposal", "request"], actor: str, exp
     content = {"price_list": prices.price_list, "version": prices.version,
                "header": {name: _text(req.fields.get(name)) for name in header_fields()}, "lines": lines[:max_lines()],
                "started_from": source, "request_key": quote_proposal.request_key(req.items),
-               "proposal_at": proposal["finished_at"] if proposal else None}
+               "proposal_at": proposal["finished_at"] if proposal else None,
+               "language": quote_document.language_of(quote_document.request_texts(req))}
     with store.connect() as c:
         store.begin_immediate(c)
         decisions.check(c, KIND, wp_id, expected_state)
@@ -327,6 +331,8 @@ def save(wp_id: str, draft: DraftIn | dict[str, Any], *, actor: str, expected_st
         raise explained(QuoteDraftError, "the quote has no header field {{field}}", field=unknown[0])
     if len(sent.lines) > max_lines():
         raise explained(QuoteDraftError, "a quote holds at most {{n}} lines", n=max_lines())
+    if sent.language is not None and sent.language not in quote_document.languages():
+        raise explained(QuoteDraftError, "the quote has no language {{language}}", language=sent.language)
     try:
         prices = price_lists.version(sent.price_list, sent.version)
     except price_lists.PriceListNotFound as exc:
@@ -343,7 +349,7 @@ def save(wp_id: str, draft: DraftIn | dict[str, Any], *, actor: str, expected_st
             raise explained(QuoteDraftError, "the price list version {{version}} is not active", version=sent.version)
         content = {**stored, "price_list": prices.price_list, "version": prices.version,
                    "header": {name: _text(sent.header.get(name)) for name in header_fields()},
-                   "lines": _merged(sent, stored, prices, actor)}
+                   "lines": _merged(sent, stored, prices, actor), "language": sent.language or stored.get("language")}
         _write(c, wp_id, content, "save", actor)
     return view(wp_id)
 
@@ -396,11 +402,13 @@ def _blocker(code: str, line: dict[str, Any] | None = None) -> dict[str, Any]:
 
 def _content(stored: dict[str, Any], prices: price_lists.PriceList, priced: list[quote_pricing.PricedLine | None],
              totals: dict[str, str] | None, ref: dict[str, str] | None, req: quote_request.Request | None) -> dict[str, Any]:
-    """The quote as an approval records it."""
+    """The quote as an approval records it; 196: with its documents' language (a draft started before 196: estimated
+    from the request)."""
     lines = [{"id": ln["id"], "row": ln["row"], "requested": ln["requested"], "mark": ln["mark"], "note": ln["note"],
               "checked_by": ln["checked_by"], **(_priced(p) if p else {"sku": ln["sku"], "name": ln["description"]})}
              for ln, p in zip(stored["lines"], priced, strict=True)]
-    return {"header": stored["header"], "lines": lines, "totals": totals, "currency": prices.currency,
+    language = stored.get("language") or quote_document.language_of(quote_document.request_texts(req))
+    return {"header": stored["header"], "lines": lines, "totals": totals, "currency": prices.currency, "language": language,
             "vat_percent": _canonical(prices.vat_percent),
             "price_list": {"price_list": prices.price_list, "name": prices.name, "version": prices.version,
                            "fingerprint": prices.fingerprint},
@@ -441,7 +449,8 @@ def view(wp_id: str) -> dict[str, Any]:
         approved = package_release.own_version(wp_id, active["version"], c)["content"] if active else None
     out: dict[str, Any] = {"draft": stored, "state": state, "approval": approval, "approved": approved, "lines": [],
                            "totals": None, "currency": None, "vat_percent": None, "blockers": [], "warnings": [],
-                           "fingerprint": None, "price_list": None, "proposal_newer": False}
+                           "fingerprint": None, "price_list": None, "proposal_newer": False, "language": None,
+                           "languages": list(quote_document.languages())}
     if stored is None:
         return out
     prices = price_lists.version(stored["price_list"], stored["version"])
@@ -460,7 +469,7 @@ def view(wp_id: str) -> dict[str, Any]:
     proposal = quote_proposal.current(wp_id)
     content = _content(stored, prices, priced, totals, ref, req)
     out.update(lines=[{**line, "priced": _priced(p) if p else None} for line, p in zip(stored["lines"], priced, strict=True)],
-               totals=totals, currency=prices.currency, vat_percent=_canonical(prices.vat_percent), blockers=blockers,
+               totals=totals, language=content["language"], currency=prices.currency, vat_percent=_canonical(prices.vat_percent), blockers=blockers,
                warnings=_warnings(stored, prices, req), fingerprint=fingerprint(content),
                price_list={"price_list": prices.price_list, "name": prices.name, "version": prices.version,
                            "state": prices.state, "items": _items(prices)},
@@ -489,19 +498,26 @@ def approve(wp_id: str, *, fingerprint: str, actor: str) -> dict[str, Any]:
                         [{"code": b["code"], "message": b["line"] or ""} for b in current["blockers"]])
     if fingerprint != current["fingerprint"]:
         raise explained(work.RevisionConflict, "the quote changed since it was shown; reload it and check it again")
-    prices = price_lists.version(current["draft"]["price_list"], current["draft"]["version"])
-    content = _content(current["draft"], prices, [_price_line(line, prices) for line in current["draft"]["lines"]],
-                       current["totals"], _quote_package().request_of(wp_id), _request(wp_id))
+    package = work.get(wp_id)["name"]
+    content = _view_content(wp_id, current)
     with store.connect() as c:
         store.begin_immediate(c)
         if decisions.state(c, KIND, wp_id) != state:
             raise explained(work.RevisionConflict, "the quote changed since it was shown; reload it and check it again")
         _refuse_if_approved(c, wp_id)
         n = package_release.record_own(c, wp_id, content=content, fingerprint=fingerprint, locks=[], actor=actor)
+        quote_document.store(c, wp_id, n, content, package=package, actor=actor)  # 196: its Word document
         work.record_event(c, wp_id, "quote_approve", actor, {"version": n, "fingerprint": fingerprint,
                                                              "lines": len(content["lines"]),
                                                              "gross": content["totals"]["gross"]})
     return approved_version(wp_id, n, with_quote=False)
+
+
+def _view_content(wp_id: str, current: dict[str, Any]) -> dict[str, Any]:
+    """The content an approval would record from the view `current`."""
+    prices = price_lists.version(current["draft"]["price_list"], current["draft"]["version"])
+    return _content(current["draft"], prices, [_price_line(line, prices) for line in current["draft"]["lines"]],
+                    current["totals"], _quote_package().request_of(wp_id), _request(wp_id))
 
 
 def reopen(wp_id: str, *, note: str, actor: str) -> dict[str, Any]:
@@ -529,6 +545,28 @@ def approved_version(wp_id: str, n: int, *, with_quote: bool = True) -> dict[str
     return {**({"quote": content} if with_quote else {}), **found}
 
 
+# --- the Word document (196) --------------------------------------------------------------------------------------------
+
+
+def version_docx(wp_id: str, n: int) -> tuple[bytes, str]:
+    """An approved version's Word document as it was stored when approved, and its file name (KeyError: no such
+    version)."""
+    _package(wp_id)
+    return quote_document.version_file(wp_id, n, package=work.get(wp_id)["name"])
+
+
+def draft_docx(wp_id: str) -> tuple[bytes, str]:
+    """The draft as a Word document marked as a draft, with the package's chosen template, and its file name.
+    `QuoteDraftError` without a draft or while a line is not priced."""
+    _package(wp_id)
+    current = view(wp_id)
+    if current["draft"] is None:
+        raise explained(QuoteDraftError, "the quote has no draft yet")
+    if current["totals"] is None:
+        raise explained(QuoteDraftError, "the quote has a line that is not priced yet")
+    return quote_document.draft_file(wp_id, _view_content(wp_id, current), package=work.get(wp_id)["name"])
+
+
 # --- the logic pack's parts ----------------------------------------------------------------------------------------------
 
 
@@ -553,4 +591,5 @@ def mark() -> tuple[Any, ...]:
 
 
 __all__ = ["CHECK_MARKS", "EDITABLE", "KIND", "DraftIn", "LineIn", "QuoteDraftError", "approve", "approved_version",
-           "delete_guard", "fingerprint", "header_fields", "mark", "reopen", "save", "start", "view"]
+           "delete_guard", "draft_docx", "fingerprint", "header_fields", "mark", "reopen", "save", "start", "version_docx",
+           "view"]

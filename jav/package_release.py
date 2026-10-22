@@ -57,9 +57,13 @@ FILES = (("result.xlsx", XLSX), ("result.json", "application/json"),
 MEDIA = dict(FILES)
 
 
+DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
 def media(name: str) -> str:
-    """The media type of a version's stored file (an own output's file is a workbook)."""
-    return MEDIA.get(name, XLSX)
+    """The media type of a version's stored file (an own output's file is a workbook; 196: a Word document by its
+    name)."""
+    return DOCX if name.endswith(".docx") else MEDIA.get(name, XLSX)
 
 STATES = ("not_released", "released", "partly_released", "changed_since_release")
 # 186: the state a version's file was made in: a package's release; a logic pack's own version while it holds, and

@@ -4,7 +4,7 @@
 // service reads the file the system's file picker chose, and checks it: a refused file names every problem with its
 // cell), each version previewed with made-up data, made active or retired; the markers are listed to copy. A package
 // chooses its template next to each download (`components/TemplateChoice.tsx`); without a choice the built-in template
-// makes the file, as before.
+// makes the file, as before. 196: the quote's template is a Word document with the same markers.
 import { useMemo, useState } from "react";
 import {
   api, ApiError, type OutputMarkerGroup, type OutputName, type OutputTemplate, type OutputTemplateCheck,
@@ -20,10 +20,11 @@ import { t, useLocale } from "../../i18n";
 import { when } from "../../labels";
 
 /** The outputs in the order the settings page shows them; the labels name the downloads as the Result section does. */
-export const OUTPUTS: { key: OutputName; label: string; hint: string }[] = [
-  { key: "package_result", label: "Package result", hint: "The full Excel package of a package's result, and the workbook a release stores" },
-  { key: "utility_cost", label: "Utility cost", hint: "The utility cost by month of a package with utility bills, and the workbook its release stores" },
-  { key: "reconcile_statement", label: "Reconciliation statement", hint: "A reconciliation package's statement: the draft's download and the file its approval stores" },
+export const OUTPUTS: { key: OutputName; label: string; hint: string; format: "xlsx" | "docx" }[] = [
+  { key: "package_result", label: "Package result", hint: "The full Excel package of a package's result, and the workbook a release stores", format: "xlsx" },
+  { key: "utility_cost", label: "Utility cost", hint: "The utility cost by month of a package with utility bills, and the workbook its release stores", format: "xlsx" },
+  { key: "reconcile_statement", label: "Reconciliation statement", hint: "A reconciliation package's statement: the draft's download and the file its approval stores", format: "xlsx" },
+  { key: "quote", label: "Quote", hint: "A quote's Word document: the draft's download and the file its approval stores", format: "docx" },
 ];
 export const outputLabel = (o: OutputName) => t(OUTPUTS.find((x) => x.key === o)?.label ?? o);
 
@@ -37,9 +38,14 @@ export function issueText(code: string): string {
   const text: Record<string, string> = {
     too_large: t("The file is too large."),
     not_xlsx: t("The file is not an Excel workbook (.xlsx)."),
-    unsafe_content: t("The workbook holds active content (a macro or an embedded object); such a file is not accepted."),
-    unreadable: t("The workbook cannot be read."),
-    external_link: t("The workbook links to another file."),
+    not_docx: t("The file is not a Word document (.docx)."),
+    unsafe_content: t("The file holds active content (a macro or an embedded object); such a file is not accepted."),
+    unreadable: t("The file cannot be read."),
+    external_link: t("The file links to another file."),
+    field: t("A field that computes or imports, such as = or INCLUDETEXT. A template holds no calculation: a total is a marker. Page numbers, dates and links may stay."),
+    months_in_word: t("The months spread across columns, which only an Excel template can do."),
+    nested_rows: t("A repeated table row stands inside another repeated row."),
+    attached_template: t("The document names the template it was made from, a file on a computer; the name is removed when the document is filled."),
     data_connection: t("The workbook has a data connection."),
     unknown_marker: t("A marker this output does not have."),
     row_mixes_tables: t("One row holds the columns of two tables; a table's columns stand in a row of their own."),
@@ -111,7 +117,7 @@ export function OutputTemplatesPanel() {
   return (
     <section className="stage-stack" aria-label={t("Output templates")}>
       <p className="muted small">
-        {t("An own template is an Excel workbook with markers in its cells, such as {{package}} or {{invoices.amount}}: the system writes the data into them and keeps the workbook's look. Without one, a download is made with the built-in template, as before. A package chooses its template next to each download.")}
+        {t("An own template is an Excel workbook or, for a quote, a Word document with markers, such as {{package}} or {{invoices.amount}}: the system writes the data into them and keeps the file's look. Without one, a download is made with the built-in template, as before. A package chooses its template next to each download.")}
       </p>
       {/* a new version starts the form afresh (its key), with the template's output and name */}
       <UploadCard key={again?.template ?? "new"} again={again} onCancel={() => setAgain(null)}
@@ -146,6 +152,7 @@ function UploadCard({ again, onDone, onCancel, onStart }: {
   const [refused, setRefused] = useState<OutputTemplateCheck | null>(null);
   const [msg, setMsg] = useState<{ error: boolean; text: string } | null>(null);
   const ready = !!name.trim() && !!path.trim() && !busy;
+  const word = OUTPUTS.find((o) => o.key === output)?.format === "docx";
 
   async function upload() {
     setBusy(true);
@@ -180,7 +187,7 @@ function UploadCard({ again, onDone, onCancel, onStart }: {
         </label>
       </div>
       <div className="form-row">
-        <label className="block grow">{t("The workbook's full path (.xlsx)")}
+        <label className="block grow">{word ? t("The document's full path (.docx)") : t("The workbook's full path (.xlsx)")}
           <input value={path} maxLength={2000} spellCheck={false} autoComplete="off" onChange={(e) => setPath(e.target.value)} />
         </label>
         <BrowseButton kind="files" initial={path} onPick={([p]) => setPath(p)} />
@@ -271,7 +278,7 @@ function OutputTemplates({ output, templates, onChanged, onNewVersion }: {
                 </td>
                 <td>
                   <span className="release-files">
-                    <a href={api.outputTemplatePreviewUrl(v.template, v.version)} download>{t("Preview (made-up data)")}</a>
+                    <a href={api.outputTemplatePreviewUrl(v.template, v.version, spec.format)} download>{t("Preview (made-up data)")}</a>
                     <a href={api.outputTemplateFileUrl(v.template, v.version)} download title={v.file_name}>{t("The uploaded file")}</a>
                   </span>
                 </td>

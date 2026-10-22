@@ -25,6 +25,7 @@ const CANDIDATE: QuoteRequestCandidate = {
 const NO_DRAFT: QuoteView["draft"] = {
   draft: null, state: 0, approval: { active: null, versions: [] }, approved: null, lines: [], totals: null, currency: null,
   vat_percent: null, blockers: [], warnings: [], fingerprint: null, price_list: null, proposal_newer: false,
+  language: null, languages: ["hu", "en"],
 };
 
 const QUOTE: QuoteView = {

@@ -260,7 +260,8 @@ LOGIC = logic_packs.LogicPack(
     has_runs=False, add_refusal="a quote package has no documents of its own: its request stays in its package",
     release_refusal=_release_refusal, delete_guard=quote_draft.delete_guard, page=_page, approved=_approved,
     next_step=next_step, list_next=next_step,
-    list_mark=lambda: (price_lists.mark(), quote_proposal.mark(), quote_draft.mark()), outputs=(),
+    list_mark=lambda: (price_lists.mark(), quote_proposal.mark(), quote_draft.mark()),
+    outputs=("quote",),  # 196: the approved quote's Word document (`jav/quote_document.py`)
     service="jav.api_quote_package", goldens=GOLDENS)
 
 

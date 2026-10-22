@@ -2238,5 +2238,20 @@
   "Start a quote from this email": "Start a quote from this email",
   "Start another quote from this email": "Start another quote from this email",
   "Data extraction from the email and its attachments ({{what}})": "Data extraction from the email and its attachments ({{what}})",
-  "{{n}} table attachment(s): a request list attached to a quote request is read with it": "{{n}} table attachment(s): a request list attached to a quote request is read with it"
+  "{{n}} table attachment(s): a request list attached to a quote request is read with it": "{{n}} table attachment(s): a request list attached to a quote request is read with it",
+  "A quote's Word document: the draft's download and the file its approval stores": "A quote's Word document: the draft's download and the file its approval stores",
+  "The file is not a Word document (.docx).": "The file is not a Word document (.docx).",
+  "The file holds active content (a macro or an embedded object); such a file is not accepted.": "The file holds active content (a macro or an embedded object); such a file is not accepted.",
+  "The file links to another file.": "The file links to another file.",
+  "A field that computes or imports, such as = or INCLUDETEXT. A template holds no calculation: a total is a marker. Page numbers, dates and links may stay.": "A field that computes or imports, such as = or INCLUDETEXT. A template holds no calculation: a total is a marker. Page numbers, dates and links may stay.",
+  "The months spread across columns, which only an Excel template can do.": "The months spread across columns, which only an Excel template can do.",
+  "A repeated table row stands inside another repeated row.": "A repeated table row stands inside another repeated row.",
+  "The document names the template it was made from, a file on a computer; the name is removed when the document is filled.": "The document names the template it was made from, a file on a computer; the name is removed when the document is filled.",
+  "An own template is an Excel workbook or, for a quote, a Word document with markers, such as {{package}} or {{invoices.amount}}: the system writes the data into them and keeps the file's look. Without one, a download is made with the built-in template, as before. A package chooses its template next to each download.": "An own template is an Excel workbook or, for a quote, a Word document with markers, such as {{package}} or {{invoices.amount}}: the system writes the data into them and keeps the file's look. Without one, a download is made with the built-in template, as before. A package chooses its template next to each download.",
+  "The document's full path (.docx)": "The document's full path (.docx)",
+  "Download version {{n}} (Word)": "Download version {{n}} (Word)",
+  "Language of the quote's documents": "Language of the quote's documents",
+  "Download the draft (Word)": "Download the draft (Word)",
+  "Download (Word)": "Download (Word)",
+  "The draft's Word document and the one the approval stores are made with this template.": "The draft's Word document and the one the approval stores are made with this template."
 }

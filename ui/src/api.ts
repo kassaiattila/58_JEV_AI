@@ -135,7 +135,11 @@ export interface QuotePricedLine {
   sku: string | null; name: string; quantity: string; unit: string; list_price: string | null; unit_price: string;
   manual_price: boolean; discount_percent: string; discount_from: "rule" | "manual" | null; net: string;
 }
-export interface QuoteDraftIn { price_list: string; version: number; header: Record<string, string | null>; lines: QuoteLineIn[] }
+export interface QuoteDraftIn {
+  price_list: string; version: number; header: Record<string, string | null>; lines: QuoteLineIn[];
+  /** 196: the language of the quote's documents (hu, en) */
+  language?: string | null;
+}
 export interface QuoteDraftContent extends Omit<QuoteDraftIn, "lines"> {
   lines: QuoteDraftLine[]; started_from: "proposal" | "request"; request_key: string; proposal_at: string | null;
 }
@@ -151,6 +155,7 @@ export interface QuoteApproved {
     mark: QuoteLineMark | null; note: string | null; checked_by: string | null; sku: string | null; name: string | null })[];
   price_list: { price_list: string; name: string; version: number; fingerprint: string };
   request: { workpackage_id?: string; item_id?: string; title: string | null; key: string };
+  language?: string;  // 196
 }
 export interface QuoteDraftView {
   draft: QuoteDraftContent | null; state: number; approval: OwnApproval; approved: QuoteApproved | null;
@@ -161,6 +166,8 @@ export interface QuoteDraftView {
   fingerprint: string | null;
   price_list: { price_list: string; name: string; version: number; state: string; items: QuoteListItem[] } | null;
   proposal_newer: boolean;
+  /** 196: the language of the quote's documents, and the languages it can be */
+  language: string | null; languages: string[];
 }
 /** 192 (B6a): an email's quote request (`jav/quote_package.py` `email_part`): the request, what it lacks as a whole,
  *  the quotes already made from it and the item a quote starts from. */
@@ -229,7 +236,7 @@ export interface PackageResult {
   tables: string[];
 }
 /** 178/179 (plan 170 L4): the outputs a person may give an own Excel template. */
-export type OutputName = "package_result" | "utility_cost" | "reconcile_statement";
+export type OutputName = "package_result" | "utility_cost" | "reconcile_statement" | "quote";  // 196: the quote, a Word document
 /** One problem or warning of a template's check: its code, the sheet or cell (`Sheet!B4`), a detail. */
 export interface OutputTemplateIssue { code: string; where: string; detail: string }
 export interface OutputTemplateCheck {
@@ -255,7 +262,7 @@ export interface OutputMarkerGroup {
 }
 export interface OutputTemplatesListing {
   templates: OutputTemplate[];
-  outputs: Record<OutputName, { output: OutputName; what: string; markers: OutputMarkerGroup[] }>;
+  outputs: Record<OutputName, { output: OutputName; what: string; format: "xlsx" | "docx"; markers: OutputMarkerGroup[] }>;
 }
 /** 191 (plan F-quote-package B2): the columns of a price list file (`configs/price_lists.json`). */
 export type PriceListColumn = "sku" | "name" | "unit" | "unit_price" | "category";
@@ -1468,6 +1475,9 @@ export const api = {
   reopenQuote: (wpId: string, note: string) => request<QuoteDraftView>("POST", `/workpackages/${enc(wpId)}/quote/reopen`, { note }),
   quoteVersion: (wpId: string, version: number) =>
     request<OwnVersion & { quote: QuoteApproved }>("GET", `/workpackages/${enc(wpId)}/quote/versions/${version}`),
+  /** 196: the quote as a Word document: the draft's (marked as a draft) and an approved version's as it was stored */
+  quoteDraftDocxUrl: (wpId: string) => `/api/workpackages/${enc(wpId)}/quote/draft/quote.docx`,
+  quoteVersionDocxUrl: (wpId: string, version: number) => `/api/workpackages/${enc(wpId)}/quote/versions/${version}/quote.docx`,
   /** 191 (plan F-quote-package B2): the seller's price lists; an upload is read by the service from the path the
    *  system's file picker chose, and a refused file gives 422 `price_list_refused` with the check (`ApiError.check`) */
   priceLists: () => request<PriceListsListing>("GET", "/price-lists"),
@@ -1492,7 +1502,8 @@ export const api = {
     request<OutputTemplateVersion>("POST", `/output-templates/${enc(template)}/versions/${version}/activate`, {}),
   retireOutputTemplate: (template: string) => request<OutputTemplateVersion>("POST", `/output-templates/${enc(template)}/retire`, {}),
   outputTemplateFileUrl: (template: string, version: number) => `/api/output-templates/${enc(template)}/versions/${version}/file`,
-  outputTemplatePreviewUrl: (template: string, version: number) => `/api/output-templates/${enc(template)}/versions/${version}/preview.xlsx`,
+  outputTemplatePreviewUrl: (template: string, version: number, format: "xlsx" | "docx" = "xlsx") =>
+    `/api/output-templates/${enc(template)}/versions/${version}/preview.${format}`,
   packageOutputTemplates: (wpId: string) => request<PackageOutputChoices>("GET", `/workpackages/${enc(wpId)}/output-templates`),
   choosePackageOutputTemplate: (wpId: string, output: OutputName, template: string | null, expectedState?: number) =>
     request<PackageOutputChoices>("PUT", `/workpackages/${enc(wpId)}/output-templates/${enc(output)}`,

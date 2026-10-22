@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "outputs",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "description": "The output contract (178, plan 170 L4, jav/outputs/contract.py): each output a person downloads or a release stores, and the data it is filled with: its values (one value each, such as the package's name) and its tables, each column with its kind. A key is an English identifier (lowercase letters, digits and `_`); a person's own template (planned: the second round of L4) may use only the keys listed here. A table with `per` is one table for each document type, its columns the listed ones followed by the type pack's fields (`fields: type_pack`) or the columns of its lists' rows (`fields: type_pack_lists`); `months` adds one column per month, keyed `month_<yyyy>_<mm>`. Kinds: text, date, money and number (a decimal number; written as one when the text reads as one), count (a whole number), probability (between 0 and 1), flag (yes or empty), json (structured text). builtin: the layout of the built-in template, the one every download had until 178 (sheet per table; `heading`: the values as a block above every table; `min_width`: the narrowest column; `marks`: the fill colour of a marked cell). A table's `footer` rows (the utility cost's grand total) are written by the built-in template only; an own template takes the value (`grand_total`). templates: the limits of an own template (its size, the made-up rows of a preview) and (196) the fields a Word template may hold (`word_fields`: page numbers, dates, links and references; any other field, a calculation (`=`) above all, refuses the template). The column headers and sheet names of the built-in layout come from field_labels.json, reports.json and the code that builds the data.",
     "changelog": [
+      {
+        "version": "1.3.0",
+        "date": "2026-10-22",
+        "note": "196 (plan F-Word-output W2): the approved quote as a Word document (`quote`)."
+      },
       {
         "version": "1.2.0",
         "date": "2026-10-22",
@@ -288,6 +293,51 @@
             "pays": "text",
             "statement_file": "text",
             "statement_verified": "flag"
+          }
+        }
+      }
+    },
+    "quote": {
+      "what": "An approved quote as a Word document (196): its heading - the customer, the contact, the reference, the date and the version - its lines priced by code and its totals. The language (hu or en) chooses the built-in template and how the numbers and dates are written.",
+      "format": "docx",
+      "builtin": {
+        "version": "1.0.0"
+      },
+      "values": {
+        "package": "text",
+        "version": "count",
+        "state": "text",
+        "language": "text",
+        "quote_date": "date",
+        "approved_by": "text",
+        "customer_name": "text",
+        "customer_tax_number": "text",
+        "contact_name": "text",
+        "contact_email": "text",
+        "contact_phone": "text",
+        "deadline": "date",
+        "reference": "text",
+        "note": "text",
+        "request_title": "text",
+        "price_list": "text",
+        "currency": "text",
+        "vat_percent": "number",
+        "net_total": "money",
+        "vat_total": "money",
+        "gross_total": "money"
+      },
+      "tables": {
+        "lines": {
+          "columns": {
+            "position": "count",
+            "sku": "text",
+            "name": "text",
+            "quantity": "number",
+            "unit": "text",
+            "list_price": "money",
+            "unit_price": "money",
+            "discount_percent": "number",
+            "net": "money"
           }
         }
       }

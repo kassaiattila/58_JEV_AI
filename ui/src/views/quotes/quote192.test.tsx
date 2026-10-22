@@ -18,6 +18,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const NO_DRAFT: QuoteView["draft"] = {
   draft: null, state: 0, approval: { active: null, versions: [] }, approved: null, lines: [], totals: null, currency: null,
   vat_percent: null, blockers: [], warnings: [], fingerprint: null, price_list: null, proposal_newer: false,
+  language: null, languages: ["hu", "en"],
 };
 const ITEMS = [
   { sku: "HW-MON-24", name: "Monitor 24 inch", unit: "pc", unit_price: "54900", category: "hardware" },
@@ -46,6 +47,7 @@ const DRAFT: QuoteDraftView = {
   blockers: [{ code: "quote:line_unchecked", line: "l2", row: 1 }, { code: "quote:line_no_item", line: "l3", row: 2 }],
   warnings: [], fingerprint: "f".repeat(64),
   price_list: { price_list: "pl-0123456789", name: "Invented 2026", version: 1, state: "active", items: ITEMS }, proposal_newer: false,
+  language: "hu", languages: ["hu", "en"],
 };
 const READY_DRAFT: QuoteDraftView = { ...DRAFT, blockers: [], totals: { net: "274500", vat: "74115", gross: "348615" } };
 

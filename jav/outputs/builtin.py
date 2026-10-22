@@ -31,8 +31,10 @@ def render(data: contract.OutputData) -> bytes:
     """The output's file in the built-in layout: a Word output's built-in template filled (196), a workbook otherwise.
     `contract.ContractError` when the data disagrees with the contract or a Word output has no built-in template."""
     if contract.spec(data.output)["format"] == "docx":
+        from jav import registrations
         from jav.outputs import docx
 
+        registrations.load_all()  # the domains register their built-in Word templates
         if data.output not in _WORD:
             raise contract.ContractError(f"{data.output}: no built-in Word template")
         return docx.fill(data, _WORD[data.output](data))

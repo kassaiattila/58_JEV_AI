@@ -2239,5 +2239,20 @@
   "Start a quote from this email": "Ajánlat indítása ebből a levélből",
   "Start another quote from this email": "Még egy ajánlat indítása ebből a levélből",
   "Data extraction from the email and its attachments ({{what}})": "Adatkinyerés a levélből és a csatolmányokból ({{what}})",
-  "{{n}} table attachment(s): a request list attached to a quote request is read with it": "{{n}} táblázatos csatolmány: az ajánlatkéréshez csatolt kért tétellista is kiolvasásra kerül"
+  "{{n}} table attachment(s): a request list attached to a quote request is read with it": "{{n}} táblázatos csatolmány: az ajánlatkéréshez csatolt kért tétellista is kiolvasásra kerül",
+  "A quote's Word document: the draft's download and the file its approval stores": "Az ajánlat Word-irata: a piszkozat letöltése és a jóváhagyáskor tárolt fájl",
+  "The file is not a Word document (.docx).": "A fájl nem Word-irat (.docx).",
+  "The file holds active content (a macro or an embedded object); such a file is not accepted.": "A fájlban aktív tartalom van (makró vagy beágyazott objektum); ilyen fájlt a rendszer nem fogad el.",
+  "The file links to another file.": "A fájl egy másik fájlra hivatkozik.",
+  "A field that computes or imports, such as = or INCLUDETEXT. A template holds no calculation: a total is a marker. Page numbers, dates and links may stay.": "Számoló vagy beemelő mező, például = vagy INCLUDETEXT. A sablonban nincs számítás: az összeg jelölő. Az oldalszám, a dátum és a hivatkozás maradhat.",
+  "The months spread across columns, which only an Excel template can do.": "A hónapok oszlopokba terülnek, ezt csak Excel-sablon tudja.",
+  "A repeated table row stands inside another repeated row.": "Egy ismétlődő táblázatsor egy másik ismétlődő sorban áll.",
+  "The document names the template it was made from, a file on a computer; the name is removed when the document is filled.": "Az irat megnevezi a sablont, amelyből készült (egy fájlt egy gépen); kitöltéskor ez a hivatkozás kikerül.",
+  "An own template is an Excel workbook or, for a quote, a Word document with markers, such as {{package}} or {{invoices.amount}}: the system writes the data into them and keeps the file's look. Without one, a download is made with the built-in template, as before. A package chooses its template next to each download.": "A saját sablon egy Excel-munkafüzet, ajánlatnál Word-irat, jelölőkkel, például {{package}} vagy {{invoices.amount}}: a rendszer ezekbe írja az adatokat, a fájl kinézete megmarad. Saját sablon nélkül a letöltés a beépített sablonnal készül, mint eddig. A csomag minden letöltés mellett maga választja a sablonját.",
+  "The document's full path (.docx)": "Az irat teljes elérési útja (.docx)",
+  "Download version {{n}} (Word)": "A(z) {{n}}. változat letöltése (Word)",
+  "Language of the quote's documents": "Az ajánlat iratainak nyelve",
+  "Download the draft (Word)": "A piszkozat letöltése (Word)",
+  "Download (Word)": "Letöltés (Word)",
+  "The draft's Word document and the one the approval stores are made with this template.": "A piszkozat Word-irata és a jóváhagyáskor tárolt irat ezzel a sablonnal készül."
 }
