@@ -46,7 +46,7 @@ def _routes() -> list[APIRoute]:
 
 # --- the addresses of the local service ---------------------------------------------------------------------------------
 
-ROUTE_COUNT = 177  # (method, path) pairs of 173 routes: the unknown-address answer has five methods
+ROUTE_COUNT = 178  # (method, path) pairs of 174 routes: the unknown-address answer has five methods
 # 178 (plan 170 L4): nine new addresses on purpose - the own output templates (list, upload, activate, retire, file,
 # preview), a package's choice of them (read, choose) and the utility cost's workbook (jav/api_outputs.py)
 # 181 (plan 170 L5): three more on purpose - the package roles, and a package's scope given and taken away
@@ -62,7 +62,9 @@ ROUTE_COUNT = 177  # (method, path) pairs of 173 routes: the unknown-address ans
 # 196 (plan F-Word-output W2, W3): seven more on purpose - a Word template's preview (`jav/api_outputs.py`), the quote's
 # Word document of the draft and of a version, and its reply letter: read, GPT's paragraph queued, the body accepted,
 # the letter file (`jav/api_quote_package.py`)
-ROUTE_TABLE = "a0871b81cc65946b6b6b5574a9dc268590ebeac375cf39749e284f22c2013b93"
+# 200 (the pinned JEV version): one more on purpose - the JEV version's last look (`GET /api/system/jev-version`,
+# `jav/api_system.py`)
+ROUTE_TABLE = "41cc565ef01319a4aa6e0c1f10a406a25c69424e6c4a3587ed769339463fb228"
 
 
 def test_the_service_has_these_addresses() -> None:

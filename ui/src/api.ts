@@ -379,6 +379,11 @@ export interface DepsAuditInfo {
   } | null;
   max_age_days: number;
 }
+/** 200: the pinned JEV version against the provider's moving name at its last look (`jav/jev_version.py` `status()`). */
+export interface JevVersionInfo {
+  pinned: string; watch_alias: string; latest: string | null; checked_at: string | null;
+  newer: boolean | null; stale: boolean; age_days: number | null;
+}
 /** 076: a paid call with an uncertain outcome, awaiting manual settlement (`jav/runtime/calls.py` `uncertain_list`). */
 export interface UncertainCall {
   id: number; run_id: string; step_id: string; attempt: number; provider: string; model_requested: string | null;
@@ -1581,6 +1586,7 @@ export const api = {
   health: () => request<Health>("GET", "/health"),
   backupStatus: () => request<BackupInfo>("GET", "/system/backup"),
   depsAudit: () => request<DepsAuditInfo>("GET", "/system/deps-audit"),
+  jevVersion: () => request<JevVersionInfo>("GET", "/system/jev-version"), // 200
   uncertainCalls: () => request<{ calls: UncertainCall[] }>("GET", "/system/uncertain-calls"),
   resolveUncertainCall: (id: number, body: { cost_usd: string | null; note: string }) =>
     request<{ ok: boolean }>("POST", `/system/uncertain-calls/${id}/resolve`, body),

@@ -2297,5 +2297,12 @@
   "Superseded by a later run on the same documents ({{who}}, {{when}}); {{n}} open to-dos closed.": "Leváltotta egy újabb futás ugyanezekkel az iratokkal ({{who}}, {{when}}); {{n}} nyitott teendő lezárva.",
   "Older runs": "Régebbi futások",
   "{{n}} older run(s) were repeated by a later run on the same documents. Superseding stops them and closes their {{m}} open to-dos; a superseded live run cannot be approved afterwards.": "{{n}} régebbi futást egy újabb futás megismételt ugyanezekkel az iratokkal. A leváltás leállítja őket és lezárja {{m}} nyitott teendőjüket; a leváltott éles futás utána nem hagyható jóvá.",
-  "Trial run, {{when}}": "Próbafutás, {{when}}"
+  "Trial run, {{when}}": "Próbafutás, {{when}}",
+  "JEV version": "JEV-változat",
+  "The model is not pinned: {{pinned}} follows the provider's latest version.": "A modell nincs rögzítve: a {{pinned}} a szolgáltató legújabb változatát követi.",
+  "Which JEV version is the latest has not been looked up yet; the daily backup does it.": "Még nem néztük meg, melyik a legújabb JEV-változat; a napi mentés ellenőrzi.",
+  "A newer JEV version is out: {{latest}} ({{when}}). The system keeps asking {{pinned}}; switching is a decision with a measurement.": "Újabb JEV-változat érhető el: {{latest}} ({{when}}). A rendszer továbbra is a {{pinned}} változatot kérdezi; a váltás döntés és mérés után történik.",
+  "The latest JEV version was last looked up {{days}} days ago ({{when}}).": "A legújabb JEV-változatot {{days}} napja néztük meg utoljára ({{when}}).",
+  "The system asks {{pinned}}; it is the latest version too ({{when}}).": "A rendszer a {{pinned}} változatot kérdezi; ez a legújabb is ({{when}}).",
+  "The daily backup looks once a day which version the provider's latest name points to; the system asks the pinned version only.": "A napi mentés naponta egyszer megnézi, melyik változatra mutat a szolgáltató „legújabb” neve; a rendszer csak a rögzített változatot kérdezi."
 }

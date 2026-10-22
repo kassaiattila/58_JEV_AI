@@ -58,6 +58,7 @@ OPENAI_MODEL: str = _MODELS["openai"]["model"]
 JEV_TIMEOUT_S: float = float(_MODELS["jev"]["timeout_s"])  # SDK default 10 s is too short for 20-40 question fan-outs
 JEV_CACHE_VERSION: int = int(_MODELS["jev"].get("cache_version", 1))
 JEV_ALIAS_TTL_H: float = float(_MODELS["jev"].get("alias_ttl_hours", 24))  # how long an alias resolution stays valid
+JEV_WATCH_ALIAS: str = _MODELS["jev"].get("watch_alias", "jev-latest")  # 200: the provider's moving name, only looked at
 JEV_RETRY: dict = dict(_MODELS["jev"].get("retry", {}))  # typesafe_sdk.RetryPolicy fields (data, not a constant)
 SDK_LOG_LEVEL_ENV = "TYPESAFE_LOG_LEVEL"  # at debug level the SDK logs the request body (PII) too
 SDK_DEBUG_ALLOW_ENV = "JAV_ALLOW_SDK_DEBUG"  # =1: debug log explicitly allowed (debugging, on PII-free data)

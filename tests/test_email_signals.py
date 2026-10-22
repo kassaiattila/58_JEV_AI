@@ -101,7 +101,8 @@ def test_adapter_cache_roundtrip_keeps_score_answers(isolated: Path):
     """The request-hash cache with a Score answer: in the file the level keys are strings, and reading back (JSON mode)
     turns them into ints."""
     fake = FakeClient(scores={"urgency": {0: 0.1, 1: 0.1, 2: 0.2, 3: 0.6}})
-    jev = JevAdapter(client=fake, cache_dir=isolated / "cache")
+    # the alias by name (200: the configured model is pinned): the fake answers as jev-1.13.0, the probe resolves it
+    jev = JevAdapter(client=fake, cache_dir=isolated / "cache", model="jev-latest")
     first = classify(jev, _msg(), run_id="t1", use_cache=True)
     second = classify(jev, _msg(), run_id="t2", use_cache=True)
     assert not first.call.cached and second.call.cached

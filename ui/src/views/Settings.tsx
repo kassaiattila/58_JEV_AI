@@ -15,6 +15,7 @@ import { RunList } from "./Runs";
 import { AppearancePanel } from "./settings/AppearancePanel";
 import { BackupPanel } from "./settings/BackupPanel";
 import { DepsAuditPanel } from "./settings/DepsAuditPanel";
+import { JevVersionPanel } from "./settings/JevVersionPanel";
 import { EnginePanel } from "./settings/EnginePanel";
 import { FoldersPanel } from "./settings/FoldersPanel";
 import { LanguagePanel } from "./settings/LanguagePanel";
@@ -120,6 +121,7 @@ function SystemPanel() {
       </section>
       <BackupPanel />
       <DepsAuditPanel />
+      <JevVersionPanel />
       <UncertainCallsPanel />
       <section aria-label={t("Minden futás")}>
         <h3>{t("Minden futás")}</h3>

@@ -15,10 +15,9 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from jav.adapters.jev import JevAdapter, JevUnavailableError
+from jav.adapters.jev import TOKEN_LIMIT_MARK, JevAdapter, JevUnavailableError  # 200: the mark is the adapter's
 
 RETRY_BUDGET_FACTOR = 0.6  # budget of the second (only) retry, as a fraction of the original
-TOKEN_LIMIT_MARK = "max_tokens_exceeded"  # the server's error type in JevUnavailableError.reason
 
 Fit = Callable[[int | None], tuple[dict[str, Any], dict[str, Any]]]
 Size = Callable[[dict[str, Any], dict[str, Any]], int]

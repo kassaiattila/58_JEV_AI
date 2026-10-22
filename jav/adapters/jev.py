@@ -22,6 +22,12 @@ What it adds on top of the raw SDK:
 - **refusal without JEV** (160, plan F-csak-gpt): inside `disabled()` (a flow built without JEV runs every step in it,
   `jav/engine.py`) every question is refused with `JevUnavailableError("disabled")` before the model probe, the cache
   and the call log, so processing without JEV is a guarantee, not a convention.
+- **a request known to be too large** (200, Q-tul-nagy-keres): a request the service refused for its token limit
+  (`max_tokens_exceeded`) has no answer to cache, so every later run sent it again (a failed call and a kept
+  reservation each time) before the request-size frame (`jav/jev_budget.py`) went on to its tighter request. Its key is
+  remembered (`runs/cache/too_large/<sha256>.json`, under the concrete version that refused it), and the same request
+  is refused again without a call, with the same reason and a ledger row. Read and written as the cache is: a
+  determinism measurement asks live and remembers nothing; another model version tries the request again.
 """
 
 from __future__ import annotations
@@ -51,6 +57,8 @@ from jav.models import JevCall
 Question = Choice | Noul | Score
 CACHE_VERSION = JEV_CACHE_VERSION  # configs/models.json - bumping it invalidates every cache key
 MODEL_VERSIONS_FILE = "_model_versions.json"  # in the cache folder: alias -> {model, resolved_at}
+TOO_LARGE_DIR = "too_large"  # 200: in the cache folder, the keys of requests refused for the token limit
+TOKEN_LIMIT_MARK = "max_tokens_exceeded"  # the service's error type for a request over its token limit
 _CONCRETE_MODEL = re.compile(r"^jev-\d+\.\d+\.\d+$")
 # The probe: the smallest valid request; only the answer's `model` field is needed from it.
 _PROBE_STATE = {"text": "probe"}
@@ -226,6 +234,31 @@ class JevAdapter:
                   file=sys.stderr)
             return None
 
+    def _too_large_path(self, key: str) -> Path:
+        return self.cache_dir / TOO_LARGE_DIR / f"{key}.json"
+
+    def _known_too_large(self, key: str) -> str | None:
+        """200: the reason the service refused this request for its token limit, or None if it has not."""
+        try:
+            return str(json.loads(self._too_large_path(key).read_text(encoding="utf-8"))["reason"])
+        except FileNotFoundError:
+            return None
+        except (OSError, ValueError, KeyError, TypeError) as exc:  # an unreadable mark: the request is simply sent
+            print(f"[jev] warning: unreadable too-large mark, the request is sent: {key[:16]} ({type(exc).__name__})",
+                  file=sys.stderr)
+            return None
+
+    def _remember_too_large(self, key: str, model: str, exc: JevUnavailableError) -> None:
+        """200: remembers a refusal for the token limit (only that one: another refusal may not come again)."""
+        if not self.write_cache or TOKEN_LIMIT_MARK not in (exc.reason or ""):
+            return
+        path = self._too_large_path(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(f".{os.getpid()}.tmp")
+        tmp.write_text(json.dumps({"reason": exc.reason, "model": model,
+                                   "at": datetime.now(timezone.utc).isoformat(timespec="seconds")}), encoding="utf-8")
+        os.replace(tmp, path)
+
     def _write_cached(self, path: Path, response: SystemOneResponse) -> None:
         """Atomic write (066 Á37): to a temporary file, then a replace, so a reader never sees a half-written file."""
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -325,6 +358,11 @@ class JevAdapter:
         cached = False
         t0 = time.perf_counter()
         response = self._read_cached(path) if use_cache else None
+        if response is None and use_cache and (known := self._known_too_large(key)) is not None:
+            store.ledger_add(run_id=run_id, step=request_id, provider="jev", model=concrete, input_tokens=None,
+                             output_tokens=None, cost_usd=0.0, seconds=0.0, cached=True, cache_key=key,
+                             config_hash=config_hash, error=f"known_too_large:{known}")
+            raise JevUnavailableError(known)  # 200: the same refusal as the live one, without a call
         if response is not None:
             cached = True
             seconds = round(time.perf_counter() - t0, 3)
@@ -333,6 +371,9 @@ class JevAdapter:
             try:
                 response, seconds = self._live(request_id, state, questions, model=model, run_id=run_id, config_hash=config_hash)
                 cached = _REPLAYED.get()  # 066 Á16: a replayed answer is no new spending (already booked)
+            except JevUnavailableError as exc:
+                self._remember_too_large(key, concrete, exc)
+                raise
             finally:
                 _REPLAYED.reset(token)
             answered = getattr(response, "model", None)
