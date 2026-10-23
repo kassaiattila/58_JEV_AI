@@ -192,6 +192,12 @@ def open_tasks(assignee: str | None = None, *, kind: str | None = None) -> list[
         return [_task(r) for r in c.execute(sql + " ORDER BY opened_at, task_id", args)]
 
 
+def open_for_in(c: sqlite3.Connection, assignee: str) -> list[Task]:
+    """216: the open tasks a person or group sees: theirs and anyone's (no assignee), oldest first."""
+    return [_task(r) for r in c.execute("SELECT * FROM process_tasks WHERE status=? AND (assignee=? OR assignee IS NULL)"
+                                        " ORDER BY opened_at, task_id", (OPEN, assignee))]
+
+
 def of_case(c: sqlite3.Connection, case_id: str) -> list[dict[str, Any]]:
     """The case's tasks (each in its current round), for the case's state."""
     return [{k: r[k] for k in ("task_id", "step_id", "status", "assignee", "due_at", "round")}

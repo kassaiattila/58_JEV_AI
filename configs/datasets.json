@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.30.0",
+  "version": "1.31.0",
   "changelog": [
+   {
+    "version": "1.31.0",
+    "date": "2026-10-23",
+    "note": "216 (plan G-process-core P2e): the labels of the Waiting for me list (dataset waiting): task_kind (a to-do, a run's approval, a logic pack's approval, a step's budget), task_origin (live, trial, measurement) and task_assignee (the person's own, anyone's); English source text, translated by the interface."
+   },
    {
     "version": "1.30.0",
     "date": "2026-10-22",
@@ -216,7 +221,10 @@
    "workflow_needs_budget": "workflow: a run's estimate is over the step's budget",
    "workflow_nothing_new": "workflow: nothing new for a step",
    "workflow_left_out": "workflow: documents a live run processed left out",
-   "workflow_failed": "workflow: a step did not start"}
+   "workflow_failed": "workflow: a step did not start"},
+  "task_kind": {"review": "To-do", "run_approval": "Run approval", "own_approval": "Approval", "workflow_budget": "Budget decision"},
+  "task_origin": {"live": "Live", "trial": "Trial", "measurement": "Measurement"},
+  "task_assignee": {"mine": "You", "anyone": "Anyone"}
  },
  "cache_entries": 24,
  "export_max_rows": 100000

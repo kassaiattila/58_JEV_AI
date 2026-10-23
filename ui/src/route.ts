@@ -22,6 +22,9 @@ export type Route =
   | { view: "settings"; section: SettingsSection }
   /** 061: the selected person's actions on a day („Mai munkám” (My work today)); without a day, today's */
   | { view: "activity"; day?: string }
+  /** 216: what waits for the selected person (their open human tasks and anyone's); `all`: trial runs' and
+   *  measurements' to-dos too */
+  | { view: "waiting"; all?: boolean }
   /** an old report or data address: leads to the Result section of the run's package (the package has to be looked up
    *  from the run) */
   | { view: "legacy-result"; runId?: string; table?: ResultTable };
@@ -57,6 +60,8 @@ export function parseRoute(hash: string): Route {
       const day = params.get("day");
       return { view: "activity", day: day && /^\d{4}-\d{2}-\d{2}$/.test(day) ? day : undefined };
     }
+    case "waiting":
+      return params.get("all") === "1" ? { view: "waiting", all: true } : { view: "waiting" };
     case "runs":
       return parts[1] ? { view: "run", runId: parts[1] } : { view: "settings", section: "system" };
     case "workflows":
@@ -94,6 +99,7 @@ export function routeHash(r: Route): string {
   switch (r.view) {
     case "settings": return `#/settings/${r.section}`;
     case "activity": return r.day ? `#/activity?day=${r.day}` : "#/activity";
+    case "waiting": return r.all ? "#/waiting?all=1" : "#/waiting";
     case "run": return `#/runs/${e(r.runId)}`;
     case "workflows": return r.repeat ? `#/workflows/${e(r.repeat)}/repeat` : r.create ? "#/workflows/new"
       : r.wfId ? `#/workflows/${e(r.wfId)}` : "#/workflows";

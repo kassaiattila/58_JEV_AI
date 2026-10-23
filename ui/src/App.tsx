@@ -16,6 +16,7 @@ import { Workpackages } from "./views/Workpackages";
 
 // 195 (plan G-tidy R5): the pages away from the daily work load when they are first opened
 const Activity = lazyPage(() => import("./views/Activity").then((m) => m.Activity));
+const Waiting = lazyPage(() => import("./views/Waiting").then((m) => m.Waiting));
 const LegacyResult = lazyPage(() => import("./views/LegacyResult").then((m) => m.LegacyResult));
 const Settings = lazyPage(() => import("./views/Settings").then((m) => m.Settings));
 const Workflows = lazyPage(() => import("./views/workflows/Workflows").then((m) => m.Workflows));
@@ -69,6 +70,7 @@ export function App() {
             {route.view === "settings" ? <Settings section={route.section} /> : null}
             {route.view === "legacy-result" ? <LegacyResult runId={route.runId} table={route.table} /> : null}
             {route.view === "activity" ? <Activity day={route.day} /> : null}
+            {route.view === "waiting" ? <Waiting all={Boolean(route.all)} /> : null}
           </ErrorBoundary>
         </main>
       </div>
@@ -85,6 +87,19 @@ function WorkerBadge() {
     <span className={`pill ${w.data.running ? "" : "warn-pill"}`} role="status">
       {w.data.running ? t("Feldolgozó fut") : t("Feldolgozó nem fut")}{waiting ? ` · ${t("{{n}} tétel vár", { n: waiting })}` : ""}
     </span>
+  );
+}
+
+/** 216: "Waiting for me" with the number of the person's open live tasks and anyone's (the list's default view); an
+ *  attention count above zero, refreshed every 30 s. */
+function WaitingLink({ actor }: { actor: string }) {
+  const count = useLoad(`waiting:${actor}`, () => api.datasetQuery("waiting", { actor }, { limit: 1 }), 30000);
+  const n = count.data?.total ?? null;
+  return (
+    <a className="small waiting-link" href="#/waiting">
+      {t("Waiting for me")}
+      {n === null ? null : <span className={n > 0 ? "count-alert" : "count-zero"}>{n}</span>}
+    </a>
   );
 }
 
@@ -105,7 +120,7 @@ function ActorField() {
       <div className="actor">
         <Picker label={t("Ki dolgozik?")} value={known} placeholder={t("Válaszd ki a neved")} compact className={known ? "" : "needs-actor"}
           options={list.map((u) => ({ value: u, label: u }))} onChange={(v) => setActor(v)} />
-        {known ? <a className="small" href="#/activity">{t("Mai munkám")}</a>
+        {known ? <><WaitingLink actor={known} /><a className="small" href="#/activity">{t("Mai munkám")}</a></>
           : <span className="small warn-text" role="status">{t("Módosítás előtt válaszd ki a neved.")}</span>}
       </div>
     );
@@ -117,7 +132,7 @@ function ActorField() {
       <input id="actor" value={name} maxLength={64} placeholder={t("Neved (jóváhagyáshoz, javításhoz)")}
         onChange={(e) => setName(e.target.value)} onBlur={() => { if (name.trim()) setActor(name); }} />
       <button type="submit" className="secondary" disabled={saved || !name.trim()}>{saved ? t("Megjegyezve") : t("Mentés")}</button>
-      {actor ? <a className="small" href="#/activity">{t("Mai munkám")}</a> : null}
+      {actor ? <><WaitingLink actor={actor} /><a className="small" href="#/activity">{t("Mai munkám")}</a></> : null}
       <a className="small" href="#/settings/users">{t("Felhasználók felvétele")}</a>
     </form>
   );

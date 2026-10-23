@@ -678,6 +678,9 @@ th:hover .th-filter, .th-filter:focus-visible, .th-filter[aria-expanded="true"] 
 .dt-table th.num:has(.th-filter.on) { padding-right: 10px; padding-left: 30px; }
 /* an attention count above 0 (to-dos, runs to supersede): the to-do colour, a quiet tint, tabular figures */
 .count-alert { display: inline-block; min-width: 24px; padding: 0 6px; border-radius: var(--r-sm); background: var(--todo-tint); color: var(--todo); font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
+/* 216: the header's "Waiting for me" with the person's count: an attention count above zero, a muted zero */
+.waiting-link { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.count-zero { color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* 155: the stage track before a package's next step — Processing · Review · Result, filled up to where the package
    stands; the current segment carries the state's colour (running, to-do, failed) */
