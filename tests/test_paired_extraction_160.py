@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from jav import flow
+from jav.flows import flow
 from jav.ai import extract_llm, typepack
 from jav.core import store
 from jav.ai import jev as jev_mod

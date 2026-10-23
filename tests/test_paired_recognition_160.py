@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Choice, Score, SystemOneResponse
 
-from jav import flow_detect
+from jav.flows import flow_detect
 from jav.ai import detect_detail, detect_gpt, gpt_choice
 from jav.core import store
 from jav.domains.email import flow_email

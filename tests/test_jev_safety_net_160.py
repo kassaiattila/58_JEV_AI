@@ -12,7 +12,8 @@ from pathlib import Path
 import pytest
 from typesafe_sdk import Noul
 
-from jav import flow_detect, work, work_readiness, work_recipes, work_runs
+from jav import work, work_readiness, work_recipes, work_runs
+from jav.flows import flow_detect
 from jav.core import store
 from jav.ai import jev as jev_mod
 from jav.ai.jev import JevUnavailableError

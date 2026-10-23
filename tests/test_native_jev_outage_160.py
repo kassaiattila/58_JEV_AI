@@ -8,7 +8,7 @@ did not hold. Now the GPT facts are published without JEV support, with that to-
 
 from decimal import Decimal
 
-from jav import flow_native
+from jav.flows import flow_native
 from jav.documents import native_results
 from jav.core import store
 from jav.ai import jev as jev_mod

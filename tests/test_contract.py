@@ -3,7 +3,7 @@ catches errors."""
 
 import copy
 
-from jav import contract, flow, flow_detect, flow_native
+from jav.flows import contract, flow, flow_detect, flow_native
 from jav.domains.email import flow_email
 
 

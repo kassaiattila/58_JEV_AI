@@ -301,10 +301,10 @@ def test_a_day_of_activity_in_this_order_and_shape(db) -> None:
 
 
 PIN_FLOW_MODULES = {  # flow name -> (module, Burr partition, terminal states)
-    "invoice": ("jav.flow", "invoice", ["done", "needs_ocr", "needs_review"]),
-    "doc_detect": ("jav.flow_detect", "doc_detect", ["done", "needs_ocr"]),
+    "invoice": ("jav.flows.flow", "invoice", ["done", "needs_ocr", "needs_review"]),
+    "doc_detect": ("jav.flows.flow_detect", "doc_detect", ["done", "needs_ocr"]),
     "email": ("jav.domains.email.flow_email", "email_intent", ["done"]),
-    "native": ("jav.flow_native", "native", ["done", "needs_review"]),
+    "native": ("jav.flows.flow_native", "native", ["done", "needs_review"]),
     "statement_table": ("jav.domains.finance.flow_statement_table", "statement_table", ["done", "needs_review"]),
 }
 

@@ -586,7 +586,7 @@ def confirm_detail_by_direction(state: Any) -> None:
     own parties give the extracted invoice settles it (`policy.detail_direction`). The parties alone decide here: the
     outgoing type is evidence in `direction`, and would confirm itself. A match closes the detailed type's uncertainty
     to-do, a contradiction is a to-do of its own; anything else is left as it was. 185 (plan G-full-move T1f): the
-    finance domain's check of the saved stage (`jav/ai/checks.py`; until then in `jav/flow.py`)."""
+    finance domain's check of the saved stage (`jav/ai/checks.py`; until then in `jav/flows/flow.py`)."""
     if state.record is None or not state.detail_probabilities:
         return
     from jav.ai import policy

@@ -156,7 +156,7 @@ def _read_case(case: invented_golden.Case, folder: Path, *, use_cache: bool, jev
                run_one: Callable[..., Any]) -> dict[str, Any]:
     from jav.domains.email import emails
     from jav.documents import text_document
-    from jav.flow_detect import run_detect
+    from jav.flows.flow_detect import run_detect
 
     msg = emails.load_message_dir(folder)
     text = emails.document_text(msg)
@@ -183,7 +183,7 @@ def quote_requests(*, use_cache: bool = True, jev: bool = True, budget_usd: Deci
     from jav.core import calls
 
     if run_one is None:
-        from jav.flow import run_one
+        from jav.flows.flow import run_one
     limits = _budget(budget_usd, jev_budget_usd)
     if not limits:
         print(calls.NO_BUDGET_NOTE)

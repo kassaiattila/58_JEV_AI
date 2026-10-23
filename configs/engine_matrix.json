@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engine_matrix",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "description": "160 (plan F-csak-gpt, Sz0): every JEV call site with its counterpart without JEV (GPT, or the code), or a stated exception, and the tests that cover it. `python -m jav.cli preflight` checks four rules (jav/engine_matrix.py): every call-site config and every module that asks JEV is listed; each site has exactly one of `gpt` and `exception`, with existing modules and an allowed kind; each names tests that exist; nothing listed is gone.",
     "changelog": [
+      {
+        "version": "1.0.13",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the flows' modules moved into jav/flows/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.12",
         "date": "2026-10-23",
@@ -515,8 +520,8 @@
     }
   },
   "routing": {
-    "jav/flow.py": "the invoice flow: asks the select and verify call sites, turns a JEV failure into a to-do, and without JEV runs the G path with the code's check",
-    "jav/flow_detect.py": "the detection flow: asks detect and detect_detail, or GPT without JEV",
+    "jav/flows/flow.py": "the invoice flow: asks the select and verify call sites, turns a JEV failure into a to-do, and without JEV runs the G path with the code's check",
+    "jav/flows/flow_detect.py": "the detection flow: asks detect and detect_detail, or GPT without JEV",
     "jav/domains/email/flow_email.py": "the email flow: asks email_intent, or GPT without JEV",
     "jav/ai/jev_budget.py": "fits a request to the call site's size budget and asks it once more on a token error",
     "jav/ai/engine.py": "switches JEV off in every step of a flow built without JEV",

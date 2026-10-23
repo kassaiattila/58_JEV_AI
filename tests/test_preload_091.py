@@ -17,7 +17,7 @@ from jav.runtime import preload, worker
 
 def test_preload_imports_the_runtime_code_but_not_the_experiments():
     loaded = preload.preload()
-    for name in ("jav.flow", "jav.flow_detect", "jav.domains.email.flow_email", "jav.ai.extract_llm", "jav.ai.token_confidence", "jav.ai.grounding"):
+    for name in ("jav.flows.flow", "jav.flows.flow_detect", "jav.domains.email.flow_email", "jav.ai.extract_llm", "jav.ai.token_confidence", "jav.ai.grounding"):
         assert name in loaded and name in sys.modules
     assert not any(m.startswith("jav.experiments") for m in loaded)
 

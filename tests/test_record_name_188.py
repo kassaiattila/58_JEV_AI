@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from burr.core import State
 
-from jav import flow
+from jav.flows import flow
 from jav.ai.models import DocumentRecord, FlowState
 from jav.runtime.worker import StatePersister
 

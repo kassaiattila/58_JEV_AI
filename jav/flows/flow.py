@@ -46,7 +46,7 @@ from jav.core import card_numbers, cfg, store
 from jav.core.config import TRACKER_PROJECTS
 from jav.ai.engine import with_engine
 from jav.ai.models import FlowState
-from jav.runtime import persistence
+from jav.flows import persistence
 from jav.ai.typepack import get as get_pack
 from jav.core.digest import file_sha256 as _sha256
 
@@ -437,7 +437,7 @@ TRANSITIONS = [
     ("save", "needs_review", default),
 ]
 
-CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/contract.py, `python -m jav.cli flows`)
+CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/flows/contract.py, `python -m jav.cli flows`)
     "name": "invoice",
     "phases": ["load", "extract", "normalize", "decide", "persist", "terminal"],
     "steps": [

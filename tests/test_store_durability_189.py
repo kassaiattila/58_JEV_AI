@@ -13,7 +13,7 @@ import sys
 
 from jav.core import store
 from jav.core.config import PROJECT_ROOT
-from jav.runtime.persistence import ClosingSQLitePersister
+from jav.flows.persistence import ClosingSQLitePersister
 
 FULL, OFF = 2, 0  # `PRAGMA synchronous` values
 

@@ -111,7 +111,7 @@ def test_policy_ocr_review_reasons_thresholds():
 
 
 def test_flows_contain_ocr_step():
-    from jav import flow, flow_detect
+    from jav.flows import flow, flow_detect
 
     assert "ocr_pdf" in {s for s, _ in flow.CONTRACT["steps"]} and "ocr_pdf" in {s for s, _ in flow_detect.CONTRACT["steps"]}
     assert ("load_pdf", "ocr_pdf") in {(e[0], e[1]) for e in flow.CONTRACT["edges"]}

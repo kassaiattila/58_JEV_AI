@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 
-from jav import flow
+from jav.flows import flow
 
 
 def test_the_docstring_diagram_names_every_step_of_the_graph():

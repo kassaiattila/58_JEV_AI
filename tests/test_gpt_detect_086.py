@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jav import flow_detect
+from jav.flows import flow_detect
 from jav.ai import detect_detail, detect_gpt
 from jav.core import store
 from jav.ai import jev as jev_mod

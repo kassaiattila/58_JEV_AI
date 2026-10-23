@@ -14,7 +14,7 @@ import json
 from burr.core import State
 
 from jav.domains.email.emails import Attachment, EmailMessage
-from jav.runtime.persistence import MOVED_MODULES, ClosingSQLitePersister
+from jav.flows.persistence import MOVED_MODULES, ClosingSQLitePersister
 from jav.core.config import PROJECT_ROOT
 
 

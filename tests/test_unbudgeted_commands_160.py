@@ -30,8 +30,8 @@ def _budgets(scope: str) -> dict[str, Decimal]:
 
 
 COMMANDS = [
-    (["run", "x.pdf"], "jav.flow.run_one"),
-    (["detect", "x.pdf"], "jav.flow_detect.run_detect"),
+    (["run", "x.pdf"], "jav.flows.flow.run_one"),
+    (["detect", "x.pdf"], "jav.flows.flow_detect.run_detect"),
     (["detect-corpus", "folder"], "jav.evals_detect.detect_corpus"),
     (["detect-determinism"], "jav.evals_detect.detect_determinism"),
     (["determinism", "--arm", "S"], "jav.evals.determinism"),

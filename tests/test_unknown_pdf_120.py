@@ -166,7 +166,7 @@ def test_a_scanned_pdf_continues_with_the_readers_local_ocr(text_source, ocr):
 
 
 def test_the_continuing_stage_asks_the_native_graph_for_local_ocr(monkeypatch):
-    from jav import flow_native
+    from jav.flows import flow_native
 
     seen = {}
 
@@ -205,7 +205,7 @@ def test_an_ocr_reading_has_its_own_identity_and_a_plain_reading_keeps_its_old_o
 
 
 def test_the_native_graph_reads_with_ocr_only_when_asked(tmp_path, monkeypatch):
-    from jav import flow_native
+    from jav.flows import flow_native
     from jav.documents import native_results
 
     asked = []

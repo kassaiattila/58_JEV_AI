@@ -72,7 +72,7 @@ def test_a_file_digest_is_the_sha256_of_its_bytes(tmp_path):
 
 
 def test_both_flows_read_a_pdf_through_the_shared_step():
-    for name in ("jav/flow.py", "jav/flow_detect.py"):
+    for name in ("jav/flows/flow.py", "jav/flows/flow_detect.py"):
         text = (PROJECT_ROOT / name).read_text(encoding="utf-8")
         assert "pdf_input.read_source(" in text and "pdf_input.recognise(" in text
         assert "read_pdf(" not in text and "ocr_with_escalation(" not in text and "azure_alias(" not in text

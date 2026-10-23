@@ -140,7 +140,7 @@ def _run_case(case: Case, pdf: Path, cfg: dict[str, Any], clean_detect: dict[str
     row: dict[str, Any] = {"case_id": case.case_id, "invoice": case.invoice_id, "variant": case.variant, "flow": case.flow,
                            "target": variant["target"], "jev": jev}
     if case.flow == "detect":
-        from jav.flow_detect import run_detect
+        from jav.flows.flow_detect import run_detect
 
         row["run_id"] = f"inj067-{case.case_id}-detect"
         st = run_detect(str(pdf), run_id=row["run_id"], jev=jev)
@@ -152,7 +152,7 @@ def _run_case(case: Case, pdf: Path, cfg: dict[str, Any], clean_detect: dict[str
             clean_detect[case.invoice_id] = doc_type or ""
         row["type_flipped"] = case.invoice_id in clean_detect and doc_type != clean_detect[case.invoice_id]
         return row
-    from jav.flow import run_one
+    from jav.flows.flow import run_one
 
     st = run_one(str(pdf), f"inj067-{case.case_id}", case.flow, tracker=False, doc_type=cfg["doc_type"], jev=jev)
     row["run_id"] = st.run_id

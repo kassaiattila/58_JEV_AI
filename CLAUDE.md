@@ -93,10 +93,10 @@ python -m jav.capability_catalog                  # deterministic inventory of t
 
 - **Work package → run → worker → UI** (040 K1–K3): work packages, recipes (`configs/recipes.json`), readiness, runs and approval live in `jav/work.py` (packages and items), `jav/work_recipes.py`, `jav/work_readiness.py` and `jav/work_runs.py`; the items of a run go into the durable job queue (`jav/core/queue.py`); the worker (`jav/runtime/worker.py`, single-instance lock: `lock.py`) runs the graphs below with Burr state persistence (`persistence.py`); every paid call reserves from the run's budget and goes into the call log (`jav/core/calls.py`). The UI (`ui/`, React) and the CLI call the same operations through the local service (`jav/api.py`, its endpoints by theme in `jav/api_*.py`; shared views: `jav/work_views.py`); the service never runs anything itself, it only enqueues and reads.
 - **Burr graphs** (`@action.pydantic`, local tracker, `run_id` = app_id):
-  - `jav/flow.py` (M2, S and G paths, type-agnostic; the type pack is `configs/types/<type>.json` + `jav/ai/typepack.py`, inheritance via `extends`);
-  - `jav/flow_detect.py` (M1);
+  - `jav/flows/flow.py` (M2, S and G paths, type-agnostic; the type pack is `configs/types/<type>.json` + `jav/ai/typepack.py`, inheritance via `extends`);
+  - `jav/flows/flow_detect.py` (M1);
   - `jav/domains/email/flow_email.py` (M3, calls M1 on the attachments);
-  - `jav/flow_native.py` (native reading of non-PDF inputs: interpretation, publication, review; resumable);
+  - `jav/flows/flow_native.py` (native reading of non-PDF inputs: interpretation, publication, review; resumable);
   - `jav/domains/finance/flow_statement_table.py` (136: an account's statement from a bank's tabular export, code only).
 - **S path (S arm):** code finds candidates (`candidates.py`), a JEV Choice picks one, with a presence Noul per field (`jev_select.py`). **G path (G arm):** GPT extraction (`extract_llm.py`) + JEV Noul verification (`jev_verify.py`). A run takes one path (`arm` = S or G, chosen by the recipe or the eval); an agreement gate comparing the two paths is not built — the planned second opinion (H-065: the G path only on documents the S path left with to-dos) is the first combination. The safety net is `validators.py`.
 - **Every JEV call** goes through `ask()` in `jav/ai/jev.py`: request-hash cache keyed by the concrete model version, RetryPolicy, ledger, cost. An SDK error raises `JevUnavailableError`. Flows never call the SDK directly.

@@ -89,7 +89,7 @@ def count(family: str) -> int:
 
 
 def _band(support: float | None) -> str | None:
-    from jav.flow_native import SUPPORT_BAND
+    from jav.flows.flow_native import SUPPORT_BAND
 
     return None if support is None else policy.noul_band(support, SUPPORT_BAND)
 

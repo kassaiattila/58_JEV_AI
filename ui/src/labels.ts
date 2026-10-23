@@ -237,11 +237,11 @@ export function reasonText(code: string): string {
     // 167 (review AI-3): pages without a text layer of their own in a document that has one: neither read nor recognised
     case "pdf:pages_without_text": return t("Pages without a text layer of their own were not read ({{pages}} pages); look at them in the document", { pages: p[2] });
     case "ocr:no_text": return t("Az iratból nem sikerült szöveget kinyerni");
-    // 190: a document given as text (an email's own text) had no text at all (jav/flow.py load_text)
+    // 190: a document given as text (an email's own text) had no text at all (jav/flows/flow.py load_text)
     // 190: an item's follow-up stage (the extraction of an email's own text) ended without a to-do of its own
     case `follow_up:${p[1] ?? ""}`: return t("An item's follow-up step did not finish cleanly ({{status}}); look at the item by hand", { status: p[1] ?? "" });
     case "text:empty": return t("The text given as the document is empty, so nothing was extracted from it");
-    // 177: the text recognition itself could not run (jav/flow.py, jav/flow_detect.py)
+    // 177: the text recognition itself could not run (jav/flows/flow.py, jav/flows/flow_detect.py)
     case "ocr:unavailable": return t("Text recognition could not run ({{why}}); look at the document by hand", { why: p[2] ?? "" });
     case "ocr:low_confidence": return t("Gyenge szövegfelismerés ({{p}})", { p: num(p[2]) });
     case "ocr:low_conf_words": return t("Sok bizonytalan szó a felismerésben ({{p}})", { p: num(p[2]) });
@@ -287,7 +287,7 @@ export function reasonText(code: string): string {
     case "detect:low_conf": return t("Bizonytalan típusfelismerés: {{type}} ({{p}})", { type: docTypeLabel(p[2]), p: v });
     case "detect:detail_open": return t("A részletes típus nem dönthető el (kategória: {{type}}); válaszd ki kézzel", { type: docTypeLabel(p[2]) });
     case "detect:no_type_pack": return t("Ehhez az irattípushoz nincs adatkinyerés ({{type}}); nézd meg kézzel", { type: docTypeLabel(p[2]) });
-    // 177: the recognition gave no result and named no reason of its own (jav/flow_detect.py)
+    // 177: the recognition gave no result and named no reason of its own (jav/flows/flow_detect.py)
     case "detect:no_result": return t("Type recognition gave no result; choose the type by hand");
     // 090: the type / issuer cross-check in code (configs/policy.json detect_issuer): the type is kept
     case "detect:issuer_mismatch": return t("A típus ({{type}}) magyar kiállítót feltételez, de a felismerés szerint a kiállító nem magyar; ellenőrizd a típust", { type: docTypeLabel(p[2]) });
@@ -311,13 +311,13 @@ export function reasonText(code: string): string {
     // 073: task proposals from an e-mail (jav/domains/email/flow_email.py); until now these showed the raw code
     case "tasks:proposed": return t("{{n}} feladatjavaslat vár döntésre", { n: p[2] ?? "" });
     case "tasks:failed": return t("A feladatjavaslat nem sikerült ({{why}})", { why: p[2] ?? "" });
-    // 120: the to-dos of Word, Excel, text and continuing PDF documents (jav/flow_native.py)
+    // 120: the to-dos of Word, Excel, text and continuing PDF documents (jav/flows/flow_native.py)
     case "native:reading": return t("Az irat nem teljesen olvashat\u00f3 ({{status}}); n\u00e9zd meg a forr\u00e1st \u00e9s a hi\u00e1nyokat", { status: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
     case "native:interpretation": return t("Az adatkinyer\u00e9s nem siker\u00fclt ({{status}}); n\u00e9zd meg az ok\u00e1t", { status: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
     case "native:no_facts": return t("Az iratb\u00f3l nem keletkezett adatjavaslat");
     case "native:interpretation_gaps": return t("Az adatkinyer\u00e9s hi\u00e1nyt jelzett");
     // 124: a scan read from its Azure recognition (weak word confidences), or the native step's own Azure call
-    // did not run (jav/flow_native.py review_native)
+    // did not run (jav/flows/flow_native.py review_native)
     case "native:recognition":
       if (p[2] === "low_confidence") return t("Weak Azure recognition ({{p}})", { p: num(p[3]) });
       if (p[2] === "low_conf_words") return t("Many uncertain words in the Azure recognition ({{p}})", { p: num(p[3]) });

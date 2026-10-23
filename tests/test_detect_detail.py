@@ -65,7 +65,7 @@ def test_detect_flow_saves_detail_and_opens_task_when_undecided(tmp_path):
     """After detection the detailed type is saved to the document; a type left open is a to-do of its own (no JEV)."""
     from jav.core import store
     from jav.ai.detect import DetectResult
-    from jav.flow_detect import DetectState, _resolve_detail, save
+    from jav.flows.flow_detect import DetectState, _resolve_detail, save
 
     with store.use_store(tmp_path / "d.sqlite"):
         for doc_id, broad, text in (("d1", "invoice_foreign", "Invoice"), ("d2", "bank_statement", "kivonat: CIB Bank, Erste Bank")):

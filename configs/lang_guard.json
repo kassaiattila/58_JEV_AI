@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.114",
+    "version": "1.0.115",
     "description": "Language guard (073, plan N-angol, jav/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.115",
+        "date": "2026-10-23",
+        "note": "208 (plan G-process-core R2): the flows' modules moved into jav/flows/; the paths here follow them, nothing else changed."
+      },
       {
         "version": "1.0.114",
         "date": "2026-10-23",
@@ -731,7 +736,6 @@
     "jav/app_settings.py": 6,
     "jav/backup.py": 2,
     "jav/cli_options.py": 1,
-    "jav/contract.py": 12,
     "jav/core/calls.py": 3,
     "jav/core/cfg.py": 3,
     "jav/core/config.py": 5,
@@ -766,8 +770,10 @@
     "jav/evals_email.py": 41,
     "jav/experiments/document_injection_probe.py": 10,
     "jav/export.py": 6,
-    "jav/flow.py": 19,
-    "jav/flow_detect.py": 10,
+    "jav/flows/contract.py": 12,
+    "jav/flows/flow.py": 19,
+    "jav/flows/flow_detect.py": 10,
+    "jav/flows/persistence.py": 2,
     "jav/lang_guard.py": 1,
     "jav/legacy_import.py": 4,
     "jav/maintenance_cli.py": 38,
@@ -799,7 +805,6 @@
     "jav/prompts/viz_szamla_prompt.md": 21,
     "jav/prompts/viz_szamla_schema.json": 2,
     "jav/prompts/vizmuvek_szamla_prompt.md": 17,
-    "jav/runtime/persistence.py": 2,
     "jav/runtime/worker.py": 1,
     "jav/service_shared.py": 4,
     "jav/tablequery.py": 6,

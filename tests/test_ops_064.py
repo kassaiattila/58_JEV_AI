@@ -16,7 +16,8 @@ from fastapi.testclient import TestClient
 
 from jav import api, backup, work
 from jav.core import store
-from jav.runtime import persistence, worker
+from jav.runtime import worker
+from jav.flows import persistence
 from jav.core import lock
 from tests.test_stability_063 import _start, wp_env  # noqa: F401 - the shared package fixture
 

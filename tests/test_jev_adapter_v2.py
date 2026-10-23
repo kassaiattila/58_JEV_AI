@@ -190,7 +190,7 @@ def test_email_flow_survives_jev_outage(isolated: Path, monkeypatch: pytest.Monk
 
 
 def test_detect_step_survives_jev_outage(isolated: Path, monkeypatch: pytest.MonkeyPatch):
-    from jav import flow_detect
+    from jav.flows import flow_detect
     from jav.ai import jev as jev_mod
 
     monkeypatch.setattr(jev_mod, "get_adapter", lambda: _failing_adapter(isolated))
@@ -203,7 +203,7 @@ def test_detect_step_survives_jev_outage(isolated: Path, monkeypatch: pytest.Mon
 
 
 def test_invoice_steps_survive_jev_outage(isolated: Path, monkeypatch: pytest.MonkeyPatch):
-    from jav import flow
+    from jav.flows import flow
     from jav.ai import jev as jev_mod
     from jav.ai.models import FlowState, InvoiceLLM
 

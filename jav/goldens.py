@@ -192,7 +192,7 @@ def _datapoint_golden(type_key: str, arm: str, *, synthetic: bool) -> Golden:
         return evals.count_cases(type_key)
 
     def measure(options: Options) -> Outcome:
-        from jav.flow import run_one
+        from jav.flows.flow import run_one
 
         if arm == "S" and not options.jev:
             return Outcome(unit="fields", refused=S_NEEDS_JEV)
@@ -359,7 +359,7 @@ def _taught_golden(key: str, half: str = "evaluation") -> Golden:
             return 0
 
     def measure(options: Options) -> Outcome:
-        from jav.flow import run_one
+        from jav.flows.flow import run_one
 
         rows = evals.golden("G", run_one, cases=cases(), tracker=False, use_cache=options.use_cache, type_key=key,
                             jev=options.jev, budget_usd=options.budget_usd, jev_budget_usd=options.jev_budget_usd,

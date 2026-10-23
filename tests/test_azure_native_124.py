@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from jav import flow_detect
+from jav.flows import flow_detect
 from jav.documents import ocr
 from jav.documents import azure_di
 from jav.documents.pdf import PdfText
@@ -53,7 +53,7 @@ SCAN_ITEM = {"kind": "document", "source_path": "C:/synthetic/scan.pdf"}
 
 @pytest.mark.parametrize("recognition", ["c" * 64, None])
 def test_the_worker_hands_the_named_recognition_to_the_native_stage(recognition, monkeypatch):
-    from jav import flow_native
+    from jav.flows import flow_native
 
     params = worker.native_fallback({"unknown_documents": "facts", "jev": "on", "arm": "auto"}, SCAN_ITEM,
                                     {**DETECTED_SCAN, "ocr_recognition": recognition})
@@ -66,7 +66,7 @@ def test_the_worker_hands_the_named_recognition_to_the_native_stage(recognition,
 
 
 def test_a_saved_native_state_without_a_recognition_still_loads():
-    from jav.flow_native import NativeState
+    from jav.flows.flow_native import NativeState
 
     saved = {"work_run_id": "r", "item_id": "i", "graph_id": "g", "source_path": "s.pdf", "read_path": "s.pdf",
              "original_name": "s.pdf", "expected_sha256": "a" * 64, "recipe_hash": "b" * 16, "jev": True,
@@ -231,7 +231,7 @@ def test_the_source_contract_binds_an_external_recognition_to_its_source():
 
 
 def test_the_native_graph_reads_the_handed_over_recognition(tmp_path, monkeypatch):
-    from jav import flow_native
+    from jav.flows import flow_native
     from jav.documents import native_results
     from jav.core import store
 
@@ -288,7 +288,7 @@ class LocalScanOCR:
 
 
 def run_native(source, ref, *, budgets: dict, recognition: str | None = None, fake=None):
-    from jav import flow_native
+    from jav.flows import flow_native
 
     app = flow_native.build_app(work_run_id="native-run", item_id="native-item", graph_id="native-graph",
         source_path=str(source), read_path=str(source), original_name="original.pdf",

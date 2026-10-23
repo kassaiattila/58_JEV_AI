@@ -8,7 +8,7 @@ from decimal import Decimal
 
 import pytest
 
-from jav import flow_native
+from jav.flows import flow_native
 from jav.documents import native_results
 from jav.core import store
 from jav.documents.readers.interpretation import DiscardedFact, Interpretation, ProposedExtraction, salvage

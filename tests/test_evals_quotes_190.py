@@ -93,7 +93,7 @@ def _perfect(source_path, case_id, arm, *, use_cache, doc_type, jev, source_text
 
 
 def test_a_perfect_reader_scores_every_judgement(tmp_path, monkeypatch):
-    from jav import flow_detect
+    from jav.flows import flow_detect
 
     monkeypatch.setattr(evals_quotes, "RUNS_DIR", tmp_path)
     monkeypatch.setattr(flow_detect, "run_detect", lambda *a, **k: SimpleNamespace(result=SimpleNamespace(doc_type="quote_request")))

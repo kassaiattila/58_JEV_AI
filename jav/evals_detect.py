@@ -71,7 +71,7 @@ def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: boo
     Azure get none, so they cannot be called. A GPT call over it is a `detect:gpt_failed` row. `cases` / `label` (122):
     a local case list instead of the golden set (`load_case_file`), and the name of the output file."""
     from jav.ai import detect_gpt
-    from jav.flow_detect import run_detect
+    from jav.flows.flow_detect import run_detect
     from jav.core import calls
 
     cases = load_detect_cases() if cases is None else cases
@@ -115,7 +115,7 @@ def detect_determinism(n: int = 3, limit: int | None = None, *, jev: bool = True
     untouched): type flips per case, confidence spread. The rows fit the determinism section of the eval report.
     `jev=False` (160-D): GPT recognises the type, every run a live call (a measurement reuses no earlier answer)."""
     from jav.ai.jev import get_adapter
-    from jav.flow_detect import run_detect
+    from jav.flows.flow_detect import run_detect
 
     cases = load_detect_cases()
     if limit:
@@ -197,7 +197,7 @@ def _already_detected() -> set[str]:
 
 def detect_corpus(root: Path, *, limit: int | None = None, force: bool = False, use_cache: bool = True, redo_unknown: bool = False,
                   jev: bool = True) -> None:
-    from jav.flow_detect import run_detect
+    from jav.flows.flow_detect import run_detect
 
     pdfs = iter_pdfs(root)
     if redo_unknown:

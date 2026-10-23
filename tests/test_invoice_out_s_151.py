@@ -63,7 +63,7 @@ def test_the_candidates_hold_every_expected_value_but_a_private_persons_name(tmp
 
 
 def test_the_s_path_runs_on_an_outgoing_invoice(tmp_path):
-    from jav.flow import run_one
+    from jav.flows.flow import run_one
 
     (case,) = evals.load_synthetic_cases("invoice_out", out_dir=tmp_path)[:1]
     client = FakeClient()

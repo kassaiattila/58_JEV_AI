@@ -34,7 +34,7 @@ SYNCHRONOUS: str | None = None
 
 def tune(conn: sqlite3.Connection) -> None:
     """Applies `SYNCHRONOUS` to a connection that writes: the store's own, and the process state's
-    (`jav/runtime/persistence.py`)."""
+    (`jav/flows/persistence.py`)."""
     if SYNCHRONOUS is not None:
         conn.execute(f"PRAGMA synchronous={SYNCHRONOUS}")
 

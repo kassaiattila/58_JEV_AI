@@ -225,7 +225,7 @@ def test_eval_report_and_admin_use_flow_label_and_doc_type(tmp_path):
 
 
 def test_flow_contract_is_type_independent_and_tracker_per_type():
-    from jav import flow
+    from jav.flows import flow
 
     assert flow.CONTRACT["name"] == "invoice" and "invoice_foreign" in flow.CONTRACT["doc_note"]
     assert flow.tracker_project("invoice_hu") == "jav_invoice_hu" and flow.tracker_project("invoice_foreign") == "jav_invoice_foreign"

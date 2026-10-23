@@ -43,7 +43,8 @@ def test_admin_report_sections():
 def test_preflight_contract_gate_includes_native_and_rejects_its_drift(monkeypatch):
     import copy
 
-    from jav import flow_native, preflight
+    from jav import preflight
+    from jav.flows import flow_native
 
     summary = preflight.flow_lint_summary()
     assert {name for name, _passed, _failures in summary} == {

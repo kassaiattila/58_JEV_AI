@@ -264,7 +264,7 @@ TRANSITIONS = [
     ("save", "done"),
 ]
 
-CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/contract.py, `python -m jav.cli flows`)
+CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/flows/contract.py, `python -m jav.cli flows`)
     "name": "doc_detect",
     "phases": ["load", "classify", "persist", "terminal"],
     "steps": [("load_pdf", "load"), ("ocr_pdf", "load"), ("detect", "classify"), ("save", "persist"), ("done", "terminal"), ("needs_ocr", "terminal")],

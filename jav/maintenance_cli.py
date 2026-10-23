@@ -41,7 +41,8 @@ def _refresh_deps_audit() -> None:
 
 def cmd_flows(args: argparse.Namespace) -> int:
     """Burr contracts: lint (contract <-> live graph <-> source) + FLOW.md / FLOW.mmd generation under docs/flows/."""
-    from jav import admin, contract
+    from jav import admin
+    from jav.flows import contract
 
     all_ok = True
     for module, app in admin.flow_lint_targets():
@@ -298,7 +299,8 @@ def cmd_backup(args: argparse.Namespace) -> int:
 
 
 def cmd_burr_prune(args: argparse.Namespace) -> int:
-    from jav.runtime import persistence, worker
+    from jav.runtime import worker
+    from jav.flows import persistence
     from jav.core import lock, queue
 
     path = worker.persister_path()

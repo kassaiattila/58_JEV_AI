@@ -44,7 +44,7 @@ def cmd_recall(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    from jav.flow import run_one
+    from jav.flows.flow import run_one
 
     if s_without_jev(args):
         return 2
@@ -84,7 +84,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
 
 def cmd_detect(args: argparse.Namespace) -> int:
-    from jav.flow_detect import run_detect
+    from jav.flows.flow_detect import run_detect
 
     with under_budget(args, "detect"):
         st = run_detect(args.pdf, tracker=args.tracker, use_cache=not args.no_cache, jev=jev_on(args))
@@ -220,7 +220,7 @@ def cmd_verifier_probe(args: argparse.Namespace) -> int:
 
 
 def cmd_golden(args: argparse.Namespace) -> int:
-    from jav.flow import run_one
+    from jav.flows.flow import run_one
 
     import contextlib
     from decimal import Decimal
@@ -279,7 +279,7 @@ def cmd_measure(args: argparse.Namespace) -> int:
 
 def cmd_determinism(args: argparse.Namespace) -> int:
     from jav.evals import determinism
-    from jav.flow import run_one
+    from jav.flows.flow import run_one
 
     if s_without_jev(args):
         return 2

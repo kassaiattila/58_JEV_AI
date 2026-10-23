@@ -611,7 +611,7 @@ class FlowState(BaseModel):
     verdicts: JevVerdicts | None = None
     # shared
     # 188 (plan 185 T3b): `invoice` before; a state saved under the old key is still read (also
-    # `jav/runtime/persistence.py`, for the saved flow states)
+    # `jav/flows/persistence.py`, for the saved flow states)
     record: DocumentRecord | None = Field(default=None, validation_alias=AliasChoices("record", "invoice"))
     validation: list[CheckResult] = Field(default_factory=list)
     needs_review: bool = False

@@ -109,7 +109,7 @@ def classify_attachments(state: EmailState) -> EmailState:
         if not state.detect_attachments:
             att.status = "skipped"
             continue
-        from jav.flow_detect import run_detect
+        from jav.flows.flow_detect import run_detect
 
         # 065: under the email's run ID, otherwise the attachment's to-do and cost would fall outside the run
         try:
@@ -317,7 +317,7 @@ TRANSITIONS = [
     ("save", "done"),
 ]
 
-CONTRACT = {  # the graph declaration: FLOW.md + Mermaid + lint come from it (jav/contract.py, `python -m jav.cli flows`)
+CONTRACT = {  # the graph declaration: FLOW.md + Mermaid + lint come from it (jav/flows/contract.py, `python -m jav.cli flows`)
     "name": "email_intent",
     "phases": ["load", "attachments", "classify", "route", "tasks", "persist", "terminal"],
     "steps": [("load_message", "load"), ("classify_attachments", "attachments"), ("intent", "classify"), ("route", "route"),

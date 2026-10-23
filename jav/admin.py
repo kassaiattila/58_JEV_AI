@@ -11,7 +11,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from jav import contract
+from jav.flows import contract
 from jav.core import cfg, config, store, values
 from jav.core.config import PROJECT_ROOT, RUNS_DIR
 from jav.ai.typepack import LEGACY_DOC_TYPE
@@ -108,8 +108,8 @@ def golden_set_lines() -> list[str]:
 
 def flow_lint_targets() -> list[tuple[Any, Any]]:
     """Every flow module with a live graph built for the contract lint (`flows`, the admin report); 173: the flows
-    and their lint graphs come from the flow registry (`jav.runtime.flows`), in its order."""
-    from jav.runtime import flows
+    and their lint graphs come from the flow registry (`jav.flows`), in its order."""
+    from jav import flows
 
     targets = []
     for spec in flows.specs():

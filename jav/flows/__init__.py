@@ -1,4 +1,5 @@
-"""The flows the worker runs, in one registry (173, plan 170 E1).
+"""The flows the worker runs, in one registry (173, plan 170 E1; 208, plan G-process-core R2: the flows layer's package,
+until then `jav/runtime/flows.py`).
 
 Plain-language summary: a flow is one kind of processing of an item (an invoice's data points, a document's type, an
 email's intent, an unknown document's facts, a bank table). Until now the list of flows was written out by hand in four
@@ -140,11 +141,11 @@ def _lint_statement_table(mod: ModuleType) -> Any:
                          read_path="lint.json", expected_sha256="0" * 64)
 
 
-register(FlowSpec("invoice", "jav.flow", _build_extraction, lambda m: m.build_app("lint.pdf", "lint", "S", tracker=False, doc_type="invoice_hu"),
+register(FlowSpec("invoice", "jav.flows.flow", _build_extraction, lambda m: m.build_app("lint.pdf", "lint", "S", tracker=False, doc_type="invoice_hu"),
                   doc_type="params"))
-register(FlowSpec("doc_detect", "jav.flow_detect", _build_detect, lambda m: m.build_app("lint.pdf", tracker=False)))
+register(FlowSpec("doc_detect", "jav.flows.flow_detect", _build_detect, lambda m: m.build_app("lint.pdf", tracker=False)))
 register(FlowSpec("email", "jav.domains.email.flow_email", _build_email, lambda m: m.build_app(source_dir="lint", tracker=False)))
-register(FlowSpec("native", "jav.flow_native", _build_native, _lint_native, native=True))
+register(FlowSpec("native", "jav.flows.flow_native", _build_native, _lint_native, native=True))
 register(FlowSpec("statement_table", "jav.domains.finance.flow_statement_table", _build_statement_table, _lint_statement_table))
 # 047 T1.3: the `document` recipe flow: detection, then extraction of the detected detailed type (worker `_stages`)
 register(FlowSpec("document", stages=("doc_detect", "invoice"), doc_type="detected"))

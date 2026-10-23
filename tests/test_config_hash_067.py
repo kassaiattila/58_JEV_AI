@@ -61,7 +61,7 @@ def test_email_task_hash_covers_its_prompt():
 
 
 def test_saved_datapoints_record_the_policy_too():
-    from jav import flow
+    from jav.flows import flow
 
     site = select_site("invoice_hu").config_hash
     assert flow.datapoint_config_hash(site) == cfg.combine(site, policy.CONFIG_HASH)

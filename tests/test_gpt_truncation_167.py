@@ -139,7 +139,7 @@ class _CutOff:
 
 
 def test_the_flow_gives_a_cut_off_answer_its_own_to_do(isolated):
-    from jav.flow import extract_llm as extract_step
+    from jav.flows.flow import extract_llm as extract_step
 
     agent = _CutOff()
     calls.set_budget("run-f", "openai", Decimal("1"))

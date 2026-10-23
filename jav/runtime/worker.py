@@ -32,9 +32,11 @@ from burr.integrations.serde import pydantic as burr_pydantic
 from jav import app_settings, item_kinds, work, work_readiness, work_runs, workflows
 from jav.documents import isolated_pdf, pdf
 from jav.core import store
-from jav.runtime import flows, job_kinds, pdf_status, persistence
+from jav.runtime import job_kinds, pdf_status
+from jav import flows
+from jav.flows import persistence
 from jav.core import applog, calls, lock, queue
-from jav.runtime.persistence import ClosingSQLitePersister
+from jav.flows.persistence import ClosingSQLitePersister
 from jav.core.digest import file_sha256 as _sha256_file
 
 log = logging.getLogger("jav.worker")

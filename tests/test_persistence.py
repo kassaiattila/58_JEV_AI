@@ -10,7 +10,7 @@ import threading
 
 from burr.core.persistence import SQLitePersister
 
-from jav.runtime.persistence import ClosingSQLitePersister
+from jav.flows.persistence import ClosingSQLitePersister
 
 
 def _collect_on_other_thread(cls, tmp_path) -> list:

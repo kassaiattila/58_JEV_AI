@@ -20,8 +20,8 @@ import pytest
 from jav.ai import policy
 from jav.documents import isolated_pdf, pdf
 from jav.core import store
-from jav.flow import load_pdf as invoice_load
-from jav.flow_detect import DetectState, load_pdf as detect_load, save as detect_save
+from jav.flows.flow import load_pdf as invoice_load
+from jav.flows.flow_detect import DetectState, load_pdf as detect_load, save as detect_save
 from jav.ai.models import FlowState
 from tests.pdfgen import _escape
 

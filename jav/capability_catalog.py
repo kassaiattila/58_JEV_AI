@@ -70,7 +70,7 @@ def build_catalog():
             if pack.extends:
                 sources.append(PROJECT_ROOT/spec['processing_sources']['core']/'_base'/(pack.extends+'.json'))
             sources += [PROMPTS_DIR/n for n in pack.schema_files]+[PROMPTS_DIR/pack.prompt_file]
-            processing={'mode':'typepack','runtime':'jav.flow','arms':list(pack.arms),'explicit_type_supported':True,
+            processing={'mode':'typepack','runtime':'jav.flows.flow','arms':list(pack.arms),'explicit_type_supported':True,
                         'automatic_routing_enabled':None,'routing_note':'not inferred from pack existence',
                         'legacy_source':key in legacy}
             if key in legacy:

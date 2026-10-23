@@ -131,7 +131,7 @@ def development_facts(family: str) -> dict[str, list[dict[str, Any]]]:
 def propose(facts_by_document: dict[str, list[dict[str, Any]]], *, min_documents: int = MIN_DOCUMENTS) -> list[FieldProposal]:
     """The names that recur in at least `min_documents` documents, most frequent first (then by name)."""
     from jav.ai import policy
-    from jav.flow_native import SUPPORT_BAND
+    from jav.flows.flow_native import SUPPORT_BAND
 
     spellings: dict[str, Counter] = defaultdict(Counter)
     names: dict[str, set[str]] = defaultdict(set)

@@ -37,7 +37,6 @@ ALLOWED = {layer: (*LAYERS[: i + 1], *(("evals", "devtools", "legacy") if layer 
 
 # not in its layer's folder yet: module (relative to jav) -> its layer ("domains.<domain>" for a domain's module)
 NOT_MOVED = {name: layer for layer, names in {
-    "flows": "contract flow flow_detect flow_native runtime.flows runtime.persistence",
     "app": "activity app_settings corrections costs datasets export item_kinds logic_packs naming outputs "
         "outputs.builtin outputs.contract outputs.docx outputs.fill outputs.markers outputs.parts "
         "outputs.samples outputs.templates outputs.xlsx package_release package_result package_scope parties "

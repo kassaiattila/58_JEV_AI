@@ -16,7 +16,8 @@ from types import SimpleNamespace
 import pytest
 from typesafe_sdk import Noul
 
-from jav import flow, naming
+from jav import naming
+from jav.flows import flow
 from jav.ai import detect_detail, doc_types, extract_llm, policy, typepack
 from jav.documents import text_document
 from jav.core import store

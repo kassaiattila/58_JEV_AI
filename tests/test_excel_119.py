@@ -150,7 +150,7 @@ def test_saved_formula_result_reaches_interpretation_and_resolves_to_original_ce
 
 @pytest.mark.parametrize("property_name,warning", [("hours", True), ("hourly rate", False), ("\u00f3rasz\u00e1m", True)])
 def test_currency_cannot_silently_be_accepted_as_hours(tmp_path, monkeypatch, property_name, warning):
-    from jav import flow_native
+    from jav.flows import flow_native
 
     with store.use_store(tmp_path / "native.sqlite"):
         source, ref = runtime_source(tmp_path, monkeypatch, name="hours.csv", content=b"Hours\n2 million HUF/month")

@@ -68,7 +68,7 @@ def flow_md(contract: dict[str, Any]) -> str:
     for name, ph in contract["steps"]:
         by_phase.setdefault(ph, []).append(name)
     lines = [f"# FLOW — {contract['name']}", "",
-             "> Generated from the flow module's `CONTRACT` (`jav/contract.py`, `python -m jav.cli flows`).",
+             "> Generated from the flow module's `CONTRACT` (`jav/flows/contract.py`, `python -m jav.cli flows`).",
              "> Regenerate this file instead of editing it. FLOW.mmd groups the graph by phase.", "", "## Phases and steps", ""]
     for ph in contract["phases"]:
         lines.append(f"### {ph}")

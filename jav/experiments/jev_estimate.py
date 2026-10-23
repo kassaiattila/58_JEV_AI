@@ -150,7 +150,7 @@ def run_step(step: str, out: Path) -> None:
     kind, _, arg = step.partition(":")
     if kind in ("golden", "synthetic"):
         from jav import evals
-        from jav.flow import run_one
+        from jav.flows.flow import run_one
 
         cases = evals.load_synthetic_cases(arg, out_dir=out / "synthetic") if kind == "synthetic" else None
         evals.golden("S", run_one, cases=cases, type_key=arg, jev_budget_usd=NO_LIMIT, label=kind)

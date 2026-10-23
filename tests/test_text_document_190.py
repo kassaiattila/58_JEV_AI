@@ -14,7 +14,7 @@ import pytest
 from openpyxl import Workbook
 from typesafe_sdk import Noul
 
-from jav import flow
+from jav.flows import flow
 from jav.ai import extract_llm, typepack
 from jav.documents import text_document
 from jav.core import store

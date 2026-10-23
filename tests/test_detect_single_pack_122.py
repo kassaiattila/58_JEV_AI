@@ -6,7 +6,7 @@ from jav.ai import detect_detail, detect_gpt, policy
 from jav.core import cfg, store
 from jav.ai.detect import DetectResult
 from jav.ai.doc_types import BY_KEY
-from jav.flow_detect import DetectState, _resolve_detail, save
+from jav.flows.flow_detect import DetectState, _resolve_detail, save
 from tests.test_detect_detail import FakeJev
 
 

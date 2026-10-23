@@ -39,7 +39,7 @@ def limits_for(arm: str, jev: bool, budget_usd: Decimal, jev_budget_usd: Decimal
 
 def run(case_file: Path, *, arm: str, jev: bool, budget_usd: Decimal, out_dir: Path,
         jev_budget_usd: Decimal | None = None, only_detail: str | None = None) -> list[dict[str, Any]]:
-    from jav import flow
+    from jav.flows import flow
     from jav.ai import typepack
     from jav.evals_detect import load_case_file
     from jav.core import calls
