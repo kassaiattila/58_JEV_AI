@@ -71,8 +71,12 @@ def _proposed_email(env, monkeypatch):  # noqa: F811 - the fixture's value
     run_id = work_runs.start_run(wp_id, mode="apply", expected_assignment_revision=2, input_hash=ready["input_hash"],
                                  actor="t")["run_id"]
     worker.run_worker(once=True)
-    item = next(i for i in work_runs.get_run(run_id)["input"]["items"]
-                if corrections.item_result(run_id, i["item_id"])["email"]["subject"] == "Kérdés")
+
+    def proposed(i: dict) -> bool:
+        tasks = corrections.item_result(run_id, i["item_id"])["email"]["tasks"]
+        return bool(tasks and tasks["tasks"])
+
+    item = next(i for i in work_runs.get_run(run_id)["input"]["items"] if proposed(i))
     return run_id, item
 
 
